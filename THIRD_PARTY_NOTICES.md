@@ -44,6 +44,10 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
 | [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
 | Forest art: [ambientCG](https://ambientcg.com) terrain sets (8) and scattered leaves (1), [Poly Haven](https://polyhaven.com) rock, log, stump, root, branch, moss, grass, nettle and fern models (20) and a tonemapped HDRI (`lilienstein`); each listed in `Examples/Forest/NOTICE.md` | — | CC0 1.0 | `Examples/Forest/Content/Art` (Git LFS; `Examples/Forest/Tools/fetch_assets.py`) | the Forest only |
+| Cutback (copied code) | 90cc508 | MIT | `MainframeEngine.Video` (`LICENSE-CUTBACK`) | editor only: `MainframeEngine.Video.dll` (video editing mode) |
+| [Whisper.net](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT | NuGet packages `Whisper.net`, `Whisper.net.Runtime` | editor only: `Whisper.net.dll` + native runtimes (speech recognition) |
+| [Whisper.net.Runtime.Metal](https://github.com/sandrohanea/whisper.net) (Sandro Hanea; a dependency of `Whisper.net.Runtime`) | 1.9.1 | MIT | NuGet package `Whisper.net.Runtime.Metal` | editor only: `ggml-metal.metal` (ggml's Metal shader source, used on macOS) |
+| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | via Whisper.net.Runtime 1.9.1 | MIT | native libraries inside `Whisper.net.Runtime`; the Metal shader inside `Whisper.net.Runtime.Metal` | editor only: `whisper`/`ggml` native libraries, `ggml-metal.metal` |
 
 Managed NuGet dependencies (Silk.NET, StbImageSharp, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
 their packages and are not repeated here.
@@ -847,4 +851,99 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
 ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
 CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+## Cutback
+
+The video editing mode's logic (`MainframeEngine.Video`: segments, silence and filler detection, ffmpeg export, speech
+recognition glue) was copied from Cutback at commit 90cc508 and relicensed to MIT by its sole author. From
+`MainframeEngine.Video/LICENSE-CUTBACK`:
+
+```text
+The files in MainframeEngine.Video were copied from Cutback (https://github.com/brogan89/Cutback) at commit 90cc508
+and are licensed under the MIT licence below. Cutback.Analysis and the ported parts of Cutback.App were relicensed
+from GPL-3.0 to MIT for this copy by their sole author on 2026-10-13.
+
+MIT License
+
+Copyright (c) 2026 Cutback contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Whisper.net
+
+The editor's speech recognition (`MainframeEngine.Video`, editor only) uses Whisper.net 1.9.1 and its
+`Whisper.net.Runtime` native libraries, which bring in `Whisper.net.Runtime.Metal` 1.9.1 (the macOS Metal backend; same
+author, its nuspec declares MIT). From the `Whisper.net` 1.9.1 package (`LICENSE`):
+
+```text
+MIT License
+
+Copyright (c) 2024 sandrohanea
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## whisper.cpp
+
+`Whisper.net.Runtime` 1.9.1 (editor only) ships native builds of whisper.cpp and ggml (the `whisper` and `ggml`
+libraries under `runtimes/<rid>`), and `Whisper.net.Runtime.Metal` 1.9.1 ships ggml's Metal shader, `ggml-metal.metal`.
+The packages carry no licence file; their nuspecs declare MIT, and this is the MIT licence from the whisper.cpp
+repository (`LICENSE`):
+
+```text
+MIT License
+
+Copyright (c) 2023-2026 The ggml authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```

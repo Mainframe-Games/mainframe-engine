@@ -1,4 +1,5 @@
 using System.Globalization;
+using MainframeEngine.Editor.Video;
 using Silk.NET.Input;
 
 namespace MainframeEngine.Editor;
@@ -64,6 +65,13 @@ public sealed record EditorWorkspaceOptions
     /// <summary>Opens a folder in the OS file browser (default: <see cref="OsShell.OpenFolder"/>); tests record instead.</summary>
     public Func<string, bool>? OpenFolder { get; init; }
 
+    /// <summary>
+    /// Where the video editor keeps its downloaded Whisper models (default: <c>models</c> beside the editor settings,
+    /// <c>~/.mainframe/models</c>); tests pass a temp folder so nothing is ever downloaded.
+    /// </summary>
+    public string VideoModelsDirectory { get; init; } =
+        Path.Combine(Path.GetDirectoryName(EditorSettings.DefaultPath)!, "models");
+
     /// <summary>Starts Cutback (app path, recording path) as its own process; true when it started (default: a detached process); tests record instead.</summary>
     public Func<string, string, bool>? LaunchCutback { get; init; }
 
@@ -89,10 +97,11 @@ public sealed record EditorWorkspaceOptions
 /// <summary>
 /// The editor's composition root, a <c>[Tool]</c> node in the editor's scene tree: owns the <see cref="EditorSession"/>
 /// (open scenes), the <see cref="EditorLayout"/>, the <see cref="OutputLog"/> and <see cref="EditorCommands"/>, and builds
-/// the RmlUi panels (one document each: menu bar, toolbar, scene tree, file system, viewport, inspector, output,
-/// splitters), the dialog layer (file picker, list picker, message box, popup menus) and the
+/// the RmlUi panels (one document each: menu bar, toolbar, scene tree, file system, viewport, inspector, output, song,
+/// video, splitters), the dialog layer (file picker, list picker, message box, popup menus) and the
 /// <see cref="ViewportController"/>. Keyboard shortcuts arrive here as unhandled input (the UI takes keys only while a
-/// text field has focus). Hosted by <see cref="EditorApp"/>, or headless in tests.
+/// text field has focus). The <see cref="Mode"/> (game or video) decides which panels, menus, tools and tabs show.
+/// Hosted by <see cref="EditorApp"/>, or headless in tests.
 /// </summary>
 [Tool]
 public sealed partial class EditorWorkspace : Node
@@ -104,6 +113,9 @@ public sealed partial class EditorWorkspace : Node
     private readonly bool _firstLaunch;
     private Action? _pendingLoad;
     private int _pendingLoadFrames;
+
+    // Each mode's last active tab, re-activated when the editor comes back to that mode (closed tabs are dropped).
+    private readonly Dictionary<EditorMode, IEditorTab> _activeByMode = [];
 
     public EditorWorkspace(IEditorHost host, EditorWorkspaceOptions? options = null)
     {
@@ -123,6 +135,7 @@ public sealed partial class EditorWorkspace : Node
         // Message is built later (BuildUi), so the notifier reaches it through the property at call time.
         var recordingNotifier = new RecordingNotifier(
             request => Message.Show(request),
+            path => Commands.OpenVideo(path),
             () => Settings.CutbackPath,
             CutbackLocator.FindForThisMachine,
             Options.LaunchCutback ?? LaunchCutback,
@@ -178,6 +191,9 @@ public sealed partial class EditorWorkspace : Node
 
     public UiLayer PanelLayer { get; private set; } = null!;
     public UiLayer DialogLayer { get; private set; } = null!;
+
+    /// <summary>File › Export Video (video mode).</summary>
+    public ExportVideoDialog ExportVideo { get; private set; } = null!;
     public MenuBarPanel MenuBar { get; private set; } = null!;
     public ToolbarPanel Toolbar { get; private set; } = null!;
     public SceneTreePanel SceneTree { get; private set; } = null!;
@@ -191,6 +207,19 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>The song tab's canvases, input and renders.</summary>
     public Music.SongView SongView { get; private set; } = null!;
+
+    /// <summary>Video mode's view over the viewport panel's view area (the empty state until a video tab is open).</summary>
+    public VideoPanel VideoPanel { get; private set; } = null!;
+
+    /// <summary>The video tab's canvases, keys, pointer input and detection jobs.</summary>
+    public VideoView VideoView { get; private set; } = null!;
+
+    /// <summary>The current mode (<see cref="SetMode"/>): game (scenes, play) or video (trimming recordings).</summary>
+    public EditorMode Mode { get; private set; }
+
+    /// <summary>Raised after <see cref="SetMode"/> switched the mode.</summary>
+    public event Action? ModeChanged;
+
     public SplittersOverlay Splitters { get; private set; } = null!;
     public PopupMenu Popup { get; private set; } = null!;
     public FilePickerDialog FilePicker { get; private set; } = null!;
@@ -209,7 +238,7 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>True while a modal dialog is open (shortcuts are suspended).</summary>
     public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || TreePicker.Visible || Message.Visible || Splash.Visible ||
-                                SignalDialog.Visible || ProjectDialogOpen;
+                                SignalDialog.Visible || ExportVideo.Visible || ProjectDialogOpen;
 
     /// <summary>The modifier keys held (host state, or tracked from key events when the host has none).</summary>
     public EditorModifiers Modifiers => Host.ReportsModifiers && !TrackKeyModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
@@ -236,9 +265,11 @@ public sealed partial class EditorWorkspace : Node
         Inspector = new InspectorPanel(this) { Name = "Inspector" };
         OutputPanel = new OutputPanel(this) { Name = "Output" };
         SongPanel = new SongPanel(this) { Name = "Song" };
+        VideoPanel = new VideoPanel(this) { Name = "Video" };
         Splitters = new SplittersOverlay(this) { Name = "Splitters" };
         PanelLayer.AddChild(ViewportPanel);
         PanelLayer.AddChild(SongPanel);
+        PanelLayer.AddChild(VideoPanel); // above the viewport, below the menus
         PanelLayer.AddChild(MenuBar);
         PanelLayer.AddChild(Toolbar);
         PanelLayer.AddChild(SceneTree);
@@ -260,6 +291,8 @@ public sealed partial class EditorWorkspace : Node
         DialogLayer.AddChild(TreePicker);
         DialogLayer.AddChild(SignalDialog);
         DialogLayer.AddChild(Message);
+        ExportVideo = new ExportVideoDialog(this) { Name = "ExportVideo" };
+        DialogLayer.AddChild(ExportVideo); // the picker and message boxes it opens are moved above it by CreateProjectUi
         CreateProjectUi();
 
         // Tooltips: above the dialogs, below the splash; the overlay never takes the mouse.
@@ -277,6 +310,8 @@ public sealed partial class EditorWorkspace : Node
         AddChild(Viewport);
         SongView = new Music.SongView(this) { Name = "SongView" };
         AddChild(SongView);
+        VideoView = new VideoView(this) { Name = "VideoView" };
+        AddChild(VideoView);
         AddChild(PanelLayer);
         AddChild(ProjectLayer);
         AddChild(DialogLayer);
@@ -444,18 +479,28 @@ public sealed partial class EditorWorkspace : Node
             ApplyLayout();
     }
 
-    /// <summary>Pushes the layout rectangles to the panels (after a resize or splitter drag).</summary>
+    /// <summary>
+    /// Pushes the layout rectangles to the panels (after a resize, a splitter drag or a mode switch). A panel the mode
+    /// hides (an empty rectangle) keeps its last one: the panels lay out for a real size only.
+    /// </summary>
     public void ApplyLayout()
     {
         MenuBar.SetRect(Layout.MenuBar);
         Toolbar.SetRect(Layout.Toolbar);
-        SceneTree.SetRect(Layout.SceneTree);
-        FileSystem.SetRect(Layout.FileSystem);
+        Place(SceneTree, Layout.SceneTree);
+        Place(FileSystem, Layout.FileSystem);
         ViewportPanel.SetRect(Layout.Viewport);
         SongPanel.SetRect(Layout.ViewportImage);
-        Inspector.SetRect(Layout.Inspector);
-        OutputPanel.SetRect(Layout.Output);
+        VideoPanel.SetRect(Layout.ViewportImage);
+        Place(Inspector, Layout.Inspector);
+        Place(OutputPanel, Layout.Output);
         Splitters.Apply(Layout);
+    }
+
+    private static void Place(EditorDocument panel, LayoutRect rect)
+    {
+        if (rect.Width > 0 && rect.Height > 0)
+            panel.SetRect(rect);
     }
 
     /// <summary>Writes the layout settings (window size included) to <see cref="EditorWorkspaceOptions.LayoutPath"/>.</summary>
@@ -555,12 +600,136 @@ public sealed partial class EditorWorkspace : Node
 
     private void OnScenesChanged()
     {
+        ForgetClosedTabs();
         ViewportPanel.RefreshTabs();
         FileSystem.UpdateUnsaved();
         FileSystem.Refresh();
     }
 
-    private void OnActiveChanged() => RefreshAll();
+    // A tab of the other mode became active (opened, or a neighbour of a closed tab): the editor follows it.
+    private void OnActiveChanged()
+    {
+        if (Session.ActiveTab is { } tab)
+        {
+            _activeByMode[tab.Mode] = tab;
+            if (tab.Mode != Mode)
+                SetMode(tab.Mode, keepActive: true);
+        }
+
+        RefreshAll();
+    }
+
+    // ── Modes ────────────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Switches the editor to <paramref name="mode"/>: the layout, the panels, the menus, the toolbar and the tab strip
+    /// follow, the mode's last active tab (else its first open tab, else none) becomes active, and the mode is saved in
+    /// the editor settings so the editor reopens in it. Nothing happens when it is already the mode.
+    /// </summary>
+    public void SetMode(EditorMode mode) => SetMode(mode, keepActive: false);
+
+    // keepActive: the active tab already belongs to the new mode (the auto-switch in OnActiveChanged) and stays active.
+    private void SetMode(EditorMode mode, bool keepActive)
+    {
+        if (mode == Mode)
+            return;
+        if (Session.ActiveTab is { } current && current.Mode == Mode)
+            _activeByMode[Mode] = current;
+        Mode = mode;
+        Layout.SetMode(mode);
+        ApplyModePanels();
+        ApplyLayout();
+        MenuBar.ApplyMode(mode);
+        Toolbar.ApplyMode(mode);
+        ViewportPanel.RefreshTabs();
+        if (!keepActive)
+            ActivateModeTab(mode);
+        // Game mode with no project and no game tab has nothing to show (video mode started without one): the Project
+        // Manager opens, as it does at start-up.
+        if (mode == EditorMode.Game && Session.ActiveTab is null && Project.Root is null)
+            ProjectManager.Open();
+
+        // Written only when it changes (not when start-up enters the saved mode), and without re-applying the settings.
+        if (Settings.LastMode != mode)
+        {
+            var settings = Settings.Clone();
+            settings.LastMode = mode;
+            StoreSettings(settings);
+        }
+
+        UpdateTitleNow();
+        ModeChanged?.Invoke();
+    }
+
+    // Game mode shows the docks and the output; video mode hides the docks (dropping their keyboard focus), shows the
+    // output only when View › Output is on, and shows the video panel. The song panel follows the active tab by itself.
+    private void ApplyModePanels()
+    {
+        var video = Mode == EditorMode.Video;
+        if (video)
+        {
+            SceneTree.HideAndReleaseFocus();
+            FileSystem.HideAndReleaseFocus();
+            Inspector.HideAndReleaseFocus();
+            VideoPanel.Visible = true;
+        }
+        else
+        {
+            SceneTree.Visible = true;
+            FileSystem.Visible = true;
+            Inspector.Visible = true;
+            VideoPanel.HideAndReleaseFocus();
+        }
+
+        if (!video || Layout.Settings.VideoShowOutput)
+            OutputPanel.Visible = true;
+        else
+            OutputPanel.HideAndReleaseFocus();
+    }
+
+    // The mode's remembered tab when it is still open, else its first open tab; no tab of the mode leaves none active.
+    private void ActivateModeTab(EditorMode mode)
+    {
+        if (_activeByMode.TryGetValue(mode, out var remembered) && Session.IndexOf(remembered) >= 0)
+        {
+            Session.Activate(remembered);
+            return;
+        }
+
+        foreach (var tab in Session.Tabs)
+            if (tab.Mode == mode)
+            {
+                Session.Activate(tab);
+                return;
+            }
+
+        Session.Deactivate();
+    }
+
+    // Closed tabs must not stay referenced: a scene closed for a code reload holds game types.
+    private void ForgetClosedTabs()
+    {
+        foreach (var mode in (ReadOnlySpan<EditorMode>)[EditorMode.Game, EditorMode.Video])
+            if (_activeByMode.TryGetValue(mode, out var tab) && Session.IndexOf(tab) < 0)
+                _activeByMode.Remove(mode);
+    }
+
+    /// <summary>View › Show/Hide Output in video mode (game mode always shows the output panel).</summary>
+    internal void ToggleVideoOutput()
+    {
+        Layout.SetVideoShowOutput(!Layout.Settings.VideoShowOutput);
+        ApplyModePanels();
+        ApplyLayout();
+        SaveLayout();
+    }
+
+    /// <summary>View › Show/Hide Transcript: the video panel gives the preview the transcript's width (or takes it back).</summary>
+    internal void ToggleVideoTranscript()
+    {
+        Layout.SetVideoShowTranscript(!Layout.Settings.VideoShowTranscript);
+        ApplyLayout();
+        SaveLayout();
+    }
 
     // A preview started or ended: the Play/Stop icons and the FileSystem badge follow it.
     private void OnAudioPreviewChanged()
@@ -618,6 +787,20 @@ public sealed partial class EditorWorkspace : Node
             return;
         }
 
+        // Video mode has its own table: no song keys, no gizmo, view or Play keys. The video tab's own keys (Space, Home,
+        // Delete/Backspace) come first, and a key it takes never also runs its shortcut (Space would toggle play twice).
+        if (Mode == EditorMode.Video)
+        {
+            if (VideoView.HandleKey(key.Key, Modifiers))
+            {
+                GetViewport()?.SetInputAsHandled();
+                return;
+            }
+
+            RunShortcut(VideoShortcutFor(key.Key, Modifiers));
+            return;
+        }
+
         // A song tab's own keys (Space, L, Home, Del, Cmd+C/V/D, arrows, Q) come first; F5–F8 and the rest stay global.
         if (SongView.HandleKey(key.Key, Modifiers))
         {
@@ -625,7 +808,11 @@ public sealed partial class EditorWorkspace : Node
             return;
         }
 
-        var command = ProjectShortcutFor(key.Key, Modifiers) ?? ShortcutFor(key.Key, Modifiers);
+        RunShortcut(ProjectShortcutFor(key.Key, Modifiers) ?? ShortcutFor(key.Key, Modifiers));
+    }
+
+    private void RunShortcut(string? command)
+    {
         if (command is null)
             return;
         GetViewport()?.SetInputAsHandled();
@@ -643,6 +830,39 @@ public sealed partial class EditorWorkspace : Node
         };
         if (flag != EditorModifiers.None)
             _trackedModifiers = key.Pressed ? _trackedModifiers | flag : _trackedModifiers & ~flag;
+    }
+
+    /// <summary>
+    /// Video mode's command for a key with modifiers, or null: Cmd/Ctrl+O open, +S save, +Shift+S save as, +W close, +Q
+    /// quit, +Z undo, +Shift+Z or +Y redo, +E export; Space play/pause; Delete or Backspace delete the region; F1 the docs.
+    /// </summary>
+    public static string? VideoShortcutFor(Key key, EditorModifiers modifiers)
+    {
+        var shift = (modifiers & EditorModifiers.Shift) != 0;
+        if ((modifiers & EditorModifiers.Command) != 0)
+        {
+            return key switch
+            {
+                Key.O => "file.open",
+                Key.S when shift => "file.save_as",
+                Key.S => "file.save",
+                Key.W => "file.close",
+                Key.Q => "file.quit",
+                Key.Z when shift => "edit.redo",
+                Key.Z => "edit.undo",
+                Key.Y => "edit.redo",
+                Key.E => "video.export",
+                _ => null,
+            };
+        }
+
+        return key switch
+        {
+            Key.Delete or Key.Backspace when modifiers == EditorModifiers.None => "edit.delete",
+            Key.Space when modifiers == EditorModifiers.None => "video.play",
+            Key.F1 when (modifiers & EditorModifiers.Alt) == 0 => "help.docs",
+            _ => null,
+        };
     }
 
     /// <summary>The command bound to a key with modifiers, or null (the table in docs/design/editor.md).</summary>
@@ -780,6 +1000,8 @@ public sealed partial class EditorWorkspace : Node
             DownloadDemo.Cancel();
         if (EditorSettingsDialog.Visible)
             EditorSettingsDialog.Cancel();
+        if (ExportVideo.Visible)
+            ExportVideo.Cancel();
         if (UpdateDialog.Visible)
             UpdateDialog.Close();
         if (ProjectManager.Visible)

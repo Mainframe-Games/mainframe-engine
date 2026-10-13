@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Video editing mode — where the code comes from</title>
+  <desc>Cutback.Core and Cutback.Media (MIT), Cutback.Analysis and the ported Cutback.App logic (GPL, relicensed MIT for this copy by their sole author) are copied into a new editor-only library, MainframeEngine.Video, with its tests in plain Assert. MainframeEngine.Editor's Src/Video builds the video mode on it. The runtime and shipped games never reference it. ffmpeg runs as the user's child process, and Whisper models download on first use.</desc>
+  <rect width="1000" height="560" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:12.5px;fill:#e8ebf2}
+    .t{fill:#d7dbe4;font-size:11.5px}
+    .s{fill:#8b93a5;font-size:10.5px}
+    .xs{fill:#8b93a5;font-size:9.5px}
+    .m{fill:#d7dbe4;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+    .capb{fill:#111827;font-size:12.5px;font-weight:600}
+    .btn{fill:#2f333d;stroke:#3b3f4b}
+    .on{fill:#1d4ed8;stroke:#3b82f6}
+    .g{fill:none;stroke:#d7dbe4;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+    .box{fill:#f8fafc;stroke:#94a3b8;stroke-width:1.2}
+    .boxd{fill:#eef2ff;stroke:#6366f1;stroke-width:1.2}
+    .boxg{fill:#ecfdf5;stroke:#10b981;stroke-width:1.2}
+    .boxa{fill:#fffbeb;stroke:#f59e0b;stroke-width:1.2}
+    .boxr{fill:#fef2f2;stroke:#ef4444;stroke-width:1.2}
+    .dash{fill:none;stroke:#94a3b8;stroke-width:1.2;stroke-dasharray:5 4}
+    .arrow{fill:none;stroke:#475569;stroke-width:1.4;marker-end:url(#ah)}
+    .arrowb{fill:none;stroke:#2563eb;stroke-width:1.4;marker-end:url(#ahb)}
+    .k{fill:#111827;font-size:12px}
+    .kb{fill:#111827;font-size:12.5px;font-weight:600}
+    .ks{fill:#475569;font-size:11px}
+    .km{fill:#334155;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+  </style>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+  </defs>
+  <rect x="20" y="20" width="300" height="300" rx="8" class="box"/>
+  <text x="36" y="44" class="kb">Cutback repository (unchanged)</text>
+  <rect x="36" y="58" width="268" height="40" rx="5" class="boxg"/>
+  <text x="48" y="75" class="k">Cutback.Core</text>
+  <text x="48" y="90" class="ks">MIT</text>
+  <rect x="36" y="106" width="268" height="40" rx="5" class="boxg"/>
+  <text x="48" y="123" class="k">Cutback.Media</text>
+  <text x="48" y="138" class="ks">MIT</text>
+  <rect x="36" y="154" width="268" height="40" rx="5" class="boxa"/>
+  <text x="48" y="171" class="k">Cutback.Analysis (Whisper)</text>
+  <text x="48" y="186" class="ks">GPL → MIT for this copy</text>
+  <rect x="36" y="202" width="268" height="56" rx="5" class="boxa"/>
+  <text x="48" y="219" class="k">Cutback.App: TimelineControl,</text>
+  <text x="48" y="234" class="k">TranscriptControl, view-model flows</text>
+  <text x="48" y="249" class="ks">GPL → MIT for the ported logic</text>
+  <text x="36" y="300" class="ks">The Avalonia app keeps shipping as is.</text>
+  <rect x="380" y="20" width="600" height="500" rx="8" class="boxd"/>
+  <text x="396" y="44" class="kb">Mainframe Engine repository — feature/video-editor (one PR, stacked on #63)</text>
+  <rect x="420" y="64" width="540" height="150" rx="6" fill="#ffffff" stroke="#10b981" stroke-width="1.4"/>
+  <text x="436" y="86" class="kb">MainframeEngine.Video  (new library, MIT, editor-only)</text>
+  <text x="436" y="104" class="km">Core: SegmentList, SegmentEditor (new), EditHistory,</text>
+  <text x="436" y="121" class="km">      planners, sidecar reader, projects (.mfcut)</text>
+  <text x="436" y="138" class="km">Media: ffmpeg locator, ffprobe JSON probe, waveform,</text>
+  <text x="436" y="155" class="km">      silence, Exporter + DeliveryEncoder, PreviewDecoding</text>
+  <text x="436" y="172" class="km">Analysis: Whisper transcriber + model store (Whisper.net)</text>
+  <text x="436" y="189" class="km">Tests: Cutback’s tests, ported to plain Assert</text>
+  <rect x="420" y="250" width="540" height="130" rx="6" fill="#ffffff" stroke="#6366f1" stroke-width="1.4"/>
+  <text x="436" y="272" class="kb">MainframeEngine.Editor  —  Src/Video/ + Content/Editor/video*.rml</text>
+  <text x="436" y="290" class="km">VideoTab · VideoDocument · VideoView · VideoPanel</text>
+  <text x="436" y="307" class="km">VideoTimelineView / Canvas / Controller</text>
+  <text x="436" y="324" class="km">VideoPlaybackPlan · VideoPreview · TranscriptPanel</text>
+  <text x="436" y="341" class="km">VideoJob&lt;T&gt; · ExportVideoDialog · Video Settings</text>
+  <text x="436" y="358" class="km">EditorWorkspace.Mode · “Open in Video Editor”</text>
+  <path d="M690,248 L690,216" class="arrow"/>
+  <text x="698" y="236" class="ks">references</text>
+  <rect x="420" y="410" width="540" height="90" rx="6" fill="#ffffff" stroke="#ef4444" stroke-width="1.4"/>
+  <text x="436" y="432" class="kb">MainframeEngine (runtime) and shipped games</text>
+  <text x="436" y="452" class="ks">never reference MainframeEngine.Video: no Whisper, no video code in games</text>
+  <text x="436" y="470" class="ks">(the recorder, #62, stays in the runtime as before)</text>
+  <path d="M600,408 L600,382" fill="none" stroke="#ef4444" stroke-width="1.4" stroke-dasharray="4 3"/>
+  <path d="M592,388 L608,402 M608,388 L592,402" stroke="#ef4444" stroke-width="2"/>
+  <rect x="20" y="360" width="300" height="160" rx="8" class="box"/>
+  <text x="36" y="384" class="kb">Outside the process</text>
+  <text x="36" y="404" class="ks">ffmpeg + ffprobe: the user’s, run as child</text>
+  <text x="36" y="421" class="ks">processes, never linked (ADR 0190)</text>
+  <text x="36" y="438" class="ks">Whisper models: downloaded on first use</text>
+  <text x="36" y="455" class="ks">into {editor user data}/models</text>
+  <text x="36" y="472" class="ks">Whisper.net natives: per platform,</text>
+  <text x="36" y="489" class="ks">Metal on macOS (NuGet runtime package)</text>
+  <path d="M322,96 C380,96 380,120 418,120" class="arrowb"/>
+  <path d="M322,192 C380,192 380,150 418,150" class="arrowb"/>
+  <text x="328" y="112" class="ks">copied in</text>
+  <path d="M322,248 C390,248 380,330 418,330" class="arrowb"/>
+  <text x="328" y="276" class="ks">ported</text>
+  <path d="M322,440 C370,440 380,360 418,360" class="arrow"/>
+  <text x="20" y="546" class="cap">As built. Cutback’s logic is copied into the engine once and owned by it from then on; the editor’s video mode is built on it.</text>
+</svg>

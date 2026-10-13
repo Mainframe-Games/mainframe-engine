@@ -11,6 +11,9 @@ public sealed partial class EditorWorkspace
 {
     private double _autosaveSeconds;
 
+    /// <summary>Seconds counted towards the next autosave (tests: a mode switch must not restart it).</summary>
+    internal double AutosaveElapsed => _autosaveSeconds;
+
     /// <summary>The layer of the Project Manager (between the panels and the dialogs).</summary>
     public UiLayer ProjectLayer { get; private set; } = null!;
 
@@ -61,13 +64,22 @@ public sealed partial class EditorWorkspace
 
     // ── Start-up ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-    // A project (argument or the scene's project), else the scene, else the Project Manager (editor executable), else a new scene.
+    // A project (argument or the scene's project), else the scene, else video mode when the editor was last in it, else the
+    // Project Manager (editor executable), else a new scene.
     private void StartUp()
     {
         Updates.Start();
         if (Options.InitialProject is { } project)
         {
             RunWithSplash($"Opening {Path.GetFileName(project.TrimEnd(Path.DirectorySeparatorChar))}…", () => Commands.OpenProjectNow(project, Options.InitialScene));
+            return;
+        }
+
+        if (Options.InitialScene is null && Settings.LastMode == EditorMode.Video)
+        {
+            SetMode(EditorMode.Video); // needs no project: the Project Manager stays closed
+            if (Splash.Visible)
+                Splash.Finish();
             return;
         }
 
@@ -157,29 +169,50 @@ public sealed partial class EditorWorkspace
 
     // ── Settings ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Applies new editor settings (accent live, autosave, code reload) and saves them.</summary>
+    /// <summary>
+    /// Applies new editor settings (accent live, autosave, code reload, the undo limit of open video tabs) and saves them.
+    /// The other video settings are read when an operation starts, so a job already running keeps what it started with.
+    /// </summary>
     public void ApplySettings(EditorSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         var accentChanged = !string.Equals(settings.Accent, Settings.Accent, StringComparison.Ordinal);
         Settings = settings;
+        foreach (var tab in Session.Tabs)
+            if (tab is Video.VideoTab video)
+                video.Document.Editor.History.Limit = settings.VideoUndoHistoryLimit;
         Project.AutoReload = settings.AutoReloadCode;
         Midi.SetEnabled(settings.MidiInputs);
         _autosaveSeconds = 0;
-        if (Options.EditorSettingsPath is { } path)
-        {
-            try
-            {
-                settings.Save(path);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                Log.Warning($"[Editor] Could not save the editor settings: {e.Message}");
-            }
-        }
-
+        WriteSettings(settings);
         if (accentChanged)
             ApplyAccent();
+    }
+
+    /// <summary>
+    /// Keeps and saves settings the editor records by itself (the last mode, the recent videos): nothing is re-applied, so
+    /// the autosave countdown, the MIDI inputs and the accent are left alone. Use <see cref="ApplySettings"/> for anything
+    /// the user changed.
+    /// </summary>
+    internal void StoreSettings(EditorSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        Settings = settings;
+        WriteSettings(settings);
+    }
+
+    private void WriteSettings(EditorSettings settings)
+    {
+        if (Options.EditorSettingsPath is not { } path)
+            return;
+        try
+        {
+            settings.Save(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning($"[Editor] Could not save the editor settings: {e.Message}");
+        }
     }
 
     /// <summary>Writes the accent overlay and reloads the style sheets (no-op without an overlay folder).</summary>

@@ -75,7 +75,11 @@ public sealed class SongView : Node
         Follow(tab);
     }
 
-    private static void Place(SubViewport viewport, SongCanvas canvas, LayoutRect rect, float scale, bool show)
+    /// <summary>
+    /// Sizes <paramref name="viewport"/> to <paramref name="rect"/> (dp) in pixels and redraws <paramref name="canvas"/> in
+    /// it; a hidden view stops rendering. The video view places its timeline the same way.
+    /// </summary>
+    internal static void Place(SubViewport viewport, EditorCanvas canvas, LayoutRect rect, float scale, bool show)
     {
         var mode = show ? SubViewportUpdateMode.Always : SubViewportUpdateMode.Disabled;
         if (viewport.UpdateMode != mode)

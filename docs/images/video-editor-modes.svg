@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 675" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Video editing mode — one workspace, two modes</title>
+  <desc>The editor's shared shell (menu bar, toolbar with the mode toggle, tab strip, dialogs, Output, Editor Settings, commands and the session) feeds EditorWorkspace.Mode, which selects Game mode (Scene tree, FileSystem, viewport or song, Output, Inspector) or Video mode (preview, transcript, notice line, timeline). Opening a recording or .mfcut, the recording dialog's Open in Video Editor and the project manager's Video Editor button switch to Video mode. A future Audio (DAW) mode uses the same mechanism.</desc>
+  <rect width="1000" height="675" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:12.5px;fill:#e8ebf2}
+    .t{fill:#d7dbe4;font-size:11.5px}
+    .s{fill:#8b93a5;font-size:10.5px}
+    .xs{fill:#8b93a5;font-size:9.5px}
+    .m{fill:#d7dbe4;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+    .capb{fill:#111827;font-size:12.5px;font-weight:600}
+    .btn{fill:#2f333d;stroke:#3b3f4b}
+    .on{fill:#1d4ed8;stroke:#3b82f6}
+    .g{fill:none;stroke:#d7dbe4;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+    .box{fill:#f8fafc;stroke:#94a3b8;stroke-width:1.2}
+    .boxd{fill:#eef2ff;stroke:#6366f1;stroke-width:1.2}
+    .boxg{fill:#ecfdf5;stroke:#10b981;stroke-width:1.2}
+    .boxa{fill:#fffbeb;stroke:#f59e0b;stroke-width:1.2}
+    .boxr{fill:#fef2f2;stroke:#ef4444;stroke-width:1.2}
+    .dash{fill:none;stroke:#94a3b8;stroke-width:1.2;stroke-dasharray:5 4}
+    .arrow{fill:none;stroke:#475569;stroke-width:1.4;marker-end:url(#ah)}
+    .arrowb{fill:none;stroke:#2563eb;stroke-width:1.4;marker-end:url(#ahb)}
+    .k{fill:#111827;font-size:12px}
+    .kb{fill:#111827;font-size:12.5px;font-weight:600}
+    .ks{fill:#475569;font-size:11px}
+    .km{fill:#334155;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+  </style>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+    <marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+  </defs>
+  <rect x="20" y="20" width="960" height="118" rx="8" class="boxd"/>
+  <text x="36" y="44" class="kb">EditorWorkspace — the shared shell</text>
+  <rect x="36" y="58" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="46" y="75" class="k">Menu bar (tables per mode)</text>
+  <rect x="272" y="58" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="282" y="75" class="k">Toolbar row + Game | Video toggle</text>
+  <rect x="508" y="58" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="518" y="75" class="k">Tab strip (filtered by mode)</text>
+  <rect x="744" y="58" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="754" y="75" class="k">Dialogs: message, file picker</text>
+  <rect x="36" y="92" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="46" y="109" class="k">Output panel</text>
+  <rect x="272" y="92" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="282" y="109" class="k">Editor Settings (+ Video section)</text>
+  <rect x="508" y="92" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="518" y="109" class="k">EditorCommands, shortcuts</text>
+  <rect x="744" y="92" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="754" y="109" class="k">EditorSession: all open tabs</text>
+  <rect x="330" y="160" width="340" height="44" rx="22" fill="#ffffff" stroke="#6366f1" stroke-width="1.4"/>
+  <text x="500" y="178" class="ks" text-anchor="middle">EditorWorkspace.Mode   (EditorSettings.LastMode)</text>
+  <text x="500" y="196" class="kb" text-anchor="middle">Game  ·  Video  ·  Audio (DAW, later)</text>
+  <path d="M500,138 L500,158" class="arrow"/>
+  <path d="M420,204 L240,240" class="arrow"/>
+  <path d="M580,204 L760,240" class="arrow"/>
+  <rect x="20" y="242" width="440" height="230" rx="8" class="box"/>
+  <text x="36" y="266" class="kb">Game mode (today’s editor)</text>
+  <text x="36" y="286" class="ks">Menus: File · Edit · View · Project · Run · Help</text>
+  <text x="36" y="304" class="ks">Tabs: scenes, songs, UI previews</text>
+  <rect x="40" y="318" width="400" height="140" fill="#1f2128" rx="4"/>
+  <rect x="44" y="322" width="90" height="80" fill="#262931"/>
+  <text x="89" y="366" class="s" text-anchor="middle">Scene</text>
+  <rect x="44" y="406" width="90" height="48" fill="#262931"/>
+  <text x="89" y="434" class="s" text-anchor="middle">FileSystem</text>
+  <rect x="138" y="322" width="206" height="90" fill="#0b0c0f"/>
+  <text x="241" y="370" class="s" text-anchor="middle">Viewport / Song</text>
+  <rect x="138" y="416" width="206" height="38" fill="#262931"/>
+  <text x="241" y="439" class="s" text-anchor="middle">Output</text>
+  <rect x="348" y="322" width="88" height="132" fill="#262931"/>
+  <text x="392" y="390" class="s" text-anchor="middle">Inspector</text>
+  <rect x="540" y="242" width="440" height="230" rx="8" class="boxg"/>
+  <text x="556" y="266" class="kb">Video mode (new)</text>
+  <text x="556" y="286" class="ks">Menus: File · Edit · View · Video · Help</text>
+  <text x="556" y="304" class="ks">Tabs: VideoTab (recordings, .mfcut, .cutback)</text>
+  <rect x="560" y="318" width="400" height="140" fill="#1f2128" rx="4"/>
+  <rect x="564" y="322" width="290" height="80" fill="#0b0c0f"/>
+  <text x="709" y="366" class="s" text-anchor="middle">Preview</text>
+  <rect x="858" y="322" width="98" height="80" fill="#262931"/>
+  <text x="907" y="366" class="s" text-anchor="middle">Transcript</text>
+  <rect x="564" y="406" width="392" height="10" fill="#3a2a0d"/>
+  <rect x="564" y="420" width="392" height="34" fill="#1D2E4D"/>
+  <text x="760" y="441" class="s" text-anchor="middle" style="fill:#d7dbe4;font-size:10.5px">Timeline</text>
+  <rect x="540" y="492" width="440" height="96" rx="8" class="boxa"/>
+  <text x="556" y="514" class="kb">Switches to Video mode automatically</text>
+  <text x="556" y="534" class="ks">• File › Open… / Open Recent: .mp4 .mov .mkv .webm .mfcut .cutback</text>
+  <text x="556" y="550" class="ks">• FileSystem panel: double-click a recording or .mfcut</text>
+  <text x="556" y="566" class="ks">• Recording finished dialog: “Open in Video Editor”</text>
+  <text x="556" y="582" class="ks">• Project manager: “Video Editor” (no game project needed)</text>
+  <path d="M760,492 L760,474" class="arrow"/>
+  <rect x="20" y="492" width="440" height="96" rx="8" class="box"/>
+  <text x="36" y="514" class="kb">Switching modes</text>
+  <text x="36" y="534" class="ks">• Tabs of the hidden mode stay open; each mode keeps its active tab</text>
+  <text x="36" y="550" class="ks">• Video tabs pause playback while hidden</text>
+  <text x="36" y="566" class="ks">• Each mode remembers its panel sizes</text>
+  <text x="36" y="582" class="ks">• F10 (Play and Record) works only in Game mode</text>
+  <rect x="20" y="604" width="960" height="34" rx="8" class="dash"/>
+  <text x="500" y="626" class="ks" text-anchor="middle">Audio (DAW) mode — later, not in this PR: the same mechanism, a third layout over the song tab</text>
+  <text x="20" y="662" class="cap">As built. One workspace, layouts per mode: the shell is shared, the mode swaps panels, menus, toolbar content and the tab filter.</text>
+</svg>

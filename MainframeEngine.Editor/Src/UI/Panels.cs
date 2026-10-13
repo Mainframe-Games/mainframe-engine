@@ -3,7 +3,10 @@ using MainframeEngine.UI.Rml;
 
 namespace MainframeEngine.Editor;
 
-/// <summary>The menu bar (File, Edit, View, Help): a click opens the menu's <see cref="PopupMenu"/>.</summary>
+/// <summary>
+/// The menu bar: a click opens the menu's <see cref="PopupMenu"/>. Game mode shows File, Edit, View, Project, Run and Help;
+/// video mode File, Edit, View, Video and Help (<see cref="ApplyMode"/>).
+/// </summary>
 public sealed class MenuBarPanel : EditorDocument
 {
     public MenuBarPanel(EditorWorkspace workspace)
@@ -11,7 +14,9 @@ public sealed class MenuBarPanel : EditorDocument
     {
     }
 
-    /// <summary>Opens menu <paramref name="menu"/> (file, edit, view, help) under its title.</summary>
+    private static readonly string[] MenuIds = ["menu-file", "menu-edit", "menu-view", "menu-project", "menu-run", "menu-video", "menu-help"];
+
+    /// <summary>Opens menu <paramref name="menu"/> (file, edit, view, project, run, video, help) under its title.</summary>
     public void OpenMenu(string menu)
     {
         var x = 80f;
@@ -28,8 +33,19 @@ public sealed class MenuBarPanel : EditorDocument
     {
         if (!IsLoaded)
             return;
-        foreach (var name in (ReadOnlySpan<string>)["file", "edit", "view", "project", "run", "help"])
-            Document.GetElementById($"menu-{name}").SetClass("open", false);
+        foreach (var id in MenuIds)
+            Document.GetElementById(id).SetClass("open", false);
+    }
+
+    /// <summary>Shows the menu titles of <paramref name="mode"/> (Project and Run are game-only, Video is video-only).</summary>
+    public void ApplyMode(EditorMode mode)
+    {
+        if (!IsLoaded)
+            return;
+        var video = mode == EditorMode.Video;
+        Document.GetElementById("menu-project").SetClass("hidden", video);
+        Document.GetElementById("menu-run").SetClass("hidden", video);
+        Document.GetElementById("menu-video").SetClass("hidden", !video);
     }
 
     private string _windowTitle = "";
@@ -58,7 +74,11 @@ public sealed class MenuBarPanel : EditorDocument
         Document.GetElementById("title-dirty").SetClass("hidden", !_dirty);
     }
 
-    protected override void OnAttach(RmlDocument document) => ApplyTitle();
+    protected override void OnAttach(RmlDocument document)
+    {
+        ApplyTitle();
+        ApplyMode(Workspace.Mode);
+    }
 
     protected override void OnClickElement(RmlEvent e)
     {
@@ -67,7 +87,10 @@ public sealed class MenuBarPanel : EditorDocument
     }
 }
 
-/// <summary>The toolbar: gizmo mode, local/global, snapping, frame, grid; play controls (disabled until E4); frame stats.</summary>
+/// <summary>
+/// The toolbar: in game mode the gizmo mode, local/global, snapping, frame, grid and the play controls; in video mode the
+/// video tools (<see cref="ApplyMode"/>). Both end with the Game|Video toggle, the docs button and the frame stats.
+/// </summary>
 public sealed class ToolbarPanel : EditorDocument
 {
     private RmlEventListener? _snapListener;
@@ -83,10 +106,25 @@ public sealed class ToolbarPanel : EditorDocument
     {
         _shownLocal = null;
         _badgeVersion = null;
+        ResetVideo();
         _snapListener?.Remove();
         _snapListener = document.GetElementById("snap-step").AddEventListener("change", OnSnapStep);
         Refresh();
         RefreshUpdate();
+        ApplyMode(Workspace.Mode);
+    }
+
+    /// <summary>Shows <paramref name="mode"/>'s tools and marks its half of the Game|Video toggle.</summary>
+    public void ApplyMode(EditorMode mode)
+    {
+        if (!IsLoaded)
+            return;
+        var video = mode == EditorMode.Video;
+        var document = Document;
+        document.GetElementById("game-tools").SetClass("hidden", video);
+        document.GetElementById("video-tools").SetClass("hidden", !video);
+        document.GetElementById("mode-game").SetClass("active", !video);
+        document.GetElementById("mode-video").SetClass("active", video);
     }
 
     private ReleaseVersion? _badgeVersion;
@@ -299,6 +337,154 @@ public sealed class ToolbarPanel : EditorDocument
         });
     }
 
+    // ── Video mode ───────────────────────────────────────────────────────────────────────────────────────────────
+
+    private const string IdleTip =
+        "Detect Idle Gameplay — cut loading, pauses and stretches without input, from the recording's Mainframe Engine data";
+    private const string IdleNeedsSidecarTip = "Needs a Mainframe Engine recording (its .mfcap.json sidecar)";
+    private const string PlayTip = "Play (Space) — the kept footage from the playhead, skipping the cuts";
+    private const string PauseTip = "Pause (Space)";
+
+    // The buttons that need a video tab; Detect Idle also needs a sidecar and is handled on its own.
+    private static readonly string[] VideoTabButtons = ["video-play", "video-stop", "video-transcribe", "video-fillers", "video-silence", "video-export"];
+
+    // What the video tools show, so UpdateVideo writes only what changed (null / -2: not written since the last load).
+    private bool? _videoEnabled;
+    private int _videoIdle = -1;
+    private bool? _videoPlaying;
+    private long _videoPosition = -2;
+    private long _videoDuration = -2;
+    private string? _videoKept;
+    private int _videoTranscribe = -2;
+    private int _videoSilence = -2;
+    private int _videoExport = -2;
+
+    private void ResetVideo()
+    {
+        _videoEnabled = null;
+        _videoIdle = -1;
+        _videoPlaying = null;
+        _videoPosition = -2;
+        _videoDuration = -2;
+        _videoKept = null;
+        _videoTranscribe = -2;
+        _videoSilence = -2;
+        _videoExport = -2;
+    }
+
+    /// <summary>
+    /// Every frame (from the <see cref="Video.VideoView"/>): the video tools' disabled states, the play/pause icon, the
+    /// position (<c>1:02.3 / 6:00.0</c>), "Cancel n %" on a running job's button, and the kept time. Only what changed is
+    /// written; the position is formatted on the stack, so playing allocates nothing either.
+    /// </summary>
+    public void UpdateVideo(Video.VideoTab? tab)
+    {
+        if (!IsLoaded)
+            return;
+        var document = Document;
+        var enabled = tab is not null;
+        if (_videoEnabled != enabled)
+        {
+            _videoEnabled = enabled;
+            foreach (var id in VideoTabButtons)
+                document.GetElementById(id).SetClass("disabled", !enabled);
+        }
+
+        // 0: no tab, 1: a recording without a sidecar (the tooltip says why it is disabled), 2: Detect Idle can run.
+        var idle = tab is null ? 0 : tab.Document.Capture is null ? 1 : 2;
+        if (_videoIdle != idle)
+        {
+            _videoIdle = idle;
+            var button = document.GetElementById("video-idle");
+            button.SetClass("disabled", idle != 2);
+            button.SetAttribute("data-tooltip", idle == 1 ? IdleNeedsSidecarTip : IdleTip);
+        }
+
+        var playing = tab?.Preview.IsPlaying == true;
+        if (_videoPlaying != playing)
+        {
+            _videoPlaying = playing;
+            var icon = document.GetElementById("video-play-icon");
+            icon.SetClass("icon-player-play", !playing);
+            icon.SetClass("icon-player-pause", playing);
+            document.GetElementById("video-play").SetAttribute("data-tooltip", playing ? PauseTip : PlayTip);
+        }
+
+        UpdateVideoPosition(tab);
+        var kept = Workspace.VideoPanel.Kept;
+        if (!ReferenceEquals(kept, _videoKept))
+        {
+            _videoKept = kept;
+            SetText("video-kept", kept);
+        }
+
+        UpdateJobButton("video-transcribe", "Transcribe", tab is null ? -1 : TranscribePercent(tab), ref _videoTranscribe);
+        UpdateJobButton("video-silence", "Detect silence", tab is null ? -1 : Percent(tab.SilenceJob), ref _videoSilence);
+        UpdateJobButton("video-export", "Export", tab is null ? -1 : Percent(tab.ExportJob), ref _videoExport);
+    }
+
+    private void UpdateVideoPosition(Video.VideoTab? tab)
+    {
+        var position = tab is null ? -1 : (long)Math.Round(Math.Max(0, tab.State.Playhead) * 10, MidpointRounding.AwayFromZero);
+        var duration = tab is null ? -1 : (long)Math.Round(tab.Document.Duration * 10, MidpointRounding.AwayFromZero);
+        if (position == _videoPosition && duration == _videoDuration)
+            return;
+        _videoPosition = position;
+        _videoDuration = duration;
+        var element = Document.GetElementById("video-pos");
+        if (element.IsNull)
+            return;
+        element.SetClass("empty", tab is null);
+        if (tab is null)
+        {
+            element.SetInnerRml("");
+            return;
+        }
+
+        Span<char> text = stackalloc char[40];
+        var n = Video.VideoFormat.FormatClock(text, tab.State.Playhead);
+        " / ".CopyTo(text[n..]);
+        n += 3;
+        n += Video.VideoFormat.FormatClock(text[n..], tab.Document.Duration);
+        element.SetInnerRml(text[..n]);
+    }
+
+    // A running job's progress in whole percent, or -1 when there is none.
+    private static int Percent<T>(Video.VideoJob<T>? job) => job is null || job.IsDone ? -1 : (int)(job.Progress * 100);
+
+    // Transcribing is two phases when the model has to be fetched first: the job's first half (progress under 0.5) is the
+    // download, which the button names. Encoded as DownloadingOffset + n so the cached value changes with the phase too.
+    private const int DownloadingOffset = 1000;
+
+    private static int TranscribePercent(Video.VideoTab tab)
+    {
+        if (tab.TranscribeJob is not { IsDone: false } job)
+            return -1;
+        var progress = job.Progress;
+        return tab.TranscribeRun is { Downloads: true } && progress < 0.5
+            ? DownloadingOffset + (int)(progress * 200) // the download's own 0–100 %
+            : (int)(progress * 100);
+    }
+
+    // A job button reads its label, or "Cancel n %" while its job runs (pressing it then cancels); a download phase
+    // (DownloadingOffset + n) reads "Downloading model n %".
+    private void UpdateJobButton(string id, string label, int percent, ref int shown)
+    {
+        if (percent == shown)
+            return;
+        shown = percent;
+        var button = Document.GetElementById(id);
+        if (button.IsNull)
+            return;
+        button.SetClass("busy", percent >= 0);
+        button.SetInnerRml(percent switch
+        {
+            < 0 => label,
+            >= DownloadingOffset => string.Create(CultureInfo.InvariantCulture, $"Downloading model {percent - DownloadingOffset} %"),
+            _ => string.Create(CultureInfo.InvariantCulture, $"Cancel {percent} %"),
+        });
+    }
+
     /// <summary>Writes the frame stats without allocating (stack-formatted span into the element).</summary>
     public void UpdateStats(float fps, float ms)
     {
@@ -381,7 +567,7 @@ public sealed class SplittersOverlay : EditorDocument
             Workspace.ApplyLayout();
     }
 
-    /// <summary>Positions the handles from <paramref name="layout"/>.</summary>
+    /// <summary>Positions the handles from <paramref name="layout"/>; a splitter the mode lacks (empty rectangle) is hidden.</summary>
     public void Apply(EditorLayout layout)
     {
         ArgumentNullException.ThrowIfNull(layout);
@@ -393,6 +579,7 @@ public sealed class SplittersOverlay : EditorDocument
             if (element.IsNull)
                 continue;
             var rect = layout.SplitterRect(splitter);
+            element.SetProperty("display", rect.Width <= 0 || rect.Height <= 0 ? "none" : "block");
             element.SetProperty("left", RmlText.Dp(rect.X));
             element.SetProperty("top", RmlText.Dp(rect.Y));
             element.SetProperty("width", RmlText.Dp(rect.Width));

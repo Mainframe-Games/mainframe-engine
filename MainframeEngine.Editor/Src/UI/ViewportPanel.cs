@@ -3,8 +3,8 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The centre panel: one tab per open scene or UI preview (title with <c>*</c> while dirty, close button, + for a new
-/// scene) above the view. For a scene the view is an <c>&lt;img&gt;</c> showing its offscreen render target through
+/// The centre panel: one tab per open tab of the current <see cref="EditorMode"/> (title with <c>*</c> while dirty, close
+/// button, + for a new scene, or to open a recording in video mode) above the view. For a scene the view is an <c>&lt;img&gt;</c> showing its offscreen render target through
 /// <c>engine://</c>; it lets the mouse through to the <see cref="ViewportController"/>. For a UI preview a bar lists the
 /// document's linked files (click: open in the code editor) and the backdrop controls, and the document draws over the
 /// view from its own layer (<see cref="UiPreview"/>) — over a neutral backdrop, or a scene's render.
@@ -53,6 +53,7 @@ public sealed class ViewportPanel : EditorDocument
         .Member("inline", static l => l.Inline);
 
     private readonly List<Tab> _tabs = [];
+    private readonly List<IEditorTab> _visibleTabs = [];
     private readonly List<Link> _links = [];
     private RmlDataModel? _model;
     private bool _imageShown;
@@ -63,6 +64,10 @@ public sealed class ViewportPanel : EditorDocument
     private bool _backdropOn;
     private string _backdropName = "";
     private string _backdropTooltip = "";
+    private string _newTooltip = NewSceneTooltip;
+
+    private const string NewSceneTooltip = "New Scene (Ctrl+N) — open an empty scene in a new tab";
+    private const string OpenRecordingTooltip = "Open a recording (Ctrl+O)";
 
     public ViewportPanel(EditorWorkspace workspace)
         : base(workspace, "viewport.rml")
@@ -78,6 +83,7 @@ public sealed class ViewportPanel : EditorDocument
             .Bind("backdrop_on", this, static p => p._backdropOn)
             .Bind("backdrop_name", this, static p => p._backdropName)
             .Bind("backdrop_tooltip", this, static p => p._backdropTooltip)
+            .Bind("new_tooltip", this, static p => p._newTooltip)
             .Event("activate", e =>
             {
                 if (TabAt(e.GetArgument(0).GetInt32()) is { } tab)
@@ -86,9 +92,9 @@ public sealed class ViewportPanel : EditorDocument
             .Event("close", e =>
             {
                 e.Event.StopPropagation();
-                Workspace.Commands.CloseTab(TabAt(e.GetArgument(0).GetInt32()));
+                CloseAt(e.GetArgument(0).GetInt32());
             })
-            .Event("create", _ => Workspace.Commands.Execute("file.new"))
+            .Event("create", _ => Workspace.Commands.Execute(Workspace.Mode == EditorMode.Video ? "file.open" : "file.new"))
             .Event("open_link", e => OpenLink(e.GetArgument(0).GetInt32()))
             .Event("toggle_backdrop", _ => ToggleBackdrop())
             .Event("pick_backdrop", _ => PickBackdrop())
@@ -112,23 +118,40 @@ public sealed class ViewportPanel : EditorDocument
 
     private IEditorTab? TabAt(int index) => (uint)index < (uint)_tabs.Count ? _tabs[index].Item : null;
 
-    /// <summary>Rebuilds the tab strip (titles, active tab) and the preview bar.</summary>
+    /// <summary>The tabs the strip shows: the session's tabs of the current mode, in tab order.</summary>
+    public IReadOnlyList<IEditorTab> VisibleTabs => _visibleTabs;
+
+    /// <summary>Closes the tab at <paramref name="index"/> of the strip (<see cref="VisibleTabs"/>), asking about unsaved changes.</summary>
+    internal void CloseAt(int index) => Workspace.Commands.CloseTab(TabAt(index));
+
+    /// <summary>Rebuilds the tab strip (the current mode's tabs, titles, active tab) and the preview bar.</summary>
     public void RefreshTabs()
     {
         _tabs.Clear();
+        _visibleTabs.Clear();
         var session = Workspace.Session;
-        for (var i = 0; i < session.Tabs.Count; i++)
+        var mode = Workspace.Mode;
+        foreach (var tab in session.Tabs)
         {
-            var tab = session.Tabs[i];
+            if (tab.Mode != mode)
+                continue;
             _tabs.Add(new Tab
             {
                 Item = tab,
-                Index = i,
+                Index = _tabs.Count, // the strip position: what the activate/close events pass back
                 Title = tab.Title,
                 Active = ReferenceEquals(tab, session.ActiveTab),
                 Icon = tab.IconClasses,
                 Tooltip = tab.Tooltip,
             });
+            _visibleTabs.Add(tab);
+        }
+
+        var newTooltip = mode == EditorMode.Video ? OpenRecordingTooltip : NewSceneTooltip;
+        if (!ReferenceEquals(newTooltip, _newTooltip))
+        {
+            _newTooltip = newTooltip;
+            _model?.Dirty("new_tooltip");
         }
 
         _model?.Dirty("tabs");

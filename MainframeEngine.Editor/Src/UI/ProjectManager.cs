@@ -6,8 +6,8 @@ namespace MainframeEngine.Editor;
 /// <summary>
 /// The Project Manager (E4, Godot's project list): shown when the editor starts without a project, and from Project ›
 /// Project Manager. Recent projects (icon, name, folder, last opened; a missing folder is flagged), a filter, New
-/// Project (the <see cref="NewProjectDialog"/>), Open Project (a <c>project.mfproj</c>), Open and Remove from the list (the files stay), and the
-/// .NET SDK check the project tools need.
+/// Project (the <see cref="NewProjectDialog"/>), Open Project (a <c>project.mfproj</c>), Open and Remove from the list (the files stay),
+/// Video Editor (video mode, which needs no project), and the .NET SDK check the project tools need.
 /// </summary>
 public sealed class ProjectManager : EditorDocument
 {
@@ -83,7 +83,8 @@ public sealed class ProjectManager : EditorDocument
             .Event("browse", _ => OpenProjectFile())
             .Event("download_demo", _ => ShowExamples())
             .Event("remove", _ => RemoveSelected())
-            .Event("download", _ => OpenDownloadPage());
+            .Event("download", _ => OpenDownloadPage())
+            .Event("video", _ => Workspace.Commands.Execute("editor.video_editor"));
     }
 
     /// <summary>Shows the manager (re-reads the recent list, checks the SDK once).</summary>

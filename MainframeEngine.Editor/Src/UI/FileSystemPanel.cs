@@ -211,14 +211,14 @@ public sealed class FileSystemPanel : EditorDocument
         Refresh();
     }
 
-    /// <summary>The open scenes with unsaved changes get the unsaved badge.</summary>
+    /// <summary>The open scenes, songs and video projects with unsaved changes get the unsaved badge.</summary>
     public void UpdateUnsaved()
     {
         if (_fs is null)
             return;
         var dirty = new HashSet<string>(StringComparer.Ordinal);
         foreach (var tab in Workspace.Session.Tabs)
-            if (tab is EditedScene or Music.SongTab && tab.IsDirty && tab.FilePath is { } path)
+            if (tab is EditedScene or Music.SongTab or Video.VideoTab && tab.IsDirty && tab.FilePath is { } path)
                 dirty.Add(path);
         _fs.SetUnsaved(dirty);
     }
@@ -420,6 +420,9 @@ public sealed class FileSystemPanel : EditorDocument
                 break;
             case FileKind.Song:
                 Workspace.Commands.OpenSong(entry.FullPath);
+                break;
+            case FileKind.Video or FileKind.VideoProject:
+                Workspace.Commands.OpenVideo(entry.FullPath);
                 break;
             case FileKind.Rml:
                 try

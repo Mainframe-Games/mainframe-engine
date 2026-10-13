@@ -260,6 +260,10 @@ public sealed partial class IconAtlasTests
     [InlineData("data.json", false, "braces", "")]
     [InlineData("README.md", false, "file-text", "")]
     [InlineData("thing.xyz", false, "file", "")]
+    [InlineData("run.mp4", false, "movie", "icon-audio")]
+    [InlineData("run.WEBM", false, "movie", "icon-audio")]
+    [InlineData("run.mfcut", false, "video", "icon-audio")]
+    [InlineData("run.cutback", false, "video", "icon-audio")]
     [InlineData("Content", true, "folder", "icon-dir")]
     public void FilesGetIconsByExtension(string path, bool directory, string icon, string family)
     {
@@ -439,6 +443,18 @@ public sealed class IconLintTests : IDisposable
         W.Message.Answer(0);
         _editor.Tick();
 
+        // Video mode: its panels, toolbar and menus.
+        W.SetMode(EditorMode.Video);
+        _editor.Tick(2);
+        checkedIcons += Lint(problems);
+        foreach (var menu in new[] { "file", "video" })
+        {
+            W.MenuBar.OpenMenu(menu);
+            _editor.Tick(2);
+            checkedIcons += Lint(problems);
+            W.Popup.Close();
+        }
+
         Assert.True(problems.Count == 0, string.Join("\n", problems.Distinct()));
         Assert.True(checkedIcons > 120, $"only {checkedIcons} icons seen");
         Assert.Empty(_editor.RmlMessages);
@@ -447,10 +463,17 @@ public sealed class IconLintTests : IDisposable
     [Fact]
     public void EveryMenuItemHasAnIcon()
     {
-        foreach (var menu in new[] { "file", "edit", "view", "project", "run", "help" })
+        AssertMenuIcons();
+        W.SetMode(EditorMode.Video);
+        AssertMenuIcons();
+    }
+
+    private void AssertMenuIcons()
+    {
+        foreach (var menu in new[] { "file", "edit", "view", "project", "run", "help", "video" })
             foreach (var item in W.Commands.MenuItems(menu).Where(i => !i.IsSeparator && !i.IsHeader))
             {
-                Assert.False(string.IsNullOrEmpty(item.Icon), $"{menu} › {item.Label} has no icon");
+                Assert.False(string.IsNullOrEmpty(item.Icon), $"{W.Mode} {menu} › {item.Label} has no icon");
                 IconAtlas.AssertExists(item.Icon!, item.Label);
             }
     }

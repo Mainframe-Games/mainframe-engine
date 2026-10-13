@@ -9,7 +9,7 @@ namespace MainframeEngine.Editor;
 /// path (UI first, then the editor's nodes — the same routing as SDL input) and captures frames, for QA where
 /// computer-use cannot target the unbundled process. One command per line (<c>#</c> comments):
 /// <code>
-/// wait 30                     # frames
+/// wait 30                     # frames, not seconds (the editor runs at the display rate, often 120 fps)
 /// click 120 40 [right|middle] # window points, or: click #element-id (any editor document)
 /// drag 600 400 700 420 [left|right|middle] [frames]
 /// move 600 400
@@ -18,7 +18,10 @@ namespace MainframeEngine.Editor;
 /// hold W / release W
 /// type Box2                   # text into the focused field
 /// command file.save           # any EditorCommands id
-/// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab
+/// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab; a recording (.mp4 .mov .mkv .webm) or a
+///                             # .mfcut/.cutback opens a video tab in video mode
+/// mode game|video             # switches the editor mode
+/// video set whisper-model tiny.en   # a Video setting (whisper-model, ffmpeg) for this run (QA runs save no settings)
 /// menu 2                      # choose item 2 of the open popup menu (or: menu edit.undo)
 /// pick Floor                  # tree or list picker: select the row with this label
 /// search omni                 # tree or list picker: type into the search field
@@ -27,6 +30,8 @@ namespace MainframeEngine.Editor;
 /// capture name                # saves &lt;out&gt;/name.png
 /// log text                    # writes to the output
 /// wait-for project|idle|playing|stopped [seconds]   # until a project and scene are open / no build runs / a game runs
+/// wait-for video-jobs [seconds]                      # until the active video tab runs no waveform, silence, transcribe or export job
+/// wait-for video-position 9.5 [seconds]              # until the active video tab's playhead is at or past 9.5 s
 /// file-drag Content/x.mscene #element-id   # drags a project file from the FileSystem panel onto an element
 /// edit-file path text…        # appends a line to a project file (QA of code reload)
 /// replace-in-file path old new   # edits a project file in place
@@ -194,7 +199,9 @@ public sealed class EditorQaScript : IEditorAutomation
             case "open":
                 {
                     var path = Path.GetFullPath(string.Join(' ', step[1..]));
-                    if (path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
+                    if (FileKinds.Of(path, isDirectory: false) is FileKind.Video or FileKind.VideoProject)
+                        workspace.Commands.OpenVideo(path);
+                    else if (path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
                         workspace.Session.OpenUiPreview(path);
                     else if (path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
                         workspace.Session.OpenSong(path);
@@ -203,6 +210,9 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "mode":
+                workspace.SetMode(Enum.Parse<EditorMode>(step[1], ignoreCase: true));
+                break;
             case "menu":
                 if (int.TryParse(step[1], CultureInfo.InvariantCulture, out var item))
                     workspace.Popup.Choose(item);
@@ -305,6 +315,15 @@ public sealed class EditorQaScript : IEditorAutomation
                 }
 
                 break;
+            case "wait-for" when step.Length > 2 && step[1] == "video-position":
+                {
+                    var position = Float(step, 2);
+                    _waitFor = w => VideoPositionReached(w.Session.ActiveTab as Video.VideoTab, position);
+                    _waitForDeadline = step.Length > 3 ? Float(step, 3) : 120;
+                    _waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
+                    break;
+                }
+
             case "wait-for":
                 _waitFor = step[1] switch
                 {
@@ -314,6 +333,7 @@ public sealed class EditorQaScript : IEditorAutomation
                     "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running && i.Frame >= 90),
                     "stopped" => static w => !w.Play.IsPlaying,
                     "render" => static w => w.SongView.Renders.Count == 0,
+                    "video-jobs" => static w => VideoJobsIdle(w.Session.ActiveTab as Video.VideoTab),
                     _ => throw new ArgumentException($"Unknown wait-for '{step[1]}'."),
                 };
                 _waitForDeadline = step.Length > 2 ? Float(step, 2) : 120;
@@ -489,6 +509,9 @@ public sealed class EditorQaScript : IEditorAutomation
             case "quit":
                 app.Quit(ExitCode.Ok);
                 break;
+            case "video" when step.Length > 3 && step[1] == "set":
+                SetVideoSetting(workspace, step[2], string.Join(' ', step[3..]));
+                break;
             case "song":
                 Song(workspace, step);
                 break;
@@ -499,6 +522,38 @@ public sealed class EditorQaScript : IEditorAutomation
                 Log.Warning($"[QA] Unknown step '{step[0]}'.");
                 break;
         }
+    }
+
+    /// <summary>
+    /// <c>wait-for video-jobs</c>: true when <paramref name="tab"/> has no waveform, silence, transcription or export job
+    /// (a finished job counts until its result is applied), or there is no video tab to wait for.
+    /// </summary>
+    internal static bool VideoJobsIdle(Video.VideoTab? tab) =>
+        tab is null || (tab.WaveformJob is null && tab.SilenceJob is null && tab.TranscribeJob is null && tab.ExportJob is null);
+
+    /// <summary><c>wait-for video-position &lt;seconds&gt;</c>: true once <paramref name="tab"/>'s playhead is at or past <paramref name="seconds"/>.</summary>
+    internal static bool VideoPositionReached(Video.VideoTab? tab, double seconds) => tab is not null && tab.State.Playhead >= seconds;
+
+    // video set <setting> <value>: changes a Video setting the way Editor Settings › Video does. A QA run has no settings
+    // file, so the change lasts for the run only.
+    private static void SetVideoSetting(EditorWorkspace workspace, string setting, string value)
+    {
+        var settings = workspace.Settings.Clone();
+        switch (setting)
+        {
+            case "whisper-model":
+                settings.VideoWhisperModel = value;
+                break;
+            case "ffmpeg":
+                settings.VideoFfmpegPath = value;
+                break;
+            default:
+                Log.Warning($"[QA] Unknown video setting '{setting}' (whisper-model, ffmpeg).");
+                return;
+        }
+
+        workspace.ApplySettings(settings);
+        Log.Info($"[QA] video {setting} = {value}");
     }
 
     // update-preview X.Y.Z: the update dialog as a check would show it (QA runs never touch the network).

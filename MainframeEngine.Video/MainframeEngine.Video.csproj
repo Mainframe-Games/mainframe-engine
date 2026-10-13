@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The video editor's logic (editor-only; games never reference it): Cutback's Core, Media and Analysis, copied in
+    from Cutback 90cc508 under MIT (LICENSE-CUTBACK). Pure .NET plus the user's ffmpeg as a child process; no engine
+    or UI types. See docs/design/video-editor.md.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MainframeEngine.Video</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MainframeEngine.Video.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="LICENSE-CUTBACK" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

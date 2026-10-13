@@ -136,9 +136,9 @@ public abstract class EditorDocument : UiDocument
 
     /// <summary>
     /// Hides the document and gives up keyboard focus: a hidden dialog must not keep a text field focused, or the UI would
-    /// keep taking every key and the editor's shortcuts would stop working.
+    /// keep taking every key and the editor's shortcuts would stop working. Internal too: a mode switch hides whole panels.
     /// </summary>
-    protected void HideAndReleaseFocus()
+    protected internal void HideAndReleaseFocus()
     {
         if (IsLoaded && Layer?.Context is { IsDisposed: false } context)
         {

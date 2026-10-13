@@ -4,8 +4,8 @@
 
 Records a running game to an H.264 `.mp4` plus a `.mfcap.json` **sidecar** that says what the engine knew while it
 recorded: when the player gave input, when the game was loading or paused, and what the game marked as worth keeping or
-cutting. [Cutback](https://github.com/brogan89/Cutback) (and later the editor's Clips tab) reads the sidecar to
-trim idle play, loading and pauses. Two modes:
+cutting. The editor's [video mode](video-editor.md) and [Cutback](https://github.com/brogan89/Cutback) read the sidecar
+to trim idle play, loading and pauses. Two modes:
 
 - **Live** (`--record file.mp4`): real time. Frames are resampled to a constant rate, audio is tapped from the master
   mix, and the player keeps playing and hearing the game.
@@ -237,9 +237,12 @@ Shift+F5, which is Run Another Instance. Its tooltip follows the state: "Play an
   Play and Record needs the project to be a desktop project and no build to be running.
 - **When it finishes** (`RecordingNotifier`). A modal `MessageDialog` (the editor has no toast system), one per finished
   recording, queued by the dialog if several finish together. Saved: title "Recording saved", the file name with its
-  length and the folder, buttons **Open in Cutback** (default), **Show in Folder**, **Close**. Failed: "Recording
+  length and the folder, buttons **Open in Video Editor** (default), **Open in Cutback**, **Show in Folder**, **Close**. Failed: "Recording
   failed" with the recorder's message, plus **Show in Folder** (the kept `.partial` folder) when the message names one
   or the folder exists (a game that exited mid-recording reports nothing, but leaves it). Long paths wrap in the dialog.
+- **Open in Video Editor** opens the recording in a video tab in the editor's own video mode (switching to it; the
+  sidecar next to the file is read there): Detect Idle Gameplay, transcription, filler words, trimming and export without
+  leaving the editor ([Video editing mode](video-editor.md)). Without ffmpeg it says so, with a link to Video Settings.
 - **Open in Cutback** starts [Cutback](https://github.com/brogan89/Cutback) as a **separate process** with the
   recording's path as its argument (it opens the first command-line argument that is an existing file, and finds the sidecar next to it); the
   editor never links it (Cutback is GPL) and does not wait for it. `CutbackLocator` looks, in order, at **Editor
@@ -340,4 +343,4 @@ Rules:
 
 [Vulkan renderer](vulkan-renderer.md) (frame stream) · [Audio](audio.md) (capture tap) ·
 [Projects & GameHost](project-and-gamehost.md) (host flags) · [Engine lifecycle](engine-lifecycle.md) ·
-[Testing](testing.md) · [ADR 0190](../../memory/decisions/0190-gameplay-recording-ffmpeg-child-process.md)
+[Testing](testing.md) · [Video editing mode](video-editor.md) · [ADR 0190](../../memory/decisions/0190-gameplay-recording-ffmpeg-child-process.md)

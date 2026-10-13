@@ -64,8 +64,10 @@ public sealed class EditorSmokeRun : IEditorAutomation
     public bool SplashOnly { get; init; }
 
     /// <summary>
-    /// <c>--smoke-golden project-manager|filesystem</c>: capture the Project Manager (fixed recent projects in the temp
-    /// folder, a fixed SDK line) or the FileSystem panel of the project given with <c>--project</c>, for their goldens.
+    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline</c>: capture the Project Manager (fixed
+    /// recent projects in the temp folder, a fixed SDK line), the FileSystem panel of the project given with
+    /// <c>--project</c>, video mode's empty state, or a video tab over <see cref="VideoGolden"/>'s document (then measure
+    /// the allocations of its steady frames), for their goldens.
     /// </summary>
     public string? Golden { get; init; }
 
@@ -300,9 +302,47 @@ public sealed class EditorSmokeRun : IEditorAutomation
                     break;
                 }
 
+            case ("video-empty", 3):
+                workspace.Session.CloseAll();
+                workspace.SetMode(EditorMode.Video);
+                workspace.Output.Clear();
+                break;
+
+            case ("video-timeline", 3):
+                {
+                    // A tab over a document built in code (no ffmpeg): its waveform given, its preview decoding colour bars.
+                    workspace.Session.CloseAll();
+                    var document = VideoGolden.Document();
+                    document.Waveform = VideoGolden.Waveform();
+                    var decoders = new VideoGolden.Decoders();
+                    var tab = workspace.Session.OpenVideo(document, decoders, ffmpeg: null);
+                    // Opening scrubs to 0 on the pool: wait for its frame, so the capture at frame 40 never sees a black preview.
+                    if (!decoders.FirstFrameRead.Wait(TimeSpan.FromSeconds(10)))
+                        Log.Warning("[Smoke] The video preview's first frame was not read within 10 s; the capture may show it black.");
+                    workspace.SetMode(EditorMode.Video);
+                    tab.View.Reset(document.Duration); // fit all: the ruler labels depend only on the window size
+                    tab.Seek(VideoGolden.Playhead);
+                    tab.Notice = VideoGolden.Notice; // replaces the "ffmpeg not found" notice of a tab opened without ffmpeg
+                    workspace.Output.Clear();
+                    break;
+                }
+
             case (_, 40):
                 _captureFrame = _frame;
                 app.CaptureFrame();
+                break;
+
+            // The timeline golden then measures the managed allocations of steady video-mode frames (the allocation gate).
+            case ("video-timeline", 44):
+                break;
+            case ("video-timeline", AllocationWarmup):
+                _allocationStart = GC.GetAllocatedBytesForCurrentThread();
+                break;
+            case ("video-timeline", AllocationWarmup + AllocationFrames):
+                _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
+                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady video-mode frames.");
+                Next(Step.Done);
+                app.Quit(ExitCode.Ok);
                 break;
             case (_, 44):
                 Next(Step.Done);

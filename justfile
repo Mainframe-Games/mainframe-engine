@@ -14,10 +14,11 @@ default:
 build config="Debug":
     dotnet build {{solution}} -c {{config}}
 
-# Unit tests (no GPU): engine and editor
+# Unit tests (no GPU): engine, editor and video editor logic
 test:
     dotnet test Tests/MainframeEngine.Tests
     dotnet test Tests/MainframeEngine.Editor.Tests
+    dotnet test Tests/MainframeEngine.Video.Tests
 
 # Unit tests with coverage (Cobertura XML under artifacts/coverage)
 coverage:
@@ -27,7 +28,7 @@ coverage:
 test-render:
     dotnet test Tests/MainframeEngine.RenderTests
 
-# CI's Linux tests in Docker (x86_64 ubuntu:24.04, lavapipe, Xvfb): engine + editor unit tests and the l10n check (artifacts/linux)
+# CI's Linux tests in Docker (x86_64 ubuntu:24.04, lavapipe, Xvfb): engine, editor and video unit tests and the l10n check (artifacts/linux)
 test-linux *args:
     build/linux/run.sh unit {{args}}
 

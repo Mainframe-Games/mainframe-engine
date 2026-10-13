@@ -1,0 +1,45 @@
+# Video editing mode: open a recording, detect, transcribe, edit, play, export; each step captured for review.
+# Needs a display, ffmpeg, and network for the first tiny.en download (just qa-editor Tests/QA/video.qa); not in CI.
+# The fixture is build/make-video-fixture.sh's 12 s test pattern: a 440 Hz tone silent from 4 to 6 s, and a sidecar
+# with loading from 7 to 9 s and a marker at 10 s. `wait N` counts frames, not seconds (the editor runs at the display
+# rate, often 120 fps), so the long steps wait on conditions instead: `wait-for video-jobs` (no waveform, silence,
+# transcription or export job left on the tab) and `wait-for video-position` (the playhead has reached a time).
+# `video set` changes a Video setting for this run only (QA runs save no settings). Review the PNGs in
+# artifacts/qa-editor.
+wait-for project 300
+mode video
+capture video-01-empty
+open Tests/QA/Fixtures/video/sample.mp4
+wait-for video-jobs 60
+wait 10
+capture video-02-opened
+# Silence first, then idle gameplay: each run visibly cuts more (the idle cut, 3.5-9.0 s, takes in the 4-6 s silence
+# cut), and the undo below then reverts the idle cut.
+command video.detect_silence
+wait-for video-jobs 60
+wait 10
+capture video-03-silence
+command video.detect_idle
+wait 10
+capture video-04-idle
+video set whisper-model tiny.en
+# The first run downloads tiny.en (78 MB) before transcribing.
+command video.transcribe
+wait-for video-jobs 600
+wait 10
+capture video-05-transcript
+command edit.undo
+wait 10
+capture video-06-undo
+# Undo took the idle cut back: the kept ranges are about 0-4.06 and 5.94-12 s, so past 9.5 s the playhead has crossed
+# the silence cut.
+command video.play
+wait-for video-position 9.5 30
+capture video-07-playing
+command video.play
+mode game
+capture video-08-game-mode
+mode video
+command file.close
+cancel
+quit

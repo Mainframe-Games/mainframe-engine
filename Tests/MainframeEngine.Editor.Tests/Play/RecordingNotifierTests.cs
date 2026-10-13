@@ -9,13 +9,14 @@ public sealed class RecordingNotifierTests
         public readonly List<MessageRequest> Shown = [];
         public readonly List<(string App, string File)> Launched = [];
         public readonly List<string> Revealed = [];
+        public readonly List<string> VideoEditorOpened = [];
         public readonly List<Uri> Opened = [];
         public string? Cutback = "/Applications/Cutback.app/Contents/MacOS/Cutback";
         public bool LaunchSucceeds = true;
         public string? SettingSeen;
         public string? ExistingDirectory;
 
-        public RecordingNotifier Create(string? setting = null) => new(Shown.Add, () => setting,
+        public RecordingNotifier Create(string? setting = null) => new(Shown.Add, VideoEditorOpened.Add, () => setting,
             s =>
             {
                 SettingSeen = s;
@@ -33,16 +34,32 @@ public sealed class RecordingNotifierTests
         new(EditorLinkRecordingState.Stopped, path, 83.5f, 0, 2, "");
 
     [Fact]
-    public void ASavedRecordingOffersCutbackAndTheFolder()
+    public void ASavedRecordingOffersTheVideoEditorCutbackAndTheFolder()
     {
         var h = new Harness();
         h.Create().OnFinished(Saved());
 
         var dialog = Assert.Single(h.Shown);
         Assert.Equal("Recording saved", dialog.Title);
-        Assert.Equal(["Open in Cutback", "Show in Folder", "Close"], dialog.Buttons);
+        Assert.Equal(["Open in Video Editor", "Open in Cutback", "Show in Folder", "Close"], dialog.Buttons);
+        Assert.Equal(0, dialog.DefaultButton);
+        Assert.Equal(3, dialog.CancelButton);
         Assert.Contains("a.mp4", dialog.Message, StringComparison.Ordinal);
         Assert.Contains("1:23", dialog.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenInVideoEditorOpensTheRecordingInTheEditor()
+    {
+        var h = new Harness();
+        h.Create().OnFinished(Saved());
+
+        h.Shown[0].Callback!(0, "");
+
+        Assert.Equal(["/u/recordings/a.mp4"], h.VideoEditorOpened);
+        Assert.Empty(h.Launched);
+        Assert.Empty(h.Revealed);
+        Assert.Single(h.Shown);
     }
 
     [Fact]
@@ -51,9 +68,10 @@ public sealed class RecordingNotifierTests
         var h = new Harness();
         h.Create().OnFinished(Saved());
 
-        h.Shown[0].Callback!(0, "");
+        h.Shown[0].Callback!(1, "");
 
         Assert.Equal([("/Applications/Cutback.app/Contents/MacOS/Cutback", "/u/recordings/a.mp4")], h.Launched);
+        Assert.Empty(h.VideoEditorOpened);
         Assert.Single(h.Shown);
     }
 
@@ -63,7 +81,7 @@ public sealed class RecordingNotifierTests
         var h = new Harness();
         h.Create("/opt/cutback").OnFinished(Saved());
 
-        h.Shown[0].Callback!(0, "");
+        h.Shown[0].Callback!(1, "");
 
         Assert.Equal("/opt/cutback", h.SettingSeen);
     }
@@ -74,10 +92,11 @@ public sealed class RecordingNotifierTests
         var h = new Harness();
         h.Create().OnFinished(Saved());
 
-        h.Shown[0].Callback!(1, "");
+        h.Shown[0].Callback!(2, "");
 
         Assert.Equal(["/u/recordings/a.mp4"], h.Revealed);
         Assert.Empty(h.Launched);
+        Assert.Empty(h.VideoEditorOpened);
     }
 
     [Fact]
@@ -86,10 +105,11 @@ public sealed class RecordingNotifierTests
         var h = new Harness();
         h.Create().OnFinished(Saved());
 
-        h.Shown[0].Callback!(2, "");
+        h.Shown[0].Callback!(3, "");
 
         Assert.Empty(h.Launched);
         Assert.Empty(h.Revealed);
+        Assert.Empty(h.VideoEditorOpened);
         Assert.Single(h.Shown);
     }
 
@@ -99,7 +119,7 @@ public sealed class RecordingNotifierTests
         var h = new Harness { Cutback = null };
         h.Create().OnFinished(Saved());
 
-        h.Shown[0].Callback!(0, "");
+        h.Shown[0].Callback!(1, "");
 
         var help = h.Shown[1];
         Assert.Equal("Cutback is not installed", help.Title);
@@ -115,7 +135,7 @@ public sealed class RecordingNotifierTests
         var h = new Harness { LaunchSucceeds = false };
         h.Create().OnFinished(Saved());
 
-        h.Shown[0].Callback!(0, "");
+        h.Shown[0].Callback!(1, "");
 
         Assert.Equal("Cutback is not installed", h.Shown[1].Title);
     }
@@ -125,7 +145,7 @@ public sealed class RecordingNotifierTests
     {
         var h = new Harness { Cutback = null };
         h.Create().OnFinished(Saved());
-        h.Shown[0].Callback!(0, "");
+        h.Shown[0].Callback!(1, "");
 
         h.Shown[1].Callback!(1, ""); // "Close"
 

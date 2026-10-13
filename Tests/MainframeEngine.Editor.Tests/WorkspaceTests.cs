@@ -1,5 +1,7 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using MainframeEngine.Editor.Music;
+using MainframeEngine.Video.Media;
 using Silk.NET.Input;
 
 namespace MainframeEngine.Editor.Tests;
@@ -29,9 +31,21 @@ public sealed class HeadlessEditor : IDisposable
             RecoveryDirectory = Path.Combine(Directory, "recovery"),
         };
         Workspace = new EditorWorkspace(Host, configure?.Invoke(options) ?? options);
+        // Video mode finds only an ffmpeg a test configured (Editor Settings › Video): never the machine's own, so no test
+        // ever runs the real one.
+        Workspace.Commands.LocateFfmpeg = OnlyTheConfiguredFfmpeg;
         Tree.Root.AddChild(Workspace);
         Tick(3);
     }
+
+    private static readonly OSPlatform Platform =
+        OperatingSystem.IsWindows() ? OSPlatform.Windows : OperatingSystem.IsMacOS() ? OSPlatform.OSX : OSPlatform.Linux;
+
+    /// <summary>The locator with no PATH, no environment and only files inside the configured folder visible.</summary>
+    public static FfmpegLocation OnlyTheConfiguredFfmpeg(string? setting) =>
+        new FfmpegLocator(Platform,
+            path => !string.IsNullOrWhiteSpace(setting) && path.StartsWith(setting.Trim(), StringComparison.Ordinal) && File.Exists(path),
+            setting, pathVariable: null, new Dictionary<string, string>()).Locate();
 
     public string Directory { get; }
     public HeadlessEditorHost Host { get; } = new();
@@ -114,12 +128,22 @@ public sealed class WorkspaceTests : IDisposable
         return node;
     }
 
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(1f)]
+    [InlineData(100f)]
+    public void TheInspectorNameColumnFitsANarrowPanelWithoutThrowing(float width)
+    {
+        W.Inspector.SetRect(new LayoutRect(0, 0, width, 300)); // video mode collapses the docks to nothing
+        Assert.Equal(InspectorPanel.MinLabelWidth, W.Inspector.LabelWidth);
+    }
+
     [Fact]
     public void EveryPanelLoadsWithoutRmlUiErrorsAndANewSceneIsOpen()
     {
         foreach (var document in W.PanelLayer.Documents)
             Assert.True(document.IsLoaded, document.Name);
-        Assert.Equal(9, W.PanelLayer.Documents.Count); // with the song panel (hidden until a song tab is active)
+        Assert.Equal(10, W.PanelLayer.Documents.Count); // with the song and video panels
         Assert.Empty(_editor.RmlMessages);
 
         Assert.Single(W.Session.Scenes);

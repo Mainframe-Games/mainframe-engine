@@ -1,4 +1,5 @@
 using System.Globalization;
+using MainframeEngine.Editor.Video;
 
 namespace MainframeEngine.Editor;
 
@@ -17,7 +18,10 @@ public sealed class PlayController : IDisposable
     public PlayController(EditorWorkspace workspace, IGameBuilder builder, IGameLauncher launcher)
     {
         _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
-        Service = new PlayService(builder, launcher);
+        Service = new PlayService(builder, launcher)
+        {
+            FfmpegPath = () => VideoFfmpeg.GameArgument(_workspace.Settings.VideoFfmpegPath),
+        };
         Service.GameLog += OnGameLog;
         Service.GameOutput += OnGameOutput;
         Service.BuildOutput += OnBuildOutput;

@@ -133,6 +133,29 @@ public sealed class EditorLayoutTests : IDisposable
     }
 
     [Fact]
+    public void ALayoutFileFromBeforeVideoModeShowsTheTranscriptAtTheDefaultSizes()
+    {
+        // Written by an editor without video mode: none of the Video* keys.
+        var old = Path.Combine(_directory, "old.json");
+        File.WriteAllText(old, """
+            { "Format": 1, "LeftWidth": 300, "RightWidth": 330, "BottomHeight": 190, "LeftDockSplit": 0.62,
+              "WindowWidth": 1400, "WindowHeight": 800, "OutputFilter": 15, "InspectorLabelWidth": 0,
+              "OutputCollapse": false, "OutputFollow": true, "SoundDesignerAutoPlay": true }
+            """);
+        var loaded = EditorLayout.Load(old);
+        Assert.True(loaded.VideoShowTranscript);
+        Assert.False(loaded.VideoShowOutput);
+        Assert.Equal(320, loaded.VideoTranscriptWidth);
+        Assert.Equal(180, loaded.VideoTimelineHeight);
+        Assert.Equal(300, loaded.LeftWidth);
+
+        // Hiding it survives a round trip.
+        var hidden = Path.Combine(_directory, "hidden.json");
+        Assert.True(EditorLayout.Save(hidden, loaded with { VideoHideTranscript = true }));
+        Assert.False(EditorLayout.Load(hidden).VideoShowTranscript);
+    }
+
+    [Fact]
     public void TheDefaultPathIsInTheUserProfile()
     {
         Assert.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), EditorLayout.DefaultPath, StringComparison.Ordinal);

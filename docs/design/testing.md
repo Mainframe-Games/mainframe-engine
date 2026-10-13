@@ -14,6 +14,7 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run) | lavapipe in CI and in Docker (`just render-tests-linux`), MoltenVK locally (`just test-render`) |
 | [`Tests/MainframeEngine.RenderTests.Host`](../../Tests/MainframeEngine.RenderTests.Host/) | Console app that runs one scene | launched by the render tests |
 | [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless; projects, Play (fake builder/launcher), FileSystem, code reload (Roslyn-compiled game assemblies); one `Category=Slow` test runs the real `dotnet new mfgame` + build | every OS in CI (`just test`) |
+| [`Tests/MainframeEngine.Video.Tests`](../../Tests/MainframeEngine.Video.Tests/) | xUnit v3 tests of `MainframeEngine.Video` (the video mode's logic, ported from Cutback): partition, planners, sidecar, projects, transcripts, ffmpeg argument and output parsing; never runs ffmpeg or loads a Whisper model ([Video editing mode](video-editor.md#testing)) | every OS in CI (`just test`) |
 | [`Examples/Demo/Demo.Tests`](../../Examples/Demo/Demo.Tests/) | xUnit v3 tests of the Demo game (own solution, not in `MainframeEngine.slnx`): scene files vs their builders, nav, every scene's panels; run by `build/demo-smoke.sh` and CI's `template` job, see [Demo](demo.md#tests-and-ci) | CI (`template` job), locally (`dotnet test Examples/Demo/Demo.Tests`) |
 | [`Tests/Content`](../../Tests/Content/) | Shared test assets (not a project): the showcase fixture scene, glTF test model, SpineBoy, sky, ambience, logo, a Spanish catalog; linked into the test projects' output | — |
 | [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`, `just qa-projects`), see [Editor](editor.md#testing-and-qa) |
@@ -242,8 +243,9 @@ sequenceDiagram
   start-up if the framebuffer cannot reach the request; `result.json` records the scale (`ContentScale`).
   The editor's smoke runs (`EditorRenderTests`) pass the same canonical `--scale` to `MainframeEngine.Editor`: the
   editor window golden is 1280×720 points (2560×1440 `moltenvk`, 1280×720 `lavapipe`), the splash 960×600 points;
-  the Project Manager and FileSystem panel goldens (`--smoke-golden project-manager|filesystem`) use the editor window
-  size.
+  the Project Manager, FileSystem panel and video mode goldens (`--smoke-golden
+  project-manager|filesystem|video-empty|video-timeline`) use the editor window size. `video-timeline` also measures
+  300 steady frames for the allocation gate.
 - **Comparing drivers at one resolution.** `--scale 1` on a Mac renders 320×240, the size of the lavapipe frames, so
   MoltenVK and lavapipe output can be diffed pixel for pixel.
 

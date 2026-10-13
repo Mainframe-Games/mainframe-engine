@@ -4,17 +4,14 @@ using System.Numerics;
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
-/// Base of the song tab's two canvases (drawn into their own <see cref="SubViewport"/>s with the engine's 2D canvas):
-/// helpers that take dp and draw in framebuffer pixels (<see cref="PixelScale"/>), so text stays sharp on HiDPI screens.
-/// Drawing allocates nothing in steady state: labels come from caches.
+/// Base of the song tab's two canvases (drawn into their own <see cref="SubViewport"/>s with the engine's 2D canvas); the
+/// dp drawing helpers live in <see cref="EditorCanvas"/>. Drawing allocates nothing in steady state: labels come from caches.
 /// </summary>
 [Tool]
-public abstract class SongCanvas : Node2D
+public abstract class SongCanvas : EditorCanvas
 {
     private static readonly Dictionary<string, Vector4> Colors = new(StringComparer.OrdinalIgnoreCase);
     private static readonly string[] BarLabels = new string[1000];
-    private static Font? _font;
-    private static bool _fontLoaded;
 
     /// <summary>Track colours used when a track has none (by track index).</summary>
     public static readonly string[] Palette = ["#22d3ee", "#a78bfa", "#f59e0b", "#5eead4", "#f472b6", "#a3e635", "#60a5fa", "#fb923c"];
@@ -34,54 +31,9 @@ public abstract class SongCanvas : Node2D
 
     public SongTab Tab { get; }
 
-    /// <summary>Framebuffer pixels per dp.</summary>
-    public float PixelScale { get; set; } = 1;
-
-    /// <summary>The canvas size in dp.</summary>
-    public Vector2 ViewSize { get; set; } = new(800, 300);
-
     protected SongCanvasController Controller => Tab.Controller;
 
     protected Song Song => Tab.Document.Song;
-
-    /// <summary>The editor UI font (null when the file is missing: text is skipped).</summary>
-    protected static Font? TextFont
-    {
-        get
-        {
-            if (_fontLoaded)
-                return _font;
-            _fontLoaded = true;
-            var path = Path.Combine(AppContext.BaseDirectory, "Content", "UI", "fonts", "LatoLatin-Regular.ttf");
-            if (File.Exists(path))
-                _font = Font.FromData(File.ReadAllBytes(path));
-            return _font;
-        }
-    }
-
-    protected void Box(float x, float y, float w, float h, Vector4 color)
-    {
-        if (w > 0 && h > 0)
-            DrawRect(new Rect2(x * PixelScale, y * PixelScale, w * PixelScale, h * PixelScale), color);
-    }
-
-    protected void Outline(float x, float y, float w, float h, Vector4 color, float width = 1)
-    {
-        if (w > 0 && h > 0)
-            DrawRect(new Rect2(x * PixelScale, y * PixelScale, w * PixelScale, h * PixelScale), color, filled: false, width * PixelScale);
-    }
-
-    protected void Line(float x0, float y0, float x1, float y1, Vector4 color, float width = 1) =>
-        DrawLine(new Vector2(x0 * PixelScale, y0 * PixelScale), new Vector2(x1 * PixelScale, y1 * PixelScale), color, width * PixelScale);
-
-    protected void Text(string text, float x, float baseline, float size, Vector4 color)
-    {
-        if (TextFont is { } font)
-            DrawString(font, new Vector2(MathF.Round(x * PixelScale), MathF.Round(baseline * PixelScale)), text, HorizontalAlignment.Left, -1,
-                (int)MathF.Round(size * PixelScale), color);
-    }
-
-    protected static Vector4 Rgb(int r, int g, int b, float a = 1) => new(r / 255f, g / 255f, b / 255f, a);
 
     /// <summary>A track's colour (its <c>#rrggbb</c>, else the palette by index).</summary>
     public static Vector4 TrackColor(SongTrack track, int index)
@@ -103,8 +55,6 @@ public abstract class SongCanvas : Node2D
         color = Rgb((v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff);
         return true;
     }
-
-    protected static Vector4 WithAlpha(Vector4 c, float a) => new(c.X, c.Y, c.Z, a);
 
     protected static string BarLabel(long bar)
     {

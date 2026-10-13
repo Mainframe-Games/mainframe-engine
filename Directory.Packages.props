@@ -41,6 +41,12 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
   </ItemGroup>
 
+  <!-- Editor only (MainframeEngine.Video: speech recognition for the video editor; never referenced by the runtime) -->
+  <ItemGroup>
+    <PackageVersion Include="Whisper.net" Version="[1.9.1]" />
+    <PackageVersion Include="Whisper.net.Runtime" Version="[1.9.1]" />
+  </ItemGroup>
+
   <!-- Examples only -->
   <ItemGroup>
   </ItemGroup>

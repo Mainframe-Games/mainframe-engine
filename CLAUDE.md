@@ -7,7 +7,7 @@ Local commands are `just` recipes (run `just` to list them); CI calls `dotnet` d
 
 ```bash
 just build            # dotnet build MainframeEngine.slnx — 0 warnings, warnings are errors
-just test             # unit tests: engine (Tests/MainframeEngine.Tests) + editor (Tests/MainframeEngine.Editor.Tests)
+just test             # unit tests: engine, editor and video (Tests/MainframeEngine.{Tests,Editor.Tests,Video.Tests})
 just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
 just test-linux       # CI's Linux unit/editor tests in Docker (x86_64 ubuntu:24.04)
 just render-tests-linux  # render tests on lavapipe in Docker: checks/records the `lavapipe` goldens locally
@@ -136,11 +136,18 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   (`--qa-script`, `--smoke`). The RmlUi debugger is F9 (F5–F8 are Play keys, F10 is Play and Record). Code reload re-creates scenes that use
   game code: editor code must not keep game nodes/types in fields or statics past `ReleaseEditorReferences`.
   References engine core only (no generator: editor nodes stay unregistered). See `docs/design/editor.md`
+- **Video mode** (ADR 0191): the editor has a Game|Video mode (`EditorWorkspace.SetMode`; the modes section of
+  `docs/design/editor.md`) whose video mode trims recordings. Its logic is `MainframeEngine.Video/`, an editor-only MIT
+  library copied from Cutback (`LICENSE-CUTBACK`; segments, detection, sidecar, `.mfcut` projects, ffmpeg media,
+  Whisper.net transcription); only the editor and its tests reference it, never the runtime or games. Its tests
+  (`Tests/MainframeEngine.Video.Tests`, and the editor's `Video/` tests) never run ffmpeg or load a Whisper model. The UI
+  is `MainframeEngine.Editor/Src/Video/` (`VideoTab`, `VideoDocument`, `VideoView`, `VideoPanel`, the timeline, preview
+  and transcript) with `Content/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Plugins/Facepunch.Steamworks/` — Facepunch.Steamworks 2.4.1 Win64/Posix builds (vendored, do not modify; Valve's
   matching `steam_api` natives are in `MainframeEngine/runtimes/<rid>/native`)
-- `Tests/` — shared test assets (`Tests/Content`: showcase fixture scene, glTF/Spine/sky/audio, render-test catalogs), unit tests (engine, editor), render tests (+ host, editor smoke; goldens per driver in
+- `Tests/` — shared test assets (`Tests/Content`: showcase fixture scene, glTF/Spine/sky/audio, render-test catalogs), unit tests (engine, editor, video), render tests (+ host, editor smoke; goldens per driver in
   `Tests/MainframeEngine.RenderTests/Goldens/{moltenvk,lavapipe}`), benchmarks (`baseline.json`), QA scripts
   (`Tests/QA`); see `docs/design/testing.md`
 - `Native/` — in-house native shims and their sources (`mfrmlui` over RmlUi + FreeType, ENet), built per platform by
@@ -321,6 +328,7 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected �
 - StbImageSharp — texture/image loading
 - SoundFlow 1.4.1 (audio device/mixer, miniaudio natives in the package) and NVorbis 0.10.5 (OGG) — audio (M7)
 - Jitter2 (3D) and Box2D.NET (2D) — physics (pinned exactly)
+- Whisper.net + Whisper.net.Runtime 1.9.1 — speech recognition for the editor's video mode only (`MainframeEngine.Video`)
 
 Do not add NuGet packages without discussing the dependency first. Versions are central in
 `Directory.Packages.props`.

@@ -1,8 +1,8 @@
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// A tab of the centre panel (<see cref="EditorSession.Tabs"/>): an <see cref="EditedScene"/>, or a <see cref="UiPreview"/>
-/// of an <c>.rml</c> document.
+/// A tab of the centre panel (<see cref="EditorSession.Tabs"/>): an <see cref="EditedScene"/>, a <see cref="UiPreview"/>
+/// of an <c>.rml</c> document, a song, or (in video mode) a recording.
 /// </summary>
 public interface IEditorTab : IDisposable
 {
@@ -23,4 +23,7 @@ public interface IEditorTab : IDisposable
 
     /// <summary>The tab's tooltip: name, state and file.</summary>
     string Tooltip { get; }
+
+    /// <summary>The editor mode the tab belongs to: the tab strip shows only the current mode's tabs.</summary>
+    EditorMode Mode => EditorMode.Game;
 }
