@@ -145,12 +145,13 @@ public sealed class ToolbarPanel : EditorDocument
         RefreshPlay();
     }
 
-    private const string RecordStartTip = "Play and Record (F10) — record gameplay for promo footage; press again to stop";
+    private const string RecordPlayTip = "Play and Record (F10) — record gameplay for promo footage; press again to stop";
+    private const string RecordStartTip = "Start Recording (F10) — record the running game from now on; press again to stop";
     private const string RecordStopTip = "Stop Recording (F10)";
-    private const string RecordSavingTip = "Saving recording…";
+    private const string RecordSavingTip = PlayController.SavingRecordingText;
     private string _instancesRml = "";
     private string _playStatus = "";
-    private string _recordTip = RecordStartTip;
+    private string _recordTip = RecordPlayTip;
     private bool _recDot;
 
     /// <summary>
@@ -187,11 +188,10 @@ public sealed class ToolbarPanel : EditorDocument
         var canPlay = project.DesktopProject is not null && !play.IsBuilding;
         document.GetElementById("play").SetClass("disabled", !canPlay);
         document.GetElementById("play-scene").SetClass("disabled", !canPlay || Workspace.Session.Active is null);
-        var recording = play.Service.AnyRecording;
         var record = document.GetElementById("record");
         record.SetClass("disabled", !play.CanToggleRecording);
-        record.SetClass("recording", recording);
-        var recordTip = play.IsRecording ? RecordStopTip : play.IsSavingRecording ? RecordSavingTip : RecordStartTip;
+        record.SetClass("recording", play.IsRecording); // red only while frames are being recorded, not while saving
+        var recordTip = play.IsRecording ? RecordStopTip : play.IsSavingRecording ? RecordSavingTip : play.IsPlaying ? RecordStartTip : RecordPlayTip;
         if (!string.Equals(recordTip, _recordTip, StringComparison.Ordinal))
         {
             _recordTip = recordTip;

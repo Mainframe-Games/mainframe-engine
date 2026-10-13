@@ -124,7 +124,8 @@ public sealed partial class EditorWorkspace : Node
             CutbackLocator.FindForThisMachine,
             Options.LaunchCutback ?? LaunchCutback,
             Options.Reveal ?? OsShell.Reveal,
-            OsShell.OpenUrl);
+            OsShell.OpenUrl,
+            Directory.Exists);
         Play.Service.RecordingFinished += (_, recording) => recordingNotifier.OnFinished(recording);
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
         AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
@@ -355,12 +356,15 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>
     /// Starts Cutback on <paramref name="file"/> as a separate process (it is a GPL app; the editor never links it). It is a
     /// GUI app, so its output is not redirected, and the editor does not wait for it: <c>Process.Start</c> returns at once.
+    /// On macOS a bundle is opened through <c>open -a</c> (<see cref="CutbackLocator.LaunchCommand"/>).
     /// </summary>
     private static bool LaunchCutback(string app, string file)
     {
         try
         {
-            var info = ProcessRunner.CreateStartInfo(app, [file], redirectOutput: false);
+            var (fileName, arguments) = CutbackLocator.LaunchCommand(app, file,
+                OperatingSystem.IsWindows() ? OsKind.Windows : OperatingSystem.IsMacOS() ? OsKind.MacOS : OsKind.Linux);
+            var info = ProcessRunner.CreateStartInfo(fileName, arguments, redirectOutput: false);
             using var process = System.Diagnostics.Process.Start(info);
             return process is not null;
         }

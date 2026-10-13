@@ -13,6 +13,7 @@ public sealed class RecordingNotifierTests
         public string? Cutback = "/Applications/Cutback.app/Contents/MacOS/Cutback";
         public bool LaunchSucceeds = true;
         public string? SettingSeen;
+        public string? ExistingDirectory;
 
         public RecordingNotifier Create(string? setting = null) => new(Shown.Add, () => setting,
             s =>
@@ -25,7 +26,7 @@ public sealed class RecordingNotifierTests
                 Launched.Add((app, file));
                 return LaunchSucceeds;
             },
-            Revealed.Add, Opened.Add);
+            Revealed.Add, Opened.Add, d => d == ExistingDirectory);
     }
 
     private static EditorLinkRecording Saved(string path = "/u/recordings/a.mp4") =>
@@ -157,6 +158,19 @@ public sealed class RecordingNotifierTests
         Assert.Equal(["Close"], dialog.Buttons);
         dialog.Callback!(0, "");
         Assert.Empty(h.Revealed);
+    }
+
+    [Fact]
+    public void AnAbandonedRecordingWithAPartialFolderOffersShowInFolder()
+    {
+        var h = new Harness { ExistingDirectory = "/u/a.mp4.partial" };
+        h.Create().OnFinished(new EditorLinkRecording(EditorLinkRecordingState.Failed, "/u/a.mp4", 0, 0, 0,
+            "The game exited before the recording was saved."));
+
+        var dialog = Assert.Single(h.Shown);
+        Assert.Equal(["Show in Folder", "Close"], dialog.Buttons);
+        dialog.Callback!(0, "");
+        Assert.Equal(["/u/a.mp4.partial"], h.Revealed);
     }
 
     [Fact]

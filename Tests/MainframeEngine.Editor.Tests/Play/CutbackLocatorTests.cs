@@ -39,4 +39,40 @@ public sealed class CutbackLocatorTests
     {
         Assert.Null(CutbackLocator.Find(null, "/usr/bin", OsKind.Linux, "/home/u", null, _ => false));
     }
+
+    [Fact]
+    public void MacAcceptsAnAppBundleAsTheSetting()
+    {
+        Assert.Equal("/Users/u/Apps/Cutback.app",
+            CutbackLocator.Find("/Users/u/Apps/Cutback.app", "", OsKind.MacOS, "/Users/u", null, _ => false, d => d == "/Users/u/Apps/Cutback.app"));
+    }
+
+    [Fact]
+    public void OnlyMacAcceptsADirectoryAsTheSetting()
+    {
+        Assert.Null(CutbackLocator.Find("/opt/Cutback.app", "", OsKind.Linux, "/home/u", null, _ => false, _ => true));
+        Assert.Null(CutbackLocator.Find("/Users/u/Cutback", "", OsKind.MacOS, "/Users/u", null, _ => false, _ => true)); // a folder, not a bundle
+    }
+
+    [Theory]
+    [InlineData("/Applications/Cutback.app", "/Applications/Cutback.app")]
+    [InlineData("/Applications/Cutback.app/", "/Applications/Cutback.app")]
+    [InlineData("/Applications/Cutback.app/Contents/MacOS/Cutback", "/Applications/Cutback.app")]
+    public void MacOpensABundleThroughOpenSoItIsNotTheEditorsChild(string app, string bundle)
+    {
+        var (fileName, arguments) = CutbackLocator.LaunchCommand(app, "/u/r/a.mp4", OsKind.MacOS);
+        Assert.Equal("open", fileName);
+        Assert.Equal(["-a", bundle, "--args", "/u/r/a.mp4"], arguments);
+    }
+
+    [Theory]
+    [InlineData(OsKind.MacOS, "/usr/local/bin/cutback")]
+    [InlineData(OsKind.Linux, "/home/u/.local/bin/cutback")]
+    [InlineData(OsKind.Windows, @"C:\Programs\Cutback\Cutback.exe")]
+    public void OtherPathsAreRunDirectly(OsKind os, string app)
+    {
+        var (fileName, arguments) = CutbackLocator.LaunchCommand(app, "/u/r/a.mp4", os);
+        Assert.Equal(app, fileName);
+        Assert.Equal(["/u/r/a.mp4"], arguments);
+    }
 }

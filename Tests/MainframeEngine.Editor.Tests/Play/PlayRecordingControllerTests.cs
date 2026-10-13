@@ -118,6 +118,7 @@ public sealed class PlayRecordingControllerTests : IDisposable
         Assert.Equal("recordings", Path.GetFileName(Path.GetDirectoryName(path)));
         Assert.EndsWith(".mp4", path, StringComparison.Ordinal);
         Assert.True(Directory.Exists(Path.GetDirectoryName(path)), "the recordings folder is created");
+        Assert.StartsWith("Main-", Path.GetFileName(path), StringComparison.Ordinal); // named after the main scene
         Assert.True(record + 1 < arguments.ToList().IndexOf("--editor-port"), "--record belongs to the host flags, before --editor-port");
     }
 
@@ -193,6 +194,7 @@ public sealed class PlayRecordingControllerTests : IDisposable
         Assert.False(toolbar.GetElementById("record").IsClassSet("disabled"));
         Assert.False(toolbar.GetElementById("record").IsClassSet("recording"));
         Assert.False(toolbar.GetElementById("rec-dot").IsClassSet("on"));
+        Assert.StartsWith("Start Recording (F10)", toolbar.GetElementById("record").GetAttribute("data-tooltip"), StringComparison.Ordinal);
 
         Play.ToggleRecording();
         TickUntil(() => instances[0].Recording == PlayRecordingState.Recording, "recording to start");
@@ -203,12 +205,22 @@ public sealed class PlayRecordingControllerTests : IDisposable
         Assert.DoesNotContain("●", toolbar.GetElementById("play-status").InnerRml, StringComparison.Ordinal); // not in the UI font
         Assert.Contains("Stop Recording", toolbar.GetElementById("record").GetAttribute("data-tooltip"), StringComparison.Ordinal);
 
+        _launcher.Games[0].SwallowStopRecording = true; // stays "saving"
         Play.ToggleRecording();
-        TickUntil(() => instances[0].Recording == PlayRecordingState.None, "the recording to finish");
+        TickUntil(() => instances[0].Recording == PlayRecordingState.Saving, "the recording to be saving");
+        _editor.Tick(2);
+        Assert.False(toolbar.GetElementById("record").IsClassSet("recording")); // red only while actually recording
+        Assert.False(toolbar.GetElementById("rec-dot").IsClassSet("on"));
+        Assert.Equal("Saving recording…", toolbar.GetElementById("play-status").InnerRml);
+        Assert.Equal("Saving recording…", toolbar.GetElementById("record").GetAttribute("data-tooltip"));
+
+        Play.Stop();
+        TickUntil(() => !Play.IsPlaying, "the games to stop");
         _editor.Tick(2);
         Assert.False(toolbar.GetElementById("record").IsClassSet("recording"));
         Assert.False(toolbar.GetElementById("rec-dot").IsClassSet("on"));
         Assert.Equal("", toolbar.GetElementById("play-status").InnerRml);
+        Assert.StartsWith("Play and Record (F10)", toolbar.GetElementById("record").GetAttribute("data-tooltip"), StringComparison.Ordinal);
         Assert.Empty(_editor.RmlMessages);
     }
 
@@ -233,7 +245,7 @@ public sealed class PlayRecordingControllerTests : IDisposable
         Play.ToggleRecording();
         TickUntil(() => instances[0].Recording == PlayRecordingState.Saving, "the recording to be saving");
         item = RecordMenuItem();
-        Assert.Equal(("Saving Recording…", false), (item.Label, item.Enabled));
+        Assert.Equal(("Saving recording…", false), (item.Label, item.Enabled));
         _editor.Tick(2);
         Assert.True(_editor.Workspace.Toolbar.Document.GetElementById("record").IsClassSet("disabled"));
         Assert.Equal(1, _launcher.Games.Sum(g => Count(g, EditorCommandKind.StartRecording)));
@@ -350,6 +362,7 @@ public sealed class PlayRecordingControllerTests : IDisposable
 
         Assert.Equal(PlayRecordingState.Saving, instances[0].Recording);
         Assert.True(Play.IsSavingRecording);
+        Assert.Equal("Saving recording…", Play.RecordingLabel);
     }
 
     [Fact]

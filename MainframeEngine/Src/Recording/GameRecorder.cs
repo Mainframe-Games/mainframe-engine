@@ -96,8 +96,8 @@ public sealed class GameRecorder : IFrameStreamSink
 
     /// <summary>
     /// Where the current recording is being written (the full path), from <see cref="Start"/> until the recording has been
-    /// finalised and <see cref="Stopped"/> raised; null otherwise. <see cref="Started"/> handlers read it, since the event
-    /// itself carries nothing.
+    /// finalised; null otherwise. <see cref="Started"/> handlers read it, since the event itself carries nothing. It is
+    /// already null inside <see cref="Stopped"/> handlers: use <see cref="RecordingResult.Path"/> there.
     /// </summary>
     public string? OutputPath => _backend is not null ? _format?.OutputPath : null;
 

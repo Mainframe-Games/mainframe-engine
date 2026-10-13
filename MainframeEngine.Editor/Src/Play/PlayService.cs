@@ -773,7 +773,10 @@ public sealed class PlayService : IDisposable
     {
         var instance = _instances[index];
         _instances.RemoveAt(index);
-        if (instance.GameId is { } id)
+        // An exited game's last messages (its Stopped, then the Disconnected) can still be queued on the link: a recording
+        // instance stays reachable by its connection until the Disconnected, so the saved file is still reported (or the
+        // recording abandoned) even after the instance left the list.
+        if (instance.GameId is { } id && instance.Recording == PlayRecordingState.None)
             _byGameId.Remove(id);
         instance.Process?.Dispose();
         _changed = true;

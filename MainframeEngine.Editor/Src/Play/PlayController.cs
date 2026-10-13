@@ -221,7 +221,10 @@ public sealed class PlayController : IDisposable
     private long _startRequestedAt;
 
     /// <summary>The Run menu / tooltip label of the F10 command in the current state.</summary>
-    public string RecordingLabel => !IsPlaying ? "Play and Record" : IsRecording ? "Stop Recording" : IsSavingRecording ? "Saving Recording…" : "Start Recording";
+    public string RecordingLabel => !IsPlaying ? "Play and Record" : IsRecording ? "Stop Recording" : IsSavingRecording ? SavingRecordingText : "Start Recording";
+
+    /// <summary>What the menu, the record button's tooltip and the toolbar status say while a recording is being finalised.</summary>
+    public const string SavingRecordingText = "Saving recording…";
 
     /// <summary>Shown when the game's engine predates recording from the editor (its link protocol is older than 4).</summary>
     public const string OlderEngineMessage =
@@ -242,7 +245,7 @@ public sealed class PlayController : IDisposable
 
     /// <summary>
     /// Runs the main scene with <c>--record &lt;path&gt;</c> so the recording covers the game from its first frame (the
-    /// path is in the project's <c>recordings</c> folder, see <see cref="RecordingPaths"/>).
+    /// path is in the project's <c>recordings</c> folder, named after the main scene, see <see cref="RecordingPaths"/>).
     /// </summary>
     public void PlayAndRecord()
     {
@@ -254,7 +257,7 @@ public sealed class PlayController : IDisposable
 
         if (!CanPlay(out _, out _)) // before the folder is created: a refused launch must not leave an empty recordings folder
             return;
-        if (!TryNewRecordingPath(userData, scene: null, out var path))
+        if (!TryNewRecordingPath(userData, _workspace.Project.MainScenePath(), out var path))
             return;
         PlayMain([RecordArgument, path]);
     }
@@ -392,7 +395,7 @@ public sealed class PlayController : IDisposable
                 var elapsed = startedUtc is { } started && nowUtc > started ? nowUtc - started : TimeSpan.Zero;
                 return string.Create(CultureInfo.InvariantCulture, $"REC {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00}");
             case PlayRecordingState.Saving:
-                return "Saving recording…";
+                return SavingRecordingText;
             default:
                 return "";
         }

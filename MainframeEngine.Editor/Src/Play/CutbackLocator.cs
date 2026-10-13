@@ -10,7 +10,8 @@ public enum OsKind
 
 /// <summary>
 /// Finds the Cutback app (the video trimmer that reads Mainframe recordings): the Editor Settings path,
-/// then PATH, then the usual install location per OS. Null when it is not installed.
+/// then PATH, then the usual install location per OS. Null when it is not installed. On macOS the setting may name the
+/// <c>.app</c> bundle itself, and a bundle is started through <c>open</c> (<see cref="LaunchCommand"/>).
 /// </summary>
 public static class CutbackLocator
 {
@@ -25,15 +26,21 @@ public static class CutbackLocator
         OperatingSystem.IsWindows() ? OsKind.Windows : OperatingSystem.IsMacOS() ? OsKind.MacOS : OsKind.Linux,
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        File.Exists);
+        File.Exists,
+        Directory.Exists);
 
     /// <summary>
-    /// The first existing Cutback in this order: <paramref name="settingPath"/> (when set), each PATH folder, then the
-    /// OS's install location. <paramref name="fileExists"/> is injected so every OS's layout can be tested on any host.
+    /// The first existing Cutback in this order: <paramref name="settingPath"/> (when set; on macOS also an existing
+    /// <c>.app</c> folder, what the Finder shows as the app), each PATH folder, then the OS's install location.
+    /// <paramref name="fileExists"/> and <paramref name="directoryExists"/> are injected so every OS's layout can be tested
+    /// on any host.
     /// </summary>
-    public static string? Find(string? settingPath, string? pathVariable, OsKind os, string home, string? localAppData, Func<string, bool> fileExists)
+    public static string? Find(string? settingPath, string? pathVariable, OsKind os, string home, string? localAppData, Func<string, bool> fileExists,
+        Func<string, bool>? directoryExists = null)
     {
-        if (!string.IsNullOrWhiteSpace(settingPath) && fileExists(settingPath))
+        if (!string.IsNullOrWhiteSpace(settingPath) &&
+            (fileExists(settingPath) || (os == OsKind.MacOS && BundleOf(settingPath) is { } bundle && bundle == TrimSlash(settingPath) &&
+                                         directoryExists?.Invoke(settingPath) == true)))
             return settingPath;
 
         var separator = os == OsKind.Windows ? ';' : ':';
@@ -58,4 +65,31 @@ public static class CutbackLocator
         };
         return known is not null && fileExists(known) ? known : null;
     }
+
+    /// <summary>
+    /// How to start <paramref name="app"/> on <paramref name="file"/>. On macOS a bundle (<c>X.app</c>, or its
+    /// <c>X.app/Contents/MacOS/*</c> executable) goes through <c>open -a X.app --args file</c>: Launch Services starts and
+    /// activates it as an app of its own, outside the editor's process tree (a child would die with the editor, and an
+    /// executable started directly opens behind it). Anything else runs directly with the file as its argument.
+    /// </summary>
+    public static (string FileName, IReadOnlyList<string> Arguments) LaunchCommand(string app, string file, OsKind os)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(app);
+        ArgumentNullException.ThrowIfNull(file);
+        if (os == OsKind.MacOS && BundleOf(app) is { } bundle)
+            return ("open", ["-a", bundle, "--args", file]);
+        return (app, [file]);
+    }
+
+    /// <summary><c>/x/Cutback.app</c> for <c>/x/Cutback.app</c>, <c>/x/Cutback.app/</c> or <c>/x/Cutback.app/Contents/MacOS/Cutback</c>; else null.</summary>
+    private static string? BundleOf(string path)
+    {
+        var trimmed = TrimSlash(path);
+        if (trimmed.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+            return trimmed;
+        var inside = trimmed.IndexOf(".app/Contents/MacOS/", StringComparison.OrdinalIgnoreCase);
+        return inside > 0 ? trimmed[..(inside + ".app".Length)] : null;
+    }
+
+    private static string TrimSlash(string path) => path.TrimEnd('/');
 }

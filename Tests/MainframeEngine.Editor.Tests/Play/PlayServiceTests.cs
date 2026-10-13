@@ -724,6 +724,36 @@ public sealed class PlayServiceTests
         Assert.Equal(EditorLinkProtocol.Version, instance.ProtocolVersion);
         Assert.True(instance.CanRecord);
     }
+
+    [Fact]
+    public void AStoppedReadAfterTheExitedInstanceWasClearedStillFinishesTheRecording()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        using var gate = new ManualResetEventSlim(false);
+        var game = play.Game(instance);
+        var finished = new List<EditorLinkRecording>();
+        play.Service.RecordingFinished += (_, r) => finished.Add(r);
+        play.Service.StartRecording(instance, "/u/a.mp4");
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        game.ExitBeforeReportingGate = gate;
+
+        Assert.True(play.Service.StopRecording(instance));
+        play.Pump(() => !instance.IsAlive, "the exit to be polled");
+        play.Service.ClearExited(); // the user clears finished instances before the link's last messages are read
+        Assert.DoesNotContain(instance, play.Service.Instances);
+        gate.Set();
+        play.Pump(() => finished.Count > 0, "the Stopped report");
+        for (var i = 0; i < 20; i++)
+        {
+            play.Service.Update();
+            Thread.Sleep(2);
+        }
+
+        var result = Assert.Single(finished);
+        Assert.Equal(EditorLinkRecordingState.Stopped, result.State);
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+    }
 }
 
 /// <summary>A temporary <c>MyGame.Desktop.csproj</c> with a fake <c>bin/Debug/net10.0</c> build output.</summary>
