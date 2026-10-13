@@ -637,8 +637,8 @@ generated parameter sliders (`File` and `LoadMode` rows are hidden):
 
 ![Sound designer: the ZzfxStream inspector and FileSystem previews](../images/sound-designer.svg)
 
-- **Play / Stop** toggles the preview; **Auto-play** (on by default, `SoundDesignerAutoPlay` in `editor_layout.json`)
-  replays the sound after every committed change — a slider release, a field commit, a preset, Randomize, Mutate,
+- **Play / Stop** toggles the preview; **Auto-play** (on by default; stored inverted as `SoundDesignerManualPlay` in `editor_layout.json`, so
+  a file without the key auto-plays) replays the sound after every committed change — a slider release, a field commit, a preset, Randomize, Mutate,
   Paste, undo or redo — through `OnPropertyChanged`.
 - **Info and waveform:** the length ("0.94 s · 44.1 kHz mono") or the `LoadError`/length error in the notice style;
   96 min/max columns over the generated samples (normalised to the loudest peak) as `div` bars sized in `dp`, rebuilt
