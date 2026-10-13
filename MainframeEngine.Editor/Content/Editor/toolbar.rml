@@ -55,6 +55,10 @@
         .instance.crashed { border-color: #b91c1c; }
         .instance.exited { color: #6b7488; }
         #play-status { margin-left: 6dp; font-size: 11dp; white-space: nowrap; }
+        /* The REC status's red dot: an icon, since the UI font (LatoLatin) has no ● glyph. */
+        #rec-dot { display: none; width: 10dp; height: 10dp; margin-left: 6dp; image-color: #ef4444; }
+        #rec-dot.on { display: inline-block; }
+        #rec-dot.on + #play-status { margin-left: 3dp; }
     </style>
 </head>
 <body class="panel-doc toolbar">
@@ -84,6 +88,7 @@
         <button id="build-reload" class="tool-button" data-command="project.build_reload" data-tooltip="Build &amp; Reload (Ctrl+Shift+B) — compile the game's C# and reload it in the editor"><span class="icon icon-hammer"></span></button>
         <button id="user-data" class="tool-button" data-command="project.user_data" data-tooltip="Open User Data Folder — show the folder the game keeps its saves, settings and logs in (created if missing)"><span class="icon icon-folder-user"></span></button>
         <div id="instances"></div>
+        <span id="rec-dot" class="icon icon-point-filled"></span>
         <span id="play-status" class="muted"></span>
     </div>
     <div class="spacer"></div>

@@ -109,6 +109,18 @@ public sealed class PlayInstance
     /// <summary>When the game confirmed the recording started; null while not recording.</summary>
     public DateTime? RecordingStartedUtc { get; internal set; }
 
+    /// <summary>The editor-link protocol the game's hello reported; null before it connected.</summary>
+    public int? ProtocolVersion { get; internal set; }
+
+    /// <summary>
+    /// The game's link can record from the editor (protocol <see cref="MinRecordingProtocolVersion"/> or later). Older
+    /// games drop the recording commands, and the editor would wait for a Started that never comes.
+    /// </summary>
+    public bool CanRecord => ProtocolVersion >= MinRecordingProtocolVersion;
+
+    /// <summary>The first editor-link protocol with <c>StartRecording</c>/<c>StopRecording</c> and the <c>Recording</c> message.</summary>
+    public const int MinRecordingProtocolVersion = 4;
+
     internal IGameProcess? Process { get; set; }
 
     /// <summary>When the editor asked it to stop (null: never).</summary>

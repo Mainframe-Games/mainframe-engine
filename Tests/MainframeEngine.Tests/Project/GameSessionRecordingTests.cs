@@ -50,17 +50,47 @@ public sealed class GameSessionRecordingTests
     }
 
     [Fact]
-    public void StartRecordingFailureIsReported()
+    public void StartRecordingWhileRecordingReportsTheRunningRecording()
     {
         var (session, recorder, _, sent) = Create();
         using var _ = session;
         session.Apply(new EditorLinkCommand(EditorCommandKind.StartRecording, "/r/a.mp4"));
 
-        session.Apply(new EditorLinkCommand(EditorCommandKind.StartRecording, "/r/b.mp4")); // already recording → throws inside
+        // e.g. --record started it and the editor's F10 crossed the Started on the wire: the editor learns what is running.
+        session.Apply(new EditorLinkCommand(EditorCommandKind.StartRecording, "/r/b.mp4"));
+
+        Assert.Equal([EditorLinkRecordingState.Started, EditorLinkRecordingState.Started], sent.Select(s => s.State));
+        Assert.EndsWith("a.mp4", sent[^1].Path);
+        Assert.Equal(recorder.OutputPath, sent[^1].Path);
+        Assert.True(recorder.IsRecording); // the first recording is unaffected
+    }
+
+    [Fact]
+    public void StartRecordingWhileFinalisingIsReportedAsAFailure()
+    {
+        var (session, recorder, frames, sent) = Create();
+        using var _ = session;
+        session.Apply(new EditorLinkCommand(EditorCommandKind.StartRecording, "/r/a.mp4"));
+        frames.Render();
+        session.Apply(new EditorLinkCommand(EditorCommandKind.StopRecording)); // finalising until the next poll
+
+        session.Apply(new EditorLinkCommand(EditorCommandKind.StartRecording, "/r/b.mp4"));
 
         Assert.Equal(EditorLinkRecordingState.Failed, sent[^1].State);
-        Assert.Contains("Already recording", sent[^1].Error);
-        Assert.True(recorder.IsRecording); // the first recording is unaffected
+        Assert.Contains("finalised", sent[^1].Error);
+        Assert.Equal("/r/b.mp4", sent[^1].Path);
+        recorder.StopAndWait(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public void ReportRecordingFailedSendsAFailedReport()
+    {
+        var (session, _, _, sent) = Create();
+        using var _ = session;
+
+        session.ReportRecordingFailed("/r/a.mp4", "ffmpeg was not found.");
+
+        Assert.Equal(new EditorLinkRecording(EditorLinkRecordingState.Failed, "/r/a.mp4", 0f, 0, 0, "ffmpeg was not found."), Assert.Single(sent));
     }
 
     [Fact]

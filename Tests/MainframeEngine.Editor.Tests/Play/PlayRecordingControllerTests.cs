@@ -8,8 +8,8 @@ public sealed class PlayRecordingStatusTests
 {
     [Theory]
     [InlineData(PlayRecordingState.None, 0, "")]
-    [InlineData(PlayRecordingState.Recording, 83, "● REC 1:23")]
-    [InlineData(PlayRecordingState.Recording, 3725, "● REC 62:05")]
+    [InlineData(PlayRecordingState.Recording, 83, "REC 1:23")]
+    [InlineData(PlayRecordingState.Recording, 3725, "REC 62:05")]
     [InlineData(PlayRecordingState.Saving, 10, "Saving recording…")]
     public void RecordStatusFormatsMinutesAndSeconds(PlayRecordingState state, int seconds, string expected)
     {
@@ -21,7 +21,7 @@ public sealed class PlayRecordingStatusTests
     public void RecordStatusWithoutAStartTimeShowsZero()
     {
         var now = new DateTime(2026, 10, 13, 10, 0, 0, DateTimeKind.Utc);
-        Assert.Equal("● REC 0:00", PlayController.RecordStatus(PlayRecordingState.Recording, null, now));
+        Assert.Equal("REC 0:00", PlayController.RecordStatus(PlayRecordingState.Recording, null, now));
     }
 }
 
@@ -192,18 +192,22 @@ public sealed class PlayRecordingControllerTests : IDisposable
         var instances = StartTwoGames();
         Assert.False(toolbar.GetElementById("record").IsClassSet("disabled"));
         Assert.False(toolbar.GetElementById("record").IsClassSet("recording"));
+        Assert.False(toolbar.GetElementById("rec-dot").IsClassSet("on"));
 
         Play.ToggleRecording();
         TickUntil(() => instances[0].Recording == PlayRecordingState.Recording, "recording to start");
         _editor.Tick(2);
         Assert.True(toolbar.GetElementById("record").IsClassSet("recording"));
-        Assert.Contains("● REC 0:0", toolbar.GetElementById("play-status").InnerRml, StringComparison.Ordinal);
+        Assert.True(toolbar.GetElementById("rec-dot").IsClassSet("on"));
+        Assert.Contains("REC 0:0", toolbar.GetElementById("play-status").InnerRml, StringComparison.Ordinal);
+        Assert.DoesNotContain("●", toolbar.GetElementById("play-status").InnerRml, StringComparison.Ordinal); // not in the UI font
         Assert.Contains("Stop Recording", toolbar.GetElementById("record").GetAttribute("data-tooltip"), StringComparison.Ordinal);
 
         Play.ToggleRecording();
         TickUntil(() => instances[0].Recording == PlayRecordingState.None, "the recording to finish");
         _editor.Tick(2);
         Assert.False(toolbar.GetElementById("record").IsClassSet("recording"));
+        Assert.False(toolbar.GetElementById("rec-dot").IsClassSet("on"));
         Assert.Equal("", toolbar.GetElementById("play-status").InnerRml);
         Assert.Empty(_editor.RmlMessages);
     }
@@ -346,5 +350,39 @@ public sealed class PlayRecordingControllerTests : IDisposable
 
         Assert.Equal(PlayRecordingState.Saving, instances[0].Recording);
         Assert.True(Play.IsSavingRecording);
+    }
+
+    [Fact]
+    public void StartRecordingOnAnOlderGameExplainsWhy()
+    {
+        _launcher.ProtocolVersion = 3;
+        StartTwoGames();
+
+        Play.ToggleRecording();
+
+        var dialog = _editor.Workspace.Message.Current;
+        Assert.NotNull(dialog);
+        Assert.Contains("older MainframeEngine", dialog.Message, StringComparison.Ordinal);
+        _editor.Tick(5);
+        Assert.Equal(0, _launcher.Games.Sum(g => Count(g, EditorCommandKind.StartRecording)));
+    }
+
+    [Fact]
+    public void PlayAndRecordWithAnOlderGameExplainsWhyOnce()
+    {
+        _launcher.ProtocolVersion = 3;
+        Play.PlayAndRecord();
+        TickUntil(() => _editor.Workspace.Message.Current is not null, "the explanation");
+        var dialog = _editor.Workspace.Message.Current!;
+        Assert.Contains("older MainframeEngine", dialog.Message, StringComparison.Ordinal);
+
+        _editor.Workspace.Message.Answer(0);
+        for (var i = 0; i < 20; i++)
+        {
+            _editor.Tick();
+            Thread.Sleep(2);
+        }
+
+        Assert.Null(_editor.Workspace.Message.Current);
     }
 }

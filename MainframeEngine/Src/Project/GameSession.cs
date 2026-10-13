@@ -24,6 +24,10 @@ public sealed class GameSession : IDisposable
     private GameRunState _reportedState = GameRunState.Starting;
     private bool _disposed;
     private GameRecorder? _recorder;
+    private bool _mustReportRecording;
+
+    /// <summary>How long <see cref="Shutdown"/> waits for the link to connect when a recording failure is still unsent.</summary>
+    private static readonly TimeSpan ReportConnectTimeout = TimeSpan.FromMilliseconds(EditorLinkClient.WelcomeTimeoutMilliseconds + 1000);
 
     public GameSession(SceneTree tree, ProjectSettings settings, GameHostOptions? options = null)
     {
@@ -284,6 +288,17 @@ public sealed class GameSession : IDisposable
             Link?.SendRecording(recording);
     }
 
+    /// <summary>
+    /// Tells the editor a recording could not start (the host's <c>--record</c>, which the editor's Play and Record passes):
+    /// without it the editor would only see the game quit. Delivered before the goodbye even when the game quits before
+    /// the link has connected (<see cref="Shutdown"/> waits briefly for the connection).
+    /// </summary>
+    internal void ReportRecordingFailed(string path, string message)
+    {
+        _mustReportRecording = true;
+        SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Failed, path, 0f, 0, 0, message));
+    }
+
     // Start can throw for ordinary reasons (no ffmpeg, bad path, already recording): the editor hears why instead of
     // waiting for a Started that never comes, and a recording already running is left alone.
     private void StartRecording(string path)
@@ -292,6 +307,14 @@ public sealed class GameSession : IDisposable
         {
             SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Failed, path, 0f, 0, 0,
                 "This game has no recorder (it is headless or was not started by GameHost)."));
+            return;
+        }
+
+        if (recorder.IsRecording)
+        {
+            // Already recording (--record started it, and the editor's Start crossed that Started): the editor learns what
+            // is running instead of a failure. A recording still finalising is refused by Start below.
+            SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Started, recorder.OutputPath ?? path, 0f, 0, 0, ""));
             return;
         }
 
@@ -432,6 +455,15 @@ public sealed class GameSession : IDisposable
         if (_linkSink is not null)
             Log.RemoveSink(_linkSink);
         _linkSink = null;
+        if (_mustReportRecording && !Link.IsConnected)
+        {
+            // A game that fails its --record start quits on its first update, which can beat the link's connection: give it
+            // a moment, or the editor never hears why (the goodbye, and the queued failure with it, need a connection).
+            var deadline = DateTime.UtcNow + ReportConnectTimeout;
+            while (!Link.IsConnected && DateTime.UtcNow < deadline)
+                Thread.Sleep(10);
+        }
+
         Link.ReportStatus(new EditorLinkStatus(GameRunState.Stopping, Tree.ProcessFrames, 0f, CurrentScenePath()));
         Link.SendGoodbye((int)exitCode, TimeSpan.FromSeconds(1));
         Link.Dispose();

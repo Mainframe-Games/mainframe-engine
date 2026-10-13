@@ -676,6 +676,54 @@ public sealed class PlayServiceTests
         Assert.False(game.WasKilled);
         Assert.Equal(0, game.ExitCode);
     }
+
+    [Fact]
+    public void ASecondStartedForTheSameRecordingKeepsItsStartTime()
+    {
+        var now = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        using var play = new PlayHarness(() => now);
+        var instance = play.LaunchRunning();
+        Assert.True(play.Service.StartRecording(instance, "/u/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        var started = instance.RecordingStartedUtc;
+
+        now += TimeSpan.FromSeconds(30);
+        play.Game(instance).Inject(new EditorLinkRecording(EditorLinkRecordingState.Started, "/u/a.mp4", 0, 0, 0, ""));
+        play.Pump(() => play.LogMessages(instance).Contains("injected"), "the second Started");
+        for (var i = 0; i < 20; i++)
+        {
+            play.Service.Update();
+            Thread.Sleep(2);
+        }
+
+        Assert.Equal(PlayRecordingState.Recording, instance.Recording);
+        Assert.Equal(started, instance.RecordingStartedUtc);
+    }
+
+    [Fact]
+    public void AnOlderProtocolGameCannotRecordFromTheEditor()
+    {
+        using var play = new PlayHarness();
+        play.Launcher.ProtocolVersion = 3;
+        var instance = play.LaunchRunning();
+
+        Assert.Equal(3, instance.ProtocolVersion);
+        Assert.False(instance.CanRecord);
+        Assert.False(play.Service.StartRecording(instance, "/u/a.mp4"));
+        for (var i = 0; i < 20; i++)
+            play.Service.Update();
+        Assert.DoesNotContain(play.Game(instance).Commands, c => c.Kind == EditorCommandKind.StartRecording);
+    }
+
+    [Fact]
+    public void ACurrentProtocolGameCanRecord()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+
+        Assert.Equal(EditorLinkProtocol.Version, instance.ProtocolVersion);
+        Assert.True(instance.CanRecord);
+    }
 }
 
 /// <summary>A temporary <c>MyGame.Desktop.csproj</c> with a fake <c>bin/Debug/net10.0</c> build output.</summary>

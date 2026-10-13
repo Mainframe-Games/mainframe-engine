@@ -151,14 +151,29 @@ public sealed class ToolbarPanel : EditorDocument
     private string _instancesRml = "";
     private string _playStatus = "";
     private string _recordTip = RecordStartTip;
+    private bool _recDot;
 
-    /// <summary>The first recording (or saving) instance's <see cref="PlayController.RecordStatus"/>; empty when none is.</summary>
-    private static string RecordingStatus(PlayController play)
+    /// <summary>
+    /// The <see cref="PlayController.RecordStatus"/> of the first recording instance, else of the first saving one; empty
+    /// when none is. <paramref name="recording"/>: it is a running recording (the red dot shows).
+    /// </summary>
+    private static string RecordingStatus(PlayController play, out bool recording)
     {
+        PlayInstance? saving = null;
         foreach (var instance in play.Service.Instances)
-            if (instance.Recording != PlayRecordingState.None)
+        {
+            if (instance.Recording == PlayRecordingState.Recording)
+            {
+                recording = true;
                 return PlayController.RecordStatus(instance.Recording, instance.RecordingStartedUtc, DateTime.UtcNow);
-        return "";
+            }
+
+            if (instance.Recording == PlayRecordingState.Saving)
+                saving ??= instance;
+        }
+
+        recording = false;
+        return saving is null ? "" : PlayController.RecordStatus(saving.Recording, saving.RecordingStartedUtc, DateTime.UtcNow);
     }
 
     /// <summary>Re-applies the play controls' states and the running instances (on play/project changes, never per frame).</summary>
@@ -216,7 +231,16 @@ public sealed class ToolbarPanel : EditorDocument
             document.GetElementById("instances").SetInnerRml(instances);
         }
 
-        var status = play.IsBuilding || project.IsBuilding ? "Building…" : RecordingStatus(play);
+        var building = play.IsBuilding || project.IsBuilding;
+        var recordingStatus = RecordingStatus(play, out var recordingNow);
+        var status = building ? "Building…" : recordingStatus;
+        var recDot = recordingNow && !building;
+        if (recDot != _recDot)
+        {
+            _recDot = recDot;
+            document.GetElementById("rec-dot").SetClass("on", recDot);
+        }
+
         if (!string.Equals(status, _playStatus, StringComparison.Ordinal))
         {
             _playStatus = status;

@@ -116,6 +116,9 @@ public sealed class PlayService : IDisposable
     /// <summary>Something about an instance or the build changed (raised at most once per <see cref="Update"/>).</summary>
     public event Action? Changed;
 
+    /// <summary>An instance said hello for the first time (reconnects do not raise it). Raised from <see cref="Update"/>.</summary>
+    public event Action<PlayInstance>? Connected;
+
     /// <summary>A recording stopped (saved) or failed. Raised on the editor thread from <see cref="Update"/>.</summary>
     public event Action<PlayInstance, EditorLinkRecording>? RecordingFinished;
 
@@ -285,11 +288,15 @@ public sealed class PlayService : IDisposable
         }
     }
 
-    /// <summary>Asks <paramref name="instance"/> to start recording to <paramref name="path"/> (false: not connected, or already recording).</summary>
+    /// <summary>
+    /// Asks <paramref name="instance"/> to start recording to <paramref name="path"/> (false: not connected, already
+    /// recording, or built against an engine whose link cannot record: <see cref="PlayInstance.CanRecord"/>).
+    /// </summary>
     public bool StartRecording(PlayInstance instance, string path)
     {
         ArgumentNullException.ThrowIfNull(instance);
-        return !_disposed && instance.Recording == PlayRecordingState.None && SendTo(instance, new EditorLinkCommand(EditorCommandKind.StartRecording, path));
+        return !_disposed && instance.CanRecord && instance.Recording == PlayRecordingState.None &&
+               SendTo(instance, new EditorLinkCommand(EditorCommandKind.StartRecording, path));
     }
 
     /// <summary>Asks <paramref name="instance"/> to stop recording; <see cref="RecordingFinished"/> follows once it has saved.</summary>
@@ -530,7 +537,8 @@ public sealed class PlayService : IDisposable
             _byGameId.Remove(previous);
         match.GameId = gameId;
         _byGameId[gameId] = match;
-        if (!match.HasConnected)
+        var first = !match.HasConnected;
+        if (first)
         {
             match.HasConnected = true;
             match.ConnectTime = _utcNow() - match.StartedUtc;
@@ -539,9 +547,12 @@ public sealed class PlayService : IDisposable
         if (match.State == PlayInstanceState.Launching)
             match.State = PlayInstanceState.Running;
         _changed = true;
+        match.ProtocolVersion = hello.ProtocolVersion;
         if (hello.ProtocolVersion != EditorLinkProtocol.Version)
             GameLog?.Invoke(match, new LogEntry(Log.Level.Warning, _utcNow(), GameCategory,
                 $"The game speaks editor-link protocol {hello.ProtocolVersion}; the editor speaks {EditorLinkProtocol.Version}. Rebuild the game.", "", "", 0));
+        if (first)
+            Connected?.Invoke(match);
         if (match.StopRequestedUtc is not null && match.IsAlive)
             Link.SendCommand(gameId, new EditorLinkCommand(EditorCommandKind.Stop)); // stopped while connecting
     }
@@ -588,9 +599,13 @@ public sealed class PlayService : IDisposable
         switch (recording.State)
         {
             case EditorLinkRecordingState.Started:
+                // A Start that reached a game already recording is answered with the running recording's Started (e.g.
+                // --record had started it): the same recording, so its elapsed time keeps counting from the first.
+                var same = instance.Recording == PlayRecordingState.Recording && string.Equals(instance.RecordingPath, recording.Path, StringComparison.Ordinal);
                 instance.Recording = PlayRecordingState.Recording;
                 instance.RecordingPath = recording.Path;
-                instance.RecordingStartedUtc = _utcNow();
+                if (!same || instance.RecordingStartedUtc is null)
+                    instance.RecordingStartedUtc = _utcNow();
                 break;
             default:
                 instance.Recording = PlayRecordingState.None;

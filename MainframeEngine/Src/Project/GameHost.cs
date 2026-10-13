@@ -394,6 +394,7 @@ public class GameHost : Engine
                                       or ArgumentException)
         {
             Log.Error($"[Recorder] {e.Message}");
+            Session.ReportRecordingFailed(path, e.Message); // the editor's Play and Record shows "Recording failed" with why
             return false;
         }
     }

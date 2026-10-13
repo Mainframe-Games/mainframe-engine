@@ -23,6 +23,7 @@ public sealed class PlayController : IDisposable
         Service.BuildOutput += OnBuildOutput;
         Service.BuildFinished += OnBuildFinished;
         Service.RecordingFinished += OnRecordingFinished;
+        Service.Connected += OnConnected;
         Service.Changed += () => Changed?.Invoke();
     }
 
@@ -222,6 +223,10 @@ public sealed class PlayController : IDisposable
     /// <summary>The Run menu / tooltip label of the F10 command in the current state.</summary>
     public string RecordingLabel => !IsPlaying ? "Play and Record" : IsRecording ? "Stop Recording" : IsSavingRecording ? "Saving Recording…" : "Start Recording";
 
+    /// <summary>Shown when the game's engine predates recording from the editor (its link protocol is older than 4).</summary>
+    public const string OlderEngineMessage =
+        "This game was built with an older MainframeEngine that cannot record from the editor. Rebuild it against this engine.";
+
     /// <summary>An instance is recording (Stop Recording applies).</summary>
     public bool IsRecording => Service.Instances.Any(i => i.Recording == PlayRecordingState.Recording);
 
@@ -291,6 +296,12 @@ public sealed class PlayController : IDisposable
             return;
         }
 
+        if (!target.CanRecord)
+        {
+            ShowOlderEngine("Start Recording");
+            return;
+        }
+
         if (_workspace.Project.UserDataDirectory is not { } userData)
             return;
         if (!TryNewRecordingPath(userData, target.CurrentScene, out var path))
@@ -309,6 +320,16 @@ public sealed class PlayController : IDisposable
         if (ReferenceEquals(instance, _startRequested))
             _startRequested = null;
     }
+
+    /// <summary>A Play and Record game whose engine cannot report recordings: say so once, when it first connects.</summary>
+    private void OnConnected(PlayInstance instance)
+    {
+        if (!instance.CanRecord && instance.Arguments.Contains(RecordArgument))
+            ShowOlderEngine("Play and Record");
+    }
+
+    private void ShowOlderEngine(string title) =>
+        _workspace.Message.Show(new MessageRequest { Title = title, Message = OlderEngineMessage, Buttons = ["OK"] });
 
     /// <summary>The host flag Play and Record passes (<c>--record &lt;path&gt;</c>).</summary>
     private const string RecordArgument = "--record";
@@ -359,14 +380,17 @@ public sealed class PlayController : IDisposable
         }
     }
 
-    /// <summary>The toolbar's status text for a recording: <c>● REC m:ss</c> while recording, <c>Saving recording…</c> while the file is finalised, else empty.</summary>
+    /// <summary>
+    /// The toolbar's status text for a recording: <c>REC m:ss</c> while recording (the toolbar puts its red dot icon in
+    /// front: the UI font has no ● glyph), <c>Saving recording…</c> while the file is finalised, else empty.
+    /// </summary>
     public static string RecordStatus(PlayRecordingState state, DateTime? startedUtc, DateTime nowUtc)
     {
         switch (state)
         {
             case PlayRecordingState.Recording:
                 var elapsed = startedUtc is { } started && nowUtc > started ? nowUtc - started : TimeSpan.Zero;
-                return string.Create(CultureInfo.InvariantCulture, $"● REC {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00}");
+                return string.Create(CultureInfo.InvariantCulture, $"REC {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00}");
             case PlayRecordingState.Saving:
                 return "Saving recording…";
             default:
@@ -533,6 +557,7 @@ public sealed class PlayController : IDisposable
         Service.BuildOutput -= OnBuildOutput;
         Service.BuildFinished -= OnBuildFinished;
         Service.RecordingFinished -= OnRecordingFinished;
+        Service.Connected -= OnConnected;
         Service.Dispose();
     }
 }
