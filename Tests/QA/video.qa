@@ -13,13 +13,15 @@ open Tests/QA/Fixtures/video/sample.mp4
 wait-for video-jobs 60
 wait 10
 capture video-02-opened
-command video.detect_idle
-wait 10
-capture video-03-idle
+# Silence first, then idle gameplay: each run visibly cuts more (the idle cut, 3.5-9.0 s, takes in the 4-6 s silence
+# cut), and the undo below then reverts the idle cut.
 command video.detect_silence
 wait-for video-jobs 60
 wait 10
-capture video-04-silence
+capture video-03-silence
+command video.detect_idle
+wait 10
+capture video-04-idle
 video set whisper-model tiny.en
 # The first run downloads tiny.en (78 MB) before transcribing.
 command video.transcribe
@@ -29,7 +31,8 @@ capture video-05-transcript
 command edit.undo
 wait 10
 capture video-06-undo
-# The kept ranges are 0-3.5 and 9.0-12 s: past 9.5 s the playhead has crossed the cut.
+# Undo took the idle cut back: the kept ranges are about 0-4.06 and 5.94-12 s, so past 9.5 s the playhead has crossed
+# the silence cut.
 command video.play
 wait-for video-position 9.5 30
 capture video-07-playing

@@ -377,9 +377,12 @@ Cutback's project JSON, schema version 3, unchanged:
     frames then get the **allocation gate** (0 B over 300 frames).
 - **QA, by hand:** `just qa-editor Tests/QA/video.qa` over the committed 12 s fixture `Tests/QA/Fixtures/video/sample.mp4`
   (`build/make-video-fixture.sh`: a test pattern whose 440 Hz tone drops out from 4 to 6 s, with a hand-written sidecar:
-  loading 7–9 s, a marker at 10 s). It opens the fixture, runs Detect Idle Gameplay and Detect Silence, transcribes with
-  tiny.en (`video set whisper-model tiny.en`), undoes, plays past the cut and switches modes, capturing each step. It
-  waits on conditions, not frame counts: `wait-for video-jobs` and `wait-for video-position`.
+  loading 7–9 s, a marker at 10 s). It opens the fixture, runs Detect Silence and then Detect Idle Gameplay (so each
+  capture shows more cut: the idle cut, 3.5–9.0 s, takes in the silence cut), transcribes with tiny.en (`video set
+  whisper-model tiny.en`), undoes (the idle cut comes back), plays past the silence cut and switches modes. Captures:
+  `video-01-empty`, `video-02-opened`, `video-03-silence`, `video-04-idle`, `video-05-transcript`, `video-06-undo`,
+  `video-07-playing`, `video-08-game-mode`. It waits on conditions, not frame counts: `wait-for video-jobs` and
+  `wait-for video-position`.
 
 ## Known limits
 

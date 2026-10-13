@@ -845,8 +845,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
   walkthrough also captures the update dialog (`update-preview X.Y.Z`, no network) and the Editor Settings dialog.
 - **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): the fixture recording opened,
-  idle and silence detection, a tiny.en transcription (`video set whisper-model tiny.en`), undo, playback across a cut
-  and the mode switch, each captured. `wait N` counts frames, so the long steps wait on conditions: `wait-for video-jobs
+  silence then idle detection, a tiny.en transcription (`video set whisper-model tiny.en`), undo of the idle cut,
+  playback across a cut and the mode switch, each captured (`video-01-empty` … `video-08-game-mode`). `wait N` counts frames, so the long steps wait on conditions: `wait-for video-jobs
   [seconds]` (no waveform, silence, transcription or export job left on the active video tab) and `wait-for
   video-position <s> [seconds]` (its playhead has reached a time). Needs a display, ffmpeg and (once) the network; not run in CI. See
   [Video editing mode](video-editor.md#testing).
