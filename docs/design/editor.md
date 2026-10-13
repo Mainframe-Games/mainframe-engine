@@ -838,7 +838,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   rename with fix-ups, drag onto the scene tree, Play with a fake launcher, the Saves page and Open User Data Folder with a
   recording opener). A slow integration test (`Category=Slow`) runs the real `dotnet new mfgame` and build.
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
-  editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, drags, gizmo drags, keys,
+  editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, in layout points that the
+  script turns into mouse points with `IEditorHost.PointerScale`, so `--scale 2` hits the same spots on 1× and 2× displays; drags, gizmo drags, keys,
   text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`, `view-resolution auto|full|threeQuarters|half`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for

@@ -58,6 +58,7 @@ public sealed class HeadlessEditorHost : IEditorHost
 {
     public Vector2 WindowSize { get; set; } = new(1600, 900);
     public float PixelScale { get; set; } = 1f;
+    public float PointerScale { get; set; } = 1f;
     public float FramesPerSecond { get; set; } = 60f;
     public float FrameMilliseconds { get; set; } = 16.6f;
     public EditorModifiers Modifiers { get; set; }
