@@ -42,9 +42,9 @@ internal static class VideoGolden
             new("so", 19.4, 19.7, 0.92, 19.5), new("um", 19.9, 20.3, 0.71, 20.0), new("today", 20.4, 20.8, 0.95, 20.5),
             new("we're", 20.9, 21.1, 0.9, 20.95), new("building", 21.2, 21.7, 0.96, 21.3), new("the", 21.8, 21.9, 0.9, 21.85),
             new("forest", 22.0, 22.5, 0.94, 22.1), new("level.", 22.6, 23.1, 0.93, 22.7),
+            new("Here's", 26.0, 26.3, 0.9, 26.1), new("the", 26.4, 26.5, 0.9, 26.45), new("boss.", 26.6, 27.1, 0.92, 26.7),
             new("Hang", 31.6, 31.9, 0.8, 31.7), new("on,", 32.0, 32.3, 0.8, 32.1), new("wrong", 32.4, 32.8, 0.85, 32.5),
             new("take.", 32.9, 33.3, 0.85, 33.0),
-            new("Here's", 26.0, 26.3, 0.9, 26.1), new("the", 26.4, 26.5, 0.9, 26.45), new("boss.", 26.6, 27.1, 0.92, 26.7),
         ];
         var project = new VideoProject(source, segments, words, DetectionSettings.Default);
         var capture = new VideoCapture.CaptureSidecar(VideoCapture.CaptureMode.Live, Duration, 60, 1920, 1080, "Forest",
@@ -96,15 +96,21 @@ internal static class VideoGolden
 
     /// <summary>
     /// "Decodes" any request into one frame of colour bars at the size the preview asked for (its <c>scale=W:H</c>
-    /// filter): the paused preview's first-frame scrub then shows a picture without ffmpeg.
+    /// filter): the paused preview's first-frame scrub then shows a picture without ffmpeg. That scrub reads on the
+    /// thread pool, so the golden waits for <see cref="FirstFrameRead"/> before it goes on: the capture never races it.
     /// </summary>
     public sealed class Decoders : IVideoDecoderFactory
     {
+        private readonly TaskCompletionSource _firstFrameRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Completes once a decoder's whole frame has been read, or a decoder was disposed before that.</summary>
+        public Task FirstFrameRead => _firstFrameRead.Task;
+
         public IVideoDecoder Start(IReadOnlyList<string> arguments)
         {
             ArgumentNullException.ThrowIfNull(arguments);
             var (width, height) = ScaleOf(arguments);
-            return new Decoder(width > 0 ? Bars(width, height) : []);
+            return new Decoder(width > 0 ? Bars(width, height) : [], _firstFrameRead);
         }
 
         private static (int Width, int Height) ScaleOf(IReadOnlyList<string> arguments)
@@ -152,15 +158,28 @@ internal static class VideoGolden
             return pixels;
         }
 
-        private sealed class Decoder(byte[] frame) : IVideoDecoder
+        private sealed class Decoder(byte[] frame, TaskCompletionSource read) : IVideoDecoder
         {
-            public Stream Output { get; } = new MemoryStream(frame, writable: false);
+            public Stream Output { get; } = new FrameStream(frame, read);
 
             public bool Failed => false;
 
-            public void Dispose()
+            // Nothing to kill; the preview's reader may still be reading the stream, which only has to end.
+            public void Dispose() => read.TrySetResult();
+        }
+
+        // The frame's bytes; reaching their end sets the event.
+        private sealed class FrameStream(byte[] frame, TaskCompletionSource read) : MemoryStream(frame, writable: false)
+        {
+            public override int Read(byte[] buffer, int offset, int count) => Signal(base.Read(buffer, offset, count));
+
+            public override int Read(Span<byte> buffer) => Signal(base.Read(buffer));
+
+            private int Signal(int bytes)
             {
-                // Nothing to kill; the preview's reader may still be reading the stream, which only has to end.
+                if (Position >= Length)
+                    read.TrySetResult();
+                return bytes;
             }
         }
     }

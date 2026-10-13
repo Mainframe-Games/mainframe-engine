@@ -67,6 +67,7 @@ public sealed class VideoWorkspaceTests : IDisposable
     {
         public string Text => Element.InnerRml;
         public bool Disabled => Element.IsClassSet("disabled");
+        public bool Empty => Element.IsClassSet("empty");
         public string? Tooltip => Element.GetAttribute("data-tooltip");
     }
 
@@ -173,7 +174,11 @@ public sealed class VideoWorkspaceTests : IDisposable
     [Fact]
     public void ThePositionShowsThePlayheadAndTheDuration()
     {
+        W.SetMode(EditorMode.Video);
+        _editor.Tick();
+        Assert.True(Toolbar("video-pos").Empty); // no tab: the field is hidden, not an empty box
         var tab = FakeTab();
+        Assert.False(Toolbar("video-pos").Empty);
         Assert.Equal("0:00.0 / 1:00.0", Toolbar("video-pos").Text);
         tab.Seek(12.34);
         _editor.Tick();

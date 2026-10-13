@@ -37,6 +37,7 @@ public sealed class CanvasPrimitivesTests
     public void RedrawingLinesRectsAndQuadsAllocatesNothing()
     {
         // Debug builds run unoptimised: a constant index span there allocated a RuntimeFieldInfoStub per call (~70 B a line).
+        // Only a Debug test run can catch that regression: in Release the JIT expands constant spans and nothing allocates.
         var list = new CanvasDrawList();
         void Draw()
         {

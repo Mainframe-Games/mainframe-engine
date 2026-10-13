@@ -314,7 +314,11 @@ public sealed class EditorSmokeRun : IEditorAutomation
                     workspace.Session.CloseAll();
                     var document = VideoGolden.Document();
                     document.Waveform = VideoGolden.Waveform();
-                    var tab = workspace.Session.OpenVideo(document, new VideoGolden.Decoders(), ffmpeg: null);
+                    var decoders = new VideoGolden.Decoders();
+                    var tab = workspace.Session.OpenVideo(document, decoders, ffmpeg: null);
+                    // Opening scrubs to 0 on the pool: wait for its frame, so the capture at frame 40 never sees a black preview.
+                    if (!decoders.FirstFrameRead.Wait(TimeSpan.FromSeconds(10)))
+                        Log.Warning("[Smoke] The video preview's first frame was not read within 10 s; the capture may show it black.");
                     workspace.SetMode(EditorMode.Video);
                     tab.View.Reset(document.Duration); // fit all: the ruler labels depend only on the window size
                     tab.Seek(VideoGolden.Playhead);

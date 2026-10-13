@@ -21,10 +21,18 @@ public static class CanvasPrimitives
 
     // Index patterns as arrays, not constant collection expressions: a constant ReadOnlySpan<int> compiles to
     // RuntimeHelpers.CreateSpan over a field token, which unoptimised (Debug) code turns into a RuntimeFieldInfoStub
-    // allocation on every call, roughly 70 B per line drawn.
-    internal static readonly int[] QuadIndices = [0, 1, 2, 0, 2, 3];
-    private static readonly int[] LineIndices = [0, 1];
-    private static readonly int[] TriangleIndices = [0, 1, 2];
+    // allocation on every call, roughly 70 B per line drawn. The arrays are private behind read-only spans, so no other
+    // code can change them.
+    private static readonly int[] QuadIndexArray = [0, 1, 2, 0, 2, 3];
+    private static readonly int[] LineIndexArray = [0, 1];
+    private static readonly int[] TriangleIndexArray = [0, 1, 2];
+
+    /// <summary>A quad's two triangles (a-b-c, a-c-d), as Godot's rect instances.</summary>
+    internal static ReadOnlySpan<int> QuadIndices => QuadIndexArray;
+
+    private static ReadOnlySpan<int> LineIndices => LineIndexArray;
+
+    private static ReadOnlySpan<int> TriangleIndices => TriangleIndexArray;
 
     // ── Rects and textures ───────────────────────────────────────────────────────────────────────────────────
 

@@ -69,6 +69,8 @@
         .video-transport button.tool-button { width: 32dp; }
         #video-pos { display: inline-block; height: 20dp; line-height: 20dp; min-width: 96dp; padding: 0dp 8dp; margin-left: 6dp;
                      background-color: #121418; border: 1dp #3b82f6; border-radius: 3dp; color: #d7dbe4; text-align: center; white-space: nowrap; }
+        /* No video tab: no position, and no empty box (it keeps its space, so the buttons do not move). */
+        #video-pos.empty { visibility: hidden; }
         button.video-job { margin-right: 6dp; white-space: nowrap; }
         button.video-job.busy { background-color: #3a2f12; border-color: #b45309; }
         #video-kept { margin-right: 10dp; white-space: nowrap; }
@@ -115,7 +117,7 @@
         <div class="group video-transport">
             <button id="video-play" class="tool-button disabled" data-command="video.play" data-tooltip="Play (Space) — the kept footage from the playhead, skipping the cuts"><span id="video-play-icon" class="icon icon-player-play"></span></button>
             <button id="video-stop" class="tool-button disabled" data-command="video.stop" data-tooltip="Stop — pause and go back to the start"><span class="icon icon-player-stop"></span></button>
-            <span id="video-pos" class="mono" data-tooltip="Position — the playhead and the recording's length"></span>
+            <span id="video-pos" class="mono empty" data-tooltip="Position — the playhead and the recording's length"></span>
         </div>
         <button id="video-transcribe" class="video-job disabled" data-command="video.transcribe" data-tooltip="Transcribe — recognise the speech on this computer, for editing by text and removing filler words">Transcribe</button>
         <button id="video-fillers" class="video-job disabled" data-command="video.remove_fillers" data-tooltip="Remove Fillers — cut the um's and uh's (transcribes first when there is no transcript)">Remove fillers</button>

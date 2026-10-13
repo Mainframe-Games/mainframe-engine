@@ -434,6 +434,7 @@ public sealed class ToolbarPanel : EditorDocument
         var element = Document.GetElementById("video-pos");
         if (element.IsNull)
             return;
+        element.SetClass("empty", tab is null);
         if (tab is null)
         {
             element.SetInnerRml("");
