@@ -126,6 +126,9 @@ public sealed class PlayInstance
     /// <summary>When the editor asked it to stop (null: never).</summary>
     internal DateTime? StopRequestedUtc { get; set; }
 
+    /// <summary>When a stopped instance still alive is killed (null: not stopping).</summary>
+    internal DateTime? StopDeadlineUtc { get; set; }
+
     internal bool Killed { get; set; }
 
     internal bool GoodbyeReceived { get; set; }

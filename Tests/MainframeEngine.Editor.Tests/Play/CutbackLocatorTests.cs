@@ -62,7 +62,8 @@ public sealed class CutbackLocatorTests
     {
         var (fileName, arguments) = CutbackLocator.LaunchCommand(app, "/u/r/a.mp4", OsKind.MacOS);
         Assert.Equal("open", fileName);
-        Assert.Equal(["-a", bundle, "--args", "/u/r/a.mp4"], arguments);
+        // -n: a new instance every time, since a running Cutback reads no arguments (as on the other platforms)
+        Assert.Equal(["-n", "-a", bundle, "--args", "/u/r/a.mp4"], arguments);
     }
 
     [Theory]

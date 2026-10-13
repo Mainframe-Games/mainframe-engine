@@ -226,8 +226,11 @@ Shift+F5, which is Run Another Instance. Its tooltip follows the state: "Play an
 - **Stopping a recording game waits for the save.** A stopped game is normally killed if it is still alive 3 s later
   (`PlayService.StopTimeout`); killing takes its whole process tree, ffmpeg's mux included, so a game that is recording or
   saving gets `PlayService.RecordingStopTimeout` (2 min 15 s: the game's own two-minute `StopAndWait` cap at quit plus a
-  margin) and shows `Saving recording…` meanwhile. Quitting the editor does the same: games that are not recording get
-  a second, recording ones up to that cap, and the wait is logged every few seconds.
+  margin) and shows `Saving recording…` meanwhile. Once the game reports the file (`Stopped` or `Failed`) it gets a
+  fresh 3 s from that report to say goodbye and exit, so a long save does not cost it its save-on-quit; a `Started`
+  that arrives after Stop (Play and Record stopped while launching) moves the deadline out to the 2 min 15 s cap.
+  Quitting the editor does the same: games that are not recording get a second, recording ones up to that cap, and the
+  wait is logged every few seconds.
 - **Debounce.** `ToggleRecording` sends one `StartRecording` and ignores further presses until `Started` or `Failed`
   returns (a 5 s backstop, so a game that never answers cannot wedge F10), and while a recording is saving. The recording
   controls stay available while a game runs during a build (Start/Stop apply to the running game); with nothing running,
@@ -244,8 +247,9 @@ Shift+F5, which is Run Another Instance. Its tooltip follows the state: "Play an
   Windows), then the OS location: `/Applications/Cutback.app/Contents/MacOS/Cutback`,
   `%LocalAppData%\Programs\Cutback\Cutback.exe`, `~/.local/bin/cutback`. On macOS the setting may also name the `.app`
   bundle itself. A setting that points at a missing file falls through to the rest. On macOS any bundle path (`X.app` or
-  `X.app/Contents/MacOS/*`) is started with `open -a X.app --args <file>` (`CutbackLocator.LaunchCommand`), so Launch
-  Services activates Cutback in front and it is not in the editor's process tree. If none exists (or the launch fails) a second dialog, "Cutback is not installed", offers
+  `X.app/Contents/MacOS/*`) is started with `open -n -a X.app --args <file>` (`CutbackLocator.LaunchCommand`), so Launch
+  Services activates Cutback in front and it is not in the editor's process tree. `-n` opens a new Cutback window
+  each time: without it `open` only activates a running Cutback, which reads its file argument at startup alone. If none exists (or the launch fails) a second dialog, "Cutback is not installed", offers
   **Download** (the releases page) and Close.
 - **QA.** `Tests/QA/record.qa` (`just qa-editor Tests/QA/record.qa`) drives both start paths and a Stop (F8) while
   recording, and captures the dialogs; it needs a display and ffmpeg and is not run in CI.

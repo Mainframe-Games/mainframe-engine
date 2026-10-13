@@ -41,7 +41,9 @@ public sealed record PlayRequest(
 /// <see cref="StopTimeout"/> later; an instance that never connected is killed at once. A game that is recording (or
 /// saving a recording) finalises the file before it exits, so it gets <see cref="RecordingStopTimeout"/> instead and its
 /// recording shows as <see cref="PlayRecordingState.Saving"/> until it reports the file: killing it would kill the
-/// ffmpeg mux with it (the whole process tree goes) and lose the recording.</para>
+/// ffmpeg mux with it (the whole process tree goes) and lose the recording. Once it reports the file (Stopped or Failed)
+/// it gets a fresh <see cref="StopTimeout"/> to exit, measured from the report; a Started that arrives after Stop
+/// extends the deadline to <see cref="RecordingStopTimeout"/> from the Stop.</para>
 /// </remarks>
 public sealed class PlayService : IDisposable
 {
@@ -606,10 +608,21 @@ public sealed class PlayService : IDisposable
                 instance.RecordingPath = recording.Path;
                 if (!same || instance.RecordingStartedUtc is null)
                     instance.RecordingStartedUtc = _utcNow();
+                if (instance.StopDeadlineUtc is { } deadline)
+                {
+                    // Started after Stop (e.g. Play and Record stopped while launching): the game finalises this file before it exits.
+                    instance.Recording = PlayRecordingState.Saving;
+                    var saveDeadline = instance.StopRequestedUtc!.Value + RecordingStopTimeout;
+                    if (saveDeadline > deadline)
+                        instance.StopDeadlineUtc = saveDeadline;
+                }
+
                 break;
             default:
                 instance.Recording = PlayRecordingState.None;
                 instance.RecordingStartedUtc = null;
+                if (instance.StopDeadlineUtc is not null)
+                    instance.StopDeadlineUtc = _utcNow() + StopTimeout; // saved: a fresh grace for its goodbye and exit, not the deadline left from Stop
                 RecordingFinished?.Invoke(instance, recording);
                 break;
         }
@@ -675,8 +688,7 @@ public sealed class PlayService : IDisposable
                 continue;
             }
 
-            var timeout = instance.Recording == PlayRecordingState.None ? StopTimeout : RecordingStopTimeout;
-            if (instance.StopRequestedUtc is { } asked && !instance.Killed && _utcNow() - asked >= timeout)
+            if (instance.StopDeadlineUtc is { } deadline && !instance.Killed && _utcNow() >= deadline)
             {
                 instance.Killed = true;
                 process.Kill();
@@ -709,6 +721,7 @@ public sealed class PlayService : IDisposable
         instance.State = PlayInstanceState.Stopping;
         if (instance.Recording == PlayRecordingState.Recording && !instance.Killed)
             instance.Recording = PlayRecordingState.Saving; // the game finalises the file before it exits
+        instance.StopDeadlineUtc = instance.StopRequestedUtc + (instance.Recording == PlayRecordingState.None ? StopTimeout : RecordingStopTimeout);
         _changed = true;
     }
 

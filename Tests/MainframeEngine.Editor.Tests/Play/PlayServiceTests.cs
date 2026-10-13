@@ -661,6 +661,61 @@ public sealed class PlayServiceTests
     }
 
     [Fact]
+    public void AGameThatSavedAfterStopGetsAFreshGraceToExit()
+    {
+        var now = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        using var play = new PlayHarness(() => now);
+        play.Launcher.ModeFor = _ => FakeGameMode.IgnoresStop;
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        Assert.True(play.Service.StartRecording(instance, "/u/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        play.Service.Stop(instance);
+        play.Pump(() => game.Commands.Any(c => c.Kind == EditorCommandKind.Stop), "the stop command");
+
+        now += TimeSpan.FromSeconds(10); // a save longer than StopTimeout, then the game reports it
+        game.Inject(new EditorLinkRecording(EditorLinkRecordingState.Stopped, "/u/a.mp4", 10, 0, 0, ""));
+        play.Pump(() => instance.Recording == PlayRecordingState.None, "the Stopped");
+        for (var i = 0; i < 5; i++)
+            play.Service.Update();
+        Assert.False(game.WasKilled); // its save-on-quit and goodbye still get time
+
+        now += PlayService.StopTimeout - TimeSpan.FromSeconds(1);
+        play.Service.Update();
+        Assert.False(game.WasKilled);
+
+        now += TimeSpan.FromSeconds(2);
+        play.Pump(() => !instance.IsAlive, "the kill past the fresh grace");
+        Assert.True(game.WasKilled);
+    }
+
+    [Fact]
+    public void AStartedThatArrivesAfterStopGetsTheRecordingDeadline()
+    {
+        var now = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        using var play = new PlayHarness(() => now);
+        play.Launcher.ModeFor = _ => FakeGameMode.IgnoresStop;
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        play.Service.Stop(instance); // e.g. Play and Record stopped before the game reported Started
+        play.Pump(() => game.Commands.Any(c => c.Kind == EditorCommandKind.Stop), "the stop command");
+
+        game.Inject(new EditorLinkRecording(EditorLinkRecordingState.Started, "/u/a.mp4", 0, 0, 0, ""));
+        play.Pump(() => play.LogMessages(instance).Contains("injected"), "the late Started");
+        for (var i = 0; i < 20; i++)
+        {
+            play.Service.Update();
+            Thread.Sleep(2);
+        }
+
+        now += PlayService.StopTimeout + TimeSpan.FromSeconds(1);
+        for (var i = 0; i < 5; i++)
+            play.Service.Update();
+        Assert.False(game.WasKilled); // it is finalising the file it started
+        Assert.True(instance.IsAlive);
+    }
+
+    [Fact]
     public void DisposeWaitsForAGameThatIsSavingItsRecording()
     {
         var play = new PlayHarness();

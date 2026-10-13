@@ -29,6 +29,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
     instance stays reachable until its Disconnected; macOS opens a Cutback `.app` with `open -a`; an abandoned
     recording offers Show in Folder when its `.partial` folder exists; Play and Record names the file after the main
     scene.
+  - Residual fixes after the re-review: a game that reports its recording saved after Stop gets a fresh 3 s to exit
+    (it was killed at once when the save took over 3 s, losing its save-on-quit); a `Started` after Stop gets the
+    recording deadline; macOS opens Cutback with `open -n -a`, so a second Open in Cutback works while one is running.
   - Gates green: build (0 warnings), format-check, engine 2488 (1 skipped), editor 859 (5 skipped) before the final
     review's fixes; see the final fix report for the gates after them.
   - Next: Brogan's review and the push (one push and a PR, based on #62, when he says so); then **Phase 4**, the editor's

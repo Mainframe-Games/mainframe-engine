@@ -68,16 +68,19 @@ public static class CutbackLocator
 
     /// <summary>
     /// How to start <paramref name="app"/> on <paramref name="file"/>. On macOS a bundle (<c>X.app</c>, or its
-    /// <c>X.app/Contents/MacOS/*</c> executable) goes through <c>open -a X.app --args file</c>: Launch Services starts and
+    /// <c>X.app/Contents/MacOS/*</c> executable) goes through <c>open -n -a X.app --args file</c>: Launch Services starts and
     /// activates it as an app of its own, outside the editor's process tree (a child would die with the editor, and an
-    /// executable started directly opens behind it). Anything else runs directly with the file as its argument.
+    /// executable started directly opens behind it). <c>-n</c> starts a new instance even when one is running: without it
+    /// <c>open</c> only activates the running Cutback, which reads its file argument at startup alone, so the second
+    /// recording would not open (this matches the other platforms, where each launch is a new process). Anything else runs
+    /// directly with the file as its argument.
     /// </summary>
     public static (string FileName, IReadOnlyList<string> Arguments) LaunchCommand(string app, string file, OsKind os)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(app);
         ArgumentNullException.ThrowIfNull(file);
         if (os == OsKind.MacOS && BundleOf(app) is { } bundle)
-            return ("open", ["-a", bundle, "--args", file]);
+            return ("open", ["-n", "-a", bundle, "--args", file]);
         return (app, [file]);
     }
 
