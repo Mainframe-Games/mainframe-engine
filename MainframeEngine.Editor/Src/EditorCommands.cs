@@ -226,6 +226,7 @@ public sealed class EditorCommands
             case "video.detect_silence": _workspace.VideoView.DetectSilence(video); return true;
             case "video.transcribe": _workspace.VideoView.Transcribe(video); return true;
             case "video.remove_fillers": _workspace.VideoView.RemoveFillers(video); return true;
+            case "video.export": _workspace.VideoView.Export(video); return true;
             case "video.export_transcript": ExportTranscript(video); return true;
             default: return false;
         }

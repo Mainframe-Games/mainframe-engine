@@ -190,6 +190,9 @@ public sealed partial class EditorWorkspace : Node
 
     public UiLayer PanelLayer { get; private set; } = null!;
     public UiLayer DialogLayer { get; private set; } = null!;
+
+    /// <summary>File › Export Video (video mode).</summary>
+    public ExportVideoDialog ExportVideo { get; private set; } = null!;
     public MenuBarPanel MenuBar { get; private set; } = null!;
     public ToolbarPanel Toolbar { get; private set; } = null!;
     public SceneTreePanel SceneTree { get; private set; } = null!;
@@ -234,7 +237,7 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>True while a modal dialog is open (shortcuts are suspended).</summary>
     public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || TreePicker.Visible || Message.Visible || Splash.Visible ||
-                                SignalDialog.Visible || ProjectDialogOpen;
+                                SignalDialog.Visible || ExportVideo.Visible || ProjectDialogOpen;
 
     /// <summary>The modifier keys held (host state, or tracked from key events when the host has none).</summary>
     public EditorModifiers Modifiers => Host.ReportsModifiers && !TrackKeyModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
@@ -287,6 +290,8 @@ public sealed partial class EditorWorkspace : Node
         DialogLayer.AddChild(TreePicker);
         DialogLayer.AddChild(SignalDialog);
         DialogLayer.AddChild(Message);
+        ExportVideo = new ExportVideoDialog(this) { Name = "ExportVideo" };
+        DialogLayer.AddChild(ExportVideo); // the picker and message boxes it opens are moved above it by CreateProjectUi
         CreateProjectUi();
 
         // Tooltips: above the dialogs, below the splash; the overlay never takes the mouse.
@@ -985,6 +990,8 @@ public sealed partial class EditorWorkspace : Node
             DownloadDemo.Cancel();
         if (EditorSettingsDialog.Visible)
             EditorSettingsDialog.Cancel();
+        if (ExportVideo.Visible)
+            ExportVideo.Cancel();
         if (UpdateDialog.Visible)
             UpdateDialog.Close();
         if (ProjectManager.Visible)

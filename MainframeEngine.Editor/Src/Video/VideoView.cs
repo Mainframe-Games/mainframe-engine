@@ -3,6 +3,7 @@ using MainframeEngine.Editor.Music;
 using MainframeEngine.Video.Analysis;
 using MainframeEngine.Video.Detection;
 using MainframeEngine.Video.Media;
+using MainframeEngine.Video.Media.Export;
 using MainframeEngine.Video.Models;
 using Silk.NET.Input;
 
@@ -59,6 +60,16 @@ public sealed class VideoView : Node
     /// <summary>Creates the speech recogniser for a downloaded model file; tests swap it so no model is ever loaded.</summary>
     public Func<FfmpegLocation, string, WhisperModel, ITranscriber> TranscriberFactory { get; set; } =
         static (ffmpeg, modelPath, model) => new WhisperTranscriber(ffmpeg, modelPath, model);
+
+    /// <summary>Creates the runner of one export; tests swap it so ffmpeg never starts.</summary>
+    internal Func<FfmpegLocation, TempSession, VideoExportRunner> ExporterFactory { get; set; } =
+        static (ffmpeg, temp) => new Exporter(ffmpeg, temp).ExportAsync;
+
+    // Scratch space for filter scripts and fast-export pieces: made by the first export, removed when the editor closes.
+    private TempSession? _temp;
+
+    /// <summary>The temp session's folder, or null until an export has started.</summary>
+    internal string? TempDirectory => _temp?.Directory;
 
     protected override void OnProcess(in GameTime gameTime)
     {
@@ -307,6 +318,8 @@ public sealed class VideoView : Node
             FinishSilence(tab, silence);
         if (tab.TranscribeJob is { IsDone: true } transcribe)
             FinishTranscribe(tab, transcribe);
+        if (tab.ExportJob is { IsDone: true } export)
+            FinishExport(tab, export);
     }
 
     private void FinishSilence(VideoTab tab, VideoJob<IReadOnlyList<SilenceSpan>> job)
@@ -331,6 +344,130 @@ public sealed class VideoView : Node
             tab.Controller.CancelGesture();
             tab.Notice = tab.Document.ApplySilence(spans, settings);
         });
+
+    // ── Export ───────────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// File › Export Video: opens the export dialog. A second call while an export runs cancels it (the toolbar button reads
+    /// "Cancel n %"); with every segment cut there is nothing to export; without ffmpeg it is reported.
+    /// </summary>
+    public void Export(VideoTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (tab.ExportJob is { } running)
+        {
+            running.Cancel();
+            return;
+        }
+
+        if (VideoExport.KeptSeconds(tab.Document) <= 0)
+        {
+            tab.Notice = VideoExport.NothingToExport;
+            return;
+        }
+
+        if (tab.Ffmpeg is null)
+        {
+            ReportNoFfmpeg("Export");
+            return;
+        }
+
+        tab.Controller.CancelGesture();
+        _workspace.ExportVideo.Open(tab);
+    }
+
+    /// <summary>
+    /// Starts the export job: pauses the preview, builds the immutable <see cref="ExportRequest"/> here on the main thread
+    /// (the job never reads the document, so edits made while it runs do not touch it) and runs it in the background;
+    /// <see cref="PollJobs"/> reports how it ends. The output is refused when it is the recording itself.
+    /// </summary>
+    /// <param name="tab">The video tab to export.</param>
+    /// <param name="path">The output file (full path, a supported extension).</param>
+    /// <param name="mode">Precise re-encodes, Fast copies.</param>
+    public void StartExport(VideoTab tab, string path, ExportMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        if (tab.ExportJob is not null || !_workspace.Session.Tabs.Contains(tab))
+            return;
+        if (tab.Ffmpeg is not { } ffmpeg)
+        {
+            ReportNoFfmpeg("Export");
+            return;
+        }
+
+        ExportRequest? snapshot = null;
+        Guard("Export failed", () => snapshot = VideoExport.Request(tab.Document, path, mode));
+        if (snapshot is not { } request)
+            return;
+        tab.Controller.CancelGesture();
+        tab.Preview.Pause();
+        var runner = ExporterFactory(ffmpeg, _temp ??= new TempSession());
+        tab.ExportJob = VideoJob.Start("export", async (p, ct) =>
+        {
+            await runner(request, new ExportProgressSink(p), ct).ConfigureAwait(false);
+            return request.OutputPath;
+        });
+        Log.Info($"[Video] Exporting {Path.GetFileName(request.SourcePath)} to {request.OutputPath} ({mode})…");
+    }
+
+    private void FinishExport(VideoTab tab, VideoJob<string> job)
+    {
+        tab.ExportJob = null;
+        var task = job.Task;
+        if (task.IsCanceled || job.IsCancelled || task.Exception?.GetBaseException() is OperationCanceledException)
+            tab.Notice = "Export cancelled.";
+        else if (task.Exception?.GetBaseException() is { } error)
+            _workspace.Commands.ReportError("Export failed", error);
+        else
+            ShowExported(tab, task.Result);
+        job.Dispose();
+    }
+
+    private void ShowExported(VideoTab tab, string path)
+    {
+        var name = Path.GetFileName(path);
+        Log.Info($"[Video] Exported {path}");
+        tab.Notice = $"Exported {name}.";
+        var reveal = _workspace.Options.Reveal ?? OsShell.Reveal;
+        _workspace.Message.Show(new MessageRequest
+        {
+            Title = "Export finished",
+            Message = $"{name}\n{Path.GetDirectoryName(path)}",
+            Buttons = ["Show in Folder", "Close"],
+            DefaultButton = 0,
+            CancelButton = 1,
+            Icon = "check",
+            Callback = (button, _) =>
+            {
+                if (button == 0)
+                    reveal(path);
+            },
+        });
+    }
+
+    private void ReportNoFfmpeg(string what) =>
+        _workspace.Commands.ReportError("ffmpeg not found",
+            new FfmpegMissingException($"{what} needs ffmpeg. Set it in Editor Settings › Video, or install it and restart the editor."));
+
+    // Maps the exporter's progress to the job's 0…1. A sink of its own, not Progress<T>: that would post every report to a
+    // synchronisation context, and the job only wants the latest value stored.
+    private sealed class ExportProgressSink(IProgress<double> inner) : IProgress<ExportProgress>
+    {
+        public void Report(ExportProgress value) => inner.Report(value.Fraction);
+    }
+
+    protected override void OnExitTree()
+    {
+        // The jobs are cancelled first: an export still writing its filter script must not find its folder gone.
+        var tabs = _workspace.Session.Tabs;
+        for (var i = 0; i < tabs.Count; i++)
+            if (tabs[i] is VideoTab { ExportJob: { } job })
+                job.Cancel();
+        _temp?.Dispose();
+        _temp = null;
+        base.OnExitTree();
+    }
 
     // ── Transcription ────────────────────────────────────────────────────────────────────────────────────────────
 
