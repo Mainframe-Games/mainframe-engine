@@ -148,6 +148,13 @@ public sealed class EditorCommands
             case "project.user_data": _workspace.Project.OpenUserDataFolder(); return true;
             case "project.close": CloseProject(); return true;
             case "editor.settings": _workspace.EditorSettingsDialog.Open(); return true;
+            case "editor.mode.game": _workspace.SetMode(EditorMode.Game); return true;
+            case "editor.mode.video": _workspace.SetMode(EditorMode.Video); return true;
+            case "editor.video_editor":
+                _workspace.ProjectManager.Close();
+                _workspace.SetMode(EditorMode.Video);
+                return true;
+            case "view.output": _workspace.ToggleVideoOutput(); return true;
             default:
                 return id.StartsWith("fs.", StringComparison.Ordinal) && _workspace.FileSystem.RunCommand(id);
         }
@@ -720,9 +727,11 @@ public sealed class EditorCommands
         });
     }
 
-    /// <summary>The items of the menu bar's menu <paramref name="menu"/>.</summary>
+    /// <summary>The items of the menu bar's menu <paramref name="menu"/> in the current <see cref="EditorWorkspace.Mode"/>.</summary>
     public IReadOnlyList<MenuItem> MenuItems(string menu)
     {
+        if (menu == "video" || (_workspace.Mode == EditorMode.Video && menu is "file" or "edit" or "view"))
+            return VideoMenuItems(menu);
         var scene = Active;
         var song = Session.ActiveSong;
         var history = scene?.History ?? song?.Document.History;
@@ -769,6 +778,8 @@ public sealed class EditorCommands
                 MenuItem.Separator,
                 new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G", Icon: "grid-3x3"),
                 new MenuItem(_workspace.Viewport.PostPreview ? "Hide Post-Processing" : "Preview Post-Processing", "view.post", null, Icon: "sparkles"),
+                MenuItem.Separator,
+                new MenuItem("Switch to Video Mode", "editor.mode.video", Icon: "video"),
             ],
             "project" =>
             [
@@ -803,6 +814,57 @@ public sealed class EditorCommands
                 new MenuItem("About Mainframe Editor", "help.about", Icon: "info-circle"),
             ],
             _ => [],
+        };
+    }
+
+    /// <summary>
+    /// Video mode's File, Edit and View menus, and the Video menu. The video commands (<c>video.*</c>) are defined here and
+    /// handled by the video tab; items that act on a recording are enabled only while a video tab is active.
+    /// </summary>
+    private List<MenuItem> VideoMenuItems(string menu)
+    {
+        var tab = Session.ActiveTab?.Mode == EditorMode.Video;
+        return menu switch
+        {
+            "file" =>
+            [
+                new MenuItem("Open…", "file.open", "Ctrl+O", Icon: "folder-open"),
+                MenuItem.Header("Recent Videos"),
+                MenuItem.Separator,
+                new MenuItem("Save", "file.save", "Ctrl+S", tab, Icon: "device-floppy"),
+                new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", tab, Icon: "device-floppy"),
+                MenuItem.Separator,
+                new MenuItem("Export Video…", "video.export", "Ctrl+E", tab, Icon: "download"),
+                new MenuItem("Export Transcript…", "video.export_transcript", null, tab, Icon: "file-text"),
+                MenuItem.Separator,
+                new MenuItem("Close Tab", "file.close", "Ctrl+W", tab, Icon: "x"),
+                new MenuItem("Quit", "file.quit", "Ctrl+Q", Icon: "logout"),
+            ],
+            "edit" =>
+            [
+                new MenuItem("Undo", "edit.undo", "Ctrl+Z", tab, Icon: "arrow-back-up"),
+                new MenuItem("Redo", "edit.redo", "Ctrl+Shift+Z", tab, Icon: "arrow-forward-up"),
+                MenuItem.Separator,
+                new MenuItem("Delete Region", "edit.delete", "Del", tab, Icon: "trash"),
+                MenuItem.Separator,
+                new MenuItem("Video Settings…", "video.settings", Icon: "settings"),
+            ],
+            "view" =>
+            [
+                new MenuItem("Show/Hide Transcript", "video.toggle_transcript", null, tab, Icon: "file-text"),
+                new MenuItem("Show/Hide Output", "view.output", Icon: "terminal-2"), // a log, not a recording: needs no tab
+                MenuItem.Separator,
+                new MenuItem("Switch to Game Mode", "editor.mode.game", Icon: "device-gamepad-2"),
+            ],
+            _ =>
+            [
+                new MenuItem("Play/Pause", "video.play", "Space", tab, Icon: "player-play"),
+                MenuItem.Separator,
+                new MenuItem("Transcribe", "video.transcribe", null, tab, Icon: "language"),
+                new MenuItem("Remove Filler Words", "video.remove_fillers", null, tab, Icon: "clear-all"),
+                new MenuItem("Detect Silence", "video.detect_silence", null, tab, Icon: "volume-off"),
+                new MenuItem("Detect Idle Gameplay", "video.detect_idle", null, tab, Icon: "device-gamepad-2"),
+            ],
         };
     }
 

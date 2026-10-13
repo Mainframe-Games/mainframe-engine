@@ -449,6 +449,44 @@ public sealed class EditorSession : IDisposable
         ActiveChanged?.Invoke();
     }
 
+    /// <summary>
+    /// Leaves no tab active: every tab pauses as <see cref="Activate(IEditorTab)"/> pauses the inactive ones (scene views stop
+    /// rendering, preview layers hide, the song stops). A mode switch to a mode with no open tab uses it.
+    /// </summary>
+    public void Deactivate()
+    {
+        if (ActiveTab is null)
+            return;
+        foreach (var t in _tabs)
+        {
+            if (t is EditedScene s)
+                s.Viewport.UpdateMode = SubViewportUpdateMode.Disabled;
+            else if (t is UiPreview p)
+                p.Layer.Visible = false;
+            else if (t is SongTab song && ReferenceEquals(t, ActiveTab))
+                song.Deactivate();
+        }
+
+        ActiveTab = null;
+        ActiveChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Adds a tab the session does not create itself (a video tab), raises <see cref="ScenesChanged"/> and activates it.
+    /// A tab already open is only activated.
+    /// </summary>
+    internal void Add(IEditorTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (!_tabs.Contains(tab))
+        {
+            _tabs.Add(tab);
+            ScenesChanged?.Invoke();
+        }
+
+        Activate(tab);
+    }
+
     /// <summary>Main thread, every frame: the previews apply file changes; the active song's player follows its edits.</summary>
     public void Tick()
     {

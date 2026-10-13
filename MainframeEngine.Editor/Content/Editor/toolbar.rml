@@ -21,6 +21,12 @@
         }
         .group button.tool-button { width: 28dp; height: 26dp; line-height: 26dp; }
         .spacer { flex: 1 1 auto; }
+        /* Each mode's tools fill the bar up to the Game|Video toggle (ToolbarPanel.ApplyMode hides the other mode's). */
+        .tools { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
+        .tools.hidden { display: none; }
+        #mode-toggle { display: flex; height: 22dp; border-radius: 11dp; border: 1dp #3b3f4b; background-color: #121418; margin: 0dp 8dp; }
+        button.mode { height: 20dp; padding: 0dp 12dp; border-radius: 10dp; background-color: transparent; color: #8b93a5; }
+        button.mode.active { background-color: #1d4ed8; color: #ffffff; }
         #snap-step { width: 46dp; margin-left: 4dp; }
         #update { display: none; margin-right: 6dp; }
         #update.shown { display: inline-block; }
@@ -62,36 +68,40 @@
     </style>
 </head>
 <body class="panel-doc toolbar">
-    <div class="group">
-        <button id="tool-select" class="tool-button" data-command="gizmo.select" data-tooltip="Select (Q) — pick nodes in the viewport without a gizmo"><span class="icon icon-pointer"></span></button>
-        <button id="tool-translate" class="tool-button" data-command="gizmo.translate" data-tooltip="Move (W) — translate selected nodes"><span class="icon icon-arrows-move"></span></button>
-        <button id="tool-rotate" class="tool-button" data-command="gizmo.rotate" data-tooltip="Rotate (E) — rotate selected nodes"><span class="icon icon-rotate"></span></button>
-        <button id="tool-scale" class="tool-button" data-command="gizmo.scale" data-tooltip="Scale (R) — scale selected nodes"><span class="icon icon-arrows-maximize"></span></button>
+    <div id="game-tools" class="tools">
+        <div class="group">
+            <button id="tool-select" class="tool-button" data-command="gizmo.select" data-tooltip="Select (Q) — pick nodes in the viewport without a gizmo"><span class="icon icon-pointer"></span></button>
+            <button id="tool-translate" class="tool-button" data-command="gizmo.translate" data-tooltip="Move (W) — translate selected nodes"><span class="icon icon-arrows-move"></span></button>
+            <button id="tool-rotate" class="tool-button" data-command="gizmo.rotate" data-tooltip="Rotate (E) — rotate selected nodes"><span class="icon icon-rotate"></span></button>
+            <button id="tool-scale" class="tool-button" data-command="gizmo.scale" data-tooltip="Scale (R) — scale selected nodes"><span class="icon icon-arrows-maximize"></span></button>
+        </div>
+        <div class="group">
+            <button id="tool-local" class="tool-button" data-command="gizmo.local" data-tooltip="Global Space (T) — handles follow the world axes; click for the node's local axes"><span id="tool-local-icon" class="icon icon-world"></span></button>
+            <button id="tool-snap" class="tool-button" data-command="gizmo.snap" data-tooltip="Snap (Y) — move, rotate and scale in steps"><span class="icon icon-magnet"></span></button>
+            <input type="text" class="text" id="snap-step" value="0.5" data-tooltip="Snap Step — the move step in metres (rotation snaps to 15°, scale to 0.1)"/>
+        </div>
+        <div class="group">
+            <button id="tool-frame" class="tool-button" data-command="view.frame" data-tooltip="Frame Selection (F) — move the camera to the selected nodes"><span class="icon icon-focus-centered"></span></button>
+            <button id="tool-grid" class="tool-button active" data-command="view.grid" data-tooltip="Grid (G) — show or hide the ground grid"><span class="icon icon-grid-3x3"></span></button>
+            <button id="tool-post" class="tool-button active" data-command="view.post" data-tooltip="Preview Post-Processing — show the world's post effects in the view (tonemap, auto exposure, glow, SSAO, TAA, grade, depth of field, film); off: the plain tonemap"><span class="icon icon-sparkles"></span></button>
+        </div>
+        <div class="spacer"></div>
+        <div class="group play">
+            <button id="play" class="tool-button" data-command="play.main" data-tooltip="Play (F5) — build the project and run its main scene"><span class="icon icon-player-play-filled"></span></button>
+            <button id="play-scene" class="tool-button" data-command="play.scene" data-tooltip="Play Scene (F6) — save and run the open scene"><span class="icon icon-movie"></span></button>
+            <button id="record" class="tool-button" data-command="play.record" data-tooltip="Play and Record (F10) — record gameplay for promo footage; press again to stop"><span class="icon icon-point-filled"></span></button>
+            <button id="pause" class="tool-button disabled" data-command="play.pause" data-tooltip="Pause (F7) — pause or resume the running game"><span class="icon icon-player-pause"></span></button>
+            <button id="stop" class="tool-button disabled" data-command="play.stop" data-tooltip="Stop (F8) — stop every running game"><span class="icon icon-player-stop"></span></button>
+            <button id="build-reload" class="tool-button" data-command="project.build_reload" data-tooltip="Build &amp; Reload (Ctrl+Shift+B) — compile the game's C# and reload it in the editor"><span class="icon icon-hammer"></span></button>
+            <button id="user-data" class="tool-button" data-command="project.user_data" data-tooltip="Open User Data Folder — show the folder the game keeps its saves, settings and logs in (created if missing)"><span class="icon icon-folder-user"></span></button>
+            <div id="instances"></div>
+            <span id="rec-dot" class="icon icon-point-filled"></span>
+            <span id="play-status" class="muted"></span>
+        </div>
+        <div class="spacer"></div>
     </div>
-    <div class="group">
-        <button id="tool-local" class="tool-button" data-command="gizmo.local" data-tooltip="Global Space (T) — handles follow the world axes; click for the node's local axes"><span id="tool-local-icon" class="icon icon-world"></span></button>
-        <button id="tool-snap" class="tool-button" data-command="gizmo.snap" data-tooltip="Snap (Y) — move, rotate and scale in steps"><span class="icon icon-magnet"></span></button>
-        <input type="text" class="text" id="snap-step" value="0.5" data-tooltip="Snap Step — the move step in metres (rotation snaps to 15°, scale to 0.1)"/>
-    </div>
-    <div class="group">
-        <button id="tool-frame" class="tool-button" data-command="view.frame" data-tooltip="Frame Selection (F) — move the camera to the selected nodes"><span class="icon icon-focus-centered"></span></button>
-        <button id="tool-grid" class="tool-button active" data-command="view.grid" data-tooltip="Grid (G) — show or hide the ground grid"><span class="icon icon-grid-3x3"></span></button>
-        <button id="tool-post" class="tool-button active" data-command="view.post" data-tooltip="Preview Post-Processing — show the world's post effects in the view (tonemap, auto exposure, glow, SSAO, TAA, grade, depth of field, film); off: the plain tonemap"><span class="icon icon-sparkles"></span></button>
-    </div>
-    <div class="spacer"></div>
-    <div class="group play">
-        <button id="play" class="tool-button" data-command="play.main" data-tooltip="Play (F5) — build the project and run its main scene"><span class="icon icon-player-play-filled"></span></button>
-        <button id="play-scene" class="tool-button" data-command="play.scene" data-tooltip="Play Scene (F6) — save and run the open scene"><span class="icon icon-movie"></span></button>
-        <button id="record" class="tool-button" data-command="play.record" data-tooltip="Play and Record (F10) — record gameplay for promo footage; press again to stop"><span class="icon icon-point-filled"></span></button>
-        <button id="pause" class="tool-button disabled" data-command="play.pause" data-tooltip="Pause (F7) — pause or resume the running game"><span class="icon icon-player-pause"></span></button>
-        <button id="stop" class="tool-button disabled" data-command="play.stop" data-tooltip="Stop (F8) — stop every running game"><span class="icon icon-player-stop"></span></button>
-        <button id="build-reload" class="tool-button" data-command="project.build_reload" data-tooltip="Build &amp; Reload (Ctrl+Shift+B) — compile the game's C# and reload it in the editor"><span class="icon icon-hammer"></span></button>
-        <button id="user-data" class="tool-button" data-command="project.user_data" data-tooltip="Open User Data Folder — show the folder the game keeps its saves, settings and logs in (created if missing)"><span class="icon icon-folder-user"></span></button>
-        <div id="instances"></div>
-        <span id="rec-dot" class="icon icon-point-filled"></span>
-        <span id="play-status" class="muted"></span>
-    </div>
-    <div class="spacer"></div>
+    <div id="video-tools" class="tools hidden"></div>
+    <div id="mode-toggle"><button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record">Game</button><button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings">Video</button></div>
     <button id="docs" class="tool-button" data-command="help.docs" data-tooltip="Documentation (F1) — open the engine docs in your browser"><span class="icon icon-book"></span></button>
     <button id="update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>
     <span id="stats" class="mono" data-tooltip="Frame Rate — editor frames per second and frame time"></span>

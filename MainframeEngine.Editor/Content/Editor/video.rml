@@ -1,0 +1,28 @@
+<rml>
+<head>
+    <title>Video</title>
+    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        /* Video mode's view, below the tab strip. Without a video tab: how to get a recording, and the recent videos. */
+        body.video-doc { justify-content: center; background-color: #15171c; }
+        #video-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0dp 24dp;
+            text-align: center;
+            color: #6b7488;
+        }
+        #video-empty .icon { margin-bottom: 8dp; image-color: #4b5263; }
+        #video-recent { display: flex; flex-direction: column; align-items: stretch; margin-top: 14dp; width: 360dp; }
+    </style>
+</head>
+<body class="panel-doc video-doc" data-model="video">
+    <div id="video-empty">
+        <span class="icon icon-lg icon-video"></span>
+        <span>Open a recording (File › Open…) or record one in Game mode (F10)</span>
+        <div id="video-recent"></div>
+    </div>
+</body>
+</rml>

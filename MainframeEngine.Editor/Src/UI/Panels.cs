@@ -3,7 +3,10 @@ using MainframeEngine.UI.Rml;
 
 namespace MainframeEngine.Editor;
 
-/// <summary>The menu bar (File, Edit, View, Help): a click opens the menu's <see cref="PopupMenu"/>.</summary>
+/// <summary>
+/// The menu bar: a click opens the menu's <see cref="PopupMenu"/>. Game mode shows File, Edit, View, Project, Run and Help;
+/// video mode File, Edit, View, Video and Help (<see cref="ApplyMode"/>).
+/// </summary>
 public sealed class MenuBarPanel : EditorDocument
 {
     public MenuBarPanel(EditorWorkspace workspace)
@@ -11,7 +14,9 @@ public sealed class MenuBarPanel : EditorDocument
     {
     }
 
-    /// <summary>Opens menu <paramref name="menu"/> (file, edit, view, help) under its title.</summary>
+    private static readonly string[] MenuIds = ["menu-file", "menu-edit", "menu-view", "menu-project", "menu-run", "menu-video", "menu-help"];
+
+    /// <summary>Opens menu <paramref name="menu"/> (file, edit, view, project, run, video, help) under its title.</summary>
     public void OpenMenu(string menu)
     {
         var x = 80f;
@@ -28,8 +33,19 @@ public sealed class MenuBarPanel : EditorDocument
     {
         if (!IsLoaded)
             return;
-        foreach (var name in (ReadOnlySpan<string>)["file", "edit", "view", "project", "run", "help"])
-            Document.GetElementById($"menu-{name}").SetClass("open", false);
+        foreach (var id in MenuIds)
+            Document.GetElementById(id).SetClass("open", false);
+    }
+
+    /// <summary>Shows the menu titles of <paramref name="mode"/> (Project and Run are game-only, Video is video-only).</summary>
+    public void ApplyMode(EditorMode mode)
+    {
+        if (!IsLoaded)
+            return;
+        var video = mode == EditorMode.Video;
+        Document.GetElementById("menu-project").SetClass("hidden", video);
+        Document.GetElementById("menu-run").SetClass("hidden", video);
+        Document.GetElementById("menu-video").SetClass("hidden", !video);
     }
 
     private string _windowTitle = "";
@@ -58,7 +74,11 @@ public sealed class MenuBarPanel : EditorDocument
         Document.GetElementById("title-dirty").SetClass("hidden", !_dirty);
     }
 
-    protected override void OnAttach(RmlDocument document) => ApplyTitle();
+    protected override void OnAttach(RmlDocument document)
+    {
+        ApplyTitle();
+        ApplyMode(Workspace.Mode);
+    }
 
     protected override void OnClickElement(RmlEvent e)
     {
@@ -67,7 +87,10 @@ public sealed class MenuBarPanel : EditorDocument
     }
 }
 
-/// <summary>The toolbar: gizmo mode, local/global, snapping, frame, grid; play controls (disabled until E4); frame stats.</summary>
+/// <summary>
+/// The toolbar: in game mode the gizmo mode, local/global, snapping, frame, grid and the play controls; in video mode the
+/// video tools (<see cref="ApplyMode"/>). Both end with the Game|Video toggle, the docs button and the frame stats.
+/// </summary>
 public sealed class ToolbarPanel : EditorDocument
 {
     private RmlEventListener? _snapListener;
@@ -87,6 +110,20 @@ public sealed class ToolbarPanel : EditorDocument
         _snapListener = document.GetElementById("snap-step").AddEventListener("change", OnSnapStep);
         Refresh();
         RefreshUpdate();
+        ApplyMode(Workspace.Mode);
+    }
+
+    /// <summary>Shows <paramref name="mode"/>'s tools and marks its half of the Game|Video toggle.</summary>
+    public void ApplyMode(EditorMode mode)
+    {
+        if (!IsLoaded)
+            return;
+        var video = mode == EditorMode.Video;
+        var document = Document;
+        document.GetElementById("game-tools").SetClass("hidden", video);
+        document.GetElementById("video-tools").SetClass("hidden", !video);
+        document.GetElementById("mode-game").SetClass("active", !video);
+        document.GetElementById("mode-video").SetClass("active", video);
     }
 
     private ReleaseVersion? _badgeVersion;
@@ -381,7 +418,7 @@ public sealed class SplittersOverlay : EditorDocument
             Workspace.ApplyLayout();
     }
 
-    /// <summary>Positions the handles from <paramref name="layout"/>.</summary>
+    /// <summary>Positions the handles from <paramref name="layout"/>; a splitter the mode lacks (empty rectangle) is hidden.</summary>
     public void Apply(EditorLayout layout)
     {
         ArgumentNullException.ThrowIfNull(layout);
@@ -393,6 +430,7 @@ public sealed class SplittersOverlay : EditorDocument
             if (element.IsNull)
                 continue;
             var rect = layout.SplitterRect(splitter);
+            element.SetProperty("display", rect.Width <= 0 || rect.Height <= 0 ? "none" : "block");
             element.SetProperty("left", RmlText.Dp(rect.X));
             element.SetProperty("top", RmlText.Dp(rect.Y));
             element.SetProperty("width", RmlText.Dp(rect.Width));

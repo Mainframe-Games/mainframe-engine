@@ -68,6 +68,18 @@ public sealed record EditorLayoutSettings
 
     /// <summary>Recently created entries per picker, newest first.</summary>
     public Dictionary<string, string[]>? PickerRecent { get; init; }
+
+    /// <summary>Video mode shows the output panel below the view (View › Show/Hide Output); game mode always does.</summary>
+    public bool VideoShowOutput { get; init; }
+
+    /// <summary>Video mode shows the transcript beside the preview (View › Show/Hide Transcript).</summary>
+    public bool VideoShowTranscript { get; init; } = true;
+
+    /// <summary>Video mode's transcript width in dp.</summary>
+    public float VideoTranscriptWidth { get; init; } = 320;
+
+    /// <summary>Video mode's timeline height in dp.</summary>
+    public float VideoTimelineHeight { get; init; } = 180;
 }
 
 /// <summary>
@@ -90,6 +102,21 @@ public sealed class EditorLayout
     }
 
     public EditorLayoutSettings Settings { get; private set; }
+
+    /// <summary>
+    /// The mode the rectangles are for. Video mode has no docks: the viewport panel (its tab strip above the video panel)
+    /// spans the window, with the output panel below it only when <see cref="EditorLayoutSettings.VideoShowOutput"/>.
+    /// </summary>
+    public EditorMode Mode { get; private set; }
+
+    /// <summary>Switches the layout to <paramref name="mode"/> and recomputes the rectangles.</summary>
+    public void SetMode(EditorMode mode)
+    {
+        if (mode == Mode)
+            return;
+        Mode = mode;
+        Recompute();
+    }
 
     /// <summary>The window size (dp) the rectangles were computed for.</summary>
     public float WindowWidth { get; private set; }
@@ -122,13 +149,15 @@ public sealed class EditorLayout
         Recompute();
     }
 
-    /// <summary>The splitter's hit/draw rectangle.</summary>
-    public LayoutRect SplitterRect(Splitter splitter) => splitter switch
+    /// <summary>The splitter's hit/draw rectangle; empty when the mode has no such splitter (video mode: only Bottom, with the output).</summary>
+    public LayoutRect SplitterRect(Splitter splitter) => (Mode, splitter) switch
     {
-        Splitter.Left => new LayoutRect(SceneTree.Right, SceneTree.Y, SplitterSize, WindowHeight - SceneTree.Y),
-        Splitter.Right => new LayoutRect(Inspector.X - SplitterSize, Inspector.Y, SplitterSize, Inspector.Height),
-        Splitter.Bottom => new LayoutRect(Viewport.X, Viewport.Bottom, Viewport.Width, SplitterSize),
-        Splitter.LeftDock => new LayoutRect(SceneTree.X, SceneTree.Bottom, SceneTree.Width, SplitterSize),
+        (EditorMode.Video, Splitter.Bottom) when Settings.VideoShowOutput => new LayoutRect(Viewport.X, Viewport.Bottom, Viewport.Width, SplitterSize),
+        (EditorMode.Video, _) => default,
+        (_, Splitter.Left) => new LayoutRect(SceneTree.Right, SceneTree.Y, SplitterSize, WindowHeight - SceneTree.Y),
+        (_, Splitter.Right) => new LayoutRect(Inspector.X - SplitterSize, Inspector.Y, SplitterSize, Inspector.Height),
+        (_, Splitter.Bottom) => new LayoutRect(Viewport.X, Viewport.Bottom, Viewport.Width, SplitterSize),
+        (_, Splitter.LeftDock) => new LayoutRect(SceneTree.X, SceneTree.Bottom, SceneTree.Width, SplitterSize),
         _ => default,
     };
 
@@ -253,6 +282,11 @@ public sealed class EditorLayout
         Toolbar = new LayoutRect(0, MenuBarHeight, w, ToolbarHeight);
         var top = MenuBarHeight + ToolbarHeight;
         var content = MathF.Max(1, h - top);
+        if (Mode == EditorMode.Video)
+        {
+            RecomputeVideo(w, top, content);
+            return;
+        }
 
         // Docks shrink before the viewport disappears on small windows.
         var left = Math.Clamp(Settings.LeftWidth, MinDock, MathF.Max(MinDock, (w - MinViewportWidth) * 0.5f - SplitterSize));
@@ -268,6 +302,19 @@ public sealed class EditorLayout
         Viewport = new LayoutRect(centerX, top, centerWidth, viewportHeight);
         Output = new LayoutRect(centerX, top + viewportHeight + SplitterSize, centerWidth, bottom);
         Inspector = new LayoutRect(w - right, top, right, content);
+        Version++;
+    }
+
+    // Video mode: no docks; the viewport panel spans the window, the output panel (when shown) below it.
+    private void RecomputeVideo(float w, float top, float content)
+    {
+        var showOutput = Settings.VideoShowOutput;
+        var bottom = showOutput ? Math.Clamp(Settings.BottomHeight, MinBottom, MathF.Max(MinBottom, content - MinViewportHeight - SplitterSize)) : 0;
+        SceneTree = default;
+        FileSystem = default;
+        Inspector = default;
+        Viewport = new LayoutRect(0, top, w, MathF.Max(1, content - (showOutput ? bottom + SplitterSize : 0)));
+        Output = showOutput ? new LayoutRect(0, top + Viewport.Height + SplitterSize, w, bottom) : default;
         Version++;
     }
 
@@ -321,6 +368,8 @@ public sealed class EditorLayout
         WindowHeight = Math.Clamp(s.WindowHeight, 0, 16384),
         PickerFavorites = CleanLists(s.PickerFavorites, int.MaxValue),
         PickerRecent = CleanLists(s.PickerRecent, MaxRecent),
+        VideoTranscriptWidth = Finite(s.VideoTranscriptWidth, 320),
+        VideoTimelineHeight = Finite(s.VideoTimelineHeight, 180),
     };
 
     // Drops null lists and blank ids (hand-edited files); caps lengths.

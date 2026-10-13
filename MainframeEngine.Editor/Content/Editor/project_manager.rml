@@ -137,6 +137,7 @@
         <div class="pm-actions">
             <button id="pm-open" data-class-disabled="!has_selection" data-event-click="open()" data-tooltip="Open — open the selected project (Enter)"><span class="icon icon-player-play"></span><span>Open</span></button>
             <button id="pm-remove" data-class-disabled="!has_selection" data-event-click="remove()" data-tooltip="Remove from List — forget the selected project (its files stay)"><span class="icon icon-trash-x"></span><span>Remove from List</span></button>
+            <button id="pm-video" data-event-click="video()" data-tooltip="Video Editor — trim and export recordings in video mode (no project needed)"><span class="icon icon-video"></span><span>Video Editor</span></button>
             <div class="pm-spacer"></div>
             <div data-attr-class="sdk_ok ? 'pm-sdk' : 'pm-sdk bad'" id="pm-sdk">
                 <span data-attr-class="sdk_ok ? 'icon icon-sm icon-circle-check' : 'icon icon-sm icon-alert-triangle'"></span>

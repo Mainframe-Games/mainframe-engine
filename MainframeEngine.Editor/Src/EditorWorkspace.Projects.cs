@@ -61,13 +61,22 @@ public sealed partial class EditorWorkspace
 
     // ── Start-up ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-    // A project (argument or the scene's project), else the scene, else the Project Manager (editor executable), else a new scene.
+    // A project (argument or the scene's project), else the scene, else video mode when the editor was last in it, else the
+    // Project Manager (editor executable), else a new scene.
     private void StartUp()
     {
         Updates.Start();
         if (Options.InitialProject is { } project)
         {
             RunWithSplash($"Opening {Path.GetFileName(project.TrimEnd(Path.DirectorySeparatorChar))}…", () => Commands.OpenProjectNow(project, Options.InitialScene));
+            return;
+        }
+
+        if (Options.InitialScene is null && Settings.LastMode == EditorMode.Video)
+        {
+            SetMode(EditorMode.Video); // needs no project: the Project Manager stays closed
+            if (Splash.Visible)
+                Splash.Finish();
             return;
         }
 
