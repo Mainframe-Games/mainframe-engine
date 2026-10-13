@@ -97,6 +97,43 @@ public sealed class VideoDocumentTests : IDisposable
     }
 
     [Fact]
+    public void SilenceInsideAnExistingCutReportsThatNothingChanged()
+    {
+        var doc = Doc();
+        Assert.True(doc.Editor.CreateSection(5, 20, anchor: 5)); // cut by hand
+        Assert.Equal("Detected 1 silence; all were already cut.",
+            doc.ApplySilence([new SilenceSpan(10, 12)], DetectionSettings.Default));
+    }
+
+    [Fact]
+    public void SilenceOverlappingAnExistingCutReportsOnlyWhatItRemoved()
+    {
+        var doc = Doc();
+        Assert.True(doc.Editor.CreateSection(5, 11, anchor: 5)); // 10–11 s of the silence is cut already
+        // Padded 10.06–11.94: only 11–11.94 s is new.
+        Assert.Equal("Detected 1 silence, 0:00.9 removed.", doc.ApplySilence([new SilenceSpan(10, 12)], DetectionSettings.Default));
+    }
+
+    [Fact]
+    public void IdleGameplayAlreadyCutReportsThatNothingChanged()
+    {
+        var doc = Doc(VideoCapture.CaptureSidecarSerializer.Deserialize(Sidecar));
+        var first = doc.DetectIdleGameplay(GameplaySettings.Default);
+        Assert.StartsWith("Cut 1 stretch of idle gameplay, ", first, StringComparison.Ordinal);
+        Assert.Equal("Found 1 stretch of idle gameplay; all were already cut.", doc.DetectIdleGameplay(GameplaySettings.Default));
+    }
+
+    [Fact]
+    public void IdleGameplayReportsTheKeptTimeItRemoved()
+    {
+        var doc = Doc(VideoCapture.CaptureSidecarSerializer.Deserialize(Sidecar));
+        doc.ApplySilence([new SilenceSpan(15, 17)], DetectionSettings.Default); // 15.06–16.94 s of the loading screen, cut already
+        var cuts = MainframeEngine.Video.Detection.GameplayCutPlanner.Plan(doc.Capture!, doc.Segments.Segments, GameplaySettings.Default, doc.Duration);
+        var planned = cuts.Sum(c => c.Duration); // the planner lays its cut over auto cuts
+        Assert.Equal($"Cut 1 stretch of idle gameplay, {VideoFormat.Clock(planned - 1.88)} removed.", doc.DetectIdleGameplay(GameplaySettings.Default));
+    }
+
+    [Fact]
     public void SettingATranscriptMakesTheDocumentDirtyUntilSaved()
     {
         var doc = Doc();

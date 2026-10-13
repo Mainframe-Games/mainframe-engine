@@ -127,20 +127,14 @@ public sealed class EditorSettingsDialog : EditorDocument
     }
 
     /// <summary>
-    /// Called every frame by the workspace (the dialog is not a <c>[Tool]</c> node, so <c>OnProcess</c> never runs in the
-    /// editor): redraws the MIDI list when the devices changed while the dialog is open, the plugin status when a scan ends,
-    /// and scrolls the body to what <see cref="Open"/> asked for once the shown document has laid out (scrolling before that
-    /// is lost, so it waits a couple of frames).
+    /// Every frame, from the workspace (a dialog is not a <c>[Tool]</c> node, so it gets no process callback of its own in
+    /// the editor): redraws the MIDI list when the devices changed while the dialog is open and the plugin status when a
+    /// scan ends, fills the Video fields once a (re)loaded document is shown, and scrolls the body to what
+    /// <see cref="Open"/> asked for once the shown document has laid out. Scrolling before that is lost, so it waits a
+    /// couple of frames. Nothing allocates while nothing changed.
     /// </summary>
     public void Tick()
     {
-        if (_showVideoFields && Visible && IsLoaded)
-        {
-            _showVideoFields = false;
-            ShowVideoFields();
-        }
-
-        ScrollIfPending();
         if (Visible && Workspace.Midi.Version != _midiVersion)
             RebuildMidi();
         if (_scan is { IsCompleted: true })
@@ -148,10 +142,13 @@ public sealed class EditorSettingsDialog : EditorDocument
             _scan = null;
             _model?.Dirty("plugin_status");
         }
-    }
 
-    private void ScrollIfPending()
-    {
+        if (_showVideoFields && Visible && IsLoaded)
+        {
+            _showVideoFields = false;
+            ShowVideoFields();
+        }
+
         if (_scrollTarget is not { } target || !Visible || !IsLoaded || ++_scrollFrames < ScrollAfterFrames)
             return;
         var element = Document.GetElementById(target);

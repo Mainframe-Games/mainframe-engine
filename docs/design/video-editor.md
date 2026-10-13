@@ -257,7 +257,11 @@ at least 80 dp apart. Only the left button edits, and a gesture keeps the pointe
 - **Detect Idle Gameplay** reads the `.mfcap.json` sidecar: `GameplayCutPlanner` → `ReplaceOriginCuts(Gameplay)`, as one
   undo step. Defaults: min idle 3000 ms, padding 500 ms, min keep 1000 ms, marker window 1500 ms. Cutback's rules: idle
   only in live recordings; loading, pause and Skip cut exactly; Keep never cut; markers protect the footage around them.
-- The results use Cutback's wording.
+- The results use Cutback's sentences, but report the **kept time the run actually removed** (the kept duration before
+  minus after), not the sum of the planned cuts, which can overlap footage already cut by hand or by the other
+  detector: "Detected 2 silences, 0:02.8 removed." and "Cut 1 stretch of idle gameplay, 0:05.5 removed."; when nothing
+  changed, "Detected 1 silence; all were already cut." and "Found 1 stretch of idle gameplay; all were already cut."; a
+  re-run that gives footage back says "restored".
 
 ### Export
 
@@ -403,6 +407,8 @@ The proposal was agreed on 2026-10-13; these changed while it was built:
 - The Video Settings text fields commit on Enter or blur.
 - Jobs start with `VideoJob.Start<T>`; `DeliveryEncoder`'s probe is shared, time-limited and evicted on failure.
 - The view menu has Switch to Game/Video Mode items, not a toggle; the Edit menu opens Video Settings.
+- Detection notices report the kept time a run actually removed (Cutback sums the planned cuts), and say when all of it
+  was cut already.
 - The recording dialog offers Open in Video Editor first and keeps Open in Cutback.
 
 ## Related docs

@@ -249,11 +249,15 @@ public sealed class VideoDocument
         }
 
         var cuts = GameplayCutPlanner.Plan(Capture, Segments.Segments, settings, Duration);
+        var keptBefore = KeptSeconds();
         Editor.Edit(s => s.ReplaceOriginCuts(SegmentOrigin.Gameplay, cuts));
 
+        var stretches = $"{cuts.Count} stretch{(cuts.Count == 1 ? "" : "es")} of idle gameplay";
         return cuts.Count == 0
             ? "No idle gameplay found with the current settings."
-            : $"Cut {cuts.Count} stretch{(cuts.Count == 1 ? "" : "es")} of idle gameplay, {VideoFormat.Clock(cuts.Sum(c => c.Duration))} removed.";
+            : Removed(keptBefore) is { } removed
+                ? $"Cut {stretches}, {removed}."
+                : $"Found {stretches}; all were already cut.";
     }
 
     /// <summary>
@@ -266,14 +270,42 @@ public sealed class VideoDocument
         ArgumentNullException.ThrowIfNull(spans);
         ArgumentNullException.ThrowIfNull(settings);
         var cuts = SilenceCutPlanner.Plan(spans, settings, Duration);
+        var keptBefore = KeptSeconds();
 
         Editor.Edit(s => s.ReplaceAutoSegments(cuts));
         _baseProject = _baseProject with { Settings = settings };
         _cachedProject = null;
 
+        var silences = $"{cuts.Count} silence{(cuts.Count == 1 ? "" : "s")}";
         return cuts.Count == 0
             ? "No silence found with the current settings."
-            : $"Detected {cuts.Count} silence{(cuts.Count == 1 ? "" : "s")}, {VideoFormat.Clock(cuts.Sum(c => c.Duration))} removed.";
+            : Removed(keptBefore) is { } removed
+                ? $"Detected {silences}, {removed}."
+                : $"Detected {silences}; all were already cut.";
+    }
+
+    /// <summary>Seconds of footage the partition keeps.</summary>
+    private double KeptSeconds()
+    {
+        var segments = Segments.Segments;
+        var kept = 0.0;
+        for (var i = 0; i < segments.Count; i++)
+            if (segments[i].Enabled)
+                kept += segments[i].Duration;
+        return kept;
+    }
+
+    /// <summary>
+    /// What a detection actually changed, as the notice says it: "m:ss.t removed" (or "restored", when a re-run with other
+    /// settings gave footage back), or null when the kept time did not change to the tenth of a second shown. The planned
+    /// cuts can overlap what is cut already (by hand, or by the other detector), so their sum would overstate it.
+    /// </summary>
+    private string? Removed(double keptBefore)
+    {
+        var change = keptBefore - KeptSeconds();
+        if (Math.Abs(change) < 0.05)
+            return null;
+        return change > 0 ? $"{VideoFormat.Clock(change)} removed" : $"{VideoFormat.Clock(-change)} restored";
     }
 
     /// <summary>Installs a freshly transcribed (or cleared) transcript. The document is dirty until saved.</summary>
