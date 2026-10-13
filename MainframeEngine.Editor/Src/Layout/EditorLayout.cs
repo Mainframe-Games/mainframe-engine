@@ -48,8 +48,15 @@ public sealed record EditorLayoutSettings
     public int WindowWidth { get; init; }
     public int WindowHeight { get; init; }
 
-    /// <summary>The output panel's level filter (bit per <see cref="OutputLevel"/>).</summary>
-    public int OutputFilter { get; init; } = 0b1111;
+    /// <summary>Every <see cref="OutputLevel"/> shown.</summary>
+    public const int DefaultOutputFilter = 0b1111;
+
+    /// <summary>
+    /// The output panel's level filter (bit per <see cref="OutputLevel"/>). Nullable because the JSON source generator
+    /// ignores the initializers of <c>init</c> properties: a file without the key reads null, which <c>Load</c> restores to
+    /// <see cref="DefaultOutputFilter"/> (a saved 0 stays).
+    /// </summary>
+    public int? OutputFilter { get; init; } = DefaultOutputFilter;
 
     /// <summary>The inspector's property-name column width in dp; 0 sizes it to the longest name.</summary>
     public float InspectorLabelWidth { get; init; }
@@ -57,11 +64,23 @@ public sealed record EditorLayoutSettings
     /// <summary>The output panel folds repeated lines into one with a ×N badge.</summary>
     public bool OutputCollapse { get; init; }
 
-    /// <summary>The output panel scrolls to each new line (off: the scroll position stays).</summary>
-    public bool OutputFollow { get; init; } = true;
+    /// <summary>
+    /// The output panel scrolls to each new line (off: the scroll position stays). Nullable like <see cref="OutputFilter"/>:
+    /// a file without the key reads null, which <c>Load</c> restores to true.
+    /// </summary>
+    public bool? OutputFollow { get; init; } = true;
 
-    /// <summary>The sound designer (ZzfxStream inspector) replays the sound after every committed change.</summary>
-    public bool SoundDesignerAutoPlay { get; init; } = true;
+    /// <summary>
+    /// The sound designer (ZzfxStream inspector) plays only when asked, not after every committed change. Stored inverted,
+    /// so a file written without the key auto-plays: the JSON source generator ignores the initializers of <c>init</c>
+    /// properties, and a missing <c>bool</c> reads as false. The old <c>SoundDesignerAutoPlay</c> key is ignored, since
+    /// that bug saved it as false in every layout file from before the sound designer.
+    /// </summary>
+    public bool SoundDesignerManualPlay { get; init; }
+
+    /// <summary>The sound designer replays the sound after every committed change: <see cref="SoundDesignerManualPlay"/> inverted.</summary>
+    [JsonIgnore]
+    public bool SoundDesignerAutoPlay => !SoundDesignerManualPlay;
 
     /// <summary>Favourite entries per picker (<c>node</c>, <c>resource</c>, <c>scene</c>): type names or project paths.</summary>
     public Dictionary<string, string[]>? PickerFavorites { get; init; }
@@ -203,7 +222,7 @@ public sealed class EditorLayout
 
     public void SetOutputOptions(bool collapse, bool follow) => Settings = Settings with { OutputCollapse = collapse, OutputFollow = follow };
 
-    public void SetSoundDesignerAutoPlay(bool autoPlay) => Settings = Settings with { SoundDesignerAutoPlay = autoPlay };
+    public void SetSoundDesignerAutoPlay(bool autoPlay) => Settings = Settings with { SoundDesignerManualPlay = !autoPlay };
 
     /// <summary>Most entries a picker's recent list keeps.</summary>
     public const int MaxRecent = 8;
@@ -319,6 +338,8 @@ public sealed class EditorLayout
         LeftDockSplit = Math.Clamp(Finite(s.LeftDockSplit, 0.62f), 0.15f, 0.9f),
         WindowWidth = Math.Clamp(s.WindowWidth, 0, 16384),
         WindowHeight = Math.Clamp(s.WindowHeight, 0, 16384),
+        OutputFilter = s.OutputFilter ?? EditorLayoutSettings.DefaultOutputFilter,
+        OutputFollow = s.OutputFollow ?? true,
         PickerFavorites = CleanLists(s.PickerFavorites, int.MaxValue),
         PickerRecent = CleanLists(s.PickerRecent, MaxRecent),
     };
