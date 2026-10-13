@@ -113,4 +113,37 @@ public sealed class ModelStoreTests : IDisposable
 
         store.Delete(WhisperModel.BaseEn);
     }
+
+    [Fact]
+    public void EveryDownloadWritesItsOwnPartFileBesideTheModel()
+    {
+        var path = Path.Combine(_dir, "ggml-tiny.en.bin");
+        var first = ModelStore.PartPathFor(path);
+        var second = ModelStore.PartPathFor(path);
+
+        Assert.NotEqual(first, second); // two first-time downloads of one model never share a file
+        Assert.Equal(_dir, Path.GetDirectoryName(first));
+        Assert.StartsWith("ggml-tiny.en.bin.", Path.GetFileName(first), StringComparison.Ordinal);
+        Assert.EndsWith(".part", first, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheFirstFinishedDownloadWinsAndALaterOneIsDiscarded()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "ggml-tiny.en.bin");
+        var first = ModelStore.PartPathFor(path);
+        var second = ModelStore.PartPathFor(path);
+        File.WriteAllBytes(first, [1]);
+        File.WriteAllBytes(second, [2]);
+
+        ModelStore.Commit(first, path);
+        Assert.Equal<byte>([1], File.ReadAllBytes(path));
+        Assert.False(File.Exists(first));
+
+        ModelStore.Commit(second, path); // the model is already in place: keep it, drop this copy
+        Assert.Equal<byte>([1], File.ReadAllBytes(path));
+        Assert.False(File.Exists(second));
+        Assert.Equal([path], Directory.GetFiles(_dir));
+    }
 }

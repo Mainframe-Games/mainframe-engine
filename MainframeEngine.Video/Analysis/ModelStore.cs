@@ -54,7 +54,7 @@ public sealed class ModelStore
             return path;
         }
 
-        var partial = path + ".part";
+        var partial = PartPathFor(path);
         try
         {
             Directory.CreateDirectory(CacheDirectory);
@@ -84,7 +84,7 @@ public sealed class ModelStore
                     + "Check your connection and try again.");
             }
 
-            File.Move(partial, path, overwrite: true);
+            Commit(partial, path);
             progress?.Report(1.0);
             return path;
         }
@@ -111,6 +111,28 @@ public sealed class ModelStore
         }
     }
 
+    /// <summary>
+    /// Where one download of <paramref name="path"/> writes until it is complete: <c>&lt;file&gt;.&lt;guid&gt;.part</c> beside
+    /// it, unique per download, so two first-time downloads of the same model never write into one file.
+    /// </summary>
+    internal static string PartPathFor(string path) => $"{path}.{Guid.NewGuid():N}.part";
+
+    /// <summary>
+    /// Moves a finished download into place atomically. When another download got there first, the model already in
+    /// place is kept (a model being loaded is never replaced under it) and this copy is deleted.
+    /// </summary>
+    internal static void Commit(string partial, string path)
+    {
+        try
+        {
+            File.Move(partial, path, overwrite: false);
+        }
+        catch (IOException) when (File.Exists(path))
+        {
+            TryDelete(partial);
+        }
+    }
+
     /// <summary>Removes the cached model file for <paramref name="model"/>, if one is present.</summary>
     public void Delete(WhisperModel model) => TryDelete(PathFor(model));
 
@@ -122,7 +144,7 @@ public sealed class ModelStore
         }
         catch (IOException)
         {
-            // Best effort; a stale .part file is harmless and overwritten next time.
+            // Best effort; a stale .part file is harmless.
         }
         catch (UnauthorizedAccessException)
         {
