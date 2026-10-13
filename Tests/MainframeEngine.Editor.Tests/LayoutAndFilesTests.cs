@@ -89,6 +89,23 @@ public sealed class EditorLayoutTests : IDisposable
     }
 
     [Fact]
+    public void ALayoutFileWithoutTheOutputKeysShowsEveryLevelAndFollows()
+    {
+        var bare = Path.Combine(_directory, "bare.json");
+        File.WriteAllText(bare, """{ "Format": 1, "LeftWidth": 300 }""");
+        var loaded = EditorLayout.Load(bare);
+        Assert.Equal(EditorLayoutSettings.DefaultOutputFilter, loaded.OutputFilter);
+        Assert.True(loaded.OutputFollow);
+
+        // Saved choices of 0 and false stay.
+        var off = Path.Combine(_directory, "off.json");
+        File.WriteAllText(off, """{ "Format": 1, "OutputFilter": 0, "OutputFollow": false }""");
+        loaded = EditorLayout.Load(off);
+        Assert.Equal(0, loaded.OutputFilter);
+        Assert.False(loaded.OutputFollow);
+    }
+
+    [Fact]
     public void ALayoutFileFromBeforeTheSoundDesignerAutoPlays()
     {
         // Written by v1.0 (no sound designer): no SoundDesigner* key.

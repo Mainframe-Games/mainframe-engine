@@ -64,9 +64,9 @@ public sealed class OutputPanel : EditorDocument
         : base(workspace, "output.rml")
     {
         var settings = workspace.Layout.Settings;
-        _filter = settings.OutputFilter;
+        _filter = settings.OutputFilter ?? EditorLayoutSettings.DefaultOutputFilter;
         _collapse = settings.OutputCollapse;
-        _follow = settings.OutputFollow;
+        _follow = settings.OutputFollow ?? true;
     }
 
     /// <summary>The messages of the visible lines, oldest first (the first of each folded run).</summary>
