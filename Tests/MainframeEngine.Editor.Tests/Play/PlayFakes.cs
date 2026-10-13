@@ -57,6 +57,9 @@ public sealed class FakeGameLauncher : IGameLauncher
 
     public Func<GameLaunchRequest, FakeGameMode> ModeFor { get; set; } = _ => FakeGameMode.Normal;
 
+    /// <summary>The editor-link protocol the games' hello reports (an older engine: below 4).</summary>
+    public int ProtocolVersion { get; set; } = EditorLinkProtocol.Version;
+
     public IReadOnlyList<FakeGame> Games
     {
         get
@@ -68,7 +71,7 @@ public sealed class FakeGameLauncher : IGameLauncher
 
     public IGameProcess Launch(GameLaunchRequest request)
     {
-        var game = new FakeGame(Interlocked.Increment(ref _nextId), request, ModeFor(request));
+        var game = new FakeGame(Interlocked.Increment(ref _nextId), request, ModeFor(request), ProtocolVersion);
         lock (_games)
             _games.Add(game);
         return game;
@@ -86,6 +89,8 @@ public sealed class FakeGame : IGameProcess
     public const int KilledExitCode = 137;
 
     private readonly ConcurrentQueue<string> _output = new();
+    private readonly ConcurrentQueue<EditorLinkRecording> _inject = new();
+    private readonly int _protocolVersion;
     private readonly ManualResetEventSlim _wake = new(false);
     private readonly Thread _thread;
     private volatile bool _kill;
@@ -96,12 +101,15 @@ public sealed class FakeGame : IGameProcess
     private volatile bool _paused;
     private int _exitCode;
     private string _recordingPath = "";
+    private bool _recording;
+    private volatile bool _zombie;
 
-    public FakeGame(int id, GameLaunchRequest request, FakeGameMode mode)
+    public FakeGame(int id, GameLaunchRequest request, FakeGameMode mode, int protocolVersion = EditorLinkProtocol.Version)
     {
         Id = id;
         Request = request;
         Mode = mode;
+        _protocolVersion = protocolVersion;
         var args = request.Arguments;
         for (var i = 0; i + 1 < args.Count; i++)
         {
@@ -135,6 +143,25 @@ public sealed class FakeGame : IGameProcess
 
     /// <summary>Makes StopRecording report Stopped and then say goodbye and exit at once (the real "stop recording, quit" order).</summary>
     public bool ExitAfterStop { get; set; }
+
+    /// <summary>
+    /// When set, a Stop while recording takes this long to finalise (like GameHost.OnClose's StopAndWait), then reports
+    /// Stopped, says goodbye and exits 0.
+    /// </summary>
+    public TimeSpan? StopSaveDelay { get; set; }
+
+    /// <summary>
+    /// When set, StopRecording makes the process look exited at once (code 0) while its link stays up; Stopped, the goodbye
+    /// and the disconnect follow only once this gate is set (the exit is polled before the link's last messages are read).
+    /// </summary>
+    public ManualResetEventSlim? ExitBeforeReportingGate { get; set; }
+
+    /// <summary>Sends <paramref name="recording"/> as if the game had raised it, then logs "injected".</summary>
+    public void Inject(EditorLinkRecording recording)
+    {
+        _inject.Enqueue(recording);
+        _wake.Set();
+    }
 
     /// <summary>True when it ended because it was killed (not by quitting or crashing).</summary>
     public bool WasKilled => _wasKilled;
@@ -173,7 +200,8 @@ public sealed class FakeGame : IGameProcess
     public void Dispose()
     {
         Kill();
-        _thread.Join(TimeSpan.FromSeconds(5));
+        if (!_zombie)
+            _thread.Join(TimeSpan.FromSeconds(5));
     }
 
     private void Run()
@@ -191,7 +219,7 @@ public sealed class FakeGame : IGameProcess
                 return;
             }
 
-            client = new EditorLinkClient(Port, new EditorLinkHello(EditorLinkProtocol.Version, Id, "FakeGame", "0.0.0-test"));
+            client = new EditorLinkClient(Port, new EditorLinkHello(_protocolVersion, Id, "FakeGame", "0.0.0-test"));
             Log("", $"{Request.Label} log 1");
             Log("Audio", $"{Request.Label} log 2");
             Log("", $"{Request.Label} log 3");
@@ -216,6 +244,12 @@ public sealed class FakeGame : IGameProcess
                 }
 
                 frame++;
+                while (_inject.TryDequeue(out var injected))
+                {
+                    client.SendRecording(injected);
+                    Log("", "injected");
+                }
+
                 while (client.TryReceiveCommand(out var command))
                 {
                     Commands.Enqueue(command);
@@ -223,6 +257,19 @@ public sealed class FakeGame : IGameProcess
                     {
                         case EditorCommandKind.Stop when Mode != FakeGameMode.IgnoresStop:
                             Log("EditorLink", "Stop requested by the editor.");
+                            if (_recording && StopSaveDelay is { } delay)
+                            {
+                                _wake.Reset();
+                                _wake.Wait(delay);
+                                if (_kill)
+                                {
+                                    code = Finish(client);
+                                    return;
+                                }
+
+                                client.SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Stopped, _recordingPath, 1.5f, 0, 0, ""));
+                            }
+
                             client.ReportStatus(new EditorLinkStatus(GameRunState.Stopping, frame, 60f, scene));
                             client.SendGoodbye(0, TimeSpan.FromSeconds(2));
                             client.Dispose();
@@ -241,11 +288,24 @@ public sealed class FakeGame : IGameProcess
                             break;
                         case EditorCommandKind.StartRecording:
                             _recordingPath = command.Argument;
+                            _recording = !FailRecording;
                             client.SendRecording(FailRecording
                                 ? new EditorLinkRecording(EditorLinkRecordingState.Failed, command.Argument, 0, 0, 0, "no ffmpeg")
                                 : new EditorLinkRecording(EditorLinkRecordingState.Started, command.Argument, 0, 0, 0, ""));
                             break;
+                        case EditorCommandKind.StopRecording when ExitBeforeReportingGate is { } gate:
+                            _zombie = true;
+                            Volatile.Write(ref _exitCode, 0);
+                            _exited = true; // the editor polls the exit first...
+                            gate.Wait();
+                            client.SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Stopped, _recordingPath, 1.5f, 0, 0, ""));
+                            client.SendGoodbye(0, TimeSpan.FromSeconds(2)); // ...and only then reads the link's last messages
+                            client.Dispose();
+                            client = null;
+                            code = 0;
+                            return;
                         case EditorCommandKind.StopRecording when !SwallowStopRecording:
+                            _recording = false;
                             client.SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Stopped, _recordingPath, 1.5f, 0, 2, ""));
                             if (ExitAfterStop)
                             {

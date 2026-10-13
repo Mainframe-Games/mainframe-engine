@@ -321,4 +321,30 @@ public sealed class PlayRecordingControllerTests : IDisposable
         _editor.Workspace.Message.Answer(0); // "Close": the fake's error names no .partial folder
         Assert.Empty(_revealed);
     }
+
+    [Fact]
+    public void RunAnotherInstanceAfterPlayAndRecordDoesNotRecord()
+    {
+        Play.PlayAndRecord();
+        TickUntil(() => Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running), "the recorded game");
+
+        Play.PlayAnotherInstance();
+        TickUntil(() => _launcher.Games.Count == 2, "the second launch");
+
+        Assert.Contains("--record", _launcher.Games[0].Request.Arguments);
+        Assert.DoesNotContain("--record", _launcher.Games[1].Request.Arguments);
+    }
+
+    [Fact]
+    public void StopWhileRecordingShowsSavingUntilTheGameHasSaved()
+    {
+        var instances = StartTwoGames();
+        Play.ToggleRecording();
+        TickUntil(() => instances[0].Recording == PlayRecordingState.Recording, "recording to start");
+
+        Play.Stop();
+
+        Assert.Equal(PlayRecordingState.Saving, instances[0].Recording);
+        Assert.True(Play.IsSavingRecording);
+    }
 }

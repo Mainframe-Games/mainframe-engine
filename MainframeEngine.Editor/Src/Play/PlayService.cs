@@ -38,12 +38,27 @@ public sealed record PlayRequest(
 /// <para>Exit rule: when the process exits the instance becomes <see cref="PlayInstanceState.Exited"/> if the exit code is
 /// 0 or the editor asked it to stop (Stop, kill, timeout), else <see cref="PlayInstanceState.Crashed"/>.</para>
 /// <para>Stopping: a connected instance is sent <see cref="EditorCommandKind.Stop"/> and killed if still alive
-/// <see cref="StopTimeout"/> later; an instance that never connected is killed at once.</para>
+/// <see cref="StopTimeout"/> later; an instance that never connected is killed at once. A game that is recording (or
+/// saving a recording) finalises the file before it exits, so it gets <see cref="RecordingStopTimeout"/> instead and its
+/// recording shows as <see cref="PlayRecordingState.Saving"/> until it reports the file: killing it would kill the
+/// ffmpeg mux with it (the whole process tree goes) and lose the recording.</para>
 /// </remarks>
 public sealed class PlayService : IDisposable
 {
     /// <summary>A stopped instance still alive after this long is killed.</summary>
     public static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// A stopped instance that is recording or saving is killed only after this long: the game's own cap on finalising at
+    /// quit (<c>GameHost.OnClose</c>: <c>StopAndWait</c>, two minutes) plus a margin for its goodbye and exit.
+    /// </summary>
+    public static readonly TimeSpan RecordingStopTimeout = TimeSpan.FromMinutes(2) + TimeSpan.FromSeconds(15);
+
+    /// <summary>How long quitting the editor waits for a game that is not recording to exit before killing it.</summary>
+    private static readonly TimeSpan DisposeTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary>How often quitting the editor logs that it is still waiting for a recording to be saved.</summary>
+    private static readonly TimeSpan DisposeProgressInterval = TimeSpan.FromSeconds(5);
 
     /// <summary>Exited/crashed instances kept in <see cref="Instances"/> (the oldest are dropped beyond this).</summary>
     public const int MaxExitedInstances = 8;
@@ -305,18 +320,41 @@ public sealed class PlayService : IDisposable
                 Remove(i);
     }
 
-    /// <summary>Cancels the build, stops every game (killing those that do not exit within a second) and closes the link.</summary>
+    /// <summary>
+    /// Cancels the build, stops every game and closes the link. A game that does not exit within a second is killed, except
+    /// one that is recording or saving: it is finalising its file, so the editor waits for it (logging every few seconds)
+    /// up to <see cref="RecordingStopTimeout"/>, the same cap the game itself has.
+    /// </summary>
     public void Dispose()
     {
         if (_disposed)
             return;
+        var saving = 0;
         foreach (var instance in _instances)
-            if (instance.IsAlive && instance.GameId is { } id && _server is { } server)
+        {
+            if (!instance.IsAlive)
+                continue;
+            if (instance.Recording != PlayRecordingState.None)
+                saving++;
+            if (instance.GameId is { } id && _server is { } server)
                 server.SendCommand(id, new EditorLinkCommand(EditorCommandKind.Stop));
+        }
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(1);
-        while (DateTime.UtcNow < deadline && AnyProcessRunning())
+        if (saving > 0)
+            Log.Info($"[Play] Waiting for {saving} game(s) to save their recording before closing (at most {RecordingStopTimeout.TotalMinutes:0} minutes).");
+        var start = DateTime.UtcNow;
+        var nextReport = DisposeProgressInterval;
+        while (WaitForExits(DateTime.UtcNow - start))
+        {
             Thread.Sleep(10);
+            var elapsed = DateTime.UtcNow - start;
+            if (saving > 0 && elapsed >= nextReport)
+            {
+                Log.Info($"[Play] Still saving the recording… ({elapsed.TotalSeconds:0} s)");
+                nextReport += DisposeProgressInterval;
+            }
+        }
+
         foreach (var instance in _instances)
         {
             if (instance.Process is not { } process)
@@ -622,7 +660,8 @@ public sealed class PlayService : IDisposable
                 continue;
             }
 
-            if (instance.StopRequestedUtc is { } asked && !instance.Killed && _utcNow() - asked >= StopTimeout)
+            var timeout = instance.Recording == PlayRecordingState.None ? StopTimeout : RecordingStopTimeout;
+            if (instance.StopRequestedUtc is { } asked && !instance.Killed && _utcNow() - asked >= timeout)
             {
                 instance.Killed = true;
                 process.Kill();
@@ -653,6 +692,8 @@ public sealed class PlayService : IDisposable
         }
 
         instance.State = PlayInstanceState.Stopping;
+        if (instance.Recording == PlayRecordingState.Recording && !instance.Killed)
+            instance.Recording = PlayRecordingState.Saving; // the game finalises the file before it exits
         _changed = true;
     }
 
@@ -723,12 +764,29 @@ public sealed class PlayService : IDisposable
         _changed = true;
     }
 
-    private bool AnyProcessRunning()
+    /// <summary>
+    /// One step of <see cref="Dispose"/>'s wait: kills each game still running past its limit (a second, or
+    /// <see cref="RecordingStopTimeout"/> while it records or saves); true while one is still within its limit.
+    /// </summary>
+    private bool WaitForExits(TimeSpan elapsed)
     {
+        var waiting = false;
         foreach (var instance in _instances)
-            if (instance.Process is { HasExited: false })
-                return true;
-        return false;
+        {
+            if (instance.Process is not { HasExited: false } process || instance.Killed)
+                continue;
+            var limit = instance.Recording == PlayRecordingState.None ? DisposeTimeout : RecordingStopTimeout;
+            if (elapsed < limit)
+            {
+                waiting = true;
+                continue;
+            }
+
+            instance.Killed = true;
+            process.Kill();
+        }
+
+        return waiting;
     }
 
     private sealed record PendingLaunch(PlayRequest Request, TaskCompletionSource<PlayInstance?> Completion, CancellationToken Cancellation);

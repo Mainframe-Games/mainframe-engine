@@ -251,7 +251,7 @@ public sealed class PlayController : IDisposable
             return;
         if (!TryNewRecordingPath(userData, scene: null, out var path))
             return;
-        PlayMain(["--record", path]);
+        PlayMain([RecordArgument, path]);
     }
 
     /// <summary>
@@ -308,6 +308,35 @@ public sealed class PlayController : IDisposable
     {
         if (ReferenceEquals(instance, _startRequested))
             _startRequested = null;
+    }
+
+    /// <summary>The host flag Play and Record passes (<c>--record &lt;path&gt;</c>).</summary>
+    private const string RecordArgument = "--record";
+
+    /// <summary>
+    /// <paramref name="arguments"/> without <c>--record &lt;path&gt;</c> among the host flags (before <c>++</c>): Run Another
+    /// Instance repeats the last launch, and a second game must neither record nor write to the first one's file.
+    /// </summary>
+    internal static IReadOnlyList<string>? WithoutRecording(IReadOnlyList<string>? arguments)
+    {
+        if (arguments is null)
+            return null;
+        var kept = new List<string>(arguments.Count);
+        var hostFlags = true;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i] == GameHostOptions.UserArgsSeparator)
+                hostFlags = false;
+            if (hostFlags && arguments[i] == RecordArgument)
+            {
+                i++; // and its path
+                continue;
+            }
+
+            kept.Add(arguments[i]);
+        }
+
+        return kept;
     }
 
     private bool TryNewRecordingPath(string userData, string? scene, out string path)
@@ -388,7 +417,7 @@ public sealed class PlayController : IDisposable
 
     private void Launch(PlayRequest request)
     {
-        _lastRequest = request with { SkipBuild = false };
+        _lastRequest = request with { SkipBuild = false, ExtraArguments = WithoutRecording(request.ExtraArguments) };
         if (!request.SkipBuild)
             Log.Info($"[Play] Building {Path.GetFileName(request.BuildPath)}…");
         _workspace.AudioPreview.Stop(); // running the game stops the editor's preview

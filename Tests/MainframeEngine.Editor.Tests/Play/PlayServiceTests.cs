@@ -630,6 +630,52 @@ public sealed class PlayServiceTests
         Assert.Equal(PlayRecordingState.None, instance.Recording);
         Assert.True(instance.IsAlive);
     }
+
+    [Fact]
+    public void StoppingARecordingGameWaitsForTheSaveInsteadOfKillingIt()
+    {
+        var now = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        using var play = new PlayHarness(() => now);
+        play.Launcher.ModeFor = _ => FakeGameMode.IgnoresStop; // "still finalising": only a kill ends it
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        Assert.True(play.Service.StartRecording(instance, "/u/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+
+        play.Service.Stop(instance);
+        Assert.Equal(PlayRecordingState.Saving, instance.Recording); // the toolbar says "Saving recording…"
+        play.Pump(() => game.Commands.Any(c => c.Kind == EditorCommandKind.Stop), "the stop command");
+        now += PlayService.StopTimeout + TimeSpan.FromSeconds(1);
+        for (var i = 0; i < 5; i++)
+            play.Service.Update();
+        Assert.False(game.WasKilled);
+        Assert.True(instance.IsAlive);
+
+        now += PlayService.RecordingStopTimeout - PlayService.StopTimeout - TimeSpan.FromSeconds(2);
+        play.Service.Update();
+        Assert.False(game.WasKilled);
+
+        now += TimeSpan.FromSeconds(1);
+        play.Pump(() => !instance.IsAlive, "the kill past the recording deadline");
+        Assert.True(game.WasKilled);
+    }
+
+    [Fact]
+    public void DisposeWaitsForAGameThatIsSavingItsRecording()
+    {
+        var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        game.StopSaveDelay = TimeSpan.FromSeconds(1.5); // longer than the plain one-second quit wait
+        Assert.True(play.Service.StartRecording(instance, "/u/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+
+        play.Dispose();
+
+        Assert.True(game.HasExited);
+        Assert.False(game.WasKilled);
+        Assert.Equal(0, game.ExitCode);
+    }
 }
 
 /// <summary>A temporary <c>MyGame.Desktop.csproj</c> with a fake <c>bin/Debug/net10.0</c> build output.</summary>
