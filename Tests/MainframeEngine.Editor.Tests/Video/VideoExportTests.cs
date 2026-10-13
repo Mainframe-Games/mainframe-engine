@@ -12,9 +12,10 @@ public sealed class VideoExportTests : IDisposable
     [Fact]
     public void TheDefaultIsNextToTheRecordingAndNeverOverwrites()
     {
-        var taken = new HashSet<string> { Path.Combine("/r", "run-cut.mp4"), Path.Combine("/r", "run-cut-2.mp4") };
-        Assert.Equal(Path.Combine("/r", "run-cut-3.mp4"), VideoExport.DefaultPath(Path.Combine("/r", "run.mp4"), taken.Contains));
-        Assert.Equal(Path.Combine("/r", "run-cut.mp4"), VideoExport.DefaultPath(Path.Combine("/r", "run.mp4"), _ => false));
+        var dir = Path.GetFullPath("/r"); // a real rooted path: on Windows Path.GetDirectoryName turns "/r" into "\\r"
+        var taken = new HashSet<string> { Path.Combine(dir, "run-cut.mp4"), Path.Combine(dir, "run-cut-2.mp4") };
+        Assert.Equal(Path.Combine(dir, "run-cut-3.mp4"), VideoExport.DefaultPath(Path.Combine(dir, "run.mp4"), taken.Contains));
+        Assert.Equal(Path.Combine(dir, "run-cut.mp4"), VideoExport.DefaultPath(Path.Combine(dir, "run.mp4"), _ => false));
     }
 
     [Fact]
