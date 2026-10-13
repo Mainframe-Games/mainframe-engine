@@ -4,7 +4,7 @@ namespace MainframeEngine.Video.Tests;
 
 public sealed class SourceHashTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), $"cutback-hash-{Guid.NewGuid():N}");
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), $"video-hash-{Guid.NewGuid():N}");
 
     public SourceHashTests() => Directory.CreateDirectory(_dir);
 

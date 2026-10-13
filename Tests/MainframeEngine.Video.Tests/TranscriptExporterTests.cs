@@ -56,7 +56,7 @@ public sealed class TranscriptExporterTests
         Assert.Equal("1", lines[0]);
         Assert.True(lines[2].Length <= 42, $"{lines[2].Length} <= 42");
         Assert.True(lines[3].Length <= 42, $"{lines[3].Length} <= 42");
-        Assert.Equal(string.Join(' ', words.Select(w => w.Text)), lines[2] + " " + lines[3]); ;
+        Assert.Equal(string.Join(' ', words.Select(w => w.Text)), lines[2] + " " + lines[3]);
         Assert.Empty(lines[4]);
     }
 
