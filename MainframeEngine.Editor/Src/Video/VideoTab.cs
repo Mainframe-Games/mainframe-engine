@@ -46,6 +46,8 @@ public sealed class VideoTab : IEditorTab
             WaveformJob = VideoJob.Start("waveform",
                 (p, ct) => new WaveformExtractor(ffmpeg).ExtractAsync(document.SourcePath, document.Duration, p, ct));
         document.DirtyChanged += OnDirtyChanged;
+        // A paused preview shows nothing until a frame is decoded: scrub to the start so the picture is there at once.
+        Preview.Seek(0);
     }
 
     public EditorMode Mode => EditorMode.Video;

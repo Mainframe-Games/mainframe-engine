@@ -251,6 +251,8 @@ public sealed class VideoTabTests : IDisposable
         document.Editor.CreateSection(10, 20, anchor: 10);
         var preview = new VideoPreview(factory, () => null, "/r/a.mp4", 320, 180, 30, number: 1);
         using var tab = new VideoTab(document, preview, ffmpeg: null, number: 1);
+        // Opening scrubs to the first frame on a worker; wait for that decoder so it is not counted as a restart.
+        Assert.True(SpinWait.SpinUntil(() => factory.Count == 1, TimeSpan.FromSeconds(10)));
         tab.View.Width = 600;
         tab.TogglePlay();
         tab.Tick();
@@ -270,6 +272,23 @@ public sealed class VideoTabTests : IDisposable
         tab.Controller.Release(new Vector2(125, 50));
         tab.Tick();
         Assert.Equal(starts + 1, factory.Count); // one restart, for the finished drag
+    }
+
+    [Fact]
+    public void OpeningATabDecodesItsFirstFrame()
+    {
+        var factory = new CountingFactory(320 * 180 * 4);
+        var document = VideoDocument.FromProject(VideoDocumentTests.Project("/r/a.mp4"), null, null, []);
+        var preview = new VideoPreview(factory, () => null, "/r/a.mp4", 320, 180, 30, number: 1);
+        using var tab = new VideoTab(document, preview, ffmpeg: null, number: 1);
+        Assert.True(preview.IsScrubbing);
+        Assert.True(SpinWait.SpinUntil(() => { tab.Tick(); return !preview.IsScrubbing; }, TimeSpan.FromSeconds(10))); // shown
+        tab.Tick();
+        Assert.Equal(1, factory.Count); // exactly one decode: a one-frame scrub at 0, no playback
+        var arguments = Assert.Single(factory.Arguments);
+        Assert.Contains("-frames:v", arguments);
+        Assert.Equal("0", arguments[arguments.ToList().IndexOf("-ss") + 1]);
+        Assert.False(tab.Preview.IsPlaying);
     }
 
     [Fact]
@@ -390,8 +409,12 @@ public sealed class VideoTabTests : IDisposable
 
         public int Count => Volatile.Read(ref _count);
 
+        /// <summary>Every decoder's arguments, in start order.</summary>
+        public System.Collections.Concurrent.ConcurrentQueue<IReadOnlyList<string>> Arguments { get; } = new();
+
         public IVideoDecoder Start(IReadOnlyList<string> arguments)
         {
+            Arguments.Enqueue(arguments);
             Interlocked.Increment(ref _count);
             return new Decoder(new byte[frameBytes * 90]);
         }

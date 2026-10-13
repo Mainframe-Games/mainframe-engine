@@ -32,7 +32,8 @@ public sealed class VideoTimelineCanvas : EditorCanvas
     private static readonly Vector4 Hint = Rgb(0x60, 0x60, 0x6A);
     private static readonly Vector4 Marker = Rgb(0xB4, 0x8C, 0xFF);
 
-    private static readonly Dictionary<long, string> RulerLabels = [];
+    private static readonly Dictionary<long, string> RulerLabels = [];   // by whole second
+    private static readonly Dictionary<long, string> FineRulerLabels = []; // by tenth of a second
 
     private readonly VideoDocument _document;
     private readonly VideoTimelineView _view;
@@ -84,14 +85,31 @@ public sealed class VideoTimelineCanvas : EditorCanvas
         DrawPlayhead(h);
     }
 
-    private static string RulerLabel(double seconds)
+    /// <summary>
+    /// The label of a major ruler tick at <paramref name="time"/>: <c>m:ss</c> (<see cref="VideoFormat.Ruler"/>) when major
+    /// ticks are a second or more apart, else <c>m:ss.t</c> (<see cref="VideoFormat.Clock"/>), since whole seconds would
+    /// repeat ("0:00 0:00 0:01 0:01" at 0.5 s). Cached per formatted unit (seconds, or tenths), so a steady view allocates
+    /// nothing.
+    /// </summary>
+    internal static string RulerLabel(double time, double majorInterval)
     {
-        var key = (long)Math.Round(seconds, MidpointRounding.AwayFromZero);
-        if (RulerLabels.TryGetValue(key, out var label))
+        if (majorInterval >= 1)
+        {
+            var seconds = (long)Math.Round(time, MidpointRounding.AwayFromZero);
+            return Cached(RulerLabels, seconds, static key => VideoFormat.Ruler(key));
+        }
+
+        var tenths = (long)Math.Round(time * 10, MidpointRounding.AwayFromZero);
+        return Cached(FineRulerLabels, tenths, static key => VideoFormat.Clock(key / 10.0));
+    }
+
+    private static string Cached(Dictionary<long, string> cache, long key, Func<long, string> format)
+    {
+        if (cache.TryGetValue(key, out var label))
             return label;
-        if (RulerLabels.Count >= LabelCacheLimit)
-            RulerLabels.Clear();
-        return RulerLabels[key] = VideoFormat.Ruler(key);
+        if (cache.Count >= LabelCacheLimit)
+            cache.Clear();
+        return cache[key] = format(key);
     }
 
     /// <summary>The dp position of the centre of the device pixel containing <paramref name="x"/>, so a 1-pixel line stays crisp.</summary>
@@ -210,7 +228,7 @@ public sealed class VideoTimelineCanvas : EditorCanvas
             var isMajor = k % perMajor == 0;
             Line(x, ruler - (isMajor ? 10 : 5), x, ruler, Tick);
             if (isMajor)
-                Text(RulerLabel(t), x + 3, 11, 10, Label);
+                Text(RulerLabel(t, major), x + 3, 11, 10, Label);
         }
 
         Line(0, ruler - 0.5f, w, ruler - 0.5f, Tick);
