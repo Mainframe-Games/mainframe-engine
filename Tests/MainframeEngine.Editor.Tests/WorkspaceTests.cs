@@ -1,4 +1,5 @@
 using System.Numerics;
+using MainframeEngine.Editor.Music;
 using Silk.NET.Input;
 
 namespace MainframeEngine.Editor.Tests;
@@ -573,6 +574,27 @@ public sealed class WorkspaceTests : IDisposable
         _editor.Tick();
         Assert.Empty(W.Session.Scenes);
         Assert.Equal(EditorBrand.NameWithVersion, _editor.Host.Title);
+    }
+
+    [Fact]
+    public void SaveAsOnASongTabWritesTheChosenFile()
+    {
+        Assert.True(W.Commands.CreateSong(Path.Combine(_editor.Directory, "Theme.msong")));
+        var song = Assert.IsType<SongTab>(W.Session.ActiveTab);
+        song.Document.AddTrack(SongTrackKind.Audio, "Rain");
+
+        W.Commands.Execute("file.save_as"); // the menu command: no continuation
+        Assert.True(W.FilePicker.Visible);
+        W.FilePicker.NavigateTo(_editor.Directory);
+        W.FilePicker.Model!.FileName = "Copy";
+        W.FilePicker.Accept();
+        _editor.Tick();
+
+        var path = Path.Combine(_editor.Directory, "Copy.msong");
+        Assert.True(File.Exists(path), $"{W.Message.Current?.Message} | {W.FilePicker.Model?.Error}");
+        Assert.Equal(path, song.FilePath);
+        Assert.False(song.IsDirty);
+        Assert.Contains(SongFormat.Load(path).Song.Tracks, t => t.Name == "Rain");
     }
 
     [Fact]

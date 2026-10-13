@@ -237,7 +237,11 @@ public sealed class EditorCommands
         }
 
         var model = new FilePickerModel(FilePickerMode.Save, Path.GetDirectoryName(song.Document.FilePath)!, ["*.msong"], song.DisplayName);
-        _workspace.FilePicker.Show(model, "Save Song As", "Save", path => then?.Invoke(TrySaveSong(song, path)), onCancel: () => then?.Invoke(false));
+        _workspace.FilePicker.Show(model, "Save Song As", "Save", path =>
+        {
+            var saved = TrySaveSong(song, path);
+            then?.Invoke(saved);
+        }, onCancel: () => then?.Invoke(false));
     }
 
     private bool TrySaveSong(SongTab song, string? path)
