@@ -4,7 +4,7 @@
 
 Records a running game to an H.264 `.mp4` plus a `.mfcap.json` **sidecar** that says what the engine knew while it
 recorded: when the player gave input, when the game was loading or paused, and what the game marked as worth keeping or
-cutting. [Cutback](https://github.com/brogan89/SimpleVideoEditor) (and later the editor's Clips tab) reads the sidecar to
+cutting. [Cutback](https://github.com/brogan89/Cutback) (and later the editor's Clips tab) reads the sidecar to
 trim idle play, loading and pauses. Two modes:
 
 - **Live** (`--record file.mp4`): real time. Frames are resampled to a constant rate, audio is tapped from the master
@@ -172,8 +172,8 @@ flowchart LR
 
 The editor records a game it launched, over the [editor link](project-and-gamehost.md#editor-link) (protocol version 4),
 so promo footage needs no command line. Three equal entry points, one command (`play.record`): **F10**, **Run › Play and
-Record**, and the toolbar's record button (`#record`, the atlas's existing `point-filled` icon tinted red, white on a red
-fill while recording). F10 and not Shift+F5, which is Run Another Instance.
+Record**, and the toolbar's record button (`#record`, the atlas's existing `point-filled` icon tinted red; highlighted red while
+recording: dark red fill, red border, white icon). F10 and not Shift+F5, which is Run Another Instance.
 
 | State | F10 does | Run menu label |
 |---|---|---|
@@ -214,8 +214,8 @@ fill while recording). F10 and not Shift+F5, which is Run Another Instance.
   recording, queued by the dialog if several finish together. Saved: title "Recording saved", the file name with its
   length and the folder, buttons **Open in Cutback** (default), **Show in Folder**, **Close**. Failed: "Recording
   failed" with the recorder's message, plus **Show in Folder** (the kept `.partial` folder) when the message names one.
-- **Open in Cutback** starts [Cutback](https://github.com/brogan89/SimpleVideoEditor) as a **separate process** with the
-  recording's path as its argument (it opens `argv[0]` when that file exists, and finds the sidecar next to it); the
+- **Open in Cutback** starts [Cutback](https://github.com/brogan89/Cutback) as a **separate process** with the
+  recording's path as its argument (it opens the first command-line argument that is an existing file, and finds the sidecar next to it); the
   editor never links it (Cutback is GPL) and does not wait for it. `CutbackLocator` looks, in order, at **Editor
   Settings › Cutback** (`EditorSettings.CutbackPath`), each `PATH` folder (`cutback`/`Cutback`, `Cutback.exe` on
   Windows), then the OS location: `/Applications/Cutback.app/Contents/MacOS/Cutback`,
