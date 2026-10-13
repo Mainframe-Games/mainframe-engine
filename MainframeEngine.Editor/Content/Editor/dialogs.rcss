@@ -47,7 +47,7 @@ body.backdrop.clear { background-color: transparent; }
     border-top: 1dp #2f333d;
 }
 .dialog-buttons button { height: 26dp; line-height: 26dp; padding: 0dp 16dp; margin-left: 8dp; }
-.dialog-message { display: block; line-height: 18dp; color: #d7dbe4; margin-bottom: 8dp; }
+.dialog-message { display: block; line-height: 18dp; color: #d7dbe4; margin-bottom: 8dp; word-break: break-word; } /* long paths wrap */
 .dialog-error { display: block; flex: 0 0 auto; min-height: 16dp; color: #f87171; font-size: 12dp; }
 
 .list {

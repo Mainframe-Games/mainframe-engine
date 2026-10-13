@@ -200,6 +200,45 @@ public sealed class EditorLinkProtocolTests
         Assert.StartsWith("éééé", message.Log.Message, StringComparison.Ordinal);
         Assert.True(message.Log.Message.Length < huge.Length);
     }
+
+    [Fact]
+    public void RecordingMessagesRoundTrip()
+    {
+        var started = new EditorLinkRecording(EditorLinkRecordingState.Started, "/u/recordings/forest-20261013-101500.mp4", 0f, 0, 0, "");
+        var stopped = new EditorLinkRecording(EditorLinkRecordingState.Stopped, "/u/r.mp4", 83.25f, 2, 11, "");
+        var failed = new EditorLinkRecording(EditorLinkRecordingState.Failed, "/u/r.mp4", 0f, 0, 0, "ffmpeg was not found.");
+        foreach (var recording in new[] { started, stopped, failed })
+        {
+            var message = RoundTrip(b => EditorLinkProtocol.WriteRecording(b, recording));
+            Assert.Equal(EditorLinkMessageType.Recording, message.Type);
+            Assert.Equal(recording, message.Recording);
+        }
+    }
+
+    [Fact]
+    public void RecordingCommandsRoundTrip()
+    {
+        var start = new EditorLinkCommand(EditorCommandKind.StartRecording, "/u/recordings/a.mp4");
+        var stop = new EditorLinkCommand(EditorCommandKind.StopRecording);
+        Assert.Equal(start, RoundTrip(b => EditorLinkProtocol.WriteCommand(b, start)).Command);
+        Assert.Equal(stop, RoundTrip(b => EditorLinkProtocol.WriteCommand(b, stop)).Command);
+    }
+
+    [Fact]
+    public void AnUnknownRecordingStateIsRejected()
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        EditorLinkProtocol.WriteRecording(buffer, new EditorLinkRecording(EditorLinkRecordingState.Failed, "p", 0f, 0, 0, "e"));
+        var body = buffer.WrittenSpan[EditorLinkProtocol.HeaderLength..].ToArray();
+        body[1] = 9; // state byte
+        Assert.False(EditorLinkProtocol.TryDecode(body, out _));
+    }
+
+    [Fact]
+    public void ProtocolVersionIsFour()
+    {
+        Assert.Equal(4, EditorLinkProtocol.Version);
+    }
 }
 
 public sealed class EditorLinkConnectionTests
@@ -246,6 +285,23 @@ public sealed class EditorLinkConnectionTests
         client.Dispose();
         Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Disconnected);
         Assert.Equal(0, server.SendCommand(new EditorLinkCommand(EditorCommandKind.Stop)));
+    }
+
+    [Fact]
+    public void RecordingEventsReachTheEditorInOrderAndAreNeverCoalesced()
+    {
+        using var server = new EditorLinkServer();
+        using var client = new EditorLinkClient(server.Port, Hello);
+        var seen = new List<EditorLinkMessage>();
+        Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Hello);
+
+        var started = new EditorLinkRecording(EditorLinkRecordingState.Started, "/r/a.mp4", 0f, 0, 0, "");
+        var stopped = new EditorLinkRecording(EditorLinkRecordingState.Stopped, "/r/a.mp4", 12.5f, 3, 7, "");
+        client.SendRecording(started);
+        client.SendRecording(stopped);
+
+        Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Recording && m.Recording.State == EditorLinkRecordingState.Stopped);
+        Assert.Equal([started, stopped], seen.Where(m => m.Type == EditorLinkMessageType.Recording).Select(m => m.Recording));
     }
 
     [Fact]

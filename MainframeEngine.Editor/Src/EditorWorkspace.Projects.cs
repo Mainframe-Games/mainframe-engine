@@ -324,7 +324,7 @@ public sealed partial class EditorWorkspace
 
     // ── Shortcuts ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>F5–F8 (play, play scene, pause, stop), Ctrl/Cmd+F5 (play instances) and Ctrl/Cmd+Shift+B (build &amp; reload); null when not one of them.</summary>
+    /// <summary>F5–F8 (play, play scene, pause, stop), F10 (play and record), Ctrl/Cmd+F5 (play instances) and Ctrl/Cmd+Shift+B (build &amp; reload); null when not one of them.</summary>
     public static string? ProjectShortcutFor(Key key, EditorModifiers modifiers)
     {
         var command = (modifiers & EditorModifiers.Command) != 0;
@@ -342,6 +342,7 @@ public sealed partial class EditorWorkspace
             Key.F6 => "play.scene",
             Key.F7 => "play.pause",
             Key.F8 => "play.stop",
+            Key.F10 when !shift => "play.record",
             _ => null,
         };
     }

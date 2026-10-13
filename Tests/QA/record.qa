@@ -1,0 +1,57 @@
+# Record-from-the-editor QA (just qa-editor Tests/QA/record.qa): F10 / Run > Play and Record, start to saved dialog.
+# End to end, for a person (or the controller) with a display and ffmpeg on PATH; NOT run in CI. The Demo project opens
+# from the command line (the recipe builds it first). `wait` counts frames. No verb waits for the recording to be
+# saved, so a fixed wait covers the finalise (the pad and mux of a few seconds of footage); lengthen it on a slow disk.
+# Review the PNGs in artifacts/qa-editor: the toolbar shows a red dot and "REC m:ss" while recording, then the Recording
+# saved dialog (long paths wrap inside it).
+wait 30
+wait-for project 300
+capture 01-ready
+# 1. Nothing runs: Play and Record launches the main scene with --record, so the file covers the game from its first frame.
+command play.record
+wait-for playing 180
+wait 60
+capture 02-recording
+wait 180
+# F10 again stops: the toolbar says "Saving recording…", then the game reports the file.
+command play.record
+wait 30
+capture 03-saving
+wait 600
+capture 04-saved-dialog
+cancel
+wait 10
+command play.stop
+wait-for stopped 30
+wait 30
+# 2. Mid-session: a plain Play (F5), then record while it runs (the editor passed --frame-capture at launch).
+command play.main
+wait-for playing 180
+wait 60
+command play.record
+wait 120
+capture 05-recording-midsession
+command play.record
+wait 600
+capture 06-saved-dialog-midsession
+cancel
+wait 10
+command play.stop
+wait-for stopped 30
+wait 30
+# 3. Stop (F8) while recording: the game finalises the file before it exits (the editor waits for it instead of killing it
+# after the usual 3 s), the toolbar says "Saving recording…", then the Recording saved dialog.
+command play.record
+wait-for playing 180
+wait 1200
+capture 07-recording-before-stop
+command play.stop
+wait 30
+capture 08-saving-after-stop
+wait 900
+capture 09-saved-dialog-after-stop
+cancel
+wait 10
+wait-for stopped 30
+wait 30
+quit

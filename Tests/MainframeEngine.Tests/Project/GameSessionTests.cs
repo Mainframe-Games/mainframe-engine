@@ -380,6 +380,47 @@ public sealed class GameSessionTreeSnapshotTests
 public sealed class GameSessionEditorLinkTests
 {
     [Fact]
+    public async Task ARecordingFailureReportedAtStartUpReachesTheEditorBeforeTheGoodbye()
+    {
+        // The editor's listener comes up only after the game has failed and is quitting: GameHost's --record start fails on
+        // the first update, which can come before the link has connected, and the session must not drop the report.
+        int port;
+        using (var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0))
+        {
+            probe.Start();
+            port = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+        }
+
+        var tree = new SceneTree();
+        var session = new GameSession(tree, new ProjectSettings { Name = "Linked" }, new GameHostOptions { EditorPort = port });
+        var seen = new List<EditorLinkMessage>();
+        var listening = Task.Run(async () =>
+        {
+            await Task.Delay(300, TestContext.Current.CancellationToken);
+            return new EditorLinkServer(port);
+        });
+        try
+        {
+            session.ReportRecordingFailed("/r/a.mp4", "ffmpeg was not found.");
+        }
+        finally
+        {
+            session.Shutdown(ExitCode.Error);
+            tree.Shutdown();
+        }
+
+        using var server = await listening;
+        Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Goodbye);
+        var types = seen.Select(m => m.Type).ToList();
+        var failed = types.IndexOf(EditorLinkMessageType.Recording);
+        Assert.True(failed >= 0, $"no Recording message before the goodbye: {string.Join(", ", types)}");
+        Assert.True(failed < types.IndexOf(EditorLinkMessageType.Goodbye));
+        Assert.Equal(EditorLinkRecordingState.Failed, seen[failed].Recording.State);
+        Assert.Equal("ffmpeg was not found.", seen[failed].Recording.Error);
+    }
+
+    [Fact]
     public void TheSessionStreamsLogsReportsStatusAndObeysTheEditor()
     {
         using var server = new EditorLinkServer();

@@ -145,8 +145,37 @@ public sealed class ToolbarPanel : EditorDocument
         RefreshPlay();
     }
 
+    private const string RecordPlayTip = "Play and Record (F10) — record gameplay for promo footage; press again to stop";
+    private const string RecordStartTip = "Start Recording (F10) — record the running game from now on; press again to stop";
+    private const string RecordStopTip = "Stop Recording (F10)";
+    private const string RecordSavingTip = PlayController.SavingRecordingText;
     private string _instancesRml = "";
     private string _playStatus = "";
+    private string _recordTip = RecordPlayTip;
+    private bool _recDot;
+
+    /// <summary>
+    /// The <see cref="PlayController.RecordStatus"/> of the first recording instance, else of the first saving one; empty
+    /// when none is. <paramref name="recording"/>: it is a running recording (the red dot shows).
+    /// </summary>
+    private static string RecordingStatus(PlayController play, out bool recording)
+    {
+        PlayInstance? saving = null;
+        foreach (var instance in play.Service.Instances)
+        {
+            if (instance.Recording == PlayRecordingState.Recording)
+            {
+                recording = true;
+                return PlayController.RecordStatus(instance.Recording, instance.RecordingStartedUtc, DateTime.UtcNow);
+            }
+
+            if (instance.Recording == PlayRecordingState.Saving)
+                saving ??= instance;
+        }
+
+        recording = false;
+        return saving is null ? "" : PlayController.RecordStatus(saving.Recording, saving.RecordingStartedUtc, DateTime.UtcNow);
+    }
 
     /// <summary>Re-applies the play controls' states and the running instances (on play/project changes, never per frame).</summary>
     public void RefreshPlay()
@@ -159,6 +188,16 @@ public sealed class ToolbarPanel : EditorDocument
         var canPlay = project.DesktopProject is not null && !play.IsBuilding;
         document.GetElementById("play").SetClass("disabled", !canPlay);
         document.GetElementById("play-scene").SetClass("disabled", !canPlay || Workspace.Session.Active is null);
+        var record = document.GetElementById("record");
+        record.SetClass("disabled", !play.CanToggleRecording);
+        record.SetClass("recording", play.IsRecording); // red only while frames are being recorded, not while saving
+        var recordTip = play.IsRecording ? RecordStopTip : play.IsSavingRecording ? RecordSavingTip : play.IsPlaying ? RecordStartTip : RecordPlayTip;
+        if (!string.Equals(recordTip, _recordTip, StringComparison.Ordinal))
+        {
+            _recordTip = recordTip;
+            record.SetAttribute("data-tooltip", recordTip);
+        }
+
         document.GetElementById("pause").SetClass("disabled", !play.IsPlaying);
         document.GetElementById("pause").SetClass("active", play.IsPaused);
         document.GetElementById("stop").SetClass("disabled", !play.IsPlaying);
@@ -192,7 +231,16 @@ public sealed class ToolbarPanel : EditorDocument
             document.GetElementById("instances").SetInnerRml(instances);
         }
 
-        var status = play.IsBuilding || project.IsBuilding ? "Building…" : "";
+        var building = play.IsBuilding || project.IsBuilding;
+        var recordingStatus = RecordingStatus(play, out var recordingNow);
+        var status = building ? "Building…" : recordingStatus;
+        var recDot = recordingNow && !building;
+        if (recDot != _recDot)
+        {
+            _recDot = recDot;
+            document.GetElementById("rec-dot").SetClass("on", recDot);
+        }
+
         if (!string.Equals(status, _playStatus, StringComparison.Ordinal))
         {
             _playStatus = status;

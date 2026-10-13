@@ -22,6 +22,8 @@ public sealed class PlayController : IDisposable
         Service.GameOutput += OnGameOutput;
         Service.BuildOutput += OnBuildOutput;
         Service.BuildFinished += OnBuildFinished;
+        Service.RecordingFinished += OnRecordingFinished;
+        Service.Connected += OnConnected;
         Service.Changed += () => Changed?.Invoke();
     }
 
@@ -210,8 +212,199 @@ public sealed class PlayController : IDisposable
         Service.ReloadScene();
     }
 
-    private void Play(string? scene, string label, IReadOnlyList<string>? extraArguments = null)
+    // ── Recording (F10, Run › Play and Record, the toolbar's record button) ───────────────────────────────────────
+
+    /// <summary>How long a Start Recording that the game has not answered blocks another one (a game that never replies must not wedge F10).</summary>
+    private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(5);
+
+    private PlayInstance? _startRequested;
+    private long _startRequestedAt;
+
+    /// <summary>The Run menu / tooltip label of the F10 command in the current state.</summary>
+    public string RecordingLabel => !IsPlaying ? "Play and Record" : IsRecording ? "Stop Recording" : IsSavingRecording ? SavingRecordingText : "Start Recording";
+
+    /// <summary>What the menu, the record button's tooltip and the toolbar status say while a recording is being finalised.</summary>
+    public const string SavingRecordingText = "Saving recording…";
+
+    /// <summary>Shown when the game's engine predates recording from the editor (its link protocol is older than 4).</summary>
+    public const string OlderEngineMessage =
+        "This game was built with an older MainframeEngine that cannot record from the editor. Rebuild it against this engine.";
+
+    /// <summary>An instance is recording (Stop Recording applies).</summary>
+    public bool IsRecording => Service.Instances.Any(i => i.Recording == PlayRecordingState.Recording);
+
+    /// <summary>A recording is being finalised and none is running: F10 has nothing to do until the file is saved.</summary>
+    public bool IsSavingRecording => !IsRecording && Service.AnyRecording;
+
+    /// <summary>
+    /// Whether the record command does anything now (the Run menu item and the toolbar button agree on it): idle needs a
+    /// desktop project and no build; while playing, Start/Stop stay available even if another build runs, but not
+    /// while a recording is being saved.
+    /// </summary>
+    public bool CanToggleRecording => _workspace.Project.DesktopProject is not null && (IsPlaying ? !IsSavingRecording : !IsBuilding);
+
+    /// <summary>
+    /// Runs the main scene with <c>--record &lt;path&gt;</c> so the recording covers the game from its first frame (the
+    /// path is in the project's <c>recordings</c> folder, named after the main scene, see <see cref="RecordingPaths"/>).
+    /// </summary>
+    public void PlayAndRecord()
     {
+        if (_workspace.Project.UserDataDirectory is not { } userData)
+        {
+            _workspace.Message.Show(new MessageRequest { Title = "Play and Record", Message = "Open a project first.", Buttons = ["OK"] });
+            return;
+        }
+
+        if (!CanPlay(out _, out _)) // before the folder is created: a refused launch must not leave an empty recordings folder
+            return;
+        if (!TryNewRecordingPath(userData, _workspace.Project.MainScenePath(), out var path))
+            return;
+        PlayMain([RecordArgument, path]);
+    }
+
+    /// <summary>
+    /// F10: plays and records when no game runs; otherwise starts recording on the first connected instance, or stops the
+    /// recording one. A Start the game has not answered yet, and a recording that is still saving, make it a no-op, so a
+    /// double press does not send a second Start (the service's own guard only looks at confirmed state).
+    /// </summary>
+    public void ToggleRecording()
+    {
+        if (!IsPlaying)
+        {
+            PlayAndRecord();
+            return;
+        }
+
+        foreach (var instance in Service.Instances)
+        {
+            if (instance.Recording == PlayRecordingState.Recording)
+            {
+                Service.StopRecording(instance);
+                Changed?.Invoke();
+                return;
+            }
+        }
+
+        if (IsSavingRecording)
+            return; // still saving the last one
+        if (_startRequested is { IsAlive: true, Recording: PlayRecordingState.None } &&
+            System.Diagnostics.Stopwatch.GetElapsedTime(_startRequestedAt) < StartTimeout)
+            return; // Start sent, Started not back yet
+        _startRequested = null;
+
+        var target = Service.Instances.FirstOrDefault(i => i.State is PlayInstanceState.Running or PlayInstanceState.Paused);
+        if (target is null)
+        {
+            Log.Info("[Play] The game is still starting; record once it is running.");
+            return;
+        }
+
+        if (!target.CanRecord)
+        {
+            ShowOlderEngine("Start Recording");
+            return;
+        }
+
+        if (_workspace.Project.UserDataDirectory is not { } userData)
+            return;
+        if (!TryNewRecordingPath(userData, target.CurrentScene, out var path))
+            return;
+        if (Service.StartRecording(target, path))
+        {
+            _startRequested = target;
+            _startRequestedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+        }
+
+        Changed?.Invoke();
+    }
+
+    private void OnRecordingFinished(PlayInstance instance, MainframeEngine.EditorLink.EditorLinkRecording recording)
+    {
+        if (ReferenceEquals(instance, _startRequested))
+            _startRequested = null;
+    }
+
+    /// <summary>A Play and Record game whose engine cannot report recordings: say so once, when it first connects.</summary>
+    private void OnConnected(PlayInstance instance)
+    {
+        if (!instance.CanRecord && instance.Arguments.Contains(RecordArgument))
+            ShowOlderEngine("Play and Record");
+    }
+
+    private void ShowOlderEngine(string title) =>
+        _workspace.Message.Show(new MessageRequest { Title = title, Message = OlderEngineMessage, Buttons = ["OK"] });
+
+    /// <summary>The host flag Play and Record passes (<c>--record &lt;path&gt;</c>).</summary>
+    private const string RecordArgument = "--record";
+
+    /// <summary>
+    /// <paramref name="arguments"/> without <c>--record &lt;path&gt;</c> among the host flags (before <c>++</c>): Run Another
+    /// Instance repeats the last launch, and a second game must neither record nor write to the first one's file.
+    /// </summary>
+    internal static IReadOnlyList<string>? WithoutRecording(IReadOnlyList<string>? arguments)
+    {
+        if (arguments is null)
+            return null;
+        var kept = new List<string>(arguments.Count);
+        var hostFlags = true;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i] == GameHostOptions.UserArgsSeparator)
+                hostFlags = false;
+            if (hostFlags && arguments[i] == RecordArgument)
+            {
+                i++; // and its path
+                continue;
+            }
+
+            kept.Add(arguments[i]);
+        }
+
+        return kept;
+    }
+
+    private bool TryNewRecordingPath(string userData, string? scene, out string path)
+    {
+        path = RecordingPaths.NewPath(userData, scene, DateTime.Now, File.Exists);
+        try
+        {
+            Directory.CreateDirectory(RecordingPaths.Directory(userData));
+            return true;
+        }
+        catch (Exception e) when (EditorCommands.IsRecoverable(e))
+        {
+            _workspace.Message.Show(new MessageRequest
+            {
+                Title = "Play and Record",
+                Message = $"Could not create the recordings folder:\n{e.Message}",
+                Buttons = ["OK"],
+            });
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The toolbar's status text for a recording: <c>REC m:ss</c> while recording (the toolbar puts its red dot icon in
+    /// front: the UI font has no ● glyph), <c>Saving recording…</c> while the file is finalised, else empty.
+    /// </summary>
+    public static string RecordStatus(PlayRecordingState state, DateTime? startedUtc, DateTime nowUtc)
+    {
+        switch (state)
+        {
+            case PlayRecordingState.Recording:
+                var elapsed = startedUtc is { } started && nowUtc > started ? nowUtc - started : TimeSpan.Zero;
+                return string.Create(CultureInfo.InvariantCulture, $"REC {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00}");
+            case PlayRecordingState.Saving:
+                return SavingRecordingText;
+            default:
+                return "";
+        }
+    }
+
+    /// <summary>True when a launch can start; otherwise tells the user why (no project / no desktop project / a build running).</summary>
+    private bool CanPlay(out string buildPath, out string desktopProject)
+    {
+        buildPath = desktopProject = "";
         var project = _workspace.Project;
         if (project.Root is null || project.DesktopProject is null || project.BuildPath is null)
         {
@@ -223,25 +416,35 @@ public sealed class PlayController : IDisposable
                     : "This project has no desktop project (*.Desktop/*.Desktop.csproj) to run.",
                 Buttons = ["OK"],
             });
-            return;
+            return false;
         }
 
         if (IsBuilding)
         {
             Log.Info("[Play] A build is already running.");
-            return;
+            return false;
         }
+
+        buildPath = project.BuildPath;
+        desktopProject = project.DesktopProject;
+        return true;
+    }
+
+    private void Play(string? scene, string label, IReadOnlyList<string>? extraArguments = null)
+    {
+        if (!CanPlay(out var buildPath, out var desktopProject))
+            return;
 
         // Play saves (Godot does too): the game reads the scenes from disk. Untitled scenes stay unsaved.
         if (!_workspace.Commands.SaveAll())
             Log.Warning("[Play] Some scenes could not be saved; the game runs what is on disk.");
         _extraInstances = 0;
-        Launch(new PlayRequest(project.BuildPath, project.DesktopProject, scene, label, extraArguments));
+        Launch(new PlayRequest(buildPath, desktopProject, scene, label, extraArguments));
     }
 
     private void Launch(PlayRequest request)
     {
-        _lastRequest = request with { SkipBuild = false };
+        _lastRequest = request with { SkipBuild = false, ExtraArguments = WithoutRecording(request.ExtraArguments) };
         if (!request.SkipBuild)
             Log.Info($"[Play] Building {Path.GetFileName(request.BuildPath)}…");
         _workspace.AudioPreview.Stop(); // running the game stops the editor's preview
@@ -356,6 +559,8 @@ public sealed class PlayController : IDisposable
         Service.GameOutput -= OnGameOutput;
         Service.BuildOutput -= OnBuildOutput;
         Service.BuildFinished -= OnBuildFinished;
+        Service.RecordingFinished -= OnRecordingFinished;
+        Service.Connected -= OnConnected;
         Service.Dispose();
     }
 }

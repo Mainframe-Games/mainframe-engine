@@ -4,6 +4,39 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Editor recording hooks (Phase 3 of the Cutback integration): implemented, local only (2026-10-13).** Branch
+  `feature/editor-recording` (worktree `.claude/worktrees/editor-recording`), **stacked on PR #62**
+  (`feature/gameplay-recorder`, Phase 1), not pushed, no PR of its own. Docs: `docs/design/recording.md` ("Recording from
+  the editor"), `editor.md` (Play table, F10), `project-and-gamehost.md` (editor link v4). Plan and spec live in the
+  Cutback repo (`docs/superpowers/plans/2026-10-13-phase3-editor-hooks.md`, the integration spec amended with the as-built
+  deviations).
+  - What exists: editor link protocol v4 (`StartRecording`/`StopRecording` commands, a `Recording` message, queued up to
+    64 and never coalesced); `GameSession.AttachRecorder`; `PlayService`/`PlayInstance` recording state (a recording is
+    failed by the editor only when the game's link is gone); every editor play launch passes `--frame-capture`;
+    **F10** / Run › Play and Record / the toolbar's red `point-filled` `#record` button with a red-dot `REC m:ss` readout
+    (an icon: the UI font has no ● glyph);
+    `RecordingPaths` (`{project user data}/recordings/{scene}-{yyyyMMdd-HHmmss}.mp4`), `CutbackLocator` (Editor Settings
+    › Cutback, PATH, OS location), `RecordingNotifier` (a modal "Recording saved" / "Recording failed" dialog: Open in
+    Cutback, Show in Folder). Cutback is started as a separate process with the recording path as its argument.
+  - QA: `Tests/QA/record.qa` (`just qa-editor Tests/QA/record.qa`) needs a display and ffmpeg, so it is not in CI; no
+    verb waits for the save, a fixed wait stands in. The controller ran it end to end: both flows saved an MP4 and its
+    sidecar. It found two defects, both fixed: the missing ● glyph in the REC readout and long paths overflowing the
+    message dialog. A third flow (Stop while recording) was added afterwards.
+  - Final-review fixes: a stopped game that is recording or saving gets 2 min 15 s to finalise (was killed after 3 s,
+    taking ffmpeg with it), and quitting the editor waits for it too; Run Another Instance drops `--record`; a Start that
+    reaches a game already recording is answered `Started`; a failed `--record` start is reported to the editor before
+    the game quits; protocol-3 games are refused with a "Rebuild it against this engine" message; an exited recording
+    instance stays reachable until its Disconnected; macOS opens a Cutback `.app` with `open -a`; an abandoned
+    recording offers Show in Folder when its `.partial` folder exists; Play and Record names the file after the main
+    scene.
+  - Residual fixes after the re-review: a game that reports its recording saved after Stop gets a fresh 3 s to exit
+    (it was killed at once when the save took over 3 s, losing its save-on-quit); a `Started` after Stop gets the
+    recording deadline; macOS opens Cutback with `open -n -a`, so a second Open in Cutback works while one is running.
+  - Gates green: build (0 warnings), format-check, engine 2488 (1 skipped), editor 859 (5 skipped) before the final
+    review's fixes; see the final fix report for the gates after them.
+  - Next: Brogan's review and the push (one push and a PR, based on #62, when he says so); then **Phase 4**, the editor's
+    Clips tab (the Cutback `Core` logic ported into the editor, "Open in Clips Tab" added to the finished dialog).
+
 - **Gameplay recorder (Phase 1 of the Cutback integration): implemented, local only (2026-10-13).** Branch
   `feature/gameplay-recorder` (worktree `.claude/worktrees/gameplay-recorder`), not pushed, no PR. ADR 0190; docs
   `docs/design/recording.md` (the renderer and audio halves are in `vulkan-renderer.md` and `audio.md`). Plan and spec live

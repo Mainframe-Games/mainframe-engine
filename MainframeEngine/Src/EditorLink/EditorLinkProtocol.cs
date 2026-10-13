@@ -34,6 +34,9 @@ public enum EditorLinkMessageType : byte
     /// </summary>
     Welcome = 7,
 
+    /// <summary>Game → editor: a recording started, stopped or failed (<see cref="EditorLinkMessage.Recording"/>).</summary>
+    Recording = 8,
+
     /// <summary>Editor → game: an <see cref="EditorLinkCommand"/>.</summary>
     Command = 16,
 
@@ -61,6 +64,12 @@ public enum EditorCommandKind : byte
 
     /// <summary>Ask for a <see cref="EditorLinkMessageType.Tree"/> snapshot (the editor's remote scene tree).</summary>
     RequestTree = 6,
+
+    /// <summary>Start recording to <see cref="EditorLinkCommand.Argument"/> (an .mp4 path); the game answers with a Recording message.</summary>
+    StartRecording = 7,
+
+    /// <summary>Stop the current recording; the game answers Recording Stopped once finalised.</summary>
+    StopRecording = 8,
 }
 
 /// <summary>One node of a remote tree snapshot, depth-first: its depth below the root, name and type name.</summary>
@@ -83,6 +92,26 @@ public readonly record struct EditorLinkStatus(GameRunState State, ulong Frame, 
 
 /// <summary>A command from the editor; <see cref="Argument"/> is command-specific (empty when unused).</summary>
 public readonly record struct EditorLinkCommand(EditorCommandKind Kind, string Argument = "");
+
+/// <summary>What happened to a gameplay recording (<see cref="EditorLinkMessageType.Recording"/>).</summary>
+public enum EditorLinkRecordingState : byte
+{
+    Started = 0,
+    Stopped = 1,
+    Failed = 2,
+}
+
+/// <summary>
+/// A gameplay recording event, game → editor. Unlike status and tree snapshots these are queued, not
+/// latest-wins, so the editor always learns that a recording finished.
+/// </summary>
+public readonly record struct EditorLinkRecording(
+    EditorLinkRecordingState State,
+    string Path,
+    float ElapsedSeconds,
+    long DroppedFrames,
+    long DuplicatedFrames,
+    string Error);
 
 /// <summary>A decoded frame (only the member matching <see cref="Type"/> is meaningful).</summary>
 public readonly record struct EditorLinkMessage
@@ -114,6 +143,9 @@ public readonly record struct EditorLinkMessage
 
     /// <summary><see cref="EditorLinkMessageType.Tree"/>: more nodes existed than <see cref="EditorLinkProtocol.MaxTreeNodes"/>.</summary>
     public bool TreeTruncated { get; init; }
+
+    /// <summary><see cref="EditorLinkMessageType.Recording"/>: the recording's state, file and totals.</summary>
+    public EditorLinkRecording Recording { get; init; }
 }
 
 /// <summary>
@@ -126,12 +158,13 @@ public readonly record struct EditorLinkMessage
 /// <item>LogDropped: <c>i64 count</c> · Goodbye: <c>i32 exitCode</c> · Command: <c>u8 kind, str argument</c></item>
 /// <item>Tree: <c>u8 truncated, i32 count, count × (i32 depth, str name, str type)</c></item>
 /// <item>Welcome: <c>i32 protocol</c></item>
+/// <item>Recording: <c>u8 state, str path, f32 elapsed s, i64 dropped, i64 duplicated, str error</c></item>
 /// </list>
 /// </summary>
 public static class EditorLinkProtocol
 {
     /// <summary>Bumped on any incompatible wire change; the editor checks <see cref="EditorLinkHello.ProtocolVersion"/>.</summary>
-    public const int Version = 3;   // 2: Tree / RequestTree · 3: Welcome
+    public const int Version = 4;   // 2: Tree / RequestTree · 3: Welcome · 4: StartRecording / StopRecording / Recording
 
     /// <summary>Nodes in one tree snapshot at most (names are cut to <see cref="MaxTreeNameLength"/>), keeping a frame under the limit.</summary>
     public const int MaxTreeNodes = 3000; // × (12 + 2 × 48 chars × 3 UTF-8 bytes) < MaxFrameLength
@@ -227,6 +260,18 @@ public static class EditorLinkProtocol
         w.Finish();
     }
 
+    public static void WriteRecording(ArrayBufferWriter<byte> output, in EditorLinkRecording recording)
+    {
+        var w = new FrameWriter(output, EditorLinkMessageType.Recording);
+        w.Byte((byte)recording.State);
+        w.String(recording.Path);
+        w.Single(recording.ElapsedSeconds);
+        w.Int64(recording.DroppedFrames);
+        w.Int64(recording.DuplicatedFrames);
+        w.String(recording.Error);
+        w.Finish();
+    }
+
     /// <summary>
     /// Reads the frame length from a 4-byte header; false when it is outside 1..<see cref="MaxFrameLength"/> (a corrupt
     /// or hostile stream: close the connection).
@@ -295,10 +340,23 @@ public static class EditorLinkProtocol
             case EditorLinkMessageType.Command:
                 if (!r.Byte(out var kind) || !r.String(out var argument))
                     return false;
-                if (kind is < (byte)EditorCommandKind.Stop or > (byte)EditorCommandKind.RequestTree)
+                if (kind is < (byte)EditorCommandKind.Stop or > (byte)EditorCommandKind.StopRecording)
                     return false;
                 message = new EditorLinkMessage { Type = type, Command = new EditorLinkCommand((EditorCommandKind)kind, argument) };
                 break;
+            case EditorLinkMessageType.Recording:
+                {
+                    if (!r.Byte(out var recordingState) || recordingState > (byte)EditorLinkRecordingState.Failed
+                        || !r.String(out var path) || !r.Single(out var elapsed)
+                        || !r.Int64(out var droppedFrames) || !r.Int64(out var duplicatedFrames) || !r.String(out var error))
+                        return false;
+                    message = new EditorLinkMessage
+                    {
+                        Type = type,
+                        Recording = new EditorLinkRecording((EditorLinkRecordingState)recordingState, path, elapsed, droppedFrames, duplicatedFrames, error),
+                    };
+                    break;
+                }
             case EditorLinkMessageType.Tree:
                 {
                     if (!r.Byte(out var truncated) || !r.Int32(out var count) || count < 0 || count > MaxTreeNodes)

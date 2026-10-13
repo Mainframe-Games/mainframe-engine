@@ -5,124 +5,10 @@ namespace MainframeEngine.Tests.Recording;
 /// <summary>Start/Stop lifecycle, sidecar contents and failure handling, with a fake backend and frame source.</summary>
 public sealed class GameRecorderTests
 {
-    private sealed class FakeBackend : IRecordingBackend
-    {
-        public RecordingFormat? Format;
-        public int VideoFrames;
-        public long AudioFrames;
-        public long AudioWritten;
-        public readonly List<long> Silences = [];
-        public CaptureSpans? Spans;
-        public CaptureInfo? Info;
-        public bool Full;
-        public string? FailWith;
-        public Exception? BeginThrows;
-        public Exception? VideoThrows;
-        public Exception? AudioThrows;
-        public Exception? FinishThrows;
-        public Exception? DisposeThrows;
-        public bool Disposed;
-
-        public void Begin(RecordingFormat format)
-        {
-            if (BeginThrows is { } e)
-                throw e;
-            Format = format;
-        }
-
-        public bool TryWriteVideo(ReadOnlySpan<byte> pixels, int copies, bool wait)
-        {
-            if (VideoThrows is { } e)
-                throw e;
-            if (Full && !wait)
-                return false;
-            VideoFrames += copies;
-            return true;
-        }
-
-        public void WriteAudio(ReadOnlySpan<float> interleaved)
-        {
-            if (AudioThrows is { } e)
-                throw e;
-            AudioFrames += interleaved.Length / 2;
-            AudioWritten += interleaved.Length / 2;
-        }
-
-        public void WriteSilence(long frames)
-        {
-            if (AudioThrows is { } e)
-                throw e;
-            AudioFrames += frames;
-            Silences.Add(frames);
-        }
-
-        public Task<RecordingResult> FinishAsync(long videoFrames, CaptureInfo info, CaptureSpans spans, CancellationToken ct)
-        {
-            if (FinishThrows is { } e)
-                throw e;
-            Info = info;
-            Spans = spans;
-            return Task.FromResult(new RecordingResult
-            {
-                Path = Format!.OutputPath,
-                DurationSeconds = info.DurationSeconds,
-                DroppedFrames = info.DroppedFrames,
-                Error = FailWith is null ? null : FailWith + " The partial recording is in " + Format.OutputPath + ".partial.",
-            });
-        }
-
-        public void Dispose()
-        {
-            Disposed = true;
-            if (DisposeThrows is { } e)
-                throw e;
-        }
-    }
-
-    private sealed class FakeFrames : IFrameStreamSource
-    {
-        public IFrameStreamSink? Sink;
-        public int Delivered;
-        public bool CanStream => true;
-        public PixelLayout StreamLayout => PixelLayout.Bgra;
-        public (int Width, int Height) StreamSize => (4, 2);
-        public void BeginStream(IFrameStreamSink sink) => Sink = sink;
-        public void EndStream() => Sink = null;
-
-        /// <summary>One rendered frame: ask, then deliver immediately (the fake GPU is instant).</summary>
-        public void Render()
-        {
-            if (Sink is { } s && s.ShouldCapture(out var stamp))
-            {
-                Delivered++;
-                s.OnFrame(new byte[4 * 2 * 4], 4, 2, stamp);
-            }
-        }
-    }
-
-    /// <summary>
-    /// A recorder on a fake live clock: <c>SetClock(t)</c> puts it <c>t</c> seconds after the moment of creation (Start
-    /// is at 0 unless the clock was moved first). The clock is real <see cref="System.Diagnostics.Stopwatch"/> ticks, so
-    /// it is comparable with the audio tap's first-block stamp.
-    /// </summary>
-    private static (GameRecorder Recorder, FakeBackend Backend, FakeFrames Frames, Action<double> SetClock, long Base) Create(
-        bool offline = false, AudioServer? audio = null, int hostFps = 60)
-    {
-        var backend = new FakeBackend();
-        var frames = new FakeFrames();
-        var start = System.Diagnostics.Stopwatch.GetTimestamp();
-        var now = start;
-        var recorder = new GameRecorder(_ => backend, frames, audio, offline ? hostFps : 0,
-            new CaptureInfoSource("Forest", () => "res://Scenes/Forest.scn", "0.42.0"), () => now);
-        return (recorder, backend, frames, t => now = start + Ticks(t), start);
-    }
-
-    private static long Ticks(double seconds) => (long)Math.Round(seconds * System.Diagnostics.Stopwatch.Frequency);
-
     [Fact]
     public void OfflineRecordingWritesOneFramePerUpdateAndExactAudio()
     {
-        var (r, backend, frames, _, _) = Create(offline: true);
+        var (r, backend, frames, _, _) = RecorderFakes.Create(offline: true);
         r.Start(new RecordingOptions { Path = "/r/out.mp4" });
         for (var i = 0; i < 60; i++)
         {
@@ -143,7 +29,7 @@ public sealed class GameRecorderTests
     public void OfflineAudioIsRenderedFromTheManualNullDevice()
     {
         using var audio = AudioServer.Create(new AudioOptions { Device = AudioDeviceMode.NullManual, BusLayoutPath = null });
-        var (r, backend, frames, _, _) = Create(offline: true, audio, hostFps: 30);
+        var (r, backend, frames, _, _) = RecorderFakes.Create(offline: true, audio, hostFps: 30);
         r.Start(new RecordingOptions { Path = "/r/out.mp4", Fps = 30 });
         for (var i = 0; i < 30; i++)
         {
@@ -161,7 +47,7 @@ public sealed class GameRecorderTests
     public void OfflineRecordingsAlwaysUseTheHostsFixedFps()
     {
         // Offline, one update is one output frame: any other rate would play the game too fast or too slow.
-        var (r, backend, frames, _, _) = Create(offline: true, hostFps: 30);
+        var (r, backend, frames, _, _) = RecorderFakes.Create(offline: true, hostFps: 30);
         var sink = new MemoryLogSink { Levels = Log.Level.Warning };
         Log.AddSink(sink);
         try
@@ -187,7 +73,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void LiveFramesAreScheduledByTheClock()
     {
-        var (r, backend, frames, setClock, _) = Create();
+        var (r, backend, frames, setClock, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/out.mp4" });
         foreach (var t in new[] { 0.0, 1 / 30.0, 2 / 30.0 })
         {
@@ -231,7 +117,7 @@ public sealed class GameRecorderTests
 
         Assert.True(duplicated > 50 && skipped > 50, $"expected judder without the anchor: {duplicated} repeated, {skipped} skipped");
 
-        var (r, backend, frames, setClock, _) = Create();
+        var (r, backend, frames, setClock, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         foreach (var t in times)
         {
@@ -251,7 +137,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void RepeatedOutputFramesAreCounted()
     {
-        var (r, _, frames, setClock, _) = Create();
+        var (r, _, frames, setClock, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         setClock(0.0); frames.Render();       // origin at Start: slot 0
         setClock(4.5 / 60); frames.Render();  // a hitch: slots 1-4, three of them repeats
@@ -265,7 +151,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void TimelineEventsAreOnTheAnchoredClockAndEarlierOnesClampToZero()
     {
-        var (r, backend, frames, setClock, _) = Create();
+        var (r, backend, frames, setClock, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         setClock(0.2);
         r.Mark("before the first frame");
@@ -284,7 +170,7 @@ public sealed class GameRecorderTests
     public void LiveAudioBeforeTheAnchoredOriginIsDropped()
     {
         using var audio = AudioServer.Create(new AudioOptions { Device = AudioDeviceMode.NullManual, BusLayoutPath = null });
-        var (r, backend, frames, setClock, start) = Create(audio: audio);
+        var (r, backend, frames, setClock, start) = RecorderFakes.Create(audio: audio);
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
 
         // The audio starts at once (a few real milliseconds after Start) while the first frame is half a second later.
@@ -297,7 +183,7 @@ public sealed class GameRecorderTests
         r.StopAndWait(TimeSpan.FromSeconds(5));
 
         // The origin is 0.5 s - half a slot after Start: the audio mixed before it is not in the video.
-        var origin = start + Ticks(0.5 - 1 / 120.0);
+        var origin = start + RecorderFakes.Ticks(0.5 - 1 / 120.0);
         static long Frames(long ticks) => (long)Math.Round((double)ticks / System.Diagnostics.Stopwatch.Frequency * 48_000);
         Assert.Empty(backend.Silences); // no lead silence: the first block came before the origin
         Assert.InRange(backend.AudioWritten, 48_000 - Frames(origin - before) - 1, 48_000 - Frames(origin - after) + 1);
@@ -307,7 +193,7 @@ public sealed class GameRecorderTests
     public void LiveAudioAfterTheAnchoredOriginIsLedBySilence()
     {
         using var audio = AudioServer.Create(new AudioOptions { Device = AudioDeviceMode.NullManual, BusLayoutPath = null });
-        var (r, backend, frames, setClock, start) = Create(audio: audio);
+        var (r, backend, frames, setClock, start) = RecorderFakes.Create(audio: audio);
         setClock(-1.0);
         r.Start(new RecordingOptions { Path = "/r/a.mp4" }); // Start one second before "now" on the real clock
         setClock(-0.5);
@@ -319,7 +205,7 @@ public sealed class GameRecorderTests
         r.OnUpdate(loading: false, paused: false);
         r.StopAndWait(TimeSpan.FromSeconds(5));
 
-        var origin = start + Ticks(-0.5 - 1 / 120.0);
+        var origin = start + RecorderFakes.Ticks(-0.5 - 1 / 120.0);
         static long Frames(long ticks) => (long)Math.Round((double)ticks / System.Diagnostics.Stopwatch.Frequency * 48_000);
         Assert.InRange(backend.Silences[0], Frames(before - origin) - 1, Frames(after - origin) + 1);
         Assert.Equal(4_800, backend.AudioWritten);
@@ -328,7 +214,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void AFrameTheEncoderCannotTakeIsDroppedAndTheNextOneMakesUpTheTime()
     {
-        var (r, backend, frames, setClock, _) = Create();
+        var (r, backend, frames, setClock, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/out.mp4" });
         setClock(0.0); frames.Render();
         backend.Full = true;
@@ -345,7 +231,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void MarksKeepsSkipsInputLoadingAndPauseReachTheSidecar()
     {
-        var (r, backend, frames, setClock, _) = Create();
+        var (r, backend, frames, setClock, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/out.mp4" });
         setClock(0.0); r.OnUpdate(loading: true, paused: false); frames.Render();
         setClock(1.0); r.OnUpdate(loading: false, paused: false); frames.Render();
@@ -374,7 +260,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void LosingFocusReleasesHeldInput()
     {
-        var (r, backend, frames, setClock, _) = Create();
+        var (r, backend, frames, setClock, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/out.mp4" });
         setClock(0.0); frames.Render(); // the first frame: the video's time 0 is Start
         setClock(1.0); r.OnUpdate(loading: false, paused: false); frames.Render();
@@ -392,7 +278,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void StartWhileFinalisingThrows()
     {
-        var (r, _, _, _, _) = Create();
+        var (r, _, _, _, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         r.Stop();
 
@@ -405,7 +291,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void StartWhileRecordingThrows()
     {
-        var (r, _, _, _, _) = Create();
+        var (r, _, _, _, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         Assert.Throws<InvalidOperationException>(() => r.Start(new RecordingOptions { Path = "/r/b.mp4" }));
     }
@@ -413,7 +299,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void AFailedStartLeavesTheRecorderIdleAndReusable()
     {
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         var started = 0;
         r.Started += () => started++;
         backend.BeginThrows = new IOException("This ffmpeg has no usable H.264 encoder.");
@@ -433,7 +319,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void StreamBreakStopsWithReason()
     {
-        var (r, _, frames, _, _) = Create();
+        var (r, _, frames, _, _) = RecorderFakes.Create();
         RecordingResult? stopped = null;
         r.Stopped += result => stopped = result;
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
@@ -450,7 +336,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void AnEncoderFailureNeverEscapesTheRendererAndStopsAtTheNextUpdate()
     {
-        var (r, backend, frames, setClock, _) = Create();
+        var (r, backend, frames, setClock, _) = RecorderFakes.Create();
         RecordingResult? stopped = null;
         r.Stopped += result => stopped = result;
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
@@ -471,7 +357,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void AnAudioWriteFailureStopsTheRecordingInsteadOfCrashing()
     {
-        var (r, backend, frames, _, _) = Create(offline: true);
+        var (r, backend, frames, _, _) = RecorderFakes.Create(offline: true);
         RecordingResult? stopped = null;
         r.Stopped += result => stopped = result;
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
@@ -489,7 +375,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void AThrowingFinishBecomesAnErrorResult()
     {
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         backend.FinishThrows = new OperationCanceledException("The mux was cancelled.");
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         frames.Render();
@@ -504,7 +390,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void AnUnexpectedFinishFailureIsReportedNotThrown()
     {
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         backend.FinishThrows = new NotSupportedException("Something nobody planned for.");
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         frames.Render();
@@ -520,7 +406,7 @@ public sealed class GameRecorderTests
     public void ABackendWhoseDisposeFailsToKillTheEncoderStillFinishes()
     {
         // Process.Kill throws Win32Exception when the OS refuses; it used to fault the finishing task.
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         backend.DisposeThrows = new System.ComponentModel.Win32Exception(5, "Access is denied.");
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         frames.Render();
@@ -540,7 +426,7 @@ public sealed class GameRecorderTests
     {
         // An OutOfMemoryException (InsufficientMemoryException is one) is the only failure DisposeQuietly lets through: if the task
         // faults anyway, StopAndWait and PollCompletion must report it, never rethrow it from .Result.
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         backend.DisposeThrows = new InsufficientMemoryException("Simulated.");
         RecordingResult? stopped = null;
         r.Stopped += result => stopped = result;
@@ -563,7 +449,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void PollCompletionReportsAFaultedFinishingTaskInsteadOfThrowing()
     {
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         backend.DisposeThrows = new InsufficientMemoryException("Simulated.");
         RecordingResult? stopped = null;
         r.Stopped += result => stopped = result;
@@ -580,7 +466,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void AZeroFrameRecordingIsAnErrorAndWritesNoSidecar()
     {
-        var (r, backend, _, _, _) = Create();
+        var (r, backend, _, _, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
 
         var result = r.StopAndWait(TimeSpan.FromSeconds(5))!;
@@ -597,7 +483,7 @@ public sealed class GameRecorderTests
         try
         {
             var output = Path.Combine(dir.FullName, "a.mp4");
-            var (r, backend, _, _, _) = Create();
+            var (r, backend, _, _, _) = RecorderFakes.Create();
             r.Start(new RecordingOptions { Path = output });
             // What the real backend leaves for a recording that never got a frame: an empty TS and a WAV header.
             Directory.CreateDirectory(output + ".partial");
@@ -620,7 +506,7 @@ public sealed class GameRecorderTests
     public void StopFromTheStartedEventAbandonsTheEmptyRecording()
     {
         // The earliest a Stop can arrive: inside Start, from a Started handler, before any frame was captured.
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         RecordingResult? stopped = null;
         r.Started += () => r.Stop();
         r.Stopped += result => stopped = result;
@@ -640,7 +526,7 @@ public sealed class GameRecorderTests
     public void StopWhileStartIsFailingIsANoOp()
     {
         // Start's backend fails (no encoder, ffmpeg gone): Stop and the shutdown path find nothing to stop or wait for.
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         RecordingResult? stopped = null;
         r.Stopped += result => stopped = result;
         backend.BeginThrows = new IOException("The encoder could not be started.");
@@ -659,7 +545,7 @@ public sealed class GameRecorderTests
     public void LiveOverflowIsPaddedWithSilenceSoAudioNeverDrifts()
     {
         using var audio = AudioServer.Create(new AudioOptions { Device = AudioDeviceMode.NullManual, BusLayoutPath = null });
-        var (r, backend, frames, _, _) = Create(audio: audio);
+        var (r, backend, frames, _, _) = RecorderFakes.Create(audio: audio);
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         frames.Render();
 
@@ -676,7 +562,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void StopDuringCloseFinalisesSynchronously()
     {
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         frames.Render();
 
@@ -691,7 +577,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void BackendFailureKeepsPartialPathInError()
     {
-        var (r, backend, frames, _, _) = Create();
+        var (r, backend, frames, _, _) = RecorderFakes.Create();
         backend.FailWith = "The encoder failed.";
         r.Start(new RecordingOptions { Path = "/r/a.mp4" });
         frames.Render();
@@ -704,7 +590,7 @@ public sealed class GameRecorderTests
     [Fact]
     public void MarkKeepAndSkipAreHarmlessWhenNotRecording()
     {
-        var (r, _, _, _, _) = Create();
+        var (r, _, _, _, _) = RecorderFakes.Create();
         r.Mark("x");
         r.Keep("y").Dispose();
         r.Skip("z").Dispose();

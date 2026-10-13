@@ -63,6 +63,9 @@
             </div>
             <div id="es-presets"></div>
             <div class="hint">{file}, {line}, {column} and {project} are filled in. Opens C# files and clicked build errors.</div>
+            <div class="dialog-row"><span class="caption">Cutback</span>
+                <input type="text" class="text mono" id="es-cutback" data-value="cutback" placeholder="Found automatically"/></div>
+            <div class="hint">The Cutback app that trims recordings (Run › Play and Record). Leave empty to find it on PATH or in the usual install folder.</div>
             <div class="dialog-row">
                 <span class="caption">Code reload</span>
                 <label class="check" data-tooltip="Reload the game code in the editor whenever its build output changes (IDE builds included)">

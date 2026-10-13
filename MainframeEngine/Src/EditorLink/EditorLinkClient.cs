@@ -27,6 +27,7 @@ public sealed class EditorLinkClient : IDisposable
     public const int WelcomeTimeoutMilliseconds = 2000;
 
     private const int MaxBatchBytes = 64 * 1024;
+    private const int MaxQueuedRecordings = 64;
 
     private readonly int _port;
     private readonly EditorLinkHello _hello;
@@ -34,6 +35,7 @@ public sealed class EditorLinkClient : IDisposable
     private readonly ConcurrentQueue<EditorLinkCommand> _commands = new();
     private readonly AutoResetEvent _signal = new(false);
     private readonly Lock _statusGate = new();
+    private readonly Queue<EditorLinkRecording> _recordings = new(); // guarded by _statusGate
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _goodbyeSent = new(false);
     private readonly ManualResetEventSlim _stopped = new(false);
@@ -106,6 +108,21 @@ public sealed class EditorLinkClient : IDisposable
         {
             _status = status;
             _statusPending = true;
+        }
+
+        Wake();
+    }
+
+    /// <summary>
+    /// Queues a recording event (started, stopped, failed). Unlike status and the tree these are never coalesced: the
+    /// editor must see every transition, in order. Bounded, so an editor that never connects cannot grow it.
+    /// </summary>
+    public void SendRecording(in EditorLinkRecording recording)
+    {
+        lock (_statusGate)
+        {
+            if (_recordings.Count < MaxQueuedRecordings)
+                _recordings.Enqueue(recording);
         }
 
         Wake();
@@ -268,6 +285,9 @@ public sealed class EditorLinkClient : IDisposable
                     EditorLinkProtocol.WriteTree(buffer, tree, _treeTruncated);
                     _tree = null;
                 }
+
+                while (_recordings.TryDequeue(out var recording))
+                    EditorLinkProtocol.WriteRecording(buffer, recording);
             }
 
             var goodbye = _goodbyeRequested && _logs.IsEmpty;

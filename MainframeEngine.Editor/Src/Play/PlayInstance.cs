@@ -24,6 +24,19 @@ public enum PlayInstanceState
     Crashed,
 }
 
+/// <summary>Whether a <see cref="PlayInstance"/> is recording its gameplay.</summary>
+public enum PlayRecordingState
+{
+    /// <summary>Not recording.</summary>
+    None,
+
+    /// <summary>The game confirmed it is recording.</summary>
+    Recording,
+
+    /// <summary>The game was asked to stop and is finalising the file.</summary>
+    Saving,
+}
+
 /// <summary>One launched game (see <see cref="PlayService"/>). Updated only by <see cref="PlayService.Update"/>.</summary>
 public sealed class PlayInstance
 {
@@ -87,10 +100,34 @@ public sealed class PlayInstance
     /// <summary>Not <see cref="PlayInstanceState.Exited"/> or <see cref="PlayInstanceState.Crashed"/>.</summary>
     public bool IsAlive => State is not (PlayInstanceState.Exited or PlayInstanceState.Crashed);
 
+    /// <summary>Whether the game is recording; <see cref="PlayRecordingState.Saving"/> until it reports the file saved.</summary>
+    public PlayRecordingState Recording { get; internal set; }
+
+    /// <summary>Where the current (or last started) recording is written; null before one started.</summary>
+    public string? RecordingPath { get; internal set; }
+
+    /// <summary>When the game confirmed the recording started; null while not recording.</summary>
+    public DateTime? RecordingStartedUtc { get; internal set; }
+
+    /// <summary>The editor-link protocol the game's hello reported; null before it connected.</summary>
+    public int? ProtocolVersion { get; internal set; }
+
+    /// <summary>
+    /// The game's link can record from the editor (protocol <see cref="MinRecordingProtocolVersion"/> or later). Older
+    /// games drop the recording commands, and the editor would wait for a Started that never comes.
+    /// </summary>
+    public bool CanRecord => ProtocolVersion >= MinRecordingProtocolVersion;
+
+    /// <summary>The first editor-link protocol with <c>StartRecording</c>/<c>StopRecording</c> and the <c>Recording</c> message.</summary>
+    public const int MinRecordingProtocolVersion = 4;
+
     internal IGameProcess? Process { get; set; }
 
     /// <summary>When the editor asked it to stop (null: never).</summary>
     internal DateTime? StopRequestedUtc { get; set; }
+
+    /// <summary>When a stopped instance still alive is killed (null: not stopping).</summary>
+    internal DateTime? StopDeadlineUtc { get; set; }
 
     internal bool Killed { get; set; }
 

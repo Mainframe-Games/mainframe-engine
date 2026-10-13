@@ -38,12 +38,29 @@ public sealed record PlayRequest(
 /// <para>Exit rule: when the process exits the instance becomes <see cref="PlayInstanceState.Exited"/> if the exit code is
 /// 0 or the editor asked it to stop (Stop, kill, timeout), else <see cref="PlayInstanceState.Crashed"/>.</para>
 /// <para>Stopping: a connected instance is sent <see cref="EditorCommandKind.Stop"/> and killed if still alive
-/// <see cref="StopTimeout"/> later; an instance that never connected is killed at once.</para>
+/// <see cref="StopTimeout"/> later; an instance that never connected is killed at once. A game that is recording (or
+/// saving a recording) finalises the file before it exits, so it gets <see cref="RecordingStopTimeout"/> instead and its
+/// recording shows as <see cref="PlayRecordingState.Saving"/> until it reports the file: killing it would kill the
+/// ffmpeg mux with it (the whole process tree goes) and lose the recording. Once it reports the file (Stopped or Failed)
+/// it gets a fresh <see cref="StopTimeout"/> to exit, measured from the report; a Started that arrives after Stop
+/// extends the deadline to <see cref="RecordingStopTimeout"/> from the Stop.</para>
 /// </remarks>
 public sealed class PlayService : IDisposable
 {
     /// <summary>A stopped instance still alive after this long is killed.</summary>
     public static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// A stopped instance that is recording or saving is killed only after this long: the game's own cap on finalising at
+    /// quit (<c>GameHost.OnClose</c>: <c>StopAndWait</c>, two minutes) plus a margin for its goodbye and exit.
+    /// </summary>
+    public static readonly TimeSpan RecordingStopTimeout = TimeSpan.FromMinutes(2) + TimeSpan.FromSeconds(15);
+
+    /// <summary>How long quitting the editor waits for a game that is not recording to exit before killing it.</summary>
+    private static readonly TimeSpan DisposeTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary>How often quitting the editor logs that it is still waiting for a recording to be saved.</summary>
+    private static readonly TimeSpan DisposeProgressInterval = TimeSpan.FromSeconds(5);
 
     /// <summary>Exited/crashed instances kept in <see cref="Instances"/> (the oldest are dropped beyond this).</summary>
     public const int MaxExitedInstances = 8;
@@ -65,6 +82,7 @@ public sealed class PlayService : IDisposable
     private TaskCompletionSource<GameBuildResult>? _build;
     private GameBuildResult? _finishedBuild;
     private int _nextNumber;
+    private long _lastRecordingTick;
     private bool _changed;
     private bool _disposed;
 
@@ -99,6 +117,12 @@ public sealed class PlayService : IDisposable
 
     /// <summary>Something about an instance or the build changed (raised at most once per <see cref="Update"/>).</summary>
     public event Action? Changed;
+
+    /// <summary>An instance said hello for the first time (reconnects do not raise it). Raised from <see cref="Update"/>.</summary>
+    public event Action<PlayInstance>? Connected;
+
+    /// <summary>A recording stopped (saved) or failed. Raised on the editor thread from <see cref="Update"/>.</summary>
+    public event Action<PlayInstance, EditorLinkRecording>? RecordingFinished;
 
     /// <summary>A game's log entry (category <see cref="GameCategory"/> when it had none).</summary>
     public event Action<PlayInstance, LogEntry>? GameLog;
@@ -152,6 +176,7 @@ public sealed class PlayService : IDisposable
         var separator = extraArguments is null ? -1 : IndexOf(extraArguments, GameHostOptions.UserArgsSeparator);
         if (extraArguments is not null)
             arguments.AddRange(separator < 0 ? extraArguments : extraArguments.Take(separator));
+        arguments.Add("--frame-capture"); // recording can start mid-session (the swapchain needs TRANSFER_SRC)
         arguments.Add("--editor-port");
         arguments.Add(Port.ToString(CultureInfo.InvariantCulture));
         if (!string.IsNullOrEmpty(scene))
@@ -210,6 +235,7 @@ public sealed class PlayService : IDisposable
         if (_server is { } server)
             DrainLink(server);
         UpdateProcesses();
+        TickRecording();
         if (_changed)
         {
             _changed = false;
@@ -252,6 +278,40 @@ public sealed class PlayService : IDisposable
         return !_disposed && SendTo(instance, new EditorLinkCommand(EditorCommandKind.RequestTree));
     }
 
+    /// <summary>True while any instance is recording or saving a recording.</summary>
+    public bool AnyRecording
+    {
+        get
+        {
+            foreach (var instance in _instances)
+                if (instance.Recording != PlayRecordingState.None)
+                    return true;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Asks <paramref name="instance"/> to start recording to <paramref name="path"/> (false: not connected, already
+    /// recording, or built against an engine whose link cannot record: <see cref="PlayInstance.CanRecord"/>).
+    /// </summary>
+    public bool StartRecording(PlayInstance instance, string path)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return !_disposed && instance.CanRecord && instance.Recording == PlayRecordingState.None &&
+               SendTo(instance, new EditorLinkCommand(EditorCommandKind.StartRecording, path));
+    }
+
+    /// <summary>Asks <paramref name="instance"/> to stop recording; <see cref="RecordingFinished"/> follows once it has saved.</summary>
+    public bool StopRecording(PlayInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        if (_disposed || instance.Recording != PlayRecordingState.Recording || !SendTo(instance, new EditorLinkCommand(EditorCommandKind.StopRecording)))
+            return false;
+        instance.Recording = PlayRecordingState.Saving;
+        _changed = true;
+        return true;
+    }
+
     /// <summary>True when <paramref name="instance"/> is paused, or a pause was sent and not yet confirmed (false after a resume was sent).</summary>
     public bool IsPaused(PlayInstance instance)
     {
@@ -269,18 +329,41 @@ public sealed class PlayService : IDisposable
                 Remove(i);
     }
 
-    /// <summary>Cancels the build, stops every game (killing those that do not exit within a second) and closes the link.</summary>
+    /// <summary>
+    /// Cancels the build, stops every game and closes the link. A game that does not exit within a second is killed, except
+    /// one that is recording or saving: it is finalising its file, so the editor waits for it (logging every few seconds)
+    /// up to <see cref="RecordingStopTimeout"/>, the same cap the game itself has.
+    /// </summary>
     public void Dispose()
     {
         if (_disposed)
             return;
+        var saving = 0;
         foreach (var instance in _instances)
-            if (instance.IsAlive && instance.GameId is { } id && _server is { } server)
+        {
+            if (!instance.IsAlive)
+                continue;
+            if (instance.Recording != PlayRecordingState.None)
+                saving++;
+            if (instance.GameId is { } id && _server is { } server)
                 server.SendCommand(id, new EditorLinkCommand(EditorCommandKind.Stop));
+        }
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(1);
-        while (DateTime.UtcNow < deadline && AnyProcessRunning())
+        if (saving > 0)
+            Log.Info($"[Play] Waiting for {saving} game(s) to save their recording before closing (at most {RecordingStopTimeout.TotalMinutes:0} minutes).");
+        var start = DateTime.UtcNow;
+        var nextReport = DisposeProgressInterval;
+        while (WaitForExits(DateTime.UtcNow - start))
+        {
             Thread.Sleep(10);
+            var elapsed = DateTime.UtcNow - start;
+            if (saving > 0 && elapsed >= nextReport)
+            {
+                Log.Info($"[Play] Still saving the recording… ({elapsed.TotalSeconds:0} s)");
+                nextReport += DisposeProgressInterval;
+            }
+        }
+
         foreach (var instance in _instances)
         {
             if (instance.Process is not { } process)
@@ -395,6 +478,10 @@ public sealed class PlayService : IDisposable
                     }
 
                     break;
+                case EditorLinkMessageType.Recording:
+                    if (_byGameId.TryGetValue(message.GameId, out var recorder))
+                        OnRecording(recorder, message.Recording);
+                    break;
                 case EditorLinkMessageType.LogDropped:
                     if (_byGameId.TryGetValue(message.GameId, out var dropper))
                         GameLog?.Invoke(dropper, new LogEntry(Log.Level.Warning, _utcNow(), GameCategory,
@@ -418,6 +505,7 @@ public sealed class PlayService : IDisposable
                     {
                         if (gone.GameId == message.GameId)
                             gone.GameId = null;
+                        AbandonRecording(gone);
                         _changed = true;
                     }
 
@@ -451,7 +539,8 @@ public sealed class PlayService : IDisposable
             _byGameId.Remove(previous);
         match.GameId = gameId;
         _byGameId[gameId] = match;
-        if (!match.HasConnected)
+        var first = !match.HasConnected;
+        if (first)
         {
             match.HasConnected = true;
             match.ConnectTime = _utcNow() - match.StartedUtc;
@@ -460,9 +549,12 @@ public sealed class PlayService : IDisposable
         if (match.State == PlayInstanceState.Launching)
             match.State = PlayInstanceState.Running;
         _changed = true;
+        match.ProtocolVersion = hello.ProtocolVersion;
         if (hello.ProtocolVersion != EditorLinkProtocol.Version)
             GameLog?.Invoke(match, new LogEntry(Log.Level.Warning, _utcNow(), GameCategory,
                 $"The game speaks editor-link protocol {hello.ProtocolVersion}; the editor speaks {EditorLinkProtocol.Version}. Rebuild the game.", "", "", 0));
+        if (first)
+            Connected?.Invoke(match);
         if (match.StopRequestedUtc is not null && match.IsAlive)
             Link.SendCommand(gameId, new EditorLinkCommand(EditorCommandKind.Stop)); // stopped while connecting
     }
@@ -499,6 +591,72 @@ public sealed class PlayService : IDisposable
         }
     }
 
+    private void OnRecording(PlayInstance instance, in EditorLinkRecording recording)
+    {
+        // Nothing may resurrect state on an instance whose link is gone. A finishing report is still taken from an exited
+        // process whose link is not yet seen as closed: the game sends Stopped, then exits, and the exit can be polled
+        // before the reader thread has queued that Stopped.
+        if (instance.GameId is null || (!instance.IsAlive && recording.State == EditorLinkRecordingState.Started))
+            return;
+        switch (recording.State)
+        {
+            case EditorLinkRecordingState.Started:
+                // A Start that reached a game already recording is answered with the running recording's Started (e.g.
+                // --record had started it): the same recording, so its elapsed time keeps counting from the first.
+                var same = instance.Recording == PlayRecordingState.Recording && string.Equals(instance.RecordingPath, recording.Path, StringComparison.Ordinal);
+                instance.Recording = PlayRecordingState.Recording;
+                instance.RecordingPath = recording.Path;
+                if (!same || instance.RecordingStartedUtc is null)
+                    instance.RecordingStartedUtc = _utcNow();
+                if (instance.StopDeadlineUtc is { } deadline)
+                {
+                    // Started after Stop (e.g. Play and Record stopped while launching): the game finalises this file before it exits.
+                    instance.Recording = PlayRecordingState.Saving;
+                    var saveDeadline = instance.StopRequestedUtc!.Value + RecordingStopTimeout;
+                    if (saveDeadline > deadline)
+                        instance.StopDeadlineUtc = saveDeadline;
+                }
+
+                break;
+            default:
+                instance.Recording = PlayRecordingState.None;
+                instance.RecordingStartedUtc = null;
+                if (instance.StopDeadlineUtc is not null)
+                    instance.StopDeadlineUtc = _utcNow() + StopTimeout; // saved: a fresh grace for its goodbye and exit, not the deadline left from Stop
+                RecordingFinished?.Invoke(instance, recording);
+                break;
+        }
+
+        _changed = true;
+    }
+
+    /// <summary>
+    /// The game's link is gone (disconnected, or exited with no link) with no Stopped/Failed received: finish the recording as failed so the
+    /// editor never waits for a save that cannot come.
+    /// </summary>
+    private void AbandonRecording(PlayInstance instance)
+    {
+        if (instance.Recording == PlayRecordingState.None)
+            return;
+        instance.Recording = PlayRecordingState.None;
+        instance.RecordingStartedUtc = null;
+        _changed = true;
+        RecordingFinished?.Invoke(instance, new EditorLinkRecording(EditorLinkRecordingState.Failed, instance.RecordingPath ?? string.Empty, 0, 0, 0,
+            "The game exited before the recording was saved."));
+    }
+
+    /// <summary>Marks the service changed once per wall-clock second while recording, so the elapsed-time readout refreshes.</summary>
+    private void TickRecording()
+    {
+        if (!AnyRecording)
+            return;
+        var second = _utcNow().Ticks / TimeSpan.TicksPerSecond;
+        if (second == _lastRecordingTick)
+            return;
+        _lastRecordingTick = second;
+        _changed = true;
+    }
+
     private void UpdateProcesses()
     {
         var exitedCount = 0;
@@ -523,12 +681,14 @@ public sealed class PlayService : IDisposable
                 instance.ExitCode = code;
                 instance.State = code == 0 || instance.StopRequestedUtc is not null ? PlayInstanceState.Exited : PlayInstanceState.Crashed;
                 instance.PendingPause = null;
+                if (instance.GameId is null)
+                    AbandonRecording(instance); // with a link still up, its Stopped/Failed (then Disconnected) may be unread: wait for them
                 _changed = true;
                 exitedCount++;
                 continue;
             }
 
-            if (instance.StopRequestedUtc is { } asked && !instance.Killed && _utcNow() - asked >= StopTimeout)
+            if (instance.StopDeadlineUtc is { } deadline && !instance.Killed && _utcNow() >= deadline)
             {
                 instance.Killed = true;
                 process.Kill();
@@ -559,6 +719,9 @@ public sealed class PlayService : IDisposable
         }
 
         instance.State = PlayInstanceState.Stopping;
+        if (instance.Recording == PlayRecordingState.Recording && !instance.Killed)
+            instance.Recording = PlayRecordingState.Saving; // the game finalises the file before it exits
+        instance.StopDeadlineUtc = instance.StopRequestedUtc + (instance.Recording == PlayRecordingState.None ? StopTimeout : RecordingStopTimeout);
         _changed = true;
     }
 
@@ -623,18 +786,38 @@ public sealed class PlayService : IDisposable
     {
         var instance = _instances[index];
         _instances.RemoveAt(index);
-        if (instance.GameId is { } id)
+        // An exited game's last messages (its Stopped, then the Disconnected) can still be queued on the link: a recording
+        // instance stays reachable by its connection until the Disconnected, so the saved file is still reported (or the
+        // recording abandoned) even after the instance left the list.
+        if (instance.GameId is { } id && instance.Recording == PlayRecordingState.None)
             _byGameId.Remove(id);
         instance.Process?.Dispose();
         _changed = true;
     }
 
-    private bool AnyProcessRunning()
+    /// <summary>
+    /// One step of <see cref="Dispose"/>'s wait: kills each game still running past its limit (a second, or
+    /// <see cref="RecordingStopTimeout"/> while it records or saves); true while one is still within its limit.
+    /// </summary>
+    private bool WaitForExits(TimeSpan elapsed)
     {
+        var waiting = false;
         foreach (var instance in _instances)
-            if (instance.Process is { HasExited: false })
-                return true;
-        return false;
+        {
+            if (instance.Process is not { HasExited: false } process || instance.Killed)
+                continue;
+            var limit = instance.Recording == PlayRecordingState.None ? DisposeTimeout : RecordingStopTimeout;
+            if (elapsed < limit)
+            {
+                waiting = true;
+                continue;
+            }
+
+            instance.Killed = true;
+            process.Kill();
+        }
+
+        return waiting;
     }
 
     private sealed record PendingLaunch(PlayRequest Request, TaskCompletionSource<PlayInstance?> Completion, CancellationToken Cancellation);

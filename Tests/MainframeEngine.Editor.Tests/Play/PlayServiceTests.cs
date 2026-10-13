@@ -132,7 +132,7 @@ public sealed class PlayServiceTests
         var instance = play.Service.Launch("/fake/MyGame.Desktop", "/fake", Scene, "Game");
         Assert.Equal(PlayInstanceState.Launching, instance.State);
         Assert.Equal(1, instance.Number);
-        Assert.Equal(["--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", Scene], instance.Arguments);
+        Assert.Equal(["--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", Scene], instance.Arguments);
         var game = play.Game(instance);
         Assert.Equal(play.Service.Port, game.Port);
         Assert.Equal(Scene, game.Scene);
@@ -358,7 +358,7 @@ public sealed class PlayServiceTests
         var game = play.Game(instance);
         Assert.Equal(project.AppHost, game.Request.ProgramPath);
         Assert.Equal(Path.GetDirectoryName(project.AppHost), game.Request.WorkingDirectory);
-        Assert.Equal(["--hidden", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", "Content/Scenes/Main.mscene"],
+        Assert.Equal(["--hidden", "--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", "Content/Scenes/Main.mscene"],
             game.Request.Arguments);
         play.Pump(() => instance.State == PlayInstanceState.Running, "connect");
         Assert.True(play.Service.LastBuild!.Succeeded);
@@ -375,7 +375,7 @@ public sealed class PlayServiceTests
         play.Pump(() => task.IsCompleted, "build and launch");
 
         var game = play.Game((await task)!);
-        Assert.Equal(["--hidden", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "++", "--host", "--tile", "0:2"],
+        Assert.Equal(["--hidden", "--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "++", "--host", "--tile", "0:2"],
             game.Request.Arguments);
     }
 
@@ -488,6 +488,326 @@ public sealed class PlayServiceTests
 
         Assert.Equal(0, smallest);
         Assert.Equal(PlayInstanceState.Launching, waiting.State);
+    }
+
+    [Fact]
+    public void LaunchAlwaysPassesFrameCaptureBeforeTheEditorPort()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning("Game", scene: null, extra: ["--hidden", "++", "--host"]);
+
+        Assert.Equal(["--hidden", "--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "++", "--host"],
+            play.Game(instance).Request.Arguments);
+    }
+
+    [Fact]
+    public void StartAndStopRecordingTrackStateAndRaiseFinished()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        var finished = new List<EditorLinkRecording>();
+        play.Service.RecordingFinished += (_, r) => finished.Add(r);
+
+        Assert.True(play.Service.StartRecording(instance, "/u/recordings/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        Assert.Equal("/u/recordings/a.mp4", instance.RecordingPath);
+        Assert.NotNull(instance.RecordingStartedUtc);
+        Assert.True(play.Service.AnyRecording);
+        Assert.False(play.Service.StartRecording(instance, "/u/recordings/b.mp4")); // already recording
+
+        Assert.True(play.Service.StopRecording(instance));
+        Assert.Equal(PlayRecordingState.Saving, instance.Recording); // until the game reports Stopped
+        Assert.False(play.Service.StopRecording(instance)); // already saving
+        play.Pump(() => finished.Count == 1, "recording finished");
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+        Assert.Null(instance.RecordingStartedUtc);
+        Assert.False(play.Service.AnyRecording);
+        Assert.Equal(EditorLinkRecordingState.Stopped, finished[0].State);
+        Assert.Equal("/u/recordings/a.mp4", finished[0].Path);
+    }
+
+    [Fact]
+    public void AFailedStartIsReportedAsFinishedWithTheError()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        play.Game(instance).FailRecording = true;
+        EditorLinkRecording? finished = null;
+        play.Service.RecordingFinished += (_, r) => finished = r;
+
+        play.Service.StartRecording(instance, "/u/a.mp4");
+        play.Pump(() => finished is not null, "failure reported");
+
+        Assert.Equal(EditorLinkRecordingState.Failed, finished!.Value.State);
+        Assert.Equal("no ffmpeg", finished.Value.Error);
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+    }
+
+    [Fact]
+    public void StopRecordingWhenNotRecordingDoesNothing()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+
+        Assert.False(play.Service.StopRecording(instance));
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AGameThatExitsWhileRecordingOrSavingFailsTheRecordingOnce(bool saving)
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        game.SwallowStopRecording = true;
+        var finished = new List<EditorLinkRecording>();
+        play.Service.RecordingFinished += (_, r) => finished.Add(r);
+        play.Service.StartRecording(instance, "/u/a.mp4");
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        if (saving)
+            Assert.True(play.Service.StopRecording(instance));
+
+        game.TriggerCrash();
+        play.Pump(() => finished.Count > 0, "the recording to fail"); // via the link's Disconnected, after anything the game sent
+        play.Pump(() => !instance.IsAlive, "crash");
+        for (var i = 0; i < 20; i++)
+            play.Service.Update();
+
+        var result = Assert.Single(finished);
+        Assert.Equal(EditorLinkRecordingState.Failed, result.State);
+        Assert.Equal("The game exited before the recording was saved.", result.Error);
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+        Assert.False(play.Service.AnyRecording);
+    }
+
+    [Fact]
+    public void AStoppedReportedJustBeforeExitIsNotAFailure()
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            using var play = new PlayHarness();
+            var instance = play.LaunchRunning();
+            play.Game(instance).ExitAfterStop = true;
+            var finished = new List<EditorLinkRecording>();
+            play.Service.RecordingFinished += (_, r) => finished.Add(r);
+            play.Service.StartRecording(instance, "/u/a.mp4");
+            play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+
+            Assert.True(play.Service.StopRecording(instance));
+            play.Pump(() => !instance.IsAlive && finished.Count > 0, "the game to exit");
+            for (var i = 0; i < 50; i++)
+            {
+                play.Service.Update();
+                Thread.Sleep(1);
+            }
+
+            var result = Assert.Single(finished);
+            Assert.Equal(EditorLinkRecordingState.Stopped, result.State);
+            Assert.Equal(PlayRecordingState.None, instance.Recording);
+        }
+    }
+
+    [Fact]
+    public void ADisconnectWhileRecordingIsAFailure()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        var finished = new List<EditorLinkRecording>();
+        play.Service.RecordingFinished += (_, r) => finished.Add(r);
+        play.Service.StartRecording(instance, "/u/a.mp4");
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+
+        play.Game(instance).DropLink();
+        play.Pump(() => finished.Count > 0, "the recording to fail");
+        for (var i = 0; i < 20; i++)
+            play.Service.Update();
+
+        var result = Assert.Single(finished);
+        Assert.Equal(EditorLinkRecordingState.Failed, result.State);
+        Assert.Equal("The game exited before the recording was saved.", result.Error);
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
+        Assert.True(instance.IsAlive);
+    }
+
+    [Fact]
+    public void StoppingARecordingGameWaitsForTheSaveInsteadOfKillingIt()
+    {
+        var now = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        using var play = new PlayHarness(() => now);
+        play.Launcher.ModeFor = _ => FakeGameMode.IgnoresStop; // "still finalising": only a kill ends it
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        Assert.True(play.Service.StartRecording(instance, "/u/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+
+        play.Service.Stop(instance);
+        Assert.Equal(PlayRecordingState.Saving, instance.Recording); // the toolbar says "Saving recording…"
+        play.Pump(() => game.Commands.Any(c => c.Kind == EditorCommandKind.Stop), "the stop command");
+        now += PlayService.StopTimeout + TimeSpan.FromSeconds(1);
+        for (var i = 0; i < 5; i++)
+            play.Service.Update();
+        Assert.False(game.WasKilled);
+        Assert.True(instance.IsAlive);
+
+        now += PlayService.RecordingStopTimeout - PlayService.StopTimeout - TimeSpan.FromSeconds(2);
+        play.Service.Update();
+        Assert.False(game.WasKilled);
+
+        now += TimeSpan.FromSeconds(1);
+        play.Pump(() => !instance.IsAlive, "the kill past the recording deadline");
+        Assert.True(game.WasKilled);
+    }
+
+    [Fact]
+    public void AGameThatSavedAfterStopGetsAFreshGraceToExit()
+    {
+        var now = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        using var play = new PlayHarness(() => now);
+        play.Launcher.ModeFor = _ => FakeGameMode.IgnoresStop;
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        Assert.True(play.Service.StartRecording(instance, "/u/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        play.Service.Stop(instance);
+        play.Pump(() => game.Commands.Any(c => c.Kind == EditorCommandKind.Stop), "the stop command");
+
+        now += TimeSpan.FromSeconds(10); // a save longer than StopTimeout, then the game reports it
+        game.Inject(new EditorLinkRecording(EditorLinkRecordingState.Stopped, "/u/a.mp4", 10, 0, 0, ""));
+        play.Pump(() => instance.Recording == PlayRecordingState.None, "the Stopped");
+        for (var i = 0; i < 5; i++)
+            play.Service.Update();
+        Assert.False(game.WasKilled); // its save-on-quit and goodbye still get time
+
+        now += PlayService.StopTimeout - TimeSpan.FromSeconds(1);
+        play.Service.Update();
+        Assert.False(game.WasKilled);
+
+        now += TimeSpan.FromSeconds(2);
+        play.Pump(() => !instance.IsAlive, "the kill past the fresh grace");
+        Assert.True(game.WasKilled);
+    }
+
+    [Fact]
+    public void AStartedThatArrivesAfterStopGetsTheRecordingDeadline()
+    {
+        var now = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        using var play = new PlayHarness(() => now);
+        play.Launcher.ModeFor = _ => FakeGameMode.IgnoresStop;
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        play.Service.Stop(instance); // e.g. Play and Record stopped before the game reported Started
+        play.Pump(() => game.Commands.Any(c => c.Kind == EditorCommandKind.Stop), "the stop command");
+
+        game.Inject(new EditorLinkRecording(EditorLinkRecordingState.Started, "/u/a.mp4", 0, 0, 0, ""));
+        play.Pump(() => play.LogMessages(instance).Contains("injected"), "the late Started");
+        for (var i = 0; i < 20; i++)
+        {
+            play.Service.Update();
+            Thread.Sleep(2);
+        }
+
+        now += PlayService.StopTimeout + TimeSpan.FromSeconds(1);
+        for (var i = 0; i < 5; i++)
+            play.Service.Update();
+        Assert.False(game.WasKilled); // it is finalising the file it started
+        Assert.True(instance.IsAlive);
+    }
+
+    [Fact]
+    public void DisposeWaitsForAGameThatIsSavingItsRecording()
+    {
+        var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        var game = play.Game(instance);
+        game.StopSaveDelay = TimeSpan.FromSeconds(1.5); // longer than the plain one-second quit wait
+        Assert.True(play.Service.StartRecording(instance, "/u/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+
+        play.Dispose();
+
+        Assert.True(game.HasExited);
+        Assert.False(game.WasKilled);
+        Assert.Equal(0, game.ExitCode);
+    }
+
+    [Fact]
+    public void ASecondStartedForTheSameRecordingKeepsItsStartTime()
+    {
+        var now = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        using var play = new PlayHarness(() => now);
+        var instance = play.LaunchRunning();
+        Assert.True(play.Service.StartRecording(instance, "/u/a.mp4"));
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        var started = instance.RecordingStartedUtc;
+
+        now += TimeSpan.FromSeconds(30);
+        play.Game(instance).Inject(new EditorLinkRecording(EditorLinkRecordingState.Started, "/u/a.mp4", 0, 0, 0, ""));
+        play.Pump(() => play.LogMessages(instance).Contains("injected"), "the second Started");
+        for (var i = 0; i < 20; i++)
+        {
+            play.Service.Update();
+            Thread.Sleep(2);
+        }
+
+        Assert.Equal(PlayRecordingState.Recording, instance.Recording);
+        Assert.Equal(started, instance.RecordingStartedUtc);
+    }
+
+    [Fact]
+    public void AnOlderProtocolGameCannotRecordFromTheEditor()
+    {
+        using var play = new PlayHarness();
+        play.Launcher.ProtocolVersion = 3;
+        var instance = play.LaunchRunning();
+
+        Assert.Equal(3, instance.ProtocolVersion);
+        Assert.False(instance.CanRecord);
+        Assert.False(play.Service.StartRecording(instance, "/u/a.mp4"));
+        for (var i = 0; i < 20; i++)
+            play.Service.Update();
+        Assert.DoesNotContain(play.Game(instance).Commands, c => c.Kind == EditorCommandKind.StartRecording);
+    }
+
+    [Fact]
+    public void ACurrentProtocolGameCanRecord()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+
+        Assert.Equal(EditorLinkProtocol.Version, instance.ProtocolVersion);
+        Assert.True(instance.CanRecord);
+    }
+
+    [Fact]
+    public void AStoppedReadAfterTheExitedInstanceWasClearedStillFinishesTheRecording()
+    {
+        using var play = new PlayHarness();
+        var instance = play.LaunchRunning();
+        using var gate = new ManualResetEventSlim(false);
+        var game = play.Game(instance);
+        var finished = new List<EditorLinkRecording>();
+        play.Service.RecordingFinished += (_, r) => finished.Add(r);
+        play.Service.StartRecording(instance, "/u/a.mp4");
+        play.Pump(() => instance.Recording == PlayRecordingState.Recording, "recording started");
+        game.ExitBeforeReportingGate = gate;
+
+        Assert.True(play.Service.StopRecording(instance));
+        play.Pump(() => !instance.IsAlive, "the exit to be polled");
+        play.Service.ClearExited(); // the user clears finished instances before the link's last messages are read
+        Assert.DoesNotContain(instance, play.Service.Instances);
+        gate.Set();
+        play.Pump(() => finished.Count > 0, "the Stopped report");
+        for (var i = 0; i < 20; i++)
+        {
+            play.Service.Update();
+            Thread.Sleep(2);
+        }
+
+        var result = Assert.Single(finished);
+        Assert.Equal(EditorLinkRecordingState.Stopped, result.State);
+        Assert.Equal(PlayRecordingState.None, instance.Recording);
     }
 }
 

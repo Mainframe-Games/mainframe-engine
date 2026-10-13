@@ -23,6 +23,11 @@ public sealed class GameSession : IDisposable
     private float _framesPerSecond;
     private GameRunState _reportedState = GameRunState.Starting;
     private bool _disposed;
+    private GameRecorder? _recorder;
+    private bool _mustReportRecording;
+
+    /// <summary>How long <see cref="Shutdown"/> waits for the link to connect when a recording failure is still unsent.</summary>
+    private static readonly TimeSpan ReportConnectTimeout = TimeSpan.FromMilliseconds(EditorLinkClient.WelcomeTimeoutMilliseconds + 1000);
 
     public GameSession(SceneTree tree, ProjectSettings settings, GameHostOptions? options = null)
     {
@@ -55,6 +60,9 @@ public sealed class GameSession : IDisposable
 
     /// <summary>The editor link (null without <c>--editor-port</c>).</summary>
     public EditorLinkClient? Link { get; private set; }
+
+    /// <summary>Test seam: where recording events go (default: the editor link).</summary>
+    internal Action<EditorLinkRecording>? RecordingSink { get; set; }
 
     /// <summary>Raised when the editor asks the game to stop; the host quits with the code.</summary>
     public event Action<ExitCode>? QuitRequested;
@@ -255,6 +263,73 @@ public sealed class GameSession : IDisposable
         }
     }
 
+    /// <summary>
+    /// Lets the editor start and stop <paramref name="recorder"/> and hear about it: <c>Started</c> and <c>Stopped</c> are
+    /// forwarded as <see cref="EditorLinkRecording"/> events, in order (the host calls this once the recorder exists).
+    /// </summary>
+    public void AttachRecorder(GameRecorder recorder)
+    {
+        ArgumentNullException.ThrowIfNull(recorder);
+        _recorder = recorder;
+        recorder.Started += () => SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Started, recorder.OutputPath ?? "", 0f, 0, 0, ""));
+        recorder.Stopped += result => SendRecording(ToLink(result));
+    }
+
+    /// <summary>A finished recording as the editor sees it: Failed when the recorder reported an error, else Stopped.</summary>
+    internal static EditorLinkRecording ToLink(RecordingResult result) => new(
+        result.Error is null ? EditorLinkRecordingState.Stopped : EditorLinkRecordingState.Failed,
+        result.Path, (float)result.DurationSeconds, result.DroppedFrames, result.DuplicatedFrames, result.Error ?? "");
+
+    private void SendRecording(in EditorLinkRecording recording)
+    {
+        if (RecordingSink is { } sink)
+            sink(recording);
+        else
+            Link?.SendRecording(recording);
+    }
+
+    /// <summary>
+    /// Tells the editor a recording could not start (the host's <c>--record</c>, which the editor's Play and Record passes):
+    /// without it the editor would only see the game quit. Delivered before the goodbye even when the game quits before
+    /// the link has connected (<see cref="Shutdown"/> waits briefly for the connection).
+    /// </summary>
+    internal void ReportRecordingFailed(string path, string message)
+    {
+        _mustReportRecording = true;
+        SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Failed, path, 0f, 0, 0, message));
+    }
+
+    // Start can throw for ordinary reasons (no ffmpeg, bad path, already recording): the editor hears why instead of
+    // waiting for a Started that never comes, and a recording already running is left alone.
+    private void StartRecording(string path)
+    {
+        if (_recorder is not { } recorder)
+        {
+            SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Failed, path, 0f, 0, 0,
+                "This game has no recorder (it is headless or was not started by GameHost)."));
+            return;
+        }
+
+        if (recorder.IsRecording)
+        {
+            // Already recording (--record started it, and the editor's Start crossed that Started): the editor learns what
+            // is running instead of a failure. A recording still finalising is refused by Start below.
+            SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Started, recorder.OutputPath ?? path, 0f, 0, 0, ""));
+            return;
+        }
+
+        try
+        {
+            recorder.Start(new RecordingOptions { Path = path, Fps = Options.FixedFps > 0 ? Options.FixedFps : 60 });
+        }
+        catch (Exception e) when (e is FfmpegNotFoundException or IOException or InvalidOperationException
+                                      or UnauthorizedAccessException or ArgumentException)
+        {
+            Log.Error($"[Recorder] {e.Message}");
+            SendRecording(new EditorLinkRecording(EditorLinkRecordingState.Failed, path, 0f, 0, 0, e.Message));
+        }
+    }
+
     /// <summary>Executes one editor command (public so tools and tests can drive a session without a socket).</summary>
     public void Apply(in EditorLinkCommand command)
     {
@@ -278,6 +353,12 @@ public sealed class GameSession : IDisposable
                 break; // answered by the report below
             case EditorCommandKind.RequestTree:
                 Link?.SendTree(SnapshotTree(Tree.Root, out var truncated), truncated);
+                break;
+            case EditorCommandKind.StartRecording:
+                StartRecording(command.Argument);
+                break;
+            case EditorCommandKind.StopRecording:
+                _recorder?.Stop(); // Stopped (with the file) follows once finalising is done
                 break;
         }
 
@@ -374,6 +455,15 @@ public sealed class GameSession : IDisposable
         if (_linkSink is not null)
             Log.RemoveSink(_linkSink);
         _linkSink = null;
+        if (_mustReportRecording && !Link.IsConnected)
+        {
+            // A game that fails its --record start quits on its first update, which can beat the link's connection: give it
+            // a moment, or the editor never hears why (the goodbye, and the queued failure with it, need a connection).
+            var deadline = DateTime.UtcNow + ReportConnectTimeout;
+            while (!Link.IsConnected && DateTime.UtcNow < deadline)
+                Thread.Sleep(10);
+        }
+
         Link.ReportStatus(new EditorLinkStatus(GameRunState.Stopping, Tree.ProcessFrames, 0f, CurrentScenePath()));
         Link.SendGoodbye((int)exitCode, TimeSpan.FromSeconds(1));
         Link.Dispose();
