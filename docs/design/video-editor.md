@@ -188,6 +188,8 @@ tabs are open).
 - **Opening a tab shows its first frame**: the tab scrubs to 0 when it opens, so the preview is never black.
 - **Stopping.** Playback stops at the end of the last kept range, and pauses when the tab is hidden, the mode switches or
   an export starts. Closing the tab kills every decoder.
+- **Play from the end.** Play starts over from 0 when no kept footage follows the playhead: where playback stopped on a
+  recording whose tail is cut, inside a trailing cut, or at the very end.
 - **Scrubbing while paused** decodes one frame (`-ss t -frames:v 1`); while one runs, only the newest request waits.
 - **Texture.** One `Texture2D` in its own `SubViewport`, published as `engine://video-preview`, updated with `SetPixels`
   at most once per displayed frame.

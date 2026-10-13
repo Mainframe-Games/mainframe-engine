@@ -40,6 +40,26 @@ public sealed class VideoPlaybackPlanTests
     }
 
     [Theory]
+    [InlineData(0.0)]
+    [InlineData(5.0)]
+    [InlineData(9.9995)]
+    [InlineData(10.0)]
+    [InlineData(12.0)]
+    public void HasKeptFootageAfterAgreesWithBuild(double from)
+    {
+        // kept [0,4) · cut [4,6) · kept [6,8) · cut [8,10): a trailing cut
+        Segment[] tailCut =
+        [
+            Segment.Create(0, 4, true, SegmentOrigin.Auto),
+            Segment.Create(4, 6, false, SegmentOrigin.Auto),
+            Segment.Create(6, 8, true, SegmentOrigin.Auto),
+            Segment.Create(8, 10, false, SegmentOrigin.Auto),
+        ];
+        Assert.Equal(VideoPlaybackPlan.Build(Segments, from).Ranges.Count > 0, VideoPlaybackPlan.HasKeptFootageAfter(Segments, from));
+        Assert.Equal(VideoPlaybackPlan.Build(tailCut, from).Ranges.Count > 0, VideoPlaybackPlan.HasKeptFootageAfter(tailCut, from));
+    }
+
+    [Theory]
     [InlineData(0.0, 0.0)]
     [InlineData(3.0, 3.0)]
     [InlineData(4.0, 6.0)]

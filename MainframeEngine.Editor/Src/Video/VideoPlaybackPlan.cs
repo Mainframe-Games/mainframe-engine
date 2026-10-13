@@ -60,6 +60,23 @@ public sealed class VideoPlaybackPlan
         return new VideoPlaybackPlan([.. ranges]);
     }
 
+    /// <summary>
+    /// True when <see cref="Build"/> from <paramref name="from"/> would play something: some kept footage follows it.
+    /// Allocation-free, for Play to decide whether to start over from 0.
+    /// </summary>
+    public static bool HasKeptFootageAfter(IReadOnlyList<Segment> segments, double from)
+    {
+        ArgumentNullException.ThrowIfNull(segments);
+        for (var i = 0; i < segments.Count; i++)
+        {
+            var segment = segments[i];
+            if (segment.Enabled && segment.End - Math.Max(segment.Start, from) >= SegmentList.MinSegmentLength)
+                return true;
+        }
+
+        return false;
+    }
+
     public double OutputStartOf(int range) => _outputStarts[range];
 
     public bool IsFinished(double output) => output >= OutputDuration;

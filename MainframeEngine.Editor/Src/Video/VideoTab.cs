@@ -155,7 +155,10 @@ public sealed class VideoTab : IEditorTab
         return Path.GetExtension(full).Length == 0 ? full + extension : Path.ChangeExtension(full, extension);
     }
 
-    /// <summary>Pauses when playing; otherwise plays from the playhead (from 0 when the playhead is at the end).</summary>
+    /// <summary>
+    /// Pauses when playing; otherwise plays from the playhead, or from 0 when nothing is left to play: the playhead is at
+    /// the end, where playback stopped on a recording whose tail is cut, or inside a trailing cut.
+    /// </summary>
     public void TogglePlay()
     {
         if (Preview.IsPlaying)
@@ -164,8 +167,11 @@ public sealed class VideoTab : IEditorTab
             return;
         }
 
-        var from = State.Playhead >= Document.Duration - EndTolerance ? 0 : State.Playhead;
-        Preview.Play(Document.Segments.Segments, from, PreviewVersion());
+        var segments = Document.Segments.Segments;
+        var from = State.Playhead >= Document.Duration - EndTolerance || !VideoPlaybackPlan.HasKeptFootageAfter(segments, State.Playhead)
+            ? 0
+            : State.Playhead;
+        Preview.Play(segments, from, PreviewVersion());
         State.Playhead = Preview.Position;
     }
 

@@ -274,6 +274,40 @@ public sealed class VideoTabTests : IDisposable
         Assert.Equal(starts + 1, factory.Count); // one restart, for the finished drag
     }
 
+    // A tail-cut recording: playback ends at the last kept range's end (50 s), short of the duration (60 s).
+    private static VideoTab TailCutTab(CountingFactory factory)
+    {
+        var document = VideoDocument.FromProject(VideoDocumentTests.Project("/r/a.mp4"), null, null, []);
+        Assert.True(document.Editor.CreateSection(50, 60, anchor: 50));
+        var preview = new VideoPreview(factory, () => null, "/r/a.mp4", 320, 180, 30, number: 1);
+        return new VideoTab(document, preview, ffmpeg: null, number: 1);
+    }
+
+    [Fact]
+    public void PlayAfterPlaybackEndsOnATailCutStartsOverFromZero()
+    {
+        using var tab = TailCutTab(new CountingFactory(320 * 180 * 4));
+        tab.Seek(49.9);
+        tab.TogglePlay();
+        Assert.True(tab.Preview.IsPlaying);
+        Assert.True(SpinWait.SpinUntil(() => { tab.Tick(); return !tab.Preview.IsPlaying; }, TimeSpan.FromSeconds(10)));
+        Assert.Equal(50, tab.State.Playhead, 3); // the natural end: the last kept frame, before the duration
+
+        tab.TogglePlay();
+        Assert.True(tab.Preview.IsPlaying);
+        Assert.True(tab.State.Playhead < 1, $"played from {tab.State.Playhead}");
+    }
+
+    [Fact]
+    public void PlayWithThePlayheadInATrailingCutStartsOverFromZero()
+    {
+        using var tab = TailCutTab(new CountingFactory(320 * 180 * 4));
+        tab.Seek(55); // the ruler clicked inside the trailing cut
+        tab.TogglePlay();
+        Assert.True(tab.Preview.IsPlaying);
+        Assert.True(tab.State.Playhead < 1, $"played from {tab.State.Playhead}");
+    }
+
     [Fact]
     public void OpeningATabDecodesItsFirstFrame()
     {
