@@ -272,6 +272,9 @@ internal sealed class SubViewportTargets : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        // The retired post keeps these targets until the deletion queue disposes it, frames later: drop the last frame's
+        // draws now, so they do not keep the view's nodes (game code's, across an editor code reload) alive.
+        Draws.Clear();
         RetirePost();
         WaterScene?.Dispose();
         WaterScene = null;
