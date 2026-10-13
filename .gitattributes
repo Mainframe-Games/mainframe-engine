@@ -31,6 +31,9 @@
 *.so binary
 # the editor's helper executable (macOS / Linux; mfplughost.exe is covered by *.exe above)
 mfplughost binary
+# Facepunch.Steamworks (vendored) is a compile-time reference of MainframeEngine.Steamworks: plain git, not LFS, so
+# every job that builds the engine has it without an LFS pull (the steam_api natives stay in LFS with the others).
+Plugins/Facepunch.Steamworks/*.dll -filter -diff -merge binary
 
 # 3D model data (glTF buffers, binary glTF) are binary
 *.bin binary

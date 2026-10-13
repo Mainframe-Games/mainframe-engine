@@ -437,7 +437,7 @@ public sealed class GameRecorderTests
 
         Assert.NotNull(result);
         Assert.Contains("Simulated.", result.Error);
-        Assert.Equal("/r/a.mp4", result.Path);
+        Assert.Equal(Path.GetFullPath("/r/a.mp4"), result.Path); // the recorder stores full paths (D:\r\a.mp4 on Windows)
         Assert.Same(result, stopped);
         r.PollCompletion(); // nothing left: must not throw
         Assert.False(r.IsFinalising);

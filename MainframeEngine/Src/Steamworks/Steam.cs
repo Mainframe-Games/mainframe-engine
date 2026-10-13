@@ -12,21 +12,24 @@ public enum SteamStatus
     Running,
 
     /// <summary>
-    /// This process cannot use Steamworks.NET 2024.8.0: its managed assemblies are x86/x86-64 only, so arm64
-    /// processes (Apple Silicon, Windows/Linux on ARM) cannot load them.
+    /// Steam has no <c>steam_api</c> build for this process: it exists for Windows x64, Linux x64 and macOS (x64 and
+    /// arm64), not for Windows or Linux on ARM or 32-bit processes.
     /// </summary>
     UnsupportedPlatform,
 
     /// <summary>The app id was 0.</summary>
     InvalidAppId,
 
-    /// <summary>The <c>steam_api</c> native library is not next to the app (it is not shipped yet; see docs/design/steamworks.md).</summary>
+    /// <summary>
+    /// The <c>steam_api</c> native library or the <c>steamworks/</c> folder (Facepunch.Steamworks) is not next to the app;
+    /// both ship with the engine (see docs/design/steamworks.md), so the app was copied without them.
+    /// </summary>
     NativeLibraryMissing,
 
     /// <summary>The Steam client is not running (or not logged in).</summary>
     SteamNotRunning,
 
-    /// <summary><c>SteamAPI_InitEx</c> failed for another reason (version mismatch, app not owned, …); see <see cref="Steam.StatusMessage"/>.</summary>
+    /// <summary><c>SteamAPI_Init</c> failed for another reason (version mismatch, app not owned, …); see <see cref="Steam.StatusMessage"/>.</summary>
     InitFailed,
 
     /// <summary><see cref="Steam.Shutdown"/> was called.</summary>
@@ -41,8 +44,9 @@ public enum SteamStatus
 /// Lifecycle: <see cref="TryInitialize"/> once at startup, <see cref="RunCallbacks"/> once per frame on the main
 /// thread (Steam callbacks, lobby results and async continuations run inside it), <see cref="Shutdown"/> at exit.
 /// <para>
-/// No member of this or any other public Steam wrapper mentions a Steamworks.NET type: the Steamworks.NET assembly is
-/// only loaded once the platform is known to support it (see <see cref="SteamStatus.UnsupportedPlatform"/>).
+/// No member of this or any other public Steam wrapper mentions a Facepunch.Steamworks type: Facepunch ships one build
+/// for Windows and another for macOS and Linux, and the engine loads the right one (through its
+/// <c>MainframeEngine.Steamworks</c> shim) only once the platform is known to support Steam.
 /// </para>
 /// </remarks>
 public static class Steam
@@ -62,16 +66,19 @@ public static class Steam
     public static uint AppId { get; private set; }
 
     /// <summary>
-    /// Whether this process can load Steamworks.NET 2024.8.0 at all: its managed assemblies target x86-64 (and x86 on
-    /// Windows), so arm64 processes cannot.
+    /// Whether Steam can run in this process: Windows x64, Linux x64 and macOS (the <c>libsteam_api.dylib</c> the engine
+    /// ships is universal, x64 and arm64), the platforms the Steamworks SDK ships <c>steam_api</c> for.
     /// </summary>
-    public static bool IsPlatformSupported =>
-        RuntimeInformation.ProcessArchitecture == Architecture.X64
-        || (RuntimeInformation.ProcessArchitecture == Architecture.X86 && OperatingSystem.IsWindows());
+    public static bool IsPlatformSupported => RuntimeInformation.ProcessArchitecture switch
+    {
+        Architecture.X64 => OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsMacOS(),
+        Architecture.Arm64 => OperatingSystem.IsMacOS(),
+        _ => false,
+    };
 
     /// <summary>File name of the Steamworks native library for this platform (from the Steamworks SDK <c>redistributable_bin</c>).</summary>
     public static string NativeLibraryFileName =>
-        OperatingSystem.IsWindows() ? (Environment.Is64BitProcess ? "steam_api64.dll" : "steam_api.dll") :
+        OperatingSystem.IsWindows() ? "steam_api64.dll" :
         OperatingSystem.IsMacOS() ? "libsteam_api.dylib" :
         "libsteam_api.so";
 
@@ -125,14 +132,20 @@ public static class Steam
         if (!IsPlatformSupported)
         {
             return (SteamStatus.UnsupportedPlatform,
-                $"Steamworks.NET 2024.8.0 only ships x86/x86-64 assemblies; this process is {RuntimeInformation.ProcessArchitecture} " +
-                $"({RuntimeInformation.RuntimeIdentifier}).");
+                $"Steam ships steam_api for Windows x64, Linux x64 and macOS only; this process is {RuntimeInformation.RuntimeIdentifier}.");
+        }
+
+        if (!File.Exists(SteamworksLoader.ShimPath))
+        {
+            return (SteamStatus.NativeLibraryMissing,
+                $"{SteamworksLoader.ShimPath} is missing: the engine's steamworks/ folder was not copied with the app.");
         }
 
         if (writeDevAppIdFile)
             SteamAppIdFile.Apply(AppContext.BaseDirectory, appId);
 
-        return SteamApi.Initialize(NativeLibraryFileName);
+        SteamworksLoader.Register();
+        return SteamApi.Initialize(appId);
     }
 
     /// <summary>
@@ -143,10 +156,11 @@ public static class Steam
     /// </summary>
     public static bool RestartAppIfNecessary(uint appId)
     {
-        if (appId == 0 || !IsPlatformSupported)
+        if (appId == 0 || !IsPlatformSupported || !File.Exists(SteamworksLoader.ShimPath))
             return false;
         try
         {
+            SteamworksLoader.Register();
             return SteamApi.RestartAppIfNecessary(appId);
         }
         catch (Exception e)
@@ -170,6 +184,17 @@ public static class Steam
         {
             if (!Valid)
                 return;
+
+            // Before SteamClient.Shutdown: Facepunch throws on the user's SteamId afterwards (Speed Golf, 2026-09-25).
+            try
+            {
+                SteamLobby.LeaveLobby();
+                SteamApi.ClearRichPresence();
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[Steam] leaving the lobby at shutdown threw {e.GetType().Name}: {e.Message}");
+            }
 
             SteamLobby.Reset();
             try

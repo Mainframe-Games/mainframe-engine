@@ -160,8 +160,10 @@ Windows and Linux. The template smoke test (`just template-smoke`) checks `Smoke
 `build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]`
 (`just package-game`) packages a `GameHost` game for players: a self-contained, untrimmed Release `dotnet publish`
 for one RID (`project.mfproj` and `Content/` ride along as the desktop project's copied items), the apphost renamed
-to the player-facing executable, and the engine's natives for other platforms (`enet`, `mfrmlui`, `mfsvg`) removed.
-Then per platform:
+to the player-facing executable, and the engine's files for other platforms removed: the natives (`enet`, `mfrmlui`,
+`mfsvg`, Valve's `steam_api`) and the other `steamworks/{win64,posix}` folder (a checkout build copies every platform's;
+a package build with a RID has only its own). It fails if the publish output holds a `steam_appid.txt`: that file starts
+Steam outside the client and must never reach players. Then per platform:
 
 | RID | Output | Notes |
 |---|---|---|
@@ -171,6 +173,20 @@ Then per platform:
 
 Defaults: name and version from `project.mfproj`, the exe from the name without spaces, the icon from `window.icon`.
 Cross-publishing works from any host (self-contained); only the `.icns` needs macOS.
+
+Checkout and package games use the same script. `MainframeGame.props` (imported by checkout games, and by package games
+as `buildTransitive`) sets `MainframePackageGameScript` to the checkout's `build/package-game.sh` or the
+`MainframeEngine` package's `tools/package-game.sh` (with `tools/macos/png-to-icns.sh`):
+
+```bash
+script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"
+bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # also win-x64, linux-x64
+```
+
+Run it with `bash` (NuGet drops the executable bit). `--sign`/`--notarize` (or `MF_SIGN_IDENTITY`/`MF_NOTARY_PROFILE`)
+work as above. CI's `template` job (`just template-smoke-package`) packages a package game for linux-x64, win-x64 and
+osx-arm64 this way and checks each archive's contents, Steam files included
+([Distribution via NuGet → Tests](distribution-nuget.md#tests)).
 
 ## Related docs
 [Editor updates](editor-updates.md) ·

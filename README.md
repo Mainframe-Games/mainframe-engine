@@ -47,7 +47,8 @@ downloads, [docs](https://mainframe-games.github.io/mainframe-engine/docs/))
 | Editor | Project Manager, New Project wizard, scene tree + generated inspector + undo, 3D/2D viewport with gizmos, FileSystem panel, Play in a separate process, C# code reload, project settings, a ZzFX sound designer and a plugin-free music editor (songs rendered to looping WAV) | [Editor](docs/design/editor.md) |
 | Quality | 0 build warnings, 1 600+ unit/editor tests, render tests with golden images on MoltenVK and lavapipe, a Vulkan validation gate and a 0-bytes-per-frame allocation gate, benchmarks with a baseline | [Testing](docs/design/testing.md) |
 
-Steam integration is wrapped but inert until Steamworks natives can ship ([Steamworks](docs/design/steamworks.md)).
+Steam integration ([Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks), Valve's natives included)
+runs on Windows, Linux and macOS, Apple Silicon too ([Steamworks](docs/design/steamworks.md)).
 
 ---
 
@@ -140,11 +141,11 @@ mainframe-engine/
 │   │   ├── Networking/          # MultiplayerApi replication, messages, transports, pooled buffers
 │   │   ├── Localization/        # Tr (gettext catalogs, locale switching), RML text, font fallback
 │   │   ├── Project/, EditorLink/ # project.mfproj, GameHost, game-assembly loading; game <-> editor protocol
-│   │   ├── Steamworks/          # Steam API wrappers (inert without natives)
+│   │   ├── Steamworks/          # Steam API wrappers (over the MainframeEngine.Steamworks shim)
 │   │   ├── Debugging/           # Log + ILogSink sinks, the F12 dev overlay (DevOverlay)
 │   │   └── Imaging/, Utils/     # PNG codec, helpers
 │   ├── Content/                 # Shaders (Slang + committed SPIR-V), UI widgets and fonts, brand icons
-│   └── runtimes/                # Native libraries per RID (mfrmlui, ENet)
+│   └── runtimes/                # Native libraries per RID (mfrmlui, ENet, Valve's steam_api)
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
 ├── MainframeEngine.Editor/      # The editor (RmlUi UI in Content/Editor)
 ├── Examples/                    # Demo: the showcase game (one scene per feature; README screenshots)
@@ -293,8 +294,8 @@ loopback. See [Networking](docs/design/networking.md).
 - **Messages (`MessageBus`, `MessageRegistry`):** typed `INetworkTransferable` structs with a 7-byte header, for game
   messages beside replication (or alone, through `NetworkNode`).
 - **Transports (`ITransport`):** `EnetTransport`, `LoopbackTransport` (many clients in one process),
-  `SimulatedTransport` (seeded loss/latency/jitter/duplication for tests), `SteamSocketsTransport` (stub until Steam
-  natives ship). `TransportSelector` turns a lobby's connect string (`steam:…;enet:host:port`) into a transport.
+  `SimulatedTransport` (seeded loss/latency/jitter/duplication for tests), `SteamSocketsTransport` (a stub for now;
+  the natives it needs ship). `TransportSelector` turns a lobby's connect string (`steam:…;enet:host:port`) into a transport.
 - **Buffers:** `NetBufferWriter` / `NetBufferReader` (pooled, span-based, little-endian).
 
 ```csharp
@@ -344,15 +345,16 @@ music editor renders songs (built-in ZzFX instruments) to a seamlessly looping W
 
 ### Steam Integration (`Steamworks/`)
 
-Optional Steamworks.NET integration through an engine-owned `Steam` service, pumped every frame by `SteamServer`
-when `EngineOptions.SteamAppId` is set; every wrapper is a no-op without Steam. See
-[Steamworks](docs/design/steamworks.md).
+Optional Steam integration over [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) 2.4.1
+(vendored, behind the `MainframeEngine.Steamworks` shim) through an engine-owned `Steam` service, pumped every frame by
+`SteamServer` when `EngineOptions.SteamAppId` is set; every wrapper is a no-op without Steam. Valve's `steam_api`
+natives ship with the engine, so Steam starts on Windows x64, Linux x64 and macOS (x64 and Apple Silicon) when the Steam
+client runs. See [Steamworks](docs/design/steamworks.md).
 - `Steam` — `TryInitialize` / `RunCallbacks` / `Shutdown`, status, user info, branch, friends, DLC
 - `SteamLobby` / `SteamLobbyInfo` — create, join (including invites), search; `ConnectAddress` hands members to the
   network transport
 - `SteamRichPresence`, `SteamOverlay`, `SteamAchievements` (with `StoreStats`), `SteamFriend`
-- **Limitation:** no `steam_api` native ships (the SDK needs a partner login, and Steamworks.NET 2024.8.0 is
-  x86-64 only), so Steam does not start yet; Steam Networking Sockets and avatar textures wait for it.
+- **Not yet:** Steam Networking Sockets (`SteamSocketsTransport` is a stub) and avatar textures.
 
 ### Localization (`Localization/`)
 
@@ -400,7 +402,7 @@ interpolated `$"..."` ones — allocate nothing.
 | Source generator | Microsoft.CodeAnalysis.CSharp | 5.9.0 |
 | Skeletal animation | Spine Runtime | (Plugin) |
 | Image loading | StbImageSharp | 2.30.16 |
-| Steam platform | Steamworks.NET | 2024.8.0 |
+| Steam platform | [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) + Valve's `steam_api` | 2.4.1 (vendored) |
 
 Versions are central in `Directory.Packages.props`; new packages are discussed before they are added.
 
