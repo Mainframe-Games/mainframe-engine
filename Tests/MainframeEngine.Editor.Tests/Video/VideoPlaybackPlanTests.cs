@@ -73,4 +73,53 @@ public sealed class VideoPlaybackPlanTests
         Segment[] segments = [Segment.Create(0, 4, true, SegmentOrigin.Auto), Segment.Create(4, 10, false, SegmentOrigin.Auto)];
         Assert.Empty(VideoPlaybackPlan.Build(segments, 3.9995).Ranges);
     }
+
+    [Fact]
+    public void AdjacentKeptSegmentsPlayAsOneRange()
+    {
+        // A split leaves two kept segments that join seamlessly in the source: one decoder plays both.
+        Segment[] segments =
+        [
+            Segment.Create(0, 2, true, SegmentOrigin.Auto),
+            Segment.Create(2, 4, true, SegmentOrigin.Manual),
+            Segment.Create(4, 6, false, SegmentOrigin.Auto),
+            Segment.Create(6, 8, true, SegmentOrigin.Auto),
+            Segment.Create(8, 10, true, SegmentOrigin.Auto),
+        ];
+        Assert.Equal([new PlayRange(0, 4), new PlayRange(6, 10)], VideoPlaybackPlan.Build(segments, 0).Ranges);
+        Assert.Equal([new PlayRange(3, 4), new PlayRange(6, 10)], VideoPlaybackPlan.Build(segments, 3).Ranges);
+    }
+
+    [Fact]
+    public void RangeAtFindsEveryRangeOfALongPlan()
+    {
+        // kept [2i, 2i + 1) for i in 0..99: range i covers output [i, i + 1)
+        var segments = new List<Segment>();
+        for (var i = 0; i < 100; i++)
+        {
+            segments.Add(Segment.Create(2 * i, 2 * i + 1, true, SegmentOrigin.Auto));
+            segments.Add(Segment.Create(2 * i + 1, 2 * i + 2, false, SegmentOrigin.Auto));
+        }
+
+        var plan = VideoPlaybackPlan.Build(segments, 0);
+        Assert.Equal(100, plan.Ranges.Count);
+        for (var i = 0; i < 100; i++)
+        {
+            Assert.Equal(i, plan.RangeAt(i));         // the later range wins at an exact join
+            Assert.Equal(i, plan.RangeAt(i + 0.5));
+            Assert.Equal(i, plan.RangeAt(i + 0.999));
+        }
+
+        Assert.Equal(-1, plan.RangeAt(100));
+        Assert.Equal(0, plan.RangeAt(-1));
+    }
+
+    [Fact]
+    public void AnEmptyPlanHasNoRangeEvenBeforeZero()
+    {
+        var plan = VideoPlaybackPlan.Build([], 0);
+        Assert.Equal(-1, plan.RangeAt(-1));
+        Assert.Equal(-1, plan.RangeAt(0));
+        Assert.Equal(0, plan.SourceTimeAt(-1), 9);
+    }
 }

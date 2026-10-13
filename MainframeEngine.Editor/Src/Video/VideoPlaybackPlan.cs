@@ -48,7 +48,12 @@ public sealed class VideoPlaybackPlan
             if (!segment.Enabled || segment.End <= from)
                 continue;
             var start = Math.Max(segment.Start, from);
-            if (segment.End - start >= SegmentList.MinSegmentLength)
+            if (segment.End - start < SegmentList.MinSegmentLength)
+                continue;
+            // Kept segments that meet in the source (a split) play as one range: no decoder restart at a seamless join.
+            if (ranges.Count > 0 && ranges[^1].End == start)
+                ranges[^1] = ranges[^1] with { End = segment.End };
+            else
                 ranges.Add(new PlayRange(start, segment.End));
         }
 
@@ -59,14 +64,17 @@ public sealed class VideoPlaybackPlan
 
     public bool IsFinished(double output) => output >= OutputDuration;
 
+    /// <summary>
+    /// The range playing at <paramref name="output"/>: the later one at an exact join, the first before zero, and -1 once
+    /// finished or when there is nothing to play. A binary search, because the preview asks every frame.
+    /// </summary>
     public int RangeAt(double output)
     {
-        if (IsFinished(output))
+        if (_ranges.Length == 0 || IsFinished(output))
             return -1;
-        for (var i = _ranges.Length - 1; i >= 0; i--)
-            if (output >= _outputStarts[i])
-                return i;
-        return 0;
+        var i = Array.BinarySearch(_outputStarts, output);
+        // Not found: ~i is the first start after output, so the range before it holds output (before zero: the first).
+        return i >= 0 ? i : Math.Max(0, ~i - 1);
     }
 
     public double SourceTimeAt(double output)
