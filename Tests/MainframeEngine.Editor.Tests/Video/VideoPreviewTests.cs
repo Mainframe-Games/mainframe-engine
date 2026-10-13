@@ -46,6 +46,24 @@ public sealed class VideoPreviewTests
     private static VideoPreview Preview(FakeFactory factory) => new(factory, () => null, "/r/a.mp4", 640, 360, 30, number: 1);
 
     [Fact]
+    public void AReaderOrScrubStoppedBeforeItStartsItsDecoderNeverStartsOne()
+    {
+        var factory = new FakeFactory(640 * 360 * 4);
+        using var preview = Preview(factory);
+        using var cancel = new CancellationTokenSource();
+        cancel.Cancel(); // a Pause or a newer Play came first
+
+        Assert.Null(preview.StartDecoderUnlessCancelled(["-i", "/r/a.mp4"], cancel.Token));
+        Assert.Equal(0, factory.Count);
+        Assert.Equal(0, preview.LiveDecoders);
+
+        var decoder = preview.StartDecoderUnlessCancelled(["-i", "/r/a.mp4"], CancellationToken.None);
+        Assert.NotNull(decoder);
+        Assert.Equal(1, factory.Count);
+        decoder.Dispose();
+    }
+
+    [Fact]
     public void ThePreviewIsAtMost960WideWithTheSourceAspect()
     {
         using var preview = new VideoPreview(new FakeFactory(4), () => null, "/r/a.mp4", 1920, 1080, 60, 1);

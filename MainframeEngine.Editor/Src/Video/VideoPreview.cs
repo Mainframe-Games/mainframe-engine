@@ -328,7 +328,10 @@ public sealed class VideoPreview : IDisposable
 
     // ── Stopping ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Pause, Play and Dispose: cancel the audio task, every reader and the scrub; kill every decoder; stop the voice.</summary>
+    /// <summary>
+    /// Pause, Play and Dispose: cancel the audio task, every reader and the scrub; kill every decoder started so far (one
+    /// being started on another thread right now is killed by that thread); stop the voice.
+    /// </summary>
     private void StopAll()
     {
         IsPlaying = false;
@@ -352,7 +355,10 @@ public sealed class VideoPreview : IDisposable
         _playback = null;
         foreach (var stream in _streams)
             if (stream.State == StreamState.Live)
-                stream.Retire(killNow: true); // a stop is the user's: every decoder is dead when it returns
+                // A stop is the user's: every decoder started so far is killed here, on this thread. A reader or scrub that
+                // has not started its decoder yet sees the cancellation and starts none; one starting it right now kills it
+                // itself. So no decoder outlives the stop, though one may die just after it returns.
+                stream.Retire(killNow: true);
 
         _pendingSeek = double.NaN;
         if (_seekCancel is not null)
@@ -533,7 +539,8 @@ public sealed class VideoPreview : IDisposable
     private ScrubResult ReadSeekFrame(IReadOnlyList<string> arguments, CancellationToken cancellation)
     {
         var frame = _seekFrame ??= new byte[_frameBytes];
-        var decoder = StartDecoder(arguments);
+        if (StartDecoderUnlessCancelled(arguments, cancellation) is not { } decoder)
+            return default; // stopped before it began: no process at all
         Interlocked.Exchange(ref _seekDecoder, decoder); // a full fence: a StopAll before this is seen below
         var result = default(ScrubResult);
         if (!cancellation.IsCancellationRequested)
@@ -560,6 +567,14 @@ public sealed class VideoPreview : IDisposable
     private readonly record struct ScrubResult(bool Decoded, string? Failure);
 
     // ── Decoders ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A reader or scrub thread: starts its decode unless it was stopped (paused, or replaced by a newer Play or scrub)
+    /// before the thread got this far; null then, and no process is started only to be killed. A stop after this point is
+    /// seen by the caller's own check once the decoder is published.
+    /// </summary>
+    internal IVideoDecoder? StartDecoderUnlessCancelled(IReadOnlyList<string> arguments, CancellationToken cancellation) =>
+        cancellation.IsCancellationRequested ? null : StartDecoder(arguments);
 
     /// <summary>Any thread: starts a decode and counts it live. A factory that throws gives a failed decoder.</summary>
     private IVideoDecoder StartDecoder(IReadOnlyList<string> arguments)
@@ -760,7 +775,9 @@ public sealed class VideoPreview : IDisposable
                 }
                 else
                 {
-                    decoder = owner.StartDecoder(arguments);
+                    if (owner.StartDecoderUnlessCancelled(arguments, cancellation) is not { } fresh)
+                        return; // stopped before this thread got here: no process at all
+                    decoder = fresh;
                     Interlocked.Exchange(ref _decoder, decoder); // a full fence: a Stop before this is seen below
                     if (cancellation.IsCancellationRequested)
                     {
