@@ -146,6 +146,23 @@ public sealed class EditorModeTests : IDisposable
     }
 
     [Fact]
+    public void SpaceInVideoModeWithoutATabDoesNothingQuietly()
+    {
+        W.SetMode(EditorMode.Video);
+        Assert.Null(W.Session.ActiveTab);
+        var warnings = W.Output.Messages.Count(m => m.Text.Contains("Unknown command", StringComparison.Ordinal));
+        Editor.Key(Key.Space);
+        Editor.Key(Key.Space);
+        Editor.Tick(2);
+        Assert.Equal(warnings, W.Output.Messages.Count(m => m.Text.Contains("Unknown command", StringComparison.Ordinal)));
+        Assert.True(W.Commands.Execute("video.play")); // known, and nothing to do
+
+        Assert.False(W.Commands.Execute("video.no_such_command")); // the warning this test looks for does reach the output
+        Editor.Tick();
+        Assert.Equal(warnings + 1, W.Output.Messages.Count(m => m.Text.Contains("Unknown command", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void SwitchingModesKeepsTheAutosaveCountdown()
     {
         W.ApplySettings(new EditorSettings { AutosaveMinutes = 1 });
