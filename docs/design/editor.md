@@ -168,6 +168,8 @@ Nothing else: no gizmo, view, Play or Record keys (F10 does nothing in video mod
 The editor has two modes, **Game** (everything above) and **Video** (trimming recordings), switched by the Game|Video
 toggle near the right end of the toolbar or View › Switch to Video/Game Mode. `EditorWorkspace.SetMode(EditorMode)`:
 
+![Video mode: a recording's preview, transcript and timeline with silences and filler words cut](../images/editor-video.png)
+
 - **swaps the layout**: video mode hides the Scene tree, Inspector and FileSystem (and the Output unless View › Show/Hide
   Output is on) and shows the video view (preview, transcript, notice line, timeline) under the tab strip;
 - **swaps the menus** (Video: File, Edit, View, Video, Help) and the **toolbar group**;
@@ -838,7 +840,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   rename with fix-ups, drag onto the scene tree, Play with a fake launcher, the Saves page and Open User Data Folder with a
   recording opener). A slow integration test (`Category=Slow`) runs the real `dotnet new mfgame` and build.
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
-  editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, drags, gizmo drags, keys,
+  editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, in layout points that the
+  script turns into mouse points with `IEditorHost.PointerScale`, so `--scale 2` hits the same spots on 1× and 2× displays; drags, gizmo drags, keys,
   text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`, `view-resolution auto|full|threeQuarters|half`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
@@ -854,7 +857,11 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   recording, with captures of the REC readout, the saving state and the saved dialogs. Needs a display and ffmpeg; not run in CI.
 - **README screenshots** (`just readme-screenshots`, [readme-screenshots.qa](../../Tests/QA/readme-screenshots.qa)):
   the Project Manager (`recent-project` seeds the list), the showcase scene (`open-project`, `camera`, `collapse`), the
-  create dialog (`favorite`, `search`, `pick`) and a new game after a code reload while it plays, captured at 2x
+  create dialog (`favorite`, `search`, `pick`), the sound designer and a song tab, video mode (`mode video`; the recipe
+  first runs [build/readme-video-clip.sh](../../build/readme-video-clip.sh): an offline `--record` of the Demo's Physics
+  2D scene with its audio replaced by a narration from `say` or `espeak-ng`; the QA script cuts its silences,
+  transcribes it with base.en, removes its fillers, then saves the edit with Save As so closing the tab asks nothing)
+  and a new game after a code reload while it plays, captured at 2x
   (`--scale 2`, 3200×1920 px) and downscaled to 1600×960 into `docs/images/editor*.png` with ImageMagick. The scene is
   [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose
   game code the editor loads, so every node type resolves. Projects are opened from the
