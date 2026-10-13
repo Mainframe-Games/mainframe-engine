@@ -65,6 +65,8 @@ Cutback's integration spec).
 
 ## Code layout
 
+![Where the code comes from](../../images/video-editor-architecture.svg)
+
 ```
 MainframeEngine.Video/                    new library, net10.0, referenced only by MainframeEngine.Editor
   SegmentList.cs  SegmentEditor.cs  EditHistory.cs                 ← Cutback.Core root files (+ SegmentEditor, see below)
@@ -116,6 +118,8 @@ MainframeEngine.Editor/Content/Editor/video*.rml
 
 ## Modes
 
+![One workspace, two modes](../../images/video-editor-modes.svg)
+
 `EditorMode { Game, Video }` lives on `EditorWorkspace`. `Audio` is reserved for the DAW, and its name is not used
 yet. `EditorWorkspace.SetMode(EditorMode)`:
 
@@ -156,20 +160,7 @@ yet. `EditorWorkspace.SetMode(EditorMode)`:
 
 ## The video-mode screen
 
-```
-┌ File  Edit  View  Video  Help ─────────────────────────────── recording.mfcut ┐
-│ ▶ ■  1:02.3 / 6:00.0 │ Transcribe  Remove fillers  Detect silence  Detect idle │
-│                      │                     Kept 4:12 of 6:00   Export  [Game|Video]│
-├ [recording.mfcut ×] [forest-run.mp4 ×] + ─────────────────────┬─────────────────┤
-│                                                               │ Transcript      │
-│                    video preview                              │ so the boss     │
-│                 (fitted to its aspect)                        │ ~~um~~ opens    │
-│                                                               │ the door …      │
-├─ ⚠ notice line: warnings, detection results ──────────────────┴─────────────────┤
-│ 0:00      0:30      1:00      1:30   ▼boss intro      2:00 (ruler + markers)   │
-│ ▓▓▓▓▓░░░░▓▓▓▓▓▓▓▓▓▓▓░░░▓▓▓▓▓  timeline: kept / removed + waveform + playhead     │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
+![The editor in Video mode](../../images/video-editor-mode.svg)
 
 - **Menus:**
   - **File:** Open… (Cmd+O), Open Recent ›, Save, Save As…, Export Video… (Cmd+E), Export Transcript…, Close.
@@ -212,6 +203,8 @@ yet. `EditorWorkspace.SetMode(EditorMode)`:
 ## Behaviour
 
 ### Preview and playback
+
+![Gapless preview](../../images/video-editor-preview.svg)
 
 - **Decoders.** `VideoPreview` runs a video decoder (raw RGBA) for each kept range, at most 960 px wide and 30 fps
   (`PreviewDecoding`). It runs an audio decoder (`f32le`, stereo, at `AudioServer.SampleRate`) one range after another.
