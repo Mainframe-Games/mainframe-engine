@@ -116,9 +116,12 @@ public sealed class EditorSettingsDialog : EditorDocument
         RebuildMidi();
     }
 
-    protected override void OnProcess(in GameTime gameTime)
+    /// <summary>
+    /// Called every frame by the workspace (the dialog is not a <c>[Tool]</c> node, so <c>OnProcess</c> never runs in the
+    /// editor): redraws the MIDI list when the devices changed while the dialog is open, and the plugin status when a scan ends.
+    /// </summary>
+    public void Tick()
     {
-        base.OnProcess(gameTime);
         if (Visible && Workspace.Midi.Version != _midiVersion)
             RebuildMidi();
         if (_scan is { IsCompleted: true })
