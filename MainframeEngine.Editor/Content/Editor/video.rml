@@ -38,8 +38,17 @@
         .splitter:hover, .splitter.dragging { background-color: #3b82f6; }
         #video-split-v { width: 5dp; cursor: ew-resize; }
         #video-split-h { height: 5dp; cursor: ns-resize; }
-        #video-transcript { display: flex; flex-direction: column; flex: 0 0 auto; width: 320dp; overflow-y: auto; background-color: #1b1d23; }
-        .transcript-empty { padding: 16dp 14dp; color: #8b93a5; line-height: 18dp; }
+        #video-transcript { display: flex; flex-direction: column; flex: 0 0 auto; width: 320dp; overflow: hidden; background-color: #1b1d23; }
+        /* The words scroll under the fixed header: flowing text in paragraphs that break at a long pause. */
+        #video-transcript-words { flex: 1 1 auto; overflow-y: auto; padding: 8dp 10dp; }
+        .transcript-empty { padding: 8dp 4dp; line-height: 18dp; }
+        .hint { color: #8b93a5; }
+        .para { display: block; margin-bottom: 10dp; line-height: 22dp; font-size: 14dp; color: #e6e6ec; }
+        .w { padding: 1dp 1dp; border-radius: 2dp; cursor: pointer; }
+        .w:hover { background-color: #2a2d36; }
+        .w.cut { color: #6a6a75; text-decoration: line-through; }
+        .w.cur { background-color: #2f4f82; color: #ffffff; }
+        .w.sel { background-color: #5b8def; color: #ffffff; }
         /* One line, in the song tab's notice colours (amber on dark amber). */
         #video-notice {
             flex: 0 0 auto; height: 22dp; line-height: 22dp; margin: 0dp; padding: 0dp 10dp; border-width: 0dp; border-radius: 0dp;
@@ -63,7 +72,7 @@
             <div id="video-split-v" class="splitter" data-if="show_transcript"></div>
             <div id="video-transcript" data-if="show_transcript">
                 <div class="panel-header"><span class="panel-title">Transcript</span></div>
-                <div class="transcript-empty">No transcript yet. Transcribe to edit by text.</div>
+                <div id="video-transcript-words"><div class="transcript-empty hint">No transcript yet. Transcribe to edit by text.</div></div>
             </div>
         </div>
         <div id="video-notice" class="notice" data-if="notice != ''" data-attr-data-tooltip="notice">{{notice}}</div>

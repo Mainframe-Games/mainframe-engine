@@ -7,8 +7,9 @@ namespace MainframeEngine.Editor.Video;
 /// only in video mode (<see cref="EditorWorkspace.SetMode"/>). Without a video tab it shows the empty state: how to open
 /// or record a recording, and the recent videos. With one: the preview (fitted to the video's aspect, with black bars)
 /// beside the transcript, the notice line, and the timeline, both images of the tab's viewports (<see cref="VideoView"/>).
-/// The transcript and timeline splitters resize through <see cref="EditorLayout"/>. Steady-state frames read three element
-/// rectangles and allocate nothing; text and sizes are written only when they change.
+/// The transcript column is edit-by-text (<see cref="TranscriptPanel"/>). The transcript and timeline splitters resize
+/// through <see cref="EditorLayout"/>. Steady-state frames read three element rectangles and allocate nothing; text and
+/// sizes are written only when they change.
 /// </summary>
 public sealed class VideoPanel : EditorDocument
 {
@@ -25,6 +26,7 @@ public sealed class VideoPanel : EditorDocument
         .Member("path", static r => r.Path);
 
     private readonly List<RecentRow> _recent = [];
+    private readonly TranscriptPanel _transcript;
     private readonly RmlEventListener?[] _listeners = new RmlEventListener?[6];
     private RmlDataModel? _model;
     private VideoTab? _tab;
@@ -47,8 +49,12 @@ public sealed class VideoPanel : EditorDocument
     public VideoPanel(EditorWorkspace workspace)
         : base(workspace, "video.rml")
     {
+        _transcript = new TranscriptPanel(workspace);
         Visible = false;
     }
+
+    /// <summary>The transcript column's behaviour (edit by text); it drives <c>#video-transcript-words</c> in this document.</summary>
+    internal TranscriptPanel Transcript => _transcript;
 
     /// <summary>The preview area in window dp (empty without a tab).</summary>
     public LayoutRect PreviewRect { get; private set; }
@@ -90,6 +96,7 @@ public sealed class VideoPanel : EditorDocument
         _listeners[3] = horizontal.AddEventListener("dragstart", e => e.CurrentElement.SetClass("dragging", true));
         _listeners[4] = vertical.AddEventListener("dragend", EndSplitterDrag);
         _listeners[5] = horizontal.AddEventListener("dragend", EndSplitterDrag);
+        _transcript.Attach(document);
         _previewImage = false;
         _timelineImage = false;
         _appliedTranscriptWidth = float.NaN;
@@ -184,6 +191,8 @@ public sealed class VideoPanel : EditorDocument
             dirty = true;
         }
 
+        if (_showTranscript)
+            _transcript.Update(tab);
         if (tab is null)
         {
             PreviewRect = default;
