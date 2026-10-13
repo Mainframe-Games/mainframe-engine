@@ -14,11 +14,14 @@ namespace MainframeEngine.Editor.Video;
 /// video follows the audio, never the other way round. Without an audio server a stopwatch is the clock.
 /// </summary>
 /// <remarks>
-/// <para><b>Threads.</b> Everything visible happens in <see cref="Update"/> on the main thread: the texture, the voice
-/// (<see cref="AudioServer"/> is main-thread only) and every decoder this class kills. A video reader thread only fills
-/// its stream's buffers and queues them; the audio task only pushes into its own voice's ring (the ring's one producer).</para>
-/// <para><b>Buffers.</b> Each stream slot owns <see cref="FramesPerStream"/> frame buffers, allocated the first time the
-/// slot is used and reused for every stream after it. A buffer is in exactly one place: the slot's free pool (counted by
+/// <para><b>Threads.</b> Everything visible happens in <see cref="Update"/> on the main thread: the texture and the voice
+/// (<see cref="AudioServer"/> is main-thread only). Starting ffmpeg takes milliseconds, so only the user's own
+/// <see cref="Play"/> starts a decoder on the main thread: a prefetched range's reader, each scrub task and the audio task
+/// start their own and publish them with <see cref="Interlocked.Exchange{T}(ref T, T)"/>. Whichever side takes a decoder
+/// back out kills it, so a stop racing a start still kills it exactly once. A video reader otherwise only fills its
+/// stream's buffers and queues them; the audio task only pushes into its own voice's ring (the ring's one producer).</para>
+/// <para><b>Buffers.</b> Each stream slot owns <see cref="FramesPerStream"/> frame buffers, allocated by its reader the
+/// first time the slot is used and reused for every stream after it. A buffer is in exactly one place: the slot's free pool (counted by
 /// its semaphore, which blocks the reader and so back-pressures ffmpeg when the pool is empty), the reader's hand, the
 /// frame queue, or the main thread's <c>Next</c> (dequeued, not yet due). A slot is reused only after its reader has
 /// finished, so a stopped reader never writes into a buffer a new stream is using.</para>
@@ -78,9 +81,11 @@ public sealed class VideoPreview : IDisposable
     private int _sampleRate;
 
     // Scrubbing while paused: one single-frame decode at a time, the newest waiting request after it (NaN: none).
+    // The scrub task starts its own decoder and publishes it in _seekDecoder (Interlocked, like the audio task's).
+    // _seekCancel and _seekTask are non-null exactly while a scrub task runs or waits for PollSeek.
     private IVideoDecoder? _seekDecoder;
     private CancellationTokenSource? _seekCancel;
-    private Task<bool>? _seekTask;
+    private Task<ScrubResult>? _seekTask;
     private byte[]? _seekFrame;
     private double _pendingSeek = double.NaN;
 
@@ -112,7 +117,7 @@ public sealed class VideoPreview : IDisposable
         };
         Viewport.AddChild(new Sprite2D { Texture = _texture, Centered = false });
         for (var i = 0; i < _streams.Length; i++)
-            _streams[i] = new VideoStream();
+            _streams[i] = new VideoStream(this);
     }
 
     /// <summary>The texture's only parent; the owner keeps it in the tree and publishes it to the UI.</summary>
@@ -153,7 +158,7 @@ public sealed class VideoPreview : IDisposable
         Position = _plan.SourceTimeAt(0);
         IsPlaying = true;
         StartAudio();
-        EnsureStream(0);
+        EnsureStream(0, startNow: true); // the user's own Play may stall for a process start; prefetches never do
     }
 
     /// <summary>Stops playback where it is: every decoder is killed and the voice stops.</summary>
@@ -347,14 +352,15 @@ public sealed class VideoPreview : IDisposable
         _playback = null;
         foreach (var stream in _streams)
             if (stream.State == StreamState.Live)
-                Retire(stream);
+                stream.Retire(killNow: true); // a stop is the user's: every decoder is dead when it returns
 
         _pendingSeek = double.NaN;
-        if (_seekDecoder is not null)
+        if (_seekCancel is not null)
         {
-            _seekCancel!.Cancel();
-            Kill(_seekDecoder);
-            _seekDecoder = null; // its reader finishes on its own; PollSeek then drops the result
+            // The scrub task finishes on its own (a decoder it starts after this kills itself); PollSeek drops the result.
+            _seekCancel.Cancel();
+            if (Interlocked.Exchange(ref _seekDecoder, null) is { } decoder)
+                Kill(decoder);
         }
     }
 
@@ -380,10 +386,11 @@ public sealed class VideoPreview : IDisposable
     private void Advance(double clock)
     {
         var current = _plan.RangeAt(clock);
-        // The clock has passed these ranges' ends.
+        // The clock has passed these ranges' ends. Their processes die on a pool thread: a kill can take milliseconds
+        // (Kill(entireProcessTree) lists the processes) and this is the frame right after a cut.
         foreach (var stream in _streams)
             if (stream.State == StreamState.Live && stream.Range < current)
-                Retire(stream);
+                stream.Retire(killNow: false);
 
         // The current range, then each next one within the prefetch lead. Chaining lets ranges shorter than the lead
         // start the one after them as soon as they are prefetched themselves.
@@ -395,8 +402,11 @@ public sealed class VideoPreview : IDisposable
             ShowDueFrame(shown, clock);
     }
 
-    /// <summary>Starts range <paramref name="range"/>'s video decode unless it runs; false when no slot is free yet.</summary>
-    private bool EnsureStream(int range)
+    /// <summary>
+    /// Starts range <paramref name="range"/>'s video decode unless it runs; false when no slot is free yet. The decoder
+    /// starts on the reader thread (a process start takes milliseconds) unless <paramref name="startNow"/>.
+    /// </summary>
+    private bool EnsureStream(int range, bool startNow = false)
     {
         if (Find(range) is not null)
             return true;
@@ -416,8 +426,8 @@ public sealed class VideoPreview : IDisposable
             return false;
 
         var r = _plan.Ranges[range];
-        var decoder = StartDecoder(PreviewDecoding.VideoArguments(_sourcePath, r.Start, r.End, Width, Height, _frameRate));
-        idle.Start(range, decoder, _plan.OutputStartOf(range), _frameRate, _frameBytes);
+        var arguments = PreviewDecoding.VideoArguments(_sourcePath, r.Start, r.End, Width, Height, _frameRate);
+        idle.Start(range, arguments, startNow, _plan.OutputStartOf(range), _frameRate, _frameBytes);
         return true;
     }
 
@@ -456,14 +466,6 @@ public sealed class VideoPreview : IDisposable
         stream.Return(due);
     }
 
-    private void Retire(VideoStream stream)
-    {
-        Kill(stream.Decoder!);
-        stream.Stop();
-        if (stream.Reader!.IsCompleted)
-            stream.Recycle();
-    }
-
     /// <summary>A failure to report: a live video decode, a reader or the audio task.</summary>
     private string? FindFailure()
     {
@@ -471,10 +473,12 @@ public sealed class VideoPreview : IDisposable
         {
             if (stream.State != StreamState.Live)
                 continue;
-            if (stream.Decoder!.Failed)
-                return stream.Decoder.ToString();
             if (stream.Failure is { } failure)
                 return failure;
+            // Only once the output has ended: a failed process closes its pipe first, and polling every live process
+            // each frame would cost a system call (and handles on Windows) per frame.
+            if (stream.Ended && stream.Decoder is { Failed: true } decoder)
+                return decoder.ToString();
         }
 
         return _audioRun?.Failure;
@@ -482,15 +486,15 @@ public sealed class VideoPreview : IDisposable
 
     // ── Scrubbing ───────────────────────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>True while a scrub decode runs or waits for <see cref="Update"/> (tests wait on it).</summary>
+    internal bool IsScrubbing => _seekTask is not null;
+
     private void StartSeek(double time)
     {
-        _seekFrame ??= new byte[_frameBytes];
-        var decoder = StartDecoder(PreviewDecoding.FrameArguments(_sourcePath, time, Width, Height));
-        _seekDecoder = decoder;
-        var frame = _seekFrame;
+        var arguments = PreviewDecoding.FrameArguments(_sourcePath, time, Width, Height);
         var cancel = new CancellationTokenSource();
         _seekCancel = cancel;
-        _seekTask = Task.Run(() => ReadSeekFrame(decoder, frame, cancel.Token));
+        _seekTask = Task.Run(() => ReadSeekFrame(arguments, cancel.Token));
     }
 
     /// <summary>Main thread: shows a finished scrub's frame (unless it was cancelled) and starts the newest waiting one.</summary>
@@ -498,19 +502,19 @@ public sealed class VideoPreview : IDisposable
     {
         if (_seekTask is not { IsCompleted: true } task)
             return;
-        var decoded = task.IsCompletedSuccessfully && task.Result;
         _seekTask = null;
-        _seekCancel!.Dispose();
+        var cancelled = _seekCancel!.IsCancellationRequested;
+        _seekCancel.Dispose();
         _seekCancel = null;
-        if (_seekDecoder is { } decoder)
-        {
-            _seekDecoder = null;
-            if (decoded)
-                _texture.SetPixels(_seekFrame!);
-            else if (decoder.Failed)
-                Log.Warning($"[Video] Preview decode failed: {decoder}");
-            Kill(decoder);
-        }
+        // The task kills its own decoder; one is left here only if the task faulted before it could.
+        if (Interlocked.Exchange(ref _seekDecoder, null) is { } left)
+            Kill(left);
+        if (task.Exception is { } fault)
+            Log.Warning($"[Video] Preview decode failed: {fault.InnerException?.Message ?? fault.Message}");
+        else if (!cancelled && task.Result.Decoded)
+            _texture.SetPixels(_seekFrame!);
+        else if (!cancelled && task.Result.Failure is { } failure)
+            Log.Warning($"[Video] Preview decode failed: {failure}");
 
         if (!double.IsNaN(_pendingSeek))
         {
@@ -520,22 +524,40 @@ public sealed class VideoPreview : IDisposable
         }
     }
 
-    /// <summary>Reader thread: one whole frame into <paramref name="frame"/>, or false (no frame, killed or failed).</summary>
-    private static bool ReadSeekFrame(IVideoDecoder decoder, byte[] frame, CancellationToken cancellation)
+    /// <summary>
+    /// Scrub thread: starts the decode, reads one whole frame into <c>_seekFrame</c> (allocated here the first time; one
+    /// scrub task runs at a time and the main thread reads it only after the task finished), then kills the decoder
+    /// itself, so a scrub step never kills a process on the main thread. No frame: killed, failed (with the reason) or past
+    /// the end.
+    /// </summary>
+    private ScrubResult ReadSeekFrame(IReadOnlyList<string> arguments, CancellationToken cancellation)
     {
-        try
+        var frame = _seekFrame ??= new byte[_frameBytes];
+        var decoder = StartDecoder(arguments);
+        Interlocked.Exchange(ref _seekDecoder, decoder); // a full fence: a StopAll before this is seen below
+        var result = default(ScrubResult);
+        if (!cancellation.IsCancellationRequested)
         {
-            if (decoder.Output.ReadAtLeast(frame, frame.Length, throwOnEndOfStream: false) == frame.Length)
-                return true;
-        }
-        catch (Exception e) when (e is IOException or ObjectDisposedException)
-        {
-            return false; // killed by a newer Play or Pause
+            try
+            {
+                result = new ScrubResult(decoder.Output.ReadAtLeast(frame, frame.Length, throwOnEndOfStream: false) == frame.Length, null);
+            }
+            catch (Exception e) when (e is IOException or ObjectDisposedException)
+            {
+                // killed by a newer Play or Pause
+            }
+
+            if (!result.Decoded && !cancellation.IsCancellationRequested && WaitForFailure(decoder, cancellation))
+                result = new ScrubResult(false, decoder.ToString());
         }
 
-        WaitForFailure(decoder, cancellation); // so PollSeek can report a failing exit
-        return false;
+        if (Interlocked.Exchange(ref _seekDecoder, null) is { } mine)
+            Kill(mine); // unless StopAll took it first and killed it
+        return result;
     }
+
+    /// <summary>A scrub's outcome: a whole frame in <c>_seekFrame</c>, or why the decode failed (null: just no frame).</summary>
+    private readonly record struct ScrubResult(bool Decoded, string? Failure);
 
     // ── Decoders ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -590,16 +612,19 @@ public sealed class VideoPreview : IDisposable
 
     /// <summary>
     /// A reusable slot for one range's video decode: its buffers, their free pool and the frame queue. Main-thread
-    /// fields: <see cref="State"/>, <see cref="Range"/>, <see cref="Decoder"/>, <see cref="Reader"/>, <see cref="Next"/>.
-    /// The reader shares only the two queues, the semaphore and <see cref="Failure"/>.
+    /// fields: <see cref="State"/>, <see cref="Range"/>, <see cref="Reader"/>, <see cref="Next"/>. The reader shares the
+    /// two queues, the semaphore, <see cref="Failure"/>, <see cref="Ended"/> and the decoder, which it usually starts
+    /// itself: whichever side takes it out of <c>_decoder</c> (Interlocked) kills it, exactly once.
     /// </summary>
-    private sealed class VideoStream : IDisposable
+    private sealed class VideoStream(VideoPreview owner) : IDisposable
     {
         private readonly ConcurrentQueue<byte[]> _pool = new();
         private readonly SemaphoreSlim _free = new(0, FramesPerStream);
         private CancellationTokenSource? _cancel;
+        private IVideoDecoder? _decoder;
         private bool _allocated;
         private volatile string? _failure;
+        private volatile bool _ended;
 
         public ConcurrentQueue<(double OutputTime, byte[] Frame)> Frames { get; } = new();
 
@@ -607,7 +632,11 @@ public sealed class VideoPreview : IDisposable
 
         public int Range { get; private set; } = -1;
 
-        public IVideoDecoder? Decoder { get; private set; }
+        /// <summary>The running decoder; null before the reader has started it and once it was killed.</summary>
+        public IVideoDecoder? Decoder => Volatile.Read(ref _decoder);
+
+        /// <summary>The reader has stopped: the output ended, it failed or it was stopped.</summary>
+        public bool Ended => _ended;
 
         public Task? Reader { get; private set; }
 
@@ -618,36 +647,49 @@ public sealed class VideoPreview : IDisposable
 
         public string? Failure => _failure;
 
-        public void Start(int range, IVideoDecoder decoder, double outputStart, double frameRate, int frameBytes)
+        public void Start(int range, IReadOnlyList<string> arguments, bool startNow, double outputStart, double frameRate, int frameBytes)
         {
             Debug.Assert(State == StreamState.Idle);
-            if (!_allocated)
-            {
-                // Once per slot, for the preview's lifetime: the frame pool the semaphore counts.
-                for (var i = 0; i < FramesPerStream; i++)
-                    _pool.Enqueue(new byte[frameBytes]);
-                _free.Release(FramesPerStream);
-                _allocated = true;
-            }
-
-            Debug.Assert(_free.CurrentCount == FramesPerStream && Frames.IsEmpty && Next is null);
+            // A previous reader has finished (the slot is idle), so its writes to _allocated and the pool are visible.
+            Debug.Assert(_free.CurrentCount == (_allocated ? FramesPerStream : 0) && Frames.IsEmpty && Next is null);
+            Debug.Assert(Volatile.Read(ref _decoder) is null);
             State = StreamState.Live;
             Range = range;
-            Decoder = decoder;
             _failure = null;
+            _ended = false;
+            if (startNow)
+                Volatile.Write(ref _decoder, owner.StartDecoder(arguments));
             var cancel = new CancellationTokenSource();
             _cancel = cancel;
-            Reader = Task.Factory.StartNew(() => Read(decoder, outputStart, frameRate, cancel.Token), CancellationToken.None,
-                TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            // The reader blocks for the whole range, so it gets its own thread (LongRunning). That thread is created from
+            // a pool work item, not here: creating a thread while another thread forks ffmpeg waits for the fork (about
+            // 30 ms on macOS, measured), which is a dropped frame at every prefetch. Reader completes when Read does.
+            var read = startNow ? null : arguments;
+            Reader = Task.Run(() => Task.Factory.StartNew(() => Read(read, frameBytes, outputStart, frameRate, cancel.Token),
+                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default));
         }
 
-        /// <summary>Main thread: the decoder was killed; the reader stops at its next frame. The slot waits for it.</summary>
-        public void Stop()
+        /// <summary>
+        /// Main thread: stops the stream, killing its decoder now or on a pool thread, and recycles the slot at once if
+        /// its reader has already finished.
+        /// </summary>
+        public void Retire(bool killNow)
+        {
+            Stop(killNow);
+            if (Reader!.IsCompleted)
+                Recycle();
+        }
+
+        /// <summary>Main thread: kills the decoder (if the reader has started it); the reader stops at its next frame.</summary>
+        private void Stop(bool killNow)
         {
             Debug.Assert(State == StreamState.Live);
-            _cancel!.Cancel();
+            _cancel!.Cancel(); // before taking the decoder: a reader publishing it after this sees the cancellation
+            if (killNow)
+                KillDecoder();
+            else if (Interlocked.Exchange(ref _decoder, null) is { } decoder)
+                ThreadPool.QueueUserWorkItem(static state => state.Owner.Kill(state.Decoder), (Owner: owner, Decoder: decoder), preferLocal: false);
             State = StreamState.Stopping;
-            Decoder = null;
             if (Next is { } next)
             {
                 Next = null;
@@ -658,7 +700,7 @@ public sealed class VideoPreview : IDisposable
         /// <summary>Main thread, once the reader has finished: every buffer back in the pool, the slot idle.</summary>
         public void Recycle()
         {
-            Debug.Assert(State == StreamState.Stopping && Reader!.IsCompleted);
+            Debug.Assert(State == StreamState.Stopping && Reader!.IsCompleted && Volatile.Read(ref _decoder) is null);
             while (Frames.TryDequeue(out var frame))
                 Return(frame.Frame);
             _cancel!.Dispose();
@@ -682,12 +724,51 @@ public sealed class VideoPreview : IDisposable
             _free.Dispose();
         }
 
-        /// <summary>Reader thread: whole frames into pool buffers, queued with their output time, until the end or a stop.</summary>
-        private void Read(IVideoDecoder decoder, double outputStart, double frameRate, CancellationToken cancellation)
+        private void KillDecoder()
         {
+            if (Interlocked.Exchange(ref _decoder, null) is { } decoder)
+                owner.Kill(decoder);
+        }
+
+        /// <summary>
+        /// Reader thread: allocates the slot's buffers the first time, starts the decoder unless the main thread did
+        /// (<paramref name="arguments"/> null), then whole frames into pool buffers, queued with their output time, until
+        /// the end or a stop.
+        /// </summary>
+        private void Read(IReadOnlyList<string>? arguments, int frameBytes, double outputStart, double frameRate,
+            CancellationToken cancellation)
+        {
+            if (!_allocated)
+            {
+                // Once per slot, for the preview's lifetime, and here rather than on the main thread: 6 frames of up to
+                // 2 MB each are a large-object allocation that could pause the frame. The semaphore counts this pool.
+                for (var i = 0; i < FramesPerStream; i++)
+                    _pool.Enqueue(new byte[frameBytes]);
+                _free.Release(FramesPerStream);
+                _allocated = true;
+            }
+
             byte[]? held = null;
             try
             {
+                IVideoDecoder decoder;
+                if (arguments is null)
+                {
+                    if (Volatile.Read(ref _decoder) is not { } started)
+                        return; // started by Play, already stopped and killed
+                    decoder = started;
+                }
+                else
+                {
+                    decoder = owner.StartDecoder(arguments);
+                    Interlocked.Exchange(ref _decoder, decoder); // a full fence: a Stop before this is seen below
+                    if (cancellation.IsCancellationRequested)
+                    {
+                        KillDecoder();
+                        return;
+                    }
+                }
+
                 var output = decoder.Output;
                 for (var n = 0; ; n++)
                 {
@@ -717,6 +798,7 @@ public sealed class VideoPreview : IDisposable
             {
                 if (held is not null)
                     Return(held);
+                _ended = true;
             }
         }
     }
@@ -755,12 +837,14 @@ public sealed class VideoPreview : IDisposable
             {
                 foreach (var range in ranges)
                 {
+                    if (cancellation.IsCancellationRequested)
+                        return; // stopped while the last range was ending: start no more decoders
                     var decoder = owner.StartDecoder(PreviewDecoding.AudioArguments(owner._sourcePath, range.Start, range.End, sampleRate));
                     Interlocked.Exchange(ref _decoder, decoder); // a full fence: a Stop before this is seen below
                     if (cancellation.IsCancellationRequested)
                         return;
-                    if (!Decode(decoder.Output, chunk, cancellation, out var empty))
-                        return;
+                    if (!Decode(decoder.Output, chunk, cancellation, out var empty) || cancellation.IsCancellationRequested)
+                        return; // a kill during ffmpeg's seek ends the output early: not a range to report or follow
                     if (decoder.Failed || (empty && WaitForFailure(decoder, cancellation)))
                     {
                         _failure = decoder.ToString();

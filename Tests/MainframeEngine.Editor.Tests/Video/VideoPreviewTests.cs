@@ -21,8 +21,18 @@ public sealed class VideoPreviewTests
         public IVideoDecoder Start(IReadOnlyList<string> arguments)
         {
             var decoder = new FakeDecoder(new byte[frameBytes * 90]); // 3 s of frames at 30 fps
-            Started.Add((arguments, decoder));
+            lock (Started) // scrubs and prefetches start on other threads
+                Started.Add((arguments, decoder));
             return decoder;
+        }
+
+        public int Count
+        {
+            get
+            {
+                lock (Started)
+                    return Started.Count;
+            }
         }
     }
 
@@ -93,8 +103,9 @@ public sealed class VideoPreviewTests
         var factory = new FakeFactory(640 * 360 * 4);
         using var preview = Preview(factory);
         preview.Seek(3.5);
-        Assert.Contains("-frames:v", Assert.Single(factory.Started).Args);
         Assert.Equal(3.5, preview.Position, 9);
+        UpdateUntil(preview, Segments, () => !preview.IsScrubbing); // the scrub task starts its decoder (fix round 1)
+        Assert.Contains("-frames:v", Assert.Single(factory.Started).Args);
     }
 
     // ── Beyond the brief's six: timing, scrub queueing, failures and leaks ──────────────────────────────────────
@@ -110,6 +121,12 @@ public sealed class VideoPreviewTests
 
         public void Release() => _stream.Gate.Set();
 
+        /// <summary>The reader got this decoder's frame.</summary>
+        public bool Read => _stream.Done;
+
+        /// <summary>A reader is reading (so the preview has published this decoder).</summary>
+        public bool Reading => _stream.Entered;
+
         public void Dispose()
         {
             Disposed = true;
@@ -120,8 +137,12 @@ public sealed class VideoPreviewTests
     private sealed class GateStream(int length, byte fill) : Stream
     {
         private int _position;
+        private volatile bool _done;
+        private volatile bool _entered;
 
         public ManualResetEventSlim Gate { get; } = new();
+        public bool Done => _done;
+        public bool Entered => _entered;
         public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
@@ -130,10 +151,12 @@ public sealed class VideoPreviewTests
 
         public override int Read(byte[] buffer, int offset, int count)
         {
+            _entered = true;
             Gate.Wait();
             var n = Math.Min(count, length - _position);
             buffer.AsSpan(offset, n).Fill(fill);
             _position += n;
+            _done |= _position == length;
             return n;
         }
 
@@ -152,13 +175,42 @@ public sealed class VideoPreviewTests
 
     private sealed class GatedFactory(int frameBytes, bool failed = false) : IVideoDecoderFactory
     {
-        public List<(IReadOnlyList<string> Args, GatedDecoder Decoder)> Started { get; } = [];
+        private readonly List<(IReadOnlyList<string> Args, GatedDecoder Decoder, int Thread)> _started = [];
+
+        public int Count
+        {
+            get
+            {
+                lock (_started)
+                    return _started.Count;
+            }
+        }
+
+        public (IReadOnlyList<string> Args, GatedDecoder Decoder, int Thread) this[int index]
+        {
+            get
+            {
+                lock (_started)
+                    return _started[index];
+            }
+        }
 
         public IVideoDecoder Start(IReadOnlyList<string> arguments)
         {
-            var decoder = new GatedDecoder(frameBytes, (byte)(Started.Count + 1), failed);
-            Started.Add((arguments, decoder));
-            return decoder;
+            lock (_started)
+            {
+                var decoder = new GatedDecoder(frameBytes, (byte)(_started.Count + 1), failed);
+                if (failed)
+                    decoder.Release(); // a failed process has exited: its output is at its end
+                _started.Add((arguments, decoder, Environment.CurrentManagedThreadId));
+                return decoder;
+            }
+        }
+
+        public void AllDisposed()
+        {
+            lock (_started)
+                Assert.All(_started, s => Assert.True(s.Decoder.Disposed));
         }
     }
 
@@ -194,18 +246,20 @@ public sealed class VideoPreviewTests
         preview.Seek(1);
         preview.Seek(2);
         preview.Seek(3);
-        Assert.Single(factory.Started);
         Assert.Equal(3, preview.Position, 9);
+        UpdateUntil(preview, Segments, () => factory.Count == 1);
+        Assert.Equal("1", factory[0].Args[1]);
 
-        factory.Started[0].Decoder.Release();
-        UpdateUntil(preview, Segments, () => factory.Started.Count == 2);
+        factory[0].Decoder.Release();
+        UpdateUntil(preview, Segments, () => factory.Count == 2);
         Assert.Equal(1, FirstPixel(preview)); // the first scrub's frame was shown
-        Assert.Equal("3", factory.Started[1].Args[1]); // 2 was dropped for 3
-        Assert.True(factory.Started[0].Decoder.Disposed);
+        Assert.Equal("3", factory[1].Args[1]); // 2 was dropped for 3
+        Assert.True(factory[0].Decoder.Disposed);
 
-        factory.Started[1].Decoder.Release();
-        UpdateUntil(preview, Segments, () => FirstPixel(preview) == 2);
-        Assert.Equal(2, factory.Started.Count);
+        factory[1].Decoder.Release();
+        UpdateUntil(preview, Segments, () => !preview.IsScrubbing);
+        Assert.Equal(2, FirstPixel(preview));
+        Assert.Equal(2, factory.Count);
         Assert.Equal(0, preview.LiveDecoders);
     }
 
@@ -215,18 +269,44 @@ public sealed class VideoPreviewTests
         var factory = new GatedFactory(640 * 360 * 4);
         using var preview = Preview(factory);
         preview.Seek(1);
-        preview.Play(Segments, 0);
-        Assert.True(factory.Started[0].Decoder.Disposed);
+        UpdateUntil(preview, Segments, () => factory.Count == 1 && factory[0].Decoder.Reading);
+        var scrub = factory[0].Decoder;
+        preview.Play(Segments, 0); // kills the scrub's decoder, which releases its whole frame to the reader
+        Assert.True(scrub.Disposed);
         preview.Pause();
-        UpdateUntil(preview, Segments, () => preview.LiveDecoders == 0);
-        preview.Update(Segments, 0);
-        Assert.Equal(0, FirstPixel(preview));
+        UpdateUntil(preview, Segments, () => scrub.Read && !preview.IsScrubbing && preview.LiveDecoders == 0);
+        Assert.Equal(0, FirstPixel(preview)); // a whole frame was read, and dropped
+    }
+
+    [Fact]
+    public void APrefetchDecoderStartsOffTheCallingThread()
+    {
+        // kept [0, 0.3) · cut · kept [1, 2): the second range is inside the prefetch lead from the start.
+        Segment[] segments =
+        [
+            Segment.Create(0, 0.3, true, SegmentOrigin.Auto),
+            Segment.Create(0.3, 1, false, SegmentOrigin.Auto),
+            Segment.Create(1, 2, true, SegmentOrigin.Auto),
+            Segment.Create(2, 3, false, SegmentOrigin.Auto),
+        ];
+        var factory = new GatedFactory(640 * 360 * 4);
+        using var preview = Preview(factory);
+        preview.Play(segments, 0);
+        Assert.Equal(Environment.CurrentManagedThreadId, factory[0].Thread); // the user's Play starts range 0 itself
+        preview.Update(segments, 0);
+        UpdateUntil(preview, segments, () => factory.Count == 2);
+        Assert.Equal("1", factory[1].Args[1]);
+        Assert.NotEqual(Environment.CurrentManagedThreadId, factory[1].Thread);
+
+        preview.Pause();
+        preview.Seek(5);
+        UpdateUntil(preview, segments, () => factory.Count == 3);
+        Assert.NotEqual(Environment.CurrentManagedThreadId, factory[2].Thread); // scrubs too
     }
 
     [Fact]
     public void PlaybackPrefetchesTheNextRangeSwitchesAtTheCutAndStopsAtTheEnd()
     {
-        // kept [0, 0.3) · cut [0.3, 1) · kept [1, 2): the second range is inside the prefetch lead from the start.
         Segment[] segments =
         [
             Segment.Create(0, 0.3, true, SegmentOrigin.Auto),
@@ -237,8 +317,7 @@ public sealed class VideoPreviewTests
         var factory = new FakeFactory(640 * 360 * 4);
         using var preview = Preview(factory);
         preview.Play(segments, 0);
-        preview.Update(segments, 0);
-        Assert.Equal(2, factory.Started.Count);
+        UpdateUntil(preview, segments, () => factory.Count == 2);
         Assert.Equal("1", factory.Started[1].Args[1]);
 
         UpdateUntil(preview, segments, () => factory.Started[0].Decoder.Disposed);
@@ -247,7 +326,7 @@ public sealed class VideoPreviewTests
 
         UpdateUntil(preview, segments, () => !preview.IsPlaying);
         Assert.Equal(2, preview.Position, 9);
-        Assert.Equal(0, preview.LiveDecoders);
+        UpdateUntil(preview, segments, () => preview.LiveDecoders == 0);
         Assert.All(factory.Started, s => Assert.True(s.Decoder.Disposed));
     }
 
@@ -257,9 +336,8 @@ public sealed class VideoPreviewTests
         var factory = new GatedFactory(640 * 360 * 4, failed: true);
         using var preview = Preview(factory);
         preview.Play(Segments, 0);
-        preview.Update(Segments, 0);
-        Assert.False(preview.IsPlaying);
-        Assert.Equal(0, preview.LiveDecoders);
+        UpdateUntil(preview, Segments, () => !preview.IsPlaying); // its output ends at once, then Failed is read
+        UpdateUntil(preview, Segments, () => preview.LiveDecoders == 0);
     }
 
     [Fact]
@@ -269,9 +347,12 @@ public sealed class VideoPreviewTests
         var preview = Preview(factory);
         preview.Play(Segments, 0);
         preview.Update(Segments, 0);
+        preview.Seek(1); // playing: a restart, not a scrub
+        preview.Pause();
+        preview.Seek(2); // a scrub whose decoder starts on its task, maybe after Dispose began
         preview.Dispose();
         Assert.Equal(0, preview.LiveDecoders);
         Assert.True(preview.Viewport.IsFreed);
-        Assert.All(factory.Started, s => Assert.True(s.Decoder.Disposed));
+        factory.AllDisposed();
     }
 }
