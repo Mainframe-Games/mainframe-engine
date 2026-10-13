@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 795" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
-  <title>Video editing mode — the editor in Video mode (proposal)</title>
+  <title>Video editing mode — the editor in Video mode</title>
   <desc>The Mainframe Editor in Video mode with a recording open: menus File Edit View Video Help; a toolbar with play and stop, the position 1:02.3 of 6:00.0, Transcribe, Remove fillers, Detect silence and Detect idle gameplay buttons, the kept time, an Export button and a Game or Video toggle set to Video; a tab strip with two video tabs; a letterboxed game frame in the preview; a transcript panel on the right with filler words struck through and the current word highlighted; an amber notice line with the last result; and a timeline with a ruler, two gameplay markers, kept regions in blue and removed regions in grey labelled loading, idle and paused, a waveform and a red playhead.</desc>
   <rect width="1000" height="795" fill="#ffffff"/>
   <style>
@@ -722,7 +722,7 @@
   <path d="M238.8,452 L250.8,452 L244.8,460 z" fill="#FF5C5C"/>
   <circle cx="30" cy="648" r="8" fill="#1d4ed8"/>
   <text x="30" y="652" class="t" text-anchor="middle" style="fill:#ffffff;font-size:10.5px;font-weight:600">1</text>
-  <text x="46" y="652" class="cap">Toolbar: transport, the four analysis jobs (each shows “Cancel n %” while it runs), kept time, Export, and the Game | Video mode toggle.</text>
+  <text x="46" y="652" class="cap">Toolbar: transport, the analysis jobs (Transcribe, Detect silence: “Cancel n %” while running), kept time, Export, Game | Video.</text>
   <circle cx="30" cy="668" r="8" fill="#1d4ed8"/>
   <text x="30" y="672" class="t" text-anchor="middle" style="fill:#ffffff;font-size:10.5px;font-weight:600">2</text>
   <text x="46" y="672" class="cap">Tabs: each recording or .mfcut is a tab; video mode shows only video tabs (scene and song tabs stay open in Game mode).</text>
@@ -750,5 +750,5 @@
   <text x="960" y="445" class="t" text-anchor="middle" style="fill:#ffffff;font-size:10.5px;font-weight:600">5</text>
   <circle cx="960" cy="500" r="8" fill="#1d4ed8" stroke="#ffffff" stroke-width="1.5"/>
   <text x="960" y="504" class="t" text-anchor="middle" style="fill:#ffffff;font-size:10.5px;font-weight:600">6</text>
-  <text x="20" y="782" class="cap">Proposal. Video editing mode: the whole editor UI switches to a Cutback-style layout (VideoPanel, video.rml).</text>
+  <text x="20" y="782" class="cap">As built. Video editing mode: the whole editor UI switches to a Cutback-style layout (VideoPanel, video.rml).</text>
 </svg>

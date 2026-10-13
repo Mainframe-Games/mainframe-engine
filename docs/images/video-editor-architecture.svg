@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
-  <title>Video editing mode — where the code comes from (proposal)</title>
+  <title>Video editing mode — where the code comes from</title>
   <desc>Cutback.Core and Cutback.Media (MIT), Cutback.Analysis and the ported Cutback.App logic (GPL, relicensed MIT for this copy by their sole author) are copied into a new editor-only library, MainframeEngine.Video, with its tests in plain Assert. MainframeEngine.Editor's Src/Video builds the video mode on it. The runtime and shipped games never reference it. ffmpeg runs as the user's child process, and Whisper models download on first use.</desc>
   <rect width="1000" height="560" fill="#ffffff"/>
   <style>
@@ -85,5 +85,5 @@
   <path d="M322,248 C390,248 380,330 418,330" class="arrowb"/>
   <text x="328" y="276" class="ks">ported</text>
   <path d="M322,440 C370,440 380,360 418,360" class="arrow"/>
-  <text x="20" y="546" class="cap">Proposal. Cutback’s logic is copied into the engine once and owned by it from then on; the editor’s video mode is built on it.</text>
+  <text x="20" y="546" class="cap">As built. Cutback’s logic is copied into the engine once and owned by it from then on; the editor’s video mode is built on it.</text>
 </svg>

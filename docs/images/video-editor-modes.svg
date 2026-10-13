@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 675" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
-  <title>Video editing mode — one workspace, two modes (proposal)</title>
+  <title>Video editing mode — one workspace, two modes</title>
   <desc>The editor's shared shell (menu bar, toolbar with the mode toggle, tab strip, dialogs, Output, Editor Settings, commands and the session) feeds EditorWorkspace.Mode, which selects Game mode (Scene tree, FileSystem, viewport or song, Output, Inspector) or Video mode (preview, transcript, notice line, timeline). Opening a recording or .mfcut, the recording dialog's Open in Video Editor and the project manager's Video Editor button switch to Video mode. A future Audio (DAW) mode uses the same mechanism.</desc>
   <rect width="1000" height="675" fill="#ffffff"/>
   <style>
@@ -96,5 +96,5 @@
   <text x="36" y="582" class="ks">• F10 (Play and Record) works only in Game mode</text>
   <rect x="20" y="604" width="960" height="34" rx="8" class="dash"/>
   <text x="500" y="626" class="ks" text-anchor="middle">Audio (DAW) mode — later, not in this PR: the same mechanism, a third layout over the song tab</text>
-  <text x="20" y="662" class="cap">Proposal. One workspace, layouts per mode: the shell is shared, the mode swaps panels, menus, toolbar content and the tab filter.</text>
+  <text x="20" y="662" class="cap">As built. One workspace, layouts per mode: the shell is shared, the mode swaps panels, menus, toolbar content and the tab filter.</text>
 </svg>

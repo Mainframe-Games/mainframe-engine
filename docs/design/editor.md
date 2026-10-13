@@ -112,8 +112,8 @@ flowchart TB
 
 | Panel | Document | What it does |
 |---|---|---|
-| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Play and Record / Start Recording / Stop Recording, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
-| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); the play group — Play (F5), Play Scene (F6), Play and Record (F10, a red `point-filled` icon that is highlighted red (dark red fill, red border, white icon) while recording; its tooltip names what F10 does now), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload/recording status (a red dot and `REC m:ss` while recording, `Saving recording…` while the file is finalised); on the right Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout |
+| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid, Switch to Video Mode), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Play and Record / Start Recording / Stop Recording, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right. Video mode has its own tables: File, Edit, View, Video, Help ([Editor modes](#editor-modes)) |
+| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); the play group — Play (F5), Play Scene (F6), Play and Record (F10, a red `point-filled` icon that is highlighted red (dark red fill, red border, white icon) while recording; its tooltip names what F10 does now), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload/recording status (a red dot and `REC m:ss` while recording, `Saving recording…` while the file is finalised); on the right the Game\|Video mode toggle, Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout. Video mode swaps the left groups for the video toolbar ([Editor modes](#editor-modes)) |
 | Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
@@ -148,6 +148,39 @@ scene, F7 pause/resume, F8 stop, F9 RmlUi debugger, F10 play and record (start/s
 unhandled input: a focused text field keeps its keys, and closed dialogs release focus. While a song tab is active its
 own keys come first ([Song tab](#song-tab-music-editor)): Space play/stop, R record, L loop, Home to start, Del, Cmd+C/V/D, arrows,
 Q; F5–F8, F10 and the Cmd shortcuts above stay the editor's.
+
+Video mode has its own table (`EditorWorkspace.VideoShortcutFor`; [Video editing mode](video-editor.md#modes)):
+
+| Keys | Video mode |
+|---|---|
+| Space | play / pause |
+| Home | to the start |
+| Delete / Backspace | dissolve the region under the pointer |
+| Cmd/Ctrl+O, S, Shift+S, W, Q | open, save, save as, close tab, quit |
+| Cmd/Ctrl+Z, Shift+Z or Y | undo, redo (a drag in progress is cancelled first) |
+| Cmd/Ctrl+E | export video |
+| F1 | documentation |
+
+Nothing else: no gizmo, view, Play or Record keys (F10 does nothing in video mode).
+
+## Editor modes
+
+The editor has two modes, **Game** (everything above) and **Video** (trimming recordings), switched by the Game|Video
+toggle at the toolbar's right edge or View › Switch to Video/Game Mode. `EditorWorkspace.SetMode(EditorMode)`:
+
+- **swaps the layout**: video mode hides the Scene tree, Inspector and FileSystem (and the Output unless View › Show/Hide
+  Output is on) and shows the video view (preview, transcript, notice line, timeline) under the tab strip;
+- **swaps the menus** (Video: File, Edit, View, Video, Help) and the **toolbar group**;
+- **filters the tab strip**: game mode shows scenes, songs and UI previews, video mode shows video tabs. Tabs of the
+  hidden mode stay open, each mode remembers its active tab, and a hidden video tab pauses. Closing the last video tab
+  stays in video mode, on its empty state;
+- **persists the mode** (`EditorSettings.LastMode`), so the editor reopens in it.
+
+Opening a recording (`.mp4 .mov .mkv .webm`), `.mfcut` or `.cutback` (File › Open, the FileSystem panel, Recent Videos),
+the Recording saved dialog's Open in Video Editor and the Project Manager's Video Editor button switch to video mode;
+no game project is needed. The video mode itself (Cutback's trimming, Whisper transcripts, gapless preview, export) is
+described in [Video editing mode](video-editor.md). An Audio (DAW) mode over the song tab comes later, as a third
+`EditorMode`.
 
 ## Icons
 
@@ -463,7 +496,7 @@ link ([Project & game host](project-and-gamehost.md)).
 | Play Scene | F6 | the same with `--scene <uid>` of the open tab (an untitled scene asks for a file first) |
 | Run Another Instance | Shift+F5 | one more instance (server + client tests); each gets a label. It repeats the last launch without `--record`: it never records |
 | Play Instances | Ctrl/Cmd+F5 | every `project.mfproj` `playInstances` entry (`label`, `args` = the game's own arguments after `++`, `delay` in s from the first): one build, then each instance after its delay (Godot's Customize Run Instances; e.g. a host and two tiled joiners); the main scene once when there are none |
-| Play and Record | F10 | idle: launch the main scene with `--record <recordings path>`; while a game runs: start recording on its first running instance, then stop it (menu label Play and Record / Start Recording / Stop Recording / Saving recording…). The file is named after the main scene (Play and Record) or the running scene. A game built against an engine older than editor-link protocol 4 cannot record from the editor, and the editor says so. When the file is saved a dialog offers Open in Cutback and Show in Folder. See [Gameplay recording](recording.md#recording-from-the-editor) |
+| Play and Record | F10 | idle: launch the main scene with `--record <recordings path>`; while a game runs: start recording on its first running instance, then stop it (menu label Play and Record / Start Recording / Stop Recording / Saving recording…). The file is named after the main scene (Play and Record) or the running scene. A game built against an engine older than editor-link protocol 4 cannot record from the editor, and the editor says so. When the file is saved a dialog offers Open in Video Editor, Open in Cutback and Show in Folder. See [Gameplay recording](recording.md#recording-from-the-editor) |
 | Pause / Resume | F7 | over the link |
 | Stop | F8 | a stop command; the process is killed after 3 s (at once if it never connected). A game that is recording or saving finalises its file first, so it gets 2 min 15 s and its recording shows "Saving recording…", then 3 s from its report that the file is saved; quitting the editor waits for it the same way |
 | Reload Scene in Game | Run menu, instance menu | the game re-reads its current scene from disk |
@@ -711,6 +744,9 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
 - **External code editor**: a command with `{file}`, `{line}`, `{column}` and `{project}` placeholders (with presets);
   empty means `MAINFRAME_CODE_EDITOR`, else VS Code when found, else the OS default. Used by Output links, build errors
   and C# files.
+- **Video** (also Edit › Video Settings… in video mode): ffmpeg (blank finds it), the Whisper model, filler words,
+  silence and idle-gameplay detection, and the undo limit. The text fields commit on Enter or blur. See
+  [Video editing mode](video-editor.md#settings-editor-settings--video).
 - **Cutback**: the path of the Cutback app that Open in Cutback launches after Play and Record; empty finds it on `PATH` or in
   its usual install folder (`CutbackPath`, [Gameplay recording](recording.md#recording-from-the-editor)).
 - **Reload code automatically** after builds.
@@ -788,8 +824,10 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   `--smoke` run in a hidden window — open the showcase fixture (`Tests/Content/Scenes/Showcase.mscene`), select the Column by GPU picking at its projected pixel, change
   its position through the inspector model, undo/redo, save to a temp file, reload and re-save byte-identically — plus
   the editor window golden, frame times on the scene, the allocation gate (0 B over 300 idle frames with 1 000 nodes,
-  validation on), the splash golden, and the **Project Manager** and **FileSystem panel** goldens
-  (`--smoke-golden project-manager|filesystem`, a fixed sample project).
+  validation on), the splash golden, the **Project Manager** and **FileSystem panel** goldens
+  (`--smoke-golden project-manager|filesystem`, a fixed sample project), and the **video mode** goldens
+  (`--smoke-golden video-empty|video-timeline`: the empty state, and a tab over a document built in code, whose steady
+  frames also get the allocation gate).
 - **Projects, Play and FileSystem tests**: the New Project validation, recent projects, SDK detection, the
   `ProjectSettingsModel` (every setting, input map, autoloads, undo, save), build-diagnostic parsing, `PlayService`
   with fake builder/launcher and a real `EditorLinkServer`, the file tree, file operations and reference fix-ups,
@@ -805,6 +843,10 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
   walkthrough also captures the update dialog (`update-preview X.Y.Z`, no network) and the Editor Settings dialog.
+- **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): the fixture recording opened,
+  idle and silence detection, a tiny.en transcription (`video set whisper-model tiny.en`), undo, playback and the mode
+  switch, each captured. Needs a display, ffmpeg and (once) the network; not run in CI. See
+  [Video editing mode](video-editor.md#testing).
 - **Record QA** ([record.qa](../../Tests/QA/record.qa), `just qa-editor Tests/QA/record.qa`): F10 from idle and mid-session, and Stop (F8) while
   recording, with captures of the REC readout, the saving state and the saved dialogs. Needs a display and ffmpeg; not run in CI.
 - **README screenshots** (`just readme-screenshots`, [readme-screenshots.qa](../../Tests/QA/readme-screenshots.qa)):
@@ -855,7 +897,7 @@ above (fewer leaves, more sky) the preview costs about 6 ms at Full (9.3 → 15.
 
 ## Related docs
 
-[Future: editor](future/editor.md) · [Project & game host](project-and-gamehost.md) · [Game UI](game-ui.md) ·
+[Future: editor](future/editor.md) · [Video editing mode](video-editor.md) · [Project & game host](project-and-gamehost.md) · [Game UI](game-ui.md) ·
 [Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Scene serialization](scene-serialization.md) · [Materials & meshes](materials-and-meshes.md) · [Release](release.md) ·
 [Editor updates](editor-updates.md) · [Testing](testing.md)

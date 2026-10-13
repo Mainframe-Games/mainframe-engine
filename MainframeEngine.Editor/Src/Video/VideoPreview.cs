@@ -7,7 +7,7 @@ using MainframeEngine.Video.Models;
 namespace MainframeEngine.Editor.Video;
 
 /// <summary>
-/// The gapless preview of the edited result (docs/design/future/video-editor.md, "Preview and playback"). Each kept range
+/// The gapless preview of the edited result (docs/design/video-editor.md, "Preview and playback"). Each kept range
 /// gets its own ffmpeg video decode of raw RGBA frames, started <see cref="VideoPlaybackPlan.PrefetchSeconds"/> before
 /// the range before it ends, so a cut switches frames without a seek. One task decodes the audio range after range
 /// into a single <see cref="AudioStreamGenerator"/> voice, and the frames that voice has played are the clock: the

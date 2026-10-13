@@ -23,7 +23,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\MainframeEngine\MainframeEngine.csproj" />
-        <!-- Video mode (docs/design/future/video-editor.md): Cutback's logic, editor-only; games never reference it. -->
+        <!-- Video mode (docs/design/video-editor.md): Cutback's logic, editor-only; games never reference it. -->
         <ProjectReference Include="..\MainframeEngine.Video\MainframeEngine.Video.csproj" />
         <!--
           No MainframeEngine.Generators analyzer on purpose: editor nodes are tools, never serialized, and must not

@@ -4,6 +4,27 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Video editing mode: implemented, local only (2026-10-14).** Branch `feature/video-editor` (worktree
+  `.claude/worktrees/video-editor`), based on `main`; not pushed, no PR yet (it targets `main` when Brogan says so).
+  Plan `docs/superpowers/plans/2026-10-13-video-editor.md` (17 tasks), as-built doc `docs/design/video-editor.md` (moved
+  from `future/`, with a "Changes from the proposal" list), ADR 0191, the modes section of `editor.md`.
+  - What exists: a Game|Video `EditorMode`; `MainframeEngine.Video` (Cutback's Core, Media and Analysis copied in, MIT,
+    editor only, Whisper.net 1.9.1); the video tab (preview with gapless ffmpeg decoders and an audio-voice clock,
+    timeline with Cutback's gestures, transcript panel), Detect Silence / Idle Gameplay, Transcribe, Remove Filler Words,
+    Precise/Fast export, Export Transcript, `.mfcut` projects, Video Settings, and Open in Video Editor in the recording
+    dialog (Open in Cutback kept).
+  - Goldens: `editor-video-empty` and `editor-video-timeline` (moltenvk + lavapipe). The timeline golden's allocation
+    window found 198 KB per frame from constant index spans in `CanvasPrimitives` (Debug JIT allocates a
+    `RuntimeFieldInfoStub` per `CreateSpan`); fixed with static arrays and a unit test.
+  - QA: `Tests/QA/video.qa` over `Tests/QA/Fixtures/video/sample.mp4` (`build/make-video-fixture.sh`); a partial run up to
+    `video-02-opened` showed the test pattern, the waveform's 4–6 s dropout and the 10 s marker. The full run (detect,
+    transcribe with tiny.en, undo, play, mode switch) is the controller's to run and inspect.
+  - Gates (Task 17): `just build` 0 warnings; Release `-warnaserror` build clean; `just test` engine 2496 (1 skipped),
+    editor 1222 (5 skipped), video 456; `just format-check` and `just l10n-check` clean; `just test-render` 177/177
+    (MinimiseAndRestoreIsCleanAndResumesRendering passed in the full run this time).
+  - Parked: dragging files in from the OS; the per-frame texture re-upload (G16's `VideoTexture` later); the DAW mode;
+    crash recovery for video tabs (`WriteRecoveryCopies` covers scenes only).
+
 - **Editor recording hooks (Phase 3 of the Cutback integration): implemented, local only (2026-10-13).** Branch
   `feature/editor-recording` (worktree `.claude/worktrees/editor-recording`), **stacked on PR #62**
   (`feature/gameplay-recorder`, Phase 1), not pushed, no PR of its own. Docs: `docs/design/recording.md` ("Recording from

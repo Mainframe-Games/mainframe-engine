@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 590" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
-  <title>Video editing mode — gapless preview (proposal)</title>
+  <title>Video editing mode — gapless preview</title>
   <desc>The kept ranges R0, R1 and R2 of a recording are laid end to end on an output timeline. Each range gets an ffmpeg video decoder producing raw RGBA frames, and the next one starts one second before the current range ends. Audio is decoded range after range into one AudioStreamGenerator ring. Frames go through a queue into a Texture2D in a SubViewport published as engine://video-preview. The audio voice's FramesConsumed is the clock in output seconds, and VideoPlaybackPlan maps it back to source time and decides when to prefetch.</desc>
   <rect width="1000" height="590" fill="#ffffff"/>
   <style>
@@ -97,6 +97,6 @@
   <text x="292" y="518" class="ks">rebuilt from the playhead when the document changes (an edit while playing)</text>
   <path d="M880,422 C880,490 780,490 742,490" class="arrowb"/>
   <path d="M380,450 L380,424" class="arrowb"/>
-  <text x="20" y="560" class="cap">Proposal. Cuts play without a gap: video switches decoders at the boundary (the next one is already running), and audio is one continuous</text>
+  <text x="20" y="560" class="cap">As built. Cuts play without a gap: video switches decoders at the boundary (the next one is already running), and audio is one continuous</text>
   <text x="20" y="576" class="cap">stream, because each range is pushed after the previous one. Paused scrubbing decodes one frame (-ss t -frames:v 1), newest request wins.</text>
 </svg>
