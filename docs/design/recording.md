@@ -173,18 +173,27 @@ flowchart LR
 The editor records a game it launched, over the [editor link](project-and-gamehost.md#editor-link) (protocol version 4),
 so promo footage needs no command line. Three equal entry points, one command (`play.record`): **F10**, **Run › Play and
 Record**, and the toolbar's record button (`#record`, the atlas's existing `point-filled` icon tinted red; highlighted red while
-recording: dark red fill, red border, white icon). F10 and not Shift+F5, which is Run Another Instance.
+recording: dark red fill, red border, white icon; only while frames are being recorded, not while saving). F10 and not
+Shift+F5, which is Run Another Instance. Its tooltip follows the state: "Play and Record (F10)" with nothing running,
+"Start Recording (F10)" while a game runs, "Stop Recording (F10)" while recording, "Saving recording…" while saving.
 
 | State | F10 does | Run menu label |
 |---|---|---|
 | No game runs | launches the main scene with `--record <path>`, so the file covers the game from its first frame | Play and Record |
 | A game runs, not recording | sends `StartRecording <path>` to the first running (or paused) instance; with none connected yet it logs that the game is still starting | Start Recording |
 | Recording | sends `StopRecording` to the instance that is recording | Stop Recording |
-| Saving | nothing (the item is disabled) | Saving Recording… |
+| Saving | nothing (the item is disabled) | Saving recording… |
 
-- **Where.** `{project user data}/recordings/{scene or game}-{yyyyMMdd-HHmmss}.mp4`: the scene's file name (`game` when
-  there is none, characters other than letters, digits, `-` and `_` become `_`), with `-2`, `-3`… added while the name is
-  taken (`RecordingPaths`). The folder is created before the launch; failing to create it is a dialog, not a launch.
+- **Where.** `{project user data}/recordings/{scene}-{yyyyMMdd-HHmmss}.mp4`: the scene's file name (Play and Record: the
+  project's main scene; Start Recording: the scene the game reports running; `game` when there is none, characters other
+  than letters, digits, `-` and `_` become `_`), with `-2`, `-3`… added while the name is taken (`RecordingPaths`). The
+  folder is created before the launch; failing to create it is a dialog, not a launch.
+- **Run Another Instance never records.** Shift+F5 repeats the last launch without its `--record <path>` (the pair is
+  dropped from the host flags before `++`), so a second game neither records nor writes to the first one's file.
+- **Older games.** The hello's protocol version is kept on the instance (`PlayInstance.ProtocolVersion`); a game below
+  protocol 4 cannot record from the editor (`PlayInstance.CanRecord`): `PlayService.StartRecording` refuses it, and Start
+  Recording, or a Play and Record whose game connects with an older protocol, shows once "This game was built with an
+  older MainframeEngine that cannot record from the editor. Rebuild it against this engine."
 - **`--frame-capture` on every editor launch.** `PlayService` passes it, before `--editor-port`, on every play launch, so
   `StartRecording` works mid-session: the swapchain must be created with `TRANSFER_SRC` usage, which `--record` implies
   but a plain run does not. The cost is that one usage flag on the editor's games (the copy itself happens only while
@@ -195,17 +204,30 @@ recording: dark red fill, red border, white icon). F10 and not Shift+F5, which i
   recorder exists, before a `--record` start) forwards `GameRecorder.Started` and `Stopped` as `Recording` events, so a
   `--record` launch reports too. `Started` carries `GameRecorder.OutputPath`; `Stopped` carries the result, and a
   `RecordingResult` with an error is sent as `Failed` with its message. A start that throws (no ffmpeg, bad path, already
-  recording) is also answered `Failed`, so the editor never waits for a `Started` that cannot come. Stopping a game
-  that is recording finalises in `GameHost.OnClose` and sends `Stopped` before `Goodbye`.
+  recording finalising) is also answered `Failed`, so the editor never waits for a `Started` that cannot come. A start
+  that reaches a game **already recording** (a `--record` launch whose `Started` crossed the editor's F10) is answered
+  `Started` with the running recording's path, and the editor keeps that recording's start time. A `--record` start that
+  fails on the first update (no ffmpeg, say) is reported `Failed` through the session before the game quits with its
+  error code (`GameSession.ReportRecordingFailed`); the session waits up to about 3 s for the link to connect so the
+  report and the goodbye are not lost when the game quits before it has. Stopping a game that is recording finalises in
+  `GameHost.OnClose` and sends `Stopped` before `Goodbye`.
 - **Events are queued, never coalesced.** `EditorLinkClient.SendRecording` keeps up to 64 events (a status or tree
   snapshot replaces its predecessor; a `Stopped` must not), and they are written out ahead of the goodbye.
 - **Editor state** (`PlayInstance.Recording`: `None`, `Recording`, `Saving`). `Started` sets `Recording`; pressing Stop
-  sets `Saving` at once; `Stopped`/`Failed` return to `None` and raise `PlayService.RecordingFinished`. The editor fails
+  Recording, or stopping the game (F8), sets `Saving` at once; `Stopped`/`Failed` return to `None` and raise
+  `PlayService.RecordingFinished`. The editor fails
   a recording itself **only when the game's link is gone** (a `Disconnected`, or a process exit with no link): then
   `RecordingFinished` gets a `Failed` event, "The game exited before the recording was saved.", so it never waits for a
   save that cannot come. It never fails one ahead of the game's own last report: an exit with the link still up waits for
-  the `Stopped` or `Failed` and the `Disconnected` that follows. The toolbar shows `● REC m:ss` (refreshed once a second)
-  and then `Saving recording…`.
+  the `Stopped` or `Failed` and the `Disconnected` that follows, even when the exited instance was cleared from the
+  toolbar meanwhile (a recording instance stays reachable by its connection until the `Disconnected`). The toolbar shows
+  a red dot (`#rec-dot`, the `point-filled` icon: the UI font, LatoLatin, has no ● glyph) and `REC m:ss` (refreshed once
+  a second), then `Saving recording…`.
+- **Stopping a recording game waits for the save.** A stopped game is normally killed if it is still alive 3 s later
+  (`PlayService.StopTimeout`); killing takes its whole process tree, ffmpeg's mux included, so a game that is recording or
+  saving gets `PlayService.RecordingStopTimeout` (2 min 15 s: the game's own two-minute `StopAndWait` cap at quit plus a
+  margin) and shows `Saving recording…` meanwhile. Quitting the editor does the same: games that are not recording get
+  a second, recording ones up to that cap, and the wait is logged every few seconds.
 - **Debounce.** `ToggleRecording` sends one `StartRecording` and ignores further presses until `Started` or `Failed`
   returns (a 5 s backstop, so a game that never answers cannot wedge F10), and while a recording is saving. The recording
   controls stay available while a game runs during a build (Start/Stop apply to the running game); with nothing running,
@@ -213,17 +235,20 @@ recording: dark red fill, red border, white icon). F10 and not Shift+F5, which i
 - **When it finishes** (`RecordingNotifier`). A modal `MessageDialog` (the editor has no toast system), one per finished
   recording, queued by the dialog if several finish together. Saved: title "Recording saved", the file name with its
   length and the folder, buttons **Open in Cutback** (default), **Show in Folder**, **Close**. Failed: "Recording
-  failed" with the recorder's message, plus **Show in Folder** (the kept `.partial` folder) when the message names one.
+  failed" with the recorder's message, plus **Show in Folder** (the kept `.partial` folder) when the message names one
+  or the folder exists (a game that exited mid-recording reports nothing, but leaves it). Long paths wrap in the dialog.
 - **Open in Cutback** starts [Cutback](https://github.com/brogan89/Cutback) as a **separate process** with the
   recording's path as its argument (it opens the first command-line argument that is an existing file, and finds the sidecar next to it); the
   editor never links it (Cutback is GPL) and does not wait for it. `CutbackLocator` looks, in order, at **Editor
   Settings › Cutback** (`EditorSettings.CutbackPath`), each `PATH` folder (`cutback`/`Cutback`, `Cutback.exe` on
   Windows), then the OS location: `/Applications/Cutback.app/Contents/MacOS/Cutback`,
-  `%LocalAppData%\Programs\Cutback\Cutback.exe`, `~/.local/bin/cutback`. A setting that points at a missing file falls
-  through to the rest. If none exists (or the launch fails) a second dialog, "Cutback is not installed", offers
+  `%LocalAppData%\Programs\Cutback\Cutback.exe`, `~/.local/bin/cutback`. On macOS the setting may also name the `.app`
+  bundle itself. A setting that points at a missing file falls through to the rest. On macOS any bundle path (`X.app` or
+  `X.app/Contents/MacOS/*`) is started with `open -a X.app --args <file>` (`CutbackLocator.LaunchCommand`), so Launch
+  Services activates Cutback in front and it is not in the editor's process tree. If none exists (or the launch fails) a second dialog, "Cutback is not installed", offers
   **Download** (the releases page) and Close.
-- **QA.** `Tests/QA/record.qa` (`just qa-editor Tests/QA/record.qa`) drives both start paths and captures the dialog;
-  it needs a display and ffmpeg and is not run in CI.
+- **QA.** `Tests/QA/record.qa` (`just qa-editor Tests/QA/record.qa`) drives both start paths and a Stop (F8) while
+  recording, and captures the dialogs; it needs a display and ffmpeg and is not run in CI.
 
 ## Sidecar format
 

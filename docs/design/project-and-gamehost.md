@@ -552,7 +552,12 @@ sequenceDiagram
   `StartRecording` (command argument: the `.mp4` path) and `StopRecording`. Game → editor: a `Recording` message,
   `u8 state (0 Started, 1 Stopped, 2 Failed), str path, f32 elapsed seconds, i64 dropped frames, i64 duplicated frames,
   str error`. `GameSession.AttachRecorder` wires the host's `GameRecorder` to it; a start that throws is answered
-  `Failed` with the reason, and a recorder that stops with an error is sent as `Failed`. Unlike the latest-wins status
+  `Failed` with the reason (a recorder still finalising included), a start while already recording is answered `Started`
+  with the running recording's path, and a recorder that stops with an error is sent as `Failed`. A `--record` start
+  that fails on the first update is reported `Failed` (`GameSession.ReportRecordingFailed`) before the game quits with
+  its error code; the session then waits up to about 3 s for the link to connect so the report and the goodbye reach
+  the editor. The editor gives a stopped game that is recording or saving 2 min 15 s to exit (the game's own two-minute
+  finalise cap plus a margin) instead of the usual 3 s, and refuses to record games whose hello reports a protocol below 4. Unlike the latest-wins status
   and tree, recording events are **queued** in `EditorLinkClient` (`MaxQueuedRecordings` 64, never coalesced) and written
   before the goodbye. The editor treats a recording as failed by itself only when the game's link is gone. A game must
   have been started with `--frame-capture` (the editor always does) for a mid-session start to succeed.

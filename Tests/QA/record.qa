@@ -2,7 +2,8 @@
 # End to end, for a person (or the controller) with a display and ffmpeg on PATH; NOT run in CI. The Demo project opens
 # from the command line (the recipe builds it first). `wait` counts frames. No verb waits for the recording to be
 # saved, so a fixed wait covers the finalise (the pad and mux of a few seconds of footage); lengthen it on a slow disk.
-# Review the PNGs in artifacts/qa-editor: the toolbar shows "● REC m:ss" while recording, then the Recording saved dialog.
+# Review the PNGs in artifacts/qa-editor: the toolbar shows a red dot and "REC m:ss" while recording, then the Recording
+# saved dialog (long paths wrap inside it).
 wait 30
 wait-for project 300
 capture 01-ready
@@ -36,6 +37,21 @@ capture 06-saved-dialog-midsession
 cancel
 wait 10
 command play.stop
+wait-for stopped 30
+wait 30
+# 3. Stop (F8) while recording: the game finalises the file before it exits (the editor waits for it instead of killing it
+# after the usual 3 s), the toolbar says "Saving recording…", then the Recording saved dialog.
+command play.record
+wait-for playing 180
+wait 1200
+capture 07-recording-before-stop
+command play.stop
+wait 30
+capture 08-saving-after-stop
+wait 900
+capture 09-saved-dialog-after-stop
+cancel
+wait 10
 wait-for stopped 30
 wait 30
 quit
