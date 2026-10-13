@@ -57,6 +57,30 @@ public sealed class VideoView : Node
 
     private IReadOnlyList<string> FillerWords => _workspace.Settings.VideoFillerWords;
 
+    /// <summary>
+    /// The ffmpeg an operation runs: Editor Settings › Video's, located when the operation starts, so a changed setting
+    /// reaches tabs already open; else the one the tab opened with. Null when neither exists (the notice says so). The
+    /// preview keeps the ffmpeg its tab opened with: its decoder factory is built once, when the tab opens.
+    /// </summary>
+    private FfmpegLocation? FfmpegFor(VideoTab tab)
+    {
+        try
+        {
+            return _workspace.Commands.LocateFfmpeg(_workspace.Settings.VideoFfmpegPath);
+        }
+        catch (FfmpegMissingException)
+        {
+            return tab.Ffmpeg;
+        }
+    }
+
+    /// <summary>
+    /// A job failed because its ffmpeg could not be started: the binary is gone (moved, uninstalled) since it was found.
+    /// That is reported like ffmpeg not being found, in the notice line with the settings link, not as a failed operation.
+    /// </summary>
+    internal static bool IsMissingFfmpeg(Exception error) =>
+        error is FfmpegMissingException or System.ComponentModel.Win32Exception { NativeErrorCode: 2 or 3 }; // no such file / path
+
     /// <summary>Creates the speech recogniser for a downloaded model file; tests swap it so no model is ever loaded.</summary>
     public Func<FfmpegLocation, string, WhisperModel, ITranscriber> TranscriberFactory { get; set; } =
         static (ffmpeg, modelPath, model) => new WhisperTranscriber(ffmpeg, modelPath, model);
@@ -292,7 +316,7 @@ public sealed class VideoView : Node
             return;
         }
 
-        if (tab.Ffmpeg is not { } ffmpeg)
+        if (FfmpegFor(tab) is not { } ffmpeg)
         {
             tab.ReportNoFfmpeg("Detect Silence");
             return;
@@ -330,7 +354,7 @@ public sealed class VideoView : Node
         if (task.IsCanceled || job.IsCancelled || task.Exception?.GetBaseException() is OperationCanceledException)
             tab.Notice = "Silence detection cancelled.";
         else if (task.Exception?.GetBaseException() is { } error)
-            _workspace.Commands.ReportError("Detect Silence failed", error);
+            ReportFailure(tab, "Detect Silence", error);
         else
             ApplySilence(tab, task.Result, settings);
         job.Dispose();
@@ -365,7 +389,7 @@ public sealed class VideoView : Node
             return;
         }
 
-        if (tab.Ffmpeg is null)
+        if (FfmpegFor(tab) is null)
         {
             tab.ReportNoFfmpeg("Export");
             return;
@@ -389,7 +413,7 @@ public sealed class VideoView : Node
         ArgumentException.ThrowIfNullOrEmpty(path);
         if (tab.ExportJob is not null || !_workspace.Session.Tabs.Contains(tab))
             return;
-        if (tab.Ffmpeg is not { } ffmpeg)
+        if (FfmpegFor(tab) is not { } ffmpeg)
         {
             tab.ReportNoFfmpeg("Export");
             return;
@@ -420,7 +444,7 @@ public sealed class VideoView : Node
         else if (task.IsCanceled || task.Exception?.GetBaseException() is OperationCanceledException)
             tab.Notice = "Export cancelled.";
         else if (task.Exception?.GetBaseException() is { } error)
-            _workspace.Commands.ReportError("Export failed", error);
+            ReportFailure(tab, "Export", error);
         job.Dispose();
     }
 
@@ -444,6 +468,15 @@ public sealed class VideoView : Node
                     reveal(path);
             },
         });
+    }
+
+    // A missing ffmpeg is the notice with the settings link; anything else is "<what> failed".
+    private void ReportFailure(VideoTab tab, string what, Exception error)
+    {
+        if (IsMissingFfmpeg(error))
+            tab.ReportNoFfmpeg(what);
+        else
+            _workspace.Commands.ReportError(what + " failed", error);
     }
 
     // Maps the exporter's progress to the job's 0…1. A sink of its own, not Progress<T>: that would post every report to a
@@ -492,7 +525,7 @@ public sealed class VideoView : Node
             return;
         }
 
-        if (tab.Ffmpeg is not { } ffmpeg)
+        if (FfmpegFor(tab) is not { } ffmpeg)
         {
             tab.ReportNoFfmpeg("Transcribe");
             return;
@@ -556,8 +589,10 @@ public sealed class VideoView : Node
         var task = job.Task;
         if (task.IsCanceled || job.IsCancelled || task.Exception?.GetBaseException() is OperationCanceledException)
             tab.Notice = "Transcription cancelled.";
-        else if (task.Exception?.GetBaseException() is { } error)
-            _workspace.Commands.ReportError("Transcription failed", ExplainTranscribeFailure(error, run));
+        else if (task.Exception?.GetBaseException() is { } error && IsMissingFfmpeg(error))
+            tab.ReportNoFfmpeg("Transcribe");
+        else if (task.Exception?.GetBaseException() is { } failure)
+            _workspace.Commands.ReportError("Transcription failed", ExplainTranscribeFailure(failure, run));
         else
             InstallTranscript(tab, task.Result, run?.ThenRemoveFillers == true);
         job.Dispose();

@@ -314,6 +314,13 @@ Every value clamps in its setter. The text fields commit on Enter or when they l
 one), so typing "100" or "-40" is never rewritten mid-keystroke. The ffmpeg setting also serves Play and Record: the
 editor passes it to the game as `--ffmpeg` (the `ffmpeg` inside a folder, or beside an `ffprobe`).
 
+**Which ffmpeg runs.** Opening a recording locates ffmpeg (`VideoFfmpeg.Locate`) for the probe, the waveform and the
+preview. Detect Silence, Transcribe and Export locate it again when they start, so a changed setting reaches tabs that
+are already open; when nothing is found then, they use the one the tab opened with. **The preview keeps the ffmpeg its
+tab opened with** (its decoder factory is built at open); reopen the tab to change it. A job whose ffmpeg cannot be
+started (the binary has gone since it was found) gives the same "ffmpeg not found" notice with the Editor Settings link,
+not a failed-operation dialog.
+
 ## File format: `.mfcut`
 
 Cutback's project JSON, schema version 3, unchanged:

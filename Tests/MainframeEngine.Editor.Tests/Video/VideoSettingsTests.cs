@@ -464,6 +464,69 @@ public sealed class VideoSettingsWiringTests : IDisposable
         Assert.Empty(_editor.RmlMessages);
     }
 
+    // An ffmpeg/ffprobe pair the locator accepts (it only checks that the files exist); nothing ever runs them.
+    private string FakeFfmpegFolder()
+    {
+        var dir = Path.Combine(_dir, "ffmpeg-" + ++_tabs);
+        Directory.CreateDirectory(dir);
+        var locator = new FfmpegLocator();
+        File.WriteAllBytes(Path.Combine(dir, locator.ExecutableName("ffmpeg")), []);
+        File.WriteAllBytes(Path.Combine(dir, locator.ExecutableName("ffprobe")), []);
+        return dir;
+    }
+
+    [Fact]
+    public void AnOperationUsesTheFfmpegTheSettingNamesNowNotTheOneTheTabOpenedWith()
+    {
+        var tab = TabWithoutFfmpeg(); // opened when no ffmpeg was found
+        var folder = FakeFfmpegFolder();
+        Apply(s => s.VideoFfmpegPath = folder); // then the user set one
+
+        FfmpegLocation? exportedWith = null;
+        W.VideoView.ExporterFactory = (ffmpeg, _) =>
+        {
+            exportedWith = ffmpeg;
+            return (_, _, _) => Task.CompletedTask;
+        };
+        W.VideoView.StartExport(tab, Path.Combine(_dir, "out.mp4"), MainframeEngine.Video.Media.Export.ExportMode.Precise);
+        Assert.Equal(Path.Combine(folder, new FfmpegLocator().ExecutableName("ffmpeg")), exportedWith?.FfmpegPath);
+        Assert.True(SpinWait.SpinUntil(() => tab.ExportJob is not { IsDone: false }, TimeSpan.FromSeconds(10)));
+        _editor.Tick();
+        W.Message.Answer(1); // Export finished: Close
+
+        File.WriteAllBytes(Path.Combine(_models, WhisperModelInfo.Default.FileName), [1, 2, 3]);
+        FfmpegLocation? transcribedWith = null;
+        W.VideoView.TranscriberFactory = (ffmpeg, _, _) =>
+        {
+            transcribedWith = ffmpeg;
+            throw new IOException("stop here");
+        };
+        W.VideoView.Transcribe(tab);
+        Assert.True(SpinWait.SpinUntil(() => tab.TranscribeJob is not { IsDone: false }, TimeSpan.FromSeconds(10)));
+        Assert.Equal(exportedWith, transcribedWith);
+    }
+
+    [Fact]
+    public void AnFfmpegThatIsGoneWhenTheJobStartsGivesTheNoticeNotAModal()
+    {
+        // Opened with an ffmpeg that is no longer there, and none is found now: the tab's own is tried, and fails to start.
+        var document = VideoDocument.FromProject(VideoDocumentTests.Project("/r/a.mp4"), null, null, []);
+        var preview = new VideoPreview(new VideoTabTests.CountingFactory(320 * 180 * 4), () => null, "/r/a.mp4", 320, 180, 30, 850 + ++_tabs);
+        var tab = new VideoTab(document, preview, NoFfmpeg, 850 + _tabs);
+        W.ScenesHost.AddChild(tab.TimelineViewport);
+        W.ScenesHost.AddChild(preview.Viewport);
+        W.Session.Add(tab);
+        Assert.True(SpinWait.SpinUntil(() => { _editor.Tick(); return tab.WaveformJob is null; }, TimeSpan.FromSeconds(10)));
+
+        W.Commands.Execute("video.detect_silence");
+        Assert.NotNull(tab.SilenceJob);
+        Assert.True(SpinWait.SpinUntil(() => { _editor.Tick(); return tab.SilenceJob is null; }, TimeSpan.FromSeconds(10)));
+
+        Assert.False(W.Message.Visible);
+        Assert.Equal("ffmpeg not found: Detect Silence needs it.", tab.Notice);
+        Assert.True(tab.NoticeNeedsFfmpegSetting);
+    }
+
     [Fact]
     public void TheWaveformWithoutFfmpegIsTheSameNotice()
     {
