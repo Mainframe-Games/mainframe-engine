@@ -46,7 +46,8 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | Forest art: [ambientCG](https://ambientcg.com) terrain sets (8) and scattered leaves (1), [Poly Haven](https://polyhaven.com) rock, log, stump, root, branch, moss, grass, nettle and fern models (20) and a tonemapped HDRI (`lilienstein`); each listed in `Examples/Forest/NOTICE.md` | — | CC0 1.0 | `Examples/Forest/Content/Art` (Git LFS; `Examples/Forest/Tools/fetch_assets.py`) | the Forest only |
 | Cutback (copied code) | 90cc508 | MIT | `MainframeEngine.Video` (`LICENSE-CUTBACK`) | editor only: `MainframeEngine.Video.dll` (video editing mode) |
 | [Whisper.net](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT | NuGet packages `Whisper.net`, `Whisper.net.Runtime` | editor only: `Whisper.net.dll` + native runtimes (speech recognition) |
-| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | via Whisper.net.Runtime 1.9.1 | MIT | native libraries inside `Whisper.net.Runtime` | editor only: `whisper`/`ggml` native libraries |
+| [Whisper.net.Runtime.Metal](https://github.com/sandrohanea/whisper.net) (Sandro Hanea; a dependency of `Whisper.net.Runtime`) | 1.9.1 | MIT | NuGet package `Whisper.net.Runtime.Metal` | editor only: `ggml-metal.metal` (ggml's Metal shader source, used on macOS) |
+| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | via Whisper.net.Runtime 1.9.1 | MIT | native libraries inside `Whisper.net.Runtime`; the Metal shader inside `Whisper.net.Runtime.Metal` | editor only: `whisper`/`ggml` native libraries, `ggml-metal.metal` |
 
 Managed NuGet dependencies (Silk.NET, StbImageSharp, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
 their packages and are not repeated here.
@@ -889,7 +890,8 @@ SOFTWARE.
 ## Whisper.net
 
 The editor's speech recognition (`MainframeEngine.Video`, editor only) uses Whisper.net 1.9.1 and its
-`Whisper.net.Runtime` native libraries. From the `Whisper.net` 1.9.1 package (`LICENSE`):
+`Whisper.net.Runtime` native libraries, which bring in `Whisper.net.Runtime.Metal` 1.9.1 (the macOS Metal backend; same
+author, its nuspec declares MIT). From the `Whisper.net` 1.9.1 package (`LICENSE`):
 
 ```text
 MIT License
@@ -918,8 +920,9 @@ SOFTWARE.
 ## whisper.cpp
 
 `Whisper.net.Runtime` 1.9.1 (editor only) ships native builds of whisper.cpp and ggml (the `whisper` and `ggml`
-libraries under `runtimes/<rid>`). The package carries no licence file; its nuspec declares MIT, and this is the MIT
-licence from the whisper.cpp repository (`LICENSE`):
+libraries under `runtimes/<rid>`), and `Whisper.net.Runtime.Metal` 1.9.1 ships ggml's Metal shader, `ggml-metal.metal`.
+The packages carry no licence file; their nuspecs declare MIT, and this is the MIT licence from the whisper.cpp
+repository (`LICENSE`):
 
 ```text
 MIT License
