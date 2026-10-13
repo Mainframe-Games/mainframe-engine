@@ -152,6 +152,15 @@ public sealed class VideoExportTests : IDisposable
     }
 
     [Fact]
+    public void TmpAndPrivateTmpAreTheSameFolderOnMac()
+    {
+        if (!OperatingSystem.IsMacOS())
+            return; // /tmp and /var are links to /private/… only on macOS
+        Assert.True(VideoPaths.SameFile("/tmp/run.mp4", "/private/tmp/run.mp4"));
+        Assert.True(VideoPaths.SameFile("/var/folders/x/run.mp4", "/private/var/folders/x/run.mp4"));
+    }
+
+    [Fact]
     public void ATrailingDotDoesNotDoubleTheExtension()
     {
         var source = Path.Combine(_dir, "run.mp4");
