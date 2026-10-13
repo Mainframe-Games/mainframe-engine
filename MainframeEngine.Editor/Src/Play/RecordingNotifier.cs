@@ -4,14 +4,16 @@ using MainframeEngine.EditorLink;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Tells the user a gameplay recording finished and offers the next step: open it in Cutback (the trimmer that reads the
-/// <c>.mfcap.json</c> sidecar) or show it in the file browser. Failures show the recorder's own message, with the kept
+/// Tells the user a gameplay recording finished and offers the next step. The video editor is the default (it opens the
+/// recording in the editor's video mode); Cutback (the trimmer that reads the <c>.mfcap.json</c> sidecar) stays available
+/// alongside it, as does showing the file in the file browser. Failures show the recorder's own message, with the kept
 /// <c>.partial</c> folder one click away when the message names one or the folder exists (a game that exited mid-recording
 /// sends no message, but leaves the folder). Everything it touches is a delegate, so it is tested without RmlUi, a process,
 /// a browser or the disk.
 /// </summary>
 internal sealed class RecordingNotifier(
     Action<MessageRequest> show,
+    Action<string> openInVideoEditor,
     Func<string?> cutbackSetting,
     Func<string?, string?> findCutback,
     Func<string, string, bool> launchCutback,
@@ -42,14 +44,16 @@ internal sealed class RecordingNotifier(
             Title = "Recording saved",
             Message = string.Create(CultureInfo.InvariantCulture,
                 $"{Path.GetFileName(path)} ({(int)elapsed.TotalMinutes}:{elapsed.Seconds:00})\n{Path.GetDirectoryName(path)}"),
-            Buttons = ["Open in Cutback", "Show in Folder", "Close"],
+            Buttons = ["Open in Video Editor", "Open in Cutback", "Show in Folder", "Close"],
             DefaultButton = 0,
-            CancelButton = 2,
+            CancelButton = 3,
             Callback = (button, _) =>
             {
                 if (button == 0)
-                    OpenInCutback(path);
+                    openInVideoEditor(path);
                 else if (button == 1)
+                    OpenInCutback(path);
+                else if (button == 2)
                     reveal(path);
             },
         });

@@ -135,6 +135,7 @@ public sealed partial class EditorWorkspace : Node
         // Message is built later (BuildUi), so the notifier reaches it through the property at call time.
         var recordingNotifier = new RecordingNotifier(
             request => Message.Show(request),
+            path => Commands.OpenVideo(path),
             () => Settings.CutbackPath,
             CutbackLocator.FindForThisMachine,
             Options.LaunchCutback ?? LaunchCutback,
