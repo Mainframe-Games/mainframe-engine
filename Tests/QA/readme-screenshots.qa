@@ -57,7 +57,40 @@ song select 1
 move 1500 700
 wait 20
 capture editor-song
-# 5. The game workflow: create MyGame, add an [Export] property to its C#, Build & Reload, play it.
+# 5. Video mode: the recipe's narrated Physics 2D recording (build/readme-video-clip.sh) with its silences and filler
+# words cut and a transcript, the playhead stopped at 2.8 s as the bodies fall through the pegs. base.en (the default,
+# 148 MB on first use) because tiny.en's looser word timings leave cut words unstruck in the transcript.
+mode video
+open /tmp/MainframeProjects/Recordings/demo.mp4
+wait-for video-jobs 60
+wait 10
+command video.detect_silence
+wait-for video-jobs 60
+wait 10
+video set whisper-model base.en
+command video.transcribe
+wait-for video-jobs 900
+wait 10
+command video.remove_fillers
+wait 10
+command video.play
+wait-for video-position 2.8 60
+command video.play
+wait 20
+move 1500 700
+wait 20
+capture editor-video
+# Save the edit (Save As defaults to Recordings/demo.mfcut) so closing the tab asks nothing and Play below has nothing
+# unsaved to write.
+command file.save_as
+wait 10
+accept
+wait 10
+command file.close
+wait 10
+mode game
+wait 10
+# 6. The game workflow: create MyGame, add an [Export] property to its C#, Build & Reload, play it.
 command project.new
 wait 10
 new-project /tmp/MainframeProjects MyGame

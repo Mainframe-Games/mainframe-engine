@@ -45,6 +45,7 @@ downloads, [docs](https://mainframe-games.github.io/mainframe-engine/docs/))
 | Localization | `Tr` (gettext catalogs, plurals, contexts), runtime locale switching, RML and scene strings, pseudo-locale, `mf-l10n` tooling | [Localization](docs/design/localization.md) |
 | Games & tooling | `dotnet new mfgame` template, `project.mfproj` + `GameHost`, input actions, autoloads, structured logging, an editor link (play/stop/reload, log streaming) | [Projects & GameHost](docs/design/project-and-gamehost.md) |
 | Editor | Project Manager, New Project wizard, scene tree + generated inspector + undo, 3D/2D viewport with gizmos, FileSystem panel, Play in a separate process, C# code reload, project settings, a ZzFX sound designer and a plugin-free music editor (songs rendered to looping WAV) | [Editor](docs/design/editor.md) |
+| Recording & video | Gameplay recording to MP4 through your own ffmpeg (`--record`, F10 in the editor, `SceneTree.Recorder` marks) with a sidecar of input, loading and pauses; the editor's video mode trims recordings: detect silence and idle gameplay, Whisper transcripts, edit by transcript, remove filler words, export | [Recording](docs/design/recording.md) · [Video mode](docs/design/video-editor.md) |
 | Quality | 0 build warnings, 1 600+ unit/editor tests, render tests with golden images on MoltenVK and lavapipe, a Vulkan validation gate and a 0-bytes-per-frame allocation gate, benchmarks with a baseline | [Testing](docs/design/testing.md) |
 
 Steam integration ([Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks), Valve's natives included)
@@ -450,6 +451,13 @@ picking and translate/rotate/scale gizmos with snapping. Scenes open in tabs, ea
 | ![The Project Manager with recent projects](docs/images/editor-project-manager.png) | ![The create dialog: favourites, recent types, a searched inheritance tree and the type's description](docs/images/editor-add-node.png) |
 | **Sound designer** | **Music editor** |
 | ![The inspector's ZzFX sound designer on the Demo's explosion: waveform, presets, randomize/mutate and the parameters](docs/images/editor-sound-designer.png) | ![The Demo's song in a song tab: four ZzFX tracks in the arrangement and the Lead clip in the piano roll](docs/images/editor-song.png) |
+
+**Video mode** ([design](docs/design/video-editor.md)): Run › Play and Record (F10) records the game to MP4, and the
+Game|Video toggle turns the editor into a video editor that trims it for promo footage. Detect Silence and Detect Idle
+Gameplay cut dead air and idle play (from the recording's sidecar), Transcribe writes a Whisper transcript you can edit
+by clicking words, Remove Fillers cuts the "um"s, and Export writes the trimmed MP4 and the transcript as SRT or text.
+
+![Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut](docs/images/editor-video.png)
 
 ```sh
 just editor                                                        # Project Manager

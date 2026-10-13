@@ -1,0 +1,55 @@
+---
+// The editor's video mode (docs/design/video-editor.md) and the gameplay recording it edits (docs/design/recording.md),
+// beside its screenshot. Laid out like the audio tools (Daw.astro) and styled by the same mf-daw classes.
+import TablerIcon from './TablerIcon.astro';
+
+const base = import.meta.env.BASE_URL;
+const img = (p: string) => `${base}images/${p}`;
+const alt =
+  "Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut";
+const points = [
+  { icon: 'camera', text: 'Record any game to MP4 with F10 in the editor or --record, through your own ffmpeg' },
+  { icon: 'volume-off', text: 'Detect Silence and Detect Idle Gameplay cut dead air, idle play, loading and pauses' },
+  { icon: 'file-text', text: 'Whisper transcripts on your machine: edit the video by clicking words' },
+  { icon: 'trash-x', text: 'Remove Fillers cuts every “um” and “uh”, aligned to the audio' },
+  { icon: 'player-play', text: 'Gapless preview that plays only the footage you kept' },
+  { icon: 'file-export', text: 'Export the trimmed MP4, precise or fast, and the transcript as SRT or text' },
+];
+---
+
+<section class="mf-section mf-daw mf-video not-content" aria-labelledby="video-title">
+  <header class="mf-section__head" data-reveal>
+    <p class="mf-kicker">Video mode</p>
+    <h2 id="video-title">Promo footage without leaving the editor</h2>
+    <p>
+      Record a play session, then flip the Game|Video toggle: the editor becomes a video editor that trims the
+      recording down to the good parts.
+    </p>
+  </header>
+  <div class="mf-daw__row">
+    <figure class="mf-window" data-reveal>
+      <div class="mf-window__bar" aria-hidden="true">
+        <span></span><span></span><span></span>
+        <p>Video mode</p>
+      </div>
+      <button class="mf-shot" type="button" data-full={img('editor-video.png')} data-caption={alt}>
+        <img src={img('editor-video.png')} width="1600" height="960" alt={alt} loading="lazy" decoding="async" />
+      </button>
+    </figure>
+    <div class="mf-daw__copy" data-reveal style="--i: 1">
+      <p class="mf-kicker">Record, trim, export</p>
+      <h3>Cut the dead air, keep the action</h3>
+      <ul>
+        {
+          points.map((p) => (
+            <li>
+              <TablerIcon name={p.icon} />
+              <span>{p.text}</span>
+            </li>
+          ))
+        }
+      </ul>
+      <a class="mf-daw__more" href={`${base}docs/design/video-editor/`}>How it works →</a>
+    </div>
+  </div>
+</section>
