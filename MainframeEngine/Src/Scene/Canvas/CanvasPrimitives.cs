@@ -19,6 +19,13 @@ public static class CanvasPrimitives
 
     private static readonly Vector4 White = Vector4.One;
 
+    // Index patterns as arrays, not constant collection expressions: a constant ReadOnlySpan<int> compiles to
+    // RuntimeHelpers.CreateSpan over a field token, which unoptimised (Debug) code turns into a RuntimeFieldInfoStub
+    // allocation on every call, roughly 70 B per line drawn.
+    internal static readonly int[] QuadIndices = [0, 1, 2, 0, 2, 3];
+    private static readonly int[] LineIndices = [0, 1];
+    private static readonly int[] TriangleIndices = [0, 1, 2];
+
     // ── Rects and textures ───────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Godot's <c>CanvasItem::draw_rect</c>.</summary>
@@ -151,7 +158,7 @@ public static class CanvasPrimitives
         }
 
         var first = list.AddVertices(v);
-        list.AddIndices(texture, CanvasPrimitive.Triangles, first, [0, 1, 2, 0, 2, 3], tile);
+        list.AddIndices(texture, CanvasPrimitive.Triangles, first, QuadIndices, tile);
     }
 
     // ── Lines ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -195,7 +202,7 @@ public static class CanvasPrimitives
             endLeft = endRight = to;
             Span<CanvasVertex> v = [new(from, Vector2.Zero, color), new(to, Vector2.Zero, color)];
             var first = list.AddVertices(v);
-            list.AddIndices(null, CanvasPrimitive.Lines, first, [0, 1]);
+            list.AddIndices(null, CanvasPrimitive.Lines, first, LineIndices);
         }
 
         if (!antialiased)
@@ -230,9 +237,9 @@ public static class CanvasPrimitives
             v[i] = new CanvasVertex(points[i], Vector2.Zero, colors[i]);
         var first = list.AddVertices(v);
         if (points.Length == 4)
-            list.AddIndices(null, CanvasPrimitive.Triangles, first, [0, 1, 2, 0, 2, 3]);
+            list.AddIndices(null, CanvasPrimitive.Triangles, first, QuadIndices);
         else
-            list.AddIndices(null, CanvasPrimitive.Triangles, first, [0, 1, 2]);
+            list.AddIndices(null, CanvasPrimitive.Triangles, first, TriangleIndices);
     }
 
     /// <summary>Godot's <c>canvas_item_add_polyline</c> (thin line strip, or a triangle strip with optional feathers).</summary>

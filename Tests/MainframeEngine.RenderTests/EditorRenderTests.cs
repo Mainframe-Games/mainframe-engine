@@ -7,7 +7,8 @@ namespace MainframeEngine.RenderTests;
 /// The editor in a real (hidden) window on the GPU, through its <c>--smoke</c> run: Showcase.mscene open, a mesh selected by
 /// GPU picking at its projected pixel, a property changed through the inspector model, undo/redo, save, reload and
 /// compare; the editor window golden; frame times on the scene; and the allocation gate (0 B per idle frame with a
-/// 1 000-node scene). Also the splash screen golden.
+/// 1 000-node scene). Also the splash screen, Project Manager, FileSystem panel and video mode goldens (its empty state, and a
+/// tab over a document built in code, whose steady frames get the allocation gate too).
 /// </summary>
 public class EditorRenderTests
 {
@@ -44,6 +45,37 @@ public class EditorRenderTests
 
         Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
         Gates.AssertValidationClean(result);
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
+    public void VideoEmptyStateMatchesGolden()
+    {
+        var result = HostRunner.RunEditor(Output("editor-video-empty"), null, "--smoke-golden", "video-empty", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
+    public void VideoTimelineMatchesGoldenAndAllocatesNothingWhenSteady()
+    {
+        // A video tab over a document built in code (VideoGolden: segments of every origin, a synthetic waveform, markers,
+        // a transcript, colour bars in the preview), so no ffmpeg is needed; then the allocation gate over its steady frames.
+        var result = HostRunner.RunEditor(Output("editor-video-timeline"),
+            new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "--smoke-golden", "video-timeline", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Assert.True(result.MeasuredFrames > 0, "The video timeline run measured no frames.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"Steady video-mode frames allocated {result.AllocatedBytes} managed bytes over {result.MeasuredFrames} frames.");
         var capture = Assert.Single(result.Captures);
         Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
         Gates.AssertMatchesGolden(result, capture.Frame);

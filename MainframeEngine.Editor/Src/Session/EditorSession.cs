@@ -315,9 +315,21 @@ public sealed class EditorSession : IDisposable
             throw new FileNotFoundException($"Recording not found: {full}", full);
         // Blocking is safe: the main thread has no synchronisation context, and the caller shows the splash meanwhile.
         var document = VideoDocument.OpenAsync(full, ffmpeg, historyLimit, CancellationToken.None).GetAwaiter().GetResult();
+        return OpenVideo(document, new FfmpegVideoDecoderFactory(ffmpeg.FfmpegPath), ffmpeg);
+    }
+
+    /// <summary>
+    /// Opens an already-built document in a new video tab and activates it. <paramref name="ffmpeg"/> null starts no job
+    /// (the waveform is then the document's own); the render golden builds its document in code and decodes its preview
+    /// with a synthetic factory, so it needs no ffmpeg.
+    /// </summary>
+    internal VideoTab OpenVideo(VideoDocument document, IVideoDecoderFactory decoders, FfmpegLocation? ffmpeg)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(decoders);
         var source = document.Project.Source;
         var number = ++_videoCounter;
-        var preview = new VideoPreview(new FfmpegVideoDecoderFactory(ffmpeg.FfmpegPath), () => _host.Tree?.Servers.Get<AudioServer>(),
+        var preview = new VideoPreview(decoders, () => _host.Tree?.Servers.Get<AudioServer>(),
             document.SourcePath, source.Width, source.Height, source.FrameRate, number);
         VideoTab video;
         try

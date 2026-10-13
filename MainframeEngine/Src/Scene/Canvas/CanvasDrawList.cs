@@ -131,7 +131,7 @@ public sealed class CanvasDrawList
     {
         Span<CanvasVertex> v = [a, b, c, d];
         var first = AddVertices(v);
-        AddIndices(texture, CanvasPrimitive.Triangles, first, [0, 1, 2, 0, 2, 3]);
+        AddIndices(texture, CanvasPrimitive.Triangles, first, CanvasPrimitives.QuadIndices); // an array: see QuadIndices
     }
 
     private static void Ensure<T>(ref T[] array, int count)

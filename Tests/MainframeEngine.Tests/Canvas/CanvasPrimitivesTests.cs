@@ -34,6 +34,29 @@ public sealed class CanvasPrimitivesTests
     }
 
     [Fact]
+    public void RedrawingLinesRectsAndQuadsAllocatesNothing()
+    {
+        // Debug builds run unoptimised: a constant index span there allocated a RuntimeFieldInfoStub per call (~70 B a line).
+        var list = new CanvasDrawList();
+        void Draw()
+        {
+            list.Clear();
+            for (var i = 0; i < 100; i++)
+            {
+                CanvasPrimitives.Line(list, Vector2.Zero, new Vector2(i, 10), White, -1, false);
+                CanvasPrimitives.Line(list, Vector2.Zero, new Vector2(i, 10), White, 2, false);
+                CanvasPrimitives.Rect(list, new Rect2(i, 0, 4, 4), White, filled: true, width: -1, antialiased: false);
+                list.AddQuad(null, default, default, default, default);
+            }
+        }
+
+        Draw(); // grows the arrays
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        Draw();
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+    }
+
+    [Fact]
     public void AnOutlinedRectIsAClosedPolylineAndATooWideOneAGrownRect()
     {
         var list = new CanvasDrawList();
