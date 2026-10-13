@@ -1,0 +1,34 @@
+# Video editing mode: open a recording, detect, transcribe, edit, play, export; each step captured for review.
+# Needs a display, ffmpeg, and network for the first tiny.en download (just qa-editor Tests/QA/video.qa); not in CI.
+# The fixture is build/make-video-fixture.sh's 12 s test pattern: a 440 Hz tone silent from 4 to 6 s, and a sidecar
+# with loading from 7 to 9 s and a marker at 10 s. `video set` changes a Video setting for this run only (QA runs save
+# no settings). Review the PNGs in artifacts/qa-editor.
+wait-for project 300
+mode video
+capture video-01-empty
+open Tests/QA/Fixtures/video/sample.mp4
+wait 120
+capture video-02-opened
+command video.detect_idle
+wait 10
+capture video-03-idle
+command video.detect_silence
+wait 180
+capture video-04-silence
+video set whisper-model tiny.en
+command video.transcribe
+wait 600
+capture video-05-transcript
+command edit.undo
+wait 10
+capture video-06-undo
+command video.play
+wait 90
+capture video-07-playing
+command video.play
+mode game
+capture video-08-game-mode
+mode video
+command file.close
+cancel
+quit

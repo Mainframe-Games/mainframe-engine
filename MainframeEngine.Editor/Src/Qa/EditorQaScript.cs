@@ -21,6 +21,7 @@ namespace MainframeEngine.Editor;
 /// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab; a recording (.mp4 .mov .mkv .webm) or a
 ///                             # .mfcut/.cutback opens a video tab in video mode
 /// mode game|video             # switches the editor mode
+/// video set whisper-model tiny.en   # a Video setting (whisper-model, ffmpeg) for this run (QA runs save no settings)
 /// menu 2                      # choose item 2 of the open popup menu (or: menu edit.undo)
 /// pick Floor                  # tree or list picker: select the row with this label
 /// search omni                 # tree or list picker: type into the search field
@@ -496,6 +497,9 @@ public sealed class EditorQaScript : IEditorAutomation
             case "quit":
                 app.Quit(ExitCode.Ok);
                 break;
+            case "video" when step.Length > 3 && step[1] == "set":
+                SetVideoSetting(workspace, step[2], string.Join(' ', step[3..]));
+                break;
             case "song":
                 Song(workspace, step);
                 break;
@@ -506,6 +510,28 @@ public sealed class EditorQaScript : IEditorAutomation
                 Log.Warning($"[QA] Unknown step '{step[0]}'.");
                 break;
         }
+    }
+
+    // video set <setting> <value>: changes a Video setting the way Editor Settings › Video does. A QA run has no settings
+    // file, so the change lasts for the run only.
+    private static void SetVideoSetting(EditorWorkspace workspace, string setting, string value)
+    {
+        var settings = workspace.Settings.Clone();
+        switch (setting)
+        {
+            case "whisper-model":
+                settings.VideoWhisperModel = value;
+                break;
+            case "ffmpeg":
+                settings.VideoFfmpegPath = value;
+                break;
+            default:
+                Log.Warning($"[QA] Unknown video setting '{setting}' (whisper-model, ffmpeg).");
+                return;
+        }
+
+        workspace.ApplySettings(settings);
+        Log.Info($"[QA] video {setting} = {value}");
     }
 
     // update-preview X.Y.Z: the update dialog as a check would show it (QA runs never touch the network).
