@@ -106,7 +106,7 @@
                 <div class="section-title">Video</div>
                 <div class="dialog-row">
                     <span class="caption">ffmpeg</span>
-                    <input type="text" class="text mono" id="es-video-ffmpeg" data-value="video_ffmpeg" placeholder="Found automatically"/>
+                    <input type="text" class="text mono" id="es-video-ffmpeg" placeholder="Found automatically"/>
                 </div>
                 <div class="hint">Folder or file; blank uses MAINFRAME_FFMPEG, then PATH. Play and Record use it too.</div>
                 <div class="dialog-row">
@@ -116,29 +116,29 @@
                 </div>
                 <div class="dialog-row">
                     <span class="caption">Filler words</span>
-                    <input type="text" class="text mono" id="es-video-fillers" data-value="video_fillers"/>
+                    <input type="text" class="text mono" id="es-video-fillers"/>
                 </div>
                 <div class="hint">Comma-separated; Remove Filler Words cuts these.</div>
                 <div class="dialog-row"><span class="caption">Silence level</span>
-                    <input type="text" class="text mono number" id="es-video-threshold" data-value="video_threshold"/><span class="unit">dB (-80 to 0)</span></div>
+                    <input type="text" class="text mono number" id="es-video-threshold"/><span class="unit">dB (-80 to 0)</span></div>
                 <div class="dialog-row"><span class="caption">Min silence</span>
-                    <input type="text" class="text mono number" id="es-video-min-silence" data-value="video_min_silence"/><span class="unit">ms (50 to 5000)</span></div>
+                    <input type="text" class="text mono number" id="es-video-min-silence"/><span class="unit">ms (50 to 5000)</span></div>
                 <div class="dialog-row"><span class="caption">Padding</span>
-                    <input type="text" class="text mono number" id="es-video-padding" data-value="video_padding"/><span class="unit">ms (0 to 500)</span></div>
+                    <input type="text" class="text mono number" id="es-video-padding"/><span class="unit">ms (0 to 500)</span></div>
                 <div class="dialog-row"><span class="caption">Min keep</span>
-                    <input type="text" class="text mono number" id="es-video-min-keep" data-value="video_min_keep"/><span class="unit">ms (0 to 2000)</span></div>
+                    <input type="text" class="text mono number" id="es-video-min-keep"/><span class="unit">ms (0 to 2000)</span></div>
                 <div class="hint">Detect Silence and Remove Filler Words: silences quieter than the level and longer than the minimum are cut, with the padding kept on each side.</div>
                 <div class="dialog-row"><span class="caption">Idle after</span>
-                    <input type="text" class="text mono number" id="es-video-idle-min" data-value="video_idle_min"/><span class="unit">ms (500 to 60000)</span></div>
+                    <input type="text" class="text mono number" id="es-video-idle-min"/><span class="unit">ms (500 to 60000)</span></div>
                 <div class="dialog-row"><span class="caption">Idle padding</span>
-                    <input type="text" class="text mono number" id="es-video-idle-padding" data-value="video_idle_padding"/><span class="unit">ms (0 to 2000)</span></div>
+                    <input type="text" class="text mono number" id="es-video-idle-padding"/><span class="unit">ms (0 to 2000)</span></div>
                 <div class="dialog-row"><span class="caption">Idle min keep</span>
-                    <input type="text" class="text mono number" id="es-video-idle-keep" data-value="video_idle_keep"/><span class="unit">ms (0 to 10000)</span></div>
+                    <input type="text" class="text mono number" id="es-video-idle-keep"/><span class="unit">ms (0 to 10000)</span></div>
                 <div class="dialog-row"><span class="caption">Marker window</span>
-                    <input type="text" class="text mono number" id="es-video-marker" data-value="video_marker"/><span class="unit">ms (0 to 10000)</span></div>
+                    <input type="text" class="text mono number" id="es-video-marker"/><span class="unit">ms (0 to 10000)</span></div>
                 <div class="hint">Detect Idle Gameplay: stretches with no player input are cut; footage near a marker is never cut.</div>
                 <div class="dialog-row"><span class="caption">Undo history</span>
-                    <input type="text" class="text mono number" id="es-video-undo" data-value="video_undo"/><span class="unit">steps (10 to 1000)</span></div>
+                    <input type="text" class="text mono number" id="es-video-undo"/><span class="unit">steps (10 to 1000)</span></div>
             </div>
             <div class="dialog-error">{{error}}</div>
         </div>

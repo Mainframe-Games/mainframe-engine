@@ -182,6 +182,10 @@ public sealed class VideoSettingsDataTests : IDisposable
         Assert.Equal(Path.Combine(_dir, exe), VideoFfmpeg.GameArgument(Path.Combine(_dir, probe))); // the ffprobe: its neighbour
         Assert.Equal(Path.Combine(_dir, exe), VideoFfmpeg.GameArgument(Path.Combine(_dir, exe)));
         Assert.Equal("/opt/ff", VideoFfmpeg.GameArgument(" /opt/ff ")); // missing: as typed, the game says it was not found
+        // The ffprobe with no ffmpeg beside it: the sibling ffmpeg, which is not there, never the ffprobe as the encoder.
+        var lonely = Directory.CreateDirectory(Path.Combine(_dir, "lonely")).FullName;
+        File.WriteAllBytes(Path.Combine(lonely, probe), []);
+        Assert.Equal(Path.Combine(lonely, exe), VideoFfmpeg.GameArgument(Path.Combine(lonely, probe)));
         var empty = Directory.CreateDirectory(Path.Combine(_dir, "empty")).FullName;
         Assert.Equal(empty, VideoFfmpeg.GameArgument(empty));
     }
@@ -326,9 +330,21 @@ public sealed class VideoSettingsWiringTests : IDisposable
         W.Commands.Execute("video.remove_fillers");
         Assert.Single(tab.Document.Segments.Segments);
 
-        Apply(s => s.VideoFillerWords = [.. FillerDetector.DefaultWords]);
+        double CutLength() => tab.Document.Segments.Segments.Where(s => !s.Enabled).Sum(s => s.Duration);
+
+        Apply(s =>
+        {
+            s.VideoFillerWords = [.. FillerDetector.DefaultWords];
+            s.VideoMinKeepMs = 0;
+        });
         W.Commands.Execute("video.remove_fillers");
-        Assert.True(tab.Document.Segments.Count > 1);
+        var unpadded = CutLength();
+        Assert.True(unpadded > 0);
+
+        // The detection settings' min keep applies too: the stretch before the filler is shorter than 2 s, so it goes with the cut.
+        Apply(s => s.VideoMinKeepMs = 2000);
+        W.Commands.Execute("video.remove_fillers"); // a re-run replaces its own cuts
+        Assert.True(CutLength() > unpadded + 0.5, $"{CutLength()} vs {unpadded}");
     }
 
     [Fact]
@@ -483,6 +499,19 @@ public sealed class VideoSettingsWiringTests : IDisposable
     }
 
     [Fact]
+    public void TheNoticeLinkStaysVisibleWhenTheTextIsLong()
+    {
+        var tab = TabWithoutFfmpeg();
+        tab.ReportNoFfmpeg(string.Join(" ", Enumerable.Repeat("a very long operation name", 40)));
+        _editor.Tick(4);
+        var notice = W.VideoPanel.Document.GetElementById("video-notice").Bounds;
+        var link = W.VideoPanel.Document.GetElementById("video-notice-link").Bounds;
+        Assert.True(link.Width > 0);
+        Assert.True(link.X + link.Width <= notice.X + notice.Width + 1, $"link {link.X}+{link.Width}, notice {notice.X}+{notice.Width}");
+        Assert.True(link.X >= notice.X);
+    }
+
+    [Fact]
     public void OpeningWithoutFfmpegOffersTheSettingsOnTheMessage()
     {
         W.Commands.LocateFfmpeg = _ => throw new FfmpegMissingException("ffmpeg is not installed.");
@@ -579,10 +608,119 @@ public sealed class VideoSettingsWiringTests : IDisposable
             Assert.Equal(model.Key, select.Value);
         }
 
-        Assert.Equal("base.en (148 MB)", EditorSettingsDialog.ModelLabel(WhisperModelInfo.Default));
-        Assert.Equal("tiny.en (78 MB)", EditorSettingsDialog.ModelLabel(WhisperModelInfo.For(WhisperModel.TinyEn)));
-        Assert.Equal("medium.en (1534 MB)", EditorSettingsDialog.ModelLabel(WhisperModelInfo.For(WhisperModel.MediumEn)));
+        // The labels the select shows, and choosing one reaches the working copy.
+        var labels = WhisperModelInfo.All.Select(EditorSettingsDialog.ModelLabel).ToList();
+        Assert.Equal(["tiny.en (78 MB)", "base.en (148 MB)", "small.en (488 MB)", "medium.en (1534 MB)"], labels);
+        var options = EditorSettingsDialog.ModelOptionsRml(); // RmlUi does not let a select's options be queried back
+        for (var i = 0; i < labels.Count; i++)
+            Assert.Contains($"<option value=\"{WhisperModelInfo.All[i].Key}\">{labels[i]}</option>", options, StringComparison.Ordinal);
+        select.SetValue("small.en");
+        _editor.Tick(2);
+        Assert.Equal("small.en", W.EditorSettingsDialog.Working.VideoWhisperModel);
         Assert.Empty(_editor.RmlMessages);
+    }
+
+    // ── Typing into the fields ───────────────────────────────────────────────────────────────────────────────────
+
+    // Types into the real, focused element through RmlUi, a frame after each character, as a person would. Returns what the
+    // field showed after each one.
+    private List<string> Type(string id, string text)
+    {
+        W.EditorSettingsDialog.Open(scrollToVideo: true);
+        _editor.Tick(4);
+        var context = W.EditorSettingsDialog.Layer!.Context!;
+        var field = W.EditorSettingsDialog.Document.GetElementById(id);
+        Assert.True(field.Focus());
+        context.ProcessKeyDown(UI.Rml.RmlKey.A, UI.Rml.RmlKeyModifiers.Ctrl);
+        context.ProcessKeyDown(UI.Rml.RmlKey.Back, UI.Rml.RmlKeyModifiers.None);
+        _editor.Tick();
+        Assert.Equal("", field.Value);
+
+        var shown = new List<string>();
+        foreach (var c in text)
+        {
+            Assert.True(context.ProcessTextInput(c.ToString()));
+            _editor.Tick();
+            shown.Add(field.Value ?? "");
+        }
+
+        return shown;
+    }
+
+    private void Commit(string id)
+    {
+        W.EditorSettingsDialog.Document.GetElementById(id).Blur();
+        _editor.Tick(2);
+    }
+
+    [Fact]
+    public void ANumberFieldKeepsWhatIsTypedUntilTheFieldIsLeft()
+    {
+        var shown = Type("es-video-min-silence", "100");
+        Assert.Equal(["1", "10", "100"], shown); // not snapped to 50, 500 or 5000 on the way
+        Commit("es-video-min-silence");
+        Assert.Equal(100, W.EditorSettingsDialog.Working.VideoMinSilenceMs);
+        Assert.Equal("100", W.EditorSettingsDialog.Document.GetElementById("es-video-min-silence").Value);
+    }
+
+    [Fact]
+    public void ANumberFieldClampsWhenCommittedAndShowsTheValueThatStuck()
+    {
+        Type("es-video-padding", "99999");
+        Commit("es-video-padding");
+        Assert.Equal(500, W.EditorSettingsDialog.Working.VideoPaddingMs);
+        Assert.Equal("500", W.EditorSettingsDialog.Document.GetElementById("es-video-padding").Value);
+    }
+
+    [Fact]
+    public void ANumberFieldCommitsOnEnter()
+    {
+        Type("es-video-min-keep", "250");
+        W.EditorSettingsDialog.Layer!.Context!.ProcessKeyDown(UI.Rml.RmlKey.Return, UI.Rml.RmlKeyModifiers.None);
+        _editor.Tick(2);
+        Assert.Equal(250, W.EditorSettingsDialog.Working.VideoMinKeepMs);
+    }
+
+    [Fact]
+    public void TheThresholdFieldCanBeTypedWithItsMinusSign()
+    {
+        var shown = Type("es-video-threshold", "-40");
+        Assert.Equal(["-", "-4", "-40"], shown);
+        Commit("es-video-threshold");
+        Assert.Equal(-40.0, W.EditorSettingsDialog.Working.VideoSilenceThresholdDb);
+    }
+
+    [Fact]
+    public void FillerWordsCanBeTypedWithTrailingCommasAndSpaces()
+    {
+        var shown = Type("es-video-fillers", "um, uh, like");
+        Assert.Equal("um, uh, like", shown[^1]);
+        Assert.Equal("um, ", shown[3]); // the comma and the space after it stay while typing
+        Commit("es-video-fillers");
+        Assert.Equal(["um", "uh", "like"], W.EditorSettingsDialog.Working.VideoFillerWords);
+        Assert.Equal("um, uh, like", W.EditorSettingsDialog.Document.GetElementById("es-video-fillers").Value);
+    }
+
+    [Fact]
+    public void AnFfmpegPathWithSpacesSurvivesTyping()
+    {
+        const string Path = "C:\\Program Files\\ffmpeg\\bin";
+        var shown = Type("es-video-ffmpeg", Path);
+        Assert.Equal(Path, shown[^1]);
+        Assert.Equal("C:\\Program ", shown[10]); // the trailing space is not trimmed away while typing
+        Commit("es-video-ffmpeg");
+        Assert.Equal(Path, W.EditorSettingsDialog.Working.VideoFfmpegPath);
+    }
+
+    [Fact]
+    public void ChoosingAModelChangesTheWorkingModel()
+    {
+        W.EditorSettingsDialog.Open();
+        _editor.Tick(2);
+        var select = W.EditorSettingsDialog.Document.GetElementById("es-video-model");
+        select.SetValue("small.en");
+        _editor.Tick(2);
+        Assert.Equal("small.en", W.EditorSettingsDialog.Working.VideoWhisperModel);
     }
 
     [Fact]

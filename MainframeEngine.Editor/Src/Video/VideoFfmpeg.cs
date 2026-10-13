@@ -33,7 +33,8 @@ public static class VideoFfmpeg
         if (folder is null)
             return path;
         var ffmpeg = Path.Combine(folder, new FfmpegLocator().ExecutableName("ffmpeg"));
-        return File.Exists(ffmpeg) ? ffmpeg : path;
+        // An ffprobe with no ffmpeg beside it names the missing ffmpeg (the game reports it), never the ffprobe as an encoder.
+        return !Directory.Exists(path) || File.Exists(ffmpeg) ? ffmpeg : path;
     }
 
     /// <summary>
