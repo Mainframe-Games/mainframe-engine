@@ -1,12 +1,16 @@
 using System.Globalization;
 using MainframeEngine.UI.Rml;
+using MainframeEngine.Video.Analysis;
 
 namespace MainframeEngine.Editor;
 
 /// <summary>
 /// Editor › Editor Settings (E5): theme accent (presets or any <c>#rrggbb</c>, applied live), autosave interval, the
 /// external code editor command (VS Code, Rider… opens <c>.cs</c> files and click-to-source lines), automatic code
-/// reload, the 3D view's resolution, VST3 folders and MIDI inputs (a toggle per device with its connected state; the refresh button lists them). Apply saves to <c>~/.mainframe/editor_settings.json</c>.
+/// reload, the 3D view's resolution, VST3 folders and MIDI inputs (a toggle per device with its connected state; the refresh button lists them),
+/// and the Video section (ffmpeg, speech model, filler words, the silence and gameplay numbers, the undo limit; Edit › Video
+/// Settings… and the notice line's link open the dialog scrolled to it). The dialog keeps its size and its body scrolls.
+/// Apply saves to <c>~/.mainframe/editor_settings.json</c>.
 /// </summary>
 public sealed class EditorSettingsDialog : EditorDocument
 {
@@ -39,7 +43,13 @@ public sealed class EditorSettingsDialog : EditorDocument
         .Member("state", static r => r.State)
         .Member("tooltip", static r => r.Tooltip);
 
+    /// <summary>The id of the Video section, which <see cref="Open"/> can scroll to.</summary>
+    public const string VideoSectionId = "video-section";
+
     private readonly List<MidiRow> _midiRows = [];
+    private const int ScrollAfterFrames = 2;
+    private string? _scrollTarget;
+    private int _scrollFrames;
     private int _midiVersion = -1;
     private RmlDataModel? _model;
     private EditorSettings _working = new();
@@ -118,10 +128,13 @@ public sealed class EditorSettingsDialog : EditorDocument
 
     /// <summary>
     /// Called every frame by the workspace (the dialog is not a <c>[Tool]</c> node, so <c>OnProcess</c> never runs in the
-    /// editor): redraws the MIDI list when the devices changed while the dialog is open, and the plugin status when a scan ends.
+    /// editor): redraws the MIDI list when the devices changed while the dialog is open, the plugin status when a scan ends,
+    /// and scrolls the body to what <see cref="Open"/> asked for once the shown document has laid out (scrolling before that
+    /// is lost, so it waits a couple of frames).
     /// </summary>
     public void Tick()
     {
+        ScrollIfPending();
         if (Visible && Workspace.Midi.Version != _midiVersion)
             RebuildMidi();
         if (_scan is { IsCompleted: true })
@@ -129,6 +142,17 @@ public sealed class EditorSettingsDialog : EditorDocument
             _scan = null;
             _model?.Dirty("plugin_status");
         }
+    }
+
+    private void ScrollIfPending()
+    {
+        if (_scrollTarget is not { } target || !Visible || !IsLoaded || ++_scrollFrames < ScrollAfterFrames)
+            return;
+        var element = Document.GetElementById(target);
+        if (element.IsNull || element.Bounds.Height <= 0)
+            return;
+        _scrollTarget = null;
+        element.ScrollIntoView(alignWithTop: true);
     }
 
     protected override void OnReady()
@@ -156,9 +180,52 @@ public sealed class EditorSettingsDialog : EditorDocument
                     ToggleMidi(_midiRows[index].Name);
             })
             .Event("midi_refresh", _ => Workspace.Midi.Refresh())
+            .Bind("video_ffmpeg", this, static d => d._working.VideoFfmpegPath ?? "", static (d, v) => d._working.VideoFfmpegPath = v)
+            .Bind("video_model", this, static d => d._working.VideoWhisperModel, static (d, v) => d._working.VideoWhisperModel = v ?? "")
+            .Bind("video_fillers", this, static d => string.Join(", ", d._working.VideoFillerWords), static (d, v) => d.SetFillerWords(v))
+            .Bind("video_threshold", this, static d => d._working.VideoSilenceThresholdDb.ToString(CultureInfo.InvariantCulture),
+                static (d, v) => d.SetThreshold(v))
             .Bind("error", this, static d => d._error)
             .Event("apply", _ => Apply())
             .Event("cancel", _ => Cancel());
+        BindVideoNumber("video_min_silence", static w => w.VideoMinSilenceMs, static (w, n) => w.VideoMinSilenceMs = n);
+        BindVideoNumber("video_padding", static w => w.VideoPaddingMs, static (w, n) => w.VideoPaddingMs = n);
+        BindVideoNumber("video_min_keep", static w => w.VideoMinKeepMs, static (w, n) => w.VideoMinKeepMs = n);
+        BindVideoNumber("video_idle_min", static w => w.VideoGameplayMinIdleMs, static (w, n) => w.VideoGameplayMinIdleMs = n);
+        BindVideoNumber("video_idle_padding", static w => w.VideoGameplayPaddingMs, static (w, n) => w.VideoGameplayPaddingMs = n);
+        BindVideoNumber("video_idle_keep", static w => w.VideoGameplayMinKeepMs, static (w, n) => w.VideoGameplayMinKeepMs = n);
+        BindVideoNumber("video_marker", static w => w.VideoGameplayMarkerWindowMs, static (w, n) => w.VideoGameplayMarkerWindowMs = n);
+        BindVideoNumber("video_undo", static w => w.VideoUndoHistoryLimit, static (w, n) => w.VideoUndoHistoryLimit = n);
+    }
+
+    // A number field of the Video section: text in, the setting's own clamp applied, and the field shows the value that
+    // stuck (typing 99999 into a 0…500 field reads 500 afterwards). Text that is not a number changes nothing.
+    private void BindVideoNumber(string name, Func<EditorSettings, int> get, Action<EditorSettings, int> set) =>
+        _model!.Bind(name, () => get(_working).ToString(CultureInfo.InvariantCulture), text =>
+        {
+            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
+                set(_working, number);
+            _model?.Dirty(name);
+        });
+
+    private void SetThreshold(string? text)
+    {
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var db))
+            _working.VideoSilenceThresholdDb = db;
+        _model?.Dirty("video_threshold");
+    }
+
+    private void SetFillerWords(string? text)
+    {
+        _working.VideoFillerWords = [.. (text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+        _model?.Dirty("video_fillers");
+    }
+
+    /// <summary>The Whisper model choices as the select shows them: the key and the download size, e.g. <c>base.en (148 MB)</c>.</summary>
+    public static string ModelLabel(WhisperModelInfo model)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        return string.Create(CultureInfo.InvariantCulture, $"{model.Key} ({Math.Round(model.ApproximateBytes / 1_000_000.0)} MB)");
     }
 
     protected override void OnAttach(RmlDocument document)
@@ -173,6 +240,10 @@ public sealed class EditorSettingsDialog : EditorDocument
         for (var i = 0; i < EditorSettings.CodeEditorPresets.Count; i++)
             presets.Append("<button class=\"small\" data-preset=\"").Append(i).Append("\">").Append(RmlText.Escape(EditorSettings.CodeEditorPresets[i].Name)).Append("</button>");
         document.GetElementById("es-presets").SetInnerRml(presets.ToString());
+        var models = new System.Text.StringBuilder();
+        foreach (var model in WhisperModelInfo.All)
+            models.Append("<option value=\"").Append(model.Key).Append("\">").Append(RmlText.Escape(ModelLabel(model))).Append("</option>");
+        document.GetElementById("es-video-model").SetInnerRml(models.ToString());
     }
 
     protected override void OnClickElement(RmlEvent e)
@@ -183,12 +254,15 @@ public sealed class EditorSettingsDialog : EditorDocument
             SetCodeEditorPreset(index);
     }
 
-    /// <summary>Opens the dialog on a copy of the current settings.</summary>
     /// <summary>Closes without applying (the Cancel button).</summary>
     public void Cancel() => HideAndReleaseFocus();
 
-    public void Open()
+    /// <summary>Opens the dialog on a copy of the current settings, scrolled to the Video section when asked.</summary>
+    /// <param name="scrollToVideo">Edit › Video Settings… and the "ffmpeg not found" link want the Video section in view.</param>
+    public void Open(bool scrollToVideo = false)
     {
+        _scrollTarget = scrollToVideo ? VideoSectionId : "es-top"; // the body keeps its scroll position between visits
+        _scrollFrames = 0;
         _working = Workspace.Settings.Clone();
         _error = "";
         Visible = true;

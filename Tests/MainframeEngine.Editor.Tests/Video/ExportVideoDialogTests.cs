@@ -154,8 +154,9 @@ public sealed class ExportVideoDialogTests : IDisposable
 
         W.Commands.Execute("video.export");
 
-        Assert.True(W.Message.Visible);
-        Assert.Contains("ffmpeg not found", W.Message.Current!.Message, StringComparison.Ordinal);
+        Assert.False(W.Message.Visible); // the notice line says so, with a link to the setting
+        Assert.Equal("ffmpeg not found: Export needs it.", tab.Notice);
+        Assert.True(tab.NoticeNeedsFfmpegSetting);
         Assert.False(Dialog.Visible);
         Assert.Null(tab.ExportJob);
     }

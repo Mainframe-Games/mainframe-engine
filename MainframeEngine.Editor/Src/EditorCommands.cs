@@ -173,6 +173,7 @@ public sealed class EditorCommands
             case "project.user_data": _workspace.Project.OpenUserDataFolder(); return true;
             case "project.close": CloseProject(); return true;
             case "editor.settings": _workspace.EditorSettingsDialog.Open(); return true;
+            case "video.settings": _workspace.EditorSettingsDialog.Open(scrollToVideo: true); return true;
             case "editor.mode.game": _workspace.SetMode(EditorMode.Game); return true;
             case "editor.mode.video": _workspace.SetMode(EditorMode.Video); return true;
             case "editor.video_editor":
@@ -221,7 +222,7 @@ public sealed class EditorCommands
                 video.Controller.CancelGesture();
                 video.Notice = video.Document.Capture is null
                     ? "This recording has no Mainframe Engine sidecar."
-                    : video.Document.DetectIdleGameplay(GameplaySettings.Default); // Video Settings (Task 15) will supply these
+                    : video.Document.DetectIdleGameplay(_workspace.Settings.VideoGameplay);
                 return true;
             case "video.detect_silence": _workspace.VideoView.DetectSilence(video); return true;
             case "video.transcribe": _workspace.VideoView.Transcribe(video); return true;
@@ -350,12 +351,12 @@ public sealed class EditorCommands
         ArgumentException.ThrowIfNullOrEmpty(path);
         try
         {
-            var ffmpeg = VideoFfmpeg.Locate(_workspace.Settings.VideoFfmpegPath);
+            var ffmpeg = LocateFfmpeg(_workspace.Settings.VideoFfmpegPath);
             _workspace.RunWithSplash($"Opening {Path.GetFileName(path)}…", () =>
             {
                 try
                 {
-                    Session.OpenVideo(path, ffmpeg, VideoDocument.DefaultHistoryLimit);
+                    Session.OpenVideo(path, ffmpeg, _workspace.Settings.VideoUndoHistoryLimit);
                     TouchRecentVideo(path);
                 }
                 catch (Exception e) when (IsRecoverable(e))
@@ -366,9 +367,25 @@ public sealed class EditorCommands
         }
         catch (FfmpegMissingException e)
         {
-            ReportError("The video editor needs ffmpeg", e);
+            // No tab exists yet to hold a notice, so this one is modal, with the way to the setting on it.
+            Log.Error($"[Editor] The video editor needs ffmpeg: {e.Message}");
+            _workspace.Message.Show(new MessageRequest
+            {
+                Title = "Error",
+                Message = $"The video editor needs ffmpeg:\n{e.Message}",
+                Buttons = ["Video Settings…", "OK"],
+                CancelButton = 1,
+                Callback = (button, _) =>
+                {
+                    if (button == 0)
+                        Execute("video.settings");
+                },
+            });
         }
     }
+
+    /// <summary>Finds ffmpeg for video mode (<see cref="VideoFfmpeg.Locate"/>); tests swap it so the machine's ffmpeg never matters.</summary>
+    internal Func<string?, FfmpegLocation> LocateFfmpeg { get; set; } = VideoFfmpeg.Locate;
 
     /// <summary>
     /// Opens any file by kind: recordings and video projects in a video tab, songs in a song tab, <c>.rml</c> in a UI

@@ -103,8 +103,17 @@ public sealed class PlayService : IDisposable
         }
     }
 
+    /// <summary>The host flag that names the ffmpeg to record with (<c>GameHostOptions</c>).</summary>
+    public const string FfmpegArgument = "--ffmpeg";
+
     /// <summary>The port passed to games as <c>--editor-port</c>.</summary>
     public int Port => Link.Port;
+
+    /// <summary>
+    /// The ffmpeg every launched game records with (Editor Settings › Video › ffmpeg), asked at each launch so a changed
+    /// setting reaches the next game; null or empty passes nothing and the game looks for ffmpeg itself.
+    /// </summary>
+    public Func<string?>? FfmpegPath { get; set; }
 
     /// <summary>Alive instances and recently exited ones (until <see cref="ClearExited"/>), in launch order.</summary>
     public IReadOnlyList<PlayInstance> Instances => _instances;
@@ -176,6 +185,13 @@ public sealed class PlayService : IDisposable
         var separator = extraArguments is null ? -1 : IndexOf(extraArguments, GameHostOptions.UserArgsSeparator);
         if (extraArguments is not null)
             arguments.AddRange(separator < 0 ? extraArguments : extraArguments.Take(separator));
+        // The ffmpeg setting is a host flag too, unless the caller already chose one for this launch.
+        if (FfmpegPath?.Invoke() is { Length: > 0 } ffmpeg && IndexOf(arguments, FfmpegArgument) < 0)
+        {
+            arguments.Add(FfmpegArgument);
+            arguments.Add(ffmpeg);
+        }
+
         arguments.Add("--frame-capture"); // recording can start mid-session (the swapchain needs TRANSFER_SRC)
         arguments.Add("--editor-port");
         arguments.Add(Port.ToString(CultureInfo.InvariantCulture));

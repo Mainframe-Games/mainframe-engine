@@ -49,6 +49,8 @@ public sealed class VideoTab : IEditorTab
         if (ffmpeg is not null)
             WaveformJob = VideoJob.Start("waveform",
                 (p, ct) => new WaveformExtractor(ffmpeg).ExtractAsync(document.SourcePath, document.Duration, p, ct));
+        else
+            ReportNoFfmpeg("the waveform", append: true);
         document.DirtyChanged += OnDirtyChanged;
     }
 
@@ -72,8 +74,33 @@ public sealed class VideoTab : IEditorTab
     /// <summary>The timeline canvas's only parent; the session keeps it in the tree and the video view publishes it.</summary>
     public SubViewport TimelineViewport { get; }
 
-    /// <summary>The notice line: open warnings and the last operation's result; null shows nothing.</summary>
-    public string? Notice { get; set; }
+    /// <summary>
+    /// The notice line: open warnings and the last operation's result; null shows nothing. Setting it ends an ffmpeg-not-found
+    /// notice (<see cref="NoticeNeedsFfmpegSetting"/>).
+    /// </summary>
+    public string? Notice
+    {
+        get;
+        set
+        {
+            field = value;
+            NoticeNeedsFfmpegSetting = false;
+        }
+    }
+
+    /// <summary>The notice is "ffmpeg not found": the panel shows an Editor Settings link beside it (<c>video.settings</c>).</summary>
+    public bool NoticeNeedsFfmpegSetting { get; private set; }
+
+    /// <summary>
+    /// A job that needs ffmpeg cannot start because the tab has none: says so in the notice line, with the link to the
+    /// setting, instead of a modal error. <paramref name="append"/> keeps the notice that is showing (open warnings).
+    /// </summary>
+    internal void ReportNoFfmpeg(string what, bool append = false)
+    {
+        var text = VideoFfmpeg.NoticeText(what);
+        Notice = append && !string.IsNullOrEmpty(Notice) ? Notice + " " + text : text;
+        NoticeNeedsFfmpegSetting = true;
+    }
 
     /// <summary>Extracting the waveform; null once it has been applied (or when the tab has no ffmpeg).</summary>
     public VideoJob<Waveform>? WaveformJob { get; private set; }

@@ -166,12 +166,18 @@ public sealed partial class EditorWorkspace
 
     // ── Settings ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Applies new editor settings (accent live, autosave, code reload) and saves them.</summary>
+    /// <summary>
+    /// Applies new editor settings (accent live, autosave, code reload, the undo limit of open video tabs) and saves them.
+    /// The other video settings are read when an operation starts, so a job already running keeps what it started with.
+    /// </summary>
     public void ApplySettings(EditorSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         var accentChanged = !string.Equals(settings.Accent, Settings.Accent, StringComparison.Ordinal);
         Settings = settings;
+        foreach (var tab in Session.Tabs)
+            if (tab is Video.VideoTab video)
+                video.Document.Editor.History.Limit = settings.VideoUndoHistoryLimit;
         Project.AutoReload = settings.AutoReloadCode;
         Midi.SetEnabled(settings.MidiInputs);
         _autosaveSeconds = 0;

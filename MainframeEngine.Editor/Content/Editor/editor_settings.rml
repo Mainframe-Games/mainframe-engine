@@ -6,6 +6,14 @@
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
         #dialog { left: 50%; top: 50%; width: 560dp; height: 540dp; margin-left: -280dp; margin-top: -270dp; }
+        /* The dialog keeps its size; the body scrolls (the Video section is below the fold). Rows keep their height. */
+        .dialog-body { overflow-y: auto; min-height: 0dp; }
+        .dialog-body > div { flex-shrink: 0; }
+        #video-section { display: block; margin-top: 6dp; padding-top: 8dp; border-top: 1dp #2f333d; }
+        .section-title { display: block; margin-bottom: 8dp; font-weight: bold; color: #ffffff; }
+        .dialog-row .unit { margin-left: 6dp; color: #8b93a5; font-size: 11dp; }
+        .dialog-row input.number { flex: 0 0 auto; width: 72dp; }
+        #video-section .hint { margin-bottom: 8dp; }
         .dialog-row .caption { width: 120dp; }
         .dialog-row select { flex: 1 1 auto; width: 60dp; }
         #es-swatches { display: flex; flex-direction: row; }
@@ -28,8 +36,8 @@
 <body class="backdrop" data-model="editor_settings">
     <div class="dialog" id="dialog">
         <div class="dialog-title"><span class="icon icon-sm icon-adjustments"></span><span>Editor Settings</span></div>
-        <div class="dialog-body">
-            <div class="dialog-row">
+        <div class="dialog-body" id="es-body">
+            <div class="dialog-row" id="es-top">
                 <span class="caption">Accent colour</span>
                 <div id="es-swatches"></div>
                 <input type="text" class="text mono" id="es-accent" data-value="accent"/>
@@ -94,6 +102,44 @@
                 <button class="tool-button small" id="es-midi-refresh" data-event-click="midi_refresh()" data-tooltip="Refresh MIDI Devices — list the connected MIDI inputs again"><span class="icon icon-sm icon-refresh"></span></button>
             </div>
             <div class="hint">{{midi_status}}</div>
+            <div id="video-section">
+                <div class="section-title">Video</div>
+                <div class="dialog-row">
+                    <span class="caption">ffmpeg</span>
+                    <input type="text" class="text mono" id="es-video-ffmpeg" data-value="video_ffmpeg" placeholder="Found automatically"/>
+                </div>
+                <div class="hint">Folder or file; blank uses MAINFRAME_FFMPEG, then PATH. Play and Record use it too.</div>
+                <div class="dialog-row">
+                    <span class="caption">Speech model</span>
+                    <select id="es-video-model" data-value="video_model" data-tooltip="Whisper model — larger is slower and more accurate; it is downloaded the first time it is used">
+                    </select>
+                </div>
+                <div class="dialog-row">
+                    <span class="caption">Filler words</span>
+                    <input type="text" class="text mono" id="es-video-fillers" data-value="video_fillers"/>
+                </div>
+                <div class="hint">Comma-separated; Remove Filler Words cuts these.</div>
+                <div class="dialog-row"><span class="caption">Silence level</span>
+                    <input type="text" class="text mono number" id="es-video-threshold" data-value="video_threshold"/><span class="unit">dB (-80 to 0)</span></div>
+                <div class="dialog-row"><span class="caption">Min silence</span>
+                    <input type="text" class="text mono number" id="es-video-min-silence" data-value="video_min_silence"/><span class="unit">ms (50 to 5000)</span></div>
+                <div class="dialog-row"><span class="caption">Padding</span>
+                    <input type="text" class="text mono number" id="es-video-padding" data-value="video_padding"/><span class="unit">ms (0 to 500)</span></div>
+                <div class="dialog-row"><span class="caption">Min keep</span>
+                    <input type="text" class="text mono number" id="es-video-min-keep" data-value="video_min_keep"/><span class="unit">ms (0 to 2000)</span></div>
+                <div class="hint">Detect Silence and Remove Filler Words: silences quieter than the level and longer than the minimum are cut, with the padding kept on each side.</div>
+                <div class="dialog-row"><span class="caption">Idle after</span>
+                    <input type="text" class="text mono number" id="es-video-idle-min" data-value="video_idle_min"/><span class="unit">ms (500 to 60000)</span></div>
+                <div class="dialog-row"><span class="caption">Idle padding</span>
+                    <input type="text" class="text mono number" id="es-video-idle-padding" data-value="video_idle_padding"/><span class="unit">ms (0 to 2000)</span></div>
+                <div class="dialog-row"><span class="caption">Idle min keep</span>
+                    <input type="text" class="text mono number" id="es-video-idle-keep" data-value="video_idle_keep"/><span class="unit">ms (0 to 10000)</span></div>
+                <div class="dialog-row"><span class="caption">Marker window</span>
+                    <input type="text" class="text mono number" id="es-video-marker" data-value="video_marker"/><span class="unit">ms (0 to 10000)</span></div>
+                <div class="hint">Detect Idle Gameplay: stretches with no player input are cut; footage near a marker is never cut.</div>
+                <div class="dialog-row"><span class="caption">Undo history</span>
+                    <input type="text" class="text mono number" id="es-video-undo" data-value="video_undo"/><span class="unit">steps (10 to 1000)</span></div>
+            </div>
             <div class="dialog-error">{{error}}</div>
         </div>
         <div class="dialog-buttons">

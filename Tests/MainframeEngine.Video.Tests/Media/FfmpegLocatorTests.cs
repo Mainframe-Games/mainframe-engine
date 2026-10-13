@@ -192,6 +192,16 @@ public sealed class FfmpegLocatorTests
     }
 
     [Fact]
+    public void NotFoundMessageSaysWhereToSetIt()
+    {
+        var locator = Locator(OSPlatform.OSX, [], userSetting: null, path: "/nowhere");
+
+        var e = Assert.Throws<FfmpegMissingException>(() => locator.Locate());
+
+        Assert.Contains("set it in Editor Settings › Video › ffmpeg", e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NotFoundMessageMentionsTheSettingWhenOneWasConfigured()
     {
         var locator = Locator(OSPlatform.OSX, [], userSetting: "/old/ffmpeg", path: "/nowhere");

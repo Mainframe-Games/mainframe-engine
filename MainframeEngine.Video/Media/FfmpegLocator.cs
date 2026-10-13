@@ -176,7 +176,7 @@ public sealed class FfmpegLocator
 
         var message = "The video editor needs ffmpeg and ffprobe, but could not find them on PATH or in the usual install locations.\n\n"
             + $"Install FFmpeg with:\n    {install}\n\n"
-            + "Then restart the editor, or point it at the ffmpeg binary.";
+            + "Then restart the editor, or set it in Editor Settings › Video › ffmpeg.";
 
         if (_userConfiguredPath is not null)
         {

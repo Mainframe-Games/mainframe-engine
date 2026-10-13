@@ -380,6 +380,32 @@ public sealed class PlayServiceTests
     }
 
     [Fact]
+    public void PlayPassesTheFfmpegSettingToTheGame()
+    {
+        using var play = new PlayHarness();
+        var port = play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        // Not set: no --ffmpeg, the game looks for ffmpeg itself.
+        var without = play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Game", ["--hidden"]);
+        Assert.DoesNotContain("--ffmpeg", without.Arguments);
+
+        // Set: a host flag, before --editor-port.
+        play.Service.FfmpegPath = () => "/opt/ff";
+        var with = play.Service.Launch("/fake/MyGame.Desktop", "/fake", "Content/Scenes/A.mscene", "Game", ["--hidden"]);
+        Assert.Equal(["--hidden", "--ffmpeg", "/opt/ff", "--frame-capture", "--editor-port", port, "--scene", "Content/Scenes/A.mscene"], with.Arguments);
+        Assert.Equal(with.Arguments, play.Game(with).Request.Arguments);
+
+        // A blank setting passes nothing; a flag the caller chose for this launch wins; the game's own arguments stay after "++".
+        play.Service.FfmpegPath = () => "";
+        Assert.DoesNotContain("--ffmpeg", play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Game").Arguments);
+        play.Service.FfmpegPath = () => "/opt/ff";
+        var chosen = play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Game", ["--ffmpeg", "/mine/ff"]);
+        Assert.Equal(["--ffmpeg", "/mine/ff", "--frame-capture", "--editor-port", port], chosen.Arguments);
+        var gameFlag = play.Service.Launch("/fake/MyGame.Desktop", "/fake", null, "Game", ["++", "--ffmpeg", "theirs"]);
+        Assert.Equal(["--ffmpeg", "/opt/ff", "--frame-capture", "--editor-port", port, "++", "--ffmpeg", "theirs"], gameFlag.Arguments);
+    }
+
+    [Fact]
     public async Task SkipBuildWithoutOutputReturnsNull()
     {
         using var play = new PlayHarness();

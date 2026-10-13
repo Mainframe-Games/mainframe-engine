@@ -50,12 +50,12 @@ public sealed class VideoView : Node
     /// <summary>True while either texture is published to the UI (tests: a switch away unpublishes both).</summary>
     internal bool PublishesTextures => _timelineRegistered is not null || _previewRegistered is not null;
 
-    // Video Settings (Task 15) will supply these three; until then Cutback's defaults.
-    private static DetectionSettings Detection => DetectionSettings.Default;
+    // Editor Settings › Video, read when an operation starts (jobs keep what they started with).
+    private DetectionSettings Detection => _workspace.Settings.VideoDetection;
 
-    private static WhisperModel SpeechModel => WhisperModelInfo.Default.Model;
+    private WhisperModel SpeechModel => WhisperModelInfo.Parse(_workspace.Settings.VideoWhisperModel);
 
-    private static IReadOnlyList<string> FillerWords => FillerDetector.DefaultWords;
+    private IReadOnlyList<string> FillerWords => _workspace.Settings.VideoFillerWords;
 
     /// <summary>Creates the speech recogniser for a downloaded model file; tests swap it so no model is ever loaded.</summary>
     public Func<FfmpegLocation, string, WhisperModel, ITranscriber> TranscriberFactory { get; set; } =
@@ -294,8 +294,7 @@ public sealed class VideoView : Node
 
         if (tab.Ffmpeg is not { } ffmpeg)
         {
-            _workspace.Commands.ReportError("ffmpeg not found",
-                new FfmpegMissingException("Detect Silence needs ffmpeg. Set it in Editor Settings › Video, or install it and restart the editor."));
+            tab.ReportNoFfmpeg("Detect Silence");
             return;
         }
 
@@ -368,7 +367,7 @@ public sealed class VideoView : Node
 
         if (tab.Ffmpeg is null)
         {
-            ReportNoFfmpeg("Export");
+            tab.ReportNoFfmpeg("Export");
             return;
         }
 
@@ -392,7 +391,7 @@ public sealed class VideoView : Node
             return;
         if (tab.Ffmpeg is not { } ffmpeg)
         {
-            ReportNoFfmpeg("Export");
+            tab.ReportNoFfmpeg("Export");
             return;
         }
 
@@ -447,10 +446,6 @@ public sealed class VideoView : Node
         });
     }
 
-    private void ReportNoFfmpeg(string what) =>
-        _workspace.Commands.ReportError("ffmpeg not found",
-            new FfmpegMissingException($"{what} needs ffmpeg. Set it in Editor Settings › Video, or install it and restart the editor."));
-
     // Maps the exporter's progress to the job's 0…1. A sink of its own, not Progress<T>: that would post every report to a
     // synchronisation context, and the job only wants the latest value stored.
     private sealed class ExportProgressSink(IProgress<double> inner) : IProgress<ExportProgress>
@@ -499,8 +494,7 @@ public sealed class VideoView : Node
 
         if (tab.Ffmpeg is not { } ffmpeg)
         {
-            _workspace.Commands.ReportError("ffmpeg not found",
-                new FfmpegMissingException("Transcribe needs ffmpeg. Set it in Editor Settings › Video, or install it and restart the editor."));
+            tab.ReportNoFfmpeg("Transcribe");
             return;
         }
 

@@ -321,8 +321,9 @@ public sealed class VideoWorkspaceTests : IDisposable
     {
         var tab = FakeTab();
         W.Commands.Execute("video.detect_silence");
-        Assert.True(W.Message.Visible);
-        Assert.Contains("ffmpeg not found", W.Message.Current!.Message, StringComparison.Ordinal);
+        Assert.False(W.Message.Visible); // the notice line says so, with a link to the setting
+        Assert.StartsWith("ffmpeg not found", tab.Notice, StringComparison.Ordinal);
+        Assert.True(tab.NoticeNeedsFfmpegSetting);
         Assert.Null(tab.SilenceJob);
     }
 

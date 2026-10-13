@@ -123,6 +123,39 @@ public sealed class PlayRecordingControllerTests : IDisposable
     }
 
     [Fact]
+    public void PlayAndRecordPassesTheFfmpegSetting()
+    {
+        // Without the setting the game finds ffmpeg itself.
+        Play.PlayAndRecord();
+        TickUntil(() => _launcher.Games.Count == 1, "the first launch");
+        Assert.DoesNotContain("--ffmpeg", _launcher.Games[0].Request.Arguments);
+
+        // The setting names a folder holding ffmpeg and ffprobe: the game is handed the encoder inside it.
+        var folder = Directory.CreateTempSubdirectory("mf-ffmpeg-setting").FullName;
+        try
+        {
+            var exe = Path.Combine(folder, OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
+            File.WriteAllBytes(exe, []);
+            File.WriteAllBytes(Path.Combine(folder, OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe"), []);
+            var settings = _editor.Workspace.Settings.Clone();
+            settings.VideoFfmpegPath = folder;
+            _editor.Workspace.ApplySettings(settings);
+
+            Play.PlayAnotherInstance();
+            TickUntil(() => _launcher.Games.Count == 2, "the second launch");
+            var arguments = _launcher.Games[1].Request.Arguments.ToList();
+            var flag = arguments.IndexOf("--ffmpeg");
+            Assert.True(flag >= 0, "no --ffmpeg argument");
+            Assert.Equal(exe, arguments[flag + 1]);
+            Assert.True(flag + 1 < arguments.IndexOf("--editor-port"), "--ffmpeg belongs to the host flags, before --editor-port");
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ToggleRecordingWithNothingRunningPlaysAndRecords()
     {
         Play.ToggleRecording();

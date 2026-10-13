@@ -44,6 +44,7 @@ public sealed class VideoPanel : EditorDocument
     private bool _hasTab;
     private bool _showTranscript = true;
     private string _notice = "";
+    private bool _noticeFfmpeg;
     private string _kept = "";
 
     public VideoPanel(EditorWorkspace workspace)
@@ -74,13 +75,17 @@ public sealed class VideoPanel : EditorDocument
     /// <summary>The notice line's text (open warnings, the last operation's result); empty shows no line.</summary>
     public string NoticeText => _notice;
 
+    /// <summary>The notice line shows its Editor Settings link: the notice says ffmpeg was not found.</summary>
+    public bool NoticeHasSettingsLink => _noticeFfmpeg;
+
     protected override void OnReady()
     {
         _model = CreateDataModel("video")
             .BindList("recent", _recent, RecentType)
             .Bind("has_tab", this, static p => p._hasTab)
             .Bind("show_transcript", this, static p => p._showTranscript)
-            .Bind("notice", this, static p => p._notice);
+            .Bind("notice", this, static p => p._notice)
+            .Bind("notice_ffmpeg", this, static p => p._noticeFfmpeg);
     }
 
     // After every load and hot reload: the splitters' listeners, and every value written again on the next tick.
@@ -182,6 +187,13 @@ public sealed class VideoPanel : EditorDocument
         {
             _notice = notice;
             _model?.Dirty("notice");
+        }
+
+        var noticeFfmpeg = tab?.NoticeNeedsFfmpegSetting == true;
+        if (noticeFfmpeg != _noticeFfmpeg)
+        {
+            _noticeFfmpeg = noticeFfmpeg;
+            _model?.Dirty("notice_ffmpeg");
         }
 
         if (_showTranscript != Workspace.Layout.Settings.VideoShowTranscript)

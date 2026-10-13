@@ -271,8 +271,9 @@ public sealed class TranscriptionFlowTests : IDisposable
         W.Session.Add(tab);
         _editor.Tick(2);
         W.Commands.Execute("video.transcribe");
-        Assert.True(W.Message.Visible);
-        Assert.Contains("ffmpeg not found", W.Message.Current!.Message, StringComparison.Ordinal);
+        Assert.False(W.Message.Visible); // the notice line says so, with a link to the setting
+        Assert.Equal("ffmpeg not found: Transcribe needs it.", tab.Notice);
+        Assert.True(tab.NoticeNeedsFfmpegSetting);
         Assert.Null(tab.TranscribeJob);
     }
 
