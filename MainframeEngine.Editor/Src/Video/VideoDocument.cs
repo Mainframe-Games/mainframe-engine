@@ -362,7 +362,15 @@ public sealed class VideoDocument
             _ when removedWords == 1 => $"Removed 1 filler word, {removed} cut.",
             _ => $"Removed {removedWords} filler words, {removed} cut.",
         };
-        return fillers.Count > 0 && located == 0 ? status + " Transcribe again for cuts aligned to the audio." : status;
+        if (fillers.Count == 0 || located > 0)
+        {
+            return status;
+        }
+
+        // Nothing was aligned to the audio: without a waveform that is only because it is still loading.
+        return envelope is null
+            ? status + " The waveform is still loading; filler cuts use Whisper's rough timing."
+            : status + " Transcribe again for cuts aligned to the audio.";
     }
 
     /// <summary>The edited transcript (cut words omitted) as SRT or plain text, with times remapped to the exported video.</summary>

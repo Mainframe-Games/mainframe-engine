@@ -145,6 +145,25 @@ public sealed class VideoDocumentTests : IDisposable
     }
 
     [Fact]
+    public void FillerRemovalBeforeTheWaveformLoadsSaysSoInsteadOfAskingToTranscribeAgain()
+    {
+        var doc = Doc(); // anchored words, no waveform yet
+        doc.SetTranscript(Words());
+        var status = doc.RemoveFillerWords(FillerDetector.DefaultWords, DetectionSettings.Default);
+        Assert.Equal("Removed 1 filler word, 0:00.4 cut. The waveform is still loading; filler cuts use Whisper's rough timing.", status);
+    }
+
+    [Fact]
+    public void FillerRemovalWithoutAnchorsAsksToTranscribeAgain()
+    {
+        var doc = Doc();
+        doc.Waveform = Loud();
+        doc.SetTranscript([.. Words().Select(w => w with { Anchor = null })]);
+        var status = doc.RemoveFillerWords(FillerDetector.DefaultWords, DetectionSettings.Default);
+        Assert.EndsWith(" Transcribe again for cuts aligned to the audio.", status, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FillerRemovalLeavesManualEditsAlone()
     {
         var doc = Doc();

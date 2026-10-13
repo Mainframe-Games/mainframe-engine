@@ -244,7 +244,8 @@ at least 80 dp apart. Only the left button edits, and a gesture keeps the pointe
   `FillerCutPlanner` → `ApplyFillerCuts`, as one undo step that never touches manual edits. Without a transcript it
   transcribes first. The word list is in Video Settings, with Cutback's defaults.
 - **A transcript made before anchors existed** still works with heuristic spans, and the notice suggests transcribing
-  again.
+  again. **Before the waveform has loaded** the anchors cannot be located either; the notice then says "The waveform is
+  still loading; filler cuts use Whisper's rough timing." instead.
 - **Export Transcript…** writes `.txt` or `.srt` (`TranscriptExporter`), with times remapped by `OutputTimeline` to match
   the exported video.
 
