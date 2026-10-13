@@ -307,6 +307,37 @@ public sealed class VideoTabTests : IDisposable
     }
 
     [Fact]
+    public void QaVideoWaitsHoldUntilJobsAreAppliedAndThePlayheadArrives()
+    {
+        Assert.True(EditorQaScript.VideoJobsIdle(null)); // no video tab: nothing to wait for
+        Assert.False(EditorQaScript.VideoPositionReached(null, 0));
+
+        var document = VideoDocument.FromProject(VideoDocumentTests.Project("/r/a.mp4"), null, null, []);
+        var preview = new VideoPreview(new CountingFactory(4), () => null, "/r/a.mp4", 320, 180, 30, number: 1);
+        using var tab = new VideoTab(document, preview, NoFfmpeg, number: 1); // its waveform job fails: /x/ffmpeg cannot start
+        var waveform = tab.WaveformJob!;
+        Assert.True(SpinWait.SpinUntil(() => waveform.IsDone, TimeSpan.FromSeconds(10)));
+        Assert.False(EditorQaScript.VideoJobsIdle(tab)); // done, but not applied yet
+        tab.Tick();
+        Assert.True(EditorQaScript.VideoJobsIdle(tab));
+
+        tab.SilenceJob = VideoJob.Start<IReadOnlyList<MainframeEngine.Video.Detection.SilenceSpan>>("silence", async (_, ct) =>
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            return [];
+        });
+        Assert.False(EditorQaScript.VideoJobsIdle(tab));
+        tab.SilenceJob.Dispose();
+        tab.SilenceJob = null;
+        Assert.True(EditorQaScript.VideoJobsIdle(tab));
+
+        tab.State.Playhead = 9.4;
+        Assert.False(EditorQaScript.VideoPositionReached(tab, 9.5));
+        tab.State.Playhead = 9.5;
+        Assert.True(EditorQaScript.VideoPositionReached(tab, 9.5));
+    }
+
+    [Fact]
     public void ARecentVideoOpensAndAMissingOneIsForgotten()
     {
         var project = VideoProject();
