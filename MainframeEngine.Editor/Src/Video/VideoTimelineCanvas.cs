@@ -185,8 +185,8 @@ public sealed class VideoTimelineCanvas : EditorCanvas
             return;
 
         var ruler = VideoTimelineView.RulerHeight;
-        var x0 = (float)_view.TimeToX(section.Start);
-        var x1 = (float)_view.TimeToX(section.End);
+        var x0 = (float)_view.TimeToX(Math.Min(section.Start, section.End));
+        var x1 = (float)_view.TimeToX(Math.Max(section.Start, section.End));
         Box(x0, ruler, x1 - x0, h - ruler, SectionFill);
         var e0 = PixelCentre(x0);
         var e1 = PixelCentre(x1);

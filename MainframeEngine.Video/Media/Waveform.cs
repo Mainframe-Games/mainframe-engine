@@ -172,8 +172,11 @@ public sealed class Waveform
     public WaveformLevel LevelFor(double secondsPerPixel)
     {
         var chosen = Levels[0];
-        foreach (var level in Levels)
+
+        // Indexed, not foreach: this runs every frame while drawing, and enumerating the interface allocates.
+        for (var i = 0; i < Levels.Count; i++)
         {
+            var level = Levels[i];
             if (level.SecondsPerBucket <= secondsPerPixel)
             {
                 chosen = level;
