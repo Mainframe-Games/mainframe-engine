@@ -155,6 +155,12 @@ jobs:
           --logger "trx;LogFileName=editor-tests.trx"
           --results-directory TestResults
 
+      - name: Video editor unit tests
+        run: >-
+          dotnet test Tests/MainframeEngine.Video.Tests -c Release --no-build
+          --logger "trx;LogFileName=video-tests.trx"
+          --results-directory TestResults
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

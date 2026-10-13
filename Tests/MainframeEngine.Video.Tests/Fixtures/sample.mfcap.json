@@ -1,0 +1,29 @@
+{
+  "format": "mainframe-capture",
+  "version": 1,
+  "video": "forest-20261012-143005.mp4",
+  "engineVersion": "0.42.0",
+  "game": "Forest",
+  "scene": "res://Scenes/Forest.scn",
+  "mode": "live",
+  "frameRate": 60,
+  "width": 1920,
+  "height": 1080,
+  "durationSeconds": 60.0,
+  "droppedFrames": 0,
+  "input": [
+    { "start": 0.0, "end": 8.0 },
+    { "start": 8.5, "end": 14.0 },
+    { "start": 22.0, "end": 31.0 },
+    { "start": 44.0, "end": 52.0 },
+    { "start": 53.0, "end": 56.0 }
+  ],
+  "loading": [ { "start": 14.5, "end": 19.0 } ],
+  "paused": [ { "start": 56.0, "end": 60.0 } ],
+  "keep": [ { "start": 32.0, "end": 35.0, "label": "cutscene" } ],
+  "skip": [],
+  "markers": [
+    { "time": 26.0, "label": "boss intro" },
+    { "time": 41.0, "label": "chest opens" }
+  ]
+}

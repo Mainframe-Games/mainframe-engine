@@ -14,10 +14,11 @@ default:
 build config="Debug":
     dotnet build {{solution}} -c {{config}}
 
-# Unit tests (no GPU): engine and editor
+# Unit tests (no GPU): engine, editor and video editor logic
 test:
     dotnet test Tests/MainframeEngine.Tests
     dotnet test Tests/MainframeEngine.Editor.Tests
+    dotnet test Tests/MainframeEngine.Video.Tests
 
 # Unit tests with coverage (Cobertura XML under artifacts/coverage)
 coverage:

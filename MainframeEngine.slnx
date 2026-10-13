@@ -8,6 +8,7 @@
     <Project Path="Tests/MainframeEngine.RenderTests.Host/MainframeEngine.RenderTests.Host.csproj" />
     <Project Path="Tests/MainframeEngine.RenderTests/MainframeEngine.RenderTests.csproj" />
     <Project Path="Tests/MainframeEngine.Tests/MainframeEngine.Tests.csproj" />
+    <Project Path="Tests/MainframeEngine.Video.Tests/MainframeEngine.Video.Tests.csproj" />
   </Folder>
   <Folder Name="/Tools/">
     <Project Path="Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj" />
@@ -17,5 +18,6 @@
   <Project Path="MainframeEngine.Generators/MainframeEngine.Generators.csproj" />
   <Project Path="MainframeEngine.Steamworks/Posix/MainframeEngine.Steamworks.Posix.csproj" />
   <Project Path="MainframeEngine.Steamworks/Win64/MainframeEngine.Steamworks.Win64.csproj" />
+  <Project Path="MainframeEngine.Video/MainframeEngine.Video.csproj" />
   <Project Path="MainframeEngine/MainframeEngine.csproj" />
 </Solution>

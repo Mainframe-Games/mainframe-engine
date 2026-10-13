@@ -42,6 +42,8 @@ if [ "$suite" = all ] || [ "$suite" = unit ]; then
     check --dir Examples/Demo/Content/locale --msgfmt || status=1
   run_tests Tests/MainframeEngine.Editor.Tests -c Release --no-build "${hang[@]}" \
     --logger "trx;LogFileName=editor-tests.trx" --results-directory TestResults "$@" || status=1
+  run_tests Tests/MainframeEngine.Video.Tests -c Release --no-build "${hang[@]}" \
+    --logger "trx;LogFileName=video-tests.trx" --results-directory TestResults "$@" || status=1
 fi
 
 if [ "$suite" = all ] || [ "$suite" = render ]; then
