@@ -409,6 +409,39 @@ public sealed class VideoWorkspaceTests : IDisposable
     }
 
     [Fact]
+    public void DetectSilenceAgainAfterTheJobFinishedKeepsItsResult()
+    {
+        var tab = FakeTab();
+        IReadOnlyList<SilenceSpan> spans = [new SilenceSpan(10, 20)];
+        var job = VideoJob.Start("silence", (p, ct) => Task.FromResult(spans));
+        tab.SilenceJob = job;
+        Assert.True(SpinWait.SpinUntil(() => job.IsDone, TimeSpan.FromSeconds(10))); // done, not yet polled
+
+        W.VideoView.DetectSilence(tab); // the button still read "Cancel" a frame ago
+        Assert.False(job.IsCancelled);
+        _editor.Tick();
+        Assert.StartsWith("Detected 1 silence", tab.Notice, StringComparison.Ordinal);
+        Assert.Equal(3, tab.Document.Segments.Count);
+    }
+
+    [Fact]
+    public void TranscribeAgainAfterTheJobFinishedKeepsItsResult()
+    {
+        var tab = FakeTab();
+        IReadOnlyList<Word> words = VideoDocumentTests.Words();
+        var job = VideoJob.Start("transcribe", (p, ct) => Task.FromResult(words));
+        tab.TranscribeJob = job;
+        tab.TranscribeRun = new TranscribeRun(MainframeEngine.Video.Analysis.WhisperModel.BaseEn, downloads: false, thenRemoveFillers: false);
+        Assert.True(SpinWait.SpinUntil(() => job.IsDone, TimeSpan.FromSeconds(10)));
+
+        W.VideoView.Transcribe(tab);
+        Assert.False(job.IsCancelled);
+        _editor.Tick();
+        Assert.Equal("Transcribed 4 words.", tab.Notice);
+        Assert.Equal(4, tab.Document.Transcript.Count);
+    }
+
+    [Fact]
     public void DetectSilenceAgainCancelsTheRunningJob()
     {
         var tab = FakeTab();

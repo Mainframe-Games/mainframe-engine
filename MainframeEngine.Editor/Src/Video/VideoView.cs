@@ -305,14 +305,16 @@ public sealed class VideoView : Node
 
     /// <summary>
     /// Detect Silence: runs ffmpeg's <c>silencedetect</c> over the recording in the background; <see cref="PollJobs"/> lays
-    /// out the cuts when it finishes. A second call while it runs cancels it.
+    /// out the cuts when it finishes. A second call while it runs cancels it; once it has finished, it does nothing.
     /// </summary>
     public void DetectSilence(VideoTab tab)
     {
         ArgumentNullException.ThrowIfNull(tab);
         if (tab.SilenceJob is { } running)
         {
-            running.Cancel();
+            // A job that finished since the last frame is not cancelled: PollJobs applies its result.
+            if (!running.IsDone)
+                running.Cancel();
             return;
         }
 
@@ -512,7 +514,8 @@ public sealed class VideoView : Node
     /// <summary>
     /// Transcribe: downloads the speech model first if it is not cached (the first half of the progress), then runs
     /// Whisper over the recording's audio in the background; <see cref="PollJobs"/> installs the words when it finishes.
-    /// A second call while it runs cancels it. Everything runs on this machine; the model download is the only network use.
+    /// A second call while it runs cancels it; once it has finished, it does nothing. Everything runs on this machine; the
+    /// model download is the only network use.
     /// </summary>
     /// <param name="tab">The video tab to transcribe.</param>
     /// <param name="thenRemoveFillers">Cuts the filler words as soon as the transcript arrives.</param>
@@ -521,7 +524,9 @@ public sealed class VideoView : Node
         ArgumentNullException.ThrowIfNull(tab);
         if (tab.TranscribeJob is { } running)
         {
-            running.Cancel();
+            // A job that finished since the last frame is not cancelled: PollJobs installs its words.
+            if (!running.IsDone)
+                running.Cancel();
             return;
         }
 
