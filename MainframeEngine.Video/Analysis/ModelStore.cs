@@ -58,6 +58,7 @@ public sealed class ModelStore
         try
         {
             Directory.CreateDirectory(CacheDirectory);
+            DeleteAbandonedParts(path, DateTime.UtcNow);
             cancellationToken.ThrowIfCancellationRequested();
             using var source = await WhisperGgmlDownloader.Default
                 .GetGgmlModelAsync(info.GgmlType, QuantizationType.NoQuantization, cancellationToken)
@@ -116,6 +117,34 @@ public sealed class ModelStore
     /// it, unique per download, so two first-time downloads of the same model never write into one file.
     /// </summary>
     internal static string PartPathFor(string path) => $"{path}.{Guid.NewGuid():N}.part";
+
+    /// <summary>
+    /// How long a <c>.part</c> file can go unwritten before it counts as abandoned. A running download writes it every few
+    /// milliseconds, so only one interrupted by a crash or a kill gets this old.
+    /// </summary>
+    internal static readonly TimeSpan AbandonedPartAge = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// Deletes the <c>.part</c> files of <paramref name="path"/> left by downloads that were interrupted (each download
+    /// writes its own, see <see cref="PartPathFor"/>, so nothing else would ever replace them). A file written to within
+    /// <see cref="AbandonedPartAge"/> belongs to a download still running and is kept.
+    /// </summary>
+    internal static void DeleteAbandonedParts(string path, DateTime nowUtc)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (directory is null || !Directory.Exists(directory))
+        {
+            return;
+        }
+
+        foreach (var part in Directory.EnumerateFiles(directory, Path.GetFileName(path) + ".*.part"))
+        {
+            if (nowUtc - File.GetLastWriteTimeUtc(part) > AbandonedPartAge)
+            {
+                TryDelete(part);
+            }
+        }
+    }
 
     /// <summary>
     /// Moves a finished download into place atomically. When another download got there first, the model already in

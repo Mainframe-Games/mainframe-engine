@@ -146,4 +146,32 @@ public sealed class ModelStoreTests : IDisposable
         Assert.False(File.Exists(second));
         Assert.Equal([path], Directory.GetFiles(_dir));
     }
+
+    [Fact]
+    public void AbandonedPartFilesAreDeletedAndRunningOnesKept()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "ggml-tiny.en.bin");
+        var now = DateTime.UtcNow;
+        var abandoned = ModelStore.PartPathFor(path);
+        var running = ModelStore.PartPathFor(path);
+        var otherModel = ModelStore.PartPathFor(Path.Combine(_dir, "ggml-base.en.bin"));
+        foreach (var file in new[] { abandoned, running, otherModel })
+        {
+            File.WriteAllBytes(file, [1]);
+        }
+
+        File.SetLastWriteTimeUtc(abandoned, now - ModelStore.AbandonedPartAge - TimeSpan.FromMinutes(1));
+        File.SetLastWriteTimeUtc(otherModel, now - TimeSpan.FromDays(1));
+
+        ModelStore.DeleteAbandonedParts(path, now);
+
+        Assert.False(File.Exists(abandoned)); // interrupted an hour ago: nothing would ever replace it
+        Assert.True(File.Exists(running)); // written just now: a download in progress
+        Assert.True(File.Exists(otherModel)); // another model's: not this download's to judge
+    }
+
+    [Fact]
+    public void SweepingAFolderThatDoesNotExistDoesNothing() =>
+        ModelStore.DeleteAbandonedParts(Path.Combine(_dir, "missing", "ggml-tiny.en.bin"), DateTime.UtcNow);
 }

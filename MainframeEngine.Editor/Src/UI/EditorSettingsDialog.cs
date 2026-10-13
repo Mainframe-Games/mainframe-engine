@@ -359,6 +359,10 @@ public sealed class EditorSettingsDialog : EditorDocument
     {
         if (IsLoaded && Layer?.Context is { IsDisposed: false } context && FieldOf(context.FocusElement) is { } typing)
             CommitVideoField(typing.Id); // Enter was not pressed and the field not left: take what is in it
+        // Not edited here, and saved while the dialog is open (a mode switch, a recording opened from the Recording saved
+        // message): take the current values, or Apply would put back the ones from when the dialog opened.
+        _working.LastMode = Workspace.Settings.LastMode;
+        _working.RecentVideos = [.. Workspace.Settings.RecentVideos];
         Workspace.ApplySettings(_working.Clone());
         HideAndReleaseFocus();
     }

@@ -629,6 +629,24 @@ public sealed class VideoSettingsWiringTests : IDisposable
     }
 
     [Fact]
+    public void ApplyKeepsTheModeAndRecentVideosSavedWhileTheDialogWasOpen()
+    {
+        W.EditorSettingsDialog.Open();
+        _editor.Tick(2);
+
+        // Saved while the dialog is open: a mode switch, and a recording added to the recent list.
+        W.SetMode(EditorMode.Video);
+        var recent = W.Settings.Clone();
+        recent.RecentVideos.Insert(0, Path.GetFullPath("/r/new.mp4"));
+        W.StoreSettings(recent);
+
+        W.EditorSettingsDialog.Apply();
+
+        Assert.Equal(EditorMode.Video, W.Settings.LastMode);
+        Assert.Equal(Path.GetFullPath("/r/new.mp4"), W.Settings.RecentVideos[0]);
+    }
+
+    [Fact]
     public void TheDialogKeepsItsSizeAndTheBodyScrollsToTheVideoSection()
     {
         W.EditorSettingsDialog.Open();

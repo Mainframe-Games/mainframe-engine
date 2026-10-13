@@ -227,7 +227,9 @@ at least 80 dp apart. Only the left button edits, and a gesture keeps the pointe
 
 - **Transcribe** runs `WhisperTranscriber` in a `VideoJob`:
   1. If the model is missing, it downloads it into `~/.mainframe/models` first (the first half of the progress; the button
-     says "Downloading model n %"). This is the editor's only network access for video.
+     says "Downloading model n %"). This is the editor's only network access for video. Each download writes its own
+     `<model>.<id>.part` and moves it into place when complete; a `.part` left by an interrupted download (untouched for an
+     hour) is deleted the next time a model downloads.
   2. It extracts 16 kHz PCM with ffmpeg and runs Whisper with Cutback's disfluent prompt and DTW anchors.
   3. The words go into the project's `transcript` (saved in the `.mfcut`); the notice says "Transcribed n words." or "No
      speech was recognised.".
@@ -317,7 +319,8 @@ included) and **refuse the source recording**. Save paths are also normalised to
 | Undo history | 100 | 10–1000 |
 
 Every value clamps in its setter. The text fields commit on Enter or when they lose focus (Apply commits the focused
-one), so typing "100" or "-40" is never rewritten mid-keystroke. The ffmpeg setting also serves Play and Record: the
+one), so typing "100" or "-40" is never rewritten mid-keystroke. Apply keeps the last mode and the recent videos as they are
+now, not as they were when the dialog opened: neither is edited in the dialog, and both can be saved while it is open. The ffmpeg setting also serves Play and Record: the
 editor passes it to the game as `--ffmpeg` (the `ffmpeg` inside a folder, or beside an `ffprobe`).
 
 **Which ffmpeg runs.** Opening a recording locates ffmpeg (`VideoFfmpeg.Locate`) for the probe, the waveform and the
