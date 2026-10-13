@@ -232,7 +232,9 @@ at least 80 dp apart. Only the left button edits, and a gesture keeps the pointe
   3. The words go into the project's `transcript` (saved in the `.mfcut`); the notice says "Transcribed n words." or "No
      speech was recognised.".
 
-  A model that fails to load is deleted when it looks truncated, so the next run downloads it again.
+  A model that fails to load is deleted when it looks truncated, so the next run downloads it again. When it is
+  Whisper's native library that failed to load (missing, the wrong architecture), the model is kept and the error says
+  "The speech recognition library could not be loaded."
 - **Model choice:** Video Settings, tiny.en (78 MB) to medium.en (1.5 GB); the default is base.en (148 MB).
 - **Transcript panel.** Paragraphs break after 2 s pauses; one `<span>` per word, struck through when cut
   (`TranscriptView.IsCut`); the current word is highlighted. The panel rebuilds its markup only when the transcript

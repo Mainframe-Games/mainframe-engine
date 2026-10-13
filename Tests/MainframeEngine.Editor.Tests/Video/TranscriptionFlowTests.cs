@@ -259,6 +259,33 @@ public sealed class TranscriptionFlowTests : IDisposable
         Assert.False(File.Exists(modelFile));
     }
 
+    [Theory]
+    [InlineData("dll")]
+    [InlineData("image")]
+    [InlineData("whisper")]
+    public void ANativeLibraryThatWillNotLoadIsNotBlamedOnTheModel(string kind)
+    {
+        PlantModel(); // looks truncated, but the model is not what failed: it must stay
+        var modelFile = Path.Combine(_models, WhisperModelInfo.Default.FileName);
+        Exception native = kind switch
+        {
+            "dll" => new DllNotFoundException("Unable to load shared library 'libwhisper'."),
+            "image" => new BadImageFormatException("An attempt was made to load a program with an incorrect format."),
+            _ => new InvalidOperationException("Failed to load native whisper library. Error: dlopen failed"),
+        };
+        W.VideoView.TranscriberFactory = (_, path, _) =>
+            new FakeTranscriber((_, _) => throw new ModelLoadException($"The speech model at {path} could not be loaded: {native.Message}", path, native));
+        var tab = OpenTab();
+        W.Commands.Execute("video.transcribe");
+        Finish(tab);
+        var message = W.Message.Current!.Message;
+        Assert.Contains("Transcription failed", message, StringComparison.Ordinal);
+        Assert.Contains("The speech recognition library could not be loaded.", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("has been removed", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("delete the file", message, StringComparison.Ordinal);
+        Assert.True(File.Exists(modelFile));
+    }
+
     [Fact]
     public void TranscribingWithoutFfmpegReportsIt()
     {

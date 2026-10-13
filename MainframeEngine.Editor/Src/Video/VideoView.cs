@@ -609,11 +609,15 @@ public sealed class VideoView : Node
         });
 
     // Cutback's advice per failure: a model that would not load is deleted when it looks truncated so the next run fetches
-    // it again; a missing native library says so. Anything else keeps its own message.
+    // it again; a native library that would not load says so, whether it surfaced on its own or inside the model load
+    // (the model is fine then, and kept). Anything else keeps its own message.
     private Exception ExplainTranscribeFailure(Exception error, TranscribeRun? run)
     {
         switch (error)
         {
+            case ModelLoadException { IsNativeLibraryFailure: true } native:
+                return new InvalidOperationException(
+                    "The speech recognition library could not be loaded. " + native.InnerException!.Message, native);
             case ModelLoadException load:
                 var store = new ModelStore(_workspace.Options.VideoModelsDirectory);
                 var model = run?.Model ?? SpeechModel;
