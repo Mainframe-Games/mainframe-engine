@@ -72,13 +72,21 @@ public sealed record EditorLayoutSettings
     /// <summary>Video mode shows the output panel below the view (View › Show/Hide Output); game mode always does.</summary>
     public bool VideoShowOutput { get; init; }
 
-    /// <summary>Video mode shows the transcript beside the preview (View › Show/Hide Transcript).</summary>
-    public bool VideoShowTranscript { get; init; } = true;
+    /// <summary>
+    /// Video mode hides the transcript beside the preview (View › Show/Hide Transcript). Stored inverted, so a file written
+    /// without the key shows it: the JSON source generator ignores the initializers of <c>init</c> properties, and a
+    /// missing <c>bool</c> reads as false.
+    /// </summary>
+    public bool VideoHideTranscript { get; init; }
 
-    /// <summary>Video mode's transcript width in dp.</summary>
+    /// <summary>Video mode shows the transcript beside the preview: <see cref="VideoHideTranscript"/> inverted.</summary>
+    [JsonIgnore]
+    public bool VideoShowTranscript => !VideoHideTranscript;
+
+    /// <summary>Video mode's transcript width in dp (a file without the key reads 0, which <c>Load</c> restores to 320).</summary>
     public float VideoTranscriptWidth { get; init; } = 320;
 
-    /// <summary>Video mode's timeline height in dp.</summary>
+    /// <summary>Video mode's timeline height in dp (a file without the key reads 0, which <c>Load</c> restores to 180).</summary>
     public float VideoTimelineHeight { get; init; } = 180;
 }
 
@@ -258,7 +266,7 @@ public sealed class EditorLayout
     };
 
     /// <summary>View › Show/Hide Transcript: the panel's own layout follows (no rectangle here changes).</summary>
-    public void SetVideoShowTranscript(bool show) => Settings = Settings with { VideoShowTranscript = show };
+    public void SetVideoShowTranscript(bool show) => Settings = Settings with { VideoHideTranscript = !show };
 
     /// <summary>View › Show/Hide Output in video mode: the output panel's rectangle appears or goes.</summary>
     public void SetVideoShowOutput(bool show)
