@@ -122,7 +122,7 @@
         <button id="video-silence" class="video-job disabled" data-command="video.detect_silence" data-tooltip="Detect Silence — cut the pauses; your own cuts and kept regions stay">Detect silence</button>
         <button id="video-idle" class="video-job disabled" data-command="video.detect_idle" data-tooltip="Detect Idle Gameplay — cut loading, pauses and stretches without input, from the recording's Mainframe Engine data">Detect idle gameplay</button>
         <div class="spacer"></div>
-        <span id="video-kept" class="muted" data-tooltip="Kept — the exported length of the recording's length"></span>
+        <span id="video-kept" class="muted" data-tooltip="Kept — how long the export will be, of the recording's full length"></span>
         <button id="video-export" class="accent disabled" data-command="video.export" data-tooltip="Export Video (Ctrl+E) — write the kept footage to a new file">Export</button>
     </div>
     <div id="mode-toggle"><button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record">Game</button><button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings">Video</button></div>

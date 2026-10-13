@@ -3,6 +3,7 @@ using MainframeEngine.Editor.Video;
 using MainframeEngine.Video.Detection;
 using MainframeEngine.Video.Media;
 using MainframeEngine.Video.Media.Preview;
+using MainframeEngine.Video.Models;
 using MainframeEngine.Video.Projects;
 using Silk.NET.Input;
 using VideoCapture = MainframeEngine.Video.Capture;
@@ -337,6 +338,67 @@ public sealed class VideoWorkspaceTests : IDisposable
         Assert.StartsWith("Detected 1 silence", tab.Notice, StringComparison.Ordinal);
         Assert.Equal(3, tab.Document.Segments.Count);
         W.Commands.Execute("edit.undo");
+        Assert.Single(tab.Document.Segments.Segments);
+    }
+
+    [Fact]
+    public void TheSilenceCutsUseTheSettingsTheJobDetectedWith()
+    {
+        var tab = FakeTab();
+        var detectedWith = DetectionSettings.Default with { PaddingMs = 500 };
+        IReadOnlyList<SilenceSpan> spans = [new SilenceSpan(10, 20)];
+        tab.SilenceSettings = detectedWith; // as DetectSilence captures them when the job starts
+        tab.SilenceJob = VideoJob.Start("silence", (p, ct) => Task.FromResult(spans));
+        Assert.True(SpinWait.SpinUntil(() => tab.SilenceJob.IsDone, TimeSpan.FromSeconds(10)));
+        _editor.Tick();
+        Assert.Same(detectedWith, tab.Document.Project.Settings);
+        Assert.Null(tab.SilenceSettings);
+        Assert.Equal(10.5, tab.Document.Segments.Segments[1].Start, 6); // 500 ms of padding, not the default 60
+    }
+
+    [Fact]
+    public void ClosingATabWhileItsSilenceJobRunsIsClean()
+    {
+        var tab = FakeTab();
+        var job = VideoJob.Start("silence", async (p, ct) =>
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            return (IReadOnlyList<SilenceSpan>)[];
+        });
+        tab.SilenceJob = job;
+        _editor.Tick();
+        W.Session.Close(tab);
+        _editor.Tick(3);
+        Assert.True(job.IsCancelled);
+        Assert.Null(tab.SilenceJob);
+        Assert.Null(W.VideoView.Tab);
+        Assert.False(W.Message.Visible);
+    }
+
+    [Fact]
+    public void LeavingForGameModeUnpublishesTheImagesAndClearsTheHover()
+    {
+        var tab = OpenProject();
+        var preview = W.VideoPanel.Document.GetElementById("video-preview-image");
+        var timeline = W.VideoPanel.Document.GetElementById("video-timeline-image");
+        Assert.True(W.VideoView.PublishesTextures);
+        Assert.Equal("engine://" + VideoView.PreviewTexture, preview.GetAttribute("src"));
+        Assert.Equal("engine://" + VideoView.TimelineTexture, timeline.GetAttribute("src"));
+        Push(new InputEventMouseMotion { Position = InTimeline(100, 80) });
+        Assert.Equal(0, tab.State.HoverSegment);
+
+        W.SetMode(EditorMode.Game);
+        _editor.Tick();
+        Assert.False(W.VideoView.PublishesTextures);
+        Assert.Null(preview.GetAttribute("src"));
+        Assert.Null(timeline.GetAttribute("src"));
+        Assert.Equal(-1, tab.State.HoverSegment);
+
+        W.SetMode(EditorMode.Video);
+        _editor.Tick(2);
+        Assert.True(W.VideoView.PublishesTextures);
+        Assert.Equal(-1, tab.State.HoverSegment);
+        _editor.Key(Key.Delete); // nothing is hovered, so nothing is deleted
         Assert.Single(tab.Document.Segments.Segments);
     }
 

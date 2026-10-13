@@ -19,7 +19,11 @@ public sealed class VideoTimelineView
     public const double FollowLead = 0.1;
     public const double LabelSpacing = 80;
 
-    public static readonly double[] NiceIntervals = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600];
+    /// <summary>
+    /// The ruler's major intervals. Below a second each is a whole number of tenths, so the <c>m:ss.t</c> labels are exact
+    /// (Cutback's 0.25 s step is dropped: it would read 0:00.3 for 0.25).
+    /// </summary>
+    public static readonly double[] NiceIntervals = [0.1, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600];
 
     private float _width = 1;
 

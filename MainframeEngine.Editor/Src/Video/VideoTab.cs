@@ -42,12 +42,13 @@ public sealed class VideoTab : IEditorTab
         TimelineViewport.AddChild(Timeline);
         Notice = document.Warnings.Count > 0 ? string.Join(" ", document.Warnings) : null;
         _previewVersion = document.Version;
+        // A paused preview shows nothing until a frame is decoded: scrub to the start so the picture is there at once.
+        // First, so a throw here leaks neither the waveform job nor the document subscription.
+        Preview.Seek(0);
         if (ffmpeg is not null)
             WaveformJob = VideoJob.Start("waveform",
                 (p, ct) => new WaveformExtractor(ffmpeg).ExtractAsync(document.SourcePath, document.Duration, p, ct));
         document.DirtyChanged += OnDirtyChanged;
-        // A paused preview shows nothing until a frame is decoded: scrub to the start so the picture is there at once.
-        Preview.Seek(0);
     }
 
     public EditorMode Mode => EditorMode.Video;
@@ -77,6 +78,12 @@ public sealed class VideoTab : IEditorTab
     public VideoJob<Waveform>? WaveformJob { get; private set; }
 
     public VideoJob<IReadOnlyList<SilenceSpan>>? SilenceJob { get; set; }
+
+    /// <summary>
+    /// The settings <see cref="SilenceJob"/> detects with, captured when it starts: its cuts are laid out with the same
+    /// padding and minimum keep even if the settings change while it runs.
+    /// </summary>
+    public DetectionSettings? SilenceSettings { get; set; }
 
     public VideoJob<IReadOnlyList<Word>>? TranscribeJob { get; set; }
 
@@ -206,6 +213,7 @@ public sealed class VideoTab : IEditorTab
         ExportJob?.Dispose();
         WaveformJob = null;
         SilenceJob = null;
+        SilenceSettings = null;
         TranscribeJob = null;
         ExportJob = null;
         Preview.Dispose(); // kills every decoder and the voice, frees its viewport

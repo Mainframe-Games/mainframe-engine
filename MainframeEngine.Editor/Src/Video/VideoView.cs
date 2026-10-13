@@ -45,6 +45,9 @@ public sealed class VideoView : Node
     /// <summary>The video tab shown (the active tab in video mode), or null.</summary>
     public VideoTab? Tab => _tab;
 
+    /// <summary>True while either texture is published to the UI (tests: a switch away unpublishes both).</summary>
+    internal bool PublishesTextures => _timelineRegistered is not null || _previewRegistered is not null;
+
     // Video Settings (Task 15) will supply these; until then Cutback's defaults.
     private static DetectionSettings Detection => DetectionSettings.Default;
 
@@ -107,7 +110,11 @@ public sealed class VideoView : Node
         _dragging = false;
         _hovering = false;
         if (_tab is { } old)
+        {
             old.Controller.ShowSegmentMenu = null;
+            old.Controller.Hover(Away); // no stale hovered region survives the switch (Delete would hit it on return)
+        }
+
         _tab = tab;
         if (_timelineRegistered is not null || _previewRegistered is not null)
         {
@@ -274,6 +281,7 @@ public sealed class VideoView : Node
 
         var document = tab.Document;
         var settings = Detection;
+        tab.SilenceSettings = settings;
         tab.SilenceJob = VideoJob.Start("silence",
             (p, ct) => new SilenceDetector(ffmpeg).DetectAsync(document.SourcePath, document.Duration, settings, p, ct));
         Log.Info($"[Video] Detecting silence in {Path.GetFileName(document.SourcePath)}…");
@@ -286,21 +294,23 @@ public sealed class VideoView : Node
         if (tab.SilenceJob is not { IsDone: true } job)
             return;
         tab.SilenceJob = null;
+        var settings = tab.SilenceSettings ?? Detection; // the ones it detected with
+        tab.SilenceSettings = null;
         var task = job.Task;
         if (task.IsCanceled || job.IsCancelled || task.Exception?.GetBaseException() is OperationCanceledException)
             tab.Notice = "Silence detection cancelled.";
         else if (task.Exception?.GetBaseException() is { } error)
             _workspace.Commands.ReportError("Detect Silence failed", error);
         else
-            ApplySilence(tab, task.Result);
+            ApplySilence(tab, task.Result, settings);
         job.Dispose();
     }
 
     // Kept out of PollJobs: a lambda capturing its parameter would allocate a closure on every call, every frame.
-    private void ApplySilence(VideoTab tab, IReadOnlyList<SilenceSpan> spans) =>
+    private void ApplySilence(VideoTab tab, IReadOnlyList<SilenceSpan> spans, DetectionSettings settings) =>
         Guard("Detect Silence failed", () =>
         {
             tab.Controller.CancelGesture();
-            tab.Notice = tab.Document.ApplySilence(spans, Detection);
+            tab.Notice = tab.Document.ApplySilence(spans, settings);
         });
 }
