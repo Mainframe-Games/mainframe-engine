@@ -166,7 +166,7 @@ Nothing else: no gizmo, view, Play or Record keys (F10 does nothing in video mod
 ## Editor modes
 
 The editor has two modes, **Game** (everything above) and **Video** (trimming recordings), switched by the Game|Video
-toggle at the toolbar's right edge or View › Switch to Video/Game Mode. `EditorWorkspace.SetMode(EditorMode)`:
+toggle near the right end of the toolbar or View › Switch to Video/Game Mode. `EditorWorkspace.SetMode(EditorMode)`:
 
 - **swaps the layout**: video mode hides the Scene tree, Inspector and FileSystem (and the Output unless View › Show/Hide
   Output is on) and shows the video view (preview, transcript, notice line, timeline) under the tab strip;
@@ -844,8 +844,10 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
   walkthrough also captures the update dialog (`update-preview X.Y.Z`, no network) and the Editor Settings dialog.
 - **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): the fixture recording opened,
-  idle and silence detection, a tiny.en transcription (`video set whisper-model tiny.en`), undo, playback and the mode
-  switch, each captured. Needs a display, ffmpeg and (once) the network; not run in CI. See
+  idle and silence detection, a tiny.en transcription (`video set whisper-model tiny.en`), undo, playback across a cut
+  and the mode switch, each captured. `wait N` counts frames, so the long steps wait on conditions: `wait-for video-jobs
+  [seconds]` (no waveform, silence, transcription or export job left on the active video tab) and `wait-for
+  video-position <s> [seconds]` (its playhead has reached a time). Needs a display, ffmpeg and (once) the network; not run in CI. See
   [Video editing mode](video-editor.md#testing).
 - **Record QA** ([record.qa](../../Tests/QA/record.qa), `just qa-editor Tests/QA/record.qa`): F10 from idle and mid-session, and Stop (F8) while
   recording, with captures of the REC readout, the saving state and the saved dialogs. Needs a display and ffmpeg; not run in CI.

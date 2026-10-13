@@ -18,7 +18,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
     `RuntimeFieldInfoStub` per `CreateSpan`); fixed with static arrays and a unit test.
   - QA: `Tests/QA/video.qa` over `Tests/QA/Fixtures/video/sample.mp4` (`build/make-video-fixture.sh`); a partial run up to
     `video-02-opened` showed the test pattern, the waveform's 4–6 s dropout and the 10 s marker. The full run (detect,
-    transcribe with tiny.en, undo, play, mode switch) is the controller's to run and inspect.
+    transcribe with tiny.en, undo, play, mode switch) is the controller's to run and inspect. Its first run showed that
+    `wait N` counts frames (~120 fps), so the script now waits on `wait-for video-jobs` and `wait-for video-position`.
   - Gates (Task 17): `just build` 0 warnings; Release `-warnaserror` build clean; `just test` engine 2496 (1 skipped),
     editor 1222 (5 skipped), video 456; `just format-check` and `just l10n-check` clean; `just test-render` 177/177
     (MinimiseAndRestoreIsCleanAndResumesRendering passed in the full run this time).

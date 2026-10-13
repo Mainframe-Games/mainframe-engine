@@ -90,7 +90,7 @@ Settings live in `EditorSettings` (`Video*` properties) and are edited in the Ed
 2. **Swaps the menus.** Game: File, Edit, View, Project, Run, Help. Video: File, Edit, View, Video, Help.
    `EditorCommands.MenuItems` returns the video tables in video mode; command ids are shared where the meaning is the
    same (`file.save`, `edit.undo`) and a video tab handles them first.
-3. **Swaps the toolbar group.** The Game|Video toggle sits at the toolbar's right edge in both modes.
+3. **Swaps the toolbar group.** The Game|Video toggle sits near the right end of the toolbar in both modes (before Documentation, the update badge and the fps readout).
 4. **Filters the tab strip.** Game mode shows scenes, songs and UI previews; video mode shows video tabs. Each mode
    remembers its active tab. Tabs of the hidden mode stay open, and a video tab pauses when it is hidden (playback stops,
    its gesture is cancelled and its viewports stop rendering).
@@ -126,8 +126,8 @@ tabs are open).
   - **Video:** Play/Pause, Transcribe, Remove Filler Words, Detect Silence, Detect Idle Gameplay.
 - **Toolbar.** Play/Pause and Stop (pause and go to the start), the position (`m:ss.t / m:ss.t`), then Transcribe,
   Remove fillers, Detect silence and Detect idle gameplay. On the right: "Kept m:ss.t of m:ss.t", Export, and the
-  Game|Video toggle.
-  - Without a video tab every video button is disabled.
+  Game|Video toggle, followed by the editor's Documentation button, update badge and fps readout.
+  - Without a video tab every video button is disabled, and the position is hidden.
   - Detect idle gameplay is disabled without a sidecar; its tooltip says why.
   - **Remove fillers is enabled without a transcript**: it transcribes first and cuts the fillers when the words arrive
     (while a transcription runs, it asks that one to cut them).
@@ -358,7 +358,8 @@ Cutback's project JSON, schema version 3, unchanged:
 - **QA, by hand:** `just qa-editor Tests/QA/video.qa` over the committed 12 s fixture `Tests/QA/Fixtures/video/sample.mp4`
   (`build/make-video-fixture.sh`: a test pattern whose 440 Hz tone drops out from 4 to 6 s, with a hand-written sidecar:
   loading 7–9 s, a marker at 10 s). It opens the fixture, runs Detect Idle Gameplay and Detect Silence, transcribes with
-  tiny.en (`video set whisper-model tiny.en`), undoes, plays and switches modes, capturing each step.
+  tiny.en (`video set whisper-model tiny.en`), undoes, plays past the cut and switches modes, capturing each step. It
+  waits on conditions, not frame counts: `wait-for video-jobs` and `wait-for video-position`.
 
 ## Known limits
 
