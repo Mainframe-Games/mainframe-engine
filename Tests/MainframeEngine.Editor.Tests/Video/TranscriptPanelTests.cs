@@ -45,6 +45,25 @@ public sealed class TranscriptPanelTests : IDisposable
     private static bool Disabled(VideoTab tab, double time) => tab.Document.Segments.Segments.Any(s => !s.Enabled && s.Start <= time && time < s.End);
 
     [Fact]
+    public void AHiddenTranscriptLetsGoOfAClosedTab()
+    {
+        var tab = Open();
+        Assert.Same(tab, Panel.Tab);
+        W.Layout.SetVideoShowTranscript(false);
+        _editor.Tick(2);
+        W.Session.Close(tab);
+        _editor.Tick(2);
+        Assert.Null(Panel.Tab); // the closed tab (its document, preview and transcript) is not kept alive
+
+        // Shown again, it follows the current tab and rebuilds.
+        var next = Open();
+        W.Layout.SetVideoShowTranscript(true);
+        _editor.Tick(2);
+        Assert.Same(next, Panel.Tab);
+        Assert.False(Word(1).IsNull);
+    }
+
+    [Fact]
     public void ClickingAWordCutsIt()
     {
         var tab = Open();

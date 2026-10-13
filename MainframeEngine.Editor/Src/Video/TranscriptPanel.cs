@@ -48,6 +48,9 @@ public sealed class TranscriptPanel
     /// <summary>How many times the whole markup was built (tests: an edit must not rebuild).</summary>
     internal int Rebuilds { get; private set; }
 
+    /// <summary>The tab the panel follows (tests: a closed tab is let go of even while the panel is hidden).</summary>
+    internal VideoTab? Tab => _tab;
+
     /// <summary>True while a press is drawing a run.</summary>
     internal bool IsPressed => _press >= 0;
 
@@ -72,18 +75,25 @@ public sealed class TranscriptPanel
         _listeners[2] = document.AsElement().AddEventListener("mouseup", OnMouseUp);
     }
 
+    /// <summary>
+    /// Every frame while the panel is hidden: only follows which tab is shown, building nothing, so a closed tab is not
+    /// kept alive; the next <see cref="Update"/> rebuilds for it.
+    /// </summary>
+    public void Follow(VideoTab? tab)
+    {
+        if (ReferenceEquals(tab, _tab))
+            return;
+        _tab = tab;
+        _builtWords = null;
+        ResetRun();
+    }
+
     /// <summary>Every frame while a video tab is shown: follows its transcript and cuts, and moves the current word.</summary>
     public void Update(VideoTab? tab)
     {
         if (_words.IsNull)
             return;
-        if (!ReferenceEquals(tab, _tab))
-        {
-            _tab = tab;
-            _builtWords = null;
-            ResetRun();
-        }
-
+        Follow(tab);
         if (tab is null)
             return;
         var document = tab.Document;

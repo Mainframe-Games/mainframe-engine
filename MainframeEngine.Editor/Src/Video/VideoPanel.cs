@@ -205,6 +205,8 @@ public sealed class VideoPanel : EditorDocument
 
         if (_showTranscript)
             _transcript.Update(tab);
+        else
+            _transcript.Follow(tab); // hidden: builds nothing, but lets go of a closed tab
         if (tab is null)
         {
             PreviewRect = default;
