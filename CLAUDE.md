@@ -117,7 +117,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   here), `ISaveStorage`/`ICloudSaveBackend` (M13 seam). `Src/Serialization/` also holds `JsonMigrations`, `DurableFile`,
   `ConfigFile`; `Src/UI/Settings/` the drop-in `SettingsMenu`
 - `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `UserSettings` (`settings.json`), `GameHost`/`GameSession`, `GameAssemblyLoader`
-  (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol, client and server
+  (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol (version 4: includes `StartRecording`/`StopRecording` and the `Recording` message), client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template, the `MainframeEngine.Templates` NuGet package
   (the editor ships a copy too; defaults to the `MainframeEngine` package of its own version, `--engine-source project`
   for a checkout; `build/template-smoke.sh`)
@@ -130,7 +130,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   3D/2D gizmos, picking), `Projects/` (`ProjectService`: game assembly in a collectible ALC, code reload; New Project,
   Project Settings), `Play/` (`dotnet build` + game processes over the editor link), `FileSystem/` (file tree, moves
   with UID reference fix-ups, OS trash), `Settings/` (editor settings, code editor), `Updates/` (self-update from GitHub Releases: check, download, `--apply-update` swap), `UI/` (panels, dialogs), `Qa/`
-  (`--qa-script`, `--smoke`). The RmlUi debugger is F9 (F5–F8 are Play keys). Code reload re-creates scenes that use
+  (`--qa-script`, `--smoke`). The RmlUi debugger is F9 (F5–F8 are Play keys, F10 is Play and Record). Code reload re-creates scenes that use
   game code: editor code must not keep game nodes/types in fields or statics past `ReleaseEditorReferences`.
   References engine core only (no generator: editor nodes stay unregistered). See `docs/design/editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
@@ -167,7 +167,7 @@ physics, input map, audio, localization, rendering, Steam, autoloads; versioned 
 builds: `isDemo` in `project.mfproj` (or `-p:MainframeDemo=true`) defines `DEMO` for game code (`#if DEMO`) through
 `build/MainframeGame.props`, which the template's `Directory.Build.props` imports; `GameHost.IsDemo` at run time. `GameHost` flags:
 `--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`, `--headless` (`HeadlessHost`: dedicated servers, no window/Vulkan/audio device),
-`--record <file.mp4>` (gameplay recording through the user's ffmpeg, with `--record-scale <n>` and `--ffmpeg <path>`; `docs/design/recording.md`). Input actions: `Input.IsActionPressed("jump")`
+`--record <file.mp4>` (gameplay recording through the user's ffmpeg, with `--record-scale <n>` and `--ffmpeg <path>`; the editor records with F10 and passes `--frame-capture` on every launch; `docs/design/recording.md`). Input actions: `Input.IsActionPressed("jump")`
 / `SceneTree.Input`. Logs are `LogEntry`s routed to `ILogSink`s (`Log.AddSink`; console, `FileLogSink`,
 `MemoryLogSink`); filtered `Log.X($"...")` costs nothing. Editor-facing: `EditorLinkServer`/`EditorLinkClient`,
 `GameAssemblyLoader` (collectible, GC-verified unload — never keep game objects in locals of the unloading method).

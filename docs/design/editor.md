@@ -110,8 +110,8 @@ flowchart TB
 
 | Panel | Document | What it does |
 |---|---|---|
-| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
-| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); the play group — Play (F5), Play Scene (F6), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload status; on the right Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout |
+| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Play and Record / Start Recording / Stop Recording, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right |
+| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); the play group — Play (F5), Play Scene (F6), Play and Record (F10, a red `point-filled` icon that turns into a red-filled REC button while recording), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload status; on the right Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout |
 | Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
@@ -142,10 +142,10 @@ Cmd (macOS) or Ctrl: N new · O open · S save · Shift+S save as · W close tab
 D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload. Plain keys:
 Delete/Backspace delete, F1 documentation (the [docs site](docs-site.md) in the browser), F2 rename, F frame, G grid,
 Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5 play (Shift+F5 another instance), F6 play the open
-scene, F7 pause/resume, F8 stop, F9 RmlUi debugger. Shortcuts are
+scene, F7 pause/resume, F8 stop, F9 RmlUi debugger, F10 play and record (start/stop recording). Shortcuts are
 unhandled input: a focused text field keeps its keys, and closed dialogs release focus. While a song tab is active its
 own keys come first ([Song tab](#song-tab-music-editor)): Space play/stop, R record, L loop, Home to start, Del, Cmd+C/V/D, arrows,
-Q; F5–F8 and the Cmd shortcuts above stay the editor's.
+Q; F5–F8, F10 and the Cmd shortcuts above stay the editor's.
 
 ## Icons
 
@@ -461,12 +461,13 @@ link ([Project & game host](project-and-gamehost.md)).
 | Play Scene | F6 | the same with `--scene <uid>` of the open tab (an untitled scene asks for a file first) |
 | Run Another Instance | Shift+F5 | one more instance (server + client tests); each gets a label |
 | Play Instances | Ctrl/Cmd+F5 | every `project.mfproj` `playInstances` entry (`label`, `args` = the game's own arguments after `++`, `delay` in s from the first): one build, then each instance after its delay (Godot's Customize Run Instances; e.g. a host and two tiled joiners); the main scene once when there are none |
+| Play and Record | F10 | idle: launch the main scene with `--record <recordings path>`; while a game runs: start recording on its first running instance, then stop it (menu label Play and Record / Start Recording / Stop Recording / Saving Recording…). When the file is saved a dialog offers Open in Cutback and Show in Folder. See [Gameplay recording](recording.md#recording-from-the-editor) |
 | Pause / Resume | F7 | over the link |
 | Stop | F8 | a stop command; the process is killed after 3 s (at once if it never connected) |
 | Reload Scene in Game | Run menu, instance menu | the game re-reads its current scene from disk |
 | Build & Reload | Ctrl/Cmd+Shift+B | build, then reload the editor's game code |
 
-- **Arguments:** host flags from a request come before `--editor-port`/`--scene`; anything from `++` on (the game's own) after them.
+- **Arguments:** host flags from a request come before `--editor-port`/`--scene`; anything from `++` on (the game's own) after them. Every launch passes `--frame-capture` just before `--editor-port`, so recording can start mid-session.
 - Before a code reload `ReleaseEditorReferences` also clears the canvas server's last frame and its per-node targets (`CanvasServer.ReleaseSceneReferences`), which would otherwise keep the 2D tabs' game nodes alive.
 - **Build errors** (`GameBuilder`: `-v:minimal -p:GenerateFullPaths=true`) are parsed into Output lines of category
   `build`; clicking one opens the file at its line in the code editor. A failed build does not launch.
@@ -708,6 +709,8 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
 - **External code editor**: a command with `{file}`, `{line}`, `{column}` and `{project}` placeholders (with presets);
   empty means `MAINFRAME_CODE_EDITOR`, else VS Code when found, else the OS default. Used by Output links, build errors
   and C# files.
+- **Cutback**: the path of the Cutback app that Open in Cutback launches after Play and Record; empty finds it on `PATH` or in
+  its usual install folder (`CutbackPath`, [Gameplay recording](recording.md#recording-from-the-editor)).
 - **Reload code automatically** after builds.
 - **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
 - **3D view** resolution: Auto (one pixel per point, the default), Full, 75 % or 50 % of the display's pixels
@@ -800,6 +803,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
   walkthrough also captures the update dialog (`update-preview X.Y.Z`, no network) and the Editor Settings dialog.
+- **Record QA** ([record.qa](../../Tests/QA/record.qa), `just qa-editor Tests/QA/record.qa`): F10 from idle and mid-session, with captures of the REC readout, the
+  saving state and the saved dialog. Needs a display and ffmpeg; not run in CI.
 - **README screenshots** (`just readme-screenshots`, [readme-screenshots.qa](../../Tests/QA/readme-screenshots.qa)):
   the Project Manager (`recent-project` seeds the list), the showcase scene (`open-project`, `camera`, `collapse`), the
   create dialog (`favorite`, `search`, `pick`) and a new game after a code reload while it plays, captured at 2x

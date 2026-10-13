@@ -520,15 +520,16 @@ sequenceDiagram
     G->>E: Hello (protocol, pid, project, engine version)
     loop while running
         G-->>E: Log entries · Status (state, frame, fps, scene) every 0.5 s and on change
-        E-->>G: Command: Stop · Pause · Resume · ReloadScene [scene] · Ping · RequestTree
+        E-->>G: Command: Stop · Pause · Resume · ReloadScene [scene] · Ping · RequestTree · StartRecording [path] · StopRecording
         G-->>E: Tree (on RequestTree: depth-first nodes)
+        G-->>E: Recording (Started · Stopped · Failed)
     end
     G->>E: Status Stopping · Goodbye (exit code)
 ```
 
 - **Wire format** (`EditorLinkProtocol`): `u32 length` (type byte + payload, ≤ 1 MiB) · `u8 type` · payload,
   little-endian; strings `u32` byte count + UTF-8 (strict). Oversized log text is truncated to fit. A malformed frame
-  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome).
+  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome, version 4 the recording commands and message).
 - **Game side** (`EditorLinkClient`): a background thread connects (and reconnects with back-off when the editor goes
   away), sends a hello per connection and waits for the editor's welcome; only then does the connection count
   (`IsConnected`, `ConnectionCount`) and drain queued logs (batched up to 64 KB), the latest status and the goodbye.
@@ -547,6 +548,14 @@ sequenceDiagram
   version 2, [0133](../../memory/decisions/0133-remote-scene-tree.md)): `u8 truncated, i32 count`, then per node `i32 depth,
   str name, str type` depth-first from the root (depth 0); at most `MaxTreeNodes` (3000) nodes and names/types cut to 48
   characters, so the worst case fits a frame. The latest snapshot waits next to the status (a newer one replaces it).
+- **Recording** (protocol version 4, [Gameplay recording](recording.md#recording-from-the-editor)). Editor → game:
+  `StartRecording` (command argument: the `.mp4` path) and `StopRecording`. Game → editor: a `Recording` message,
+  `u8 state (0 Started, 1 Stopped, 2 Failed), str path, f32 elapsed seconds, i64 dropped frames, i64 duplicated frames,
+  str error`. `GameSession.AttachRecorder` wires the host's `GameRecorder` to it; a start that throws is answered
+  `Failed` with the reason, and a recorder that stops with an error is sent as `Failed`. Unlike the latest-wins status
+  and tree, recording events are **queued** in `EditorLinkClient` (`MaxQueuedRecordings` 64, never coalesced) and written
+  before the goodbye. The editor treats a recording as failed by itself only when the game's link is gone. A game must
+  have been started with `--frame-capture` (the editor always does) for a mid-session start to succeed.
 - **Sockets inherited by child processes.** macOS has no `SOCK_CLOEXEC`/`accept4`: .NET calls `socket()`/`accept()`
   and then sets `FD_CLOEXEC` separately, and `Process.Start` forks, so a child started in between (the editor runs
   `dotnet build`, whose build servers outlive it, and games) holds the socket for its whole life. Two consequences

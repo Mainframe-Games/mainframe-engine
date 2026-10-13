@@ -27,6 +27,9 @@ Command line (documented in `GameHostOptions` and [Projects & GameHost](project-
 | `--record-scale <n>` | `EngineOptions.ContentScale`: pixels per point of the window size (a 1920×1080-point window at 2 is 3840×2160). Needs a display big enough for the scaled window, see [Known issues](#known-issues). |
 | `--ffmpeg <path>` | The ffmpeg to use; else `MAINFRAME_FFMPEG`, then `PATH`, then common install folders. |
 
+`--frame-capture` (no recording by itself) makes the swapchain readable so `Recorder.Start` works mid-session; the editor passes it
+on every launch ([Recording from the editor](#recording-from-the-editor)).
+
 Game code uses `SceneTree.Recorder` (`GameRecorder`; null under `--headless`): `Start(RecordingOptions)`, `Stop()`,
 `Mark(label)`, `Keep(label)` / `Skip(label)` (scopes, `IDisposable`), `IsRecording`, `Elapsed`, and the `Started` /
 `Stopped` events. `Mark`, `Keep` and `Skip` are no-ops when not recording, so games call them unconditionally. An offline
@@ -165,6 +168,63 @@ flowchart LR
 | Video writer | `FfmpegRecordingBackend.WriteFrames`: takes frames off the bounded queue and writes them to the encoder's stdin; keeps draining (without writing) after a failure so a producer blocked on a full queue is released |
 | Thread-pool task | Finalising after `Stop`: finish the encoder, pad the WAV, mux, sidecar, cleanup. `Stop` returns without waiting for the encode and mux (it flushes the frame stream, drains audio and, live, waits about 20 ms for the last audio block); the next update raises `Stopped` on the main thread. A new `Start` throws until then, because the previous recording still owns its files |
 
+## Recording from the editor
+
+The editor records a game it launched, over the [editor link](project-and-gamehost.md#editor-link) (protocol version 4),
+so promo footage needs no command line. Three equal entry points, one command (`play.record`): **F10**, **Run › Play and
+Record**, and the toolbar's record button (`#record`, the atlas's existing `point-filled` icon tinted red, white on a red
+fill while recording). F10 and not Shift+F5, which is Run Another Instance.
+
+| State | F10 does | Run menu label |
+|---|---|---|
+| No game runs | launches the main scene with `--record <path>`, so the file covers the game from its first frame | Play and Record |
+| A game runs, not recording | sends `StartRecording <path>` to the first running (or paused) instance; with none connected yet it logs that the game is still starting | Start Recording |
+| Recording | sends `StopRecording` to the instance that is recording | Stop Recording |
+| Saving | nothing (the item is disabled) | Saving Recording… |
+
+- **Where.** `{project user data}/recordings/{scene or game}-{yyyyMMdd-HHmmss}.mp4`: the scene's file name (`game` when
+  there is none, characters other than letters, digits, `-` and `_` become `_`), with `-2`, `-3`… added while the name is
+  taken (`RecordingPaths`). The folder is created before the launch; failing to create it is a dialog, not a launch.
+- **`--frame-capture` on every editor launch.** `PlayService` passes it, before `--editor-port`, on every play launch, so
+  `StartRecording` works mid-session: the swapchain must be created with `TRANSFER_SRC` usage, which `--record` implies
+  but a plain run does not. The cost is that one usage flag on the editor's games (the copy itself happens only while
+  recording).
+- **Messages** (protocol v4). Editor → game: `Command StartRecording` (argument: the `.mp4` path) and `Command
+  StopRecording`. Game → editor: `Recording` with a state (`Started`, `Stopped`, `Failed`), the path, elapsed seconds,
+  dropped and duplicated frames and an error string. `GameSession.AttachRecorder` (called by `GameHost` once the
+  recorder exists, before a `--record` start) forwards `GameRecorder.Started` and `Stopped` as `Recording` events, so a
+  `--record` launch reports too. `Started` carries `GameRecorder.OutputPath`; `Stopped` carries the result, and a
+  `RecordingResult` with an error is sent as `Failed` with its message. A start that throws (no ffmpeg, bad path, already
+  recording) is also answered `Failed`, so the editor never waits for a `Started` that cannot come. Stopping a game
+  that is recording finalises in `GameHost.OnClose` and sends `Stopped` before `Goodbye`.
+- **Events are queued, never coalesced.** `EditorLinkClient.SendRecording` keeps up to 64 events (a status or tree
+  snapshot replaces its predecessor; a `Stopped` must not), and they are written out ahead of the goodbye.
+- **Editor state** (`PlayInstance.Recording`: `None`, `Recording`, `Saving`). `Started` sets `Recording`; pressing Stop
+  sets `Saving` at once; `Stopped`/`Failed` return to `None` and raise `PlayService.RecordingFinished`. The editor fails
+  a recording itself **only when the game's link is gone** (a `Disconnected`, or a process exit with no link): then
+  `RecordingFinished` gets a `Failed` event, "The game exited before the recording was saved.", so it never waits for a
+  save that cannot come. It never fails one ahead of the game's own last report: an exit with the link still up waits for
+  the `Stopped` or `Failed` and the `Disconnected` that follows. The toolbar shows `● REC m:ss` (refreshed once a second)
+  and then `Saving recording…`.
+- **Debounce.** `ToggleRecording` sends one `StartRecording` and ignores further presses until `Started` or `Failed`
+  returns (a 5 s backstop, so a game that never answers cannot wedge F10), and while a recording is saving. The recording
+  controls stay available while a game runs during a build (Start/Stop apply to the running game); with nothing running,
+  Play and Record needs the project to be a desktop project and no build to be running.
+- **When it finishes** (`RecordingNotifier`). A modal `MessageDialog` (the editor has no toast system), one per finished
+  recording, queued by the dialog if several finish together. Saved: title "Recording saved", the file name with its
+  length and the folder, buttons **Open in Cutback** (default), **Show in Folder**, **Close**. Failed: "Recording
+  failed" with the recorder's message, plus **Show in Folder** (the kept `.partial` folder) when the message names one.
+- **Open in Cutback** starts [Cutback](https://github.com/brogan89/SimpleVideoEditor) as a **separate process** with the
+  recording's path as its argument (it opens `argv[0]` when that file exists, and finds the sidecar next to it); the
+  editor never links it (Cutback is GPL) and does not wait for it. `CutbackLocator` looks, in order, at **Editor
+  Settings › Cutback** (`EditorSettings.CutbackPath`), each `PATH` folder (`cutback`/`Cutback`, `Cutback.exe` on
+  Windows), then the OS location: `/Applications/Cutback.app/Contents/MacOS/Cutback`,
+  `%LocalAppData%\Programs\Cutback\Cutback.exe`, `~/.local/bin/cutback`. A setting that points at a missing file falls
+  through to the rest. If none exists (or the launch fails) a second dialog, "Cutback is not installed", offers
+  **Download** (the releases page) and Close.
+- **QA.** `Tests/QA/record.qa` (`just qa-editor Tests/QA/record.qa`) drives both start paths and captures the dialog;
+  it needs a display and ffmpeg and is not run in CI.
+
 ## Sidecar format
 
 `<video file name>.mfcap.json`, next to the video (`forest-20261012-143005.mp4.mfcap.json`). It is written atomically
@@ -242,8 +302,9 @@ Rules:
 - The WAV header's sizes are unsigned 32-bit, exact up to 4 GiB of data (about 3.1 hours of 48 kHz stereo float). Past
   that both are written as `0xFFFFFFFF` ("unknown length"), which ffmpeg reads to the end of the file, so the mux keeps
   all of the audio; other tools may not accept such a WAV, but it never leaves `.partial/` on success.
-- `StartRecording` from the editor mid-session (Phase 3) needs the game launched with `--frame-capture`, because the
-  swapchain needs `TRANSFER_SRC`.
+- `StartRecording` mid-session needs the game launched with `--frame-capture` (the swapchain needs `TRANSFER_SRC`). The
+  editor always passes it (see [Recording from the editor](#recording-from-the-editor)); a game started by hand without
+  it answers `Failed` to the editor's start.
 - Recording requires a stereo audio mix; a device that mixes other channel counts ends a live recording with an error.
 
 ## Related docs

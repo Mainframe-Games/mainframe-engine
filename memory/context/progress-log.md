@@ -4,6 +4,25 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Editor recording hooks (Phase 3 of the Cutback integration): implemented, local only (2026-10-13).** Branch
+  `feature/editor-recording` (worktree `.claude/worktrees/editor-recording`), **stacked on PR #62**
+  (`feature/gameplay-recorder`, Phase 1), not pushed, no PR of its own. Docs: `docs/design/recording.md` ("Recording from
+  the editor"), `editor.md` (Play table, F10), `project-and-gamehost.md` (editor link v4). Plan and spec live in the
+  Cutback repo (`docs/superpowers/plans/2026-10-13-phase3-editor-hooks.md`, the integration spec amended with the as-built
+  deviations).
+  - What exists: editor link protocol v4 (`StartRecording`/`StopRecording` commands, a `Recording` message, queued up to
+    64 and never coalesced); `GameSession.AttachRecorder`; `PlayService`/`PlayInstance` recording state (a recording is
+    failed by the editor only when the game's link is gone); every editor play launch passes `--frame-capture`;
+    **F10** / Run › Play and Record / the toolbar's red `point-filled` `#record` button with a `● REC m:ss` readout;
+    `RecordingPaths` (`{project user data}/recordings/{scene}-{yyyyMMdd-HHmmss}.mp4`), `CutbackLocator` (Editor Settings
+    › Cutback, PATH, OS location), `RecordingNotifier` (a modal "Recording saved" / "Recording failed" dialog: Open in
+    Cutback, Show in Folder). Cutback is started as a separate process with the recording path as its argument.
+  - QA: `Tests/QA/record.qa` (`just qa-editor Tests/QA/record.qa`) needs a display and ffmpeg, so it is not in CI; no
+    verb waits for the save, a fixed wait stands in. It has not been run end to end yet.
+  - Gates green: build (0 warnings), format-check, engine 2488 (1 skipped), editor 859 (5 skipped).
+  - Next: Brogan's review and the push (one push and a PR, based on #62, when he says so); then **Phase 4**, the editor's
+    Clips tab (the Cutback `Core` logic ported into the editor, "Open in Clips Tab" added to the finished dialog).
+
 - **Gameplay recorder (Phase 1 of the Cutback integration): implemented, local only (2026-10-13).** Branch
   `feature/gameplay-recorder` (worktree `.claude/worktrees/gameplay-recorder`), not pushed, no PR. ADR 0190; docs
   `docs/design/recording.md` (the renderer and audio halves are in `vulkan-renderer.md` and `audio.md`). Plan and spec live
