@@ -109,6 +109,12 @@ mode, never a tab of the other mode, so closing never switches modes.
 `EditorSession.UseProjectOf` (recordings live in the user-data folder, and switching projects would throw while scene
 tabs are open).
 
+**Project switches leave video tabs alone.** Open Project, File › Project Manager and Close Project ask about and close
+the game mode's tabs only (`EditorSession.CloseAll(EditorMode.Game)`): video tabs stay open, unsaved changes and all,
+and their jobs (detection, transcription, export) keep running. `EditorSession.OpenProject` refuses a switch only while
+game tabs are open. Quit still asks about every unsaved tab, video ones included. Entering game mode with no project and
+no game tab (the editor started in video mode) opens the Project Manager.
+
 **Shortcuts in video mode** (`EditorWorkspace.VideoShortcutFor`, after the tab's own keys):
 - Space plays and pauses, Home goes to the start, Delete/Backspace dissolves the hovered region;
 - Cmd/Ctrl+O open, S save, Shift+S save as, W close tab, Q quit, Z undo, Shift+Z or Y redo, E export; F1 documentation;

@@ -155,6 +155,26 @@ public sealed class EditorModeTests : IDisposable
         Assert.Equal(EditorMode.Video, editor.Workspace.Mode);
     }
 
+    [Fact]
+    public void GameModeWithoutAProjectOrAGameTabOpensTheProjectManager()
+    {
+        using var editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true });
+        var w = editor.Workspace;
+        w.Commands.Execute("editor.video_editor");
+        Assert.False(w.ProjectManager.Visible);
+
+        w.SetMode(EditorMode.Game); // nothing to show: no project, no scene
+        Assert.True(w.ProjectManager.Visible);
+    }
+
+    [Fact]
+    public void GameModeWithAGameTabDoesNotOpenTheProjectManager()
+    {
+        W.SetMode(EditorMode.Video);
+        W.SetMode(EditorMode.Game); // the untitled scene is there
+        Assert.False(W.ProjectManager.Visible);
+    }
+
     [Theory]
     [InlineData(Key.O, EditorModifiers.Command, "file.open")]
     [InlineData(Key.S, EditorModifiers.Command | EditorModifiers.Shift, "file.save_as")]

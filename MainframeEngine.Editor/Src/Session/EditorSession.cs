@@ -102,7 +102,8 @@ public sealed class EditorSession : IDisposable
         var file = Path.Combine(root, ProjectSettings.FileName);
         if (!File.Exists(file))
             throw new FileNotFoundException($"'{root}' is not a Mainframe project: it has no {ProjectSettings.FileName}.", file);
-        if (ProjectRoot is not null && !PathsEqual(ProjectRoot, root) && _tabs.Count > 0)
+        // Video tabs do not count: their recordings live outside any project.
+        if (ProjectRoot is not null && !PathsEqual(ProjectRoot, root) && _tabs.Any(t => t.Mode == EditorMode.Game))
             throw new InvalidOperationException($"Close the scenes of {ProjectRoot} before opening another project.");
         var settings = ProjectSettings.Load(file);
         ProjectRoot = root;
@@ -182,6 +183,17 @@ public sealed class EditorSession : IDisposable
     {
         foreach (var tab in _tabs.ToArray())
             Close(tab);
+    }
+
+    /// <summary>
+    /// Closes every tab of <paramref name="mode"/> without asking (the caller dealt with unsaved changes). A project
+    /// switch closes the game tabs only: video mode needs no project, so its tabs and their jobs stay.
+    /// </summary>
+    public void CloseAll(EditorMode mode)
+    {
+        foreach (var tab in _tabs.ToArray())
+            if (tab.Mode == mode)
+                Close(tab);
     }
 
     /// <summary>

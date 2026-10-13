@@ -644,6 +644,10 @@ public sealed partial class EditorWorkspace : Node
         ViewportPanel.RefreshTabs();
         if (!keepActive)
             ActivateModeTab(mode);
+        // Game mode with no project and no game tab has nothing to show (video mode started without one): the Project
+        // Manager opens, as it does at start-up.
+        if (mode == EditorMode.Game && Session.ActiveTab is null && Project.Root is null)
+            ProjectManager.Open();
 
         var settings = Settings.Clone();
         settings.LastMode = mode;

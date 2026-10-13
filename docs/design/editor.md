@@ -178,7 +178,8 @@ toggle near the right end of the toolbar or View › Switch to Video/Game Mode. 
 
 Opening a recording (`.mp4 .mov .mkv .webm`), `.mfcut` or `.cutback` (File › Open, the FileSystem panel, Recent Videos),
 the Recording saved dialog's Open in Video Editor and the Project Manager's Video Editor button switch to video mode;
-no game project is needed. The video mode itself (Cutback's trimming, Whisper transcripts, gapless preview, export) is
+no game project is needed. Opening, switching or closing a project closes and asks about the game tabs only: video tabs
+and their jobs stay. Entering game mode with no project and no game tab opens the Project Manager. The video mode itself (Cutback's trimming, Whisper transcripts, gapless preview, export) is
 described in [Video editing mode](video-editor.md). An Audio (DAW) mode over the song tab comes later, as a third
 `EditorMode`.
 

@@ -633,11 +633,16 @@ public sealed class EditorCommands
     }
 
     /// <summary>Saves every dirty scene that has a file (untitled ones are skipped with a warning); false if any failed.</summary>
-    public bool SaveAll()
+    public bool SaveAll() => SaveAll(static _ => true);
+
+    // Saves the dirty tabs that include accepts (a project switch: the game tabs only).
+    private bool SaveAll(Func<IEditorTab, bool> include)
     {
         var ok = true;
         foreach (var tab in Session.Tabs)
         {
+            if (!include(tab))
+                continue;
             if (tab is SongTab { IsDirty: true, Document.IsReadOnly: false } song)
             {
                 ok &= TrySaveSong(song, null);
@@ -657,7 +662,7 @@ public sealed class EditorCommands
 
         foreach (var scene in Session.Scenes)
         {
-            if (!scene.IsDirty)
+            if (!scene.IsDirty || !include(scene))
                 continue;
             if (scene.FilePath is null)
             {
@@ -677,16 +682,18 @@ public sealed class EditorCommands
     /// dialog after the other). <paramref name="then"/> gets true only when everything was saved (false on a failure or a
     /// cancelled dialog).
     /// </summary>
-    public void SaveAll(Action<bool> then)
+    public void SaveAll(Action<bool> then) => SaveAll(then, static _ => true);
+
+    private void SaveAll(Action<bool> then, Func<IEditorTab, bool> include)
     {
         ArgumentNullException.ThrowIfNull(then);
-        if (!SaveAll() && Session.Tabs.Any(t => t.IsDirty && t is SongTab or EditedScene { FilePath: not null } or VideoTab { FilePath: not null }))
+        if (!SaveAll(include) && Session.Tabs.Any(t => t.IsDirty && include(t) && t is SongTab or EditedScene { FilePath: not null } or VideoTab { FilePath: not null }))
         {
             then(false); // a file-backed save failed (already reported)
             return;
         }
 
-        var untitled = new Queue<IEditorTab>(Session.Tabs.Where(t => t.IsDirty && t.FilePath is null && t is EditedScene or VideoTab));
+        var untitled = new Queue<IEditorTab>(Session.Tabs.Where(t => t.IsDirty && include(t) && t.FilePath is null && t is EditedScene or VideoTab));
         void Next(bool previousSaved)
         {
             if (!previousSaved)
@@ -776,8 +783,8 @@ public sealed class EditorCommands
     // ── Projects ─────────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Opens the project in <paramref name="directory"/>: asks to save unsaved scenes, closes them and the previous
-    /// project's code, then opens it (building its game code when needed) and its main scene, behind the splash.
+    /// Opens the project in <paramref name="directory"/>: asks to save unsaved scenes, closes them (the game tabs; video
+    /// tabs stay) and the previous project's code, then opens it (building its game code when needed) and its main scene, behind the splash.
     /// </summary>
     public void OpenProject(string directory)
     {
@@ -791,7 +798,7 @@ public sealed class EditorCommands
     {
         _workspace.ProjectManager.Close();
         _workspace.Play.Stop();
-        Session.CloseAll();
+        Session.CloseAll(EditorMode.Game);
         _workspace.Inspector.CloseResource();
         try
         {
@@ -861,7 +868,7 @@ public sealed class EditorCommands
     private void ShowProjectManager() => AfterUnsavedScenes("Project Manager", () =>
     {
         _workspace.Play.Stop();
-        Session.CloseAll();
+        Session.CloseAll(EditorMode.Game);
         _workspace.Inspector.CloseResource();
         _workspace.Project.Close();
         _workspace.ProjectManager.Open();
@@ -901,16 +908,17 @@ public sealed class EditorCommands
     private void CloseProject() => AfterUnsavedScenes("Close Project", () =>
     {
         _workspace.Play.Stop();
-        Session.CloseAll();
+        Session.CloseAll(EditorMode.Game);
         _workspace.Inspector.CloseResource();
         _workspace.Project.Close();
         _workspace.ProjectManager.Open();
     });
 
-    // Runs then once unsaved scenes were saved or discarded (Save All / Don't Save / Cancel).
+    // Runs then once the game mode's unsaved tabs were saved or discarded (Save All / Don't Save / Cancel). Only those:
+    // a project switch closes the game tabs, and video tabs, which need no project, stay open with their changes.
     private void AfterUnsavedScenes(string title, Action then)
     {
-        var dirty = Session.DirtyTabs;
+        var dirty = Session.DirtyTabs.Where(static t => t.Mode == EditorMode.Game).ToList();
         if (dirty.Count == 0)
         {
             then();
@@ -933,7 +941,7 @@ public sealed class EditorCommands
                     {
                         if (saved)
                             then();
-                    });
+                    }, static t => t.Mode == EditorMode.Game);
             },
         });
     }
