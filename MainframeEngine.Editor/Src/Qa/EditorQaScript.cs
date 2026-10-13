@@ -10,7 +10,7 @@ namespace MainframeEngine.Editor;
 /// computer-use cannot target the unbundled process. One command per line (<c>#</c> comments):
 /// <code>
 /// wait 30                     # frames, not seconds (the editor runs at the display rate, often 120 fps)
-/// click 120 40 [right|middle] # window points, or: click #element-id (any editor document)
+/// click 120 40 [right|middle] # layout points (the editor UI's dp), or: click #element-id (any editor document)
 /// drag 600 400 700 420 [left|right|middle] [frames]
 /// move 600 400
 /// wheel 1                     # over the last mouse position
@@ -147,14 +147,14 @@ public sealed class EditorQaScript : IEditorAutomation
                 break;
             case "move":
                 _mouse = Point(workspace, step, 1);
-                tree.PushInput(new InputEventMouseMotion { Position = _mouse });
+                tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, _mouse) });
                 break;
             case "click":
                 _mouse = Point(workspace, step, 1);
                 var button = ButtonOf(step.Length > (step[1].StartsWith('#') ? 2 : 3) ? step[^1] : "left");
-                tree.PushInput(new InputEventMouseMotion { Position = _mouse });
-                tree.PushInput(new InputEventMouseButton { Button = button, Pressed = true, Position = _mouse });
-                tree.PushInput(new InputEventMouseButton { Button = button, Pressed = false, Position = _mouse });
+                tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, _mouse) });
+                tree.PushInput(new InputEventMouseButton { Button = button, Pressed = true, Position = Pointer(app, _mouse) });
+                tree.PushInput(new InputEventMouseButton { Button = button, Pressed = false, Position = Pointer(app, _mouse) });
                 break;
             case "drag":
                 var from = new Vector2(Float(step, 1), Float(step, 2));
@@ -162,8 +162,8 @@ public sealed class EditorQaScript : IEditorAutomation
                 var dragButton = ButtonOf(step.Length > 5 ? step[5] : "left");
                 _drag = (from, to, dragButton, step.Length > 6 ? Int(step, 6, 20) : 20, 0);
                 _mouse = from;
-                tree.PushInput(new InputEventMouseMotion { Position = from });
-                tree.PushInput(new InputEventMouseButton { Button = dragButton, Pressed = true, Position = from });
+                tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, from) });
+                tree.PushInput(new InputEventMouseButton { Button = dragButton, Pressed = true, Position = Pointer(app, from) });
                 break;
             case "gizmo-drag":
                 {
@@ -172,8 +172,8 @@ public sealed class EditorQaScript : IEditorAutomation
                     var end = handle + new Vector2(Float(step, 2), Float(step, 3));
                     _drag = (handle, end, MouseButton.Left, step.Length > 4 ? Int(step, 4, 20) : 20, 0);
                     _mouse = handle;
-                    tree.PushInput(new InputEventMouseMotion { Position = handle });
-                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = handle });
+                    tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, handle) });
+                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = Pointer(app, handle) });
                     break;
                 }
 
@@ -344,8 +344,8 @@ public sealed class EditorQaScript : IEditorAutomation
                     var file = Path.Combine(workspace.Session.ProjectRoot ?? "", step[1]);
                     workspace.FileSystem.BeginDrag(file);
                     var target = Point(workspace, step, 2);
-                    tree.PushInput(new InputEventMouseMotion { Position = target });
-                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = false, Position = target });
+                    tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, target) });
+                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = false, Position = Pointer(app, target) });
                     break;
                 }
 
@@ -571,11 +571,11 @@ public sealed class EditorQaScript : IEditorAutomation
     {
         var done = drag.Done + 1;
         var position = Vector2.Lerp(drag.From, drag.To, Math.Min(1f, done / (float)drag.Frames));
-        app.Tree.PushInput(new InputEventMouseMotion { Position = position, Relative = position - _mouse });
+        app.Tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, position), Relative = Pointer(app, position) - Pointer(app, _mouse) });
         _mouse = position;
         if (done >= drag.Frames)
         {
-            app.Tree.PushInput(new InputEventMouseButton { Button = drag.Button, Pressed = false, Position = position });
+            app.Tree.PushInput(new InputEventMouseButton { Button = drag.Button, Pressed = false, Position = Pointer(app, position) });
             _drag = null;
             return;
         }
@@ -611,7 +611,14 @@ public sealed class EditorQaScript : IEditorAutomation
         }
     }
 
-    /// <summary>A point from "x y" (window points) or "#id" (the centre of an element of any editor document).</summary>
+    /// <summary>
+    /// A mouse-event position (OS window points) for <paramref name="point"/> in layout points. Scripts and element bounds
+    /// work in layout points; the two differ when a fixed content scale (<c>--scale 2</c>) differs from the display's
+    /// backing scale (a 1x display: the window is 3200 points wide for a 1600-point layout).
+    /// </summary>
+    internal static Vector2 Pointer(IEditorHost host, Vector2 point) => point / MathF.Max(0.01f, host.PointerScale);
+
+    /// <summary>A point from "x y" (layout points) or "#id" (the centre of an element of any editor document).</summary>
     private static Vector2 Point(EditorWorkspace workspace, string[] step, int at)
     {
         if (step[at].StartsWith('#'))
