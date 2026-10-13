@@ -415,12 +415,13 @@ public sealed class VideoView : Node
     {
         tab.ExportJob = null;
         var task = job.Task;
-        if (task.IsCanceled || job.IsCancelled || task.Exception?.GetBaseException() is OperationCanceledException)
+        // By how the work ended, not by whether Cancel was pressed: a cancel that came after the file was written is a success.
+        if (task.IsCompletedSuccessfully)
+            ShowExported(tab, task.Result);
+        else if (task.IsCanceled || task.Exception?.GetBaseException() is OperationCanceledException)
             tab.Notice = "Export cancelled.";
         else if (task.Exception?.GetBaseException() is { } error)
             _workspace.Commands.ReportError("Export failed", error);
-        else
-            ShowExported(tab, task.Result);
         job.Dispose();
     }
 
@@ -461,9 +462,18 @@ public sealed class VideoView : Node
     {
         // The jobs are cancelled first: an export still writing its filter script must not find its folder gone.
         var tabs = _workspace.Session.Tabs;
+        var running = new List<Task>();
         for (var i = 0; i < tabs.Count; i++)
             if (tabs[i] is VideoTab { ExportJob: { } job })
+            {
                 job.Cancel();
+                running.Add(job.Task);
+            }
+
+        // Bounded: ffmpeg is killed through the token, so they end at once; a stuck one must not hold the editor open.
+        // WaitAny, not WaitAll: a cancelled or failed task would make WaitAll throw.
+        if (running.Count > 0 && Task.WaitAny([Task.WhenAll(running)], TimeSpan.FromSeconds(2)) < 0)
+            Log.Warning("[Video] An export did not stop within 2 s of closing the editor; its scratch folder is removed anyway.");
         _temp?.Dispose();
         _temp = null;
         base.OnExitTree();

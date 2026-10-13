@@ -359,7 +359,7 @@ public sealed class EditorSession : IDisposable
         if (path is not null)
         {
             path = VideoTab.NormalizeProjectPath(path);
-            if (PathsEqual(path, tab.Document.SourcePath))
+            if (Video.VideoPaths.SameFile(path, tab.Document.SourcePath))
                 throw new InvalidOperationException(
                     $"{Path.GetFileName(path)} is the recording itself. A project is saved beside it as a {ProjectSerializer.FileExtension}, " +
                     "and the recording is never modified.");

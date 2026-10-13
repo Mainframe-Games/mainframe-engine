@@ -82,7 +82,7 @@ public sealed class VideoExportTests : IDisposable
     [Fact]
     public void TheRecordingIsTheSameFileInAnyCaseOnWindowsAndMacOnly()
     {
-        var same = VideoExport.SamePath("/r/Run.mp4", "/r/run.MP4");
+        var same = VideoPaths.SameFile("/r/Run.mp4", "/r/run.MP4");
         Assert.Equal(OperatingSystem.IsWindows() || OperatingSystem.IsMacOS(), same);
     }
 
@@ -95,8 +95,67 @@ public sealed class VideoExportTests : IDisposable
         File.WriteAllBytes(video, [0]);
         var link = Path.Combine(_dir, "alias.mp4");
         File.CreateSymbolicLink(link, video);
-        Assert.True(VideoExport.SamePath(link, video));
+        Assert.True(VideoPaths.SameFile(link, video));
         Assert.NotNull(VideoExport.Problem(video, link));
+    }
+
+    [Fact]
+    public void ASymbolicLinkedFolderInThePathIsTheSameFolder()
+    {
+        if (OperatingSystem.IsWindows())
+            return; // creating links needs a privilege there
+        var real = Directory.CreateDirectory(Path.Combine(_dir, "real")).FullName;
+        var link = Path.Combine(_dir, "link");
+        Directory.CreateSymbolicLink(link, real);
+        var source = Path.Combine(real, "run.mp4");
+        File.WriteAllBytes(source, [0]);
+
+        Assert.True(VideoPaths.SameFile(source, Path.Combine(link, "run.mp4")));
+        Assert.NotNull(VideoExport.Problem(source, Path.Combine(link, "run.mp4")));
+        Assert.False(VideoPaths.SameFile(source, Path.Combine(link, "other.mp4")));
+        Assert.Null(VideoExport.Problem(source, Path.Combine(link, "other.mp4")));
+    }
+
+    [Fact]
+    public void ANotYetExistingOutputUnderALinkedFolderIsJudgedByItsRealFolder()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        var real = Directory.CreateDirectory(Path.Combine(_dir, "real")).FullName;
+        var link = Path.Combine(_dir, "link");
+        Directory.CreateSymbolicLink(link, real);
+        // Neither the file nor the sub-folder exist: the deepest existing ancestor is resolved, the rest is appended.
+        Assert.Equal(Path.Combine(VideoPaths.Canonical(real), "new", "x.mp4"), VideoPaths.Canonical(Path.Combine(link, "new", "x.mp4")));
+        Assert.True(VideoPaths.SameFile(Path.Combine(real, "new", "x.mp4"), Path.Combine(link, "new", "x.mp4")));
+    }
+
+    [Fact]
+    public void ALinkToALinkedFolderAndARelativeLinkAreFollowed()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        var real = Directory.CreateDirectory(Path.Combine(_dir, "real")).FullName;
+        Directory.CreateSymbolicLink(Path.Combine(_dir, "hop1"), "real"); // relative target
+        Directory.CreateSymbolicLink(Path.Combine(_dir, "hop2"), Path.Combine(_dir, "hop1"));
+        Assert.True(VideoPaths.SameFile(Path.Combine(real, "run.mp4"), Path.Combine(_dir, "hop2", "run.mp4")));
+    }
+
+    [Fact]
+    public void ALinkLoopDoesNotHangAndIsJustAPath()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        File.CreateSymbolicLink(Path.Combine(_dir, "a"), Path.Combine(_dir, "b"));
+        File.CreateSymbolicLink(Path.Combine(_dir, "b"), Path.Combine(_dir, "a"));
+        Assert.False(VideoPaths.SameFile(Path.Combine(_dir, "a", "x.mp4"), Path.Combine(_dir, "other.mp4")));
+    }
+
+    [Fact]
+    public void ATrailingDotDoesNotDoubleTheExtension()
+    {
+        var source = Path.Combine(_dir, "run.mp4");
+        Assert.Equal(Path.Combine(_dir, "mycut.mp4"), VideoExport.ResolveOutput("mycut.", source));
+        Assert.Equal(Path.Combine(_dir, "mycut.mp4"), VideoExport.ResolveOutput("mycut...", source));
     }
 
     [Theory]

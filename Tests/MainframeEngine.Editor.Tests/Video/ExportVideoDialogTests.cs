@@ -565,4 +565,84 @@ public sealed class ExportVideoDialogTests : IDisposable
         job.Dispose();
         tab.ExportJob = null;
     }
+
+    // A tab whose "recording" is realDir/<name> (never probed: the tab opens from a project), plus a link to realDir.
+    private (VideoTab Tab, string Real, string Linked) OpenTabBehindALink(string name)
+    {
+        var real = Directory.CreateDirectory(Path.Combine(_dir, "real" + ++_tabs)).FullName;
+        var link = Path.Combine(_dir, "link" + _tabs);
+        Directory.CreateSymbolicLink(link, real);
+        var video = Path.Combine(real, name);
+        File.WriteAllBytes(video, [0]);
+        var project = Path.Combine(_dir, $"behind{_tabs}.mfcut");
+        SaveProject(video, project);
+        var tab = W.Session.OpenVideo(project, NoFfmpeg, 100);
+        Assert.True(SpinWait.SpinUntil(() => { _editor.Tick(); return tab.WaveformJob is null; }, TimeSpan.FromSeconds(10)));
+        return (tab, real, link);
+    }
+
+    [Fact]
+    public void ExportingToTheRecordingThroughALinkedFolderIsRefused()
+    {
+        if (OperatingSystem.IsWindows())
+            return; // creating links needs a privilege there
+        var (tab, _, link) = OpenTabBehindALink("run.mp4");
+        var gate = UseGate();
+        W.Commands.Execute("video.export");
+        Dialog.OutputPath = Path.Combine(link, "run.mp4");
+        Dialog.Export();
+        Assert.Contains("recording itself", Dialog.Error, StringComparison.Ordinal);
+        Assert.Null(tab.ExportJob);
+        W.VideoView.StartExport(tab, Path.Combine(link, "run.mp4"), ExportMode.Precise);
+        Assert.Null(tab.ExportJob);
+        Assert.Equal(0, gate.Runs);
+        Assert.Equal([0], File.ReadAllBytes(tab.Document.SourcePath));
+    }
+
+    [Fact]
+    public void SaveAsOntoTheRecordingThroughALinkedFolderIsRefused()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        var (tab, _, link) = OpenTabBehindALink("rec.mfcut"); // the one recording a project save could ever land on
+        var ex = Assert.Throws<InvalidOperationException>(() => W.Session.SaveVideo(tab, Path.Combine(link, "rec.mfcut")));
+        Assert.Contains("recording itself", ex.Message, StringComparison.Ordinal);
+        Assert.Equal([0], File.ReadAllBytes(tab.Document.SourcePath));
+    }
+
+    [Fact]
+    public void ExportTranscriptOntoTheRecordingThroughALinkedFolderIsRefused()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        var (tab, _, link) = OpenTabBehindALink("talk.txt");
+        tab.Document.SetTranscript(VideoDocumentTests.Words());
+        Assert.False(W.Commands.WriteTranscript(tab, Path.Combine(link, "talk.txt")));
+        Assert.True(W.Message.Visible);
+        Assert.Contains("recording itself", W.Message.Current!.Message, StringComparison.Ordinal);
+        Assert.Equal([0], File.ReadAllBytes(tab.Document.SourcePath));
+    }
+
+    [Fact]
+    public void ALateCancelAfterTheFileWasWrittenStillReportsSuccess()
+    {
+        var tab = OpenTab();
+        var finish = new TaskCompletionSource();
+        var started = false;
+        W.VideoView.ExporterFactory = (_, _) => async (_, _, _) =>
+        {
+            started = true;
+            await finish.Task; // ignores the token: it completes anyway
+        };
+        W.Commands.Execute("video.export");
+        Dialog.Export();
+        var job = tab.ExportJob!;
+        Assert.True(SpinWait.SpinUntil(() => Volatile.Read(ref started), TimeSpan.FromSeconds(10))); // a cancel before it starts would skip it
+        job.Cancel();
+        finish.SetResult();
+        FinishExport(tab);
+        Assert.True(W.Message.Visible);
+        Assert.Equal("Export finished", W.Message.Current!.Title);
+        Assert.NotEqual("Export cancelled.", tab.Notice);
+    }
 }

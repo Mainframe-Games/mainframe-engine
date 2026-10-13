@@ -46,7 +46,10 @@ public static class VideoExport
         if (trimmed.Length == 0)
             return "";
         var full = Path.GetFullPath(trimmed, Path.GetDirectoryName(Path.GetFullPath(sourcePath)) ?? Directory.GetCurrentDirectory());
-        return Path.GetExtension(full).Length == 0 ? full + DefaultExtension : full;
+        if (Path.GetExtension(full).Length > 0)
+            return full;
+        // "mycut." names no extension; the dot goes so it does not become "mycut..mp4".
+        return full.TrimEnd('.') + DefaultExtension;
     }
 
     /// <summary>
@@ -58,7 +61,7 @@ public static class VideoExport
         ArgumentException.ThrowIfNullOrEmpty(sourcePath);
         if (string.IsNullOrWhiteSpace(outputPath))
             return "Choose where to save the exported video.";
-        if (SamePath(outputPath, sourcePath))
+        if (VideoPaths.SameFile(outputPath, sourcePath))
             return "That is the recording itself. Choose a different file name; the original is never overwritten.";
         if (Directory.Exists(outputPath))
             return $"{outputPath} is a folder. Choose a file name.";
@@ -66,30 +69,6 @@ public static class VideoExport
         if (!Exporter.SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
             return $"\"{extension}\" is not a supported output format. Use {string.Join(", ", Exporter.SupportedExtensions)}.";
         return null;
-    }
-
-    /// <summary>
-    /// Whether two paths name the same file: full paths, compared case-insensitively on Windows and macOS (their default
-    /// file systems are), with a symbolic link to an existing file followed.
-    /// </summary>
-    public static bool SamePath(string a, string b) =>
-        string.Equals(Canonical(a), Canonical(b),
-            OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-
-    private static string Canonical(string path)
-    {
-        var full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
-        try
-        {
-            if (File.Exists(full) && File.ResolveLinkTarget(full, returnFinalTarget: true) is { } target)
-                return target.FullName.TrimEnd(Path.DirectorySeparatorChar);
-        }
-        catch (IOException)
-        {
-            // An unreadable link is compared by its own path.
-        }
-
-        return full;
     }
 
     /// <summary>Fast export copies the streams unchanged, which WebM cannot hold, so it is not offered for <c>.webm</c>.</summary>

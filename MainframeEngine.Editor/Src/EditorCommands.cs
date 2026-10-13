@@ -481,7 +481,7 @@ public sealed class EditorCommands
             path += ".txt";
         try
         {
-            if (EditorSession.PathsEqual(path, tab.Document.SourcePath))
+            if (VideoPaths.SameFile(path, tab.Document.SourcePath))
                 throw new IOException("That is the recording itself; the transcript goes in a separate file.");
             File.WriteAllText(path, tab.Document.TranscriptText(srt), new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             tab.Notice = $"Exported {Path.GetFileName(path)}.";
