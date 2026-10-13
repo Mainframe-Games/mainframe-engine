@@ -2,6 +2,7 @@ using MainframeEngine.Editor.Music;
 using MainframeEngine.Editor.Video;
 using MainframeEngine.Serialization;
 using MainframeEngine.Video.Media;
+using MainframeEngine.Video.Models;
 using System.Globalization;
 using System.Runtime.InteropServices;
 
@@ -179,6 +180,11 @@ public sealed class EditorCommands
                 _workspace.SetMode(EditorMode.Video);
                 return true;
             case "view.output": _workspace.ToggleVideoOutput(); return true;
+            case "video.toggle_transcript": _workspace.ToggleVideoTranscript(); return true;
+            // The video toolbar's buttons without a video tab: they show disabled, and a click does nothing.
+            case "video.play" or "video.stop" or "video.transcribe" or "video.remove_fillers" or "video.detect_silence"
+                or "video.detect_idle" or "video.export" when Session.ActiveTab is not VideoTab:
+                return true;
             default:
                 if (id.StartsWith(RecentVideoCommand, StringComparison.Ordinal) &&
                     int.TryParse(id.AsSpan(RecentVideoCommand.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var recent))
@@ -211,6 +217,13 @@ public sealed class EditorCommands
             case "edit.delete": video.Controller.DeleteHovered(); return true;
             case "video.play": video.TogglePlay(); return true;
             case "video.stop": video.Stop(); return true;
+            case "video.detect_idle":
+                video.Controller.CancelGesture();
+                video.Notice = video.Document.Capture is null
+                    ? "This recording has no Mainframe Engine sidecar."
+                    : video.Document.DetectIdleGameplay(GameplaySettings.Default); // Video Settings (Task 15) will supply these
+                return true;
+            case "video.detect_silence": _workspace.VideoView.DetectSilence(video); return true;
             default: return false;
         }
     }

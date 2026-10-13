@@ -65,6 +65,17 @@
         #rec-dot { display: none; width: 10dp; height: 10dp; margin-left: 6dp; image-color: #ef4444; }
         #rec-dot.on { display: inline-block; }
         #rec-dot.on + #play-status { margin-left: 3dp; }
+        /* Video mode: transport and position, the detection jobs ("Cancel n %" while one runs), kept time, Export. */
+        .video-transport button.tool-button { width: 32dp; }
+        #video-pos { display: inline-block; height: 20dp; line-height: 20dp; min-width: 96dp; padding: 0dp 8dp; margin-left: 6dp;
+                     background-color: #121418; border: 1dp #3b82f6; border-radius: 3dp; color: #d7dbe4; text-align: center; white-space: nowrap; }
+        button.video-job { margin-right: 6dp; white-space: nowrap; }
+        button.video-job.busy { background-color: #3a2f12; border-color: #b45309; }
+        #video-kept { margin-right: 10dp; white-space: nowrap; }
+        button.accent { background-color: #2563eb; border-color: #3b82f6; color: #ffffff; padding: 0dp 14dp; }
+        button.accent:hover { background-color: #3b82f6; }
+        button.accent.disabled { color: #5f6676; background-color: #23262e; border-color: #2a2d36; }
+        button.accent.busy { background-color: #7f1d1d; border-color: #b91c1c; }
     </style>
 </head>
 <body class="panel-doc toolbar">
@@ -100,7 +111,20 @@
         </div>
         <div class="spacer"></div>
     </div>
-    <div id="video-tools" class="tools hidden"></div>
+    <div id="video-tools" class="tools hidden">
+        <div class="group video-transport">
+            <button id="video-play" class="tool-button disabled" data-command="video.play" data-tooltip="Play (Space) — the kept footage from the playhead, skipping the cuts"><span id="video-play-icon" class="icon icon-player-play"></span></button>
+            <button id="video-stop" class="tool-button disabled" data-command="video.stop" data-tooltip="Stop — pause and go back to the start"><span class="icon icon-player-stop"></span></button>
+            <span id="video-pos" class="mono" data-tooltip="Position — the playhead and the recording's length"></span>
+        </div>
+        <button id="video-transcribe" class="video-job disabled" data-command="video.transcribe" data-tooltip="Transcribe — recognise the speech on this computer, for editing by text and removing filler words">Transcribe</button>
+        <button id="video-fillers" class="video-job disabled" data-command="video.remove_fillers" data-tooltip="Remove Fillers — cut the um's and uh's (transcribes first when there is no transcript)">Remove fillers</button>
+        <button id="video-silence" class="video-job disabled" data-command="video.detect_silence" data-tooltip="Detect Silence — cut the pauses; your own cuts and kept regions stay">Detect silence</button>
+        <button id="video-idle" class="video-job disabled" data-command="video.detect_idle" data-tooltip="Detect Idle Gameplay — cut loading, pauses and stretches without input, from the recording's Mainframe Engine data">Detect idle gameplay</button>
+        <div class="spacer"></div>
+        <span id="video-kept" class="muted" data-tooltip="Kept — the exported length of the recording's length"></span>
+        <button id="video-export" class="accent disabled" data-command="video.export" data-tooltip="Export Video (Ctrl+E) — write the kept footage to a new file">Export</button>
+    </div>
     <div id="mode-toggle"><button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record">Game</button><button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings">Video</button></div>
     <button id="docs" class="tool-button" data-command="help.docs" data-tooltip="Documentation (F1) — open the engine docs in your browser"><span class="icon icon-book"></span></button>
     <button id="update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>

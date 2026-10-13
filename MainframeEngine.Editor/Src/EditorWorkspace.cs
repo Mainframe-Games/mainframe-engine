@@ -200,6 +200,9 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>Video mode's view over the viewport panel's view area (the empty state until a video tab is open).</summary>
     public VideoPanel VideoPanel { get; private set; } = null!;
 
+    /// <summary>The video tab's canvases, keys, pointer input and detection jobs.</summary>
+    public VideoView VideoView { get; private set; } = null!;
+
     /// <summary>The current mode (<see cref="SetMode"/>): game (scenes, play) or video (trimming recordings).</summary>
     public EditorMode Mode { get; private set; }
 
@@ -294,6 +297,8 @@ public sealed partial class EditorWorkspace : Node
         AddChild(Viewport);
         SongView = new Music.SongView(this) { Name = "SongView" };
         AddChild(SongView);
+        VideoView = new VideoView(this) { Name = "VideoView" };
+        AddChild(VideoView);
         AddChild(PanelLayer);
         AddChild(ProjectLayer);
         AddChild(DialogLayer);
@@ -690,9 +695,18 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>View › Show/Hide Output in video mode (game mode always shows the output panel).</summary>
     internal void ToggleVideoOutput()
     {
-        Layout.Apply(Layout.Settings with { VideoShowOutput = !Layout.Settings.VideoShowOutput });
+        Layout.SetVideoShowOutput(!Layout.Settings.VideoShowOutput);
         ApplyModePanels();
         ApplyLayout();
+        SaveLayout();
+    }
+
+    /// <summary>View › Show/Hide Transcript: the video panel gives the preview the transcript's width (or takes it back).</summary>
+    internal void ToggleVideoTranscript()
+    {
+        Layout.SetVideoShowTranscript(!Layout.Settings.VideoShowTranscript);
+        ApplyLayout();
+        SaveLayout();
     }
 
     // A preview started or ended: the Play/Stop icons and the FileSystem badge follow it.
@@ -751,9 +765,16 @@ public sealed partial class EditorWorkspace : Node
             return;
         }
 
-        // Video mode has its own table: no song keys, no gizmo, view or Play keys.
+        // Video mode has its own table: no song keys, no gizmo, view or Play keys. The video tab's own keys (Space, Home,
+        // Delete/Backspace) come first, and a key it takes never also runs its shortcut (Space would toggle play twice).
         if (Mode == EditorMode.Video)
         {
+            if (VideoView.HandleKey(key.Key, Modifiers))
+            {
+                GetViewport()?.SetInputAsHandled();
+                return;
+            }
+
             RunShortcut(VideoShortcutFor(key.Key, Modifiers));
             return;
         }

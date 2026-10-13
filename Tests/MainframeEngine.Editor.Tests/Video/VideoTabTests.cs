@@ -384,7 +384,7 @@ public sealed class VideoTabTests : IDisposable
         return dir;
     }
 
-    private sealed class CountingFactory(int frameBytes) : IVideoDecoderFactory
+    internal sealed class CountingFactory(int frameBytes) : IVideoDecoderFactory
     {
         private int _count;
 

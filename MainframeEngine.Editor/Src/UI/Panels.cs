@@ -106,6 +106,7 @@ public sealed class ToolbarPanel : EditorDocument
     {
         _shownLocal = null;
         _badgeVersion = null;
+        ResetVideo();
         _snapListener?.Remove();
         _snapListener = document.GetElementById("snap-step").AddEventListener("change", OnSnapStep);
         Refresh();
@@ -334,6 +335,133 @@ public sealed class ToolbarPanel : EditorDocument
 
             RefreshPlay();
         });
+    }
+
+    // ── Video mode ───────────────────────────────────────────────────────────────────────────────────────────────
+
+    private const string IdleTip =
+        "Detect Idle Gameplay — cut loading, pauses and stretches without input, from the recording's Mainframe Engine data";
+    private const string IdleNeedsSidecarTip = "Needs a Mainframe Engine recording (its .mfcap.json sidecar)";
+    private const string PlayTip = "Play (Space) — the kept footage from the playhead, skipping the cuts";
+    private const string PauseTip = "Pause (Space)";
+
+    // The buttons that need a video tab; Detect Idle also needs a sidecar and is handled on its own.
+    private static readonly string[] VideoTabButtons = ["video-play", "video-stop", "video-transcribe", "video-fillers", "video-silence", "video-export"];
+
+    // What the video tools show, so UpdateVideo writes only what changed (null / -2: not written since the last load).
+    private bool? _videoEnabled;
+    private int _videoIdle = -1;
+    private bool? _videoPlaying;
+    private long _videoPosition = -2;
+    private long _videoDuration = -2;
+    private string? _videoKept;
+    private int _videoTranscribe = -2;
+    private int _videoSilence = -2;
+    private int _videoExport = -2;
+
+    private void ResetVideo()
+    {
+        _videoEnabled = null;
+        _videoIdle = -1;
+        _videoPlaying = null;
+        _videoPosition = -2;
+        _videoDuration = -2;
+        _videoKept = null;
+        _videoTranscribe = -2;
+        _videoSilence = -2;
+        _videoExport = -2;
+    }
+
+    /// <summary>
+    /// Every frame (from the <see cref="Video.VideoView"/>): the video tools' disabled states, the play/pause icon, the
+    /// position (<c>1:02.3 / 6:00.0</c>), "Cancel n %" on a running job's button, and the kept time. Only what changed is
+    /// written; the position is formatted on the stack, so playing allocates nothing either.
+    /// </summary>
+    public void UpdateVideo(Video.VideoTab? tab)
+    {
+        if (!IsLoaded)
+            return;
+        var document = Document;
+        var enabled = tab is not null;
+        if (_videoEnabled != enabled)
+        {
+            _videoEnabled = enabled;
+            foreach (var id in VideoTabButtons)
+                document.GetElementById(id).SetClass("disabled", !enabled);
+        }
+
+        // 0: no tab, 1: a recording without a sidecar (the tooltip says why it is disabled), 2: Detect Idle can run.
+        var idle = tab is null ? 0 : tab.Document.Capture is null ? 1 : 2;
+        if (_videoIdle != idle)
+        {
+            _videoIdle = idle;
+            var button = document.GetElementById("video-idle");
+            button.SetClass("disabled", idle != 2);
+            button.SetAttribute("data-tooltip", idle == 1 ? IdleNeedsSidecarTip : IdleTip);
+        }
+
+        var playing = tab?.Preview.IsPlaying == true;
+        if (_videoPlaying != playing)
+        {
+            _videoPlaying = playing;
+            var icon = document.GetElementById("video-play-icon");
+            icon.SetClass("icon-player-play", !playing);
+            icon.SetClass("icon-player-pause", playing);
+            document.GetElementById("video-play").SetAttribute("data-tooltip", playing ? PauseTip : PlayTip);
+        }
+
+        UpdateVideoPosition(tab);
+        var kept = Workspace.VideoPanel.Kept;
+        if (!ReferenceEquals(kept, _videoKept))
+        {
+            _videoKept = kept;
+            SetText("video-kept", kept);
+        }
+
+        UpdateJobButton("video-transcribe", "Transcribe", tab is null ? -1 : Percent(tab.TranscribeJob), ref _videoTranscribe);
+        UpdateJobButton("video-silence", "Detect silence", tab is null ? -1 : Percent(tab.SilenceJob), ref _videoSilence);
+        UpdateJobButton("video-export", "Export", tab is null ? -1 : Percent(tab.ExportJob), ref _videoExport);
+    }
+
+    private void UpdateVideoPosition(Video.VideoTab? tab)
+    {
+        var position = tab is null ? -1 : (long)Math.Round(Math.Max(0, tab.State.Playhead) * 10, MidpointRounding.AwayFromZero);
+        var duration = tab is null ? -1 : (long)Math.Round(tab.Document.Duration * 10, MidpointRounding.AwayFromZero);
+        if (position == _videoPosition && duration == _videoDuration)
+            return;
+        _videoPosition = position;
+        _videoDuration = duration;
+        var element = Document.GetElementById("video-pos");
+        if (element.IsNull)
+            return;
+        if (tab is null)
+        {
+            element.SetInnerRml("");
+            return;
+        }
+
+        Span<char> text = stackalloc char[40];
+        var n = Video.VideoFormat.FormatClock(text, tab.State.Playhead);
+        " / ".CopyTo(text[n..]);
+        n += 3;
+        n += Video.VideoFormat.FormatClock(text[n..], tab.Document.Duration);
+        element.SetInnerRml(text[..n]);
+    }
+
+    // A running job's progress in whole percent, or -1 when there is none.
+    private static int Percent<T>(Video.VideoJob<T>? job) => job is null || job.IsDone ? -1 : (int)(job.Progress * 100);
+
+    // A job button reads its label, or "Cancel n %" while its job runs (pressing it then cancels).
+    private void UpdateJobButton(string id, string label, int percent, ref int shown)
+    {
+        if (percent == shown)
+            return;
+        shown = percent;
+        var button = Document.GetElementById(id);
+        if (button.IsNull)
+            return;
+        button.SetClass("busy", percent >= 0);
+        button.SetInnerRml(percent >= 0 ? string.Create(CultureInfo.InvariantCulture, $"Cancel {percent} %") : label);
     }
 
     /// <summary>Writes the frame stats without allocating (stack-formatted span into the element).</summary>

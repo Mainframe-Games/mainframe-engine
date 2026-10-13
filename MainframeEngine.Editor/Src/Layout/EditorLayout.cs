@@ -234,6 +234,41 @@ public sealed class EditorLayout
 
     public void SetSoundDesignerAutoPlay(bool autoPlay) => Settings = Settings with { SoundDesignerAutoPlay = autoPlay };
 
+    /// <summary>Narrowest the video transcript gets (its splitter's lower stop).</summary>
+    public const float MinVideoTranscriptWidth = 160;
+
+    /// <summary>Lowest the video timeline gets: the ruler and a usable band of segments.</summary>
+    public const float MinVideoTimelineHeight = 80;
+
+    /// <summary>
+    /// Video mode's transcript width in dp, clamped so the preview keeps <see cref="MinViewportWidth"/>. Video mode's view
+    /// spans the window, so the bound comes from <see cref="Viewport"/>.
+    /// </summary>
+    public void SetVideoTranscriptWidth(float width) => Settings = Settings with
+    {
+        VideoTranscriptWidth = Math.Clamp(Finite(width, MinVideoTranscriptWidth), MinVideoTranscriptWidth,
+            MathF.Max(MinVideoTranscriptWidth, Viewport.Width - MinViewportWidth - SplitterSize)),
+    };
+
+    /// <summary>Video mode's timeline height in dp, clamped so the preview keeps <see cref="MinViewportHeight"/>.</summary>
+    public void SetVideoTimelineHeight(float height) => Settings = Settings with
+    {
+        VideoTimelineHeight = Math.Clamp(Finite(height, MinVideoTimelineHeight), MinVideoTimelineHeight,
+            MathF.Max(MinVideoTimelineHeight, ViewportImage.Height - MinViewportHeight - SplitterSize)),
+    };
+
+    /// <summary>View › Show/Hide Transcript: the panel's own layout follows (no rectangle here changes).</summary>
+    public void SetVideoShowTranscript(bool show) => Settings = Settings with { VideoShowTranscript = show };
+
+    /// <summary>View › Show/Hide Output in video mode: the output panel's rectangle appears or goes.</summary>
+    public void SetVideoShowOutput(bool show)
+    {
+        if (Settings.VideoShowOutput == show)
+            return;
+        Settings = Settings with { VideoShowOutput = show };
+        Recompute();
+    }
+
     /// <summary>Most entries a picker's recent list keeps.</summary>
     public const int MaxRecent = 8;
 
