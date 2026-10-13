@@ -64,6 +64,12 @@ public sealed record EditorWorkspaceOptions
     /// <summary>Opens a folder in the OS file browser (default: <see cref="OsShell.OpenFolder"/>); tests record instead.</summary>
     public Func<string, bool>? OpenFolder { get; init; }
 
+    /// <summary>Starts Cutback (app path, recording path) as its own process; true when it started (default: a detached process); tests record instead.</summary>
+    public Func<string, string, bool>? LaunchCutback { get; init; }
+
+    /// <summary>Shows a file or folder in the OS file browser (default: <see cref="OsShell.Reveal"/>); tests record instead.</summary>
+    public Action<string>? Reveal { get; init; }
+
     /// <summary>
     /// Editor updates from GitHub Releases (the editor executable passes <see cref="GitHubUpdateService"/>); null disables
     /// update checks (tests, <c>--smoke</c>, <c>--qa-script</c>, <c>--hidden</c>).
@@ -111,6 +117,15 @@ public sealed partial class EditorWorkspace : Node
         CodeEditor = new CodeEditorLauncher(() => Settings, () => Session.ProjectRoot, Options.StartCodeEditor);
         var dotnet = DotnetSdk.FindDotnet() ?? "dotnet";
         Play = new PlayController(this, Options.GameBuilder ?? new DotnetGameBuilder(dotnet), Options.GameLauncher ?? new ProcessGameLauncher(dotnet));
+        // Message is built later (BuildUi), so the notifier reaches it through the property at call time.
+        var recordingNotifier = new RecordingNotifier(
+            request => Message.Show(request),
+            () => Settings.CutbackPath,
+            CutbackLocator.FindForThisMachine,
+            Options.LaunchCutback ?? LaunchCutback,
+            Options.Reveal ?? OsShell.Reveal,
+            OsShell.OpenUrl);
+        Play.Service.RecordingFinished += (_, recording) => recordingNotifier.OnFinished(recording);
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
         AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
         AudioPreview.Changed += OnAudioPreviewChanged;
@@ -335,6 +350,25 @@ public sealed partial class EditorWorkspace : Node
         }
 
         Splash.Finish();
+    }
+
+    /// <summary>
+    /// Starts Cutback on <paramref name="file"/> as a separate process (it is a GPL app; the editor never links it). It is a
+    /// GUI app, so its output is not redirected, and the editor does not wait for it: <c>Process.Start</c> returns at once.
+    /// </summary>
+    private static bool LaunchCutback(string app, string file)
+    {
+        try
+        {
+            var info = ProcessRunner.CreateStartInfo(app, [file], redirectOutput: false);
+            using var process = System.Diagnostics.Process.Start(info);
+            return process is not null;
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Log.Warning($"[Recorder] Could not start Cutback ({app}): {e.Message}");
+            return false;
+        }
     }
 
     protected override void OnExitTree()

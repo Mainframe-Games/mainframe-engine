@@ -34,6 +34,8 @@ public sealed class PlayRecordingControllerTests : IDisposable
     private readonly TestProject _project = new();
     private readonly FakeGameBuilder _builder = new();
     private readonly FakeGameLauncher _launcher = new();
+    private readonly List<(string App, string File)> _launched = [];
+    private readonly List<string> _revealed = [];
     private readonly HeadlessEditor _editor;
 
     public PlayRecordingControllerTests()
@@ -41,7 +43,18 @@ public sealed class PlayRecordingControllerTests : IDisposable
         Environment.SetEnvironmentVariable(UserDataPaths.OverrideVariable, _userData);
         try
         {
-            _editor = new HeadlessEditor(configure: o => o with { InitialProject = _project.Root, GameBuilder = _builder, GameLauncher = _launcher });
+            _editor = new HeadlessEditor(configure: o => o with
+            {
+                InitialProject = _project.Root,
+                GameBuilder = _builder,
+                GameLauncher = _launcher,
+                LaunchCutback = (app, file) =>
+                {
+                    _launched.Add((app, file));
+                    return true;
+                },
+                Reveal = _revealed.Add,
+            });
             _editor.Tick(3);
         }
         catch
@@ -267,5 +280,45 @@ public sealed class PlayRecordingControllerTests : IDisposable
         _editor.Key(Key.F10);
         TickUntil(() => _launcher.Games.Count == 1, "the launch");
         Assert.Contains("--record", _launcher.Games[0].Request.Arguments);
+    }
+
+    [Fact]
+    public void AStoppedRecordingShowsTheSavedDialogAndOpensItInCutback()
+    {
+        var cutback = Path.Combine(_userData, "cutback-fake");
+        File.WriteAllText(cutback, "");
+        _editor.Workspace.Settings.CutbackPath = cutback;
+        var instances = StartTwoGames();
+        Play.ToggleRecording();
+        TickUntil(() => instances[0].Recording == PlayRecordingState.Recording, "recording to start");
+
+        Play.ToggleRecording();
+        TickUntil(() => _editor.Workspace.Message.Current is not null, "the Recording saved dialog");
+
+        var dialog = _editor.Workspace.Message.Current!;
+        Assert.Equal("Recording saved", dialog.Title);
+        Assert.Equal(["Open in Cutback", "Show in Folder", "Close"], dialog.Buttons);
+
+        _editor.Workspace.Message.Answer(0);
+        var launched = Assert.Single(_launched);
+        Assert.Equal(cutback, launched.App);
+        Assert.StartsWith(Path.Combine(_userData, ""), launched.File, StringComparison.Ordinal);
+        Assert.Null(_editor.Workspace.Message.Current);
+    }
+
+    [Fact]
+    public void AFailedStartShowsTheFailedDialogAndShowInFolderUsesTheSeam()
+    {
+        var instances = StartTwoGames();
+        _launcher.Games[0].FailRecording = true;
+        Play.ToggleRecording();
+        TickUntil(() => _editor.Workspace.Message.Current is not null, "the Recording failed dialog");
+
+        var dialog = _editor.Workspace.Message.Current!;
+        Assert.Equal("Recording failed", dialog.Title);
+        Assert.Contains("no ffmpeg", dialog.Message, StringComparison.Ordinal);
+        Assert.Equal(PlayRecordingState.None, instances[0].Recording);
+        _editor.Workspace.Message.Answer(0); // "Close": the fake's error names no .partial folder
+        Assert.Empty(_revealed);
     }
 }
