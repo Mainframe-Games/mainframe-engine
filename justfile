@@ -70,20 +70,23 @@ qa-projects:
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --qa-script Tests/QA/project-workflow.qa --qa-out {{artifacts / "qa-projects"}}
 
 # Regenerate the README's editor screenshots (docs/images/editor*.png): Tests/QA/readme-screenshots.qa captures at 2x,
-# ImageMagick downscales to 1600x960. macOS/Linux; needs the display awake and `magick`. Review the PNGs before committing.
+# ImageMagick downscales to 1600x960. macOS/Linux; needs the display awake, `magick`, ffmpeg and `say` or `espeak-ng` (the
+# video-mode shot's narrated Demo recording, build/readme-video-clip.sh). Review the PNGs before committing.
 readme-screenshots:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Neutral project folder (no user paths on screen): the Demo project is linked in, MyGame is created there.
+    # Neutral project folder (no user paths on screen): the Demo project is linked in, MyGame is created there, and the
+    # video-mode shot opens Recordings/demo.mp4.
     projects=/tmp/MainframeProjects
     out="{{artifacts}}/readme-screenshots"
     rm -rf "$projects" "$out"
-    mkdir -p "$projects"
+    mkdir -p "$projects/Recordings"
     ln -s "{{justfile_directory()}}/Examples/Demo" "$projects/Demo"
+    build/readme-video-clip.sh "$projects/Recordings"
     dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
       --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
-    for name in editor editor-add-node editor-game-project editor-project-manager editor-sound-designer editor-song; do
+    for name in editor editor-add-node editor-game-project editor-project-manager editor-sound-designer editor-song editor-video; do
       magick "$out/$name.png" -filter Lanczos -resize 1600x960 -strip -define png:compression-level=9 \
         -define png:compression-filter=5 "docs/images/$name.png"
     done

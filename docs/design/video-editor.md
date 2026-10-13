@@ -13,6 +13,12 @@ transcribing speech, removing filler words and exporting the result: what [Cutba
 does as a separate app. The editor now does all of it in a **video mode**. A Game|Video toggle switches the whole editor
 UI between the game-engine editor and the video editor; an Audio (DAW) mode can follow the same way later.
 
+![Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut](../images/editor-video.png)
+
+*A recording of the Demo's Physics 2D scene with a short narration (`just readme-screenshots`): Detect Silence cut the
+pauses, Transcribe wrote the transcript, and Remove Fillers cut the "um" and "uh" (struck through, greyed on the
+timeline).*
+
 Cutback's logic is copied into the engine (Cutback.Core, Cutback.Media and Cutback.Analysis are MIT, written by the same
 author), not consumed as packages. The Cutback repository and its Avalonia app are not touched, and the recording dialog
 still offers Open in Cutback beside Open in Video Editor.
