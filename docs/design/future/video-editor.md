@@ -362,8 +362,8 @@ The format is Cutback's project JSON, schema version 3, unchanged:
   - Cutback.Analysis, and the Cutback.App code this ports (`TimelineControl`'s draw pass and gestures,
     `TranscriptControl`'s gestures, the view model's open, detect and export flows), are GPL-3.0 in Cutback's
     repository today.
-  - Cutback's sole author relicenses those ported parts as MIT for this copy. This was confirmed in chat when the spec
-    was reviewed. The GPL Cutback app itself is not touched.
+  - Cutback's sole author relicensed those ported parts as MIT for this copy, confirmed in chat on 2026-10-13. The GPL
+    Cutback app itself is not touched.
   - The port reimplements the UI parts on the engine's canvas and RmlUi; it does not copy Avalonia code.
 - **`MainframeEngine.Video/LICENSE-CUTBACK`** keeps the original copyright line. `THIRD_PARTY_NOTICES.md` gains three
   rows:
