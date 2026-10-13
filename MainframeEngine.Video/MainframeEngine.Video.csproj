@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Whisper.net" />
+    <PackageReference Include="Whisper.net.Runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="LICENSE-CUTBACK" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
