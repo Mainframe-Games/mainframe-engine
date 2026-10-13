@@ -147,6 +147,7 @@ public sealed class ToolbarPanel : EditorDocument
 
     private const string RecordStartTip = "Play and Record (F10) — record gameplay for promo footage; press again to stop";
     private const string RecordStopTip = "Stop Recording (F10)";
+    private const string RecordSavingTip = "Saving recording…";
     private string _instancesRml = "";
     private string _playStatus = "";
     private string _recordTip = RecordStartTip;
@@ -173,9 +174,9 @@ public sealed class ToolbarPanel : EditorDocument
         document.GetElementById("play-scene").SetClass("disabled", !canPlay || Workspace.Session.Active is null);
         var recording = play.Service.AnyRecording;
         var record = document.GetElementById("record");
-        record.SetClass("disabled", !canPlay && !play.IsPlaying);
+        record.SetClass("disabled", !play.CanToggleRecording);
         record.SetClass("recording", recording);
-        var recordTip = recording ? RecordStopTip : RecordStartTip;
+        var recordTip = play.IsRecording ? RecordStopTip : play.IsSavingRecording ? RecordSavingTip : RecordStartTip;
         if (!string.Equals(recordTip, _recordTip, StringComparison.Ordinal))
         {
             _recordTip = recordTip;

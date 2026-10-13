@@ -39,13 +39,21 @@ public sealed class PlayRecordingControllerTests : IDisposable
     public PlayRecordingControllerTests()
     {
         Environment.SetEnvironmentVariable(UserDataPaths.OverrideVariable, _userData);
-        _editor = new HeadlessEditor(configure: o => o with { InitialProject = _project.Root, GameBuilder = _builder, GameLauncher = _launcher });
-        _editor.Tick(3);
+        try
+        {
+            _editor = new HeadlessEditor(configure: o => o with { InitialProject = _project.Root, GameBuilder = _builder, GameLauncher = _launcher });
+            _editor.Tick(3);
+        }
+        catch
+        {
+            Dispose(); // xunit does not dispose a test class whose constructor threw
+            throw;
+        }
     }
 
     public void Dispose()
     {
-        _editor.Dispose();
+        _editor?.Dispose();
         Environment.SetEnvironmentVariable(UserDataPaths.OverrideVariable, _previousUserData);
         _project.Dispose();
         try
@@ -147,10 +155,15 @@ public sealed class PlayRecordingControllerTests : IDisposable
     public void ToggleRecordingStartsAgainAfterAFailedStart()
     {
         var instances = StartTwoGames();
+        var failures = 0;
+        Play.Service.RecordingFinished += (_, recording) =>
+        {
+            if (recording.State == EditorLinkRecordingState.Failed)
+                failures++;
+        };
         _launcher.Games[0].FailRecording = true;
         Play.ToggleRecording();
-        TickUntil(() => Count(_launcher.Games[0], EditorCommandKind.StartRecording) == 1, "the first start");
-        _editor.Tick(10); // the Failed reply arrives and clears the pending start
+        TickUntil(() => failures == 1, "the Failed reply to be processed"); // it also clears the pending start
         Assert.Equal(PlayRecordingState.None, instances[0].Recording);
 
         _launcher.Games[0].FailRecording = false;
@@ -180,6 +193,72 @@ public sealed class PlayRecordingControllerTests : IDisposable
         Assert.False(toolbar.GetElementById("record").IsClassSet("recording"));
         Assert.Equal("", toolbar.GetElementById("play-status").InnerRml);
         Assert.Empty(_editor.RmlMessages);
+    }
+
+    private MenuItem RecordMenuItem() => _editor.Workspace.Commands.MenuItems("run").Single(i => i.Command == "play.record");
+
+    [Fact]
+    public void TheRunMenuItemFollowsTheRecordingState()
+    {
+        var item = RecordMenuItem();
+        Assert.Equal(("Play and Record", true), (item.Label, item.Enabled));
+
+        var instances = StartTwoGames();
+        item = RecordMenuItem();
+        Assert.Equal(("Start Recording", true), (item.Label, item.Enabled));
+
+        Play.ToggleRecording();
+        TickUntil(() => instances[0].Recording == PlayRecordingState.Recording, "recording to start");
+        item = RecordMenuItem();
+        Assert.Equal(("Stop Recording", true), (item.Label, item.Enabled));
+
+        _launcher.Games[0].SwallowStopRecording = true; // stays "saving"
+        Play.ToggleRecording();
+        TickUntil(() => instances[0].Recording == PlayRecordingState.Saving, "the recording to be saving");
+        item = RecordMenuItem();
+        Assert.Equal(("Saving Recording…", false), (item.Label, item.Enabled));
+        _editor.Tick(2);
+        Assert.True(_editor.Workspace.Toolbar.Document.GetElementById("record").IsClassSet("disabled"));
+        Assert.Equal(1, _launcher.Games.Sum(g => Count(g, EditorCommandKind.StartRecording)));
+        Play.ToggleRecording(); // does nothing while saving
+        Assert.Equal(1, _launcher.Games.Sum(g => Count(g, EditorCommandKind.StartRecording)));
+    }
+
+    [Fact]
+    public void RecordingStaysAvailableWhileAGameRunsAndAnotherBuildIsRunning()
+    {
+        StartTwoGames();
+        _builder.Gate = new ManualResetEventSlim(false);
+        try
+        {
+            Play.PlayMain(); // a fresh Play builds while the two games keep running
+            Assert.True(Play.IsBuilding);
+            Assert.True(Play.IsPlaying);
+            var item = RecordMenuItem();
+            Assert.Equal(("Start Recording", true), (item.Label, item.Enabled));
+        }
+        finally
+        {
+            _builder.Gate.Set();
+        }
+    }
+
+    [Fact]
+    public void RefusedPlayAndRecordCreatesNoRecordingsFolder()
+    {
+        _builder.Gate = new ManualResetEventSlim(false);
+        try
+        {
+            Play.PlayMain(); // a build is now running
+            Assert.True(Play.IsBuilding);
+            Play.PlayAndRecord();
+            Assert.False(Directory.Exists(Path.Combine(_userData, "recordings")) ||
+                         Directory.EnumerateDirectories(_userData, "recordings", SearchOption.AllDirectories).Any());
+        }
+        finally
+        {
+            _builder.Gate.Set();
+        }
     }
 
     [Fact]

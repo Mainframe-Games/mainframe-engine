@@ -220,7 +220,20 @@ public sealed class PlayController : IDisposable
     private long _startRequestedAt;
 
     /// <summary>The Run menu / tooltip label of the F10 command in the current state.</summary>
-    public string RecordingLabel => !IsPlaying ? "Play and Record" : Service.AnyRecording ? "Stop Recording" : "Start Recording";
+    public string RecordingLabel => !IsPlaying ? "Play and Record" : IsRecording ? "Stop Recording" : IsSavingRecording ? "Saving Recording…" : "Start Recording";
+
+    /// <summary>An instance is recording (Stop Recording applies).</summary>
+    public bool IsRecording => Service.Instances.Any(i => i.Recording == PlayRecordingState.Recording);
+
+    /// <summary>A recording is being finalised and none is running: F10 has nothing to do until the file is saved.</summary>
+    public bool IsSavingRecording => !IsRecording && Service.AnyRecording;
+
+    /// <summary>
+    /// Whether the record command does anything now (the Run menu item and the toolbar button agree on it): idle needs a
+    /// desktop project and no build; while playing, Start/Stop stay available even if another build runs, but not
+    /// while a recording is being saved.
+    /// </summary>
+    public bool CanToggleRecording => _workspace.Project.DesktopProject is not null && (IsPlaying ? !IsSavingRecording : !IsBuilding);
 
     /// <summary>
     /// Runs the main scene with <c>--record &lt;path&gt;</c> so the recording covers the game from its first frame (the
@@ -234,6 +247,8 @@ public sealed class PlayController : IDisposable
             return;
         }
 
+        if (!CanPlay(out _, out _)) // before the folder is created: a refused launch must not leave an empty recordings folder
+            return;
         if (!TryNewRecordingPath(userData, scene: null, out var path))
             return;
         PlayMain(["--record", path]);
@@ -262,7 +277,7 @@ public sealed class PlayController : IDisposable
             }
         }
 
-        if (Service.AnyRecording)
+        if (IsSavingRecording)
             return; // still saving the last one
         if (_startRequested is { IsAlive: true, Recording: PlayRecordingState.None } &&
             System.Diagnostics.Stopwatch.GetElapsedTime(_startRequestedAt) < StartTimeout)
@@ -330,8 +345,10 @@ public sealed class PlayController : IDisposable
         }
     }
 
-    private void Play(string? scene, string label, IReadOnlyList<string>? extraArguments = null)
+    /// <summary>True when a launch can start; otherwise tells the user why (no project / no desktop project / a build running).</summary>
+    private bool CanPlay(out string buildPath, out string desktopProject)
     {
+        buildPath = desktopProject = "";
         var project = _workspace.Project;
         if (project.Root is null || project.DesktopProject is null || project.BuildPath is null)
         {
@@ -343,20 +360,30 @@ public sealed class PlayController : IDisposable
                     : "This project has no desktop project (*.Desktop/*.Desktop.csproj) to run.",
                 Buttons = ["OK"],
             });
-            return;
+            return false;
         }
 
         if (IsBuilding)
         {
             Log.Info("[Play] A build is already running.");
-            return;
+            return false;
         }
+
+        buildPath = project.BuildPath;
+        desktopProject = project.DesktopProject;
+        return true;
+    }
+
+    private void Play(string? scene, string label, IReadOnlyList<string>? extraArguments = null)
+    {
+        if (!CanPlay(out var buildPath, out var desktopProject))
+            return;
 
         // Play saves (Godot does too): the game reads the scenes from disk. Untitled scenes stay unsaved.
         if (!_workspace.Commands.SaveAll())
             Log.Warning("[Play] Some scenes could not be saved; the game runs what is on disk.");
         _extraInstances = 0;
-        Launch(new PlayRequest(project.BuildPath, project.DesktopProject, scene, label, extraArguments));
+        Launch(new PlayRequest(buildPath, desktopProject, scene, label, extraArguments));
     }
 
     private void Launch(PlayRequest request)

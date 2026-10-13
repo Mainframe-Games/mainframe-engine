@@ -783,7 +783,7 @@ public sealed class EditorCommands
             [
                 new MenuItem("Play", "play.main", "F5", _workspace.Project.DesktopProject is not null, Icon: "player-play-filled"),
                 new MenuItem("Play Scene", "play.scene", "F6", _workspace.Project.DesktopProject is not null && scene is not null, Icon: "movie"),
-                new MenuItem(_workspace.Play.RecordingLabel, "play.record", "F10", _workspace.Project.DesktopProject is not null && !_workspace.Play.IsBuilding, Icon: "point-filled"),
+                new MenuItem(_workspace.Play.RecordingLabel, "play.record", "F10", _workspace.Play.CanToggleRecording, Icon: "point-filled"),
                 new MenuItem("Run Another Instance", "play.another", "Shift+F5", _workspace.Project.DesktopProject is not null, Icon: "copy"),
                 new MenuItem("Play Instances", "play.instances", "Ctrl+F5", _workspace.Project.DesktopProject is not null && _workspace.Session.Project?.PlayInstances.Count > 0, Icon: "copy"),
                 MenuItem.Separator,
