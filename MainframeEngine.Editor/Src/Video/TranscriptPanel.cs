@@ -34,6 +34,11 @@ public sealed class TranscriptPanel
     private bool[] _states = [];
     private int _current = -1;
 
+    // The word spans of the markup, in word order, collected once per rebuild (_spanCount of them are valid; 0 when the
+    // markup did not have one span per word, and spans are then looked up by id).
+    private RmlElement[] _spans = [];
+    private int _spanCount;
+
     // The run being drawn by a press: the word pressed, the word the pointer is over, and the marked (sel) range.
     private int _press = -1;
     private int _end = -1;
@@ -60,6 +65,7 @@ public sealed class TranscriptPanel
         foreach (var listener in _listeners)
             listener?.Remove();
         _words = default;
+        _spanCount = 0; // the elements were freed with the old document
         _builtWords = null;
         _builtCount = -1;
         _builtVersion = -1;
@@ -112,6 +118,7 @@ public sealed class TranscriptPanel
         var words = document.Transcript;
         _states = TranscriptView.CutStates(words, document.Segments.Segments);
         _words.SetInnerRml(words.Count == 0 ? Placeholder : TranscriptMarkup.Build(words, _states));
+        CacheSpans(words.Count);
         _builtWords = words;
         _builtCount = words.Count;
         _builtVersion = document.Version;
@@ -159,7 +166,42 @@ public sealed class TranscriptPanel
             span.ScrollIntoView(alignWithTop: false);
     }
 
-    private RmlElement Span(int index) => _words.GetElementById(TranscriptMarkup.SpanId(index));
+    // Walks the paragraphs once, keeping each word's span (the spaces between them are text elements, without the class).
+    private void CacheSpans(int count)
+    {
+        if (_spans.Length < count)
+            _spans = new RmlElement[count];
+        var found = 0;
+        var paragraphs = _words.ChildCount;
+        for (var p = 0; p < paragraphs && found < count; p++)
+        {
+            var paragraph = _words.GetChild(p);
+            var children = paragraph.ChildCount;
+            for (var c = 0; c < children && found < count; c++)
+            {
+                var child = paragraph.GetChild(c);
+                if (child.IsClassSet("w"))
+                    _spans[found++] = child;
+            }
+        }
+
+        _spanCount = found == count ? count : 0;
+    }
+
+    private RmlElement Span(int index)
+    {
+        if ((uint)index < (uint)_spanCount)
+            return _spans[index];
+        IdLookups++;
+        Span<char> id = stackalloc char[16]; // "w-" and an int, without allocating
+        id[0] = 'w';
+        id[1] = '-';
+        index.TryFormat(id[2..], out var digits, default, CultureInfo.InvariantCulture);
+        return _words.GetElementById(id[..(2 + digits)]);
+    }
+
+    /// <summary>Spans looked up by id (tests: a cut or an undo after a rebuild must use the cached spans, not search).</summary>
+    internal int IdLookups { get; private set; }
 
     // ── Gestures ─────────────────────────────────────────────────────────────────────────────────────────────────
 

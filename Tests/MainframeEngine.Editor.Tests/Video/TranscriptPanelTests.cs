@@ -64,6 +64,25 @@ public sealed class TranscriptPanelTests : IDisposable
     }
 
     [Fact]
+    public void AnEditAfterARebuildFindsItsSpansWithoutSearching()
+    {
+        var tab = Open();
+        var rebuilds = Panel.Rebuilds;
+        var lookups = Panel.IdLookups;
+
+        Assert.True(tab.Document.CutWords(1, 2, anchor: 1)); // a version change only: two spans flip
+        _editor.Tick(2);
+        Assert.True(IsCut(1));
+        Assert.True(IsCut(2));
+        Assert.True(tab.Document.Editor.Undo());
+        _editor.Tick(2);
+        Assert.False(IsCut(1));
+
+        Assert.Equal(rebuilds, Panel.Rebuilds);
+        Assert.Equal(lookups, Panel.IdLookups); // the spans were cached when the markup was built
+    }
+
+    [Fact]
     public void ClickingAWordCutsIt()
     {
         var tab = Open();
