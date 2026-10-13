@@ -145,8 +145,20 @@ public sealed class ToolbarPanel : EditorDocument
         RefreshPlay();
     }
 
+    private const string RecordStartTip = "Play and Record (F10) — record gameplay for promo footage; press again to stop";
+    private const string RecordStopTip = "Stop Recording (F10)";
     private string _instancesRml = "";
     private string _playStatus = "";
+    private string _recordTip = RecordStartTip;
+
+    /// <summary>The first recording (or saving) instance's <see cref="PlayController.RecordStatus"/>; empty when none is.</summary>
+    private static string RecordingStatus(PlayController play)
+    {
+        foreach (var instance in play.Service.Instances)
+            if (instance.Recording != PlayRecordingState.None)
+                return PlayController.RecordStatus(instance.Recording, instance.RecordingStartedUtc, DateTime.UtcNow);
+        return "";
+    }
 
     /// <summary>Re-applies the play controls' states and the running instances (on play/project changes, never per frame).</summary>
     public void RefreshPlay()
@@ -159,6 +171,17 @@ public sealed class ToolbarPanel : EditorDocument
         var canPlay = project.DesktopProject is not null && !play.IsBuilding;
         document.GetElementById("play").SetClass("disabled", !canPlay);
         document.GetElementById("play-scene").SetClass("disabled", !canPlay || Workspace.Session.Active is null);
+        var recording = play.Service.AnyRecording;
+        var record = document.GetElementById("record");
+        record.SetClass("disabled", !canPlay && !play.IsPlaying);
+        record.SetClass("recording", recording);
+        var recordTip = recording ? RecordStopTip : RecordStartTip;
+        if (!string.Equals(recordTip, _recordTip, StringComparison.Ordinal))
+        {
+            _recordTip = recordTip;
+            record.SetAttribute("data-tooltip", recordTip);
+        }
+
         document.GetElementById("pause").SetClass("disabled", !play.IsPlaying);
         document.GetElementById("pause").SetClass("active", play.IsPaused);
         document.GetElementById("stop").SetClass("disabled", !play.IsPlaying);
@@ -192,7 +215,7 @@ public sealed class ToolbarPanel : EditorDocument
             document.GetElementById("instances").SetInnerRml(instances);
         }
 
-        var status = play.IsBuilding || project.IsBuilding ? "Building…" : "";
+        var status = play.IsBuilding || project.IsBuilding ? "Building…" : RecordingStatus(play);
         if (!string.Equals(status, _playStatus, StringComparison.Ordinal))
         {
             _playStatus = status;

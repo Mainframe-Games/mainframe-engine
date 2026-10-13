@@ -22,6 +22,7 @@ public sealed class PlayController : IDisposable
         Service.GameOutput += OnGameOutput;
         Service.BuildOutput += OnBuildOutput;
         Service.BuildFinished += OnBuildFinished;
+        Service.RecordingFinished += OnRecordingFinished;
         Service.Changed += () => Changed?.Invoke();
     }
 
@@ -210,6 +211,125 @@ public sealed class PlayController : IDisposable
         Service.ReloadScene();
     }
 
+    // ── Recording (F10, Run › Play and Record, the toolbar's record button) ───────────────────────────────────────
+
+    /// <summary>How long a Start Recording that the game has not answered blocks another one (a game that never replies must not wedge F10).</summary>
+    private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(5);
+
+    private PlayInstance? _startRequested;
+    private long _startRequestedAt;
+
+    /// <summary>The Run menu / tooltip label of the F10 command in the current state.</summary>
+    public string RecordingLabel => !IsPlaying ? "Play and Record" : Service.AnyRecording ? "Stop Recording" : "Start Recording";
+
+    /// <summary>
+    /// Runs the main scene with <c>--record &lt;path&gt;</c> so the recording covers the game from its first frame (the
+    /// path is in the project's <c>recordings</c> folder, see <see cref="RecordingPaths"/>).
+    /// </summary>
+    public void PlayAndRecord()
+    {
+        if (_workspace.Project.UserDataDirectory is not { } userData)
+        {
+            _workspace.Message.Show(new MessageRequest { Title = "Play and Record", Message = "Open a project first.", Buttons = ["OK"] });
+            return;
+        }
+
+        if (!TryNewRecordingPath(userData, scene: null, out var path))
+            return;
+        PlayMain(["--record", path]);
+    }
+
+    /// <summary>
+    /// F10: plays and records when no game runs; otherwise starts recording on the first connected instance, or stops the
+    /// recording one. A Start the game has not answered yet, and a recording that is still saving, make it a no-op, so a
+    /// double press does not send a second Start (the service's own guard only looks at confirmed state).
+    /// </summary>
+    public void ToggleRecording()
+    {
+        if (!IsPlaying)
+        {
+            PlayAndRecord();
+            return;
+        }
+
+        foreach (var instance in Service.Instances)
+        {
+            if (instance.Recording == PlayRecordingState.Recording)
+            {
+                Service.StopRecording(instance);
+                Changed?.Invoke();
+                return;
+            }
+        }
+
+        if (Service.AnyRecording)
+            return; // still saving the last one
+        if (_startRequested is { IsAlive: true, Recording: PlayRecordingState.None } &&
+            System.Diagnostics.Stopwatch.GetElapsedTime(_startRequestedAt) < StartTimeout)
+            return; // Start sent, Started not back yet
+        _startRequested = null;
+
+        var target = Service.Instances.FirstOrDefault(i => i.State is PlayInstanceState.Running or PlayInstanceState.Paused);
+        if (target is null)
+        {
+            Log.Info("[Play] The game is still starting; record once it is running.");
+            return;
+        }
+
+        if (_workspace.Project.UserDataDirectory is not { } userData)
+            return;
+        if (!TryNewRecordingPath(userData, target.CurrentScene, out var path))
+            return;
+        if (Service.StartRecording(target, path))
+        {
+            _startRequested = target;
+            _startRequestedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+        }
+
+        Changed?.Invoke();
+    }
+
+    private void OnRecordingFinished(PlayInstance instance, MainframeEngine.EditorLink.EditorLinkRecording recording)
+    {
+        if (ReferenceEquals(instance, _startRequested))
+            _startRequested = null;
+    }
+
+    private bool TryNewRecordingPath(string userData, string? scene, out string path)
+    {
+        path = RecordingPaths.NewPath(userData, scene, DateTime.Now, File.Exists);
+        try
+        {
+            Directory.CreateDirectory(RecordingPaths.Directory(userData));
+            return true;
+        }
+        catch (Exception e) when (EditorCommands.IsRecoverable(e))
+        {
+            _workspace.Message.Show(new MessageRequest
+            {
+                Title = "Play and Record",
+                Message = $"Could not create the recordings folder:\n{e.Message}",
+                Buttons = ["OK"],
+            });
+            return false;
+        }
+    }
+
+    /// <summary>The toolbar's status text for a recording: <c>● REC m:ss</c> while recording, <c>Saving recording…</c> while the file is finalised, else empty.</summary>
+    public static string RecordStatus(PlayRecordingState state, DateTime? startedUtc, DateTime nowUtc)
+    {
+        switch (state)
+        {
+            case PlayRecordingState.Recording:
+                var elapsed = startedUtc is { } started && nowUtc > started ? nowUtc - started : TimeSpan.Zero;
+                return string.Create(CultureInfo.InvariantCulture, $"● REC {(int)elapsed.TotalMinutes}:{elapsed.Seconds:00}");
+            case PlayRecordingState.Saving:
+                return "Saving recording…";
+            default:
+                return "";
+        }
+    }
+
     private void Play(string? scene, string label, IReadOnlyList<string>? extraArguments = null)
     {
         var project = _workspace.Project;
@@ -356,6 +476,7 @@ public sealed class PlayController : IDisposable
         Service.GameOutput -= OnGameOutput;
         Service.BuildOutput -= OnBuildOutput;
         Service.BuildFinished -= OnBuildFinished;
+        Service.RecordingFinished -= OnRecordingFinished;
         Service.Dispose();
     }
 }

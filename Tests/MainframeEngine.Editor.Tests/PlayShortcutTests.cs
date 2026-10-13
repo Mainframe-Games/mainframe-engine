@@ -9,6 +9,8 @@ public sealed class PlayShortcutTests
     [InlineData(Key.F5, EditorModifiers.Shift, "play.another")]
     [InlineData(Key.F5, EditorModifiers.Command, "play.instances")]
     [InlineData(Key.F6, EditorModifiers.None, "play.scene")]
+    [InlineData(Key.F10, EditorModifiers.None, "play.record")]
+    [InlineData(Key.F10, EditorModifiers.Shift, null)]
     [InlineData(Key.B, EditorModifiers.Command | EditorModifiers.Shift, "project.build_reload")]
     [InlineData(Key.F5, EditorModifiers.Alt, null)]
     public void RunShortcutsMapToTheirCommands(Key key, EditorModifiers modifiers, string? command) =>

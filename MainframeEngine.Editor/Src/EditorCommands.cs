@@ -135,6 +135,7 @@ public sealed class EditorCommands
             case "play.scene": _workspace.Play.PlayCurrent(); return true;
             case "play.pause": _workspace.Play.TogglePause(); return true;
             case "play.stop": _workspace.Play.Stop(); return true;
+            case "play.record": _workspace.Play.ToggleRecording(); return true;
             case "play.another": _workspace.Play.PlayAnotherInstance(); return true;
             case "play.instances": _workspace.Play.PlayInstances(); return true;
             case "play.reload_scene": _workspace.Play.ReloadScene(); return true;
@@ -782,6 +783,7 @@ public sealed class EditorCommands
             [
                 new MenuItem("Play", "play.main", "F5", _workspace.Project.DesktopProject is not null, Icon: "player-play-filled"),
                 new MenuItem("Play Scene", "play.scene", "F6", _workspace.Project.DesktopProject is not null && scene is not null, Icon: "movie"),
+                new MenuItem(_workspace.Play.RecordingLabel, "play.record", "F10", _workspace.Project.DesktopProject is not null && !_workspace.Play.IsBuilding, Icon: "point-filled"),
                 new MenuItem("Run Another Instance", "play.another", "Shift+F5", _workspace.Project.DesktopProject is not null, Icon: "copy"),
                 new MenuItem("Play Instances", "play.instances", "Ctrl+F5", _workspace.Project.DesktopProject is not null && _workspace.Session.Project?.PlayInstances.Count > 0, Icon: "copy"),
                 MenuItem.Separator,
@@ -833,7 +835,7 @@ public sealed class EditorCommands
                   "Viewport: click select · RMB+WASD/QE fly (Shift faster) · Alt+LMB or MMB orbit · Shift+MMB pan · wheel zoom\n" +
                   "1 / 3 / 7 front, right, top view · F1 documentation · F12 developer overlay · F9 UI debugger\n" +
                   "Song tab: Space play/stop · L loop · Home to start · Del · Ctrl+C/V/D · arrows nudge (Shift: octave) · Q quantize · Ctrl+wheel zoom\n" +
-                  "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · Ctrl+Shift+B build & reload code",
+                  "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · F10 play and record · Ctrl+Shift+B build & reload code",
         Buttons = ["Close"],
     });
 
