@@ -418,7 +418,7 @@ public sealed class ToolbarPanel : EditorDocument
             SetText("video-kept", kept);
         }
 
-        UpdateJobButton("video-transcribe", "Transcribe", tab is null ? -1 : Percent(tab.TranscribeJob), ref _videoTranscribe);
+        UpdateJobButton("video-transcribe", "Transcribe", tab is null ? -1 : TranscribePercent(tab), ref _videoTranscribe);
         UpdateJobButton("video-silence", "Detect silence", tab is null ? -1 : Percent(tab.SilenceJob), ref _videoSilence);
         UpdateJobButton("video-export", "Export", tab is null ? -1 : Percent(tab.ExportJob), ref _videoExport);
     }
@@ -451,7 +451,22 @@ public sealed class ToolbarPanel : EditorDocument
     // A running job's progress in whole percent, or -1 when there is none.
     private static int Percent<T>(Video.VideoJob<T>? job) => job is null || job.IsDone ? -1 : (int)(job.Progress * 100);
 
-    // A job button reads its label, or "Cancel n %" while its job runs (pressing it then cancels).
+    // Transcribing is two phases when the model has to be fetched first: the job's first half (progress under 0.5) is the
+    // download, which the button names. Encoded as DownloadingOffset + n so the cached value changes with the phase too.
+    private const int DownloadingOffset = 1000;
+
+    private static int TranscribePercent(Video.VideoTab tab)
+    {
+        if (tab.TranscribeJob is not { IsDone: false } job)
+            return -1;
+        var progress = job.Progress;
+        return tab.TranscribeRun is { Downloads: true } && progress < 0.5
+            ? DownloadingOffset + (int)(progress * 200) // the download's own 0–100 %
+            : (int)(progress * 100);
+    }
+
+    // A job button reads its label, or "Cancel n %" while its job runs (pressing it then cancels); a download phase
+    // (DownloadingOffset + n) reads "Downloading model n %".
     private void UpdateJobButton(string id, string label, int percent, ref int shown)
     {
         if (percent == shown)
@@ -461,7 +476,12 @@ public sealed class ToolbarPanel : EditorDocument
         if (button.IsNull)
             return;
         button.SetClass("busy", percent >= 0);
-        button.SetInnerRml(percent >= 0 ? string.Create(CultureInfo.InvariantCulture, $"Cancel {percent} %") : label);
+        button.SetInnerRml(percent switch
+        {
+            < 0 => label,
+            >= DownloadingOffset => string.Create(CultureInfo.InvariantCulture, $"Downloading model {percent - DownloadingOffset} %"),
+            _ => string.Create(CultureInfo.InvariantCulture, $"Cancel {percent} %"),
+        });
     }
 
     /// <summary>Writes the frame stats without allocating (stack-formatted span into the element).</summary>

@@ -1,5 +1,6 @@
 using System.Numerics;
 using MainframeEngine.Editor.Music;
+using MainframeEngine.Video.Analysis;
 using MainframeEngine.Video.Detection;
 using MainframeEngine.Video.Media;
 using MainframeEngine.Video.Models;
@@ -48,8 +49,16 @@ public sealed class VideoView : Node
     /// <summary>True while either texture is published to the UI (tests: a switch away unpublishes both).</summary>
     internal bool PublishesTextures => _timelineRegistered is not null || _previewRegistered is not null;
 
-    // Video Settings (Task 15) will supply these; until then Cutback's defaults.
+    // Video Settings (Task 15) will supply these three; until then Cutback's defaults.
     private static DetectionSettings Detection => DetectionSettings.Default;
+
+    private static WhisperModel SpeechModel => WhisperModelInfo.Default.Model;
+
+    private static IReadOnlyList<string> FillerWords => FillerDetector.DefaultWords;
+
+    /// <summary>Creates the speech recogniser for a downloaded model file; tests swap it so no model is ever loaded.</summary>
+    public Func<FfmpegLocation, string, WhisperModel, ITranscriber> TranscriberFactory { get; set; } =
+        static (ffmpeg, modelPath, model) => new WhisperTranscriber(ffmpeg, modelPath, model);
 
     protected override void OnProcess(in GameTime gameTime)
     {
@@ -287,12 +296,21 @@ public sealed class VideoView : Node
         Log.Info($"[Video] Detecting silence in {Path.GetFileName(document.SourcePath)}…");
     }
 
-    /// <summary>Main thread, every frame: applies <paramref name="tab"/>'s finished silence detection, or reports its end.</summary>
+    /// <summary>
+    /// Main thread, every frame: applies <paramref name="tab"/>'s finished silence detection and transcription, or
+    /// reports how they ended. A tab closed mid-run is no longer polled; closing it cancelled and disposed its jobs.
+    /// </summary>
     internal void PollJobs(VideoTab tab)
     {
         ArgumentNullException.ThrowIfNull(tab);
-        if (tab.SilenceJob is not { IsDone: true } job)
-            return;
+        if (tab.SilenceJob is { IsDone: true } silence)
+            FinishSilence(tab, silence);
+        if (tab.TranscribeJob is { IsDone: true } transcribe)
+            FinishTranscribe(tab, transcribe);
+    }
+
+    private void FinishSilence(VideoTab tab, VideoJob<IReadOnlyList<SilenceSpan>> job)
+    {
         tab.SilenceJob = null;
         var settings = tab.SilenceSettings ?? Detection; // the ones it detected with
         tab.SilenceSettings = null;
@@ -313,4 +331,135 @@ public sealed class VideoView : Node
             tab.Controller.CancelGesture();
             tab.Notice = tab.Document.ApplySilence(spans, settings);
         });
+
+    // ── Transcription ────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Transcribe: downloads the speech model first if it is not cached (the first half of the progress), then runs
+    /// Whisper over the recording's audio in the background; <see cref="PollJobs"/> installs the words when it finishes.
+    /// A second call while it runs cancels it. Everything runs on this machine; the model download is the only network use.
+    /// </summary>
+    /// <param name="tab">The video tab to transcribe.</param>
+    /// <param name="thenRemoveFillers">Cuts the filler words as soon as the transcript arrives.</param>
+    public void Transcribe(VideoTab tab, bool thenRemoveFillers = false)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (tab.TranscribeJob is { } running)
+        {
+            running.Cancel();
+            return;
+        }
+
+        if (tab.Ffmpeg is not { } ffmpeg)
+        {
+            _workspace.Commands.ReportError("ffmpeg not found",
+                new FfmpegMissingException("Transcribe needs ffmpeg. Set it in Editor Settings › Video, or install it and restart the editor."));
+            return;
+        }
+
+        var model = SpeechModel;
+        var store = new ModelStore(_workspace.Options.VideoModelsDirectory);
+        var downloads = !store.IsDownloaded(model);
+        var factory = TranscriberFactory;
+        var path = tab.Document.SourcePath;
+        tab.TranscribeRun = new TranscribeRun(model, downloads, thenRemoveFillers);
+        tab.TranscribeJob = VideoJob.Start<IReadOnlyList<Word>>("transcribe", async (p, ct) =>
+        {
+            // With a download the first half of the bar is the model; the recognition takes the rest.
+            var share = downloads ? 0.5 : 0.0;
+            var modelPath = await store.EnsureAsync(model, downloads ? new PhaseProgress(p, 0, 0.5) : null, ct).ConfigureAwait(false);
+            return await factory(ffmpeg, modelPath, model).TranscribeAsync(path, new PhaseProgress(p, share, 1 - share), ct).ConfigureAwait(false);
+        });
+        Log.Info($"[Video] Transcribing {Path.GetFileName(path)} with {WhisperModelInfo.For(model).Key}…");
+    }
+
+    /// <summary>
+    /// Remove Filler Words: cuts the "um"s and "uh"s of the transcript (one undo step). With no transcript it
+    /// transcribes first and cuts when that finishes; while a transcription is already running it just asks that one to.
+    /// </summary>
+    public void RemoveFillers(VideoTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (tab.Document.Transcript.Count == 0)
+        {
+            if (tab.TranscribeRun is { } run && tab.TranscribeJob is not null)
+                run.ThenRemoveFillers = true; // not Transcribe(): a second call there would cancel the running job
+            else
+                Transcribe(tab, thenRemoveFillers: true);
+            return;
+        }
+
+        ApplyFillers(tab);
+    }
+
+    private void ApplyFillers(VideoTab tab) =>
+        Guard("Remove Filler Words failed", () =>
+        {
+            tab.Controller.CancelGesture();
+            tab.Notice = tab.Document.RemoveFillerWords(FillerWords, Detection);
+            ShowTranscript();
+        });
+
+    // The transcript panel is where the result is; show it if the user had hidden it.
+    private void ShowTranscript()
+    {
+        if (!_workspace.Layout.Settings.VideoShowTranscript)
+            _workspace.Layout.SetVideoShowTranscript(true);
+    }
+
+    private void FinishTranscribe(VideoTab tab, VideoJob<IReadOnlyList<Word>> job)
+    {
+        var run = tab.TranscribeRun;
+        tab.TranscribeJob = null;
+        tab.TranscribeRun = null;
+        var task = job.Task;
+        if (task.IsCanceled || job.IsCancelled || task.Exception?.GetBaseException() is OperationCanceledException)
+            tab.Notice = "Transcription cancelled.";
+        else if (task.Exception?.GetBaseException() is { } error)
+            _workspace.Commands.ReportError("Transcription failed", ExplainTranscribeFailure(error, run));
+        else
+            InstallTranscript(tab, task.Result, run?.ThenRemoveFillers == true);
+        job.Dispose();
+    }
+
+    private void InstallTranscript(VideoTab tab, IReadOnlyList<Word> words, bool thenRemoveFillers) =>
+        Guard("Transcription failed", () =>
+        {
+            tab.Document.SetTranscript(words);
+            tab.Notice = words.Count == 0 ? "No speech was recognised." : $"Transcribed {words.Count} words.";
+            ShowTranscript();
+            if (words.Count > 0 && thenRemoveFillers)
+                ApplyFillers(tab);
+        });
+
+    // Cutback's advice per failure: a model that would not load is deleted when it looks truncated so the next run fetches
+    // it again; a missing native library says so. Anything else keeps its own message.
+    private Exception ExplainTranscribeFailure(Exception error, TranscribeRun? run)
+    {
+        switch (error)
+        {
+            case ModelLoadException load:
+                var store = new ModelStore(_workspace.Options.VideoModelsDirectory);
+                var model = run?.Model ?? SpeechModel;
+                if (!store.IsPlausiblyComplete(model))
+                {
+                    store.Delete(model);
+                    return new InvalidOperationException(
+                        load.Message + " The cached file looked incomplete and has been removed; run Transcribe again to download it.", load);
+                }
+
+                return new InvalidOperationException(
+                    load.Message + $" If this keeps happening, delete the file at {load.ModelPath} to download it again.", load);
+            case DllNotFoundException:
+                return new InvalidOperationException("The speech recognition library could not be loaded. " + error.Message, error);
+            default:
+                return error;
+        }
+    }
+
+    // One phase of a job's progress mapped into [offset, offset + scale] of the whole bar.
+    private sealed class PhaseProgress(IProgress<double> inner, double offset, double scale) : IProgress<double>
+    {
+        public void Report(double value) => inner.Report(offset + Math.Clamp(value, 0, 1) * scale);
+    }
 }

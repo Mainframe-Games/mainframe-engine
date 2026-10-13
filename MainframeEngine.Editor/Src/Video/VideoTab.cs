@@ -1,3 +1,4 @@
+using MainframeEngine.Video.Analysis;
 using MainframeEngine.Video.Detection;
 using MainframeEngine.Video.Media;
 using MainframeEngine.Video.Models;
@@ -86,6 +87,9 @@ public sealed class VideoTab : IEditorTab
     public DetectionSettings? SilenceSettings { get; set; }
 
     public VideoJob<IReadOnlyList<Word>>? TranscribeJob { get; set; }
+
+    /// <summary>What <see cref="TranscribeJob"/> was started with; null while none runs.</summary>
+    public TranscribeRun? TranscribeRun { get; set; }
 
     public VideoJob<string>? ExportJob { get; set; }
 
@@ -215,9 +219,25 @@ public sealed class VideoTab : IEditorTab
         SilenceJob = null;
         SilenceSettings = null;
         TranscribeJob = null;
+        TranscribeRun = null;
         ExportJob = null;
         Preview.Dispose(); // kills every decoder and the voice, frees its viewport
         if (!TimelineViewport.IsFreed)
             TimelineViewport.Free();
     }
+}
+
+/// <summary>
+/// The choices a transcription job was started with, captured when it starts so it finishes consistently even if the
+/// settings change while it runs: the model, whether it downloads that model first (the toolbar says so, and the
+/// progress bar's first half is the download), and whether Remove Filler Words follows.
+/// </summary>
+public sealed class TranscribeRun(WhisperModel model, bool downloads, bool thenRemoveFillers)
+{
+    public WhisperModel Model { get; } = model;
+
+    public bool Downloads { get; } = downloads;
+
+    /// <summary>Set by Remove Filler Words when it asks for a transcript: the filler cuts are made as soon as it arrives.</summary>
+    public bool ThenRemoveFillers { get; set; } = thenRemoveFillers;
 }

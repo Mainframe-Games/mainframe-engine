@@ -183,7 +183,7 @@ public sealed class EditorCommands
             case "video.toggle_transcript": _workspace.ToggleVideoTranscript(); return true;
             // The video toolbar's buttons without a video tab: they show disabled, and a click does nothing.
             case "video.play" or "video.stop" or "video.transcribe" or "video.remove_fillers" or "video.detect_silence"
-                or "video.detect_idle" or "video.export" when Session.ActiveTab is not VideoTab:
+                or "video.detect_idle" or "video.export" or "video.export_transcript" when Session.ActiveTab is not VideoTab:
                 return true;
             default:
                 if (id.StartsWith(RecentVideoCommand, StringComparison.Ordinal) &&
@@ -224,6 +224,9 @@ public sealed class EditorCommands
                     : video.Document.DetectIdleGameplay(GameplaySettings.Default); // Video Settings (Task 15) will supply these
                 return true;
             case "video.detect_silence": _workspace.VideoView.DetectSilence(video); return true;
+            case "video.transcribe": _workspace.VideoView.Transcribe(video); return true;
+            case "video.remove_fillers": _workspace.VideoView.RemoveFillers(video); return true;
+            case "video.export_transcript": ExportTranscript(video); return true;
             default: return false;
         }
     }
@@ -442,6 +445,52 @@ public sealed class EditorCommands
                 then?.Invoke(saved);
             },
             onCancel: () => then?.Invoke(false));
+    }
+
+    /// <summary>
+    /// File › Export Transcript: asks where (default <c>&lt;recording name&gt;.txt</c> beside the recording) and writes the
+    /// edited transcript, cut words left out and times matching the exported video; <c>.srt</c> writes subtitles.
+    /// </summary>
+    public void ExportTranscript(VideoTab tab)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (tab.Document.Transcript.Count == 0)
+        {
+            tab.Notice = "There is no transcript to export. Transcribe the recording first.";
+            return;
+        }
+
+        var source = tab.Document.SourcePath;
+        var model = new FilePickerModel(FilePickerMode.Save, Path.GetDirectoryName(source)!, ["*.txt", "*.srt"],
+            Path.GetFileNameWithoutExtension(source) + ".txt");
+        _workspace.FilePicker.Show(model, "Export Transcript", "Export", path => WriteTranscript(tab, path));
+    }
+
+    /// <summary>
+    /// Writes <paramref name="tab"/>'s edited transcript to <paramref name="path"/> as UTF-8 without a BOM: <c>.srt</c>
+    /// as subtitles, anything else as text (<c>.txt</c> is added unless the name already ends in it). Never the recording
+    /// itself. A failure is shown in a message box; false then.
+    /// </summary>
+    internal bool WriteTranscript(VideoTab tab, string path)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var srt = path.EndsWith(".srt", StringComparison.OrdinalIgnoreCase);
+        if (!srt && !path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+            path += ".txt";
+        try
+        {
+            if (EditorSession.PathsEqual(path, tab.Document.SourcePath))
+                throw new IOException("That is the recording itself; the transcript goes in a separate file.");
+            File.WriteAllText(path, tab.Document.TranscriptText(srt), new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            tab.Notice = $"Exported {Path.GetFileName(path)}.";
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            ReportError("Could not write the transcript", e);
+            return false;
+        }
     }
 
     private bool TrySaveVideo(VideoTab tab, string? path)
@@ -1102,7 +1151,7 @@ public sealed class EditorCommands
                 new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", tab, Icon: "device-floppy"),
                 MenuItem.Separator,
                 new MenuItem("Export Video…", "video.export", "Ctrl+E", tab, Icon: "download"),
-                new MenuItem("Export Transcript…", "video.export_transcript", null, tab, Icon: "file-text"),
+                new MenuItem("Export Transcript…", "video.export_transcript", null, tab && Session.ActiveVideo?.Document.Transcript.Count > 0, Icon: "file-text"),
                 MenuItem.Separator,
                 new MenuItem("Close Tab", "file.close", "Ctrl+W", tab, Icon: "x"),
                 new MenuItem("Quit", "file.quit", "Ctrl+Q", Icon: "logout"),

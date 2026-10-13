@@ -65,6 +65,13 @@ public sealed record EditorWorkspaceOptions
     /// <summary>Opens a folder in the OS file browser (default: <see cref="OsShell.OpenFolder"/>); tests record instead.</summary>
     public Func<string, bool>? OpenFolder { get; init; }
 
+    /// <summary>
+    /// Where the video editor keeps its downloaded Whisper models (default: <c>models</c> beside the editor settings,
+    /// <c>~/.mainframe/models</c>); tests pass a temp folder so nothing is ever downloaded.
+    /// </summary>
+    public string VideoModelsDirectory { get; init; } =
+        Path.Combine(Path.GetDirectoryName(EditorSettings.DefaultPath)!, "models");
+
     /// <summary>Starts Cutback (app path, recording path) as its own process; true when it started (default: a detached process); tests record instead.</summary>
     public Func<string, string, bool>? LaunchCutback { get; init; }
 
