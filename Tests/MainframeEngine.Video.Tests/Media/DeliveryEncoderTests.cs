@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using MainframeEngine.Video.Media;
 using MainframeEngine.Video.Media.Export;
 
 namespace MainframeEngine.Video.Tests.Media;
@@ -67,5 +68,75 @@ public sealed class DeliveryEncoderTests
         Assert.Contains("libx264", DeliveryEncoder.NoEncoderMessage(OSPlatform.OSX), StringComparison.Ordinal);
         Assert.Contains("winget install", DeliveryEncoder.NoEncoderMessage(OSPlatform.Windows), StringComparison.Ordinal);
         Assert.Contains("package manager", DeliveryEncoder.NoEncoderMessage(OSPlatform.Linux), StringComparison.Ordinal);
+    }
+
+    // ---- the cache: driven through the internal seam, so no ffmpeg runs ----------------------------------------------
+
+    private static string NewKey() => "/test/ffmpeg-" + Guid.NewGuid().ToString("N");
+
+    [Fact]
+    public async Task ACallerThatCancelsStopsWaitingWhileTheNextCallerStillGetsTheResult()
+    {
+        var key = NewKey();
+        var gate = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        var probeCanBeCancelled = true;
+        Task<string> Select(string k, CancellationToken ct)
+        {
+            Interlocked.Increment(ref calls);
+            probeCanBeCancelled = ct.CanBeCanceled;
+            return gate.Task;
+        }
+
+        using var cts = new CancellationTokenSource();
+        var first = DeliveryEncoder.SelectAsync(key, Select, cts.Token);
+        var second = DeliveryEncoder.SelectAsync(key, Select, CancellationToken.None);
+
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+        Assert.False(second.IsCompleted);
+
+        gate.SetResult("libx264");
+
+        Assert.Equal("libx264", await second);
+        Assert.Equal("libx264", await DeliveryEncoder.SelectAsync(key, Select, CancellationToken.None));
+        Assert.Equal(1, calls);
+        Assert.False(probeCanBeCancelled); // the shared probes never see a caller's token
+    }
+
+    [Fact]
+    public async Task AFailedSelectionIsEvictedSoTheNextCallProbesAgain()
+    {
+        var key = NewKey();
+        var calls = 0;
+        Task<string> Select(string k, CancellationToken ct) =>
+            Interlocked.Increment(ref calls) == 1 ? Task.FromException<string>(new FfmpegException("no encoder", -1, string.Empty)) : Task.FromResult("libx264");
+
+        await Assert.ThrowsAsync<FfmpegException>(() => DeliveryEncoder.SelectAsync(key, Select, CancellationToken.None));
+
+        Assert.Equal("libx264", await DeliveryEncoder.SelectAsync(key, Select, CancellationToken.None));
+        Assert.Equal(2, calls);
+    }
+
+    [Fact]
+    public async Task ConcurrentCallersShareOneProbe()
+    {
+        var key = NewKey();
+        var gate = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        Task<string> Select(string k, CancellationToken ct)
+        {
+            Interlocked.Increment(ref calls);
+            return gate.Task;
+        }
+
+        var callers = Enumerable.Range(0, 8)
+            .Select(_ => Task.Run(() => DeliveryEncoder.SelectAsync(key, Select, CancellationToken.None)))
+            .ToArray();
+        await Task.Delay(50, TestContext.Current.CancellationToken); // let them all reach the cache
+        gate.SetResult("h264_videotoolbox");
+
+        Assert.All(await Task.WhenAll(callers), encoder => Assert.Equal("h264_videotoolbox", encoder));
+        Assert.Equal(1, calls);
     }
 }

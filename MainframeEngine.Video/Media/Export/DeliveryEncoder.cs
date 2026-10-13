@@ -20,7 +20,10 @@ public static class DeliveryEncoder
     private const long MaxBitrate = 80_000_000;
     private const long UnknownBitrate = 12_000_000;
 
-    private static readonly ConcurrentDictionary<string, Task<string>> Selected = new(StringComparer.Ordinal);
+    /// <summary>A candidate that has not finished encoding its test frame by now counts as failed and the next one is tried.</summary>
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(10);
+
+    private static readonly ConcurrentDictionary<string, Lazy<Task<string>>> Selected = new(StringComparer.Ordinal);
 
     /// <summary>Encoder names from <c>ffmpeg -encoders</c> (lines like <c> V....D libx264 …</c>), skipping the legend.</summary>
     public static IReadOnlyList<string> ParseEncoders(string output)
@@ -83,14 +86,37 @@ public static class DeliveryEncoder
     }
 
     /// <summary>The best working encoder for <paramref name="ffmpeg"/>, cached per binary.</summary>
+    /// <remarks>
+    /// The probes are shared and run to completion whatever a caller does, so a caller that cancels only stops waiting for
+    /// them (and a later caller still gets the result). A failed selection is not cached.
+    /// </remarks>
     /// <exception cref="FfmpegException">None works (the message is <see cref="NoEncoderMessage"/>).</exception>
     public static Task<string> SelectAsync(FfmpegLocation ffmpeg, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ffmpeg);
-        var task = Selected.GetOrAdd(ffmpeg.FfmpegPath, _ => SelectUncachedAsync(ffmpeg, cancellationToken));
-        if (task.IsFaulted || task.IsCanceled)
-            Selected.TryRemove(new KeyValuePair<string, Task<string>>(ffmpeg.FfmpegPath, task));
-        return task;
+        return SelectAsync(ffmpeg.FfmpegPath, (_, ct) => SelectUncachedAsync(ffmpeg, ct), cancellationToken);
+    }
+
+    /// <summary>The caching behind <see cref="SelectAsync(FfmpegLocation, CancellationToken)"/>, with the selection supplied so tests can drive it.</summary>
+    internal static Task<string> SelectAsync(string key, Func<string, CancellationToken, Task<string>> select, CancellationToken cancellationToken)
+    {
+        var shared = Selected.GetOrAdd(key, k => new Lazy<Task<string>>(() => SelectSharedAsync(k, select)));
+        return shared.Value.WaitAsync(cancellationToken);
+    }
+
+    private static async Task<string> SelectSharedAsync(string key, Func<string, CancellationToken, Task<string>> select)
+    {
+        try
+        {
+            // No caller's token: the work is shared. FfmpegProcess kills a running probe when it is disposed.
+            return await select(key, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Evict from here, before any caller sees the failure, so the next call probes again.
+            Selected.TryRemove(key, out _);
+            throw;
+        }
     }
 
     private static async Task<string> SelectUncachedAsync(FfmpegLocation ffmpeg, CancellationToken ct)
@@ -99,12 +125,28 @@ public static class DeliveryEncoder
         var os = OperatingSystem.IsMacOS() ? OSPlatform.OSX : OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.Linux;
         foreach (var candidate in Candidates(os, ParseEncoders(listing.Output)))
         {
-            var probe = await RunAsync(ffmpeg, ProbeArguments(candidate), ct).ConfigureAwait(false);
-            if (probe.ExitCode == 0)
+            if (await WorksAsync(ffmpeg, candidate, ct).ConfigureAwait(false))
+            {
                 return candidate;
+            }
         }
 
         throw new FfmpegException(NoEncoderMessage(os), -1, string.Empty);
+    }
+
+    private static async Task<bool> WorksAsync(FfmpegLocation ffmpeg, string candidate, CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(ProbeTimeout);
+        try
+        {
+            var probe = await RunAsync(ffmpeg, ProbeArguments(candidate), timeout.Token).ConfigureAwait(false);
+            return probe.ExitCode == 0;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 
     private static async Task<(int ExitCode, string Output)> RunAsync(FfmpegLocation ffmpeg, IEnumerable<string> args, CancellationToken ct)

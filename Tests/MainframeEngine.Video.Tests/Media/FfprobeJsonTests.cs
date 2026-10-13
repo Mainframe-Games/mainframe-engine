@@ -42,6 +42,17 @@ public sealed class FfprobeJsonTests
         Assert.Equal(24, FfprobeJson.Parse(json, "/r/v.mkv").FrameRate);
     }
 
+    [Fact]
+    public void AMissingFormatDurationFallsBackToTheLongestStream()
+    {
+        const string json = """
+            { "streams": [ { "codec_type": "video", "codec_name": "vp8", "width": 640, "height": 480, "avg_frame_rate": "30/1", "duration": "4.5" },
+                           { "codec_type": "audio", "codec_name": "opus", "duration": "4.62" } ],
+              "format": { "duration": "N/A" } }
+            """;
+        Assert.Equal(4.62, FfprobeJson.Parse(json, "/r/m.webm").DurationSeconds);
+    }
+
     [Theory]
     [InlineData("""{ "streams": [ { "codec_type": "audio" } ], "format": { "duration": "3" } }""", "no video stream")]
     [InlineData("""{ "streams": [ { "codec_type": "video", "width": 2, "height": 2 } ], "format": { } }""", "no duration")]

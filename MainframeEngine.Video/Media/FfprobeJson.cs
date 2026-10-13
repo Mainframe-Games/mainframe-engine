@@ -35,10 +35,17 @@ internal static class FfprobeJson
 
             JsonElement? video = null;
             JsonElement? audio = null;
+            var streamDuration = double.NaN;
             if (root.TryGetProperty("streams", out var streams) && streams.ValueKind == JsonValueKind.Array)
             {
                 foreach (var stream in streams.EnumerateArray())
                 {
+                    var own = Number(stream, "duration");
+                    if (double.IsFinite(own) && own > 0 && (double.IsNaN(streamDuration) || own > streamDuration))
+                    {
+                        streamDuration = own;
+                    }
+
                     var type = String(stream, "codec_type");
                     if (type == "video")
                     {
@@ -56,7 +63,13 @@ internal static class FfprobeJson
                 throw new MediaProbeException($"\"{name}\" has no video stream.");
             }
 
+            // Some containers (a MediaRecorder WebM, say) carry no format duration but do give their streams one.
             var duration = root.TryGetProperty("format", out var format) ? Number(format, "duration") : double.NaN;
+            if (!double.IsFinite(duration) || duration <= 0)
+            {
+                duration = streamDuration;
+            }
+
             if (!double.IsFinite(duration) || duration <= 0)
             {
                 throw new MediaProbeException($"\"{name}\" reports no duration. Live streams and some raw formats are not supported.");
