@@ -34,7 +34,8 @@ public sealed partial class InspectorPanel
             var longest = 0;
             foreach (var row in _rows)
                 longest = Math.Max(longest, row.Property.Label.Length + row.Depth * 2);
-            return Math.Clamp(IconWidth + longest * CharWidth + 8f, MinLabelWidth, MathF.Min(max, PanelWidth * 0.5f));
+            // Never below the minimum: on a panel narrower than twice it (a collapsed dock) the bounds would cross.
+            return Math.Clamp(IconWidth + longest * CharWidth + 8f, MinLabelWidth, MathF.Max(MinLabelWidth, MathF.Min(max, PanelWidth * 0.5f)));
         }
     }
 

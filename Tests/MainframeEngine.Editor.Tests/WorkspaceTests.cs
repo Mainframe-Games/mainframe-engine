@@ -128,6 +128,16 @@ public sealed class WorkspaceTests : IDisposable
         return node;
     }
 
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(1f)]
+    [InlineData(100f)]
+    public void TheInspectorNameColumnFitsANarrowPanelWithoutThrowing(float width)
+    {
+        W.Inspector.SetRect(new LayoutRect(0, 0, width, 300)); // video mode collapses the docks to nothing
+        Assert.Equal(InspectorPanel.MinLabelWidth, W.Inspector.LabelWidth);
+    }
+
     [Fact]
     public void EveryPanelLoadsWithoutRmlUiErrorsAndANewSceneIsOpen()
     {
