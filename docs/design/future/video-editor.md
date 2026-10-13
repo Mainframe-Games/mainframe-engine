@@ -1,7 +1,7 @@
 # Proposal: Video editing mode in the editor
 
-**Status:** ⬜ planned (spec agreed in chat 2026-10-13) · **Branch:** `feature/video-editor`, stacked on
-Mainframe-Games/mainframe-engine#63 · **Depends on:** [Gameplay recording](../recording.md) (the recorder and
+**Status:** ⬜ planned (spec agreed in chat 2026-10-13) · **Branch:** `feature/video-editor`, based on `main`, which has
+Mainframe-Games/mainframe-engine#62 and #63 · **Depends on:** [Gameplay recording](../recording.md) (the recorder and
 `.mfcap.json` sidecar, #62; Record from the editor, #63), [Song tab](../editor.md#song-tab-music-editor) (the canvas,
 `SubViewport` and job patterns this copies), [Audio](../audio.md) (`AudioStreamGenerator`) ·
 **Related:** [Video playback](video-playback.md) (G16, games only; this proposal does not use or replace it),
@@ -59,7 +59,7 @@ Cutback's integration spec).
 | Scope | Everything, transcripts included. |
 | Entering video mode | A Game\|Video toggle in the toolbar plus View › Video Editing Mode. Opening a recording or `.mfcut` switches to video mode automatically. |
 | Project file | `.mfcut`, Cutback's JSON schema (version 3). `.cutback` is accepted on open. |
-| Base branch | `feature/editor-recording` (#63), so the recording dialog can offer Open in Video Editor. |
+| Base branch | `main`, which has #62 and #63 merged, so the recording dialog can offer Open in Video Editor. |
 | Probing | `ffprobe -of json`, parsed with System.Text.Json. FFMpegCore is dropped, saving a dependency. |
 | Tests | Cutback's tests are ported to plain xunit `Assert` (engine convention). FluentAssertions is not added. |
 
