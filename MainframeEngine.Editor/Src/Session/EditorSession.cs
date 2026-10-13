@@ -1,4 +1,7 @@
 using MainframeEngine.Editor.Music;
+using MainframeEngine.Editor.Video;
+using MainframeEngine.Video.Media;
+using MainframeEngine.Video.Projects;
 
 namespace MainframeEngine.Editor;
 
@@ -24,6 +27,7 @@ public sealed class EditorSession : IDisposable
     private int _viewportCounter;
     private int _previewCounter;
     private int _songCounter;
+    private int _videoCounter;
     private EditedScene? _suspending;
 
     public EditorSession(Node host)
@@ -51,6 +55,9 @@ public sealed class EditorSession : IDisposable
 
     /// <summary>The active tab when it is a song (<see cref="SongTab"/>).</summary>
     public SongTab? ActiveSong => ActiveTab as SongTab;
+
+    /// <summary>The active tab when it is a recording (<see cref="VideoTab"/>; only ever in video mode).</summary>
+    public VideoTab? ActiveVideo => ActiveTab as VideoTab;
 
     /// <summary>The scene tab that was active most recently (a UI preview's default backdrop), or null.</summary>
     public EditedScene? LastActiveScene { get; private set; }
@@ -286,6 +293,84 @@ public sealed class EditorSession : IDisposable
 
     private void OnSongDirtyChanged(SongTab song) => ScenesChanged?.Invoke();
 
+    /// <summary>
+    /// Opens a recording (<c>.mp4 .mov .mkv .webm</c>), a <c>.mfcut</c> or a legacy <c>.cutback</c> in a video tab, or
+    /// activates the tab that already trims it, and makes it active (which switches the editor to video mode). Never
+    /// touches the project: recordings live in the user-data folder, and switching projects would throw while scene tabs
+    /// are open. Throws when the file cannot be read (see <see cref="VideoDocument.OpenAsync"/>).
+    /// </summary>
+    public VideoTab OpenVideo(string path, FfmpegLocation ffmpeg, int historyLimit)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        ArgumentNullException.ThrowIfNull(ffmpeg);
+        var full = Path.GetFullPath(path);
+        foreach (var tab in _tabs)
+            if (tab is VideoTab open && Trims(open, full))
+            {
+                Activate(open);
+                return open;
+            }
+
+        if (!File.Exists(full))
+            throw new FileNotFoundException($"Recording not found: {full}", full);
+        // Blocking is safe: the main thread has no synchronisation context, and the caller shows the splash meanwhile.
+        var document = VideoDocument.OpenAsync(full, ffmpeg, historyLimit, CancellationToken.None).GetAwaiter().GetResult();
+        var source = document.Project.Source;
+        var number = ++_videoCounter;
+        var preview = new VideoPreview(new FfmpegVideoDecoderFactory(ffmpeg.FfmpegPath), () => _host.Tree?.Servers.Get<AudioServer>(),
+            document.SourcePath, source.Width, source.Height, source.FrameRate, number);
+        VideoTab video;
+        try
+        {
+            video = new VideoTab(document, preview, ffmpeg, number);
+        }
+        catch
+        {
+            preview.Dispose();
+            throw;
+        }
+
+        _host.AddChild(video.TimelineViewport);
+        _host.AddChild(preview.Viewport);
+        video.DirtyChanged += OnVideoDirtyChanged;
+        Add(video);
+        return video;
+    }
+
+    // The tab that trims full: its project, its recording, or the .mfcut a legacy .cutback saves as.
+    private static bool Trims(VideoTab tab, string full)
+    {
+        var document = tab.Document;
+        if ((document.FilePath is { } file && PathsEqual(file, full)) || PathsEqual(document.SourcePath, full))
+            return true;
+        return Path.GetExtension(full).Equals(ProjectSerializer.LegacyFileExtension, StringComparison.OrdinalIgnoreCase) &&
+               PathsEqual(Path.ChangeExtension(full, ProjectSerializer.FileExtension), document.FilePath ?? document.DefaultProjectPath);
+    }
+
+    /// <summary>
+    /// Saves <paramref name="tab"/>'s project (to <paramref name="path"/> for Save As: the tab follows the new file). The
+    /// path is normalised to one <c>.mfcut</c> (<see cref="VideoTab.NormalizeProjectPath"/>) and refused when it is the
+    /// recording itself, so a save can never modify the source.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The path is the recording, or the project has no file and none was given.</exception>
+    public void SaveVideo(VideoTab tab, string? path = null)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        if (path is not null)
+        {
+            path = VideoTab.NormalizeProjectPath(path);
+            if (PathsEqual(path, tab.Document.SourcePath))
+                throw new InvalidOperationException(
+                    $"{Path.GetFileName(path)} is the recording itself. A project is saved beside it as a {ProjectSerializer.FileExtension}, " +
+                    "and the recording is never modified.");
+        }
+
+        tab.Document.Save(path);
+        ScenesChanged?.Invoke();
+    }
+
+    private void OnVideoDirtyChanged(VideoTab tab) => ScenesChanged?.Invoke();
+
     /// <summary>Opens a new, empty scene with a <paramref name="rootType"/> root and makes it active.</summary>
     public EditedScene NewScene(string rootType = "Node3D")
     {
@@ -385,17 +470,36 @@ public sealed class EditorSession : IDisposable
 
         if (tab is SongTab song)
             song.DirtyChanged -= OnSongDirtyChanged;
+        else if (tab is VideoTab video)
+            video.DirtyChanged -= OnVideoDirtyChanged;
         tab.Dispose();
         if (ReferenceEquals(ActiveTab, tab))
         {
-            ActiveTab = null;
-            if (_tabs.Count > 0)
-                Activate(_tabs[Math.Min(index, _tabs.Count - 1)]);
+            // A neighbour of the same mode takes over; with none the mode shows its empty state. Closing never switches modes.
+            if (Neighbour(index, tab.Mode) is { } next)
+            {
+                ActiveTab = null;
+                Activate(next);
+            }
             else
-                ActiveChanged?.Invoke();
+            {
+                Deactivate();
+            }
         }
 
         ScenesChanged?.Invoke();
+    }
+
+    // The tab of mode that slid into index (or the nearest after it), else the nearest before it; null when there is none.
+    private IEditorTab? Neighbour(int index, EditorMode mode)
+    {
+        for (var i = index; i < _tabs.Count; i++)
+            if (_tabs[i].Mode == mode)
+                return _tabs[i];
+        for (var i = Math.Min(index, _tabs.Count) - 1; i >= 0; i--)
+            if (_tabs[i].Mode == mode)
+                return _tabs[i];
+        return null;
     }
 
     // Previews showing a closed scene behind their UI fall back to the neutral backdrop — unless it is only suspended
@@ -441,6 +545,8 @@ public sealed class EditorSession : IDisposable
                 p.Layer.Visible = active;
             else if (t is SongTab song && !active && ReferenceEquals(t, ActiveTab))
                 song.Deactivate();
+            else if (t is VideoTab video && !active && ReferenceEquals(t, ActiveTab))
+                video.Deactivate();
         }
 
         ActiveTab = tab;
@@ -465,6 +571,8 @@ public sealed class EditorSession : IDisposable
                 p.Layer.Visible = false;
             else if (t is SongTab song && ReferenceEquals(t, ActiveTab))
                 song.Deactivate();
+            else if (t is VideoTab video && ReferenceEquals(t, ActiveTab))
+                video.Deactivate();
         }
 
         ActiveTab = null;
@@ -487,7 +595,10 @@ public sealed class EditorSession : IDisposable
         Activate(tab);
     }
 
-    /// <summary>Main thread, every frame: the previews apply file changes; the active song's player follows its edits.</summary>
+    /// <summary>
+    /// Main thread, every frame: the previews apply file changes; the active song's player follows its edits; the active
+    /// video tab drives its preview and applies finished jobs.
+    /// </summary>
     public void Tick()
     {
         foreach (var tab in _tabs)
@@ -495,6 +606,7 @@ public sealed class EditorSession : IDisposable
                 preview.Tick();
         if (ActiveTab is SongTab song)
             song.Player.Update(song.Document);
+        ActiveVideo?.Tick();
     }
 
     /// <summary>True when any open tab (scene or song) has unsaved changes.</summary>
@@ -513,7 +625,8 @@ public sealed class EditorSession : IDisposable
         var root = FindProjectRoot(scenePath);
         if (ProjectRoot is not null && PathsEqual(ProjectRoot, root))
             return;
-        if (ProjectRoot is not null && !allowSwitch && _tabs.Any(t => t.FilePath is not null))
+        // Video tabs do not count: their recordings live outside any project.
+        if (ProjectRoot is not null && !allowSwitch && _tabs.Any(t => t.Mode == EditorMode.Game && t.FilePath is not null))
             throw new InvalidOperationException(
                 $"'{scenePath}' belongs to the project at {root}, but files of {ProjectRoot} are open. Close them first.");
         ProjectRoot = root;
@@ -732,6 +845,10 @@ public sealed class EditorSession : IDisposable
             else if (tab is SongTab song)
             {
                 song.DirtyChanged -= OnSongDirtyChanged;
+            }
+            else if (tab is VideoTab video)
+            {
+                video.DirtyChanged -= OnVideoDirtyChanged;
             }
 
             tab.Dispose();

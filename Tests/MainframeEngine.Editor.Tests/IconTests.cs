@@ -260,6 +260,10 @@ public sealed partial class IconAtlasTests
     [InlineData("data.json", false, "braces", "")]
     [InlineData("README.md", false, "file-text", "")]
     [InlineData("thing.xyz", false, "file", "")]
+    [InlineData("run.mp4", false, "movie", "icon-audio")]
+    [InlineData("run.WEBM", false, "movie", "icon-audio")]
+    [InlineData("run.mfcut", false, "video", "icon-audio")]
+    [InlineData("run.cutback", false, "video", "icon-audio")]
     [InlineData("Content", true, "folder", "icon-dir")]
     public void FilesGetIconsByExtension(string path, bool directory, string icon, string family)
     {

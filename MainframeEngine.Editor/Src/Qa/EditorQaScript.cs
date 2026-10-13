@@ -18,7 +18,9 @@ namespace MainframeEngine.Editor;
 /// hold W / release W
 /// type Box2                   # text into the focused field
 /// command file.save           # any EditorCommands id
-/// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab
+/// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab; a recording (.mp4 .mov .mkv .webm) or a
+///                             # .mfcut/.cutback opens a video tab in video mode
+/// mode game|video             # switches the editor mode
 /// menu 2                      # choose item 2 of the open popup menu (or: menu edit.undo)
 /// pick Floor                  # tree or list picker: select the row with this label
 /// search omni                 # tree or list picker: type into the search field
@@ -194,7 +196,9 @@ public sealed class EditorQaScript : IEditorAutomation
             case "open":
                 {
                     var path = Path.GetFullPath(string.Join(' ', step[1..]));
-                    if (path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
+                    if (FileKinds.Of(path, isDirectory: false) is FileKind.Video or FileKind.VideoProject)
+                        workspace.Commands.OpenVideo(path);
+                    else if (path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
                         workspace.Session.OpenUiPreview(path);
                     else if (path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
                         workspace.Session.OpenSong(path);
@@ -203,6 +207,9 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "mode":
+                workspace.SetMode(Enum.Parse<EditorMode>(step[1], ignoreCase: true));
+                break;
             case "menu":
                 if (int.TryParse(step[1], CultureInfo.InvariantCulture, out var item))
                     workspace.Popup.Choose(item);

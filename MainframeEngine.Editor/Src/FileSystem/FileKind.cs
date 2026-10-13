@@ -20,6 +20,12 @@ public enum FileKind
     Script,
     Project,
     Data,
+
+    /// <summary>A recording video mode trims (<c>.mp4 .mov .mkv .webm</c>).</summary>
+    Video,
+
+    /// <summary>A video project (<c>.mfcut</c>, or Cutback's legacy <c>.cutback</c>).</summary>
+    VideoProject,
     Other,
 }
 
@@ -67,6 +73,8 @@ internal static class FileKinds
             ".cs" => FileKind.Script,
             ".mfproj" or ".csproj" or ".sln" or ".slnx" or ".props" or ".targets" => FileKind.Project,
             ".json" or ".xml" or ".yaml" or ".yml" or ".csv" or ".txt" or ".md" or ".atlas" or ".skel" => FileKind.Data,
+            ".mp4" or ".mov" or ".mkv" or ".webm" => FileKind.Video,
+            ".mfcut" or ".cutback" => FileKind.VideoProject,
             _ => FileKind.Other,
         };
     }
@@ -83,6 +91,7 @@ internal static class FileKinds
         if (!value.StartsWith("Content/", StringComparison.Ordinal) || value.Length > 1024)
             return false;
         var kind = Of(value, isDirectory: false);
-        return kind is not (FileKind.Other or FileKind.Folder or FileKind.Project or FileKind.Script);
+        // Recordings and video projects are not game assets (the runtime plays no video): they stay plain strings.
+        return kind is not (FileKind.Other or FileKind.Folder or FileKind.Project or FileKind.Script or FileKind.Video or FileKind.VideoProject);
     }
 }

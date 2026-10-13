@@ -791,7 +791,7 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>
     /// Video mode's command for a key with modifiers, or null: Cmd/Ctrl+O open, +S save, +Shift+S save as, +W close, +Q
-    /// quit, +Z undo, +Shift+Z or +Y redo, +E export; Delete or Backspace delete the region; F1 the docs.
+    /// quit, +Z undo, +Shift+Z or +Y redo, +E export; Space play/pause; Delete or Backspace delete the region; F1 the docs.
     /// </summary>
     public static string? VideoShortcutFor(Key key, EditorModifiers modifiers)
     {
@@ -816,6 +816,7 @@ public sealed partial class EditorWorkspace : Node
         return key switch
         {
             Key.Delete or Key.Backspace when modifiers == EditorModifiers.None => "edit.delete",
+            Key.Space when modifiers == EditorModifiers.None => "video.play",
             Key.F1 when (modifiers & EditorModifiers.Alt) == 0 => "help.docs",
             _ => null,
         };
