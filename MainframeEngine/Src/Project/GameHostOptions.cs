@@ -23,6 +23,9 @@ namespace MainframeEngine;
 /// <item><term><c>--loading-hold &lt;seconds&gt;</c></term><description>keep the loading screen up at least this long before the scene enters (QA of its look)</description></item>
 /// <item><term><c>--loading-screenshot &lt;file.png&gt;</c></term><description>save the loading screen's first frame at or past half progress as a PNG (QA)</description></item>
 /// <item><term><c>--bake-lighting</c></term><description>bake every <see cref="LightProbeVolume"/> of the start scene once it is ready, save the data and quit (ADR 0170; works with <c>--headless</c>)</description></item>
+/// <item><term><c>--record &lt;file.mp4&gt;</c></term><description>record gameplay with ffmpeg until quit (live; offline with <c>--fixed-fps</c>) and write <c>file.mp4.mfcap.json</c>; not with <c>--headless</c></description></item>
+/// <item><term><c>--record-scale &lt;n&gt;</c></term><description>fixed content scale for the recording (a 1920×1080-point window at 2 is 4K)</description></item>
+/// <item><term><c>--ffmpeg &lt;path&gt;</c></term><description>the ffmpeg executable to record with (else <c>MAINFRAME_FFMPEG</c>, <c>PATH</c>, common install folders)</description></item>
 /// </list>
 /// Arguments the host does not know are kept in <see cref="Remaining"/> for the game. Everything after <c>++</c> is the
 /// game's own and is never parsed by the host (<see cref="UserArgs"/>, Godot's <c>OS.get_cmdline_user_args</c>), so a game
@@ -72,6 +75,18 @@ public sealed record GameHostOptions
     /// <summary><c>--loading-screenshot</c>: PNG of the loading screen at half progress (enables frame capture).</summary>
     public string? LoadingScreenshotPath { get; init; }
 
+    /// <summary><c>--record</c>: the video to record to. Null when not recording from the command line.</summary>
+    public string? RecordPath { get; init; }
+
+    /// <summary><c>--record-scale</c>: <see cref="EngineOptions.ContentScale"/> for the recording; 0 leaves it alone.</summary>
+    public float RecordScale { get; init; }
+
+    /// <summary><c>--ffmpeg</c>: the encoder executable. See <see cref="FfmpegResolver"/> for the lookup order.</summary>
+    public string? FfmpegPath { get; init; }
+
+    /// <summary>Recording with a fixed timestep: deterministic, any resolution, audio from the manual null device.</summary>
+    public bool RecordOffline => RecordPath is not null && FixedFps > 0;
+
     /// <summary>PNG path for <c>--screenshot</c> (enables frame capture).</summary>
     public string? ScreenshotPath { get; init; }
 
@@ -97,7 +112,7 @@ public sealed record GameHostOptions
         {
             var arg = args[i];
             if (arg == UserArgsSeparator)
-                return options with { Remaining = remaining, UserArgs = [.. args.Skip(i + 1)] };
+                return Validated(options with { Remaining = remaining, UserArgs = [.. args.Skip(i + 1)] });
             switch (arg)
             {
                 case "--project":
@@ -154,13 +169,30 @@ public sealed record GameHostOptions
                 case "--loading-screenshot":
                     options = options with { LoadingScreenshotPath = Value(args, ref i) };
                     break;
+                case "--record":
+                    options = options with { RecordPath = Value(args, ref i) };
+                    break;
+                case "--record-scale":
+                    options = options with { RecordScale = Scale(args, ref i) };
+                    break;
+                case "--ffmpeg":
+                    options = options with { FfmpegPath = Value(args, ref i) };
+                    break;
                 default:
                     remaining.Add(arg);
                     break;
             }
         }
 
-        return options with { Remaining = remaining };
+        return Validated(options with { Remaining = remaining });
+    }
+
+    // Combinations no single flag can reject on its own.
+    private static GameHostOptions Validated(GameHostOptions options)
+    {
+        if (options.Headless && options.RecordPath is not null)
+            throw new ArgumentException("--record needs a window: --headless has no renderer to record (drop one of the two).");
+        return options;
     }
 
     /// <summary><paramref name="options"/> with the command line overrides applied.</summary>
@@ -182,6 +214,12 @@ public sealed record GameHostOptions
             options.EnableFrameCapture = true;
         if (DevOverlay)
             options.DevOverlayVisible = true;
+        if (RecordPath is not null)
+            options.EnableFrameCapture = true;
+        if (RecordScale > 0f)
+            options.ContentScale = RecordScale;
+        if (RecordOffline)
+            options.Audio.Device = AudioDeviceMode.NullManual;
         return options;
     }
 
@@ -199,6 +237,15 @@ public sealed record GameHostOptions
         var text = Value(args, ref i);
         if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !(value >= 0f) || value > 3600f)
             throw new ArgumentException($"{name} must be a number of seconds between 0 and 3600 (got '{text}').");
+        return value;
+    }
+
+    private static float Scale(IReadOnlyList<string> args, ref int i)
+    {
+        var name = args[i];
+        var text = Value(args, ref i);
+        if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !(value > 0f) || value > 4f)
+            throw new ArgumentException($"{name} must be a scale above 0 and at most 4 (got '{text}').");
         return value;
     }
 

@@ -52,6 +52,7 @@ RmlUi game UI, physics, audio, replication, localization and an RmlUi developer 
 | `Networking/` | `MultiplayerApi` (replication, RPCs), messages, transports (ENet, loopback, simulated), `PeerId`, `NetBuffer*` | [Networking](networking.md) |
 | `Physics/` | `PhysicsServer3D` (Jitter2), `PhysicsServer2D` (Box2D.NET), body/area/shape nodes, queries, `DebugLines` | [Physics](physics.md) |
 | `Audio/` | `AudioServer` (SoundFlow), buses, audio nodes, streams, decoders | [Audio](audio.md) |
+| `Recording/` | `GameRecorder` (`SceneTree.Recorder`), ffmpeg child-process backend, `.mfcap.json` sidecar | [Recording](recording.md) |
 | `UI/` | `Rml/` binding over `mfrmlui`, `VulkanUiRenderer`, `UiServer`/`UiLayer`/`UiDocument` | [Game UI](game-ui.md) |
 | `Project/`, `EditorLink/` | `ProjectSettings`, `GameHost`/`GameSession`, `InputMap`, `GameAssemblyLoader`; the game ↔ editor protocol | [Projects & GameHost](project-and-gamehost.md) |
 | `Imaging/` | `Png` codec | [Testing](testing.md#frame-capture) |

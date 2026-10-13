@@ -92,6 +92,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `AudioStream`, audio nodes (`AudioPlayer`/`2D`/`3D`, `AudioListener3D`); audio-thread code in `Graph/`, lock-free
   rings + streaming in `Threading/`, decoders in `Decoding/`. Game code never calls SoundFlow: it goes through
   `AudioServer` (commands to the audio thread). See `docs/design/audio.md`
+- `MainframeEngine/Src/Recording/` — gameplay recording (ADR 0190): `GameRecorder` (`SceneTree.Recorder`: `Start`/`Stop`/`Mark`/`Keep`/`Skip`),
+  an ffmpeg child process for the encode and mux (the engine never links an encoder), a float WAV, and the `.mfcap.json` sidecar
+  Cutback reads; fed by the renderer's `IFrameStreamSource` and the audio server's capture tap. See `docs/design/recording.md`
 - `MainframeEngine/Src/Physics/` — M6 physics: `PhysicsServer3D` (Jitter2) / `PhysicsServer2D` (Box2D.NET), spaces, body
   nodes (`StaticBody*`, `RigidBody*`, `CharacterBody*`, `Area*`), `CollisionShape*`, shape resources, queries
 - `MainframeEngine/Src/Resources/`, `Src/Serialization/` — `Resource`, `PackedScene`, loader/savers, `AssetDatabase`;
@@ -168,7 +171,8 @@ natives, content; `docs/design/distribution-nuget.md`). `dotnet new mfgame -n My
 physics, input map, audio, localization, rendering, Steam, autoloads; versioned JSON with migrations). Steam demo
 builds: `isDemo` in `project.mfproj` (or `-p:MainframeDemo=true`) defines `DEMO` for game code (`#if DEMO`) through
 `build/MainframeGame.props`, which the template's `Directory.Build.props` imports; `GameHost.IsDemo` at run time. `GameHost` flags:
-`--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`, `--headless` (`HeadlessHost`: dedicated servers, no window/Vulkan/audio device). Input actions: `Input.IsActionPressed("jump")`
+`--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`, `--headless` (`HeadlessHost`: dedicated servers, no window/Vulkan/audio device),
+`--record <file.mp4>` (gameplay recording through the user's ffmpeg, with `--record-scale <n>` and `--ffmpeg <path>`; `docs/design/recording.md`). Input actions: `Input.IsActionPressed("jump")`
 / `SceneTree.Input`. Logs are `LogEntry`s routed to `ILogSink`s (`Log.AddSink`; console, `FileLogSink`,
 `MemoryLogSink`); filtered `Log.X($"...")` costs nothing. Editor-facing: `EditorLinkServer`/`EditorLinkClient`,
 `GameAssemblyLoader` (collectible, GC-verified unload — never keep game objects in locals of the unloading method).

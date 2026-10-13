@@ -634,6 +634,12 @@ public sealed class AudioServer : IFrameServer
         nullOutput.Render(frames, capture);
     }
 
+    /// <summary>Starts copying the master mix into <paramref name="tap"/> (gameplay recording, live mode).</summary>
+    internal void BeginCapture(AudioCaptureTap tap) => _root.SetCaptureTap(tap);
+
+    /// <summary>Stops the copy; blocks already in the tap stay there to be drained. One in-flight block may still arrive after this returns.</summary>
+    internal void EndCapture() => _root.SetCaptureTap(null);
+
     // ---------------------------------------------------------------------------------------------
     // Node-facing API
     // ---------------------------------------------------------------------------------------------

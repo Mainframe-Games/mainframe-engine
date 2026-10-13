@@ -85,6 +85,9 @@ flowchart TB
 - **Faults:** an exception inside the audio callback would unwind into miniaudio and kill the process, so the
   root catches it, outputs silence and keeps the exception for the game thread to log once
   (`AudioServerStats.Faulted`); applying a new layout resets it.
+- **Recorder tap (optional):** with a gameplay recording running in live mode, the root copies each block it hands the
+  device (after the fault guard, so silence after a fault too) into an `AudioCaptureTap`: lock-free, whole blocks only
+  (a block that does not fit is dropped and counted in `OverflowSamples`, never split mid-frame).
 - **Unity gain:** SoundFlow applies its constant-power pan law at the centre on every component (×√0.5 per
   channel); every mixer and player the engine creates is set to volume √2 so the chain is exactly unity (tested).
 

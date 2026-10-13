@@ -461,6 +461,7 @@ public sealed partial class SceneTree
     {
         // Polled state sees every event, even ones the UI consumes below, so a released key never sticks.
         Input.ProcessEvent(inputEvent);
+        Recorder?.ObserveInput(inputEvent); // before the UI can consume it: menus clicked while recording are still play
         var paused = Paused;
         var editMode = EditMode;
         Root.BeginInput();

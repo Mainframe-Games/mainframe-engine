@@ -4,6 +4,23 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Gameplay recorder (Phase 1 of the Cutback integration): implemented, local only (2026-10-13).** Branch
+  `feature/gameplay-recorder` (worktree `.claude/worktrees/gameplay-recorder`), not pushed, no PR. ADR 0190; docs
+  `docs/design/recording.md` (the renderer and audio halves are in `vulkan-renderer.md` and `audio.md`). Plan and spec live
+  in the Cutback repo (`docs/superpowers/specs/2026-10-12-mainframe-engine-integration-design.md`, amended with the
+  as-built deviations).
+  - What exists: `--record <file.mp4>` (live; offline with `--fixed-fps`), `--record-scale`, `--ffmpeg`; `SceneTree.Recorder`
+    (`Start`/`Stop`/`Mark`/`Keep`/`Skip`); an ffmpeg child process for the encode and mux; a streaming float WAV fixed to the
+    video's length; the `.mfcap.json` sidecar pinned by a fixture shared with Cutback; the renderer's frame stream (two
+    readback buffers, no stall) and the audio capture tap (after the fault guard, whole blocks).
+  - Smoke (`build/forest-record.sh`, run locally, needs ffmpeg and a display): offline flyover 4039 frames at 1920x1080
+    (7.317 s loading + exactly 60.000 s), audio equal to frames / 60; live autowalk 22.2 s with 2 dropped frames.
+  - Gates green: build (0 warnings), format-check, engine 2447 (1 skipped), editor 808 (5 skipped).
+  - Known issues (all in the doc): `--record-scale` needs a display big enough for the scaled window; any window resize ends
+    a recording; live audio runs on the device clock and drift is not corrected; `--headless --record` records nothing.
+  - Next: the final review's fixes; then Phase 3 (editor hooks: `StartRecording` needs the game launched with
+    `--frame-capture`) and Phase 4 (the editor's Clips tab). One push and a PR when Brogan says so (Actions minutes).
+
 - **G4 Save games and settings: implemented, local only (2026-10-11).** Branch `claude/save-games-settings-35b203`
   (worktree `.claude/worktrees/save-games-settings-35b203`), not pushed, no PR. Proposal
   `docs/design/future/save-and-settings.md` is marked shipped with an "As built" section listing the deviations.

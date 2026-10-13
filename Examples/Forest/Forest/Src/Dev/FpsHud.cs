@@ -7,7 +7,8 @@ namespace Forest;
 /// The frame-rate readout in the top-right corner: frames per second, the average frame time and the slowest frame of
 /// the last half second. F3 toggles it. <see cref="ForestDev"/> adds it at run time unless the run is a screenshot,
 /// benchmark or autowalk (clean captures) or <c>++ --no-fps</c> was given. The values are published twice a second as
-/// numbers (formatted by RmlUi), so it allocates nothing per frame.
+/// numbers (formatted by RmlUi), so it allocates nothing per frame. It hides itself while the game is being recorded
+/// (<see cref="SceneTree.Recorder"/>) and comes back, as the player had it, when the recording stops.
 /// </summary>
 public sealed class FpsHud : UiDocument
 {
@@ -17,6 +18,8 @@ public sealed class FpsHud : UiDocument
     private float _elapsed;
     private float _maxFrame;
     private int _frames;
+    private GameRecorder? _recorder;
+    private bool _visibleBeforeRecording = true;
 
     public FpsHud()
     {
@@ -49,7 +52,38 @@ public sealed class FpsHud : UiDocument
             .Bind("fps", this, static h => h.Fps)
             .Bind("ms", this, static h => h.FrameMs)
             .Bind("max", this, static h => h.MaxFrameMs);
+
+        // The recorder exists from the end of GameHost.OnLoad, before any scene, and a --record run has already started
+        // by now (the first update starts it, then the session): so subscribe for later recordings and also catch up.
+        if (Tree?.Recorder is { } recorder)
+        {
+            _recorder = recorder;
+            recorder.Started += OnRecordingStarted;
+            recorder.Stopped += OnRecordingStopped;
+            if (recorder.IsRecording)
+                OnRecordingStarted();
+        }
     }
+
+    protected override void OnExitTree()
+    {
+        if (_recorder is { } recorder)
+        {
+            recorder.Started -= OnRecordingStarted;
+            recorder.Stopped -= OnRecordingStopped;
+            _recorder = null;
+        }
+
+        base.OnExitTree();
+    }
+
+    private void OnRecordingStarted()
+    {
+        _visibleBeforeRecording = Visible;
+        Visible = false;
+    }
+
+    private void OnRecordingStopped(RecordingResult result) => Visible = _visibleBeforeRecording;
 
     protected override void OnProcess(in GameTime gameTime)
     {

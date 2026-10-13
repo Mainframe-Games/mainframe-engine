@@ -33,6 +33,13 @@ draws by recording into `IVulkanContext.CurrentCommandBuffer` between `BeginFram
 In Vulkan, `Clear` and the depth toggles are **no-ops**: clearing is the render pass `LoadOp`, and depth
 state is baked into each pipeline.
 
+The renderer also implements the internal `IFrameStreamSource` (`Src/Rendering/IFrameStream.cs`) for the gameplay
+recorder: with `EnableFrameCapture`, `BeginStream(sink)` copies each presented image the sink accepts into one
+host-visible buffer per frame slot, and the slot's next `BeginFrame` (whose fence wait proves the copy finished)
+delivers it, so streaming adds a copy but no stall. `EndStream()` waits for and delivers what is still in flight,
+oldest first. A swapchain recreation at a **new size** ends the stream first (pending frames delivered, then
+`OnStreamEnded("window size changed")`); a same-size recreation (VSync, suboptimal) keeps it.
+
 ### `IVulkanContext`
 
 `Vk`, `Device`, `PhysicalDevice`, `RenderPass` (the **HDR scene pass**), `CommandPool`, `GraphicsQueue`,
@@ -140,7 +147,7 @@ flowchart TD
    return with `FrameStarted = false`.
 2. Wait `inFlight[slot]` — after this the slot's command buffer and every per-frame resource keyed by
    `FrameSlot` are idle; the deletion queue destroys what that slot's last frame held and the staging
-   ring reclaims its space.
+   ring reclaims its space. A frame-stream copy the slot holds is complete too, and is handed to the sink here.
 3. `AcquireNextImage(imageAvailable[slot])`. On `ErrorOutOfDateKhr`: recreate and return with
    `FrameStarted = false` (the fence stays signalled: it is only reset right before a submit).
 4. Reset and begin `commandBuffers[slot]` (`OneTimeSubmit`). `FrameStarted = true`, `FrameNumber++`.
@@ -148,7 +155,7 @@ flowchart TD
 
 **`EndFrame()`**
 1. Finish the pass sequence (tonemap if `BeginOverlayPass` was not called), end the pass, optional
-   capture copy, `EndCommandBuffer`.
+   capture copy, optional frame-stream copy into the slot's readback buffer, `EndCommandBuffer`.
 2. Reset `inFlight[slot]`. Submit, waiting `imageAvailable[slot]` at `ColorAttachmentOutput` and
    signalling `renderFinished[image]`.
 3. Present, waiting on `renderFinished[image]`. Read back a requested capture (waits that fence)
@@ -191,7 +198,7 @@ mid-run (`SwapchainRecreationOnResizeAndVSyncToggleIsClean`) with the validation
 ## Disposal
 
 `Dispose()` is idempotent and tolerates partially initialised state: `DeviceWaitIdle` → shadow
-fallback, capture buffer, frame context → presentation (scene target, tonemap, passes, views) →
+fallback, capture buffer, frame-stream buffers, frame context → presentation (scene target, tonemap, passes, views) →
 swapchain → flush the deletion queue → upload queue → allocator (frees every block) → shader modules →
 pipeline cache (**saves the file**; first waits for a MoltenVK background load still running, ADR 0176) → semaphores and fences → command pool → device → debug messenger
 (only if it was created) → surface → instance → `Vk.Dispose()` → validation handle. The game must

@@ -336,6 +336,65 @@ public class GameHost : Engine
         // scene after its window exists): SDL shows the window after OnLoad, which took ~0.3 s that the first scene's
         // first frame would otherwise lose (process deltas drop what the physics steps cannot cover).
         _startPending = true;
+        CreateRecorder();
+    }
+
+    // Gameplay recording (ADR 0190): the renderer streams frames and the audio server exists from here on. --record
+    // starts it on the first update, just before the session, so the start scene's loading is recorded too.
+    private void CreateRecorder()
+    {
+        var recorder = Tree.Recorder = new GameRecorder(
+            _ => new FfmpegRecordingBackend(FfmpegResolver.ResolveForThisMachine(HostOptions.FfmpegPath)),
+            Renderer as IFrameStreamSource,
+            Servers.Get<AudioServer>(),
+            HostOptions.RecordOffline ? HostOptions.FixedFps : 0,
+            new CaptureInfoSource(Settings.Name, () => Tree.CurrentScene?.SceneFilePath ?? "", EngineInfo.Version));
+        recorder.Started += () => DevOverlayVisible = false; // F12 still brings it back, into the recording
+        if (HostOptions.RecordPath is not null)
+        {
+            // Stopped also fires from OnClose (the normal end at quit), where Quit only sets the exit code Run returns.
+            recorder.Stopped += result =>
+            {
+                if (ShouldQuitOnRecordingError(HostOptions.RecordOffline, result))
+                {
+                    Log.Error("[Recorder] The offline --record run did not produce a recording: exiting with an error.");
+                    Quit(ExitCode.Error);
+                }
+            };
+        }
+        // A key released in another window never sends its key-up here: the recorder must not think it is still held.
+        Window.FocusChanged += focused =>
+        {
+            if (!focused)
+                recorder.ReleaseHeldInput();
+        };
+    }
+
+    /// <summary>
+    /// Whether a <c>--record</c> run that ended with <paramref name="result"/> must exit non-zero: only an offline run
+    /// (a capture script or CI job whose whole purpose is the file) whose recording ended with an error, or whose
+    /// finalising did not finish before shutdown gave up on it (<paramref name="result"/> null). A live run plays on, so
+    /// the player keeps their game and only sees the logged error.
+    /// </summary>
+    internal static bool ShouldQuitOnRecordingError(bool offline, RecordingResult? result) =>
+        offline && (result is null || result.Error is not null);
+
+    // --record: a run that cannot record fails loudly instead of playing unrecorded. False when the game must quit.
+    private bool StartCommandLineRecording()
+    {
+        if (HostOptions.RecordPath is not { } path || Tree.Recorder is not { } recorder)
+            return true;
+        try
+        {
+            recorder.Start(new RecordingOptions { Path = path, Fps = HostOptions.FixedFps > 0 ? HostOptions.FixedFps : 60 });
+            return true;
+        }
+        catch (Exception e) when (e is FfmpegNotFoundException or IOException or InvalidOperationException or UnauthorizedAccessException
+                                      or ArgumentException)
+        {
+            Log.Error($"[Recorder] {e.Message}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -356,19 +415,34 @@ public class GameHost : Engine
         {
             _startPending = false;
             DiscardFrameDelta();
+            if (!StartCommandLineRecording())
+            {
+                Quit(ExitCode.Error);
+                return;
+            }
+
             if (LoadsAsync)
             {
                 StartAsync();
             }
-            else if (!Session.Start())
+            else
             {
-                Quit(ExitCode.Error);
-                return;
+                // The synchronous load blocks this update: open a loading span now, the recorder's update below closes
+                // it. Today the first captured frame comes after this load, and the live origin is anchored there, so
+                // the load is not in the video and the span is empty (dropped); it is marked anyway so a recording
+                // that already has frames when a synchronous start load runs never shows the hitch as play.
+                Tree.Recorder?.OnUpdate(loading: true, paused: false);
+                if (!Session.Start())
+                {
+                    Quit(ExitCode.Error);
+                    return;
+                }
             }
         }
 
         LogStartTimes();
         Session.Update(gameTime);
+        Tree.Recorder?.OnUpdate(Tree.IsLoading, Tree.Paused); // before the early return: loading frames are recorded too
         if (Tree.IsLoading)
         {
             // --loading-screenshot: the loading screen at half progress (or its last frame, if the load skips past it).
@@ -458,6 +532,28 @@ public class GameHost : Engine
 
     protected override void OnClose()
     {
+        // The renderer (pending frames) and the audio server (the tap) must still be alive while the recording stops.
+        if (Tree.Recorder is { } recorder)
+        {
+            if (recorder.IsRecording || recorder.IsFinalising)
+            {
+                // A result (success or error) raised Stopped, whose handler already set the exit code.
+                if (recorder.StopAndWait(TimeSpan.FromMinutes(2)) is null)
+                {
+                    Log.Error("[Recorder] Finalising the recording took over two minutes; the partial files were kept.");
+                    if (ShouldQuitOnRecordingError(HostOptions.RecordOffline, null))
+                    {
+                        Log.Error("[Recorder] The offline --record run did not produce a recording: exiting with an error.");
+                        Quit(ExitCode.Error); // only sets the code Run returns: the window is already closing
+                    }
+                }
+            }
+            else
+            {
+                recorder.PollCompletion(); // finished since the last update: still raise Stopped and log the result
+            }
+        }
+
         Session.Shutdown(CurrentExitCode);
         base.OnClose();
     }
