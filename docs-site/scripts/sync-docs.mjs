@@ -1,5 +1,6 @@
 // Builds the Starlight content from the repository's Markdown (docs/design/docs-site.md):
 //   docs/README.md               → /docs/         (the docs overview; / is the landing page, src/pages/index.astro)
+//   docs/getting-started.md      → /docs/getting-started/
 //   docs/milestones.md           → /docs/milestones/
 //   docs/design/*.md             → /docs/design/<name>/
 //   docs/design/future/*.md      → /docs/proposals/<name>/
@@ -57,6 +58,7 @@ const toPosix = (p) => p.split(path.sep).join('/');
 export function routeOf(rel) {
   rel = toPosix(rel);
   if (rel === 'docs/README.md') return 'docs';
+  if (rel === 'docs/getting-started.md') return 'docs/getting-started';
   if (rel === 'docs/milestones.md') return 'docs/milestones';
   if (rel === 'docs/images/brand/README.md') return 'docs/brand';
   let m;
