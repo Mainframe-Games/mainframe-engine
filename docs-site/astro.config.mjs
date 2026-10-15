@@ -49,6 +49,7 @@ export default defineConfig({
           label: 'Start',
           items: [
             { label: 'Overview', link: '/docs/' },
+            { label: 'Getting started', slug: 'docs/getting-started' },
             { label: 'Milestones', slug: 'docs/milestones' },
             { label: 'Brand', slug: 'docs/brand' },
           ],

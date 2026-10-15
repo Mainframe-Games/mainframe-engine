@@ -73,6 +73,7 @@ Never edit the generated pages: edit the Markdown in `docs/`.
 |---|---|---|
 | `docs-site/src/pages/index.astro` | `/` (the landing page, no sidebar, not in search) | — |
 | `docs/README.md` | `/docs/` | Start › Overview |
+| `docs/getting-started.md` | `/docs/getting-started/` | Start › Getting started |
 | `docs/milestones.md` | `/docs/milestones/` | Start › Milestones |
 | `docs/images/brand/README.md` | `/docs/brand/` | Start › Brand |
 | `docs/design/*.md` | `/docs/design/<name>/` | Design |
@@ -157,9 +158,9 @@ order: the hero, the showcase, the audio tools, the features, the downloads and 
   with a different layout needs them moved.
 - **Video mode.** Gameplay recording and the editor's video mode beside `editor-video.png`, in the audio tools' layout
   (the `mf-daw` classes), without overlays.
-- **Every feature is on the page.** A user-facing feature gets its card in `Features`, its line in the README's
-  Features table and, when it is something you see in the editor, a screenshot captured by `just readme-screenshots`
-  in the README and on this page.
+- **Every feature is on the page.** A user-facing feature gets its card in `Features`, its row in the README's
+  Features tables (grouped like the cards) and, when it is something you see in the editor, a screenshot captured by
+  `just readme-screenshots` in the README and on this page.
 - **Showcase**, first after the hero (the eye-catching sections lead, the downloads come last): the Forest shots with
   the first one large, the editor screenshot in a window frame, then the Demo scenes, all from `docs/images`.
   Clicking one opens it in a `<dialog>`.

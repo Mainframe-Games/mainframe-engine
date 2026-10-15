@@ -11,6 +11,7 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 
 | Doc | What it covers |
 |---|---|
+| [Getting started](getting-started.md) | Install the editor, build from source, make a game, a tour of the code, tests and releases |
 | [Milestones](milestones.md) | Roadmap: what is done ✅, what is next, links to every design doc |
 | [Architecture overview](design/architecture-overview.md) | Layers, assemblies, dependencies, who owns what |
 | [Engine lifecycle](design/engine-lifecycle.md) | Startup, the per-frame loop, shutdown |

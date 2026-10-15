@@ -130,9 +130,10 @@ counter and the last-reload time. Release builds of the engine do not hot reload
 `just demo-screenshots` (alias `just qa`; `build/demo-screenshots.sh`) builds the Demo in Release and runs `Demo.Desktop`
 once per scene (`--fixed-fps 60 --max-frames 240 --screenshot docs/images/demo/<id>.png`; `GameHost` saves the last
 frame, and the fixed step makes it deterministic), plus `settings.png`: the settings menu over Physics 3D, opened by
-the Demo's own `++ --settings` argument. The nav bar is part of every image. The scene PNGs
-(`docs/images/demo/`, Git LFS) form the README's Showcase gallery; re-take them when a scene changes visibly. They need
-the display awake (`caffeinate -u`).
+the Demo's own `++ --settings` argument. The nav bar is part of every image. The game saves its framebuffer (2560 × 1440
+on a HiDPI display), so the script then scales every PNG to 1280 × 720 (`sips`, else ImageMagick): the README's Showcase
+grid shows them all at one size, beside the Forest's 16:9 shots. The scene PNGs (`docs/images/demo/`, Git LFS) form the
+README's Showcase gallery; re-take them when a scene changes visibly. They need the display awake (`caffeinate -u`).
 
 ## Tests and CI
 
