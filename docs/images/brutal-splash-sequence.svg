@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Splash sequence and the Splash project settings (proposal B1)</title>
+  <desc>Top: a game's boot splash as three cards on a black background, Mainframe Engine, BRUTAL (locked, required by its licence) and the game's own studio card, each logo fitted into the same square box of 40 percent of the shorter screen side. Under the cards a timeline shows each card's 0.3 second fade in, hold and 0.3 second fade out, the earliest skip point at 1.5 seconds into each hold, and the main scene loading asynchronously behind the whole sequence. Bottom: the editor's Project Settings window with the Splash tab selected: the ordered card list with up/down buttons, the BRUTAL card showing a lock icon and a disabled remove button with a tooltip quoting the licence, the studio card with an image picker, add and preview icon buttons, and the background colour, hold seconds, skippable and non-profit settings.</desc>
+  <rect width="960" height="640" fill="#ffffff"/>
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e5e7eb}
+    .t{fill:#d1d5db;font-size:12px}
+    .s{fill:#9ca3af;font-size:11px}
+    .m{font-family:ui-monospace, Menlo, Consolas, monospace;font-size:11px;fill:#e5e7eb}
+    .grp{fill:#8b93a5;font-size:11px;font-weight:600}
+    .cap{fill:#374151;font-size:12px}
+    .leg{fill:#1f2937;font-size:12px}
+    .lt{fill:#6b7280;font-size:11px}
+    .logo{font-weight:800;letter-spacing:2px}
+  </style>
+
+  <!-- ===== Top: the three cards ===== -->
+  <text x="20" y="24" class="leg" font-weight="600">Boot splash (every card's logo fits the same box: 40 % of the shorter screen side)</text>
+
+  <!-- card 1 -->
+  <rect x="20" y="36" width="290" height="164" rx="6" fill="#000000"/>
+  <rect x="110" y="63" width="110" height="110" fill="none" stroke="#4b5563" stroke-dasharray="4 3"/>
+  <circle cx="165" cy="106" r="24" fill="none" stroke="#e5e7eb" stroke-width="5"/>
+  <rect x="152" y="94" width="26" height="24" rx="3" fill="#e5e7eb"/>
+  <text x="165" y="156" text-anchor="middle" fill="#e5e7eb" font-size="11" class="logo">MAINFRAME</text>
+  <text x="30" y="192" class="s">@mainframe</text>
+
+  <!-- card 2 -->
+  <rect x="335" y="36" width="290" height="164" rx="6" fill="#000000"/>
+  <rect x="425" y="63" width="110" height="110" fill="none" stroke="#4b5563" stroke-dasharray="4 3"/>
+  <text x="480" y="125" text-anchor="middle" fill="#ffffff" font-size="22" class="logo">BRUTAL</text>
+  <text x="345" y="192" class="s">@brutal · white variant on dark backgrounds</text>
+  <rect x="585" y="44" width="32" height="20" rx="4" fill="#1f2937"/>
+  <path d="M595 54 v-3 a6 6 0 0 1 12 0 v3" fill="none" stroke="#fbbf24" stroke-width="1.6"/>
+  <rect x="593" y="54" width="16" height="8" rx="1.5" fill="#fbbf24"/>
+
+  <!-- card 3 -->
+  <rect x="650" y="36" width="290" height="164" rx="6" fill="#000000"/>
+  <rect x="740" y="63" width="110" height="110" fill="none" stroke="#4b5563" stroke-dasharray="4 3"/>
+  <polygon points="795,80 825,136 765,136" fill="none" stroke="#93c5fd" stroke-width="4"/>
+  <text x="795" y="158" text-anchor="middle" fill="#93c5fd" font-size="11" class="logo">STUDIO</text>
+  <text x="660" y="192" class="s">Content/Brand/studio.png</text>
+
+  <!-- timeline -->
+  <g transform="translate(20,214)">
+    <line x1="0" y1="20" x2="920" y2="20" stroke="#d1d5db"/>
+    <!-- per card: fade-in (0.3 s) 30 px, hold 230 px, fade-out 30 px -->
+    <g>
+      <polygon points="0,20 30,4 260,4 290,20" fill="#e5e7eb" stroke="#9ca3af"/>
+      <line x1="30" y1="0" x2="30" y2="26" stroke="#9ca3af"/>
+      <line x1="202" y1="-2" x2="202" y2="28" stroke="#dc2626" stroke-dasharray="3 2"/>
+    </g>
+    <g transform="translate(315,0)">
+      <polygon points="0,20 30,4 260,4 290,20" fill="#fde68a" stroke="#d97706"/>
+      <line x1="202" y1="-2" x2="202" y2="28" stroke="#dc2626" stroke-dasharray="3 2"/>
+    </g>
+    <g transform="translate(630,0)">
+      <polygon points="0,20 30,4 260,4 290,20" fill="#dbeafe" stroke="#3b82f6"/>
+      <line x1="202" y1="-2" x2="202" y2="28" stroke="#dc2626" stroke-dasharray="3 2"/>
+    </g>
+    <text x="0" y="40" class="lt">fade in 0.3 s</text>
+    <text x="80" y="40" class="lt">hold (holdSeconds, ≥ 1.5 s)</text>
+    <text x="198" y="54" text-anchor="end" fill="#dc2626" font-size="11">skippable from 1.5 s</text>
+    <text x="236" y="54" class="lt">fade out 0.3 s</text>
+    <!-- loading bar -->
+    <rect x="0" y="62" width="640" height="12" rx="3" fill="#bbf7d0" stroke="#16a34a"/>
+    <text x="8" y="72" fill="#166534" font-size="10">GameSession.StartAsync: main scene loads behind the splash</text>
+    <text x="650" y="72" class="lt">ends when cards and load are both done</text>
+  </g>
+
+  <!-- ===== Bottom: Project Settings → Splash ===== -->
+  <rect x="20" y="312" width="920" height="312" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="312" width="920" height="26" rx="8" fill="#15171c"/>
+  <circle cx="38" cy="325" r="5" fill="#ef4444"/><circle cx="54" cy="325" r="5" fill="#f59e0b"/><circle cx="70" cy="325" r="5" fill="#22c55e"/>
+  <text x="400" y="330" class="s">Project Settings — MyGame</text>
+
+  <!-- tab rail (icons) -->
+  <rect x="20" y="338" width="52" height="286" fill="#191b21"/>
+  <g class="t">
+    <rect x="30" y="350" width="32" height="28" rx="4" fill="#2a2d36"/><text x="39" y="369">▣</text>
+    <rect x="30" y="384" width="32" height="28" rx="4" fill="#2a2d36"/><text x="39" y="403">⚙</text>
+    <rect x="30" y="418" width="32" height="28" rx="4" fill="#2a2d36"/><text x="40" y="437">◍</text>
+    <rect x="30" y="452" width="32" height="28" rx="4" fill="#1d4ed8"/><text x="39" y="471">✦</text>
+    <rect x="30" y="486" width="32" height="28" rx="4" fill="#2a2d36"/><text x="39" y="505">♫</text>
+  </g>
+
+  <!-- content -->
+  <text x="132" y="362" class="hdr">Splash</text>
+  <text x="132" y="384" class="grp">CARDS</text>
+
+  <!-- card rows -->
+  <g>
+    <rect x="132" y="392" width="470" height="34" rx="4" fill="#2a2d36"/>
+    <text x="142" y="414" class="s">⇅</text>
+    <rect x="162" y="398" width="22" height="22" rx="3" fill="#000"/><circle cx="173" cy="409" r="6" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+    <text x="194" y="414" class="m">@mainframe</text>
+    <rect x="572" y="399" width="22" height="20" rx="3" fill="#3b3f4b"/><text x="579" y="413" class="t">✕</text>
+  </g>
+  <g>
+    <rect x="132" y="430" width="470" height="34" rx="4" fill="#2a2d36" stroke="#d97706"/>
+    <text x="142" y="452" class="s">⇅</text>
+    <rect x="162" y="436" width="22" height="22" rx="3" fill="#000"/><text x="165" y="451" fill="#fff" font-size="7" class="logo">BRU</text>
+    <text x="194" y="452" class="m">@brutal</text>
+    <rect x="544" y="437" width="22" height="20" rx="3" fill="#3b3f4b"/>
+    <path d="M551 447 v-2.5 a4 4 0 0 1 8 0 v2.5" fill="none" stroke="#fbbf24" stroke-width="1.3"/><rect x="549.5" y="447" width="11" height="6" rx="1" fill="#fbbf24"/>
+    <rect x="572" y="437" width="22" height="20" rx="3" fill="#2a2d36" stroke="#3b3f4b"/><text x="579" y="451" fill="#4b5563" font-size="12">✕</text>
+  </g>
+  <g>
+    <rect x="132" y="468" width="470" height="34" rx="4" fill="#2a2d36"/>
+    <text x="142" y="490" class="s">⇅</text>
+    <rect x="162" y="474" width="22" height="22" rx="3" fill="#000"/><polygon points="173,478 180,491 166,491" fill="none" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="194" y="490" class="m">Content/Brand/studio.png</text>
+    <rect x="544" y="475" width="22" height="20" rx="3" fill="#3b3f4b"/><text x="549" y="489" class="t">🖼</text>
+    <rect x="572" y="475" width="22" height="20" rx="3" fill="#3b3f4b"/><text x="579" y="489" class="t">✕</text>
+  </g>
+  <rect x="132" y="508" width="26" height="22" rx="3" fill="#3b3f4b"/><text x="140" y="523" class="t">＋</text>
+  <rect x="164" y="508" width="26" height="22" rx="3" fill="#1d4ed8"/><text x="172" y="523" class="t">▶</text>
+
+  <!-- tooltip for the lock -->
+  <rect x="612" y="414" width="312" height="62" rx="5" fill="#0f1115" stroke="#d97706"/>
+  <text x="622" y="432" fill="#fbbf24" font-size="11" font-weight="600">Required by the BRUTAL licence (2.2)</text>
+  <text x="622" y="448" class="s">The BRUTAL logo must be shown before gameplay.</text>
+  <text x="622" y="463" class="s">Check Non-profit to remove it (confirm with Ahwoo).</text>
+  <line x1="566" y1="447" x2="612" y2="440" stroke="#d97706"/>
+
+  <!-- options -->
+  <text x="132" y="552" class="grp">OPTIONS</text>
+  <text x="132" y="574" class="t">Background</text><rect x="240" y="562" width="18" height="16" rx="2" fill="#000" stroke="#6b7280"/><text x="266" y="574" class="m">#000000</text>
+  <text x="360" y="574" class="t">Hold</text><rect x="400" y="561" width="60" height="18" rx="3" fill="#2a2d36"/><text x="408" y="574" class="m">2.0 s</text>
+  <text x="132" y="600" class="t">Skippable</text><rect x="240" y="589" width="14" height="14" rx="2" fill="#1d4ed8"/><text x="243" y="600" class="t" font-size="10">✓</text>
+  <text x="360" y="600" class="t">Non-profit</text><rect x="440" y="589" width="14" height="14" rx="2" fill="#2a2d36" stroke="#6b7280"/>
+</svg>
