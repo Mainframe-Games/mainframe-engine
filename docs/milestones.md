@@ -32,6 +32,8 @@ flowchart LR
     M3 --> GT
     GT -. "G4 saves → cloud saves, G5 presets → mobile export" .-> M13
     GT --> G8["G8 World: terrain, trees, water, forest showcase"]
+    M6 --> BR["BRUTAL backend (B1–B7): attribution, Jolt, SDL3, Vulkan"]
+    BR -. "B7 inside the Vulkan backend" .-> M11
     M11 -. "D3D12 base, GPU API" .-> CON["Consoles (PS5 + Xbox Series), after program access"]
     M12 -. "seams, AOT, cook" .-> CON
 ```
@@ -51,6 +53,7 @@ flowchart LR
 | [M10](#m10--editor-) | `MainframeEngine.Editor`, built on the game UI | ✅ |
 | [Demo & polish](#demo--polish-) | Demo game project, ImGui → RmlUi dev overlay, project icons, demo download | ✅ |
 | [Gameplay toolkit](#gameplay-toolkit-) | Keyframe animation + skinning, Claude-authored animation, 2D skeletal animation, 2D sprites and tile maps, navigation, saves and settings, export from the editor, rendering features, editor viewport tools, terrain/trees/water and a forest showcase, joints and ragdolls, a frame profiler, world-space UI, haptics and input glyphs, paths, accessibility, crash reports, video | ⬜ |
+| [BRUTAL backend](#brutal-backend-) | BRUTAL as the backend tech: splash and credits, a physics seam, Jolt as a second 3D backend, then SDL3 and Vulkan + VMA | ⬜ |
 | [M11](#m11--backend-abstraction--webgpu-) | Backend-neutral render API, D3D12 (Windows), WebGPU | ⬜ |
 | [M12](#m12--mobile-core-android--ios-) | Android 10+ / iOS 16+ (arm64): lifecycle, touch, TBDR tiers, ASTC/KTX2, AOT, editor deploy, store builds | ⬜ |
 | [M13](#m13--mobile-platform-services-) | IAP, achievements/leaderboards/cloud saves, ads + consent, notifications, analytics/crashes | ⬜ |
@@ -332,6 +335,23 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G17e IK, transform, path and physics constraints; clipping and path attachments | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 | G17f Animation graph: state machines, 1D/2D blend spaces, masked layers (shared with 3D), graph tab | ⬜ | [Animation graph](design/future/animation-graph.md) |
 | G17g `SkeletonSprite3D`, bone attachments, hitboxes, network sync, `AnimationPlayer` bridge, `mfe skel` + Claude skill, Demo scene | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
+
+## BRUTAL backend ⬜
+
+Adopt [BRUTAL](https://github.com/ahwootech/BRUTAL) (Ahwoo's C# game framework) as the engine's backend tech, in phases
+([ADR 0192](../memory/decisions/0192-brutal-backend-tech.md)). Games inherit BRUTAL's licence: the engine shows its logo
+in a splash sequence, lists it in the credits and ships its notice. Jolt arrives as a second 3D physics backend behind a
+seam, and becomes the default once it matches Jitter2; SDL3 and Vulkan + VMA follow with their own specs.
+
+| Feature | Status | Design doc |
+|---|---|---|
+| B1 Packages and notices, `Credits` + Credits page, splash sequence (`project.mfproj` `splash`, locked `@brutal`), editor splash/About/Splash page | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b1-plumbing-and-attribution) |
+| B2 Physics seam: `PhysicsBackend3D`, neutral shapes, Jitter2 behind it, `physics.3d.backend` (no behaviour change) | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b2-the-physics-seam) |
+| B3 Jolt backend (`Ahwoo.BRUTAL.Jolt`): every physics test, gate and golden on both backends, benchmarks, Demo toggle | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b3-the-jolt-backend) |
+| B4 Jolt by default (parity criteria); G9 joints on the seam | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b4-jolt-by-default) |
+| B5 BRUTAL Interop/Collections/Memory in engine code, RenderDoc capture | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b5b7-outline) |
+| B6 SDL3 windowing and input (`Ahwoo.BRUTAL.Sdl`) | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b5b7-outline) |
+| B7 `Ahwoo.BRUTAL.Vulkan` + VMA inside M11's Vulkan backend | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b5b7-outline) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 

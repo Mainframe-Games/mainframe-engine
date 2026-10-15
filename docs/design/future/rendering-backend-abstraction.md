@@ -101,4 +101,5 @@ classDiagram
 ## Related
 
 [Milestones](../../milestones.md) · [Vulkan renderer](../vulkan-renderer.md) · [Materials & meshes](../materials-and-meshes.md) ·
-[Consoles](consoles.md) · [Mobile core (M12)](mobile.md)
+[Consoles](consoles.md) · [Mobile core (M12)](mobile.md) · [BRUTAL backend](brutal-backend.md#b5b7-outline) (B7: the Vulkan backend on
+`Ahwoo.BRUTAL.Vulkan` + VMA)
