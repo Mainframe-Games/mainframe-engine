@@ -6,6 +6,10 @@ undo), [Keyframe animation](keyframe-animation.md) G1b (`Skeleton3D`; only for `
 [Editor viewport tools](editor-viewport-tools.md) (G7.3 handles for limits), [Animation authoring](animation-authoring.md)
 (G1c `HumanoidMap`/`HumanoidLimits` seed ragdoll limits), [Networking](../networking.md), [Demo](../demo.md)
 
+> **Note (2026-10-16):** [BRUTAL backend](brutal-backend.md) B2 puts 3D physics behind an internal backend seam and
+> B3 adds Jolt. Once B2 lands, the 3D half of this proposal is redesigned on `PhysicsBackend3D` (Jolt constraints
+> first, Jitter2's where they exist) instead of calling Jitter2 directly; the 2D half is unaffected.
+
 ![A hinge joint selected in the editor (axis, anchors, limit arc, current angle), a cone-twist joint in the physics
 debug draw, and the hinge's inspector groups](../../images/physics-joint-gizmos.svg)
 

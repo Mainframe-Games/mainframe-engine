@@ -20,7 +20,8 @@ library-specific stays inside the physics servers.
 | Determinism | non-deterministic by default; `Deterministic` = island solver, reproducible on one machine/build | deterministic on one machine/build |
 
 Both are pinned in `Directory.Packages.props`; read the pinned version's API (the NuGet packages lag their repos).
-Physics is single precision and offers no cross-platform lockstep mode
+A second 3D backend, Jolt through BRUTAL, is planned behind an internal seam ([BRUTAL backend](future/brutal-backend.md),
+B2–B4). Physics is single precision and offers no cross-platform lockstep mode
 ([ADR 0020](../../memory/decisions/0020-physics-precision-and-determinism.md)).
 
 ## Key types
@@ -375,7 +376,7 @@ draw; the fixed-step hooks; allocation gates (3D and 2D). Render tests: `physics
 
 [Milestones](../milestones.md) · [Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Scene serialization](scene-serialization.md) · [Testing](testing.md) · [Editor](editor.md) ·
-[Networking](networking.md) · [Water](water.md) (`World3D.Water`: depth, surface and flow queries for wading characters)
+[Networking](networking.md) · [BRUTAL backend (Jolt)](future/brutal-backend.md) · [Water](water.md) (`World3D.Water`: depth, surface and flow queries for wading characters)
 
 `CharacterBody2D.MotionMode = Floating` (Godot's `motion_mode` 1, top-down games) runs Godot's floating slide instead:
 every hit is a wall, `Velocity` is never changed by collisions, and hits within `WallMinSlideAngleDegrees` (15°) of
