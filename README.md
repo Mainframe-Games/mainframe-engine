@@ -44,28 +44,6 @@ free to use it, and to send pull requests or feature requests in Issues 😁
 
 Every image is the engine rendering in real time.
 
-### The Forest
-
-The [Forest](Examples/Forest) is a first-person walk through a generated 256 m valley: a stream over a fall, through
-three pools and under a log bridge into a pond, 1 846 Ez Tree trees and dense ground cover, all generated at load. PBR
-materials lit by a physical sky and its image-based light, baked light probes, volumetric fog, histogram auto exposure,
-AgX and a colour-grading LUT, at 2560 × 1440 with 3D at 75 % and TAA upscaling.
-
-<table>
-  <tr>
-    <td align="center" valign="top"><img src="docs/images/forest/readme-glade.jpg" width="380" alt="Forest glade"><br><b>Glade</b> — volumetric fog shafts, back-lit translucent meadow grass</td>
-    <td align="center" valign="top"><img src="docs/images/forest/readme-woodland.jpg" width="380" alt="Forest woodland"><br><b>Woodland</b> — PCSS soft shadows, contact shadows, GTAO, light probes</td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><img src="docs/images/forest/readme-pond.jpg" width="380" alt="Forest misty pond"><br><b>Misty pond</b> — screen-space reflections, haze over impostor canopies</td>
-    <td align="center" valign="top"><img src="docs/images/forest/readme-fall.jpg" width="380" alt="Forest fall"><br><b>The fall</b> — waterfall spray, refraction and caustics on the gravel bed</td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><img src="docs/images/forest/readme-upstream.jpg" width="380" alt="Forest stream"><br><b>Upstream</b> — the carved stream between birches, seen through the ripples</td>
-    <td align="center" valign="top"><img src="docs/images/forest/readme-ferns.jpg" width="380" alt="Forest fern floor"><br><b>Fern floor</b> — 32-tap depth of field, near and far, over moss and ferns</td>
-  </tr>
-</table>
-
 ### The Demo
 
 The [Demo](Examples/Demo) has one scene per feature, switched from its nav bar; F12 opens the developer overlay in any
@@ -94,9 +72,7 @@ game.
   </tr>
 </table>
 
----
-
-## The editor
+### The editor
 
 A Godot-style editor whose UI is built with the engine's own RmlUi game UI. It works on game projects: a Project
 Manager and New Project wizard, a scene tree, an inspector generated from the nodes' `[Export]` metadata with undo/redo,
@@ -123,6 +99,28 @@ editor. Scenes open in tabs, each in its own world; nothing but `[Tool]` nodes r
 video editor that trims it for promo footage: Detect Silence and Detect Idle Gameplay cut dead air and idle play,
 Transcribe writes a Whisper transcript you edit by clicking words, Remove Fillers cuts the "um"s, and Export writes the
 trimmed MP4 and the transcript as SRT or text.
+
+### The Forest
+
+The [Forest](Examples/Forest) is a first-person walk through a generated 256 m valley: a stream over a fall, through
+three pools and under a log bridge into a pond, 1 846 Ez Tree trees and dense ground cover, all generated at load. PBR
+materials lit by a physical sky and its image-based light, baked light probes, volumetric fog, histogram auto exposure,
+AgX and a colour-grading LUT, at 2560 × 1440 with 3D at 75 % and TAA upscaling.
+
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/forest/readme-glade.jpg" width="380" alt="Forest glade"><br><b>Glade</b> — volumetric fog shafts, back-lit translucent meadow grass</td>
+    <td align="center" valign="top"><img src="docs/images/forest/readme-woodland.jpg" width="380" alt="Forest woodland"><br><b>Woodland</b> — PCSS soft shadows, contact shadows, GTAO, light probes</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/forest/readme-pond.jpg" width="380" alt="Forest misty pond"><br><b>Misty pond</b> — screen-space reflections, haze over impostor canopies</td>
+    <td align="center" valign="top"><img src="docs/images/forest/readme-fall.jpg" width="380" alt="Forest fall"><br><b>The fall</b> — waterfall spray, refraction and caustics on the gravel bed</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/forest/readme-upstream.jpg" width="380" alt="Forest stream"><br><b>Upstream</b> — the carved stream between birches, seen through the ripples</td>
+    <td align="center" valign="top"><img src="docs/images/forest/readme-ferns.jpg" width="380" alt="Forest fern floor"><br><b>Fern floor</b> — 32-tap depth of field, near and far, over moss and ferns</td>
+  </tr>
+</table>
 
 ---
 
