@@ -59,6 +59,7 @@
         .ps-splash-card { display: flex; flex-direction: row; align-items: center; height: 32dp; margin-bottom: 4dp; padding: 0dp 6dp; background-color: #2a2d36; border: 1dp #2a2d36; border-radius: 4dp; }
         .ps-splash-card.locked { border-color: #d97706; }
         .ps-splash-thumb { flex: 0 0 auto; width: 22dp; height: 22dp; margin-right: 8dp; border-radius: 3dp; background-color: #000000; }
+        .ps-splash-thumb.wide { width: 93dp; } /* BRUTAL's 712×168 logo at 22dp tall, aspect kept */
         .ps-splash-name { display: block; flex: 1 1 auto; font-size: 11dp; }
         .ps-splash-lock { margin: 0dp 4dp; color: #fbbf24; }
         .ps-splash-card button { width: 22dp; padding: 0dp; margin-left: 3dp; }

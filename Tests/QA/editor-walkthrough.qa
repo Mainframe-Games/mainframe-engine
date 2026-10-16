@@ -151,4 +151,35 @@ capture 17-post-preview-off
 command view.post
 wait 3
 state
+# BRUTAL B1: Project Settings › Splash (the lock's tooltip, add, reorder and undo, preview) and Help › About's credits.
+command project.settings
+wait 3
+click #ps-nav-splash
+wait 3
+move #ps-splash-lock
+wait 60
+capture 18-splash-lock
+click #ps-splash-add
+wait 3
+capture 19-splash-add-picker
+cancel
+wait 2
+click #ps-splash-down-0
+wait 3
+capture 20-splash-reordered
+key Z cmd
+wait 3
+capture 21-splash-undone
+click #ps-splash-preview
+wait-for playing 180
+wait 60
+capture 22-splash-preview
+wait-for stopped 60
+key Escape
+wait 2
+command help.about
+wait 3
+capture 23-about-credits
+cancel
+wait 2
 quit

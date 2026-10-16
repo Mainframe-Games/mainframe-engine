@@ -274,7 +274,8 @@ public sealed class ProjectSettingsDialog : EditorDocument
             var locked = card == SplashProjectSettings.BrutalCard && !splash.NonProfit;
             rml.Append("<div class=\"ps-splash-card").Append(locked ? " locked" : "").Append("\">");
             if (SplashThumbnail(card, splash, projectRoot) is { } thumbnail)
-                rml.Append("<img class=\"ps-splash-thumb\" src=\"").Append(RmlText.Escape(thumbnail)).Append("\"/>");
+                rml.Append("<img class=\"ps-splash-thumb").Append(card == SplashProjectSettings.BrutalCard ? " wide" : "") // the licence allows scaling only
+                    .Append("\" src=\"").Append(RmlText.Escape(thumbnail)).Append("\"/>");
             else
                 rml.Append("<span class=\"icon icon-sm icon-photo ps-splash-thumb\"></span>");
             rml.Append("<span class=\"ps-splash-name mono\">").Append(RmlText.Escape(card)).Append("</span>");
