@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Jitter2;
 using Jitter2.Collision;
 using Jitter2.Collision.Shapes;
@@ -756,7 +757,7 @@ public sealed class PhysicsSpace3D : IDisposable
     }
 
     /// <summary>The rotation vector (axis × angle) taking <paramref name="from"/> to <paramref name="to"/>.</summary>
-    private static Vector3 AngularVelocityBetween(Quaternion from, Quaternion to)
+    internal static Vector3 AngularVelocityBetween(Quaternion from, Quaternion to)
     {
         var delta = Quaternion.Normalize(to * Quaternion.Conjugate(from));
         if (delta.W < 0)
@@ -766,6 +767,28 @@ public sealed class PhysicsSpace3D : IDisposable
             return Vector3.Zero;
         var angle = 2f * MathF.Atan2(sinHalf, delta.W);
         return new Vector3(delta.X, delta.Y, delta.Z) / sinHalf * angle;
+    }
+
+    /// <summary>
+    /// The layer rule (ADR 0021), shared by every backend's filters: two bodies collide when either one's mask has the
+    /// other's layer; an area detects a body when the area's mask has the body's layer; areas never detect areas.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool Collides(uint layerA, uint maskA, bool areaA, uint layerB, uint maskB, bool areaB)
+    {
+        if (areaA)
+            return !areaB && (maskA & layerB) != 0;
+        if (areaB)
+            return (maskB & layerA) != 0;
+        return CollisionLayers.ShouldCollide(layerA, maskA, layerB, maskB);
+    }
+
+    /// <summary>A shape child's transform in its body's frame with the body's global scale baked in (as the shapes are built).</summary>
+    internal static void BakeShapeTransform(Vector3 bodyScale, in Transform3D local, out Basis linear, out Vector3 translation)
+    {
+        var scaleBasis = new Basis(Vector3.UnitX * bodyScale.X, Vector3.UnitY * bodyScale.Y, Vector3.UnitZ * bodyScale.Z);
+        linear = scaleBasis * local.Basis;
+        translation = local.Origin * bodyScale;
     }
 
     private void PostStep()
