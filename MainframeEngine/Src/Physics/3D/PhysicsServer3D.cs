@@ -17,24 +17,7 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
     private readonly List<PhysicsSpace3D> _spaceList = [];
     private bool _disposed;
 
-    static PhysicsServer3D()
-    {
-        Jitter2.Logger.Listener = static (level, message) =>
-        {
-            switch (level)
-            {
-                case Jitter2.Logger.LogLevel.Error:
-                    Log.Error($"[Jitter2] {message}");
-                    break;
-                case Jitter2.Logger.LogLevel.Warning:
-                    Log.Warning($"[Jitter2] {message}");
-                    break;
-                default:
-                    Log.Debug($"[Jitter2] {message}");
-                    break;
-            }
-        };
-    }
+    static PhysicsServer3D() => JitterLog.EnsureInstalled();
 
     public PhysicsServer3D(PhysicsSettings3D? settings = null)
     {

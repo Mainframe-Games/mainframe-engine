@@ -1269,22 +1269,3 @@ public sealed class PhysicsSpace3D : IDisposable
         public void Add(in IDynamicTreeProxy item) => list.Add(item);
     }
 }
-
-/// <summary>
-/// Detaches Jitter2's log listener for the scope of a character query (cast, recovery, settle). Jitter2 formats a warning
-/// string for every EPA that does not converge (<c>string.Format</c>, only while a listener is set); character queries
-/// expect that on dense terrain (ADR 0128: the next query takes over), so warning about it would allocate on the main
-/// thread every few seconds of walking and break the 0 B frame. Queries run on the main thread outside the world step.
-/// </summary>
-internal readonly ref struct JitterLogMute
-{
-    private readonly Action<Jitter2.Logger.LogLevel, string>? _listener;
-
-    public JitterLogMute()
-    {
-        _listener = Jitter2.Logger.Listener;
-        Jitter2.Logger.Listener = null;
-    }
-
-    public void Dispose() => Jitter2.Logger.Listener = _listener;
-}

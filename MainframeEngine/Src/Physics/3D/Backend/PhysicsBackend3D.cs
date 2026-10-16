@@ -17,7 +17,7 @@ internal abstract class PhysicsBackend3D : IDisposable
         ArgumentNullException.ThrowIfNull(settings);
         return kind switch
         {
-            PhysicsBackendKind.Jitter2 => throw new NotSupportedException("The Jitter2 backend is added in the next task."),
+            PhysicsBackendKind.Jitter2 => new Jitter2Backend(settings),
             _ => throw new NotSupportedException($"The {kind} 3D physics backend is not part of this engine build yet."),
         };
     }
