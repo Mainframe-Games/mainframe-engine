@@ -1,11 +1,7 @@
 using System.Buffers;
 using System.Numerics;
-using Jitter2;
-using Jitter2.Collision;
-using Jitter2.Collision.Shapes;
-using Jitter2.DataStructures;
-using Jitter2.Dynamics;
-using Jitter2.LinearMath;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace MainframeEngine;
 
@@ -16,7 +12,7 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public readonly PhysicsSpace3D Space = space;
     public readonly long Sequence = sequence;
     public PhysicsBodyKind Kind;
-    public RigidBody? Body;
+    public BackendBody Handle;
     public uint Layer;
     public uint Mask;
     public bool Removed;
@@ -28,7 +24,10 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public bool HasTarget;
     public bool WasSleeping;
     public bool LoggedConcave;
-    public readonly List<RigidBodyShape> Shapes = [];
+
+    /// <summary>The <see cref="CollisionShape3D"/> of each description in the last <see cref="PhysicsBackend3D.SetShapes"/> (<see cref="BackendHit3D.ShapeIndex"/>).</summary>
+    public readonly List<CollisionShape3D> ShapeOwners = [];
+
     public Vector3 Scale = Vector3.One;
     public Vector3 PreviousPosition, CurrentPosition, TargetPosition;
     public Quaternion PreviousRotation = Quaternion.Identity, CurrentRotation = Quaternion.Identity, TargetRotation = Quaternion.Identity;
@@ -39,18 +38,23 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
 
     public bool IsMoving => Kind is PhysicsBodyKind.Dynamic or PhysicsBodyKind.Kinematic or PhysicsBodyKind.Character;
 
+    /// <summary>A live backend body that collides (areas only detect).</summary>
+    public bool HasBody => !Removed && Kind != PhysicsBodyKind.Area;
+
+    public CollisionShape3D? ShapeOwner(int index) => (uint)index < (uint)ShapeOwners.Count ? ShapeOwners[index] : null;
+
     // ---- state the nodes read and write --------------------------------------------------------------------------
 
     public Vector3 GetLinearVelocity() => Kind switch
     {
-        PhysicsBodyKind.Dynamic => Body!.Velocity.ToNumerics(),
+        PhysicsBodyKind.Dynamic => Space.Backend.GetLinearVelocity(Handle),
         PhysicsBodyKind.Kinematic => KinematicVelocity,
         _ => Vector3.Zero,
     };
 
     public Vector3 GetAngularVelocity() => Kind switch
     {
-        PhysicsBodyKind.Dynamic => Body!.AngularVelocity.ToNumerics(),
+        PhysicsBodyKind.Dynamic => Space.Backend.GetAngularVelocity(Handle),
         PhysicsBodyKind.Kinematic => KinematicAngularVelocity,
         _ => Vector3.Zero,
     };
@@ -58,7 +62,7 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public void SetLinearVelocity(Vector3 velocity)
     {
         if (Kind == PhysicsBodyKind.Dynamic)
-            Body!.Velocity = velocity.ToJ();
+            Space.Backend.SetLinearVelocity(Handle, velocity);
         else if (Kind == PhysicsBodyKind.Kinematic)
             KinematicVelocity = velocity;
     }
@@ -66,39 +70,29 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public void SetAngularVelocity(Vector3 velocity)
     {
         if (Kind == PhysicsBodyKind.Dynamic)
-            Body!.AngularVelocity = velocity.ToJ();
+            Space.Backend.SetAngularVelocity(Handle, velocity);
         else if (Kind == PhysicsBodyKind.Kinematic)
             KinematicAngularVelocity = velocity;
     }
 
-    public bool IsSleeping => Kind == PhysicsBodyKind.Dynamic && Body is { IsActive: false };
+    public bool IsSleeping => Kind == PhysicsBodyKind.Dynamic && !Removed && Space.Backend.IsSleeping(Handle);
 
     public void ApplyForce(Vector3 force, Vector3? position)
     {
-        if (Kind != PhysicsBodyKind.Dynamic || Body is not { } body)
-            return;
-        if (position is { } at)
-            body.AddForce(force.ToJ(), at.ToJ());
-        else
-            body.AddForce(force.ToJ());
+        if (Kind == PhysicsBodyKind.Dynamic && !Removed)
+            Space.Backend.ApplyForce(Handle, force, position);
     }
 
     public void ApplyImpulse(Vector3 impulse, Vector3? position)
     {
-        if (Kind != PhysicsBodyKind.Dynamic || Body is not { } body)
-            return;
-        if (position is { } at)
-            body.ApplyImpulse(impulse.ToJ(), at.ToJ());
-        else
-            body.ApplyImpulse(impulse.ToJ());
+        if (Kind == PhysicsBodyKind.Dynamic && !Removed)
+            Space.Backend.ApplyImpulse(Handle, impulse, position);
     }
 
     public void ApplyTorque(Vector3 torque)
     {
-        if (Kind != PhysicsBodyKind.Dynamic || Body is not { } body)
-            return;
-        body.Torque += torque.ToJ();
-        body.SetActivationState(true);
+        if (Kind == PhysicsBodyKind.Dynamic && !Removed)
+            Space.Backend.ApplyTorque(Handle, torque);
     }
 
     /// <summary>Moves the body (and node) to a pose now and restarts interpolation from it.</summary>
@@ -106,13 +100,8 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     {
         rotation = Quaternion.Normalize(rotation);
         Node.ApplyPhysicsPose(position, rotation, Scale);
-        if (Body is { } body)
-        {
-            body.Position = position.ToJ();
-            body.Orientation = rotation.ToJ();
-            if (Kind != PhysicsBodyKind.Static)
-                body.SetActivationState(true);
-        }
+        if (HasBody)
+            Space.Backend.Teleport(Handle, position, rotation); // wakes it unless static
 
         TransformDirty = false;
         HasTarget = false;
@@ -126,29 +115,26 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     {
         Layer = Node.CollisionLayer;
         Mask = Node.CollisionMask;
-        if (Body is { } body)
-        {
-            // Jitter2 keeps resting contacts until they break: drop them so the new filter applies now.
-            PhysicsSpace3D.WakeTouching(body);
-            body.ClearContactCache();
-            if (Kind != PhysicsBodyKind.Static)
-                body.SetActivationState(true);
-        }
+        if (Removed)
+            return;
+        var backend = Space.Backend;
+        backend.SetFilter(Handle, Layer, Mask);
+        if (Kind == PhysicsBodyKind.Area)
+            return;
+        // Resting contacts are dropped so the new filter applies now; what touched the body wakes.
+        backend.WakeTouching(Handle);
+        backend.ClearContacts(Handle);
+        if (Kind != PhysicsBodyKind.Static)
+            backend.Wake(Handle);
     }
 
     /// <summary>The node's physics material (or its values) changed.</summary>
     public void ApplyMaterial()
     {
-        if (Body is not { } body)
+        if (!HasBody)
             return;
-        var material = Node switch
-        {
-            RigidBody3D rigid => rigid.PhysicsMaterial,
-            StaticBody3D stat => stat.PhysicsMaterial,
-            _ => null,
-        };
-        body.Friction = material?.Friction ?? PhysicsMaterial.DefaultFriction;
-        body.Restitution = material?.Bounce ?? 0f;
+        PhysicsSpace3D.MaterialOf(Node, out var friction, out var bounce);
+        Space.Backend.SetMaterial(Handle, friction, bounce);
     }
 
     /// <summary>Adds the overlapping/touching nodes to <paramref name="results"/>.</summary>
@@ -163,48 +149,38 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
 }
 
 /// <summary>
-/// One Jitter2 world: the physics side of a <see cref="World3D"/>, owned by the <see cref="PhysicsServer3D"/>. Holds
-/// the bodies of the collision objects in that world, steps them, writes poses back to the nodes, interpolates them
-/// for rendering and queues contact/area/sleep signals, dispatched on the main thread after each step.
+/// The physics side of a <see cref="World3D"/>, owned by the <see cref="PhysicsServer3D"/>: the engine's bookkeeping over
+/// one <see cref="PhysicsBackend3D"/> (Jitter2; Jolt in B3). Holds the collision objects in that world, steps them, writes
+/// poses back to the nodes, interpolates them for rendering and queues contact/area/sleep signals, dispatched on the main
+/// thread after each step.
 /// </summary>
-/// <remarks>Not thread-safe: nodes and queries use it from the main thread; Jitter2 may use its worker pool inside a step.</remarks>
+/// <remarks>Not thread-safe: nodes and queries use it from the main thread; the backend may use worker threads inside a step.</remarks>
 public sealed class PhysicsSpace3D : IDisposable
 {
-    private readonly World _world;
-    private readonly PhysicsSettings3D _settings;
+    private readonly PhysicsBackend3D _backend;
     private readonly List<BodyRecord3D> _records = [];
     private readonly List<BodyRecord3D> _dirty = [];
     private readonly List<BodyRecord3D> _moving = [];
     private readonly List<BodyRecord3D> _areas = [];
     private readonly List<BodyRecord3D> _monitors = [];
-    private readonly List<BodyRecord3D> _gravityScaled = [];
     private List<PhysicsEvent<BodyRecord3D>> _events = [];
     private List<PhysicsEvent<BodyRecord3D>> _dispatching = [];
-    private readonly Dictionary<RigidBodyShape, CollisionShape3D> _shapeOwners = [];
-    private readonly List<RigidBodyShape> _shapeScratch = [];
-    private readonly List<IDynamicTreeProxy> _proxies = [];
-    private readonly QueryFilters _filters;
+    private BodyRecord3D?[] _byHandle = new BodyRecord3D?[64];
+    private readonly List<BackendBody> _others = [];
+    private readonly List<BackendBody> _queryHits = [];
+    private readonly List<BackendShapeRef> _nearby = [];
+    private readonly List<ShapeDescription3D> _shapeDescriptions = [];
+    private readonly List<ShapeError3D> _shapeErrors = [];
     private int _dispatchIndex = -1;
     private long _sequence;
     private long _step;
     private float _delta = 1f / 60f;
     private bool _disposed;
 
-    internal PhysicsSpace3D(SceneViewport viewport, PhysicsSettings3D settings)
+    internal PhysicsSpace3D(SceneViewport viewport, PhysicsSettings3D settings, PhysicsBackendKind backend)
     {
         Viewport = viewport;
-        _settings = settings;
-        _world = new World
-        {
-            Gravity = settings.Gravity.ToJ(),
-            SubstepCount = settings.SubstepCount,
-            SolverIterations = (settings.SolverIterations, settings.RelaxationIterations),
-            AllowDeactivation = settings.AllowDeactivation,
-            BroadPhaseFilter = new LayerFilter(),
-            SolveMode = settings.Deterministic ? SolveMode.Deterministic : SolveMode.Regular,
-        };
-        _world.NarrowPhaseFilter = new SphereContactFilter(_world, _world.NarrowPhaseFilter);
-        _filters = new QueryFilters();
+        _backend = PhysicsBackend3D.Create(backend, settings);
         World3D.PhysicsSpace = this;
     }
 
@@ -213,11 +189,14 @@ public sealed class PhysicsSpace3D : IDisposable
 
     public World3D World3D => Viewport.World3D;
 
+    /// <summary>The library this space runs on.</summary>
+    public PhysicsBackendKind BackendKind => _backend.Kind;
+
     /// <summary>Collision objects in the space.</summary>
     public int ObjectCount => _records.Count;
 
     /// <summary>Bodies currently awake (simulated).</summary>
-    public int ActiveBodyCount => Math.Max(0, _world.RigidBodies.ActiveCount);
+    public int ActiveBodyCount => _backend.ActiveBodyCount;
 
     /// <summary>Physics steps run so far.</summary>
     public long StepCount => _step;
@@ -225,22 +204,67 @@ public sealed class PhysicsSpace3D : IDisposable
     /// <summary>Gravity in m/s².</summary>
     public Vector3 Gravity
     {
-        get => _world.Gravity.ToNumerics();
-        set => _world.Gravity = value.ToJ();
+        get => _backend.Gravity;
+        set => _backend.Gravity = value;
     }
 
     /// <summary>Queries against this space (also <see cref="World3D.DirectSpaceState"/>).</summary>
     public PhysicsDirectSpaceState3D DirectSpaceState => World3D.DirectSpaceState;
 
-    internal DynamicTree Tree => _world.DynamicTree;
+    internal PhysicsBackend3D Backend => _backend;
 
     /// <summary>
-    /// Test hook: when set, bytes allocated on this thread inside <c>World.Step</c> (Jitter2's own; its worker pool
-    /// occasionally allocates a few bytes when stepping multi-threaded) are added to <see cref="LibraryAllocatedBytes"/>.
+    /// Test hook: when set, bytes allocated on this thread inside the library's step (Jitter2's worker pool occasionally
+    /// allocates a few bytes when stepping multi-threaded) are added to <see cref="LibraryAllocatedBytes"/>.
     /// </summary>
     internal static bool MeasureLibraryAllocations { get; set; }
 
-    internal long LibraryAllocatedBytes { get; private set; }
+    internal long LibraryAllocatedBytes => _backend.LibraryAllocatedBytes;
+
+    /// <summary>Scratch for <see cref="PhysicsDirectSpaceState3D"/>'s overlap queries.</summary>
+    internal List<BackendBody> QueryScratch => _queryHits;
+
+    internal BodyRecord3D? RecordOf(BackendBody body) => (uint)body.Index < (uint)_byHandle.Length ? _byHandle[body.Index] : null;
+
+    /// <summary>The backend handle of a node in this space, or none (another space's node excludes nothing here).</summary>
+    internal BackendBody HandleOf(CollisionObject3D? node) =>
+        node?.Record is { Removed: false } record && ReferenceEquals(record.Space, this) ? record.Handle : BackendBody.None;
+
+    private void MapHandle(BodyRecord3D record)
+    {
+        var index = record.Handle.Index;
+        if (index >= _byHandle.Length)
+            Array.Resize(ref _byHandle, Math.Max(index + 1, _byHandle.Length * 2));
+        _byHandle[index] = record;
+    }
+
+    /// <summary>Adds the live nodes of <paramref name="hits"/> to <paramref name="results"/> (each once) and clears <paramref name="hits"/>.</summary>
+    internal int AddHits(List<BackendBody> hits, List<CollisionObject3D> results)
+    {
+        var added = 0;
+        foreach (var hit in hits)
+        {
+            if (RecordOf(hit) is not { Removed: false } record || results.Contains(record.Node))
+                continue;
+            results.Add(record.Node);
+            added++;
+        }
+
+        hits.Clear();
+        return added;
+    }
+
+    internal static void MaterialOf(CollisionObject3D node, out float friction, out float bounce)
+    {
+        var material = node switch
+        {
+            RigidBody3D rigid => rigid.PhysicsMaterial,
+            StaticBody3D stat => stat.PhysicsMaterial,
+            _ => null,
+        };
+        friction = material?.Friction ?? PhysicsMaterial.DefaultFriction;
+        bounce = material?.Bounce ?? 0f;
+    }
 
     // ------------------------------------------------------------------------------------------------------------
     // Objects
@@ -263,22 +287,18 @@ public sealed class PhysicsSpace3D : IDisposable
         record.PreviousPosition = record.CurrentPosition = position;
         record.PreviousRotation = record.CurrentRotation = rotation;
 
+        MaterialOf(node, out var friction, out var bounce);
+        record.Handle = _backend.CreateBody(new BodyDescription3D(record.Kind, position, rotation, record.Layer, record.Mask, PropertiesOf(record),
+            friction, bounce));
+        MapHandle(record);
         if (record.Kind != PhysicsBodyKind.Area)
         {
-            var body = _world.CreateRigidBody();
-            body.Tag = record;
-            body.Position = position.ToJ();
-            body.Orientation = rotation.ToJ();
-            record.Body = body;
-            ApplyKind(record);
-            ApplyProperties(record);
-            record.ApplyMaterial();
             if (node is RigidBody3D rigid && record.Kind == PhysicsBodyKind.Dynamic)
             {
                 if (rigid.InitialLinearVelocity != Vector3.Zero)
-                    body.Velocity = rigid.InitialLinearVelocity.ToJ();
+                    _backend.SetLinearVelocity(record.Handle, rigid.InitialLinearVelocity);
                 if (rigid.InitialAngularVelocity != Vector3.Zero)
-                    body.AngularVelocity = rigid.InitialAngularVelocity.ToJ();
+                    _backend.SetAngularVelocity(record.Handle, rigid.InitialAngularVelocity);
             }
             else if (node is RigidBody3D kinematic)
             {
@@ -301,19 +321,17 @@ public sealed class PhysicsSpace3D : IDisposable
         _moving.Remove(record);
         _areas.Remove(record);
         _monitors.Remove(record);
-        _gravityScaled.Remove(record);
 
-        if (record.Body is { } body)
+        if (!_disposed)
         {
-            foreach (var shape in record.Shapes)
-                _shapeOwners.Remove(shape);
-            WakeTouching(body);
-            if (!_disposed)
-                _world.Remove(body);
-            record.Body = null;
+            if (record.Kind != PhysicsBodyKind.Area)
+                _backend.WakeTouching(record.Handle);
+            _backend.DestroyBody(record.Handle);
         }
 
-        record.Shapes.Clear();
+        _byHandle[record.Handle.Index] = null; // before any handler can create a body that reuses the index
+        record.Handle = BackendBody.None;
+        record.ShapeOwners.Clear();
         record.Overlaps = null;
         EmitExitsForRemoved(record);
     }
@@ -387,9 +405,9 @@ public sealed class PhysicsSpace3D : IDisposable
     internal void OnKindChanged(BodyRecord3D record)
     {
         record.Kind = record.Node.Kind;
-        if (record.Body is not null)
+        if (record.Kind != PhysicsBodyKind.Area)
         {
-            ApplyKind(record);
+            _backend.SetKind(record.Handle, record.Kind);
             ApplyProperties(record);
             record.ShapesDirty = true; // mass (dynamic) or concave-shape eligibility may have changed
             AddDirty(record);
@@ -400,7 +418,7 @@ public sealed class PhysicsSpace3D : IDisposable
 
     internal void OnBodyPropertiesChanged(BodyRecord3D record)
     {
-        if (record.Body is not null)
+        if (record.Kind != PhysicsBodyKind.Area)
             ApplyProperties(record);
         UpdateMembership(record);
     }
@@ -438,8 +456,6 @@ public sealed class PhysicsSpace3D : IDisposable
         SetMember(_areas, record, record.Kind == PhysicsBodyKind.Area);
         var monitor = record.Node is RigidBody3D { ContactMonitor: true };
         SetMember(_monitors, record, monitor);
-        var scaled = record.Kind == PhysicsBodyKind.Dynamic && record.Node is RigidBody3D { GravityScale: not 1f and not 0f };
-        SetMember(_gravityScaled, record, scaled);
         if ((monitor || record.Kind == PhysicsBodyKind.Area) && record.Overlaps is null)
             record.Overlaps = new(8);
     }
@@ -452,49 +468,17 @@ public sealed class PhysicsSpace3D : IDisposable
         else if (!member && index >= 0)
             list.RemoveAt(index);
     }
+    private void ApplyProperties(BodyRecord3D record) => _backend.SetProperties(record.Handle, PropertiesOf(record));
 
-    private static void ApplyKind(BodyRecord3D record)
-    {
-        var body = record.Body!;
-        body.MotionType = record.Kind switch
-        {
-            PhysicsBodyKind.Static => MotionType.Static,
-            PhysicsBodyKind.Dynamic => MotionType.Dynamic,
-            _ => MotionType.Kinematic,
-        };
-    }
+    // Dynamic rigid bodies are simulated (gravity scale, damping per step, CCD, sleep, axis locks); everything else is not.
+    private BodyProperties3D PropertiesOf(BodyRecord3D record) =>
+        record.Node is RigidBody3D rigid && record.Kind == PhysicsBodyKind.Dynamic
+            ? new BodyProperties3D(true, StepDamping(rigid.LinearDamp), StepDamping(rigid.AngularDamp), rigid.GravityScale, rigid.AxisLocks, rigid.Ccd,
+                rigid.CanSleep)
+            : default;
 
-    private void ApplyProperties(BodyRecord3D record)
-    {
-        var body = record.Body!;
-        if (record.Node is RigidBody3D rigid && record.Kind == PhysicsBodyKind.Dynamic)
-        {
-            body.AffectedByGravity = rigid.GravityScale == 1f;
-            body.Damping = (StepDamping(rigid.LinearDamp), StepDamping(rigid.AngularDamp));
-            body.EnableSpeculativeContacts = rigid.Ccd;
-            body.DeactivationTime = rigid.CanSleep ? TimeSpan.FromSeconds(1) : TimeSpan.FromSeconds(1e7);
-            body.AllowedMotion = (MotionAxes)((int)MotionAxes.All & ~(int)rigid.AxisLocks);
-        }
-        else
-        {
-            body.AffectedByGravity = false;
-            body.AllowedMotion = MotionAxes.All; // locks are a dynamic-body feature; kinematic moves must reach their target
-        }
-    }
-
-    // Godot-style per-second damping → Jitter2's per-step velocity multiplier (1 − d).
+    // Godot-style per-second damping → the velocity removed per step (1 − e^(−d·dt)).
     private float StepDamping(float perSecond) => Math.Clamp(1f - MathF.Exp(-perSecond * _delta), 0f, 1f);
-
-
-    internal static void WakeTouching(RigidBody body)
-    {
-        foreach (var arbiter in body.Contacts)
-        {
-            var other = ReferenceEquals(arbiter.Body1, body) ? arbiter.Body2 : arbiter.Body1;
-            if (other.MotionType != MotionType.Static)
-                other.SetActivationState(true);
-        }
-    }
 
     // ------------------------------------------------------------------------------------------------------------
     // Pushing node changes
@@ -556,12 +540,7 @@ public sealed class PhysicsSpace3D : IDisposable
                 break;
             default:
                 // Static, area: move there. Dynamic: teleport (velocity kept) and restart interpolation.
-                if (record.Body is { } body)
-                {
-                    body.Position = position.ToJ();
-                    body.Orientation = rotation.ToJ();
-                }
-
+                _backend.SetPose(record.Handle, position, rotation);
                 record.PreviousPosition = record.CurrentPosition = position;
                 record.PreviousRotation = record.CurrentRotation = rotation;
                 record.RenderAtCurrent = true;
@@ -574,18 +553,10 @@ public sealed class PhysicsSpace3D : IDisposable
     private void RebuildShapes(BodyRecord3D record)
     {
         record.ShapesDirty = false;
-        var body = record.Body;
-        if (body is not null && record.Shapes.Count > 0)
-        {
-            foreach (var shape in record.Shapes)
-                _shapeOwners.Remove(shape);
-            body.ClearShapes(MassInertiaUpdateMode.Preserve);
-        }
-
-        record.Shapes.Clear();
         var node = record.Node;
-        var scale = record.Scale;
-        var scaleBasis = new Basis(Vector3.UnitX * scale.X, Vector3.UnitY * scale.Y, Vector3.UnitZ * scale.Z);
+        var descriptions = _shapeDescriptions;
+        descriptions.Clear();
+        record.ShapeOwners.Clear();
         for (var i = 0; i < node.ChildCount; i++)
         {
             if (node.GetChild(i) is not CollisionShape3D { Disabled: false, Shape: { } shape } owner)
@@ -598,47 +569,36 @@ public sealed class PhysicsSpace3D : IDisposable
                 continue;
             }
 
-            var local = owner.Transform;
-            _shapeScratch.Clear();
+            BakeShapeTransform(record.Scale, owner.Transform, out var linear, out var translation);
+            var start = descriptions.Count;
             try
             {
-                shape.CreateShapes(_shapeScratch, scaleBasis * local.Basis, local.Origin * scale);
+                shape.Describe(descriptions, linear, translation);
             }
             catch (Exception e) when (e is ArgumentException or InvalidOperationException)
             {
-                // Degenerate data (coplanar hull points, zero scale, ...): the shape is skipped, the body still works.
                 Log.Error($"[Physics] '{node.Name}/{owner.Name}': {shape.GetType().Name} is invalid ({e.Message}); ignored.");
-                _shapeScratch.Clear();
+                descriptions.RemoveRange(start, descriptions.Count - start);
                 continue;
             }
 
-            foreach (var created in _shapeScratch)
-            {
-                record.Shapes.Add(created);
-                if (body is not null)
-                {
-                    _shapeOwners[created] = owner;
-                    body.AddShape(created, MassInertiaUpdateMode.Preserve);
-                }
-            }
+            for (var d = start; d < descriptions.Count; d++)
+                record.ShapeOwners.Add(owner);
         }
 
-        _shapeScratch.Clear();
-        if (body is not null && record.Kind == PhysicsBodyKind.Dynamic && record.Node is RigidBody3D rigid)
+        var mass = record.Kind == PhysicsBodyKind.Dynamic && node is RigidBody3D rigid ? rigid.Mass : 0f;
+        _shapeErrors.Clear();
+        _backend.SetShapes(record.Handle, CollectionsMarshal.AsSpan(descriptions), mass, _shapeErrors);
+        foreach (var error in _shapeErrors)
         {
-            try
-            {
-                body.SetMassInertia(rigid.Mass);
-            }
-            catch (Exception e) when (e is ArgumentException or InvalidOperationException)
-            {
-                Log.Error($"[Physics] '{node.Name}': cannot compute mass properties ({e.Message}); using a unit inertia.");
-                body.SetMassInertia(JSymmetricMatrix.Identity, rigid.Mass);
-            }
+            if (error.ShapeIndex < 0)
+                Log.Error($"[Physics] '{node.Name}': cannot compute mass properties ({error.Message}); using a unit inertia.");
+            else
+                Log.Error($"[Physics] '{node.Name}/{record.ShapeOwners[error.ShapeIndex].Name}': {descriptions[error.ShapeIndex].Resource.GetType().Name} is invalid ({error.Message}); ignored.");
         }
 
-        if (body is not null && record.Kind != PhysicsBodyKind.Static)
-            body.SetActivationState(true);
+        _shapeErrors.Clear();
+        descriptions.Clear(); // don't keep the resources' arrays alive
     }
 
     // ------------------------------------------------------------------------------------------------------------
@@ -683,7 +643,7 @@ public sealed class PhysicsSpace3D : IDisposable
         }
     }
 
-    /// <summary>One fixed step: push node changes, step Jitter2, pull poses, compute contacts/overlaps, dispatch signals.</summary>
+    /// <summary>One fixed step: push node changes, step the backend, pull poses, compute contacts/overlaps, dispatch signals.</summary>
     internal void Step(float delta)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -691,23 +651,13 @@ public sealed class PhysicsSpace3D : IDisposable
         {
             _delta = delta;
             foreach (var record in _records)
-                if (record.Body is not null)
+                if (record.Kind != PhysicsBodyKind.Area)
                     ApplyProperties(record);
         }
 
         Flush(stepping: true);
         PreStep(delta);
-        if (MeasureLibraryAllocations)
-        {
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            _world.Step(delta, _settings.MultiThreaded);
-            LibraryAllocatedBytes += GC.GetAllocatedBytesForCurrentThread() - before;
-        }
-        else
-        {
-            _world.Step(delta, _settings.MultiThreaded);
-        }
-
+        _backend.Step(delta); // the gravity-scale forces and the allocation measurement are the backend's
         _step++;
         PostStep();
         ScanContacts();
@@ -717,46 +667,29 @@ public sealed class PhysicsSpace3D : IDisposable
 
     private void PreStep(float delta)
     {
-        var inverseDelta = 1f / delta;
         foreach (var record in _moving)
         {
-            var body = record.Body;
-            if (body is null || record.Kind == PhysicsBodyKind.Dynamic)
+            if (record.Kind == PhysicsBodyKind.Dynamic)
                 continue;
-
             if (record.HasTarget)
             {
-                // Reach the target pose in exactly one step: contacts see a moving body, not a teleport.
-                var position = body.Position.ToNumerics();
-                var rotation = body.Orientation.ToNumerics();
-                body.Velocity = ((record.TargetPosition - position) * inverseDelta).ToJ();
-                body.AngularVelocity = (AngularVelocityBetween(rotation, record.TargetRotation) * inverseDelta).ToJ();
+                _backend.MoveKinematic(record.Handle, record.TargetPosition, record.TargetRotation, delta);
             }
             else if (record.Kind == PhysicsBodyKind.Kinematic)
             {
-                body.Velocity = record.KinematicVelocity.ToJ();
-                body.AngularVelocity = record.KinematicAngularVelocity.ToJ();
+                _backend.SetLinearVelocity(record.Handle, record.KinematicVelocity);
+                _backend.SetAngularVelocity(record.Handle, record.KinematicAngularVelocity);
             }
             else
             {
-                body.Velocity = JVector.Zero;
-                body.AngularVelocity = JVector.Zero;
-            }
-        }
-
-        if (_gravityScaled.Count > 0)
-        {
-            var gravity = _world.Gravity.ToNumerics();
-            foreach (var record in _gravityScaled)
-            {
-                if (record.Body is { IsActive: true } body && record.Node is RigidBody3D rigid)
-                    body.AddForce((gravity * (rigid.GravityScale * body.Mass)).ToJ(), wakeup: false);
+                _backend.SetLinearVelocity(record.Handle, Vector3.Zero);
+                _backend.SetAngularVelocity(record.Handle, Vector3.Zero);
             }
         }
     }
 
     /// <summary>The rotation vector (axis × angle) taking <paramref name="from"/> to <paramref name="to"/>.</summary>
-    private static Vector3 AngularVelocityBetween(Quaternion from, Quaternion to)
+    internal static Vector3 AngularVelocityBetween(Quaternion from, Quaternion to)
     {
         var delta = Quaternion.Normalize(to * Quaternion.Conjugate(from));
         if (delta.W < 0)
@@ -768,6 +701,28 @@ public sealed class PhysicsSpace3D : IDisposable
         return new Vector3(delta.X, delta.Y, delta.Z) / sinHalf * angle;
     }
 
+    /// <summary>
+    /// The layer rule (ADR 0021), shared by every backend's filters: two bodies collide when either one's mask has the
+    /// other's layer; an area detects a body when the area's mask has the body's layer; areas never detect areas.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool Collides(uint layerA, uint maskA, bool areaA, uint layerB, uint maskB, bool areaB)
+    {
+        if (areaA)
+            return !areaB && (maskA & layerB) != 0;
+        if (areaB)
+            return (maskB & layerA) != 0;
+        return CollisionLayers.ShouldCollide(layerA, maskA, layerB, maskB);
+    }
+
+    /// <summary>A shape child's transform in its body's frame with the body's global scale baked in (as the shapes are built).</summary>
+    internal static void BakeShapeTransform(Vector3 bodyScale, in Transform3D local, out Basis linear, out Vector3 translation)
+    {
+        var scaleBasis = new Basis(Vector3.UnitX * bodyScale.X, Vector3.UnitY * bodyScale.Y, Vector3.UnitZ * bodyScale.Z);
+        linear = scaleBasis * local.Basis;
+        translation = local.Origin * bodyScale;
+    }
+
     private void PostStep()
     {
         foreach (var record in _moving)
@@ -776,7 +731,7 @@ public sealed class PhysicsSpace3D : IDisposable
             record.PreviousRotation = record.CurrentRotation;
             if (record.Kind == PhysicsBodyKind.Character)
             {
-                // The node holds the authoritative pose (MoveAndSlide); the Jitter2 body follows it.
+                // The node holds the authoritative pose (MoveAndSlide); the backend body follows it.
                 if (record.HasTarget)
                 {
                     record.CurrentPosition = record.TargetPosition;
@@ -788,9 +743,7 @@ public sealed class PhysicsSpace3D : IDisposable
             }
 
             record.HasTarget = false;
-            var body = record.Body!;
-            var position = body.Position.ToNumerics();
-            var rotation = body.Orientation.ToNumerics();
+            _backend.GetPose(record.Handle, out var position, out var rotation);
             record.CurrentPosition = position;
             record.CurrentRotation = rotation;
             if (record.PreviousPosition != position || record.PreviousRotation != rotation || !record.RenderAtCurrent)
@@ -801,7 +754,7 @@ public sealed class PhysicsSpace3D : IDisposable
 
             if (record.Kind == PhysicsBodyKind.Dynamic)
             {
-                var sleeping = !body.IsActive;
+                var sleeping = _backend.IsSleeping(record.Handle);
                 if (sleeping != record.WasSleeping)
                 {
                     record.WasSleeping = sleeping;
@@ -815,19 +768,14 @@ public sealed class PhysicsSpace3D : IDisposable
     {
         foreach (var monitor in _monitors)
         {
-            if (monitor.Body is not { } body || monitor.Overlaps is not { } touching)
+            if (monitor.Overlaps is not { } touching)
                 continue;
-            foreach (var arbiter in body.Contacts)
-            {
-                var other = ReferenceEquals(arbiter.Body1, body) ? arbiter.Body2 : arbiter.Body1;
-                if (other.Tag is not BodyRecord3D otherRecord || otherRecord.Removed)
-                    continue;
-                ref var data = ref arbiter.Handle.Data;
-                if ((data.UsageMask & ContactData.MaskContactAll) == 0)
-                    continue; // all contact points broken this step
-                Touch(monitor, touching, otherRecord, PhysicsEventKind.ContactEntered);
-            }
-
+            _others.Clear();
+            _backend.CollectTouching(monitor.Handle, _others);
+            foreach (var handle in _others)
+                if (RecordOf(handle) is { Removed: false } other)
+                    Touch(monitor, touching, other, PhysicsEventKind.ContactEntered);
+            _others.Clear();
             Untouch(monitor, touching, PhysicsEventKind.ContactExited);
         }
     }
@@ -838,44 +786,18 @@ public sealed class PhysicsSpace3D : IDisposable
         {
             if (area.Overlaps is not { } overlaps)
                 continue;
-            if (area.Node is Area3D { Monitoring: false } || area.Shapes.Count == 0)
+            _others.Clear();
+            if (area.Node is Area3D { Monitoring: false } || !_backend.CollectOverlaps(area.Handle, _others))
             {
+                _others.Clear();
                 Untouch(area, overlaps, PhysicsEventKind.AreaExited, everything: true);
                 continue;
             }
 
-            var position = area.CurrentPosition.ToJ();
-            var rotation = area.CurrentRotation.ToJ();
-            var box = JBoundingBox.SmallBox;
-            for (var i = 0; i < area.Shapes.Count; i++)
-            {
-                area.Shapes[i].CalculateBoundingBox(rotation, position, out var shapeBox);
-                box = i == 0 ? shapeBox : JBoundingBox.CreateMerged(box, shapeBox);
-            }
-
-            _proxies.Clear();
-            var sink = new ProxySink(_proxies);
-            _world.DynamicTree.Query(ref sink, box);
-            foreach (var proxy in _proxies)
-            {
-                if (proxy is not RigidBodyShape { RigidBody: { } otherBody } otherShape ||
-                    otherBody.Tag is not BodyRecord3D other || other.Removed || (area.Mask & other.Layer) == 0)
-                    continue;
-                if (overlaps.TryGetValue(other, out var seen) && seen == _step)
-                    continue;
-                var otherPosition = otherBody.Position;
-                var otherRotation = otherBody.Orientation;
-                foreach (var areaShape in area.Shapes)
-                {
-                    if (NarrowPhase.Overlap(areaShape, otherShape, rotation, otherRotation, position, otherPosition))
-                    {
-                        Touch(area, overlaps, other, PhysicsEventKind.AreaEntered);
-                        break;
-                    }
-                }
-            }
-
-            _proxies.Clear();
+            foreach (var handle in _others)
+                if (RecordOf(handle) is { Removed: false } other)
+                    Touch(area, overlaps, other, PhysicsEventKind.AreaEntered);
+            _others.Clear();
             Untouch(area, overlaps, PhysicsEventKind.AreaExited);
         }
     }
@@ -943,192 +865,89 @@ public sealed class PhysicsSpace3D : IDisposable
         }
     }
 
-
-    internal CollisionShape3D? FindShapeOwner(IDynamicTreeProxy proxy) =>
-        proxy is RigidBodyShape shape && _shapeOwners.TryGetValue(shape, out var owner) ? owner : null;
-
     // ------------------------------------------------------------------------------------------------------------
     // Character queries
     // ------------------------------------------------------------------------------------------------------------
 
-    /// <summary>
-    /// Sweeps every shape of <paramref name="record"/> from the given pose along <paramref name="motion"/>; the closest
-    /// hit wins. Jitter2's sweep reports contacts within a few millimetres as "already touching" (fraction 0, no
-    /// normal); the normal then comes from a distance (or penetration) query against the hit shape.
-    /// </summary>
+    /// <summary>Sweeps every shape of <paramref name="record"/> from the given pose along <paramref name="motion"/>; the closest hit wins.</summary>
     internal bool CastBody(BodyRecord3D record, Vector3 position, Quaternion rotation, Vector3 motion, out BodyCastHit3D hit)
     {
         hit = default;
-        if (record.Body is not { } self || motion.LengthSquared() < 1e-14f)
+        if (!record.HasBody || motion.LengthSquared() < 1e-14f)
             return false;
         FlushForQuery();
-        using var mute = new JitterLogMute();
-        _filters.Begin(record.Mask, self);
-        var best = float.MaxValue;
-        var positionJ = position.ToJ();
-        var rotationJ = rotation.ToJ();
-        var motionJ = motion.ToJ();
-        try
-        {
-            foreach (var shape in record.Shapes)
-            {
-                if (!_world.DynamicTree.SweepCast(shape, rotationJ, positionJ, motionJ, 1f, _filters.SweepPre, null,
-                        out var proxy, out _, out var pointB, out var normal, out var lambda) || lambda >= best)
-                    continue;
-                if (proxy is not RigidBodyShape { RigidBody: { Tag: BodyRecord3D other } otherBody } otherShape)
-                    continue;
-                best = lambda;
-                hit.Fraction = lambda;
-                hit.Point = pointB.ToNumerics();
-                hit.Collider = other.Node;
-                // Jitter2's sweep normal points from the swept shape towards the hit one; surfaces face the other way.
-                var surface = -normal.ToNumerics();
-                if (surface.LengthSquared() < 1e-12f &&
-                    !ContactNormal(shape, otherShape, otherBody, rotationJ, positionJ, out surface, out hit.Point))
-                    surface = Vector3.Zero;
-                hit.Normal = surface == Vector3.Zero ? Vector3.Zero : Vector3.Normalize(surface);
-            }
-        }
-        finally
-        {
-            _filters.End();
-        }
-
-        return best <= 1f;
-    }
-
-    /// <summary>The surface normal of <paramref name="other"/> facing <paramref name="shape"/> when they touch or overlap.</summary>
-    private static bool ContactNormal(RigidBodyShape shape, RigidBodyShape other, RigidBody otherBody, in JQuaternion rotation,
-        in JVector position, out Vector3 normal, out Vector3 point)
-    {
-        if (NarrowPhase.Distance(shape, other, rotation, otherBody.Orientation, position, otherBody.Position,
-                out _, out var pointB, out var n, out _) ||
-            NarrowPhase.MprEpa(shape, other, rotation, otherBody.Orientation, position, otherBody.Position,
-                out _, out pointB, out n, out _))
-        {
-            normal = -n.ToNumerics(); // both report the direction from the shape towards the other one
-            point = pointB.ToNumerics();
-            return normal.LengthSquared() > 1e-12f;
-        }
-
-        normal = default;
-        point = default;
-        return false;
+        if (!_backend.CastBody(record.Handle, position, rotation, motion, out var result))
+            return false;
+        hit.Fraction = result.Fraction;
+        hit.Point = result.Position;
+        hit.Normal = result.Normal;
+        hit.Collider = RecordOf(result.Body)!.Node;
+        return true;
     }
 
     /// <summary>
     /// Recovery: pushes <paramref name="position"/> out of everything the body's shapes penetrate or come closer to than
-    /// <paramref name="margin"/>, leaving <paramref name="margin"/> clearance. Everything within the margin counts as a
-    /// contact (that is how a resting character stays "on the floor"). Returns how many contacts were found (written to
-    /// <paramref name="contacts"/>, up to its length).
+    /// <paramref name="margin"/>, leaving <paramref name="margin"/> clearance; each push moves the pose the next pair is
+    /// measured from. Everything within two margins counts as a contact (that is how a resting character stays "on the
+    /// floor"). Returns how many contacts were found (written to <paramref name="contacts"/>, up to its length).
     /// </summary>
     internal int RecoverBody(BodyRecord3D record, ref Vector3 position, Quaternion rotation, float margin, Span<CharacterContact3D> contacts,
         out bool pushed)
     {
-        using var mute = new JitterLogMute();
         pushed = false;
-        if (record.Body is not { } self)
+        if (!record.HasBody)
             return 0;
         FlushForQuery();
-        if (record.Shapes.Count == 0)
+        var shapeCount = _backend.GetShapeCount(record.Handle);
+        if (shapeCount == 0)
             return 0;
-        var rotationJ = rotation.ToJ();
-        var box = JBoundingBox.SmallBox;
-        for (var i = 0; i < record.Shapes.Count; i++)
-        {
-            record.Shapes[i].CalculateBoundingBox(rotationJ, position.ToJ(), out var shapeBox);
-            box = i == 0 ? shapeBox : JBoundingBox.CreateMerged(box, shapeBox);
-        }
-
-        box.Min -= new JVector(margin * 2);
-        box.Max += new JVector(margin * 2);
-        _proxies.Clear();
-        var sink = new ProxySink(_proxies);
-        _world.DynamicTree.Query(ref sink, box);
+        _nearby.Clear();
+        _backend.CollectNearbyShapes(record.Handle, position, rotation, margin * 2, _nearby);
         var found = 0;
-        foreach (var proxy in _proxies)
+        foreach (var candidate in _nearby)
         {
-            if (proxy is not RigidBodyShape { RigidBody: { } otherBody } otherShape || ReferenceEquals(otherBody, self) ||
-                otherBody.Tag is not BodyRecord3D other || other.Removed || (record.Mask & other.Layer) == 0)
+            if (RecordOf(candidate.Body) is not { Removed: false } other)
                 continue;
-            foreach (var shape in record.Shapes)
+            for (var shape = 0; shape < shapeCount; shape++)
             {
-                // Both queries report the normal from the body towards the other shape: back out along its negative.
-                JVector normal, pointB;
-                float push;
-                // EPA first (ADR 0128): one signed distance for touching, separated and overlapping shapes, accurate to
-                // well under a millimetre on large shapes where GJK and MPR answer near contact are off by millimetres.
-                if (NarrowPhase.Collision(shape, otherShape, rotationJ, otherBody.Orientation, position.ToJ(), otherBody.Position,
-                        out _, out pointB, out normal, out var epaDepth))
-                {
-                    if (epaDepth <= -margin * 2)
-                        continue;
-                    push = MathF.Max(0f, epaDepth + margin);
-                }
-                else if (NarrowPhase.Distance(shape, otherShape, rotationJ, otherBody.Orientation, position.ToJ(), otherBody.Position,
-                        out _, out pointB, out normal, out var distance))
-                {
-                    // Within two margins counts as touching (a resting or slope-walking body hovers at about one
-                    // margin); only closer than one margin is pushed back out.
-                    if (distance >= margin * 2)
-                        continue;
-                    push = MathF.Max(0f, margin - distance);
-                }
-                else if (NarrowPhase.MprEpa(shape, otherShape, rotationJ, otherBody.Orientation, position.ToJ(), otherBody.Position,
-                             out _, out pointB, out normal, out var penetration) && penetration >= 0)
-                {
-                    push = penetration + margin;
-                }
-                else
-                {
+                // Within two margins counts as touching (a resting or slope-walking body hovers at about one margin); only
+                // closer than one margin is pushed back out, along the negative of the normal towards the other shape.
+                if (!_backend.Penetration(record.Handle, shape, position, rotation, candidate, margin * 2, out var contact) ||
+                    contact.Distance >= margin * 2)
                     continue;
-                }
-
-                var direction = -normal.ToNumerics();
+                var push = MathF.Max(0f, margin - contact.Distance);
+                var direction = -contact.Normal;
                 if (direction.LengthSquared() < 1e-12f)
                     continue;
                 direction = Vector3.Normalize(direction);
                 position += direction * push;
                 pushed |= push > 0;
                 if (found < contacts.Length)
-                    contacts[found++] = new CharacterContact3D { Normal = direction, Point = pointB.ToNumerics(), Collider = other.Node };
+                    contacts[found++] = new CharacterContact3D { Normal = direction, Point = contact.Point, Collider = other.Node };
             }
         }
 
-        _proxies.Clear();
+        _nearby.Clear();
         return found;
     }
 
     /// <summary>
     /// Moves a character body that a cast left a little short of <paramref name="collider"/> onto the safe margin
-    /// (ADR 0128): Jitter2's sweep reports hits up to a few millimetres early on large shapes, which left bodies resting
-    /// above the band recovery treats as touching. Uses EPA's exact signed distance along its normal; gaps larger than
-    /// <paramref name="maxGap"/> beyond the margin are left alone. Returns true if the body moved.
+    /// (ADR 0128), along the backend's exact signed distance; gaps larger than <paramref name="maxGap"/> beyond the margin
+    /// are left alone. Returns true if the body moved.
     /// </summary>
     internal bool SettleBody(BodyRecord3D record, ref Vector3 position, Quaternion rotation, float margin, CollisionObject3D collider, float maxGap)
     {
-        if (record.Body is null || collider.Record is not { Body: { } otherBody } other || other.Removed)
+        if (!record.HasBody || collider.Record is not { HasBody: true } other || !ReferenceEquals(other.Space, this))
             return false;
         FlushForQuery();
-        using var mute = new JitterLogMute();
-        var rotationJ = rotation.ToJ();
-        var best = float.MaxValue;
-        var bestNormal = JVector.Zero;
-        foreach (var shape in record.Shapes)
-            foreach (var otherShape in other.Shapes)
-                if (NarrowPhase.Collision(shape, otherShape, rotationJ, otherBody.Orientation, position.ToJ(), otherBody.Position,
-                        out _, out _, out var normal, out var depth) && -depth < best)
-                {
-                    best = -depth; // separation
-                    bestNormal = normal;
-                }
-
+        if (!_backend.Distance(record.Handle, position, rotation, other.Handle, out var best, out var normal))
+            return false;
         if (best <= margin || best > margin + maxGap)
             return false;
-        var direction = bestNormal.ToNumerics();
-        if (direction.LengthSquared() < 1e-12f)
+        if (normal.LengthSquared() < 1e-12f)
             return false;
-        position += Vector3.Normalize(direction) * (best - margin); // the normal points from the body towards the other shape
+        position += Vector3.Normalize(normal) * (best - margin); // the normal points from the body towards the other shape
         return true;
     }
 
@@ -1150,7 +969,7 @@ public sealed class PhysicsSpace3D : IDisposable
             var color = record.Kind switch
             {
                 PhysicsBodyKind.Static => StaticColor,
-                PhysicsBodyKind.Dynamic => record.Body is { IsActive: false } ? SleepingColor : DynamicColor,
+                PhysicsBodyKind.Dynamic => _backend.IsSleeping(record.Handle) ? SleepingColor : DynamicColor,
                 PhysicsBodyKind.Area => AreaColor,
                 _ => KinematicColor,
             };
@@ -1161,7 +980,7 @@ public sealed class PhysicsSpace3D : IDisposable
         }
     }
 
-    /// <summary>Destroys the Jitter2 world; the space's objects are detached from it.</summary>
+    /// <summary>Detaches the space's objects, then disposes the backend.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -1171,97 +990,17 @@ public sealed class PhysicsSpace3D : IDisposable
         {
             record.Removed = true;
             record.Node.Record = null;
-            record.Body = null;
+            record.Handle = BackendBody.None;
         }
 
         _records.Clear();
         _moving.Clear();
         _areas.Clear();
         _monitors.Clear();
-        _gravityScaled.Clear();
         _dirty.Clear();
-        _shapeOwners.Clear();
+        Array.Clear(_byHandle);
         if (ReferenceEquals(World3D.PhysicsSpace, this))
             World3D.PhysicsSpace = null;
-        _world.Dispose();
+        _backend.Dispose();
     }
-
-    // ------------------------------------------------------------------------------------------------------------
-    // Filters
-    // ------------------------------------------------------------------------------------------------------------
-
-    /// <summary>
-    /// Collision layers on Jitter2's broad phase (Godot OR semantics). Runs on worker threads: it only reads record
-    /// fields, which change on the main thread between steps.
-    /// </summary>
-    private sealed class LayerFilter : IBroadPhaseFilter
-    {
-        public bool Filter(IDynamicTreeProxy proxyA, IDynamicTreeProxy proxyB)
-        {
-            if (proxyA is not RigidBodyShape { RigidBody.Tag: BodyRecord3D a } || proxyB is not RigidBodyShape { RigidBody.Tag: BodyRecord3D b })
-                return true;
-            return (a.Layer & b.Mask) != 0 || (b.Layer & a.Mask) != 0;
-        }
-    }
-
-    /// <summary>Cached query filter delegates over mutable state (no per-query allocation).</summary>
-    internal sealed class QueryFilters
-    {
-        private uint _mask;
-        private RigidBody? _exclude;
-
-        public QueryFilters()
-        {
-            RayPre = Accept;
-            SweepPre = Accept;
-            RayPostOutside = static result => result.Normal != JVector.Zero;
-        }
-
-        public DynamicTree.RayCastFilterPre RayPre { get; }
-
-        /// <summary>Rejects shapes that contain the ray's origin (Jitter2 reports them with a zero normal).</summary>
-        public DynamicTree.RayCastFilterPost RayPostOutside { get; }
-        public DynamicTree.SweepCastFilterPre SweepPre { get; }
-
-        public void Begin(uint mask, RigidBody? exclude)
-        {
-            _mask = mask;
-            _exclude = exclude;
-        }
-
-        public void End() => _exclude = null;
-
-        public bool Accept(IDynamicTreeProxy proxy) =>
-            proxy is RigidBodyShape { RigidBody: { } body } && !ReferenceEquals(body, _exclude) &&
-            body.Tag is BodyRecord3D { Removed: false } record && (record.Layer & _mask) != 0;
-    }
-
-    internal QueryFilters Filters => _filters;
-
-    internal List<IDynamicTreeProxy> ProxyScratch => _proxies;
-
-    /// <summary>Collects tree query results into a reused list.</summary>
-    internal readonly struct ProxySink(List<IDynamicTreeProxy> list) : ISink<IDynamicTreeProxy>
-    {
-        public void Add(in IDynamicTreeProxy item) => list.Add(item);
-    }
-}
-
-/// <summary>
-/// Detaches Jitter2's log listener for the scope of a character query (cast, recovery, settle). Jitter2 formats a warning
-/// string for every EPA that does not converge (<c>string.Format</c>, only while a listener is set); character queries
-/// expect that on dense terrain (ADR 0128: the next query takes over), so warning about it would allocate on the main
-/// thread every few seconds of walking and break the 0 B frame. Queries run on the main thread outside the world step.
-/// </summary>
-internal readonly ref struct JitterLogMute
-{
-    private readonly Action<Jitter2.Logger.LogLevel, string>? _listener;
-
-    public JitterLogMute()
-    {
-        _listener = Jitter2.Logger.Listener;
-        Jitter2.Logger.Listener = null;
-    }
-
-    public void Dispose() => Jitter2.Logger.Listener = _listener;
 }

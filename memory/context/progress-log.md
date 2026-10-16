@@ -778,3 +778,8 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   - A packaged `.app` built from the NuGet package and launched from `/` logged `Steam: running (app 480, …)`.
   - CI's three OSes check `SteamNotRunning`.
 - Follow-ups: `SteamSocketsTransport` on Facepunch relay sockets; avatar textures.
+
+### 2026-10-16 — BRUTAL B2: the 3D physics seam (ADR 0192)
+- `PhysicsBackend3D` (internal, `Src/Physics/3D/Backend/`) under `PhysicsSpace3D`; every Jitter2 call moved to `Jitter2Backend` (`Src/Physics/3D/Jitter/`, with `JitterMath`, `SphereContactFilter`, `JitterLogMute`/`JitterLog`, `JitterHull`). Shapes describe themselves (`ShapeDescription3D`, `Shape3D.ChangeCount`).
+- `physics.3d.backend` + `jitter2`/`jolt` groups, project format 4 (migration moves the solver keys); editor Project Settings › Physics shows the selected backend's group. Jolt selected → Jitter2 with one warning per server until B3.
+- Gate: physics tests, both allocation gates, `physics`/`physics-debug` goldens, determinism, benchmarks unchanged; bit-exact trace `MF_PHYSICS_TRACE=1` (per RID). `BackendSourceRulesTests` keeps libraries in their folders.
