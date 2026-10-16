@@ -37,7 +37,7 @@ public sealed class GameHostRun : GameHost
         settings.Window.MaxFps = 240; // Silk's frame limiter, as a project with "maxFps" runs
         settings.Localization.DefaultLocale = "en";
 
-        List<string> args = ["--no-vsync"];
+        List<string> args = ["--no-vsync", "--no-splash"]; // the allocation gate measures the game, not the splash
         if (host.Hidden)
             args.Add("--hidden");
         if (!host.NoValidation)

@@ -51,6 +51,18 @@ case "$rid" in
     mkdir -p "$staging/$name" && cp -R "$publish_dir"/. "$staging/$name/"
     chmod +x "$staging/$name/MainframeEngine.Editor"
     if [[ -f "$staging/$name/mfplughost" ]]; then chmod +x "$staging/$name/mfplughost"; fi
+    # BRUTAL's Jolt native ships unstripped (~50 MB, ADR 0192; upstream has an issue to ship it stripped): editor releases
+    # strip its symbols. Needs GNU strip (the ubuntu release runner has it).
+    jolt="$staging/$name/libjolt.so"
+    if [[ -f "$jolt" ]]; then
+      if strip --version 2>/dev/null | grep -q "GNU"; then
+        before="$(wc -c < "$jolt")"
+        strip --strip-unneeded "$jolt"
+        echo "stripped libjolt.so: $before -> $(wc -c < "$jolt") bytes"
+      else
+        echo "warning: no GNU strip on this host: libjolt.so stays unstripped (~50 MB)" >&2
+      fi
+    fi
     tar -C "$staging" -czf "$out_dir/${name}.tar.gz" "$name"
     ;;
   *) echo "unsupported RID: $rid" >&2; exit 1 ;;

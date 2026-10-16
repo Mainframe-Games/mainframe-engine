@@ -17,6 +17,10 @@ _Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publ
   FileSystem panel, scene tabs (one `SubViewport` world each), scene tree, generated inspector (multi-select, Signals
   tab, custom inspectors), undo/redo, 3D/2D viewport + gizmos, Play (separate process over the editor link), code
   reload, Tabler icon atlas, editor settings. macOS app name "Mainframe Engine" via a dev `.app` bundle.
+- **BRUTAL B1** (2026-10-16, branch `brutal/b1-attribution`, ADR 0192): `Ahwoo.BRUTAL.*` pinned (analyzers off),
+  `BRUTAL-NOTICE.txt` next to every game, `Credits` + the settings menu's Credits tab, `project.mfproj` format 5 `splash`
+  with the locked `@brutal` card and `SplashSequence` in `GameHost` (`--no-splash`, `--qa-splash[-out]`), the editor's
+  splash, About credits and Project Settings › Splash. B2 (physics seam) and B3 (Jolt) are next.
 - **Version** v1.0.0 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds.
 - **Solution** `MainframeEngine.slnx` (no `.sln`). Everything local goes through `just` (see CLAUDE.md).
 - **Tests:** ~1 170 engine + ~430 editor unit tests; 43+ render tests (goldens `moltenvk` + `lavapipe`, validation

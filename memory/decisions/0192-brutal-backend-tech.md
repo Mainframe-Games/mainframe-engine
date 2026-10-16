@@ -33,11 +33,17 @@ for non-profits on request.
   Jitter2 stays as the pure-C# fallback (Intel Macs and platforms without Jolt natives).
 - **Every `Ahwoo.BRUTAL.*` package is pinned exactly** in `Directory.Packages.props`; their calls stay inside the
   backend folder that uses them. BRUTAL's analyzers are excluded from the engine's projects.
-- **Approved new dependencies**: `Ahwoo.BRUTAL.Core`, `Interop`, `Logging`, `Memory`, `Numerics`, `Strings`, `Jolt`
-  (2026.10.x), and their third-party transitive packages `CommunityToolkit.HighPerformance` 8.4.2 and
-  `Microsoft.Extensions.Logging` / `.Console` 10.0.0 with the `Microsoft.Extensions.*` packages they depend on (about
-  nine: options, configuration, dependency-injection abstractions, primitives). Later phases add BRUTAL packages through
-  their own specs.
+- **Approved new dependencies**: `Ahwoo.BRUTAL.Core`, `Interop`, `Logging`, `Memory`, `Numerics`, `Strings`,
+  `Collections` (2026.10.1; Logging 2026.10.2) and `Jolt` (2026.10.2), pinned exactly; their third-party transitive
+  packages `CommunityToolkit.HighPerformance` 8.4.2, `Microsoft.Extensions.Logging` / `.Console` 10.0.0 and
+  `Microsoft.Extensions.ObjectPool` 11.0.0-preview.5.26302.115 (a preview, required by `Ahwoo.BRUTAL.Strings`; approved
+  2026-10-16), pinned centrally, which bring the `Microsoft.Extensions.*` 10.0.0 packages they depend on (all MIT,
+  Microsoft): `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.Abstractions`,
+  `Microsoft.Extensions.Configuration.Binder`, `Microsoft.Extensions.DependencyInjection`,
+  `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions`,
+  `Microsoft.Extensions.Logging.Configuration`, `Microsoft.Extensions.Options`,
+  `Microsoft.Extensions.Options.ConfigurationExtensions`, `Microsoft.Extensions.Primitives`. Later phases add BRUTAL
+  packages through their own specs.
 
 ## Alternatives considered
 

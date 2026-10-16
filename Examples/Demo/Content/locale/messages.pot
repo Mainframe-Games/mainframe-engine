@@ -12,7 +12,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:167
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:179
 msgid "Audio 2D"
 msgstr ""
 
@@ -48,7 +48,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:168
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:180
 msgid "Audio 3D"
 msgstr ""
 
@@ -109,7 +109,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Basic2D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:166
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:178
 msgid "Basic 2D"
 msgstr ""
 
@@ -130,7 +130,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Basic3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:165
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:177
 msgid "Basic 3D"
 msgstr ""
 
@@ -181,7 +181,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Physics/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:171
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
 msgid "Physics 2D"
 msgstr ""
 
@@ -210,7 +210,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Physics/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:172
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:184
 msgid "Physics 3D"
 msgstr ""
 
@@ -242,7 +242,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:169
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:181
 msgid "Sound FX"
 msgstr ""
 
@@ -322,7 +322,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Content/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:173
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:185
 msgid "Spine"
 msgstr ""
 
@@ -440,21 +440,21 @@ msgstr ""
 
 #. RML <option>
 #: Examples/Demo/Content/UI/showcase.rml:24
-#: MainframeEngine/Content/UI/settings/settings.rml:107
+#: MainframeEngine/Content/UI/settings/settings.rml:109
 #: MainframeEngine/Content/UI/widgets/demo.rml:27
 msgid "High"
 msgstr ""
 
 #. RML <option>
 #: Examples/Demo/Content/UI/showcase.rml:24
-#: MainframeEngine/Content/UI/settings/settings.rml:105
+#: MainframeEngine/Content/UI/settings/settings.rml:107
 #: MainframeEngine/Content/UI/widgets/demo.rml:25
 msgid "Low"
 msgstr ""
 
 #. RML <option>
 #: Examples/Demo/Content/UI/showcase.rml:24
-#: MainframeEngine/Content/UI/settings/settings.rml:106
+#: MainframeEngine/Content/UI/settings/settings.rml:108
 #: MainframeEngine/Content/UI/widgets/demo.rml:26
 msgid "Medium"
 msgstr ""
@@ -479,15 +479,15 @@ msgstr ""
 msgid "Rose"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:125
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:137
 msgid "Effects"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:125
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:137
 msgid "Interface"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:170
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:182
 msgid "UI"
 msgstr ""
 
@@ -577,27 +577,29 @@ msgstr ""
 #. project.mfproj input action "settings"
 #: Examples/Demo/project.mfproj
 #: MainframeEngine/Content/UI/settings/settings.rml:3
-#: MainframeEngine/Content/UI/settings/settings.rml:23
+#: MainframeEngine/Content/UI/settings/settings.rml:24
 msgid "Settings"
 msgstr ""
 
+#. RML <button>
 #. RML <title>
 #: MainframeEngine/Content/UI/credits.rml:3
+#: MainframeEngine/Content/UI/settings/settings.rml:32
 msgid "Credits"
 msgstr ""
 
 #. RML <h3>
 #: MainframeEngine/Content/UI/credits.rml:17
-msgid "Made with Mainframe Engine"
+msgid "Made with Mainframe Engine and BRUTAL"
 msgstr ""
 
 #. RML <h3>
-#: MainframeEngine/Content/UI/credits.rml:18
+#: MainframeEngine/Content/UI/credits.rml:19
 msgid "User interface"
 msgstr ""
 
 #. RML <h3>
-#: MainframeEngine/Content/UI/credits.rml:22
+#: MainframeEngine/Content/UI/credits.rml:23
 msgid "Other"
 msgstr ""
 
@@ -617,146 +619,147 @@ msgid "MADE WITH MAINFRAME ENGINE"
 msgstr ""
 
 #. RML <button title="…">
-#: MainframeEngine/Content/UI/settings/settings.rml:24
+#: MainframeEngine/Content/UI/settings/settings.rml:25
 msgid "Close"
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:28
+#: MainframeEngine/Content/UI/settings/settings.rml:29
 msgid "Audio"
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:29
+#: MainframeEngine/Content/UI/settings/settings.rml:30
 msgid "Controls"
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:30
+#: MainframeEngine/Content/UI/settings/settings.rml:31
 msgid "Display"
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:39
+#: MainframeEngine/Content/UI/settings/settings.rml:41
 msgid "Mute"
 msgstr ""
 
 #. RML <p>
-#: MainframeEngine/Content/UI/settings/settings.rml:41
+#: MainframeEngine/Content/UI/settings/settings.rml:43
 msgid "Volumes scale each bus on top of the game's mix; 0% is silent."
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:43
-#: MainframeEngine/Content/UI/settings/settings.rml:126
+#: MainframeEngine/Content/UI/settings/settings.rml:45
+#: MainframeEngine/Content/UI/settings/settings.rml:128
 msgid "Defaults"
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:44
-#: MainframeEngine/Content/UI/settings/settings.rml:66
-#: MainframeEngine/Content/UI/settings/settings.rml:127
+#: MainframeEngine/Content/UI/settings/settings.rml:46
+#: MainframeEngine/Content/UI/settings/settings.rml:68
+#: MainframeEngine/Content/UI/settings/settings.rml:129
+#: MainframeEngine/Content/UI/settings/settings.rml:143
 msgid "Done"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:51
+#: MainframeEngine/Content/UI/settings/settings.rml:53
 msgid "Action"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:52
+#: MainframeEngine/Content/UI/settings/settings.rml:54
 msgid "Keys / mouse"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:53
+#: MainframeEngine/Content/UI/settings/settings.rml:55
 msgid "Gamepad"
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:65
+#: MainframeEngine/Content/UI/settings/settings.rml:67
 msgid "Reset controls"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:73
+#: MainframeEngine/Content/UI/settings/settings.rml:75
 msgid "Window mode"
 msgstr ""
 
 #. RML <option>
 #. RML <label>
-#: MainframeEngine/Content/UI/settings/settings.rml:75
+#: MainframeEngine/Content/UI/settings/settings.rml:77
 #: MainframeEngine/Content/UI/widgets/demo.rml:35
 msgid "Windowed"
 msgstr ""
 
 #. RML <option>
-#: MainframeEngine/Content/UI/settings/settings.rml:76
+#: MainframeEngine/Content/UI/settings/settings.rml:78
 msgid "Maximized"
 msgstr ""
 
 #. RML <option>
 #. RML <label>
-#: MainframeEngine/Content/UI/settings/settings.rml:77
+#: MainframeEngine/Content/UI/settings/settings.rml:79
 #: MainframeEngine/Content/UI/widgets/demo.rml:36
 msgid "Fullscreen"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:81
+#: MainframeEngine/Content/UI/settings/settings.rml:83
 msgid "Window size"
 msgstr ""
 
 #. RML <span>
 #. RML <label>
-#: MainframeEngine/Content/UI/settings/settings.rml:87
+#: MainframeEngine/Content/UI/settings/settings.rml:89
 #: MainframeEngine/Content/UI/widgets/demo.rml:33
 msgid "VSync"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:91
+#: MainframeEngine/Content/UI/settings/settings.rml:93
 msgid "Max FPS"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:97
+#: MainframeEngine/Content/UI/settings/settings.rml:99
 msgid "UI scale"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:102
+#: MainframeEngine/Content/UI/settings/settings.rml:104
 msgid "Shadows"
 msgstr ""
 
 #. RML <option>
-#: MainframeEngine/Content/UI/settings/settings.rml:104
+#: MainframeEngine/Content/UI/settings/settings.rml:106
 msgid "Off"
 msgstr ""
 
 #. RML <p>
-#: MainframeEngine/Content/UI/settings/settings.rml:110
+#: MainframeEngine/Content/UI/settings/settings.rml:112
 msgid "Turning shadows on or off applies after a restart."
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:112
+#: MainframeEngine/Content/UI/settings/settings.rml:114
 msgid "Language"
 msgstr ""
 
 #. RML <span>
-#: MainframeEngine/Content/UI/settings/settings.rml:119
+#: MainframeEngine/Content/UI/settings/settings.rml:121
 msgid "Keep this display mode?"
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:122
+#: MainframeEngine/Content/UI/settings/settings.rml:124
 msgid "Keep"
 msgstr ""
 
 #. RML <button>
-#: MainframeEngine/Content/UI/settings/settings.rml:123
+#: MainframeEngine/Content/UI/settings/settings.rml:125
 msgid "Revert"
 msgstr ""
 
@@ -1128,73 +1131,73 @@ msgctxt "input"
 msgid "RS Down"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:320
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:608
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:341
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:629
 #, csharp-format
 msgid "Reverting in {0} second"
 msgid_plural "Reverting in {0} seconds"
 msgstr[0] ""
 msgstr[1] ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:420
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:441
 #, csharp-format
 msgctxt "settings"
 msgid "{0} cannot be changed."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:428
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:449
 msgctxt "settings"
 msgid "Press a gamepad button. Back cancels."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:429
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:450
 msgctxt "settings"
 msgid "Press a key or mouse button. Esc cancels, Backspace clears."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:444
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:465
 #, csharp-format
 msgctxt "settings"
 msgid "{0} is used by {1}."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:445
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:466
 #, csharp-format
 msgctxt "settings"
 msgid "{0} was swapped with {1}."
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:719
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:754
 msgctxt "settings"
 msgid "Unlimited"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:725
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:760
 msgctxt "settings"
 msgid "Master"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:726
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:761
 msgctxt "settings"
 msgid "Music"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:727
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:762
 msgctxt "settings"
 msgid "Effects"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:728
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:763
 msgctxt "settings"
 msgid "Interface"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:729
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:764
 msgctxt "settings"
 msgid "Voice"
 msgstr ""
 
-#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:730
+#: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:765
 msgctxt "settings"
 msgid "Ambience"
 msgstr ""

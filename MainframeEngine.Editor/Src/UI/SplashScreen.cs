@@ -4,7 +4,8 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The editor's splash screen: the logo, the "Mainframe Engine" wordmark, "Editor vX.Y.Z", a status line and a thin
+/// The editor's splash screen: the Mainframe logo and the BRUTAL logo (the editor ships BRUTAL, ADR 0192) in boxes of the
+/// same size, the "Mainframe Engine" wordmark, "Editor vX.Y.Z", a status line and a thin
 /// progress bar on the brand navy, shown over everything (modal) while the editor starts and while a scene loads.
 /// <see cref="Finish"/> fades it out (RCSS opacity transition) and hides it. It never keeps the editor blocked longer
 /// than the loading takes, except on the very first launch (a short minimum display).
@@ -13,6 +14,9 @@ public sealed class SplashScreen : EditorDocument
 {
     /// <summary>Seconds the fade-out lasts (matches the RCSS transition).</summary>
     public const double FadeSeconds = 0.35;
+
+    /// <summary>The side of the square box each logo fits (dp): Mainframe's and BRUTAL's are equally prominent.</summary>
+    public const float LogoBox = 168f;
 
     private double _hideAt = -1;
     private double _visibleUntil;
@@ -68,8 +72,25 @@ public sealed class SplashScreen : EditorDocument
     protected override void OnAttach(RmlDocument document)
     {
         SetText("version", "Editor " + EditorBrand.Version);
+        FitLogo(document, "logo", SplashSequence.MainframeLogo);
+        FitLogo(document, "brutal-logo", SplashSequence.BrutalLogoWhite);
         SetStatus(_status, _progress);
     }
+
+    // Fits a logo into the LogoBox square, aspect kept, centred: the BRUTAL licence allows scaling only.
+    private static void FitLogo(RmlDocument document, string id, string contentPath)
+    {
+        var element = document.GetElementById(id);
+        if (element.IsNull || SplashSequence.ReadImageSize(ContentPaths.Resolve(contentPath)) is not { } image)
+            return;
+        var size = SplashSequence.Fit(LogoBox, image);
+        element.SetProperty("width", Dp(size.X));
+        element.SetProperty("height", Dp(size.Y));
+        element.SetProperty("margin-left", Dp(-size.X * 0.5f));
+        element.SetProperty("margin-top", Dp(-size.Y * 0.5f));
+    }
+
+    private static string Dp(float value) => value.ToString("0.##", CultureInfo.InvariantCulture) + "dp";
 
     /// <summary>Called every frame by the workspace (drives the fade and the hide).</summary>
     public void Tick(double deltaTime)

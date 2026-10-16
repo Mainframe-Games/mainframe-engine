@@ -4,6 +4,22 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **BRUTAL B1 (attribution): all 16 tasks done, local only (2026-10-16).** Branch `brutal/b1-attribution`, rebased on
+  `main` after the design PR (#72); not pushed, no PR yet (Brogan pushes once / says when). Plan
+  `docs/superpowers/plans/2026-10-16-brutal-b1-attribution.md`. Next: the push and the PR (Auto-fix on), then B2
+  (`docs/superpowers/plans/2026-10-16-brutal-b2-physics-seam.md`; `ProjectSettingsFormat.Current` is now 4, so B2 writes 4 → 5).
+  - Deviations from the plan: `Ahwoo.BRUTAL.Collections` (a dependency of Strings) is pinned too, and so is
+    `Microsoft.Extensions.ObjectPool` `[11.0.0-preview.5.26302.115]` (a preview Strings needs; Brogan approved it; in
+    ADR 0192 and the notices). `ExcludeAssets="analyzers"` does not stop the SDK resolving `Ahwoo.BRUTAL.Core`'s analyzer,
+    so `Directory.Build.targets` and `build/package/MainframeEngine.targets` remove `Ahwoo.BRUTAL.*` analyzers by package
+    id (`_MainframeRemoveBrutalAnalyzers`). Logos from BRUTAL commit `a25cdf80`. The Splash page's BRUTAL thumbnail keeps
+    the logo's aspect. New editor test classes need `[Collection(nameof(SerialEditor))]`.
+  - Gates (2026-10-16, all green): `just build` 0 warnings; Release `-warnaserror` build; `just test` engine 2576,
+    editor 1274, video 460; `just test-render`; `just format-check`; `just shaders-check`; both template smokes (with the
+    `--qa-splash-out` PNGs); `just l10n-check`; `just docs-build`; `just qa-editor` captures 18–23 reviewed. Goldens: new
+    `splash_frame0063/0189/0315`, re-recorded `ui-settings-menu` and `editor-splash` (moltenvk + lavapipe, inspected).
+  - Not refreshed: `docs/images/editor-game-project.png` (would now show the template README.md in the file tree).
+
 - **Video editing mode: implemented, local only (2026-10-14).** Branch `feature/video-editor` (worktree
   `.claude/worktrees/video-editor`), based on `main`; not pushed, no PR yet (it targets `main` when Brogan says so).
   Plan `docs/superpowers/plans/2026-10-13-video-editor.md` (17 tasks), as-built doc `docs/design/video-editor.md` (moved

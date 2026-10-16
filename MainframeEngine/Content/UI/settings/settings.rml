@@ -8,13 +8,14 @@
   The engine's drop-in settings menu (SettingsMenu, docs/design/game-ui.md#settings-menu). Games can copy this file into
   their own Content/ and set SettingsMenuOptions.Source; the "settings" data model below is the contract:
 
-  tab (string: audio | controls | display), showAudio, showControls, showDisplay (bool)
+  tab (string: audio | controls | display | credits), showAudio, showControls, showDisplay, showCredits (bool)
   buses: [ { name, label, volume (0-1, two-way), percent, muted } ]
   actions: [ { label, key1, key2, pad, capturing (-1 none, 0/1 key slots, 2 gamepad), locked } ]
   notice (string: the last rebind conflict or hint)
   windowMode, windowSize, maxFps, shadows, language (strings, two-way), vsync (bool, two-way), uiScale (0.75-2, two-way)
   uiScalePercent (int), showWindow (bool: desktop), windowSizes, maxFpsOptions ([ { value, label } ]), locales ([ { code, name } ])
   shadowsRestart (bool), revertPending (bool), revertText (string: "Reverting in 12 s")
+  credits: [ { heading (bool: a section heading), text, notice } ]
   Events: tab(name), toggleMute(index), rebind(action, class, slot), reset(section), keep(), revert(), close()
 -->
 <body data-model="settings">
@@ -28,6 +29,7 @@
             <button data-if="showAudio" data-attr-class="tab == 'audio' ? 'tab active' : 'tab'" data-event-click="tab('audio')">Audio</button>
             <button data-if="showControls" data-attr-class="tab == 'controls' ? 'tab active' : 'tab'" data-event-click="tab('controls')">Controls</button>
             <button data-if="showDisplay" data-attr-class="tab == 'display' ? 'tab active' : 'tab'" data-event-click="tab('display')">Display</button>
+            <button data-if="showCredits" data-attr-class="tab == 'credits' ? 'tab active' : 'tab'" data-event-click="tab('credits')">Credits</button>
         </div>
 
         <!-- ── Audio ─────────────────────────────────────────────────────────── -->
@@ -124,6 +126,20 @@
             </div>
             <div class="footer">
                 <button data-event-click="reset('display')">Defaults</button>
+                <button class="primary" data-event-click="close()">Done</button>
+            </div>
+        </div>
+
+        <!-- ── Credits (the BRUTAL licence, 2.1: its copyright line is among the engine's entries) ─────────────── -->
+        <div class="page" data-if="tab == 'credits'">
+            <div id="credits">
+                <div data-for="c : credits" data-attr-class="c.heading ? 'credit-section' : 'credit'">
+                    <span class="credit-name no-tr">{{ c.text }}</span>
+                    <span class="credit-notice no-tr">{{ c.notice }}</span>
+                </div>
+            </div>
+            <div class="footer">
+                <span></span>
                 <button class="primary" data-event-click="close()">Done</button>
             </div>
         </div>

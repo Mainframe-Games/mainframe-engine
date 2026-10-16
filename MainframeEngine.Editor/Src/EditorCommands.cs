@@ -5,6 +5,7 @@ using MainframeEngine.Video.Media;
 using MainframeEngine.Video.Models;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace MainframeEngine.Editor;
 
@@ -1273,8 +1274,9 @@ public sealed class EditorCommands
                   $"{RuntimeInformation.FrameworkDescription} · " +
                   $"{RuntimeInformation.OSDescription} " +
                   $"({RuntimeInformation.OSArchitecture})\n" +
-                  EditorBrand.RepositoryUrl.AbsoluteUri,
+                  EditorBrand.RepositoryUrl.AbsoluteUri + "\n\n" + CreditsText(Credits.Entries),
         Icon = "info-circle",
+        Scrollable = true,
         Buttons = ["OK", "GitHub"],
         CancelButton = 0,
         Callback = (button, _) =>
@@ -1283,4 +1285,23 @@ public sealed class EditorCommands
                 OsShell.OpenUrl(EditorBrand.RepositoryUrl);
         },
     });
+
+    /// <summary>The About box's credits: <paramref name="entries"/> by section, one line each, notices verbatim.</summary>
+    internal static string CreditsText(IReadOnlyList<CreditEntry> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        var text = new StringBuilder("Credits");
+        foreach (var section in entries.GroupBy(static e => e.Section, StringComparer.Ordinal))
+        {
+            text.Append("\n\n").Append(section.Key).Append(':');
+            foreach (var entry in section)
+            {
+                text.Append("\n• ").Append(entry.Name);
+                if (entry.Notice is { Length: > 0 } notice)
+                    text.Append(" — ").Append(notice);
+            }
+        }
+
+        return text.ToString();
+    }
 }

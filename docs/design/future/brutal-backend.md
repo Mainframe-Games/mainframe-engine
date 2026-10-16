@@ -1,6 +1,6 @@
 # Proposal: BRUTAL as the engine's backend tech
 
-**Milestone:** [BRUTAL backend](../../milestones.md#brutal-backend-) (B1–B7) · **Status:** 🟨 B2 done ·
+**Milestone:** [BRUTAL backend](../../milestones.md#brutal-backend-) (B1–B7) · **Status:** B1 ✅ (plumbing and attribution), B2 ✅ (physics seam); B3–B7 ⬜ planned ·
 **Decision:** [ADR 0192](../../../memory/decisions/0192-brutal-backend-tech.md) · **Depends on:** [M6 physics](../physics.md),
 [M10 project and GameHost](../project-and-gamehost.md), [Game UI](../game-ui.md) · **Related:**
 [Physics joints](physics-joints.md) (G9, written against the seam once B2 lands),

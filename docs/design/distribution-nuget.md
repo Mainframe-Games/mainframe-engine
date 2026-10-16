@@ -36,6 +36,14 @@ natives and build files) are ordinary package dependencies with the versions fro
 
 ### Content and natives: the same layout as a checkout
 
+**BRUTAL** (ADR 0192): the package depends on the exactly pinned `Ahwoo.BRUTAL.*` packages, whose natives (`jolt`) arrive
+through NuGet's `runtimes/<rid>/native` like Silk.NET's (they are not in `Native/natives.lock`, which lists the engine's
+own shims). BRUTAL's `NOTICE.txt` travels in the package as `mainframe/BRUTAL-NOTICE.txt` and `buildTransitive/
+MainframeEngine.targets` copies it next to the game as `BRUTAL-NOTICE.txt` (checkout games get it from the engine
+project's output); `just template-smoke[-package]` checks the build, the publish and the player archives. Linux games carry
+BRUTAL's unstripped 50 MB `libjolt.so` until upstream strips it: run `strip --strip-unneeded libjolt.so` on the packaged
+game to save ~47 MB (editor releases do, `build/package-editor.sh`).
+
 Engine content lands in the **same `Content/` folder** as the game's, exactly where a checkout build puts it, so
 `ContentPaths` and every engine path work unchanged. The package's targets only copy into **app projects**
 (Exe/WinExe, `IsTestProject`, or `MainframeEngineCopyContent=true`; `false` turns it off). A game library needs no

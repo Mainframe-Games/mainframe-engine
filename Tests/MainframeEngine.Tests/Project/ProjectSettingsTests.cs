@@ -92,6 +92,11 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Ui.MinScale = 0.75f;
         s.Loading.Async = false;
         s.Loading.Screen = "Content/UI/loading.rml";
+        s.Splash.Cards.Add("Content/Brand/studio.png");
+        s.Splash.Background = "#101820";
+        s.Splash.HoldSeconds = 3f;
+        s.Splash.Skippable = false;
+        s.Splash.NonProfit = true;
         s.Saves.MaxBytes = 1 << 20;
         s.Saves.Backups = 4;
         s.Saves.Compression = SaveCompression.Gzip;
@@ -128,6 +133,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equivalent(expected.Rendering, actual.Rendering, strict: true);
         Assert.Equivalent(expected.Ui, actual.Ui, strict: true);
         Assert.Equivalent(expected.Loading, actual.Loading, strict: true);
+        Assert.Equivalent(expected.Splash, actual.Splash, strict: true);
         Assert.Equivalent(expected.Saves, actual.Saves, strict: true);
         Assert.Equal(expected.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)), actual.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)));
         Assert.Equal(expected.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)),
@@ -220,7 +226,7 @@ public sealed class ProjectSettingsTests : IDisposable
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "A", "type": "T" }, { "name": "A", "type": "U" } ] }""", "'A' is used by another autoload")]
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "a/b", "type": "T" } ] }""", "must be a node name")]
     [InlineData("""{ "format": 1, "assemblies": [1] }""", "assemblies must contain only strings")]
-    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 4")]
+    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 5")]
     [InlineData("""{ "format": 0 }""", "invalid project format 0")]
     [InlineData("""[1, 2]""", "is not a JSON object")]
     [InlineData("""{ "format": 1, """, "is not valid JSON")]
@@ -590,7 +596,7 @@ public sealed class ProjectSettingsTests : IDisposable
     [Fact]
     public void ThePreviousFormatMovesTheJitter2SolverKeysUnderJitter2()
     {
-        var from = ProjectSettingsFormat.Current - 1;
+        const int from = 3; // the 3 → 4 step (B2) moved the solver keys; later steps (4 → 5: splash) leave them alone
         var s = Parse($$"""{ "format": {{from}}, "name": "Old", "physics": { "3d": { "substeps": 2, "solverIterations": 9, "relaxationIterations": 2 } } }""");
         Assert.Equal(PhysicsBackendKind.Jitter2, s.Physics.Physics3D.Backend);
         Assert.Equal(2, s.Physics.Physics3D.SubstepCount);

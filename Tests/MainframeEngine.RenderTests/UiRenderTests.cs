@@ -139,6 +139,19 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void TheSplashSequenceMatchesGoldenPerCard()
+    {
+        // BRUTAL B1 (ADR 0192): Mainframe, BRUTAL (white logo on black) and a wide game card, each fitted into the same box,
+        // captured halfway through its hold at full opacity.
+        var result = HostRunner.Run("splash", Output("splash"), "--capture", "63,189,315", "--size", "640x360", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        foreach (var frame in SplashScene.CaptureFrames)
+            Gates.AssertMatchesGolden(result, frame);
+    }
+
+    [Fact]
     public void UiCapturesAreDeterministicAcrossRuns()
     {
         var first = HostRunner.Run("ui-effects", Output("ui-determinism-a"), "--capture", "12", "--size", "480x270", "--hidden");

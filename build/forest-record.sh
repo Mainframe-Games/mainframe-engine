@@ -19,9 +19,9 @@ rm -rf "$out/offline.mp4" "$out/offline.mp4.mfcap.json" "$out/offline.mp4.partia
 dotnet build "$repo/Examples/Forest/Forest.slnx" -c Release -v q -nologo
 bin="$repo/Examples/Forest/Forest.Desktop/bin/Release/net10.0"
 
-(cd "$bin" && dotnet Forest.Desktop.dll --fixed-fps 60 --max-frames 3600 --no-log-file \
+(cd "$bin" && dotnet Forest.Desktop.dll --no-splash --fixed-fps 60 --max-frames 3600 --no-log-file \
   --record "$out/offline.mp4" ++ --camera flyover --no-capture)
-(cd "$bin" && dotnet Forest.Desktop.dll --max-frames 600 --no-log-file \
+(cd "$bin" && dotnet Forest.Desktop.dll --no-splash --max-frames 600 --no-log-file \
   --record "$out/live.mp4" ++ --autowalk --no-capture)
 
 for f in offline live; do
