@@ -84,6 +84,11 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Ui.MinScale = 0.75f;
         s.Loading.Async = false;
         s.Loading.Screen = "Content/UI/loading.rml";
+        s.Splash.Cards.Add("Content/Brand/studio.png");
+        s.Splash.Background = "#101820";
+        s.Splash.HoldSeconds = 3f;
+        s.Splash.Skippable = false;
+        s.Splash.NonProfit = true;
         s.Saves.MaxBytes = 1 << 20;
         s.Saves.Backups = 4;
         s.Saves.Compression = SaveCompression.Gzip;
@@ -120,6 +125,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equivalent(expected.Rendering, actual.Rendering, strict: true);
         Assert.Equivalent(expected.Ui, actual.Ui, strict: true);
         Assert.Equivalent(expected.Loading, actual.Loading, strict: true);
+        Assert.Equivalent(expected.Splash, actual.Splash, strict: true);
         Assert.Equivalent(expected.Saves, actual.Saves, strict: true);
         Assert.Equal(expected.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)), actual.Autoloads.Select(a => (a.Name, a.Scene, a.Type, a.Enabled)));
         Assert.Equal(expected.PlayInstances.Select(p => (p.Label, string.Join(' ', p.Arguments), p.DelaySeconds)),
@@ -133,7 +139,7 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         var json = Text(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" });
 
-        Assert.Equal("{\n  \"format\": 3,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
+        Assert.Equal($"{{\n  \"format\": {ProjectSettingsFormat.Current},\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}}\n", json);
         AssertSame(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" }, Parse(json));
     }
 
@@ -212,7 +218,7 @@ public sealed class ProjectSettingsTests : IDisposable
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "A", "type": "T" }, { "name": "A", "type": "U" } ] }""", "'A' is used by another autoload")]
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "a/b", "type": "T" } ] }""", "must be a node name")]
     [InlineData("""{ "format": 1, "assemblies": [1] }""", "assemblies must contain only strings")]
-    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 3")]
+    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 4")]
     [InlineData("""{ "format": 0 }""", "invalid project format 0")]
     [InlineData("""[1, 2]""", "is not a JSON object")]
     [InlineData("""{ "format": 1, """, "is not valid JSON")]
@@ -269,7 +275,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(480u, s.SteamAppId);
 
         var json = JsonNode.Parse(Text(s))!;
-        Assert.Equal(3, (int)json["format"]!);
+        Assert.Equal(ProjectSettingsFormat.Current, (int)json["format"]!);
         Assert.Null(json["steamAppId"]);
         Assert.Equal(480u, (uint)json["steam"]!["appId"]!);
     }
@@ -286,7 +292,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(UiScalingMode.ConstantPixelSize, s.Ui.ToScaling().Mode);
 
         var json = JsonNode.Parse(Text(s))!;
-        Assert.Equal(3, (int)json["format"]!);
+        Assert.Equal(ProjectSettingsFormat.Current, (int)json["format"]!);
         Assert.Equal("ConstantPixelSize", (string?)json["ui"]!["scaleMode"]);
         Assert.Equal(UiScalingMode.ConstantPixelSize, Parse(Text(s)).Ui.ScaleMode);
 

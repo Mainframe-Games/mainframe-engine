@@ -4,7 +4,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// A game project's settings — the contents of <c>project.mfproj</c> next to its <c>Content/</c> folder: name, main
-/// scene, game assemblies, demo build, window, physics, input map, audio, localization, rendering, Steam and autoloads, plus the
+/// scene, game assemblies, demo build, window, physics, input map, audio, localization, rendering, splash, Steam and autoloads, plus the
 /// engine version the project was created with. <see cref="GameHost"/> applies them; the editor edits them.
 /// </summary>
 /// <remarks>
@@ -93,6 +93,9 @@ public sealed class ProjectSettings
     /// <summary>How <see cref="GameHost"/> loads the start scene: on a worker thread behind a loading screen (ADR 0183).</summary>
     public LoadingProjectSettings Loading { get; } = new();
 
+    /// <summary>The splash sequence before gameplay (BRUTAL B1, ADR 0192): Mainframe, BRUTAL (locked), the game's cards.</summary>
+    public SplashProjectSettings Splash { get; } = new();
+
     /// <summary>Save games (<see cref="SaveServer"/>): size limit, backups, compression and thumbnails.</summary>
     public SavesProjectSettings Saves { get; } = new();
 
@@ -128,6 +131,9 @@ public sealed class ProjectSettings
             throw new FileNotFoundException($"No project file at '{file}'.", file);
         var settings = ProjectSettingsFormat.Parse(File.ReadAllBytes(file), file);
         settings.FilePath = file;
+        // Once per file load (never per in-memory Parse: the editor clones settings on every edit).
+        foreach (var warning in settings.Splash.Warnings)
+            Log.Warning($"[Project] '{file}': {warning}");
         return settings;
     }
 
