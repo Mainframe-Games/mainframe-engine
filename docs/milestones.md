@@ -345,7 +345,7 @@ seam, and becomes the default once it matches Jitter2; SDL3 and Vulkan + VMA fol
 
 | Feature | Status | Design doc |
 |---|---|---|
-| B1 Packages and notices, `Credits` + Credits page, splash sequence (`project.mfproj` `splash`, locked `@brutal`), editor splash/About/Splash page | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b1-plumbing-and-attribution) |
+| B1 Packages and notices, `Credits` + Credits page, splash sequence (`project.mfproj` `splash`, locked `@brutal`), editor splash/About/Splash page | ✅ | [BRUTAL backend](design/future/brutal-backend.md#b1-plumbing-and-attribution) |
 | B2 Physics seam: `PhysicsBackend3D`, neutral shapes, Jitter2 behind it, `physics.3d.backend` (no behaviour change) | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b2-the-physics-seam) |
 | B3 Jolt backend (`Ahwoo.BRUTAL.Jolt`): every physics test, gate and golden on both backends, benchmarks, Demo toggle | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b3-the-jolt-backend) |
 | B4 Jolt by default (parity criteria); G9 joints on the seam | ⬜ | [BRUTAL backend](design/future/brutal-backend.md#b4-jolt-by-default) |

@@ -119,7 +119,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   backups, recovery, thumbnails), `SaveSchema<T>` (game `JsonTypeInfo` + `JsonMigration`s; trim/AOT analyzers are errors
   here), `ISaveStorage`/`ICloudSaveBackend` (M13 seam). `Src/Serialization/` also holds `JsonMigrations`, `DurableFile`,
   `ConfigFile`; `Src/UI/Settings/` the drop-in `SettingsMenu`
-- `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `UserSettings` (`settings.json`), `GameHost`/`GameSession`, `GameAssemblyLoader`
+- `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `UserSettings` (`settings.json`), `GameHost`/`GameSession`, `GameAssemblyLoader`; `Splash/` (ADR 0192: `SplashProjectSettings`, `SplashTimeline`,
+  `SplashSequence`: the boot splash with the locked BRUTAL card), `Credits` (engine + THIRD_PARTY_NOTICES entries, `SettingsMenu`'s Credits tab)
   (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol (version 4: includes `StartRecording`/`StopRecording` and the `Recording` message), client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template, the `MainframeEngine.Templates` NuGet package
   (the editor ships a copy too; defaults to the `MainframeEngine` package of its own version, `--engine-source project`
@@ -179,7 +180,8 @@ physics, input map, audio, localization, rendering, Steam, autoloads; versioned 
 builds: `isDemo` in `project.mfproj` (or `-p:MainframeDemo=true`) defines `DEMO` for game code (`#if DEMO`) through
 `build/MainframeGame.props`, which the template's `Directory.Build.props` imports; `GameHost.IsDemo` at run time. `GameHost` flags:
 `--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`, `--headless` (`HeadlessHost`: dedicated servers, no window/Vulkan/audio device),
-`--record <file.mp4>` (gameplay recording through the user's ffmpeg, with `--record-scale <n>` and `--ffmpeg <path>`; the editor records with F10 and passes `--frame-capture` on every launch; `docs/design/recording.md`). Input actions: `Input.IsActionPressed("jump")`
+`--no-splash` (skip the splash while developing; a shipped game always shows it), `--qa-splash` (only the splash, then quit;
+`--qa-splash-out <dir>`: a PNG per card), `--record <file.mp4>` (gameplay recording through the user's ffmpeg, with `--record-scale <n>` and `--ffmpeg <path>`; the editor records with F10 and passes `--frame-capture` on every launch; `docs/design/recording.md`). Input actions: `Input.IsActionPressed("jump")`
 / `SceneTree.Input`. Logs are `LogEntry`s routed to `ILogSink`s (`Log.AddSink`; console, `FileLogSink`,
 `MemoryLogSink`); filtered `Log.X($"...")` costs nothing. Editor-facing: `EditorLinkServer`/`EditorLinkClient`,
 `GameAssemblyLoader` (collectible, GC-verified unload — never keep game objects in locals of the unloading method).
@@ -206,6 +208,11 @@ override (frees the scene tree, disposes servers, then renderer, input; keeps th
 `Quit`). `Quit(code)` closes the window after the current frame — prefer it to `Window.Close()`.
 
 `EngineOptions.EnableValidation` defaults to on in Debug builds and off in Release; set it to override.
+
+**BRUTAL licence (ADR 0192):** games inherit it. Never remove the `@brutal` splash card, the `Credits` engine entries or
+the `BRUTAL-NOTICE.txt` copy; the BRUTAL logo files are byte-for-byte copies (`build/brand/brutal-logos.sha256`).
+`project.mfproj` is format 4 (`splash`). BRUTAL's analyzers stay off (`ExcludeAssets` plus `_MainframeRemoveBrutalAnalyzers`
+in `Directory.Build.targets` and the package's `buildTransitive` targets).
 
 ### Nodes, servers and scenes
 
@@ -329,6 +336,10 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected �
 - SoundFlow 1.4.1 (audio device/mixer, miniaudio natives in the package) and NVorbis 0.10.5 (OGG) — audio (M7)
 - Jitter2 (3D) and Box2D.NET (2D) — physics (pinned exactly)
 - Whisper.net + Whisper.net.Runtime 1.9.1 — speech recognition for the editor's video mode only (`MainframeEngine.Video`)
+- BRUTAL (`Ahwoo.BRUTAL.Core`, `Collections`, `Interop`, `Logging`, `Memory`, `Numerics`, `Strings`, `Jolt`; ADR 0192) — pinned
+  exactly, analyzers excluded; transitive `CommunityToolkit.HighPerformance` 8.4.2, `Microsoft.Extensions.Logging(.Console)`
+  10.0.0 and `Microsoft.Extensions.ObjectPool` 11.0.0-preview.5 (a preview BRUTAL Strings needs) pinned centrally. Jolt is
+  referenced but unused until B3
 
 Do not add NuGet packages without discussing the dependency first. Versions are central in
 `Directory.Packages.props`.
