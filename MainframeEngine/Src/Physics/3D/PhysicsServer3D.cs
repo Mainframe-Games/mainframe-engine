@@ -1,21 +1,24 @@
+using System.Runtime.InteropServices;
+
 namespace MainframeEngine;
 
 /// <summary>
-/// The 3D physics server (Jitter2 2.9): one <see cref="PhysicsSpace3D"/> (a Jitter2 <c>World</c>) per
-/// <see cref="World3D"/>, created when the first collision object enters that world. Ticked by the scene tree's fixed
-/// step (after <see cref="Node.OnPhysicsProcess"/>; frozen while paused); interpolates moving bodies for rendering;
-/// draws collision shapes into the viewport's <see cref="DebugLines"/> when <see cref="DebugDrawEnabled"/>.
+/// The 3D physics server: one <see cref="PhysicsSpace3D"/> per <see cref="World3D"/>, created when the first collision
+/// object enters that world, each over a <see cref="PhysicsSettings3D.Backend"/> library (Jitter2; Jolt from B3). Ticked
+/// by the scene tree's fixed step (after <see cref="Node.OnPhysicsProcess"/>; frozen while paused); interpolates moving
+/// bodies for rendering; draws collision shapes into the viewport's <see cref="DebugLines"/> when <see cref="DebugDrawEnabled"/>.
 /// </summary>
 /// <remarks>
 /// <see cref="Engine"/> registers one with <see cref="EngineOptions.Physics3D"/>. Trees without one (tools, tests) get a
-/// default server registered by <see cref="For"/> when the first body enters. All Jitter2 calls stay inside the
-/// physics types (the API changes between minor versions; the package is pinned).
+/// default server registered by <see cref="For"/> when the first body enters. Library calls stay inside each backend's
+/// folder (<c>Src/Physics/3D/Jitter</c>; the packages are pinned).
 /// </remarks>
 public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
 {
     private readonly Dictionary<World3D, PhysicsSpace3D> _spaces = [];
     private readonly List<PhysicsSpace3D> _spaceList = [];
     private bool _disposed;
+    private bool _warnedJolt;
 
     public PhysicsServer3D(PhysicsSettings3D? settings = null)
     {
@@ -45,13 +48,27 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
     /// <summary>The space simulating <paramref name="world"/>, if one exists.</summary>
     public PhysicsSpace3D? FindSpace(World3D world) => _spaces.GetValueOrDefault(world);
 
+    /// <summary>The backend new spaces get: the setting, or Jitter2 (with one warning per server) where it is not available.</summary>
+    internal PhysicsBackendKind ResolveBackend()
+    {
+        if (Settings.Backend != PhysicsBackendKind.Jolt)
+            return Settings.Backend;
+        if (!_warnedJolt)
+        {
+            _warnedJolt = true;
+            Log.Warning($"[Physics] Jolt is not available on {RuntimeInformation.RuntimeIdentifier} (the Jolt backend arrives in B3); using Jitter2.");
+        }
+
+        return PhysicsBackendKind.Jitter2;
+    }
+
     internal void AddObject(CollisionObject3D node)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var viewport = node.GetViewport() ?? throw new InvalidOperationException($"'{node.Name}' is not inside a viewport.");
         if (!_spaces.TryGetValue(viewport.World3D, out var space))
         {
-            space = new PhysicsSpace3D(viewport, Settings, PhysicsBackendKind.Jitter2);
+            space = new PhysicsSpace3D(viewport, Settings, ResolveBackend());
             _spaces.Add(viewport.World3D, space);
             _spaceList.Add(space);
         }
