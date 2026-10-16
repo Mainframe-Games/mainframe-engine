@@ -1,7 +1,7 @@
 namespace MainframeEngine;
 
 /// <summary>
-/// The <c>splash</c> section of <c>project.mfproj</c> (BRUTAL B1, ADR 0192): the cards <c>SplashSequence</c> shows
+/// The <c>splash</c> section of <c>project.mfproj</c> (BRUTAL B1, ADR 0192): the cards <see cref="SplashSequence"/> shows
 /// before gameplay, their background, hold time and skipping.
 /// </summary>
 /// <remarks>

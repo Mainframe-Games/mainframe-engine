@@ -1,0 +1,33 @@
+/*
+ * The engine's splash sequence (SplashSequence, BRUTAL B1, ADR 0192): one card at a time on the project's background
+ * (splash.background, set by SplashSequence). Every card's size is set in px by SplashSequence: each fits the same square
+ * box of 40 % of the shorter side, so no logo is less prominent than another. The fades are #card's 0.3 s opacity
+ * transition, driven by the .visible class.
+ */
+
+body {
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+}
+
+#card {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    opacity: 0;
+    transition: opacity 0.3s linear-in-out;
+}
+
+#card.visible { opacity: 1; }
+
+#spinner {
+    position: absolute;
+    left: 50%;
+    top: 80%;
+    margin-left: -12dp;
+    opacity: 0;
+    transition: opacity 0.3s linear-in-out;
+}
+
+#spinner.visible { opacity: 1; }

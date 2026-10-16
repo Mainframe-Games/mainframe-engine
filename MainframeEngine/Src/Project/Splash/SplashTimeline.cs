@@ -17,7 +17,7 @@ public enum SplashPhase
 /// <see cref="FadeSeconds"/> fade out; after the last card's hold it waits for the start scene's load
 /// (<see cref="SplashPhase.WaitingForLoad"/>) before fading out. A press ends a hold early once it has run
 /// <see cref="SkipFloorSeconds"/>, so every card, BRUTAL's included, is legible. Pure state: no engine objects, no
-/// allocation; <c>SplashSequence</c> drives it with the frame's delta.
+/// allocation; <see cref="SplashSequence"/> drives it with the frame's delta.
 /// </summary>
 public sealed class SplashTimeline
 {
