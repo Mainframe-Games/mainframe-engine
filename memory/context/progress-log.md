@@ -4,9 +4,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **BRUTAL B1 (attribution): Tasks 1–14 of 16 done, local only (2026-10-16).** Branch `brutal/b1-attribution`, rebased on
+- **BRUTAL B1 (attribution): Tasks 1–15 of 16 done, local only (2026-10-16).** Branch `brutal/b1-attribution`, rebased on
   `main` after the design PR (#72); not pushed, no PR (one push at Task 16). Plan
-  `docs/superpowers/plans/2026-10-16-brutal-b1-attribution.md`; next is **Task 15** (editor QA and the README screenshot; if the tree has uncommitted changes, the session ran out mid-task: check them against the plan). Games now show the splash; Task 10 smoke-tested it (`--qa-splash-out` PNGs inspected). Task 7 bumped `ProjectSettingsFormat.Current` to 4 (the B2 plan must then use 4 → 5); Task 11's first commit missed two goldens (a glob); `25cc4478` adds them. Task 9's `SplashSequenceTests` checks the light-background logo through `ResolveCards`, not a second `UiTestTree` (one RmlUi at a time).
+  `docs/superpowers/plans/2026-10-16-brutal-b1-attribution.md`; next is **Task 16** (docs, README, site, CLAUDE.md, every gate, then the one push and the PR; if the tree has uncommitted changes, the session ran out mid-task: check them against the plan). Games now show the splash; Task 10 smoke-tested it (`--qa-splash-out` PNGs inspected). Task 7 bumped `ProjectSettingsFormat.Current` to 4 (the B2 plan must then use 4 → 5); Task 11's first commit missed two goldens (a glob); `25cc4478` adds them. Task 9's `SplashSequenceTests` checks the light-background logo through `ResolveCards`, not a second `UiTestTree` (one RmlUi at a time).
   - Deviations from the plan: `Ahwoo.BRUTAL.Collections` (a dependency of Strings) is pinned too, and so is
     `Microsoft.Extensions.ObjectPool` `[11.0.0-preview.5.26302.115]` (a preview Strings needs; Brogan approved it; it is in
     ADR 0192 and the notices). `ExcludeAssets="analyzers"` does not stop the SDK resolving `Ahwoo.BRUTAL.Core`'s analyzer,
@@ -15,7 +15,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   - Checked: `just build` 0 warnings, `just test` (after Task 2) all green, both template smokes, the libjolt strip check
     in Docker (49.7 MB → 3.6 MB), `ui-settings-menu` goldens re-recorded (moltenvk + lavapipe, inspected). The full gate
     run (Release build, `just test-render`, `just shaders-check`) waits for Task 16. `docs/images/demo/settings.png` now
-    lacks the Credits tab: refresh it with `just demo-screenshots` in Task 15/16.
+    lacks the Credits tab: refresh it with `just demo-screenshots` in Task 16. `just readme-screenshots` (Task 15) re-rendered every editor PNG; only `editor-splash-settings.png` was kept (`editor-game-project.png` would now show the template's README.md: refresh it in Task 16 too).
 
 - **Video editing mode: implemented, local only (2026-10-14).** Branch `feature/video-editor` (worktree
   `.claude/worktrees/video-editor`), based on `main`; not pushed, no PR yet (it targets `main` when Brogan says so).
