@@ -4,9 +4,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **BRUTAL B1 (attribution): Tasks 1–9 of 16 done, local only (2026-10-16).** Branch `brutal/b1-attribution`, rebased on
+- **BRUTAL B1 (attribution): Tasks 1–10 of 16 done, local only (2026-10-16).** Branch `brutal/b1-attribution`, rebased on
   `main` after the design PR (#72); not pushed, no PR (one push at Task 16). Plan
-  `docs/superpowers/plans/2026-10-16-brutal-b1-attribution.md`; next is **Task 10** (launch flags and `GameHost` wiring; if the tree has uncommitted Task 10 changes, the session ran out mid-task: check them against the plan). Task 7 bumped `ProjectSettingsFormat.Current` to 4 (the B2 plan must then use 4 → 5); Task 9's `SplashSequenceTests` checks the light-background logo through `ResolveCards`, not a second `UiTestTree` (one RmlUi at a time).
+  `docs/superpowers/plans/2026-10-16-brutal-b1-attribution.md`; next is **Task 11** (render test `splash`; if the tree has uncommitted changes, the session ran out mid-task: check them against the plan). Games now show the splash; Task 10 smoke-tested it (`--qa-splash-out` PNGs inspected). Task 7 bumped `ProjectSettingsFormat.Current` to 4 (the B2 plan must then use 4 → 5); Task 9's `SplashSequenceTests` checks the light-background logo through `ResolveCards`, not a second `UiTestTree` (one RmlUi at a time).
   - Deviations from the plan: `Ahwoo.BRUTAL.Collections` (a dependency of Strings) is pinned too, and so is
     `Microsoft.Extensions.ObjectPool` `[11.0.0-preview.5.26302.115]` (a preview Strings needs; Brogan approved it; it is in
     ADR 0192 and the notices). `ExcludeAssets="analyzers"` does not stop the SDK resolving `Ahwoo.BRUTAL.Core`'s analyzer,
