@@ -15,7 +15,7 @@ internal enum ShapeKind3D : byte
 }
 
 /// <summary>
-/// A library-neutral shape: what <c>Shape3D.Describe</c> hands to a <see cref="PhysicsBackend3D"/>. Sizes are the
+/// A library-neutral shape: what <see cref="Shape3D.Describe"/> hands to a <see cref="PhysicsBackend3D"/>. Sizes are the
 /// resource's own; <see cref="Linear"/> (rotation × scale, the body's scale baked in) and <see cref="Translation"/> place it
 /// in its body's frame. <see cref="Points"/> is the resource's array (never copied): the hull points, or 3 vertices per
 /// triangle for <see cref="ShapeKind3D.ConcaveMesh"/> and <see cref="ShapeKind3D.HeightMap"/> (the height map's triangle
@@ -28,7 +28,7 @@ internal readonly record struct ShapeDescription3D
 
     public Shape3D Resource { get; init; }
 
-    /// <summary><c>Shape3D.ChangeCount</c> when described.</summary>
+    /// <summary><see cref="Shape3D.ChangeCount"/> when described.</summary>
     public int ChangeCount { get; init; }
 
     /// <summary>Box: full extents.</summary>
