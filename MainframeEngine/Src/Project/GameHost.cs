@@ -1,30 +1,12 @@
-using System.Globalization;
 using System.Reflection;
 
 namespace MainframeEngine;
-
-/// <summary>How <see cref="GameHost"/> runs the splash sequence for a launch.</summary>
-internal enum GameHostSplashMode
-{
-    /// <summary>No splash: the start scene starts as without one.</summary>
-    None,
-
-    /// <summary>The splash above the asynchronous start-scene load; it ends when both are done.</summary>
-    BeforeAsyncLoad,
-
-    /// <summary>The splash first, then the synchronous load (a synchronous load would freeze the cards).</summary>
-    BeforeSyncLoad,
-
-    /// <summary><c>--qa-splash</c>: only the splash, then quit.</summary>
-    QaOnly,
-}
 
 /// <summary>
 /// Runs a game project without an <see cref="Engine"/> subclass: reads <c>project.mfproj</c>
 /// (<see cref="ProjectSettings"/>), applies its settings (window, physics, audio, localization, exposure, shadow quality,
 /// input map), adds
-/// the autoloads, shows the splash sequence (ADR 0192: <see cref="SplashSequence"/>, unless <see cref="ShowsSplash"/> says
-/// otherwise) and starts the main scene — or <c>--scene</c> — and lets the scene tree run the game. A game's desktop project is one
+/// the autoloads and starts the main scene — or <c>--scene</c> — and lets the scene tree run the game. A game's desktop project is one
 /// line: <c>return GameHost.Run(args, typeof(MyNode).Assembly);</c>. Command-line flags: <see cref="GameHostOptions"/>.
 /// </summary>
 /// <remarks>
@@ -72,7 +54,6 @@ public class GameHost : Engine
     private SceneLoad? _startLoad;
     private bool _loadingShotRequested;
     private string? _capturePath;
-    private bool _syncStartPending;
     private bool _firstFrameLogged;
     private bool _loadedLogged;
 
@@ -430,36 +411,6 @@ public class GameHost : Engine
     /// <summary>The loading screen shown for the start scene (null once it has faded out, or when there is none).</summary>
     public LoadingScreen? LoadingScreen { get; private set; }
 
-    /// <summary>The splash sequence while it runs (null before, after, or when it does not run).</summary>
-    public SplashSequence? Splash { get; private set; }
-
-    /// <summary>
-    /// Whether a launch with <paramref name="options"/> shows the splash sequence (ADR 0192). Never with <c>--headless</c>
-    /// (nothing is displayed: the BRUTAL licence's own exception), <c>--editor-port</c> (the editor's Play), <c>--scene</c>
-    /// (QA, screenshots and tests start a specific scene), <c>--max-frames</c> with <c>--hidden</c> (CI smoke runs) or
-    /// <c>--no-splash</c>; always with <c>--qa-splash</c>. A shipped game launched normally always shows it.
-    /// </summary>
-    public static bool ShowsSplash(GameHostOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        if (options.QaSplash)
-            return true;
-        return !(options.Headless || options.EditorPort is not null || options.Scene is not null || (options.MaxFrames > 0 && options.Hidden)
-                 || options.NoSplash);
-    }
-
-    /// <summary>The splash mode for a launch: <see cref="ShowsSplash"/>, a UI to draw it and cards to show, and how the start scene loads.</summary>
-    internal static GameHostSplashMode SplashModeFor(GameHostOptions options, ProjectSettings settings, bool hasUi)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(settings);
-        if (options.QaSplash)
-            return GameHostSplashMode.QaOnly;
-        if (!hasUi || !ShowsSplash(options) || settings.Splash.ResolvedCards.Count == 0)
-            return GameHostSplashMode.None;
-        return settings.Loading.Async && !options.SyncLoad ? GameHostSplashMode.BeforeAsyncLoad : GameHostSplashMode.BeforeSyncLoad;
-    }
-
     protected override void OnUpdate(in GameTime gameTime)
     {
         if (_startPending)
@@ -472,40 +423,22 @@ public class GameHost : Engine
                 return;
             }
 
-            switch (SplashModeFor(HostOptions, Settings, Ui is not null))
+            if (LoadsAsync)
             {
-                case GameHostSplashMode.QaOnly:
-                    StartSplashQa();
-                    break;
-                case GameHostSplashMode.BeforeSyncLoad:
-                    // A synchronous load would freeze the cards: the session starts on the update after they are done.
-                    ShowSplash(load: null).Finished += () => _syncStartPending = true;
-                    break;
-                case GameHostSplashMode.BeforeAsyncLoad:
-                    StartAsync();
-                    ShowSplash(_startLoad);
-                    break;
-                default:
-                    if (LoadsAsync)
-                    {
-                        StartAsync();
-                    }
-                    else if (!StartSync())
-                    {
-                        Quit(ExitCode.Error);
-                        return;
-                    }
-
-                    break;
+                StartAsync();
             }
-        }
-        else if (_syncStartPending)
-        {
-            _syncStartPending = false;
-            if (!StartSync())
+            else
             {
-                Quit(ExitCode.Error);
-                return;
+                // The synchronous load blocks this update: open a loading span now, the recorder's update below closes
+                // it. Today the first captured frame comes after this load, and the live origin is anchored there, so
+                // the load is not in the video and the span is empty (dropped); it is marked anyway so a recording
+                // that already has frames when a synchronous start load runs never shows the hitch as play.
+                Tree.Recorder?.OnUpdate(loading: true, paused: false);
+                if (!Session.Start())
+                {
+                    Quit(ExitCode.Error);
+                    return;
+                }
             }
         }
 
@@ -549,51 +482,6 @@ public class GameHost : Engine
             LoadingScreen = MainframeEngine.LoadingScreen.Show(Tree, load, source, Settings.Name);
             LoadingScreen.TreeExited += () => LoadingScreen = null;
         }
-    }
-
-    // The synchronous start (loading.async false or --sync-load). False when the scene failed to load.
-    private bool StartSync()
-    {
-        // The synchronous load blocks this update: open a loading span now, the recorder's update below closes it. Today the
-        // first captured frame comes after this load, and the live origin is anchored there, so the load is not in the video
-        // and the span is empty (dropped); it is marked anyway so a recording that already has frames when a synchronous
-        // start load runs never shows the hitch as play.
-        Tree.Recorder?.OnUpdate(loading: true, paused: false);
-        return Session.Start();
-    }
-
-    // The splash sequence (ADR 0192) above everything, waiting for load (null: none to wait for).
-    private SplashSequence ShowSplash(SceneLoad? load, bool holdsLoading = true, bool? skippable = null)
-    {
-        var splash = Splash = new SplashSequence { Settings = Settings.Splash, Load = load, HoldsLoading = holdsLoading, Skippable = skippable };
-        splash.TreeExited += () => Splash = null;
-        Tree.Root.AddChild(splash);
-        return splash;
-    }
-
-    // --qa-splash: only the sequence (the session starts nothing), then quit; --qa-splash-out saves each card halfway through
-    // its hold, unskippable. Frames count (HoldsLoading off), so --max-frames still caps the run.
-    private void StartSplashQa()
-    {
-        if (Ui is null || Settings.Splash.ResolvedCards.Count == 0)
-        {
-            Log.Error("[Splash] --qa-splash: nothing to show (no UI, or an empty splash.cards with nonProfit).");
-            Quit(ExitCode.Error);
-            return;
-        }
-
-        var output = HostOptions.QaSplashOutput;
-        var splash = ShowSplash(load: null, holdsLoading: false, skippable: output is null ? null : false);
-        if (output is not null)
-        {
-            splash.CardShown += index =>
-            {
-                _capturePath = Path.Combine(output, $"splash-{(index + 1).ToString(CultureInfo.InvariantCulture)}.png");
-                CaptureFrame();
-            };
-        }
-
-        splash.Finished += () => Quit(ExitCode.Ok);
     }
 
     // How long the window took to show something and the game to be playable, from the process start (ADR 0183).

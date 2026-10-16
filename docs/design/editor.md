@@ -412,15 +412,6 @@ the canvas renderer (sprites, Spine, custom drawing, shaders) with the editor's 
 
 ## Projects
 
-**Project Settings › Splash** (BRUTAL B1, ADR 0192; mockup: docs/images/brutal-splash-sequence.svg): the cards in order,
-each with its thumbnail, Move Up/Down and Remove icon buttons (and Change Image for a game card); Add Card picks a PNG of
-the project. The BRUTAL card shows a lock whose tooltip quotes the licence condition (2.2), and its Remove is disabled until
-**Non-profit** is checked (whose tooltip says to confirm with Ahwoo). Background, Hold (s), Skippable and Non-profit are
-ordinary settings. Card edits apply to the cards as shown, so a hand-edited file that lacked `@brutal` gets it back with
-the first edit. **Preview** saves, builds and runs the game with `--qa-splash` (the sequence only, then the game quits).
-**Help › About** lists `Credits.Entries` (the engine's and third-party sections) in a scrolling message, and the editor's
-splash shows the BRUTAL logo beside the Mainframe logo in boxes of one size (the editor ships BRUTAL too).
-
 ([0097](../../memory/decisions/0097-editor-projects-and-code-reload.md)) The editor works on a game project: a folder
 with `project.mfproj` and the `mfgame` template's C# projects ([Project & game host](project-and-gamehost.md)).
 

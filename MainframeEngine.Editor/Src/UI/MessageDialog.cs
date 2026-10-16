@@ -29,9 +29,6 @@ public sealed record MessageRequest
     /// <summary>The title's icon (a Tabler name or full icon classes); null picks one from the title (error, warning, rename …).</summary>
     public string? Icon { get; init; }
 
-    /// <summary>The message scrolls within a limited height (long texts: the About box's credits).</summary>
-    public bool Scrollable { get; init; }
-
     /// <summary>The icon classes the dialog shows for this request.</summary>
     public string IconClasses => Icon is { Length: > 0 } icon
         ? icon.Contains(' ', StringComparison.Ordinal) ? icon : "icon icon-" + icon
@@ -84,10 +81,7 @@ public sealed class MessageDialog : EditorDocument
         Document.GetElementById("title-icon").SetClassNames(request.IconClasses);
         var message = Document.GetElementById("message");
         if (!message.IsNull)
-        {
             message.SetInnerRml(RmlText.Escape(request.Message).Replace("\n", "<br/>", StringComparison.Ordinal));
-            message.SetClass("scroll", request.Scrollable);
-        }
 
         var inputRow = Document.GetElementById("input-row");
         var input = Document.GetElementById("input");

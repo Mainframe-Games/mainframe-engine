@@ -24,9 +24,7 @@
             margin-top: -190dp;
             text-align: center;
         }
-        #logos { display: block; height: 168dp; margin: 0dp auto 22dp auto; text-align: center; }
-        .logo-box { display: inline-block; position: relative; width: 168dp; height: 168dp; margin: 0dp 12dp; }
-        .logo-box img { position: absolute; left: 50%; top: 50%; }
+        #logo { display: block; width: 168dp; height: 168dp; margin: 0dp auto 22dp auto; }
         #wordmark {
             display: block;
             font-size: 34dp;
@@ -66,10 +64,7 @@
 </head>
 <body class="splash">
     <div id="center">
-        <div id="logos">
-            <div class="logo-box"><img id="logo" src="/Content/Brand/logo-512.png" alt="Mainframe Engine"/></div>
-            <div class="logo-box"><img id="brutal-logo" src="/Content/Brand/brutal/LOGO_BRUTAL_WHT.png" alt="BRUTAL"/></div>
-        </div>
+        <img id="logo" src="/Content/Brand/logo-512.png"/>
         <div id="wordmark">Mainframe Engine</div>
         <div id="version">Editor</div>
         <div id="status">Loading…</div>

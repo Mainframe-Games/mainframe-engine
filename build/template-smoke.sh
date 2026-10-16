@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Template smoke test (CI job "template", `just template-smoke`, `just template-smoke-package`): installs the mfgame
 # template from this checkout into a private template hive, creates SmokeGame, builds it with warnings as errors and
-# runs its desktop project (GameHost) for a few frames with a hidden window, saving the last frame to <work-dir>/screenshot.png,
-# then runs it headless (no splash) and with --qa-splash-out (one PNG per splash card).
-# Fails on any build error, a non-zero exit code, missing engine content, catalogs or BRUTAL-NOTICE.txt, a missing
-# screenshot or an [ERROR]/[FATAL] line in the game's log.
+# runs its desktop project (GameHost) for a few frames with a hidden window, saving the last frame to <work-dir>/screenshot.png.
+# Fails on any build error, a non-zero exit code, missing engine content or catalogs, a missing screenshot or an
+# [ERROR]/[FATAL] line in the game's log.
 #
 # ENGINE_SOURCE=project (default): SmokeGame references this checkout (--engine-source project --engine-path).
 # ENGINE_SOURCE=package: this checkout is packed (build/pack-nuget.sh) into a local feed as 0.0.0-smoke.<timestamp>,
@@ -87,7 +86,7 @@ require() {
     fi
   done
 }
-engine_files=(Content/UI/widgets/widgets.rcss Content/Shaders/Mesh/Mesh.vk.vert.spv Content/locale/fr/LC_MESSAGES/messages.mo BRUTAL-NOTICE.txt)
+engine_files=(Content/UI/widgets/widgets.rcss Content/Shaders/Mesh/Mesh.vk.vert.spv Content/locale/fr/LC_MESSAGES/messages.mo)
 require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Content/Scenes/Main.mscene Content/icon.png "${engine_files[@]}"
 # Steamworks: both Facepunch builds behind the engine's shim (the engine loads this OS's) and every steam_api native.
 steam_files=(steamworks/win64/MainframeEngine.Steamworks.dll steamworks/win64/Facepunch.Steamworks.Win64.dll
@@ -139,15 +138,15 @@ if [ "$source" = "package" ]; then
     case "$package_rid" in
       linux-*) check_archive "$archive" "+$base/SmokeGame" "+$base/libsteam_api.so" "+$base/libmfrmlui.so" \
         "+$base/steamworks/posix/MainframeEngine.Steamworks.dll" "+$base/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-        "+$base/Content/Scenes/Main.mscene" "+$base/BRUTAL-NOTICE.txt" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
+        "+$base/Content/Scenes/Main.mscene" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
       win-*) check_archive "$archive" "+$base/SmokeGame.exe" "+$base/steam_api64.dll" "+$base/mfrmlui.dll" \
         "+$base/steamworks/win64/MainframeEngine.Steamworks.dll" "+$base/steamworks/win64/Facepunch.Steamworks.Win64.dll" \
-        "+$base/BRUTAL-NOTICE.txt" "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" ;;
+        "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" ;;
       osx-*)
         macos="SmokeGame.app/Contents/MacOS"
         check_archive "$archive" "+SmokeGame.app/Contents/Info.plist" "+$macos/SmokeGame" "+$macos/libsteam_api.dylib" \
           "+$macos/libmfrmlui.dylib" "+$macos/steamworks/posix/MainframeEngine.Steamworks.dll" \
-          "+$macos/steamworks/posix/Facepunch.Steamworks.Posix.dll" "+$macos/BRUTAL-NOTICE.txt" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt"
+          "+$macos/steamworks/posix/Facepunch.Steamworks.Posix.dll" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt"
         if [ "$(uname -s)" = "Darwin" ]; then
           check_archive "$archive" "+SmokeGame.app/Contents/Resources/icon.icns"
         fi
@@ -195,18 +194,4 @@ if [ ! -s "$work/screenshot.png" ]; then
   echo "template-smoke: no screenshot at $work/screenshot.png" >&2
   exit 1
 fi
-# The splash (ADR 0192): the hidden --max-frames run above skipped it; --headless never shows it; --qa-splash-out runs
-# only the sequence and saves one PNG per card (the template's project: @mainframe, @brutal).
-if grep -q "Showing the splash" "$log"; then
-  echo "template-smoke: the hidden --max-frames run showed the splash" >&2
-  exit 1
-fi
-MAINFRAME_USER_DATA="$work/userdata-headless" dotnet "$out/SmokeGame.Desktop.dll" --headless --max-frames "$frames"
-if grep -q "Showing the splash" "$work/userdata-headless/SmokeGame/logs/SmokeGame.log"; then
-  echo "template-smoke: the headless run showed the splash" >&2
-  exit 1
-fi
-MAINFRAME_USER_DATA="$work/userdata-splash" dotnet "$out/SmokeGame.Desktop.dll" --qa-splash-out "$work/splash" --hidden \
-  --fixed-fps 60 --no-vsync --max-frames 1200
-require "$work/splash" splash-1.png splash-2.png
 echo "template-smoke: SmokeGame built and ran $frames frames"

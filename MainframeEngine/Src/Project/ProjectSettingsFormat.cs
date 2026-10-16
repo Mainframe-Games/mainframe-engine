@@ -17,7 +17,7 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 5;
+    public const int Current = 4;
 
     /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
     public static IReadOnlyList<ProjectMigration> Migrations { get; } =
@@ -58,14 +58,6 @@ public static class ProjectSettingsFormat
                     p3["jitter2"] = jitter2 = new JsonObject();
                 jitter2[key] ??= value;
             }
-        }),
-
-        // 4 → 5: the "splash" section (ADR 0192, BRUTAL B1). An older project gets the defaults, Mainframe then BRUTAL, which
-        // the BRUTAL licence requires before gameplay; the empty section is the defaults.
-        new(4, static root =>
-        {
-            if (root["splash"] is null)
-                root["splash"] = new JsonObject();
         }),
     ];
 
@@ -153,7 +145,6 @@ public static class ProjectSettingsFormat
             WriteRendering(w, settings.Rendering);
             WriteUi(w, settings.Ui);
             WriteLoading(w, settings.Loading);
-            WriteSplash(w, settings.Splash);
             WriteSaves(w, settings.Saves);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
@@ -451,26 +442,6 @@ public static class ProjectSettingsFormat
         w.WriteEndObject();
     }
 
-    private static void WriteSplash(Utf8JsonWriter w, SplashProjectSettings s)
-    {
-        var d = new SplashProjectSettings();
-        var cards = s.Cards.SequenceEqual(d.Cards);
-        if (cards && s.Background == d.Background && s.HoldSeconds == d.HoldSeconds && s.Skippable == d.Skippable && s.NonProfit == d.NonProfit)
-            return;
-        w.WriteStartObject("splash");
-        if (!cards)
-            WriteStrings(w, "cards", s.Cards); // what the user set: the @brutal lock is applied on load, never written
-        if (s.Background != d.Background)
-            w.WriteString("background", s.Background);
-        if (s.HoldSeconds != d.HoldSeconds)
-            w.WriteNumber("holdSeconds", s.HoldSeconds);
-        if (s.Skippable != d.Skippable)
-            w.WriteBoolean("skippable", s.Skippable);
-        if (s.NonProfit != d.NonProfit)
-            w.WriteBoolean("nonProfit", s.NonProfit);
-        w.WriteEndObject();
-    }
-
     private static void WriteSaves(Utf8JsonWriter w, SavesProjectSettings s)
     {
         var d = new SavesProjectSettings();
@@ -565,7 +536,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "loading", "splash", "saves", "autoloads", "playInstances");
+                "audio", "localization", "rendering", "ui", "loading", "saves", "autoloads", "playInstances");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -593,8 +564,6 @@ public static class ProjectSettingsFormat
                 ReadUi(ui, s.Ui);
             if (Object(root, "loading") is { } loading)
                 ReadLoading(loading, s.Loading);
-            if (Object(root, "splash") is { } splash)
-                ReadSplash(splash, s.Splash);
             if (Object(root, "saves") is { } saves)
                 ReadSaves(saves, s.Saves);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
@@ -787,31 +756,6 @@ public static class ProjectSettingsFormat
             Known(o, "loading.", "async", "screen");
             s.Async = Bool(o, "async", "loading.async", s.Async);
             s.Screen = String(o, "screen", "loading.screen") ?? s.Screen;
-        }
-
-        private void ReadSplash(JsonObject o, SplashProjectSettings s)
-        {
-            Known(o, "splash.", "cards", "background", "holdSeconds", "skippable", "nonProfit");
-            if (Array(o, "cards", "splash.cards") is not null)
-            {
-                var cards = Strings(o, "cards", "splash.cards");
-                for (var i = 0; i < cards.Count; i++)
-                    if (SplashProjectSettings.CardError(cards[i]) is { } error)
-                        throw Error($"splash.cards[{i.ToString(CultureInfo.InvariantCulture)}]", error);
-                s.Cards.Clear();
-                s.Cards.AddRange(cards);
-            }
-
-            if (String(o, "background", "splash.background") is { } background)
-                Guard("splash.background", () => s.Background = background);
-            var hold = Float(o, "holdSeconds", "splash.holdSeconds", s.HoldSeconds);
-            s.HoldSeconds = hold;
-            if (s.HoldSeconds != hold)
-                Log.Warning($"[Project] '{source}': splash.holdSeconds {hold.ToString(CultureInfo.InvariantCulture)} is outside " +
-                            $"{SplashProjectSettings.MinHoldSeconds.ToString(CultureInfo.InvariantCulture)}–{SplashProjectSettings.MaxHoldSeconds.ToString(CultureInfo.InvariantCulture)} s; " +
-                            $"using {s.HoldSeconds.ToString(CultureInfo.InvariantCulture)}.");
-            s.Skippable = Bool(o, "skippable", "splash.skippable", s.Skippable);
-            s.NonProfit = Bool(o, "nonProfit", "splash.nonProfit", s.NonProfit);
         }
 
         private void ReadSaves(JsonObject o, SavesProjectSettings s)

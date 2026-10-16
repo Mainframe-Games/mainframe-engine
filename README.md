@@ -36,10 +36,6 @@ open source under the MIT licence. It started as a way to learn how engines work
 working in, and it is in active development (milestones M0–M10 are done; see the [roadmap](docs/milestones.md)). Feel
 free to use it, and to send pull requests or feature requests in Issues 😁
 
-Mainframe is **built on [BRUTAL](https://github.com/ahwootech/BRUTAL)** (Ahwoo's C# game framework), and every game made
-with it inherits BRUTAL's licence: its logo before gameplay, its copyright on a credits screen and its `NOTICE.txt` next
-to the game. The engine does all three by default (see [What your game inherits](#what-your-game-inherits)).
-
 ![The editor: a 3D scene with a spot light selected, its inspector, the FileSystem and Output panels](docs/images/editor.png)
 
 ---
@@ -82,9 +78,7 @@ A Godot-style editor whose UI is built with the engine's own RmlUi game UI. It w
 Manager and New Project wizard, a scene tree, an inspector generated from the nodes' `[Export]` metadata with undo/redo,
 a 3D or 2D viewport with GPU picking and gizmos, a FileSystem panel that keeps references when files move, and Play —
 the game builds and runs in its own process, its log streams into Output, and code changes reload into the open
-editor. Scenes open in tabs, each in its own world; nothing but `[Tool]` nodes runs while editing. Project Settings ›
-Splash edits the game's splash cards around the locked BRUTAL card and previews the sequence
-([screenshot](docs/images/editor-splash-settings.png)).
+editor. Scenes open in tabs, each in its own world; nothing but `[Tool]` nodes runs while editing.
 
 <table>
   <tr>
@@ -161,7 +155,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
-| [Physics](docs/design/physics.md) | Jitter2 in 3D (Jolt via BRUTAL is coming as a second backend) and Box2D in 2D: rigid, static, character and area bodies, layers, queries, `MoveAndSlide`, interpolation, debug draw |
+| [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static, character and area bodies, layers, queries, `MoveAndSlide`, interpolation, debug draw |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, loopback and simulated bad networks |
@@ -186,7 +180,6 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Game UI](docs/design/game-ui.md) | RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library; the editor is built with it |
 | [Developer overlay](docs/design/dev-overlay.md) | F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, physics and network panels; add your own in one call |
 | [Games in C#](docs/design/project-and-gamehost.md) | `dotnet new mfgame`, `project.mfproj` and `GameHost`: input actions, autoloads, structured logs, the editor link, headless dedicated servers |
-| [Splash & credits](docs/design/project-and-gamehost.md#splash-splash-adr-0192) | Built on BRUTAL: a splash sequence (Mainframe, BRUTAL, your cards) set in `project.mfproj` and the editor, a Credits tab in the settings menu, `BRUTAL-NOTICE.txt` next to every game |
 | [NuGet packages](docs/design/distribution-nuget.md) | The engine and the project template on nuget.org: build a game with the .NET SDK alone, no checkout or editor needed |
 | [Self-updating editor](docs/design/editor-updates.md) | The editor finds new releases on GitHub and updates itself in place on macOS, Windows and Linux |
 | [Quality](docs/design/testing.md) | Zero warnings, 1 600+ tests, golden-image render tests on MoltenVK and lavapipe, a Vulkan validation gate and a 0-bytes-per-frame allocation gate |
@@ -198,7 +191,6 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Area | Technology | Notes |
 |---|---|---|
 | Language & runtime | C# on [.NET 10](https://dotnet.microsoft.com/) | Nullable, warnings as errors; `unsafe` for Vulkan buffers and matrices |
-| Framework | [BRUTAL](https://github.com/ahwootech/BRUTAL) (Ahwoo Limited) 2026.10 | Pinned exactly; Jolt arrives through it as a second 3D physics backend ([ADR 0192](memory/decisions/0192-brutal-backend-tech.md)) |
 | Graphics | [Vulkan](https://www.vulkan.org/) 1.2 via [Silk.NET](https://github.com/dotnet/Silk.NET) 2.23 | In-house GPU allocator, upload and deletion queues, pipeline cache |
 | Vulkan on macOS | [MoltenVK](https://github.com/KhronosGroup/MoltenVK) (`Silk.NET.MoltenVK.Native`) | Bundled: nothing to install to run |
 | Windowing & input | [SDL2](https://www.libsdl.org/) via Silk.NET | Keyboard, mouse, gamepads; HiDPI |
@@ -235,19 +227,6 @@ dotnet new mfgame -n MyGame
 **[Getting started](docs/getting-started.md)** covers installing the editor, building from source, making a game in
 the editor, the Demo, a tour of the code, tests and releases.
 
-### What your game inherits
-
-The engine is MIT, and it is built on BRUTAL, whose licence (BRUTAL License v1.0) adds three conditions to every game:
-BRUTAL's copyright line on a credits screen, the BRUTAL logo before gameplay (unaltered, no less prominent than other
-logos) and BRUTAL's `NOTICE.txt` alongside the game. Mainframe does all three for you: the settings menu's **Credits** tab,
-the splash sequence's locked `@brutal` card (`project.mfproj` `splash`; non-profit games may remove it after confirming
-with Ahwoo) and `BRUTAL-NOTICE.txt` in every build and publish. Dedicated servers (`--headless`) show no splash.
-
-| ![The Mainframe card](docs/images/splash/splash-1.png) | ![The BRUTAL card](docs/images/splash/splash-2.png) |
-|---|---|
-
-![Project Settings › Splash: the cards, the locked BRUTAL card and its tooltip](docs/images/editor-splash-settings.png)
-
 ## Documentation & roadmap
 
 - **[Docs site](https://mainframe-games.github.io/mainframe-engine/docs/)** — the documentation, searchable, with the
@@ -261,8 +240,6 @@ with Ahwoo) and `BRUTAL-NOTICE.txt` in every build and publish. Dedicated server
 ## License
 
 - **Engine code** (everything in this repository unless noted otherwise) is MIT licensed — see [LICENSE](LICENSE).
-- **BRUTAL** (`Ahwoo.BRUTAL.*`): BRUTAL License v1.0, **not MIT**; games inherit its conditions (logo before gameplay,
-  credits, `NOTICE.txt`; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md#brutal)). The engine meets them by default.
 - **Third-party components and assets** keep their own licences; they are listed, with their notices, in
   [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Keep those notices with any distribution of the engine, the editor
   or a game built with it.

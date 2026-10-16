@@ -332,15 +332,6 @@ drop-in options screen over [`UserSettings`](project-and-gamehost.md#user-settin
 [`Content/UI/settings/settings.rml`](../../MainframeEngine/Content/UI/settings/settings.rml) with the widget library only
 (`.panel`, `.tabs`, sliders, checkboxes, dropdowns, buttons).
 
-**Credits tab** (BRUTAL B1, ADR 0192): the fourth tab (`SettingsTabs.Credits`, in `SettingsTabs.All`) lists
-`Credits.Entries` by section in a scrolling list: section "Engine" (Mainframe Engine and BRUTAL, with the BRUTAL licence's
-condition 2.1 line "BRUTAL game development framework is Copyright (c) 2024 Ahwoo Limited."), "Third-party" (every
-game-shipped component of `THIRD_PARTY_NOTICES.md`, read from the copy embedded at build, so they cannot drift; FreeType's
-required credit among them), then the game's own sections: `Credits.Add("Studio", "Ada Lovelace", "Programming")` from an
-autoload's `OnReady`. Names and notices are not translated (`no-tr`). A game with its own menu either keeps this tab or
-lists `Credits.Entries` on its own credits screen; `Content/UI/credits.rml` is a static document with the same required
-lines.
-
 ```csharp
 SettingsMenu.Open(Tree, new SettingsMenuOptions
 {

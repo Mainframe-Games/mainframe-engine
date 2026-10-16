@@ -114,14 +114,4 @@ wait 10
 capture editor-game-project
 command play.stop
 wait-for stopped 30
-# 7. Project Settings › Splash: Mainframe, the locked BRUTAL card (its tooltip), the options.
-command project.settings
-wait 3
-click #ps-nav-splash
-wait 3
-move #ps-splash-lock
-wait 60
-capture editor-splash-settings
-key Escape
-wait 2
 quit

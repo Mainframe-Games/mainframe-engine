@@ -12,10 +12,7 @@ public enum SettingsTabs
     Audio = 1,
     Controls = 2,
     Display = 4,
-
-    /// <summary><see cref="MainframeEngine.Credits.Entries"/> by section: the BRUTAL licence's copyright line among them (ADR 0192).</summary>
-    Credits = 8,
-    All = Audio | Controls | Display | Credits,
+    All = Audio | Controls | Display,
 }
 
 /// <summary>How <see cref="SettingsMenu.Open"/> builds the menu.</summary>
@@ -24,7 +21,7 @@ public sealed class SettingsMenuOptions
     /// <summary>Pause the tree while the menu is open (the menu's layer keeps processing); restored on close.</summary>
     public bool PauseTree { get; init; }
 
-    /// <summary>The tabs to show, in the order Audio, Controls, Display, Credits.</summary>
+    /// <summary>The tabs to show, in the order Audio, Controls, Display.</summary>
     public SettingsTabs Tabs { get; init; } = SettingsTabs.All;
 
     /// <summary>Buses without a row (by name; e.g. a "Voice" bus the game drives itself). Master is always shown.</summary>
@@ -86,14 +83,6 @@ public sealed class SettingsMenu : UiDocument
         public string Label { get; set; } = "";
     }
 
-    // One line of the Credits tab: a section heading, or an entry with its notice.
-    private sealed class CreditRow
-    {
-        public required bool Heading { get; init; }
-        public required string Text { get; init; }
-        public string Notice { get; init; } = "";
-    }
-
     private static readonly RmlStructType<BusRow> BusType = new RmlStructType<BusRow>()
         .Member("name", static b => b.Name)
         .Member("label", static b => b.Label)
@@ -117,11 +106,6 @@ public sealed class SettingsMenu : UiDocument
         .Member("code", static c => c.Value)
         .Member("name", static c => c.Label);
 
-    private static readonly RmlStructType<CreditRow> CreditType = new RmlStructType<CreditRow>()
-        .Member("heading", static c => c.Heading)
-        .Member("text", static c => c.Text)
-        .Member("notice", static c => c.Notice);
-
     private static readonly (int Width, int Height)[] CommonSizes =
     [
         (1280, 720), (1280, 800), (1366, 768), (1440, 900), (1600, 900), (1680, 1050), (1920, 1080), (1920, 1200),
@@ -135,7 +119,6 @@ public sealed class SettingsMenu : UiDocument
     private readonly List<string> _windowSizes = [];
     private readonly List<Choice> _fpsChoices = [];
     private readonly List<Choice> _locales = [];
-    private readonly List<CreditRow> _credits = [];
     private RmlDataModel? _model;
     private InputRebinder? _rebinder;
     private UserSettings? _settings;
@@ -169,7 +152,7 @@ public sealed class SettingsMenu : UiDocument
     /// <summary>The settings this menu edits.</summary>
     public UserSettings Settings => _settings ?? throw new InvalidOperationException("The settings menu has no UserSettings (none loaded: UserSettings.Current is null).");
 
-    /// <summary>The open tab: <c>"audio"</c>, <c>"controls"</c>, <c>"display"</c> or <c>"credits"</c>.</summary>
+    /// <summary>The open tab: <c>"audio"</c>, <c>"controls"</c> or <c>"display"</c>.</summary>
     public string Tab => _tab;
 
     /// <summary>Whether a binding is waiting for a key or button.</summary>
@@ -234,7 +217,7 @@ public sealed class SettingsMenu : UiDocument
             QueueFree();
     }
 
-    /// <summary>Switches to <paramref name="tab"/> (<c>"audio"</c>, <c>"controls"</c>, <c>"display"</c> or <c>"credits"</c>) if it is shown.</summary>
+    /// <summary>Switches to <paramref name="tab"/> (<c>"audio"</c>, <c>"controls"</c>, <c>"display"</c>) if it is shown.</summary>
     public void ShowTab(string tab)
     {
         if (!IsShown(tab) || tab == _tab)
@@ -258,8 +241,7 @@ public sealed class SettingsMenu : UiDocument
             tree.Paused = true;
         }
 
-        _tab = (_options.Tabs & SettingsTabs.Audio) != 0 ? "audio" : (_options.Tabs & SettingsTabs.Controls) != 0 ? "controls"
-            : (_options.Tabs & SettingsTabs.Display) != 0 ? "display" : "credits";
+        _tab = (_options.Tabs & SettingsTabs.Audio) != 0 ? "audio" : (_options.Tabs & SettingsTabs.Controls) != 0 ? "controls" : "display";
         _rebinder = new InputRebinder { Name = "Rebinder" };
         _rebinder.Captured += OnCaptured;
         _rebinder.Cleared += OnCleared;
@@ -271,7 +253,6 @@ public sealed class SettingsMenu : UiDocument
         BuildBuses();
         BuildActions();
         BuildDisplayChoices();
-        BuildCredits();
         Translate();
 
         _model = CreateDataModel("settings")
@@ -279,8 +260,6 @@ public sealed class SettingsMenu : UiDocument
             .Bind("showAudio", this, static m => (m._options.Tabs & SettingsTabs.Audio) != 0)
             .Bind("showControls", this, static m => (m._options.Tabs & SettingsTabs.Controls) != 0)
             .Bind("showDisplay", this, static m => (m._options.Tabs & SettingsTabs.Display) != 0)
-            .Bind("showCredits", this, static m => (m._options.Tabs & SettingsTabs.Credits) != 0)
-            .BindList("credits", _credits, CreditType)
             .BindList("buses", _buses, BusType)
             .BindList("actions", _actions, ActionType)
             .Bind("notice", this, static m => m._notice)
@@ -708,13 +687,12 @@ public sealed class SettingsMenu : UiDocument
         "audio" => (_options.Tabs & SettingsTabs.Audio) != 0,
         "controls" => (_options.Tabs & SettingsTabs.Controls) != 0,
         "display" => (_options.Tabs & SettingsTabs.Display) != 0,
-        "credits" => (_options.Tabs & SettingsTabs.Credits) != 0,
         _ => false,
     };
 
     private void StepTab(int step)
     {
-        string[] order = ["audio", "controls", "display", "credits"];
+        string[] order = ["audio", "controls", "display"];
         var at = Array.IndexOf(order, _tab);
         for (var i = 1; i <= order.Length; i++)
         {
@@ -724,19 +702,6 @@ public sealed class SettingsMenu : UiDocument
                 ShowTab(next);
                 return;
             }
-        }
-    }
-
-    // The Credits tab (BRUTAL B1): Credits.Entries by section, a heading row before each section. Shown as registered: names
-    // are not translated and notices are legal text (the document marks them no-tr).
-    private void BuildCredits()
-    {
-        _credits.Clear();
-        foreach (var section in Credits.BySection())
-        {
-            _credits.Add(new CreditRow { Heading = true, Text = section.Key });
-            foreach (var entry in section)
-                _credits.Add(new CreditRow { Heading = false, Text = entry.Name, Notice = entry.Notice ?? "" });
         }
     }
 

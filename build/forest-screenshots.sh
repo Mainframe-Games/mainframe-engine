@@ -16,7 +16,7 @@ bin="$repo/Examples/Forest/Forest.Desktop/bin/Release/net10.0"
 names=(r1-glade r2-fall r3-bridge r4-vista r5-floor r6-pines r7-fall-close r8-woodland)
 for n in ${FOREST_SHOTS:-1 2 3 4 5 6 7 8}; do
   name="${names[$((n - 1))]}"
-  (cd "$bin" && dotnet Forest.Desktop.dll --no-splash --fixed-fps 60 --max-frames "$frames" --no-log-file --screenshot "$out/$name.png" \
+  (cd "$bin" && dotnet Forest.Desktop.dll --fixed-fps 60 --max-frames "$frames" --no-log-file --screenshot "$out/$name.png" \
     ++ --no-capture --no-audio --resolution 2560x1440 --shot "$n" "$@")
   if command -v sips > /dev/null; then
     sips --resampleWidth 1600 "$out/$name.png" > /dev/null

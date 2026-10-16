@@ -144,11 +144,9 @@ public sealed class SettingsMenuTests : IDisposable
         f.Ui.Pad(ButtonName.RightBumper, true);
         Assert.Equal("display", menu.Tab);
         f.Ui.Pad(ButtonName.RightBumper, true);
-        Assert.Equal("credits", menu.Tab);
-        f.Ui.Pad(ButtonName.RightBumper, true);
         Assert.Equal("audio", menu.Tab); // wraps
         f.Ui.Pad(ButtonName.LeftBumper, true);
-        Assert.Equal("credits", menu.Tab);
+        Assert.Equal("display", menu.Tab);
 
         f.Ui.Key(Key.Escape, pressed: true);
         f.Ui.Tick();
@@ -156,35 +154,6 @@ public sealed class SettingsMenuTests : IDisposable
         Assert.Null(SettingsMenu.Find(f.Ui.Tree));
         Assert.False(f.Ui.Tree.Paused);
         Assert.False(File.Exists(SettingsPath));
-    }
-
-    [Fact]
-    public void TheCreditsTabListsEveryEntryUnderItsSection()
-    {
-        using var f = new Fixture(SettingsPath);
-        var name = "Settings menu credits " + Guid.NewGuid().ToString("N");
-        Credits.Add("Studio", name, "Made by us.");
-        var menu = f.Open();
-        menu.ShowTab("credits");
-        f.Ui.Tick();
-
-        Assert.Equal("credits", menu.Tab);
-        var text = Fixture.Text(menu);
-        Assert.Contains("Mainframe Engine", text, StringComparison.Ordinal);
-        Assert.Contains(Credits.BrutalNotice, text, StringComparison.Ordinal);
-        Assert.Contains("The FreeType Project", text, StringComparison.Ordinal);
-        Assert.Contains(name, text, StringComparison.Ordinal);
-        Assert.Contains("Made by us.", text, StringComparison.Ordinal);
-        var sections = menu.Document.AsElement().QuerySelectorAll(".credit-section");
-        Assert.Equal(Credits.BySection().Count(), sections.Length);
-        Assert.Contains(Credits.EngineSection, sections[0].InnerRml, StringComparison.Ordinal);
-
-        // A menu without the tab never shows it.
-        menu.Close();
-        f.Ui.Tick();
-        var noCredits = f.Open(new SettingsMenuOptions { Settings = f.Settings, Tabs = SettingsTabs.Audio });
-        noCredits.ShowTab("credits");
-        Assert.Equal("audio", noCredits.Tab);
     }
 
     [Fact]

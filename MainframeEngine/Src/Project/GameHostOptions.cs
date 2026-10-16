@@ -22,9 +22,6 @@ namespace MainframeEngine;
 /// <item><term><c>--sync-load</c></term><description>load the start scene synchronously, without the loading screen (ADR 0183; as <c>loading.async</c> false)</description></item>
 /// <item><term><c>--loading-hold &lt;seconds&gt;</c></term><description>keep the loading screen up at least this long before the scene enters (QA of its look)</description></item>
 /// <item><term><c>--loading-screenshot &lt;file.png&gt;</c></term><description>save the loading screen's first frame at or past half progress as a PNG (QA)</description></item>
-/// <item><term><c>--no-splash</c></term><description>skip the splash sequence while developing (ADR 0192; a shipped game launched normally always shows it)</description></item>
-/// <item><term><c>--qa-splash</c></term><description>run only the splash sequence, then quit (the editor's Project Settings › Splash › Preview)</description></item>
-/// <item><term><c>--qa-splash-out &lt;dir&gt;</c></term><description><c>--qa-splash</c>, unskippable, saving each card halfway through its hold as <c>dir/splash-N.png</c> (docs, QA)</description></item>
 /// <item><term><c>--bake-lighting</c></term><description>bake every <see cref="LightProbeVolume"/> of the start scene once it is ready, save the data and quit (ADR 0170; works with <c>--headless</c>)</description></item>
 /// <item><term><c>--record &lt;file.mp4&gt;</c></term><description>record gameplay with ffmpeg until quit (live; offline with <c>--fixed-fps</c>) and write <c>file.mp4.mfcap.json</c>; not with <c>--headless</c></description></item>
 /// <item><term><c>--record-scale &lt;n&gt;</c></term><description>fixed content scale for the recording (a 1920×1080-point window at 2 is 4K)</description></item>
@@ -77,15 +74,6 @@ public sealed record GameHostOptions
 
     /// <summary><c>--loading-screenshot</c>: PNG of the loading screen at half progress (enables frame capture).</summary>
     public string? LoadingScreenshotPath { get; init; }
-
-    /// <summary><c>--no-splash</c>: the splash sequence does not run (ADR 0192; a development flag).</summary>
-    public bool NoSplash { get; init; }
-
-    /// <summary><c>--qa-splash</c>: run only the splash sequence (no session start), then quit.</summary>
-    public bool QaSplash { get; init; }
-
-    /// <summary><c>--qa-splash-out</c>: the folder for one PNG per splash card (implies <see cref="QaSplash"/> and frame capture).</summary>
-    public string? QaSplashOutput { get; init; }
 
     /// <summary><c>--record</c>: the video to record to. Null when not recording from the command line.</summary>
     public string? RecordPath { get; init; }
@@ -181,15 +169,6 @@ public sealed record GameHostOptions
                 case "--loading-screenshot":
                     options = options with { LoadingScreenshotPath = Value(args, ref i) };
                     break;
-                case "--no-splash":
-                    options = options with { NoSplash = true };
-                    break;
-                case "--qa-splash":
-                    options = options with { QaSplash = true };
-                    break;
-                case "--qa-splash-out":
-                    options = options with { QaSplash = true, QaSplashOutput = Value(args, ref i) };
-                    break;
                 case "--record":
                     options = options with { RecordPath = Value(args, ref i) };
                     break;
@@ -213,8 +192,6 @@ public sealed record GameHostOptions
     {
         if (options.Headless && options.RecordPath is not null)
             throw new ArgumentException("--record needs a window: --headless has no renderer to record (drop one of the two).");
-        if (options.Headless && options.QaSplash)
-            throw new ArgumentException("--qa-splash needs a window: --headless shows no splash (drop one of the two).");
         return options;
     }
 
@@ -234,8 +211,6 @@ public sealed record GameHostOptions
         if (Locale is not null)
             options.Locale = Locale;
         if (ScreenshotPath is not null || LoadingScreenshotPath is not null || FrameCapture)
-            options.EnableFrameCapture = true;
-        if (QaSplashOutput is not null)
             options.EnableFrameCapture = true;
         if (DevOverlay)
             options.DevOverlayVisible = true;

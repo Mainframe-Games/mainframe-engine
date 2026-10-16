@@ -105,12 +105,3 @@ button.binding.active { background-color: #1c2a44; border-color: #5aa0ff; color:
     border-radius: 3dp;
     font-size: 12dp;
 }
-
-/* Credits */
-#credits { display: block; height: 340dp; overflow-y: auto; }
-#credits .credit-section { display: block; margin: 10dp 6dp 4dp 6dp; }
-#credits .credit-section .credit-name { font-weight: bold; color: #e6e9ef; }
-#credits .credit-section .credit-notice { display: none; }
-#credits .credit { display: block; margin: 0dp 6dp 6dp 6dp; }
-#credits .credit-name { display: block; color: #e6e9ef; }
-#credits .credit-notice { display: block; font-size: 12dp; color: #8a95ab; }

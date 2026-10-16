@@ -54,10 +54,3 @@ NuGet drops the executable bit. `--sign`/`--notarize` sign and notarize the macO
 - [Source, editor downloads and releases](https://github.com/Mainframe-Games/mainframe-engine)
 - MIT licence; the bundled third-party code keeps its own licences (Valve's `steam_api` natives: the Steamworks SDK
   Access Agreement)
-
-## Licence
-
-The engine is MIT. It depends on BRUTAL (`Ahwoo.BRUTAL.*`), whose licence every game inherits: BRUTAL's copyright on a
-credits screen, its logo before gameplay and its `NOTICE.txt` next to the game. The engine does all three by default (the
-settings menu's Credits tab, the splash sequence's locked `@brutal` card, `BRUTAL-NOTICE.txt` in every build and publish).
-See THIRD_PARTY_NOTICES.md in the engine repository.

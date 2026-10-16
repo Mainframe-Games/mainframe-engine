@@ -7,11 +7,8 @@ the Spine Runtimes (`Plugins/Spine`) and the Spine example assets are Esoteric S
 Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)).
 
 - Keep these notices with any distribution of the engine, the editor, or a game built with it.
-- Credits screens must show the FreeType credit (the FreeType License has an advertising clause) and BRUTAL's copyright
-  line (the BRUTAL licence, 2.1). The engine's settings menu has a **Credits** tab listing both (`Credits.Entries`), and
-  `Content/UI/credits.rml` is a ready-made document; a game with its own screen lists `Credits.Entries`.
-- **Games inherit the BRUTAL licence** (see [BRUTAL](#brutal)): the engine shows BRUTAL's logo in the splash sequence and
-  copies `BRUTAL-NOTICE.txt` next to the game, so a game is compliant without doing anything.
+- Credits screens must show the FreeType credit, because the FreeType License has an advertising clause. The engine
+  ships a ready-made credits document, `Content/UI/credits.rml` (load it from a **Credits** button in your game's UI).
 
 | Component | Version | Licence | Where | Shipped in |
 |---|---|---|---|---|
@@ -33,10 +30,6 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | [miniaudio](https://miniaud.io) (David Reid) | bundled in SoundFlow 1.4.1 | Unlicense or MIT No Attribution (dual; SoundFlow reproduces it under MIT terms) | inside SoundFlow's native library | `libminiaudio.dylib` / `libminiaudio.so` / `miniaudio.dll` |
 | [NVorbis](https://github.com/NVorbis/NVorbis) | 0.10.5 | MIT | NuGet package `NVorbis` | `NVorbis.dll` |
 | [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) | 2.4.1 | MIT | `Plugins/Facepunch.Steamworks` (vendored Win64 and Posix builds) | `steamworks/{win64,posix}/Facepunch.Steamworks.*.dll` |
-| [BRUTAL](https://github.com/ahwootech/BRUTAL) (Ahwoo Limited: `Ahwoo.BRUTAL.Core`, `Interop`, `Logging`, `Memory`, `Numerics`, `Strings`, `Collections`, `Jolt`) | 2026.10.1 (Logging, Jolt 2026.10.2) | BRUTAL License v1.0: MIT-style plus three conditions on every product (see [below](#brutal)) | NuGet packages `Ahwoo.BRUTAL.*` | engine (games inherit the licence's conditions, see [below](#brutal)) |
-| [Jolt Physics](https://github.com/jrouwe/JoltPhysics) (Jorrit Rouwe; built into `Ahwoo.BRUTAL.Jolt`) | 5.5.0 | MIT | inside `Ahwoo.BRUTAL.Jolt` | `jolt` native library (`jolt.dll`, `libjolt.so`, `libjolt.dylib`) |
-| [CommunityToolkit.HighPerformance](https://github.com/CommunityToolkit/dotnet) (.NET Foundation; a dependency of `Ahwoo.BRUTAL.Core`) | 8.4.2 | MIT | NuGet package `CommunityToolkit.HighPerformance` | `CommunityToolkit.HighPerformance.dll` |
-| [Microsoft.Extensions.Logging](https://github.com/dotnet/runtime), `.Console`, `.ObjectPool` and the `Microsoft.Extensions.*` packages they depend on (dependencies of `Ahwoo.BRUTAL.Logging` and `Strings`) | 10.0.0 (ObjectPool 11.0.0-preview.5.26302.115) | MIT | NuGet packages `Microsoft.Extensions.*` | `Microsoft.Extensions.*.dll` |
 | Steamworks SDK redistributables (`steam_api64.dll`, `libsteam_api.so`, `libsteam_api.dylib`; the SDK Facepunch.Steamworks 2.4.1 was built against) | — | © Valve Corporation; redistributed under the Steamworks SDK Access Agreement, **not MIT** | `MainframeEngine/runtimes/<rid>/native` (vendored) | `steam_api` native library (see [below](#steamworks-sdk-redistributables)) |
 | [libogg](https://github.com/xiph/ogg) | 1.3.6 | BSD-3-Clause | `Native/PluginHost/external/ogg` (submodule) | editor only: `mfplughost` helper executable (static) |
 | [libvorbis / libvorbisenc / libvorbisfile](https://github.com/xiph/vorbis) | 1.3.7 | BSD-3-Clause | `Native/PluginHost/external/vorbis` (submodule) | editor only: `mfplughost` helper executable (static) |
@@ -954,114 +947,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## BRUTAL
-
-The engine depends on BRUTAL (Ahwoo Limited's C# game framework: the `Ahwoo.BRUTAL.*` packages, pinned exactly in
-`Directory.Packages.props`), under the **BRUTAL License v1.0**: MIT-style, plus three conditions on every product that
-includes BRUTAL. Every game made with Mainframe includes it, so **every game inherits them** (ADR 0192). The engine meets
-all three by default:
-
-1. **Credits** (2.1): "BRUTAL game development framework is Copyright (c) 2024 Ahwoo Limited." on the credits screen or
-   equivalent. The engine registers it in `Credits`; the settings menu's Credits tab and `Content/UI/credits.rml` show it.
-2. **Logo before gameplay** (2.2): the BRUTAL logo, unaltered except for scaling, legible, no less prominent than other
-   logos. The splash sequence's `@brutal` card (`project.mfproj` `splash`) is locked and fits the same box as every other
-   card. The logo files (`MainframeEngine/Content/Brand/brutal/`) are BRUTAL's `docs/branding/` files byte for byte
-   (checksums: `build/brand/brutal-logos.sha256`), fetched from commit a25cdf80b2a15530e7da6cff744def9d841ad3c3.
-3. **NOTICE** (2.3): BRUTAL's `NOTICE.txt` alongside the product. Every build and publish copies it next to the game
-   executable as `BRUTAL-NOTICE.txt`; ship it with the game.
-
-Exceptions: Ahwoo's written permission, or a product that cannot display graphics (a `--headless` dedicated server shows
-no splash). BRUTAL's README waives the logo for non-profits and where it would be detrimental: set `splash.nonProfit` and
-ask Ahwoo (brutal@ahwoo.com) to confirm. The licence is governed by New Zealand law. Its text, as shipped in
-`Ahwoo.BRUTAL.Core` 2026.10.1:
-
-```text
-BRUTAL License v1.0
-
-BRUTAL game development framework is Copyright (c) 2024 Ahwoo Limited.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-1.0. The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-2.0. Any game, application, or other software product that is distributed to
-end users and that incorporates, links to, or is built using the Software or
-substantial portion of it (a “Product”) is subject to the following
-conditions:
-
-2.1. The above copyright notice shall be included in the Credits screen or
-equivalent for all copies of the Product.
-
-2.2. The Brutal logo available from ahwoo.com/brutal-branding shall be
-displayed in all copies of the Product prior to commencement of gameplay or the
-Software’s primary function, unless permission has been granted in writing by
-Ahwoo Limited or the Product is not capable of displaying graphics. The logo
-shall be shown unaltered except for scaling, for long enough to be legible, and
-shall be no less prominent than logos for other parties.
-
-2.3. The NOTICE.txt file shall be distributed alongside all copies of the
-Product.
-
-3.0. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-4.0. Where this package redistributes third-party components, they are listed,
-together with the licences that govern them, in the LICENSES/ directory at the
-root of this package. Those licences continue to apply to those components, and
-nothing stated here limits any right they grant you.
-
-5.0. Any person submitting any contribution to the Software, hereby grants
-Ahwoo Limited and all recipients of this Software a perpetual, worldwide,
-non-exclusive, no-charge, royalty-free, irrevocable license to include the
-contribution in the Software and use it under the terms of this license. Any
-person submitting any contribution represents that they are legally entitled to
-grant this license and that their contribution does not infringe upon any
-third-party rights.
-
-6.0. This Agreement is governed by and shall be construed in accordance with
-the laws of New Zealand, and the parties submit to the exclusive jurisdiction
-of the courts of New Zealand.
-```
-
-## Jolt Physics
-
-`Ahwoo.BRUTAL.Jolt` 2026.10.2 carries Jolt Physics 5.5.0 (Jorrit Rouwe) as the `jolt` native library, MIT licensed. Its
-notice, from the package's `LICENSES/`:
-
-```text
-Brutal.Jolt uses third-party material as listed below. The attached notices are
-provided for informational purposes only.
-
-============================================================
-Jolt Physics
-============================================================
-
-MIT License
-
-Copyright 2021 Jorrit Rouwe
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-## CommunityToolkit.HighPerformance and Microsoft.Extensions
-
-`CommunityToolkit.HighPerformance` 8.4.2 (.NET Foundation), `Microsoft.Extensions.Logging` / `.Console` 10.0.0 with the
-`Microsoft.Extensions.*` packages they depend on, and `Microsoft.Extensions.ObjectPool` 11.0.0-preview.5.26302.115 (a
-preview, required by `Ahwoo.BRUTAL.Strings`) (Microsoft) are BRUTAL's dependencies, all MIT; each package carries its
-licence file.

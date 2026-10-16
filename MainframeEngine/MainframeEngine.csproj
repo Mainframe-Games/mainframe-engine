@@ -51,26 +51,6 @@
         <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
         <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
         <PackageReference Include="StbImageSharp" />
-        <!--
-          BRUTAL (ADR 0192): a dependency of the engine package itself, so its natives reach games through
-          runtimes/<rid>/native like Silk.NET's, and games inherit its licence (THIRD_PARTY_NOTICES.md#brutal). Its Roslyn
-          analyzers and Interop's source generator stay off (ExcludeAssets, which the package's dependency edges keep), so
-          the 0-warning build never depends on another project's rule set; B5 may turn them on deliberately.
-          GeneratePathProperty: $(PkgAhwoo_BRUTAL_Core) is the package folder holding NOTICE.txt.
-        -->
-        <PackageReference Include="Ahwoo.BRUTAL.Collections" ExcludeAssets="analyzers" />
-        <PackageReference Include="Ahwoo.BRUTAL.Core" ExcludeAssets="analyzers" GeneratePathProperty="true" />
-        <PackageReference Include="Ahwoo.BRUTAL.Interop" ExcludeAssets="analyzers" />
-        <PackageReference Include="Ahwoo.BRUTAL.Jolt" ExcludeAssets="analyzers" />
-        <PackageReference Include="Ahwoo.BRUTAL.Logging" ExcludeAssets="analyzers" />
-        <PackageReference Include="Ahwoo.BRUTAL.Memory" ExcludeAssets="analyzers" />
-        <PackageReference Include="Ahwoo.BRUTAL.Numerics" ExcludeAssets="analyzers" />
-        <PackageReference Include="Ahwoo.BRUTAL.Strings" ExcludeAssets="analyzers" />
-        <!-- Referenced only to pin BRUTAL's third-party dependencies (transitive pinning is off for the solution). -->
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="Microsoft.Extensions.Logging" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" />
-        <PackageReference Include="Microsoft.Extensions.ObjectPool" />
     </ItemGroup>
     
     <!-- Test and tooling assemblies may use internals (UBO packing, pools, counters) -->
@@ -128,24 +108,6 @@
     </ItemGroup>
 
     <!--
-      BRUTAL licence 2.3 (ADR 0192): BRUTAL's NOTICE.txt (Ahwoo.BRUTAL.Core's package root) next to every app that
-      references the engine, as BRUTAL-NOTICE.txt, in the build and publish output. Checkout games get it through this
-      project reference like Content/ and steamworks/; package games from buildTransitive/MainframeEngine.targets (the
-      package carries it as mainframe/BRUTAL-NOTICE.txt, see _MainframePackContent).
-    -->
-    <ItemGroup Condition="'$(PkgAhwoo_BRUTAL_Core)' != ''">
-      <None Include="$(PkgAhwoo_BRUTAL_Core)/NOTICE.txt" Link="BRUTAL-NOTICE.txt" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-    </ItemGroup>
-    <Target Name="_MainframeCheckBrutalNotice" BeforeTargets="Build" Condition="'$(PkgAhwoo_BRUTAL_Core)' != ''">
-      <Error Condition="!Exists('$(PkgAhwoo_BRUTAL_Core)/NOTICE.txt')" Code="MFBRUTAL001"
-             Text="Ahwoo.BRUTAL.Core has no NOTICE.txt at $(PkgAhwoo_BRUTAL_Core): games must ship BRUTAL's notice (the BRUTAL licence, 2.3). Find where this BRUTAL version keeps it and update MainframeEngine.csproj." />
-    </Target>
-    <!-- Credits (BRUTAL B1): THIRD_PARTY_NOTICES.md, parsed at run time by ThirdPartyNotices, so the credits cannot drift from it. -->
-    <ItemGroup>
-      <EmbeddedResource Include="..\THIRD_PARTY_NOTICES.md" LogicalName="MainframeEngine.THIRD_PARTY_NOTICES.md" Visible="false" />
-    </ItemGroup>
-
-    <!--
       Native libraries (docs/design/natives.md): runtimes/<rid>/native/ holds the binaries we build (Native/,
       natives.yml), laid out the way NuGet expects so a future engine package carries them as RID-specific native
       assets. Project references cannot express RID-specific native assets (deps.json only lists package assets),
@@ -188,8 +150,6 @@
                                              the game's output Content/, where ContentPaths finds it as in a checkout
         mainframe/steamworks/{win64,posix}/  MainframeEngine.Steamworks + Facepunch.Steamworks, per OS (see "Steamworks"
                                              above); buildTransitive/MainframeEngine.targets copies them like Content
-        mainframe/BRUTAL-NOTICE.txt          BRUTAL's NOTICE.txt (the BRUTAL licence, 2.3); buildTransitive/
-                                             MainframeEngine.targets copies it next to the game
         tools/mf-l10n/                       mf-l10n (managed files + runtimeconfig, no deps.json: the host then loads
                                              every assembly in the folder, so the natives it never calls are not needed)
         buildTransitive/                     build/package/MainframeEngine.props/.targets, MainframeGame.props,
@@ -240,7 +200,7 @@
         <TfmSpecificPackageFile Include="@(_MainframeGeneratorAssembly)" PackagePath="analyzers/dotnet/cs/%(Filename)%(Extension)" />
         <TfmSpecificPackageFile Include="@(_MainframeL10nFile)" PackagePath="tools/mf-l10n/%(Filename)%(Extension)" />
         <_MainframeContentFile Include="@(AllItemsFullPathWithTargetPath)" PackagePath="mainframe/$([System.String]::Copy('%(AllItemsFullPathWithTargetPath.TargetPath)').Replace('\', '/'))" />
-        <_MainframeContentFile Remove="@(_MainframeContentFile)" Condition="!($([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/Content/')) or $([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/steamworks/')) or '%(_MainframeContentFile.PackagePath)' == 'mainframe/BRUTAL-NOTICE.txt') or '%(_MainframeContentFile.Extension)' == '.pot'" />
+        <_MainframeContentFile Remove="@(_MainframeContentFile)" Condition="!($([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/Content/')) or $([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/steamworks/'))) or '%(_MainframeContentFile.Extension)' == '.pot'" />
         <TfmSpecificPackageFile Include="@(_MainframeContentFile)" />
       </ItemGroup>
     </Target>

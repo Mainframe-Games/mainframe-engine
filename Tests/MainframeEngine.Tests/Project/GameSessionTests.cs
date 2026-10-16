@@ -6,25 +6,6 @@ namespace MainframeEngine.Tests.Project;
 public sealed class GameHostOptionsTests
 {
     [Fact]
-    public void SplashFlagsParse()
-    {
-        Assert.True(GameHostOptions.Parse(["--no-splash"]).NoSplash);
-        var qa = GameHostOptions.Parse(["--qa-splash-out", "out/splash"]);
-        Assert.True(qa.QaSplash); // implied
-        Assert.Equal("out/splash", qa.QaSplashOutput);
-        Assert.True(qa.Apply(new ProjectSettings { Name = "G" }.ToEngineOptions()).EnableFrameCapture);
-        var preview = GameHostOptions.Parse(["--qa-splash"]);
-        Assert.True(preview.QaSplash);
-        Assert.Null(preview.QaSplashOutput);
-        Assert.False(preview.Apply(new ProjectSettings { Name = "G" }.ToEngineOptions()).EnableFrameCapture);
-        Assert.Throws<ArgumentException>(() => GameHostOptions.Parse(["--qa-splash", "--headless"]));
-        Assert.Throws<ArgumentException>(() => GameHostOptions.Parse(["--qa-splash-out"]));
-        var defaults = GameHostOptions.Parse([]);
-        Assert.False(defaults.NoSplash || defaults.QaSplash);
-        Assert.Null(defaults.QaSplashOutput);
-    }
-
-    [Fact]
     public void EveryFlagParsesAndUnknownArgumentsAreKept()
     {
         var o = GameHostOptions.Parse(
