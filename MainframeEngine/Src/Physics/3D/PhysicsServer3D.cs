@@ -53,7 +53,7 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
         var viewport = node.GetViewport() ?? throw new InvalidOperationException($"'{node.Name}' is not inside a viewport.");
         if (!_spaces.TryGetValue(viewport.World3D, out var space))
         {
-            space = new PhysicsSpace3D(viewport, Settings);
+            space = new PhysicsSpace3D(viewport, Settings, PhysicsBackendKind.Jitter2);
             _spaces.Add(viewport.World3D, space);
             _spaceList.Add(space);
         }
