@@ -367,6 +367,10 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["saves.thumbnails"] = "true",
             ["saves.thumbnail.width"] = "480",
             ["saves.thumbnail.height"] = "270",
+            ["splash.background"] = "#102030",
+            ["splash.holdSeconds"] = "3",
+            ["splash.skippable"] = "false",
+            ["splash.nonProfit"] = "true",
         };
         foreach (var setting in ProjectSettingsModel.Settings)
             if (setting.Set is not null)
@@ -389,6 +393,53 @@ public sealed class ProjectWorkflowTests : IDisposable
         model.History.GoTo(0);
         Assert.Equal("Workflow", model.Get("name"));
         Assert.Equal(original, model.History.Actions.Count);
+    }
+
+    [Fact]
+    public void TheSplashPageLocksBrutalEditsTheCardsAndPreviews()
+    {
+        _builder.Result = new GameBuildResult(true, [], TimeSpan.FromMilliseconds(1), false, null, []);
+        var w = Open().Workspace;
+        Assert.True(w.ProjectSettings.Open());
+        _editor!.Tick();
+        var model = w.ProjectSettings.Model!;
+        w.ProjectSettings.SelectSection("Splash");
+        _editor.Tick();
+        Assert.Empty(_editor.RmlMessages);
+
+        var doc = w.ProjectSettings.Document;
+        Assert.False(doc.GetElementById("ps-nav-splash").IsNull);
+        var lockIcon = doc.GetElementById("ps-splash-lock");
+        Assert.False(lockIcon.IsNull);
+        Assert.Contains("BRUTAL licence (2.2)", lockIcon.GetAttribute("data-tooltip") ?? "", StringComparison.Ordinal);
+        Assert.True(doc.GetElementById("ps-splash-remove-1").IsClassSet("disabled"));
+        Assert.Equal(ProjectSettingsModel.SplashLockMessage, model.RemoveSplashCard(1));
+
+        Directory.CreateDirectory(_project.Abs("Content/Brand"));
+        File.Copy(ContentPaths.Resolve("Content/Brand/logo-256.png"), _project.Abs("Content/Brand/studio.png"));
+        Assert.Null(model.AddSplashCard("Content/Brand/studio.png"));
+        Assert.NotNull(model.AddSplashCard("Content/Brand/studio.png")); // already a card
+        Assert.NotNull(model.AddSplashCard("Content/Brand/studio.jpg"));
+        Assert.Null(model.MoveSplashCard(2, -1));
+        Assert.NotNull(model.MoveSplashCard(0, -1));
+        Assert.Equal(["@mainframe", "Content/Brand/studio.png", "@brutal"], model.Current.Splash.Cards);
+        Assert.NotNull(model.SetSplashCard(0, "Content/Brand/studio.png")); // a built-in card has no image to change
+
+        Assert.Null(model.Set("splash.nonProfit", "true"));
+        Assert.Null(model.RemoveSplashCard(2));
+        Assert.Equal(["@mainframe", "Content/Brand/studio.png"], model.Current.Splash.ResolvedCards);
+        Assert.Null(model.Set("splash.nonProfit", "false"));
+        Assert.Equal(["@mainframe", "@brutal", "Content/Brand/studio.png"], model.Current.Splash.ResolvedCards); // the lock puts it back
+        _editor.Tick();
+        Assert.Empty(_editor.RmlMessages);
+
+        w.ProjectSettings.PreviewSplash(); // saves, then builds and runs only the splash
+        Assert.False(model.IsDirty);
+        Assert.Equal(model.Current.Splash.Cards, ProjectSettings.Load(_project.Root).Splash.Cards);
+        TickUntil(() => _launcher.Games.Count == 1);
+        Assert.Contains("--qa-splash", _launcher.Games[0].Request.Arguments);
+        w.Commands.Execute("play.stop");
+        TickUntil(() => !w.Play.IsPlaying);
     }
 
     [Fact]

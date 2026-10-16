@@ -91,7 +91,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
         {
             var nav = new StringBuilder();
             foreach (var (name, icon) in ProjectSettingsModel.Sections)
-                nav.Append("<div class=\"ps-nav").Append(name == _section ? " selected" : "").Append("\" data-section=\"").Append(RmlText.Escape(name))
+                nav.Append("<div id=\"ps-nav-").Append(NavId(name)).Append("\" class=\"ps-nav").Append(name == _section ? " selected" : "").Append("\" data-section=\"").Append(RmlText.Escape(name))
                     .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span><span>").Append(RmlText.Escape(name)).Append("</span></div>");
             Document.GetElementById("ps-nav").SetInnerRml(nav.ToString());
 
@@ -104,6 +104,12 @@ public sealed class ProjectSettingsDialog : EditorDocument
                     break;
                 case "Autoloads":
                     RenderAutoloads(body, model.Current);
+                    break;
+                case "Splash":
+                    RenderSplash(body, model.Current.Splash, Workspace.Session.ProjectRoot);
+                    foreach (var setting in ProjectSettingsModel.Settings)
+                        if (setting.Section == "Splash")
+                            RenderSetting(body, setting, setting.Get(model.Current), Workspace.Session.ProjectRoot);
                     break;
                 default:
                     foreach (var setting in ProjectSettingsModel.Settings)
@@ -249,6 +255,79 @@ public sealed class ProjectSettingsDialog : EditorDocument
             .Append("<input type=\"text\" class=\"text\" id=\"ps-autoload-what\" placeholder=\"Scene (Content/…/X.mscene) or node type\"/>")
             .Append("<button class=\"tool-button small\" data-op=\"autoload-browse\" data-tooltip=\"Browse — pick a scene\"><span class=\"icon icon-sm icon-folder-open\"></span></button>")
             .Append("<button class=\"tool-button small\" data-op=\"autoload-add\" data-tooltip=\"Add Autoload\"><span class=\"icon icon-sm icon-plus\"></span></button></div>");
+    }
+
+    private const string SplashHelp =
+        "Shown before the main scene, in order, each logo fitted into the same box. A shipped game always shows them; " +
+        "--no-splash skips them while you develop, and Play from the editor never shows them.";
+
+    // The nav item's element id: "ps-nav-input-map" (QA scripts click them).
+    private static string NavId(string section) => section.ToLowerInvariant().Replace(' ', '-');
+
+    private static void RenderSplash(StringBuilder rml, SplashProjectSettings splash, string? projectRoot)
+    {
+        rml.Append("<div class=\"ps-small ps-help\">").Append(RmlText.Escape(SplashHelp)).Append("</div>");
+        var cards = splash.ResolvedCards;
+        for (var i = 0; i < cards.Count; i++)
+        {
+            var card = cards[i];
+            var locked = card == SplashProjectSettings.BrutalCard && !splash.NonProfit;
+            rml.Append("<div class=\"ps-splash-card").Append(locked ? " locked" : "").Append("\">");
+            if (SplashThumbnail(card, splash, projectRoot) is { } thumbnail)
+                rml.Append("<img class=\"ps-splash-thumb\" src=\"").Append(RmlText.Escape(thumbnail)).Append("\"/>");
+            else
+                rml.Append("<span class=\"icon icon-sm icon-photo ps-splash-thumb\"></span>");
+            rml.Append("<span class=\"ps-splash-name mono\">").Append(RmlText.Escape(card)).Append("</span>");
+            if (locked)
+                rml.Append("<span id=\"ps-splash-lock\" class=\"icon icon-sm icon-lock ps-splash-lock\" data-tooltip=\"")
+                    .Append(RmlText.Escape(ProjectSettingsModel.SplashLockMessage)).Append("\"></span>");
+            if (!card.StartsWith('@'))
+                SplashButton(rml, "splash-pick", i, "photo", "Change Image — pick another PNG of the project", disabled: false);
+            SplashButton(rml, "splash-up", i, "arrow-up", "Move Up — show this card earlier", disabled: i == 0);
+            SplashButton(rml, "splash-down", i, "arrow-down", "Move Down — show this card later", disabled: i == cards.Count - 1);
+            SplashButton(rml, "splash-remove", i, "trash", locked ? ProjectSettingsModel.SplashLockMessage : "Remove Card", disabled: locked);
+            rml.Append("</div>");
+        }
+
+        rml.Append("<div class=\"ps-add\">")
+            .Append("<button id=\"ps-splash-add\" class=\"tool-button small\" data-op=\"splash-add\" data-tooltip=\"Add Card — a PNG of the project, such as your studio's logo\"><span class=\"icon icon-sm icon-plus\"></span></button>")
+            .Append("<button id=\"ps-splash-preview\" class=\"tool-button small\" data-op=\"splash-preview\" data-tooltip=\"Preview — save, build and run the game's splash sequence once\"><span class=\"icon icon-sm icon-player-play\"></span></button>")
+            .Append("</div>");
+    }
+
+    private static void SplashButton(StringBuilder rml, string op, int index, string icon, string tooltip, bool disabled)
+    {
+        var at = index.ToString(CultureInfo.InvariantCulture);
+        rml.Append("<button id=\"ps-").Append(op).Append('-').Append(at).Append("\" class=\"tool-button small").Append(disabled ? " disabled" : "")
+            .Append("\" data-op=\"").Append(op).Append("\" data-index=\"").Append(at).Append("\" data-tooltip=\"").Append(RmlText.Escape(tooltip))
+            .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span></button>");
+    }
+
+    // A card's thumbnail: the engine's logos, or the game's PNG when it exists.
+    private static string? SplashThumbnail(string card, SplashProjectSettings splash, string? projectRoot) => card switch
+    {
+        SplashProjectSettings.MainframeCard => "/Content/Brand/logo-48.png",
+        SplashProjectSettings.BrutalCard => "/" + (splash.UsesWhiteLogo ? SplashSequence.BrutalLogoWhite : SplashSequence.BrutalLogoBlack),
+        _ => IconPreviewPath(projectRoot, card),
+    };
+
+    private void PickSplashImage(Action<string> then)
+    {
+        var root = Workspace.Session.ProjectRoot ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var start = Directory.Exists(Path.Combine(root, ContentPaths.FolderName)) ? Path.Combine(root, ContentPaths.FolderName) : root;
+        Workspace.FilePicker.Show(new FilePickerModel(FilePickerMode.Open, start, ["*.png"]), "Choose Splash Card", "Choose",
+            path => then(AssetDatabase.Current.ToProjectPath(path)));
+    }
+
+    /// <summary>
+    /// Splash › Preview: saves unsaved edits (the build copies project.mfproj next to the game), then builds and runs the game
+    /// with <c>--qa-splash</c>: only the splash sequence, after which it quits.
+    /// </summary>
+    public void PreviewSplash()
+    {
+        if (Model is { IsDirty: true } && !Save())
+            return;
+        Workspace.Play.PlayMain(["--qa-splash"]);
     }
 
     // ── Events ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -398,6 +477,24 @@ public sealed class ProjectSettingsDialog : EditorDocument
                 break;
             case "open-user-data":
                 Workspace.Project.OpenUserDataFolder(Model.Current);
+                break;
+            case "splash-up":
+                Apply(Model.MoveSplashCard(index, -1));
+                break;
+            case "splash-down":
+                Apply(Model.MoveSplashCard(index, 1));
+                break;
+            case "splash-remove":
+                Apply(Model.RemoveSplashCard(index));
+                break;
+            case "splash-pick":
+                PickSplashImage(path => Apply(Model.SetSplashCard(index, path)));
+                break;
+            case "splash-add":
+                PickSplashImage(path => Apply(Model.AddSplashCard(path)));
+                break;
+            case "splash-preview":
+                PreviewSplash();
                 break;
             case "autoload-add":
                 Apply(Model.AddAutoload(Document.GetElementById("ps-autoload-name").Value ?? "", Document.GetElementById("ps-autoload-what").Value ?? ""));

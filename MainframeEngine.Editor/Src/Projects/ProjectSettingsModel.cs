@@ -83,6 +83,7 @@ public sealed class ProjectSettingsModel
         ("Localization", "language"),
         ("Rendering", "brightness-half"),
         ("UI", "layout"),
+        ("Splash", "sparkles"),
         ("Saves", "device-floppy"),
         ("Autoloads", "stack-2"),
         ("Steamworks", "brand-steam"),
@@ -235,6 +236,16 @@ public sealed class ProjectSettingsModel
         new("steam.restartThroughSteam", "Steamworks", "Relaunch Through Steam", SettingKind.Bool, static s => Bool(s.Steam.RestartThroughSteam),
             static (s, v) => s.Steam.RestartThroughSteam = ParseBool(v),
             "Release builds started outside Steam ask Steam to start them again and exit, so ownership checks and the overlay always apply."),
+        new("splash.background", "Splash", "Background", SettingKind.Text, static s => s.Splash.Background,
+            static (s, v) => s.Splash.Background = v.Trim(),
+            "The colour behind every card, sRGB hex (#000000). BRUTAL's white logo shows on dark backgrounds, its black one on light ones."),
+        new("splash.holdSeconds", "Splash", "Hold (s)", SettingKind.Number, static s => Num(s.Splash.HoldSeconds),
+            static (s, v) => s.Splash.HoldSeconds = ParseFloat(v), "How long each card stays fully visible: 1.5 to 10 seconds (shorter is not legible)."),
+        new("splash.skippable", "Splash", "Skippable", SettingKind.Bool, static s => Bool(s.Splash.Skippable),
+            static (s, v) => s.Splash.Skippable = ParseBool(v), "A key, click or gamepad button ends a card early, once it has been shown for 1.5 s."),
+        new("splash.nonProfit", "Splash", "Non-profit", SettingKind.Bool, static s => Bool(s.Splash.NonProfit),
+            static (s, v) => s.Splash.NonProfit = ParseBool(v),
+            "A non-profit game may leave the BRUTAL card out (the BRUTAL licence's README waiver). Confirm it with Ahwoo first: brutal@ahwoo.com."),
     ];
 
     /// <summary>The setting with <paramref name="key"/>, or null.</summary>
@@ -406,6 +417,65 @@ public sealed class ProjectSettingsModel
     });
 
     public string? SetAutoloadEnabled(int index, bool enabled) => Edit("Toggle Autoload", s => s.Autoloads[index].Enabled = enabled);
+
+    // ── Splash (BRUTAL B1, ADR 0192) ─────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>The locked BRUTAL card's tooltip, and why it cannot be removed.</summary>
+    public const string SplashLockMessage =
+        "Required by the BRUTAL licence (2.2): the BRUTAL logo must be shown before gameplay. Check Non-profit to remove it (confirm with Ahwoo: brutal@ahwoo.com).";
+
+    /// <summary>Adds a game card (a <c>Content/…</c> PNG) at the end.</summary>
+    public string? AddSplashCard(string path)
+    {
+        var entry = path?.Trim() ?? "";
+        if (SplashProjectSettings.CardError(entry) is { } error)
+            return $"The splash card {error}.";
+        if (Current.Splash.ResolvedCards.Contains(entry))
+            return $"'{entry}' is already a splash card.";
+        return EditSplashCards($"Add Splash Card {entry}", cards => cards.Add(entry));
+    }
+
+    /// <summary>Removes the card at <paramref name="index"/> (of the cards shown); the BRUTAL card only with Non-profit.</summary>
+    public string? RemoveSplashCard(int index)
+    {
+        var cards = Current.Splash.ResolvedCards;
+        if ((uint)index >= (uint)cards.Count)
+            return "There is no such splash card.";
+        if (cards[index] == SplashProjectSettings.BrutalCard && !Current.Splash.NonProfit)
+            return SplashLockMessage;
+        return EditSplashCards($"Remove Splash Card {cards[index]}", list => list.RemoveAt(index));
+    }
+
+    /// <summary>Moves the card at <paramref name="index"/> by <paramref name="delta"/> places.</summary>
+    public string? MoveSplashCard(int index, int delta)
+    {
+        var count = Current.Splash.ResolvedCards.Count;
+        var target = index + delta;
+        if ((uint)index >= (uint)count || (uint)target >= (uint)count)
+            return "The card cannot move further.";
+        return EditSplashCards("Move Splash Card", list => (list[index], list[target]) = (list[target], list[index]));
+    }
+
+    /// <summary>Replaces a game card's image with <paramref name="path"/>.</summary>
+    public string? SetSplashCard(int index, string path)
+    {
+        var cards = Current.Splash.ResolvedCards;
+        var entry = path?.Trim() ?? "";
+        if ((uint)index >= (uint)cards.Count || cards[index].StartsWith('@'))
+            return "Only a game card's image can change.";
+        if (SplashProjectSettings.CardError(entry) is { } error)
+            return $"The splash card {error}.";
+        return EditSplashCards($"Set Splash Card {entry}", list => list[index] = entry);
+    }
+
+    // Edits the cards as shown (the resolved list), so a file that lacked @brutal gets it back with any card edit.
+    private string? EditSplashCards(string name, Action<List<string>> change) => Edit(name, s =>
+    {
+        var cards = s.Splash.ResolvedCards.ToList();
+        change(cards);
+        s.Splash.Cards.Clear();
+        s.Splash.Cards.AddRange(cards);
+    });
 
     // ── Edits, undo, save ────────────────────────────────────────────────────────────────────────────────────────
 
