@@ -51,6 +51,25 @@
         <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
         <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
         <PackageReference Include="StbImageSharp" />
+        <!--
+          BRUTAL (ADR 0192): a dependency of the engine package itself, so its natives reach games through
+          runtimes/<rid>/native like Silk.NET's, and games inherit its licence (THIRD_PARTY_NOTICES.md#brutal). Its Roslyn
+          analyzers and Interop's source generator stay off (ExcludeAssets, which the package's dependency edges keep), so
+          the 0-warning build never depends on another project's rule set; B5 may turn them on deliberately.
+          GeneratePathProperty: $(PkgAhwoo_BRUTAL_Core) is the package folder holding NOTICE.txt.
+        -->
+        <PackageReference Include="Ahwoo.BRUTAL.Collections" ExcludeAssets="analyzers" />
+        <PackageReference Include="Ahwoo.BRUTAL.Core" ExcludeAssets="analyzers" GeneratePathProperty="true" />
+        <PackageReference Include="Ahwoo.BRUTAL.Interop" ExcludeAssets="analyzers" />
+        <PackageReference Include="Ahwoo.BRUTAL.Jolt" ExcludeAssets="analyzers" />
+        <PackageReference Include="Ahwoo.BRUTAL.Logging" ExcludeAssets="analyzers" />
+        <PackageReference Include="Ahwoo.BRUTAL.Memory" ExcludeAssets="analyzers" />
+        <PackageReference Include="Ahwoo.BRUTAL.Numerics" ExcludeAssets="analyzers" />
+        <PackageReference Include="Ahwoo.BRUTAL.Strings" ExcludeAssets="analyzers" />
+        <!-- Referenced only to pin BRUTAL's third-party dependencies (transitive pinning is off for the solution). -->
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="Microsoft.Extensions.Logging" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" />
     </ItemGroup>
     
     <!-- Test and tooling assemblies may use internals (UBO packing, pools, counters) -->

@@ -30,6 +30,23 @@
     <!-- Physics (M6): pinned exactly, both APIs change between minors (docs/design/physics.md). -->
     <PackageVersion Include="Jitter2" Version="2.9.0" />
     <PackageVersion Include="StbImageSharp" Version="2.30.16" />
+    <!--
+      BRUTAL (Ahwoo Limited, ADR 0192): pinned exactly, because upstream dependency ranges are minimum-only and the API is
+      experimental. Upgrades are their own PRs with the full test run. Jolt is referenced from B1 so its natives, notices
+      and package size are settled before B3 writes code.
+    -->
+    <PackageVersion Include="Ahwoo.BRUTAL.Collections" Version="[2026.10.1]" />
+    <PackageVersion Include="Ahwoo.BRUTAL.Core" Version="[2026.10.1]" />
+    <PackageVersion Include="Ahwoo.BRUTAL.Interop" Version="[2026.10.1]" />
+    <PackageVersion Include="Ahwoo.BRUTAL.Jolt" Version="[2026.10.2]" />
+    <PackageVersion Include="Ahwoo.BRUTAL.Logging" Version="[2026.10.2]" />
+    <PackageVersion Include="Ahwoo.BRUTAL.Memory" Version="[2026.10.1]" />
+    <PackageVersion Include="Ahwoo.BRUTAL.Numerics" Version="[2026.10.1]" />
+    <PackageVersion Include="Ahwoo.BRUTAL.Strings" Version="[2026.10.1]" />
+    <!-- BRUTAL's third-party dependencies (Ahwoo.BRUTAL.Core / Logging), pinned centrally (ADR 0192, THIRD_PARTY_NOTICES.md). -->
+    <PackageVersion Include="CommunityToolkit.HighPerformance" Version="[8.4.2]" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="[10.0.0]" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="[10.0.0]" />
   </ItemGroup>
 
   <!--

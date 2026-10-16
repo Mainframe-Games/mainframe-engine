@@ -13,4 +13,15 @@
 
   <!-- This project's $(Version), for build-time lock-step checks (the editor checks the engine core it references). -->
   <Target Name="GetMainframeVersion" Returns="$(Version)" />
+
+  <!--
+    BRUTAL's analyzers stay off in every project here (ADR 0192). ExcludeAssets="analyzers" on the engine's references
+    keeps them out of the lock file, but the SDK still resolves Ahwoo.BRUTAL.Core's (BRUTALCORE*) through the packages
+    that depend on it, and projects referencing the engine get them transitively; remove them by package id.
+  -->
+  <Target Name="_MainframeRemoveBrutalAnalyzers" AfterTargets="ResolveLockFileAnalyzers">
+    <ItemGroup>
+      <Analyzer Remove="@(Analyzer)" Condition="$([System.String]::Copy('%(Analyzer.NuGetPackageId)').StartsWith('Ahwoo.BRUTAL.'))" />
+    </ItemGroup>
+  </Target>
 </Project>
