@@ -17,7 +17,7 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 3;
+    public const int Current = 4;
 
     /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
     public static IReadOnlyList<ProjectMigration> Migrations { get; } =
@@ -40,6 +40,24 @@ public static class ProjectSettingsFormat
             if (root["ui"] is not JsonObject ui)
                 root["ui"] = ui = new JsonObject();
             ui["scaleMode"] ??= nameof(UiScalingMode.ConstantPixelSize);
+        }),
+
+        // 3 → 4 (B2, ADR 0192): the 3D backend became selectable ("backend"); Jitter2's solver keys moved from
+        // "physics.3d" into "physics.3d.jitter2" ("jolt" holds Jolt's own keys).
+        new(3, static root =>
+        {
+            if (root["physics"] is not JsonObject physics || physics["3d"] is not JsonObject p3 || p3["jitter2"] is not (null or JsonObject))
+                return;
+            string[] keys = ["solverIterations", "relaxationIterations"];
+            foreach (var key in keys)
+            {
+                if (p3[key] is not { } value)
+                    continue;
+                p3.Remove(key);
+                if (p3["jitter2"] is not JsonObject jitter2)
+                    p3["jitter2"] = jitter2 = new JsonObject();
+                jitter2[key] ??= value;
+            }
         }),
     ];
 
@@ -196,11 +214,19 @@ public static class ProjectSettingsFormat
         var d = new PhysicsProjectSettings();
         var p3 = s.Physics3D;
         var d3 = d.Physics3D;
+        var j2 = p3.Jitter2;
+        var dj2 = d3.Jitter2;
+        var jo = p3.Jolt;
+        var djo = d3.Jolt;
         var p2 = s.Physics2D;
         var d2 = d.Physics2D;
-        var changed3 = p3.Gravity != d3.Gravity || p3.SubstepCount != d3.SubstepCount || p3.SolverIterations != d3.SolverIterations
-                       || p3.RelaxationIterations != d3.RelaxationIterations || p3.AllowDeactivation != d3.AllowDeactivation
-                       || p3.MultiThreaded != d3.MultiThreaded || p3.Deterministic != d3.Deterministic;
+        var changedJitter2 = j2.SolverIterations != dj2.SolverIterations || j2.RelaxationIterations != dj2.RelaxationIterations;
+        var changedJolt = jo.VelocitySteps != djo.VelocitySteps || jo.PositionSteps != djo.PositionSteps || jo.MaxBodies != djo.MaxBodies
+                          || jo.MaxBodyPairs != djo.MaxBodyPairs || jo.MaxContactConstraints != djo.MaxContactConstraints
+                          || jo.TempAllocatorMB != djo.TempAllocatorMB || jo.ContactEventCapacity != djo.ContactEventCapacity;
+        var changed3 = p3.Backend != d3.Backend || p3.Gravity != d3.Gravity || p3.SubstepCount != d3.SubstepCount
+                       || p3.AllowDeactivation != d3.AllowDeactivation || p3.MultiThreaded != d3.MultiThreaded || p3.Deterministic != d3.Deterministic
+                       || changedJitter2 || changedJolt;
         var changed2 = p2.Gravity != d2.Gravity || p2.PixelsPerMeter != d2.PixelsPerMeter || p2.SubstepCount != d2.SubstepCount
                        || p2.AllowSleep != d2.AllowSleep || p2.EnableContinuous != d2.EnableContinuous;
         if (s.TicksPerSecond == d.TicksPerSecond && s.MaxStepsPerFrame == d.MaxStepsPerFrame && !changed3 && !changed2)
@@ -214,20 +240,48 @@ public static class ProjectSettingsFormat
         if (changed3)
         {
             w.WriteStartObject("3d");
+            if (p3.Backend != d3.Backend)
+                w.WriteString("backend", BackendName(p3.Backend));
             if (p3.Gravity != d3.Gravity)
                 WriteFloats(w, "gravity", [p3.Gravity.X, p3.Gravity.Y, p3.Gravity.Z]);
             if (p3.SubstepCount != d3.SubstepCount)
                 w.WriteNumber("substeps", p3.SubstepCount);
-            if (p3.SolverIterations != d3.SolverIterations)
-                w.WriteNumber("solverIterations", p3.SolverIterations);
-            if (p3.RelaxationIterations != d3.RelaxationIterations)
-                w.WriteNumber("relaxationIterations", p3.RelaxationIterations);
             if (p3.AllowDeactivation != d3.AllowDeactivation)
                 w.WriteBoolean("allowDeactivation", p3.AllowDeactivation);
             if (p3.MultiThreaded != d3.MultiThreaded)
                 w.WriteBoolean("multiThreaded", p3.MultiThreaded);
             if (p3.Deterministic != d3.Deterministic)
                 w.WriteBoolean("deterministic", p3.Deterministic);
+            if (changedJitter2)
+            {
+                w.WriteStartObject("jitter2");
+                if (j2.SolverIterations != dj2.SolverIterations)
+                    w.WriteNumber("solverIterations", j2.SolverIterations);
+                if (j2.RelaxationIterations != dj2.RelaxationIterations)
+                    w.WriteNumber("relaxationIterations", j2.RelaxationIterations);
+                w.WriteEndObject();
+            }
+
+            if (changedJolt)
+            {
+                w.WriteStartObject("jolt");
+                if (jo.VelocitySteps != djo.VelocitySteps)
+                    w.WriteNumber("velocitySteps", jo.VelocitySteps);
+                if (jo.PositionSteps != djo.PositionSteps)
+                    w.WriteNumber("positionSteps", jo.PositionSteps);
+                if (jo.MaxBodies != djo.MaxBodies)
+                    w.WriteNumber("maxBodies", jo.MaxBodies);
+                if (jo.MaxBodyPairs != djo.MaxBodyPairs)
+                    w.WriteNumber("maxBodyPairs", jo.MaxBodyPairs);
+                if (jo.MaxContactConstraints != djo.MaxContactConstraints)
+                    w.WriteNumber("maxContactConstraints", jo.MaxContactConstraints);
+                if (jo.TempAllocatorMB != djo.TempAllocatorMB)
+                    w.WriteNumber("tempAllocatorMB", jo.TempAllocatorMB);
+                if (jo.ContactEventCapacity != djo.ContactEventCapacity)
+                    w.WriteNumber("contactEventCapacity", jo.ContactEventCapacity);
+                w.WriteEndObject();
+            }
+
             w.WriteEndObject();
         }
 
@@ -249,6 +303,13 @@ public static class ProjectSettingsFormat
 
         w.WriteEndObject();
     }
+
+    private static string BackendName(PhysicsBackendKind kind) => kind switch
+    {
+        PhysicsBackendKind.Jitter2 => "jitter2",
+        PhysicsBackendKind.Jolt => "jolt",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
 
     private static void WriteInput(Utf8JsonWriter w, InputMap map)
     {
@@ -557,17 +618,36 @@ public static class ProjectSettingsFormat
             s.MaxStepsPerFrame = Int(o, "maxStepsPerFrame", "physics.maxStepsPerFrame", s.MaxStepsPerFrame, 1, 100);
             if (Object(o, "3d") is { } p3)
             {
-                Known(p3, "physics.3d.", "gravity", "substeps", "solverIterations", "relaxationIterations", "allowDeactivation", "multiThreaded",
-                    "deterministic");
+                Known(p3, "physics.3d.", "backend", "gravity", "substeps", "allowDeactivation", "multiThreaded", "deterministic", "jitter2", "jolt");
+                var p = s.Physics3D;
+                p.Backend = EnumValue(p3, "backend", "physics.3d.backend", p.Backend);
                 var g = Floats(p3, "gravity", "physics.3d.gravity", 3);
                 if (g is not null)
-                    s.Physics3D.Gravity = new Vector3(g[0], g[1], g[2]);
-                s.Physics3D.SubstepCount = Int(p3, "substeps", "physics.3d.substeps", s.Physics3D.SubstepCount, 1, 64);
-                s.Physics3D.SolverIterations = Int(p3, "solverIterations", "physics.3d.solverIterations", s.Physics3D.SolverIterations, 1, 256);
-                s.Physics3D.RelaxationIterations = Int(p3, "relaxationIterations", "physics.3d.relaxationIterations", s.Physics3D.RelaxationIterations, 0, 256);
-                s.Physics3D.AllowDeactivation = Bool(p3, "allowDeactivation", "physics.3d.allowDeactivation", s.Physics3D.AllowDeactivation);
-                s.Physics3D.MultiThreaded = Bool(p3, "multiThreaded", "physics.3d.multiThreaded", s.Physics3D.MultiThreaded);
-                s.Physics3D.Deterministic = Bool(p3, "deterministic", "physics.3d.deterministic", s.Physics3D.Deterministic);
+                    p.Gravity = new Vector3(g[0], g[1], g[2]);
+                p.SubstepCount = Int(p3, "substeps", "physics.3d.substeps", p.SubstepCount, 1, 64);
+                p.AllowDeactivation = Bool(p3, "allowDeactivation", "physics.3d.allowDeactivation", p.AllowDeactivation);
+                p.MultiThreaded = Bool(p3, "multiThreaded", "physics.3d.multiThreaded", p.MultiThreaded);
+                p.Deterministic = Bool(p3, "deterministic", "physics.3d.deterministic", p.Deterministic);
+                if (Object(p3, "jitter2") is { } j2)
+                {
+                    Known(j2, "physics.3d.jitter2.", "solverIterations", "relaxationIterations");
+                    p.Jitter2.SolverIterations = Int(j2, "solverIterations", "physics.3d.jitter2.solverIterations", p.Jitter2.SolverIterations, 1, 256);
+                    p.Jitter2.RelaxationIterations = Int(j2, "relaxationIterations", "physics.3d.jitter2.relaxationIterations", p.Jitter2.RelaxationIterations, 0, 256);
+                }
+
+                if (Object(p3, "jolt") is { } jo)
+                {
+                    Known(jo, "physics.3d.jolt.", "velocitySteps", "positionSteps", "maxBodies", "maxBodyPairs", "maxContactConstraints", "tempAllocatorMB",
+                        "contactEventCapacity");
+                    var j = p.Jolt;
+                    j.VelocitySteps = Int(jo, "velocitySteps", "physics.3d.jolt.velocitySteps", j.VelocitySteps, 1, 255);
+                    j.PositionSteps = Int(jo, "positionSteps", "physics.3d.jolt.positionSteps", j.PositionSteps, 1, 255);
+                    j.MaxBodies = Int(jo, "maxBodies", "physics.3d.jolt.maxBodies", j.MaxBodies, 1, 8_388_607); // Jolt's BodyID has a 23-bit index
+                    j.MaxBodyPairs = Int(jo, "maxBodyPairs", "physics.3d.jolt.maxBodyPairs", j.MaxBodyPairs, 1, 16_777_216);
+                    j.MaxContactConstraints = Int(jo, "maxContactConstraints", "physics.3d.jolt.maxContactConstraints", j.MaxContactConstraints, 1, 16_777_216);
+                    j.TempAllocatorMB = Int(jo, "tempAllocatorMB", "physics.3d.jolt.tempAllocatorMB", j.TempAllocatorMB, 1, 4096);
+                    j.ContactEventCapacity = Int(jo, "contactEventCapacity", "physics.3d.jolt.contactEventCapacity", j.ContactEventCapacity, 1, 16_777_216);
+                }
             }
 
             if (Object(o, "2d") is { } p2)

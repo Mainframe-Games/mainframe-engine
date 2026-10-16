@@ -62,6 +62,14 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Physics.Physics3D.AllowDeactivation = false;
         s.Physics.Physics3D.MultiThreaded = false;
         s.Physics.Physics3D.Deterministic = true;
+        s.Physics.Physics3D.Backend = PhysicsBackendKind.Jolt;
+        s.Physics.Physics3D.Jolt.VelocitySteps = 12;
+        s.Physics.Physics3D.Jolt.PositionSteps = 3;
+        s.Physics.Physics3D.Jolt.MaxBodies = 4096;
+        s.Physics.Physics3D.Jolt.MaxBodyPairs = 8192;
+        s.Physics.Physics3D.Jolt.MaxContactConstraints = 2048;
+        s.Physics.Physics3D.Jolt.TempAllocatorMB = 32;
+        s.Physics.Physics3D.Jolt.ContactEventCapacity = 1024;
         s.Physics.Physics2D.Gravity = new Vector2(0, -500);
         s.Physics.Physics2D.PixelsPerMeter = 64;
         s.Physics.Physics2D.SubstepCount = 8;
@@ -133,7 +141,7 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         var json = Text(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" });
 
-        Assert.Equal("{\n  \"format\": 3,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
+        Assert.Equal($"{{\n  \"format\": {ProjectSettingsFormat.Current},\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}}\n", json);
         AssertSame(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" }, Parse(json));
     }
 
@@ -212,7 +220,7 @@ public sealed class ProjectSettingsTests : IDisposable
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "A", "type": "T" }, { "name": "A", "type": "U" } ] }""", "'A' is used by another autoload")]
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "a/b", "type": "T" } ] }""", "must be a node name")]
     [InlineData("""{ "format": 1, "assemblies": [1] }""", "assemblies must contain only strings")]
-    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 3")]
+    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 4")]
     [InlineData("""{ "format": 0 }""", "invalid project format 0")]
     [InlineData("""[1, 2]""", "is not a JSON object")]
     [InlineData("""{ "format": 1, """, "is not valid JSON")]
@@ -269,7 +277,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(480u, s.SteamAppId);
 
         var json = JsonNode.Parse(Text(s))!;
-        Assert.Equal(3, (int)json["format"]!);
+        Assert.Equal(ProjectSettingsFormat.Current, (int)json["format"]!);
         Assert.Null(json["steamAppId"]);
         Assert.Equal(480u, (uint)json["steam"]!["appId"]!);
     }
@@ -286,7 +294,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(UiScalingMode.ConstantPixelSize, s.Ui.ToScaling().Mode);
 
         var json = JsonNode.Parse(Text(s))!;
-        Assert.Equal(3, (int)json["format"]!);
+        Assert.Equal(ProjectSettingsFormat.Current, (int)json["format"]!);
         Assert.Equal("ConstantPixelSize", (string?)json["ui"]!["scaleMode"]);
         Assert.Equal(UiScalingMode.ConstantPixelSize, Parse(Text(s)).Ui.ScaleMode);
 
@@ -577,5 +585,57 @@ public sealed class ProjectSettingsTests : IDisposable
         }
 
         public void Dispose() { }
+    }
+
+    [Fact]
+    public void ThePreviousFormatMovesTheJitter2SolverKeysUnderJitter2()
+    {
+        var from = ProjectSettingsFormat.Current - 1;
+        var s = Parse($$"""{ "format": {{from}}, "name": "Old", "physics": { "3d": { "substeps": 2, "solverIterations": 9, "relaxationIterations": 2 } } }""");
+        Assert.Equal(PhysicsBackendKind.Jitter2, s.Physics.Physics3D.Backend);
+        Assert.Equal(2, s.Physics.Physics3D.SubstepCount);
+        Assert.Equal(9, s.Physics.Physics3D.Jitter2.SolverIterations);
+        Assert.Equal(2, s.Physics.Physics3D.Jitter2.RelaxationIterations);
+
+        var p3 = JsonNode.Parse(Text(s))!["physics"]!["3d"]!;
+        Assert.Null(p3["solverIterations"]);
+        Assert.Null(p3["relaxationIterations"]);
+        Assert.Equal(9, (int)p3["jitter2"]!["solverIterations"]!);
+        Assert.Equal(2, (int)p3["jitter2"]!["relaxationIterations"]!);
+
+        // A file that already had a jitter2 group keeps its values; one without physics gains nothing.
+        var both = Parse($$"""{ "format": {{from}}, "physics": { "3d": { "solverIterations": 9, "jitter2": { "solverIterations": 7 } } } }""");
+        Assert.Equal(7, both.Physics.Physics3D.Jitter2.SolverIterations);
+        Assert.Null(JsonNode.Parse(Text(Parse($$"""{ "format": {{from}}, "name": "Bare" }""")))!["physics"]);
+    }
+
+    [Fact]
+    public void BackendAndJoltSettingsRoundTripWithLowerCaseBackendNames()
+    {
+        var s = new ProjectSettings { Name = "Jolty", EngineVersion = "0.9.0" };
+        s.Physics.Physics3D.Backend = PhysicsBackendKind.Jolt;
+        s.Physics.Physics3D.Jolt.VelocitySteps = 12;
+        s.Physics.Physics3D.Jolt.ContactEventCapacity = 1024;
+
+        var p3 = JsonNode.Parse(Text(s))!["physics"]!["3d"]!;
+        Assert.Equal("jolt", (string?)p3["backend"]);
+        Assert.Equal(12, (int)p3["jolt"]!["velocitySteps"]!);
+        Assert.Equal(1024, (int)p3["jolt"]!["contactEventCapacity"]!);
+        Assert.Null(p3["jolt"]!["maxBodies"]); // defaults are not written
+        Assert.Null(p3["jitter2"]);
+        var back = Parse(Text(s));
+        Assert.Equivalent(s.Physics.Physics3D, back.Physics.Physics3D, strict: true);
+        Assert.Equal(PhysicsBackendKind.Jitter2, Parse("""{ "format": 4, "physics": { "3d": { "backend": "Jitter2" } } }""").Physics.Physics3D.Backend);
+    }
+
+    [Theory]
+    [InlineData("""{ "format": 4, "physics": { "3d": { "backend": "havok" } } }""", "physics.3d.backend 'havok' is not one of")]
+    [InlineData("""{ "format": 4, "physics": { "3d": { "jitter2": { "solverIterations": 0 } } } }""", "physics.3d.jitter2.solverIterations must be between 1 and 256")]
+    [InlineData("""{ "format": 4, "physics": { "3d": { "jolt": { "velocitySteps": 0 } } } }""", "physics.3d.jolt.velocitySteps must be between 1 and 255")]
+    [InlineData("""{ "format": 4, "physics": { "3d": { "jolt": 3 } } }""", "jolt must be an object")]
+    public void InvalidBackendSettingsNameTheKey(string json, string expected)
+    {
+        var e = Assert.Throws<InvalidDataException>(() => Parse(json));
+        Assert.Contains(expected, e.Message, StringComparison.Ordinal);
     }
 }
