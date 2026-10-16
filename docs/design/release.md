@@ -40,6 +40,11 @@ it as its package version.
 
 [`publish.yml`](../../.github/workflows/publish.yml) — **Actions → publish → Run workflow** on `main`.
 
+The Linux editor archive strips BRUTAL's `libjolt.so` (`build/package-editor.sh`, GNU `strip --strip-unneeded`): the
+package ships it unstripped at ~50 MB (ADR 0192). Games packaged with `build/package-game.sh` keep it as published; see
+docs/design/distribution-nuget.md for stripping it by hand. The first release with BRUTAL B1 calls out in its notes that
+games now inherit the BRUTAL licence (logo in the splash, credits, `BRUTAL-NOTICE.txt`).
+
 ```mermaid
 flowchart LR
     G["guard<br/>main only · actor brogan89<br/>next version"] --> C["ci.yml<br/>(full suite, reused)"]
