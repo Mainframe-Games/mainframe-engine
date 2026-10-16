@@ -328,8 +328,16 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["physics.maxStepsPerFrame"] = "8",
             ["physics.3d.gravity"] = "0, -20, 0",
             ["physics.3d.substeps"] = "2",
-            ["physics.3d.solverIterations"] = "8",
-            ["physics.3d.relaxationIterations"] = "3",
+            ["physics.3d.backend"] = "Jolt",
+            ["physics.3d.jitter2.solverIterations"] = "8",
+            ["physics.3d.jitter2.relaxationIterations"] = "3",
+            ["physics.3d.jolt.velocitySteps"] = "12",
+            ["physics.3d.jolt.positionSteps"] = "3",
+            ["physics.3d.jolt.maxBodies"] = "4096",
+            ["physics.3d.jolt.maxBodyPairs"] = "8192",
+            ["physics.3d.jolt.maxContactConstraints"] = "2048",
+            ["physics.3d.jolt.tempAllocatorMB"] = "32",
+            ["physics.3d.jolt.contactEventCapacity"] = "1024",
             ["physics.3d.allowDeactivation"] = "false",
             ["physics.3d.multiThreaded"] = "false",
             ["physics.3d.deterministic"] = "true",
@@ -389,6 +397,24 @@ public sealed class ProjectWorkflowTests : IDisposable
         model.History.GoTo(0);
         Assert.Equal("Workflow", model.Get("name"));
         Assert.Equal(original, model.History.Actions.Count);
+    }
+
+    [Fact]
+    public void PhysicsShowsTheSharedKeysAndTheSelectedBackendsGroup()
+    {
+        var model = new ProjectSettingsModel(ProjectSettings.Load(_project.Root), _project.Abs(ProjectSettings.FileName));
+        bool Shown(string key) => ProjectSettingsModel.Find(key)!.Visible?.Invoke(model.Current) ?? true;
+
+        Assert.True(Shown("physics.3d.backend"));
+        Assert.True(Shown("physics.3d.gravity"));
+        Assert.True(Shown("physics.3d.jitter2.solverIterations"));
+        Assert.False(Shown("physics.3d.jolt.velocitySteps"));
+
+        Assert.Null(model.Set("physics.3d.backend", "Jolt"));
+        Assert.False(Shown("physics.3d.jitter2.solverIterations"));
+        Assert.True(Shown("physics.3d.jolt.velocitySteps"));
+        Assert.True(Shown("physics.3d.substeps"));
+        Assert.NotNull(model.Set("physics.3d.backend", "Havok"));
     }
 
     [Fact]
