@@ -147,6 +147,47 @@ commas tolerated). Only values that differ from the defaults are written, except
   `devAppIdFile` (default true) lets development runs start Steam without being launched by it; `restartThroughSteam`
   (default false) makes shipped builds started outside Steam relaunch through it.
 
+### Splash (`splash`, ADR 0192)
+
+Every game shows a splash sequence before gameplay: Mainframe, BRUTAL (its licence requires the BRUTAL logo before
+gameplay), then the game's own cards. Format 4 added the section (the 3 → 4 migration gives older projects the defaults).
+
+```json
+"splash": {
+  "cards": ["@mainframe", "@brutal", "Content/Brand/studio.png"],
+  "background": "#000000",
+  "holdSeconds": 2.0,
+  "skippable": true,
+  "nonProfit": false
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `cards` | Ordered. `@mainframe` and `@brutal` are built in; any other entry is a PNG in the game's `Content/`. A missing image is skipped with a warning |
+| `background` | sRGB hex (`#RRGGBB`/`#RGB`) behind every card. BRUTAL's white logo shows on a background of relative luminance below 0.5, its black one otherwise |
+| `holdSeconds` | Fully visible time per card, clamped to 1.5–10 (a warning names an out-of-range value) |
+| `skippable` | A fresh key, click or gamepad press ends a card's hold once it has run 1.5 s; a key held from launch never does |
+| `nonProfit` | Unlocks `@brutal` (BRUTAL's README waiver for non-profits; confirm with Ahwoo, brutal@ahwoo.com) |
+
+**The lock**: without `nonProfit`, a `cards` list lacking `@brutal` shows it after `@mainframe` (or first);
+`ProjectSettings.Load` warns once per load naming the licence until the file is fixed (the saver writes what you set).
+Repeated entries show once, with a warning. `ProjectSettings.Splash.ResolvedCards` is the list shown.
+
+`SplashSequence` (`Src/Project/Splash/`, owned by `GameHost`) draws on an engine `UiLayer` above every game layer
+(`int.MaxValue - 1`, under the dev overlay) with `Content/UI/splash/splash.rml`. Every card's image fits a square box of
+40 % of the shorter screen side, aspect kept, so no logo is less prominent than another. Per card: 0.3 s fade in, the
+hold, 0.3 s fade out, on the frame's delta (paused trees too; one frame counts at most 0.1 s, so a hitch cannot jump a
+card). `GameHost` starts the session with `GameSession.StartAsync` on the first update as before and shows the splash above
+the loading screen; the sequence ends when the last card has faded out and the load has completed (a spinner shows under
+the last card until then). With `loading.async` false or `--sync-load` the splash plays first and the synchronous load runs
+after it. A failed load ends the splash and takes the usual error path. While the splash is up `SceneTree.IsLoading` is
+true and no input event reaches the game (polled `Input` still sees held keys).
+
+The splash does not run with `--headless`, `--editor-port` (the editor's Play), `--scene`, `--max-frames` with `--hidden`
+(CI smoke) or `--no-splash` (development). `--qa-splash` runs only the sequence and quits (the editor's Preview);
+`--qa-splash-out <dir>` also saves each card halfway through its hold as `splash-N.png`, unskippable.
+
 ### App name and icon (ADR 0182)
 
 `name` is the game's player-facing name and `window.icon` (a PNG, `Content/…`) its icon, everywhere:
@@ -210,6 +251,9 @@ does not load), 2 (bad command line).
 | `--sync-load` | load the start scene synchronously, without the loading screen (as `loading.async: false`; before/after timings) |
 | `--loading-hold <s>` | keep the loading screen up at least this long before the scene enters (QA of its look) |
 | `--loading-screenshot <file.png>` | save the loading screen's first frame at or past half progress (QA) |
+| `--no-splash` | skip the splash sequence while developing (ADR 0192; a game launched normally always shows it) |
+| `--qa-splash` | run only the splash sequence, then quit (the editor's Project Settings › Splash › Preview) |
+| `--qa-splash-out <dir>` | `--qa-splash`, unskippable, saving each card halfway through its hold as `dir/splash-N.png` |
 | `--record <file.mp4>` | record gameplay (live; offline with `--fixed-fps`) with the user's ffmpeg and write `file.mp4.mfcap.json`; starts on the first update, so loading is recorded; implies frame capture; rejected with `--headless` ([Gameplay recording](recording.md)) |
 | `--record-scale <n>` | fixed content scale for the recording (a 1920×1080-point window at 2 is 4K, if the display can hold it) |
 | `--ffmpeg <path>` | the ffmpeg to record with (else `MAINFRAME_FFMPEG`, `PATH`, common install folders) |
