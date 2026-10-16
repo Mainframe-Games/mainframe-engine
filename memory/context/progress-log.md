@@ -4,6 +4,19 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **BRUTAL B1 (attribution): Tasks 1–6 of 16 done, local only (2026-10-16).** Branch `brutal/b1-attribution`, rebased on
+  `main` after the design PR (#72); not pushed, no PR (one push at Task 16). Plan
+  `docs/superpowers/plans/2026-10-16-brutal-b1-attribution.md`; next is **Task 7** (the `splash` project settings section).
+  - Deviations from the plan: `Ahwoo.BRUTAL.Collections` (a dependency of Strings) is pinned too, and so is
+    `Microsoft.Extensions.ObjectPool` `[11.0.0-preview.5.26302.115]` (a preview Strings needs; Brogan approved it; it is in
+    ADR 0192 and the notices). `ExcludeAssets="analyzers"` does not stop the SDK resolving `Ahwoo.BRUTAL.Core`'s analyzer,
+    so `Directory.Build.targets` and `build/package/MainframeEngine.targets` remove `Ahwoo.BRUTAL.*` analyzers by package
+    id (target `_MainframeRemoveBrutalAnalyzers`). Logos fetched from BRUTAL commit `a25cdf80`.
+  - Checked: `just build` 0 warnings, `just test` (after Task 2) all green, both template smokes, the libjolt strip check
+    in Docker (49.7 MB → 3.6 MB), `ui-settings-menu` goldens re-recorded (moltenvk + lavapipe, inspected). The full gate
+    run (Release build, `just test-render`, `just shaders-check`) waits for Task 16. `docs/images/demo/settings.png` now
+    lacks the Credits tab: refresh it with `just demo-screenshots` in Task 15/16.
+
 - **Video editing mode: implemented, local only (2026-10-14).** Branch `feature/video-editor` (worktree
   `.claude/worktrees/video-editor`), based on `main`; not pushed, no PR yet (it targets `main` when Brogan says so).
   Plan `docs/superpowers/plans/2026-10-13-video-editor.md` (17 tasks), as-built doc `docs/design/video-editor.md` (moved
