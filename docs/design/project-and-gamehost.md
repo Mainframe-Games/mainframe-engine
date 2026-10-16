@@ -57,7 +57,7 @@ commas tolerated). Only values that differ from the defaults are written, except
 
 ```jsonc
 {
-  "format": 3,
+  "format": 5,
   "name": "Space Game",
   "engineVersion": "0.4.2",                    // the engine the project was created with / upgraded to
   "userDataName": "SpaceGame",                 // the user data folder's name (default: name); keep it stable
@@ -68,8 +68,8 @@ commas tolerated). Only values that differ from the defaults are written, except
   "window": { "title": "Space!", "width": 1920, "height": 1080, "vsync": false, "maxFps": 144, "icon": "Content/icon.png" },
   "physics": {
     "ticksPerSecond": 120, "maxStepsPerFrame": 8,
-    "3d": { "gravity": [0, -20, 0], "substeps": 2, "solverIterations": 8, "relaxationIterations": 3,
-            "allowDeactivation": false, "multiThreaded": false, "deterministic": true },
+    "3d": { "backend": "jitter2", "gravity": [0, -20, 0], "substeps": 2, "allowDeactivation": false, "multiThreaded": false,
+            "deterministic": true, "jitter2": { "solverIterations": 8, "relaxationIterations": 3 } },
     "2d": { "gravity": [0, -500], "pixelsPerMeter": 64, "substeps": 8, "allowSleep": false, "continuous": false }
   },
   "input": {
@@ -90,9 +90,13 @@ commas tolerated). Only values that differ from the defaults are written, except
 }
 ```
 
-- **Versioning.** `format` is `ProjectSettingsFormat.Current` (3; format 1 had a top-level `steamAppId`, which the
+`physics.3d.backend` picks the 3D library (`jitter2`, `jolt` from B3); `jitter2`/`jolt` hold each one's own keys (format 4
+moved `solverIterations`/`relaxationIterations` under `jitter2`).
+
+- **Versioning.** `format` is `ProjectSettingsFormat.Current` (5; format 1 had a top-level `steamAppId`, which the
   1 → 2 migration moves to `steam.appId`; the 2 → 3 migration writes `ui.scaleMode: "ConstantPixelSize"` into projects
-  that have none, so their UI keeps its size). Older files run through `ProjectMigration` steps
+  that have none, so their UI keeps its size; the 3 → 4 migration moves the Jitter2 solver keys under
+  `physics.3d.jitter2`; the 4 → 5 migration adds the default `splash`). Older files run through `ProjectMigration` steps
   (`From` → `From + 1`, each editing the `JsonObject`) before they are read; newer files are rejected ("update the
   engine"). `engineVersion` is advisory: `GameHost` warns when its major/minor differs from `EngineInfo.Version`
   (development builds `0.0.0-*` never warn).
@@ -150,7 +154,7 @@ commas tolerated). Only values that differ from the defaults are written, except
 ### Splash (`splash`, ADR 0192)
 
 Every game shows a splash sequence before gameplay: Mainframe, BRUTAL (its licence requires the BRUTAL logo before
-gameplay), then the game's own cards. Format 4 added the section (the 3 → 4 migration gives older projects the defaults).
+gameplay), then the game's own cards. Format 5 added the section (the 4 → 5 migration gives older projects the defaults).
 
 ```json
 "splash": {

@@ -1,6 +1,6 @@
 # Proposal: BRUTAL as the engine's backend tech
 
-**Milestone:** [BRUTAL backend](../../milestones.md#brutal-backend-) (B1–B7) · **Status:** B1 ✅ (plumbing and attribution); B2–B7 ⬜ planned ·
+**Milestone:** [BRUTAL backend](../../milestones.md#brutal-backend-) (B1–B7) · **Status:** B1 ✅ (plumbing and attribution), B2 ✅ (physics seam); B3–B7 ⬜ planned ·
 **Decision:** [ADR 0192](../../../memory/decisions/0192-brutal-backend-tech.md) · **Depends on:** [M6 physics](../physics.md),
 [M10 project and GameHost](../project-and-gamehost.md), [Game UI](../game-ui.md) · **Related:**
 [Physics joints](physics-joints.md) (G9, written against the seam once B2 lands),
@@ -266,12 +266,18 @@ Internal, abstract (not an interface: two sealed implementations, devirtualizabl
 
 | Group | Members |
 |---|---|
-| World | `static PhysicsBackend3D Create(PhysicsSettings3D settings)`, `Step(float dt)`, `Dispose()` |
-| Bodies | `CreateBody(in BodyDescription3D desc)` (shapes arrive at the first flush), `DestroyBody`, `SetKind`, `SetShapes(body, shapes, dynamicMass, errors)` (mass and inertia follow the shapes), `SetFilter(body, layer, mask)` (the kind says whether it is an area), `SetProperties(body, in BodyProperties3D props)` (damping per step, gravity scale, axis locks, CCD, can-sleep), `SetMaterial(body, friction, bounce)` |
-| State | `GetPose`, `SetPose` (static/area move), `Teleport` (keeps velocity), `MoveKinematic(body, position, rotation, dt)`, `Get/SetLinearVelocity`, `Get/SetAngularVelocity`, `ApplyForce/Impulse/Torque`, `IsSleeping`, `Wake`, `WakeTouching`, `ClearContacts` (after a filter change) |
-| Scans (after `Step`) | `CollectTouching(body, List<BackendBody> others)` for contact monitors; `CollectOverlaps(area, List<BackendBody> others)` for areas, into lists the space owns and clears (no allocation once warm). The engine maps handles to records |
-| Queries | `RayCast`, `ShapeCast`, `IntersectShape`, `IntersectPoint`, each with mask, exclude handle and `hitFromInside`, writing a `BackendHit3D` (handle, shape index, position, normal, fraction) |
-| Character | `CastBody(body, position, rotation, motion, out BackendHit3D)` (sweep of all the body's shapes; the caller extends the motion by the margin), `GetShapeCount`, `CollectNearbyShapes(body, position, rotation, expand, List<BackendShapeRef>)` and `Penetration(body, shape, position, rotation, other, maxDistance, out BackendContact3D)` (signed distance and normal per shape pair, negative when overlapping: recovery moves the body between pairs, so it is not one batch call), `Distance(body, position, rotation, other, out float, out Vector3 normal)` |
+| World | `Create(kind, settings)`, `Kind`, `Gravity`, `ActiveBodyCount`, `Step(dt)`, `Dispose()` |
+| Bodies | `CreateBody(desc)` (no shapes: they come at the first flush), `DestroyBody`, `SetKind`, `SetShapes(body, shapes, dynamicMass, errors)`, `SetFilter(body, layer, mask)`, `SetProperties`, `SetMaterial` |
+| State | `GetPose`, `SetPose`, `Teleport`, `MoveKinematic`, `Get/SetLinearVelocity`, `Get/SetAngularVelocity`, `ApplyForce/Impulse/Torque`, `IsSleeping`, `Wake`, `WakeTouching`, `ClearContacts` |
+| Scans | `CollectTouching`, `CollectOverlaps` (false: the area has no shapes) |
+| Queries | `RayCast`, `ShapeCast`, `IntersectShape`, `IntersectPoint` |
+| Character | `CastBody`, `GetShapeCount`, `CollectNearbyShapes` + `Penetration` (recovery pushes the pose between pairs), `Distance` (settle) |
+
+Built (B2): `CreateBody` takes no shapes (they arrive at the space's first flush, as before); mass is a `SetShapes`
+argument because inertia follows the shapes; friction and bounce have their own `SetMaterial` (the material changes on its
+own); `SetFilter` takes no area flag (the kind says it); `CastBody` takes no margin (the caller extends the motion);
+recovery is `CollectNearbyShapes` + `Penetration`, because the engine moves the pose between pairs. Shape indices in hits
+are description indices; the record maps them to `CollisionShape3D`s.
 
 Every method is main-thread only, allocation-free and called only between steps. The space calls `Step` once per fixed
 step; sub-stepping is the backend's (`SubstepCount`).
@@ -317,7 +323,7 @@ No Jolt code exists yet. Every physics unit test, both allocation gates, the `ph
 determinism check and the physics benchmarks pass **unchanged** on Jitter2 (benchmarks within the noise of
 `baseline.json`), checked by a bit-exact Jitter2 call trace recorded before the refactor. The physics internals, settings,
 project format, editor Project Settings, tests and docs change; nodes, scenes, the public node API and game code do not
-(`PhysicsSettings3D.SolverIterations`/`RelaxationIterations` stay as forwarders to `Jitter2`).
+(`PhysicsSettings3D.SolverIterations`/`RelaxationIterations` stay as forwarders to `Jitter2`). The trace is `PhysicsTraceTests` (opt-in, per RID).
 
 ## B3: the Jolt backend
 

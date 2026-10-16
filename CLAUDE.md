@@ -95,8 +95,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `MainframeEngine/Src/Recording/` — gameplay recording (ADR 0190): `GameRecorder` (`SceneTree.Recorder`: `Start`/`Stop`/`Mark`/`Keep`/`Skip`),
   an ffmpeg child process for the encode and mux (the engine never links an encoder), a float WAV, and the `.mfcap.json` sidecar
   Cutback reads; fed by the renderer's `IFrameStreamSource` and the audio server's capture tap. See `docs/design/recording.md`
-- `MainframeEngine/Src/Physics/` — M6 physics: `PhysicsServer3D` (Jitter2) / `PhysicsServer2D` (Box2D.NET), spaces, body
-  nodes (`StaticBody*`, `RigidBody*`, `CharacterBody*`, `Area*`), `CollisionShape*`, shape resources, queries
+- `MainframeEngine/Src/Physics/` — M6 physics: `PhysicsServer3D` / `PhysicsServer2D` (Box2D.NET), spaces, body
+  nodes (`StaticBody*`, `RigidBody*`, `CharacterBody*`, `Area*`), `CollisionShape*`, shape resources, queries; 3D runs
+  on an internal backend seam (`3D/Backend/PhysicsBackend3D`, ADR 0192 B2): `3D/Jitter/Jitter2Backend` (Jitter2), `3D/Jolt/` (B3)
 - `MainframeEngine/Src/Resources/`, `Src/Serialization/` — `Resource`, `PackedScene`, loader/savers, `AssetDatabase`;
   `[Export]`/`[Signal]` attributes, `TypeRegistry`, JSON scene format
 - `MainframeEngine.Generators/` — Roslyn source generator registering node/resource types (referenced as an analyzer)
@@ -211,7 +212,7 @@ override (frees the scene tree, disposes servers, then renderer, input; keeps th
 
 **BRUTAL licence (ADR 0192):** games inherit it. Never remove the `@brutal` splash card, the `Credits` engine entries or
 the `BRUTAL-NOTICE.txt` copy; the BRUTAL logo files are byte-for-byte copies (`build/brand/brutal-logos.sha256`).
-`project.mfproj` is format 4 (`splash`). BRUTAL's analyzers stay off (`ExcludeAssets` plus `_MainframeRemoveBrutalAnalyzers`
+`project.mfproj` is format 5 (4: the physics backend groups, B2; 5: `splash`). BRUTAL's analyzers stay off (`ExcludeAssets` plus `_MainframeRemoveBrutalAnalyzers`
 in `Directory.Build.targets` and the package's `buildTransitive` targets).
 
 ### Nodes, servers and scenes
@@ -241,7 +242,9 @@ namespaces — qualify the latter.
 Bodies are nodes with `CollisionShape3D/2D` children holding `Shape3D/2D` resources; move characters with
 `CharacterBody*.MoveAndSlide()` from `OnPhysicsProcess`; query through `GetWorld3D().DirectSpaceState`. Moving bodies'
 transforms are interpolated render poses outside `OnPhysicsProcess`. Signals fire after the step on the main thread.
-Keep every Jitter2/Box2D call inside `Src/Physics` (pinned versions; APIs change between minors). Box2D.NET allocates
+Keep Jitter2 calls inside `Src/Physics/3D/Jitter`, Jolt (BRUTAL) calls inside `Src/Physics/3D/Jolt` and Box2D.NET calls inside
+`Src/Physics/2D` (pinned versions; APIs change between minors; `BackendSourceRulesTests` enforces it). The engine side of 3D
+physics talks to `PhysicsBackend3D` only. Box2D.NET allocates
 inside its own step; engine code must not. See `docs/design/physics.md`.
 
 ### Frame Order

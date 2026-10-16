@@ -113,7 +113,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
                     break;
                 default:
                     foreach (var setting in ProjectSettingsModel.Settings)
-                        if (setting.Section == _section)
+                        if (setting.Section == _section && (setting.Visible?.Invoke(model.Current) ?? true))
                             RenderSetting(body, setting, setting.Get(model.Current), Workspace.Session.ProjectRoot);
                     break;
             }

@@ -145,15 +145,18 @@ public sealed class SplashSettingsTests : IDisposable
         Assert.Contains(message, Assert.Throws<InvalidDataException>(() => Parse(Current(splash))).Message, StringComparison.Ordinal);
 
     [Fact]
-    public void Format3ProjectsGetTheDefaultSplashThroughTheMigration()
+    public void OlderProjectsGetTheDefaultSplashThroughTheMigration()
     {
-        Assert.Equal(4, ProjectSettingsFormat.Current);
-        var s = Parse("""{ "format": 3, "name": "Old" }""");
-        Assert.Equal([SplashProjectSettings.MainframeCard, SplashProjectSettings.BrutalCard], s.Splash.ResolvedCards);
-        Assert.Equal(4, (int)JsonNode.Parse(Text(s))!["format"]!);
+        Assert.Equal(5, ProjectSettingsFormat.Current); // 4 → 5 added "splash" (B2's 3 → 4 merged first)
+        foreach (var format in (int[])[3, 4])
+        {
+            var s = Parse($$"""{ "format": {{format}}, "name": "Old" }""");
+            Assert.Equal([SplashProjectSettings.MainframeCard, SplashProjectSettings.BrutalCard], s.Splash.ResolvedCards);
+            Assert.Equal(5, (int)JsonNode.Parse(Text(s))!["format"]!);
+        }
 
-        var root = new JsonObject { ["format"] = 3, ["name"] = "Old" };
-        ProjectSettingsFormat.Upgrade(root, 3, ProjectSettingsFormat.Current, ProjectSettingsFormat.Migrations, "old.mfproj");
+        var root = new JsonObject { ["format"] = 4, ["name"] = "Old" };
+        ProjectSettingsFormat.Upgrade(root, 4, ProjectSettingsFormat.Current, ProjectSettingsFormat.Migrations, "old.mfproj");
         Assert.IsType<JsonObject>(root["splash"]);
     }
 

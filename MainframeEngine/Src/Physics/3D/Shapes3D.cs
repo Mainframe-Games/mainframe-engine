@@ -1,6 +1,4 @@
 using System.Numerics;
-using Jitter2.Collision.Shapes;
-using Jitter2.LinearMath;
 
 namespace MainframeEngine;
 
@@ -12,34 +10,32 @@ namespace MainframeEngine;
 [EditorIcon("shape")]
 public abstract class Shape3D : Resource
 {
-    private RigidBodyShape? _queryShape;
-
     /// <summary>True for triangle-based shapes that only static (and kinematic) bodies may use.</summary>
     public virtual bool IsConcave => false;
 
+    /// <summary>Bumped by every property change that affects the geometry (backends cache native shapes by it).</summary>
+    internal int ChangeCount { get; private set; }
+
     /// <summary>
-    /// Creates the Jitter2 shapes for one attachment: <paramref name="linear"/> (rotation × scale) and
-    /// <paramref name="translation"/> place the shape in its body's frame.
+    /// Adds this shape's neutral description for one attachment: <paramref name="linear"/> (rotation × scale) and
+    /// <paramref name="translation"/> place it in its body's frame.
     /// </summary>
-    internal virtual void CreateShapes(List<RigidBodyShape> output, in Basis linear, Vector3 translation)
-    {
-        var shape = CreateBaseShape();
-        if (JitterMath.IsIdentity(linear) && translation == Vector3.Zero)
-            output.Add(shape);
-        else
-            output.Add(new TransformedShape(shape, translation.ToJ(), linear.ToJ()));
-    }
+    internal virtual void Describe(List<ShapeDescription3D> output, in Basis linear, Vector3 translation) =>
+        output.Add(DescribeConvex(linear, translation));
 
-    /// <summary>The shape in its own frame (convex shapes).</summary>
-    internal abstract RigidBodyShape CreateBaseShape();
+    /// <summary>The description of a convex shape (concave shapes throw <see cref="NotSupportedException"/>).</summary>
+    internal abstract ShapeDescription3D DescribeConvex(in Basis linear, Vector3 translation);
 
-    /// <summary>An unattached instance of the base shape for queries (shape casts, overlaps); cached until changed.</summary>
-    internal RigidBodyShape GetQueryShape()
+    /// <summary>The shape at its own origin and scale 1, for shape casts and overlap queries.</summary>
+    internal ShapeDescription3D DescribeQuery()
     {
         if (IsConcave)
             throw new NotSupportedException($"{GetType().Name} cannot be used as a query shape (it is concave).");
-        return _queryShape ??= CreateBaseShape();
+        return DescribeConvex(Basis.Identity, Vector3.Zero);
     }
+
+    private protected ShapeDescription3D Description(ShapeKind3D kind, in Basis linear, Vector3 translation) =>
+        new() { Kind = kind, Resource = this, ChangeCount = ChangeCount, Linear = linear, Translation = translation };
 
     /// <summary>Wireframe of the shape under <paramref name="transform"/> (world space, including scale).</summary>
     internal abstract void DrawDebug(DebugLines lines, in Transform3D transform, Vector4 color);
@@ -47,7 +43,7 @@ public abstract class Shape3D : Resource
     /// <summary>Call when a property changed: drops cached data and notifies users (<see cref="Resource.Changed"/>).</summary>
     protected void OnShapeChanged()
     {
-        _queryShape = null;
+        ChangeCount++;
         EmitChanged();
     }
 
@@ -79,7 +75,8 @@ public sealed class BoxShape3D : Shape3D
         }
     } = Vector3.One;
 
-    internal override RigidBodyShape CreateBaseShape() => new BoxShape(Size.ToJ());
+    internal override ShapeDescription3D DescribeConvex(in Basis linear, Vector3 translation) =>
+        Description(ShapeKind3D.Box, linear, translation) with { Size = Size };
 
     internal override void DrawDebug(DebugLines lines, in Transform3D transform, Vector4 color) =>
         lines.AddBox(transform, Size * 0.5f, color);
@@ -103,7 +100,8 @@ public sealed class SphereShape3D : Shape3D
         }
     } = 0.5f;
 
-    internal override RigidBodyShape CreateBaseShape() => new SphereShape(Radius);
+    internal override ShapeDescription3D DescribeConvex(in Basis linear, Vector3 translation) =>
+        Description(ShapeKind3D.Sphere, linear, translation) with { Radius = Radius };
 
     internal override void DrawDebug(DebugLines lines, in Transform3D transform, Vector4 color) =>
         lines.AddSphere(transform, Radius, color);
@@ -145,7 +143,8 @@ public sealed class CapsuleShape3D : Shape3D
     /// <summary>Length of the cylindrical middle part (Jitter2's capsule length).</summary>
     public float MidHeight => MathF.Max(0, Height - 2 * Radius);
 
-    internal override RigidBodyShape CreateBaseShape() => new CapsuleShape(Radius, MidHeight);
+    internal override ShapeDescription3D DescribeConvex(in Basis linear, Vector3 translation) =>
+        Description(ShapeKind3D.Capsule, linear, translation) with { Radius = Radius, Height = Height };
 
     internal override void DrawDebug(DebugLines lines, in Transform3D transform, Vector4 color) =>
         lines.AddCapsule(transform, Radius, MathF.Max(Height, 2 * Radius), color);
@@ -183,8 +182,8 @@ public sealed class CylinderShape3D : Shape3D
         }
     } = 2f;
 
-    // Note Jitter2's argument order: (height, radius).
-    internal override RigidBodyShape CreateBaseShape() => new CylinderShape(Height, Radius);
+    internal override ShapeDescription3D DescribeConvex(in Basis linear, Vector3 translation) =>
+        Description(ShapeKind3D.Cylinder, linear, translation) with { Radius = Radius, Height = Height };
 
     internal override void DrawDebug(DebugLines lines, in Transform3D transform, Vector4 color) =>
         lines.AddCylinder(transform, Radius, Height, color);
@@ -192,7 +191,8 @@ public sealed class CylinderShape3D : Shape3D
 
 /// <summary>
 /// The convex hull of a point cloud (Godot's <c>ConvexPolygonShape3D</c>). Jitter2 uses the points' support map
-/// directly, so keep the set small (a few dozen points); the hull is only built for debug drawing.
+/// directly, so keep the set small (a few dozen points); the hull is only built for debug drawing (Jitter2's tessellation,
+/// through <c>JitterHull</c>).
 /// </summary>
 [EditorIcon("polygon")]
 public sealed class ConvexPolygonShape3D : Shape3D
@@ -214,14 +214,11 @@ public sealed class ConvexPolygonShape3D : Shape3D
         }
     } = [];
 
-    internal override RigidBodyShape CreateBaseShape()
+    internal override ShapeDescription3D DescribeConvex(in Basis linear, Vector3 translation)
     {
         if (Points.Length < 4)
             throw new InvalidOperationException("ConvexPolygonShape3D needs at least 4 points.");
-        Span<JVector> points = Points.Length <= 256 ? stackalloc JVector[Points.Length] : new JVector[Points.Length];
-        for (var i = 0; i < Points.Length; i++)
-            points[i] = Points[i].ToJ();
-        return new PointCloudShape(points);
+        return Description(ShapeKind3D.ConvexHull, linear, translation) with { Points = Points };
     }
 
     internal override void DrawDebug(DebugLines lines, in Transform3D transform, Vector4 color)
@@ -229,21 +226,7 @@ public sealed class ConvexPolygonShape3D : Shape3D
         if (!_hullValid)
         {
             _hullValid = true;
-            _hullTriangles = [];
-            if (Points.Length >= 4)
-            {
-                Span<JVector> points = Points.Length <= 256 ? stackalloc JVector[Points.Length] : new JVector[Points.Length];
-                for (var i = 0; i < Points.Length; i++)
-                    points[i] = Points[i].ToJ();
-                var hull = ShapeHelper.Tessellate(points, 2);
-                _hullTriangles = new Vector3[hull.Count * 3];
-                for (var i = 0; i < hull.Count; i++)
-                {
-                    _hullTriangles[i * 3] = hull[i].V0.ToNumerics();
-                    _hullTriangles[i * 3 + 1] = hull[i].V1.ToNumerics();
-                    _hullTriangles[i * 3 + 2] = hull[i].V2.ToNumerics();
-                }
-            }
+            _hullTriangles = JitterHull.Tessellate(Points, 2);
         }
 
         lines.AddTriangles(transform, _hullTriangles, color);
@@ -274,28 +257,10 @@ public sealed class ConcavePolygonShape3D : Shape3D
 
     public override bool IsConcave => true;
 
-    internal override void CreateShapes(List<RigidBodyShape> output, in Basis linear, Vector3 translation) =>
-        AddTriangleShapes(output, Faces, linear, translation);
+    internal override void Describe(List<ShapeDescription3D> output, in Basis linear, Vector3 translation) =>
+        output.Add(Description(ShapeKind3D.ConcaveMesh, linear, translation) with { Points = Faces });
 
-    internal static void AddTriangleShapes(List<RigidBodyShape> output, ReadOnlySpan<Vector3> faces, in Basis linear, Vector3 translation)
-    {
-        if (faces.Length < 3)
-            return;
-        var soup = new JTriangle[faces.Length / 3];
-        for (var i = 0; i < soup.Length; i++)
-        {
-            soup[i] = new JTriangle(
-                (linear.Transform(faces[i * 3]) + translation).ToJ(),
-                (linear.Transform(faces[i * 3 + 1]) + translation).ToJ(),
-                (linear.Transform(faces[i * 3 + 2]) + translation).ToJ());
-        }
-
-        var mesh = new TriangleMesh(soup, ignoreDegenerated: true);
-        for (var i = 0; i < mesh.Indices.Length; i++)
-            output.Add(new TriangleShape(mesh, i));
-    }
-
-    internal override RigidBodyShape CreateBaseShape() =>
+    internal override ShapeDescription3D DescribeConvex(in Basis linear, Vector3 translation) =>
         throw new NotSupportedException("ConcavePolygonShape3D has no single convex base shape.");
 
     internal override void DrawDebug(DebugLines lines, in Transform3D transform, Vector4 color) =>
@@ -370,7 +335,9 @@ public sealed class HeightMapShape3D : Shape3D
     }
 
     /// <summary>The height field as a triangle list (two triangles per cell, counter-clockwise from above).</summary>
-    public ReadOnlySpan<Vector3> GetFaces()
+    public ReadOnlySpan<Vector3> GetFaces() => GetFaceArray();
+
+    internal Vector3[] GetFaceArray()
     {
         if (_faces is not null)
             return _faces;
@@ -400,10 +367,10 @@ public sealed class HeightMapShape3D : Shape3D
         return faces;
     }
 
-    internal override void CreateShapes(List<RigidBodyShape> output, in Basis linear, Vector3 translation) =>
-        ConcavePolygonShape3D.AddTriangleShapes(output, GetFaces(), linear, translation);
+    internal override void Describe(List<ShapeDescription3D> output, in Basis linear, Vector3 translation) =>
+        output.Add(Description(ShapeKind3D.HeightMap, linear, translation) with { Points = GetFaceArray() });
 
-    internal override RigidBodyShape CreateBaseShape() =>
+    internal override ShapeDescription3D DescribeConvex(in Basis linear, Vector3 translation) =>
         throw new NotSupportedException("HeightMapShape3D has no single convex base shape.");
 
     internal override void DrawDebug(DebugLines lines, in Transform3D transform, Vector4 color) =>
