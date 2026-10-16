@@ -140,6 +140,10 @@
       <Error Condition="!Exists('$(PkgAhwoo_BRUTAL_Core)/NOTICE.txt')" Code="MFBRUTAL001"
              Text="Ahwoo.BRUTAL.Core has no NOTICE.txt at $(PkgAhwoo_BRUTAL_Core): games must ship BRUTAL's notice (the BRUTAL licence, 2.3). Find where this BRUTAL version keeps it and update MainframeEngine.csproj." />
     </Target>
+    <!-- Credits (BRUTAL B1): THIRD_PARTY_NOTICES.md, parsed at run time by ThirdPartyNotices, so the credits cannot drift from it. -->
+    <ItemGroup>
+      <EmbeddedResource Include="..\THIRD_PARTY_NOTICES.md" LogicalName="MainframeEngine.THIRD_PARTY_NOTICES.md" Visible="false" />
+    </ItemGroup>
 
     <!--
       Native libraries (docs/design/natives.md): runtimes/<rid>/native/ holds the binaries we build (Native/,
