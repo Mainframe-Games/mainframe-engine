@@ -824,6 +824,7 @@ public sealed class UiServerTests
         Assert.True(doc.IsLoaded);
         Assert.Contains("Credits", doc.GetElementById(UiDocument.PanelTitleId)!.InnerRml, StringComparison.Ordinal);
         Assert.Contains("The FreeType Project", doc.Document.AsElement().InnerRml, StringComparison.Ordinal);
+        Assert.Contains(Credits.BrutalNotice, doc.Document.AsElement().InnerRml, StringComparison.Ordinal); // the BRUTAL licence, 2.1
     }
 
     [Fact]

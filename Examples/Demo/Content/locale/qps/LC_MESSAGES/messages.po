@@ -347,8 +347,8 @@ msgstr "[Séttîñgs ~~]"
 msgid "Credits"
 msgstr "[Çréðîts ~~]"
 
-msgid "Made with Mainframe Engine"
-msgstr "[Måðé wîth Måîñfråmé Éñgîñé ~~~~~~]"
+msgid "Made with Mainframe Engine and BRUTAL"
+msgstr "[Måðé wîth Måîñfråmé Éñgîñé åñð BRÛTÅL ~~~~~~~~~]"
 
 msgid "User interface"
 msgstr "[Ûsér îñtérfåçé ~~~]"
