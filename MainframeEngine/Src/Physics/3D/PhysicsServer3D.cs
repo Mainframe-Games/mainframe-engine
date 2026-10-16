@@ -17,8 +17,6 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
     private readonly List<PhysicsSpace3D> _spaceList = [];
     private bool _disposed;
 
-    static PhysicsServer3D() => JitterLog.EnsureInstalled();
-
     public PhysicsServer3D(PhysicsSettings3D? settings = null)
     {
         Settings = settings ?? new PhysicsSettings3D();
