@@ -1,6 +1,7 @@
 namespace MainframeEngine.Editor.Tests;
 
 /// <summary>The editor ships BRUTAL too (ADR 0192): its splash shows the BRUTAL logo beside the Mainframe logo, in boxes of one size.</summary>
+[Collection(nameof(SerialEditor))]
 public sealed class SplashScreenTests
 {
     [Fact]

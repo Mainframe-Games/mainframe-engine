@@ -1,6 +1,7 @@
 namespace MainframeEngine.Editor.Tests;
 
 /// <summary>Help › About lists Credits.Entries (the engine's and the third-party sections, BRUTAL's line among them, ADR 0192).</summary>
+[Collection(nameof(SerialEditor))]
 public sealed class AboutCreditsTests
 {
     [Fact]
