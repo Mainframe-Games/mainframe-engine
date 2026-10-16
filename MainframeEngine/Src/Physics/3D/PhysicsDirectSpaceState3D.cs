@@ -1,4 +1,7 @@
 using System.Numerics;
+using Jitter2.Collision;
+using Jitter2.Collision.Shapes;
+using Jitter2.LinearMath;
 
 namespace MainframeEngine;
 
@@ -49,11 +52,20 @@ public sealed class PhysicsDirectSpaceState3D
         if (Space is not { } space || direction.LengthSquared() < 1e-14f)
             return false;
         space.FlushForQuery();
-        if (!space.Backend.RayCast(from, direction, collisionMask, space.HandleOf(exclude), hitFromInside, out var result) ||
-            space.RecordOf(result.Body) is not { } record)
-            return false;
-        hit = new RayHit3D(record.Node, record.ShapeOwner(result.ShapeIndex), result.Position, result.Normal, result.Fraction);
-        return true;
+        var filters = space.Filters;
+        filters.Begin(collisionMask, exclude?.Record?.Body);
+        try
+        {
+            if (!space.Tree.RayCast(from.ToJ(), direction.ToJ(), 1f, filters.RayPre, hitFromInside ? null : filters.RayPostOutside, out var proxy, out var normal, out var lambda) ||
+                proxy is not RigidBodyShape { RigidBody.Tag: BodyRecord3D record })
+                return false;
+            hit = new RayHit3D(record.Node, space.FindShapeOwner(proxy), from + direction * lambda, normal.ToNumerics(), lambda);
+            return true;
+        }
+        finally
+        {
+            filters.End();
+        }
     }
 
     /// <summary>
@@ -67,14 +79,25 @@ public sealed class PhysicsDirectSpaceState3D
         hit = default;
         if (Space is not { } space || motion.LengthSquared() < 1e-14f)
             return false;
-        var query = shape.DescribeQuery();
+        var query = shape.GetQueryShape();
         space.FlushForQuery();
         from.Decompose(out var position, out var rotation, out _);
-        if (!space.Backend.ShapeCast(query, position, rotation, motion, collisionMask, space.HandleOf(exclude), out var result) ||
-            space.RecordOf(result.Body) is not { } record)
-            return false;
-        hit = new ShapeCastHit3D(record.Node, record.ShapeOwner(result.ShapeIndex), result.Position, result.Normal, result.Fraction);
-        return true;
+        var filters = space.Filters;
+        filters.Begin(collisionMask, exclude?.Record?.Body);
+        try
+        {
+            if (!space.Tree.SweepCast(query, rotation.ToJ(), position.ToJ(), motion.ToJ(), 1f, filters.SweepPre, null,
+                    out var proxy, out _, out var pointB, out var normal, out var lambda) ||
+                proxy is not RigidBodyShape { RigidBody.Tag: BodyRecord3D record })
+                return false;
+            var surface = normal.ToNumerics() == Vector3.Zero ? Vector3.Zero : Vector3.Normalize(-normal.ToNumerics());
+            hit = new ShapeCastHit3D(record.Node, space.FindShapeOwner(proxy), pointB.ToNumerics(), surface, lambda);
+            return true;
+        }
+        finally
+        {
+            filters.End();
+        }
     }
 
     /// <summary>
@@ -88,13 +111,14 @@ public sealed class PhysicsDirectSpaceState3D
         ArgumentNullException.ThrowIfNull(results);
         if (Space is not { } space)
             return 0;
-        var query = shape.DescribeQuery();
+        var query = shape.GetQueryShape();
         space.FlushForQuery();
         transform.Decompose(out var position, out var rotation, out _);
-        var hits = space.QueryScratch;
-        hits.Clear();
-        space.Backend.IntersectShape(query, position, rotation, collisionMask, space.HandleOf(exclude), hits);
-        return space.AddHits(hits, results);
+        var positionJ = position.ToJ();
+        var rotationJ = rotation.ToJ();
+        query.CalculateBoundingBox(rotationJ, positionJ, out var box);
+        return Collect(space, box, results, collisionMask, exclude, (query, positionJ, rotationJ),
+            static (state, other, otherBody) => NarrowPhase.Overlap(state.query, other, state.rotationJ, otherBody.Orientation, state.positionJ, otherBody.Position));
     }
 
     /// <summary>Adds the bodies containing <paramref name="point"/> to <paramref name="results"/>; returns how many were added.</summary>
@@ -104,9 +128,40 @@ public sealed class PhysicsDirectSpaceState3D
         if (Space is not { } space)
             return 0;
         space.FlushForQuery();
-        var hits = space.QueryScratch;
-        hits.Clear();
-        space.Backend.IntersectPoint(point, collisionMask, space.HandleOf(exclude), hits);
-        return space.AddHits(hits, results);
+        var p = point.ToJ();
+        var box = new JBoundingBox(p - new JVector(1e-4f), p + new JVector(1e-4f));
+        return Collect(space, box, results, collisionMask, exclude, p,
+            static (state, other, otherBody) =>
+                NarrowPhase.PointTest(other, JMatrix.CreateFromQuaternion(otherBody.Orientation), otherBody.Position, state));
+    }
+
+    private static int Collect<TState>(PhysicsSpace3D space, in JBoundingBox box, List<CollisionObject3D> results, uint mask,
+        CollisionObject3D? exclude, TState state, Func<TState, RigidBodyShape, Jitter2.Dynamics.RigidBody, bool> test)
+    {
+        var proxies = space.ProxyScratch;
+        proxies.Clear();
+        var sink = new PhysicsSpace3D.ProxySink(proxies);
+        space.Tree.Query(ref sink, box);
+        var excluded = exclude?.Record?.Body;
+        var added = 0;
+        try
+        {
+            foreach (var proxy in proxies)
+            {
+                if (proxy is not RigidBodyShape { RigidBody: { } body } shape || ReferenceEquals(body, excluded) ||
+                    body.Tag is not BodyRecord3D { Removed: false } record || (record.Layer & mask) == 0 || results.Contains(record.Node))
+                    continue;
+                if (!test(state, shape, body))
+                    continue;
+                results.Add(record.Node);
+                added++;
+            }
+        }
+        finally
+        {
+            proxies.Clear();
+        }
+
+        return added;
     }
 }

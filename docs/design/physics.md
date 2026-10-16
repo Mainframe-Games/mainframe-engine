@@ -20,16 +20,15 @@ library-specific stays inside the physics servers.
 | Determinism | non-deterministic by default; `Deterministic` = island solver, reproducible on one machine/build | deterministic on one machine/build |
 
 Both are pinned in `Directory.Packages.props`; read the pinned version's API (the NuGet packages lag their repos).
-3D physics runs behind an internal seam, `PhysicsBackend3D` ([Backends](#backends-3d)): Jitter2 is the backend today;
-Jolt through BRUTAL arrives in B3 ([BRUTAL backend](future/brutal-backend.md)). Physics is single precision and offers no
-cross-platform lockstep mode ([ADR 0020](../../memory/decisions/0020-physics-precision-and-determinism.md)).
+A second 3D backend, Jolt through BRUTAL, is planned behind an internal seam ([BRUTAL backend](future/brutal-backend.md),
+B2–B4). Physics is single precision and offers no cross-platform lockstep mode
+([ADR 0020](../../memory/decisions/0020-physics-precision-and-determinism.md)).
 
 ## Key types
 
 | Type | File | Notes |
 |---|---|---|
-| `PhysicsServer3D`, `PhysicsSpace3D`, `PhysicsDirectSpaceState3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/) | one `PhysicsBackend3D` per `World3D` |
-| `PhysicsBackend3D`, `ShapeDescription3D`, `Jitter2Backend` | [Physics/3D/Backend/](../../MainframeEngine/Src/Physics/3D/Backend/), [Physics/3D/Jitter/](../../MainframeEngine/Src/Physics/3D/Jitter/) | internal seam (B2) |
+| `PhysicsServer3D`, `PhysicsSpace3D`, `PhysicsDirectSpaceState3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/) | one Jitter2 `World` per `World3D` |
 | `PhysicsServer2D`, `PhysicsSpace2D`, `PhysicsDirectSpaceState2D` | [Physics/2D/](../../MainframeEngine/Src/Physics/2D/) | one Box2D world per `World2D` |
 | `CollisionObject3D` → `StaticBody3D`, `RigidBody3D`, `CharacterBody3D`, `Area3D`; `CollisionShape3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/) | `PhysicsBody3D` is the base of the colliding ones |
 | `CollisionObject2D` → `StaticBody2D`, `RigidBody2D`, `CharacterBody2D`, `Area2D`; `CollisionShape2D` | [Physics/2D/](../../MainframeEngine/Src/Physics/2D/) | pixels |
@@ -103,9 +102,6 @@ from `Node3D`/`Node2D`; every property above is `[Export]`ed (scene files) and t
 
 ### Shape resources → library shapes
 
-Shape resources describe themselves (`Shape3D.Describe` → `ShapeDescription3D`: kind, sizes, the body-frame transform
-with the body's scale baked in, the resource's arrays, `ChangeCount`); the backend builds the library shapes.
-
 | Resource (3D) | Jitter2 | Resource (2D, px) | Box2D.NET |
 |---|---|---|---|
 | `BoxShape3D(Size)` | `BoxShape(size)` (full extents) | `RectangleShape2D(Size)` | polygon from the 4 transformed corners |
@@ -144,43 +140,13 @@ flowchart LR
 - **Body type mapping**: `StaticBody` → static; `RigidBody` → dynamic or kinematic (`Mode`); `CharacterBody` →
   kinematic (moved by the engine); `Area3D` → no Jitter2 body (overlaps are queried, see below); `Area2D` → a
   kinematic body with sensor shapes that never sleeps.
-- **Settings** (`PhysicsSettings3D`): `Backend` (`Jitter2`; `Jolt` from B3, until then it falls back with a warning),
-  `Gravity` (−9.81 Y), `SubstepCount` (1), `AllowDeactivation`, `MultiThreaded`, `Deterministic`, and per backend
-  `Jitter2.SolverIterations` (6) / `RelaxationIterations` (4) and `Jolt.*` (read from B3); `project.mfproj` keys
-  `physics.3d.backend`, `physics.3d.jitter2.*`, `physics.3d.jolt.*` (format 4 moved the solver keys under `jitter2`). (`PhysicsSettings2D`):
+- **Settings** (`PhysicsSettings3D`): `Gravity` (−9.81 Y), `SubstepCount` (1), `SolverIterations` (6) and
+  `RelaxationIterations` (4), `AllowDeactivation`, `MultiThreaded`, `Deterministic`. (`PhysicsSettings2D`):
   `Gravity` (+980 px/s² Y: 2D is Y-down, ADR 0110), **`PixelsPerMeter` (100)**, `SubstepCount` (4), `AllowSleep`, `EnableContinuous`.
 - **Units**: 3D is metres. Box2D is tuned for 0.1–10 m objects, so 2D nodes work in pixels and the space converts
   with `PixelsPerMeter` (fixed per space) at its boundary — positions, velocities, forces (kg·px/s²), torques and
   query results.
-- Jitter2 calls live in `Src/Physics/3D/Jitter/` (`Jitter2Backend`), Box2D calls in `Src/Physics/2D/`; `BackendSourceRulesTests`
-  fails otherwise.
-
-## Backends (3D)
-
-`PhysicsSpace3D` holds the engine's behaviour and calls one internal `PhysicsBackend3D` per space
-([BRUTAL backend](future/brutal-backend.md) B2): records, dirty tracking and the flush before steps and queries,
-membership lists, creation order, interpolation, user moves (teleport, move, kinematic target), the layer rule
-(`PhysicsSpace3D.Collides`, ADR 0021), signal diffing, order and removal exits (ADR 0022), damping per step, gravity-scale
-semantics, the concave-on-dynamic error, disabled-node removal, debug draw and `MoveAndSlide` stay engine code. Bodies
-are `BackendBody` handles (per backend; index 0 is none), shapes `ShapeDescription3D`s, results go into lists the space
-owns; every member is main-thread, between steps and allocation-free.
-
-| Group | Members |
-|---|---|
-| World | `Create(kind, settings)`, `Kind`, `Gravity`, `ActiveBodyCount`, `Step(dt)`, `Dispose()` |
-| Bodies | `CreateBody(desc)` (no shapes: they come at the first flush), `DestroyBody`, `SetKind`, `SetShapes(body, shapes, dynamicMass, errors)`, `SetFilter(body, layer, mask)`, `SetProperties`, `SetMaterial` |
-| State | `GetPose`, `SetPose`, `Teleport`, `MoveKinematic`, `Get/SetLinearVelocity`, `Get/SetAngularVelocity`, `ApplyForce/Impulse/Torque`, `IsSleeping`, `Wake`, `WakeTouching`, `ClearContacts` |
-| Scans | `CollectTouching`, `CollectOverlaps` (false: the area has no shapes) |
-| Queries | `RayCast`, `ShapeCast`, `IntersectShape`, `IntersectPoint` |
-| Character | `CastBody`, `GetShapeCount`, `CollectNearbyShapes` + `Penetration` (recovery pushes the pose between pairs), `Distance` (settle) |
-
-**Jitter2** (`Jitter2Backend`): one `World` per space; the broad-phase filter calls `Collides`; areas have no Jitter2 body
-(their shapes are queried by tree AABB and narrow phase after each step); a Jitter2 shape is one body's tree proxy, so
-shapes are built per body, and query shapes are cached per space by resource and `ChangeCount` in a weak table; a
-gravity scale other than 0/1 becomes a force; filter changes drop contact caches; the sphere contact filter (ADR 0134),
-the EPA → distance → MPR chain (ADR 0128) with `JitterLogMute`, and the hull tessellation of debug draw (`JitterHull`)
-live in `Src/Physics/3D/Jitter/`. `physics.3d.backend: "jolt"` logs `[Physics] Jolt is not available on <rid> (…); using
-Jitter2.` once per server until B3.
+- All Jitter2 / Box2D calls live in `PhysicsSpace*` (plus the shape resources' `Create*` methods).
 
 ## Fixed timestep and interpolation
 
@@ -385,10 +351,7 @@ ceilings, snap down a 5 cm step, recovery, pushing crates); interpolation (exact
 `OnPhysicsProcess`, teleport, pause); serialization round-trips of every body and shape; server lifecycle; debug
 draw; the fixed-step hooks; allocation gates (3D and 2D). Render tests: `physics` (frames 30 and 150),
 `physics-debug` (collision shapes) goldens and a determinism check (deterministic solver, one thread). See
-[Testing](testing.md). `PhysicsSeamTests` (shared resources, handles across spaces, kind changes and removals in handlers, sub-viewport
-disposal), `Jitter2BackendTests`, `ShapeDescription3DTests`, `PhysicsLayerRuleTests`, `PhysicsBackendSelectionTests`,
-`BackendSourceRulesTests`, and the opt-in bit-exact trace (`MF_PHYSICS_TRACE=1 dotnet test Tests/MainframeEngine.Tests
---filter "FullyQualifiedName~PhysicsTraceTests"`, per RID; `MF_PHYSICS_TRACE=record` re-records).
+[Testing](testing.md).
 
 ## Known issues
 

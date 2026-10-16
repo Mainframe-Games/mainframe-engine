@@ -28,10 +28,7 @@ public enum SettingKind
     ReadOnly,
 }
 
-/// <summary>
-/// One editable value of <c>project.mfproj</c>: its key (<c>window.width</c>), section, label, editor and accessors.
-/// <see cref="Visible"/> (null: always) hides a setting that does not apply, such as another physics backend's group.
-/// </summary>
+/// <summary>One editable value of <c>project.mfproj</c>: its key (<c>window.width</c>), section, label, editor and accessors.</summary>
 public sealed record ProjectSetting(
     string Key,
     string Section,
@@ -41,8 +38,7 @@ public sealed record ProjectSetting(
     Action<ProjectSettings, string>? Set,
     string Tooltip = "",
     IReadOnlyList<string>? Choices = null,
-    string? Filter = null,
-    Func<ProjectSettings, bool>? Visible = null);
+    string? Filter = null);
 
 /// <summary>
 /// The Project Settings dialog's model: a working copy of the project's <see cref="ProjectSettings"/>, every editable
@@ -121,48 +117,20 @@ public sealed class ProjectSettingsModel
             static (s, v) => s.Physics.TicksPerSecond = ParseInt(v), "The fixed physics tick rate."),
         new("physics.maxStepsPerFrame", "Physics", "Max Steps Per Frame", SettingKind.WholeNumber, static s => Int(s.Physics.MaxStepsPerFrame),
             static (s, v) => s.Physics.MaxStepsPerFrame = ParseInt(v), "Catch-up limit after a slow frame."),
-        new("physics.3d.backend", "Physics", "3D Backend", SettingKind.Choice, static s => s.Physics.Physics3D.Backend.ToString(),
-            static (s, v) => s.Physics.Physics3D.Backend = Enum.Parse<PhysicsBackendKind>(v, ignoreCase: true),
-            "Jitter2 (pure C#, every platform) or Jolt (through BRUTAL). Jolt arrives with B3: until then a Jolt project runs Jitter2 and logs a warning.",
-            Choices: Enum.GetNames<PhysicsBackendKind>()),
         new("physics.3d.gravity", "Physics", "3D Gravity", SettingKind.Vector, static s => Vec(s.Physics.Physics3D.Gravity),
             static (s, v) => s.Physics.Physics3D.Gravity = ParseVector3(v)),
         new("physics.3d.substeps", "Physics", "3D Substeps", SettingKind.WholeNumber, static s => Int(s.Physics.Physics3D.SubstepCount),
             static (s, v) => s.Physics.Physics3D.SubstepCount = ParseInt(v)),
+        new("physics.3d.solverIterations", "Physics", "3D Solver Iterations", SettingKind.WholeNumber, static s => Int(s.Physics.Physics3D.SolverIterations),
+            static (s, v) => s.Physics.Physics3D.SolverIterations = ParseInt(v)),
+        new("physics.3d.relaxationIterations", "Physics", "3D Relaxation Iterations", SettingKind.WholeNumber,
+            static s => Int(s.Physics.Physics3D.RelaxationIterations), static (s, v) => s.Physics.Physics3D.RelaxationIterations = ParseInt(v)),
         new("physics.3d.allowDeactivation", "Physics", "3D Sleeping", SettingKind.Bool, static s => Bool(s.Physics.Physics3D.AllowDeactivation),
             static (s, v) => s.Physics.Physics3D.AllowDeactivation = ParseBool(v)),
         new("physics.3d.multiThreaded", "Physics", "3D Multi-threaded", SettingKind.Bool, static s => Bool(s.Physics.Physics3D.MultiThreaded),
             static (s, v) => s.Physics.Physics3D.MultiThreaded = ParseBool(v)),
         new("physics.3d.deterministic", "Physics", "3D Deterministic", SettingKind.Bool, static s => Bool(s.Physics.Physics3D.Deterministic),
             static (s, v) => s.Physics.Physics3D.Deterministic = ParseBool(v), "Same results on every run (single-threaded, slower)."),
-        new("physics.3d.jitter2.solverIterations", "Physics", "Jitter2 Solver Iterations", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jitter2.SolverIterations), static (s, v) => s.Physics.Physics3D.Jitter2.SolverIterations = ParseInt(v),
-            "Constraint iterations per sub-step (Jitter2 default 6).", Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jitter2),
-        new("physics.3d.jitter2.relaxationIterations", "Physics", "Jitter2 Relaxation Iterations", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jitter2.RelaxationIterations), static (s, v) => s.Physics.Physics3D.Jitter2.RelaxationIterations = ParseInt(v),
-            "Velocity relaxation iterations per sub-step (Jitter2 default 4).", Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jitter2),
-        new("physics.3d.jolt.velocitySteps", "Physics", "Jolt Velocity Steps", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jolt.VelocitySteps), static (s, v) => s.Physics.Physics3D.Jolt.VelocitySteps = ParseInt(v),
-            "Velocity solver steps per sub-step (Jolt default 10).", Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jolt),
-        new("physics.3d.jolt.positionSteps", "Physics", "Jolt Position Steps", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jolt.PositionSteps), static (s, v) => s.Physics.Physics3D.Jolt.PositionSteps = ParseInt(v),
-            "Position solver steps per sub-step (Jolt default 2).", Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jolt),
-        new("physics.3d.jolt.maxBodies", "Physics", "Jolt Max Bodies", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jolt.MaxBodies), static (s, v) => s.Physics.Physics3D.Jolt.MaxBodies = ParseInt(v),
-            "Bodies one world can hold.", Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jolt),
-        new("physics.3d.jolt.maxBodyPairs", "Physics", "Jolt Max Body Pairs", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jolt.MaxBodyPairs), static (s, v) => s.Physics.Physics3D.Jolt.MaxBodyPairs = ParseInt(v),
-            "Broad-phase pairs per step.", Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jolt),
-        new("physics.3d.jolt.maxContactConstraints", "Physics", "Jolt Max Contact Constraints", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jolt.MaxContactConstraints), static (s, v) => s.Physics.Physics3D.Jolt.MaxContactConstraints = ParseInt(v),
-            "Contact constraints per step.", Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jolt),
-        new("physics.3d.jolt.tempAllocatorMB", "Physics", "Jolt Temp Allocator (MB)", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jolt.TempAllocatorMB), static (s, v) => s.Physics.Physics3D.Jolt.TempAllocatorMB = ParseInt(v),
-            "Per-world scratch memory.", Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jolt),
-        new("physics.3d.jolt.contactEventCapacity", "Physics", "Jolt Contact Events", SettingKind.WholeNumber,
-            static s => Int(s.Physics.Physics3D.Jolt.ContactEventCapacity), static (s, v) => s.Physics.Physics3D.Jolt.ContactEventCapacity = ParseInt(v),
-            "Contact events recorded per step for contact monitors and areas (doubled on overflow).",
-            Visible: static s => s.Physics.Physics3D.Backend == PhysicsBackendKind.Jolt),
         new("physics.2d.gravity", "Physics", "2D Gravity", SettingKind.Vector, static s => Vec(s.Physics.Physics2D.Gravity),
             static (s, v) => s.Physics.Physics2D.Gravity = ParseVector2(v), "Pixels per second²."),
         new("physics.2d.pixelsPerMeter", "Physics", "2D Pixels Per Meter", SettingKind.Number, static s => Num(s.Physics.Physics2D.PixelsPerMeter),

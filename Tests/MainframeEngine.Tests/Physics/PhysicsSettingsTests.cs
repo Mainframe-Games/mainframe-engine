@@ -49,32 +49,4 @@ public sealed class PhysicsSettingsTests
         Assert.False(body.GetCollisionMaskValue(1));
         body.Free();
     }
-
-    [Fact]
-    public void BackendSettingsHaveTheSpecDefaultsAndGuardTheirInputs()
-    {
-        var s = new PhysicsSettings3D();
-        Assert.Equal(PhysicsBackendKind.Jitter2, s.Backend);
-        Assert.Equal(6, s.Jitter2.SolverIterations);
-        Assert.Equal(4, s.Jitter2.RelaxationIterations);
-        Assert.Equal((10, 2, 65536, 65536, 10240, 16, 4096),
-            (s.Jolt.VelocitySteps, s.Jolt.PositionSteps, s.Jolt.MaxBodies, s.Jolt.MaxBodyPairs, s.Jolt.MaxContactConstraints, s.Jolt.TempAllocatorMB,
-                s.Jolt.ContactEventCapacity));
-
-        s.SolverIterations = 9; // the pre-B2 properties forward to the Jitter2 group
-        s.RelaxationIterations = 2;
-        Assert.Equal(9, s.Jitter2.SolverIterations);
-        Assert.Equal(2, s.Jitter2.RelaxationIterations);
-
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Backend = (PhysicsBackendKind)7);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jitter2.SolverIterations = 0);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jitter2.RelaxationIterations = -1);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jolt.VelocitySteps = 0);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jolt.PositionSteps = 0);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jolt.MaxBodies = 0);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jolt.MaxBodyPairs = 0);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jolt.MaxContactConstraints = 0);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jolt.TempAllocatorMB = 0);
-        Assert.Throws<ArgumentOutOfRangeException>(() => s.Jolt.ContactEventCapacity = 0);
-    }
 }
