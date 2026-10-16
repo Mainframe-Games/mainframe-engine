@@ -23,6 +23,7 @@ public sealed class BrutalPackagesTests
         ["CommunityToolkit.HighPerformance"] = "[8.4.2]",
         ["Microsoft.Extensions.Logging"] = "[10.0.0]",
         ["Microsoft.Extensions.Logging.Console"] = "[10.0.0]",
+        ["Microsoft.Extensions.ObjectPool"] = "[11.0.0-preview.5.26302.115]",
     };
 
     [Fact]

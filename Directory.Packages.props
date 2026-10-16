@@ -47,6 +47,8 @@
     <PackageVersion Include="CommunityToolkit.HighPerformance" Version="[8.4.2]" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="[10.0.0]" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="[10.0.0]" />
+    <!-- A preview, because Ahwoo.BRUTAL.Strings 2026.10.1 depends on it; approved and pinned exactly (ADR 0192). -->
+    <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="[11.0.0-preview.5.26302.115]" />
   </ItemGroup>
 
   <!--
