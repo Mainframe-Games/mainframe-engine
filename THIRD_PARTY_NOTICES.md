@@ -967,7 +967,7 @@ all three by default:
 2. **Logo before gameplay** (2.2): the BRUTAL logo, unaltered except for scaling, legible, no less prominent than other
    logos. The splash sequence's `@brutal` card (`project.mfproj` `splash`) is locked and fits the same box as every other
    card. The logo files (`MainframeEngine/Content/Brand/brutal/`) are BRUTAL's `docs/branding/` files byte for byte
-   (checksums: `build/brand/brutal-logos.sha256`).
+   (checksums: `build/brand/brutal-logos.sha256`), fetched from commit a25cdf80b2a15530e7da6cff744def9d841ad3c3.
 3. **NOTICE** (2.3): BRUTAL's `NOTICE.txt` alongside the product. Every build and publish copies it next to the game
    executable as `BRUTAL-NOTICE.txt`; ship it with the game.
 
