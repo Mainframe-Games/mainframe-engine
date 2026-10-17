@@ -27,8 +27,8 @@ Mainframe Engine is a modular game engine written in C# for .NET 10. Games are t
 JSON, nodes are plain C# classes whose properties a source generator registers, and servers own everything behind them
 — a Vulkan renderer with HDR, PBR and a full post-processing stack, Jitter2 and Box2D physics, a SoundFlow audio mixer,
 RmlUi (HTML/CSS) game UI, multiplayer replication, gettext localization, save games and Steam. The editor is built with
-the engine's own game UI: scenes and inspectors, Play in its own process with C# code reload, a music editor and a
-sound designer, and a video mode that turns gameplay recordings into promo footage.
+the engine's own game UI: scenes and inspectors, Play in its own process with C# code reload, a music mode (a DAW over
+the whole window) and a sound designer, and a video mode that turns gameplay recordings into promo footage.
 
 It runs on macOS (Apple Silicon), Windows x64 and Linux x64, ships as the
 [`MainframeEngine`](https://www.nuget.org/packages/MainframeEngine) NuGet package and a self-updating editor, and is
@@ -90,7 +90,7 @@ editor. Scenes open in tabs, each in its own world; nothing but `[Tool]` nodes r
     <td align="center" valign="top"><img src="docs/images/editor-sound-designer.png" width="380" alt="The inspector's ZzFX sound designer on the Demo's explosion: waveform, presets, randomize/mutate and the parameters"><br><b>Sound designer</b> — ZzFX sounds: presets, randomize, mutate, waveform</td>
   </tr>
   <tr>
-    <td align="center" valign="top"><img src="docs/images/editor-song.png" width="380" alt="The Demo's song in a song tab: four ZzFX tracks in the arrangement and the Lead clip in the piano roll"><br><b>Music editor</b> — arrangement, piano roll, mixer, VST3, MIDI</td>
+    <td align="center" valign="top"><img src="docs/images/editor-song.png" width="380" alt="Music mode on the Demo's song: the transport in the toolbar, four ZzFX tracks in the arrangement and the Lead clip in the piano roll"><br><b>Music mode</b> — a full-window DAW: arrangement, piano roll, mixer, VST3, MIDI</td>
     <td align="center" valign="top"><img src="docs/images/editor-video.png" width="380" alt="Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut"><br><b>Video mode</b> — trim recordings by transcript, cut silence and fillers</td>
   </tr>
 </table>
@@ -168,7 +168,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Audio engine](docs/design/audio.md) | A bus mixer on its own thread, 2D and 3D players, streaming WAV, OGG, MP3 and FLAC, attenuation, low-pass and doppler, a null device fallback |
 | [Sound designer](docs/design/editor.md#sound-designer) | ZzFX sounds synthesised at run time: presets, randomize, mutate, a live waveform and export to WAV, in the inspector |
-| [Music editor](docs/design/editor.md#song-tab-music-editor) | A DAW in the editor: arrangement, piano roll, mixer, VST3 instruments and effects, MIDI recording, render to OGG or WAV |
+| [Music editor](docs/design/editor.md#song-tab-music-editor) | A DAW in the editor's music mode, over the whole window: arrangement, piano roll, mixer, VST3 instruments and effects, MIDI recording, render to OGG or WAV |
 
 ### Tools
 

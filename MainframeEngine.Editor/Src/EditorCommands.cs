@@ -22,6 +22,7 @@ public sealed class EditorCommands
     private const int RecentVideoMenuItems = 5;
 
     private const string RecentVideoCommand = "video.recent:";
+    private const string RecentSongCommand = "song.recent:";
 
     /// <summary>What File › Open accepts as a recording: the videos and the project files.</summary>
     private static readonly string[] VideoFilters = ["*.mp4", "*.mov", "*.mkv", "*.webm", "*.mfcut", "*.cutback"];
@@ -92,11 +93,14 @@ public sealed class EditorCommands
             return true;
         switch (id)
         {
+            case "file.new" when _workspace.Mode == EditorMode.Music: NewSong(); return true;
             case "file.new": Session.NewScene(); return true;
             case "file.new_song": NewSong(); return true;
             case "file.open":
                 if (_workspace.Mode == EditorMode.Video)
                     OpenRecording();
+                else if (_workspace.Mode == EditorMode.Music)
+                    OpenSongFile();
                 else
                     OpenScene();
                 return true;
@@ -176,17 +180,31 @@ public sealed class EditorCommands
             case "video.settings": _workspace.EditorSettingsDialog.Open(scrollToVideo: true); return true;
             case "editor.mode.game": _workspace.SetMode(EditorMode.Game); return true;
             case "editor.mode.video": _workspace.SetMode(EditorMode.Video); return true;
+            case "editor.mode.music": _workspace.SetMode(EditorMode.Music); return true;
+            case "music.settings": _workspace.EditorSettingsDialog.Open(scrollToMusic: true); return true;
             case "editor.video_editor":
                 _workspace.ProjectManager.Close();
                 _workspace.SetMode(EditorMode.Video);
                 return true;
+            case "view.output" when _workspace.Mode == EditorMode.Music: _workspace.ToggleMusicOutput(); return true;
             case "view.output": _workspace.ToggleVideoOutput(); return true;
             case "video.toggle_transcript": _workspace.ToggleVideoTranscript(); return true;
             // The video toolbar's buttons without a video tab: they show disabled, and a click does nothing.
             case "video.play" or "video.stop" or "video.transcribe" or "video.remove_fillers" or "video.detect_silence"
                 or "video.detect_idle" or "video.export" or "video.export_transcript" when Session.ActiveTab is not VideoTab:
                 return true;
+            // The same for the music toolbar and the Song menu without a song tab.
+            case { } command when command.StartsWith("song.", StringComparison.Ordinal) &&
+                                  !command.StartsWith(RecentSongCommand, StringComparison.Ordinal) && Session.ActiveTab is not SongTab:
+                return true;
             default:
+                if (id.StartsWith(RecentSongCommand, StringComparison.Ordinal) &&
+                    int.TryParse(id.AsSpan(RecentSongCommand.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var recentSong))
+                {
+                    OpenRecentSong(recentSong);
+                    return true;
+                }
+
                 if (id.StartsWith(RecentVideoCommand, StringComparison.Ordinal) &&
                     int.TryParse(id.AsSpan(RecentVideoCommand.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var recent))
                 {
@@ -253,6 +271,14 @@ public sealed class EditorCommands
             case "song.record": song.Controller.ToggleRecording(); return true;
             case "song.render": _workspace.SongView.Render(song.Document.FilePath); return true;
             case "song.mixer": song.SetPanel(song.Panel == SongBottomPanel.Mixer ? SongBottomPanel.PianoRoll : SongBottomPanel.Mixer); return true;
+            case "song.signature": _workspace.SongPanel.SignatureMenu(_workspace.Toolbar.Below("song-sig")); return true;
+            case "song.snap": _workspace.SongPanel.SnapMenu(_workspace.Toolbar.Below("song-snap")); return true;
+            case "song.quantize": _workspace.SongPanel.QuantizeMenu(_workspace.Toolbar.Below("song-quantize")); return true;
+            case "song.add_instrument_track": _workspace.SongPanel.AddTrack(SongTrackKind.Instrument); return true;
+            case "song.add_audio_track": _workspace.SongPanel.AddTrack(SongTrackKind.Audio); return true;
+            case "song.copy_notes": song.Controller.CopyNotes(); return true;
+            case "song.paste_notes": song.Controller.PasteNotes(); return true;
+            case "song.quantize_notes": song.Controller.Quantize(); return true;
             default: return false;
         }
     }
@@ -284,6 +310,24 @@ public sealed class EditorCommands
             ReportError($"Could not create {Path.GetFileName(path)}", e);
             return false;
         }
+    }
+
+    /// <summary>File › Open Song… in music mode: a picker on <c>.msong</c> files, starting in the project's <c>Content/Music</c>.</summary>
+    public void OpenSongFile()
+    {
+        var root = Session.ProjectRoot;
+        var music = root is null ? null : Path.Combine(root, "Content", "Music");
+        var folder = music is not null && Directory.Exists(music) ? music : StartDirectory(null);
+        var model = new FilePickerModel(FilePickerMode.Open, folder, ["*.msong"]);
+        _workspace.FilePicker.Show(model, "Open Song", "Open", OpenSong);
+    }
+
+    // File › Recent Songs and the music mode's empty state: the project's songs, most recently changed first.
+    private void OpenRecentSong(int index)
+    {
+        var songs = SongPanel.FindSongs(Session.ProjectRoot, SongPanel.MaxRecentSongs);
+        if ((uint)index < (uint)songs.Count)
+            OpenSong(songs[index]);
     }
 
     /// <summary>Opens a song tab for <paramref name="path"/>, reporting failures.</summary>
@@ -798,11 +842,18 @@ public sealed class EditorCommands
     {
         _workspace.ProjectManager.Close();
         _workspace.Play.Stop();
-        Session.CloseAll(EditorMode.Game);
+        Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
+        // Music mode stays music mode: the start scene opens in game mode's tab strip, behind the music editor.
+        var mode = _workspace.Mode;
         try
         {
-            _workspace.Project.Open(directory, onReady: () => OpenStartScene(scene));
+            _workspace.Project.Open(directory, onReady: () =>
+            {
+                OpenStartScene(scene);
+                if (mode == EditorMode.Music)
+                    _workspace.SetMode(EditorMode.Music);
+            });
         }
         catch (Exception e) when (IsRecoverable(e))
         {
@@ -868,7 +919,7 @@ public sealed class EditorCommands
     private void ShowProjectManager() => AfterUnsavedScenes("Project Manager", () =>
     {
         _workspace.Play.Stop();
-        Session.CloseAll(EditorMode.Game);
+        Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
         _workspace.Project.Close();
         _workspace.ProjectManager.Open();
@@ -908,17 +959,17 @@ public sealed class EditorCommands
     private void CloseProject() => AfterUnsavedScenes("Close Project", () =>
     {
         _workspace.Play.Stop();
-        Session.CloseAll(EditorMode.Game);
+        Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
         _workspace.Project.Close();
         _workspace.ProjectManager.Open();
     });
 
-    // Runs then once the game mode's unsaved tabs were saved or discarded (Save All / Don't Save / Cancel). Only those:
-    // a project switch closes the game tabs, and video tabs, which need no project, stay open with their changes.
+    // Runs then once the project's unsaved tabs (scenes and songs) were saved or discarded (Save All / Don't Save / Cancel).
+    // Only those: a project switch closes them, and video tabs, which need no project, stay open with their changes.
     private void AfterUnsavedScenes(string title, Action then)
     {
-        var dirty = Session.DirtyTabs.Where(static t => t.Mode == EditorMode.Game).ToList();
+        var dirty = Session.DirtyTabs.Where(static t => t.Mode.UsesProject()).ToList();
         if (dirty.Count == 0)
         {
             then();
@@ -941,7 +992,7 @@ public sealed class EditorCommands
                     {
                         if (saved)
                             then();
-                    }, static t => t.Mode == EditorMode.Game);
+                    }, static t => t.Mode.UsesProject());
             },
         });
     }
@@ -1074,6 +1125,8 @@ public sealed class EditorCommands
     {
         if (menu == "video" || (_workspace.Mode == EditorMode.Video && menu is "file" or "edit" or "view"))
             return VideoMenuItems(menu);
+        if (menu == "song" || (_workspace.Mode == EditorMode.Music && menu is "file" or "edit" or "view"))
+            return MusicMenuItems(menu);
         var scene = Active;
         var song = Session.ActiveSong;
         var history = scene?.History ?? song?.Document.History;
@@ -1121,6 +1174,7 @@ public sealed class EditorCommands
                 new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G", Icon: "grid-3x3"),
                 new MenuItem(_workspace.Viewport.PostPreview ? "Hide Post-Processing" : "Preview Post-Processing", "view.post", null, Icon: "sparkles"),
                 MenuItem.Separator,
+                new MenuItem("Switch to Music Mode", "editor.mode.music", Icon: "music"),
                 new MenuItem("Switch to Video Mode", "editor.mode.video", Icon: "video"),
             ],
             "project" =>
@@ -1197,6 +1251,7 @@ public sealed class EditorCommands
                 new MenuItem("Show/Hide Output", "view.output", Icon: "terminal-2"), // a log, not a recording: needs no tab
                 MenuItem.Separator,
                 new MenuItem("Switch to Game Mode", "editor.mode.game", Icon: "device-gamepad-2"),
+                new MenuItem("Switch to Music Mode", "editor.mode.music", Icon: "music"),
             ],
             _ =>
             [
@@ -1208,6 +1263,83 @@ public sealed class EditorCommands
                 new MenuItem("Detect Idle Gameplay", "video.detect_idle", null, tab, Icon: "device-gamepad-2"),
             ],
         };
+    }
+
+    /// <summary>
+    /// Music mode's File, Edit and View menus, and the Song menu. The song commands (<c>song.*</c>) are handled by the song
+    /// tab; items that act on a song are enabled only while a song tab is active.
+    /// </summary>
+    private List<MenuItem> MusicMenuItems(string menu)
+    {
+        var song = Session.ActiveSong;
+        var tab = song is not null;
+        var editable = song is { Document.IsReadOnly: false };
+        var history = song?.Document.History;
+        var hasProject = Session.ProjectRoot is not null;
+        var notes = song is { Focus: SongArea.PianoRoll };
+        return menu switch
+        {
+            "file" =>
+            [
+                new MenuItem("New Song…", "file.new_song", "Ctrl+N", hasProject, Icon: "music"),
+                new MenuItem("Open Song…", "file.open", "Ctrl+O", hasProject, Icon: "folder-open"),
+                .. RecentSongItems(),
+                MenuItem.Separator,
+                new MenuItem("Save", "file.save", "Ctrl+S", tab, Icon: "device-floppy"),
+                new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", tab, Icon: "file-export"),
+                MenuItem.Separator,
+                new MenuItem("Render…", "song.render", "Ctrl+E", tab, Icon: "download"),
+                MenuItem.Separator,
+                new MenuItem("Project Manager…", "project.manager", Icon: "folders"),
+                new MenuItem("Close Tab", "file.close", "Ctrl+W", tab, Icon: "x"),
+                new MenuItem("Quit", "file.quit", "Ctrl+Q", Icon: "logout"),
+            ],
+            "edit" =>
+            [
+                new MenuItem(history?.UndoAction is { } undo ? $"Undo {undo.Name}" : "Undo", "edit.undo", "Ctrl+Z", history?.CanUndo == true, Icon: "arrow-back-up"),
+                new MenuItem(history?.RedoAction is { } redo ? $"Redo {redo.Name}" : "Redo", "edit.redo", "Ctrl+Shift+Z", history?.CanRedo == true, Icon: "arrow-forward-up"),
+                MenuItem.Separator,
+                new MenuItem("Copy Notes", "song.copy_notes", "Ctrl+C", notes && song!.SelectedNotes.Count > 0, Icon: "copy"),
+                new MenuItem("Paste Notes", "song.paste_notes", "Ctrl+V", notes && editable, Icon: "clipboard"),
+                new MenuItem("Duplicate", "edit.duplicate", "Ctrl+D", editable && song!.SelectedClip is not null, Icon: "copy"),
+                new MenuItem("Delete", "edit.delete", "Del", editable && song!.SelectedClip is not null, Icon: "trash"),
+                new MenuItem("Quantize Notes", "song.quantize_notes", "Q", notes && editable, Icon: "magnet"),
+                MenuItem.Separator,
+                new MenuItem("Music Settings…", "music.settings", Icon: "settings"),
+            ],
+            "view" =>
+            [
+                new MenuItem(song?.Panel == SongBottomPanel.Mixer ? "Show Piano Roll" : "Show Mixer", "song.mixer", "M", tab,
+                    Icon: song?.Panel == SongBottomPanel.Mixer ? "keyboard" : "adjustments-horizontal"),
+                new MenuItem("Show/Hide Output", "view.output", Icon: "terminal-2"),
+                MenuItem.Separator,
+                new MenuItem("Switch to Game Mode", "editor.mode.game", Icon: "device-gamepad-2"),
+                new MenuItem("Switch to Video Mode", "editor.mode.video", Icon: "video"),
+            ],
+            _ =>
+            [
+                new MenuItem(song?.Player.IsPlaying == true ? "Stop" : "Play", "song.play", "Space", tab, Icon: song?.Player.IsPlaying == true ? "player-stop" : "player-play"),
+                new MenuItem("To Start", "song.rewind", "Home", tab, Icon: "home"),
+                new MenuItem(song?.Document.Song.Loop.Enabled == true ? "Loop Off" : "Loop", "song.loop", "L", tab, Icon: "repeat"),
+                new MenuItem(song?.Midi.IsRecording == true ? "Stop Recording" : "Record", "song.record", "R", tab, Icon: "point-filled"),
+                MenuItem.Separator,
+                new MenuItem("Add Instrument Track", "song.add_instrument_track", null, editable, Icon: "music"),
+                new MenuItem("Add Audio Track", "song.add_audio_track", null, editable, Icon: "file-music"),
+            ],
+        };
+    }
+
+    // The project's songs under a "Songs" header; nothing when the project has none.
+    private List<MenuItem> RecentSongItems()
+    {
+        var songs = SongPanel.FindSongs(Session.ProjectRoot, SongPanel.MaxRecentSongs);
+        var items = new List<MenuItem>();
+        if (songs.Count == 0)
+            return items;
+        items.Add(MenuItem.Header("Songs"));
+        for (var i = 0; i < songs.Count; i++)
+            items.Add(new MenuItem(Path.GetFileNameWithoutExtension(songs[i]), RecentSongCommand + i.ToString(CultureInfo.InvariantCulture), Icon: "music"));
+        return items;
     }
 
     // The "Recent Videos" header and the first few recent recordings; nothing when there are none.
@@ -1255,7 +1387,7 @@ public sealed class EditorCommands
                   "Q select · W move · E rotate · R scale · T local/global · Y snap · F frame · G grid\n" +
                   "Viewport: click select · RMB+WASD/QE fly (Shift faster) · Alt+LMB or MMB orbit · Shift+MMB pan · wheel zoom\n" +
                   "1 / 3 / 7 front, right, top view · F1 documentation · F12 developer overlay · F9 UI debugger\n" +
-                  "Song tab: Space play/stop · L loop · Home to start · Del · Ctrl+C/V/D · arrows nudge (Shift: octave) · Q quantize · Ctrl+wheel zoom\n" +
+                  "Music mode: Space play/stop · R record · L loop · Home to start · M mixer · Del · Ctrl+C/V/D · arrows nudge (Shift: octave) · Q quantize · Ctrl+E render · Ctrl+wheel zoom\n" +
                   "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · F10 play and record · Ctrl+Shift+B build & reload code",
         Buttons = ["Close"],
     });

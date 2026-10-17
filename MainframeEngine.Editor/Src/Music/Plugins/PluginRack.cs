@@ -128,25 +128,35 @@ public sealed class PluginRack : IDisposable
             Reload();
         if (_host is not { } host)
             return;
+        // Every frame: no lambda here captures a local, so a quiet frame allocates nothing.
         while (host.TryTakeClosedEditor(out var id))
         {
-            if (_instances.Find(i => i.HelperId == id) is { } instance && commit is not null)
+            if (FindByHelperId(id) is { } instance && commit is not null)
                 CaptureInto(instance, commit);
         }
 
         foreach (var instance in _instances)
         {
             var wanted = GetOwnerState(instance.Owner);
-            if (!instance.IsLoaded || string.Equals(wanted, instance.LoadedState, StringComparison.Ordinal))
-                continue;
-            Guard(instance, () =>
-            {
-                host.SetPluginState(instance.HelperId, string.IsNullOrEmpty(wanted) ? instance.InitialState : Convert.FromBase64String(wanted));
-                instance.LoadedState = wanted;
-                UpdateLatency(host, instance);
-            });
+            if (instance.IsLoaded && !string.Equals(wanted, instance.LoadedState, StringComparison.Ordinal))
+                ApplyState(host, instance, wanted);
         }
     }
+
+    private PluginInstance? FindByHelperId(uint id)
+    {
+        foreach (var instance in _instances)
+            if (instance.HelperId == id)
+                return instance;
+        return null;
+    }
+
+    private void ApplyState(IPluginHost host, PluginInstance instance, string? wanted) => Guard(instance, () =>
+    {
+        host.SetPluginState(instance.HelperId, string.IsNullOrEmpty(wanted) ? instance.InitialState : Convert.FromBase64String(wanted));
+        instance.LoadedState = wanted;
+        UpdateLatency(host, instance);
+    });
 
     /// <summary>Opens the plugin's own editor window ("Plugin — Track — Song").</summary>
     public void OpenEditor(PluginInstance instance)

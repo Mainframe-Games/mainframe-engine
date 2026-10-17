@@ -46,6 +46,9 @@ public sealed class EditorSettingsDialog : EditorDocument
     /// <summary>The id of the Video section, which <see cref="Open"/> can scroll to.</summary>
     public const string VideoSectionId = "video-section";
 
+    /// <summary>The VST3 folders row, where the music settings (plugins, MIDI inputs) start.</summary>
+    public const string MusicSectionId = "music-section";
+
     private readonly List<MidiRow> _midiRows = [];
     private const int ScrollAfterFrames = 2;
     private string? _scrollTarget;
@@ -324,11 +327,13 @@ public sealed class EditorSettingsDialog : EditorDocument
     /// <summary>Closes without applying (the Cancel button).</summary>
     public void Cancel() => HideAndReleaseFocus();
 
-    /// <summary>Opens the dialog on a copy of the current settings, scrolled to the Video section when asked.</summary>
+    /// <summary>Opens the dialog on a copy of the current settings, scrolled to the Video or Music section when asked.</summary>
     /// <param name="scrollToVideo">Edit › Video Settings… and the "ffmpeg not found" link want the Video section in view.</param>
-    public void Open(bool scrollToVideo = false)
+    /// <param name="scrollToMusic">Music mode's Edit › Music Settings… wants the VST3 folders and MIDI inputs in view.</param>
+    public void Open(bool scrollToVideo = false, bool scrollToMusic = false)
     {
-        _scrollTarget = scrollToVideo ? VideoSectionId : "es-top"; // the body keeps its scroll position between visits
+        // The body keeps its scroll position between visits.
+        _scrollTarget = scrollToVideo ? VideoSectionId : scrollToMusic ? MusicSectionId : "es-top";
         _scrollFrames = 0;
         _showVideoFields = true;
         _working = Workspace.Settings.Clone();

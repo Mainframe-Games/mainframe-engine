@@ -4,6 +4,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Music mode (2026-10-17).** Branch `music-mode`: the music editor is a third `EditorMode` (Game | Music | Video) over
+  the whole window, the transport in the toolbar, own menus and shortcuts, an empty state, songs closed with the
+  project; ADR 0192, `editor.md` modes and song tab sections, `MusicModeTests.cs`, goldens `editor-music-empty` and
+  `editor-music-song` (with an allocation gate, which removed per-frame allocations in the song tab).
+
 - **Video editing mode: implemented, local only (2026-10-14).** Branch `feature/video-editor` (worktree
   `.claude/worktrees/video-editor`), based on `main`; not pushed, no PR yet (it targets `main` when Brogan says so).
   Plan `docs/superpowers/plans/2026-10-13-video-editor.md` (17 tasks), as-built doc `docs/design/video-editor.md` (moved
@@ -23,7 +28,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   - Gates (Task 17): `just build` 0 warnings; Release `-warnaserror` build clean; `just test` engine 2496 (1 skipped),
     editor 1222 (5 skipped), video 456; `just format-check` and `just l10n-check` clean; `just test-render` 177/177
     (MinimiseAndRestoreIsCleanAndResumesRendering passed in the full run this time).
-  - Parked: dragging files in from the OS; the per-frame texture re-upload (G16's `VideoTexture` later); the DAW mode;
+  - Parked: dragging files in from the OS; the per-frame texture re-upload (G16's `VideoTexture` later); the DAW mode (since built: music mode, ADR 0192);
     crash recovery for video tabs (`WriteRecoveryCopies` covers scenes only).
 
 - **Editor recording hooks (Phase 3 of the Cutback integration): implemented, local only (2026-10-13).** Branch

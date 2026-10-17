@@ -68,6 +68,7 @@ public sealed class ViewportPanel : EditorDocument
 
     private const string NewSceneTooltip = "New Scene (Ctrl+N) — open an empty scene in a new tab";
     private const string OpenRecordingTooltip = "Open a recording (Ctrl+O)";
+    private const string NewSongTooltip = "New Song (Ctrl+N) — create a song in the project's Content/Music";
 
     public ViewportPanel(EditorWorkspace workspace)
         : base(workspace, "viewport.rml")
@@ -94,7 +95,12 @@ public sealed class ViewportPanel : EditorDocument
                 e.Event.StopPropagation();
                 CloseAt(e.GetArgument(0).GetInt32());
             })
-            .Event("create", _ => Workspace.Commands.Execute(Workspace.Mode == EditorMode.Video ? "file.open" : "file.new"))
+            .Event("create", _ => Workspace.Commands.Execute(Workspace.Mode switch
+            {
+                EditorMode.Video => "file.open",
+                EditorMode.Music => "file.new_song",
+                _ => "file.new",
+            }))
             .Event("open_link", e => OpenLink(e.GetArgument(0).GetInt32()))
             .Event("toggle_backdrop", _ => ToggleBackdrop())
             .Event("pick_backdrop", _ => PickBackdrop())
@@ -147,7 +153,12 @@ public sealed class ViewportPanel : EditorDocument
             _visibleTabs.Add(tab);
         }
 
-        var newTooltip = mode == EditorMode.Video ? OpenRecordingTooltip : NewSceneTooltip;
+        var newTooltip = mode switch
+        {
+            EditorMode.Video => OpenRecordingTooltip,
+            EditorMode.Music => NewSongTooltip,
+            _ => NewSceneTooltip,
+        };
         if (!ReferenceEquals(newTooltip, _newTooltip))
         {
             _newTooltip = newTooltip;

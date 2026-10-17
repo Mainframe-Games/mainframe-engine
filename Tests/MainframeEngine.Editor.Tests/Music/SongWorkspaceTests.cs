@@ -3,7 +3,7 @@ using Silk.NET.Input;
 
 namespace MainframeEngine.Editor.Tests.Music;
 
-/// <summary>The song tab in the headless editor: the panel, the tab's keys before the editor's shortcuts, save and close.</summary>
+/// <summary>The song tab in the headless editor (music mode): the panel, the tab's keys before the editor's shortcuts, save and close.</summary>
 [Collection(nameof(SerialEditor))]
 public sealed class SongWorkspaceTests
 {
@@ -22,6 +22,7 @@ public sealed class SongWorkspaceTests
         var (editor, tab) = Open();
         using (editor)
         {
+            Assert.Equal(EditorMode.Music, editor.Workspace.Mode);
             Assert.True(editor.Workspace.SongPanel.Visible);
             Assert.True(editor.Workspace.SongPanel.ArrangeRect.Width > 100);
             Assert.True(editor.Workspace.SongPanel.RollRect.Height > 50);
@@ -33,8 +34,9 @@ public sealed class SongWorkspaceTests
             editor.Tick(2);
             Assert.Equal(default, editor.Workspace.SongPanel.RollRect);
 
-            editor.Workspace.Session.NewScene();
+            editor.Workspace.Session.NewScene(); // a scene is game mode's
             editor.Tick(2);
+            Assert.Equal(EditorMode.Game, editor.Workspace.Mode);
             Assert.False(editor.Workspace.SongPanel.Visible);
         }
     }

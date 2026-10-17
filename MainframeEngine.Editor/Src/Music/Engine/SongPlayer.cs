@@ -19,6 +19,9 @@ public sealed class SongPlayer : IDisposable
     private AudioVoiceHandle _voice;
     private AudioStreamGeneratorPlayback? _playback;
     private SongDocument? _document;
+    private SongDocument? _commitDocument;
+    private Action<object, string?>? _commit;
+    private string? _namedPath;
     private int _version = -1;
     private int _pluginVersion = -1;
     private long _pushedEnd;    // song frame at the end of the last block pushed to the generator (render thread writes)
@@ -109,8 +112,20 @@ public sealed class SongPlayer : IDisposable
         ArgumentNullException.ThrowIfNull(document);
         if (Plugins is { } rack)
         {
-            rack.SongName = document.Name;
-            rack.Maintain(document.IsReadOnly ? null : document.SetPluginState);
+            // The name and the commit delegate are made when the song (or its path, after Save As) changes, not every frame.
+            if (!ReferenceEquals(_namedPath, document.FilePath))
+            {
+                _namedPath = document.FilePath;
+                rack.SongName = document.Name;
+            }
+
+            if (!ReferenceEquals(_commitDocument, document))
+            {
+                _commitDocument = document;
+                _commit = document.SetPluginState;
+            }
+
+            rack.Maintain(document.IsReadOnly ? null : _commit);
         }
 
         if (!ReferenceEquals(document, _document) || document.Version != _version || (Plugins is not null && Plugins.Version != _pluginVersion))

@@ -64,10 +64,11 @@ public sealed class EditorSmokeRun : IEditorAutomation
     public bool SplashOnly { get; init; }
 
     /// <summary>
-    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline</c>: capture the Project Manager (fixed
-    /// recent projects in the temp folder, a fixed SDK line), the FileSystem panel of the project given with
-    /// <c>--project</c>, video mode's empty state, or a video tab over <see cref="VideoGolden"/>'s document (then measure
-    /// the allocations of its steady frames), for their goldens.
+    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song</c>: capture the
+    /// Project Manager (fixed recent projects in the temp folder, a fixed SDK line), the FileSystem panel of the project
+    /// given with <c>--project</c>, video mode's empty state, a video tab over <see cref="VideoGolden"/>'s document (then
+    /// measure the allocations of its steady frames), music mode's empty state without a project, or a song tab in a
+    /// project in the temp folder (then measure the allocations of steady music-mode frames), for their goldens.
     /// </summary>
     public string? Golden { get; init; }
 
@@ -327,20 +328,53 @@ public sealed class EditorSmokeRun : IEditorAutomation
                     break;
                 }
 
+            case ("music-empty", 3):
+                workspace.Session.CloseAll();
+                workspace.SetMode(EditorMode.Music);
+                workspace.Output.Clear();
+                break;
+
+            case ("music-song", 3):
+                {
+                    // A project in a fixed temp folder with one song: a two-bar clip of eight notes (three selected) in a loop.
+                    workspace.Session.CloseAll();
+                    var project = Path.Combine(GoldenPaths.Root, "SongGame");
+                    if (Directory.Exists(project))
+                        Directory.Delete(project, recursive: true);
+                    new ProjectSettings { Name = "SongGame" }.Save(Directory.CreateDirectory(project).FullName);
+                    var path = Music.SongTab.CreateFile(Path.Combine(project, "Content", "Music", "Golden.msong"));
+                    var tab = workspace.Session.OpenSong(path);
+                    var document = tab.Document;
+                    var track = document.Song.Tracks[0];
+                    var bar = document.Song.TicksPerBar;
+                    var clip = document.AddMidiClip(track, 0, bar * 2);
+                    var ppq = document.Song.Ppq;
+                    int[] pitches = [60, 64, 67, 72, 71, 67, 64, 62];
+                    var notes = new List<Music.MidiNote>();
+                    for (var i = 0; i < pitches.Length; i++)
+                        notes.Add(new Music.MidiNote { Pitch = pitches[i], Start = i * ppq, Length = ppq / 2, Velocity = 70 + i * 7 });
+                    document.AddNotes(clip, notes);
+                    document.SetLoop(true, 0, bar * 2);
+                    tab.SelectClip(track, clip);
+                    tab.SelectedNotes.AddRange(notes.GetRange(2, 3));
+                    workspace.Output.Clear();
+                    break;
+                }
+
             case (_, 40):
                 _captureFrame = _frame;
                 app.CaptureFrame();
                 break;
 
-            // The timeline golden then measures the managed allocations of steady video-mode frames (the allocation gate).
-            case ("video-timeline", 44):
+            // The timeline and song goldens then measure the managed allocations of steady video/music-mode frames (the allocation gate).
+            case ("video-timeline" or "music-song", 44):
                 break;
-            case ("video-timeline", AllocationWarmup):
+            case ("video-timeline" or "music-song", AllocationWarmup):
                 _allocationStart = GC.GetAllocatedBytesForCurrentThread();
                 break;
-            case ("video-timeline", AllocationWarmup + AllocationFrames):
+            case ("video-timeline" or "music-song", AllocationWarmup + AllocationFrames):
                 _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
-                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady video-mode frames.");
+                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady {(Golden == "music-song" ? "music" : "video")}-mode frames.");
                 Next(Step.Done);
                 app.Quit(ExitCode.Ok);
                 break;

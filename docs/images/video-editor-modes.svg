@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 675" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
-  <title>Video editing mode — one workspace, two modes</title>
-  <desc>The editor's shared shell (menu bar, toolbar with the mode toggle, tab strip, dialogs, Output, Editor Settings, commands and the session) feeds EditorWorkspace.Mode, which selects Game mode (Scene tree, FileSystem, viewport or song, Output, Inspector) or Video mode (preview, transcript, notice line, timeline). Opening a recording or .mfcut, the recording dialog's Open in Video Editor and the project manager's Video Editor button switch to Video mode. A future Audio (DAW) mode uses the same mechanism.</desc>
+  <title>Video editing mode — one workspace, three modes</title>
+  <desc>The editor's shared shell (menu bar, toolbar with the mode toggle, tab strip, dialogs, Output, Editor Settings, commands and the session) feeds EditorWorkspace.Mode, which selects Game mode (Scene tree, FileSystem, viewport or song, Output, Inspector) or Video mode (preview, transcript, notice line, timeline). Opening a recording or .mfcut, the recording dialog's Open in Video Editor and the project manager's Video Editor button switch to Video mode. Music mode (ADR 0192, the song tabs over the whole window) uses the same mechanism.</desc>
   <rect width="1000" height="675" fill="#ffffff"/>
   <style>
     .hdr{font-weight:600;font-size:12.5px;fill:#e8ebf2}
@@ -35,7 +35,7 @@
   <rect x="36" y="58" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
   <text x="46" y="75" class="k">Menu bar (tables per mode)</text>
   <rect x="272" y="58" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
-  <text x="282" y="75" class="k">Toolbar row + Game | Video toggle</text>
+  <text x="282" y="75" class="k">Toolbar + Game | Music | Video</text>
   <rect x="508" y="58" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
   <text x="518" y="75" class="k">Tab strip (filtered by mode)</text>
   <rect x="744" y="58" width="224" height="26" rx="4" fill="#ffffff" stroke="#a5b4fc"/>
@@ -50,7 +50,7 @@
   <text x="754" y="109" class="k">EditorSession: all open tabs</text>
   <rect x="330" y="160" width="340" height="44" rx="22" fill="#ffffff" stroke="#6366f1" stroke-width="1.4"/>
   <text x="500" y="178" class="ks" text-anchor="middle">EditorWorkspace.Mode   (EditorSettings.LastMode)</text>
-  <text x="500" y="196" class="kb" text-anchor="middle">Game  ·  Video  ·  Audio (DAW, later)</text>
+  <text x="500" y="196" class="kb" text-anchor="middle">Game  ·  Music  ·  Video</text>
   <path d="M500,138 L500,158" class="arrow"/>
   <path d="M420,204 L240,240" class="arrow"/>
   <path d="M580,204 L760,240" class="arrow"/>
@@ -94,7 +94,7 @@
   <text x="36" y="550" class="ks">• Video tabs pause playback while hidden</text>
   <text x="36" y="566" class="ks">• Each mode remembers its panel sizes</text>
   <text x="36" y="582" class="ks">• F10 (Play and Record) works only in Game mode</text>
-  <rect x="20" y="604" width="960" height="34" rx="8" class="dash"/>
-  <text x="500" y="626" class="ks" text-anchor="middle">Audio (DAW) mode — later, not in this PR: the same mechanism, a third layout over the song tab</text>
+  <rect x="20" y="604" width="960" height="34" rx="8" class="box"/>
+  <text x="500" y="626" class="ks" text-anchor="middle">Music mode (ADR 0192): the same mechanism, a third layout — the song tabs over the whole window, the transport in the toolbar</text>
   <text x="20" y="662" class="cap">As built. One workspace, layouts per mode: the shell is shared, the mode swaps panels, menus, toolbar content and the tab filter.</text>
 </svg>
