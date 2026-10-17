@@ -606,14 +606,14 @@ public sealed class PluginEffect(PluginInstance instance) : IEffect
 
     public int LatencyFrames => Instance.IsLoaded ? Instance.LatencyFrames : 0;
 
-    public void Process(Span<float> stereo)
+    public void Process(Span<float> stereo, in EffectContext context)
     {
         var rack = Instance.Rack;
         var frames = stereo.Length / 2;
         rack.BeginBatch();
         ReadOnlySpan<IEffect> chain = [this];
         var slot = rack.AddChain(null, default, chain, stereo, frames);
-        if (slot >= 0 && rack.RunBatch(frames, true, 120, 0) == PluginProcessResult.Ok)
+        if (slot >= 0 && rack.RunBatch(frames, context.Playing, context.Tempo, context.PositionFrames) == PluginProcessResult.Ok)
             rack.ReadOutput(slot, stereo, frames);
     }
 

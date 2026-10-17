@@ -14,9 +14,10 @@ public readonly record struct AudioClipSpan(long StartFrame, long EndFrame, long
 public sealed class SongSnapshot
 {
     internal SongSnapshot(int sampleRate, double tempo, int ppq, TrackSnapshot[] tracks, float masterGain, bool loopEnabled,
-        long loopStartFrame, long loopEndFrame, long endFrame, IEffect[]? masterEffects = null, PluginRack? plugins = null)
+        long loopStartFrame, long loopEndFrame, long endFrame, EffectStage[]? masterStages = null, PluginRack? plugins = null)
     {
-        MasterEffects = masterEffects ?? [];
+        MasterStages = masterStages ?? [];
+        MasterEffects = EffectStage.Flatten(MasterStages);
         Plugins = plugins;
         SampleRate = sampleRate;
         Tempo = tempo;
@@ -36,8 +37,11 @@ public sealed class SongSnapshot
         }
     }
 
-    /// <summary>The master's inserts in order (bypassed ones left out).</summary>
+    /// <summary>The master's inserts in order (bypassed VST3 inserts left out; bypassed built-ins crossfade inside).</summary>
     public IEffect[] MasterEffects { get; }
+
+    /// <summary>The master chain as runs of built-in (in process) and VST3 (one plugin-host round trip) inserts.</summary>
+    public EffectStage[] MasterStages { get; }
 
     /// <summary>The rack batching the plugin chains, when the song has one.</summary>
     public PluginRack? Plugins { get; }
@@ -70,6 +74,20 @@ public sealed class SongSnapshot
     public TrackSnapshot? Find(string trackId) => Array.Find(Tracks, t => string.Equals(t.Id, trackId, StringComparison.Ordinal));
 }
 
+/// <summary>
+/// A run of inserts of one kind: built-ins (<see cref="Plugin"/> false, processed in place on the render thread) or VST3
+/// plugins (processed in one plugin-host round trip with every other track's plugin stage at the same depth).
+/// </summary>
+public readonly record struct EffectStage(bool Plugin, IEffect[] Effects)
+{
+    internal static IEffect[] Flatten(EffectStage[] stages) => stages.Length switch
+    {
+        0 => [],
+        1 => stages[0].Effects,
+        _ => [.. stages.SelectMany(s => s.Effects)],
+    };
+}
+
 /// <summary>One track of a <see cref="SongSnapshot"/>.</summary>
 public sealed class TrackSnapshot
 {
@@ -96,13 +114,19 @@ public sealed class TrackSnapshot
     public AudioClipSpan[] AudioClips { get; internal set; } = [];
     public IInstrument? Instrument { get; internal set; }
 
-    /// <summary>The track's inserts in order (bypassed ones left out).</summary>
+    /// <summary>The track's inserts in order (bypassed VST3 inserts left out; bypassed built-ins crossfade inside).</summary>
     public IEffect[] Effects { get; internal set; } = [];
+
+    /// <summary>
+    /// The chain as runs of built-in and VST3 inserts, in order. A plugin instrument opens the first stage (a plugin stage,
+    /// maybe without effects), so it and the VST3 inserts after it share one round trip.
+    /// </summary>
+    public EffectStage[] Stages { get; internal set; } = [];
 
     /// <summary>The instrument's and inserts' latency in frames.</summary>
     public int LatencyFrames { get; internal set; }
 
-    internal bool HasPlugins => Instrument is PluginInstrument || Effects.Length > 0;
+    internal bool HasPlugins => Array.Exists(Stages, s => s.Plugin);
 
     public ZzfxVoiceBank? ZzfxBank { get; internal set; }
 
@@ -131,6 +155,7 @@ public sealed class SongSnapshotBuilder
     private readonly Func<string, AudioStream?> _clipLoader;
     private readonly PluginRack? _plugins;
     private readonly Dictionary<PluginInsert, PluginEffect> _effects = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<PluginInsert, BuiltinEffect> _builtins = new(ReferenceEqualityComparer.Instance);
     private int _generation;
 
     /// <param name="sampleRate">The engine's rate.</param>
@@ -223,7 +248,8 @@ public sealed class SongSnapshotBuilder
                 BuildInstrumentTrack(track, snapshot, ToFrames);
             else
                 BuildAudioTrack(track, snapshot, ToFrames);
-            snapshot.Effects = Effects(track.Inserts, track.Name, seenInserts, out var insertError);
+            snapshot.Stages = Stages(track.Inserts, track.Name, seenInserts, snapshot.Instrument is PluginInstrument, out var insertError);
+            snapshot.Effects = EffectStage.Flatten(snapshot.Stages);
             snapshot.LatencyFrames = (snapshot.Instrument?.LatencyFrames ?? 0) + snapshot.Effects.Sum(e => e.LatencyFrames);
             if (snapshot.Instrument is PluginInstrument { Instance.Error: { } instrumentError })
                 snapshot.Status = instrumentError;
@@ -241,7 +267,7 @@ public sealed class SongSnapshotBuilder
             _slots.Remove(id);
         }
 
-        var masterEffects = Effects(song.Master.Inserts, "Master", seenInserts, out var masterError);
+        var masterStages = Stages(song.Master.Inserts, "Master", seenInserts, false, out var masterError);
         if (masterError is not null)
             Log.Warning($"[Music] Master insert: {masterError}");
         foreach (var insert in _effects.Keys.Where(i => !seenInserts.Contains(i)).ToList())
@@ -250,10 +276,13 @@ public sealed class SongSnapshotBuilder
             _effects.Remove(insert);
         }
 
+        foreach (var insert in _builtins.Keys.Where(i => !seenInserts.Contains(i)).ToList())
+            _builtins.Remove(insert);
+
         var loop = song.Loop;
         var loopValid = loop.Enabled && loop.End > loop.Start;
         return new SongSnapshot(SampleRate, song.Tempo, song.Ppq, [.. tracks], AudioMath.DbToLinear(song.Master.VolumeDb), loopValid,
-            ToFrames(loop.Start), ToFrames(loop.End), end, masterEffects, _plugins);
+            ToFrames(loop.Start), ToFrames(loop.End), end, masterStages, _plugins);
     }
 
     /// <summary>Unloads every plugin this builder loaded (the player or render is done).</summary>
@@ -269,7 +298,11 @@ public sealed class SongSnapshotBuilder
         foreach (var effect in _effects.Values)
             _plugins?.Release(effect.Instance);
         _effects.Clear();
+        _builtins.Clear();
     }
+
+    /// <summary>UI thread: the running built-in effect of <paramref name="insert"/> (meters), or null.</summary>
+    public BuiltinEffect? FindBuiltin(PluginInsert insert) => _builtins.GetValueOrDefault(insert);
 
     private void ReleaseInstrument(IInstrument? instrument)
     {
@@ -277,30 +310,71 @@ public sealed class SongSnapshotBuilder
             _plugins?.Release(plugin.Instance);
     }
 
-    // A chain's plugin effects (created once per insert object, kept while it exists); bypassed inserts are left out.
-    private IEffect[] Effects(List<PluginInsert> inserts, string context, HashSet<PluginInsert> seen, out string? error)
+    // A chain as stages: runs of built-ins (one instance per insert object, kept while it exists, parameters pushed on
+    // every build) and runs of VST3 inserts (bypassed ones left out; skipped without a plugin rack).
+    private EffectStage[] Stages(List<PluginInsert> inserts, string context, HashSet<PluginInsert> seen, bool pluginInstrument, out string? error)
     {
         error = null;
-        if (_plugins is null || inserts.Count == 0)
+        if (inserts.Count == 0 && !pluginInstrument)
             return [];
-        var result = new List<IEffect>(inserts.Count);
+        var stages = new List<EffectStage>();
+        var run = new List<IEffect>();
+        var runIsPlugin = pluginInstrument;
+        var open = pluginInstrument;
         foreach (var insert in inserts)
         {
-            if (insert.Plugin is not { } descriptor || !seen.Add(insert))
+            if (!seen.Add(insert))
                 continue;
-            if (!_effects.TryGetValue(insert, out var effect))
+            IEffect? effect;
+            if (insert.Builtin is { } id)
             {
-                effect = new PluginEffect(_plugins.Acquire(insert, descriptor, false, context));
-                _effects[insert] = effect;
+                if (!_builtins.TryGetValue(insert, out var builtin) || !string.Equals(builtin.Info.Id, id, StringComparison.Ordinal))
+                {
+                    if (BuiltinEffects.Find(id) is not { } info)
+                    {
+                        error ??= "unknown built-in effect: " + id;
+                        continue;
+                    }
+
+                    builtin = info.Create(SampleRate);
+                    _builtins[insert] = builtin;
+                }
+
+                builtin.Apply(insert.Params, insert.Bypass);
+                effect = builtin;
+            }
+            else
+            {
+                if (_plugins is null || insert.Plugin is not { } descriptor)
+                    continue;
+                if (!_effects.TryGetValue(insert, out var plugin))
+                {
+                    plugin = new PluginEffect(_plugins.Acquire(insert, descriptor, false, context));
+                    _effects[insert] = plugin;
+                }
+
+                if (plugin.Instance.Error is { } e)
+                    error ??= "insert " + e;
+                if (insert.Bypass)
+                    continue;
+                effect = plugin;
             }
 
-            if (effect.Instance.Error is { } e)
-                error ??= "insert " + e;
-            if (!insert.Bypass)
-                result.Add(effect);
+            var isPlugin = effect is PluginEffect;
+            if (open && isPlugin != runIsPlugin)
+            {
+                stages.Add(new EffectStage(runIsPlugin, [.. run]));
+                run.Clear();
+            }
+
+            runIsPlugin = isPlugin;
+            open = true;
+            run.Add(effect);
         }
 
-        return [.. result];
+        if (open)
+            stages.Add(new EffectStage(runIsPlugin, [.. run]));
+        return [.. stages];
     }
 
     /// <summary>Generates <paramref name="pitch"/> for a track's ZzFX instrument (before previewing a note).</summary>

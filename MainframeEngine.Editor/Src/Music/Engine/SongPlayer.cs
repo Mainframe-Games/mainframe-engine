@@ -103,6 +103,9 @@ public sealed class SongPlayer : IDisposable
     /// <summary>Generator underruns (the render thread fell behind).</summary>
     public int Underruns => Volatile.Read(ref _playback)?.Underruns ?? 0;
 
+    /// <summary>UI thread: the running built-in effect of <paramref name="insert"/> (plugin-window meters), or null.</summary>
+    public BuiltinEffect? FindBuiltin(PluginInsert insert) => _builder.FindBuiltin(insert);
+
     /// <summary>The track status messages of the current snapshot ("missing plugin: …"), by track id.</summary>
     public string? GetTrackStatus(string trackId) => Engine.Current?.Find(trackId)?.Status;
 

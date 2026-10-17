@@ -143,6 +143,75 @@ public sealed class SongDocument : IDisposable
         return insert;
     }
 
+    /// <summary>Adds a built-in effect at its defaults to a track's (null: the master's) chain at <paramref name="index"/> (−1 = end).</summary>
+    public PluginInsert AddBuiltinInsert(SongTrack? track, string builtinId, int index = -1)
+    {
+        var info = BuiltinEffects.Find(builtinId) ?? throw new ArgumentException($"No built-in effect '{builtinId}'.", nameof(builtinId));
+        var list = Inserts(track);
+        var insert = PluginInsert.ForBuiltin(info);
+        var at = index < 0 || index > list.Count ? list.Count : index;
+        Commit("Add " + info.Name, () => list.Insert(at, insert), () => list.Remove(insert));
+        return insert;
+    }
+
+    /// <summary>Puts <paramref name="replacement"/> where <paramref name="old"/> is in its chain (a plugin dropped on an occupied slot).</summary>
+    public void ReplaceInsert(SongTrack? track, PluginInsert old, PluginInsert replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+        var list = Inserts(track);
+        var index = list.IndexOf(old);
+        if (index < 0)
+            throw new ArgumentException("The insert is not in this chain.", nameof(old));
+        Commit("Replace Insert", () => list[index] = replacement, () => list[index] = old);
+    }
+
+    /// <summary>Sets one built-in parameter (knob drags: pass a mergeKey). Undo restores the old value, or its absence.</summary>
+    public void SetInsertParam(PluginInsert insert, string id, float value, string? mergeKey = null)
+    {
+        ArgumentNullException.ThrowIfNull(insert);
+        var info = BuiltinEffects.Find(insert.Builtin ?? "") ?? throw new ArgumentException("Not a built-in effect insert.", nameof(insert));
+        var param = info.Find(id) ?? throw new ArgumentException($"'{info.Name}' has no parameter '{id}'.", nameof(id));
+        value = param.Clamp(value);
+        var had = insert.Params is not null && insert.Params.TryGetValue(id, out var current);
+        var old = had ? insert.Params![id] : param.Default;
+        if (had && old == value)
+            return;
+        Commit(info.Name + ": " + param.Name, () => (insert.Params ??= new(StringComparer.Ordinal))[id] = value, () =>
+        {
+            if (had)
+                insert.Params![id] = old;
+            else
+                insert.Params?.Remove(id);
+        }, mergeKey);
+    }
+
+    /// <summary>
+    /// Replaces a built-in's parameters with <paramref name="values"/> merged over the current ones (EQ handle drags move
+    /// frequency and gain together; Reset and presets pass every parameter). One history entry named <paramref name="name"/>.
+    /// </summary>
+    public void SetInsertParams(PluginInsert insert, IReadOnlyDictionary<string, float> values, string name, string? mergeKey = null)
+    {
+        ArgumentNullException.ThrowIfNull(insert);
+        ArgumentNullException.ThrowIfNull(values);
+        var info = BuiltinEffects.Find(insert.Builtin ?? "") ?? throw new ArgumentException("Not a built-in effect insert.", nameof(insert));
+        var old = insert.Params is null ? null : new Dictionary<string, float>(insert.Params, StringComparer.Ordinal);
+        var next = old is null ? new Dictionary<string, float>(StringComparer.Ordinal) : new Dictionary<string, float>(old, StringComparer.Ordinal);
+        var changed = false;
+        foreach (var (id, raw) in values)
+        {
+            var value = info.Find(id) is { } p ? p.Clamp(raw) : raw;
+            if (next.TryGetValue(id, out var current) && current == value)
+                continue;
+            next[id] = value;
+            changed = true;
+        }
+
+        if (!changed)
+            return;
+        Commit(name, () => insert.Params = new Dictionary<string, float>(next, StringComparer.Ordinal),
+            () => insert.Params = old is null ? null : new Dictionary<string, float>(old, StringComparer.Ordinal), mergeKey);
+    }
+
     public void RemoveInsert(SongTrack? track, PluginInsert insert)
     {
         var list = Inserts(track);

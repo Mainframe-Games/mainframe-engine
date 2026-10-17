@@ -26,13 +26,29 @@ public interface IInstrument
     void AllNotesOff();
 }
 
-/// <summary>A track or master insert on the render thread (plugin phase). Must not allocate in <see cref="Process"/>.</summary>
+/// <summary>What an effect knows about the song for one block (tempo-synced delays and LFOs).</summary>
+/// <param name="SampleRate">The engine's rate.</param>
+/// <param name="Tempo">Beats per minute.</param>
+/// <param name="Playing">The transport is running (synced LFOs free-run while stopped).</param>
+/// <param name="PositionFrames">The song position of the block's first frame.</param>
+public readonly record struct EffectContext(int SampleRate, double Tempo, bool Playing, long PositionFrames)
+{
+    public double FramesPerBeat => SampleRate * 60.0 / Tempo;
+
+    /// <summary>The block's song position in beats.</summary>
+    public double PositionBeats => PositionFrames / FramesPerBeat;
+}
+
+/// <summary>
+/// A track or master insert on the render thread: a VST3 <see cref="PluginEffect"/> (batched through the plugin rack) or
+/// a <see cref="BuiltinEffect"/> (in process). Must not allocate in <see cref="Process"/>.
+/// </summary>
 public interface IEffect
 {
     int LatencyFrames { get; }
 
     /// <summary>Processes interleaved stereo in place.</summary>
-    void Process(Span<float> stereo);
+    void Process(Span<float> stereo, in EffectContext context);
 
     /// <summary>Clears tails (stop, seek).</summary>
     void Reset();

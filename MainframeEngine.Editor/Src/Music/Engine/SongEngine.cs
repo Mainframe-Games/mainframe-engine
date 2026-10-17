@@ -10,7 +10,7 @@ namespace MainframeEngine.Editor.Music;
 /// <para>Model edits arrive as immutable <see cref="SongSnapshot"/>s (<see cref="SetSnapshot"/>, any thread) swapped in
 /// at the next block; transport and note previews are commands on a lock-free queue. Per-track state (event buffers,
 /// held notes, gain ramps, meters) lives in preallocated slots, so a steady-state block allocates nothing.</para>
-/// <para>Mixer per track: instrument or audio clips → (inserts, plugin phase) → volume × equal-power pan
+/// <para>Mixer per track: instrument or audio clips → inserts (built-ins in place, VST3 runs batched) → volume × equal-power pan
 /// (<see cref="AudioMath.PanGains"/>), ramped over the block → mute/solo → master volume. Peak meters accumulate per
 /// track and for the master until the UI takes them (<see cref="TakeTrackPeak"/>).</para>
 /// </remarks>
@@ -143,32 +143,10 @@ public sealed class SongEngine
                 track.Instrument?.Process(track, rt.Events.AsSpan(0, rt.EventCount), rt.Buffer.AsSpan(0, frames * 2));
         }
 
-        // Every track's plugin chain in one helper round trip; a missed or failed block plays them as silence.
-        var rack = song.Plugins;
-        if (rack is not null && song.HasTrackPlugins)
-        {
-            rack.BeginBatch();
-            foreach (var track in song.Tracks)
-            {
-                var rt = _runtimes[track.Slot];
-                rt.ChainSlot = track.HasPlugins
-                    ? rack.AddChain(track.Instrument as PluginInstrument, rt.Events.AsSpan(0, rt.EventCount), track.Effects, rt.Buffer.AsSpan(0, frames * 2), frames)
-                    : -1;
-            }
-
-            var ok = rack.RunBatch(frames, _playing, song.Tempo, blockStart) == PluginProcessResult.Ok;
-            foreach (var track in song.Tracks)
-            {
-                var rt = _runtimes[track.Slot];
-                if (rt.ChainSlot < 0)
-                    continue;
-                if (ok)
-                    rack.ReadOutput(rt.ChainSlot, rt.Buffer, frames);
-                else
-                    rt.Buffer.AsSpan(0, frames * 2).Clear();
-            }
-        }
-
+        // Insert chains: built-in stages run in place; plugin stages at the same depth share one helper round trip (a
+        // missed or failed round plays those chains as silence).
+        var context = new EffectContext(SampleRate, song.Tempo, _playing, blockStart);
+        RunTrackChains(song, frames, context);
         var master = song.MasterGain;
         var masterPeak = 0f;
         foreach (var track in song.Tracks)
@@ -201,19 +179,8 @@ public sealed class SongEngine
             AccumulatePeak(ref rt.PeakBits, peak);
         }
 
-        // Master inserts: a second round trip on the sum (they need every track's output).
-        if (rack is not null && song.MasterEffects.Length > 0)
-        {
-            rack.BeginBatch();
-            var slot = rack.AddChain(null, default, song.MasterEffects, output, frames);
-            if (slot >= 0)
-            {
-                if (rack.RunBatch(frames, _playing, song.Tempo, blockStart) == PluginProcessResult.Ok)
-                    rack.ReadOutput(slot, output, frames);
-                else
-                    output.Clear();
-            }
-        }
+        // Master inserts on the sum (they need every track's output): plugin stages are one more round trip each.
+        RunMasterChain(song, output, frames, context);
 
         for (var i = 0; i < output.Length; i++)
         {
@@ -224,6 +191,94 @@ public sealed class SongEngine
 
         AccumulatePeak(ref _masterPeakBits, masterPeak);
         Volatile.Write(ref _blocks, _blocks + 1);
+    }
+
+    // --- insert chains ---------------------------------------------------------------------------
+
+    private void RunTrackChains(SongSnapshot song, int frames, in EffectContext context)
+    {
+        var waiting = false;
+        foreach (var track in song.Tracks)
+        {
+            var rt = _runtimes[track.Slot];
+            rt.Stage = 0;
+            waiting |= RunBuiltins(track.Stages, ref rt.Stage, rt.Buffer.AsSpan(0, frames * 2), context);
+        }
+
+        var rack = song.Plugins;
+        while (waiting)
+        {
+            // Every track waiting at a plugin stage goes into this round; then each runs on to its next plugin stage.
+            rack?.BeginBatch();
+            foreach (var track in song.Tracks)
+            {
+                var rt = _runtimes[track.Slot];
+                rt.ChainSlot = -1;
+                if (rack is null || rt.Stage >= track.Stages.Length)
+                    continue;
+                var stage = track.Stages[rt.Stage];
+                rt.ChainSlot = rack.AddChain(rt.Stage == 0 ? track.Instrument as PluginInstrument : null, rt.Events.AsSpan(0, rt.EventCount),
+                    stage.Effects, rt.Buffer.AsSpan(0, frames * 2), frames);
+            }
+
+            var ok = rack is null || rack.RunBatch(frames, _playing, song.Tempo, context.PositionFrames) == PluginProcessResult.Ok;
+            waiting = false;
+            foreach (var track in song.Tracks)
+            {
+                var rt = _runtimes[track.Slot];
+                if (rt.Stage >= track.Stages.Length)
+                    continue;
+                if (rt.ChainSlot >= 0)
+                {
+                    if (ok)
+                        rack!.ReadOutput(rt.ChainSlot, rt.Buffer, frames);
+                    else
+                        rt.Buffer.AsSpan(0, frames * 2).Clear();
+                }
+
+                rt.Stage++;
+                waiting |= RunBuiltins(track.Stages, ref rt.Stage, rt.Buffer.AsSpan(0, frames * 2), context);
+            }
+        }
+    }
+
+    private static void RunMasterChain(SongSnapshot song, Span<float> output, int frames, in EffectContext context)
+    {
+        var stages = song.MasterStages;
+        var rack = song.Plugins;
+        var stage = 0;
+        while (RunBuiltins(stages, ref stage, output, context))
+        {
+            if (rack is not null)
+            {
+                rack.BeginBatch();
+                var slot = rack.AddChain(null, default, stages[stage].Effects, output, frames);
+                if (slot >= 0)
+                {
+                    if (rack.RunBatch(frames, context.Playing, context.Tempo, context.PositionFrames) == PluginProcessResult.Ok)
+                        rack.ReadOutput(slot, output, frames);
+                    else
+                        output.Clear();
+                }
+            }
+
+            stage++;
+        }
+    }
+
+    // Runs built-in stages from `stage` on; stops at the next plugin stage (returns true) or the chain's end (false).
+    private static bool RunBuiltins(EffectStage[] stages, ref int stage, Span<float> buffer, in EffectContext context)
+    {
+        for (; stage < stages.Length; stage++)
+        {
+            var s = stages[stage];
+            if (s.Plugin)
+                return true;
+            foreach (var effect in s.Effects)
+                effect.Process(buffer, context);
+        }
+
+        return false;
     }
 
     // --- sequencing ------------------------------------------------------------------------------
@@ -464,19 +519,9 @@ public sealed class SongEngine
         Volatile.Write(ref _position, _position);
     }
 
-    private static void AccumulatePeak(ref int bits, float peak)
-    {
-        while (true)
-        {
-            var current = Volatile.Read(ref bits);
-            if (BitConverter.Int32BitsToSingle(current) >= peak)
-                return;
-            if (Interlocked.CompareExchange(ref bits, BitConverter.SingleToInt32Bits(peak), current) == current)
-                return;
-        }
-    }
+    private static void AccumulatePeak(ref int bits, float peak) => PeakBits.Accumulate(ref bits, peak);
 
-    private static float TakePeak(ref int bits) => BitConverter.Int32BitsToSingle(Interlocked.Exchange(ref bits, 0));
+    private static float TakePeak(ref int bits) => PeakBits.Take(ref bits);
 
     private enum CommandType : byte
     {
@@ -502,6 +547,7 @@ public sealed class SongEngine
         public float GainR = float.NaN;
         public int PeakBits;
         public int ChainSlot = -1;
+        public int Stage;
         private float[]? _delay;
         private int _delayFrames;
         private int _delayPosition;
