@@ -180,7 +180,8 @@ Nothing else: no gizmo, view, Play or Record keys (F10 does nothing in video mod
 
 The editor has three modes, **Game** (everything above), **Music** (songs: the music editor) and **Video** (trimming
 recordings), switched by the Game|Music|Video toggle near the right end of the toolbar or View › Switch to … Mode
-(ADR 0192). `EditorWorkspace.SetMode(EditorMode)`:
+(ADR 0192). The toggle's thumb stretches to the new mode (an RCSS transition on its edges); the window switches at once.
+`EditorWorkspace.SetMode(EditorMode)`:
 
 ![Video mode: a recording's preview, transcript and timeline with silences and filler words cut](../images/editor-video.png)
 

@@ -109,6 +109,7 @@ public sealed class ToolbarPanel : EditorDocument
     {
         _shownLocal = null;
         _badgeVersion = null;
+        _thumbSlot = -1;
         ResetVideo();
         ResetMusic();
         _snapListener?.Remove();
@@ -119,7 +120,7 @@ public sealed class ToolbarPanel : EditorDocument
         ApplyMode(Workspace.Mode);
     }
 
-    /// <summary>Shows <paramref name="mode"/>'s tools and marks its button of the Game|Music|Video toggle.</summary>
+    /// <summary>Shows <paramref name="mode"/>'s tools and marks its button of the Game|Music|Video toggle (its thumb slides there).</summary>
     public void ApplyMode(EditorMode mode)
     {
         if (!IsLoaded)
@@ -131,7 +132,29 @@ public sealed class ToolbarPanel : EditorDocument
         document.GetElementById("mode-game").SetClass("active", mode == EditorMode.Game);
         document.GetElementById("mode-video").SetClass("active", mode == EditorMode.Video);
         document.GetElementById("mode-music").SetClass("active", mode == EditorMode.Music);
+        // The thumb stretches there (its RCSS transitions, picked by the direction); only the toggle animates.
+        var slot = ModeSlot(mode);
+        var thumb = document.GetElementById("mode-thumb");
+        if (_thumbSlot >= 0 && slot != _thumbSlot)
+        {
+            thumb.SetClass("to-right", slot > _thumbSlot);
+            thumb.SetClass("to-left", slot < _thumbSlot);
+        }
+
+        _thumbSlot = slot;
+        thumb.SetClass("at-music", mode == EditorMode.Music);
+        thumb.SetClass("at-video", mode == EditorMode.Video);
     }
+
+    // The thumb's slot in the toggle, left to right (-1: not placed since the document loaded, so it jumps there).
+    private int _thumbSlot = -1;
+
+    private static int ModeSlot(EditorMode mode) => mode switch
+    {
+        EditorMode.Music => 1,
+        EditorMode.Video => 2,
+        _ => 0,
+    };
 
     /// <summary>Where a menu opened from toolbar element <paramref name="id"/> goes: just below it (window dp).</summary>
     public (float X, float Y) Below(string id)

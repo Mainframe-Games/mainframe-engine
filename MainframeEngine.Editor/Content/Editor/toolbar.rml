@@ -24,9 +24,37 @@
         /* Each mode's tools fill the bar up to the Game|Music|Video toggle (ToolbarPanel.ApplyMode hides the other modes'). */
         .tools { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
         .tools.hidden { display: none; }
-        #mode-toggle { display: flex; height: 22dp; border-radius: 11dp; border: 1dp #3b3f4b; background-color: #121418; margin: 0dp 8dp; }
-        button.mode { height: 20dp; padding: 0dp 12dp; border-radius: 10dp; background-color: transparent; color: #8b93a5; }
-        button.mode.active { background-color: #1d4ed8; color: #ffffff; }
+        /* The Game|Music|Video toggle: a track with one thumb under the active mode's button. On a switch the thumb
+           stretches: its leading edge darts to the new button and its trailing edge follows with a little squash
+           (ToolbarPanel.ApplyMode sets the to-left/to-right direction and the at-* position); the labels and icons fade
+           as it arrives. Only the toggle animates: the window switches at once. */
+        #mode-toggle {
+            position: relative; display: flex; flex-direction: row; align-items: center; flex: 0 0 auto;
+            box-sizing: border-box; height: 28dp; padding: 2dp; margin: 0dp 8dp;
+            border-radius: 14dp; border: 1dp #2a2d36; background-color: #101216;
+        }
+        #mode-thumb {
+            position: absolute; z-index: 0; top: 2dp; height: 22dp; left: 2dp; right: 154dp; border-radius: 11dp;
+            background-color: #2563eb; border: 1dp #4f8ff7; box-sizing: border-box;
+            box-shadow: #2563eb66 0dp 0dp 10dp 1dp;
+        }
+        #mode-thumb.at-music { left: 78dp; right: 78dp; }
+        #mode-thumb.at-video { left: 154dp; right: 2dp; }
+        #mode-thumb.to-right { transition: right 0.2s cubic-out, left 0.46s back-out; }
+        #mode-thumb.to-left { transition: left 0.2s cubic-out, right 0.46s back-out; }
+        button.mode {
+            position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center;
+            width: 76dp; height: 22dp; line-height: 22dp; padding: 0dp; margin: 0dp;
+            border-width: 0dp; border-radius: 11dp; background-color: transparent;
+            color: #7d8597; font-size: 12dp; transform: scale(1);
+            transition: color 0.22s cubic-out, transform 0.12s cubic-out;
+        }
+        button.mode .icon { margin-right: 5dp; image-color: #6b7488; transition: image-color 0.22s cubic-out; }
+        button.mode:hover { background-color: transparent; color: #c9cedb; }
+        button.mode:hover .icon { image-color: #a3abbd; }
+        button.mode:active { background-color: transparent; transform: scale(0.92); }
+        button.mode.active { background-color: transparent; color: #ffffff; }
+        button.mode.active .icon { image-color: #ffffff; }
         #snap-step { width: 46dp; margin-left: 4dp; }
         #update { display: none; margin-right: 6dp; }
         #update.shown { display: inline-block; }
@@ -174,7 +202,12 @@
         <span id="song-readonly" class="hidden"><span class="icon icon-sm icon-alert-triangle"></span> Read-only</span>
         <button id="song-render" class="accent with-icon disabled" data-command="song.render" data-tooltip="Render (Ctrl+E) — write the song to an audio file and its loop points"><span class="icon icon-sm icon-download"></span><span id="song-render-label">Render</span></button>
     </div>
-    <div id="mode-toggle"><button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record">Game</button><button id="mode-music" class="mode" data-command="editor.mode.music" data-tooltip="Music mode: compose, mix and render the game's songs">Music</button><button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings">Video</button></div>
+    <div id="mode-toggle">
+        <div id="mode-thumb"></div>
+        <button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record"><span class="icon icon-sm icon-device-gamepad-2"></span><span>Game</span></button>
+        <button id="mode-music" class="mode" data-command="editor.mode.music" data-tooltip="Music mode: compose, mix and render the game's songs"><span class="icon icon-sm icon-music"></span><span>Music</span></button>
+        <button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings"><span class="icon icon-sm icon-video"></span><span>Video</span></button>
+    </div>
     <button id="docs" class="tool-button" data-command="help.docs" data-tooltip="Documentation (F1) — open the engine docs in your browser"><span class="icon icon-book"></span></button>
     <button id="update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>
     <span id="stats" class="mono" data-tooltip="Frame Rate — editor frames per second and frame time"></span>

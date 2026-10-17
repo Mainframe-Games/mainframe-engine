@@ -131,6 +131,27 @@ public sealed class MusicModeTests : IDisposable
     }
 
     [Fact]
+    public void TheModeTogglesThumbMovesTowardsTheNewMode()
+    {
+        Assert.False(ToolbarClass("mode-thumb", "at-music"));
+        Assert.False(ToolbarClass("mode-thumb", "to-right")); // placed at load, not animated
+
+        W.SetMode(EditorMode.Music);
+        Assert.True(ToolbarClass("mode-thumb", "at-music"));
+        Assert.True(ToolbarClass("mode-thumb", "to-right"));
+
+        W.SetMode(EditorMode.Video);
+        Assert.True(ToolbarClass("mode-thumb", "at-video"));
+        Assert.False(ToolbarClass("mode-thumb", "at-music"));
+        Assert.True(ToolbarClass("mode-thumb", "to-right"));
+
+        W.SetMode(EditorMode.Game);
+        Assert.False(ToolbarClass("mode-thumb", "at-video"));
+        Assert.True(ToolbarClass("mode-thumb", "to-left"));
+        Assert.False(ToolbarClass("mode-thumb", "to-right"));
+    }
+
+    [Fact]
     public void TheToolbarTransportShowsTheSong()
     {
         var tab = OpenSong();
