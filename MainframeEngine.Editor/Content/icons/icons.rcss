@@ -215,6 +215,16 @@
     i-lock: 262px 242px 16px 16px;
     i-lock-open: 282px 242px 16px 16px;
     i-folder-user: 302px 242px 16px 16px;
+    i-layout-sidebar-right: 2px 262px 16px 16px;
+    i-layout-bottombar: 22px 262px 16px 16px;
+    i-power: 42px 262px 16px 16px;
+    i-wave-square: 62px 262px 16px 16px;
+    i-building-arch: 82px 262px 16px 16px;
+    i-grain: 102px 262px 16px 16px;
+    i-box-multiple: 122px 262px 16px 16px;
+    i-door: 142px 262px 16px 16px;
+    i-adjustments-alt: 162px 262px 16px 16px;
+    i-piano: 182px 262px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -427,6 +437,16 @@
     l-lock: 393px 363px 24px 24px;
     l-lock-open: 423px 363px 24px 24px;
     l-folder-user: 453px 363px 24px 24px;
+    l-layout-sidebar-right: 3px 393px 24px 24px;
+    l-layout-bottombar: 33px 393px 24px 24px;
+    l-power: 63px 393px 24px 24px;
+    l-wave-square: 93px 393px 24px 24px;
+    l-building-arch: 123px 393px 24px 24px;
+    l-grain: 153px 393px 24px 24px;
+    l-box-multiple: 183px 393px 24px 24px;
+    l-door: 213px 393px 24px 24px;
+    l-adjustments-alt: 243px 393px 24px 24px;
+    l-piano: 273px 393px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -642,6 +662,16 @@
         i-lock: 524px 484px 32px 32px;
         i-lock-open: 564px 484px 32px 32px;
         i-folder-user: 604px 484px 32px 32px;
+        i-layout-sidebar-right: 4px 524px 32px 32px;
+        i-layout-bottombar: 44px 524px 32px 32px;
+        i-power: 84px 524px 32px 32px;
+        i-wave-square: 124px 524px 32px 32px;
+        i-building-arch: 164px 524px 32px 32px;
+        i-grain: 204px 524px 32px 32px;
+        i-box-multiple: 244px 524px 32px 32px;
+        i-door: 284px 524px 32px 32px;
+        i-adjustments-alt: 324px 524px 32px 32px;
+        i-piano: 364px 524px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -854,6 +884,16 @@
         l-lock: 786px 726px 48px 48px;
         l-lock-open: 846px 726px 48px 48px;
         l-folder-user: 906px 726px 48px 48px;
+        l-layout-sidebar-right: 6px 786px 48px 48px;
+        l-layout-bottombar: 66px 786px 48px 48px;
+        l-power: 126px 786px 48px 48px;
+        l-wave-square: 186px 786px 48px 48px;
+        l-building-arch: 246px 786px 48px 48px;
+        l-grain: 306px 786px 48px 48px;
+        l-box-multiple: 366px 786px 48px 48px;
+        l-door: 426px 786px 48px 48px;
+        l-adjustments-alt: 486px 786px 48px 48px;
+        l-piano: 546px 786px 48px 48px;
     }
 }
 
@@ -1065,6 +1105,16 @@
 .icon-lock { decorator: image(i-lock); }
 .icon-lock-open { decorator: image(i-lock-open); }
 .icon-folder-user { decorator: image(i-folder-user); }
+.icon-layout-sidebar-right { decorator: image(i-layout-sidebar-right); }
+.icon-layout-bottombar { decorator: image(i-layout-bottombar); }
+.icon-power { decorator: image(i-power); }
+.icon-wave-square { decorator: image(i-wave-square); }
+.icon-building-arch { decorator: image(i-building-arch); }
+.icon-grain { decorator: image(i-grain); }
+.icon-box-multiple { decorator: image(i-box-multiple); }
+.icon-door { decorator: image(i-door); }
+.icon-adjustments-alt { decorator: image(i-adjustments-alt); }
+.icon-piano { decorator: image(i-piano); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1274,3 +1324,13 @@
 .icon-lg.icon-lock { decorator: image(l-lock); }
 .icon-lg.icon-lock-open { decorator: image(l-lock-open); }
 .icon-lg.icon-folder-user { decorator: image(l-folder-user); }
+.icon-lg.icon-layout-sidebar-right { decorator: image(l-layout-sidebar-right); }
+.icon-lg.icon-layout-bottombar { decorator: image(l-layout-bottombar); }
+.icon-lg.icon-power { decorator: image(l-power); }
+.icon-lg.icon-wave-square { decorator: image(l-wave-square); }
+.icon-lg.icon-building-arch { decorator: image(l-building-arch); }
+.icon-lg.icon-grain { decorator: image(l-grain); }
+.icon-lg.icon-box-multiple { decorator: image(l-box-multiple); }
+.icon-lg.icon-door { decorator: image(l-door); }
+.icon-lg.icon-adjustments-alt { decorator: image(l-adjustments-alt); }
+.icon-lg.icon-piano { decorator: image(l-piano); }

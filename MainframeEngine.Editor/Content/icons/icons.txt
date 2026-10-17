@@ -228,3 +228,15 @@ lock-open
 
 # Saves: Project › Open User Data Folder
 folder-user
+
+# Music mode: view toggles (Browser, bottom pane), insert bypass, built-in effect categories and the instrument
+layout-sidebar-right
+layout-bottombar
+power
+wave-square
+building-arch
+grain
+box-multiple
+door
+adjustments-alt
+piano
