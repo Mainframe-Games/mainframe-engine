@@ -1,7 +1,7 @@
 # Proposal: Adaptive music (FMOD-style, baked stems)
 
 **Milestone:** unscheduled (editor tooling + audio runtime; Phase 3 of the Logic-style Music mode) · **Status:** proposal
-(2026-10-18), [ADR 0195](../../../memory/decisions/0195-adaptive-music-baked-stems.md) (proposed) · **Depends on:**
+(2026-10-18), [ADR 0196](../../../memory/decisions/0196-adaptive-music-baked-stems.md) (proposed) · **Depends on:**
 [Music editor](music-editor.md) (songs, `SongEngine`, Render), [Audio](../audio.md) (`AudioServer`, streaming, the
 command queue), [Editor](../editor.md) (Music mode), the Phase 1 right-hand Browser and built-in effects
 (`docs/design/music-effects.md`, not written yet) · **Related:** [Project and GameHost](../project-and-gamehost.md)

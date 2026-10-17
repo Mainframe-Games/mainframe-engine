@@ -1,4 +1,4 @@
-# ADR 0195 — Adaptive music: baked stems, one director, audio-thread scheduling
+# ADR 0196 — Adaptive music: baked stems, one director, audio-thread scheduling
 
 - **Date:** 2026-10-18
 - **Status:** proposed
