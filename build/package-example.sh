@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Zips an example project (Examples/<Demo|Forest>) for a release: MainframeEngine.<Example>-v<version>.zip and
-# MainframeEngine.<Example>.zip in <out-dir>, top folder MainframeEngine.<Example>/ (the editor's Download menu fetches them).
+# Zips an example project (Examples/<Demo|Forest>) for a release: MainframeEngine.<Example>-v<version>.zip in <out-dir>,
+# top folder MainframeEngine.<Example>/ (the editor's Download menu fetches it: its own version's, or the latest release's).
 # Usage: build/package-example.sh <Demo|Forest> <version> <out-dir>. Needs the example's LFS content pulled (fails on pointer files).
 set -euo pipefail
 example="$1"; version="$2"; out="$(mkdir -p "$3" && cd "$3" && pwd)"
@@ -47,5 +47,4 @@ packages="$(cd "$dest" && find . -name '*.csproj' -print0 | xargs -0 grep -h -o 
   echo '</Project>'
 } > "$dest/Directory.Packages.props"
 (cd "$stage" && zip -qr -X "$out/$name-v$version.zip" "$name")
-cp "$out/$name-v$version.zip" "$out/$name.zip"
-ls -la "$out/$name"*.zip
+ls -la "$out/$name-v$version.zip"

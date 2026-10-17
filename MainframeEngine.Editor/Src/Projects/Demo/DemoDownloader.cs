@@ -91,9 +91,30 @@ public sealed class DemoDownloader(HttpClient http, string editorVersion, string
         }
     }
 
+    /// <summary>The zip's URL: this version's release, or on a development build the latest release's asset.</summary>
+    private async Task<Uri> AssetUrlAsync(CancellationToken ct)
+    {
+        if (!DemoRelease.IsDevelopment(editorVersion))
+            return DemoRelease.AssetUrl(editorVersion, example);
+        ReleaseInfo? latest;
+        try
+        {
+            latest = await new ReleaseFeed(http, editorVersion).GetLatestAsync(ct).ConfigureAwait(false);
+        }
+        catch (UpdateException e)
+        {
+            throw new DemoDownloadException("The latest release could not be found: " + e.Message, e);
+        }
+
+        if (latest is null)
+            throw new DemoDownloadException("The latest release has no vX.Y.Z tag.");
+        return latest.FindAsset(DemoRelease.AssetName(latest.Tag, example))?.DownloadUrl
+               ?? throw new DemoDownloadException($"The latest release ({latest.Tag}) has no {(example ?? ExampleProject.Demo).Title}.");
+    }
+
     private async Task DownloadZipAsync(string zipPath, IProgress<double>? progress, CancellationToken ct)
     {
-        var url = DemoRelease.AssetUrl(editorVersion, example);
+        var url = await AssetUrlAsync(ct).ConfigureAwait(false);
         using var message = new HttpRequestMessage(HttpMethod.Get, url);
         message.Headers.UserAgent.ParseAdd($"MainframeEngine-Editor/{editorVersion}");
         HttpResponseMessage response;

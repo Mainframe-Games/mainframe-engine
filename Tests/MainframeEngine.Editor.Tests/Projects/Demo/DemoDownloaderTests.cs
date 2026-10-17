@@ -45,6 +45,52 @@ public sealed class DemoDownloaderTests : IDisposable
         Assert.Equal(DemoRelease.AssetUrl("1.2.3", ExampleProject.Forest), handler.Requests.Single().RequestUri);
     }
 
+    /// <summary>A <c>releases/latest</c> answer for <paramref name="tag"/> with these asset names.</summary>
+    private static string LatestRelease(string tag, params string[] assets)
+    {
+        var entries = assets.Select(name =>
+            $"{{ \"name\": \"{name}\", \"size\": 1000, \"browser_download_url\": \"{DemoRelease.ReleasesBaseUrl}/download/{tag}/{name}\" }}");
+        return $"{{ \"tag_name\": \"{tag}\", \"html_url\": \"{DemoRelease.ReleasesBaseUrl}/tag/{tag}\", \"assets\": [ {string.Join(", ", entries)} ] }}";
+    }
+
+    /// <summary>Answers the release feed with <paramref name="latestJson"/> and anything else with <paramref name="zip"/>.</summary>
+    private static StubHandler FeedThenZip(string latestJson, byte[] zip) =>
+        new(request => request.RequestUri == ReleaseFeed.LatestReleaseUri
+            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(latestJson) }
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(zip) });
+
+    [Theory]
+    [InlineData("0.0.0-dev")]
+    [InlineData("1.5.0-rc.1")]
+    public async Task DevelopmentBuildsDownloadTheLatestReleasesVersionedZip(string editorVersion)
+    {
+        var handler = FeedThenZip(LatestRelease("v1.1.2", "MainframeEngine.Demo-v1.1.2.zip", "MainframeEngine.Forest-v1.1.2.zip"), ValidZip());
+        await new DemoDownloader(new HttpClient(handler), editorVersion, Downloads, ExampleProject.Forest)
+            .DownloadAsync(Request(), ct: TestContext.Current.CancellationToken);
+        Assert.Equal([ReleaseFeed.LatestReleaseUri, DemoRelease.AssetUrl("1.1.2", ExampleProject.Forest)],
+            handler.Requests.Select(r => r.RequestUri));
+    }
+
+    [Fact]
+    public async Task ALatestReleaseWithoutTheExampleSaysSo()
+    {
+        var handler = FeedThenZip(LatestRelease("v1.1.2", "MainframeEngine.Demo.zip"), ValidZip());
+        var error = await Assert.ThrowsAsync<DemoDownloadException>(() =>
+            new DemoDownloader(new HttpClient(handler), DemoRelease.DevelopmentVersion, Downloads).DownloadAsync(Request(), ct: TestContext.Current.CancellationToken));
+        Assert.Contains("v1.1.2", error.Message, StringComparison.Ordinal);
+        Assert.Single(handler.Requests); // never guesses an unversioned asset
+        Assert.False(Directory.Exists(Request().ParentDirectory));
+    }
+
+    [Fact]
+    public async Task AReleaseFeedFailureIsADownloadFailure()
+    {
+        var error = await Assert.ThrowsAsync<DemoDownloadException>(() =>
+            new DemoDownloader(new HttpClient(StubHandler.Status(HttpStatusCode.TooManyRequests)), DemoRelease.DevelopmentVersion, Downloads)
+                .DownloadAsync(Request(), ct: TestContext.Current.CancellationToken));
+        Assert.Contains("rate limit", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task CreatesMissingParentDirectory()
     {
