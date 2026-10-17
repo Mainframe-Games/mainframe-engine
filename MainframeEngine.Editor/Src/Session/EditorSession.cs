@@ -103,7 +103,7 @@ public sealed class EditorSession : IDisposable
         if (!File.Exists(file))
             throw new FileNotFoundException($"'{root}' is not a Mainframe project: it has no {ProjectSettings.FileName}.", file);
         // Video tabs do not count: their recordings live outside any project.
-        if (ProjectRoot is not null && !PathsEqual(ProjectRoot, root) && _tabs.Any(t => t.Mode == EditorMode.Game))
+        if (ProjectRoot is not null && !PathsEqual(ProjectRoot, root) && _tabs.Any(t => t.Mode.UsesProject()))
             throw new InvalidOperationException($"Close the scenes of {ProjectRoot} before opening another project.");
         var settings = ProjectSettings.Load(file);
         ProjectRoot = root;
@@ -185,14 +185,22 @@ public sealed class EditorSession : IDisposable
             Close(tab);
     }
 
-    /// <summary>
-    /// Closes every tab of <paramref name="mode"/> without asking (the caller dealt with unsaved changes). A project
-    /// switch closes the game tabs only: video mode needs no project, so its tabs and their jobs stay.
-    /// </summary>
+    /// <summary>Closes every tab of <paramref name="mode"/> without asking (the caller dealt with unsaved changes).</summary>
     public void CloseAll(EditorMode mode)
     {
         foreach (var tab in _tabs.ToArray())
             if (tab.Mode == mode)
+                Close(tab);
+    }
+
+    /// <summary>
+    /// Closes the project's tabs (scenes, UI previews and songs: <see cref="EditorModes.UsesProject"/>) without asking (the
+    /// caller dealt with unsaved changes). Video mode needs no project, so its tabs and their jobs stay.
+    /// </summary>
+    public void CloseProjectTabs()
+    {
+        foreach (var tab in _tabs.ToArray())
+            if (tab.Mode.UsesProject())
                 Close(tab);
     }
 
@@ -650,7 +658,7 @@ public sealed class EditorSession : IDisposable
         if (ProjectRoot is not null && PathsEqual(ProjectRoot, root))
             return;
         // Video tabs do not count: their recordings live outside any project.
-        if (ProjectRoot is not null && !allowSwitch && _tabs.Any(t => t.Mode == EditorMode.Game && t.FilePath is not null))
+        if (ProjectRoot is not null && !allowSwitch && _tabs.Any(t => t.Mode.UsesProject() && t.FilePath is not null))
             throw new InvalidOperationException(
                 $"'{scenePath}' belongs to the project at {root}, but files of {ProjectRoot} are open. Close them first.");
         ProjectRoot = root;

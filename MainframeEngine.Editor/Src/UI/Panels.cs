@@ -5,7 +5,7 @@ namespace MainframeEngine.Editor;
 
 /// <summary>
 /// The menu bar: a click opens the menu's <see cref="PopupMenu"/>. Game mode shows File, Edit, View, Project, Run and Help;
-/// video mode File, Edit, View, Video and Help (<see cref="ApplyMode"/>).
+/// video mode File, Edit, View, Video and Help; music mode File, Edit, View, Song and Help (<see cref="ApplyMode"/>).
 /// </summary>
 public sealed class MenuBarPanel : EditorDocument
 {
@@ -14,9 +14,9 @@ public sealed class MenuBarPanel : EditorDocument
     {
     }
 
-    private static readonly string[] MenuIds = ["menu-file", "menu-edit", "menu-view", "menu-project", "menu-run", "menu-video", "menu-help"];
+    private static readonly string[] MenuIds = ["menu-file", "menu-edit", "menu-view", "menu-project", "menu-run", "menu-video", "menu-song", "menu-help"];
 
-    /// <summary>Opens menu <paramref name="menu"/> (file, edit, view, project, run, video, help) under its title.</summary>
+    /// <summary>Opens menu <paramref name="menu"/> (file, edit, view, project, run, video, song, help) under its title.</summary>
     public void OpenMenu(string menu)
     {
         var x = 80f;
@@ -37,15 +37,16 @@ public sealed class MenuBarPanel : EditorDocument
             Document.GetElementById(id).SetClass("open", false);
     }
 
-    /// <summary>Shows the menu titles of <paramref name="mode"/> (Project and Run are game-only, Video is video-only).</summary>
+    /// <summary>Shows the menu titles of <paramref name="mode"/> (Project and Run are game-only, Video video-only, Song music-only).</summary>
     public void ApplyMode(EditorMode mode)
     {
         if (!IsLoaded)
             return;
-        var video = mode == EditorMode.Video;
-        Document.GetElementById("menu-project").SetClass("hidden", video);
-        Document.GetElementById("menu-run").SetClass("hidden", video);
-        Document.GetElementById("menu-video").SetClass("hidden", !video);
+        var game = mode == EditorMode.Game;
+        Document.GetElementById("menu-project").SetClass("hidden", !game);
+        Document.GetElementById("menu-run").SetClass("hidden", !game);
+        Document.GetElementById("menu-video").SetClass("hidden", mode != EditorMode.Video);
+        Document.GetElementById("menu-song").SetClass("hidden", mode != EditorMode.Music);
     }
 
     private string _windowTitle = "";
@@ -89,11 +90,13 @@ public sealed class MenuBarPanel : EditorDocument
 
 /// <summary>
 /// The toolbar: in game mode the gizmo mode, local/global, snapping, frame, grid and the play controls; in video mode the
-/// video tools (<see cref="ApplyMode"/>). Both end with the Game|Video toggle, the docs button and the frame stats.
+/// video tools; in music mode the song transport (<see cref="ApplyMode"/>). Each ends with the Game|Music|Video toggle,
+/// the docs button and the frame stats.
 /// </summary>
 public sealed class ToolbarPanel : EditorDocument
 {
     private RmlEventListener? _snapListener;
+    private readonly RmlEventListener?[] _tempoListeners = new RmlEventListener?[3];
 
     public ToolbarPanel(EditorWorkspace workspace)
         : base(workspace, "toolbar.rml")
@@ -106,25 +109,61 @@ public sealed class ToolbarPanel : EditorDocument
     {
         _shownLocal = null;
         _badgeVersion = null;
+        _thumbSlot = -1;
         ResetVideo();
+        ResetMusic();
         _snapListener?.Remove();
         _snapListener = document.GetElementById("snap-step").AddEventListener("change", OnSnapStep);
+        AttachTempo(document);
         Refresh();
         RefreshUpdate();
         ApplyMode(Workspace.Mode);
     }
 
-    /// <summary>Shows <paramref name="mode"/>'s tools and marks its half of the Game|Video toggle.</summary>
+    /// <summary>Shows <paramref name="mode"/>'s tools and marks its button of the Game|Music|Video toggle (its thumb slides there).</summary>
     public void ApplyMode(EditorMode mode)
     {
         if (!IsLoaded)
             return;
-        var video = mode == EditorMode.Video;
         var document = Document;
-        document.GetElementById("game-tools").SetClass("hidden", video);
-        document.GetElementById("video-tools").SetClass("hidden", !video);
-        document.GetElementById("mode-game").SetClass("active", !video);
-        document.GetElementById("mode-video").SetClass("active", video);
+        document.GetElementById("game-tools").SetClass("hidden", mode != EditorMode.Game);
+        document.GetElementById("video-tools").SetClass("hidden", mode != EditorMode.Video);
+        document.GetElementById("music-tools").SetClass("hidden", mode != EditorMode.Music);
+        document.GetElementById("mode-game").SetClass("active", mode == EditorMode.Game);
+        document.GetElementById("mode-video").SetClass("active", mode == EditorMode.Video);
+        document.GetElementById("mode-music").SetClass("active", mode == EditorMode.Music);
+        // The thumb stretches there (its RCSS transitions, picked by the direction); only the toggle animates.
+        var slot = ModeSlot(mode);
+        var thumb = document.GetElementById("mode-thumb");
+        if (_thumbSlot >= 0 && slot != _thumbSlot)
+        {
+            thumb.SetClass("to-right", slot > _thumbSlot);
+            thumb.SetClass("to-left", slot < _thumbSlot);
+        }
+
+        _thumbSlot = slot;
+        thumb.SetClass("at-music", mode == EditorMode.Music);
+        thumb.SetClass("at-video", mode == EditorMode.Video);
+    }
+
+    // The thumb's slot in the toggle, left to right (-1: not placed since the document loaded, so it jumps there).
+    private int _thumbSlot = -1;
+
+    private static int ModeSlot(EditorMode mode) => mode switch
+    {
+        EditorMode.Music => 1,
+        EditorMode.Video => 2,
+        _ => 0,
+    };
+
+    /// <summary>Where a menu opened from toolbar element <paramref name="id"/> goes: just below it (window dp).</summary>
+    public (float X, float Y) Below(string id)
+    {
+        var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+        if (!IsLoaded || Document.GetElementById(id) is not { IsNull: false } element)
+            return (80, EditorLayout.MenuBarHeight + EditorLayout.ToolbarHeight);
+        var b = element.Bounds;
+        return (b.X / scale, (b.Y + b.Height) / scale + 2);
     }
 
     private ReleaseVersion? _badgeVersion;
@@ -483,6 +522,234 @@ public sealed class ToolbarPanel : EditorDocument
             >= DownloadingOffset => string.Create(CultureInfo.InvariantCulture, $"Downloading model {percent - DownloadingOffset} %"),
             _ => string.Create(CultureInfo.InvariantCulture, $"Cancel {percent} %"),
         });
+    }
+
+    // ── Music mode ───────────────────────────────────────────────────────────────────────────────────────────────
+
+    // The controls that need a song tab (the tempo field is handled on its own).
+    private static readonly string[] MusicTabButtons =
+        ["song-rewind", "song-play", "song-stop", "song-record", "song-loop", "song-sig", "song-snap", "song-quantize", "song-render"];
+
+    // What the music tools show, so UpdateMusic writes only what changed (null / -2 / NaN: not written since the last load).
+    private Music.SongTab? _musicTab;
+    private bool? _musicEnabled;
+    private bool? _musicPlaying;
+    private bool? _musicRecording;
+    private bool? _musicLoop;
+    private bool? _musicReadOnly;
+    private bool? _musicEditable;
+    private double _musicTempo = double.NaN;
+    private int _musicBeats = -1;
+    private int _musicUnit = -1;
+    private int _musicSnap = -1;
+    private int _musicQuantize = -1;
+    private long _musicPosition = -2;
+    private int _musicUnderruns = -2;
+    private int _musicRender = -3;
+    private bool _tempoFocused;
+
+    private void ResetMusic()
+    {
+        _musicEnabled = null;
+        _musicPlaying = null;
+        _musicRecording = null;
+        _musicLoop = null;
+        _musicReadOnly = null;
+        _musicEditable = null;
+        _musicTempo = double.NaN;
+        _musicBeats = -1;
+        _musicUnit = -1;
+        _musicSnap = -1;
+        _musicQuantize = -1;
+        _musicPosition = -2;
+        _musicUnderruns = -2;
+        _musicRender = -3;
+        _tempoFocused = false;
+    }
+
+    private void AttachTempo(RmlDocument document)
+    {
+        foreach (var listener in _tempoListeners)
+            listener?.Remove();
+        var tempo = document.GetElementById("song-tempo");
+        _tempoListeners[0] = tempo.AddEventListener("change", OnTempoChange);
+        _tempoListeners[1] = tempo.AddEventListener("focus", _ => _tempoFocused = true);
+        _tempoListeners[2] = tempo.AddEventListener("blur", _ =>
+        {
+            _tempoFocused = false;
+            _musicTab?.Document.History.EndMerge();
+            _musicTempo = double.NaN; // show the tempo as stored
+        });
+    }
+
+    // Typing a tempo sets it while the field has focus (one merged undo step until it loses focus).
+    private void OnTempoChange(RmlEvent e)
+    {
+        if (!_tempoFocused || _musicTab is not { Document.IsReadOnly: false } tab ||
+            !double.TryParse(e.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var bpm) || bpm is < 20 or > 999 ||
+            Math.Abs(bpm - tab.Document.Song.Tempo) <= 1e-6)
+            return;
+        try
+        {
+            tab.Document.SetTempo(bpm, "song-tempo");
+            _musicTempo = bpm;
+        }
+        catch (Exception ex) when (EditorCommands.IsRecoverable(ex))
+        {
+            Workspace.Commands.ReportError("Could not set the tempo", ex);
+        }
+    }
+
+    /// <summary>
+    /// Every frame in music mode (from the <see cref="Music.SongView"/>): the transport's disabled and active states, the
+    /// tempo, time signature, position (<c>003.2.240</c>), snap, input quantize, underruns, the read-only badge and
+    /// "Cancel n %" on Render while it runs. Only what changed is written; steady frames allocate nothing.
+    /// </summary>
+    public void UpdateMusic(Music.SongTab? tab)
+    {
+        if (!IsLoaded)
+            return;
+        var document = Document;
+        if (!ReferenceEquals(tab, _musicTab))
+        {
+            _musicTab = tab;
+            var enabled = _musicEnabled;
+            var focused = _tempoFocused;
+            ResetMusic();
+            _musicEnabled = enabled;
+            _tempoFocused = focused;
+        }
+
+        var hasTab = tab is not null;
+        if (_musicEnabled != hasTab)
+        {
+            _musicEnabled = hasTab;
+            foreach (var id in MusicTabButtons)
+                document.GetElementById(id).SetClass("disabled", !hasTab);
+        }
+
+        if (tab is null)
+        {
+            if (_musicPosition != -1)
+            {
+                _musicPosition = -1;
+                var pos = document.GetElementById("song-pos");
+                pos.SetClass("empty", true);
+                pos.SetInnerRml("");
+                document.GetElementById("song-tempo").SetValue("");
+                document.GetElementById("song-xruns").SetInnerRml("");
+                document.GetElementById("song-readonly").SetClass("hidden", true);
+            }
+
+            SetActive(document, "song-play", false, ref _musicPlaying);
+            SetActive(document, "song-record", false, ref _musicRecording);
+            SetActive(document, "song-loop", false, ref _musicLoop);
+            SetEditable(false);
+            return;
+        }
+
+        var song = tab.Document.Song;
+        SetEditable(!tab.Document.IsReadOnly);
+        SetActive(document, "song-play", tab.Player.IsPlaying, ref _musicPlaying);
+        SetActive(document, "song-record", tab.Midi.IsRecording, ref _musicRecording);
+        SetActive(document, "song-loop", song.Loop.Enabled, ref _musicLoop);
+
+        if (!_tempoFocused && song.Tempo != _musicTempo)
+        {
+            _musicTempo = song.Tempo;
+            document.GetElementById("song-tempo").SetValue(song.Tempo.ToString("0.##", CultureInfo.InvariantCulture));
+        }
+
+        var beats = song.TimeSignature.ElementAtOrDefault(0);
+        var unit = song.TimeSignature.ElementAtOrDefault(1);
+        if (beats != _musicBeats || unit != _musicUnit)
+        {
+            _musicBeats = beats;
+            _musicUnit = unit;
+            document.GetElementById("song-sig").SetInnerRml(string.Create(CultureInfo.InvariantCulture, $"{beats} / {unit}"));
+        }
+
+        if ((int)tab.Snap != _musicSnap)
+        {
+            _musicSnap = (int)tab.Snap;
+            SetText("song-snap-label", Music.SongGrid.Label(tab.Snap));
+        }
+
+        if ((int)tab.Midi.Quantize != _musicQuantize)
+        {
+            _musicQuantize = (int)tab.Midi.Quantize;
+            SetText("song-quantize-label", SongPanel.QuantizeLabel(tab.Midi.Quantize));
+        }
+
+        if (_musicReadOnly != tab.Document.IsReadOnly)
+        {
+            _musicReadOnly = tab.Document.IsReadOnly;
+            var badge = document.GetElementById("song-readonly");
+            badge.SetClass("hidden", !tab.Document.IsReadOnly);
+            badge.SetAttribute("data-tooltip", tab.Document.ReadOnlyNotice ?? "This song is read-only");
+        }
+
+        UpdateMusicPosition(tab);
+        var underruns = tab.Player.Underruns + tab.Player.PluginXruns;
+        if (underruns != _musicUnderruns)
+        {
+            _musicUnderruns = underruns;
+            var xruns = document.GetElementById("song-xruns");
+            xruns.SetClass("bad", underruns > 0);
+            xruns.SetInnerRml(underruns == 1 ? "1 xrun" : string.Create(CultureInfo.InvariantCulture, $"{underruns} xruns"));
+        }
+
+        var job = Workspace.SongView.RenderOf(tab.Document.FilePath);
+        var render = job is null ? -1 : (int)(job.Progress * 100);
+        if (render != _musicRender)
+        {
+            _musicRender = render;
+            var button = document.GetElementById("song-render");
+            button.SetClass("busy", job is not null);
+            SetText("song-render-label", job is null ? "Render" : string.Create(CultureInfo.InvariantCulture, $"Cancel {render} %"));
+            button.SetAttribute("data-tooltip", job is null
+                ? SongPanel.RenderTooltip(tab) + " (Ctrl+E)"
+                : string.Create(CultureInfo.InvariantCulture, $"Rendering {tab.Document.Name}… {render} % — click to cancel (the previous output stays)"));
+        }
+    }
+
+    // The tempo field and the time signature take edits only on an editable song.
+    private void SetEditable(bool editable)
+    {
+        if (_musicEditable == editable)
+            return;
+        _musicEditable = editable;
+        var tempo = Document.GetElementById("song-tempo");
+        if (editable)
+            tempo.RemoveAttribute("disabled");
+        else
+            tempo.SetAttribute("disabled", "");
+    }
+
+    private static void SetActive(RmlDocument document, string id, bool active, ref bool? shown)
+    {
+        if (shown == active)
+            return;
+        shown = active;
+        document.GetElementById(id).SetClass("active", active);
+    }
+
+    private void UpdateMusicPosition(Music.SongTab tab)
+    {
+        var song = tab.Document.Song;
+        var ticks = (long)tab.Player.PositionTicks;
+        var shown = ticks - ticks % Math.Max(1, song.Ppq / 64);
+        if (shown == _musicPosition)
+            return;
+        var element = Document.GetElementById("song-pos");
+        if (element.IsNull)
+            return;
+        if (_musicPosition < 0)
+            element.SetClass("empty", false);
+        _musicPosition = shown;
+        Span<char> text = stackalloc char[24];
+        var n = Music.SongGrid.FormatPosition(text, ticks, song);
+        element.SetInnerRml(text[..n]);
     }
 
     /// <summary>Writes the frame stats without allocating (stack-formatted span into the element).</summary>

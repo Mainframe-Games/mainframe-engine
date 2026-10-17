@@ -21,12 +21,40 @@
         }
         .group button.tool-button { width: 28dp; height: 26dp; line-height: 26dp; }
         .spacer { flex: 1 1 auto; }
-        /* Each mode's tools fill the bar up to the Game|Video toggle (ToolbarPanel.ApplyMode hides the other mode's). */
+        /* Each mode's tools fill the bar up to the Game|Music|Video toggle (ToolbarPanel.ApplyMode hides the other modes'). */
         .tools { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
         .tools.hidden { display: none; }
-        #mode-toggle { display: flex; height: 22dp; border-radius: 11dp; border: 1dp #3b3f4b; background-color: #121418; margin: 0dp 8dp; }
-        button.mode { height: 20dp; padding: 0dp 12dp; border-radius: 10dp; background-color: transparent; color: #8b93a5; }
-        button.mode.active { background-color: #1d4ed8; color: #ffffff; }
+        /* The Game|Music|Video toggle: a track with one thumb under the active mode's button. On a switch the thumb
+           stretches: its leading edge darts to the new button and its trailing edge follows with a little squash
+           (ToolbarPanel.ApplyMode sets the to-left/to-right direction and the at-* position); the labels and icons fade
+           as it arrives. Only the toggle animates: the window switches at once. */
+        #mode-toggle {
+            position: relative; display: flex; flex-direction: row; align-items: center; flex: 0 0 auto;
+            box-sizing: border-box; height: 28dp; padding: 2dp; margin: 0dp 8dp;
+            border-radius: 14dp; border: 1dp #2a2d36; background-color: #101216;
+        }
+        #mode-thumb {
+            position: absolute; z-index: 0; top: 2dp; height: 22dp; left: 2dp; right: 154dp; border-radius: 11dp;
+            background-color: #2563eb; border: 1dp #4f8ff7; box-sizing: border-box;
+            box-shadow: #2563eb66 0dp 0dp 10dp 1dp;
+        }
+        #mode-thumb.at-music { left: 78dp; right: 78dp; }
+        #mode-thumb.at-video { left: 154dp; right: 2dp; }
+        #mode-thumb.to-right { transition: right 0.2s cubic-out, left 0.46s back-out; }
+        #mode-thumb.to-left { transition: left 0.2s cubic-out, right 0.46s back-out; }
+        button.mode {
+            position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center;
+            width: 76dp; height: 22dp; line-height: 22dp; padding: 0dp; margin: 0dp;
+            border-width: 0dp; border-radius: 11dp; background-color: transparent;
+            color: #7d8597; font-size: 12dp; transform: scale(1);
+            transition: color 0.22s cubic-out, transform 0.12s cubic-out;
+        }
+        button.mode .icon { margin-right: 5dp; image-color: #6b7488; transition: image-color 0.22s cubic-out; }
+        button.mode:hover { background-color: transparent; color: #c9cedb; }
+        button.mode:hover .icon { image-color: #a3abbd; }
+        button.mode:active { background-color: transparent; transform: scale(0.92); }
+        button.mode.active { background-color: transparent; color: #ffffff; }
+        button.mode.active .icon { image-color: #ffffff; }
         #snap-step { width: 46dp; margin-left: 4dp; }
         #update { display: none; margin-right: 6dp; }
         #update.shown { display: inline-block; }
@@ -78,6 +106,34 @@
         button.accent:hover { background-color: #3b82f6; }
         button.accent.disabled { color: #5f6676; background-color: #23262e; border-color: #2a2d36; }
         button.accent.busy { background-color: #7f1d1d; border-color: #b91c1c; }
+        /* Music mode: the song transport (ToolbarPanel.UpdateMusic), then tempo, time signature, position, snap, input
+           quantize, underruns, the read-only badge and Render ("Cancel n %" while it runs). Disabled without a song tab. */
+        .song-transport button.tool-button { width: 30dp; }
+        .flip { transform: rotate(180deg); }
+        #song-play .icon { image-color: #4ade80; }
+        #song-play.active { background-color: #14532d; border-color: #22c55e; }
+        #song-play.active .icon { image-color: #ffffff; }
+        #song-record .icon { image-color: #f87171; }
+        #song-record.active { background-color: #b91c1c; border-color: #f87171; }
+        #song-record.active .icon { image-color: #ffffff; }
+        #song-loop.active { background-color: #1e3a8a; border-color: #3b82f6; }
+        #music-tools .disabled .icon { image-color: #4b5263; }
+        .field { display: inline-flex; flex-direction: row; align-items: center; height: 22dp; margin-right: 6dp; padding: 0dp 6dp 0dp 0dp;
+                 background-color: #121418; border: 1dp #3b3f4b; border-radius: 3dp; }
+        .field input.text { width: 34dp; height: 20dp; line-height: 20dp; border-width: 0dp; background-color: transparent; padding: 0dp 4dp 0dp 6dp; }
+        .unit { color: #8b93a5; font-size: 11dp; }
+        button.field-button { height: 22dp; line-height: 22dp; padding: 0dp 8dp; margin-right: 6dp; font-size: 12dp; white-space: nowrap; }
+        button.field-button .icon-chevron-down { margin-left: 4dp; margin-right: 0dp; }
+        #song-pos { display: inline-block; height: 20dp; line-height: 20dp; min-width: 70dp; padding: 0dp 8dp; margin-right: 10dp;
+                    background-color: #121418; border: 1dp #3b82f6; border-radius: 3dp; color: #d7dbe4; text-align: center; white-space: nowrap; }
+        #song-pos.empty { visibility: hidden; }
+        .field-label { color: #8b93a5; font-size: 11dp; margin-right: 6dp; }
+        #song-xruns { font-size: 10dp; margin-left: 2dp; white-space: nowrap; }
+        #song-xruns.bad { color: #f59e0b; }
+        #song-readonly { color: #f59e0b; font-size: 11dp; margin-right: 8dp; white-space: nowrap; }
+        #song-readonly .icon { image-color: #f59e0b; }
+        #song-readonly.hidden { display: none; }
+        #song-render { white-space: nowrap; }
     </style>
 </head>
 <body class="panel-doc toolbar">
@@ -127,7 +183,31 @@
         <span id="video-kept" class="muted" data-tooltip="Kept — how long the export will be, of the recording's full length"></span>
         <button id="video-export" class="accent disabled" data-command="video.export" data-tooltip="Export Video (Ctrl+E) — write the kept footage to a new file">Export</button>
     </div>
-    <div id="mode-toggle"><button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record">Game</button><button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings">Video</button></div>
+    <div id="music-tools" class="tools hidden">
+        <div class="group song-transport">
+            <button id="song-rewind" class="tool-button disabled" data-command="song.rewind" data-tooltip="To Start (Home) — move the playhead to bar 1"><span class="icon icon-player-track-next flip"></span></button>
+            <button id="song-play" class="tool-button disabled" data-command="song.play" data-tooltip="Play/Stop (Space) — from the playhead; plays the loop region over and over while Loop is on"><span class="icon icon-player-play-filled"></span></button>
+            <button id="song-stop" class="tool-button disabled" data-command="song.stop" data-tooltip="Stop (Space) — the playhead stays where it is"><span class="icon icon-player-stop"></span></button>
+            <button id="song-record" class="tool-button disabled" data-command="song.record" data-tooltip="Record (R) — play your MIDI keyboard into a new clip on the armed track (arms the selected track if none is); with Loop on every pass adds to the same clip. Stop or R ends the take (one undo step)"><span class="icon icon-point-filled"></span></button>
+            <button id="song-loop" class="tool-button disabled" data-command="song.loop" data-tooltip="Loop (L) — repeat the loop region (drag it in the ruler's top band); renders loop seamlessly"><span class="icon icon-repeat"></span></button>
+        </div>
+        <div class="field" data-tooltip="Tempo — beats per minute (20–999); type a value"><input id="song-tempo" type="text" class="text mono"/><span class="unit">BPM</span></div>
+        <button id="song-sig" class="field-button mono disabled" data-command="song.signature" data-tooltip="Time Signature — beats per bar / beat unit">4 / 4</button>
+        <div id="song-pos" class="mono empty" data-tooltip="Position — bars.beats.ticks of the playhead (click the ruler to move it)"></div>
+        <span class="field-label">Snap</span>
+        <button id="song-snap" class="field-button with-icon disabled" data-command="song.snap" data-tooltip="Snap — the grid clips and notes snap to; Q quantizes the selected notes to it"><span class="icon icon-sm icon-magnet"></span><span id="song-snap-label">1/16</span><span class="icon icon-sm icon-chevron-down"></span></button>
+        <button id="song-quantize" class="field-button with-icon disabled" data-command="song.quantize" data-tooltip="Input Quantize — snaps the starts of recorded MIDI notes (off, 1/16, 1/8)"><span class="icon icon-sm icon-keyboard"></span><span id="song-quantize-label">Off</span><span class="icon icon-sm icon-chevron-down"></span></button>
+        <span id="song-xruns" class="mono muted" data-tooltip="Underruns — times the song's render thread fell behind the audio device (heard as gaps)"></span>
+        <div class="spacer"></div>
+        <span id="song-readonly" class="hidden"><span class="icon icon-sm icon-alert-triangle"></span> Read-only</span>
+        <button id="song-render" class="accent with-icon disabled" data-command="song.render" data-tooltip="Render (Ctrl+E) — write the song to an audio file and its loop points"><span class="icon icon-sm icon-download"></span><span id="song-render-label">Render</span></button>
+    </div>
+    <div id="mode-toggle">
+        <div id="mode-thumb"></div>
+        <button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record"><span class="icon icon-sm icon-device-gamepad-2"></span><span>Game</span></button>
+        <button id="mode-music" class="mode" data-command="editor.mode.music" data-tooltip="Music mode: compose, mix and render the game's songs"><span class="icon icon-sm icon-music"></span><span>Music</span></button>
+        <button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings"><span class="icon icon-sm icon-video"></span><span>Video</span></button>
+    </div>
     <button id="docs" class="tool-button" data-command="help.docs" data-tooltip="Documentation (F1) — open the engine docs in your browser"><span class="icon icon-book"></span></button>
     <button id="update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>
     <span id="stats" class="mono" data-tooltip="Frame Rate — editor frames per second and frame time"></span>

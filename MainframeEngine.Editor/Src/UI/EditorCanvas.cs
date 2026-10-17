@@ -39,10 +39,23 @@ public abstract class EditorCanvas : Node2D
             DrawRect(new Rect2(x * PixelScale, y * PixelScale, w * PixelScale, h * PixelScale), color);
     }
 
+    // The border as four boxes centred on the rectangle's edges, as an unfilled DrawRect covers them: its polyline path
+    // allocates its strips on every call, and the song canvases outline clips and notes every frame.
     protected void Outline(float x, float y, float w, float h, Vector4 color, float width = 1)
     {
-        if (w > 0 && h > 0)
-            DrawRect(new Rect2(x * PixelScale, y * PixelScale, w * PixelScale, h * PixelScale), color, filled: false, width * PixelScale);
+        if (w <= 0 || h <= 0)
+            return;
+        var half = width * 0.5f;
+        if (width >= w || width >= h)
+        {
+            Box(x - half, y - half, w + width, h + width, color);
+            return;
+        }
+
+        Box(x - half, y - half, w + width, width, color);
+        Box(x - half, y + h - half, w + width, width, color);
+        Box(x - half, y + half, width, h - width, color);
+        Box(x + w - half, y + half, width, h - width, color);
     }
 
     protected void Line(float x0, float y0, float x1, float y1, Vector4 color, float width = 1) =>

@@ -100,7 +100,7 @@ public sealed record EditorWorkspaceOptions
 /// the RmlUi panels (one document each: menu bar, toolbar, scene tree, file system, viewport, inspector, output, song,
 /// video, splitters), the dialog layer (file picker, list picker, message box, popup menus) and the
 /// <see cref="ViewportController"/>. Keyboard shortcuts arrive here as unhandled input (the UI takes keys only while a
-/// text field has focus). The <see cref="Mode"/> (game or video) decides which panels, menus, tools and tabs show.
+/// text field has focus). The <see cref="Mode"/> (game, video or music) decides which panels, menus, tools and tabs show.
 /// Hosted by <see cref="EditorApp"/>, or headless in tests.
 /// </summary>
 [Tool]
@@ -214,7 +214,7 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>The video tab's canvases, keys, pointer input and detection jobs.</summary>
     public VideoView VideoView { get; private set; } = null!;
 
-    /// <summary>The current mode (<see cref="SetMode"/>): game (scenes, play) or video (trimming recordings).</summary>
+    /// <summary>The current mode (<see cref="SetMode"/>): game (scenes, play), video (trimming recordings) or music (songs).</summary>
     public EditorMode Mode { get; private set; }
 
     /// <summary>Raised after <see cref="SetMode"/> switched the mode.</summary>
@@ -661,27 +661,33 @@ public sealed partial class EditorWorkspace : Node
         ModeChanged?.Invoke();
     }
 
-    // Game mode shows the docks and the output; video mode hides the docks (dropping their keyboard focus), shows the
-    // output only when View › Output is on, and shows the video panel. The song panel follows the active tab by itself.
+    // Game mode shows the docks and the output; video and music mode hide the docks (dropping their keyboard focus) and
+    // show the output only when their View › Output is on. Video mode shows the video panel, music mode the song panel.
     private void ApplyModePanels()
     {
-        var video = Mode == EditorMode.Video;
-        if (video)
+        if (Layout.IsFullWindow)
         {
             SceneTree.HideAndReleaseFocus();
             FileSystem.HideAndReleaseFocus();
             Inspector.HideAndReleaseFocus();
-            VideoPanel.Visible = true;
         }
         else
         {
             SceneTree.Visible = true;
             FileSystem.Visible = true;
             Inspector.Visible = true;
-            VideoPanel.HideAndReleaseFocus();
         }
 
-        if (!video || Layout.Settings.VideoShowOutput)
+        if (Mode == EditorMode.Video)
+            VideoPanel.Visible = true;
+        else
+            VideoPanel.HideAndReleaseFocus();
+        if (Mode == EditorMode.Music)
+            SongPanel.Visible = true;
+        else
+            SongPanel.HideAndReleaseFocus();
+
+        if (Layout.ShowsOutput)
             OutputPanel.Visible = true;
         else
             OutputPanel.HideAndReleaseFocus();
@@ -709,7 +715,7 @@ public sealed partial class EditorWorkspace : Node
     // Closed tabs must not stay referenced: a scene closed for a code reload holds game types.
     private void ForgetClosedTabs()
     {
-        foreach (var mode in (ReadOnlySpan<EditorMode>)[EditorMode.Game, EditorMode.Video])
+        foreach (var mode in (ReadOnlySpan<EditorMode>)[EditorMode.Game, EditorMode.Video, EditorMode.Music])
             if (_activeByMode.TryGetValue(mode, out var tab) && Session.IndexOf(tab) < 0)
                 _activeByMode.Remove(mode);
     }
@@ -718,6 +724,15 @@ public sealed partial class EditorWorkspace : Node
     internal void ToggleVideoOutput()
     {
         Layout.SetVideoShowOutput(!Layout.Settings.VideoShowOutput);
+        ApplyModePanels();
+        ApplyLayout();
+        SaveLayout();
+    }
+
+    /// <summary>View › Show/Hide Output in music mode.</summary>
+    internal void ToggleMusicOutput()
+    {
+        Layout.SetMusicShowOutput(!Layout.Settings.MusicShowOutput);
         ApplyModePanels();
         ApplyLayout();
         SaveLayout();
@@ -801,10 +816,17 @@ public sealed partial class EditorWorkspace : Node
             return;
         }
 
-        // A song tab's own keys (Space, L, Home, Del, Cmd+C/V/D, arrows, Q) come first; F5–F8 and the rest stay global.
-        if (SongView.HandleKey(key.Key, Modifiers))
+        // Music mode too: no gizmo, view or Play keys. The song tab's own keys (Space, R, L, Home, Del, Cmd+C/V/D, arrows,
+        // Q) come first.
+        if (Mode == EditorMode.Music)
         {
-            GetViewport()?.SetInputAsHandled();
+            if (SongView.HandleKey(key.Key, Modifiers))
+            {
+                GetViewport()?.SetInputAsHandled();
+                return;
+            }
+
+            RunShortcut(MusicShortcutFor(key.Key, Modifiers));
             return;
         }
 
@@ -860,6 +882,40 @@ public sealed partial class EditorWorkspace : Node
         {
             Key.Delete or Key.Backspace when modifiers == EditorModifiers.None => "edit.delete",
             Key.Space when modifiers == EditorModifiers.None => "video.play",
+            Key.F1 when (modifiers & EditorModifiers.Alt) == 0 => "help.docs",
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Music mode's command for a key with modifiers, or null: Cmd/Ctrl+N new song, +O open song, +S save, +Shift+S save
+    /// as, +W close, +Q quit, +Z undo, +Shift+Z or +Y redo, +E render; M mixer/piano roll; F1 the docs. Space, R, L, Home,
+    /// Delete, Cmd+C/V/D, the arrows and Q are the song tab's own keys (<see cref="SongView.HandleKey"/>), taken first.
+    /// </summary>
+    public static string? MusicShortcutFor(Key key, EditorModifiers modifiers)
+    {
+        var shift = (modifiers & EditorModifiers.Shift) != 0;
+        if ((modifiers & EditorModifiers.Command) != 0)
+        {
+            return key switch
+            {
+                Key.N => "file.new_song",
+                Key.O => "file.open",
+                Key.S when shift => "file.save_as",
+                Key.S => "file.save",
+                Key.W => "file.close",
+                Key.Q => "file.quit",
+                Key.Z when shift => "edit.redo",
+                Key.Z => "edit.undo",
+                Key.Y => "edit.redo",
+                Key.E => "song.render",
+                _ => null,
+            };
+        }
+
+        return key switch
+        {
+            Key.M when modifiers == EditorModifiers.None => "song.mixer",
             Key.F1 when (modifiers & EditorModifiers.Alt) == 0 => "help.docs",
             _ => null,
         };

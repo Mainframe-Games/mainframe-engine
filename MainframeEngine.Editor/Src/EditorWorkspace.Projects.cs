@@ -65,7 +65,7 @@ public sealed partial class EditorWorkspace
     // ── Start-up ─────────────────────────────────────────────────────────────────────────────────────────────────
 
     // A project (argument or the scene's project), else the scene, else video mode when the editor was last in it, else the
-    // Project Manager (editor executable), else a new scene.
+    // Project Manager (editor executable; over music mode when the editor was last in it), else a new scene.
     private void StartUp()
     {
         Updates.Start();
@@ -78,6 +78,19 @@ public sealed partial class EditorWorkspace
         if (Options.InitialScene is null && Settings.LastMode == EditorMode.Video)
         {
             SetMode(EditorMode.Video); // needs no project: the Project Manager stays closed
+            if (Splash.Visible)
+                Splash.Finish();
+            return;
+        }
+
+        // Songs belong to a project, so music mode comes back behind the Project Manager: the project picked there opens
+        // into music mode (OpenProjectNow keeps the mode), on its empty state. Without the manager, the empty state says
+        // to open a project.
+        if (Options.InitialScene is null && Settings.LastMode == EditorMode.Music)
+        {
+            SetMode(EditorMode.Music);
+            if (Options.ShowProjectManager)
+                ProjectManager.Open();
             if (Splash.Visible)
                 Splash.Finish();
             return;

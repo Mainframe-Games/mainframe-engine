@@ -91,6 +91,9 @@ public sealed record EditorLayoutSettings
     /// <summary>Video mode shows the output panel below the view (View › Show/Hide Output); game mode always does.</summary>
     public bool VideoShowOutput { get; init; }
 
+    /// <summary>Music mode shows the output panel below the music editor (View › Show/Hide Output); off by default.</summary>
+    public bool MusicShowOutput { get; init; }
+
     /// <summary>
     /// Video mode hides the transcript beside the preview (View › Show/Hide Transcript). Stored inverted, so a file written
     /// without the key shows it: the JSON source generator ignores the initializers of <c>init</c> properties, and a
@@ -131,8 +134,8 @@ public sealed class EditorLayout
     public EditorLayoutSettings Settings { get; private set; }
 
     /// <summary>
-    /// The mode the rectangles are for. Video mode has no docks: the viewport panel (its tab strip above the video panel)
-    /// spans the window, with the output panel below it only when <see cref="EditorLayoutSettings.VideoShowOutput"/>.
+    /// The mode the rectangles are for. Video and music mode have no docks: the viewport panel (its tab strip above the
+    /// video or song panel) spans the window, with the output panel below it only when <see cref="ShowsOutput"/>.
     /// </summary>
     public EditorMode Mode { get; private set; }
 
@@ -176,11 +179,25 @@ public sealed class EditorLayout
         Recompute();
     }
 
-    /// <summary>The splitter's hit/draw rectangle; empty when the mode has no such splitter (video mode: only Bottom, with the output).</summary>
-    public LayoutRect SplitterRect(Splitter splitter) => (Mode, splitter) switch
+    /// <summary>Whether the mode has no docks (video, music): the view spans the window.</summary>
+    public bool IsFullWindow => Mode is EditorMode.Video or EditorMode.Music;
+
+    /// <summary>Whether the output panel shows: always in game mode, else per mode (View › Show/Hide Output).</summary>
+    public bool ShowsOutput => Mode switch
     {
-        (EditorMode.Video, Splitter.Bottom) when Settings.VideoShowOutput => new LayoutRect(Viewport.X, Viewport.Bottom, Viewport.Width, SplitterSize),
-        (EditorMode.Video, _) => default,
+        EditorMode.Video => Settings.VideoShowOutput,
+        EditorMode.Music => Settings.MusicShowOutput,
+        _ => true,
+    };
+
+    /// <summary>
+    /// The splitter's hit/draw rectangle; empty when the mode has no such splitter (video and music mode: only Bottom,
+    /// with the output).
+    /// </summary>
+    public LayoutRect SplitterRect(Splitter splitter) => (IsFullWindow, splitter) switch
+    {
+        (true, Splitter.Bottom) when ShowsOutput => new LayoutRect(Viewport.X, Viewport.Bottom, Viewport.Width, SplitterSize),
+        (true, _) => default,
         (_, Splitter.Left) => new LayoutRect(SceneTree.Right, SceneTree.Y, SplitterSize, WindowHeight - SceneTree.Y),
         (_, Splitter.Right) => new LayoutRect(Inspector.X - SplitterSize, Inspector.Y, SplitterSize, Inspector.Height),
         (_, Splitter.Bottom) => new LayoutRect(Viewport.X, Viewport.Bottom, Viewport.Width, SplitterSize),
@@ -296,6 +313,15 @@ public sealed class EditorLayout
         Recompute();
     }
 
+    /// <summary>View › Show/Hide Output in music mode: the output panel's rectangle appears or goes.</summary>
+    public void SetMusicShowOutput(bool show)
+    {
+        if (Settings.MusicShowOutput == show)
+            return;
+        Settings = Settings with { MusicShowOutput = show };
+        Recompute();
+    }
+
     /// <summary>Most entries a picker's recent list keeps.</summary>
     public const int MaxRecent = 8;
 
@@ -344,9 +370,9 @@ public sealed class EditorLayout
         Toolbar = new LayoutRect(0, MenuBarHeight, w, ToolbarHeight);
         var top = MenuBarHeight + ToolbarHeight;
         var content = MathF.Max(1, h - top);
-        if (Mode == EditorMode.Video)
+        if (IsFullWindow)
         {
-            RecomputeVideo(w, top, content);
+            RecomputeFullWindow(w, top, content);
             return;
         }
 
@@ -367,10 +393,10 @@ public sealed class EditorLayout
         Version++;
     }
 
-    // Video mode: no docks; the viewport panel spans the window, the output panel (when shown) below it.
-    private void RecomputeVideo(float w, float top, float content)
+    // Video and music mode: no docks; the viewport panel spans the window, the output panel (when shown) below it.
+    private void RecomputeFullWindow(float w, float top, float content)
     {
-        var showOutput = Settings.VideoShowOutput;
+        var showOutput = ShowsOutput;
         var bottom = showOutput ? Math.Clamp(Settings.BottomHeight, MinBottom, MathF.Max(MinBottom, content - MinViewportHeight - SplitterSize)) : 0;
         SceneTree = default;
         FileSystem = default;

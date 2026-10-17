@@ -85,6 +85,8 @@ public sealed class SongTab : IEditorTab
 
     public string IconClasses => "icon icon-music icon-audio";
 
+    public EditorMode Mode => EditorMode.Music;
+
     public string Tooltip => DisplayName + " — song" + (Document.IsReadOnly ? " (read-only)" : IsDirty ? " (unsaved changes)" : "") + " — " + FilePath;
 
     // ── View state ───────────────────────────────────────────────────────────────────────────────────────────────

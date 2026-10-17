@@ -11,7 +11,7 @@ recorder, the `.mfcap.json` sidecar and Record from the editor), [Song tab](edit
 The editor records gameplay (F10). Turning a recording into promo footage means trimming dead air and idle gameplay,
 transcribing speech, removing filler words and exporting the result: what [Cutback](https://github.com/brogan89/Cutback)
 does as a separate app. The editor now does all of it in a **video mode**. A Game|Video toggle switches the whole editor
-UI between the game-engine editor and the video editor; an Audio (DAW) mode can follow the same way later.
+UI between the game-engine editor and the video editor; music mode (the song tabs, ADR 0192) works the same way.
 
 ![Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut](../images/editor-video.png)
 
@@ -87,7 +87,7 @@ Settings live in `EditorSettings` (`Video*` properties) and are edited in the Ed
 
 ![One workspace, two modes](../images/video-editor-modes.svg)
 
-`EditorMode { Game, Video }` lives on `EditorWorkspace`; `Audio` is left for the DAW. `EditorWorkspace.SetMode`:
+`EditorMode { Game, Video, Music }` lives on `EditorWorkspace` (music mode: [Editor modes](editor.md#editor-modes)). `EditorWorkspace.SetMode`:
 
 1. **Swaps the layout.** Game mode is the usual editor. Video mode hides the Scene tree, Inspector and FileSystem
    (releasing their focus) and the Output unless View › Show/Hide Output is on, and shows `VideoPanel` over the viewport
@@ -406,7 +406,6 @@ Cutback's project JSON, schema version 3, unchanged:
 - **No drag-in from the OS**: the engine does not deliver SDL drop events yet.
 - **Whisper is trained to drop disfluencies**; recall of "um"s depends on the prompt (Cutback's known issue, same
   mitigation). The first transcription downloads 78 MB to 1.5 GB, depending on the model.
-- **The DAW mode comes later**, as a third `EditorMode` over the song tab.
 
 ## Changes from the proposal
 

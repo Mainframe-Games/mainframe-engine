@@ -4,32 +4,12 @@
     <link type="text/rcss" href="/Content/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
-        /* The song tab (music editor): RmlUi chrome around two canvas views (arrangement, piano roll) drawn by the engine's
-           2D canvas into sub-viewports. The canvas areas let the mouse through to the SongView node. */
+        /* Music mode's view, below the tab strip: RmlUi chrome around two canvas views (arrangement, piano roll) drawn by
+           the engine's 2D canvas into sub-viewports; the transport is in the toolbar. The canvas areas let the mouse
+           through to the SongView node. Without a song tab: New Song, Open Song and the project's songs, or (no project)
+           the way to one. */
         body.song-doc { background-color: #15171c; pointer-events: none; }
-        #song-transport, #song-headers, #song-switcher, #song-mixer, .notice { pointer-events: auto; }
-        #song-transport {
-            display: flex; flex-direction: row; align-items: center; flex: 0 0 auto;
-            height: 34dp; padding: 0dp 8dp; background-color: #2a2d36; border-bottom: 1dp #15171c; white-space: nowrap;
-        }
-        #song-transport button.tool-button { margin-right: 4dp; }
-        #song-transport .sep { display: inline-block; width: 10dp; }
-        .flip { transform: rotate(180deg); }
-        .field { display: inline-flex; flex-direction: row; align-items: center; height: 22dp; margin-right: 6dp; padding: 0dp 6dp 0dp 0dp;
-                 background-color: #121418; border: 1dp #3b3f4b; border-radius: 3dp; }
-        .field input.text { width: 34dp; height: 20dp; line-height: 20dp; border-width: 0dp; background-color: transparent; padding: 0dp 4dp 0dp 6dp; }
-        .unit { color: #8b93a5; font-size: 11dp; }
-        button.field-button { height: 22dp; line-height: 22dp; padding: 0dp 8dp; margin-right: 6dp; font-size: 12dp; }
-        button.field-button .icon-chevron-down { margin-left: 4dp; margin-right: 0dp; }
-        #song-pos { display: inline-block; height: 20dp; line-height: 20dp; padding: 0dp 8dp; margin-right: 10dp; background-color: #121418;
-                    border: 1dp #3b82f6; border-radius: 3dp; color: #d7dbe4; }
-        .label { color: #8b93a5; font-size: 11dp; margin-right: 6dp; }
-        #song-xruns { font-size: 10dp; margin-left: 6dp; }
-        #song-xruns.bad { color: #f59e0b; }
-        #song-render { height: 24dp; line-height: 24dp; padding: 0dp 12dp; margin-left: 8dp; }
-        #song-render.rendering { background-color: #7f1d1d; border-color: #b91c1c; }
-        .readonly { color: #f59e0b; font-size: 11dp; margin-left: 8dp; }
-        .readonly .icon { image-color: #f59e0b; }
+        #song-headers, #song-switcher, #song-mixer, .notice, #song-empty-actions, #song-recent { pointer-events: auto; }
         .notice { flex: 0 0 auto; padding: 4dp 10dp; background-color: #3a2a0d; color: #fcd34d; font-size: 12dp; }
 
         #song-top { display: flex; flex-direction: row; flex: 0 0 40%; min-height: 96dp; border-bottom: 1dp #15171c; }
@@ -50,9 +30,7 @@
         .warn { image-color: #f59e0b; margin-right: 2dp; }
         button.tool-button.small.on-mute.active { background-color: #b45309; border-color: #f59e0b; }
         button.tool-button.small.on-solo.active { background-color: #a16207; border-color: #facc15; }
-        button.tool-button.small.on-arm.active, button.tool-button.on-record.active { background-color: #b91c1c; border-color: #f87171; }
-        button.tool-button.on-record .icon { image-color: #f87171; }
-        button.tool-button.on-record.active .icon { image-color: #ffffff; }
+        button.tool-button.small.on-arm.active { background-color: #b91c1c; border-color: #f87171; }
         .canvas { display: block; position: relative; flex: 1 1 auto; pointer-events: none; background-color: #1b1d23; }
         .canvas img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
 
@@ -94,27 +72,39 @@
         .strip-buttons { display: flex; flex-direction: row; justify-content: center; margin-top: 4dp; }
         .strip-buttons button { margin: 0dp 2dp; }
         .empty { color: #6b7488; padding: 16dp; }
+
+        #song-main { display: flex; flex-direction: column; flex: 1 1 auto; }
+        #song-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1 1 auto;
+            padding: 0dp 24dp; text-align: center; color: #6b7488;
+        }
+        #song-empty .icon-lg { margin-bottom: 8dp; image-color: #4b5263; }
+        #song-empty-actions { display: flex; flex-direction: row; justify-content: center; margin-top: 12dp; }
+        #song-empty-actions button { margin: 0dp 4dp; padding: 0dp 12dp; }
+        #song-recent { display: flex; flex-direction: column; align-items: stretch; margin-top: 14dp; width: 360dp; }
+        .recent-row {
+            display: flex; flex-direction: row; align-items: center; height: 26dp; padding: 0dp 8dp;
+            border-radius: 3dp; color: #a3abbd; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden;
+        }
+        .recent-row:hover { background-color: #262931; color: #ffffff; }
+        .recent-row .icon { margin: 0dp 8dp 0dp 0dp; image-color: #8b93a5; }
     </style>
 </head>
 <body class="panel-doc song-doc" data-model="song">
-    <div id="song-transport">
-        <button id="song-rewind" class="tool-button" data-event-click="rewind()" data-tooltip="To Start (Home) — move the playhead to bar 1"><span class="icon icon-player-track-next flip"></span></button>
-        <button id="song-play" class="tool-button" data-class-active="playing" data-event-click="play()" data-tooltip="Play (Space) — from the playhead; plays the loop region over and over while Loop is on"><span class="icon icon-player-play-filled"></span></button>
-        <button id="song-stop" class="tool-button" data-event-click="stop()" data-tooltip="Stop (Space) — the playhead stays where it is"><span class="icon icon-player-stop"></span></button>
-        <button id="song-record" class="tool-button on-record" data-class-active="recording" data-event-click="record()" data-tooltip="Record (R) — play your MIDI keyboard into a new clip on the armed track (arms the selected track if none is); with Loop on every pass adds to the same clip. Stop or R ends the take (one undo step)"><span class="icon icon-point-filled"></span></button>
-        <button id="song-loop" class="tool-button" data-class-active="loop" data-event-click="toggle_loop()" data-tooltip="Loop (L) — repeat the loop region (drag it in the ruler's top band); renders loop seamlessly"><span class="icon icon-repeat"></span></button>
-        <span class="sep"></span>
-        <div class="field" data-tooltip="Tempo — beats per minute (20–999); type a value"><input id="song-tempo" type="text" class="text mono"/><span class="unit">BPM</span></div>
-        <button id="song-sig" class="field-button mono" data-event-click="sig_menu()" data-tooltip="Time Signature — beats per bar / beat unit">{{sig}}</button>
-        <div id="song-pos" class="mono" data-tooltip="Position — bars.beats.ticks of the playhead (click the ruler to move it)">001.1.000</div>
-        <span class="label">Snap</span>
-        <button id="song-snap" class="field-button with-icon" data-event-click="snap_menu()" data-tooltip="Snap — the grid clips and notes snap to; Q quantizes the selected notes to it"><span class="icon icon-sm icon-magnet"></span><span>{{snap}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
-        <button id="song-quantize" class="field-button with-icon" data-event-click="quantize_menu()" data-tooltip="Input Quantize — snaps the starts of recorded MIDI notes (off, 1/16, 1/8)"><span class="icon icon-sm icon-keyboard"></span><span>{{quantize}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
-        <span id="song-xruns" class="mono muted" data-class-bad="xruns_bad" data-tooltip="Underruns — times the song's render thread fell behind the audio device (heard as gaps)">{{xruns}}</span>
-        <span class="grow"></span>
-        <span class="readonly" data-if="readonly" data-attr-data-tooltip="notice"><span class="icon icon-sm icon-alert-triangle"></span> Read-only</span>
-        <button id="song-render" class="with-icon primary" data-class-rendering="rendering" data-event-click="render()" data-attr-data-tooltip="render_tooltip"><span class="icon icon-sm icon-download"></span><span>{{render_label}}</span></button>
+    <div id="song-empty" data-if="!has_tab">
+        <span class="icon icon-lg icon-music"></span>
+        <span data-if="has_project">Make a song for your game, or open one of its songs</span>
+        <span data-if="!has_project">Songs belong to a game project: open or create one first</span>
+        <div id="song-empty-actions">
+            <button id="song-empty-new" class="with-icon primary" data-if="has_project" data-command="file.new_song" data-tooltip="New Song (Ctrl+N) — create a song in the project's Content/Music"><span class="icon icon-sm icon-plus"></span><span>New Song</span></button>
+            <button id="song-empty-open" class="with-icon" data-if="has_project" data-command="file.open" data-tooltip="Open Song (Ctrl+O) — choose a .msong file"><span class="icon icon-sm icon-folder-open"></span><span>Open Song</span></button>
+            <button id="song-empty-projects" class="with-icon primary" data-if="!has_project" data-command="project.manager" data-tooltip="Project Manager — open, create or download a project"><span class="icon icon-sm icon-folders"></span><span>Project Manager</span></button>
+        </div>
+        <div id="song-recent" data-if="has_project">
+            <div class="recent-row" data-for="r : recent" data-attr-data-command="'song.recent:' + r.index" data-attr-data-tooltip="r.path"><span class="icon icon-sm icon-music"></span><span>{{r.name}}</span></div>
+        </div>
     </div>
+    <div id="song-main" data-if="has_tab">
     <div class="notice" data-if="readonly">{{notice}}</div>
     <div id="song-top">
         <div id="song-headers">
@@ -184,6 +174,7 @@
                 <div class="strip-db mono">{{master_db}}</div>
             </div>
         </div>
+    </div>
     </div>
 </body>
 </rml>

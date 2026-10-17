@@ -145,9 +145,22 @@ D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · S
 Delete/Backspace delete, F1 documentation (the [docs site](docs-site.md) in the browser), F2 rename, F frame, G grid,
 Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5 play (Shift+F5 another instance), F6 play the open
 scene, F7 pause/resume, F8 stop, F9 RmlUi debugger, F10 play and record (start/stop recording). Shortcuts are
-unhandled input: a focused text field keeps its keys, and closed dialogs release focus. While a song tab is active its
-own keys come first ([Song tab](#song-tab-music-editor)): Space play/stop, R record, L loop, Home to start, Del, Cmd+C/V/D, arrows,
-Q; F5–F8, F10 and the Cmd shortcuts above stay the editor's.
+unhandled input: a focused text field keeps its keys, and closed dialogs release focus.
+
+Music mode has its own table (`EditorWorkspace.MusicShortcutFor`). The song tab's own keys come first
+([Song tab](#song-tab-music-editor)): Space play/stop, R record, L loop, Home to start, Del, Cmd+C/V/D, arrows, Q.
+
+| Keys | Music mode |
+|---|---|
+| Space · R · L · Home | play/stop · record · loop · to the start |
+| Delete / Backspace · Cmd/Ctrl+C, V, D · arrows · Q | the song tab's edits (clips, notes) |
+| M | mixer / piano roll |
+| Cmd/Ctrl+N, O, S, Shift+S, W, Q | new song, open song, save, save as, close tab, quit |
+| Cmd/Ctrl+Z, Shift+Z or Y | undo, redo |
+| Cmd/Ctrl+E | render |
+| F1 | documentation |
+
+No gizmo, view, Play or Record keys: those are game mode's.
 
 Video mode has its own table (`EditorWorkspace.VideoShortcutFor`; [Video editing mode](video-editor.md#modes)):
 
@@ -165,25 +178,35 @@ Nothing else: no gizmo, view, Play or Record keys (F10 does nothing in video mod
 
 ## Editor modes
 
-The editor has two modes, **Game** (everything above) and **Video** (trimming recordings), switched by the Game|Video
-toggle near the right end of the toolbar or View › Switch to Video/Game Mode. `EditorWorkspace.SetMode(EditorMode)`:
+The editor has three modes, **Game** (everything above), **Music** (songs: the music editor) and **Video** (trimming
+recordings), switched by the Game|Music|Video toggle near the right end of the toolbar or View › Switch to … Mode
+(ADR 0192). The toggle's thumb stretches to the new mode (an RCSS transition on its edges); the window switches at once.
+`EditorWorkspace.SetMode(EditorMode)`:
 
 ![Video mode: a recording's preview, transcript and timeline with silences and filler words cut](../images/editor-video.png)
 
-- **swaps the layout**: video mode hides the Scene tree, Inspector and FileSystem (and the Output unless View › Show/Hide
-  Output is on) and shows the video view (preview, transcript, notice line, timeline) under the tab strip;
-- **swaps the menus** (Video: File, Edit, View, Video, Help) and the **toolbar group**;
-- **filters the tab strip**: game mode shows scenes, songs and UI previews, video mode shows video tabs. Tabs of the
-  hidden mode stay open, each mode remembers its active tab, and a hidden video tab pauses. Closing the last video tab
-  stays in video mode, on its empty state;
+- **swaps the layout**: music and video mode hide the Scene tree, Inspector and FileSystem (and the Output unless that
+  mode's View › Show/Hide Output is on, `MusicShowOutput` / `VideoShowOutput` in the layout file) and show their view
+  under the tab strip over the whole window: the song panel (track headers, arrangement, piano roll or mixer) or the
+  video view (preview, transcript, notice line, timeline);
+- **swaps the menus** (Music: File, Edit, View, Song, Help; Video: File, Edit, View, Video, Help; Project and Run are
+  game mode's) and the **toolbar group** (music mode: the song transport, `ToolbarPanel.UpdateMusic`);
+- **filters the tab strip**: game mode shows scenes and UI previews, music mode song tabs, video mode video tabs. Tabs
+  of the hidden modes stay open, each mode remembers its active tab, and a hidden song or video tab stops playing.
+  Closing the last song or video tab stays in that mode, on its empty state;
 - **persists the mode** (`EditorSettings.LastMode`), so the editor reopens in it.
+
+Opening a song (`.msong`: File › New Song…, the FileSystem panel, File › Open in music mode, its Songs list) switches to
+music mode. Songs belong to the game project (`EditorMode.UsesProject`): opening, switching or closing a project asks
+about unsaved scenes and songs and closes both, and opening a project in music mode stays in music mode (the main scene
+opens behind it). Without a song, music mode shows New Song, Open Song and the project's songs (newest first); without
+a project, a Project Manager button. The editor reopens in music mode behind the Project Manager.
 
 Opening a recording (`.mp4 .mov .mkv .webm`), `.mfcut` or `.cutback` (File › Open, the FileSystem panel, Recent Videos),
 the Recording saved dialog's Open in Video Editor and the Project Manager's Video Editor button switch to video mode;
-no game project is needed. Opening, switching or closing a project closes and asks about the game tabs only: video tabs
-and their jobs stay. Entering game mode with no project and no game tab opens the Project Manager. The video mode itself (Cutback's trimming, Whisper transcripts, gapless preview, export) is
-described in [Video editing mode](video-editor.md). An Audio (DAW) mode over the song tab comes later, as a third
-`EditorMode`.
+no game project is needed. Opening, switching or closing a project closes and asks about the project's tabs only: video
+tabs and their jobs stay. Entering game mode with no project and no game tab opens the Project Manager. The video mode itself (Cutback's trimming, Whisper transcripts, gapless preview, export) is
+described in [Video editing mode](video-editor.md).
 
 ## Icons
 
@@ -657,21 +680,27 @@ generated parameter sliders (`File` and `LoadMode` rows are hidden):
 ## Song tab (music editor)
 
 Double-clicking a `.msong`, File › New Song… (a file picker in `Content/Music`) or the FileSystem panel's New Song…
-opens a **song tab** (`Music/SongTab`, an `IEditorTab`; design: [Music editor](future/music-editor.md)). A new song has
-one instrument track with the built-in ZzFX instrument. The tab owns the `SongDocument` (its own undo history: Cmd+Z,
-Cmd+S, Save As — a copy gets a new UID — and the close/quit prompts cover it like scenes) and one `SongPlayer`, stopped
-when the tab is deactivated or closed. The scene tree and inspector rest while it is active, like a UI preview.
+opens a **song tab** (`Music/SongTab`, an `IEditorTab` of **music mode**: [Editor modes](#editor-modes); design:
+[Music editor](future/music-editor.md)). A new song has one instrument track with the built-in ZzFX instrument. The tab
+owns the `SongDocument` (its own undo history: Cmd+Z, Cmd+S, Save As — a copy gets a new UID — and the close/quit prompts
+cover it like scenes) and one `SongPlayer`, stopped when the tab is deactivated or closed. Music mode gives it the whole
+window: no Scene tree, Inspector or FileSystem.
 
-- **Chrome** (`SongPanel`, `Content/Editor/song.rml`, over the view area): transport — to start, play, stop, loop,
-  tempo field, time signature menu, position (bars.beats.ticks), snap menu (off, 1/4 … 1/32, triplets), underrun counter
-  and **Render**; track headers (colour bar, name — double-click renames —, instrument, mute, solo, colour, remove; + adds
+![Music mode: the Demo's song, its arrangement and the Lead clip in the piano roll, the transport in the toolbar](../images/editor-song.png)
+
+- **Transport** (the toolbar's music group, `ToolbarPanel.UpdateMusic`, commands `song.*`): to start, play/stop, stop,
+  record, loop, tempo field, time signature menu, position (bars.beats.ticks), snap menu (off, 1/4 … 1/32, triplets),
+  input quantize, underrun counter, a read-only badge and **Render** (Ctrl+E); disabled without a song tab. The Song
+  menu repeats it with Add Instrument/Audio Track; Edit › Music Settings… opens Editor Settings at the VST3 folders and
+  MIDI inputs.
+- **Chrome** (`SongPanel`, `Content/Editor/song.rml`, under the tab strip): track headers (colour bar, name — double-click renames —, instrument, mute, solo, colour, remove; + adds
   an instrument or audio track); a **Piano roll | Mixer** switcher with the selected clip's summary; mixer strips
   (instrument slot "Built-in ZzFX" with its menu, Edit Sound — the ZzFX line in a text field, checked by
   `ZzfxParameters.TryParse`, auditioned on Apply — and audition; the slot's menu also lists scanned VST3 instruments and
   opens the plugin's editor window; an inserts button whose menu adds a scanned VST3 effect and, per insert, opens its
   editor, bypasses, moves it up/down or removes it — all undoable `SongDocument` edits; pan; vertical volume fader in dB; peak meter from `TakeTrackPeak`/`TakeMasterPeak` once per frame;
-  mute/solo) and the master strip (with its own inserts). Faders and the tempo field merge into one undo entry per drag or edit. No record-arm
-  or record buttons and no metronome yet (no MIDI input, `SongEngine` has no click).
+  mute/solo) and the master strip (with its own inserts). Faders and the tempo field merge into one undo entry per drag or edit. No metronome
+  yet (`SongEngine` has no click).
 - **Canvases:** the arrangement (`ArrangementCanvas`) and the piano roll (`PianoRollCanvas`) are `[Tool]` `Node2D`s
   drawing with `DrawRect`/`DrawLine`/`DrawString` in two `Disable3D` `SubViewport`s per tab, sized in framebuffer pixels
   (drawing in dp × scale keeps text sharp). The `SongView` node publishes the active tab's viewports as
@@ -682,8 +711,9 @@ when the tab is deactivated or closed. The scene tree and inspector rest while i
   to draw a new one, which enables looping), click/drag below to seek; one 44 dp lane per track. Clips drag with snap
   (also to another lane of the same kind), resize from either edge (an audio clip's left trim moves its offset), Alt-drag
   copies, Cmd+D duplicates after, Del deletes; double-click an empty instrument lane for a one-bar MIDI clip, an audio
-  lane for "Add Audio Clip" (file picker); dropping a sound from the FileSystem panel adds an audio clip (on an audio
-  lane, else on a new audio track) of the file's length. Clip gestures are previewed and committed on release; MIDI clips
+  lane for "Add Audio Clip" (file picker; music mode hides the FileSystem panel, so this is how sounds come in);
+  dropping a sound from the FileSystem panel adds an audio clip (on an audio lane, else on a new audio track) of the
+  file's length. Clip gestures are previewed and committed on release; MIDI clips
   show their notes, audio clips min/max peaks (`SongWaveforms`, decoded in the background and cached).
 - **Piano roll** of the selected MIDI clip: keyboard (click auditions through `PreviewNote`), click adds a note of the
   last length, drag moves (snapped in song time; the moved note auditions), right edge resizes, empty-area drag is a
@@ -734,7 +764,9 @@ when the tab is deactivated or closed. The scene tree and inspector rest while i
   (merged commits); Stop, R or leaving the tab ends it. Tests: `MidiInputTests.cs` (fake host; plus a real helper with a
   virtual keyboard, `mfplughost --midi-test-source`, on macOS/Linux).
 - Tests: `Tests/MainframeEngine.Editor.Tests/Music/SongTabTests.cs` (tab, gestures → one entry each, grid math, keys) and
-  `SongWorkspaceTests.cs` (panel, keys before shortcuts, save, close prompt); QA steps 13d–13f in the walkthrough
+  `SongWorkspaceTests.cs` (panel, keys before shortcuts, save, close prompt), `MusicModeTests.cs` (the mode: layout,
+  toolbar, menus, empty state, output, project switches, start-up, shortcuts); the `editor-music-empty` and
+  `editor-music-song` goldens (the latter with the allocation gate over steady music-mode frames); QA steps 13d–13g in the walkthrough
   (`song` QA step: `new`, `demo`, `select`, `panel`, `play`, `stop`, `save`, `render`; `wait-for render`).
 
 ## Editor settings

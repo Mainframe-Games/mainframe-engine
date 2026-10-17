@@ -585,16 +585,17 @@
   background: #f8fafc;
   box-shadow: 0 0 10px 2px rgba(56, 189, 248, 0.85);
 }
-/* The Demo song: 8 bars at 140 BPM = 13.71 s. The arrangement shows bars 1–9 (x 466–1066 px, y 130–398 px). */
+/* The Demo song in music mode: 8 bars at 140 BPM = 13.71 s. The arrangement's bars 1–9 span x 192–791 px; its ruler and
+   four lanes y 98–292 px. */
 .mf-playhead--arrange {
-  top: 13.5%;
-  height: 28%;
+  top: 10.2%;
+  height: 20.2%;
   animation: mf-arrange 13.71s linear infinite;
 }
-/* The piano roll shows the first 2.55 bars of the Lead clip (x 327–1265 px, y 428–765 px): 31.9 % of the song. */
+/* The piano roll shows the first 4.21 bars of the Lead clip (x 53–1600 px, y 488–905 px): 52.6 % of the song. */
 .mf-playhead--roll {
-  top: 44.6%;
-  height: 35.1%;
+  top: 50.8%;
+  height: 43.4%;
   animation: mf-roll 13.71s linear infinite;
 }
 /* The sound designer's header (x 1278–1584 px, y 160–326 px) and its waveform (x 1288–1576 px, y 200–262 px). */
@@ -1056,27 +1057,28 @@
 }
 @keyframes mf-arrange {
   from {
-    left: 29.1%;
+    left: 12%;
   }
   to {
-    left: 66.6%;
+    left: 49.4%;
   }
 }
 @keyframes mf-roll {
   0% {
-    left: 20.4%;
+    left: 3.3%;
     opacity: 1;
   }
-  31.9% {
-    left: 79%;
+  52.6% {
+    left: 99.8%;
     opacity: 1;
   }
-  32%,
+  52.7%,
   100% {
-    left: 79%;
+    left: 99.8%;
     opacity: 0;
   }
 }
+
 @keyframes mf-focus {
   0%,
   100% {

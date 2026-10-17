@@ -8,7 +8,7 @@ public static class EditorCommandLine
 {
     public const string Usage =
         "Usage: MainframeEngine.Editor [scene.mscene | project folder | project.mfproj] [--project <folder>] [--project-manager] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
-        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem|video-empty|video-timeline] [--no-validation]] | --validate-demo-zip <zip> [--build [--engine <checkout>]] | --render-song <path.msong>";
+        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song] [--no-validation]] | --validate-demo-zip <zip> [--build [--engine <checkout>]] | --render-song <path.msong>";
 
     public static EditorAppOptions Parse(IReadOnlyList<string> args)
     {
@@ -78,8 +78,10 @@ public static class EditorCommandLine
                         "filesystem" => "filesystem",
                         "video-empty" => "video-empty",
                         "video-timeline" => "video-timeline",
+                        "music-empty" => "music-empty",
+                        "music-song" => "music-song",
                         var other => throw new ArgumentException(
-                            $"Unknown --smoke-golden '{other}' (project-manager, filesystem, video-empty, video-timeline)."),
+                            $"Unknown --smoke-golden '{other}' (project-manager, filesystem, video-empty, video-timeline, music-empty, music-song)."),
                     };
                     break;
                 case "--smoke-splash":

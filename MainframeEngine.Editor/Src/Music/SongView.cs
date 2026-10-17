@@ -5,8 +5,8 @@ using Silk.NET.Input;
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
-/// The song tab's per-frame driver, a <c>[Tool]</c> node of the workspace (the <see cref="ViewportController"/> of song
-/// tabs): sizes the active tab's two canvas viewports to the <see cref="SongPanel"/>'s canvas areas, publishes them to
+/// The song tab's per-frame driver in music mode, a <c>[Tool]</c> node of the workspace (the <see cref="ViewportController"/>
+/// of song tabs): sizes the active tab's two canvas viewports to the <see cref="SongPanel"/>'s canvas areas, publishes them to
 /// the UI as <c>engine://song-arrange</c> and <c>engine://song-roll</c>, routes mouse input over them to the tab's
 /// <see cref="SongCanvasController"/> (and FileSystem drops of audio files), keeps the playhead in view while playing,
 /// and runs song renders (<see cref="SongRenderJob"/>), reporting them in the Output panel.
@@ -53,12 +53,19 @@ public sealed class SongView : Node
     protected override void OnProcess(in GameTime gameTime)
     {
         PollRenders();
-        var tab = _workspace.Session.ActiveTab as SongTab;
+        // Song tabs are music mode's: only that mode's active tab is driven (and the empty state shown).
+        var music = _workspace.Mode == EditorMode.Music;
+        var tab = music ? _workspace.Session.ActiveTab as SongTab : null;
         if (!ReferenceEquals(tab, _tab))
             Switch(tab);
         _workspace.Midi.Sink = tab?.Midi;
         tab?.Midi.Update();
-        _workspace.SongPanel.Tick(tab);
+        if (music)
+        {
+            _workspace.SongPanel.Tick(tab);
+            _workspace.Toolbar.UpdateMusic(tab);
+        }
+
         if (tab is null)
             return;
         var controller = tab.Controller;
@@ -243,7 +250,7 @@ public sealed class SongView : Node
     /// <summary>The song tab's keys (<see cref="SongCanvasController.Key"/>); false when not handled or no song tab is active.</summary>
     public bool HandleKey(Key key, EditorModifiers modifiers)
     {
-        if (_workspace.Session.ActiveTab is not SongTab tab)
+        if (_workspace.Mode != EditorMode.Music || _workspace.Session.ActiveTab is not SongTab tab)
             return false;
         var handled = false;
         Guard("Song edit failed", () => handled = tab.Controller.Key(key, modifiers));

@@ -5,16 +5,28 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The song tab's chrome (<c>Content/Editor/song.rml</c>), over the view area while a <see cref="SongTab"/> is active:
-/// the transport (rewind, play, stop, record, loop, tempo, time signature, position, snap, input quantize, underruns, Render with progress), the
-/// track headers (rename, colour, record-arm, mute, solo, instrument, add and remove), the Piano roll | Mixer switcher and the mixer
-/// strips (instrument slot, inserts placeholder, pan, volume fader, peak meter, mute/solo, master). The arrangement and
-/// the piano roll are images of the tab's canvases (<see cref="SongView"/>). Steady-state frames touch only the position,
-/// the meters and the underrun counter, and allocate nothing.
+/// Music mode's view (<c>Content/Editor/song.rml</c>), below the tab strip: for the active <see cref="SongTab"/> the
+/// track headers (rename, colour, record-arm, mute, solo, instrument, add and remove), the Piano roll | Mixer switcher and
+/// the mixer strips (instrument slot, inserts placeholder, pan, volume fader, peak meter, mute/solo, master); without one,
+/// New Song, Open Song and the project's songs (or, with no project, the Project Manager). The transport is in the
+/// toolbar (<see cref="ToolbarPanel.UpdateMusic"/>). The arrangement and the piano roll are images of the tab's canvases
+/// (<see cref="SongView"/>). Steady-state frames touch only the meters, and allocate nothing.
 /// </summary>
 public sealed class SongPanel : EditorDocument
 {
     private static readonly string[] Percent = BuildPercent();
+
+    private sealed class RecentSong
+    {
+        public required int Index { get; init; }
+        public required string Name { get; init; }
+        public required string Path { get; init; }
+    }
+
+    private static readonly RmlStructType<RecentSong> RecentType = new RmlStructType<RecentSong>()
+        .Member("index", static r => r.Index)
+        .Member("name", static r => r.Name)
+        .Member("path", static r => r.Path);
 
     private sealed class Row
     {
@@ -64,31 +76,20 @@ public sealed class SongPanel : EditorDocument
     private SongTab? _tab;
     private int _docVersion = -1;
     private int _viewVersion = -1;
-    private long _shownPosition = -1;
-    private int _shownUnderruns = -1;
-    private int _shownRender = -2;
     private float _shownScroll = float.NaN;
-    private bool _shownPlaying;
-    private bool _tempoFocused;
     private bool _arrangeImage;
     private bool _rollImage;
-    private RmlEventListener?[] _listeners = new RmlEventListener?[4];
+    private RmlEventListener?[] _listeners = new RmlEventListener?[2];
+    private readonly List<RecentSong> _recent = [];
+    private string? _recentRoot;
+    private bool _recentStale = true;
 
     // Bound values.
+    private bool _hasTab;
+    private bool _hasProject;
     private bool _readOnly;
     private string _notice = "";
-    private bool _playing;
-    private bool _loop;
-    private bool _recording;
-    private string _quantize = "Off";
     private int _midiVersion = -1;
-    private string _sig = "4 / 4";
-    private string _snap = "1/16";
-    private string _xruns = "0 xruns";
-    private bool _xrunsBad;
-    private bool _rendering;
-    private string _renderLabel = "Render";
-    private string _renderTooltip = "";
     private bool _panelRoll = true;
     private string _clipInfo = "";
     private string _masterFader = "0";
@@ -111,35 +112,18 @@ public sealed class SongPanel : EditorDocument
     {
         _model = CreateDataModel("song")
             .BindList("rows", _rows, RowType)
+            .BindList("recent", _recent, RecentType)
+            .Bind("has_tab", this, static p => p._hasTab)
+            .Bind("has_project", this, static p => p._hasProject)
             .Bind("readonly", this, static p => p._readOnly)
             .Bind("notice", this, static p => p._notice)
-            .Bind("playing", this, static p => p._playing)
-            .Bind("loop", this, static p => p._loop)
-            .Bind("recording", this, static p => p._recording)
-            .Bind("quantize", this, static p => p._quantize)
-            .Bind("sig", this, static p => p._sig)
-            .Bind("snap", this, static p => p._snap)
-            .Bind("xruns", this, static p => p._xruns)
-            .Bind("xruns_bad", this, static p => p._xrunsBad)
-            .Bind("rendering", this, static p => p._rendering)
-            .Bind("render_label", this, static p => p._renderLabel)
-            .Bind("render_tooltip", this, static p => p._renderTooltip)
             .Bind("panel_roll", this, static p => p._panelRoll)
             .Bind("clip_info", this, static p => p._clipInfo)
             .Bind("master_fader", this, static p => p._masterFader)
             .Bind("master_db", this, static p => p._masterDb)
             .Bind("master_inserts", this, static p => p._masterInserts)
             .Event("inserts", e => InsertMenu(e.GetArgument(0).GetInt32(), Below(e.Event.CurrentElement)))
-            .Event("play", _ => Song(t => t.Player.Play()))
-            .Event("stop", _ => Song(t => t.Player.Stop()))
-            .Event("rewind", _ => Song(t => t.Controller.Key(Silk.NET.Input.Key.Home, EditorModifiers.None)))
-            .Event("toggle_loop", _ => Song(t => t.Controller.ToggleLoop()))
-            .Event("record", _ => Song(t => t.Controller.ToggleRecording()))
-            .Event("quantize_menu", e => QuantizeMenu(Below(e.Event.CurrentElement)))
             .Event("arm", e => Track(e.GetArgument(0).GetInt32(), (t, track) => t.Midi.ToggleArm(track)))
-            .Event("render", _ => Workspace.Commands.Execute("song.render"))
-            .Event("snap_menu", e => SnapMenu(Below(e.Event.CurrentElement)))
-            .Event("sig_menu", e => SignatureMenu(Below(e.Event.CurrentElement)))
             .Event("add_track", e => AddTrackMenu(Below(e.Event.CurrentElement)))
             .Event("select", e => SelectTrack(e.GetArgument(0).GetInt32()))
             .Event("rename", e => Rename(e.GetArgument(0).GetInt32()))
@@ -172,23 +156,9 @@ public sealed class SongPanel : EditorDocument
         var body = document.AsElement();
         _listeners[0] = body.AddEventListener("change", OnChange);
         _listeners[1] = body.AddEventListener("mouseup", _ => _tab?.Document.History.EndMerge());
-        _listeners[2] = body.AddEventListener("focus", e =>
-        {
-            if (e.Target.Id == "song-tempo")
-                _tempoFocused = true;
-        }, inCapturePhase: true);
-        _listeners[3] = body.AddEventListener("blur", e =>
-        {
-            if (e.Target.Id != "song-tempo")
-                return;
-            _tempoFocused = false;
-            _tab?.Document.History.EndMerge();
-            _docVersion = -1; // show the tempo as stored
-        }, inCapturePhase: true);
         _arrangeImage = false;
         _rollImage = false;
         _docVersion = -1;
-        _shownPosition = -1;
         _shownScroll = float.NaN;
     }
 
@@ -221,25 +191,37 @@ public sealed class SongPanel : EditorDocument
             image.SetAttribute("src", source);
     }
 
-    /// <summary>Every frame (from the <see cref="SongView"/>): follows the active song tab.</summary>
+    /// <summary>The project's songs the empty state lists are read again the next time it shows (a song was created or saved).</summary>
+    public void InvalidateRecent() => _recentStale = true;
+
+    /// <summary>The songs the empty state lists (newest first), for tests and the File menu.</summary>
+    public IReadOnlyList<string> RecentSongs => [.. _recent.Select(static r => r.Path)];
+
+    /// <summary>Every frame in music mode (from the <see cref="SongView"/>): follows the active song tab, else shows the empty state.</summary>
     public void Tick(SongTab? tab)
     {
-        var show = tab is not null;
-        if (Visible != show)
-            Visible = show;
         if (!ReferenceEquals(tab, _tab))
         {
             _tab = tab;
             _docVersion = -1;
             _viewVersion = -1;
-            _shownPosition = -1;
-            _shownRender = -2;
+            if (tab is null)
+                _recentStale = true; // the last song may have just been saved or created
         }
 
-        if (tab is null || !IsLoaded)
+        if (!IsLoaded)
+            return;
+        if (_hasTab != tab is not null)
+        {
+            _hasTab = tab is not null;
+            _model?.Dirty("has_tab");
+        }
+
+        if (tab is null)
         {
             ArrangeRect = default;
             RollRect = default;
+            UpdateEmpty();
             return;
         }
 
@@ -249,8 +231,6 @@ public sealed class SongPanel : EditorDocument
 
         if (tab.Document.Version != _docVersion || tab.ViewVersion != _viewVersion || tab.Midi.Version != _midiVersion)
             Rebuild(tab);
-        UpdatePosition(tab);
-        UpdateTransport(tab);
         UpdateMeters(tab);
         UpdateHeaderScroll(tab);
     }
@@ -269,8 +249,6 @@ public sealed class SongPanel : EditorDocument
         _docVersion = tab.Document.Version;
         _viewVersion = tab.ViewVersion;
         _midiVersion = tab.Midi.Version;
-        _recording = tab.Midi.IsRecording;
-        _quantize = QuantizeLabel(tab.Midi.Quantize);
         var armed = tab.Midi.ArmedTrackId;
         var song = tab.Document.Song;
         _rows.Clear();
@@ -311,16 +289,11 @@ public sealed class SongPanel : EditorDocument
         _masterShown = -1;
         _readOnly = tab.Document.IsReadOnly;
         _notice = tab.Document.ReadOnlyNotice ?? "";
-        _loop = song.Loop.Enabled;
-        _sig = $"{song.TimeSignature.ElementAtOrDefault(0)} / {song.TimeSignature.ElementAtOrDefault(1)}";
-        _snap = SongGrid.Label(tab.Snap);
         _panelRoll = tab.Panel == SongBottomPanel.PianoRoll;
         _clipInfo = ClipInfo(tab);
         _masterFader = Number(-Math.Clamp(song.Master.VolumeDb, -60f, 6f));
         _masterDb = DbText(song.Master.VolumeDb);
         _masterInserts = InsertsText(song.Master.Inserts);
-        if (!_tempoFocused && Document.GetElementById("song-tempo") is { IsNull: false } tempo)
-            tempo.SetValue(song.Tempo.ToString("0.##", CultureInfo.InvariantCulture));
         _model?.DirtyAll();
     }
 
@@ -337,61 +310,53 @@ public sealed class SongPanel : EditorDocument
             : $"{track.Name} · {bars} · {Path.GetFileName(((AudioClip)clip).File)}";
     }
 
-    private void UpdatePosition(SongTab tab)
+    // The empty state: whether a project is open and its songs, read again when the project changed or a song was made.
+    private void UpdateEmpty()
     {
-        var song = tab.Document.Song;
-        var ticks = (long)tab.Player.PositionTicks;
-        var shown = ticks - ticks % Math.Max(1, song.Ppq / 64);
-        if (shown == _shownPosition)
+        var root = Workspace.Session.ProjectRoot;
+        var hasProject = root is not null;
+        if (_hasProject != hasProject)
+        {
+            _hasProject = hasProject;
+            _model?.Dirty("has_project");
+        }
+
+        if (!_recentStale && string.Equals(root, _recentRoot, StringComparison.Ordinal))
             return;
-        _shownPosition = shown;
-        var element = Document.GetElementById("song-pos");
-        if (element.IsNull)
-            return;
-        Span<char> text = stackalloc char[24];
-        var n = SongGrid.FormatPosition(text, ticks, song);
-        element.SetInnerRml(text[..n]);
+        _recentStale = false;
+        _recentRoot = root;
+        _recent.Clear();
+        var songs = FindSongs(root, MaxRecentSongs);
+        for (var i = 0; i < songs.Count; i++)
+            _recent.Add(new RecentSong { Index = i, Name = Path.GetFileNameWithoutExtension(songs[i]), Path = songs[i] });
+        _model?.Dirty("recent");
     }
 
-    private void UpdateTransport(SongTab tab)
+    /// <summary>How many of the project's songs the empty state and File › Recent Songs list.</summary>
+    public const int MaxRecentSongs = 8;
+
+    /// <summary>
+    /// The project's songs (<c>.msong</c> under <paramref name="projectRoot"/>'s <c>Content/</c>), most recently changed
+    /// first, at most <paramref name="max"/>; none without a project or when the folder cannot be read.
+    /// </summary>
+    public static List<string> FindSongs(string? projectRoot, int max)
     {
-        var dirty = false;
-        if (tab.Player.IsPlaying != _shownPlaying)
+        var content = projectRoot is null ? null : Path.Combine(projectRoot, "Content");
+        if (content is null || !Directory.Exists(content))
+            return [];
+        try
         {
-            _shownPlaying = tab.Player.IsPlaying;
-            _playing = _shownPlaying;
-            _model?.Dirty("playing");
+            return [.. Directory.EnumerateFiles(content, "*.msong", SearchOption.AllDirectories)
+                .Select(static f => new FileInfo(f))
+                .OrderByDescending(static f => f.LastWriteTimeUtc)
+                .ThenBy(static f => f.FullName, StringComparer.Ordinal)
+                .Take(max)
+                .Select(static f => f.FullName)];
         }
-
-        var underruns = tab.Player.Underruns + tab.Player.PluginXruns;
-        if (underruns != _shownUnderruns)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            _shownUnderruns = underruns;
-            _xruns = underruns == 1 ? "1 xrun" : underruns.ToString(CultureInfo.InvariantCulture) + " xruns";
-            _xrunsBad = underruns > 0;
-            dirty = true;
-        }
-
-        var job = Workspace.SongView.RenderOf(tab.Document.FilePath);
-        var render = job is null ? -1 : (int)(job.Progress * 100);
-        if (render != _shownRender)
-        {
-            _shownRender = render;
-            _rendering = job is not null;
-            _renderLabel = job is null ? "Render" : $"Cancel {render} %";
-            _renderTooltip = job is null
-                ? RenderTooltip(tab)
-                : $"Rendering {tab.Document.Name}… {render} % — click to cancel (the previous output stays)";
-            dirty = true;
-        }
-
-        if (dirty && _model is { } model)
-        {
-            model.Dirty("xruns");
-            model.Dirty("xruns_bad");
-            model.Dirty("rendering");
-            model.Dirty("render_label");
-            model.Dirty("render_tooltip");
+            Log.Warning($"[Editor] Could not list the project's songs: {e.Message}");
+            return [];
         }
     }
 
@@ -452,14 +417,6 @@ public sealed class SongPanel : EditorDocument
             return;
         var target = e.Target;
         var value = e.Value;
-        if (target.Id == "song-tempo")
-        {
-            if (_tempoFocused && double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var bpm) && bpm is >= 20 and <= 999 &&
-                Math.Abs(bpm - tab.Document.Song.Tempo) > 1e-6)
-                Guard("Could not set the tempo", () => tab.Document.SetTempo(bpm, "song-tempo"));
-            return;
-        }
-
         if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
             return;
         var song = tab.Document.Song;
@@ -492,6 +449,15 @@ public sealed class SongPanel : EditorDocument
         if (_tab is { } tab)
             Guard("Song edit failed", () => action(tab));
     }
+
+    /// <summary>Song › Add Instrument/Audio Track: a new track of <paramref name="kind"/>, selected.</summary>
+    public void AddTrack(SongTrackKind kind) => Song(tab =>
+    {
+        if (tab.Document.IsReadOnly)
+            return;
+        var track = tab.Document.AddTrack(kind);
+        tab.SelectClip(track, null);
+    });
 
     private void Track(int index, Action<SongTab, SongTrack> action)
     {
@@ -743,14 +709,15 @@ public sealed class SongPanel : EditorDocument
         }));
     }
 
-    private static string QuantizeLabel(MidiQuantize quantize) => quantize switch
+    internal static string QuantizeLabel(MidiQuantize quantize) => quantize switch
     {
         MidiQuantize.Sixteenth => "1/16",
         MidiQuantize.Eighth => "1/8",
         _ => "Off",
     };
 
-    private void QuantizeMenu((float X, float Y) at)
+    /// <summary>The input quantize menu at <paramref name="at"/> (the toolbar's Input Quantize button).</summary>
+    internal void QuantizeMenu((float X, float Y) at)
     {
         if (_tab is not { } tab)
             return;
@@ -767,7 +734,8 @@ public sealed class SongPanel : EditorDocument
         });
     }
 
-    private void SnapMenu((float X, float Y) at)
+    /// <summary>The snap menu at <paramref name="at"/> (the toolbar's Snap button).</summary>
+    internal void SnapMenu((float X, float Y) at)
     {
         if (_tab is not { } tab)
             return;
@@ -786,7 +754,8 @@ public sealed class SongPanel : EditorDocument
 
     private static readonly (int Beats, int Unit)[] Signatures = [(2, 4), (3, 4), (4, 4), (5, 4), (6, 8), (7, 8), (12, 8)];
 
-    private void SignatureMenu((float X, float Y) at)
+    /// <summary>The time signature menu at <paramref name="at"/> (the toolbar's Time Signature button).</summary>
+    internal void SignatureMenu((float X, float Y) at)
     {
         if (_tab is not { } tab || tab.Document.IsReadOnly)
             return;
@@ -826,7 +795,7 @@ public sealed class SongPanel : EditorDocument
 
     private static readonly bool s_canEncode = PluginHostClient.IsAvailable;
 
-    private static string RenderTooltip(SongTab tab)
+    internal static string RenderTooltip(SongTab tab)
     {
         var output = SongRenderer.OutputPathFor(tab.Document.Song, tab.Document.Name, s_canEncode);
         var format = output.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)

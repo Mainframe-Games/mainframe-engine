@@ -82,6 +82,37 @@ public class EditorRenderTests
     }
 
     [Fact]
+    public void MusicEmptyStateMatchesGolden()
+    {
+        var result = HostRunner.RunEditor(Output("editor-music-empty"), null, "--smoke-golden", "music-empty", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
+    public void MusicSongMatchesGoldenAndAllocatesNothingWhenSteady()
+    {
+        // A song tab in music mode (a project in the temp folder, a clip of eight notes): the full-window music editor with
+        // the transport in the toolbar; then the allocation gate over its steady frames.
+        var result = HostRunner.RunEditor(Output("editor-music-song"),
+            new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "--smoke-golden", "music-song", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Assert.True(result.MeasuredFrames > 0, "The music-mode run measured no frames.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"Steady music-mode frames allocated {result.AllocatedBytes} managed bytes over {result.MeasuredFrames} frames.");
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
     public void FileSystemPanelMatchesGolden()
     {
         // The template's content as a project in a fixed temp folder (no game code: nothing to build).
