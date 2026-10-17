@@ -42,7 +42,8 @@ A **really simple DAW** as an editor tab:
 ## Non-goals
 
 - **Live song playback in games.** Games play the rendered `.ogg`; VST plugins only exist on the developer's machine.
-  Adaptive music (layers, tempo changes at run time) is a separate future design.
+  Adaptive music (sections, layers, parameters, quantized transitions) is a separate design:
+  [Adaptive music](adaptive-music.md), which bakes stems for a runtime player.
 - Audio Units, VST2, CLAP, LV2. VST3 covers the target plugins (every plugin on the author's machine ships a `.vst3`;
   the SDK is MIT since 3.8, October 2025). CLAP is the natural second format later.
 - Audio recording (microphone/line in), time-stretching, warping, comping.
