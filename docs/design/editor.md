@@ -474,7 +474,8 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   disabled with the same explanation as New Project) are validated as you type; the demo goes to
   `<location>/MainframeEngine.Demo`, which must not exist or be empty. `DemoDownloader` streams
   `MainframeEngine.Demo-vX.Y.Z.zip` from the GitHub release of `EngineInfo.Version` (a development or prerelease build
-  uses `releases/latest/download/MainframeEngine.Demo.zip`; `DemoRelease` holds the one base URL) through the shared
+  asks `ReleaseFeed`, the updater's `releases/latest` API call, for the latest release and downloads that release's
+  `MainframeEngine.Demo-vX.Y.Z.zip`; `DemoRelease` holds the one base URL and the asset names) through the shared
   `EditorHttp` client into `~/.mainframe/downloads/`, with a progress bar and a size cap; `DemoArchive` extracts into a
   hidden staging folder beside the destination with zip-slip, symlink and 1 GiB guards and validates it (one top folder
   with `project.mfproj`, a desktop project, scenes); `EnginePathRewriter` points `MainframeEnginePath` of its

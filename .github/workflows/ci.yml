@@ -427,7 +427,7 @@ jobs:
       - name: Demo release zip
         run: |
           build/package-demo.sh 0.0.0-ci "$RUNNER_TEMP/demo-zip"
-          dotnet run --project MainframeEngine.Editor -c Release -- --validate-demo-zip "$RUNNER_TEMP/demo-zip/MainframeEngine.Demo.zip" --build
+          dotnet run --project MainframeEngine.Editor -c Release -- --validate-demo-zip "$RUNNER_TEMP/demo-zip/MainframeEngine.Demo-v0.0.0-ci.zip" --build
 
       - name: Upload the smoke games' logs and screenshots
         if: always()

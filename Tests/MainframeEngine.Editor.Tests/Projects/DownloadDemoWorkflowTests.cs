@@ -112,6 +112,7 @@ public sealed class DownloadDemoWorkflowTests : IDisposable
         editor.Tick(3);
 
         w.DownloadDemo.Open();
+        w.DownloadDemo.EngineVersionOverride = "1.4.2"; // a release build: one request, the tagged zip
         w.DownloadDemo.Location = _directory;
         editor.Tick(2);
         Click("dd-download");
@@ -151,6 +152,7 @@ public sealed class DownloadDemoWorkflowTests : IDisposable
         var editor = Editor(handler);
         var w = editor.Workspace;
         w.DownloadDemo.Open();
+        w.DownloadDemo.EngineVersionOverride = "1.4.2"; // a release build: one request, the tagged zip
         w.DownloadDemo.Location = _directory;
         editor.Tick(2);
         Click("dd-download");

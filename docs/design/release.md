@@ -79,9 +79,10 @@ flowchart LR
   <out-dir>` (`build/package-demo.sh <version> <out-dir>` is the Demo's wrapper). For the Demo it zips `Examples/Demo` (tracked and
   unignored files, no `bin/`/`obj/`, failing on LFS pointer files) under a top folder `MainframeEngine.Demo/` as
   `MainframeEngine.Demo-vX.Y.Z.zip` (plus a generated `Directory.Packages.props` with the versions of the packages the Demo
-  references, read from the repo's, since the Demo builds outside it) and a stable-name copy `MainframeEngine.Demo.zip`;
-  the Forest gives `MainframeEngine.Forest-vX.Y.Z.zip` and `MainframeEngine.Forest.zip` (≈ 155 MB) the same way. All are
-  attached to the release; the editor's **Download Example** menu fetches the versioned one (or the second from a development build), see
+  references, read from the repo's, since the Demo builds outside it); the Forest gives `MainframeEngine.Forest-vX.Y.Z.zip`
+  (≈ 155 MB) the same way. Both are attached to the release, and only the versioned names: the editor's **Download
+  Example** menu fetches its own version's zip, and a development build the latest release's (found through the release
+  API, so no stable-name copy is needed), see
   [Editor: projects](editor.md#projects). CI zips the Demo the same way (version `0.0.0-ci`) and runs
   `MainframeEngine.Editor --validate-demo-zip <zip> --build` on it (validates, points it at the checkout like Download
   Demo and builds `Demo.slnx` out of tree), so a Demo zip that is broken or only builds inside the repo fails before a release.
