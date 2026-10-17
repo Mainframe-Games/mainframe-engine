@@ -69,33 +69,33 @@ public readonly record struct BiquadCoefficients(double B0, double B1, double B2
                 (a0, a1, a2) = (1 + alpha / a, -2 * cos, 1 - alpha / a);
                 break;
             case BiquadShape.LowShelf:
-            {
-                var s = 2 * Math.Sqrt(a) * alpha;
-                (b0, b1, b2) = (a * (a + 1 - (a - 1) * cos + s), 2 * a * (a - 1 - (a + 1) * cos), a * (a + 1 - (a - 1) * cos - s));
-                (a0, a1, a2) = (a + 1 + (a - 1) * cos + s, -2 * (a - 1 + (a + 1) * cos), a + 1 + (a - 1) * cos - s);
-                break;
-            }
+                {
+                    var s = 2 * Math.Sqrt(a) * alpha;
+                    (b0, b1, b2) = (a * (a + 1 - (a - 1) * cos + s), 2 * a * (a - 1 - (a + 1) * cos), a * (a + 1 - (a - 1) * cos - s));
+                    (a0, a1, a2) = (a + 1 + (a - 1) * cos + s, -2 * (a - 1 + (a + 1) * cos), a + 1 + (a - 1) * cos - s);
+                    break;
+                }
             case BiquadShape.HighShelf:
-            {
-                var s = 2 * Math.Sqrt(a) * alpha;
-                (b0, b1, b2) = (a * (a + 1 + (a - 1) * cos + s), -2 * a * (a - 1 + (a + 1) * cos), a * (a + 1 + (a - 1) * cos - s));
-                (a0, a1, a2) = (a + 1 - (a - 1) * cos + s, 2 * (a - 1 - (a + 1) * cos), a + 1 - (a - 1) * cos - s);
-                break;
-            }
+                {
+                    var s = 2 * Math.Sqrt(a) * alpha;
+                    (b0, b1, b2) = (a * (a + 1 + (a - 1) * cos + s), -2 * a * (a - 1 + (a + 1) * cos), a * (a + 1 + (a - 1) * cos - s));
+                    (a0, a1, a2) = (a + 1 - (a - 1) * cos + s, 2 * (a - 1 - (a + 1) * cos), a + 1 - (a - 1) * cos - s);
+                    break;
+                }
             case BiquadShape.LowPass1:
-            {
-                var k = Math.Tan(w0 / 2);
-                (b0, b1, b2) = (k, k, 0);
-                (a0, a1, a2) = (k + 1, k - 1, 0);
-                break;
-            }
+                {
+                    var k = Math.Tan(w0 / 2);
+                    (b0, b1, b2) = (k, k, 0);
+                    (a0, a1, a2) = (k + 1, k - 1, 0);
+                    break;
+                }
             case BiquadShape.HighPass1:
-            {
-                var k = Math.Tan(w0 / 2);
-                (b0, b1, b2) = (1, -1, 0);
-                (a0, a1, a2) = (k + 1, k - 1, 0);
-                break;
-            }
+                {
+                    var k = Math.Tan(w0 / 2);
+                    (b0, b1, b2) = (1, -1, 0);
+                    (a0, a1, a2) = (k + 1, k - 1, 0);
+                    break;
+                }
             default:
                 return Identity;
         }

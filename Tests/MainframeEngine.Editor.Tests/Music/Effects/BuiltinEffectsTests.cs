@@ -23,6 +23,7 @@ public sealed class BuiltinEffectsTests
             Assert.Same(info, BuiltinEffects.Find(info.Id));
             Assert.False(string.IsNullOrWhiteSpace(info.Name));
             Assert.False(string.IsNullOrWhiteSpace(info.Tooltip));
+            IconAtlas.AssertExists(info.Icon, info.Id);
             Assert.Equal(info.Params.Length, info.Params.Select(p => p.Id).Distinct().Count());
             foreach (var p in info.Params)
             {

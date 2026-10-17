@@ -31,7 +31,12 @@ public sealed class EqAndDynamicsTests
     {
         var values = new Dictionary<string, float>
         {
-            ["lowShelfGain"] = 4, ["peak2Freq"] = 900, ["peak2Gain"] = -5, ["peak2Q"] = 2, ["highShelfGain"] = -3, ["output"] = 1.5f,
+            ["lowShelfGain"] = 4,
+            ["peak2Freq"] = 900,
+            ["peak2Gain"] = -5,
+            ["peak2Q"] = 2,
+            ["highShelfGain"] = -3,
+            ["output"] = 1.5f,
         };
         var curve = EqEffect.ResponseDb(values, frequency, Rate);
         Assert.Equal(curve, GainAt(Create("eq", values), frequency), 0.15);

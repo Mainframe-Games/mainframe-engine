@@ -145,7 +145,7 @@ public sealed class ReverbEffect : BuiltinEffect
     private const int PreDelay = 0, Size = 1, Damping = 2, Width = 3, LowCut = 4, HighCut = 5, Mix = 6;
     private const float MaxPreDelayMs = 250;
 
-    public static readonly BuiltinEffectInfo Definition = new("reverb", "Reverb", BuiltinCategory.DelayReverb, "building-arch",
+    public static readonly BuiltinEffectInfo Definition = new("reverb", "Reverb", BuiltinCategory.DelayReverb, "sparkles",
         "Reverb — a room or hall around the sound: pre-delay, size, damping and tone of the tail",
         [
             new("preDelay", "Pre-Delay", "ms", 0, MaxPreDelayMs, 20),

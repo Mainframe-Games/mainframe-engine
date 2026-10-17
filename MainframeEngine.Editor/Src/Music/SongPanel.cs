@@ -573,11 +573,19 @@ public sealed class SongPanel : EditorDocument
             var insert = inserts[i];
             var n = i.ToString(CultureInfo.InvariantCulture);
             items.Add(MenuItem.Header($"{i + 1}. {InsertName(insert)}{(insert.Bypass ? " (bypassed)" : "")}"));
-            items.Add(new MenuItem("Open Plugin Editor", "open:" + n, Enabled: insert.Plugin is not null, Icon: "app-window"));
+            items.Add(new MenuItem(insert.IsBuiltin ? "Open" : "Open Plugin Editor", "open:" + n,
+                Enabled: insert.Plugin is not null || (insert.IsBuiltin && BuiltinEffects.Find(insert.Builtin!) is not null), Icon: "app-window"));
             items.Add(new MenuItem(insert.Bypass ? "Enable" : "Bypass", "bypass:" + n, Icon: insert.Bypass ? "plug-connected" : "plug-x"));
             items.Add(new MenuItem("Move Up", "up:" + n, Enabled: i > 0, Icon: "arrow-up"));
             items.Add(new MenuItem("Move Down", "down:" + n, Enabled: i < inserts.Count - 1, Icon: "arrow-down"));
             items.Add(new MenuItem("Remove", "remove:" + n, Icon: "trash"));
+        }
+
+        foreach (var category in Enum.GetValues<BuiltinCategory>())
+        {
+            items.Add(MenuItem.Header("Add " + BuiltinEffects.CategoryName(category)));
+            foreach (var info in BuiltinEffects.InCategory(category))
+                items.Add(new MenuItem(info.Name, "builtin:" + info.Id, Icon: info.Icon));
         }
 
         items.Add(MenuItem.Header("Add VST3 effect"));
@@ -596,6 +604,17 @@ public sealed class SongPanel : EditorDocument
                 return;
             var verb = command[..colon];
             var argument = command[(colon + 1)..];
+            if (verb == "builtin")
+            {
+                Guard("Could not add the effect", () =>
+                {
+                    var added = tab.Document.AddBuiltinInsert(track, argument);
+                    tab.Player.Update(tab.Document);
+                    Workspace.PluginWindow.Open(tab, track, added);
+                });
+                return;
+            }
+
             if (verb == "add")
             {
                 if (catalog.Find(argument) is { } plugin)
@@ -608,6 +627,9 @@ public sealed class SongPanel : EditorDocument
             var insert = inserts[i];
             switch (verb)
             {
+                case "open" when insert.IsBuiltin:
+                    Workspace.PluginWindow.Open(tab, track, insert);
+                    break;
                 case "open":
                     OpenPluginEditor(tab, insert);
                     break;
@@ -651,13 +673,13 @@ public sealed class SongPanel : EditorDocument
             PluginScanner.RescanInBackground(Workspace.Settings.PluginFolders, force: false);
     }
 
-    private static string InsertName(PluginInsert insert) => insert.Plugin is { } p
+    private static string InsertName(PluginInsert insert) => insert.Plugin is { } p && !insert.IsBuiltin
         ? string.IsNullOrEmpty(p.Vendor) ? p.Name ?? p.ClassId ?? "plugin" : $"{p.Name} ({p.Vendor})"
-        : "unknown insert";
+        : insert.DisplayName;
 
     private static string InsertsText(List<PluginInsert> inserts) => inserts.Count == 0
         ? "none"
-        : string.Join(", ", inserts.Select(i => (i.Plugin?.Name ?? "?") + (i.Bypass ? " (off)" : "")));
+        : string.Join(", ", inserts.Select(i => i.DisplayName + (i.Bypass ? " (off)" : "")));
 
     /// <summary>The built-in instrument's ZzFX line in a text field; Apply checks it, stores it and auditions C4.</summary>
     public void EditLine(int index) => Track(index, (tab, track) =>

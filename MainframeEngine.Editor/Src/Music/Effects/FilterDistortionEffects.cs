@@ -322,7 +322,7 @@ public sealed class BitcrusherEffect : BuiltinEffect
 {
     private const int Bits = 0, Downsample = 1, Mix = 2;
 
-    public static readonly BuiltinEffectInfo Definition = new("bitcrusher", "Bitcrusher", BuiltinCategory.Distortion, "grain",
+    public static readonly BuiltinEffectInfo Definition = new("bitcrusher", "Bitcrusher", BuiltinCategory.Distortion, "wand",
         "Bitcrusher — fewer bits and a lower sample rate for lo-fi grit",
         [
             new("bits", "Bits", "bits", 1, 24, 8),

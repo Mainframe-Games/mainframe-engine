@@ -5,7 +5,7 @@ public sealed class UtilityEffect : BuiltinEffect
 {
     private const int Gain = 0, Pan = 1, Width = 2, InvertLeft = 3, InvertRight = 4, Mono = 5;
 
-    public static readonly BuiltinEffectInfo Definition = new("utility", "Utility", BuiltinCategory.Utility, "adjustments-alt",
+    public static readonly BuiltinEffectInfo Definition = new("utility", "Utility", BuiltinCategory.Utility, "adjustments",
         "Utility — gain, balance, stereo width, phase invert and mono",
         [
             new("gain", "Gain", "dB", -48, 24, 0),
