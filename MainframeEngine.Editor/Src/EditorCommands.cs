@@ -271,6 +271,10 @@ public sealed class EditorCommands
             case "song.loop": song.Controller.ToggleLoop(); return true;
             case "song.record": song.Controller.ToggleRecording(); return true;
             case "song.render": _workspace.SongView.Render(song.Document.FilePath); return true;
+            case "song.bake":
+                if (song.Document.Song.Adaptive is not null)
+                    _workspace.SongView.Bake(song.Document.FilePath);
+                return true;
             case "song.piano_roll": _workspace.ToggleMusicPane(SongBottomPanel.PianoRoll); return true;
             case "song.mixer": _workspace.ToggleMusicPane(SongBottomPanel.Mixer); return true;
             case "song.hide_pane": _workspace.SetMusicPane(SongBottomPanel.None); return true;
@@ -1300,6 +1304,7 @@ public sealed class EditorCommands
                 new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", tab, Icon: "file-export"),
                 MenuItem.Separator,
                 new MenuItem("Render…", "song.render", "Ctrl+E", tab, Icon: "download"),
+                new MenuItem(BakeLabel(song), "song.bake", "Ctrl+B", song?.Document.Song.Adaptive is not null, Icon: "package"),
                 MenuItem.Separator,
                 new MenuItem("Project Manager…", "project.manager", Icon: "folders"),
                 new MenuItem("Close Tab", "file.close", "Ctrl+W", tab, Icon: "x"),
@@ -1349,6 +1354,12 @@ public sealed class EditorCommands
     }
 
     // The project's songs under a "Songs" header; nothing when the project has none.
+    // "Bake Adaptive Music", or the running bake's progress (choosing it cancels).
+    private string BakeLabel(SongTab? song) =>
+        song is not null && _workspace.SongView.BakeOf(song.Document.FilePath) is { } job
+            ? string.Create(CultureInfo.InvariantCulture, $"Cancel Bake ({job.Progress * 100:0} %)")
+            : "Bake Adaptive Music";
+
     private List<MenuItem> RecentSongItems()
     {
         var songs = SongPanel.FindSongs(Session.ProjectRoot, SongPanel.MaxRecentSongs);
@@ -1406,7 +1417,7 @@ public sealed class EditorCommands
                   "Q select · W move · E rotate · R scale · T local/global · Y snap · F frame · G grid\n" +
                   "Viewport: click select · RMB+WASD/QE fly (Shift faster) · Alt+LMB or MMB orbit · Shift+MMB pan · wheel zoom\n" +
                   "1 / 3 / 7 front, right, top view · F1 documentation · F12 developer overlay · F9 UI debugger\n" +
-                  "Music mode: Space play/stop · R record · L loop · Home to start · M mixer · Del · Ctrl+C/V/D · arrows nudge (Shift: octave) · Q quantize · Ctrl+E render · Ctrl+wheel zoom\n" +
+                  "Music mode: Space play/stop · R record · L loop · Home to start · M mixer · Del · Ctrl+C/V/D · arrows nudge (Shift: octave) · Q quantize · Ctrl+E render · Ctrl+B bake · Ctrl+wheel zoom\n" +
                   "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · F10 play and record · Ctrl+Shift+B build & reload code",
         Buttons = ["Close"],
     });

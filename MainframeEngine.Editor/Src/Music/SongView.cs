@@ -9,7 +9,8 @@ namespace MainframeEngine.Editor.Music;
 /// of song tabs): sizes the active tab's two canvas viewports to the <see cref="SongPanel"/>'s canvas areas, publishes them to
 /// the UI as <c>engine://song-arrange</c> and <c>engine://song-roll</c>, routes mouse input over them to the tab's
 /// <see cref="SongCanvasController"/> (and FileSystem drops of audio files), keeps the playhead in view while playing,
-/// and runs song renders (<see cref="SongRenderJob"/>), reporting them in the Output panel.
+/// and runs song renders (<see cref="SongRenderJob"/>) and adaptive bakes (<see cref="SongBakeJob"/>), reporting them in the
+/// Output panel.
 /// </summary>
 [Tool]
 public sealed class SongView : Node
@@ -20,6 +21,7 @@ public sealed class SongView : Node
 
     private readonly EditorWorkspace _workspace;
     private readonly List<SongRenderJob> _renders = [];
+    private readonly List<SongBakeJob> _bakes = [];
     private PluginHostClient? _encoder;
     private bool _encoderLocated;
     private SongTab? _tab;
@@ -50,9 +52,19 @@ public sealed class SongView : Node
         return null;
     }
 
+    /// <summary>The bake of the song at <paramref name="songPath"/> in progress, or null.</summary>
+    public SongBakeJob? BakeOf(string songPath)
+    {
+        foreach (var job in _bakes)
+            if (EditorSession.PathsEqual(job.SongPath, Path.GetFullPath(songPath)))
+                return job;
+        return null;
+    }
+
     protected override void OnProcess(in GameTime gameTime)
     {
         PollRenders();
+        PollBakes();
         // Song tabs are music mode's: only that mode's active tab is driven (and the empty state shown).
         var music = _workspace.Mode == EditorMode.Music;
         var tab = music ? _workspace.Session.ActiveTab as SongTab : null;
@@ -339,22 +351,48 @@ public sealed class SongView : Node
             return;
         }
 
-        Song song;
+        var job = SongRenderJob.Start(SongFor(songPath), songPath, AssetDatabase.Current, Encoder());
+        _renders.Add(job);
+        Log.Info($"[Music] Rendering '{job.Name}'…");
+    }
+
+    /// <summary>
+    /// Bakes the adaptive song at <paramref name="songPath"/> (an open tab's current state, else the file) in the
+    /// background: stems and the <c>.mmusic</c> manifest; a second request while it runs cancels it.
+    /// </summary>
+    public void Bake(string songPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(songPath);
+        if (BakeOf(songPath) is { } running)
+        {
+            running.Cancel();
+            return;
+        }
+
+        var song = SongFor(songPath);
+        if (song.Adaptive is null)
+        {
+            Log.Warning($"[Music] '{Path.GetFileNameWithoutExtension(songPath)}' has no sections or layers to bake.");
+            return;
+        }
+
+        var job = SongBakeJob.Start(song, songPath, AssetDatabase.Current, Encoder());
+        _bakes.Add(job);
+        Log.Info($"[Music] Baking '{job.Name}'…");
+    }
+
+    // An open tab's current state (its plugins' state captured first: renders and bakes load their own copies), else the file.
+    private Song SongFor(string songPath)
+    {
         var open = _workspace.Session.Tabs.OfType<SongTab>().FirstOrDefault(t => EditorSession.PathsEqual(t.Document.FilePath, Path.GetFullPath(songPath)));
         if (open is not null)
         {
-            open.Player.CapturePluginStates(open.Document); // the render loads its own copies of the plugins
-            song = open.Document.Song;
-        }
-        else
-        {
-            _workspace.Session.UseProjectOf(songPath);
-            song = SongFormat.Load(songPath).Song;
+            open.Player.CapturePluginStates(open.Document);
+            return open.Document.Song;
         }
 
-        var job = SongRenderJob.Start(song, songPath, AssetDatabase.Current, Encoder());
-        _renders.Add(job);
-        Log.Info($"[Music] Rendering '{job.Name}'…");
+        _workspace.Session.UseProjectOf(songPath);
+        return SongFormat.Load(songPath).Song;
     }
 
     // The plugin helper that encodes renders to .ogg: started on the first render that needs it, stopped with the view.
@@ -375,6 +413,8 @@ public sealed class SongView : Node
     protected override void OnExitTree()
     {
         foreach (var job in _renders)
+            job.Cancel();
+        foreach (var job in _bakes)
             job.Cancel();
         _encoder?.Dispose();
         _encoder = null;
@@ -399,6 +439,31 @@ public sealed class SongView : Node
             {
                 Log.Error($"[Music] Render of '{job.Name}' failed: {error.Message}");
                 _workspace.Commands.ReportError($"Could not render {job.Name}", error);
+            }
+            else
+            {
+                _workspace.FileSystem.Rescan();
+            }
+        }
+    }
+
+    private void PollBakes()
+    {
+        for (var i = _bakes.Count - 1; i >= 0; i--)
+        {
+            var job = _bakes[i];
+            if (!job.IsDone)
+                continue;
+            _bakes.RemoveAt(i);
+            job.Dispose();
+            if (job.Task.IsCanceled || (job.Task.Exception?.InnerException is OperationCanceledException))
+            {
+                Log.Info($"[Music] Bake of '{job.Name}' cancelled; the previous bake is unchanged.");
+            }
+            else if (job.Task.Exception?.InnerException is { } error)
+            {
+                Log.Error($"[Music] Bake of '{job.Name}' failed: {error.Message}");
+                _workspace.Commands.ReportError($"Could not bake {job.Name}", error);
             }
             else
             {

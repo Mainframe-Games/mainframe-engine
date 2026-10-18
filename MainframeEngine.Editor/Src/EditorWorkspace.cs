@@ -940,6 +940,7 @@ public sealed partial class EditorWorkspace : Node
                 Key.Z => "edit.undo",
                 Key.Y => "edit.redo",
                 Key.E => "song.render",
+                Key.B => "song.bake",
                 _ => null,
             };
         }
