@@ -1,0 +1,223 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 600" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Adaptive music — curve editor and transition popover (proposal)</title>
+  <desc>The Curves bottom pane: layer volume curves over the intensity parameter (Perc and Base as ghosts, Combat being edited), the Combat low-pass cutoff on a log-Hz axis, and a line at the current smoothed value; beside it the transition popover with from, to, conditions, quantize, entry, fades, segment and stinger.</desc>
+  <rect width="1180" height="600" fill="#ffffff"/>
+  <style>
+    .sec{font-weight:600;font-size:10.5px;fill:#8b93a5;letter-spacing:.06em}
+    .t{fill:#d7dbe4;font-size:12px}
+    .tb{fill:#e8ebf2;font-size:12.5px;font-weight:600}
+    .s{fill:#8b93a5;font-size:11px}
+    .xs{fill:#8b93a5;font-size:9.5px}
+    .w{fill:#ffffff;font-size:10.5px;font-weight:600}
+    .m{fill:#d7dbe4;font-size:11px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .ms{fill:#8b93a5;font-size:9.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .note{fill:#1f2937;font-size:11.5px}
+    .noteb{fill:#111827;font-size:11.5px;font-weight:600}
+  </style>
+  <rect x="20" y="20" width="600" height="560" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="600" height="30" rx="8" fill="#22252d"/>
+  <rect x="20" y="42" width="600" height="8" fill="#22252d"/>
+  <text x="67" y="39" class="s" text-anchor="middle" >Piano Roll</text>
+  <text x="151" y="39" class="s" text-anchor="middle" >Mixer</text>
+  <rect x="196" y="26" width="78" height="18" rx="3" fill="#3b3f4b" stroke="#5b6070"/>
+  <text x="235" y="39" class="s" text-anchor="middle" style="fill:#e8ebf2">Curves</text>
+  <text x="608" y="39" class="s" text-anchor="end">Combat · volume ← intensity   ✕</text>
+  <rect x="26" y="56" width="150" height="518" rx="4" fill="#22252d"/>
+  <text x="36" y="76" class="sec">PARAMETER</text>
+  <rect x="36" y="84" width="130" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="44" y="98" class="t">intensity</text><text x="158" y="98" class="s" text-anchor="end">▾</text>
+  <text x="36" y="128" class="sec">CURVES</text>
+  <rect x="38" y="142" width="12" height="12" rx="2" fill="#7c3aed" stroke="#8b93a5"/>
+  <path d="M40.5,148 l2.5,2.5 l4.5,-5" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <rect x="56" y="144" width="8" height="8" rx="2" fill="#f59e0b"/>
+  <text x="70" y="153" class="t">Perc</text><text x="126" y="153" class="xs">volume</text>
+  <rect x="32" y="164" width="138" height="24" rx="3" fill="#2e1065" stroke="#a78bfa"/>
+  <rect x="38" y="170" width="12" height="12" rx="2" fill="#7c3aed" stroke="#8b93a5"/>
+  <path d="M40.5,176 l2.5,2.5 l4.5,-5" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <rect x="56" y="172" width="8" height="8" rx="2" fill="#ef4444"/>
+  <text x="70" y="181" class="t">Combat</text><text x="126" y="181" class="xs">volume</text>
+  <rect x="38" y="198" width="12" height="12" rx="2" fill="#7c3aed" stroke="#8b93a5"/>
+  <path d="M40.5,204 l2.5,2.5 l4.5,-5" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <rect x="56" y="200" width="8" height="8" rx="2" fill="#ef4444"/>
+  <text x="70" y="209" class="t">Combat</text><text x="126" y="209" class="xs">cutoff</text>
+  <rect x="38" y="226" width="12" height="12" rx="2" fill="#7c3aed" stroke="#8b93a5"/>
+  <path d="M40.5,232 l2.5,2.5 l4.5,-5" stroke="#fff" stroke-width="1.5" fill="none"/>
+  <rect x="56" y="228" width="8" height="8" rx="2" fill="#3b82f6"/>
+  <text x="70" y="237" class="t">Base</text><text x="126" y="237" class="xs">volume</text>
+  <text x="36" y="264" class="xs" style="fill:#93c5fd">+ Curve</text>
+  <text x="36" y="518" class="sec">SELECTED POINT</text>
+  <text x="36" y="536" class="s">x</text>
+  <rect x="50" y="523" width="46" height="18" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="56" y="536" class="m">0.80</text>
+  <text x="104" y="536" class="s">dB</text>
+  <rect x="122" y="523" width="44" height="18" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="128" y="536" class="m">0.0</text>
+  <text x="36" y="558" class="xs">Shape: smooth ▾</text>
+  <rect x="232" y="78" width="334" height="408" fill="#1a1c22" stroke="#2f333d"/>
+  <line x1="232" y1="78.0" x2="566" y2="78.0" stroke="#2a2d36"/>
+  <text x="226" y="81.0" class="ms" text-anchor="end">+6</text>
+  <line x1="232" y1="106.5" x2="566" y2="106.5" stroke="#2a2d36"/>
+  <text x="226" y="109.5" class="ms" text-anchor="end">0</text>
+  <line x1="232" y1="163.4" x2="566" y2="163.4" stroke="#2a2d36"/>
+  <text x="226" y="166.4" class="ms" text-anchor="end">-12</text>
+  <line x1="232" y1="220.3" x2="566" y2="220.3" stroke="#2a2d36"/>
+  <text x="226" y="223.3" class="ms" text-anchor="end">-24</text>
+  <line x1="232" y1="277.3" x2="566" y2="277.3" stroke="#2a2d36"/>
+  <text x="226" y="280.3" class="ms" text-anchor="end">-36</text>
+  <line x1="232" y1="334.2" x2="566" y2="334.2" stroke="#2a2d36"/>
+  <text x="226" y="337.2" class="ms" text-anchor="end">-48</text>
+  <line x1="232" y1="391.1" x2="566" y2="391.1" stroke="#2a2d36"/>
+  <text x="226" y="394.1" class="ms" text-anchor="end">-60</text>
+  <text x="226" y="489" class="ms" text-anchor="end">off</text>
+  <text x="226" y="68" class="xs" text-anchor="end">dB</text>
+  <text x="572" y="393.9" class="ms" style="fill:#fca5a5">100</text>
+  <text x="572" y="257.9" class="ms" style="fill:#fca5a5">1k</text>
+  <text x="572" y="121.9" class="ms" style="fill:#fca5a5">10k</text>
+  <text x="572" y="68" class="xs" style="fill:#fca5a5">Hz</text>
+  <line x1="232.0" y1="78" x2="232.0" y2="486" stroke="#2a2d36"/>
+  <text x="232.0" y="502" class="ms" text-anchor="middle">0</text>
+  <line x1="315.5" y1="78" x2="315.5" y2="486" stroke="#2a2d36"/>
+  <text x="315.5" y="502" class="ms" text-anchor="middle">0.25</text>
+  <line x1="399.0" y1="78" x2="399.0" y2="486" stroke="#2a2d36"/>
+  <text x="399.0" y="502" class="ms" text-anchor="middle">0.5</text>
+  <line x1="482.5" y1="78" x2="482.5" y2="486" stroke="#2a2d36"/>
+  <text x="482.5" y="502" class="ms" text-anchor="middle">0.75</text>
+  <line x1="566.0" y1="78" x2="566.0" y2="486" stroke="#2a2d36"/>
+  <text x="566.0" y="502" class="ms" text-anchor="middle">1</text>
+  <text x="399.0" y="518" class="s" text-anchor="middle">intensity</text>
+  <path d="M232.0,106.5 L245.9,106.5 L259.8,106.5 L273.8,106.5 L287.7,106.5 L301.6,106.5 L315.5,106.5 L329.4,106.5 L343.3,106.5 L357.2,106.5 L371.2,106.5 L385.1,106.5 L399.0,106.5 L412.9,106.5 L426.8,106.5 L440.8,106.5 L454.7,106.5 L468.6,106.5 L482.5,106.5 L496.4,106.5 L510.3,106.5 L524.2,106.5 L538.2,106.5 L552.1,106.5 L566.0,106.5" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-opacity="0.55"/>
+  <path d="M232.0,486.0 L236.2,486.0 L240.3,486.0 L244.5,486.0 L248.7,486.0 L252.9,486.0 L257.1,486.0 L261.2,486.0 L265.4,486.0 L269.6,486.0 L273.8,486.0 L277.9,486.0 L282.1,486.0 L286.3,486.0 L290.4,486.0 L294.6,486.0 L298.8,486.0 L303.0,486.0 L307.1,486.0 L311.3,486.0 L315.5,486.0 L319.7,486.0 L323.9,486.0 L328.0,486.0 L332.2,486.0 L332.2,486.0 L335.0,484.4 L337.8,479.5 L340.6,471.6 L343.3,460.6 L346.1,446.8 L348.9,430.4 L351.7,411.8 L354.5,391.1 L357.2,368.9 L360.0,345.3 L362.8,321.0 L365.6,296.2 L368.4,271.5 L371.2,247.1 L373.9,223.6 L376.7,201.3 L379.5,180.7 L382.3,162.0 L385.1,145.7 L387.9,131.9 L390.6,120.9 L393.4,112.9 L396.2,108.1 L399.0,106.5 L399.0,106.5 L406.0,106.5 L412.9,106.5 L419.9,106.5 L426.8,106.5 L433.8,106.5 L440.8,106.5 L447.7,106.5 L454.7,106.5 L461.6,106.5 L468.6,106.5 L475.5,106.5 L482.5,106.5 L489.5,106.5 L496.4,106.5 L503.4,106.5 L510.3,106.5 L517.3,106.5 L524.2,106.5 L531.2,106.5 L538.2,106.5 L545.1,106.5 L552.1,106.5 L559.0,106.5 L566.0,106.5" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.6"/>
+  <path d="M232.0,268.1 L239.0,268.1 L245.9,268.1 L252.9,268.1 L259.8,268.1 L266.8,268.1 L273.8,268.1 L280.7,268.1 L287.7,268.1 L294.6,268.1 L301.6,268.1 L308.5,268.1 L315.5,268.1 L322.5,268.1 L329.4,268.1 L336.4,268.1 L343.3,268.1 L350.3,268.1 L357.2,268.1 L364.2,268.1 L371.2,268.1 L378.1,268.1 L385.1,268.1 L392.0,268.1 L399.0,268.1 L399.0,268.1 L406.0,260.2 L412.9,252.3 L419.9,244.4 L426.8,236.4 L433.8,228.5 L440.8,220.6 L447.7,212.7 L454.7,204.7 L461.6,196.8 L468.6,188.9 L475.5,181.0 L482.5,173.1 L489.5,165.1 L496.4,157.2 L503.4,149.3 L510.3,141.4 L517.3,133.5 L524.2,125.5 L531.2,117.6 L538.2,109.7 L545.1,101.8 L552.1,93.8 L559.0,85.9 L566.0,78.0" fill="none" stroke="#f87171" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <path d="M232.0,486.0 L239.0,486.0 L245.9,486.0 L252.9,486.0 L259.8,486.0 L266.8,486.0 L273.8,486.0 L280.7,486.0 L287.7,486.0 L294.6,486.0 L301.6,486.0 L308.5,486.0 L315.5,486.0 L322.5,486.0 L329.4,486.0 L336.4,486.0 L343.3,486.0 L350.3,486.0 L357.2,486.0 L364.2,486.0 L371.2,486.0 L378.1,486.0 L385.1,486.0 L392.0,486.0 L399.0,486.0 L399.0,486.0 L403.2,484.4 L407.4,479.5 L411.5,471.6 L415.7,460.6 L419.9,446.8 L424.0,430.4 L428.2,411.8 L432.4,391.1 L436.6,368.9 L440.8,345.3 L444.9,321.0 L449.1,296.2 L453.3,271.5 L457.5,247.1 L461.6,223.6 L465.8,201.3 L470.0,180.7 L474.2,162.0 L478.3,145.7 L482.5,131.9 L486.7,120.9 L490.9,112.9 L495.0,108.1 L499.2,106.5 L499.2,106.5 L502.0,106.5 L504.8,106.5 L507.6,106.5 L510.3,106.5 L513.1,106.5 L515.9,106.5 L518.7,106.5 L521.5,106.5 L524.2,106.5 L527.0,106.5 L529.8,106.5 L532.6,106.5 L535.4,106.5 L538.2,106.5 L541.0,106.5 L543.7,106.5 L546.5,106.5 L549.3,106.5 L552.1,106.5 L554.9,106.5 L557.6,106.5 L560.4,106.5 L563.2,106.5 L566.0,106.5" fill="none" stroke="#ef4444" stroke-width="2.6"/>
+  <circle cx="232.0" cy="486.0" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="399.0" cy="486.0" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="499.2" cy="106.5" r="6" fill="#ffffff" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="566.0" cy="106.5" r="4.5" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
+  <rect x="453.2" y="76.5" width="92" height="18" rx="3" fill="#0f1115" stroke="#5b6070"/>
+  <text x="499.2" y="89.5" class="m" text-anchor="middle">0.80 · 0.0 dB</text>
+  <line x1="439.1" y1="78" x2="439.1" y2="486" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="3 2"/>
+  <rect x="413.1" y="526" width="52" height="16" rx="3" fill="#7c3aed"/>
+  <text x="439.1" y="538" class="w" text-anchor="middle">0.62</text>
+  <circle cx="439.1" cy="106.5" r="3.5" fill="#f59e0b" stroke="#1a1c22"/>
+  <circle cx="439.1" cy="354.9" r="3.5" fill="#ef4444" stroke="#1a1c22"/>
+  <circle cx="439.1" cy="222.5" r="3.5" fill="#f87171" stroke="#1a1c22"/>
+  <rect x="447.1" y="360.9" width="122" height="44" rx="3" fill="#0f1115" fill-opacity="0.9" stroke="#3b3f4b"/>
+  <text x="453.1" y="373.9" class="ms" style="fill:#fcd34d">Perc    0.0 dB</text>
+  <text x="453.1" y="385.9" class="ms" style="fill:#fca5a5">Combat -52.4 dB</text>
+  <text x="453.1" y="397.9" class="ms" style="fill:#fca5a5">cutoff 1.7 kHz</text>
+  <!-- transition popover -->
+  <rect x="643" y="44" width="220" height="520" rx="8" fill="#000" fill-opacity="0.18"/>
+  <rect x="640" y="40" width="220" height="520" rx="8" fill="#262931" stroke="#4b5060"/>
+  <polygon points="830,40 840,31 850,40" fill="#262931" stroke="#4b5060"/>
+  <rect x="831" y="39" width="18" height="3" fill="#262931"/>
+  <text x="652" y="62" class="tb">Transition 1</text><text x="848" y="62" class="s" text-anchor="end">✕</text>
+  <text x="652" y="94" class="s">From</text>
+  <rect x="712" y="81" width="70" height="18" rx="9" fill="#1e3a8a" stroke="#3b82f6"/>
+  <text x="721" y="94" class="t">Explore ✕</text>
+  <text x="792" y="94" class="s">+</text>
+  <text x="652" y="124" class="s">To</text>
+  <rect x="712" y="110" width="136" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="719" y="124" class="t">Combat</text><text x="840" y="124" class="s" text-anchor="end">▾</text>
+  <text x="652" y="154" class="s">When</text>
+  <rect x="712" y="140" width="136" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="719" y="154" class="t">all of</text><text x="840" y="154" class="s" text-anchor="end">▾</text>
+  <rect x="652" y="168" width="196" height="30" rx="4" fill="#1d2027" stroke="#2f333d"/>
+  <rect x="658" y="173" width="60" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="665" y="187" class="t">area</text><text x="710" y="187" class="s" text-anchor="end">▾</text>
+  <rect x="722" y="173" width="36" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="729" y="187" class="t">=</text><text x="750" y="187" class="s" text-anchor="end">▾</text>
+  <rect x="762" y="173" width="78" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="769" y="187" class="t">Combat</text><text x="832" y="187" class="s" text-anchor="end">▾</text>
+  <text x="846" y="187" class="s" text-anchor="end">✕</text>
+  <text x="652" y="214" class="xs" style="fill:#93c5fd">+ Condition</text>
+  <line x1="652" y1="226" x2="848" y2="226" stroke="#3b3f4b"/>
+  <text x="652" y="250" class="s">Quantize</text>
+  <rect x="712" y="236" width="136" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="719" y="250" class="t">Next bar</text><text x="840" y="250" class="s" text-anchor="end">▾</text>
+  <text x="652" y="280" class="s">Every</text>
+  <rect x="712" y="266" width="40" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="720" y="280" class="m" style="fill:#5b6070">1</text>
+  <text x="760" y="280" class="xs">bars</text>
+  <text x="652" y="310" class="s">Entry</text>
+  <rect x="712" y="296" width="136" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="719" y="310" class="t">Start</text><text x="840" y="310" class="s" text-anchor="end">▾</text>
+  <text x="652" y="340" class="s">Fade out</text>
+  <rect x="712" y="326" width="40" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="720" y="340" class="m">1</text><text x="760" y="340" class="xs">beats</text>
+  <text x="652" y="370" class="s">Fade in</text>
+  <rect x="712" y="356" width="40" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="720" y="370" class="m">0</text><text x="760" y="370" class="xs">beats</text>
+  <text x="652" y="400" class="s">Segment</text>
+  <rect x="712" y="386" width="136" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="719" y="400" class="t">None</text><text x="840" y="400" class="s" text-anchor="end">▾</text>
+  <text x="652" y="430" class="s">Stinger</text>
+  <rect x="712" y="416" width="136" height="20" rx="3" fill="#1d2027" stroke="#3b3f4b"/>
+  <text x="719" y="430" class="t">None</text><text x="840" y="430" class="s" text-anchor="end">▾</text>
+  <line x1="652" y1="446" x2="848" y2="446" stroke="#3b3f4b"/>
+  <circle cx="658" cy="466" r="5" fill="#22c55e"/>
+  <text x="668" y="470" class="xs" style="fill:#86efac">matches now · fires at bar 17</text>
+  <rect x="652" y="482" width="60" height="22" rx="3" fill="#3f1d1d" stroke="#7f1d1d"/>
+  <text x="682" y="497" class="t" text-anchor="middle" style="fill:#fecaca">Delete</text>
+  <rect x="788" y="482" width="60" height="22" rx="3" fill="#2563eb" stroke="#3b82f6"/>
+  <text x="818" y="497" class="w" text-anchor="middle">Done</text>
+  <circle cx="282.0" cy="35.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="282.0" y="38.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">1</text>
+  <circle cx="888.0" cy="38.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="888.0" y="41.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">1</text>
+  <text x="904" y="42" class="noteb">Curves pane</text>
+  <text x="904" y="58" class="note">Third bottom-pane editor, beside Piano</text>
+  <text x="904" y="72" class="note">Roll (P) and Mixer (X); opens from a</text>
+  <text x="904" y="86" class="note">layer's curve chip.</text>
+  <circle cx="166.0" cy="124.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="166.0" y="127.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">2</text>
+  <circle cx="888.0" cy="120.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="888.0" y="123.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">2</text>
+  <text x="904" y="124" class="noteb">Curve list</text>
+  <text x="904" y="140" class="note">Every curve over the chosen parameter;</text>
+  <text x="904" y="154" class="note">ticked curves are drawn as ghosts.</text>
+  <circle cx="459.1" cy="248.8" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="459.1" y="252.6" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">3</text>
+  <circle cx="888.0" cy="188.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="888.0" y="191.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">3</text>
+  <text x="904" y="192" class="noteb">Edited curve</text>
+  <text x="904" y="208" class="note">Drag points; double-click adds or</text>
+  <text x="904" y="222" class="note">removes; right-click a segment for its</text>
+  <text x="904" y="236" class="note">shape. One undo entry per drag.</text>
+  <circle cx="365.6" cy="472.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="365.6" y="475.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">4</text>
+  <circle cx="888.0" cy="270.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="888.0" y="273.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">4</text>
+  <text x="904" y="274" class="noteb">Ghost curves</text>
+  <text x="904" y="290" class="note">Other layers over the same parameter,</text>
+  <text x="904" y="304" class="note">so cross-fades are designed together.</text>
+  <circle cx="529.9" cy="147.1" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="529.9" y="150.9" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">5</text>
+  <circle cx="888.0" cy="338.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="888.0" y="341.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">5</text>
+  <text x="904" y="342" class="noteb">Cutoff curve</text>
+  <text x="904" y="358" class="note">Log-Hz axis on the right; the layer's</text>
+  <text x="904" y="372" class="note">low-pass runs live in games, after the</text>
+  <text x="904" y="386" class="note">baked stem.</text>
+  <circle cx="439.1" cy="552.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="439.1" y="555.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">6</text>
+  <circle cx="888.0" cy="420.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="888.0" y="423.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">6</text>
+  <text x="904" y="424" class="noteb">Current value</text>
+  <text x="904" y="440" class="note">The smoothed parameter value and what</text>
+  <text x="904" y="454" class="note">each curve evaluates to there.</text>
+  <circle cx="760.0" cy="62.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="760.0" y="65.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">7</text>
+  <circle cx="888.0" cy="488.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="888.0" y="491.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">7</text>
+  <text x="904" y="492" class="noteb">Transition popover</text>
+  <text x="904" y="508" class="note">Opened from a Transitions row: every</text>
+  <text x="904" y="522" class="note">setting of one rule; “matches now”</text>
+  <text x="904" y="536" class="note">says whether it would fire.</text>
+  <circle cx="862.0" cy="300.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="862.0" y="303.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">8</text>
+  <circle cx="888.0" cy="570.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="888.0" y="573.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">8</text>
+  <text x="904" y="574" class="noteb">Timing</text>
+  <text x="904" y="590" class="note">Quantize, entry and fades (in beats);</text>
+  <text x="904" y="604" class="note">an optional segment and stinger.</text>
+</svg>

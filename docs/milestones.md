@@ -215,7 +215,8 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | Audio bus panel (the `AudioBusLayout` mixer inspector), audio range spheres in the editor viewport | ✅ (M10) | [Editor](design/editor.md#resource-files-and-custom-inspectors) |
 | Audio preview in the editor (FileSystem/inspector previews, ZzFX sound designer) | ✅ | [Editor → Audio previews](design/editor.md#audio-previews), [ADR 0144](../memory/decisions/0144-editor-audio-previews-and-silent-edit-mode.md) |
 | Music editor: song tab (arrangement, piano roll, mixer, render to WAV) with the built-in ZzFX instrument | ✅ done (2026-10-08): built-in instrument, `mfplughost` helper with Vorbis encoding, VST3 instruments/inserts, MIDI keyboard input and recording; gaps in the proposal's open questions | [Editor → Song tab](design/editor.md#song-tab-music-editor), [Future: music editor](design/future/music-editor.md) |
-| Music editor: built-in wavetable synth (2 wavetable oscillators, unison, 2 filters, envelopes, LFOs, mod matrix, FX chain, presets) | ⬜ proposal | [Future: wavetable synth](design/future/wavetable-synth.md) |
+| Music editor: built-in wavetable synth (2 wavetable oscillators, unison, 2 filters, envelopes, LFOs, mod matrix, FX chain, presets) | ⬜ proposal | [Future: wavetable synth](design/future/wavetable-synth.md), [ADR 0195](../memory/decisions/0195-wavetable-synth.md) |
+| Adaptive music: sections, layers, parameters and quantized transitions authored in the song editor, baked to stems for an `AdaptiveMusicPlayer` node | ⬜ proposal | [Future: adaptive music](design/future/adaptive-music.md), [ADR 0196](../memory/decisions/0196-adaptive-music-baked-stems.md) |
 | Draggable audio range handles in the editor | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) (G7) |
 
 ## M8 — Game UI (RmlUi) ✅
