@@ -63,6 +63,14 @@ public abstract class SongCanvas : EditorCanvas
         return BarLabels[bar] ??= bar.ToString(CultureInfo.InvariantCulture);
     }
 
+    /// <summary>Text right-aligned to <paramref name="right"/> (dp) in a box <paramref name="width"/> wide.</summary>
+    protected void TextRight(string text, float right, float baseline, float size, Vector4 color, float width = 240)
+    {
+        if (TextFont is { } font)
+            DrawString(font, new Vector2(MathF.Round((right - width) * PixelScale), MathF.Round(baseline * PixelScale)), text,
+                HorizontalAlignment.Right, width * PixelScale, (int)MathF.Round(size * PixelScale), color);
+    }
+
     /// <summary>The playhead tick shown (the heard position).</summary>
     protected double PlayheadTick => Tab.Player.PositionTicks;
 }
@@ -94,10 +102,11 @@ public sealed class ArrangementCanvas : SongCanvas
         Box(0, 0, w, h, LaneEven);
 
         // Lanes.
+        var top = c.LanesTop;
         for (var i = 0; i < tracks.Count; i++)
         {
             var y = c.LaneY(i);
-            if (y + lane < ruler || y > h)
+            if (y + lane < top || y > h)
                 continue;
             Box(0, y, w, lane, ReferenceEquals(tracks[i], Tab.SelectedTrack) ? LaneSelected : (i & 1) == 0 ? LaneEven : LaneOdd);
             Line(0, y + lane - 0.5f, w, y + lane - 0.5f, GridBeat);
@@ -127,8 +136,10 @@ public sealed class ArrangementCanvas : SongCanvas
         }
 
         if (tracks.Count == 0)
-            Text("No tracks · add one with + in the track list", 12, ruler + 24, 12, RulerText);
+            Text("No tracks · add one with + in the track list", 12, top + 24, 12, RulerText);
 
+        if (song.Adaptive is { } adaptive)
+            DrawSections(c, adaptive, w);
         DrawRuler(c, w);
 
         var x = c.ArrangeX(PlayheadTick);
@@ -194,7 +205,7 @@ public sealed class ArrangementCanvas : SongCanvas
         var height = SongCanvasController.LaneHeight - 6;
         var x0 = c.ArrangeX(start);
         var x1 = c.ArrangeX(start + length);
-        if (x1 < 0 || x0 > w || y + height < SongCanvasController.RulerHeight || y > h)
+        if (x1 < 0 || x0 > w || y + height < c.LanesTop || y > h)
             return;
         var cx = MathF.Max(x0, -2);
         var cw = MathF.Min(x1, w + 2) - cx;
@@ -231,6 +242,210 @@ public sealed class ArrangementCanvas : SongCanvas
 
         if (selected)
             Outline(x0 + 1, y, x1 - x0 - 2, height, White, 1.5f);
+    }
+
+    // ── Sections lane (adaptive songs) ───────────────────────────────────────────────────────────────────────────
+
+    private static readonly Vector4 SectionColor = Rgb(0x3b, 0x82, 0xf6);
+    private static readonly Vector4 TransitionColor = Rgb(0x8b, 0x5c, 0xf6);
+    private static readonly Vector4 StingerColor = Rgb(0xf5, 0x9e, 0x0b);
+    private static readonly Vector4 MarkerColor = Rgb(0xa3, 0xab, 0xbd);
+    private static readonly Vector4 ExitColor = Rgb(0xfb, 0xbf, 0x24);
+    private static readonly Vector4 StartColor = Rgb(0x22, 0xc5, 0x5e);
+    private static readonly Vector4 LaneBack = Rgb(0x20, 0x23, 0x2a);
+    private string? _pendingLabel;
+    private long _pendingKey = -1;
+
+    /// <summary>A section's colour: its own, else by kind.</summary>
+    public static Vector4 SectionTint(SongSection section) => section.Color is { } hex && TryParseColor(hex, out var color)
+        ? color
+        : section.Kind switch
+        {
+            Audio.Music.MusicSectionKind.Transition => TransitionColor,
+            Audio.Music.MusicSectionKind.Stinger => StingerColor,
+            _ => SectionColor,
+        };
+
+    private static bool TryParseColor(string hex, out Vector4 color)
+    {
+        color = default;
+        var span = hex.AsSpan().TrimStart('#');
+        if (span.Length != 6 || !int.TryParse(span, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var v))
+            return false;
+        color = Rgb((v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff);
+        return true;
+    }
+
+    private void DrawSections(SongCanvasController c, SongAdaptive adaptive, float w)
+    {
+        const float top = SongCanvasController.RulerHeight;
+        const float height = SongCanvasController.SectionsHeight;
+        Box(0, top, w, height, LaneBack);
+        Line(0, top + height - 0.5f, w, top + height - 0.5f, GridBar);
+
+        // What adaptive playback is on: the current section is outlined.
+        var player = Tab.Player;
+        var state = player.AdaptiveState;
+        var plan = state.Playing ? player.Plan : null;
+        var current = plan is not null && (uint)state.Section < (uint)plan.Sections.Length ? plan.Sections[state.Section].Id : null;
+
+        var ghost = c.SectionGhost;
+        foreach (var section in adaptive.Sections)
+        {
+            var moving = ghost is { Section: { } g } && ReferenceEquals(g, section);
+            var start = moving ? ghost!.Value.Start : section.Start;
+            var end = moving ? ghost!.Value.End : section.End;
+            DrawSection(c, adaptive, section, start, end, w, ReferenceEquals(section, Tab.SelectedSection),
+                current is not null && string.Equals(current, section.Id, StringComparison.Ordinal));
+        }
+
+        if (ghost is { Section: null } fresh)
+        {
+            var x0 = c.ArrangeX(fresh.Start);
+            var x1 = c.ArrangeX(fresh.End);
+            Box(x0 + 1, top + 3, x1 - x0 - 2, height - 6, WithAlpha(SectionColor, 0.35f));
+            Outline(x0 + 1, top + 3, x1 - x0 - 2, height - 6, SectionColor, 1);
+        }
+
+        foreach (var marker in adaptive.Markers)
+        {
+            var tick = c.MarkerGhost is { } m && ReferenceEquals(m.Marker, marker) ? m.Tick : marker.Tick;
+            var x = c.ArrangeX(tick);
+            if (x < -60 || x > w)
+                continue;
+            var color = marker.Exit ? ExitColor : MarkerColor;
+            Line(x, top + 2, x, top + height - 2, color, 1.5f);
+            Box(x, top + 2, 7, 6, color);
+            Text(marker.Name, x + 9, top + 14, 9.5f, color);
+        }
+
+        if (plan is not null && current is not null && state.Pending >= 0 && state.PendingFrames >= 0)
+            DrawPending(c, adaptive, plan, state, current);
+    }
+
+    private void DrawSection(SongCanvasController c, SongAdaptive adaptive, SongSection section, long start, long end, float w, bool selected, bool playing)
+    {
+        const float top = SongCanvasController.RulerHeight + 3;
+        const float height = SongCanvasController.SectionsHeight - 6;
+        var x0 = c.ArrangeX(start);
+        var x1 = c.ArrangeX(end);
+        if (x1 < 0 || x0 > w)
+            return;
+        var tint = SectionTint(section);
+        Box(x0 + 1, top, x1 - x0 - 2, height, WithAlpha(tint, playing ? 0.55f : 0.3f));
+        Box(x0 + 1, top, 3, height, tint);
+        if (string.Equals(adaptive.Start, section.Id, StringComparison.Ordinal))
+            Box(x0 + 1, top, 3, height, StartColor); // the start section: a green edge
+        var textX = x0 + 8;
+        switch (section.Kind)
+        {
+            case Audio.Music.MusicSectionKind.Stinger:
+                Star(x0 + 11, top + height * 0.5f, 3.5f, tint);
+                textX += 10;
+                break;
+            case Audio.Music.MusicSectionKind.Transition:
+                DashedArrow(x0 + 6, x0 + 16, top + height * 0.5f, tint);
+                textX += 14;
+                break;
+        }
+
+        Text(section.Name, MathF.Max(textX, 4), top + 11.5f, 10.5f, White);
+        // The continuation at the right end: loop ⟲, then → name, or end ■.
+        if (section.Kind == Audio.Music.MusicSectionKind.Section)
+        {
+            var cy = top + height * 0.5f;
+            if (section.Loop)
+                Loop(x1 - 11, cy, 4, White);
+            else if (adaptive.FindSection(section.Then) is { } then)
+            {
+                Arrow(x1 - 14, x1 - 5, cy, White);
+                TextRight(then.Name, x1 - 17, top + 11.5f, 9.5f, WithAlpha(White, 0.75f), MathF.Max(10, x1 - x0 - 60));
+            }
+            else
+                Box(x1 - 10, cy - 3, 6, 6, White);
+        }
+
+        if (playing)
+            Outline(x0 + 1, top, x1 - x0 - 2, height, White, 2);
+        else if (selected)
+            Outline(x0 + 1, top, x1 - x0 - 2, height, WithAlpha(White, 0.7f), 1);
+    }
+
+    // A pending transition: a dashed arrow from where it happens to the destination, with "Combat · bar 9 · 1.2 s".
+    private void DrawPending(SongCanvasController c, SongAdaptive adaptive, Audio.Music.MusicPlan plan, AdaptiveState state, string current)
+    {
+        if (adaptive.FindSection(current) is not { } from || (uint)state.Pending >= (uint)plan.Sections.Length ||
+            adaptive.FindSection(plan.Sections[state.Pending].Id) is not { } to || Tab.Player.Engine.Current is not { } snapshot)
+            return;
+        var length = plan.Sections[state.Section].LengthFrames;
+        if (length <= 0)
+            return;
+        var local = (state.LocalFrame + state.PendingFrames) % length;
+        var tick = from.Start + local / snapshot.FramesPerTick;
+        var x0 = c.ArrangeX(tick);
+        var x1 = c.ArrangeX(to.Start);
+        const float y = SongCanvasController.RulerHeight + SongCanvasController.SectionsHeight - 4;
+        var color = ExitColor;
+        Line(x0, SongCanvasController.RulerHeight + 2, x0, y, color, 1.5f);
+        var step = x1 >= x0 ? 6f : -6f;
+        for (var x = x0; step > 0 ? x < x1 - 4 : x > x1 + 4; x += 2 * step)
+            Line(x, y, step > 0 ? MathF.Min(x + step, x1) : MathF.Max(x + step, x1), y, color, 1.5f);
+        Line(x1, y, x1 - step * 0.8f, y - 3, color, 1.5f);
+        Line(x1, y, x1 - step * 0.8f, y + 3, color, 1.5f);
+
+        // The label changes a few times a second, not every frame.
+        var bar = local / Math.Max(1, plan.Grid.LengthFrames(1)) + 1;
+        var tenths = state.PendingFrames * 10 / Math.Max(1, plan.Grid.SampleRate);
+        var key = (state.Pending * 10_000L + bar) * 100_000L + tenths;
+        if (key != _pendingKey)
+        {
+            _pendingKey = key;
+            _pendingLabel = string.Create(CultureInfo.InvariantCulture, $"{to.Name} · bar {bar} · {tenths / 10.0:0.0} s");
+        }
+
+        Text(_pendingLabel!, MathF.Min(x0, x1) + 4, y - 4, 9.5f, color);
+    }
+
+    private void Arrow(float x0, float x1, float y, Vector4 color)
+    {
+        Line(x0, y, x1, y, color, 1.4f);
+        Line(x1, y, x1 - 3, y - 3, color, 1.4f);
+        Line(x1, y, x1 - 3, y + 3, color, 1.4f);
+    }
+
+    private void DashedArrow(float x0, float x1, float y, Vector4 color)
+    {
+        for (var x = x0; x < x1 - 3; x += 4)
+            Line(x, y, MathF.Min(x + 2, x1), y, color, 1.4f);
+        Line(x1, y, x1 - 3, y - 3, color, 1.4f);
+        Line(x1, y, x1 - 3, y + 3, color, 1.4f);
+    }
+
+    private void Star(float cx, float cy, float r, Vector4 color)
+    {
+        Line(cx - r, cy, cx + r, cy, color, 1.4f);
+        Line(cx, cy - r, cx, cy + r, color, 1.4f);
+        Line(cx - r * 0.7f, cy - r * 0.7f, cx + r * 0.7f, cy + r * 0.7f, color, 1.2f);
+        Line(cx - r * 0.7f, cy + r * 0.7f, cx + r * 0.7f, cy - r * 0.7f, color, 1.2f);
+    }
+
+    // A circular arrow: most of a circle in segments, and a head where it ends.
+    private void Loop(float cx, float cy, float r, Vector4 color)
+    {
+        const int segments = 10;
+        var px = cx + r;
+        var py = cy;
+        for (var i = 1; i <= segments; i++)
+        {
+            var a = i / (float)segments * MathF.PI * 1.6f;
+            var x = cx + r * MathF.Cos(a);
+            var y = cy - r * MathF.Sin(a);
+            Line(px, py, x, y, color, 1.2f);
+            (px, py) = (x, y);
+        }
+
+        Line(cx + r, cy, cx + r - 2.5f, cy - 2.5f, color, 1.2f);
+        Line(cx + r, cy, cx + r + 2f, cy - 2.5f, color, 1.2f);
     }
 
     private void DrawWaveform(SongCanvasController c, AudioClip clip, long start, float x0, float x1, float top, float height,

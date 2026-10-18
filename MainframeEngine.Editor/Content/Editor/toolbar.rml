@@ -136,7 +136,10 @@
         #song-readonly { color: #f59e0b; font-size: 11dp; margin-right: 8dp; white-space: nowrap; }
         #song-readonly .icon { image-color: #f59e0b; }
         #song-readonly.hidden { display: none; }
-        #song-render { white-space: nowrap; }
+        #song-render { white-space: nowrap; border-radius: 3dp 0dp 0dp 3dp; }
+        /* Render's split part: Bake and Render timeline (adaptive songs bake; the button itself follows the song). */
+        #song-render-menu { width: 22dp; padding: 0dp; margin-left: 1dp; border-radius: 0dp 3dp 3dp 0dp; }
+        #song-render-menu .icon { margin: 0dp; }
     </style>
 </head>
 <body class="panel-doc toolbar">
@@ -203,7 +206,7 @@
         <span id="song-xruns" class="mono muted" data-tooltip="Underruns — times the song's render thread fell behind the audio device (heard as gaps)"></span>
         <div class="spacer"></div>
         <span id="song-readonly" class="hidden"><span class="icon icon-sm icon-alert-triangle"></span> Read-only</span>
-        <button id="song-render" class="accent with-icon disabled" data-command="song.render" data-tooltip="Render (Ctrl+E) — write the song to an audio file and its loop points"><span class="icon icon-sm icon-download"></span><span id="song-render-label">Render</span></button>
+        <button id="song-render" class="accent with-icon disabled" data-command="song.render" data-tooltip="Render (Ctrl+E) — write the song to an audio file and its loop points"><span id="song-render-icon" class="icon icon-sm icon-download"></span><span id="song-render-label">Render</span></button><button id="song-render-menu" class="accent with-icon disabled" data-command="song.render_menu" data-tooltip="Bake or Render — Bake (Ctrl+B) writes an adaptive song's stems and manifest; Render timeline (Ctrl+E) writes the timeline to one file"><span class="icon icon-sm icon-chevron-down"></span></button>
         <div class="group song-view">
             <button id="song-view-roll" class="tool-button disabled" data-command="song.piano_roll" data-tooltip="Piano Roll (P) — the selected MIDI clip's notes below the tracks; again to hide it"><span class="icon icon-piano"></span></button>
             <button id="song-view-mixer" class="tool-button disabled" data-command="song.mixer" data-tooltip="Mixer (X) — every track's instrument, inserts, pan, volume and meter below the tracks; again to hide it"><span class="icon icon-adjustments-alt"></span></button>

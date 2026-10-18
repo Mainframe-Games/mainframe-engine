@@ -801,3 +801,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `SynthWindow`: Osc / Matrix / FX tabs, wavetable / filter / envelope / LFO canvases, drag-to-assign modulation with
   live dots, drawn LFOs, keyboard, CPU meter; the plugin window's synth stopgap removed. Next (PR 4): embedded FX panels
   in the FX tab, render-test goldens of the window.
+
+### 2026-10-19 — Adaptive music A4: Sections lane, layers, Adaptive tab, Live preview (ADR 0196)
+- `SongEngine` adaptive mode: the snapshot's `MusicDirector` on the render thread (actions queued and executed on their
+  frames, continuations, a stinger cursor, layer buses with filter and curve gain), state moved to each new snapshot's
+  director; decisions match a bare director frame for frame; 0 B per block.
+- Sections lane under the ruler (create/move/resize by bars, markers, menus), layer chips, the right panel's Adaptive
+  tab (A), Shift+Space / T / Bake split button; golden `editor-music-adaptive` with the allocation gate (found and fixed
+  the mixer meters' per-frame closure).

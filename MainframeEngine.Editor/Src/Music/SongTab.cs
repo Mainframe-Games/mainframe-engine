@@ -120,6 +120,52 @@ public sealed class SongTab : IEditorTab
 
     public SongClip? SelectedClip { get; private set; }
 
+    /// <summary>The selected section of the Sections lane (adaptive songs), or null.</summary>
+    public SongSection? SelectedSection { get; private set; }
+
+    /// <summary>The adaptive parameters' audition values (by name): what the Adaptive panel's controls are set to, kept with
+    /// the tab and not in the song.</summary>
+    public Dictionary<string, float> Auditions { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Shift+Space: plays the song adaptively from its start section (<paramref name="fromPlayhead"/>: from the section under
+    /// the playhead) with the Adaptive panel's parameter values; while it plays, stops it. False when the song has no
+    /// playable section.
+    /// </summary>
+    public bool PlayAdaptive(bool fromPlayhead)
+    {
+        if (Player.IsPlaying && Player.IsAdaptive)
+        {
+            Player.Stop();
+            return true;
+        }
+
+        var section = fromPlayhead ? Document.Song.Adaptive?.SectionAt((long)Player.PositionTicks)?.Id : null;
+        if (Player.IsPlaying)
+            Player.Stop();
+        return Player.PlayAdaptive(section, Auditions);
+    }
+
+    /// <summary>T: fires the selected stinger (else the song's first) at its quantum while the song plays adaptively.</summary>
+    public void FireStinger()
+    {
+        if (!Player.IsAdaptive || Document.Song.Adaptive is not { } adaptive)
+            return;
+        var stinger = SelectedSection is { Kind: Audio.Music.MusicSectionKind.Stinger } selected
+            ? selected
+            : adaptive.Sections.Find(static s => s.Kind == Audio.Music.MusicSectionKind.Stinger);
+        if (stinger is not null)
+            Player.TriggerStinger(stinger.Id);
+    }
+
+    public void SelectSection(SongSection? section)
+    {
+        if (ReferenceEquals(section, SelectedSection))
+            return;
+        SelectedSection = section;
+        ViewVersion++;
+    }
+
     /// <summary>The selected notes of <see cref="SelectedClip"/>.</summary>
     public List<MidiNote> SelectedNotes { get; } = [];
 
@@ -193,6 +239,12 @@ public sealed class SongTab : IEditorTab
         else if (SelectedClip is not null && TrackOf(SelectedClip) is { } track && !ReferenceEquals(track, SelectedTrack))
         {
             SelectedTrack = track;
+            ViewVersion++;
+        }
+
+        if (SelectedSection is not null && song.Adaptive?.Sections.Contains(SelectedSection) != true)
+        {
+            SelectedSection = null;
             ViewVersion++;
         }
 

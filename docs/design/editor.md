@@ -153,9 +153,12 @@ Music mode has its own table (`EditorWorkspace.MusicShortcutFor`). The song tab'
 | Keys | Music mode |
 |---|---|
 | Space · R · L · Home | play/stop · record · loop · to the start |
+| Shift+Space · Alt+Shift+Space | play adaptively (an adaptive song) from its start section · from the section under the playhead |
 | Delete / Backspace · Cmd/Ctrl+C, V, D · arrows · Q | the song tab's edits (clips, notes) |
 | P · X | piano roll · mixer in the bottom pane (the open pane's key hides it) |
 | F | the Browser: the project's songs and every plugin, on the right |
+| A | the right panel's Adaptive tab (again: hides the panel) |
+| T | fire the selected stinger (else the first) while the song plays adaptively |
 | M · S | mute · solo the selected track (as in Logic; undoable) |
 | Cmd/Ctrl+N, O, S, Shift+S, W, Q | new song, open song, save, save as, close tab, quit |
 | Cmd/Ctrl+Z, Shift+Z or Y | undo, redo |
@@ -694,7 +697,8 @@ window: no Scene tree, Inspector or FileSystem.
 
 - **Transport** (the toolbar's music group, `ToolbarPanel.UpdateMusic`, commands `song.*`): to start, play/stop, stop,
   record, loop, tempo field, time signature menu, position (bars.beats.ticks), snap menu (off, 1/4 … 1/32, triplets),
-  input quantize, underrun counter, a read-only badge and **Render** (Ctrl+E), then on the right the view toggles:
+  input quantize, underrun counter, a read-only badge and **Render** (Ctrl+E; on an adaptive song it is **Bake**, Ctrl+B,
+  with Bake and Render Timeline in its split menu), then on the right the view toggles:
   Piano Roll (P) and Mixer (X), lit while shown and disabled without a song tab, and the Browser (F). The Song menu repeats it with Add
   Instrument/Audio Track and Mute/Solo Track (M, S: the selected track); View lists Piano Roll and Mixer (the shown one
   marked), Hide Editor and Browser; Edit › Music Settings… opens Editor Settings at the VST3 folders and MIDI inputs.
@@ -754,6 +758,25 @@ window: no Scene tree, Inspector or FileSystem.
   <path.msong>` (`just bake-song <path>`; `SongBakeCommand`) does the same headless. The FileSystem badges an adaptive
   song whose manifest is older than it ("Bake out of date") and marks `*.stems` folders as generated. See
   [Adaptive music, As built: A3](future/adaptive-music.md#as-built-a3).
+- **Adaptive music** (A4, [design](future/adaptive-music.md#as-built-a4)): Song › Make Adaptive (or the Adaptive tab's
+  button) gives a song sections, parameters, layers and transitions.
+  - **Sections lane** under the ruler (a 22 dp lane of the arrangement canvas; the track headers get a "Sections" row so
+    they stay level): drag an empty spot to make a section, drag a block to move it or its edges to resize it (whole bars,
+    never over a neighbour; one undo step each); a click loops it (the loop region), a double-click renames it, a
+    right-click lists Loop, Then (another section or the end), Kind (section, transition segment, stinger), Set as Start,
+    Add Marker and Delete. Blocks show their kind and continuation (loop, then → name, end) and the start section's green
+    edge; markers are flags (drag to move, Alt-click: exit point; their menu also has Tail Point).
+  - **Layer chips** on the track headers and mixer strips: click to put the track in a layer (Main, a layer, New Layer…).
+  - **Adaptive tab** of the right panel (A; `AdaptivePanel`, `#song-adaptive`): Now (section and bar.beat while it plays,
+    the pending transition's countdown, Play/Stop, Make Timeline Song, the last bake and Bake), Parameters (a slider,
+    stepper or label chips to audition each, the seeking value as a ghost, Set as Default, an inline editor), Layers
+    (colour, filter, a gain meter, their curves), Transitions (from → to, when, timing and fade as menus; the rule that
+    would fire now outlined; priority with the arrows), Stingers (Fire, where it lands, pickup) and the problems
+    (`SongAdaptiveValidator`; a click selects the section). Audition values are the tab's, not the song's.
+  - **Playing adaptively** (Shift+Space): `SongEngine`'s adaptive mode runs the song's `MusicDirector` on the render
+    thread: the playhead follows the music, the current section is outlined in the lane and a scheduled transition shows
+    as a dashed arrow with "Combat · bar 9 · 1.2 s". Tracks sum per layer (its filter and curve-driven gain); master
+    inserts are bypassed, as in the bake. Space or Seek returns to the timeline.
 - **Browser** (F, View › Browser, the toolbar's sidebar button; `SongBrowser`, Logic's Browsers): a column on the right
   of the song view, with or without a song open. **Songs** lists every `.msong` in the project (the open one marked; a
   click opens it); **Plugins** lists the built-in effects by category, then the scanned VST3 effects and instruments. A

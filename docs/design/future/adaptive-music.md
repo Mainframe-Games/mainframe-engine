@@ -971,6 +971,54 @@ WAV stems or `FakePluginHost` as the encoder, and no audio device. They cover:
 - failed, mis-encoded and cancelled bakes leaving every file unchanged
 - the command line and the job
 
+## As built: A4
+
+A4 is the editor's adaptive UI and the Live preview. Baked audition (Live | Baked), the curve editor, the transition
+popover and the editor link's Target menu are A5 and A6.
+
+**Live preview** (`Music/Engine/SongEngine.Adaptive.cs`, `AdaptiveSnapshot`)
+
+- **Snapshot.** Each `SongSnapshot` of an adaptive song carries an `AdaptiveSnapshot`: the plan compiled at the engine's
+  rate, each section's song-frame range, each track slot's layer and a fresh `MusicDirector`, built on the UI thread.
+  When a new snapshot arrives while the music plays, the render thread moves the state to its director (the section by
+  id and its pass, every parameter's value and target; a section that went away restarts at the start section), so
+  edits apply without stopping and the render thread never allocates.
+- **Each block** runs `Update(now, now)` once (no lookahead) and keeps the actions in a fixed queue (32) sorted by
+  frame; the block is split at each action and at each section end, which follows the continuation the StartSection
+  gave (loop, then, end). Held notes end at every boundary. A stinger plays its range on a second cursor with its own
+  held notes. `fadeInBeats` ramps the layer buses after a transition; `fadeOutBeats` and tails are the bake's (the live
+  inserts ring out).
+- **Layer buses.** Tracks sum per layer (after their inserts, volume and pan); each bus gets the layer's
+  state-variable filter (the editor's `Svf` until A2's engine copy) and its curve gain ramped per sample. Master inserts
+  are bypassed; master volume stays.
+- **State for the UI**: section, pending destination and frames, the local frame, the stinger, layer gains and
+  parameter values, published lock-free after each block (`SongEngine.AdaptiveState`, `LayerGainDb`,
+  `ParameterValue`). The heard playhead maps the music clock through the last 16 blocks' starts (`SongPlayer`).
+- **Agreement with the game:** `AdaptiveLiveTests.LiveDecisionsMatchTheRuntimeDirector` runs a parameter script through
+  the engine and through a bare director updated at the same frames; every pass starts on the same frame. Steady
+  adaptive blocks allocate nothing (`SteadyAdaptiveBlocksAllocateNothing`).
+
+**Editor**
+
+- **Sections lane** (`ArrangementCanvas.DrawSections`, `SongCanvasController` gestures `SectionNew`, `SectionMove`,
+  `SectionStart`, `SectionEnd`, `MarkerMove`; menus and renames in `SongSections`): as described in
+  [Sections lane and layers](#sections-lane-and-layers), with these choices: a drag previews and commits on release
+  (one entry); moves and resizes stop at the neighbours instead of overlapping; choosing a Then turns the loop off (two
+  entries); the kind symbols are drawn (the canvas font has no arrows).
+- **Layer chips**: a menu (Main, the layers, New Layer…, which is two entries: add and assign).
+- **Adaptive tab** (`AdaptivePanel`): a second tab of the right panel, Browser (F) | Adaptive (A), saved in the layout
+  (`MusicAdaptiveTab`). Its markup is rebuilt only when the song, the selection, the playback state, the audition
+  values or a bake changes; live values are written on change. Transitions are edited with menus on their chips (from,
+  to, one condition, timing, fade): A5's popover adds several conditions, entry, segment, stinger and fade-in. No Live
+  | Baked switch and no Target menu yet.
+- **Commands**: `song.adaptive_play` (Shift+Space), `song.adaptive_play_here` (Alt+Shift+Space), `song.fire_stinger`
+  (T), `song.make_adaptive`, `music.adaptive` (A); the toolbar's Render is Bake on adaptive songs with a split menu
+  (`song.render_menu`).
+- **QA verbs**: `song adaptive-demo` (`SongAdaptiveDemo`), `song adaptive on|off`, `song adaptive-tab`, `song section`,
+  `song marker`, `song layer`, `song param`, `song audition`, `song adaptive-play`, `song stinger`, `song bake`.
+- **Golden**: `editor-music-adaptive` (both drivers) with the allocation gate. It found the mixer's per-frame track
+  lookups allocating a closure (`SongSnapshot.Find`, also `SongAdaptive.FindSection` and friends): now plain loops.
+
 ## Open questions
 
 These need a decision before the matching PR starts. The recommendation comes first in each.

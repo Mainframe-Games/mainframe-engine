@@ -65,6 +65,8 @@ public sealed class SongPanel : EditorDocument
         public required string Pan { get; init; }
         public required string PanText { get; init; }
         public required string Tooltip { get; init; }
+        public required string Layer { get; init; }
+        public required string LayerColor { get; init; }
     }
 
     private static readonly RmlStructType<Row> RowType = new RmlStructType<Row>()
@@ -83,6 +85,8 @@ public sealed class SongPanel : EditorDocument
         .Member("pan", static r => r.Pan)
         .Member("pan_text", static r => r.PanText)
         .Member("tooltip", static r => r.Tooltip)
+        .Member("layer", static r => r.Layer)
+        .Member("layer_color", static r => r.LayerColor)
         .List("slots", static r => r.Slots, SlotType);
 
     // The Browser's drag starts once the mouse moved this far (dp) from the press.
@@ -102,7 +106,7 @@ public sealed class SongPanel : EditorDocument
     private float _shownScroll = float.NaN;
     private bool _arrangeImage;
     private bool _rollImage;
-    private RmlEventListener?[] _listeners = new RmlEventListener?[13];
+    private RmlEventListener?[] _listeners = new RmlEventListener?[16];
     private float _appliedBrowserWidth = float.NaN;
     private bool _browserOpen;
     private int _pressedRow = -1;
@@ -125,16 +129,22 @@ public sealed class SongPanel : EditorDocument
     private string _clipInfo = "";
     private string _masterFader = "0";
     private string _masterDb = "0.0 dB";
+    private bool _adaptive;
+    private bool _adaptiveTab;
 
     public SongPanel(EditorWorkspace workspace)
         : base(workspace, "song.rml")
     {
         Visible = false;
         Browser = new SongBrowser(workspace);
+        Adaptive = new AdaptivePanel(workspace);
     }
 
     /// <summary>Music mode's Browser (the right column): songs and plugins.</summary>
     public SongBrowser Browser { get; }
+
+    /// <summary>The right column's Adaptive tab (A): the song's adaptive music.</summary>
+    public AdaptivePanel Adaptive { get; }
 
     /// <summary>The arrangement canvas area in window dp (empty while hidden).</summary>
     public LayoutRect ArrangeRect { get; private set; }
@@ -160,6 +170,10 @@ public sealed class SongPanel : EditorDocument
             .BindList("master_slots", _masterSlots, SlotType)
             .BindList("browser", Browser.Rows, SongBrowser.RowType)
             .Bind("browser_open", this, static p => p._browserOpen)
+            .Bind("adaptive", this, static p => p._adaptive)
+            .Bind("adaptive_tab", this, static p => p._adaptiveTab)
+            .Event("right_tab", e => Workspace.ShowMusicRightTab(e.GetArgument(0).GetInt32() == 1))
+            .Event("layer", e => LayerMenu(e.GetArgument(0).GetInt32(), Below(e.Event.CurrentElement)))
             .Event("fx_open", e => OpenSlot(e.GetArgument(0).GetInt32(), e.GetArgument(1).GetInt32()))
             .Event("fx_bypass", e => Slot(e.GetArgument(0).GetInt32(), e.GetArgument(1).GetInt32(),
                 (tab, _, insert) => tab.Document.SetInsertBypass(insert, !insert.Bypass)))
@@ -219,6 +233,11 @@ public sealed class SongPanel : EditorDocument
         _listeners[10] = body.AddEventListener("mousedown", OnBrowserPress);
         _listeners[11] = body.AddEventListener("mousemove", OnBrowserMove);
         _listeners[12] = body.AddEventListener("mouseup", OnBrowserRelease);
+        var adaptive = document.GetElementById("song-adaptive");
+        _listeners[13] = adaptive.AddEventListener("click", e => Adaptive.Click(e));
+        _listeners[14] = adaptive.AddEventListener("change", e => Adaptive.Change(e));
+        _listeners[15] = adaptive.AddEventListener("dblclick", e => Adaptive.DoubleClick(e));
+        Adaptive.Attach(document);
         _appliedBrowserWidth = float.NaN;
         _appliedPaneHeight = float.NaN;
         _arrangeImage = false;
@@ -355,6 +374,8 @@ public sealed class SongPanel : EditorDocument
         {
             var track = song.Tracks[i];
             var status = tab.Player.GetTrackStatus(track.Id) ?? "";
+            var layer = song.Adaptive?.FindLayer(track.Layer);
+            var layerIndex = layer is null ? -1 : song.Adaptive!.Layers.IndexOf(layer);
             _rows.Add(new Row
             {
                 Index = i,
@@ -373,6 +394,8 @@ public sealed class SongPanel : EditorDocument
                 Pan = Number(track.Pan),
                 PanText = PanText(track.Pan),
                 Tooltip = $"{track.Name} — {(track.Kind == SongTrackKind.Audio ? "audio track" : "instrument track")}; click to select, double-click to rename",
+                Layer = layer?.Name ?? "Main",
+                LayerColor = layer is null ? "#8b93a5" : layer.Color ?? SongCanvas.Palette[layerIndex % SongCanvas.Palette.Length],
             });
             _meterIds.Add("meter-" + i.ToString(CultureInfo.InvariantCulture));
         }
@@ -386,6 +409,7 @@ public sealed class SongPanel : EditorDocument
         Array.Fill(_meterShown, -1);
         _masterShown = -1;
         _readOnly = tab.Document.IsReadOnly;
+        _adaptive = song.Adaptive is not null;
         _notice = tab.Document.ReadOnlyNotice ?? "";
         _panelRoll = tab.Panel == SongBottomPanel.PianoRoll;
         _panelMixer = tab.Panel == SongBottomPanel.Mixer;
@@ -620,6 +644,58 @@ public sealed class SongPanel : EditorDocument
         });
     }
 
+    // A track's layer chip: Main, the song's layers, or a new one (made and assigned as two steps).
+    private void LayerMenu(int index, (float X, float Y) at)
+    {
+        if (_tab is not { } tab || (uint)index >= (uint)tab.Document.Song.Tracks.Count || tab.Document.Song.Adaptive is not { } adaptive)
+            return;
+        var track = tab.Document.Song.Tracks[index];
+        var editable = !tab.Document.IsReadOnly;
+        var items = new List<MenuItem>
+        {
+            MenuItem.Header("Layer"),
+            new("Main", "layer:", Enabled: editable, Css: adaptive.FindLayer(track.Layer) is null ? "current" : null, Icon: "stack-2"),
+        };
+        foreach (var layer in adaptive.Layers)
+            items.Add(new MenuItem(layer.Name, "layer:" + layer.Id, Enabled: editable, Css: track.Layer == layer.Id ? "current" : null, Icon: "stack-2"));
+        items.Add(MenuItem.Separator);
+        items.Add(new MenuItem("New Layer…", "new", Enabled: editable, Icon: "plus"));
+        Workspace.Popup.Show(items, at.X, at.Y, command =>
+        {
+            if (!tab.Document.Song.Tracks.Contains(track))
+                return;
+            if (command == "new")
+            {
+                Workspace.Message.Show(new MessageRequest
+                {
+                    Title = "New Layer",
+                    Message = $"A name for the layer {track.Name} goes in (its stems bake per section):",
+                    Input = "Layer " + (adaptive.Layers.Count + 1).ToString(CultureInfo.InvariantCulture),
+                    Buttons = ["Create", "Cancel"],
+                    DefaultButton = 0,
+                    CancelButton = 1,
+                    Callback = (button, text) =>
+                    {
+                        if (button != 0 || string.IsNullOrWhiteSpace(text) || !tab.Document.Song.Tracks.Contains(track))
+                            return;
+                        Guard("Could not add the layer", () =>
+                        {
+                            var created = tab.Document.AddLayer(text.Trim());
+                            tab.Document.SetTrackLayer(track, created.Id);
+                        });
+                    },
+                });
+                return;
+            }
+
+            if (command.StartsWith("layer:", StringComparison.Ordinal))
+            {
+                var id = command["layer:".Length..];
+                Guard("Could not set the layer", () => tab.Document.SetTrackLayer(track, id.Length == 0 ? null : id));
+            }
+        });
+    }
+
     private void InstrumentMenu(int index, (float X, float Y) at)
     {
         if (_tab is not { } tab || (uint)index >= (uint)tab.Document.Song.Tracks.Count)
@@ -817,6 +893,16 @@ public sealed class SongPanel : EditorDocument
             _browserOpen = open;
             _model?.Dirty("browser_open");
         }
+
+        var adaptiveTab = Workspace.Layout.Settings.MusicAdaptiveTab;
+        if (adaptiveTab != _adaptiveTab)
+        {
+            _adaptiveTab = adaptiveTab;
+            _model?.Dirty("adaptive_tab");
+        }
+
+        if (open && adaptiveTab)
+            Adaptive.Tick(tab);
 
         if (open)
         {

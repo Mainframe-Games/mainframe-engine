@@ -52,6 +52,9 @@ public sealed class SongView : Node
         return null;
     }
 
+    /// <summary>Bumped when a bake finishes (done, failed or cancelled): what shows its state reads it again.</summary>
+    public int BakeVersion { get; private set; }
+
     /// <summary>The bake of the song at <paramref name="songPath"/> in progress, or null.</summary>
     public SongBakeJob? BakeOf(string songPath)
     {
@@ -163,6 +166,7 @@ public sealed class SongView : Node
         tab.SetPanel(_workspace.Layout.Settings.MusicPane); // the bottom pane is global: every tab shows the last one
         tab.Controller.AudioLength = file => AudioLength(tab, file);
         tab.Controller.RequestAudioClip = (track, tick) => PickAudioClip(tab, track, tick);
+        SongSections.Attach(_workspace, tab);
     }
 
     // The tab changed its pane itself (a double-click on a clip opens the piano roll): that is the pane from now on.
@@ -239,6 +243,11 @@ public sealed class SongView : Node
                     Handled();
                 }
 
+                break;
+            case InputEventMouseButton { Button: MouseButton.Right, Pressed: true } right when _dragArea == SongArea.None:
+                _mouse = right.Position * scale;
+                if (AreaAt(_mouse) == SongArea.Arrangement && tab.Controller.ContextMenu(Local(SongArea.Arrangement, _mouse)))
+                    Handled();
                 break;
             case InputEventMouseButton { Button: MouseButton.Left } button:
                 _mouse = button.Position * scale;
@@ -457,6 +466,7 @@ public sealed class SongView : Node
                 continue;
             _bakes.RemoveAt(i);
             job.Dispose();
+            BakeVersion++;
             if (job.Task.IsCanceled || (job.Task.Exception?.InnerException is OperationCanceledException))
             {
                 Log.Info($"[Music] Bake of '{job.Name}' cancelled; the previous bake is unchanged.");

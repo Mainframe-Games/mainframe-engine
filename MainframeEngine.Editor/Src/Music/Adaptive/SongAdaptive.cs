@@ -39,15 +39,57 @@ public sealed class SongAdaptive
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
 
-    public SongSection? FindSection(string? id) => id is null ? null : Sections.Find(s => string.Equals(s.Id, id, StringComparison.Ordinal));
+    // Plain loops: the arrangement and the Adaptive panel look these up every frame (no closures).
+    public SongSection? FindSection(string? id)
+    {
+        if (id is null)
+            return null;
+        foreach (var s in Sections)
+        {
+            if (string.Equals(s.Id, id, StringComparison.Ordinal))
+                return s;
+        }
 
-    public SongLayer? FindLayer(string? id) => id is null ? null : Layers.Find(l => string.Equals(l.Id, id, StringComparison.Ordinal));
+        return null;
+    }
 
-    public MusicParameterInfo? FindParameter(string? name) =>
-        name is null ? null : Parameters.Find(p => string.Equals(p.Name, name, StringComparison.Ordinal));
+    public SongLayer? FindLayer(string? id)
+    {
+        if (id is null)
+            return null;
+        foreach (var l in Layers)
+        {
+            if (string.Equals(l.Id, id, StringComparison.Ordinal))
+                return l;
+        }
+
+        return null;
+    }
+
+    public MusicParameterInfo? FindParameter(string? name)
+    {
+        if (name is null)
+            return null;
+        foreach (var p in Parameters)
+        {
+            if (string.Equals(p.Name, name, StringComparison.Ordinal))
+                return p;
+        }
+
+        return null;
+    }
 
     /// <summary>The section whose range holds <paramref name="tick"/>, or null.</summary>
-    public SongSection? SectionAt(long tick) => Sections.Find(s => tick >= s.Start && tick < s.End);
+    public SongSection? SectionAt(long tick)
+    {
+        foreach (var s in Sections)
+        {
+            if (tick >= s.Start && tick < s.End)
+                return s;
+        }
+
+        return null;
+    }
 
     /// <summary>An id with <paramref name="prefix"/> not used by <paramref name="used"/> (<c>s1</c>, <c>s2</c>, …).</summary>
     internal static string NextId(string prefix, Func<string, bool> used)

@@ -64,11 +64,12 @@ public sealed class EditorSmokeRun : IEditorAutomation
     public bool SplashOnly { get; init; }
 
     /// <summary>
-    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song</c>: capture the
+    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song|music-adaptive</c>: capture the
     /// Project Manager (fixed recent projects in the temp folder, a fixed SDK line), the FileSystem panel of the project
     /// given with <c>--project</c>, video mode's empty state, a video tab over <see cref="VideoGolden"/>'s document (then
     /// measure the allocations of its steady frames), music mode's empty state without a project, or a song tab in a
-    /// project in the temp folder (then measure the allocations of steady music-mode frames), for their goldens.
+    /// project in the temp folder (then measure the allocations of steady music-mode frames), or that song made adaptive with
+    /// the Adaptive tab open (then the allocation gate too), for their goldens.
     /// </summary>
     public string? Golden { get; init; }
 
@@ -335,28 +336,20 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 break;
 
             case ("music-song", 3):
+                GoldenSong(workspace);
+                workspace.Output.Clear();
+                break;
+
+            case ("music-adaptive", 3):
                 {
-                    // A project in a fixed temp folder with one song: a two-bar clip of eight notes (three selected) in a loop.
-                    workspace.Session.CloseAll();
-                    var project = Path.Combine(GoldenPaths.Root, "SongGame");
-                    if (Directory.Exists(project))
-                        Directory.Delete(project, recursive: true);
-                    new ProjectSettings { Name = "SongGame" }.Save(Directory.CreateDirectory(project).FullName);
-                    var path = Music.SongTab.CreateFile(Path.Combine(project, "Content", "Music", "Golden.msong"));
-                    var tab = workspace.Session.OpenSong(path);
-                    var document = tab.Document;
-                    var track = document.Song.Tracks[0];
-                    var bar = document.Song.TicksPerBar;
-                    var clip = document.AddMidiClip(track, 0, bar * 2);
-                    var ppq = document.Song.Ppq;
-                    int[] pitches = [60, 64, 67, 72, 71, 67, 64, 62];
-                    var notes = new List<Music.MidiNote>();
-                    for (var i = 0; i < pitches.Length; i++)
-                        notes.Add(new Music.MidiNote { Pitch = pitches[i], Start = i * ppq, Length = ppq / 2, Velocity = 70 + i * 7 });
-                    document.AddNotes(clip, notes);
-                    document.SetLoop(true, 0, bar * 2);
-                    tab.SelectClip(track, clip);
-                    tab.SelectedNotes.AddRange(notes.GetRange(2, 3));
+                    // The golden song made adaptive (SongAdaptiveDemo: three layers, sections, a marker, parameters, curves,
+                    // transitions, a stinger), Explore selected, the right panel on its Adaptive tab, the mixer below.
+                    var (tab, _) = GoldenSong(workspace);
+                    tab.SelectClip(null, null);
+                    Music.SongAdaptiveDemo.Build(tab.Document);
+                    tab.SelectSection(tab.Document.Song.Adaptive!.Sections[1]);
+                    workspace.ShowMusicRightTab(adaptive: true);
+                    workspace.SetMusicPane(Music.SongBottomPanel.Mixer);
                     workspace.Output.Clear();
                     break;
                 }
@@ -367,14 +360,14 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 break;
 
             // The timeline and song goldens then measure the managed allocations of steady video/music-mode frames (the allocation gate).
-            case ("video-timeline" or "music-song", 44):
+            case ("video-timeline" or "music-song" or "music-adaptive", 44):
                 break;
-            case ("video-timeline" or "music-song", AllocationWarmup):
+            case ("video-timeline" or "music-song" or "music-adaptive", AllocationWarmup):
                 _allocationStart = GC.GetAllocatedBytesForCurrentThread();
                 break;
-            case ("video-timeline" or "music-song", AllocationWarmup + AllocationFrames):
+            case ("video-timeline" or "music-song" or "music-adaptive", AllocationWarmup + AllocationFrames):
                 _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
-                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady {(Golden == "music-song" ? "music" : "video")}-mode frames.");
+                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady {(Golden == "video-timeline" ? "video" : "music")}-mode frames.");
                 Next(Step.Done);
                 app.Quit(ExitCode.Ok);
                 break;
@@ -383,6 +376,32 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 app.Quit(ExitCode.Ok);
                 break;
         }
+    }
+
+    // A project in a fixed temp folder with one song: a two-bar clip of eight notes (three selected) in a loop.
+    private static (Music.SongTab Tab, Music.SongTrack Track) GoldenSong(EditorWorkspace workspace)
+    {
+        workspace.Session.CloseAll();
+        var project = Path.Combine(GoldenPaths.Root, "SongGame");
+        if (Directory.Exists(project))
+            Directory.Delete(project, recursive: true);
+        new ProjectSettings { Name = "SongGame" }.Save(Directory.CreateDirectory(project).FullName);
+        var path = Music.SongTab.CreateFile(Path.Combine(project, "Content", "Music", "Golden.msong"));
+        var tab = workspace.Session.OpenSong(path);
+        var document = tab.Document;
+        var track = document.Song.Tracks[0];
+        var bar = document.Song.TicksPerBar;
+        var clip = document.AddMidiClip(track, 0, bar * 2);
+        var ppq = document.Song.Ppq;
+        int[] pitches = [60, 64, 67, 72, 71, 67, 64, 62];
+        var notes = new List<Music.MidiNote>();
+        for (var i = 0; i < pitches.Length; i++)
+            notes.Add(new Music.MidiNote { Pitch = pitches[i], Start = i * ppq, Length = ppq / 2, Velocity = 70 + i * 7 });
+        document.AddNotes(clip, notes);
+        document.SetLoop(true, 0, bar * 2);
+        tab.SelectClip(track, clip);
+        tab.SelectedNotes.AddRange(notes.GetRange(2, 3));
+        return (tab, track);
     }
 
     private static Node3D? FindMesh(EditedScene scene, Node node)

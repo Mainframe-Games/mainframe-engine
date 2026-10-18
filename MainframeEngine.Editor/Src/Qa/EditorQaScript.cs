@@ -699,7 +699,11 @@ public sealed class EditorQaScript : IEditorAutomation
     // song fx-window <track index|master> <slot> · song fx-close · song browser on|off ·
     // song synth <track> [param=value …] (the wavetable synth on that track, its window open) · song synth-page osc|matrix|fx
     // [mod source 0–8] · song synth-preset <track> <name> · song synth-route <track> <source> <target> <amount> · song synth-fx <track> <built-in id> · song synth-close ·
-    // song browser-toggle <section or group id> (collapses or opens it: songs, plugins, fx:<category>, vst, vsti)
+    // song browser-toggle <section or group id> (collapses or opens it: songs, plugins, fx:<category>, vst, vsti) ·
+    // song adaptive-demo (SongAdaptiveDemo on the song) · song adaptive on|off (Make Adaptive / Make Timeline Song) · song adaptive-tab
+    // (the right panel's Adaptive tab, shown) · song section <name> <first bar> <bars> [loop] [then=<id>] [kind=transition|stinger] [start] ·
+    // song marker <name> <bar> [exit] · song layer <track> <layer name> (made when missing) · song param <name> continuous <min> <max> |
+    // labeled <A,B,…> · song audition <param> <value> · song adaptive-play [section id] · song stinger <id> · song bake (as Ctrl+B)
     private static void Song(EditorWorkspace workspace, string[] step)
     {
         if (step[1] == "new")
@@ -828,6 +832,92 @@ public sealed class EditorQaScript : IEditorAutomation
                 break;
             case "synth-close":
                 workspace.SynthWindow.Close();
+                break;
+            case "adaptive-demo":
+                Music.SongAdaptiveDemo.Build(document);
+                tab.Player.Update(document);
+                break;
+            case "adaptive":
+                if (step[2] == "on")
+                    document.EnableAdaptive();
+                else
+                    document.DisableAdaptive();
+                break;
+            case "adaptive-tab":
+                workspace.ShowMusicRightTab(adaptive: true);
+                break;
+            case "section":
+                {
+                    var bar = document.Song.TicksPerBar;
+                    var first = (long.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture) - 1) * bar;
+                    var bars = long.Parse(step[4], System.Globalization.CultureInfo.InvariantCulture);
+                    var kind = Audio.Music.MusicSectionKind.Section;
+                    foreach (var option in step[5..])
+                    {
+                        if (option == "kind=transition")
+                            kind = Audio.Music.MusicSectionKind.Transition;
+                        else if (option == "kind=stinger")
+                            kind = Audio.Music.MusicSectionKind.Stinger;
+                    }
+
+                    document.EnableAdaptive();
+                    var section = document.AddSection(step[2], kind, first, first + bars * bar);
+                    foreach (var option in step[5..])
+                    {
+                        if (option == "loop")
+                            document.SetSectionLoop(section, true);
+                        else if (option == "start")
+                            document.SetStartSection(section.Id);
+                        else if (option.StartsWith("then=", StringComparison.Ordinal))
+                            document.SetSectionThen(section, option[5..]);
+                    }
+
+                    break;
+                }
+
+            case "marker":
+                document.AddMarker(step[2], (long.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture) - 1) * document.Song.TicksPerBar,
+                    step.Length > 4 && step[4] == "exit");
+                break;
+            case "layer":
+                {
+                    var track = document.Song.Tracks[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)];
+                    var name = string.Join(' ', step[3..]);
+                    var adaptive = document.EnableAdaptive();
+                    var layer = adaptive.Layers.Find(l => l.Name == name) ?? document.AddLayer(name);
+                    document.SetTrackLayer(track, layer.Id);
+                    break;
+                }
+
+            case "param":
+                document.EnableAdaptive();
+                document.AddParameter(step[3] == "labeled"
+                    ? new Audio.Music.MusicParameterInfo { Name = step[2], Kind = Audio.Music.MusicParameterKind.Labeled, Labels = [.. step[4].Split(',')] }
+                    : new Audio.Music.MusicParameterInfo
+                    {
+                        Name = step[2],
+                        Kind = Audio.Music.MusicParameterKind.Continuous,
+                        Min = float.Parse(step[4], System.Globalization.CultureInfo.InvariantCulture),
+                        Max = float.Parse(step[5], System.Globalization.CultureInfo.InvariantCulture),
+                    });
+                break;
+            case "audition":
+                {
+                    var value = float.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture);
+                    tab.Auditions[step[2]] = value;
+                    tab.Player.SetParameter(step[2], value);
+                    break;
+                }
+
+            case "adaptive-play":
+                tab.Player.Update(document);
+                tab.Player.PlayAdaptive(step.Length > 2 ? step[2] : null, tab.Auditions);
+                break;
+            case "stinger":
+                tab.Player.TriggerStinger(step[2]);
+                break;
+            case "bake":
+                workspace.Commands.Execute("song.bake");
                 break;
             case "browser-toggle":
                 workspace.SongPanel.Browser.ToggleCollapsed(step[2]);
