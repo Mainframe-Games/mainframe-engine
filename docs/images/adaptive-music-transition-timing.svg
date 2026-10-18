@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 720" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Adaptive music — transition timing</title>
+  <desc>Top: a mid-section transition quantized to the next bar. The game thread sets a parameter, the director picks the first bar line after the scheduling lookahead and schedules the section start at that music-clock frame; the streaming thread fills the destination stems; the audio thread starts the Combat lanes on the exact frame and fades the Explore lanes over one beat, then reports SectionStarted. Bottom: at a section end the next pass (or the next section) starts at the seam and the section tail plays over it.</desc>
+  <rect width="1180" height="720" fill="#ffffff"/>
+  <style>
+    .h{fill:#111827;font-size:14px;font-weight:600}
+    .lab{fill:#374151;font-size:12px;font-weight:600}
+    .t{fill:#1f2937;font-size:11.5px}
+    .s{fill:#6b7280;font-size:10.5px}
+    .m{fill:#1f2937;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .mw{fill:#ffffff;font-size:10.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+  </style>
+  <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4b5563"/></marker><marker id="arrp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker></defs>
+  <text x="20" y="30" class="h">Mid-section transition · quantize: bar · fade out 1 beat · 120 BPM (1 beat = 0.5 s)</text>
+  <line x1="220" y1="70" x2="990.0" y2="70" stroke="#9ca3af"/>
+  <text x="20" y="74" class="lab">music clock</text><text x="20" y="88" class="s">bar.beat in the section</text>
+  <line x1="230" y1="64" x2="230" y2="76" stroke="#9ca3af" stroke-width="1"/>
+  <text x="233" y="58" class="s">12.2</text>
+  <line x1="330" y1="64" x2="330" y2="76" stroke="#9ca3af" stroke-width="1"/>
+  <text x="333" y="58" class="s">12.3</text>
+  <line x1="430" y1="64" x2="430" y2="76" stroke="#9ca3af" stroke-width="1"/>
+  <text x="433" y="58" class="s">12.4</text>
+  <line x1="530" y1="60" x2="530" y2="76" stroke="#111827" stroke-width="2"/>
+  <text x="533" y="58" class="lab">13.1 → 1.1</text>
+  <line x1="630" y1="64" x2="630" y2="76" stroke="#9ca3af" stroke-width="1"/>
+  <text x="633" y="58" class="s">1.2</text>
+  <line x1="730" y1="64" x2="730" y2="76" stroke="#9ca3af" stroke-width="1"/>
+  <text x="733" y="58" class="s">1.3</text>
+  <line x1="830" y1="64" x2="830" y2="76" stroke="#9ca3af" stroke-width="1"/>
+  <text x="833" y="58" class="s">1.4</text>
+  <line x1="930" y1="60" x2="930" y2="76" stroke="#111827" stroke-width="2"/>
+  <text x="933" y="58" class="lab">2.1</text>
+  <line x1="230" y1="76" x2="230" y2="430" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="330" y1="76" x2="330" y2="430" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="430" y1="76" x2="430" y2="430" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="530" y1="76" x2="530" y2="430" stroke="#d1d5db" stroke-width="1"/>
+  <line x1="630" y1="76" x2="630" y2="430" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="730" y1="76" x2="730" y2="430" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="830" y1="76" x2="830" y2="430" stroke="#f3f4f6" stroke-width="1"/>
+  <line x1="930" y1="76" x2="930" y2="430" stroke="#d1d5db" stroke-width="1"/>
+  <text x="20" y="126" class="lab">game thread</text>
+  <text x="20" y="220" class="lab">streaming thread</text>
+  <text x="20" y="284" class="lab">audio thread</text>
+  <text x="20" y="416" class="lab">events</text>
+  <rect x="285.0" y="108" width="30.0" height="28" fill="#ede9fe" stroke="#c4b5fd"/>
+  <text x="300.0" y="102" class="s" text-anchor="middle">lookahead</text>
+  <circle cx="285.0" cy="122" r="5" fill="#111827"/>
+  <text x="235.0" y="150" class="m">SetParameter("area", "Combat")</text>
+  <text x="235.0" y="164" class="s">rule 1 matches → F = first bar line after the lookahead</text>
+  <rect x="280.0" y="172" width="244" height="20" rx="3" fill="#7c3aed"/>
+  <text x="288.0" y="186" class="mw">MusicSchedule(Combat @ F, fadeOut 1)</text>
+  <path d="M524.0,192 L527.0,248" fill="none" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arrp)"/>
+  <path d="M340,130 v-12" stroke="#9ca3af" marker-end="url(#arr)"/>
+  <text x="344" y="134" class="s">Beat(12,3)</text>
+  <path d="M440,130 v-12" stroke="#9ca3af" marker-end="url(#arr)"/>
+  <text x="444" y="134" class="s">Beat(12,4)</text>
+  <rect x="552.0" y="84" width="240" height="22" rx="3" fill="#ecfdf5" stroke="#34d399"/>
+  <text x="560.0" y="99" class="m">signal SectionStarted("Combat")</text>
+  <text x="556.0" y="150" class="s">≤ 1 game frame after the block that mixed F</text>
+  <path d="M740,130 v-12" stroke="#9ca3af" marker-end="url(#arr)"/>
+  <text x="744" y="134" class="s">Beat(1,3)</text>
+  <path d="M840,130 v-12" stroke="#9ca3af" marker-end="url(#arr)"/>
+  <text x="844" y="134" class="s">Beat(1,4)</text>
+  <rect x="295.0" y="207" width="229.0" height="18" rx="3" fill="#dbeafe" stroke="#60a5fa"/>
+  <text x="303.0" y="220" class="t">Combat stems: open, seek, fill rings</text>
+  <text x="520.0" y="240" class="s" text-anchor="end">ready ✓ (≥ 1 block buffered)</text>
+  <rect x="220" y="250" width="310.0" height="16" fill="#3b82f6" fill-opacity="0.35"/>
+  <polygon points="530.0,250 630.0,266 530.0,266" fill="#3b82f6" fill-opacity="0.35"/>
+  <text x="226" y="262" class="s">Explore · Base</text>
+  <rect x="220" y="270" width="310.0" height="16" fill="#f59e0b" fill-opacity="0.35"/>
+  <polygon points="530.0,270 630.0,286 530.0,286" fill="#f59e0b" fill-opacity="0.35"/>
+  <text x="226" y="282" class="s">Explore · Perc</text>
+  <rect x="220" y="290" width="310.0" height="16" fill="#ef4444" fill-opacity="0.35"/>
+  <polygon points="530.0,290 630.0,306 530.0,306" fill="#ef4444" fill-opacity="0.35"/>
+  <text x="226" y="302" class="s">Explore · Combat</text>
+  <rect x="530.0" y="318" width="460.0" height="16" fill="#3b82f6" fill-opacity="0.8"/>
+  <text x="638.0" y="330" class="mw">Combat · Base</text>
+  <rect x="530.0" y="338" width="460.0" height="16" fill="#f59e0b" fill-opacity="0.8"/>
+  <text x="638.0" y="350" class="mw">Combat · Perc</text>
+  <rect x="530.0" y="358" width="460.0" height="16" fill="#ef4444" fill-opacity="0.8"/>
+  <text x="638.0" y="370" class="mw">Combat · Combat</text>
+  <line x1="530.0" y1="242" x2="530.0" y2="378" stroke="#7c3aed" stroke-width="2"/>
+  <text x="534.0" y="240" class="lab" style="fill:#7c3aed">F (exact frame)</text>
+  <text x="580.0" y="312" class="s" text-anchor="middle">fade out 1 beat</text>
+  <path d="M534.0,412 C550.0,372 542.0,182 582.0,108" fill="none" stroke="#34d399" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <text x="540.0" y="430" class="m">event: SectionStarted(combat, F) → game thread</text>
+  <rect x="220.0" y="404" width="286.0" height="40" rx="4" fill="#fef2f2" stroke="#fca5a5"/>
+  <text x="228.0" y="420" class="t">If a streamed lane is not ready at F:</text>
+  <text x="228.0" y="436" class="s">no change; MusicMissed → rescheduled at the next bar.</text>
+  <line x1="20" y1="456" x2="1160" y2="456" stroke="#e5e7eb"/>
+  <text x="20" y="482" class="h">Section end · Explore loops (the same rule for then and sectionEnd exits)</text>
+  <line x1="220" y1="514" x2="1120" y2="514" stroke="#9ca3af"/>
+  <text x="20" y="518" class="lab">music clock</text>
+  <line x1="230" y1="506" x2="230" y2="520" stroke="#9ca3af" stroke-width="1"/>
+  <text x="233" y="502" class="s">Explore bar 15</text>
+  <line x1="526" y1="506" x2="526" y2="520" stroke="#9ca3af" stroke-width="1"/>
+  <text x="529" y="502" class="s">bar 16</text>
+  <line x1="800" y1="506" x2="800" y2="520" stroke="#111827" stroke-width="2"/>
+  <text x="803" y="502" class="lab">seam: bar 16 end = bar 1</text>
+  <line x1="1096" y1="506" x2="1096" y2="520" stroke="#9ca3af" stroke-width="1"/>
+  <text x="1099" y="502" class="s">bar 2</text>
+  <rect x="220" y="536" width="580" height="16" fill="#3b82f6" fill-opacity="0.5"/>
+  <rect x="800" y="536" width="320" height="16" fill="#3b82f6" fill-opacity="0.5"/>
+  <text x="226" y="548" class="s">body · Base (pass n)</text>
+  <text x="806" y="548" class="s">body · Base (pass n+1, read from frame 0)</text>
+  <rect x="220" y="556" width="580" height="16" fill="#f59e0b" fill-opacity="0.5"/>
+  <rect x="800" y="556" width="320" height="16" fill="#f59e0b" fill-opacity="0.5"/>
+  <text x="226" y="568" class="s">body · Perc (pass n)</text>
+  <text x="806" y="568" class="s">body · Perc (pass n+1, read from frame 0)</text>
+  <rect x="220" y="576" width="580" height="16" fill="#ef4444" fill-opacity="0.5"/>
+  <rect x="800" y="576" width="320" height="16" fill="#ef4444" fill-opacity="0.5"/>
+  <text x="226" y="588" class="s">body · Combat (pass n)</text>
+  <text x="806" y="588" class="s">body · Combat (pass n+1, read from frame 0)</text>
+  <path d="M800,606 L800,622 L1060,622 C920,622 840,610 800,606 z" fill="#3b82f6" fill-opacity="0.9"/>
+  <text x="792" y="618" class="s" text-anchor="end">tail · Base (one-shot, memory)</text>
+  <path d="M800,626 L800,642 L1060,642 C920,642 840,630 800,626 z" fill="#f59e0b" fill-opacity="0.9"/>
+  <text x="792" y="638" class="s" text-anchor="end">tail · Perc (one-shot, memory)</text>
+  <path d="M800,646 L800,662 L1060,662 C920,662 840,650 800,646 z" fill="#ef4444" fill-opacity="0.9"/>
+  <text x="792" y="658" class="s" text-anchor="end">tail · Combat (one-shot, memory)</text>
+  <line x1="800" y1="528" x2="800" y2="666" stroke="#111827" stroke-width="2"/>
+  <text x="20" y="690" class="t">The body loops through the stream ring with no gap (all layers share one read position). At the seam the</text>
+  <text x="20" y="706" class="t">tails start as one-shots over the next pass: the same sound as the music editor’s render-twice fold, and also right on the first pass.</text>
+</svg>

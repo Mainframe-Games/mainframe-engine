@@ -743,6 +743,12 @@ window: no Scene tree, Inspector or FileSystem.
   renders a song into the project above it (the nearest folder with `project.mfproj`) exactly like Render — the output
   and its `.meta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
   `Content/Music/demo_loop.ogg` is rendered this way).
+- **Built-in effects** ([Built-in music effects](music-effects.md), ADR 0193): fifteen in-process effects (Channel EQ,
+  Filter, Compressor, Limiter, Noise Gate, Beat Delay, Reverb, Chorus, Flanger, Phaser, Tremolo, Saturation, Distortion,
+  Bitcrusher, Utility) that every track and the master can insert next to VST3 plugins; the inserts menu lists them by
+  category. Adding one, or its menu's Open, shows the **plugin window** (`PluginWindow`): knobs built from the effect's
+  parameters, the EQ's draggable curve, a gain-reduction meter, the delay's time at the song's tempo, presets and reset;
+  a knob or handle drag is one undo step.
 - **VST3 plugins** (ADR 0147): `PluginScanner` runs `mfplughost --scan` once per bundle (30 s timeout) over the OS's
   default VST3 folders plus Editor Settings › VST3 folders, caching results in `~/.mainframe/plugins.json` by path and
   modification time (Editor Settings › Rescan Plugins forces a full scan; the first plugin menu without a cache scans in

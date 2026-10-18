@@ -71,6 +71,27 @@ public sealed class PluginRackTests : IDisposable
     }
 
     [Fact]
+    public void ABuiltinBetweenPluginsRunsInPlaceBetweenTwoRoundTrips()
+    {
+        var plain = NewSong();
+        PluginTrack(plain, "plain");
+        var (reference, _) = Start(plain);
+        var impulse = Run(reference, 1)[0];
+        Assert.True(impulse > 0);
+
+        var song = NewSong();
+        var track = PluginTrack(song, "lead", Half);
+        track.Inserts.Add(new PluginInsert { Builtin = "utility", Params = new() { ["gain"] = 12 } });
+        track.Inserts.Add(new PluginInsert { Plugin = Half.Descriptor });
+        var (engine, _) = Start(song);
+        var calls = _host.ProcessCalls;
+        var output = Run(engine, 1);
+
+        Assert.Equal(2, _host.ProcessCalls - calls); // synth + Half, then (utility in place) Half
+        Assert.Equal(impulse * 0.5f * Dsp.DbToGain(12) * 0.5f, output[0], 4);
+    }
+
+    [Fact]
     public void AMissedDeadlinePlaysSilenceAndCountsAnXrun()
     {
         var song = NewSong();

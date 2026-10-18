@@ -694,7 +694,9 @@ public sealed class EditorQaScript : IEditorAutomation
     }
     // song new <project path> · song demo (a one-bar clip with a few notes, one undo entry each) · song pane roll|mixer|none
     // [height] (the bottom pane, as P / X / Hide do; the height in dp as its splitter sets it; "song panel" is the old name) ·
-    // song select <track> [clip] (indices; the clip opens in the piano roll) · song play · song stop · song render (wait-for render) · song save
+    // song select <track> [clip] (indices; the clip opens in the piano roll) · song play · song stop · song render (wait-for render) · song save ·
+    // song insert <track index|master> <built-in id> [param=value …] (added at the end of the chain, its window opened) ·
+    // song fx-window <track index|master> <slot> · song fx-close
     private static void Song(EditorWorkspace workspace, string[] step)
     {
         if (step[1] == "new")
@@ -737,6 +739,35 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "insert":
+                {
+                    var track = step[2] == "master" ? null : document.Song.Tracks[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)];
+                    var insert = document.AddBuiltinInsert(track, step[3]);
+                    var values = new Dictionary<string, float>(StringComparer.Ordinal);
+                    foreach (var pair in step[4..])
+                    {
+                        var eq = pair.IndexOf('=', StringComparison.Ordinal);
+                        if (eq > 0)
+                            values[pair[..eq]] = float.Parse(pair[(eq + 1)..], System.Globalization.CultureInfo.InvariantCulture);
+                    }
+
+                    if (values.Count > 0)
+                        document.SetInsertParams(insert, values, "QA");
+                    workspace.PluginWindow.Open(tab, track, insert);
+                    break;
+                }
+
+            case "fx-window":
+                {
+                    var track = step[2] == "master" ? null : document.Song.Tracks[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)];
+                    var inserts = track?.Inserts ?? document.Song.Master.Inserts;
+                    workspace.PluginWindow.Open(tab, track, inserts[int.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture)]);
+                    break;
+                }
+
+            case "fx-close":
+                workspace.PluginWindow.Close();
+                break;
             case "pane" or "panel":
                 workspace.SetMusicPane(step[2] switch
                 {

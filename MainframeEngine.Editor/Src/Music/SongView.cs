@@ -67,6 +67,8 @@ public sealed class SongView : Node
             _workspace.Toolbar.UpdateMusic(tab);
         }
 
+        _workspace.PluginWindow.Tick(tab);
+
         if (tab is null)
             return;
         var controller = tab.Controller;

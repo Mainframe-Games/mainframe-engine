@@ -244,9 +244,22 @@ public sealed class PluginDescriptor
     public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 
-/// <summary>An effect insert (plugin phase): kept and written back unchanged, bypassed while no plugin host exists.</summary>
+/// <summary>
+/// An effect insert: a built-in effect (<c>{"builtin": "eq", "params": {"peak2Gain": -3.5}}</c>, see
+/// <see cref="BuiltinEffects"/>) or a VST3 plugin with its saved state (kept and written back unchanged, passed through
+/// while no plugin host exists). Parameters missing from <see cref="Params"/> play at their defaults; unknown keys and
+/// unknown built-in ids are kept.
+/// </summary>
 public sealed class PluginInsert
 {
+    /// <summary>A built-in effect's id (<see cref="BuiltinEffectInfo.Id"/>); wins over <see cref="Plugin"/> when both are set.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Builtin { get; set; }
+
+    /// <summary>A built-in effect's parameter values by <see cref="BuiltinParam.Id"/>.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, float>? Params { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PluginDescriptor? Plugin { get; set; }
 
@@ -257,6 +270,29 @@ public sealed class PluginInsert
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
+
+    [JsonIgnore]
+    public bool IsBuiltin => Builtin is not null;
+
+    /// <summary>The built-in's name, "Unknown effect (x)", or the plugin's "name (vendor)".</summary>
+    [JsonIgnore]
+    public string DisplayName => Builtin is { } id
+        ? BuiltinEffects.Find(id)?.Name ?? $"Unknown effect ({id})"
+        : Plugin is { } p ? p.Name ?? p.ClassId ?? "plugin" : "empty";
+
+    /// <summary>A built-in effect insert at its default parameters.</summary>
+    public static PluginInsert ForBuiltin(BuiltinEffectInfo info) => new() { Builtin = info.Id, Params = info.Defaults() };
+
+    /// <summary>A copy with its own parameter dictionary (state and plugin descriptor shared: they are replaced, not edited).</summary>
+    public PluginInsert Clone() => new()
+    {
+        Builtin = Builtin,
+        Params = Params is null ? null : new Dictionary<string, float>(Params, StringComparer.Ordinal),
+        Plugin = Plugin,
+        State = State,
+        Bypass = Bypass,
+        Extra = Extra,
+    };
 }
 
 /// <summary>A region on a track's timeline, in ticks.</summary>

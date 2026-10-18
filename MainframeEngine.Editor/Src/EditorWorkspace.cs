@@ -221,6 +221,9 @@ public sealed partial class EditorWorkspace : Node
     public event Action? ModeChanged;
 
     public SplittersOverlay Splitters { get; private set; } = null!;
+
+    /// <summary>The window of a built-in effect insert in music mode.</summary>
+    public PluginWindow PluginWindow { get; private set; } = null!;
     public PopupMenu Popup { get; private set; } = null!;
     public FilePickerDialog FilePicker { get; private set; } = null!;
     public ListPickerDialog ListPicker { get; private set; } = null!;
@@ -267,6 +270,7 @@ public sealed partial class EditorWorkspace : Node
         SongPanel = new SongPanel(this) { Name = "Song" };
         VideoPanel = new VideoPanel(this) { Name = "Video" };
         Splitters = new SplittersOverlay(this) { Name = "Splitters" };
+        PluginWindow = new PluginWindow(this) { Name = "PluginWindow" };
         PanelLayer.AddChild(ViewportPanel);
         PanelLayer.AddChild(SongPanel);
         PanelLayer.AddChild(VideoPanel); // above the viewport, below the menus
@@ -277,6 +281,7 @@ public sealed partial class EditorWorkspace : Node
         PanelLayer.AddChild(Inspector);
         PanelLayer.AddChild(OutputPanel);
         PanelLayer.AddChild(Splitters);
+        PanelLayer.AddChild(PluginWindow); // floats over the song view
 
         DialogLayer = new UiLayer { Name = "EditorDialogs", Layer = 50, ScaleMode = UiScaleMode.Dpi };
         Popup = new PopupMenu(this) { Name = "Popup" };
