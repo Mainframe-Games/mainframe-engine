@@ -19,7 +19,8 @@
             white-space: nowrap;
         }
         #pw-title .icon { margin-right: 8dp; image-color: #8b93a5; }
-        #pw-name { flex: 1 1 auto; overflow: hidden; color: #ffffff; font-weight: bold; font-size: 12dp; }
+        #pw-name { flex: 1 1 auto; width: 40dp; min-width: 0dp; overflow: hidden; color: #ffffff; font-weight: bold; font-size: 12dp; }
+        #pw-table-a, #pw-table-b { max-width: 150dp; overflow: hidden; }
         #pw-title button { margin-left: 4dp; }
         #pw-title button.text-button { height: 22dp; line-height: 22dp; padding: 0dp 8dp; font-size: 11dp; }
         button.tool-button.small.pw-power.active { background-color: #166534; border-color: #22c55e; }
@@ -29,7 +30,9 @@
         #pw-graph { display: block; position: relative; flex: 0 0 auto; margin: 10dp 10dp 0dp 10dp; height: 190dp;
                     background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; drag: drag; cursor: crosshair; }
         #pw-graph img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
-        #pw-graph.hidden, #pw-meter.hidden, #pw-readout.hidden, #pw-power.hidden, #pw-presets.hidden { display: none; }
+        #pw-graph.hidden, #pw-meter.hidden, #pw-readout.hidden, #pw-power.hidden, #pw-presets.hidden, #pw-table-a.hidden, #pw-table-b.hidden,
+        #pw-prev.hidden, #pw-next.hidden { display: none; }
+        .flip { transform: rotate(180deg); }
 
         #pw-meter { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin: 10dp 10dp 0dp 10dp; height: 18dp;
                     color: #8b93a5; font-size: 11dp; }
@@ -76,6 +79,10 @@
         <div id="pw-title">
             <span id="pw-icon" class="icon icon-sm icon-adjustments-horizontal"></span>
             <span id="pw-name">Effect</span>
+            <button id="pw-table-a" class="text-button hidden" data-tooltip="Oscillator A's wavetable — the factory tables, the project's, Import Wavetable… and the frame size">A</button>
+            <button id="pw-table-b" class="text-button hidden" data-tooltip="Oscillator B's wavetable — the factory tables, the project's, Import Wavetable… and the frame size">B</button>
+            <button id="pw-prev" class="tool-button small hidden" data-tooltip="Previous preset (in its category)"><span class="icon icon-sm icon-chevron-right flip"></span></button>
+            <button id="pw-next" class="tool-button small hidden" data-tooltip="Next preset (in its category)"><span class="icon icon-sm icon-chevron-right"></span></button>
             <button id="pw-power" class="tool-button small pw-power active" data-tooltip="Bypass — off passes the sound through unchanged (crossfaded)"><span class="icon icon-sm icon-plug-connected"></span></button>
             <button id="pw-presets" class="text-button" data-tooltip="Presets — starting points for this effect">Presets</button>
             <button id="pw-reset" class="tool-button small" data-tooltip="Reset — every parameter to its default (one undo step)"><span class="icon icon-sm icon-refresh"></span></button>

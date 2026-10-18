@@ -185,4 +185,5 @@ public sealed class SongClipListConverter : JsonConverter<List<SongClip>>
 [JsonSerializable(typeof(Song))]
 [JsonSerializable(typeof(MidiClip))]
 [JsonSerializable(typeof(AudioClip))]
+[JsonSerializable(typeof(SynthPatch))]
 internal sealed partial class SongJsonContext : JsonSerializerContext;

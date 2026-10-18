@@ -181,14 +181,14 @@ public sealed partial class SongDocument : IDisposable
                 () => patch.Params = old is null ? null : new Dictionary<string, float>(old, StringComparer.Ordinal), mergeKey);
     }
 
-    /// <summary>Replaces the whole patch (Init, a preset): one undo step.</summary>
-    public void SetSynthPatch(SongTrack track, SynthPatch patch, string name)
+    /// <summary>Replaces the whole patch (Init, a preset; <paramref name="preset"/> names it): one undo step.</summary>
+    public void SetSynthPatch(SongTrack track, SynthPatch patch, string name, string? preset = null)
     {
         ArgumentNullException.ThrowIfNull(patch);
         Synth(track);
         var instrument = track.Instrument!;
-        var old = instrument.Patch;
-        Commit(name, () => instrument.Patch = patch, () => instrument.Patch = old);
+        var (old, oldPreset) = (instrument.Patch, instrument.Preset);
+        Commit(name, () => (instrument.Patch, instrument.Preset) = (patch, preset), () => (instrument.Patch, instrument.Preset) = (old, oldPreset));
     }
 
     /// <summary>Sets oscillator <paramref name="oscillator"/>'s (<c>a</c> or <c>b</c>) wavetable.</summary>

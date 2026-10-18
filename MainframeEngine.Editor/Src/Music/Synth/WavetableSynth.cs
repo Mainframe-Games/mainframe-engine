@@ -171,14 +171,15 @@ public sealed class WavetableSynth : IBuiltinInstrument
 
     private static Wavetable? Table(SynthPatch patch, string oscillator, out string? error)
     {
-        var source = patch.Tables is not null && patch.Tables.TryGetValue(oscillator, out var reference) ? reference.Source : FactoryWavetables.DefaultSource;
-        return WavetableCache.Get(source, out error);
+        var reference = patch.Tables is not null && patch.Tables.TryGetValue(oscillator, out var r) ? r : null;
+        return WavetableCache.Get(reference?.Source ?? FactoryWavetables.DefaultSource, out error, reference?.FrameSize ?? 0);
     }
 
     private static string Signature(SynthPatch patch, Wavetable? a, Wavetable? b, List<BuiltinEffect> effects)
     {
         var sb = new StringBuilder();
-        sb.Append(a?.Source ?? "?").Append('|').Append(b?.Source ?? "?").Append('|');
+        // Tables by identity: a re-read file or another frame size is a new table with the same source.
+        sb.Append(a is null ? 0 : RuntimeHelpers.GetHashCode(a)).Append('|').Append(b is null ? 0 : RuntimeHelpers.GetHashCode(b)).Append('|');
         foreach (var route in patch.Matrix ?? [])
             sb.Append(route.Source).Append('>').Append(route.Target).Append(':').Append(route.Amount.ToString("R", System.Globalization.CultureInfo.InvariantCulture))
                 .Append(route.Bipolar ? 'b' : 'u').Append(route.Aux).Append(';');
