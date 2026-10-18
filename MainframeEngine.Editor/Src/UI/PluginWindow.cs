@@ -14,7 +14,7 @@ namespace MainframeEngine.Editor;
 /// knob drag is one undo step); undo, redo and edits from elsewhere show on the next tick. It closes when its insert
 /// leaves the song (removed, undone, the tab closed or switched) or music mode is left.
 /// </summary>
-public sealed class PluginWindow : EditorDocument
+public sealed partial class PluginWindow : EditorDocument
 {
     public const string GraphTexture = "plugin-graph";
 
@@ -70,9 +70,31 @@ public sealed class PluginWindow : EditorDocument
 
     public PluginInsert? Insert { get; private set; }
 
+    /// <summary>The wavetable synth shown instead of an insert (its track's instrument), or null.</summary>
+    public InstrumentDescriptor? Instrument { get; private set; }
+
     public BuiltinEffectInfo? Info { get; private set; }
 
-    public bool IsOpen => Insert is not null;
+    public bool IsOpen => Insert is not null || Instrument is not null;
+
+    // The shown parameters: the insert's, or the synth's patch's.
+    private Dictionary<string, float>? Values => Insert?.Params ?? Instrument?.Patch?.Params;
+
+    private void SetParam(SongTab tab, string id, float value, string? mergeKey = null)
+    {
+        if (Insert is { } insert)
+            tab.Document.SetInsertParam(insert, id, value, mergeKey);
+        else if (Track is { } track)
+            tab.Document.SetSynthParam(track, id, value, mergeKey);
+    }
+
+    private void SetParams(SongTab tab, IReadOnlyDictionary<string, float> values, string name, string? mergeKey = null)
+    {
+        if (Insert is { } insert)
+            tab.Document.SetInsertParams(insert, values, name, mergeKey);
+        else if (Track is { } track)
+            tab.Document.SetSynthParams(track, values, name, mergeKey);
+    }
 
     /// <summary>The window's top-left corner and width (dp).</summary>
     public (float X, float Y, float Width) Placement => (_position.X, _position.Y, _width);
@@ -91,7 +113,32 @@ public sealed class PluginWindow : EditorDocument
         Tab = tab;
         Track = track;
         Insert = insert;
+        Instrument = null;
         Info = info;
+        ShowWindow();
+    }
+
+    /// <summary>
+    /// Shows <paramref name="track"/>'s wavetable synth: every parameter as a knob, grouped by section (a stopgap until the
+    /// synth's own window).
+    /// </summary>
+    public void OpenSynth(SongTab tab, SongTrack track)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        ArgumentNullException.ThrowIfNull(track);
+        if (track.Instrument is not { IsWavetable: true } instrument)
+            return;
+        Tab = tab;
+        Track = track;
+        Insert = null;
+        Instrument = instrument;
+        Info = SynthParams.Info;
+        ShowWindow();
+    }
+
+    private void ShowWindow()
+    {
+        var info = Info!;
         _width = WidthFor(info);
         _built = false;
         _graphDirty = true;
@@ -106,12 +153,13 @@ public sealed class PluginWindow : EditorDocument
     /// <summary>Hides the window (keeps its position for the next one).</summary>
     public void Close()
     {
-        if (Insert is null)
+        if (!IsOpen)
             return;
         EndEdits();
         Tab = null;
         Track = null;
         Insert = null;
+        Instrument = null;
         Info = null;
         HideAndReleaseFocus();
         if (_graphViewport is { } viewport)
@@ -121,9 +169,9 @@ public sealed class PluginWindow : EditorDocument
     /// <summary>Every frame from the song view: <paramref name="tab"/> is music mode's active song tab (null otherwise).</summary>
     public void Tick(SongTab? tab)
     {
-        if (Insert is not { } insert || Info is not { } info || Tab is not { } shown)
+        if (!IsOpen || Info is not { } info || Tab is not { } shown)
             return;
-        if (!ReferenceEquals(tab, shown) || !StillInSong(shown, Track, insert))
+        if (!ReferenceEquals(tab, shown) || !StillInSong(shown, Track, Insert, Instrument))
         {
             Close();
             return;
@@ -143,7 +191,7 @@ public sealed class PluginWindow : EditorDocument
         var parameters = info.Params;
         for (var i = 0; i < parameters.Length; i++)
         {
-            var value = info.Value(insert.Params, parameters[i].Id);
+            var value = info.Value(Values, parameters[i].Id);
             if (value == _shown[i])
                 continue;
             _shown[i] = value;
@@ -151,12 +199,16 @@ public sealed class PluginWindow : EditorDocument
             _graphDirty = true;
         }
 
-        if (insert.Bypass != _shownBypass)
+        var bypass = Insert?.Bypass ?? false;
+        if (bypass != _shownBypass)
         {
-            _shownBypass = insert.Bypass;
-            document.GetElementById("pw-window").SetClass("bypassed", insert.Bypass);
-            document.GetElementById("pw-power").SetClass("active", !insert.Bypass);
+            _shownBypass = bypass;
+            document.GetElementById("pw-window").SetClass("bypassed", bypass);
+            document.GetElementById("pw-power").SetClass("active", !bypass);
         }
+
+        if (Instrument is { } synth)
+            TickSynth(document, synth);
 
         var readOnly = shown.Document.IsReadOnly;
         if (readOnly != _shownReadOnly)
@@ -168,25 +220,28 @@ public sealed class PluginWindow : EditorDocument
         switch (info.Graph)
         {
             case BuiltinGraph.Eq:
-                TickGraph(insert);
+                TickGraph();
                 break;
             case BuiltinGraph.GainReduction:
-                TickMeter(shown, insert);
+                if (Insert is { } metered)
+                    TickMeter(shown, metered);
                 break;
             case BuiltinGraph.DelayReadout when _graphDirty || shown.Document.Song.Tempo != _shownTempo:
                 _shownTempo = shown.Document.Song.Tempo;
-                document.GetElementById("pw-readout").SetInnerRml(RmlText.Escape(DelayEffect.Describe(insert.Params, _shownTempo)));
+                document.GetElementById("pw-readout").SetInnerRml(RmlText.Escape(DelayEffect.Describe(Values, _shownTempo)));
                 _graphDirty = false;
                 break;
         }
     }
 
-    private static bool StillInSong(SongTab tab, SongTrack? track, PluginInsert insert)
+    private static bool StillInSong(SongTab tab, SongTrack? track, PluginInsert? insert, InstrumentDescriptor? instrument)
     {
         var song = tab.Document.Song;
         if (track is not null && !song.Tracks.Contains(track))
             return false;
-        return (track?.Inserts ?? song.Master.Inserts).Contains(insert);
+        if (instrument is not null)
+            return ReferenceEquals(track?.Instrument, instrument);
+        return insert is not null && (track?.Inserts ?? song.Master.Inserts).Contains(insert);
     }
 
     // --- building the window ------------------------------------------------------------------------------------------
@@ -207,19 +262,25 @@ public sealed class PluginWindow : EditorDocument
 
     private void Build()
     {
-        if (Insert is not { } insert || Info is not { } info || Tab is not { } tab)
+        if (!IsOpen || Info is not { } info || Tab is not { } tab)
             return;
         var document = Document;
         _built = true;
         _shown = new float[info.Params.Length];
         Array.Fill(_shown, float.NaN);
         _shownText = new string?[info.Params.Length];
-        _shownBypass = !insert.Bypass;
+        _shownBypass = !(Insert?.Bypass ?? false);
+        document.GetElementById("pw-power").SetClass("hidden", Insert is null);
         _shownReadOnly = !tab.Document.IsReadOnly;
         var trackName = Track?.Name ?? "Master";
-        document.GetElementById("pw-name").SetInnerRml(RmlText.Escape($"{info.Name} — {trackName} — {tab.Document.Name}"));
+        var preset = Instrument is null ? null : PresetName(Instrument.Preset);
+        document.GetElementById("pw-name").SetInnerRml(RmlText.Escape(preset is null ? $"{info.Name} — {trackName} — {tab.Document.Name}" : $"{info.Name} · {preset} — {trackName} — {tab.Document.Name}"));
+        _shownPreset = Instrument?.Preset;
+        foreach (var id in (ReadOnlySpan<string>)["pw-table-a", "pw-table-b", "pw-prev", "pw-next"])
+            document.GetElementById(id).SetClass("hidden", Instrument is null);
+        _shownTables = default;
         document.GetElementById("pw-icon").SetClassNames("icon icon-sm icon-" + info.Icon);
-        document.GetElementById("pw-presets").SetClass("hidden", info.Presets is not { Length: > 0 });
+        document.GetElementById("pw-presets").SetClass("hidden", Instrument is null && info.Presets is not { Length: > 0 });
         document.GetElementById("pw-graph").SetClass("hidden", info.Graph != BuiltinGraph.Eq);
         document.GetElementById("pw-meter").SetClass("hidden", info.Graph != BuiltinGraph.GainReduction);
         document.GetElementById("pw-readout").SetClass("hidden", info.Graph != BuiltinGraph.DelayReadout);
@@ -346,7 +407,7 @@ public sealed class PluginWindow : EditorDocument
 
     private (float Width, float Height) GraphSize => (_width - 2 * Border - 2 * GraphMargin - 2, GraphHeight - 2);
 
-    private void TickGraph(PluginInsert insert)
+    private void TickGraph()
     {
         if (_graphViewport is not { } viewport || _graph is not { } graph)
             return;
@@ -371,7 +432,7 @@ public sealed class PluginWindow : EditorDocument
         }
 
         _graphDirty = false;
-        graph.Values = insert.Params;
+        graph.Values = Values;
         graph.PixelScale = scale;
         graph.ViewSize = new Vector2(w, h);
         graph.QueueRedraw();
@@ -424,13 +485,13 @@ public sealed class PluginWindow : EditorDocument
             if ((RmlKey)e.GetParameter("key_identifier", 0) == RmlKey.Escape)
                 Close();
         }));
-        if (Insert is not null)
+        if (IsOpen)
             Build();
     }
 
     protected override void OnClickElement(RmlEvent e)
     {
-        if (Insert is not { } insert || Info is not { } info || Tab is not { } tab)
+        if (!IsOpen || Info is not { } info || Tab is not { } tab)
             return;
         var target = e.Target;
         for (var el = target; !el.IsNull && el.TagName != "body"; el = el.Parent)
@@ -441,13 +502,26 @@ public sealed class PluginWindow : EditorDocument
                     Close();
                     return;
                 case "pw-power":
-                    Edit(tab, "Could not bypass the effect", () => tab.Document.SetInsertBypass(insert, !insert.Bypass));
+                    if (Insert is { } bypassed)
+                        Edit(tab, "Could not bypass the effect", () => tab.Document.SetInsertBypass(bypassed, !bypassed.Bypass));
+                    return;
+                case "pw-reset" when Instrument is not null && Track is { } synthTrack:
+                    Edit(tab, "Could not reset the synth", () => tab.Document.SetSynthPatch(synthTrack, SynthPatch.Init(), "Init Patch"));
+                    return;
+                case "pw-presets" when Instrument is not null:
+                    SynthPresetMenu(tab);
+                    return;
+                case "pw-table-a" or "pw-table-b" when Instrument is not null:
+                    TableMenu(tab, el.Id == "pw-table-a" ? "a" : "b");
+                    return;
+                case "pw-prev" or "pw-next" when Instrument is not null:
+                    StepPreset(tab, el.Id == "pw-next" ? 1 : -1);
                     return;
                 case "pw-reset":
-                    Edit(tab, "Could not reset the effect", () => tab.Document.SetInsertParams(insert, info.Defaults(), "Reset " + info.Name));
+                    Edit(tab, "Could not reset the effect", () => SetParams(tab, info.Defaults(), "Reset " + info.Name));
                     return;
                 case "pw-presets":
-                    PresetMenu(tab, insert, info);
+                    PresetMenu(tab, info);
                     return;
             }
         }
@@ -458,18 +532,18 @@ public sealed class PluginWindow : EditorDocument
         var p = info.Params[index];
         if (p.Curve == ParamCurve.Toggle)
         {
-            var value = info.Value(insert.Params, p.Id) >= 0.5f ? 0 : 1;
-            Edit(tab, "Could not change the effect", () => tab.Document.SetInsertParam(insert, p.Id, value));
+            var value = info.Value(Values, p.Id) >= 0.5f ? 0 : 1;
+            Edit(tab, "Could not change the effect", () => SetParam(tab, p.Id, value));
         }
         else if (p.Curve == ParamCurve.Choice)
         {
-            ChoiceMenu(tab, insert, p, e);
+            ChoiceMenu(tab, p, e);
         }
     }
 
     private void OnMouseDown(RmlEvent e)
     {
-        if (Insert is null)
+        if (!IsOpen)
             return;
         // A press on the window brings it in front of the song view's other documents.
         Document.PullToFront();
@@ -497,7 +571,7 @@ public sealed class PluginWindow : EditorDocument
 
     private void OnDragStart(RmlEvent e)
     {
-        if (Insert is null || Info is null)
+        if (!IsOpen || Info is null)
             return;
         var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
         var mouse = ((float)(e.GetParameter("mouse_x", 0.0) / scale), (float)(e.GetParameter("mouse_y", 0.0) / scale));
@@ -546,22 +620,22 @@ public sealed class PluginWindow : EditorDocument
     /// <summary>Starts a knob drag on parameter <paramref name="index"/> (the mouse, and tests).</summary>
     internal void BeginKnob(int index)
     {
-        if (Insert is not { } insert || Info is not { } info || (uint)index >= (uint)info.Params.Length)
+        if (!IsOpen || Info is not { } info || (uint)index >= (uint)info.Params.Length)
             return;
         EndEdits();
         _dragCounter++;
         _dragParam = index;
-        _dragStartNormalized = info.Params[index].ToNormalized(info.Value(insert.Params, info.Params[index].Id));
+        _dragStartNormalized = info.Params[index].ToNormalized(info.Value(Values, info.Params[index].Id));
     }
 
     /// <summary>The knob being dragged, <paramref name="upDp"/> above where the drag started (Shift: a tenth as far).</summary>
     internal void DragKnob(float upDp, bool fine)
     {
-        if (_dragParam < 0 || Insert is not { } insert || Info is not { } info || Tab is not { } tab)
+        if (_dragParam < 0 || !IsOpen || Info is not { } info || Tab is not { } tab)
             return;
         var p = info.Params[_dragParam];
         var value = p.FromNormalized(_dragStartNormalized + upDp / KnobDragDp * (fine ? 0.1f : 1f));
-        Edit(tab, "Could not change the effect", () => tab.Document.SetInsertParam(insert, p.Id, value, MergeKey(p.Id)));
+        Edit(tab, "Could not change the effect", () => SetParam(tab, p.Id, value, MergeKey(p.Id)));
     }
 
     /// <summary>Starts dragging EQ band <paramref name="band"/>'s handle.</summary>
@@ -578,15 +652,15 @@ public sealed class PluginWindow : EditorDocument
     /// <summary>Moves the dragged EQ handle to <paramref name="point"/> (the graph's dp): frequency, and gain where the band has one.</summary>
     internal void DragBand(Vector2 point)
     {
-        if (_dragBand < 0 || Insert is not { } insert || Info is not { } info || Tab is not { } tab || _graph is not { } graph)
+        if (_dragBand < 0 || !IsOpen || Info is not { } info || Tab is not { } tab || _graph is not { } graph)
             return;
         var band = EqEffect.Bands[_dragBand];
         var values = new Dictionary<string, float>(StringComparer.Ordinal) { [band.FreqId] = graph.Frequency(point.X) };
         if (band.GainId is not null)
             values[band.GainId] = MathF.Round(graph.Gain(point.Y) * 10) / 10;
-        if (info.Value(insert.Params, band.OnId) < 0.5f)
+        if (info.Value(Values, band.OnId) < 0.5f)
             values[band.OnId] = 1; // dragging a band switches it on
-        Edit(tab, "Could not change the EQ", () => tab.Document.SetInsertParams(insert, values, "EQ " + band.Name, MergeKey(band.Name)));
+        Edit(tab, "Could not change the EQ", () => SetParams(tab, values, "EQ " + band.Name, MergeKey(band.Name)));
     }
 
     /// <summary>Ends a knob or handle drag (one undo step).</summary>
@@ -612,26 +686,26 @@ public sealed class PluginWindow : EditorDocument
 
     private void OnDoubleClick(RmlEvent e)
     {
-        if (Insert is not { } insert || Info is not { } info || Tab is not { } tab || tab.Document.IsReadOnly)
+        if (!IsOpen || Info is not { } info || Tab is not { } tab || tab.Document.IsReadOnly)
             return;
         if (FindWithAttribute(e.Target, "data-p") is { IsNull: false } dial && dial.IsClassSet("knob-dial") &&
             int.TryParse(dial.GetAttribute("data-p"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
         {
             var p = info.Params[index];
-            Edit(tab, "Could not reset the parameter", () => tab.Document.SetInsertParam(insert, p.Id, p.Default));
+            Edit(tab, "Could not reset the parameter", () => SetParam(tab, p.Id, p.Default));
             return;
         }
 
         if (IsInGraph(e.Target) && _graph is { } graph && graph.HitBand(GraphPoint(e)) is >= 0 and var band)
         {
             var on = EqEffect.Bands[band].OnId;
-            Edit(tab, "Could not switch the band", () => tab.Document.SetInsertParam(insert, on, info.Value(insert.Params, on) >= 0.5f ? 0 : 1));
+            Edit(tab, "Could not switch the band", () => SetParam(tab, on, info.Value(Values, on) >= 0.5f ? 0 : 1));
         }
     }
 
     private void OnWheel(RmlEvent e)
     {
-        if (Insert is not { } insert || Info is not { } info || Tab is not { } tab || tab.Document.IsReadOnly)
+        if (!IsOpen || Info is not { } info || Tab is not { } tab || tab.Document.IsReadOnly)
             return;
         var delta = (float)e.GetParameter("wheel_delta_y", 0.0);
         if (delta == 0)
@@ -643,13 +717,13 @@ public sealed class PluginWindow : EditorDocument
         {
             var p = info.Params[index];
             var step = e.GetParameter("shift_key", 0) != 0 ? 0.005f : 0.02f;
-            value = p.FromNormalized(p.ToNormalized(info.Value(insert.Params, p.Id)) - MathF.Sign(delta) * step);
+            value = p.FromNormalized(p.ToNormalized(info.Value(Values, p.Id)) - MathF.Sign(delta) * step);
             id = p.Id;
         }
         else if (IsInGraph(e.Target) && _graph is { } graph && graph.SelectedBand is >= 0 and var band && EqEffect.Bands[band].QId is { } q)
         {
             var p = info.Find(q)!;
-            value = p.FromNormalized(p.ToNormalized(info.Value(insert.Params, q)) - MathF.Sign(delta) * 0.03f);
+            value = p.FromNormalized(p.ToNormalized(info.Value(Values, q)) - MathF.Sign(delta) * 0.03f);
             id = q;
         }
 
@@ -661,7 +735,7 @@ public sealed class PluginWindow : EditorDocument
             EndEdits();
         _wheelKey = key;
         _wheelAt = System.Diagnostics.Stopwatch.GetTimestamp();
-        Edit(tab, "Could not change the effect", () => tab.Document.SetInsertParam(insert, id, value, key));
+        Edit(tab, "Could not change the effect", () => SetParam(tab, id, value, key));
     }
 
     private string MergeKey(string id) => "pw-" + _dragCounter.ToString(CultureInfo.InvariantCulture) + "-" + id;
@@ -674,36 +748,38 @@ public sealed class PluginWindow : EditorDocument
 
     // --- menus --------------------------------------------------------------------------------------------------------
 
-    private void ChoiceMenu(SongTab tab, PluginInsert insert, BuiltinParam p, RmlEvent e)
+    private void ChoiceMenu(SongTab tab, BuiltinParam p, RmlEvent e)
     {
         if (p.Choices is not { } choices || tab.Document.IsReadOnly)
             return;
-        var current = (int)(Info?.Value(insert.Params, p.Id) ?? 0);
+        var current = (int)(Info?.Value(Values, p.Id) ?? 0);
+        var shown = (object?)Insert ?? Instrument;
         var items = choices.Select((c, i) => new MenuItem(c, i.ToString(CultureInfo.InvariantCulture), Css: i == current ? "current" : null)).ToList();
         var (x, y) = MenuPoint(e);
         Workspace.Popup.Show(items, x, y, command =>
         {
-            if (int.TryParse(command, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && ReferenceEquals(Insert, insert))
-                Edit(tab, "Could not change the effect", () => tab.Document.SetInsertParam(insert, p.Id, index));
+            if (int.TryParse(command, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && ReferenceEquals((object?)Insert ?? Instrument, shown))
+                Edit(tab, "Could not change the effect", () => SetParam(tab, p.Id, index));
         });
     }
 
-    private void PresetMenu(SongTab tab, PluginInsert insert, BuiltinEffectInfo info)
+    private void PresetMenu(SongTab tab, BuiltinEffectInfo info)
     {
         if (info.Presets is not { Length: > 0 } presets || tab.Document.IsReadOnly)
             return;
+        var shown = (object?)Insert ?? Instrument;
         var items = presets.Select((preset, i) => new MenuItem(preset.Name, i.ToString(CultureInfo.InvariantCulture), Icon: "adjustments")).ToList();
         var x = _position.X + _width - 200;
         var y = _position.Y + TitleHeight;
         Workspace.Popup.Show(items, x, y, command =>
         {
-            if (!int.TryParse(command, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) || !ReferenceEquals(Insert, insert))
+            if (!int.TryParse(command, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) || !ReferenceEquals((object?)Insert ?? Instrument, shown))
                 return;
             var preset = presets[index];
             var values = info.Defaults();
             foreach (var (id, value) in preset.Values)
                 values[id] = value;
-            Edit(tab, "Could not load the preset", () => tab.Document.SetInsertParams(insert, values, "Preset: " + preset.Name));
+            Edit(tab, "Could not load the preset", () => SetParams(tab, values, "Preset: " + preset.Name));
         });
     }
 

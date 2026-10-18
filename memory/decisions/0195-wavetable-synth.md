@@ -1,7 +1,7 @@
 # ADR 0195 — A built-in wavetable synth for Music mode
 
 - **Date:** 2026-10-18
-- **Status:** proposed (draft; decide with the design doc's open questions)
+- **Status:** accepted (2026-10-18: controllers in PR 1, `WavetablePreset` in the engine core; PR 1 built)
 - **Milestone:** —
 - **Docs:** docs/design/future/wavetable-synth.md
 

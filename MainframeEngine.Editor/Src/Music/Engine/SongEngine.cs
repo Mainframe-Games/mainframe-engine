@@ -93,6 +93,15 @@ public sealed class SongEngine
         Enqueue(new Command(CommandType.Note, track.SlotGeneration, track.Slot, pitch, velocity));
     }
 
+    /// <summary>A live MIDI controller (pitch bend, mod wheel, aftertouch) for a track's instrument, from the next block.</summary>
+    public void Controller(TrackSnapshot track, NoteEventKind kind, int value)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        if (kind == NoteEventKind.Note)
+            throw new ArgumentException("Not a controller.", nameof(kind));
+        Enqueue(new Command(CommandType.Controller, track.SlotGeneration, track.Slot, (int)kind, value));
+    }
+
     /// <summary>UI thread: the highest peak of a track's output since the last call (linear), then resets it.</summary>
     public float TakeTrackPeak(string trackId)
     {
@@ -139,13 +148,18 @@ public sealed class SongEngine
             var rt = _runtimes[track.Slot];
             if (rt.EventCount > 1)
                 SortEvents(rt.Events.AsSpan(0, rt.EventCount));
-            if (track.Instrument is not PluginInstrument)
-                track.Instrument?.Process(track, rt.Events.AsSpan(0, rt.EventCount), rt.Buffer.AsSpan(0, frames * 2));
         }
 
         // Insert chains: built-in stages run in place; plugin stages at the same depth share one helper round trip (a
         // missed or failed round plays those chains as silence).
         var context = new EffectContext(SampleRate, song.Tempo, _playing, blockStart);
+        foreach (var track in song.Tracks)
+        {
+            var rt = _runtimes[track.Slot];
+            if (track.Instrument is not PluginInstrument)
+                track.Instrument?.Process(track, rt.Events.AsSpan(0, rt.EventCount), rt.Buffer.AsSpan(0, frames * 2), context);
+        }
+
         RunTrackChains(song, frames, context);
         var master = song.MasterGain;
         var masterPeak = 0f;
@@ -511,6 +525,11 @@ public sealed class SongEngine
                     if (rt.Generation == c.Value)
                         AddEvent(rt, new NoteEvent(c.Velocity == 0 && StartsThisBlock(rt, c.Pitch) ? 1 : 0, c.Pitch, c.Velocity, c.Velocity > 0));
                     break;
+                case CommandType.Controller when song is not null && (uint)c.Slot < (uint)_runtimes.Length:
+                    var crt = _runtimes[c.Slot];
+                    if (crt.Generation == c.Value)
+                        AddEvent(crt, new NoteEvent(0, 0, c.Velocity, false, (NoteEventKind)c.Pitch));
+                    break;
             }
         }
 
@@ -529,6 +548,7 @@ public sealed class SongEngine
         Stop,
         Seek,
         Note,
+        Controller,
     }
 
     private readonly record struct Command(CommandType Type, long Value, int Slot, int Pitch, int Velocity);

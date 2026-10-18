@@ -757,6 +757,14 @@ window: no Scene tree, Inspector or FileSystem.
   state, width and collapsed groups are in the layout file (`MusicShowBrowser`, `MusicBrowserWidth`,
   `MusicBrowserCollapsed`; hidden at first, as in Logic). The list is one flat data-model list rebuilt only when the
   project, its files, the open song, the plugin catalog, the search or the collapsed set changed.
+- **Mainframe Wavetable** (`builtin: "wavetable"`, ADR 0195, [design](future/wavetable-synth.md)): the built-in
+  synth — two band-limited wavetable oscillators with warps and 1–16-voice unison, sub and noise, two filters, four
+  envelopes and LFOs, a mod matrix and an FX rack of built-in effects. Pick it in an instrument slot's menu or drop it
+  from the Browser's Instruments group; its pencil button (Open Synth…) shows every parameter in the plugin window until
+  the synth's own window lands; that window's header has the preset menu (39 factory presets, the project's
+  `WavetablePreset` resources, Save Preset…), previous/next arrows and each oscillator's wavetable menu (factory tables,
+  `Content/Wavetables/`, Import Wavetable… of any `.wav`, with the `clm ` frame size or a chosen one). A MIDI keyboard's
+  pitch bend, mod wheel and aftertouch reach it live.
 - **Built-in effects** ([Built-in music effects](music-effects.md), ADR 0193): fifteen in-process effects (Channel EQ,
   Filter, Compressor, Limiter, Noise Gate, Beat Delay, Reverb, Chorus, Flanger, Phaser, Tremolo, Saturation, Distortion,
   Bitcrusher, Utility) that every track and the master can insert next to VST3 plugins; the inserts menu lists them by

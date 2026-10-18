@@ -130,6 +130,163 @@ public sealed partial class SongDocument : IDisposable
     public void SetTrackInstrument(SongTrack track, InstrumentDescriptor? instrument, string? mergeKey = null) =>
         Set("Track Instrument", track.Instrument, instrument, v => track.Instrument = v, mergeKey, alwaysCommit: true);
 
+    // --- the wavetable synth (an instrument track whose instrument is builtin: wavetable) -----------
+
+    private SynthPatch Synth(SongTrack track)
+    {
+        IndexOf(track);
+        if (track.Instrument is not { IsWavetable: true } instrument)
+            throw new ArgumentException($"'{track.Name}' does not play the wavetable synth.", nameof(track));
+        return instrument.Patch ??= SynthPatch.Init();
+    }
+
+    /// <summary>Sets one synth parameter (knob drags: pass a mergeKey). Undo restores the old value, or its absence.</summary>
+    public void SetSynthParam(SongTrack track, string id, float value, string? mergeKey = null)
+    {
+        var patch = Synth(track);
+        var param = SynthParams.Find(id) ?? throw new ArgumentException($"The synth has no parameter '{id}'.", nameof(id));
+        value = param.Clamp(value);
+        var had = patch.Params is not null && patch.Params.ContainsKey(id);
+        var old = had ? patch.Params![id] : param.Default;
+        if (had && old == value)
+            return;
+        Commit(SynthParams.ProductName + ": " + param.Name, () => (patch.Params ??= new(StringComparer.Ordinal))[id] = value, () =>
+        {
+            if (had)
+                patch.Params![id] = old;
+            else
+                patch.Params?.Remove(id);
+        }, mergeKey);
+    }
+
+    /// <summary>Sets several synth parameters as one history entry named <paramref name="name"/> (Init, presets, resets).</summary>
+    public void SetSynthParams(SongTrack track, IReadOnlyDictionary<string, float> values, string name, string? mergeKey = null)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        var patch = Synth(track);
+        var old = patch.Params is null ? null : new Dictionary<string, float>(patch.Params, StringComparer.Ordinal);
+        var next = old is null ? new Dictionary<string, float>(StringComparer.Ordinal) : new Dictionary<string, float>(old, StringComparer.Ordinal);
+        var changed = false;
+        foreach (var (id, raw) in values)
+        {
+            var value = SynthParams.Find(id) is { } p ? p.Clamp(raw) : raw;
+            if (next.TryGetValue(id, out var current) && current == value)
+                continue;
+            next[id] = value;
+            changed = true;
+        }
+
+        if (changed)
+            Commit(name, () => patch.Params = new Dictionary<string, float>(next, StringComparer.Ordinal),
+                () => patch.Params = old is null ? null : new Dictionary<string, float>(old, StringComparer.Ordinal), mergeKey);
+    }
+
+    /// <summary>Replaces the whole patch (Init, a preset; <paramref name="preset"/> names it): one undo step.</summary>
+    public void SetSynthPatch(SongTrack track, SynthPatch patch, string name, string? preset = null)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+        Synth(track);
+        var instrument = track.Instrument!;
+        var (old, oldPreset) = (instrument.Patch, instrument.Preset);
+        Commit(name, () => (instrument.Patch, instrument.Preset) = (patch, preset), () => (instrument.Patch, instrument.Preset) = (old, oldPreset));
+    }
+
+    /// <summary>Sets oscillator <paramref name="oscillator"/>'s (<c>a</c> or <c>b</c>) wavetable.</summary>
+    public void SetSynthTable(SongTrack track, string oscillator, SynthTableRef table)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        if (oscillator is not ("a" or "b"))
+            throw new ArgumentException("The oscillators are 'a' and 'b'.", nameof(oscillator));
+        var patch = Synth(track);
+        var old = patch.Tables is not null && patch.Tables.TryGetValue(oscillator, out var t) ? t : null;
+        Commit("Wavetable", () => (patch.Tables ??= new(StringComparer.Ordinal))[oscillator] = table, () =>
+        {
+            if (old is null)
+                patch.Tables?.Remove(oscillator);
+            else
+                patch.Tables![oscillator] = old;
+        });
+    }
+
+    /// <summary>Adds a mod-matrix route (at most <see cref="SynthPatch.MaxRoutes"/> play).</summary>
+    public void AddModRoute(SongTrack track, SynthModRoute route)
+    {
+        ArgumentNullException.ThrowIfNull(route);
+        var patch = Synth(track);
+        Commit("Add Modulation", () => (patch.Matrix ??= []).Add(route), () => patch.Matrix?.Remove(route));
+    }
+
+    /// <summary>Replaces route <paramref name="index"/> (amount drags: pass a mergeKey).</summary>
+    public void SetModRoute(SongTrack track, int index, SynthModRoute route, string? mergeKey = null)
+    {
+        ArgumentNullException.ThrowIfNull(route);
+        var matrix = Synth(track).Matrix ?? throw new ArgumentOutOfRangeException(nameof(index));
+        var old = matrix[index];
+        Commit("Modulation", () => matrix[index] = route, () => matrix[index] = old, mergeKey);
+    }
+
+    public void RemoveModRoute(SongTrack track, int index)
+    {
+        var matrix = Synth(track).Matrix ?? throw new ArgumentOutOfRangeException(nameof(index));
+        var old = matrix[index];
+        Commit("Remove Modulation", () => matrix.RemoveAt(index), () => matrix.Insert(index, old));
+    }
+
+    /// <summary>Sets LFO <paramref name="lfo"/>'s (0–3) drawn shape (null: back to its built-in shapes).</summary>
+    public void SetLfoShape(SongTrack track, int lfo, SynthLfoShape? shape, string? mergeKey = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)lfo, 3u, nameof(lfo));
+        var patch = Synth(track);
+        var old = patch.LfoShapes is { } shapes && lfo < shapes.Count ? shapes[lfo] : null;
+        Commit("LFO Shape", () => Assign(shape), () => Assign(old), mergeKey);
+
+        void Assign(SynthLfoShape? value)
+        {
+            patch.LfoShapes ??= [];
+            while (patch.LfoShapes.Count <= lfo)
+                patch.LfoShapes.Add(null);
+            patch.LfoShapes[lfo] = value;
+        }
+    }
+
+    /// <summary>Adds a built-in effect to the synth's FX rack (−1: the end). Its parameters and bypass use <see cref="SetInsertParam"/> / <see cref="SetInsertBypass"/>.</summary>
+    public PluginInsert AddSynthFx(SongTrack track, string builtinId, int index = -1)
+    {
+        var info = BuiltinEffects.Find(builtinId) ?? throw new ArgumentException($"No built-in effect '{builtinId}'.", nameof(builtinId));
+        var fx = Synth(track).Fx ??= [];
+        var insert = PluginInsert.ForBuiltin(info);
+        var at = index < 0 || index > fx.Count ? fx.Count : index;
+        Commit("Add " + info.Name, () => fx.Insert(at, insert), () => fx.Remove(insert));
+        return insert;
+    }
+
+    public void RemoveSynthFx(SongTrack track, PluginInsert insert)
+    {
+        var fx = Synth(track).Fx;
+        var index = fx?.IndexOf(insert) ?? -1;
+        if (index < 0)
+            throw new ArgumentException("The effect is not in the synth's rack.", nameof(insert));
+        Commit("Remove Effect", () => fx!.Remove(insert), () => fx!.Insert(index, insert));
+    }
+
+    public void MoveSynthFx(SongTrack track, PluginInsert insert, int newIndex)
+    {
+        var fx = Synth(track).Fx;
+        var old = fx?.IndexOf(insert) ?? -1;
+        if (old < 0)
+            throw new ArgumentException("The effect is not in the synth's rack.", nameof(insert));
+        newIndex = Math.Clamp(newIndex, 0, fx!.Count - 1);
+        if (old == newIndex)
+            return;
+        Commit("Move Effect", () => Move(newIndex), () => Move(old));
+
+        void Move(int to)
+        {
+            fx.Remove(insert);
+            fx.Insert(to, insert);
+        }
+    }
+
     // --- plugin inserts (track: null = the master) -------------------------------------------------
 
     /// <summary>Adds an insert effect to a track's (or, with a null track, the master's) chain at <paramref name="index"/> (−1 = end).</summary>

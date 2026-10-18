@@ -15,6 +15,9 @@ public enum ParamCurve
 
     /// <summary>An index into <see cref="BuiltinParam.Choices"/> (a menu).</summary>
     Choice,
+
+    /// <summary>Whole numbers on a linear knob (octave, unison voices, polyphony); not a modulation target.</summary>
+    Stepped,
 }
 
 /// <summary>
@@ -24,7 +27,10 @@ public enum ParamCurve
 /// </summary>
 /// <param name="Id">camelCase key in <see cref="PluginInsert.Params"/>.</param>
 /// <param name="Name">Knob label.</param>
-/// <param name="Unit">"Hz", "dB", "ms", "%", ":1", "pan", "×", "bits" or "" (formatting).</param>
+/// <param name="Unit">
+/// "Hz", "dB", "ms", "s" (seconds, shown in ms below 1 s), "%", "pct" (0–1 shown as %), ":1", "pan" (−100…100), "pan1"
+/// (−1…1), "st" and "ct" (signed semitones and cents), "×", "bits", "°" or "" (formatting).
+/// </param>
 /// <param name="Group">Knob group in the plugin window ("Low Cut", "Band 2", …), or null.</param>
 public sealed record BuiltinParam(string Id, string Name, string Unit, float Min, float Max, float Default,
     ParamCurve Curve = ParamCurve.Linear, string[]? Choices = null, string? Group = null)
@@ -41,7 +47,7 @@ public sealed record BuiltinParam(string Id, string Name, string Unit, float Min
         if (!float.IsFinite(value))
             return Default;
         value = Math.Clamp(value, Min, Max);
-        return Curve is ParamCurve.Toggle or ParamCurve.Choice ? MathF.Round(value) : value;
+        return Curve is ParamCurve.Toggle or ParamCurve.Choice or ParamCurve.Stepped ? MathF.Round(value) : value;
     }
 
     /// <summary>0..1 knob position of <paramref name="value"/>.</summary>
@@ -84,10 +90,16 @@ public sealed record BuiltinParam(string Id, string Name, string Unit, float Min
             "dB" => value.ToString("+0.0;-0.0;0.0", c) + " dB",
             "ms" => value.ToString(value < 10 ? "0.00" : value < 100 ? "0.0" : "0", c) + " ms",
             "%" => value.ToString("0", c) + " %",
+            "pct" => (value * 100).ToString("0", c) + " %",
+            "s" => value < 1 ? (value * 1000).ToString(value < 0.01f ? "0.0" : "0", c) + " ms" : value.ToString("0.00", c) + " s",
+            "st" => value.ToString(Curve == ParamCurve.Stepped ? "+0;-0;0" : "+0.00;-0.00;0", c) + " st",
+            "ct" => value.ToString("+0;-0;0", c) + " ct",
+            "pan1" => MathF.Abs(value) < 0.005f ? "C" : (MathF.Abs(value) * 100).ToString("0", c) + (value < 0 ? " L" : " R"),
+            "°" => value.ToString("0", c) + "°",
             ":1" => value.ToString(value < 10 ? "0.0" : "0", c) + " : 1",
             "pan" => MathF.Abs(value) < 0.5f ? "C" : MathF.Abs(value).ToString("0", c) + (value < 0 ? " L" : " R"),
             "×" => value.ToString(value < 10 ? "0.0" : "0", c) + "×",
-            "" => value.ToString("0.00", c),
+            "" => value.ToString(Curve == ParamCurve.Stepped ? "0" : "0.00", c),
             _ => value.ToString(value < 10 ? "0.0" : "0", c) + " " + Unit,
         };
     }

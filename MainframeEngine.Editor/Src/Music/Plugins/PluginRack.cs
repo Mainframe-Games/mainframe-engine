@@ -211,6 +211,8 @@ public sealed class PluginRack : IDisposable
 
             foreach (var e in events)
             {
+                if (!e.IsNote)
+                    continue; // controllers do not reach VST3 instruments yet
                 if (count >= shm.MaxEvents)
                     break;
                 shm.WriteEvent(inst.Slot, count++, Math.Clamp(e.Offset, 0, frames - 1), e.On, e.Pitch, e.Velocity);
@@ -578,13 +580,13 @@ public sealed class PluginInstrument(PluginInstance instance) : IInstrument
 
     public int LatencyFrames => Instance.IsLoaded ? Instance.LatencyFrames : 0;
 
-    public void Process(TrackSnapshot track, ReadOnlySpan<NoteEvent> events, Span<float> stereo)
+    public void Process(TrackSnapshot track, ReadOnlySpan<NoteEvent> events, Span<float> stereo, in EffectContext context)
     {
         var rack = Instance.Rack;
         var frames = stereo.Length / 2;
         rack.BeginBatch();
         var slot = rack.AddChain(this, events, default, default, frames);
-        if (slot < 0 || rack.RunBatch(frames, true, 120, 0) != PluginProcessResult.Ok)
+        if (slot < 0 || rack.RunBatch(frames, context.Playing, context.Tempo, context.PositionFrames) != PluginProcessResult.Ok)
             return;
         var shm = Instance.Rack;
         Span<float> output = stackalloc float[frames * 2];

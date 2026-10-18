@@ -124,6 +124,19 @@ public sealed class SongBrowser(EditorWorkspace workspace)
                 Add("fx:" + info.Id, ItemKind, info.Name, info.Icon, info.Tooltip, false);
         }
 
+        // Built-in instruments.
+        (string Id, string Name, string Icon, string Tip)[] builtins =
+        [
+            ("inst:wavetable", SynthParams.ProductName, "wave-square", "Two wavetable oscillators, unison, two filters, envelopes, LFOs and a mod matrix"),
+            ("inst:zzfx", "Built-in ZzFX", "wave-sine", "The ZzFX sound-effect synth as an instrument (a sound line per track)"),
+        ];
+        var instrumentsBuiltin = builtins.Where(b => Matches(b.Name)).ToList();
+        if ((!filtering || instrumentsBuiltin.Count > 0) && Group("inst", "Instruments", "Built-in instruments: drop one on an instrument track"))
+        {
+            foreach (var (id, name, icon, tip) in instrumentsBuiltin)
+                Add(id, ItemKind, name, icon, tip + " — double-click sets the selected track's instrument", false);
+        }
+
         var vst = catalog.Effects.Where(p => Matches(p.DisplayName)).ToList();
         if ((!filtering || vst.Count > 0) && Group("vst", "VST3 Effects", "Scanned VST3 effect plugins (Editor Settings › VST3 folders)"))
         {
@@ -299,6 +312,20 @@ public sealed class SongBrowser(EditorWorkspace workspace)
                         document.AddInsert(track, plugin.ToDescriptor());
                     else
                         document.ReplaceInsert(track, replace, new PluginInsert { Plugin = plugin.ToDescriptor() });
+                    return true;
+                case "inst" when id is InstrumentDescriptor.WavetableBuiltin or InstrumentDescriptor.ZzfxBuiltin:
+                    if (track is not { Kind: SongTrackKind.Instrument })
+                    {
+                        Log.Info("[Music] Instruments go on instrument tracks.");
+                        return false;
+                    }
+
+                    document.SetTrackInstrument(track, id == InstrumentDescriptor.WavetableBuiltin
+                        ? InstrumentDescriptor.Wavetable()
+                        : InstrumentDescriptor.Zzfx(SongDocument.DefaultZzfxLine));
+                    tab.Player.Update(document);
+                    if (id == InstrumentDescriptor.WavetableBuiltin)
+                        workspace.PluginWindow.OpenSynth(tab, track);
                     return true;
                 case "vsti" when PluginCatalog.Current.Find(id) is { IsInstrument: true } instrument:
                     if (track is not { Kind: SongTrackKind.Instrument })

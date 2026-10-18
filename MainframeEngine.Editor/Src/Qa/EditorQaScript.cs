@@ -697,6 +697,7 @@ public sealed class EditorQaScript : IEditorAutomation
     // song select <track> [clip] (indices; the clip opens in the piano roll) · song play · song stop · song render (wait-for render) · song save ·
     // song insert <track index|master> <built-in id> [param=value …] (added at the end of the chain, its window opened) ·
     // song fx-window <track index|master> <slot> · song fx-close · song browser on|off ·
+    // song synth <track> [param=value …] (the wavetable synth on that track, its window open) ·
     // song browser-toggle <section or group id> (collapses or opens it: songs, plugins, fx:<category>, vst, vsti)
     private static void Song(EditorWorkspace workspace, string[] step)
     {
@@ -773,6 +774,24 @@ public sealed class EditorQaScript : IEditorAutomation
                 if ((step[2] == "on") != workspace.Layout.Settings.MusicShowBrowser)
                     workspace.Commands.Execute("music.browser");
                 break;
+            case "synth":
+                {
+                    // song synth <track> [param=value …]: the wavetable synth on that track, its window open.
+                    var track = document.Song.Tracks[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)];
+                    var patch = Music.SynthPatch.Init();
+                    foreach (var pair in step[3..])
+                    {
+                        var eq = pair.IndexOf('=', StringComparison.Ordinal);
+                        if (eq > 0)
+                            patch.Params![pair[..eq]] = float.Parse(pair[(eq + 1)..], System.Globalization.CultureInfo.InvariantCulture);
+                    }
+
+                    document.SetTrackInstrument(track, Music.InstrumentDescriptor.Wavetable(patch));
+                    tab.Player.Update(document);
+                    workspace.PluginWindow.OpenSynth(tab, track);
+                    break;
+                }
+
             case "browser-toggle":
                 workspace.SongPanel.Browser.ToggleCollapsed(step[2]);
                 break;

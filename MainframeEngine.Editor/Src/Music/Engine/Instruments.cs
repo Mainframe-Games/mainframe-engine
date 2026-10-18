@@ -1,10 +1,30 @@
 namespace MainframeEngine.Editor.Music;
 
-/// <summary>A note event for one block: <see cref="Offset"/> frames into the block.</summary>
-public readonly record struct NoteEvent(int Offset, int Pitch, int Velocity, bool On)
+/// <summary>What a <see cref="NoteEvent"/> carries: a note, or a live MIDI controller (keyboard input, not recorded).</summary>
+public enum NoteEventKind : byte
+{
+    Note,
+
+    /// <summary>Pitch bend: <see cref="NoteEvent.Velocity"/> is the 14-bit value (0…16383, 8192 = centre).</summary>
+    PitchBend,
+
+    /// <summary>Mod wheel (CC 1): <see cref="NoteEvent.Velocity"/> is 0…127.</summary>
+    ModWheel,
+
+    /// <summary>Channel aftertouch: <see cref="NoteEvent.Velocity"/> is 0…127.</summary>
+    Aftertouch,
+}
+
+/// <summary>
+/// A note (or controller) event for one block: <see cref="Offset"/> frames into the block. Controller events have
+/// <see cref="Kind"/> set, their value in <see cref="Velocity"/> and no pitch; instruments that do not use them skip them.
+/// </summary>
+public readonly record struct NoteEvent(int Offset, int Pitch, int Velocity, bool On, NoteEventKind Kind = NoteEventKind.Note)
 {
     /// <summary>Sort key: by offset, note-offs before note-ons at the same frame.</summary>
     internal long Key => ((long)Offset << 1) | (On ? 1L : 0L);
+
+    public bool IsNote => Kind == NoteEventKind.Note;
 }
 
 /// <summary>
@@ -18,9 +38,10 @@ public interface IInstrument
 
     /// <summary>
     /// Renders one block: applies <paramref name="events"/> (sorted, offsets inside the block) at their frames and
-    /// <b>adds</b> its stereo output into <paramref name="stereo"/> (interleaved, block frames × 2).
+    /// <b>adds</b> its stereo output into <paramref name="stereo"/> (interleaved, block frames × 2). The context carries the
+    /// tempo and song position (tempo-synced LFOs).
     /// </summary>
-    void Process(TrackSnapshot track, ReadOnlySpan<NoteEvent> events, Span<float> stereo);
+    void Process(TrackSnapshot track, ReadOnlySpan<NoteEvent> events, Span<float> stereo, in EffectContext context);
 
     /// <summary>Releases every sounding note quickly (stop, seek).</summary>
     void AllNotesOff();
@@ -37,6 +58,20 @@ public readonly record struct EffectContext(int SampleRate, double Tempo, bool P
 
     /// <summary>The block's song position in beats.</summary>
     public double PositionBeats => PositionFrames / FramesPerBeat;
+}
+
+/// <summary>
+/// A built-in instrument that takes its whole configuration from the track's <see cref="InstrumentDescriptor"/> (the
+/// wavetable synth): the snapshot builder calls <see cref="Apply"/> on every build (UI thread), as it does for built-in
+/// effects, so parameter edits reach the running instance without recreating it.
+/// </summary>
+public interface IBuiltinInstrument : IInstrument
+{
+    /// <summary>UI thread: the descriptor changed (or the song was rebuilt). Hands values and structure to the render thread.</summary>
+    void Apply(InstrumentDescriptor descriptor);
+
+    /// <summary>A problem to show on the track ("missing wavetable: …"), or null.</summary>
+    string? Status { get; }
 }
 
 /// <summary>
@@ -167,12 +202,14 @@ public sealed class ZzfxInstrument : IInstrument
         }
     }
 
-    public void Process(TrackSnapshot track, ReadOnlySpan<NoteEvent> events, Span<float> stereo)
+    public void Process(TrackSnapshot track, ReadOnlySpan<NoteEvent> events, Span<float> stereo, in EffectContext context)
     {
         var frames = stereo.Length / 2;
         var cursor = 0;
         foreach (var e in events)
         {
+            if (!e.IsNote)
+                continue;
             var at = Math.Clamp(e.Offset, cursor, frames);
             Render(stereo, cursor, at);
             cursor = at;

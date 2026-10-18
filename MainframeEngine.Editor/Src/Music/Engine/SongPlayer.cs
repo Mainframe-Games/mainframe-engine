@@ -14,6 +14,7 @@ public sealed class SongPlayer : IDisposable
     private readonly AudioServer? _server;
     private readonly AudioStreamGenerator? _stream;
     private readonly Thread _thread;
+    private int _tableVersion = -1;
     private readonly SongSnapshotBuilder _builder;
     private volatile bool _running = true;
     private AudioVoiceHandle _voice;
@@ -131,10 +132,12 @@ public sealed class SongPlayer : IDisposable
             rack.Maintain(document.IsReadOnly ? null : _commit);
         }
 
-        if (!ReferenceEquals(document, _document) || document.Version != _version || (Plugins is not null && Plugins.Version != _pluginVersion))
+        if (!ReferenceEquals(document, _document) || document.Version != _version || (Plugins is not null && Plugins.Version != _pluginVersion) ||
+            WavetableCache.Version != _tableVersion)
         {
             _document = document;
             _version = document.Version;
+            _tableVersion = WavetableCache.Version; // before the build: a table finishing during it rebuilds again
             Engine.SetSnapshot(_builder.Build(document.Song));
             _pluginVersion = Plugins?.Version ?? 0; // after the build: loads during it are in this snapshot
         }
@@ -178,6 +181,14 @@ public sealed class SongPlayer : IDisposable
         _builder.EnsurePitch(track, pitch);
         if (Engine.Current?.Find(track.Id) is { } snapshot)
             Engine.PreviewNote(snapshot, pitch, Math.Clamp(velocity, 1, 127));
+    }
+
+    /// <summary>A live MIDI controller (pitch bend 0…16383, mod wheel or aftertouch 0…127) for a track's instrument.</summary>
+    public void Controller(SongTrack track, NoteEventKind kind, int value)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        if (Engine.Current?.Find(track.Id) is { } snapshot)
+            Engine.Controller(snapshot, kind, value);
     }
 
     public void ReleaseNote(SongTrack track, int pitch)

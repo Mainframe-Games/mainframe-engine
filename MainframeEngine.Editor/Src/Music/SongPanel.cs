@@ -630,8 +630,10 @@ public sealed class SongPanel : EditorDocument
         var items = new List<MenuItem>
         {
             MenuItem.Header("Instrument"),
+            new(SynthParams.ProductName, "wavetable", Css: track.Instrument?.IsWavetable == true ? "current" : null, Icon: "wave-square"),
             new("Built-in ZzFX", "zzfx", Css: track.Instrument?.IsZzfx == true ? "current" : null, Icon: "wave-sine"),
-            new("Edit Sound…", "edit", Enabled: track.Instrument?.IsZzfx == true, Icon: "pencil"),
+            new(track.Instrument?.IsWavetable == true ? "Open Synth…" : "Edit Sound…", "edit",
+                Enabled: track.Instrument?.IsZzfx == true || track.Instrument?.IsWavetable == true, Icon: "pencil"),
             MenuItem.Separator,
             MenuItem.Header("VST3 instruments"),
         };
@@ -654,7 +656,16 @@ public sealed class SongPanel : EditorDocument
         {
             if (!tab.Document.Song.Tracks.Contains(track))
                 return;
-            if (command == "zzfx" && track.Instrument?.IsZzfx != true)
+            if (command == "wavetable" && track.Instrument?.IsWavetable != true)
+            {
+                Guard("Could not set the instrument", () =>
+                {
+                    tab.Document.SetTrackInstrument(track, InstrumentDescriptor.Wavetable());
+                    tab.Player.Update(tab.Document);
+                    Workspace.PluginWindow.OpenSynth(tab, track);
+                });
+            }
+            else if (command == "zzfx" && track.Instrument?.IsZzfx != true)
                 Guard("Could not set the instrument", () => tab.Document.SetTrackInstrument(track, InstrumentDescriptor.Zzfx(SongDocument.DefaultZzfxLine)));
             else if (command == "edit")
                 EditLine(index);
@@ -934,6 +945,12 @@ public sealed class SongPanel : EditorDocument
     {
         if (track.Kind != SongTrackKind.Instrument)
             return;
+        if (track.Instrument is { IsWavetable: true })
+        {
+            Workspace.PluginWindow.OpenSynth(tab, track); // the synth's parameters (its own window comes later)
+            return;
+        }
+
         Workspace.Message.Show(new MessageRequest
         {
             Title = "Edit Sound",

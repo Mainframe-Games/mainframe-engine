@@ -204,12 +204,22 @@ public sealed class InstrumentDescriptor
 {
     public const string ZzfxBuiltin = "zzfx";
 
+    public const string WavetableBuiltin = "wavetable";
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Builtin { get; set; }
 
     /// <summary>Built-in ZzFX: the sound line (<see cref="ZzfxParameters.TryParse"/>).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Params { get; set; }
+
+    /// <summary>Built-in wavetable synth: its patch (parameters, tables, modulation, effects).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SynthPatch? Patch { get; set; }
+
+    /// <summary>Built-in wavetable synth: the preset the patch came from (UI only: "Warm Pad*" once it differs).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Preset { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PluginDescriptor? Plugin { get; set; }
@@ -224,13 +234,19 @@ public sealed class InstrumentDescriptor
     [JsonIgnore]
     public bool IsZzfx => string.Equals(Builtin, ZzfxBuiltin, StringComparison.Ordinal);
 
+    [JsonIgnore]
+    public bool IsWavetable => string.Equals(Builtin, WavetableBuiltin, StringComparison.Ordinal);
+
     public static InstrumentDescriptor Zzfx(string line) => new() { Builtin = ZzfxBuiltin, Params = line };
+
+    /// <summary>The wavetable synth with the Init patch (one saw oscillator through an open low-pass).</summary>
+    public static InstrumentDescriptor Wavetable(SynthPatch? patch = null) => new() { Builtin = WavetableBuiltin, Patch = patch ?? SynthPatch.Init() };
 
     /// <summary>"name (vendor)" for messages such as "missing plugin: …".</summary>
     [JsonIgnore]
     public string DisplayName => Plugin is { } p
         ? string.IsNullOrEmpty(p.Vendor) ? p.Name ?? p.ClassId ?? "plugin" : $"{p.Name} ({p.Vendor})"
-        : IsZzfx ? "ZzFX" : Builtin ?? "none";
+        : IsZzfx ? "ZzFX" : IsWavetable ? SynthParams.ProductName : Builtin ?? "none";
 }
 
 /// <summary>Identity of a plugin (VST3 class ID); unknown fields are preserved.</summary>
