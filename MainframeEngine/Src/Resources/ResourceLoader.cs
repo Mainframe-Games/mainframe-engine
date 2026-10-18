@@ -285,8 +285,8 @@ public static class ResourceLoader
         if (!File.Exists(fullPath))
             throw new FileNotFoundException($"Resource file not found: '{pathKey}'.", fullPath);
 
-        if (!AssetDatabase.IsSelfDescribing(fullPath) && AssetImporters.Find(fullPath) is { } importer)
-            return Import(importer, fullPath, pathKey);
+        if (AssetImporters.Find(fullPath) is { } importer)
+            return AssetDatabase.IsSelfDescribing(fullPath) ? ImportSelfDescribing(importer, fullPath, pathKey) : Import(importer, fullPath, pathKey);
 
         var bytes = File.ReadAllBytes(fullPath);
         if (fullPath.EndsWith(SceneFormat.SceneExtension, StringComparison.OrdinalIgnoreCase))
@@ -310,6 +310,16 @@ public static class ResourceLoader
         var resource = importer.Import(fullPath, pathKey, meta);
         resource.ResourcePath = pathKey;
         resource.Uid = meta is not null && AssetUid.IsUid(meta.Uid) ? meta.Uid : null;
+        return resource;
+    }
+
+    // Generated files that carry their own UID (adaptive music, .mmusic): the importer reads the file, the UID is the file's.
+    private static Resource ImportSelfDescribing(IAssetImporter importer, string fullPath, string pathKey)
+    {
+        var resource = importer.Import(fullPath, pathKey, null);
+        resource.ResourcePath = pathKey;
+        var uid = AssetDatabase.ReadEmbeddedUid(fullPath);
+        resource.Uid = AssetUid.IsUid(uid) ? uid : null;
         return resource;
     }
 

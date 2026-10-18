@@ -1,3 +1,5 @@
+using MainframeEngine.Audio.Dsp;
+
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>Shared parameters and LFO setup of the modulation effects (sync to a note value or free in Hz).</summary>

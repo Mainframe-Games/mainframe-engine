@@ -112,6 +112,13 @@ internal sealed class AudioMixRoot : SoundComponent
             return;
         }
 
+        if (command.Type >= AudioCommandType.MusicPlay)
+        {
+            if ((uint)command.Index < (uint)graph.MusicVoices.Length)
+                graph.MusicVoices[command.Index].Apply(command);
+            return;
+        }
+
         if ((uint)command.Index >= (uint)graph.Voices.Length)
             return;
         var voice = graph.Voices[command.Index];
@@ -176,6 +183,29 @@ internal sealed class AudioMixRoot : SoundComponent
                 if (Post(type, voice.Index, voice.Generation, graph))
                     voice.PendingEnd = VoiceEnd.None;
             }
+        }
+
+        // Music voices: their events first, then the clock, so a game thread that reads the clock before draining the
+        // events has every event up to that clock.
+        foreach (var music in graph.MusicVoices)
+        {
+            var underruns = music.Underruns;
+            if (underruns != music.ReportedUnderruns)
+            {
+                Interlocked.Add(ref _underruns, underruns - music.ReportedUnderruns);
+                music.ReportedUnderruns = underruns;
+            }
+
+            while (music.TryPeekEvent(out var e))
+            {
+                e.Ref = graph;
+                if (!_events.TryEnqueue(e))
+                    break; // retried after the next block
+                music.PopEvent();
+            }
+
+            if (!music.TryPeekEvent(out _))
+                music.Publish();
         }
     }
 
