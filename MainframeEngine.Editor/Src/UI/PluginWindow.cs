@@ -14,7 +14,7 @@ namespace MainframeEngine.Editor;
 /// knob drag is one undo step); undo, redo and edits from elsewhere show on the next tick. It closes when its insert
 /// leaves the song (removed, undone, the tab closed or switched) or music mode is left.
 /// </summary>
-public sealed class PluginWindow : EditorDocument
+public sealed partial class PluginWindow : EditorDocument
 {
     public const string GraphTexture = "plugin-graph";
 
@@ -207,6 +207,9 @@ public sealed class PluginWindow : EditorDocument
             document.GetElementById("pw-power").SetClass("active", !bypass);
         }
 
+        if (Instrument is { } synth)
+            TickSynth(document, synth);
+
         var readOnly = shown.Document.IsReadOnly;
         if (readOnly != _shownReadOnly)
         {
@@ -270,9 +273,14 @@ public sealed class PluginWindow : EditorDocument
         document.GetElementById("pw-power").SetClass("hidden", Insert is null);
         _shownReadOnly = !tab.Document.IsReadOnly;
         var trackName = Track?.Name ?? "Master";
-        document.GetElementById("pw-name").SetInnerRml(RmlText.Escape($"{info.Name} — {trackName} — {tab.Document.Name}"));
+        var preset = Instrument is null ? null : PresetName(Instrument.Preset);
+        document.GetElementById("pw-name").SetInnerRml(RmlText.Escape(preset is null ? $"{info.Name} — {trackName} — {tab.Document.Name}" : $"{info.Name} · {preset} — {trackName} — {tab.Document.Name}"));
+        _shownPreset = Instrument?.Preset;
+        foreach (var id in (ReadOnlySpan<string>)["pw-table-a", "pw-table-b", "pw-prev", "pw-next"])
+            document.GetElementById(id).SetClass("hidden", Instrument is null);
+        _shownTables = default;
         document.GetElementById("pw-icon").SetClassNames("icon icon-sm icon-" + info.Icon);
-        document.GetElementById("pw-presets").SetClass("hidden", info.Presets is not { Length: > 0 });
+        document.GetElementById("pw-presets").SetClass("hidden", Instrument is null && info.Presets is not { Length: > 0 });
         document.GetElementById("pw-graph").SetClass("hidden", info.Graph != BuiltinGraph.Eq);
         document.GetElementById("pw-meter").SetClass("hidden", info.Graph != BuiltinGraph.GainReduction);
         document.GetElementById("pw-readout").SetClass("hidden", info.Graph != BuiltinGraph.DelayReadout);
@@ -496,6 +504,18 @@ public sealed class PluginWindow : EditorDocument
                 case "pw-power":
                     if (Insert is { } bypassed)
                         Edit(tab, "Could not bypass the effect", () => tab.Document.SetInsertBypass(bypassed, !bypassed.Bypass));
+                    return;
+                case "pw-reset" when Instrument is not null && Track is { } synthTrack:
+                    Edit(tab, "Could not reset the synth", () => tab.Document.SetSynthPatch(synthTrack, SynthPatch.Init(), "Init Patch"));
+                    return;
+                case "pw-presets" when Instrument is not null:
+                    SynthPresetMenu(tab);
+                    return;
+                case "pw-table-a" or "pw-table-b" when Instrument is not null:
+                    TableMenu(tab, el.Id == "pw-table-a" ? "a" : "b");
+                    return;
+                case "pw-prev" or "pw-next" when Instrument is not null:
+                    StepPreset(tab, el.Id == "pw-next" ? 1 : -1);
                     return;
                 case "pw-reset":
                     Edit(tab, "Could not reset the effect", () => SetParams(tab, info.Defaults(), "Reset " + info.Name));

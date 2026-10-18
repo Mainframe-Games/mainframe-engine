@@ -49,14 +49,14 @@ public static class FactoryWavetables
         return null;
     }
 
-    /// <summary>"Saw (Basic)" for <c>factory:basic/saw</c>.</summary>
+    /// <summary>"Saw (Basic)" for <c>factory:basic/saw</c>; a project table's file name.</summary>
     public static string DisplayName(string source)
     {
         var name = source.StartsWith(Prefix, StringComparison.Ordinal) ? source[Prefix.Length..] : Path.GetFileNameWithoutExtension(source);
         var slash = name.IndexOf('/', StringComparison.Ordinal);
         if (slash < 0)
             return name;
-        static string Title(string s) => string.Join(' ', s.Split('-').Select(w => w.Length == 0 ? w : char.ToUpperInvariant(w[0]) + w[1..]));
+        static string Title(string s) => string.Join(' ', s.Split('-').Select(static w => w is "pwm" or "fm" ? w.ToUpperInvariant() : w.Length == 0 ? w : char.ToUpperInvariant(w[0]) + w[1..]));
         return $"{Title(name[(slash + 1)..])} ({Title(name[..slash])})";
     }
 
@@ -185,36 +185,68 @@ public static class WavetableCache
     }
 
     /// <summary>
-    /// UI thread: the table for <paramref name="source"/> if it is built, else null (its build is started). An unknown
-    /// source sets <paramref name="error"/> and returns null.
+    /// UI thread: the table for <paramref name="source"/> if it is built, else null (its build is started). A factory table
+    /// (<c>factory:…</c>) or a project <c>.wav</c> (asset UID or project path; <paramref name="frameSize"/> as
+    /// <see cref="WavetableWav.Read"/> takes it), read again when the file changes. A source that cannot be played sets
+    /// <paramref name="error"/> (the track's status) and returns null.
     /// </summary>
-    public static Wavetable? Get(string source, out string? error)
+    public static Wavetable? Get(string source, out string? error, int frameSize = 0)
     {
         error = null;
         if (string.Equals(source, FactoryWavetables.DefaultSource, StringComparison.Ordinal))
             return Default;
+        string key;
+        Func<Wavetable?> make;
+        if (source.StartsWith(FactoryWavetables.Prefix, StringComparison.Ordinal))
+        {
+            key = source;
+            make = () => FactoryWavetables.Generate(source) is { } frames ? Wavetable.Build(source, frames) : throw new InvalidDataException("no such factory table");
+        }
+        else
+        {
+            // A project file: resolved here (the asset database is the UI thread's), read on the worker.
+            var database = AssetDatabase.Current;
+            var relative = AssetUid.IsUid(source) ? database.GetPath(source) : source;
+            var path = relative is null ? null : database.ToAbsolutePath(relative);
+            if (path is null || !File.Exists(path))
+            {
+                error = "missing wavetable: " + (relative ?? source);
+                return null;
+            }
+
+            key = $"{path}|{frameSize}|{File.GetLastWriteTimeUtc(path).Ticks}";
+            make = () => Wavetable.Build(source, WavetableWav.Read(path, frameSize).Frames);
+        }
+
         Task<Wavetable?> build;
         lock (Gate)
         {
-            if (!Builds.TryGetValue(source, out build!))
+            if (!Builds.TryGetValue(key, out build!))
             {
                 build = Task.Run(() =>
                 {
-                    var frames = FactoryWavetables.Generate(source);
-                    var table = frames is null ? null : Wavetable.Build(source, frames);
-                    Interlocked.Increment(ref _version);
-                    return table;
+                    try
+                    {
+                        return make();
+                    }
+                    finally
+                    {
+                        Interlocked.Increment(ref _version);
+                    }
                 });
-                Builds[source] = build;
+                Builds[key] = build;
             }
         }
 
         if (!build.IsCompleted)
             return null;
-        var result = build.IsCompletedSuccessfully ? build.Result : null;
-        if (result is null)
-            error = "missing wavetable: " + source;
-        return result;
+        if (build.IsCompletedSuccessfully && build.Result is { } table)
+            return table;
+        var reason = build.Exception?.InnerException?.Message;
+        error = source.StartsWith(FactoryWavetables.Prefix, StringComparison.Ordinal) || reason is null
+            ? "missing wavetable: " + source
+            : $"wavetable {source}: {reason}";
+        return null;
     }
 
     /// <summary>
@@ -227,18 +259,38 @@ public static class WavetableCache
             return ready;
         Task<Wavetable?> build;
         lock (Gate)
-            build = Builds[source];
-        build.Wait();
+        {
+            if (!Builds.TryGetValue(source, out build!))
+                return Default;
+        }
+
+        try
+        {
+            build.Wait();
+        }
+        catch (AggregateException)
+        {
+            return Default;
+        }
+
         return build.Result ?? Default;
     }
 
-    /// <summary>Waits for every table being built (offline renders, tests).</summary>
+    /// <summary>Waits for every table being built (offline renders, tests); failed builds are reported by <see cref="Get"/>.</summary>
     public static void WaitForPending()
     {
         Task[] pending;
         lock (Gate)
             pending = [.. Builds.Values.Where(static t => !t.IsCompleted)];
-        if (pending.Length > 0)
-            Task.WaitAll(pending);
+        foreach (var task in pending)
+        {
+            try
+            {
+                task.Wait();
+            }
+            catch (AggregateException)
+            {
+            }
+        }
     }
 }

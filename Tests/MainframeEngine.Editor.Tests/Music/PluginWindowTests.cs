@@ -147,4 +147,29 @@ public sealed class PluginWindowTests
             Assert.False(window.IsOpen);
         }
     }
+
+    [Fact]
+    public void PresetArrowsStepThroughACategoryAndTheTitleNamesThePreset()
+    {
+        var (editor, tab, track) = Open();
+        using (editor)
+        {
+            tab.Document.SetTrackInstrument(track, InstrumentDescriptor.Wavetable());
+            var window = editor.Workspace.PluginWindow;
+            window.OpenSynth(tab, track);
+            editor.Tick(2);
+            window.StepPreset(tab, 1); // no preset yet: the first factory one
+            editor.Tick(2);
+            Assert.Equal("factory:Bass/Sub Bass", track.Instrument!.Preset);
+            Assert.Contains("· Sub Bass", Text(editor, "pw-name"), StringComparison.Ordinal);
+            window.StepPreset(tab, 1);
+            Assert.Equal("factory:Bass/Reese", track.Instrument.Preset);
+            window.StepPreset(tab, -1);
+            window.StepPreset(tab, -1); // wraps to the category's last
+            Assert.Equal("factory:Bass/" + FactoryPresets.All.Last(p => p.Category == "Bass").Name, track.Instrument.Preset);
+            editor.Tick(2);
+            Assert.Equal("A: Saw (Basic)", Text(editor, "pw-table-a"));
+            Assert.Empty(editor.RmlMessages);
+        }
+    }
 }

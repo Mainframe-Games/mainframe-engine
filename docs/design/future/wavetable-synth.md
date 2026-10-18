@@ -624,6 +624,28 @@ Measured (`just bench '*SynthBenchmarks*'`, Release, Apple Silicon, one 256-fram
 11.5 µs (0.2 %), lead 24.7 µs (0.5 %), supersaw pad 216 µs (4.0 %), worst case 16 × 2 × 16 with a ladder and four
 effects 1.04 ms (19.5 %); zero allocation in every case.
 
+## As built: PR 2 (content)
+
+- **`.wav` wavetables** (`Synth/WavetableWav.cs`): a RIFF reader for 8/16/24/32-bit PCM and 32-bit float (also
+  `WAVE_FORMAT_EXTENSIBLE`), mixed to mono; the frame size from the `clm ` chunk, else the patch's `frameSize`, else 2048
+  when the length is a multiple of it, else one single-cycle frame (refused past 65 536 samples); other frame sizes are
+  resampled to 2048 by FFT (power-of-two lengths) or a DFT of the kept harmonics (any other length); at most 256 frames
+  (the rest dropped with a warning). Non-byte bit depths, missing `fmt `/`data` chunks and empty files are refused with a
+  reason. `WavetableWav.Import` checks the file, copies a file from outside `Content/` into `Content/Wavetables/` (a free
+  name), gives it a UID and returns that UID, which is the table's source (stable when the file moves).
+- **`WavetableCache`** builds project tables on its worker like factory ones, keyed by file, frame size and modification
+  time (a re-saved file is read again); the synth compares tables by identity, so a re-read table recompiles its program.
+- **Presets:** 39 factory presets (`FactoryPresets`: 7 bass, 7 lead, 7 pad, 6 pluck, 6 keys, 6 FX) built from the
+  registry, factory tables only; `WavetablePreset` (`MainframeEngine/Src/Audio/Synth/`, registered by the generator) with
+  `ResourceName`, `Category`, `Author`, `Tags` and `Patch` (the patch JSON). `SynthPresets` lists the project's presets by
+  peeking each `.mres`'s root type and reads them straight from the file (the resource loader caches). Loading a preset
+  is one undo step (`SongDocument.SetSynthPatch`, which also records `InstrumentDescriptor.Preset`).
+- **In the stopgap window** (`PluginWindow.Synth.cs`): the title names the preset; Presets lists Init, the factory
+  categories, the project's presets and Save Preset… ("Category / Name", saved in `Content/Presets/Wavetable/`); the
+  arrows step through the current preset's category (wrapping); "A: …" / "B: …" open each oscillator's table menu (the
+  factory sets, the project's `Content/Wavetables/`, Import Wavetable… and, for a file, the frame size). Reset loads Init.
+- Not yet: the modified mark ("Warm Pad*"), a user-wide preset library (an open question below).
+
 ## Open questions
 
 - **Name.** "Mainframe Wavetable" is a working title; the stored id `wavetable` does not depend on it, so the display

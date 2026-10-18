@@ -60,3 +60,24 @@ internal static class SynthTestUtil
 
     public static double Db(double linear) => 20 * Math.Log10(Math.Max(linear, 1e-12));
 }
+
+/// <summary>A temporary project folder as <see cref="AssetDatabase.Current"/> (restored on dispose; tests in <c>SerialEditor</c>).</summary>
+internal sealed class TempProject : IDisposable
+{
+    private readonly AssetDatabase _previous = AssetDatabase.Current;
+
+    public TempProject()
+    {
+        Root = Directory.CreateTempSubdirectory("mf-synth-").FullName;
+        Directory.CreateDirectory(Path.Combine(Root, AssetDatabase.ContentFolder));
+        AssetDatabase.Current = new AssetDatabase(Root);
+    }
+
+    public string Root { get; }
+
+    public void Dispose()
+    {
+        AssetDatabase.Current = _previous;
+        Directory.Delete(Root, recursive: true);
+    }
+}
