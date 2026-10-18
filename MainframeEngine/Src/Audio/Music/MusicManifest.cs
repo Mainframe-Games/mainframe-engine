@@ -117,6 +117,13 @@ public sealed class MusicManifestMarker
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Exit { get; set; }
 
+    /// <summary>
+    /// A tail point's baked tails by layer id ("cut at the marker + tail"; null entry: that layer is silent there): an
+    /// exit at this marker fires them like a section-end exit fires the section's tails. Null: not a tail point.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, MusicStemRef?>? Tails { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
 }

@@ -193,6 +193,13 @@ public sealed partial class SongDocument
         Set(exit ? "Make Exit Marker" : "Make Plain Marker", marker.Exit, exit, v => marker.Exit = v, null);
     }
 
+    /// <summary>Makes the marker a tail point (the bake renders "cut here + tail" per layer) or a plain one.</summary>
+    public void SetMarkerTail(SongMarker marker, bool tail)
+    {
+        Require(Adaptive.Markers, marker);
+        Set(tail ? "Make Tail Point" : "Remove Tail Point", marker.Tail, tail, v => marker.Tail = v, null);
+    }
+
     // --- layers -----------------------------------------------------------------------------------
 
     public SongLayer AddLayer(string name, string? color = null)

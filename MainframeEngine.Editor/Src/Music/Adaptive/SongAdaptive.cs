@@ -123,6 +123,13 @@ public sealed class SongMarker
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Exit { get; set; }
 
+    /// <summary>
+    /// An exit marker that is also a tail point: the bake renders "cut here + tail" per layer, so an exit at it rings
+    /// out like a section end instead of fading.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Tail { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
 }

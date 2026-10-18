@@ -149,6 +149,7 @@ public sealed class SongAdaptiveTests
         a.Sections.Add(new SongSection { Id = "lost", Name = "Lost", Start = 300000, End = 303360, Loop = true });
         a.FindSection("victory")!.End = 215040 + 5 * Bar;             // a long stinger
         a.Markers.Add(new SongMarker { Id = "m2", Name = "nowhere", Tick = 999999 });
+        a.Markers.Add(new SongMarker { Id = "m3", Name = "plain", Tick = 30720, Tail = true }); // a tail point that is not an exit
         a.Curves.Add(new MusicCurveInfo { Layer = "ghost", Parameter = "intensity", Points = [new(0, 0)] });
         a.Curves.Add(new MusicCurveInfo { Layer = "base", Target = MusicCurveTarget.Cutoff, Parameter = "speed", Points = [] });
         a.Transitions.Add(new MusicTransitionInfo { From = ["explore"], To = "combat", When = a.Transitions[0].When!.Clone() }); // shadowed
@@ -173,6 +174,7 @@ public sealed class SongAdaptiveTests
             "longer than 4 bars", "outside every section", "layer 'ghost'", "no filter", "parameter 'speed'", "no points",
             "never fires: transition 1", "comes from 'nope'", "not a playable section", "not a transition section", "not a stinger",
             "not one of its labels", "never reached", "Master inserts", "crosses the end of 'Explore'", "Track 'Pads' names layer 'ghost'",
+            "Tail point 'plain' is not an exit marker",
         ];
         foreach (var text in errors)
             Assert.Contains(problems, p => p.Severity == AdaptiveProblemSeverity.Error && p.Message.Contains(text, StringComparison.Ordinal));
@@ -236,6 +238,7 @@ public sealed class SongAdaptiveTests
         Step(() => doc.SetSectionThen(explore!, "s2"));
         Step(() => marker = doc.AddMarker("drop", 2 * Bar, exit: true));
         Step(() => doc.MoveMarker(marker!, 3 * Bar));
+        Step(() => doc.SetMarkerTail(marker!, true));
         Step(() => doc.SetMarkerExit(marker!, false));
         Step(() => perc = doc.AddLayer("Perc", "#f59e0b"));
         Step(() => doc.SetLayerFilter(perc!, MusicLayerFilter.LowPass));
