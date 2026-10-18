@@ -1,7 +1,8 @@
 # Proposal: Adaptive music (FMOD-style, baked stems)
 
 **Milestone:** unscheduled (editor tooling + audio runtime; Phase 3 of the Logic-style Music mode) · **Status:** proposal
-(2026-10-18); PR A1 (shared logic and the song model) built, see [As built: A1](#as-built-a1), [ADR 0196](../../../memory/decisions/0196-adaptive-music-baked-stems.md) (proposed) · **Depends on:**
+(2026-10-18); PR A1 (shared logic and the song model) built, see [As built: A1](#as-built-a1); PR A3 (the bake) built, see
+[As built: A3](#as-built-a3); [ADR 0196](../../../memory/decisions/0196-adaptive-music-baked-stems.md) (proposed) · **Depends on:**
 [Music editor](music-editor.md) (songs, `SongEngine`, Render), [Audio](../audio.md) (`AudioServer`, streaming, the
 command queue), [Editor](../editor.md) (Music mode), the Phase 1 right-hand Browser and built-in effects
 (`docs/design/music-effects.md`, not written yet) · **Related:** [Project and GameHost](../project-and-gamehost.md)
@@ -883,6 +884,92 @@ questions 2 (curves drive only layer volume and one filter) and 7 (`.mmusic` wit
 - The FileSystem's reference fix-ups rewrite them in the project-file style.
 - **Open for A2:** `ResourceLoader` skips importers for self-describing files, so A2's `AdaptiveMusicImporter` needs
   `.mmusic` routed to it.
+
+## As built: A3
+
+A3 is `MainframeEngine.Editor/Src/Music/Adaptive/` `SongBaker` (`SongBaker.cs`, `SongBaker.Render.cs`), `SongBakeJob` and
+`SongBakeCommand`. It follows [The bake](#the-bake) with the recommended answers to open questions 1 (master inserts are
+not baked), 3 (one stereo stem per layer per section), 4 (fades plus optional tail points), 5 (stingers are one mixed
+stem) and 10 (explicit Bake, with an out-of-date badge).
+
+**Rendering**
+
+- **Isolation.** `SongBaker.RenderStem(song, section, layer)` renders one stem the way the bake does; a null layer is the
+  section's mix (the isolation test sums the layers against it). The isolated song keeps only that layer's unmuted
+  tracks, and solo is ignored. It keeps the notes that start inside the section, cut at its end, and audio clips sliced
+  to the section. Everything moves so the section starts at tick 0, so note frames use the same rounding as `MusicGrid`.
+  Master volume is kept; master inserts are not.
+- **A fresh engine per stem.** Each stem gets a new `SongSnapshotBuilder` and `SongEngine`, so instruments and effects
+  start clean. The render runs past the cut by `tailSeconds` (at most 60 s).
+- **Plugin delay compensation.** The snapshot's `MaxTrackLatency` is rendered first and dropped, so frame 0 is the
+  downbeat. Master inserts would add latency, and they are not in the bake.
+- **Tails** are trimmed after the last frame above −90 dBFS, plus 10 ms. The last 10 ms of what is kept fade linearly to
+  silence. An all-silent tail is not written.
+- **Workers.** Stems without plugins render in parallel (`SongBakeOptions.MaxParallelism`, default
+  `ProcessorCount − 1`). Plugin stems render one after another through one offline `PluginRack`. Encodes go through
+  the helper one at a time.
+- **Failures.** A stem that needs plugins fails the bake when there is no rack, or when a plugin cannot play; the error
+  lists the stems. A reused stem needs no plugins.
+
+**Stems and the manifest**
+
+- **Stems.** Each stem's float WAV is encoded by the plugin helper (`IPluginHost.Encode`). The bake checks the frame
+  count the helper reports against the expected length. Without a helper, stems are 16-bit `.wav` and a warning says
+  so.
+- **Names.** `<section>.<layer>.<hash8>.ogg` with `.tail.ogg` for its tail, `<stinger>.<hash8>.ogg`, and
+  `<section>.at-<marker>.<layer>.<hash8>.tail.ogg` for tail points. Ids are made file-safe, and `<hash8>` is the first
+  8 hex digits of the input hash.
+- **The manifest** starts from `SongAdaptiveCompiler.ToManifest` and is written with A1's `MusicManifestFormat.Write`.
+  Its `mus_` UID is kept from the previous manifest. Each stem gets an `aud_` UID in its `.meta`, with `loadMode` set to
+  `Stream` for section bodies and `Memory` for tails, stingers and transition segments. An existing `.meta` keeps its
+  UID.
+- **Null stems.** A layer with nothing in a section gets `null` in `stems`. A stinger has only `"mix"`, whose `frames`
+  includes its tail.
+- **Tail points.** A marker with `exit: true` and the new `tail: true` (`SongMarker.Tail`, `SongDocument.SetMarkerTail`;
+  validation warns about a tail point that is not an exit) bakes "cut at the marker + tail" per layer. The tails go in
+  the manifest marker's new `tails` map (layer → stem, or null when silent; `MusicManifestMarker.Tails`). The runtime
+  fires them like section-end tails when an `exitMarker` exit leaves at that marker.
+- **`bake` block:** `editor`, `date`, `inputs` (key → full SHA-256, keys `section/layer`, `stinger/mix`,
+  `section@marker/layer`), `files` (each audio file's size, modification time and SHA-256, so unchanged files are not
+  hashed again) and `stale` (see below).
+
+**Incremental and atomic**
+
+- **Input hash.** It is a SHA-256 over canonical JSON: the bake version, rate and encoder, the section's kind, range
+  and cut, its length and tail frames, the isolated song as `.msong` JSON, the audio files' hashes and the plugins'
+  catalog versions. The isolated song holds the stem's tracks with their instruments, inserts and state, volume, pan,
+  notes and clips, plus the master volume.
+- **Reuse.** A stem is reused when the previous manifest's `inputs` has the same hash for its key and its files are at
+  the expected paths. Curve, parameter, transition and marker-name edits therefore render nothing, and only the
+  manifest is written again.
+- **Commit order.** New stems are staged as `*.baking.tmp` and moved into place only after every stem rendered. Then
+  the manifest is written through `DurableFile`, and then stale stems are deleted with their `.meta`.
+- **Stale stems** are the ones the previous manifest listed and this one does not. The new manifest lists them in
+  `bake.stale` before they are deleted, so a delete that fails (a game still streams the file) is retried at the next
+  bake.
+- **On failure or cancel** the staged files and the stems this bake added are deleted. The previous manifest and its
+  stems are left byte for byte.
+
+**Editor**
+
+- **Bake command.** File › Bake Adaptive Music (Cmd/Ctrl+B, `song.bake`) runs a `SongBakeJob` on a worker. Choosing it
+  again cancels; the menu item shows the progress, and `SongBakeJob.Status` reads "Combat/Perc 7 of 18". The result
+  goes to the Output panel. The toolbar's split button is A4.
+- **Headless.** `--bake-song <path.msong>` (`just bake-song <path>`) bakes like the command, headless.
+- **FileSystem.** It badges an adaptive song whose `.mmusic` is older than the song (`FileBadges.BakeOutOfDate`) and
+  every `*.stems` folder (`FileBadges.Generated`, a wand icon).
+
+**Tests:** `Tests/MainframeEngine.Editor.Tests/Music/Adaptive/SongBakeTests.cs`, with a deterministic test instrument,
+WAV stems or `FakePluginHost` as the encoder, and no audio device. They cover:
+
+- body lengths and null layers
+- isolation summing to the section's mix within 1e-6
+- held notes cut at the end, with the tail continuing the body
+- a fake plugin with 100 frames of latency keeping frame 0 on the downbeat
+- re-bakes rendering only what changed and deleting only the stale stem, with the UID kept
+- the manifest round trip through `MusicManifestFormat` and `MusicPlan`
+- failed, mis-encoded and cancelled bakes leaving every file unchanged
+- the command line and the job
 
 ## Open questions
 

@@ -46,6 +46,12 @@ public enum FileBadges
 
     /// <summary>A song whose rendered output is older than the song.</summary>
     RenderOutOfDate = 8,
+
+    /// <summary>An adaptive song whose baked <c>.mmusic</c> is older than the song.</summary>
+    BakeOutOfDate = 16,
+
+    /// <summary>A folder the editor writes (a bake's <c>*.stems</c>): not for hand edits.</summary>
+    Generated = 32,
 }
 
 /// <summary>Extension → <see cref="FileKind"/>, and which extensions count as asset references.</summary>

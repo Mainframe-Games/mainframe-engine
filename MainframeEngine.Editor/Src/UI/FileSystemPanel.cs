@@ -302,7 +302,8 @@ public sealed class FileSystemPanel : EditorDocument
         (badges & FileBadges.ImportError) != 0 ? "icon icon-sm icon-circle-x badge-error"
         : (badges & FileBadges.MissingDependency) != 0 ? "icon icon-sm icon-alert-triangle badge-warn"
         : (badges & FileBadges.Unsaved) != 0 ? "icon icon-sm icon-point-filled badge-unsaved"
-        : (badges & FileBadges.RenderOutOfDate) != 0 ? "icon icon-sm icon-refresh badge-warn"
+        : (badges & (FileBadges.RenderOutOfDate | FileBadges.BakeOutOfDate)) != 0 ? "icon icon-sm icon-refresh badge-warn"
+        : (badges & FileBadges.Generated) != 0 ? "icon icon-sm icon-wand badge-generated"
         : "";
 
     private ProjectFileEntry? EntryAt(int index) => (uint)index < (uint)_rows.Count ? _rows[index].Entry : null;

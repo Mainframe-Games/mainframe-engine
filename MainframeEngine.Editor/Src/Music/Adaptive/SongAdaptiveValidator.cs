@@ -87,8 +87,10 @@ public static class SongAdaptiveValidator
 
         foreach (var m in a.Markers)
         {
-            if (a.SectionAt(m.Tick) is null)
+            if (a.SectionAt(m.Tick) is not { } section)
                 problems.Add(new(AdaptiveProblemSeverity.Warning, $"Marker '{m.Name}' is outside every section; it is ignored.", m.Id));
+            else if (m.Tail && (!m.Exit || section.Kind == MusicSectionKind.Stinger))
+                problems.Add(new(AdaptiveProblemSeverity.Warning, $"Tail point '{m.Name}' is not an exit marker of a section; no tail is baked for it.", m.Id));
         }
     }
 
