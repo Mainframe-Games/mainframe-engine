@@ -30,6 +30,9 @@ public static class AssetUid
     /// <summary>Editor songs (<c>.msong</c>; the UID is stored in the file).</summary>
     public const string SongPrefix = "sng";
 
+    /// <summary>Baked adaptive music (<c>.mmusic</c>; the UID is stored in the file and kept across bakes).</summary>
+    public const string MusicPrefix = "mus";
+
     /// <summary>
     /// Hex digits in a new UID. 48 bits (the design sketch showed 32) keeps accidental collisions across
     /// branches negligible for projects with tens of thousands of assets.
@@ -64,6 +67,7 @@ public static class AssetUid
         ".mscene" => ScenePrefix,
         ".mres" => ResourcePrefix,
         ".msong" => SongPrefix,
+        ".mmusic" => MusicPrefix,
         ".png" or ".jpg" or ".jpeg" or ".hdr" or ".ktx" or ".ktx2" or ".svg" => TexturePrefix,
         ".ogg" or ".wav" or ".mp3" or ".flac" => AudioPrefix,
         ".gltf" or ".glb" or ".fbx" or ".obj" or ".dae" => ModelPrefix,

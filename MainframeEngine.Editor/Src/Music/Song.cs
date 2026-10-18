@@ -34,6 +34,10 @@ public sealed class Song
 
     public List<SongTrack> Tracks { get; set; } = [];
 
+    /// <summary>Adaptive music (sections, layers, parameters, transitions); null for a linear song.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SongAdaptive? Adaptive { get; set; }
+
     /// <summary>Unknown top-level fields (a newer editor's), written back unchanged.</summary>
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }
@@ -173,6 +177,10 @@ public sealed class SongTrack
     public bool Mute { get; set; }
 
     public bool Solo { get; set; }
+
+    /// <summary>Adaptive songs: the <see cref="SongLayer"/> this track bakes into (null: the implicit Main layer).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Layer { get; set; }
 
     /// <summary>Instrument tracks: the built-in ZzFX line or a plugin (null: silent).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

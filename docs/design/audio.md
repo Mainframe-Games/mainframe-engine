@@ -29,6 +29,7 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 | `AudioMath`, `AttenuationModel` | [Audio/AudioMath.cs](../../MainframeEngine/Src/Audio/AudioMath.cs) | dB, attenuation curves, listener projection, pan law, doppler |
 | `AudioMixRoot`, `AudioGraph`, `AudioVoice`, `VoiceSource`, `SpatialSmoother`, `BusProcessor` | [Audio/Graph/](../../MainframeEngine/Src/Audio/Graph/) | audio-thread side (internal) |
 | `SpscRing<T>`, `AudioStreamChannel`, `AudioStreamer` | [Audio/Threading/](../../MainframeEngine/Src/Audio/Threading/) | lock-free rings, streaming thread (internal) |
+| `MusicGrid`, `MusicParameterSet`, `MusicCurve`, `MusicPlan`, `MusicDirector`, `MusicManifest` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | adaptive music logic shared by the editor and games (the beat grid, parameters, curves, rules, `.mmusic`); the runtime player comes with [Adaptive music](future/adaptive-music.md) PR A2 |
 | `AudioDecoder` (`WavDecoder`, `VorbisDecoder`, `MiniAudioFileDecoder`), `AudioClipData`, `AudioStreamSource` | [Audio/Decoding/](../../MainframeEngine/Src/Audio/Decoding/) | decoding (internal) |
 | `AudioOutput` (`SoundFlowOutput`, `NullOutput`), `NullAudioEngine` | [Audio/Devices/AudioOutput.cs](../../MainframeEngine/Src/Audio/Devices/AudioOutput.cs) | devices (internal) |
 

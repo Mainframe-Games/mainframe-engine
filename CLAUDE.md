@@ -89,7 +89,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `MeshRenderer` batching, `PipelineStateCache`, picking, sub-viewports; `Src/Resources/Import/` — texture/model (Assimp) importers
 - `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`
 - `MainframeEngine/Src/Audio/` — `AudioServer` (SoundFlow; null device when there is no audio device), buses,
-  `AudioStream`, audio nodes (`AudioPlayer`/`2D`/`3D`, `AudioListener3D`); audio-thread code in `Graph/`, lock-free
+  `AudioStream`, audio nodes (`AudioPlayer`/`2D`/`3D`, `AudioListener3D`); adaptive music logic in `Music/` (`MusicDirector`,
+  `.mmusic`, ADR 0196, shared with the editor's songs); audio-thread code in `Graph/`, lock-free
   rings + streaming in `Threading/`, decoders in `Decoding/`. Game code never calls SoundFlow: it goes through
   `AudioServer` (commands to the audio thread). See `docs/design/audio.md`
 - `MainframeEngine/Src/Recording/` — gameplay recording (ADR 0190): `GameRecorder` (`SceneTree.Recorder`: `Start`/`Stop`/`Mark`/`Keep`/`Skip`),

@@ -269,7 +269,7 @@ public sealed class AssetDatabase
 
     internal static bool IsSelfDescribing(string path) =>
         path.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase) ||
-        path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase);
+        path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mmusic", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Reads the top-level <c>"uid"</c> of a scene/resource file without parsing the rest.</summary>
     internal static string? ReadEmbeddedUid(string path)
