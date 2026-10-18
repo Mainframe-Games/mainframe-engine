@@ -490,6 +490,42 @@ public sealed class RmlBindingTests
         host.AssertNoRmlErrors();
     }
 
+    private sealed class Strip(string name, params string[] slots)
+    {
+        public string Name { get; } = name;
+        public List<Item> Slots { get; } = [.. slots.Select((s, i) => new Item(s, i))];
+    }
+
+    private static readonly RmlStructType<Strip> StripType = new RmlStructType<Strip>()
+        .Member("name", static s => s.Name)
+        .List("slots", static s => s.Slots, ItemType);
+
+    [Fact]
+    public void AListMemberRendersANestedDataForAndFollowsChanges()
+    {
+        using var host = new RmlTestHost();
+        var strips = new List<Strip> { new("lead", "eq", "comp"), new("bass") };
+        var model = host.Context.CreateDataModel("mix").BindList("strips", strips, StripType);
+        var doc = host.Show(RmlTestHost.Page("""
+            <div data-model="mix" id="mix">
+              <div data-for="st, i : strips" data-attr-id="'strip-' + i">{{ st.name }}:<span data-for="sl : st.slots">[{{ sl.name }}/{{ sl.count }}]</span><em data-if="st.slots.size == 0">none</em></div>
+            </div>
+            """));
+
+        Assert.Contains("[eq/0]", doc.GetElementById("strip-0").InnerRml, StringComparison.Ordinal);
+        Assert.Contains("[comp/1]", doc.GetElementById("strip-0").InnerRml, StringComparison.Ordinal);
+        Assert.Contains("none", doc.GetElementById("strip-1").InnerRml, StringComparison.Ordinal);
+
+        strips[1].Slots.Add(new Item("reverb", 7));
+        strips[0].Slots.RemoveAt(0);
+        model.Dirty("strips");
+        host.Frame();
+        Assert.DoesNotContain("[eq/0]", doc.GetElementById("strip-0").InnerRml, StringComparison.Ordinal);
+        Assert.Contains("[reverb/7]", doc.GetElementById("strip-1").InnerRml, StringComparison.Ordinal);
+        host.AssertNoRmlErrors();
+        Assert.Throws<ArgumentException>(() => new RmlStructType<Strip>().List("x", static s => s.Slots.Select(_ => s).ToList(), StripType));
+    }
+
     [Fact]
     public void ShrinkingAListWithPerRowViewsLogsNoWarnings()
     {

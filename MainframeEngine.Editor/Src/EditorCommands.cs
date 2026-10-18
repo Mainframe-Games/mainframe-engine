@@ -189,6 +189,7 @@ public sealed class EditorCommands
             case "view.output" when _workspace.Mode == EditorMode.Music: _workspace.ToggleMusicOutput(); return true;
             case "view.output": _workspace.ToggleVideoOutput(); return true;
             case "video.toggle_transcript": _workspace.ToggleVideoTranscript(); return true;
+            case "music.browser": _workspace.ToggleMusicBrowser(); return true;
             // The video toolbar's buttons without a video tab: they show disabled, and a click does nothing.
             case "video.play" or "video.stop" or "video.transcribe" or "video.remove_fillers" or "video.detect_silence"
                 or "video.detect_idle" or "video.export" or "video.export_transcript" when Session.ActiveTab is not VideoTab:
@@ -1322,6 +1323,7 @@ public sealed class EditorCommands
                 new MenuItem("Piano Roll", "song.piano_roll", "P", tab, Css: song?.Panel == SongBottomPanel.PianoRoll ? "current" : null, Icon: "piano"),
                 new MenuItem("Mixer", "song.mixer", "X", tab, Css: song?.Panel == SongBottomPanel.Mixer ? "current" : null, Icon: "adjustments-alt"),
                 new MenuItem("Hide Editor", "song.hide_pane", null, tab && song!.Panel != SongBottomPanel.None, Icon: "layout-bottombar"),
+                new MenuItem("Browser", "music.browser", "F", Css: _workspace.Layout.Settings.MusicShowBrowser ? "current" : null, Icon: "layout-sidebar-right"),
                 MenuItem.Separator,
                 new MenuItem("Show/Hide Output", "view.output", Icon: "terminal-2"),
                 MenuItem.Separator,

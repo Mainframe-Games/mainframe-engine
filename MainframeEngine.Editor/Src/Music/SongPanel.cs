@@ -30,13 +30,30 @@ public sealed class SongPanel : EditorDocument
         .Member("name", static r => r.Name)
         .Member("path", static r => r.Path);
 
+    // One insert slot of a mixer strip (the strip's nested data-for).
+    private sealed class SlotRow
+    {
+        public required int Index { get; init; }
+        public required string Name { get; init; }
+        public required bool Bypass { get; init; }
+        public required bool Missing { get; init; }
+        public required string Tooltip { get; init; }
+    }
+
+    private static readonly RmlStructType<SlotRow> SlotType = new RmlStructType<SlotRow>()
+        .Member("index", static r => r.Index)
+        .Member("name", static r => r.Name)
+        .Member("bypass", static r => r.Bypass)
+        .Member("missing", static r => r.Missing)
+        .Member("tooltip", static r => r.Tooltip);
+
     private sealed class Row
     {
         public required int Index { get; init; }
         public required string Name { get; init; }
         public required string Color { get; init; }
         public required string Instrument { get; init; }
-        public required string Inserts { get; init; }
+        public required List<SlotRow> Slots { get; init; }
         public required bool Audio { get; init; }
         public required bool Mute { get; init; }
         public required bool Solo { get; init; }
@@ -55,7 +72,6 @@ public sealed class SongPanel : EditorDocument
         .Member("name", static r => r.Name)
         .Member("color", static r => r.Color)
         .Member("instrument", static r => r.Instrument)
-        .Member("inserts", static r => r.Inserts)
         .Member("audio", static r => r.Audio)
         .Member("mute", static r => r.Mute)
         .Member("solo", static r => r.Solo)
@@ -66,9 +82,14 @@ public sealed class SongPanel : EditorDocument
         .Member("db", static r => r.Db)
         .Member("pan", static r => r.Pan)
         .Member("pan_text", static r => r.PanText)
-        .Member("tooltip", static r => r.Tooltip);
+        .Member("tooltip", static r => r.Tooltip)
+        .List("slots", static r => r.Slots, SlotType);
+
+    // The Browser's drag starts once the mouse moved this far (dp) from the press.
+    private const float DragThreshold = 4;
 
     private readonly List<Row> _rows = [];
+    private readonly List<SlotRow> _masterSlots = [];
     private readonly List<string> _meterIds = [];
     private int[] _meterShown = [];
     private float[] _meterLevel = [];
@@ -81,7 +102,12 @@ public sealed class SongPanel : EditorDocument
     private float _shownScroll = float.NaN;
     private bool _arrangeImage;
     private bool _rollImage;
-    private RmlEventListener?[] _listeners = new RmlEventListener?[5];
+    private RmlEventListener?[] _listeners = new RmlEventListener?[13];
+    private float _appliedBrowserWidth = float.NaN;
+    private bool _browserOpen;
+    private int _pressedRow = -1;
+    private (float X, float Y) _pressedAt;
+    private int _dragUpFrames;
     private float _appliedPaneHeight = float.NaN;
     private readonly List<RecentSong> _recent = [];
     private string? _recentRoot;
@@ -99,13 +125,16 @@ public sealed class SongPanel : EditorDocument
     private string _clipInfo = "";
     private string _masterFader = "0";
     private string _masterDb = "0.0 dB";
-    private string _masterInserts = "none";
 
     public SongPanel(EditorWorkspace workspace)
         : base(workspace, "song.rml")
     {
         Visible = false;
+        Browser = new SongBrowser(workspace);
     }
+
+    /// <summary>Music mode's Browser (the right column): songs and plugins.</summary>
+    public SongBrowser Browser { get; }
 
     /// <summary>The arrangement canvas area in window dp (empty while hidden).</summary>
     public LayoutRect ArrangeRect { get; private set; }
@@ -128,8 +157,18 @@ public sealed class SongPanel : EditorDocument
             .Bind("clip_info", this, static p => p._clipInfo)
             .Bind("master_fader", this, static p => p._masterFader)
             .Bind("master_db", this, static p => p._masterDb)
-            .Bind("master_inserts", this, static p => p._masterInserts)
-            .Event("inserts", e => InsertMenu(e.GetArgument(0).GetInt32(), Below(e.Event.CurrentElement)))
+            .BindList("master_slots", _masterSlots, SlotType)
+            .BindList("browser", Browser.Rows, SongBrowser.RowType)
+            .Bind("browser_open", this, static p => p._browserOpen)
+            .Event("fx_open", e => OpenSlot(e.GetArgument(0).GetInt32(), e.GetArgument(1).GetInt32()))
+            .Event("fx_bypass", e => Slot(e.GetArgument(0).GetInt32(), e.GetArgument(1).GetInt32(),
+                (tab, _, insert) => tab.Document.SetInsertBypass(insert, !insert.Bypass)))
+            .Event("fx_add", e => AddEffectMenu(e.GetArgument(0).GetInt32(), Below(e.Event.CurrentElement)))
+            .Event("fx_menu", e =>
+            {
+                if (e.Event.GetParameter("button", 0) == 1) // right-click
+                    SlotMenu(e.GetArgument(0).GetInt32(), e.GetArgument(1).GetInt32(), Below(e.Event.CurrentElement));
+            })
             .Event("arm", e => Track(e.GetArgument(0).GetInt32(), (t, track) => t.Midi.ToggleArm(track)))
             .Event("add_track", e => AddTrackMenu(Below(e.Event.CurrentElement)))
             .Event("select", e => SelectTrack(e.GetArgument(0).GetInt32()))
@@ -167,6 +206,20 @@ public sealed class SongPanel : EditorDocument
             e.CurrentElement.SetClass("dragging", false);
             Workspace.SaveLayout();
         });
+        var browserSplitter = document.GetElementById("song-split-browser");
+        _listeners[5] = browserSplitter.AddEventListener("drag", e => DragBrowserSplitter((float)(e.GetParameter("mouse_x", 0.0) / MathF.Max(0.01f, Workspace.Host.PixelScale))));
+        _listeners[6] = browserSplitter.AddEventListener("dragstart", e => e.CurrentElement.SetClass("dragging", true));
+        _listeners[7] = browserSplitter.AddEventListener("dragend", e =>
+        {
+            e.CurrentElement.SetClass("dragging", false);
+            Workspace.SaveLayout();
+        });
+        _listeners[8] = body.AddEventListener("click", OnBrowserClick);
+        _listeners[9] = body.AddEventListener("dblclick", OnBrowserDoubleClick);
+        _listeners[10] = body.AddEventListener("mousedown", OnBrowserPress);
+        _listeners[11] = body.AddEventListener("mousemove", OnBrowserMove);
+        _listeners[12] = body.AddEventListener("mouseup", OnBrowserRelease);
+        _appliedBrowserWidth = float.NaN;
         _appliedPaneHeight = float.NaN;
         _arrangeImage = false;
         _rollImage = false;
@@ -204,7 +257,11 @@ public sealed class SongPanel : EditorDocument
     }
 
     /// <summary>The project's songs the empty state lists are read again the next time it shows (a song was created or saved).</summary>
-    public void InvalidateRecent() => _recentStale = true;
+    public void InvalidateRecent()
+    {
+        _recentStale = true;
+        Browser.Invalidate();
+    }
 
     /// <summary>The songs the empty state lists (newest first), for tests and the File menu.</summary>
     public IReadOnlyList<string> RecentSongs => [.. _recent.Select(static r => r.Path)];
@@ -223,6 +280,7 @@ public sealed class SongPanel : EditorDocument
 
         if (!IsLoaded)
             return;
+        TickBrowser(tab);
         if (_hasTab != tab is not null)
         {
             _hasTab = tab is not null;
@@ -303,7 +361,7 @@ public sealed class SongPanel : EditorDocument
                 Name = track.Name,
                 Color = track.Color ?? SongCanvas.Palette[i % SongCanvas.Palette.Length],
                 Instrument = track.Kind == SongTrackKind.Audio ? "Audio" : track.Instrument is { IsZzfx: true } ? "Built-in ZzFX" : track.Instrument?.DisplayName ?? "No instrument",
-                Inserts = InsertsText(track.Inserts),
+                Slots = Slots(tab, track.Inserts),
                 Audio = track.Kind == SongTrackKind.Audio,
                 Mute = track.Mute,
                 Solo = track.Solo,
@@ -335,7 +393,8 @@ public sealed class SongPanel : EditorDocument
         _clipInfo = ClipInfo(tab);
         _masterFader = Number(-Math.Clamp(song.Master.VolumeDb, -60f, 6f));
         _masterDb = DbText(song.Master.VolumeDb);
-        _masterInserts = InsertsText(song.Master.Inserts);
+        _masterSlots.Clear();
+        _masterSlots.AddRange(Slots(tab, song.Master.Inserts));
         _model?.DirtyAll();
     }
 
@@ -455,6 +514,12 @@ public sealed class SongPanel : EditorDocument
 
     private void OnChange(RmlEvent e)
     {
+        if (e.Target.Id == "song-browser-search")
+        {
+            Browser.Search = e.Value;
+            return;
+        }
+
         if (_tab is not { } tab || tab.Document.IsReadOnly)
             return;
         var target = e.Target;
@@ -601,79 +666,115 @@ public sealed class SongPanel : EditorDocument
         });
     }
 
-    // A track's (index ≥ 0) or the master's (−1) insert chain: per insert open editor, bypass, move, remove; add an effect.
-    private void InsertMenu(int index, (float X, float Y) at)
+    // A strip's insert slots: name (a missing plugin or unknown effect marked), bypass and a tooltip.
+    private static List<SlotRow> Slots(SongTab tab, List<PluginInsert> inserts)
+    {
+        var slots = new List<SlotRow>(inserts.Count);
+        for (var i = 0; i < inserts.Count; i++)
+        {
+            var insert = inserts[i];
+            var missing = insert.IsBuiltin
+                ? BuiltinEffects.Find(insert.Builtin!) is null
+                : insert.Plugin is { } p && (p.ClassId is null || PluginCatalog.Current.Find(p.ClassId) is null);
+            var name = InsertName(insert);
+            slots.Add(new SlotRow
+            {
+                Index = i,
+                Name = name,
+                Bypass = insert.Bypass,
+                Missing = missing,
+                Tooltip = (missing ? $"{name} — not available on this computer" : insert.IsBuiltin ? $"{name} — click to open its window" : $"{name} — click to open the plugin's editor") +
+                          "; right-click: bypass, move, replace or remove",
+            });
+        }
+
+        return slots;
+    }
+
+    // The insert at slot `slot` of track `index` (−1: the master).
+    private void Slot(int index, int slot, Action<SongTab, SongTrack?, PluginInsert> action)
     {
         if (_tab is not { } tab || index >= tab.Document.Song.Tracks.Count)
             return;
         var track = index >= 0 ? tab.Document.Song.Tracks[index] : null;
         var inserts = track?.Inserts ?? tab.Document.Song.Master.Inserts;
+        if ((uint)slot < (uint)inserts.Count)
+            Guard("Could not change the insert", () => action(tab, track, inserts[slot]));
+    }
+
+    /// <summary>A slot's click: a built-in effect's window, or a VST3 plugin's editor.</summary>
+    private void OpenSlot(int index, int slot) => Slot(index, slot, (tab, track, insert) =>
+    {
+        if (insert.IsBuiltin)
+            Workspace.PluginWindow.Open(tab, track, insert);
+        else
+            OpenPluginEditor(tab, insert);
+    });
+
+    // The empty slot: the built-in effects by category, then the scanned VST3 effects.
+    private void AddEffectMenu(int index, (float X, float Y) at)
+    {
+        if (_tab is not { } tab || index >= tab.Document.Song.Tracks.Count || tab.Document.IsReadOnly)
+            return;
+        var track = index >= 0 ? tab.Document.Song.Tracks[index] : null;
         var catalog = PluginCatalog.Current;
         var items = new List<MenuItem>();
-        for (var i = 0; i < inserts.Count; i++)
-        {
-            var insert = inserts[i];
-            var n = i.ToString(CultureInfo.InvariantCulture);
-            items.Add(MenuItem.Header($"{i + 1}. {InsertName(insert)}{(insert.Bypass ? " (bypassed)" : "")}"));
-            items.Add(new MenuItem(insert.IsBuiltin ? "Open" : "Open Plugin Editor", "open:" + n,
-                Enabled: insert.Plugin is not null || (insert.IsBuiltin && BuiltinEffects.Find(insert.Builtin!) is not null), Icon: "app-window"));
-            items.Add(new MenuItem(insert.Bypass ? "Enable" : "Bypass", "bypass:" + n, Icon: insert.Bypass ? "plug-connected" : "plug-x"));
-            items.Add(new MenuItem("Move Up", "up:" + n, Enabled: i > 0, Icon: "arrow-up"));
-            items.Add(new MenuItem("Move Down", "down:" + n, Enabled: i < inserts.Count - 1, Icon: "arrow-down"));
-            items.Add(new MenuItem("Remove", "remove:" + n, Icon: "trash"));
-        }
-
         foreach (var category in Enum.GetValues<BuiltinCategory>())
         {
-            items.Add(MenuItem.Header("Add " + BuiltinEffects.CategoryName(category)));
+            items.Add(MenuItem.Header(BuiltinEffects.CategoryName(category)));
             foreach (var info in BuiltinEffects.InCategory(category))
-                items.Add(new MenuItem(info.Name, "builtin:" + info.Id, Icon: info.Icon));
+                items.Add(new MenuItem(info.Name, "fx:" + info.Id, Icon: info.Icon));
         }
 
-        items.Add(MenuItem.Header("Add VST3 effect"));
+        items.Add(MenuItem.Header("VST3 effects"));
         foreach (var plugin in catalog.Effects)
-            items.Add(new MenuItem(plugin.DisplayName, "add:" + plugin.ClassId, Icon: "plus"));
+            items.Add(new MenuItem(plugin.DisplayName, "vst:" + plugin.ClassId, Icon: "plug"));
         if (!catalog.Effects.Any())
             items.Add(new MenuItem(PluginHostClient.IsAvailable ? "None found — Editor Settings › Rescan Plugins" : "The plugin host is not available", null, Enabled: false, Icon: "plug-x"));
 
         EnsureScanned();
         Workspace.Popup.Show(items, at.X, at.Y, command =>
         {
-            if (command is null || (track is not null && !tab.Document.Song.Tracks.Contains(track)))
-                return;
-            var colon = command.IndexOf(':', StringComparison.Ordinal);
-            if (colon < 0)
-                return;
-            var verb = command[..colon];
-            var argument = command[(colon + 1)..];
-            if (verb == "builtin")
-            {
-                Guard("Could not add the effect", () =>
-                {
-                    var added = tab.Document.AddBuiltinInsert(track, argument);
-                    tab.Player.Update(tab.Document);
-                    Workspace.PluginWindow.Open(tab, track, added);
-                });
-                return;
-            }
+            if (command is not null && (track is null || tab.Document.Song.Tracks.Contains(track)))
+                Browser.Apply(tab, command, track, null);
+        });
+    }
 
-            if (verb == "add")
-            {
-                if (catalog.Find(argument) is { } plugin)
-                    Guard("Could not add the insert", () => tab.Document.AddInsert(track, plugin.ToDescriptor()));
-                return;
-            }
+    // A slot's right-click menu: open, bypass, move, replace (the add menu's effects) or remove.
+    private void SlotMenu(int index, int slot, (float X, float Y) at)
+    {
+        if (_tab is not { } tab || index >= tab.Document.Song.Tracks.Count)
+            return;
+        var track = index >= 0 ? tab.Document.Song.Tracks[index] : null;
+        var inserts = track?.Inserts ?? tab.Document.Song.Master.Inserts;
+        if ((uint)slot >= (uint)inserts.Count)
+            return;
+        var insert = inserts[slot];
+        var editable = !tab.Document.IsReadOnly;
+        var items = new List<MenuItem>
+        {
+            MenuItem.Header($"{slot + 1}. {InsertName(insert)}"),
+            new(insert.IsBuiltin ? "Open" : "Open Plugin Editor", "open", Icon: "app-window"),
+            new(insert.Bypass ? "Enable" : "Bypass", "bypass", Enabled: editable, Icon: "power"),
+            new("Move Up", "up", Enabled: editable && slot > 0, Icon: "arrow-up"),
+            new("Move Down", "down", Enabled: editable && slot < inserts.Count - 1, Icon: "arrow-down"),
+            new("Remove", "remove", Enabled: editable, Icon: "trash"),
+            MenuItem.Header("Replace with"),
+        };
+        foreach (var info in BuiltinEffects.All)
+            items.Add(new MenuItem(info.Name, "fx:" + info.Id, Enabled: editable, Icon: info.Icon));
+        foreach (var plugin in PluginCatalog.Current.Effects)
+            items.Add(new MenuItem(plugin.DisplayName, "vst:" + plugin.ClassId, Enabled: editable, Icon: "plug"));
 
-            if (!int.TryParse(argument, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) || (uint)i >= (uint)inserts.Count)
+        Workspace.Popup.Show(items, at.X, at.Y, command =>
+        {
+            if (command is null || !inserts.Contains(insert) || (track is not null && !tab.Document.Song.Tracks.Contains(track)))
                 return;
-            var insert = inserts[i];
-            switch (verb)
+            var i = inserts.IndexOf(insert);
+            switch (command)
             {
-                case "open" when insert.IsBuiltin:
-                    Workspace.PluginWindow.Open(tab, track, insert);
-                    break;
                 case "open":
-                    OpenPluginEditor(tab, insert);
+                    OpenSlot(index, i);
                     break;
                 case "bypass":
                     Guard("Could not bypass the insert", () => tab.Document.SetInsertBypass(insert, !insert.Bypass));
@@ -687,8 +788,117 @@ public sealed class SongPanel : EditorDocument
                 case "remove":
                     Guard("Could not remove the insert", () => tab.Document.RemoveInsert(track, insert));
                     break;
+                default:
+                    Browser.Apply(tab, command, track, insert);
+                    break;
             }
         });
+    }
+
+    // ── The Browser ──────────────────────────────────────────────────────────────────────────────────────────────
+
+    // Every frame in music mode: shows or hides it, its width, its rows (rebuilt on change), and a plugin drag's ghost.
+    private void TickBrowser(SongTab? tab)
+    {
+        var open = Workspace.Layout.Settings.MusicShowBrowser;
+        if (open != _browserOpen)
+        {
+            _browserOpen = open;
+            _model?.Dirty("browser_open");
+        }
+
+        if (open)
+        {
+            var width = Workspace.Layout.MusicBrowserShownWidth;
+            if (width != _appliedBrowserWidth && Document.GetElementById("song-browser") is { IsNull: false } browser)
+            {
+                _appliedBrowserWidth = width;
+                browser.SetProperty("width", RmlText.Dp(width));
+            }
+
+            if (Browser.Update(tab))
+                _model?.Dirty("browser");
+        }
+
+        // A drag ends with the button (a release over the song's canvases is the SongView's); the ghost follows the mouse.
+        if (Browser.Drag is not { } drag)
+            return;
+        var ghost = Document.GetElementById("song-drag-ghost");
+        if (!Workspace.Host.PrimaryMouseDown && ++_dragUpFrames > 1)
+        {
+            Browser.CancelDrag();
+            ghost.SetClass("hidden", true);
+            return;
+        }
+
+        if (ghost.IsClassSet("hidden"))
+        {
+            ghost.SetClass("hidden", false);
+            Document.GetElementById("song-drag-icon").SetClassNames(drag.Icon);
+            Document.GetElementById("song-drag-label").SetInnerRml(RmlText.Escape(drag.Label));
+        }
+
+        var mouse = Workspace.Host.MousePosition * Workspace.Host.PointerScale;
+        var origin = Rect ?? default;
+        ghost.SetProperty("left", RmlText.Dp(mouse.X - origin.X + 14));
+        ghost.SetProperty("top", RmlText.Dp(mouse.Y - origin.Y + 10));
+    }
+
+    /// <summary>The Browser's splitter moved to <paramref name="x"/> (window dp, its centre): the Browser takes the width to its right.</summary>
+    internal void DragBrowserSplitter(float x)
+    {
+        if (!IsLoaded || Rect is not { } rect)
+            return;
+        Workspace.Layout.SetMusicBrowserWidth(rect.Right - x - EditorLayout.SplitterSize * 0.5f);
+    }
+
+    private static int BrowserRow(RmlEvent e) =>
+        FindAttribute(e.Target, "data-b") is { } attr && int.TryParse(attr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) ? index : -1;
+
+    private void OnBrowserClick(RmlEvent e)
+    {
+        if (BrowserRow(e) is >= 0 and var index)
+            Browser.Click(index);
+    }
+
+    private void OnBrowserDoubleClick(RmlEvent e)
+    {
+        if (BrowserRow(e) is >= 0 and var index)
+            Browser.DoubleClick(index);
+    }
+
+    private void OnBrowserPress(RmlEvent e)
+    {
+        _pressedRow = e.GetParameter("button", 0) == 0 ? BrowserRow(e) : -1;
+        var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+        _pressedAt = ((float)(e.GetParameter("mouse_x", 0.0) / scale), (float)(e.GetParameter("mouse_y", 0.0) / scale));
+    }
+
+    private void OnBrowserMove(RmlEvent e)
+    {
+        if (_pressedRow < 0 || Browser.Drag is not null)
+            return;
+        var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+        var dx = (float)(e.GetParameter("mouse_x", 0.0) / scale) - _pressedAt.X;
+        var dy = (float)(e.GetParameter("mouse_y", 0.0) / scale) - _pressedAt.Y;
+        if (dx * dx + dy * dy < DragThreshold * DragThreshold)
+            return;
+        if (Browser.BeginDrag(_pressedRow))
+            _dragUpFrames = 0;
+        _pressedRow = -1;
+    }
+
+    // A release over a track header, mixer strip or insert slot drops the dragged plugin there.
+    private void OnBrowserRelease(RmlEvent e)
+    {
+        _pressedRow = -1;
+        if (Browser.Drag is null)
+            return;
+        if (FindAttribute(e.Target, "data-drop") is { } target)
+            Browser.Drop(target);
+        else
+            Browser.CancelDrag();
+        Document.GetElementById("song-drag-ghost").SetClass("hidden", true);
     }
 
     private void OpenPluginEditor(SongTab tab, object owner)
@@ -718,10 +928,6 @@ public sealed class SongPanel : EditorDocument
     private static string InsertName(PluginInsert insert) => insert.Plugin is { } p && !insert.IsBuiltin
         ? string.IsNullOrEmpty(p.Vendor) ? p.Name ?? p.ClassId ?? "plugin" : $"{p.Name} ({p.Vendor})"
         : insert.DisplayName;
-
-    private static string InsertsText(List<PluginInsert> inserts) => inserts.Count == 0
-        ? "none"
-        : string.Join(", ", inserts.Select(i => i.DisplayName + (i.Bypass ? " (off)" : "")));
 
     /// <summary>The built-in instrument's ZzFX line in a text field; Apply checks it, stores it and auditions C4.</summary>
     public void EditLine(int index) => Track(index, (tab, track) =>

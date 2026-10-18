@@ -47,6 +47,9 @@ public interface IEditorHost
     /// <summary>Whether the primary mouse button is held (ends file drags released outside every drop target).</summary>
     bool PrimaryMouseDown => false;
 
+    /// <summary>The mouse in window points (× <see cref="PointerScale"/> = dp): drag ghosts follow it outside the UI's elements.</summary>
+    System.Numerics.Vector2 MousePosition => default;
+
     void SetTitle(string title);
 
     /// <summary>Closes the editor (after the workspace has dealt with unsaved changes).</summary>

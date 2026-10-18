@@ -181,7 +181,7 @@ public sealed class PhaserEffect : BuiltinEffect
     private static readonly string[] StageNames = ["4", "6", "8", "12"];
     private static readonly int[] SectionCounts = [2, 3, 4, 6];
 
-    public static readonly BuiltinEffectInfo Definition = new("phaser", "Phaser", BuiltinCategory.Modulation, "activity",
+    public static readonly BuiltinEffectInfo Definition = new("phaser", "Phaser", BuiltinCategory.Modulation, "wave-square",
         "Phaser — swirling notches from a swept chain of all-pass filters",
         [
             .. ModulationParams.Rate(0.5f, 1),

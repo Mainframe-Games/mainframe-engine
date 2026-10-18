@@ -145,7 +145,7 @@ public sealed class GateEffect : BuiltinEffect
 {
     private const int Threshold = 0, Hysteresis = 1, Range = 2, Attack = 3, Hold = 4, Release = 5;
 
-    public static readonly BuiltinEffectInfo Definition = new("gate", "Noise Gate", BuiltinCategory.Dynamics, "volume-off",
+    public static readonly BuiltinEffectInfo Definition = new("gate", "Noise Gate", BuiltinCategory.Dynamics, "door",
         "Noise Gate — silences the signal between notes: threshold, hysteresis, range, attack, hold and release",
         [
             new("threshold", "Threshold", "dB", -80, 0, -40),

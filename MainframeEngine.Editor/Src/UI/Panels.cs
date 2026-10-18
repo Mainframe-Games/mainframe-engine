@@ -540,6 +540,7 @@ public sealed class ToolbarPanel : EditorDocument
     private bool? _musicEditable;
     private bool? _musicRollShown;
     private bool? _musicMixerShown;
+    private bool? _musicBrowserShown;
     private double _musicTempo = double.NaN;
     private int _musicBeats = -1;
     private int _musicUnit = -1;
@@ -560,6 +561,7 @@ public sealed class ToolbarPanel : EditorDocument
         _musicEditable = null;
         _musicRollShown = null;
         _musicMixerShown = null;
+        _musicBrowserShown = null;
         _musicTempo = double.NaN;
         _musicBeats = -1;
         _musicUnit = -1;
@@ -615,6 +617,7 @@ public sealed class ToolbarPanel : EditorDocument
         if (!IsLoaded)
             return;
         var document = Document;
+        SetActive(document, "song-view-browser", Workspace.Layout.Settings.MusicShowBrowser, ref _musicBrowserShown); // with or without a tab
         if (!ReferenceEquals(tab, _musicTab))
         {
             _musicTab = tab;

@@ -121,6 +121,15 @@ public sealed record EditorLayoutSettings
 
     /// <summary>Music mode's bottom pane height in dp, below its header (a file without the key reads 0, which <c>Load</c> restores to 300).</summary>
     public float MusicPaneHeight { get; init; } = 300;
+
+    /// <summary>Music mode's Browser on the right (F; Logic's Browsers): the project's songs and the plugins. Hidden by default.</summary>
+    public bool MusicShowBrowser { get; init; }
+
+    /// <summary>The Browser's width in dp (a file without the key reads 0, which <c>Load</c> restores to 260).</summary>
+    public float MusicBrowserWidth { get; init; } = 260;
+
+    /// <summary>The Browser's collapsed sections and groups (ids such as <c>songs</c>, <c>fx:Dynamics</c>, <c>vst</c>).</summary>
+    public string[]? MusicBrowserCollapsed { get; init; }
 }
 
 /// <summary>
@@ -337,6 +346,31 @@ public sealed class EditorLayout
         MusicPaneHeight = Math.Clamp(Finite(height, MinMusicPaneHeight), MinMusicPaneHeight, MaxMusicPaneHeight),
     };
 
+    /// <summary>The narrowest the music Browser gets, in dp.</summary>
+    public const float MinMusicBrowserWidth = 200;
+
+    /// <summary>The width the song view keeps beside the Browser, in dp.</summary>
+    public const float MinMusicViewWidth = 400;
+
+    /// <summary>The music Browser's widest, in this window.</summary>
+    public float MaxMusicBrowserWidth => MathF.Max(MinMusicBrowserWidth, ViewportImage.Width - MinMusicViewWidth);
+
+    /// <summary>The Browser's width as shown: <see cref="EditorLayoutSettings.MusicBrowserWidth"/> within this window's limits.</summary>
+    public float MusicBrowserShownWidth => Math.Clamp(Settings.MusicBrowserWidth, MinMusicBrowserWidth, MaxMusicBrowserWidth);
+
+    /// <summary>The Browser's width in dp (its splitter), clamped to [<see cref="MinMusicBrowserWidth"/>, <see cref="MaxMusicBrowserWidth"/>].</summary>
+    public void SetMusicBrowserWidth(float width) => Settings = Settings with
+    {
+        MusicBrowserWidth = Math.Clamp(Finite(width, MinMusicBrowserWidth), MinMusicBrowserWidth, MaxMusicBrowserWidth),
+    };
+
+    /// <summary>Shows or hides the music Browser.</summary>
+    public void SetMusicShowBrowser(bool show) => Settings = Settings with { MusicShowBrowser = show };
+
+    /// <summary>The Browser's collapsed section and group ids.</summary>
+    public void SetMusicBrowserCollapsed(IEnumerable<string> ids) =>
+        Settings = Settings with { MusicBrowserCollapsed = [.. ids.Where(static id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal)] };
+
     /// <summary>Music mode's bottom pane (P / X / Hide): the song panel's own layout follows (no rectangle here changes).</summary>
     public void SetMusicPane(SongBottomPanel pane) =>
         Settings = Settings with { MusicPane = Enum.IsDefined(pane) ? pane : SongBottomPanel.PianoRoll };
@@ -502,6 +536,8 @@ public sealed class EditorLayout
         VideoTimelineHeight = Finite(s.VideoTimelineHeight, 180),
         MusicPane = Enum.IsDefined(s.MusicPane) ? s.MusicPane : SongBottomPanel.PianoRoll,
         MusicPaneHeight = Finite(s.MusicPaneHeight, 300),
+        MusicBrowserWidth = Finite(s.MusicBrowserWidth, 260),
+        MusicBrowserCollapsed = s.MusicBrowserCollapsed?.Where(static id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).Take(64).ToArray(),
     };
 
     // Drops null lists and blank ids (hand-edited files); caps lengths.

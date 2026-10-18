@@ -152,6 +152,9 @@ public sealed class EditorLayoutTests : IDisposable
         Assert.Equal(300, loaded.LeftWidth);
         Assert.Equal(SongBottomPanel.PianoRoll, loaded.MusicPane);
         Assert.Equal(300, loaded.MusicPaneHeight);
+        Assert.False(loaded.MusicShowBrowser);
+        Assert.Equal(260, loaded.MusicBrowserWidth);
+        Assert.Null(loaded.MusicBrowserCollapsed);
 
         // Hiding it survives a round trip.
         var hidden = Path.Combine(_directory, "hidden.json");
@@ -182,6 +185,26 @@ public sealed class EditorLayoutTests : IDisposable
         layout.SetMusicPaneHeight(10_000);
         Assert.Equal(layout.MaxMusicPaneHeight, layout.Settings.MusicPaneHeight);
         Assert.True(layout.MaxMusicPaneHeight < layout.ViewportImage.Height - EditorLayout.MinMusicTracksHeight);
+    }
+
+    [Fact]
+    public void TheMusicBrowserIsSavedWithItsWidthAndCollapsedGroups()
+    {
+        var path = Path.Combine(_directory, "browser.json");
+        Assert.True(EditorLayout.Save(path, new EditorLayoutSettings { MusicShowBrowser = true, MusicBrowserWidth = 320, MusicBrowserCollapsed = ["songs", " ", "songs", "vst"] }));
+        var loaded = EditorLayout.Load(path);
+        Assert.True(loaded.MusicShowBrowser);
+        Assert.Equal(320, loaded.MusicBrowserWidth);
+        Assert.Equal(["songs", "vst"], loaded.MusicBrowserCollapsed!);
+
+        var layout = new EditorLayout();
+        layout.Update(1200, 700);
+        layout.SetMode(EditorMode.Music);
+        layout.SetMusicBrowserWidth(10);
+        Assert.Equal(EditorLayout.MinMusicBrowserWidth, layout.Settings.MusicBrowserWidth);
+        layout.SetMusicBrowserWidth(10_000);
+        Assert.Equal(layout.MaxMusicBrowserWidth, layout.Settings.MusicBrowserWidth);
+        Assert.True(layout.ViewportImage.Width - layout.MusicBrowserShownWidth >= EditorLayout.MinMusicViewWidth);
     }
 
     [Fact]

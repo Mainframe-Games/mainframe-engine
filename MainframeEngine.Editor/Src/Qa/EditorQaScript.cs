@@ -696,7 +696,7 @@ public sealed class EditorQaScript : IEditorAutomation
     // [height] (the bottom pane, as P / X / Hide do; the height in dp as its splitter sets it; "song panel" is the old name) ·
     // song select <track> [clip] (indices; the clip opens in the piano roll) · song play · song stop · song render (wait-for render) · song save ·
     // song insert <track index|master> <built-in id> [param=value …] (added at the end of the chain, its window opened) ·
-    // song fx-window <track index|master> <slot> · song fx-close
+    // song fx-window <track index|master> <slot> · song fx-close · song browser on|off
     private static void Song(EditorWorkspace workspace, string[] step)
     {
         if (step[1] == "new")
@@ -767,6 +767,10 @@ public sealed class EditorQaScript : IEditorAutomation
 
             case "fx-close":
                 workspace.PluginWindow.Close();
+                break;
+            case "browser":
+                if ((step[2] == "on") != workspace.Layout.Settings.MusicShowBrowser)
+                    workspace.Commands.Execute("music.browser");
                 break;
             case "pane" or "panel":
                 workspace.SetMusicPane(step[2] switch

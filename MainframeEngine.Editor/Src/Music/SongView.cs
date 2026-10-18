@@ -203,6 +203,20 @@ public sealed class SongView : Node
         var scale = _workspace.Host.PointerScale;
         switch (inputEvent)
         {
+            case InputEventMouseButton { Pressed: false } release when _workspace.SongPanel.Browser.Drag is not null && _dragArea == SongArea.None:
+                _mouse = release.Position * scale;
+                if (AreaAt(_mouse) == SongArea.Arrangement)
+                {
+                    // A Browser plugin released on a lane goes to that lane's track (the ruler or below the lanes: nothing).
+                    var lane = tab.Controller.LaneAt(Local(SongArea.Arrangement, _mouse).Y);
+                    if (lane >= 0 && lane < tab.Document.Song.Tracks.Count)
+                        _workspace.SongPanel.Browser.Drop("track:" + lane.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    else
+                        _workspace.SongPanel.Browser.CancelDrag();
+                    Handled();
+                }
+
+                break;
             case InputEventMouseButton { Pressed: false } drop when _workspace.FileDrag is { } file && _dragArea == SongArea.None:
                 _mouse = drop.Position * scale;
                 if (AreaAt(_mouse) == SongArea.Arrangement)
