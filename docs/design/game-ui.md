@@ -96,9 +96,10 @@ model.Dirty("health");                                                      // v
 - Scalars: `bool`, `int`, `uint`, `long`, `float`, `double`, `string`, 32-bit enums. Conversion goes through
   `RmlValue<T>` with `typeof(T)` checks the JIT folds, so value types never box.
 - Lists and structs use the shim's dynamic variables (`mfrmlui_data_model_bind_variable`): every value is a 64-bit node
-  token (`element index + 1` in bits 16..47, `member index + 1` in bits 0..15). `RmlStructType<T>` describes members
-  once (`.Member("name", static i => i.Name)`); lists may hold scalars or structs of scalars (deeper nesting is not
-  supported yet). Lists are read live: change them and call `Dirty`. A list may shrink between updates: rows past the
+  token. `RmlStructType<T>` describes members once (`.Member("name", static i => i.Name)`); lists may hold scalars or
+  structs, and a bound list's structs may have one level of list members (`.List("slots", static r => r.Slots,
+  SlotType)` for `data-for="s : row.slots"`: the music mixer's insert slots). A list's tokens pack its element,
+  member, the nested element and its member in 16 bits each; deeper nesting is not supported. Lists are read live: change them and call `Dirty`. A list may shrink between updates: rows past the
   new end resolve to "none" while RmlUi drops their elements, without warnings.
 - The `Bind(name, owner, static getter, static setter)` overloads are what a future `[UiBindable]` source generator
   can emit without closures.

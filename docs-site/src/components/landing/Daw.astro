@@ -21,10 +21,27 @@ const tools = [
       { icon: 'arrows-maximize', text: 'Music mode: the whole window for the song, with the transport in the toolbar' },
       { icon: 'layout-grid', text: 'Arrangement: instrument and audio tracks, a loop region, clips that snap, resize and duplicate' },
       { icon: 'music', text: 'Piano roll with a velocity lane, quantize, and one undo entry per gesture' },
-      { icon: 'adjustments', text: 'Mixer: pan, dB faders, peak meters, mute and solo, a master strip' },
+      { icon: 'adjustments', text: 'Mixer: insert slots, pan, dB faders, peak meters, mute and solo, a master strip' },
+      { icon: 'layout-sidebar-right', text: 'Browser: every song in the project and every plugin, dragged onto a track or strip' },
       { icon: 'plug-connected', text: 'VST3 instruments and effect inserts in a crash-safe plugin host, with delay compensation' },
       { icon: 'keyboard', text: 'MIDI keyboards: play the armed track, record takes, loop-record, input quantize' },
       { icon: 'file-music', text: 'Render to OGG Vorbis or WAV, in the editor or headless in CI' },
+    ],
+  },
+  {
+    kicker: 'Built-in effects',
+    title: 'Mix with effects that ship with the editor',
+    image: 'editor-song-effects.png',
+    overlay: 'none',
+    alt: "The Channel EQ's plugin window on the Demo song's master: the curve with its band handles and a column of knobs per band",
+    doc: `${base}docs/design/music-effects/`,
+    points: [
+      { icon: 'adjustments-horizontal', text: 'Channel EQ with a curve you drag, and a resonant filter with a synced sweep' },
+      { icon: 'arrows-minimize', text: 'Compressor, brickwall limiter and noise gate with live gain-reduction meters' },
+      { icon: 'repeat', text: 'Beat Delay in note values (dotted, triplet, ping-pong) and a reverb with pre-delay' },
+      { icon: 'wave-sine', text: 'Chorus, flanger, phaser and tremolo/auto-pan locked to the song' },
+      { icon: 'flame', text: 'Saturation, distortion and a bitcrusher, oversampled' },
+      { icon: 'arrow-back-up', text: 'Presets, and one undo step per knob or handle drag; songs play the same everywhere' },
     ],
   },
   {
@@ -69,7 +86,7 @@ const tools = [
           </div>
           <button class="mf-shot" type="button" data-full={img(tool.image)} data-caption={tool.alt}>
             <img src={img(tool.image)} width="1600" height="960" alt={tool.alt} loading="lazy" decoding="async" />
-            {tool.overlay === 'song' ? (
+            {tool.overlay === 'none' ? null : tool.overlay === 'song' ? (
               <span aria-hidden="true">
                 <span class="mf-overlay mf-playhead mf-playhead--arrange" />
                 <span class="mf-overlay mf-playhead mf-playhead--roll" />

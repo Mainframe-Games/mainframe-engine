@@ -108,6 +108,14 @@ song pane mixer
 song play
 wait 30
 capture 13e-song-mixer
+song insert 0 eq peak2Freq=1200 peak2Gain=4 lowCutOn=1
+wait 5
+capture 13e2-song-eq
+song fx-close
+song browser on
+wait 5
+capture 13e3-song-browser
+song browser off
 song stop
 song save
 song render

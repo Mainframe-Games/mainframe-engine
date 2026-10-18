@@ -783,3 +783,13 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   - A packaged `.app` built from the NuGet package and launched from `/` logged `Steam: running (app 480, …)`.
   - CI's three OSes check `SteamNotRunning`.
 - Follow-ups: `SteamSocketsTransport` on Facepunch relay sockets; avatar textures.
+
+### 2026-10-18 — Logic-style DAW: built-in effects, plugin window, bottom pane, Browser (ADR 0193; #80, #81)
+- 15 built-in insert effects in C# (`Music/Effects/`): Channel EQ, Filter, Compressor, Limiter, Noise Gate, Beat Delay,
+  Reverb, Chorus, Flanger, Phaser, Tremolo, Saturation, Distortion, Bitcrusher, Utility. Lock-free parameter push,
+  bypass crossfade, staged chains with VST3, `EffectContext` (tempo/position) for synced effects. `docs/design/music-effects.md`.
+- `PluginWindow`: knobs from the parameter descriptors, the EQ curve with draggable handles, gain-reduction meters.
+- Bottom pane one at a time (P/X, resizable, saved); M/S mute/solo (#81).
+- Browser (F): songs and plugins, search, collapse, drag onto headers/strips/slots/lanes; mixer insert slots per strip;
+  `RmlStructType.List` (one level of nested data-for lists).
+- Designs merged: wavetable synth (#78, ADR 0195, open questions) and adaptive music (#79, ADR 0196; A1 code in #82).

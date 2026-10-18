@@ -155,6 +155,7 @@ Music mode has its own table (`EditorWorkspace.MusicShortcutFor`). The song tab'
 | Space · R · L · Home | play/stop · record · loop · to the start |
 | Delete / Backspace · Cmd/Ctrl+C, V, D · arrows · Q | the song tab's edits (clips, notes) |
 | P · X | piano roll · mixer in the bottom pane (the open pane's key hides it) |
+| F | the Browser: the project's songs and every plugin, on the right |
 | M · S | mute · solo the selected track (as in Logic; undoable) |
 | Cmd/Ctrl+N, O, S, Shift+S, W, Q | new song, open song, save, save as, close tab, quit |
 | Cmd/Ctrl+Z, Shift+Z or Y | undo, redo |
@@ -693,9 +694,9 @@ window: no Scene tree, Inspector or FileSystem.
 - **Transport** (the toolbar's music group, `ToolbarPanel.UpdateMusic`, commands `song.*`): to start, play/stop, stop,
   record, loop, tempo field, time signature menu, position (bars.beats.ticks), snap menu (off, 1/4 … 1/32, triplets),
   input quantize, underrun counter, a read-only badge and **Render** (Ctrl+E), then on the right the view toggles:
-  Piano Roll (P) and Mixer (X), lit while shown; disabled without a song tab. The Song menu repeats it with Add
+  Piano Roll (P) and Mixer (X), lit while shown and disabled without a song tab, and the Browser (F). The Song menu repeats it with Add
   Instrument/Audio Track and Mute/Solo Track (M, S: the selected track); View lists Piano Roll and Mixer (the shown one
-  marked) and Hide Editor; Edit › Music Settings… opens Editor Settings at the VST3 folders and MIDI inputs.
+  marked), Hide Editor and Browser; Edit › Music Settings… opens Editor Settings at the VST3 folders and MIDI inputs.
 - **Bottom pane**, Logic style: one editor at a time below the tracks — the piano roll or the mixer — or none, when the
   tracks fill the view. P / X (`song.piano_roll`, `song.mixer`) show one and the open pane's key hides it; so does the ×
   in its header (`song.hide_pane`); double-clicking a MIDI clip opens the piano roll. A splitter above the header resizes
@@ -706,9 +707,12 @@ window: no Scene tree, Inspector or FileSystem.
   an instrument or audio track); the bottom pane's header (**Piano roll | Mixer**, the selected clip's summary, Hide); mixer strips
   (instrument slot "Built-in ZzFX" with its menu, Edit Sound — the ZzFX line in a text field, checked by
   `ZzfxParameters.TryParse`, auditioned on Apply — and audition; the slot's menu also lists scanned VST3 instruments and
-  opens the plugin's editor window; an inserts button whose menu adds a scanned VST3 effect and, per insert, opens its
-  editor, bypasses, moves it up/down or removes it — all undoable `SongDocument` edits; pan; vertical volume fader in dB; peak meter from `TakeTrackPeak`/`TakeMasterPeak` once per frame;
-  mute/solo) and the master strip (with its own inserts). Faders and the tempo field merge into one undo entry per drag or edit. No metronome
+  opens the plugin's editor window; **Audio FX** slots, Logic style — one per insert with a bypass button (a click opens
+  the built-in effect's window or the VST3 plugin's editor; right-click: bypass, move up/down, replace with another
+  effect, remove; an unknown effect or a plugin missing on this computer shows in amber) and an empty slot whose menu
+  adds a built-in effect by category or a scanned VST3 effect — all undoable `SongDocument` edits; pan; vertical volume
+  fader in dB; peak meter from `TakeTrackPeak`/`TakeMasterPeak` once per frame; mute/solo) and the master strip (with
+  its own slots). The strips' slots are a nested `data-for` (`RmlStructType.List`). Faders and the tempo field merge into one undo entry per drag or edit. No metronome
   yet (`SongEngine` has no click).
 - **Canvases:** the arrangement (`ArrangementCanvas`) and the piano roll (`PianoRollCanvas`) are `[Tool]` `Node2D`s
   drawing with `DrawRect`/`DrawLine`/`DrawString` in two `Disable3D` `SubViewport`s per tab, sized in framebuffer pixels
@@ -743,10 +747,20 @@ window: no Scene tree, Inspector or FileSystem.
   renders a song into the project above it (the nearest folder with `project.mfproj`) exactly like Render — the output
   and its `.meta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
   `Content/Music/demo_loop.ogg` is rendered this way).
+- **Browser** (F, View › Browser, the toolbar's sidebar button; `SongBrowser`, Logic's Browsers): a column on the right
+  of the song view, with or without a song open. **Songs** lists every `.msong` in the project (the open one marked; a
+  click opens it); **Plugins** lists the built-in effects by category, then the scanned VST3 effects and instruments. A
+  search field filters both; sections and groups collapse. A double-click adds a plugin to the selected track (a
+  built-in opens its window); dragging it (4 dp to start; a ghost follows the mouse) drops it on a track header, a mixer
+  strip or the add slot (appended), an insert slot (replaced), the master strip, or an arrangement lane (that track).
+  A VST3 instrument goes only to an instrument track. Its splitter resizes it (200 dp up to the view less 400 dp); open
+  state, width and collapsed groups are in the layout file (`MusicShowBrowser`, `MusicBrowserWidth`,
+  `MusicBrowserCollapsed`; hidden at first, as in Logic). The list is one flat data-model list rebuilt only when the
+  project, its files, the open song, the plugin catalog, the search or the collapsed set changed.
 - **Built-in effects** ([Built-in music effects](music-effects.md), ADR 0193): fifteen in-process effects (Channel EQ,
   Filter, Compressor, Limiter, Noise Gate, Beat Delay, Reverb, Chorus, Flanger, Phaser, Tremolo, Saturation, Distortion,
   Bitcrusher, Utility) that every track and the master can insert next to VST3 plugins; the inserts menu lists them by
-  category. Adding one, or its menu's Open, shows the **plugin window** (`PluginWindow`): knobs built from the effect's
+  category in the add slot's menu and the Browser. Adding one, or clicking its slot, shows the **plugin window** (`PluginWindow`): knobs built from the effect's
   parameters, the EQ's draggable curve, a gain-reduction meter, the delay's time at the song's tempo, presets and reset;
   a knob or handle drag is one undo step.
 - **VST3 plugins** (ADR 0147): `PluginScanner` runs `mfplughost --scan` once per bundle (30 s timeout) over the OS's
