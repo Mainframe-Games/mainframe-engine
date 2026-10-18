@@ -314,8 +314,22 @@ public sealed class SongSnapshotBuilder
     /// <summary>UI thread: the instrument playing track <paramref name="trackId"/> (the synth window's displays), or null.</summary>
     public IInstrument? FindInstrument(string trackId) => _slots.TryGetValue(trackId, out var slot) ? slot.Instrument : null;
 
-    /// <summary>UI thread: the running built-in effect of <paramref name="insert"/> (meters), or null.</summary>
-    public BuiltinEffect? FindBuiltin(PluginInsert insert) => _builtins.GetValueOrDefault(insert);
+    /// <summary>
+    /// UI thread: the running built-in effect of <paramref name="insert"/> (meters), or null: a track or master insert, or an
+    /// effect of a wavetable synth's own chain.
+    /// </summary>
+    public BuiltinEffect? FindBuiltin(PluginInsert insert)
+    {
+        if (_builtins.GetValueOrDefault(insert) is { } effect)
+            return effect;
+        foreach (var slot in _slots.Values)
+        {
+            if (slot.Instrument is WavetableSynth synth && synth.FindEffect(insert) is { } fx)
+                return fx;
+        }
+
+        return null;
+    }
 
     private void ReleaseInstrument(IInstrument? instrument)
     {

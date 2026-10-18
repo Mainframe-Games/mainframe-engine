@@ -19,8 +19,13 @@ public sealed class SynthWindow : EditorDocument
     private const float KnobDragDp = 200;
     private const float WindowWidth = 1010;
     private const float DragThreshold = 4;
+
+    /// <summary>The FX tab's EQ curve texture.</summary>
+    public const string FxGraphTexture = "synth-fx-graph";
     private static readonly int ParamCount = SynthParams.All.Length;
-    private static readonly string[] Degrees = [.. Enumerable.Range(0, 271).Select(i => $"rotate({(i - 135).ToString(CultureInfo.InvariantCulture)}deg)")];
+    private static readonly string[] Degrees = KnobMarkup.Degrees;
+    private static readonly List<SynthModRoute> NoRoutes = [];
+    private static readonly List<PluginInsert> NoFx = [];
 
     /// <summary>The modulation sources' names (by source index) and colours.</summary>
     public static readonly string[] SourceNames =
@@ -46,10 +51,10 @@ public sealed class SynthWindow : EditorDocument
     private bool _built;
     private string _page = "osc";
     private int _modSource; // 0–3 envelopes, 4–7 LFOs, 8 macros
-    private string? _matrixSignature;
-    private string? _fxSignature;
+    private int? _matrixSignature;
+    private int? _fxSignature;
     private string? _shownPreset;
-    private (string? A, string? B) _shownTables;
+    private (int Voices, int Load) _shownCpu = (-1, -1);
     private (float X, float Y) _position = (float.NaN, float.NaN);
     private (float X, float Y) _moveOffset;
     private bool _moving;
@@ -69,11 +74,16 @@ public sealed class SynthWindow : EditorDocument
     private (float X, float Y) _pressedAt;
     private int _draggingSource = -1;
     private readonly Dictionary<int, int> _selectedRoute = [];
+    private readonly EffectPanel _fxPanel;
+    private PluginInsert? _fxSelected;
+    private int _fxDrag = -1;
+    private int _hoverSource = -1;
 
     public SynthWindow(EditorWorkspace workspace)
         : base(workspace, "synth_window.rml")
     {
         Visible = false;
+        _fxPanel = new EffectPanel(workspace, "sx", "f", FxGraphTexture);
         Array.Fill(_shown, float.NaN);
         Array.Fill(_shownLive, -1);
     }
@@ -95,7 +105,7 @@ public sealed class SynthWindow : EditorDocument
 
     private Dictionary<string, float>? Values => Instrument?.Patch?.Params;
 
-    private List<SynthModRoute> Routes => Instrument?.Patch?.Matrix ?? [];
+    private List<SynthModRoute> Routes => Instrument?.Patch?.Matrix ?? NoRoutes;
 
     /// <summary>Shows <paramref name="track"/>'s wavetable synth.</summary>
     public void Open(SongTab tab, SongTrack track)
@@ -119,6 +129,8 @@ public sealed class SynthWindow : EditorDocument
             return;
         ReleaseKey();
         EndEdits();
+        _fxPanel.Clear();
+        _fxSelected = null;
         Tab = null;
         Track = null;
         Instrument = null;
@@ -159,7 +171,7 @@ public sealed class SynthWindow : EditorDocument
             if (value == _shown[i])
                 continue;
             _shown[i] = value;
-            ShowValue(document, i, all[i], value);
+            KnobMarkup.Show(document, "", i, all[i], value, _shownText);
             filterDirty |= IsFilterParam(i);
             modDirty = true;
         }
@@ -192,6 +204,8 @@ public sealed class SynthWindow : EditorDocument
         TickLive(document, shown, track);
         foreach (var v in (ReadOnlySpan<View>)[_waveA, _waveB, _filter, _mod])
             TickView(v);
+        if (_page == "fx")
+            _fxPanel.Tick(document);
     }
 
     private static bool IsFilterParam(int i)
@@ -213,7 +227,10 @@ public sealed class SynthWindow : EditorDocument
         Array.Fill(_shownLive, -1);
         _matrixSignature = null;
         _fxSignature = null;
-        _shownTables = default;
+        _waveA.Table = null;
+        _waveB.Table = null;
+        _shownCpu = (-1, -1);
+        _fxPanel.Clear();
         ShowTitle(document, tab, track);
         _shownPreset = Instrument.Preset;
 
@@ -253,62 +270,15 @@ public sealed class SynthWindow : EditorDocument
     {
         var sb = new StringBuilder();
         foreach (var i in parameters)
-            AppendControl(sb, SynthParams.All[i], i);
+        {
+            var p = SynthParams.All[i];
+            var target = SynthParams.IsModTarget(p);
+            KnobMarkup.Append(sb, p, i, "",
+                target ? " · drop a source from the strip to modulate it; Alt-drag sets the route's amount, right-click lists its routes" : null,
+                target ? "mod:" + i.ToString(CultureInfo.InvariantCulture) : null);
+        }
+
         document.GetElementById(container).SetInnerRml(sb.ToString());
-    }
-
-    private static void AppendControl(StringBuilder sb, BuiltinParam p, int i)
-    {
-        var n = i.ToString(CultureInfo.InvariantCulture);
-        var name = RmlText.Escape(p.Name);
-        switch (p.Curve)
-        {
-            case ParamCurve.Toggle:
-                sb.Append("<div class=\"pw-choice-wrap\"><div class=\"pw-toggle\" id=\"kt-").Append(n).Append("\" data-p=\"").Append(n)
-                    .Append("\" data-tooltip=\"").Append(name).Append(" — click to switch\">").Append(name).Append("</div></div>");
-                break;
-            case ParamCurve.Choice:
-                sb.Append("<div class=\"pw-choice-wrap\"><div class=\"pw-choice\" id=\"kc-").Append(n).Append("\" data-p=\"").Append(n)
-                    .Append("\" data-tooltip=\"").Append(name).Append(" — click for the choices\"></div><span class=\"pw-param-name\">")
-                    .Append(name).Append("</span></div>");
-                break;
-            default:
-                var target = SynthParams.IsModTarget(p);
-                sb.Append("<div class=\"knob\" data-tooltip=\"").Append(name).Append(" — drag up or down (Shift: fine) · wheel steps · double-click resets")
-                    .Append(target ? " · drop a source from the strip to modulate it; Alt-drag sets the route's amount, right-click lists its routes" : "")
-                    .Append("\"><div class=\"knob-dial\" data-p=\"").Append(n).Append('"');
-                if (target)
-                    sb.Append(" data-drop=\"mod:").Append(n).Append('"');
-                sb.Append("><div class=\"knob-pointer\" id=\"kp-").Append(n).Append("\"></div><div id=\"km-").Append(n)
-                    .Append("\"></div></div><div class=\"knob-name\">").Append(name).Append("</div><div class=\"knob-value mono\" id=\"kv-").Append(n)
-                    .Append("\"></div></div>");
-                break;
-        }
-    }
-
-    private void ShowValue(RmlDocument document, int index, BuiltinParam p, float value)
-    {
-        var n = index.ToString(CultureInfo.InvariantCulture);
-        switch (p.Curve)
-        {
-            case ParamCurve.Toggle:
-                if (document.GetElementById("kt-" + n) is { IsNull: false } toggle)
-                    toggle.SetClass("active", value >= 0.5f);
-                return;
-            case ParamCurve.Choice:
-                if (document.GetElementById("kc-" + n) is { IsNull: false } choice)
-                    choice.SetInnerRml(RmlText.Escape(p.Format(value)));
-                return;
-        }
-
-        if (document.GetElementById("kp-" + n) is not { IsNull: false } pointer)
-            return;
-        pointer.SetProperty("transform", Degrees[Math.Clamp((int)MathF.Round(p.ToNormalized(value) * 270), 0, 270)]);
-        var text = p.Format(value);
-        if (text == _shownText[index])
-            return;
-        _shownText[index] = text;
-        document.GetElementById("kv-" + n).SetInnerRml(RmlText.Escape(text));
     }
 
     private void ShowTitle(RmlDocument document, SongTab tab, SongTrack track)
@@ -419,12 +389,20 @@ public sealed class SynthWindow : EditorDocument
         _matrixSignature = null;
     }
 
-    private string MatrixSignature()
+    // What the marks, counts and Matrix tab show, as a hash (no allocation on steady frames).
+    private int MatrixSignature()
     {
-        var sb = new StringBuilder();
+        var hash = new HashCode();
         foreach (var r in Routes)
-            sb.Append(r.Source).Append('>').Append(r.Target).Append(':').Append(r.Amount.ToString("R", CultureInfo.InvariantCulture)).Append(r.Bipolar ? 'b' : 'u').Append(';');
-        return sb.ToString();
+        {
+            hash.Add(r.Source, StringComparer.Ordinal);
+            hash.Add(r.Target, StringComparer.Ordinal);
+            hash.Add(r.Amount);
+            hash.Add(r.Bipolar);
+        }
+
+        hash.Add(Routes.Count);
+        return hash.ToHashCode();
     }
 
     // Knob modulation marks (a tick in the source's colour at base + amount, a live dot), the strip's counts, the Matrix tab.
@@ -489,12 +467,18 @@ public sealed class SynthWindow : EditorDocument
     private void TickLive(RmlDocument document, SongTab tab, SongTrack track)
     {
         var synth = tab.Player.FindInstrument(track) as WavetableSynth;
-        if (++_cpuFrames % 10 == 0 && document.GetElementById("sw-cpu") is { IsNull: false } cpu)
+        if (++_cpuFrames % 10 == 0)
         {
+            // Silent: no voices and no load to show (and no text to build on idle frames).
             var voices = synth?.ActiveVoices ?? 0;
-            var load = (int)MathF.Round((synth?.Load ?? 0) * 100);
-            cpu.SetInnerRml(voices.ToString(CultureInfo.InvariantCulture) + (voices == 1 ? " voice · " : " voices · ") + load.ToString(CultureInfo.InvariantCulture) + " %");
-            cpu.SetClass("hot", load >= 70);
+            var load = voices == 0 ? 0 : (int)MathF.Round((synth?.Load ?? 0) * 100);
+            if ((voices, load) != _shownCpu && document.GetElementById("sw-cpu") is { IsNull: false } cpu)
+            {
+                _shownCpu = (voices, load);
+                cpu.SetInnerRml(voices == 0 ? "0 voices"
+                    : voices.ToString(CultureInfo.InvariantCulture) + (voices == 1 ? " voice · " : " voices · ") + load.ToString(CultureInfo.InvariantCulture) + " %");
+                cpu.SetClass("hot", load >= 70);
+            }
         }
 
         var sounding = synth is { ActiveVoices: > 0 };
@@ -537,27 +521,30 @@ public sealed class SynthWindow : EditorDocument
 
     // ── Wavetables and canvases ──────────────────────────────────────────────────────────────────────────────────
 
+    // Each oscillator's table and label: looked up again only when its source or frame size changed, or a project file's table may have.
     private void TickTables(RmlDocument document, InstrumentDescriptor synth)
     {
+        var version = WavetableCache.Version;
         foreach (var (oscillator, view) in (ReadOnlySpan<(string, View)>)[("a", _waveA), ("b", _waveB)])
         {
             var reference = Table(synth.Patch, oscillator);
+            // A factory table never changes; a project file's is read again when the cache saw it change (a new version).
+            if (view.Table is { } shown && string.Equals(shown.Source, reference.Source, StringComparison.Ordinal) && shown.FrameSize == reference.FrameSize &&
+                view.HasTable && (shown.Version == version || reference.Source.StartsWith(FactoryWavetables.Prefix, StringComparison.Ordinal)))
+                continue;
             var table = WavetableCache.Get(reference.Source, out _, reference.FrameSize);
+            view.Table = (reference.Source, reference.FrameSize, version);
+            view.HasTable = table is not null;
             var canvas = (WavetableCanvas)view.Canvas;
             if (table is not null && !ReferenceEquals(table, canvas.Table))
             {
                 canvas.Table = table;
                 view.Dirty = true;
             }
-        }
 
-        var a = TableLabel(synth.Patch, "a");
-        var b = TableLabel(synth.Patch, "b");
-        if (a == _shownTables.A && b == _shownTables.B)
-            return;
-        _shownTables = (a, b);
-        document.GetElementById("sw-table-a").SetInnerRml(RmlText.Escape(a));
-        document.GetElementById("sw-table-b").SetInnerRml(RmlText.Escape(b));
+            var label = TableLabel(synth.Patch, oscillator);
+            document.GetElementById(oscillator == "a" ? "sw-table-a" : "sw-table-b").SetInnerRml(RmlText.Escape(label));
+        }
     }
 
     private static SynthTableRef Table(SynthPatch? patch, string oscillator) =>
@@ -581,6 +568,10 @@ public sealed class SynthWindow : EditorDocument
         public bool Registered { get; set; }
         public bool Dirty { get; set; } = true;
         public (int W, int H) Size { get; set; }
+
+        // The table source shown (wavetable displays): its source, frame size and the cache version it was looked up at.
+        public (string Source, int FrameSize, int Version)? Table { get; set; }
+        public bool HasTable { get; set; }
     }
 
     private void EnsureView(RmlDocument document, View view)
@@ -666,6 +657,25 @@ public sealed class SynthWindow : EditorDocument
         return new Vector2((float)((e.GetParameter("mouse_x", 0.0) - b.X) / scale), (float)((e.GetParameter("mouse_y", 0.0) - b.Y) / scale));
     }
 
+    /// <summary>Marks the knobs <paramref name="source"/> (a strip tile, −1: none) modulates.</summary>
+    internal void HighlightSource(int source)
+    {
+        if (source == _hoverSource || !IsLoaded)
+            return;
+        _hoverSource = source;
+        foreach (var dial in Document.AsElement().QuerySelectorAll(".source-target"))
+            dial.SetClass("source-target", false);
+        if ((uint)source >= (uint)SynthParams.Sources.Length)
+            return;
+        var name = SynthParams.Sources[source];
+        foreach (var r in Routes)
+        {
+            if (r.Source == name && SynthParams.IndexOf(r.Target) is >= 0 and var t &&
+                Document.GetElementById("km-" + t.ToString(CultureInfo.InvariantCulture)) is { IsNull: false } marks)
+                marks.Parent.SetClass("source-target", true);
+        }
+    }
+
     // ── Keyboard ─────────────────────────────────────────────────────────────────────────────────────────────────
 
     private void BuildKeyboard(RmlDocument document)
@@ -719,6 +729,7 @@ public sealed class SynthWindow : EditorDocument
         _built = false;
         foreach (var v in (ReadOnlySpan<View>)[_waveA, _waveB, _filter, _mod])
             v.Registered = false;
+        _fxPanel.Attached();
         var body = document.AsElement();
         _listeners.Add(body.AddEventListener("dragstart", OnDragStart));
         _listeners.Add(body.AddEventListener("drag", OnDrag));
@@ -729,6 +740,7 @@ public sealed class SynthWindow : EditorDocument
         _listeners.Add(body.AddEventListener("mousemove", OnMouseMove));
         _listeners.Add(body.AddEventListener("mouseup", OnMouseUp));
         _listeners.Add(body.AddEventListener("change", OnChange));
+        _listeners.Add(body.AddEventListener("mouseover", e => HighlightSource(IntAttribute(e.Target, "data-src"))));
         _listeners.Add(body.AddEventListener("keydown", e =>
         {
             if ((RmlKey)e.GetParameter("key_identifier", 0) == RmlKey.Escape)
@@ -762,8 +774,27 @@ public sealed class SynthWindow : EditorDocument
             return;
         var target = e.Target;
         switch (IdUp(target, "sw-close", "sw-reset", "sw-presets", "sw-prev", "sw-next", "sw-table-a", "sw-table-b", "sw-oct-up", "sw-oct-down", "sw-draw",
-                    "sw-wt-a", "sw-wt-b", "sw-add-route", "sw-add-fx"))
+                    "sw-wt-a", "sw-wt-b", "sw-add-route", "sw-add-fx", "sx-power", "sx-presets", "sx-reset", "sx-open"))
         {
+            case "sx-power":
+                if (_fxSelected is { } bypassed)
+                    Edit(tab, "Could not bypass the effect", () => tab.Document.SetInsertBypass(bypassed, !bypassed.Bypass));
+                return;
+            case "sx-presets":
+                {
+                    var b = Document.GetElementById("sx-presets").Bounds;
+                    var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+                    _fxPanel.PresetMenu(b.X / scale, (b.Y + b.Height) / scale + 2);
+                    return;
+                }
+
+            case "sx-reset":
+                _fxPanel.Reset();
+                return;
+            case "sx-open":
+                if (_fxSelected is { } open)
+                    Workspace.PluginWindow.Open(tab, track, open);
+                return;
             case "sw-close":
                 Close();
                 return;
@@ -834,6 +865,9 @@ public sealed class SynthWindow : EditorDocument
             return;
         }
 
+        if (_page == "fx" && _fxPanel.Click(e))
+            return;
+
         var index = IntAttribute(target, "data-p");
         if ((uint)index >= (uint)ParamCount || tab.Document.IsReadOnly)
             return;
@@ -851,6 +885,8 @@ public sealed class SynthWindow : EditorDocument
         Document.PullToFront();
         var button = e.GetParameter("button", 0);
         var target = e.Target;
+        if (_page == "fx")
+            _fxPanel.MouseDown(Document, e);
         if (button == 0 && IntAttribute(target, "data-key") is >= 0 and var pitch)
         {
             PressKey(pitch);
@@ -952,6 +988,20 @@ public sealed class SynthWindow : EditorDocument
         _dragCounter++;
         var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
         var y = (float)(e.GetParameter("mouse_y", 0.0) / scale);
+        if (_page == "fx")
+        {
+            _dragStartY = y;
+            if (_fxPanel.DragStart(Document, e))
+                return;
+            if (IntAttribute(e.Target, "data-fx-drag") is >= 0 and var row)
+            {
+                _fxDrag = row;
+                if (FindWithAttribute(e.Target, "data-fx-row") is { IsNull: false } dragged)
+                    dragged.SetClass("dragging", true);
+                return;
+            }
+        }
+
         if (FindWithAttribute(e.Target, "data-p") is { IsNull: false } dial && dial.IsClassSet("knob-dial") &&
             int.TryParse(dial.GetAttribute("data-p"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
         {
@@ -1050,6 +1100,14 @@ public sealed class SynthWindow : EditorDocument
             _position = (x - _moveOffset.X, y - _moveOffset.Y);
             Place();
         }
+        else if (_fxDrag >= 0)
+        {
+            ShowFxDrop(FxDropIndex(y));
+        }
+        else if (_fxPanel.Dragging)
+        {
+            _fxPanel.Drag(Document, e, _dragStartY - y);
+        }
         else if (_dragParam >= 0 || _dragRoute >= 0)
         {
             DragKnob(_dragStartY - y, e.GetParameter("shift_key", 0) != 0);
@@ -1065,6 +1123,19 @@ public sealed class SynthWindow : EditorDocument
         if (_moving)
             Workspace.SaveLayout();
         _moving = false;
+        if (_fxDrag >= 0)
+        {
+            var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+            var slot = FxDropIndex((float)(e.GetParameter("mouse_y", 0.0) / scale));
+            var from = _fxDrag;
+            _fxDrag = -1;
+            _fxSignature = null; // the rows are built again (no drag marks)
+            MoveFx(from, slot > from ? slot - 1 : slot);
+            return;
+        }
+
+        if (_fxPanel.Dragging)
+            _fxPanel.DragEnd(Document);
         foreach (var dial in Document.AsElement().QuerySelectorAll(".knob-dial.dragging"))
             dial.SetClass("dragging", false);
         EndDrag();
@@ -1073,6 +1144,8 @@ public sealed class SynthWindow : EditorDocument
     private void OnDoubleClick(RmlEvent e)
     {
         if (Tab is not { } tab || Track is not { } track || tab.Document.IsReadOnly)
+            return;
+        if (_page == "fx" && _fxPanel.DoubleClick(Document, e))
             return;
         if (FindWithAttribute(e.Target, "data-p") is { IsNull: false } dial && dial.IsClassSet("knob-dial") &&
             int.TryParse(dial.GetAttribute("data-p"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
@@ -1089,6 +1162,8 @@ public sealed class SynthWindow : EditorDocument
     private void OnWheel(RmlEvent e)
     {
         if (Tab is not { } tab || Track is not { } track || tab.Document.IsReadOnly)
+            return;
+        if (_page == "fx" && _fxPanel.Wheel(e))
             return;
         var delta = (float)e.GetParameter("wheel_delta_y", 0.0);
         if (delta == 0 || FindWithAttribute(e.Target, "data-p") is not { IsNull: false } dial || !dial.IsClassSet("knob-dial") ||
@@ -1434,37 +1509,113 @@ public sealed class SynthWindow : EditorDocument
 
     // ── FX tab ───────────────────────────────────────────────────────────────────────────────────────────────────
 
-    private List<PluginInsert> Fx => Instrument?.Patch?.Fx ?? [];
+    private List<PluginInsert> Fx => Instrument?.Patch?.Fx ?? NoFx;
 
-    private string FxSignature()
+    private int FxSignature()
     {
-        var sb = new StringBuilder();
+        var hash = new HashCode();
         foreach (var insert in Fx)
-            sb.Append(insert.Builtin).Append(insert.Bypass ? '0' : '1').Append(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(insert)).Append(';');
-        return sb.ToString();
+        {
+            hash.Add(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(insert));
+            hash.Add(insert.Bypass);
+        }
+
+        hash.Add(Fx.Count);
+        hash.Add(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_fxSelected));
+        return hash.ToHashCode();
     }
 
+    // The chain's rows (grip, bypass, name, open, remove) and the selected effect's panel.
     private void ShowFx(RmlDocument document)
     {
         var fx = Fx;
+        if (_fxSelected is null || !fx.Contains(_fxSelected))
+            _fxSelected = fx.Count > 0 ? fx[0] : null;
         var sb = new StringBuilder();
-        if (fx.Count == 0)
-            sb.Append("<div class=\"sw-empty\">No effects: the synth's own chain runs after its voices, before its volume.</div>");
         for (var i = 0; i < fx.Count; i++)
         {
             var n = i.ToString(CultureInfo.InvariantCulture);
             var insert = fx[i];
-            sb.Append("<div class=\"fx-row").Append(insert.Bypass ? " bypassed" : "").Append("\">")
-                .Append("<button class=\"tool-button small\" data-fx=\"").Append(n).Append("\" data-fx-action=\"bypass\" data-tooltip=\"Bypass\"><span class=\"icon icon-sm icon-power\"></span></button>")
-                .Append("<span class=\"name\" data-fx=\"").Append(n).Append("\" data-fx-action=\"open\" data-tooltip=\"Open its window\">").Append(RmlText.Escape(insert.DisplayName)).Append("</span>")
-                .Append("<button class=\"tool-button small\" data-fx=\"").Append(n).Append("\" data-fx-action=\"up\" data-tooltip=\"Move up\"><span class=\"icon icon-sm icon-arrow-up\"></span></button>")
-                .Append("<button class=\"tool-button small\" data-fx=\"").Append(n).Append("\" data-fx-action=\"down\" data-tooltip=\"Move down\"><span class=\"icon icon-sm icon-arrow-down\"></span></button>")
-                .Append("<button class=\"tool-button small\" data-fx=\"").Append(n).Append("\" data-fx-action=\"remove\" data-tooltip=\"Remove\"><span class=\"icon icon-sm icon-trash\"></span></button></div>");
+            sb.Append("<div class=\"fx-row").Append(insert.Bypass ? " bypassed" : "").Append(ReferenceEquals(insert, _fxSelected) ? " selected" : "")
+                .Append("\" data-fx-row=\"").Append(n).Append("\">")
+                .Append("<span class=\"icon icon-sm icon-arrows-up-down grip\" data-fx-drag=\"").Append(n).Append("\" data-tooltip=\"Drag to reorder\"></span>")
+                .Append("<button class=\"tool-button small pw-power").Append(insert.Bypass ? "" : " active").Append("\" data-fx=\"").Append(n)
+                .Append("\" data-fx-action=\"bypass\" data-tooltip=\"Bypass\"><span class=\"icon icon-sm icon-plug-connected\"></span></button>")
+                .Append("<span class=\"name\" data-fx=\"").Append(n).Append("\" data-fx-action=\"select\" data-tooltip=\"Edit it here\">")
+                .Append(RmlText.Escape(insert.DisplayName)).Append("</span>")
+                .Append("<button class=\"tool-button small\" data-fx=\"").Append(n)
+                .Append("\" data-fx-action=\"remove\" data-tooltip=\"Remove\"><span class=\"icon icon-sm icon-trash\"></span></button></div>");
         }
 
+        if (fx.Count == 0)
+            sb.Append("<div class=\"sw-empty\">No effects: the synth's own chain runs after its voices, before its volume.</div>");
         sb.Append("<button id=\"sw-add-fx\" class=\"text-button\" data-tooltip=\"Add a built-in effect to the synth's chain\">+ Add Effect</button>");
         document.GetElementById("sw-fx").SetInnerRml(sb.ToString());
         document.GetElementById("sw-tab-fx").SetInnerRml(fx.Count == 0 ? "FX" : "FX " + fx.Count.ToString(CultureInfo.InvariantCulture));
+        ShowFxPanel(document);
+    }
+
+    private void ShowFxPanel(RmlDocument document)
+    {
+        var insert = _fxSelected;
+        document.GetElementById("sw-fx-panel").SetClass("hidden", insert is null);
+        document.GetElementById("sx-none").SetClass("hidden", insert is not null);
+        if (insert is null || Tab is not { } tab || Track is not { } track || BuiltinEffects.Find(insert.Builtin ?? "") is not { } info)
+        {
+            if (_fxPanel.Insert is not null)
+                _fxPanel.Clear(document);
+            return;
+        }
+
+        document.GetElementById("sw-fx-panel").SetClass("bypassed", insert.Bypass);
+        document.GetElementById("sx-power").SetClass("active", !insert.Bypass);
+        if (ReferenceEquals(_fxPanel.Insert, insert))
+            return;
+        document.GetElementById("sx-name").SetInnerRml(RmlText.Escape(info.Name));
+        document.GetElementById("sx-icon").SetClassNames("icon icon-sm icon-" + info.Icon);
+        document.GetElementById("sx-presets").SetClass("hidden", info.Presets is not { Length: > 0 });
+        _fxPanel.Show(document, tab, track, insert, info);
+    }
+
+    /// <summary>The effect of the synth's chain shown in the FX tab's panel (null: none).</summary>
+    public PluginInsert? SelectedFx => _fxSelected;
+
+    /// <summary>The FX tab's effect panel (tests drive its knobs and EQ handles).</summary>
+    internal EffectPanel FxPanel => _fxPanel;
+
+    /// <summary>Moves the chain's effect <paramref name="from"/> to <paramref name="to"/> (one undo step).</summary>
+    internal void MoveFx(int from, int to)
+    {
+        if (Tab is not { } tab || Track is not { } track || (uint)from >= (uint)Fx.Count || from == to)
+            return;
+        var insert = Fx[from];
+        Edit(tab, "Could not move the effect", () => tab.Document.MoveSynthFx(track, insert, to));
+    }
+
+    // While a row's grip is dragged: where it would land (before the row under the mouse, or after the last).
+    private int FxDropIndex(float mouseY)
+    {
+        var rows = Document.AsElement().QuerySelectorAll(".fx-row");
+        var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+        var index = 0;
+        foreach (var row in rows)
+        {
+            var b = row.Bounds;
+            if (mouseY * scale > b.Y + b.Height * 0.5f)
+                index++;
+        }
+
+        return index;
+    }
+
+    private void ShowFxDrop(int slot)
+    {
+        var rows = Document.AsElement().QuerySelectorAll(".fx-row");
+        for (var i = 0; i < rows.Length; i++)
+        {
+            rows[i].SetClass("drop-above", i == slot && slot != _fxDrag && slot != _fxDrag + 1);
+            rows[i].SetClass("drop-below", i == rows.Length - 1 && slot == rows.Length && _fxDrag != rows.Length - 1);
+        }
     }
 
     internal void FxAction(SongTab tab, SongTrack track, int i, string action)
@@ -1476,6 +1627,10 @@ public sealed class SynthWindow : EditorDocument
         {
             case "bypass":
                 Edit(tab, "Could not bypass the effect", () => tab.Document.SetInsertBypass(insert, !insert.Bypass));
+                break;
+            case "select":
+                _fxSelected = insert;
+                _fxSignature = null; // the rows' selection and the panel show it next frame
                 break;
             case "open":
                 Workspace.PluginWindow.Open(tab, track, insert);
@@ -1507,7 +1662,7 @@ public sealed class SynthWindow : EditorDocument
         Workspace.Popup.Show(items, b.X / scale, (b.Y + b.Height) / scale + 2, command =>
         {
             if (command is not null && ReferenceEquals(track.Instrument, Instrument))
-                Edit(tab, "Could not add the effect", () => tab.Document.AddSynthFx(track, command));
+                Edit(tab, "Could not add the effect", () => _fxSelected = tab.Document.AddSynthFx(track, command));
         });
     }
 

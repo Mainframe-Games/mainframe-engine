@@ -81,6 +81,9 @@ public sealed class WavetableSynth : IBuiltinInstrument
     private string? _signature;
     private SynthProgram? _published;
 
+    /// <summary>UI thread: the running effect of <paramref name="insert"/> in this synth's chain (its meters), or null.</summary>
+    public BuiltinEffect? FindEffect(PluginInsert insert) => _fx.GetValueOrDefault(insert);
+
     public WavetableSynth(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(sampleRate, 8000);

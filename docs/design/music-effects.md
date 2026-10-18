@@ -103,7 +103,8 @@ damping and width), `Oversampler2x` (for waveshapers).
 Clicking a built-in insert's slot on a mixer strip (or adding one, from the slot menu or the Browser) shows `PluginWindow`
 (`Src/UI/PluginWindow.cs`, `Content/Editor/plugin_window.rml`): one reused, floating, non-modal window over the song
 view, dragged by its title bar. Its title shows "Effect — Track — Song", a bypass button, Presets, Reset (one undo step)
-and close (Esc).
+and close (Esc). Below it is an `EffectPanel` (`Src/UI/EffectPanel.cs`), the same controls the wavetable synth's FX tab
+shows for an effect of its chain (which the plugin window can open too).
 
 - **Controls** are built from the parameter descriptors, grouped by `Group`: knobs (drag up/down, Shift for fine; the
   wheel steps; double-click resets to the default), toggles and choice menus. A drag is one undo step; values shown
