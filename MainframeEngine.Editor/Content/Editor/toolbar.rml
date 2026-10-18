@@ -107,7 +107,8 @@
         button.accent.disabled { color: #5f6676; background-color: #23262e; border-color: #2a2d36; }
         button.accent.busy { background-color: #7f1d1d; border-color: #b91c1c; }
         /* Music mode: the song transport (ToolbarPanel.UpdateMusic), then tempo, time signature, position, snap, input
-           quantize, underruns, the read-only badge and Render ("Cancel n %" while it runs). Disabled without a song tab. */
+           quantize, underruns, the read-only badge, Render ("Cancel n %" while it runs) and, on the right, the view toggles
+           (the bottom pane's Piano Roll and Mixer, lit while shown). Disabled without a song tab. */
         .song-transport button.tool-button { width: 30dp; }
         .flip { transform: rotate(180deg); }
         #song-play .icon { image-color: #4ade80; }
@@ -117,6 +118,8 @@
         #song-record.active { background-color: #b91c1c; border-color: #f87171; }
         #song-record.active .icon { image-color: #ffffff; }
         #song-loop.active { background-color: #1e3a8a; border-color: #3b82f6; }
+        .group.song-view { margin: 0dp 0dp 0dp 6dp; border-right-width: 0dp; border-left: 1dp #2a2d36; }
+        .song-view button.tool-button.active { background-color: #1e3a8a; border-color: #3b82f6; }
         #music-tools .disabled .icon { image-color: #4b5263; }
         .field { display: inline-flex; flex-direction: row; align-items: center; height: 22dp; margin-right: 6dp; padding: 0dp 6dp 0dp 0dp;
                  background-color: #121418; border: 1dp #3b3f4b; border-radius: 3dp; }
@@ -201,6 +204,10 @@
         <div class="spacer"></div>
         <span id="song-readonly" class="hidden"><span class="icon icon-sm icon-alert-triangle"></span> Read-only</span>
         <button id="song-render" class="accent with-icon disabled" data-command="song.render" data-tooltip="Render (Ctrl+E) — write the song to an audio file and its loop points"><span class="icon icon-sm icon-download"></span><span id="song-render-label">Render</span></button>
+        <div class="group song-view">
+            <button id="song-view-roll" class="tool-button disabled" data-command="song.piano_roll" data-tooltip="Piano Roll (P) — the selected MIDI clip's notes below the tracks; again to hide it"><span class="icon icon-piano"></span></button>
+            <button id="song-view-mixer" class="tool-button disabled" data-command="song.mixer" data-tooltip="Mixer (X) — every track's instrument, inserts, pan, volume and meter below the tracks; again to hide it"><span class="icon icon-adjustments-alt"></span></button>
+        </div>
     </div>
     <div id="mode-toggle">
         <div id="mode-thumb"></div>

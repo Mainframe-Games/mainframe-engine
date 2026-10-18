@@ -1,3 +1,5 @@
+using MainframeEngine.Editor.Music;
+
 namespace MainframeEngine.Editor.Tests;
 
 public sealed class EditorLayoutTests : IDisposable
@@ -148,11 +150,38 @@ public sealed class EditorLayoutTests : IDisposable
         Assert.Equal(320, loaded.VideoTranscriptWidth);
         Assert.Equal(180, loaded.VideoTimelineHeight);
         Assert.Equal(300, loaded.LeftWidth);
+        Assert.Equal(SongBottomPanel.PianoRoll, loaded.MusicPane);
+        Assert.Equal(300, loaded.MusicPaneHeight);
 
         // Hiding it survives a round trip.
         var hidden = Path.Combine(_directory, "hidden.json");
         Assert.True(EditorLayout.Save(hidden, loaded with { VideoHideTranscript = true }));
         Assert.False(EditorLayout.Load(hidden).VideoShowTranscript);
+    }
+
+    [Fact]
+    public void TheMusicPaneIsStoredByNameAndBadValuesFallBackToTheDefaults()
+    {
+        var path = Path.Combine(_directory, "music.json");
+        Assert.True(EditorLayout.Save(path, new EditorLayoutSettings { MusicPane = SongBottomPanel.Mixer, MusicPaneHeight = 240 }));
+        Assert.Contains("\"MusicPane\": \"Mixer\"", File.ReadAllText(path), StringComparison.Ordinal);
+        var loaded = EditorLayout.Load(path);
+        Assert.Equal(SongBottomPanel.Mixer, loaded.MusicPane);
+        Assert.Equal(240, loaded.MusicPaneHeight);
+
+        File.WriteAllText(path, """{ "Format": 1, "MusicPane": 7, "MusicPaneHeight": -5 }""");
+        loaded = EditorLayout.Load(path);
+        Assert.Equal(SongBottomPanel.PianoRoll, loaded.MusicPane);
+        Assert.Equal(300, loaded.MusicPaneHeight);
+
+        var layout = new EditorLayout();
+        layout.Update(1200, 700);
+        layout.SetMode(EditorMode.Music);
+        layout.SetMusicPaneHeight(float.NaN);
+        Assert.Equal(EditorLayout.MinMusicPaneHeight, layout.Settings.MusicPaneHeight);
+        layout.SetMusicPaneHeight(10_000);
+        Assert.Equal(layout.MaxMusicPaneHeight, layout.Settings.MusicPaneHeight);
+        Assert.True(layout.MaxMusicPaneHeight < layout.ViewportImage.Height - EditorLayout.MinMusicTracksHeight);
     }
 
     [Fact]

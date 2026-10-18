@@ -6,8 +6,10 @@ namespace MainframeEngine.Editor;
 
 /// <summary>
 /// Music mode's view (<c>Content/Editor/song.rml</c>), below the tab strip: for the active <see cref="SongTab"/> the
-/// track headers (rename, colour, record-arm, mute, solo, instrument, add and remove), the Piano roll | Mixer switcher and
-/// the mixer strips (instrument slot, inserts placeholder, pan, volume fader, peak meter, mute/solo, master); without one,
+/// track headers (rename, colour, record-arm, mute, solo, instrument, add and remove) above one bottom pane at a time (the
+/// layout's <see cref="EditorLayoutSettings.MusicPane"/>: the piano roll, the mixer or none; its splitter sets
+/// <see cref="EditorLayoutSettings.MusicPaneHeight"/>), the pane's header (Piano roll | Mixer, Hide) and the mixer strips
+/// (instrument slot, inserts placeholder, pan, volume fader, peak meter, mute/solo, master); without one,
 /// New Song, Open Song and the project's songs (or, with no project, the Project Manager). The transport is in the
 /// toolbar (<see cref="ToolbarPanel.UpdateMusic"/>). The arrangement and the piano roll are images of the tab's canvases
 /// (<see cref="SongView"/>). Steady-state frames touch only the meters, and allocate nothing.
@@ -79,7 +81,8 @@ public sealed class SongPanel : EditorDocument
     private float _shownScroll = float.NaN;
     private bool _arrangeImage;
     private bool _rollImage;
-    private RmlEventListener?[] _listeners = new RmlEventListener?[2];
+    private RmlEventListener?[] _listeners = new RmlEventListener?[5];
+    private float _appliedPaneHeight = float.NaN;
     private readonly List<RecentSong> _recent = [];
     private string? _recentRoot;
     private bool _recentStale = true;
@@ -91,6 +94,8 @@ public sealed class SongPanel : EditorDocument
     private string _notice = "";
     private int _midiVersion = -1;
     private bool _panelRoll = true;
+    private bool _panelMixer;
+    private bool _paneOpen = true;
     private string _clipInfo = "";
     private string _masterFader = "0";
     private string _masterDb = "0.0 dB";
@@ -105,7 +110,7 @@ public sealed class SongPanel : EditorDocument
     /// <summary>The arrangement canvas area in window dp (empty while hidden).</summary>
     public LayoutRect ArrangeRect { get; private set; }
 
-    /// <summary>The piano-roll canvas area in window dp (empty while the mixer shows).</summary>
+    /// <summary>The piano-roll canvas area in window dp (empty while the mixer or no pane shows).</summary>
     public LayoutRect RollRect { get; private set; }
 
     protected override void OnReady()
@@ -118,6 +123,8 @@ public sealed class SongPanel : EditorDocument
             .Bind("readonly", this, static p => p._readOnly)
             .Bind("notice", this, static p => p._notice)
             .Bind("panel_roll", this, static p => p._panelRoll)
+            .Bind("panel_mixer", this, static p => p._panelMixer)
+            .Bind("pane_open", this, static p => p._paneOpen)
             .Bind("clip_info", this, static p => p._clipInfo)
             .Bind("master_fader", this, static p => p._masterFader)
             .Bind("master_db", this, static p => p._masterDb)
@@ -142,11 +149,7 @@ public sealed class SongPanel : EditorDocument
             })
             .Event("edit_line", e => EditLine(e.GetArgument(0).GetInt32()))
             .Event("audition", e => Track(e.GetArgument(0).GetInt32(), (t, track) => t.Controller.AuditionBriefly(track)))
-            .Event("panel", e =>
-            {
-                var mixer = e.GetArgument(0).GetInt32() == 1;
-                Song(t => t.SetPanel(mixer ? SongBottomPanel.Mixer : SongBottomPanel.PianoRoll));
-            });
+            .Event("panel", e => Workspace.SetMusicPane(e.GetArgument(0).GetInt32() == 1 ? SongBottomPanel.Mixer : SongBottomPanel.PianoRoll));
     }
 
     protected override void OnAttach(RmlDocument document)
@@ -156,6 +159,15 @@ public sealed class SongPanel : EditorDocument
         var body = document.AsElement();
         _listeners[0] = body.AddEventListener("change", OnChange);
         _listeners[1] = body.AddEventListener("mouseup", _ => _tab?.Document.History.EndMerge());
+        var splitter = document.GetElementById("song-split-pane");
+        _listeners[2] = splitter.AddEventListener("drag", e => DragPaneSplitter((float)(e.GetParameter("mouse_y", 0.0) / MathF.Max(0.01f, Workspace.Host.PixelScale))));
+        _listeners[3] = splitter.AddEventListener("dragstart", e => e.CurrentElement.SetClass("dragging", true));
+        _listeners[4] = splitter.AddEventListener("dragend", e =>
+        {
+            e.CurrentElement.SetClass("dragging", false);
+            Workspace.SaveLayout();
+        });
+        _appliedPaneHeight = float.NaN;
         _arrangeImage = false;
         _rollImage = false;
         _docVersion = -1;
@@ -225,6 +237,7 @@ public sealed class SongPanel : EditorDocument
             return;
         }
 
+        ApplyPaneHeight();
         var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
         ArrangeRect = RectOf("song-arrange", scale);
         RollRect = tab.Panel == SongBottomPanel.PianoRoll ? RectOf("song-roll", scale) : default;
@@ -233,6 +246,33 @@ public sealed class SongPanel : EditorDocument
             Rebuild(tab);
         UpdateMeters(tab);
         UpdateHeaderScroll(tab);
+    }
+
+    /// <summary>
+    /// The bottom pane's splitter moved to <paramref name="y"/> (window dp, its centre): the pane takes the height below its
+    /// header, clamped by <see cref="EditorLayout.SetMusicPaneHeight"/> (saved when the drag ends).
+    /// </summary>
+    internal void DragPaneSplitter(float y)
+    {
+        if (!IsLoaded || _tab is null)
+            return;
+        var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
+        var bottom = RectOf("song-bottom", scale);
+        if (bottom.Height <= 0)
+            return;
+        var header = RectOf("song-switcher", scale);
+        Workspace.Layout.SetMusicPaneHeight(bottom.Bottom - y - EditorLayout.SplitterSize * 0.5f - header.Height);
+        ApplyPaneHeight();
+    }
+
+    // The bottom pane's height, from the layout (splitter drags, a loaded layout) within the window's limits.
+    private void ApplyPaneHeight()
+    {
+        var height = Workspace.Layout.MusicPaneShownHeight;
+        if (height == _appliedPaneHeight || Document.GetElementById("song-bottom") is not { IsNull: false } pane)
+            return;
+        _appliedPaneHeight = height;
+        pane.SetProperty("height", RmlText.Dp(height));
     }
 
     private LayoutRect RectOf(string id, float scale)
@@ -290,6 +330,8 @@ public sealed class SongPanel : EditorDocument
         _readOnly = tab.Document.IsReadOnly;
         _notice = tab.Document.ReadOnlyNotice ?? "";
         _panelRoll = tab.Panel == SongBottomPanel.PianoRoll;
+        _panelMixer = tab.Panel == SongBottomPanel.Mixer;
+        _paneOpen = tab.Panel != SongBottomPanel.None;
         _clipInfo = ClipInfo(tab);
         _masterFader = Number(-Math.Clamp(song.Master.VolumeDb, -60f, 6f));
         _masterDb = DbText(song.Master.VolumeDb);
