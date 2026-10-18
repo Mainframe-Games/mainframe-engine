@@ -48,7 +48,7 @@ and from a 0..1 knob position and formats its value ("2.40 kHz", "-6.0 dB", "4.0
 `BuiltinEffectInfo` holds an effect's id, name, category, icon, tooltip, parameters, factory, the graphic its window
 draws (`BuiltinGraph`: none, the EQ curve, a gain-reduction meter, the delay readout) and presets. Each effect class
 owns its static `Definition`; `BuiltinEffects` lists them by category (`BuiltinEffects.Categories.cs`) for the
-mixer's add menu, the plugin window and, later, the Browser.
+mixer's add menu, the plugin window and the Browser.
 
 ## On the render thread
 
@@ -100,7 +100,7 @@ damping and width), `Oversampler2x` (for waveshapers).
 
 ## The plugin window
 
-Clicking a built-in insert (today: the mixer's inserts menu › Open; adding one opens it) shows `PluginWindow`
+Clicking a built-in insert's slot on a mixer strip (or adding one, from the slot menu or the Browser) shows `PluginWindow`
 (`Src/UI/PluginWindow.cs`, `Content/Editor/plugin_window.rml`): one reused, floating, non-modal window over the song
 view, dragged by its title bar. Its title shows "Effect — Track — Song", a bypass button, Presets, Reset (one undo step)
 and close (Esc).

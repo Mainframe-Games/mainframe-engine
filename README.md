@@ -90,8 +90,12 @@ editor. Scenes open in tabs, each in its own world; nothing but `[Tool]` nodes r
     <td align="center" valign="top"><img src="docs/images/editor-sound-designer.png" width="380" alt="The inspector's ZzFX sound designer on the Demo's explosion: waveform, presets, randomize/mutate and the parameters"><br><b>Sound designer</b> — ZzFX sounds: presets, randomize, mutate, waveform</td>
   </tr>
   <tr>
-    <td align="center" valign="top"><img src="docs/images/editor-song.png" width="380" alt="Music mode on the Demo's song: the transport in the toolbar, four ZzFX tracks in the arrangement and the Lead clip in the piano roll"><br><b>Music mode</b> — a full-window DAW: arrangement, piano roll, mixer, VST3, MIDI</td>
+    <td align="center" valign="top"><img src="docs/images/editor-song.png" width="380" alt="Music mode on the Demo's song: the transport in the toolbar, four ZzFX tracks in the arrangement and the Lead clip in the piano roll"><br><b>Music mode</b> — a full-window DAW: arrangement, piano roll, mixer, built-in effects, VST3, MIDI</td>
     <td align="center" valign="top"><img src="docs/images/editor-video.png" width="380" alt="Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut"><br><b>Video mode</b> — trim recordings by transcript, cut silence and fillers</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-song-effects.png" width="380" alt="The Channel EQ's plugin window on the Demo song's master: the curve with its band handles and a column of knobs per band"><br><b>Built-in effects</b> — 15 effects: EQ with a draggable curve, dynamics, tempo-synced delay and modulation</td>
+    <td align="center" valign="top"><img src="docs/images/editor-song-browser.png" width="380" alt="Music mode with the Browser open on the right (songs and plugins by category) and the mixer below, its strips showing insert slots"><br><b>Browser and mixer</b> — songs and plugins (F), drag onto a track; insert slots per strip</td>
   </tr>
 </table>
 
@@ -168,7 +172,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Audio engine](docs/design/audio.md) | A bus mixer on its own thread, 2D and 3D players, streaming WAV, OGG, MP3 and FLAC, attenuation, low-pass and doppler, a null device fallback |
 | [Sound designer](docs/design/editor.md#sound-designer) | ZzFX sounds synthesised at run time: presets, randomize, mutate, a live waveform and export to WAV, in the inspector |
-| [Music editor](docs/design/editor.md#song-tab-music-editor) | A DAW in the editor's music mode, over the whole window: arrangement, piano roll, mixer, VST3 instruments and effects, MIDI recording, render to OGG or WAV |
+| [Music editor](docs/design/editor.md#song-tab-music-editor) | A DAW in the editor's music mode, over the whole window: arrangement, piano roll and mixer (resizable, P / X), a Browser of songs and plugins (F), 15 [built-in effects](docs/design/music-effects.md) with plugin windows (EQ curve, gain-reduction meters, tempo-synced delays and LFOs), VST3 instruments and effects, MIDI recording, render to OGG or WAV |
 
 ### Tools
 

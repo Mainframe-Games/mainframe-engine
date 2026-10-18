@@ -57,6 +57,30 @@ song select 1
 move 1500 700
 wait 20
 capture editor-song
+# The built-in effects: the Channel EQ on the master with its curve; then the Browser and the mixer's insert slots
+# (undone again: the Demo's song stays as it is on disk).
+song insert master eq lowCutOn=1 lowCutFreq=60 peak2Freq=900 peak2Gain=3 peak3Freq=3000 peak3Gain=-4 peak3Q=2.5 highShelfGain=2.5
+song insert 1 compressor threshold=-24 ratio=3
+song fx-window master 0
+move 1500 700
+wait 20
+capture editor-song-effects
+song fx-close
+song browser on
+song browser-toggle vst
+song browser-toggle vsti
+song pane mixer
+wait 20
+capture editor-song-browser
+song browser-toggle vst
+song browser-toggle vsti
+song browser off
+song pane roll
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+wait 5
 # 5. Video mode: the recipe's narrated Physics 2D recording (build/readme-video-clip.sh) with its silences and filler
 # words cut and a transcript, the playhead stopped at 2.8 s as the bodies fall through the pegs. base.en (the default,
 # 148 MB on first use) because tiny.en's looser word timings leave cut words unstruck in the transcript.

@@ -328,6 +328,7 @@ public sealed class MusicModeTests : IDisposable
     [InlineData(Key.E, EditorModifiers.Command, "song.render")]
     [InlineData(Key.S, EditorModifiers.Command, "file.save")]
     [InlineData(Key.P, EditorModifiers.None, "song.piano_roll")]
+    [InlineData(Key.F, EditorModifiers.None, "music.browser")]
     [InlineData(Key.X, EditorModifiers.None, "song.mixer")]
     [InlineData(Key.M, EditorModifiers.None, "song.mute_track")]
     [InlineData(Key.S, EditorModifiers.None, "song.solo_track")]

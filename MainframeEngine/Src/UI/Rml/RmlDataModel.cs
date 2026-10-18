@@ -436,9 +436,24 @@ public sealed unsafe class RmlDataModel : IDisposable
         public abstract int Child(ulong node, int index, ReadOnlySpan<byte> name, out ulong child);
     }
 
+    // A list's own tokens, 16 bits each: element + 1 (bits 48..63), member + 1 (32..47) and, under a list member
+    // (RmlStructType.List), that list's element + 1 (16..31) and its member + 1 (0..15). 0 is the root.
     internal sealed class ListBinding<T>(IReadOnlyList<T> items, RmlStructType<T>? type) : VariableBinding
     {
-        public override int Size(ulong node) => node == 0 ? items.Count : 0;
+        private const ulong Field = 0xFFFF;
+
+        private static int Part(ulong token, int shift) => (int)((token >> shift) & Field) - 1;
+
+        private static ulong Token(int element, int member, int item, int itemMember) =>
+            ((ulong)(ushort)(element + 1) << 48) | ((ulong)(ushort)(member + 1) << 32) | ((ulong)(ushort)(item + 1) << 16) | (ushort)(itemMember + 1);
+
+        public override int Size(ulong node)
+        {
+            if (node == 0)
+                return items.Count;
+            var (e, m, i) = (Part(node, 48), Part(node, 32), Part(node, 16));
+            return type is not null && e >= 0 && e < items.Count && m >= 0 && i < 0 ? Math.Max(0, type.ListSize(m, items[e])) : 0;
+        }
 
         public override int Child(ulong node, int index, ReadOnlySpan<byte> name, out ulong child)
         {
@@ -449,57 +464,81 @@ public sealed unsafe class RmlDataModel : IDisposable
                 // its data-for removes it. Resolve it (reads give "none") instead of failing with a warning per view.
                 if (index < 0)
                     return -1;
-                child = ElementToken(index);
+                child = Token(index, -1, -1, -1);
                 return type is null ? RmlNative.VariableScalar : RmlNative.VariableStruct;
             }
 
-            if (type is null || MemberIndex(node) >= 0 || index != -1)
+            if (type is null)
                 return -1;
-            var member = type.IndexOf(name);
-            if (member < 0)
+            var (e, m, i, im) = (Part(node, 48), Part(node, 32), Part(node, 16), Part(node, 0));
+            if (m < 0)
+            {
+                // A member of an element: a scalar, or a list (one level).
+                if (index != -1 || (m = type.IndexOf(name)) < 0)
+                    return -1;
+                child = Token(e, m, -1, -1);
+                return type.IsList(m) ? RmlNative.VariableArray : RmlNative.VariableScalar;
+            }
+
+            if (i < 0)
+            {
+                // An element of a list member.
+                if (index < 0 || !type.IsList(m))
+                    return -1;
+                child = Token(e, m, index, -1);
+                return type.ListItemIsStruct(m) ? RmlNative.VariableStruct : RmlNative.VariableScalar;
+            }
+
+            if (im >= 0 || index != -1 || (im = type.ListItemIndexOf(m, name)) < 0)
                 return -1;
-            child = node | (uint)(member + 1);
+            child = Token(e, m, i, im);
             return RmlNative.VariableScalar;
         }
 
         public override bool Get(ulong node, RmlVariant value)
         {
-            var i = ElementIndex(node);
-            if (i < 0)
+            var e = Part(node, 48);
+            if (e < 0)
                 return false;
-            if (i >= items.Count)
+            if (e >= items.Count)
             {
                 value.SetNone(); // a row being removed (see Child)
                 return true;
             }
 
-            var m = MemberIndex(node);
+            var (m, i, im) = (Part(node, 32), Part(node, 16), Part(node, 0));
             if (m < 0)
             {
                 if (type is not null)
                     return false;
-                RmlValue<T>.Write(value, items[i]);
+                RmlValue<T>.Write(value, items[e]);
                 return true;
             }
 
-            return type is not null && type.Write(m, items[i], value);
+            if (type is null)
+                return false;
+            if (i < 0)
+                return type.Write(m, items[e], value);
+            if (!type.WriteListItem(m, items[e], i, im, value))
+                value.SetNone(); // an item of a list that just shrank
+            return true;
         }
 
         public override bool Set(ulong node, RmlVariant value)
         {
-            var i = ElementIndex(node);
-            if (i < 0 || i >= items.Count)
+            var e = Part(node, 48);
+            if (e < 0 || e >= items.Count)
                 return false;
-            var m = MemberIndex(node);
+            var (m, i) = (Part(node, 32), Part(node, 16));
             if (m < 0)
             {
                 if (type is not null || items is not IList<T> { IsReadOnly: false } list)
                     return false;
-                list[i] = RmlValue<T>.Read(value);
+                list[e] = RmlValue<T>.Read(value);
                 return true;
             }
 
-            return type is not null && type.Read(m, items[i], value);
+            return i < 0 && type is not null && type.Read(m, items[e], value);
         }
     }
 
@@ -525,7 +564,7 @@ public sealed unsafe class RmlDataModel : IDisposable
             if (node != 0 || index != -1)
                 return -1;
             var member = type.IndexOf(name);
-            if (member < 0)
+            if (member < 0 || type.IsList(member)) // list members are for bound lists only
                 return -1;
             child = (uint)(member + 1);
             return RmlNative.VariableScalar;
@@ -613,7 +652,8 @@ public delegate void RmlDataEventCallback(RmlDataEvent e);
 ///     .Member("name", static i =&gt; i.Name)
 ///     .Member("count", static i =&gt; i.Count, static (i, v) =&gt; i.Count = v);
 /// </code>
-/// Members are scalars (the types <see cref="RmlDataModel"/> supports). Setters on value-type items act on a copy.
+/// Members are scalars (the types <see cref="RmlDataModel"/> supports) or, in a bound list's items, one level of nested
+/// lists (<see cref="List{TItem}"/>: <c>data-for="slot : row.slots"</c>). Setters on value-type items act on a copy.
 /// </summary>
 public sealed class RmlStructType<T>
 {
@@ -633,6 +673,41 @@ public sealed class RmlStructType<T>
         _members.Add(new TypedMember<TValue>(utf8, get, set));
         return this;
     }
+
+    /// <summary>
+    /// A list member (read-only) whose items are <paramref name="itemType"/> objects with scalar members, for a
+    /// <c>data-for</c> inside a <c>data-for</c> over a <see cref="RmlDataModel.BindList{T}(string, IReadOnlyList{T}, RmlStructType{T})"/>.
+    /// One level only: <paramref name="itemType"/> cannot have list members itself.
+    /// </summary>
+    public RmlStructType<T> List<TItem>(string name, Func<T, IReadOnlyList<TItem>> get, RmlStructType<TItem> itemType)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(get);
+        ArgumentNullException.ThrowIfNull(itemType);
+        if (itemType.HasLists)
+            throw new ArgumentException("A list member's items cannot have list members themselves (one level of nesting).", nameof(itemType));
+        var utf8 = Encoding.UTF8.GetBytes(name);
+        foreach (var m in _members)
+            if (m.Name.AsSpan().SequenceEqual(utf8))
+                throw new ArgumentException($"Member '{name}' is already defined.", nameof(name));
+        _members.Add(new ListMember<TItem>(utf8, get, itemType));
+        HasLists = true;
+        return this;
+    }
+
+    internal bool HasLists { get; private set; }
+
+    internal bool IsList(int member) => (uint)member < (uint)_members.Count && _members[member].IsList;
+
+    internal int ListSize(int member, T item) => (uint)member < (uint)_members.Count ? _members[member].Size(item) : 0;
+
+    internal bool ListItemIsStruct(int member) => (uint)member < (uint)_members.Count && _members[member].ItemIsStruct;
+
+    internal int ListItemIndexOf(int member, ReadOnlySpan<byte> name) =>
+        (uint)member < (uint)_members.Count ? _members[member].ItemIndexOf(name) : -1;
+
+    internal bool WriteListItem(int member, T item, int index, int itemMember, RmlVariant value) =>
+        (uint)member < (uint)_members.Count && _members[member].WriteItem(item, index, itemMember, value);
 
     internal int IndexOf(ReadOnlySpan<byte> name)
     {
@@ -656,8 +731,33 @@ public sealed class RmlStructType<T>
     private abstract class MemberInfo(byte[] name)
     {
         public byte[] Name { get; } = name;
+        public virtual bool IsList => false;
+        public virtual bool ItemIsStruct => false;
         public abstract void Write(T item, RmlVariant value);
         public abstract bool Read(T item, RmlVariant value);
+        public virtual int Size(T item) => 0;
+        public virtual int ItemIndexOf(ReadOnlySpan<byte> name) => -1;
+        public virtual bool WriteItem(T item, int index, int itemMember, RmlVariant value) => false;
+    }
+
+    private sealed class ListMember<TItem>(byte[] name, Func<T, IReadOnlyList<TItem>> get, RmlStructType<TItem> itemType) : MemberInfo(name)
+    {
+        public override bool IsList => true;
+        public override bool ItemIsStruct => true;
+
+        public override void Write(T item, RmlVariant value) => value.SetNone(); // a list is walked, not read
+
+        public override bool Read(T item, RmlVariant value) => false;
+
+        public override int Size(T item) => get(item).Count;
+
+        public override int ItemIndexOf(ReadOnlySpan<byte> name) => itemType.IndexOf(name);
+
+        public override bool WriteItem(T item, int index, int itemMember, RmlVariant value)
+        {
+            var list = get(item);
+            return (uint)index < (uint)list.Count && itemType.Write(itemMember, list[index], value);
+        }
     }
 
     private sealed class TypedMember<TValue>(byte[] name, Func<T, TValue> get, Action<T, TValue>? set) : MemberInfo(name)

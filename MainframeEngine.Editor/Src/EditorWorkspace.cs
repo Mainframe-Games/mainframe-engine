@@ -753,6 +753,13 @@ public sealed partial class EditorWorkspace : Node
         SetMusicPane(current == pane ? Music.SongBottomPanel.None : pane);
     }
 
+    /// <summary>View › Browser (F): music mode's Browser on the right (the project's songs and the plugins), saved with the layout.</summary>
+    internal void ToggleMusicBrowser()
+    {
+        Layout.SetMusicShowBrowser(!Layout.Settings.MusicShowBrowser);
+        SaveLayout();
+    }
+
     /// <summary>Shows <paramref name="pane"/> (or <see cref="Music.SongBottomPanel.None"/>) at the bottom of music mode and saves it.</summary>
     internal void SetMusicPane(Music.SongBottomPanel pane)
     {
@@ -941,6 +948,7 @@ public sealed partial class EditorWorkspace : Node
         {
             Key.P when modifiers == EditorModifiers.None => "song.piano_roll",
             Key.X when modifiers == EditorModifiers.None => "song.mixer",
+            Key.F when modifiers == EditorModifiers.None => "music.browser",
             Key.M when modifiers == EditorModifiers.None => "song.mute_track",
             Key.S when modifiers == EditorModifiers.None => "song.solo_track",
             Key.F1 when (modifiers & EditorModifiers.Alt) == 0 => "help.docs",

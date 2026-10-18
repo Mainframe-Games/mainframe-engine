@@ -210,6 +210,8 @@ public sealed class EditorApp : Engine, IEditorHost
 
     public bool PrimaryMouseDown => InputContext.Mice.Count > 0 && InputContext.Mice[0].IsButtonPressed(MouseButton.Left);
 
+    public System.Numerics.Vector2 MousePosition => InputContext.Mice.Count > 0 ? InputContext.Mice[0].Position : default;
+
     public void SetTitle(string title) => Window.Title = title;
 
     void IEditorHost.Quit() => Quit(ExitCode.Ok);

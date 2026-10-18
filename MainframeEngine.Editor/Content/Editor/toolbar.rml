@@ -207,6 +207,7 @@
         <div class="group song-view">
             <button id="song-view-roll" class="tool-button disabled" data-command="song.piano_roll" data-tooltip="Piano Roll (P) — the selected MIDI clip's notes below the tracks; again to hide it"><span class="icon icon-piano"></span></button>
             <button id="song-view-mixer" class="tool-button disabled" data-command="song.mixer" data-tooltip="Mixer (X) — every track's instrument, inserts, pan, volume and meter below the tracks; again to hide it"><span class="icon icon-adjustments-alt"></span></button>
+            <button id="song-view-browser" class="tool-button" data-command="music.browser" data-tooltip="Browser (F) — the project's songs and every plugin on the right; drag a plugin onto a track or mixer strip"><span class="icon icon-layout-sidebar-right"></span></button>
         </div>
     </div>
     <div id="mode-toggle">
