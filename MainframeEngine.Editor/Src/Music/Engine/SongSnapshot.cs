@@ -177,9 +177,13 @@ public sealed class SongSnapshotBuilder
 
     public int SampleRate { get; }
 
-    /// <summary>The built-in instruments: ZzFX for <c>builtin: zzfx</c>, nothing for plugins (no plugin host yet) or none.</summary>
-    public static IInstrument? DefaultInstrument(SongTrack track, int sampleRate) =>
-        track.Instrument is { IsZzfx: true } ? new ZzfxInstrument(sampleRate) : null;
+    /// <summary>The built-in instruments: ZzFX for <c>builtin: zzfx</c>, the wavetable synth for <c>builtin: wavetable</c>; nothing otherwise.</summary>
+    public static IInstrument? DefaultInstrument(SongTrack track, int sampleRate) => track.Instrument switch
+    {
+        { IsZzfx: true } => new ZzfxInstrument(sampleRate),
+        { IsWavetable: true } => new WavetableSynth(sampleRate),
+        _ => null,
+    };
 
     /// <summary>Loads a sound file (asset UID or project path; <c>.mres</c> audio resources such as ZzFX sounds too) into memory.</summary>
     public static AudioStream? LoadClip(string file)
@@ -233,6 +237,10 @@ public sealed class SongSnapshotBuilder
                         : _instrumentFactory(track, SampleRate);
             }
 
+            // A built-in instrument configured by its descriptor gets every edit pushed (no new instance, no lost state).
+            if (slot.Instrument is IBuiltinInstrument builtin && track.Instrument is { } builtinDescriptor)
+                builtin.Apply(builtinDescriptor);
+
             AudioMath.PanGains(track.Pan, out var left, out var right);
             var snapshot = new TrackSnapshot(track.Id, slot.Index, slot.Generation)
             {
@@ -253,6 +261,8 @@ public sealed class SongSnapshotBuilder
             snapshot.LatencyFrames = (snapshot.Instrument?.LatencyFrames ?? 0) + snapshot.Effects.Sum(e => e.LatencyFrames);
             if (snapshot.Instrument is PluginInstrument { Instance.Error: { } instrumentError })
                 snapshot.Status = instrumentError;
+            else if (snapshot.Instrument is IBuiltinInstrument { Status: { } builtinStatus })
+                snapshot.Status ??= builtinStatus;
             snapshot.Status ??= insertError;
             foreach (var clip in track.Clips)
                 end = Math.Max(end, ToFrames(clip.End));

@@ -598,20 +598,43 @@ Four PRs after Phase 1's A1 (framework) and E (plugin window); 1 → 2 → 3 →
    verbs and captures; the as-built `docs/design/wavetable-synth.md` (this proposal rewritten), [editor.md](../editor.md)
    (song tab), the milestone row, the landing page's DAW section and the README with screenshots.
 
+## As built: PR 1 (synth engine)
+
+PR 1 is in `MainframeEngine.Editor/Src/Music/Synth/`: `SynthParams` (the registry, ~170 parameters, the sources),
+`SynthPatch` (the data model), `Wavetable` and `Dsp/Fft` (mip levels), `FactoryWavetables` and `WavetableCache` (16
+factory tables built on a worker), `SynthDsp` (envelope, LFO, filters, noise), `SynthVoice` and `WavetableSynth`. The
+song's other pieces: `IBuiltinInstrument` (the builder calls `Apply` on every build), `IInstrument.Process` with the
+`EffectContext`, `NoteEventKind` controller events from `SongMidiInput` through `SongEngine.Controller`, `SongDocument`'s
+synth edits, "Mainframe Wavetable" in the instrument slot menu and the Browser's Instruments group, and the plugin
+window showing every parameter as a knob (`PluginWindow.OpenSynth`) until the synth's own window (PR 3).
+
+Differences from the proposal above:
+
+- **Mip levels hold 8 samples per top harmonic** (128 to 4096 samples), not 4. At 4, the 4-point Hermite read's images
+  of the top harmonics fold back past Nyquist at about −50 dB (C6 at 48 kHz); at 8 every note A0–C8 stays under −70 dB
+  (`SynthDspTests.ASawNeverAliasesAudibly`). A 256-frame table is about 13 MB.
+- **Unison is power-normalized across both channels** (to one centred lane), so a wide stack is as loud as a narrow one.
+- **Filter coefficients change once per control step** (no per-sample interpolation), and a filter type change resets
+  that filter (no 5 ms crossfade yet).
+- **The 12 dB state-variable types are Butterworth (Q 0.707) at zero resonance**, so LP 12 is −3 dB at its cutoff.
+- Factory wavetables: 16 tables in the five sets (basic, analog, harmonic, formant, digital); presets, `.wav` import and
+  the preset resource are PR 2.
+
+Measured (`just bench '*SynthBenchmarks*'`, Release, Apple Silicon, one 256-frame block at 48 kHz = 5.33 ms): Init
+11.5 µs (0.2 %), lead 24.7 µs (0.5 %), supersaw pad 216 µs (4.0 %), worst case 16 × 2 × 16 with a ladder and four
+effects 1.04 ms (19.5 %); zero allocation in every case.
+
 ## Open questions
 
 - **Name.** "Mainframe Wavetable" is a working title; the stored id `wavetable` does not depend on it, so the display
   name can change any time before release. Pick a product name?
-- **Mod wheel, pitch bend and aftertouch.** `IInstrument` has no controller path (a music-editor open question), and
-  songs store no controller data. v1 can ship the sources reading their resting values (useful live only once the
-  path exists), or add a `ControllerEvent` path for live MIDI as a small PR before PR 1. Recommendation: add the live
-  path (pitch bend, CC1, channel aftertouch) in PR 1; recording controllers stays with automation lanes.
+- ~~**Mod wheel, pitch bend and aftertouch.**~~ **Decided:** the live path (pitch bend, CC 1, channel aftertouch) is in
+  PR 1; recording controllers stays with automation lanes.
 - **Mod-matrix routes into the FX rack.** Serum-style synths let LFOs drive FX parameters. It needs a render-thread
   override entry on `BuiltinEffect` (per-block modulated values over the UI's base values). Recommendation: leave it out
   of v1, design it with automation lanes, which need the same entry.
-- **Where `WavetablePreset` lives.** The engine core (proposed: registered by the generator, ready for runtime use)
-  adds an engine type that only the editor uses today. The alternative is an editor-registered type with a hand-written
-  `NodeTypeInfo`, or a plain JSON preset file instead of `.mres`. Engine core is recommended.
+- ~~**Where `WavetablePreset` lives.**~~ **Decided:** the engine core, as a `.mres` resource registered by the generator
+  (PR 2).
 - **A user-wide preset library** (presets shared across projects, e.g. `~/.mainframe/presets/`) is not in v1, since
   `.mres` files and UIDs belong to a project. Wanted for v1, or later?
 - **Runtime use in games.** The synth could run in `AudioServer` (an `AudioStreamGenerator` or a dedicated stream)

@@ -29,7 +29,7 @@
         #pw-graph { display: block; position: relative; flex: 0 0 auto; margin: 10dp 10dp 0dp 10dp; height: 190dp;
                     background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; drag: drag; cursor: crosshair; }
         #pw-graph img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
-        #pw-graph.hidden, #pw-meter.hidden, #pw-readout.hidden { display: none; }
+        #pw-graph.hidden, #pw-meter.hidden, #pw-readout.hidden, #pw-power.hidden, #pw-presets.hidden { display: none; }
 
         #pw-meter { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin: 10dp 10dp 0dp 10dp; height: 18dp;
                     color: #8b93a5; font-size: 11dp; }
@@ -40,7 +40,8 @@
         #pw-readout { display: block; flex: 0 0 auto; margin: 10dp 10dp 0dp 10dp; padding: 6dp 8dp; background-color: #15171c;
                       border: 1dp #2f333d; border-radius: 3dp; color: #d7dbe4; font-size: 12dp; }
 
-        #pw-body { display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-start; flex: 0 0 auto; padding: 6dp 6dp 10dp 6dp; }
+        #pw-body { display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-start; flex: 0 0 auto; padding: 6dp 6dp 10dp 6dp;
+                   max-height: 600dp; overflow-y: auto; }
         .pw-section { display: flex; flex-direction: column; align-items: center; margin: 4dp; padding: 4dp 4dp 6dp 4dp;
                       background-color: #262931; border: 1dp #2f333d; border-radius: 4dp; }
         .pw-section.band { width: 70dp; }

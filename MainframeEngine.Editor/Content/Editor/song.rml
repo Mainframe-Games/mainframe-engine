@@ -197,8 +197,8 @@
                 <div class="strip-name">{{row.name}}</div>
                 <div class="strip-label" data-if="!row.audio">Instrument</div>
                 <div class="slot" data-if="!row.audio">
-                    <button class="slot-name" data-event-click="instrument(row.index)" data-tooltip="Instrument — Built-in ZzFX or a scanned VST3 instrument (and its editor window)">{{row.instrument}}</button>
-                    <button class="tool-button small" data-event-click="edit_line(row.index)" data-tooltip="Edit Sound — the built-in instrument's ZzFX line (as the sound designer copies it)"><span class="icon icon-sm icon-pencil"></span></button>
+                    <button class="slot-name" data-event-click="instrument(row.index)" data-tooltip="Instrument — the Mainframe Wavetable synth, Built-in ZzFX or a scanned VST3 instrument (and its editor window)">{{row.instrument}}</button>
+                    <button class="tool-button small" data-event-click="edit_line(row.index)" data-tooltip="Edit Sound — the wavetable synth's parameters, or the built-in ZzFX line (as the sound designer copies it)"><span class="icon icon-sm icon-pencil"></span></button>
                     <button class="tool-button small" data-event-click="audition(row.index)" data-tooltip="Audition — play C4 on this instrument"><span class="icon icon-sm icon-player-play"></span></button>
                 </div>
                 <div class="strip-label" data-if="row.audio">Audio clips</div>

@@ -172,7 +172,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Audio engine](docs/design/audio.md) | A bus mixer on its own thread, 2D and 3D players, streaming WAV, OGG, MP3 and FLAC, attenuation, low-pass and doppler, a null device fallback |
 | [Sound designer](docs/design/editor.md#sound-designer) | ZzFX sounds synthesised at run time: presets, randomize, mutate, a live waveform and export to WAV, in the inspector |
-| [Music editor](docs/design/editor.md#song-tab-music-editor) | A DAW in the editor's music mode, over the whole window: arrangement, piano roll and mixer (resizable, P / X), a Browser of songs and plugins (F), 15 [built-in effects](docs/design/music-effects.md) with plugin windows (EQ curve, gain-reduction meters, tempo-synced delays and LFOs), VST3 instruments and effects, MIDI recording, render to OGG or WAV |
+| [Music editor](docs/design/editor.md#song-tab-music-editor) | A DAW in the editor's music mode, over the whole window: arrangement, piano roll and mixer (resizable, P / X), a Browser of songs and plugins (F), a built-in [wavetable synth](docs/design/future/wavetable-synth.md) (unison, warps, two filters, mod matrix), 15 [built-in effects](docs/design/music-effects.md) with plugin windows (EQ curve, gain-reduction meters, tempo-synced delays and LFOs), VST3 instruments and effects, MIDI recording, render to OGG or WAV |
 
 ### Tools
 

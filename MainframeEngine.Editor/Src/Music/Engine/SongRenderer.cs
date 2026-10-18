@@ -112,7 +112,10 @@ public static class SongRenderer
     private static float[] RenderWith(SongSnapshotBuilder builder, Song song, int rate, PluginRack? rack, out SongRenderPlan plan,
         IProgress<double>? progress, CancellationToken cancellation)
     {
+        // Built-in synths start building their wavetables on the first build: wait for them, then build again.
         var snapshot = builder.Build(song);
+        WavetableCache.WaitForPending();
+        snapshot = builder.Build(song);
         foreach (var track in snapshot.TrackList)
         {
             if (track.Status is { } status)

@@ -119,4 +119,32 @@ public sealed class PluginWindowTests
             Assert.Equal(800, eq.Params["peak2Freq"]);
         }
     }
+
+    [Fact]
+    public void TheSynthsParametersShowInTheWindowAndFollowEdits()
+    {
+        var (editor, tab, track) = Open();
+        using (editor)
+        {
+            Assert.True(editor.Workspace.SongPanel.Browser.Drop("track:" + tab.Document.Song.Tracks.IndexOf(track), "inst:wavetable"));
+            var window = editor.Workspace.PluginWindow;
+            editor.Tick(3);
+            Assert.Same(track.Instrument, window.Instrument);
+            Assert.Contains(SynthParams.ProductName + " — Lead — Theme", Text(editor, "pw-name"), StringComparison.Ordinal);
+            var cutoff = SynthParams.F1.Cutoff;
+            Assert.Equal("20.0 kHz", Text(editor, "kv-" + cutoff));
+            Assert.Empty(editor.RmlMessages);
+
+            window.BeginKnob(cutoff);
+            window.DragKnob(-100, fine: false);
+            window.EndDrag();
+            editor.Tick(1);
+            Assert.True(track.Instrument!.Patch!.Params!["f1.cutoff"] < 2000);
+            Assert.NotEqual("20.0 kHz", Text(editor, "kv-" + cutoff));
+
+            tab.Document.SetTrackInstrument(track, InstrumentDescriptor.Zzfx(SongDocument.DefaultZzfxLine)); // a new instrument closes it
+            editor.Tick(1);
+            Assert.False(window.IsOpen);
+        }
+    }
 }

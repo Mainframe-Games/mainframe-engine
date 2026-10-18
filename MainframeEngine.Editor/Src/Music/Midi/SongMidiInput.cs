@@ -86,6 +86,16 @@ public sealed class SongMidiInput : IMidiInputSink
             NoteOff(midiEvent.Data1, midiEvent.Timestamp);
         else if (midiEvent.IsControlChange && midiEvent.Data1 == 64)
             Pedal(midiEvent.Data2 >= 64, midiEvent.Timestamp);
+        else if (Target is { } track)
+        {
+            // Live controllers go to the target track's instrument (not recorded: automation lanes are later).
+            if (midiEvent.IsControlChange && midiEvent.Data1 == 1)
+                _player.Controller(track, NoteEventKind.ModWheel, midiEvent.Data2);
+            else if (midiEvent.Kind == 0xE0)
+                _player.Controller(track, NoteEventKind.PitchBend, (midiEvent.Data2 << 7) | midiEvent.Data1);
+            else if (midiEvent.Kind == 0xD0)
+                _player.Controller(track, NoteEventKind.Aftertouch, midiEvent.Data1);
+        }
     }
 
     /// <summary>Record button / R: starts a take (and playback) or ends it. Returns why it could not start, or null.</summary>

@@ -11,10 +11,18 @@ internal sealed class RecordingInstrument : IInstrument
 
     public int LatencyFrames => 0;
 
-    public void Process(TrackSnapshot track, ReadOnlySpan<NoteEvent> events, Span<float> stereo)
+    public readonly List<(NoteEventKind Kind, int Value)> Controllers = [];
+
+    public void Process(TrackSnapshot track, ReadOnlySpan<NoteEvent> events, Span<float> stereo, in EffectContext context)
     {
         foreach (var e in events)
-            Events.Add((Block, e.Offset, e.Pitch, e.On));
+        {
+            if (e.IsNote)
+                Events.Add((Block, e.Offset, e.Pitch, e.On));
+            else
+                Controllers.Add((e.Kind, e.Velocity));
+        }
+
         Block++;
     }
 
