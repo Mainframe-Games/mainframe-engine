@@ -91,9 +91,9 @@ public sealed class SongBakeTests : IDisposable
     // Frames in a 16-bit stereo WAV the bake wrote.
     private long WavFrames(string projectPath) => (new FileInfo(Abs(projectPath)).Length - 44) / 4;
 
-    // Every file under the project with its bytes, for "nothing changed" checks.
+    // Every file under the project (by project path, '/' separators) with its bytes, for "nothing changed" checks.
     private Dictionary<string, byte[]> Snapshot() => Directory.EnumerateFiles(_root, "*", SearchOption.AllDirectories)
-        .ToDictionary(f => Path.GetRelativePath(_root, f), File.ReadAllBytes);
+        .ToDictionary(f => Path.GetRelativePath(_root, f).Replace('\\', '/'), File.ReadAllBytes);
 
     private static void AssertSameFiles(Dictionary<string, byte[]> before, Dictionary<string, byte[]> after)
     {
