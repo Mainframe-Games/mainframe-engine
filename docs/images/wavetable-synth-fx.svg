@@ -1,0 +1,361 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>Wavetable synth — FX tab (proposal)</title>
+  <desc>The synth window's FX tab: the synth's own effect chain of built-in effects (EQ, Chorus, Beat Delay, Reverb) on the left with power buttons and drag to reorder, and the selected EQ's panel with its draggable curve and knobs on the right.</desc>
+  <rect width="1200" height="790" fill="#ffffff"/>
+
+  <style>
+    .hdr{font-weight:600;font-size:13px;fill:#e8ebf2}
+    .sec{font-weight:600;font-size:11px;fill:#e8ebf2;letter-spacing:0.6px}
+    .t{fill:#d7dbe4;font-size:12px}
+    .s{fill:#8b93a5;font-size:11px}
+    .xs{fill:#8b93a5;font-size:9.5px}
+    .kl{fill:#8b93a5;font-size:9.5px}
+    .kv{fill:#d7dbe4;font-size:9.5px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .m{fill:#d7dbe4;font-size:11px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .cap{fill:#374151;font-size:12px}
+    .note{fill:#1f2937;font-size:11.5px}
+    .noteb{fill:#111827;font-size:11.5px;font-weight:600}
+    .lead{stroke:#9ca3af;stroke-width:1;stroke-dasharray:3 3;fill:none}
+  </style>
+
+  <rect x="20" y="20" width="900" height="726" rx="8" fill="#1f2128" stroke="#111827"/>
+  <rect x="20" y="20" width="900" height="34" rx="8" fill="#15171c"/>
+  <rect x="20" y="46" width="900" height="8" fill="#15171c"/>
+  <circle cx="38" cy="37" r="6" fill="#2563eb" stroke="#60a5fa"/>
+  <path d="M38,33.8 v3" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M35.4,35.2 a3.1,3.1 0 1 0 5.2,0" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+  <text x="54" y="41" class="hdr">Mainframe Wavetable — Pad — Theme</text>
+  <rect x="320" y="27" width="20" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="330" y="41" class="s" text-anchor="middle">‹</text>
+  <rect x="344" y="27" width="170" height="20" rx="3" fill="#121418" stroke="#3b3f4b"/>
+  <text x="351" y="41" class="t">Pads › Warm Pad*</text>
+  <polyline points="500.0,35.0 504.0,39.0 508.0,35.0" fill="none" stroke="#8b93a5" stroke-width="1.3" stroke-linejoin="round"/>
+  <rect x="518" y="27" width="20" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="528" y="41" class="s" text-anchor="middle">›</text>
+  <rect x="544" y="27" width="30" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="559" y="41" class="s" text-anchor="middle"></text>
+  <path d="M553,33 h12 M553,37 h12 M553,41 h8" stroke="#d7dbe4" stroke-width="1.3"/>
+  <rect x="580" y="27" width="26" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="593" y="41" class="s" text-anchor="middle"></text>
+  <path d="M587,37 a6,6 0 1 0 2,-4.5" fill="none" stroke="#d7dbe4" stroke-width="1.4"/><path d="M586.5,30.5 v4 h4" fill="none" stroke="#d7dbe4" stroke-width="1.4"/>
+  <text x="660" y="41" class="xs">CPU</text>
+  <rect x="684" y="33" width="60" height="8" rx="2" fill="#121418" stroke="#3b3f4b"/>
+  <rect x="685" y="34" width="9" height="6" rx="1" fill="#22c55e"/>
+  <text x="750" y="41" class="m">6 %</text>
+  <text x="790" y="41" class="s">Voices 3/8</text>
+  <text x="902" y="42" class="hdr" text-anchor="middle">×</text>
+  <rect x="32" y="60" width="64" height="24" rx="3" fill="#1b1d23" stroke="#3b3f4b"/>
+  <text x="64" y="76" class="s" text-anchor="middle">Osc</text>
+  <rect x="100" y="60" width="86" height="24" rx="3" fill="#1b1d23" stroke="#3b3f4b"/>
+  <text x="143" y="76" class="s" text-anchor="middle">Matrix 6</text>
+  <rect x="190" y="60" width="64" height="24" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="191" y="81" width="62" height="3" fill="#3b82f6"/>
+  <text x="222" y="76" class="t" text-anchor="middle">FX 4</text>
+  <line x1="20" y1="84" x2="920" y2="84" stroke="#3b3f4b" stroke-width="1"/>
+  <rect x="28" y="96" width="220" height="552" rx="4" fill="#1b1d23" stroke="#2a2d36"/>
+  <text x="40" y="116" class="sec">CHAIN</text>
+  <text x="236" y="116" class="xs" text-anchor="end">after the voice sum</text>
+  <rect x="36" y="128" width="204" height="40" rx="4" fill="#2f333d" stroke="#3b82f6"/>
+  <circle cx="52" cy="148" r="6" fill="#2563eb" stroke="#60a5fa"/>
+  <path d="M52,144.8 v3" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M49.4,146.2 a3.1,3.1 0 1 0 5.2,0" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+  <text x="66" y="152" class="t">EQ</text>
+  <line x1="216" y1="143" x2="228" y2="143" stroke="#6b7280" stroke-width="1.3"/>
+  <line x1="216" y1="147" x2="228" y2="147" stroke="#6b7280" stroke-width="1.3"/>
+  <line x1="216" y1="151" x2="228" y2="151" stroke="#6b7280" stroke-width="1.3"/>
+  <path d="M138,169 v6" stroke="#4b5263" stroke-width="1.4"/>
+  <rect x="36" y="176" width="204" height="40" rx="4" fill="#262931" stroke="#3b3f4b"/>
+  <circle cx="52" cy="196" r="6" fill="#2563eb" stroke="#60a5fa"/>
+  <path d="M52,192.8 v3" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M49.4,194.2 a3.1,3.1 0 1 0 5.2,0" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+  <text x="66" y="200" class="t">Chorus</text>
+  <line x1="216" y1="191" x2="228" y2="191" stroke="#6b7280" stroke-width="1.3"/>
+  <line x1="216" y1="195" x2="228" y2="195" stroke="#6b7280" stroke-width="1.3"/>
+  <line x1="216" y1="199" x2="228" y2="199" stroke="#6b7280" stroke-width="1.3"/>
+  <path d="M138,217 v6" stroke="#4b5263" stroke-width="1.4"/>
+  <rect x="36" y="224" width="204" height="40" rx="4" fill="#262931" stroke="#3b3f4b"/>
+  <circle cx="52" cy="244" r="6" fill="#2f333d" stroke="#4b5263"/>
+  <path d="M52,240.8 v3" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M49.4,242.2 a3.1,3.1 0 1 0 5.2,0" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+  <text x="66" y="248" class="s">Beat Delay</text>
+  <line x1="216" y1="239" x2="228" y2="239" stroke="#6b7280" stroke-width="1.3"/>
+  <line x1="216" y1="243" x2="228" y2="243" stroke="#6b7280" stroke-width="1.3"/>
+  <line x1="216" y1="247" x2="228" y2="247" stroke="#6b7280" stroke-width="1.3"/>
+  <path d="M138,265 v6" stroke="#4b5263" stroke-width="1.4"/>
+  <rect x="36" y="272" width="204" height="40" rx="4" fill="#262931" stroke="#3b3f4b"/>
+  <circle cx="52" cy="292" r="6" fill="#2563eb" stroke="#60a5fa"/>
+  <path d="M52,288.8 v3" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M49.4,290.2 a3.1,3.1 0 1 0 5.2,0" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+  <text x="66" y="296" class="t">Reverb</text>
+  <line x1="216" y1="287" x2="228" y2="287" stroke="#6b7280" stroke-width="1.3"/>
+  <line x1="216" y1="291" x2="228" y2="291" stroke="#6b7280" stroke-width="1.3"/>
+  <line x1="216" y1="295" x2="228" y2="295" stroke="#6b7280" stroke-width="1.3"/>
+  <rect x="36" y="320" width="204" height="32" rx="4" fill="#1b1d23" stroke="#3b3f4b" stroke-dasharray="4 3"/>
+  <text x="138" y="340" class="s" text-anchor="middle">+  Add effect</text>
+  <rect x="36" y="356" width="204" height="166" rx="4" fill="#15171c" stroke="#454a57"/>
+  <text x="46" y="375" class="t" font-size="11">EQ / Filter</text>
+  <text x="228" y="375" class="s" text-anchor="end">›</text>
+  <text x="46" y="397" class="t" font-size="11">Dynamics</text>
+  <text x="228" y="397" class="s" text-anchor="end">›</text>
+  <text x="46" y="419" class="t" font-size="11">Delay / Reverb</text>
+  <text x="228" y="419" class="s" text-anchor="end">›</text>
+  <text x="46" y="441" class="t" font-size="11">Modulation</text>
+  <text x="228" y="441" class="s" text-anchor="end">›</text>
+  <text x="46" y="463" class="t" font-size="11">Distortion</text>
+  <text x="228" y="463" class="s" text-anchor="end">›</text>
+  <text x="46" y="485" class="t" font-size="11">Utility</text>
+  <text x="228" y="485" class="s" text-anchor="end">›</text>
+  <text x="46" y="508" class="xs">VST3 effects go on track inserts</text>
+  <rect x="256" y="96" width="656" height="552" rx="4" fill="#262931" stroke="#3b3f4b"/>
+  <circle cx="270" cy="112" r="6" fill="#2563eb" stroke="#60a5fa"/>
+  <path d="M270,108.8 v3" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M267.4,110.2 a3.1,3.1 0 1 0 5.2,0" fill="none" stroke="#ffffff" stroke-width="1.2"/>
+  <text x="284" y="116" class="sec">EQ</text>
+  <rect x="792" y="103" width="50" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="817" y="117" class="s" text-anchor="middle">Reset</text>
+  <rect x="846" y="103" width="56" height="20" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="874" y="117" class="s" text-anchor="middle">Window</text>
+  <rect x="268" y="130" width="632" height="320" rx="3" fill="#121418" stroke="#2a2d36"/>
+  <line x1="305.92" y1="134" x2="305.92" y2="434" stroke="#1f2229" stroke-width="1"/>
+  <text x="305.92" y="446" class="xs" text-anchor="middle">50</text>
+  <line x1="384.92" y1="134" x2="384.92" y2="434" stroke="#1f2229" stroke-width="1"/>
+  <text x="384.92" y="446" class="xs" text-anchor="middle">100</text>
+  <line x1="463.92" y1="134" x2="463.92" y2="434" stroke="#1f2229" stroke-width="1"/>
+  <text x="463.92" y="446" class="xs" text-anchor="middle">200</text>
+  <line x1="542.92" y1="134" x2="542.92" y2="434" stroke="#1f2229" stroke-width="1"/>
+  <text x="542.92" y="446" class="xs" text-anchor="middle">500</text>
+  <line x1="621.92" y1="134" x2="621.92" y2="434" stroke="#1f2229" stroke-width="1"/>
+  <text x="621.92" y="446" class="xs" text-anchor="middle">1k</text>
+  <line x1="700.92" y1="134" x2="700.92" y2="434" stroke="#1f2229" stroke-width="1"/>
+  <text x="700.92" y="446" class="xs" text-anchor="middle">2k</text>
+  <line x1="779.92" y1="134" x2="779.92" y2="434" stroke="#1f2229" stroke-width="1"/>
+  <text x="779.92" y="446" class="xs" text-anchor="middle">5k</text>
+  <line x1="858.92" y1="134" x2="858.92" y2="434" stroke="#1f2229" stroke-width="1"/>
+  <text x="858.92" y="446" class="xs" text-anchor="middle">10k</text>
+  <line x1="294" y1="162" x2="896" y2="162" stroke="#2a2d36" stroke-width="1"/>
+  <text x="274" y="165" class="xs">+12</text>
+  <line x1="294" y1="274" x2="896" y2="274" stroke="#2a2d36" stroke-width="1"/>
+  <text x="274" y="277" class="xs">0</text>
+  <line x1="294" y1="386" x2="896" y2="386" stroke="#2a2d36" stroke-width="1"/>
+  <text x="274" y="389" class="xs">−12</text>
+  <polygon points="294.0,432.0 297.8,432.0 301.5,432.0 305.3,432.0 309.1,432.0 312.8,432.0 316.6,432.0 320.3,418.0 324.1,402.0 327.9,386.0 331.6,370.0 335.4,354.0 339.1,338.0 342.9,322.0 346.7,306.0 350.4,290.0 354.2,274.0 358.0,274.0 361.7,274.0 365.5,274.0 369.2,274.0 373.0,274.0 376.8,274.0 380.5,274.0 384.3,274.0 388.1,274.0 391.8,274.0 395.6,274.0 399.4,274.1 403.1,274.1 406.9,274.2 410.6,274.4 414.4,274.7 418.2,275.1 421.9,275.8 425.7,276.7 429.5,278.0 433.2,279.8 437.0,282.0 440.7,284.8 444.5,288.1 448.3,291.9 452.0,295.9 455.8,300.0 459.6,303.9 463.3,307.4 467.1,310.1 470.8,311.8 474.6,312.4 478.4,311.8 482.1,310.1 485.9,307.4 489.6,303.9 493.4,300.0 497.2,295.9 500.9,291.9 504.7,288.1 508.5,284.8 512.2,282.0 516.0,279.8 519.8,278.0 523.5,276.7 527.3,275.8 531.0,275.1 534.8,274.7 538.6,274.4 542.3,274.2 546.1,274.1 549.9,274.1 553.6,274.0 557.4,274.0 561.1,274.0 564.9,274.0 568.7,274.0 572.4,273.9 576.2,273.9 580.0,273.8 583.7,273.7 587.5,273.6 591.2,273.3 595.0,272.9 598.8,272.4 602.5,271.7 606.3,270.7 610.0,269.3 613.8,267.5 617.6,265.3 621.3,262.5 625.1,259.2 628.9,255.4 632.6,251.0 636.4,246.2 640.1,241.2 643.9,236.0 647.7,231.0 651.4,226.4 655.2,222.5 659.0,219.3 662.7,217.3 666.5,216.4 670.2,216.8 674.0,218.4 677.8,221.1 681.5,224.7 685.3,229.1 689.1,234.0 692.8,239.1 696.6,244.2 700.4,249.1 704.1,253.7 707.9,257.7 711.6,261.2 715.4,264.2 719.2,266.6 722.9,268.6 726.7,270.1 730.5,271.2 734.2,272.0 738.0,272.5 741.7,272.9 745.5,273.1 749.3,273.2 753.0,273.2 756.8,273.1 760.5,272.9 764.3,272.6 768.1,272.3 771.8,271.9 775.6,271.3 779.4,270.7 783.1,269.8 786.9,268.8 790.6,267.7 794.4,266.3 798.2,264.8 801.9,263.0 805.7,261.2 809.5,259.2 813.2,257.2 817.0,255.2 820.8,253.3 824.5,251.6 828.3,250.0 832.0,248.6 835.8,247.4 839.6,246.3 843.3,245.5 847.1,244.8 850.9,244.2 854.6,243.7 858.4,243.4 862.1,243.1 865.9,242.9 869.7,242.7 873.4,242.5 877.2,242.4 880.9,242.3 884.7,242.2 888.5,242.2 892.2,242.2 896.0,242.1 896.0,274.0 294.0,274.0" fill="#3b82f6" fill-opacity="0.12"/>
+  <polyline points="294.0,432.0 297.8,432.0 301.5,432.0 305.3,432.0 309.1,432.0 312.8,432.0 316.6,432.0 320.3,418.0 324.1,402.0 327.9,386.0 331.6,370.0 335.4,354.0 339.1,338.0 342.9,322.0 346.7,306.0 350.4,290.0 354.2,274.0 358.0,274.0 361.7,274.0 365.5,274.0 369.2,274.0 373.0,274.0 376.8,274.0 380.5,274.0 384.3,274.0 388.1,274.0 391.8,274.0 395.6,274.0 399.4,274.1 403.1,274.1 406.9,274.2 410.6,274.4 414.4,274.7 418.2,275.1 421.9,275.8 425.7,276.7 429.5,278.0 433.2,279.8 437.0,282.0 440.7,284.8 444.5,288.1 448.3,291.9 452.0,295.9 455.8,300.0 459.6,303.9 463.3,307.4 467.1,310.1 470.8,311.8 474.6,312.4 478.4,311.8 482.1,310.1 485.9,307.4 489.6,303.9 493.4,300.0 497.2,295.9 500.9,291.9 504.7,288.1 508.5,284.8 512.2,282.0 516.0,279.8 519.8,278.0 523.5,276.7 527.3,275.8 531.0,275.1 534.8,274.7 538.6,274.4 542.3,274.2 546.1,274.1 549.9,274.1 553.6,274.0 557.4,274.0 561.1,274.0 564.9,274.0 568.7,274.0 572.4,273.9 576.2,273.9 580.0,273.8 583.7,273.7 587.5,273.6 591.2,273.3 595.0,272.9 598.8,272.4 602.5,271.7 606.3,270.7 610.0,269.3 613.8,267.5 617.6,265.3 621.3,262.5 625.1,259.2 628.9,255.4 632.6,251.0 636.4,246.2 640.1,241.2 643.9,236.0 647.7,231.0 651.4,226.4 655.2,222.5 659.0,219.3 662.7,217.3 666.5,216.4 670.2,216.8 674.0,218.4 677.8,221.1 681.5,224.7 685.3,229.1 689.1,234.0 692.8,239.1 696.6,244.2 700.4,249.1 704.1,253.7 707.9,257.7 711.6,261.2 715.4,264.2 719.2,266.6 722.9,268.6 726.7,270.1 730.5,271.2 734.2,272.0 738.0,272.5 741.7,272.9 745.5,273.1 749.3,273.2 753.0,273.2 756.8,273.1 760.5,272.9 764.3,272.6 768.1,272.3 771.8,271.9 775.6,271.3 779.4,270.7 783.1,269.8 786.9,268.8 790.6,267.7 794.4,266.3 798.2,264.8 801.9,263.0 805.7,261.2 809.5,259.2 813.2,257.2 817.0,255.2 820.8,253.3 824.5,251.6 828.3,250.0 832.0,248.6 835.8,247.4 839.6,246.3 843.3,245.5 847.1,244.8 850.9,244.2 854.6,243.7 858.4,243.4 862.1,243.1 865.9,242.9 869.7,242.7 873.4,242.5 877.2,242.4 880.9,242.3 884.7,242.2 888.5,242.2 892.2,242.2 896.0,242.1" fill="none" stroke="#e8ebf2" stroke-width="1.8" stroke-linejoin="round"/>
+  <circle cx="342.2" cy="354.0" r="6" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="474.6" cy="312.4" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="667.2" cy="216.4" r="6" fill="#22c55e" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="811.7" cy="242.0" r="6" fill="#3b82f6" stroke="#ffffff" stroke-width="1.5"/>
+  <circle cx="298.0" cy="508" r="12" fill="#2f333d" stroke="#454a57"/>
+  <path d="M287.4,518.6 A15,15 0 1 1 308.6,518.6" fill="none" stroke="#3b3f4b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M287.4,518.6 A15,15 0 0 1 283.2,505.7" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="298" y1="508" x2="289.111" y2="506.592" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="298" y="533" class="kl" text-anchor="middle">Low cut</text>
+  <text x="298" y="544" class="kv" text-anchor="middle">80 Hz</text>
+  <circle cx="379.7142857142857" cy="508" r="12" fill="#2f333d" stroke="#454a57"/>
+  <path d="M369.1,518.6 A15,15 0 1 1 390.3,518.6" fill="none" stroke="#3b3f4b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M369.1,518.6 A15,15 0 0 1 370.5,496.1" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="379.714" y1="508" x2="374.198" y2="500.889" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="379.714" y="533" class="kl" text-anchor="middle">Freq 2</text>
+  <text x="379.714" y="544" class="kv" text-anchor="middle">420 Hz</text>
+  <circle cx="461.42857142857144" cy="508" r="12" fill="#2f333d" stroke="#454a57"/>
+  <path d="M450.8,518.6 A15,15 0 1 1 472.0,518.6" fill="none" stroke="#3b3f4b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M450.8,518.6 A15,15 0 0 1 453.4,495.3" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="461.429" y1="508" x2="456.606" y2="500.401" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="461.429" y="533" class="kl" text-anchor="middle">Gain 2</text>
+  <text x="461.429" y="544" class="kv" text-anchor="middle">−3.0 dB</text>
+  <circle cx="543.1428571428571" cy="508" r="12" fill="#2f333d" stroke="#454a57"/>
+  <path d="M532.5,518.6 A15,15 0 1 1 553.7,518.6" fill="none" stroke="#3b3f4b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M532.5,518.6 A15,15 0 0 1 536.3,494.6" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="543.143" y1="508" x2="539.057" y2="499.981" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="543.143" y="533" class="kl" text-anchor="middle">Q 2</text>
+  <text x="543.143" y="544" class="kv" text-anchor="middle">1.4</text>
+  <circle cx="624.8571428571429" cy="508" r="12" fill="#2f333d" stroke="#454a57"/>
+  <path d="M614.3,518.6 A15,15 0 1 1 635.5,518.6" fill="none" stroke="#3b3f4b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M614.3,518.6 A15,15 0 0 1 632.9,495.3" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="624.857" y1="508" x2="629.68" y2="500.401" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="624.857" y="533" class="kl" text-anchor="middle">Freq 3</text>
+  <text x="624.857" y="544" class="kv" text-anchor="middle">2.6 kHz</text>
+  <circle cx="706.5714285714286" cy="508" r="12" fill="#2f333d" stroke="#454a57"/>
+  <path d="M696.0,518.6 A15,15 0 1 1 717.2,518.6" fill="none" stroke="#3b3f4b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M696.0,518.6 A15,15 0 1 1 718.3,498.6" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="706.571" y1="508" x2="713.595" y2="502.373" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="706.571" y="533" class="kl" text-anchor="middle">Gain 3</text>
+  <text x="706.571" y="544" class="kv" text-anchor="middle">+4.5 dB</text>
+  <circle cx="788.2857142857142" cy="508" r="12" fill="#2f333d" stroke="#454a57"/>
+  <path d="M777.7,518.6 A15,15 0 1 1 798.9,518.6" fill="none" stroke="#3b3f4b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M777.7,518.6 A15,15 0 0 1 795.1,494.6" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="788.286" y1="508" x2="792.372" y2="499.981" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="788.286" y="533" class="kl" text-anchor="middle">High shelf</text>
+  <text x="788.286" y="544" class="kv" text-anchor="middle">+2.5 dB</text>
+  <circle cx="870.0" cy="508" r="12" fill="#2f333d" stroke="#454a57"/>
+  <path d="M859.4,518.6 A15,15 0 1 1 880.6,518.6" fill="none" stroke="#3b3f4b" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M859.4,518.6 A15,15 0 0 1 870.0,493.0" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="870" y1="508" x2="870" y2="499" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="870" y="533" class="kl" text-anchor="middle">Output</text>
+  <text x="870" y="544" class="kv" text-anchor="middle">0.0 dB</text>
+  <text x="268" y="634" class="xs">Panel generated from the effect's BuiltinParams — the same code as its own plugin window.</text>
+  <rect x="28" y="658" width="884" height="40" rx="4" fill="#1b1d23" stroke="#2a2d36"/>
+  <rect x="34" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="34" y="663" width="3" height="30" fill="#f97316"/>
+  <text x="42" y="676" class="s" font-size="10.5">Env 1</text>
+  <path d="M71.33333333333334,684 h8 M75.33333333333334,680 v8" stroke="#f97316" stroke-width="1.3"/>
+  <path d="M71.33333333333334,684 l2,-2 M71.33333333333334,684 l2,2 M79.33333333333334,684 l-2,-2 M79.33333333333334,684 l-2,2 M75.33333333333334,680 l-2,2 M75.33333333333334,680 l2,2 M75.33333333333334,688 l-2,-2 M75.33333333333334,688 l2,-2" stroke="#f97316" stroke-width="1.1"/>
+  <rect x="89.3333" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="89.3333" y="663" width="3" height="30" fill="#f97316"/>
+  <text x="97.3333" y="676" class="s" font-size="10.5">Env 2</text>
+  <path d="M126.66666666666669,684 h8 M130.66666666666669,680 v8" stroke="#f97316" stroke-width="1.3"/>
+  <path d="M126.66666666666669,684 l2,-2 M126.66666666666669,684 l2,2 M134.66666666666669,684 l-2,-2 M134.66666666666669,684 l-2,2 M130.66666666666669,680 l-2,2 M130.66666666666669,680 l2,2 M130.66666666666669,688 l-2,-2 M130.66666666666669,688 l2,-2" stroke="#f97316" stroke-width="1.1"/>
+  <text x="97.3333" y="688" class="xs" font-size="8.5">1 route</text>
+  <rect x="144.667" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="144.667" y="663" width="3" height="30" fill="#f97316"/>
+  <text x="152.667" y="676" class="s" font-size="10.5">Env 3</text>
+  <path d="M182.00000000000003,684 h8 M186.00000000000003,680 v8" stroke="#f97316" stroke-width="1.3"/>
+  <path d="M182.00000000000003,684 l2,-2 M182.00000000000003,684 l2,2 M190.00000000000003,684 l-2,-2 M190.00000000000003,684 l-2,2 M186.00000000000003,680 l-2,2 M186.00000000000003,680 l2,2 M186.00000000000003,688 l-2,-2 M186.00000000000003,688 l2,-2" stroke="#f97316" stroke-width="1.1"/>
+  <rect x="200" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="200" y="663" width="3" height="30" fill="#f97316"/>
+  <text x="208" y="676" class="s" font-size="10.5">Env 4</text>
+  <path d="M237.33333333333337,684 h8 M241.33333333333337,680 v8" stroke="#f97316" stroke-width="1.3"/>
+  <path d="M237.33333333333337,684 l2,-2 M237.33333333333337,684 l2,2 M245.33333333333337,684 l-2,-2 M245.33333333333337,684 l-2,2 M241.33333333333337,680 l-2,2 M241.33333333333337,680 l2,2 M241.33333333333337,688 l-2,-2 M241.33333333333337,688 l2,-2" stroke="#f97316" stroke-width="1.1"/>
+  <rect x="269.333" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="269.333" y="663" width="3" height="30" fill="#22d3ee"/>
+  <text x="277.333" y="676" class="s" font-size="10.5">LFO 1</text>
+  <path d="M306.6666666666667,684 h8 M310.6666666666667,680 v8" stroke="#22d3ee" stroke-width="1.3"/>
+  <path d="M306.6666666666667,684 l2,-2 M306.6666666666667,684 l2,2 M314.6666666666667,684 l-2,-2 M314.6666666666667,684 l-2,2 M310.6666666666667,680 l-2,2 M310.6666666666667,680 l2,2 M310.6666666666667,688 l-2,-2 M310.6666666666667,688 l2,-2" stroke="#22d3ee" stroke-width="1.1"/>
+  <text x="277.333" y="688" class="xs" font-size="8.5">1 route</text>
+  <rect x="324.667" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="324.667" y="663" width="3" height="30" fill="#22d3ee"/>
+  <text x="332.667" y="676" class="s" font-size="10.5">LFO 2</text>
+  <path d="M362.0,684 h8 M366.0,680 v8" stroke="#22d3ee" stroke-width="1.3"/>
+  <path d="M362.0,684 l2,-2 M362.0,684 l2,2 M370.0,684 l-2,-2 M370.0,684 l-2,2 M366.0,680 l-2,2 M366.0,680 l2,2 M366.0,688 l-2,-2 M366.0,688 l2,-2" stroke="#22d3ee" stroke-width="1.1"/>
+  <rect x="380" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="380" y="663" width="3" height="30" fill="#22d3ee"/>
+  <text x="388" y="676" class="s" font-size="10.5">LFO 3</text>
+  <path d="M417.3333333333333,684 h8 M421.3333333333333,680 v8" stroke="#22d3ee" stroke-width="1.3"/>
+  <path d="M417.3333333333333,684 l2,-2 M417.3333333333333,684 l2,2 M425.3333333333333,684 l-2,-2 M425.3333333333333,684 l-2,2 M421.3333333333333,680 l-2,2 M421.3333333333333,680 l2,2 M421.3333333333333,688 l-2,-2 M421.3333333333333,688 l2,-2" stroke="#22d3ee" stroke-width="1.1"/>
+  <rect x="435.333" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="435.333" y="663" width="3" height="30" fill="#22d3ee"/>
+  <text x="443.333" y="676" class="s" font-size="10.5">LFO 4</text>
+  <path d="M472.66666666666663,684 h8 M476.66666666666663,680 v8" stroke="#22d3ee" stroke-width="1.3"/>
+  <path d="M472.66666666666663,684 l2,-2 M472.66666666666663,684 l2,2 M480.66666666666663,684 l-2,-2 M480.66666666666663,684 l-2,2 M476.66666666666663,680 l-2,2 M476.66666666666663,680 l2,2 M476.66666666666663,688 l-2,-2 M476.66666666666663,688 l2,-2" stroke="#22d3ee" stroke-width="1.1"/>
+  <rect x="504.667" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="504.667" y="663" width="3" height="30" fill="#a78bfa"/>
+  <text x="512.667" y="676" class="s" font-size="10.5">Macro 1</text>
+  <path d="M542.0,684 h8 M546.0,680 v8" stroke="#a78bfa" stroke-width="1.3"/>
+  <path d="M542.0,684 l2,-2 M542.0,684 l2,2 M550.0,684 l-2,-2 M550.0,684 l-2,2 M546.0,680 l-2,2 M546.0,680 l2,2 M546.0,688 l-2,-2 M546.0,688 l2,-2" stroke="#a78bfa" stroke-width="1.1"/>
+  <text x="512.667" y="688" class="xs" font-size="8.5">1 route</text>
+  <rect x="560" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="560" y="663" width="3" height="30" fill="#a78bfa"/>
+  <text x="568" y="676" class="s" font-size="10.5">Macro 2</text>
+  <path d="M597.3333333333334,684 h8 M601.3333333333334,680 v8" stroke="#a78bfa" stroke-width="1.3"/>
+  <path d="M597.3333333333334,684 l2,-2 M597.3333333333334,684 l2,2 M605.3333333333334,684 l-2,-2 M605.3333333333334,684 l-2,2 M601.3333333333334,680 l-2,2 M601.3333333333334,680 l2,2 M601.3333333333334,688 l-2,-2 M601.3333333333334,688 l2,-2" stroke="#a78bfa" stroke-width="1.1"/>
+  <rect x="615.333" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="615.333" y="663" width="3" height="30" fill="#a78bfa"/>
+  <text x="623.333" y="676" class="s" font-size="10.5">Macro 3</text>
+  <path d="M652.6666666666667,684 h8 M656.6666666666667,680 v8" stroke="#a78bfa" stroke-width="1.3"/>
+  <path d="M652.6666666666667,684 l2,-2 M652.6666666666667,684 l2,2 M660.6666666666667,684 l-2,-2 M660.6666666666667,684 l-2,2 M656.6666666666667,680 l-2,2 M656.6666666666667,680 l2,2 M656.6666666666667,688 l-2,-2 M656.6666666666667,688 l2,-2" stroke="#a78bfa" stroke-width="1.1"/>
+  <rect x="670.667" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="670.667" y="663" width="3" height="30" fill="#a78bfa"/>
+  <text x="678.667" y="676" class="s" font-size="10.5">Macro 4</text>
+  <path d="M708.0000000000001,684 h8 M712.0000000000001,680 v8" stroke="#a78bfa" stroke-width="1.3"/>
+  <path d="M708.0000000000001,684 l2,-2 M708.0000000000001,684 l2,2 M716.0000000000001,684 l-2,-2 M716.0000000000001,684 l-2,2 M712.0000000000001,680 l-2,2 M712.0000000000001,680 l2,2 M712.0000000000001,688 l-2,-2 M712.0000000000001,688 l2,-2" stroke="#a78bfa" stroke-width="1.1"/>
+  <rect x="740" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="740" y="663" width="3" height="30" fill="#34d399"/>
+  <text x="748" y="676" class="s" font-size="10.5">Velocity</text>
+  <path d="M777.3333333333335,684 h8 M781.3333333333335,680 v8" stroke="#34d399" stroke-width="1.3"/>
+  <path d="M777.3333333333335,684 l2,-2 M777.3333333333335,684 l2,2 M785.3333333333335,684 l-2,-2 M785.3333333333335,684 l-2,2 M781.3333333333335,680 l-2,2 M781.3333333333335,680 l2,2 M781.3333333333335,688 l-2,-2 M781.3333333333335,688 l2,-2" stroke="#34d399" stroke-width="1.1"/>
+  <text x="748" y="688" class="xs" font-size="8.5">1 route</text>
+  <rect x="795.333" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="795.333" y="663" width="3" height="30" fill="#34d399"/>
+  <text x="803.333" y="676" class="s" font-size="10.5">Note</text>
+  <path d="M832.6666666666669,684 h8 M836.6666666666669,680 v8" stroke="#34d399" stroke-width="1.3"/>
+  <path d="M832.6666666666669,684 l2,-2 M832.6666666666669,684 l2,2 M840.6666666666669,684 l-2,-2 M840.6666666666669,684 l-2,2 M836.6666666666669,680 l-2,2 M836.6666666666669,680 l2,2 M836.6666666666669,688 l-2,-2 M836.6666666666669,688 l2,-2" stroke="#34d399" stroke-width="1.1"/>
+  <rect x="850.667" y="663" width="52.3333" height="30" rx="3" fill="#262931" stroke="#3b3f4b"/>
+  <rect x="850.667" y="663" width="3" height="30" fill="#34d399"/>
+  <text x="858.667" y="676" class="s" font-size="10.5">Mod wh.</text>
+  <path d="M888.0000000000002,684 h8 M892.0000000000002,680 v8" stroke="#34d399" stroke-width="1.3"/>
+  <path d="M888.0000000000002,684 l2,-2 M888.0000000000002,684 l2,2 M896.0000000000002,684 l-2,-2 M896.0000000000002,684 l-2,2 M892.0000000000002,680 l-2,2 M892.0000000000002,680 l2,2 M892.0000000000002,688 l-2,-2 M892.0000000000002,688 l2,-2" stroke="#34d399" stroke-width="1.1"/>
+  <rect x="34" y="708" width="22" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="45" y="723" class="s" text-anchor="middle">‹</text>
+  <rect x="60" y="708" width="22" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
+  <text x="71" y="723" class="s" text-anchor="middle">›</text>
+  <text x="880" y="723" class="xs" text-anchor="middle">C3–B4</text>
+  <rect x="90" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="117.143" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="144.286" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="171.429" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="198.571" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="225.714" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="252.857" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="280" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="307.143" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="334.286" y="704" width="27.1429" height="30" fill="#93c5fd" stroke="#6b7280"/>
+  <rect x="361.429" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="388.571" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="415.714" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="442.857" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="470" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="497.143" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="524.286" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="551.429" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="578.571" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="605.714" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="632.857" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="660" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="687.143" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="714.286" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="741.429" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="768.571" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="795.714" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="822.857" y="704" width="27.1429" height="30" fill="#e5e7eb" stroke="#6b7280"/>
+  <rect x="108.457" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="135.6" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="189.886" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="217.029" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="244.171" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="298.457" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="325.6" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="379.886" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="407.029" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="434.171" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="488.457" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="515.6" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="569.886" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="597.029" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="624.171" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="678.457" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="705.6" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="759.886" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="787.029" y="704" width="17.3714" height="18" fill="#111827"/>
+  <rect x="814.171" y="704" width="17.3714" height="18" fill="#111827"/>
+  <!-- callouts -->
+  <circle cx="90" cy="118" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="90" y="122" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">1</text>
+  <circle cx="951" cy="66" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="951" y="70" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">1</text>
+  <text x="968" y="70" class="noteb">Synth FX chain</text>
+  <text x="968" y="85" class="note">Phase 1 built-in effects, run</text>
+  <text x="968" y="100" class="note">after the voice sum; power,</text>
+  <text x="968" y="115" class="note">drag to reorder</text>
+  <circle cx="226" cy="336" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="226" y="340" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">2</text>
+  <circle cx="951" cy="142" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="951" y="146" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">2</text>
+  <text x="968" y="146" class="noteb">Add effect</text>
+  <text x="968" y="161" class="note">built-in categories only;</text>
+  <text x="968" y="176" class="note">VST3 stays on track inserts</text>
+  <circle cx="556" cy="266" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="556" y="270" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">3</text>
+  <circle cx="951" cy="203" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="951" y="207" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">3</text>
+  <text x="968" y="207" class="noteb">Effect panel</text>
+  <text x="968" y="222" class="note">generated from BuiltinParams,</text>
+  <text x="968" y="237" class="note">custom graphics included</text>
+  <text x="968" y="252" class="note">(EQ curve, GR meters)</text>
+  <circle cx="872" cy="94" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="872" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">4</text>
+  <circle cx="951" cy="279" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="951" y="283" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">4</text>
+  <text x="968" y="283" class="noteb">Pop out</text>
+  <text x="968" y="298" class="note">opens the effect in its</text>
+  <text x="968" y="313" class="note">own Phase 1 window</text>
+  <text x="20" y="772" class="cap">Proposal mockup — sizes and spacing indicative. Effects and their panels are Phase 1's; only the chain list is new.</text>
+</svg>
