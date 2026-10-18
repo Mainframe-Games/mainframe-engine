@@ -7,7 +7,7 @@ namespace MainframeEngine.Editor.Music;
 /// <c>mergeKey</c> for every step and become one history entry (call <see cref="UndoRedo.EndMerge"/> on release, as the
 /// inspector does).
 /// </summary>
-public sealed class SongDocument : IDisposable
+public sealed partial class SongDocument : IDisposable
 {
     public const int MinPitch = 0;
     public const int MaxPitch = 127;

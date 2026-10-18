@@ -66,9 +66,10 @@ public static class ReferenceFixer
 
             try
             {
-                // Songs are written like the project file (2-space indent), not in the scene layout.
+                // Songs and adaptive-music manifests are written like the project file (2-space indent), not in the scene layout.
                 var sceneStyle = !string.Equals(Path.GetFileName(file), ProjectSettings.FileName, StringComparison.OrdinalIgnoreCase) &&
-                                 !file.EndsWith(".msong", StringComparison.OrdinalIgnoreCase);
+                                 !file.EndsWith(".msong", StringComparison.OrdinalIgnoreCase) &&
+                                 !file.EndsWith(".mmusic", StringComparison.OrdinalIgnoreCase);
                 AtomicFile.WriteAllBytes(file, Serialize(node, sceneStyle, endsWithNewLine: bytes.Length > 0 && bytes[^1] == (byte)'\n'));
                 updated.Add(file);
             }
@@ -92,7 +93,7 @@ public static class ReferenceFixer
             yield break;
         var files = Directory.EnumerateFiles(content, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
             .Where(f => f.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".mres", StringComparison.OrdinalIgnoreCase) ||
-                        f.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
+                        f.EndsWith(".msong", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".mmusic", StringComparison.OrdinalIgnoreCase))
             .Order(StringComparer.Ordinal);
         foreach (var file in files)
             yield return file;

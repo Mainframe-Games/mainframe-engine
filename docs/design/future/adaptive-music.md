@@ -1,7 +1,7 @@
 # Proposal: Adaptive music (FMOD-style, baked stems)
 
 **Milestone:** unscheduled (editor tooling + audio runtime; Phase 3 of the Logic-style Music mode) · **Status:** proposal
-(2026-10-18), [ADR 0196](../../../memory/decisions/0196-adaptive-music-baked-stems.md) (proposed) · **Depends on:**
+(2026-10-18); PR A1 (shared logic and the song model) built, see [As built: A1](#as-built-a1), [ADR 0196](../../../memory/decisions/0196-adaptive-music-baked-stems.md) (proposed) · **Depends on:**
 [Music editor](music-editor.md) (songs, `SongEngine`, Render), [Audio](../audio.md) (`AudioServer`, streaming, the
 command queue), [Editor](../editor.md) (Music mode), the Phase 1 right-hand Browser and built-in effects
 (`docs/design/music-effects.md`, not written yet) · **Related:** [Project and GameHost](../project-and-gamehost.md)
@@ -277,7 +277,8 @@ allocation after construction:
 | `MusicParameterSet` | Values, targets and seek speeds per parameter; `Advance(seconds)` moves values towards targets; index lookup by name (dictionary built at load, so `SetParameter("intensity", …)` does not allocate). |
 | `MusicCurve` | Evaluates a compiled curve (sorted point arrays, shape) at a parameter value. |
 | `MusicCondition` / `MusicRule` | Compiled `when` trees (flat arrays) and the transition settings. |
-| `MusicDirector` | The state machine: current section and its start on the music clock, the pending transition, layer targets. `Update(nowFrame, horizonFrame)` re-evaluates rules when a parameter changed or a section started, and returns the actions to schedule. It applies rule priority, cancels a pending transition whose rule stopped matching, and replaces one when an earlier rule matches. |
+| `MusicPlan` | A manifest compiled once and shared by every instance: sections, layers, curves and rules by index, the grid, and the problems found (it never throws for bad data). `EvaluateLayers` and `FirstMatchingRule`. |
+| `MusicDirector` | The state machine: current section and its start on the music clock, the pending transition, layer targets. `Update(now, earliest, actions)` advances its prediction, re-evaluates the rules and writes the actions to schedule. It applies rule priority, cancels a pending transition whose rule stopped matching, and replaces one when an earlier rule matches. |
 
 **The music clock** counts frames at the manifest's sample rate from `Play`. It is independent of the device rate and
 stops while paused. Every scheduled action is keyed by a music-clock frame.
@@ -841,6 +842,47 @@ Six PRs, each usable on its own:
 
 A2 and A3 touch disjoint files and can run in parallel; A4 can start as soon as A1 lands. PRs A4 and A5 share
 `song.rml` and the song panel with the Phase 1 Browser work, so they go after Phase 1's Browser PR (C).
+
+## As built: A1
+
+A1 is in `MainframeEngine/Src/Audio/Music/` (`MusicTypes`, `MusicGrid`, `MusicParameterSet`, `MusicCurve`, `MusicPlan`,
+`MusicDirector`, `MusicManifest`) and `MainframeEngine.Editor/Src/Music/Adaptive/` (`SongAdaptive`,
+`SongAdaptiveCompiler`, `SongAdaptiveValidator`, `SongDocument.Adaptive`). It assumes the recommended answers to open
+questions 2 (curves drive only layer volume and one filter) and 7 (`.mmusic` with the `mus_` prefix).
+
+**`MusicDirector` API**
+
+- `Update(now, earliest, actions)` writes `MusicAction`s: `StartSection`, `Stinger`, `Stop` and `Cancel`.
+- Each `StartSection` carries the continuation for the audio thread (`Then`), its fades, its entry offset and the
+  tails flag.
+
+**Behaviour**
+
+- **Rules every update.** The director re-evaluates the rules on every `Update`; this costs no allocation.
+- **Committed transitions.** A pending transition whose frame is before `earliest` is committed and is never
+  cancelled.
+- **Misses.** `OnMissed(id)` rolls the prediction back to the state before the missed action. The next update
+  schedules it again.
+- **Ends of non-looping sections.** A rule whose boundary would fall past the end of a non-looping section waits; the
+  rules run again from the next section.
+- **Stinger pickups.** The boundary is chosen so the whole pickup fits after `earliest`.
+- **Same decisions at any update rate.** A test runs the director at the editor's 256-frame blocks and at 800-frame
+  game frames with the same parameter script; it starts the same sections on the same frames.
+
+**Song model**
+
+- **Main layer.** `SongAdaptiveCompiler.ToManifest` makes the implicit Main layer (first) only when some track
+  bakes into it.
+- **Markers** become frames through `MusicGrid`.
+- **Validation errors** are the ones marked ✖ in the [model](#the-adaptive-song-model), plus two more: ids that are
+  not unique, and more than `MusicPlan.MaxLayers` layers.
+
+**Files and UIDs**
+
+- `.mmusic` files are self-describing in the `AssetDatabase`: their UID is in the file.
+- The FileSystem's reference fix-ups rewrite them in the project-file style.
+- **Open for A2:** `ResourceLoader` skips importers for self-describing files, so A2's `AdaptiveMusicImporter` needs
+  `.mmusic` routed to it.
 
 ## Open questions
 

@@ -105,6 +105,20 @@ public static class SongFormat
             song.Ppq = Song.DefaultPpq;
         if (!(song.Tempo > 0) || !double.IsFinite(song.Tempo))
             song.Tempo = 120;
+        if (song.Adaptive is { } adaptive)
+        {
+            adaptive.Parameters ??= [];
+            adaptive.Sections ??= [];
+            adaptive.Markers ??= [];
+            adaptive.Layers ??= [];
+            adaptive.Curves ??= [];
+            adaptive.Transitions ??= [];
+            foreach (var curve in adaptive.Curves)
+                curve.Points ??= [];
+            foreach (var transition in adaptive.Transitions)
+                transition.From ??= [];
+        }
+
         foreach (var track in song.Tracks)
         {
             track.Inserts ??= [];
