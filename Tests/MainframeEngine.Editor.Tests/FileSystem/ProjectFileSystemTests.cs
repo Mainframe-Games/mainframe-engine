@@ -188,6 +188,28 @@ public sealed class ProjectFileSystemTests : IDisposable
     }
 
     [Fact]
+    public void AnAdaptiveSongNewerThanItsBakeAndTheStemsFolderAreBadged()
+    {
+        Directory.CreateDirectory(_project.Abs("Content/Music/Theme.stems"));
+        File.WriteAllText(_project.Abs("Content/Music/Theme.mmusic"), "{\"format\": 1, \"uid\": \"mus_000000000001\"}");
+        File.SetLastWriteTimeUtc(_project.Abs("Content/Music/Theme.mmusic"), DateTime.UtcNow.AddMinutes(-5));
+        File.WriteAllText(_project.Abs("Content/Music/Theme.msong"), "{\"format\": 1, \"uid\": \"sng_000000000001\", \"adaptive\": {}}");
+        File.WriteAllText(_project.Abs("Content/Music/Linear.msong"), "{\"format\": 1, \"uid\": \"sng_000000000002\"}");
+        _fs.Refresh();
+
+        var song = Entry("Content/Music/Theme.msong");
+        Assert.Equal(FileBadges.BakeOutOfDate, song.Badges);
+        Assert.Equal("Bake out of date: Content/Music/Theme.mmusic is older than the song", song.BadgeText);
+        Assert.Equal(FileBadges.None, Entry("Content/Music/Linear.msong").Badges);
+        Assert.Equal(FileBadges.Generated, Entry("Content/Music/Theme.stems").Badges);
+
+        // A fresh bake clears it.
+        File.SetLastWriteTimeUtc(_project.Abs("Content/Music/Theme.mmusic"), DateTime.UtcNow.AddMinutes(5));
+        _fs.Refresh();
+        Assert.Equal(FileBadges.None, song.Badges);
+    }
+
+    [Fact]
     public void UnsavedAndReportedImportErrorsAreBadges()
     {
         var main = Entry(FileSystemProject.MainPath);

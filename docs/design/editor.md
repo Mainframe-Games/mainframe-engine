@@ -160,6 +160,7 @@ Music mode has its own table (`EditorWorkspace.MusicShortcutFor`). The song tab'
 | Cmd/Ctrl+N, O, S, Shift+S, W, Q | new song, open song, save, save as, close tab, quit |
 | Cmd/Ctrl+Z, Shift+Z or Y | undo, redo |
 | Cmd/Ctrl+E | render |
+| Cmd/Ctrl+B | bake an adaptive song (stems + `.mmusic`) |
 | F1 | documentation |
 
 No gizmo, view, Play or Record keys: those are game mode's.
@@ -747,6 +748,12 @@ window: no Scene tree, Inspector or FileSystem.
   renders a song into the project above it (the nearest folder with `project.mfproj`) exactly like Render — the output
   and its `.meta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
   `Content/Music/demo_loop.ogg` is rendered this way).
+- **Bake** (File › Bake Adaptive Music, Cmd/Ctrl+B; songs with an `adaptive` block): `SongBakeJob` bakes a copy of the
+  song with `SongBaker.Bake` on a worker. It writes stems to `<Song>.stems/` and the `.mmusic` manifest, and renders
+  only stems whose inputs changed. Choosing it again cancels, and the previous bake stays intact. `--bake-song
+  <path.msong>` (`just bake-song <path>`; `SongBakeCommand`) does the same headless. The FileSystem badges an adaptive
+  song whose manifest is older than it ("Bake out of date") and marks `*.stems` folders as generated. See
+  [Adaptive music, As built: A3](future/adaptive-music.md#as-built-a3).
 - **Browser** (F, View › Browser, the toolbar's sidebar button; `SongBrowser`, Logic's Browsers): a column on the right
   of the song view, with or without a song open. **Songs** lists every `.msong` in the project (the open one marked; a
   click opens it); **Plugins** lists the built-in effects by category, then the scanned VST3 effects and instruments. A

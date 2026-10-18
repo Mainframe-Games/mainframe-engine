@@ -25,6 +25,12 @@ internal sealed class FilePeek
 
     /// <summary>A song's <c>render.output</c> (null: the default output).</summary>
     public string? RenderOutput { get; private init; }
+
+    /// <summary>A song with an <c>adaptive</c> block (it bakes).</summary>
+    public bool IsAdaptive { get; private init; }
+
+    /// <summary>An adaptive song's <c>adaptive.output</c> (null: the default manifest).</summary>
+    public string? BakeOutput { get; private init; }
     public IReadOnlyList<FileReference> References { get; private init; } = [];
 
     public bool Matches(long length, DateTime modifiedUtc) => Length == length && ModifiedUtc == modifiedUtc;
@@ -66,6 +72,10 @@ internal sealed class FilePeek
                 Uid = GetString(top, "uid"),
                 RenderOutput = kind == FileKind.Song && top.TryGetProperty("render", out var render) && render.ValueKind == JsonValueKind.Object
                     ? GetString(render, "output")
+                    : null,
+                IsAdaptive = kind == FileKind.Song && top.TryGetProperty("adaptive", out var adaptive) && adaptive.ValueKind == JsonValueKind.Object,
+                BakeOutput = kind == FileKind.Song && top.TryGetProperty("adaptive", out var bake) && bake.ValueKind == JsonValueKind.Object
+                    ? GetString(bake, "output")
                     : null,
                 References = references,
             };

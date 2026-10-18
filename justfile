@@ -60,6 +60,10 @@ editor *args:
 render-song path:
     dotnet run --project MainframeEngine.Editor -c Release -- --render-song {{path}}
 
+# Bake an adaptive song headless into its project: stems + the .mmusic manifest (CI, batch bakes; only changed stems render)
+bake-song path:
+    dotnet run --project MainframeEngine.Editor -c Release -- --bake-song {{path}}
+
 # Scripted editor QA: input + captures into artifacts/qa-editor (opens the Demo project; default script: the walkthrough of its Basic 3D scene)
 qa-editor script="Tests/QA/editor-walkthrough.qa":
     dotnet build Examples/Demo/Demo.slnx -v q -nologo
