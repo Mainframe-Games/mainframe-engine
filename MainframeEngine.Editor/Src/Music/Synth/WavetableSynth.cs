@@ -72,6 +72,9 @@ public sealed class WavetableSynth : IBuiltinInstrument
     private Ramp _masterL;
     private Ramp _masterR;
     private int _activeVoices;
+    private readonly float[] _live = new float[ParamCount];
+    private int _loadBits;
+    private float _load;
 
     // UI thread only.
     private readonly Dictionary<PluginInsert, BuiltinEffect> _fx = new(ReferenceEqualityComparer.Instance);
@@ -106,6 +109,15 @@ public sealed class WavetableSynth : IBuiltinInstrument
 
     /// <summary>Voices sounding (tests, the window's meter).</summary>
     public int ActiveVoices => Volatile.Read(ref _activeVoices);
+
+    /// <summary>UI thread: the render thread's share of real time (0…1+, smoothed), for the window's CPU meter.</summary>
+    public float Load => BitConverter.Int32BitsToSingle(Volatile.Read(ref _loadBits));
+
+    /// <summary>
+    /// UI thread: parameter <paramref name="index"/> as the newest sounding voice hears it (its modulated value; the base
+    /// value without voices or routes): the window's live modulation dots and the wavetable display's frame.
+    /// </summary>
+    public float LiveValue(int index) => Volatile.Read(ref _live[index]);
 
     // ── UI thread ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -274,6 +286,7 @@ public sealed class WavetableSynth : IBuiltinInstrument
         var program = Volatile.Read(ref _program);
         if (program is null)
             return;
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
         _active = program;
         var version = Volatile.Read(ref _version);
         if (version != _seenVersion)
@@ -344,6 +357,13 @@ public sealed class WavetableSynth : IBuiltinInstrument
         }
 
         Volatile.Write(ref _activeVoices, count);
+
+        // What the window shows: the newest voice's modulated values, and the load (an exponential average over ~0.2 s).
+        foreach (var t in program.Targets)
+            Volatile.Write(ref _live[t], Value(newest, t));
+        var seconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds;
+        _load += ((float)(seconds * _sampleRate / frames) - _load) * 0.03f;
+        Volatile.Write(ref _loadBits, BitConverter.SingleToInt32Bits(_load));
     }
 
     public void AllNotesOff()
@@ -407,6 +427,8 @@ public sealed class WavetableSynth : IBuiltinInstrument
         var all = SynthParams.All;
         for (var i = 0; i < ParamCount; i++)
         {
+            if (!_active!.Modulated[i])
+                Volatile.Write(ref _live[i], _base[i]);
             var target = Volatile.Read(ref _targets[i]);
             if (all[i].Curve is ParamCurve.Linear or ParamCurve.Log)
             {

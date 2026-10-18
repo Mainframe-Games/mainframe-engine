@@ -14,7 +14,7 @@ namespace MainframeEngine.Editor;
 /// knob drag is one undo step); undo, redo and edits from elsewhere show on the next tick. It closes when its insert
 /// leaves the song (removed, undone, the tab closed or switched) or music mode is left.
 /// </summary>
-public sealed partial class PluginWindow : EditorDocument
+public sealed class PluginWindow : EditorDocument
 {
     public const string GraphTexture = "plugin-graph";
 
@@ -70,36 +70,31 @@ public sealed partial class PluginWindow : EditorDocument
 
     public PluginInsert? Insert { get; private set; }
 
-    /// <summary>The wavetable synth shown instead of an insert (its track's instrument), or null.</summary>
-    public InstrumentDescriptor? Instrument { get; private set; }
-
     public BuiltinEffectInfo? Info { get; private set; }
 
-    public bool IsOpen => Insert is not null || Instrument is not null;
+    public bool IsOpen => Insert is not null;
 
-    // The shown parameters: the insert's, or the synth's patch's.
-    private Dictionary<string, float>? Values => Insert?.Params ?? Instrument?.Patch?.Params;
+    private Dictionary<string, float>? Values => Insert?.Params;
 
     private void SetParam(SongTab tab, string id, float value, string? mergeKey = null)
     {
         if (Insert is { } insert)
             tab.Document.SetInsertParam(insert, id, value, mergeKey);
-        else if (Track is { } track)
-            tab.Document.SetSynthParam(track, id, value, mergeKey);
     }
 
     private void SetParams(SongTab tab, IReadOnlyDictionary<string, float> values, string name, string? mergeKey = null)
     {
         if (Insert is { } insert)
             tab.Document.SetInsertParams(insert, values, name, mergeKey);
-        else if (Track is { } track)
-            tab.Document.SetSynthParams(track, values, name, mergeKey);
     }
 
     /// <summary>The window's top-left corner and width (dp).</summary>
     public (float X, float Y, float Width) Placement => (_position.X, _position.Y, _width);
 
-    /// <summary>Shows <paramref name="insert"/> (a built-in) of <paramref name="track"/> (null: the master) in <paramref name="tab"/>'s song.</summary>
+    /// <summary>
+    /// Shows <paramref name="insert"/> (a built-in) of <paramref name="track"/> (null: the master) in <paramref name="tab"/>'s
+    /// song: one of the track's inserts, or an effect of its wavetable synth's own chain.
+    /// </summary>
     public void Open(SongTab tab, SongTrack? track, PluginInsert insert)
     {
         ArgumentNullException.ThrowIfNull(tab);
@@ -113,32 +108,7 @@ public sealed partial class PluginWindow : EditorDocument
         Tab = tab;
         Track = track;
         Insert = insert;
-        Instrument = null;
         Info = info;
-        ShowWindow();
-    }
-
-    /// <summary>
-    /// Shows <paramref name="track"/>'s wavetable synth: every parameter as a knob, grouped by section (a stopgap until the
-    /// synth's own window).
-    /// </summary>
-    public void OpenSynth(SongTab tab, SongTrack track)
-    {
-        ArgumentNullException.ThrowIfNull(tab);
-        ArgumentNullException.ThrowIfNull(track);
-        if (track.Instrument is not { IsWavetable: true } instrument)
-            return;
-        Tab = tab;
-        Track = track;
-        Insert = null;
-        Instrument = instrument;
-        Info = SynthParams.Info;
-        ShowWindow();
-    }
-
-    private void ShowWindow()
-    {
-        var info = Info!;
         _width = WidthFor(info);
         _built = false;
         _graphDirty = true;
@@ -159,7 +129,6 @@ public sealed partial class PluginWindow : EditorDocument
         Tab = null;
         Track = null;
         Insert = null;
-        Instrument = null;
         Info = null;
         HideAndReleaseFocus();
         if (_graphViewport is { } viewport)
@@ -171,7 +140,7 @@ public sealed partial class PluginWindow : EditorDocument
     {
         if (!IsOpen || Info is not { } info || Tab is not { } shown)
             return;
-        if (!ReferenceEquals(tab, shown) || !StillInSong(shown, Track, Insert, Instrument))
+        if (!ReferenceEquals(tab, shown) || !StillInSong(shown, Track, Insert))
         {
             Close();
             return;
@@ -207,9 +176,6 @@ public sealed partial class PluginWindow : EditorDocument
             document.GetElementById("pw-power").SetClass("active", !bypass);
         }
 
-        if (Instrument is { } synth)
-            TickSynth(document, synth);
-
         var readOnly = shown.Document.IsReadOnly;
         if (readOnly != _shownReadOnly)
         {
@@ -234,14 +200,12 @@ public sealed partial class PluginWindow : EditorDocument
         }
     }
 
-    private static bool StillInSong(SongTab tab, SongTrack? track, PluginInsert? insert, InstrumentDescriptor? instrument)
+    private static bool StillInSong(SongTab tab, SongTrack? track, PluginInsert? insert)
     {
         var song = tab.Document.Song;
-        if (track is not null && !song.Tracks.Contains(track))
+        if (insert is null || (track is not null && !song.Tracks.Contains(track)))
             return false;
-        if (instrument is not null)
-            return ReferenceEquals(track?.Instrument, instrument);
-        return insert is not null && (track?.Inserts ?? song.Master.Inserts).Contains(insert);
+        return (track?.Inserts ?? song.Master.Inserts).Contains(insert) || track?.Instrument?.Patch?.Fx?.Contains(insert) == true;
     }
 
     // --- building the window ------------------------------------------------------------------------------------------
@@ -270,17 +234,12 @@ public sealed partial class PluginWindow : EditorDocument
         Array.Fill(_shown, float.NaN);
         _shownText = new string?[info.Params.Length];
         _shownBypass = !(Insert?.Bypass ?? false);
-        document.GetElementById("pw-power").SetClass("hidden", Insert is null);
         _shownReadOnly = !tab.Document.IsReadOnly;
         var trackName = Track?.Name ?? "Master";
-        var preset = Instrument is null ? null : PresetName(Instrument.Preset);
-        document.GetElementById("pw-name").SetInnerRml(RmlText.Escape(preset is null ? $"{info.Name} — {trackName} — {tab.Document.Name}" : $"{info.Name} · {preset} — {trackName} — {tab.Document.Name}"));
-        _shownPreset = Instrument?.Preset;
-        foreach (var id in (ReadOnlySpan<string>)["pw-table-a", "pw-table-b", "pw-prev", "pw-next"])
-            document.GetElementById(id).SetClass("hidden", Instrument is null);
-        _shownTables = default;
+        var synth = Track?.Instrument?.Patch?.Fx?.Contains(Insert!) == true ? " — " + SynthParams.ProductName : "";
+        document.GetElementById("pw-name").SetInnerRml(RmlText.Escape($"{info.Name} — {trackName}{synth} — {tab.Document.Name}"));
         document.GetElementById("pw-icon").SetClassNames("icon icon-sm icon-" + info.Icon);
-        document.GetElementById("pw-presets").SetClass("hidden", Instrument is null && info.Presets is not { Length: > 0 });
+        document.GetElementById("pw-presets").SetClass("hidden", info.Presets is not { Length: > 0 });
         document.GetElementById("pw-graph").SetClass("hidden", info.Graph != BuiltinGraph.Eq);
         document.GetElementById("pw-meter").SetClass("hidden", info.Graph != BuiltinGraph.GainReduction);
         document.GetElementById("pw-readout").SetClass("hidden", info.Graph != BuiltinGraph.DelayReadout);
@@ -504,18 +463,6 @@ public sealed partial class PluginWindow : EditorDocument
                 case "pw-power":
                     if (Insert is { } bypassed)
                         Edit(tab, "Could not bypass the effect", () => tab.Document.SetInsertBypass(bypassed, !bypassed.Bypass));
-                    return;
-                case "pw-reset" when Instrument is not null && Track is { } synthTrack:
-                    Edit(tab, "Could not reset the synth", () => tab.Document.SetSynthPatch(synthTrack, SynthPatch.Init(), "Init Patch"));
-                    return;
-                case "pw-presets" when Instrument is not null:
-                    SynthPresetMenu(tab);
-                    return;
-                case "pw-table-a" or "pw-table-b" when Instrument is not null:
-                    TableMenu(tab, el.Id == "pw-table-a" ? "a" : "b");
-                    return;
-                case "pw-prev" or "pw-next" when Instrument is not null:
-                    StepPreset(tab, el.Id == "pw-next" ? 1 : -1);
                     return;
                 case "pw-reset":
                     Edit(tab, "Could not reset the effect", () => SetParams(tab, info.Defaults(), "Reset " + info.Name));
@@ -753,12 +700,12 @@ public sealed partial class PluginWindow : EditorDocument
         if (p.Choices is not { } choices || tab.Document.IsReadOnly)
             return;
         var current = (int)(Info?.Value(Values, p.Id) ?? 0);
-        var shown = (object?)Insert ?? Instrument;
+        var shown = Insert;
         var items = choices.Select((c, i) => new MenuItem(c, i.ToString(CultureInfo.InvariantCulture), Css: i == current ? "current" : null)).ToList();
         var (x, y) = MenuPoint(e);
         Workspace.Popup.Show(items, x, y, command =>
         {
-            if (int.TryParse(command, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && ReferenceEquals((object?)Insert ?? Instrument, shown))
+            if (int.TryParse(command, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) && ReferenceEquals(Insert, shown))
                 Edit(tab, "Could not change the effect", () => SetParam(tab, p.Id, index));
         });
     }
@@ -767,13 +714,13 @@ public sealed partial class PluginWindow : EditorDocument
     {
         if (info.Presets is not { Length: > 0 } presets || tab.Document.IsReadOnly)
             return;
-        var shown = (object?)Insert ?? Instrument;
+        var shown = Insert;
         var items = presets.Select((preset, i) => new MenuItem(preset.Name, i.ToString(CultureInfo.InvariantCulture), Icon: "adjustments")).ToList();
         var x = _position.X + _width - 200;
         var y = _position.Y + TitleHeight;
         Workspace.Popup.Show(items, x, y, command =>
         {
-            if (!int.TryParse(command, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) || !ReferenceEquals((object?)Insert ?? Instrument, shown))
+            if (!int.TryParse(command, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) || !ReferenceEquals(Insert, shown))
                 return;
             var preset = presets[index];
             var values = info.Defaults();

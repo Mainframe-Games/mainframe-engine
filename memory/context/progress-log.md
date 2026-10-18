@@ -794,6 +794,14 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   `RmlStructType.List` (one level of nested data-for lists).
 - Designs merged: wavetable synth (#78, ADR 0195, open questions) and adaptive music (#79, ADR 0196; A1 code in #82).
 
+### 2026-10-18 — Mainframe Wavetable: engine, presets, window (ADR 0195; #84, #85, synth window PR)
+- Synth engine (`Music/Synth/`, #84): mip-mapped wavetables, warps, unison, sub/noise, two filters, DAHDSR envelopes,
+  LFOs, mod matrix, poly/mono/legato, FX chain; zero allocation; live pitch bend / mod wheel / aftertouch.
+- Content (#85): `.wav` wavetable import (`clm ` chunk, UID refs), 39 factory presets, `WavetablePreset` engine resource.
+- `SynthWindow`: Osc / Matrix / FX tabs, wavetable / filter / envelope / LFO canvases, drag-to-assign modulation with
+  live dots, drawn LFOs, keyboard, CPU meter; the plugin window's synth stopgap removed. Next (PR 4): embedded FX panels
+  in the FX tab, render-test goldens of the window.
+
 ### 2026-10-18 — Adaptive music A2: the runtime (ADR 0196 accepted)
 - The design's ten open questions were decided with the recommended answers (recorded in the design's "Decided questions").
 - `MusicVoice` (audio thread, a `SoundComponent` per `AudioBusInfo.MusicVoices` slot, 2 on Music by default): 4 lane

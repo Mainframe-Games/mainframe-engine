@@ -67,6 +67,7 @@ public sealed class SongView : Node
             _workspace.Toolbar.UpdateMusic(tab);
         }
 
+        _workspace.SynthWindow.Tick(tab);
         _workspace.PluginWindow.Tick(tab);
 
         if (tab is null)
