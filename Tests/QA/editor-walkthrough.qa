@@ -116,6 +116,17 @@ song browser on
 wait 5
 capture 13e3-song-browser
 song browser off
+song synth 0 a.wt_pos=0.4 f1.cutoff=1800 f1.reso=0.35
+song synth-route 0 lfo1 a.wt_pos 0.3
+song synth-route 0 env2 f1.cutoff 0.45
+song synth-fx 0 chorus
+wait 10
+capture 13e4-song-synth
+song synth-page matrix
+wait 5
+capture 13e5-song-synth-matrix
+song synth-page osc 0
+song synth-close
 song stop
 song save
 song render

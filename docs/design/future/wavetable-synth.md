@@ -646,6 +646,37 @@ effects 1.04 ms (19.5 %); zero allocation in every case.
   factory sets, the project's `Content/Wavetables/`, Import Wavetable… and, for a file, the frame size). Reset loads Init.
 - Not yet: the modified mark ("Warm Pad*"), a user-wide preset library (an open question below).
 
+## As built: PR 3 (the synth window)
+
+`SynthWindow` (`MainframeEngine.Editor/Src/UI/SynthWindow.cs`, `Content/Editor/synth_window.rml`) replaces the stopgap in
+the plugin window (`PluginWindow.OpenSynth` and `PluginWindow.Synth.cs` are gone; the plugin window shows built-in
+effects only, now also those of a synth's FX chain). It is a floating panel-layer document under the plugin window,
+ticked by the song view, closed when its track's instrument changes, the track goes, another song tab becomes active or
+music mode is left. The canvases (`Synth/SynthCanvases.cs`) are `WavetableCanvas`, `SynthFilterCanvas` and
+`SynthModCanvas`, each in its own `SubViewport` (`engine://synth-osc-a`, `synth-osc-b`, `synth-filter`, `synth-mod`)
+sized from its element and redrawn once on a change. The render thread publishes, lock-free, the newest voice's
+modulated value of every routed target (`WavetableSynth.LiveValue`) and its share of real time per block
+(`WavetableSynth.Load`); `SongPlayer.FindInstrument` hands the live synth to the window.
+
+Differences from the proposal above:
+
+- **One fixed size** (1010 dp wide, the Osc page about 520 dp tall; Matrix and FX keep that height and scroll), not
+  resizable. Master volume and pan sit in the tab bar.
+- **Modulation shows as ticks, not arcs:** a tick in the source's colour at base + amount (and base − amount for a
+  bipolar route) on the dial's rim, and a white dot at the live value while voices sound. Hovering a tile does not
+  highlight its targets yet.
+- **Drag-to-assign** starts after a 4 dp move on a strip tile and highlights every knob that accepts a drop; there is no
+  ghost element. Dropping on a knob that the source already modulates selects that route for Alt-drags.
+- **Envelope editor:** three handles (end of attack; end of decay at the sustain level; end of release) on a log time
+  axis; the segment curves are the curve knobs (no curve dragging on the canvas).
+- **Drawn LFOs:** Draw seeds nine points from the current built-in shape and switches the LFO to Drawn (one undo step
+  each).
+- **Matrix:** no aux source or aux amount columns, no sorting by section, and clicking a target does not flash its knob.
+- **FX tab:** a list (bypass, name, move up/down, remove, Add Effect); a click on the name opens the effect in the
+  plugin window instead of an embedded panel (PR 4).
+- **QA:** `song synth-page`, `song synth-preset`, `song synth-route`, `song synth-fx` and `song synth-close`; the README's
+  `editor-song-synth.png` and the walkthrough's `13e4`/`13e5` captures. Render-test goldens of the window are PR 4.
+
 ## Open questions
 
 - **Name.** "Mainframe Wavetable" is a working title; the stored id `wavetable` does not depend on it, so the display

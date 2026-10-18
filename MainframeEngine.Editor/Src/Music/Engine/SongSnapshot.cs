@@ -311,6 +311,9 @@ public sealed class SongSnapshotBuilder
         _builtins.Clear();
     }
 
+    /// <summary>UI thread: the instrument playing track <paramref name="trackId"/> (the synth window's displays), or null.</summary>
+    public IInstrument? FindInstrument(string trackId) => _slots.TryGetValue(trackId, out var slot) ? slot.Instrument : null;
+
     /// <summary>UI thread: the running built-in effect of <paramref name="insert"/> (meters), or null.</summary>
     public BuiltinEffect? FindBuiltin(PluginInsert insert) => _builtins.GetValueOrDefault(insert);
 

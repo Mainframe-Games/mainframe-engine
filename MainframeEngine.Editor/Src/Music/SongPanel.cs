@@ -662,7 +662,7 @@ public sealed class SongPanel : EditorDocument
                 {
                     tab.Document.SetTrackInstrument(track, InstrumentDescriptor.Wavetable());
                     tab.Player.Update(tab.Document);
-                    Workspace.PluginWindow.OpenSynth(tab, track);
+                    Workspace.SynthWindow.Open(tab, track);
                 });
             }
             else if (command == "zzfx" && track.Instrument?.IsZzfx != true)
@@ -947,7 +947,7 @@ public sealed class SongPanel : EditorDocument
             return;
         if (track.Instrument is { IsWavetable: true })
         {
-            Workspace.PluginWindow.OpenSynth(tab, track); // the synth's parameters (its own window comes later)
+            Workspace.SynthWindow.Open(tab, track);
             return;
         }
 
