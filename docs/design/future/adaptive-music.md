@@ -1,7 +1,9 @@
 # Proposal: Adaptive music (FMOD-style, baked stems)
 
 **Milestone:** unscheduled (editor tooling + audio runtime; Phase 3 of the Logic-style Music mode) · **Status:** proposal
-(2026-10-18); PR A1 (shared logic and the song model) built, see [As built: A1](#as-built-a1), [ADR 0196](../../../memory/decisions/0196-adaptive-music-baked-stems.md) (proposed) · **Depends on:**
+(2026-10-18), its [questions decided](#decided-questions); PR A1 (shared logic and the song model) built, see
+[As built: A1](#as-built-a1); PR A2 (the runtime) built, see [As built: A2](#as-built-a2);
+[ADR 0196](../../../memory/decisions/0196-adaptive-music-baked-stems.md) (accepted) · **Depends on:**
 [Music editor](music-editor.md) (songs, `SongEngine`, Render), [Audio](../audio.md) (`AudioServer`, streaming, the
 command queue), [Editor](../editor.md) (Music mode), the Phase 1 right-hand Browser and built-in effects
 (`docs/design/music-effects.md`, not written yet) · **Related:** [Project and GameHost](../project-and-gamehost.md)
@@ -51,7 +53,7 @@ transitions those stems live, beat-quantized, from parameters.
   drive what the runtime can do on a baked stem: layer volume and a layer filter (see
   [Curve targets](#curve-targets)).
 - **Generative or random note logic**: random clip choice, weighted playlists, note-level variation. Random choice
-  between alternative sections is listed in [Open questions](#open-questions).
+  between alternative sections comes in v1.1 (see [Decided questions](#decided-questions)).
 - Positional (2D/3D) adaptive music, nested events, sidechain ducking of other buses, global parameters shared
   between players, and middleware import (FMOD `.fspro`, Wwise).
 - Audio Units, CLAP and similar; plugin support is unchanged.
@@ -463,7 +465,7 @@ transition segment.
 **Mid-section exits** (`beat`, `bar`, `bars`, `immediate`) have no baked tail at their boundary. The outgoing body
 keeps playing under a linear fade of `fadeOutBeats`, and the stem's own content supplies the decay. An `exitMarker`
 exit gets a baked tail only if the marker is promoted to a **tail point**: the bake then also renders "cut at the
-marker + tail" for that section. See [Open questions](#open-questions).
+marker + tail" for that section (decided: see [Decided questions](#decided-questions)).
 
 ### Master chain
 
@@ -487,7 +489,7 @@ Curves can only target what the runtime can do on a baked stem:
 The layer is baked *before* its filter and gain, which are applied live. Phase 1's DSP blocks (`Svf`, the smoothers)
 live in the editor (`Music/Effects/Dsp/`). The filter moves into the engine (`MainframeEngine/Src/Audio/Dsp/`) and the
 editor uses the engine's copy, so both sides run the same filter code. Driving any other built-in effect parameter
-from a game parameter would mean running that effect at run time; that is listed in [Open questions](#open-questions).
+from a game parameter would mean running that effect at run time; v1 does not (see [Decided questions](#decided-questions)).
 
 ### Output, names and UIDs
 
@@ -884,34 +886,136 @@ questions 2 (curves drive only layer volume and one filter) and 7 (`.mmusic` wit
 - **Open for A2:** `ResourceLoader` skips importers for self-describing files, so A2's `AdaptiveMusicImporter` needs
   `.mmusic` routed to it.
 
-## Open questions
+## As built: A2
 
-These need a decision before the matching PR starts. The recommendation comes first in each.
+A2 is the runtime: `MainframeEngine/Src/Audio/Graph/MusicVoice.cs` (audio thread), `Src/Audio/AudioServer.Music.cs`
+(music voice slots, lane groups, stream requests), `Src/Audio/Music/` (`AdaptiveMusic` + `AdaptiveMusicImporter`,
+`AdaptiveMusicInstance`, `AdaptiveMusicPlayer`, `MusicRuntime`) and `Src/Audio/Dsp/Svf.cs` (moved from the editor's
+`Music/Effects/Dsp/`; the editor's Filter and Phaser use it). It follows the [Runtime](#runtime) design, with these
+specifics and deviations.
 
-1. **Master inserts in adaptive songs.** Recommended: do not bake them; flag them and point to the Music bus's effects
-   (above). Alternatives: bake the master chain into every stem (each layer gets compressed on its own, so the sum
-   sounds different from the song), or refuse to bake while master inserts exist.
-2. **What curves can drive at run time.** Recommended for v1: layer volume plus one LP/HP filter per layer, both
-   running in the engine. Driving any built-in effect parameter (delay feedback, reverb mix, EQ bands) from a game
-   parameter means running that effect live in games, which means moving the Phase 1 effects from the editor into the
-   engine runtime. Is that wanted, as v2 or ever?
-3. **Stem format.** Recommended: separate stereo `.ogg` per layer per section (the decision as given; simple, each
-   lane independent). The alternative is one multichannel `.ogg` per section with the layers as channel pairs: one
-   decoder per section and alignment by construction, but the engine downmixes sources wider than stereo today, so
-   that path would need a raw-channel mode, and a silent layer still costs channels.
-4. **Tails at mid-section exits.** Recommended: fades only, plus optional *tail points* on exit markers that bake an
-   extra "cut here + tail" per layer (more files, but authentic decays where the composer wants them). Alternatively,
-   no tail points in v1.
-5. **Stingers as one mixed stem.** Recommended: yes, so layer curves do not apply to stingers. The alternative is per
-   layer, so a stinger follows the current intensity.
-6. **Where the Adaptive UI lives.** Recommended: a second tab of the right-hand Browser panel (A), with the curve
-   editor as a third bottom pane. The alternative is its own docked panel, which costs width next to the Browser.
-7. **`.mmusic` and the `mus_` prefix.** Recommended: its own extension (a FileSystem icon, out-of-date badges, an
-   importer). The alternative is an ordinary `.mres` `AdaptiveMusic` resource with a `res_` UID, which would show in
-   the Inspector but can be hand-edited out of sync with its stems.
-8. **Random variation**, in v1.1 or never? FMOD playlists and multi-instruments, such as "pick one of three Explore
-   variants each loop", would fit as sections grouped into a variation set chosen by the director with a seeded RNG.
-9. **Fade units.** Recommended: beats only, so fades follow the music. Alternatively, a seconds option per fade for
-   sound designers.
-10. **Auto-bake.** Recommended: explicit Bake only, as Render is explicit today, plus a "bake out of date" badge. The
-    alternative is baking on save while a game is running, with `ReloadMusic`.
+**Lane groups instead of 16 fixed lanes.** A `MusicVoice` has 4 groups of 8 lanes (one lane per layer): the current
+section, the incoming one, the outgoing one while it fades, and the prefetched continuation.
+
+- **Ownership.** The game thread takes a free group for each section start and gets it back only when the audio thread
+  reports `MusicGroupFreed`, so it never re-points lanes the audio thread may still read. With no free group, the
+  start waits on the game thread and misses if it cannot be sent in time.
+- **One stream generation per group.** Every stream channel of a group is requested together (a silent or
+  memory-loaded lane requests nothing), so one stream generation in the command names all of them.
+- **Channels are created at `Play`.** Every group gets a channel for each layer that streams in some section, so a
+  playing instance allocates nothing afterwards. Each channel's ring is 256 KB.
+
+**Continuations.**
+
+- **Prefetch.** The game thread streams the current pass's `then` section into a free group (`MusicPrefetch`), unless
+  a transition is scheduled at or before the section end. A prefetch at or before the reported clock is committed and
+  never cancelled, because the audio thread handles that frame at its next block.
+- **No readiness check.** At the end, the audio thread starts the prefetched group without waiting. A streamed lane
+  that is not ready plays silence and later skips the frames it missed, so the layers stay aligned. With no prefetch
+  (a stalled game thread), the section plays silently and the timeline stays right.
+- **Stale prefetches** are freed by the audio thread at the next section change.
+
+**Starting.** `Play` holds the music clock at 0 until the first section's streamed lanes have data, for at most 0.5 s.
+The first section therefore never misses.
+
+**Misses.** A start misses when its command arrives after its frame, when a streamed lane has fewer than 256 frames
+buffered (unless the stream has ended), or when no group frees up in time. The miss goes back as `MusicMissed`, then
+`MusicDirector.OnMissed` reschedules it, and `AudioServerStats.LateMusicTransitions` counts it. A late stinger misses
+too. A late stop happens at once. A late cancel is ignored.
+
+**Clock and events.** After each block the audio thread posts its events, then publishes the clock. The server reads
+every music clock before it drains the event ring, so an instance always has every event up to the clock it acts on.
+
+**Per lane.**
+
+- **Gain.** The layer gain is a one-pole ramp (~10 ms) per sample.
+- **Filter.** The cutoff ramps the same way, but in ln(Hz), and its SVF coefficients (Butterworth Q) are recomputed
+  every 32 frames while it moves.
+- **Fades** are linear.
+- **Tails** go through their layer's gain and filter. A stinger's mix stem goes through neither.
+- **One-shots.** There are 8 one-shot lanes; when all are busy, the one furthest along is replaced.
+
+**Stem rate.** A stem whose sample rate differs from the manifest's is not used. One error names it, and its lane is
+silent, because stems are resampled together and must share the manifest's rate to stay aligned. The whole music is
+resampled to the device rate, sharing one read position per group.
+
+**Resource and loading.**
+
+- **Loading.** `AdaptiveMusic.Load` and `FromManifest` (for tests and the editor's audition) are the entry points.
+- **Preloading.** `PreloadSections` and `Preload()` load stems ahead; `MissingStems` and `LoadNotice` report on them.
+- **Importer routing.** `ResourceLoader` now sends self-describing files that have an importer (only `.mmusic`) to
+  that importer, with the UID embedded in the file. This closes A1's open item.
+- **Stem lookup.** A stem resolves by UID when the `AssetDatabase` knows it, else by path.
+
+**Buses.** `AudioBusInfo.MusicVoices` defaults to −1 (automatic: 2 on the bus named Music, 0 elsewhere). It accepts
+0–16, and `GetBusLayout` writes it as set. A layout swap stops playing music without `Finished`.
+
+**API beyond the table.**
+
+- **Instance members.** `AdaptiveMusicInstance` adds `StopImmediately` (a 5 ms fade, no `Finished`), `Paused`,
+  `Director` and `VolumeDb`.
+- **The node.** `AdaptiveMusicPlayer.Instance` is null in edit mode and outside the tree.
+- **Position.** `GetPosition` subtracts the output buffer length as the latency estimate.
+
+**Signals.**
+
+- **`SectionStarted`** fires when the section changes, not when a section loops.
+- **Order at one frame:** `Bar`, then `Beat`, then any `Marker`.
+- **`Finished`** fires once the last tails have rung out, and only for the authored end (not for `Stop`).
+
+**Not in A2.**
+
+- Tail points on exit markers (decision 4) need a manifest field that the bake (A3) writes. Until then an
+  `exitMarker` exit fades.
+- `sync` entry seeks the stream, which decodes forward from the start for OGG (the known issue above).
+- The editor link, the dev overlay panel and the Demo scene are A6.
+
+**Tests.**
+
+- **`AdaptiveMusicRuntimeTests`** run on the manual null device with generated float-WAV stems (`MusicTestStems`: DC
+  bodies with an impulse at frame 0, ramp tails, impulse stingers, at 480 BPM so a bar is 24 000 frames). They cover:
+  - frame 0, loop seams with tails, rule transitions on the exact bar sample
+  - linear fades, curve gains without zipper (< 0.005 per sample), the cutoff curve, the stinger downbeat after its
+    pickup
+  - `then` and the end with `Finished`, the signal order across uneven frames, pause holding the clock
+  - inverted layers cancelling at 44.1 kHz, streamed loops and transitions
+  - a held streaming thread making the transition miss and land exactly one bar later, and a late cancel
+  - stop fades, a missing stem, and no free voice
+- **`AdaptiveMusicPlayerTests`** cover the importer and the UID, a scene round trip, the node in a tree (autoplay,
+  signals, pause, leaving the tree, edit mode) and the bus layout.
+- **`AdaptiveMusicAllocationTests`** is the gate. Four layers (two filtered) go through every section, a transition
+  segment, stingers, parameter sweeps, misses and tree pause, at 0 B.
+- **The render-test `showcase`** plays an `AdaptiveMusicPlayer` with streamed 24 kHz stems, filter curves,
+  transitions and a stinger, so the frame allocation gate covers it.
+
+**Performance** (`AdaptiveMusicBenchmarks`, Apple M5, memory-loaded stems so the streaming thread does not pace the
+benchmark), 0 B each:
+
+| Benchmark | Mean | Budget |
+|---|---|---|
+| `InstanceFrame8Layers`: one game frame of an instance (8 layers × 2 curves, a parameter moving every frame) | ≈ 0.38 µs | < 2 µs |
+| `MixBlock480Frames16Lanes`: a 10 ms block of 16 lanes (two sections cross-fading, half through the filter) | ≈ 42 µs | ≈ 40 µs |
+
+Memory clips at the device rate on whole frames take a copy loop; anything else interpolates. Each lane is read,
+filtered and summed in three separate passes.
+
+## Decided questions
+
+The user decided every open question on 2026-10-18, each with the recommended answer.
+
+1. **Master inserts in adaptive songs are not baked.** The editor flags them ("master effects are not baked; use the
+   Music bus's effects") and points to the Music bus's effects.
+2. **Curves drive only what runs on a baked stem**: layer volume and one low-pass or high-pass filter per layer, both
+   in the engine. Driving other built-in effect parameters from game parameters would mean running those effects in
+   games, and is not planned for v1.
+3. **Stems are separate stereo `.ogg` files**, one per layer per section (not one multichannel file per section).
+4. **Mid-section exits fade**, and exit markers can optionally be promoted to *tail points*. The bake then also renders
+   "cut at the marker + tail" per layer, which plays instead of the fade there.
+5. **A stinger is one mixed stem**, so layer curves do not apply to stingers.
+6. **The Adaptive UI is a tab of the music Browser panel** (A), and the curve editor is a third bottom pane beside
+   Piano Roll and Mixer.
+7. **`.mmusic` is its own extension with the `mus_` UID prefix** (not an `.mres` resource).
+8. **Random variation** (sections grouped into a variation set, chosen by the director with a seeded RNG) comes later,
+   in v1.1.
+9. **Fades are in beats only**, with no seconds option.
+10. **Bake is explicit only**, as Render is, with a "bake out of date" badge (no bake on save).

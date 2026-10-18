@@ -56,6 +56,7 @@ internal sealed class MusicVoice : SoundComponent
     private readonly Scheduled[] _queue = new Scheduled[QueueCapacity];
     private readonly AudioEvent[] _events = new AudioEvent[EventCapacity];
     private readonly float[] _mix = new float[Chunk * 2];
+    private readonly float[] _lane = new float[Chunk * 2];
     private readonly float[] _envelope = new float[Chunk];
     private readonly float[] _layerGains = new float[Lanes * Chunk];
     private readonly float[] _gain = new float[Lanes];
@@ -731,36 +732,29 @@ internal sealed class MusicVoice : SoundComponent
         }
     }
 
+    // Three tight passes per lane: read (resampled) into a scratch buffer, filter it in place, then weight and sum it.
     private double RenderLane(LaneGroup group, ref Lane lane, MusicLayerFilter filter, ReadOnlySpan<float> gains, ReadOnlySpan<float> envelope,
         Span<float> mix, int n)
     {
-        var f = group.Fraction;
-        var step = _ratio;
-        for (var i = 0; i < n; i++)
-        {
-            var t = (float)f;
-            var left = lane.S0L + (lane.S1L - lane.S0L) * t;
-            var right = lane.S0R + (lane.S1R - lane.S0R) * t;
-            switch (filter)
-            {
-                case MusicLayerFilter.LowPass:
-                    left = lane.FilterL.Process(left, out _, out _);
-                    right = lane.FilterR.Process(right, out _, out _);
-                    break;
-                case MusicLayerFilter.HighPass:
-                    lane.FilterL.Process(left, out _, out left);
-                    lane.FilterR.Process(right, out _, out right);
-                    break;
-            }
+        var scratch = _lane.AsSpan(0, n * 2);
+        var f = lane.Clip is { } clip && _ratio == 1.0 && group.Fraction == 0.0
+            ? ReadClipUnit(group, ref lane, clip, scratch, n)
+            : ReadResampled(group, ref lane, scratch, n);
 
-            var w = gains[i] * envelope[i];
-            mix[2 * i] += left * w;
-            mix[2 * i + 1] += right * w;
-            f += step;
-            while (f >= 1.0)
+        if (filter == MusicLayerFilter.LowPass)
+        {
+            for (var i = 0; i < n; i++)
             {
-                f -= 1.0;
-                Shift(group, ref lane);
+                scratch[2 * i] = lane.FilterL.Process(scratch[2 * i], out _, out _);
+                scratch[2 * i + 1] = lane.FilterR.Process(scratch[2 * i + 1], out _, out _);
+            }
+        }
+        else if (filter == MusicLayerFilter.HighPass)
+        {
+            for (var i = 0; i < n; i++)
+            {
+                lane.FilterL.Process(scratch[2 * i], out _, out scratch[2 * i]);
+                lane.FilterR.Process(scratch[2 * i + 1], out _, out scratch[2 * i + 1]);
             }
         }
 
@@ -770,7 +764,71 @@ internal sealed class MusicVoice : SoundComponent
             lane.FilterR.Flush();
         }
 
+        for (var i = 0; i < n; i++)
+        {
+            var w = gains[i] * envelope[i];
+            mix[2 * i] += scratch[2 * i] * w;
+            mix[2 * i + 1] += scratch[2 * i + 1] * w;
+        }
+
         return f;
+    }
+
+    // Linear interpolation at any step (the music's rate differs from the device's, or a start between device frames).
+    private double ReadResampled(LaneGroup group, ref Lane lane, Span<float> scratch, int n)
+    {
+        var f = group.Fraction;
+        var step = _ratio;
+        for (var i = 0; i < n; i++)
+        {
+            var t = (float)f;
+            scratch[2 * i] = lane.S0L + (lane.S1L - lane.S0L) * t;
+            scratch[2 * i + 1] = lane.S0R + (lane.S1R - lane.S0R) * t;
+            f += step;
+            while (f >= 1.0)
+            {
+                f -= 1.0;
+                Shift(group, ref lane);
+            }
+        }
+
+        return f;
+    }
+
+    // The common case: a memory clip at the device's rate, aligned on whole frames: frame i is S0, then the next frame.
+    private static double ReadClipUnit(LaneGroup group, ref Lane lane, AudioClipData clip, Span<float> scratch, int n)
+    {
+        var samples = clip.Samples;
+        var stereo = clip.Channels == 2;
+        var frames = clip.Frames;
+        var length = group.Length;
+        var loop = group.Loop && length > 0;
+        var (s0L, s0R, s1L, s1R, next) = (lane.S0L, lane.S0R, lane.S1L, lane.S1R, lane.Next);
+        for (var i = 0; i < n; i++)
+        {
+            scratch[2 * i] = s0L;
+            scratch[2 * i + 1] = s0R;
+            (s0L, s0R) = (s1L, s1R);
+            if (next >= length && loop)
+                next -= length;
+            if (next < length && next < frames)
+            {
+                if (stereo)
+                    (s1L, s1R) = (samples[2 * next], samples[2 * next + 1]);
+                else
+                    s1L = s1R = samples[next];
+            }
+            else
+            {
+                s1L = s1R = 0;
+            }
+
+            if (next < length)
+                next++;
+        }
+
+        (lane.S0L, lane.S0R, lane.S1L, lane.S1R, lane.Next) = (s0L, s0R, s1L, s1R, next);
+        return 0.0;
     }
 
     private double AdvanceFraction(LaneGroup group, int n)

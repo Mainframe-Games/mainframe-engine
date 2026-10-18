@@ -1,7 +1,7 @@
 # ADR 0196 — Adaptive music: baked stems, one director, audio-thread scheduling
 
 - **Date:** 2026-10-18
-- **Status:** proposed
+- **Status:** accepted (2026-10-18: the design's open questions decided with the recommended answers; A1 and A2 built)
 - **Milestone:** —
 - **Docs:** docs/design/future/adaptive-music.md
 
@@ -51,8 +51,8 @@ plugins could never come along.
   and string-keyed data on the real-time thread, and the editor preview could no longer share the code as plainly.
   Scheduling ahead costs at most one quantum, and only when the next one falls inside the ~100–150 ms lookahead.
 - **One multichannel file per section.** It needs one decoder per section and aligns the layers by construction, but
-  the engine downmixes sources wider than stereo, and silent layers would still cost channels. This is left as an open
-  question.
+  the engine downmixes sources wider than stereo, and silent layers would still cost channels. Decided against:
+  separate stereo stems per layer per section.
 - **The render-twice seamless fold** that the music editor uses for loops. It is wrong the first time a section is
   entered from another section, and it does not cover transitions; isolated renders with tail one-shots handle both.
 
@@ -63,5 +63,5 @@ plugins could never come along.
 - Live preview and the bake differ by design at mid-section exits (live releases notes into real effect tails; baked
   fades). The editor offers a Baked audition through the real runtime.
 - The editor link goes to version 5: music watch and parameter commands, and a `Music` state message.
-- Built-in effects other than the layer filter cannot follow game parameters until they run in the engine. That is an
-  open question in the design.
+- Built-in effects other than the layer filter cannot follow game parameters until they run in the engine; v1 does not
+  plan that.

@@ -129,7 +129,10 @@ public sealed class AdaptiveMusicRuntimeTests : IDisposable
         manifest.Parameters.Add(Intensity);
         manifest.Curves.Add(new MusicCurveInfo
         {
-            Layer = "perc", Target = MusicCurveTarget.Cutoff, Parameter = "intensity", Points = [new(0, 200), new(1, 20000)],
+            Layer = "perc",
+            Target = MusicCurveTarget.Cutoff,
+            Parameter = "intensity",
+            Points = [new(0, 200), new(1, 20000)],
         });
         using var rig = new MusicRig(InMemory(manifest));
         rig.Instance.Play();
