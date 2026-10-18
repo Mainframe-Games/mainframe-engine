@@ -120,10 +120,39 @@ public sealed class AdaptiveMusic : Resource
                     stems.Tails[l] = LoadStem(section.Id, plan.Layers[l].Id, tail, AudioLoadMode.Memory, ref missing) as AudioClipData;
                 stems.Streamed |= stems.Bodies[l] is AudioStreamSource;
             }
+
+            LoadTailPoints(plan, section, source, stems, ref missing);
         }
 
         MissingStems = missing;
         return new MusicRuntime(plan, sections);
+    }
+
+    // Exit markers baked as tail points ("cut here + tail" per layer), in frame order.
+    private void LoadTailPoints(MusicPlan plan, MusicPlanSection section, MusicManifestSection source, MusicSectionStems stems, ref int missing)
+    {
+        List<long>? frames = null;
+        List<AudioClipData?[]>? tails = null;
+        foreach (var marker in (source.Markers ?? []).Where(m => m?.Tails is not null).OrderBy(m => m.Frame))
+        {
+            var frame = Math.Clamp(marker.Frame, 0, section.LengthFrames);
+            if (frame <= 0 || frame >= section.LengthFrames)
+                continue; // at the start or the end: the section's own tails cover it
+            var byLayer = new AudioClipData?[plan.Layers.Length];
+            for (var l = 0; l < byLayer.Length; l++)
+            {
+                if (marker.Tails!.GetValueOrDefault(plan.Layers[l].Id) is { } tail)
+                    byLayer[l] = LoadStem($"{section.Id}@{marker.Name}", plan.Layers[l].Id, tail, AudioLoadMode.Memory, ref missing) as AudioClipData;
+            }
+
+            (frames ??= []).Add(frame);
+            (tails ??= []).Add(byLayer);
+        }
+
+        if (frames is null)
+            return;
+        stems.TailPointFrames = [.. frames];
+        stems.TailPointTails = [.. tails!];
     }
 
     private AudioSource? LoadStem(string section, string layer, MusicStemRef stem, AudioLoadMode mode, ref int missing)

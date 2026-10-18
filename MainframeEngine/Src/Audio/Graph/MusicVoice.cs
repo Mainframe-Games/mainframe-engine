@@ -451,7 +451,8 @@ internal sealed class MusicVoice : SoundComponent
                     break;
                 if (action.Tails)
                     FireTails(_section, action.Frame);
-                EndCurrent(action.FadeOutFrames);
+                var tailPoint = !action.Tails && FireTailPoint(action.Frame);
+                EndCurrent(tailPoint ? 0 : action.FadeOutFrames);
                 _section = -1;
                 _stopping = true;
                 FreeAllWaiting();
@@ -478,7 +479,8 @@ internal sealed class MusicVoice : SoundComponent
 
         if (action.Tails && _section >= 0)
             FireTails(_section, action.Frame);
-        EndCurrent(action.FadeOutFrames);
+        var tailPoint = !action.Tails && FireTailPoint(action.Frame);
+        EndCurrent(tailPoint ? 0 : action.FadeOutFrames); // a tail point cuts the body: the baked tail carries the decay
 
         var length = runtime.Plan.Sections[action.Section].LengthFrames;
         var entry = length > 0 ? action.EntryOffset % length : 0;
@@ -666,6 +668,25 @@ internal sealed class MusicVoice : SoundComponent
             if (tails[l] is { } tail)
                 StartOneShot(tail, l, frame);
         }
+    }
+
+    // The current section is left at `frame`: when that is one of its tail points, its "cut here + tail" stems play.
+    private bool FireTailPoint(long frame)
+    {
+        if (_section < 0)
+            return false;
+        var stems = _runtime!.Sections[_section];
+        var index = Array.IndexOf(stems.TailPointFrames, frame - _origin);
+        if (index < 0)
+            return false;
+        var tails = stems.TailPointTails[index];
+        for (var l = 0; l < tails.Length; l++)
+        {
+            if (tails[l] is { } tail)
+                StartOneShot(tail, l, frame);
+        }
+
+        return true;
     }
 
     private void StartOneShot(AudioClipData clip, int layer, long frame)

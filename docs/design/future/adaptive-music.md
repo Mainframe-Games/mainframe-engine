@@ -935,6 +935,15 @@ every music clock before it drains the event ring, so an instance always has eve
 - **Tails** go through their layer's gain and filter. A stinger's mix stem goes through neither.
 - **One-shots.** There are 8 one-shot lanes; when all are busy, the one furthest along is replaced.
 
+**Tail points** (decision 4). `AdaptiveMusic` loads each marker's baked `tails` (`MusicManifestMarker.Tails`, from A3)
+into memory. Some transitions and stops leave a section mid-way, on a frame that is one of these markers. There:
+
+- the outgoing body stops at that frame, ignoring the fade it asked for;
+- the marker's tails play from that frame, one per layer, through each layer's gain and filter.
+
+This is not limited to `exitMarker` exits: a bar or beat quantum that lands on a tail point uses it too, because the
+baked tail is exactly what that cut sounds like. An exit marker without tails keeps the fade.
+
 **Stem rate.** A stem whose sample rate differs from the manifest's is not used. One error names it, and its lane is
 silent, because stems are resampled together and must share the manifest's rate to stay aligned. The whole music is
 resampled to the device rate, sharing one read position per group.
@@ -965,8 +974,6 @@ resampled to the device rate, sharing one read position per group.
 
 **Not in A2.**
 
-- Tail points on exit markers (decision 4): A3 bakes them into `MusicManifestMarker.Tails`, but the runtime does not
-  fire them yet, so an `exitMarker` exit fades.
 - `sync` entry seeks the stream, which decodes forward from the start for OGG (the known issue above).
 - The editor link, the dev overlay panel and the Demo scene are A6.
 
@@ -981,10 +988,12 @@ resampled to the device rate, sharing one read position per group.
   - inverted layers cancelling at 44.1 kHz, streamed loops and transitions
   - a held streaming thread making the transition miss and land exactly one bar later, and a late cancel
   - stop fades, a missing stem, and no free voice
+  - an exit at a tail point playing its tail on the exact frame with the body cut, and an exit marker without one still
+    fading
 - **`AdaptiveMusicPlayerTests`** cover the importer and the UID, a scene round trip, the node in a tree (autoplay,
   signals, pause, leaving the tree, edit mode) and the bus layout.
 - **`AdaptiveMusicAllocationTests`** is the gate. Four layers (two filtered) go through every section, a transition
-  segment, stingers, parameter sweeps, misses and tree pause, at 0 B.
+  segment leaving at a tail point, stingers, parameter sweeps, misses and tree pause, at 0 B.
 - **The render-test `showcase`** plays an `AdaptiveMusicPlayer` with streamed 24 kHz stems, filter curves,
   transitions and a stinger, so the frame allocation gate covers it.
 
@@ -1042,8 +1051,7 @@ stem) and 10 (explicit Bake, with an out-of-date badge).
 - **Tail points.** A marker with `exit: true` and the new `tail: true` (`SongMarker.Tail`, `SongDocument.SetMarkerTail`;
   validation warns about a tail point that is not an exit) bakes "cut at the marker + tail" per layer. The tails go in
   the manifest marker's new `tails` map (layer → stem, or null when silent; `MusicManifestMarker.Tails`). The runtime
-  is to fire them like section-end tails when an `exitMarker` exit leaves at that marker; it does not yet (see
-  [As built: A2](#as-built-a2)).
+  fires them like section-end tails when an exit leaves at that marker (see [As built: A2](#as-built-a2)).
 - **`bake` block:** `editor`, `date`, `inputs` (key → full SHA-256, keys `section/layer`, `stinger/mix`,
   `section@marker/layer`), `files` (each audio file's size, modification time and SHA-256, so unchanged files are not
   hashed again) and `stale` (see below).

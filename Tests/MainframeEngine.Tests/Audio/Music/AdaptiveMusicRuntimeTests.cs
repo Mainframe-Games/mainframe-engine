@@ -97,6 +97,49 @@ public sealed class AdaptiveMusicRuntimeTests : IDisposable
         Assert.Equal(0.5f, rig[Bar + Beat], Tolerance); // faded out after exactly one beat
     }
 
+    // Explore → Combat at explore's exit marker (frame 12 000), asking for a one-beat fade; optionally a tail point there.
+    private MusicManifest ExitAtMarker(bool tailPoint)
+    {
+        var manifest = ExploreCombat(fadeOutBeats: 1);
+        var marker = new MusicManifestMarker { Name = "drop", Frame = 2 * Beat, Exit = true };
+        if (tailPoint)
+            marker.Tails = new Dictionary<string, MusicStemRef?> { ["base"] = _stems.Tail(1200, 0.5f) };
+        manifest.Sections[0].Markers.Add(marker);
+        manifest.Transitions[0].Quantize = MusicQuantize.ExitMarker;
+        return manifest;
+    }
+
+    [Fact]
+    public void AnExitAtATailPointCutsTheBodyThereAndPlaysItsTailInsteadOfTheFade()
+    {
+        using var rig = new MusicRig(InMemory(ExitAtMarker(tailPoint: true)));
+        Assert.Equal([2 * Beat], rig.Instance.Music!.GetRuntime().Sections[0].TailPointFrames);
+        rig.Instance.Play();
+        rig.RunTo(2000);
+        rig.Instance.SetParameter("area", "Combat");
+        rig.RunTo(Bar);
+
+        Assert.Equal(0.25f, rig[2 * Beat - 1], Tolerance);
+        Assert.Equal(2f + 0.5f, rig[2 * Beat], Tolerance); // combat's downbeat plus the tail point's first frame, no explore
+        Assert.Equal(0.5f + 0.5f * (1f - 1f / 1200), rig[2 * Beat + 1], Tolerance);
+        Assert.Equal(0.5f, rig[2 * Beat + 1200], Tolerance); // the tail has rung out; explore was cut, not faded
+        Assert.Equal("combat", rig.Instance.CurrentSection);
+    }
+
+    [Fact]
+    public void AnExitMarkerWithoutATailPointStillFades()
+    {
+        using var rig = new MusicRig(InMemory(ExitAtMarker(tailPoint: false)));
+        rig.Instance.Play();
+        rig.RunTo(2000);
+        rig.Instance.SetParameter("area", "Combat");
+        rig.RunTo(Bar);
+
+        Assert.Equal(2f + 0.25f * (1f - 1f / Beat), rig[2 * Beat], 1e-4f);
+        Assert.Equal(0.5f + 0.125f, rig[2 * Beat + Beat / 2 - 1], 1e-4f);
+        Assert.Equal(0.5f, rig[3 * Beat], Tolerance);
+    }
+
     [Fact]
     public void LayerGainsFollowTheirCurvesWithoutZipper()
     {

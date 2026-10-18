@@ -62,6 +62,16 @@ internal sealed class MusicSectionStems
     /// <summary>Tails (memory one-shots fired when the section ends at its end).</summary>
     public AudioClipData?[] Tails { get; }
 
+    /// <summary>
+    /// Tail points: frames (from the section's start, sorted) of exit markers baked with "cut here + tail" stems. An exit
+    /// that leaves the section on one of these frames stops the body there and plays <see cref="TailPointTails"/> instead
+    /// of fading.
+    /// </summary>
+    public long[] TailPointFrames { get; set; } = [];
+
+    /// <summary>For each of <see cref="TailPointFrames"/>, the tails by layer index (null: that layer is silent there).</summary>
+    public AudioClipData?[][] TailPointTails { get; set; } = [];
+
     /// <summary>A stinger's single mixed stem (tail included).</summary>
     public AudioClipData? Mix { get; set; }
 

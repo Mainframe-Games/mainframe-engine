@@ -5,7 +5,7 @@ namespace MainframeEngine.Tests.Audio.Music;
 
 /// <summary>
 /// The adaptive-music allocation gate: an <see cref="AdaptiveMusicPlayer"/> with four layers (streamed sections, a
-/// memory transition segment and boss section, tails, filters) goes through transitions, stingers, parameter sweeps,
+/// memory transition segment and boss section, tails, a tail point, filters) goes through transitions, stingers, parameter sweeps,
 /// misses (the streaming thread held) and tree pause/resume, and a steady-state frame allocates nothing on the game
 /// thread (tree tick + <see cref="AudioServer.Process"/>) or the audio thread (here the same thread, rendering the null
 /// device).
@@ -97,7 +97,13 @@ public sealed class AdaptiveMusicAllocationTests
             Section("toboss", 1, loop: false, kind: MusicSectionKind.Transition, stems: Layered(1, 0.01f)),
             Section("boss", 1, stems: Layered(1, 0.04f)),
             Section("hit", 1, loop: false, kind: MusicSectionKind.Stinger, stems: (MusicManifestSection.MixStem, stems.Impulse((int)Bar, (int)Beat, 0.3f), null)));
-        manifest.Sections[1].Markers.Add(new MusicManifestMarker { Name = "drop", Frame = Bar, Exit = true });
+        manifest.Sections[1].Markers.Add(new MusicManifestMarker
+        {
+            Name = "drop",
+            Frame = Bar,
+            Exit = true,
+            Tails = Layers.ToDictionary(layer => layer, MusicStemRef? (_) => stems.Tail(1800, 0.1f)), // a tail point: combat → boss leaves here
+        });
         manifest.Sections[4].PickupBeats = 1;
         manifest.Layers =
         [
