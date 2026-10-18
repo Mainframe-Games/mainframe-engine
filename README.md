@@ -97,6 +97,10 @@ editor. Scenes open in tabs, each in its own world; nothing but `[Tool]` nodes r
     <td align="center" valign="top"><img src="docs/images/editor-song-effects.png" width="380" alt="The Channel EQ's plugin window on the Demo song's master: the curve with its band handles and a column of knobs per band"><br><b>Built-in effects</b> — 15 effects: EQ with a draggable curve, dynamics, tempo-synced delay and modulation</td>
     <td align="center" valign="top"><img src="docs/images/editor-song-browser.png" width="380" alt="Music mode with the Browser open on the right (songs and plugins by category) and the mixer below, its strips showing insert slots"><br><b>Browser and mixer</b> — songs and plugins (F), drag onto a track; insert slots per strip</td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-song-synth.png" width="380" alt="The Mainframe Wavetable window on the Demo song's Lead track playing the Evolving Pad preset: two stacked wavetables, the filter curve, sub, noise and voicing, LFO 1's editor, the modulation strip and a keyboard"><br><b>Wavetable synth</b> — two wavetable oscillators, filters, drag-to-modulate, presets</td>
+    <td></td>
+  </tr>
 </table>
 
 **Video mode:** Run › Play and Record (F10) records the game to MP4, and the Game|Video toggle turns the editor into a

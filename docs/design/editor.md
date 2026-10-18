@@ -760,11 +760,22 @@ window: no Scene tree, Inspector or FileSystem.
 - **Mainframe Wavetable** (`builtin: "wavetable"`, ADR 0195, [design](future/wavetable-synth.md)): the built-in
   synth — two band-limited wavetable oscillators with warps and 1–16-voice unison, sub and noise, two filters, four
   envelopes and LFOs, a mod matrix and an FX rack of built-in effects. Pick it in an instrument slot's menu or drop it
-  from the Browser's Instruments group; its pencil button (Open Synth…) shows every parameter in the plugin window until
-  the synth's own window lands; that window's header has the preset menu (39 factory presets, the project's
-  `WavetablePreset` resources, Save Preset…), previous/next arrows and each oscillator's wavetable menu (factory tables,
-  `Content/Wavetables/`, Import Wavetable… of any `.wav`, with the `clm ` frame size or a chosen one). A MIDI keyboard's
-  pitch bend, mod wheel and aftertouch reach it live.
+  from the Browser's Instruments group; its pencil button (Open Synth…) opens the **synth window** (`SynthWindow`,
+  `synth_window.rml`; one floating window, its title bar drags it, Esc closes it). Its header has the preset menu (39
+  factory presets, the project's `WavetablePreset` resources, Save Preset…), previous/next arrows, Init, the voice count
+  and the synth's share of the render thread; then three tabs. **Osc**: oscillators A and B with their wavetables drawn
+  stacked (click: one flat frame; the frame follows the newest voice's modulated position) and each one's table menu
+  (factory tables, `Content/Wavetables/`, Import Wavetable… of any `.wav`, the frame size), sub, noise, the two filters
+  with their response curves, voicing, and the editor of the selected envelope (drag the attack, decay/sustain and
+  release handles), LFO (Draw turns it into a drawn shape: click adds a point, drag moves it, Alt-drag bends it,
+  double-click removes it) or the macros. **Matrix**: every route (source and target menus, an amount slider, bipolar,
+  remove, Add Route). **FX**: the synth's own chain of built-in effects (bypass, open in the plugin window, reorder,
+  remove, Add Effect). Master volume and pan sit in the tab bar. Below the tabs, the **modulation strip** (Env 1–4,
+  LFO 1–4, velocity, note, random, macros, mod wheel, aftertouch, pitch bend, each with its route count): click one to
+  edit it, drag its handle onto a knob to modulate that knob (+25 %); a modulated knob shows a tick per route in its
+  source's colour and, while notes sound, a dot at its live value; Alt-drag sets the route's amount, right-click lists
+  its routes (invert, bipolar, remove). A two-octave keyboard at the bottom plays the track. A MIDI keyboard's pitch
+  bend, mod wheel and aftertouch reach the synth live.
 - **Built-in effects** ([Built-in music effects](music-effects.md), ADR 0193): fifteen in-process effects (Channel EQ,
   Filter, Compressor, Limiter, Noise Gate, Beat Delay, Reverb, Chorus, Flanger, Phaser, Tremolo, Saturation, Distortion,
   Bitcrusher, Utility) that every track and the master can insert next to VST3 plugins; the inserts menu lists them by

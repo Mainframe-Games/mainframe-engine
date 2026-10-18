@@ -697,7 +697,8 @@ public sealed class EditorQaScript : IEditorAutomation
     // song select <track> [clip] (indices; the clip opens in the piano roll) · song play · song stop · song render (wait-for render) · song save ·
     // song insert <track index|master> <built-in id> [param=value …] (added at the end of the chain, its window opened) ·
     // song fx-window <track index|master> <slot> · song fx-close · song browser on|off ·
-    // song synth <track> [param=value …] (the wavetable synth on that track, its window open) ·
+    // song synth <track> [param=value …] (the wavetable synth on that track, its window open) · song synth-page osc|matrix|fx
+    // [mod source 0–8] · song synth-preset <track> <name> · song synth-route <track> <source> <target> <amount> · song synth-fx <track> <built-in id> · song synth-close ·
     // song browser-toggle <section or group id> (collapses or opens it: songs, plugins, fx:<category>, vst, vsti)
     private static void Song(EditorWorkspace workspace, string[] step)
     {
@@ -788,10 +789,46 @@ public sealed class EditorQaScript : IEditorAutomation
 
                     document.SetTrackInstrument(track, Music.InstrumentDescriptor.Wavetable(patch));
                     tab.Player.Update(document);
-                    workspace.PluginWindow.OpenSynth(tab, track);
+                    workspace.SynthWindow.Open(tab, track);
                     break;
                 }
 
+            case "synth-page":
+                // song synth-page <osc|matrix|fx> [mod source 0–8]
+                workspace.SynthWindow.ShowPage(step[2]);
+                if (step.Length > 3)
+                    workspace.SynthWindow.SelectModSource(int.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture));
+                break;
+            case "synth-route":
+                {
+                    // song synth-route <track> <source> <target> <amount>: a modulation route on that track's synth.
+                    var track = document.Song.Tracks[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)];
+                    document.AddModRoute(track, new Music.SynthModRoute
+                    {
+                        Source = step[3],
+                        Target = step[4],
+                        Amount = float.Parse(step[5], System.Globalization.CultureInfo.InvariantCulture),
+                    });
+                    break;
+                }
+
+            case "synth-preset":
+                {
+                    // song synth-preset <track> <preset name…>: a factory or project preset on that track's synth.
+                    var track = document.Song.Tracks[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)];
+                    var name = string.Join(' ', step[3..]);
+                    var entry = Music.SynthPresets.All(workspace.Session.ProjectRoot).Find(p => p.Name == name)
+                        ?? throw new InvalidOperationException($"no synth preset {name}");
+                    SynthWindow.LoadPreset(tab, track, entry);
+                    break;
+                }
+
+            case "synth-fx":
+                document.AddSynthFx(document.Song.Tracks[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)], step[3]);
+                break;
+            case "synth-close":
+                workspace.SynthWindow.Close();
+                break;
             case "browser-toggle":
                 workspace.SongPanel.Browser.ToggleCollapsed(step[2]);
                 break;

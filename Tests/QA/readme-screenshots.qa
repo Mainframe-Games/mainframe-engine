@@ -81,6 +81,20 @@ command edit.undo
 command edit.undo
 command edit.undo
 wait 5
+# The wavetable synth on the Lead track with a factory preset (stacked wavetables, LFO 1 in the editor), playing so the
+# modulated knobs show their live dots; undone again.
+song synth 1
+song synth-preset 1 Evolving Pad
+song synth-page osc 4
+song play
+move 1500 700
+wait 90
+capture editor-song-synth
+song stop
+song synth-close
+command edit.undo
+command edit.undo
+wait 5
 # 5. Video mode: the recipe's narrated Physics 2D recording (build/readme-video-clip.sh) with its silences and filler
 # words cut and a transcript, the playhead stopped at 2.8 s as the bodies fall through the pegs. base.en (the default,
 # 148 MB on first use) because tiny.en's looser word timings leave cut words unstruck in the transcript.

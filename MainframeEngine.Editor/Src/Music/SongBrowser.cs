@@ -325,7 +325,7 @@ public sealed class SongBrowser(EditorWorkspace workspace)
                         : InstrumentDescriptor.Zzfx(SongDocument.DefaultZzfxLine));
                     tab.Player.Update(document);
                     if (id == InstrumentDescriptor.WavetableBuiltin)
-                        workspace.PluginWindow.OpenSynth(tab, track);
+                        workspace.SynthWindow.Open(tab, track);
                     return true;
                 case "vsti" when PluginCatalog.Current.Find(id) is { IsInstrument: true } instrument:
                     if (track is not { Kind: SongTrackKind.Instrument })

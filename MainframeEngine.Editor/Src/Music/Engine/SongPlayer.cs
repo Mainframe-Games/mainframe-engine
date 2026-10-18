@@ -104,6 +104,9 @@ public sealed class SongPlayer : IDisposable
     /// <summary>Generator underruns (the render thread fell behind).</summary>
     public int Underruns => Volatile.Read(ref _playback)?.Underruns ?? 0;
 
+    /// <summary>UI thread: the instrument playing <paramref name="track"/> (the synth window's displays and meters), or null.</summary>
+    public IInstrument? FindInstrument(SongTrack track) => _builder.FindInstrument(track.Id);
+
     /// <summary>UI thread: the running built-in effect of <paramref name="insert"/> (plugin-window meters), or null.</summary>
     public BuiltinEffect? FindBuiltin(PluginInsert insert) => _builder.FindBuiltin(insert);
 
