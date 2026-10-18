@@ -58,6 +58,7 @@ public sealed class SongView : Node
         var tab = music ? _workspace.Session.ActiveTab as SongTab : null;
         if (!ReferenceEquals(tab, _tab))
             Switch(tab);
+        SyncPane(tab);
         _workspace.Midi.Sink = tab?.Midi;
         tab?.Midi.Update();
         if (music)
@@ -146,8 +147,18 @@ public sealed class SongView : Node
         _workspace.SongPanel.SetImages(false, false);
         if (tab is null)
             return;
+        tab.SetPanel(_workspace.Layout.Settings.MusicPane); // the bottom pane is global: every tab shows the last one
         tab.Controller.AudioLength = file => AudioLength(tab, file);
         tab.Controller.RequestAudioClip = (track, tick) => PickAudioClip(tab, track, tick);
+    }
+
+    // The tab changed its pane itself (a double-click on a clip opens the piano roll): that is the pane from now on.
+    private void SyncPane(SongTab? tab)
+    {
+        if (tab is null || tab.Panel == _workspace.Layout.Settings.MusicPane)
+            return;
+        _workspace.Layout.SetMusicPane(tab.Panel);
+        _workspace.SaveLayout();
     }
 
     private static long? AudioLength(SongTab tab, string file) =>

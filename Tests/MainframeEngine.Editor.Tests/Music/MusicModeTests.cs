@@ -326,7 +326,12 @@ public sealed class MusicModeTests : IDisposable
     [InlineData(Key.S, EditorModifiers.Command | EditorModifiers.Shift, "file.save_as")]
     [InlineData(Key.Z, EditorModifiers.Command | EditorModifiers.Shift, "edit.redo")]
     [InlineData(Key.E, EditorModifiers.Command, "song.render")]
-    [InlineData(Key.M, EditorModifiers.None, "song.mixer")]
+    [InlineData(Key.S, EditorModifiers.Command, "file.save")]
+    [InlineData(Key.P, EditorModifiers.None, "song.piano_roll")]
+    [InlineData(Key.X, EditorModifiers.None, "song.mixer")]
+    [InlineData(Key.M, EditorModifiers.None, "song.mute_track")]
+    [InlineData(Key.S, EditorModifiers.None, "song.solo_track")]
+    [InlineData(Key.S, EditorModifiers.Shift, null)]
     [InlineData(Key.F1, EditorModifiers.None, "help.docs")]
     [InlineData(Key.W, EditorModifiers.None, null)]   // the gizmo keys are game-only
     [InlineData(Key.F5, EditorModifiers.None, null)]  // so is Play

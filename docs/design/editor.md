@@ -154,7 +154,8 @@ Music mode has its own table (`EditorWorkspace.MusicShortcutFor`). The song tab'
 |---|---|
 | Space · R · L · Home | play/stop · record · loop · to the start |
 | Delete / Backspace · Cmd/Ctrl+C, V, D · arrows · Q | the song tab's edits (clips, notes) |
-| M | mixer / piano roll |
+| P · X | piano roll · mixer in the bottom pane (the open pane's key hides it) |
+| M · S | mute · solo the selected track (as in Logic; undoable) |
 | Cmd/Ctrl+N, O, S, Shift+S, W, Q | new song, open song, save, save as, close tab, quit |
 | Cmd/Ctrl+Z, Shift+Z or Y | undo, redo |
 | Cmd/Ctrl+E | render |
@@ -691,11 +692,18 @@ window: no Scene tree, Inspector or FileSystem.
 
 - **Transport** (the toolbar's music group, `ToolbarPanel.UpdateMusic`, commands `song.*`): to start, play/stop, stop,
   record, loop, tempo field, time signature menu, position (bars.beats.ticks), snap menu (off, 1/4 … 1/32, triplets),
-  input quantize, underrun counter, a read-only badge and **Render** (Ctrl+E); disabled without a song tab. The Song
-  menu repeats it with Add Instrument/Audio Track; Edit › Music Settings… opens Editor Settings at the VST3 folders and
-  MIDI inputs.
+  input quantize, underrun counter, a read-only badge and **Render** (Ctrl+E), then on the right the view toggles:
+  Piano Roll (P) and Mixer (X), lit while shown; disabled without a song tab. The Song menu repeats it with Add
+  Instrument/Audio Track and Mute/Solo Track (M, S: the selected track); View lists Piano Roll and Mixer (the shown one
+  marked) and Hide Editor; Edit › Music Settings… opens Editor Settings at the VST3 folders and MIDI inputs.
+- **Bottom pane**, Logic style: one editor at a time below the tracks — the piano roll or the mixer — or none, when the
+  tracks fill the view. P / X (`song.piano_roll`, `song.mixer`) show one and the open pane's key hides it; so does the ×
+  in its header (`song.hide_pane`); double-clicking a MIDI clip opens the piano roll. A splitter above the header resizes
+  it (120 dp up to the view less 96 dp of tracks, the header and the splitter; `EditorLayout.SetMusicPaneHeight`). The
+  pane and its height are global, in the layout file (`MusicPane` by name, `MusicPaneHeight`, default the piano roll at
+  300 dp; saved on change and when the drag ends), and `SongView` applies them to whichever song tab becomes active.
 - **Chrome** (`SongPanel`, `Content/Editor/song.rml`, under the tab strip): track headers (colour bar, name — double-click renames —, instrument, mute, solo, colour, remove; + adds
-  an instrument or audio track); a **Piano roll | Mixer** switcher with the selected clip's summary; mixer strips
+  an instrument or audio track); the bottom pane's header (**Piano roll | Mixer**, the selected clip's summary, Hide); mixer strips
   (instrument slot "Built-in ZzFX" with its menu, Edit Sound — the ZzFX line in a text field, checked by
   `ZzfxParameters.TryParse`, auditioned on Apply — and audition; the slot's menu also lists scanned VST3 instruments and
   opens the plugin's editor window; an inserts button whose menu adds a scanned VST3 effect and, per insert, opens its

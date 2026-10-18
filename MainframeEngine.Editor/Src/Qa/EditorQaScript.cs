@@ -692,7 +692,8 @@ public sealed class EditorQaScript : IEditorAutomation
     public void OnClosing(EditorApp app)
     {
     }
-    // song new <project path> · song demo (a one-bar clip with a few notes, one undo entry each) · song panel roll|mixer ·
+    // song new <project path> · song demo (a one-bar clip with a few notes, one undo entry each) · song pane roll|mixer|none
+    // [height] (the bottom pane, as P / X / Hide do; the height in dp as its splitter sets it; "song panel" is the old name) ·
     // song select <track> [clip] (indices; the clip opens in the piano roll) · song play · song stop · song render (wait-for render) · song save ·
     // song insert <track index|master> <built-in id> [param=value …] (added at the end of the chain, its window opened) ·
     // song fx-window <track index|master> <slot> · song fx-close
@@ -767,8 +768,15 @@ public sealed class EditorQaScript : IEditorAutomation
             case "fx-close":
                 workspace.PluginWindow.Close();
                 break;
-            case "panel":
-                tab.SetPanel(step[2] == "mixer" ? Music.SongBottomPanel.Mixer : Music.SongBottomPanel.PianoRoll);
+            case "pane" or "panel":
+                workspace.SetMusicPane(step[2] switch
+                {
+                    "mixer" => Music.SongBottomPanel.Mixer,
+                    "none" => Music.SongBottomPanel.None,
+                    _ => Music.SongBottomPanel.PianoRoll,
+                });
+                if (step.Length > 3)
+                    workspace.Layout.SetMusicPaneHeight(float.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture));
                 break;
             case "play":
                 tab.Player.Play();

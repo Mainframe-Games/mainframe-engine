@@ -5,14 +5,15 @@
     <link type="text/rcss" href="theme.rcss"/>
     <style>
         /* Music mode's view, below the tab strip: RmlUi chrome around two canvas views (arrangement, piano roll) drawn by
-           the engine's 2D canvas into sub-viewports; the transport is in the toolbar. The canvas areas let the mouse
-           through to the SongView node. Without a song tab: New Song, Open Song and the project's songs, or (no project)
-           the way to one. */
+           the engine's 2D canvas into sub-viewports; the transport is in the toolbar. The tracks fill the view above one
+           bottom pane at a time (Logic style: P piano roll, X mixer, or none), resized by the splitter above its header.
+           The canvas areas let the mouse through to the SongView node. Without a song tab: New Song, Open Song and the
+           project's songs, or (no project) the way to one. */
         body.song-doc { background-color: #15171c; pointer-events: none; }
-        #song-headers, #song-switcher, #song-mixer, .notice, #song-empty-actions, #song-recent { pointer-events: auto; }
+        #song-headers, #song-split-pane, #song-switcher, #song-mixer, .notice, #song-empty-actions, #song-recent { pointer-events: auto; }
         .notice { flex: 0 0 auto; padding: 4dp 10dp; background-color: #3a2a0d; color: #fcd34d; font-size: 12dp; }
 
-        #song-top { display: flex; flex-direction: row; flex: 0 0 40%; min-height: 96dp; border-bottom: 1dp #15171c; }
+        #song-top { display: flex; flex-direction: row; flex: 1 1 auto; min-height: 96dp; }
         #song-headers { display: flex; flex-direction: column; flex: 0 0 190dp; width: 190dp; background-color: #262931; border-right: 1dp #3b3f4b; }
         .ruler-head { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 22dp; padding: 0dp 6dp;
                       border-bottom: 1dp #3b3f4b; color: #8b93a5; font-size: 12dp; }
@@ -34,8 +35,13 @@
         .canvas { display: block; position: relative; flex: 1 1 auto; pointer-events: none; background-color: #1b1d23; }
         .canvas img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
 
-        #song-switcher { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 28dp; padding: 0dp 6dp;
+        /* The bottom pane: its splitter (SongPanel sets #song-bottom's height from the layout), then its header. */
+        .splitter { flex: 0 0 5dp; background-color: #15171c; drag: drag; }
+        .splitter:hover, .splitter.dragging { background-color: #3b82f6; }
+        #song-split-pane { height: 5dp; cursor: ns-resize; }
+        #song-switcher { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; box-sizing: border-box; height: 28dp; padding: 0dp 6dp;
                          background-color: #262931; border-bottom: 1dp #3b3f4b; white-space: nowrap; }
+        #song-switcher button.tool-button { margin-left: 6dp; }
         .switch { display: inline-flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 10dp; margin-right: 4dp;
                   border-radius: 3dp; color: #a3abbd; cursor: pointer; font-size: 12dp; }
         .switch .icon { margin-right: 6dp; image-color: #8b93a5; }
@@ -44,8 +50,8 @@
         .switch.active .icon { image-color: #ffffff; }
         .clip-info { color: #8b93a5; font-size: 11dp; }
 
-        #song-bottom { display: flex; flex-direction: row; flex: 1 1 auto; }
-        #song-roll.hidden, #song-mixer.hidden { display: none; }
+        #song-bottom { display: flex; flex-direction: row; flex: 0 0 auto; height: 300dp; }
+        #song-roll.hidden, #song-mixer.hidden, #song-split-pane.hidden, #song-switcher.hidden, #song-bottom.hidden { display: none; }
         #song-mixer { display: flex; flex-direction: row; align-items: flex-start; flex: 1 1 auto; padding: 8dp; overflow-x: auto; overflow-y: auto; background-color: #1b1d23; }
         .strip { display: flex; flex-direction: column; align-items: stretch; flex: 0 0 104dp; width: 104dp; margin-right: 6dp; padding: 0dp 6dp 6dp 6dp;
                  background-color: #262931; border: 1dp #3b3f4b; border-radius: 4dp; }
@@ -129,15 +135,17 @@
         </div>
         <div id="song-arrange" class="canvas"><img id="song-arrange-image"/></div>
     </div>
-    <div id="song-switcher">
-        <div id="song-show-roll" class="switch" data-class-active="panel_roll" data-event-click="panel(0)" data-tooltip="Piano Roll — the notes of the selected MIDI clip"><span class="icon icon-sm icon-keyboard"></span><span>Piano roll</span></div>
-        <div id="song-show-mixer" class="switch" data-class-active="!panel_roll" data-event-click="panel(1)" data-tooltip="Mixer — instrument, inserts, pan, volume and meters of every track"><span class="icon icon-sm icon-adjustments-horizontal"></span><span>Mixer</span></div>
+    <div id="song-split-pane" class="splitter" data-class-hidden="!pane_open" data-tooltip="Drag to resize the editor below"></div>
+    <div id="song-switcher" data-class-hidden="!pane_open">
+        <div id="song-show-roll" class="switch" data-class-active="panel_roll" data-event-click="panel(0)" data-tooltip="Piano Roll (P) — the notes of the selected MIDI clip"><span class="icon icon-sm icon-piano"></span><span>Piano roll</span></div>
+        <div id="song-show-mixer" class="switch" data-class-active="panel_mixer" data-event-click="panel(1)" data-tooltip="Mixer (X) — instrument, inserts, pan, volume and meters of every track"><span class="icon icon-sm icon-adjustments-alt"></span><span>Mixer</span></div>
         <span class="grow"></span>
         <span class="clip-info">{{clip_info}}</span>
+        <button id="song-hide-pane" class="tool-button small" data-command="song.hide_pane" data-tooltip="Hide Editor — the tracks fill the view (P or X shows it again)"><span class="icon icon-sm icon-x"></span></button>
     </div>
-    <div id="song-bottom">
+    <div id="song-bottom" data-class-hidden="!pane_open">
         <div id="song-roll" class="canvas" data-class-hidden="!panel_roll"><img id="song-roll-image"/></div>
-        <div id="song-mixer" data-class-hidden="panel_roll">
+        <div id="song-mixer" data-class-hidden="!panel_mixer">
             <div class="strip" data-for="row : rows" data-class-selected="row.selected" data-event-mousedown="select(row.index)">
                 <div class="strip-color" data-style-background-color="row.color"></div>
                 <div class="strip-name">{{row.name}}</div>

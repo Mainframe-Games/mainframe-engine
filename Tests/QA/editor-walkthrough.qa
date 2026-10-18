@@ -104,7 +104,7 @@ state
 song demo
 wait 5
 capture 13d-song-piano-roll
-song panel mixer
+song pane mixer
 song play
 wait 30
 capture 13e-song-mixer

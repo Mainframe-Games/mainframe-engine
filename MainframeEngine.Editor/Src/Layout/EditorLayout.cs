@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MainframeEngine.Editor.Music;
 
 namespace MainframeEngine.Editor;
 
@@ -110,6 +111,16 @@ public sealed record EditorLayoutSettings
 
     /// <summary>Video mode's timeline height in dp (a file without the key reads 0, which <c>Load</c> restores to 180).</summary>
     public float VideoTimelineHeight { get; init; } = 180;
+
+    /// <summary>
+    /// Music mode's bottom pane (P / X, Logic style: one editor at a time, or none), shown for whichever song tab is active.
+    /// Stored as its name; a file without the key reads <see cref="SongBottomPanel.PianoRoll"/> (the enum's first value).
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<SongBottomPanel>))]
+    public SongBottomPanel MusicPane { get; init; } = SongBottomPanel.PianoRoll;
+
+    /// <summary>Music mode's bottom pane height in dp, below its header (a file without the key reads 0, which <c>Load</c> restores to 300).</summary>
+    public float MusicPaneHeight { get; init; } = 300;
 }
 
 /// <summary>
@@ -301,6 +312,35 @@ public sealed class EditorLayout
             MathF.Max(MinVideoTimelineHeight, ViewportImage.Height - MinViewportHeight - SplitterSize)),
     };
 
+    /// <summary>Lowest music mode's bottom pane gets (its splitter's lower stop).</summary>
+    public const float MinMusicPaneHeight = 120;
+
+    /// <summary>What music mode's track list keeps above the bottom pane: the ruler and about two tracks.</summary>
+    public const float MinMusicTracksHeight = 96;
+
+    /// <summary>The bottom pane's header (Piano roll | Mixer, the clip info, Hide) between its splitter and the pane.</summary>
+    public const float MusicPaneHeaderHeight = 28;
+
+    /// <summary>
+    /// Highest music mode's bottom pane gets in the current window: the song view (below the tab strip) less the tracks'
+    /// minimum, the pane header and the splitter.
+    /// </summary>
+    public float MaxMusicPaneHeight =>
+        MathF.Max(MinMusicPaneHeight, ViewportImage.Height - MinMusicTracksHeight - MusicPaneHeaderHeight - SplitterSize);
+
+    /// <summary>The bottom pane's height as shown: <see cref="EditorLayoutSettings.MusicPaneHeight"/> within this window's limits.</summary>
+    public float MusicPaneShownHeight => Math.Clamp(Settings.MusicPaneHeight, MinMusicPaneHeight, MaxMusicPaneHeight);
+
+    /// <summary>Music mode's bottom pane height in dp (its splitter), clamped to [<see cref="MinMusicPaneHeight"/>, <see cref="MaxMusicPaneHeight"/>].</summary>
+    public void SetMusicPaneHeight(float height) => Settings = Settings with
+    {
+        MusicPaneHeight = Math.Clamp(Finite(height, MinMusicPaneHeight), MinMusicPaneHeight, MaxMusicPaneHeight),
+    };
+
+    /// <summary>Music mode's bottom pane (P / X / Hide): the song panel's own layout follows (no rectangle here changes).</summary>
+    public void SetMusicPane(SongBottomPanel pane) =>
+        Settings = Settings with { MusicPane = Enum.IsDefined(pane) ? pane : SongBottomPanel.PianoRoll };
+
     /// <summary>View › Show/Hide Transcript: the panel's own layout follows (no rectangle here changes).</summary>
     public void SetVideoShowTranscript(bool show) => Settings = Settings with { VideoHideTranscript = !show };
 
@@ -460,6 +500,8 @@ public sealed class EditorLayout
         PickerRecent = CleanLists(s.PickerRecent, MaxRecent),
         VideoTranscriptWidth = Finite(s.VideoTranscriptWidth, 320),
         VideoTimelineHeight = Finite(s.VideoTimelineHeight, 180),
+        MusicPane = Enum.IsDefined(s.MusicPane) ? s.MusicPane : SongBottomPanel.PianoRoll,
+        MusicPaneHeight = Finite(s.MusicPaneHeight, 300),
     };
 
     // Drops null lists and blank ids (hand-edited files); caps lengths.

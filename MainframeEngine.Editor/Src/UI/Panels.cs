@@ -528,7 +528,7 @@ public sealed class ToolbarPanel : EditorDocument
 
     // The controls that need a song tab (the tempo field is handled on its own).
     private static readonly string[] MusicTabButtons =
-        ["song-rewind", "song-play", "song-stop", "song-record", "song-loop", "song-sig", "song-snap", "song-quantize", "song-render"];
+        ["song-rewind", "song-play", "song-stop", "song-record", "song-loop", "song-sig", "song-snap", "song-quantize", "song-render", "song-view-roll", "song-view-mixer"];
 
     // What the music tools show, so UpdateMusic writes only what changed (null / -2 / NaN: not written since the last load).
     private Music.SongTab? _musicTab;
@@ -538,6 +538,8 @@ public sealed class ToolbarPanel : EditorDocument
     private bool? _musicLoop;
     private bool? _musicReadOnly;
     private bool? _musicEditable;
+    private bool? _musicRollShown;
+    private bool? _musicMixerShown;
     private double _musicTempo = double.NaN;
     private int _musicBeats = -1;
     private int _musicUnit = -1;
@@ -556,6 +558,8 @@ public sealed class ToolbarPanel : EditorDocument
         _musicLoop = null;
         _musicReadOnly = null;
         _musicEditable = null;
+        _musicRollShown = null;
+        _musicMixerShown = null;
         _musicTempo = double.NaN;
         _musicBeats = -1;
         _musicUnit = -1;
@@ -603,7 +607,8 @@ public sealed class ToolbarPanel : EditorDocument
     /// <summary>
     /// Every frame in music mode (from the <see cref="Music.SongView"/>): the transport's disabled and active states, the
     /// tempo, time signature, position (<c>003.2.240</c>), snap, input quantize, underruns, the read-only badge and
-    /// "Cancel n %" on Render while it runs. Only what changed is written; steady frames allocate nothing.
+    /// "Cancel n %" on Render while it runs, and which bottom pane the view toggles light. Only what changed is written;
+    /// steady frames allocate nothing.
     /// </summary>
     public void UpdateMusic(Music.SongTab? tab)
     {
@@ -644,6 +649,8 @@ public sealed class ToolbarPanel : EditorDocument
             SetActive(document, "song-play", false, ref _musicPlaying);
             SetActive(document, "song-record", false, ref _musicRecording);
             SetActive(document, "song-loop", false, ref _musicLoop);
+            SetActive(document, "song-view-roll", false, ref _musicRollShown);
+            SetActive(document, "song-view-mixer", false, ref _musicMixerShown);
             SetEditable(false);
             return;
         }
@@ -653,6 +660,8 @@ public sealed class ToolbarPanel : EditorDocument
         SetActive(document, "song-play", tab.Player.IsPlaying, ref _musicPlaying);
         SetActive(document, "song-record", tab.Midi.IsRecording, ref _musicRecording);
         SetActive(document, "song-loop", song.Loop.Enabled, ref _musicLoop);
+        SetActive(document, "song-view-roll", tab.Panel == Music.SongBottomPanel.PianoRoll, ref _musicRollShown);
+        SetActive(document, "song-view-mixer", tab.Panel == Music.SongBottomPanel.Mixer, ref _musicMixerShown);
 
         if (!_tempoFocused && song.Tempo != _musicTempo)
         {

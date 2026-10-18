@@ -743,6 +743,24 @@ public sealed partial class EditorWorkspace : Node
         SaveLayout();
     }
 
+    /// <summary>
+    /// Music mode's bottom pane, Logic style: P / X show the piano roll / the mixer, and the key of the pane already open
+    /// hides it. The pane is global (the layout): the active song tab follows and the layout is saved.
+    /// </summary>
+    internal void ToggleMusicPane(Music.SongBottomPanel pane)
+    {
+        var current = Session.ActiveSong?.Panel ?? Layout.Settings.MusicPane;
+        SetMusicPane(current == pane ? Music.SongBottomPanel.None : pane);
+    }
+
+    /// <summary>Shows <paramref name="pane"/> (or <see cref="Music.SongBottomPanel.None"/>) at the bottom of music mode and saves it.</summary>
+    internal void SetMusicPane(Music.SongBottomPanel pane)
+    {
+        Layout.SetMusicPane(pane);
+        Session.ActiveSong?.SetPanel(Layout.Settings.MusicPane);
+        SaveLayout();
+    }
+
     /// <summary>View › Show/Hide Transcript: the video panel gives the preview the transcript's width (or takes it back).</summary>
     internal void ToggleVideoTranscript()
     {
@@ -894,8 +912,9 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>
     /// Music mode's command for a key with modifiers, or null: Cmd/Ctrl+N new song, +O open song, +S save, +Shift+S save
-    /// as, +W close, +Q quit, +Z undo, +Shift+Z or +Y redo, +E render; M mixer/piano roll; F1 the docs. Space, R, L, Home,
-    /// Delete, Cmd+C/V/D, the arrows and Q are the song tab's own keys (<see cref="SongView.HandleKey"/>), taken first.
+    /// as, +W close, +Q quit, +Z undo, +Shift+Z or +Y redo, +E render; P piano roll, X mixer (again: hide the pane), M mute
+    /// and S solo the selected track (as in Logic); F1 the docs. Space, R, L, Home, Delete, Cmd+C/V/D, the arrows and Q are
+    /// the song tab's own keys (<see cref="SongView.HandleKey"/>), taken first.
     /// </summary>
     public static string? MusicShortcutFor(Key key, EditorModifiers modifiers)
     {
@@ -920,7 +939,10 @@ public sealed partial class EditorWorkspace : Node
 
         return key switch
         {
-            Key.M when modifiers == EditorModifiers.None => "song.mixer",
+            Key.P when modifiers == EditorModifiers.None => "song.piano_roll",
+            Key.X when modifiers == EditorModifiers.None => "song.mixer",
+            Key.M when modifiers == EditorModifiers.None => "song.mute_track",
+            Key.S when modifiers == EditorModifiers.None => "song.solo_track",
             Key.F1 when (modifiers & EditorModifiers.Alt) == 0 => "help.docs",
             _ => null,
         };

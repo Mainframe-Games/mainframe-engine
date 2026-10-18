@@ -270,7 +270,17 @@ public sealed class EditorCommands
             case "song.loop": song.Controller.ToggleLoop(); return true;
             case "song.record": song.Controller.ToggleRecording(); return true;
             case "song.render": _workspace.SongView.Render(song.Document.FilePath); return true;
-            case "song.mixer": song.SetPanel(song.Panel == SongBottomPanel.Mixer ? SongBottomPanel.PianoRoll : SongBottomPanel.Mixer); return true;
+            case "song.piano_roll": _workspace.ToggleMusicPane(SongBottomPanel.PianoRoll); return true;
+            case "song.mixer": _workspace.ToggleMusicPane(SongBottomPanel.Mixer); return true;
+            case "song.hide_pane": _workspace.SetMusicPane(SongBottomPanel.None); return true;
+            case "song.mute_track":
+                if (song.SelectedTrack is { } muted && !song.Document.IsReadOnly)
+                    song.Document.SetTrackMute(muted, !muted.Mute);
+                return true;
+            case "song.solo_track":
+                if (song.SelectedTrack is { } soloed && !song.Document.IsReadOnly)
+                    song.Document.SetTrackSolo(soloed, !soloed.Solo);
+                return true;
             case "song.signature": _workspace.SongPanel.SignatureMenu(_workspace.Toolbar.Below("song-sig")); return true;
             case "song.snap": _workspace.SongPanel.SnapMenu(_workspace.Toolbar.Below("song-snap")); return true;
             case "song.quantize": _workspace.SongPanel.QuantizeMenu(_workspace.Toolbar.Below("song-quantize")); return true;
@@ -1309,8 +1319,10 @@ public sealed class EditorCommands
             ],
             "view" =>
             [
-                new MenuItem(song?.Panel == SongBottomPanel.Mixer ? "Show Piano Roll" : "Show Mixer", "song.mixer", "M", tab,
-                    Icon: song?.Panel == SongBottomPanel.Mixer ? "keyboard" : "adjustments-horizontal"),
+                new MenuItem("Piano Roll", "song.piano_roll", "P", tab, Css: song?.Panel == SongBottomPanel.PianoRoll ? "current" : null, Icon: "piano"),
+                new MenuItem("Mixer", "song.mixer", "X", tab, Css: song?.Panel == SongBottomPanel.Mixer ? "current" : null, Icon: "adjustments-alt"),
+                new MenuItem("Hide Editor", "song.hide_pane", null, tab && song!.Panel != SongBottomPanel.None, Icon: "layout-bottombar"),
+                MenuItem.Separator,
                 new MenuItem("Show/Hide Output", "view.output", Icon: "terminal-2"),
                 MenuItem.Separator,
                 new MenuItem("Switch to Game Mode", "editor.mode.game", Icon: "device-gamepad-2"),
@@ -1325,6 +1337,11 @@ public sealed class EditorCommands
                 MenuItem.Separator,
                 new MenuItem("Add Instrument Track", "song.add_instrument_track", null, editable, Icon: "music"),
                 new MenuItem("Add Audio Track", "song.add_audio_track", null, editable, Icon: "file-music"),
+                MenuItem.Separator,
+                new MenuItem(song?.SelectedTrack?.Mute == true ? "Unmute Track" : "Mute Track", "song.mute_track", "M",
+                    editable && song!.SelectedTrack is not null, Icon: "volume-off"),
+                new MenuItem(song?.SelectedTrack?.Solo == true ? "Unsolo Track" : "Solo Track", "song.solo_track", "S",
+                    editable && song!.SelectedTrack is not null, Icon: "ear"),
             ],
         };
     }

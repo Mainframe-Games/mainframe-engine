@@ -1,10 +1,11 @@
 namespace MainframeEngine.Editor.Music;
 
-/// <summary>Which view the song tab's bottom panel shows.</summary>
+/// <summary>Which editor music mode's bottom pane shows (P / X), or none (the tracks fill the view).</summary>
 public enum SongBottomPanel
 {
     PianoRoll,
     Mixer,
+    None,
 }
 
 /// <summary>The song tab's area that last took a click (Del, Cmd+D and the clipboard act on it).</summary>
