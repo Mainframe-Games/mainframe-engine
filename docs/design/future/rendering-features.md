@@ -34,8 +34,8 @@ game notices what is missing, PBR and 3D particles first.
   CPU** in `OnProcess` (`GpuParticles2D.cs:142-147`) and draw through the canvas (`:249-284`). The simulation is
   private to the node and 2D-only (`Vector2` state, `:80-89`). The engine has no compute pipelines (the only mention
   is a doc comment, `MainframeEngine/Src/Rendering/Vulkan/PipelineCache.cs:74`).
-- **No billboards.** `Sprite3D` "has no billboard mode" (`docs/design/materials-and-meshes.md:374`,
-  `MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs:86-90`).
+- **Billboards only on `Sprite3D`.** `Sprite3D.Billboard` shipped ahead of G6 (ADR 0199, CPU-side); materials have no
+  billboard mode.
 - **No LODs.** [Materials & meshes → known issues](../materials-and-meshes.md#known-issues) (`:373`) lists "No PBR,
   skinning, morph targets, LODs". A surface is one index range (`SurfaceRange`,
   `MainframeEngine/Src/Rendering/Meshes/MeshGpuResources.cs:10`), and `MeshRenderer.Prepare` draws every visible
@@ -332,9 +332,11 @@ Particles are drawn by the mesh batcher, not by a new renderer:
     selected by a new `PipelineKey` field. Billboard mode joins `MaterialRenderState`.
   - `Particles` mode faces the camera and keeps the particle's in-plane angle and scale, read from the instance
     matrix (rotation about Z, column lengths).
-  - `Sprite3D` gains `Billboard` (Godot's `SpriteBase3D.billboard`), which sets its private material's mode. This
-    closes the `Sprite3D` known issue.
-  - Billboarded materials cast no shadows in G6 (the caster pipelines do not billboard).
+  - *Shipped ahead of G6 (ADR 0199):* `Sprite3D.Billboard` (`Disabled`/`Enabled`/`FixedY`), done on the CPU by
+    `MeshRenderer` (the model matrix faces each view's camera), shadows included. The material mode here remains for
+    `MeshInstance3D`s and particles; it can reuse `Billboard.Face` for non-instanced draws, or move to the vertex shader
+    for particles.
+  - Billboarded *particle* materials cast no shadows in G6 (the caster pipelines do not billboard).
 - **Lighting.** Particles use whatever material `DrawPass1` has. Unshaded + blended is the common case; lit materials
   work with the billboard's camera-facing normal.
 

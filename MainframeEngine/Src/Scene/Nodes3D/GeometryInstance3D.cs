@@ -63,6 +63,9 @@ public abstract class GeometryInstance3D : VisualInstance3D
     /// </summary>
     internal virtual bool HasShadowRange => false;
 
+    /// <summary>How the renderer turns the node toward each view's camera (ADR 0199); <see cref="Sprite3D.Billboard"/>.</summary>
+    internal virtual BillboardMode RenderBillboard => BillboardMode.Disabled;
+
     /// <summary>
     /// Whether the node casts into the fine shadow passes for a camera at <paramref name="cameraPosition"/>: its
     /// <see cref="IsInVisibilityRange(Vector3, in Aabb)"/> unless it <see cref="HasShadowRange"/>.
@@ -170,8 +173,8 @@ public enum SpriteAlphaCut : byte
 /// A textured quad in the XY plane facing +Z, sized from the texture (Godot's <c>Sprite3D</c>): one world unit per
 /// <see cref="PixelSize"/>⁻¹ pixels. Unshaded and double-sided by default, like Godot. Drawn through the mesh
 /// batcher, but each sprite owns its quad mesh and material (one draw per sprite; share a
-/// <see cref="MeshInstance3D"/> with a <see cref="QuadMesh"/> and material to batch many). Billboarding is not
-/// supported yet.
+/// <see cref="MeshInstance3D"/> with a <see cref="QuadMesh"/> and material to batch many). <see cref="Billboard"/>
+/// turns it toward each view's camera, shadows included; <see cref="FlipH"/>/<see cref="FlipV"/> mirror the texture.
 /// </summary>
 [EditorIcon("photo")]
 public class Sprite3D : GeometryInstance3D
@@ -262,6 +265,39 @@ public class Sprite3D : GeometryInstance3D
         }
     }
 
+    /// <summary>
+    /// Faces the camera (Godot's <c>billboard</c>): <see cref="BillboardMode.FixedY"/> keeps the sprite upright. The node's
+    /// position and scale are kept and its rotation is ignored; shadows cast from the quad as the main camera sees it.
+    /// </summary>
+    [Export]
+    public BillboardMode Billboard { get; set; }
+
+    /// <summary>Mirrors the texture horizontally (a UV flip: the quad, its <see cref="Offset"/> and its normal stay).</summary>
+    [Export]
+    public bool FlipH
+    {
+        get;
+        set
+        {
+            field = value;
+            RenderStamp++;
+        }
+    }
+
+    /// <summary>Mirrors the texture vertically (a UV flip).</summary>
+    [Export]
+    public bool FlipV
+    {
+        get;
+        set
+        {
+            field = value;
+            RenderStamp++;
+        }
+    }
+
+    internal override BillboardMode RenderBillboard => Billboard;
+
     internal override Mesh? GetRenderMesh()
     {
         if (Texture is not { } texture)
@@ -287,6 +323,8 @@ public class Sprite3D : GeometryInstance3D
         _material.ShadingMode = Shaded ? ShadingMode.BlinnPhong : ShadingMode.Unshaded;
         _material.DoubleSided = DoubleSided;
         _material.Transparency = AlphaCut == SpriteAlphaCut.Discard ? AlphaMode.Cutout : AlphaMode.Blend;
+        _material.UvScale = new Vector2(FlipH ? -1f : 1f, FlipV ? -1f : 1f);
+        _material.UvOffset = new Vector2(FlipH ? 1f : 0f, FlipV ? 1f : 0f);
     }
 
     private int _syncedStamp = -1;

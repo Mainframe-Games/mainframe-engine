@@ -54,6 +54,7 @@ RenderTestGame game = options.Scene switch
     "glow" => new GlowScene(options),
     "shadow-lights" => new ShadowLightsScene(options),
     "shadow-cutout" => new ShadowCutoutScene(options),
+    "sprite-billboard" => new SpriteBillboardScene(options),
     "shadow-shimmer" => new ShadowShimmerScene(options),
     "shadow-pcss" => new ShadowPcssScene(options),
     "contact-shadows" => new ContactShadowsScene(options),

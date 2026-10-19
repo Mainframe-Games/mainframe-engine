@@ -325,7 +325,7 @@ layers (wave 2):
 |---|---|---|
 | `GeometryInstance3D` | — | Base: `MaterialOverride` (all surfaces), `MaterialOverlay` (drawn over every surface, with its next passes), batched by the server (never calls `Draw`), `ObjectId` = `NodeId` |
 | `MeshInstance3D` | `Mesh` | Primitives, imported models, procedural meshes |
-| `Sprite3D` | a `QuadMesh` sized `Texture` px × `PixelSize` | `Modulate`, `Shaded` (default unshaded), `DoubleSided` (default true), `AlphaCut` (`Disabled` = blend, `Discard` = cutout), `Offset`. Billboarding is not supported yet |
+| `Sprite3D` | a `QuadMesh` sized `Texture` px × `PixelSize` | `Modulate`, `Shaded` (default unshaded), `DoubleSided` (default true), `AlphaCut` (`Disabled` = blend, `Discard` = cutout), `Offset`, `Billboard` (`Disabled`/`Enabled`/`FixedY`; see [Billboards](#billboards-adr-0199)), `FlipH`/`FlipV` (UV flips) |
 | `MultiMeshInstance3D` | every instance of its `Multimesh` | One render item; see [MultiMesh](#multimesh-adr-0151) |
 
 Every `GeometryInstance3D` has Godot's **visibility range** (`VisibilityRangeBegin`, `VisibilityRangeEnd`, 0 =
@@ -631,13 +631,29 @@ Measured on an Apple M5 with MoltenVK:
     the CPU no more than one (within 1 ms, Release).
   - The pre-M3 `lit-shapes`, `multi-light` and `spine` goldens still match after the port to `MeshInstance3D`.
 
+## Billboards (ADR 0199)
+
+`Sprite3D.Billboard` turns the sprite toward the camera: `Enabled` faces it fully, `FixedY` turns about world Y only and
+stays upright (Godot's `billboard` and `BILLBOARD_FIXED_Y`, with `billboard_keep_scale`). The node's position and the
+lengths of its basis (its scale) are kept, and its rotation is ignored.
+
+It is done on the CPU. `MeshRenderer.Prepare` replaces a billboarded node's model matrix with
+`Billboard.Face(model, mode, view)` for each view it prepares, before culling. The draw and caster items carry that
+matrix, and every instance writer uses it. So the colour pass, depth prepass, motion vectors (`MotionHistory` stores
+the billboarded matrix), object-ID picking and shadow casters see the same quad, with no shader or pipeline changes.
+Shadows come from the casters of the view that collects them (the main view), so a billboard's shadow is the quad as
+the main camera sees it. This is Godot's behaviour (`MAIN_CAM_INV_VIEW_MATRIX`), and a lit sprite's normal faces the
+camera. `FixedY` looking straight down takes its facing from the camera's right vector. `FlipH`/`FlipV` set the
+private material's `UvScale`/`UvOffset`, so cutout shadows and picking flip too. Render test: `sprite-billboard`.
+
 ## Known issues
 
 - Blended surfaces cast no shadow (cutout materials cast alpha-tested shadows since M4).
 - No skinning, morph targets, LODs or GPU-driven culling (shadow casters are culled per pass on the CPU).
 - PBR is opt-in (`ShadingMode.Pbr`); imported glTF materials stay Blinn-Phong (their metallic/roughness/occlusion are not
   imported yet). No `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
-- `Sprite3D` has no billboard mode.
+- Billboards are a node feature (`Sprite3D.Billboard`); `StandardMaterial3D` has no `BillboardMode` yet, so a `MeshInstance3D`
+  can't billboard, and there is no `Particles` mode.
 - Only `StandardMaterial3D`, `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D` and `TerrainSplatMaterial3D` are rendered. Custom shaders and other
   material types come later.
 - Foliage wind does not bend normals, and the object-ID pass draws foliage unswayed.
