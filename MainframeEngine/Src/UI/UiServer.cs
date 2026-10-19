@@ -13,13 +13,13 @@ public sealed record UiServerOptions
     public bool LoadDefaultFonts { get; init; } = true;
 
     /// <summary>The engine's bundled fonts (Lato Latin, Roboto Mono; OFL).</summary>
-    public string FontDirectory { get; init; } = "Content/UI/fonts";
+    public string FontDirectory { get; init; } = "Assets/UI/fonts";
 
     /// <summary>Reload <c>.rml</c>/<c>.rcss</c>/images when they change on disk. Defaults to on in Debug builds.</summary>
     public bool HotReload { get; init; } = DefaultHotReload;
 
     /// <summary>
-    /// Folders standing in for <c>Content/</c> (e.g. the game project's source <c>Content</c>): documents load from
+    /// Folders standing in for <c>Assets/</c> (e.g. the game project's source <c>Assets</c>): documents load from
     /// them first, and hot reload watches them, so edits apply without rebuilding.
     /// </summary>
     public IReadOnlyList<string> SourceContentDirectories { get; init; } = [];
@@ -71,11 +71,11 @@ public sealed record UiServerOptions
         false;
 #endif
 
-    /// <summary>The assembly metadata key Debug builds record their project's Content folder under.</summary>
+    /// <summary>The assembly metadata key Debug builds record their project's Assets folder under.</summary>
     public const string ContentSourceMetadataKey = "MainframeContentSource";
 
     /// <summary>
-    /// The source Content folders Debug builds of <paramref name="assemblies"/> recorded
+    /// The source Assets folders Debug builds of <paramref name="assemblies"/> recorded
     /// (<c>[AssemblyMetadata("MainframeContentSource", ...)]</c>) and that exist on this machine; empty for Release
     /// builds and installed games.
     /// </summary>

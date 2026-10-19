@@ -1,0 +1,122 @@
+{
+  "format": 2,
+  "uid": "scn_dd5b85182ae1",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "StandardMaterial3D_s8kz4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.30588236, 0.3529412, 0.4392157, 1]
+      }
+    },
+    "PlaneMesh_dcv7g": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [30, 30]
+      }
+    },
+    "StandardMaterial3D_m5k6m": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.76862746, 0.7921569, 0.8392157, 1]
+      }
+    },
+    "BoxMesh_ukl3e": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [14, 6, 0.2]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "spine",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera3D",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0, 1.5, 7],
+        "RotationDegrees": [-1.6365775, 0, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Camera2D",
+      "parent": ".",
+      "type": "Camera2D",
+      "props": {
+        "Enabled": false
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-35, 40, 0],
+        "Energy": 1.2
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_s8kz4" },
+        "Mesh": { "res": "PlaneMesh_dcv7g" }
+      }
+    },
+    {
+      "name": "Backdrop",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, 3, -1.2],
+        "MaterialOverride": { "res": "StandardMaterial3D_m5k6m" },
+        "Mesh": { "res": "BoxMesh_ukl3e" }
+      }
+    },
+    {
+      "name": "Pivot",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "SpineBoy",
+      "parent": "Pivot",
+      "type": "SpineNode",
+      "props": {
+        "Folder": "Assets/Models/Spine/SpineBoy",
+        "Animation": "walk",
+        "SpineScale": 0.005
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "SpinePanel"
+    }
+  ]
+}

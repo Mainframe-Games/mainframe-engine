@@ -32,7 +32,7 @@ A game can be packaged for players today, but only from a shell:
   read by `build/MainframeGame.props` (regex on the file) and overridden per build with `-p:MainframeDemo=true|false`.
   `GameHost.Run` replaces it with the flag the game was built with (`GameHost.BuiltAsDemo`, `GameHost.cs:192-193`;
   `GameHost.IsDemo`, `:79`). Shipping the full game and its Steam demo means two publishes with different flags.
-- Shipped builds scan `Content/` on the first UID lookup: `AssetDatabase.Refresh` loads `Content/assets.index.json`
+- Shipped builds scan `Assets/` on the first UID lookup: `AssetDatabase.Refresh` loads `Assets/assets.index.json`
   when it exists (`MainframeEngine/Src/Resources/AssetDatabase.cs:97-104`), but nothing calls `WriteIndex`
   (`:152`) except tests.
 - Steam works in exports on every desktop RID: Facepunch.Steamworks 2.4.1 and Valve's `steam_api` natives ship with
@@ -98,7 +98,7 @@ section (`ProjectSettingsFormat.Write`, `ProjectSettingsFormat.cs:106`).
     "sign": "Developer ID Application: Example (ABCDE12345)", "notaryProfile": "example-notary" },
   { "name": "Linux", "platform": "linux", "rid": "linux-x64", "output": "export/linux" },
   { "name": "Linux server (headless)", "platform": "linux", "rid": "linux-x64",
-    "output": "export/server", "archive": false, "exclude": ["Content/Audio/**"] }
+    "output": "export/server", "archive": false, "exclude": ["Assets/Audio/**"] }
 ]
 ```
 
@@ -107,7 +107,7 @@ section (`ProjectSettingsFormat.Write`, `ProjectSettingsFormat.cs:106`).
 | `name` | all | required, unique | Shown in the dialog; the CLI selects presets by it. |
 | `platform` | all | required | `windows`, `macos`, `linux`; M12.7 adds `android`, `ios`. Selects the known keys. |
 | `rid` | desktop | the platform's first supported RID | `win-x64`, `linux-x64`, `osx-arm64`, `osx-x64`: the RIDs with engine natives under `MainframeEngine/runtimes/`. |
-| `output` | all | `export/<name as a slug>` | Output folder, project-relative or absolute. Must not be inside `Content/`. |
+| `output` | all | `export/<name as a slug>` | Output folder, project-relative or absolute. Must not be inside `Assets/`. |
 | `configuration` | all | `Release` | `Debug` exports are development runs (see [Steam](#steam)). |
 | `demo` | all | `false` | Passed as `-p:MainframeDemo=true\|false`, so one project ships both builds. The top-level `isDemo` stays the editor and Play setting. |
 | `steam` | desktop | `false` | Off: the exported `project.mfproj` gets app ids 0 (Steam stays inert). On: validated, see [Steam](#steam). |
@@ -116,11 +116,11 @@ section (`ProjectSettingsFormat.Write`, `ProjectSettingsFormat.cs:106`).
 | `exe` | desktop | the name without spaces | The player-facing executable name (the script's `--exe`). |
 | `selfContained` | desktop | `true` | `false` makes players install .NET 10. Meant for servers that already have it. |
 | `readyToRun` | desktop | `true` | `-p:PublishReadyToRun`: faster start-up and a larger output. The editor's own release uses it (`justfile:124-125`). |
-| `singleFile` | desktop | `false` | `-p:PublishSingleFile` + `IncludeNativeLibrariesForSelfExtract`. `Content/` and `project.mfproj` stay next to the exe. |
+| `singleFile` | desktop | `false` | `-p:PublishSingleFile` + `IncludeNativeLibrariesForSelfExtract`. `Assets/` and `project.mfproj` stay next to the exe. |
 | `trim` | desktop | `false` | `-p:PublishTrimmed`. Experimental: warns until the engine is trim-clean (M12.6). |
 | `archive` | all | `true` | Zip (Windows, macOS) or `.tar.gz` (Linux). `false` leaves a folder, e.g. a Steam depot's content root. |
-| `include` | all | `["Content/**"]` | Globs, project-relative with `/`. Only matching `Content/` files ship. |
-| `exclude` | all | `["Content/**/*.po", "Content/**/*.pot"]` | Applied after `include`. `.mo` catalogs are compiled at build time, so the sources need not ship. |
+| `include` | all | `["Assets/**"]` | Globs, project-relative with `/`. Only matching `Assets/` files ship. |
+| `exclude` | all | `["Assets/**/*.po", "Assets/**/*.pot"]` | Applied after `include`. `.mo` catalogs are compiled at build time, so the sources need not ship. |
 | `bundleId` | macos (iOS in M12.7) | `com.mainframegames.<exe lowercased>` | `CFBundleIdentifier` (the script's default). |
 | `copyright` | macos | `""` | `NSHumanReadableCopyright`. |
 | `sign` | macos | `""` = ad-hoc | A Developer ID identity name (not a secret). It can be overridden by `MF_SIGN_IDENTITY`. |
@@ -160,8 +160,8 @@ public sealed class ExportPreset
     public string Version { get; set; } = "";
     public string Icon { get; set; } = "";
     public bool Archive { get; set; } = true;
-    public List<string> Include { get; } = ["Content/**"];
-    public List<string> Exclude { get; } = ["Content/**/*.po", "Content/**/*.pot"];
+    public List<string> Include { get; } = ["Assets/**"];
+    public List<string> Exclude { get; } = ["Assets/**/*.po", "Assets/**/*.pot"];
     public required IExportPlatformOptions Options { get; set; }   // DesktopExportOptions now
 }
 
@@ -247,9 +247,9 @@ running `dotnet`. The steps:
    - Rename the apphost to `exe` (`.exe` on Windows; `chmod +x` elsewhere), as the script does.
    - Delete engine natives of other platforms. The list is every file under `MainframeEngine/runtimes/<other rid>/native`
      that the publish copied, not the script's hard-coded `enet mfrmlui mfsvg`, so new natives are pruned too.
-   - Filter `Content/` with `include`/`exclude`. `.meta` sidecars of kept files stay: importers read their settings
+   - Filter `Assets/` with `include`/`exclude`. `.meta` sidecars of kept files stay: importers read their settings
      (`TextureImportSettings.FromMeta`, `ModelImportSettings.FromMeta`).
-   - Write `Content/assets.index.json` with `new AssetDatabase(stage).Scan()` + `WriteIndex()`, so shipped builds
+   - Write `Assets/assets.index.json` with `new AssetDatabase(stage).Scan()` + `WriteIndex()`, so shipped builds
      skip the start-up scan.
    - Write the exported `project.mfproj` with `ProjectSettings.Save` (see [Exported project file](#exported-project-file)).
    - Fail if a `steam_appid.txt` is in the stage.
@@ -338,15 +338,15 @@ session. The dialog re-runs it on every edit, and the CLI runs it before each pr
 |---|---|---|
 | `sdk-missing` | error | no .NET SDK ≥ 10 (`DotnetSdk.DetectAsync`; the message ends with the download URL) |
 | `no-desktop-project` | error | `GameProjectLayout.DesktopProjectOf` is null |
-| `main-scene` | error | `mainScene` empty or not resolvable through the project's `AssetDatabase` (UID or `Content/` path) |
+| `main-scene` | error | `mainScene` empty or not resolvable through the project's `AssetDatabase` (UID or `Assets/` path) |
 | `main-scene-excluded` | error | the main scene, an autoload scene or the bus layout is filtered out |
 | `rid-unsupported` | error | no engine natives for the RID |
 | `host-unsupported` | error | macOS target from a non-macOS host |
-| `output-in-content` | error | `output` is inside `Content/` (the next export would ship the last one) |
+| `output-in-content` | error | `output` is inside `Assets/` (the next export would ship the last one) |
 | `duplicate-name` | error | two presets share a name (also rejected on load) |
 | `steam-*` | error/warning | see [Steam](#steam) |
 | `notarize-needs-sign` | error | `notaryProfile` without `sign` (the script's rule) |
-| `broken-reference` | warning | a kept `.mscene`/`.mres` references an excluded file. The scan is the read-only part of `ReferenceFixer`'s walk (`{"ref"\|"instance": uid, "path"}` objects and exact `Content/` path strings), moved to the library |
+| `broken-reference` | warning | a kept `.mscene`/`.mres` references an excluded file. The scan is the read-only part of `ReferenceFixer`'s walk (`{"ref"\|"instance": uid, "path"}` objects and exact `Assets/` path strings), moved to the library |
 | `meta-excluded` | warning | an `exclude` drops `.meta` sidecars of kept files |
 | `icon` | warning | the icon is missing or not a PNG, or is smaller than 256 px (512 recommended for `.icns`) |
 | `win-icon-host` | warning | Windows exe icon from a non-Windows host |
@@ -361,7 +361,7 @@ session. The dialog re-runs it on every edit, and the CLI runs it before each pr
 - **Menu.** The File menu gains `Export…` (`file.export`, Ctrl+Shift+E, icon `package-export`) after Save As, enabled
   when a project with a desktop project is open. Project › Project Settings gets no export page, because the dialog
   is the editor for the section.
-- **Dialog** (new `MainframeEngine.Editor/Src/UI/ExportDialog.cs`, `Content/Editor/export.rml`, an `EditorDocument`
+- **Dialog** (new `MainframeEngine.Editor/Src/UI/ExportDialog.cs`, `Assets/Editor/export.rml`, an `EditorDocument`
   like `ProjectSettingsDialog`):
   - The left list has a platform glyph and a status badge (✕ errors, ⚠ warnings, ✓) per preset. The header holds icon
     buttons with tooltips: **Add Preset** (a popup of platforms, the host's RID first; Android/iOS appear disabled
@@ -390,7 +390,7 @@ session. The dialog re-runs it on every edit, and the CLI runs it before each pr
 - **Export All** runs `ExportRunner.RunAllAsync` over the list in order, one preset at a time (parallel `dotnet
   publish` runs fight over the same projects). It ends with a summary: `3 exported, 1 failed, 1 skipped (invalid)`.
 - **Icons.** `package-export`, `file-zip`, `brand-windows`, `brand-apple` and `brand-ubuntu` are not in the atlas yet.
-  They are added to `MainframeEngine.Editor/Content/icons/icons.txt` (`just editor-icons-fetch`, `just editor-icons`).
+  They are added to `MainframeEngine.Editor/Assets/icons/icons.txt` (`just editor-icons-fetch`, `just editor-icons`).
 
 ### Headless export: CLI, `just`, CI
 
@@ -468,7 +468,7 @@ The runner never touches RmlUi, the scene tree or the editor's `AssetDatabase.Cu
   - `mf-export` argument parsing, including the legacy `package-game` form.
 - **Integration** (needs the SDK, alongside `ProjectCreationIntegrationTests`): create a game from the template, export
   a `linux-x64` (Linux/macOS hosts) or `win-x64` preset, and check the artifact layout. Check the renamed exe,
-  `project.mfproj` (no presets), `Content/assets.index.json`, no foreign natives and no `.po`. A second export with
+  `project.mfproj` (no presets), `Assets/assets.index.json`, no foreign natives and no `.po`. A second export with
   `demo: true` produces an assembly whose `MainframeDemo` metadata is `true` (`GameHost.BuiltAsDemo`).
 - **Editor unit** (`Tests/MainframeEngine.Editor.Tests`): `ExportService` queueing and draining with a fake runner
   (events only on the main thread, idle `Update` allocates 0 bytes); menu enablement; Export disabled while Play

@@ -80,7 +80,7 @@ dotnet new mfgame -n MyGame --engine-source project --engine-path "$PWD/mainfram
 
 This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGame.Desktop/`
 (`GameHost.Run(args, ...)`), `project.mfproj` (main scene, window, physics, input actions, autoloads, …) and
-`Content/Scenes/Main.mscene`. Read input through actions (`Input.IsActionPressed("spin_faster")`), and see
+`Assets/Scenes/Main.mscene`. Read input through actions (`Input.IsActionPressed("spin_faster")`), and see
 [Projects & GameHost](design/project-and-gamehost.md) for the project file, `GameHost` flags
 (`--scene`, `--max-frames`, `--hidden`, `--editor-port`) and the editor link, and
 [Distribution via NuGet](design/distribution-nuget.md) for the packages.
@@ -91,7 +91,7 @@ This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGam
    download if missing).
 2. **New Project**: a name (a C# identifier, e.g. `MyGame`) and a parent folder; the game references the
    `MainframeEngine` package of the editor's version (or, for engine work, an engine checkout). Create runs
-   `dotnet new mfgame`, builds the game and opens it — `Content/Scenes/Main.mscene` with the template's `Spinner` node.
+   `dotnet new mfgame`, builds the game and opens it — `Assets/Scenes/Main.mscene` with the template's `Spinner` node.
 3. Edit the scene: **Add Node** (Cmd/Ctrl+A), drag files from the **FileSystem** panel onto the scene tree or the
    viewport, change properties in the inspector, connect signals in its Signals tab. Cmd/Ctrl+S saves.
 4. **Play** with F5 (F6 plays the open scene, Shift+F5 starts another instance, F7 pauses, F8 stops). The editor saves,
@@ -115,7 +115,7 @@ described in [Editor](design/editor.md).
 just editor                                                        # Project Manager
 just editor path/to/MyGame                                         # open a project
 just editor Examples/Demo                                          # the Demo project from the screenshots
-just editor Examples/Demo/Content/Scenes/basic_3d.mscene           # open one scene
+just editor Examples/Demo/Assets/Scenes/basic_3d.mscene           # open one scene
 ```
 
 ## The Demo
@@ -132,7 +132,7 @@ folder you choose, points it at your engine checkout and opens it.
 
 ```bash
 just demo                                          # the Basic 3D scene
-just demo --scene Content/Scenes/physics_2d.mscene # any scene (--max-frames, --screenshot, ... are GameHost flags)
+just demo --scene Assets/Scenes/physics_2d.mscene # any scene (--max-frames, --screenshot, ... are GameHost flags)
 just editor Examples/Demo                          # open it in the editor
 ```
 
@@ -153,7 +153,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
     protected override void OnLoad()
     {
         base.OnLoad();                                      // window, renderer, servers
-        Tree.ChangeSceneToFile("Content/Scenes/Main.mscene");
+        Tree.ChangeSceneToFile("Assets/Scenes/Main.mscene");
     }
 
     // Optional legacy hooks: OnUpdate, OnShadowPass, OnRenderMainPass.
@@ -169,7 +169,7 @@ new EngineOptions
     GameName = "My Game",
     RenderingBackend = RenderingBackend.Vulkan,
     WindowSize = new Vector2D<int>(1280, 720),
-    IconPath = "Content/icon.png"
+    IconPath = "Assets/icon.png"
 }
 ```
 
@@ -203,10 +203,10 @@ public sealed class Spinner : Node3D
         RotationDegrees += new Vector3(0, DegreesPerSecond * time.DeltaTime, 0);
 }
 
-var level = ResourceLoader.Load<PackedScene>("Content/Scenes/Level.mscene").Instantiate();
+var level = ResourceLoader.Load<PackedScene>("Assets/Scenes/Level.mscene").Instantiate();
 Tree.Root.AddChild(level);
 level.GetNode<SpineNode>("Player/Body").SetAnimation("walk");
-SceneSaver.Save(level, "Content/Scenes/Level.mscene");
+SceneSaver.Save(level, "Assets/Scenes/Level.mscene");
 ```
 
 Scenes (`.mscene`) and resources (`.mres`) are JSON with stable UIDs, nested scene instances with overrides, and only
@@ -233,7 +233,7 @@ public sealed class Ship : Node3D
 }
 
 var mp = engine.Multiplayer;
-var shipScene = mp.RegisterScene("Content/Scenes/Ship.mscene"); // same scenes, same order, on both ends
+var shipScene = mp.RegisterScene("Assets/Scenes/Ship.mscene"); // same scenes, same order, on both ends
 
 // Server
 mp.Host(7777, maxClients: 8);
@@ -252,7 +252,7 @@ Godot-style audio nodes through a bus tree (Master → Music, SFX, UI, Voice: vo
 ```csharp
 var hum = new AudioPlayer3D
 {
-    Stream = AudioStream.Load("Content/Audio/engine.ogg"), // WAV, OGG, MP3, FLAC; memory or streamed
+    Stream = AudioStream.Load("Assets/Audio/engine.ogg"), // WAV, OGG, MP3, FLAC; memory or streamed
     Bus = "SFX", VolumeDb = -6, Loop = true, Autoplay = true,
     UnitSize = 3, MaxDistance = 50, AttenuationModel = AttenuationModel.Inverse,
 };
@@ -275,7 +275,7 @@ Tr.SetLocale("es");                                       // runtime switch: nod
 [Export(Translatable = true)] public string Title { get; set; } = "";   // scene text, shown with Atr(Title)
 ```
 
-- Catalogs: `Content/locale/<locale>/LC_MESSAGES/messages.mo`, fallback chain `pt_BR → pt → en`; compiled from `.po`
+- Catalogs: `Assets/locale/<locale>/LC_MESSAGES/messages.mo`, fallback chain `pt_BR → pt → en`; compiled from `.po`
   at build time by the in-house `mf-l10n` (byte-identical to GNU `msgfmt`, so no gettext install is needed).
 - `just l10n-extract` (C# via the GetText.NET extractor, RML documents and `[Export(Translatable)]` scene strings →
   `messages.pot` → every `.po` + the `qps` pseudo-locale), `just l10n-compile`, `just l10n-check`, `just l10n-stats`.
@@ -313,10 +313,10 @@ mainframe-engine/
 │   │   ├── Steamworks/          # Steam API wrappers (over the MainframeEngine.Steamworks shim)
 │   │   ├── Debugging/           # Log + ILogSink sinks, the F12 dev overlay (DevOverlay)
 │   │   └── Imaging/, Utils/     # PNG codec, helpers
-│   ├── Content/                 # Shaders (Slang + committed SPIR-V), UI widgets and fonts, brand icons
+│   ├── Assets/                 # Shaders (Slang + committed SPIR-V), UI widgets and fonts, brand icons
 │   └── runtimes/                # Native libraries per RID (mfrmlui, ENet, Valve's steam_api)
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
-├── MainframeEngine.Editor/      # The editor (RmlUi UI in Content/Editor)
+├── MainframeEngine.Editor/      # The editor (RmlUi UI in Assets/Editor)
 ├── MainframeEngine.Video/       # The editor's video mode (segments, detection, ffmpeg media, Whisper transcription)
 ├── Examples/                    # Demo (one scene per feature; README screenshots) and Forest
 ├── Templates/                   # `dotnet new mfgame` game template
@@ -331,7 +331,7 @@ mainframe-engine/
 
 The layers, assemblies and who owns what are in [Architecture overview](design/architecture-overview.md).
 
-**Shaders** are Slang sources in `MainframeEngine/Content/Shaders/` (mesh instances and the object-ID pass, lit Spine,
+**Shaders** are Slang sources in `MainframeEngine/Assets/Shaders/` (mesh instances and the object-ID pass, lit Spine,
 the skies, shadow depth passes, the scene grid, screen gizmos and the post-processing stack), compiled to SPIR-V by
 `dotnet build` (`slangc`, with shared includes in `include/`; the committed `.spv` files are the fallback when the
 Vulkan SDK is missing) and loaded at run time through `ContentPaths`. Light/shadow limits come from `limits.json`. After

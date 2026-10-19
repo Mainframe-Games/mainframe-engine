@@ -17,7 +17,7 @@ public sealed class SongAdaptive
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Start { get; set; }
 
-    /// <summary>Project path of the baked manifest (null: <c>Content/Music/&lt;SongName&gt;.mmusic</c>).</summary>
+    /// <summary>Project path of the baked manifest (null: <c>Assets/Music/&lt;SongName&gt;.mmusic</c>).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Output { get; set; }
 

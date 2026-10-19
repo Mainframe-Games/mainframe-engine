@@ -48,7 +48,7 @@
 
   <!-- Shared test content (Tests/Content: the showcase fixture scene, glTF test model, SpineBoy, sky, ambience, catalogs). -->
   <ItemGroup>
-    <None Include="..\Content\**" LinkBase="Content" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Assets\**" LinkBase="Assets" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- The recording sidecar contract fixture, byte-identical to Cutback's copy (Recording/CaptureSidecarWriterTests). -->
@@ -58,7 +58,7 @@
 
   <!-- Audio decoder/server tests: tiny generated tones (WAV, OGG, MP3, FLAC; stored in Git LFS). -->
   <ItemGroup>
-    <None Update="Content\Audio\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Assets\Audio\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -227,7 +227,7 @@ event definitions, the image list and import settings. It holds no clips. It is 
   "path": [],
   "physics": [ { "name": "hair", "bone": "hair_1", "inertia": 0.5, "strength": 100, "damping": 0.85, "mass": 1,
                  "gravity": 0, "wind": 0, "mix": 1, "rotate": 1 } ],
-  "events": [ { "name": "footstep", "audio": "Content/Audio/step.ogg", "volume": 0.8 } ],
+  "events": [ { "name": "footstep", "audio": "Assets/Audio/step.ogg", "volume": 0.8 } ],
   "skins": [
     { "name": "default",
       "attachments": [
@@ -301,7 +301,7 @@ is its file name without the extension.
   "format": 1,
   "uid": "anm_1f07c3a9e5d2",
   "type": "SkeletonClip",
-  "skeleton": { "uid": "skl_7d1c40e2a9b3", "path": "Content/Characters/Hero/hero.mskel" },
+  "skeleton": { "uid": "skl_7d1c40e2a9b3", "path": "Assets/Characters/Hero/hero.mskel" },
   "length": 0.8,
   "fps": 30,
   "loop": "Linear",
@@ -815,7 +815,7 @@ transforms every vertex on the CPU (`CanvasFrame.cs:163-177`). The changes:
 - **Normal maps.** These are new for the whole canvas:
   - `CanvasTexture : Texture2D` (Godot's: diffuse plus `NormalTexture`, `Shininess`);
   - `PointLight2D.Height` (Godot's), and the light's pixel position in the light block (`CanvasFrame.cs:40-47`);
-  - Godot's N·L term in `canvas_apply_lights` (`Content/Shaders/include/canvas_lights.slang`, which today says
+  - Godot's N·L term in `canvas_apply_lights` (`Assets/Shaders/include/canvas_lights.slang`, which today says
     "without normals"), with N rotated by the vertex tangent the skinning pass writes.
 
   `Sprite2D` and `Polygon2D` get normal maps with the same change.
@@ -921,9 +921,9 @@ format reference, under the [clean-room rule](#clean-room-rule). It writes a `.m
 - **Entry points.** In the editor, *Import Spine…* in the FileSystem panel's context menu on a `.json` file. On the
   command line, `mfe skel import-spine <json> --out <dir>`.
 
-The importer is how the test corpus starts. Spineboy (`Examples/Demo/Content/Models/Spine/SpineBoy/`) is imported once
-and the result is committed as a test fixture under `Tests/Content/Skeletons/SpineBoy/`. That copy is under the same
-"demos and tests only" terms as the original, which `THIRD_PARTY_NOTICES.md` records. An in-house rig, `Tests/Content/
+The importer is how the test corpus starts. Spineboy (`Examples/Demo/Assets/Models/Spine/SpineBoy/`) is imported once
+and the result is committed as a test fixture under `Tests/Assets/Skeletons/SpineBoy/`. That copy is under the same
+"demos and tests only" terms as the original, which `THIRD_PARTY_NOTICES.md` records. An in-house rig, `Tests/Assets/
 Skeletons/Mannequin/` (an MIT puppet made in the editor during G17d), becomes the main fixture once it exists.
 
 ## Agent tooling

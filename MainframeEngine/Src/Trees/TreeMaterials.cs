@@ -19,16 +19,16 @@ namespace MainframeEngine;
 /// <item><b>LowPoly:</b> flat <see cref="StandardMaterial3D"/>s in PBR, <see cref="TreeOptions.BarkPaletteColor"/> and
 /// <see cref="TreeOptions.LeafPaletteColor"/>; the blobs' vertex colours shade the leaves per blob. No wind.</item>
 /// </list>
-/// Textures load from the engine's <c>Content/Trees/</c> (next to the application); a missing set logs a warning and
+/// Textures load from the engine's <c>Assets/Trees/</c> (next to the application); a missing set logs a warning and
 /// leaves the material untextured. Main thread.
 /// </summary>
 public static class TreeMaterials
 {
     /// <summary>The engine folder of the bark sets (<c>&lt;name&gt;_1K-JPG/&lt;name&gt;_1K-JPG_Color.jpg</c>, ...).</summary>
-    public const string BarkFolder = "Content/Trees/Bark";
+    public const string BarkFolder = "Assets/Trees/Bark";
 
     /// <summary>The engine folder of the leaf textures (<c>&lt;name&gt;.png</c>).</summary>
-    public const string LeafFolder = "Content/Trees/Leaves";
+    public const string LeafFolder = "Assets/Trees/Leaves";
 
     /// <summary>Translucency of the Realistic leaves.</summary>
     public const float LeafTranslucency = 0.5f;

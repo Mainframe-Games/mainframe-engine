@@ -11,7 +11,7 @@ public sealed class UiPreviewProject : IDisposable
         <rml>
         <head>
             <title>HUD</title>
-            <link type="text/rcss" href="/Content/UI/theme.rcss"/>
+            <link type="text/rcss" href="/Assets/UI/theme.rcss"/>
             <link type="text/rcss" href="hud.rcss"/>
             <!-- <link type="text/rcss" href="commented.rcss"/> -->
             <link type='text/rcss' href='missing.rcss'/>
@@ -48,26 +48,26 @@ public sealed class UiPreviewProject : IDisposable
     public UiPreviewProject()
     {
         Root = Directory.CreateTempSubdirectory("mf-ui-preview").FullName;
-        new ProjectSettings { Name = "PreviewGame", MainScene = "Content/Scenes/Main.mscene" }.Save(Path.Combine(Root, ProjectSettings.FileName));
-        Directory.CreateDirectory(Path.Combine(Root, "Content", "Scenes"));
-        Directory.CreateDirectory(Path.Combine(Root, "Content", "UI", "widgets"));
+        new ProjectSettings { Name = "PreviewGame", MainScene = "Assets/Scenes/Main.mscene" }.Save(Path.Combine(Root, ProjectSettings.FileName));
+        Directory.CreateDirectory(Path.Combine(Root, "Assets", "Scenes"));
+        Directory.CreateDirectory(Path.Combine(Root, "Assets", "UI", "widgets"));
         SceneSaver.Save(new Node3D { Name = "Main" }, ScenePath);
-        File.WriteAllText(Abs("Content/UI/theme.rcss"), "body { font-family: LatoLatin; }");
-        File.WriteAllText(Abs("Content/UI/hud.rcss"), "#score { color: #ffffff; }");
-        File.WriteAllText(Abs("Content/UI/panel.rml"),
+        File.WriteAllText(Abs("Assets/UI/theme.rcss"), "body { font-family: LatoLatin; }");
+        File.WriteAllText(Abs("Assets/UI/hud.rcss"), "#score { color: #ffffff; }");
+        File.WriteAllText(Abs("Assets/UI/panel.rml"),
             """<template name="panel" content="content"><head><link type="text/rcss" href="widgets/panel.rcss"/></head><body><div id="content"/></body></template>""");
-        File.WriteAllText(Abs("Content/UI/widgets/panel.rcss"), "div { display: block; }");
+        File.WriteAllText(Abs("Assets/UI/widgets/panel.rcss"), "div { display: block; }");
         File.WriteAllText(DocumentPath, Document);
         File.WriteAllText(DataDocumentPath, DataDocument);
     }
 
     public string Root { get; }
 
-    public string ScenePath => Abs("Content/Scenes/Main.mscene");
+    public string ScenePath => Abs("Assets/Scenes/Main.mscene");
 
-    public string DocumentPath => Abs("Content/UI/hud.rml");
+    public string DocumentPath => Abs("Assets/UI/hud.rml");
 
-    public string DataDocumentPath => Abs("Content/UI/hud-data.rml");
+    public string DataDocumentPath => Abs("Assets/UI/hud-data.rml");
 
     public string Abs(string projectPath) => Path.Combine(Root, projectPath.Replace('/', Path.DirectorySeparatorChar));
 
@@ -114,15 +114,15 @@ public sealed class UiPreviewTests : IDisposable
     {
         var links = RmlLinks.Parse(_project.DocumentPath);
 
-        Assert.Equal(["/Content/UI/theme.rcss", "hud.rcss", "missing.rcss", "panel.rml", "widgets/panel.rcss"], links.Links.Select(l => l.Href));
-        Assert.Equal(_project.Abs("Content/UI/theme.rcss"), links.Links[0].FullPath);
-        Assert.Equal(_project.Abs("Content/UI/hud.rcss"), links.Links[1].FullPath);
+        Assert.Equal(["/Assets/UI/theme.rcss", "hud.rcss", "missing.rcss", "panel.rml", "widgets/panel.rcss"], links.Links.Select(l => l.Href));
+        Assert.Equal(_project.Abs("Assets/UI/theme.rcss"), links.Links[0].FullPath);
+        Assert.Equal(_project.Abs("Assets/UI/hud.rcss"), links.Links[1].FullPath);
         Assert.False(links.Links[2].Exists);
         Assert.Equal(RmlLinkKind.Template, links.Links[3].Kind);
-        Assert.Equal(_project.Abs("Content/UI/widgets/panel.rcss"), links.Links[4].FullPath);
+        Assert.Equal(_project.Abs("Assets/UI/widgets/panel.rcss"), links.Links[4].FullPath);
         Assert.Equal("panel.rml", links.Links[4].Via);
         Assert.True(links.HasInlineStyle);
-        Assert.Same(RmlLinks.Empty, RmlLinks.Parse(_project.Abs("Content/UI/nope.rml")));
+        Assert.Same(RmlLinks.Empty, RmlLinks.Parse(_project.Abs("Assets/UI/nope.rml")));
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public sealed class UiPreviewTests : IDisposable
     [Fact]
     public void OpeningAnRmlFromTheFileSystemPreviewsItAndAgainActivatesTheTab()
     {
-        var entry = W.FileSystem.Files!.Find("Content/UI/hud.rml")!;
+        var entry = W.FileSystem.Files!.Find("Assets/UI/hud.rml")!;
         W.FileSystem.Open(entry);
         _editor.Tick();
         var preview = Assert.IsType<UiPreview>(W.Session.ActiveTab);
@@ -212,7 +212,7 @@ public sealed class UiPreviewTests : IDisposable
 
         // A style sheet: re-read in place (the DOM stays).
         var version = preview.Version;
-        File.AppendAllText(_project.Abs("Content/UI/hud.rcss"), "\n#score { color: #ff0000; }");
+        File.AppendAllText(_project.Abs("Assets/UI/hud.rcss"), "\n#score { color: #ff0000; }");
         _editor.Tick();
         preview.Reload(UiReloadKind.StyleSheets);
         Assert.Equal(1, reloads);
@@ -224,7 +224,7 @@ public sealed class UiPreviewTests : IDisposable
     public void MovingTheDocumentTakesThePreviewAlong()
     {
         var preview = OpenPreview();
-        var moved = _project.Abs("Content/UI/hud2.rml");
+        var moved = _project.Abs("Assets/UI/hud2.rml");
         File.Move(_project.DocumentPath, moved);
         W.Session.FilesMoved(_project.DocumentPath, moved);
         _editor.Tick();

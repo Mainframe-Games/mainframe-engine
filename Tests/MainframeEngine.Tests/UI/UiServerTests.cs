@@ -60,7 +60,7 @@ public sealed class UiTestTree : IDisposable
         var path = Path.Combine(ContentDirectory, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
-        return "Content/" + relativePath.Replace('\\', '/');
+        return "Assets/" + relativePath.Replace('\\', '/');
     }
 
     public UiLayer AddLayer(int layer, params UiDocument[] documents)
@@ -122,10 +122,10 @@ public sealed class UiServerTests
     public void FontLoadingSkipsMacAppleDoubleFiles()
     {
         // unzip writes a packaged .app's extended attributes as ._Name.ttf files next to the fonts; RmlUi cannot load them.
-        Assert.True(UiServer.IsFontFile("/game/Content/UI/fonts/LatoLatin-Bold.ttf"));
+        Assert.True(UiServer.IsFontFile("/game/Assets/UI/fonts/LatoLatin-Bold.ttf"));
         Assert.True(UiServer.IsFontFile("Fonts/Exo2.OTF"));
-        Assert.False(UiServer.IsFontFile("/game/Content/UI/fonts/._LatoLatin-Bold.ttf"));
-        Assert.False(UiServer.IsFontFile("/game/Content/UI/fonts/OFL-Lato.txt"));
+        Assert.False(UiServer.IsFontFile("/game/Assets/UI/fonts/._LatoLatin-Bold.ttf"));
+        Assert.False(UiServer.IsFontFile("/game/Assets/UI/fonts/OFL-Lato.txt"));
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public sealed class UiServerTests
     public void MissingDocumentFailsOnceWithAnError()
     {
         using var ui = new UiTestTree();
-        var doc = new UiDocument { Name = "Missing", Source = "Content/UI/missing.rml" };
+        var doc = new UiDocument { Name = "Missing", Source = "Assets/UI/missing.rml" };
         ui.AddLayer(0, doc);
         ui.Tick(3);
         Assert.False(doc.IsLoaded);
@@ -485,7 +485,7 @@ public sealed class UiServerTests
     public void HotReloadRecoversADocumentThatFailedToLoad()
     {
         using var ui = new UiTestTree();
-        var doc = new UiDocument { Name = "Later", Source = "Content/UI/later.rml" };
+        var doc = new UiDocument { Name = "Later", Source = "Assets/UI/later.rml" };
         ui.AddLayer(0, doc);
         ui.Tick();
         Assert.False(doc.IsLoaded);
@@ -542,7 +542,7 @@ public sealed class UiServerTests
     public void WidgetDemoLoadsWithThePanelTemplateAndTitle(float dpRatio)
     {
         using var ui = new UiTestTree(viewport: new Vector2(1280, 1280));
-        var doc = new UiDocument { Name = "Demo", Source = "Content/UI/widgets/demo.rml" };
+        var doc = new UiDocument { Name = "Demo", Source = "Assets/UI/widgets/demo.rml" };
         var layer = ui.AddLayer(0, doc);
         layer.ScaleMode = UiScaleMode.ReferenceResolution;
         layer.ReferenceResolution = new Vector2(1280 / dpRatio, 1280 / dpRatio);
@@ -818,7 +818,7 @@ public sealed class UiServerTests
     public void EngineCreditsCarryTheFreeTypeCredit()
     {
         using var ui = new UiTestTree();
-        var doc = new UiDocument { Name = "Credits", Source = "Content/UI/credits.rml" };
+        var doc = new UiDocument { Name = "Credits", Source = "Assets/UI/credits.rml" };
         ui.AddLayer(0, doc);
         ui.Tick();
         Assert.True(doc.IsLoaded);

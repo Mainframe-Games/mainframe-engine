@@ -249,7 +249,7 @@ public sealed class TerrainDataTests : IDisposable
     [Fact]
     public void DefaultFolderSitsBesideTheScene()
     {
-        Assert.Equal("Content/Scenes/world_terrain", TerrainData.DefaultFolderFor("Content/Scenes/world.mscene"));
+        Assert.Equal("Assets/Scenes/world_terrain", TerrainData.DefaultFolderFor("Assets/Scenes/world.mscene"));
         Assert.Equal("forest_terrain", TerrainData.DefaultFolderFor("forest.mscene"));
     }
 }

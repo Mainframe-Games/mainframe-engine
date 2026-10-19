@@ -5,7 +5,7 @@ using MainframeEngine.UI.Rml;
 namespace Demo;
 
 /// <summary>
-/// The Sound FX scene's controls: one button per ZzFX preset (<c>Content/Audio/Sfx/*.mres</c>), Randomize and Mutate
+/// The Sound FX scene's controls: one button per ZzFX preset (<c>Assets/Audio/Sfx/*.mres</c>), Randomize and Mutate
 /// (synthesise a new sound and play it), the current sound's ZzFX line, the pitch randomness and the music toggle.
 /// </summary>
 public sealed class SoundFxPanel : UiDocument
@@ -18,7 +18,7 @@ public sealed class SoundFxPanel : UiDocument
 
     public SoundFxPanel()
     {
-        Source = "Content/SoundFx/panel.rml";
+        Source = "Assets/SoundFx/panel.rml";
         AutoFocus = false;
     }
 

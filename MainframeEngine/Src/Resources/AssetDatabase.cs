@@ -15,7 +15,7 @@ public sealed class AssetMeta
     public Dictionary<string, JsonElement>? Settings { get; set; }
 }
 
-/// <summary>The runtime asset index (<c>Content/assets.index.json</c>): UID → project-relative path.</summary>
+/// <summary>The runtime asset index (<c>Assets/assets.index.json</c>): UID → project-relative path.</summary>
 public sealed class AssetIndex
 {
     public int Format { get; set; } = 1;
@@ -38,14 +38,14 @@ public sealed class AssetIndex
 internal sealed partial class AssetJsonContext : JsonSerializerContext;
 
 /// <summary>
-/// Maps asset UIDs to paths. Built by scanning <c>Content/</c> (scene and resource files carry their own UID;
+/// Maps asset UIDs to paths. Built by scanning <c>Assets/</c> (scene and resource files carry their own UID;
 /// other files have a <c>.meta</c> sidecar, created by the editor) or, in shipped builds, from
-/// <c>Content/assets.index.json</c> (<see cref="WriteIndex"/>). Paths are project-relative with <c>/</c>
+/// <c>Assets/assets.index.json</c> (<see cref="WriteIndex"/>). Paths are project-relative with <c>/</c>
 /// separators. <see cref="ResourceLoader"/> resolves UIDs through <see cref="Current"/>.
 /// </summary>
 public sealed class AssetDatabase
 {
-    public const string ContentFolder = "Content";
+    public const string ContentFolder = ContentPaths.FolderName;
     public const string IndexFileName = "assets.index.json";
     public const string MetaExtension = ".meta";
 
@@ -64,7 +64,7 @@ public sealed class AssetDatabase
 
     /// <summary>
     /// The database the loader uses. Defaults to one rooted at <see cref="ContentPaths.BaseDirectory"/> (the
-    /// application folder, which holds <c>Content/</c>) — never the working directory, so games load the same
+    /// application folder, which holds <c>Assets/</c>) — never the working directory, so games load the same
     /// files however they are launched. Filled lazily from the index or a scan on the first UID lookup. Tools (the
     /// editor) assign one rooted at the open project.
     /// </summary>
@@ -74,7 +74,7 @@ public sealed class AssetDatabase
         set => _current = value ?? throw new ArgumentNullException(nameof(value));
     }
 
-    /// <summary>Folder that contains <c>Content/</c>; relative asset paths resolve against it.</summary>
+    /// <summary>Folder that contains <c>Assets/</c>; relative asset paths resolve against it.</summary>
     public string ProjectRoot { get; }
 
     public string ContentDirectory => Path.Combine(ProjectRoot, ContentFolder);
@@ -90,7 +90,7 @@ public sealed class AssetDatabase
     }
 
     /// <summary>
-    /// Fills the database: from <c>Content/assets.index.json</c> when present (shipped builds), otherwise by
+    /// Fills the database: from <c>Assets/assets.index.json</c> when present (shipped builds), otherwise by
     /// scanning. <paramref name="createMissingMeta"/> (editor) writes <c>.meta</c> sidecars with new UIDs for
     /// assets that have none.
     /// </summary>
@@ -103,7 +103,7 @@ public sealed class AssetDatabase
             Scan(createMissingMeta);
     }
 
-    /// <summary>Scans <c>Content/</c>: scene/resource UIDs from the files, other UIDs from <c>.meta</c> sidecars.</summary>
+    /// <summary>Scans <c>Assets/</c>: scene/resource UIDs from the files, other UIDs from <c>.meta</c> sidecars.</summary>
     public void Scan(bool createMissingMeta = false)
     {
         lock (_gate)
@@ -179,7 +179,7 @@ public sealed class AssetDatabase
         }
     }
 
-    /// <summary>Writes the runtime index (default <c>Content/assets.index.json</c>) for shipped builds.</summary>
+    /// <summary>Writes the runtime index (default <c>Assets/assets.index.json</c>) for shipped builds.</summary>
     public void WriteIndex(string? indexPath = null)
     {
         indexPath ??= Path.Combine(ContentDirectory, IndexFileName);
@@ -294,7 +294,7 @@ public sealed class AssetDatabase
     }
 
     /// <summary>Absolute path for a project-relative (or absolute) path.</summary>
-    public string ToAbsolutePath(string path) => Path.GetFullPath(path, ProjectRoot);
+    public string ToAbsolutePath(string path) => Path.GetFullPath(ContentPaths.UpgradeLegacyPath(path), ProjectRoot);
 
     internal static bool IsSelfDescribing(string path) =>
         path.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase) ||

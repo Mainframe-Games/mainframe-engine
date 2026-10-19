@@ -12,7 +12,7 @@ public sealed class AudioSerializationTests
     {
         var music = new AudioStream
         {
-            File = "Content/Audio/theme.ogg",
+            File = "Assets/Audio/theme.ogg",
             LoadMode = AudioLoadMode.Stream,
             Loop = true,
             LoopStart = 1.5f,
@@ -36,7 +36,7 @@ public sealed class AudioSerializationTests
         Own(root, hud, new AudioPlayer2D
         {
             Name = "Coin",
-            Stream = new AudioStream { File = "Content/Audio/coin.wav" },
+            Stream = new AudioStream { File = "Assets/Audio/coin.wav" },
             Bus = "UI",
             Position = new Vector2(100, 50),
             MaxDistance = 800f,
@@ -75,7 +75,7 @@ public sealed class AudioSerializationTests
         Assert.Equal(10, player.Priority);
         Assert.Equal(ProcessMode.Always, player.ProcessMode);
         var stream = player.Stream!;
-        Assert.Equal("Content/Audio/theme.ogg", stream.File);
+        Assert.Equal("Assets/Audio/theme.ogg", stream.File);
         Assert.Equal(AudioLoadMode.Stream, stream.LoadMode);
         Assert.True(stream.Loop);
         Assert.Equal(1.5f, stream.LoopStart);
@@ -86,7 +86,7 @@ public sealed class AudioSerializationTests
         Assert.Equal(800f, coin.MaxDistance);
         Assert.Equal(2f, coin.Attenuation);
         Assert.Equal(0.5f, coin.PanningStrength);
-        Assert.Equal("Content/Audio/coin.wav", coin.Stream!.File);
+        Assert.Equal("Assets/Audio/coin.wav", coin.Stream!.File);
 
         var engine = loaded.GetNode<AudioPlayer3D>("Engine");
         Assert.Same(stream, engine.Stream);
@@ -144,10 +144,10 @@ public sealed class AudioSerializationTests
     public void TheShowcaseAmbiencePlaysFromItsSceneFile()
     {
         var previous = AssetDatabase.Current;
-        AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory); // "Content/..." resolves like a game's
+        AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory); // "Assets/..." resolves like a game's
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Content", "Scenes", "Showcase.mscene");
+            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Scenes", "Showcase.mscene");
             var tree = new SceneTree();
             using var server = AudioTestUtil.CreateServer(tree);
             tree.ChangeScene(PackedScene.Parse(File.ReadAllBytes(path)).Instantiate());

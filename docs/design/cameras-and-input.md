@@ -156,7 +156,7 @@ rebinding](future/save-and-settings.md#key-rebinding).
   modifiers follow the platform (`Left Option`/`Left Cmd` on macOS). Gamepads use the Xbox layout and printed labels stay
   untranslated: `A`/`B`/`X`/`Y`, `LB`/`RB`, `LT`/`RT`, `LS`/`RS`; stick directions are words (`LS Up`, stick Y is
   positive down; the bundled UI fonts have no arrow glyphs), `D-Pad Up`; one pad's binding adds `(Pad 2)`. The strings
-  are in the engine's `Content/UI/settings/settings.pot` (`just l10n-engine`), which games merge into their catalog
+  are in the engine's `Assets/UI/settings/settings.pot` (`just l10n-engine`), which games merge into their catalog
   with `mf-l10n extract --include` ([Localization](localization.md)).
 
 **`InputRebinder`** is the "press a key" capture node. `Begin(InputDeviceClass)` arms it and `Captured(InputBinding)`,

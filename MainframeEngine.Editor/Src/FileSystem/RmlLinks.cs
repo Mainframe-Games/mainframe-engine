@@ -25,7 +25,7 @@ public sealed record RmlLink(string Href, string? FullPath, RmlLinkKind Kind, st
 /// <summary>
 /// The style sheets and templates an <c>.rml</c> document links (the UI preview lists them): <c>&lt;link&gt;</c> tags
 /// resolved like the UI server does — <see cref="RmlPaths.Join"/> against the document, then
-/// <see cref="ContentPaths.Resolve(string)"/> (the project's <c>Content/</c>, then the application's) — plus the style
+/// <see cref="ContentPaths.Resolve(string)"/> (the project's <c>Assets/</c>, then the application's) — plus the style
 /// sheets of linked templates, one level deep.
 /// </summary>
 public sealed partial class RmlLinks

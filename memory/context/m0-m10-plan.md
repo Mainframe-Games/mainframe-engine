@@ -102,7 +102,7 @@ Create the branch `feature/m0-m10` from the rewritten main, and open a **draft P
        - macOS: an `.app` bundle in a tar.gz
        - Windows: zip
        - Linux: tar.gz
-       - Each package includes `Content/`.
+       - Each package includes `Assets/`.
     5. Create tag `vX.Y.Z` and a GitHub Release with generated notes and the artifacts.
   - **No commits to main**, so the ruleset needs no bypass.
   - Concurrency group: `publish`.
@@ -162,7 +162,7 @@ The dependency graph comes from `docs/milestones.md`. Each proposal doc in `docs
 
 Add `docs/design/future/distribution-nuget.md`. It covers:
 - **Packages:**
-  - `MainframeEngine`: library, `runtimes/<rid>/native`, and engine `Content/` delivered via `buildTransitive` targets that copy it.
+  - `MainframeEngine`: library, `runtimes/<rid>/native`, and engine `Assets/` delivered via `buildTransitive` targets that copy it.
   - `MainframeEngine.Generators`: bundled as an analyzer in the main package.
   - `MainframeEngine.Templates`: `dotnet new mfgame`, which creates `MyGame` + `MyGame.Launcher` (`GameHost`) + `project.mfproj`.
   - Later, a `MainframeEngine.Sdk` MSBuild SDK that owns shader compilation and content rules.

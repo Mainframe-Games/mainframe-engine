@@ -98,7 +98,7 @@ public sealed class TreeOptionsTests
             var options = TreePresets.Load(name);
             if (index < TreePresets.EzTreeCount)
                 Assert.Equal(TreeFixture.Preset(name).GetProperty("seed").GetInt32(), options.Seed);
-            Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "Content", "Trees", "Leaves", options.LeafTexture + ".png")), $"{name}: leaf texture {options.LeafTexture}");
+            Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "Assets", "Trees", "Leaves", options.LeafTexture + ".png")), $"{name}: leaf texture {options.LeafTexture}");
             // ambientCG sets (JPG) or the engine's painted ones (PNG, ADR 0172): TreeMaterials.BarkMapPath finds either.
             foreach (var map in new[] { "Color", "NormalGL", "Roughness" })
                 Assert.True(File.Exists(ContentPaths.Resolve(TreeMaterials.BarkMapPath(options.BarkTexture, map), ContentPaths.BaseDirectory)),

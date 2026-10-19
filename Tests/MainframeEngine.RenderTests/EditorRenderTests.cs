@@ -18,7 +18,7 @@ public class EditorRenderTests
     private static int Px(HostResult result, int points) => (int)MathF.Round(points * result.ContentScale);
 
     private static string ShowcaseScene =>
-        Path.Combine(RenderTestEnvironment.RepositoryRoot, "Tests", "Content", "Scenes", "Showcase.mscene");
+        Path.Combine(RenderTestEnvironment.RepositoryRoot, "Tests", "Assets", "Scenes", "Showcase.mscene");
 
     [Fact]
     public void SmokeRunPicksEditsUndoesSavesReloadsAndAllocatesNothingWhenIdle()
@@ -191,9 +191,9 @@ public class EditorRenderTests
         var project = Path.Combine(GoldenPaths.Root, "FsGame");
         if (Directory.Exists(project))
             Directory.Delete(project, recursive: true);
-        CopyDirectory(Path.Combine(RenderTestEnvironment.RepositoryRoot, "Templates", "MainframeEngine.Templates", "content", "mfgame", "Content"),
-            Path.Combine(project, "Content"));
-        new ProjectSettings { Name = "FsGame", MainScene = "Content/Scenes/Main.mscene" }.Save(project);
+        CopyDirectory(Path.Combine(RenderTestEnvironment.RepositoryRoot, "Templates", "MainframeEngine.Templates", "content", "mfgame", "Assets"),
+            Path.Combine(project, "Assets"));
+        new ProjectSettings { Name = "FsGame", MainScene = "Assets/Scenes/Main.mscene" }.Save(project);
 
         var result = HostRunner.RunEditor(Output("editor-filesystem"), null, "--smoke-golden", "filesystem", "--project", project,
             "--hidden", "--size", "1280x720");

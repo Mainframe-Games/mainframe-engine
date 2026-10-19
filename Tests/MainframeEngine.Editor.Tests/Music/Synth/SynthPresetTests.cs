@@ -65,7 +65,7 @@ public sealed class SynthPresetTests
         var root = project.Root;
         var patch = FactoryPresets.All[0].Make();
         patch.Matrix = [new SynthModRoute { Source = "lfo2", Target = "a.wt_pos", Amount = 0.25f }];
-        var path = Path.Combine(root, "Content", SynthPresets.Folder, "Big Bass.mres");
+        var path = Path.Combine(root, "Assets", SynthPresets.Folder, "Big Bass.mres");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var uid = SynthPresets.Save(patch, path, "Big Bass", "Bass");
         var entry = Assert.Single(SynthPresets.Project(root));

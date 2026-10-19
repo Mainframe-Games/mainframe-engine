@@ -10,7 +10,7 @@ public sealed class MusicBrowserTests
     private static (HeadlessEditor Editor, SongTab Tab) Open()
     {
         var editor = new HeadlessEditor();
-        var music = Path.Combine(editor.Directory, "Project", "Content", "Music");
+        var music = Path.Combine(editor.Directory, "Project", "Assets", "Music");
         SongTab.CreateFile(Path.Combine(music, "Other.msong"));
         var path = SongTab.CreateFile(Path.Combine(music, "Theme.msong"));
         editor.Workspace.Commands.OpenSong(path);

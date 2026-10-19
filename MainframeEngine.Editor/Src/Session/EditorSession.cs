@@ -14,7 +14,7 @@ namespace MainframeEngine.Editor;
 /// <remarks>
 /// Until the project UI arrives (E4 editor side), the project is found from the opened scene: the nearest ancestor
 /// folder holding a <c>project.mfproj</c> (<see cref="ProjectSettings"/>, loaded into <see cref="Project"/>), else —
-/// for folders without one — the folder that contains the scene's <c>Content/</c> folder.
+/// for folders without one — the folder that contains the scene's <c>Assets/</c> folder.
 /// <see cref="AssetDatabase.Current"/> and <see cref="ContentPaths.ProjectDirectory"/> are pointed at it so the scene's
 /// resources resolve from the project sources.
 /// </remarks>
@@ -62,12 +62,12 @@ public sealed class EditorSession : IDisposable
     /// <summary>The scene tab that was active most recently (a UI preview's default backdrop), or null.</summary>
     public EditedScene? LastActiveScene { get; private set; }
 
-    /// <summary>The project folder (contains <c>Content/</c>) resources resolve against; null until a scene is opened or saved.</summary>
+    /// <summary>The project folder (contains <c>Assets/</c>) resources resolve against; null until a scene is opened or saved.</summary>
     public string? ProjectRoot { get; private set; }
 
     /// <summary>
     /// The project's settings when <see cref="ProjectRoot"/> holds a readable <c>project.mfproj</c>; null for a folder
-    /// found by the <c>Content/</c> fallback (or an unreadable file, which is reported in the Output panel).
+    /// found by the <c>Assets/</c> fallback (or an unreadable file, which is reported in the Output panel).
     /// </summary>
     public ProjectSettings? Project { get; private set; }
 
@@ -675,7 +675,7 @@ public sealed class EditorSession : IDisposable
 
     /// <summary>
     /// The project folder of <paramref name="path"/>: the nearest ancestor holding a <c>project.mfproj</c>; else (a
-    /// folder without project settings) the folder above the nearest <c>Content/</c> ancestor; else the file's folder.
+    /// folder without project settings) the folder above the nearest <c>Assets/</c> ancestor; else the file's folder.
     /// </summary>
     public static string FindProjectRoot(string path)
     {
@@ -844,7 +844,7 @@ public sealed class EditorSession : IDisposable
     }
 
     /// <summary>
-    /// How to show <paramref name="path"/> to the user: relative to the project (<c>Content/Scenes/Main.mscene</c>, with
+    /// How to show <paramref name="path"/> to the user: relative to the project (<c>Assets/Scenes/Main.mscene</c>, with
     /// <c>/</c>) when it is inside <see cref="ProjectRoot"/>, else the full path.
     /// </summary>
     public string DisplayPath(string? path)

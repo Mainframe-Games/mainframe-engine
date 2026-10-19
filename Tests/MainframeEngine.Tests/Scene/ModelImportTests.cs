@@ -18,11 +18,11 @@ public sealed class ModelImportTests : IDisposable
 {
     private readonly string _project = Path.Combine(Path.GetTempPath(), "mf-model-tests", Guid.NewGuid().ToString("N"));
     private readonly AssetDatabase _previousAssets = AssetDatabase.Current;
-    private const string ModelPath = "Content/Models/TestModel/" + TestModel.GltfFile;
+    private const string ModelPath = "Assets/Models/TestModel/" + TestModel.GltfFile;
 
     public ModelImportTests()
     {
-        TestModel.Write(Path.Combine(_project, "Content", "Models", "TestModel"));
+        TestModel.Write(Path.Combine(_project, "Assets", "Models", "TestModel"));
         AssetDatabase.Current = new AssetDatabase(_project);
         ResourceLoader.ClearCache();
     }
@@ -215,9 +215,9 @@ public sealed class ModelImportTests : IDisposable
     [Fact]
     public void MissingAndBrokenModelsReportErrors()
     {
-        Assert.Throws<FileNotFoundException>(() => ResourceLoader.Load<PackedScene>("Content/Models/missing.gltf"));
-        File.WriteAllText(Path.Combine(_project, "Content", "Models", "broken.gltf"), "{ this is not gltf");
-        Assert.Throws<InvalidDataException>(() => ResourceLoader.Load<PackedScene>("Content/Models/broken.gltf"));
+        Assert.Throws<FileNotFoundException>(() => ResourceLoader.Load<PackedScene>("Assets/Models/missing.gltf"));
+        File.WriteAllText(Path.Combine(_project, "Assets", "Models", "broken.gltf"), "{ this is not gltf");
+        Assert.Throws<InvalidDataException>(() => ResourceLoader.Load<PackedScene>("Assets/Models/broken.gltf"));
     }
 
     [Fact]
@@ -226,12 +226,12 @@ public sealed class ModelImportTests : IDisposable
         // The tests (and the render tests) use the committed copy; it must be what the generator writes.
         // UPDATE_TEST_ASSETS=1 rewrites the committed copy from the generator.
         if (Environment.GetEnvironmentVariable("UPDATE_TEST_ASSETS") == "1")
-            TestModel.Write(Path.Combine(TestPaths.RepositoryRoot(), "Tests", "Content", "Models", "TestModel"));
-        var committed = Path.Combine(AppContext.BaseDirectory, "Content", "Models", "TestModel");
-        var generated = Path.Combine(_project, "Content", "Models", "TestModel");
+            TestModel.Write(Path.Combine(TestPaths.RepositoryRoot(), "Tests", "Assets", "Models", "TestModel"));
+        var committed = Path.Combine(AppContext.BaseDirectory, "Assets", "Models", "TestModel");
+        var generated = Path.Combine(_project, "Assets", "Models", "TestModel");
         foreach (var file in new[] { TestModel.GltfFile, TestModel.BinFile, TestModel.GltfFile + ".meta", TestModel.TextureFile + ".meta" })
             Assert.True(File.ReadAllBytes(Path.Combine(committed, file)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(generated, file))),
-                $"{file} differs from the generator: run the generator (TestModel.Write) into Tests/Content/Models/TestModel.");
+                $"{file} differs from the generator: run the generator (TestModel.Write) into Tests/Assets/Models/TestModel.");
         Assert.Equal(TestModel.Checker(8), Png.ReadRgba8(Path.Combine(committed, TestModel.TextureFile)).Pixels);
     }
 

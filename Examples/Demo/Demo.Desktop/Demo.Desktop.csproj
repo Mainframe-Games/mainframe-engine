@@ -12,16 +12,16 @@
   <!-- The project file and the game's content are copied next to the app. -->
   <ItemGroup>
     <None Include="../project.mfproj" Link="project.mfproj" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../Content/**" LinkBase="Content" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Assets/**" LinkBase="Assets" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!--
-    Localization: Content/locale/<locale>/LC_MESSAGES/messages.po catalogs are compiled to .mo at build time (no gettext
-    needed) and copied to Content/locale/ next to the app, where Tr loads them. Add a language with the engine's
+    Localization: Assets/locale/<locale>/LC_MESSAGES/messages.po catalogs are compiled to .mo at build time (no gettext
+    needed) and copied to Assets/locale/ next to the app, where Tr loads them. Add a language with the engine's
     mf-l10n tool (extract, update, compile; docs/design/localization.md).
   -->
   <PropertyGroup>
-    <LocaleContentRoot>../Content</LocaleContentRoot>
+    <LocaleContentRoot>../Assets</LocaleContentRoot>
   </PropertyGroup>
   <Import Project="$(MainframeEnginePath)/build/Localization.targets" />
 

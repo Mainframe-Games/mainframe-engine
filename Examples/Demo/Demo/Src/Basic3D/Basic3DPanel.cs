@@ -14,7 +14,7 @@ public sealed class Basic3DPanel : UiDocument
 
     public Basic3DPanel()
     {
-        Source = "Content/Basic3D/panel.rml";
+        Source = "Assets/Basic3D/panel.rml";
         AutoFocus = false;
     }
 

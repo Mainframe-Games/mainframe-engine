@@ -8,7 +8,7 @@ public sealed record DemoSceneInfo(string Id, string Title, string Icon, string 
 public static class DemoScenes
 {
     private static DemoSceneInfo Scene(string id, string title, string icon, Func<Node> build) =>
-        new(id, title, icon, $"Content/Scenes/{id}.mscene", build);
+        new(id, title, icon, $"Assets/Scenes/{id}.mscene", build);
 
     public static IReadOnlyList<DemoSceneInfo> All { get; } =
     [

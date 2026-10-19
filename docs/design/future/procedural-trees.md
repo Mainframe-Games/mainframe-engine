@@ -92,9 +92,9 @@ flowchart LR
 | `MainframeEngine/Src/Trees/Generation/` | `TreeGenerator`, `TreeParams`, `EzRng`, `ThreeMath` (double-precision `Vec3d`, `Quatd`, `EulerXyz` matching three.js), `TreeSkeleton`, `BarkMesher`, `LeafCardMesher`, `LeafBlobMesher`, `TreeMeshData` |
 | `MainframeEngine/Src/Trees/` | `TreeOptions`, `TreeLevel`, `TreeStyle`, `Tree3D`, `TreePresets`, `TreeImpostor`, `EzTreeJson` (importer) |
 | `MainframeEngine/Src/Rendering/Resources/` | `FoliageMaterial3D`, `ImpostorMaterial3D` (internal to `TreeImpostor`) |
-| `MainframeEngine/Content/Shaders/` | `Foliage/Foliage.vk.{vert,frag}.slang`, `Impostor/Impostor.vk.{vert,frag}.slang`, `include/wind.slang`, `Shadows/Shadow{,Point}FoliageInstanced.vk.vert.slang` |
-| `MainframeEngine/Content/Trees/Presets/` | 15 preset `.mres` files (about 2 KB each) |
-| `MainframeEngine.Editor/Src/Trees/` | `Tree3DInspector`, `TreeImpostorBaker`, `TreeBaker`; bark and leaf textures in `MainframeEngine.Editor/Content/Trees/` |
+| `MainframeEngine/Assets/Shaders/` | `Foliage/Foliage.vk.{vert,frag}.slang`, `Impostor/Impostor.vk.{vert,frag}.slang`, `include/wind.slang`, `Shadows/Shadow{,Point}FoliageInstanced.vk.vert.slang` |
+| `MainframeEngine/Assets/Trees/Presets/` | 15 preset `.mres` files (about 2 KB each) |
+| `MainframeEngine.Editor/Src/Trees/` | `Tree3DInspector`, `TreeImpostorBaker`, `TreeBaker`; bark and leaf textures in `MainframeEngine.Editor/Assets/Trees/` |
 | `build/ez-tree-reference.mjs` | parity fixture generator (by hand, not CI), like `build/zzfx-reference.mjs` |
 
 The generator lives in the engine assembly but uses no engine types, so it can move to its own assembly (for a command
@@ -325,7 +325,7 @@ units long. `Scale = 0.3` gives a tree of about 20 m.
 
 ### Presets
 
-The 15 tree and bush presets become `MainframeEngine/Content/Trees/Presets/<file>.mres`. The values are copied from
+The 15 tree and bush presets become `MainframeEngine/Assets/Trees/Presets/<file>.mres`. The values are copied from
 the JSON unchanged, as doubles. `TreePresets` lists them under Ez Tree's display names (`presets/index.js`):
 
 | Ez Tree name → file | Type, levels | Seed | Bark | Leaves | LOD0 triangles |
@@ -384,7 +384,7 @@ public enum TreeRuntimeGeneration : byte { WhenNotBaked, Always, Never }
 #### Bake
 
 **Bake** (an inspector icon button, also `TreeBaker.Bake(tree, path)` for scripts) writes one `.mres` per tree, by
-default `Content/Trees/<preset>_<seed>_<style>.mres`, through `ResourceSaver.Save`
+default `Assets/Trees/<preset>_<seed>_<style>.mres`, through `ResourceSaver.Save`
 (`MainframeEngine/Src/Resources/ResourceSaver.cs:48`). It holds the `ArrayMesh` (bark and leaf surfaces with `Custom0`,
 LODs, materials), the `TreeImpostor` (atlases as PNG next to it), the trunk capsule, and a `BakeHash` of options, seed,
 style and generator version; when the hash no longer matches, the inspector marks the bake stale. A baked tree costs at
@@ -407,7 +407,7 @@ unique trees add 0.2–0.5 s to a load. LowPoly blobs add about 1 ms. The output
 - **Bark.** A `FoliageMaterial3D` (opaque, wind on) with Ez Tree's ambientCG CC0 maps (`BarkNNN_1K-JPG`: `_Color`,
   `_NormalGL`, `_Roughness`). From G6.1 it shades PBR, with the roughness in the ORM binding through G6.1's
   `OrmPacker`; before that, Blinn-Phong with the colour and normal maps. NormalGL matches the engine's +Y-up convention
-  (`MainframeEngine/Content/Shaders/include/material.slang:65`). `BarkTint` multiplies the albedo,
+  (`MainframeEngine/Assets/Shaders/include/material.slang:65`). `BarkTint` multiplies the albedo,
   `BarkTextureScale.y` sets the V repeat (Ez Tree: `repeat.y = 1/scale.y`), and U is already in the UVs (`wrapsX`).
 - **Leaves.** A `FoliageMaterial3D` with `AlphaCutout`, `AlphaCutoff = LeafAlphaCutoff`, translucency, and both sides
   lit. With `LeafRoundedNormals`, back faces **keep** the mesh normal (`BackFace = Keep`): Ez Tree's `uCustomNormals`
@@ -417,9 +417,9 @@ unique trees add 0.2–0.5 s to a load. LowPoly blobs add about 1 ms. The output
   thin, so leaf textures also get **coverage-preserving alpha mips**: a new texture import setting
   (`alphaCoverageCutoff` in the `.meta`, default off) scales each mip's alpha so the share of texels above the cutoff
   matches mip 0. `LeafTint` multiplies the albedo.
-- **Where the textures live.** Engine `Content/` is 1.2 MB today, and the three preset barks alone are about 7 MB. The
-  textures ship with the **editor** (`MainframeEngine.Editor/Content/Trees/`), which copies a set into the project's
-  `Content/Trees/` the first time the project uses it. Games ship only the sets they use.
+- **Where the textures live.** Engine `Assets/` is 1.2 MB today, and the three preset barks alone are about 7 MB. The
+  textures ship with the **editor** (`MainframeEngine.Editor/Assets/Trees/`), which copies a set into the project's
+  `Assets/Trees/` the first time the project uses it. Games ship only the sets they use.
 - **Before `FoliageMaterial3D`** (G8b.4), Realistic uses `StandardMaterial3D` (cutout, double-sided): flipped
   back-face normals, no translucency, no wind.
 
@@ -470,7 +470,7 @@ public class WorldEnvironment                     // additions to MainframeEngin
 }
 ```
 
-`FrameData` (`MainframeEngine/Content/Shaders/include/frame.slang:8-18`, 368 bytes) gains
+`FrameData` (`MainframeEngine/Assets/Shaders/include/frame.slang:8-18`, 368 bytes) gains
 `float4 wind` (xyz = unit direction, w = strength) and `float4 windParams` (frequency, turbulence, 0, 0). It grows to
 400 bytes. Time is already `frame.clip.z`. Grass (G8a), trees, and water ripples (G8c) all read this one wind. A world
 without a `WorldEnvironment` has zero wind.
@@ -646,7 +646,7 @@ Following the editor rule, buttons are icons with tooltips: `dice-5`, `file-impo
   (MIT), webgl-noise (MIT), and the ambientCG bark textures (CC0 1.0, credited as a courtesy with a link per set, as Ez
   Tree's `src/app/public/textures/LICENSE.md` does).
 - **Leaf textures are MIT, not CC0.** They keep the Ez Tree notice wherever they are copied: the editor's
-  `Content/Trees/LICENSE.md` and the copy the editor makes into a project.
+  `Assets/Trees/LICENSE.md` and the copy the editor makes into a project.
 - **Pin.** Ez Tree commit `dcf309bd86bd521083d9c70f01f2de45fdc7c457` (2026-07-16, package version 1.1.0), with three.js
   0.167.1 from its `package-lock.json`. Moving the pin means re-running the fixture script and reviewing the diff.
 
@@ -656,7 +656,7 @@ Following the editor rule, buttons are icons with tooltips: `dice-5`, `file-impo
   - `EzRng`: the vectors above and the one-million-draw hash.
   - **Parity.** `build/ez-tree-reference.mjs` is run by hand, not in CI, like `build/zzfx-reference.mjs`. From an Ez
     Tree checkout at the pin (`npm ci`), it calls `#generateSkeleton` and `#meshSkeleton` for every preset and LOD and
-    writes `Tests/Content/Trees/ez-tree-reference.json`: vertex and index counts per surface, the indices, a position
+    writes `Tests/Assets/Trees/ez-tree-reference.json`: vertex and index counts per surface, the indices, a position
     hash (float32 positions rounded to 1e-4, FNV-1a), and every 97th position and normal. The C# tests (`BarkUv =
     EzTree`, `Scale = 1`) match counts and indices exactly and positions and normals within 1e-4. A failure names the
     first diverging branch.

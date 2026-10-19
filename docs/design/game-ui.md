@@ -12,7 +12,7 @@ same stack is the [editor's](editor.md#ui) UI. Milestone M8 ([Milestones](../mil
 | Managed binding | [`Src/UI/Rml/`](../../MainframeEngine/Src/UI/Rml/) | `RmlCore`, `RmlContext`, `RmlDocument`, `RmlElement`, `RmlEvent`, `RmlDataModel`, `RmlRenderInterface`, … |
 | Renderer | [`Src/UI/Rendering/`](../../MainframeEngine/Src/UI/Rendering/) | `VulkanUiRenderer` (Vulkan), `NullUiRenderer` (headless) |
 | Engine | [`Src/UI/`](../../MainframeEngine/Src/UI/) | `UiServer`, `UiLayer`, `UiDocument`, `UiElement`, input map, hot reload |
-| Content | [`Content/UI/`](../../MainframeEngine/Content/UI/) | bundled fonts, the widget library (`widgets/`) |
+| Content | [`Assets/UI/`](../../MainframeEngine/Assets/UI/) | bundled fonts, the widget library (`widgets/`) |
 
 ![RmlUi integration](../images/rmlui-integration.svg)
 
@@ -24,7 +24,7 @@ public sealed class Hud : UiDocument
     private Player _player = null!;
     private RmlDataModel _model = null!;
 
-    public Hud() => Source = "Content/UI/hud.rml";
+    public Hud() => Source = "Assets/UI/hud.rml";
 
     protected override void OnReady()
     {
@@ -45,10 +45,10 @@ Root.AddChild(layer);
 ```
 
 ```html
-<!-- Content/UI/hud.rml -->
+<!-- Assets/UI/hud.rml -->
 <rml>
 <head>
-  <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
+  <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
 </head>
 <body class="hud" data-model="hud">
   <div class="panel">Health {{ health }}</div>
@@ -114,7 +114,7 @@ model.Dirty("health");                                                      // v
 
 | Type | Role |
 |---|---|
-| `UiServer` ([UiServer.cs](../../MainframeEngine/Src/UI/UiServer.cs)) | `IFrameServer` + `IInputServer` registered by `Engine`. Owns RmlUi (init, shutdown), the render interface, fonts (every `.ttf`/`.otf` in `Content/UI/fonts`), the system and file interfaces, one context per layer, input routing, hot reload, the debugger (F8), `engine://` textures (`RegisterTexture`), the `Translator` hook ([Localization](localization.md#game-ui-rmlui)) |
+| `UiServer` ([UiServer.cs](../../MainframeEngine/Src/UI/UiServer.cs)) | `IFrameServer` + `IInputServer` registered by `Engine`. Owns RmlUi (init, shutdown), the render interface, fonts (every `.ttf`/`.otf` in `Assets/UI/fonts`), the system and file interfaces, one context per layer, input routing, hot reload, the debugger (F8), `engine://` textures (`RegisterTexture`), the `Translator` hook ([Localization](localization.md#game-ui-rmlui)) |
 | `UiLayer : Node` ([UiLayer.cs](../../MainframeEngine/Src/UI/UiLayer.cs)) | One RmlUi context sized to the framebuffer, or to its `Region` (below). `[Export] Layer` (draw/input order), `Visible`, `ScaleMode` (`Project` default: the game's UI scale, `UiServer.Scaling` — [Scaling](#scaling); `Dpi`: 1 dp = `UiServer.ContentScale` — the display's pixels per point, or the fixed `EngineOptions.ContentScale`; `Pixels`; `ReferenceResolution`: framebuffer ÷ `ReferenceResolution`, smaller axis), `Scaling` (a per-layer replacement for the server's, not serialized). Games typically use HUD (0), menus (10), overlay (100). In the editor (`SceneTree.EditMode`), a layer of an edited scene (below a sub-viewport, not the tree's root viewport) that is not a `[Tool]` type is inert: it has a context so `OnReady` code works, but the server never updates, draws or routes input to it, so a game HUD cannot cover the editor's panels |
 | `UiDocument : Node` ([UiDocument.cs](../../MainframeEngine/Src/UI/UiDocument.cs)) | `[Export] Source` (or inline `Rml`), `Visible`, `Modal`, `AutoFocus`; `[Signal] Loaded`, `Reloaded`; `CreateDataModel`, `GetElementById`, `QuerySelector`, `Show`/`Hide`, `Reload`. Must be below a `UiLayer` |
 | `UiElement` ([UiElement.cs](../../MainframeEngine/Src/UI/UiElement.cs)) | A cached element wrapper with C# events (`Click`, `DoubleClick`, `MouseDown/Up/Over/Out`, `Change`, `Submit`, `Focused`, `Blurred`, `KeyDown/Up`, `On(type, …)`); native listeners attach only for subscribed types. Every access looks the element up again by id, so a wrapper follows elements the DOM replaces (inner RML, `data-for`, `data-if`) and reports invalid — never dangling — once removed |
@@ -215,7 +215,7 @@ flowchart LR
   vertexOffset, 0)` and buffers rebind only on a chunk change. RmlUi compiles geometry once and re-renders it by
   handle (geometry caching); ranges are freed only after the frames that may read them complete.
 - **Textures.** Images load through the UI file interface (StbImageSharp). An `src` that is an absolute path to an
-  existing file (`<img src="/home/me/Game/Content/icon.png">`, `C:\…`) loads as written (the `JoinPath` callback keeps
+  existing file (`<img src="/home/me/Game/Assets/icon.png">`, `C:\…`) loads as written (the `JoinPath` callback keeps
   it instead of joining it onto the document's folder; the editor's Project Manager shows project icons this way).
   Textures are cached by source: `RmlCore.ReleaseTextures()` drops them so a changed file is re-read.
   **Preloading ([ADR 0140](../../memory/decisions/0140-ui-image-preload.md)):** when a document loads, its `<img src>`
@@ -240,7 +240,7 @@ flowchart LR
   (`brightness`, `contrast`, `invert`, `grayscale`, `sepia`, `hue-rotate`, `saturate`), `mask-image`
   (`SaveLayerAsMaskImage`). `SaveLayerAsTexture` (box-shadow) renders the region into a new texture. Shaders: linear,
   radial, conic gradients and their repeating forms (≤ 16 stops; parameters in a dynamic-offset uniform ring per frame
-  slot). Shaders: [`Content/Shaders/UI/`](../../MainframeEngine/Content/Shaders/UI/).
+  slot). Shaders: [`Assets/Shaders/UI/`](../../MainframeEngine/Assets/Shaders/UI/).
 - **Passes.** Layer passes (colour + stencil: clear-all at frame start, clear-colour for a pushed layer, load to
   resume) and filter passes (colour only: discard on first use, then load) all end in `SHADER_READ_ONLY_OPTIMAL`; 17
   pipelines are built once against them and the overlay pass. Targets are swapchain-sized and rebuilt on resize.
@@ -289,7 +289,7 @@ focused button); handling the event stops it, otherwise the UI and the remaining
 
 ## Development tools
 
-- **Hot reload** (`UiServerOptions.HotReload`, default on in Debug): a `FileSystemWatcher` on `Content/UI` and every
+- **Hot reload** (`UiServerOptions.HotReload`, default on in Debug): a `FileSystemWatcher` on `Assets/UI` and every
   source content folder; changes are debounced (150 ms) and applied on the main thread — `.rcss` re-reads style sheets
   keeping the DOM, `.rml` reloads documents (data models are C# state and survive; `UiElement` subscriptions are
   re-attached by id), images and fonts release textures. A document that failed to load is retried.
@@ -299,7 +299,7 @@ focused button); handling the event stops it, otherwise the UI and the remaining
   counter.
 - **Source content folders.** Debug builds record their project's `Content` folder
   (`[AssemblyMetadata("MainframeContentSource", …)]`); `UiServerOptions.SourceDirectoriesOf(assembly)` returns those
-  that exist, and `UiFileInterface` checks them before the output's `Content/`, so edits apply without a rebuild. The
+  that exist, and `UiFileInterface` checks them before the output's `Assets/`, so edits apply without a rebuild. The
   engine adds its own (widgets) automatically.
 - **Debugger:** F8 (`UiServerOptions.DebuggerKey`, `UiServer.DebuggerVisible`) shows RmlUi's visual debugger in its own
   context on top, inspecting the top visible layer.
@@ -319,18 +319,18 @@ themselves and call `FadeOut()`. The document is modal while loading (the game g
   `<div id="fill" data-style-width="percent + '%'"/>` and `{{ stage }}`.
 - RCSS animations (`@keyframes`, `animation:`) run on the UI clock, so the screen moves while the load works on other
   threads, and is deterministic under `--fixed-fps`.
-- The engine's document, [`Content/UI/loading/loading.rml`](../../MainframeEngine/Content/UI/loading/loading.rml)
+- The engine's document, [`Assets/UI/loading/loading.rml`](../../MainframeEngine/Assets/UI/loading/loading.rml)
   (`LoadingScreen.DefaultSource`): the Mainframe brand (navy, sky blue, amber), the logo breathing, the game's name, a
   bar with a sweeping highlight, the stage and the percentage. A project picks its own with `loading.screen`
   (the Forest's matches its pause menu). Golden: `loading-screen` (UiRenderTests).
-- Engine and game `Content/` merge in the output folder: give a game's document a path the engine does not use (the
-  Forest's is `Content/UI/loading.rml`).
+- Engine and game `Assets/` merge in the output folder: give a game's document a path the engine does not use (the
+  Forest's is `Assets/UI/loading.rml`).
 
 ## Settings menu (G4)
 
 `SettingsMenu : UiDocument` ([`Src/UI/Settings/`](../../MainframeEngine/Src/UI/Settings/SettingsMenu.cs)) is the engine's
 drop-in options screen over [`UserSettings`](project-and-gamehost.md#user-settings), laid out by
-[`Content/UI/settings/settings.rml`](../../MainframeEngine/Content/UI/settings/settings.rml) with the widget library only
+[`Assets/UI/settings/settings.rml`](../../MainframeEngine/Assets/UI/settings/settings.rml) with the widget library only
 (`.panel`, `.tabs`, sliders, checkboxes, dropdowns, buttons).
 
 ```csharp
@@ -358,7 +358,7 @@ SettingsMenu.Open(Tree, new SettingsMenuOptions
   15 s **revert prompt** ("Keep this display mode?"): Keep confirms, Revert, Escape or the timeout restores the old one.
 - Every change applies at once; closing saves `settings.json` only if something changed. Without loaded settings
   (tests, tools) the menu edits in-memory defaults and saves nothing.
-- **Restyling:** copy `settings.rml` into the game's `Content/` and pass `Source`. The `settings` data model (documented
+- **Restyling:** copy `settings.rml` into the game's `Assets/` and pass `Source`. The `settings` data model (documented
   at the top of the file) is the contract: `tab`, `buses`, `actions`, the display scalars, `locales`, and the events
   `tab`, `toggleMute`, `rebind(action, class, slot)`, `reset(section)`, `keep`, `revert`, `close`.
 - **Selects write back:** RmlUi sets a `<select>`'s bound value to its first option when the current value is not one of
@@ -370,7 +370,7 @@ SettingsMenu.Open(Tree, new SettingsMenuOptions
 
 ## Widget library
 
-[`Content/UI/widgets/`](../../MainframeEngine/Content/UI/widgets/): link `/Content/UI/widgets/widgets.rcss`.
+[`Assets/UI/widgets/`](../../MainframeEngine/Assets/UI/widgets/): link `/Assets/UI/widgets/widgets.rcss`.
 
 | Widget | Markup |
 |---|---|
@@ -381,14 +381,14 @@ SettingsMenu.Open(Tree, new SettingsMenuOptions
 | Text field | `<input type="text">`, `type="password"`, `<textarea>` |
 | Progress bar | `<progress value="0..1">`, `.health` |
 | Tabs | `<div class="tabs">` of buttons; the open one carries `.active` (pair with `data-if` pages; the settings menu) |
-| Panel | `.panel`, `.panel-title`; window template `mf-panel` (`<link type="text/template" href="/Content/UI/widgets/panel.rml"/>`, `<body template="mf-panel">`; the document `<title>` fills the draggable title bar) |
+| Panel | `.panel`, `.panel-title`; window template `mf-panel` (`<link type="text/template" href="/Assets/UI/widgets/panel.rml"/>`, `<body template="mf-panel">`; the document `<title>` fills the draggable title bar) |
 | HUD helpers | `body.hud` (`pointer-events: none`, full screen), `.stat` (monospace), `.row`/`label.caption` |
 
 Interactive controls set `pointer-events: auto`, `tab-index: auto` and `nav: auto`. `demo.rml` shows them all
 (the Demo's UI scene; the `ui-widgets` golden).
 
 **Fonts** (OFL 1.1, [ADR 0052](../../memory/decisions/0052-bundled-ui-fonts.md)): Lato Latin regular/bold/italic
-(`font-family: LatoLatin`) and Roboto Mono (`"Roboto Mono"`), in `Content/UI/fonts/` with their licences.
+(`font-family: LatoLatin`) and Roboto Mono (`"Roboto Mono"`), in `Assets/UI/fonts/` with their licences.
 
 ## Localization
 

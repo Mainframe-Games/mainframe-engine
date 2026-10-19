@@ -102,7 +102,7 @@ public static partial class SongBaker
 
     private const string StageSuffix = ".baking.tmp";
 
-    /// <summary>The manifest's project path: <c>adaptive.output</c>, else <c>Content/Music/&lt;songName&gt;.mmusic</c>.</summary>
+    /// <summary>The manifest's project path: <c>adaptive.output</c>, else <c>Assets/Music/&lt;songName&gt;.mmusic</c>.</summary>
     public static string ManifestPathFor(Song song, string songName)
     {
         ArgumentNullException.ThrowIfNull(song);

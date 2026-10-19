@@ -68,7 +68,7 @@ public sealed class ViewportPanel : EditorDocument
 
     private const string NewSceneTooltip = "New Scene (Ctrl+N) — open an empty scene in a new tab";
     private const string OpenRecordingTooltip = "Open a recording (Ctrl+O)";
-    private const string NewSongTooltip = "New Song (Ctrl+N) — create a song in the project's Content/Music";
+    private const string NewSongTooltip = "New Song (Ctrl+N) — create a song in the project's Assets/Music";
 
     public ViewportPanel(EditorWorkspace workspace)
         : base(workspace, "viewport.rml")

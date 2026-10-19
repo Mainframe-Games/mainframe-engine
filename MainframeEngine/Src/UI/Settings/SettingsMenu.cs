@@ -42,15 +42,15 @@ public sealed class SettingsMenuOptions
 
 /// <summary>
 /// The engine's drop-in settings menu: audio volumes, key rebinding and display options over <see cref="UserSettings"/>,
-/// laid out by <c>Content/UI/settings/settings.rml</c> with the widget library. <see cref="Open"/> adds it on its own
+/// laid out by <c>Assets/UI/settings/settings.rml</c> with the widget library. <see cref="Open"/> adds it on its own
 /// <see cref="UiLayer"/>; every change applies at once and the settings are saved when the menu closes (only if
 /// something changed). LB/RB switch tabs; Escape or gamepad B closes it. Strings go through <see cref="Tr"/> (context
-/// <c>"settings"</c>), so a game's catalog translates them (merge <c>Content/UI/settings/settings.pot</c>).
+/// <c>"settings"</c>), so a game's catalog translates them (merge <c>Assets/UI/settings/settings.pot</c>).
 /// </summary>
 public sealed class SettingsMenu : UiDocument
 {
     /// <summary>The engine's menu document.</summary>
-    public const string DefaultSource = "Content/UI/settings/settings.rml";
+    public const string DefaultSource = "Assets/UI/settings/settings.rml";
 
     /// <summary>The name of the layer <see cref="Open"/> creates (one menu per tree).</summary>
     public const string LayerName = "SettingsMenu";

@@ -33,7 +33,7 @@ public sealed class SpinePanel : UiDocument
 
     public SpinePanel()
     {
-        Source = "Content/Spine/panel.rml";
+        Source = "Assets/Spine/panel.rml";
         AutoFocus = false;
     }
 

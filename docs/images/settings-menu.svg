@@ -210,6 +210,6 @@
   <text x="560" y="542" class="doc">Display: unsupported rows hide (mobile: no window mode)</text>
   <text x="560" y="558" class="doc">Saved to {user data}/settings.json on close</text>
 
-  <text x="20" y="604" class="cap">SettingsMenu: one RmlUi document (Content/UI/settings/settings.rml + the widget library) on its own UiLayer above the game.</text>
+  <text x="20" y="604" class="cap">SettingsMenu: one RmlUi document (Assets/UI/settings/settings.rml + the widget library) on its own UiLayer above the game.</text>
   <text x="20" y="621" class="cap">Its three tabs are drawn side by side here. Changes apply live; the gear button in the Demo nav bar (new) opens it.</text>
 </svg>

@@ -20,7 +20,7 @@ public static class EditorTheme
 
     /// <summary>
     /// Writes (or, for the default accent, removes) the recoloured sheets under <paramref name="overlayDirectory"/>.
-    /// <paramref name="editorContent"/> is the editor's own <c>Content</c> folder (the sheets are read from there).
+    /// <paramref name="editorContent"/> is the editor's own <c>Assets</c> folder (the sheets are read from there).
     /// Returns the number of sheets written.
     /// </summary>
     public static int Apply(string overlayDirectory, string accent, string editorContent)
@@ -49,7 +49,7 @@ public static class EditorTheme
         return written;
     }
 
-    /// <summary>The editor's <c>Content</c> folder: the project sources in Debug builds, else next to the executable.</summary>
+    /// <summary>The editor's <c>Assets</c> folder: the project sources in Debug builds, else next to the executable.</summary>
     public static string EditorContentDirectory()
     {
         foreach (var source in UiServerOptions.SourceDirectoriesOf(typeof(EditorTheme).Assembly))

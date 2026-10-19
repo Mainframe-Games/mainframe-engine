@@ -1,0 +1,226 @@
+<rml>
+<head>
+    <title>Toolbar</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        body.toolbar {
+            flex-direction: row;
+            align-items: center;
+            padding: 0dp 8dp;
+            background-color: #1b1d23;
+            border-bottom: 1dp #2a2d36;
+        }
+        .group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 0dp 6dp;
+            margin-right: 6dp;
+            border-right: 1dp #2a2d36;
+        }
+        .group button.tool-button { width: 28dp; height: 26dp; line-height: 26dp; }
+        .spacer { flex: 1 1 auto; }
+        /* Each mode's tools fill the bar up to the Game|Music|Video toggle (ToolbarPanel.ApplyMode hides the other modes'). */
+        .tools { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
+        .tools.hidden { display: none; }
+        /* The Game|Music|Video toggle: a track with one thumb under the active mode's button. On a switch the thumb
+           stretches: its leading edge darts to the new button and its trailing edge follows with a little squash
+           (ToolbarPanel.ApplyMode sets the to-left/to-right direction and the at-* position); the labels and icons fade
+           as it arrives. Only the toggle animates: the window switches at once. */
+        #mode-toggle {
+            position: relative; display: flex; flex-direction: row; align-items: center; flex: 0 0 auto;
+            box-sizing: border-box; height: 28dp; padding: 2dp; margin: 0dp 8dp;
+            border-radius: 14dp; border: 1dp #2a2d36; background-color: #101216;
+        }
+        #mode-thumb {
+            position: absolute; z-index: 0; top: 2dp; height: 22dp; left: 2dp; right: 154dp; border-radius: 11dp;
+            background-color: #2563eb; border: 1dp #4f8ff7; box-sizing: border-box;
+            box-shadow: #2563eb66 0dp 0dp 10dp 1dp;
+        }
+        #mode-thumb.at-music { left: 78dp; right: 78dp; }
+        #mode-thumb.at-video { left: 154dp; right: 2dp; }
+        #mode-thumb.to-right { transition: right 0.2s cubic-out, left 0.46s back-out; }
+        #mode-thumb.to-left { transition: left 0.2s cubic-out, right 0.46s back-out; }
+        button.mode {
+            position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center;
+            width: 76dp; height: 22dp; line-height: 22dp; padding: 0dp; margin: 0dp;
+            border-width: 0dp; border-radius: 11dp; background-color: transparent;
+            color: #7d8597; font-size: 12dp; transform: scale(1);
+            transition: color 0.22s cubic-out, transform 0.12s cubic-out;
+        }
+        button.mode .icon { margin-right: 5dp; image-color: #6b7488; transition: image-color 0.22s cubic-out; }
+        button.mode:hover { background-color: transparent; color: #c9cedb; }
+        button.mode:hover .icon { image-color: #a3abbd; }
+        button.mode:active { background-color: transparent; transform: scale(0.92); }
+        button.mode.active { background-color: transparent; color: #ffffff; }
+        button.mode.active .icon { image-color: #ffffff; }
+        #snap-step { width: 46dp; margin-left: 4dp; }
+        #update { display: none; margin-right: 6dp; }
+        #update.shown { display: inline-block; }
+        #update .icon { image-color: #4ade80; }
+        #stats { padding: 0dp 10dp 0dp 6dp; color: #8b93a5; white-space: nowrap; }
+        .play button.tool-button { width: 32dp; }
+        #play .icon { image-color: #4ade80; }
+        #play.disabled .icon, #pause.disabled .icon, #stop.disabled .icon { image-color: #4b5263; }
+        #record .icon { image-color: #f87171; }
+        #record.disabled .icon { image-color: #4b5263; }
+        #record.recording { background-color: #3f1d1d; border-color: #ef4444; }
+        #record.recording .icon { image-color: #ffffff; }
+        .play button.attention { border-color: #f59e0b; }
+        .play button.busy { background-color: #3a2f12; border-color: #b45309; }
+        #instances { display: flex; flex-direction: row; align-items: center; }
+        .instance {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 22dp;
+            margin-left: 4dp;
+            padding: 0dp 6dp 0dp 4dp;
+            border: 1dp #3b3f4b;
+            border-radius: 11dp;
+            background-color: #23262e;
+            font-size: 11dp;
+            cursor: pointer;
+        }
+        .instance:hover { border-color: #4b5263; }
+        .instance.running { border-color: #15803d; }
+        .instance.paused { border-color: #b45309; }
+        .instance.crashed { border-color: #b91c1c; }
+        .instance.exited { color: #6b7488; }
+        #play-status { margin-left: 6dp; font-size: 11dp; white-space: nowrap; }
+        /* The REC status's red dot: an icon, since the UI font (LatoLatin) has no ● glyph. */
+        #rec-dot { display: none; width: 10dp; height: 10dp; margin-left: 6dp; image-color: #ef4444; }
+        #rec-dot.on { display: inline-block; }
+        #rec-dot.on + #play-status { margin-left: 3dp; }
+        /* Video mode: transport and position, the detection jobs ("Cancel n %" while one runs), kept time, Export. */
+        .video-transport button.tool-button { width: 32dp; }
+        #video-pos { display: inline-block; height: 20dp; line-height: 20dp; min-width: 96dp; padding: 0dp 8dp; margin-left: 6dp;
+                     background-color: #121418; border: 1dp #3b82f6; border-radius: 3dp; color: #d7dbe4; text-align: center; white-space: nowrap; }
+        /* No video tab: no position, and no empty box (it keeps its space, so the buttons do not move). */
+        #video-pos.empty { visibility: hidden; }
+        button.video-job { margin-right: 6dp; white-space: nowrap; }
+        button.video-job.busy { background-color: #3a2f12; border-color: #b45309; }
+        #video-kept { margin-right: 10dp; white-space: nowrap; }
+        button.accent { background-color: #2563eb; border-color: #3b82f6; color: #ffffff; padding: 0dp 14dp; }
+        button.accent:hover { background-color: #3b82f6; }
+        button.accent.disabled { color: #5f6676; background-color: #23262e; border-color: #2a2d36; }
+        button.accent.busy { background-color: #7f1d1d; border-color: #b91c1c; }
+        /* Music mode: the song transport (ToolbarPanel.UpdateMusic), then tempo, time signature, position, snap, input
+           quantize, underruns, the read-only badge, Render ("Cancel n %" while it runs) and, on the right, the view toggles
+           (the bottom pane's Piano Roll and Mixer, lit while shown). Disabled without a song tab. */
+        .song-transport button.tool-button { width: 30dp; }
+        .flip { transform: rotate(180deg); }
+        #song-play .icon { image-color: #4ade80; }
+        #song-play.active { background-color: #14532d; border-color: #22c55e; }
+        #song-play.active .icon { image-color: #ffffff; }
+        #song-record .icon { image-color: #f87171; }
+        #song-record.active { background-color: #b91c1c; border-color: #f87171; }
+        #song-record.active .icon { image-color: #ffffff; }
+        #song-loop.active { background-color: #1e3a8a; border-color: #3b82f6; }
+        .group.song-view { margin: 0dp 0dp 0dp 6dp; border-right-width: 0dp; border-left: 1dp #2a2d36; }
+        .song-view button.tool-button.active { background-color: #1e3a8a; border-color: #3b82f6; }
+        #music-tools .disabled .icon { image-color: #4b5263; }
+        .field { display: inline-flex; flex-direction: row; align-items: center; height: 22dp; margin-right: 6dp; padding: 0dp 6dp 0dp 0dp;
+                 background-color: #121418; border: 1dp #3b3f4b; border-radius: 3dp; }
+        .field input.text { width: 34dp; height: 20dp; line-height: 20dp; border-width: 0dp; background-color: transparent; padding: 0dp 4dp 0dp 6dp; }
+        .unit { color: #8b93a5; font-size: 11dp; }
+        button.field-button { height: 22dp; line-height: 22dp; padding: 0dp 8dp; margin-right: 6dp; font-size: 12dp; white-space: nowrap; }
+        button.field-button .icon-chevron-down { margin-left: 4dp; margin-right: 0dp; }
+        #song-pos { display: inline-block; height: 20dp; line-height: 20dp; min-width: 70dp; padding: 0dp 8dp; margin-right: 10dp;
+                    background-color: #121418; border: 1dp #3b82f6; border-radius: 3dp; color: #d7dbe4; text-align: center; white-space: nowrap; }
+        #song-pos.empty { visibility: hidden; }
+        .field-label { color: #8b93a5; font-size: 11dp; margin-right: 6dp; }
+        #song-xruns { font-size: 10dp; margin-left: 2dp; white-space: nowrap; }
+        #song-xruns.bad { color: #f59e0b; }
+        #song-readonly { color: #f59e0b; font-size: 11dp; margin-right: 8dp; white-space: nowrap; }
+        #song-readonly .icon { image-color: #f59e0b; }
+        #song-readonly.hidden { display: none; }
+        #song-render { white-space: nowrap; border-radius: 3dp 0dp 0dp 3dp; }
+        /* Render's split part: Bake and Render timeline (adaptive songs bake; the button itself follows the song). */
+        #song-render-menu { width: 22dp; padding: 0dp; margin-left: 1dp; border-radius: 0dp 3dp 3dp 0dp; }
+        #song-render-menu .icon { margin: 0dp; }
+    </style>
+</head>
+<body class="panel-doc toolbar">
+    <div id="game-tools" class="tools">
+        <div class="group">
+            <button id="tool-select" class="tool-button" data-command="gizmo.select" data-tooltip="Select (Q) — pick nodes in the viewport without a gizmo"><span class="icon icon-pointer"></span></button>
+            <button id="tool-translate" class="tool-button" data-command="gizmo.translate" data-tooltip="Move (W) — translate selected nodes"><span class="icon icon-arrows-move"></span></button>
+            <button id="tool-rotate" class="tool-button" data-command="gizmo.rotate" data-tooltip="Rotate (E) — rotate selected nodes"><span class="icon icon-rotate"></span></button>
+            <button id="tool-scale" class="tool-button" data-command="gizmo.scale" data-tooltip="Scale (R) — scale selected nodes"><span class="icon icon-arrows-maximize"></span></button>
+        </div>
+        <div class="group">
+            <button id="tool-local" class="tool-button" data-command="gizmo.local" data-tooltip="Global Space (T) — handles follow the world axes; click for the node's local axes"><span id="tool-local-icon" class="icon icon-world"></span></button>
+            <button id="tool-snap" class="tool-button" data-command="gizmo.snap" data-tooltip="Snap (Y) — move, rotate and scale in steps"><span class="icon icon-magnet"></span></button>
+            <input type="text" class="text" id="snap-step" value="0.5" data-tooltip="Snap Step — the move step in metres (rotation snaps to 15°, scale to 0.1)"/>
+        </div>
+        <div class="group">
+            <button id="tool-frame" class="tool-button" data-command="view.frame" data-tooltip="Frame Selection (F) — move the camera to the selected nodes"><span class="icon icon-focus-centered"></span></button>
+            <button id="tool-grid" class="tool-button active" data-command="view.grid" data-tooltip="Grid (G) — show or hide the ground grid"><span class="icon icon-grid-3x3"></span></button>
+            <button id="tool-post" class="tool-button active" data-command="view.post" data-tooltip="Preview Post-Processing — show the world's post effects in the view (tonemap, auto exposure, glow, SSAO, TAA, grade, depth of field, film); off: the plain tonemap"><span class="icon icon-sparkles"></span></button>
+        </div>
+        <div class="spacer"></div>
+        <div class="group play">
+            <button id="play" class="tool-button" data-command="play.main" data-tooltip="Play (F5) — build the project and run its main scene"><span class="icon icon-player-play-filled"></span></button>
+            <button id="play-scene" class="tool-button" data-command="play.scene" data-tooltip="Play Scene (F6) — save and run the open scene"><span class="icon icon-movie"></span></button>
+            <button id="record" class="tool-button" data-command="play.record" data-tooltip="Play and Record (F10) — record gameplay for promo footage; press again to stop"><span class="icon icon-point-filled"></span></button>
+            <button id="pause" class="tool-button disabled" data-command="play.pause" data-tooltip="Pause (F7) — pause or resume the running game"><span class="icon icon-player-pause"></span></button>
+            <button id="stop" class="tool-button disabled" data-command="play.stop" data-tooltip="Stop (F8) — stop every running game"><span class="icon icon-player-stop"></span></button>
+            <button id="build-reload" class="tool-button" data-command="project.build_reload" data-tooltip="Build &amp; Reload (Ctrl+Shift+B) — compile the game's C# and reload it in the editor"><span class="icon icon-hammer"></span></button>
+            <button id="user-data" class="tool-button" data-command="project.user_data" data-tooltip="Open User Data Folder — show the folder the game keeps its saves, settings and logs in (created if missing)"><span class="icon icon-folder-user"></span></button>
+            <div id="instances"></div>
+            <span id="rec-dot" class="icon icon-point-filled"></span>
+            <span id="play-status" class="muted"></span>
+        </div>
+        <div class="spacer"></div>
+    </div>
+    <div id="video-tools" class="tools hidden">
+        <div class="group video-transport">
+            <button id="video-play" class="tool-button disabled" data-command="video.play" data-tooltip="Play (Space) — the kept footage from the playhead, skipping the cuts"><span id="video-play-icon" class="icon icon-player-play"></span></button>
+            <button id="video-stop" class="tool-button disabled" data-command="video.stop" data-tooltip="Stop — pause and go back to the start"><span class="icon icon-player-stop"></span></button>
+            <span id="video-pos" class="mono empty" data-tooltip="Position — the playhead and the recording's length"></span>
+        </div>
+        <button id="video-transcribe" class="video-job disabled" data-command="video.transcribe" data-tooltip="Transcribe — recognise the speech on this computer, for editing by text and removing filler words">Transcribe</button>
+        <button id="video-fillers" class="video-job disabled" data-command="video.remove_fillers" data-tooltip="Remove Fillers — cut the um's and uh's (transcribes first when there is no transcript)">Remove fillers</button>
+        <button id="video-silence" class="video-job disabled" data-command="video.detect_silence" data-tooltip="Detect Silence — cut the pauses; your own cuts and kept regions stay">Detect silence</button>
+        <button id="video-idle" class="video-job disabled" data-command="video.detect_idle" data-tooltip="Detect Idle Gameplay — cut loading, pauses and stretches without input, from the recording's Mainframe Engine data">Detect idle gameplay</button>
+        <div class="spacer"></div>
+        <span id="video-kept" class="muted" data-tooltip="Kept — how long the export will be, of the recording's full length"></span>
+        <button id="video-export" class="accent disabled" data-command="video.export" data-tooltip="Export Video (Ctrl+E) — write the kept footage to a new file">Export</button>
+    </div>
+    <div id="music-tools" class="tools hidden">
+        <div class="group song-transport">
+            <button id="song-rewind" class="tool-button disabled" data-command="song.rewind" data-tooltip="To Start (Home) — move the playhead to bar 1"><span class="icon icon-player-track-next flip"></span></button>
+            <button id="song-play" class="tool-button disabled" data-command="song.play" data-tooltip="Play/Stop (Space) — from the playhead; plays the loop region over and over while Loop is on"><span class="icon icon-player-play-filled"></span></button>
+            <button id="song-stop" class="tool-button disabled" data-command="song.stop" data-tooltip="Stop (Space) — the playhead stays where it is"><span class="icon icon-player-stop"></span></button>
+            <button id="song-record" class="tool-button disabled" data-command="song.record" data-tooltip="Record (R) — play your MIDI keyboard into a new clip on the armed track (arms the selected track if none is); with Loop on every pass adds to the same clip. Stop or R ends the take (one undo step)"><span class="icon icon-point-filled"></span></button>
+            <button id="song-loop" class="tool-button disabled" data-command="song.loop" data-tooltip="Loop (L) — repeat the loop region (drag it in the ruler's top band); renders loop seamlessly"><span class="icon icon-repeat"></span></button>
+        </div>
+        <div class="field" data-tooltip="Tempo — beats per minute (20–999); type a value"><input id="song-tempo" type="text" class="text mono"/><span class="unit">BPM</span></div>
+        <button id="song-sig" class="field-button mono disabled" data-command="song.signature" data-tooltip="Time Signature — beats per bar / beat unit">4 / 4</button>
+        <div id="song-pos" class="mono empty" data-tooltip="Position — bars.beats.ticks of the playhead (click the ruler to move it)"></div>
+        <span class="field-label">Snap</span>
+        <button id="song-snap" class="field-button with-icon disabled" data-command="song.snap" data-tooltip="Snap — the grid clips and notes snap to; Q quantizes the selected notes to it"><span class="icon icon-sm icon-magnet"></span><span id="song-snap-label">1/16</span><span class="icon icon-sm icon-chevron-down"></span></button>
+        <button id="song-quantize" class="field-button with-icon disabled" data-command="song.quantize" data-tooltip="Input Quantize — snaps the starts of recorded MIDI notes (off, 1/16, 1/8)"><span class="icon icon-sm icon-keyboard"></span><span id="song-quantize-label">Off</span><span class="icon icon-sm icon-chevron-down"></span></button>
+        <span id="song-xruns" class="mono muted" data-tooltip="Underruns — times the song's render thread fell behind the audio device (heard as gaps)"></span>
+        <div class="spacer"></div>
+        <span id="song-readonly" class="hidden"><span class="icon icon-sm icon-alert-triangle"></span> Read-only</span>
+        <button id="song-render" class="accent with-icon disabled" data-command="song.render" data-tooltip="Render (Ctrl+E) — write the song to an audio file and its loop points"><span id="song-render-icon" class="icon icon-sm icon-download"></span><span id="song-render-label">Render</span></button><button id="song-render-menu" class="accent with-icon disabled" data-command="song.render_menu" data-tooltip="Bake or Render — Bake (Ctrl+B) writes an adaptive song's stems and manifest; Render timeline (Ctrl+E) writes the timeline to one file"><span class="icon icon-sm icon-chevron-down"></span></button>
+        <div class="group song-view">
+            <button id="song-view-roll" class="tool-button disabled" data-command="song.piano_roll" data-tooltip="Piano Roll (P) — the selected MIDI clip's notes below the tracks; again to hide it"><span class="icon icon-piano"></span></button>
+            <button id="song-view-mixer" class="tool-button disabled" data-command="song.mixer" data-tooltip="Mixer (X) — every track's instrument, inserts, pan, volume and meter below the tracks; again to hide it"><span class="icon icon-adjustments-alt"></span></button>
+            <button id="song-view-browser" class="tool-button" data-command="music.browser" data-tooltip="Browser (F) — the project's songs and every plugin on the right; drag a plugin onto a track or mixer strip"><span class="icon icon-layout-sidebar-right"></span></button>
+        </div>
+    </div>
+    <div id="mode-toggle">
+        <div id="mode-thumb"></div>
+        <button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record"><span class="icon icon-sm icon-device-gamepad-2"></span><span>Game</span></button>
+        <button id="mode-music" class="mode" data-command="editor.mode.music" data-tooltip="Music mode: compose, mix and render the game's songs"><span class="icon icon-sm icon-music"></span><span>Music</span></button>
+        <button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings"><span class="icon icon-sm icon-video"></span><span>Video</span></button>
+    </div>
+    <button id="docs" class="tool-button" data-command="help.docs" data-tooltip="Documentation (F1) — open the engine docs in your browser"><span class="icon icon-book"></span></button>
+    <button id="update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>
+    <span id="stats" class="mono" data-tooltip="Frame Rate — editor frames per second and frame time"></span>
+</body>
+</rml>

@@ -22,7 +22,7 @@ namespace Forest;
 public static class ForestGrade
 {
     /// <summary>The LUT, relative to the project folder.</summary>
-    public const string LutPath = "Content/Grading/forest-morning.cube";
+    public const string LutPath = "Assets/Grading/forest-morning.cube";
 
     public const int LutSize = 33;
 

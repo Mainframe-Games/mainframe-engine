@@ -192,7 +192,7 @@ public sealed class SceneEdgeCaseTests : IDisposable
         var json = $$"""
             { "format": 1,
               "root": { "type": "Node3D", "name": "Level",
-                "children": [ { "instance": "{{subUid}}", "path": "Content/Scenes/Sub.mscene", "name": "Sub",
+                "children": [ { "instance": "{{subUid}}", "path": "Assets/Scenes/Sub.mscene", "name": "Sub",
                                 "overrides": { "Engine": { "Velocity": 9 } }, "overrideVersions": { "Engine": 1 } } ] } }
             """;
         var level = PackedScene.Parse(Encoding.UTF8.GetBytes(json)).Instantiate();
@@ -213,7 +213,7 @@ public sealed class SceneEdgeCaseTests : IDisposable
         sub.Free();
 
         var level = new Node3D { Name = "Level" };
-        var instance = ResourceLoader.Load<PackedScene>("Content/Scenes/Sub.mscene").Instantiate();
+        var instance = ResourceLoader.Load<PackedScene>("Assets/Scenes/Sub.mscene").Instantiate();
         level.AddChild(instance);
         instance.Owner = level;
         ResourceLoader.ClearCache(); // the writer reloads the sub-scene: new inline resource instances
@@ -248,7 +248,7 @@ public sealed class SceneEdgeCaseTests : IDisposable
     [Fact]
     public void ATreeLessSpineNodeKeepsItsRendererWhenAddedToATree()
     {
-        var folder = Path.Combine(AppContext.BaseDirectory, "Content", "Models", "Spine", "SpineBoy");
+        var folder = Path.Combine(AppContext.BaseDirectory, "Assets", "Models", "Spine", "SpineBoy");
         var renderer = new HeadlessRenderer();
         using var servers = new ServerRegistry();
         servers.Register(new RenderServer(renderer));

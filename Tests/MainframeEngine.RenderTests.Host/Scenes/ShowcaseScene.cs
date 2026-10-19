@@ -8,7 +8,7 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// <summary>
 /// Mirrors the showcase fixture's per-frame work — Spine, shadows, sky, grid, the RmlUi HUD (data bindings dirtied every frame)
 /// the light and axis screen gizmos and the RmlUi dev overlay with every panel expanded — for the steady-state allocation
-/// gate. The overlay shows timings, so it is not used for golden images. Its labels are looked up in the Spanish test catalog (Tests/Content/locale) every frame
+/// gate. The overlay shows timings, so it is not used for golden images. Its labels are looked up in the Spanish test catalog (Tests/Assets/locale) every frame
 /// (M9), so the gate also covers translation lookups. An adaptive-music player (streamed and memory stems, layer curves
 /// and filters, transitions and stingers) covers the music runtime in a real frame.
 /// </summary>
@@ -68,7 +68,7 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
         scene.AddChild(new AudioPlayer3D
         {
             Name = "Ambience",
-            Stream = new AudioStream { File = "Content/Audio/ambient_hum.ogg", LoadMode = AudioLoadMode.Stream, Loop = true, LoopEnd = 6f },
+            Stream = new AudioStream { File = "Assets/Audio/ambient_hum.ogg", LoadMode = AudioLoadMode.Stream, Loop = true, LoopEnd = 6f },
             Bus = "SFX",
             VolumeDb = -18f,
             Autoplay = true,

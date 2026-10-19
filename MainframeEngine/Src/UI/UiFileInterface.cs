@@ -6,11 +6,11 @@ namespace MainframeEngine;
 /// <summary>
 /// The UI file interface: <c>.rml</c>/<c>.rcss</c>/templates/fonts/images through <see cref="ContentPaths"/>, with
 /// optional <b>source content directories</b> checked first. In development (a Debug <c>GameHost</c> run) the game points
-/// one at its project's <c>Content/</c> folder, so documents load straight from the files being edited and hot reload needs no rebuild.
+/// one at its project's <c>Assets/</c> folder, so documents load straight from the files being edited and hot reload needs no rebuild.
 /// </summary>
 /// <remarks>
-/// A path <c>Content/UI/hud.rml</c> is looked up as <c>&lt;source&gt;/UI/hud.rml</c> in each source directory (in
-/// order), then in the application's <c>Content/</c>. Absolute paths are used as-is.
+/// A path <c>Assets/UI/hud.rml</c> is looked up as <c>&lt;source&gt;/UI/hud.rml</c> in each source directory (in
+/// order), then in the application's <c>Assets/</c>. Absolute paths are used as-is.
 /// <para><b>Localization (M9):</b> every <c>.rml</c> file (documents and templates) is served through
 /// <see cref="DocumentPreprocessor"/> — by default <see cref="Localization.ITextTranslator.PrepareDocument"/>, which
 /// translates attributes and marks <c>no-tr</c> text — before RmlUi parses it.</para>
@@ -44,7 +44,7 @@ public sealed class UiFileInterface : RmlContentFileInterface
         return new MemoryStream(Encoding.UTF8.GetBytes(prepared), writable: false);
     }
 
-    /// <summary>Directories standing in for <c>Content/</c>, checked before the application's copy.</summary>
+    /// <summary>Directories standing in for <c>Assets/</c>, checked before the application's copy.</summary>
     public IReadOnlyList<string> SourceDirectories => _sourceDirectories;
 
     public void AddSourceDirectory(string contentDirectory)
@@ -91,10 +91,10 @@ public sealed class UiFileInterface : RmlContentFileInterface
         return Directory.Exists(resolved) ? resolved : null;
     }
 
-    /// <summary><c>Content/UI/x.rml</c> → <c>UI/x.rml</c>; other relative paths are already content-relative.</summary>
+    /// <summary><c>Assets/UI/x.rml</c> → <c>UI/x.rml</c>; other relative paths are already content-relative.</summary>
     internal static string ContentRelative(string path)
     {
-        var p = path.Replace('\\', '/');
+        var p = ContentPaths.UpgradeLegacyPath(path).Replace('\\', '/');
         const string prefix = ContentPaths.FolderName + "/";
         return p.StartsWith(prefix, StringComparison.Ordinal) ? p[prefix.Length..] : p;
     }

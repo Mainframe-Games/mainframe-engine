@@ -23,7 +23,7 @@ public sealed class FpsHud : UiDocument
 
     public FpsHud()
     {
-        Source = "Content/UI/fps.rml";
+        Source = "Assets/UI/fps.rml";
         AutoFocus = false;
     }
 

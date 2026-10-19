@@ -325,11 +325,11 @@ public sealed class EditorCommands
         }
     }
 
-    /// <summary>File › New Song: asks where to save it (default <c>Content/Music</c>), creates it and opens its tab.</summary>
+    /// <summary>File › New Song: asks where to save it (default <c>Assets/Music</c>), creates it and opens its tab.</summary>
     public void NewSong()
     {
         var root = Session.ProjectRoot;
-        var folder = root is null ? StartDirectory(null) : Path.Combine(root, "Content", "Music");
+        var folder = root is null ? StartDirectory(null) : Path.Combine(root, "Assets", "Music");
         if (root is not null)
             Directory.CreateDirectory(folder);
         var model = new FilePickerModel(FilePickerMode.Save, folder, ["*.msong"], "NewSong.msong");
@@ -354,11 +354,11 @@ public sealed class EditorCommands
         }
     }
 
-    /// <summary>File › Open Song… in music mode: a picker on <c>.msong</c> files, starting in the project's <c>Content/Music</c>.</summary>
+    /// <summary>File › Open Song… in music mode: a picker on <c>.msong</c> files, starting in the project's <c>Assets/Music</c>.</summary>
     public void OpenSongFile()
     {
         var root = Session.ProjectRoot;
-        var music = root is null ? null : Path.Combine(root, "Content", "Music");
+        var music = root is null ? null : Path.Combine(root, "Assets", "Music");
         var folder = music is not null && Directory.Exists(music) ? music : StartDirectory(null);
         var model = new FilePickerModel(FilePickerMode.Open, folder, ["*.msong"]);
         _workspace.FilePicker.Show(model, "Open Song", "Open", OpenSong);
@@ -677,7 +677,7 @@ public sealed class EditorCommands
         if (scene?.FilePath is { } path && Path.GetDirectoryName(path) is { } directory)
             return directory;
         if (Session.ProjectRoot is { } root)
-            return Directory.Exists(Path.Combine(root, "Content", "Scenes")) ? Path.Combine(root, "Content", "Scenes") : root;
+            return Directory.Exists(Path.Combine(root, "Assets", "Scenes")) ? Path.Combine(root, "Assets", "Scenes") : root;
         return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     }
 
@@ -875,8 +875,67 @@ public sealed class EditorCommands
     public void OpenProject(string directory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-        AfterUnsavedScenes("Open Project", () =>
-            _workspace.RunWithSplash($"Opening {Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar))}…", () => OpenProjectNow(directory, null)));
+        AfterUnsavedScenes("Open Project", () => AfterAssetsFolderCheck(directory, () =>
+            _workspace.RunWithSplash($"Opening {Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar))}…", () => OpenProjectNow(directory, null))));
+    }
+
+    /// <summary>
+    /// Runs <paramref name="open"/> at once for a project with an <c>Assets/</c> folder. A project that still has the old
+    /// <c>Content/</c> folder (ADR 0197) is offered the rename first; declining leaves it closed, since the editor reads
+    /// only <c>Assets/</c>.
+    /// </summary>
+    public void AfterAssetsFolderCheck(string directory, Action open)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        ArgumentNullException.ThrowIfNull(open);
+        if (!AssetsFolderMigration.IsNeeded(directory))
+        {
+            open();
+            return;
+        }
+
+        if (_workspace.Splash.Visible)
+            _workspace.Splash.Finish();
+        var name = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        _workspace.Message.Show(new MessageRequest
+        {
+            Title = "Rename Content to Assets",
+            Message = $"{name} keeps its files in {ContentPaths.LegacyFolderName}/, the folder's name before this engine version. " +
+                      $"The editor reads {ContentPaths.FolderName}/: rename the folder and update the {ContentPaths.LegacyFolderName}/ " +
+                      "paths in the project's scenes, resources, UI, project file, MSBuild files and code?\n\n" +
+                      "Commit or back up the project first.",
+            Buttons = ["Rename and Open", "Cancel"],
+            DefaultButton = 0,
+            CancelButton = 1,
+            Icon = "folder",
+            Callback = (button, _) =>
+            {
+                if (button == 0 && MigrateAssetsFolder(directory))
+                {
+                    open();
+                    return;
+                }
+
+                if (Session.Scenes.Count == 0 && Session.ProjectRoot is null)
+                    _workspace.ProjectManager.Open();
+            },
+        });
+    }
+
+    private bool MigrateAssetsFolder(string directory)
+    {
+        try
+        {
+            var files = AssetsFolderMigration.Run(directory);
+            Log.Info($"[Editor] Renamed {ContentPaths.LegacyFolderName}/ to {ContentPaths.FolderName}/ in {directory}; " +
+                     $"updated the paths in {files.Count} file(s){(files.Count > 0 ? ": " + string.Join(", ", files) : ".")}");
+            return true;
+        }
+        catch (Exception e) when (IsRecoverable(e))
+        {
+            ReportError($"Could not rename {ContentPaths.LegacyFolderName}/ to {ContentPaths.FolderName}/ in {directory}", e);
+            return false;
+        }
     }
 
     /// <summary>Opens a project at once (no questions): start-up and <see cref="OpenProject"/>; then <paramref name="scene"/> or the main scene.</summary>

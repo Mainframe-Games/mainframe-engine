@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Inventory of every shader in [`MainframeEngine/Content/Shaders`](../../MainframeEngine/Content/Shaders),
+Inventory of every shader in [`MainframeEngine/Assets/Shaders`](../../MainframeEngine/Assets/Shaders),
 which C# class loads it, its interface (inputs, sets, bindings, push constants), and how shaders are
 built, shared and kept in sync with C#. Shaders are written in **Slang** ([ADR 0144](../../memory/decisions/0144-slang-shader-language.md));
 the rules for writing them are under [Writing shaders](#writing-shaders).
@@ -16,7 +16,7 @@ flowchart LR
     J["limits.json"] -->|GenerateShaderLimits| L["include/limits.slang<br/>Src/Rendering/Generated/ShaderLimits.g.cs"]
     A["*.vk.vert.slang / *.vk.frag.slang<br/>+ include/*.slang"] -->|"CompileShaders (incremental)<br/>slangc -target spirv -capability spirv_1_5<br/>-matrix-layout-row-major -I include"| S["obj/&lt;config&gt;/Shaders/**.spv"]
     L --> S
-    S -->|copied| O["bin/…/Content/Shaders/**.spv"]
+    S -->|copied| O["bin/…/Assets/Shaders/**.spv"]
     C["committed *.spv<br/>(just shaders)"] -.->|"no slangc: warning MFSHADER001"| O
     O --> R["ShaderModuleCache.Get(&quot;Shaders/…spv&quot;)<br/>(ContentPaths)"]
 ```
@@ -138,7 +138,7 @@ shaders' SPIR-V when the engine moved to Slang):
 
 ## Constants that must match C#
 
-Light and shadow limits come from [`limits.json`](../../MainframeEngine/Content/Shaders/limits.json)
+Light and shadow limits come from [`limits.json`](../../MainframeEngine/Assets/Shaders/limits.json)
 (edit only there): `LightEnvironment.MaxDirectional/MaxPoint/MaxSpot` and
 `ShadowSystem.MaxShadowDir/MaxShadowSpot/MaxShadowPoint/MaxCascades` are defined from the generated `ShaderLimits`;
 `ShaderLimitsTests` fails if the generated files drift or a shader re-`#define`s a limit (`limits.json` names the shader

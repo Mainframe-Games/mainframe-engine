@@ -13,7 +13,7 @@
     <PackageType>Template</PackageType>
     <PackageId>MainframeEngine.Templates</PackageId>
     <Title>Mainframe Engine templates</Title>
-    <Description>dotnet new templates for Mainframe Engine games: mfgame (game library + GameHost desktop project + project.mfproj + Content), referencing the MainframeEngine package of the same version.</Description>
+    <Description>dotnet new templates for Mainframe Engine games: mfgame (game library + GameHost desktop project + project.mfproj + Assets), referencing the MainframeEngine package of the same version.</Description>
     <PackageTags>mainframe;game;engine;gamedev;templates</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>

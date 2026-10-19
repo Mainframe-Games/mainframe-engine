@@ -108,7 +108,7 @@ base path and origin, for example for a custom domain.
 ## Theme
 
 `theme.css` maps Starlight's colour variables onto the editor palette
-(`MainframeEngine.Editor/Content/Editor/theme.rcss`):
+(`MainframeEngine.Editor/Assets/Editor/theme.rcss`):
 
 | Role | Dark (default) | Light |
 |---|---|---|
@@ -122,7 +122,7 @@ base path and origin, for example for a custom domain.
 
 The rest of the editor's look carries over too:
 
-- **Fonts:** the editor's Lato and Roboto Mono (SIL OFL), copied from `MainframeEngine/Content/UI/fonts`.
+- **Fonts:** the editor's Lato and Roboto Mono (SIL OFL), copied from `MainframeEngine/Assets/UI/fonts`.
 - **Logo and favicons:** the logo is `docs/images/brand/logo.svg`; the favicon is `logo-small.svg`, plus the 512 px PNG.
 - **Code blocks:** Expressive Code with GitHub's dark and light themes on the field colour.
 - **Mockups:** SVGs drawn on white get a framed white panel in the dark theme.

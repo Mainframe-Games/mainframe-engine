@@ -8,7 +8,7 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 
 - Keep these notices with any distribution of the engine, the editor, or a game built with it.
 - Credits screens must show the FreeType credit, because the FreeType License has an advertising clause. The engine
-  ships a ready-made credits document, `Content/UI/credits.rml` (load it from a **Credits** button in your game's UI).
+  ships a ready-made credits document, `Assets/UI/credits.rml` (load it from a **Credits** button in your game's UI).
 
 | Component | Version | Licence | Where | Shipped in |
 |---|---|---|---|---|
@@ -16,11 +16,11 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | zlib (bundled in FreeType's gzip module) | 1.3.1 | zlib | inside FreeType | `mfrmlui` native library (static) |
 | [RmlUi](https://github.com/mikke89/RmlUi) | 6.3 | MIT | `Native/RmlUi/external/RmlUi` (submodule) | `mfrmlui` native library (static) |
 | [ThorVG](https://github.com/thorvg/thorvg) (the copy vendored by Godot 4.7.2, `thirdparty/thorvg`) | 1.0.3 | MIT | `Native/Svg/thorvg` | `mfsvg` native library (static) |
-| [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`; GodotSharp's C# math: `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, the `Vector2` helpers; tonemap and glow shaders ported to Slang, with Godot 4.4's linear, Reinhard, filmic and AgX curves) | 4.7.2 (4.4 for the curves) | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs`, `Math/`, `Content/Shaders/Post/TonemapPost`, `GlowBlur` | engine |
+| [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`; GodotSharp's C# math: `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, the `Vector2` helpers; tonemap and glow shaders ported to Slang, with Godot 4.4's linear, Reinhard, filmic and AgX curves) | 4.7.2 (4.4 for the curves) | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs`, `Math/`, `Assets/Shaders/Post/TonemapPost`, `GlowBlur` | engine |
 | robin_hood, itlib (bundled in RmlUi Core) | — | MIT | inside RmlUi | `mfrmlui` native library (static) |
 | Courier Prime Code font (embedded in the RmlUi Debugger) | — | SIL OFL 1.1 | inside RmlUi | `mfrmlui` native library (static) |
-| [Lato](http://www.latofonts.com/) (Latin subset: regular, bold, italic) | 2.0 | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
-| [Roboto Mono](https://github.com/googlefonts/robotomono) (regular) | — | SIL OFL 1.1 | `MainframeEngine/Content/UI/fonts` (from RmlUi's samples) | engine `Content/UI/fonts` |
+| [Lato](http://www.latofonts.com/) (Latin subset: regular, bold, italic) | 2.0 | SIL OFL 1.1 | `MainframeEngine/Assets/UI/fonts` (from RmlUi's samples) | engine `Assets/UI/fonts` |
+| [Roboto Mono](https://github.com/googlefonts/robotomono) (regular) | — | SIL OFL 1.1 | `MainframeEngine/Assets/UI/fonts` (from RmlUi's samples) | engine `Assets/UI/fonts` |
 | [ENet (nxrighthere fork)](https://github.com/nxrighthere/ENet-CSharp) | 2.4.8 | MIT | `Native/ENet/upstream` (submodule) | `enet` native library; managed `ENet-CSharp` NuGet package |
 | [GetText.NET](https://github.com/perpetualKid/GetText.NET) (fork of NGettext) | 10.0.1 | MIT | NuGet package `GetText.NET` | engine assemblies (runtime `.mo` catalogs and plural rules) |
 | [GetText.NET.Extractor](https://github.com/perpetualKid/GetText.NET) | 10.0.1 | MIT | local dotnet tool (`.config/dotnet-tools.json`) | nothing: development tool for C# string extraction |
@@ -36,14 +36,14 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | [VST 3 SDK](https://github.com/steinbergmedia/vst3sdk) (base, pluginterfaces, public.sdk hosting; no VSTGUI) | 3.8.1 | MIT | `Native/PluginHost/external/vst3sdk` (submodule) | editor only: `mfplughost` helper executable (static) |
 | [RtMidi](https://github.com/thestk/rtmidi) (Gary P. Scavone) | 6.0.0 | MIT (with a non-binding request to send modifications upstream) | `Native/PluginHost/external/rtmidi` (submodule) | editor only: `mfplughost` helper executable (static; CoreMIDI / WinMM / ALSA) |
 | [ZzFX](https://github.com/KilledByAPixel/ZzFX) (Frank Force; `buildSamples` ported to C#) | 1.4.0 | MIT | `MainframeEngine/Src/Audio/Synthesis/Zzfx.cs`; `build/zzfx-reference.mjs` (vendored JavaScript, reference vectors) | engine |
-| [Ez Tree](https://github.com/dgreenheck/ez-tree) (Daniel Greenheck; the tree generator `tree.js` and `rng.js` ported to C#, the 15 tree and bush presets, the leaf textures) | 1.1.0 (`dcf309b`) | MIT | `MainframeEngine/Src/Trees/Generation/`; `MainframeEngine/Content/Trees/Presets` (converted to `.mres`), `MainframeEngine/Content/Trees/Leaves`; `build/ez-tree-reference.mjs` (runs Ez Tree for the parity fixture) | engine; engine `Content/Trees` |
-| [AMD FidelityFX FSR 1](https://github.com/GPUOpen-Effects/FidelityFX-FSR) (the EASU upscaling and RCAS sharpening algorithms, re-implemented in Slang) | 1.0 | MIT | `MainframeEngine/Content/Shaders/Post/Upscale.vk.frag.slang`, `TaaSharpen.vk.frag.slang` | engine shaders |
+| [Ez Tree](https://github.com/dgreenheck/ez-tree) (Daniel Greenheck; the tree generator `tree.js` and `rng.js` ported to C#, the 15 tree and bush presets, the leaf textures) | 1.1.0 (`dcf309b`) | MIT | `MainframeEngine/Src/Trees/Generation/`; `MainframeEngine/Assets/Trees/Presets` (converted to `.mres`), `MainframeEngine/Assets/Trees/Leaves`; `build/ez-tree-reference.mjs` (runs Ez Tree for the parity fixture) | engine; engine `Assets/Trees` |
+| [AMD FidelityFX FSR 1](https://github.com/GPUOpen-Effects/FidelityFX-FSR) (the EASU upscaling and RCAS sharpening algorithms, re-implemented in Slang) | 1.0 | MIT | `MainframeEngine/Assets/Shaders/Post/Upscale.vk.frag.slang`, `TaaSharpen.vk.frag.slang` | engine shaders |
 | [three.js](https://threejs.org) (the `Vector3`, `Quaternion` and `Euler` math Ez Tree calls, ported to C# in doubles) | 0.167.1 | MIT | `MainframeEngine/Src/Trees/Generation/ThreeMath.cs` | engine |
-| [ambientCG](https://ambientcg.com) bark textures `Bark001`–`Bark003` (1K JPG: colour, OpenGL normal, roughness; the sets Ez Tree's presets use) | — | CC0 1.0 | `MainframeEngine/Content/Trees/Bark` | engine `Content/Trees/Bark` |
-| [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Content/icons` (rasterized atlas) |
-| Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Content/Models/Spine/SpineBoy`, `Tests/Content/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
-| [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Content/Sky`, `Tests/Content/Sky` | Demo and tests only |
-| Forest art: [ambientCG](https://ambientcg.com) terrain sets (8) and scattered leaves (1), [Poly Haven](https://polyhaven.com) rock, log, stump, root, branch, moss, grass, nettle and fern models (20) and a tonemapped HDRI (`lilienstein`); each listed in `Examples/Forest/NOTICE.md` | — | CC0 1.0 | `Examples/Forest/Content/Art` (Git LFS; `Examples/Forest/Tools/fetch_assets.py`) | the Forest only |
+| [ambientCG](https://ambientcg.com) bark textures `Bark001`–`Bark003` (1K JPG: colour, OpenGL normal, roughness; the sets Ez Tree's presets use) | — | CC0 1.0 | `MainframeEngine/Assets/Trees/Bark` | engine `Assets/Trees/Bark` |
+| [Tabler Icons](https://tabler.io/icons) (only the icons the editor uses) | 3.48.0 | MIT | `MainframeEngine.Editor/Icons/tabler` (SVGs, from the `@tabler/icons` npm package) | editor `Assets/icons` (rasterized atlas) |
+| Spine example skeleton, atlas and texture (spineboy) | — | © Esoteric Software; Spine Runtimes License / Spine Editor License, **not MIT** | `Examples/Demo/Assets/Models/Spine/SpineBoy`, `Tests/Assets/Models/Spine/SpineBoy` | Demo and tests only (see [below](#spine-example-assets)) |
+| [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Assets/Sky`, `Tests/Assets/Sky` | Demo and tests only |
+| Forest art: [ambientCG](https://ambientcg.com) terrain sets (8) and scattered leaves (1), [Poly Haven](https://polyhaven.com) rock, log, stump, root, branch, moss, grass, nettle and fern models (20) and a tonemapped HDRI (`lilienstein`); each listed in `Examples/Forest/NOTICE.md` | — | CC0 1.0 | `Examples/Forest/Assets/Art` (Git LFS; `Examples/Forest/Tools/fetch_assets.py`) | the Forest only |
 | Cutback (copied code) | 90cc508 | MIT | `MainframeEngine.Video` (`LICENSE-CUTBACK`) | editor only: `MainframeEngine.Video.dll` (video editing mode) |
 | [Whisper.net](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT | NuGet packages `Whisper.net`, `Whisper.net.Runtime` | editor only: `Whisper.net.dll` + native runtimes (speech recognition) |
 | [Whisper.net.Runtime.Metal](https://github.com/sandrohanea/whisper.net) (Sandro Hanea; a dependency of `Whisper.net.Runtime`) | 1.9.1 | MIT | NuGet package `Whisper.net.Runtime.Metal` | editor only: `ggml-metal.metal` (ggml's Metal shader source, used on macOS) |
@@ -313,7 +313,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 ## UI fonts (Lato, Roboto Mono)
 
 The game UI's bundled fonts are licensed under the SIL Open Font License 1.1; the full licence texts ship next to the
-fonts, in `MainframeEngine/Content/UI/fonts/OFL-Lato.txt` and `OFL-RobotoMono.txt`.
+fonts, in `MainframeEngine/Assets/UI/fonts/OFL-Lato.txt` and `OFL-RobotoMono.txt`.
 
 - Lato: Copyright (c) 2010-2015, Łukasz Dziedzic (dziedzic@typoland.com), with Reserved Font Name Lato.
 - Roboto Mono: Copyright 2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono).
@@ -351,7 +351,7 @@ SOFTWARE.
 
 ## Godot Engine
 
-Parts of the 2D canvas, camera, window stretch and image code are ports of Godot Engine 4.7.2 (C++ → C#). `MainframeEngine/Src/Math/` holds GodotSharp's C# math types from the same release (`Mathf`, `Vector2I`, `Rect2I`, `Color`, `Colors`, `Side`; the `Vector2` members as extensions on `System.Numerics.Vector2`). The post tonemap and glow shaders (`Content/Shaders/Post/TonemapPost`, `GlowBlur`) port Godot 4.7.2's `tonemap.glsl` and `copy.glsl`, and Godot 4.4's linear, Reinhard, filmic and AgX tonemap curves (AgX after EaryChow's AgX base, as Godot credits it).
+Parts of the 2D canvas, camera, window stretch and image code are ports of Godot Engine 4.7.2 (C++ → C#). `MainframeEngine/Src/Math/` holds GodotSharp's C# math types from the same release (`Mathf`, `Vector2I`, `Rect2I`, `Color`, `Colors`, `Side`; the `Vector2` members as extensions on `System.Numerics.Vector2`). The post tonemap and glow shaders (`Assets/Shaders/Post/TonemapPost`, `GlowBlur`) port Godot 4.7.2's `tonemap.glsl` and `copy.glsl`, and Godot 4.4's linear, Reinhard, filmic and AgX tonemap curves (AgX after EaryChow's AgX base, as Godot credits it).
 
 ```
 Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md).
@@ -467,13 +467,13 @@ SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 runtimes. **They are not covered by this repository's MIT licence**; using them (or the Spine Runtimes) in your own
 product requires a [Spine Editor licence](http://esotericsoftware.com/spine-editor-license). Copies in this repository:
 
-- `Examples/Demo/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (the Demo's Spine scene) and
-  `Tests/Content/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (linked into `Tests/MainframeEngine.Tests` and
+- `Examples/Demo/Assets/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (the Demo's Spine scene) and
+  `Tests/Assets/Models/Spine/SpineBoy/spineboy-pro.{atlas,json,png}` (linked into `Tests/MainframeEngine.Tests` and
   `Tests/MainframeEngine.RenderTests.Host`; the `spine*` render-test goldens show it)
 
 ## Poly Haven sky panoramas
 
-The panoramic sky `sky_10_2k.png` (in `Examples/Demo/Content/Sky/` and `Tests/Content/Sky/`)
+The panoramic sky `sky_10_2k.png` (in `Examples/Demo/Assets/Sky/` and `Tests/Assets/Sky/`)
 is one of the Poly Haven sky panoramas (CC0), converted to an 8-bit 4096×2048 PNG. Poly Haven assets are released
 under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication; see
 https://polyhaven.com/license): no attribution is required, and it is given here as a courtesy.
@@ -662,10 +662,10 @@ SOFTWARE.
 ## Ez Tree
 
 `MainframeEngine/Src/Trees/Generation/` ports Ez Tree's generator (`src/lib/tree.js`, `rng.js`) from Ez Tree 1.1.0
-(commit `dcf309bd86bd521083d9c70f01f2de45fdc7c457`). The tree and bush presets in `MainframeEngine/Content/Trees/Presets`
-are its `src/lib/presets/*.json` converted to `.mres`, and the leaf textures in `MainframeEngine/Content/Trees/Leaves`
+(commit `dcf309bd86bd521083d9c70f01f2de45fdc7c457`). The tree and bush presets in `MainframeEngine/Assets/Trees/Presets`
+are its `src/lib/presets/*.json` converted to `.mres`, and the leaf textures in `MainframeEngine/Assets/Trees/Leaves`
 (`ash`, `aspen`, `oak`, `pine`) are its demo app's `src/app/public/textures/leaves`. The leaf textures are under this
-MIT licence, not CC0: keep this notice wherever they are copied (also `MainframeEngine/Content/Trees/LICENSE.md`).
+MIT licence, not CC0: keep this notice wherever they are copied (also `MainframeEngine/Assets/Trees/LICENSE.md`).
 
 ```text
 MIT License
@@ -722,8 +722,8 @@ THE SOFTWARE.
 
 ## AMD FidelityFX FSR 1 (EASU, RCAS)
 
-`MainframeEngine/Content/Shaders/Post/TaaSharpen.vk.frag.slang` (the sharpen after TAA, ADR 0166, and after FSR 1, ADR
-0174) re-implements the robust contrast-adaptive sharpening (RCAS), and `MainframeEngine/Content/Shaders/Post/Upscale.vk.frag.slang`
+`MainframeEngine/Assets/Shaders/Post/TaaSharpen.vk.frag.slang` (the sharpen after TAA, ADR 0166, and after FSR 1, ADR
+0174) re-implements the robust contrast-adaptive sharpening (RCAS), and `MainframeEngine/Assets/Shaders/Post/Upscale.vk.frag.slang`
 (the spatial upscale, ADR 0174) the edge-adaptive spatial upsampling (EASU), of AMD FidelityFX Super Resolution 1.0 in
 Slang:
 
@@ -751,7 +751,7 @@ THE SOFTWARE.
 
 ## ambientCG bark textures
 
-The bark texture sets in `MainframeEngine/Content/Trees/Bark` (`Bark001_1K-JPG`, `Bark002_1K-JPG`, `Bark003_1K-JPG`:
+The bark texture sets in `MainframeEngine/Assets/Trees/Bark` (`Bark001_1K-JPG`, `Bark002_1K-JPG`, `Bark003_1K-JPG`:
 `_Color`, `_NormalGL`, `_Roughness`) come from [ambientCG](https://ambientcg.com), by way of Ez Tree's demo app. They are
 released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (public domain dedication): no
 attribution is required, and it is given here as a courtesy:
@@ -761,7 +761,7 @@ attribution is required, and it is given here as a courtesy:
 ## Tabler Icons
 
 The editor's icons are [Tabler Icons](https://tabler.io/icons) 3.48.0 (the `@tabler/icons` npm package): the SVGs the
-editor uses are vendored in `MainframeEngine.Editor/Icons/tabler` and rasterized into `Content/icons` by
+editor uses are vendored in `MainframeEngine.Editor/Icons/tabler` and rasterized into `Assets/icons` by
 `just editor-icons`. From the package's `LICENSE`:
 
 ```text

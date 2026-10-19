@@ -70,7 +70,7 @@
   <rect x="110" y="390" width="830" height="70" rx="8" fill="#fee2e2" stroke="#dc2626"/>
   <text x="130" y="414" class="hdr">Vulkan backend (Rendering/Vulkan/)</text>
   <text x="130" y="434" class="sub">VulkanRenderer : IRenderer, IVulkanContext — instance · device · swapchain · main render pass · 2 frames in flight · per-image command buffers</text>
-  <text x="130" y="450" class="sub">VulkanLoaderBootstrap (macOS: one Vulkan library for GLFW and Silk.NET) · Content/Shaders/*.spv</text>
+  <text x="130" y="450" class="sub">VulkanLoaderBootstrap (macOS: one Vulkan library for GLFW and Silk.NET) · Assets/Shaders/*.spv</text>
 
   <!-- External -->
   <g>

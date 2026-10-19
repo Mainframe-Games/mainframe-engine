@@ -14,6 +14,6 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <Using Include="Xunit" />
     <None Include="../project.mfproj" Link="project.mfproj" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../Content/**" LinkBase="Content" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Assets/**" LinkBase="Assets" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

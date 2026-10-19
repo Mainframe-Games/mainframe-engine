@@ -57,7 +57,7 @@
   <rect x="34" y="292" width="428" height="40" rx="5" fill="#111827" stroke="#3b3f4b"/>
   <text x="44" y="308" class="t" font-weight="600">Save as .mres</text>
   <text x="44" y="324" class="s">write this material to a file; the 3 slots that share it then use the file</text>
-  <text x="34" y="352" class="m">[INFO] Saved Content/Materials/Crate.mres</text>
+  <text x="34" y="352" class="m">[INFO] Saved Assets/Materials/Crate.mres</text>
 
   <!-- ===== right: external sound file ===== -->
   <rect x="490" y="20" width="450" height="340" rx="6" fill="#262931" stroke="#3b3f4b"/>

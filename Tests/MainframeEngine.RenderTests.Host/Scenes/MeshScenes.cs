@@ -9,8 +9,8 @@ using Color = System.Drawing.Color;
 /// <summary>Shared set-up for the M3 mesh scenes: camera, procedural sky, a sun and a checker-textured floor.</summary>
 public abstract class MeshSceneBase(HostOptions host) : RenderTestGame(host)
 {
-    public const string TestModelPath = "Content/Models/TestModel/test_model.gltf";
-    public const string CheckerPath = "Content/Models/TestModel/checker.png";
+    public const string TestModelPath = "Assets/Models/TestModel/test_model.gltf";
+    public const string CheckerPath = "Assets/Models/TestModel/checker.png";
 
     protected Camera3D Camera { get; private set; } = null!;
     protected Node3D Scene { get; private set; } = null!;

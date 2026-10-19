@@ -11,7 +11,7 @@ public sealed class DemoScenesTests
     public void EverySceneFileIsUnderContentScenes()
     {
         foreach (var scene in DemoScenes.All)
-            Assert.Equal($"Content/Scenes/{scene.Id}.mscene", scene.Path);
+            Assert.Equal($"Assets/Scenes/{scene.Id}.mscene", scene.Path);
     }
 
     [Theory]

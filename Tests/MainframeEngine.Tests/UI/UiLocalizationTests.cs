@@ -133,7 +133,7 @@ public sealed class UiLocalizationTests : IDisposable
         {
             Name = "Panel",
             Source = ui.Write("UI/panel-doc.rml", """
-                <rml><head><title>Menu</title><link type="text/template" href="/Content/UI/widgets/panel.rml"/></head>
+                <rml><head><title>Menu</title><link type="text/template" href="/Assets/UI/widgets/panel.rml"/></head>
                 <body template="mf-panel"><p id="t">Hello</p></body></rml>
                 """),
         };
@@ -182,8 +182,8 @@ public sealed class UiLocalizationTests : IDisposable
         {
             Locales =
             [
-                new LocaleFontSet { Locale = "ja", Fonts = ["Content/UI/fonts/RobotoMono-Regular.ttf"] },
-                new LocaleFontSet { Locale = "de", Fonts = ["Content/UI/fonts/LatoLatin-Italic.ttf", "Content/UI/fonts/missing.ttf"] },
+                new LocaleFontSet { Locale = "ja", Fonts = ["Assets/UI/fonts/RobotoMono-Regular.ttf"] },
+                new LocaleFontSet { Locale = "de", Fonts = ["Assets/UI/fonts/LatoLatin-Italic.ttf", "Assets/UI/fonts/missing.ttf"] },
             ],
         }, tablePath);
 
@@ -192,12 +192,12 @@ public sealed class UiLocalizationTests : IDisposable
 
         Tr.SetLocale("ja"); // no catalog: source text, but the fonts still follow the locale
         ui.Tick();
-        Assert.Equal(["Content/UI/fonts/RobotoMono-Regular.ttf"], ui.Server.FallbackFonts);
+        Assert.Equal(["Assets/UI/fonts/RobotoMono-Regular.ttf"], ui.Server.FallbackFonts);
 
         Tr.SetLocale("de");
         ui.Tick();
         Assert.Equal(2, ui.Server.FallbackFonts.Count); // faces accumulate (RmlUi cannot unload one); a missing one is skipped
-        Assert.Contains("Content/UI/fonts/LatoLatin-Italic.ttf", ui.Server.FallbackFonts);
+        Assert.Contains("Assets/UI/fonts/LatoLatin-Italic.ttf", ui.Server.FallbackFonts);
     }
 
     [Fact]

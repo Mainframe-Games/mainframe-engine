@@ -10,7 +10,7 @@ Forest/Src/World/ForestGradeFit.cs (generated; do not edit). Then `--write-scene
     FOREST_SHOTS_OUT=/tmp/ungraded build/forest-screenshots.sh 300 --set Environment.PostProcess.AdjustmentEnabled=false
     # 2. Fit, then regenerate the LUT:
     python3 Examples/Forest/Tools/grade_from_shots.py /tmp/ungraded/*.png
-    dotnet run --project Examples/Forest/Forest.Desktop -c Release -- --write-scenes Examples/Forest/Content/Scenes
+    dotnet run --project Examples/Forest/Forest.Desktop -c Release -- --write-scenes Examples/Forest/Assets/Scenes
 
 The targets are measured from reference images (ADR 0178: Brogan's five Unreal forest screenshots, not in the repo) with the
 same metrics; `--reference ref1.png ref2.png ... --` re-measures them and prints them (paste them below) before fitting.

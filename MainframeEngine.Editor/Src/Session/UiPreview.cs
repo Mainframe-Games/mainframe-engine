@@ -119,7 +119,7 @@ public sealed class UiPreview : IEditorTab
         Version++;
     }
 
-    // The document's folder, the project's Content/ and every folder a linked file lives in.
+    // The document's folder, the project's Assets/ and every folder a linked file lives in.
     private UiHotReload CreateWatcher()
     {
         var watcher = new UiHotReload();

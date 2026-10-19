@@ -240,8 +240,8 @@ export function syncAssets() {
   copyFile(path.join(brand, 'logo.svg'), path.join(siteRoot, 'src', 'assets', 'logo.svg'));
   copyFile(path.join(brand, 'logo-small.svg'), path.join(publicDir, 'favicon.svg'));
   copyFile(path.join(brand, 'png', 'logo-512.png'), path.join(publicDir, 'logo-512.png'));
-  // The editor's UI fonts (MainframeEngine/Content/UI/fonts, SIL OFL): Lato for text, Roboto Mono for code.
-  const fonts = path.join(repoRoot, 'MainframeEngine', 'Content', 'UI', 'fonts');
+  // The editor's UI fonts (MainframeEngine/Assets/UI/fonts, SIL OFL): Lato for text, Roboto Mono for code.
+  const fonts = path.join(repoRoot, 'MainframeEngine', 'Assets', 'UI', 'fonts');
   for (const f of ['LatoLatin-Regular.ttf', 'LatoLatin-Bold.ttf', 'LatoLatin-Italic.ttf', 'RobotoMono-Regular.ttf',
     'OFL-Lato.txt', 'OFL-RobotoMono.txt'])
     copyFile(path.join(fonts, f), path.join(siteRoot, 'src', 'assets', 'fonts', f));

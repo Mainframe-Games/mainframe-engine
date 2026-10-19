@@ -1,0 +1,25 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Assets/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="physics3d">
+    <div class="demo-panel">
+        <h1>Physics 3D</h1>
+        <p class="hint">Jitter2 rigid bodies, a ramp and a character body. Click the floor to drop a crate.</p>
+        <div class="demo-row"><span>Bodies</span><span>{{count}}</span></div>
+        <div class="demo-row"><span>Collision shapes</span><input type="checkbox" data-checked="shapes"/></div>
+        <div class="demo-row"><button data-event-click="rain()">Rain crates</button><button data-event-click="reset()">Reset</button></div>
+        <h2>Save games</h2>
+        <div data-for="s, i : slots" data-attr-class="s.selected ? 'save-slot selected' : 'save-slot'" data-event-click="select(i)">
+            <img data-attr-class="s.filled ? 'save-thumb' : 'save-thumb empty'" data-attr-src="s.thumb"/>
+            <div class="save-text">
+                <div class="no-tr">{{s.title}}</div>
+                <div class="save-detail no-tr">{{s.detail}}</div>
+            </div>
+        </div>
+        <div class="demo-row"><button id="save" data-event-click="save()">Save</button><button id="load" data-event-click="load()">Load</button></div>
+        <p class="hint no-tr">{{status}}</p>
+    </div>
+</body>
+</rml>

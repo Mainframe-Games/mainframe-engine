@@ -10,7 +10,7 @@ This package is everything a game needs to build and run, with no engine checkou
 - the source generator for `[Export]`, `[Signal]`, `[Replicated]` and `[Rpc]` members
 - the native libraries for `win-x64`, `linux-x64` and `osx-arm64`/`osx-x64`, Valve's `steam_api` included
 - Steam integration over Facepunch.Steamworks (bundled), which starts when the Steam client runs, Apple Silicon too
-- the engine content (compiled shaders, UI widgets, fonts), which is copied into your app's `Content/` folder
+- the engine content (compiled shaders, UI widgets, fonts), which is copied into your app's `Assets/` folder
 - build integration: `.po` → `.mo` localization, the `DEMO` define from `project.mfproj`, and macOS development app bundles
 - player builds: `tools/package-game.sh` (see below)
 
@@ -34,7 +34,7 @@ using MainframeEngine;
 return GameHost.Run(args, typeof(MyNode).Assembly);
 ```
 
-Copy `project.mfproj` and your `Content/` to the output folder, as the template's desktop project does.
+Copy `project.mfproj` and your `Assets/` to the output folder, as the template's desktop project does.
 
 ## Player builds
 

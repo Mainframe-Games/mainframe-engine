@@ -6,14 +6,14 @@ namespace MainframeEngine.Editor;
 public static class EditorBrand
 {
     /// <summary>
-    /// The window icon for this platform (engine content <c>Content/Brand/</c>): macOS shows it in the Dock, so it uses the
+    /// The window icon for this platform (engine content <c>Assets/Brand/</c>): macOS shows it in the Dock, so it uses the
     /// padded Apple icon-grid variant at Dock resolution; Windows and Linux show it in title bars and task bars (small,
     /// full-bleed: the simplified small logo reads better there).
     /// </summary>
-    public static string WindowIconPath => OperatingSystem.IsMacOS() ? "Content/Brand/logo-macos-512.png" : "Content/Brand/logo-48.png";
+    public static string WindowIconPath => OperatingSystem.IsMacOS() ? "Assets/Brand/logo-macos-512.png" : "Assets/Brand/logo-48.png";
 
     /// <summary>The splash logo (RmlUi renders PNGs, not SVG).</summary>
-    public const string SplashLogoPath = "/Content/Brand/logo-512.png";
+    public const string SplashLogoPath = "/Assets/Brand/logo-512.png";
 
     /// <summary>
     /// "v1.2.3": the editor ships in lock step with the engine core (one release tag, one <c>-p:Version</c> for the whole

@@ -38,7 +38,7 @@ _Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publ
   End every `RenderTarget` pass with `RenderTarget.End` (MoltenVK ignores render-pass external dependencies).
   Keep the default UNORM swapchain (MoltenVK mutable-format sRGB views go stale).
 - `ShadowSystem.RenderShadows` once per frame; comparison samplers are immutable (MoltenVK); shader limits only in
-  `Content/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`).
+  `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`).
 - Scene tree: node constructors cheap and side-effect free; projects declaring node types need the generator analyzer.
   `MainframeEngine.Timer` shadows `System.Threading.Timer`.
 - Physics: Jitter2/Box2D calls stay in `Src/Physics`; Box2D worlds are process-global (`SerialBox2D` test collection);

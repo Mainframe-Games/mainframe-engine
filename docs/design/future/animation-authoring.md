@@ -114,7 +114,7 @@ Every humanoid pose is written in one space, whatever the rig:
   per-character limits (stylised rigs) can come later as a `.meta` setting.
 - **Named poses** ship with the engine: `tpose` (all zeros), `rest` (the rig's own rest, converted), and `stand`
   (arms down at the sides: shoulder abduct −80, elbow flex 10; the start pose of most clips). They are data in
-  `MainframeEngine/Content/Animation/poses.json`, so the skill and the editor list the same names.
+  `MainframeEngine/Assets/Animation/poses.json`, so the skill and the editor list the same names.
 
 ### Humanoid map
 
@@ -154,7 +154,7 @@ public sealed class HumanoidRig                            // a map bound to one
   { "importer": "model",
     "settings": { "scale": 1,
                   "humanoid": { "LeftUpperLeg": "Thigh.L", "LeftLowerLeg": "Shin.L" },
-                  "libraries": [ "Content/Characters/hero_anims.mres" ] } }
+                  "libraries": [ "Assets/Characters/hero_anims.mres" ] } }
   ```
 
   `ModelImportSettings` (`MainframeEngine/Src/Resources/Import/ModelImporter.cs:20-85`) gains `Humanoid` and
@@ -176,8 +176,8 @@ the script is not kept by the engine ([open question 1](#open-questions)).
 
 ```json
 {
-  "model": "Content/Characters/hero.glb",
-  "library": "Content/Characters/hero_anims.mres",
+  "model": "Assets/Characters/hero.glb",
+  "library": "Assets/Characters/hero_anims.mres",
   "name": "jump",
   "length": 1.1,
   "loop": "None",
@@ -262,7 +262,7 @@ edits on top:
 - **Edit scripts** start from a clip instead of from nothing:
 
   ```json
-  { "model": "Content/Characters/hero.glb", "library": "Content/Characters/hero_anims.mres",
+  { "model": "Assets/Characters/hero.glb", "library": "Assets/Characters/hero_anims.mres",
     "base": "jump", "name": "jump",
     "edits": [
       { "range": [0.24, 0.82], "arc": { "height": "*1.3" } },
@@ -316,7 +316,7 @@ engine.
   in arguments and scripts are project-relative and resolved like the engine does (`ContentPaths.Resolve`). The game
   assembly is not loaded (clips need only engine types).
 - **Output:** readable text by default; `--json` prints one JSON document (the same data), for scripts.
-- **Running it:** `just mfe anim rig Content/Characters/hero.glb` (a recipe over
+- **Running it:** `just mfe anim rig Assets/Characters/hero.glb` (a recipe over
   `dotnet run --project Tools/MainframeEngine.Cli -c Release --`, like `l10n`). Game projects created by `dotnet new
   mfgame` have no justfile; they run `dotnet run --project <engine>/Tools/MainframeEngine.Cli --` against their
   `--engine-path` checkout (the skill gives the command).
@@ -442,7 +442,7 @@ hand fixes are what `mfe anim describe` reads later.
   material (earlier poses blue, later green). Their joint palettes come from evaluating the clip at the ghost times into
   scratch pose buffers, through the same skinning pass. Editor-only; the buffers are reused, so dragging the playhead
   does not allocate.
-- **Icons** (to `MainframeEngine.Editor/Content/icons/icons.txt`): `bone` exists and G1a adds `pin` and
+- **Icons** (to `MainframeEngine.Editor/Assets/icons/icons.txt`): `bone` exists and G1a adds `pin` and
   `vector-bezier`; add `ik-handle` and `onion`. Every button is an icon with a tooltip.
 
 ### G1f: non-humanoid rigs and auto-rigging (sketch)
@@ -487,7 +487,7 @@ Designed in outline here; each gets its own detailed design when it starts.
   shadow (`moltenvk` and `lavapipe`). A smoke run of `mfe anim render` in `just test-render` (the PNG exists, has the
   expected size, cells are not blank). The allocation gate covers root-motion extraction in a running player.
 - **Test assets:** a CC0 rigged humanoid glTF (from Quaternius or Kenney; picked and licence-checked in G1.12) in
-  `Tests/Content/Models/`, plus G1b's generated skinned test model. Mixamo and AI-generator naming is tested with
+  `Tests/Assets/Models/`, plus G1b's generated skinned test model. Mixamo and AI-generator naming is tested with
   synthetic skeletons only (their models are not redistributable).
 - **QA (`Tests/QA/animation-authoring.qa`):** open a scene with the test character, run `mfe anim bake` from the script
   (`edit-file` writes the library), wait for the reload, preview the clip, capture a screenshot for `docs/images`.

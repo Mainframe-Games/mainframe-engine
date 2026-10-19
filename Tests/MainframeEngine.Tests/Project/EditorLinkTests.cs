@@ -84,7 +84,7 @@ public sealed class EditorLinkProtocolTests
         Assert.Equal(EditorLinkMessageType.Log, log.Type);
         Assert.Equal(entry, log.Log);
 
-        var status = new EditorLinkStatus(GameRunState.Paused, 123456789012UL, 59.5f, "Content/Scenes/Main.mscene");
+        var status = new EditorLinkStatus(GameRunState.Paused, 123456789012UL, 59.5f, "Assets/Scenes/Main.mscene");
         Assert.Equal(status, RoundTrip(b => EditorLinkProtocol.WriteStatus(b, status)).Status);
         Assert.Equal(17, RoundTrip(b => EditorLinkProtocol.WriteLogDropped(b, 17)).DroppedCount);
         Assert.Equal(-3, RoundTrip(b => EditorLinkProtocol.WriteGoodbye(b, -3)).ExitCode);
@@ -270,7 +270,7 @@ public sealed class EditorLinkConnectionTests
         Assert.Equal(GameRunState.Paused, status.State);
 
         Assert.Equal(1, server.SendCommand(new EditorLinkCommand(EditorCommandKind.Pause)));
-        Assert.Equal(1, server.SendCommand(new EditorLinkCommand(EditorCommandKind.ReloadScene, "Content/x.mscene")));
+        Assert.Equal(1, server.SendCommand(new EditorLinkCommand(EditorCommandKind.ReloadScene, "Assets/x.mscene")));
         var commands = new List<EditorLinkCommand>();
         Assert.True(Wait.Until(() =>
         {
@@ -278,7 +278,7 @@ public sealed class EditorLinkConnectionTests
                 commands.Add(c);
             return commands.Count == 2;
         }));
-        Assert.Equal([new EditorLinkCommand(EditorCommandKind.Pause), new EditorLinkCommand(EditorCommandKind.ReloadScene, "Content/x.mscene")], commands);
+        Assert.Equal([new EditorLinkCommand(EditorCommandKind.Pause), new EditorLinkCommand(EditorCommandKind.ReloadScene, "Assets/x.mscene")], commands);
 
         Assert.True(client.SendGoodbye(3, TimeSpan.FromSeconds(5)));
         Assert.Equal(3, Wait.For(server, seen, m => m.Type == EditorLinkMessageType.Goodbye).ExitCode);

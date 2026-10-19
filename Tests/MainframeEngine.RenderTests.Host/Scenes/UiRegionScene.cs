@@ -23,7 +23,7 @@ public sealed class UiRegionScene(HostOptions host) : RenderTestGame(host)
         var back = new UiLayer { Name = "Back", Layer = 0 };
         back.AddChild(new UiDocument { Name = "Backdrop", Rml = Backdrop, AutoFocus = false });
         _region = new UiLayer { Name = "Region", Layer = 1 };
-        _region.AddChild(new UiDocument { Name = "Document", Source = "Content/UI/effects.rml", AutoFocus = false });
+        _region.AddChild(new UiDocument { Name = "Document", Source = "Assets/UI/effects.rml", AutoFocus = false });
         root.AddChild(back);
         root.AddChild(_region);
         Tree.ChangeScene(root);

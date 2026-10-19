@@ -18,7 +18,7 @@ public class AudioBusLayout : Resource
     public const string MasterBus = "Master";
 
     /// <summary>Where the engine looks for the project's layout (relative to the project root).</summary>
-    public const string DefaultPath = "Content/Settings/AudioBusLayout.mres";
+    public const string DefaultPath = "Assets/Settings/AudioBusLayout.mres";
 
     /// <summary>Buses in mixer order. A bus's <see cref="AudioBusInfo.Send"/> must name a bus listed before it.</summary>
     [Export]

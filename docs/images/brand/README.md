@@ -11,7 +11,7 @@
 | `logo.ico` | Windows icon (16–256, 7 sizes) — the editor's `ApplicationIcon` |
 | `logo.icns` | macOS icon, from `logo-macos.svg` — the editor app bundle's `CFBundleIconFile` |
 
-Engine content carries copies for apps (`ContentPaths`: `Content/Brand/logo-{32,48,256,512}.png`,
+Engine content carries copies for apps (`ContentPaths`: `Assets/Brand/logo-{32,48,256,512}.png`,
 `logo-macos-512.png`): window icons (`EngineOptions.IconPath` — `logo-macos-512.png` on macOS, where it is the Dock icon;
 `logo-48.png` elsewhere) and the editor splash screen (RmlUi renders PNG, not SVG). Windows `.ico` and Linux PNGs stay
 full-bleed, as is their convention.

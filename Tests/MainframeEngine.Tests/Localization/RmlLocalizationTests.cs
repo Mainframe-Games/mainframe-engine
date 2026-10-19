@@ -14,7 +14,7 @@ public sealed class RmlLocalizationTests : IDisposable
 
     public void Dispose() => _fixture.Dispose();
 
-    private static string MenuSource => File.ReadAllText(Path.Combine(LocaleFixture.FixtureProject, "Content", "UI", "menu.rml"));
+    private static string MenuSource => File.ReadAllText(Path.Combine(LocaleFixture.FixtureProject, "Assets", "UI", "menu.rml"));
 
     [Fact]
     public void ScanFindsTextAndTranslatableAttributes()

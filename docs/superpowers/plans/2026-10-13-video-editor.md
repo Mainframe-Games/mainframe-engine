@@ -78,8 +78,8 @@ At that commit Cutback has 282 Core tests, 83 Media tests and 27 Analysis tests.
   - tests in plain xunit `Assert`, with PascalCase sentence names;
   - editor tests that touch global state use `[Collection(nameof(SerialEditor))]`.
 - **New editor UI:**
-  - RML goes in `MainframeEngine.Editor/Content/Editor/`, using `theme.rcss` classes.
-  - Every menu item has an `Icon` that exists in `Content/icons/icons.txt` (`IconTests` enforces this).
+  - RML goes in `MainframeEngine.Editor/Assets/Editor/`, using `theme.rcss` classes.
+  - Every menu item has an `Icon` that exists in `Assets/icons/icons.txt` (`IconTests` enforces this).
   - Hidden documents that hold text fields are hidden with `HideAndReleaseFocus()`.
 - **Gates for each task:** `just build`, the task's focused `dotnet test … --filter`, and `just format-check`. Before the
   final review, also run:
@@ -1305,7 +1305,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:**
 - Create: `MainframeEngine.Editor/Src/EditorMode.cs`; `MainframeEngine.Editor/Src/Video/VideoPanel.cs` (only the empty
-  state in this task); `MainframeEngine.Editor/Content/Editor/video.rml`.
+  state in this task); `MainframeEngine.Editor/Assets/Editor/video.rml`.
 - Modify:
   - `MainframeEngine.Editor/MainframeEngine.Editor.csproj`: a `ProjectReference` to `..\MainframeEngine.Video\MainframeEngine.Video.csproj`.
   - `MainframeEngine.Editor/Src/Session/IEditorTab.cs`: a default `Mode` member.
@@ -1320,10 +1320,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     `editor.video_editor`, `view.output`.
   - `MainframeEngine.Editor/Src/UI/Panels.cs`: `MenuBarPanel` (`ApplyMode`, the `CloseMenus` list), `ToolbarPanel`
     (`ApplyMode`, the mode toggle), and `SplittersOverlay.Apply` (hides zero-size handles).
-  - `MainframeEngine.Editor/Content/Editor/menubar.rml`: a `menu-video` title.
-  - `MainframeEngine.Editor/Content/Editor/toolbar.rml`: `#game-tools`, `#video-tools` and `#mode-toggle`.
+  - `MainframeEngine.Editor/Assets/Editor/menubar.rml`: a `menu-video` title.
+  - `MainframeEngine.Editor/Assets/Editor/toolbar.rml`: `#game-tools`, `#video-tools` and `#mode-toggle`.
   - `MainframeEngine.Editor/Src/UI/ViewportPanel.cs`: the tab filter, filtered indices, and "+" in video mode.
-  - `MainframeEngine.Editor/Src/UI/ProjectManager.cs` and `Content/Editor/project_manager.rml`: a "Video Editor"
+  - `MainframeEngine.Editor/Src/UI/ProjectManager.cs` and `Assets/Editor/project_manager.rml`: a "Video Editor"
     button.
   - `MainframeEngine.Editor/Src/Settings/EditorSettings.cs`: `LastMode`, with load, save and clone.
 - Test:
@@ -1405,7 +1405,7 @@ rather than activate the remembered tab, so use a private overload, `SetMode(mod
 | video | Play/Pause `video.play` Space `player-play`; sep; Transcribe `video.transcribe` `microphone`; Remove Filler Words `video.remove_fillers` `eraser`; Detect Silence `video.detect_silence` `volume-off`; Detect Idle Gameplay `video.detect_idle` `device-gamepad-2` |
 
 - Game mode's View menu gains `MenuItem.Separator` followed by "Switch to Video Mode" `editor.mode.video`, icon `video`.
-- Every icon above must exist in `Content/icons/icons.txt`, and `IconTests` fails if one does not. For any that is
+- Every icon above must exist in `Assets/icons/icons.txt`, and `IconTests` fails if one does not. For any that is
   missing, use the closest existing name and note it in the report. Do not regenerate the atlas.
 - Video items are enabled iff `Session.ActiveTab?.Mode == EditorMode.Video`. The exceptions, which are always enabled,
   are Open, the recents, Quit, Video Settings and the mode switch.
@@ -3597,11 +3597,11 @@ copy of the path (ignoring case on Windows), inserts the path at the front, and 
 ### Task 11: The video-mode screen — `VideoPanel`, `VideoView`, the video toolbar, detection
 
 **Files:**
-- Modify: `MainframeEngine.Editor/Content/Editor/video.rml` (the full layout) and
+- Modify: `MainframeEngine.Editor/Assets/Editor/video.rml` (the full layout) and
   `MainframeEngine.Editor/Src/Video/VideoPanel.cs`.
 - Create: `MainframeEngine.Editor/Src/Video/VideoView.cs`.
 - Modify:
-  - `MainframeEngine.Editor/Content/Editor/toolbar.rml`: the contents of `#video-tools`.
+  - `MainframeEngine.Editor/Assets/Editor/toolbar.rml`: the contents of `#video-tools`.
   - `MainframeEngine.Editor/Src/UI/Panels.cs`: `ToolbarPanel.UpdateVideo`.
   - `MainframeEngine.Editor/Src/EditorWorkspace.cs`: a `VideoView` property, added as a workspace child beside
     `SongView`; in video mode, `VideoView.HandleKey` runs first in `OnUnhandledInput`.
@@ -3902,7 +3902,7 @@ public sealed class TranscriptMarkupTests
 
 **Files:**
 - Create: `MainframeEngine.Editor/Src/Video/VideoExport.cs` (pure helpers), `MainframeEngine.Editor/Src/Video/ExportVideoDialog.cs`
-  and `MainframeEngine.Editor/Content/Editor/video_export.rml`.
+  and `MainframeEngine.Editor/Assets/Editor/video_export.rml`.
 - Modify:
   - `MainframeEngine.Editor/Src/EditorWorkspace.cs`: add `ExportVideoDialog` to the `DialogLayer`, and include it in
     `IsDialogOpen`.
@@ -4007,7 +4007,7 @@ Also add `ExportVideoDialogTests` (on `HeadlessEditor`):
 **Files:**
 - Modify:
   - `MainframeEngine.Editor/Src/Settings/EditorSettings.cs`: the fields below, with clamps, load, save and clone.
-  - `MainframeEngine.Editor/Src/UI/EditorSettingsDialog.cs` and `Content/Editor/editor_settings.rml`: a "Video"
+  - `MainframeEngine.Editor/Src/UI/EditorSettingsDialog.cs` and `Assets/Editor/editor_settings.rml`: a "Video"
     section. Make `.dialog-body` scroll (`overflow-y: auto`) and keep the dialog's fixed size.
   - `EditorCommands.cs`: `video.settings` opens the dialog scrolled to `#video-section`.
   - The consumers:

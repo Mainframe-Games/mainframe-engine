@@ -174,7 +174,7 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
 
     /// <summary>
     /// Node path → type for the scene at <paramref name="scenePath"/> (a content path such as
-    /// <c>Content/Scenes/Player.mscene</c>), including nodes of scenes it instances, so instance properties and
+    /// <c>Assets/Scenes/Player.mscene</c>), including nodes of scenes it instances, so instance properties and
     /// overrides can be typed. Null when the file cannot be found or read.
     /// </summary>
     private Dictionary<string, string>? InstanceTypes(string scenePath, string fromFile, int depth)
@@ -205,7 +205,7 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
 
     /// <summary>
     /// The file for a scene path stored in a scene: relative to the project root, else to the folder that holds the
-    /// referencing file's <c>Content/</c> (any ancestor of it), so extraction works whatever <c>--root</c> is.
+    /// referencing file's <c>Assets/</c> (any ancestor of it), so extraction works whatever <c>--root</c> is.
     /// </summary>
     private string? ResolveScene(string scenePath, string fromFile)
     {

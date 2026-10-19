@@ -223,7 +223,7 @@ public sealed class FakeGame : IGameProcess
             Log("", $"{Request.Label} log 1");
             Log("Audio", $"{Request.Label} log 2");
             Log("", $"{Request.Label} log 3");
-            var scene = Scene ?? "Content/Scenes/Main.mscene";
+            var scene = Scene ?? "Assets/Scenes/Main.mscene";
             ulong frame = 0;
             while (true)
             {

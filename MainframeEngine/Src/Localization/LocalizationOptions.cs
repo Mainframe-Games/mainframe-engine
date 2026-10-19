@@ -11,7 +11,7 @@ public sealed record LocalizationOptions
     public const string DefaultDomain = "messages";
 
     /// <summary>Default locale folder, relative to the application (resolved with <see cref="ContentPaths"/>).</summary>
-    public const string DefaultLocaleDirectory = "Content/locale";
+    public const string DefaultLocaleDirectory = "Assets/locale";
 
     /// <summary>Missing-translation logging default for this engine build: on in Debug, off in Release.</summary>
     public const bool DefaultLogMissingTranslations =

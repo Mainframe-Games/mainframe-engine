@@ -23,19 +23,19 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void IconInsideTheProjectResolvesToAnAbsolutePath()
     {
-        var root = Project("Content/icon.png");
+        var root = Project("Assets/icon.png");
         var icon = new ProjectIconResolver().Resolve(root);
-        Assert.Equal(Path.Combine(root, "Content", "icon.png"), icon.Path);
+        Assert.Equal(Path.Combine(root, "Assets", "icon.png"), icon.Path);
     }
 
     [Fact]
     public void NoIconSettingMeansNoIcon() => Assert.Null(new ProjectIconResolver().Resolve(Project(null)).Path);
 
     [Fact]
-    public void MissingIconFileMeansNoIcon() => Assert.Null(new ProjectIconResolver().Resolve(Project("Content/icon.png", writeIcon: false)).Path);
+    public void MissingIconFileMeansNoIcon() => Assert.Null(new ProjectIconResolver().Resolve(Project("Assets/icon.png", writeIcon: false)).Path);
 
     [Fact]
-    public void NonPngIconIsIgnored() => Assert.Null(new ProjectIconResolver().Resolve(Project("Content/icon.jpg")).Path);
+    public void NonPngIconIsIgnored() => Assert.Null(new ProjectIconResolver().Resolve(Project("Assets/icon.jpg")).Path);
 
     [Fact]
     public void IconOutsideTheProjectIsIgnored()
@@ -51,11 +51,11 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void ChangedIconIsReportedOnce()
     {
-        var root = Project("Content/icon.png");
+        var root = Project("Assets/icon.png");
         var resolver = new ProjectIconResolver();
         Assert.True(resolver.Resolve(root).Changed);   // first sight
         Assert.False(resolver.Resolve(root).Changed);
-        File.SetLastWriteTimeUtc(Path.Combine(root, "Content", "icon.png"), DateTime.UtcNow.AddMinutes(1));
+        File.SetLastWriteTimeUtc(Path.Combine(root, "Assets", "icon.png"), DateTime.UtcNow.AddMinutes(1));
         Assert.True(resolver.Resolve(root).Changed);
         Assert.False(resolver.Resolve(root).Changed);
     }
@@ -63,7 +63,7 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void IconCreatedAfterFirstResolveIsPickedUp()
     {
-        var root = Project("Content/icon.png", writeIcon: false);
+        var root = Project("Assets/icon.png", writeIcon: false);
         var resolver = new ProjectIconResolver();
 
         // First resolve: icon doesn't exist
@@ -72,8 +72,8 @@ public sealed class ProjectIconResolverTests : IDisposable
         Assert.True(first.Changed);  // first sight
 
         // Create the icon file and update project.mfproj mtime
-        Directory.CreateDirectory(Path.Combine(root, "Content"));
-        File.WriteAllBytes(Path.Combine(root, "Content", "icon.png"), [137, 80, 78, 71]);
+        Directory.CreateDirectory(Path.Combine(root, "Assets"));
+        File.WriteAllBytes(Path.Combine(root, "Assets", "icon.png"), [137, 80, 78, 71]);
         File.SetLastWriteTimeUtc(Path.Combine(root, ProjectSettings.FileName), DateTime.UtcNow.AddMinutes(1));
 
         // Second resolve: icon now exists
@@ -85,7 +85,7 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void DeletedIconIsReported()
     {
-        var root = Project("Content/icon.png");
+        var root = Project("Assets/icon.png");
         var resolver = new ProjectIconResolver();
 
         // First resolve
@@ -94,7 +94,7 @@ public sealed class ProjectIconResolverTests : IDisposable
         Assert.True(first.Changed);
 
         // Delete the icon file
-        File.Delete(Path.Combine(root, "Content", "icon.png"));
+        File.Delete(Path.Combine(root, "Assets", "icon.png"));
 
         // Second resolve: icon is deleted
         var second = resolver.Resolve(root);
@@ -110,7 +110,7 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void RemovingWindowIconFromProjectIsReported()
     {
-        var root = Project("Content/icon.png");
+        var root = Project("Assets/icon.png");
         var resolver = new ProjectIconResolver();
 
         // First resolve
@@ -129,7 +129,7 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void ProjectEditWithTheSameTimestampIsReported()
     {
-        var root = Project("Content/icon.png");
+        var root = Project("Assets/icon.png");
         var projectFile = Path.Combine(root, ProjectSettings.FileName);
         var resolver = new ProjectIconResolver();
         Assert.NotNull(resolver.Resolve(root).Path);
@@ -155,7 +155,7 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void UppercaseExtensionIsAccepted()
     {
-        var root = Project("Content/icon.PNG");
+        var root = Project("Assets/icon.PNG");
         var icon = new ProjectIconResolver().Resolve(root);
         Assert.NotNull(icon.Path);
     }
@@ -164,7 +164,7 @@ public sealed class ProjectIconResolverTests : IDisposable
     public void NullCharacterInPathDoesNotThrow()
     {
         var root = Directory.CreateDirectory(Path.Combine(_directory, Guid.NewGuid().ToString("N"))).FullName;
-        File.WriteAllText(Path.Combine(root, ProjectSettings.FileName), """{"format": 1, "name": "P", "window": {"icon": "Content\u0000/icon.png"}}""");
+        File.WriteAllText(Path.Combine(root, ProjectSettings.FileName), """{"format": 1, "name": "P", "window": {"icon": "Assets\u0000/icon.png"}}""");
         var icon = new ProjectIconResolver().Resolve(root);
         Assert.Null(icon.Path);
     }

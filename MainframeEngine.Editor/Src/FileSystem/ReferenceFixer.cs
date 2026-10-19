@@ -7,7 +7,7 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Rewrites references after files moved: in every <c>.mscene</c>/<c>.mres</c>/<c>.msong</c> under <c>Content/</c> and in
+/// Rewrites references after files moved: in every <c>.mscene</c>/<c>.mres</c>/<c>.msong</c> under <c>Assets/</c> and in
 /// <c>project.mfproj</c>, the <c>path</c> hint of <c>{"ref"|"instance": uid, "path": …}</c> objects whose UID (or old
 /// hint) belongs to a moved file, and every string value exactly equal to a moved path (textures, sky panoramas,
 /// file-hinted properties, <c>mainScene</c>, autoload scenes, the bus layout, the window icon). Only files that changed

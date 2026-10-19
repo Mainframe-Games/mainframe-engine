@@ -96,7 +96,7 @@ What exists:
 | `Src/Rendering/Vulkan/GpuProfiler.cs` | query pool, zones, read-back, debug labels |
 | `Src/Debugging/DevOverlay/DevOverlayProfiler.cs` | the overlay section and its snapshot |
 | `Src/EditorLink/EditorLinkProtocol.cs` (changed) | `ProfileMarkers`, `ProfileFrame`, profiler commands |
-| `MainframeEngine.Editor/Src/UI/ProfilerPanel.cs`, `Content/Editor/profiler.rml` | the editor tab |
+| `MainframeEngine.Editor/Src/UI/ProfilerPanel.cs`, `Assets/Editor/profiler.rml` | the editor tab |
 
 `Profiler` is process-wide and static, like `Log` and `Tr`, so physics, audio, loaders and game code can record without a
 tree. Profiler text is developer-facing English, like the rest of the dev overlay; it does not go through `Tr`.

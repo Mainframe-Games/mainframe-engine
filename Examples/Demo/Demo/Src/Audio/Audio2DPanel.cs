@@ -12,7 +12,7 @@ public sealed class Audio2DPanel : UiDocument
 
     public Audio2DPanel()
     {
-        Source = "Content/Audio/panel2d.rml";
+        Source = "Assets/Audio/panel2d.rml";
         AutoFocus = false;
     }
 

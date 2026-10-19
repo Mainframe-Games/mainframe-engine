@@ -43,7 +43,7 @@ public sealed class ProjectServersTests : IDisposable
     {
         var layout = AudioBusLayout.CreateDefault();
         layout.Buses.Add(new AudioBusInfo { Name = "Dialogue", Send = "SFX", VolumeDb = -6f });
-        ResourceSaver.Save(layout, "Content/Settings/GameBuses.mres");
+        ResourceSaver.Save(layout, "Assets/Settings/GameBuses.mres");
         ResourceLoader.ClearCache();
 
         var settings = ProjectSettings.Parse(Encoding.UTF8.GetBytes("""
@@ -56,7 +56,7 @@ public sealed class ProjectServersTests : IDisposable
                 "3d": { "gravity": [0, -20, 0], "multiThreaded": false },
                 "2d": { "gravity": [0, 500] }
               },
-              "audio": { "busLayout": "Content/Settings/GameBuses.mres", "sampleRate": 44100, "bufferMs": 20 }
+              "audio": { "busLayout": "Assets/Settings/GameBuses.mres", "sampleRate": 44100, "bufferMs": 20 }
             }
             """));
         var options = settings.ToEngineOptions();

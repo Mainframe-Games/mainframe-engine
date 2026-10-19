@@ -63,7 +63,7 @@ public sealed class ProjectCreationIntegrationTests(ITestOutputHelper output) : 
         Assert.Equal(Path.Combine(GameProjectLayout.RealPath(_directory), "CreatedGame"), project); // temp folders are symlinked on macOS
         var settings = ProjectSettings.Load(project);
         Assert.Equal("CreatedGame", settings.Name);
-        Assert.Equal("Content/Scenes/Main.mscene", settings.MainScene);
+        Assert.Equal("Assets/Scenes/Main.mscene", settings.MainScene);
         Assert.Equal(["CreatedGame"], settings.Assemblies);
         Assert.Equal(EngineInfo.Version, settings.EngineVersion);
 
@@ -99,7 +99,7 @@ public sealed class ProjectCreationIntegrationTests(ITestOutputHelper output) : 
         tree.Root.AddChild(host);
         using (var session = new EditorSession(host))
         {
-            var scene = session.Open(Path.Combine(project, "Content", "Scenes", "Main.mscene"));
+            var scene = session.Open(Path.Combine(project, "Assets", "Scenes", "Main.mscene"));
             Assert.Equal(project, session.ProjectRoot);
             Assert.Equal("CreatedGame", session.Project?.Name);
             Assert.Equal("Main", scene.Root.Name);

@@ -18,7 +18,7 @@ game notices what is missing, PBR and 3D particles first.
   (`Material.cs:186-211`), with no metallic, roughness or AO. ADR 0014 deferred PBR "after Shadows v2 (M4) and with
   image-based lighting". M4 has shipped.
   - `shadeLightsBlinnPhong` multiplies the highlight by the base colour
-    (`MainframeEngine/Content/Shaders/include/lights.slang`), so dark surfaces never get a highlight and metals
+    (`MainframeEngine/Assets/Shaders/include/lights.slang`), so dark surfaces never get a highlight and metals
     cannot be expressed.
   - Ambient light is one flat colour (`LightsUBO.ambientColor`, `lights.slang`, `lights.slang`), set by
     `WorldEnvironment.AmbientColor` (`MainframeEngine/Src/Scene/Nodes3D/WorldEnvironment.cs:31-32`). The sky does not
@@ -306,7 +306,7 @@ public class GpuParticles3D : GeometryInstance3D                   // new
   `Codecs.cs` and joins the generator's supported types (`MainframeEngine.Generators/TypeModelBuilder.cs:44`), as
   `Rect2` did.
 - The `sparkles` (particles) and `sticker` (decal) icons are not in the editor atlas yet. They are added to
-  `MainframeEngine.Editor/Content/icons/icons.txt` (`just editor-icons-fetch`, `just editor-icons`).
+  `MainframeEngine.Editor/Assets/icons/icons.txt` (`just editor-icons-fetch`, `just editor-icons`).
 
 #### Rendering
 

@@ -38,7 +38,7 @@
     <path d="M60 270 L85 170 L110 270 Z"/><path d="M110 262 L130 190 L150 262 Z"/>
     <path d="M440 262 L468 160 L496 262 Z"/><path d="M500 258 L520 195 L540 258 Z"/><path d="M545 266 L568 180 L591 266 Z"/>
   </g>
-  <text x="34" y="66" class="doc">CaptionLayer (layer 85) · Content/UI/captions/captions.rml</text>
+  <text x="34" y="66" class="doc">CaptionLayer (layer 85) · Assets/UI/captions/captions.rml</text>
 
   <!-- caption stack, bottom centre, oldest on top -->
   <rect x="216" y="306" width="188" height="24" rx="3" fill="#000000" opacity="0.75"/>

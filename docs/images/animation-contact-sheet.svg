@@ -20,8 +20,8 @@
     .lead{stroke:#3b82f6;stroke-width:1;stroke-dasharray:3 3;fill:none}
   </style>
 <rect x="16" y="16" width="928" height="994" rx="6" fill="#f3f4f6" stroke="#d1d5db"/>
-<text x="28" y="40" class="dt" font-weight="600">jump  ·  Content/Characters/hero_anims.mres</text>
-<text x="28" y="58" class="dl">model Content/Characters/hero.glb (humanoid map: 22/22 required, Mixamo names) · 1.10 s · loop None · root inPlace</text>
+<text x="28" y="40" class="dt" font-weight="600">jump  ·  Assets/Characters/hero_anims.mres</text>
+<text x="28" y="58" class="dl">model Assets/Characters/hero.glb (humanoid map: 22/22 required, Mixamo names) · 1.10 s · loop None · root inPlace</text>
 <rect x="664" y="26" width="270" height="38" rx="4" fill="#fef3c7" stroke="#f59e0b"/>
 <text x="674" y="42" class="dt" font-size="11">check: 0 errors · 1 warning</text>
 <text x="674" y="57" class="dl">leftFoot slides 0.031 m during pin 0.00–0.24 s</text>

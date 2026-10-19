@@ -195,12 +195,12 @@ public sealed class Tree3DTests : IDisposable
         {
             var tree = AddTree(style: TreeStyle.LowPoly);
             tree.Seed = 77;
-            var baked = tree.Bake("Content/Trees/aspen_77.mres");
-            Assert.True(File.Exists(Path.Combine(project, "Content", "Trees", "aspen_77.mres")));
+            var baked = tree.Bake("Assets/Trees/aspen_77.mres");
+            Assert.True(File.Exists(Path.Combine(project, "Assets", "Trees", "aspen_77.mres")));
             Assert.Same(baked, tree.BakedMesh);
             ResourceLoader.ClearCache();
 
-            var loaded = ResourceLoader.Load<TreeMesh>("Content/Trees/aspen_77.mres");
+            var loaded = ResourceLoader.Load<TreeMesh>("Assets/Trees/aspen_77.mres");
             Assert.NotSame(baked, loaded);
             Assert.Equal(3, loaded.Lods.Length);
             Assert.Equal(77, loaded.Seed);

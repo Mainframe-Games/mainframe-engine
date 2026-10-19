@@ -5,7 +5,7 @@ namespace MainframeEngine;
 /// <summary>
 /// One <c>VkShaderModule</c> per SPIR-V file, shared by every pipeline that uses it (each sky, Spine skeleton
 /// or shape type used to load and destroy its own copy). Paths go through <see cref="ContentPaths.Resolve(string)"/>,
-/// so <c>"Shaders/Sky/Sky.vk.vert.spv"</c> and <c>"Content/Shaders/Sky/Sky.vk.vert.spv"</c> are the same module.
+/// so <c>"Shaders/Sky/Sky.vk.vert.spv"</c> and <c>"Assets/Shaders/Sky/Sky.vk.vert.spv"</c> are the same module.
 /// Modules live until the renderer is disposed. Load-time API (it allocates); render thread only.
 /// </summary>
 public sealed unsafe class ShaderModuleCache : IDisposable
@@ -39,7 +39,7 @@ public sealed unsafe class ShaderModuleCache : IDisposable
         }
         catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
         {
-            throw new FileNotFoundException($"Shader '{spvPath}' not found at {path} (is the engine's Content/Shaders copied to the output?).", path, e);
+            throw new FileNotFoundException($"Shader '{spvPath}' not found at {path} (is the engine's Assets/Shaders copied to the output?).", path, e);
         }
 
         if (code.Length == 0 || code.Length % 4 != 0)

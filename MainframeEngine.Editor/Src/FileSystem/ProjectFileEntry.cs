@@ -24,7 +24,7 @@ public sealed class ProjectFileEntry
     /// <summary>Absolute path.</summary>
     public string FullPath { get; }
 
-    /// <summary>Project-relative path with <c>/</c> separators (<c>Content/Scenes/Main.mscene</c>); empty for the root.</summary>
+    /// <summary>Project-relative path with <c>/</c> separators (<c>Assets/Scenes/Main.mscene</c>); empty for the root.</summary>
     public string ProjectPath { get; }
 
     public string Name { get; }
@@ -50,7 +50,7 @@ public sealed class ProjectFileEntry
 
     public FileBadges Badges { get; internal set; }
 
-    /// <summary>Tooltip for <see cref="Badges"/> (one line per problem, e.g. <c>Missing: Content/Textures/wood.png</c>); null when none.</summary>
+    /// <summary>Tooltip for <see cref="Badges"/> (one line per problem, e.g. <c>Missing: Assets/Textures/wood.png</c>); null when none.</summary>
     public string? BadgeText { get; internal set; }
 
     /// <summary>File size in bytes (0 for folders).</summary>

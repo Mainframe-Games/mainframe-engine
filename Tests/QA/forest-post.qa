@@ -1,4 +1,4 @@
-# ADR 0169: the Forest in the editor, its post-processing look (Content/PostProcess/forest.mres) open in the inspector
+# ADR 0169: the Forest in the editor, its post-processing look (Assets/PostProcess/forest.mres) open in the inspector
 # and previewed in the view. Run from the checkout after building the Forest (dotnet build Examples/Forest/Forest.slnx):
 #   dotnet run --project MainframeEngine.Editor -c Release -- Examples/Forest/project.mfproj --hidden \
 #     --qa-script Tests/QA/forest-post.qa --qa-out artifacts/qa-forest-post

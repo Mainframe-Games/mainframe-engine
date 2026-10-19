@@ -15,7 +15,7 @@ public sealed class SessionHost : IDisposable
     public SessionHost()
     {
         ProjectDirectory = Directory.CreateTempSubdirectory("mf-editor-project").FullName;
-        Directory.CreateDirectory(Path.Combine(ProjectDirectory, "Content", "Scenes"));
+        Directory.CreateDirectory(Path.Combine(ProjectDirectory, "Assets", "Scenes"));
         Tree = new SceneTree { EditMode = true };
         Host = new Node { Name = "Host" };
         Tree.Root.AddChild(Host);
@@ -27,7 +27,7 @@ public sealed class SessionHost : IDisposable
     public Node Host { get; }
     public EditorSession Session { get; }
 
-    public string ScenePath(string name) => Path.Combine(ProjectDirectory, "Content", "Scenes", name);
+    public string ScenePath(string name) => Path.Combine(ProjectDirectory, "Assets", "Scenes", name);
 
     public void Tick(int frames = 1)
     {

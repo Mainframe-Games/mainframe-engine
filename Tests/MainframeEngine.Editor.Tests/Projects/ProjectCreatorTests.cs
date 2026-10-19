@@ -61,10 +61,10 @@ public sealed class ProjectCreatorTests : IDisposable
     public void VerifyRejectsAProjectWhoseIconIsMissing()
     {
         var target = Path.Combine(_directory, "Game");
-        Directory.CreateDirectory(Path.Combine(target, "Content", "Scenes"));
-        File.WriteAllText(Path.Combine(target, "Content", "Scenes", "Main.mscene"), "{}");
+        Directory.CreateDirectory(Path.Combine(target, "Assets", "Scenes"));
+        File.WriteAllText(Path.Combine(target, "Assets", "Scenes", "Main.mscene"), "{}");
         File.WriteAllText(Path.Combine(target, ProjectSettings.FileName),
-            """{ "format": 1, "name": "Game", "window": { "icon": "Content/icon.png" } }""");
+            """{ "format": 1, "name": "Game", "window": { "icon": "Assets/icon.png" } }""");
 
         Assert.Contains("icon", ProjectCreator.Verify(target), StringComparison.OrdinalIgnoreCase);
     }

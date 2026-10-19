@@ -4,15 +4,15 @@
 
       <Import Project="..\build\Localization.targets" />
 
-    LocaleContentRoot (default "Content") is the game's content folder relative to the importing project; a desktop
-    project whose content lives beside it (the mfgame template: ../Content, linked as Content/) sets it before the import.
+    LocaleContentRoot (default "Assets") is the game's content folder relative to the importing project; a desktop
+    project whose content lives beside it (the mfgame template: ../Content, linked as Assets/) sets it before the import.
 
     1. Every $(LocaleContentRoot)/locale/<locale>/LC_MESSAGES/<domain>.po is compiled to
        obj/<Configuration>/locale/<locale>/LC_MESSAGES/<domain>.mo by mf-l10n (Tools/MainframeEngine.L10n, built
        first through a project reference): a C# .mo writer identical to GNU msgfmt, so builds never need gettext.
        Only catalogs whose .po (or the tool) changed are recompiled. A translation that breaks its placeholders or
        plural count fails the build with the file and line.
-    2. The compiled .mo files are copied to the output as Content/locale/<locale>/LC_MESSAGES/<domain>.mo, where
+    2. The compiled .mo files are copied to the output as Assets/locale/<locale>/LC_MESSAGES/<domain>.mo, where
        Tr loads them. When the tool cannot run (-p:CompileLocales=false, or its output is missing) the committed .mo
        files next to the .po are copied instead, with a warning; `just l10n-compile` keeps them current and
        `just l10n-check` (CI) verifies them. .po/.pot sources never reach the output.
@@ -23,7 +23,7 @@
 
   <PropertyGroup>
     <CompileLocales Condition="'$(CompileLocales)' == ''">true</CompileLocales>
-    <LocaleContentRoot Condition="'$(LocaleContentRoot)' == ''">Content</LocaleContentRoot>
+    <LocaleContentRoot Condition="'$(LocaleContentRoot)' == ''">Assets</LocaleContentRoot>
     <LocaleOutputDir>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(BaseIntermediateOutputPath), $(Configuration), locale))))</LocaleOutputDir>
     <_MfL10nPrebuilt Condition="'$(MfL10nPath)' != ''">true</_MfL10nPrebuilt>
     <MfL10nProject Condition="'$(_MfL10nPrebuilt)' != 'true'">$([System.IO.Path]::GetFullPath($(MSBuildThisFileDirectory)../Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj))</MfL10nProject>
@@ -82,7 +82,7 @@
       <_LocaleBinary Include="@(_CommittedLocaleBinary)" Condition="Exists('%(FullPath)')" />
     </ItemGroup>
     <ItemGroup>
-      <None Include="@(_LocaleBinary)" Link="Content/locale/%(_LocaleBinary.SubDir)%(_LocaleBinary.Filename)%(_LocaleBinary.Extension)"
+      <None Include="@(_LocaleBinary)" Link="Assets/locale/%(_LocaleBinary.SubDir)%(_LocaleBinary.Filename)%(_LocaleBinary.Extension)"
             CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
   </Target>

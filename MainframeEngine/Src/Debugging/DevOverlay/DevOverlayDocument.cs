@@ -41,8 +41,8 @@ internal sealed class DevOverlayDocument : UiDocument
     {
         var rml = new StringBuilder("""
             <rml><head><title>Developer overlay</title>
-            <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
-            <link type="text/rcss" href="/Content/UI/dev/overlay.rcss"/></head>
+            <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+            <link type="text/rcss" href="/Assets/UI/dev/overlay.rcss"/></head>
             <body class="dev-overlay"><div id="dev-panel">
             """);
         foreach (var panel in panels)

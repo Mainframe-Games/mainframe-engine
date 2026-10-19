@@ -5,7 +5,7 @@ namespace MainframeEngine.Tests.Rendering;
 /// <summary>ADR 0172: <see cref="SpirvInvariance"/> marks the foliage and impostor vertex positions invariant.</summary>
 public sealed class SpirvInvarianceTests
 {
-    private static readonly string ShaderDir = Path.Combine(FindRepoRoot(), "MainframeEngine", "Content", "Shaders");
+    private static readonly string ShaderDir = Path.Combine(FindRepoRoot(), "MainframeEngine", "Assets", "Shaders");
 
     private static string FindRepoRoot()
     {
@@ -42,7 +42,7 @@ public sealed class SpirvInvarianceTests
     public void ThePositionOfEachListedShaderBecomesInvariant(string shader)
     {
         var code = File.ReadAllBytes(Path.Combine(ShaderDir, shader));
-        Assert.True(SpirvInvariance.Applies("Content/Shaders/" + shader));
+        Assert.True(SpirvInvariance.Applies("Assets/Shaders/" + shader));
         Assert.DoesNotContain(Decorations(code), d => d.Decoration == 18);
 
         var patched = SpirvInvariance.MakePositionInvariant(code);
@@ -58,8 +58,8 @@ public sealed class SpirvInvarianceTests
     [Fact]
     public void OtherShadersAndModulesWithoutAPositionStayAsTheyAre()
     {
-        Assert.False(SpirvInvariance.Applies("Content/Shaders/Mesh/Mesh.vk.vert.spv"));
-        Assert.False(SpirvInvariance.Applies("Content/Shaders/Foliage/Foliage.vk.frag.spv"));
+        Assert.False(SpirvInvariance.Applies("Assets/Shaders/Mesh/Mesh.vk.vert.spv"));
+        Assert.False(SpirvInvariance.Applies("Assets/Shaders/Foliage/Foliage.vk.frag.spv"));
         var fragment = File.ReadAllBytes(Path.Combine(ShaderDir, "Foliage/Foliage.vk.frag.spv"));
         Assert.Same(fragment, SpirvInvariance.MakePositionInvariant(fragment));
         Assert.Throws<InvalidDataException>(() => SpirvInvariance.MakePositionInvariant(new byte[24]));

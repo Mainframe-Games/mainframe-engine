@@ -85,7 +85,7 @@ public enum EditorIconFamily
 /// <summary>
 /// The editor icon of a node or resource type (scene tree, Add Node dialog, inspector header, file system) or of an
 /// exported member (inspector row): a <a href="https://tabler.io/icons">Tabler</a> icon name such as <c>"cube"</c>,
-/// which must be in the editor's icon atlas (<c>MainframeEngine.Editor/Content/icons/icons.txt</c>). Types without one
+/// which must be in the editor's icon atlas (<c>MainframeEngine.Editor/Assets/icons/icons.txt</c>). Types without one
 /// use their nearest base type's icon; an empty name keeps the inherited icon and only sets <see cref="Family"/>.
 /// <c>MainframeEngine.Generators</c> records it in the type's <see cref="Serialization.NodeTypeInfo"/>.
 /// </summary>

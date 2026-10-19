@@ -42,7 +42,7 @@ What exists and what navigation should build on:
   `:252`) are exportable and store as number arrays ([math.md](../math.md)).
 - **Editor hooks.** Custom inspector sections with `data-action` buttons (`ICustomInspector`,
   `CustomInspectorAttribute`, `MainframeEngine.Editor/Src/Inspector/InspectorModel.cs:162-191`); the toolbar's view
-  toggles (`MainframeEngine.Editor/Content/Editor/toolbar.rml:69-70`).
+  toggles (`MainframeEngine.Editor/Assets/Editor/toolbar.rml:69-70`).
 
 ## Goals
 
@@ -411,7 +411,7 @@ Per-tile navigation polygons (Godot's `TileSetNavigationLayer`, a name G2 reserv
 - **Agent gizmo.** The selected `NavigationAgent2D` draws its `TargetDesiredDistance` and `PathDesiredDistance`
   circles into `OverlayLines`. Dragging the `Region` edges uses G7.3's handle API
   ([Editor viewport tools](editor-viewport-tools.md)) once it exists; until then `Region` is edited in the inspector.
-- **Icons.** `route` and `wand` are added to `MainframeEngine.Editor/Content/icons/icons.txt` (`just
+- **Icons.** `route` and `wand` are added to `MainframeEngine.Editor/Assets/icons/icons.txt` (`just
   editor-icons-fetch`, then `just editor-icons`); `grid-3x3` and `trash` already exist.
 - Running games use the dev overlay: a "Navigation" checkbox in the Physics panel next to "Collision shapes"
   (`DevOverlayPanels.cs:243`), and `EngineOptions.DebugNavigation` (new) to start with it on.

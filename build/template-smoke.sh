@@ -61,8 +61,8 @@ NUGET
 esac
 
 # A catalog, so the build's .po -> .mo step (Localization.targets, from the checkout or the package) runs too.
-mkdir -p "$work/SmokeGame/Content/locale/fr/LC_MESSAGES"
-cat > "$work/SmokeGame/Content/locale/fr/LC_MESSAGES/messages.po" <<'PO'
+mkdir -p "$work/SmokeGame/Assets/locale/fr/LC_MESSAGES"
+cat > "$work/SmokeGame/Assets/locale/fr/LC_MESSAGES/messages.po" <<'PO'
 msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -86,8 +86,8 @@ require() {
     fi
   done
 }
-engine_files=(Content/UI/widgets/widgets.rcss Content/Shaders/Mesh/Mesh.vk.vert.spv Content/locale/fr/LC_MESSAGES/messages.mo)
-require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Content/Scenes/Main.mscene Content/icon.png "${engine_files[@]}"
+engine_files=(Assets/UI/widgets/widgets.rcss Assets/Shaders/Mesh/Mesh.vk.vert.spv Assets/locale/fr/LC_MESSAGES/messages.mo)
+require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Assets/Scenes/Main.mscene Assets/icon.png "${engine_files[@]}"
 # Steamworks: both Facepunch builds behind the engine's shim (the engine loads this OS's) and every steam_api native.
 steam_files=(steamworks/win64/MainframeEngine.Steamworks.dll steamworks/win64/Facepunch.Steamworks.Win64.dll
   steamworks/posix/MainframeEngine.Steamworks.dll steamworks/posix/Facepunch.Steamworks.Posix.dll)
@@ -107,7 +107,7 @@ if [ "$source" = "package" ]; then
     win-*) steam_variant=win64 ;;
     *) steam_variant=posix ;;
   esac
-  require "$work/publish" "$rmlui" SmokeGame.Desktop.dll project.mfproj Content/Scenes/Main.mscene "${engine_files[@]}" \
+  require "$work/publish" "$rmlui" SmokeGame.Desktop.dll project.mfproj Assets/Scenes/Main.mscene "${engine_files[@]}" \
     "steamworks/$steam_variant/MainframeEngine.Steamworks.dll"
 
   # Player builds (#48): the package's tools/package-game.sh, found through MainframePackageGameScript, makes the three
@@ -138,7 +138,7 @@ if [ "$source" = "package" ]; then
     case "$package_rid" in
       linux-*) check_archive "$archive" "+$base/SmokeGame" "+$base/libsteam_api.so" "+$base/libmfrmlui.so" \
         "+$base/steamworks/posix/MainframeEngine.Steamworks.dll" "+$base/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-        "+$base/Content/Scenes/Main.mscene" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
+        "+$base/Assets/Scenes/Main.mscene" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
       win-*) check_archive "$archive" "+$base/SmokeGame.exe" "+$base/steam_api64.dll" "+$base/mfrmlui.dll" \
         "+$base/steamworks/win64/MainframeEngine.Steamworks.dll" "+$base/steamworks/win64/Facepunch.Steamworks.Win64.dll" \
         "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" ;;

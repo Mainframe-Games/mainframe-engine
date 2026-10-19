@@ -65,7 +65,7 @@ public static class Basic2DScene
         Add(root, root, new Sprite2D
         {
             Name = "Logo",
-            Texture = ResourceLoader.Load<Texture2D>("Content/Basic2D/logo.png"),
+            Texture = ResourceLoader.Load<Texture2D>("Assets/Basic2D/logo.png"),
             Position = new Vector2(-150, -20),
             Scale = new Vector2(0.35f)
         });

@@ -172,7 +172,7 @@ A `SpriteFrames` saved as `.mres`
   "uid": "res_51c0aa7e3d19",
   "type": "SpriteFrames",
   "resources": {
-    "Texture2D_0h3k1": { "ref": "tex_9b2e40c7a1f3", "path": "Content/Sprites/hero.png" },
+    "Texture2D_0h3k1": { "ref": "tex_9b2e40c7a1f3", "path": "Assets/Sprites/hero.png" },
     "SpriteAnimation_4f2qz": {
       "type": "SpriteAnimation",
       "props": {
@@ -613,8 +613,8 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
 
 `tiles_2d` ("Tiles 2D") is added to `DemoScenes.All` and built in code like the others ([Demo](../demo.md)):
 
-- **Placeholder art first.** The builder generates `Content/Tiles2D/tiles.png` (a 16 px atlas: grass, dirt, stone,
-  water, a two-tile tree with a y-sort origin) and `Content/Tiles2D/hero.png` (a 4×4 sheet of a blob with
+- **Placeholder art first.** The builder generates `Assets/Tiles2D/tiles.png` (a 16 px atlas: grass, dirt, stone,
+  water, a two-tile tree with a y-sort origin) and `Assets/Tiles2D/hero.png` (a 4×4 sheet of a blob with
   idle/run/jump frames, numbered) with `Png.WriteRgba8` (`MainframeEngine/Src/Imaging/Png.cs:68`). It is all MIT and
   replaceable by real art without code changes.
 - `tiles.mres` (`TileSet`: one physics layer with full-tile collision on stone, and custom data `surface`) and

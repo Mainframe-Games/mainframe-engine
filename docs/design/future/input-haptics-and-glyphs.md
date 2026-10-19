@@ -88,7 +88,7 @@ Gamepads drive actions, but the engine cannot talk back to them or show the play
 | `UiGlyphBinder` | `Src/UI/` | `<glyph>`, `<prompt>`, the `glyphs` data model |
 | `GlyphText` | `Src/Scene/Canvas/` | Canvas text with glyph tokens |
 | `SteamGamepadTypes` | `Src/Steamworks/` | Steam Input handle → real type, Steam Deck detection |
-| `Content/Input/Glyphs/` | engine content | Atlases per family, `glyphs.json`, `glyphs.rcss` |
+| `Assets/Input/Glyphs/` | engine content | Atlases per family, `glyphs.json`, `glyphs.rcss` |
 
 `IGamepadBackend` lets unit tests use a fake, `HeadlessHost` use the null backend, and the SDL3 migration planned in
 [Consoles](consoles.md) replace one class. `SdlGamepadBackend` reaches a pad's `GameController*` without reflection:
@@ -320,11 +320,11 @@ public static partial class Input
 
 ### Glyph assets
 
-Atlases live in `MainframeEngine/Content/Input/Glyphs/` and load through `ContentPaths.Resolve`: one PNG per family at
+Atlases live in `MainframeEngine/Assets/Input/Glyphs/` and load through `ContentPaths.Resolve`: one PNG per family at
 2× (64 px cells), `glyphs.json` (sprite rects, binding code → sprite), and a generated `glyphs.rcss` with RmlUi
 `@spritesheet` blocks at `resolution: 2x` so `dp` sizing stays sharp. A small packer in `Tools/` (StbImageSharp is
 already a dependency) builds them with `just glyphs`; outputs are committed like the `.spv` fallbacks, and the source
-pack version is pinned in `glyphs.lock`. Games override any atlas with the same file name in their own `Content/`.
+pack version is pinned in `glyphs.lock`. Games override any atlas with the same file name in their own `Assets/`.
 
 | Source | Licence | Coverage | Trade-offs |
 |---|---|---|---|
@@ -340,7 +340,7 @@ not trademarks (the PlayStation shapes, console names); console builds must use 
 ### RmlUi: `<glyph>`, `<prompt>` and the `glyphs` model
 
 ```html
-<link type="text/rcss" href="/Content/Input/Glyphs/glyphs.rcss"/>
+<link type="text/rcss" href="/Assets/Input/Glyphs/glyphs.rcss"/>
 <p><glyph action="jump"/> Jump  <glyph action="interact" device="keyboard"/></p>
 <prompt>Press [[jump]] to jump</prompt>
 <img data-attr-sprite="glyphs.pause"/> <span>{{ glyphs.pause_label }}</span>
@@ -455,7 +455,7 @@ change and redraws on `GlyphsChanged`; a steady frame allocates nothing. G11's `
 - Docs updated when this ships: `cameras-and-input.md`, `game-ui.md`, `canvas.md`, `localization.md`, `steamworks.md`,
   `dev-overlay.md`, `project-and-gamehost.md`, `demo.md`; `future/mobile.md` (`LastDeviceClass`, `IHaptics` on
   `HapticsServer`), `future/consoles.md` (`IGlyphProvider`, `IGamepadBackend`), `future/save-and-settings.md` (open
-  question 4 answered); and `CLAUDE.md`'s project structure (`Src/Haptics/`, `Content/Input/Glyphs/`).
+  question 4 answered); and `CLAUDE.md`'s project structure (`Src/Haptics/`, `Assets/Input/Glyphs/`).
 
 ## Task list
 

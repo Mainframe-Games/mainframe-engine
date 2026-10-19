@@ -97,7 +97,7 @@ selection or the scene version changes, never per frame.
 | Individual Origins | median point (for the handles) | each node's own origin |
 
 Icons: `point` (median), `target` (active), `circles` (individual; a new entry in
-`MainframeEngine.Editor/Content/icons/icons.txt`, vendored from Tabler like the others). Tooltip:
+`MainframeEngine.Editor/Assets/icons/icons.txt`, vendored from Tabler like the others). Tooltip:
 "Pivot: Median Point — rotate and scale around the selection's centre (click to change)". Like the gizmo mode,
 space and snap, it lasts for the session.
 
@@ -169,7 +169,7 @@ because those setters are internal to the engine. Instead:
    `SetPropertyAction`s ("Save Material as Crate.mres"). Slots are found by walking the nodes the scene owns and the
    inline resources they reach, the same set `SceneWriter` writes. Godot changes every reference because it changes
    the object itself; replacing every slot keeps that behaviour.
-4. Output logs `Saved Content/Materials/Crate.mres`.
+4. Output logs `Saved Assets/Materials/Crate.mres`.
 
 Undo puts the inline `original` back in every slot. It keeps its `SceneLocalId`, so the next scene save writes the
 same bytes as before. The file stays on disk, as in Godot. Redo puts `copy` back. If the chosen path is an existing
@@ -185,7 +185,7 @@ serialization](../scene-serialization.md#file-format)):
 // before
 "StandardMaterial3D_7b21a": { "type": "StandardMaterial3D", "props": { "AlbedoColor": [0.8, 0.3, 0.2, 1] } }
 // after Save as .mres (the key is re-hashed from the UID on save)
-"StandardMaterial3D_4e0c2": { "ref": "res_5f3a9c01d2e4", "path": "Content/Materials/Crate.mres" }
+"StandardMaterial3D_4e0c2": { "ref": "res_5f3a9c01d2e4", "path": "Assets/Materials/Crate.mres" }
 ```
 
 **Make Unique** works the same way on one slot: the slot gets an inline copy. The copy has no `SceneLocalId`, so its
@@ -496,7 +496,7 @@ are plain literals, like the rest of the editor. Player-facing strings are not i
   `handle-drag <id> dx dy`, `simulate start|pause|stop`, `res-menu <row> <item>`. Steps: box-select three crates,
   rotate them around the median, undo; drag a lamp's range; Save as .mres on an inline material; simulate the
   physics scene for 120 frames, capture, stop, capture (crates back in place).
-- **Demo:** no new scene. `Examples/Demo/Content/Scenes/physics_3d.mscene` and `physics_2d.mscene` are the simulate
+- **Demo:** no new scene. `Examples/Demo/Assets/Scenes/physics_3d.mscene` and `physics_2d.mscene` are the simulate
   QA scenes; `audio_3d.mscene` covers the audio handles.
 
 ## Acceptance

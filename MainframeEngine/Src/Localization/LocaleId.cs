@@ -4,7 +4,7 @@ namespace MainframeEngine.Localization;
 
 /// <summary>
 /// Locale names in gettext form (<c>pt_BR</c>, <c>zh_Hans_CN</c>), the form used for catalog folders
-/// (<c>Content/locale/pt_BR/LC_MESSAGES/messages.mo</c>). Accepts .NET/BCP-47 names (<c>pt-BR</c>) and POSIX names
+/// (<c>Assets/locale/pt_BR/LC_MESSAGES/messages.mo</c>). Accepts .NET/BCP-47 names (<c>pt-BR</c>) and POSIX names
 /// with an encoding or modifier (<c>pt_BR.UTF-8@euro</c>) and normalises them.
 /// </summary>
 public static class LocaleId

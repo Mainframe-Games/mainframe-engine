@@ -183,7 +183,7 @@ public static class WavetableWav
 
     /// <summary>
     /// Imports <paramref name="file"/> as a wavetable of the project: checks that it reads, copies a file from outside
-    /// <c>Content/</c> into <c>Content/Wavetables/</c> (a free name), gives it a UID and returns that UID (the patch's
+    /// <c>Assets/</c> into <c>Assets/Wavetables/</c> (a free name), gives it a UID and returns that UID (the patch's
     /// table source). Throws <see cref="InvalidDataException"/> for files that are not tables.
     /// </summary>
     public static string Import(string file, AssetDatabase database, int frameSize = 0)

@@ -71,7 +71,8 @@ public sealed partial class EditorWorkspace
         Updates.Start();
         if (Options.InitialProject is { } project)
         {
-            RunWithSplash($"Opening {Path.GetFileName(project.TrimEnd(Path.DirectorySeparatorChar))}…", () => Commands.OpenProjectNow(project, Options.InitialScene));
+            Commands.AfterAssetsFolderCheck(project, () =>
+                RunWithSplash($"Opening {Path.GetFileName(project.TrimEnd(Path.DirectorySeparatorChar))}…", () => Commands.OpenProjectNow(project, Options.InitialScene)));
             return;
         }
 

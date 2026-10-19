@@ -61,7 +61,7 @@ public class UiBenchmarks : IDisposable
     public void Setup()
     {
         RmlCore.Initialise(_system, new RmlContentFileInterface());
-        RmlCore.LoadFontFace("Content/UI/fonts/LatoLatin-Regular.ttf");
+        RmlCore.LoadFontFace("Assets/UI/fonts/LatoLatin-Regular.ttf");
         _renderer = new CountingRenderer();
         _context = new RmlContext("bench", 1920, 1080, _renderer);
         for (var i = 0; i < Rows; i++)

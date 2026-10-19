@@ -22,7 +22,7 @@ public sealed class SongAdaptiveTests
           ],
           "adaptive": {
             "start": "intro",
-            "output": "Content/Music/Theme.mmusic",
+            "output": "Assets/Music/Theme.mmusic",
             "tailSeconds": 4,
             "x-future": [1, 2],
             "parameters": [

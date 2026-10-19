@@ -16,7 +16,7 @@ public static class Basic3DScene
         Add(root, root, new WorldEnvironment
         {
             Name = "Environment",
-            Sky = new Sky { Mode = SkyEnvironmentType.Panoramic, Panorama = "Content/Sky/sky_10_2k.png" },
+            Sky = new Sky { Mode = SkyEnvironmentType.Panoramic, Panorama = "Assets/Sky/sky_10_2k.png" },
             AmbientColor = new Vector3(0.2f, 0.24f, 0.33f),
         });
 
@@ -38,7 +38,7 @@ public static class Basic3DScene
             new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 120, 30), EmissionColor = Color.FromArgb(255, 170, 80), EmissionEnergy = 1.2f, ShadingMode = ShadingMode.Unshaded },
             new Vector3(-2.3f, 0.6f, -2.3f)));
 
-        var model = ResourceLoader.Load<PackedScene>("Content/Models/TestModel/test_model.gltf");
+        var model = ResourceLoader.Load<PackedScene>("Assets/Models/TestModel/test_model.gltf");
         try
         {
             var instance = model.Instantiate<Node3D>();

@@ -71,7 +71,7 @@ public sealed class GameHostRun : GameHost
         _ambience = new AudioPlayer
         {
             Name = "Ambience",
-            Stream = new AudioStream { File = "Content/Audio/ambient_hum.ogg", LoadMode = AudioLoadMode.Stream, Loop = true, LoopEnd = 6f },
+            Stream = new AudioStream { File = "Assets/Audio/ambient_hum.ogg", LoadMode = AudioLoadMode.Stream, Loop = true, LoopEnd = 6f },
             VolumeDb = -30f,
             Autoplay = true,
         };

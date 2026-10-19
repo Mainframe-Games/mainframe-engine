@@ -190,12 +190,12 @@ public sealed class UiHelperTests
             files.AddSourceDirectory(dir); // once
             Assert.Single(files.SourceDirectories);
 
-            Assert.Equal(Path.Combine(dir, "UI", "hud.rml"), files.ResolvePath("Content/UI/hud.rml"));
+            Assert.Equal(Path.Combine(dir, "UI", "hud.rml"), files.ResolvePath("Assets/UI/hud.rml"));
             Assert.Equal(Path.Combine(dir, "UI", "hud.rml"), files.ResolvePath("UI/hud.rml"));
-            Assert.Null(files.ResolvePath("Content/UI/missing.rml"));
-            Assert.NotNull(files.ResolvePath("Content/UI/fonts/LatoLatin-Regular.ttf")); // falls back to the output's Content
-            Assert.NotNull(files.ResolveDirectory("Content/UI/fonts"));
-            using var stream = files.Open("Content/UI/hud.rml");
+            Assert.Null(files.ResolvePath("Assets/UI/missing.rml"));
+            Assert.NotNull(files.ResolvePath("Assets/UI/fonts/LatoLatin-Regular.ttf")); // falls back to the output's Assets
+            Assert.NotNull(files.ResolveDirectory("Assets/UI/fonts"));
+            using var stream = files.Open("Assets/UI/hud.rml");
             Assert.NotNull(stream);
         }
         finally
@@ -205,8 +205,8 @@ public sealed class UiHelperTests
     }
 
     [Theory]
-    [InlineData("Content/UI/x.rml", "UI/x.rml")]
-    [InlineData("Content\\UI\\x.rml", "UI/x.rml")]
+    [InlineData("Assets/UI/x.rml", "UI/x.rml")]
+    [InlineData("Assets\\UI\\x.rml", "UI/x.rml")]
     [InlineData("UI/x.rml", "UI/x.rml")]
     public void ContentPrefixIsStripped(string path, string expected) => Assert.Equal(expected, UiFileInterface.ContentRelative(path));
 

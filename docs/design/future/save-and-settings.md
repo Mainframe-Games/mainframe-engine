@@ -52,7 +52,7 @@ Every game needs to save progress and remember the player's options. The engine 
   ratio follows the display only (`UiLayer.ScaleMode`, `MainframeEngine/Src/UI/UiLayer.cs:82`).
 - **No settings UI.** The [widget library](../game-ui.md#widget-library) has sliders, checkboxes, dropdowns and buttons,
   but no tabs and no settings screen. The Demo's nav bar has a language picker and nothing else
-  (`Examples/Demo/Content/Nav/nav.rml`).
+  (`Examples/Demo/Assets/Nav/nav.rml`).
 - **Mobile plans assume this exists.** [Mobile core](mobile.md) says games save in `OnApplicationPause` and that "the
   `mfgame` template shows a `SaveGame` autoload" (`mobile.md:229-233`). [Mobile services](mobile-services.md) plans a
   `CloudSaveServer` with slots of bytes, `SaveMeta { Slot, Description, PlayedTime, ModifiedUtc, DeviceName,
@@ -109,7 +109,7 @@ Every game needs to save progress and remember the player's options. The engine 
 | `AudioBus.UserVolume` (new member) | `Src/Audio/` | Player volume, multiplied on top of the designer's fader |
 | `IWindowControl.Mode/VSync/MaxFps` (new members), `WindowMode` | `Src/Scene/`, `Src/Core/` | Display settings reachable from nodes |
 | `UiServer.UserScale` (new member) | `Src/UI/` | Player UI scale |
-| `SettingsMenu : UiDocument` + `Content/UI/settings/` | `Src/UI/Settings/` | The drop-in menu |
+| `SettingsMenu : UiDocument` + `Assets/UI/settings/` | `Src/UI/Settings/` | The drop-in menu |
 
 ### Files in user data
 
@@ -572,11 +572,11 @@ Capture rules:
 
 ![In-game settings menu: Audio, Controls and Display tabs](../../images/settings-menu.svg)
 
-- **Content:** `MainframeEngine/Content/UI/settings/settings.rml` + `settings.rcss`. It links
-  `/Content/UI/widgets/widgets.rcss` and uses only widget-library controls: `input type="range"`, checkbox, `select`,
+- **Content:** `MainframeEngine/Assets/UI/settings/settings.rml` + `settings.rcss`. It links
+  `/Assets/UI/widgets/widgets.rcss` and uses only widget-library controls: `input type="range"`, checkbox, `select`,
   `button`, `.panel`.
 - **Tabs** are a data-bound button strip with `data-if` panels, the pattern the Demo nav bar already uses
-  (`Examples/Demo/Content/Nav/nav.rml:10-13`). LB/RB switch tabs on a gamepad. The `.tabs` style is added to
+  (`Examples/Demo/Assets/Nav/nav.rml:10-13`). LB/RB switch tabs on a gamepad. The `.tabs` style is added to
   `widgets.rcss`, which starts the "Shared widgets" work of the [editor roadmap](editor.md).
 - **Controller:** `SettingsMenu : UiDocument` (new, `MainframeEngine/Src/UI/Settings/`), with `Modal = true`. It creates
   one data model `settings`:
@@ -603,12 +603,12 @@ Capture rules:
 
   `Open` adds a `UiLayer` (layer 90, under the dev overlay) with the menu below the root, unless one is already open. It
   returns the menu so the game can subscribe to `Closed`.
-- **Restyling:** a game can copy `settings.rml` into its own `Content/` and set `Source`. The data-model contract above
+- **Restyling:** a game can copy `settings.rml` into its own `Assets/` and set `Source`. The data-model contract above
   is documented and versioned with the engine.
 - **Localization.** Every string in the RML is a text node or a translated attribute, so it goes through
   `UiServer.Translator` ([localization](../localization.md#game-ui-rmlui)). Labels set from C# use `Tr.P("settings", …)`.
   Games have one catalog domain (`LocalizationOptions.Domain`, `MainframeEngine/Src/Localization/LocalizationOptions.cs:24-25`).
-  So the engine ships `Content/UI/settings/settings.pot`, and `mf-l10n update --template` merges it into the game's
+  So the engine ships `Assets/UI/settings/settings.pot`, and `mf-l10n update --template` merges it into the game's
   `.po` files. The Demo's Spanish and `qps` catalogs prove it.
 - **Saving.** `Done` or `Close` calls `UserSettings.Save()`, but only when something changed.
 

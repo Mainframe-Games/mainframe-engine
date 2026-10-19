@@ -35,7 +35,7 @@ Decisions: [project file + GameHost](../../memory/decisions/0090-project-file-an
 ```text
 MyGame/                      ← dotnet new mfgame -n MyGame --engine-version X.Y.Z (the MainframeEngine package)
 ├─ project.mfproj            ← ProjectSettings (copied next to the app)
-├─ Content/Scenes/Main.mscene
+├─ Assets/Scenes/Main.mscene
 ├─ MyGame/MyGame.csproj      ← class library: node/resource types (generator as analyzer)
 ├─ MyGame.Desktop/           ← exe: return GameHost.Run(args, typeof(MyGame.Spinner).Assembly);
 ├─ Directory.Build.props     ← TargetFramework, warnings as errors, MainframeEnginePath
@@ -44,7 +44,7 @@ MyGame/                      ← dotnet new mfgame -n MyGame --engine-version X.
 
 `MyGame.Desktop` is the game's desktop *head*: the executable for Windows, macOS and Linux. The planned mobile heads
 (`MyGame.Android`, `MyGame.iOS` — [mobile](future/mobile.md)) sit next to it over the same library. The desktop project
-copies `project.mfproj` and `Content/**` to its output; engine content and natives come through the engine project
+copies `project.mfproj` and `Assets/**` to its output; engine content and natives come through the engine project
 reference, as for the Demo. The editor loads `MyGame.dll` (the library), never a head; Play builds and runs the desktop
 project (`GameProjectLayout.DesktopProjectOf`). Projects made before the rename have `MyGame.Launcher`, which the editor
 still finds when there is no `*.Desktop` project.
@@ -57,15 +57,15 @@ commas tolerated). Only values that differ from the defaults are written, except
 
 ```jsonc
 {
-  "format": 3,
+  "format": 4,
   "name": "Space Game",
   "engineVersion": "0.4.2",                    // the engine the project was created with / upgraded to
   "userDataName": "SpaceGame",                 // the user data folder's name (default: name); keep it stable
-  "mainScene": "scn_0123456789ab",             // UID or Content/ path
+  "mainScene": "scn_0123456789ab",             // UID or Assets/ path
   "assemblies": ["SpaceGame"],                 // game assemblies (types registered before scenes load)
   "isDemo": true,                              // this build is the game's Steam demo (see Demo builds)
   "steam": { "appId": 480, "demoAppId": 481, "devAppIdFile": true, "restartThroughSteam": true },
-  "window": { "title": "Space!", "width": 1920, "height": 1080, "vsync": false, "maxFps": 144, "icon": "Content/icon.png" },
+  "window": { "title": "Space!", "width": 1920, "height": 1080, "vsync": false, "maxFps": 144, "icon": "Assets/icon.png" },
   "physics": {
     "ticksPerSecond": 120, "maxStepsPerFrame": 8,
     "3d": { "gravity": [0, -20, 0], "substeps": 2, "solverIterations": 8, "relaxationIterations": 3,
@@ -76,23 +76,24 @@ commas tolerated). Only values that differ from the defaults are written, except
     "jump": { "bindings": ["key:Space", "pad:A"] },
     "move_left": { "deadzone": 0.25, "bindings": ["key:A", "axis:LeftX-"] }
   },
-  "audio": { "enabled": true, "busLayout": "Content/Settings/AudioBusLayout.mres", "sampleRate": 44100, "bufferMs": 20 },
-  "localization": { "defaultLocale": "es", "sourceLocale": "en", "fallbacks": ["es"], "directory": "Content/locale", "domain": "messages" },
+  "audio": { "enabled": true, "busLayout": "Assets/Settings/AudioBusLayout.mres", "sampleRate": 44100, "bufferMs": 20 },
+  "localization": { "defaultLocale": "es", "sourceLocale": "en", "fallbacks": ["es"], "directory": "Assets/locale", "domain": "messages" },
   "rendering": { "exposure": 1.1, "shadows": "Low" },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1, "minScale": 0.5 },
-  "loading": { "async": true, "screen": "Content/UI/loading.rml" }, // ADR 0183: the start scene loads behind a loading screen
+  "loading": { "async": true, "screen": "Assets/UI/loading.rml" }, // ADR 0183: the start scene loads behind a loading screen
   "saves": { "maxBytes": 16777216, "backups": 2, "compression": "none", "thumbnails": true,
              "thumbnail": { "width": 320, "height": 180 } },
   "autoloads": [
-    { "name": "Music", "scene": "Content/Autoload/Music.mscene" },
+    { "name": "Music", "scene": "Assets/Autoload/Music.mscene" },
     { "name": "Stats", "type": "GameStats", "enabled": false }
   ]
 }
 ```
 
-- **Versioning.** `format` is `ProjectSettingsFormat.Current` (3; format 1 had a top-level `steamAppId`, which the
+- **Versioning.** `format` is `ProjectSettingsFormat.Current` (4; format 1 had a top-level `steamAppId`, which the
   1 → 2 migration moves to `steam.appId`; the 2 → 3 migration writes `ui.scaleMode: "ConstantPixelSize"` into projects
-  that have none, so their UI keeps its size). Older files run through `ProjectMigration` steps
+  that have none, so their UI keeps its size; the 3 → 4 migration moves every `Content/…` path value to `Assets/…`,
+  the content folder's new name, ADR 0197). Older files run through `ProjectMigration` steps
   (`From` → `From + 1`, each editing the `JsonObject`) before they are read; newer files are rejected ("update the
   engine"). `engineVersion` is advisory: `GameHost` warns when its major/minor differs from `EngineInfo.Version`
   (development builds `0.0.0-*` never warn).
@@ -149,7 +150,7 @@ commas tolerated). Only values that differ from the defaults are written, except
 
 ### App name and icon (ADR 0182)
 
-`name` is the game's player-facing name and `window.icon` (a PNG, `Content/…`) its icon, everywhere:
+`name` is the game's player-facing name and `window.icon` (a PNG, `Assets/…`) its icon, everywhere:
 
 - **Run time.** The window title when `window.title` is unset, the user data folder (`GameHost.UserDataDirectory`), and
   `window.icon` → `EngineOptions.IconPath` (the SDL window/taskbar icon on Windows and Linux; on macOS the Dock icon of
@@ -280,8 +281,8 @@ nothing; `UiDocument.CreateDataModel` throws, so UI nodes check `IsHeadless` fir
 Debug engine builds (`UiServerOptions.DefaultHotReload`) hot-reload the game's `.rml`/`.rcss` from the project sources:
 `GameHost.Run` hands the desktop project's game assemblies to the `GameHost` constructor, and `GameHost.CreateUiOptions` turns
 their `[AssemblyMetadata("MainframeContentSource", …)]` folders (`UiServerOptions.SourceDirectoriesOf`) into the UI's
-source directories, so saving a document in the project's `Content/` reloads it in the running game. The `mfgame`
-template's `MyGame.csproj` records its sibling `Content/` folder under that key in Debug builds only; Release builds and
+source directories, so saving a document in the project's `Assets/` reloads it in the running game. The `mfgame`
+template's `MyGame.csproj` records its sibling `Assets/` folder under that key in Debug builds only; Release builds and
 installed games load from the output folder. An explicit `EngineOptions.Ui` (tests, engine subclasses) is left alone.
 
 ## User settings
@@ -626,8 +627,8 @@ The game's `Directory.Build.props` sets `ImportDirectoryPackagesProps=false`: a 
 package management keeps its own versions.
 
 A new game's `project.mfproj` spells out the defaults it starts from: a 1280×720 VSync window, 60 Hz physics with
-5 steps per frame and Earth gravity, `Content/Settings/AudioBusLayout.mres` (shipped: Master → Music, SFX, UI, Voice),
-`en` as the source locale with catalogs in `Content/locale` (the desktop project sets `LocaleContentRoot=../Content` for
+5 steps per frame and Earth gravity, `Assets/Settings/AudioBusLayout.mres` (shipped: Master → Music, SFX, UI, Voice),
+`en` as the source locale with catalogs in `Assets/locale` (the desktop project sets `LocaleContentRoot=../Content` for
 `Localization.targets`, from the package or imported from the checkout, so a `.po` added there is compiled and shipped) and `High` shadows.
 
 The game library has a `SaveGame` autoload (`MyGame/Src/SaveGame.cs`, registered in `autoloads`) showing the

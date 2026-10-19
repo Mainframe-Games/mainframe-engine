@@ -15,7 +15,7 @@ editing, resource files and custom inspectors, editor settings). What is still o
 ```sh
 just editor                                  # the Project Manager (recent projects, New Project, Open)
 just editor path/to/MyGame                   # open a project folder (or its project.mfproj)
-just editor Examples/Demo/Content/Scenes/basic_3d.mscene   # open one scene (its project becomes current)
+just editor Examples/Demo/Assets/Scenes/basic_3d.mscene   # open one scene (its project becomes current)
 ```
 
 On macOS the app is called **Mainframe Engine** (Dock tooltip, bold app menu, Cmd+Tab) in development runs as well as in
@@ -75,7 +75,7 @@ flowchart TB
 | `ProjectFileSystem`, `FileOperations`, `ReferenceFixer`, `Trash`, `ThumbnailCache` | [FileSystem/](../../MainframeEngine.Editor/Src/FileSystem/) | The FileSystem panel's model and file operations |
 | `EditorSettings`, `CodeEditorLauncher`, `EditorTheme` | [Settings/](../../MainframeEngine.Editor/Src/Settings/) | Editor preferences, the external code editor, the accent overlay |
 | `ProcessRunner` | [Tools/](../../MainframeEngine.Editor/Src/Tools/) | Child processes (`dotnet`) with line callbacks, timeout and a clean MSBuild environment; returns at exit even while MSBuild nodes it started hold the output open |
-| Panels and dialogs | [UI/](../../MainframeEngine.Editor/Src/UI/) | One `EditorDocument` (a `UiDocument`) per RML file in [Content/Editor](../../MainframeEngine.Editor/Content/Editor/) |
+| Panels and dialogs | [UI/](../../MainframeEngine.Editor/Src/UI/) | One `EditorDocument` (a `UiDocument`) per RML file in [Assets/Editor](../../MainframeEngine.Editor/Assets/Editor/) |
 
 ## Edit mode and edited worlds
 
@@ -105,7 +105,7 @@ flowchart TB
 - **The current project** (see [Projects](#projects)) sets `AssetDatabase.Current` and `ContentPaths.ProjectDirectory`,
   so scenes' textures, models, sky and Spine folders load from the project sources. Opening a lone scene without a
   project makes its project current: the nearest ancestor folder holding a `project.mfproj`, else the folder above the
-  scene's `Content/`. Game node types come from the project's game assembly; a type that is not loaded is a
+  scene's `Assets/`. Game node types come from the project's game assembly; a type that is not loaded is a
   `MissingNode`, kept intact and written back (the inspector says so).
 
 ## UI
@@ -246,14 +246,14 @@ level tints `icon-info`/`icon-warn`/`icon-error`/`icon-debug`. The colours are G
 the `#1f2128` panels; selected rows keep the tint.
 
 - **Atlas** ([0085](../../memory/decisions/0085-editor-icon-atlas.md)): [Tabler icons](https://tabler.io/icons) (MIT,
-  outline; `name-filled` for filled ones). [`Content/icons/icons.txt`](../../MainframeEngine.Editor/Content/icons/icons.txt)
+  outline; `name-filled` for filled ones). [`Assets/icons/icons.txt`](../../MainframeEngine.Editor/Assets/icons/icons.txt)
   lists the icons the editor uses; only their SVGs are vendored (`MainframeEngine.Editor/Icons/tabler`).
   `just editor-icons` ([make_atlas.py](../../build/editor-icons/make_atlas.py), needs Inkscape) renders one sheet SVG
   at 1x (16 px), 1.5x (24 px, `icon-lg`), 2x (32 px) and 3x (48 px) — white glyphs on a 20-unit pitch so linear filtering
   never bleeds — and writes `icons.rcss`: the sprite sheets (the 2x ones inside `@media (min-resolution: 1.5x)`, so
   Retina picks them) and one `.icon-NAME { decorator: image(i-NAME) }` class per icon. Outputs are committed; builds
   never need Inkscape. New name: add it to `icons.txt`, run `just editor-icons-fetch` (vendors the SVG from the npm
-  package) and commit. Every RML document links `/Content/icons/icons.rcss` before `theme.rcss`; tinting is RCSS
+  package) and commit. Every RML document links `/Assets/icons/icons.rcss` before `theme.rcss`; tinting is RCSS
   `image-color`.
 - **Types** ([0086](../../memory/decisions/0086-editor-icon-attribute-and-families.md)): `[EditorIcon("name", Family =
   …)]` on a node or resource type (engine or game), recorded by the generator in `NodeTypeInfo.Icon/IconFamily`.
@@ -357,7 +357,7 @@ ADR 0169, for a `WorldEnvironment`'s `PostProcessProfile` (or any resource):
   file and do not open.
 - **Save as .mres** (`device-floppy`, on inline resources; the minimal G7.2 path of
   [future/editor-viewport-tools.md](future/editor-viewport-tools.md#g72-inline-resource-actions)): a file picker under
-  `Content/`, then a deep copy is saved (`ResourceSaver.Save`, a new `res_` UID) and every slot of the scene that held the
+  `Assets/`, then a deep copy is saved (`ResourceSaver.Save`, a new `res_` UID) and every slot of the scene that held the
   inline resource (nodes the scene saves and the inline resources they reach: `EditedScene.SlotsHolding`) gets the file,
   as one undo step ("Save PostProcessProfile as look.mres"); undo puts the inline resource back, the file stays. A path
   whose UID is loaded is refused. Make Unique, Open and Show in FileSystem (the More menu) are not built yet.
@@ -366,7 +366,7 @@ ADR 0169, for a `WorldEnvironment`'s `PostProcessProfile` (or any resource):
   Save as .mres, Load, New, Clear) sit beside the name while both fit and otherwise wrap onto a line of their own below
   it, right-aligned (`.prop-editor.res`: `flex-wrap`, the buttons in one `.res-actions` group). Only a name longer than
   the column is cut, with an ellipsis (`text-overflow`). The name's tooltip holds where the value lives — the file's
-  full path (`Content/PostProcess/forest.mres`), "inline (saved in the scene)" or empty — and its type
+  full path (`Assets/PostProcess/forest.mres`), "inline (saved in the scene)" or empty — and its type
   (`InspectorPanel.ResourceTooltip`).
 
 ## Undo / redo
@@ -446,6 +446,12 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
 
 - **Start-up**: a project argument (folder or `project.mfproj`, or `--project <dir>`) opens it; a scene argument opens
   that scene and makes its project current; neither (or `--project-manager`) shows the **Project Manager**.
+- **Old `Content/` projects** (ADR 0197): opening a project that has `Content/` and no `Assets/` (made before project
+  format 4) first asks **Rename and Open** or **Cancel** (`EditorCommands.AfterAssetsFolderCheck`, both at start-up
+  and from Open Project). `AssetsFolderMigration` moves the folder and rewrites `Content/` path prefixes in the
+  project's scenes, resources, UI, `.po`, `project.mfproj`, C# and MSBuild files (where it also rewrites
+  `LinkBase="Content"` and `../Content</…>`). It skips build output and tool folders, and the Output panel lists the
+  files it changed. Cancel leaves the project closed: the asset database scans only `Assets/`.
 - **Project Manager** (`project_manager.rml`, UI layer 40): the recent projects (`~/.mainframe/recent_projects.json`,
   newest first; a missing folder is flagged and can be removed from the list); icon buttons with tooltips on the right of the header for New Project, Open Project (also File › Open Project: a file picker that lists and accepts only `.mfproj` files, never a folder, and opens the project of a `project.mfproj`) and Download Example (a menu: Mainframe Demo, Forest Demo); and a side panel with Open, Remove from List and the
   **.NET SDK check** (`DotnetSdk`: a .NET 10 or newer SDK is required; without one, a link to the download page).
@@ -453,7 +459,7 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   (Godot's `application/config/icon`): `ProjectIconResolver` resolves it to an absolute PNG inside the project folder
   (anything else, a missing file or a malformed project means no icon, and the row keeps the folder glyph), caching by
   the modification times of `project.mfproj` and the icon, and reports a change once so the rows rebuild and
-  `RmlCore.ReleaseTextures()` re-reads the image. New projects ship `Content/icon.png` (the template default, the brand
+  `RmlCore.ReleaseTextures()` re-reads the image. New projects ship `Assets/icon.png` (the template default, the brand
   logo) with `window.icon` set, and the Demo has its own. Project Settings › Window › Icon previews the PNG (32 dp)
   beside its field.
 - **New Project** (`new_project.rml`): name, parent folder, the engine source and a live validation
@@ -490,7 +496,7 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   disk) shows its message with Download still enabled to retry, and the zip and staging folder are always deleted, so
   the destination is never half written. Tests inject `EditorWorkspaceOptions.DemoHttpHandler` /
   `DemoDownloadsDirectory`.
-- **`ProjectService`** opens a project: `EditorSession.OpenProject` (the asset database scans `Content/` and creates
+- **`ProjectService`** opens a project: `EditorSession.OpenProject` (the asset database scans `Assets/` and creates
   missing `.meta` sidecars), `GameProjectLayout` finds the game library, desktop project (or a legacy `*.Launcher`) and solution, and the game assembly
   loads into a collectible `AssemblyLoadContext` (`GameAssemblyLoader`), built first when it is missing or fails to
   load. Its node and resource types join the create dialog, the inspector and `[CustomInspector]` discovery.
@@ -572,7 +578,7 @@ the scene tree, inspector and scene commands rest. Ctrl+W closes either kind; pr
   sheets of linked templates, "via" the template; missing files in red; an "inline <style>" chip). Clicking a chip
   opens the file in the code editor. Then the view size (dp), the backdrop toggle and scene picker, Reload, and Open in
   Code Editor.
-- **Live reload.** Each preview watches the project's `Content/`, the document's folder and its links' folders
+- **Live reload.** Each preview watches the project's `Assets/`, the document's folder and its links' folders
   (`UiHotReload`, 150 ms debounce) and applies changes with `UiServer.Reload(document, kind)`: `.rml` reloads the
   document and re-reads the links, `.rcss` re-reads the style sheets (the DOM stays), images and fonts release
   textures. The editor's own UI hot reload (Debug only) does not watch projects.
@@ -686,7 +692,7 @@ generated parameter sliders (`File` and `LoadMode` rows are hidden):
 
 ## Song tab (music editor)
 
-Double-clicking a `.msong`, File › New Song… (a file picker in `Content/Music`) or the FileSystem panel's New Song…
+Double-clicking a `.msong`, File › New Song… (a file picker in `Assets/Music`) or the FileSystem panel's New Song…
 opens a **song tab** (`Music/SongTab`, an `IEditorTab` of **music mode**: [Editor modes](#editor-modes); design:
 [Music editor](future/music-editor.md)). A new song has one instrument track with the built-in ZzFX instrument. The tab
 owns the `SongDocument` (its own undo history: Cmd+Z, Cmd+S, Save As — a copy gets a new UID — and the close/quit prompts
@@ -708,7 +714,7 @@ window: no Scene tree, Inspector or FileSystem.
   it (120 dp up to the view less 96 dp of tracks, the header and the splitter; `EditorLayout.SetMusicPaneHeight`). The
   pane and its height are global, in the layout file (`MusicPane` by name, `MusicPaneHeight`, default the piano roll at
   300 dp; saved on change and when the drag ends), and `SongView` applies them to whichever song tab becomes active.
-- **Chrome** (`SongPanel`, `Content/Editor/song.rml`, under the tab strip): track headers (colour bar, name — double-click renames —, instrument, mute, solo, colour, remove; + adds
+- **Chrome** (`SongPanel`, `Assets/Editor/song.rml`, under the tab strip): track headers (colour bar, name — double-click renames —, instrument, mute, solo, colour, remove; + adds
   an instrument or audio track); the bottom pane's header (**Piano roll | Mixer**, the selected clip's summary, Hide); mixer strips
   (instrument slot "Built-in ZzFX" with its menu, Edit Sound — the ZzFX line in a text field, checked by
   `ZzfxParameters.TryParse`, auditioned on Apply — and audition; the slot's menu also lists scanned VST3 instruments and
@@ -744,14 +750,14 @@ window: no Scene tree, Inspector or FileSystem.
   `SongRenderer.Render` on a worker thread; the button shows "Cancel 63 %" and cancels on click (the splash has no cancel
   and would block the editor, so progress is shown there instead). The result goes to the Output panel. The FileSystem
   badges a song whose output is older than the song (refresh icon, "Render out of date"). The output defaults to
-  `Content/Music/<Song>.ogg`: the song is rendered to a temporary 32-bit float WAV and encoded by the plugin helper
+  `Assets/Music/<Song>.ogg`: the song is rendered to a temporary 32-bit float WAV and encoded by the plugin helper
   (`mfplughost --serve`, `PluginHostClient`; Vorbis VBR at the song's `quality`, default 6; ADR 0146), started on the
   first render and stopped with the editor. Without a helper binary for the platform an `.ogg` output is written as
   `.wav` (with a warning). A `.wav` output's samples are `sampleFormat`: `float` (the default) or `pcm16`.
 - **Headless render:** `MainframeEngine.Editor --render-song <path.msong>` (`just render-song <path>`; `SongRenderCommand`)
   renders a song into the project above it (the nearest folder with `project.mfproj`) exactly like Render — the output
   and its `.meta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
-  `Content/Music/demo_loop.ogg` is rendered this way).
+  `Assets/Music/demo_loop.ogg` is rendered this way).
 - **Bake** (File › Bake Adaptive Music, Cmd/Ctrl+B; songs with an `adaptive` block): `SongBakeJob` bakes a copy of the
   song with `SongBaker.Bake` on a worker. It writes stems to `<Song>.stems/` and the `.mmusic` manifest, and renders
   only stems whose inputs changed. Choosing it again cancels, and the previous bake stays intact. `--bake-song
@@ -806,7 +812,7 @@ window: no Scene tree, Inspector or FileSystem.
   factory presets, the project's `WavetablePreset` resources, Save Preset…), previous/next arrows, Init, the voice count
   and the synth's share of the render thread; then three tabs. **Osc**: oscillators A and B with their wavetables drawn
   stacked (click: one flat frame; the frame follows the newest voice's modulated position) and each one's table menu
-  (factory tables, `Content/Wavetables/`, Import Wavetable… of any `.wav`, the frame size), sub, noise, the two filters
+  (factory tables, `Assets/Wavetables/`, Import Wavetable… of any `.wav`, the frame size), sub, noise, the two filters
   with their response curves, voicing, and the editor of the selected envelope (drag the attack, decay/sustain and
   release handles), LFO (Draw turns it into a drawn shape: click adds a point, drag moves it, Alt-drag bends it,
   double-click removes it) or the macros. **Matrix**: every route (source and target menus, an amount slider, bipolar,
@@ -947,7 +953,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   Tooltip timing, placement, keyboard focus and dismissal, the create dialog's tree and search, Output features, scene
   tree badges and inspector icons have their own tests ([IconPanelTests](../../Tests/MainframeEngine.Editor.Tests/IconPanelTests.cs)).
 - **Render tests** ([EditorRenderTests](../../Tests/MainframeEngine.RenderTests/EditorRenderTests.cs)): the editor's
-  `--smoke` run in a hidden window — open the showcase fixture (`Tests/Content/Scenes/Showcase.mscene`), select the Column by GPU picking at its projected pixel, change
+  `--smoke` run in a hidden window — open the showcase fixture (`Tests/Assets/Scenes/Showcase.mscene`), select the Column by GPU picking at its projected pixel, change
   its position through the inspector model, undo/redo, save to a temp file, reload and re-save byte-identically — plus
   the editor window golden, frame times on the scene, the allocation gate (0 B over 300 idle frames with 1 000 nodes,
   validation on), the splash golden, the **Project Manager** and **FileSystem panel** goldens
@@ -989,7 +995,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose
   game code the editor loads, so every node type resolves. Projects are opened from the
   neutral `/tmp/MainframeProjects` (the recipe links the Demo there), so no user path is on screen; editor log
-  lines show project files relative to the project (`Saved Content/Scenes/basic_3d.mscene`).
+  lines show project files relative to the project (`Saved Assets/Scenes/basic_3d.mscene`).
 
 ## Performance
 

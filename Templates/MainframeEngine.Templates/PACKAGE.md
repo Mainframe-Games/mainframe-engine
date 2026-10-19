@@ -13,7 +13,7 @@ dotnet run --project MyGame/MyGame.Desktop
 - `MyGame/`, a class library for your node types (start from `Src/Spinner.cs`);
 - `MyGame.Desktop/`, the executable that runs the project with `GameHost`;
 - `project.mfproj`, which holds the main scene, window, physics, input actions and autoloads;
-- `Content/`, with a sample scene.
+- `Assets/`, with a sample scene.
 
 The game references the [`MainframeEngine`](https://www.nuget.org/packages/MainframeEngine) package of the same
 version as this template package; `--engine-version` picks another release. The optional Mainframe Editor (on

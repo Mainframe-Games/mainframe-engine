@@ -15,7 +15,7 @@ public sealed class SongModelTests : IDisposable
           "uid": "sng_0123456789ab",
           "tempo": 120, "timeSignature": [4, 4], "ppq": 960,
           "loop": { "enabled": true, "start": 0, "end": 61440 },
-          "render": { "output": "Content/Music/Theme.ogg", "sampleRate": 48000, "quality": 6, "tailSeconds": 2, "seamlessLoop": true },
+          "render": { "output": "Assets/Music/Theme.ogg", "sampleRate": 48000, "quality": 6, "tailSeconds": 2, "seamlessLoop": true },
           "master": { "volumeDb": 0, "inserts": [] },
           "tracks": [
             {
@@ -97,22 +97,22 @@ public sealed class SongModelTests : IDisposable
     [Fact]
     public void SongsAreSelfDescribingAssetsAndMovesRewriteTheirPaths()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "Content", "Songs"));
+        Directory.CreateDirectory(Path.Combine(_root, "Assets", "Songs"));
         var song = Song.CreateNew();
         Assert.StartsWith("sng_", song.Uid, StringComparison.Ordinal);
         Assert.True(AssetUid.IsUid(song.Uid));
-        song.Render.Output = "Content/Music/Theme.wav";
-        var path = Path.Combine(_root, "Content", "Songs", "Theme.msong");
+        song.Render.Output = "Assets/Music/Theme.wav";
+        var path = Path.Combine(_root, "Assets", "Songs", "Theme.msong");
         SongFormat.Save(song, path);
 
         var db = new AssetDatabase(_root);
         db.Scan();
-        Assert.Equal("Content/Songs/Theme.msong", db.GetPath(song.Uid));
+        Assert.Equal("Assets/Songs/Theme.msong", db.GetPath(song.Uid));
         Assert.False(File.Exists(path + AssetDatabase.MetaExtension)); // the UID lives in the file
 
-        var updated = ReferenceFixer.Apply(_root, db, new Dictionary<string, string> { ["Content/Music/Theme.wav"] = "Content/Audio/Theme.wav" });
+        var updated = ReferenceFixer.Apply(_root, db, new Dictionary<string, string> { ["Assets/Music/Theme.wav"] = "Assets/Audio/Theme.wav" });
         Assert.Contains(path, updated);
-        Assert.Equal("Content/Audio/Theme.wav", SongFormat.Load(path).Song.Render.Output);
+        Assert.Equal("Assets/Audio/Theme.wav", SongFormat.Load(path).Song.Render.Output);
         Assert.Equal(SongFormat.Write(SongFormat.Load(path).Song), File.ReadAllBytes(path)); // rewritten in the song writer's style
 
         Assert.Equal(FileKind.Song, FileKinds.Of(path, isDirectory: false));

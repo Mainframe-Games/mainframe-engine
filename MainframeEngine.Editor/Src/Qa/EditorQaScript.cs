@@ -32,7 +32,7 @@ namespace MainframeEngine.Editor;
 /// wait-for project|idle|playing|stopped [seconds]   # until a project and scene are open / no build runs / a game runs
 /// wait-for video-jobs [seconds]                      # until the active video tab runs no waveform, silence, transcribe or export job
 /// wait-for video-position 9.5 [seconds]              # until the active video tab's playhead is at or past 9.5 s
-/// file-drag Content/x.mscene #element-id   # drags a project file from the FileSystem panel onto an element
+/// file-drag Assets/x.mscene #element-id   # drags a project file from the FileSystem panel onto an element
 /// edit-file path text…        # appends a line to a project file (QA of code reload)
 /// replace-in-file path old new   # edits a project file in place
 /// timing label                # logs the seconds since the previous timing mark

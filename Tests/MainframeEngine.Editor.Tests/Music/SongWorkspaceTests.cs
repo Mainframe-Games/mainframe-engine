@@ -10,7 +10,7 @@ public sealed class SongWorkspaceTests
     private static (HeadlessEditor Editor, SongTab Tab) Open()
     {
         var editor = new HeadlessEditor();
-        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Content", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.msong"));
         editor.Workspace.Commands.OpenSong(path);
         editor.Tick(3);
         return (editor, Assert.IsType<SongTab>(editor.Workspace.Session.ActiveTab));
@@ -95,7 +95,7 @@ public sealed class SongWorkspaceTests
             Assert.Equal(SongBottomPanel.None, tab.Panel);
 
             // The pane is global: another song opens with none, and the Hide button's command works on it too.
-            var other = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Content", "Music", "Other.msong"));
+            var other = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Other.msong"));
             w.Commands.OpenSong(other);
             editor.Tick(3);
             var second = Assert.IsType<SongTab>(w.Session.ActiveTab);

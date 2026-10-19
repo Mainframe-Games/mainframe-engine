@@ -5,7 +5,7 @@ using MainframeEngine.UI.Rml;
 
 namespace MainframeEngine.Editor.Tests;
 
-/// <summary>The icon atlas as generated (Content/icons): names from icons.rcss, the list file, the sheet sizes.</summary>
+/// <summary>The icon atlas as generated (Assets/icons): names from icons.rcss, the list file, the sheet sizes.</summary>
 internal static partial class IconAtlas
 {
     /// <summary>Modifier classes of the markup contract (never icon names).</summary>
@@ -17,7 +17,7 @@ internal static partial class IconAtlas
 
     public static string Root { get; } = FindRoot();
 
-    public static string Folder => Path.Combine(Root, "MainframeEngine.Editor", "Content", "icons");
+    public static string Folder => Path.Combine(Root, "MainframeEngine.Editor", "Assets", "icons");
 
     /// <summary>The icons the 1x sprite sheet defines.</summary>
     public static HashSet<string> Names { get; } = ReadSheet("editor-icons", "i-");
@@ -52,7 +52,7 @@ internal static partial class IconAtlas
 
     /// <summary>Asserts <paramref name="icon"/> is in the atlas (with where it was found).</summary>
     public static void AssertExists(string icon, string where) =>
-        Assert.True(Names.Contains(icon), $"icon '{icon}' ({where}) is not in the atlas: add it to MainframeEngine.Editor/Content/icons/icons.txt and run `just editor-icons`");
+        Assert.True(Names.Contains(icon), $"icon '{icon}' ({where}) is not in the atlas: add it to MainframeEngine.Editor/Assets/icons/icons.txt and run `just editor-icons`");
 
     /// <summary>The icon names in a class list (<c>icon icon-cube icon-3d</c> → cube).</summary>
     public static IEnumerable<string> IconsInClasses(string classes)
@@ -134,7 +134,7 @@ public sealed partial class IconAtlasTests
     public void EveryIconReferencedByTheEditorSourcesIsInTheAtlas()
     {
         var found = 0;
-        var content = Path.Combine(IconAtlas.Root, "MainframeEngine.Editor", "Content", "Editor");
+        var content = Path.Combine(IconAtlas.Root, "MainframeEngine.Editor", "Assets", "Editor");
         foreach (var file in Directory.EnumerateFiles(content, "*.r*"))
         {
             var text = File.ReadAllText(file);
@@ -243,7 +243,7 @@ public sealed partial class IconAtlasTests
     }
 
     [Theory]
-    [InlineData("Content/Scenes/Main.mscene", false, "movie", "icon-3d")]
+    [InlineData("Assets/Scenes/Main.mscene", false, "movie", "icon-3d")]
     [InlineData("a/b/Mat.mres", false, "package", "icon-resource")]
     [InlineData("tex.PNG", false, "photo", "icon-resource")]
     [InlineData("music.ogg", false, "file-music", "icon-audio")]
@@ -264,7 +264,7 @@ public sealed partial class IconAtlasTests
     [InlineData("run.WEBM", false, "movie", "icon-audio")]
     [InlineData("run.mfcut", false, "video", "icon-audio")]
     [InlineData("run.cutback", false, "video", "icon-audio")]
-    [InlineData("Content", true, "folder", "icon-dir")]
+    [InlineData("Assets", true, "folder", "icon-dir")]
     public void FilesGetIconsByExtension(string path, bool directory, string icon, string family)
     {
         Assert.Equal(icon, EditorIcons.ForFile(path, directory));

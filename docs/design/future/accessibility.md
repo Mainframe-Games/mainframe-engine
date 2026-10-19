@@ -20,14 +20,14 @@ colour-blind and daltonize finds nothing relevant.
   (`UiScaling.cs:67-77`), but there is no player multiplier. G4 plans one (`UiServer.UserScale`, see
   [save-and-settings.md → UserSettings](save-and-settings.md#usersettings)); it is not built.
 - **Text cannot grow on its own.** The widget library sets text in fixed `dp` (`body { font-size: 14dp }`, `h1` 22dp,
-  `MainframeEngine/Content/UI/widgets/widgets.rcss:16`, `:22`), and rows have a fixed `height: 28dp; line-height: 28dp`
+  `MainframeEngine/Assets/UI/widgets/widgets.rcss:16`, `:22`), and rows have a fixed `height: 28dp; line-height: 28dp`
   (`widgets.rcss:52-56`). Larger text would be clipped. Nothing checks that a game's smallest text is readable.
 - **RmlUi themes are bound but unused.** `RmlContext.ActivateTheme(name, activate)` wraps RmlUi's
   `@media (theme: name)` (`MainframeEngine/Src/UI/Rml/RmlContext.cs:86`). No engine code calls it, and `widgets.rcss` has
   no theme blocks. A high-contrast or reduced-motion style has nowhere to go. Focus rings are a 1dp border colour change
   (`widgets.rcss:85`, `:160`, `:191`).
 - **UI animations cannot be turned off.** The loading screen breathes and sweeps forever
-  (`MainframeEngine/Content/UI/loading/loading.rcss:37`, `:93`).
+  (`MainframeEngine/Assets/UI/loading/loading.rcss:37`, `:93`).
 - **No colour filter.** Post effects run in three stages (`MainframeEngine/Src/Rendering/Post/PostEffect.cs:7-29`).
   `AfterTonemap` runs on the display-encoded LDR image, with FXAA at order 100 and the colour grade at 150
   (`PostEffect.cs:75-83`). The renderer tonemaps into an LDR image only when an `AfterTonemap` effect is enabled
@@ -103,11 +103,11 @@ colour-blind and daltonize finds nothing relevant.
 | `SubtitleTrack`, `SubtitleCue`, `SpeakerTable`, `SpeakerInfo`, `CaptionKind` | `Src/Accessibility/Captions/` | Caption resources |
 | `AudioStream.Caption`, `.CaptionKind`, `.Subtitles` (new members) | `Src/Audio/` | What a sound means |
 | `CaptionServer : IFrameServer` | `Src/Accessibility/Captions/` | Active cues from playing voices and manual calls |
-| `CaptionLayer : UiLayer` + `Content/UI/captions/` | `Src/Accessibility/Captions/` | The drop-in caption UI |
+| `CaptionLayer : UiLayer` + `Assets/UI/captions/` | `Src/Accessibility/Captions/` | The drop-in caption UI |
 | `SubtitleImporter` | `Src/Resources/Import/` | `.vtt` / `.srt` → `SubtitleTrack` |
 | `AudioServer.MonoOutput` (new member) | `Src/Audio/` | Mono downmix in `AudioMixRoot` |
 | `InputActionMode`, `InputAction.Mode`, `InputState.SetActionMode` (new) | `Src/Scene/Input/` | Hold or toggle |
-| `AccessibilityPanel : UiDocument` + `Content/UI/settings/accessibility.rml` | `Src/UI/Settings/` | The settings tab |
+| `AccessibilityPanel : UiDocument` + `Assets/UI/settings/accessibility.rml` | `Src/UI/Settings/` | The settings tab |
 
 ### Settings
 
@@ -383,7 +383,7 @@ the game with `CaptionLayer.Ensure(tree)`.
 - **Scaling.** `UiLayer.Scaling` is set to `ScaleWithScreenSize` at 1920×1080 (the per-layer override exists,
   `MainframeEngine/Src/UI/UiLayer.cs:104`). Caption sizes therefore mean the same fraction of the screen in every
   project, whatever its own UI scale mode.
-- **Document.** `Content/UI/captions/captions.rml`, or `accessibility.captionDocument` in `project.mfproj`, binds a
+- **Document.** `Assets/UI/captions/captions.rml`, or `accessibility.captionDocument` in `project.mfproj`, binds a
   `captions` data model: a struct list (`BindList`) of `kind`, `speaker`, `color`, `text`, `arrow`, plus scalars
   `size`, `background`, `showNames`, `showColors`.
 - **Layout.** Bottom centre, `max-width: 60%`, at most two lines per cue and at most three cues (the oldest drops).
@@ -445,7 +445,7 @@ allocation-free and lock-free like the rest of the block. Players who hear with 
 
 ### Settings UI and consumers
 
-- **`AccessibilityPanel : UiDocument`** (`Content/UI/settings/accessibility.rml`) shows the four groups in the mockup
+- **`AccessibilityPanel : UiDocument`** (`Assets/UI/settings/accessibility.rml`) shows the four groups in the mockup
   above. It uses only widget-library controls and translates every label through `Tr` / RML text. A live sample
   caption ("[door creaks]") previews size and background as the player drags. With G4 it is the menu's
   `SettingsTabs.Accessibility` tab. Without G4, games open it as a modal document.

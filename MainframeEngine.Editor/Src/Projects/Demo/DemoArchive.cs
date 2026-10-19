@@ -67,8 +67,8 @@ public static class DemoArchive
 
         if (GameProjectLayout.DesktopProjectOf(projectRoot) is null)
             throw new DemoDownloadException("The demo has no *.Desktop project.");
-        if (!Directory.Exists(Path.Combine(projectRoot, "Content", "Scenes")))
-            throw new DemoDownloadException("The demo has no Content/Scenes folder.");
+        if (!Directory.Exists(Path.Combine(projectRoot, "Assets", "Scenes")))
+            throw new DemoDownloadException("The demo has no Assets/Scenes folder.");
         if (!File.Exists(Path.Combine(projectRoot, "Directory.Build.props")))
             throw new DemoDownloadException("The demo has no Directory.Build.props.");
     }

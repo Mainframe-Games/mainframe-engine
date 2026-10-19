@@ -114,7 +114,7 @@
   <rect x="24" y="360" width="912" height="96" fill="#262931" stroke="#3b3f4b"/>
   <text x="34" y="378" class="hdr">Output</text>
   <text x="34" y="400" class="m">[12:04:10.031] [INFO] Simulating physics_3d.mscene (game code from the 12:01 build)</text>
-  <text x="34" y="418" class="m">[12:04:12.880] [WARN] Simulation: Content/Materials/Crate.mres changed (shared with the scene)</text>
+  <text x="34" y="418" class="m">[12:04:12.880] [WARN] Simulation: Assets/Materials/Crate.mres changed (shared with the scene)</text>
   <text x="34" y="436" class="m" fill="#fca5a5">[12:04:13.517] [ERROR] Spawner.cs:31 NullReferenceException in /Physics3D/Spawner.OnProcess; simulation stopped</text>
 
   <!-- badges -->

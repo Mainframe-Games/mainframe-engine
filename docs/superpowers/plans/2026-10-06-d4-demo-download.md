@@ -86,7 +86,7 @@ ls -la "$out"/MainframeEngine.Demo*.zip
 ```
 
 `chmod +x build/package-demo.sh`. Run it locally: `build/package-demo.sh 0.0.0-local artifacts/release` — Expected:
-two zips; `unzip -l` shows `MainframeEngine.Demo/project.mfproj`, `Demo.Launcher/…`, `Content/…`, no `bin/`.
+two zips; `unzip -l` shows `MainframeEngine.Demo/project.mfproj`, `Demo.Launcher/…`, `Assets/…`, no `bin/`.
 
 - [ ] **Step 2: publish.yml**
 
@@ -184,10 +184,10 @@ internal static class DemoZips
 
     public static Dictionary<string, string> ValidProject(string top = "MainframeEngine.Demo") => new()
     {
-        [$"{top}/project.mfproj"] = """{ "format": 1, "name": "Mainframe Demo", "mainScene": "Content/Scenes/basic_3d.mscene" }""",
+        [$"{top}/project.mfproj"] = """{ "format": 1, "name": "Mainframe Demo", "mainScene": "Assets/Scenes/basic_3d.mscene" }""",
         [$"{top}/Directory.Build.props"] = Props,
         [$"{top}/Demo.Launcher/Demo.Launcher.csproj"] = "<Project />",
-        [$"{top}/Content/Scenes/basic_3d.mscene"] = "{}",
+        [$"{top}/Assets/Scenes/basic_3d.mscene"] = "{}",
     };
 
     public static string Write(string path, IReadOnlyDictionary<string, string> files, Action<ZipArchive>? extra = null)
@@ -305,7 +305,7 @@ public sealed class DemoArchiveTests : IDisposable
     [Theory]
     [InlineData("MainframeEngine.Demo/project.mfproj")]
     [InlineData("MainframeEngine.Demo/Demo.Launcher/Demo.Launcher.csproj")]
-    [InlineData("MainframeEngine.Demo/Content/Scenes/basic_3d.mscene")]
+    [InlineData("MainframeEngine.Demo/Assets/Scenes/basic_3d.mscene")]
     public void MissingProjectPartsAreRefused(string missing)
     {
         var files = DemoZips.ValidProject();
@@ -463,8 +463,8 @@ public static class DemoArchive
 
         if (GameProjectLayout.LauncherProjectOf(projectRoot) is null)
             throw new DemoDownloadException("The demo has no *.Launcher project.");
-        if (!Directory.Exists(Path.Combine(projectRoot, "Content", "Scenes")))
-            throw new DemoDownloadException("The demo has no Content/Scenes folder.");
+        if (!Directory.Exists(Path.Combine(projectRoot, "Assets", "Scenes")))
+            throw new DemoDownloadException("The demo has no Assets/Scenes folder.");
         if (!File.Exists(Path.Combine(projectRoot, "Directory.Build.props")))
             throw new DemoDownloadException("The demo has no Directory.Build.props.");
     }
@@ -810,8 +810,8 @@ git commit -m "Editor: DemoDownloader (streamed, cancellable, cleans up); shared
 ### Task 4: Dialog and Project Manager button
 
 **Files:**
-- Create: `MainframeEngine.Editor/Src/UI/DownloadDemoDialog.cs`, `MainframeEngine.Editor/Content/Editor/download_demo.rml`
-- Modify: `MainframeEngine.Editor/Content/icons/icons.txt` (`download`), regenerate `icons-*.png` + `icons.rcss`
+- Create: `MainframeEngine.Editor/Src/UI/DownloadDemoDialog.cs`, `MainframeEngine.Editor/Assets/Editor/download_demo.rml`
+- Modify: `MainframeEngine.Editor/Assets/icons/icons.txt` (`download`), regenerate `icons-*.png` + `icons.rcss`
 - Modify: `MainframeEngine.Editor/Src/UI/ProjectManager.cs` (event `download_demo`), `project_manager.rml` (button in `.pm-actions`)
 - Modify: `MainframeEngine.Editor/Src/EditorWorkspace.Projects.cs` (create + tick the dialog; include it in `ProjectDialogOpen`)
 - Modify: `EditorWorkspaceOptions` (new `Func<HttpMessageHandler>? DemoHttpHandler` and `string? DemoDownloadsDirectory` for tests)
@@ -825,7 +825,7 @@ git commit -m "Editor: DemoDownloader (streamed, cancellable, cleans up); shared
 
 - [ ] **Step 1: Icon glyph**
 
-Append `download` to `MainframeEngine.Editor/Content/icons/icons.txt`, then:
+Append `download` to `MainframeEngine.Editor/Assets/icons/icons.txt`, then:
 
 ```bash
 just editor-icons-fetch && just editor-icons
@@ -938,13 +938,13 @@ Run: `dotnet test Tests/MainframeEngine.Editor.Tests --filter DownloadDemoWorkfl
 
 - [ ] **Step 3: Markup**
 
-`MainframeEngine.Editor/Content/Editor/download_demo.rml`:
+`MainframeEngine.Editor/Assets/Editor/download_demo.rml`:
 
 ```xml
 <rml>
 <head>
     <title>Download Demo Project</title>
-    <link type="text/rcss" href="/Content/icons/icons.rcss"/>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>

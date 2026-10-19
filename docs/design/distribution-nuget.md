@@ -22,9 +22,9 @@ source generator that game code must run, and build steps. The package carries a
 | `lib/net10.0/` | `MainframeEngine.dll` + `.xml` docs; `spine-csharp.dll` (the vendored Spine runtime, no package of its own) | compile + run references |
 | `runtimes/<rid>/native/` | `mfrmlui`, `mfsvg`, `enet` and Valve's `steam_api` (vendored, [Steamworks → Natives](steamworks.md#natives)) for `win-x64`, `linux-x64`, `osx-arm64`, `osx-x64` (the same universal files: NuGet does not pick osx-x64 assets for arm64) | NuGet runtime assets: listed in the app's `deps.json` for RID-less `dotnet run/test`, copied for `dotnet publish -r <rid>` |
 | `analyzers/dotnet/cs/` | `MainframeEngine.Generators.dll` | runs on every project that references the package: `[Export]`, `[Signal]`, `[Replicated]`, `[Rpc]` |
-| `mainframe/Content/**` | exactly what the engine project copies to `<output>/Content` in a checkout build: `.spv` shaders (not the `.slang` sources), UI widgets, fonts, trees, brand | `buildTransitive/MainframeEngine.targets` copies it to the app's `Content/` (build and publish) |
+| `mainframe/Assets/**` | exactly what the engine project copies to `<output>/Content` in a checkout build: `.spv` shaders (not the `.slang` sources), UI widgets, fonts, trees, brand | `buildTransitive/MainframeEngine.targets` copies it to the app's `Assets/` (build and publish) |
 | `mainframe/steamworks/{win64,posix}/` | `MainframeEngine.Steamworks.dll` (the shim) + `Facepunch.Steamworks.Win64.dll` / `.Posix.dll`: two builds of one assembly, so neither is in `lib/` ([Steamworks → Layers](steamworks.md#layers)) | `buildTransitive/MainframeEngine.targets` copies them to the app's `steamworks/` like Content (a build with a RID gets only that platform's folder); the engine's `SteamworksLoader` loads this OS's |
-| `tools/mf-l10n/` | `mf-l10n` (managed files + runtimeconfig; no `deps.json`, so the host loads the folder's assemblies and none of the natives it never calls) | `Localization.targets` compiles `Content/locale/**/*.po` to `.mo` with it |
+| `tools/mf-l10n/` | `mf-l10n` (managed files + runtimeconfig; no `deps.json`, so the host loads the folder's assemblies and none of the natives it never calls) | `Localization.targets` compiles `Assets/locale/**/*.po` to `.mo` with it |
 | `tools/package-game.sh`, `tools/macos/png-to-icns.sh` | player builds: `build/package-game.sh` and the icon converter it runs ([Player builds](#player-builds)) | `MainframePackageGameScript` (set by `MainframeGame.props`) names the script |
 | `buildTransitive/` | `MainframeEngine.props` (imports `MainframeGame.props`), `MainframeEngine.targets`, `Localization.targets`, `macos/` | imported by every project that references the package, directly or through a game library |
 | `README.md`, `icon.png` | the nuget.org page ([`MainframeEngine/PACKAGE.md`](../../MainframeEngine/PACKAGE.md)) and the logo | — |
@@ -34,15 +34,15 @@ natives and build files) are ordinary package dependencies with the versions fro
 (`[1.4.1]`) stay exact. Facepunch.Steamworks is not a dependency: it is vendored, and the package carries it in
 `mainframe/steamworks/`.
 
-### Content and natives: the same layout as a checkout
+### Assets and natives: the same layout as a checkout
 
-Engine content lands in the **same `Content/` folder** as the game's, exactly where a checkout build puts it, so
+Engine content lands in the **same `Assets/` folder** as the game's, exactly where a checkout build puts it, so
 `ContentPaths` and every engine path work unchanged. The package's targets only copy into **app projects**
 (Exe/WinExe, `IsTestProject`, or `MainframeEngineCopyContent=true`; `false` turns it off). A game library needs no
 engine content, and the desktop project that references it would otherwise receive it twice.
 
 The `mainframe/Content` list is not maintained by hand. The engine's pack target (`_MainframePackContent`) takes this
-project's copy-to-output items whose target path is under `Content/`, the same items a project reference copies, minus
+project's copy-to-output items whose target path is under `Assets/`, the same items a project reference copies, minus
 `.pot` sources. A new engine content file therefore ships in the package automatically.
 
 Natives need no targets. A checkout build copies them flat because project references cannot express RID-specific

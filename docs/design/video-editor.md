@@ -42,7 +42,7 @@ MainframeEngine.Video/                    editor-only library, net10.0, MIT (LIC
   Analysis/ (ITranscriber, WhisperTranscriber, WordAssembler, ModelStore, WhisperModel)
 Tests/MainframeEngine.Video.Tests/        Cutback's tests in plain Assert; never runs ffmpeg or loads a model
 MainframeEngine.Editor/Src/Video/         the mode's UI (below)
-MainframeEngine.Editor/Content/Editor/    video.rml, video_export.rml; the toolbar's video group in toolbar.rml
+MainframeEngine.Editor/Assets/Editor/    video.rml, video_export.rml; the toolbar's video group in toolbar.rml
 ```
 
 - **Core** is copied file for file. The changes are the namespaces (`Cutback.Core` → `MainframeEngine.Video`,

@@ -24,7 +24,7 @@ namespace MainframeEngine;
 public class LoadingScreen : UiLayer
 {
     /// <summary>The engine's loading screen (Mainframe brand).</summary>
-    public const string DefaultSource = "Content/UI/loading/loading.rml";
+    public const string DefaultSource = "Assets/UI/loading/loading.rml";
 
     /// <summary>The layer it draws on: above game UI layers.</summary>
     public const int DefaultLayer = 10_000;

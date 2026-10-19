@@ -130,7 +130,7 @@ public sealed class CinematicPostTests
         try
         {
             CubeLut.Identity(3).Save(path);
-            var volume = Assert.IsType<Texture3D>(new CubeLutImporter().Import(path, "Content/grade.cube", null));
+            var volume = Assert.IsType<Texture3D>(new CubeLutImporter().Import(path, "Assets/grade.cube", null));
             Assert.Equal(3, volume.Depth);
         }
         finally

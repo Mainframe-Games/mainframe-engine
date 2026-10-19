@@ -1,0 +1,112 @@
+<rml>
+<head>
+    <title>Scene</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        .tree { padding: 3dp 0dp; }
+        .tree-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 22dp;
+            padding-right: 4dp;
+            white-space: nowrap;
+            cursor: pointer;
+            border-top: 1dp transparent;
+            border-bottom: 1dp transparent;
+        }
+        .tree-row:hover { background-color: #2a2e38; }
+        .tree-row.selected { background-color: #1d4ed8; color: #ffffff; }
+        .tree-row.drop-inside { background-color: #1e3a8a; }
+        .tree-row.drop-before { border-top-color: #60a5fa; }
+        .tree-row.drop-after { border-bottom-color: #60a5fa; }
+        .tree-row.dragging { color: #8b93a5; }
+        .tree-row.hidden-node .name { color: #6b7488; }
+        .tree-row.selected.hidden-node .name { color: #bfdbfe; }
+        .indent { display: inline-block; flex: 0 0 auto; height: 1dp; }
+        .tree-row .type-icon { margin: 0dp 5dp 0dp 1dp; }
+        .name { display: block; flex: 1 1 auto; overflow: hidden; }
+        .badge { display: inline-block; flex: 0 0 auto; width: 18dp; height: 18dp; margin-left: 1dp; }
+        .badge .icon { margin: 1dp; }
+        .badge.instance .icon { image-color: #93c5fd; }
+        .badge.script .icon { image-color: #a3abbd; }
+        .badge.warning .icon { image-color: #fbbf24; }
+        .tree-row.selected .badge .icon { image-color: #dbeafe; }
+        .eye { display: inline-flex; align-items: center; justify-content: center; width: 20dp; height: 20dp; margin-left: 1dp;
+               border-radius: 3dp; cursor: pointer; }
+        .eye:hover { background-color: #3a3f4c; }
+        .eye .icon { image-color: #8b93a5; }
+        .eye:hover .icon { image-color: #ffffff; }
+        .eye.off .icon { image-color: #5f6676; }
+        .tree-row.selected .eye .icon { image-color: #dbeafe; }
+        .tree-empty { display: flex; flex-direction: column; align-items: center; padding: 22dp 14dp; color: #8b93a5; text-align: center; }
+        .tree-empty .icon { margin-bottom: 8dp; image-color: #4b5263; }
+        .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
+        .tree-mode { display: flex; flex-direction: row; flex: 0 0 auto; padding: 4dp 6dp; border-bottom: 1dp #2f333d; }
+        .tree-mode .seg { flex: 1 1 0dp; height: 20dp; line-height: 20dp; text-align: center; font-size: 11dp; color: #a3abbd;
+                          background-color: #2a2e38; cursor: pointer; }
+        .tree-mode .seg:first-child { border-radius: 3dp 0dp 0dp 3dp; }
+        .tree-mode .seg:last-child { border-radius: 0dp 3dp 3dp 0dp; }
+        .tree-mode .seg:hover { background-color: #343946; color: #ffffff; }
+        .tree-mode .seg.on { background-color: #1d4ed8; color: #ffffff; }
+        .chips { display: flex; flex-direction: row; flex-wrap: wrap; flex: 0 0 auto; padding: 0dp 6dp 4dp 6dp; }
+        .chip { height: 18dp; line-height: 18dp; padding: 0dp 7dp; margin: 2dp 4dp 0dp 0dp; border-radius: 9dp; font-size: 11dp;
+                color: #a3abbd; background-color: #2a2e38; cursor: pointer; }
+        .chip:hover { color: #ffffff; }
+        .chip.on { color: #ffffff; background-color: #1e3a8a; }
+        .remote-status { padding: 4dp 10dp; color: #8b93a5; font-size: 11dp; }
+        .tree-row.remote { cursor: default; }
+    </style>
+</head>
+<body class="panel-doc" data-model="scene_tree">
+    <div class="panel-header">
+        <span class="icon icon-sitemap title-icon"></span>
+        <span class="panel-title">Scene</span>
+        <button class="tool-button small" data-command="node.add" data-tooltip="Add Child Node (Ctrl+A) — create a node under the selection"><span class="icon icon-sm icon-plus"></span></button>
+        <button class="tool-button small" data-command="scene.instance" data-tooltip="Instance Child Scene (Ctrl+Shift+A) — add a saved scene under the selection"><span class="icon icon-sm icon-link"></span></button>
+    </div>
+    <div class="tree-mode" data-if="remote_available">
+        <div class="seg" data-class-on="!remote_mode" data-event-click="show_local()"
+             data-tooltip="Local — the scene being edited">Local</div>
+        <div class="seg" data-class-on="remote_mode" data-event-click="show_remote()"
+             data-tooltip="Remote — the running game's scene tree (read-only, refreshed every second)">Remote</div>
+    </div>
+    <div class="chips" data-if="remote_mode &amp;&amp; remote_chips.size > 0">
+        <div class="chip" data-for="chip : remote_chips" data-class-on="chip.active" data-event-click="pick_remote(chip.index)">{{chip.label}}</div>
+    </div>
+    <div class="panel-body tree" id="remote-tree" data-if="remote_mode">
+        <div class="remote-status" data-if="remote_status != ''">{{remote_status}}</div>
+        <div class="tree-row remote" data-for="row : remote" data-attr-data-tooltip="row.tooltip">
+            <span class="indent" data-style-width="row.indent"></span>
+            <span class="arrow" data-class-collapsed="!row.expanded" data-class-none="!row.has_children" data-event-mousedown="remote_toggle(row.index)"></span>
+            <span class="type-icon" data-attr-class="row.icon + ' type-icon'"></span>
+            <span class="name">{{row.name}}</span>
+        </div>
+    </div>
+    <div class="panel-body tree" id="tree" data-if="!remote_mode">
+        <div class="tree-row" data-for="row : rows"
+             data-class-selected="row.selected"
+             data-class-dragging="row.drag"
+             data-class-hidden-node="!row.shown"
+             data-class-drop-inside="row.drop == 1"
+             data-class-drop-before="row.drop == 2"
+             data-class-drop-after="row.drop == 3"
+             data-event-mousedown="press(row.index)"
+             data-event-mousemove="hover(row.index)"
+             data-event-mouseup="release(row.index)"
+             data-event-dblclick="rename(row.index)">
+            <span class="indent" data-style-width="row.indent"></span>
+            <span class="arrow" data-class-collapsed="!row.expanded" data-class-none="!row.has_children" data-event-mousedown="toggle(row.index)"></span>
+            <span class="type-icon" data-attr-class="row.icon + ' type-icon'" data-attr-data-tooltip="row.tooltip"></span>
+            <span class="name">{{row.name}}</span>
+            <span class="badge warning" data-if="row.warning != ''" data-attr-data-tooltip="row.warning"><span class="icon icon-sm icon-alert-triangle"></span></span>
+            <span class="badge instance" data-if="row.instance" data-attr-data-tooltip="row.instance_tooltip"><span class="icon icon-sm icon-movie"></span></span>
+            <span class="badge script" data-if="row.script != ''" data-attr-data-tooltip="row.script_tooltip"><span data-attr-class="row.script"></span></span>
+            <span class="eye" data-if="row.has_visible" data-class-off="!row.shown" data-event-mousedown="toggle_visible(row.index)"
+                  data-tooltip="Toggle Visibility — hide or show the node and its children"><span data-attr-class="row.eye_icon"></span></span>
+        </div>
+        <div class="tree-empty" data-if="rows.size == 0"><span class="icon icon-lg icon-sitemap"></span><span>No scene open.</span></div>
+    </div>
+</body>
+</rml>

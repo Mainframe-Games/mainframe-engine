@@ -67,7 +67,7 @@ public sealed class UpdateDownloaderTests : IDisposable
     public async Task ALinuxArchiveIsStagedWithItsExecuteBit()
     {
         var archive = TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable),
-                            ("MainframeEngine-1.1.0-linux-x64/Content/a.txt", "a", Plain));
+                            ("MainframeEngine-1.1.0-linux-x64/Assets/a.txt", "a", Plain));
         var reports = new List<double>();
 
         var staged = await Download("linux-x64", archive, progress: new SyncProgress(reports));
@@ -76,7 +76,7 @@ public sealed class UpdateDownloaderTests : IDisposable
         Assert.Equal(Path.Combine(Updates, "1.1.0"), staged.Folder);
         Assert.Equal(Path.Combine(Updates, "1.1.0", "app", "MainframeEngine-1.1.0-linux-x64"), staged.Root);
         Assert.True(File.Exists(staged.Executable));
-        Assert.True(File.Exists(Path.Combine(staged.Root, "Content", "a.txt")));
+        Assert.True(File.Exists(Path.Combine(staged.Root, "Assets", "a.txt")));
         Assert.False(File.Exists(Path.Combine(staged.Folder, "MainframeEngine-1.1.0-linux-x64.tar.gz"))); // the archive is gone
         Assert.Equal(1.0, reports[^1]);
         if (!OperatingSystem.IsWindows())

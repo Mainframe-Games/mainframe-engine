@@ -25,7 +25,7 @@ its ImGui code is read from `origin/main` where noted).
 - Per-frame engine code must not allocate (allocation gate) and must be validation-clean. Per-frame GPU resources are
   keyed by `IVulkanContext.FrameSlot` and sized `IVulkanContext.MaxFramesInFlight`; GPU objects are released through
   `IVulkanContext.Deletions`, never `vkDeviceWaitIdle`.
-- Shaders live in `MainframeEngine/Content/Shaders/<Area>/<Name>.vk.{vert,frag}`; after any shader change run
+- Shaders live in `MainframeEngine/Assets/Shaders/<Area>/<Name>.vk.{vert,frag}`; after any shader change run
   `just shaders` and commit the `.spv` files and `shaders.lock`; `just shaders-check` must pass.
 - Colours authored by people are sRGB; overlay shaders linearise only when `IVulkanContext.OverlayEncodesSrgb`
   (specialization constant 0), exactly like the UI/ImGui overlay pipelines do.
@@ -446,7 +446,7 @@ git commit -m "Gizmos: ScreenGizmoBatch (screen-space, anti-aliased, allocation-
 
 **Files:**
 - Create: `MainframeEngine/Src/Rendering/Gizmos/ScreenGizmosRenderer.cs`
-- Create: `MainframeEngine/Content/Shaders/Gizmos/ScreenGizmo.vk.vert`, `ScreenGizmo.vk.frag` (+ `.spv`, `shaders.lock`)
+- Create: `MainframeEngine/Assets/Shaders/Gizmos/ScreenGizmo.vk.vert`, `ScreenGizmo.vk.frag` (+ `.spv`, `shaders.lock`)
 - Modify: `MainframeEngine/Src/Servers/RenderServer.cs` (property `ScreenGizmos`, renderer creation, dispose)
 - Modify: `Tests/MainframeEngine.RenderTests.Host/Scenes/ColorPipelineScene.cs`, `Tests/MainframeEngine.RenderTests/SceneTests.cs`
   (`HdrTonemapSrgbTextureAndOverlayMatchTheReferenceMath`)
@@ -481,7 +481,7 @@ Expected: FAIL to compile — `RenderServer.ScreenGizmos` missing.
 
 - [ ] **Step 2: Shaders**
 
-`MainframeEngine/Content/Shaders/Gizmos/ScreenGizmo.vk.vert`:
+`MainframeEngine/Assets/Shaders/Gizmos/ScreenGizmo.vk.vert`:
 
 ```glsl
 #version 450
@@ -496,7 +496,7 @@ void main()
 }
 ```
 
-`MainframeEngine/Content/Shaders/Gizmos/ScreenGizmo.vk.frag`:
+`MainframeEngine/Assets/Shaders/Gizmos/ScreenGizmo.vk.frag`:
 
 ```glsl
 #version 450
@@ -653,7 +653,7 @@ Expected: PASS with the original pixel expectations (exact opaque colour ±1, 50
 Run: `caffeinate -u -t 1200 & just test-render` — Expected: PASS (no golden changes: nothing else draws gizmos yet).
 
 ```bash
-git add MainframeEngine/Content/Shaders/Gizmos MainframeEngine/Content/Shaders/shaders.lock MainframeEngine/Src Tests/MainframeEngine.RenderTests*
+git add MainframeEngine/Assets/Shaders/Gizmos MainframeEngine/Assets/Shaders/shaders.lock MainframeEngine/Src Tests/MainframeEngine.RenderTests*
 git commit -m "Gizmos: ScreenGizmosRenderer in the overlay pass; colour-pipeline test uses it"
 ```
 
@@ -987,7 +987,7 @@ git commit -m "Gizmos: light and axis gizmos on ScreenGizmos; ImGui gizmo code r
 - Modify: `MainframeEngine/Src/UI/Rendering/VulkanUiRenderer.cs` (`UiTextureConversion` enum, ~lines 11-25),
   `VulkanUiRenderer.Tables.cs` (`RegisterTexture` overloads ~150-217, `UiEngineTexture` ~555-597, `ResolveTexture` ~98-109),
   `VulkanUiRenderer.Resources.cs` (`AllocateTextureSet` ~415-449)
-- Modify: `MainframeEngine/Content/Shaders/UI/Ui.vk.frag` (+ `.spv`, lock)
+- Modify: `MainframeEngine/Assets/Shaders/UI/Ui.vk.frag` (+ `.spv`, lock)
 - Modify: `MainframeEngine/Src/UI/UiServer.cs` (internal forwarding overload)
 - Test: `Tests/MainframeEngine.Tests/UI/UiEngineTextureTests.cs`
 
@@ -1096,7 +1096,7 @@ Expected: PASS.
 Run: `just shaders-check && caffeinate -u -t 1200 & just test-render` — Expected: PASS.
 
 ```bash
-git add MainframeEngine/Src/UI MainframeEngine/Content/Shaders Tests/MainframeEngine.Tests/UI/UiEngineTextureTests.cs
+git add MainframeEngine/Src/UI MainframeEngine/Assets/Shaders Tests/MainframeEngine.Tests/UI/UiEngineTextureTests.cs
 git commit -m "UI: engine:// texture sources with their own layout (depth maps shown grey)"
 ```
 
@@ -1106,7 +1106,7 @@ git commit -m "UI: engine:// texture sources with their own layout (depth maps s
 
 **Files:**
 - Create: `MainframeEngine/Src/Debugging/DevOverlay/DevOverlay.cs`, `DevOverlayPanel.cs`, `DevOverlayDocument.cs`
-- Create: `MainframeEngine/Content/UI/dev/overlay.rcss`
+- Create: `MainframeEngine/Assets/UI/dev/overlay.rcss`
 - Modify: `MainframeEngine/Src/Core/Engine.cs` (register after the `UiServer`; F12; `DevOverlayVisible` forwards;
   `EngineOptions.DevOverlayVisible` default **false**)
 - Test: `Tests/MainframeEngine.Tests/Debugging/DevOverlayTests.cs`
@@ -1291,8 +1291,8 @@ internal sealed class DevOverlayDocument : UiDocument
     {
         var rml = new StringBuilder("""
             <rml><head><title>Developer overlay</title>
-            <link type="text/rcss" href="/Content/UI/widgets/widgets.rcss"/>
-            <link type="text/rcss" href="/Content/UI/dev/overlay.rcss"/></head>
+            <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+            <link type="text/rcss" href="/Assets/UI/dev/overlay.rcss"/></head>
             <body class="dev-overlay"><div id="dev-panel">
             """);
         foreach (var panel in panels)
@@ -1407,7 +1407,7 @@ public sealed class DevOverlay : IServer, IFrameServer
 (A model removed by `RemovePanel` stays in RmlUi until the document reloads, which `Recompose` does; if RmlUi rejects a
 second `CreateDataModel` with the same name after reload, keep a set of created names and reuse the model.)
 
-`MainframeEngine/Content/UI/dev/overlay.rcss`:
+`MainframeEngine/Assets/UI/dev/overlay.rcss`:
 
 ```css
 body.dev-overlay { pointer-events: none; font-size: 12dp; color: #e5e7eb; }
@@ -1443,7 +1443,7 @@ Run: `dotnet test Tests/MainframeEngine.Tests --filter DevOverlayTests && just t
 Expected: PASS.
 
 ```bash
-git add MainframeEngine/Src/Debugging/DevOverlay MainframeEngine/Content/UI/dev MainframeEngine/Src/Core/Engine.cs \
+git add MainframeEngine/Src/Debugging/DevOverlay MainframeEngine/Assets/UI/dev MainframeEngine/Src/Core/Engine.cs \
   Tests/MainframeEngine.Tests/Debugging docs/design/future/remove-imgui.md
 git commit -m "DevOverlay: RmlUi developer overlay server with a panel API"
 ```
@@ -1727,7 +1727,7 @@ git commit -m "Render tests: dev overlay replaces ImGui (allocation gate, shadow
 
 **Files:**
 - Delete: `MainframeEngine/Src/Rendering/Vulkan/VulkanImGuiController.cs`, `RendererDebugWindow.cs`,
-  `MainframeEngine/Src/Audio/AudioImGui.cs`, `MainframeEngine/Content/Shaders/ImGui/` (sources + `.spv`)
+  `MainframeEngine/Src/Audio/AudioImGui.cs`, `MainframeEngine/Assets/Shaders/ImGui/` (sources + `.spv`)
 - Modify: `MainframeEngine/Src/Core/Engine.cs` (all ImGui lines: field `_vkImGuiController`, creation in `OnLoad`,
   `Update`/`OnImGui` call in the update loop, `DiscardFrame` when minimised, `Render`/`DiscardFrame` before `EndFrame`,
   the `OnImGui` virtual, dispose in `OnClose`, doc comments at the "ImGui" mentions)
@@ -1747,7 +1747,7 @@ git commit -m "Render tests: dev overlay replaces ImGui (allocation gate, shadow
 ```bash
 git rm MainframeEngine/Src/Rendering/Vulkan/VulkanImGuiController.cs MainframeEngine/Src/Rendering/Vulkan/RendererDebugWindow.cs \
   MainframeEngine/Src/Audio/AudioImGui.cs
-git rm -r MainframeEngine/Content/Shaders/ImGui
+git rm -r MainframeEngine/Assets/Shaders/ImGui
 ```
 
 Remove the package reference and version. In `Engine.cs` the render tail becomes just `Renderer.EndFrame();` (it runs
@@ -1790,7 +1790,7 @@ git commit -m "Remove ImGui (ImGui.NET, controller, shaders, texture registry, O
 **Files:**
 - Delete: `docs/design/imgui-and-debug-tools.md`; Create: `docs/design/dev-overlay.md`
 - Create: `memory/decisions/0115-remove-imgui.md`
-- Modify: `CLAUDE.md`, `README.md`, `THIRD_PARTY_NOTICES.md` (ImGui.NET entry), `MainframeEngine/Content/UI/credits.rml:23`,
+- Modify: `CLAUDE.md`, `README.md`, `THIRD_PARTY_NOTICES.md` (ImGui.NET entry), `MainframeEngine/Assets/UI/credits.rml:23`,
   `docs/README.md`, `docs/milestones.md` (D2 ✅), design docs mentioning ImGui, SVGs
   `docs/images/{architecture-layers,main-render-pass,viewport-and-depth,rmlui-integration}.svg`
 
@@ -1820,6 +1820,6 @@ the RmlUi-debugger line stays. Edit the SVG text labels in place. Mark the spec
 - [ ] **Step 4: Commit**
 
 ```bash
-git add -A docs memory CLAUDE.md README.md THIRD_PARTY_NOTICES.md MainframeEngine/Content/UI/credits.rml
+git add -A docs memory CLAUDE.md README.md THIRD_PARTY_NOTICES.md MainframeEngine/Assets/UI/credits.rml
 git commit -m "Docs: dev overlay and screen gizmos replace ImGui (ADR 0115)"
 ```

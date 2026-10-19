@@ -839,3 +839,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - **Golden:** `editor-music-curves` (both drivers). Its allocation gate found `Canvas.SortedRoots`' `List.Sort(IComparer)`
   allocating a delegate per frame with two root items, so the engine now has `NoAllocSort`.
 - **Next:** A6 (editor link v5 Target menu, dev overlay Music panel, Demo scene, README/landing).
+
+### 2026-10-19 — The content folder is `Assets/` (ADR 0197)
+- `Content/` → `Assets/` everywhere: engine, editor, tests, Demo, Forest, the template, the build output and every
+  path string. API names stay (`ContentPaths`, `AssetDatabase.ContentDirectory`, `MainframeContentSource`,
+  `LocaleContentRoot`).
+- Legacy `Content/…` paths still resolve (`ContentPaths.UpgradeLegacyPath`). `project.mfproj` is now format 4: the
+  3 → 4 step moves `Content/…` values.
+- The editor offers to migrate an old project when it opens (`AssetsFolderMigration`: rename the folder and rewrite
+  the paths); Cancel leaves the project closed.

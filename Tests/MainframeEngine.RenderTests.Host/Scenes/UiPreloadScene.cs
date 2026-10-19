@@ -11,8 +11,8 @@ public sealed class UiPreloadScene(HostOptions host) : UiDocumentScene(host, "")
         <rml>
         <head><style>body { width: 100%; height: 100%; } img { width: 64dp; height: 64dp; }</style></head>
         <body>
-          <img id="shown" src="/Content/UI/logo.png"/>
-          <div id="later" style="display: none;"><img src="/Content/UI/logo.png"/><img src="../UI/logo.png"/></div>
+          <img id="shown" src="/Assets/UI/logo.png"/>
+          <div id="later" style="display: none;"><img src="/Assets/UI/logo.png"/><img src="../UI/logo.png"/></div>
         </body>
         </rml>
         """;

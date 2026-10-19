@@ -7,7 +7,7 @@ namespace MainframeEngine;
 /// <summary>
 /// The engine's standard vertex (32 bytes, interleaved): position, normal, UV. Position comes first so the shadow
 /// pipelines (which read only <c>location 0</c> with a 32-byte stride) draw any mesh. No tangents: normal maps
-/// use a screen-space cotangent frame (see <c>Content/Shaders/include/material.slang</c>).
+/// use a screen-space cotangent frame (see <c>Assets/Shaders/include/material.slang</c>).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct MeshVertex(Vector3 position, Vector3 normal, Vector2 uv)

@@ -183,20 +183,20 @@ public sealed class NodeLocalizationTests : IDisposable
     {
         var table = new FontFallbackTable
         {
-            DefaultFonts = ["Content/UI/fonts/Lato-Regular.ttf"],
+            DefaultFonts = ["Assets/UI/fonts/Lato-Regular.ttf"],
             Locales =
             [
-                new LocaleFontSet { Locale = "ja", Fonts = ["Content/UI/fonts/NotoSansJP.otf"] },
-                new LocaleFontSet { Locale = "zh-Hans", Fonts = ["Content/UI/fonts/NotoSansSC.otf", "Content/UI/fonts/Lato-Regular.ttf"] },
-                new LocaleFontSet { Locale = "zh", Fonts = ["Content/UI/fonts/NotoSansTC.otf"] },
+                new LocaleFontSet { Locale = "ja", Fonts = ["Assets/UI/fonts/NotoSansJP.otf"] },
+                new LocaleFontSet { Locale = "zh-Hans", Fonts = ["Assets/UI/fonts/NotoSansSC.otf", "Assets/UI/fonts/Lato-Regular.ttf"] },
+                new LocaleFontSet { Locale = "zh", Fonts = ["Assets/UI/fonts/NotoSansTC.otf"] },
             ],
         };
 
-        Assert.Equal(["Content/UI/fonts/NotoSansJP.otf", "Content/UI/fonts/Lato-Regular.ttf"], table.Resolve(["ja_JP", "ja", "en"]));
+        Assert.Equal(["Assets/UI/fonts/NotoSansJP.otf", "Assets/UI/fonts/Lato-Regular.ttf"], table.Resolve(["ja_JP", "ja", "en"]));
         Assert.Equal(
-            ["Content/UI/fonts/NotoSansSC.otf", "Content/UI/fonts/Lato-Regular.ttf", "Content/UI/fonts/NotoSansTC.otf"],
+            ["Assets/UI/fonts/NotoSansSC.otf", "Assets/UI/fonts/Lato-Regular.ttf", "Assets/UI/fonts/NotoSansTC.otf"],
             table.Resolve(LocaleId.Chain("zh_Hans_CN", "en")));
-        Assert.Equal(["Content/UI/fonts/Lato-Regular.ttf"], table.Resolve(["fr", "en"]));
+        Assert.Equal(["Assets/UI/fonts/Lato-Regular.ttf"], table.Resolve(["fr", "en"]));
 
         // It is an ordinary resource (a .mres file edited in the inspector).
         var info = TypeRegistry.Get(typeof(FontFallbackTable))!;

@@ -22,7 +22,7 @@ public sealed class UiSceneTests
         try
         {
             var showcase = tree.CurrentScene!.GetNode<UiShowcase>("Ui/Showcase");
-            Assert.Equal("Content/UI/showcase.rml", showcase.Source);
+            Assert.Equal("Assets/UI/showcase.rml", showcase.Source);
         }
         finally
         {

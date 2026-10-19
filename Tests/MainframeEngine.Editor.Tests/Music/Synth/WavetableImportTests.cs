@@ -129,9 +129,9 @@ public sealed class WavetableImportTests
         var uid = WavetableWav.Import(outside, AssetDatabase.Current);
         Assert.True(AssetUid.IsUid(uid));
         var path = AssetDatabase.Current.GetPath(uid)!;
-        Assert.Equal("Content/Wavetables/outside.wav", path);
+        Assert.Equal("Assets/Wavetables/outside.wav", path);
         Assert.True(File.Exists(AssetDatabase.Current.ToAbsolutePath(path)));
-        Assert.Equal("Content/Wavetables/outside 2.wav", AssetDatabase.Current.GetPath(WavetableWav.Import(outside, AssetDatabase.Current)));
+        Assert.Equal("Assets/Wavetables/outside 2.wav", AssetDatabase.Current.GetPath(WavetableWav.Import(outside, AssetDatabase.Current)));
 
         var bad = Path.Combine(project.Root, "bad.wav");
         File.WriteAllText(bad, "not audio");
@@ -143,7 +143,7 @@ public sealed class WavetableImportTests
         var output = SynthTestUtil.Note(synth, 57, 0.3);
         Assert.True(SynthTestUtil.Rms(output, 4000, 12000) > 0.05);
 
-        var missing = SynthTestUtil.Create(edit: p => p.Tables!["a"] = new SynthTableRef { Source = "Content/Wavetables/nope.wav" });
-        Assert.Equal("missing wavetable: Content/Wavetables/nope.wav", missing.Status);
+        var missing = SynthTestUtil.Create(edit: p => p.Tables!["a"] = new SynthTableRef { Source = "Assets/Wavetables/nope.wav" });
+        Assert.Equal("missing wavetable: Assets/Wavetables/nope.wav", missing.Status);
     }
 }

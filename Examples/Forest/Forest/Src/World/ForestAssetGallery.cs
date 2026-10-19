@@ -4,7 +4,7 @@ using MainframeEngine;
 namespace Forest;
 
 /// <summary>
-/// The art check (<c>--scene Content/Scenes/asset_gallery.mscene</c>): a 64 m terrain with one band per
+/// The art check (<c>--scene Assets/Scenes/asset_gallery.mscene</c>): a 64 m terrain with one band per
 /// <see cref="ForestAssets.TerrainLayers"/> entry, west to east (grass, leaves, moss, rock on a steep ridge, dirt, gravel,
 /// mud, needles), a forest-floor mix in front, every <see cref="ForestAssets.Props"/> model on it, a sun and the
 /// <see cref="ForestAssets.SkyPanorama"/> sky. Everything is built when the node is ready (unowned, so the scene file
@@ -14,7 +14,7 @@ namespace Forest;
 public sealed class ForestAssetGallery : Node3D
 {
     public const string SceneId = "asset_gallery";
-    public const string ScenePath = "Content/Scenes/asset_gallery.mscene";
+    public const string ScenePath = "Assets/Scenes/asset_gallery.mscene";
 
     // The terrain: 64 m at 0.5 m, its local origin at world (-32, 0, -40). Bands run north–south in local z < BandsEndZ.
     private const int TerrainSize = 64;

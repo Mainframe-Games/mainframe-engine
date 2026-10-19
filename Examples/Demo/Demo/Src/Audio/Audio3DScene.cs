@@ -54,7 +54,7 @@ public static class Audio3DScene
         Add(root, orbit, new AudioPlayer3D
         {
             Name = "Emitter",
-            Stream = new AudioStream { File = "Content/Audio/ambient_hum.ogg", LoadMode = AudioLoadMode.Stream, Loop = true },
+            Stream = new AudioStream { File = "Assets/Audio/ambient_hum.ogg", LoadMode = AudioLoadMode.Stream, Loop = true },
             Bus = "SFX",
             VolumeDb = -6f,
             Autoplay = true,

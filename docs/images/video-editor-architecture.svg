@@ -57,7 +57,7 @@
   <text x="436" y="172" class="km">Analysis: Whisper transcriber + model store (Whisper.net)</text>
   <text x="436" y="189" class="km">Tests: Cutback’s tests, ported to plain Assert</text>
   <rect x="420" y="250" width="540" height="130" rx="6" fill="#ffffff" stroke="#6366f1" stroke-width="1.4"/>
-  <text x="436" y="272" class="kb">MainframeEngine.Editor  —  Src/Video/ + Content/Editor/video*.rml</text>
+  <text x="436" y="272" class="kb">MainframeEngine.Editor  —  Src/Video/ + Assets/Editor/video*.rml</text>
   <text x="436" y="290" class="km">VideoTab · VideoDocument · VideoView · VideoPanel</text>
   <text x="436" y="307" class="km">VideoTimelineView / Canvas / Controller</text>
   <text x="436" y="324" class="km">VideoPlaybackPlan · VideoPreview · TranscriptPanel</text>
