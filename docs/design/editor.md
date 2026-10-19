@@ -777,6 +777,17 @@ window: no Scene tree, Inspector or FileSystem.
     thread: the playhead follows the music, the current section is outlined in the lane and a scheduled transition shows
     as a dashed arrow with "Combat · bar 9 · 1.2 s". Tracks sum per layer (its filter and curve-driven gain); master
     inserts are bypassed, as in the bake. Space or Seek returns to the timeline.
+  - **Curves pane** (A5, [design](future/adaptive-music.md#as-built-a5); View › Curves, a curve chip or a layer's + Curve):
+    the third bottom pane of adaptive songs. It shows a layer's volume (dB) or filter cutoff (log Hz) over a parameter,
+    with the other layers' curves on that parameter as ghosts and a line at the parameter's current value. Drag a point
+    (Shift: one axis) or double-click to add or remove one, each one undo step; right-click for Linear, Smooth or Remove
+    Curve.
+  - **Transition popover** (A5): a rule row's gear opens its editor under the row. It edits from (any or several
+    sections), to, all-of/any-of conditions, quantize and every, entry, fade-out and fade-in, segment and stinger, each
+    one undo step.
+  - **Live | Baked** (A5) in the Now row: Baked plays the last bake through the runtime's `AdaptiveMusicInstance` on the
+    editor's audio server, which is exactly what a game plays. Audition values, Fire and Stop go to it, and the panel,
+    lane and playhead follow it. It is greyed out until the song is baked.
 - **Browser** (F, View › Browser, the toolbar's sidebar button; `SongBrowser`, Logic's Browsers): a column on the right
   of the song view, with or without a song open. **Songs** lists every `.msong` in the project (the open one marked; a
   click opens it); **Plugins** lists the built-in effects by category, then the scanned VST3 effects and instruments. A

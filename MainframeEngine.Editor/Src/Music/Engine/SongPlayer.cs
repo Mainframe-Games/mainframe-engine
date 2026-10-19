@@ -61,6 +61,9 @@ public sealed class SongPlayer : IDisposable
 
     public SongEngine Engine { get; }
 
+    /// <summary>The editor's audio server (null without an audio device): the Baked audition plays on it too.</summary>
+    public AudioServer? Server => _server;
+
     /// <summary>The song's VST3 plugins (null: plugins are not played).</summary>
     public PluginRack? Plugins { get; }
 

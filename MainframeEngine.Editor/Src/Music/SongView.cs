@@ -43,6 +43,9 @@ public sealed class SongView : Node
     /// <summary>Renders in progress.</summary>
     public IReadOnlyList<SongRenderJob> Renders => _renders;
 
+    /// <summary>Bakes in progress.</summary>
+    public IReadOnlyList<SongBakeJob> Bakes => _bakes;
+
     /// <summary>The render of the song at <paramref name="songPath"/> in progress, or null.</summary>
     public SongRenderJob? RenderOf(string songPath)
     {
@@ -94,9 +97,18 @@ public sealed class SongView : Node
         var roll = _workspace.SongPanel.RollRect;
         controller.ArrangeSize = new Vector2(arrange.Width, arrange.Height);
         controller.RollSize = new Vector2(roll.Width, roll.Height);
-        var showRoll = tab.Panel == SongBottomPanel.PianoRoll && roll.Width > 1 && roll.Height > 1;
+        tab.Curves.Size = controller.RollSize;
+        // The bottom pane's view shows the piano roll or the Curves pane's canvas.
+        var curves = tab.Panel == SongBottomPanel.Curves;
+        var showRoll = (tab.Panel == SongBottomPanel.PianoRoll || curves) && roll.Width > 1 && roll.Height > 1;
+        if (tab.PianoRoll.Visible == curves)
+        {
+            tab.PianoRoll.Visible = !curves;
+            tab.CurvesCanvas.Visible = curves;
+        }
+
         Place(tab.ArrangeViewport, tab.Arrangement, arrange, scale, arrange.Width > 1 && arrange.Height > 1);
-        Place(tab.RollViewport, tab.PianoRoll, roll, scale, showRoll);
+        Place(tab.RollViewport, curves ? tab.CurvesCanvas : tab.PianoRoll, roll, scale, showRoll);
         Publish(tab, showRoll);
         Follow(tab);
     }
@@ -247,7 +259,15 @@ public sealed class SongView : Node
             case InputEventMouseButton { Button: MouseButton.Right, Pressed: true } right when _dragArea == SongArea.None:
                 _mouse = right.Position * scale;
                 if (AreaAt(_mouse) == SongArea.Arrangement && tab.Controller.ContextMenu(Local(SongArea.Arrangement, _mouse)))
+                {
                     Handled();
+                }
+                else if (AreaAt(_mouse) == SongArea.Curves)
+                {
+                    tab.Curves.ContextMenu(Local(SongArea.Curves, _mouse));
+                    Handled();
+                }
+
                 break;
             case InputEventMouseButton { Button: MouseButton.Left } button:
                 _mouse = button.Position * scale;
@@ -323,6 +343,8 @@ public sealed class SongView : Node
             return SongArea.Arrangement;
         if (_tab?.Panel == SongBottomPanel.PianoRoll && _workspace.SongPanel.RollRect.Contains(p.X, p.Y))
             return SongArea.PianoRoll;
+        if (_tab?.Panel == SongBottomPanel.Curves && _workspace.SongPanel.RollRect.Contains(p.X, p.Y))
+            return SongArea.Curves;
         return SongArea.None;
     }
 

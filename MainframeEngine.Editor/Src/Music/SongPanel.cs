@@ -125,6 +125,7 @@ public sealed class SongPanel : EditorDocument
     private int _midiVersion = -1;
     private bool _panelRoll = true;
     private bool _panelMixer;
+    private bool _panelCurves;
     private bool _paneOpen = true;
     private string _clipInfo = "";
     private string _masterFader = "0";
@@ -163,6 +164,7 @@ public sealed class SongPanel : EditorDocument
             .Bind("notice", this, static p => p._notice)
             .Bind("panel_roll", this, static p => p._panelRoll)
             .Bind("panel_mixer", this, static p => p._panelMixer)
+            .Bind("panel_curves", this, static p => p._panelCurves)
             .Bind("pane_open", this, static p => p._paneOpen)
             .Bind("clip_info", this, static p => p._clipInfo)
             .Bind("master_fader", this, static p => p._masterFader)
@@ -202,7 +204,12 @@ public sealed class SongPanel : EditorDocument
             })
             .Event("edit_line", e => EditLine(e.GetArgument(0).GetInt32()))
             .Event("audition", e => Track(e.GetArgument(0).GetInt32(), (t, track) => t.Controller.AuditionBriefly(track)))
-            .Event("panel", e => Workspace.SetMusicPane(e.GetArgument(0).GetInt32() == 1 ? SongBottomPanel.Mixer : SongBottomPanel.PianoRoll));
+            .Event("panel", e => Workspace.SetMusicPane(e.GetArgument(0).GetInt32() switch
+            {
+                1 => SongBottomPanel.Mixer,
+                2 => SongBottomPanel.Curves,
+                _ => SongBottomPanel.PianoRoll,
+            }));
     }
 
     protected override void OnAttach(RmlDocument document)
@@ -317,7 +324,7 @@ public sealed class SongPanel : EditorDocument
         ApplyPaneHeight();
         var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
         ArrangeRect = RectOf("song-arrange", scale);
-        RollRect = tab.Panel == SongBottomPanel.PianoRoll ? RectOf("song-roll", scale) : default;
+        RollRect = tab.Panel is SongBottomPanel.PianoRoll or SongBottomPanel.Curves ? RectOf("song-roll", scale) : default;
 
         if (tab.Document.Version != _docVersion || tab.ViewVersion != _viewVersion || tab.Midi.Version != _midiVersion)
             Rebuild(tab);
@@ -413,6 +420,7 @@ public sealed class SongPanel : EditorDocument
         _notice = tab.Document.ReadOnlyNotice ?? "";
         _panelRoll = tab.Panel == SongBottomPanel.PianoRoll;
         _panelMixer = tab.Panel == SongBottomPanel.Mixer;
+        _panelCurves = tab.Panel == SongBottomPanel.Curves;
         _paneOpen = tab.Panel != SongBottomPanel.None;
         _clipInfo = ClipInfo(tab);
         _masterFader = Number(-Math.Clamp(song.Master.VolumeDb, -60f, 6f));
@@ -424,6 +432,10 @@ public sealed class SongPanel : EditorDocument
 
     private static string ClipInfo(SongTab tab)
     {
+        if (tab.Panel == SongBottomPanel.Curves)
+            return tab.Curves.Curve is { } curve && tab.Document.Song.Adaptive is { } adaptive
+                ? $"{adaptive.FindLayer(curve.Layer)?.Name ?? curve.Layer} · {(curve.Target == Audio.Music.MusicCurveTarget.Volume ? "volume" : "cutoff")} over {curve.Parameter} · {curve.Points.Count} points"
+                : "";
         if (tab.SelectedClip is not { } clip || tab.SelectedTrack is not { } track)
             return tab.SelectedTrack is { } t ? t.Name : "";
         var bar = tab.Document.Song.TicksPerBar;

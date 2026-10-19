@@ -132,6 +132,25 @@ public class EditorRenderTests
     }
 
     [Fact]
+    public void MusicCurvesMatchesGoldenAndAllocatesNothingWhenSteady()
+    {
+        // The adaptive song with the Curves pane (a layer's volume over a parameter, a ghost, the value line) and a transition's
+        // popover (sources, conditions, timing, entry, fades) open in the Adaptive tab; then the allocation gate.
+        var result = HostRunner.RunEditor(Output("editor-music-curves"),
+            new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "--smoke-golden", "music-curves", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Assert.True(result.MeasuredFrames > 0, "The curves run measured no frames.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"Steady Curves-pane frames allocated {result.AllocatedBytes} managed bytes over {result.MeasuredFrames} frames.");
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
     public void SynthWindowMatchesGoldenAndAllocatesNothingWhenSteady()
     {
         // The music-song golden's track with the wavetable synth (a factory preset, three routes) and its window on the Osc tab

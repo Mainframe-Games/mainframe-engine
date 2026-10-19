@@ -1096,8 +1096,8 @@ WAV stems or `FakePluginHost` as the encoder, and no audio device. They cover:
 
 ## As built: A4
 
-A4 is the editor's adaptive UI and the Live preview. Baked audition (Live | Baked), the curve editor, the transition
-popover and the editor link's Target menu are A5 and A6.
+A4 is the editor's adaptive UI and the Live preview. Baked audition (Live | Baked), the curve editor and the transition
+popover came in A5 ([As built: A5](#as-built-a5)); the editor link's Target menu is A6.
 
 **Live preview** (`Music/Engine/SongEngine.Adaptive.cs`, `AdaptiveSnapshot`)
 
@@ -1141,6 +1141,82 @@ popover and the editor link's Target menu are A5 and A6.
   `song marker`, `song layer`, `song param`, `song audition`, `song adaptive-play`, `song stinger`, `song bake`.
 - **Golden**: `editor-music-adaptive` (both drivers) with the allocation gate. It found the mixer's per-frame track
   lookups allocating a closure (`SongSnapshot.Find`, also `SongAdaptive.FindSection` and friends): now plain loops.
+
+## As built: A5
+
+A5 adds the Curves pane, the transition popover and Baked audition. The editor link's Target menu, the dev overlay's
+Music panel and the Demo scene are A6.
+
+**Curves pane** (`Music/Adaptive/SongCurves.cs` for geometry and gestures, `CurvesCanvas` for drawing)
+
+- **Opening it.** A third bottom pane, Curves, beside Piano roll and Mixer. Its switcher tab shows only on adaptive
+  songs. It opens from View › Curves (`song.curves`; no single-key shortcut), from a curve chip in the Adaptive tab, or
+  from a layer's **+ Curve** (a menu: volume or cutoff over each parameter, which adds a curve spanning the parameter's
+  range and opens it).
+- **What it draws.**
+  - The curve in its layer's colour, with the other layers' curves on the same parameter and target as ghosts.
+  - Its points, and a yellow line at the parameter's current value: the baked instance's value, else the live
+    engine's, else the audition value, else the default.
+  - Axes: dB −80…+6 for volume and log Hz 20 Hz–20 kHz for cutoff on y. On x, a labeled or discrete parameter gets one
+    column per value and its curve draws as steps.
+  - Labels are cached per curve and song version, and steady frames allocate nothing.
+- **Gestures.**
+  - Drag a point; Shift keeps the axis the mouse moved most on. Each drag is one entry (`SetCurvePoints` with a merge
+    key, ended on release).
+  - Double-click empty ground to add a point, or a point to remove it; the last point stays.
+  - Right-click opens Linear, Smooth or Remove Curve. The shape belongs to the whole curve (`MusicCurveInfo.Shape`), not
+    to one segment, unlike the sketch above.
+- **Hearing edits.** In Live mode an edit is heard at once (the next snapshot). In Baked mode it is heard after the
+  next bake.
+
+**Transition popover** (`AdaptivePanel.BuildRuleEditor`, `EditRule`)
+
+- **Where it opens.** RmlUi has no floating popovers that track a row, so the popover is an inline editor under its
+  rule row. It opens with the row's gear button (`rule-edit`), and one is open at a time.
+- **What it edits.** Every chip is one undoable `EditTransition`:
+  - **From:** toggles for any section, or several sections.
+  - **To.**
+  - **Conditions:** All of or Any of, then rows of parameter, operator and value. Values are chips for labeled
+    parameters and a number field for the others. **+ Condition** adds a row; × removes one. With no condition left,
+    the rule fires only from code.
+  - **Timing:** quantize, plus *every* N for Bars.
+  - **Entry:** at its start, or in sync.
+  - **Fades:** fade-out and fade-in in beats.
+  - **Segment and stinger.**
+- **Glyphs.** Operators are ASCII (`=`, `!=`, `<`, `<=`, …), because the UI font has no ≠ ≤ ≥ glyphs.
+
+**Live | Baked** (`Music/Adaptive/BakedAudition.cs`)
+
+- **The switch.** Two chips in the Now row. Baked is greyed out until the song has a bake (and the editor an audio
+  server).
+- **Playing the bake.** Baked plays the song's last `.mmusic` through A2's `AdaptiveMusicInstance` on the editor's
+  `AudioServer` (the Music bus): the runtime code a game runs. The manifest is read again when its file changes, so a
+  new bake is picked up on the next play.
+- **Control.** Audition values, Fire and Stop go to the instance.
+- **What follows it.** The Now row, pending countdown, layer meters, ghost thumbs, firing rule, the Sections lane's
+  outline and the playhead all read the instance's state (section start + `GetPosition().Seconds`).
+- **Switching.** Switching mode stops what plays.
+
+**Tests and goldens**
+
+- **Tests** (`AdaptiveA5Tests`):
+  - `CurvesPaneTests`: the canvas ↔ value mapping, drags as one entry with Shift, add/remove, label columns,
+    `NewCurve`, audition values.
+  - `TransitionPopoverTests`: sources, conditions, mode and entry as undoable entries; the popover and Curves markup;
+    0 B for steady draws and ticks.
+  - `BakedAuditionTests`: the demo song baked to WAV stems and played on a manual null-device server. It plays Intro →
+    Explore → Combat once `area` is set, with sound, and stops.
+- **Golden:** `editor-music-curves` (both drivers), with the allocation gate. `editor-music-adaptive` was re-recorded
+  for the Live | Baked chips.
+- **Allocation fixes.**
+  - The gate found `Canvas.SortedRoots` allocating 64 B per frame once a viewport had two root items (the piano roll and
+    the Curves canvas). `List.Sort(IComparer)` wraps `Compare` in a new delegate.
+  - It and the canvas-layer sort now use `NoAllocSort`, a stable insertion sort.
+  - `CurvesCanvas` keeps its label lambdas in a separate method: a closure is allocated on entry to the method that
+    declares its captured locals, even when the method returns early.
+- **QA:** `song curve`, `song curve-select`, `song rule-edit`, `song audition-mode live|baked`, `wait-for bake`. The
+  walkthrough captures `13e8-song-curves-popover` and `13e9-song-baked-playing`. `delete-file` also removes matching
+  folders (a bake's `.stems`).
 
 ## Decided questions
 

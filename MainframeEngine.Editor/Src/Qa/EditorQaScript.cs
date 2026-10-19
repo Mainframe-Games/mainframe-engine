@@ -333,6 +333,7 @@ public sealed class EditorQaScript : IEditorAutomation
                     "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running && i.Frame >= 90),
                     "stopped" => static w => !w.Play.IsPlaying,
                     "render" => static w => w.SongView.Renders.Count == 0,
+                    "bake" => static w => w.SongView.Bakes.Count == 0,
                     "video-jobs" => static w => VideoJobsIdle(w.Session.ActiveTab as Video.VideoTab),
                     _ => throw new ArgumentException($"Unknown wait-for '{step[1]}'."),
                 };
@@ -351,12 +352,16 @@ public sealed class EditorQaScript : IEditorAutomation
 
             case "delete-file":
                 {
-                    // delete-file <project path, the file name may end in *>: removes files a step created
+                    // delete-file <project path, the file name may end in *>: removes files and folders (a bake's stems) a step created
                     var pattern = Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[1..]));
                     var directory = Path.GetDirectoryName(pattern)!;
                     if (Directory.Exists(directory))
+                    {
                         foreach (var file in Directory.GetFiles(directory, Path.GetFileName(pattern)))
                             File.Delete(file);
+                        foreach (var folder in Directory.GetDirectories(directory, Path.GetFileName(pattern)))
+                            Directory.Delete(folder, recursive: true);
+                    }
                     workspace.FileSystem.Rescan();
                     break;
                 }
@@ -703,7 +708,9 @@ public sealed class EditorQaScript : IEditorAutomation
     // song adaptive-demo (SongAdaptiveDemo on the song) · song adaptive on|off (Make Adaptive / Make Timeline Song) · song adaptive-tab
     // (the right panel's Adaptive tab, shown) · song section <name> <first bar> <bars> [loop] [then=<id>] [kind=transition|stinger] [start] ·
     // song marker <name> <bar> [exit] · song layer <track> <layer name> (made when missing) · song param <name> continuous <min> <max> |
-    // labeled <A,B,…> · song audition <param> <value> · song adaptive-play [section id] · song stinger <id> · song bake (as Ctrl+B)
+    // labeled <A,B,…> · song audition <param> <value> · song adaptive-play [section id] · song stinger <id> · song bake (as Ctrl+B) ·
+    // song curve <layer> <param> [cutoff] · song curve-select <index> (the Curves pane) · song rule-edit <index> (its popover) ·
+    // song audition-mode live|baked
     private static void Song(EditorWorkspace workspace, string[] step)
     {
         if (step[1] == "new")
@@ -903,18 +910,44 @@ public sealed class EditorQaScript : IEditorAutomation
                 break;
             case "audition":
                 {
-                    var value = float.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture);
-                    tab.Auditions[step[2]] = value;
-                    tab.Player.SetParameter(step[2], value);
+                    tab.SetAudition(step[2], float.Parse(step[3], System.Globalization.CultureInfo.InvariantCulture));
                     break;
                 }
 
             case "adaptive-play":
                 tab.Player.Update(document);
-                tab.Player.PlayAdaptive(step.Length > 2 ? step[2] : null, tab.Auditions);
+                if (tab.IsPlayingAdaptive)
+                    tab.PlayAdaptive(fromPlayhead: false); // stops it
+                tab.PlayAdaptive(fromPlayhead: false);
                 break;
             case "stinger":
-                tab.Player.TriggerStinger(step[2]);
+                tab.TriggerStinger(step[2]);
+                break;
+            case "curve":
+                {
+                    // song curve <layer name> <parameter> [cutoff]: a new curve on that layer, open in the Curves pane.
+                    var adaptive = document.Song.Adaptive!;
+                    var layer = adaptive.Layers.Find(l => l.Name == step[2])!;
+                    var parameter = adaptive.FindParameter(step[3])!;
+                    var target = step.Length > 4 && step[4] == "cutoff" ? Audio.Music.MusicCurveTarget.Cutoff : Audio.Music.MusicCurveTarget.Volume;
+                    tab.SelectCurve(document.AddCurve(Music.SongCurves.NewCurve(layer.Id, target, parameter)));
+                    workspace.SetMusicPane(Music.SongBottomPanel.Curves);
+                    break;
+                }
+
+            case "curve-select":
+                {
+                    // song curve-select <index>: that curve of the song in the Curves pane.
+                    tab.SelectCurve(document.Song.Adaptive!.Curves[int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture)]);
+                    workspace.SetMusicPane(Music.SongBottomPanel.Curves);
+                    break;
+                }
+
+            case "rule-edit":
+                workspace.SongPanel.Adaptive.EditTransition(int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture));
+                break;
+            case "audition-mode":
+                tab.SetAuditionBaked(step[2] == "baked");
                 break;
             case "bake":
                 workspace.Commands.Execute("song.bake");

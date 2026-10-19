@@ -1,11 +1,14 @@
 namespace MainframeEngine.Editor.Music;
 
-/// <summary>Which editor music mode's bottom pane shows (P / X), or none (the tracks fill the view).</summary>
+/// <summary>Which editor music mode's bottom pane shows (P / X, View › Curves), or none (the tracks fill the view).</summary>
 public enum SongBottomPanel
 {
     PianoRoll,
     Mixer,
     None,
+
+    /// <summary>An adaptive song's curve editor (a layer's volume or cutoff over a parameter).</summary>
+    Curves,
 }
 
 /// <summary>The song tab's area that last took a click (Del, Cmd+D and the clipboard act on it).</summary>
@@ -14,6 +17,9 @@ public enum SongArea
     None,
     Arrangement,
     PianoRoll,
+
+    /// <summary>The Curves pane (an adaptive song's curve editor).</summary>
+    Curves,
 }
 
 /// <summary>
@@ -37,9 +43,13 @@ public sealed class SongTab : IEditorTab
         RollViewport = NewViewport($"SongRoll{number}");
         Arrangement = new ArrangementCanvas(this) { Name = "Arrangement" };
         PianoRoll = new PianoRollCanvas(this) { Name = "PianoRoll" };
+        Curves = new SongCurves(this);
+        CurvesCanvas = new CurvesCanvas(this) { Name = "Curves", Visible = false };
         ArrangeViewport.AddChild(Arrangement);
         RollViewport.AddChild(PianoRoll);
+        RollViewport.AddChild(CurvesCanvas); // the bottom pane's view shows the piano roll or the curves
         Controller = new SongCanvasController(this);
+        Baked = new BakedAudition(() => Player.Server);
         Midi = new SongMidiInput(document, player, () => SelectedTrack);
         SelectedTrack = document.Song.Tracks.Count > 0 ? document.Song.Tracks[0] : null;
         SelectedClip = SelectedTrack?.Clips.Count > 0 ? SelectedTrack.Clips[0] : null;
@@ -75,6 +85,94 @@ public sealed class SongTab : IEditorTab
     public ArrangementCanvas Arrangement { get; }
 
     public PianoRollCanvas PianoRoll { get; }
+
+    /// <summary>The Adaptive panel's Baked mode: the song's last bake through an <c>AdaptiveMusicInstance</c>.</summary>
+    public BakedAudition Baked { get; }
+
+    /// <summary>Adaptive playback plays the last bake (true) or the song model through the <see cref="SongEngine"/> (Live).</summary>
+    public bool AuditionBaked { get; private set; }
+
+    /// <summary>Switches Live / Baked (what plays stops); Baked only when a bake exists.</summary>
+    public void SetAuditionBaked(bool baked)
+    {
+        baked &= Baked.Available(Document);
+        if (baked == AuditionBaked)
+            return;
+        StopAdaptive();
+        AuditionBaked = baked;
+        ViewVersion++;
+    }
+
+    /// <summary>
+    /// The playhead's tick: the baked music's (its section's start plus how far into it the instance is) while the bake
+    /// plays, else the player's heard position.
+    /// </summary>
+    public double PlayheadTicks
+    {
+        get
+        {
+            if (AuditionBaked && Baked.Instance is { Playing: true } baked && baked.GetPosition() is { Section: { } id } position &&
+                Document.Song.Adaptive?.FindSection(id) is { } section)
+                return section.Start + Document.Song.SecondsToTicks(position.Seconds);
+            return Player.PositionTicks;
+        }
+    }
+
+    /// <summary>Adaptive playback runs, live or baked.</summary>
+    public bool IsPlayingAdaptive => AuditionBaked ? Baked.Playing : Player.IsPlaying && Player.IsAdaptive;
+
+    /// <summary>Sets an audition value: kept with the tab, and sent to what plays.</summary>
+    public void SetAudition(string name, float value)
+    {
+        Auditions[name] = value;
+        Player.SetParameter(name, value);
+        Baked.SetParameter(name, value);
+    }
+
+    private void StopAdaptive()
+    {
+        Baked.Stop();
+        if (Player.IsAdaptive)
+            Player.Stop();
+    }
+
+    /// <summary>The Curves pane's state and gestures.</summary>
+    public SongCurves Curves { get; }
+
+    public CurvesCanvas CurvesCanvas { get; }
+
+    /// <summary>The curve the Curves pane edits (null: none).</summary>
+    public Audio.Music.MusicCurveInfo? SelectedCurve { get; private set; }
+
+    public void SelectCurve(Audio.Music.MusicCurveInfo? curve)
+    {
+        if (ReferenceEquals(curve, SelectedCurve))
+            return;
+        SelectedCurve = curve;
+        ViewVersion++;
+    }
+
+    /// <summary>
+    /// A parameter's value now: the music's while it plays adaptively (live or baked), else the Adaptive panel's audition
+    /// value, else its default. No allocation (the Curves pane draws it every frame).
+    /// </summary>
+    public float ParameterValue(string name)
+    {
+        if (Baked.Instance is { Playing: true } baked)
+            return baked.GetParameter(name);
+        if (Player.IsAdaptive && Player.Plan is { } plan)
+        {
+            for (var i = 0; i < plan.Parameters.Count && i < SongEngine.MaxPublishedParameters; i++)
+            {
+                if (plan.Parameters[i].Name == name)
+                    return Player.Engine.ParameterValue(i);
+            }
+        }
+
+        if (Auditions.TryGetValue(name, out var value))
+            return value;
+        return Document.Song.Adaptive?.FindParameter(name)?.Default ?? 0;
+    }
 
     public string? FilePath => Document.FilePath;
 
@@ -134,28 +232,39 @@ public sealed class SongTab : IEditorTab
     /// </summary>
     public bool PlayAdaptive(bool fromPlayhead)
     {
-        if (Player.IsPlaying && Player.IsAdaptive)
+        if (IsPlayingAdaptive)
         {
-            Player.Stop();
+            StopAdaptive();
             return true;
         }
 
         var section = fromPlayhead ? Document.Song.Adaptive?.SectionAt((long)Player.PositionTicks)?.Id : null;
         if (Player.IsPlaying)
             Player.Stop();
+        if (AuditionBaked)
+            return Baked.Play(Document, section, Auditions);
         return Player.PlayAdaptive(section, Auditions);
+    }
+
+    /// <summary>Fires stinger <paramref name="id"/> on what plays (live or baked).</summary>
+    public void TriggerStinger(string id)
+    {
+        if (AuditionBaked)
+            Baked.TriggerStinger(id);
+        else
+            Player.TriggerStinger(id);
     }
 
     /// <summary>T: fires the selected stinger (else the song's first) at its quantum while the song plays adaptively.</summary>
     public void FireStinger()
     {
-        if (!Player.IsAdaptive || Document.Song.Adaptive is not { } adaptive)
+        if (!IsPlayingAdaptive || Document.Song.Adaptive is not { } adaptive)
             return;
         var stinger = SelectedSection is { Kind: Audio.Music.MusicSectionKind.Stinger } selected
             ? selected
             : adaptive.Sections.Find(static s => s.Kind == Audio.Music.MusicSectionKind.Stinger);
         if (stinger is not null)
-            Player.TriggerStinger(stinger.Id);
+            TriggerStinger(stinger.Id);
     }
 
     public void SelectSection(SongSection? section)
@@ -271,6 +380,7 @@ public sealed class SongTab : IEditorTab
     {
         Midi.ReleaseAll();
         Player.Stop();
+        Baked.Stop();
         Controller.CancelGesture();
         ArrangeViewport.UpdateMode = SubViewportUpdateMode.Disabled;
         RollViewport.UpdateMode = SubViewportUpdateMode.Disabled;
@@ -312,6 +422,7 @@ public sealed class SongTab : IEditorTab
         _disposed = true;
         Document.Changed -= OnDocumentChanged;
         Midi.ReleaseAll();
+        Baked.Dispose();
         Player.Dispose();
         if (!ArrangeViewport.IsFreed)
             ArrangeViewport.Free();

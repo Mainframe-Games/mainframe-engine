@@ -211,7 +211,7 @@ public sealed class CanvasServer : IFrameServer
                 _canvases.Add((layer.Canvas, layer.Layer, layer.GetIndex()));
         }
 
-        _canvases.Sort(CanvasOrder.Instance);
+        NoAllocSort.Sort(_canvases, CanvasOrder.Instance);
 
         for (var i = 0; i < _canvases.Count; i++)
         {
@@ -318,7 +318,7 @@ public sealed class CanvasServer : IFrameServer
         _warnedLights = true;
     }
 
-    // By layer, then tree order (the root canvas, order −1, first among layer 0). A singleton: no per-frame allocation.
+    // By layer, then tree order (the root canvas, order −1, first among layer 0). A singleton for NoAllocSort.
     private sealed class CanvasOrder : IComparer<(Canvas Canvas, int Layer, int Order)>
     {
         public static readonly CanvasOrder Instance = new();
