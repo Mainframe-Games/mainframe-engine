@@ -95,6 +95,15 @@ command fs.stop
 inspector-header inspector-close
 delete-file Assets/Audio/QaSound*
 wait 3
+# The FileSystem panel: the Simplified view (Assets and Scripts, the default), then the whole project folder, then back.
+click #fs-view-tree
+wait 2
+capture 13c2-filesystem-simplified
+click #fs-simplified
+wait 2
+capture 13c3-filesystem-verbose
+click #fs-simplified
+wait 2
 # Music mode (the music editor, full window): a new song switches to it; a clip with notes (piano roll), the mixer
 # while playing, Render; then, back in game mode, the output previewed from the FileSystem panel. The files are removed
 # again.

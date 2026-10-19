@@ -76,9 +76,10 @@ game.
 
 A Godot-style editor whose UI is built with the engine's own RmlUi game UI. It works on game projects: a Project
 Manager and New Project wizard, a scene tree, an inspector generated from the nodes' `[Export]` metadata with undo/redo,
-a 3D or 2D viewport with GPU picking and gizmos, a FileSystem panel that keeps references when files move, and Play —
-the game builds and runs in its own process, its log streams into Output, and code changes reload into the open
-editor. Scenes open in tabs, each in its own world; nothing but `[Tool]` nodes runs while editing.
+a 3D or 2D viewport with GPU picking and gizmos, a FileSystem panel (a Simplified view of just Assets and Scripts, or the
+whole project folder) that keeps references when files move, and Play — the game builds and runs in its own process,
+its log streams into Output, and code changes reload into the open editor. Scenes open in tabs, each in its own world;
+nothing but `[Tool]` nodes runs while editing.
 
 <table>
   <tr>
