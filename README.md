@@ -142,7 +142,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Vulkan renderer](docs/design/vulkan-renderer.md) | Vulkan 1.2 on macOS (MoltenVK), Windows and Linux: HDR with linear lighting, an in-house GPU allocator and upload queue, a persisted pipeline cache, zero allocations per frame |
-| [Materials & meshes](docs/design/materials-and-meshes.md) | PBR `StandardMaterial3D`, sRGB-aware textures with GPU mips, instanced and sorted batches (10 000 instances in a few draws), frustum culling, GPU picking, `SubViewport`s |
+| [Materials & meshes](docs/design/materials-and-meshes.md) | PBR `StandardMaterial3D`, sRGB-aware textures with GPU mips, instanced and sorted batches (10 000 instances in a few draws), frustum culling, GPU picking, `SubViewport`s, billboarded `Sprite3D`s that cast shadows |
 | [Lighting & sky](docs/design/lighting.md) | Directional, omni and spot lights; procedural, physical, panoramic and cubemap [skies](docs/design/sky.md) with image-based lighting; baked light probes |
 | [Shadows](docs/design/shadow-system.md) | Four sun cascades, a spot/secondary-directional atlas, point-light cubes, PCF and PCSS soft shadows, cutout casters, per-light settings |
 | [Post-processing](docs/design/post-processing.md) | SSAO/GTAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX |

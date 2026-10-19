@@ -48,6 +48,9 @@ public struct MeshDrawStats
 internal struct MeshDrawItem
 {
     public GeometryInstance3D Node;
+
+    /// <summary>The node's model matrix for this view (billboards face its camera).</summary>
+    public Matrix4x4 Model;
     public MeshGpu Mesh;
     public MaterialGpu Material;
     public PipelineEntry Pipeline;
@@ -66,6 +69,9 @@ internal struct MeshDrawItem
 internal struct ShadowCasterItem
 {
     public GeometryInstance3D Node;
+
+    /// <summary>The node's model matrix for the view that collected the caster (billboards face its camera).</summary>
+    public Matrix4x4 Model;
     public MeshGpu Mesh;
     public int Surface;
     public CullMode Cull;
@@ -734,7 +740,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
             Stats.Instances++;
             var mesh = node.GpuMesh!;
-            var model = node.ModelMatrix;
+            var model = Billboard.Face(node.ModelMatrix, node.RenderBillboard, viewMatrix);
             var mirrored = Determinant3(model) < 0f;
             var materials = node.GpuMaterials;
             var surfaces = mesh.Surfaces;
@@ -765,7 +771,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 // coarse shadow level, an impostor) also casts into the coarse passes from any distance.
                 var passes = CasterPasses(node.ShadowCasterLod, node.HasShadowRange ? node.IsInShadowRange(cameraPosition, bounds) : inRange);
                 if (passes != 0)
-                    AddCasters(view, node, mesh, mirrored, bounds, multiInstances, multiCount, passes);
+                    AddCasters(view, node, model, mesh, mirrored, bounds, multiInstances, multiCount, passes);
             }
 
             if (!inRange)
@@ -793,6 +799,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 var item = new MeshDrawItem
                 {
                     Node = node,
+                    Model = model,
                     Mesh = mesh,
                     Material = material,
                     Pipeline = pipeline,
@@ -827,6 +834,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 var item = new MeshDrawItem
                 {
                     Node = node,
+                    Model = model,
                     Mesh = mesh,
                     Material = material,
                     Pipeline = pipeline,
@@ -856,7 +864,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     internal const byte CoarsePasses = 2;
 
     // One caster item per shadow-casting surface of node.
-    private static void AddCasters(MeshViewDraws view, GeometryInstance3D node, MeshGpu mesh, bool mirrored, in Aabb bounds,
+    private static void AddCasters(MeshViewDraws view, GeometryInstance3D node, in Matrix4x4 model, MeshGpu mesh, bool mirrored, in Aabb bounds,
         GpuBuffer? multiInstances, uint multiCount, byte passes)
     {
         var materials = node.GpuMaterials;
@@ -876,6 +884,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 new ShadowCasterItem
                 {
                     Node = node,
+                    Model = model,
                     Mesh = mesh,
                     Surface = s,
                     Cull = cull,
@@ -949,13 +958,13 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         for (var k = 0; k < view.Opaque.Count; k++)
         {
             ref var item = ref view.Opaque[k];
-            data[i++] = new MeshInstanceData(item.Node.ModelMatrix, item.Node.ObjectId);
+            data[i++] = new MeshInstanceData(item.Model, item.Node.ObjectId);
         }
 
         for (var k = 0; k < view.Transparent.Count; k++)
         {
             ref var item = ref view.Transparent[k];
-            data[i++] = new MeshInstanceData(item.Node.ModelMatrix, item.Node.ObjectId);
+            data[i++] = new MeshInstanceData(item.Model, item.Node.ObjectId);
         }
 
         if (previous == 0)
@@ -964,7 +973,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         for (var k = 0; k < view.Opaque.Count; k++)
         {
             ref var item = ref view.Opaque[k];
-            data[i++] = new MeshInstanceData(item.Node.Motion.Previous(item.Node.ModelMatrix, frame), item.Node.ObjectId);
+            data[i++] = new MeshInstanceData(item.Node.Motion.Previous(item.Model, frame), item.Node.ObjectId);
         }
 
         view.PreviousInstanceOffset = (ulong)count * MeshInstanceData.Size;
@@ -1251,7 +1260,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ref var item = ref casters[_visibleCasters[v]];
             if (item.Instances is null)
             {
-                data[written] = new MeshInstanceData(item.Node.ModelMatrix, item.Node.ObjectId);
+                data[written] = new MeshInstanceData(item.Model, item.Node.ObjectId);
                 if (v > 0 && SameCaster(ref casters[_visibleCasters[v - 1]], ref item))
                 {
                     view.ShadowRuns[view.ShadowRunCount - 1].InstanceCount++;
