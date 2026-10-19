@@ -208,6 +208,8 @@ public class StaticBody2D : PhysicsBody2D
 public class RigidBody2D : PhysicsBody2D
 {
     private RigidBodyMode _mode;
+    private bool _freeze;
+    private FreezeMode _freezeMode;
     private float _mass = 1f;
     private float _gravityScale = 1f;
     private float _linearDamp = 0.1f;
@@ -235,6 +237,39 @@ public class RigidBody2D : PhysicsBody2D
                 return;
             _mode = value;
             Record?.Space.OnKindChanged(Record);
+        }
+    }
+
+    /// <summary>
+    /// Stops simulating the body (Godot's <c>freeze</c>): it becomes <see cref="FreezeMode"/> (static or kinematic) and
+    /// overrides <see cref="Mode"/> while set. Freezing and unfreezing zero its velocities and keep its joints; unfrozen,
+    /// it is simulated again from where it is.
+    /// </summary>
+    [Export]
+    public bool Freeze
+    {
+        get => _freeze;
+        set
+        {
+            if (_freeze == value)
+                return;
+            _freeze = value;
+            OnFrozenChanged();
+        }
+    }
+
+    /// <summary>What the body is while <see cref="Freeze"/> is set (Godot's <c>freeze_mode</c>; default static).</summary>
+    [Export]
+    public FreezeMode FreezeMode
+    {
+        get => _freezeMode;
+        set
+        {
+            if (_freezeMode == value)
+                return;
+            _freezeMode = value;
+            if (_freeze)
+                OnFrozenChanged();
         }
     }
 
@@ -386,7 +421,19 @@ public class RigidBody2D : PhysicsBody2D
     [Signal]
     public event Action? SleepingStateChanged;
 
-    internal override PhysicsBodyKind Kind => _mode == RigidBodyMode.Dynamic ? PhysicsBodyKind.Dynamic : PhysicsBodyKind.Kinematic;
+    internal override PhysicsBodyKind Kind => _freeze
+        ? _freezeMode == FreezeMode.Static ? PhysicsBodyKind.Static : PhysicsBodyKind.Kinematic
+        : _mode == RigidBodyMode.Dynamic ? PhysicsBodyKind.Dynamic : PhysicsBodyKind.Kinematic;
+
+    // Godot: a body frozen or let go starts at rest.
+    private void OnFrozenChanged()
+    {
+        if (Record is not { } record)
+            return;
+        record.Space.OnKindChanged(record);
+        record.SetLinearVelocity(Vector2.Zero);
+        record.SetAngularVelocity(0f);
+    }
 
     internal Vector2 InitialLinearVelocity => _linearVelocity;
     internal float InitialAngularVelocity => _angularVelocity;

@@ -33,7 +33,7 @@ Physics is single precision and offers no cross-platform lockstep mode
 | `CollisionObject2D` → `StaticBody2D`, `RigidBody2D`, `CharacterBody2D`, `Area2D`; `CollisionShape2D` | [Physics/2D/](../../MainframeEngine/Src/Physics/2D/) | pixels |
 | `Shape3D`: `BoxShape3D`, `SphereShape3D`, `CapsuleShape3D`, `CylinderShape3D`, `ConvexPolygonShape3D`, `ConcavePolygonShape3D`, `HeightMapShape3D` | [Physics/3D/Shapes3D.cs](../../MainframeEngine/Src/Physics/3D/Shapes3D.cs) | `Resource`s |
 | `Shape2D`: `RectangleShape2D`, `CircleShape2D`, `CapsuleShape2D`, `ConvexPolygonShape2D`, `SegmentShape2D`, `ConcavePolygonShape2D` | [Physics/2D/Shapes2D.cs](../../MainframeEngine/Src/Physics/2D/Shapes2D.cs) | `Resource`s |
-| `PhysicsMaterial`, `PhysicsSettings3D`/`2D`, `CollisionLayers`, `AxisLock`, `RigidBodyMode` | [Physics/](../../MainframeEngine/Src/Physics/) | |
+| `PhysicsMaterial`, `PhysicsSettings3D`/`2D`, `CollisionLayers`, `AxisLock`, `RigidBodyMode`, `FreezeMode` | [Physics/](../../MainframeEngine/Src/Physics/) | |
 | `DebugLines`, `DebugLinesRenderer` | [Rendering/Debug/](../../MainframeEngine/Src/Rendering/Debug/) | per-viewport line batch + line-list pipeline |
 
 ## Node model
@@ -50,6 +50,8 @@ classDiagram
     class StaticBody3D { +PhysicsMaterial? PhysicsMaterial }
     class RigidBody3D {
         +RigidBodyMode Mode
+        +bool Freeze
+        +FreezeMode FreezeMode
         +float Mass, GravityScale, LinearDamp, AngularDamp
         +Vector3 LinearVelocity, AngularVelocity
         +bool ContactMonitor, Ccd, CanSleep, Sleeping
@@ -138,7 +140,8 @@ flowchart LR
   when the first body enters.
 - A space is created for a viewport's `World3D`/`World2D` when the first collision object enters it and lives until the
   server is disposed. `World3D.PhysicsSpace`/`World2D.PhysicsSpace` point at it.
-- **Body type mapping**: `StaticBody` → static; `RigidBody` → dynamic or kinematic (`Mode`); `CharacterBody` →
+- **Body type mapping**: `StaticBody` → static; `RigidBody` → dynamic or kinematic (`Mode`), or, while `Freeze` is set,
+  static or kinematic by `FreezeMode` (Godot's `freeze`/`freeze_mode`; default static); `CharacterBody` →
   kinematic (moved by the engine); `Area3D` → no Jitter2 body (overlaps are queried, see below); `Area2D` → a
   kinematic body with sensor shapes that never sleeps.
 - **Settings** (`PhysicsSettings3D`): `Gravity` (−9.81 Y), `SubstepCount` (1), `SolverIterations` (6) and
@@ -215,6 +218,10 @@ a solver ([ADR 0022](../../memory/decisions/0022-physics-signal-dispatch.md)):
   (in the same order), then sleep changes;
   within each group by the receiver's creation order, then the other body's. A body leaving one area for another in
   one step gets `exit` before `enter`.
+- **Freezing** (`RigidBody*.Freeze`) changes the body's type in place (`b2Body_SetType`, Jitter2 `MotionType`), so contacts
+  and joints stay. Freezing and unfreezing zero both velocities, so a body let go starts at rest rather than with the
+  speed that reached its last kinematic target. A body that stops being simulated shows its physics pose at once, not
+  the interpolated pose a step behind. One that is simulated again interpolates from where it is.
 - **Disabled nodes** (ADR 0130): a body or area whose resolved `ProcessMode` is `Disabled` is out of the space —
   it neither moves, collides, signals nor shows up in queries (Godot's default `DisableMode.Remove`). It joins again,
   at its node's transform and with the velocity it had, when it is enabled; leaving counts as a removal below.

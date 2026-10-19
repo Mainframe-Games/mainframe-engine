@@ -38,6 +38,8 @@ public sealed class PhysicsSerializationTests
             ContactMonitor = true,
             AxisLocks = AxisLock.AngularX | AxisLock.AngularZ,
             Mode = RigidBodyMode.Kinematic,
+            Freeze = true,
+            FreezeMode = FreezeMode.Kinematic,
             LinearVelocity = new Vector3(1, 2, 3),
             AngularVelocity = new Vector3(0, 1, 0),
             PhysicsMaterial = shared,
@@ -78,6 +80,8 @@ public sealed class PhysicsSerializationTests
 
             var crateCopy = copy.GetNode<RigidBody3D>("Crate");
             Assert.Equal(4, crateCopy.Mass);
+            Assert.True(crateCopy.Freeze);
+            Assert.Equal(FreezeMode.Kinematic, crateCopy.FreezeMode);
             Assert.Equal(0.5f, crateCopy.GravityScale);
             Assert.Equal(0.2f, crateCopy.LinearDamp);
             Assert.Equal(0.6f, crateCopy.AngularDamp);
@@ -128,7 +132,7 @@ public sealed class PhysicsSerializationTests
         Own(root, new CollisionShape2D { Name = "Rect", Shape = new RectangleShape2D { Size = new Vector2(1000, 100) } }, ground);
         Own(root, new CollisionShape2D { Name = "Edges", Shape = new ConcavePolygonShape2D { Segments = [new(-500, -50), new(500, -50)] } }, ground);
         Own(root, new CollisionShape2D { Name = "Edge", Shape = new SegmentShape2D { A = new Vector2(-10, 0), B = new Vector2(10, 0) } }, ground);
-        var ball = (RigidBody2D)Own(root, new RigidBody2D { Name = "Ball", Position = new Vector2(0, -200), Mass = 2, ContactMonitor = true, AngularVelocity = 1 });
+        var ball = (RigidBody2D)Own(root, new RigidBody2D { Name = "Ball", Position = new Vector2(0, -200), Mass = 2, ContactMonitor = true, AngularVelocity = 1, FreezeMode = FreezeMode.Kinematic });
         Own(root, new CollisionShape2D { Name = "Circle", Shape = new CircleShape2D { Radius = 15 } }, ball);
         Own(root, new CollisionShape2D { Name = "Capsule", Shape = new CapsuleShape2D { Radius = 5, Height = 40 } }, ball);
         Own(root, new CollisionShape2D { Name = "Tri", Shape = new ConvexPolygonShape2D { Points = [new(-5, 0), new(5, 0), new(0, -8)] } }, ball);
@@ -147,6 +151,8 @@ public sealed class PhysicsSerializationTests
         Assert.Equal(new Vector2(10, 0), ((SegmentShape2D)copy.GetNode<CollisionShape2D>("Ground/Edge").Shape!).B);
         var ballCopy = copy.GetNode<RigidBody2D>("Ball");
         Assert.Equal(2, ballCopy.Mass);
+        Assert.Equal(FreezeMode.Kinematic, ballCopy.FreezeMode);
+        Assert.False(ballCopy.Freeze);
         Assert.True(ballCopy.ContactMonitor);
         Assert.Equal(1, ballCopy.AngularVelocity);
         Assert.Equal(15, ((CircleShape2D)ballCopy.GetNode<CollisionShape2D>("Circle").Shape!).Radius);
