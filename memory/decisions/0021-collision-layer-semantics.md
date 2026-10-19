@@ -1,7 +1,7 @@
 # ADR 0021 — Collision layers: Godot OR semantics on both engines
 
 - **Date:** 2026-10-05
-- **Status:** accepted
+- **Status:** accepted; "areas never detect areas" superseded by [ADR 0198](0198-areas-detect-areas.md)
 - **Milestone:** M6
 
 ## Context

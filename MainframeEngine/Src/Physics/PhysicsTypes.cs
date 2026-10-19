@@ -38,7 +38,7 @@ public static class CollisionLayers
     /// <summary>
     /// Whether two collision objects collide: <c>(A.layer &amp; B.mask) != 0 || (B.layer &amp; A.mask) != 0</c> —
     /// either one scanning the other's layer is enough. Areas are one-way: an area detects a body when
-    /// <c>(area.mask &amp; body.layer) != 0</c>.
+    /// <c>(area.mask &amp; body.layer) != 0</c>, and another area when it is also monitoring and the other is monitorable.
     /// </summary>
     public static bool ShouldCollide(uint layerA, uint maskA, uint layerB, uint maskB) =>
         (layerA & maskB) != 0 || (layerB & maskA) != 0;
@@ -67,8 +67,10 @@ internal enum PhysicsEventKind : byte
 {
     ContactExited,
     AreaExited,
+    AreaAreaExited,
     ContactEntered,
     AreaEntered,
+    AreaAreaEntered,
     SleepChanged,
 }
 

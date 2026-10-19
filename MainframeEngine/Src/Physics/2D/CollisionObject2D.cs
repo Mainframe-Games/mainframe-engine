@@ -437,22 +437,44 @@ public class RigidBody2D : PhysicsBody2D
 }
 
 /// <summary>
-/// A 2D region that detects bodies (Godot's <c>Area2D</c>): a Box2D sensor. <see cref="BodyEntered"/>/<see cref="BodyExited"/>
-/// fire for static, rigid and character bodies whose layer is in <see cref="CollisionObject2D.CollisionMask"/>.
+/// A 2D region that detects bodies and other areas (Godot's <c>Area2D</c>): a Box2D sensor.
+/// <see cref="BodyEntered"/>/<see cref="BodyExited"/> fire for static, rigid and character bodies whose layer is in
+/// <see cref="CollisionObject2D.CollisionMask"/>, and <see cref="AreaEntered"/>/<see cref="AreaExited"/> for a
+/// <see cref="Monitorable"/> area on such a layer.
 /// </summary>
-/// <remarks>Areas detect bodies, not other areas (Box2D 3.1 sensors don't detect sensors).</remarks>
+/// <remarks>
+/// Box2D 3.1 sensors don't detect sensors, so area overlaps come from a shape query per monitoring area after each step.
+/// </remarks>
 [EditorIcon("border-corners")]
 public class Area2D : CollisionObject2D
 {
-    /// <summary>Detect bodies (when false, current overlaps are dropped with <see cref="BodyExited"/>).</summary>
+    /// <summary>
+    /// Detect bodies and other areas (when false, current overlaps are dropped with <see cref="BodyExited"/> and
+    /// <see cref="AreaExited"/>).
+    /// </summary>
     [Export]
     public bool Monitoring { get; set; } = true;
+
+    /// <summary>Other monitoring areas can detect this one (when false, they report it as exited after the next step).</summary>
+    [Export]
+    public bool Monitorable { get; set; } = true;
 
     [Signal]
     public event Action<Node2D>? BodyEntered;
 
     [Signal]
     public event Action<Node2D>? BodyExited;
+
+    /// <summary>A monitorable area started overlapping this one.</summary>
+    [Signal]
+    public event Action<Area2D>? AreaEntered;
+
+    /// <summary>
+    /// An area stopped overlapping this one: it moved away, stopped being monitorable, lost its shapes, or left the tree
+    /// while inside it.
+    /// </summary>
+    [Signal]
+    public event Action<Area2D>? AreaExited;
 
     internal override PhysicsBodyKind Kind => PhysicsBodyKind.Area;
 
@@ -467,7 +489,29 @@ public class Area2D : CollisionObject2D
     public bool OverlapsBody(Node2D body) =>
         body is CollisionObject2D { Record: { } other } && Record?.Overlaps is { } overlaps && overlaps.ContainsKey(other);
 
+    /// <summary>Adds the areas overlapping this one (as of the last physics step) to <paramref name="results"/>; returns how many.</summary>
+    public int GetOverlappingAreas(List<Area2D> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        if (Record?.AreaOverlaps is not { } overlaps)
+            return 0;
+        foreach (var other in overlaps.Keys)
+            results.Add((Area2D)other.Node);
+        return overlaps.Count;
+    }
+
+    /// <summary>True if any area overlaps this one (as of the last physics step).</summary>
+    public bool HasOverlappingAreas() => Record is { AreaOverlaps.Count: > 0 };
+
+    /// <summary>True if <paramref name="area"/> overlaps this one (as of the last physics step).</summary>
+    public bool OverlapsArea(Area2D area) =>
+        area is { Record: { } other } && Record?.AreaOverlaps is { } overlaps && overlaps.ContainsKey(other);
+
     internal override void EmitBodyEntered(Node2D body) => BodyEntered?.Invoke(body);
 
     internal override void EmitBodyExited(Node2D body) => BodyExited?.Invoke(body);
+
+    internal void EmitAreaEntered(Area2D area) => AreaEntered?.Invoke(area);
+
+    internal void EmitAreaExited(Area2D area) => AreaExited?.Invoke(area);
 }

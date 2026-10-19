@@ -26,6 +26,9 @@ public sealed class Physics2DAllocationTests
         var area = h.AddArea(new Vector2(0, -100), new Vector2(1000, 200));
         var entered = 0;
         area.BodyEntered += _ => entered++;
+        var pickup = h.AddArea(new Vector2(200, -100), new Vector2(50, 50), "Pickup"); // area-vs-area every step
+        area.AreaEntered += _ => entered++;
+        pickup.AreaEntered += _ => entered++;
         for (var i = 0; i < 4; i++)
         {
             var character = new WalkerCharacter2D { Name = $"Walker{i}", Position = new Vector2(3000 + i * 200, -100), Walk = new Vector2(40, 0) };

@@ -31,6 +31,9 @@ public sealed class PhysicsAllocationTests
         var area = h.AddArea(new Vector3(0, 1, 0), new Vector3(10, 2, 10));
         var entered = 0;
         area.BodyEntered += _ => entered++;
+        var pickup = h.AddArea(new Vector3(2, 1, 0), new Vector3(1, 1, 1), "Pickup"); // area-vs-area every step
+        area.AreaEntered += _ => entered++;
+        pickup.AreaEntered += _ => entered++;
         for (var i = 0; i < 4; i++)
         {
             var character = new WalkerCharacter3D { Name = $"Walker{i}", Position = new Vector3(-30 + i * 3, 1, 30), Walk = new Vector3(0.5f, 0, -0.2f) };
