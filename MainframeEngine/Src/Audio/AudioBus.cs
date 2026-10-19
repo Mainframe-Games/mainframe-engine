@@ -12,7 +12,7 @@ public sealed class AudioBus
     private bool _mute;
     private bool _solo;
 
-    internal AudioBus(AudioServer server, int index, AudioBusInfo info, AudioBus? parent, int firstVoice)
+    internal AudioBus(AudioServer server, int index, AudioBusInfo info, AudioBus? parent, int firstVoice, int firstMusicVoice)
     {
         _server = server;
         Index = index;
@@ -24,6 +24,9 @@ public sealed class AudioBus
         _solo = info.Solo;
         MaxVoices = Math.Max(0, info.MaxVoices);
         FirstVoice = firstVoice;
+        MusicVoicesSetting = info.MusicVoices;
+        MusicVoices = info.ResolvedMusicVoices;
+        FirstMusicVoice = firstMusicVoice;
         Effects = [.. info.Effects];
     }
 
@@ -97,6 +100,14 @@ public sealed class AudioBus
 
     /// <summary>Size of this bus's voice pool (its polyphony limit).</summary>
     public int MaxVoices { get; }
+
+    /// <summary>Adaptive-music voices on this bus (<see cref="AudioBusInfo.MusicVoices"/>, automatic resolved).</summary>
+    public int MusicVoices { get; }
+
+    /// <summary>The layout's <see cref="AudioBusInfo.MusicVoices"/> as written (−1: automatic).</summary>
+    internal int MusicVoicesSetting { get; }
+
+    internal int FirstMusicVoice { get; }
 
     /// <summary>Voices of the pool currently playing (or paused).</summary>
     public int ActiveVoices { get; internal set; }

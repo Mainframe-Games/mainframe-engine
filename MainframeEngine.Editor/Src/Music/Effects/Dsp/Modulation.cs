@@ -1,52 +1,5 @@
 namespace MainframeEngine.Editor.Music;
 
-/// <summary>
-/// A state-variable filter in Zavalishin's topology-preserving form (as in Andrew Simper's "SvfLinearTrapOptimised2"):
-/// stable while its cutoff moves every few samples, so LFO-swept filters and phasers stay clean. One channel.
-/// </summary>
-public struct Svf
-{
-    private float _ic1, _ic2, _a1, _a2, _a3, _k;
-
-    /// <summary>Sets cutoff (Hz) and Q.</summary>
-    public void Set(float frequency, float q, float sampleRate)
-    {
-        var g = MathF.Tan(MathF.PI * Math.Clamp(frequency, 5f, sampleRate * 0.49f) / sampleRate);
-        _k = 1f / MathF.Max(q, 0.05f);
-        _a1 = 1f / (1f + g * (g + _k));
-        _a2 = g * _a1;
-        _a3 = g * _a2;
-    }
-
-    /// <summary>One sample; returns low-pass and writes band-pass and high-pass.</summary>
-    public float Process(float input, out float bandPass, out float highPass)
-    {
-        var v3 = input - _ic2;
-        var v1 = _a1 * _ic1 + _a2 * v3;
-        var v2 = _ic2 + _a2 * _ic1 + _a3 * v3;
-        _ic1 = 2 * v1 - _ic1;
-        _ic2 = 2 * v2 - _ic2;
-        bandPass = v1;
-        highPass = input - _k * v1 - v2;
-        return v2;
-    }
-
-    /// <summary>The all-pass output (phasers).</summary>
-    public float AllPass(float input)
-    {
-        var low = Process(input, out var band, out var high);
-        return low - _k * band + high;
-    }
-
-    public void Flush()
-    {
-        Dsp.Flush(ref _ic1);
-        Dsp.Flush(ref _ic2);
-    }
-
-    public void Reset() => _ic1 = _ic2 = 0;
-}
-
 /// <summary>A mono delay line (power-of-two ring, allocated once) with cubic Hermite fractional reads.</summary>
 public sealed class DelayLine
 {

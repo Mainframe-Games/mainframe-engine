@@ -4,6 +4,16 @@
   "Recorded": "2026-10-05",
   "Benchmarks": [
     {
+      "Name": "AdaptiveMusicBenchmarks.InstanceFrame8Layers",
+      "MeanNs": 381.232,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "AdaptiveMusicBenchmarks.MixBlock480Frames16Lanes",
+      "MeanNs": 41772.435,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "AudioBenchmarks.AttenuationCurvesAllModels",
       "MeanNs": 1041.793,
       "AllocatedBytes": 0

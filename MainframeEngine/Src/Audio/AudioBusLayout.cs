@@ -24,7 +24,7 @@ public class AudioBusLayout : Resource
     [Export]
     public List<AudioBusInfo> Buses { get; set; } = [];
 
-    /// <summary>Master → Music (4 voices), SFX (32), UI (8), Voice (8); Master itself has 16 voices.</summary>
+    /// <summary>Master → Music (4 voices, 2 music voices), SFX (32), UI (8), Voice (8); Master itself has 16 voices.</summary>
     public static AudioBusLayout CreateDefault() => new()
     {
         ResourceName = "Default bus layout",
@@ -60,6 +60,8 @@ public class AudioBusLayout : Resource
                 return $"Bus '{bus.Name}' sends to itself.";
             if (bus.MaxVoices is < 0 or > 1024)
                 return $"Bus '{bus.Name}' has {bus.MaxVoices} voices (0–1024).";
+            if (bus.MusicVoices is < AudioBusInfo.AutoMusicVoices or > 16)
+                return $"Bus '{bus.Name}' has {bus.MusicVoices} music voices (0–16, or −1 for automatic).";
         }
 
         return null;
@@ -90,6 +92,22 @@ public class AudioBusInfo : Resource
     /// <summary>Voices pooled for this bus (its polyphony limit); created up front, so one-shots cause no graph churn.</summary>
     [Export(Range = "0,1024,1")]
     public int MaxVoices { get; set; } = 8;
+
+    /// <summary><see cref="MusicVoices"/>: 2 on the bus named Music, 0 elsewhere.</summary>
+    public const int AutoMusicVoices = -1;
+
+    /// <summary>The music bus's default <see cref="MusicVoices"/>: two, enough to cross-fade from one piece to another.</summary>
+    public const int DefaultMusicVoices = 2;
+
+    /// <summary>
+    /// Adaptive-music players this bus can run at once (<see cref="AdaptiveMusicPlayer"/>); created up front like the voices
+    /// and idle until used. −1 (<see cref="AutoMusicVoices"/>): <see cref="DefaultMusicVoices"/> on the bus named Music, 0 elsewhere.
+    /// </summary>
+    [Export(Range = "-1,16,1")]
+    public int MusicVoices { get; set; } = AutoMusicVoices;
+
+    /// <summary><see cref="MusicVoices"/> with automatic resolved.</summary>
+    public int ResolvedMusicVoices => MusicVoices >= 0 ? MusicVoices : Name == "Music" ? DefaultMusicVoices : 0;
 
     /// <summary>Effects applied to the bus's mix, in order, before its fader.</summary>
     [Export]
