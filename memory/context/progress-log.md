@@ -848,3 +848,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   3 → 4 step moves `Content/…` values.
 - The editor offers to migrate an old project when it opens (`AssetsFolderMigration`: rename the folder and rewrite
   the paths); Cancel leaves the project closed.
+
+### 2026-10-19 — FileSystem panel: Simplified view (ADR 0099 amendment)
+- The default view shows two roots: Assets (`Assets/`) and Scripts (the game library's `Src/`, only C# files and the
+  folders that hold one). The header's `folders` toggle switches to the whole project folder, saved as
+  `EditorLayoutSettings.FileSystemVerbose`. A folder with neither root shows the whole folder.
+- The roots cannot be renamed, moved, trashed or dragged. Drops keep C# in Scripts and assets in Assets. New scenes,
+  resources and songs go to Assets. In list and grid views Up from a root shows the roots.
+- The header buttons are 18dp so eight fit beside the title. The `editor-filesystem` and `editor` goldens were
+  re-recorded; `editor-walkthrough.qa` captures both views.

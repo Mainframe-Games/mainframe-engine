@@ -36,6 +36,13 @@ internal sealed class TestProject : IDisposable
 
     public string Abs(string relative) => Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));
 
+    /// <summary>Writes <paramref name="text"/> to <paramref name="relative"/>, creating its folder.</summary>
+    public void Write(string relative, string text)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Abs(relative))!);
+        File.WriteAllText(Abs(relative), text);
+    }
+
     public void Dispose()
     {
         try
@@ -643,11 +650,16 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.DoesNotContain(fs.Rows, r => r.Name.EndsWith(".meta", StringComparison.Ordinal));
         Assert.Empty(_editor!.RmlMessages);
 
-        foreach (var view in new[] { FileSystemView.List, FileSystemView.Grid, FileSystemView.Tree })
+        foreach (var simplified in new[] { false, true })
         {
-            fs.SetView(view);
-            _editor.Tick();
-            Assert.Equal(view, fs.View);
+            fs.SetSimplified(simplified);
+            foreach (var view in new[] { FileSystemView.List, FileSystemView.Grid, FileSystemView.Tree })
+            {
+                fs.SetView(view);
+                _editor.Tick();
+                Assert.Equal(view, fs.View);
+                Assert.Empty(_editor.RmlMessages);
+            }
         }
 
         // Rename the open main scene: the session follows, project.mfproj's mainScene is fixed.
@@ -657,6 +669,68 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.Equal(_project.Abs("Assets/Scenes/Start.mscene"), w.Session.Active!.FilePath);
         Assert.Equal("Assets/Scenes/Start.mscene", ProjectSettings.Load(_project.Root).MainScene);
         Assert.Equal(_project.Abs("Assets/Scenes/Start.mscene"), fs.SelectedPath);
+    }
+
+    [Fact]
+    public void TheSimplifiedViewShowsAssetsAndTheGameLibrarysCSharp()
+    {
+        _project.Write("Workflow/Workflow.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
+        _project.Write("Workflow/Src/Player.cs", "class Player {}\n");
+        _project.Write("Workflow/Src/AI/Enemy.cs", "class Enemy {}\n");
+        _project.Write("Workflow/Src/Empty/readme.txt", "no code here\n");
+        _project.Write("Workflow/Src/notes.txt", "notes\n");
+        var w = Open().Workspace;
+        var fs = w.FileSystem;
+        fs.Trash = new RecordingTrash();
+        var assets = _project.Abs("Assets");
+        var scripts = _project.Abs("Workflow/Src");
+
+        // The default: two roots, Scripts holding only C# files and the folders that have some.
+        Assert.True(fs.Simplified);
+        Assert.Equal(assets, fs.AssetsRoot);
+        Assert.Equal(scripts, fs.ScriptsRoot);
+        Assert.Equal(["Assets", "Scenes", "Scripts", "AI", "Player.cs"], fs.RowNames);
+        fs.Toggle(fs.RowNames.ToList().IndexOf("AI"));
+        Assert.Equal(["Assets", "Scenes", "Scripts", "AI", "Enemy.cs", "Player.cs"], fs.RowNames);
+
+        // The roots stay put: no rename, move or trash; C# stays out of Assets and assets out of Scripts.
+        var scriptsRow = fs.Rows[fs.RowNames.ToList().IndexOf("Scripts")];
+        Assert.True(fs.IsRoot(scriptsRow));
+        fs.Select(scripts);
+        Assert.True(w.Commands.Execute("fs.rename"));
+        Assert.Null(w.Message.Current);
+        Assert.False(fs.CanDrop(_project.Abs("Workflow/Src/Player.cs"), _project.Abs("Assets/Scenes")));
+        Assert.False(fs.CanDrop(_project.Abs("Assets/Scenes/Level.mscene"), scripts));
+        Assert.True(fs.CanDrop(_project.Abs("Workflow/Src/Player.cs"), _project.Abs("Workflow/Src/AI")));
+        Assert.True(fs.CanDrop(_project.Abs("Assets/Scenes"), _project.Abs("Workflow/Src/AI")));
+
+        // New scenes and resources go to Assets even when Scripts is selected; new folders where selected.
+        fs.Select(_project.Abs("Workflow/Src/AI/Enemy.cs"));
+        Assert.Equal(_project.Abs("Workflow/Src/AI"), fs.TargetFolder());
+        Assert.Equal(assets, fs.AssetTargetFolder());
+
+        // List view: Assets first, Up shows the two roots, a root opens into its folder.
+        fs.Select(null);
+        fs.SetView(FileSystemView.List);
+        Assert.Equal(assets, fs.CurrentFolder);
+        Assert.Equal(["Scenes"], fs.RowNames);
+        fs.GoUp();
+        Assert.Null(fs.CurrentFolder);
+        Assert.Equal(["Assets", "Scripts"], fs.RowNames);
+        fs.Open(fs.Rows[1]);
+        Assert.Equal(["AI", "Player.cs"], fs.RowNames);
+        fs.GoUp();
+        Assert.Null(fs.CurrentFolder);
+
+        // Verbose: the whole project folder again, and the choice is kept in the layout settings.
+        Assert.True(w.Commands.Execute("fs.toggle_simplified"));
+        Assert.False(fs.Simplified);
+        Assert.True(w.Layout.Settings.FileSystemVerbose);
+        Assert.Equal(assets, fs.CurrentFolder); // the list leaves the roots for Assets
+        fs.SetView(FileSystemView.Tree);
+        Assert.Contains("project.mfproj", fs.RowNames);
+        Assert.Contains("Workflow.Desktop", fs.RowNames);
+        Assert.False(fs.IsRoot(scriptsRow));
     }
 
     [Fact]

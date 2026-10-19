@@ -4,8 +4,9 @@
     <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
+        .panel-title { min-width: 0dp; overflow: hidden; white-space: nowrap; }
         .tools { display: flex; flex-direction: row; flex: 0 0 auto; }
-        .tools button { width: 22dp; padding: 0dp; margin-left: 2dp; }
+        .tools button.tool-button.small { width: 18dp; padding: 0dp; margin-left: 1dp; }
         .fs-path {
             display: flex;
             flex-direction: row;
@@ -70,6 +71,7 @@
             <button class="tool-button small" id="fs-new-folder" data-command="fs.new_folder" data-tooltip="New Folder — create a folder in the selected one"><span class="icon icon-folder-plus icon-sm"></span></button>
             <button class="tool-button small" id="fs-new-scene" data-command="fs.new_scene" data-tooltip="New Scene — a 3D scene in the selected folder (right-click for 2D)"><span class="icon icon-movie icon-sm"></span></button>
             <button class="tool-button small" id="fs-new-resource" data-command="fs.new_resource" data-tooltip="New Resource — save a new resource (.mres) in the selected folder"><span class="icon icon-file-plus icon-sm"></span></button>
+            <button class="tool-button small" id="fs-simplified" data-class-active="simplified" data-event-click="toggle_simplified()" data-tooltip="Simplified view — just Assets and Scripts (off: the whole project folder)"><span class="icon icon-folders icon-sm"></span></button>
             <button class="tool-button small" id="fs-view-tree" data-class-active="view == 0" data-event-click="set_view(0)" data-tooltip="Tree view — the whole project"><span class="icon icon-list-tree icon-sm"></span></button>
             <button class="tool-button small" id="fs-view-list" data-class-active="view == 1" data-event-click="set_view(1)" data-tooltip="List view — the current folder"><span class="icon icon-list icon-sm"></span></button>
             <button class="tool-button small" id="fs-view-grid" data-class-active="view == 2" data-event-click="set_view(2)" data-tooltip="Grid view — the current folder with thumbnails"><span class="icon icon-layout-grid icon-sm"></span></button>

@@ -118,7 +118,7 @@ flowchart TB
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
 | Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`): level icon, time, category icon (subsystem; name in the tooltip), text, ×N for folded repeats, a link to the logging source line (opens `MAINFRAME_CODE_EDITOR`, VS Code or the system app). Header: per-level toggles with counts, filter field, Collapse Duplicates, Follow, Copy, Clear (filters and toggles persisted) |
-| File system | `filesystem.rml` | The project's files as a tree, list or thumbnail grid ([FileSystem panel](#filesystem-panel)) |
+| File system | `filesystem.rml` | The project's files (Simplified: Assets and Scripts; or the whole folder) as a tree, list or thumbnail grid ([FileSystem panel](#filesystem-panel)) |
 | Splitters | `splitters.rml` | Four drag handles (left dock, right dock, output, scene tree / file system) |
 | Project Manager, New Project | `project_manager.rml`, `new_project.rml` | Layer 40 above the panels ([Projects](#projects)) |
 | Settings dialogs | `project_settings.rml`, `editor_settings.rml`, `connect_signal.rml` | Project Settings, Editor Settings, Connect Signal |
@@ -607,6 +607,15 @@ the current folder as a **list**, or a **grid** of tiles with thumbnails (images
 background into `<project>/.mainframe/cache/thumbnails`). Every entry has its file-kind icon (`EditorIcons.ForFile`;
 scenes tinted by their root type's family, resources by type) and badges: unsaved (an open scene with changes),
 missing dependency, import error (invalid JSON, undecodable image).
+
+- **Simplified view** (the default; the `folders` toggle in the header, saved as `FileSystemVerbose` in
+  `editor_layout.json`): two roots instead of the project folder. **Assets** is `Assets/`. **Scripts** is the game
+  library's `Src/` (`GameProjectLayout.GameLibraryProjectOf`, else the library's folder), showing only C# files and the
+  folders that hold one; it is missing when the project has no game library. The roots cannot be renamed, moved,
+  trashed or dragged. A C# file cannot be dropped into Assets, and only C# files and folders can be dropped into
+  Scripts. New scenes, resources and songs go to Assets when something in Scripts is selected. In list and grid views
+  Up from a root shows the two roots. Off (verbose), and for a folder with neither root, the panel shows the whole
+  project folder.
 
 - **Double click** opens scenes in a tab, UI documents (`.rml`) in a [UI preview](#ui-preview) tab, resource files in
   the inspector, C# files and style sheets in the code editor; folders open.

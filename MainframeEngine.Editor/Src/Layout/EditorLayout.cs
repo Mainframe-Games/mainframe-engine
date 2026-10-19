@@ -89,6 +89,12 @@ public sealed record EditorLayoutSettings
     /// <summary>Recently created entries per picker, newest first.</summary>
     public Dictionary<string, string[]>? PickerRecent { get; init; }
 
+    /// <summary>
+    /// The FileSystem panel shows the whole project folder; off (the default) is its Simplified view (Assets and Scripts).
+    /// Stored inverted like <see cref="SoundDesignerManualPlay"/>, so a file written without the key is Simplified.
+    /// </summary>
+    public bool FileSystemVerbose { get; init; }
+
     /// <summary>Video mode shows the output panel below the view (View › Show/Hide Output); game mode always does.</summary>
     public bool VideoShowOutput { get; init; }
 
@@ -298,6 +304,9 @@ public sealed class EditorLayout
     public void SetInspectorLabelWidth(float width) => Settings = Settings with { InspectorLabelWidth = MathF.Max(0, width) };
 
     public void SetOutputOptions(bool collapse, bool follow) => Settings = Settings with { OutputCollapse = collapse, OutputFollow = follow };
+
+    /// <summary>The FileSystem panel's Simplified/Verbose toggle.</summary>
+    public void SetFileSystemVerbose(bool verbose) => Settings = Settings with { FileSystemVerbose = verbose };
 
     public void SetSoundDesignerAutoPlay(bool autoPlay) => Settings = Settings with { SoundDesignerManualPlay = !autoPlay };
 
