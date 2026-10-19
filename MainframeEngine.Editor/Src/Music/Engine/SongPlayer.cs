@@ -30,6 +30,14 @@ public sealed class SongPlayer : IDisposable
     private long _anchor;       // where the last Play/Seek started: the heard position never shows earlier than this
     private bool _anchorFromSeek;
 
+    // Adaptive playback jumps around the song: the heard position maps the music clock through the last blocks' starts.
+    private const int Ring = 16;
+    private readonly long[] _ringClock = new long[Ring];
+    private readonly long[] _ringSong = new long[Ring];
+    private int _ringCount;
+    private long _pushedClockEnd;
+    private bool _pushedAdaptive;
+
     /// <param name="server">The editor's audio server; null renders nothing audible (no audio device).</param>
     /// <param name="instrumentFactory">See <see cref="SongSnapshotBuilder"/>.</param>
     /// <param name="clipLoader">See <see cref="SongSnapshotBuilder"/>.</param>
@@ -78,18 +86,24 @@ public sealed class SongPlayer : IDisposable
                 return song.FramesToTicks(Engine.PositionFrames);
 
             var playback = Volatile.Read(ref _playback);
-            long end, queued;
+            long end, queued, adaptiveFrame;
             int sequence;
+            bool adaptive;
             var spin = new SpinWait();
             while (true)
             {
                 sequence = Volatile.Read(ref _pushSequence);
                 end = Volatile.Read(ref _pushedEnd);
                 queued = playback?.FramesQueued ?? 0;
+                adaptive = Volatile.Read(ref _pushedAdaptive);
+                adaptiveFrame = adaptive ? HeardAdaptiveFrame(queued) : 0;
                 if ((sequence & 1) == 0 && sequence == Volatile.Read(ref _pushSequence))
                     break;
                 spin.SpinOnce();
             }
+
+            if (adaptive)
+                return song.FramesToTicks(Math.Max(0, adaptiveFrame));
 
             var frames = end - queued;
             if (song.LoopEnabled && frames < song.LoopStartFrame && end >= song.LoopStartFrame)
@@ -100,6 +114,57 @@ public sealed class SongPlayer : IDisposable
             return song.FramesToTicks(Math.Max(0, frames));
         }
     }
+
+    // The song frame being heard: the music clock minus what is queued, through the block that played it.
+    private long HeardAdaptiveFrame(long queued)
+    {
+        var heard = Volatile.Read(ref _pushedClockEnd) - queued;
+        var count = Volatile.Read(ref _ringCount);
+        for (var k = 0; k < Math.Min(count, Ring); k++)
+        {
+            var i = (count - 1 - k) % Ring;
+            if (_ringClock[i] <= heard)
+                return _ringSong[i] + (heard - _ringClock[i]);
+        }
+
+        return count > 0 ? _ringSong[(count - Math.Min(count, Ring)) % Ring] : 0;
+    }
+
+    /// <summary>Adaptive playback runs (Shift+Space).</summary>
+    public bool IsAdaptive => Engine.IsAdaptive;
+
+    /// <summary>UI thread: what adaptive playback is doing (indices into <see cref="Plan"/>).</summary>
+    public AdaptiveState AdaptiveState => Engine.AdaptiveState;
+
+    /// <summary>The plan adaptive playback uses (the current snapshot's), or null when the song has no sections.</summary>
+    public Audio.Music.MusicPlan? Plan => Engine.Current?.Adaptive?.Plan;
+
+    /// <summary>
+    /// Plays the song adaptively from section <paramref name="sectionId"/> (null: its start section), with
+    /// <paramref name="parameters"/> as the parameters' values. Needs a snapshot (<see cref="Update"/>).
+    /// </summary>
+    public bool PlayAdaptive(string? sectionId = null, IReadOnlyDictionary<string, float>? parameters = null)
+    {
+        if (Engine.Current?.Adaptive is not { CanPlay: true } adaptive)
+            return false;
+        if (parameters is not null)
+        {
+            foreach (var (name, value) in parameters)
+                Engine.SetParameter(name, value);
+        }
+
+        Engine.PlayAdaptive(sectionId is null ? -1 : adaptive.Plan.FindSection(sectionId));
+        return true;
+    }
+
+    /// <summary>Sets an adaptive parameter (it seeks at its speed while playing).</summary>
+    public void SetParameter(string name, float value) => Engine.SetParameter(name, value);
+
+    /// <summary>Fires a stinger at its quantum (adaptive playback).</summary>
+    public void TriggerStinger(string name) => Engine.TriggerStinger(name);
+
+    /// <summary>Goes to a section at the next bar (adaptive playback).</summary>
+    public void GoToSection(string name) => Engine.GoToSection(name);
 
     /// <summary>Generator underruns (the render thread fell behind).</summary>
     public int Underruns => Volatile.Read(ref _playback)?.Underruns ?? 0;
@@ -261,6 +326,19 @@ public sealed class SongPlayer : IDisposable
             Volatile.Write(ref _pushSequence, _pushSequence + 1); // odd: PositionTicks waits out the push
             playback.PushFrames(block);
             Volatile.Write(ref _pushedEnd, Engine.PositionFrames); // after the push: the queue now ends here
+            var adaptive = Engine.IsAdaptive;
+            if (adaptive)
+            {
+                if (Engine.LastBlockClock == 0)
+                    Volatile.Write(ref _ringCount, 0); // a new run: the clock starts again
+                var i = _ringCount % Ring;
+                _ringClock[i] = Engine.LastBlockClock;
+                _ringSong[i] = Engine.LastBlockSong;
+                Volatile.Write(ref _ringCount, _ringCount + 1);
+                Volatile.Write(ref _pushedClockEnd, Engine.LastBlockClock + SongEngine.BlockFrames);
+            }
+
+            Volatile.Write(ref _pushedAdaptive, adaptive);
             Volatile.Write(ref _pushSequence, _pushSequence + 1);
         }
     }

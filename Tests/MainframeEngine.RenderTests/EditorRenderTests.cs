@@ -113,6 +113,25 @@ public class EditorRenderTests
     }
 
     [Fact]
+    public void MusicAdaptiveMatchesGoldenAndAllocatesNothingWhenSteady()
+    {
+        // The song made adaptive: the Sections lane with its blocks and marker, layer chips on the tracks and strips, and the
+        // Adaptive tab (parameters, layers, transitions, stingers, problems); then the allocation gate over its steady frames.
+        var result = HostRunner.RunEditor(Output("editor-music-adaptive"),
+            new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "--smoke-golden", "music-adaptive", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Assert.True(result.MeasuredFrames > 0, "The adaptive music run measured no frames.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"Steady adaptive music-mode frames allocated {result.AllocatedBytes} managed bytes over {result.MeasuredFrames} frames.");
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
     public void SynthWindowMatchesGoldenAndAllocatesNothingWhenSteady()
     {
         // The music-song golden's track with the wavetable synth (a factory preset, three routes) and its window on the Osc tab

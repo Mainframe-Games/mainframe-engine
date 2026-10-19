@@ -528,7 +528,7 @@ public sealed class ToolbarPanel : EditorDocument
 
     // The controls that need a song tab (the tempo field is handled on its own).
     private static readonly string[] MusicTabButtons =
-        ["song-rewind", "song-play", "song-stop", "song-record", "song-loop", "song-sig", "song-snap", "song-quantize", "song-render", "song-view-roll", "song-view-mixer"];
+        ["song-rewind", "song-play", "song-stop", "song-record", "song-loop", "song-sig", "song-snap", "song-quantize", "song-render", "song-render-menu", "song-view-roll", "song-view-mixer"];
 
     // What the music tools show, so UpdateMusic writes only what changed (null / -2 / NaN: not written since the last load).
     private Music.SongTab? _musicTab;
@@ -716,17 +716,29 @@ public sealed class ToolbarPanel : EditorDocument
             xruns.SetInnerRml(text[..(digits + word.Length)]);
         }
 
+        // Render's button bakes an adaptive song (its split menu has Render timeline); either shows "Cancel n %" while it runs.
+        var adaptive = tab.Document.Song.Adaptive is not null;
         var job = Workspace.SongView.RenderOf(tab.Document.FilePath);
-        var render = job is null ? -1 : (int)(job.Progress * 100);
+        var bake = adaptive ? Workspace.SongView.BakeOf(tab.Document.FilePath) : null;
+        var running = bake is not null || job is not null;
+        var percent = bake is not null ? (int)(bake.Progress * 100) : job is not null ? (int)(job.Progress * 100) : -1;
+        var render = (adaptive ? 1000 : 0) + (bake is not null ? 500 : 0) + percent;
         if (render != _musicRender)
         {
             _musicRender = render;
             var button = document.GetElementById("song-render");
-            button.SetClass("busy", job is not null);
-            SetText("song-render-label", job is null ? "Render" : string.Create(CultureInfo.InvariantCulture, $"Cancel {render} %"));
-            button.SetAttribute("data-tooltip", job is null
-                ? SongPanel.RenderTooltip(tab) + " (Ctrl+E)"
-                : string.Create(CultureInfo.InvariantCulture, $"Rendering {tab.Document.Name}… {render} % — click to cancel (the previous output stays)"));
+            button.SetClass("busy", running);
+            var baking = adaptive && job is null;
+            button.SetAttribute("data-command", baking ? "song.bake" : "song.render");
+            document.GetElementById("song-render-icon").SetClassNames("icon icon-sm icon-" + (baking ? "package" : "download"));
+            SetText("song-render-label", running ? string.Create(CultureInfo.InvariantCulture, $"Cancel {percent} %") : baking ? "Bake" : "Render");
+            button.SetAttribute("data-tooltip", bake is not null
+                ? string.Create(CultureInfo.InvariantCulture, $"Baking {tab.Document.Name}… {bake.Status} — click to cancel (the previous bake stays)")
+                : job is not null
+                    ? string.Create(CultureInfo.InvariantCulture, $"Rendering {tab.Document.Name}… {percent} % — click to cancel (the previous output stays)")
+                    : baking
+                        ? "Bake (Ctrl+B) — the adaptive song's stems and its .mmusic manifest, what the game plays (Render timeline is in the menu beside it)"
+                        : SongPanel.RenderTooltip(tab) + " (Ctrl+E)");
         }
     }
 

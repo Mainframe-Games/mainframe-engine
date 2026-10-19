@@ -14,8 +14,10 @@ public readonly record struct AudioClipSpan(long StartFrame, long EndFrame, long
 public sealed class SongSnapshot
 {
     internal SongSnapshot(int sampleRate, double tempo, int ppq, TrackSnapshot[] tracks, float masterGain, bool loopEnabled,
-        long loopStartFrame, long loopEndFrame, long endFrame, EffectStage[]? masterStages = null, PluginRack? plugins = null)
+        long loopStartFrame, long loopEndFrame, long endFrame, EffectStage[]? masterStages = null, PluginRack? plugins = null,
+        AdaptiveSnapshot? adaptive = null)
     {
+        Adaptive = adaptive;
         MasterStages = masterStages ?? [];
         MasterEffects = EffectStage.Flatten(MasterStages);
         Plugins = plugins;
@@ -36,6 +38,9 @@ public sealed class SongSnapshot
             HasTrackPlugins |= t.HasPlugins;
         }
     }
+
+    /// <summary>The song's adaptive music (sections, layers, the director), or null when it has no sections.</summary>
+    public AdaptiveSnapshot? Adaptive { get; }
 
     /// <summary>The master's inserts in order (bypassed VST3 inserts left out; bypassed built-ins crossfade inside).</summary>
     public IEffect[] MasterEffects { get; }
@@ -71,7 +76,17 @@ public sealed class SongSnapshot
 
     public double FramesToTicks(long frames) => frames / FramesPerTick;
 
-    public TrackSnapshot? Find(string trackId) => Array.Find(Tracks, t => string.Equals(t.Id, trackId, StringComparison.Ordinal));
+    // A loop, not Array.Find: the mixer's meters look tracks up every frame (no closure).
+    public TrackSnapshot? Find(string trackId)
+    {
+        foreach (var track in Tracks)
+        {
+            if (string.Equals(track.Id, trackId, StringComparison.Ordinal))
+                return track;
+        }
+
+        return null;
+    }
 }
 
 /// <summary>
@@ -291,8 +306,9 @@ public sealed class SongSnapshotBuilder
 
         var loop = song.Loop;
         var loopValid = loop.Enabled && loop.End > loop.Start;
+        var adaptive = AdaptiveSnapshot.Build(song, SampleRate, ToFrames, t => _slots.TryGetValue(t.Id, out var s) ? s.Index : -1);
         return new SongSnapshot(SampleRate, song.Tempo, song.Ppq, [.. tracks], AudioMath.DbToLinear(song.Master.VolumeDb), loopValid,
-            ToFrames(loop.Start), ToFrames(loop.End), end, masterStages, _plugins);
+            ToFrames(loop.Start), ToFrames(loop.End), end, masterStages, _plugins, adaptive);
     }
 
     /// <summary>Unloads every plugin this builder loaded (the player or render is done).</summary>

@@ -818,3 +818,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Tests with generated WAV stems (exact sample timing, fades, curves, misses, resampling, signals), an allocation gate,
   benchmarks (instance frame ≈ 0.4 µs, 16-lane block ≈ 42 µs) and an adaptive player in the render-test showcase.
 - Next: A3 (bake) and A4 (editor sections/layers/Live preview).
+
+### 2026-10-19 — Adaptive music A4: Sections lane, layers, Adaptive tab, Live preview (ADR 0196)
+- `SongEngine` adaptive mode: the snapshot's `MusicDirector` on the render thread (actions queued and executed on their
+  frames, continuations, a stinger cursor, layer buses with filter and curve gain), state moved to each new snapshot's
+  director; decisions match a bare director frame for frame; 0 B per block.
+- Sections lane under the ruler (create/move/resize by bars, markers, menus), layer chips, the right panel's Adaptive
+  tab (A), Shift+Space / T / Bake split button; golden `editor-music-adaptive` with the allocation gate (found and fixed
+  the mixer meters' per-frame closure).

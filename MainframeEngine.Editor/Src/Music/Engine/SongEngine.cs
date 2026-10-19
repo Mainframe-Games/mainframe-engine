@@ -10,11 +10,13 @@ namespace MainframeEngine.Editor.Music;
 /// <para>Model edits arrive as immutable <see cref="SongSnapshot"/>s (<see cref="SetSnapshot"/>, any thread) swapped in
 /// at the next block; transport and note previews are commands on a lock-free queue. Per-track state (event buffers,
 /// held notes, gain ramps, meters) lives in preallocated slots, so a steady-state block allocates nothing.</para>
+/// <para>Adaptive songs also play adaptively (<see cref="PlayAdaptive"/>, SongEngine.Adaptive.cs): sections, transitions and
+/// stingers decided by the snapshot's <c>MusicDirector</c>, tracks summed per layer.</para>
 /// <para>Mixer per track: instrument or audio clips → inserts (built-ins in place, VST3 runs batched) → volume × equal-power pan
 /// (<see cref="AudioMath.PanGains"/>), ramped over the block → mute/solo → master volume. Peak meters accumulate per
 /// track and for the master until the UI takes them (<see cref="TakeTrackPeak"/>).</para>
 /// </remarks>
-public sealed class SongEngine
+public sealed partial class SongEngine
 {
     public const int BlockFrames = 256;
 
@@ -140,7 +142,12 @@ public sealed class SongEngine
 
         var blockStart = _position;
         if (_playing)
-            Sequence(song, frames);
+        {
+            if (_adaptive)
+                SequenceAdaptive(song, frames);
+            else
+                Sequence(song, frames);
+        }
 
         // Sources: built-in instruments and audio clips render here; plugin instruments in the batch below.
         foreach (var track in song.Tracks)
@@ -163,10 +170,15 @@ public sealed class SongEngine
         RunTrackChains(song, frames, context);
         var master = song.MasterGain;
         var masterPeak = 0f;
+        // Adaptive playback: tracks sum into their layers' buses (mixed below); otherwise straight into the output.
+        var adaptive = _adaptive && song.Adaptive is { } ad && ReferenceEquals(ad, _adaptiveOf) ? ad : null;
+        if (adaptive is not null)
+            ClearLayers(adaptive, frames);
         foreach (var track in song.Tracks)
         {
             var rt = _runtimes[track.Slot];
             var buffer = rt.Buffer.AsSpan(0, frames * 2);
+            var mix = adaptive is null ? output : LayerBuffer(adaptive, track, frames);
             rt.Compensate(buffer, song.MaxTrackLatency - track.LatencyFrames);
 
             var audible = track.IsAudible(song.AnySolo);
@@ -185,16 +197,20 @@ public sealed class SongEngine
                 var r = buffer[2 * f + 1] * gr;
                 peak = Math.Max(peak, Math.Abs(l));
                 peak = Math.Max(peak, Math.Abs(r));
-                output[2 * f] += l;
-                output[2 * f + 1] += r;
+                mix[2 * f] += l;
+                mix[2 * f + 1] += r;
             }
 
             (rt.GainL, rt.GainR) = (targetL, targetR);
             AccumulatePeak(ref rt.PeakBits, peak);
         }
 
-        // Master inserts on the sum (they need every track's output): plugin stages are one more round trip each.
-        RunMasterChain(song, output, frames, context);
+        // Master inserts on the sum (they need every track's output): plugin stages are one more round trip each. Adaptive
+        // playback bypasses them, as the bake does (each layer is a stem of its own).
+        if (adaptive is not null)
+            MixLayers(adaptive, output, frames);
+        else
+            RunMasterChain(song, output, frames, context);
 
         for (var i = 0; i < output.Length; i++)
         {
@@ -319,8 +335,8 @@ public sealed class SongEngine
             foreach (var track in song.Tracks)
             {
                 var rt = _runtimes[track.Slot];
-                NoteOffs(rt, from, to, offset);
-                NoteOns(rt, track.Notes, from, to, offset);
+                NoteOffs(rt, rt.Held, ref rt.HeldCount, from, to, offset);
+                NoteOns(rt, rt.Held, ref rt.HeldCount, track.Notes, from, to, offset);
                 MixClips(rt, track.AudioClips, from, to, offset);
             }
 
@@ -331,19 +347,19 @@ public sealed class SongEngine
         Volatile.Write(ref _position, position);
     }
 
-    private void NoteOffs(TrackRuntime rt, long from, long to, int offset)
+    private void NoteOffs(TrackRuntime rt, HeldNote[] held, ref int count, long from, long to, int offset)
     {
-        for (var i = rt.HeldCount - 1; i >= 0; i--)
+        for (var i = count - 1; i >= 0; i--)
         {
-            ref var held = ref rt.Held[i];
-            if (held.EndFrame >= to)
+            var note = held[i];
+            if (note.EndFrame >= to)
                 continue;
-            AddEvent(rt, new NoteEvent(offset + (int)Math.Max(0, held.EndFrame - from), held.Pitch, 0, false));
-            rt.Held[i] = rt.Held[--rt.HeldCount];
+            AddEvent(rt, new NoteEvent(offset + (int)Math.Max(0, note.EndFrame - from), note.Pitch, 0, false));
+            held[i] = held[--count];
         }
     }
 
-    private void NoteOns(TrackRuntime rt, NoteSpan[] notes, long from, long to, int offset)
+    private void NoteOns(TrackRuntime rt, HeldNote[] held, ref int count, NoteSpan[] notes, long from, long to, int offset)
     {
         for (var i = FirstAtOrAfter(notes, from); i < notes.Length && notes[i].StartFrame < to; i++)
         {
@@ -353,9 +369,9 @@ public sealed class SongEngine
             {
                 AddEvent(rt, new NoteEvent(offset + (int)(note.EndFrame - from), note.Pitch, 0, false));
             }
-            else if (rt.HeldCount < MaxHeldNotes)
+            else if (count < MaxHeldNotes)
             {
-                rt.Held[rt.HeldCount++] = new HeldNote(note.Pitch, note.EndFrame);
+                held[count++] = new HeldNote(note.Pitch, note.EndFrame);
             }
         }
     }
@@ -403,6 +419,7 @@ public sealed class SongEngine
         {
             var rt = _runtimes[track.Slot];
             rt.HeldCount = 0;
+            rt.OverlayCount = 0;
             rt.EventCount = 0;
             track.Instrument?.AllNotesOff();
         }
@@ -481,6 +498,7 @@ public sealed class SongEngine
         }
 
         Volatile.Write(ref _current, next);
+        TransferAdaptive(next);
         Volatile.Write(ref _position, _position);
     }
 
@@ -513,12 +531,19 @@ public sealed class SongEngine
                     _playing = true;
                     break;
                 case CommandType.Stop:
+                    if (_adaptive)
+                        EndAdaptive(song, 0);
                     _playing = false;
                     AllNotesOff(song);
                     break;
                 case CommandType.Seek:
+                    if (_adaptive)
+                        EndAdaptive(song, 0); // the timeline again
                     AllNotesOff(song);
                     _position = c.Value;
+                    break;
+                case CommandType.AdaptivePlay or CommandType.AdaptiveParameter or CommandType.AdaptiveStinger or CommandType.AdaptiveGoTo:
+                    AdaptiveCommand(c, song);
                     break;
                 case CommandType.Note when song is not null && (uint)c.Slot < (uint)_runtimes.Length:
                     var rt = _runtimes[c.Slot];
@@ -549,9 +574,13 @@ public sealed class SongEngine
         Seek,
         Note,
         Controller,
+        AdaptivePlay,
+        AdaptiveParameter,
+        AdaptiveStinger,
+        AdaptiveGoTo,
     }
 
-    private readonly record struct Command(CommandType Type, long Value, int Slot, int Pitch, int Velocity);
+    private readonly record struct Command(CommandType Type, long Value, int Slot, int Pitch, int Velocity, string? Name = null);
 
     private readonly record struct HeldNote(int Pitch, long EndFrame);
 
@@ -559,6 +588,8 @@ public sealed class SongEngine
     {
         public readonly NoteEvent[] Events = new NoteEvent[MaxEventsPerBlock];
         public readonly HeldNote[] Held = new HeldNote[MaxHeldNotes];
+        public readonly HeldNote[] OverlayHeld = new HeldNote[MaxHeldNotes]; // an adaptive stinger's notes
+        public int OverlayCount;
         public readonly float[] Buffer = new float[BlockFrames * 2];
         public int Generation = -1;
         public int EventCount;
@@ -604,6 +635,7 @@ public sealed class SongEngine
             ChainSlot = -1;
             EventCount = 0;
             HeldCount = 0;
+            OverlayCount = 0;
             GainL = GainR = float.NaN;
             PeakBits = 0;
         }

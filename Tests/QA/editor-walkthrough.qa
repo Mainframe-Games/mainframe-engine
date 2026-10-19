@@ -127,6 +127,18 @@ wait 5
 capture 13e5-song-synth-matrix
 song synth-page osc 0
 song synth-close
+# Adaptive music: the song made adaptive (sections, layers, parameters, transitions, a stinger), its Adaptive tab, then
+# playing adaptively with intensity up (the layer meters, the outlined section, the playhead following the music).
+song adaptive-demo
+song adaptive-tab
+wait 10
+capture 13e6-song-adaptive
+song audition intensity 0.9
+song adaptive-play
+wait 60
+capture 13e7-song-adaptive-playing
+song stop
+song browser off
 song stop
 song save
 song render

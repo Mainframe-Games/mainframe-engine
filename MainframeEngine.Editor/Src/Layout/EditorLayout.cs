@@ -125,6 +125,9 @@ public sealed record EditorLayoutSettings
     /// <summary>Music mode's Browser on the right (F; Logic's Browsers): the project's songs and the plugins. Hidden by default.</summary>
     public bool MusicShowBrowser { get; init; }
 
+    /// <summary>The right panel shows its Adaptive tab (A) instead of the Browser (F): an adaptive song's sections, parameters and rules.</summary>
+    public bool MusicAdaptiveTab { get; init; }
+
     /// <summary>The Browser's width in dp (a file without the key reads 0, which <c>Load</c> restores to 260).</summary>
     public float MusicBrowserWidth { get; init; } = 260;
 
@@ -366,6 +369,9 @@ public sealed class EditorLayout
 
     /// <summary>Shows or hides the music Browser.</summary>
     public void SetMusicShowBrowser(bool show) => Settings = Settings with { MusicShowBrowser = show };
+
+    /// <summary>Which tab the right panel shows: Adaptive (true) or Browser.</summary>
+    public void SetMusicAdaptiveTab(bool adaptive) => Settings = Settings with { MusicAdaptiveTab = adaptive };
 
     /// <summary>The Browser's collapsed section and group ids.</summary>
     public void SetMusicBrowserCollapsed(IEnumerable<string> ids) =>

@@ -18,7 +18,15 @@
         .ruler-head { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 22dp; padding: 0dp 6dp;
                       border-bottom: 1dp #3b3f4b; color: #8b93a5; font-size: 12dp; }
         .ruler-head button { margin-right: 6dp; }
+        /* Adaptive songs: the Sections lane's header, as tall as the lane under the arrangement's ruler. */
+        .sections-head { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 22dp; padding: 0dp 8dp;
+                         border-bottom: 1dp #3b3f4b; background-color: #20232a; color: #8b93a5; font-size: 11dp; }
+        .sections-head .icon { margin-right: 6dp; image-color: #8b93a5; }
         #song-header-clip { display: block; position: relative; flex: 1 1 auto; overflow: hidden; }
+        .layer-chip { display: inline-block; height: 13dp; line-height: 13dp; padding: 0dp 5dp; margin-right: 4dp; border-radius: 6dp;
+                      color: #15171c; font-size: 9dp; font-weight: bold; cursor: pointer; }
+        .layer-chip:hover { color: #ffffff; }
+        .strip-layer { display: block; text-align: center; margin: 0dp 0dp 4dp 0dp; }
         #song-header-list { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; }
         .track { display: flex; flex-direction: row; align-items: center; height: 44dp; padding-right: 4dp; border-bottom: 1dp #3b3f4b; cursor: pointer; }
         .track:hover { background-color: #2a2e38; }
@@ -98,7 +106,61 @@
         #song-row { display: flex; flex-direction: row; width: 100%; height: 100%; }
         #song-left { display: flex; flex-direction: column; flex: 1 1 auto; width: 100dp; }
         #song-split-browser { flex: 0 0 5dp; width: 5dp; cursor: ew-resize; pointer-events: auto; }
-        #song-split-browser.hidden, #song-browser.hidden, #song-drag-ghost.hidden { display: none; }
+        #song-split-browser.hidden, #song-browser.hidden, #song-drag-ghost.hidden, #song-browser-pane.hidden, #song-adaptive.hidden { display: none; }
+        #song-browser-pane { display: flex; flex-direction: column; flex: 1 1 auto; }
+        .rtab { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 8dp; margin-right: 2dp; border-radius: 3dp;
+                color: #a3abbd; font-weight: normal; cursor: pointer; }
+        .rtab:hover { background-color: #2f333d; color: #ffffff; }
+        .rtab.active { background-color: #2f333d; color: #ffffff; border: 1dp #3b3f4b; }
+
+        /* The Adaptive tab (AdaptivePanel builds it). */
+        #song-adaptive { display: block; flex: 1 1 auto; overflow-y: auto; padding: 0dp 0dp 10dp 0dp; color: #c3c9d6; font-size: 11.5dp; }
+        .ad-empty { display: flex; flex-direction: column; align-items: center; padding: 24dp 16dp; color: #8b93a5; text-align: center; }
+        .ad-empty .icon-lg { margin-bottom: 8dp; image-color: #4b5263; }
+        .ad-empty button { margin-top: 12dp; padding: 0dp 12dp; }
+        .ad-section { display: block; border-bottom: 1dp #2f333d; padding: 4dp 8dp 6dp 8dp; }
+        .ad-head { display: flex; flex-direction: row; align-items: center; height: 24dp; color: #ffffff; font-weight: bold; font-size: 11.5dp; }
+        .ad-head button { margin-left: 2dp; }
+        .ad-row { display: block; padding: 4dp 4dp; margin-bottom: 3dp; background-color: #262931; border: 1dp #2f333d; border-radius: 3dp; }
+        .ad-row.firing { border-color: #fbbf24; }
+        .ad-line { display: flex; flex-direction: row; align-items: center; min-height: 20dp; }
+        .ad-line.ad-wrap { flex-wrap: wrap; }
+        .ad-line button { margin-left: 2dp; }
+        .ad-name { color: #e8ebf2; margin-right: 6dp; white-space: nowrap; overflow: hidden; }
+        .ad-dim { color: #8b93a5; font-size: 10.5dp; margin: 0dp 4dp; white-space: nowrap; }
+        .ad-badge { color: #8b93a5; font-size: 9.5dp; padding: 0dp 4dp; border: 1dp #3b3f4b; border-radius: 3dp; }
+        .ad-val { color: #d7dbe4; font-size: 10.5dp; margin-left: 4dp; }
+        .ad-note { color: #6b7488; font-size: 11dp; padding: 2dp 0dp 4dp 0dp; }
+        .ad-now { display: flex; flex-direction: row; align-items: center; height: 20dp; color: #e8ebf2; }
+        .ad-pending { color: #fbbf24; font-size: 11dp; min-height: 14dp; }
+        .ad-bake { display: flex; flex-direction: row; align-items: center; height: 22dp; color: #8b93a5; font-size: 10.5dp; }
+        .ad-bake .text-button { height: 20dp; line-height: 20dp; padding: 0dp 8dp; }
+        .ad-chips { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; margin-top: 3dp; }
+        .ad-chip { display: inline-block; height: 18dp; line-height: 18dp; padding: 0dp 6dp; margin: 1dp 3dp 1dp 0dp; border-radius: 3dp; background-color: #15171c;
+                   border: 1dp #3b3f4b; color: #c3c9d6; font-size: 10.5dp; white-space: nowrap; cursor: pointer; }
+        .ad-chip:hover { border-color: #6b7488; color: #ffffff; }
+        .ad-chip.active { background-color: #1e3a5f; border-color: #3b82f6; color: #ffffff; }
+        .ad-slider { display: block; position: relative; margin-top: 3dp; }
+        .ad-slider input.range { width: 100%; }
+        .ad-ghost { display: block; position: absolute; top: 2dp; width: 3dp; height: 12dp; margin-left: -1dp; background-color: #fbbf24; pointer-events: none; }
+        .ad-ghost.hidden { display: none; }
+        .ad-edit { display: block; margin-top: 4dp; padding-top: 4dp; border-top: 1dp #2f333d; }
+        .ad-field { display: flex; flex-direction: row; align-items: center; margin: 2dp 0dp; }
+        .ad-field span { width: 54dp; color: #8b93a5; font-size: 10.5dp; }
+        .ad-field input.text { flex: 1 1 auto; width: 60dp; }
+        .ad-swatch { display: block; width: 10dp; height: 10dp; border-radius: 5dp; margin-right: 6dp; cursor: pointer; }
+        .ad-meter { display: block; position: relative; flex: 0 0 70dp; width: 70dp; height: 6dp; margin-right: 6dp; background-color: #121418; border: 1dp #2f333d; }
+        .ad-meter-fill { display: block; position: absolute; left: 0dp; top: 0dp; height: 100%; width: 0%; background-color: #22c55e; }
+        .ad-curve { flex: 0 0 auto; color: #a3abbd; font-size: 10dp; margin-right: 8dp; white-space: nowrap; }
+        .ad-to { margin: 0dp 4dp 0dp 1dp; image-color: #8b93a5; }
+        .ad-bolt { image-color: #f59e0b; margin-right: 4dp; }
+        .ad-problem { display: flex; flex-direction: row; align-items: flex-start; padding: 2dp 0dp; font-size: 11dp; }
+        .ad-problem .icon { margin-right: 6dp; flex: 0 0 auto; }
+        .ad-problem.error { color: #f87171; }
+        .ad-problem.error .icon { image-color: #f87171; }
+        .ad-problem.warning { color: #fcd34d; }
+        .ad-problem.warning .icon { image-color: #f59e0b; }
+        .ad-problem[data-ad] { cursor: pointer; }
         #song-browser { display: flex; flex-direction: column; flex: 0 0 auto; width: 260dp; background-color: #1f2128; border-left: 1dp #3b3f4b;
                         pointer-events: auto; }
         .browser-head { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 28dp; padding: 0dp 4dp 0dp 10dp;
@@ -164,11 +226,12 @@
                 <button id="song-add-track" class="tool-button small" data-event-click="add_track()" data-tooltip="Add Track — an instrument track (built-in ZzFX) or an audio track"><span class="icon icon-sm icon-plus"></span></button>
                 <span>Tracks</span>
             </div>
+            <div class="sections-head" data-if="adaptive" data-tooltip="Sections — drag in the lane to make one, drag a block to move it or its edges to resize it; click it to loop it, double-click to rename, right-click for its menu (loop, then, kind, start, markers)"><span class="icon icon-sm icon-stack-2"></span><span>Sections</span></div>
             <div id="song-header-clip">
                 <div id="song-header-list">
                     <div class="track" data-for="row : rows" data-attr-data-drop="'track:' + row.index" data-class-selected="row.selected" data-event-mousedown="select(row.index)" data-event-dblclick="rename(row.index)" data-attr-data-tooltip="row.tooltip">
                         <div class="track-color" data-style-background-color="row.color"></div>
-                        <div class="track-text"><div class="track-name">{{row.name}}</div><div class="track-inst">{{row.instrument}}</div></div>
+                        <div class="track-text"><div class="track-name">{{row.name}}</div><div class="track-inst"><span class="layer-chip" data-if="adaptive" data-style-background-color="row.layer_color" data-event-click="layer(row.index)" data-tooltip="Layer — the stem this track bakes into; click to choose one or make a new one">{{row.layer}}</span>{{row.instrument}}</div></div>
                         <span class="icon icon-sm icon-alert-triangle warn" data-if="row.status != ''" data-attr-data-tooltip="row.status"></span>
                         <button class="tool-button small on-arm" data-if="!row.audio" data-class-active="row.armed" data-event-click="arm(row.index)" data-tooltip="Record Arm — your MIDI keyboard plays this track and Record (R) records into it"><span class="icon icon-sm icon-circle-dot"></span></button>
                         <button class="tool-button small on-mute" data-class-active="row.mute" data-event-click="mute(row.index)" data-tooltip="Mute — silence this track"><span class="icon icon-sm icon-volume-off"></span></button>
@@ -195,6 +258,7 @@
             <div class="strip" data-for="row : rows" data-attr-data-drop="'strip:' + row.index" data-class-selected="row.selected" data-event-mousedown="select(row.index)">
                 <div class="strip-color" data-style-background-color="row.color"></div>
                 <div class="strip-name">{{row.name}}</div>
+                <div class="layer-chip strip-layer" data-if="adaptive" data-style-background-color="row.layer_color" data-event-click="layer(row.index)" data-tooltip="Layer — the stem this track bakes into">{{row.layer}}</div>
                 <div class="strip-label" data-if="!row.audio">Instrument</div>
                 <div class="slot" data-if="!row.audio">
                     <button class="slot-name" data-event-click="instrument(row.index)" data-tooltip="Instrument — the Mainframe Wavetable synth, Built-in ZzFX or a scanned VST3 instrument (and its editor window)">{{row.instrument}}</button>
@@ -241,8 +305,12 @@
     </div>
     <div id="song-split-browser" class="splitter" data-class-hidden="!browser_open" data-tooltip="Drag to resize the Browser"></div>
     <div id="song-browser" data-class-hidden="!browser_open">
-        <div class="browser-head"><span class="icon icon-sm icon-layout-sidebar-right"></span><span class="grow">Browser</span>
-            <button id="song-browser-close" class="tool-button small" data-command="music.browser" data-tooltip="Hide Browser (F)"><span class="icon icon-sm icon-x"></span></button></div>
+        <div class="browser-head">
+            <div id="song-tab-browser" class="rtab" data-class-active="!adaptive_tab" data-event-click="right_tab(0)" data-tooltip="Browser (F) — the project's songs and every plugin"><span class="icon icon-sm icon-layout-sidebar-right"></span><span>Browser</span></div>
+            <div id="song-tab-adaptive" class="rtab" data-class-active="adaptive_tab" data-event-click="right_tab(1)" data-tooltip="Adaptive (A) — the song's parameters, layers, transitions and stingers, and adaptive playback"><span class="icon icon-sm icon-stack-2"></span><span>Adaptive</span></div>
+            <span class="grow"></span>
+            <button id="song-browser-close" class="tool-button small" data-command="music.browser" data-tooltip="Hide (F)"><span class="icon icon-sm icon-x"></span></button></div>
+        <div id="song-browser-pane" data-class-hidden="adaptive_tab">
         <div class="browser-search"><span class="icon icon-sm icon-search"></span><input id="song-browser-search" type="text" class="text" data-tooltip="Search songs and plugins"/></div>
         <div id="song-browser-list">
             <div class="b-row" data-for="b : browser" data-class-section="b.kind == 0" data-class-group="b.kind == 1" data-class-item="b.kind == 2"
@@ -251,6 +319,8 @@
                 <span class="arrow" data-if="b.kind &lt; 2" data-class-collapsed="b.collapsed"></span><span data-if="b.icon != ''" data-attr-class="b.icon"></span><span class="b-label">{{b.label}}</span>
             </div>
         </div>
+        </div>
+        <div id="song-adaptive" data-class-hidden="!adaptive_tab"></div>
     </div>
     </div>
     <div id="song-drag-ghost" class="hidden"><span id="song-drag-icon"></span><span id="song-drag-label"></span></div>

@@ -21,6 +21,11 @@ public enum SongGesture
     NoteResize,
     Velocity,
     Keyboard,
+    SectionNew,
+    SectionMove,
+    SectionStart,
+    SectionEnd,
+    MarkerMove,
 }
 
 /// <summary>
@@ -32,6 +37,9 @@ public enum SongGesture
 public sealed class SongCanvasController
 {
     public const float RulerHeight = 22;
+
+    /// <summary>The Sections lane under the ruler (adaptive songs only).</summary>
+    public const float SectionsHeight = 22;
     public const float LoopBandHeight = 10;
     public const float LaneHeight = 44;
     public const float EdgeGrab = 6;
@@ -94,6 +102,24 @@ public sealed class SongCanvasController
     /// <summary>The length of an audio file in ticks (null: unknown); used for dropped and picked files.</summary>
     public Func<string, long?>? AudioLength { get; set; }
 
+    /// <summary>A double-click on a section asks for its new name.</summary>
+    public Action<SongSection>? RequestRenameSection { get; set; }
+
+    /// <summary>A double-click on a marker asks for its new name.</summary>
+    public Action<SongMarker>? RequestRenameMarker { get; set; }
+
+    /// <summary>A right-click in the Sections lane: the section or marker under it (or neither), the tick, the local point.</summary>
+    public Action<SongSection?, SongMarker?, long, Vector2>? RequestSectionMenu { get; set; }
+
+    /// <summary>A section drag's preview: the section (null: a new one) and its range in ticks.</summary>
+    public (SongSection? Section, long Start, long End)? SectionGhost { get; private set; }
+
+    /// <summary>A marker drag's preview: the marker and its tick.</summary>
+    public (SongMarker Marker, long Tick)? MarkerGhost { get; private set; }
+
+    /// <summary>The top of the first track lane: under the ruler, and the Sections lane when the song is adaptive.</summary>
+    public float LanesTop => RulerHeight + (Song.Adaptive is not null ? SectionsHeight : 0);
+
     private Vector2 _last;
 
     private SongDocument Doc => _tab.Document;
@@ -109,9 +135,9 @@ public sealed class SongCanvasController
     public float ArrangeX(double tick) => (float)((tick - _tab.ArrangeScrollTick) * _tab.ArrangePixelsPerTick);
 
     /// <summary>The lane index at <paramref name="y"/> (may be out of range; −1 above the lanes).</summary>
-    public int LaneAt(float y) => y < RulerHeight ? -1 : (int)MathF.Floor((y - RulerHeight + _tab.ArrangeScrollY) / LaneHeight);
+    public int LaneAt(float y) => y < LanesTop ? -1 : (int)MathF.Floor((y - LanesTop + _tab.ArrangeScrollY) / LaneHeight);
 
-    public float LaneY(int lane) => RulerHeight + lane * LaneHeight - _tab.ArrangeScrollY;
+    public float LaneY(int lane) => LanesTop + lane * LaneHeight - _tab.ArrangeScrollY;
 
     /// <summary>The clip-relative tick at piano-roll x.</summary>
     public double RollTickAt(float x) => _tab.RollScrollTick + (x - KeyboardWidth) / _tab.RollPixelsPerTick;
@@ -205,6 +231,9 @@ public sealed class SongCanvasController
             case SongGesture.Velocity:
                 Doc.SetNoteVelocity(_velocityTargets, VelocityAt(p.Y), "song-velocity");
                 break;
+            case SongGesture.SectionNew or SongGesture.SectionMove or SongGesture.SectionStart or SongGesture.SectionEnd or SongGesture.MarkerMove:
+                DragSection(p);
+                break;
             case SongGesture.Keyboard:
                 var pitch = Math.Clamp(PitchAt(p.Y), 0, 127);
                 if (pitch != _auditionPitch && _tab.SelectedTrack is { } track)
@@ -227,6 +256,9 @@ public sealed class SongCanvasController
             case SongGesture.RollPending:
                 AddNoteAt(_press);
                 break;
+            case SongGesture.SectionNew or SongGesture.SectionMove or SongGesture.SectionStart or SongGesture.SectionEnd or SongGesture.MarkerMove:
+                CommitSection(gesture);
+                break;
             case SongGesture.Keyboard or SongGesture.NoteMove or SongGesture.NoteResize:
                 StopAudition();
                 break;
@@ -234,6 +266,8 @@ public sealed class SongCanvasController
 
         GhostClip = null;
         GhostTrack = null;
+        SectionGhost = null;
+        MarkerGhost = null;
         Doc.History.EndMerge();
         _tab.Touch();
     }
@@ -246,6 +280,8 @@ public sealed class SongCanvasController
         Gesture = SongGesture.None;
         GhostClip = null;
         GhostTrack = null;
+        SectionGhost = null;
+        MarkerGhost = null;
         Doc.History.EndMerge();
         StopAudition();
     }
@@ -269,7 +305,7 @@ public sealed class SongCanvasController
             }
             else
             {
-                var max = MathF.Max(0, Song.Tracks.Count * LaneHeight - (ArrangeSize.Y - RulerHeight));
+                var max = MathF.Max(0, Song.Tracks.Count * LaneHeight - (ArrangeSize.Y - LanesTop));
                 _tab.ArrangeScrollY = Math.Clamp(_tab.ArrangeScrollY - delta.Y * LaneHeight * 0.5f, 0, max);
             }
         }
@@ -343,6 +379,12 @@ public sealed class SongCanvasController
                 _tab.Player.Seek(Math.Max(0, SnapTick(tick)));
             }
 
+            return;
+        }
+
+        if (p.Y < LanesTop)
+        {
+            PressSections(p, modifiers, doubleClick);
             return;
         }
 
@@ -500,6 +542,215 @@ public sealed class SongCanvasController
         Doc.AddClip(track, copy);
         _tab.SelectClip(track, copy);
         return copy;
+    }
+
+    // ── Sections lane ────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>The marker whose flag is at <paramref name="x"/> in the Sections lane, or null.</summary>
+    public SongMarker? MarkerAt(float x)
+    {
+        if (Song.Adaptive is not { } adaptive)
+            return null;
+        SongMarker? best = null;
+        var reach = EdgeGrab;
+        foreach (var marker in adaptive.Markers)
+        {
+            var d = MathF.Abs(ArrangeX(marker.Tick) - x);
+            if (d <= reach)
+                (best, reach) = (marker, d);
+        }
+
+        return best;
+    }
+
+    /// <summary>The section block at <paramref name="tick"/>, or null.</summary>
+    public SongSection? SectionAt(double tick) => Song.Adaptive?.SectionAt((long)Math.Floor(tick));
+
+    private void PressSections(Vector2 p, EditorModifiers modifiers, bool doubleClick)
+    {
+        if (Song.Adaptive is not { } adaptive)
+            return;
+        var tick = ArrangeTickAt(p.X);
+        if (MarkerAt(p.X) is { } marker)
+        {
+            if (doubleClick)
+            {
+                RequestRenameMarker?.Invoke(marker);
+                return;
+            }
+
+            if (!CanEdit)
+                return;
+            if ((modifiers & EditorModifiers.Alt) != 0)
+            {
+                Doc.SetMarkerExit(marker, !marker.Exit); // Alt-click: an exit marker (a transition point) or a plain one
+                return;
+            }
+
+            Gesture = SongGesture.MarkerMove;
+            MarkerGhost = (marker, marker.Tick);
+            return;
+        }
+
+        var section = SectionAt(tick);
+        if (section is not null)
+        {
+            _tab.SelectSection(section);
+            if (doubleClick)
+            {
+                RequestRenameSection?.Invoke(section);
+                return;
+            }
+
+            if (!CanEdit)
+                return;
+            var left = ArrangeX(section.Start);
+            var right = ArrangeX(section.End);
+            var wide = right - left > EdgeGrab * 3;
+            Gesture = wide && right - p.X <= EdgeGrab ? SongGesture.SectionEnd
+                : wide && p.X - left <= EdgeGrab ? SongGesture.SectionStart
+                : SongGesture.SectionMove;
+            _origStart = section.Start;
+            _origLength = section.Length;
+            _pressTick = tick;
+            SectionGhost = (section, section.Start, section.End);
+            return;
+        }
+
+        _tab.SelectSection(null);
+        if (!CanEdit)
+            return;
+        Gesture = SongGesture.SectionNew;
+        _origStart = Math.Max(0, SongGrid.Floor((long)Math.Floor(tick), Song.TicksPerBar));
+        _pressTick = tick;
+        SectionGhost = null;
+    }
+
+    private void DragSection(Vector2 p)
+    {
+        var bar = Song.TicksPerBar;
+        var tick = ArrangeTickAt(p.X);
+        if (Gesture == SongGesture.MarkerMove)
+        {
+            if (MarkerGhost is { } m)
+                MarkerGhost = (m.Marker, Math.Max(0, SnapTick(tick)));
+            return;
+        }
+
+        if (!_moved)
+            return;
+        var section = SectionGhost?.Section;
+        long start, end;
+        switch (Gesture)
+        {
+            case SongGesture.SectionNew:
+                var at = Math.Max(0, SongGrid.Round((long)Math.Round(tick), bar));
+                (start, end) = at >= _origStart ? (_origStart, Math.Max(_origStart + bar, at)) : (at, _origStart + bar);
+                break;
+            case SongGesture.SectionStart:
+                end = _origStart + _origLength;
+                start = Math.Clamp(SongGrid.Round((long)Math.Round(_origStart + tick - _pressTick), bar), 0, end - bar);
+                break;
+            case SongGesture.SectionEnd:
+                start = _origStart;
+                end = Math.Max(start + bar, SongGrid.Round((long)Math.Round(_origStart + _origLength + tick - _pressTick), bar));
+                break;
+            default: // move: whole bars
+                start = Math.Max(0, SongGrid.Round((long)Math.Round(_origStart + tick - _pressTick), bar));
+                end = start + _origLength;
+                break;
+        }
+
+        // Sections never overlap: the preview stops at its neighbours.
+        (start, end) = FitBetweenNeighbours(section, start, end, Gesture == SongGesture.SectionMove);
+        if (end - start >= bar)
+            SectionGhost = (section, start, end);
+    }
+
+    // Keeps [start, end) clear of the other sections: a move slides to the free space; a resize stops at the neighbour.
+    private (long Start, long End) FitBetweenNeighbours(SongSection? self, long start, long end, bool move)
+    {
+        if (Song.Adaptive is not { } adaptive)
+            return (start, end);
+        var length = end - start;
+        foreach (var other in adaptive.Sections)
+        {
+            if (ReferenceEquals(other, self) || other.End <= start || other.Start >= end)
+                continue;
+            if (move)
+            {
+                // Slide to the side of the neighbour the section's centre is on.
+                if (start + length / 2 < other.Start + other.Length / 2)
+                    (start, end) = (other.Start - length, other.Start);
+                else
+                    (start, end) = (other.End, other.End + length);
+                if (start < 0)
+                    return (self?.Start ?? 0, self?.End ?? 0);
+            }
+            else if (other.Start >= (self?.Start ?? _origStart))
+            {
+                end = Math.Min(end, other.Start);
+            }
+            else
+            {
+                start = Math.Max(start, other.End);
+            }
+        }
+
+        foreach (var other in adaptive.Sections)
+        {
+            if (!ReferenceEquals(other, self) && other.End > start && other.Start < end)
+                return (self?.Start ?? 0, self?.End ?? 0); // no room: stays where it was
+        }
+
+        return (start, end);
+    }
+
+    private void CommitSection(SongGesture gesture)
+    {
+        if (gesture == SongGesture.MarkerMove)
+        {
+            if (MarkerGhost is { } m && m.Tick != m.Marker.Tick && CanEdit)
+                Doc.MoveMarker(m.Marker, m.Tick);
+            return;
+        }
+
+        if (!_moved)
+        {
+            // A click on a section: the loop region becomes the section, so Play loops it while it is written.
+            if (gesture != SongGesture.SectionNew && SectionGhost is { Section: { } clicked } && CanEdit)
+                Doc.SetLoop(true, clicked.Start, clicked.End);
+            return;
+        }
+
+        if (SectionGhost is not { } ghost || ghost.End - ghost.Start <= 0 || !CanEdit)
+            return;
+        if (ghost.Section is { } section)
+        {
+            if (ghost.Start != section.Start || ghost.End != section.End)
+                Doc.SetSectionRange(section, ghost.Start, ghost.End);
+        }
+        else
+        {
+            var adaptive = Song.Adaptive!;
+            var name = "Section " + (adaptive.Sections.Count + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var created = Doc.AddSection(name, Audio.Music.MusicSectionKind.Section, ghost.Start, ghost.End);
+            _tab.SelectSection(created);
+        }
+    }
+
+    /// <summary>A right-click at <paramref name="p"/> in the arrangement: the Sections lane's menu (false elsewhere).</summary>
+    public bool ContextMenu(Vector2 p)
+    {
+        if (Song.Adaptive is null || p.Y < RulerHeight || p.Y >= LanesTop)
+            return false;
+        var tick = ArrangeTickAt(p.X);
+        var marker = MarkerAt(p.X);
+        var section = marker is null ? SectionAt(tick) : null;
+        if (section is not null)
+            _tab.SelectSection(section);
+        RequestSectionMenu?.Invoke(section, marker, Math.Max(0, (long)Math.Round(tick)), p);
+        return true;
     }
 
     // ── Piano roll ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -692,6 +943,9 @@ public sealed class SongCanvasController
 
         switch (key)
         {
+            case Silk.NET.Input.Key.Space when shift:
+                _tab.PlayAdaptive(fromPlayhead: (modifiers & EditorModifiers.Alt) != 0); // Shift+Space: adaptively (Alt: from here)
+                return true;
             case Silk.NET.Input.Key.Space:
                 _tab.Player.TogglePlay();
                 return true;

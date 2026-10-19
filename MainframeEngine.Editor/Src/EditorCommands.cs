@@ -190,6 +190,7 @@ public sealed class EditorCommands
             case "view.output": _workspace.ToggleVideoOutput(); return true;
             case "video.toggle_transcript": _workspace.ToggleVideoTranscript(); return true;
             case "music.browser": _workspace.ToggleMusicBrowser(); return true;
+            case "music.adaptive": _workspace.ToggleMusicAdaptive(); return true;
             // The video toolbar's buttons without a video tab: they show disabled, and a click does nothing.
             case "video.play" or "video.stop" or "video.transcribe" or "video.remove_fillers" or "video.detect_silence"
                 or "video.detect_idle" or "video.export" or "video.export_transcript" when Session.ActiveTab is not VideoTab:
@@ -266,11 +267,36 @@ public sealed class EditorCommands
             case "edit.delete": song.Controller.Delete(); return true;
             case "edit.duplicate": song.Controller.Duplicate(); return true;
             case "song.play": song.Player.TogglePlay(); return true;
+            case "song.adaptive_play": song.PlayAdaptive(fromPlayhead: false); return true;
+            case "song.adaptive_play_here": song.PlayAdaptive(fromPlayhead: true); return true;
+            case "song.fire_stinger": song.FireStinger(); return true;
+            case "song.make_adaptive":
+                if (!song.Document.IsReadOnly && song.Document.Song.Adaptive is null)
+                {
+                    song.Document.EnableAdaptive();
+                    _workspace.ShowMusicRightTab(adaptive: true);
+                }
+
+                return true;
             case "song.stop": song.Player.Stop(); return true;
             case "song.rewind": song.Controller.Key(Silk.NET.Input.Key.Home, EditorModifiers.None); return true;
             case "song.loop": song.Controller.ToggleLoop(); return true;
             case "song.record": song.Controller.ToggleRecording(); return true;
             case "song.render": _workspace.SongView.Render(song.Document.FilePath); return true;
+            case "song.render_menu":
+                {
+                    var (x, y) = _workspace.Toolbar.Below("song-render");
+                    _workspace.Popup.Show(
+                    [
+                        new MenuItem(BakeLabel(song), "song.bake", "Ctrl+B", song.Document.Song.Adaptive is not null, Icon: "package"),
+                        new MenuItem("Render Timeline…", "song.render", "Ctrl+E", Icon: "download"),
+                    ], x, y, command =>
+                    {
+                        if (command is not null)
+                            Execute(command);
+                    });
+                    return true;
+                }
             case "song.bake":
                 if (song.Document.Song.Adaptive is not null)
                     _workspace.SongView.Bake(song.Document.FilePath);
@@ -1328,7 +1354,8 @@ public sealed class EditorCommands
                 new MenuItem("Piano Roll", "song.piano_roll", "P", tab, Css: song?.Panel == SongBottomPanel.PianoRoll ? "current" : null, Icon: "piano"),
                 new MenuItem("Mixer", "song.mixer", "X", tab, Css: song?.Panel == SongBottomPanel.Mixer ? "current" : null, Icon: "adjustments-alt"),
                 new MenuItem("Hide Editor", "song.hide_pane", null, tab && song!.Panel != SongBottomPanel.None, Icon: "layout-bottombar"),
-                new MenuItem("Browser", "music.browser", "F", Css: _workspace.Layout.Settings.MusicShowBrowser ? "current" : null, Icon: "layout-sidebar-right"),
+                new MenuItem("Browser", "music.browser", "F", Css: _workspace.Layout.Settings is { MusicShowBrowser: true, MusicAdaptiveTab: false } ? "current" : null, Icon: "layout-sidebar-right"),
+                new MenuItem("Adaptive", "music.adaptive", "A", Css: _workspace.Layout.Settings is { MusicShowBrowser: true, MusicAdaptiveTab: true } ? "current" : null, Icon: "stack-2"),
                 MenuItem.Separator,
                 new MenuItem("Show/Hide Output", "view.output", Icon: "terminal-2"),
                 MenuItem.Separator,
@@ -1340,6 +1367,11 @@ public sealed class EditorCommands
                 new MenuItem(song?.Player.IsPlaying == true ? "Stop" : "Play", "song.play", "Space", tab, Icon: song?.Player.IsPlaying == true ? "player-stop" : "player-play"),
                 new MenuItem("To Start", "song.rewind", "Home", tab, Icon: "home"),
                 new MenuItem(song?.Document.Song.Loop.Enabled == true ? "Loop Off" : "Loop", "song.loop", "L", tab, Icon: "repeat"),
+                new MenuItem("Make Adaptive", "song.make_adaptive", null, editable && song?.Document.Song.Adaptive is null, Icon: "stack-2"),
+                new MenuItem(song?.Player.IsAdaptive == true ? "Stop Adaptive" : "Play Adaptive", "song.adaptive_play", "Shift+Space",
+                    song?.Document.Song.Adaptive is not null, Icon: "player-track-next"),
+                new MenuItem("Play Adaptive from Here", "song.adaptive_play_here", "Alt+Shift+Space", song?.Document.Song.Adaptive is not null, Icon: "player-track-next"),
+                new MenuItem("Fire Stinger", "song.fire_stinger", "T", song?.Player.IsAdaptive == true, Icon: "bolt"),
                 new MenuItem(song?.Midi.IsRecording == true ? "Stop Recording" : "Record", "song.record", "R", tab, Icon: "point-filled"),
                 MenuItem.Separator,
                 new MenuItem("Add Instrument Track", "song.add_instrument_track", null, editable, Icon: "music"),

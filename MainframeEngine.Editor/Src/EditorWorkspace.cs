@@ -758,10 +758,36 @@ public sealed partial class EditorWorkspace : Node
         SetMusicPane(current == pane ? Music.SongBottomPanel.None : pane);
     }
 
-    /// <summary>View › Browser (F): music mode's Browser on the right (the project's songs and the plugins), saved with the layout.</summary>
-    internal void ToggleMusicBrowser()
+    /// <summary>
+    /// View › Browser (F): music mode's Browser on the right (the project's songs and the plugins), saved with the layout.
+    /// With the right panel on its Adaptive tab, F switches it to the Browser; again hides it.
+    /// </summary>
+    internal void ToggleMusicBrowser() => ToggleMusicRightTab(adaptive: false);
+
+    /// <summary>View › Adaptive (A): the right panel's Adaptive tab (sections, parameters, layers, transitions); again hides it.</summary>
+    internal void ToggleMusicAdaptive() => ToggleMusicRightTab(adaptive: true);
+
+    private void ToggleMusicRightTab(bool adaptive)
     {
-        Layout.SetMusicShowBrowser(!Layout.Settings.MusicShowBrowser);
+        var settings = Layout.Settings;
+        if (settings.MusicShowBrowser && settings.MusicAdaptiveTab == adaptive)
+        {
+            Layout.SetMusicShowBrowser(false);
+        }
+        else
+        {
+            Layout.SetMusicShowBrowser(true);
+            Layout.SetMusicAdaptiveTab(adaptive);
+        }
+
+        SaveLayout();
+    }
+
+    /// <summary>Shows the right panel on <paramref name="adaptive"/>'s tab (a click on the tab strip).</summary>
+    internal void ShowMusicRightTab(bool adaptive)
+    {
+        Layout.SetMusicShowBrowser(true);
+        Layout.SetMusicAdaptiveTab(adaptive);
         SaveLayout();
     }
 
@@ -924,8 +950,8 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>
     /// Music mode's command for a key with modifiers, or null: Cmd/Ctrl+N new song, +O open song, +S save, +Shift+S save
-    /// as, +W close, +Q quit, +Z undo, +Shift+Z or +Y redo, +E render; P piano roll, X mixer (again: hide the pane), M mute
-    /// and S solo the selected track (as in Logic); F1 the docs. Space, R, L, Home, Delete, Cmd+C/V/D, the arrows and Q are
+    /// as, +W close, +Q quit, +Z undo, +Shift+Z or +Y redo, +E render, +B bake; P piano roll, X mixer (again: hide the pane), M mute
+    /// and S solo the selected track (as in Logic), F Browser, A Adaptive, T fire the selected stinger; F1 the docs. Space, R, L, Home, Delete, Cmd+C/V/D, the arrows and Q are
     /// the song tab's own keys (<see cref="SongView.HandleKey"/>), taken first.
     /// </summary>
     public static string? MusicShortcutFor(Key key, EditorModifiers modifiers)
@@ -955,6 +981,8 @@ public sealed partial class EditorWorkspace : Node
             Key.P when modifiers == EditorModifiers.None => "song.piano_roll",
             Key.X when modifiers == EditorModifiers.None => "song.mixer",
             Key.F when modifiers == EditorModifiers.None => "music.browser",
+            Key.A when modifiers == EditorModifiers.None => "music.adaptive",
+            Key.T when modifiers == EditorModifiers.None => "song.fire_stinger",
             Key.M when modifiers == EditorModifiers.None => "song.mute_track",
             Key.S when modifiers == EditorModifiers.None => "song.solo_track",
             Key.F1 when (modifiers & EditorModifiers.Alt) == 0 => "help.docs",
