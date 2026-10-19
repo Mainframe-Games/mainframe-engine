@@ -73,5 +73,13 @@ public sealed class DebugDrawTests
         h2.AddBox(new Vector2(0, -100));
         h2.Run(1);
         Assert.Equal(8, h2.Tree.Root.DebugLines.LineCount); // two rectangles
+
+        // A joint adds its anchors (two circles) and the line between them.
+        var pin = new PinJoint2D { Name = "Pin", Position = new Vector2(0, -150) };
+        h2.Add(pin);
+        pin.NodeB = "../Box";
+        h2.Tree.Root.DebugLines.Clear(); // the renderer clears it each frame; headless, the test does
+        h2.Run(1);
+        Assert.Equal(8 + 1 + 2 * 25, h2.Tree.Root.DebugLines.LineCount); // circles: 24 segments and a radius line
     }
 }

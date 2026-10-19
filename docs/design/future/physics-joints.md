@@ -1,6 +1,7 @@
 # Proposal: Physics joints and ragdolls
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G9) · **Status:** ⬜ planned ·
+**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G9) · **Status:** 🚧 the 2D pin and damped
+spring joints shipped ([ADR 0201](../../../memory/decisions/0201-2d-joints-on-box2d.md), [Physics → 2D joints](../physics.md#2d-joints-adr-0201)) ·
 **Depends on:** [M6 physics](../physics.md) (bodies, spaces, signals), [M10 editor](../editor.md) (viewport, inspector,
 undo), [Keyframe animation](keyframe-animation.md) G1b (`Skeleton3D`; only for `PhysicalBone3D`) · **Related:**
 [Editor viewport tools](editor-viewport-tools.md) (G7.3 handles for limits), [Animation authoring](animation-authoring.md)

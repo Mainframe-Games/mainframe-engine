@@ -27,6 +27,21 @@ public sealed class Physics2DAllocationTests
         var entered = 0;
         area.BodyEntered += _ => entered++;
         var pickup = h.AddArea(new Vector2(200, -100), new Vector2(50, 50), "Pickup"); // area-vs-area every step
+        // A swinging chain of pins from the world and a spring on its end (joints: creation, debug draw, events).
+        for (var i = 0; i < 8; i++)
+        {
+            h.AddBox(new Vector2(-3000 + (i + 1) * 30, -800), 20, $"Link{i}");
+            var pin = new PinJoint2D { Name = $"Pin{i}", Position = new Vector2(-3000 + i * 30 + 15, -800) };
+            h.Add(pin);
+            pin.NodeA = i == 0 ? default(NodePath) : $"../Link{i - 1}";
+            pin.NodeB = $"../Link{i}";
+        }
+
+        h.AddBox(new Vector2(-2730, -800), 20, "Bob");
+        var spring = new DampedSpringJoint2D { Name = "Spring", Position = new Vector2(-2760, -800), Rotation = -MathF.PI / 2, Length = 60 };
+        h.Add(spring);
+        spring.NodeA = "../Link7";
+        spring.NodeB = "../Bob";
         area.AreaEntered += _ => entered++;
         pickup.AreaEntered += _ => entered++;
         for (var i = 0; i < 4; i++)

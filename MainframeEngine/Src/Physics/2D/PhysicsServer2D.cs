@@ -113,7 +113,11 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
 
     public PhysicsSpace2D? FindSpace(World2D world) => _spaces.GetValueOrDefault(world);
 
-    internal void AddObject(CollisionObject2D node)
+    internal void AddObject(CollisionObject2D node) => SpaceOf(node).AddObject(node);
+
+    internal JointRecord2D AddJoint(Joint2D node) => SpaceOf(node).AddJoint(node);
+
+    private PhysicsSpace2D SpaceOf(Node2D node)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var viewport = node.GetViewport() ?? throw new InvalidOperationException($"'{node.Name}' is not inside a viewport.");
@@ -124,7 +128,7 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
             _spaceList.Add(space);
         }
 
-        space.AddObject(node);
+        return space;
     }
 
     // Index loops: a signal handler may add the first body of another viewport (a new space) mid-step.
