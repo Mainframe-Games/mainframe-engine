@@ -112,16 +112,17 @@ public abstract class Material : Resource
 /// The pipeline-relevant state of a material: part of the pipeline-cache key, so every material with equal state
 /// shares one <c>VkPipeline</c>.
 /// </summary>
-public readonly record struct MaterialRenderState(AlphaMode Alpha, CullMode Cull, bool DoubleSided)
+/// <param name="NoDepthTest">Drawn over everything before it (Godot's <c>no_depth_test</c>): see <see cref="StandardMaterial3D.NoDepthTest"/>.</param>
+public readonly record struct MaterialRenderState(AlphaMode Alpha, CullMode Cull, bool DoubleSided, bool NoDepthTest = false)
 {
     /// <summary>The cull mode actually used: double-sided materials cull nothing.</summary>
     public CullMode EffectiveCull => DoubleSided ? CullMode.Disabled : Cull;
 
-    /// <summary>Blended materials do not write depth.</summary>
-    public bool DepthWrite => Alpha != AlphaMode.Blend;
+    /// <summary>Blended and no-depth-test materials do not write depth.</summary>
+    public bool DepthWrite => Alpha != AlphaMode.Blend && !NoDepthTest;
 
-    /// <summary>Blended materials are drawn in the transparent pass, back to front.</summary>
-    public bool IsTransparent => Alpha == AlphaMode.Blend;
+    /// <summary>Blended and no-depth-test materials are drawn in the transparent pass, back to front.</summary>
+    public bool IsTransparent => Alpha == AlphaMode.Blend || NoDepthTest;
 
     /// <summary>Whether instances cast shadows (blended surfaces do not).</summary>
     public bool CastsShadows => Alpha != AlphaMode.Blend;
@@ -327,6 +328,23 @@ public sealed class StandardMaterial3D : Material
         }
     }
 
+    /// <summary>
+    /// Draws over whatever was drawn before it, ignoring depth (Godot's <c>no_depth_test</c>): the surface joins the
+    /// transparent pass (sorted by <see cref="Material.RenderPriority"/>, then back to front) and writes no depth. Name
+    /// tags and markers that must stay visible use it. The object-ID pass still depth-tests it.
+    /// </summary>
+    [Export]
+    public bool NoDepthTest
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
     /// <summary>Alpha below which <see cref="AlphaMode.Cutout"/> discards.</summary>
     [Export(Range = "0,1,0.01")]
     public float AlphaCutoff
@@ -435,7 +453,7 @@ public sealed class StandardMaterial3D : Material
         }
     }
 
-    public override MaterialRenderState RenderState => new(Transparency, CullMode, DoubleSided);
+    public override MaterialRenderState RenderState => new(Transparency, CullMode, DoubleSided, NoDepthTest);
 }
 
 /// <summary>

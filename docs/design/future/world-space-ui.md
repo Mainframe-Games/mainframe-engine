@@ -1,6 +1,8 @@
 # Proposal: World-space UI and 3D text
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G11) · **Status:** ⬜ planned ·
+**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G11) · **Status:** 🚧 a first slice shipped
+([ADR 0200](../../../memory/decisions/0200-label3d-first-slice.md): `Camera3D.UnprojectPosition`/`IsPositionBehind` and a
+single-line `Label3D` on the mesh batcher; see [What shipped](#what-shipped-adr-0200)) ·
 **Depends on:** [M8 game UI](../game-ui.md) (RmlUi, `VulkanUiRenderer`), [canvas text](../canvas.md#text-adr-0118)
 (ADR 0118: `Font`), [M6 physics](../physics.md) (occlusion and line-of-sight rays) · **Related:**
 [Rendering features](rendering-features.md) (G6.3 billboards), [Localization](../localization.md),
@@ -55,6 +57,29 @@ the UI server sees final positions. `RenderServer.RenderOffscreen` runs before t
 (`MainframeEngine/Src/Core/Engine.cs:559-562`), which is the slot panels need. `DrawWorld` draws non-batched visuals
 around the opaque batch by `RenderPriority`, then the transparent batch (`Servers/RenderServer.cs:890-925`). Lit
 shaders fog through `applyFog` (`MainframeEngine/Assets/Shaders/include/fog.slang:43`).
+
+## What shipped (ADR 0200)
+
+A first slice for Buy My Snake Oil's NPC name tags (mainframe-engine#56). The Problem section below describes the
+engine before it.
+
+- `Camera3D.UnprojectPosition(worldPoint)` (plus a static overload taking an `ICamera` and a viewport size) and
+  `IsPositionBehind(worldPoint)`, with Godot's semantics. A point behind the camera projects mirrored. `IsPositionInFrustum`
+  and `GetFrustumPlanes` are not done yet.
+- `Label3D : GeometryInstance3D`, with Godot's defaults. It supports `Text` (shown through `Atr`, and rebuilt on
+  locale change), `Font` (null = the engine's Lato Latin), `FontSize`, `PixelSize`, `Modulate`, `OutlineSize`,
+  `OutlineModulate`, `OutlineRenderPriority`, `HorizontalAlignment`, `VerticalAlignment` (a new enum), `Offset`,
+  `Billboard` (the `Sprite3D` billboards, [ADR 0199](../../../memory/decisions/0199-sprite3d-billboards-on-the-cpu.md)),
+  `NoDepthTest`, `Shaded` and `DoubleSided`. It builds an `ArrayMesh` of glyph quads from `Font.Layout`, which `Font.Draw`
+  also uses: one surface per atlas page for the outline, then one per page for the text. The mesh goes through the
+  ordinary mesh batcher, so picking, billboards and culling come for free. It is rebuilt only on change.
+- `StandardMaterial3D.NoDepthTest` (Godot's `no_depth_test`) joins `MaterialRenderState` and `PipelineKey`. The surface
+  draws in the transparent pass with no depth test or writes; the object-ID pass still depth-tests it.
+
+Still to do from this proposal: the batched `Text3DRenderer` and its shader (labels are one draw per page each),
+multiple lines and autowrap, `FixedSize`, fog, alpha cut, `VisibilityRangeEnd` fading, fallback fonts, atlas uploads
+without re-creating the texture, `UiMarker3D` and `UiPanel3D`. A Godot `render_priority` for the text itself is also
+missing: `VisualInstance3D.RenderPriority` already means node order, so the text draws at material priority 0.
 
 ## Goals
 

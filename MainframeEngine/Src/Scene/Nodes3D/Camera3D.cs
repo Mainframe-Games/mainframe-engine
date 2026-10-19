@@ -107,6 +107,37 @@ public class Camera3D : Node3D, ICurrentCamera
     /// <summary>Direction of the ray through <paramref name="pixel"/> of this camera's viewport (framebuffer pixels).</summary>
     public Vector3 ProjectRayNormal(Vector2 pixel) => RayThrough(pixel).Direction;
 
+    /// <summary>
+    /// The framebuffer pixel (top-left origin) of a viewport of <paramref name="viewportSize"/> where
+    /// <paramref name="camera"/> sees <paramref name="worldPoint"/> (Godot's <c>unproject_position</c>). A point behind
+    /// the camera projects mirrored through its centre, as in Godot: check <see cref="IsPositionBehind"/> first.
+    /// </summary>
+    public static Vector2 UnprojectPosition(ICamera camera, Vector3 worldPoint, Vector2 viewportSize)
+    {
+        ArgumentNullException.ThrowIfNull(camera);
+        var clip = Vector4.Transform(new Vector4(worldPoint, 1f), camera.ViewMatrix * camera.ProjectionMatrix);
+        var w = MathF.Abs(clip.W) < 1e-6f ? MathF.CopySign(1e-6f, clip.W) : clip.W; // on the camera plane: far off, not NaN
+        var ndc = new Vector2(clip.X / w, clip.Y / w);
+        return new Vector2((ndc.X * 0.5f + 0.5f) * viewportSize.X, (0.5f - ndc.Y * 0.5f) * viewportSize.Y);
+    }
+
+    /// <summary>
+    /// The pixel of this camera's viewport (framebuffer pixels, top-left origin) where <paramref name="worldPoint"/> is
+    /// seen, e.g. to place screen-space UI over a 3D point. Check <see cref="IsPositionBehind"/> first.
+    /// </summary>
+    public Vector2 UnprojectPosition(Vector3 worldPoint)
+    {
+        var size = GetViewport()?.Size ?? Vector2.One;
+        return UnprojectPosition(SyncRenderCamera(size.X / MathF.Max(size.Y, 1f)), worldPoint, size);
+    }
+
+    /// <summary>True when <paramref name="worldPoint"/> is behind the camera's near plane (Godot's <c>is_position_behind</c>).</summary>
+    public bool IsPositionBehind(Vector3 worldPoint)
+    {
+        var global = GlobalTransform;
+        return Vector3.Dot(Vector3.Normalize(-global.Basis.Z), worldPoint - global.Origin) < Near;
+    }
+
     private (Vector3 Origin, Vector3 Direction) RayThrough(Vector2 pixel)
     {
         var size = GetViewport()?.Size ?? Vector2.One;

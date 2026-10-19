@@ -146,6 +146,8 @@ parameters: baseline position, `HorizontalAlignment` in a width, size, modulate;
 read and rasterised in managed code (`TrueTypeFont`, `GlyphRasterizer`: TrueType outlines, GPOS/kern pair kerning,
 exact-area coverage, outlines grown by `size / 4` px at 4× supersampling) into shared atlas pages per size and outline.
 Metrics follow FreeType's rounding. Unhinted, whole-pixel pen positions, no oversampling under a scaled canvas.
+Glyph placement is `Font.Layout` (one line into `GlyphQuad`s: pixel rectangle, atlas page and region), shared by
+`DrawString` and `Label3D` ([ADR 0200](../../memory/decisions/0200-label3d-first-slice.md)).
 
 ## Clip children (ADR 0119)
 
