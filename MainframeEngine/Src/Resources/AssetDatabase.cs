@@ -115,14 +115,43 @@ public sealed class AssetDatabase
             foreach (var file in Directory.EnumerateFiles(ContentDirectory, "*", SearchOption.AllDirectories))
             {
                 var name = Path.GetFileName(file);
+                if (createMissingMeta && IsStaleTemporaryMeta(file))
+                {
+                    TryDelete(file);
+                    continue;
+                }
+
                 if (name.StartsWith('.') || name.EndsWith(MetaExtension, StringComparison.OrdinalIgnoreCase)
-                                         || name.Equals(IndexFileName, StringComparison.OrdinalIgnoreCase) || IsBuildOutput(name))
+                                         || name.Equals(IndexFileName, StringComparison.OrdinalIgnoreCase) || IsBuildOutput(name)
+                                         || IsTemporary(name))
                     continue;
 
                 var uid = IsSelfDescribing(file) ? ReadEmbeddedUid(file) : ReadOrCreateMeta(file, createMissingMeta)?.Uid;
                 if (!string.IsNullOrEmpty(uid))
                     RegisterLocked(uid, ToProjectPath(file));
             }
+        }
+    }
+
+    /// <summary>
+    /// A file being written (<c>x.tmp</c>, <c>x.baking.wav.tmp</c>, <see cref="DurableFile.TempPath"/>): never an asset,
+    /// so a scan that runs while it exists (the editor's file watcher during a bake or a save) gives it no <c>.meta</c>.
+    /// </summary>
+    public static bool IsTemporary(string fileName) => fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
+
+    // A .meta left for a temporary file that is gone (written by scans before temporary files were skipped).
+    private static bool IsStaleTemporaryMeta(string path) =>
+        path.EndsWith(".tmp" + MetaExtension, StringComparison.OrdinalIgnoreCase) && !File.Exists(path[..^MetaExtension.Length]);
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning($"[Assets] Could not delete the stale '{path}': {e.Message}");
         }
     }
 

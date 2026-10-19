@@ -315,6 +315,29 @@ public sealed class SongBakeTests : IDisposable
     }
 
     [Fact]
+    public void ARescanDuringTheBakeGivesItsTemporaryFilesNoMeta()
+    {
+        // The editor rescans Content/ (creating missing .meta files) whenever its file watcher fires, which a bake's own
+        // writes trigger: here at the worst moment, while the encoder reads the temporary float WAV.
+        using var host = new FakePluginHost
+        {
+            EncodeHandler = (wav, ogg, _) =>
+            {
+                _db.Scan(createMissingMeta: true);
+                File.Copy(wav, ogg, overwrite: true);
+                return new PluginHostEncodeResult((new FileInfo(wav).Length - 44) / 8, Rate, 2);
+            },
+        };
+        Assert.True(Bake(Theme(), Options(host)).Encoded);
+        _db.Scan(createMissingMeta: true);
+
+        var files = Directory.GetFiles(_db.ToAbsolutePath(Stems)).Select(Path.GetFileName).ToList();
+        Assert.NotEmpty(files);
+        Assert.All(files, name => Assert.True(name!.EndsWith(".ogg", StringComparison.Ordinal) || name.EndsWith(".ogg.meta", StringComparison.Ordinal), name));
+        Assert.Equal(files.Count(n => n!.EndsWith(".ogg", StringComparison.Ordinal)), files.Count(n => n!.EndsWith(".ogg.meta", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void AFailedOrCancelledBakeLeavesThePreviousOneUntouched()
     {
         var encodes = 0;
