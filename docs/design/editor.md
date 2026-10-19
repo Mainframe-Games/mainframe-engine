@@ -776,10 +776,11 @@ window: no Scene tree, Inspector or FileSystem.
   with their response curves, voicing, and the editor of the selected envelope (drag the attack, decay/sustain and
   release handles), LFO (Draw turns it into a drawn shape: click adds a point, drag moves it, Alt-drag bends it,
   double-click removes it) or the macros. **Matrix**: every route (source and target menus, an amount slider, bipolar,
-  remove, Add Route). **FX**: the synth's own chain of built-in effects (bypass, open in the plugin window, reorder,
-  remove, Add Effect). Master volume and pan sit in the tab bar. Below the tabs, the **modulation strip** (Env 1–4,
+  remove, Add Route). **FX**: the synth's own chain of built-in effects on the left (drag a row's grip to reorder; bypass,
+  select, remove, Add Effect) and the selected effect's controls on the right, the same `EffectPanel` as the plugin
+  window's (the EQ curve, meters, presets, reset; open it in its own window). Master volume and pan sit in the tab bar. Below the tabs, the **modulation strip** (Env 1–4,
   LFO 1–4, velocity, note, random, macros, mod wheel, aftertouch, pitch bend, each with its route count): click one to
-  edit it, drag its handle onto a knob to modulate that knob (+25 %); a modulated knob shows a tick per route in its
+  edit it, hover it to mark the knobs it drives, drag its handle onto a knob to modulate that knob (+25 %); a modulated knob shows a tick per route in its
   source's colour and, while notes sound, a dot at its live value; Alt-drag sets the route's amount, right-click lists
   its routes (invert, bipolar, remove). A two-octave keyboard at the bottom plays the track. A MIDI keyboard's pitch
   bend, mod wheel and aftertouch reach the synth live.
@@ -821,7 +822,8 @@ window: no Scene tree, Inspector or FileSystem.
 - Tests: `Tests/MainframeEngine.Editor.Tests/Music/SongTabTests.cs` (tab, gestures → one entry each, grid math, keys) and
   `SongWorkspaceTests.cs` (panel, keys before shortcuts, save, close prompt), `MusicModeTests.cs` (the mode: layout,
   toolbar, menus, empty state, output, project switches, start-up, shortcuts); the `editor-music-empty` and
-  `editor-music-song` goldens (the latter with the allocation gate over steady music-mode frames); QA steps 13d–13g in the walkthrough
+  `editor-music-song` goldens (the latter with the allocation gate over steady music-mode frames), and the synth window's
+  `editor-synth-osc` (also with the allocation gate), `editor-synth-matrix` and `editor-synth-fx` (1440 × 900); QA steps 13d–13g in the walkthrough
   (`song` QA step: `new`, `demo`, `select`, `panel`, `play`, `stop`, `save`, `render`; `wait-for render`).
 
 ## Editor settings

@@ -64,11 +64,12 @@ public sealed class EditorSmokeRun : IEditorAutomation
     public bool SplashOnly { get; init; }
 
     /// <summary>
-    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song</c>: capture the
+    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song|synth-osc|synth-matrix|synth-fx</c>: capture the
     /// Project Manager (fixed recent projects in the temp folder, a fixed SDK line), the FileSystem panel of the project
     /// given with <c>--project</c>, video mode's empty state, a video tab over <see cref="VideoGolden"/>'s document (then
     /// measure the allocations of its steady frames), music mode's empty state without a project, or a song tab in a
-    /// project in the temp folder (then measure the allocations of steady music-mode frames), for their goldens.
+    /// project in the temp folder (then measure the allocations of steady music-mode frames), or that song's track with the
+    /// wavetable synth's window on its Osc (then the allocation gate), Matrix or FX tab, for their goldens.
     /// </summary>
     public string? Golden { get; init; }
 
@@ -335,28 +336,42 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 break;
 
             case ("music-song", 3):
+                GoldenSong(workspace);
+                workspace.Output.Clear();
+                break;
+
+            case ("synth-osc" or "synth-matrix" or "synth-fx", 3):
                 {
-                    // A project in a fixed temp folder with one song: a two-bar clip of eight notes (three selected) in a loop.
-                    workspace.Session.CloseAll();
-                    var project = Path.Combine(GoldenPaths.Root, "SongGame");
-                    if (Directory.Exists(project))
-                        Directory.Delete(project, recursive: true);
-                    new ProjectSettings { Name = "SongGame" }.Save(Directory.CreateDirectory(project).FullName);
-                    var path = Music.SongTab.CreateFile(Path.Combine(project, "Content", "Music", "Golden.msong"));
-                    var tab = workspace.Session.OpenSong(path);
+                    // The golden song's track with the wavetable synth playing a factory preset (its tables built before the
+                    // window opens), three routes, and for the FX tab an EQ and a compressor in its chain.
+                    var (tab, track) = GoldenSong(workspace);
                     var document = tab.Document;
-                    var track = document.Song.Tracks[0];
-                    var bar = document.Song.TicksPerBar;
-                    var clip = document.AddMidiClip(track, 0, bar * 2);
-                    var ppq = document.Song.Ppq;
-                    int[] pitches = [60, 64, 67, 72, 71, 67, 64, 62];
-                    var notes = new List<Music.MidiNote>();
-                    for (var i = 0; i < pitches.Length; i++)
-                        notes.Add(new Music.MidiNote { Pitch = pitches[i], Start = i * ppq, Length = ppq / 2, Velocity = 70 + i * 7 });
-                    document.AddNotes(clip, notes);
-                    document.SetLoop(true, 0, bar * 2);
-                    tab.SelectClip(track, clip);
-                    tab.SelectedNotes.AddRange(notes.GetRange(2, 3));
+                    var entry = Music.SynthPresets.All(null).Find(p => p.Name == "Evolving Pad")!;
+                    document.SetTrackInstrument(track, Music.InstrumentDescriptor.Wavetable(Music.SynthPresets.Patch(entry)));
+                    foreach (var reference in track.Instrument!.Patch!.Tables!.Values)
+                        Music.WavetableCache.Get(reference.Source, out _, reference.FrameSize);
+                    Music.WavetableCache.WaitForPending();
+                    document.AddModRoute(track, new Music.SynthModRoute { Source = "env2", Target = "f1.cutoff", Amount = 0.4f });
+                    document.AddModRoute(track, new Music.SynthModRoute { Source = "velocity", Target = "a.level", Amount = -0.2f, Bipolar = true });
+                    if (Golden == "synth-fx")
+                    {
+                        var eq = document.AddSynthFx(track, "eq");
+                        document.SetInsertParams(eq, new Dictionary<string, float>
+                        {
+                            ["lowCutOn"] = 1,
+                            ["lowCutFreq"] = 60,
+                            ["peak2Freq"] = 900,
+                            ["peak2Gain"] = 3,
+                            ["peak3Freq"] = 3000,
+                            ["peak3Gain"] = -4,
+                        }, "Golden");
+                        document.AddSynthFx(track, "compressor");
+                    }
+
+                    tab.Player.Update(document);
+                    workspace.SynthWindow.Open(tab, track);
+                    workspace.SynthWindow.ShowPage(Golden["synth-".Length..]);
+                    workspace.SynthWindow.SelectModSource(Golden == "synth-osc" ? 4 : 0);
                     workspace.Output.Clear();
                     break;
                 }
@@ -367,14 +382,14 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 break;
 
             // The timeline and song goldens then measure the managed allocations of steady video/music-mode frames (the allocation gate).
-            case ("video-timeline" or "music-song", 44):
+            case ("video-timeline" or "music-song" or "synth-osc", 44):
                 break;
-            case ("video-timeline" or "music-song", AllocationWarmup):
+            case ("video-timeline" or "music-song" or "synth-osc", AllocationWarmup):
                 _allocationStart = GC.GetAllocatedBytesForCurrentThread();
                 break;
-            case ("video-timeline" or "music-song", AllocationWarmup + AllocationFrames):
+            case ("video-timeline" or "music-song" or "synth-osc", AllocationWarmup + AllocationFrames):
                 _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
-                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady {(Golden == "music-song" ? "music" : "video")}-mode frames.");
+                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady {(Golden == "video-timeline" ? "video" : "music")}-mode frames.");
                 Next(Step.Done);
                 app.Quit(ExitCode.Ok);
                 break;
@@ -383,6 +398,32 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 app.Quit(ExitCode.Ok);
                 break;
         }
+    }
+
+    // A project in a fixed temp folder with one song: a two-bar clip of eight notes (three selected) in a loop.
+    private static (Music.SongTab Tab, Music.SongTrack Track) GoldenSong(EditorWorkspace workspace)
+    {
+        workspace.Session.CloseAll();
+        var project = Path.Combine(GoldenPaths.Root, "SongGame");
+        if (Directory.Exists(project))
+            Directory.Delete(project, recursive: true);
+        new ProjectSettings { Name = "SongGame" }.Save(Directory.CreateDirectory(project).FullName);
+        var path = Music.SongTab.CreateFile(Path.Combine(project, "Content", "Music", "Golden.msong"));
+        var tab = workspace.Session.OpenSong(path);
+        var document = tab.Document;
+        var track = document.Song.Tracks[0];
+        var bar = document.Song.TicksPerBar;
+        var clip = document.AddMidiClip(track, 0, bar * 2);
+        var ppq = document.Song.Ppq;
+        int[] pitches = [60, 64, 67, 72, 71, 67, 64, 62];
+        var notes = new List<Music.MidiNote>();
+        for (var i = 0; i < pitches.Length; i++)
+            notes.Add(new Music.MidiNote { Pitch = pitches[i], Start = i * ppq, Length = ppq / 2, Velocity = 70 + i * 7 });
+        document.AddNotes(clip, notes);
+        document.SetLoop(true, 0, bar * 2);
+        tab.SelectClip(track, clip);
+        tab.SelectedNotes.AddRange(notes.GetRange(2, 3));
+        return (tab, track);
     }
 
     private static Node3D? FindMesh(EditedScene scene, Node node)

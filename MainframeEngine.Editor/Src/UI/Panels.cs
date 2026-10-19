@@ -708,7 +708,12 @@ public sealed class ToolbarPanel : EditorDocument
             _musicUnderruns = underruns;
             var xruns = document.GetElementById("song-xruns");
             xruns.SetClass("bad", underruns > 0);
-            xruns.SetInnerRml(underruns == 1 ? "1 xrun" : string.Create(CultureInfo.InvariantCulture, $"{underruns} xruns"));
+            // Formatted on the stack: a burst of xruns while playing must not allocate.
+            Span<char> text = stackalloc char[32];
+            underruns.TryFormat(text, out var digits, provider: CultureInfo.InvariantCulture);
+            var word = underruns == 1 ? " xrun" : " xruns";
+            word.CopyTo(text[digits..]);
+            xruns.SetInnerRml(text[..(digits + word.Length)]);
         }
 
         var job = Workspace.SongView.RenderOf(tab.Document.FilePath);

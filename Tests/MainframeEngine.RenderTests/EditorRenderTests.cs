@@ -113,6 +113,40 @@ public class EditorRenderTests
     }
 
     [Fact]
+    public void SynthWindowMatchesGoldenAndAllocatesNothingWhenSteady()
+    {
+        // The music-song golden's track with the wavetable synth (a factory preset, three routes) and its window on the Osc tab
+        // (LFO 1 in the modulation editor), in a window tall enough for it; then the allocation gate over its steady frames.
+        var result = HostRunner.RunEditor(Output("editor-synth-osc"),
+            new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "--smoke-golden", "synth-osc", "--hidden", "--size", "1440x900");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Assert.True(result.MeasuredFrames > 0, "The synth-window run measured no frames.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"Steady frames with the synth window open allocated {result.AllocatedBytes} managed bytes over {result.MeasuredFrames} frames.");
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1440), Px(result, 900)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Theory]
+    [InlineData("synth-matrix")]
+    [InlineData("synth-fx")]
+    public void SynthWindowTabsMatchGoldens(string golden)
+    {
+        // The same synth on its Matrix tab (every route) and its FX tab (an EQ with its curve and a compressor in its chain).
+        var result = HostRunner.RunEditor(Output("editor-" + golden), null, "--smoke-golden", golden, "--hidden", "--size", "1440x900");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1440), Px(result, 900)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
     public void FileSystemPanelMatchesGolden()
     {
         // The template's content as a project in a fixed temp folder (no game code: nothing to build).
