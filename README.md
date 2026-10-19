@@ -164,7 +164,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
-| [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, queries, `MoveAndSlide`, interpolation, debug draw |
+| [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, 2D pin and spring joints, layers, queries, `MoveAndSlide`, interpolation, debug draw |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, loopback and simulated bad networks |

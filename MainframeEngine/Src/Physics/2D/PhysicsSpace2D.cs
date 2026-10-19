@@ -50,6 +50,9 @@ internal sealed class BodyRecord2D(CollisionObject2D node, PhysicsSpace2D space,
     /// <summary>Overlapping monitorable areas (area only), with the step they were last seen.</summary>
     public Dictionary<BodyRecord2D, long>? AreaOverlaps;
 
+    /// <summary>Joints attached to this body (ADR 0201); Box2D destroys them with it.</summary>
+    public List<JointRecord2D>? Joints;
+
     public bool IsMoving => Kind is PhysicsBodyKind.Dynamic or PhysicsBodyKind.Kinematic or PhysicsBodyKind.Character;
 
     private float Ppm => Space.PixelsPerMeter;
@@ -204,7 +207,7 @@ internal sealed class BodyRecord2D(CollisionObject2D node, PhysicsSpace2D space,
 /// Box2D.NET 3.1.654 allocates a little managed memory inside every <c>b2World_Step</c> (a step context and solver
 /// arrays); the engine's own per-step code does not allocate (ADR 0023).
 /// </remarks>
-public sealed class PhysicsSpace2D : IDisposable
+public sealed partial class PhysicsSpace2D : IDisposable
 {
     // Static callbacks: one delegate each, no per-call allocation. The context object is the space.
     private static readonly b2CustomFilterFcn CustomFilter = ShouldCollide;
@@ -369,6 +372,7 @@ public sealed class PhysicsSpace2D : IDisposable
         record.ApplyProperties();
         UpdateMembership(record);
         MarkShapesDirty(record);
+        _retryPendingJoints |= _joints.Count > 0; // a joint may be waiting for this body
     }
 
     internal void RemoveObject(BodyRecord2D record)
@@ -384,6 +388,7 @@ public sealed class PhysicsSpace2D : IDisposable
         foreach (var shape in record.Shapes)
             _shapes.Remove(Key(shape.Id));
         record.Shapes.Clear();
+        DetachJoints(record);
         if (record.HasBody && !_disposed)
             b2DestroyBody(record.Body);
         record.HasBody = false;
@@ -532,6 +537,12 @@ public sealed class PhysicsSpace2D : IDisposable
     // ------------------------------------------------------------------------------------------------------------
 
     private void Flush(bool stepping)
+    {
+        FlushBodies(stepping);
+        FlushJoints(); // after the bodies: their poses and masses are current
+    }
+
+    private void FlushBodies(bool stepping)
     {
         if (_dirty.Count == 0)
             return;
@@ -781,9 +792,11 @@ public sealed class PhysicsSpace2D : IDisposable
 
         _step++;
         PostStep();
+        ReadJointEvents();
         ScanContacts();
         ScanAreas();
         Dispatch();
+        DispatchJointBreaks();
     }
 
     private void PreStep(float delta)
@@ -1329,6 +1342,8 @@ public sealed class PhysicsSpace2D : IDisposable
                 if (node.GetChild(i) is CollisionShape2D { Disabled: false, Shape: { } shape } owner && owner.IsVisibleInTree())
                     shape.DrawDebug(lines, owner.GlobalTransform, color);
         }
+
+        DrawJointsDebug(lines);
     }
 
     public void Dispose()
@@ -1343,12 +1358,22 @@ public sealed class PhysicsSpace2D : IDisposable
             record.HasBody = false;
         }
 
+        foreach (var joint in _joints)
+        {
+            joint.Removed = true;
+            joint.HasJoint = false;
+            joint.Node.Record = null;
+        }
+
         _records.Clear();
         _moving.Clear();
         _areas.Clear();
         _monitors.Clear();
         _dirty.Clear();
         _shapes.Clear();
+        _joints.Clear();
+        _dirtyJoints.Clear();
+        _brokenJoints.Clear();
         if (ReferenceEquals(World2D.PhysicsSpace, this))
             World2D.PhysicsSpace = null;
         b2DestroyWorld(_world);
