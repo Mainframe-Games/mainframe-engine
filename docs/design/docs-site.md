@@ -161,8 +161,8 @@ order: the hero, the showcase, the audio tools, the features, the downloads and 
 - **Every feature is on the page.** A user-facing feature gets its card in `Features`, its row in the README's
   Features tables (grouped like the cards) and, when it is something you see in the editor, a screenshot captured by
   `just readme-screenshots` in the README and on this page.
-- **Showcase**, first after the hero (the eye-catching sections lead, the downloads come last): the Forest shots with
-  the first one large, the editor screenshot in a window frame, then the Demo scenes, all from `docs/images`.
+- **Showcase**, first after the hero (the eye-catching sections lead, the downloads come last): the editor screenshot
+  in a window frame, the Demo scenes, then the Forest shots with the first one large, all from `docs/images`.
   Clicking one opens it in a `<dialog>`.
 - **Motion.** Sections fade and rise into view (`[data-reveal]`, an `IntersectionObserver`); cards light up under the
   pointer. Under `prefers-reduced-motion` nothing animates and the grid is one still frame. The canvas stops drawing
