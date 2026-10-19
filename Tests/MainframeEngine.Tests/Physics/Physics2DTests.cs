@@ -137,6 +137,92 @@ public sealed class Physics2DTests : IDisposable
     }
 
     [Fact]
+    public void AreasDetectEachOtherEnteringAndLeaving()
+    {
+        var sensor = _h.AddArea(Vector2.Zero, new Vector2(100, 100), "Sensor");
+        var other = _h.AddArea(new Vector2(500, 0), new Vector2(100, 100), "Other");
+        var log = new List<string>();
+        sensor.AreaEntered += a => log.Add("sensor+" + a.Name);
+        sensor.AreaExited += a => log.Add("sensor-" + a.Name);
+        other.AreaEntered += a => log.Add("other+" + a.Name);
+        other.AreaExited += a => log.Add("other-" + a.Name);
+        sensor.BodyEntered += n => log.Add("body " + n.Name);
+        _h.Run(2);
+        Assert.Empty(log);
+
+        other.Position = new Vector2(75, 0); // shapes overlap by 25 px
+        _h.Run(1);
+        Assert.Equal(["sensor+Other", "other+Sensor"], log);
+        var overlapping = new List<Area2D>();
+        Assert.Equal(1, sensor.GetOverlappingAreas(overlapping));
+        Assert.Same(other, overlapping[0]);
+        Assert.True(sensor.OverlapsArea(other));
+        Assert.True(sensor.HasOverlappingAreas());
+        Assert.False(sensor.HasOverlappingBodies()); // areas are not bodies
+
+        other.Position = new Vector2(105, 0); // 5 px apart: inside Box2D's fat bounds, but not overlapping
+        _h.Run(1);
+        Assert.Equal(["sensor+Other", "other+Sensor", "sensor-Other", "other-Sensor"], log);
+        Assert.False(sensor.HasOverlappingAreas());
+    }
+
+    [Fact]
+    public void AreaDetectionHonoursMaskMonitoringAndMonitorable()
+    {
+        var sensor = _h.AddArea(Vector2.Zero, new Vector2(200, 200), "Sensor");
+        sensor.Monitorable = false;
+        sensor.CollisionMask = CollisionLayers.Layer(2);
+        var interactable = _h.AddArea(Vector2.Zero, new Vector2(50, 50), "Interactable");
+        interactable.Monitoring = false;
+        interactable.CollisionLayer = CollisionLayers.Layer(2);
+        var decor = _h.AddArea(new Vector2(50, 0), new Vector2(50, 50), "Decor");
+        var log = new List<string>();
+        foreach (var area in new[] { sensor, interactable, decor })
+        {
+            var name = area.Name;
+            area.AreaEntered += a => log.Add($"{name}+{a.Name}");
+            area.AreaExited += a => log.Add($"{name}-{a.Name}");
+        }
+
+        _h.Run(1);
+        Assert.Equal(["Sensor+Interactable"], log);
+
+        interactable.Monitorable = false;
+        _h.Run(1);
+        Assert.Equal(["Sensor+Interactable", "Sensor-Interactable"], log);
+
+        interactable.Monitorable = true;
+        _h.Run(1);
+        sensor.Monitoring = false;
+        _h.Run(1);
+        Assert.Equal(["Sensor+Interactable", "Sensor-Interactable", "Sensor+Interactable", "Sensor-Interactable"], log);
+        Assert.False(sensor.HasOverlappingAreas());
+    }
+
+    [Fact]
+    public void FreeingAnAreaOrDisablingItsShapeReportsAreaExited()
+    {
+        var sensor = _h.AddArea(Vector2.Zero, new Vector2(200, 200), "Sensor");
+        var picked = _h.AddArea(new Vector2(-50, 0), new Vector2(40, 40), "Picked");
+        var gathered = _h.AddArea(new Vector2(50, 0), new Vector2(40, 40), "Gathered");
+        picked.Monitoring = gathered.Monitoring = false;
+        var log = new List<string>();
+        sensor.AreaEntered += a => log.Add("+" + a.Name);
+        sensor.AreaExited += a => log.Add("-" + a.Name);
+        _h.Run(1);
+        Assert.Equal(["+Picked", "+Gathered"], log);
+
+        picked.Free();
+        Assert.Equal(["+Picked", "+Gathered", "-Picked"], log);
+
+        ((CollisionShape2D)gathered.GetChild(0)).Disabled = true;
+        _h.Run(1);
+        Assert.Equal(["+Picked", "+Gathered", "-Picked", "-Gathered"], log);
+        _h.Run(3);
+        Assert.Equal(4, log.Count);
+    }
+
+    [Fact]
     public void RayCastHitsTheClosestBodyInPixels()
     {
         var ground = _h.AddGround();

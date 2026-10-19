@@ -47,6 +47,9 @@ internal sealed class BodyRecord2D(CollisionObject2D node, PhysicsSpace2D space,
     public float KinematicAngularVelocity;
     public Dictionary<BodyRecord2D, long>? Overlaps;
 
+    /// <summary>Overlapping monitorable areas (area only), with the step they were last seen.</summary>
+    public Dictionary<BodyRecord2D, long>? AreaOverlaps;
+
     public bool IsMoving => Kind is PhysicsBodyKind.Dynamic or PhysicsBodyKind.Kinematic or PhysicsBodyKind.Character;
 
     private float Ppm => Space.PixelsPerMeter;
@@ -208,6 +211,7 @@ public sealed class PhysicsSpace2D : IDisposable
     private static readonly b2CastResultFcn RayCallback = OnRayHit;
     private static readonly b2CastResultFcn CastCallback = OnCastHit;
     private static readonly b2OverlapResultFcn OverlapCallback = OnOverlap;
+    private static readonly b2OverlapResultFcn AreaOverlapCallback = OnAreaOverlap;
 
     private readonly B2WorldId _world;
     private readonly PhysicsSettings2D _settings;
@@ -384,6 +388,7 @@ public sealed class PhysicsSpace2D : IDisposable
             b2DestroyBody(record.Body);
         record.HasBody = false;
         record.Overlaps = null;
+        record.AreaOverlaps = null;
         EmitExitsForRemoved(record);
     }
 
@@ -392,19 +397,27 @@ public sealed class PhysicsSpace2D : IDisposable
         var count = _areas.Count + _monitors.Count;
         if (count == 0)
             return;
+        var removedArea = removed.Node as Area2D;
         var receivers = ArrayPool<BodyRecord2D>.Shared.Rent(count);
         var n = 0;
         try
         {
             foreach (var area in _areas)
-                if (area.Overlaps is { } overlaps && overlaps.Remove(removed) && !IsEnterPending(area, removed))
+                if ((removedArea is null ? area.Overlaps : area.AreaOverlaps) is { } overlaps && overlaps.Remove(removed) &&
+                    !IsEnterPending(area, removed))
                     receivers[n++] = area;
             foreach (var monitor in _monitors)
                 if (monitor.Overlaps is { } touching && touching.Remove(removed) && !IsEnterPending(monitor, removed))
                     receivers[n++] = monitor;
             for (var i = 0; i < n; i++)
-                if (!receivers[i].Removed)
+            {
+                if (receivers[i].Removed)
+                    continue;
+                if (removedArea is null)
                     receivers[i].Node.EmitBodyExited(removed.Node);
+                else
+                    ((Area2D)receivers[i].Node).EmitAreaExited(removedArea);
+            }
         }
         finally
         {
@@ -416,17 +429,18 @@ public sealed class PhysicsSpace2D : IDisposable
     private bool IsEnterPending(BodyRecord2D receiver, BodyRecord2D other)
     {
         for (var i = _dispatchIndex + 1; i < _dispatching.Count; i++)
-        {
-            var e = _dispatching[i];
-            if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered && e.Receiver == receiver && e.Other == other)
+            if (IsEnter(_dispatching[i], receiver, other))
                 return true;
-        }
 
         foreach (var e in _events)
-            if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered && e.Receiver == receiver && e.Other == other)
+            if (IsEnter(e, receiver, other))
                 return true;
         return false;
     }
+
+    private static bool IsEnter(in PhysicsEvent<BodyRecord2D> e, BodyRecord2D receiver, BodyRecord2D other) =>
+        e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered or PhysicsEventKind.AreaAreaEntered &&
+        e.Receiver == receiver && e.Other == other;
 
     internal void MarkTransformDirty(BodyRecord2D record)
     {
@@ -500,6 +514,8 @@ public sealed class PhysicsSpace2D : IDisposable
         SetMember(_monitors, record, monitor);
         if ((monitor || record.Kind == PhysicsBodyKind.Area) && record.Overlaps is null)
             record.Overlaps = new(8);
+        if (record.Kind == PhysicsBodyKind.Area && record.AreaOverlaps is null)
+            record.AreaOverlaps = new(4);
     }
 
     private static void SetMember(List<BodyRecord2D> list, BodyRecord2D record, bool member)
@@ -866,11 +882,12 @@ public sealed class PhysicsSpace2D : IDisposable
     {
         foreach (var area in _areas)
         {
-            if (area.Overlaps is not { } overlaps)
+            if (area.Overlaps is not { } overlaps || area.AreaOverlaps is not { } areaOverlaps)
                 continue;
             if (area.Node is Area2D { Monitoring: false })
             {
                 Untouch(area, overlaps, PhysicsEventKind.AreaExited, everything: true);
+                Untouch(area, areaOverlaps, PhysicsEventKind.AreaAreaExited, everything: true);
                 continue;
             }
 
@@ -889,7 +906,32 @@ public sealed class PhysicsSpace2D : IDisposable
             }
 
             Untouch(area, overlaps, PhysicsEventKind.AreaExited);
+            if (_areas.Count > 1)
+                ScanOtherAreas(area, areaOverlaps);
+            Untouch(area, areaOverlaps, PhysicsEventKind.AreaAreaExited);
         }
+    }
+
+    // Box2D sensors don't see sensors, but its shape queries do (exactly, not by bounds): one per monitoring area shape.
+    private void ScanOtherAreas(BodyRecord2D area, Dictionary<BodyRecord2D, long> overlaps)
+    {
+        if (!area.HasBody)
+            return;
+        var transform = b2Body_GetTransform(area.Body);
+        foreach (var shape in area.Shapes)
+        {
+            var proxy = shape.Geometry.MakeProxy(transform.p, transform.q);
+            _shapeScratch.Clear();
+            b2World_OverlapShape(_world, ref proxy, QueryFilter(area.Mask), AreaOverlapCallback, this);
+            foreach (var otherId in _shapeScratch)
+            {
+                if (TryGetShape(otherId, out var other) && !ReferenceEquals(other.Record, area) &&
+                    other.Record.Node is Area2D { Monitorable: true })
+                    Touch(area, overlaps, other.Record, PhysicsEventKind.AreaAreaEntered);
+            }
+        }
+
+        _shapeScratch.Clear();
     }
 
     private void Touch(BodyRecord2D receiver, Dictionary<BodyRecord2D, long> set, BodyRecord2D other, PhysicsEventKind entered)
@@ -928,8 +970,10 @@ public sealed class PhysicsSpace2D : IDisposable
                     continue;
                 // An enter is stale once its pair is gone (other body freed, monitor or area turned off). An exit is
                 // still delivered when the other body was freed after it was queued (no other exit is emitted then).
-                if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered &&
-                    (e.Other!.Removed || e.Receiver.Overlaps is not { } current || !current.ContainsKey(e.Other)))
+                if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered or PhysicsEventKind.AreaAreaEntered &&
+                    (e.Other!.Removed ||
+                     (e.Kind == PhysicsEventKind.AreaAreaEntered ? e.Receiver.AreaOverlaps : e.Receiver.Overlaps) is not { } current ||
+                     !current.ContainsKey(e.Other)))
                     continue;
                 switch (e.Kind)
                 {
@@ -940,6 +984,12 @@ public sealed class PhysicsSpace2D : IDisposable
                     case PhysicsEventKind.ContactExited:
                     case PhysicsEventKind.AreaExited:
                         e.Receiver.Node.EmitBodyExited(e.Other!.Node);
+                        break;
+                    case PhysicsEventKind.AreaAreaEntered:
+                        ((Area2D)e.Receiver.Node).EmitAreaEntered((Area2D)e.Other!.Node);
+                        break;
+                    case PhysicsEventKind.AreaAreaExited:
+                        ((Area2D)e.Receiver.Node).EmitAreaExited((Area2D)e.Other!.Node);
                         break;
                     case PhysicsEventKind.SleepChanged:
                         e.Receiver.Node.EmitSleepingStateChanged();
@@ -986,6 +1036,14 @@ public sealed class PhysicsSpace2D : IDisposable
         var space = (PhysicsSpace2D)context;
         if (space.TryGetShape(shapeId, out var shape) && shape.Record.Kind != PhysicsBodyKind.Area &&
             !ReferenceEquals(shape.Record, space._queryExclude))
+            space._shapeScratch.Add(shapeId);
+        return true;
+    }
+
+    private static bool OnAreaOverlap(B2ShapeId shapeId, object context)
+    {
+        var space = (PhysicsSpace2D)context;
+        if (space.TryGetShape(shapeId, out var shape) && shape.Record.Kind == PhysicsBodyKind.Area)
             space._shapeScratch.Add(shapeId);
         return true;
     }

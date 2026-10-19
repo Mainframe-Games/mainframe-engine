@@ -66,9 +66,11 @@ classDiagram
         +GetSlideCollision(i)
     }
     class Area3D {
-        +bool Monitoring
+        +bool Monitoring, Monitorable
         +event BodyEntered, BodyExited
+        +event AreaEntered, AreaExited
         +GetOverlappingBodies(List)
+        +GetOverlappingAreas(List)
     }
     class CollisionShape3D { +Shape3D? Shape +bool Disabled }
     CollisionObject3D <|-- PhysicsBody3D
@@ -180,8 +182,9 @@ frame (not paused):
 
 32-bit `CollisionLayer`/`CollisionMask`, Godot semantics: two bodies collide if
 `(A.layer & B.mask) != 0 || (B.layer & A.mask) != 0` (either one scanning the other's layer is enough); an area
-detects a body when `(area.mask & body.layer) != 0`; areas never detect areas
-([ADR 0021](../../memory/decisions/0021-collision-layer-semantics.md)).
+detects a body when `(area.mask & body.layer) != 0`, and another area when it is `Monitoring`, the other is
+`Monitorable` and `(area.mask & other.layer) != 0`
+([ADR 0021](../../memory/decisions/0021-collision-layer-semantics.md), [ADR 0198](../../memory/decisions/0198-areas-detect-areas.md)).
 
 - **Jitter2**: an `IBroadPhaseFilter` reads layer/mask from the shapes' `RigidBody.Tag` record. It runs on worker
   threads, so it only reads record fields (changed on the main thread between steps). Changing a layer or mask drops
@@ -189,7 +192,7 @@ detects a body when `(area.mask & body.layer) != 0`; areas never detect areas
   until they break.
 - **Box2D**: its built-in test is an AND (`(A.category & B.mask) && (B.category & A.mask)`), so every shape passes it
   (`maskBits = ~0`) and carries `layer | mask << 32` in `categoryBits`; a custom filter callback
-  (`enableCustomFiltering` on every shape) applies the OR rule, the one-way area rule and "no area-area". Queries use
+  (`enableCustomFiltering` on every shape) applies the OR rule, the one-way area rule and "no area-area" (sensors never pair; area overlaps are queried, below). Queries use
   `maskBits = collisionMask`, which matches the layer in the low 32 bits. `b2Shape_SetFilter` re-runs pairing when a
   layer changes.
 
@@ -202,19 +205,22 @@ a solver ([ADR 0022](../../memory/decisions/0022-physics-signal-dispatch.md)):
 |---|---|---|
 | `RigidBody.BodyEntered/BodyExited` (`ContactMonitor = true`) | scan the body's arbiters (`RigidBody.Contacts`) with intact contact points | `b2Body_GetContactData` (touching contacts with manifold points) |
 | `Area.BodyEntered/BodyExited` | per area: tree query of its AABB, then `NarrowPhase.Overlap` against each candidate (sees static, rigid and character bodies) | `b2Shape_GetSensorData` of the area's sensor shapes |
+| `Area.AreaEntered/AreaExited` (`Monitoring` on this area, `Monitorable` on the other) | per monitoring area: every other area's AABB (areas have no Jitter2 body, so no tree entry), then `NarrowPhase.Overlap` shape by shape | `b2World_OverlapShape` per sensor shape, keeping area shapes (Box2D queries test exactly and do see sensors; sensor events don't) |
 | `RigidBody.SleepingStateChanged` | `RigidBody.IsActive` changes | `b2Body_IsAwake` changes |
 
 - Current overlaps are diffed against the previous step's (per-receiver dictionaries stamped with the step), so
   events never depend on library begin/end callbacks (Jitter2's `EndCollide` does not fire when a body is removed or
   its contact cache cleared). Contacts that begin and end within one step are not reported.
-- **Order**: all exits (contact exits, then area exits) before all enters (contact, then area), then sleep changes;
+- **Order**: all exits (contact exits, then a body leaving an area, then an area leaving an area) before all enters
+  (in the same order), then sleep changes;
   within each group by the receiver's creation order, then the other body's. A body leaving one area for another in
   one step gets `exit` before `enter`.
 - **Disabled nodes** (ADR 0130): a body or area whose resolved `ProcessMode` is `Disabled` is out of the space —
   it neither moves, collides, signals nor shows up in queries (Godot's default `DisableMode.Remove`). It joins again,
   at its node's transform and with the velocity it had, when it is enabled; leaving counts as a removal below.
 - **Removal**: when a body leaves the tree (freed or removed), every area containing it and every monitoring body
-  touching it gets `BodyExited` immediately — unless that pair's `BodyEntered` was still queued in the same dispatch,
+  touching it gets `BodyExited` immediately (an area leaving gives `AreaExited` to the areas that saw it, which Godot
+  does not do for a freed area) — unless that pair's `BodyEntered` was still queued in the same dispatch,
   in which case neither is reported. Queued events of removed bodies are skipped, so `Free()`/`QueueFree()` inside a
   signal handler or `OnPhysicsProcess` is safe.
 
@@ -323,7 +329,7 @@ the first step after the terrain enters (and ≈ 0.65 s more over the next secon
 - **3D: zero managed allocations** in steady-state physics frames (≈ 500 bodies, contact monitors, areas,
   characters, debug draw and every query kind, single- and multi-threaded) — unit-tested, and the render-test
   allocation gate's showcase scene steps a crate stack (single-threaded: Jitter2's worker pool itself allocates 56 B
-  about once per 5 000 multi-threaded steps, so the multi-threaded unit test excludes the library's share). Per-step work is O(moving bodies + monitors + areas); sleeping
+  about once per 5 000 multi-threaded steps, so the multi-threaded unit test excludes the library's share). Per-step work is O(moving bodies + monitors + areas), plus a bounds test per (monitoring area, area) pair in 3D; sleeping
   bodies cost no pose writes.
 - **2D**: the engine's code allocates nothing, but Box2D.NET 3.1.654 allocates inside `b2World_Step` (a
   `B2StepContext` and solver arrays per step, ~350 B + per-island; [ADR 0023](../../memory/decisions/0023-box2d-step-allocations.md)).
@@ -343,8 +349,8 @@ the first step after the terrain enters (and ≈ 0.65 s more over the next secon
 ## Testing
 
 Unit tests in [`Tests/MainframeEngine.Tests/Physics/`](../../Tests/MainframeEngine.Tests/Physics/): gravity, rest and
-sleep; layer/mask semantics (incl. runtime changes on resting bodies); gravity scale and axis locks; contact, area and
-sleep signals (ordering, main thread, removal and `QueueFree` mid-dispatch); queries (rays, shape casts, overlaps,
+sleep; layer/mask semantics (incl. runtime changes on resting bodies); gravity scale and axis locks; contact, area,
+area-vs-area and sleep signals (ordering, main thread, removal and `QueueFree` mid-dispatch); queries (rays, shape casts, overlaps,
 concave/height-map shapes, every shape type with scale); `MoveAndSlide` (floor, walls, 30° slopes, steep slopes,
 ceilings, snap down a 5 cm step, recovery, pushing crates); interpolation (exact lerp, physics pose in
 `OnPhysicsProcess`, teleport, pause); serialization round-trips of every body and shape; server lifecycle; debug
@@ -354,7 +360,8 @@ draw; the fixed-step hooks; allocation gates (3D and 2D). Render tests: `physics
 
 ## Known issues
 
-- Areas don't detect other areas (Box2D 3.1 sensors don't see sensors; 3D matches); no `AreaEntered` signal yet.
+- Area-vs-area detection is a pairwise pass in 3D (O(monitoring areas × areas) bounds tests per step), fine for dozens
+  of areas; there is no per-shape `area_shape_entered`.
 - No joints, soft bodies, vehicles or ragdoll tooling; no per-shape signals (`body_shape_entered`).
 - Contacts that begin and end within one step aren't reported; `ContactMonitor` reports touching bodies, not impulses.
 - Queries ignore a query shape's scale and never report areas; 2D has no height field, and chain shapes aren't used.

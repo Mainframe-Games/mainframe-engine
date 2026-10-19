@@ -61,7 +61,7 @@ public sealed class PhysicsSerializationTests
             UpDirection = new Vector3(0, 0, 1),
         });
         Own(root, new CollisionShape3D { Name = "Body", Shape = new CapsuleShape3D() }, player);
-        Own(root, new Area3D { Name = "Trigger", Monitoring = false, CollisionMask = 0xFF });
+        Own(root, new Area3D { Name = "Trigger", Monitoring = false, Monitorable = false, CollisionMask = 0xFF });
 
         var copy = PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate();
         try
@@ -110,6 +110,7 @@ public sealed class PhysicsSerializationTests
 
             var trigger = copy.GetNode<Area3D>("Trigger");
             Assert.False(trigger.Monitoring);
+            Assert.False(trigger.Monitorable);
             Assert.Equal(0xFFu, trigger.CollisionMask);
         }
         finally
@@ -133,7 +134,7 @@ public sealed class PhysicsSerializationTests
         Own(root, new CollisionShape2D { Name = "Tri", Shape = new ConvexPolygonShape2D { Points = [new(-5, 0), new(5, 0), new(0, -8)] } }, ball);
         var player = (CharacterBody2D)Own(root, new CharacterBody2D { Name = "Player", FloorSnapLength = 4, SafeMargin = 0.5f });
         Own(root, new CollisionShape2D { Shape = new CapsuleShape2D() }, player);
-        Own(root, new Area2D { Name = "Zone", Monitoring = false });
+        Own(root, new Area2D { Name = "Zone", Monitoring = false, Monitorable = false });
 
         var json = SceneSaver.ToJson(root);
         var text = Encoding.UTF8.GetString(json);
@@ -153,6 +154,7 @@ public sealed class PhysicsSerializationTests
         Assert.Equal(3, ((ConvexPolygonShape2D)ballCopy.GetNode<CollisionShape2D>("Tri").Shape!).Points.Length);
         Assert.Equal(4, copy.GetNode<CharacterBody2D>("Player").FloorSnapLength);
         Assert.False(copy.GetNode<Area2D>("Zone").Monitoring);
+        Assert.False(copy.GetNode<Area2D>("Zone").Monitorable);
 
         // The loaded scene simulates: the ball lands on the ground.
         using var h = new PhysicsHarness2D();
@@ -182,5 +184,7 @@ public sealed class PhysicsSerializationTests
 
         Assert.Contains(TypeRegistry.Get(typeof(RigidBody3D))!.Signals, s => s.Name == "BodyEntered");
         Assert.Contains(TypeRegistry.Get(typeof(Area2D))!.Signals, s => s.Name == "BodyExited");
+        Assert.Contains(TypeRegistry.Get(typeof(Area3D))!.Signals, s => s.Name == "AreaEntered");
+        Assert.Contains(TypeRegistry.Get(typeof(Area2D))!.Signals, s => s.Name == "AreaExited");
     }
 }

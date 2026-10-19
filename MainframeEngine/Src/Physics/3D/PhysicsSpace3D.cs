@@ -37,6 +37,12 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     /// <summary>Touching bodies (contact monitor) or overlapping bodies (area), with the step they were last seen.</summary>
     public Dictionary<BodyRecord3D, long>? Overlaps;
 
+    /// <summary>Overlapping monitorable areas (area only), with the step they were last seen.</summary>
+    public Dictionary<BodyRecord3D, long>? AreaOverlaps;
+
+    /// <summary>World bounds of the area's shapes as of the current step's scan (area only).</summary>
+    public JBoundingBox AreaBounds;
+
     public bool IsMoving => Kind is PhysicsBodyKind.Dynamic or PhysicsBodyKind.Kinematic or PhysicsBodyKind.Character;
 
     // ---- state the nodes read and write --------------------------------------------------------------------------
@@ -315,15 +321,17 @@ public sealed class PhysicsSpace3D : IDisposable
 
         record.Shapes.Clear();
         record.Overlaps = null;
+        record.AreaOverlaps = null;
         EmitExitsForRemoved(record);
     }
 
-    // Areas containing the removed body and monitors touching it get BodyExited now (Godot semantics).
+    // Areas containing the removed body or area and monitors touching it get BodyExited/AreaExited now (Godot semantics).
     private void EmitExitsForRemoved(BodyRecord3D removed)
     {
         var count = _areas.Count + _monitors.Count;
         if (count == 0)
             return;
+        var removedArea = removed.Node as Area3D;
         var receivers = ArrayPool<BodyRecord3D>.Shared.Rent(count);
         var n = 0;
         try
@@ -331,14 +339,21 @@ public sealed class PhysicsSpace3D : IDisposable
             // An overlap whose "entered" signal is still queued in this dispatch was never reported: drop it silently
             // (the queued enter is skipped too), so entered/exited always pair up.
             foreach (var area in _areas)
-                if (area.Overlaps is { } overlaps && overlaps.Remove(removed) && !IsEnterPending(area, removed))
+                if ((removedArea is null ? area.Overlaps : area.AreaOverlaps) is { } overlaps && overlaps.Remove(removed) &&
+                    !IsEnterPending(area, removed))
                     receivers[n++] = area;
             foreach (var monitor in _monitors)
                 if (monitor.Overlaps is { } touching && touching.Remove(removed) && !IsEnterPending(monitor, removed))
                     receivers[n++] = monitor;
             for (var i = 0; i < n; i++)
-                if (!receivers[i].Removed)
+            {
+                if (receivers[i].Removed)
+                    continue;
+                if (removedArea is null)
                     receivers[i].Node.EmitBodyExited(removed.Node);
+                else
+                    ((Area3D)receivers[i].Node).EmitAreaExited(removedArea);
+            }
         }
         finally
         {
@@ -351,17 +366,18 @@ public sealed class PhysicsSpace3D : IDisposable
     {
         // Not yet dispatched: everything after the current dispatch index, plus anything queued and not dispatched.
         for (var i = _dispatchIndex + 1; i < _dispatching.Count; i++)
-        {
-            var e = _dispatching[i];
-            if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered && e.Receiver == receiver && e.Other == other)
+            if (IsEnter(_dispatching[i], receiver, other))
                 return true;
-        }
 
         foreach (var e in _events)
-            if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered && e.Receiver == receiver && e.Other == other)
+            if (IsEnter(e, receiver, other))
                 return true;
         return false;
     }
+
+    private static bool IsEnter(in PhysicsEvent<BodyRecord3D> e, BodyRecord3D receiver, BodyRecord3D other) =>
+        e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered or PhysicsEventKind.AreaAreaEntered &&
+        e.Receiver == receiver && e.Other == other;
 
     internal void MarkTransformDirty(BodyRecord3D record)
     {
@@ -442,6 +458,8 @@ public sealed class PhysicsSpace3D : IDisposable
         SetMember(_gravityScaled, record, scaled);
         if ((monitor || record.Kind == PhysicsBodyKind.Area) && record.Overlaps is null)
             record.Overlaps = new(8);
+        if (record.Kind == PhysicsBodyKind.Area && record.AreaOverlaps is null)
+            record.AreaOverlaps = new(4);
     }
 
     private static void SetMember(List<BodyRecord3D> list, BodyRecord3D record, bool member)
@@ -834,28 +852,34 @@ public sealed class PhysicsSpace3D : IDisposable
 
     private void ScanAreas()
     {
+        // Bounds first: every monitoring area tests the others' (areas have no Jitter2 body, so no broadphase entry).
         foreach (var area in _areas)
         {
-            if (area.Overlaps is not { } overlaps)
+            var position = area.CurrentPosition.ToJ();
+            var rotation = area.CurrentRotation.ToJ();
+            for (var i = 0; i < area.Shapes.Count; i++)
+            {
+                area.Shapes[i].CalculateBoundingBox(rotation, position, out var shapeBox);
+                area.AreaBounds = i == 0 ? shapeBox : JBoundingBox.CreateMerged(area.AreaBounds, shapeBox);
+            }
+        }
+
+        foreach (var area in _areas)
+        {
+            if (area.Overlaps is not { } overlaps || area.AreaOverlaps is not { } areaOverlaps)
                 continue;
             if (area.Node is Area3D { Monitoring: false } || area.Shapes.Count == 0)
             {
                 Untouch(area, overlaps, PhysicsEventKind.AreaExited, everything: true);
+                Untouch(area, areaOverlaps, PhysicsEventKind.AreaAreaExited, everything: true);
                 continue;
             }
 
             var position = area.CurrentPosition.ToJ();
             var rotation = area.CurrentRotation.ToJ();
-            var box = JBoundingBox.SmallBox;
-            for (var i = 0; i < area.Shapes.Count; i++)
-            {
-                area.Shapes[i].CalculateBoundingBox(rotation, position, out var shapeBox);
-                box = i == 0 ? shapeBox : JBoundingBox.CreateMerged(box, shapeBox);
-            }
-
             _proxies.Clear();
             var sink = new ProxySink(_proxies);
-            _world.DynamicTree.Query(ref sink, box);
+            _world.DynamicTree.Query(ref sink, area.AreaBounds);
             foreach (var proxy in _proxies)
             {
                 if (proxy is not RigidBodyShape { RigidBody: { } otherBody } otherShape ||
@@ -877,8 +901,36 @@ public sealed class PhysicsSpace3D : IDisposable
 
             _proxies.Clear();
             Untouch(area, overlaps, PhysicsEventKind.AreaExited);
+            ScanOtherAreas(area, areaOverlaps, position, rotation);
+            Untouch(area, areaOverlaps, PhysicsEventKind.AreaAreaExited);
         }
     }
+
+    // A pairwise pass over the space's areas: fine for the dozens a scene has (bounds reject most pairs cheaply).
+    private void ScanOtherAreas(BodyRecord3D area, Dictionary<BodyRecord3D, long> overlaps, JVector position, JQuaternion rotation)
+    {
+        foreach (var other in _areas)
+        {
+            if (ReferenceEquals(other, area) || other.Shapes.Count == 0 || other.Node is not Area3D { Monitorable: true } ||
+                (area.Mask & other.Layer) == 0 || Disjoint(area.AreaBounds, other.AreaBounds))
+                continue;
+            if (ShapesOverlap(area.Shapes, other.Shapes, rotation, other.CurrentRotation.ToJ(), position, other.CurrentPosition.ToJ()))
+                Touch(area, overlaps, other, PhysicsEventKind.AreaAreaEntered);
+        }
+    }
+
+    private static bool ShapesOverlap(List<RigidBodyShape> a, List<RigidBodyShape> b, JQuaternion rotationA, JQuaternion rotationB,
+        JVector positionA, JVector positionB)
+    {
+        foreach (var shapeA in a)
+            foreach (var shapeB in b)
+                if (NarrowPhase.Overlap(shapeA, shapeB, rotationA, rotationB, positionA, positionB))
+                    return true;
+        return false;
+    }
+
+    private static bool Disjoint(in JBoundingBox a, in JBoundingBox b) =>
+        a.Max.X < b.Min.X || b.Max.X < a.Min.X || a.Max.Y < b.Min.Y || b.Max.Y < a.Min.Y || a.Max.Z < b.Min.Z || b.Max.Z < a.Min.Z;
 
     private void Touch(BodyRecord3D receiver, Dictionary<BodyRecord3D, long> set, BodyRecord3D other, PhysicsEventKind entered)
     {
@@ -917,8 +969,10 @@ public sealed class PhysicsSpace3D : IDisposable
                     continue;
                 // An enter is stale once its pair is gone (other body freed, monitor or area turned off). An exit is
                 // still delivered when the other body was freed after it was queued (no other exit is emitted then).
-                if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered &&
-                    (e.Other!.Removed || e.Receiver.Overlaps is not { } current || !current.ContainsKey(e.Other)))
+                if (e.Kind is PhysicsEventKind.ContactEntered or PhysicsEventKind.AreaEntered or PhysicsEventKind.AreaAreaEntered &&
+                    (e.Other!.Removed ||
+                     (e.Kind == PhysicsEventKind.AreaAreaEntered ? e.Receiver.AreaOverlaps : e.Receiver.Overlaps) is not { } current ||
+                     !current.ContainsKey(e.Other)))
                     continue;
                 switch (e.Kind)
                 {
@@ -929,6 +983,12 @@ public sealed class PhysicsSpace3D : IDisposable
                     case PhysicsEventKind.ContactExited:
                     case PhysicsEventKind.AreaExited:
                         e.Receiver.Node.EmitBodyExited(e.Other!.Node);
+                        break;
+                    case PhysicsEventKind.AreaAreaEntered:
+                        ((Area3D)e.Receiver.Node).EmitAreaEntered((Area3D)e.Other!.Node);
+                        break;
+                    case PhysicsEventKind.AreaAreaExited:
+                        ((Area3D)e.Receiver.Node).EmitAreaExited((Area3D)e.Other!.Node);
                         break;
                     case PhysicsEventKind.SleepChanged:
                         e.Receiver.Node.EmitSleepingStateChanged();

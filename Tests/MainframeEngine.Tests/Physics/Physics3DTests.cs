@@ -313,6 +313,94 @@ public sealed class Physics3DTests : IDisposable
     }
 
     [Fact]
+    public void AreasDetectEachOtherEnteringAndLeaving()
+    {
+        var sensor = _h.AddArea(Vector3.Zero, new Vector3(2, 2, 2), "Sensor");
+        var other = _h.AddArea(new Vector3(10, 0, 0), new Vector3(2, 2, 2), "Other");
+        var log = new List<string>();
+        sensor.AreaEntered += a => log.Add("sensor+" + a.Name);
+        sensor.AreaExited += a => log.Add("sensor-" + a.Name);
+        other.AreaEntered += a => log.Add("other+" + a.Name);
+        other.AreaExited += a => log.Add("other-" + a.Name);
+        sensor.BodyEntered += n => log.Add("body " + n.Name);
+        _h.Run(2);
+        Assert.Empty(log);
+
+        other.Position = new Vector3(1.5f, 0, 0); // shapes overlap by half a metre
+        _h.Run(1);
+        Assert.Equal(["sensor+Other", "other+Sensor"], log);
+        var overlapping = new List<Area3D>();
+        Assert.Equal(1, sensor.GetOverlappingAreas(overlapping));
+        Assert.Same(other, overlapping[0]);
+        Assert.True(sensor.OverlapsArea(other));
+        Assert.True(sensor.HasOverlappingAreas());
+        Assert.False(sensor.HasOverlappingBodies()); // areas are not bodies
+
+        other.Position = new Vector3(2.1f, 0, 0); // bounds apart by 0.1 m
+        _h.Run(1);
+        Assert.Equal(["sensor+Other", "other+Sensor", "sensor-Other", "other-Sensor"], log);
+        Assert.False(sensor.HasOverlappingAreas());
+    }
+
+    [Fact]
+    public void AreaDetectionHonoursMaskMonitoringAndMonitorable()
+    {
+        // The player's interaction sensor: monitoring, not monitorable, scanning the interactable layer.
+        var sensor = _h.AddArea(Vector3.Zero, new Vector3(4, 4, 4), "Sensor");
+        sensor.Monitorable = false;
+        sensor.CollisionMask = CollisionLayers.Layer(2);
+        var interactable = _h.AddArea(Vector3.Zero, Vector3.One, "Interactable");
+        interactable.Monitoring = false;
+        interactable.CollisionLayer = CollisionLayers.Layer(2);
+        var decor = _h.AddArea(new Vector3(1, 0, 0), Vector3.One, "Decor"); // layer 1: not in the sensor's mask
+        var log = new List<string>();
+        foreach (var area in new[] { sensor, interactable, decor })
+        {
+            var name = area.Name;
+            area.AreaEntered += a => log.Add($"{name}+{a.Name}");
+            area.AreaExited += a => log.Add($"{name}-{a.Name}");
+        }
+
+        _h.Run(1);
+        // Decor scans layer 1: the sensor isn't monitorable and the interactable is on layer 2.
+        Assert.Equal(["Sensor+Interactable"], log);
+
+        interactable.Monitorable = false;
+        _h.Run(1);
+        Assert.Equal(["Sensor+Interactable", "Sensor-Interactable"], log);
+
+        interactable.Monitorable = true;
+        _h.Run(1);
+        sensor.Monitoring = false;
+        _h.Run(1);
+        Assert.Equal(["Sensor+Interactable", "Sensor-Interactable", "Sensor+Interactable", "Sensor-Interactable"], log);
+        Assert.False(sensor.HasOverlappingAreas());
+    }
+
+    [Fact]
+    public void FreeingAnAreaOrDisablingItsShapeReportsAreaExited()
+    {
+        var sensor = _h.AddArea(Vector3.Zero, new Vector3(4, 4, 4), "Sensor");
+        var picked = _h.AddArea(new Vector3(-1, 0, 0), Vector3.One, "Picked");
+        var gathered = _h.AddArea(new Vector3(1, 0, 0), Vector3.One, "Gathered");
+        picked.Monitoring = gathered.Monitoring = false;
+        var log = new List<string>();
+        sensor.AreaEntered += a => log.Add("+" + a.Name);
+        sensor.AreaExited += a => log.Add("-" + a.Name);
+        _h.Run(1);
+        Assert.Equal(["+Picked", "+Gathered"], log);
+
+        picked.Free(); // immediate, like a body leaving the tree
+        Assert.Equal(["+Picked", "+Gathered", "-Picked"], log);
+
+        ((CollisionShape3D)gathered.GetChild(0)).Disabled = true; // GatherNode turns its shape off once picked
+        _h.Run(1);
+        Assert.Equal(["+Picked", "+Gathered", "-Picked", "-Gathered"], log);
+        _h.Run(3);
+        Assert.Equal(4, log.Count);
+    }
+
+    [Fact]
     public void SignalsAreDispatchedExitsFirstThenEntersInCreationOrder()
     {
         var left = _h.AddArea(new Vector3(-5, 0, 0), new Vector3(2, 2, 2), "Left");
