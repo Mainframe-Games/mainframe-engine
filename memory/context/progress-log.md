@@ -801,6 +801,9 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `SynthWindow`: Osc / Matrix / FX tabs, wavetable / filter / envelope / LFO canvases, drag-to-assign modulation with
   live dots, drawn LFOs, keyboard, CPU meter; the plugin window's synth stopgap removed. Next (PR 4): embedded FX panels
   in the FX tab, render-test goldens of the window.
+- PR 4: `EffectPanel` shared by the plugin window and the synth's FX tab (EQ curve, meters, presets; drag-to-reorder
+  rows), tile hover marks, zero-allocation steady frames with the window open; goldens `editor-synth-osc` (allocation
+  gate), `-matrix`, `-fx` at 1440 × 900.
 
 ### 2026-10-18 — Adaptive music A2: the runtime (ADR 0196 accepted)
 - The design's ten open questions were decided with the recommended answers (recorded in the design's "Decided questions").

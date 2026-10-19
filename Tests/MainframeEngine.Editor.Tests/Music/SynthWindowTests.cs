@@ -230,6 +230,83 @@ public sealed class SynthWindowTests
     }
 
     [Fact]
+    public void TheFxTabEditsTheSelectedEffectInItsPanel()
+    {
+        var (editor, tab, track, window) = Open();
+        using (editor)
+        {
+            var eq = tab.Document.AddSynthFx(track, "eq");
+            var compressor = tab.Document.AddSynthFx(track, "compressor");
+            window.ShowPage("fx");
+            editor.Tick(3);
+            var document = editor.Workspace.SynthWindow.Document;
+            Assert.Same(eq, window.SelectedFx); // the first effect
+            Assert.Equal("Channel EQ", Text(editor, "sx-name"));
+            Assert.False(document.GetElementById("sx-graph").IsClassSet("hidden"));
+            Assert.True(document.GetElementById("sx-none").IsClassSet("hidden"));
+            Assert.False(document.QuerySelector(".fx-row.selected").IsNull);
+            Assert.Empty(editor.RmlMessages);
+
+            var panel = window.FxPanel;
+            var steps = tab.Document.History.Position;
+            panel.BeginKnob(EqEffect.Definition.IndexOf("peak2Gain"));
+            panel.DragKnob(25, fine: false);
+            panel.DragKnob(50, fine: false);
+            panel.EndDrag();
+            Assert.Equal(48f * 50 / 200, eq.Params!["peak2Gain"], 2);
+            Assert.Equal(steps + 1, tab.Document.History.Position); // one drag, one undo step
+            editor.Tick(1);
+            Assert.Equal("+12.0 dB", Text(editor, "fkv-" + EqEffect.Definition.IndexOf("peak2Gain")));
+
+            var graph = panel.Graph!;
+            Assert.True(graph.ViewSize.X > 100, $"the curve is laid out ({graph.ViewSize})");
+            panel.BeginBand(3); // Band 2
+            panel.DragBand(new Vector2(graph.X(3000), graph.Y(-9)));
+            panel.EndDrag();
+            Assert.InRange(eq.Params["peak2Freq"], 2950, 3050);
+            Assert.Equal(-9, eq.Params["peak2Gain"], 1);
+
+            window.FxAction(tab, track, 1, "select");
+            editor.Tick(2);
+            Assert.Same(compressor, window.SelectedFx);
+            Assert.Equal("Compressor", Text(editor, "sx-name"));
+            Assert.True(document.GetElementById("sx-graph").IsClassSet("hidden"));
+            Assert.False(document.GetElementById("sx-meter").IsClassSet("hidden"));
+
+            steps = tab.Document.History.Position;
+            window.MoveFx(1, 0); // the grip's drag: the compressor first
+            Assert.Same(compressor, track.Instrument!.Patch!.Fx![0]);
+            Assert.Equal(steps + 1, tab.Document.History.Position);
+            Assert.NotNull(tab.Player.FindBuiltin(compressor)); // its meter reads the synth's running compressor
+
+            window.FxAction(tab, track, 0, "remove");
+            window.FxAction(tab, track, 0, "remove");
+            editor.Tick(2);
+            Assert.Null(window.SelectedFx);
+            Assert.False(document.GetElementById("sx-none").IsClassSet("hidden"));
+            Assert.Empty(editor.RmlMessages);
+        }
+    }
+
+    [Fact]
+    public void HoveringASourceTileMarksTheKnobsItModulates()
+    {
+        var (editor, tab, track, window) = Open();
+        using (editor)
+        {
+            tab.Document.AddModRoute(track, new SynthModRoute { Source = "env2", Target = "f1.cutoff", Amount = 0.5f });
+            editor.Tick(2);
+            var dial = editor.Workspace.SynthWindow.Document.GetElementById("km-" + SynthParams.F1.Cutoff).Parent;
+            window.HighlightSource(SynthParams.SourceIndex("env2"));
+            Assert.True(dial.IsClassSet("source-target"));
+            window.HighlightSource(SynthParams.SourceIndex("lfo1"));
+            Assert.False(dial.IsClassSet("source-target"));
+            window.HighlightSource(-1);
+            Assert.False(dial.IsClassSet("source-target"));
+        }
+    }
+
+    [Fact]
     public void TheKeyboardPlaysTheTrackAndLeavingMusicModeCloses()
     {
         var (editor, tab, track, window) = Open();

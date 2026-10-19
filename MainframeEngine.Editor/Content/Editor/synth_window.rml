@@ -32,7 +32,8 @@
         .sw-page { display: flex; flex-direction: column; flex: 0 0 auto; padding: 6dp; }
         .sw-page.hidden, .hidden { display: none; }
         /* Matrix and FX keep the Osc page's height (the window does not jump between tabs) and scroll. */
-        #sw-page-matrix, #sw-page-fx { height: 523dp; overflow-y: auto; }
+        #sw-page-matrix { height: 523dp; overflow-y: auto; }
+        #sw-page-fx { height: 523dp; flex-direction: row; }
         .sw-row { display: flex; flex-direction: row; align-items: stretch; }
 
         .sw-panel { display: flex; flex-direction: column; margin: 3dp; padding: 4dp 6dp 6dp 6dp; background-color: #262931; border: 1dp #2f333d; border-radius: 4dp; }
@@ -42,7 +43,7 @@
         .sw-head { display: flex; flex-direction: row; align-items: center; height: 22dp; color: #c3c9d6; font-size: 11.5dp; white-space: nowrap; }
         .sw-head .grow { flex: 1 1 auto; }
         .sw-head .pw-param-name { display: none; }
-        .sw-head .pw-choice-wrap { width: auto; }
+        .sw-head .pw-choice-wrap { width: auto; margin-right: 6dp; }
         .sw-head .text-button { height: 20dp; line-height: 20dp; padding: 0dp 6dp; font-size: 10.5dp; max-width: 170dp; overflow: hidden; }
         .sw-canvas { display: block; position: relative; height: 70dp; margin: 3dp 0dp; background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; cursor: pointer; }
         .sw-canvas img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
@@ -56,6 +57,7 @@
         .knob-dial.dragging { border-color: #3b82f6; }
         .knob-dial.modulated { border-color: #a78bfa; }
         .knob-dial.drop-target { border-color: #22c55e; }
+        .knob-dial.source-target { border-color: #ffffff; background-color: #2f333d; }
         .knob-pointer { display: block; position: absolute; left: 11dp; top: 2dp; width: 2dp; height: 10dp; background-color: #e8ebf2; border-radius: 1dp;
                         transform-origin: 1dp 10dp; }
         .mod-tick { display: block; position: absolute; left: 11dp; top: -5dp; width: 2dp; height: 6dp; border-radius: 1dp; transform-origin: 1dp 17dp; }
@@ -119,11 +121,50 @@
         .sw-table-row .c-target { flex: 1 1 auto; }
         .sw-table-row .text-button { height: 20dp; line-height: 20dp; padding: 0dp 6dp; font-size: 10.5dp; }
         .sw-empty { color: #6b7488; padding: 12dp; font-size: 11.5dp; }
+        /* FX: the chain on the left (drag a row's grip to reorder), the selected effect's panel (EffectPanel) on the right. */
+        #sw-fx { display: flex; flex-direction: column; flex: 0 0 240dp; width: 240dp; overflow-y: auto; }
         .fx-row { display: flex; flex-direction: row; align-items: center; height: 26dp; padding: 0dp 4dp; margin-bottom: 2dp; background-color: #262931;
                   border: 1dp #2f333d; border-radius: 3dp; color: #d7dbe4; font-size: 11.5dp; }
-        .fx-row.bypassed { color: #6b7488; }
-        .fx-row .name { flex: 1 1 auto; margin-left: 6dp; cursor: pointer; }
+        .fx-row.selected { border-color: #3b82f6; background-color: #1e3a5f; }
+        .fx-row.bypassed .name { color: #6b7488; }
+        .fx-row.dragging { opacity: 0.5; }
+        .fx-row.drop-above { border-top: 2dp #3b82f6; }
+        .fx-row.drop-below { border-bottom: 2dp #3b82f6; }
+        .fx-row .grip { drag: drag; cursor: move; image-color: #6b7488; margin-right: 2dp; }
+        .fx-row .name { flex: 1 1 auto; margin-left: 6dp; cursor: pointer; white-space: nowrap; overflow: hidden; }
         .fx-row button.tool-button.small { margin-left: 2dp; }
+        button.tool-button.small.pw-power.active { background-color: #166534; border-color: #22c55e; }
+        #sw-fx-panel { display: flex; flex-direction: column; flex: 1 1 auto; margin-left: 8dp; background-color: #262931; border: 1dp #2f333d;
+                       border-radius: 4dp; }
+        #sw-fx-panel.bypassed #sx-body, #sw-fx-panel.bypassed #sx-graph { opacity: 0.45; }
+        #sx-head { display: flex; flex-direction: row; align-items: center; height: 28dp; padding: 0dp 6dp; border-bottom: 1dp #2f333d;
+                   color: #ffffff; font-size: 12dp; font-weight: bold; white-space: nowrap; }
+        #sx-head .icon { margin-right: 6dp; image-color: #8b93a5; }
+        #sx-head .grow { flex: 1 1 auto; }
+        #sx-head button { margin-left: 4dp; }
+        #sx-head button.text-button { height: 22dp; line-height: 22dp; padding: 0dp 8dp; font-size: 11dp; font-weight: normal; }
+        #sx-graph { display: block; position: relative; flex: 0 0 auto; margin: 8dp 8dp 0dp 8dp; height: 160dp; background-color: #15171c;
+                    border: 1dp #2f333d; border-radius: 3dp; drag: drag; cursor: crosshair; }
+        #sx-graph img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
+        #sx-meter { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin: 8dp 8dp 0dp 8dp; height: 18dp; color: #8b93a5; font-size: 11dp; }
+        #sx-meter-label { width: 96dp; }
+        #sx-meter-bar { display: block; position: relative; flex: 1 1 auto; height: 8dp; background-color: #121418; border: 1dp #2f333d; }
+        #sx-meter-fill { display: block; position: absolute; right: 0dp; top: 0dp; height: 100%; width: 0%; background-color: #f59e0b; }
+        #sx-meter-db { width: 64dp; text-align: right; color: #d7dbe4; }
+        #sx-readout { display: block; flex: 0 0 auto; margin: 8dp 8dp 0dp 8dp; padding: 6dp 8dp; background-color: #15171c; border: 1dp #2f333d;
+                      border-radius: 3dp; color: #d7dbe4; font-size: 12dp; }
+        #sx-body { display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; flex: 1 1 auto; padding: 4dp;
+                   overflow-y: auto; }
+        #sx-graph.hidden, #sx-meter.hidden, #sx-readout.hidden, #sx-presets.hidden, #sw-fx-panel.hidden, #sx-none.hidden { display: none; }
+        #sx-none { flex: 1 1 auto; margin-left: 8dp; }
+        .pw-section { display: flex; flex-direction: column; align-items: center; margin: 3dp; padding: 4dp 4dp 6dp 4dp; background-color: #20232a;
+                      border: 1dp #2f333d; border-radius: 4dp; }
+        .pw-section.band { width: 58dp; }
+        .pw-section-title { display: flex; flex-direction: row; align-items: center; height: 16dp; color: #a3abbd; font-size: 10dp; white-space: nowrap;
+                            margin-bottom: 2dp; }
+        .pw-section-title .swatch { display: block; width: 8dp; height: 8dp; border-radius: 4dp; margin-right: 4dp; }
+        .pw-knobs { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; }
+        .pw-section.band .pw-knobs { flex-direction: column; align-items: center; }
     </style>
 </head>
 <body class="synth-doc">
@@ -180,7 +221,24 @@
         </div>
 
         <div class="sw-page hidden" id="sw-page-matrix"><div class="sw-table" id="sw-matrix"></div></div>
-        <div class="sw-page hidden" id="sw-page-fx"><div id="sw-fx"></div></div>
+        <div class="sw-page hidden" id="sw-page-fx">
+            <div id="sw-fx"></div>
+            <div id="sw-fx-panel" class="hidden">
+                <div id="sx-head">
+                    <span id="sx-icon" class="icon icon-sm icon-adjustments-horizontal"></span>
+                    <span id="sx-name" class="grow">Effect</span>
+                    <button id="sx-power" class="tool-button small pw-power active" data-tooltip="Bypass — off passes the sound through unchanged (crossfaded)"><span class="icon icon-sm icon-plug-connected"></span></button>
+                    <button id="sx-presets" class="text-button" data-tooltip="Presets — starting points for this effect">Presets</button>
+                    <button id="sx-reset" class="tool-button small" data-tooltip="Reset — every parameter to its default (one undo step)"><span class="icon icon-sm icon-refresh"></span></button>
+                    <button id="sx-open" class="tool-button small" data-tooltip="Open the effect in its own window"><span class="icon icon-sm icon-app-window"></span></button>
+                </div>
+                <div id="sx-graph" class="hidden" data-tooltip="Drag a handle: frequency and gain · wheel: Q · double-click: band on/off"><img id="sx-graph-image"/></div>
+                <div id="sx-meter" class="hidden"><span id="sx-meter-label">Gain reduction</span><div id="sx-meter-bar"><div id="sx-meter-fill"></div></div><span id="sx-meter-db" class="mono">0.0 dB</span></div>
+                <div id="sx-readout" class="hidden"></div>
+                <div id="sx-body"></div>
+            </div>
+            <div id="sx-none" class="sw-empty">Add an effect to the synth's chain, then select it to edit it here.</div>
+        </div>
 
         <div id="sw-strip"></div>
         <div id="sw-keys">

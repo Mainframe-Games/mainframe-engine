@@ -64,12 +64,13 @@ public sealed class EditorSmokeRun : IEditorAutomation
     public bool SplashOnly { get; init; }
 
     /// <summary>
-    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song|music-adaptive</c>: capture the
+    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song|music-adaptive|synth-osc|synth-matrix|synth-fx</c>: capture the
     /// Project Manager (fixed recent projects in the temp folder, a fixed SDK line), the FileSystem panel of the project
     /// given with <c>--project</c>, video mode's empty state, a video tab over <see cref="VideoGolden"/>'s document (then
     /// measure the allocations of its steady frames), music mode's empty state without a project, or a song tab in a
-    /// project in the temp folder (then measure the allocations of steady music-mode frames), or that song made adaptive with
-    /// the Adaptive tab open (then the allocation gate too), for their goldens.
+    /// project in the temp folder (then measure the allocations of steady music-mode frames), that song made adaptive with the
+    /// Adaptive tab open (then the allocation gate too), or that song's track with the
+    /// wavetable synth's window on its Osc (then the allocation gate), Matrix or FX tab, for their goldens.
     /// </summary>
     public string? Golden { get; init; }
 
@@ -354,18 +355,54 @@ public sealed class EditorSmokeRun : IEditorAutomation
                     break;
                 }
 
+            case ("synth-osc" or "synth-matrix" or "synth-fx", 3):
+                {
+                    // The golden song's track with the wavetable synth playing a factory preset (its tables built before the
+                    // window opens), three routes, and for the FX tab an EQ and a compressor in its chain.
+                    var (tab, track) = GoldenSong(workspace);
+                    var document = tab.Document;
+                    var entry = Music.SynthPresets.All(null).Find(p => p.Name == "Evolving Pad")!;
+                    document.SetTrackInstrument(track, Music.InstrumentDescriptor.Wavetable(Music.SynthPresets.Patch(entry)));
+                    foreach (var reference in track.Instrument!.Patch!.Tables!.Values)
+                        Music.WavetableCache.Get(reference.Source, out _, reference.FrameSize);
+                    Music.WavetableCache.WaitForPending();
+                    document.AddModRoute(track, new Music.SynthModRoute { Source = "env2", Target = "f1.cutoff", Amount = 0.4f });
+                    document.AddModRoute(track, new Music.SynthModRoute { Source = "velocity", Target = "a.level", Amount = -0.2f, Bipolar = true });
+                    if (Golden == "synth-fx")
+                    {
+                        var eq = document.AddSynthFx(track, "eq");
+                        document.SetInsertParams(eq, new Dictionary<string, float>
+                        {
+                            ["lowCutOn"] = 1,
+                            ["lowCutFreq"] = 60,
+                            ["peak2Freq"] = 900,
+                            ["peak2Gain"] = 3,
+                            ["peak3Freq"] = 3000,
+                            ["peak3Gain"] = -4,
+                        }, "Golden");
+                        document.AddSynthFx(track, "compressor");
+                    }
+
+                    tab.Player.Update(document);
+                    workspace.SynthWindow.Open(tab, track);
+                    workspace.SynthWindow.ShowPage(Golden["synth-".Length..]);
+                    workspace.SynthWindow.SelectModSource(Golden == "synth-osc" ? 4 : 0);
+                    workspace.Output.Clear();
+                    break;
+                }
+
             case (_, 40):
                 _captureFrame = _frame;
                 app.CaptureFrame();
                 break;
 
             // The timeline and song goldens then measure the managed allocations of steady video/music-mode frames (the allocation gate).
-            case ("video-timeline" or "music-song" or "music-adaptive", 44):
+            case ("video-timeline" or "music-song" or "music-adaptive" or "synth-osc", 44):
                 break;
-            case ("video-timeline" or "music-song" or "music-adaptive", AllocationWarmup):
+            case ("video-timeline" or "music-song" or "music-adaptive" or "synth-osc", AllocationWarmup):
                 _allocationStart = GC.GetAllocatedBytesForCurrentThread();
                 break;
-            case ("video-timeline" or "music-song" or "music-adaptive", AllocationWarmup + AllocationFrames):
+            case ("video-timeline" or "music-song" or "music-adaptive" or "synth-osc", AllocationWarmup + AllocationFrames):
                 _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
                 Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady {(Golden == "video-timeline" ? "video" : "music")}-mode frames.");
                 Next(Step.Done);

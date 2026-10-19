@@ -673,9 +673,33 @@ Differences from the proposal above:
   each).
 - **Matrix:** no aux source or aux amount columns, no sorting by section, and clicking a target does not flash its knob.
 - **FX tab:** a list (bypass, name, move up/down, remove, Add Effect); a click on the name opens the effect in the
-  plugin window instead of an embedded panel (PR 4).
+  plugin window instead of an embedded panel (PR 4 embeds it).
 - **QA:** `song synth-page`, `song synth-preset`, `song synth-route`, `song synth-fx` and `song synth-close`; the README's
   `editor-song-synth.png` and the walkthrough's `13e4`/`13e5` captures. Render-test goldens of the window are PR 4.
+
+## As built: PR 4 (FX panels, goldens)
+
+- **`EffectPanel`** (`Src/UI/EffectPanel.cs`) is a built-in effect's controls, factored out of the plugin window: the
+  knobs, toggles and menus (`KnobMarkup`, shared with the synth window's own knobs), the Channel EQ's curve with its band
+  handles in a sub-viewport sized from its element, the gain-reduction meter, the delay readout, presets and reset, and
+  the gestures (a knob or handle drag is one undo step). `PluginWindow` is now its title bar around one panel (`pw-*`
+  elements, texture `plugin-graph`); the synth window's FX tab holds another (`sx-*`, knob ids `fk*-i`, texture
+  `synth-fx-graph`).
+- **FX tab:** the chain on the left (a grip to drag a row to its new place, bypass, the name selects it, remove, Add
+  Effect, which selects the new effect) and the selected effect's panel on the right with its own header (bypass,
+  Presets, Reset, open it in the plugin window). `SongPlayer.FindBuiltin` also finds a synth's running effects
+  (`WavetableSynth.FindEffect`), so their meters move in either window.
+- **Polish:** hovering a strip tile marks the knobs that source modulates; the oscillators' On toggles have room before
+  their titles.
+- **Steady frames allocate nothing** with the window open: route and FX changes are detected by hash, table lookups and
+  labels only when an oscillator's source, frame size or the table cache changes, the CPU readout only when the voice
+  count or load changes (silent: "0 voices").
+- **Goldens:** `editor-synth-osc` (with the allocation gate), `editor-synth-matrix` and `editor-synth-fx`
+  (`--smoke-golden synth-*`, 1440 × 900: the window is taller than 720), both drivers. The toolbar's xrun count can differ between runs on
+  a slow machine (lavapipe in emulation counts a few while the synth's effects warm up); it is a few hundred pixels,
+  well inside the comparison's 0.5 %. Formatting that count no longer allocates (it showed up in the allocation gate).
+
+Still open: the modified mark, a user-wide preset library, routes into FX parameters (open questions below).
 
 ## Open questions
 

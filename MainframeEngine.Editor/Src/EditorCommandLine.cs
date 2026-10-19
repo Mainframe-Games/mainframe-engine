@@ -8,7 +8,7 @@ public static class EditorCommandLine
 {
     public const string Usage =
         "Usage: MainframeEngine.Editor [scene.mscene | project folder | project.mfproj] [--project <folder>] [--project-manager] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
-        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song|music-adaptive] [--no-validation]] | --validate-demo-zip <zip> [--build [--engine <checkout>]] | --render-song <path.msong> | --bake-song <path.msong>";
+        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song|music-adaptive|synth-osc|synth-matrix|synth-fx] [--no-validation]] | --validate-demo-zip <zip> [--build [--engine <checkout>]] | --render-song <path.msong> | --bake-song <path.msong>";
 
     public static EditorAppOptions Parse(IReadOnlyList<string> args)
     {
@@ -81,8 +81,11 @@ public static class EditorCommandLine
                         "music-empty" => "music-empty",
                         "music-song" => "music-song",
                         "music-adaptive" => "music-adaptive",
+                        "synth-osc" => "synth-osc",
+                        "synth-matrix" => "synth-matrix",
+                        "synth-fx" => "synth-fx",
                         var other => throw new ArgumentException(
-                            $"Unknown --smoke-golden '{other}' (project-manager, filesystem, video-empty, video-timeline, music-empty, music-song, music-adaptive)."),
+                            $"Unknown --smoke-golden '{other}' (project-manager, filesystem, video-empty, video-timeline, music-empty, music-song, music-adaptive, synth-osc, synth-matrix, synth-fx)."),
                     };
                     break;
                 case "--smoke-splash":
