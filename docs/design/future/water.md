@@ -33,7 +33,7 @@ What a water feature would build on is partial:
 - **The sky does not reflect.** Sky images are 8-bit with one mip ([sky.md](../sky.md#gpu-resources)); IBL arrives
   with G6.2.
 - **Shader inputs.** The frame set carries time (`frame.clip.z`) and a `linearizeDepth` helper
-  (`MainframeEngine/Content/Shaders/include/frame.slang:17`, `:23`). The vertex is a fixed 32 B
+  (`MainframeEngine/Assets/Shaders/include/frame.slang:17`, `:23`). The vertex is a fixed 32 B
   (`MainframeEngine/Src/Rendering/Meshes/MeshVertex.cs:13`), so per-vertex water data waits for G8a's optional
   `MeshSurface.Custom0` stream.
 - **Gameplay and audio.** `CharacterBody3D.Velocity` (`MainframeEngine/Src/Physics/3D/CharacterBody3D.cs:40`) and
@@ -500,8 +500,8 @@ games (edit mode is silent).
 | G8a's terrain folder | `TerrainWaterMesh`, the water settings' `WaterMaterial` |
 | `MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs` | the material and its GPU parameters |
 | `MainframeEngine/Src/Rendering/Water/` | `SceneTextures`, `MipChainTarget`, `WaterTextures` (procedural defaults) |
-| `MainframeEngine/Content/Shaders/Water/` | `Water.vk.vert.slang`, `Water.vk.frag.slang`, `SceneColorDownsample.vk.frag.slang` |
-| `MainframeEngine/Content/Shaders/include/` | `water.slang` (flow, absorption, foam, SSR), `scene_textures.slang` (set 3) |
+| `MainframeEngine/Assets/Shaders/Water/` | `Water.vk.vert.slang`, `Water.vk.frag.slang`, `SceneColorDownsample.vk.frag.slang` |
+| `MainframeEngine/Assets/Shaders/include/` | `water.slang` (flow, absorption, foam, SSR), `scene_textures.slang` (set 3) |
 | `MainframeEngine.Editor/Src/Water/` | `River3DTool`, the River3D inspector section (Carve, Re-carve, Uncarve) |
 
 Shaders compile through the Slang build (ADR 0144); `just shaders` refreshes the `.spv` files and `shaders.lock`.

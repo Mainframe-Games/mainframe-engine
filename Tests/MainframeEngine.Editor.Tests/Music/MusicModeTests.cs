@@ -37,7 +37,7 @@ public sealed class MusicModeTests : IDisposable
 
     private SongTab OpenSong(string name = "Theme")
     {
-        var path = SongTab.CreateFile(_project.Abs($"Content/Music/{name}.msong"));
+        var path = SongTab.CreateFile(_project.Abs($"Assets/Music/{name}.msong"));
         W.Commands.OpenSong(path);
         _editor.Tick(3);
         return Assert.IsType<SongTab>(W.Session.ActiveTab);
@@ -181,9 +181,9 @@ public sealed class MusicModeTests : IDisposable
     [Fact]
     public void WithoutASongTheEmptyStateListsTheProjectsSongs()
     {
-        var older = SongTab.CreateFile(_project.Abs("Content/Music/Older.msong"));
+        var older = SongTab.CreateFile(_project.Abs("Assets/Music/Older.msong"));
         File.SetLastWriteTimeUtc(older, DateTime.UtcNow.AddHours(-1));
-        var newer = SongTab.CreateFile(_project.Abs("Content/Music/Sub/Newer.msong"));
+        var newer = SongTab.CreateFile(_project.Abs("Assets/Music/Sub/Newer.msong"));
 
         W.SetMode(EditorMode.Music);
         _editor.Tick(3);
@@ -274,7 +274,7 @@ public sealed class MusicModeTests : IDisposable
     {
         OpenSong();
         using var other = new TestProject("Other");
-        var foreign = SongTab.CreateFile(other.Abs("Content/Music/Foreign.msong"));
+        var foreign = SongTab.CreateFile(other.Abs("Assets/Music/Foreign.msong"));
         Assert.Throws<InvalidOperationException>(() => W.Session.OpenSong(foreign));
     }
 

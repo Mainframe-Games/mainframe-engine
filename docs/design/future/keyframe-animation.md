@@ -30,7 +30,7 @@ The engine can move things over time only from code, or with Spine:
   (`asset-pipeline.md:117`; also `ModelImporter.cs:100`), and [Materials & meshes](../materials-and-meshes.md) lists no
   skinning (`materials-and-meshes.md:373`). The importer's Assimp flags have no bone handling
   (`ModelImporter.cs:213-219`). `MeshVertex` is position, normal and UV only (`MeshVertex.cs:13-21`), the mesh and
-  shadow vertex layouts have no joints or weights (`MeshVertex.cs:51-91`, `Content/Shaders/Mesh/Mesh.vk.vert:8-16`), and
+  shadow vertex layouts have no joints or weights (`MeshVertex.cs:51-91`, `Assets/Shaders/Mesh/Mesh.vk.vert:8-16`), and
   `MeshSurface` stores positions, normals, UVs and indices only (`Rendering/Resources/Mesh.cs:108-120`).
 
 What exists and helps:
@@ -46,7 +46,7 @@ What exists and helps:
   `Physics/PhysicsTypes.cs:9-13`). Moving a `StaticBody3D` teleports it (`CollisionObject3D.cs:198`).
 - The song tab on `main` (merged with the music editor) has a timeline with ruler, grid, playhead, snapping, zoom
   and drag gestures (`MainframeEngine.Editor/Src/Music/SongCanvases.cs`, `SongCanvasController.cs`, `SongGrid.cs`,
-  `SongView.cs`, `Content/Editor/song.rml`).
+  `SongView.cs`, `Assets/Editor/song.rml`).
 
 ## Goals
 
@@ -159,7 +159,7 @@ public sealed class AudioTrack : AnimationTrack                  // Path points 
 - **Why flat arrays.** Keys are parallel arrays like `MeshSurface` (`Mesh.cs:108-120`) and `Gradient`
   (`Rendering/Resources/Gradient.cs:19-22`). They serialize with the existing codecs (no new codec, no format change),
   read fast, and stay compact in JSON. Tracks are inline sub-resources in a list, like `AudioBusLayout.Buses`
-  (`Examples/Demo/Content/Settings/AudioBusLayout.mres`). The generator skips generic types, so tracks are concrete
+  (`Examples/Demo/Assets/Settings/AudioBusLayout.mres`). The generator skips generic types, so tracks are concrete
   classes; `ValueTrack` flattens any value to floats instead of one class per value type.
 - **Transform tracks have `Transitions`** too (per key, as `ValueTrack`), so eases authored in
   [Animation authoring](animation-authoring.md#baking) pose scripts and its curve view survive. `Animation` also has
@@ -425,7 +425,7 @@ Layout (see the mockup): `animation.rml` (new) holds the chrome; the timeline is
   history entries. An animation in an external `.mres` library is edited the same way and saved with the scene
   ([open question 5](#open-questions)). Imported libraries (G1b) are read-only until saved as `.mres`
   ([Editor viewport tools](editor-viewport-tools.md), G7).
-- **Icons** to add to `MainframeEngine.Editor/Content/icons/icons.txt`: `keyframe`, `keyframes`, `player-skip-back`,
+- **Icons** to add to `MainframeEngine.Editor/Assets/icons/icons.txt`: `keyframe`, `keyframes`, `player-skip-back`,
   `player-track-prev`, `repeat-off`, `vector-bezier`, `timeline`, `zoom-in`, `zoom-out`, `pin`, `books` (the `AnimationLibrary` type icon). Present already: `key`,
   `movie`, `player-play`, `player-pause`, `player-stop`, `repeat`, `magnet`, `plus`, `trash`, `filter`, `bone`.
 
@@ -516,7 +516,7 @@ G6 PBR shaders need no skinning code. This is also how Godot 4 skins.
   ([GPU resources](../gpu-resources.md)). Memory per instance: vertices × 32 B × `MaxFramesInFlight`.
 - **Batching.** Skinned instances are not instanced together (each has its own vertex buffer); each is one draw per
   surface. Many identical skinned characters are a later optimisation.
-- **Limits.** New entries in `MainframeEngine/Content/Shaders/limits.json`: `MAX_SKIN_JOINTS` (256, joints per skin;
+- **Limits.** New entries in `MainframeEngine/Assets/Shaders/limits.json`: `MAX_SKIN_JOINTS` (256, joints per skin;
   importer and `Skin` validation reject more) and `MAX_JOINT_INFLUENCES` (4, Assimp's `LimitBoneWeights` default).
 - **Bounds.** Culling uses per-bone bind-space boxes (computed once from the vertices each joint moves), transformed by
   the current pose and merged: O(bones) per skinned instance, no allocation, tight enough for shadow-caster culling.
@@ -632,7 +632,7 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
 
 8. **G1.8 Skeleton and skin.** `Skeleton3D`, `Skin`, `MeshSurface.Joints/Weights`, `MeshInstance3D.Skeleton/Skin`,
    bone tracks; unit tests.
-9. **G1.9 GPU skinning.** Compute pipelines, `Content/Shaders/Skinning/Skin.vk.comp` (+ `.spv`, `shaders.lock`), palette
+9. **G1.9 GPU skinning.** Compute pipelines, `Assets/Shaders/Skinning/Skin.vk.comp` (+ `.spv`, `shaders.lock`), palette
    ring per `FrameSlot`, per-instance output buffers, `RenderServer.SkinMeshes` in the frame, bone-box bounds,
    `limits.json`; render golden, validation and allocation gates.
 10. **G1.10 Import.** Bones → `Skeleton3D`, weights, skins, clips → `AnimationLibrary` + `AnimationPlayer`, `.meta`

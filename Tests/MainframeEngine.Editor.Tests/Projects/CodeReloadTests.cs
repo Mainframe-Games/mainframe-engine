@@ -155,11 +155,11 @@ public sealed class CodeReloadTests : IDisposable
         Directory.CreateDirectory(library);
         File.WriteAllText(Path.Combine(library, Name + ".csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
         _output = Path.Combine(library, "bin", "Debug", "net10.0");
-        var settings = new ProjectSettings { Name = Name, MainScene = "Content/Scenes/Main.mscene" };
+        var settings = new ProjectSettings { Name = Name, MainScene = "Assets/Scenes/Main.mscene" };
         settings.Assemblies.Add(Name);
         settings.Save(_project);
-        Directory.CreateDirectory(Path.Combine(_project, "Content", "Scenes"));
-        File.WriteAllText(Path.Combine(_project, "Content", "Scenes", "Main.mscene"), """
+        Directory.CreateDirectory(Path.Combine(_project, "Assets", "Scenes"));
+        File.WriteAllText(Path.Combine(_project, "Assets", "Scenes", "Main.mscene"), """
             {
               "format": 1,
               "uid": "scn_7e10ad000001",
@@ -173,7 +173,7 @@ public sealed class CodeReloadTests : IDisposable
               }
             }
             """);
-        File.WriteAllText(Path.Combine(_project, "Content", "Scenes", "Plain.mscene"), """
+        File.WriteAllText(Path.Combine(_project, "Assets", "Scenes", "Plain.mscene"), """
             { "format": 1, "uid": "scn_7e10ad000002", "root": { "type": "Node3D", "name": "Plain" } }
             """);
     }
@@ -226,7 +226,7 @@ public sealed class CodeReloadTests : IDisposable
         GameCompiler.Compile(GameV1, Name, _output);
         var editor = Open();
         var w = editor.Workspace;
-        w.Session.Open(Path.Combine(_project, "Content", "Scenes", "Plain.mscene"));
+        w.Session.Open(Path.Combine(_project, "Assets", "Scenes", "Plain.mscene"));
         var plain = SceneNamed(w, "Plain.mscene");
         plain.AddNode(new Node3D { Name = "Added" }, plain.Root);
         var plainHistory = plain.History.Actions.Count;

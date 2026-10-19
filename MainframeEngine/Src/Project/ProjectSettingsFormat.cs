@@ -17,7 +17,7 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 3;
+    public const int Current = 4;
 
     /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
     public static IReadOnlyList<ProjectMigration> Migrations { get; } =
@@ -41,7 +41,42 @@ public static class ProjectSettingsFormat
                 root["ui"] = ui = new JsonObject();
             ui["scaleMode"] ??= nameof(UiScalingMode.ConstantPixelSize);
         }),
+
+        // 3 → 4: the content folder is "Assets/", no longer "Content/" (ADR 0197). Every "Content/…" path value moves;
+        // the editor renames the folder itself (a game build only reads the file).
+        new(3, static root => UpgradeLegacyPaths(root)),
     ];
+
+    private static void UpgradeLegacyPaths(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var key in obj.Select(p => p.Key).ToArray())
+                {
+                    if (obj[key] is JsonValue value && value.TryGetValue<string>(out var text) && IsLegacyPath(text))
+                        obj[key] = ContentPaths.UpgradeLegacyPath(text);
+                    else
+                        UpgradeLegacyPaths(obj[key]);
+                }
+
+                break;
+            case JsonArray array:
+                for (var i = 0; i < array.Count; i++)
+                {
+                    if (array[i] is JsonValue value && value.TryGetValue<string>(out var text) && IsLegacyPath(text))
+                        array[i] = ContentPaths.UpgradeLegacyPath(text);
+                    else
+                        UpgradeLegacyPaths(array[i]);
+                }
+
+                break;
+        }
+    }
+
+    // A path under the folder ("Content/x"); a bare "Content" (e.g. a game named so) stays.
+    private static bool IsLegacyPath(string text) =>
+        text.Length > ContentPaths.LegacyFolderName.Length && ContentPaths.UpgradeLegacyPath(text) != text;
 
     /// <summary>Parses <paramref name="json"/> with the engine's migrations.</summary>
     public static ProjectSettings Parse(ReadOnlySpan<byte> json, string source) => Parse(json, source, Current, Migrations);

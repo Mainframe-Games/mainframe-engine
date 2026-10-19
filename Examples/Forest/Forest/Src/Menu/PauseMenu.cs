@@ -14,7 +14,7 @@ namespace Forest;
 /// </summary>
 /// <remarks>
 /// The document is generated from <see cref="ForestOptions.All"/> (<see cref="BuildRml"/>) and styled by
-/// <c>Content/UI/menu.rcss</c>. While it is open the player is disabled and the mouse is free; the world keeps running
+/// <c>Assets/UI/menu.rcss</c>. While it is open the player is disabled and the mouse is free; the world keeps running
 /// (wind, water, birds, a fly-over behind the menu). It sees input before the UI (<see cref="Node.InputBeforeUi"/>) so
 /// Escape and Start toggle it even while a slider has focus; gamepad B closes it. Closed, its layer is hidden and it does
 /// nothing per frame but check two flags: 0 B.
@@ -367,8 +367,8 @@ public sealed class PauseMenu : UiDocument
     {
         var b = new StringBuilder(32 * 1024);
         b.Append("<rml><head><title>Paused</title>")
-            .Append("<link type=\"text/rcss\" href=\"/Content/UI/widgets/widgets.rcss\"/>")
-            .Append("<link type=\"text/rcss\" href=\"/Content/UI/menu.rcss\"/>")
+            .Append("<link type=\"text/rcss\" href=\"/Assets/UI/widgets/widgets.rcss\"/>")
+            .Append("<link type=\"text/rcss\" href=\"/Assets/UI/menu.rcss\"/>")
             .Append("</head><body data-model=\"menu\"><div id=\"scrim\"></div>");
 
         // Navigation.
@@ -427,7 +427,7 @@ public sealed class PauseMenu : UiDocument
             var shot = ValleyLayout.Shots[i];
             var n = i.ToString(CultureInfo.InvariantCulture);
             b.Append("<button id=\"shot-").Append(i + 1).Append("\" class=\"shot\" data-class-on=\"shot == ").Append(n)
-                .Append("\" data-event-click=\"goshot(").Append(n).Append(")\"><img src=\"/Content/UI/shots/").Append(shot.Name)
+                .Append("\" data-event-click=\"goshot(").Append(n).Append(")\"><img src=\"/Assets/UI/shots/").Append(shot.Name)
                 .Append(".jpg\"/><div class=\"shot-caption\"><span class=\"shot-tag\">R").Append(i + 1).Append("</span><span class=\"shot-name\">")
                 .Append(Escape(ShotTitle(shot))).Append("</span></div></button>");
         }

@@ -9,17 +9,17 @@
 #                                        (a source edited without recompiling, or an uncommitted .spv)
 #   build/shaders.sh list                print the shader sources considered
 #
-# Shaders: MainframeEngine/Content/Shaders/**/*.vk.{vert,frag,comp}.slang (engine, compiled with the flags of the
+# Shaders: MainframeEngine/Assets/Shaders/**/*.vk.{vert,frag,comp}.slang (engine, compiled with the flags of the
 # MSBuild CompileShaders target in build/Shaders.targets: -target spirv -capability spirv_1_5 -matrix-layout-row-major
-# -entry main -stage <stage> -I MainframeEngine/Content/Shaders/include). The engine's shared includes
+# -entry main -stage <stage> -I MainframeEngine/Assets/Shaders/include). The engine's shared includes
 # (include/*.slang, incl. the generated limits.slang) are locked too: editing one makes every engine .spv stale until
 # recompiled.
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-LOCK="MainframeEngine/Content/Shaders/shaders.lock"
+LOCK="MainframeEngine/Assets/Shaders/shaders.lock"
 TARGET_ENV="vulkan1.2"
-ENGINE_SHADERS="MainframeEngine/Content/Shaders"
+ENGINE_SHADERS="MainframeEngine/Assets/Shaders"
 INCLUDE_DIR="$ENGINE_SHADERS/include"
 
 cd "$ROOT"

@@ -5,7 +5,7 @@ using MainframeEngine.Trees;
 namespace MainframeEngine.Tests.Trees;
 
 /// <summary>
-/// The Ez Tree reference fixture (<c>Tests/Content/Trees/ez-tree-reference.json</c>, written by
+/// The Ez Tree reference fixture (<c>Tests/Assets/Trees/ez-tree-reference.json</c>, written by
 /// <c>build/ez-tree-reference.mjs</c> from Ez Tree's own generator) and the hashes it uses.
 /// </summary>
 internal static class TreeFixture
@@ -13,7 +13,7 @@ internal static class TreeFixture
     private const uint FnvOffset = 2166136261;
 
     private static readonly Lazy<JsonDocument> Document = new(() =>
-        JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Content", "Trees", "ez-tree-reference.json"))));
+        JsonDocument.Parse(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Assets", "Trees", "ez-tree-reference.json"))));
 
     public static JsonElement Root => Document.Value.RootElement;
 

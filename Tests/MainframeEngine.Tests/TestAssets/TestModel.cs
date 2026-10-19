@@ -5,7 +5,7 @@ namespace MainframeEngine.Tests.TestAssets;
 
 /// <summary>
 /// Generates the small self-made glTF test model (CC0): <c>test_model.gltf</c> + <c>.bin</c> + <c>checker.png</c>
-/// with their <c>.meta</c> files. The committed copy lives in <c>Tests/Content/Models/TestModel</c> (the
+/// with their <c>.meta</c> files. The committed copy lives in <c>Tests/Assets/Models/TestModel</c> (the
 /// showcase fixture instances it; the render tests import it); <c>TheCommittedTestModelMatchesTheGenerator</c> keeps the two in sync.
 /// </summary>
 /// <remarks>

@@ -614,15 +614,15 @@ public sealed class AudioServerTests
                 server.ApplyBusLayout(layout);
                 Assert.Equal(6, server.Buses.Count);
                 Assert.Equal(2, server.GetBus("Reverb")!.Effects.Count);
-                server.SaveBusLayout("Content/Settings/AudioBusLayout.mres");
+                server.SaveBusLayout("Assets/Settings/AudioBusLayout.mres");
             }
 
-            Assert.True(File.Exists(Path.Combine(project, "Content", "Settings", "AudioBusLayout.mres")));
+            Assert.True(File.Exists(Path.Combine(project, "Assets", "Settings", "AudioBusLayout.mres")));
             ResourceLoader.ClearCache();
             using (var reloaded = AudioServer.Create(new AudioOptions
             {
                 Device = AudioDeviceMode.NullManual,
-                BusLayoutPath = "Content/Settings/AudioBusLayout.mres",
+                BusLayoutPath = "Assets/Settings/AudioBusLayout.mres",
             }))
             {
                 Assert.Equal(-12f, reloaded.GetBus("Music")!.VolumeDb);
@@ -680,7 +680,7 @@ public sealed class AudioServerTests
         Assert.Equal(0.5f, AudioTestUtil.Render(server, 512)[1000], 3);
         Assert.Equal(1, server.Master.ActiveVoices);
 
-        var broken = new AudioStream { File = "Content/Audio/does-not-exist.ogg" };
+        var broken = new AudioStream { File = "Assets/Audio/does-not-exist.ogg" };
         Assert.False(server.PlayOneShot(broken).IsValid);
     }
 

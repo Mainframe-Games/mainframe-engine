@@ -232,7 +232,7 @@ public sealed class SceneLoadTests : IDisposable
             };
             level.AddChild(all);
             all.Owner = level;
-            var instance = ResourceLoader.Load<PackedScene>("Content/Sub.mscene").Instantiate();
+            var instance = ResourceLoader.Load<PackedScene>("Assets/Sub.mscene").Instantiate();
             level.AddChild(instance);
             instance.Owner = level;
         });
@@ -295,7 +295,7 @@ public sealed class SceneLoadTests : IDisposable
     [Fact]
     public void AMissingSceneFails()
     {
-        var load = _tree.ChangeSceneToFileAsync("Content/Nowhere.mscene");
+        var load = _tree.ChangeSceneToFileAsync("Assets/Nowhere.mscene");
         RunToCompletion(load);
         Assert.Equal(SceneLoadStage.Failed, load.Stage);
         Assert.IsType<FileNotFoundException>(load.Error);
@@ -427,7 +427,7 @@ public sealed class SceneLoadTests : IDisposable
         loaded.Release();
         Assert.False(ResourceLoader.IsCached(uid));
 
-        using var missing = ResourceLoader.LoadThreaded<TestResource>("Content/Missing.mres");
+        using var missing = ResourceLoader.LoadThreaded<TestResource>("Assets/Missing.mres");
         Assert.Throws<FileNotFoundException>(() => missing.Result);
         Assert.Equal(ResourceLoadStatus.Failed, missing.Status);
         Assert.IsType<FileNotFoundException>(missing.Error);

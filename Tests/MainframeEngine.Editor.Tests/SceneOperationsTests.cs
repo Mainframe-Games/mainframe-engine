@@ -240,11 +240,11 @@ public sealed class SceneOperationsTests : IDisposable
         var other = Directory.CreateTempSubdirectory("mf-other-project").FullName;
         try
         {
-            Directory.CreateDirectory(Path.Combine(other, "Content"));
+            Directory.CreateDirectory(Path.Combine(other, "Assets"));
             var second = NewScene();
             Add(second, "X");
 
-            var error = Assert.Throws<InvalidOperationException>(() => _host.Session.Save(second, Path.Combine(other, "Content", "S.mscene")));
+            var error = Assert.Throws<InvalidOperationException>(() => _host.Session.Save(second, Path.Combine(other, "Assets", "S.mscene")));
             Assert.Contains("other scenes", error.Message, StringComparison.Ordinal);
             Assert.True(second.IsDirty);
             Assert.Equal(_host.ProjectDirectory, _host.Session.ProjectRoot);
@@ -252,7 +252,7 @@ public sealed class SceneOperationsTests : IDisposable
 
             // Alone, a scene may move the session to another project.
             _host.Session.Close(first);
-            _host.Session.Save(second, Path.Combine(other, "Content", "S.mscene"));
+            _host.Session.Save(second, Path.Combine(other, "Assets", "S.mscene"));
             Assert.Equal(other, _host.Session.ProjectRoot);
         }
         finally
@@ -390,9 +390,9 @@ public sealed class SceneOperationsTests : IDisposable
     [Fact]
     public void AProjectFileMarksTheProjectFolderBeforeTheContentFolderFallback()
     {
-        // <project>/Game/project.mfproj wins over <project>/Game/Assets/Content (the Content/ fallback would pick Assets).
+        // <project>/Game/project.mfproj wins over <project>/Game/Assets/Content (the Assets/ fallback would pick Assets).
         var game = Path.Combine(_host.ProjectDirectory, "Game");
-        var content = Path.Combine(game, "Assets", "Content", "Scenes");
+        var content = Path.Combine(game, "Assets", "Assets", "Scenes");
         Directory.CreateDirectory(content);
         new ProjectSettings { Name = "Discovered" }.Save(game);
         var path = Path.Combine(content, "Level.mscene");

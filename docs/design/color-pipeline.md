@@ -8,7 +8,7 @@ tonemapping so it looks exactly as authored. Implemented in
 [`VulkanRenderer.Presentation.cs`](../../MainframeEngine/Src/Rendering/Vulkan/VulkanRenderer.Presentation.cs),
 [`RenderTarget`](../../MainframeEngine/Src/Rendering/Vulkan/RenderTarget.cs),
 [`ColorSpace`](../../MainframeEngine/Src/Rendering/ColorSpace.cs) and
-[`Post/Tonemap.vk.frag.slang`](../../MainframeEngine/Content/Shaders/Post/Tonemap.vk.frag.slang). Decisions:
+[`Post/Tonemap.vk.frag.slang`](../../MainframeEngine/Assets/Shaders/Post/Tonemap.vk.frag.slang). Decisions:
 [ADR 0006](../../memory/decisions/0006-color-pipeline-aces-and-unorm-swapchain.md).
 
 Before M3 the swapchain was UNORM, lighting ran on gamma-encoded values (overlapping lights clipped to
@@ -395,7 +395,7 @@ vignette and grain cost ≈ 0.16 ms; `just forest-bench` p50 13.85 ms with the g
 lanes' GPU work was running). R5's depth of field (32 taps) did not move the `BeforeTonemap` timestamps (0.33–0.34 ms
 with it, 0.35 ms without) within their resolution on MoltenVK, which samples timestamps at encoder boundaries.
 
-**The Forest** applies `Content/Grading/forest-morning.cube` (`ForestGrade`, generated: warm white balance sparing the
+**The Forest** applies `Assets/Grading/forest-morning.cube` (`ForestGrade`, generated: warm white balance sparing the
 sky, a fitted tone curve, split toning, olive foliage, film saturation), vignette 0.2 and grain 0.015; R4 and R5 are photo
 shots with subtle depth of field ([forest.md](forest.md#the-look-forestscenecreateenvironment-the-sun-contentpostprocessmres)).
 

@@ -28,7 +28,7 @@ does that today.
   `MainframeEngine/Src/Rendering/Vulkan/VulkanRenderer.Presentation.cs:214`). A forest is mostly alpha-cut leaves and
   grass, which alias badly without it.
 - **Fixed exposure, no grading.** Exposure is one push constant
-  (`MainframeEngine/Content/Shaders/Post/TonemapPost.vk.frag.slang:123`) from `IVulkanContext.Exposure`
+  (`MainframeEngine/Assets/Shaders/Post/TonemapPost.vk.frag.slang:123`) from `IVulkanContext.Exposure`
   (`MainframeEngine/Src/Rendering/Vulkan/IVulkanContext.cs:134`); [color-pipeline.md → Known
   issues](../color-pipeline.md#known-issues) lists "No auto-exposure". Nothing follows ACES.
 - **No fog.** No shader or source file implements fog (the only match is a comment,
@@ -87,7 +87,7 @@ Examples/Forest/
 ├── Forest/                   node library: Src/{Player, World, Audio, Ambience, Ui, Benchmark, Shots}
 ├── Forest.Desktop/           GameHost.Run(args, typeof(Forest.FirstPersonController).Assembly) + --write-terrain
 ├── Forest.Tests/             xUnit v3; no GPU and no LFS content needed
-└── Content/                  Scenes/ (forest.mscene, forest_terrain/), Terrain/Layers/, Trees/ (TreeOptions, impostors,
+└── Assets/                  Scenes/ (forest.mscene, forest_terrain/), Terrain/Layers/, Trees/ (TreeOptions, impostors,
                               bark, leaves), Foliage/, Props/{Rocks,Logs}/, Sky/ (HDRI, .cube), Audio/, UI/, Settings/,
                               locale/ (en + qps)
 ```
@@ -125,7 +125,7 @@ alpha cards are PNG. **CI never needs the content:** `Forest.Tests` uses synthet
 built from engine test assets ([Testing](#testing)). Only the release job and local runs pull `Examples/Forest/**`, as
 the publish workflow already does for the Demo (`publish.yml:72`, `:83`, `:118`). `NOTICE.md` follows
 `Examples/Demo/NOTICE.md` (asset, path, source URL, author as a courtesy, licence), and a test fails when a file under
-`Content/` is neither listed nor generated.
+`Assets/` is neither listed nor generated.
 
 #### Release
 
@@ -134,7 +134,7 @@ wrapper). `publish.yml` gains a `forest` job next to `demo` (lines 109–125): `
 --include="Examples/Forest/**"`, `build/forest-smoke.sh` on lavapipe, then `MainframeEngine.Forest-v<version>.zip` and
 `MainframeEngine.Forest.zip` (top folder `MainframeEngine.Forest/`), attached by the existing release step. The
 [Download Demo](demo-download.md) dialog gets an example picker (Demo or Forest); its validation already accepts any
-project with `project.mfproj`, a `*.Desktop` project and `Content/Scenes/`. Self-contained player builds are [open
+project with `project.mfproj`, a `*.Desktop` project and `Assets/Scenes/`. Self-contained player builds are [open
 question 6](#open-questions).
 
 ### The scene

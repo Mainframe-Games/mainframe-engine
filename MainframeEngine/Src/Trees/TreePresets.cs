@@ -2,14 +2,14 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Ez Tree's 15 tree and bush presets, as <see cref="TreeOptions"/> <c>.mres</c> files in the engine's
-/// <c>Content/Trees/Presets/</c> (values copied from Ez Tree's JSON unchanged, plus the engine's <c>Scale</c> 0.3), listed
+/// <c>Assets/Trees/Presets/</c> (values copied from Ez Tree's JSON unchanged, plus the engine's <c>Scale</c> 0.3), listed
 /// under Ez Tree's display names in its order (<c>src/lib/presets/index.js</c>), then the engine's own species (ADR 0172):
 /// birch, beech, spruce and fir, small, medium and large, with procedural leaves and bark.
 /// </summary>
 public static class TreePresets
 {
     /// <summary>The engine folder holding the preset files.</summary>
-    public const string Folder = "Content/Trees/Presets";
+    public const string Folder = "Assets/Trees/Presets";
 
     private static readonly (string Name, string File)[] Entries =
     [

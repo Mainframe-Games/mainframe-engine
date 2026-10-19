@@ -16,7 +16,7 @@ RmlUi game UI, physics, audio, replication, localization and an RmlUi developer 
 
 | Project | Kind | Role |
 |---|---|---|
-| [`MainframeEngine`](../../MainframeEngine/MainframeEngine.csproj) | class library | The engine. Ships `Content/**` (compiled `.spv` shaders, assets) to dependants' output; shaders compile during the build (`build/Shaders.targets`). |
+| [`MainframeEngine`](../../MainframeEngine/MainframeEngine.csproj) | class library | The engine. Ships `Assets/**` (compiled `.spv` shaders, assets) to dependants' output; shaders compile during the build (`build/Shaders.targets`). |
 | [`MainframeEngine.Generators`](../../MainframeEngine.Generators/MainframeEngine.Generators.csproj) | Roslyn source generator (netstandard2.0, referenced as an analyzer) | Registers every node/resource type's `[Export]` properties and `[Signal]` events. See [Scene serialization](scene-serialization.md#source-generator). |
 | [`MainframeEngine.L10n`](../../Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj) (`mf-l10n`) | exe (build tool) | Localization tooling: RML/scene extraction, `.po` update, pseudo-locale, `.po` → `.mo` compiler run by `build/Localization.targets`. See [Localization](localization.md). |
 | [`Examples/Demo`](../../Examples/Demo/) | game project (own solution, not in `MainframeEngine.slnx`) | The Demo: a `GameHost` game with one scene per engine feature. See [Demo](demo.md). |

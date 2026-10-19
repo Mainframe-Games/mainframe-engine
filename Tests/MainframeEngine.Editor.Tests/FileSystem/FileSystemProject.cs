@@ -4,11 +4,11 @@ namespace MainframeEngine.Editor.Tests.FileSystem;
 /// A temporary game project for the FileSystem tests:
 /// <code>
 /// project.mfproj                       mainScene + window.icon as paths
-/// Content/Textures/wood.png (+ .meta)  a real 8×4 PNG
-/// Content/Materials/Settings.mres      TestSettings, saved by ResourceSaver
-/// Content/Materials/Sky.mres           a Sky with Panorama = wood.png
-/// Content/Scenes/Player.mscene         AllHintsNode root, Texture = "Content/Textures/wood.png"
-/// Content/Scenes/Main.mscene           Node3D root, instances Player, a child referencing Settings.mres externally
+/// Assets/Textures/wood.png (+ .meta)  a real 8×4 PNG
+/// Assets/Materials/Settings.mres      TestSettings, saved by ResourceSaver
+/// Assets/Materials/Sky.mres           a Sky with Panorama = wood.png
+/// Assets/Scenes/Player.mscene         AllHintsNode root, Texture = "Assets/Textures/wood.png"
+/// Assets/Scenes/Main.mscene           Node3D root, instances Player, a child referencing Settings.mres externally
 /// bin/, obj/, .git/                    hidden by default
 /// </code>
 /// Assigns <see cref="AssetDatabase.Current"/> and <see cref="ContentPaths.ProjectDirectory"/> (restored on dispose).
@@ -24,7 +24,7 @@ public sealed class FileSystemProject : IDisposable
         Database = new AssetDatabase(Root);
         AssetDatabase.Current = Database;
         ContentPaths.ProjectDirectory = Root;
-        foreach (var folder in new[] { "Content/Scenes", "Content/Textures", "Content/Materials", "bin", "obj", ".git" })
+        foreach (var folder in new[] { "Assets/Scenes", "Assets/Textures", "Assets/Materials", "bin", "obj", ".git" })
             Directory.CreateDirectory(Abs(folder));
         File.WriteAllText(Abs("bin/Game.dll"), "x");
         File.WriteAllText(Abs(".gitignore"), "bin/\n");
@@ -63,11 +63,11 @@ public sealed class FileSystemProject : IDisposable
         ResourceLoader.ClearCache();
     }
 
-    public const string WoodPath = "Content/Textures/wood.png";
-    public const string SettingsPath = "Content/Materials/Settings.mres";
-    public const string SkyPath = "Content/Materials/Sky.mres";
-    public const string PlayerPath = "Content/Scenes/Player.mscene";
-    public const string MainPath = "Content/Scenes/Main.mscene";
+    public const string WoodPath = "Assets/Textures/wood.png";
+    public const string SettingsPath = "Assets/Materials/Settings.mres";
+    public const string SkyPath = "Assets/Materials/Sky.mres";
+    public const string PlayerPath = "Assets/Scenes/Player.mscene";
+    public const string MainPath = "Assets/Scenes/Main.mscene";
 
     public string Root { get; }
     public AssetDatabase Database { get; }

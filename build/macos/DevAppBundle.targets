@@ -16,7 +16,7 @@
         Contents/MacOS/$(AssemblyName)  →  ../../../$(AssemblyName)   (symlink to the apphost)
 
     The symlink keeps a single build output: the .NET apphost resolves its own path with realpath, so the app base
-    directory (managed assemblies, Content/) stays bin/<cfg>/<tfm>/, while CoreFoundation's main bundle comes from the
+    directory (managed assemblies, Assets/) stays bin/<cfg>/<tfm>/, while CoreFoundation's main bundle comes from the
     unresolved exec path, i.e. the .app. `dotnet run` (`just editor`, `just forest`) starts that path; stdout/stderr, the
     exit code and Ctrl+C behave exactly as before because it is still a direct child process, not `open`.
 

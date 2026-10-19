@@ -22,9 +22,9 @@ template compiled with `-allow-glsl`.
 
 - **Slang only.** After Task 6 no `.glsl`, `.vk.vert`, `.vk.frag` or `.vk.comp` source and no `glslc` invocation remains
   in the engine, the build, CI or the canvas shader tool.
-- **Output names unchanged:** `Content/Shaders/<Dir>/<Name>.vk.<stage>.spv`, entry point `main`.
+- **Output names unchanged:** `Assets/Shaders/<Dir>/<Name>.vk.<stage>.spv`, entry point `main`.
 - **Compiler flags (everywhere):** `slangc <src> -target spirv -capability spirv_1_5 -matrix-layout-row-major
-  -entry main -stage <vertex|fragment|compute> -I MainframeEngine/Content/Shaders/include -o <out>`; canvas shaders
+  -entry main -stage <vertex|fragment|compute> -I MainframeEngine/Assets/Shaders/include -o <out>`; canvas shaders
   add `-allow-glsl`. Validate with `spirv-val --target-env vulkan1.2`.
 - **Goldens must not change.** `just test-render` (moltenvk) and `just render-tests-linux` (lavapipe) pass with the
   committed goldens. A failing golden is a port bug until proven otherwise; never run `just golden-update` in this plan
@@ -103,7 +103,7 @@ template compiled with `-allow-glsl`.
   `$SCRATCH/slang-port/port-check.sh` where `SCRATCH` is this session's scratchpad directory
 
 **Interfaces:**
-- Produces: `port-check.sh <Dir>/<Name>.vk.<stage>` — compiles `MainframeEngine/Content/Shaders/<Dir>/<Name>.vk.<stage>.slang`
+- Produces: `port-check.sh <Dir>/<Name>.vk.<stage>` — compiles `MainframeEngine/Assets/Shaders/<Dir>/<Name>.vk.<stage>.slang`
   with the Global Constraints flags into `$SCRATCH/slang-port/new/`, runs `spirv-val`, then `reflect-diff.py` against the
   baseline; exit 0 only when both pass. `port-check.sh --all` runs every shader that has a `.slang` source.
 
@@ -127,7 +127,7 @@ ships in the LunarG Vulkan SDK next to `glslc`.
 ## Decision
 
 - Slang is the only shader language for engine shaders. `glslc` is removed from the build, CI and tools.
-- Sources are `Content/Shaders/<Dir>/<Name>.vk.<stage>.slang`, one entry point `main`, compiled to the unchanged
+- Sources are `Assets/Shaders/<Dir>/<Name>.vk.<stage>.slang`, one entry point `main`, compiled to the unchanged
   `<Name>.vk.<stage>.spv`. Includes are `include/*.slang` headers (`#include`), not modules, while they are
   parameterised by macros.
 - Flags: `-target spirv -capability spirv_1_5 -matrix-layout-row-major`. Row-major layout makes a Slang `float4x4`
@@ -148,7 +148,7 @@ ships in the LunarG Vulkan SDK next to `glslc`.
 
 ```bash
 SCRATCH=<scratchpad>/slang-port; mkdir -p "$SCRATCH/baseline"
-cd MainframeEngine/Content/Shaders && find . -name '*.vk.*.spv' | while read f; do mkdir -p "$SCRATCH/baseline/$(dirname "$f")"; cp "$f" "$SCRATCH/baseline/$f"; done
+cd MainframeEngine/Assets/Shaders && find . -name '*.vk.*.spv' | while read f; do mkdir -p "$SCRATCH/baseline/$(dirname "$f")"; cp "$f" "$SCRATCH/baseline/$f"; done
 find "$SCRATCH/baseline" -name '*.spv' | wc -l   # expect 41
 ```
 
@@ -204,7 +204,7 @@ print(f"interface ok: {sys.argv[2]}")
 #!/bin/sh
 # port-check.sh <Dir>/<Name>.vk.<stage> | --all
 set -eu
-SCRATCH=$(cd "$(dirname "$0")" && pwd); ROOT=$(git rev-parse --show-toplevel); S="$ROOT/MainframeEngine/Content/Shaders"
+SCRATCH=$(cd "$(dirname "$0")" && pwd); ROOT=$(git rev-parse --show-toplevel); S="$ROOT/MainframeEngine/Assets/Shaders"
 check() {
     rel=$1; stage_ext=${rel##*.}
     case $stage_ext in vert) stage=vertex;; frag) stage=fragment;; comp) stage=compute;; esac
@@ -238,7 +238,7 @@ git commit -m "ADR 0144: Slang is the engine's shader language"
 
 **Files:**
 - Modify: `build/Shaders.targets` (GenerateShaderLimits task + target)
-- Create (generated, committed): `MainframeEngine/Content/Shaders/include/limits.slang`
+- Create (generated, committed): `MainframeEngine/Assets/Shaders/include/limits.slang`
 - Modify: `Tests/MainframeEngine.Tests/Rendering/ShaderLimitsTests.cs`
 - Modify: `MainframeEngine/Src/Lighting/LightEnvironment.cs:8`, `MainframeEngine/Src/Rendering/Generated/ShaderLimits.g.cs`
   (generated summary text)
@@ -264,7 +264,7 @@ In the `GenerateShaderLimits` task add a `SlangFile` parameter and emit:
 
 ```csharp
 var slang = new StringBuilder();
-slang.Append("// Generated from Content/Shaders/limits.json by build/Shaders.targets. Do not edit.\n#pragma once\n\n");
+slang.Append("// Generated from Assets/Shaders/limits.json by build/Shaders.targets. Do not edit.\n#pragma once\n\n");
 foreach (Match m in matches)
     slang.Append("#define " + m.Groups["glsl"].Value + " " + m.Groups["value"].Value + " // " + m.Groups["summary"].Value + "\n");
 ```
@@ -281,7 +281,7 @@ Expected: build clean (0 warnings), test PASS, `include/limits.slang` created wi
 - [ ] **Step 5: Commit**
 
 ```bash
-git add build/Shaders.targets MainframeEngine/Content/Shaders/limits.json MainframeEngine/Content/Shaders/include/limits.slang \
+git add build/Shaders.targets MainframeEngine/Assets/Shaders/limits.json MainframeEngine/Assets/Shaders/include/limits.slang \
   MainframeEngine/Src Tests/MainframeEngine.Tests/Rendering/ShaderLimitsTests.cs
 git commit -m "Shader limits: generate include/limits.slang"
 ```
@@ -345,7 +345,7 @@ Record "reviewed: <rel>" in the task notes for each shader.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add MainframeEngine/Content/Shaders
+git add MainframeEngine/Assets/Shaders
 git commit -m "Shaders: port post, debug, gizmo, grid and sky shaders to Slang"
 ```
 
@@ -377,7 +377,7 @@ git commit -m "Shaders: port post, debug, gizmo, grid and sky shaders to Slang"
 - [ ] **Step 5: Commit**
 
 ```bash
-git add MainframeEngine/Content/Shaders
+git add MainframeEngine/Assets/Shaders
 git commit -m "Shaders: port mesh, material, lighting and shadow shaders to Slang"
 ```
 
@@ -407,7 +407,7 @@ git commit -m "Shaders: port mesh, material, lighting and shadow shaders to Slan
 - [ ] **Step 5: Commit**
 
 ```bash
-git add MainframeEngine/Content/Shaders
+git add MainframeEngine/Assets/Shaders
 git commit -m "Shaders: port Spine, UI and canvas shaders to Slang"
 ```
 
@@ -421,7 +421,7 @@ git commit -m "Shaders: port Spine, UI and canvas shaders to Slang"
 - Modify: `MainframeEngine.Editor/Src/FileSystem/FileKind.cs:59`, `MainframeEngine.Editor/Src/UI/EditorIcons.cs:102`
   (add `.slang`)
 - Modify: `Tests/MainframeEngine.Editor.Tests/Projects/ProjectCreationIntegrationTests.cs:77` (comment)
-- Delete: every `MainframeEngine/Content/Shaders/**/*.vk.{vert,frag,comp}` and `include/*.glsl`; the `limits.glsl`
+- Delete: every `MainframeEngine/Assets/Shaders/**/*.vk.{vert,frag,comp}` and `include/*.glsl`; the `limits.glsl`
   output from the generator
 - Regenerate: all 41 `.spv`, `shaders.lock`
 
@@ -452,9 +452,9 @@ spirv-val --target-env "$TARGET_ENV" "$spv"
   Vulkan SDK, or slangc + spirv-tools").
 
 - [ ] **Step 2: `build/Shaders.targets`.**
-  - `ShaderSource Include="Content/Shaders/**/*.vk.vert.slang;Content/Shaders/**/*.vk.frag.slang;Content/Shaders/**/*.vk.comp.slang"`
+  - `ShaderSource Include="Assets/Shaders/**/*.vk.vert.slang;Assets/Shaders/**/*.vk.frag.slang;Assets/Shaders/**/*.vk.comp.slang"`
     with metadata `Stage` set by three item conditions on `%(Filename)` ending in `.vk.vert` / `.vk.frag` / `.vk.comp`.
-  - `ShaderInclude Include="Content/Shaders/include/*.slang"`; drop `$(ShaderLimitsGlsl)` and the GLSL output of the
+  - `ShaderInclude Include="Assets/Shaders/include/*.slang"`; drop `$(ShaderLimitsGlsl)` and the GLSL output of the
     generator.
   - `FindGlslc` → `FindSlangc`: `$(Slangc)`, else `$(VULKAN_SDK)/bin/slangc(.exe)`, else `slangc` on PATH; probe with
     `slangc -v`.
@@ -466,9 +466,9 @@ spirv-val --target-env "$TARGET_ENV" "$spv"
 - [ ] **Step 3: Delete the GLSL and rebuild the committed SPIR-V**
 
 ```bash
-git rm -q -- ':(glob)MainframeEngine/Content/Shaders/**/*.vk.vert' ':(glob)MainframeEngine/Content/Shaders/**/*.vk.frag' \
-  ':(glob)MainframeEngine/Content/Shaders/include/*.glsl'
-git ls-files MainframeEngine/Content/Shaders | grep -v '\.slang$\|\.spv$\|shaders.lock$\|limits.json$'   # expect nothing
+git rm -q -- ':(glob)MainframeEngine/Assets/Shaders/**/*.vk.vert' ':(glob)MainframeEngine/Assets/Shaders/**/*.vk.frag' \
+  ':(glob)MainframeEngine/Assets/Shaders/include/*.glsl'
+git ls-files MainframeEngine/Assets/Shaders | grep -v '\.slang$\|\.spv$\|shaders.lock$\|limits.json$'   # expect nothing
 just shaders
 ```
 
@@ -481,7 +481,7 @@ sh $SCRATCH/port-check.sh --all        # still 41 × interface ok against the gl
 just build                              # 0 warnings
 just shaders-check
 git grep -n -i "glslc\|\.glsl\b" -- ':!docs' ':!memory' ':!*.spv'   # expect no hits outside Task 7's files
-git grep -n "fmod(" -- 'MainframeEngine/Content/Shaders'           # expect none
+git grep -n "fmod(" -- 'MainframeEngine/Assets/Shaders'           # expect none
 ```
 
 - [ ] **Step 5: Fallback check (Review Focus 4)**
@@ -489,7 +489,7 @@ git grep -n "fmod(" -- 'MainframeEngine/Content/Shaders'           # expect none
 Run: `dotnet build MainframeEngine/MainframeEngine.csproj -p:Slangc=/nonexistent/slangc 2>&1 | grep MFSHADER001`
 Expected: the warning is printed (the build fails under warnings-as-errors, which is today's behaviour too); then
 `dotnet build MainframeEngine/MainframeEngine.csproj -p:CompileShaders=false` succeeds and
-`bin/Debug/net10.0/Content/Shaders/Mesh/Mesh.vk.frag.spv` equals the committed file (`cmp`).
+`bin/Debug/net10.0/Assets/Shaders/Mesh/Mesh.vk.frag.spv` equals the committed file (`cmp`).
 
 - [ ] **Step 6: CI shaders job** — replace the glslc install step:
 
@@ -516,7 +516,7 @@ Expected: the warning is printed (the build fails under warnings-as-errors, whic
 - [ ] **Step 8: Commit**
 
 ```bash
-git add -A MainframeEngine/Content/Shaders build justfile .github MainframeEngine.Editor Tests
+git add -A MainframeEngine/Assets/Shaders build justfile .github MainframeEngine.Editor Tests
 git commit -m "Shaders: compile with slangc; remove GLSL and glslc"
 ```
 
@@ -529,9 +529,9 @@ git commit -m "Shaders: compile with slangc; remove GLSL and glslc"
 - Modify: `MainframeEngine/Src/Rendering/Canvas/Shader.cs` (`CanvasShaderBuild`: slangc, hash, messages)
 - Modify: `Tools/MainframeEngine.ShaderBuild/Program.cs` (include dir unchanged; messages)
 - Modify: `Tests/MainframeEngine.Tests/Canvas/CanvasShaderCompilerTests.cs`
-- Create: `Tests/MainframeEngine.RenderTests.Host/Content/Shaders/features.gdshader` is **not** added (the host content
+- Create: `Tests/MainframeEngine.RenderTests.Host/Assets/Shaders/features.gdshader` is **not** added (the host content
   is golden-tested); the feature fixture lives in `$SCRATCH/slang-port/features.gdshader` and is checked in Step 6
-- Regenerate: `Tests/MainframeEngine.RenderTests.Host/Content/Shaders/wave.gdshader.{vert,frag}.spv` + `.spvlock`
+- Regenerate: `Tests/MainframeEngine.RenderTests.Host/Assets/Shaders/wave.gdshader.{vert,frag}.spv` + `.spvlock`
 
 **Interfaces:**
 - Consumes: `include/canvas.slang`, `include/canvas_lights.slang` (Task 5).
@@ -629,7 +629,7 @@ void fragment() { COLOR = texture(noise, UV + v_world * 0.001) * tint * twice(we
 
 ```bash
 git add MainframeEngine/Src/Rendering/Canvas Tools/MainframeEngine.ShaderBuild Tests/MainframeEngine.Tests/Canvas \
-  Tests/MainframeEngine.RenderTests.Host/Content/Shaders
+  Tests/MainframeEngine.RenderTests.Host/Assets/Shaders
 git commit -m "Canvas shaders: translate .gdshader to Slang, compile with slangc"
 ```
 

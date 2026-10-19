@@ -13,7 +13,7 @@ public sealed class Basic2DPanel : UiDocument
 
     public Basic2DPanel()
     {
-        Source = "Content/Basic2D/panel.rml";
+        Source = "Assets/Basic2D/panel.rml";
         AutoFocus = false;
     }
 

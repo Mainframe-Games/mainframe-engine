@@ -159,10 +159,10 @@ public sealed class GameSessionTests : IDisposable
     [Fact]
     public void StartInstallsInputAutoloadsAndTheMainScene()
     {
-        var mainUid = SaveScene("Content/Scenes/Main.mscene", "Main", "Player");
-        SaveScene("Content/Autoload/Music.mscene", "MusicRoot");
+        var mainUid = SaveScene("Assets/Scenes/Main.mscene", "Main", "Player");
+        SaveScene("Assets/Autoload/Music.mscene", "MusicRoot");
         var settings = Settings(mainUid);
-        settings.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Content/Autoload/Music.mscene" });
+        settings.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Assets/Autoload/Music.mscene" });
         settings.Autoloads.Add(new AutoloadSettings { Name = "Counter", Type = nameof(CounterNode) });
         settings.Autoloads.Add(new AutoloadSettings { Name = "Off", Type = nameof(CounterNode), Enabled = false });
         var tree = new SceneTree();
@@ -178,7 +178,7 @@ public sealed class GameSessionTests : IDisposable
         Assert.Null(tree.Root.GetNodeOrNull("Off"));
         // Autoloads come first; the scene after them, so autoloads are ready when it enters.
         Assert.Equal(["Music", "Counter", "Main"], tree.Root.Children.Select(n => n.Name));
-        Assert.Equal("Content/Scenes/Main.mscene", tree.CurrentScene!.SceneFilePath);
+        Assert.Equal("Assets/Scenes/Main.mscene", tree.CurrentScene!.SceneFilePath);
         Assert.NotNull(tree.CurrentScene.GetNodeOrNull("Player"));
 
         tree.Shutdown();
@@ -187,12 +187,12 @@ public sealed class GameSessionTests : IDisposable
     [Fact]
     public void SceneArgumentOverridesTheMainScene()
     {
-        SaveScene("Content/Scenes/Main.mscene", "Main");
-        SaveScene("Content/Scenes/Level2.mscene", "Level2");
+        SaveScene("Assets/Scenes/Main.mscene", "Main");
+        SaveScene("Assets/Scenes/Level2.mscene", "Level2");
         var tree = new SceneTree();
-        using var session = new GameSession(tree, Settings("Content/Scenes/Main.mscene"), new GameHostOptions { Scene = "Content/Scenes/Level2.mscene" });
+        using var session = new GameSession(tree, Settings("Assets/Scenes/Main.mscene"), new GameHostOptions { Scene = "Assets/Scenes/Level2.mscene" });
 
-        Assert.Equal("Content/Scenes/Level2.mscene", session.StartScene);
+        Assert.Equal("Assets/Scenes/Level2.mscene", session.StartScene);
         Assert.True(session.Start());
         Assert.Equal("Level2", tree.CurrentScene!.Name);
         tree.Shutdown();
@@ -202,7 +202,7 @@ public sealed class GameSessionTests : IDisposable
     public void StartAsyncAddsTheAutoloadsNowAndLoadsTheSceneInTheBackground()
     {
         // ADR 0183: GameHost's start. The autoloads exist at once; the scene enters once loaded, after them.
-        var mainUid = SaveScene("Content/Scenes/Main.mscene", "Main", "Player");
+        var mainUid = SaveScene("Assets/Scenes/Main.mscene", "Main", "Player");
         var settings = Settings(mainUid);
         settings.Autoloads.Add(new AutoloadSettings { Name = "Counter", Type = nameof(CounterNode) });
         var tree = new SceneTree();
@@ -230,7 +230,7 @@ public sealed class GameSessionTests : IDisposable
 
         // A missing scene fails the load (logged), never the call.
         var missingTree = new SceneTree();
-        using var missing = new GameSession(missingTree, Settings("Content/Scenes/Nope.mscene"));
+        using var missing = new GameSession(missingTree, Settings("Assets/Scenes/Nope.mscene"));
         var failed = missing.StartAsync()!;
         while (!failed.IsCompleted)
         {
@@ -253,7 +253,7 @@ public sealed class GameSessionTests : IDisposable
     public void AMissingSceneFailsTheStartWithoutThrowing()
     {
         var tree = new SceneTree();
-        using var session = new GameSession(tree, Settings("Content/Scenes/Nope.mscene"));
+        using var session = new GameSession(tree, Settings("Assets/Scenes/Nope.mscene"));
 
         Assert.False(session.Start());
         Assert.Null(tree.CurrentScene);
@@ -276,7 +276,7 @@ public sealed class GameSessionTests : IDisposable
     {
         var settings = Settings();
         settings.Autoloads.Add(new AutoloadSettings { Name = "Ghost", Type = "NoSuchType" });
-        settings.Autoloads.Add(new AutoloadSettings { Name = "Missing", Scene = "Content/Nope.mscene" });
+        settings.Autoloads.Add(new AutoloadSettings { Name = "Missing", Scene = "Assets/Nope.mscene" });
         settings.Autoloads.Add(new AutoloadSettings { Name = "Fine", Type = nameof(PlainNode) });
         var tree = new SceneTree();
         tree.Root.AddChild(new PlainNode { Name = "Taken" });
@@ -291,7 +291,7 @@ public sealed class GameSessionTests : IDisposable
     [Fact]
     public void ReloadScenePicksUpTheFileAsSavedByTheEditor()
     {
-        var uid = SaveScene("Content/Scenes/Main.mscene", "Main", "Old");
+        var uid = SaveScene("Assets/Scenes/Main.mscene", "Main", "Old");
         var tree = new SceneTree();
         using var session = new GameSession(tree, Settings(uid));
         session.Start();
@@ -302,7 +302,7 @@ public sealed class GameSessionTests : IDisposable
         var added = new CounterNode { Name = "New" };
         edited.AddChild(added);
         added.Owner = edited;
-        File.WriteAllBytes(Path.Combine(_project, "Content/Scenes/Main.mscene"), SceneSaver.ToJson(edited, uid));
+        File.WriteAllBytes(Path.Combine(_project, "Assets/Scenes/Main.mscene"), SceneSaver.ToJson(edited, uid));
 
         session.Apply(new EditorLinkCommand(EditorCommandKind.ReloadScene));
 
@@ -310,7 +310,7 @@ public sealed class GameSessionTests : IDisposable
         Assert.True(before.IsFreed);
         Assert.NotNull(tree.CurrentScene!.GetNodeOrNull("New"));
         Assert.Null(tree.CurrentScene.GetNodeOrNull("Old"));
-        Assert.False(session.ReloadScene("Content/Scenes/Gone.mscene"));
+        Assert.False(session.ReloadScene("Assets/Scenes/Gone.mscene"));
         Assert.NotNull(tree.CurrentScene); // a failed reload keeps the running scene
         tree.Shutdown();
     }

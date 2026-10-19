@@ -101,7 +101,7 @@ Editor code lives in `MainframeEngine.Editor/Src/Skeleton/`:
 |---|---|
 | `SkeletonTab` | The tab: document, panel state, the selected mode and tool, the clip being animated, view state |
 | `SkeletonDocument` | The editable model (`SkeletonModel` from `SkeletonFormat`, plus each open `ClipModel`) and its `UndoRedo`, as `SongDocument` (`Music/SongDocument.cs:34`) |
-| `SkeletonPanel : EditorDocument` | The RmlUi chrome (`Content/Editor/skeleton.rml`) over the view area, as `SongPanel` |
+| `SkeletonPanel : EditorDocument` | The RmlUi chrome (`Assets/Editor/skeleton.rml`) over the view area, as `SongPanel` |
 | `SkeletonView` | The `[Tool]` driver: sizes and publishes the viewport and timeline `SubViewport`s, routes input to the active tool (the `SongView` pattern, now through `TimelineHost`) |
 | `SkeletonViewportCanvas` | The 2D view: the preview `Skeleton2D`, a grid, bones, gizmos, mesh and weight overlays, onion skins |
 | `Tools/` | `SelectTool`, `CreateBoneTool`, `PoseTool`, `MeshTool`, `WeightTool`, `ConstraintTool`; each implements `ISkeletonTool` (press, drag, release, hover, keys, draw) |

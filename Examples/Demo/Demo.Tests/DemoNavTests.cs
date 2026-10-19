@@ -159,7 +159,7 @@ public sealed class DemoNavActionTests : IDisposable
     [Fact]
     public void TheSettingsMenuIsTranslatedIntoSpanishAndThePseudoLocale()
     {
-        var locales = Path.Combine(AppContext.BaseDirectory, "Content", "locale");
+        var locales = Path.Combine(AppContext.BaseDirectory, "Assets", "locale");
         Tr.Configure(new LocalizationOptions { LocaleDirectory = locales }, "es");
         try
         {

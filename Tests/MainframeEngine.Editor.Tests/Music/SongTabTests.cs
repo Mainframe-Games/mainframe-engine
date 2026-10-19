@@ -25,7 +25,7 @@ public sealed class SongTabTests : IDisposable
 
     public SongTabTests()
     {
-        var path = SongTab.CreateFile(Path.Combine(_host.ProjectDirectory, "Content", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.msong"));
         _tab = _host.Session.OpenSong(path);
     }
 
@@ -92,7 +92,7 @@ public sealed class SongTabTests : IDisposable
     public void SaveAsMovesTheTabToANewSongWithItsOwnUid()
     {
         var uid = Doc.Song.Uid;
-        var copy = Path.Combine(_host.ProjectDirectory, "Content", "Music", "Copy");
+        var copy = Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Copy");
         _host.Session.SaveSong(_tab, copy);
         Assert.EndsWith("Copy.msong", _tab.FilePath, StringComparison.Ordinal);
         Assert.True(File.Exists(_tab.FilePath));
@@ -116,9 +116,9 @@ public sealed class SongTabTests : IDisposable
     [Fact]
     public void MovedFilesAreFollowed()
     {
-        var target = Path.Combine(_host.ProjectDirectory, "Content", "Music", "Renamed.msong");
+        var target = Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Renamed.msong");
         File.Move(_tab.FilePath!, target);
-        _host.Session.FilesMoved(Path.Combine(_host.ProjectDirectory, "Content", "Music", "Theme.msong"), target);
+        _host.Session.FilesMoved(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.msong"), target);
         Assert.Equal(target, _tab.FilePath);
     }
 
@@ -293,7 +293,7 @@ public sealed class SongTabTests : IDisposable
     public void DroppingASoundOnTheArrangementAddsAnAudioTrackAndClip()
     {
         C.AudioLength = _ => 1920;
-        var clip = C.Drop("Content/Audio/rain.wav", new Vector2(80, Lane0));
+        var clip = C.Drop("Assets/Audio/rain.wav", new Vector2(80, Lane0));
         Assert.NotNull(clip);
         var track = Doc.Song.Tracks[1];
         Assert.Equal(SongTrackKind.Audio, track.Kind);

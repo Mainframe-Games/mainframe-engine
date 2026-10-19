@@ -3,7 +3,7 @@ using Silk.NET.Maths;
 namespace MainframeEngine;
 
 /// <summary>
-/// A game project's settings — the contents of <c>project.mfproj</c> next to its <c>Content/</c> folder: name, main
+/// A game project's settings — the contents of <c>project.mfproj</c> next to its <c>Assets/</c> folder: name, main
 /// scene, game assemblies, demo build, window, physics, input map, audio, localization, rendering, Steam and autoloads, plus the
 /// engine version the project was created with. <see cref="GameHost"/> applies them; the editor edits them.
 /// </summary>
@@ -45,7 +45,7 @@ public sealed class ProjectSettings
     /// <summary>The folder name <see cref="GameHost.UserDataDirectory"/> uses: <see cref="UserDataName"/>, else <see cref="Name"/>.</summary>
     public string UserDataFolderName => UserDataName ?? Name;
 
-    /// <summary>The scene <see cref="GameHost"/> starts with: a UID (<c>scn_…</c>) or a <c>Content/…</c> path.</summary>
+    /// <summary>The scene <see cref="GameHost"/> starts with: a UID (<c>scn_…</c>) or a <c>Assets/…</c> path.</summary>
     public string? MainScene { get; set; }
 
     /// <summary>
@@ -226,7 +226,7 @@ public sealed class WindowSettings
         }
     }
 
-    /// <summary>Window icon (a <c>Content/…</c> PNG), or null.</summary>
+    /// <summary>Window icon (a <c>Assets/…</c> PNG), or null.</summary>
     public string? Icon { get; set; }
 
     /// <summary>
@@ -343,7 +343,7 @@ public sealed class LocalizationProjectSettings
     public List<string> Fallbacks { get; } = [];
 
     /// <summary>Folder holding one sub-folder per locale.</summary>
-    public string LocaleDirectory { get; set; } = "Content/locale";
+    public string LocaleDirectory { get; set; } = "Assets/locale";
 
     /// <summary>Catalog domain (<c>{Domain}.mo</c>).</summary>
     public string Domain { get; set; } = "messages";
@@ -560,7 +560,7 @@ public sealed class LoadingProjectSettings
     public bool Async { get; set; } = true;
 
     /// <summary>
-    /// The loading screen's document (<c>Content/…</c> <c>.rml</c> binding the <c>loading</c> data model); null (default) is
+    /// The loading screen's document (<c>Assets/…</c> <c>.rml</c> binding the <c>loading</c> data model); null (default) is
     /// the engine's (<see cref="LoadingScreen.DefaultSource"/>), an empty string shows none.
     /// </summary>
     public string? Screen { get; set; }
@@ -656,7 +656,7 @@ public sealed class AutoloadSettings
     /// <summary>The node's name under the root (must be unique among autoloads).</summary>
     public required string Name { get; set; }
 
-    /// <summary>A scene (UID or <c>Content/…</c> path) to instantiate.</summary>
+    /// <summary>A scene (UID or <c>Assets/…</c> path) to instantiate.</summary>
     public string? Scene { get; set; }
 
     /// <summary>A registered node type name (<see cref="Serialization.TypeRegistry"/>) to create.</summary>

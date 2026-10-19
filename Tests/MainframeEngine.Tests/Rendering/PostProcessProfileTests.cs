@@ -139,7 +139,7 @@ public sealed class PostProcessProfileTests
                 AutoExposureHighlightProtection = true,
                 AutoExposureHighlightWhite = 0.8f,
             };
-            var uid = ResourceSaver.Save(profile, "Content/PostProcess/look.mres");
+            var uid = ResourceSaver.Save(profile, "Assets/PostProcess/look.mres");
             var root = new Node3D { Name = "Root" };
             var environment = new WorldEnvironment { Name = "Environment", PostProcess = profile };
             root.AddChild(environment);

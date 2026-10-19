@@ -51,7 +51,7 @@ public static class PickerSources
     }
 
     /// <summary>
-    /// The <c>.mscene</c> files under <paramref name="root"/> (a project folder: its <c>Content/</c> when present) as a
+    /// The <c>.mscene</c> files under <paramref name="root"/> (a project folder: its <c>Assets/</c> when present) as a
     /// folder tree; ids and descriptions are paths relative to <paramref name="root"/>. Hidden and build folders are skipped.
     /// </summary>
     public static IReadOnlyList<PickerEntry> Scenes(string root, int maxFiles = 2000)
@@ -60,7 +60,7 @@ public static class PickerSources
         var entries = new List<PickerEntry>();
         if (!Directory.Exists(root))
             return entries;
-        var start = Directory.Exists(Path.Combine(root, "Content")) ? Path.Combine(root, "Content") : root;
+        var start = Directory.Exists(Path.Combine(root, "Assets")) ? Path.Combine(root, "Assets") : root;
         var folders = new HashSet<string>(StringComparer.Ordinal);
         IEnumerable<string> files;
         try

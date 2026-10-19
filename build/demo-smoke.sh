@@ -22,9 +22,9 @@ failed=0
 # Every committed scene file is a scene to run. Only this script's own outputs under $work are cleaned (the folder is the
 # caller's): each scene's user-data folder and screenshot.
 shopt -s nullglob
-scenes=("$repo"/Examples/Demo/Content/Scenes/*.mscene)
+scenes=("$repo"/Examples/Demo/Assets/Scenes/*.mscene)
 if [ "${#scenes[@]}" -eq 0 ]; then
-  echo "demo-smoke: no scenes found in $repo/Examples/Demo/Content/Scenes" >&2
+  echo "demo-smoke: no scenes found in $repo/Examples/Demo/Assets/Scenes" >&2
   exit 1
 fi
 for file in "${scenes[@]}"; do
@@ -32,7 +32,7 @@ for file in "${scenes[@]}"; do
   # One user-data folder per scene, so a scene's log is its own.
   userdata="$work/userdata/$scene"
   rm -rf "$userdata" "$work/$scene.png"
-  MAINFRAME_USER_DATA="$userdata" dotnet "$bin/Demo.Desktop.dll" --scene "Content/Scenes/$scene.mscene" \
+  MAINFRAME_USER_DATA="$userdata" dotnet "$bin/Demo.Desktop.dll" --scene "Assets/Scenes/$scene.mscene" \
     --max-frames "$frames" --hidden --fixed-fps 60 --no-vsync --screenshot "$work/$scene.png"
   if [ ! -s "$work/$scene.png" ]; then
     echo "demo-smoke: $scene produced no screenshot" >&2

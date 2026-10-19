@@ -3,7 +3,7 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Base of the editor's RmlUi documents (panels and dialogs): loads <c>Content/Editor/&lt;file&gt;.rml</c>, positions
+/// Base of the editor's RmlUi documents (panels and dialogs): loads <c>Assets/Editor/&lt;file&gt;.rml</c>, positions
 /// its body from the <see cref="EditorLayout"/> rectangle, and routes clicks on elements with
 /// <c>data-command="id"</c> to <see cref="EditorCommands"/>. Listeners are attached on load and again after a hot reload.
 /// </summary>
@@ -15,7 +15,7 @@ public abstract class EditorDocument : UiDocument
     protected EditorDocument(EditorWorkspace workspace, string file)
     {
         Workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
-        Source = $"Content/Editor/{file}";
+        Source = $"Assets/Editor/{file}";
         AutoFocus = false;
         Reloaded += OnDocumentReloaded;
     }

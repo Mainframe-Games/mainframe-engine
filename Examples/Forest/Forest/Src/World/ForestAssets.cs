@@ -3,7 +3,7 @@ using MainframeEngine;
 
 namespace Forest;
 
-/// <summary>One ambientCG terrain texture set under <c>Content/Art/Terrain/&lt;Name&gt;/</c> (see <see cref="ForestAssets"/>).</summary>
+/// <summary>One ambientCG terrain texture set under <c>Assets/Art/Terrain/&lt;Name&gt;/</c> (see <see cref="ForestAssets"/>).</summary>
 /// <param name="Name">Display name and folder (<c>Grass</c>).</param>
 /// <param name="Tag">The layer's <see cref="TerrainLayer.Tag"/>: the footstep surface (<c>grass</c>).</param>
 /// <param name="AssetId">The ambientCG asset id (<c>Ground037</c>).</param>
@@ -32,7 +32,7 @@ public sealed record ForestLayerAsset(string Name, string Tag, string AssetId, f
 }
 
 /// <summary>
-/// One ambientCG debris set under <c>Content/Art/Debris/&lt;AssetId&gt;/</c> (ADR 0175): scattered leaves with opacity, laid
+/// One ambientCG debris set under <c>Assets/Art/Debris/&lt;AssetId&gt;/</c> (ADR 0175): scattered leaves with opacity, laid
 /// on the ground as cards (the leaf-litter clutter).
 /// </summary>
 /// <param name="AssetId">The ambientCG asset id and folder (<c>ScatteredLeaves004</c>).</param>
@@ -65,7 +65,7 @@ public enum ForestPropKind
     Plant,
 }
 
-/// <summary>One Poly Haven glTF model under <c>Content/Art/Props/&lt;AssetId&gt;/</c> (see <see cref="ForestAssets"/>).</summary>
+/// <summary>One Poly Haven glTF model under <c>Assets/Art/Props/&lt;AssetId&gt;/</c> (see <see cref="ForestAssets"/>).</summary>
 /// <param name="AssetId">The Poly Haven asset id and folder (<c>boulder_01</c>).</param>
 /// <param name="Resolution">The texture set imported (<c>1k</c>, <c>2k</c>).</param>
 /// <param name="Kind">Rock, log, stump, debris or plant.</param>
@@ -97,14 +97,14 @@ public sealed record ForestPropAsset(string AssetId, string Resolution, ForestPr
 
 /// <summary>
 /// The Forest's third-party art (all CC0; <c>Examples/Forest/NOTICE.md</c>), imported by
-/// <c>Examples/Forest/Tools/fetch_assets.py</c> into <c>Content/Art</c>: eight ambientCG terrain layers, twenty Poly Haven
-/// props, an ambientCG leaf-litter set and a Poly Haven sky panorama. Paths are project-relative (<c>Content/…</c>, what <see cref="ResourceLoader"/>
+/// <c>Examples/Forest/Tools/fetch_assets.py</c> into <c>Assets/Art</c>: eight ambientCG terrain layers, twenty Poly Haven
+/// props, an ambientCG leaf-litter set and a Poly Haven sky panorama. Paths are project-relative (<c>Assets/…</c>, what <see cref="ResourceLoader"/>
 /// and scenes use); <see cref="Resolve"/> gives the file on disk. The factories create new resources on every call (the
 /// textures themselves are shared through the resource cache), so a caller that builds many instances keeps the result.
 /// </summary>
 public static class ForestAssets
 {
-    public const string ArtFolder = "Content/Art";
+    public const string ArtFolder = "Assets/Art";
     public const string TerrainFolder = ArtFolder + "/Terrain";
     public const string PropsFolder = ArtFolder + "/Props";
     public const string DebrisFolder = ArtFolder + "/Debris";

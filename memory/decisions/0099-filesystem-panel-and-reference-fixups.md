@@ -33,3 +33,10 @@ as textures, the sky panorama; `project.mfproj` keys).
 - Hand comments in a rewritten scene file are lost (JSON re-serialisation); untouched files keep them.
 - Cached resources keep their old `ResourcePath` in memory after a move until reloaded (scenes resolve by UID).
 - The real-trash test is opt-in (`MAINFRAME_TEST_SYSTEM_TRASH=1`) so `just test` does not litter the user's Trash.
+
+## Amendment (2026-10-19): the Simplified view
+
+The panel still models the whole project folder, but by default it shows a **Simplified view** on top of that model:
+two roots, Assets (`Assets/`, ADR 0197) and Scripts (the game library's `Src/`, C# files only). The roots are the real
+folder entries shown under those names, so expand, open, move with fix-ups and badges work unchanged. The header's
+toggle switches back to the whole folder, and the choice is saved (`EditorLayoutSettings.FileSystemVerbose`).

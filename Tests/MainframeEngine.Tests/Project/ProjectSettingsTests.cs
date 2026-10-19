@@ -52,7 +52,7 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Window.Height = 1080;
         s.Window.VSync = false;
         s.Window.MaxFps = 144;
-        s.Window.Icon = "Content/icon.png";
+        s.Window.Icon = "Assets/icon.png";
         s.Physics.TicksPerSecond = 120;
         s.Physics.MaxStepsPerFrame = 8;
         s.Physics.Physics3D.Gravity = new Vector3(0, -20, 0);
@@ -74,7 +74,7 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Localization.DefaultLocale = "es";
         s.Localization.SourceLocale = "en_GB";
         s.Localization.Fallbacks.AddRange(["es", "fr"]);
-        s.Localization.LocaleDirectory = "Content/lang";
+        s.Localization.LocaleDirectory = "Assets/lang";
         s.Localization.Domain = "game";
         s.Rendering.Exposure = 1.1f;
         s.Rendering.Shadows = ShadowQuality.Low;
@@ -83,14 +83,14 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Ui.MaxScale = 2f;
         s.Ui.MinScale = 0.75f;
         s.Loading.Async = false;
-        s.Loading.Screen = "Content/UI/loading.rml";
+        s.Loading.Screen = "Assets/UI/loading.rml";
         s.Saves.MaxBytes = 1 << 20;
         s.Saves.Backups = 4;
         s.Saves.Compression = SaveCompression.Gzip;
         s.Saves.Thumbnails = true;
         s.Saves.ThumbnailWidth = 256;
         s.Saves.ThumbnailHeight = 144;
-        s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Content/Autoload/Music.mscene" });
+        s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Assets/Autoload/Music.mscene" });
         s.Autoloads.Add(new AutoloadSettings { Name = "Stats", Type = "GameStats", Enabled = false });
         var host = new PlayInstanceSettings { Label = "Host" };
         host.Arguments.AddRange(["--host", "--tile", "0:2"]);
@@ -133,7 +133,7 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         var json = Text(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" });
 
-        Assert.Equal("{\n  \"format\": 3,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
+        Assert.Equal("{\n  \"format\": 4,\n  \"name\": \"Tiny\",\n  \"engineVersion\": \"0.3.0\"\n}\n", json);
         AssertSame(new ProjectSettings { Name = "Tiny", EngineVersion = "0.3.0" }, Parse(json));
     }
 
@@ -177,7 +177,7 @@ public sealed class ProjectSettingsTests : IDisposable
               // a hand edit
               "format": 1,
               "name": "Edited",
-              "mainScene": "Content/Scenes/Main.mscene",
+              "mainScene": "Assets/Scenes/Main.mscene",
               "window": { "width": 640, "height": 480, },
               "input": { "fire": { "bindings": ["mouse:Left", "KEY:enter"] } },
             }
@@ -212,7 +212,7 @@ public sealed class ProjectSettingsTests : IDisposable
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "A", "type": "T" }, { "name": "A", "type": "U" } ] }""", "'A' is used by another autoload")]
     [InlineData("""{ "format": 1, "autoloads": [ { "name": "a/b", "type": "T" } ] }""", "must be a node name")]
     [InlineData("""{ "format": 1, "assemblies": [1] }""", "assemblies must contain only strings")]
-    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 3")]
+    [InlineData("""{ "format": 99 }""", "has project format 99; this engine reads up to 4")]
     [InlineData("""{ "format": 0 }""", "invalid project format 0")]
     [InlineData("""[1, 2]""", "is not a JSON object")]
     [InlineData("""{ "format": 1, """, "is not valid JSON")]
@@ -269,7 +269,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(480u, s.SteamAppId);
 
         var json = JsonNode.Parse(Text(s))!;
-        Assert.Equal(3, (int)json["format"]!);
+        Assert.Equal(4, (int)json["format"]!);
         Assert.Null(json["steamAppId"]);
         Assert.Equal(480u, (uint)json["steam"]!["appId"]!);
     }
@@ -286,7 +286,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(UiScalingMode.ConstantPixelSize, s.Ui.ToScaling().Mode);
 
         var json = JsonNode.Parse(Text(s))!;
-        Assert.Equal(3, (int)json["format"]!);
+        Assert.Equal(4, (int)json["format"]!);
         Assert.Equal("ConstantPixelSize", (string?)json["ui"]!["scaleMode"]);
         Assert.Equal(UiScalingMode.ConstantPixelSize, Parse(Text(s)).Ui.ScaleMode);
 
@@ -294,6 +294,30 @@ public sealed class ProjectSettingsTests : IDisposable
         var chosen = Parse("""{ "format": 2, "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1280, 720] } }""");
         Assert.Equal(UiScalingMode.ScaleWithScreenSize, chosen.Ui.ScaleMode);
         Assert.Equal(new Vector2I(1280, 720), chosen.Ui.ReferenceResolution);
+    }
+
+    [Fact]
+    public void Format3ContentPathsMoveToTheAssetsFolder()
+    {
+        // ADR 0197: format 4 renamed the content folder; every "Content/…" value follows, a bare "Content" does not.
+        var s = Parse("""
+            { "format": 3, "name": "Content", "mainScene": "Content/Scenes/Main.mscene",
+              "window": { "title": "Content/Title", "icon": "Content\\icon.png" },
+              "audio": { "busLayout": "Content/Settings/AudioBusLayout.mres" },
+              "localization": { "directory": "Content/locale" },
+              "loading": { "screen": "Content/UI/loading.rml" },
+              "autoloads": [ { "name": "Music", "scene": "Content/Autoload/Music.mscene" } ] }
+            """);
+
+        Assert.Equal("Content", s.Name);
+        Assert.Equal("Assets/Scenes/Main.mscene", s.MainScene);
+        Assert.Equal("Assets/Title", s.Window.Title);
+        Assert.Equal("Assets\\icon.png", s.Window.Icon);
+        Assert.Equal("Assets/Settings/AudioBusLayout.mres", s.Audio.BusLayout);
+        Assert.Equal("Assets/locale", s.Localization.LocaleDirectory);
+        Assert.Equal("Assets/UI/loading.rml", s.Loading.Screen);
+        Assert.Equal("Assets/Autoload/Music.mscene", s.Autoloads[0].Scene);
+        Assert.Equal(4, (int)JsonNode.Parse(Text(s))!["format"]!);
     }
 
     [Fact]
@@ -478,7 +502,7 @@ public sealed class ProjectSettingsTests : IDisposable
 
         Assert.Equal("Space!", o.GameName);
         Assert.Equal((1920, 1080), (o.WindowSize.X, o.WindowSize.Y));
-        Assert.Equal("Content/icon.png", o.IconPath);
+        Assert.Equal("Assets/icon.png", o.IconPath);
         Assert.False(o.VSync);
         Assert.Equal(120, o.PhysicsTicksPerSecond);
         Assert.Same(s.Physics.Physics3D, o.Physics3D);
@@ -491,7 +515,7 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal("es", o.Locale);
         Assert.NotNull(o.Localization);
         Assert.Equal("game", o.Localization.Domain);
-        Assert.Equal("Content/lang", o.Localization.LocaleDirectory);
+        Assert.Equal("Assets/lang", o.Localization.LocaleDirectory);
         Assert.Equal("en_GB", o.Localization.SourceLocale);
         Assert.Equal(["es", "fr"], o.Localization.FallbackLocales);
 

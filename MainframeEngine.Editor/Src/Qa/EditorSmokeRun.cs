@@ -275,9 +275,9 @@ public sealed class EditorSmokeRun : IEditorAutomation
                         if (present)
                         {
                             // The present project has an icon (the brand logo), the way every new project does.
-                            new ProjectSettings { Name = name, Window = { Icon = "Content/icon.png" } }.Save(Directory.CreateDirectory(folder).FullName);
-                            Directory.CreateDirectory(Path.Combine(folder, "Content"));
-                            File.Copy(ContentPaths.Resolve("Content/Brand/logo-256.png"), Path.Combine(folder, "Content", "icon.png"), overwrite: true);
+                            new ProjectSettings { Name = name, Window = { Icon = "Assets/icon.png" } }.Save(Directory.CreateDirectory(folder).FullName);
+                            Directory.CreateDirectory(Path.Combine(folder, "Assets"));
+                            File.Copy(ContentPaths.Resolve("Assets/Brand/logo-256.png"), Path.Combine(folder, "Assets", "icon.png"), overwrite: true);
                         }
                         else if (Directory.Exists(folder))
                         {
@@ -301,7 +301,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
                         break;
                     }
 
-                    fs.Select(Path.Combine(fs.Files.ProjectRoot, "Content", "Scenes", "Main.mscene"));
+                    fs.Select(Path.Combine(fs.Files.ProjectRoot, "Assets", "Scenes", "Main.mscene"));
                     break;
                 }
 
@@ -441,7 +441,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         if (Directory.Exists(project))
             Directory.Delete(project, recursive: true);
         new ProjectSettings { Name = "SongGame" }.Save(Directory.CreateDirectory(project).FullName);
-        var path = Music.SongTab.CreateFile(Path.Combine(project, "Content", "Music", "Golden.msong"));
+        var path = Music.SongTab.CreateFile(Path.Combine(project, "Assets", "Music", "Golden.msong"));
         var tab = workspace.Session.OpenSong(path);
         var document = tab.Document;
         var track = document.Song.Tracks[0];

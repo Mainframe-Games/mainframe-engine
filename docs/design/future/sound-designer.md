@@ -282,7 +282,7 @@ not per drag tick; `property` is null for grouped actions and undo/redo. Existin
 
 - **Reference vectors.** `build/zzfx-reference.mjs` (committed, Node, run by hand) runs the pinned ZzFX 1.4.0
   `buildSamples` over ~15 parameter sets (defaults, each shape, filter ±, bit crush, delay, repeat, pitch jump, the
-  presets' corners) and writes `Tests/Content/Audio/zzfx-reference.json` (sample count + every 64th sample).
+  presets' corners) and writes `Tests/Assets/Audio/zzfx-reference.json` (sample count + every 64th sample).
   `ZzfxTests` compares the port within 1e-5. Node is only needed to regenerate the vectors, not for `just test`.
 - **Line format:** parse ↔ format round trips, empty slots, trailing defaults, leading-dot numbers, the `zzfx(...[])`
   wrappers, invalid input (error text asserted).

@@ -30,7 +30,7 @@
   <rect x="26" y="52" width="214" height="26" fill="#2f333d"/>
   <text x="36" y="69" class="hdr">FileSystem</text>
   <path d="M37.5,91 h4 l1.5,1.5 h5.5 v7.5 h-11 z" fill="none" stroke="#8b93a5" stroke-width="1.3"/>
-  <text x="56" y="99" class="t">Content</text>
+  <text x="56" y="99" class="t">Assets</text>
   <path d="M51.5,115 h4 l1.5,1.5 h5.5 v7.5 h-11 z" fill="none" stroke="#8b93a5" stroke-width="1.3"/>
   <text x="70" y="123" class="t">Audio</text>
   <rect x="28" y="132" width="210" height="22" fill="#1d4ed8"/>

@@ -38,7 +38,7 @@ public sealed class Audio3DSceneTests : IDisposable
         Assert.Equal("SFX", emitter.Bus);
         Assert.Equal(AudioLoadMode.Stream, emitter.Stream!.LoadMode);
         Assert.True(emitter.Stream.Loop);
-        Assert.Equal("Content/Audio/ambient_hum.ogg", emitter.Stream.File);
+        Assert.Equal("Assets/Audio/ambient_hum.ogg", emitter.Stream.File);
     }
 
     [Fact]

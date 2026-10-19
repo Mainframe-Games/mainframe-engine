@@ -81,7 +81,7 @@ flowchart TB
         Model["Song model (.msong)<br/>tracks · clips · adaptive block"] --> Live["SongEngine (live preview)<br/>sequencer + MusicDirector + layer buses"]
         Panel["Adaptive panel<br/>parameter sliders · layers · transitions"] -- "SetParameter" --> Live
         Model --> Bake["SongBaker (offline)<br/>one render per (section, layer) + tails"]
-        Bake --> Files["Content/Music/Theme.mmusic<br/>Content/Music/Theme.stems/*.ogg"]
+        Bake --> Files["Assets/Music/Theme.mmusic<br/>Assets/Music/Theme.stems/*.ogg"]
         Panel -. "audition baked" .-> Inst["AdaptiveMusicInstance<br/>(editor AudioServer)"]
     end
     subgraph Game["Game"]
@@ -133,7 +133,7 @@ value means.
   ],
   "adaptive": {
     "start": "intro",
-    "output": "Content/Music/Theme.mmusic",
+    "output": "Assets/Music/Theme.mmusic",
     "tailSeconds": 4,
     "parameters": [
       { "name": "intensity", "kind": "continuous", "min": 0, "max": 1, "default": 0, "seekSpeed": 0.5 },
@@ -321,7 +321,7 @@ with `beat` quantization it adds at most one beat.
 ### The Adaptive panel
 
 The right-hand panel from Phase 1 becomes a two-tab panel, **Browser** (F) | **Adaptive** (A); both share its width
-and splitter. The Adaptive tab (`Music/Adaptive/AdaptivePanel.cs`, `Content/Editor/song_adaptive.rml`) lists, top
+and splitter. The Adaptive tab (`Music/Adaptive/AdaptivePanel.cs`, `Assets/Editor/song_adaptive.rml`) lists, top
 to bottom:
 
 - **Now.**
@@ -494,10 +494,10 @@ from a game parameter would mean running that effect at run time; v1 does not (s
 ### Output, names and UIDs
 
 ```
-Content/Music/Theme.mmusic                     the manifest (mus_ UID, stable across bakes)
-Content/Music/Theme.stems/explore.perc.3f9a1c.ogg        body stem   (name.layer.hash)
-Content/Music/Theme.stems/explore.perc.3f9a1c.tail.ogg   its tail
-Content/Music/Theme.stems/victory.7b20e4.ogg             stinger (one stem, tail included)
+Assets/Music/Theme.mmusic                     the manifest (mus_ UID, stable across bakes)
+Assets/Music/Theme.stems/explore.perc.3f9a1c.ogg        body stem   (name.layer.hash)
+Assets/Music/Theme.stems/explore.perc.3f9a1c.tail.ogg   its tail
+Assets/Music/Theme.stems/victory.7b20e4.ogg             stinger (one stem, tail included)
 ```
 
 - **The manifest is the asset games reference.** `.mmusic` is a new extension with a new UID prefix `mus`
@@ -560,8 +560,8 @@ nothing and rewrite only the manifest, so a re-bake after them is instant.
       "loop": true, "then": null,
       "markers": [ { "name": "drop", "frame": 768000, "exit": true } ],
       "stems": {
-        "perc": { "body": { "uid": "aud_…", "path": "Content/Music/Theme.stems/explore.perc.3f9a1c.ogg" },
-                  "tail": { "uid": "aud_…", "path": "Content/Music/Theme.stems/explore.perc.3f9a1c.tail.ogg", "frames": 61440 } }
+        "perc": { "body": { "uid": "aud_…", "path": "Assets/Music/Theme.stems/explore.perc.3f9a1c.ogg" },
+                  "tail": { "uid": "aud_…", "path": "Assets/Music/Theme.stems/explore.perc.3f9a1c.tail.ogg", "frames": 61440 } }
       }
     }
   ],

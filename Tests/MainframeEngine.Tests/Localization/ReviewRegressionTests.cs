@@ -135,7 +135,7 @@ public sealed class ReviewRegressionTests : IDisposable
         var root = Path.GetDirectoryName(project)!; // like `just l10n-extract --root .` at the repository root
         var builder = new TemplateBuilder();
         var extractor = new SceneExtractor(TranslatablePropertyIndex.FromRegistry([], []), root);
-        extractor.Extract(Path.Combine(project, "Content", "Scenes", "Main.mscene"), "Main.mscene", builder);
+        extractor.Extract(Path.Combine(project, "Assets", "Scenes", "Main.mscene"), "Main.mscene", builder);
         var entries = builder.Build("x").ByKey();
         Assert.True(entries.ContainsKey("Overridden panel title"));
         Assert.True(entries.ContainsKey("Overridden caption"));

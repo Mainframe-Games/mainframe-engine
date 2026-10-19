@@ -39,10 +39,10 @@ Decisions: [GetText.NET with engine-owned catalogs](../../memory/decisions/0060-
 ```mermaid
 flowchart LR
     CS["C# sources<br/>Tr._ · Tr.P · Tr.N · Tr.NP"] -->|"GetText.Extractor<br/>(-as _ -ad P -ap N -adp NP)"| P1["code.pot"]
-    RML["Content/**/*.rml"] -->|mf-l10n extract --rml| POT
-    SC["Content/**/*.mscene, *.mres<br/>[Export(Translatable = true)]"] -->|mf-l10n extract --scenes| POT
-    P1 -->|"--include (references rebased)"| POT["Content/locale/messages.pot"]
-    POT -->|"mf-l10n update (msgmerge)"| PO["Content/locale/es/LC_MESSAGES/messages.po …"]
+    RML["Assets/**/*.rml"] -->|mf-l10n extract --rml| POT
+    SC["Assets/**/*.mscene, *.mres<br/>[Export(Translatable = true)]"] -->|mf-l10n extract --scenes| POT
+    P1 -->|"--include (references rebased)"| POT["Assets/locale/messages.pot"]
+    POT -->|"mf-l10n update (msgmerge)"| PO["Assets/locale/es/LC_MESSAGES/messages.po …"]
     POT -->|mf-l10n pseudo| QPS["qps/LC_MESSAGES/messages.po"]
     PO -->|"mf-l10n compile (build target / just l10n-compile)"| MO["…/messages.mo"]
     QPS --> MO
@@ -52,7 +52,7 @@ flowchart LR
 | Recipe | What it runs |
 |---|---|
 | `just l10n-extract` | builds the Demo, runs the GetText.NET extractor over `Examples/Demo/Demo/Src`, `mf-l10n extract` (RML + scenes + the C# template), `update` (every `.po`) and `pseudo` (qps, Latin-1 accents for fonts limited to Latin-1) |
-| `just l10n-compile` | `mf-l10n compile --dir …/Content/locale`: refreshes the committed `.mo` next to each `.po` |
+| `just l10n-compile` | `mf-l10n compile --dir …/Assets/locale`: refreshes the committed `.mo` next to each `.po` |
 | `just l10n-check` | fails when a committed `.mo` is missing or stale, or a translation breaks its placeholders; with GNU `msgfmt` on PATH it also runs `msgfmt -c` and requires byte-identical output |
 | `just l10n-stats` | coverage per locale |
 
@@ -70,9 +70,9 @@ flowchart LR
 ### Build step
 
 [build/Localization.targets](../../build/Localization.targets) (imported by the Demo's desktop project; every game imports it the same way)
-compiles every `Content/locale/<locale>/LC_MESSAGES/<domain>.po` to `obj/<Configuration>/locale/…/.mo` with
+compiles every `Assets/locale/<locale>/LC_MESSAGES/<domain>.po` to `obj/<Configuration>/locale/…/.mo` with
 `mf-l10n` (built first through a project reference with `ReferenceOutputAssembly=false`), incrementally per
-catalog, and copies the results to the output as `Content/locale/…/<domain>.mo`. A translation that breaks its
+catalog, and copies the results to the output as `Assets/locale/…/<domain>.mo`. A translation that breaks its
 placeholders or plural count fails the build with file and line. `.po`/`.pot` never reach the output. When the tool
 cannot run (`-p:CompileLocales=false`, or its output is missing) the build warns (`MFL10N001`) and ships the
 committed `.mo` files instead — the same pattern as the [shader pipeline](shaders.md).
@@ -132,7 +132,7 @@ Tr.LocaleChanged += (_, e) => Log.Info($"{e.PreviousLocale} -> {e.Locale}");
 
 ### Catalogs and the locale chain
 
-- Files: `{LocaleDirectory}/{locale}/LC_MESSAGES/{Domain}.mo`, default `Content/locale/<locale>/LC_MESSAGES/messages.mo`
+- Files: `{LocaleDirectory}/{locale}/LC_MESSAGES/{Domain}.mo`, default `Assets/locale/<locale>/LC_MESSAGES/messages.mo`
   (resolved with [`ContentPaths`](build-and-platforms.md)). Locale folders use gettext names (`pt_BR`, `zh_Hans_CN`).
 - `SetLocale("pt_BR")` loads every catalog of the chain **`pt_BR → pt → FallbackLocales… → SourceLocale (en)`**
   (a locale of the source language, such as `en_GB`, skips the fallbacks: its missing messages show the source text,
@@ -210,7 +210,7 @@ The [game UI](game-ui.md)'s `UiServer` translates every document through `UiServ
 3. **Locale changes** — `ITextTranslator.LocaleChanged` only flags the server (it may fire on any thread, or inside an
    RmlUi callback such as a language dropdown's data binding). At the start of the next `UiServer.Process` — after the
    queued handle releases, before any context updates — the server loads the faces of the `FontFallbackTable`
-   (`UiServerOptions.FontFallbackTablePath`, default `Content/locale/fonts.mres`) for the new `LocaleChain` as fallback
+   (`UiServerOptions.FontFallbackTablePath`, default `Assets/locale/fonts.mres`) for the new `LocaleChain` as fallback
    faces, drops the template cache and reloads every loaded document from its source. Data models and `UiElement`
    subscriptions survive the reload; call `Dirty`/`DirtyAll()` on models whose strings come from `Tr` or from
    `Node.Atr` (for example in the document's `OnLocaleChanged`).
@@ -243,7 +243,7 @@ ui.Translator = static (utf8, sink) =>
 - `class="no-tr"` opts an element and everything inside it out of extraction and translation.
 - Contexts and plurals are not available in RML text; build such strings in C# and bind them through a data model.
 
-**Fonts**: `FontFallbackTable` (a `.mres` resource, by convention `Content/locale/fonts.mres`) lists
+**Fonts**: `FontFallbackTable` (a `.mres` resource, by convention `Assets/locale/fonts.mres`) lists
 `DefaultFonts` and per-locale `LocaleFontSet`s (`ja` → Noto Sans JP, …). `Resolve(chain)` returns the sets matching the
 chain (most specific first) then the defaults, without duplicates. RmlUi cannot unload one face, so faces accumulate
 over a session; fallback faces only supply missing glyphs, so they never change how other text looks.
@@ -252,14 +252,14 @@ over a session; fallback faces only supply missing glyphs, so they never change 
 
 The engine's own player-facing text — the [settings menu](game-ui.md#settings-menu-g4) (`settings.rml` text nodes and
 `Tr.P("settings", …)`) and the input binding names (`Tr.P("input", …)`, `InputBinding.DisplayName()`) — is extracted
-into [`MainframeEngine/Content/UI/settings/settings.pot`](../../MainframeEngine/Content/UI/settings/settings.pot) by
+into [`MainframeEngine/Assets/UI/settings/settings.pot`](../../MainframeEngine/Assets/UI/settings/settings.pot) by
 `just l10n-engine` (GetText.Extractor over `Src/UI/Settings` and `Src/Scene/Input`, plus `mf-l10n extract --rml`). The
 engine ships no translations of its own: a game merges the template into its catalog, so its translators see the menu's
 strings beside the game's:
 
 ```bash
-mf-l10n extract -o Content/locale/messages.pot --include code.pot --include <engine>/MainframeEngine/Content/UI/settings/settings.pot \
-    --rml Content --mfproj project.mfproj
+mf-l10n extract -o Assets/locale/messages.pot --include code.pot --include <engine>/MainframeEngine/Assets/UI/settings/settings.pot \
+    --rml Assets --mfproj project.mfproj
 ```
 
 `--mfproj` extracts the `label` of every input action in `project.mfproj` (the settings menu shows them through
@@ -275,12 +275,12 @@ only uses Latin-1 accents (`[Séttîñgs ~~]`) for fonts limited to Latin-1. In 
 
 ## Demo
 
-The [Demo](demo.md) ships `en` (source), `es` (hand-written) and `qps` in `Examples/Demo/Content/locale`
-(`just l10n-extract` reads `Examples/Demo/Demo/Src`, the Demo's `Content` and the engine's `MainframeEngine/Content/UI`
+The [Demo](demo.md) ships `en` (source), `es` (hand-written) and `qps` in `Examples/Demo/Assets/locale`
+(`just l10n-extract` reads `Examples/Demo/Demo/Src`, the Demo's `Assets` and the engine's `MainframeEngine/Assets/UI`
 widgets; `just l10n-check` runs in CI). Its RmlUi panels are translated by the UI server; the tab titles are
 `Tr._(...)` literals in `DemoNav`, re-translated on `OnLocaleChanged`. The nav bar's **language picker** (a `data-for`
 `<select>` over `Tr.GetAvailableLocales()`) switches at run time. `--locale es` starts in Spanish.
-`Tests/Content/locale` is a separate, small Spanish catalog for the render tests' allocation gate and the editor
+`Tests/Assets/locale` is a separate, small Spanish catalog for the render tests' allocation gate and the editor
 tests; the `mf-l10n` recipes do not manage it.
 
 ## Testing

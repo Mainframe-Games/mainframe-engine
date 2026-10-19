@@ -72,13 +72,13 @@ public sealed class SongRenderTests : IDisposable
     {
         var db = new AssetDatabase(_root);
         var song = Melody(loop: true);
-        song.Render.Output = "Content/Music/Theme.ogg"; // no encoder passed: written as .wav
+        song.Render.Output = "Assets/Music/Theme.ogg"; // no encoder passed: written as .wav
         var progress = new List<double>();
         var result = SongRenderer.Render(song, "Theme", db, progress: new SyncProgress(progress.Add), cancellation: Ct);
 
-        Assert.Equal("Content/Music/Theme.wav", result.OutputPath);
-        Assert.True(File.Exists(Path.Combine(_root, "Content", "Music", "Theme.wav")));
-        Assert.Empty(Directory.GetFiles(Path.Combine(_root, "Content", "Music"), "*.tmp"));
+        Assert.Equal("Assets/Music/Theme.wav", result.OutputPath);
+        Assert.True(File.Exists(Path.Combine(_root, "Assets", "Music", "Theme.wav")));
+        Assert.Empty(Directory.GetFiles(Path.Combine(_root, "Assets", "Music"), "*.tmp"));
         Assert.Equal(1.0, progress[^1]);
         Assert.True(progress.Count > 10);
 
@@ -191,8 +191,8 @@ public sealed class SongRenderTests : IDisposable
         song.Render.SampleFormat = SongSampleFormat.Pcm16;
         var result = SongRenderer.Render(song, "Short", db, cancellation: Ct);
 
-        var floatBytes = new FileInfo(Path.Combine(_root, "Content", "Music", "Float.wav")).Length;
-        var shortFile = Path.Combine(_root, "Content", "Music", "Short.wav");
+        var floatBytes = new FileInfo(Path.Combine(_root, "Assets", "Music", "Float.wav")).Length;
+        var shortFile = Path.Combine(_root, "Assets", "Music", "Short.wav");
         Assert.Equal(44 + result.Frames * 2 * 2, new FileInfo(shortFile).Length);
         Assert.Equal(44 + result.Frames * 2 * 4, floatBytes);
         Assert.Equal(16, BitConverter.ToUInt16(File.ReadAllBytes(shortFile), 34));
@@ -206,7 +206,7 @@ public sealed class SongRenderTests : IDisposable
     public void TheRenderSongFlagRendersIntoTheSongsProject()
     {
         File.WriteAllText(Path.Combine(_root, ProjectSettings.FileName), "{}");
-        var songPath = Path.Combine(_root, "Content", "Music", "Loop.msong");
+        var songPath = Path.Combine(_root, "Assets", "Music", "Loop.msong");
         Directory.CreateDirectory(Path.GetDirectoryName(songPath)!);
         SongFormat.Save(Melody(loop: true), songPath);
         using var output = new StringWriter();
@@ -214,9 +214,9 @@ public sealed class SongRenderTests : IDisposable
 
         Assert.Equal(0, SongRenderCommand.Run([SongRenderCommand.Flag, songPath], output, error));
         var file = PluginHostClient.IsAvailable ? "Loop.ogg" : "Loop.wav"; // .ogg through the plugin helper where it exists
-        Assert.True(File.Exists(Path.Combine(_root, "Content", "Music", file)), error.ToString());
-        Assert.Contains("\"loop\": true", File.ReadAllText(Path.Combine(_root, "Content", "Music", file + ".meta")), StringComparison.Ordinal);
-        Assert.Contains("Content/Music/" + file, output.ToString(), StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(_root, "Assets", "Music", file)), error.ToString());
+        Assert.Contains("\"loop\": true", File.ReadAllText(Path.Combine(_root, "Assets", "Music", file + ".meta")), StringComparison.Ordinal);
+        Assert.Contains("Assets/Music/" + file, output.ToString(), StringComparison.Ordinal);
 
         Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag, Path.Combine(_root, "missing.msong")], output, error));
         Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag], output, error));

@@ -97,7 +97,7 @@
   <path d="M738.25,190.65 l-1.15,5.75 M749.75,190.65 l4.6,4.6" stroke="#b45309" stroke-width="2.9899999999999998" stroke-linecap="round"/><ellipse cx="744" cy="178" rx="11.5" ry="14.95" fill="#f59e0b"/><circle cx="741.125" cy="174.55" r="2.3" fill="#111827"/><circle cx="749.175" cy="174.55" r="2.3" fill="#111827"/>
   <text x="714" y="226" class="xs">5</text>
   <rect x="746" y="214" width="30" height="16" rx="2" fill="#3b3f4b"/><text x="752" y="226" class="xs">×2</text>
-  <text x="286" y="258" class="s">run · 6 frames · 10 FPS · loop · 0.7 s · regions of Content/Sprites/hero.png</text>
+  <text x="286" y="258" class="s">run · 6 frames · 10 FPS · loop · 0.7 s · regions of Assets/Sprites/hero.png</text>
   <rect x="798" y="144" width="132" height="122" rx="4" fill="#1f2128" stroke="#3b3f4b"/>
   <text x="806" y="160" class="xs">Preview</text>
   <path d="M854.5,228.9 l-3.8,9.5 M873.5,228.9 l13.299999999999999,3.8" stroke="#b45309" stroke-width="4.9399999999999995" stroke-linecap="round"/><ellipse cx="864.0" cy="208" rx="19.0" ry="24.7" fill="#f59e0b"/><circle cx="857.35" cy="202.3" r="3.8" fill="#111827"/><circle cx="870.65" cy="202.3" r="3.8" fill="#111827"/>
@@ -107,7 +107,7 @@
   <rect x="80" y="346" width="800" height="316" rx="8" fill="#262931" stroke="#111827"/>
   <rect x="80" y="346" width="800" height="30" rx="8" fill="#2f333d"/><rect x="80" y="366" width="800" height="10" fill="#2f333d"/>
   <rect x="90" y="355" width="5" height="5" rx="1" stroke="#e2e6ee" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="97" y="355" width="5" height="5" rx="1" stroke="#e2e6ee" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="90" y="362" width="5" height="5" rx="1" stroke="#e2e6ee" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="97" y="362" width="5" height="5" rx="1" stroke="#e2e6ee" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="110" y="366" class="hdr">Select Frames — Content/Sprites/hero.png</text>
+  <text x="110" y="366" class="hdr">Select Frames — Assets/Sprites/hero.png</text>
   <rect x="850" y="351" width="22" height="20" rx="3" fill="#3b3f4b"/><path d="M857.0,357.0 L865.0,365.0 M865.0,357.0 L857.0,365.0" stroke="#d1d5db" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   <defs><pattern id="checker" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#3a3d46"/><rect width="8" height="8" fill="#30333b"/><rect x="8" y="8" width="8" height="8" fill="#30333b"/></pattern></defs>
   <rect x="92" y="384" width="400" height="208" fill="#15171c"/>

@@ -32,7 +32,7 @@ Mobile (M12, `docs/design/future/mobile.md#mobile-ready-plumbing-checklist`, ADR
 - **Input:** new pointer-like events carry a `PointerId` + device kind and framebuffer-pixel positions; never assume one pointer, hover or a right button; `InputMap` bindings stay `kind:args` data.
 - **Layout:** use `Engine.ContentScale`/`FramebufferSize` (pixels) and safe-area insets (full framebuffer on desktop), not window points or hard-coded margins; HUD edge content sits in a safe-area container.
 - **No JIT-only APIs** in runtime code: no `Reflection.Emit`/`DynamicMethod`/`Expression.Compile`/`Assembly.Load*` of files/reflection-based `JsonSerializer`; use generators and `JsonSerializerContext`; annotate editor-only features (collectible ALCs, file watchers).
-- **Content I/O:** load content only through `ContentPaths` (later `IContentFileSystem`), preferably as streams; never `File.*`/`Directory.*` directly on content and never write into `Content/` at run time.
+- **Content I/O:** load content only through `ContentPaths` (later `IContentFileSystem`), preferably as streams; never `File.*`/`Directory.*` directly on content and never write into `Assets/` at run time.
 - **Textures:** take a format + per-mip data (block-compressed formats via `FormatInfo`), don't hard-code RGBA8 + GPU mip generation.
 - **Render passes (TBDR):** pick load/store ops deliberately (`CLEAR`/`DONT_CARE` over `LOAD`, `DONT_CARE` stores for depth/MSAA/intermediates), avoid `vkCmdClearAttachments` and new full-screen passes, keep potential transients free of extra usage flags.
 - **Vulkan 1.1 + capability flags:** no hard dependency on 1.2/1.3 core features or SPIR-V > 1.3; stay within ABP 2022 limits (≤ 4 descriptor sets, ≤ 16 samplers/stage, ≤ 4 colour attachments).

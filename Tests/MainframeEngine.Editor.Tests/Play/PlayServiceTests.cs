@@ -127,7 +127,7 @@ public sealed class PlayServiceTests
     public void LaunchedGameConnectsAndStreamsLogsAndStatus()
     {
         using var play = new PlayHarness();
-        const string Scene = "Content/Scenes/Level.mscene";
+        const string Scene = "Assets/Scenes/Level.mscene";
 
         var instance = play.Service.Launch("/fake/MyGame.Desktop", "/fake", Scene, "Game");
         Assert.Equal(PlayInstanceState.Launching, instance.State);
@@ -159,7 +159,7 @@ public sealed class PlayServiceTests
     public void PauseResumeAndReloadReachTheGame()
     {
         using var play = new PlayHarness();
-        var instance = play.LaunchRunning(scene: "Content/Scenes/A.mscene");
+        var instance = play.LaunchRunning(scene: "Assets/Scenes/A.mscene");
         var game = play.Game(instance);
 
         play.Service.Pause(instance);
@@ -173,11 +173,11 @@ public sealed class PlayServiceTests
         play.Pump(() => instance.State == PlayInstanceState.Running, "resume");
         Assert.False(game.Paused);
 
-        play.Service.ReloadScene(instance, "Content/Scenes/B.mscene");
-        play.Pump(() => play.LogMessages(instance).Contains("reloaded Content/Scenes/B.mscene"), "reload B");
-        play.Pump(() => instance.CurrentScene == "Content/Scenes/B.mscene", "scene B in status");
+        play.Service.ReloadScene(instance, "Assets/Scenes/B.mscene");
+        play.Pump(() => play.LogMessages(instance).Contains("reloaded Assets/Scenes/B.mscene"), "reload B");
+        play.Pump(() => instance.CurrentScene == "Assets/Scenes/B.mscene", "scene B in status");
         play.Service.ReloadScene(instance);
-        play.Pump(() => play.LogMessages(instance).Count(m => m == "reloaded Content/Scenes/B.mscene") == 2, "reload current");
+        play.Pump(() => play.LogMessages(instance).Count(m => m == "reloaded Assets/Scenes/B.mscene") == 2, "reload current");
 
         Assert.Equal([EditorCommandKind.Pause, EditorCommandKind.Resume, EditorCommandKind.ReloadScene, EditorCommandKind.ReloadScene],
             game.Commands.Select(c => c.Kind));
@@ -350,7 +350,7 @@ public sealed class PlayServiceTests
         using var project = new DesktopProject();
         using var play = new PlayHarness();
 
-        var task = play.Service.BuildAndLaunchAsync(new PlayRequest("/p/MyGame.sln", project.ProjectFile, "Content/Scenes/Main.mscene", "Game", ["--hidden"]), TestContext.Current.CancellationToken);
+        var task = play.Service.BuildAndLaunchAsync(new PlayRequest("/p/MyGame.sln", project.ProjectFile, "Assets/Scenes/Main.mscene", "Game", ["--hidden"]), TestContext.Current.CancellationToken);
         play.Pump(() => task.IsCompleted, "build and launch");
 
         var instance = (await task)!;
@@ -358,7 +358,7 @@ public sealed class PlayServiceTests
         var game = play.Game(instance);
         Assert.Equal(project.AppHost, game.Request.ProgramPath);
         Assert.Equal(Path.GetDirectoryName(project.AppHost), game.Request.WorkingDirectory);
-        Assert.Equal(["--hidden", "--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", "Content/Scenes/Main.mscene"],
+        Assert.Equal(["--hidden", "--frame-capture", "--editor-port", play.Service.Port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--scene", "Assets/Scenes/Main.mscene"],
             game.Request.Arguments);
         play.Pump(() => instance.State == PlayInstanceState.Running, "connect");
         Assert.True(play.Service.LastBuild!.Succeeded);
@@ -391,8 +391,8 @@ public sealed class PlayServiceTests
 
         // Set: a host flag, before --editor-port.
         play.Service.FfmpegPath = () => "/opt/ff";
-        var with = play.Service.Launch("/fake/MyGame.Desktop", "/fake", "Content/Scenes/A.mscene", "Game", ["--hidden"]);
-        Assert.Equal(["--hidden", "--ffmpeg", "/opt/ff", "--frame-capture", "--editor-port", port, "--scene", "Content/Scenes/A.mscene"], with.Arguments);
+        var with = play.Service.Launch("/fake/MyGame.Desktop", "/fake", "Assets/Scenes/A.mscene", "Game", ["--hidden"]);
+        Assert.Equal(["--hidden", "--ffmpeg", "/opt/ff", "--frame-capture", "--editor-port", port, "--scene", "Assets/Scenes/A.mscene"], with.Arguments);
         Assert.Equal(with.Arguments, play.Game(with).Request.Arguments);
 
         // A blank setting passes nothing; a flag the caller chose for this launch wins; the game's own arguments stay after "++".

@@ -1,0 +1,107 @@
+/*
+ * The engine's settings menu (SettingsMenu). Builds on the widget library (/Assets/UI/widgets/widgets.rcss: .panel,
+ * .tabs, buttons, sliders, checkboxes, dropdowns). Sizes in dp.
+ */
+
+body {
+    width: 100%;
+    height: 100%;
+    background-color: #00000073;
+}
+
+#settings {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 480dp;
+    margin-left: -240dp;
+    margin-top: -270dp;
+    padding-bottom: 14dp;
+}
+
+#settings .panel-title { position: relative; height: 22dp; line-height: 22dp; }
+
+#settings-close {
+    position: absolute;
+    right: 8dp;
+    top: 4dp;
+    width: 26dp;
+    height: 24dp;
+    line-height: 24dp;
+    padding: 0dp;
+}
+
+.page { display: block; height: 400dp; position: relative; }
+
+.setting {
+    display: block;
+    height: 32dp;
+    line-height: 32dp;
+    margin-bottom: 2dp;
+    padding: 0dp 6dp;
+    border-radius: 4dp;
+}
+
+.setting .label { display: inline-block; width: 150dp; color: #e6e9ef; }
+.setting .value { display: inline-block; width: 48dp; text-align: right; color: #8a95ab; }
+.setting input.range { width: 170dp; }
+.setting select { width: 200dp; }
+.setting.disabled .label { color: #6b7488; }
+.setting.disabled select, .setting.disabled input { pointer-events: none; opacity: 0.45; }
+
+/* Audio */
+.setting.muted .label, .setting.muted .value { color: #6b7488; }
+.setting.muted input.range sliderprogress { background-color: #44506a; }
+button.mute { width: 56dp; margin-left: 12dp; padding: 0dp; }
+button.mute.on { background-color: #3a2230; border-color: #f87171; color: #f87171; }
+
+/* Controls */
+.setting.header { height: 22dp; line-height: 22dp; color: #8a95ab; }
+.setting.header .label { color: #8a95ab; }
+.setting.header .keys { display: inline-block; width: 204dp; }
+#actions { display: block; height: 280dp; overflow-y: auto; }
+.setting.capturing { background-color: #2f6fd62e; }
+.setting.locked .label { color: #6b7488; }
+button.binding {
+    width: 90dp;
+    margin-right: 6dp;
+    padding: 0dp 4dp;
+    background-color: #0b0e14;
+    border-color: #44506a;
+    text-align: left;
+}
+button.binding.pad { width: 78dp; }
+button.binding.active { background-color: #1c2a44; border-color: #5aa0ff; color: #93c5fd; font-style: italic; }
+.setting.locked button.binding { color: #6b7488; background-color: #20262f; border-color: #2b3242; }
+
+.hint { display: block; margin: 6dp 6dp; font-size: 12dp; color: #8a95ab; }
+
+/* Display: revert prompt */
+#revert {
+    display: block;
+    height: 34dp;
+    line-height: 26dp;
+    margin-top: 6dp;
+    padding: 4dp 8dp;
+    background-color: #1c2333;
+    border: 1dp #5aa0ff;
+    border-radius: 4dp;
+}
+#revert .question { display: inline-block; width: 280dp; line-height: 13dp; }
+#revert .question span { display: block; }
+#revert button { margin-left: 4dp; height: 24dp; line-height: 24dp; }
+
+.footer { position: absolute; left: 0dp; right: 0dp; bottom: 0dp; height: 28dp; text-align: right; }
+.footer button:first-child { position: absolute; left: 0dp; }
+.footer button.primary { width: 80dp; }
+
+#tooltip {
+    position: absolute;
+    display: none;
+    pointer-events: none;
+    padding: 3dp 8dp;
+    background-color: #0b0e14;
+    border: 1dp #44506a;
+    border-radius: 3dp;
+    font-size: 12dp;
+}

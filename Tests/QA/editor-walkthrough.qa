@@ -77,8 +77,8 @@ capture 13-quit-prompt
 cancel
 # Sound designer: a new ZzfxStream resource, a preset, Export .wav (default name), then Play on the file from the
 # FileSystem panel (stop badge). The files are removed again.
-edit-file Content/Audio/QaSound.mres {"format":2,"type":"ZzfxStream"}
-inspect Examples/Demo/Content/Audio/QaSound.mres
+edit-file Assets/Audio/QaSound.mres {"format":2,"type":"ZzfxStream"}
+inspect Examples/Demo/Assets/Audio/QaSound.mres
 wait 3
 inspector-header zzfx-preset:pickup
 wait 3
@@ -87,18 +87,27 @@ inspector-header zzfx-export
 wait 3
 accept
 wait 3
-fs-select Content/Audio/QaSound.wav
+fs-select Assets/Audio/QaSound.wav
 command fs.play
 wait 3
 capture 13c-sound-preview
 command fs.stop
 inspector-header inspector-close
-delete-file Content/Audio/QaSound*
+delete-file Assets/Audio/QaSound*
 wait 3
+# The FileSystem panel: the Simplified view (Assets and Scripts, the default), then the whole project folder, then back.
+click #fs-view-tree
+wait 2
+capture 13c2-filesystem-simplified
+click #fs-simplified
+wait 2
+capture 13c3-filesystem-verbose
+click #fs-simplified
+wait 2
 # Music mode (the music editor, full window): a new song switches to it; a clip with notes (piano roll), the mixer
 # while playing, Render; then, back in game mode, the output previewed from the FileSystem panel. The files are removed
 # again.
-song new Content/Music/QaSong.msong
+song new Assets/Music/QaSong.msong
 wait 3
 state
 song demo
@@ -166,13 +175,13 @@ wait 3
 capture 13f-music-empty
 mode game
 wait 3
-fs-select Content/Music/QaSong.ogg
+fs-select Assets/Music/QaSong.ogg
 command fs.play
 wait 3
 capture 13g-song-render
 command fs.stop
 wait 3
-delete-file Content/Music/QaSong*
+delete-file Assets/Music/QaSong*
 wait 3
 # The update badge and dialog (a preview: QA runs never touch the network).
 update-preview 9.9.9

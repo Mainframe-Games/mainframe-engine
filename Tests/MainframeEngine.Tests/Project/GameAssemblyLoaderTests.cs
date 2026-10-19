@@ -130,7 +130,7 @@ public sealed class GameAssemblyLoaderTests : IDisposable
     private string Build(string source, string version, string name = "ReloadGame") =>
         GameCompiler.Compile(source, name, Path.Combine(_root, "bin", version));
 
-    private string ScenePath => Path.Combine(_root, "project", "Content", "Level.mscene");
+    private string ScenePath => Path.Combine(_root, "project", "Assets", "Level.mscene");
 
     // Everything that touches game types lives in non-inlined helpers, so no stack slot of the test method keeps them.
     [MethodImpl(MethodImplOptions.NoInlining)]

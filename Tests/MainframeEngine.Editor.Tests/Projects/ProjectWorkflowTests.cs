@@ -11,18 +11,18 @@ internal sealed class TestProject : IDisposable
     {
         Name = name;
         Root = GameProjectLayout.RealPath(Directory.CreateTempSubdirectory("mf-project").FullName);
-        var settings = new ProjectSettings { Name = name, MainScene = "Content/Scenes/Main.mscene" };
+        var settings = new ProjectSettings { Name = name, MainScene = "Assets/Scenes/Main.mscene" };
         settings.Input.AddAction("jump");
         settings.Save(Root);
-        Directory.CreateDirectory(Abs("Content/Scenes"));
-        File.WriteAllText(Abs("Content/Scenes/Main.mscene"), """
+        Directory.CreateDirectory(Abs("Assets/Scenes"));
+        File.WriteAllText(Abs("Assets/Scenes/Main.mscene"), """
             {
               "format": 1,
               "uid": "scn_00000000a001",
               "root": { "type": "Node3D", "name": "Main", "children": [ { "type": "Node3D", "name": "Child" } ] }
             }
             """);
-        File.WriteAllText(Abs("Content/Scenes/Level.mscene"), """
+        File.WriteAllText(Abs("Assets/Scenes/Level.mscene"), """
             { "format": 1, "uid": "scn_00000000a002", "root": { "type": "Node3D", "name": "Level" } }
             """);
         var desktop = Abs($"{name}.Desktop");
@@ -35,6 +35,13 @@ internal sealed class TestProject : IDisposable
     public string Root { get; }
 
     public string Abs(string relative) => Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));
+
+    /// <summary>Writes <paramref name="text"/> to <paramref name="relative"/>, creating its folder.</summary>
+    public void Write(string relative, string text)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Abs(relative))!);
+        File.WriteAllText(Abs(relative), text);
+    }
 
     public void Dispose()
     {
@@ -237,14 +244,14 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.Equal(_project.Root, w.Session.ProjectRoot);
     }
 
-    // The project's window icon: the brand logo copied to Content/icon.png and named by window.icon.
+    // The project's window icon: the brand logo copied to Assets/icon.png and named by window.icon.
     private string WriteIcon()
     {
-        var icon = _project.Abs("Content/icon.png");
+        var icon = _project.Abs("Assets/icon.png");
         Directory.CreateDirectory(Path.GetDirectoryName(icon)!);
-        File.Copy(ContentPaths.Resolve("Content/Brand/logo-48.png"), icon);
+        File.Copy(ContentPaths.Resolve("Assets/Brand/logo-48.png"), icon);
         var settings = ProjectSettings.Load(_project.Abs(ProjectSettings.FileName));
-        settings.Window.Icon = "Content/icon.png";
+        settings.Window.Icon = "Assets/icon.png";
         settings.Save(_project.Root);
         return icon;
     }
@@ -275,7 +282,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         _editor!.Tick();
         Assert.Contains("ps-preview", w.ProjectSettings.Document.GetElementById("ps-body").InnerRml, StringComparison.Ordinal);
 
-        Assert.Null(w.ProjectSettings.Model!.Set("window.icon", "Content/missing.png"));
+        Assert.Null(w.ProjectSettings.Model!.Set("window.icon", "Assets/missing.png"));
         _editor.Tick();
         Assert.DoesNotContain("ps-preview", w.ProjectSettings.Document.GetElementById("ps-body").InnerRml, StringComparison.Ordinal);
         Assert.Empty(_editor.RmlMessages);
@@ -292,7 +299,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         w.NewProject.ProjectName = "1bad name";
         Assert.False(w.NewProject.Validate());
         Assert.NotEqual("", w.NewProject.Error);
-        w.NewProject.ProjectName = "Content"; // an existing, non-empty folder
+        w.NewProject.ProjectName = "Assets"; // an existing, non-empty folder
         Assert.False(w.NewProject.Validate());
         w.NewProject.ProjectName = "FreshGame";
         w.NewProject.EnginePath = _project.Root; // not an engine checkout
@@ -311,7 +318,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         var values = new Dictionary<string, string>
         {
             ["name"] = "Renamed",
-            ["mainScene"] = "Content/Scenes/Level.mscene",
+            ["mainScene"] = "Assets/Scenes/Level.mscene",
             ["assemblies"] = "One, Two",
             ["isDemo"] = "true",
             ["steam.appId"] = "480",
@@ -323,7 +330,7 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["window.height"] = "1080",
             ["window.vsync"] = "false",
             ["window.maxFps"] = "144",
-            ["window.icon"] = "Content/icon.png",
+            ["window.icon"] = "Assets/icon.png",
             ["physics.ticksPerSecond"] = "120",
             ["physics.maxStepsPerFrame"] = "8",
             ["physics.3d.gravity"] = "0, -20, 0",
@@ -339,13 +346,13 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["physics.2d.allowSleep"] = "false",
             ["physics.2d.continuous"] = "false",
             ["audio.enabled"] = "false",
-            ["audio.busLayout"] = "Content/Settings/Buses.mres",
+            ["audio.busLayout"] = "Assets/Settings/Buses.mres",
             ["audio.sampleRate"] = "48000",
             ["audio.bufferMs"] = "40",
             ["localization.defaultLocale"] = "es",
             ["localization.sourceLocale"] = "en",
             ["localization.fallbacks"] = "es, fr",
-            ["localization.directory"] = "Content/i18n",
+            ["localization.directory"] = "Assets/i18n",
             ["localization.domain"] = "game",
             ["rendering.exposure"] = "1.25",
             ["rendering.shadows"] = "Low",
@@ -446,7 +453,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.Null(model.RemoveBinding("shoot", InputBinding.Parse("mouse:Left")));
 
         w.ProjectSettings.SelectSection("Autoloads");
-        Assert.Null(model.AddAutoload("Music", "Content/Scenes/Level.mscene"));
+        Assert.Null(model.AddAutoload("Music", "Assets/Scenes/Level.mscene"));
         Assert.Null(model.AddAutoload("Stats", "Node3D"));
         Assert.Null(model.MoveAutoload(1, -1));
         Assert.Equal(["Stats", "Music"], model.Current.Autoloads.Select(a => a.Name));
@@ -639,24 +646,91 @@ public sealed class ProjectWorkflowTests : IDisposable
         var fs = w.FileSystem;
         fs.Trash = new RecordingTrash();
         Assert.NotNull(fs.Files);
-        Assert.Contains(fs.Rows, r => r.Name == "Content");
+        Assert.Contains(fs.Rows, r => r.Name == "Assets");
         Assert.DoesNotContain(fs.Rows, r => r.Name.EndsWith(".meta", StringComparison.Ordinal));
         Assert.Empty(_editor!.RmlMessages);
 
-        foreach (var view in new[] { FileSystemView.List, FileSystemView.Grid, FileSystemView.Tree })
+        foreach (var simplified in new[] { false, true })
         {
-            fs.SetView(view);
-            _editor.Tick();
-            Assert.Equal(view, fs.View);
+            fs.SetSimplified(simplified);
+            foreach (var view in new[] { FileSystemView.List, FileSystemView.Grid, FileSystemView.Tree })
+            {
+                fs.SetView(view);
+                _editor.Tick();
+                Assert.Equal(view, fs.View);
+                Assert.Empty(_editor.RmlMessages);
+            }
         }
 
         // Rename the open main scene: the session follows, project.mfproj's mainScene is fixed.
-        var main = _project.Abs("Content/Scenes/Main.mscene");
+        var main = _project.Abs("Assets/Scenes/Main.mscene");
         Assert.True(fs.Rename(main, "Start.mscene"));
         _editor.Tick();
-        Assert.Equal(_project.Abs("Content/Scenes/Start.mscene"), w.Session.Active!.FilePath);
-        Assert.Equal("Content/Scenes/Start.mscene", ProjectSettings.Load(_project.Root).MainScene);
-        Assert.Equal(_project.Abs("Content/Scenes/Start.mscene"), fs.SelectedPath);
+        Assert.Equal(_project.Abs("Assets/Scenes/Start.mscene"), w.Session.Active!.FilePath);
+        Assert.Equal("Assets/Scenes/Start.mscene", ProjectSettings.Load(_project.Root).MainScene);
+        Assert.Equal(_project.Abs("Assets/Scenes/Start.mscene"), fs.SelectedPath);
+    }
+
+    [Fact]
+    public void TheSimplifiedViewShowsAssetsAndTheGameLibrarysCSharp()
+    {
+        _project.Write("Workflow/Workflow.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
+        _project.Write("Workflow/Src/Player.cs", "class Player {}\n");
+        _project.Write("Workflow/Src/AI/Enemy.cs", "class Enemy {}\n");
+        _project.Write("Workflow/Src/Empty/readme.txt", "no code here\n");
+        _project.Write("Workflow/Src/notes.txt", "notes\n");
+        var w = Open().Workspace;
+        var fs = w.FileSystem;
+        fs.Trash = new RecordingTrash();
+        var assets = _project.Abs("Assets");
+        var scripts = _project.Abs("Workflow/Src");
+
+        // The default: two roots, Scripts holding only C# files and the folders that have some.
+        Assert.True(fs.Simplified);
+        Assert.Equal(assets, fs.AssetsRoot);
+        Assert.Equal(scripts, fs.ScriptsRoot);
+        Assert.Equal(["Assets", "Scenes", "Scripts", "AI", "Player.cs"], fs.RowNames);
+        fs.Toggle(fs.RowNames.ToList().IndexOf("AI"));
+        Assert.Equal(["Assets", "Scenes", "Scripts", "AI", "Enemy.cs", "Player.cs"], fs.RowNames);
+
+        // The roots stay put: no rename, move or trash; C# stays out of Assets and assets out of Scripts.
+        var scriptsRow = fs.Rows[fs.RowNames.ToList().IndexOf("Scripts")];
+        Assert.True(fs.IsRoot(scriptsRow));
+        fs.Select(scripts);
+        Assert.True(w.Commands.Execute("fs.rename"));
+        Assert.Null(w.Message.Current);
+        Assert.False(fs.CanDrop(_project.Abs("Workflow/Src/Player.cs"), _project.Abs("Assets/Scenes")));
+        Assert.False(fs.CanDrop(_project.Abs("Assets/Scenes/Level.mscene"), scripts));
+        Assert.True(fs.CanDrop(_project.Abs("Workflow/Src/Player.cs"), _project.Abs("Workflow/Src/AI")));
+        Assert.True(fs.CanDrop(_project.Abs("Assets/Scenes"), _project.Abs("Workflow/Src/AI")));
+
+        // New scenes and resources go to Assets even when Scripts is selected; new folders where selected.
+        fs.Select(_project.Abs("Workflow/Src/AI/Enemy.cs"));
+        Assert.Equal(_project.Abs("Workflow/Src/AI"), fs.TargetFolder());
+        Assert.Equal(assets, fs.AssetTargetFolder());
+
+        // List view: Assets first, Up shows the two roots, a root opens into its folder.
+        fs.Select(null);
+        fs.SetView(FileSystemView.List);
+        Assert.Equal(assets, fs.CurrentFolder);
+        Assert.Equal(["Scenes"], fs.RowNames);
+        fs.GoUp();
+        Assert.Null(fs.CurrentFolder);
+        Assert.Equal(["Assets", "Scripts"], fs.RowNames);
+        fs.Open(fs.Rows[1]);
+        Assert.Equal(["AI", "Player.cs"], fs.RowNames);
+        fs.GoUp();
+        Assert.Null(fs.CurrentFolder);
+
+        // Verbose: the whole project folder again, and the choice is kept in the layout settings.
+        Assert.True(w.Commands.Execute("fs.toggle_simplified"));
+        Assert.False(fs.Simplified);
+        Assert.True(w.Layout.Settings.FileSystemVerbose);
+        Assert.Equal(assets, fs.CurrentFolder); // the list leaves the roots for Assets
+        fs.SetView(FileSystemView.Tree);
+        Assert.Contains("project.mfproj", fs.RowNames);
+        Assert.Contains("Workflow.Desktop", fs.RowNames);
+        Assert.False(fs.IsRoot(scriptsRow));
     }
 
     [Fact]
@@ -665,7 +739,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         var w = Open().Workspace;
         var trash = new RecordingTrash();
         w.FileSystem.Trash = trash;
-        var level = _project.Abs("Content/Scenes/Level.mscene");
+        var level = _project.Abs("Assets/Scenes/Level.mscene");
         w.FileSystem.Delete(level);
         Assert.Equal("Move to Trash", w.Message.Current?.Title);
         w.Message.Answer(0);
@@ -689,7 +763,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         var w = Open().Workspace;
         var scene = w.Session.Active!;
         var child = scene.Root.GetNode("Child");
-        w.FileSystem.BeginDrag(_project.Abs("Content/Scenes/Level.mscene"));
+        w.FileSystem.BeginDrag(_project.Abs("Assets/Scenes/Level.mscene"));
         Assert.NotNull(w.FileDrag);
         Assert.True(w.DropFileOnNode(w.FileDrag!, child));
         Assert.Null(w.FileDrag);
@@ -699,14 +773,14 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.Equal("Instance Level", scene.History.UndoAction!.Name);
 
         // New folder / scene through the panel's commands (name prompts).
-        w.FileSystem.Select(_project.Abs("Content"));
+        w.FileSystem.Select(_project.Abs("Assets"));
         Assert.True(w.Commands.Execute("fs.new_folder"));
         w.Message.Answer(0); // default name "NewFolder"
-        Assert.True(Directory.Exists(_project.Abs("Content/NewFolder")));
-        w.FileSystem.Select(_project.Abs("Content/NewFolder"));
+        Assert.True(Directory.Exists(_project.Abs("Assets/NewFolder")));
+        w.FileSystem.Select(_project.Abs("Assets/NewFolder"));
         Assert.True(w.Commands.Execute("fs.new_scene_2d"));
         w.Message.Answer(0);
-        Assert.True(File.Exists(_project.Abs("Content/NewFolder/NewScene.mscene")));
+        Assert.True(File.Exists(_project.Abs("Assets/NewFolder/NewScene.mscene")));
         Assert.True(w.Session.Active!.Camera.Is2D); // opened, a Node2D scene
     }
 
@@ -854,7 +928,7 @@ public sealed class ProjectWorkflowTests : IDisposable
     public void ResourceFilesOpenInTheInspectorAndTheBusLayoutInspectorEditsWithUndo()
     {
         var w = Open().Workspace;
-        var file = _project.Abs("Content/Buses.mres");
+        var file = _project.Abs("Assets/Buses.mres");
         ResourceSaver.Save(AudioBusLayout.CreateDefault(), file);
         Assert.True(w.Inspector.InspectResourceFile(file));
         _editor!.Tick();

@@ -4,7 +4,7 @@ using MainframeEngine;
 namespace Forest;
 
 /// <summary>
-/// The Forest's main scene (<c>Content/Scenes/forest.mscene</c>, written by <c>--write-scenes</c>): the morning sun,
+/// The Forest's main scene (<c>Assets/Scenes/forest.mscene</c>, written by <c>--write-scenes</c>): the morning sun,
 /// the environment (physical sky, sky lighting, valley fog, light shafts, auto exposure, glow, wind), the
 /// <see cref="ForestValley"/> (generated when ready: terrain, stream, pond, trees, ground cover, props), the
 /// <see cref="FirstPersonController"/> at the trailhead and <see cref="ForestAudio"/>. The environment's knobs live here
@@ -15,13 +15,13 @@ public static class ForestScene
     public const string Id = "forest";
 
     /// <summary>The scene file, relative to the project folder.</summary>
-    public const string Path = "Content/Scenes/forest.mscene";
+    public const string Path = "Assets/Scenes/forest.mscene";
 
     /// <summary>
     /// The valley's baked light probes (ADR 0170), relative to the project folder: a <see cref="LightProbeData"/> and its
     /// <c>.probes</c> file (LFS), written by <c>--bake-lighting</c> (or the editor's Bake Lighting) next to the scene.
     /// </summary>
-    public const string ProbesPath = "Content/Scenes/forest-lighting.mres";
+    public const string ProbesPath = "Assets/Scenes/forest-lighting.mres";
 
     /// <summary>Where the player starts (feet, on the ground; the valley snaps it exactly when ready).</summary>
     public static Vector3 Spawn

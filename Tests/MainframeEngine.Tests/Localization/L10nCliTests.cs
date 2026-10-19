@@ -43,9 +43,9 @@ public sealed class L10nCliTests : IDisposable
 
     private int Run(params string[] args) => L10nCli.Run(args, _output, _error);
 
-    private string LocaleDir => P("Content/locale");
+    private string LocaleDir => P("Assets/locale");
 
-    private string Pot => P("Content/locale/messages.pot");
+    private string Pot => P("Assets/locale/messages.pot");
 
     [Fact]
     public void FullWorkflowOnAFixtureProject()
@@ -56,11 +56,11 @@ public sealed class L10nCliTests : IDisposable
             include.AddRange(["--include", P("obj/code.pot")]);
         Assert.Equal(0, Run([
             "extract", "-o", Pot, "--root", _project, "--project", "Fixture",
-            "--rml", P("Content/UI"), "--scenes", P("Content/Scenes"), "--translatable", "UnknownWidget.Text", .. include]));
+            "--rml", P("Assets/UI"), "--scenes", P("Assets/Scenes"), "--translatable", "UnknownWidget.Text", .. include]));
 
         var template = PoParser.ParseFile(Pot).ByKey();
-        Assert.Contains("Content/UI/menu.rml:26", template["Settings"].References);
-        Assert.Contains("Content/Scenes/Main.mscene:16", template["Settings"].References);
+        Assert.Contains("Assets/UI/menu.rml:26", template["Settings"].References);
+        Assert.Contains("Assets/Scenes/Main.mscene:16", template["Settings"].References);
         Assert.True(template.ContainsKey("Unknown type text"));
         if (include.Count > 0)
         {
@@ -73,7 +73,7 @@ public sealed class L10nCliTests : IDisposable
         var first = File.ReadAllText(Pot);
         Assert.Equal(0, Run([
             "extract", "-o", Pot, "--root", _project, "--project", "Fixture",
-            "--rml", P("Content/UI"), "--scenes", P("Content/Scenes"), "--translatable", "UnknownWidget.Text", .. include]));
+            "--rml", P("Assets/UI"), "--scenes", P("Assets/Scenes"), "--translatable", "UnknownWidget.Text", .. include]));
         Assert.Equal(first, File.ReadAllText(Pot));
 
         // 2. New catalogs (msginit) with the right plural rules.
@@ -111,7 +111,7 @@ public sealed class L10nCliTests : IDisposable
         Assert.Equal("Ajustes", Tr._("Settings"));
         Assert.True(Tr.TranslateMarkup("\n    Start   game\n", out var markup));
         Assert.Equal(" Empezar partida ", markup);
-        Assert.Contains("placeholder=\"Nombre del jugador\"", RmlLocalization.PrepareDocument(File.ReadAllText(P("Content/UI/menu.rml"))),
+        Assert.Contains("placeholder=\"Nombre del jugador\"", RmlLocalization.PrepareDocument(File.ReadAllText(P("Assets/UI/menu.rml"))),
             StringComparison.Ordinal);
         Tr.SetLocale("qps");
         Assert.Equal("[Šéţţîñĝš ~~]", Tr._("Settings"));
@@ -119,9 +119,9 @@ public sealed class L10nCliTests : IDisposable
         Assert.StartsWith("[Þļåýéŕ ñåṁé", markup, StringComparison.Ordinal);
 
         // 8. Messages that leave the source become obsolete; translations survive a re-extraction.
-        File.WriteAllText(P("Content/UI/menu.rml"), "<rml><body><p>Settings</p><p>Brand new</p></body></rml>");
+        File.WriteAllText(P("Assets/UI/menu.rml"), "<rml><body><p>Settings</p><p>Brand new</p></body></rml>");
         Assert.Equal(0, Run([
-            "extract", "-o", Pot, "--root", _project, "--rml", P("Content/UI"), "--scenes", P("Content/Scenes"), .. include]));
+            "extract", "-o", Pot, "--root", _project, "--rml", P("Assets/UI"), "--scenes", P("Assets/Scenes"), .. include]));
         Assert.Equal(0, Run("update", "--pot", Pot, "--dir", LocaleDir));
         var updated = PoParser.ParseFile(esPath);
         Assert.Equal("Ajustes", updated.ByKey()["Settings"].Translations[0]);

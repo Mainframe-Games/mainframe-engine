@@ -12,7 +12,7 @@ namespace MainframeEngine.Tests.Rendering;
 public sealed partial class ShaderLimitsTests
 {
     private static readonly string Repo = FindRepoRoot();
-    private static readonly string ShaderDir = Path.Combine(Repo, "MainframeEngine", "Content", "Shaders");
+    private static readonly string ShaderDir = Path.Combine(Repo, "MainframeEngine", "Assets", "Shaders");
 
     private static string FindRepoRoot()
     {

@@ -48,7 +48,7 @@ public static class Audio2DScene
             VolumeDb = -6f,
             Autoplay = true,
             MaxDistance = 900f,
-            Stream = new AudioStream { File = "Content/Audio/ambient_hum.ogg", LoadMode = AudioLoadMode.Stream, Loop = true },
+            Stream = new AudioStream { File = "Assets/Audio/ambient_hum.ogg", LoadMode = AudioLoadMode.Stream, Loop = true },
         });
         Add(root, root, new ClickToPlay2D { Name = "Clicks" });
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });

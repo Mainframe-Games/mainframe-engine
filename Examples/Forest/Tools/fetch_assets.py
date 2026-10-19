@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetches and imports the Forest's CC0 art into Examples/Forest/Content/Art (see docs/design/forest.md#assets).
+"""Fetches and imports the Forest's CC0 art into Examples/Forest/Assets/Art (see docs/design/forest.md#assets).
 
 Sources (nothing else): ambientCG (https://ambientcg.com/api/v2/full_json, https://ambientcg.com/get?file=...) and
 Poly Haven (https://api.polyhaven.com, https://dl.polyhaven.org). Every asset on both sites is CC0 1.0
@@ -37,7 +37,7 @@ import zipfile
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ART = os.path.normpath(os.path.join(HERE, "..", "Content", "Art"))
+ART = os.path.normpath(os.path.join(HERE, "..", "Assets", "Art"))
 
 # (folder / tag, ambientCG id). Order = splat channel in ForestAssets.TerrainLayers.
 TERRAIN = [
@@ -153,7 +153,7 @@ def terrain(cache, rows):
             save_jpg(normal, os.path.join(out, f"{asset}_NormalGL.jpg"), 95, subsampling=0)
             save_png(Image.merge("RGB", (ao, rough, Image.new("L", (LAYER_SIZE, LAYER_SIZE), 0))), os.path.join(out, f"{asset}_ORM.png"))
             save_png(height, os.path.join(out, f"{asset}_Height.png"))
-        rows.append((found["displayName"], asset, f"Content/Art/Terrain/{tag.capitalize()}/", found["shortLink"], url, "ambientCG (no author listed)"))
+        rows.append((found["displayName"], asset, f"Assets/Art/Terrain/{tag.capitalize()}/", found["shortLink"], url, "ambientCG (no author listed)"))
         print(f"terrain {tag:8} {asset}", file=sys.stderr)
 
 
@@ -181,7 +181,7 @@ def debris(cache, rows, wanted=None):
             save_jpg(read("NormalGL", "RGB"), os.path.join(out, f"{asset}_NormalGL.jpg"), 95, subsampling=0)
             rough = read("Roughness", "L")
             save_png(Image.merge("RGB", (Image.new("L", (size, size), 255), rough, Image.new("L", (size, size), 0))), os.path.join(out, f"{asset}_ORM.png"))
-        rows.append((found["displayName"], asset, f"Content/Art/Debris/{asset}/", found["shortLink"], url, "ambientCG (no author listed)"))
+        rows.append((found["displayName"], asset, f"Assets/Art/Debris/{asset}/", found["shortLink"], url, "ambientCG (no author listed)"))
         print(f"debris {asset}", file=sys.stderr)
 
 
@@ -234,7 +234,7 @@ def props(cache, rows, wanted=None):
             json.dump(gltf, f, indent=1)
             f.write("\n")
         authors = ", ".join(info["authors"])
-        rows.append((info["name"], asset, f"Content/Art/Props/{asset}/", f"https://polyhaven.com/a/{asset}", entry["url"], f"Poly Haven ({authors})"))
+        rows.append((info["name"], asset, f"Assets/Art/Props/{asset}/", f"https://polyhaven.com/a/{asset}", entry["url"], f"Poly Haven ({authors})"))
         print(f"prop {asset} {res}", file=sys.stderr)
 
 
@@ -246,7 +246,7 @@ def sky(cache, rows):
     img = Image.open(src).convert("RGB").resize(SKY_SIZE, Image.LANCZOS)
     save_jpg(img, os.path.join(ART, "Sky", f"{HDRI}_4k.jpg"), 90)
     authors = ", ".join(info["authors"])
-    rows.append((info["name"] + " (tonemapped)", HDRI, "Content/Art/Sky/", f"https://polyhaven.com/a/{HDRI}", tm["url"], f"Poly Haven ({authors})"))
+    rows.append((info["name"] + " (tonemapped)", HDRI, "Assets/Art/Sky/", f"https://polyhaven.com/a/{HDRI}", tm["url"], f"Poly Haven ({authors})"))
     print(f"sky {HDRI}", file=sys.stderr)
 
 

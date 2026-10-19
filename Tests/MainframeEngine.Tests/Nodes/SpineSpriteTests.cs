@@ -13,8 +13,8 @@ public sealed class SpineSpriteTests : IDisposable
 
     private static SpineSkeletonDataResource SpineBoy() => new()
     {
-        AtlasRes = "Content/Models/Spine/SpineBoy/spineboy-pro.atlas",
-        SkeletonFileRes = "Content/Models/Spine/SpineBoy/spineboy-pro.json",
+        AtlasRes = "Assets/Models/Spine/SpineBoy/spineboy-pro.atlas",
+        SkeletonFileRes = "Assets/Models/Spine/SpineBoy/spineboy-pro.json",
         DefaultMix = 0.1f,
         AnimationMixes = [new SpineAnimationMix { From = "walk", To = "run", Mix = 0.3f }],
     };

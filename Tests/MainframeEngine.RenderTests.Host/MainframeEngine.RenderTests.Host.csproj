@@ -16,15 +16,15 @@
 
   <!-- Shared test content (Tests/Content): glTF test model, SpineBoy, ambience, the logo image and the compiled catalogs. -->
   <ItemGroup>
-    <None Include="..\Content\Models\**" LinkBase="Content\Models" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\Content\Audio\**" LinkBase="Content\Audio" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\Content\Branding\logo.png" Link="Content\UI\logo.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\Content\locale\**\*.mo" LinkBase="Content\locale" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Assets\Models\**" LinkBase="Assets\Models" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Assets\Audio\**" LinkBase="Assets\Audio" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Assets\Branding\logo.png" Link="Assets\UI\logo.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Assets\locale\**\*.mo" LinkBase="Assets\locale" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- UI documents for the game-UI scenes. -->
   <ItemGroup>
-    <None Update="Content\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

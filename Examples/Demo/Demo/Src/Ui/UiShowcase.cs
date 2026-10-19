@@ -14,7 +14,7 @@ public sealed class UiShowcase : UiDocument
 
     public UiShowcase()
     {
-        Source = "Content/UI/showcase.rml";
+        Source = "Assets/UI/showcase.rml";
         AutoFocus = false;
     }
 

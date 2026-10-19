@@ -10,7 +10,7 @@ public sealed class Spine2DScene(HostOptions host) : RenderTestGame(host)
         Tree.Root.AddChild(new Camera2D { Name = "Camera", Current = true });
         var pivot = new Node3D { Name = "Pivot", RotationDegrees = new Vector3(180, 0, 0), Position = new Vector3(0, 90, 0) };
         Tree.Root.AddChild(pivot);
-        pivot.AddChild(new SpineNode { Name = "SpineBoy", Folder = "Content/Models/Spine/SpineBoy", Animation = "idle", SpineScale = 0.35f });
+        pivot.AddChild(new SpineNode { Name = "SpineBoy", Folder = "Assets/Models/Spine/SpineBoy", Animation = "idle", SpineScale = 0.35f });
         Tree.Root.AddChild(new DirectionalLight3D { Name = "Sun", RotationDegrees = new Vector3(-40, 160, 0) });
     }
 

@@ -1,0 +1,253 @@
+<rml>
+<head>
+    <title>Synth</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        /* The wavetable synth's window (SynthWindow): floating over the song view, never modal; the body lets the mouse
+           through. Osc · Matrix · FX tabs above, the modulation strip and a keyboard below. Knobs are generated from
+           SynthParams; the wavetables, the filter curves and the envelope / LFO editor are canvas views
+           (engine://synth-*), redrawn only when what they show changed. */
+        body.synth-doc { position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; pointer-events: none; }
+        #sw-window {
+            position: absolute; display: flex; flex-direction: column; width: 1010dp; pointer-events: auto;
+            background-color: #1b1d23; border: 1dp #3b3f4b; border-radius: 6dp; box-shadow: #000000a0 0dp 10dp 30dp 0dp;
+        }
+        #sw-title {
+            display: flex; flex-direction: row; align-items: center; flex: 0 0 30dp; height: 30dp; padding: 0dp 6dp 0dp 10dp;
+            background-color: #262931; border-bottom: 1dp #2f333d; border-radius: 6dp 6dp 0dp 0dp; cursor: move; drag: drag; white-space: nowrap;
+        }
+        #sw-title .icon { margin-right: 8dp; image-color: #8b93a5; }
+        #sw-name { flex: 1 1 auto; width: 40dp; min-width: 0dp; overflow: hidden; color: #ffffff; font-weight: bold; font-size: 12dp; }
+        #sw-title button { margin-left: 4dp; }
+        #sw-title button.text-button { height: 22dp; line-height: 22dp; padding: 0dp 8dp; font-size: 11dp; }
+        #sw-cpu { color: #8b93a5; font-size: 11dp; margin: 0dp 8dp; }
+        #sw-cpu.hot { color: #f59e0b; }
+        .flip { transform: rotate(180deg); }
+
+        #sw-tabs { display: flex; flex-direction: row; align-items: center; flex: 0 0 32dp; height: 32dp; padding: 0dp 8dp; border-bottom: 1dp #2f333d; background-color: #20232a; }
+        .sw-tab { height: 22dp; line-height: 22dp; padding: 0dp 14dp; margin-right: 4dp; border-radius: 3dp; color: #a3abbd; font-size: 12dp; cursor: pointer; }
+        .sw-tab:hover { background-color: #2f333d; color: #ffffff; }
+        .sw-tab.active { background-color: #2f333d; color: #ffffff; border: 1dp #3b3f4b; }
+        .sw-page { display: flex; flex-direction: column; flex: 0 0 auto; padding: 6dp; }
+        .sw-page.hidden, .hidden { display: none; }
+        /* Matrix and FX keep the Osc page's height (the window does not jump between tabs) and scroll. */
+        #sw-page-matrix { height: 523dp; overflow-y: auto; }
+        #sw-page-fx { height: 523dp; flex-direction: row; }
+        .sw-row { display: flex; flex-direction: row; align-items: stretch; }
+
+        .sw-panel { display: flex; flex-direction: column; margin: 3dp; padding: 4dp 6dp 6dp 6dp; background-color: #262931; border: 1dp #2f333d; border-radius: 4dp; }
+        .sw-panel.osc { width: 308dp; }
+        .sw-panel.wide { flex: 1 1 auto; }
+        .sw-panel.filters { flex: 1 1 auto; }
+        .sw-head { display: flex; flex-direction: row; align-items: center; height: 22dp; color: #c3c9d6; font-size: 11.5dp; white-space: nowrap; }
+        .sw-head .grow { flex: 1 1 auto; }
+        .sw-head .pw-param-name { display: none; }
+        .sw-head .pw-choice-wrap { width: auto; margin-right: 6dp; }
+        .sw-head .text-button { height: 20dp; line-height: 20dp; padding: 0dp 6dp; font-size: 10.5dp; max-width: 170dp; overflow: hidden; }
+        .sw-canvas { display: block; position: relative; height: 70dp; margin: 3dp 0dp; background-color: #15171c; border: 1dp #2f333d; border-radius: 3dp; cursor: pointer; }
+        .sw-canvas img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
+        #sw-mod-canvas { height: 92dp; width: 400dp; flex: 0 0 400dp; cursor: crosshair; drag: drag; }
+        .sw-knobs { display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+
+        .knob { display: flex; flex-direction: column; align-items: center; width: 44dp; margin: 1dp 0dp; }
+        .knob-dial { display: block; position: relative; width: 28dp; height: 28dp; border-radius: 14dp; background-color: #15171c;
+                     border: 2dp #4b5263; drag: drag; cursor: ns-resize; }
+        .knob-dial:hover { border-color: #6b7488; }
+        .knob-dial.dragging { border-color: #3b82f6; }
+        .knob-dial.modulated { border-color: #a78bfa; }
+        .knob-dial.drop-target { border-color: #22c55e; }
+        .knob-dial.source-target { border-color: #ffffff; background-color: #2f333d; }
+        .knob-pointer { display: block; position: absolute; left: 11dp; top: 2dp; width: 2dp; height: 10dp; background-color: #e8ebf2; border-radius: 1dp;
+                        transform-origin: 1dp 10dp; }
+        .mod-tick { display: block; position: absolute; left: 11dp; top: -5dp; width: 2dp; height: 6dp; border-radius: 1dp; transform-origin: 1dp 17dp; }
+        .live-dot { display: block; position: absolute; left: 10dp; top: -4dp; width: 4dp; height: 4dp; border-radius: 2dp; background-color: #ffffff;
+                    transform-origin: 2dp 16dp; }
+        .knob-name { margin-top: 2dp; color: #a3abbd; font-size: 9dp; white-space: nowrap; }
+        .knob-value { color: #e8ebf2; font-size: 9dp; white-space: nowrap; }
+        /* Master volume and pan in the tab bar: small knobs with their name and value beside them. */
+        #sw-knobs-master { display: flex; flex-direction: row; align-items: center; }
+        #sw-knobs-master .knob { flex-direction: row; width: auto; margin: 0dp 0dp 0dp 14dp; }
+        #sw-knobs-master .knob-dial { width: 20dp; height: 20dp; border-radius: 10dp; margin-right: 6dp; }
+        #sw-knobs-master .knob-pointer { left: 9dp; top: 2dp; height: 8dp; transform-origin: 1dp 8dp; }
+        #sw-knobs-master .mod-tick { left: 9dp; top: -5dp; transform-origin: 1dp 15dp; }
+        #sw-knobs-master .live-dot { left: 8dp; top: -4dp; transform-origin: 2dp 14dp; }
+        #sw-knobs-master .knob-name { margin: 0dp 4dp 0dp 0dp; font-size: 10dp; }
+        #sw-knobs-master .knob-value { font-size: 10dp; width: 52dp; }
+        .pw-toggle, .pw-choice {
+            display: block; height: 18dp; line-height: 18dp; margin: 2dp 1dp; padding: 0dp 4dp; border-radius: 3dp; background-color: #15171c;
+            border: 1dp #3b3f4b; color: #a3abbd; font-size: 9.5dp; white-space: nowrap; cursor: pointer; text-align: center;
+        }
+        .pw-toggle:hover, .pw-choice:hover { border-color: #6b7488; color: #ffffff; }
+        .pw-toggle.active { background-color: #1e3a5f; border-color: #3b82f6; color: #ffffff; }
+        .pw-param-name { display: block; color: #8b93a5; font-size: 9dp; text-align: center; }
+        .pw-choice-wrap { display: flex; flex-direction: column; align-items: center; width: 44dp; margin: 1dp 0dp; }
+
+        #sw-mod-row { display: flex; flex-direction: row; align-items: flex-start; }
+        #sw-mod-knobs { flex: 1 1 auto; margin-left: 6dp; }
+        #sw-mod-head .pw-toggle { margin-left: 6dp; }
+
+        #sw-strip { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 4dp 6dp; border-top: 1dp #2f333d; background-color: #20232a; }
+        .mod-tile { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 5dp; margin: 2dp; border-radius: 3dp;
+                    background-color: #262931; border: 1dp #3b3f4b; color: #c3c9d6; font-size: 10.5dp; cursor: pointer; white-space: nowrap; }
+        .mod-tile:hover { border-color: #6b7488; }
+        .mod-tile.selected { border-color: #3b82f6; background-color: #1e3a5f; color: #ffffff; }
+        .mod-tile .swatch { display: block; width: 8dp; height: 8dp; border-radius: 4dp; margin-right: 5dp; }
+        .mod-tile .handle { margin-left: 5dp; image-color: #8b93a5; cursor: move; }
+        .mod-tile .count { margin-left: 4dp; color: #8b93a5; font-size: 9.5dp; }
+
+        #sw-keys { display: flex; flex-direction: row; align-items: stretch; height: 46dp; padding: 4dp 6dp 6dp 6dp; border-top: 1dp #2f333d;
+                   border-radius: 0dp 0dp 6dp 6dp; }
+        #sw-keys .octave { display: flex; flex-direction: column; justify-content: center; margin-right: 6dp; }
+        #sw-keys .octave button { margin: 1dp 0dp; }
+        #sw-keyboard { display: block; position: relative; flex: 1 1 auto; }
+        .key { display: block; position: absolute; top: 0dp; height: 100%; background-color: #e8ebf2; border: 1dp #15171c; border-radius: 0dp 0dp 3dp 3dp; cursor: pointer; }
+        .key.black { height: 60%; background-color: #15171c; border-color: #3b3f4b; z-index: 1; }
+        .key:hover { background-color: #c7d2fe; }
+        .key.black:hover { background-color: #3b3f4b; }
+        .key.down { background-color: #93c5fd; }
+
+        /* Matrix and FX tabs. */
+        .sw-table { display: flex; flex-direction: column; }
+        .sw-table-row { display: flex; flex-direction: row; align-items: center; height: 26dp; padding: 0dp 4dp; border-bottom: 1dp #2f333d;
+                        color: #c3c9d6; font-size: 11dp; }
+        .sw-table-row.head { color: #8b93a5; font-size: 10dp; }
+        .sw-table-row .c-src { width: 150dp; }
+        .sw-table-row .c-amount { width: 260dp; display: flex; flex-direction: row; align-items: center; }
+        .sw-table-row .c-amount input.range { width: 190dp; }
+        .sw-table-row .c-amount span { width: 60dp; text-align: right; }
+        .sw-table-row.head .c-amount span { width: auto; text-align: left; }
+        .sw-table-row .c-bip { width: 70dp; }
+        .sw-table-row .c-target { flex: 1 1 auto; }
+        .sw-table-row .text-button { height: 20dp; line-height: 20dp; padding: 0dp 6dp; font-size: 10.5dp; }
+        .sw-empty { color: #6b7488; padding: 12dp; font-size: 11.5dp; }
+        /* FX: the chain on the left (drag a row's grip to reorder), the selected effect's panel (EffectPanel) on the right. */
+        #sw-fx { display: flex; flex-direction: column; flex: 0 0 240dp; width: 240dp; overflow-y: auto; }
+        .fx-row { display: flex; flex-direction: row; align-items: center; height: 26dp; padding: 0dp 4dp; margin-bottom: 2dp; background-color: #262931;
+                  border: 1dp #2f333d; border-radius: 3dp; color: #d7dbe4; font-size: 11.5dp; }
+        .fx-row.selected { border-color: #3b82f6; background-color: #1e3a5f; }
+        .fx-row.bypassed .name { color: #6b7488; }
+        .fx-row.dragging { opacity: 0.5; }
+        .fx-row.drop-above { border-top: 2dp #3b82f6; }
+        .fx-row.drop-below { border-bottom: 2dp #3b82f6; }
+        .fx-row .grip { drag: drag; cursor: move; image-color: #6b7488; margin-right: 2dp; }
+        .fx-row .name { flex: 1 1 auto; margin-left: 6dp; cursor: pointer; white-space: nowrap; overflow: hidden; }
+        .fx-row button.tool-button.small { margin-left: 2dp; }
+        button.tool-button.small.pw-power.active { background-color: #166534; border-color: #22c55e; }
+        #sw-fx-panel { display: flex; flex-direction: column; flex: 1 1 auto; margin-left: 8dp; background-color: #262931; border: 1dp #2f333d;
+                       border-radius: 4dp; }
+        #sw-fx-panel.bypassed #sx-body, #sw-fx-panel.bypassed #sx-graph { opacity: 0.45; }
+        #sx-head { display: flex; flex-direction: row; align-items: center; height: 28dp; padding: 0dp 6dp; border-bottom: 1dp #2f333d;
+                   color: #ffffff; font-size: 12dp; font-weight: bold; white-space: nowrap; }
+        #sx-head .icon { margin-right: 6dp; image-color: #8b93a5; }
+        #sx-head .grow { flex: 1 1 auto; }
+        #sx-head button { margin-left: 4dp; }
+        #sx-head button.text-button { height: 22dp; line-height: 22dp; padding: 0dp 8dp; font-size: 11dp; font-weight: normal; }
+        #sx-graph { display: block; position: relative; flex: 0 0 auto; margin: 8dp 8dp 0dp 8dp; height: 160dp; background-color: #15171c;
+                    border: 1dp #2f333d; border-radius: 3dp; drag: drag; cursor: crosshair; }
+        #sx-graph img { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
+        #sx-meter { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin: 8dp 8dp 0dp 8dp; height: 18dp; color: #8b93a5; font-size: 11dp; }
+        #sx-meter-label { width: 96dp; }
+        #sx-meter-bar { display: block; position: relative; flex: 1 1 auto; height: 8dp; background-color: #121418; border: 1dp #2f333d; }
+        #sx-meter-fill { display: block; position: absolute; right: 0dp; top: 0dp; height: 100%; width: 0%; background-color: #f59e0b; }
+        #sx-meter-db { width: 64dp; text-align: right; color: #d7dbe4; }
+        #sx-readout { display: block; flex: 0 0 auto; margin: 8dp 8dp 0dp 8dp; padding: 6dp 8dp; background-color: #15171c; border: 1dp #2f333d;
+                      border-radius: 3dp; color: #d7dbe4; font-size: 12dp; }
+        #sx-body { display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; flex: 1 1 auto; padding: 4dp;
+                   overflow-y: auto; }
+        #sx-graph.hidden, #sx-meter.hidden, #sx-readout.hidden, #sx-presets.hidden, #sw-fx-panel.hidden, #sx-none.hidden { display: none; }
+        #sx-none { flex: 1 1 auto; margin-left: 8dp; }
+        .pw-section { display: flex; flex-direction: column; align-items: center; margin: 3dp; padding: 4dp 4dp 6dp 4dp; background-color: #20232a;
+                      border: 1dp #2f333d; border-radius: 4dp; }
+        .pw-section.band { width: 58dp; }
+        .pw-section-title { display: flex; flex-direction: row; align-items: center; height: 16dp; color: #a3abbd; font-size: 10dp; white-space: nowrap;
+                            margin-bottom: 2dp; }
+        .pw-section-title .swatch { display: block; width: 8dp; height: 8dp; border-radius: 4dp; margin-right: 4dp; }
+        .pw-knobs { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; }
+        .pw-section.band .pw-knobs { flex-direction: column; align-items: center; }
+    </style>
+</head>
+<body class="synth-doc">
+    <div id="sw-window">
+        <div id="sw-title">
+            <span class="icon icon-sm icon-wave-square"></span>
+            <span id="sw-name">Mainframe Wavetable</span>
+            <span id="sw-cpu" class="mono" data-tooltip="Voices sounding and the synth's share of real time on the render thread">0 voices · 0 %</span>
+            <button id="sw-prev" class="tool-button small" data-tooltip="Previous preset (in its category)"><span class="icon icon-sm icon-chevron-right flip"></span></button>
+            <button id="sw-next" class="tool-button small" data-tooltip="Next preset (in its category)"><span class="icon icon-sm icon-chevron-right"></span></button>
+            <button id="sw-presets" class="text-button" data-tooltip="Presets — Init, the factory presets, the project's, Save Preset…">Presets</button>
+            <button id="sw-reset" class="tool-button small" data-tooltip="Init — the Init patch (one undo step)"><span class="icon icon-sm icon-refresh"></span></button>
+            <button id="sw-close" class="tool-button small" data-tooltip="Close (Esc)"><span class="icon icon-sm icon-x"></span></button>
+        </div>
+        <div id="sw-tabs">
+            <div class="sw-tab active" data-tab="osc" data-tooltip="Oscillators, sub, noise, filters, envelopes and LFOs">Osc</div>
+            <div class="sw-tab" data-tab="matrix" id="sw-tab-matrix" data-tooltip="Every modulation route">Matrix</div>
+            <div class="sw-tab" data-tab="fx" id="sw-tab-fx" data-tooltip="The synth's own effect chain (built-in effects)">FX</div>
+            <span style="flex: 1 1 auto;"></span>
+            <div id="sw-knobs-master"></div>
+        </div>
+
+        <div class="sw-page" id="sw-page-osc">
+            <div class="sw-row">
+                <div class="sw-panel osc">
+                    <div class="sw-head"><span id="sw-on-a"></span><span class="grow">Osc A</span><button id="sw-table-a" class="text-button" data-tooltip="Oscillator A's wavetable — factory tables, the project's, Import Wavetable…, frame size">Saw</button></div>
+                    <div class="sw-canvas" id="sw-wt-a" data-tooltip="Oscillator A's wavetable (the bright frame is the position the newest voice plays) — click: flat / stacked"><img id="sw-wt-a-img"/></div>
+                    <div class="sw-knobs" id="sw-knobs-a"></div>
+                </div>
+                <div class="sw-panel osc">
+                    <div class="sw-head"><span id="sw-on-b"></span><span class="grow">Osc B</span><button id="sw-table-b" class="text-button" data-tooltip="Oscillator B's wavetable — factory tables, the project's, Import Wavetable…, frame size">Saw</button></div>
+                    <div class="sw-canvas" id="sw-wt-b" data-tooltip="Oscillator B's wavetable — click: flat / stacked"><img id="sw-wt-b-img"/></div>
+                    <div class="sw-knobs" id="sw-knobs-b"></div>
+                </div>
+                <div class="sw-panel filters">
+                    <div class="sw-head"><span class="grow">Filters</span><span id="sw-routing"></span></div>
+                    <div class="sw-canvas" id="sw-filter" data-tooltip="Filter 1 (orange) and filter 2 (cyan) at middle C"><img id="sw-filter-img"/></div>
+                    <div class="sw-knobs" id="sw-knobs-f1"></div>
+                    <div class="sw-knobs" id="sw-knobs-f2"></div>
+                </div>
+            </div>
+            <div class="sw-row">
+                <div class="sw-panel"><div class="sw-head"><span>Sub</span></div><div class="sw-knobs" id="sw-knobs-sub"></div></div>
+                <div class="sw-panel"><div class="sw-head"><span>Noise</span></div><div class="sw-knobs" id="sw-knobs-noise"></div></div>
+                <div class="sw-panel wide"><div class="sw-head"><span>Voicing</span></div><div class="sw-knobs" id="sw-knobs-voice"></div></div>
+            </div>
+            <div class="sw-panel">
+                <div class="sw-head" id="sw-mod-head"><span id="sw-mod-title" class="grow">Envelope 1 (amp)</span><span id="sw-mod-draw"></span></div>
+                <div id="sw-mod-row">
+                    <div class="sw-canvas" id="sw-mod-canvas" data-tooltip="Drag a handle · drawn LFO: click adds a point, drag moves it, Alt-drag bends, double-click removes"><img id="sw-mod-img"/></div>
+                    <div class="sw-knobs" id="sw-mod-knobs"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sw-page hidden" id="sw-page-matrix"><div class="sw-table" id="sw-matrix"></div></div>
+        <div class="sw-page hidden" id="sw-page-fx">
+            <div id="sw-fx"></div>
+            <div id="sw-fx-panel" class="hidden">
+                <div id="sx-head">
+                    <span id="sx-icon" class="icon icon-sm icon-adjustments-horizontal"></span>
+                    <span id="sx-name" class="grow">Effect</span>
+                    <button id="sx-power" class="tool-button small pw-power active" data-tooltip="Bypass — off passes the sound through unchanged (crossfaded)"><span class="icon icon-sm icon-plug-connected"></span></button>
+                    <button id="sx-presets" class="text-button" data-tooltip="Presets — starting points for this effect">Presets</button>
+                    <button id="sx-reset" class="tool-button small" data-tooltip="Reset — every parameter to its default (one undo step)"><span class="icon icon-sm icon-refresh"></span></button>
+                    <button id="sx-open" class="tool-button small" data-tooltip="Open the effect in its own window"><span class="icon icon-sm icon-app-window"></span></button>
+                </div>
+                <div id="sx-graph" class="hidden" data-tooltip="Drag a handle: frequency and gain · wheel: Q · double-click: band on/off"><img id="sx-graph-image"/></div>
+                <div id="sx-meter" class="hidden"><span id="sx-meter-label">Gain reduction</span><div id="sx-meter-bar"><div id="sx-meter-fill"></div></div><span id="sx-meter-db" class="mono">0.0 dB</span></div>
+                <div id="sx-readout" class="hidden"></div>
+                <div id="sx-body"></div>
+            </div>
+            <div id="sx-none" class="sw-empty">Add an effect to the synth's chain, then select it to edit it here.</div>
+        </div>
+
+        <div id="sw-strip"></div>
+        <div id="sw-keys">
+            <div class="octave">
+                <button id="sw-oct-up" class="tool-button small" data-tooltip="Keyboard an octave up"><span class="icon icon-sm icon-chevron-right" style="transform: rotate(-90deg);"></span></button>
+                <button id="sw-oct-down" class="tool-button small" data-tooltip="Keyboard an octave down"><span class="icon icon-sm icon-chevron-right" style="transform: rotate(90deg);"></span></button>
+            </div>
+            <div id="sw-keyboard" data-tooltip="Play the synth (through the track)"></div>
+        </div>
+    </div>
+</body>
+</rml>

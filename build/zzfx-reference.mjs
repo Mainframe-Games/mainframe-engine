@@ -2,7 +2,7 @@
 //
 // Runs ZzFX 1.4.0's ZZFX.buildSamples, vendored verbatim below from
 // https://github.com/KilledByAPixel/ZzFX/blob/751f17139d689b1320f0c4173031b038959e4bf8/ZzFX.js, over a set of
-// parameter lists (randomness 0) and writes Tests/Content/Audio/zzfx-reference.json: per case the sample count and
+// parameter lists (randomness 0) and writes Tests/Assets/Audio/zzfx-reference.json: per case the sample count and
 // every 64th sample (before ZzFX's master volume). Run by hand when the cases change: node build/zzfx-reference.mjs
 //
 /*
@@ -196,6 +196,6 @@ for (const [name, params] of Object.entries(cases)) {
     out.cases.push({ name, params: full, count: samples.length, samples: picked });
 }
 
-const target = join(dirname(fileURLToPath(import.meta.url)), '..', 'Tests', 'Content', 'Audio', 'zzfx-reference.json');
+const target = join(dirname(fileURLToPath(import.meta.url)), '..', 'Tests', 'Assets', 'Audio', 'zzfx-reference.json');
 writeFileSync(target, JSON.stringify(out) + '\n');
 console.log(`wrote ${out.cases.length} cases to ${target}`);

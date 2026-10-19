@@ -1,0 +1,151 @@
+<rml>
+<head>
+    <title>Editor Settings</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 560dp; height: 540dp; margin-left: -280dp; margin-top: -270dp; }
+        /* The dialog keeps its size; the body scrolls (the Video section is below the fold). Rows keep their height. */
+        .dialog-body { overflow-y: auto; min-height: 0dp; }
+        .dialog-body > div { flex-shrink: 0; }
+        #video-section { display: block; margin-top: 6dp; padding-top: 8dp; border-top: 1dp #2f333d; }
+        .section-title { display: block; margin-bottom: 8dp; font-weight: bold; color: #ffffff; }
+        .dialog-row .unit { margin-left: 6dp; color: #8b93a5; font-size: 11dp; }
+        .dialog-row input.number { flex: 0 0 auto; width: 72dp; }
+        #video-section .hint { margin-bottom: 8dp; }
+        .dialog-row .caption { width: 120dp; }
+        .dialog-row select { flex: 1 1 auto; width: 60dp; }
+        #es-swatches { display: flex; flex-direction: row; }
+        .swatch-choice { display: block; width: 22dp; height: 22dp; margin-right: 6dp; border-radius: 11dp; border: 2dp #2f333d; cursor: pointer; }
+        .swatch-choice:hover { border-color: #ffffff; }
+        #es-accent { width: 84dp; margin-left: 6dp; }
+        .current { display: block; width: 22dp; height: 22dp; border-radius: 3dp; margin-left: 6dp; }
+        #es-presets { display: flex; flex-direction: row; flex-wrap: wrap; margin: 0dp 0dp 8dp 120dp; }
+        #es-presets button { margin: 0dp 4dp 4dp 0dp; }
+        .hint { display: block; margin: 0dp 0dp 8dp 120dp; color: #8b93a5; font-size: 11dp; }
+        label.check { display: flex; flex-direction: row; align-items: center; color: #b4bccc; }
+        label.check input.checkbox { margin-right: 6dp; }
+        #es-midi { display: block; flex: 1 1 auto; margin: 0dp 0dp 4dp 0dp; }
+        .midi-row { display: flex; flex-direction: row; align-items: center; height: 22dp; }
+        .midi-row .midi-name { margin-left: 6dp; color: #b4bccc; }
+        .midi-row .online { color: #22c55e; margin-left: 8dp; font-size: 11dp; }
+        .midi-row .offline { color: #8b93a5; margin-left: 8dp; font-size: 11dp; }
+    </style>
+</head>
+<body class="backdrop" data-model="editor_settings">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-sm icon-adjustments"></span><span>Editor Settings</span></div>
+        <div class="dialog-body" id="es-body">
+            <div class="dialog-row" id="es-top">
+                <span class="caption">Accent colour</span>
+                <div id="es-swatches"></div>
+                <input type="text" class="text mono" id="es-accent" data-value="accent"/>
+                <div class="current" data-style-background-color="accent"></div>
+            </div>
+            <div class="dialog-row">
+                <span class="caption">Autosave</span>
+                <select id="es-autosave" data-value="autosave">
+                    <option value="0">Off</option>
+                    <option value="1">Every minute</option>
+                    <option value="2">Every 2 minutes</option>
+                    <option value="5">Every 5 minutes</option>
+                    <option value="10">Every 10 minutes</option>
+                    <option value="30">Every 30 minutes</option>
+                </select>
+            </div>
+            <div class="hint">Saves open scenes that have a file (untitled ones are never written).</div>
+            <div class="dialog-row">
+                <span class="caption">3D view</span>
+                <select id="es-view-resolution" data-value="view_resolution" data-tooltip="3D View Resolution — the pixels the scene view renders, scaled to fill the view">
+                    <option value="Auto">Auto · one pixel per point</option>
+                    <option value="Full">Full · every display pixel</option>
+                    <option value="ThreeQuarters">75 % of the display's pixels</option>
+                    <option value="Half">50 % of the display's pixels</option>
+                </select>
+            </div>
+            <div class="hint">Fewer pixels keep heavy scenes and the post preview fast. The game is unaffected.</div>
+            <div class="dialog-row">
+                <span class="caption">Code editor</span>
+                <input type="text" class="text mono" id="es-command" data-value="command" placeholder="System default"/>
+            </div>
+            <div id="es-presets"></div>
+            <div class="hint">{file}, {line}, {column} and {project} are filled in. Opens C# files and clicked build errors.</div>
+            <div class="dialog-row"><span class="caption">Cutback</span>
+                <input type="text" class="text mono" id="es-cutback" data-value="cutback" placeholder="Found automatically"/></div>
+            <div class="hint">The Cutback app that trims recordings (Run › Play and Record). Leave empty to find it on PATH or in the usual install folder.</div>
+            <div class="dialog-row">
+                <span class="caption">Code reload</span>
+                <label class="check" data-tooltip="Reload the game code in the editor whenever its build output changes (IDE builds included)">
+                    <input type="checkbox" class="checkbox" id="es-auto-reload" data-checked="auto_reload"/><span>Reload automatically after builds</span></label>
+            </div>
+            <div class="dialog-row">
+                <span class="caption">Updates</span>
+                <label class="check" data-tooltip="Look for a newer Mainframe Engine release on GitHub when the editor starts">
+                    <input type="checkbox" class="checkbox" id="es-check-updates" data-checked="check_updates"/><span>Check for updates at startup</span></label>
+            </div>
+            <div class="dialog-row" id="music-section">
+                <span class="caption">VST3 folders</span>
+                <input type="text" class="text mono" id="es-plugin-folders" data-value="plugin_folders" placeholder="Extra folders, separated by ;"/>
+                <button class="tool-button small" id="es-rescan-plugins" data-event-click="rescan_plugins()" data-tooltip="Rescan Plugins — scan every VST3 bundle again (one helper process per bundle)"><span class="icon icon-sm icon-refresh"></span></button>
+            </div>
+            <div class="hint">{{plugin_status}}</div>
+            <div class="dialog-row">
+                <span class="caption">MIDI inputs</span>
+                <div id="es-midi">
+                    <div class="midi-row" data-for="device : midi_devices">
+                        <button class="tool-button small" data-class-active="device.enabled" data-event-click="midi_toggle(device.index)" data-attr-data-tooltip="device.tooltip"><span class="icon icon-sm icon-check" data-if="device.enabled"></span></button>
+                        <span class="midi-name">{{device.name}}</span>
+                        <span data-class-online="device.online" data-class-offline="!device.online">{{device.state}}</span>
+                    </div>
+                </div>
+                <button class="tool-button small" id="es-midi-refresh" data-event-click="midi_refresh()" data-tooltip="Refresh MIDI Devices — list the connected MIDI inputs again"><span class="icon icon-sm icon-refresh"></span></button>
+            </div>
+            <div class="hint">{{midi_status}}</div>
+            <div id="video-section">
+                <div class="section-title">Video</div>
+                <div class="dialog-row">
+                    <span class="caption">ffmpeg</span>
+                    <input type="text" class="text mono" id="es-video-ffmpeg" placeholder="Found automatically"/>
+                </div>
+                <div class="hint">Folder or file; blank uses MAINFRAME_FFMPEG, then PATH. Play and Record use it too.</div>
+                <div class="dialog-row">
+                    <span class="caption">Speech model</span>
+                    <select id="es-video-model" data-value="video_model" data-tooltip="Whisper model — larger is slower and more accurate; it is downloaded the first time it is used">
+                    </select>
+                </div>
+                <div class="dialog-row">
+                    <span class="caption">Filler words</span>
+                    <input type="text" class="text mono" id="es-video-fillers"/>
+                </div>
+                <div class="hint">Comma-separated; Remove Filler Words cuts these.</div>
+                <div class="dialog-row"><span class="caption">Silence level</span>
+                    <input type="text" class="text mono number" id="es-video-threshold"/><span class="unit">dB (-80 to 0)</span></div>
+                <div class="dialog-row"><span class="caption">Min silence</span>
+                    <input type="text" class="text mono number" id="es-video-min-silence"/><span class="unit">ms (50 to 5000)</span></div>
+                <div class="dialog-row"><span class="caption">Padding</span>
+                    <input type="text" class="text mono number" id="es-video-padding"/><span class="unit">ms (0 to 500)</span></div>
+                <div class="dialog-row"><span class="caption">Min keep</span>
+                    <input type="text" class="text mono number" id="es-video-min-keep"/><span class="unit">ms (0 to 2000)</span></div>
+                <div class="hint">Detect Silence and Remove Filler Words: silences quieter than the level and longer than the minimum are cut, with the padding kept on each side.</div>
+                <div class="dialog-row"><span class="caption">Idle after</span>
+                    <input type="text" class="text mono number" id="es-video-idle-min"/><span class="unit">ms (500 to 60000)</span></div>
+                <div class="dialog-row"><span class="caption">Idle padding</span>
+                    <input type="text" class="text mono number" id="es-video-idle-padding"/><span class="unit">ms (0 to 2000)</span></div>
+                <div class="dialog-row"><span class="caption">Idle min keep</span>
+                    <input type="text" class="text mono number" id="es-video-idle-keep"/><span class="unit">ms (0 to 10000)</span></div>
+                <div class="dialog-row"><span class="caption">Marker window</span>
+                    <input type="text" class="text mono number" id="es-video-marker"/><span class="unit">ms (0 to 10000)</span></div>
+                <div class="hint">Detect Idle Gameplay: stretches with no player input are cut; footage near a marker is never cut.</div>
+                <div class="dialog-row"><span class="caption">Undo history</span>
+                    <input type="text" class="text mono number" id="es-video-undo"/><span class="unit">steps (10 to 1000)</span></div>
+            </div>
+            <div class="dialog-error">{{error}}</div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="es-cancel" data-event-click="cancel()">Cancel</button>
+            <button class="primary" id="es-apply" data-event-click="apply()">Apply</button>
+        </div>
+    </div>
+</body>
+</rml>

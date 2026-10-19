@@ -1,0 +1,166 @@
+<rml>
+<head>
+    <title>Viewport</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        /* The 3D view lets the mouse through to the viewport controller; only the tab strip takes it. */
+        body.viewport-doc { background-color: #15171c; pointer-events: none; }
+        .tabs {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-end;
+            flex: 0 0 auto;
+            height: 30dp;
+            padding-left: 4dp;
+            background-color: #1b1d23;
+            border-bottom: 1dp #2f333d;
+            pointer-events: auto;
+        }
+        .tab {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 26dp;
+            padding: 0dp 4dp 0dp 12dp;
+            margin-right: 2dp;
+            background-color: #22252d;
+            border: 1dp #2a2d36;
+            border-bottom-width: 0dp;
+            border-radius: 4dp 4dp 0dp 0dp;
+            color: #a3abbd;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .tab:hover { background-color: #2a2e38; color: #e8ebf2; }
+        .tab.active { background-color: #2f333d; color: #ffffff; border-color: #3b3f4b; }
+        .tab .tab-icon { margin-right: 6dp; }
+        .tab-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18dp;
+            height: 18dp;
+            margin-left: 8dp;
+            border-radius: 3dp;
+        }
+        .tab-close .icon { image-color: #6b7488; }
+        .tab:hover .tab-close .icon, .tab.active .tab-close .icon { image-color: #a3abbd; }
+        .tab-close:hover { background-color: #4b5263; }
+        .tab .tab-close:hover .icon { image-color: #ffffff; }
+        .tab-new {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 26dp;
+            height: 24dp;
+            cursor: pointer;
+            border-radius: 3dp;
+            margin-bottom: 1dp;
+        }
+        .tab-new .icon { image-color: #8b93a5; }
+        .tab-new:hover { background-color: #2a2e38; }
+        .tab-new:hover .icon { image-color: #ffffff; }
+        /* UI preview tabs: the linked files and the backdrop controls; the document itself is drawn by its own layer below. */
+        #preview-bar {
+            display: none;
+            flex-direction: row;
+            align-items: center;
+            flex: 0 0 auto;
+            height: 30dp;
+            padding: 0dp 6dp;
+            background-color: #1b1d23;
+            border-bottom: 1dp #2f333d;
+            pointer-events: auto;
+            white-space: nowrap;
+        }
+        #preview-bar.shown { display: flex; }
+        #preview-links { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; overflow: hidden; }
+        .link {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            height: 20dp;
+            padding: 0dp 7dp 0dp 5dp;
+            margin-right: 4dp;
+            background-color: #22252d;
+            border: 1dp #2f333d;
+            border-radius: 10dp;
+            color: #c9cedb;
+            font-size: 11dp;
+            cursor: pointer;
+        }
+        .link .icon { margin-right: 4dp; }
+        .link:hover { background-color: #2f333d; border-color: #4b5263; color: #ffffff; }
+        .link.missing { border-color: #7f1d1d; color: #f87171; }
+        .link.missing .icon { image-color: #f87171; }
+        .link.inline { cursor: default; color: #8b93a5; }
+        .link.inline:hover { background-color: #22252d; border-color: #2f333d; color: #8b93a5; }
+        .link-via { color: #6b7488; margin-left: 4dp; }
+        #preview-tools { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; margin-left: 6dp; }
+        #preview-tools button { margin-left: 4dp; }
+        #preview-size { color: #8b93a5; font-size: 11dp; margin-right: 4dp; }
+        #backdrop-pick { height: 24dp; line-height: 24dp; padding: 0dp 8dp; font-size: 11dp; max-width: 220dp; overflow: hidden; }
+        #backdrop-pick .icon-chevron-down { margin-left: 4dp; margin-right: 0dp; }
+        #view { display: block; position: relative; flex: 1 1 auto; pointer-events: none; }
+        #view.preview { background-color: #0f1115; }
+        #view-image { display: block; position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; }
+        #view-info {
+            position: absolute;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            left: 10dp;
+            top: 8dp;
+            padding: 2dp 7dp 2dp 5dp;
+            border-radius: 3dp;
+            background-color: #0f111599;
+            color: #c9cedb;
+            font-size: 11dp;
+        }
+        #view-info .icon { margin-right: 5dp; image-color: #c9cedb; }
+        #view-empty {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            left: 0dp;
+            top: 42%;
+            width: 100%;
+            text-align: center;
+            color: #6b7488;
+        }
+        #view-empty .icon { margin-bottom: 8dp; image-color: #4b5263; }
+    </style>
+</head>
+<body class="panel-doc viewport-doc" data-model="viewport_tabs">
+    <div class="tabs">
+        <div class="tab" data-for="tab : tabs" data-class-active="tab.active" data-event-mousedown="activate(tab.index)" data-attr-data-tooltip="tab.tooltip">
+            <span data-attr-class="tab.icon + ' icon-sm tab-icon'"></span>
+            <span>{{tab.title}}</span>
+            <span class="tab-close" data-event-mousedown="close(tab.index)" data-tooltip="Close Tab (Ctrl+W) — asks to save a scene's unsaved changes"><span class="icon icon-sm icon-x"></span></span>
+        </div>
+        <div class="tab-new" data-event-click="create()" data-attr-data-tooltip="new_tooltip"><span class="icon icon-plus"></span></div>
+    </div>
+    <div id="preview-bar" data-class-shown="preview">
+        <div id="preview-links">
+            <div class="link" data-for="link : links" data-class-missing="link.missing" data-class-inline="link.inline"
+                 data-event-click="open_link(link.index)" data-attr-data-tooltip="link.tooltip">
+                <span data-attr-class="link.icon + ' icon-sm'"></span><span>{{link.name}}</span><span class="link-via" data-if="link.via != ''">{{link.via}}</span>
+            </div>
+        </div>
+        <div id="preview-tools">
+            <span id="preview-size" class="mono" data-tooltip="Preview Size — the document is laid out at the view's size (resize the panels to try others)"></span>
+            <button id="backdrop-toggle" class="tool-button" data-class-active="backdrop_on" data-event-click="toggle_backdrop()" data-attr-data-tooltip="backdrop_tooltip"><span class="icon icon-world"></span></button>
+            <button id="backdrop-pick" class="with-icon" data-event-click="pick_backdrop()" data-tooltip="Backdrop Scene — choose the open scene drawn behind the UI (through its game camera)"><span class="icon icon-sm icon-movie"></span><span>{{backdrop_name}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
+            <button id="preview-reload" class="tool-button" data-event-click="reload_preview()" data-tooltip="Reload — re-read the document and its style sheets (they also reload when saved)"><span class="icon icon-refresh"></span></button>
+            <button id="preview-edit" class="tool-button" data-event-click="edit_document()" data-tooltip="Open in Code Editor — edit the .rml; the preview follows on save"><span class="icon icon-code"></span></button>
+        </div>
+    </div>
+    <div id="view">
+        <img id="view-image"/>
+        <div id="view-info" class="mono"><span id="view-info-icon" class="icon icon-sm icon-perspective"></span><span id="view-info-text">Perspective</span></div>
+        <div id="view-empty"><span class="icon icon-lg icon-movie"></span><span>No scene open · File › New Scene or Open Scene</span></div>
+    </div>
+</body>
+</rml>

@@ -101,7 +101,7 @@ flowchart TB
 music voices, effect chain). The default layout is Master (16 voices) → Music (4), SFX (32), UI (8), Voice (8).
 `MusicVoices` is how many adaptive-music players the bus can run at once (`AdaptiveMusicPlayer`, created up front and
 idle until used); −1, the default, means 2 on the bus named Music and 0 elsewhere. The server
-loads `AudioOptions.BusLayoutPath` (default `Content/Settings/AudioBusLayout.mres`) and falls back to the default
+loads `AudioOptions.BusLayoutPath` (default `Assets/Settings/AudioBusLayout.mres`) and falls back to the default
 on a missing or invalid file. `GetBusLayout()` snapshots the live state, `SaveBusLayout()` writes it through
 `ResourceSaver` (regular `.mres` with a `res_` UID), `ApplyBusLayout()` swaps a new graph in at runtime (all voices
 stop without `Finished`; the old graph is disposed when the audio thread reports it retired). M10 can store the
@@ -235,7 +235,7 @@ defaults (warned once).
   themselves (the editor's song engine). **`AssetDatabase.WriteMeta`** writes a `.meta` (the song render's loop points).
 - **`WavWriter`** — writes interleaved floats as 16-bit PCM (× 32768, saturating, the decoder's inverse) or 32-bit float.
 - **Tests:** `build/zzfx-reference.mjs` (Node, run by hand) evaluates the vendored 1.4.0 `buildSamples` over 16 cases
-  into `Tests/Content/Audio/zzfx-reference.json`; `ZzfxTests` compares the port within 1e-5.
+  into `Tests/Assets/Audio/zzfx-reference.json`; `ZzfxTests` compares the port within 1e-5.
 
 ## Spatialization
 

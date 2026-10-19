@@ -209,7 +209,7 @@ public sealed class MultiSelectAndSignalsTests : IDisposable
         Assert.True(source.IsConnected("Pinged", target, "OnPinged"));
 
         // Saved with the scene, loaded back.
-        var path = Path.Combine(_editor.Directory, "Content", "Scenes", "Signals.mscene");
+        var path = Path.Combine(_editor.Directory, "Assets", "Scenes", "Signals.mscene");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         W.Session.Save(_editor.Scene, path);
         var json = File.ReadAllText(path);

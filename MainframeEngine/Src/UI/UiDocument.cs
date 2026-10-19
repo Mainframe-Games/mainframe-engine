@@ -31,7 +31,7 @@ public class UiDocument : Node
     private bool _modelsChanged;
     private UiTooltips? _tooltips;
 
-    /// <summary>The document file, e.g. <c>Content/UI/hud.rml</c> (through the UI file interface).</summary>
+    /// <summary>The document file, e.g. <c>Assets/UI/hud.rml</c> (through the UI file interface).</summary>
     [Export]
     public string Source
     {

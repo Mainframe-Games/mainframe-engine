@@ -12,7 +12,7 @@ bin="$repo/Examples/Demo/Demo.Desktop/bin/Release/net10.0"
 run() {
   local mode="$1" scene="$2"
   echo "== qa $mode"
-  dotnet "$bin/Demo.Desktop.dll" --scene "Content/Scenes/$scene.mscene" --hidden --fixed-fps 60 --max-frames 600 \
+  dotnet "$bin/Demo.Desktop.dll" --scene "Assets/Scenes/$scene.mscene" --hidden --fixed-fps 60 --max-frames 600 \
     --no-log-file ++ --qa "$mode" 2>&1 | tee "$out/$mode.log" | grep -E "QA: |ERROR" || true
   grep -q "QA: $mode: PASS" "$out/$mode.log" || { echo "qa $mode FAILED (see $out/$mode.log)"; exit 1; }
 }

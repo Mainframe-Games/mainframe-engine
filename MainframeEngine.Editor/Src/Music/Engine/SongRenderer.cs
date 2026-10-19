@@ -42,10 +42,10 @@ public readonly record struct SongRenderPlan(long StartFrame, long RenderFrames,
 /// </remarks>
 public static class SongRenderer
 {
-    public const string DefaultFolder = "Content/Music";
+    public const string DefaultFolder = "Assets/Music";
 
     /// <summary>
-    /// The project path the song renders to: its setting, else <c>Content/Music/&lt;name&gt;.ogg</c>; <c>.ogg</c> only
+    /// The project path the song renders to: its setting, else <c>Assets/Music/&lt;name&gt;.ogg</c>; <c>.ogg</c> only
     /// when <paramref name="canEncode"/> (a plugin helper exists), anything else as <c>.wav</c>.
     /// </summary>
     public static string OutputPathFor(Song song, string songName, bool canEncode)

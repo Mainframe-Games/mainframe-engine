@@ -409,7 +409,7 @@ build as an imported table.
 ### `.wav` import
 
 A project `.wav` becomes a wavetable when an oscillator's table menu picks it ("Import Wavetable…" opens the file
-picker and copies an outside file into `Content/Wavetables/`, the default folder). The file stays an ordinary audio
+picker and copies an outside file into `Assets/Wavetables/`, the default folder). The file stays an ordinary audio
 asset; its patch reference is its UID.
 
 - **Frame size** comes from the `clm ` chunk when present: its text starts with `<!>` followed by the frame size in
@@ -433,7 +433,7 @@ asset; its patch reference is its UID.
   `Patch` (the patch JSON as written in the `.msong`, canonical form). The editor has no source generator (its nodes
   stay unregistered on purpose), so the type lives in the engine core
   (`MainframeEngine/Src/Audio/Synth/WavetablePreset.cs`), where the generator registers it and a future runtime synth
-  can load it. Default folder: `Content/Presets/Wavetable/`. A preset that references a `.wav` table references it by
+  can load it. Default folder: `Assets/Presets/Wavetable/`. A preset that references a `.wav` table references it by
   UID like any resource.
 - **The preset menu** in the window header (Phase 1's Presets button, extended): Init, the factory categories, the
   project's presets (found by type through the `AssetDatabase`), Save Preset… / Save As…. Loading a preset is one undo
@@ -531,14 +531,14 @@ and before the synth's master volume.
 New in Phase 2: `Synth/` (`WavetableSynth`, `SynthProgram`, `PatchCompiler`, `SynthParams`, `Voice`, `Oscillator`,
 `Warp`, `Filters` (ladder, comb, formant), `Envelope`, `WavetableCache`, `Wavetable`, `FactoryWavetables`,
 `FactoryPresets`, `WavetableWav`, `Dsp/Fft`), `IBuiltinInstrument`, the synth window
-(`UI/SynthWindow.cs`, `Content/Editor/synth_window.rml`, `WavetableCanvas`, `EnvelopeCanvas`, `LfoCanvas`,
+(`UI/SynthWindow.cs`, `Assets/Editor/synth_window.rml`, `WavetableCanvas`, `EnvelopeCanvas`, `LfoCanvas`,
 `FilterCanvas`) and the engine's `WavetablePreset` resource.
 
 ## Error handling
 
 | Situation | Behaviour |
 |---|---|
-| Wavetable `.wav` missing | default table plays; track status "missing wavetable: Content/Wavetables/x.wav"; reference kept |
+| Wavetable `.wav` missing | default table plays; track status "missing wavetable: Assets/Wavetables/x.wav"; reference kept |
 | `.wav` malformed or not a table | refused at import with a message; an existing reference shows the status above |
 | Unknown parameter id / route target / source | kept in the file, ignored by the compiler; the Matrix tab shows the route greyed ("unknown target") |
 | Unknown effect in `patch.fx` | pass-through, as Phase 1 |
@@ -631,7 +631,7 @@ effects 1.04 ms (19.5 %); zero allocation in every case.
   when the length is a multiple of it, else one single-cycle frame (refused past 65 536 samples); other frame sizes are
   resampled to 2048 by FFT (power-of-two lengths) or a DFT of the kept harmonics (any other length); at most 256 frames
   (the rest dropped with a warning). Non-byte bit depths, missing `fmt `/`data` chunks and empty files are refused with a
-  reason. `WavetableWav.Import` checks the file, copies a file from outside `Content/` into `Content/Wavetables/` (a free
+  reason. `WavetableWav.Import` checks the file, copies a file from outside `Assets/` into `Assets/Wavetables/` (a free
   name), gives it a UID and returns that UID, which is the table's source (stable when the file moves).
 - **`WavetableCache`** builds project tables on its worker like factory ones, keyed by file, frame size and modification
   time (a re-saved file is read again); the synth compares tables by identity, so a re-read table recompiles its program.
@@ -641,14 +641,14 @@ effects 1.04 ms (19.5 %); zero allocation in every case.
   peeking each `.mres`'s root type and reads them straight from the file (the resource loader caches). Loading a preset
   is one undo step (`SongDocument.SetSynthPatch`, which also records `InstrumentDescriptor.Preset`).
 - **In the stopgap window** (`PluginWindow.Synth.cs`): the title names the preset; Presets lists Init, the factory
-  categories, the project's presets and Save Preset… ("Category / Name", saved in `Content/Presets/Wavetable/`); the
+  categories, the project's presets and Save Preset… ("Category / Name", saved in `Assets/Presets/Wavetable/`); the
   arrows step through the current preset's category (wrapping); "A: …" / "B: …" open each oscillator's table menu (the
-  factory sets, the project's `Content/Wavetables/`, Import Wavetable… and, for a file, the frame size). Reset loads Init.
+  factory sets, the project's `Assets/Wavetables/`, Import Wavetable… and, for a file, the frame size). Reset loads Init.
 - Not yet: the modified mark ("Warm Pad*"), a user-wide preset library (an open question below).
 
 ## As built: PR 3 (the synth window)
 
-`SynthWindow` (`MainframeEngine.Editor/Src/UI/SynthWindow.cs`, `Content/Editor/synth_window.rml`) replaces the stopgap in
+`SynthWindow` (`MainframeEngine.Editor/Src/UI/SynthWindow.cs`, `Assets/Editor/synth_window.rml`) replaces the stopgap in
 the plugin window (`PluginWindow.OpenSynth` and `PluginWindow.Synth.cs` are gone; the plugin window shows built-in
 effects only, now also those of a synth's FX chain). It is a floating panel-layer document under the plugin window,
 ticked by the song view, closed when its track's instrument changes, the track goes, another song tab becomes active or

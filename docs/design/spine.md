@@ -29,7 +29,7 @@ Both build triangles with `SpineGeometry` (draw order, sequences, tints, clippin
 
 ```csharp
 // In a scene (or a .mscene file: "type": "SpineNode", "props": { "Folder": ..., "Animation": "walk" }):
-var boy = new SpineNode { Folder = "Content/Models/Spine/SpineBoy", Animation = "walk", Scale = new Vector3(0.1f) };
+var boy = new SpineNode { Folder = "Assets/Models/Spine/SpineBoy", Animation = "walk", Scale = new Vector3(0.1f) };
 Root.AddChild(boy);   // the render server creates its renderer; it animates in OnProcess, draws and casts shadows
 boy.SetAnimation("run");
 ```

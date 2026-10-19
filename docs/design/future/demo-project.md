@@ -52,7 +52,7 @@ Examples/Demo/
 ├── Demo/                        node library (references MainframeEngine + Generators as analyzer)
 │   └── Src/{Nav,Basic3D,Basic2D,Audio,Ui,Physics,Spine}/…
 ├── Demo.Desktop/               return GameHost.Run(args, typeof(Demo.DemoNav).Assembly);
-└── Content/
+└── Assets/
     ├── icon.png                 project / window icon (see Project icons)
     ├── Nav/Nav.mscene, Nav.rml, nav.rcss
     ├── Scenes/{basic_3d,basic_2d,audio_2d,audio_3d,ui,physics_2d,physics_3d,spine}.mscene
@@ -67,15 +67,15 @@ own plus engine types.
 
 ## Navigation
 
-- An autoload scene, `Content/Nav/Nav.mscene`, declared in `project.mfproj` `autoloads`. `GameSession.AddAutoloads`
+- An autoload scene, `Assets/Nav/Nav.mscene`, declared in `project.mfproj` `autoloads`. `GameSession.AddAutoloads`
   (`MainframeEngine/Src/Project/GameSession.cs:226`) adds it as `/root/Nav` before the main scene, so it survives
   scene changes (`SceneTree.ChangeSceneToFile` replaces only `CurrentScene`, `SceneTree.cs:180-220`).
-- It holds a `UiLayer` (`Layer = 100`, above any scene UI) with `DemoNav : UiDocument` (`Source = Content/Nav/Nav.rml`).
-- Top bar, full width, ~40 dp, styled with the engine widget library (`/Content/UI/widgets/widgets.rcss`):
+- It holds a `UiLayer` (`Layer = 100`, above any scene UI) with `DemoNav : UiDocument` (`Source = Assets/Nav/Nav.rml`).
+- Top bar, full width, ~40 dp, styled with the engine widget library (`/Assets/UI/widgets/widgets.rcss`):
   - left: logo + one tab per scene — **Basic 3D · Basic 2D · Audio 2D · Audio 3D · UI · Physics 2D · Physics 3D ·
     Spine**; the active tab is highlighted;
   - right: FPS readout, language picker (en / es / qps), an "F12: dev overlay" hint (see [Remove ImGui](remove-imgui.md)).
-- Tabs call `Tree.ChangeSceneToFile("Content/Scenes/<scene>.mscene")`. `DemoNav` follows `SceneTree` scene changes
+- Tabs call `Tree.ChangeSceneToFile("Assets/Scenes/<scene>.mscene")`. `DemoNav` follows `SceneTree` scene changes
   to highlight the right tab, so `--scene` (GameHost) and the editor's "play scene" deep-link correctly.
 - Number keys 1–8 switch tabs; Escape quits through the session's quit request.
 - All labels go through `Tr` / `Atr` (the Demo keeps the es + qps catalogs).
@@ -92,19 +92,19 @@ scene, `Layer = 10`) for its controls, and nothing that depends on another scene
 | **Basic 2D** | Primitive composition under a `Camera2D` (canvas units, Y-down): a gradient sky (per-vertex-colour quad), layered rolling hills (polygons), sun with rays, orbiting circles, a `Sprite2D` (engine logo), slowly animated with `OnDraw` + `QueueRedraw`. Drawn by Demo `DemoShape2D` nodes. | zoom, pause animation |
 | **Audio 2D** | `AudioPlayer2D` emitter sweeping left↔right past the `Camera2D` listener (listener = active Camera2D, `AudioServer.cs:828`), drawn as a moving marker; click anywhere to play a one-shot at that position (`AudioServer.PlayOneShot`). | Master / Music / SFX bus volume sliders, panning strength, max distance |
 | **Audio 3D** | `AudioPlayer3D` orbiting an `AudioListener3D` (a visible head mesh at the centre); the emitter's distance ring is drawn with `DebugLines`. | attenuation model, low-pass at max distance on/off, doppler on/off, orbit speed |
-| **UI + hot reload** | Engine widget gallery (`/Content/UI/widgets/demo.rml` content) plus a data-bound panel (`CreateDataModel`, sliders/toggles driving a live value). A banner: *"Edit `Content/UI/showcase.rcss` (or `.rml`) and save — this page reloads live"*, with a **reload counter** and last-reload time driven by `UiDocument.Reloaded`. In builds without hot reload (Release engine) the banner says so. | theme accent picker, counter reset |
+| **UI + hot reload** | Engine widget gallery (`/Assets/UI/widgets/demo.rml` content) plus a data-bound panel (`CreateDataModel`, sliders/toggles driving a live value). A banner: *"Edit `Assets/UI/showcase.rcss` (or `.rml`) and save — this page reloads live"*, with a **reload counter** and last-reload time driven by `UiDocument.Reloaded`. In builds without hot reload (Release engine) the banner says so. | theme accent picker, counter reset |
 | **Physics 2D** | Funnel / pegboard of `StaticBody2D`s; `RigidBody2D` circles and boxes rain in (gravity +Y, Y-down). Each body has a `DemoShape2D` child drawing its shape. Clicks are mapped window → canvas through the root viewport's `StretchTransform × CanvasTransform`. | click to spawn, reset, debug shapes |
 | **Physics 3D** | Stacked crates and a ramp (`StaticBody3D` + `RigidBody3D`, shared `BoxShape3D`), a `CharacterBody3D` pusher. | click to drop a body at the cursor (ray query via `DirectSpaceState`), reset, debug shapes |
-| **Spine** | SpineBoy (`SpineNode`, `Folder = Content/Models/Spine/SpineBoy`) on a lit floor. **Both** a `Camera3D` and a `Camera2D` are in the scene; the toggle switches between them, and the 2D mode detaches the `Camera3D` from the tree (a viewport keeps a `Camera3D` active while any is in it, and `RenderServer.GetRenderCamera` prefers it, so clearing `Current` is not enough; built this way, see [Demo](../demo.md)). Under `Camera2D` (Y-down, looking along +Z) a Y-up skeleton appears upside down and from the back (ADR 0110), so the 2D mode puts SpineBoy under a pivot rotated 180° about X; `SpineScale` is set per mode (~1 under Camera2D, where 1 unit = 1 canvas pixel). 3D visuals render below every canvas item, so the scene keeps `rendering.canvasClearColor` unset. | **Camera2D / Camera3D toggle**, animation picker (walk / run / jump / idle), time scale |
+| **Spine** | SpineBoy (`SpineNode`, `Folder = Assets/Models/Spine/SpineBoy`) on a lit floor. **Both** a `Camera3D` and a `Camera2D` are in the scene; the toggle switches between them, and the 2D mode detaches the `Camera3D` from the tree (a viewport keeps a `Camera3D` active while any is in it, and `RenderServer.GetRenderCamera` prefers it, so clearing `Current` is not enough; built this way, see [Demo](../demo.md)). Under `Camera2D` (Y-down, looking along +Z) a Y-up skeleton appears upside down and from the back (ADR 0110), so the 2D mode puts SpineBoy under a pivot rotated 180° about X; `SpineScale` is set per mode (~1 under Camera2D, where 1 unit = 1 canvas pixel). 3D visuals render below every canvas item, so the scene keeps `rendering.canvasClearColor` unset. | **Camera2D / Camera3D toggle**, animation picker (walk / run / jump / idle), time scale |
 
 ## Engine changes
 
 1. **UI hot reload for GameHost games.** Today only an `Engine` subclass that sets
    `EngineOptions.Ui.SourceContentDirectories` gets hot reload of *source* `.rml`/`.rcss` (the Sandbox does,
    `Game.cs:33`); `ProjectSettings.ToEngineOptions()` (`ProjectSettings.cs:116-135`) never sets `Ui`, so a GameHost
-   game only watches the copied `bin/.../Content/UI`. Change: when the engine is a Debug build
+   game only watches the copied `bin/.../Assets/UI`. Change: when the engine is a Debug build
    (`UiServerOptions.DefaultHotReload`), `GameHost` adds the game assemblies' `MainframeContentSource` folders
-   (`UiServerOptions.SourceDirectoriesOf`) and the project folder's `Content/`. The template gains the Debug-only
+   (`UiServerOptions.SourceDirectoriesOf`) and the project folder's `Assets/`. The template gains the Debug-only
    `MainframeContentSource` assembly attribute the Sandbox csproj has (lines 25-31), so every new project gets it.
 2. **Spine under `Camera2D`.** `SpineNode.Draw` only uses the camera's view/projection; with the port's Y-down
    `Camera2D` the skeleton needs the 180°-about-X pivot described above. Add a render test (golden) that draws SpineBoy
@@ -117,7 +117,7 @@ scene, `Layer = 10`) for its controls, and nothing that depends on another scene
 ## Screenshots
 
 - `just demo-screenshots` builds `Examples/Demo/Demo.slnx` and runs `Demo.Desktop` once per scene:
-  `--scene Content/Scenes/<scene>.mscene --fixed-fps 60 --max-frames 180 --screenshot docs/images/demo/<scene>.png`
+  `--scene Assets/Scenes/<scene>.mscene --fixed-fps 60 --max-frames 180 --screenshot docs/images/demo/<scene>.png`
   at 1920×1080 (GameHost's existing `--screenshot` saves the last frame; `--fixed-fps` makes it deterministic).
   The window size comes from `project.mfproj`; a `--window-size WxH` GameHost flag is added if the project size is not
   the capture size.
@@ -133,11 +133,11 @@ scene, `Layer = 10`) for its controls, and nothing that depends on another scene
 
 | Job today | Where it goes |
 |---|---|
-| Test assets linked from `MainframeEngine.Sandbox/Content` into `Tests/MainframeEngine.Tests` (csproj lines 49-72) and `Tests/MainframeEngine.RenderTests.Host` (lines 17-43): TestModel, SpineBoy, `ambient_hum.ogg`, branding PNG, locale `.mo` | Move to a shared **`Tests/Content/`** and relink. CI excludes `Examples/**` from LFS (`ci.yml:42,53,200,211`), so tests must not link Demo content. The Demo keeps its own copies (LFS dedups identical blobs). |
-| `SerializationTests.TheSandboxSceneParsesAndResavesIdentically` (`SerializationTests.cs:596`), `AudioSerializationTests.TheSandboxAmbiencePlaysFromItsSceneFile` (`:144`), `ModelImportTests` TestModel check (`:217`) | A fixture scene `Tests/Content/Scenes/Showcase.mscene` generated by the moved `SandboxSceneBuilder` (renamed `ShowcaseSceneBuilder`, test-only); tests renamed. |
+| Test assets linked from `MainframeEngine.Sandbox/Content` into `Tests/MainframeEngine.Tests` (csproj lines 49-72) and `Tests/MainframeEngine.RenderTests.Host` (lines 17-43): TestModel, SpineBoy, `ambient_hum.ogg`, branding PNG, locale `.mo` | Move to a shared **`Tests/Assets/`** and relink. CI excludes `Examples/**` from LFS (`ci.yml:42,53,200,211`), so tests must not link Demo content. The Demo keeps its own copies (LFS dedups identical blobs). |
+| `SerializationTests.TheSandboxSceneParsesAndResavesIdentically` (`SerializationTests.cs:596`), `AudioSerializationTests.TheSandboxAmbiencePlaysFromItsSceneFile` (`:144`), `ModelImportTests` TestModel check (`:217`) | A fixture scene `Tests/Assets/Scenes/Showcase.mscene` generated by the moved `SandboxSceneBuilder` (renamed `ShowcaseSceneBuilder`, test-only); tests renamed. |
 | Allocation gate `SceneTests.SandboxSteadyStateAllocatesNothing` on `RenderTests.Host/Scenes/SandboxScene.cs` | Renamed `ShowcaseScene` / `ShowcaseSteadyStateAllocatesNothing`; same content minus ImGui (see [Remove ImGui](remove-imgui.md)). |
 | Editor smoke (`EditorSmokeRun.cs:11,139,243`, `EditorRenderTests.cs:19-27`): opens `Sandbox.mscene`, frames `Column` | Opens the fixture `Showcase.mscene`; splash text updated. |
-| l10n: `justfile` `l10n_dir` + `l10n-extract` (lines 170-179), `ci.yml:113`, `build/linux/inside.sh:42` | Point at `Examples/Demo/Content/locale`, extract from `Examples/Demo/Demo/Src` + `Content` + the Demo assembly. `.po`/`.mo` are not LFS, so the CI check works without LFS. |
+| l10n: `justfile` `l10n_dir` + `l10n-extract` (lines 170-179), `ci.yml:113`, `build/linux/inside.sh:42` | Point at `Examples/Demo/Assets/locale`, extract from `Examples/Demo/Demo/Src` + `Content` + the Demo assembly. `.po`/`.mo` are not LFS, so the CI check works without LFS. |
 | `just sandbox`, `just qa` (`--qa-capture`, `--qa-resize`, `--qa-minimize`, `--qa-input`) | `just demo` (run `Demo.Desktop`); `just qa` becomes an alias of `just demo-screenshots`. Resize is already covered by render tests (`SceneTests.SwapchainRecreationOnResizeAndVSyncToggleIsClean`, `--resize`); minimise and the synthetic mouse-look input move to the render-test host as new `--minimize frame` / `--input frame` options (`Tests/MainframeEngine.RenderTests.Host/HostOptions.cs`) with one test each. |
 | `IconTests.cs:154` scans `MainframeEngine.Sandbox/Src` | Scans `Examples/Demo/Demo/Src`. |
 | `just editor` with no project + docs: `just editor Examples/EditorShowcase` | `just editor Examples/Demo`; `justfile:76-77` links and builds the Demo instead. |
@@ -153,7 +153,7 @@ asset-pipeline, audio, build-and-platforms, cameras-and-input, game-ui, localiza
 
 ## Testing
 
-- Unit: `DemoNav` tab ↔ scene mapping; every scene file in `Examples/Demo/Content/Scenes` parses and re-saves
+- Unit: `DemoNav` tab ↔ scene mapping; every scene file in `Examples/Demo/Assets/Scenes` parses and re-saves
   identically (a test in `Tests/MainframeEngine.Tests` that reads the Demo's scenes as text — no LFS content needed).
 - Render: Spine-under-Camera2D golden; `ShowcaseSteadyStateAllocatesNothing`; validation clean.
 - CI `template` job: Demo builds; every scene runs 10 frames headless with validation on and exits 0.
@@ -172,7 +172,7 @@ asset-pipeline, audio, build-and-platforms, cameras-and-input, game-ui, localiza
 ## Task list
 
 1. Engine: GameHost source hot reload + template `MainframeContentSource`; Spine/Camera2D render test.
-2. `Tests/Content/` move, fixture scene + builder, test renames, editor smoke switch.
+2. `Tests/Assets/` move, fixture scene + builder, test renames, editor smoke switch.
 3. `Examples/Demo` skeleton from the template, nav autoload, Basic 3D, UI, Audio 3D, Physics 3D, Spine scenes.
 4. Audio 2D, Physics 2D and Basic 2D on the port's canvas renderer (`DemoShape2D`).
 5. l10n move, justfile/CI/QA scripts, screenshots + README Showcase.

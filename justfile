@@ -52,7 +52,7 @@ shaders:
 shaders-check:
     sh build/shaders.sh check
 
-# Run the editor (extra args are passed through, e.g. just editor Examples/Demo/Content/Scenes/basic_3d.mscene)
+# Run the editor (extra args are passed through, e.g. just editor Examples/Demo/Assets/Scenes/basic_3d.mscene)
 editor *args:
     dotnet run --project MainframeEngine.Editor -- {{args}}
 
@@ -123,10 +123,10 @@ forest-screenshots frames="300":
 forest-bench *args:
     build/forest-bench.sh {{args}}
 
-# Regenerate the Forest's app icon from Examples/Forest/Brand/*.svg: PNGs, forest.ico, forest.icns and the window icon Content/Brand/icon.png (needs inkscape; .icns needs macOS)
+# Regenerate the Forest's app icon from Examples/Forest/Brand/*.svg: PNGs, forest.ico, forest.icns and the window icon Assets/Brand/icon.png (needs inkscape; .icns needs macOS)
 forest-brand:
     build/brand/app-icon.sh Examples/Forest/Brand forest
-    mkdir -p Examples/Forest/Content/Brand && cp Examples/Forest/Brand/png/icon-256.png Examples/Forest/Content/Brand/icon.png
+    mkdir -p Examples/Forest/Assets/Brand && cp Examples/Forest/Brand/png/icon-256.png Examples/Forest/Assets/Brand/icon.png
 
 # Forest unit tests:the controller, the project file and the scene contract (no GPU, no LFS content)
 forest-test:
@@ -202,9 +202,9 @@ brand:
     else
       echo "iconutil not found (macOS only): logo.icns left unchanged"
     fi
-    cp png/logo-{32,48,256,512}.png png/logo-macos-512.png ../../../MainframeEngine/Content/Brand/
+    cp png/logo-{32,48,256,512}.png png/logo-macos-512.png ../../../MainframeEngine/Assets/Brand/
 
-# Rebuild the editor icon atlas (MainframeEngine.Editor/Content/icons) from icons.txt and the vendored Tabler SVGs (needs inkscape)
+# Rebuild the editor icon atlas (MainframeEngine.Editor/Assets/icons) from icons.txt and the vendored Tabler SVGs (needs inkscape)
 editor-icons:
     python3 build/editor-icons/make_atlas.py
 
@@ -237,9 +237,9 @@ format-check:
     dotnet format {{solution}} --verify-no-changes --exclude Plugins/Spine
 
 # --- Localization (docs/design/localization.md) -------------------------------------------------------------------
-# The Demo's catalogs: Examples/Demo/Content/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
-# (Tests/Content/locale is the render tests' own Spanish catalog; it is not managed by these recipes.)
-l10n_dir := "Examples/Demo/Content/locale"
+# The Demo's catalogs: Examples/Demo/Assets/locale/messages.pot and <locale>/LC_MESSAGES/messages.po|.mo.
+# (Tests/Assets/locale is the render tests' own Spanish catalog; it is not managed by these recipes.)
+l10n_dir := "Examples/Demo/Assets/locale"
 l10n := "dotnet run --project Tools/MainframeEngine.L10n -c Release --"
 
 # Extract strings (C# via GetText.Extractor; RML — the Demo panels and the engine widget library — and [Export(Translatable)] scene values via mf-l10n) into messages.pot, merge it into every .po and regenerate the qps pseudo-locale
@@ -247,16 +247,16 @@ l10n-extract:
     dotnet tool restore
     dotnet build Examples/Demo/Demo/Demo.csproj -p:CompileLocales=false
     dotnet tool run GetText.Extractor -s Examples/Demo/Demo/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Content/UI/settings/settings.pot --rml Examples/Demo/Content --rml MainframeEngine/Content/UI --scenes Examples/Demo/Content --mfproj Examples/Demo/project.mfproj --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Assets/UI/settings/settings.pot --rml Examples/Demo/Content --rml MainframeEngine/Assets/UI --scenes Examples/Demo/Content --mfproj Examples/Demo/project.mfproj --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
     {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
     {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
 
-# The engine's own player-facing strings (the settings menu, input binding names) into Content/UI/settings/settings.pot,
+# The engine's own player-facing strings (the settings menu, input binding names) into Assets/UI/settings/settings.pot,
 # which games merge into their catalog with `mf-l10n extract --include` (the Demo's l10n-extract does)
 l10n-engine:
     dotnet tool restore
     dotnet tool run GetText.Extractor -s MainframeEngine/Src/UI/Settings -s MainframeEngine/Src/Scene/Input -t {{artifacts / "l10n" / "engine-code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o MainframeEngine/Content/UI/settings/settings.pot --root . --project "Mainframe Engine" --include {{artifacts / "l10n" / "engine-code.pot"}} --rml MainframeEngine/Content/UI/settings
+    {{l10n}} extract -o MainframeEngine/Assets/UI/settings/settings.pot --root . --project "Mainframe Engine" --include {{artifacts / "l10n" / "engine-code.pot"}} --rml MainframeEngine/Assets/UI/settings
 
 # Compile every .po to the committed .mo next to it (the build compiles them into the output itself)
 l10n-compile:
@@ -276,9 +276,9 @@ clean:
     {{ if os_family() == "windows" { "if (Test-Path artifacts) { Remove-Item -Recurse -Force artifacts }" } else { "rm -rf artifacts" } }}
 
 # Build the SPIR-V of canvas shaders (.gdshader, ADR 0113) under the given folders (default: the render-test host's)
-canvas-shaders *folders="Tests/MainframeEngine.RenderTests.Host/Content":
+canvas-shaders *folders="Tests/MainframeEngine.RenderTests.Host/Assets":
     dotnet run --project Tools/MainframeEngine.ShaderBuild -- build {{folders}}
 
 # Fail when any canvas shader's committed SPIR-V is stale
-canvas-shaders-check *folders="Tests/MainframeEngine.RenderTests.Host/Content":
+canvas-shaders-check *folders="Tests/MainframeEngine.RenderTests.Host/Assets":
     dotnet run --project Tools/MainframeEngine.ShaderBuild -- check {{folders}}

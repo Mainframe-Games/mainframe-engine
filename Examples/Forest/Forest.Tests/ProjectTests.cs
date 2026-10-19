@@ -29,7 +29,7 @@ public sealed class ProjectTests
         var settings = Load();
         Assert.Null(settings.Window.Title); // the title falls back to the name
         Assert.Equal("Forest Demo", settings.ToEngineOptions().GameName);
-        Assert.Equal("Content/Brand/icon.png", settings.Window.Icon);
+        Assert.Equal("Assets/Brand/icon.png", settings.Window.Icon);
         Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, settings.Window.Icon!)));
 
         var desktop = File.ReadAllText(Path.Combine(ForestRoot, "Forest.Desktop", "Forest.Desktop.csproj"));

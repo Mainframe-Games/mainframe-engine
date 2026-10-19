@@ -44,7 +44,7 @@ public sealed class NestedSceneReplicationTests : IDisposable
         var turret = new NetPart { Name = "Turret" };
         SceneSaver.Save(turret, ContentPath("Scenes/Turret.mscene"));
         turret.Free();
-        var turretScene = ResourceLoader.Load<PackedScene>("Content/Scenes/Turret.mscene");
+        var turretScene = ResourceLoader.Load<PackedScene>("Assets/Scenes/Turret.mscene");
 
         var tank = new NetPlayer { Name = "Tank" };
         var front = turretScene.Instantiate();
@@ -59,7 +59,7 @@ public sealed class NestedSceneReplicationTests : IDisposable
         var uid = SceneSaver.Save(tank, ContentPath("Scenes/Tank.mscene"));
         tank.Free();
         turretScene.Release();
-        return (uid, "Content/Scenes/Tank.mscene");
+        return (uid, "Assets/Scenes/Tank.mscene");
     }
 
     [Fact]
@@ -101,9 +101,9 @@ public sealed class NestedSceneReplicationTests : IDisposable
         Step(3);
 
         var copy = (NetPlayer)client.FindNode(tank.NetworkId)!;
-        Assert.Equal("Content/Scenes/Tank.mscene", copy.SceneFilePath);
+        Assert.Equal("Assets/Scenes/Tank.mscene", copy.SceneFilePath);
         Assert.Equal(new Vector3(2, 2, 2), copy.GetNode<NetPart>("Back").Scale); // the instance override came from the file
-        Assert.Equal("Content/Scenes/Turret.mscene", copy.GetNode("Front").SceneFilePath);
+        Assert.Equal("Assets/Scenes/Turret.mscene", copy.GetNode("Front").SceneFilePath);
         Assert.Equal(5, copy.GetNode<NetPart>("Back").Spin, 3);
         Assert.Equal(1, copy.GetNode<NetPart>("Front").Spin, 3);
 

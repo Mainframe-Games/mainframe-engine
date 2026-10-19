@@ -7,9 +7,9 @@ if (args.Length < 2 || args[0] is not ("build" or "check"))
     return 2;
 }
 
-var include = Path.Combine(AppContext.BaseDirectory, "Content", "Shaders", "include");
+var include = Path.Combine(AppContext.BaseDirectory, "Assets", "Shaders", "include");
 if (!Directory.Exists(include))
-    include = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "MainframeEngine", "Content", "Shaders", "include"));
+    include = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "MainframeEngine", "Assets", "Shaders", "include"));
 
 var failures = 0;
 var built = 0;

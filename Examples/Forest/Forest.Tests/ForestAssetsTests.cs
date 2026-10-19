@@ -5,7 +5,7 @@ using MainframeEngine;
 namespace Forest.Tests;
 
 /// <summary>
-/// The CC0 art under <c>Content/Art</c> (Git LFS): the manifest matches the files and NOTICE.md, every prop imports
+/// The CC0 art under <c>Assets/Art</c> (Git LFS): the manifest matches the files and NOTICE.md, every prop imports
 /// through Assimp with the PBR override, and the terrain layers load. Skipped when LFS content is not checked out.
 /// </summary>
 public sealed class ForestAssetsTests
@@ -44,7 +44,7 @@ public sealed class ForestAssetsTests
         foreach (var path in listed)
             Assert.True(File.Exists(ForestAssets.Resolve(path)), $"missing: {path}");
 
-        // Sources, not the build output: every file under Content/Art is listed (or is a .meta sidecar with its asset).
+        // Sources, not the build output: every file under Assets/Art is listed (or is a .meta sidecar with its asset).
         var art = Path.Combine(ForestRoot, ForestAssets.ArtFolder);
         foreach (var file in Directory.EnumerateFiles(art, "*", SearchOption.AllDirectories))
         {

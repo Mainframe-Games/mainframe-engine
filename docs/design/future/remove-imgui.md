@@ -32,7 +32,7 @@ The editor's transform gizmos already draw through Vulkan (`MainframeEngine.Edit
 
 | ImGui code | Replacement |
 |---|---|
-| `Rendering/Vulkan/VulkanImGuiController.cs`, `Content/Shaders/ImGui/ImGui.vk.{vert,frag}` (+ `.spv`, `shaders.lock:4-5`) | deleted |
+| `Rendering/Vulkan/VulkanImGuiController.cs`, `Assets/Shaders/ImGui/ImGui.vk.{vert,frag}` (+ `.spv`, `shaders.lock:4-5`) | deleted |
 | `IVulkanContext.ImGuiTextures` / `IImGuiTextureRegistry` (`IVulkanContext.cs:136-150`), `VulkanRenderer.ImGuiTextures` (`VulkanRenderer.cs:146`) | `UiServer.RegisterTexture` (`UiServer.cs:295-300`) |
 | `Engine.OnImGui` + controller wiring (`Engine.cs:115,230,338,421-424,443-446,483-492,532-535,577`) | `DevOverlay.AddPanel` |
 | `Engine.DevOverlayVisible` / `EngineOptions.DevOverlayVisible` (default true) / F12 (`Engine.cs:100,133-139,387-391`) | kept, now drives `DevOverlay`; **default false** |
@@ -49,7 +49,7 @@ An engine-owned node created by the engine when a `UiServer` exists (every `Engi
 under `Root` outside `CurrentScene` like an autoload, so scene changes keep it.
 
 - One `UiLayer` with `Layer = int.MaxValue` (always on top, input first while visible) holding a `UiDocument`
-  (`MainframeEngine/Content/UI/dev/overlay.rml` + `overlay.rcss`, built on the widget library).
+  (`MainframeEngine/Assets/UI/dev/overlay.rml` + `overlay.rcss`, built on the widget library).
 - F12 (`Engine.DevOverlayKey`) toggles `Visible`; hidden by default (`EngineOptions.DevOverlayVisible = false`).
   The editor keeps it off and its shortcut help no longer lists F12 as an ImGui overlay (`EditorCommands.cs:662`).
 - Layout: a docked panel on the right with collapsible sections (one per panel), semi-transparent, scrollable.
@@ -97,7 +97,7 @@ batch drawn **after tonemapping in the overlay pass**, so colours are exact sRGB
 - Thick lines are expanded on the CPU into quads (anti-aliased with a 1 px feathered edge in the fragment shader);
   one pipeline, one dynamic vertex buffer per frame slot (`IVulkanContext.FrameSlot`, `MaxFramesInFlight`), capacity
   grows only on overflow (allocation gate stays green), pipeline created through `IVulkanContext.Pipelines`, shaders
-  `Content/Shaders/Gizmos/ScreenGizmo.vk.{vert,frag}` (+ committed `.spv`, `shaders.lock`).
+  `Assets/Shaders/Gizmos/ScreenGizmo.vk.{vert,frag}` (+ committed `.spv`, `shaders.lock`).
 - Overlay renderers get an explicit order (`IVulkanContext.AddOverlayRenderer(renderer, order)`; registration order
   breaks ties): canvas (`OverlayOrder.Canvas = 0`, from the port) → `ScreenGizmos` (`OverlayOrder.Gizmos = 100`) → UI
   (`OverlayOrder.Ui = 200`), so game UI and the dev overlay draw on top of gizmos, and gizmos on top of 2D.
@@ -134,7 +134,7 @@ ImGui controller removes only the last step. Comments mentioning ImGui in `IOver
   `ScreenGizmos`, light/axis gizmos).
 - `CLAUDE.md`: frame order step 1 (`OnImGui`) removed, step 7 ("ImGui render") → UI + dev overlay; Dependencies list
   drops ImGui.NET; `Engine` legacy hooks list drops `OnImGui`.
-- `README.md`, `THIRD_PARTY_NOTICES.md:33`, `MainframeEngine/Content/UI/credits.rml:23`, the ~30 design docs that
+- `README.md`, `THIRD_PARTY_NOTICES.md:33`, `MainframeEngine/Assets/UI/credits.rml:23`, the ~30 design docs that
   mention ImGui (engine-lifecycle, vulkan-renderer, testing, color-pipeline, future/mobile, …) and the SVGs
   `docs/images/{architecture-layers,main-render-pass,viewport-and-depth,rmlui-integration}.svg`.
 

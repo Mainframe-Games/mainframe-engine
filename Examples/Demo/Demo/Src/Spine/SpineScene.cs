@@ -37,7 +37,7 @@ public static class SpineScene
         });
 
         var pivot = Add(root, root, new Node3D { Name = "Pivot" });
-        Add(root, pivot, new SpineNode { Name = "SpineBoy", Folder = "Content/Models/Spine/SpineBoy", Animation = "walk", SpineScale = SpinePanel.Scale3D });
+        Add(root, pivot, new SpineNode { Name = "SpineBoy", Folder = "Assets/Models/Spine/SpineBoy", Animation = "walk", SpineScale = SpinePanel.Scale3D });
 
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new SpinePanel { Name = "Panel" });

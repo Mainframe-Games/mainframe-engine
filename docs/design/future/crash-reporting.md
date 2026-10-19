@@ -105,7 +105,7 @@ Nobody can tell a player's crash apart from a driver bug, and the editor shows a
 | `CrashSession` | `Src/Debugging/Crash/` | The unclean-exit sentinel |
 | `GpuInfo` + `IRenderer.Gpu` (new member) | `Src/Rendering/` | Backend-neutral GPU and driver identity |
 | `VulkanDeviceLostException`, `GpuBreadcrumbs` (internal) | `Src/Rendering/Vulkan/` | Device loss as its own type; per-pass markers; fault info |
-| `CrashPrompt : UiDocument` + `Content/UI/crash/` | `Src/UI/Crash/` | The player's next-launch prompt |
+| `CrashPrompt : UiDocument` + `Assets/UI/crash/` | `Src/UI/Crash/` | The player's next-launch prompt |
 | `ICrashUploader`, `HttpCrashUploader`, `SentryEnvelope` | `Src/Debugging/Crash/Upload/` | Opt-in sending |
 | `ExitCodes` | `Src/Core/` | Exit code → signal or NTSTATUS name (shared by the editor and the sentinel) |
 | Editor link `CrashReport` (protocol 4), `CrashDialog` | `Src/EditorLink/`, `MainframeEngine.Editor/Src/UI/` | Game crashes in the editor; the editor's own next-start dialog |
@@ -216,7 +216,7 @@ guarded so a second exception cannot hide the first. `HeadlessHost` does the sam
   "gpu": { "name": "Apple M3 Pro", "vendorId": "0x106b", "deviceId": "0x…", "type": "IntegratedGpu",
            "driver": "MoltenVK", "driverInfo": "1.3.0", "driverVersion": "0.2.2208", "api": "1.2.296" },
   "session": { "uptimeSeconds": 812.4, "renderedFrames": 48211, "processFrames": 48190,
-               "scene": "Content/Scenes/Forest.mscene", "node": "/root/Forest/Player",
+               "scene": "Assets/Scenes/Forest.mscene", "node": "/root/Forest/Player",
                "nodeType": "Game.PlayerController", "callback": "OnPhysicsProcess", "args": ["--fixed-fps"] },
   "exception": [{ "type": "System.NullReferenceException", "message": "Object reference not set to …",
                   "frames": [{ "method": "Game.PlayerController.OnPhysicsProcess(Single)",
@@ -299,7 +299,7 @@ debugger, when the editor launched the game, and for `--headless` unless asked. 
 
 If `crash.prompt` is `"ask"` (the default) and `PendingReports` is not empty, `GameHost` shows `CrashPrompt` once the
 first scene is on screen (after the loading screen, ADR 0183). It is an engine `UiDocument`
-(`Content/UI/crash/crash_prompt.rml`) on the widget library, laid out in `dp`, reachable by gamepad (`nav: auto`), with
+(`Assets/UI/crash/crash_prompt.rml`) on the widget library, laid out in `dp`, reachable by gamepad (`nav: auto`), with
 strings through `Tr` (an engine `crash.pot`, merged like G4's `settings.pot`):
 
 - "{game} closed unexpectedly last time" and a one-line summary ("The graphics driver stopped responding");

@@ -132,12 +132,12 @@ public sealed class PluginHostTests : IDisposable
         var db = new AssetDatabase(_root);
         AssetDatabase.Current = db;
         var song = Loop(bars: 1); // a two-second loop at 120 BPM
-        Assert.Null(song.Render.Output); // new songs render to Content/Music/<name>.ogg
+        Assert.Null(song.Render.Output); // new songs render to Assets/Music/<name>.ogg
         var result = SongRenderer.Render(song, "Theme", db, encoder: host, cancellation: Ct);
 
-        Assert.Equal("Content/Music/Theme.ogg", result.OutputPath);
+        Assert.Equal("Assets/Music/Theme.ogg", result.OutputPath);
         Assert.Equal(2L * Rate, result.Frames);
-        var full = Path.Combine(_root, "Content", "Music", "Theme.ogg");
+        var full = Path.Combine(_root, "Assets", "Music", "Theme.ogg");
         Assert.Equal("OggS", System.Text.Encoding.ASCII.GetString(File.ReadAllBytes(full), 0, 4));
         Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(full)!, "*.tmp"));
         Assert.True(new FileInfo(full).Length < result.Frames * 2 * 4 / 8); // far smaller than the float WAV
@@ -173,9 +173,9 @@ public sealed class PluginHostTests : IDisposable
     {
         var db = new AssetDatabase(_root);
         var result = SongRenderer.Render(Loop(bars: 1), "Theme", db, cancellation: Ct);
-        Assert.Equal("Content/Music/Theme.wav", result.OutputPath);
-        Assert.Equal("Content/Music/Theme.ogg", SongRenderer.OutputPathFor((string?)null, "Theme", canEncode: true));
-        Assert.Equal("Content/Music/Theme.wav", SongRenderer.OutputPathFor((string?)null, "Theme", canEncode: false));
+        Assert.Equal("Assets/Music/Theme.wav", result.OutputPath);
+        Assert.Equal("Assets/Music/Theme.ogg", SongRenderer.OutputPathFor((string?)null, "Theme", canEncode: true));
+        Assert.Equal("Assets/Music/Theme.wav", SongRenderer.OutputPathFor((string?)null, "Theme", canEncode: false));
         Assert.Equal("Music/a.wav", SongRenderer.OutputPathFor("Music/a.mp3", "Theme", canEncode: true));
     }
 
@@ -186,8 +186,8 @@ public sealed class PluginHostTests : IDisposable
         var fake = new FakePluginHost();
         var song = Loop(bars: 1);
         var first = SongRenderer.Render(song, "Theme", db, encoder: fake, cancellation: Ct);
-        Assert.Equal("Content/Music/Theme.ogg", first.OutputPath);
-        var full = Path.Combine(_root, "Content", "Music", "Theme.ogg");
+        Assert.Equal("Assets/Music/Theme.ogg", first.OutputPath);
+        var full = Path.Combine(_root, "Assets", "Music", "Theme.ogg");
         var bytes = File.ReadAllBytes(full);
 
         var stops = new List<PluginHostStop>();

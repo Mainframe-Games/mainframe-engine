@@ -19,8 +19,8 @@ Brogan, 2026-10-08: "I want the forest level to look like it was made in Unreal 
 (`docs/images/forest/r1-glade.png` … `r5-floor.png`) show where it falls short:
 
 - **Flat shade.** Indirect light is the sky's irradiance looked up by normal only
-  (`MainframeEngine/Content/Shaders/include/environment.slang:20`), times material AO
-  (`MainframeEngine/Content/Shaders/include/lights.slang:175`). Nothing knows that a point under a pine canopy sees a
+  (`MainframeEngine/Assets/Shaders/include/environment.slang:20`), times material AO
+  (`MainframeEngine/Assets/Shaders/include/lights.slang:175`). Nothing knows that a point under a pine canopy sees a
   tenth of the sky an open glade sees, so the Forest raises `AmbientEnergy` to 1.6 to keep the shade readable
   (`Examples/Forest/Forest/Src/World/ForestScene.cs:79`, "no GI"). R1 and R5: shade under the canopy is as bright and
   as blue as shade in the open; trunk bases and boulders do not ground (R2's rocks float).
@@ -405,7 +405,7 @@ generator stays and grows these extensions (ADR 0164: no SpeedTree, no Megascans
 - **`TreeClusterBaker`** (editor and `--bake-tree-clusters`): renders 8 twig variants orthographically into a 4 × 2
   atlas (1024², 256 × 512 cells) through `SubViewportCapture` (ADR 0136) with G8b's linear bake target and three output
   modes: albedo + alpha; card-space normal (the twig's real leaf normals, so a flat card shades like a twig); thickness
-  and AO (layered alpha through the twig, and depth-based self-occlusion). Edges dilated. `Content/Trees/Clusters/
+  and AO (layered alpha through the twig, and depth-based self-occlusion). Edges dilated. `Assets/Trees/Clusters/
   <species>_{albedo,normal,thick}.png`, ≈ 3 MB per species.
 - **Generator:** `TreeLevel.LeafMode { Single, Cluster }`. In `Cluster` mode the last level's leaf slots become cards of
   the cluster's size, fewer and larger (≈ 400 instead of 4 000 per oak): two crossed quads or a V-bent card, oriented by

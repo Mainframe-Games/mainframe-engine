@@ -182,7 +182,7 @@ public sealed class ProjectService : IDisposable
         onReady?.Invoke();
     }
 
-    /// <summary>The main scene's file (<c>mainScene</c>: a UID or a <c>Content/</c> path), or null.</summary>
+    /// <summary>The main scene's file (<c>mainScene</c>: a UID or a <c>Assets/</c> path), or null.</summary>
     public string? MainScenePath()
     {
         if (Root is null || Settings?.MainScene is not { Length: > 0 } main)

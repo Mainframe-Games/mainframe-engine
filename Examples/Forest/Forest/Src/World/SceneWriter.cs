@@ -4,7 +4,7 @@ namespace Forest;
 
 /// <summary>
 /// <c>--write-scenes &lt;dir&gt;</c>: regenerates the Forest's scene files from their builders and the colour-grading LUT
-/// (<see cref="ForestGrade.LutPath"/>) in the project folder two levels above <c>dir</c> (<c>Content/Scenes</c>), and
+/// (<see cref="ForestGrade.LutPath"/>) in the project folder two levels above <c>dir</c> (<c>Assets/Scenes</c>), and
 /// writes the post-processing look (<see cref="ForestLook"/>) when its files are missing (they are tuned in the editor).
 /// </summary>
 public static class SceneWriter

@@ -485,7 +485,7 @@ saturation, `AdjustmentColorCorrection` LUT and its strength). `WorldEnvironment
 
 ```csharp
 var look = new PostProcessProfile { SsaoEnabled = true, GlowEnabled = true, Tonemapper = Tonemapper.Agx };
-ResourceSaver.Save(look, "Content/PostProcess/look.mres"); // optional: share it
+ResourceSaver.Save(look, "Assets/PostProcess/look.mres"); // optional: share it
 root.AddChild(new WorldEnvironment { PostProcess = look, CameraAttributes = new CameraAttributesPractical { VignetteIntensity = 0.2f } });
 ```
 

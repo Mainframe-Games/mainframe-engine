@@ -2,7 +2,7 @@
 
     <!--
       The Mainframe Editor (M10, docs/design/editor.md): a separate executable whose only engine dependency is the
-      MainframeEngine core library. Its UI is RmlUi documents (Content/Editor) on the engine's UiServer.
+      MainframeEngine core library. Its UI is RmlUi documents (Assets/Editor) on the engine's UiServer.
       The release workflow publishes this exact project (docs/design/release.md); keep the path and assembly name.
     -->
     <PropertyGroup>
@@ -32,7 +32,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Update="Content\**">
+        <None Update="Assets\**">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
     </ItemGroup>
@@ -71,11 +71,11 @@
               Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
 
-    <!-- Debug builds record this project's Content folder so the editor UI loads (and hot-reloads) from the sources. -->
+    <!-- Debug builds record this project's Assets folder so the editor UI loads (and hot-reloads) from the sources. -->
     <ItemGroup Condition="'$(Configuration)' == 'Debug'">
         <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
             <_Parameter1>MainframeContentSource</_Parameter1>
-            <_Parameter2>$(MSBuildProjectDirectory)/Content</_Parameter2>
+            <_Parameter2>$(MSBuildProjectDirectory)/Assets</_Parameter2>
         </AssemblyAttribute>
     </ItemGroup>
 

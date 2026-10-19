@@ -33,7 +33,7 @@ public sealed class SoundDesignerTests : IDisposable
     private (EditorWorkspace Workspace, EditedResource Resource, ZzfxStream Stream) OpenSound()
     {
         var w = Open();
-        var file = _project.Abs("Content/Coin.mres");
+        var file = _project.Abs("Assets/Coin.mres");
         ResourceSaver.Save(new ZzfxStream { ResourceName = "Coin" }, file);
         Assert.True(w.Inspector.InspectResourceFile(file));
         _editor!.Tick();
@@ -59,7 +59,7 @@ public sealed class SoundDesignerTests : IDisposable
         Assert.Null(preview.Stream);
 
         // An audio file loads through the resource loader; a voice that ends clears the preview.
-        var wav = _project.Abs("Content/blip.wav");
+        var wav = _project.Abs("Assets/blip.wav");
         WavWriter.Write(wav, Zzfx.Generate(ZzfxParameters.Default), 1, Zzfx.SampleRate);
         w.AudioPreview.ToggleFile(wav);
         Assert.True(preview.IsPlayingFile(wav));
@@ -159,7 +159,7 @@ public sealed class SoundDesignerTests : IDisposable
     public void ExportWritesA16BitWavThatDecodes()
     {
         var stream = new ZzfxStream { Frequency = 440f, Sustain = 0.2f };
-        var path = _project.Abs("Content/Export.wav");
+        var path = _project.Abs("Assets/Export.wav");
         ZzfxStreamInspector.ExportWav(stream, path);
         var bytes = File.ReadAllBytes(path);
         Assert.Equal("RIFF", System.Text.Encoding.ASCII.GetString(bytes, 0, 4));

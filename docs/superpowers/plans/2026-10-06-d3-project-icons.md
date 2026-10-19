@@ -8,7 +8,7 @@ projects a default icon, and make absolute image paths work in RmlUi on macOS/Li
 **Architecture:** A C# `JoinPath` system callback (ported RmlUi default + "existing absolute file stays absolute")
 fixes absolute `src` paths at the root. `ProjectIconResolver` reads and caches each recent project's icon path; the
 Project Manager rows bind it to an `<img>` with the folder glyph as fallback. The `mfgame` template ships
-`Content/icon.png` and sets `window.icon`.
+`Assets/icon.png` and sets `window.icon`.
 
 **Tech Stack:** C# / .NET 10, RmlUi via the `mfrmlui` shim (function-pointer callbacks), xUnit v3, the editor's
 headless test harness.
@@ -32,7 +32,7 @@ headless test harness.
 
 - **Paths with spaces / non-ASCII (`~/My Games/Café`):** UTF-8 through the callback and RmlUi's texture cache. Pinned by
   Task 1's `JoinKeepsExistingAbsolutePathsVerbatim` (uses a space and `é`).
-- **Content-root paths that also look absolute (`/Content/UI/x.png`):** must still resolve against the content root, not
+- **Content-root paths that also look absolute (`/Assets/UI/x.png`):** must still resolve against the content root, not
   the filesystem root. Pinned by Task 1's `LeadingSlashContentPathsStayContentRelative`.
 - **Icon pointing outside the project (`../../etc/x.png`) or not a PNG:** ignored, glyph shown. Pinned by Task 3 tests.
 - **Icon replaced on disk while the Project Manager is open/reopened:** the new image shows (texture released). Pinned
@@ -78,27 +78,27 @@ public sealed class RmlPathsTests : IDisposable
         var icon = Path.Combine(_directory, "icon.png");
         File.WriteAllBytes(icon, [1]);
         // Unix: rooted + exists (rule 1). Windows: drive path (rule 3).
-        Assert.Equal(icon, RmlPaths.Join("Content/UI/doc.rml", icon));
+        Assert.Equal(icon, RmlPaths.Join("Assets/UI/doc.rml", icon));
     }
 
     [Fact]
     public void LeadingSlashContentPathsStayContentRelative() =>
-        Assert.Equal("Content/Brand/logo-256.png", RmlPaths.Join("Content/Editor/project_manager.rml", "/Content/Brand/logo-256.png"));
+        Assert.Equal("Assets/Brand/logo-256.png", RmlPaths.Join("Assets/Editor/project_manager.rml", "/Assets/Brand/logo-256.png"));
 
     [Fact]
     public void MissingAbsolutePathsFallBackToRmlUisRule() =>
-        Assert.Equal("nope/x.png", RmlPaths.Join("Content/UI/doc.rml", "/nope/x.png"));
+        Assert.Equal("nope/x.png", RmlPaths.Join("Assets/UI/doc.rml", "/nope/x.png"));
 
     [Theory]
     [InlineData("engine://viewport")]
     [InlineData("C:/Games/icon.png")]
     [InlineData("file:/x.png")]
-    public void SchemesAndDrivesPassThrough(string path) => Assert.Equal(path, RmlPaths.Join("Content/UI/doc.rml", path));
+    public void SchemesAndDrivesPassThrough(string path) => Assert.Equal(path, RmlPaths.Join("Assets/UI/doc.rml", path));
 
     [Theory]
-    [InlineData("Content/UI/doc.rml", "img/a.png", "Content/UI/img/a.png")]
-    [InlineData("Content/UI/doc.rml", "../Brand/a.png", "Content/Brand/a.png")]
-    [InlineData("Content/UI/doc.rml", "./a.png", "Content/UI/a.png")]
+    [InlineData("Assets/UI/doc.rml", "img/a.png", "Assets/UI/img/a.png")]
+    [InlineData("Assets/UI/doc.rml", "../Brand/a.png", "Assets/Brand/a.png")]
+    [InlineData("Assets/UI/doc.rml", "./a.png", "Assets/UI/a.png")]
     [InlineData("doc.rml", "a\\b.png", "a/b.png")]
     public void RelativePathsJoinTheDocumentFolder(string document, string path, string expected) =>
         Assert.Equal(expected, RmlPaths.Join(document, path));
@@ -229,7 +229,7 @@ git commit -m "UI: JoinPath keeps absolute paths to existing files (absolute <im
 ### Task 2: Default icon in the `mfgame` template
 
 **Files:**
-- Create: `Templates/MainframeEngine.Templates/content/mfgame/Content/icon.png` (copy of `MainframeEngine/Content/Brand/logo-256.png`)
+- Create: `Templates/MainframeEngine.Templates/content/mfgame/Assets/icon.png` (copy of `MainframeEngine/Assets/Brand/logo-256.png`)
 - Modify: `Templates/MainframeEngine.Templates/content/mfgame/project.mfproj` (`window.icon`)
 - Modify: `MainframeEngine.Editor/Src/Projects/ProjectCreator.cs` (`Verify`, ~lines 219-237)
 - Modify: `build/template-smoke.sh` (expected files list, ~lines 26-32)
@@ -242,10 +242,10 @@ git commit -m "UI: JoinPath keeps absolute paths to existing files (absolute <im
 public void VerifyRejectsAProjectWhoseIconIsMissing()
 {
     var target = Path.Combine(_directory, "Game");
-    Directory.CreateDirectory(Path.Combine(target, "Content", "Scenes"));
-    File.WriteAllText(Path.Combine(target, "Content", "Scenes", "Main.mscene"), "{}");
+    Directory.CreateDirectory(Path.Combine(target, "Assets", "Scenes"));
+    File.WriteAllText(Path.Combine(target, "Assets", "Scenes", "Main.mscene"), "{}");
     File.WriteAllText(Path.Combine(target, ProjectSettings.FileName),
-        """{ "format": 1, "name": "Game", "window": { "icon": "Content/icon.png" } }""");
+        """{ "format": 1, "name": "Game", "window": { "icon": "Assets/icon.png" } }""");
 
     Assert.Contains("icon", ProjectCreator.Verify(target), StringComparison.OrdinalIgnoreCase);
 }
@@ -268,11 +268,11 @@ if (settings.Window.Icon is { Length: > 0 } icon && !File.Exists(Path.Combine(ta
 Template `project.mfproj` window block:
 
 ```json
-"window": { "width": 1280, "height": 720, "vsync": true, "icon": "Content/icon.png" },
+"window": { "width": 1280, "height": 720, "vsync": true, "icon": "Assets/icon.png" },
 ```
 
-`cp MainframeEngine/Content/Brand/logo-256.png Templates/MainframeEngine.Templates/content/mfgame/Content/icon.png`.
-`build/template-smoke.sh`: add `Content/icon.png` to the list of files that must exist in the build output.
+`cp MainframeEngine/Assets/Brand/logo-256.png Templates/MainframeEngine.Templates/content/mfgame/Assets/icon.png`.
+`build/template-smoke.sh`: add `Assets/icon.png` to the list of files that must exist in the build output.
 
 - [ ] **Step 3: Run tests and the smoke**
 
@@ -283,7 +283,7 @@ Expected: PASS; the smoke game window uses the logo (screenshot in `artifacts/te
 
 ```bash
 git add Templates MainframeEngine.Editor/Src/Projects/ProjectCreator.cs build/template-smoke.sh Tests/MainframeEngine.Editor.Tests/Projects
-git commit -m "Template: default project icon (window.icon = Content/icon.png)"
+git commit -m "Template: default project icon (window.icon = Assets/icon.png)"
 ```
 
 ---
@@ -333,19 +333,19 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void IconInsideTheProjectResolvesToAnAbsolutePath()
     {
-        var root = Project("Content/icon.png");
+        var root = Project("Assets/icon.png");
         var icon = new ProjectIconResolver().Resolve(root);
-        Assert.Equal(Path.Combine(root, "Content", "icon.png"), icon.Path);
+        Assert.Equal(Path.Combine(root, "Assets", "icon.png"), icon.Path);
     }
 
     [Fact]
     public void NoIconSettingMeansNoIcon() => Assert.Null(new ProjectIconResolver().Resolve(Project(null)).Path);
 
     [Fact]
-    public void MissingIconFileMeansNoIcon() => Assert.Null(new ProjectIconResolver().Resolve(Project("Content/icon.png", writeIcon: false)).Path);
+    public void MissingIconFileMeansNoIcon() => Assert.Null(new ProjectIconResolver().Resolve(Project("Assets/icon.png", writeIcon: false)).Path);
 
     [Fact]
-    public void NonPngIconIsIgnored() => Assert.Null(new ProjectIconResolver().Resolve(Project("Content/icon.jpg")).Path);
+    public void NonPngIconIsIgnored() => Assert.Null(new ProjectIconResolver().Resolve(Project("Assets/icon.jpg")).Path);
 
     [Fact]
     public void IconOutsideTheProjectIsIgnored()
@@ -361,11 +361,11 @@ public sealed class ProjectIconResolverTests : IDisposable
     [Fact]
     public void ChangedIconIsReportedOnce()
     {
-        var root = Project("Content/icon.png");
+        var root = Project("Assets/icon.png");
         var resolver = new ProjectIconResolver();
         Assert.True(resolver.Resolve(root).Changed);   // first sight
         Assert.False(resolver.Resolve(root).Changed);
-        File.SetLastWriteTimeUtc(Path.Combine(root, "Content", "icon.png"), DateTime.UtcNow.AddMinutes(1));
+        File.SetLastWriteTimeUtc(Path.Combine(root, "Assets", "icon.png"), DateTime.UtcNow.AddMinutes(1));
         Assert.True(resolver.Resolve(root).Changed);
         Assert.False(resolver.Resolve(root).Changed);
     }
@@ -438,7 +438,7 @@ git commit -m "Editor: ProjectIconResolver (window.icon, cached, safe)"
 
 **Files:**
 - Modify: `MainframeEngine.Editor/Src/UI/ProjectManager.cs` (row model `:14-30`, `Rebuild()` `:120-148`, field for the resolver)
-- Modify: `MainframeEngine.Editor/Content/Editor/project_manager.rml` (row template `:108-122`, row CSS ~`:48-55`)
+- Modify: `MainframeEngine.Editor/Assets/Editor/project_manager.rml` (row template `:108-122`, row CSS ~`:48-55`)
 - Test: `Tests/MainframeEngine.Editor.Tests/Projects/ProjectWorkflowTests.cs` (Project Manager test `:133-163`)
 - Golden: `ProjectManagerMatchesGolden` (`Tests/MainframeEngine.RenderTests/EditorRenderTests.cs:40-43`) if its fixture
   has projects with icons
@@ -456,10 +456,10 @@ In `ProjectWorkflowTests`, extend the Project Manager test (or add a sibling):
 [Fact]
 public void ProjectManagerShowsTheProjectIcon()
 {
-    var icon = Path.Combine(_project.Root, "Content", "icon.png");
+    var icon = Path.Combine(_project.Root, "Assets", "icon.png");
     Directory.CreateDirectory(Path.GetDirectoryName(icon)!);
-    File.Copy(Path.Combine(RenderTestPaths.RepositoryRoot, "MainframeEngine", "Content", "Brand", "logo-48.png"), icon);
-    _project.Settings.Window.Icon = "Content/icon.png";
+    File.Copy(Path.Combine(RenderTestPaths.RepositoryRoot, "MainframeEngine", "Assets", "Brand", "logo-48.png"), icon);
+    _project.Settings.Window.Icon = "Assets/icon.png";
     _project.Settings.Save(_project.Root);
 
     _editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true, GameBuilder = _builder, GameLauncher = _launcher });

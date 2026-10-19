@@ -287,7 +287,7 @@ flowchart LR
   the scene tree.
 - **Inspector.** `NodeA`/`NodeB` use the existing node-path picker restricted to `PhysicsBody3D`/`PhysicsBody2D`. A
   custom inspector section adds icon buttons with tooltips: Rebuild (`rotate`) and "Swap A/B" (`arrows-horizontal`).
-  New icons in `MainframeEngine.Editor/Content/icons/icons.txt`: `pin`, `cone`, `arrows-horizontal`, `wave-sine`,
+  New icons in `MainframeEngine.Editor/Assets/icons/icons.txt`: `pin`, `cone`, `arrows-horizontal`, `wave-sine`,
   `link-off`, `steering-wheel`, `accessible`; all joints use `EditorIconFamily.Physics`.
 - **Handles (G9.7, after G7.3).** An `IHandleProvider` per joint type exposes the limit ends, swing span and slider
   range as `EditorHandle`s ([G7.3](editor-viewport-tools.md)), so limits are dragged in the viewport with undo.

@@ -16,7 +16,7 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless; projects, Play (fake builder/launcher), FileSystem, code reload (Roslyn-compiled game assemblies); one `Category=Slow` test runs the real `dotnet new mfgame` + build | every OS in CI (`just test`) |
 | [`Tests/MainframeEngine.Video.Tests`](../../Tests/MainframeEngine.Video.Tests/) | xUnit v3 tests of `MainframeEngine.Video` (the video mode's logic, ported from Cutback): partition, planners, sidecar, projects, transcripts, ffmpeg argument and output parsing; never runs ffmpeg or loads a Whisper model ([Video editing mode](video-editor.md#testing)) | every OS in CI (`just test`) |
 | [`Examples/Demo/Demo.Tests`](../../Examples/Demo/Demo.Tests/) | xUnit v3 tests of the Demo game (own solution, not in `MainframeEngine.slnx`): scene files vs their builders, nav, every scene's panels; run by `build/demo-smoke.sh` and CI's `template` job, see [Demo](demo.md#tests-and-ci) | CI (`template` job), locally (`dotnet test Examples/Demo/Demo.Tests`) |
-| [`Tests/Content`](../../Tests/Content/) | Shared test assets (not a project): the showcase fixture scene, glTF test model, SpineBoy, sky, ambience, logo, a Spanish catalog; linked into the test projects' output | — |
+| [`Tests/Content`](../../Tests/Assets/) | Shared test assets (not a project): the showcase fixture scene, glTF test model, SpineBoy, sky, ambience, logo, a Spanish catalog; linked into the test projects' output | — |
 | [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`, `just qa-projects`), see [Editor](editor.md#testing-and-qa) |
 | [`Tests/MainframeEngine.Benchmarks`](../../Tests/MainframeEngine.Benchmarks/) | BenchmarkDotNet, `MemoryDiagnoser` | locally (`just bench`) |
 
@@ -80,7 +80,7 @@ node types in `ReplicationTestNodes.cs` and `NetHarness` (a server and clients, 
 Audio (M7) suites live under [`Audio/`](../../Tests/MainframeEngine.Tests/Audio/). They run the real SoundFlow mixer
 graph on the **manual null device** (`AudioDeviceMode.NullManual`): `RenderNullDevice(frames, capture)` renders on the
 test thread into a buffer, so levels, panning, ramps, pitch and timing are asserted on output samples. Test sounds
-(`Content/Audio/`, stored in LFS) are generated: a 440 Hz mono 16-bit WAV, and a 440/660 Hz stereo tone as OGG, MP3
+(`Assets/Audio/`, stored in LFS) are generated: a 440 Hz mono 16-bit WAV, and a 440/660 Hz stereo tone as OGG, MP3
 and FLAC; WAV layouts are written by the tests themselves.
 
 | Suite | Covers |
@@ -159,7 +159,7 @@ sequenceDiagram
   glTF test model imported through Assimp, plus a mirrored instance), `instances` (`--count` boxes, default 1 000,
   one mesh and material; self-checks the batch statistics) and `mouse-look` (the lit-shapes scene with a mouse-look camera; self-checks the `--input` drag turned it) and `picking` (object-ID picks in the main view and a
   `SubViewport` shown through a `UiDocument` `<img src="engine://picking-preview"/>`; self-checked), and the game-UI scenes (M8) `ui-hud` (HUD over lit-shapes),
-  `ui-effects`, `ui-text`, `ui-widgets` (documents in the host's `Content/UI/` and the engine's widget demo;
+  `ui-effects`, `ui-text`, `ui-widgets` (documents in the host's `Assets/UI/` and the engine's widget demo;
   `--size` gives them larger windows), and the shadow scenes (M4) `csm`, `shadow-pcf`, `shadow-lights`,
   `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)), the forest-slice
   scenes (ADR 0151) `vertex-colors`, `multimesh` (`--count` instances, default 1 000; self-checked) and `foliage-wind`

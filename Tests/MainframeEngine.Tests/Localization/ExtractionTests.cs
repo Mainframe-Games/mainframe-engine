@@ -16,10 +16,10 @@ public sealed class ExtractionTests
     public void ExtractsRmlRunsWithReferencesAndSkipsOptOuts()
     {
         var builder = new TemplateBuilder();
-        var added = RmlExtractor.Extract(Path.Combine(Project, "Content", "UI", "menu.rml"), "Content/UI/menu.rml", builder);
+        var added = RmlExtractor.Extract(Path.Combine(Project, "Assets", "UI", "menu.rml"), "Assets/UI/menu.rml", builder);
         Assert.Equal(13, added);
         var entries = Extracted(builder);
-        Assert.Equal(["Content/UI/menu.rml:13"], entries["Start game"].References);
+        Assert.Equal(["Assets/UI/menu.rml:13"], entries["Start game"].References);
         Assert.Equal(["RML <h1>"], entries["Start game"].ExtractedComments);
         Assert.Equal(["RML <input placeholder=\"…\">"], entries["Player name"].ExtractedComments);
         Assert.True(entries.ContainsKey("Options & settings"));
@@ -41,19 +41,19 @@ public sealed class ExtractionTests
 
         var builder = new TemplateBuilder();
         var extractor = new SceneExtractor(index, Project);
-        var scenes = Path.Combine(Project, "Content", "Scenes");
-        Assert.Equal(6, extractor.Extract(Path.Combine(scenes, "Main.mscene"), "Content/Scenes/Main.mscene", builder));
-        Assert.Equal(2, extractor.Extract(Path.Combine(scenes, "Sub.mscene"), "Content/Scenes/Sub.mscene", builder));
-        Assert.Equal(1, extractor.Extract(Path.Combine(scenes, "greeting.mres"), "Content/Scenes/greeting.mres", builder));
+        var scenes = Path.Combine(Project, "Assets", "Scenes");
+        Assert.Equal(6, extractor.Extract(Path.Combine(scenes, "Main.mscene"), "Assets/Scenes/Main.mscene", builder));
+        Assert.Equal(2, extractor.Extract(Path.Combine(scenes, "Sub.mscene"), "Assets/Scenes/Sub.mscene", builder));
+        Assert.Equal(1, extractor.Extract(Path.Combine(scenes, "greeting.mres"), "Assets/Scenes/greeting.mres", builder));
 
         var entries = Extracted(builder);
-        Assert.Equal(["Content/Scenes/Main.mscene:16"], entries["Settings"].References);
+        Assert.Equal(["Assets/Scenes/Main.mscene:16"], entries["Settings"].References);
         Assert.Equal(["node Main/Title (LocalizedLabel.Text)"], entries["Settings"].ExtractedComments);
-        Assert.Equal(["Content/Scenes/Main.mscene:17"], entries["Second line"].References);
-        Assert.Equal(["Content/Scenes/Main.mscene:6"], entries["Hello, traveller!"].References);     // inline resource
-        Assert.Equal(["Content/Scenes/Main.mscene:26"], entries["Overridden panel title"].References); // instance root, typed via Sub.mscene
+        Assert.Equal(["Assets/Scenes/Main.mscene:17"], entries["Second line"].References);
+        Assert.Equal(["Assets/Scenes/Main.mscene:6"], entries["Hello, traveller!"].References);     // inline resource
+        Assert.Equal(["Assets/Scenes/Main.mscene:26"], entries["Overridden panel title"].References); // instance root, typed via Sub.mscene
         Assert.Equal(["node Main/Panel/Caption (LocalizedLabel.Text)"], entries["Overridden caption"].ExtractedComments);
-        Assert.Equal(["Content/Scenes/greeting.mres:6"], entries["Greetings from a resource file"].References);
+        Assert.Equal(["Assets/Scenes/greeting.mres:6"], entries["Greetings from a resource file"].References);
         Assert.True(entries.ContainsKey("Panel title"));
         Assert.True(entries.ContainsKey("Caption text"));
         Assert.False(entries.ContainsKey("title"));      // not translatable
@@ -70,13 +70,13 @@ public sealed class ExtractionTests
         TypeRegistry.EnsureRegistered(typeof(LocalizedLabel).Assembly);
         var builder = new TemplateBuilder();
         var extractor = new SceneExtractor(TranslatablePropertyIndex.FromRegistry([], []), Project);
-        Assert.Equal(3, extractor.Extract(Path.Combine(Project, "Content", "Scenes", "Level.mscene"), "Content/Scenes/Level.mscene", builder));
+        Assert.Equal(3, extractor.Extract(Path.Combine(Project, "Assets", "Scenes", "Level.mscene"), "Assets/Scenes/Level.mscene", builder));
 
         var entries = Extracted(builder);
-        Assert.Equal(["Content/Scenes/Level.mscene:8"], entries["Halt! Who goes there?"].References); // inline resource
-        Assert.Equal(["Content/Scenes/Level.mscene:24"], entries["Level caption"].References);
+        Assert.Equal(["Assets/Scenes/Level.mscene:8"], entries["Halt! Who goes there?"].References); // inline resource
+        Assert.Equal(["Assets/Scenes/Level.mscene:24"], entries["Level caption"].References);
         Assert.Equal(["node Level/Panel/Caption (LocalizedLabel.Text)"], entries["Level caption"].ExtractedComments);
-        Assert.Equal(["Content/Scenes/Level.mscene:33"], entries["Press E to talk"].References);
+        Assert.Equal(["Assets/Scenes/Level.mscene:33"], entries["Press E to talk"].References);
         Assert.Equal(["node Level/Panel/Caption/Hint (LocalizedLabel.Text)"], entries["Press E to talk"].ExtractedComments);
         Assert.Empty(extractor.UnknownTypes);
     }
@@ -86,7 +86,7 @@ public sealed class ExtractionTests
     {
         var index = TranslatablePropertyIndex.From(("UnknownWidget", "Text"));
         var builder = new TemplateBuilder();
-        new SceneExtractor(index, Project).Extract(Path.Combine(Project, "Content", "Scenes", "Main.mscene"), "Main.mscene", builder);
+        new SceneExtractor(index, Project).Extract(Path.Combine(Project, "Assets", "Scenes", "Main.mscene"), "Main.mscene", builder);
         Assert.Equal(["Unknown type text"], Extracted(builder).Keys);
     }
 

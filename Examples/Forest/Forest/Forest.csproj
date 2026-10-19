@@ -9,11 +9,11 @@
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
-  <!-- Debug builds record the project's Content folder so a running game hot-reloads its .rml/.rcss from the sources. -->
+  <!-- Debug builds record the project's Assets folder so a running game hot-reloads its .rml/.rcss from the sources. -->
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>MainframeContentSource</_Parameter1>
-      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../Content'))</_Parameter2>
+      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../Assets'))</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
 

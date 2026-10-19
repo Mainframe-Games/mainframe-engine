@@ -31,7 +31,7 @@ public sealed class Game() : Engine(new EngineOptions { GameName = "My Game" })
     protected override void OnLoad()
     {
         base.OnLoad();                                          // input, renderer, servers
-        Tree.ChangeSceneToFile("Content/Scenes/Main.mscene");   // the tree processes and renders it
+        Tree.ChangeSceneToFile("Assets/Scenes/Main.mscene");   // the tree processes and renders it
     }
 
     // Optional legacy hooks (virtual since M2): OnUpdate, OnShadowPass, OnRenderMainPass.

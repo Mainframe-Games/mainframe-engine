@@ -249,7 +249,7 @@ public sealed class MeshSerializationTests : IDisposable
             """);
         AssetDatabase.Current.Scan();
 
-        var texture = ResourceLoader.Load<Texture2D>("Content/Textures/brick.png");
+        var texture = ResourceLoader.Load<Texture2D>("Assets/Textures/brick.png");
         Assert.Equal("tex_0123456789ab", texture.Uid);
         Assert.Equal(4, texture.Width);
         Assert.Equal(2, texture.Height);
@@ -264,7 +264,7 @@ public sealed class MeshSerializationTests : IDisposable
         var materialUid = ResourceSaver.Save(material, ContentPath("Materials/Brick.mres"));
         var json = File.ReadAllText(ContentPath("Materials/Brick.mres"));
         Assert.Contains("\"ref\": \"tex_0123456789ab\"", json, StringComparison.Ordinal);
-        Assert.Contains("\"path\": \"Content/Textures/brick.png\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"path\": \"Assets/Textures/brick.png\"", json, StringComparison.Ordinal);
 
         texture.Release();
         texture.Release();
@@ -282,7 +282,7 @@ public sealed class MeshSerializationTests : IDisposable
     public void TexturesWithoutMetaUseDefaultSettings()
     {
         WritePng(ContentPath("plain.png"), 1, 1);
-        var texture = ResourceLoader.Load<Texture2D>("Content/plain.png");
+        var texture = ResourceLoader.Load<Texture2D>("Assets/plain.png");
         Assert.Null(texture.Uid);
         Assert.Equal(TextureImportSettings.Default, texture.ImportSettings);
         Assert.Equal(TextureColorSpace.Srgb, texture.ImportSettings.ResolveColorSpace(colorUsage: true));

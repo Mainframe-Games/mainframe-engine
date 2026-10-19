@@ -5,7 +5,7 @@
   "identity": "MainframeEngine.Templates.Game",
   "groupIdentity": "MainframeEngine.Templates.Game",
   "name": "Mainframe Engine game",
-  "description": "A game project for the Mainframe Engine: a class library for your nodes (MyGame), a desktop project that runs it with GameHost (MyGame.Desktop), project.mfproj and Content/.",
+  "description": "A game project for the Mainframe Engine: a class library for your nodes (MyGame), a desktop project that runs it with GameHost (MyGame.Desktop), project.mfproj and Assets/.",
   "shortName": "mfgame",
   "sourceName": "MyGame",
   "preferNameDirectory": true,

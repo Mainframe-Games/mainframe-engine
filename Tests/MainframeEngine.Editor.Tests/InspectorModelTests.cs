@@ -208,7 +208,7 @@ public sealed class InspectorModelTests : IDisposable
     private static TestSettings LoadedResource()
     {
         var resource = new TestSettings();
-        typeof(Resource).GetProperty(nameof(Resource.ResourcePath))!.SetValue(resource, "Content/Box.mres");
+        typeof(Resource).GetProperty(nameof(Resource.ResourcePath))!.SetValue(resource, "Assets/Box.mres");
         return resource;
     }
 }

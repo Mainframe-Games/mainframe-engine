@@ -7,7 +7,7 @@ namespace MainframeEngine.Tests.Nodes;
 /// <summary>SpineNode logic without a GPU: a non-Vulkan renderer skips every Vulkan resource.</summary>
 public sealed class SpineNodeTests
 {
-    private static readonly string SpineBoy = Path.Combine(AppContext.BaseDirectory, "Content", "Models", "Spine", "SpineBoy");
+    private static readonly string SpineBoy = Path.Combine(AppContext.BaseDirectory, "Assets", "Models", "Spine", "SpineBoy");
 
     private static SpineNode CreateNode()
     {

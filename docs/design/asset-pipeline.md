@@ -16,12 +16,16 @@ covers everything `ResourceLoader` *imports*.
 
 - `ContentPaths` resolves engine files (shaders, built-in content) against the application folder. It never uses
   the working directory.
-- `AssetDatabase.Current` is rooted at `ContentPaths.BaseDirectory`, the folder holding `Content/`. Since M3 it no
+- `AssetDatabase.Current` is rooted at `ContentPaths.BaseDirectory`, the folder holding `Assets/`. Since M3 it no
   longer uses the working directory either, so a game loads the same files however it is launched (`dotnet run`, an
   IDE, a test runner, a published app). The render-test host and games no longer change directory at startup.
 - Tools assign `AssetDatabase.Current` to the open project. Tests assign it to a temporary project.
-- Relative asset paths (`"Content/Models/Crate.gltf"`) are project-relative with `/` separators. UIDs resolve
+- Relative asset paths (`"Assets/Models/Crate.gltf"`) are project-relative with `/` separators. UIDs resolve
   through the database first, and the path is only a hint.
+- The content folder is `Assets/` (ADR 0197; `ContentPaths.FolderName`). Before project format 4 it was `Content/`;
+  `ContentPaths.UpgradeLegacyPath` still reads `Content/…` as `Assets/…`, in `ContentPaths.Resolve`, the RmlUi file
+  interface and `AssetDatabase.ToAbsolutePath`. The editor renames an old project's folder when it opens it
+  ([Projects](editor.md#projects)).
 
 ## Importers
 
@@ -105,7 +109,7 @@ There is no on-disk cache of imported data: scenes stay JSON and never bake bina
 `Tests/MainframeEngine.Tests/TestAssets/TestModel.cs` generates a small CC0 glTF (`test_model.gltf`/`.bin`, a
 checker PNG and their `.meta` files). It contains a two-level node hierarchy, one box mesh shared by two nodes, a
 two-primitive mesh with an opaque double-sided material and a blended one, and an empty node. The committed copy
-lives in `Tests/Content/Models/TestModel/` (the shared test assets) and in `Examples/Demo/Content/Models/TestModel/`, where the Demo uses it. To
+lives in `Tests/Assets/Models/TestModel/` (the shared test assets) and in `Examples/Demo/Assets/Models/TestModel/`, where the Demo uses it. To
 regenerate it, run `UPDATE_TEST_ASSETS=1 dotnet test Tests/MainframeEngine.Tests --filter TheCommittedTestModel`.
 A unit test fails if the committed copy and the generator drift apart.
 

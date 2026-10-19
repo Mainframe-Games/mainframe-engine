@@ -118,7 +118,7 @@ public sealed class MemoryFileInterface : RmlContentFileInterface
 /// <summary>RmlUi initialised with recording interfaces, the engine's UI font and one 800×600 context.</summary>
 public sealed class RmlTestHost : IDisposable
 {
-    public const string FontPath = "Content/UI/fonts/LatoLatin-Regular.ttf";
+    public const string FontPath = "Assets/UI/fonts/LatoLatin-Regular.ttf";
 
     public RmlTestHost()
     {

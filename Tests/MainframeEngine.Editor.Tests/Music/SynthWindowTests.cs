@@ -10,7 +10,7 @@ public sealed class SynthWindowTests
     private static (HeadlessEditor Editor, SongTab Tab, SongTrack Track, SynthWindow Window) Open()
     {
         var editor = new HeadlessEditor();
-        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Content", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.msong"));
         editor.Workspace.Commands.OpenSong(path);
         editor.Tick(3);
         var tab = Assert.IsType<SongTab>(editor.Workspace.Session.ActiveTab);
@@ -33,7 +33,7 @@ public sealed class SynthWindowTests
     public void TheBrowserOpensTheWindowWhichShowsTheSynthAndFollowsEdits()
     {
         using var editor = new HeadlessEditor();
-        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Content", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.msong"));
         editor.Workspace.Commands.OpenSong(path);
         editor.Tick(3);
         var tab = Assert.IsType<SongTab>(editor.Workspace.Session.ActiveTab);

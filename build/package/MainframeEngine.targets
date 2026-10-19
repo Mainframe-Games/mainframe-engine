@@ -4,11 +4,11 @@
     after the project body. For app projects (Exe/WinExe, test projects, or MainframeEngineCopyContent=true; a game
     library does not need them, and its executable would get them twice):
 
-    - Engine content: the package's mainframe/Content/** (compiled shaders, UI widgets, fonts, ...) is copied to
-      <output>/Content/ and the publish folder, next to the game's own content, exactly where a checkout build puts it.
+    - Engine content: the package's mainframe/Assets/** (compiled shaders, UI widgets, fonts, ...) is copied to
+      <output>/Assets/ and the publish folder, next to the game's own content, exactly where a checkout build puts it.
       ContentPaths resolves both from there. MainframeEngineCopyContent=false turns it off.
     - Localization: Localization.targets, as checkout games import it, with the mf-l10n the package carries.
-      Content/locale/<locale>/LC_MESSAGES/*.po (LocaleContentRoot, default Content) compile to .mo in the output.
+      Assets/locale/<locale>/LC_MESSAGES/*.po (LocaleContentRoot, default Assets) compile to .mo in the output.
 
     - Steamworks: mainframe/steamworks/{win64,posix}/ (Facepunch.Steamworks behind the engine's shim) to
       <output>/steamworks/, where the engine loads this OS's build; a build with a RID gets only that platform's.
@@ -23,7 +23,7 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(_MainframeEngineAppProject)' == 'true'">
-    <None Include="$(_MainframeEnginePackageRoot)/mainframe/Content/**" Link="Content/%(RecursiveDir)%(Filename)%(Extension)"
+    <None Include="$(_MainframeEnginePackageRoot)/mainframe/Assets/**" Link="Assets/%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 

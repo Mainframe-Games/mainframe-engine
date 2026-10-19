@@ -26,7 +26,7 @@ public abstract class EditorCanvas : Node2D
             if (_fontLoaded)
                 return _font;
             _fontLoaded = true;
-            var path = Path.Combine(AppContext.BaseDirectory, "Content", "UI", "fonts", "LatoLatin-Regular.ttf");
+            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "UI", "fonts", "LatoLatin-Regular.ttf");
             if (File.Exists(path))
                 _font = Font.FromData(File.ReadAllBytes(path));
             return _font;

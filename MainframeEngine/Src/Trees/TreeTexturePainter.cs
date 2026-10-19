@@ -31,8 +31,8 @@ public enum TreeBarkKind : byte
 /// <summary>
 /// Draws the new species' leaf and bark images procedurally (ADR 0172: no third-party sources), deterministic per seed:
 /// leaf sprigs as RGBA8 with transparent backgrounds (the colour bled into them), and tileable bark as colour, OpenGL
-/// normal and roughness maps. The engine's <c>Content/Trees/Leaves/{birch,beech,spruce,fir}.png</c> and
-/// <c>Content/Trees/Bark/{Birch,Beech}/</c> were made with it (<see cref="WriteContent"/>).
+/// normal and roughness maps. The engine's <c>Assets/Trees/Leaves/{birch,beech,spruce,fir}.png</c> and
+/// <c>Assets/Trees/Bark/{Birch,Beech}/</c> were made with it (<see cref="WriteContent"/>).
 /// </summary>
 public static class TreeTexturePainter
 {
@@ -305,7 +305,7 @@ public static class TreeTexturePainter
     }
 
     /// <summary>
-    /// Writes every image into <paramref name="contentFolder"/> (the engine's <c>Content</c>): <c>Trees/Leaves/&lt;kind&gt;.png</c>
+    /// Writes every image into <paramref name="contentFolder"/> (the engine's <c>Assets</c>): <c>Trees/Leaves/&lt;kind&gt;.png</c>
     /// at 1024² and <c>Trees/Bark/&lt;Kind&gt;/&lt;Kind&gt;_{Color,NormalGL,Roughness}.png</c> at 1024².
     /// </summary>
     public static void WriteContent(string contentFolder)

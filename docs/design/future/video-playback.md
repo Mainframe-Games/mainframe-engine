@@ -45,7 +45,7 @@ What exists and what video should build on:
   CPU copy of every decoded frame. `FormatInfo` knows `R8_UNORM` and `R8G8_UNORM` but not `R16_UNORM` (10-bit
   planes; `MainframeEngine/Src/Rendering/Vulkan/Memory/FormatInfo.cs:11-12`). `MaxFramesInFlight` is 2
   (`MainframeEngine/Src/Rendering/Vulkan/IVulkanContext.cs:18`). The renderer has no compute pipelines; full-screen
-  fragment passes over `Content/Shaders/Post/Fullscreen.vk.vert.slang` are the house pattern.
+  fragment passes over `Assets/Shaders/Post/Fullscreen.vk.vert.slang` are the house pattern.
   `RenderServer.RenderOffscreen` runs before any pass samples (`MainframeEngine/Src/Servers/RenderServer.cs:384`).
 - **Full-screen overlays.** `LoadingScreen : UiLayer` is a modal RmlUi layer over everything
   (`MainframeEngine/Src/Scene/Loading/LoadingScreen.cs:5-23`). `GameHost` shows it while the start scene loads on a
@@ -101,11 +101,11 @@ What exists and what video should build on:
 | `Y4mDemuxer` | `Src/Video/Decoding/` | Uncompressed YUV4MPEG2 for tests and development |
 | `VideoFramePool`, `VideoFrameQueue` | `Src/Video/Threading/` | Pooled plane buffers, bounded SPSC queue |
 | `VideoRenderer` | `Src/Rendering/Video/` | Plane images, upload, YUV → RGB pass; owned by `RenderServer` |
-| `Video/VideoYuv.vk.frag.slang` | `Content/Shaders/` | Conversion shader (with `Post/Fullscreen.vk.vert.slang`) |
+| `Video/VideoYuv.vk.frag.slang` | `Assets/Shaders/` | Conversion shader (with `Post/Fullscreen.vk.vert.slang`) |
 
 ```mermaid
 flowchart LR
-    F["file (Content/…)"] --> D["worker: demux → decode<br/>(IVideoDecoder)"]
+    F["file (Assets/…)"] --> D["worker: demux → decode<br/>(IVideoDecoder)"]
     D -- "planes into pooled<br/>mapped staging buffer" --> Q["VideoFrameQueue<br/>(bounded, SPSC)"]
     D -- "PCM" --> A["audio ring → voice on bus<br/>(AudioServer)"]
     A -- "FramesConsumed = clock" --> S["VideoServer.Process<br/>(main thread): pick frame ≤ clock"]
@@ -277,7 +277,7 @@ null device plays nothing but advances `FramesConsumed`, so sync stays exercised
 ```csharp
 public class Cutscene : UiLayer                                   // like LoadingScreen: modal, above game UI
 {
-    public const string DefaultSource = "Content/UI/video/cutscene.rml";
+    public const string DefaultSource = "Assets/UI/video/cutscene.rml";
     [Export] public VideoStream? Stream { get; set; }
     [Export] public bool Skippable { get; set; } = true;
     [Export(Range = "0,3,0.05")] public float HoldToSkipSeconds { get; set; } = 0.6f;  // 0 = any press skips
@@ -296,7 +296,7 @@ the tree only if `ProcessMode` says so (default `Always`, as `LoadingScreen`).
 `project.mfproj` gains optional keys in the existing `loading` section (no format bump):
 
 ```jsonc
-"loading": { "intro": ["Content/Video/studio_logo.webm", "Content/Video/engine_logo.webm"], "introSkippable": true }
+"loading": { "intro": ["Assets/Video/studio_logo.webm", "Assets/Video/engine_logo.webm"], "introSkippable": true }
 ```
 
 `GameHost` plays them in order while the start scene loads on its worker (ADR 0183). The loading screen appears only
@@ -308,7 +308,7 @@ if the load outlasts them. `--hidden`, `--max-frames` and QA runs skip intros (`
   `{"importer": "video", "settings": {"loop": false, "colorSpace": "auto", "range": "auto", "audioBus": "Music",
   "mipmaps": false}}`. The probe runs at import; an unsupported codec inside a known container sets the FileSystem's
   `ImportError` badge with the reason ("VP8 is not supported; re-encode as …").
-- **FileSystem.** `FileKind.Video`, icon `device-tv` (added to `Content/icons/icons.txt`; `video` is Camera3D's). The
+- **FileSystem.** `FileKind.Video`, icon `device-tv` (added to `Assets/icons/icons.txt`; `video` is Camera3D's). The
   first frame becomes a `ThumbnailCache` entry through the CPU reference converter (tools only; playback never
   converts on the CPU). Play/Stop in the context menu as for audio.
 - **Inspector.** `VideoStreamInspector` (`[CustomInspector(typeof(VideoStream))]`, `IWorkspaceInspector`): preview,
@@ -320,9 +320,9 @@ if the load outlasts them. `--hidden`, `--max-frames` and QA runs skip intros (`
 
 ### Export and packaging
 
-- Videos ship through the preset's `include` globs like any `Content/` file ([Game export](game-export.md)).
+- Videos ship through the preset's `include` globs like any `Assets/` file ([Game export](game-export.md)).
   Archives store already-compressed video without deflate (`CompressionLevel.NoCompression` by extension).
-- Validation (`ExportIssue`): `video-source-format` (a `.mov`/`.mp4`/`.y4m` under `Content/` that the game cannot
+- Validation (`ExportIssue`): `video-source-format` (a `.mov`/`.mp4`/`.y4m` under `Assets/` that the game cannot
   play: warning, with an `exclude` fix), `video-large` (over 200 MB: warning about Steam patch sizes).
 - A native decoder ships in `MainframeEngine/runtimes/<rid>/native` like `mfrmlui`; its licence text joins
   `THIRD_PARTY_NOTICES.md` and the credits list. Mobile and console builds link it statically
@@ -431,7 +431,7 @@ management, and it is unavailable on MoltenVK and lavapipe; the engine targets V
 5. **G16.5 Codec spike and decision:** measure sizes, speed and build effort of the approved option(s); record an ADR.
 6. **G16.6 Codec:** the approved decoder and demuxer (e.g. `Native/Video` shim `mfvideo` over dav1d + libopus,
    `natives.yml`, `natives.lock`, notices; managed WebM demuxer); conformance tests, benchmark, LFS pattern.
-7. **G16.7 Cutscenes and intros:** `Cutscene` + `Content/UI/video/cutscene.rml`, hold-to-skip, `Tr` strings,
+7. **G16.7 Cutscenes and intros:** `Cutscene` + `Assets/UI/video/cutscene.rml`, hold-to-skip, `Tr` strings,
    `loading.intro`/`introSkippable`, `GameHostOptions.SkipIntro`; UI tests.
 8. **G16.8 Editor:** `FileKind.Video`, `device-tv` icon, thumbnails, `VideoStreamInspector`, FileSystem Play/Stop,
    import-error reasons; editor tests, QA step.

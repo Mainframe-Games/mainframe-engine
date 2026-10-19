@@ -124,7 +124,7 @@ bundle the executable runs from, once, when the process registers with LaunchSer
 | Identifier / version | `com.mainframegames.editor`, `X.Y.Z` | `com.mainframegames.editor.dev`, `$(Version)` (`0.0.0-dev`) |
 
 In development the build output stays where it is: the .NET apphost resolves its own path with `realpath`, so the app
-base directory (assemblies, `Content/`) is still `bin/<cfg>/net10.0/`, while CoreFoundation picks the main bundle from
+base directory (assemblies, `Assets/`) is still `bin/<cfg>/net10.0/`, while CoreFoundation picks the main bundle from
 the unresolved exec path. The `.dev` identifier keeps development builds apart from an installed release (LaunchServices,
 preferences, permissions). `dotnet run` starts the bundle path directly (not via `open`), so console output, exit codes
 and Ctrl+C are unchanged. RID-specific builds/publishes skip the dev bundle; `-p:MacDevAppBundle=false` turns it off.
@@ -160,7 +160,7 @@ Windows and Linux. The template smoke test (`just template-smoke`) checks `Smoke
 
 `build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]`
 (`just package-game`) packages a `GameHost` game for players: a self-contained, untrimmed Release `dotnet publish`
-for one RID (`project.mfproj` and `Content/` ride along as the desktop project's copied items), the apphost renamed
+for one RID (`project.mfproj` and `Assets/` ride along as the desktop project's copied items), the apphost renamed
 to the player-facing executable, and the engine's files for other platforms removed: the natives (`enet`, `mfrmlui`,
 `mfsvg`, Valve's `steam_api`) and the other `steamworks/{win64,posix}` folder (a checkout build copies every platform's;
 a package build with a RID has only its own). It fails if the publish output holds a `steam_appid.txt`: that file starts

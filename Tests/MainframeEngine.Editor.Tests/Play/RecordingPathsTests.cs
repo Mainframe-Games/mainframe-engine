@@ -8,7 +8,7 @@ public sealed class RecordingPathsTests
     public void NamesTheFileAfterTheSceneAndTime()
     {
         Assert.Equal(Path.Combine("/u", "recordings", "forest-20261013-101500.mp4"),
-            RecordingPaths.NewPath("/u", "Content/Scenes/forest.mscene", Now, _ => false));
+            RecordingPaths.NewPath("/u", "Assets/Scenes/forest.mscene", Now, _ => false));
     }
 
     [Fact]
@@ -27,6 +27,6 @@ public sealed class RecordingPathsTests
     [Fact]
     public void UnsafeSceneNameCharactersAreReplaced()
     {
-        Assert.EndsWith("my_scene-20261013-101500.mp4", RecordingPaths.NewPath("/u", "Content/my scene.mscene", Now, _ => false));
+        Assert.EndsWith("my_scene-20261013-101500.mp4", RecordingPaths.NewPath("/u", "Assets/my scene.mscene", Now, _ => false));
     }
 }

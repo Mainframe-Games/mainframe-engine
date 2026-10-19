@@ -24,7 +24,7 @@ public sealed class Physics3DPanel : UiDocument
         public bool Filled { get; set; }
     }
 
-    private const string EmptyThumb = "/Content/icon.png";
+    private const string EmptyThumb = "/Assets/icon.png";
 
     private static readonly RmlStructType<Slot> SlotType = new RmlStructType<Slot>()
         .Member("title", static s => s.Title)
@@ -44,7 +44,7 @@ public sealed class Physics3DPanel : UiDocument
 
     public Physics3DPanel()
     {
-        Source = "Content/Physics/panel3d.rml";
+        Source = "Assets/Physics/panel3d.rml";
         AutoFocus = false;
     }
 

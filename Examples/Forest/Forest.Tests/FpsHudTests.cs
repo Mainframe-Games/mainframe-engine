@@ -29,7 +29,7 @@ public sealed class FpsHudTests
     [Fact]
     public void TheReadoutLetsClicksThroughToTheGame()
     {
-        var rml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Content", "UI", "fps.rml"));
+        var rml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Assets", "UI", "fps.rml"));
         var body = rml[rml.IndexOf("body {", StringComparison.Ordinal)..];
         Assert.Contains("pointer-events: none", body[..body.IndexOf('}')], StringComparison.Ordinal);
     }

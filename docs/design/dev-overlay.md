@@ -10,7 +10,7 @@ former ImGui overlay is gone ([ADR 0115](../../memory/decisions/0115-remove-imgu
 ## The overlay
 
 Files: [Debugging/DevOverlay/](../../MainframeEngine/Src/Debugging/DevOverlay/) ·
-[Content/UI/dev/overlay.rcss](../../MainframeEngine/Content/UI/dev/overlay.rcss).
+[Assets/UI/dev/overlay.rcss](../../MainframeEngine/Assets/UI/dev/overlay.rcss).
 
 | Aspect | Detail |
 |---|---|
@@ -96,7 +96,7 @@ public `RegisterTexture` overloads; see [Game UI](game-ui.md).
 
 ## Screen gizmos
 
-Files: [Rendering/Gizmos/](../../MainframeEngine/Src/Rendering/Gizmos/) · shaders `Content/Shaders/Gizmos/ScreenGizmo.vk.{vert,frag}`.
+Files: [Rendering/Gizmos/](../../MainframeEngine/Src/Rendering/Gizmos/) · shaders `Assets/Shaders/Gizmos/ScreenGizmo.vk.{vert,frag}`.
 
 `RenderServer.ScreenGizmos` is a `ScreenGizmoBatch`: immediate-mode shapes tessellated into triangles on the CPU and drawn
 by `ScreenGizmosRenderer` in the overlay pass, then cleared. It grows on demand and then never allocates.

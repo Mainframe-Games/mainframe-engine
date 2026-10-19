@@ -8,7 +8,7 @@ namespace MainframeEngine.Tests.Text;
 /// </summary>
 public sealed class FontTests : IDisposable
 {
-    private static readonly byte[] Lato = File.ReadAllBytes(ContentPaths.Resolve("Content/UI/fonts/LatoLatin-Regular.ttf"));
+    private static readonly byte[] Lato = File.ReadAllBytes(ContentPaths.Resolve("Assets/UI/fonts/LatoLatin-Regular.ttf"));
     private readonly SceneTree _tree;
     private readonly CanvasServer _server;
 

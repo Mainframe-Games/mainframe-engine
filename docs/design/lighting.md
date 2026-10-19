@@ -191,7 +191,7 @@ server uploads it when it first draws the world and again when its data changes 
 like the sky maps, so sub-viewports and editor tabs show their own world's probes. Per-frame cost: no allocation; four
 (box) or five (terrain-following) fetches per lit pixel.
 
-**The Forest** commits its bake (`Content/Scenes/forest-lighting.mres` + `.probes`, 4.3 MB in LFS): terrain-following
+**The Forest** commits its bake (`Assets/Scenes/forest-lighting.mres` + `.probes`, 4.3 MB in LFS): terrain-following
 over the 256 m valley at 2 m, eight layers to 27 m (129 × 8 × 129 = 133 128 probes, a 5.3 MB texture), 192 rays, two
 bounces, `Energy` 2.4, `SkyOcclusion` 0.5, a pale green `OcclusionTint`, and `BakeWhenStale` (the valley is generated at
 load, so a generator change re-bakes in the background, about a minute, until the bake is committed again with
@@ -252,7 +252,7 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no 
 
 ## Invariants
 
-- The light limits come from `Content/Shaders/limits.json` (generated `ShaderLimits` / `include/limits.slang`).
+- The light limits come from `Assets/Shaders/limits.json` (generated `ShaderLimits` / `include/limits.slang`).
 - The UBO layout must match the shader `LightsUBO` struct byte for byte.
 
 ## Known issues

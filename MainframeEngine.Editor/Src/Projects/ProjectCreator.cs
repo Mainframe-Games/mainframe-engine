@@ -82,7 +82,7 @@ public sealed class ProjectCreator
 
     /// <summary>
     /// Validates <paramref name="request"/> (<see cref="NewProjectValidation.Validate"/>), installs the template when
-    /// needed, runs <c>dotnet new mfgame</c> (<see cref="NewArguments"/>) and checks the result: <c>project.mfproj</c> loads and <c>Content/Scenes/Main.mscene</c>
+    /// needed, runs <c>dotnet new mfgame</c> (<see cref="NewArguments"/>) and checks the result: <c>project.mfproj</c> loads and <c>Assets/Scenes/Main.mscene</c>
     /// exists. <paramref name="onOutput"/> receives every log line (from a background thread). Cancelling kills the
     /// running command and returns a failed result.
     /// </summary>
@@ -236,9 +236,9 @@ public sealed class ProjectCreator
         var projectFile = GameProjectLayout.ProjectFileOf(target);
         if (!File.Exists(projectFile))
             return $"The template did not create {ProjectSettings.FileName} in '{target}'.";
-        var scene = Path.Combine(target, "Content", "Scenes", "Main.mscene");
+        var scene = Path.Combine(target, "Assets", "Scenes", "Main.mscene");
         if (!File.Exists(scene))
-            return $"The template did not create Content/Scenes/Main.mscene in '{target}'.";
+            return $"The template did not create Assets/Scenes/Main.mscene in '{target}'.";
         ProjectSettings settings;
         try
         {

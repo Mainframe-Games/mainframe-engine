@@ -99,7 +99,7 @@ public sealed class DemoArchiveTests : IDisposable
     [Theory]
     [InlineData("MainframeEngine.Demo/project.mfproj")]
     [InlineData("MainframeEngine.Demo/Demo.Desktop/Demo.Desktop.csproj")]
-    [InlineData("MainframeEngine.Demo/Content/Scenes/basic_3d.mscene")]
+    [InlineData("MainframeEngine.Demo/Assets/Scenes/basic_3d.mscene")]
     public void MissingProjectPartsAreRefused(string missing)
     {
         var files = DemoZips.ValidProject();

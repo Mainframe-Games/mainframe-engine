@@ -41,7 +41,7 @@
 
   <!-- earlier rows -->
   <rect x="30" y="86" width="540" height="392" fill="#121418" stroke="#2f333d"/>
-  <text x="40" y="104" class="mono">[game·#2] [Scene] Loaded Content/Scenes/Forest.mscene in 1.82 s</text>
+  <text x="40" y="104" class="mono">[game·#2] [Scene] Loaded Assets/Scenes/Forest.mscene in 1.82 s</text>
   <text x="40" y="122" class="mono">[game·#2] [Audio] Output: MacBook Pro Speakers, 48000 Hz</text>
   <text x="40" y="140" class="warn">[game·#2] [Physics] Body 'Crate7' fell below the kill plane</text>
 
@@ -118,7 +118,7 @@
   <text x="755" y="369" class="gt">Close</text>
   <text x="640" y="398" class="gs">Send report: only with crash.upload.url</text>
 
-  <text x="612" y="508" class="doc">Content/UI/crash/crash_prompt.rml</text>
+  <text x="612" y="508" class="doc">Assets/UI/crash/crash_prompt.rml</text>
 
   <!-- captions -->
   <text x="20" y="540" class="cap">Left: a game crash in the editor's Output panel (click a linked frame to open the source). Right: the</text>

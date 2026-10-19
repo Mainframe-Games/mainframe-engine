@@ -19,14 +19,14 @@ public sealed class AdaptiveMusicPlayerTests : IDisposable
 
     public AdaptiveMusicPlayerTests()
     {
-        Directory.CreateDirectory(Path.Combine(_project, "Content", "Music", "Theme.stems"));
+        Directory.CreateDirectory(Path.Combine(_project, "Assets", "Music", "Theme.stems"));
         WriteStem("explore.base.wav", 2, 0.25f, 1f);
         WriteStem("combat.base.wav", 2, 0.5f, 2f);
         var manifest = Manifest(
-            Section("explore", 2, stems: ("base", new MusicStemRef { Uid = "aud_unknown", Path = "Content/Music/Theme.stems/explore.base.wav" }, null)),
-            Section("combat", 2, stems: ("base", new MusicStemRef { Path = "Content/Music/Theme.stems/combat.base.wav" }, null)));
+            Section("explore", 2, stems: ("base", new MusicStemRef { Uid = "aud_unknown", Path = "Assets/Music/Theme.stems/explore.base.wav" }, null)),
+            Section("combat", 2, stems: ("base", new MusicStemRef { Path = "Assets/Music/Theme.stems/combat.base.wav" }, null)));
         manifest.Uid = _uid;
-        File.WriteAllBytes(Path.Combine(_project, "Content", "Music", "Theme.mmusic"), MusicManifestFormat.Write(manifest));
+        File.WriteAllBytes(Path.Combine(_project, "Assets", "Music", "Theme.mmusic"), MusicManifestFormat.Write(manifest));
         AssetDatabase.Current = new AssetDatabase(_project);
         ResourceLoader.ClearCache();
     }
@@ -49,9 +49,9 @@ public sealed class AdaptiveMusicPlayerTests : IDisposable
     [Fact]
     public void MmusicLoadsThroughTheImporterWithItsOwnUid()
     {
-        var music = ResourceLoader.Load<AdaptiveMusic>("Content/Music/Theme.mmusic");
+        var music = ResourceLoader.Load<AdaptiveMusic>("Assets/Music/Theme.mmusic");
         Assert.Equal(_uid, music.Uid);
-        Assert.Equal("Content/Music/Theme.mmusic", music.ResourcePath);
+        Assert.Equal("Assets/Music/Theme.mmusic", music.ResourcePath);
         Assert.Equal(["explore", "combat"], music.Plan.Sections.Select(s => s.Id));
         Assert.Same(music, ResourceLoader.Load<AdaptiveMusic>(_uid));
         Assert.True(music.Preload()); // an unknown stem UID falls back to the path
@@ -62,7 +62,7 @@ public sealed class AdaptiveMusicPlayerTests : IDisposable
     [Fact]
     public void ScenesReferenceTheMusicByUidAndThePlayerPlaysIt()
     {
-        var music = ResourceLoader.Load<AdaptiveMusic>("Content/Music/Theme.mmusic");
+        var music = ResourceLoader.Load<AdaptiveMusic>("Assets/Music/Theme.mmusic");
         var root = new Node { Name = "Level" };
         var player = new AdaptiveMusicPlayer
         {
@@ -176,6 +176,6 @@ public sealed class AdaptiveMusicPlayerTests : IDisposable
         var samples = new float[bars * Bar];
         Array.Fill(samples, dc);
         samples[0] = impulse;
-        WavWriter.Write(Path.Combine(_project, "Content", "Music", "Theme.stems", name), samples, 1, Rate, WavSampleFormat.IeeeFloat);
+        WavWriter.Write(Path.Combine(_project, "Assets", "Music", "Theme.stems", name), samples, 1, Rate, WavSampleFormat.IeeeFloat);
     }
 }

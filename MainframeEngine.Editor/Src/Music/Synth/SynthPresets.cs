@@ -8,7 +8,7 @@ public sealed record SynthPresetEntry(string Id, string Category, string Name, s
 
 /// <summary>
 /// The wavetable synth's presets: the factory ones (<see cref="FactoryPresets"/>) and the project's
-/// <see cref="WavetablePreset"/> resources (found by type under <c>Content/</c>); patches to and from their JSON.
+/// <see cref="WavetablePreset"/> resources (found by type under <c>Assets/</c>); patches to and from their JSON.
 /// </summary>
 public static class SynthPresets
 {

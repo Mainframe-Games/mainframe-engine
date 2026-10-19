@@ -6,7 +6,7 @@ an icon), [Demo download](demo-download.md)
 
 ## Problem
 
-The Project Manager (`MainframeEngine.Editor/Src/UI/ProjectManager.cs`, `Content/Editor/project_manager.rml`) shows
+The Project Manager (`MainframeEngine.Editor/Src/UI/ProjectManager.cs`, `Assets/Editor/project_manager.rml`) shows
 every project with the same font glyph (`icon-folder-code`, or `icon-folder-x` when missing,
 `ProjectManager.cs:24-30`, `project_manager.rml:109-117`). Godot shows each project's own icon
 (`application/config/icon`), which makes a long list scannable.
@@ -19,7 +19,7 @@ displays it, and the template does not set one.
 There is also a latent bug: RmlUi's default `SystemInterface::JoinPath` strips a leading `/`
 (`Native/RmlUi/external/RmlUi/Source/Core/SystemInterface.cpp:54-59`), and the shim's `JoinPath` callback
 (`Native/RmlUi/shim/core.cpp:61-69`, field at `MainframeEngine/Src/UI/Rml/RmlNative.cs:571`) is never assigned from
-C#. So `<img src="/Users/me/game/Content/icon.png">` becomes `Users/me/…` and fails on macOS and Linux. The
+C#. So `<img src="/Users/me/game/Assets/icon.png">` becomes `Users/me/…` and fails on macOS and Linux. The
 FileSystem panel's thumbnails bind absolute cache paths the same way (`FileSystemPanel.cs:264-267`,
 `filesystem.rml:97`) and are likely affected.
 
@@ -52,11 +52,11 @@ string (it runs at document load, not per frame).
 
 ### Default icon in the template
 
-- `Templates/MainframeEngine.Templates/content/mfgame/Content/icon.png` — a copy of the brand logo
-  (`MainframeEngine/Content/Brand/logo-256.png`).
-- The template's `project.mfproj` sets `"window": { "icon": "Content/icon.png", … }`.
+- `Templates/MainframeEngine.Templates/content/mfgame/Assets/icon.png` — a copy of the brand logo
+  (`MainframeEngine/Assets/Brand/logo-256.png`).
+- The template's `project.mfproj` sets `"window": { "icon": "Assets/icon.png", … }`.
 - `ProjectCreator` verification (`ProjectCreator.cs:219-237`) also checks the icon exists.
-- The [Demo](demo-project.md) ships its own `Content/icon.png`.
+- The [Demo](demo-project.md) ships its own `Assets/icon.png`.
 
 ### Reading the icon
 
@@ -64,7 +64,7 @@ string (it runs at document load, not per frame).
 is resolved at display time by a small `ProjectIconResolver`:
 
 1. Read `project.mfproj` through `ProjectSettingsFormat` (tolerant: any parse error → no icon).
-2. Take `window.icon`; resolve it against the project folder (it is `Content/…`-relative).
+2. Take `window.icon`; resolve it against the project folder (it is `Assets/…`-relative).
 3. Accept only an existing `.png` inside the project folder (no `..` escapes).
 4. Cache `(project path) → (icon path, project.mfproj mtime, icon mtime)`; re-resolve when either mtime changes.
 
@@ -87,7 +87,7 @@ not per frame. Missing projects (`IsValid() == false`) skip resolution.
   document, leading-`/` content path.
 - Unit (`Tests/MainframeEngine.Editor.Tests`): `ProjectIconResolver` — icon present, no `window.icon`, missing file,
   non-PNG, `..` escape rejected, mtime cache invalidation, malformed `project.mfproj`.
-- Template smoke (`just template-smoke`): new project has `Content/icon.png` and `window.icon` set.
+- Template smoke (`just template-smoke`): new project has `Assets/icon.png` and `window.icon` set.
 - Editor QA: `Tests/QA/readme-screenshots.qa` Project Manager screenshot shows the Demo's icon; FileSystem thumbnails
   render on macOS (regression check for the `JoinPath` fix).
 

@@ -19,7 +19,9 @@ public enum FileSystemView
 
 /// <summary>
 /// The FileSystem dock (E4, Godot's FileSystem): the open project (<see cref="ProjectFileSystem"/>) as a tree, or the
-/// current folder as a list or a thumbnail grid. Icons per file kind (scenes tinted by their root's family, resources by
+/// current folder as a list or a thumbnail grid. The Simplified view (the default; <see cref="Simplified"/>) shows two
+/// roots instead of the project folder: Assets (<c>Assets/</c>) and Scripts (the game library's <c>Src/</c>, C# files
+/// only). Icons per file kind (scenes tinted by their root's family, resources by
 /// type, image thumbnails generated in the background into <c>.mainframe/cache</c>), status badges (unsaved, missing
 /// dependency, import error), <c>.meta</c> hidden by default. Create folders/scenes/resources, rename and move with
 /// reference fix-ups by UID, delete to the OS trash (a confirmation before any permanent delete). Double click opens
@@ -33,6 +35,8 @@ public sealed class FileSystemPanel : EditorDocument
     private sealed class Row
     {
         public required ProjectFileEntry Entry { get; init; }
+        public required string Name { get; init; }
+        public required bool HasChildren { get; init; }
         public required int Index { get; init; }
         public required string Icon { get; init; }
         public required string Indent { get; init; }
@@ -44,12 +48,12 @@ public sealed class FileSystemPanel : EditorDocument
     }
 
     private static readonly RmlStructType<Row> RowType = new RmlStructType<Row>()
-        .Member("name", static r => r.Entry.Name.Length == 0 ? "Project" : r.Entry.Name)
+        .Member("name", static r => r.Name)
         .Member("icon", static r => r.Icon)
         .Member("indent", static r => r.Indent)
         .Member("index", static r => r.Index)
         .Member("dir", static r => r.Entry.IsDirectory)
-        .Member("has_children", static r => r.Entry.Children.Count > 0)
+        .Member("has_children", static r => r.HasChildren)
         .Member("expanded", static r => r.Expanded)
         .Member("selected", static r => r.Selected)
         .Member("drop", static r => r.DropTarget)
@@ -71,10 +75,18 @@ public sealed class FileSystemPanel : EditorDocument
     private float _dragStartY;
     private float _dragStartX;
     private bool _thumbsDirty;
+    private string? _assetsRoot;
+    private string? _scriptsRoot;
+    private readonly HashSet<string> _scriptFolders = new(StringComparer.Ordinal);
+    private int _scriptFoldersVersion = -1;
+
+    /// <summary>The Simplified view's root names.</summary>
+    public const string AssetsRootName = "Assets", ScriptsRootName = "Scripts";
 
     public FileSystemPanel(EditorWorkspace workspace)
         : base(workspace, "filesystem.rml")
     {
+        Simplified = !workspace.Layout.Settings.FileSystemVerbose;
     }
 
     /// <summary>The project's file tree (null without a project).</summary>
@@ -97,6 +109,19 @@ public sealed class FileSystemPanel : EditorDocument
 
     public FileSystemView View { get; private set; } = FileSystemView.Tree;
 
+    /// <summary>
+    /// The Simplified view: the roots Assets and Scripts instead of the project folder (saved in the layout settings).
+    /// In list and grid views the current folder starts at the two roots (<see cref="CurrentFolder"/> null). A folder
+    /// with neither (no <c>Assets/</c>, no game library) shows the whole folder.
+    /// </summary>
+    public bool Simplified { get; private set; }
+
+    /// <summary>The Simplified view's Assets root (absolute), or null when the project has no <c>Assets/</c>.</summary>
+    public string? AssetsRoot => _assetsRoot;
+
+    /// <summary>The Simplified view's Scripts root (absolute): the game library's <c>Src/</c>, else its folder; null without one.</summary>
+    public string? ScriptsRoot => _scriptsRoot;
+
     /// <summary>The selected file or folder (absolute path), or null.</summary>
     public string? SelectedPath => _selected;
 
@@ -106,6 +131,9 @@ public sealed class FileSystemPanel : EditorDocument
     /// <summary>The rows on screen (entries), for tests and QA.</summary>
     public IReadOnlyList<ProjectFileEntry> Rows => _rows.Select(r => r.Entry).ToArray();
 
+    /// <summary>The rows' shown names (the Simplified roots say Assets and Scripts), for tests and QA.</summary>
+    public IReadOnlyList<string> RowNames => _rows.Select(r => r.Name).ToArray();
+
     /// <summary>A file being dragged out of the panel (absolute path) once the mouse moved past the threshold.</summary>
     public string? DraggedFile { get; private set; }
 
@@ -114,6 +142,7 @@ public sealed class FileSystemPanel : EditorDocument
         _model = CreateDataModel("filesystem")
             .Bind("has_project", this, static p => p._fs is not null)
             .Bind("view", this, static p => (int)p.View)
+            .Bind("simplified", this, static p => p.Simplified)
             .Bind("folder", this, static p => p._folderText)
             .Bind("show_meta", this, static p => p._fs?.ShowMeta == true)
             .BindList("rows", _rows, RowType)
@@ -129,7 +158,8 @@ public sealed class FileSystemPanel : EditorDocument
             })
             .Event("up", _ => GoUp())
             .Event("set_view", e => SetView((FileSystemView)e.GetArgument(0).GetInt32()))
-            .Event("toggle_meta", _ => ToggleMeta());
+            .Event("toggle_meta", _ => ToggleMeta())
+            .Event("toggle_simplified", _ => SetSimplified(!Simplified));
         Refresh();
     }
 
@@ -156,6 +186,10 @@ public sealed class FileSystemPanel : EditorDocument
         _expanded.Clear();
         _selected = null;
         _folder = null;
+        _assetsRoot = null;
+        _scriptsRoot = null;
+        _scriptFolders.Clear();
+        _scriptFoldersVersion = -1;
         if (root is not null)
         {
             _fs = new ProjectFileSystem(root, AssetDatabase.Current);
@@ -178,16 +212,35 @@ public sealed class FileSystemPanel : EditorDocument
             {
                 _expanded.Add(content);
                 _folder = content;
+                _assetsRoot = content;
             }
             else
             {
-                _folder = root;
+                _folder = Simplified ? null : root;
             }
+
+            _scriptsRoot = ScriptsFolderOf(root);
+            if (_scriptsRoot is not null)
+                _expanded.Add(_scriptsRoot);
         }
 
         _shownVersion = -1;
         UpdateUnsaved();
         Refresh();
+    }
+
+    // The game library's Src/ (else its folder), spelled under root: the layout returns real paths, the tree may not.
+    private string? ScriptsFolderOf(string root)
+    {
+        if (Workspace.Session.Project is not { } settings || GameProjectLayout.GameLibraryProjectOf(root, settings) is not { } csproj ||
+            Path.GetDirectoryName(csproj) is not { } library)
+            return null;
+        var relative = Path.GetRelativePath(GameProjectLayout.RealPath(root), library);
+        if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative))
+            return null;
+        var folder = Path.GetFullPath(Path.Combine(root, relative));
+        var src = Path.Combine(folder, "Src");
+        return Directory.Exists(src) ? src : folder;
     }
 
     /// <summary>Main thread, every frame: applies watcher changes and finished thumbnails.</summary>
@@ -240,7 +293,28 @@ public sealed class FileSystemPanel : EditorDocument
             return;
         _shownVersion = version;
         _rows.Clear();
-        if (_fs is not null)
+        if (_fs is not null && Simplified && SimplifiedRoots().Any())
+        {
+            UpdateScriptFolders();
+            if (View == FileSystemView.Tree)
+            {
+                foreach (var (root, name) in SimplifiedRoots())
+                    AddTree(root, name, 0);
+            }
+            else if (_folder is not null && RootOf(_folder) is not null && _fs.Find(_folder) is { IsDirectory: true } folder)
+            {
+                foreach (var entry in VisibleChildren(folder))
+                    AddRow(entry, 0);
+            }
+            else
+            {
+                foreach (var (root, name) in SimplifiedRoots())
+                    AddRow(root, 0, name);
+            }
+
+            _folderText = _folder is not null && RootOf(_folder) is { } top ? SimplifiedPath(_folder, top) : "";
+        }
+        else if (_fs is not null)
         {
             if (View == FileSystemView.Tree)
             {
@@ -259,17 +333,118 @@ public sealed class FileSystemPanel : EditorDocument
         _model?.DirtyAll();
     }
 
-    private void AddRow(ProjectFileEntry entry, int depth)
+    // ── Simplified view ──────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Switches between the Simplified view (Assets and Scripts) and the whole project folder; saved.</summary>
+    public void SetSimplified(bool simplified)
+    {
+        if (Simplified == simplified)
+            return;
+        Simplified = simplified;
+        Workspace.Layout.SetFileSystemVerbose(!simplified);
+        if (simplified && _folder is not null && RootOf(_folder) is null)
+            _folder = null; // list and grid start at the two roots
+        else if (!simplified && _folder is null)
+            _folder = _assetsRoot ?? _fs?.ProjectRoot;
+        _shownVersion = -1;
+        Refresh();
+    }
+
+    private IEnumerable<(ProjectFileEntry Entry, string Name)> SimplifiedRoots()
+    {
+        if (_assetsRoot is not null && _fs?.Find(_assetsRoot) is { IsDirectory: true } assets)
+            yield return (assets, AssetsRootName);
+        if (_scriptsRoot is not null && _fs?.Find(_scriptsRoot) is { IsDirectory: true } scripts)
+            yield return (scripts, ScriptsRootName);
+    }
+
+    private void AddTree(ProjectFileEntry entry, string? name, int depth)
+    {
+        AddRow(entry, depth, name);
+        if (!entry.IsDirectory || !_expanded.Contains(entry.FullPath))
+            return;
+        foreach (var child in VisibleChildren(entry))
+            AddTree(child, null, depth + 1);
+    }
+
+    // Under Scripts only C# files and the folders holding one; elsewhere every (visible) child.
+    private IEnumerable<ProjectFileEntry> VisibleChildren(ProjectFileEntry folder) =>
+        Simplified && IsUnder(folder.FullPath, _scriptsRoot)
+            ? folder.Children.Where(c => c.IsDirectory ? _scriptFolders.Contains(c.FullPath) : c.Kind == FileKind.Script)
+            : folder.Children;
+
+    private void UpdateScriptFolders()
+    {
+        if (_fs is null || _scriptFoldersVersion == _fs.Version)
+            return;
+        _scriptFoldersVersion = _fs.Version;
+        _scriptFolders.Clear();
+        if (_scriptsRoot is not null && _fs.Find(_scriptsRoot) is { IsDirectory: true } root)
+            CollectScriptFolders(root);
+    }
+
+    private bool CollectScriptFolders(ProjectFileEntry folder)
+    {
+        var any = false;
+        foreach (var child in folder.Children)
+            any |= child.IsDirectory ? CollectScriptFolders(child) : child.Kind == FileKind.Script;
+        if (any)
+            _scriptFolders.Add(folder.FullPath);
+        return any;
+    }
+
+    // The Simplified root holding path (absolute), or null.
+    private string? RootOf(string path) =>
+        IsUnder(path, _assetsRoot) ? _assetsRoot : IsUnder(path, _scriptsRoot) ? _scriptsRoot : null;
+
+    private string SimplifiedPath(string path, string root) =>
+        (EditorSession.PathsEqual(root, _assetsRoot ?? "") ? AssetsRootName : ScriptsRootName) +
+        Path.GetFullPath(path)[Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar).Length..].Replace('\\', '/');
+
+    private static bool IsUnder(string path, string? root)
+    {
+        if (root is null)
+            return false;
+        var full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
+        var top = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+        return EditorSession.PathsEqual(full, top) || full.StartsWith(top + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    /// <summary>The project folder, and in the Simplified view also its two roots: never renamed, moved, trashed or dragged.</summary>
+    public bool IsRoot(ProjectFileEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return entry.Depth == 0 || (Simplified && SimplifiedRoots().Any(r => ReferenceEquals(r.Entry, entry)));
+    }
+
+    /// <summary>
+    /// Whether a drag of <paramref name="path"/> may drop into <paramref name="folder"/>: in the Simplified view C# files
+    /// stay out of Assets, and only C# files and folders go into Scripts.
+    /// </summary>
+    public bool CanDrop(string path, string folder)
+    {
+        if (!Simplified)
+            return true;
+        var script = !Directory.Exists(path) && string.Equals(Path.GetExtension(path), ".cs", StringComparison.OrdinalIgnoreCase);
+        if (IsUnder(folder, _scriptsRoot))
+            return script || Directory.Exists(path);
+        return !(IsUnder(folder, _assetsRoot) && script);
+    }
+
+    private void AddRow(ProjectFileEntry entry, int depth, string? name = null)
     {
         var thumb = "";
         if (View == FileSystemView.Grid && entry.Kind == FileKind.Texture && _thumbnails is not null &&
             _thumbnails.TryGet(entry.FullPath, out var path) && path is not null)
             thumb = path;
         var family = entry.Family is { } f ? " " + f : "";
-        var icon = entry.IsDirectory && _expanded.Contains(entry.FullPath) && View == FileSystemView.Tree ? "folder-open" : entry.Icon;
+        var icon = name == ScriptsRootName ? "folder-code"
+            : entry.IsDirectory && _expanded.Contains(entry.FullPath) && View == FileSystemView.Tree ? "folder-open" : entry.Icon;
         _rows.Add(new Row
         {
             Entry = entry,
+            Name = name ?? (entry.Name.Length == 0 ? "Project" : entry.Name),
+            HasChildren = entry.IsDirectory && (Simplified ? VisibleChildren(entry).Any() : entry.Children.Count > 0),
             Index = _rows.Count,
             Icon = $"icon icon-{icon}{family}{(View == FileSystemView.Grid ? " icon-lg" : "")}",
             Indent = RmlText.Dp(4 + depth * 14),
@@ -333,7 +508,7 @@ public sealed class FileSystemPanel : EditorDocument
             return;
         }
 
-        if (button != 0 || entry.Depth == 0)
+        if (button != 0 || IsRoot(entry))
             return;
         _dragRow = index;
         _dragStartX = x;
@@ -362,8 +537,12 @@ public sealed class FileSystemPanel : EditorDocument
     {
         var dragged = DraggedFile;
         EndDrag();
-        if (dragged is not null && EntryAt(index) is { IsDirectory: true } folder && !string.Equals(folder.FullPath, dragged, StringComparison.Ordinal))
+        if (dragged is null || EntryAt(index) is not { IsDirectory: true } folder || string.Equals(folder.FullPath, dragged, StringComparison.Ordinal))
+            return;
+        if (CanDrop(dragged, folder.FullPath))
             Move(dragged, folder.FullPath);
+        else
+            Log.Warning($"[Editor] {Path.GetFileName(dragged)} cannot go into {_rows[index].Name}: C# files belong in Scripts, other files in Assets.");
     }
 
     private void EndDrag()
@@ -468,16 +647,22 @@ public sealed class FileSystemPanel : EditorDocument
             return;
         View = view;
         if (view != FileSystemView.Tree && _selected is not null && _fs?.Find(_selected) is { } selected)
+        {
             _folder = selected.IsDirectory ? selected.FullPath : Path.GetDirectoryName(selected.FullPath);
+            if (Simplified && _folder is not null && RootOf(_folder) is null)
+                _folder = null;
+        }
+
         _shownVersion = -1;
         Refresh();
     }
 
-    private void GoUp()
+    /// <summary>List and grid views: the parent folder (the Simplified view's roots above Assets and Scripts).</summary>
+    public void GoUp()
     {
         if (_fs is null || _folder is null || EditorSession.PathsEqual(_folder, _fs.ProjectRoot))
             return;
-        _folder = Path.GetDirectoryName(_folder);
+        _folder = Simplified && RootOf(_folder) is { } root && EditorSession.PathsEqual(_folder, root) ? null : Path.GetDirectoryName(_folder);
         _shownVersion = -1;
         Refresh();
     }
@@ -498,14 +683,21 @@ public sealed class FileSystemPanel : EditorDocument
             return null;
         if (_selected is not null && _fs.Find(_selected) is { } entry)
             return entry.IsDirectory ? entry.FullPath : Path.GetDirectoryName(entry.FullPath);
-        return _folder ?? _fs.ProjectRoot;
+        return _folder ?? (Simplified ? _assetsRoot : null) ?? _fs.ProjectRoot;
+    }
+
+    /// <summary>The folder new scenes, resources and songs go into: <see cref="TargetFolder"/>, but Assets instead of Scripts.</summary>
+    public string? AssetTargetFolder()
+    {
+        var folder = TargetFolder();
+        return Simplified && folder is not null && IsUnder(folder, _scriptsRoot) ? _assetsRoot ?? folder : folder;
     }
 
     // ── Commands (context menu, header buttons) ──────────────────────────────────────────────────────────────────
 
     private void ShowContextMenu(ProjectFileEntry entry, float x, float y)
     {
-        var isRoot = entry.Depth == 0;
+        var isRoot = IsRoot(entry);
         Workspace.Popup.Show(
         [
             new MenuItem(entry.Kind == FileKind.Rml ? "Preview UI" : "Open", "fs.open", "Double-click", !entry.IsDirectory,
@@ -564,7 +756,7 @@ public sealed class FileSystemPanel : EditorDocument
                 var rootType = command == "fs.new_scene_2d" ? "Node2D" : "Node3D";
                 PromptName("New Scene", "Scene name:", "NewScene", name =>
                 {
-                    var result = _operations?.CreateScene(TargetFolder()!, name, rootType);
+                    var result = _operations?.CreateScene(AssetTargetFolder()!, name, rootType);
                     if (Report(result) && result?.Path is { } path)
                         Workspace.Session.Open(path);
                 });
@@ -573,18 +765,18 @@ public sealed class FileSystemPanel : EditorDocument
                 NewResource();
                 return true;
             case "fs.new_song":
-                PromptName("New Song", "Song name:", "NewSong", name => Workspace.Commands.CreateSong(Path.Combine(TargetFolder()!, name)));
+                PromptName("New Song", "Song name:", "NewSong", name => Workspace.Commands.CreateSong(Path.Combine(AssetTargetFolder()!, name)));
                 return true;
             case "fs.render":
                 if (entry is { Kind: FileKind.Song })
                     Workspace.SongView.Render(entry.FullPath);
                 return true;
             case "fs.rename":
-                if (entry is { Depth: > 0 })
+                if (entry is not null && !IsRoot(entry))
                     PromptName("Rename", $"New name for {entry.Name}:", entry.Name, name => Rename(entry.FullPath, name));
                 return true;
             case "fs.move":
-                if (entry is { Depth: > 0 } && _fs is not null)
+                if (entry is not null && !IsRoot(entry) && _fs is not null)
                 {
                     var model = new FilePickerModel(FilePickerMode.Folder, _fs.ProjectRoot, []);
                     Workspace.FilePicker.Show(model, $"Move {entry.Name} To", "Move", folder => Move(entry.FullPath, folder));
@@ -592,7 +784,7 @@ public sealed class FileSystemPanel : EditorDocument
 
                 return true;
             case "fs.delete":
-                if (entry is { Depth: > 0 })
+                if (entry is not null && !IsRoot(entry))
                     Delete(entry.FullPath);
                 return true;
             case "fs.copy_path":
@@ -618,6 +810,9 @@ public sealed class FileSystemPanel : EditorDocument
                 return true;
             case "fs.toggle_meta":
                 ToggleMeta();
+                return true;
+            case "fs.toggle_simplified":
+                SetSimplified(!Simplified);
                 return true;
             case "fs.refresh":
                 Rescan();
@@ -654,7 +849,7 @@ public sealed class FileSystemPanel : EditorDocument
             var info = (NodeTypeInfo)payload;
             PromptName("New Resource", $"File name for the new {info.Name}:", "New" + info.Name, name =>
             {
-                var result = _operations?.CreateResource(TargetFolder()!, name, info.Type);
+                var result = _operations?.CreateResource(AssetTargetFolder()!, name, info.Type);
                 if (Report(result) && result?.Path is { } path)
                     Select(path);
             });

@@ -13,7 +13,7 @@ public sealed class Physics2DPanel : UiDocument
 
     public Physics2DPanel()
     {
-        Source = "Content/Physics/panel2d.rml";
+        Source = "Assets/Physics/panel2d.rml";
         AutoFocus = false;
     }
 

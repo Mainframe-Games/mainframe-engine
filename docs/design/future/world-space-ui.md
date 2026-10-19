@@ -54,7 +54,7 @@ What G11 builds on: frame servers run after the transform flush (`MainframeEngin
 the UI server sees final positions. `RenderServer.RenderOffscreen` runs before the scene pass
 (`MainframeEngine/Src/Core/Engine.cs:559-562`), which is the slot panels need. `DrawWorld` draws non-batched visuals
 around the opaque batch by `RenderPriority`, then the transparent batch (`Servers/RenderServer.cs:890-925`). Lit
-shaders fog through `applyFog` (`MainframeEngine/Content/Shaders/include/fog.slang:43`).
+shaders fog through `applyFog` (`MainframeEngine/Assets/Shaders/include/fog.slang:43`).
 
 ## Goals
 
@@ -102,8 +102,8 @@ shaders fog through `applyFog` (`MainframeEngine/Content/Shaders/include/fog.sla
 | `Texture2D.FromGpuSource` (internal), `TextureGpu` external path (changed) | `Src/Rendering/` | 3D materials sample a GPU image (panels, sub-viewports) |
 | `TextLayout`, `GlyphQuad`, `Font.Fallbacks` (new member) | `Src/Text/` | Multi-line layout into caller spans; fallback faces |
 | `Label3D : VisualInstance3D` | `Src/Scene/Nodes3D/` | The text node |
-| `Text3DRenderer` + `Content/Shaders/Text/text3d.slang` | `Src/Rendering/Text/` | Batching, culling, sorting, glyph atlas uploads, object IDs |
-| `UiMarker3D : Node3D`, `UiMarkerHost : UiDocument` + `Content/UI/markers/` | `Src/UI/World/` | Screen-anchored markers |
+| `Text3DRenderer` + `Assets/Shaders/Text/text3d.slang` | `Src/Rendering/Text/` | Batching, culling, sorting, glyph atlas uploads, object IDs |
+| `UiMarker3D : Node3D`, `UiMarkerHost : UiDocument` + `Assets/UI/markers/` | `Src/UI/World/` | Screen-anchored markers |
 | `IUiContextHost` (internal), `UiPanel3D : GeometryInstance3D` | `Src/UI/`, `Src/UI/World/` | Context owners; the panel node |
 | `IPreSceneRenderer`, `IVulkanContext.AddPreSceneRenderer` (new member) | `Src/Rendering/Vulkan/` | Offscreen work before the scene pass |
 
@@ -226,7 +226,7 @@ public class UiMarker3D : Node3D
 }
 
 [EditorIcon("map-pins", Family = EditorIconFamily.Ui)]
-public class UiMarkerHost : UiDocument                           // Source defaults to Content/UI/markers/markers.rml
+public class UiMarkerHost : UiDocument                           // Source defaults to Assets/UI/markers/markers.rml
 {
     [Export(NodeType = typeof(Camera3D))] public NodePath Camera { get; set; } // empty: the layer viewport's active camera
     [Export] public bool SortByDistance { get; set; } = true;    // nearer markers draw on top
@@ -311,7 +311,7 @@ public class UiPanel3D : GeometryInstance3D               // holds UiDocument ch
 Terminal (StaticBody3D)
 ├── CollisionShape3D            blocks the line-of-sight ray from behind
 └── Screen (UiPanel3D)          1024×640 px, 1.024 × 0.64 m
-    └── TerminalUi (UiDocument) Source = "Content/UI/terminal.rml"
+    └── TerminalUi (UiDocument) Source = "Assets/UI/terminal.rml"
 ```
 
 - **Context hosts.** `UiLayer` and `UiPanel3D` implement an internal `IUiContextHost` (context, documents, server,
@@ -438,7 +438,7 @@ text is translated into Spanish and `qps`. `Demo.Tests` clicks the terminal head
    goldens).
 3. **G11.3 `Label3D`.** Node, `World3D.Labels`, `Text3DRenderer` (prepare, cull, sort, page uploads, eight pipelines,
    object IDs), `text3d.slang` + `.spv` + `shaders.lock`; unit tests, `label3d` golden, allocation case, benchmark.
-4. **G11.4 Markers.** `UiMarker3D`, `UiMarkerHost`, the default `Content/UI/markers/` document (four kinds), occlusion,
+4. **G11.4 Markers.** `UiMarker3D`, `UiMarkerHost`, the default `Assets/UI/markers/` document (four kinds), occlusion,
    element mode, split-screen regions; measure transform vs `left`/`top`; unit tests, `ui-markers` golden, benchmark.
 5. **G11.5 UI render targets.** `IUiContextHost`, panel contexts in `UiServer`, command-list segments,
    `IPreSceneRenderer`, shared stack sizing, resolve pass + mips; render tests including the same-frame check.

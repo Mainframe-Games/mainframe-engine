@@ -27,7 +27,7 @@ public sealed class LocaleFontSet : Resource
 public sealed class FontFallbackTable : Resource
 {
     /// <summary>Conventional location of the project's table.</summary>
-    public const string DefaultPath = "Content/locale/fonts.mres";
+    public const string DefaultPath = "Assets/locale/fonts.mres";
 
     /// <summary>Faces loaded for every locale, after the locale-specific ones.</summary>
     [Export(File = "*.ttf,*.otf")]

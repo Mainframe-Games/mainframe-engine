@@ -192,7 +192,7 @@ All new code lives in `MainframeEngine.Editor/Src/Updates/`. No new packages: `H
 | `UpdateController` | Owned by the workspace: the start-up check (honours `CheckForUpdates`), clean-up reporting, download state, Update & restart. Polls its tasks each frame on the main thread (the Project Manager's SDK-check pattern). | `IUpdateService`, `EditorWorkspace` |
 | `UpdateDownloader` | Download with progress and cancellation, SHA-256 check, extraction, staged-executable lookup. | `HttpClient` |
 | `UpdateApplier` | `--apply-update`: wait, back up, copy, keep the user's entries, relaunch, roll back, write `result.json`; `UpdateCleanup.Run` for the next start. Process waiting, launching, copying and folder moves are injected. | — |
-| Badges, `UI/UpdateDialog` | Badge buttons in the toolbar and Project Manager (`help.update`), the dialog (`Content/Editor/update.rml`), `help.check_updates`. | `UpdateController` |
+| Badges, `UI/UpdateDialog` | Badge buttons in the toolbar and Project Manager (`help.update`), the dialog (`Assets/Editor/update.rml`), `help.check_updates`. | `UpdateController` |
 
 Other changes: `EditorSettings.CheckForUpdates` (+ the Editor Settings checkbox); `RequestQuit(Func<bool>? beforeQuit)` (runs once quitting is confirmed; false keeps the editor open);
 `Program.cs` dispatches `--apply-update` before `EditorCommandLine.Parse`; a Help menu item. `publish.yml` and the

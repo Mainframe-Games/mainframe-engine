@@ -52,6 +52,6 @@ public sealed class LightProbeEditorTests : IDisposable
     public void TheDataGoesNextToTheScene()
     {
         Assert.Null(LightProbeVolumeInspector.TargetPath(null));
-        Assert.Equal("Content/Scenes/forest-lighting.mres", LightProbeVolumeInspector.TargetPath("Content/Scenes/forest.mscene")?.Replace('\\', '/'));
+        Assert.Equal("Assets/Scenes/forest-lighting.mres", LightProbeVolumeInspector.TargetPath("Assets/Scenes/forest.mscene")?.Replace('\\', '/'));
     }
 }

@@ -8,7 +8,7 @@ internal static class AudioTestUtil
 {
     public const int Rate = 48000;
 
-    public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Content", "Audio", name);
+    public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Assets", "Audio", name);
 
     /// <summary>A server on the manual null device with the default bus layout (nothing renders until asked).</summary>
     public static AudioServer CreateServer(SceneTree? tree = null, AudioBusLayout? layout = null, uint randomSeed = 0)

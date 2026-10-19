@@ -45,7 +45,7 @@ public class SpineNode : VisualInstance3D
     /// <summary>The skeleton (loads <see cref="Folder"/> on first access).</summary>
     public Skeleton Skeleton => EnsureLoaded();
 
-    /// <summary>Folder holding the Spine export (<c>*.atlas</c> + <c>*.json</c>), e.g. <c>Content/Models/Spine/SpineBoy</c>.</summary>
+    /// <summary>Folder holding the Spine export (<c>*.atlas</c> + <c>*.json</c>), e.g. <c>Assets/Models/Spine/SpineBoy</c>.</summary>
     [Export(Directory = true)]
     public string Folder
     {

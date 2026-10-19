@@ -79,7 +79,7 @@ public sealed class TreeOptions : Resource
 
     // ---------------------------------------------------------------------------------------------------------------
 
-    /// <summary>The bark texture set (<c>bark.type</c>, e.g. <c>Bark001</c>: <c>Content/Trees/Bark/Bark001_1K-JPG/</c>).</summary>
+    /// <summary>The bark texture set (<c>bark.type</c>, e.g. <c>Bark001</c>: <c>Assets/Trees/Bark/Bark001_1K-JPG/</c>).</summary>
     [ExportGroup("Bark")]
     [Export]
     public string BarkTexture { get; set => Set(ref field, value ?? string.Empty); } = "Bark001";
@@ -141,7 +141,7 @@ public sealed class TreeOptions : Resource
 
     // ---------------------------------------------------------------------------------------------------------------
 
-    /// <summary>The leaf texture (<c>leaves.type</c>: ash, aspen, oak or pine; <c>Content/Trees/Leaves/&lt;name&gt;.png</c>).</summary>
+    /// <summary>The leaf texture (<c>leaves.type</c>: ash, aspen, oak or pine; <c>Assets/Trees/Leaves/&lt;name&gt;.png</c>).</summary>
     [ExportGroup("Leaves")]
     [Export]
     public string LeafTexture { get; set => Set(ref field, value ?? string.Empty); } = "oak";

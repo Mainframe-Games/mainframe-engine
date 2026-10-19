@@ -1,8 +1,8 @@
 /*
- * The editor's look for the docs (MainframeEngine.Editor/Content/Editor/theme.rcss):
+ * The editor's look for the docs (MainframeEngine.Editor/Assets/Editor/theme.rcss):
  *   base #15171c · panel #1f2128 · raised #262931 · field #121418 · line #2f333d · hover #343947
  *   text #d7dbe4 · title #e8ebf2 · muted #8b93a5 · accent #3b82f6 (selection #1d4ed8) · warn #f59e0b · error #ef4444
- * Fonts are the editor's (Lato, Roboto Mono): sync-docs.mjs copies them from MainframeEngine/Content/UI/fonts to
+ * Fonts are the editor's (Lato, Roboto Mono): sync-docs.mjs copies them from MainframeEngine/Assets/UI/fonts to
  * src/assets/fonts.
  * Brand colours (docs/images/brand/README.md): tile #172554, grid #1e40af, "M" #38bdf8, core #f59e0b.
  */

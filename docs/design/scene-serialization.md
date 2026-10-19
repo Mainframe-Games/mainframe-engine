@@ -122,12 +122,12 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
       "type": "Sky",
       "props": {
         "Mode": "Panoramic",
-        "Panorama": "Content/Sky/sky_10_2k.png"
+        "Panorama": "Assets/Sky/sky_10_2k.png"
       }
     },
     "StandardMaterial3D_7b21a": {
       "ref": "res_7b21aa90c1d4",
-      "path": "Content/Materials/Crate.mres"
+      "path": "Assets/Materials/Crate.mres"
     }
   },
   "nodes": [
@@ -157,7 +157,7 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
       "name": "Player",
       "parent": ".",
       "instance": "scn_a12b77d03e9f",
-      "path": "Content/Scenes/Player.mscene",
+      "path": "Assets/Scenes/Player.mscene",
       "props": {
         "Position": [0, 0, 2]
       },
@@ -349,7 +349,7 @@ through an internal `IDurableFileOps` shim, which the tests use to simulate a cr
   written (`*.tmp`: saves, bake stages) are never assets and get none; that scan also deletes a `*.tmp.meta` whose
   temporary file is gone.
 - `AssetDatabase` maps UID ↔ project-relative path (`/` separators). `Refresh()` reads
-  `Content/assets.index.json` when present (shipped builds; `WriteIndex()` produces it) and scans `Content/`
+  `Assets/assets.index.json` when present (shipped builds; `WriteIndex()` produces it) and scans `Assets/`
   otherwise; `AssetDatabase.Current` (rooted at `ContentPaths.BaseDirectory` — the app folder, never the working
   directory, since M3) fills itself lazily on the first UID lookup. `Move(from, to)` moves a file and its meta and updates the map.
 

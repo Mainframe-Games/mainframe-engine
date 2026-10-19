@@ -15,7 +15,7 @@ just demo               # dotnet run --project Examples/Demo/Demo.Desktop
 
 `just` (1.58+) wraps every local command; run `just` for the list. Engine code resolves every content
 path with `ContentPaths.Resolve` against `AppContext.BaseDirectory` (rooted paths unchanged,
-`"Content/…"` relative to the app folder, anything else relative to `Content/`), so it works from any
+`"Assets/…"` relative to the app folder, anything else relative to `Assets/`), so it works from any
 working directory. The render-test host still pins the working directory for
 `SpineFolder`, which enumerates its folder relative to it.
 
@@ -66,25 +66,25 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.23.0*
 
 New NuGet dependencies must be discussed before they are added (CLAUDE.md).
 
-### Content
+### Assets
 
-`MainframeEngine.csproj` copies `Content\**` with `CopyToOutputDirectory=Always`, except
-`Content/Shaders/**` (sources, includes, lock, committed `.spv`), whose compiled `.spv` files are added by
+`MainframeEngine.csproj` copies `Assets\**` with `CopyToOutputDirectory=Always`, except
+`Assets/Shaders/**` (sources, includes, lock, committed `.spv`), whose compiled `.spv` files are added by
 [`build/Shaders.targets`](../../build/Shaders.targets); this flows to the test outputs and to games (the Demo) through
-project references. A game copies its own `Content\**` as well.
+project references. A game copies its own `Assets\**` as well.
 
 ### Shaders
 
-Shaders are Slang in `MainframeEngine/Content/Shaders/**` (`*.vk.<stage>.slang`, shared includes in `include/`;
+Shaders are Slang in `MainframeEngine/Assets/Shaders/**` (`*.vk.<stage>.slang`, shared includes in `include/`;
 [ADR 0144](../../memory/decisions/0144-slang-shader-language.md), rules in [Shaders](shaders.md#writing-shaders)).
 **`dotnet build` compiles them** ([`build/Shaders.targets`](../../build/Shaders.targets),
 [ADR 0007](../../memory/decisions/0007-build-time-shaders-and-shared-limits.md)):
 
 | Target | What it does |
 |---|---|
-| `GenerateShaderLimits` | `Content/Shaders/limits.json` → `Src/Rendering/Generated/ShaderLimits.g.cs` + `include/limits.slang` (rewritten only when the content changes; both committed) |
-| `CompileShaders` | Incremental (sources, includes, `limits.json`): `slangc -target spirv -capability spirv_1_5 -matrix-layout-row-major -entry main -stage <stage> -I Content/Shaders/include` → `obj/<config>/Shaders/**.spv`; slangc errors are build errors. slangc = `$(Slangc)`, `$(VULKAN_SDK)/bin/slangc` or `PATH`. |
-| `IncludeShadersInOutput` | Copies the compiled `.spv` (or, without slangc, the committed ones after warning `MFSHADER001`) to `Content/Shaders/` in every output |
+| `GenerateShaderLimits` | `Assets/Shaders/limits.json` → `Src/Rendering/Generated/ShaderLimits.g.cs` + `include/limits.slang` (rewritten only when the content changes; both committed) |
+| `CompileShaders` | Incremental (sources, includes, `limits.json`): `slangc -target spirv -capability spirv_1_5 -matrix-layout-row-major -entry main -stage <stage> -I Assets/Shaders/include` → `obj/<config>/Shaders/**.spv`; slangc errors are build errors. slangc = `$(Slangc)`, `$(VULKAN_SDK)/bin/slangc` or `PATH`. |
+| `IncludeShadersInOutput` | Copies the compiled `.spv` (or, without slangc, the committed ones after warning `MFSHADER001`) to `Assets/Shaders/` in every output |
 
 `-p:CompileShaders=false` uses the committed `.spv` files (CI does: no slangc on the build runners, and the
 warning would fail `-warnaserror`). The committed `.spv` files are the fallback for machines without
@@ -93,7 +93,7 @@ them current:
 
 | Command | What it does |
 |---|---|
-| `just shaders` | `slangc` with the build's flags on every engine `*.vk.{vert,frag,comp}.slang` (same flags as the build), `spirv-val` each result, then rewrite `MainframeEngine/Content/Shaders/shaders.lock` |
+| `just shaders` | `slangc` with the build's flags on every engine `*.vk.{vert,frag,comp}.slang` (same flags as the build), `spirv-val` each result, then rewrite `MainframeEngine/Assets/Shaders/shaders.lock` |
 | `just shaders-check` | Fails if a source, an include or a `.spv` no longer matches the lock (source edited without recompiling, or `.spv` not committed) |
 
 The lock stores the sha256 of each source and of its `.spv`, and of each `include/*.slang`. After

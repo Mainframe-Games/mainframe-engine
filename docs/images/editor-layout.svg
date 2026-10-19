@@ -51,7 +51,7 @@
 
   <rect x="24" y="334" width="200" height="130" fill="#262931" stroke="#3b3f4b"/>
   <text x="34" y="352" class="hdr">FileSystem</text>
-  <text x="34" y="374" class="t">▾ Content</text>
+  <text x="34" y="374" class="t">▾ Assets</text>
   <text x="50" y="392" class="t">▸ Scenes</text>
   <text x="50" y="410" class="t">▸ Materials</text>
   <text x="50" y="428" class="t">▸ UI  ▸ Audio</text>
@@ -109,9 +109,9 @@
   <text x="34" y="486" class="hdr">Output</text>
   <text x="120" y="486" class="s">All · Info · Warn · Error</text>
   <text x="34" y="508" class="t">[12:01:03.112] [INFO] Loaded project MyGame (12 node types)</text>
-  <text x="34" y="526" class="t">[12:01:05.480] [INFO] Saved Content/Scenes/Main.mscene</text>
+  <text x="34" y="526" class="t">[12:01:05.480] [INFO] Saved Assets/Scenes/Main.mscene</text>
   <text x="34" y="544" class="t" fill="#fca5a5">[12:01:09.017] [ERROR] Player.cs:42 NullReferenceException (game process)</text>
   <text x="760" y="550" class="doc">editor/output.rml</text>
 
-  <text x="20" y="586" class="cap">Every panel is an RmlUi document (blue labels) using shared widgets from MainframeEngine/Content/UI/widgets — the same UI stack games use.</text>
+  <text x="20" y="586" class="cap">Every panel is an RmlUi document (blue labels) using shared widgets from MainframeEngine/Assets/UI/widgets — the same UI stack games use.</text>
 </svg>

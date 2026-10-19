@@ -9,7 +9,7 @@ public sealed class Audio3DPanel : UiDocument
 
     public Audio3DPanel()
     {
-        Source = "Content/Audio/panel3d.rml";
+        Source = "Assets/Audio/panel3d.rml";
         AutoFocus = false;
     }
 

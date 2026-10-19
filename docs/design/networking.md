@@ -144,7 +144,7 @@ player.RpcHitTo(peer, 10);        // one peer
 ```csharp
 // Both ends: the same spawnable scenes, in the same order (indices go on the wire, UIDs into the fingerprint).
 var mp = engine.Multiplayer;                       // or MultiplayerApi.Attach(tree) for your own tree
-var playerScene = mp.RegisterScene("Content/Scenes/Player.mscene");
+var playerScene = mp.RegisterScene("Assets/Scenes/Player.mscene");
 
 // Server
 mp.Host(7777, maxClients: 8);                      // or StartServer(any accepting ITransport)

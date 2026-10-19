@@ -102,7 +102,7 @@ public sealed class SongLoop
 /// <summary>Where and how <see cref="SongRenderer"/> writes the song.</summary>
 public sealed class SongRenderSettings
 {
-    /// <summary>Project path of the output, <c>.ogg</c> or <c>.wav</c> (null: <c>Content/Music/&lt;SongName&gt;.ogg</c>, or <c>.wav</c> without the plugin helper).</summary>
+    /// <summary>Project path of the output, <c>.ogg</c> or <c>.wav</c> (null: <c>Assets/Music/&lt;SongName&gt;.ogg</c>, or <c>.wav</c> without the plugin helper).</summary>
     public string? Output { get; set; }
 
     public int SampleRate { get; set; } = 48000;

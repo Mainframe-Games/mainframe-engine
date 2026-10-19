@@ -17,10 +17,10 @@ internal static class DemoZips
 
     public static Dictionary<string, string> ValidProject(string top = "MainframeEngine.Demo") => new()
     {
-        [$"{top}/project.mfproj"] = """{ "format": 1, "name": "Mainframe Demo", "mainScene": "Content/Scenes/basic_3d.mscene" }""",
+        [$"{top}/project.mfproj"] = """{ "format": 1, "name": "Mainframe Demo", "mainScene": "Assets/Scenes/basic_3d.mscene" }""",
         [$"{top}/Directory.Build.props"] = Props,
         [$"{top}/Demo.Desktop/Demo.Desktop.csproj"] = "<Project />",
-        [$"{top}/Content/Scenes/basic_3d.mscene"] = "{}",
+        [$"{top}/Assets/Scenes/basic_3d.mscene"] = "{}",
     };
 
     public static string Write(string path, IReadOnlyDictionary<string, string> files, Action<ZipArchive>? extra = null)

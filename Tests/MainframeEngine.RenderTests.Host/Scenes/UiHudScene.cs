@@ -17,7 +17,7 @@ public sealed class UiHudScene(HostOptions host) : LitShapesScene(host)
     public static UiLayer CreateHudLayer()
     {
         var layer = new UiLayer { Name = "Hud", Layer = 0 };
-        layer.AddChild(new HudDocument { Name = "HudDocument", Source = "Content/UI/hud.rml", AutoFocus = false });
+        layer.AddChild(new HudDocument { Name = "HudDocument", Source = "Assets/UI/hud.rml", AutoFocus = false });
         return layer;
     }
 

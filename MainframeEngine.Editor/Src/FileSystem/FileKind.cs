@@ -89,12 +89,12 @@ internal static class FileKinds
     public static bool HasThumbnail(string path) => Path.GetExtension(path).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".tga" or ".bmp";
 
     /// <summary>
-    /// True for <c>Content/…</c> strings ending in an asset extension: property values that reference a file by path
+    /// True for <c>Assets/…</c> strings ending in an asset extension: property values that reference a file by path
     /// (textures, sky panoramas, file-hinted strings).
     /// </summary>
     public static bool LooksLikeAssetPath(string value)
     {
-        if (!value.StartsWith("Content/", StringComparison.Ordinal) || value.Length > 1024)
+        if (!value.StartsWith("Assets/", StringComparison.Ordinal) || value.Length > 1024)
             return false;
         var kind = Of(value, isDirectory: false);
         // Recordings and video projects are not game assets (the runtime plays no video): they stay plain strings.

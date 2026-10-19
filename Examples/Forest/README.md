@@ -35,8 +35,8 @@ Run it with `dotnet run --project Examples/Forest/Forest.Desktop -c Release`. Ga
 the run), `--no-capture` (do not capture the mouse), `--no-audio` (no procedural soundscape;
 `just forest-audio` renders it to WAV files).
 
-The art (CC0, from ambientCG and Poly Haven, listed in [NOTICE.md](NOTICE.md)) is in `Content/Art`, stored with Git LFS:
-run `git lfs pull` once. `just forest --scene Content/Scenes/asset_gallery.mscene ++ --view props` (or `terrain`,
+The art (CC0, from ambientCG and Poly Haven, listed in [NOTICE.md](NOTICE.md)) is in `Assets/Art`, stored with Git LFS:
+run `git lfs pull` once. `just forest --scene Assets/Scenes/asset_gallery.mscene ++ --view props` (or `terrain`,
 `overview`) shows every terrain layer and prop; `python3 Tools/fetch_assets.py` re-imports them.
 
 ## Controls
@@ -67,13 +67,13 @@ Examples/Forest/
 │                         Src/Menu (PauseMenu, ForestOptions, ForestWorld, ForestCameras, FreeFlyCamera)
 ├── Forest.Desktop/       GameHost.Run(args, …) + --write-scenes <dir>
 ├── Forest.Tests/         xUnit v3; no GPU (the asset tests skip without the LFS content)
-├── Tools/                fetch_assets.py: downloads and imports Content/Art
-└── Content/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres,
+├── Tools/                fetch_assets.py: downloads and imports Assets/Art
+└── Assets/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres,
                           Art/ (CC0 terrain layers, props, sky)
 ```
 
 Regenerate the scene after changing `ForestScene`:
 
 ```bash
-dotnet run --project Examples/Forest/Forest.Desktop -- --write-scenes Examples/Forest/Content/Scenes
+dotnet run --project Examples/Forest/Forest.Desktop -- --write-scenes Examples/Forest/Assets/Scenes
 ```

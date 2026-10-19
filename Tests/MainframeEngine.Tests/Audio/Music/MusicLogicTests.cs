@@ -239,8 +239,8 @@ public sealed class MusicLogicTests
               "id": "explore", "name": "Explore", "kind": "section", "bars": 16, "lengthFrames": 1536000, "loop": true,
               "markers": [ { "name": "drop", "frame": 768000, "exit": true } ],
               "stems": {
-                "perc": { "body": { "uid": "aud_000000000001", "path": "Content/Music/Theme.stems/explore.perc.3f9a1c.ogg" },
-                          "tail": { "uid": "aud_000000000002", "path": "Content/Music/Theme.stems/explore.perc.3f9a1c.tail.ogg", "frames": 61440 } },
+                "perc": { "body": { "uid": "aud_000000000001", "path": "Assets/Music/Theme.stems/explore.perc.3f9a1c.ogg" },
+                          "tail": { "uid": "aud_000000000002", "path": "Assets/Music/Theme.stems/explore.perc.3f9a1c.tail.ogg", "frames": 61440 } },
                 "pads": null
               }
             }

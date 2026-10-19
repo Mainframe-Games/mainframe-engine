@@ -1290,7 +1290,7 @@ public sealed partial class InspectorPanel : EditorDocument
         Workspace.FilePicker.Show(model, $"Choose {p.Label}", "Choose", path => SetValue(p, ProjectRelative(path), null));
     }
 
-    /// <summary>Paths inside the project are stored project-relative (<c>Content/…</c>), like every content reference.</summary>
+    /// <summary>Paths inside the project are stored project-relative (<c>Assets/…</c>), like every content reference.</summary>
     private string ProjectRelative(string path)
     {
         if (Workspace.Session.ProjectRoot is { } root)
@@ -1338,8 +1338,8 @@ public sealed partial class InspectorPanel : EditorDocument
 
     private void LoadResourceInto(string label, Type? slotType, Action<Resource> assign)
     {
-        var start = Workspace.Session.ProjectRoot is { } root && Directory.Exists(Path.Combine(root, "Content"))
-            ? Path.Combine(root, "Content")
+        var start = Workspace.Session.ProjectRoot is { } root && Directory.Exists(Path.Combine(root, "Assets"))
+            ? Path.Combine(root, "Assets")
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var model = new FilePickerModel(FilePickerMode.Open, start, ["*.mres", "*.png", "*.jpg", "*.gltf", "*.glb", "*.ogg", "*.wav", "*.mp3", "*.flac"]);
         Workspace.FilePicker.Show(model, $"Load {label}", "Load", path =>
@@ -1397,8 +1397,8 @@ public sealed partial class InspectorPanel : EditorDocument
     {
         if (p.GetValue() is not Resource { IsExternal: false } original || EditContext is not EditedScene scene)
             return;
-        var start = Workspace.Session.ProjectRoot is { } root && Directory.Exists(Path.Combine(root, "Content"))
-            ? Path.Combine(root, "Content")
+        var start = Workspace.Session.ProjectRoot is { } root && Directory.Exists(Path.Combine(root, "Assets"))
+            ? Path.Combine(root, "Assets")
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var name = original.ResourceName is { Length: > 0 } named ? named : original.GetType().Name;
         var model = new FilePickerModel(FilePickerMode.Save, start, ["*.mres"], name + ".mres");

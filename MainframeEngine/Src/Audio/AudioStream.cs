@@ -40,7 +40,7 @@ public class AudioStream : Resource
     private AudioSource? _source;
     private bool _loadFailed;
 
-    /// <summary>Path (project-relative, e.g. <c>Content/Audio/hit.wav</c>) or asset UID (<c>aud_…</c>) of the sound file.</summary>
+    /// <summary>Path (project-relative, e.g. <c>Assets/Audio/hit.wav</c>) or asset UID (<c>aud_…</c>) of the sound file.</summary>
     [Export(File = "*.wav,*.ogg,*.mp3,*.flac")]
     public string? File
     {

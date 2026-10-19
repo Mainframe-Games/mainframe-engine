@@ -27,7 +27,7 @@ yet: butterflies and the release job.
 Examples/Forest/
 ├── Forest.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes (the Demo's + *.hdr, *.exr, *.cube),
 │   NOTICE.md (every third-party asset), README.md
-├── project.mfproj        "Forest Demo" (also the window title), window.icon Content/Brand/icon.png, main scene forest,
+├── project.mfproj        "Forest Demo" (also the window title), window.icon Assets/Brand/icon.png, main scene forest,
 │                         1920 × 1080 px (contentScale 1), shadows High, TAA, 3D at 0.75 with TAAU (ADR 0174), UI
 │                         scaled from 1920 × 1080 (ADR 0181), the input map, autoload Dev
 ├── Brand/                the app icon (ADR 0182): icon.svg, icon-small.svg, icon-macos.svg → png/, forest.ico,
@@ -42,9 +42,9 @@ Examples/Forest/
 ├── Forest.Desktop/       GameHost.Run(args, typeof(Forest.FirstPersonController).Assembly) + --write-scenes <dir>;
 │                         ApplicationIcon ../Brand/forest.ico, MacAppIcon ../Brand/forest.icns
 ├── Forest.Tests/         xUnit v3, no GPU; the asset tests skip without the LFS content
-├── Tools/                fetch_assets.py downloads and imports Content/Art (python3 + Pillow, curl);
+├── Tools/                fetch_assets.py downloads and imports Assets/Art (python3 + Pillow, curl);
 │                         grade_from_shots.py fits the grade to ungraded renders of R1–R7 (ADR 0175)
-└── Content/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres
+└── Assets/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres
                           (the Forest's buses), UI/ (fps.rml, menu.rcss, shots/: R1–R8 thumbnails), Art/ (CC0, in LFS:
                           Terrain/<Layer>/, Props/<id>/, Debris/<id>/, Sky/)
 ```
@@ -64,7 +64,7 @@ with light shafts, a misty far ridge of hazy pines, darker near pines and the va
 `Examples/Forest/Brand`: `icon.svg` (64 px and above), `icon-small.svg` (48 px and below: the spruce, its glow and the
 ground only), `icon-macos.svg` (Apple's grid: 824 px tile on 1024, for `forest.icns`). `just forest-brand` renders
 them with Inkscape through `build/brand/app-icon.sh` (PNGs, the 7-size `.ico`, the `.icns`) and copies `png/icon-256.png`
-to `Content/Brand/icon.png`, the window icon (Windows/Linux title bar and taskbar; unbundled macOS runs).
+to `Assets/Brand/icon.png`, the window icon (Windows/Linux title bar and taskbar; unbundled macOS runs).
 
 ## Assets
 
@@ -77,7 +77,7 @@ lists every asset (name, ID, source page and download URL, author, licence); THI
 **Import.** `python3 Examples/Forest/Tools/fetch_assets.py [--cache DIR]` (curl + Pillow) downloads over HTTPS from
 `ambientcg.com/api/v2/full_json` + `ambientcg.com/get?file=…` and `api.polyhaven.com` + `dl.polyhaven.org` (Poly Haven
 files checked against the API's MD5), converts, and writes `.meta` sidecars (UIDs) for new files; re-running keeps the
-UIDs. Everything under `Content/Art` is in LFS except the `.gltf` JSON and the sidecars: **152 MB** (G8e.7 added 45 MB:
+UIDs. Everything under `Assets/Art` is in LFS except the `.gltf` JSON and the sidecars: **152 MB** (G8e.7 added 45 MB:
 nine Poly Haven scans at 1K and ambientCG's scattered leaves) of G8d's 400 MB budget; before G8e.7 it was 107 MB in 77 LFS files
 (terrain 31.5 MB, props 73.6 MB, sky 2.4 MB).
 
@@ -120,7 +120,7 @@ nine Poly Haven scans at 1K and ambientCG's scattered leaves) of G8d's 400 MB bu
 |---|---|---|---|
 | `LeafLitter` | ScatteredLeaves004 (1K) | 1.6 m patch | a clump of scattered leaves fading out at its edges: the leaf-litter cards |
 
-**`ForestAssets`** (`Forest/Src/World/ForestAssets.cs`): project-relative paths (`Content/Art/…`; `Resolve` =
+**`ForestAssets`** (`Forest/Src/World/ForestAssets.cs`): project-relative paths (`Assets/Art/…`; `Resolve` =
 `ContentPaths.Resolve`), descriptors and factories. Textures load through `ResourceLoader`, so they are shared and a
 saved scene references them by UID; every factory call returns new resources, so keep what you build many times.
 
@@ -135,13 +135,13 @@ saved scene references them by UID; every factory call returns new resources, so
   PBR; `LoadPropMeshes(prop)`: each `ArrayMesh` with its transform, for `MultiMesh` scattering.
 - `SkyPanorama`, `CreatePanoramaSky()`: an optional `Panoramic` sky (the physical sky stays the default).
 
-**Asset gallery** (`ForestAssetGallery`, `Content/Scenes/asset_gallery.mscene`, written by `--write-scenes`): a 64 m
+**Asset gallery** (`ForestAssetGallery`, `Assets/Scenes/asset_gallery.mscene`, written by `--write-scenes`): a 64 m
 terrain with one 7 m band per layer west to east (the rock band is a steep ridge: triplanar), a leaves / needles / moss
 mix in front, every prop on it, a shadowed sun and the panorama sky. Game arguments: `++ --view overview|terrain|props`,
 `--sky panorama|physical`:
 
 ```
-dotnet Examples/Forest/Forest.Desktop/bin/Release/net10.0/Forest.Desktop.dll --scene Content/Scenes/asset_gallery.mscene \
+dotnet Examples/Forest/Forest.Desktop/bin/Release/net10.0/Forest.Desktop.dll --scene Assets/Scenes/asset_gallery.mscene \
   --fixed-fps 60 --max-frames 120 --screenshot gallery.png ++ --view props
 ```
 
@@ -153,8 +153,8 @@ of each prop against the 7 m bands.
 
 ## The valley
 
-`ForestScene.Build()` writes `Content/Scenes/forest.mscene` (`dotnet run --project Examples/Forest/Forest.Desktop --
---write-scenes Examples/Forest/Content/Scenes`; `ProjectTests.CommittedSceneMatchesTheBuilder` checks it byte for byte).
+`ForestScene.Build()` writes `Assets/Scenes/forest.mscene` (`dotnet run --project Examples/Forest/Forest.Desktop --
+--write-scenes Examples/Forest/Assets/Scenes`; `ProjectTests.CommittedSceneMatchesTheBuilder` checks it byte for byte).
 The scene holds only what an editor would tune: the `Sun`, the `Environment` (the look), the `Valley` node with its
 knobs, the `Lighting` probe volume ([below](#light-probes)), the `Player` and the `Audio`. **The valley is generated when the `ForestValley` node is ready**, deterministically
 from `ValleyLayout` and a seed, in about 1.2 s (Release, M5: heights 0.4 s, carve, pond and paint 0.4 s, trees 0.3 s,
@@ -212,7 +212,7 @@ something came into view.
 The scene's `Lighting` node is a `LightProbeVolume` ([ADR 0170](../../memory/decisions/0170-light-probe-volume.md),
 G8e.1; [Lighting → Light probes](lighting.md#light-probes)), `ForestScene.CreateProbes`: terrain-following over the
 whole 256 m terrain every 2 m, eight layers from 0.3 to 27 m above the ground (129 × 8 × 129 = 133 128 probes, a 5.3 MB
-texture), 192 rays, two bounces. **The bake is committed**: `Content/Scenes/forest-lighting.mres` and its `.probes`
+texture), 192 rays, two bounces. **The bake is committed**: `Assets/Scenes/forest-lighting.mres` and its `.probes`
 file (4.3 MB, LFS). The valley is generated at load, so the volume checks the bake's hash against what the valley
 generated (≈ 40 ms) and, with `BakeWhenStale`, bakes in the background when they differ (about a minute on every
 core; the valley renders without probes until then and logs a warning). After changing the valley's generator, its
@@ -237,11 +237,11 @@ capped (`AutoExposureMinLuminance` 0.03); histogram auto exposure's highlight pr
 ([ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md)) now keeps the sunlit slopes in range in shaded views. `++ --set Lighting.Visible=false` renders
 without the probes (the before shots below).
 
-### The look (`ForestScene.CreateEnvironment`, the `Sun`, `Content/PostProcess/*.mres`)
+### The look (`ForestScene.CreateEnvironment`, the `Sun`, `Assets/PostProcess/*.mres`)
 
 The post-processing look is a resource file the editor tunes ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md)):
-`Content/PostProcess/forest.mres` (a `PostProcessProfile`: exposure, glow, shafts, SSAO, the grade) and
-`Content/PostProcess/forest-lens.mres` (the `CameraAttributesPractical`), referenced by the scene's `Environment`
+`Assets/PostProcess/forest.mres` (a `PostProcessProfile`: exposure, glow, shafts, SSAO, the grade) and
+`Assets/PostProcess/forest-lens.mres` (the `CameraAttributesPractical`), referenced by the scene's `Environment`
 (`ForestLook`). **The files are the source of truth**: `--write-scenes` writes them from `ForestLook.CreateProfile` and
 `ForestGrade.CreateLens` only when they are missing, so values tweaked in the editor survive a scene rebuild; the table
 holds their first values. To tune it: `just editor Examples/Forest/project.mfproj` opens the forest scene with
@@ -261,7 +261,7 @@ holds their first values. To tune it: `just editor Examples/Forest/project.mfpro
 | Glow | intensity 0.3, threshold 4, luminance cap 3, no bloom | only the sun and its glints bloom |
 | Wind | from the east, strength 0.35, 0.45 Hz, turbulence 0.4 | a breeze |
 | Anti-aliasing | `rendering.antiAliasing: Taa` (ADR 0166), sharpness 0.25 (default); tree leaves and ferns `AlphaDither` | leaf, needle and grass edges stop shimmering in motion; the stream is a reactive pixel (keeps 0.2 of its history) so its flow does not smear |
-| Grade (ADR 0168, refitted in G8e.7 and ADR 0178) | `AdjustmentEnabled`, `AdjustmentColorCorrection` = `Content/Grading/forest-morning.cube` (33³, `ForestGrade` with the numbers `Tools/grade_from_shots.py` fitted to ungraded renders of R1–R7, `ForestGradeFit`; written by `--write-scenes`), strength 1 | ADR 0178: the fitter's targets are the references' own statistics (`--reference` measures them): a curve through the shots' p5/p50/p95 to 0.147/0.364/0.786 with blacks lifted to 0.03, the shade's and the light's casts moved halfway to the references' (a neutral-green shade, a warm light), foliage saturation towards theirs; a faint warm white balance that spares the sky; saturation down in the highlights and the deepest shade |
+| Grade (ADR 0168, refitted in G8e.7 and ADR 0178) | `AdjustmentEnabled`, `AdjustmentColorCorrection` = `Assets/Grading/forest-morning.cube` (33³, `ForestGrade` with the numbers `Tools/grade_from_shots.py` fitted to ungraded renders of R1–R7, `ForestGradeFit`; written by `--write-scenes`), strength 1 | ADR 0178: the fitter's targets are the references' own statistics (`--reference` measures them): a curve through the shots' p5/p50/p95 to 0.147/0.364/0.786 with blacks lifted to 0.03, the shade's and the light's casts moved halfway to the references' (a neutral-green shade, a warm light), foliage saturation towards theirs; a faint warm white balance that spares the sky; saturation down in the highlights and the deepest shade |
 | Lens (ADR 0168) | `CameraAttributes`: vignette 0.2, grain 0.015 (1.5 px), no aberration, no depth of field | a filmic frame without a muddy one; depth of field only in the photo shots |
 | Water (G8e.6, [ADR 0173](../../memory/decisions/0173-water-scene-copy-refraction-ssr-falls.md)) | both refract (`RefractionEnabled`) with caustics and screen-space reflections (`rendering.waterSsr` High). Stream: absorption (0.42, 0.13, 0.1), roughness 0.05, reflection 0.7, normals 1.2/5 m × 0.6, caustics 0.9 every 1.6 m to 1.2 m deep, shore foam 8 cm. Pond: peaty absorption (2.4, 1.4, 1.2), reflection 1, calm (normals × 0.3), caustics 0.6 every 2.5 m. The 3.5 m fall is a `River3D` fall: a jet (`WaterfallMaterial3D`) with spray cards at its foot | the stream shows its gravel bed bent by the ripples, with caustics; the pond's shallows show the bed, its middle goes dark and mirrors the trees and banks; the fall is a white sheet with mist |
 
@@ -653,7 +653,7 @@ samples, mostly the stereo beds); `Preload()` builds everything now. All synthes
 
 ### Mix
 
-`Content/Settings/AudioBusLayout.mres` (`project.mfproj` → `audio.busLayout`): Master (16 voices) → **Ambience** −7 dB
+`Assets/Settings/AudioBusLayout.mres` (`project.mfproj` → `audio.busLayout`): Master (16 voices) → **Ambience** −7 dB
 (10), **Water** −8 dB (6), **Foley** −7 dB (6, a light Freeverb: room 0.3, damp 0.7, wet 0.08), Music, SFX, UI. Measured
 through the offline path (`ForestAudioRenderTests`, master mix):
 
@@ -701,8 +701,8 @@ M-series Pro) is not reached on this base M5 yet; 0 B per frame (one native run 
 ## Loading screen (ADR 0183)
 
 The game starts behind a loading screen ([async loading](project-and-gamehost.md#async-loading-and-the-loading-screen-adr-0183)):
-`project.mfproj` sets `"loading": { "screen": "Content/UI/loading.rml" }`, a document styled like the pause menu
-(`Content/UI/loading.rcss`): the R1 glade shot (`loading-glade.jpg`) drifting slowly behind the menu's dark green
+`project.mfproj` sets `"loading": { "screen": "Assets/UI/loading.rml" }`, a document styled like the pause menu
+(`Assets/UI/loading.rcss`): the R1 glade shot (`loading-glade.jpg`) drifting slowly behind the menu's dark green
 scrim, the brand block ("MAINFRAME ENGINE", **Forest Demo**), and a sunlight-gold bar with the stage and three pulsing
 dots.
 
@@ -751,7 +751,7 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
   `--scale s` sets the 3D render scale (ADR 0174; the project's is 0.75, `--scale 1` is native). A flag given twice
   takes its last value, so `just forest-bench --resolution 2560x1440 --scale 1` overrides the script's defaults.
 - `--no-capture` leaves the mouse free; `--no-audio` skips the audio `ForestDev` would attach to a scene without one.
-- **Frame rate:** `ForestDev` adds `FpsHud` (`Src/Dev/FpsHud.cs`, `Content/UI/fps.rml`) on its own `UiLayer` (100) in normal
+- **Frame rate:** `ForestDev` adds `FpsHud` (`Src/Dev/FpsHud.cs`, `Assets/UI/fps.rml`) on its own `UiLayer` (100) in normal
   play: FPS, the average frame time and the slowest frame of the last half second, top right; F3 toggles it. Screenshot,
   benchmark and autowalk runs leave it out (clean captures, allocation windows), and so does `--no-fps`. The values are
   published as numbers twice a second (RmlUi formats them), so it allocates nothing per frame.
@@ -785,7 +785,7 @@ setting's effect shows at once. Resume (or Escape) recaptures the mouse and save
 - `ForestOptions.All` is the table: each `ForestOption` has a key, a label, its page and group, a kind (slider, Off/On
   switch, choice), a range and step, a readout format, an optional tooltip and "greyed out when" expression, and
   `Get`/`Set` delegates on a `ForestWorld`. Values are floats (switches 0/1, choices an index); `Clamp` snaps them.
-  `PauseMenu.BuildRml()` generates the document from the table (styled by `Content/UI/menu.rcss`), with one data
+  `PauseMenu.BuildRml()` generates the document from the table (styled by `Assets/UI/menu.rcss`), with one data
   binding per option and one `pick(key, value)` event for the segmented controls.
 - `ForestWorld.Capture(scene, display, settings)` finds the sun, the environment (and its `PostProcessProfile` and
   lens), the light probes, the terrain, the player, the audio and the readout, and the renderer through
@@ -859,7 +859,7 @@ flyover|free|<1-8|name>` starts a camera, `--option key=value` sets an option fo
   has its species; a headless build (no art) stands the player on the ground at the trailhead, on the floor after a
   second, with water in pool 1, the pond at its level, the bridge's walkway above the stream and 1 500–3 000 trees;
   footstep tags; the shots and the benchmark spline on the map;
-- `ForestAssetsTests`: the layer tags and order; every manifest file exists, and every file under `Content/Art` is in
+- `ForestAssetsTests`: the layer tags and order; every manifest file exists, and every file under `Assets/Art` is in
   the manifest with a `.meta`; NOTICE.md names every asset; the layers load 1024² textures with resource paths; the ORM
   maps have no metal; every prop imports through Assimp with one shared PBR override whose ORM is the ARM map (the
   fern's albedo has alpha) at its documented size; the sky is a 4096 × 2048 JPG under 10 MB; the gallery scene matches

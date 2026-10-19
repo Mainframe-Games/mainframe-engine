@@ -5,7 +5,7 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Music mode's view (<c>Content/Editor/song.rml</c>), below the tab strip: for the active <see cref="SongTab"/> the
+/// Music mode's view (<c>Assets/Editor/song.rml</c>), below the tab strip: for the active <see cref="SongTab"/> the
 /// track headers (rename, colour, record-arm, mute, solo, instrument, add and remove) above one bottom pane at a time (the
 /// layout's <see cref="EditorLayoutSettings.MusicPane"/>: the piano roll, the mixer or none; its splitter sets
 /// <see cref="EditorLayoutSettings.MusicPaneHeight"/>), the pane's header (Piano roll | Mixer, Hide) and the mixer strips
@@ -473,12 +473,12 @@ public sealed class SongPanel : EditorDocument
     public const int MaxRecentSongs = 8;
 
     /// <summary>
-    /// The project's songs (<c>.msong</c> under <paramref name="projectRoot"/>'s <c>Content/</c>), most recently changed
+    /// The project's songs (<c>.msong</c> under <paramref name="projectRoot"/>'s <c>Assets/</c>), most recently changed
     /// first, at most <paramref name="max"/>; none without a project or when the folder cannot be read.
     /// </summary>
     public static List<string> FindSongs(string? projectRoot, int max)
     {
-        var content = projectRoot is null ? null : Path.Combine(projectRoot, "Content");
+        var content = projectRoot is null ? null : Path.Combine(projectRoot, "Assets");
         if (content is null || !Directory.Exists(content))
             return [];
         try

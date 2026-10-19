@@ -25,10 +25,10 @@ built yet; the [proposal](future/procedural-trees.md) has its design.
 | [`Src/Trees/Generation/TreeGenerator.{Clusters,Wind,Bark}.cs`](../../MainframeEngine/Src/Trees/Generation/) | ADR 0172's generator extensions (RNG-free): cluster cards and `TwigParams`, wind pivots, root flare and collars |
 | [`Src/Trees/Impostors/`](../../MainframeEngine/Src/Trees/Impostors/), [`Src/Trees/Baking/`](../../MainframeEngine/Src/Trees/Baking/) | `TreeImpostor`, `TreeImpostorBaker`, `ImpostorOctahedron`; the CPU bake rasterizer and `TreeBakeCache` |
 | [`Rendering/Resources/OrmPacker.cs`](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Packs separate occlusion/roughness/metallic maps into one ORM texture (the bark's `_Roughness.jpg`) |
-| [`Content/Trees/Presets/`](../../MainframeEngine/Content/Trees/Presets/) | The 15 presets as `TreeOptions` `.mres` files |
-| [`Content/Trees/Leaves/`](../../MainframeEngine/Content/Trees/Leaves/), [`Content/Trees/Bark/`](../../MainframeEngine/Content/Trees/Bark/) | Ez Tree's leaf PNGs (MIT), the three ambientCG bark sets the presets use (CC0), and the painted birch, beech, spruce and fir leaves and Birch and Beech bark (ADR 0172, the engine's own); [`LICENSE.md`](../../MainframeEngine/Content/Trees/LICENSE.md) |
+| [`Assets/Trees/Presets/`](../../MainframeEngine/Assets/Trees/Presets/) | The 15 presets as `TreeOptions` `.mres` files |
+| [`Assets/Trees/Leaves/`](../../MainframeEngine/Assets/Trees/Leaves/), [`Assets/Trees/Bark/`](../../MainframeEngine/Assets/Trees/Bark/) | Ez Tree's leaf PNGs (MIT), the three ambientCG bark sets the presets use (CC0), and the painted birch, beech, spruce and fir leaves and Birch and Beech bark (ADR 0172, the engine's own); [`LICENSE.md`](../../MainframeEngine/Assets/Trees/LICENSE.md) |
 | [`build/ez-tree-reference.mjs`](../../build/ez-tree-reference.mjs) | Runs Ez Tree itself to write the parity fixture (by hand, never in CI) |
-| [`Tests/MainframeEngine.Tests/Trees/`](../../Tests/MainframeEngine.Tests/Trees/) | Parity, RNG, determinism, allocation, LowPoly, options and preset tests; fixture in `Tests/Content/Trees/`; `Tree3DTests`, `TreeScatterTests` |
+| [`Tests/MainframeEngine.Tests/Trees/`](../../Tests/MainframeEngine.Tests/Trees/) | Parity, RNG, determinism, allocation, LowPoly, options and preset tests; fixture in `Tests/Assets/Trees/`; `Tree3DTests`, `TreeScatterTests` |
 | [`Tests/MainframeEngine.RenderTests/TreeTests.cs`](../../Tests/MainframeEngine.RenderTests/TreeTests.cs) | `tree-realistic`, `tree-lowpoly`, `tree-forest`; ADR 0172: `tree-clusters`, `tree-impostor`, `tree-wind`, `tree-bark`, `tree-species`, `tree-forest-g8e`; ADR 0179: `tree-shadow-handoff` (scenes in the host's `TreeScenes.cs`) |
 
 ## Using it
@@ -161,12 +161,12 @@ made by `EzTreeJson.Read` from Ez Tree's JSON and `ResourceSaver.Save`; Ez Tree'
 `TreePresets.Names` lists Ez Tree's display names in its order; `TreePresets.Load(name)` returns a fresh copy of the
 engine's file (next to the application, also while the editor has a project open).
 
-The textures are plain image files in the engine's `Content/Trees/` (Git LFS, like every PNG and JPG). Engine content
+The textures are plain image files in the engine's `Assets/Trees/` (Git LFS, like every PNG and JPG). Engine content
 has no `.meta` sidecars: those only give project assets a UID for scene references. Code loads them with explicit import
 settings, resolving against the application folder so an open project does not shadow them:
 
 ```csharp
-var path = ContentPaths.Resolve("Content/Trees/Leaves/oak.png", ContentPaths.BaseDirectory);
+var path = ContentPaths.Resolve("Assets/Trees/Leaves/oak.png", ContentPaths.BaseDirectory);
 var leaves = Texture2D.FromFile(path, new TextureImportSettings { FixAlphaBorder = true });
 ```
 
@@ -414,7 +414,7 @@ miss. The Forest's 18 species bake their atlases and impostors once per machine 
 
 `build/ez-tree-reference.mjs` runs Ez Tree's own generator (`git clone`, `checkout` the pin, `npm ci`, then
 `node build/ez-tree-reference.mjs <checkout>`); it registers a small Node module hook because Ez Tree's sources are
-written for a bundler. It writes `Tests/Content/Trees/ez-tree-reference.json` (about 350 KB): RNG vectors and a hash of a
+written for a bundler. It writes `Tests/Assets/Trees/ez-tree-reference.json` (about 350 KB): RNG vectors and a hash of a
 million draws, each preset's skeleton tips, and per preset and LOD the counts, hashes and every 97th position and normal.
 Re-run it only when the pin moves, and review the diff. The C# tests use `BarkUv = EzTree` and `Scale = 1`.
 

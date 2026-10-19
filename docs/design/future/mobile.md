@@ -456,7 +456,7 @@ flowchart LR
   - Recognisers run simultaneously; tap and double-tap disambiguate by delay only when the game registers both.
   - Thresholds live in `project.mfproj` `input.gestures`, and dp uses the UI content scale.
   - Raw touches still reach `OnInput` for games that want their own logic.
-- **Virtual controls** (RmlUi widgets in `Content/UI/widgets/touch/`):
+- **Virtual controls** (RmlUi widgets in `Assets/UI/widgets/touch/`):
   - Widgets: `<div class="mf-joystick" data-action-x="move_left,move_right" data-action-y="move_up,move_down">`,
     `<div class="mf-touch-button" data-action="jump">`, `<div class="mf-dpad" …>`.
   - Fixed or floating; dead zone and radius in RCSS custom properties read by the controller.
@@ -542,7 +542,7 @@ additive.
 
 ```mermaid
 flowchart LR
-    S["Content/ (source)<br/>png, gltf, ogg, mscene, rml, po/mo, spv"] --> C["mf-cook (tool, desktop)<br/>per export preset"]
+    S["Assets/ (source)<br/>png, gltf, ogg, mscene, rml, po/mo, spv"] --> C["mf-cook (tool, desktop)<br/>per export preset"]
     C --> T["textures → KTX2<br/>ASTC (iOS, Android) + ETC2 (Android fallback)<br/>mips baked"]
     C --> M["models → cooked PackedScene (.mscene)<br/>+ .mmesh binary buffers (no Assimp on device)"]
     C --> P["packs: base.mfpak · fast-follow · on-demand<br/>(index + aligned entries)"]
@@ -674,7 +674,7 @@ Builds on the editor's `PlayService` and the [editor link](../project-and-gameho
   "export": [
     { "name": "Android (debug)", "platform": "android", "applicationId": "com.example.spacegame",
       "version": "1.2.0", "versionCode": "auto", "orientation": "landscape", "tier": "auto",
-      "packs": { "install-time": ["Content/**"], "on-demand": ["Content/Levels/Bonus/**"] },
+      "packs": { "install-time": ["Assets/**"], "on-demand": ["Assets/Levels/Bonus/**"] },
       "signing": "debug" },
     { "name": "iOS", "platform": "ios", "bundleId": "com.example.spacegame", "team": "ABCDE12345",
       "signing": "automatic", "capabilities": [] }
@@ -722,7 +722,7 @@ Builds on the editor's `PlayService` and the [editor link](../project-and-gameho
 
 | Change | Device behaviour | Rebuild? |
 |---|---|---|
-| Scene (`.mscene`/`.mres`) | the editor pushes the file into the device's **overlay mount** (`{cache}/live/Content/…`, highest VFS priority), then `ReloadScene` | no |
+| Scene (`.mscene`/`.mres`) | the editor pushes the file into the device's **overlay mount** (`{cache}/live/Assets/…`, highest VFS priority), then `ReloadScene` | no |
 | Texture / model / audio source | cooked for the device's preset on the host, pushed, then `ReloadContent` (resources reloaded by UID) | no |
 | RML / RCSS / fonts | pushed; `UiServer` hot reload (already watches files; on device it is triggered by the link, not a `FileSystemWatcher`) | no |
 | `.po` translations | compiled to `.mo` on the host, pushed, `Tr` reloads catalogs | no |
@@ -735,7 +735,7 @@ unless `MAINFRAME_DEV_BUILD` is defined.
 
 #### Device simulation in the viewport
 
-- **Device presets** (`Content/Editor/devices.json`): iPhone SE / 15 / 16 Pro Max, iPad 10th gen / Pro 13", Pixel 8a,
+- **Device presets** (`Assets/Editor/devices.json`): iPhone SE / 15 / 16 Pro Max, iPad 10th gen / Pro 13", Pixel 8a,
   Galaxy A55, Galaxy Z Fold (folded/unfolded), plus a generic 20:9. Each has a resolution, density, safe-area insets
   per orientation, cutout shape (notch / Dynamic Island / punch-hole) and home-indicator area.
 - The play window and the editor viewport can run **simulated**: the aspect and pixel size scale to fit, with the

@@ -6,7 +6,7 @@ namespace MainframeEngine.Tests.Canvas;
 /// </summary>
 public sealed class SpirvInputsTests
 {
-    private static readonly string ShaderDir = Path.Combine(FindRepoRoot(), "MainframeEngine", "Content", "Shaders");
+    private static readonly string ShaderDir = Path.Combine(FindRepoRoot(), "MainframeEngine", "Assets", "Shaders");
 
     private static string FindRepoRoot()
     {

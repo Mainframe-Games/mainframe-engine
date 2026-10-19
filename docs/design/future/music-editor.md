@@ -17,7 +17,7 @@ the ZzFX port), [Audio](../audio.md), [Editor](../editor.md), [Natives](../nativ
 ## Problem
 
 Game music today is made outside the engine: in a DAW (Reaper, GarageBand) with the developer's plugins, then exported,
-converted and copied into `Content/`, with loop points typed into the file's `.meta` by hand. Every change goes round
+converted and copied into `Assets/`, with loop points typed into the file's `.meta` by hand. Every change goes round
 that loop again. For placeholder and prototype music, and for small games generally, a deliberately simple music tool
 inside the editor would remove the round trip, keep the song's source next to the game, and make music loop correctly
 in game without hand-tuned numbers.
@@ -93,7 +93,7 @@ helper at all, and the native code stays small.
   "uid": "sng_…",
   "tempo": 120, "timeSignature": [4, 4], "ppq": 960,
   "loop": { "enabled": true, "start": 0, "end": 61440 },
-  "render": { "output": "Content/Music/Theme.ogg", "sampleRate": 48000, "quality": 6, "tailSeconds": 2, "seamlessLoop": true },
+  "render": { "output": "Assets/Music/Theme.ogg", "sampleRate": 48000, "quality": 6, "tailSeconds": 2, "seamlessLoop": true },
   "master": { "volumeDb": 0, "inserts": [] },
   "tracks": [
     {
@@ -229,7 +229,7 @@ active. The layout:
 
 ![Song tab with the mixer and a plugin window](../../images/music-editor-mixer.svg)
 
-- **Chrome in RmlUi** (`Content/Editor/song.rml`): the transport, track headers, the bottom panel switcher and the
+- **Chrome in RmlUi** (`Assets/Editor/song.rml`): the transport, track headers, the bottom panel switcher and the
   mixer strips, with icon buttons and tooltips (editor convention).
 - **Arrangement and piano roll are drawn with the engine's 2D canvas** (`CanvasItem.DrawRect`/`DrawLine`/`DrawString`)
   in a `SubViewport` published to the UI as a texture, the way `ViewportPanel` shows the 3D view. Thousands of notes,
@@ -260,7 +260,7 @@ active. The layout:
    delay tails from the end of the loop are already present at its start, then cuts exactly at the loop length.
 3. Writes a temporary 32-bit float WAV (`WavWriter` from the sound-designer work) and asks the helper to encode it
    (`encode <wav> <ogg> quality`); with no helper binary available it keeps the `.wav` as the output instead and says
-   so. Output defaults to `Content/Music/<SongName>.ogg`.
+   so. Output defaults to `Assets/Music/<SongName>.ogg`.
 4. Writes the output file's `.meta` import settings: `loop` from the song's loop toggle, `loopStart` 0 and `loopEnd` 0
    for a seamless render (the whole file is the loop), or the region in seconds otherwise; `loadMode` `Stream`.
 5. Reports progress in a splash ("Rendering Theme… 63 %", cancellable) and the result in the Output panel.

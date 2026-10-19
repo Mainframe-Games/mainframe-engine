@@ -1,9 +1,9 @@
 {
-  "format": 3,
+  "format": 4,
   "name": "MyGame",
   "userDataName": "MyGame",
   "engineVersion": "MAINFRAME_ENGINE_VERSION",
-  "mainScene": "Content/Scenes/Main.mscene",
+  "mainScene": "Assets/Scenes/Main.mscene",
   "assemblies": [
     "MyGame"
   ],
@@ -11,7 +11,7 @@
     "width": 1280,
     "height": 720,
     "vsync": true,
-    "icon": "Content/icon.png"
+    "icon": "Assets/icon.png"
   },
   "physics": {
     "ticksPerSecond": 60,
@@ -41,12 +41,12 @@
     }
   },
   "audio": {
-    "busLayout": "Content/Settings/AudioBusLayout.mres"
+    "busLayout": "Assets/Settings/AudioBusLayout.mres"
   },
   "localization": {
     "sourceLocale": "en",
     "fallbacks": [],
-    "directory": "Content/locale"
+    "directory": "Assets/locale"
   },
   "rendering": {
     "shadows": "High"

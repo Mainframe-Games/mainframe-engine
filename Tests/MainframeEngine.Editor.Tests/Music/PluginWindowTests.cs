@@ -9,7 +9,7 @@ public sealed class PluginWindowTests
     private static (HeadlessEditor Editor, SongTab Tab, SongTrack Track) Open()
     {
         var editor = new HeadlessEditor();
-        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Content", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.msong"));
         editor.Workspace.Commands.OpenSong(path);
         editor.Tick(3);
         var tab = Assert.IsType<SongTab>(editor.Workspace.Session.ActiveTab);

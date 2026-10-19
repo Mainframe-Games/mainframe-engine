@@ -10,7 +10,7 @@ namespace Forest;
 /// <c>ForestAudio</c> node in the scene: when ready it finds the first <see cref="River3D"/> and
 /// <see cref="FirstPersonController"/> under <see cref="Node.Owner"/> (or its parent) unless <see cref="RiverPath"/> and
 /// <see cref="PlayerPath"/> name them. Its children are generated (unowned, never saved). Buses: see
-/// <see cref="AmbienceBus"/> (<c>Content/Settings/AudioBusLayout.mres</c>); <see cref="ApplySettings"/> sets the
+/// <see cref="AmbienceBus"/> (<c>Assets/Settings/AudioBusLayout.mres</c>); <see cref="ApplySettings"/> sets the
 /// player's volumes on top of the layout's levels.
 /// </summary>
 public sealed class ForestAudio : Node

@@ -15,7 +15,7 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 | Server | `CanvasServer` (`IFrameServer`) | runs queued draws, culls every canvas of the root viewport (root canvas + visible layers, by layer) into one `CanvasFrame` |
 | Renderer | `VulkanCanvasRenderer` (`IOverlayRenderer`) | draws the frame into an RGBA8 UNORM layer (gamma space), composites it after the tonemap, below the game UI |
 | Materials | `CanvasItemMaterial`, `ShaderMaterial` + `Shader` | blend mode (mix, add, sub, mul, premultiplied, disabled) and light mode; canvas shaders (E5, in progress) |
-| Shaders | [Content/Shaders/Canvas/](../../MainframeEngine/Content/Shaders/Canvas/), `include/canvas.slang` | default vertex/fragment stages; push constants mirror Godot's world/canvas/screen transforms and canvas modulation |
+| Shaders | [Assets/Shaders/Canvas/](../../MainframeEngine/Assets/Shaders/Canvas/), `include/canvas.slang` | default vertex/fragment stages; push constants mirror Godot's world/canvas/screen transforms and canvas modulation |
 
 ## Model
 

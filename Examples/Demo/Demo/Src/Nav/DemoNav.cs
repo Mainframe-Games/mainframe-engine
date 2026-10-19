@@ -55,7 +55,7 @@ public sealed class DemoNav : UiDocument
 
     public DemoNav()
     {
-        Source = "Content/Nav/nav.rml";
+        Source = "Assets/Nav/nav.rml";
         AutoFocus = false;
     }
 

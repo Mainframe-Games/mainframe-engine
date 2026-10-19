@@ -342,7 +342,7 @@ public sealed class ForestOptionsTests
     [Fact]
     public void TheStyleSheetIsAuthoredInDpAndEveryShotHasAThumbnail()
     {
-        var content = Path.Combine(AppContext.BaseDirectory, "Content", "UI");
+        var content = Path.Combine(AppContext.BaseDirectory, "Assets", "UI");
         var rcss = File.ReadAllText(Path.Combine(content, "menu.rcss"));
         Assert.DoesNotMatch(@"\d+(\.\d+)?px\b", rcss);
         Assert.Contains("@media (max-width: 1599dp)", rcss, StringComparison.Ordinal);

@@ -2,7 +2,7 @@
 //
 // Runs Ez Tree's own generator (src/lib/tree.js at commit dcf309bd86bd521083d9c70f01f2de45fdc7c457, three.js 0.167.1
 // from its package-lock.json) for every tree and bush preset and each of its default levels of detail, and writes
-// Tests/Content/Trees/ez-tree-reference.json: per surface the vertex and index counts, FNV-1a hashes of the indices, of
+// Tests/Assets/Trees/ez-tree-reference.json: per surface the vertex and index counts, FNV-1a hashes of the indices, of
 // the float32 positions and normals rounded to 1e-4 and of the UVs (in the engine's top-left convention), and every
 // 97th position and normal; per preset the skeleton's branch tips (to name the first diverging branch); and RNG vectors.
 //
@@ -149,7 +149,7 @@ const million = new RNG(44166);
 let millionHash = FNV_OFFSET;
 for (let i = 0; i < 1_000_000; i++) millionHash = fnv(millionHash, Math.round(million.random() * 4294967296) >>> 0);
 
-const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'Tests', 'Content', 'Trees', 'ez-tree-reference.json');
+const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'Tests', 'Assets', 'Trees', 'ez-tree-reference.json');
 mkdirSync(dirname(out), { recursive: true });
 const header = {
   ezTree: pin,

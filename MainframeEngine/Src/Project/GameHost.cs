@@ -22,7 +22,7 @@ public class GameHost : Engine
 
     /// <param name="settings">The project settings.</param>
     /// <param name="options">Command-line options.</param>
-    /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Content/</c> UI (<see cref="CreateUiOptions"/>).</param>
+    /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Assets/</c> UI (<see cref="CreateUiOptions"/>).</param>
     public GameHost(ProjectSettings settings, GameHostOptions? options, IReadOnlyList<Assembly> gameAssemblies)
         : this(settings, options, gameAssemblies, null)
     {
@@ -30,7 +30,7 @@ public class GameHost : Engine
 
     /// <param name="settings">The project settings.</param>
     /// <param name="options">Command-line options (they win over the player's settings).</param>
-    /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Content/</c> UI (<see cref="CreateUiOptions"/>).</param>
+    /// <param name="gameAssemblies">The game's assemblies; Debug engine builds hot-reload their source <c>Assets/</c> UI (<see cref="CreateUiOptions"/>).</param>
     /// <param name="userSettings">
     /// The player's settings (<see cref="Run"/> loads them): they patch the engine options before the window opens
     /// (<see cref="MainframeEngine.UserSettings.PatchEngineOptions"/>) and the session applies the rest when it starts. Null: the
@@ -59,7 +59,7 @@ public class GameHost : Engine
 
     /// <summary>
     /// The UI options a game runs with: the project's UI scale (<see cref="ProjectSettings.Ui"/>), and with <paramref name="hotReload"/> (Debug engine builds) the UI also watches the
-    /// game assemblies' <c>MainframeContentSource</c> folders (their source <c>Content/</c>), so editing an <c>.rml</c> or
+    /// game assemblies' <c>MainframeContentSource</c> folders (their source <c>Assets/</c>), so editing an <c>.rml</c> or
     /// <c>.rcss</c> in the project reloads the running game.
     /// </summary>
     public static UiServerOptions CreateUiOptions(ProjectSettings settings, IReadOnlyList<Assembly> gameAssemblies,

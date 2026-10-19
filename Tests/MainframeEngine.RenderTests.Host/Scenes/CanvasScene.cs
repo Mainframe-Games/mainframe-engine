@@ -88,7 +88,7 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
         });
 
         // A canvas shader (Godot shading language): vertex wobble, a uniform array, a sampler uniform, varyings.
-        var wave = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Content/Shaders/wave.gdshader")) };
+        var wave = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/wave.gdshader")) };
         wave.SetShaderParameter("tints", new[] { new Vector4(1f, 0.4f, 0.1f, 1f), new Vector4(0.1f, 0.6f, 1f, 1f) });
         wave.SetShaderParameter("mask", texture);
         root.AddChild(new Sprite2D { Name = "Shaded", Texture = texture, Position = new Vector2(60, 230), Scale = new Vector2(10, 4), Material = wave });
@@ -104,8 +104,8 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
             UpdateMode = SpineSpriteUpdateMode.Manual,
             SkeletonDataRes = new SpineSkeletonDataResource
             {
-                AtlasRes = ContentPaths.Resolve("Content/Models/Spine/SpineBoy/spineboy-pro.atlas"),
-                SkeletonFileRes = ContentPaths.Resolve("Content/Models/Spine/SpineBoy/spineboy-pro.json"),
+                AtlasRes = ContentPaths.Resolve("Assets/Models/Spine/SpineBoy/spineboy-pro.atlas"),
+                SkeletonFileRes = ContentPaths.Resolve("Assets/Models/Spine/SpineBoy/spineboy-pro.json"),
             },
         };
         rig.AddChild(spineBoy);
@@ -142,7 +142,7 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
     // Canvas text (ADR 0118): an outlined line in the engine's Lato, centred in 160 px.
     private sealed class Caption : Node2D
     {
-        private readonly Font _font = Font.FromFile("Content/UI/fonts/LatoLatin-Regular.ttf");
+        private readonly Font _font = Font.FromFile("Assets/UI/fonts/LatoLatin-Regular.ttf");
 
         protected override void OnDraw()
         {

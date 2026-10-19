@@ -7,7 +7,7 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The wavetable synth's window ("Mainframe Wavetable", <c>Content/Editor/synth_window.rml</c>): one floating, non-modal
+/// The wavetable synth's window ("Mainframe Wavetable", <c>Assets/Editor/synth_window.rml</c>): one floating, non-modal
 /// window for a track's synth. Osc (oscillators with their wavetables, sub, noise, filters with their curves, voicing,
 /// master, macros and the envelope / LFO editor), Matrix (every route) and FX (the synth's effect chain); the modulation
 /// strip (drag a source onto a knob to modulate it) and a keyboard. Every edit is a <see cref="SongDocument"/> step (a knob
@@ -1749,7 +1749,7 @@ public sealed class SynthWindow : EditorDocument
         Workspace.Message.Show(new MessageRequest
         {
             Title = "Save Preset",
-            Message = $"A name for the preset (saved in Content/{SynthPresets.Folder}/; \"Category / Name\" files it under a category):",
+            Message = $"A name for the preset (saved in Assets/{SynthPresets.Folder}/; \"Category / Name\" files it under a category):",
             Input = PresetName(synth.Preset) ?? track.Name,
             Buttons = ["Save", "Cancel"],
             DefaultButton = 0,

@@ -8,13 +8,13 @@ using Color = System.Drawing.Color;
 /// <summary>
 /// Builds the showcase fixture scene in code: every shadow-light type, primitives and materials, the glTF test
 /// model, SpineBoy, a sky, positional audio and a physics tumble. The committed copy is
-/// <c>Tests/Content/Scenes/Showcase.mscene</c> (parsed, instantiated and re-saved by the serialization tests, opened
+/// <c>Tests/Assets/Scenes/Showcase.mscene</c> (parsed, instantiated and re-saved by the serialization tests, opened
 /// by the editor smoke/render tests); regenerate it with
 /// <c>UPDATE_TEST_ASSETS=1 dotnet test Tests/MainframeEngine.Tests --filter FullyQualifiedName~TheShowcaseFixture</c>.
 /// </summary>
 public static class ShowcaseSceneBuilder
 {
-    private const string TestModelFolder = "Content/Models/TestModel";
+    private const string TestModelFolder = "Assets/Models/TestModel";
 
     public static Node3D Build()
     {
@@ -27,13 +27,13 @@ public static class ShowcaseSceneBuilder
         Add(root, new WorldEnvironment
         {
             Name = "Environment",
-            Sky = new Sky { Mode = SkyEnvironmentType.Panoramic, Panorama = "Content/Sky/sky_10_2k.png" },
+            Sky = new Sky { Mode = SkyEnvironmentType.Panoramic, Panorama = "Assets/Sky/sky_10_2k.png" },
         });
 
         Add(root, new SpineNode
         {
             Name = "SpineBoy",
-            Folder = "Content/Models/Spine/SpineBoy",
+            Folder = "Assets/Models/Spine/SpineBoy",
             Scale = new Vector3(0.1f, 0.1f, 0.1f),
             Animation = "walk",
         });
@@ -104,7 +104,7 @@ public static class ShowcaseSceneBuilder
             Name = "Ambience",
             Stream = new AudioStream
             {
-                File = "Content/Audio/ambient_hum.ogg",
+                File = "Assets/Audio/ambient_hum.ogg",
                 LoadMode = AudioLoadMode.Stream,
                 Loop = true,
                 LoopEnd = 6f, // the file is a 6 s seamless loop (the encoder pads its tail)
