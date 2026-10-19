@@ -30,6 +30,7 @@ public static class AssetImporters
         Register(new AudioImporter());
         Register(new FontImporter());
         Register(new CubeLutImporter());
+        Register(new AdaptiveMusicImporter());
     }
 
     /// <summary>Registers (or replaces) the importer for its extensions.</summary>

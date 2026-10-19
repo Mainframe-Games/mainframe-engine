@@ -18,14 +18,18 @@ internal sealed class AudioGraph : IDisposable
     /// </summary>
     public const float UnityVolume = 1.4142135f;
 
-    private AudioGraph(BusNode[] buses, AudioVoice[] voices)
+    private AudioGraph(BusNode[] buses, AudioVoice[] voices, MusicVoice[] musicVoices)
     {
         Buses = buses;
         Voices = voices;
+        MusicVoices = musicVoices;
     }
 
     public BusNode[] Buses { get; }
     public AudioVoice[] Voices { get; }
+
+    /// <summary>Every bus's adaptive-music voices (<see cref="AudioBusInfo.MusicVoices"/>), bus by bus.</summary>
+    public MusicVoice[] MusicVoices { get; }
 
     /// <summary>Builds the graph for a validated <paramref name="layout"/>; <paramref name="busGains"/> are the initial fader gains.</summary>
     public static AudioGraph Build(AudioEngine engine, AudioFormat format, AudioBusLayout layout, ReadOnlySpan<float> busGains)
@@ -33,9 +37,16 @@ internal sealed class AudioGraph : IDisposable
         var count = layout.Buses.Count;
         var buses = new BusNode[count];
         var voiceCount = 0;
+        var musicCount = 0;
         foreach (var info in layout.Buses)
+        {
             voiceCount += Math.Max(0, info.MaxVoices);
+            musicCount += info.ResolvedMusicVoices;
+        }
+
         var voices = new AudioVoice[voiceCount];
+        var musicVoices = new MusicVoice[musicCount];
+        var nextMusic = 0;
 
         var nextVoice = 0;
         for (var b = 0; b < count; b++)
@@ -71,10 +82,18 @@ internal sealed class AudioGraph : IDisposable
                 mixer.AddComponent(voice.Player);
             }
 
-            buses[b] = new BusNode(mixer, fader, parent, first, info.MaxVoices);
+            var firstMusic = nextMusic;
+            for (var v = 0; v < info.ResolvedMusicVoices; v++)
+            {
+                var music = new MusicVoice(engine, format, nextMusic, b);
+                musicVoices[nextMusic++] = music;
+                mixer.AddComponent(music);
+            }
+
+            buses[b] = new BusNode(mixer, fader, parent, first, info.MaxVoices, firstMusic, nextMusic - firstMusic);
         }
 
-        return new AudioGraph(buses, voices);
+        return new AudioGraph(buses, voices, musicVoices);
     }
 
     /// <summary>Audio thread: mixes every bus into <paramref name="buffer"/>.</summary>
@@ -94,5 +113,6 @@ internal sealed class AudioGraph : IDisposable
         Buses[0].Mixer.Dispose();
     }
 
-    internal sealed record BusNode(Mixer Mixer, BusProcessor Fader, int Parent, int FirstVoice, int VoiceCount);
+    internal sealed record BusNode(Mixer Mixer, BusProcessor Fader, int Parent, int FirstVoice, int VoiceCount, int FirstMusicVoice,
+        int MusicVoiceCount);
 }

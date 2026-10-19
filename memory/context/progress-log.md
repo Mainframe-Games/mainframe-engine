@@ -801,3 +801,17 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - `SynthWindow`: Osc / Matrix / FX tabs, wavetable / filter / envelope / LFO canvases, drag-to-assign modulation with
   live dots, drawn LFOs, keyboard, CPU meter; the plugin window's synth stopgap removed. Next (PR 4): embedded FX panels
   in the FX tab, render-test goldens of the window.
+
+### 2026-10-18 — Adaptive music A2: the runtime (ADR 0196 accepted)
+- The design's ten open questions were decided with the recommended answers (recorded in the design's "Decided questions").
+- `MusicVoice` (audio thread, a `SoundComponent` per `AudioBusInfo.MusicVoices` slot, 2 on Music by default): 4 lane
+  groups of 8 lanes sharing one read position, a sorted action queue split per sample, linear fades, tails and stingers
+  on 8 one-shot lanes, per-lane layer gain and the shared `Svf` (moved to `MainframeEngine/Src/Audio/Dsp/`). Music
+  commands and events through `AudioServer` (`AudioServer.Music.cs`); groups return to the game thread only on
+  `MusicGroupFreed`; continuations prefetched; misses rescheduled (`LateMusicTransitions`).
+- `AdaptiveMusic` resource + `AdaptiveMusicImporter` (`ResourceLoader` now routes `.mmusic` with its embedded UID),
+  `AdaptiveMusicInstance` (game thread, the director), `AdaptiveMusicPlayer` node with SectionStarted/Beat/Bar/Marker/
+  TransitionScheduled/Finished.
+- Tests with generated WAV stems (exact sample timing, fades, curves, misses, resampling, signals), an allocation gate,
+  benchmarks (instance frame ≈ 0.4 µs, 16-lane block ≈ 42 µs) and an adaptive player in the render-test showcase.
+- Next: A3 (bake) and A4 (editor sections/layers/Live preview).

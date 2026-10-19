@@ -52,7 +52,8 @@ public readonly record struct AudioServerStats(
     long RenderedFrames,
     long Blocks,
     int PendingCommands,
-    bool Faulted);
+    bool Faulted,
+    long LateMusicTransitions = 0);
 
 /// <summary>A playing (or finished) voice; invalid once the sound ends, is stopped or is stolen.</summary>
 public readonly record struct AudioVoiceHandle(int Index, int Generation)
@@ -78,7 +79,7 @@ public readonly record struct AudioVoiceHandle(int Index, int Generation)
 /// priority, then the quietest, then the oldest — never one with a higher priority than the new sound (which is then
 /// dropped and counted in <see cref="AudioServerStats.Rejected"/>).</para>
 /// </remarks>
-public sealed class AudioServer : IFrameServer
+public sealed partial class AudioServer : IFrameServer
 {
     private static int _soundFlowLogHooked;
 
@@ -273,7 +274,7 @@ public sealed class AudioServer : IFrameServer
             }
 
             return new AudioServerStats(active, _slots.Length, _steals, _rejected, _root.Underruns, _streamer.Errors,
-                _root.RenderedFrames, _root.Blocks, _commands.Count + _pendingCount, _root.Fault is not null);
+                _root.RenderedFrames, _root.Blocks, _commands.Count + _pendingCount, _root.Fault is not null, _lateMusicTransitions);
         }
     }
 
@@ -320,6 +321,7 @@ public sealed class AudioServer : IFrameServer
                 Mute = bus.Mute,
                 Solo = bus.Solo,
                 MaxVoices = bus.MaxVoices,
+                MusicVoices = bus.MusicVoicesSetting,
                 Effects = [.. bus.Effects],
             });
         }
@@ -362,6 +364,8 @@ public sealed class AudioServer : IFrameServer
             }
         }
 
+        ReleaseMusicForLayoutSwap();
+
         // Everything pending targeted the old graph. A graph whose swap never reached the audio thread (the ring was
         // full) was never used by it: dispose it now instead of waiting for a retirement that will not come.
         for (var i = 0; i < _pendingCount; i++)
@@ -402,6 +406,7 @@ public sealed class AudioServer : IFrameServer
 
         var buses = new AudioBus[layout.Buses.Count];
         var firstVoice = 0;
+        var firstMusic = 0;
         for (var i = 0; i < buses.Length; i++)
         {
             var info = layout.Buses[i];
@@ -415,12 +420,16 @@ public sealed class AudioServer : IFrameServer
                 }
             }
 
-            buses[i] = new AudioBus(this, i, info, parent, firstVoice);
+            buses[i] = new AudioBus(this, i, info, parent, firstVoice, firstMusic);
             firstVoice += Math.Max(0, info.MaxVoices);
+            firstMusic += info.ResolvedMusicVoices;
         }
 
         _buses = buses;
         _slots = new VoiceSlot[firstVoice];
+        _musicSlots = new MusicSlot[firstMusic];
+        for (var i = 0; i < _musicSlots.Length; i++)
+            _musicSlots[i] = new MusicSlot();
         for (var i = 0; i < _slots.Length; i++)
             _slots[i].PendingParams = -1;
         Span<float> gains = stackalloc float[buses.Length];
@@ -616,7 +625,7 @@ public sealed class AudioServer : IFrameServer
                 ready = buffered < 0 || buffered >= (long)frames * source.Channels;
             }
 
-            if (ready)
+            if (ready && MusicStreamsReady(frames))
                 return true;
             if (DateTime.UtcNow >= deadline)
                 return false;
@@ -723,6 +732,7 @@ public sealed class AudioServer : IFrameServer
         FrameIndex++;
         FrameDelta = gameTime.DeltaTime;
 
+        ReadMusicClocks();
         DrainEvents();
         UpdateListener(gameTime.DeltaTime);
         UpdateBusGains();
@@ -764,6 +774,7 @@ public sealed class AudioServer : IFrameServer
             SendParams(i, ref slot, parameters, force: false);
         }
 
+        UpdateMusic(gameTime.DeltaTime);
         UpdateMeters();
         Flush();
         _streamer.Wake();
@@ -898,6 +909,9 @@ public sealed class AudioServer : IFrameServer
                 case AudioEventType.GraphRetired:
                     if (e.Ref is AudioGraph graph && _retiring.Remove(graph))
                         graph.Dispose();
+                    break;
+                case >= AudioEventType.MusicSectionStarted:
+                    OnMusicEvent(e);
                     break;
             }
         }
@@ -1175,6 +1189,10 @@ public sealed class AudioServer : IFrameServer
             if (_slots[i].Active)
                 Release(i, finished: false, sendStop: false);
         }
+
+        for (var i = _musicInstances.Count - 1; i >= 0; i--)
+            _musicInstances[i].OnVoiceLost();
+        _musicInstances.Clear();
 
         DisposeQuietly(_output); // no more audio callbacks after this (when it stopped)
         _streamer.Dispose();

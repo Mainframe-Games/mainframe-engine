@@ -1,4 +1,6 @@
 using System.Numerics;
+using MainframeEngine.Audio;
+using MainframeEngine.Audio.Music;
 using MainframeEngine.Localization;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
@@ -7,11 +9,14 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 /// Mirrors the showcase fixture's per-frame work — Spine, shadows, sky, grid, the RmlUi HUD (data bindings dirtied every frame)
 /// the light and axis screen gizmos and the RmlUi dev overlay with every panel expanded — for the steady-state allocation
 /// gate. The overlay shows timings, so it is not used for golden images. Its labels are looked up in the Spanish test catalog (Tests/Content/locale) every frame
-/// (M9), so the gate also covers translation lookups.
+/// (M9), so the gate also covers translation lookups. An adaptive-music player (streamed and memory stems, layer curves
+/// and filters, transitions and stingers) covers the music runtime in a real frame.
 /// </summary>
 public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
 {
     private AudioPlayer3D? _orbiting;
+    private AdaptiveMusicPlayer? _music;
+    private string? _musicFolder;
 
     protected override void LoadScene()
     {
@@ -52,6 +57,7 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
     {
         base.AddNodes(scene);
         AddAudio(scene);
+        AddAdaptiveMusic(scene);
         AddPhysics(scene);
         scene.AddChild(UiHudScene.CreateHudLayer());
     }
@@ -85,6 +91,74 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
             DopplerTracking = true,
         };
         scene.AddChild(_orbiting);
+    }
+
+    /// <summary>
+    /// Adaptive music from generated stems (written to a temporary folder): two streamed looping sections with three
+    /// layers (one through a low-pass), a memory-loaded stinger, and rules on an <c>area</c> parameter. The stems are at
+    /// 24 kHz, so the lanes are resampled to the device rate too.
+    /// </summary>
+    private void AddAdaptiveMusic(Node scene)
+    {
+        const int rate = 24000;
+        const int bar = rate * 2; // 120 BPM, 4/4
+        _musicFolder = Path.Combine(Path.GetTempPath(), $"mf-showcase-music-{System.Environment.ProcessId}");
+        Directory.CreateDirectory(_musicFolder);
+        MusicStemRef Stem(string name, float frequency, float amplitude, int frames)
+        {
+            var samples = new float[frames];
+            for (var i = 0; i < frames; i++)
+                samples[i] = amplitude * MathF.Sin(2 * MathF.PI * frequency * i / rate) * (1f - (float)i / frames);
+            var path = Path.Combine(_musicFolder, name + ".wav");
+            WavWriter.Write(path, samples, 1, rate, WavSampleFormat.Pcm16);
+            return new MusicStemRef { Path = path };
+        }
+
+        var manifest = new MusicManifest
+        {
+            SampleRate = rate,
+            Tempo = 120,
+            Start = "explore",
+            Parameters =
+            [
+                new MusicParameterInfo { Name = "intensity", Kind = MusicParameterKind.Continuous, Max = 1, SeekSpeed = 1 },
+                new MusicParameterInfo { Name = "area", Kind = MusicParameterKind.Labeled, Labels = ["Calm", "Combat"] },
+            ],
+            Layers =
+            [
+                new MusicManifestLayer { Id = "base" },
+                new MusicManifestLayer { Id = "perc" },
+                new MusicManifestLayer { Id = "lead", Filter = MusicLayerFilter.LowPass },
+            ],
+            Curves =
+            [
+                new MusicCurveInfo { Layer = "perc", Parameter = "intensity", Points = [new(0, -80), new(0.5f, 0)] },
+                new MusicCurveInfo { Layer = "lead", Target = MusicCurveTarget.Cutoff, Parameter = "intensity", Points = [new(0, 400), new(1, 12000)] },
+            ],
+            Transitions =
+            [
+                new MusicTransitionInfo { From = ["explore"], To = "combat", When = When("Combat"), Quantize = MusicQuantize.Beat, FadeOutBeats = 1 },
+                new MusicTransitionInfo { From = ["combat"], To = "explore", When = When("Calm"), Quantize = MusicQuantize.Beat, Stinger = "hit" },
+            ],
+        };
+        foreach (var (id, root) in new[] { ("explore", 220f), ("combat", 330f) })
+        {
+            var section = new MusicManifestSection { Id = id, Bars = 1, Loop = true };
+            section.Stems["base"] = new MusicStemSet { Body = Stem(id + ".base", root, 0.05f, bar), Tail = Stem(id + ".base.tail", root, 0.02f, rate / 2) };
+            section.Stems["perc"] = new MusicStemSet { Body = Stem(id + ".perc", root * 4, 0.03f, bar) };
+            section.Stems["lead"] = new MusicStemSet { Body = Stem(id + ".lead", root * 2, 0.04f, bar) };
+            manifest.Sections.Add(section);
+        }
+
+        var hit = new MusicManifestSection { Id = "hit", Kind = MusicSectionKind.Stinger, Bars = 1, PickupBeats = 1 };
+        hit.Stems[MusicManifestSection.MixStem] = new MusicStemSet { Body = Stem("hit", 880, 0.05f, bar) };
+        manifest.Sections.Add(hit);
+
+        _music = new AdaptiveMusicPlayer { Name = "Music", Music = AdaptiveMusic.FromManifest(manifest, "Showcase music"), VolumeDb = -12f, Autoplay = true };
+        scene.AddChild(_music);
+
+        static MusicConditionGroup When(string area) =>
+            new() { All = [new MusicComparison { Parameter = "area", Op = MusicCompare.Equal, Value = new MusicValue(area) }] };
     }
 
     /// <summary>A static floor collider and a tower of crates (the showcase's physics stack).</summary>
@@ -123,6 +197,15 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
             _orbiting.Position = new Vector3(MathF.Cos(angle) * 6f, 1f, MathF.Sin(angle) * 6f);
         }
 
+        if (_music is not null)
+        {
+            // Parameter sweeps every frame and a transition every 40 frames, each way (the way back fires the stinger), so
+            // the warm-up has been through both before the gate measures.
+            _music.SetParameter("intensity", 0.5f + 0.5f * MathF.Sin(gameTime.FrameCount * 0.03f));
+            if (gameTime.FrameCount % 40 == 0)
+                _music.SetParameter("area", gameTime.FrameCount / 40 % 2 == 0 ? "Calm" : "Combat");
+        }
+
         // Self-check (before the measured window): both voices really play, so the gate measures live audio.
         if (gameTime.FrameCount == 60)
         {
@@ -133,6 +216,23 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
                 Fail($"Expected the ambience and the orbiter to play; {audio.Stats.ActiveVoices} active voices.");
             else if (audio.Stats.StreamErrors > 0 || audio.Stats.Faulted)
                 Fail("Audio stream errors or a mixer fault.");
+            else if (_music is not { Playing: true, CurrentSection: not null })
+                Fail("Expected the adaptive music to play.");
+        }
+    }
+
+    protected override void DisposeScene()
+    {
+        base.DisposeScene();
+        if (_musicFolder is null)
+            return;
+        try
+        {
+            Directory.Delete(_musicFolder, recursive: true);
+        }
+        catch (IOException)
+        {
+            // still open on the streaming thread: the OS cleans its temporary folder
         }
     }
 }

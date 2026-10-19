@@ -29,7 +29,10 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 | `AudioMath`, `AttenuationModel` | [Audio/AudioMath.cs](../../MainframeEngine/Src/Audio/AudioMath.cs) | dB, attenuation curves, listener projection, pan law, doppler |
 | `AudioMixRoot`, `AudioGraph`, `AudioVoice`, `VoiceSource`, `SpatialSmoother`, `BusProcessor` | [Audio/Graph/](../../MainframeEngine/Src/Audio/Graph/) | audio-thread side (internal) |
 | `SpscRing<T>`, `AudioStreamChannel`, `AudioStreamer` | [Audio/Threading/](../../MainframeEngine/Src/Audio/Threading/) | lock-free rings, streaming thread (internal) |
-| `MusicGrid`, `MusicParameterSet`, `MusicCurve`, `MusicPlan`, `MusicDirector`, `MusicManifest` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | adaptive music logic shared by the editor and games (the beat grid, parameters, curves, rules, `.mmusic`); the runtime player comes with [Adaptive music](future/adaptive-music.md) PR A2 |
+| `MusicGrid`, `MusicParameterSet`, `MusicCurve`, `MusicPlan`, `MusicDirector`, `MusicManifest` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | adaptive music logic shared by the editor and games (the beat grid, parameters, curves, rules, `.mmusic`) |
+| `AdaptiveMusic` (+ `AdaptiveMusicImporter`), `AdaptiveMusicInstance`, `AdaptiveMusicPlayer`, `MusicPosition` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | the adaptive-music runtime: the `.mmusic` resource and its stems, one playing piece on the game thread, the node; [Adaptive music, As built: A2](future/adaptive-music.md#as-built-a2) |
+| `MusicVoice` | [Audio/Graph/MusicVoice.cs](../../MainframeEngine/Src/Audio/Graph/MusicVoice.cs) | audio-thread music player: lane groups, the music clock, scheduled actions, fades, tails, the layer filter (internal) |
+| `Svf` | [Audio/Dsp/Svf.cs](../../MainframeEngine/Src/Audio/Dsp/Svf.cs) | state-variable filter shared by the editor's effects and the music layer filter |
 | `AudioDecoder` (`WavDecoder`, `VorbisDecoder`, `MiniAudioFileDecoder`), `AudioClipData`, `AudioStreamSource` | [Audio/Decoding/](../../MainframeEngine/Src/Audio/Decoding/) | decoding (internal) |
 | `AudioOutput` (`SoundFlowOutput`, `NullOutput`), `NullAudioEngine` | [Audio/Devices/AudioOutput.cs](../../MainframeEngine/Src/Audio/Devices/AudioOutput.cs) | devices (internal) |
 
@@ -95,7 +98,9 @@ flowchart TB
 ## Buses
 
 `AudioBusLayout` is a resource: a list of `AudioBusInfo` (name, send, volume dB, mute, solo, voice-pool size,
-effect chain). The default layout is Master (16 voices) → Music (4), SFX (32), UI (8), Voice (8). The server
+music voices, effect chain). The default layout is Master (16 voices) → Music (4), SFX (32), UI (8), Voice (8).
+`MusicVoices` is how many adaptive-music players the bus can run at once (`AdaptiveMusicPlayer`, created up front and
+idle until used); −1, the default, means 2 on the bus named Music and 0 elsewhere. The server
 loads `AudioOptions.BusLayoutPath` (default `Content/Settings/AudioBusLayout.mres`) and falls back to the default
 on a missing or invalid file. `GetBusLayout()` snapshots the live state, `SaveBusLayout()` writes it through
 `ResourceSaver` (regular `.mres` with a `res_` UID), `ApplyBusLayout()` swaps a new graph in at runtime (all voices
@@ -299,7 +304,10 @@ their own `ProcessMode` (default `Pausable`).
   plays a streamed and an orbiting doppler voice).
 - Benchmarks ([baseline.json](../../Tests/MainframeEngine.Benchmarks/baseline.json), Apple M5): a 64-command batch
   enqueue + drain ≈ 0.25 µs; spatial math for 32 emitters ≈ 0.25 µs; `AudioServer` frame for 32 moving positional
-  voices ≈ 2.2 µs; mixing a 10 ms block of 32 voices ≈ 59 µs (≈0.6 % of one core). All 0 B.
+  voices ≈ 2.2 µs; mixing a 10 ms block of 32 voices ≈ 59 µs (≈0.6 % of one core); one adaptive-music instance's
+  frame ≈ 0.4 µs and a 10 ms block of 16 music lanes ≈ 42 µs. All 0 B.
+- Adaptive music has its own gate (`AdaptiveMusicAllocationTests`: transitions, stingers, misses, pause), and the
+  `showcase` scene plays an `AdaptiveMusicPlayer` too.
 
 ## Known issues
 

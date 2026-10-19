@@ -19,6 +19,15 @@ internal sealed class AudioStreamer : IDisposable
     private volatile bool _stop;
     private int _errors;
 
+    /// <summary>Tests: while true the thread decodes nothing (streams fall behind, as on a stalled disk).</summary>
+    public bool Hold
+    {
+        get => Volatile.Read(ref _hold);
+        set => Volatile.Write(ref _hold, value);
+    }
+
+    private bool _hold;
+
     /// <summary>Decode errors so far (files that failed to open or decode).</summary>
     public int Errors => Volatile.Read(ref _errors);
 
@@ -57,6 +66,12 @@ internal sealed class AudioStreamer : IDisposable
     {
         while (!_stop)
         {
+            if (Hold)
+            {
+                _wake.WaitOne(5);
+                continue;
+            }
+
             AudioStreamChannel[] channels;
             lock (_gate)
                 channels = _snapshot;
