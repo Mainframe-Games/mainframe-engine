@@ -22,6 +22,40 @@ public static class SongSections
         controller.RequestRenameMarker = marker => Rename(workspace, tab, "Rename Marker", marker.Name, name => tab.Document.RenameMarker(marker, name),
             () => tab.Document.Song.Adaptive?.Markers.Contains(marker) == true);
         controller.RequestSectionMenu = (section, marker, tick, local) => Menu(workspace, tab, section, marker, tick, local);
+        tab.Curves.RequestMenu = (curve, local) => CurveMenu(workspace, tab, curve, local);
+    }
+
+    // The Curves pane's right-click: the curve's shape (the whole curve has one), or remove it.
+    private static void CurveMenu(EditorWorkspace workspace, SongTab tab, MusicCurveInfo curve, Vector2 local)
+    {
+        var doc = tab.Document;
+        var editable = !doc.IsReadOnly;
+        List<MenuItem> items =
+        [
+            MenuItem.Header("Curve shape"),
+            new("Linear", "linear", Enabled: editable, Css: curve.Shape == MusicCurveShape.Linear ? "current" : null),
+            new("Smooth", "smooth", Enabled: editable, Css: curve.Shape == MusicCurveShape.Smooth ? "current" : null),
+            MenuItem.Separator,
+            new("Remove Curve", "remove", Enabled: editable, Icon: "trash"),
+        ];
+        var rect = workspace.SongPanel.RollRect;
+        workspace.Popup.Show(items, rect.X + local.X, rect.Y + local.Y, command =>
+        {
+            if (command is null || doc.IsReadOnly || doc.Song.Adaptive?.Curves.Contains(curve) != true)
+                return;
+            Guard(workspace, () =>
+            {
+                if (command == "remove")
+                {
+                    doc.RemoveCurve(curve);
+                    tab.SelectCurve(null);
+                }
+                else
+                {
+                    doc.SetCurveShape(curve, command == "smooth" ? MusicCurveShape.Smooth : MusicCurveShape.Linear);
+                }
+            });
+        });
     }
 
     private static void Rename(EditorWorkspace workspace, SongTab tab, string title, string current, Action<string> rename, Func<bool> exists) =>

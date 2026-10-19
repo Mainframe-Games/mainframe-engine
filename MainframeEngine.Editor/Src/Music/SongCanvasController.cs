@@ -26,6 +26,7 @@ public enum SongGesture
     SectionStart,
     SectionEnd,
     MarkerMove,
+    Curve,
 }
 
 /// <summary>
@@ -193,9 +194,18 @@ public sealed class SongCanvasController
         _moved = false;
         _tab.Focus = area;
         if (area == SongArea.Arrangement)
+        {
             PressArrangement(p, modifiers, doubleClick);
+        }
         else if (area == SongArea.PianoRoll)
+        {
             PressRoll(p, modifiers);
+        }
+        else if (area == SongArea.Curves)
+        {
+            _tab.Curves.Press(p, modifiers, doubleClick);
+            Gesture = SongGesture.Curve;
+        }
     }
 
     /// <summary>The mouse moved to <paramref name="p"/> (in the area the gesture started in) with the button held.</summary>
@@ -234,6 +244,9 @@ public sealed class SongCanvasController
             case SongGesture.SectionNew or SongGesture.SectionMove or SongGesture.SectionStart or SongGesture.SectionEnd or SongGesture.MarkerMove:
                 DragSection(p);
                 break;
+            case SongGesture.Curve:
+                _tab.Curves.Drag(p, modifiers);
+                break;
             case SongGesture.Keyboard:
                 var pitch = Math.Clamp(PitchAt(p.Y), 0, 127);
                 if (pitch != _auditionPitch && _tab.SelectedTrack is { } track)
@@ -258,6 +271,9 @@ public sealed class SongCanvasController
                 break;
             case SongGesture.SectionNew or SongGesture.SectionMove or SongGesture.SectionStart or SongGesture.SectionEnd or SongGesture.MarkerMove:
                 CommitSection(gesture);
+                break;
+            case SongGesture.Curve:
+                _tab.Curves.Release();
                 break;
             case SongGesture.Keyboard or SongGesture.NoteMove or SongGesture.NoteResize:
                 StopAudition();

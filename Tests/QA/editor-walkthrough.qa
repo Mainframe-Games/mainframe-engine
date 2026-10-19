@@ -138,6 +138,23 @@ song adaptive-play
 wait 60
 capture 13e7-song-adaptive-playing
 song stop
+# A5: the Curves pane (Combat's volume over intensity, the Perc curve as a ghost) and a transition's popover; then the
+# song baked and played back in Baked mode, through the runtime's AdaptiveMusicInstance (what a game plays).
+song curve-select 1
+song rule-edit 0
+wait 10
+capture 13e8-song-curves-popover
+song rule-edit -1
+song save
+song bake
+wait-for bake 120
+wait 5
+song audition-mode baked
+song adaptive-play
+wait 60
+capture 13e9-song-baked-playing
+song stop
+song audition-mode live
 song browser off
 song stop
 song save

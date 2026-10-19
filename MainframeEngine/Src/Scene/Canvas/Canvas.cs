@@ -79,14 +79,14 @@ public sealed class Canvas
         _sortScratch.Clear();
         for (var i = 0; i < _roots.Count; i++)
             _sortScratch.Add((_roots[i], _roots[i].GetIndex(), i));
-        _sortScratch.Sort(RootOrder.Instance);
+        NoAllocSort.Sort(_sortScratch, RootOrder.Instance);
         _sorted.Clear();
         for (var i = 0; i < _sortScratch.Count; i++)
             _sorted.Add(_sortScratch[i].Item);
         return _sorted;
     }
 
-    // An IComparer singleton: List.Sort(Comparison) would allocate a wrapper every frame.
+    // A comparer singleton for NoAllocSort (List.Sort wraps any comparer in a new delegate: an allocation every frame).
     private sealed class RootOrder : IComparer<(CanvasItem Item, int Index, int Seq)>
     {
         public static readonly RootOrder Instance = new();

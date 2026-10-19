@@ -46,6 +46,17 @@ public abstract class SongCanvas : EditorCanvas
         return color;
     }
 
+    /// <summary>A colour by <c>#rrggbb</c> (cached), else the palette's at <paramref name="index"/>.</summary>
+    public static Vector4 ColorOf(string? hex, int index)
+    {
+        hex ??= Palette[index % Palette.Length];
+        if (Colors.TryGetValue(hex, out var color))
+            return color;
+        color = TryParse(hex, out var parsed) ? parsed : TryParse(Palette[index % Palette.Length], out var fallback) ? fallback : White;
+        Colors[hex] = color;
+        return color;
+    }
+
     private static bool TryParse(string hex, out Vector4 color)
     {
         color = default;
@@ -72,7 +83,7 @@ public abstract class SongCanvas : EditorCanvas
     }
 
     /// <summary>The playhead tick shown (the heard position).</summary>
-    protected double PlayheadTick => Tab.Player.PositionTicks;
+    protected double PlayheadTick => Tab.PlayheadTicks;
 }
 
 /// <summary>The arrangement: ruler (bar numbers, loop region, playhead), one lane per track with its clips.</summary>
@@ -288,6 +299,8 @@ public sealed class ArrangementCanvas : SongCanvas
         var state = player.AdaptiveState;
         var plan = state.Playing ? player.Plan : null;
         var current = plan is not null && (uint)state.Section < (uint)plan.Sections.Length ? plan.Sections[state.Section].Id : null;
+        if (Tab.AuditionBaked && Tab.Baked.Instance is { Playing: true } baked)
+            (current, plan) = (baked.CurrentSection, null); // the bake's section is outlined; its schedule is not drawn
 
         var ghost = c.SectionGhost;
         foreach (var section in adaptive.Sections)

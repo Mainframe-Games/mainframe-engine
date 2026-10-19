@@ -826,3 +826,16 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - Sections lane under the ruler (create/move/resize by bars, markers, menus), layer chips, the right panel's Adaptive
   tab (A), Shift+Space / T / Bake split button; golden `editor-music-adaptive` with the allocation gate (found and fixed
   the mixer meters' per-frame closure).
+
+### 2026-10-19 — Adaptive music A5: Curves pane, transition popover, Baked audition (ADR 0196)
+- **Curves pane** (`SongCurves`, `CurvesCanvas`): a third bottom pane showing a layer's volume or cutoff over a
+  parameter, with ghosts and the current-value line. Point drags (Shift: one axis) are one entry each; double-click adds
+  or removes a point; right-click picks the shape. Layers get **+ Curve**.
+- **Transition popover:** an inline editor under the rule row covering from (any/several), to, all/any conditions,
+  quantize/every, entry, fades, segment and stinger.
+- **Live | Baked** (`BakedAudition`): plays the last `.mmusic` through `AdaptiveMusicInstance` on the editor's
+  `AudioServer`; the panel, lane and playhead follow the instance.
+- **Tests:** `AdaptiveA5Tests`, including an end-to-end bake → runtime playback on a null device.
+- **Golden:** `editor-music-curves` (both drivers). Its allocation gate found `Canvas.SortedRoots`' `List.Sort(IComparer)`
+  allocating a delegate per frame with two root items, so the engine now has `NoAllocSort`.
+- **Next:** A6 (editor link v5 Target menu, dev overlay Music panel, Demo scene, README/landing).

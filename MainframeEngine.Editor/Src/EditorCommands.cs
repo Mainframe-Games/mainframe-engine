@@ -303,6 +303,7 @@ public sealed class EditorCommands
                 return true;
             case "song.piano_roll": _workspace.ToggleMusicPane(SongBottomPanel.PianoRoll); return true;
             case "song.mixer": _workspace.ToggleMusicPane(SongBottomPanel.Mixer); return true;
+            case "song.curves": _workspace.ToggleMusicPane(SongBottomPanel.Curves); return true;
             case "song.hide_pane": _workspace.SetMusicPane(SongBottomPanel.None); return true;
             case "song.mute_track":
                 if (song.SelectedTrack is { } muted && !song.Document.IsReadOnly)
@@ -1353,6 +1354,7 @@ public sealed class EditorCommands
             [
                 new MenuItem("Piano Roll", "song.piano_roll", "P", tab, Css: song?.Panel == SongBottomPanel.PianoRoll ? "current" : null, Icon: "piano"),
                 new MenuItem("Mixer", "song.mixer", "X", tab, Css: song?.Panel == SongBottomPanel.Mixer ? "current" : null, Icon: "adjustments-alt"),
+                new MenuItem("Curves", "song.curves", null, song?.Document.Song.Adaptive is not null, Css: song?.Panel == SongBottomPanel.Curves ? "current" : null, Icon: "wave-sine"),
                 new MenuItem("Hide Editor", "song.hide_pane", null, tab && song!.Panel != SongBottomPanel.None, Icon: "layout-bottombar"),
                 new MenuItem("Browser", "music.browser", "F", Css: _workspace.Layout.Settings is { MusicShowBrowser: true, MusicAdaptiveTab: false } ? "current" : null, Icon: "layout-sidebar-right"),
                 new MenuItem("Adaptive", "music.adaptive", "A", Css: _workspace.Layout.Settings is { MusicShowBrowser: true, MusicAdaptiveTab: true } ? "current" : null, Icon: "stack-2"),

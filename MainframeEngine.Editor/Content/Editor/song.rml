@@ -140,13 +140,16 @@
                    border: 1dp #3b3f4b; color: #c3c9d6; font-size: 10.5dp; white-space: nowrap; cursor: pointer; }
         .ad-chip:hover { border-color: #6b7488; color: #ffffff; }
         .ad-chip.active { background-color: #1e3a5f; border-color: #3b82f6; color: #ffffff; }
+        .ad-chip.disabled { opacity: 0.4; cursor: default; }
+        .ad-field .ad-chips { flex: 1 1 auto; margin-top: 0dp; }
+        .ad-field input.text.ad-num, .ad-chips input.text.ad-num { flex: 0 0 52dp; width: 52dp; margin: 1dp 3dp 1dp 0dp; }
         .ad-slider { display: block; position: relative; margin-top: 3dp; }
         .ad-slider input.range { width: 100%; }
         .ad-ghost { display: block; position: absolute; top: 2dp; width: 3dp; height: 12dp; margin-left: -1dp; background-color: #fbbf24; pointer-events: none; }
         .ad-ghost.hidden { display: none; }
         .ad-edit { display: block; margin-top: 4dp; padding-top: 4dp; border-top: 1dp #2f333d; }
         .ad-field { display: flex; flex-direction: row; align-items: center; margin: 2dp 0dp; }
-        .ad-field span { width: 54dp; color: #8b93a5; font-size: 10.5dp; }
+        .ad-field > span { flex: 0 0 54dp; width: 54dp; color: #8b93a5; font-size: 10.5dp; }
         .ad-field input.text { flex: 1 1 auto; width: 60dp; }
         .ad-swatch { display: block; width: 10dp; height: 10dp; border-radius: 5dp; margin-right: 6dp; cursor: pointer; }
         .ad-meter { display: block; position: relative; flex: 0 0 70dp; width: 70dp; height: 6dp; margin-right: 6dp; background-color: #121418; border: 1dp #2f333d; }
@@ -248,12 +251,13 @@
     <div id="song-switcher" data-class-hidden="!pane_open">
         <div id="song-show-roll" class="switch" data-class-active="panel_roll" data-event-click="panel(0)" data-tooltip="Piano Roll (P) — the notes of the selected MIDI clip"><span class="icon icon-sm icon-piano"></span><span>Piano roll</span></div>
         <div id="song-show-mixer" class="switch" data-class-active="panel_mixer" data-event-click="panel(1)" data-tooltip="Mixer (X) — instrument, inserts, pan, volume and meters of every track"><span class="icon icon-sm icon-adjustments-alt"></span><span>Mixer</span></div>
+        <div id="song-show-curves" class="switch" data-if="adaptive" data-class-active="panel_curves" data-event-click="panel(2)" data-tooltip="Curves (View › Curves) — a layer's volume or filter over a parameter of an adaptive song"><span class="icon icon-sm icon-wave-sine"></span><span>Curves</span></div>
         <span class="grow"></span>
         <span class="clip-info">{{clip_info}}</span>
         <button id="song-hide-pane" class="tool-button small" data-command="song.hide_pane" data-tooltip="Hide Editor — the tracks fill the view (P or X shows it again)"><span class="icon icon-sm icon-x"></span></button>
     </div>
     <div id="song-bottom" data-class-hidden="!pane_open">
-        <div id="song-roll" class="canvas" data-class-hidden="!panel_roll"><img id="song-roll-image"/></div>
+        <div id="song-roll" class="canvas" data-class-hidden="!panel_roll &amp;&amp; !panel_curves"><img id="song-roll-image"/></div>
         <div id="song-mixer" data-class-hidden="!panel_mixer">
             <div class="strip" data-for="row : rows" data-attr-data-drop="'strip:' + row.index" data-class-selected="row.selected" data-event-mousedown="select(row.index)">
                 <div class="strip-color" data-style-background-color="row.color"></div>

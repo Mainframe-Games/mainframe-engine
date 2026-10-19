@@ -27,6 +27,8 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
     private int _signature;
     private bool _built;
     private int _editParam = -1;
+    private int _editRule = -1;
+    private bool _bakedAvailable;
     private int _auditionVersion;
     private string _bakeText = "";
     private MusicPlan? _plan;
@@ -41,10 +43,21 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
     private int[] _shownMeter = [];
     private int[] _shownGhost = [];
     private int[] _meterLayer = [];   // the plan layer of each meter row
+    private string[] _meterLayerId = []; // its layer id (the baked plan's index is looked up by it)
     private int[] _ghostParam = [];   // the parameter of each ghost (continuous parameters)
 
     /// <summary>The parameter whose inline editor is open, or −1.</summary>
     public int EditingParameter => _editParam;
+
+    /// <summary>The transition whose editor (the popover) is open, or −1.</summary>
+    public int EditingTransition => _editRule;
+
+    /// <summary>Opens (or, with −1, closes) transition <paramref name="index"/>'s editor.</summary>
+    public void EditTransition(int index)
+    {
+        _editRule = index;
+        _built = false;
+    }
 
     /// <summary>The song panel's document (re)loaded.</summary>
     public void Attach(RmlDocument document)
@@ -64,6 +77,7 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
             _tab = tab;
             _built = false;
             _editParam = -1;
+            _editRule = -1;
         }
 
         var signature = Signature(tab);
@@ -89,7 +103,10 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
         hash.Add(tab.ViewVersion);
         hash.Add(tab.Document.IsReadOnly);
         hash.Add(state.Playing);
+        hash.Add(tab.IsPlayingAdaptive);
+        hash.Add(tab.AuditionBaked);
         hash.Add(_editParam);
+        hash.Add(_editRule);
         hash.Add(_auditionVersion);
         hash.Add(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(tab.Player.Plan));
         hash.Add(workspace.SongView.BakeOf(tab.Document.FilePath ?? "") is { } job ? (int)(job.Progress * 100) : -1);
@@ -132,7 +149,7 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
         BuildNow(sb, tab, adaptive);
         BuildParameters(sb, tab, adaptive, editable);
         BuildLayers(sb, tab, song, adaptive, editable);
-        BuildTransitions(sb, adaptive, editable);
+        BuildTransitions(sb, adaptive, editable, _editRule);
         BuildStingers(sb, tab, adaptive, editable);
         BuildProblems(sb, song);
         root.SetInnerRml(sb.ToString());
@@ -158,13 +175,18 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
 
     private void BuildNow(StringBuilder sb, SongTab tab, SongAdaptive adaptive)
     {
-        var playing = tab.Player.AdaptiveState.Playing;
+        var playing = tab.IsPlayingAdaptive;
+        _bakedAvailable = tab.Baked.Available(tab.Document);
         sb.Append("<div class=\"ad-section\"><div class=\"ad-head\"><span>Now</span><span class=\"grow\"></span>")
             .Append("<button class=\"tool-button small").Append(playing ? " active" : "").Append("\" data-ad=\"play\" data-tooltip=\"")
             .Append(playing ? "Stop (Space or Shift+Space)" : "Play Adaptive (Shift+Space) — from the start section with these parameter values; Alt+Shift+Space from the section under the playhead")
             .Append("\"><span class=\"icon icon-sm icon-").Append(playing ? "player-stop" : "player-track-next").Append("\"></span></button>")
             .Append("<button class=\"tool-button small\" data-ad=\"timeline\" data-tooltip=\"Make Timeline Song — removes the sections, parameters, layers and transitions (Ctrl/Cmd+Z brings them back)\"><span class=\"icon icon-sm icon-trash\"></span></button>")
-            .Append("</div><div class=\"ad-now\"><span id=\"ad-now\" class=\"mono\">")
+            .Append("</div><div class=\"ad-chips\"><div class=\"ad-chip").Append(tab.AuditionBaked ? "" : " active")
+            .Append("\" data-ad=\"mode\" data-j=\"0\" data-tooltip=\"Live — the song as it is now, through the editor's engine and plugins: edits are heard at once\">Live</div><div class=\"ad-chip")
+            .Append(tab.AuditionBaked ? " active" : "").Append(_bakedAvailable ? "" : " disabled").Append("\" data-ad=\"mode\" data-j=\"1\" data-tooltip=\"")
+            .Append(_bakedAvailable ? "Baked — the last bake's stems through the runtime player, exactly what the game plays" : "Baked — bake the song first (Ctrl+B)")
+            .Append("\">Baked</div></div><div class=\"ad-now\"><span id=\"ad-now\" class=\"mono\">")
             .Append(playing ? "" : "Stopped").Append("</span></div><div id=\"ad-pending\" class=\"ad-pending\"></div>");
         sb.Append("<div class=\"ad-bake\"><span class=\"grow\">").Append(RmlText.Escape(BakeText(tab))).Append("</span>")
             .Append("<button class=\"text-button\" data-ad=\"bake\" data-tooltip=\"Bake (Ctrl+B) — the stems and the .mmusic manifest the game plays\">Bake</button></div>");
@@ -295,6 +317,7 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
             sb.Append("<button class=\"tool-button small\" data-ad=\"layer-add\" data-tooltip=\"Add Layer — tracks in a layer bake to one stem per section; curves set its volume\"><span class=\"icon icon-sm icon-plus\"></span></button>");
         sb.Append("</div>");
         var meters = new List<int>();
+        var meterIds = new List<string>();
         var plan = _plan!;
         if (SongAdaptiveCompiler.NeedsMainLayer(song))
         {
@@ -322,14 +345,21 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
             sb.Append("</div><div class=\"ad-line ad-wrap\"><div class=\"ad-meter\" data-tooltip=\"The layer's gain now (its curves at the parameters' values)\"><div class=\"ad-meter-fill\" id=\"ad-lm-")
                 .Append(meters.Count.ToString(CultureInfo.InvariantCulture)).Append("\"></div></div>");
             meters.Add(planIndex);
-            foreach (var curve in adaptive.Curves)
+            meterIds.Add(layer.Id);
+            for (var c = 0; c < adaptive.Curves.Count; c++)
             {
+                var curve = adaptive.Curves[c];
                 if (curve.Layer != layer.Id)
                     continue;
-                sb.Append("<span class=\"ad-curve\" data-tooltip=\"A curve: the layer's ").Append(curve.Target == MusicCurveTarget.Volume ? "volume" : "filter cutoff")
-                    .Append(" over the parameter\">").Append(curve.Target == MusicCurveTarget.Volume ? "vol" : "cutoff").Append(" by ")
-                    .Append(RmlText.Escape(curve.Parameter)).Append("</span>");
+                sb.Append("<div class=\"ad-chip ad-curve").Append(ReferenceEquals(curve, tab.SelectedCurve) ? " active" : "").Append("\" data-ad=\"curve-open\" data-i=\"")
+                    .Append(c.ToString(CultureInfo.InvariantCulture)).Append("\" data-tooltip=\"Edit in the Curves pane: the layer's ")
+                    .Append(curve.Target == MusicCurveTarget.Volume ? "volume" : "filter cutoff").Append(" over the parameter\">")
+                    .Append(curve.Target == MusicCurveTarget.Volume ? "vol" : "cutoff").Append(" by ").Append(RmlText.Escape(curve.Parameter)).Append("</div>");
             }
+
+            if (editable && adaptive.Parameters.Count > 0)
+                sb.Append("<div class=\"ad-chip\" data-ad=\"curve-add\" data-i=\"").Append(n)
+                    .Append("\" data-tooltip=\"+ Curve — the layer's volume (or, with a filter, its cutoff) over a parameter\">+ Curve</div>");
 
             sb.Append("</div></div>");
         }
@@ -338,13 +368,14 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
             sb.Append("<div class=\"ad-note\">Every track plays in Main. Add layers and pick them on the track headers' chips to mix them by parameter.</div>");
         sb.Append("</div>");
         _meterLayer = [.. meters];
+        _meterLayerId = [.. meterIds];
         _shownMeter = new int[_meterLayer.Length];
         Array.Fill(_shownMeter, -1);
     }
 
     private static string Tracks(int count) => count == 1 ? "1 track" : count.ToString(CultureInfo.InvariantCulture) + " tracks";
 
-    private static void BuildTransitions(StringBuilder sb, SongAdaptive adaptive, bool editable)
+    private static void BuildTransitions(StringBuilder sb, SongAdaptive adaptive, bool editable, int editing)
     {
         sb.Append("<div class=\"ad-section\"><div class=\"ad-head\"><span>Transitions</span><span class=\"grow\"></span>");
         if (editable)
@@ -362,6 +393,8 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
                 .Append("<span class=\"grow\"></span>");
             if (editable)
             {
+                sb.Append("<button class=\"tool-button small").Append(editing == k ? " active" : "").Append("\" data-ad=\"rule-edit\" data-i=\"").Append(n)
+                    .Append("\" data-tooltip=\"Edit — sources, conditions, timing, entry, fades, segment and stinger\"><span class=\"icon icon-sm icon-settings\"></span></button>");
                 sb.Append("<button class=\"tool-button small\" data-ad=\"rule-up\" data-i=\"").Append(n).Append("\" data-tooltip=\"Earlier: tried before the ones below\"><span class=\"icon icon-sm icon-arrow-up\"></span></button>")
                     .Append("<button class=\"tool-button small\" data-ad=\"rule-down\" data-i=\"").Append(n).Append("\" data-tooltip=\"Later\"><span class=\"icon icon-sm icon-arrow-down\"></span></button>")
                     .Append("<button class=\"tool-button small\" data-ad=\"rule-remove\" data-i=\"").Append(n).Append("\" data-tooltip=\"Remove the transition\"><span class=\"icon icon-sm icon-trash\"></span></button>");
@@ -370,11 +403,81 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
             sb.Append("</div><div class=\"ad-line ad-wrap\">").Append(Chip("rule-when", n, When(t), "When — the condition; without one it only fires from game code (GoToSection)"))
                 .Append(Chip("rule-quantize", n, QuantizeText(t.Quantize, t.Every), "Timing — where in the music it happens"))
                 .Append(Chip("rule-fade", n, FadeText(t.FadeOutBeats), "Fade — the outgoing music's fade after the boundary, in beats"))
-                .Append("</div></div>");
+                .Append("</div>");
+            if (editing == k && editable)
+                BuildRuleEditor(sb, adaptive, t, n);
+            sb.Append("</div>");
         }
 
         sb.Append("</div>");
     }
+
+    // The transition popover (A5): every setting of the rule, under its row.
+    private static void BuildRuleEditor(StringBuilder sb, SongAdaptive adaptive, MusicTransitionInfo t, string n)
+    {
+        sb.Append("<div class=\"ad-edit\"><div class=\"ad-field\"><span>From</span><div class=\"ad-chips\">")
+            .Append(Toggle("rule-from-toggle", n, -1, "any", t.From.Count == 0 || t.From.Contains(MusicPlan.AnySection), "From any section"));
+        for (var i = 0; i < adaptive.Sections.Count; i++)
+        {
+            var s = adaptive.Sections[i];
+            if (s.Kind == MusicSectionKind.Section)
+                sb.Append(Toggle("rule-from-toggle", n, i, s.Name, t.From.Contains(s.Id), "Leaves " + s.Name + " (click to add or remove it)"));
+        }
+
+        sb.Append("</div></div><div class=\"ad-field\"><span>To</span><div class=\"ad-chips\">");
+        for (var i = 0; i < adaptive.Sections.Count; i++)
+        {
+            var s = adaptive.Sections[i];
+            if (s.Kind == MusicSectionKind.Section)
+                sb.Append(Toggle("rule-to-set", n, i, s.Name, t.To == s.Id, "Goes to " + s.Name));
+        }
+
+        var any = t.When?.Any is { Count: > 0 } && t.When.All is not { Count: > 0 };
+        var conditions = (any ? t.When!.Any : t.When?.All) ?? [];
+        sb.Append("</div></div><div class=\"ad-field\"><span>When</span><div class=\"ad-chips\">")
+            .Append(Toggle("rule-mode", n, 0, "all of", !any, "Every condition must hold"))
+            .Append(Toggle("rule-mode", n, 1, "any of", any, "One condition is enough"))
+            .Append("<div class=\"ad-chip\" data-ad=\"cond-add\" data-i=\"").Append(n).Append("\" data-tooltip=\"Add a condition on a parameter\">+ Condition</div></div></div>");
+        for (var c = 0; c < conditions.Count; c++)
+        {
+            var cond = conditions[c];
+            var j = c.ToString(CultureInfo.InvariantCulture);
+            var p = adaptive.FindParameter(cond.Parameter);
+            sb.Append("<div class=\"ad-field\"><span></span><div class=\"ad-chips\">")
+                .Append(Chip2("cond-param", n, j, cond.Parameter, "The parameter")).Append(Chip2("cond-op", n, j, Op(cond.Op), "The comparison"));
+            if (p is { Kind: MusicParameterKind.Continuous })
+                sb.Append("<input type=\"text\" class=\"text ad-num\" value=\"").Append(Number(cond.Value.Number)).Append("\" data-ad-cond=\"").Append(n).Append(':').Append(j)
+                    .Append("\" data-tooltip=\"The value\"/>");
+            else
+                sb.Append(Chip2("cond-value", n, j, cond.Value.Label ?? Number(cond.Value.Number), "The value"));
+            sb.Append("<button class=\"tool-button small\" data-ad=\"cond-remove\" data-i=\"").Append(n).Append("\" data-j=\"").Append(j)
+                .Append("\" data-tooltip=\"Remove the condition\"><span class=\"icon icon-sm icon-x\"></span></button></div></div>");
+        }
+
+        sb.Append("<div class=\"ad-field\"><span>Timing</span><div class=\"ad-chips\">")
+            .Append(Chip("rule-quantize", n, QuantizeText(t.Quantize, t.Every), "Where in the music it happens"));
+        if (t.Quantize == MusicQuantize.Bars)
+            sb.Append("<input type=\"text\" class=\"text ad-num\" value=\"").Append((t.Every ?? 1).ToString(CultureInfo.InvariantCulture))
+                .Append("\" data-ad-rule=\"").Append(n).Append(":every\" data-tooltip=\"Every how many bars from the section's start\"/>");
+        sb.Append("</div></div><div class=\"ad-field\"><span>Entry</span><div class=\"ad-chips\">")
+            .Append(Toggle("rule-entry", n, 0, "at its start", t.Entry == MusicEntry.Start, "The destination plays from its start"))
+            .Append(Toggle("rule-entry", n, 1, "in sync", t.Entry == MusicEntry.Sync, "The destination plays from the same point into it (parallel arrangements)"))
+            .Append("</div></div><div class=\"ad-field\"><span>Fades</span><div class=\"ad-chips\">")
+            .Append(Chip("rule-fade", n, "out: " + FadeText(t.FadeOutBeats), "The outgoing music's fade after the boundary"))
+            .Append(Chip("rule-fadein", n, "in: " + (t.FadeInBeats is { } fin and > 0 ? string.Create(CultureInfo.InvariantCulture, $"{fin:0.##} beats") : "none"),
+                "The incoming music's fade-in"))
+            .Append("</div></div><div class=\"ad-field\"><span>Between</span><div class=\"ad-chips\">")
+            .Append(Chip("rule-segment", n, "segment: " + (adaptive.FindSection(t.Segment)?.Name ?? "none"), "A transition segment played once in between"))
+            .Append(Chip("rule-stinger", n, "stinger: " + (adaptive.FindSection(t.Stinger)?.Name ?? "none"), "A stinger fired at the boundary"))
+            .Append("</div></div></div>");
+    }
+
+    private static string Toggle(string action, string n, int j, string text, bool active, string tooltip) =>
+        "<div class=\"ad-chip" + (active ? " active" : "") + "\" data-ad=\"" + action + "\" data-i=\"" + n + "\" data-j=\"" + j.ToString(CultureInfo.InvariantCulture) +
+        "\" data-tooltip=\"" + RmlText.Escape(tooltip) + "\">" + RmlText.Escape(text) + "</div>";
+
+    private static string Chip2(string action, string n, string j, string text, string tooltip) =>
+        "<div class=\"ad-chip\" data-ad=\"" + action + "\" data-i=\"" + n + "\" data-j=\"" + j + "\" data-tooltip=\"" + tooltip + "\">" + RmlText.Escape(text) + "</div>";
 
     private static string Chip(string action, string n, string text, string tooltip) =>
         "<div class=\"ad-chip\" data-ad=\"" + action + "\" data-i=\"" + n + "\" data-tooltip=\"" + tooltip + "\">" + RmlText.Escape(text) + "</div>";
@@ -425,7 +528,7 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
     private static void BuildStingers(StringBuilder sb, SongTab tab, SongAdaptive adaptive, bool editable)
     {
         var any = false;
-        var playing = tab.Player.AdaptiveState.Playing;
+        var playing = tab.IsPlayingAdaptive;
         for (var i = 0; i < adaptive.Sections.Count; i++)
         {
             var s = adaptive.Sections[i];
@@ -476,6 +579,12 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
     {
         if (tab.Document.Song.Adaptive is not { } adaptive || _plan is not { } plan || _params is not { } parameters)
             return;
+        if (tab.AuditionBaked && tab.Baked.Instance is { Playing: true, Director: { } director } instance)
+        {
+            TickBaked(adaptive, instance, director);
+            return;
+        }
+
         var state = tab.Player.AdaptiveState;
         var engine = tab.Player.Engine;
         var livePlan = tab.Player.Plan;
@@ -564,6 +673,70 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
         }
     }
 
+    // Baked mode: the runtime instance's state (its own plan: indices by id).
+    private void TickBaked(SongAdaptive adaptive, AdaptiveMusicInstance instance, MusicDirector director)
+    {
+        var plan = director.Plan;
+        var position = instance.GetPosition();
+        var section = director.CurrentSection;
+        var nowKey = (uint)section < (uint)plan.Sections.Length ? Key(section, position.Bar * 64L + position.Beat) : -1;
+        if (nowKey != _shownNow)
+        {
+            _shownNow = nowKey;
+            if (_document.GetElementById("ad-now") is { IsNull: false } now)
+                now.SetInnerRml(nowKey < 0 ? "" : RmlText.Escape(string.Create(CultureInfo.InvariantCulture,
+                    $"{plan.Sections[section].Name} · bar {position.Bar}.{position.Beat} · baked")));
+        }
+
+        var pending = director.PendingSection;
+        var pendingKey = (uint)pending < (uint)plan.Sections.Length ? Key(pending, 0) : -1;
+        if (pendingKey != _shownPending)
+        {
+            _shownPending = pendingKey;
+            if (_document.GetElementById("ad-pending") is { IsNull: false } next)
+                next.SetInnerRml(pendingKey < 0 ? "" : RmlText.Escape("Next: " + plan.Sections[pending].Name));
+        }
+
+        Span<char> id = stackalloc char[16];
+        for (var m = 0; m < _meterLayer.Length && m < _meterLayerId.Length; m++)
+        {
+            var layer = plan.FindLayer(_meterLayerId[m]);
+            var db = layer >= 0 ? director.LayerGainDb(layer) : -80f;
+            var level = (int)MathF.Round(Math.Clamp((db + 60f) / 66f, 0, 1) * 100);
+            if (level == _shownMeter[m])
+                continue;
+            _shownMeter[m] = level;
+            if (_document.GetElementById(ElementId(id, "ad-lm-", m)) is { IsNull: false } fill)
+                fill.SetProperty("width", Percent[level]);
+        }
+
+        for (var g = 0; g < _ghostParam.Length; g++)
+        {
+            var p = _ghostParam[g];
+            if (p >= adaptive.Parameters.Count)
+                continue;
+            var info = adaptive.Parameters[p];
+            var at = (int)MathF.Round(Math.Clamp((instance.GetParameter(info.Name) - info.Min) / Math.Max(1e-6f, info.Max - info.Min), 0, 1) * 100);
+            if (at == _shownGhost[g])
+                continue;
+            _shownGhost[g] = at;
+            if (_document.GetElementById(ElementId(id, "ad-pg-", p)) is not { IsNull: false } ghost)
+                continue;
+            ghost.SetClass("hidden", false);
+            ghost.SetProperty("left", Percent[at]);
+        }
+
+        var rule = (uint)section < (uint)plan.Sections.Length ? plan.FirstMatchingRule(section, director.Parameters)?.Index ?? -1 : -1;
+        if (rule != _shownRule)
+        {
+            if (_shownRule >= 0 && _document.GetElementById(ElementId(id, "ad-rule-", _shownRule)) is { IsNull: false } previous)
+                previous.SetClass("firing", false);
+            _shownRule = rule;
+            if (rule >= 0 && _document.GetElementById(ElementId(id, "ad-rule-", rule)) is { IsNull: false } firing)
+                firing.SetClass("firing", true);
+        }
+    }
+
     private static long Key(long a, long b) => a * 1_000_000_000L + b;
 
     // "{kind}{index}" in the buffer (no allocation).
@@ -585,8 +758,7 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
             value = Math.Clamp(value, 0, Math.Max(0, (p.Labels?.Count ?? 1) - 1));
         else if (p.Kind == MusicParameterKind.Discrete)
             value = Math.Clamp(value, p.Min, p.Max);
-        tab.Auditions[p.Name] = value;
-        tab.Player.SetParameter(p.Name, value);
+        tab.SetAudition(p.Name, value);
         _auditionVersion++;
     }
 
@@ -619,6 +791,25 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
                     tab.PlayAdaptive(fromPlayhead: false);
                     _built = false;
                     break;
+                case "mode":
+                    tab.SetAuditionBaked(j == 1);
+                    break;
+                case "curve-open" when adaptive is not null && (uint)i < (uint)adaptive.Curves.Count:
+                    tab.SelectCurve(adaptive.Curves[i]);
+                    workspace.SetMusicPane(SongBottomPanel.Curves);
+                    break;
+                case "curve-add" when editable && Layer(adaptive, i) is { } curved:
+                    CurveMenu(tab, adaptive!, curved, element);
+                    break;
+                case "rule-edit":
+                    _editRule = _editRule == i ? -1 : i;
+                    break;
+                case "rule-from-toggle" or "rule-to-set" or "rule-mode" or "rule-entry" or "cond-add" or "cond-remove" when editable && Rule(adaptive, i) is { } edited:
+                    EditRule(doc, adaptive!, edited, action, j);
+                    break;
+                case "cond-param" or "cond-op" or "cond-value" or "rule-fadein" or "rule-segment" or "rule-stinger" when editable && Rule(adaptive, i) is { } menued:
+                    RuleDetailMenu(doc, adaptive!, menued, action, j, element);
+                    break;
                 case "bake":
                     workspace.Commands.Execute("song.bake");
                     break;
@@ -627,9 +818,9 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
                     _editParam = adaptive.Parameters.IndexOf(added);
                     break;
                 case "param-reset" when adaptive is not null:
-                    tab.Auditions.Clear();
                     foreach (var p in adaptive.Parameters)
-                        tab.Player.SetParameter(p.Name, p.Default);
+                        tab.SetAudition(p.Name, p.Default);
+                    tab.Auditions.Clear();
                     _auditionVersion++;
                     break;
                 case "param-edit":
@@ -690,7 +881,7 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
                     RuleMenu(doc, adaptive!, rule, action, element);
                     break;
                 case "stinger-fire" when adaptive is not null && i >= 0 && i < adaptive.Sections.Count:
-                    tab.Player.TriggerStinger(adaptive.Sections[i].Id);
+                    tab.TriggerStinger(adaptive.Sections[i].Id);
                     break;
                 case "stinger-quantize" or "stinger-pickup" when editable && adaptive is not null && i >= 0 && i < adaptive.Sections.Count:
                     StingerMenu(doc, adaptive.Sections[i], action == "stinger-quantize", element);
@@ -721,11 +912,42 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
         {
             if (float.TryParse(e.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
             {
-                tab.Auditions[p.Name] = value;
-                tab.Player.SetParameter(p.Name, value);
+                tab.SetAudition(p.Name, value);
                 _params?.SetTarget(p.Name, value, immediate: true); // the meters and the matching rule follow at once
                 if (_document.GetElementById("ad-pv-" + param) is { IsNull: false } shown)
                     shown.SetInnerRml(RmlText.Escape(ValueText(p, value)));
+            }
+
+            return true;
+        }
+
+        if ((target.GetAttribute("data-ad-cond") ?? target.GetAttribute("data-ad-rule")) is { } spec && !tab.Document.IsReadOnly)
+        {
+            var colon = spec.IndexOf(':', StringComparison.Ordinal);
+            if (colon > 0 && Rule(adaptive, ParseInt(spec[..colon])) is { } rule &&
+                float.TryParse(e.Value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var entered) && float.IsFinite(entered))
+            {
+                var what = spec[(colon + 1)..];
+                try
+                {
+                    tab.Document.EditTransition(rule, t =>
+                    {
+                        if (what == "every")
+                        {
+                            t.Every = Math.Max(1, (int)entered);
+                            return;
+                        }
+
+                        var list = Conditions(t);
+                        var c = ParseInt(what);
+                        if ((uint)c < (uint)list.Count)
+                            list[c].Value = new MusicValue(entered);
+                    });
+                }
+                catch (Exception ex) when (EditorCommands.IsRecoverable(ex))
+                {
+                    workspace.Commands.ReportError("Could not edit the transition", ex);
+                }
             }
 
             return true;
@@ -907,6 +1129,169 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
                         break;
                 }
             });
+        });
+    }
+
+    // The rule's comparison list (All, or Any when the rule uses any-of), made when missing.
+    private static List<MusicComparison> Conditions(MusicTransitionInfo t)
+    {
+        var group = t.When ??= new MusicConditionGroup();
+        if (group.Any is { Count: > 0 } && group.All is not { Count: > 0 })
+            return group.Any;
+        return group.All ??= [];
+    }
+
+    private static MusicComparison NewComparison(MusicParameterInfo p) => p.Kind switch
+    {
+        MusicParameterKind.Labeled => new MusicComparison { Parameter = p.Name, Op = MusicCompare.Equal, Value = new MusicValue(p.Labels is { Count: > 0 } l ? l[0] : "") },
+        MusicParameterKind.Discrete => new MusicComparison { Parameter = p.Name, Op = MusicCompare.Equal, Value = new MusicValue(p.Min) },
+        _ => new MusicComparison { Parameter = p.Name, Op = MusicCompare.GreaterOrEqual, Value = new MusicValue((p.Min + p.Max) / 2) },
+    };
+
+    // The popover's chips that act at once: sources, destination, all/any, entry, conditions added or removed.
+    internal static void EditRule(SongDocument doc, SongAdaptive adaptive, MusicTransitionInfo rule, string action, int j)
+    {
+        var section = (uint)j < (uint)adaptive.Sections.Count ? adaptive.Sections[j].Id : null;
+        doc.EditTransition(rule, t =>
+        {
+            switch (action)
+            {
+                case "rule-from-toggle" when section is null:
+                    t.From = [MusicPlan.AnySection];
+                    break;
+                case "rule-from-toggle":
+                    var from = t.From.Contains(MusicPlan.AnySection) ? [] : new List<string>(t.From);
+                    if (!from.Remove(section))
+                        from.Add(section);
+                    t.From = from.Count == 0 ? [MusicPlan.AnySection] : from;
+                    break;
+                case "rule-to-set" when section is not null:
+                    t.To = section;
+                    break;
+                case "rule-mode":
+                    var list = Conditions(t);
+                    t.When = j == 1 ? new MusicConditionGroup { Any = list } : new MusicConditionGroup { All = list };
+                    break;
+                case "rule-entry":
+                    t.Entry = j == 1 ? MusicEntry.Sync : MusicEntry.Start;
+                    break;
+                case "cond-add" when adaptive.Parameters.Count > 0:
+                    Conditions(t).Add(NewComparison(adaptive.Parameters[0]));
+                    break;
+                case "cond-remove":
+                    var conditions = Conditions(t);
+                    if ((uint)j < (uint)conditions.Count)
+                        conditions.RemoveAt(j);
+                    if (conditions.Count == 0)
+                        t.When = null;
+                    break;
+            }
+        });
+    }
+
+    // The popover's chips that open a menu: a condition's parameter, comparison or value; the fade-in, segment, stinger.
+    private void RuleDetailMenu(SongDocument doc, SongAdaptive adaptive, MusicTransitionInfo rule, string action, int j, RmlElement anchor)
+    {
+        var conditions = rule.When?.Any is { Count: > 0 } && rule.When.All is not { Count: > 0 } ? rule.When.Any : rule.When?.All;
+        var cond = conditions is not null && (uint)j < (uint)conditions.Count ? conditions[j] : null;
+        var items = new List<MenuItem>();
+        switch (action)
+        {
+            case "cond-param":
+                foreach (var p in adaptive.Parameters)
+                    items.Add(new MenuItem(p.Name, p.Name, Css: cond?.Parameter == p.Name ? "current" : null));
+                break;
+            case "cond-op":
+                var labeled = adaptive.FindParameter(cond?.Parameter)?.Kind == MusicParameterKind.Labeled;
+                foreach (var op in Enum.GetValues<MusicCompare>())
+                {
+                    if (!labeled || op is MusicCompare.Equal or MusicCompare.NotEqual)
+                        items.Add(new MenuItem(Op(op), ((int)op).ToString(CultureInfo.InvariantCulture), Css: cond?.Op == op ? "current" : null));
+                }
+
+                break;
+            case "cond-value" when adaptive.FindParameter(cond?.Parameter) is { } vp:
+                if (vp.Kind == MusicParameterKind.Labeled)
+                {
+                    foreach (var label in vp.Labels ?? [])
+                        items.Add(new MenuItem(label, "L" + label, Css: cond?.Value.Label == label ? "current" : null));
+                }
+                else
+                {
+                    for (var v = (int)vp.Min; v <= (int)vp.Max && v - (int)vp.Min < 32; v++)
+                        items.Add(new MenuItem(v.ToString(CultureInfo.InvariantCulture), "N" + v.ToString(CultureInfo.InvariantCulture)));
+                }
+
+                break;
+            case "rule-fadein":
+                foreach (var f in FadeChoices)
+                    items.Add(new MenuItem(f == "0" ? "No fade-in" : $"Fade in {f} beats", f));
+                break;
+            case "rule-segment" or "rule-stinger":
+                var kind = action == "rule-segment" ? MusicSectionKind.Transition : MusicSectionKind.Stinger;
+                items.Add(new MenuItem("None", "-", Css: (action == "rule-segment" ? rule.Segment : rule.Stinger) is null ? "current" : null));
+                foreach (var s in adaptive.Sections)
+                {
+                    if (s.Kind == kind)
+                        items.Add(new MenuItem(s.Name, s.Id, Css: (action == "rule-segment" ? rule.Segment : rule.Stinger) == s.Id ? "current" : null));
+                }
+
+                if (items.Count == 1)
+                    items.Add(new MenuItem(kind == MusicSectionKind.Transition ? "No transition segments: set a section's kind in the Sections lane" : "No stingers yet", null, Enabled: false));
+                break;
+        }
+
+        Show(items, anchor, command =>
+        {
+            if (!adaptive.Transitions.Contains(rule))
+                return;
+            doc.EditTransition(rule, t =>
+            {
+                var list = Conditions(t);
+                var c = (uint)j < (uint)list.Count ? list[j] : null;
+                switch (action)
+                {
+                    case "cond-param" when c is not null && adaptive.FindParameter(command) is { } p:
+                        list[j] = NewComparison(p);
+                        break;
+                    case "cond-op" when c is not null:
+                        c.Op = (MusicCompare)ParseInt(command);
+                        break;
+                    case "cond-value" when c is not null:
+                        c.Value = command[0] == 'L' ? new MusicValue(command[1..]) : new MusicValue(ParseInt(command[1..]));
+                        break;
+                    case "rule-fadein":
+                        t.FadeInBeats = float.Parse(command, CultureInfo.InvariantCulture);
+                        break;
+                    case "rule-segment":
+                        t.Segment = command == "-" ? null : command;
+                        break;
+                    case "rule-stinger":
+                        t.Stinger = command == "-" ? null : command;
+                        break;
+                }
+            });
+        });
+    }
+
+    // + Curve: the layer's volume (or, with a filter, its cutoff) over one of the parameters; then it opens in the Curves pane.
+    private void CurveMenu(SongTab tab, SongAdaptive adaptive, SongLayer layer, RmlElement anchor)
+    {
+        var items = new List<MenuItem>();
+        foreach (var p in adaptive.Parameters)
+        {
+            items.Add(new MenuItem("Volume over " + p.Name, "v" + p.Name, Icon: "wave-sine"));
+            if (layer.Filter != MusicLayerFilter.None)
+                items.Add(new MenuItem("Cutoff over " + p.Name, "c" + p.Name, Icon: "filter"));
+        }
+
+        Show(items, anchor, command =>
+        {
+            if (adaptive.FindParameter(command[1..]) is not { } p || !adaptive.Layers.Contains(layer))
+                return;
+            var curve = tab.Document.AddCurve(SongCurves.NewCurve(layer.Id, command[0] == 'c' ? MusicCurveTarget.Cutoff : MusicCurveTarget.Volume, p));
+            tab.SelectCurve(curve);
+            workspace.SetMusicPane(SongBottomPanel.Curves);
         });
     }
 
