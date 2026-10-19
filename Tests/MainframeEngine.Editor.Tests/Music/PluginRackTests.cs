@@ -1,4 +1,5 @@
 using MainframeEngine.Editor.Music;
+using MainframeEngine.Tests;
 using static MainframeEngine.Editor.Tests.Music.MusicTestUtil;
 
 namespace MainframeEngine.Editor.Tests.Music;
@@ -225,10 +226,12 @@ public sealed class PluginRackTests : IDisposable
         var block = new float[SongEngine.BlockFrames * 2];
         for (var i = 0; i < 8; i++)
             engine.Process(block); // warm up (delay rings, first calls)
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 64; i++)
-            engine.Process(block);
-        // The fake host itself does not allocate per block either; the rack and engine must not.
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        // The fake host itself does not allocate per block either; the rack and engine must not. AllocationGate: this
+        // class runs alongside other test threads, where a window once reported 560 B on CI that a repeat does not.
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+        {
+            for (var i = 0; i < 64; i++)
+                engine.Process(block);
+        }));
     }
 }
