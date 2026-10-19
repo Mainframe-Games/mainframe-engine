@@ -1,6 +1,7 @@
 using System.Numerics;
 using MainframeEngine.Audio.Music;
 using MainframeEngine.Editor.Music;
+using MainframeEngine.Tests;
 using static MainframeEngine.Editor.Tests.Music.MusicTestUtil;
 
 namespace MainframeEngine.Editor.Tests.Music.Adaptive;
@@ -179,14 +180,16 @@ public sealed class TransitionPopoverTests
             canvas.ViewSize = new Vector2(900, 300);
             for (var i = 0; i < 3; i++)
                 canvas.RunDraw();
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            for (var i = 0; i < 20; i++)
-                canvas.RunDraw();
-            Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            // AllocationGate: a window occasionally reports a few KB (under one 8 KB allocation quantum) that the draw
+            // does not allocate (probed per section: 0 B), and only in a full suite run; a real per-frame allocation
+            // repeats in every window and still fails.
+            Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+            {
+                for (var i = 0; i < 20; i++)
+                    canvas.RunDraw();
+            }));
             editor.Tick(30);
-            before = GC.GetAllocatedBytesForCurrentThread();
-            editor.Tick(60);
-            Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            Assert.Equal(0, AllocationGate.SmallestWindow(() => editor.Tick(60)));
         }
     }
 }

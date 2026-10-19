@@ -19,6 +19,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- The engine tests' 0-byte gate helper (smallest of up to three steady-state windows), shared rather than copied. -->
+  <ItemGroup>
+    <Compile Include="..\MainframeEngine.Tests\AllocationGate.cs" Link="AllocationGate.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\MainframeEngine.Editor\MainframeEngine.Editor.csproj" />
     <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
