@@ -1398,7 +1398,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             // The main pass flips Y (negative viewport height), which keeps counter-clockwise = front; mirrored
             // instances (negative determinant) reverse the winding.
             FrontFace = key.Mirrored ? FrontFace.Clockwise : FrontFace.CounterClockwise,
-            DepthTest = true,
+            DepthTest = !key.NoDepthTest,
             DepthWrite = key.DepthWrite,
             // ADR 0163: a prepassed surface lands on its own prepass depth; a cutout only where the prepass kept it.
             DepthCompare = key.Prepassed ? key.Alpha == AlphaMode.Cutout ? CompareOp.Equal : CompareOp.LessOrEqual

@@ -130,7 +130,7 @@ colours are authored in sRGB and converted to linear when packed.
 | Specular | `Specular` (strength, default 0.3), `Shininess` (exponent, default 32): the old shape shader's values; Blinn-Phong only |
 | PBR | `Metallic` (0), `Roughness` (perceptual, 1), `AmbientOcclusion` (1), `OrmTexture` (linear: R occlusion, G roughness, B metallic, glTF's and Godot's ORM packing; multiplies the three values); `ShadingMode.Pbr` only |
 | Emission | `EmissionColor`, `EmissionEnergy` (can exceed 1: HDR), `EmissionTexture` |
-| Transparency | `Transparency`: `Opaque`, `Cutout` (discard below `AlphaCutoff`), `Blend` (straight alpha, back to front, no depth write, casts no shadow) |
+| Transparency | `Transparency`: `Opaque`, `Cutout` (discard below `AlphaCutoff`), `Blend` (straight alpha, back to front, no depth write, casts no shadow); `NoDepthTest` (Godot's `no_depth_test`: drawn in the transparent pass with no depth test or writes; the object-ID pass still depth-tests it; ADR 0200) |
 | Rendering | `ShadingMode` (`BlinnPhong`, `Unshaded`, `Pbr`), `CullMode` (`Back`, `Front`, `Disabled`), `DoubleSided` (cull nothing, back faces lit with the flipped normal), `RenderPriority` (transparent order) |
 | UV | `UvScale`, `UvOffset` |
 

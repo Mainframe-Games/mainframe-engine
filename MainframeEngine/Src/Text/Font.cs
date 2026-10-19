@@ -11,6 +11,14 @@ public enum HorizontalAlignment : byte
     Fill,
 }
 
+/// <summary>Where text sits vertically against its anchor (Godot's <c>VerticalAlignment</c>, without <c>Fill</c>).</summary>
+public enum VerticalAlignment : byte
+{
+    Top,
+    Center,
+    Bottom,
+}
+
 /// <summary>
 /// A TrueType font for canvas text (Godot's <c>FontFile</c> as a 2D font, ADR 0118): <c>.ttf</c> files load through
 /// <see cref="ResourceLoader"/>. Glyphs are rasterised in managed code at the requested pixel size (unhinted, greyscale,
@@ -25,6 +33,10 @@ public sealed class Font : Resource
     private TrueTypeFont? _face;
     private readonly Dictionary<(int Size, int Outline), Dictionary<int, GlyphEntry>> _glyphs = [];
     private readonly List<AtlasPage> _pages = [];
+    private readonly List<GlyphQuad> _drawScratch = [];
+
+    /// <summary>The width and height of an atlas page in pixels (glyph regions are in page pixels).</summary>
+    internal const int AtlasPageSize = PageSize;
 
     /// <summary>The font file (project path).</summary>
     [Export(File = "*.ttf")]
@@ -105,8 +117,6 @@ public sealed class Font : Resource
     {
         if (string.IsNullOrEmpty(text) || fontSize <= 0)
             return;
-        var face = Face;
-        var scale = Scale(fontSize);
         var x = position.X;
         if (width > 0)
         {
@@ -119,6 +129,25 @@ public sealed class Font : Resource
             };
         }
 
+        _drawScratch.Clear();
+        Layout(text, new Vector2(x, position.Y), fontSize, outline, _drawScratch);
+        foreach (var quad in _drawScratch)
+            item.DrawTextureRectRegion(quad.Page, quad.Rect, quad.Source, modulate);
+        _drawScratch.Clear();
+    }
+
+    /// <summary>
+    /// Places one line's glyphs with the pen's baseline starting at <paramref name="position"/> (pixels, Y down; pen
+    /// positions rounded to whole pixels, as <c>draw_string</c> does), appending each visible glyph's rectangle and its
+    /// region of an atlas page (<see cref="AtlasPageSize"/> px square) to <paramref name="quads"/>. <paramref name="outline"/>
+    /// &gt; 0 places the outline's stroke glyphs. Rasterizes new glyphs and uploads the pages they changed.
+    /// </summary>
+    internal void Layout(string text, Vector2 position, int fontSize, int outline, List<GlyphQuad> quads)
+    {
+        if (string.IsNullOrEmpty(text) || fontSize <= 0)
+            return;
+        var face = Face;
+        var scale = Scale(fontSize);
         var key = (fontSize, outline);
         if (!_glyphs.TryGetValue(key, out var cache))
             _glyphs[key] = cache = [];
@@ -133,8 +162,8 @@ public sealed class Font : Resource
                 cache[glyph] = entry = Rasterize(glyph, scale, outline / 4f);
             if (entry.Page >= 0)
             {
-                var origin = new Vector2(MathF.Round(x + pen) + entry.Left, MathF.Round(position.Y) - entry.Top);
-                item.DrawTextureRectRegion(_pages[entry.Page].Texture, new Rect2(origin, entry.Source.Size), entry.Source, modulate);
+                var origin = new Vector2(MathF.Round(position.X + pen) + entry.Left, MathF.Round(position.Y) - entry.Top);
+                quads.Add(new GlyphQuad(_pages[entry.Page].Texture, new Rect2(origin, entry.Source.Size), entry.Source));
             }
 
             pen += face.AdvanceWidth(glyph) * scale;
@@ -186,6 +215,9 @@ public sealed class Font : Resource
         return new GlyphEntry(pageIndex, new Rect2(px, py, bitmap.Width, bitmap.Height), bitmap.Left, bitmap.Top);
     }
 }
+
+/// <summary>A glyph placed by <see cref="Font.Layout"/>: its rectangle (pixels, Y down) and its region of an atlas page.</summary>
+internal readonly record struct GlyphQuad(Texture2D Page, Rect2 Rect, Rect2 Source);
 
 /// <summary>Imports <c>.ttf</c> files as <see cref="Font"/>s.</summary>
 public sealed class FontImporter : IAssetImporter

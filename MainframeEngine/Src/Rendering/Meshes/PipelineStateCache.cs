@@ -81,6 +81,7 @@ public enum ShaderSetId : byte
 /// A colour draw of a surface the depth prepass already drew (ADR 0163): no depth writes, depth test less-or-equal, and
 /// cutouts test EQUAL without their <c>discard</c> (the prepass kept only what passed the alpha test).
 /// </param>
+/// <param name="NoDepthTest">No depth test (<see cref="StandardMaterial3D.NoDepthTest"/>); never for the object-ID shaders.</param>
 public readonly record struct PipelineKey(
     ShaderSetId Shaders,
     VertexLayoutId VertexLayout,
@@ -90,7 +91,8 @@ public readonly record struct PipelineKey(
     bool DepthWrite,
     ulong RenderPass,
     bool ExtraPass = false,
-    bool Prepassed = false)
+    bool Prepassed = false,
+    bool NoDepthTest = false)
 {
     /// <summary>
     /// The key for drawing a material's surfaces with <paramref name="shaders"/> into <paramref name="renderPass"/>.
@@ -106,11 +108,13 @@ public readonly record struct PipelineKey(
     {
         var alpha = state.Alpha;
         var depthWrite = state.DepthWrite && !prepassed;
+        var noDepthTest = state.NoDepthTest;
         if (shaders == ShaderSetId.MeshObjectId)
         {
             if (alpha == AlphaMode.Blend)
                 alpha = AlphaMode.Opaque;
             depthWrite = true;
+            noDepthTest = false; // picking finds what is in front, even under a no-depth-test tag
         }
 
         var layout = shaders switch
@@ -120,7 +124,8 @@ public readonly record struct PipelineKey(
             ShaderSetId.MeshLit or ShaderSetId.MeshDepth when streams => VertexLayoutId.MeshInstancedExt,
             _ => VertexLayoutId.MeshInstanced,
         };
-        return new PipelineKey(shaders, layout, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle, extraPass, prepassed);
+        return new PipelineKey(shaders, layout, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle, extraPass, prepassed,
+            noDepthTest);
     }
 
     /// <summary>True for the depth prepass's shader sets (ADR 0163).</summary>

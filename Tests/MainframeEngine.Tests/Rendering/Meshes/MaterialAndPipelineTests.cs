@@ -94,6 +94,24 @@ public sealed class MaterialAndPipelineTests
     }
 
     [Fact]
+    public void NoDepthTestSkipsTheDepthTestInColourPassesButNotWhenPicking()
+    {
+        var tag = new StandardMaterial3D { NoDepthTest = true };
+        Assert.True(tag.RenderState.NoDepthTest);
+        Assert.True(tag.RenderState.IsTransparent); // drawn after the opaque pass, in priority then depth order
+        Assert.False(tag.RenderState.DepthWrite);
+
+        var colour = PipelineKey.ForMaterial(ShaderSetId.MeshLit, tag.RenderState, mirrored: false, ScenePass);
+        Assert.True(colour.NoDepthTest);
+        Assert.False(colour.DepthWrite);
+        Assert.NotEqual(PipelineKey.ForMaterial(ShaderSetId.MeshLit, new StandardMaterial3D().RenderState, false, ScenePass), colour);
+
+        var picking = PipelineKey.ForMaterial(ShaderSetId.MeshObjectId, tag.RenderState, mirrored: false, ScenePass);
+        Assert.False(picking.NoDepthTest);
+        Assert.True(picking.DepthWrite);
+    }
+
+    [Fact]
     public void EqualStatesHashToTheSameKeyAndDifferentStatesDoNot()
     {
         var a = new StandardMaterial3D { AlbedoColor = Color.Red, Specular = 1f };
