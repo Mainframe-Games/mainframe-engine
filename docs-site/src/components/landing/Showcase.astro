@@ -1,6 +1,6 @@
 ---
-// Screenshots, first after the hero: the Forest's reference shots (the first one large), the editor, then the Demo's
-// scenes (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it full size in
+// Screenshots, first after the hero: the editor, the Demo's scenes, then the Forest's reference shots (the first one
+// large) (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it full size in
 // a <dialog>.
 const base = import.meta.env.BASE_URL;
 const img = (p: string) => `${base}images/${p}`;
@@ -30,23 +30,8 @@ const demo = [
   <header class="mf-section__head" data-reveal>
     <p class="mf-kicker">Showcase</p>
     <h2 id="showcase-title">Made with Mainframe</h2>
-    <p>Every image is the engine rendering in real time: the Forest walk, the editor and the Demo's scenes.</p>
+    <p>Every image is the engine rendering in real time: the editor, the Demo's scenes and the Forest walk.</p>
   </header>
-
-
-  <h3 class="mf-showcase__label" data-reveal>The Forest <span>a first-person walk through a generated valley</span></h3>
-  <div class="mf-gallery mf-gallery--feature">
-    {
-      forest.map((s, i) => (
-        <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
-          <img src={img(s.src)} width="1600" height="900" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
-          <span class="mf-shot__caption">
-            <strong>{s.title}</strong> {s.text}
-          </span>
-        </button>
-      ))
-    }
-  </div>
 
   <h3 class="mf-showcase__label" data-reveal>The editor <span>built with the engine's own game UI</span></h3>
   <figure class="mf-window" data-reveal>
@@ -72,6 +57,20 @@ const demo = [
       demo.map((s, i) => (
         <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
           <img src={img(s.src)} width="1280" height="720" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
+          <span class="mf-shot__caption">
+            <strong>{s.title}</strong> {s.text}
+          </span>
+        </button>
+      ))
+    }
+  </div>
+
+  <h3 class="mf-showcase__label" data-reveal>The Forest <span>a first-person walk through a generated valley</span></h3>
+  <div class="mf-gallery mf-gallery--feature">
+    {
+      forest.map((s, i) => (
+        <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
+          <img src={img(s.src)} width="1600" height="900" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
           <span class="mf-shot__caption">
             <strong>{s.title}</strong> {s.text}
           </span>
