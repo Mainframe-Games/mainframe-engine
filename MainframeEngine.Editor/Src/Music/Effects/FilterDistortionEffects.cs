@@ -1,3 +1,5 @@
+using MainframeEngine.Audio.Dsp;
+
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
