@@ -6,7 +6,8 @@ namespace MainframeEngine;
 
 /// <summary>
 /// A Spine skeleton drawn lit and shadow-casting in 3D (the design's <c>SpineSprite3D</c>). Set
-/// <see cref="Folder"/> (an exported Spine folder with one <c>.atlas</c> and one <c>.json</c>); the skeleton
+/// <see cref="Folder"/> (an exported Spine folder with one <c>.atlas</c> and a binary <c>.skel</c> or a <c>.json</c>; see
+/// <see cref="SpineFolder"/>); the skeleton
 /// data is loaded on the CPU on first use and the GPU renderer is created through the
 /// <see cref="RenderServer"/> when the node enters a tree. Animation advances in <see cref="Node.OnProcess"/>.
 /// </summary>
@@ -45,7 +46,10 @@ public class SpineNode : VisualInstance3D
     /// <summary>The skeleton (loads <see cref="Folder"/> on first access).</summary>
     public Skeleton Skeleton => EnsureLoaded();
 
-    /// <summary>Folder holding the Spine export (<c>*.atlas</c> + <c>*.json</c>), e.g. <c>Assets/Models/Spine/SpineBoy</c>.</summary>
+    /// <summary>
+    /// Folder holding the Spine export (<c>*.atlas</c> + <c>*.skel</c> or <c>*.json</c>, the <c>.skel</c> preferred), e.g.
+    /// <c>Assets/Models/Spine/SpineBoy</c>.
+    /// </summary>
     [Export(Directory = true)]
     public string Folder
     {
@@ -107,8 +111,7 @@ public class SpineNode : VisualInstance3D
         var atlas = new Atlas(folder.AtlasPath, _textureLoader);
         _pma = atlas.Pages[0].pma;
 
-        var json = new SkeletonJson(atlas);
-        var skeletonData = json.ReadSkeletonData(folder.JsonPath);
+        var skeletonData = folder.ReadSkeletonData(atlas);
         _skeleton = new Skeleton(skeletonData);
         _skeleton.SetSkin(skeletonData.DefaultSkin);
         ApplySkeletonScale();
@@ -251,10 +254,38 @@ public class SpineNode : VisualInstance3D
     }
 }
 
+/// <summary>
+/// An exported Spine folder: one <c>.atlas</c> (with its pages) and the skeleton, a binary <c>.skel</c> or a <c>.json</c>.
+/// When both are there the <c>.skel</c> wins (smaller and faster to load; Spine's advice for shipping).
+/// </summary>
 public readonly struct SpineFolder(in string rootFolder)
 {
     public readonly string Path = rootFolder;
     public readonly string Name = rootFolder.Split('/')[^1];
-    public readonly string AtlasPath = Directory.GetFiles(ContentPaths.Resolve(rootFolder), "*.atlas")[0];
-    public readonly string JsonPath = Directory.GetFiles(ContentPaths.Resolve(rootFolder), "*.json")[0];
+    public readonly string AtlasPath = Find(rootFolder, "*.atlas") ?? throw new FileNotFoundException($"Spine folder '{rootFolder}' has no .atlas.");
+
+    /// <summary>The skeleton export: the folder's <c>.skel</c>, else its <c>.json</c>.</summary>
+    public readonly string SkeletonPath = Find(rootFolder, "*.skel") ?? Find(rootFolder, "*.json")
+        ?? throw new FileNotFoundException($"Spine folder '{rootFolder}' has no .skel or .json skeleton.");
+
+    /// <summary>The folder's <c>.json</c> export, or empty when it only has a <c>.skel</c> (see <see cref="SkeletonPath"/>).</summary>
+    public readonly string JsonPath = Find(rootFolder, "*.json") ?? string.Empty;
+
+    /// <summary>True when <see cref="SkeletonPath"/> is a binary <c>.skel</c>.</summary>
+    public bool IsBinary => SkeletonPath.EndsWith(".skel", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Reads the skeleton data with the reader its format needs.</summary>
+    public SkeletonData ReadSkeletonData(Atlas atlas) => IsBinary
+        ? new SkeletonBinary(atlas).ReadSkeletonData(SkeletonPath)
+        : new SkeletonJson(atlas).ReadSkeletonData(SkeletonPath);
+
+    // The first match by name, so a folder loads the same file on every OS.
+    private static string? Find(string folder, string pattern)
+    {
+        var files = Directory.GetFiles(ContentPaths.Resolve(folder), pattern);
+        if (files.Length == 0)
+            return null;
+        Array.Sort(files, StringComparer.Ordinal);
+        return files[0];
+    }
 }

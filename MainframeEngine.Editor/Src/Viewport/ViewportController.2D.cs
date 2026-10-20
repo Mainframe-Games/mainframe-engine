@@ -262,6 +262,15 @@ public sealed partial class ViewportController
             var p = new Vector3(node.GlobalPosition, 0f);
             if (node is Camera2D cam)
                 DrawCamera2D(overlay, cam, selected ? SelectionColor : CameraColor);
+            else if (node is Marker2D markerNode)
+            {
+                // Godot's Marker2D gizmo: a cross along the node's own axes, GizmoExtents canvas units each way.
+                var global = markerNode.GlobalTransform;
+                var e = markerNode.GizmoExtents;
+                var color = selected ? SelectionColor : NodeColor;
+                overlay.AddLine(new Vector3(global.TransformPoint(new Vector2(-e, 0)), 0f), new Vector3(global.TransformPoint(new Vector2(e, 0)), 0f), color);
+                overlay.AddLine(new Vector3(global.TransformPoint(new Vector2(0, -e)), 0f), new Vector3(global.TransformPoint(new Vector2(0, e)), 0f), color);
+            }
             else if (node is not CollisionShape2D)
             {
                 var color = selected ? SelectionColor : NodeColor;

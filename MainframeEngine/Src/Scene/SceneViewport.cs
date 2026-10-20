@@ -76,7 +76,17 @@ public class SceneViewport : Node
     /// </summary>
     public Vector2 GetMousePosition() => StretchTransform.AffineInverse().TransformPoint(Input.MousePosition * PointScale);
 
-    /// <summary>Sets the target size and recomputes the content scale (the engine calls this for the root each frame).</summary>
+    /// <summary>
+    /// Raised when <see cref="Size"/> or the content scale changes (Godot's <c>Viewport.size_changed</c>): a window resize
+    /// or a stretch change, once per change, with <see cref="GetVisibleRect"/> already updated. The engine sets the
+    /// root's size before the frame's process, so handlers run before nodes process that frame.
+    /// </summary>
+    [Signal] public event Action? SizeChanged;
+
+    /// <summary>
+    /// Sets the target size and recomputes the content scale (the engine calls this for the root each frame); raises
+    /// <see cref="SizeChanged"/> when either changed.
+    /// </summary>
     public void SetSize(Vector2 pixels)
     {
         if (pixels == Size && _scaleKey == (ContentScaleMode, ContentScaleAspect, ContentScaleSize, ContentScaleFactor, ContentScaleStretch))
@@ -85,6 +95,7 @@ public class SceneViewport : Node
         _scaleKey = (ContentScaleMode, ContentScaleAspect, ContentScaleSize, ContentScaleFactor, ContentScaleStretch);
         ContentScaleResult = ContentScale.Compute(pixels, ContentScaleMode, ContentScaleAspect, ContentScaleSize, ContentScaleFactor, ContentScaleStretch);
         StretchTransform = ContentScaleResult.StretchTransform;
+        SizeChanged?.Invoke();
     }
 
     private (ContentScaleMode, ContentScaleAspect, Vector2, float, ContentScaleStretch) _scaleKey;

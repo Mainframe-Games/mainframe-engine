@@ -752,7 +752,7 @@ public sealed partial class ViewportController : Node
 
     private void Collect(EditedScene scene, Node node)
     {
-        if (node is Light3D or Camera3D or AudioPlayer3D or AudioListener3D)
+        if (node is Light3D or Camera3D or AudioPlayer3D or AudioListener3D or Marker3D)
             _iconNodes.Add((Node3D)node);
         var children = node.Children;
         for (var i = 0; i < children.Count; i++)
@@ -846,6 +846,9 @@ public sealed partial class ViewportController : Node
             case Camera3D cam:
                 DrawCamera(lines, cam, unit, selected);
                 break;
+            case Marker3D marker:
+                DrawMarker3D(lines, marker, selected);
+                break;
             case AudioPlayer3D audio:
                 Diamond(lines, p, right, up, r, AudioColor);
                 if (selected && audio.MaxDistance > 0)
@@ -855,6 +858,18 @@ public sealed partial class ViewportController : Node
                 Diamond(lines, p, right, up, r, NodeColor);
                 break;
         }
+    }
+
+    // Godot's Marker3D gizmo: the local axes in their colours, GizmoExtents along each side of the node.
+    private static void DrawMarker3D(DebugLines lines, Marker3D marker, bool selected)
+    {
+        var global = marker.GlobalTransform;
+        var p = global.Origin;
+        var e = marker.GizmoExtents;
+        var alpha = selected ? 1f : 0.8f;
+        lines.AddLine(p - global.Basis.X * e, p + global.Basis.X * e, new Vector4(0.96f, 0.2f, 0.32f, alpha));
+        lines.AddLine(p - global.Basis.Y * e, p + global.Basis.Y * e, new Vector4(0.53f, 0.84f, 0.01f, alpha));
+        lines.AddLine(p - global.Basis.Z * e, p + global.Basis.Z * e, new Vector4(0.16f, 0.55f, 0.96f, alpha));
     }
 
     private static void DrawCamera(DebugLines lines, Camera3D camera, float unit, bool selected)

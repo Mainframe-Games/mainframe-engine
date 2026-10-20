@@ -27,10 +27,10 @@ public enum MouseMode
     /// <summary>Hidden, held in the window, reporting relative motion only: mouse look.</summary>
     Captured,
 
-    /// <summary>Shown and kept inside the window. Not implemented yet: behaves like <see cref="Visible"/>.</summary>
+    /// <summary>Shown and kept inside the window (SDL's mouse grab; released while the window is unfocused).</summary>
     Confined,
 
-    /// <summary>Hidden and kept inside the window. Not implemented yet: behaves like <see cref="Hidden"/>.</summary>
+    /// <summary>Hidden and kept inside the window (SDL's mouse grab; released while the window is unfocused).</summary>
     ConfinedHidden,
 }
 

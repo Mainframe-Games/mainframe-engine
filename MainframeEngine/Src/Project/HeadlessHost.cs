@@ -8,13 +8,14 @@ namespace MainframeEngine;
 /// renderer, canvas, UI or audio device, for dedicated servers. Registers networking (<see cref="Networking.MultiplayerApi"/>),
 /// the physics servers, an audio server on the null device (buses and players still work, nothing is heard) and a
 /// <see cref="SaveServer"/> (no thumbnails), runs <see cref="GameSession"/> (input map, autoloads, the main scene) and ticks the tree at the project's
-/// <c>maxFps</c>, else the physics rate. Canvas items still run their draws (Godot calls <c>_draw</c> headless too);
+/// <c>maxFps</c>, else the physics rate. The root viewport has the project's window size, as in Godot. Canvas items still run their draws (Godot calls <c>_draw</c> headless too);
 /// nothing renders them. Ctrl+C or SIGTERM is a close request (the game may save), then a quit.
 /// </summary>
 public sealed class HeadlessHost : IDisposable
 {
     private readonly EngineOptions _options;
     private readonly FPSCounter _fps = new();
+    private readonly System.Numerics.Vector2 _size;
     private PosixSignalRegistration? _sigterm;
     private volatile bool _closeSignalled;
     private bool _quit;
@@ -56,6 +57,9 @@ public sealed class HeadlessHost : IDisposable
 
         Session = new GameSession(Tree, settings, options);
         Session.QuitRequested += Quit;
+        // Godot keeps the project's window size headless: projection, GetVisibleRect and stretch behave as in a window.
+        _size = new System.Numerics.Vector2(Math.Max(1, settings.Window.Width), Math.Max(1, settings.Window.Height));
+        Tree.Root.SetSize(_size);
         FrameRate = settings.Window.MaxFps > 0 ? settings.Window.MaxFps : _options.PhysicsTicksPerSecond;
     }
 
@@ -128,6 +132,7 @@ public sealed class HeadlessHost : IDisposable
             FramesTimeMs = _fps.Ms,
         };
         Session.Update(time);
+        Tree.Root.SetSize(_size); // recomputes the content scale once the session has applied the project's stretch
         Tree.Tick(time);
         Tree.FlushCanvasRedraws();
         Frames++;

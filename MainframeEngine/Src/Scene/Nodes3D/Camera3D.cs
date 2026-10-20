@@ -128,7 +128,7 @@ public class Camera3D : Node3D, ICurrentCamera
     public Vector2 UnprojectPosition(Vector3 worldPoint)
     {
         var size = GetViewport()?.Size ?? Vector2.One;
-        return UnprojectPosition(SyncRenderCamera(size.X / MathF.Max(size.Y, 1f)), worldPoint, size);
+        return UnprojectPosition(SyncRenderCamera(AspectOf(size)), worldPoint, size);
     }
 
     /// <summary>True when <paramref name="worldPoint"/> is behind the camera's near plane (Godot's <c>is_position_behind</c>).</summary>
@@ -141,8 +141,11 @@ public class Camera3D : Node3D, ICurrentCamera
     private (Vector3 Origin, Vector3 Direction) RayThrough(Vector2 pixel)
     {
         var size = GetViewport()?.Size ?? Vector2.One;
-        return ProjectRay(SyncRenderCamera(size.X / MathF.Max(size.Y, 1f)), pixel, size);
+        return ProjectRay(SyncRenderCamera(AspectOf(size)), pixel, size);
     }
+
+    // A viewport with no size yet (0×0) projects with a square aspect: finite results, never NaN.
+    private static float AspectOf(Vector2 size) => size.X > 0f && size.Y > 0f ? size.X / size.Y : 1f;
 
     protected override void OnEnterTree()
     {
