@@ -20,6 +20,8 @@
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Silk.NET.Windowing.Sdl" Version="$(SilkNetVersion)" />
     <PackageVersion Include="Box2D.NET" Version="3.1.654" />
+    <!-- Polygon booleans and offsets (Geometry2D, ADR 0203): Clipper2 (Boost licence), the library Godot's Geometry2D wraps. -->
+    <PackageVersion Include="Clipper2" Version="1.5.4" />
     <PackageVersion Include="ENet-CSharp" Version="2.4.8" />
     <!-- Localization runtime (.mo catalogs, Plural-Forms evaluation). Pinned: 11.0 is a preview with sparse notes (M9, ADR 0060). -->
     <PackageVersion Include="GetText.NET" Version="[10.0.1]" />

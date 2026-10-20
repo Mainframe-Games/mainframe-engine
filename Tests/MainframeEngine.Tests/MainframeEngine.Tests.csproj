@@ -55,6 +55,10 @@
   <ItemGroup>
     <None Include="Recording\Fixtures\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Recording\Fixtures" />
   </ItemGroup>
+  <!-- Godot's BitMap and Geometry2D results for the same inputs (Imaging/Fixtures/godot-geometry-reference.gd). -->
+  <ItemGroup>
+    <None Include="Imaging\Fixtures\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Imaging\Fixtures" />
+  </ItemGroup>
 
   <!-- Audio decoder/server tests: tiny generated tones (WAV, OGG, MP3, FLAC; stored in Git LFS). -->
   <ItemGroup>

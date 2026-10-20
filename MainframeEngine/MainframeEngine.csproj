@@ -39,6 +39,7 @@
         -->
         <PackageReference Include="ENet-CSharp" ExcludeAssets="native;build;buildTransitive" />
         <PackageReference Include="Box2D.NET" />
+        <PackageReference Include="Clipper2" />
         <PackageReference Include="GetText.NET" />
         <PackageReference Include="NVorbis" />
         <PackageReference Include="SoundFlow" />
