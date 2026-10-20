@@ -26,6 +26,23 @@ public class CanvasRenderTests
         Gates.AssertMatchesGolden(result, 5);
     }
 
+    [Fact]
+    public void SkinnedPolygonsBendWithTheirBonesAndMatchGolden()
+    {
+        // ADR 0202: a textured strip at rest, the same strip skinned to three bent bones, a vertex-coloured fan.
+        var result = HostRunner.Run("polygon2d-skin", Output("polygon2d-skin"), "--capture", "5", "--size", "480x270", "--hidden");
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 5);
+
+        var image = Png.ReadRgba8(result.Captures.Single().Path);
+        var scale = image.Width / 480f;
+        // The bent strip's free end curls up: where its unbent tip would be (x 215, y 150) is background now, and the
+        // rest strip above is drawn where it was authored (x 210, y 58: inside it).
+        AssertPixel(image, (int)(215 * scale), (int)(150 * scale), 77, 77, 77);
+        var i = ((int)(58 * scale) * image.Width + (int)(210 * scale)) * 4;
+        Assert.False(image.Pixels[i] == 77 && image.Pixels[i + 1] == 77 && image.Pixels[i + 2] == 77, "the rest strip is missing");
+    }
+
     private static void AssertPixel(PngImage image, int x, int y, byte r, byte g, byte b)
     {
         var i = (y * image.Width + x) * 4;

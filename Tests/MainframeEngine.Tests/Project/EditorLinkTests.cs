@@ -571,3 +571,71 @@ public sealed class EditorLinkConnectionTests
         Assert.False(server.SendCommand(firstId, new EditorLinkCommand(EditorCommandKind.Stop)));
     }
 }
+
+/// <summary>
+/// A connection closed under a reader or writer reports <see cref="IOException"/> (what every caller handles), never the
+/// <see cref="InvalidOperationException"/> a <see cref="NetworkStream"/> throws when it is closed mid-call: that escaped the
+/// client's reader thread on CI and took the process down.
+/// </summary>
+public sealed class FramedConnectionCloseTests
+{
+    private static (Socket Client, Socket Server, TcpListener Listener) Pair()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        client.Connect((IPEndPoint)listener.LocalEndpoint);
+        return (client, listener.AcceptSocket(), listener);
+    }
+
+    [Fact]
+    public void ReadingOrWritingAStreamThatNoLongerAllowsItIsAClosedConnection()
+    {
+        // A NetworkStream that cannot read or write throws exactly what one being disposed on another thread throws.
+        var (client, server, listener) = Pair();
+        using (listener.Server)
+        using (server)
+        {
+            using var writeOnly = new FramedConnection(client, new NetworkStream(client, FileAccess.Write, ownsSocket: false));
+            var read = Assert.Throws<IOException>(() => writeOnly.ReadFrame(out _));
+            Assert.IsType<InvalidOperationException>(read.InnerException);
+
+            using var readOnly = new FramedConnection(client, new NetworkStream(client, FileAccess.Read, ownsSocket: false));
+            var write = Assert.Throws<IOException>(() => readOnly.Write([1, 2, 3]));
+            Assert.IsType<InvalidOperationException>(write.InnerException);
+            listener.Stop();
+        }
+    }
+
+    [Fact]
+    public void DisposingUnderABlockedReaderEndsItWithAnExceptionTheCallersHandle()
+    {
+        for (var round = 0; round < 50; round++)
+        {
+            var (client, server, listener) = Pair();
+            using (server)
+            {
+                var connection = new FramedConnection(client);
+                server.Send([0, 0]); // half a header: the reader blocks inside the frame, where the race happened
+                Exception? caught = null;
+                var reader = new Thread(() =>
+                {
+                    try
+                    {
+                        connection.ReadFrame(out _);
+                    }
+                    catch (Exception e)
+                    {
+                        caught = e;
+                    }
+                });
+                reader.Start();
+                Thread.Sleep(round % 5); // vary where the reader is when the connection closes
+                connection.Dispose();
+                Assert.True(reader.Join(TimeSpan.FromSeconds(5)));
+                Assert.True(caught is null or IOException or SocketException or ObjectDisposedException, $"round {round}: {caught}");
+                listener.Stop();
+            }
+        }
+    }
+}

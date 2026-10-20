@@ -100,6 +100,32 @@ public sealed class CanvasDrawList
         return first;
     }
 
+    /// <summary>
+    /// Appends one vertex per position, built in place (no temporary array): the UV when <paramref name="uvs"/> has one per
+    /// position (else zero), the colour when <paramref name="colors"/> has one per position (else its first, else
+    /// <paramref name="fallbackColor"/>). Positions are transformed by <see cref="DrawTransform"/>; returns the first index.
+    /// </summary>
+    public int AddVertices(ReadOnlySpan<Vector2> positions, ReadOnlySpan<Vector2> uvs, ReadOnlySpan<Vector4> colors, Vector4 fallbackColor)
+    {
+        Ensure(ref _vertices, VertexCount + positions.Length);
+        var first = VertexCount;
+        var transform = DrawTransform;
+        var identity = transform == Transform2D.Identity;
+        var perUv = uvs.Length == positions.Length;
+        var perColor = colors.Length == positions.Length;
+        var color = colors.Length > 0 ? colors[0] : fallbackColor;
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var position = identity ? positions[i] : transform.TransformPoint(positions[i]);
+            _min = Vector2.Min(_min, position);
+            _max = Vector2.Max(_max, position);
+            _vertices[first + i] = new CanvasVertex(position, perUv ? uvs[i] : Vector2.Zero, perColor ? colors[i] : color);
+        }
+
+        VertexCount += positions.Length;
+        return first;
+    }
+
     /// <summary>Appends indices (relative to <paramref name="baseVertex"/>) under <paramref name="texture"/>.</summary>
     public void AddIndices(Texture2D? texture, CanvasPrimitive primitive, int baseVertex, ReadOnlySpan<int> indices, bool tile = false)
     {

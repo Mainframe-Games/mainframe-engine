@@ -610,14 +610,7 @@ public static class CanvasPrimitives
     /// <summary>Indexed triangles (Godot's <c>canvas_item_add_triangle_array</c>).</summary>
     public static void Triangles(CanvasDrawList list, ReadOnlySpan<Vector2> points, ReadOnlySpan<int> indices, ReadOnlySpan<Vector4> colors, ReadOnlySpan<Vector2> uvs, Texture2D? texture)
     {
-        var v = new CanvasVertex[points.Length];
-        for (var i = 0; i < points.Length; i++)
-        {
-            var color = colors.Length == points.Length ? colors[i] : colors.Length > 0 ? colors[0] : White;
-            v[i] = new CanvasVertex(points[i], uvs.Length == points.Length ? uvs[i] : Vector2.Zero, color);
-        }
-
-        var first = list.AddVertices(v);
+        var first = list.AddVertices(points, uvs, colors, White); // written in place: skinned polygons call this every frame
         list.AddIndices(texture, CanvasPrimitive.Triangles, first, indices);
     }
 
