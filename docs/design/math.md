@@ -18,8 +18,10 @@ match Godot's.
 
 ## 2D helpers
 
-- `Label2D`: one line of world-space text (font, size, colour, outline, shadow, alignment in `Width`); for prompts and
-  tags that move with the world. Menus and HUDs are UI documents.
+- `Label2D`: world-space text (font, size, colour, outline, shadow): newlines break lines, `Autowrap` (Godot's
+  `autowrap_mode`: `Off`, `Arbitrary`, `Word`, `WordSmart`) wraps at `Width`, lines sit `LineSpacing` apart (3, Godot's
+  default) and align horizontally in `Width` and vertically in `Height` (`GetLines`, `GetMinimumSize`, `Size`); for
+  prompts, hints and tags that move with the world. Menus and HUDs are UI documents.
 - `Bitmap`: RGBA8 pixels on the CPU (`SetPixel`, `Fill`, `FromLuminance`/`FromRed` expand one-channel data like an
   L8/R8 texture samples); `Texture2D.FromBitmap` uploads it as a data texture, `SetPixels(bitmap)` refreshes it.
 - `Time`: `TicksMsec`/`TicksUsec` (monotonic, since start) and `UnixTime` (wall clock).

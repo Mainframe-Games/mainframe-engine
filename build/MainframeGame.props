@@ -72,6 +72,16 @@
     </PropertyGroup>
   </Target>
 
+  <!-- Windows player builds are GUI-subsystem executables (WinExe), so double-clicking the game opens no console window
+       behind it. build/package-game.sh passes MainframeWindowsGui=true; dotnet run and dev builds keep the console for
+       logs (they go to the user data folder too). Set in a target: OutputType is the csproj's, read after this file. -->
+  <Target Name="_MainframeWindowsGui" BeforeTargets="_GetAppHostCreationConfiguration"
+          Condition="'$(MainframeWindowsGui)' == 'true' and '$(OutputType)' == 'Exe' and $(RuntimeIdentifier.StartsWith('win'))">
+    <PropertyGroup>
+      <OutputType>WinExe</OutputType>
+    </PropertyGroup>
+  </Target>
+
   <!-- macOS: <name>.app around the game executable (targets and conditions evaluated when the build runs). -->
   <Import Project="macos/DevAppBundle.targets" />
 </Project>

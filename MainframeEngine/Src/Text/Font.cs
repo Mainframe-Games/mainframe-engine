@@ -19,6 +19,22 @@ public enum VerticalAlignment : byte
     Bottom,
 }
 
+/// <summary>How a text node breaks lines that do not fit its width (Godot's <c>TextServer.AutowrapMode</c>).</summary>
+public enum AutowrapMode : byte
+{
+    /// <summary>No wrapping: only newlines break lines.</summary>
+    Off,
+
+    /// <summary>Breaks between any two characters.</summary>
+    Arbitrary,
+
+    /// <summary>Breaks between words; a word wider than the line overflows it.</summary>
+    Word,
+
+    /// <summary>Like <see cref="Word"/>, but a word wider than the line is broken between characters.</summary>
+    WordSmart,
+}
+
 /// <summary>
 /// A TrueType font for canvas text (Godot's <c>FontFile</c> as a 2D font, ADR 0118): <c>.ttf</c> files load through
 /// <see cref="ResourceLoader"/>. Glyphs are rasterised in managed code at the requested pixel size (unhinted, greyscale,

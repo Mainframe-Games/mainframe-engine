@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packages a GameHost game for players: a self-contained `dotnet publish` of its desktop project for one RID, then
 #   osx-*     <Name>.app (Info.plist from project.mfproj, .icns from a PNG, ad-hoc codesign) zipped as <exe>-<version>-<rid>.zip
-#   win-*     <exe>.exe + its files in <exe>-<version>-<rid>.zip
+#   win-*     <exe>.exe (GUI subsystem: no console window) + its files in <exe>-<version>-<rid>.zip
 #   linux-*   <exe> + its files in <exe>-<version>-<rid>.tar.gz (also the dedicated server: run it with --headless)
 # Usage: build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v]
 #        [--bundle-id id] [--copyright text] [--icon icon.png] [--sign "Developer ID Application: …"] [--notarize profile]
@@ -54,6 +54,8 @@ stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
 publish="$stage/publish"
 echo "Publishing $name $version for ${rid}…"
 extra=()
+# Windows: a GUI-subsystem exe (MainframeGame.props switches the launcher to WinExe), so players get no console window.
+[[ "$rid" == win-* ]] && extra+=("-p:MainframeWindowsGui=true")
 if [[ "$rid" == win-* ]] && [ -z "$(csproj_value ApplicationIcon)" ] && [ -n "$icon" ] && [ -f "$icon" ] && command -v magick >/dev/null; then
   # The exe's icon is a build input on Windows (ApplicationIcon); multi-size .ico from the PNG.
   magick "$icon" -define icon:auto-resize=256,128,64,48,32,16 "$stage/icon.ico"

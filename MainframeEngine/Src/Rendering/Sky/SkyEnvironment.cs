@@ -67,7 +67,7 @@ public class SkyEnvironment : IDisposable
         public Vector4 GroundColor;
         public Vector4 SunDirection;      // xyz = direction toward the sun
         public Vector4 SunColorIntensity; // rgb = colour, a = intensity
-        public Vector4 Sun;               // x = cos(angular radius), y = horizon sharpness, z = 1 capture (no sun disk)
+        public Vector4 Sun;               // x = cos(angular radius), y = horizon sharpness, z = 1 capture (no sun disk), w = ray scale (CustomFov; 0 = 1)
     }
 
     // ─── Vulkan state ─────────────────────────────────────────────────────────
@@ -152,10 +152,29 @@ public class SkyEnvironment : IDisposable
         PipelineBuilder.SetViewport(vk, cb, frame.Extent, flipY: true); // same Y-flip as the scene; the current view's size
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
         frame.Bind(cb, _pipelineLayout);
-        BindResources(cb, _pipelineLayout);
+        BindResources(cb, _pipelineLayout, RayScale(CustomFov, camera.ProjectionMatrix));
 
         // Three vertices expand into the fullscreen triangle in the vertex shader.
         vk.CmdDraw(cb, 3, 1, 0, 0);
+    }
+
+    /// <summary>
+    /// Field of view the sky is drawn with in views, degrees (Godot's <c>Environment.sky_custom_fov</c>); 0 (default)
+    /// uses the camera's. A narrow camera (fov 20) with 60 here shows the slice of panorama a fov-60 camera would.
+    /// Only the view draw changes: the image-based lighting capture is unaffected.
+    /// </summary>
+    public float CustomFov { get; set; }
+
+    /// <summary>
+    /// The NDC scale that turns <paramref name="projection"/>'s view rays into those of a <paramref name="customFov"/>
+    /// lens (vertical fov, degrees; the aspect stays the camera's): 1 for 0 or an orthographic projection.
+    /// </summary>
+    internal static float RayScale(float customFov, in Matrix4x4 projection)
+    {
+        if (customFov <= 0f || projection.M34 == 0f || projection.M22 == 0f)
+            return 1f;
+        var cameraTanHalf = 1f / MathF.Abs(projection.M22);
+        return MathF.Tan(float.DegreesToRadians(Math.Clamp(customFov, 1f, 179f)) * 0.5f) / cameraTanHalf;
     }
 
     // ─── Drawing the sky into another pass (sky captures) ─────────────────────
@@ -180,7 +199,7 @@ public class SkyEnvironment : IDisposable
     /// <see cref="ResourceSetLayout"/> with the frame's push range. The caller binds the pipeline and set 0 (per view or
     /// cube face), sets the viewport and draws three vertices; nothing here depends on the target's size.
     /// </summary>
-    internal unsafe void BindResources(CommandBuffer cb, PipelineLayout layout)
+    internal unsafe void BindResources(CommandBuffer cb, PipelineLayout layout, float rayScale = 1f)
     {
         var vk = _ctx!.Vk;
         if (HasTexture)
@@ -191,6 +210,7 @@ public class SkyEnvironment : IDisposable
 
         var push = CaptureParams;
         push.Sun.Z = 0f; // the sun disk is drawn in views, not in captures
+        push.Sun.W = rayScale;
         vk.CmdPushConstants(cb, layout, FrameContext.PushConstantStages, 0, (uint)sizeof(SkyParams), &push);
     }
 

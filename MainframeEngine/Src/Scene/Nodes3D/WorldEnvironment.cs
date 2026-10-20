@@ -376,6 +376,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
         env.SunIntensity = sky.SunIntensity;
         env.SunAngularRadius = sky.SunAngularRadius;
         env.HorizonSharpness = sky.HorizonSharpness;
+        env.CustomFov = sky.CustomFov;
         if (sky.Mode == SkyEnvironmentType.Physical)
             SyncPhysicalSun(env, sky);
         return env;
@@ -453,6 +454,14 @@ public class Sky : Resource
     /// <summary>Six images (+X, -X, +Y, -Y, +Z, -Z) for <see cref="SkyEnvironmentType.Cubemap"/>.</summary>
     [Export(File = "*.png,*.jpg,*.jpeg")]
     public string[]? CubemapFaces { get; set; }
+
+    /// <summary>
+    /// Field of view the sky is drawn with, degrees (Godot's <c>Environment.sky_custom_fov</c>); 0 (default) uses the
+    /// camera's. A narrow, almost orthographic camera with a wider value here shows more of the panorama instead of a
+    /// magnified slice. Lighting from the sky is unaffected.
+    /// </summary>
+    [Export(Range = "0,180,0.1")]
+    public float CustomFov { get; set; }
 
     [ExportGroup("Procedural")]
     [Export]

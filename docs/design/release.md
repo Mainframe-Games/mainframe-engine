@@ -169,7 +169,7 @@ Steam outside the client and must never reach players. Then per platform:
 | RID | Output | Notes |
 |---|---|---|
 | `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | Info.plist (name, bundle id, version, copyright, games category), the desktop project's `MacAppIcon` when it is an `.icns`, else `.icns` from the PNG (`build/macos/png-to-icns.sh`), ad-hoc `codesign` by default (Apple Silicon refuses unsigned code). `--sign "Developer ID Application: …"` (or `MF_SIGN_IDENTITY`) signs each Mach-O and then the bundle, with the hardened runtime, a timestamp and the .NET entitlements (JIT, unsigned executable memory, library validation off). `--notarize <profile>` (or `MF_NOTARY_PROFILE`, from `xcrun notarytool store-credentials`) then submits, staples and re-zips |
-| `win-*` | `<exe>-<version>-<rid>.zip` | the desktop project's `ApplicationIcon`, else the exe icon from the PNG (`magick` → `.ico` → `ApplicationIcon`) |
+| `win-*` | `<exe>-<version>-<rid>.zip` | a GUI-subsystem exe, so players get no console window (`-p:MainframeWindowsGui=true`: `MainframeGame.props` publishes the launcher as `WinExe`; `dotnet run` and dev builds keep the console); the desktop project's `ApplicationIcon`, else the exe icon from the PNG (`magick` → `.ico` → `ApplicationIcon`) |
 | `linux-*` | `<exe>-<version>-<rid>.tar.gz` | also the dedicated server (`<exe> --headless ++ …`, ADR 0120) |
 
 Defaults: name and version from `project.mfproj`, the exe from the name without spaces, the icon from `window.icon`.
