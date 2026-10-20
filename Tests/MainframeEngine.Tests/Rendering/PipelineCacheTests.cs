@@ -347,12 +347,15 @@ public sealed class PipelineCacheTests : IDisposable
 
         public byte[] GetData(VkPipelineCache cache)
         {
-            OnGetData?.Invoke();
+            byte[] data;
             lock (_lock)
             {
-                Calls.Add("get");
-                return [.. _caches[cache.Handle]];
+                Calls.Add("get"); // logged before OnGetData releases a blocked load, so "get" always precedes its "create+data"
+                data = [.. _caches[cache.Handle]];
             }
+
+            OnGetData?.Invoke();
+            return data;
         }
 
         public void Destroy(VkPipelineCache cache)
