@@ -146,7 +146,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Lighting & sky](docs/design/lighting.md) | Directional, omni and spot lights; procedural, physical, panoramic and cubemap [skies](docs/design/sky.md) with image-based lighting; baked light probes |
 | [Shadows](docs/design/shadow-system.md) | Four sun cascades, a spot/secondary-directional atlas, point-light cubes, PCF and PCSS soft shadows, cutout casters, per-light settings |
 | [Post-processing](docs/design/post-processing.md) | SSAO/GTAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX |
-| [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, layers, z-order and y-sort, TrueType text from the engine's own rasterizer |
+| [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, layers, z-order and y-sort, TrueType text from the engine's own rasterizer |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting shadows, with animation tracks and queues |
 | [Slang shaders](docs/design/shaders.md) | Every shader in Slang, compiled to SPIR-V at build time, with shared includes and light limits generated from one file |
 

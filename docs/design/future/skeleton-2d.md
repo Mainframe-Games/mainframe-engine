@@ -1,4 +1,4 @@
-# Proposal: 2D skeletal animation (Skeleton2D)
+# Proposal: 2D skeletal animation (SkeletonSprite2D)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G17a–G17g) · **Status:** ⬜ planned ·
 **Depends on:** [Canvas](../canvas.md), [Scene serialization](../scene-serialization.md),
@@ -59,7 +59,7 @@ The engine has no replacement pieces either:
   transitions, 1D/2D blend spaces and masked layers. The graph is designed so that 3D skeletons can use the same asset
   later.
 - **Two nodes, one runtime:**
-  - `Skeleton2D` on the canvas.
+  - `SkeletonSprite2D` on the canvas.
   - `SkeletonSprite3D` in 3D worlds: lit, shadow casting (alpha-tested), in the prepass, pickable, motion vectors.
 - **Authoring in the editor** ([Skeleton editor](skeleton-2d-editor.md)):
   - a Skeleton tab with Spine's Setup and Animate modes;
@@ -120,10 +120,10 @@ flowchart LR
     AN --> IMP
     IMP -->|"SHA-256 keyed"| CACHE["skeleton-bakes cache<br/>(binary + PNG pages)"]
     CACHE --> DATA["SkeletonData<br/>(runtime arrays)"]
-    DATA --> N2["Skeleton2D (canvas)"]
+    DATA --> N2["SkeletonSprite2D (canvas)"]
     DATA --> N3["SkeletonSprite3D (3D)"]
     AG --> GP["AnimationGraphPlayer"]
-    GP -->|"ClipSample[]"| PB["IPoseBackend<br/>(Skeleton2DPoseBackend)"]
+    GP -->|"ClipSample[]"| PB["IPoseBackend<br/>(SkeletonSprite2DPoseBackend)"]
     TR["AnimationTracks<br/>(code tracks)"] -->|"ClipSample[]"| PB
     PB --> POSE["SkeletonPose (SoA)<br/>constraints · deform"]
     POSE --> SKIN["RenderServer.SkinMeshes<br/>(compute)"]
@@ -149,7 +149,7 @@ MainframeEngine/Src/Skeleton2D/
   Data/       SkeletonData, SkeletonClip, SkinData, SkeletonBuild (runtime arrays), SkeletonFormat (JSON reader/writer)
   Runtime/    SkeletonPose, ClipSampler, SkinComposer, Deform, Constraints/{Ik,Transform,Path,Physics}
   Import/     SkeletonImporter, AtlasPacker (MaxRects), AutoMesh, Triangulator, SpineJsonImporter, SkeletonBakeCache
-  Nodes/      Skeleton2D, SkeletonSprite3D, BoneAttachment2D, BoneAttachment3D, SkeletonAnimationSynchronizer
+  Nodes/      SkeletonSprite2D, SkeletonSprite3D, BoneAttachment2D, BoneAttachment3D, SkeletonAnimationSynchronizer
 MainframeEngine/Src/Rendering/Skinning/   SkinningPass, SkinJob, skinning shaders
 MainframeEngine/Src/Imaging/Psd/          PsdReader
 ```
@@ -389,7 +389,7 @@ public sealed class SkeletonData : Resource
     public int FindBone(string name);                        // -1 when missing
     public int FindSlot(string name);
     public int FindClip(string name);
-    public SkeletonClip LoadClip(int clip);                  // loads and caches; Skeleton2D preloads its graph's clips
+    public SkeletonClip LoadClip(int clip);                  // loads and caches; SkeletonSprite2D preloads its graph's clips
     public float ClipLength(int clip);
     internal SkeletonBuild Build { get; }
     internal int Version { get; }                            // bumped when the editor or a reload replaces the build
@@ -436,7 +436,7 @@ or per-bone objects.
 
 `AnimationTracks` (playback, [below](#tracks-and-mixing)) and the graph player ([Animation graph](animation-graph.md)) produce a span of `ClipSample`s each frame. Each one holds a
 clip index, time, previous time, weight, layer, blend mode (`Replace` or `Additive`) and an optional bone mask.
-`Skeleton2DPoseBackend.Apply` (the `IPoseBackend` from [Animation graph](animation-graph.md#the-contract)) then:
+`SkeletonSprite2DPoseBackend.Apply` (the `IPoseBackend` from [Animation graph](animation-graph.md#the-contract)) then:
 
 1. **Resets** the local pose to the setup pose: bones, slot colours, attachments, draw order, constraint mixes.
 2. **Samples each clip** with `ClipSampler`. Each timeline keeps a cursor, so the key search is amortised O(1) during
@@ -485,7 +485,7 @@ first constraint that reads it, and again after constraints that change it:
     delta. The steps are capped at 4 per frame, after which the remaining time is dropped.
   - **Movement:** the skeleton node's world movement feeds inertia (teleports above `PhysicsTeleportDistance` reset the
     state).
-  - **Reset:** `reset` keys and `Skeleton2D.ResetPhysics()` restore the setup state.
+  - **Reset:** `reset` keys and `SkeletonSprite2D.ResetPhysics()` restore the setup state.
   - **Mixing:** global and per-constraint `mix`.
 
   The skeleton-wide gravity and wind are exported on the node and come from the `World2D` defaults.
@@ -521,10 +521,10 @@ Constraints never allocate. Each keeps fixed scratch arrays sized at load.
 ### Events and audio
 
 Events are defined in the `.mskel` (name, default int/float/string, optional audio stream, volume and balance) and keyed
-in clips. After each frame's evaluation, `Skeleton2D` raises:
+in clips. After each frame's evaluation, `SkeletonSprite2D` raises:
 
 ```csharp
-[Signal] public event Action<Skeleton2D, SkeletonEvent>? AnimationEvent;   // SkeletonEvent: readonly struct (name id, int, float, string?, track)
+[Signal] public event Action<SkeletonSprite2D, SkeletonEvent>? AnimationEvent;   // SkeletonEvent: readonly struct (name id, int, float, string?, track)
 ```
 
 - An event with an audio stream plays through the node's `AudioPlayer2D` (or `AudioPlayer3D` for `SkeletonSprite3D`).
@@ -575,7 +575,7 @@ public sealed class TrackEntry                                             // po
 - **Layers.** Track 0 is the base. Higher tracks layer over it with `Alpha`, `Blend` and `Mask`. An empty track with
   `SetEmpty(track, 0.2)` fades a layer out.
 - **Signals:** `TrackStarted`, `TrackInterrupted`, `TrackEnded`, `TrackCompleted` (each loop) and `TrackDisposed`,
-  with `(Skeleton2D, TrackEntry)` arguments.
+  with `(SkeletonSprite2D, TrackEntry)` arguments.
 - **Pooling.** `TrackEntry` objects come from a per-node pool with a fixed initial size (8). The pool grows only when a
   game queues more than that, and growing is a load-time cost. A disposed entry must not be kept, as in Spine.
   `TrackEntry.Generation` lets code check for a stale reference.
@@ -586,11 +586,11 @@ animation. With a graph, code tracks layer above the graph's layers, for one-off
 
 ## Nodes
 
-### Skeleton2D
+### SkeletonSprite2D
 
 ```csharp
 [EditorIcon("bone", Family = EditorIconFamily.Canvas)]
-public class Skeleton2D : Node2D
+public class SkeletonSprite2D : Node2D
 {
     [Export] public SkeletonData? Data { get; set; }
     [Export] public AnimationGraph? Graph { get; set; }                  // optional
@@ -619,9 +619,9 @@ public class Skeleton2D : Node2D
     public void Advance(float delta);                                   // Manual mode
     public Rect2 GetPoseBounds();
 
-    [Signal] public event Action<Skeleton2D, SkeletonEvent>? AnimationEvent;
-    [Signal] public event Action<Skeleton2D, TrackEntry>? TrackStarted;  // + Interrupted, Ended, Completed, Disposed
-    [Signal] public event Action<Skeleton2D>? PoseUpdated;               // after constraints, before draw
+    [Signal] public event Action<SkeletonSprite2D, SkeletonEvent>? AnimationEvent;
+    [Signal] public event Action<SkeletonSprite2D, TrackEntry>? TrackStarted;  // + Interrupted, Ended, Completed, Disposed
+    [Signal] public event Action<SkeletonSprite2D>? PoseUpdated;               // after constraints, before draw
 }
 ```
 
@@ -643,7 +643,7 @@ public class Skeleton2D : Node2D
   
   Culling then uses the union of the playing clips' conservative bounds, so a skeleton walking back on screen is
   drawn on the first frame it would be visible.
-- **In the editor's edit mode** a `Skeleton2D` is a `[Tool]` node: it shows its setup pose, or `Clip`'s pose at
+- **In the editor's edit mode** a `SkeletonSprite2D` is a `[Tool]` node: it shows its setup pose, or `Clip`'s pose at
   `EditorPreviewTime`. That way scenes look right without running, which fixes the gap ADR 0127 notes for Spine rigs.
 - **Constructors are cheap.** Data binds when `Data` is set and the node enters the tree, as `CLAUDE.md` requires.
 
@@ -673,7 +673,7 @@ public readonly record struct BoneOverride(BoneOverrideSpace Space, Transform2D 
 - **Overrides** apply after clips and before constraints, in local or world space, with a mix and a set of channels
   (rotation, translation, scale). Typical uses: aim the arm at the mouse, look at a target, ragdoll a limb. Constraints
   still run after, so an IK target can be overridden too.
-- **`BoneAttachment2D`** is a `Node2D` child of a `Skeleton2D`:
+- **`BoneAttachment2D`** is a `Node2D` child of a `SkeletonSprite2D`:
   - `[Export] string Bone`;
   - `[Export] bool OverridePose` (false: follow the bone; true: this node's transform drives the bone, Godot's
     `BoneAttachment3D` mode);
@@ -739,10 +739,10 @@ public struct SkeletonNetState : INetworkTransferable, IEquatable<SkeletonNetSta
 G1a's `AnimationPlayer` ([Keyframe animation](keyframe-animation.md#animationplayer-node)) is for cutscenes and props.
 It reaches skeletons without a new track type:
 
-- `ValueTrack`s on `Skeleton2D` exports (`Clip`, `Skins`, `TimeScale`) and on the graph player's parameters, through
+- `ValueTrack`s on `SkeletonSprite2D` exports (`Clip`, `Skins`, `TimeScale`) and on the graph player's parameters, through
   `AnimationGraphPlayer`'s generated property accessors for `Parameters/<name>`;
 - `MethodTrack`s calling `Tracks.SetClip`-style wrappers (`PlayClip(string, bool)`, `QueueClip`), which are exported
-  methods on `Skeleton2D`;
+  methods on `SkeletonSprite2D`;
 - **scrubbing**: a `SkeletonClipTrack` (new, in G17g) holds clip keys. Seeking the player poses the skeleton at the
   right clip time, so cutscene editors can scrub character animation in the Animation panel. This needs G1a.
 
@@ -790,7 +790,7 @@ transforms every vertex on the CPU (`CanvasFrame.cs:163-177`). The changes:
   - an optional per-command `Blend`;
   - an optional `NormalMap`.
 
-  `Skeleton2D.OnDraw` records one `GpuSkinned` command per run of slots that share page, blend and clip state. The
+  `SkeletonSprite2D.OnDraw` records one `GpuSkinned` command per run of slots that share page, blend and clip state. The
   runs are cached and rebuilt only when draw order, attachments or skins change. A frame where only the pose changes
   records no commands at all: the item just reports new pose bounds to the culler.
 - **Per-command blend.** `CanvasFrame.Append` takes a command's `Blend` over the item's material when it is set
@@ -820,7 +820,7 @@ transforms every vertex on the CPU (`CanvasFrame.cs:163-177`). The changes:
 
   `Sprite2D` and `Polygon2D` get normal maps with the same change.
 - **Clipping attachments.** The canvas pass has no stencil. Slots between a clipping attachment and its end slot are
-  skinned on the CPU (`Skeleton2D` keeps a CPU skinning path for this), clipped against the convex pieces of the clip
+  skinned on the CPU (`SkeletonSprite2D` keeps a CPU skinning path for this), clipped against the convex pieces of the clip
   polygon with Sutherland–Hodgman, and recorded as ordinary `Cpu` commands in draw order. That costs CPU per clipped
   slot, which is documented. Stencil clipping is a later step.
 - **Validation.** Every pipeline variant is prebuilt through `IVulkanContext.Pipelines` when a skeleton first draws,
@@ -1013,7 +1013,7 @@ The rules:
 
   Plus the allocation-gate scene above. Every render test runs under the validation gate.
 - **The Spine comparison.** The `spine-vs-skeleton` render test draws spineboy with `SpineSprite` and with
-  `Skeleton2D` (the imported copy) side by side at the same clip times. It passes when the two halves differ by less
+  `SkeletonSprite2D` (the imported copy) side by side at the same clip times. It passes when the two halves differ by less
   than a perceptual threshold (the render tests' tolerance, at 2× the usual). That checks the importer and the
   runtime against the reference without sharing code.
 - **Editor tests** (`Tests/MainframeEngine.Editor.Tests/Skeleton/`): see
@@ -1036,11 +1036,11 @@ tests.
    - region and mesh attachments, weighted meshes, deform, slots, skins and composition, sequences;
    - `AnimationTracks` and mixing;
    - events and audio;
-   - `Skeleton2D`, compute skinning, canvas `GpuSkinned` commands, per-command blend and the premultiplied modes,
+   - `SkeletonSprite2D`, compute skinning, canvas `GpuSkinned` commands, per-command blend and the premultiplied modes,
      two-colour tint;
    - `SpineJsonImporter`.
    
-   Done when spineboy plays on `Skeleton2D` and the comparison test passes.
+   Done when spineboy plays on `SkeletonSprite2D` and the comparison test passes.
 2. **G17b — Editor: Skeleton tab and Setup mode.**
    - The common document-tab interface;
    - shared `Timeline/` extraction with the song tab moved onto it;
@@ -1101,10 +1101,10 @@ Docs to update as each phase lands:
    would need stencil in the canvas pass.
 4. **Binary `.skel` import.** It is skipped because it is versioned and undocumented across minors. Add it if users
    ask; JSON export is always available in Spine.
-5. **Godot `Bone2D` scenes.** A port of a Godot 2D game that uses `Skeleton2D` + `Bone2D` + `Polygon2D` collides by
-   name with ours. An importer could convert such a scene into a `.mskel`, or the engine could rename ours. The current
-   choice keeps the name and documents the difference.
-6. **Mesh attachments without a skeleton.** Should `Polygon2D` (planned in [2D content](2d-content.md)) share the mesh
+5. **Godot `Bone2D` scenes.** *Resolved (ADR 0202, 2026-10-20):* the engine now ships Godot's `Skeleton2D`, `Bone2D`,
+   `Polygon2D` and `RemoteTransform2D` (a bone-node, CPU-skinned compatibility set), so this proposal's node is
+   `SkeletonSprite2D` (like `SkeletonSprite3D`). An importer could still convert a Godot rig into a `.mskel`.
+6. **Mesh attachments without a skeleton.** Should `Polygon2D` (shipped in ADR 0202) share the mesh
    tools, as a "single-image skeleton"? It would reuse the editor's mesh mode.
 
 ## Related

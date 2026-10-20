@@ -1,7 +1,7 @@
 # Proposal: Animation graph (state machines, blend spaces, layers)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G17f; 3D adoption with G1b) · **Status:** ⬜
-planned · **Depends on:** [2D skeletal animation](skeleton-2d.md) (G17a: `AnimationTracks`, `Skeleton2D`),
+planned · **Depends on:** [2D skeletal animation](skeleton-2d.md) (G17a: `AnimationTracks`, `SkeletonSprite2D`),
 [Skeleton editor](skeleton-2d-editor.md) (G17c: Animate mode, preview) · **Related:**
 [Keyframe animation](keyframe-animation.md) (G1a `AnimationPlayer`, G1b `Skeleton3D`; this is the "later proposal" its
 non-goals mention), [Networking](../networking.md) · **ADR:**
@@ -30,7 +30,7 @@ and player.
   - no allocation, no reflection;
   - it emits weighted clip samples to the skeleton through one small interface, `IPoseBackend`;
   - it knows nothing about bones or slots.
-- **One asset, two skeleton kinds.** The same graph drives `Skeleton2D`/`SkeletonSprite3D` now and `Skeleton3D` after
+- **One asset, two skeleton kinds.** The same graph drives `SkeletonSprite2D`/`SkeletonSprite3D` now and `Skeleton3D` after
   G1b, with clips resolved by name and masks by bone names.
 - **Editor.** A graph tab:
   - a node canvas for states and transitions;
@@ -60,7 +60,7 @@ flowchart LR
     C["Game code / AnimationPlayer / network"] -->|"SetFloat('speed', 3.2)<br/>Fire('jump')"| P["AnimationGraphPlayer<br/>(per skeleton instance)"]
     P -->|"ClipSample[] + LayerInfo[]"| B{"IPoseBackend"}
     T["AnimationTracks<br/>(code tracks)"] -->|"ClipSample[]"| B
-    B --> S2["Skeleton2DPoseBackend<br/>(G17f)"]
+    B --> S2["SkeletonSprite2DPoseBackend<br/>(G17f)"]
     B --> S3["Skeleton3DPoseBackend<br/>(with G1b)"]
 ```
 
@@ -107,7 +107,7 @@ public interface IPoseBackend
 
 - **How layers combine.** Layer 0 is the base, and its replace weights fill the pose from setup. Each higher layer is
   computed the same way into its own result (masked bones only), then lerped (Replace) or added (Additive) over the
-  layers below by its weight. This is the contract each backend implements. `Skeleton2DPoseBackend` does it in the
+  layers below by its weight. This is the contract each backend implements. `SkeletonSprite2DPoseBackend` does it in the
   SoA pose arrays ([2D skeletal animation → Applying clips](skeleton-2d.md#applying-clips)); `Skeleton3DPoseBackend`
   does it on `Skeleton3D` bone poses with slerp.
 - **Discrete values** (attachments, draw order, IK bend in 2D) come from the highest-weight sample on the highest layer
@@ -305,7 +305,7 @@ public sealed class AnimationGraphPlayer
   costs a few microseconds.
 - **Allocation.** The player holds no per-frame allocations. Every list is sized at bind.
 
-`Skeleton2D.Graph` creates the player when the node binds its data. `Skeleton3D` gets the same `Graph` export with
+`SkeletonSprite2D.Graph` creates the player when the node binds its data. `Skeleton3D` gets the same `Graph` export with
 G1b.
 
 ## Networking
@@ -345,7 +345,7 @@ opens an `AnimationGraph` `.mres`. Double-clicking the graph file opens it, and 
   preview uses the runtime player. The active state glows, a transition's arrow fills while it runs, and normalised
   time shows as a bar in each active state.
 - **Live debugging.** While a game runs from the editor (Play), the graph tab can attach to a node in the running game
-  through the editor link, a "debug instance" picker listing `Skeleton2D`s using this graph. It then shows that
+  through the editor link, a "debug instance" picker listing `SkeletonSprite2D`s using this graph. It then shows that
   instance's states and parameters live. This is read-only; setting parameters from the editor is a later step.
 - **Undo, save and reload** work as in the Skeleton tab: one history per tab, `ResourceSaver` writes, and instances
   rebind on `Version` changes.
@@ -367,7 +367,7 @@ opens an `AnimationGraph` `.mres`. Double-clicking the graph file opens it, and 
 
 G17f, after G17a and G17c:
 
-1. Contract types and `AnimationGraphPlayer` with clip states and transitions, plus `Skeleton2DPoseBackend` layering.
+1. Contract types and `AnimationGraphPlayer` with clip states and transitions, plus `SkeletonSprite2DPoseBackend` layering.
 2. Blend spaces, sub-machines and masks.
 3. The graph tab: canvas, inspector, parameters, preview.
 4. The blend space editor and live debugging.

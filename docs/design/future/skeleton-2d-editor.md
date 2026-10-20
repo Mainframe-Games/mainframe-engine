@@ -41,7 +41,7 @@ The engine's editor has none of that today:
   - **Animate**: clips, keys, curves, posing.
 - **One undo history per tab** covering the rig and every open clip. Every gesture is one entry. Cmd+S saves the
   `.mskel` and the changed `.manim` files.
-- **Live in the scene.** `Skeleton2D` and `SkeletonSprite3D` nodes in open scene tabs update as soon as the rig or a
+- **Live in the scene.** `SkeletonSprite2D` and `SkeletonSprite3D` nodes in open scene tabs update as soon as the rig or a
   clip changes, before saving. Saved files reload in running games through the editor link (see
   [Saving and live update](#saving-and-live-update)).
 - **Art in:**
@@ -87,10 +87,10 @@ flowchart LR
     T --> D["SkeletonDocument<br/>rig model + open clips<br/>UndoRedo"]
     T --> P["SkeletonPanel (RML chrome)<br/>mode switch · hierarchy · tools · transport"]
     T --> V["SkeletonView ([Tool])<br/>viewport SubViewport · timeline SubViewport"]
-    V --> VC["SkeletonViewportCanvas<br/>preview Skeleton2D + gizmos"]
+    V --> VC["SkeletonViewportCanvas<br/>preview SkeletonSprite2D + gizmos"]
     V --> TL["Timeline/ (shared)<br/>DopesheetCanvas · CurveCanvas"]
     D -->|"Rebuild (in memory)"| SD["SkeletonData.Version++"]
-    SD --> SC["Scene tabs: Skeleton2D instances"]
+    SD --> SC["Scene tabs: SkeletonSprite2D instances"]
     D -->|Cmd+S| F[".mskel + .manim (SkeletonFormat)"]
     F -->|editor link: resource changed| G["Running game reloads"]
 ```
@@ -103,7 +103,7 @@ Editor code lives in `MainframeEngine.Editor/Src/Skeleton/`:
 | `SkeletonDocument` | The editable model (`SkeletonModel` from `SkeletonFormat`, plus each open `ClipModel`) and its `UndoRedo`, as `SongDocument` (`Music/SongDocument.cs:34`) |
 | `SkeletonPanel : EditorDocument` | The RmlUi chrome (`Assets/Editor/skeleton.rml`) over the view area, as `SongPanel` |
 | `SkeletonView` | The `[Tool]` driver: sizes and publishes the viewport and timeline `SubViewport`s, routes input to the active tool (the `SongView` pattern, now through `TimelineHost`) |
-| `SkeletonViewportCanvas` | The 2D view: the preview `Skeleton2D`, a grid, bones, gizmos, mesh and weight overlays, onion skins |
+| `SkeletonViewportCanvas` | The 2D view: the preview `SkeletonSprite2D`, a grid, bones, gizmos, mesh and weight overlays, onion skins |
 | `Tools/` | `SelectTool`, `CreateBoneTool`, `PoseTool`, `MeshTool`, `WeightTool`, `ConstraintTool`; each implements `ISkeletonTool` (press, drag, release, hover, keys, draw) |
 | `Timeline/` (Skeleton-specific) | `DopesheetCanvas`, `CurveCanvas`, their gesture targets |
 
@@ -170,7 +170,7 @@ G1a's Animation panel later uses the same two canvases with its own tracks.
   re-imports into an open one. See [Importing art](#importing-art).
 - **Import Spine…** (context menu on a Spine `.json`) runs the [Spine importer](skeleton-2d.md#spine-4x-json-importer)
   into a folder the user picks, shows its report and opens the result.
-- **The `Skeleton2D` inspector.** A custom inspector (`[CustomInspector(typeof(Skeleton2D))]`, the
+- **The `SkeletonSprite2D` inspector.** A custom inspector (`[CustomInspector(typeof(SkeletonSprite2D))]`, the
   `InspectorModel.cs:162-198` mechanism) adds:
   - a clip picker for `Clip`;
   - a skin picker (multi-select) for `Skins`;
@@ -508,7 +508,7 @@ The phases match [2D skeletal animation → Delivery](skeleton-2d.md#delivery):
    1. `IDocumentTab` refactor (its own PR).
    2. `Timeline/` extraction with the song tab moved onto it (its own PR).
    3. The Skeleton tab: Setup mode with hierarchy, bones, slots, regions, the PNG folder, skins, events, New Skeleton,
-      FileSystem integration, renames, live update and the `Skeleton2D` inspector.
+      FileSystem integration, renames, live update and the `SkeletonSprite2D` inspector.
 2. **G17c.** Animate mode: clips, posing, auto-key, dopesheet, graph editor, onion skin, pose clipboard and mirror,
    preview and mix preview, audio and the reference layer.
 3. **G17d.** Mesh mode, weights, Import PSD and re-import.

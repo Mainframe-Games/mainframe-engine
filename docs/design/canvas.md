@@ -9,7 +9,7 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 
 | Piece | Where | What |
 |---|---|---|
-| Nodes | [Scene/Canvas/](../../MainframeEngine/Src/Scene/Canvas/), [Scene/Nodes2D/](../../MainframeEngine/Src/Scene/Nodes2D/) | `CanvasItem` (base of `Node2D`), `Sprite2D`, `CanvasLayer`, `CanvasModulate`; `Canvas` (a viewport's root canvas or a layer's) |
+| Nodes | [Scene/Canvas/](../../MainframeEngine/Src/Scene/Canvas/), [Scene/Nodes2D/](../../MainframeEngine/Src/Scene/Nodes2D/) | `CanvasItem` (base of `Node2D`), `Sprite2D`, `Polygon2D`, `Skeleton2D`/`Bone2D`, `RemoteTransform2D`, `CanvasLayer`, `CanvasModulate`; `Canvas` (a viewport's root canvas or a layer's) |
 | Commands | `CanvasDrawList`, `CanvasPrimitives` | per-item vertices/indices recorded by `OnDraw`; Godot's tessellation (64-segment circles, polyline strips with clamped joints, feathered antialiasing, ear-clipping triangulation) |
 | Ordering | [Rendering/Canvas/CanvasCuller.cs](../../MainframeEngine/Src/Rendering/Canvas/CanvasCuller.cs) | port of `_cull_canvas_item`: z lists −4096…4096, tree order, show-behind-parent, y-sort, top level, viewport culling |
 | Server | `CanvasServer` (`IFrameServer`) | runs queued draws, culls every canvas of the root viewport (root canvas + visible layers, by layer) into one `CanvasFrame` |
@@ -148,6 +148,36 @@ exact-area coverage, outlines grown by `size / 4` px at 4× supersampling) into 
 Metrics follow FreeType's rounding. Unhinted, whole-pixel pen positions, no oversampling under a scaled canvas.
 Glyph placement is `Font.Layout` (one line into `GlyphQuad`s: pixel rectangle, atlas page and region), shared by
 `DrawString` and `Label3D` ([ADR 0200](../../memory/decisions/0200-label3d-first-slice.md)).
+
+## Polygons and bones (ADR 0202)
+
+Godot's `Polygon2D`, `Skeleton2D`, `Bone2D` and `RemoteTransform2D`, with the same properties and rules:
+
+- **`Polygon2D`** draws its points (`Polygon`, plus `Offset`) as indexed triangles (`DrawTriangles`).
+  - Without `Polygons`, the outline is ear-clipped (`CanvasPrimitives.Triangulate`, Godot's) and the last
+    `InternalVertexCount` points are left out. With `Polygons`, each index list is triangulated on its own, internal
+    vertices included.
+  - The triangulation is cached until the points or polygons change.
+  - `UV` is in texture pixels: `S·(R·uv + TextureOffset)` divided by the texture size, where R is `TextureRotation` and S
+    is `TextureScale`. Without UVs, the points are used.
+  - `VertexColors` gives a colour per point, else `Color` is used.
+- **Skinning** runs on the CPU, with Godot's GPU maths. `Skeleton` names a `Skeleton2D`, and `BonePaths` (relative to
+  it) with `BoneWeights` give each bone's weight per point. Every vertex keeps its four heaviest bones, weights
+  normalised; unweighted vertices stay put. In skeleton space a vertex moves by Σ wᵢ (boneᵢ · restᵢ⁻¹), where
+  `Bone2D.GetSkeletonRest()` composes the parent bones' `Rest`s.
+- **Bones:**
+  - `Skeleton2D` numbers its `Bone2D` children, and theirs, in tree order.
+  - A bone's transform change asks the skeleton's polygons to redraw (and to re-resolve their bones when bones are
+    added or removed).
+  - `Bone2D.Length`/`BoneAngle` autocalculate from the first child bone, as in Godot.
+  - Godot's modification stack (look-at, IK) is not supported.
+- **`RemoteTransform2D`** pushes its global or local transform to `RemotePath`: all of it, or only position, rotation
+  or scale. It pushes in the frame's transform notifications. Physics poses are written before that point, and canvas
+  redraws run after it, so a bone driven by a `RigidBody2D` deforms its polygon in the same frame.
+- **Cost:** four 600-vertex, 25-bone polygons re-skin and redraw in about 0.15 ms per frame (Release) and allocate
+  nothing. `DrawTriangles` writes vertices straight into the draw list (`CanvasDrawList.AddVertices` from spans).
+- **Naming:** `Skeleton2D` is Godot's bone container. G17's planned Spine-like skeletal node is `SkeletonSprite2D`
+  ([proposal](future/skeleton-2d.md)).
 
 ## Clip children (ADR 0119)
 
