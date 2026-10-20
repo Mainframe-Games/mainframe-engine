@@ -154,7 +154,7 @@ public class CharacterBody2D : PhysicsBody2D
         if (Record is not { } record || Tree is not { } tree)
             return false;
 
-        var delta = 1f / tree.PhysicsTicksPerSecond;
+        var delta = tree.PhysicsDeltaTime; // game time: scaled by TimeScale, like the step it runs in
         if (MotionMode == CharacterMotionMode2D.Floating)
             return MoveAndSlideFloating(record, delta);
         var wasOnFloor = _onFloor;

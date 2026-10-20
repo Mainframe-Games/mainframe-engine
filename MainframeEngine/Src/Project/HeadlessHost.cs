@@ -27,7 +27,7 @@ public sealed class HeadlessHost : IDisposable
         options ??= new GameHostOptions();
         _options = options.Apply(settings.ToEngineOptions());
         Localization.Tr.Configure(_options.Localization ?? new Localization.LocalizationOptions(), _options.Locale);
-        Tree = new SceneTree { PhysicsTicksPerSecond = _options.PhysicsTicksPerSecond };
+        Tree = new SceneTree { PhysicsTicksPerSecond = _options.PhysicsTicksPerSecond, TimeScale = _options.TimeScale };
         Input.Current = Tree.Input;
         Tree.QuitRequested += code => Quit((ExitCode)code);
         GameHost.Project = settings;

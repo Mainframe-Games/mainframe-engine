@@ -203,6 +203,7 @@ does not load), 2 (bad command line).
 | `--editor-port <n>` | connect the editor link to `localhost:n` |
 | `--headless` | no window, renderer or audio device: a dedicated server (`HeadlessHost`, below) |
 | `--max-frames <n>` · `--fixed-fps <n>` · `--hidden` · `--no-vsync` · `--validation` | headless/CI runs |
+| `--time-scale <x>` | start with `SceneTree.TimeScale` x (0–100; Godot's `Engine.time_scale`): smokes speed through slow parts. With `--fixed-fps n` each update is still 1/n s of real time (the same step count) and x/n s of game time |
 | `--no-log-file` | no log file |
 | `--locale <name>` | start in this locale (overrides `localization.defaultLocale`) |
 | `--screenshot <file.png>` | save the frame `--max-frames` ends on (frame 60 without it) as a PNG |

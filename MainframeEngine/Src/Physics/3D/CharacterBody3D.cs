@@ -155,7 +155,7 @@ public class CharacterBody3D : PhysicsBody3D
         if (Record is not { } record || Tree is not { } tree)
             return false;
 
-        var delta = 1f / tree.PhysicsTicksPerSecond;
+        var delta = tree.PhysicsDeltaTime; // game time: scaled by TimeScale, like the step it runs in
         var wasOnFloor = _onFloor;
         _onFloor = _onWall = _onCeiling = false;
         _floorNormal = _wallNormal = Vector3.Zero;
