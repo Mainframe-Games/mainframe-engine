@@ -10,6 +10,7 @@ namespace MainframeEngine;
 /// <item><term><c>--editor-port &lt;n&gt;</c></term><description>connect to the editor on <c>localhost:n</c> (logs, status, commands)</description></item>
 /// <item><term><c>--max-frames &lt;n&gt;</c></term><description>quit after n rendered frames (CI smoke runs)</description></item>
 /// <item><term><c>--fixed-fps &lt;n&gt;</c></term><description>every update gets a 1/n s delta (deterministic runs)</description></item>
+/// <item><term><c>--time-scale &lt;x&gt;</c></term><description>start with <see cref="SceneTree.TimeScale"/> x (0–100): game time runs x times as fast; with <c>--fixed-fps</c> each update is still 1/n s of real time and x/n s of game time</description></item>
 /// <item><term><c>--headless</c></term><description>no window, Vulkan or audio device: a dedicated server (<see cref="HeadlessHost"/>)</description></item>
 /// <item><term><c>--hidden</c></term><description>create the window hidden</description></item>
 /// <item><term><c>--no-vsync</c></term><description>start with VSync off</description></item>
@@ -42,6 +43,9 @@ public sealed record GameHostOptions
     public int MaxFrames { get; init; }
 
     public int FixedFps { get; init; }
+
+    /// <summary><c>--time-scale</c>: the tree's starting <see cref="SceneTree.TimeScale"/>.</summary>
+    public float TimeScale { get; init; } = 1f;
 
     public bool Hidden { get; init; }
 
@@ -130,6 +134,9 @@ public sealed record GameHostOptions
                 case "--fixed-fps":
                     options = options with { FixedFps = Int(args, ref i, 1, 1000) };
                     break;
+                case "--time-scale":
+                    options = options with { TimeScale = TimeScaleArg(args, ref i) };
+                    break;
                 case "--headless":
                     options = options with { Headless = true };
                     break;
@@ -202,6 +209,7 @@ public sealed record GameHostOptions
             options.MaxFrames = MaxFrames;
         if (FixedFps > 0)
             options.FixedDeltaTime = 1f / FixedFps;
+        options.TimeScale = TimeScale;
         if (Hidden)
             options.WindowVisible = false;
         if (NoVSync)
@@ -246,6 +254,15 @@ public sealed record GameHostOptions
         var text = Value(args, ref i);
         if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !(value > 0f) || value > 4f)
             throw new ArgumentException($"{name} must be a scale above 0 and at most 4 (got '{text}').");
+        return value;
+    }
+
+    private static float TimeScaleArg(IReadOnlyList<string> args, ref int i)
+    {
+        var name = args[i];
+        var text = Value(args, ref i);
+        if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !(value >= 0f) || value > 100f)
+            throw new ArgumentException($"{name} must be a time scale between 0 and 100 (got '{text}').");
         return value;
     }
 

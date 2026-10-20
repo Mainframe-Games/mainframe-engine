@@ -123,9 +123,30 @@ public sealed partial class SceneTree
 
     /// <summary>
     /// Delta time (seconds) <see cref="Tick"/> gave process callbacks for the frame being (or last) processed: the frame's
-    /// delta minus the physics time it dropped (see <see cref="Tick"/>).
+    /// delta minus the physics time it dropped (see <see cref="Tick"/>), times <see cref="TimeScale"/>.
     /// </summary>
     public float ProcessDeltaTime { get; private set; }
+
+    /// <summary>
+    /// How fast game time runs against real time (Godot's <c>Engine.time_scale</c>; default 1). It multiplies the delta
+    /// given to <see cref="Node.OnProcess"/> and <see cref="Node.OnPhysicsProcess"/>, the physics servers' step, the tree's
+    /// timers (<see cref="CreateTimer"/>, <see cref="Timer"/>) and tweens. The number of physics steps per real second
+    /// stays <see cref="PhysicsTicksPerSecond"/>, so at 8 each step simulates 8 times as long (as in Godot, less precise).
+    /// Audio is not scaled. 0 freezes game time.
+    /// </summary>
+    public float TimeScale
+    {
+        get;
+        set
+        {
+            if (!(value >= 0f) || !float.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "TimeScale must be a finite number ≥ 0.");
+            field = value;
+        }
+    } = 1f;
+
+    /// <summary>The delta of one physics step in game time: <c>TimeScale / PhysicsTicksPerSecond</c> (Godot's <c>get_physics_process_delta_time</c>).</summary>
+    public float PhysicsDeltaTime => (float)(TimeScale / (double)PhysicsTicksPerSecond);
 
     /// <summary>Frames processed by <see cref="Tick"/>.</summary>
     public ulong ProcessFrames { get; private set; }
@@ -338,7 +359,7 @@ public sealed partial class SceneTree
             var physicsStart = System.Diagnostics.Stopwatch.GetTimestamp();
             while (_accumulator + tolerance >= step && steps < MaxPhysicsStepsPerFrame)
             {
-                RunPhysicsStep((float)step);
+                RunPhysicsStep(PhysicsDeltaTime); // the step count follows real time; each step's length, game time
                 _accumulator = Math.Max(0, _accumulator - step);
                 steps++;
             }
@@ -359,7 +380,7 @@ public sealed partial class SceneTree
             // Godot's rule (main.cpp, Main::iteration): process sees the frame's time minus the physics steps it dropped, so a
             // long hitch (a load, the first frame) reads as at most the steps physics ran, not the whole stall.
             var processTime = gameTime;
-            processTime.DeltaTime = (float)Math.Max(0, gameTime.DeltaTime - dropped);
+            processTime.DeltaTime = (float)Math.Max(0, gameTime.DeltaTime - dropped) * TimeScale;
             ProcessDeltaTime = processTime.DeltaTime;
             FlushDeferredCalls(); // Godot's process: the message queue flushes before the callbacks (calls queued by ready, input)
             var processStart = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -409,7 +430,7 @@ public sealed partial class SceneTree
         UpdateTimers(delta, physics: true);
         UpdateTweens(delta, physics: true);
 
-        if (!paused && !editMode)
+        if (!paused && !editMode && delta > 0f) // TimeScale 0: no game time passes, so the physics servers don't step
             foreach (var server in Servers.FixedStepServers)
                 server.FixedStep(delta);
 

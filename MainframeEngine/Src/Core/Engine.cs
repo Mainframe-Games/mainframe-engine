@@ -85,6 +85,9 @@ public struct EngineOptions()
     /// <summary>Fixed rate of <see cref="Node.OnPhysicsProcess"/> and the physics servers (M2).</summary>
     public int PhysicsTicksPerSecond = 60;
 
+    /// <summary>The tree's starting <see cref="SceneTree.TimeScale"/> (<c>--time-scale</c>; default 1).</summary>
+    public float TimeScale = 1f;
+
     /// <summary>3D physics project settings (gravity, solver, threading) for the <see cref="PhysicsServer3D"/>.</summary>
     public PhysicsSettings3D Physics3D = new();
 
@@ -278,7 +281,7 @@ public abstract class Engine : IDisposable
         DevOverlayVisible = engineOptions.DevOverlayVisible;
         // M9: catalogs load before any game code runs, so constructors and OnLoad can translate.
         Localization.Tr.Configure(engineOptions.Localization ?? new Localization.LocalizationOptions(), engineOptions.Locale);
-        Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond }; // M2
+        Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond, TimeScale = engineOptions.TimeScale }; // M2
         MainframeEngine.Input.Current = Tree.Input; // M10: Input.IsActionPressed(...) reads the engine's tree
         Tree.QuitRequested += code => Quit((ExitCode)code);
         Tree.CanCaptureFrame = engineOptions.EnableFrameCapture;

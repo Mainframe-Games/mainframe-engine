@@ -181,7 +181,7 @@ natives, content; `docs/design/distribution-nuget.md`). `dotnet new mfgame -n My
 physics, input map, audio, localization, rendering, Steam, autoloads; versioned JSON with migrations). Steam demo
 builds: `isDemo` in `project.mfproj` (or `-p:MainframeDemo=true`) defines `DEMO` for game code (`#if DEMO`) through
 `build/MainframeGame.props`, which the template's `Directory.Build.props` imports; `GameHost.IsDemo` at run time. `GameHost` flags:
-`--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`, `--headless` (`HeadlessHost`: dedicated servers, no window/Vulkan/audio device),
+`--scene`, `--editor-port`, `--max-frames`, `--hidden`, `--fixed-fps`, `--time-scale` (`SceneTree.TimeScale`), `--headless` (`HeadlessHost`: dedicated servers, no window/Vulkan/audio device),
 `--record <file.mp4>` (gameplay recording through the user's ffmpeg, with `--record-scale <n>` and `--ffmpeg <path>`; the editor records with F10 and passes `--frame-capture` on every launch; `docs/design/recording.md`). Input actions: `Input.IsActionPressed("jump")`
 / `SceneTree.Input`. Logs are `LogEntry`s routed to `ILogSink`s (`Log.AddSink`; console, `FileLogSink`,
 `MemoryLogSink`); filtered `Log.X($"...")` costs nothing. Editor-facing: `EditorLinkServer`/`EditorLinkClient`,
