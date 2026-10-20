@@ -15,7 +15,8 @@ struct SkyParams
     float4 groundColor;       // rgb = ground / nadir colour
     float4 sunDirection;      // xyz = world-space direction toward the sun (normalized)
     float4 sunColorIntensity; // rgb = sun colour, a = intensity multiplier
-    float4 sun;               // x = cos(sun angular radius), y = horizon sharpness, z = 1 radiance capture (no sun disk)
+    float4 sun;               // x = cos(sun angular radius), y = horizon sharpness, z = 1 radiance capture (no sun disk),
+                              // w = view ray scale for Sky.CustomFov (tan(custom/2) / tan(camera/2); 0 = 1, the camera's)
 };
 
 [[vk::push_constant]] ConstantBuffer<SkyParams> sky;
@@ -23,6 +24,7 @@ struct SkyParams
 // World-space view direction through NDC position `ndc` (x, y in [-1, 1]; +y up with the flipped viewport).
 float3 skyRay(float2 ndc)
 {
+    ndc *= sky.sun.w > 0.0 ? sky.sun.w : 1.0; // Godot's sky_custom_fov: the same rays through a wider (or narrower) lens
     float4 viewPos = mul(float4(ndc, 1.0, 1.0), frame.invProjection);
     viewPos /= viewPos.w;
     return normalize(mul(viewPos.xyz, (float3x3)frame.invViewRotation));

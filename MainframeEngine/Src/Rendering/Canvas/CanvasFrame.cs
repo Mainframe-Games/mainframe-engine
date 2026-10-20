@@ -184,6 +184,13 @@ public sealed class CanvasFrame
             var culled = items[i];
             var list = culled.Item.DrawList;
             var commands = list.Commands;
+            if (culled.ClipComposite && culled.Item is CanvasGroup group)
+            {
+                ItemCount++;
+                AppendGroupComposite(culled, group, canvasModulate);
+                continue;
+            }
+
             if (commands.IsEmpty)
                 continue;
             ItemCount++;
@@ -213,7 +220,7 @@ public sealed class CanvasFrame
             VertexCount += src.Length;
 
             var blend = culled.Material is CanvasItemMaterial cim ? cim.BlendMode : culled.Material is ShaderMaterial sm ? sm.Shader?.BlendMode ?? CanvasBlendMode.Mix : CanvasBlendMode.Mix;
-            if (culled.ClipGroup is { } owner && !ReferenceEquals(owner, culled.Item))
+            if (culled.ClipGroup is { } owner && owner is not CanvasGroup && !ReferenceEquals(owner, culled.Item))
                 blend = CanvasBlendMode.Atop;   // inside a clip-children group: only where the owner drew
             var lightMask = 0u;
             if (lights is not null)
@@ -268,13 +275,28 @@ public sealed class CanvasFrame
     private static readonly CanvasItemMaterial ClipCompositeMaterial = new() { BlendMode = CanvasBlendMode.PremultAlpha, LightMode = CanvasLightMode.Unshaded };
 
     /// <summary>A clip-children owner's composite: its drawn bounds (target pixels) textured with its group target.</summary>
-    private void AppendClipComposite(in CulledCanvasItem culled, CanvasDrawList list, Vector4 canvasModulate)
+    private void AppendClipComposite(in CulledCanvasItem culled, CanvasDrawList list, Vector4 canvasModulate) =>
+        AppendGroupQuad(culled.Item, list.Bounds.Transformed(culled.Transform), Vector4.One, canvasModulate);
+
+    /// <summary>
+    /// A <see cref="CanvasGroup"/>'s composite (Godot's default canvas group shader: the group image, un-premultiplied, times
+    /// the item's colour, mix-blended): its children's bounds grown by the fit margin, with the group's modulate and self
+    /// modulate (premultiplied for the premultiplied blend).
+    /// </summary>
+    private void AppendGroupComposite(in CulledCanvasItem culled, CanvasGroup group, Vector4 canvasModulate)
     {
-        var rect = list.Bounds.Transformed(culled.Transform);
+        if (group.GroupRect.Size is not { X: > 0, Y: > 0 })
+            return; // no child drew
+        var m = culled.Modulate;
+        AppendGroupQuad(group, group.GroupRect.Grow(group.FitMargin), new Vector4(m.X * m.W, m.Y * m.W, m.Z * m.W, m.W), canvasModulate);
+    }
+
+    private void AppendGroupQuad(CanvasItem owner, Rect2 rect, Vector4 color, Vector4 canvasModulate)
+    {
         var size = _passes[^1].Size;
         if (size.X <= 0 || size.Y <= 0 || rect.Size.X <= 0 || rect.Size.Y <= 0)
             return;
-        var texture = Texture2D.ForClipGroup(culled.Item, size);
+        var texture = Texture2D.ForClipGroup(owner, size);
         EnsureVertices(VertexCount + 4);
         EnsureIndices(IndexCount + 6);
         var baseVertex = (uint)VertexCount;
@@ -282,7 +304,7 @@ public sealed class CanvasFrame
         var p1 = rect.Position + rect.Size;
         ReadOnlySpan<Vector2> corners = [p0, new Vector2(p1.X, p0.Y), p1, new Vector2(p0.X, p1.Y)];
         for (var v = 0; v < 4; v++)
-            _vertices[VertexCount + v] = new CanvasVertex { Position = corners[v], Uv = corners[v] / size, Color = Vector4.One };
+            _vertices[VertexCount + v] = new CanvasVertex { Position = corners[v], Uv = corners[v] / size, Color = color };
         VertexCount += 4;
         ReadOnlySpan<uint> quad = [0, 1, 2, 2, 3, 0];
         var firstIndex = IndexCount;

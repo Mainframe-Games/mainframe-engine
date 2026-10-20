@@ -18,8 +18,23 @@ match Godot's.
 
 ## 2D helpers
 
-- `Label2D`: one line of world-space text (font, size, colour, outline, shadow, alignment in `Width`); for prompts and
-  tags that move with the world. Menus and HUDs are UI documents.
+- `Label2D`: world-space text (font, size, colour, outline, shadow): newlines break lines, `Autowrap` (Godot's
+  `autowrap_mode`: `Off`, `Arbitrary`, `Word`, `WordSmart`) wraps at `Width`, lines sit `LineSpacing` apart (3, Godot's
+  default) and align horizontally in `Width` and vertically in `Height` (`GetLines`, `GetMinimumSize`, `Size`); for
+  prompts, hints and tags that move with the world. Menus and HUDs are UI documents.
+- `BitMask` (ADR 0203; Godot's `BitMap`, renamed because `Bitmap` below differs only by case): a bit grid ported from
+  Godot 4.7.2. `CreateFromImageAlpha` (a `Texture2D`, a `Bitmap` or RGBA8; alpha / 255 > threshold, 0.1),
+  `Get/SetBit`, `SetBitRect`, `GetTrueBitCount`, `Resize`, `GrowMask`/`ShrinkMask` (a disc of radius n inside a rect),
+  `OpaqueToPolygons(rect, epsilon = 2)` (one outline per 8-connected region, marching squares split where the outline
+  touches itself, then Ramer–Douglas–Peucker; holes are not traced), `ConvertToImage`, `Blit`. Built at run time, not
+  saved in scenes. Typical use: a sprite's alpha → `GrowMask` → `OpaqueToPolygons` → a `CollisionPolygon2D` or a
+  `Polygon2D`.
+- `Geometry2D` (ADR 0203): Godot's polygon helpers. `MergePolygons`, `ClipPolygons`, `IntersectPolygons`,
+  `ExcludePolygons`, `ClipPolylineWithPolygon`, `IntersectPolylineWithPolygon`, `OffsetPolygon(delta, join)`,
+  `OffsetPolyline(delta, join, end)` wrap Clipper2 1.5.4 with Godot's settings (5 decimals, even-odd, collinear points
+  removed, miter limit 2, arc tolerance 0.25) and return `Vector2[][]` (holes wind opposite to outlines);
+  `TriangulatePolygon` is the canvas ear clipper (empty on failure) and `IsPolygonClockwise` Godot's (+Y up).
+  `GodotGeometryParityTests` checks both types against Godot's output for the same inputs.
 - `Bitmap`: RGBA8 pixels on the CPU (`SetPixel`, `Fill`, `FromLuminance`/`FromRed` expand one-channel data like an
   L8/R8 texture samples); `Texture2D.FromBitmap` uploads it as a data texture, `SetPixels(bitmap)` refreshes it.
 - `Time`: `TicksMsec`/`TicksUsec` (monotonic, since start) and `UnixTime` (wall clock).

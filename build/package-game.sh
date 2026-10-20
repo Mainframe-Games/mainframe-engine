@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Packages a GameHost game for players: a self-contained `dotnet publish` of its desktop project for one RID, then
-#   osx-*     <Name>.app (Info.plist from project.mfproj, .icns from a PNG, ad-hoc codesign) zipped as <exe>-<version>-<rid>.zip
-#   win-*     <exe>.exe + its files in <exe>-<version>-<rid>.zip
+#   osx-*     <Name>.app (the apphost in Contents/MacOS, the rest in Contents/Resources; Info.plist from project.mfproj,
+#             .icns from a PNG, ad-hoc codesign) zipped as <exe>-<version>-<rid>.zip
+#   win-*     <exe>.exe (GUI subsystem: no console window) + its files in <exe>-<version>-<rid>.zip
 #   linux-*   <exe> + its files in <exe>-<version>-<rid>.tar.gz (also the dedicated server: run it with --headless)
 # Usage: build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v]
 #        [--bundle-id id] [--copyright text] [--icon icon.png] [--sign "Developer ID Application: …"] [--notarize profile]
@@ -54,6 +55,8 @@ stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
 publish="$stage/publish"
 echo "Publishing $name $version for ${rid}…"
 extra=()
+# Windows: a GUI-subsystem exe (MainframeGame.props switches the launcher to WinExe), so players get no console window.
+[[ "$rid" == win-* ]] && extra+=("-p:MainframeWindowsGui=true")
 if [[ "$rid" == win-* ]] && [ -z "$(csproj_value ApplicationIcon)" ] && [ -n "$icon" ] && [ -f "$icon" ] && command -v magick >/dev/null; then
   # The exe's icon is a build input on Windows (ApplicationIcon); multi-size .ico from the PNG.
   magick "$icon" -define icon:auto-resize=256,128,64,48,32,16 "$stage/icon.ico"
@@ -91,7 +94,12 @@ case "$rid" in
   osx-*)
     app="$stage/$name.app"
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-    cp -R "$publish"/. "$app/Contents/MacOS/"
+    # Apple seals only Mach-O code in Contents/MacOS (a managed DLL there fails codesign --verify --strict): the apphost
+    # goes there and everything else (assemblies, natives, content) in Contents/Resources. The apphost finds its app
+    # through a symlink beside it; it resolves the real path, so Resources is the app's base directory.
+    cp -R "$publish"/. "$app/Contents/Resources/"
+    mv "$app/Contents/Resources/$exe" "$app/Contents/MacOS/$exe"
+    ln -s "../Resources/$assembly.dll" "$app/Contents/MacOS/$assembly.dll"
     icon_key=""
     if [ -n "$mac_icns" ] && [ -f "$mac_icns" ]; then
       cp "$mac_icns" "$app/Contents/Resources/icon.icns"
@@ -140,12 +148,13 @@ ENT
         if file -b "$f" | grep -q "Mach-O"; then
           codesign --force --timestamp --options runtime --entitlements "$ent" --sign "$sign_identity" "$f"
         fi
-      done < <(find "$app/Contents/MacOS" -type f -print0)
+      done < <(find "$app/Contents" -type f -print0)
       codesign --force --timestamp --options runtime --entitlements "$ent" --sign "$sign_identity" "$app"
       codesign --verify --deep --strict "$app"
     elif command -v codesign >/dev/null; then
       # Ad-hoc signature: Apple Silicon refuses unsigned native code; players see Gatekeeper's warning until notarized.
       codesign --force --deep --sign - "$app" >/dev/null
+      codesign --verify --deep --strict "$app"
     fi
     zip_app
     if [ -n "$notary_profile" ]; then

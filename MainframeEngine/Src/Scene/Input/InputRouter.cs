@@ -20,12 +20,15 @@ internal sealed class InputRouter : IDisposable
     private readonly InputEventGamepadButton _gamepadButton = new();
     private readonly InputEventGamepadAxis _gamepadAxis = new();
     private readonly List<IInputDevice> _attached = [];
+    private readonly Action<bool>? _confineMouse;
     private Vector2? _lastMousePosition;
 
-    public InputRouter(IInputContext input, SceneTree tree)
+    /// <param name="confineMouse">Grabs (true) or releases (false) the pointer in the window, for the confined modes.</param>
+    public InputRouter(IInputContext input, SceneTree tree, Action<bool>? confineMouse = null)
     {
         _input = input;
         _tree = tree;
+        _confineMouse = confineMouse;
         foreach (var keyboard in input.Keyboards)
             Attach(keyboard);
         foreach (var mouse in input.Mice)
@@ -140,7 +143,8 @@ internal sealed class InputRouter : IDisposable
     /// <summary>
     /// Applies <paramref name="mode"/> to every mouse (ADR 0125): Captured → Silk's Raw (SDL relative mode, whose
     /// reported position accumulates the relative motion), Hidden → Hidden, otherwise Normal. The next motion event
-    /// reports no relative motion, so switching modes never jumps the camera.
+    /// reports no relative motion, so switching modes never jumps the camera. Confined and ConfinedHidden also keep the
+    /// pointer in the window (SDL's mouse grab, released while the window is unfocused); any other mode releases it.
     /// </summary>
     public void ApplyMouseMode(MouseMode mode)
     {
@@ -152,6 +156,7 @@ internal sealed class InputRouter : IDisposable
         };
         foreach (var mouse in _input.Mice)
             mouse.Cursor.CursorMode = cursorMode;
+        _confineMouse?.Invoke(mode is MouseMode.Confined or MouseMode.ConfinedHidden);
         _lastMousePosition = null;
     }
 

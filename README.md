@@ -146,7 +146,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Lighting & sky](docs/design/lighting.md) | Directional, omni and spot lights; procedural, physical, panoramic and cubemap [skies](docs/design/sky.md) with image-based lighting; baked light probes |
 | [Shadows](docs/design/shadow-system.md) | Four sun cascades, a spot/secondary-directional atlas, point-light cubes, PCF and PCSS soft shadows, cutout casters, per-light settings |
 | [Post-processing](docs/design/post-processing.md) | SSAO/GTAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX |
-| [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, layers, z-order and y-sort, TrueType text from the engine's own rasterizer |
+| [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, canvas groups that fade as one image, layers, z-order and y-sort, wrapped multi-line TrueType text from the engine's own rasterizer; Godot's `BitMap` and `Geometry2D` (alpha to polygons, polygon booleans and offsets) |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting shadows, with animation tracks and queues |
 | [Slang shaders](docs/design/shaders.md) | Every shader in Slang, compiled to SPIR-V at build time, with shared includes and light limits generated from one file |
 
@@ -165,7 +165,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
 | [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, 2D pin and spring joints, layers, queries, `MoveAndSlide`, interpolation, debug draw |
-| [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, 2D, 3D and fly cameras |
+| [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, captured and window-confined mouse modes, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, loopback and simulated bad networks |
 | [Localization](docs/design/localization.md) | gettext catalogs with plurals and contexts, runtime locale switching, translated UI and scenes, a pseudo-locale, `mf-l10n` tooling |

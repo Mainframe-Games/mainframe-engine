@@ -190,3 +190,47 @@ public sealed class SpineNodeTests
         public void Dispose() { }
     }
 }
+
+/// <summary>#107: <see cref="SpineFolder"/> picks a binary <c>.skel</c> before a <c>.json</c>.</summary>
+public sealed class SpineFolderTests : IDisposable
+{
+    private readonly string _dir = Directory.CreateTempSubdirectory("mf-spine-").FullName;
+
+    public void Dispose() => Directory.Delete(_dir, recursive: true);
+
+    private void Touch(string name) => File.WriteAllText(Path.Combine(_dir, name), "");
+
+    [Fact]
+    public void PrefersTheBinarySkeleton()
+    {
+        Touch("Percy.atlas");
+        Touch("Percy.json");
+        Touch("Percy.skel");
+
+        var folder = new SpineFolder(_dir);
+
+        Assert.True(folder.IsBinary);
+        Assert.Equal(Path.Combine(_dir, "Percy.skel"), folder.SkeletonPath);
+        Assert.Equal(Path.Combine(_dir, "Percy.json"), folder.JsonPath);
+    }
+
+    [Fact]
+    public void LoadsASkelOnlyFolderAndFallsBackToJson()
+    {
+        Touch("Percy.atlas");
+        Touch("Percy.skel");
+        Assert.True(new SpineFolder(_dir).IsBinary);
+        Assert.Equal(string.Empty, new SpineFolder(_dir).JsonPath);
+
+        File.Delete(Path.Combine(_dir, "Percy.skel"));
+        Touch("Percy.json");
+        Assert.False(new SpineFolder(_dir).IsBinary);
+    }
+
+    [Fact]
+    public void AFolderWithNoSkeletonThrows()
+    {
+        Touch("Percy.atlas");
+        Assert.Throws<FileNotFoundException>(() => new SpineFolder(_dir));
+    }
+}

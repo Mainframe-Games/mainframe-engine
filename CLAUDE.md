@@ -331,6 +331,7 @@ The engine uses `unsafe` for Vulkan buffer/matrix operations. This is expected �
 - StbImageSharp — texture/image loading
 - SoundFlow 1.4.1 (audio device/mixer, miniaudio natives in the package) and NVorbis 0.10.5 (OGG) — audio (M7)
 - Jitter2 (3D) and Box2D.NET (2D) — physics (pinned exactly)
+- Clipper2 1.5.4 (Boost licence) — `Geometry2D` polygon booleans and offsets, as Godot's (ADR 0203)
 - Whisper.net + Whisper.net.Runtime 1.9.1 — speech recognition for the editor's video mode only (`MainframeEngine.Video`)
 
 Do not add NuGet packages without discussing the dependency first. Versions are central in

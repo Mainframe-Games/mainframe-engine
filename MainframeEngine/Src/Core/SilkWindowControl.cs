@@ -111,6 +111,17 @@ internal sealed unsafe class SilkWindowControl(IWindow window, Engine? engine = 
         }
     }
 
+    /// <summary>
+    /// Keeps the OS pointer inside the window (SDL's window mouse grab) for <see cref="MouseMode.Confined"/> and
+    /// <see cref="MouseMode.ConfinedHidden"/>. SDL applies the grab only while the window has input focus: it lets go
+    /// when focus leaves and grabs again when it returns.
+    /// </summary>
+    internal void SetMouseConfined(bool confined)
+    {
+        if (TryGetSdl(out var sdl, out var handle))
+            sdl.SetWindowMouseGrab(handle, confined ? SdlBool.True : SdlBool.False);
+    }
+
     private bool TryGetSdl(out Sdl sdl, out Silk.NET.SDL.Window* handle)
     {
         sdl = null!;

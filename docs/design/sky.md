@@ -58,7 +58,7 @@ Every sky type, the physical one included, is captured through its own fragment 
 | 32 | `vec4 groundColor` |
 | 48 | `vec4 sunDirection` |
 | 64 | `vec4 sunColorIntensity` (rgb colour, a intensity) |
-| 80 | `vec4 sun` (x = cos of angular radius, y = horizon sharpness, z = 1 in the lighting capture: no sun disk) |
+| 80 | `vec4 sun` (x = cos of angular radius, y = horizon sharpness, z = 1 in the lighting capture: no sun disk, w = view ray scale for `CustomFov`, 0 meaning 1) |
 
 Colours are authored in sRGB and decoded to linear in the shader; the sun (`SunColor × SunIntensity`,
 20 by default) is an HDR value that the tonemap rolls off instead of clipping
@@ -82,6 +82,12 @@ sequenceDiagram
     GPU->>GPU: Sky.vk.vert emits fullscreen triangle (-1,-1) (3,-1) (-1,3), z = 0
     GPU->>GPU: frag: skyRay(ndc) = normalize(mat3(invViewRotation) · unproject(ndc)) (include/sky.slang)
 ```
+
+**Custom field of view.** `Sky.CustomFov` (degrees, Godot's `Environment.sky_custom_fov`; 0 = the camera's) draws the
+sky as if through another lens: `SkyEnvironment.Draw` pushes `sun.w = tan(CustomFov/2) / tan(cameraFov/2)` (from the
+projection's `M22`; 1 for an orthographic camera) and `skyRay` scales the NDC by it before unprojecting. A fov-20 camera
+with `CustomFov = 60` sees the slice of panorama a fov-60 camera sees, instead of one magnified three times. The
+lighting capture pushes 0 and is unaffected (`SkyCustomFovTests`).
 
 | Fragment shader | Technique |
 |---|---|

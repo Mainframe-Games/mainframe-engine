@@ -16,7 +16,7 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | zlib (bundled in FreeType's gzip module) | 1.3.1 | zlib | inside FreeType | `mfrmlui` native library (static) |
 | [RmlUi](https://github.com/mikke89/RmlUi) | 6.3 | MIT | `Native/RmlUi/external/RmlUi` (submodule) | `mfrmlui` native library (static) |
 | [ThorVG](https://github.com/thorvg/thorvg) (the copy vendored by Godot 4.7.2, `thirdparty/thorvg`) | 1.0.3 | MIT | `Native/Svg/thorvg` | `mfsvg` native library (static) |
-| [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`; GodotSharp's C# math: `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, the `Vector2` helpers; tonemap and glow shaders ported to Slang, with Godot 4.4's linear, Reinhard, filmic and AgX curves) | 4.7.2 (4.4 for the curves) | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs`, `Math/`, `Assets/Shaders/Post/TonemapPost`, `GlowBlur` | engine |
+| [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`, `BitMap` (as `BitMask`) and `Geometry2D`'s Clipper2 settings; GodotSharp's C# math: `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, the `Vector2` helpers; tonemap and glow shaders ported to Slang, with Godot 4.4's linear, Reinhard, filmic and AgX curves) | 4.7.2 (4.4 for the curves) | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs`, `Imaging/BitMask.cs`, `Math/`, `Assets/Shaders/Post/TonemapPost`, `GlowBlur` | engine |
 | robin_hood, itlib (bundled in RmlUi Core) | — | MIT | inside RmlUi | `mfrmlui` native library (static) |
 | Courier Prime Code font (embedded in the RmlUi Debugger) | — | SIL OFL 1.1 | inside RmlUi | `mfrmlui` native library (static) |
 | [Lato](http://www.latofonts.com/) (Latin subset: regular, bold, italic) | 2.0 | SIL OFL 1.1 | `MainframeEngine/Assets/UI/fonts` (from RmlUi's samples) | engine `Assets/UI/fonts` |
@@ -45,11 +45,12 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | [Poly Haven](https://polyhaven.com) sky panorama (`sky_10_2k.png`) | — | CC0 1.0 | `Examples/Demo/Assets/Sky`, `Tests/Assets/Sky` | Demo and tests only |
 | Forest art: [ambientCG](https://ambientcg.com) terrain sets (8) and scattered leaves (1), [Poly Haven](https://polyhaven.com) rock, log, stump, root, branch, moss, grass, nettle and fern models (20) and a tonemapped HDRI (`lilienstein`); each listed in `Examples/Forest/NOTICE.md` | — | CC0 1.0 | `Examples/Forest/Assets/Art` (Git LFS; `Examples/Forest/Tools/fetch_assets.py`) | the Forest only |
 | Cutback (copied code) | 90cc508 | MIT | `MainframeEngine.Video` (`LICENSE-CUTBACK`) | editor only: `MainframeEngine.Video.dll` (video editing mode) |
+| [Clipper2](https://github.com/AngusJohnson/Clipper2) (Angus Johnson; polygon booleans and offsets for `Geometry2D`, ADR 0203) | 1.5.4 | Boost Software License 1.0 | NuGet package `Clipper2` | engine: `Clipper2Lib.dll` |
 | [Whisper.net](https://github.com/sandrohanea/whisper.net) | 1.9.1 | MIT | NuGet packages `Whisper.net`, `Whisper.net.Runtime` | editor only: `Whisper.net.dll` + native runtimes (speech recognition) |
 | [Whisper.net.Runtime.Metal](https://github.com/sandrohanea/whisper.net) (Sandro Hanea; a dependency of `Whisper.net.Runtime`) | 1.9.1 | MIT | NuGet package `Whisper.net.Runtime.Metal` | editor only: `ggml-metal.metal` (ggml's Metal shader source, used on macOS) |
 | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | via Whisper.net.Runtime 1.9.1 | MIT | native libraries inside `Whisper.net.Runtime`; the Metal shader inside `Whisper.net.Runtime.Metal` | editor only: `whisper`/`ggml` native libraries, `ggml-metal.metal` |
 
-Managed NuGet dependencies (Silk.NET, StbImageSharp, Jitter2 and Box2D.NET — both MIT, …) carry their own licence files in
+Managed NuGet dependencies (Silk.NET, StbImageSharp, Jitter2 and Box2D.NET — both MIT, Clipper2 — Boost, …) carry their own licence files in
 their packages and are not repeated here.
 
 ## FreeType
@@ -351,7 +352,7 @@ SOFTWARE.
 
 ## Godot Engine
 
-Parts of the 2D canvas, camera, window stretch and image code are ports of Godot Engine 4.7.2 (C++ → C#). `MainframeEngine/Src/Math/` holds GodotSharp's C# math types from the same release (`Mathf`, `Vector2I`, `Rect2I`, `Color`, `Colors`, `Side`; the `Vector2` members as extensions on `System.Numerics.Vector2`). The post tonemap and glow shaders (`Assets/Shaders/Post/TonemapPost`, `GlowBlur`) port Godot 4.7.2's `tonemap.glsl` and `copy.glsl`, and Godot 4.4's linear, Reinhard, filmic and AgX tonemap curves (AgX after EaryChow's AgX base, as Godot credits it).
+Parts of the 2D canvas, camera, window stretch and image code (among them `BitMap`, as `BitMask`) are ports of Godot Engine 4.7.2 (C++ → C#). `MainframeEngine/Src/Math/` holds GodotSharp's C# math types from the same release (`Mathf`, `Vector2I`, `Rect2I`, `Color`, `Colors`, `Side`; the `Vector2` members as extensions on `System.Numerics.Vector2`). The post tonemap and glow shaders (`Assets/Shaders/Post/TonemapPost`, `GlowBlur`) port Godot 4.7.2's `tonemap.glsl` and `copy.glsl`, and Godot 4.4's linear, Reinhard, filmic and AgX tonemap curves (AgX after EaryChow's AgX base, as Godot credits it).
 
 ```
 Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md).

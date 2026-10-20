@@ -122,7 +122,9 @@ the `gamehost` allocation gate pushes mouse motion, keys and window events every
 `Confined`, `ConfinedHidden`. The engine applies it to every mouse through `InputRouter.ApplyMouseMode`: `Captured` →
 Silk's `CursorMode.Raw` (SDL relative mode; Silk accumulates SDL's `xrel`/`yrel` into the reported position, so
 `InputEventMouseMotion.Relative` keeps working past the window edge), `Hidden`/`ConfinedHidden` → `Hidden`, otherwise
-`Normal`. Every change resets the router's last position, so the first motion after a switch reports no jump. The game
+`Normal`. `Confined` and `ConfinedHidden` also keep the pointer in the window (SDL's window mouse grab,
+`SilkWindowControl.SetMouseConfined`); SDL lets go while the window is unfocused and grabs again on focus, and any other
+mode releases it. Every change resets the router's last position, so the first motion after a switch reports no jump. The game
 UI already ignores the mouse in Raw mode (`UiServer.MouseIsRaw`).
 
 ### Rebinding (G4.4)
@@ -190,7 +192,6 @@ Tree-less code (no scene tree) can use the math cameras directly; in 2D, mouse m
 
 - README says "right-click to capture, Alt to release". The code is hold-right-click to move, and Alt only toggles the cursor.
 - The dev overlay and game UI see input before the tree (`UiServer`, M8); a consumed event never reaches nodes.
-- `MouseMode.Confined` and `ConfinedHidden` do not confine the cursor yet (they act like `Visible`/`Hidden`).
 - A captured mouse is not released when the window loses focus (Godot keeps the mode too, but the OS releases it).
 
 ## Related docs

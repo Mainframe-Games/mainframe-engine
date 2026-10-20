@@ -3,8 +3,10 @@ using System.Numerics;
 namespace MainframeEngine;
 
 /// <summary>
-/// One line of text in the world: drawn on the canvas with <see cref="Font"/> at <see cref="FontSize"/>, its top-left at
-/// the node, aligned inside <see cref="Width"/>. Layers in Godot's label order: the shadow's outline, the shadow
+/// Text in the world: drawn on the canvas with <see cref="Font"/> at <see cref="FontSize"/>, its top-left at the node,
+/// aligned inside <see cref="Width"/> by <see cref="Height"/>. Newlines break lines, and <see cref="Autowrap"/> wraps lines
+/// wider than <see cref="Width"/> (Godot's <c>Label</c> with <c>autowrap_mode</c>); lines are
+/// <see cref="LineSpacing"/> apart. Layers in Godot's label order: the shadow's outline, the shadow
 /// (<see cref="ShadowColor"/>, <see cref="ShadowOffset"/>), the outline, then the text. Nothing is drawn without a font.
 /// For menus and HUDs use the UI (<see cref="UiDocument"/>); this is for prompts and tags that move with the world.
 /// </summary>
@@ -21,7 +23,12 @@ public class Label2D : Node2D
     private Vector2 _shadowOffset = new(1, 1);
     private int _shadowOutlineSize;
     private HorizontalAlignment _alignment;
+    private VerticalAlignment _verticalAlignment;
+    private AutowrapMode _autowrap;
     private float _width;
+    private float _height;
+    private float _lineSpacing = 3f;
+    private readonly List<string> _lines = [];
 
     [Export(Translatable = true)]
     public string Text
@@ -102,7 +109,29 @@ public class Label2D : Node2D
         set => Set(ref _alignment, value);
     }
 
-    /// <summary>The box the text aligns in, in pixels; never narrower than the text (<see cref="GetMinimumSize"/>).</summary>
+    /// <summary>Where the lines sit in <see cref="Height"/> (top by default).</summary>
+    [Export]
+    public VerticalAlignment VerticalAlignment
+    {
+        get => _verticalAlignment;
+        set => Set(ref _verticalAlignment, value);
+    }
+
+    /// <summary>
+    /// How lines wider than <see cref="Width"/> break (Godot's <c>autowrap_mode</c>; off by default). Needs a
+    /// <see cref="Width"/>: with 0 only newlines break lines.
+    /// </summary>
+    [Export]
+    public AutowrapMode Autowrap
+    {
+        get => _autowrap;
+        set => Set(ref _autowrap, value);
+    }
+
+    /// <summary>
+    /// The box the text aligns in, in pixels, and the wrap width for <see cref="Autowrap"/> (0 = no wrap); never narrower
+    /// than the widest line (<see cref="GetMinimumSize"/>).
+    /// </summary>
     [Export]
     public float Width
     {
@@ -110,42 +139,168 @@ public class Label2D : Node2D
         set => Set(ref _width, value);
     }
 
-    /// <summary>The line's width (rounded up) and the font's height; zero without a font.</summary>
-    public Vector2 GetMinimumSize()
+    /// <summary>The box's height for <see cref="VerticalAlignment"/>, in pixels; never shorter than the lines (0 = theirs).</summary>
+    [Export]
+    public float Height
     {
-        if (_font is null)
-            return Vector2.Zero;
-        var size = _font.GetStringSize(_text, fontSize: _fontSize);
-        return new Vector2(MathF.Ceiling(size.X), size.Y);
+        get => _height;
+        set => Set(ref _height, value);
     }
 
-    /// <summary>The label's box: <see cref="Width"/> (at least the text's) by the font's height.</summary>
-    public Vector2 Size => new(MathF.Max(_width, GetMinimumSize().X), GetMinimumSize().Y);
+    /// <summary>Extra pixels between lines (Godot's <c>line_spacing</c>, 3 by default).</summary>
+    [Export(Range = "-64,256,1")]
+    public float LineSpacing
+    {
+        get => _lineSpacing;
+        set => Set(ref _lineSpacing, value);
+    }
+
+    /// <summary>The lines as laid out (newlines and <see cref="Autowrap"/>); empty without a font.</summary>
+    public IReadOnlyList<string> GetLines()
+    {
+        Layout();
+        return _lines;
+    }
+
+    /// <summary>The widest line (rounded up) by the lines' height; zero without a font.</summary>
+    public Vector2 GetMinimumSize()
+    {
+        if (_font is not { } font)
+            return Vector2.Zero;
+        Layout();
+        var width = 0f;
+        foreach (var line in _lines)
+            width = MathF.Max(width, MathF.Ceiling(font.GetStringSize(line, fontSize: _fontSize).X));
+        return new Vector2(width, TextHeight(font));
+    }
+
+    /// <summary>The label's box: <see cref="Width"/> by <see cref="Height"/>, each at least the text's.</summary>
+    public Vector2 Size
+    {
+        get
+        {
+            var min = GetMinimumSize();
+            return new Vector2(MathF.Max(_width, min.X), MathF.Max(_height, min.Y));
+        }
+    }
+
+    private float TextHeight(Font font) =>
+        _lines.Count == 0 ? 0f : _lines.Count * font.GetHeight(_fontSize) + (_lines.Count - 1) * _lineSpacing;
 
     protected override void OnDraw()
     {
         if (_text.Length == 0 || _font is not { } font)
             return;
-        var width = MathF.Ceiling(font.GetStringSize(_text, fontSize: _fontSize).X);
-        var box = MathF.Max(_width, width);
-        var x = _alignment switch
+        var size = Size; // lays out the lines
+        var lineHeight = font.GetHeight(_fontSize) + _lineSpacing;
+        var top = _verticalAlignment switch
         {
-            HorizontalAlignment.Center => (int)(box - width) / 2,
-            HorizontalAlignment.Right => box - width,
+            VerticalAlignment.Center => (int)(size.Y - TextHeight(font)) / 2,
+            VerticalAlignment.Bottom => size.Y - TextHeight(font),
             _ => 0f,
         };
-        var baseline = new Vector2(x, font.GetAscent(_fontSize));
+        for (var i = 0; i < _lines.Count; i++)
+        {
+            var line = _lines[i];
+            if (line.Length == 0)
+                continue;
+            var width = MathF.Ceiling(font.GetStringSize(line, fontSize: _fontSize).X);
+            var x = _alignment switch
+            {
+                HorizontalAlignment.Center => (int)(size.X - width) / 2,
+                HorizontalAlignment.Right => size.X - width,
+                _ => 0f,
+            };
+            DrawLine(font, new Vector2(x, top + i * lineHeight + font.GetAscent(_fontSize)), line);
+        }
+    }
 
+    private void DrawLine(Font font, Vector2 baseline, string line)
+    {
         if (_shadowColor.A > 0)
         {
             if (_shadowOutlineSize > 0)
-                DrawStringOutline(font, baseline + _shadowOffset, _text, fontSize: _fontSize, size: _shadowOutlineSize, modulate: _shadowColor);
-            DrawString(font, baseline + _shadowOffset, _text, fontSize: _fontSize, modulate: _shadowColor);
+                DrawStringOutline(font, baseline + _shadowOffset, line, fontSize: _fontSize, size: _shadowOutlineSize, modulate: _shadowColor);
+            DrawString(font, baseline + _shadowOffset, line, fontSize: _fontSize, modulate: _shadowColor);
         }
 
         if (_outlineSize > 0 && _outlineColor.A != 0)
-            DrawStringOutline(font, baseline, _text, fontSize: _fontSize, size: _outlineSize, modulate: _outlineColor);
-        DrawString(font, baseline, _text, fontSize: _fontSize, modulate: _fontColor);
+            DrawStringOutline(font, baseline, line, fontSize: _fontSize, size: _outlineSize, modulate: _outlineColor);
+        DrawString(font, baseline, line, fontSize: _fontSize, modulate: _fontColor);
+    }
+
+    // The lines for the current text, font, size, width and wrap mode (rebuilt when one of them changed).
+    private (string Text, Font? Font, int Size, float Width, AutowrapMode Mode)? _laidOut;
+
+    private void Layout()
+    {
+        var key = (_text, _font, _fontSize, _width, _autowrap);
+        if (_laidOut == key)
+            return;
+        _laidOut = key;
+        _lines.Clear();
+        if (_font is not { } font || _text.Length == 0)
+            return;
+        var wrap = _autowrap != AutowrapMode.Off && _width > 0f;
+        foreach (var paragraph in _text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+            if (!wrap)
+                _lines.Add(paragraph);
+            else
+                Wrap(font, paragraph);
+    }
+
+    private float Measure(Font font, string text) => font.GetStringSize(text, fontSize: _fontSize).X;
+
+    // Greedy wrapping, as Godot's: words go on the line while it fits; the spaces at a break are dropped.
+    private void Wrap(Font font, string paragraph)
+    {
+        if (_autowrap == AutowrapMode.Arbitrary)
+        {
+            BreakArbitrary(font, paragraph);
+            return;
+        }
+
+        var line = "";
+        foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = line.Length == 0 ? word : line + " " + word;
+            if (Measure(font, candidate) <= _width)
+            {
+                line = candidate;
+                continue;
+            }
+
+            if (line.Length > 0)
+                _lines.Add(line);
+            if (_autowrap == AutowrapMode.WordSmart && Measure(font, word) > _width)
+                line = BreakArbitrary(font, word, keepLast: true);
+            else
+                line = word; // Word: a word wider than the line overflows it
+        }
+
+        _lines.Add(line);
+    }
+
+    // Breaks between characters; with keepLast the unfinished last piece is returned instead of added.
+    private string BreakArbitrary(Font font, string text, bool keepLast = false)
+    {
+        var start = 0;
+        for (var end = 1; end <= text.Length; end++)
+        {
+            if (end - start > 1 && Measure(font, text[start..end]) > _width)
+            {
+                _lines.Add(text[start..(end - 1)].TrimEnd(' '));
+                start = end - 1;
+                while (start < text.Length - 1 && text[start] == ' ')
+                    start++;
+            }
+        }
+
+        var last = text[start..];
+        if (keepLast)
+            return last;
+        _lines.Add(last);
+        return "";
     }
 
     private void Set<T>(ref T field, T value)

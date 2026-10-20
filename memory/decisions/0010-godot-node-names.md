@@ -25,6 +25,7 @@ with these deliberate exceptions:
 | `Viewport` | `SceneViewport` | The renderer uses `Silk.NET.Vulkan.Viewport` unqualified in `namespace MainframeEngine` (ShapeBase, ShadowSystem, SkyEnvironment, and future M3/M4 files); a `MainframeEngine.Viewport` would shadow it in every one of them. |
 | `_Ready`, `_Process`, … | `OnReady`, `OnProcess`, `OnPhysicsProcess(float)`, `OnInput`, … | The engine's existing `On*` callback style (design doc decision). |
 | `rotation` (Euler radians) | `Rotation` (quaternion) + `RotationDegrees` (Euler, serialized) | The design stores a quaternion; Euler order is the engine's legacy X→Y→Z so existing scenes keep their look (Godot uses Y→X→Z). |
+| `BitMap` (ADR 0203) | `BitMask` | Avoids two types differing only by case (`Bitmap` is the engine's RGBA8 CPU image). |
 | `SceneGrid3D` (design sketch) | `Grid3D` | Avoids two types differing only by case (`SceneGrid3d` is the renderer class). |
 | `SpineSprite3D` (design sketch) | `SpineNode` (kept) | Renaming would have conflicted with M1's concurrent `SpineNode` changes; rename later if desired. |
 | `MeshInstance3D` | `Box3d`, `Quad` (kept until M3) | Meshes/materials are M3. |

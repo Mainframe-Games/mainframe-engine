@@ -43,10 +43,28 @@ public class CanvasRenderTests
         Assert.False(image.Pixels[i] == 77 && image.Pixels[i + 1] == 77 && image.Pixels[i + 2] == 77, "the rest strip is missing");
     }
 
-    private static void AssertPixel(PngImage image, int x, int y, byte r, byte g, byte b)
+    [Fact]
+    public void CanvasGroupsFadeAsOneImageLikeGodot()
+    {
+        // #109: the values Godot 4.7.2 renders for the same scene (black, white squares overlapping by half).
+        var result = HostRunner.Run("canvas-group", Output("canvas-group"), "--capture", "5", "--size", "400x200", "--hidden");
+        Gates.AssertValidationClean(result);
+
+        var image = Png.ReadRgba8(result.Captures.Single().Path);
+        var scale = image.Width / 200f;
+        // SelfModulate 0.5: one image at half opacity, the same grey where the squares overlap (Godot: 0.502 → 128).
+        AssertPixel(image, (int)(115 * scale), (int)(40 * scale), 128, 128, 128, tolerance: 2);
+        AssertPixel(image, (int)(135 * scale), (int)(40 * scale), 128, 128, 128, tolerance: 2);
+        // Modulate 0.5 reaches the children too, and the composite applies it again (Godot: 0.251 → 64, overlap 0.3765 → 96).
+        AssertPixel(image, (int)(15 * scale), (int)(40 * scale), 64, 64, 64, tolerance: 2);
+        AssertPixel(image, (int)(35 * scale), (int)(40 * scale), 96, 96, 96, tolerance: 2);
+        AssertPixel(image, (int)(5 * scale), (int)(5 * scale), 0, 0, 0);
+    }
+
+    private static void AssertPixel(PngImage image, int x, int y, byte r, byte g, byte b, int tolerance = 1)
     {
         var i = (y * image.Width + x) * 4;
-        Assert.True(Math.Abs(image.Pixels[i] - r) <= 1 && Math.Abs(image.Pixels[i + 1] - g) <= 1 && Math.Abs(image.Pixels[i + 2] - b) <= 1,
+        Assert.True(Math.Abs(image.Pixels[i] - r) <= tolerance && Math.Abs(image.Pixels[i + 1] - g) <= tolerance && Math.Abs(image.Pixels[i + 2] - b) <= tolerance,
             $"Pixel ({x},{y}) is ({image.Pixels[i]}, {image.Pixels[i + 1]}, {image.Pixels[i + 2]}), expected ({r}, {g}, {b}).");
     }
 }

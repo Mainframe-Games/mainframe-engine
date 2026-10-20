@@ -427,7 +427,8 @@ public abstract class Engine : IDisposable
             DevOverlayPanels.AddBuiltIns(DevOverlay, this);
         }
 
-        _inputRouter = new InputRouter(InputContext, Tree);
+        Action<bool>? confineMouse = Tree.Window is SilkWindowControl windowControl ? windowControl.SetMouseConfined : null;
+        _inputRouter = new InputRouter(InputContext, Tree, confineMouse);
         Tree.Input.MouseModeChanged = _inputRouter.ApplyMouseMode; // ADR 0125
         foreach (var keyboard in InputContext.Keyboards)
             keyboard.KeyDown += OnEngineKeyDown;

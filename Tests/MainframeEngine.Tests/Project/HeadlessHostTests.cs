@@ -54,6 +54,25 @@ public sealed class HeadlessHostTests
     }
 
     [Fact]
+    public void TheRootViewportHasTheProjectWindowSize()
+    {
+        var settings = Settings();
+        settings.Window.Width = 1920;
+        settings.Window.Height = 1080;
+        using var host = new HeadlessHost(settings, new GameHostOptions { MaxFrames = 1, FixedFps = 60 });
+        var camera = new Camera3D { Name = "Camera", Position = new System.Numerics.Vector3(0, 0, 5) };
+        host.Tree.Root.AddChild(camera);
+
+        Assert.Equal(ExitCode.Ok, host.Run());
+
+        Assert.Equal(new System.Numerics.Vector2(1920, 1080), host.Tree.Root.Size);
+        Assert.Equal(new System.Numerics.Vector2(1920, 1080), host.Tree.Root.GetVisibleRect().Size);
+        var centre = camera.UnprojectPosition(System.Numerics.Vector3.Zero);
+        Assert.Equal(960f, centre.X, 0.01f);
+        Assert.Equal(540f, centre.Y, 0.01f);
+    }
+
+    [Fact]
     public void TheTreesQuitCodeEndsTheRun()
     {
         using var host = new HeadlessHost(Settings(), new GameHostOptions { FixedFps = 60 });

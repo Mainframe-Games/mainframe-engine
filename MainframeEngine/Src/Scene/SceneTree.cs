@@ -68,8 +68,23 @@ public sealed partial class SceneTree
     /// <summary>True while <see cref="Node.OnPhysicsProcess"/> callbacks and the fixed-step servers run.</summary>
     public bool IsInPhysicsStep { get; private set; }
 
-    /// <summary>The scene set with <see cref="ChangeScene(Node)"/>, a child of <see cref="Root"/>.</summary>
-    public Node? CurrentScene { get; private set; }
+    /// <summary>
+    /// The scene set with <see cref="ChangeScene(Node)"/>, a child of <see cref="Root"/>. Assignable as in Godot: the
+    /// node must be a child of <see cref="Root"/> (or null), and the scene it replaces is not freed, so the next
+    /// <see cref="ChangeScene(Node)"/> frees the new one instead (a test harness hands "current" to a scene it stood up).
+    /// </summary>
+    public Node? CurrentScene
+    {
+        get => _currentScene;
+        set
+        {
+            if (value is not null && !ReferenceEquals(value.Parent, Root))
+                throw new InvalidOperationException("SceneTree.CurrentScene must be a child of SceneTree.Root (or null).");
+            _currentScene = value;
+        }
+    }
+
+    private Node? _currentScene;
 
     /// <summary>Pauses <see cref="ProcessMode.Pausable"/> nodes and the fixed-step servers (physics).</summary>
     public bool Paused { get; set; }

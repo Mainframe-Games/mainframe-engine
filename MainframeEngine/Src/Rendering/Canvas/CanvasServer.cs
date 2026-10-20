@@ -124,11 +124,15 @@ public sealed class CanvasServer : IFrameServer
         AppendViewport(frame, viewport, targetSize, null, ClearColor);
     }
 
-    // One viewport's passes: its clip-children groups (each owner and its subtree on the group's own target, which the
-    // viewport's pass samples), then the viewport's pass with everything else.
+    // One viewport's passes: its clip-children groups and canvas groups (each owner and its subtree on the group's own
+    // target, which the viewport's pass samples), then the viewport's pass with everything else.
     private void AppendViewport(CanvasFrame frame, SceneViewport viewport, Vector2 targetSize, SubViewport? sub, Vector4? clear)
     {
         CullViewport(frame, viewport, targetSize);
+        for (var c = 0; c < _canvasCount; c++)
+            foreach (var item in _canvasEntries[c].Items)
+                if (item.ClipComposite && item.Item is CanvasGroup emptied)
+                    emptied.GroupRect = default; // set again below when a child draws this frame
         for (var c = 0; c < _canvasCount; c++)
         {
             var entry = _canvasEntries[c];
@@ -138,9 +142,22 @@ public sealed class CanvasServer : IFrameServer
                     continue;
                 _groupsDone.Add(owner);
                 _groupItems.Clear();
+                var bounds = default(Rect2);
+                var any = false;
                 foreach (var member in entry.Items)
-                    if (ReferenceEquals(member.ClipGroup, owner) && !member.ClipComposite)
-                        _groupItems.Add(member);
+                {
+                    if (!ReferenceEquals(member.ClipGroup, owner) || member.ClipComposite)
+                        continue;
+                    _groupItems.Add(member);
+                    if (member.Item.DrawList.IsEmpty)
+                        continue;
+                    var rect = member.Item.DrawList.Bounds.Transformed(member.Transform);
+                    bounds = any ? bounds.Merge(rect) : rect;
+                    any = true;
+                }
+
+                if (owner is CanvasGroup group)
+                    group.GroupRect = bounds; // the composite's rect (target pixels), before the fit margin
                 frame.BeginPass(null, targetSize, Vector4.Zero, owner);
                 frame.Append(_groupItems, entry.Modulate, entry.Transform, entry.Transform.AffineInverse(), entry.Lights.Count > 0 ? entry.Lights : null, entry.LightBase);
                 frame.EndPass();

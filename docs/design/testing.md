@@ -164,7 +164,8 @@ sequenceDiagram
   `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)), `sprite-billboard` (ADR 0199:
   Y-billboard, flipped and full-billboard sprites with their shadows; `--count 1`: billboards off, edge-on), `label3d`
   (ADR 0200: Snake Oil-style name tags behind a wall, one `NoDepthTest`; `--count 1`: depth-tested), `polygon2d-skin` (ADR 0202:
-  a textured strip at rest and skinned to three bent bones, a vertex-coloured fan), the forest-slice
+  a textured strip at rest and skinned to three bent bones, a vertex-coloured fan), `canvas-group` (#109: overlapping
+  squares in canvas groups faded by `Modulate` and `SelfModulate`; pixel checks against Godot's values, no golden), the forest-slice
   scenes (ADR 0151) `vertex-colors`, `multimesh` (`--count` instances, default 1 000; self-checked) and `foliage-wind`
   (`--count 1`: no wind) ([Materials & meshes → testing](materials-and-meshes.md#testing)), and `terrain` (G8a: a
   Realistic `Terrain3D` noise hill with LOD levels under a low sun; self-checked, plus a 0 B gate while the camera orbits;
