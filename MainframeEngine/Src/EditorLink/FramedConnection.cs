@@ -18,11 +18,17 @@ internal sealed class FramedConnection : IDisposable
     /// <param name="sendTimeoutMilliseconds">Fails a write that cannot complete in time (0 = wait forever): a peer that
     /// stops reading must not hang the writer.</param>
     public FramedConnection(Socket socket, int sendTimeoutMilliseconds = 0)
+        : this(socket, new NetworkStream(socket, ownsSocket: true))
+    {
+        _socket.SendTimeout = sendTimeoutMilliseconds;
+    }
+
+    /// <summary>Tests: a connection over a given stream on <paramref name="socket"/> (owned).</summary>
+    internal FramedConnection(Socket socket, NetworkStream stream)
     {
         _socket = socket;
         _socket.NoDelay = true;
-        _socket.SendTimeout = sendTimeoutMilliseconds;
-        _stream = new NetworkStream(socket, ownsSocket: true);
+        _stream = stream;
     }
 
     public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
@@ -39,14 +45,41 @@ internal sealed class FramedConnection : IDisposable
         set => _socket.ReceiveTimeout = value;
     }
 
-    /// <summary>Writes whole frames (any number, back to back).</summary>
-    public void Write(ReadOnlySpan<byte> frames) => _stream.Write(frames);
+    /// <summary>Writes whole frames (any number, back to back); throws <see cref="IOException"/> once the connection is closed.</summary>
+    public void Write(ReadOnlySpan<byte> frames)
+    {
+        try
+        {
+            _stream.Write(frames);
+        }
+        catch (InvalidOperationException e)
+        {
+            throw Closed(e);
+        }
+    }
 
     /// <summary>
     /// Blocks for the next frame body (type + payload). False on a clean close between frames; throws
     /// <see cref="IOException"/> on errors, truncation or an invalid length.
     /// </summary>
     public bool ReadFrame(out ReadOnlyMemory<byte> body)
+    {
+        try
+        {
+            return ReadFrameCore(out body);
+        }
+        catch (InvalidOperationException e)
+        {
+            throw Closed(e);
+        }
+    }
+
+    // NetworkStream.Dispose marks the stream unreadable/unwritable before it counts as disposed, so a read or write racing
+    // a Dispose from another thread (the reader while the pump closes the link) throws InvalidOperationException
+    // ("The stream does not support reading"), not ObjectDisposedException: it means the same thing, a closed connection.
+    private static IOException Closed(InvalidOperationException e) => new("The editor-link connection was closed.", e);
+
+    private bool ReadFrameCore(out ReadOnlyMemory<byte> body)
     {
         body = default;
         var first = _stream.Read(_header, 0, _header.Length);
