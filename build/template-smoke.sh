@@ -143,10 +143,13 @@ if [ "$source" = "package" ]; then
         "+$base/steamworks/win64/MainframeEngine.Steamworks.dll" "+$base/steamworks/win64/Facepunch.Steamworks.Win64.dll" \
         "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" ;;
       osx-*)
-        macos="SmokeGame.app/Contents/MacOS"
-        check_archive "$archive" "+SmokeGame.app/Contents/Info.plist" "+$macos/SmokeGame" "+$macos/libsteam_api.dylib" \
-          "+$macos/libmfrmlui.dylib" "+$macos/steamworks/posix/MainframeEngine.Steamworks.dll" \
-          "+$macos/steamworks/posix/Facepunch.Steamworks.Posix.dll" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt"
+        # Only the apphost (and the symlink it finds its app through) in Contents/MacOS; the rest in Contents/Resources.
+        macos="SmokeGame.app/Contents/MacOS" res="SmokeGame.app/Contents/Resources"
+        check_archive "$archive" "+SmokeGame.app/Contents/Info.plist" "+$macos/SmokeGame" "+$macos/SmokeGame.Desktop.dll" \
+          "+$res/SmokeGame.Desktop.dll" "+$res/libsteam_api.dylib" "+$res/libmfrmlui.dylib" \
+          "+$res/steamworks/posix/MainframeEngine.Steamworks.dll" "+$res/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
+          "+$res/Assets/Scenes/Main.mscene" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
+          "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt"
         if [ "$(uname -s)" = "Darwin" ]; then
           check_archive "$archive" "+SmokeGame.app/Contents/Resources/icon.icns"
         fi
