@@ -13,6 +13,16 @@ public enum RigidBodyMode
     Kinematic,
 }
 
+/// <summary>What a frozen <see cref="RigidBody3D"/>/<see cref="RigidBody2D"/> becomes (Godot's <c>FreezeMode</c>).</summary>
+public enum FreezeMode
+{
+    /// <summary>Immovable, like a static body: dynamic bodies rest on it; moving it by code teleports it.</summary>
+    Static,
+
+    /// <summary>Moved by code (its node transform or <c>LinearVelocity</c>), pushing dynamic bodies without being pushed.</summary>
+    Kinematic,
+}
+
 /// <summary>Axes a rigid body may not move or rotate along (world space). 2D bodies use LinearX/LinearY/AngularZ.</summary>
 [Flags]
 public enum AxisLock

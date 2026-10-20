@@ -469,6 +469,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
 
     internal void OnKindChanged(BodyRecord2D record)
     {
+        var wasMoving = record.IsMoving;
         record.Kind = record.Node.Kind;
         if (record.HasBody)
         {
@@ -483,6 +484,18 @@ public sealed partial class PhysicsSpace2D : IDisposable
         }
 
         UpdateMembership(record);
+        if (record.IsMoving && !wasMoving)
+        {
+            // Simulated again (unfrozen): interpolation starts where the body is, not from a pose before it stopped.
+            record.PreviousPosition = record.CurrentPosition;
+            record.PreviousRotation = record.CurrentRotation;
+        }
+        else if (!record.IsMoving && !record.RenderAtCurrent && !record.TransformDirty)
+        {
+            // No longer simulated (frozen static): show the physics pose, not the interpolated one a step behind.
+            record.Node.ApplyPhysicsPose(record.CurrentPosition, record.CurrentRotation, record.Scale);
+            record.RenderAtCurrent = true;
+        }
     }
 
     internal void OnContactMonitorChanged(BodyRecord2D record)
