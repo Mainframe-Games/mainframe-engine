@@ -18,7 +18,10 @@ public readonly record struct CulledCanvasItem(
     /// </summary>
     public CanvasItem? ClipGroup { get; init; }
 
-    /// <summary>The owner's second entry, after its subtree: its shape drawn on the canvas with the group's colours (Godot's clip_children material).</summary>
+    /// <summary>
+    /// The owner's second entry, after its subtree: its shape drawn on the canvas with the group's colours (Godot's
+    /// clip_children material), or for a <see cref="CanvasGroup"/> the group's image over its children's bounds.
+    /// </summary>
     public bool ClipComposite { get; init; }
 }
 
@@ -166,11 +169,23 @@ public sealed class CanvasCuller
         }
 
         // Godot's canvas group for clip children: the owner and its subtree become one group, drawn after the subtree.
-        var opensGroup = _clipOwner is null && ci.ClipChildren != ClipChildrenMode.Disabled;
+        var opensGroup = _clipOwner is null && (ci.ClipChildren != ClipChildrenMode.Disabled || ci is CanvasGroup);
         if (opensGroup)
             _clipOwner = ci;
         var children = ci.ChildList;
         var childCount = children?.Count ?? 0;
+        if (opensGroup && ci is CanvasGroup)
+        {
+            // Godot's CanvasGroup (CANVAS_GROUP_MODE_TRANSPARENT): every child in the group, behind or not, then the owner's
+            // composite, a rect over the children's bounds (the owner's own commands are not drawn).
+            for (var i = 0; i < childCount; i++)
+                if (children![i] is CanvasItem { TopLevel: false } child)
+                    CullItem(child, finalXform, modulate, z, materialOwner, false, filter, repeat);
+            _clipOwner = null;
+            Attach(ci, finalXform, modulate, z, ownMaterialOwner, filter, repeat, composite: true);
+            return;
+        }
+
         for (var i = 0; i < childCount; i++)
             if (children![i] is CanvasItem { TopLevel: false, ShowBehindParent: true } child)
                 CullItem(child, finalXform, modulate, z, materialOwner, false, filter, repeat);
@@ -224,11 +239,15 @@ public sealed class CanvasCuller
         bool composite = false)
     {
         var drawList = ci.DrawList;
-        if (drawList.IsEmpty)
-            return;
-        var globalRect = drawList.Bounds.Transformed(xform);
-        if (!_clip.Intersects(globalRect, includeBorders: true))
-            return;
+        var groupComposite = composite && ci is CanvasGroup; // draws its children's image: no commands of its own, bounds known later
+        if (!groupComposite)
+        {
+            if (drawList.IsEmpty)
+                return;
+            var globalRect = drawList.Bounds.Transformed(xform);
+            if (!_clip.Intersects(globalRect, includeBorders: true))
+                return;
+        }
 
         var zi = z - ZMin;
         var list = _zLists[zi];

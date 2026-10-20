@@ -94,7 +94,7 @@ Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when t
 ## Known issues
 
 - Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D light shadows/normal maps/`DirectionalLight2D`, font oversampling and shaping beyond kerning,
-  Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `CanvasGroup`,
+  Camera2D physics interpolation, the `viewport` stretch mode (treated as `canvas_items`), `CanvasGroup.UseMipmaps`,
   `ClipChildrenMode.Only` hiding the owner, nine-patch, meshes/multimeshes, physics interpolation of canvas items, pixel snapping.
 - 1 px lines (width −1) on exact integer coordinates rasterise on whichever side the GPU picks, as in Godot.
 
@@ -190,6 +190,20 @@ kept), so they show only where the owner has drawn. The viewport's pass draws th
 quad over the owner's drawn bounds sampling the group target (`Texture2D.ForClipGroup`, premultiplied, unshaded,
 since the group is already modulated and lit). Members drawn behind the owner (`ShowBehindParent`) land on an empty
 target and do not show.
+
+## Canvas groups
+
+`CanvasGroup` (Godot's, `CANVAS_GROUP_MODE_TRANSPARENT`) takes the same path: the culler opens a group for it (unless it
+is already inside one: a nested group or clip owner then draws ungrouped, where Godot warns), culls every child into it
+(behind the parent or not) and adds its composite entry; the group draws nothing of its own. Members blend normally
+(no `Atop`). `CanvasServer` records the members' drawn bounds (`CanvasGroup.GroupRect`, target pixels) while building
+the group pass, and the composite is a quad over that rect grown by `FitMargin` (10), sampling the group target with the
+group's colour premultiplied (Godot's default canvas group shader un-premultiplies the back buffer and multiplies by
+`COLOR`, mix-blended: the same result). As in Godot, `Modulate` reaches the children before grouping and the composite
+again, so fades use `SelfModulate`: two overlapping opaque squares at `SelfModulate` 0.5 are one even grey, at `Modulate`
+0.5 the overlap shows (64/96 against Godot's 0.251/0.3765; the `canvas-group` render test checks Godot's values). A group
+whose children draw nothing draws no composite. `ClearMargin` is kept for scenes (the whole target is cleared) and
+`UseMipmaps` is not supported yet.
 
 ## Edit mode (ADR 0126)
 
