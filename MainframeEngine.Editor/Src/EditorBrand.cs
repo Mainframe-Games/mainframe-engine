@@ -28,7 +28,7 @@ public static class EditorBrand
     public static readonly Uri RepositoryUrl = new("https://github.com/Mainframe-Games/mainframe-engine");
 
     /// <summary>The documentation, under /docs/ of the engine's website (docs/design/docs-site.md); Help › Documentation (F1) opens it.</summary>
-    public static readonly Uri DocsUrl = new("https://mainframe-games.github.io/mainframe-engine/docs/");
+    public static readonly Uri DocsUrl = new("https://engine.mainframe.games/docs/");
 
     /// <summary>The editor assembly's own version (build metadata stripped); equals <see cref="EngineInfo.Version"/> in any consistent build.</summary>
     public static string AssemblyVersion

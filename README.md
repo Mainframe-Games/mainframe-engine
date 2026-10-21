@@ -9,15 +9,15 @@
   <a href="https://www.nuget.org/packages/MainframeEngine"><img src="https://img.shields.io/nuget/dt/MainframeEngine?logo=nuget&label=downloads" alt="NuGet downloads"></a>
   <a href="https://github.com/Mainframe-Games/mainframe-engine/releases/latest"><img src="https://img.shields.io/github/v/release/Mainframe-Games/mainframe-engine?logo=github&label=editor" alt="Latest editor release"></a>
   <a href="https://github.com/Mainframe-Games/mainframe-engine/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/Mainframe-Games/mainframe-engine/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-  <a href="https://mainframe-games.github.io/mainframe-engine/docs/"><img src="https://img.shields.io/badge/docs-mainframe--games.github.io-blue?logo=astro" alt="Documentation"></a>
+  <a href="https://engine.mainframe.games/docs/"><img src="https://img.shields.io/badge/docs-engine.mainframe.games-blue?logo=astro" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet" alt=".NET 10">
   <img src="https://img.shields.io/badge/Vulkan-1.2-AC162C?logo=vulkan" alt="Vulkan 1.2">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Mainframe-Games/mainframe-engine" alt="MIT licence"></a>
 </p>
 
 <p align="center">
-  <a href="https://mainframe-games.github.io/mainframe-engine/"><b>Website</b></a> ·
-  <a href="https://mainframe-games.github.io/mainframe-engine/docs/"><b>Docs</b></a> ·
+  <a href="https://engine.mainframe.games/"><b>Website</b></a> ·
+  <a href="https://engine.mainframe.games/docs/"><b>Docs</b></a> ·
   <a href="docs/getting-started.md"><b>Getting started</b></a> ·
   <a href="https://github.com/Mainframe-Games/mainframe-engine/releases/latest"><b>Download the editor</b></a> ·
   <a href="docs/milestones.md"><b>Roadmap</b></a>
@@ -238,8 +238,8 @@ the editor, the Demo, a tour of the code, tests and releases.
 
 ## Documentation & roadmap
 
-- **[Docs site](https://mainframe-games.github.io/mainframe-engine/docs/)** — the documentation, searchable, with the
-  landing page and editor downloads at [mainframe-games.github.io/mainframe-engine](https://mainframe-games.github.io/mainframe-engine/).
+- **[Docs site](https://engine.mainframe.games/docs/)** — the documentation, searchable, with the
+  landing page and editor downloads at [engine.mainframe.games](https://engine.mainframe.games/).
 - **[Design docs](docs/README.md)** — how each subsystem works today, one topic per file, with known issues.
 - **[Milestones](docs/milestones.md)** — the roadmap. M0–M10 are done; next are M11 (backend-neutral GPU API, WebGPU),
   M12 (mobile core: Android + iOS) and M13 (mobile platform services), each with a design proposal.

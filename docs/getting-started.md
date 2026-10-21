@@ -375,5 +375,5 @@ builds the same archive locally. Creating and playing game projects needs the .N
 ## The docs site
 
 These pages are the repository's Markdown in `docs/`, published with the landing page at
-[mainframe-games.github.io/mainframe-engine](https://mainframe-games.github.io/mainframe-engine/). `just docs` serves it
+[engine.mainframe.games](https://engine.mainframe.games/). `just docs` serves it
 locally with live reload; see [Docs site](design/docs-site.md).

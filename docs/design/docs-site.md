@@ -10,7 +10,8 @@ same palette, fonts, icons and logo. It has two parts:
 - **The docs** under `/docs/`: the repository's Markdown in `docs/`, searchable.
 
 `just docs` serves it locally with live reload. `.github/workflows/docs.yml` deploys it to GitHub Pages with each
-release, at `https://mainframe-games.github.io/mainframe-engine/`.
+release, at `https://engine.mainframe.games/` (a custom domain; `engine.mainframe.games` is a CNAME to
+`mainframe-games.github.io`, set as the repository's Pages custom domain).
 
 The Markdown stays the source of truth. The site is generated from it and adds nothing that GitHub or an IDE would not
 show; links in the Markdown keep working in both places.
@@ -102,8 +103,9 @@ The site title is "Mainframe Engine" plus the engine version the docs describe: 
 `DOCS_VERSION` overrides it. The live site is built from the released commit, so it describes exactly that release;
 docs merged to `main` since then go live with the next release.
 
-`DOCS_BASE` (default `/mainframe-engine/`) and `DOCS_SITE` (default `https://mainframe-games.github.io`) override the
-base path and origin, for example for a custom domain.
+`DOCS_BASE` (default `/`) and `DOCS_SITE` (default `https://engine.mainframe.games`) override the
+base path and origin, for example `/mainframe-engine/` + `https://mainframe-games.github.io` to build for the
+github.io project site instead of the custom domain.
 
 ## Theme
 
