@@ -6,8 +6,8 @@ public sealed class UpdateServiceTests
     public void TheApplierStartsFromTheStagedEditorWithEveryArgumentIntact()
     {
         var service = new GitHubUpdateService(Path.Combine(Path.GetTempPath(), "mf-unused-updates"));
-        var staged = new StagedUpdate(new ReleaseVersion(1, 1, 0), "/u/1.1.0", "/u/1.1.0/app/Mainframe Engine.app",
-            "/u/1.1.0/app/Mainframe Engine.app/Contents/MacOS/MainframeEngine.Editor");
+        var staged = new StagedUpdate(new ReleaseVersion(1, 1, 0), "/u/1.1.0", "/u/1.1.0/app/Mainframe Editor.app",
+            "/u/1.1.0/app/Mainframe Editor.app/Contents/MacOS/MainframeEngine.Editor");
 
         var info = service.ApplierStartInfo(staged, "/Users/me/My Games/Space Game");
 

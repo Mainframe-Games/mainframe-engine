@@ -86,10 +86,10 @@ public sealed class UpdateDownloaderTests : IDisposable
     [Fact]
     public async Task AMacArchiveIsStagedAsABundle()
     {
-        var archive = TarGz(("Mainframe Engine.app/Contents/MacOS/MainframeEngine.Editor", "exe", Executable),
-                            ("Mainframe Engine.app/Contents/Info.plist", "plist", Plain));
+        var archive = TarGz(("Mainframe Editor.app/Contents/MacOS/MainframeEngine.Editor", "exe", Executable),
+                            ("Mainframe Editor.app/Contents/Info.plist", "plist", Plain));
         var staged = await Download("osx-arm64", archive);
-        Assert.EndsWith("Mainframe Engine.app", staged.Root, StringComparison.Ordinal);
+        Assert.EndsWith("Mainframe Editor.app", staged.Root, StringComparison.Ordinal);
         Assert.True(File.Exists(staged.Executable));
     }
 

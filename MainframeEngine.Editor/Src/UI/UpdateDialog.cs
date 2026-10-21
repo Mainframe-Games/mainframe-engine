@@ -33,7 +33,7 @@ public sealed class UpdateDialog : EditorDocument
     protected override void OnReady()
     {
         _model = CreateDataModel("update")
-            .Bind("title", this, static d => d.Updates.Available?.Release is { } r ? $"Mainframe Engine v{r.Version}" : "Mainframe Engine")
+            .Bind("title", this, static d => d.Updates.Available?.Release is { } r ? $"Mainframe Editor v{r.Version}" : "Mainframe Editor")
             .Bind("current", this, static d => "You have v" + d.Updates.CurrentVersion)
             .Bind("notes", this, static d => d.Updates.Available?.Release?.Notes ?? "")
             .Bind("hint", this, static d => d.Updates.CanReplace ? "" : d.Updates.InstallHint ?? "")

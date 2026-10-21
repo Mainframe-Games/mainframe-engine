@@ -29,7 +29,7 @@
   <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
   <rect x="20" y="38" width="920" height="8" fill="#15171c"/>
   <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="480" y="37" class="s" text-anchor="middle">Mainframe Engine — MyGame — hero.mskel*</text>
+  <text x="480" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — hero.mskel*</text>
 
   <!-- menu -->
   <rect x="20" y="46" width="920" height="24" fill="#2a2d36"/>

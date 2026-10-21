@@ -26,9 +26,9 @@ public sealed record InstallLocation(string Root, InstallKind Kind)
     /// <summary>Why the update is only downloaded (shown in the update dialog); null when it can be installed.</summary>
     public string? Hint => Kind switch
     {
-        InstallKind.Translocated => "Move Mainframe Engine to Applications to enable automatic updates.",
+        InstallKind.Translocated => "Move Mainframe Editor to Applications to enable automatic updates.",
         InstallKind.NotWritable => $"The editor's folder ({Root}) is read-only, so the update is downloaded for you to install by hand.",
-        InstallKind.NotBundled => "This editor does not run from a released Mainframe Engine install, so the update is downloaded for you to install by hand.",
+        InstallKind.NotBundled => "This editor does not run from a released Mainframe Editor install, so the update is downloaded for you to install by hand.",
         _ => null,
     };
 

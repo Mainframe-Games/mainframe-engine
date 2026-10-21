@@ -4,7 +4,7 @@ namespace MainframeEngine.Editor.Tests.Updates;
 internal sealed class FakeUpdateService : IUpdateService
 {
     public string CurrentVersion { get; set; } = "1.0.0";
-    public InstallLocation Install { get; set; } = new("/Applications/Mainframe Engine.app", InstallKind.Replaceable);
+    public InstallLocation Install { get; set; } = new("/Applications/Mainframe Editor.app", InstallKind.Replaceable);
     public UpdateCheckResult CheckResult { get; set; } = new(UpdateCheckStatus.UpToDate);
     public TaskCompletionSource<UpdateCheckResult>? PendingCheck { get; set; }
     public UpdateResult? LastResult { get; set; }
@@ -53,5 +53,5 @@ internal sealed class FakeUpdateService : IUpdateService
     }
 
     public static StagedUpdate Staged() =>
-        new(new ReleaseVersion(1, 1, 0), "/u/1.1.0", "/u/1.1.0/app/Mainframe Engine.app", "/u/1.1.0/app/Mainframe Engine.app/Contents/MacOS/MainframeEngine.Editor");
+        new(new ReleaseVersion(1, 1, 0), "/u/1.1.0", "/u/1.1.0/app/Mainframe Editor.app", "/u/1.1.0/app/Mainframe Editor.app/Contents/MacOS/MainframeEngine.Editor");
 }

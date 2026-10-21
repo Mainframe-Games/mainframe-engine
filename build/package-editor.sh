@@ -15,11 +15,11 @@ case "$rid" in
   osx-*)
     # The bundle folder and CFBundleName/CFBundleDisplayName are the app name macOS shows (Dock, menu bar,
     # Finder); the executable keeps its assembly name. Dev builds get the same bundle (build/macos/DevAppBundle.targets).
-    app_name="Mainframe Engine.app"
+    app_name="Mainframe Editor.app"
     app="$staging/$app_name"
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
     cp -R "$publish_dir"/. "$app/Contents/MacOS/"
-    sed -e "s/@NAME@/Mainframe Engine/g" -e "s/@BUNDLE_ID@/com.mainframegames.editor/g" -e "s/@EXECUTABLE@/MainframeEngine.Editor/g" \
+    sed -e "s/@NAME@/Mainframe Editor/g" -e "s/@BUNDLE_ID@/com.mainframegames.editor/g" -e "s/@EXECUTABLE@/MainframeEngine.Editor/g" \
       -e "s/@ICON_FILE@/logo.icns/g" -e "s/@VERSION@/${version}/g" "$(dirname "$0")/macos/Info.plist.in" > "$app/Contents/Info.plist"
     cp "$(dirname "$0")/../docs/images/brand/logo.icns" "$app/Contents/Resources/logo.icns"
     chmod +x "$app/Contents/MacOS/MainframeEngine.Editor"

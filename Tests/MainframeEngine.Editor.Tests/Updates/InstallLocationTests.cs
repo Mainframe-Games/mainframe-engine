@@ -34,7 +34,7 @@ public sealed class InstallLocationTests : IDisposable
     {
         var v = new ReleaseVersion(1, 2, 3);
         var mac = UpdatePlatform.StagedRoot("x", v, "osx-arm64");
-        Assert.Equal(Path.Combine("x", "Mainframe Engine.app"), mac);
+        Assert.Equal(Path.Combine("x", "Mainframe Editor.app"), mac);
         Assert.Equal(Path.Combine(mac, "Contents", "MacOS", "MainframeEngine.Editor"), UpdatePlatform.ExecutablePath(mac, "osx-arm64"));
         var win = UpdatePlatform.StagedRoot("x", v, "win-x64");
         Assert.Equal(Path.Combine("x", "MainframeEngine-1.2.3-win-x64"), win);
@@ -46,7 +46,7 @@ public sealed class InstallLocationTests : IDisposable
     [Fact]
     public void TheMacRootIsTheEnclosingBundle()
     {
-        var app = Path.Combine(_directory, "Apps", "Mainframe Engine.app");
+        var app = Path.Combine(_directory, "Apps", "Mainframe Editor.app");
         var baseDirectory = Path.Combine(app, "Contents", "MacOS") + Path.DirectorySeparatorChar;
         Assert.Equal(Path.GetFullPath(app), InstallLocation.FindRoot(baseDirectory, "osx-arm64"));
     }
@@ -74,7 +74,7 @@ public sealed class InstallLocationTests : IDisposable
     public void AFolderWithoutTheEditorExecutableIsNotAnInstall(string rid)
     {
         // Any folder holding the running files is not enough: replacing it would move everything else in it aside.
-        var root = UpdatePlatform.IsMac(rid) ? Path.Combine(_directory, "Mainframe Engine.app") : Path.Combine(_directory, "Shared Tools");
+        var root = UpdatePlatform.IsMac(rid) ? Path.Combine(_directory, "Mainframe Editor.app") : Path.Combine(_directory, "Shared Tools");
         var baseDirectory = UpdatePlatform.IsMac(rid) ? Path.Combine(root, "Contents", "MacOS") : root;
         var checkedPaths = new List<string>();
         var location = InstallLocation.Inspect(baseDirectory, rid, _ => true, p =>
@@ -104,7 +104,7 @@ public sealed class InstallLocationTests : IDisposable
     [Fact]
     public void TranslocatedAppsCannotBeReplaced()
     {
-        var app = Path.Combine(_directory, "AppTranslocation", "1B2C", "d", "Mainframe Engine.app");
+        var app = Path.Combine(_directory, "AppTranslocation", "1B2C", "d", "Mainframe Editor.app");
         var location = InstallLocation.Inspect(Path.Combine(app, "Contents", "MacOS"), "osx-arm64", _ => true, _ => true);
         Assert.Equal(InstallKind.Translocated, location.Kind);
         Assert.False(location.CanReplace);
@@ -138,6 +138,6 @@ public sealed class InstallLocationTests : IDisposable
         Assert.EndsWith(Path.Combine(".mainframe", "updates"), UpdatePaths.DefaultDirectory, StringComparison.Ordinal);
         Assert.Equal(Path.Combine("u", "result.json"), UpdatePaths.ResultFile("u"));
         Assert.Equal(Path.Combine("u", "update.log"), UpdatePaths.LogFile("u"));
-        Assert.Equal(Path.Combine("a", "Mainframe Engine.app.old"), UpdatePaths.BackupOf(Path.Combine("a", "Mainframe Engine.app") + Path.DirectorySeparatorChar));
+        Assert.Equal(Path.Combine("a", "Mainframe Editor.app.old"), UpdatePaths.BackupOf(Path.Combine("a", "Mainframe Editor.app") + Path.DirectorySeparatorChar));
     }
 }

@@ -11,12 +11,12 @@ macOS (Apple Silicon), Windows x64 or Linux x64. Creating and playing game proje
 [.NET 10 SDK](https://dotnet.microsoft.com/download). The editor updates itself from later releases
 ([Editor updates](design/editor-updates.md)).
 
-**macOS:** the app is not signed or notarized yet, so macOS quarantines the download and says *"Mainframe Engine.app"
+**macOS:** the app is not signed or notarized yet, so macOS quarantines the download and says *"Mainframe Editor.app"
 is damaged and can't be opened*. The app is fine: choose **Cancel** (not Move to Trash), move it to Applications and
 clear the quarantine flag:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/"Mainframe Engine.app"
+xattr -dr com.apple.quarantine /Applications/"Mainframe Editor.app"
 ```
 
 ## Build from source
@@ -367,7 +367,7 @@ requests skip all of that (`build/ci-changes.sh`). `ci-success` is the single re
 
 The version lives only in git tags (`vX.Y.Z`, SemVer, first release **v1.0.0**); engine, generator and editor share
 it. [`publish.yml`](../.github/workflows/publish.yml) (manual, `main` only) re-runs CI, bumps the patch of the latest
-tag, attaches self-contained editor builds for osx-arm64 (`Mainframe Engine.app`), win-x64 and linux-x64 to a GitHub
+tag, attaches self-contained editor builds for osx-arm64 (`Mainframe Editor.app`), win-x64 and linux-x64 to a GitHub
 Release, and pushes the `MainframeEngine` and `MainframeEngine.Templates` packages to nuget.org. `just publish-local`
 builds the same archive locally. Creating and playing game projects needs the .NET 10 SDK. See
 [Release & versioning](design/release.md).

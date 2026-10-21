@@ -70,7 +70,7 @@ public sealed class UpdateUiTests : IDisposable
         W.Commands.Execute("help.check_updates");
         _editor!.Tick();
         Assert.Equal(1, _service.Checks);
-        Assert.Equal("Mainframe Engine v1.0.0 is the latest version.", W.Message.Current!.Message);
+        Assert.Equal("Mainframe Editor v1.0.0 is the latest version.", W.Message.Current!.Message);
     }
 
     [Fact]
@@ -190,7 +190,7 @@ public sealed class UpdateUiTests : IDisposable
     public void AnInstallThatCannotBeReplacedDownloadsAndReveals()
     {
         _service.CheckResult = FakeUpdateService.Update();
-        _service.Install = new InstallLocation("/private/var/x/AppTranslocation/y/Mainframe Engine.app", InstallKind.Translocated);
+        _service.Install = new InstallLocation("/private/var/x/AppTranslocation/y/Mainframe Editor.app", InstallKind.Translocated);
         Start();
         W.UpdateDialog.Open();
         Assert.Equal("Download", W.UpdateDialog.PrimaryLabel);

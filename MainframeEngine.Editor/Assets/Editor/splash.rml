@@ -65,8 +65,8 @@
 <body class="splash">
     <div id="center">
         <img id="logo" src="/Assets/Brand/logo-512.png"/>
-        <div id="wordmark">Mainframe Engine</div>
-        <div id="version">Editor</div>
+        <div id="wordmark">Mainframe Editor</div>
+        <div id="version"></div>
         <div id="status">Loading…</div>
         <div id="bar"><div id="fill"></div></div>
     </div>
