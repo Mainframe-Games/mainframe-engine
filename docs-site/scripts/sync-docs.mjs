@@ -20,8 +20,8 @@ export const siteRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const repoRoot = path.resolve(siteRoot, '..');
 export const repoUrl = 'https://github.com/Mainframe-Games/mainframe-engine';
 export const branch = 'main';
-/** The site's base path (GitHub Pages project site); DOCS_BASE overrides it, e.g. "/" for a custom domain. */
-export const base = normaliseBase(process.env.DOCS_BASE ?? '/mainframe-engine/');
+/** The site's base path; "/" for the custom domain engine.mainframe.games. DOCS_BASE overrides it, e.g. "/mainframe-engine/" for a github.io project site. */
+export const base = normaliseBase(process.env.DOCS_BASE ?? '/');
 
 /**
  * The engine version the docs describe: the latest release tag (vX.Y.Z, docs/design/release.md) reachable from the

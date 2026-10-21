@@ -34,4 +34,4 @@ bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # or win-
 The result is `builds/MyGame-<version>-osx-arm64.zip` (a signed `.app`), `-win-x64.zip` or `-linux-x64.tar.gz`. Use
 `bash`, since NuGet drops the executable bit.
 
-[Documentation](https://mainframe-games.github.io/mainframe-engine/docs/) · MIT licence
+[Documentation](https://engine.mainframe.games/docs/) · MIT licence

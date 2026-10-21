@@ -8,7 +8,7 @@ import remarkMermaid from './src/plugins/remark-mermaid.mjs';
 import { base, repoUrl, version } from './scripts/sync-docs.mjs';
 
 export default defineConfig({
-  site: process.env.DOCS_SITE ?? 'https://mainframe-games.github.io',
+  site: process.env.DOCS_SITE ?? 'https://engine.mainframe.games',
   base,
   trailingSlash: 'always',
   markdown: { processor: unified({ remarkPlugins: [remarkMermaid] }) },
