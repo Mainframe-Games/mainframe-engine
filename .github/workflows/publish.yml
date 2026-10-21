@@ -219,7 +219,7 @@ jobs:
           gh release create "v${VERSION}" release/* nuget/*.nupkg \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
-            --title "Mainframe Engine v${VERSION}" \
+            --title "Mainframe Engine & Editor v${VERSION}" \
             --generate-notes
 
       # After the tag and the release, so a failed release never leaves a published package behind (nuget.org packages

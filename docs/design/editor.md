@@ -18,8 +18,8 @@ just editor path/to/MyGame                   # open a project folder (or its pro
 just editor Examples/Demo/Assets/Scenes/basic_3d.mscene   # open one scene (its project becomes current)
 ```
 
-On macOS the app is called **Mainframe Engine** (Dock tooltip, bold app menu, Cmd+Tab) in development runs as well as in
-the release `.app`: the build assembles `bin/<cfg>/net10.0/Mainframe Engine.app` and `dotnet run` starts the editor from
+On macOS the app is called **Mainframe Editor** (Dock tooltip, bold app menu, Cmd+Tab) in development runs as well as in
+the release `.app`: the build assembles `bin/<cfg>/net10.0/Mainframe Editor.app` and `dotnet run` starts the editor from
 inside it ([release: macOS app name](release.md#macos-app-name)). Launching the bare `bin/…/MainframeEngine.Editor`
 still works but shows the executable name.
 
@@ -124,7 +124,7 @@ flowchart TB
 | Settings dialogs | `project_settings.rml`, `editor_settings.rml`, `connect_signal.rml` | Project Settings, Editor Settings, Connect Signal |
 | Dialogs | `tree_picker.rml`, `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml` | The create dialog (Add Node, New Resource, Instance Scene; below), modal file picker with file-type icons (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (node paths), message box / prompt with a title icon, popup menus |
 | Tooltips | `tooltip.rml` | Its own layer above the dialogs ([Tooltips](#tooltips)) |
-| Splash | `splash.rml` | Logo, "Mainframe Engine", "Editor vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts and while a scene loads, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch |
+| Splash | `splash.rml` | Logo, "Mainframe Editor", "vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts and while a scene loads, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch |
 
 - **Theme**: `theme.rcss` + `dialogs.rcss`, a dark palette (base `#15171c`, panels `#1f2128`, accent `#3b82f6`) over
   the shared widget library's controls; all sizes in dp. The editor is a desktop tool: its UI server keeps

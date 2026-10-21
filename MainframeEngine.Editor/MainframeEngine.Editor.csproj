@@ -19,6 +19,9 @@
         <NoWarn>$(NoWarn);CA1515</NoWarn>
         <!-- CA1716 (VB/F# keywords as member names): IEditorAction.Do/Undo are the names of the editor design (editor.md). -->
         <NoWarn>$(NoWarn);CA1716</NoWarn>
+        <!-- The editor app's product name (Windows exe metadata); the engine and every other project keep the
+             repo-wide "Mainframe Engine" from Directory.Build.props. -->
+        <Product>Mainframe Editor</Product>
     </PropertyGroup>
 
     <ItemGroup>
@@ -96,11 +99,11 @@
                Text="The editor ($(Version)) and the engine core ($(_MainframeEngineCoreVersion)) must have the same version. Set it only in Directory.Build.props or with -p:Version." />
     </Target>
 
-    <!-- macOS: builds bin/<cfg>/net10.0/Mainframe Engine.app and makes `dotnet run` start the editor from inside it, so
-         the Dock and menu bar say "Mainframe Engine" instead of the executable name (ADR 0096). build/package-editor.sh
+    <!-- macOS: builds bin/<cfg>/net10.0/Mainframe Editor.app and makes `dotnet run` start the editor from inside it, so
+         the Dock and menu bar say "Mainframe Editor" instead of the executable name (ADR 0096). build/package-editor.sh
          writes the same values into the release bundle. -->
     <PropertyGroup>
-        <MacAppDisplayName>Mainframe Engine</MacAppDisplayName>
+        <MacAppDisplayName>Mainframe Editor</MacAppDisplayName>
         <MacAppBundleId>com.mainframegames.editor</MacAppBundleId>
         <MacAppIcon>../docs/images/brand/logo.icns</MacAppIcon>
     </PropertyGroup>

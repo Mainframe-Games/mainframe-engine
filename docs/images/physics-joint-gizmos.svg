@@ -19,7 +19,7 @@
   <rect x="20" y="20" width="920" height="450" rx="8" fill="#1f2128" stroke="#111827"/>
   <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
   <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="380" y="38" class="s">Mainframe Engine — MyGame — Joints.mscene*</text>
+  <text x="380" y="38" class="s">Mainframe Editor — MyGame — Joints.mscene*</text>
   <rect x="20" y="46" width="920" height="30" fill="#2a2d36"/>
   <rect x="32" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="38" y="65" class="t">↖</text>
   <rect x="58" y="52" width="22" height="18" rx="3" fill="#1d4ed8"/><text x="64" y="65" class="t">✥</text>

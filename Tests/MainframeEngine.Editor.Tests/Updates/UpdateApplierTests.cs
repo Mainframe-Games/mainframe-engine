@@ -332,18 +332,18 @@ public sealed class UpdateApplierTests : IDisposable
     [Fact]
     public void MacRelaunchesGoThroughOpen()
     {
-        var info = UpdateApplier.LaunchInfo("/Applications/Mainframe Engine.app", "osx-arm64", "/Users/me/My Games/Space");
+        var info = UpdateApplier.LaunchInfo("/Applications/Mainframe Editor.app", "osx-arm64", "/Users/me/My Games/Space");
         Assert.Equal("open", info.FileName);
-        Assert.Equal(["-n", "/Applications/Mainframe Engine.app", "--args", "--project", "/Users/me/My Games/Space"], info.ArgumentList);
-        Assert.Equal(["-n", "/Applications/Mainframe Engine.app"], UpdateApplier.LaunchInfo("/Applications/Mainframe Engine.app", "osx-arm64", null).ArgumentList);
+        Assert.Equal(["-n", "/Applications/Mainframe Editor.app", "--args", "--project", "/Users/me/My Games/Space"], info.ArgumentList);
+        Assert.Equal(["-n", "/Applications/Mainframe Editor.app"], UpdateApplier.LaunchInfo("/Applications/Mainframe Editor.app", "osx-arm64", null).ArgumentList);
     }
 
     [Fact]
     public void AMacBackupStartsItsExecutableDirectly()
     {
-        // "Mainframe Engine.app.old" is no bundle to LaunchServices, so `open` would only show the folder.
-        var info = UpdateApplier.BackupLaunchInfo("/Applications/Mainframe Engine.app.old", "osx-arm64", "/Users/me/My Games/Space");
-        Assert.Equal(Path.Combine("/Applications/Mainframe Engine.app.old", "Contents", "MacOS", "MainframeEngine.Editor"), info.FileName);
+        // "Mainframe Editor.app.old" is no bundle to LaunchServices, so `open` would only show the folder.
+        var info = UpdateApplier.BackupLaunchInfo("/Applications/Mainframe Editor.app.old", "osx-arm64", "/Users/me/My Games/Space");
+        Assert.Equal(Path.Combine("/Applications/Mainframe Editor.app.old", "Contents", "MacOS", "MainframeEngine.Editor"), info.FileName);
         Assert.Equal(["--project", "/Users/me/My Games/Space"], info.ArgumentList);
         Assert.False(info.UseShellExecute);
     }

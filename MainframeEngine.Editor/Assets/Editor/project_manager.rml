@@ -102,7 +102,7 @@
     <div class="pm-header">
         <img id="pm-logo" src="/Assets/Brand/logo-256.png"/>
         <div>
-            <span class="pm-title">Mainframe Engine</span>
+            <span class="pm-title">Mainframe Editor</span>
             <span class="pm-subtitle">Projects · {{version}}</span>
         </div>
         <div class="pm-spacer"></div>

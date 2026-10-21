@@ -23,7 +23,7 @@
   <circle cx="38" cy="33" r="5" fill="#ef4444"/>
   <circle cx="54" cy="33" r="5" fill="#f59e0b"/>
   <circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="440.0" y="37" class="s" text-anchor="middle">Mainframe Engine — MyGame — Theme.msong (Music)</text>
+  <text x="440.0" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — Theme.msong (Music)</text>
   <!-- toolbar -->
   <rect x="26" y="50" width="828" height="34" fill="#2a2d36"/>
   <rect x="34" y="56" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>

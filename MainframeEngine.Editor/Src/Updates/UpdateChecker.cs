@@ -17,8 +17,8 @@ public sealed record UpdateCheckResult(UpdateCheckStatus Status, ReleaseInfo? Re
     /// <summary>The sentence Help › Check for Updates… shows.</summary>
     public string Describe(string currentVersion) => Status switch
     {
-        UpdateCheckStatus.UpdateAvailable => $"Mainframe Engine v{Release?.Version} is available (you have v{currentVersion}).",
-        UpdateCheckStatus.UpToDate => $"Mainframe Engine v{currentVersion} is the latest version.",
+        UpdateCheckStatus.UpdateAvailable => $"Mainframe Editor v{Release?.Version} is available (you have v{currentVersion}).",
+        UpdateCheckStatus.UpToDate => $"Mainframe Editor v{currentVersion} is the latest version.",
         UpdateCheckStatus.DevelopmentBuild => $"This is a development build (v{currentVersion}); updates are offered to released builds only.",
         UpdateCheckStatus.UnsupportedPlatform => "The latest release has no editor build for this platform.",
         _ => Error ?? "The update check failed.",

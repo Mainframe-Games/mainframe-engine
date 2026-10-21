@@ -18,7 +18,7 @@ public sealed class UpdateCheckerTests
         Assert.Equal(UpdateCheckStatus.UpdateAvailable, result.Status);
         Assert.True(result.IsUpdate);
         Assert.Equal("MainframeEngine-1.1.0-linux-x64.tar.gz", result.Asset!.Name);
-        Assert.Equal("Mainframe Engine v1.1.0 is available (you have v1.0.0).", result.Describe("1.0.0"));
+        Assert.Equal("Mainframe Editor v1.1.0 is available (you have v1.0.0).", result.Describe("1.0.0"));
     }
 
     [Theory]
@@ -29,7 +29,7 @@ public sealed class UpdateCheckerTests
         var (result, _) = await Check(StubHandler.Json(ReleaseFixtures.Latest("v1.1.0")), current);
         Assert.Equal(UpdateCheckStatus.UpToDate, result.Status);
         Assert.False(result.IsUpdate);
-        Assert.Equal($"Mainframe Engine v{current} is the latest version.", result.Describe(current));
+        Assert.Equal($"Mainframe Editor v{current} is the latest version.", result.Describe(current));
     }
 
     [Fact]

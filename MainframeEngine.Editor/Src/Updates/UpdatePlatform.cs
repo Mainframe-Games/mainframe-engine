@@ -11,7 +11,7 @@ public static class UpdatePlatform
     public const string ExecutableName = "MainframeEngine.Editor";
 
     /// <summary>The macOS bundle name (docs/design/release.md, macOS app name).</summary>
-    public const string MacAppName = "Mainframe Engine.app";
+    public const string MacAppName = "Mainframe Editor.app";
 
     /// <summary>This process's release RID, or null when no release is built for it.</summary>
     public static string? CurrentRid => Rid(

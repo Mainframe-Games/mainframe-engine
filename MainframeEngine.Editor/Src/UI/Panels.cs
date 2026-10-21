@@ -183,7 +183,7 @@ public sealed class ToolbarPanel : EditorDocument
         if (release is not null && _badgeVersion != release.Version)
         {
             _badgeVersion = release.Version;
-            badge.SetAttribute("data-tooltip", $"Mainframe Engine v{release.Version} is available — click for the release notes and Update and restart");
+            badge.SetAttribute("data-tooltip", $"Mainframe Editor v{release.Version} is available — click for the release notes and Update and restart");
         }
     }
 

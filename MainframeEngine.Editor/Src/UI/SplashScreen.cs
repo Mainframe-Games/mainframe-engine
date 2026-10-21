@@ -4,7 +4,7 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The editor's splash screen: the logo, the "Mainframe Engine" wordmark, "Editor vX.Y.Z", a status line and a thin
+/// The editor's splash screen: the logo, the "Mainframe Editor" wordmark, "vX.Y.Z", a status line and a thin
 /// progress bar on the brand navy, shown over everything (modal) while the editor starts and while a scene loads.
 /// <see cref="Finish"/> fades it out (RCSS opacity transition) and hides it. It never keeps the editor blocked longer
 /// than the loading takes, except on the very first launch (a short minimum display).
@@ -67,7 +67,7 @@ public sealed class SplashScreen : EditorDocument
 
     protected override void OnAttach(RmlDocument document)
     {
-        SetText("version", "Editor " + EditorBrand.Version);
+        SetText("version", EditorBrand.Version);
         SetStatus(_status, _progress);
     }
 

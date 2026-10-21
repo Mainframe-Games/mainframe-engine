@@ -60,11 +60,11 @@ unparseable responses log one `Log.Info` line and show no badge.
 
 ### The badge and the update dialog
 
-The badge is an icon button (editor icon set, tooltip "Mainframe Engine vX.Y.Z is available") in the Project
+The badge is an icon button (editor icon set, tooltip "Mainframe Editor vX.Y.Z is available") in the Project
 Manager header and at the right of the editor toolbar; it is hidden when there is no update. Clicking it opens the
 update dialog:
 
-- title "Mainframe Engine vX.Y.Z", the current version underneath;
+- title "Mainframe Editor vX.Y.Z", the current version underneath;
 - the release notes (`body`, shown as plain text in a scrolling box) and **View release** (opens `html_url` in the
   browser);
 - **Update & restart** (or **Download** when the install cannot be replaced — see [Fallback](#fallback-download-and-reveal))
@@ -101,7 +101,7 @@ flowchart LR
    **Retry**.
 3. **Extract** to `~/.mainframe/updates/X.Y.Z/app/` (`System.Formats.Tar` over `GZipStream` keeps Unix execute
    bits; `ZipFile` on Windows; both reject entries that escape the target folder). Then locate the staged
-   executable — `app/Mainframe Engine.app/Contents/MacOS/MainframeEngine.Editor` (macOS),
+   executable — `app/Mainframe Editor.app/Contents/MacOS/MainframeEngine.Editor` (macOS),
    `app/MainframeEngine-X.Y.Z-<rid>/MainframeEngine.Editor[.exe]` (Windows, Linux) — and fail if it is missing.
    Files downloaded with `HttpClient` carry no quarantine attribute, so Gatekeeper does not block the unsigned staged
    app.
@@ -171,10 +171,10 @@ cannot be replaced when:
 - the root's parent folder or the root itself is not writable (probe: create and delete a temp file in each) —
   `Program Files`, read-only mounts;
 - macOS App Translocation: the path contains `/AppTranslocation/` (an unsigned app opened from where it was
-  downloaded runs from a random read-only copy). The dialog says "Move Mainframe Engine to Applications to enable
+  downloaded runs from a random read-only copy). The dialog says "Move Mainframe Editor to Applications to enable
   automatic updates.";
 - macOS without a bundle, or a root without the editor executable (above). The dialog says "This editor does not run
-  from a released Mainframe Engine install, so the update is downloaded for you to install by hand."
+  from a released Mainframe Editor install, so the update is downloaded for you to install by hand."
 
 ## Components
 
