@@ -24,6 +24,12 @@ RenderTestGame game = options.Scene switch
     "spine-no-shadows" => new SpineNoShadowsScene(options),
     "spine-small-scale" => new SpineSmallScaleScene(options),
     "spine-2d" => new Spine2DScene(options),
+    "spine-shadow" => new SpineShadowScene(options, SpineNode.DefaultShadowAlphaThreshold),
+    "spine-shadow-quads" => new SpineShadowScene(options, 0f),
+    "spine-shadow-spot" => new SpineShadowLightsScene(options, omni: false),
+    "spine-shadow-omni" => new SpineShadowLightsScene(options, omni: true),
+    "spine-billboard" => new SpineBillboardScene(options, yaw: 0f),
+    "spine-billboard-yaw" => new SpineBillboardScene(options, yaw: 55f),
     "showcase" => new ShowcaseScene(options),
     "color-pipeline" => new ColorPipelineScene(options),
     "physics" => new PhysicsScene(options),
@@ -123,7 +129,7 @@ RenderTestGame game = options.Scene switch
     "tree-species" => new TreeSpeciesScene(options),
     "tree-shadow-handoff" => new TreeShadowHandOffScene(options),
     _ => throw new ArgumentException(
-        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, showcase, color-pipeline, " +
+        $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, spine-shadow, spine-shadow-quads, spine-shadow-spot, spine-shadow-omni, spine-billboard, spine-billboard-yaw, showcase, color-pipeline, " +
         "physics, physics-debug, sky-grid, materials, outline, subviewport-capture, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, ui-scaling, loading-screen, ui-settings-menu, " +
         "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, shadow-cutout, shadow-shimmer, shadow-pcss, contact-shadows, shadow-staggered, far-shadow, " +
         "sky-physical, fxaa, auto-exposure, auto-exposure-histogram, auto-exposure-average, pbr, fog, vertex-colors, multimesh, " +
