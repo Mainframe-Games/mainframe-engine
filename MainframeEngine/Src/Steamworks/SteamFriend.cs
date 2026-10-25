@@ -32,14 +32,8 @@ public readonly struct SteamFriend(ulong steamId, string username) : IEquatable<
         return SteamId.CompareTo(other.SteamId);
     }
 
-    // TODO: Implement Getting avatar
-    // public Sprite GetAvatarSprite()
-    // {
-    // 	var sprite = SteamAvatar.GetAvatar(SteamId);
-    // 	if (!sprite)
-    // 		Trace.TraceWarning($"Failed to get avatar for: {ToString()}");
-    // 	return sprite;
-    // }
+    /// <summary>This user's Steam avatar (<see cref="Steam.GetAvatarAsync"/>): cached, null without Steam or an avatar.</summary>
+    public Task<Texture2D?> GetAvatarAsync(SteamAvatarSize size = SteamAvatarSize.Large) => Steam.GetAvatarAsync(SteamId, size);
 
     public static bool operator ==(SteamFriend left, SteamFriend right)
     {

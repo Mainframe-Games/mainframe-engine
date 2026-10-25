@@ -179,7 +179,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, Steam relay sockets, loopback and simulated bad networks |
 | [Localization](docs/design/localization.md) | gettext catalogs with plurals and contexts, runtime locale switching, translated UI and scenes, a pseudo-locale, `mf-l10n` tooling |
-| [Steamworks](docs/design/steamworks.md) | Lobbies, invites, rich presence, overlay and achievements over Facepunch.Steamworks, with Valve's natives for Windows, Linux and macOS |
+| [Steamworks](docs/design/steamworks.md) | Lobbies, invites, rich presence, overlay, achievements and avatars (as textures, in the game UI) over Facepunch.Steamworks, with Valve's natives for Windows, Linux and macOS |
 
 ### Audio
 

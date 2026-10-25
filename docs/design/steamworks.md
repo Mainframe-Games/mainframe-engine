@@ -9,8 +9,8 @@ quiet no-op, and the game never fails because Steam is missing (CLAUDE.md: "only
 > **Status:** Steam runs on Windows x64, Linux x64 and macOS (x64 and Apple Silicon) through
 > [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) 2.4.1, the same setup as Speed Golf
 > ([ADR 0189](../../memory/decisions/0189-facepunch-steamworks.md)). The `steam_api` natives ship with the engine and
-> its NuGet package. Multiplayer connects over Steam relay sockets (`SteamSocketsTransport`); avatars as textures are
-> still to do.
+> its NuGet package. Multiplayer connects over Steam relay sockets (`SteamSocketsTransport`), and avatars load as
+> textures (`Steam.GetAvatarAsync`).
 
 ## Lifecycle
 
@@ -106,20 +106,21 @@ machine with Steam open. The wrappers' no-op path is tested with app id 0.
 
 | Type | Surface |
 |---|---|
-| `Steam` | `TryInitialize`, `RunCallbacks`, `Shutdown`, `Status`, `StatusMessage`, `Valid`, `AppId`, `IsPlatformSupported`, `NativeLibraryFileName`, `SteamId`, `Username`, `Branch`, `GetLaunchCommandLine(flag)`, `GetFriends()`, `GetFriendUsername`, `HasDLC` |
+| `Steam` | `TryInitialize`, `RunCallbacks`, `Shutdown`, `Status`, `StatusMessage`, `Valid`, `AppId`, `IsPlatformSupported`, `NativeLibraryFileName`, `SteamId`, `Username`, `Branch`, `GetLaunchCommandLine(flag)`, `GetFriends()`, `GetFriendUsername`, `HasDLC`, `GetAvatarAsync(steamId, size)`, `RegisterAvatarAsync(ui, name, steamId, size)`, `AvatarTimeout` ([Avatars](#avatars)) |
+| `SteamAvatarSize` | `Small` (32×32), `Medium` (64×64), `Large` (184×184) |
 | `SteamStatus` | `NotInitialized`, `Running`, `UnsupportedPlatform`, `InvalidAppId`, `NativeLibraryMissing`, `SteamNotRunning`, `InitFailed`, `Shutdown` |
 | `SteamLobby` | `CreateLobbyAsync`, `JoinLobbyAsync`, `LeaveLobby`, `GetLobbyListAsync(friendsOnly)`, `Current`, `Timeout` (15 s), events `OnLobbyUpdated`, `OnLobbyJoined`, `OnMemberChanged(lobby, user, joined)` |
 | `SteamLobbyInfo` | Live lobby metadata: `HostId`, `LobbyName`, `AppVersion`, `Country`, `IsAdvertising`, `PlayerCount`, `MaxPlayers`, `OwnerId`, `GetPlayers()` |
 | `SteamAchievements` | `IsUnlocked`, `Unlock` and `Clear` (both call `StoreStats`), `StoreStats` |
 | `SteamRichPresence` | `Set*`, `Clear`, `GetFriendConnect`, `GetFriendGroupSize`, `OnJoinRequested(connect)` |
 | `SteamOverlay` | `IsEnabled`, `OpenWeb`, `OpenStore`, `InviteFriendToGame(connect)`, `InviteFriendToRemotePlay` |
-| `SteamFriend` | `readonly struct (SteamId, Username)` |
+| `SteamFriend` | `readonly struct (SteamId, Username)`, `GetAvatarAsync(size)` |
 
 `Steam.GetFriends()` returns immediate friends (Facepunch's `SteamFriends.GetFriends()`).
 
 Without Steam:
 
-- async lobby calls return `null` or an empty list;
+- async lobby and avatar calls return `null` or an empty list;
 - getters return `0`, `""` or empty;
 - setters and overlay calls do nothing;
 - argument validation still throws, because that is a caller bug.
@@ -152,6 +153,33 @@ sets `Current` and raises `OnLobbyJoined`. `GetLobbyListAsync(false)` runs `Stea
 results. The friends-only path reads the lobbies of immediate friends who are playing this app id. Timeouts log and
 return null or empty. A `CancellationToken` cancels the wait with `OperationCanceledException`. Member events come
 from Facepunch's `OnLobbyMemberJoined` (joined) and `OnLobbyMemberLeave`/`Disconnected`/`Kicked`/`Banned` (left).
+
+## Avatars
+
+```csharp
+Texture2D? me = await Steam.GetAvatarAsync(Steam.SteamId);                  // Large (184×184) by default
+await Steam.RegisterAvatarAsync(ui, "avatar-host", lobby.OwnerId, SteamAvatarSize.Medium);
+// RML: <img src="engine://avatar-host"/>
+```
+
+- **Shim → adapter → facade.** `SteamworksAvatars.GetAvatarAsync(steamId, size)` (shim) awaits Facepunch's
+  `SteamFriends.GetSmall/Medium/LargeAvatarAsync` and returns `(uint Width, uint Height, byte[] Rgba)?`;
+  `SteamAvatarApi` (adapter, `NoInlining`) passes it through. Facepunch requests the persona, then polls for the image
+  with `Task.Delay`, so the task finishes on a thread-pool thread: the facade queues the result and completes the
+  returned task inside `Steam.RunCallbacks()`, on the main thread, where the `Texture2D` is created. `AvatarTimeout`
+  (15 s) bounds the wait.
+- **Texture.** `Texture2D.FromPixels` of Steam's RGBA8 (straight alpha) with sRGB colour, no mipmaps, clamped: renderers
+  upload it through their normal path (`IVulkanContext.Uploads`) like any code-created texture.
+- **Cache.** Per (SteamID, size): a second request returns the same task, and so the same texture. A null result
+  (no avatar, timeout, failure) is not cached, so asking again retries. `Steam.Shutdown` empties the cache, completes
+  pending requests with null and drops results that arrive afterwards. Fetching is on demand: an empty
+  `RunCallbacks` allocates nothing.
+- **UI.** `Steam.RegisterAvatarAsync(ui, name, steamId, size)` registers the avatar with
+  `UiServer.RegisterTexture(name, Texture2D)`, which uploads the pixels once (UNORM, premultiplied in the shader) and
+  owns that upload until the name is unregistered or replaced, so it outlives `Steam.Shutdown`.
+- **Tests.** Without Steam every request is null and the cache stays empty (`SteamAvatarTests`).
+  `OwnAvatarLoadsWhenSteamIsRunning` is the live check: with the Steam client open it fetches your own large avatar as
+  Spacewar (480) and checks its size and pixels; it is skipped when Steam is not running (CI).
 
 ## Natives
 
@@ -228,10 +256,10 @@ selection logic is tested end to end over `LoopbackTransport` (`loopback:` addre
 - **Steam relay sockets** are unit-tested over a fake Steam only; a live join needs two Steam accounts
   ([Tests/QA/steam-relay.md](../../Tests/QA/steam-relay.md)). The network conditioner
   (`SteamSocketsTransport.SimulateNetworkConditions`) has no dev-overlay panel yet.
-- **Avatars** (Facepunch's `SteamFriends.GetLargeAvatarAsync` → RGBA → a Vulkan texture through the M3 GPU resource
-  path, then `UiServer.RegisterTexture` for the UI) are not implemented yet
-  ([#58](https://github.com/Mainframe-Games/mainframe-engine/issues/58)). The old commented-out Unity `SteamAvatar` and
-  `SteamRemotePlay` files were deleted.
+- **Avatar changes** during a session are not picked up: a cached avatar stays until `Steam.Shutdown` (Facepunch's
+  `OnPersonaStateChange` does not say what changed, so refreshing on it would refetch on every status change).
+  Facepunch keeps polling after an `AvatarTimeout`, and its polling runs on thread-pool threads, which can still be
+  inside a Steam call while `Steam.Shutdown` runs.
 - **Member updates.** `OnLobbyUpdated` reports lobby-level metadata updates only; member data updates are ignored.
 - **Lobby continuations** run inside `RunCallbacks` on the main thread. A continuation after a timeout runs on a
   thread-pool thread.

@@ -49,7 +49,7 @@ public enum SteamStatus
 /// <c>MainframeEngine.Steamworks</c> shim) only once the platform is known to support Steam.
 /// </para>
 /// </remarks>
-public static class Steam
+public static partial class Steam
 {
     private static readonly Lock Sync = new();
 
@@ -173,8 +173,10 @@ public static class Steam
     /// <summary>Pumps Steam callbacks. Call once per frame on the main thread; a no-op unless <see cref="Valid"/>.</summary>
     public static void RunCallbacks()
     {
-        if (Valid)
-            SteamApi.RunCallbacks();
+        if (!Valid)
+            return;
+        SteamApi.RunCallbacks();
+        CompleteAvatars();
     }
 
     /// <summary>Shuts Steam down (a no-op unless <see cref="Valid"/>). Wrappers become no-ops again.</summary>
@@ -207,6 +209,7 @@ public static class Steam
             }
 
             SetStatus(SteamStatus.Shutdown, "Steam.Shutdown was called.");
+            ClearAvatars();
         }
     }
 

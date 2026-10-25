@@ -225,7 +225,8 @@ flowchart LR
   **premultiplied on load** and get a mip chain; generated textures (font atlases) arrive premultiplied. Both are `GpuTexture`s (`R8G8B8A8_UNORM`) through
   the upload queue — created during `Process`, between frames, so nothing waits on the GPU. Untextured geometry binds a
   1×1 white texture. `engine://name` resolves to a registered `GpuTexture` or `RenderTarget` colour attachment
-  (`UiServer.RegisterTexture`); the shader encodes sRGB-format and float sources and premultiplies straight alpha
+  (`UiServer.RegisterTexture`), or to a `Texture2D`'s pixels uploaded once and owned by the UI renderer until the name
+  is unregistered or replaced (`RegisterTexture(name, Texture2D)`, e.g. Steam avatars); the shader encodes sRGB-format and float sources and premultiplies straight alpha
   (`UiTextureConversion`), and render targets are followed across resizes.
 - **Transforms.** RCSS transforms (3D included) multiply a pixel projection (y down, no flip; z mapped into [0, 1]
   for RmlUi's ±10 000 range), pushed as a `mat4` with a `vec2` translation.
