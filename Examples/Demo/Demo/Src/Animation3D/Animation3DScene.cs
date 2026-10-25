@@ -19,8 +19,8 @@ public static class Animation3DScene
     {
         var root = new Node3D { Name = "animation_3d" };
         var camera = Add(root, root, new Camera3D { Name = "Camera", Current = true, Position = new Vector3(0.6f, 1.55f, 3.9f) });
-        camera.LookAt(new Vector3(0, 0.95f, 0));
-        camera.RotationDegrees = camera.RotationDegrees; // pin the Euler angles the saver writes
+        // Looking at (0, 0.95f, 0), as literal angles: LookAt's float result differs between x64 and arm64.
+        camera.RotationDegrees = new Vector3(-8.646005f, 8.746162f, 0);
         Add(root, root, new WorldEnvironment { Name = "Environment", Sky = new Sky { Mode = SkyEnvironmentType.Procedural } });
         Add(root, root, new DirectionalLight3D { Name = "Sun", Energy = 1.1f, CastsShadows = true, RotationDegrees = new Vector3(-50, 35, 0) });
         Add(root, root, new MeshInstance3D

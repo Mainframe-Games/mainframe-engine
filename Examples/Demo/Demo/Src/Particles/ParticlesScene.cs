@@ -19,8 +19,8 @@ public static class ParticlesScene
     {
         var root = new Node3D { Name = "particles" };
         var camera = Add(root, root, new Camera3D { Name = "Camera3D", Current = true, Position = new Vector3(0, 1.4f, 4.2f) });
-        camera.LookAt(new Vector3(0, 0.9f, 0));
-        camera.RotationDegrees = camera.RotationDegrees; // pin the Euler angles the saver writes
+        // Looking at (0, 0.9f, 0), as literal angles: LookAt's float result differs between x64 and arm64.
+        camera.RotationDegrees = new Vector3(-6.788975f, 0, 0);
         Add(root, root, new WorldEnvironment
         {
             Name = "Environment",
