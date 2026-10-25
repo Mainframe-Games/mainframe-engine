@@ -1,0 +1,16 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Assets/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="shaders">
+    <div class="demo-panel">
+        <h1>Shaders</h1>
+        <p class="hint">Godot spatial shaders on meshes: a ground drawn from the world position, swaying stalks and dissolving props, lit and shadowed.</p>
+        <div class="demo-row"><span>Wind</span><input type="range" min="0" max="1" step="0.05" data-value="wind"/></div>
+        <div class="demo-row"><span>Animate</span><input type="checkbox" data-checked="animate"/></div>
+        <div class="demo-row"><span>Dissolve</span><input type="range" min="0" max="1" step="0.01" data-value="dissolve" data-attrif-disabled="animate"/></div>
+        <div class="demo-row"><span>Strike the props</span><button data-event-click="hit()">Hit</button></div>
+    </div>
+</body>
+</rml>

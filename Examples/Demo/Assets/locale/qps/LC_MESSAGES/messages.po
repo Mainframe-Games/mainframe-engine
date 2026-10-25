@@ -150,6 +150,21 @@ msgstr "[Séttîñgs (F10 / Stårt) ~~~~]"
 msgid "F12"
 msgstr "[F12 ~]"
 
+msgid "Particles"
+msgstr "[Pårtîçlés ~~]"
+
+msgid "GpuParticles3D: additive HDR flames and sparks that glow, lit smoke sorted back to front, and a rain box of velocity-aligned streaks."
+msgstr "[GpûPårtîçlés3Ð: åððîtîvé HÐR flåmés åñð spårks thåt glöw, lît smöké sörtéð båçk tö fröñt, åñð å råîñ böx öf vélöçîtý-ålîgñéð stréåks. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Rain"
+msgstr "[Råîñ ~]"
+
+msgid "Glow"
+msgstr "[Glöw ~]"
+
+msgid "Burst of sparks"
+msgstr "[Bûrst öf spårks ~~~]"
+
 msgid "Physics 2D"
 msgstr "[Phýsîçs 2Ð ~~]"
 
@@ -182,6 +197,24 @@ msgstr "[Löåð ~]"
 
 msgid "Save"
 msgstr "[Såvé ~]"
+
+msgid "Shaders"
+msgstr "[Shåðérs ~~]"
+
+msgid "Godot spatial shaders on meshes: a ground drawn from the world position, swaying stalks and dissolving props, lit and shadowed."
+msgstr "[Göðöt spåtîål shåðérs öñ méshés: å gröûñð ðråwñ fröm thé wörlð pösîtîöñ, swåýîñg stålks åñð ðîssölvîñg pröps, lît åñð shåðöwéð. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Wind"
+msgstr "[Wîñð ~]"
+
+msgid "Animate"
+msgstr "[Åñîmåté ~~]"
+
+msgid "Dissolve"
+msgstr "[Ðîssölvé ~~]"
+
+msgid "Strike the props"
+msgstr "[Strîké thé pröps ~~~~]"
 
 msgid "Sound FX"
 msgstr "[Söûñð FX ~~]"
@@ -233,6 +266,24 @@ msgstr "[2Ð çåmérå ~~]"
 
 msgid "Animation"
 msgstr "[Åñîmåtîöñ ~~]"
+
+msgid "Shaped shadow"
+msgstr "[Shåpéð shåðöw ~~~]"
+
+msgid "Turned away"
+msgstr "[Tûrñéð åwåý ~~]"
+
+msgid "Billboard"
+msgstr "[Bîllböårð ~~]"
+
+msgid "Off"
+msgstr "[Öff ~]"
+
+msgid "Fixed Y"
+msgstr "[Fîxéð Ý ~]"
+
+msgid "Enabled"
+msgstr "[Éñåbléð ~~]"
 
 msgid "UI showcase"
 msgstr "[ÛÎ shöwçåsé ~~]"
@@ -457,9 +508,6 @@ msgstr "[ÛÎ sçålé ~~]"
 
 msgid "Shadows"
 msgstr "[Shåðöws ~~]"
-
-msgid "Off"
-msgstr "[Öff ~]"
 
 msgid "Turning shadows on or off applies after a restart."
 msgstr "[Tûrñîñg shåðöws öñ ör öff åpplîés åftér å réstårt. ~~~~~~~~~~~~]"

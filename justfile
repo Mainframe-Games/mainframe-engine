@@ -5,7 +5,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 solution := "MainframeEngine.slnx"
 # Folders with committed .gdshader SPIR-V (canvas-shaders, shaders-check)
-gdshader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets"
+gdshader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets"
 artifacts := justfile_directory() / "artifacts"
 
 # List recipes

@@ -1,0 +1,264 @@
+{
+  "format": 2,
+  "uid": "scn_91ec696e0198",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "ShaderMaterial_qcml9": {
+      "type": "ShaderMaterial",
+      "props": {
+        "Shader": { "res": "Shader_vx6cx" }
+      }
+    },
+    "PlaneMesh_lbh01": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [60, 60]
+      }
+    },
+    "ShaderMaterial_s4xc0": {
+      "type": "ShaderMaterial",
+      "props": {
+        "Shader": { "res": "Shader_ar31j" }
+      }
+    },
+    "MultiMesh_49r0r": {
+      "type": "MultiMesh",
+      "props": {
+        "Mesh": { "res": "CylinderMesh_kzszc" },
+        "InstanceCount": 14,
+        "Transforms": [
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -6.4, 1.2, -2.6],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -5.98, 1.2, -1.4999999],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -5.56, 1.2, -0.39999986],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -5.1400003, 1.2, -2.05],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -4.7200003, 1.2, -0.9499998],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -4.3, 1.2, -2.6],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -3.88, 1.2, -1.4999999],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4600003, 1.2, -0.39999986],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -3.0400002, 1.2, -2.05],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6200001, 1.2, -0.9499998],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -2.2000003, 1.2, -2.6],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -1.7800002, 1.2, -1.4999999],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -1.3600001, 1.2, -0.39999986],
+          [1, 0, 0, 0, 1, 0, 0, 0, 1, -0.94000006, 1.2, -2.05]
+        ],
+        "UseCustomData": true,
+        "CustomData": [
+          [0, 0.95, 0.35, 0.65],
+          [0.137, 0.35, 0.8, 0.95],
+          [0.274, 0.98, 0.82, 0.3],
+          [0.41099998, 0.95, 0.35, 0.65],
+          [0.548, 0.35, 0.8, 0.95],
+          [0.68499994, 0.98, 0.82, 0.3],
+          [0.82199997, 0.95, 0.35, 0.65],
+          [0.959, 0.35, 0.8, 0.95],
+          [0.095999956, 0.98, 0.82, 0.3],
+          [0.23299992, 0.95, 0.35, 0.65],
+          [0.3699999, 0.35, 0.8, 0.95],
+          [0.50699997, 0.98, 0.82, 0.3],
+          [0.64399993, 0.95, 0.35, 0.65],
+          [0.7809999, 0.35, 0.8, 0.95]
+        ]
+      }
+    },
+    "ShaderMaterial_m16us": {
+      "type": "ShaderMaterial",
+      "props": {
+        "Shader": { "res": "Shader_te2d3" },
+        "ShaderParameters": [
+          {
+            "name": "base_color",
+            "value": [0.76862746, 0.54901963, 0.32941177, 1]
+          }
+        ]
+      }
+    },
+    "BoxMesh_ivvbs": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1.3, 1.3, 1.3]
+      }
+    },
+    "ShaderMaterial_mle88": {
+      "type": "ShaderMaterial",
+      "props": {
+        "Shader": { "res": "Shader_te2d3" },
+        "ShaderParameters": [
+          {
+            "name": "base_color",
+            "value": [0.43137255, 0.5882353, 0.8627451, 1]
+          }
+        ]
+      }
+    },
+    "SphereMesh_1exz8": {
+      "type": "SphereMesh",
+      "props": {
+        "Radius": 0.8,
+        "Height": 1.6,
+        "RadialSegments": 48,
+        "Rings": 24
+      }
+    },
+    "ShaderMaterial_8haft": {
+      "type": "ShaderMaterial",
+      "props": {
+        "Shader": { "res": "Shader_te2d3" },
+        "ShaderParameters": [
+          {
+            "name": "base_color",
+            "value": [0.6666667, 0.6901961, 0.74509805, 1]
+          }
+        ]
+      }
+    },
+    "CylinderMesh_0sb8l": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 0.45,
+        "BottomRadius": 0.55,
+        "Height": 2.4,
+        "RadialSegments": 32
+      }
+    },
+    "Shader_vx6cx": {
+      "ref": "ast_ba3acf2fea09",
+      "path": "Assets/Shaders/ground.gdshader"
+    },
+    "Shader_ar31j": {
+      "ref": "ast_58fdab74bbb2",
+      "path": "Assets/Shaders/sway.gdshader"
+    },
+    "CylinderMesh_kzszc": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 0.07,
+        "BottomRadius": 0.12,
+        "Height": 2.4,
+        "RadialSegments": 12,
+        "Rings": 10,
+        "CapTop": false,
+        "CapBottom": false
+      }
+    },
+    "Shader_te2d3": {
+      "ref": "ast_913339d591e5",
+      "path": "Assets/Shaders/dissolve.gdshader"
+    }
+  },
+  "nodes": [
+    {
+      "name": "shaders",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0.5, 4.6, 10.5],
+        "RotationDegrees": [-19.057703, 0, 0],
+        "Current": true,
+        "Fov": 50
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-50, -35, 0],
+        "Color": [1, 0.95, 0.86],
+        "Energy": 1.4
+      }
+    },
+    {
+      "name": "Lamp",
+      "parent": ".",
+      "type": "OmniLight3D",
+      "props": {
+        "Position": [2.6, 1.6, 2.4],
+        "Color": [1, 0.6, 0.3],
+        "Energy": 3,
+        "Range": 6
+      }
+    },
+    {
+      "name": "Ground",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "ShaderMaterial_qcml9" },
+        "Mesh": { "res": "PlaneMesh_lbh01" }
+      }
+    },
+    {
+      "name": "Stalks",
+      "parent": ".",
+      "type": "MultiMeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "ShaderMaterial_s4xc0" },
+        "Multimesh": { "res": "MultiMesh_49r0r" }
+      }
+    },
+    {
+      "name": "Props",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Crate",
+      "parent": "Props",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [1.2, 0.65, 0.6],
+        "MaterialOverride": { "res": "ShaderMaterial_m16us" },
+        "Mesh": { "res": "BoxMesh_ivvbs" }
+      }
+    },
+    {
+      "name": "Pod",
+      "parent": "Props",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [3.4, 0.8, -1.2],
+        "MaterialOverride": { "res": "ShaderMaterial_mle88" },
+        "Mesh": { "res": "SphereMesh_1exz8" }
+      }
+    },
+    {
+      "name": "Pillar",
+      "parent": "Props",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [-0.6, 1.2, -2.4],
+        "MaterialOverride": { "res": "ShaderMaterial_8haft" },
+        "Mesh": { "res": "CylinderMesh_0sb8l" }
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "ShadersPanel"
+    }
+  ]
+}

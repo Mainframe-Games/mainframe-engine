@@ -60,6 +60,7 @@ msgstr "Fabricar"
 #. RML <option>
 #. RML <button>
 #: Examples/Demo/Assets/Animation3D/panel.rml:18
+#: Examples/Demo/Assets/Shaders/panel.rml:13
 #: Examples/Demo/Assets/SoundFx/panel.rml:23
 #: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:127
 msgid "Hit"
@@ -255,6 +256,31 @@ msgid "F12"
 msgstr "F12"
 
 #. RML <h1>
+#: Examples/Demo/Assets/Particles/panel.rml:8
+msgid "Particles"
+msgstr "Partículas"
+
+#. RML <p>
+#: Examples/Demo/Assets/Particles/panel.rml:9
+msgid "GpuParticles3D: additive HDR flames and sparks that glow, lit smoke sorted back to front, and a rain box of velocity-aligned streaks."
+msgstr "GpuParticles3D: llamas y chispas HDR aditivas que brillan, humo iluminado ordenado de atrás hacia delante y una caja de lluvia con estelas alineadas con la velocidad."
+
+#. RML <span>
+#: Examples/Demo/Assets/Particles/panel.rml:10
+msgid "Rain"
+msgstr "Lluvia"
+
+#. RML <span>
+#: Examples/Demo/Assets/Particles/panel.rml:11
+msgid "Glow"
+msgstr "Resplandor"
+
+#. RML <button>
+#: Examples/Demo/Assets/Particles/panel.rml:12
+msgid "Burst of sparks"
+msgstr "Ráfaga de chispas"
+
+#. RML <h1>
 #: Examples/Demo/Assets/Physics/panel2d.rml:8
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
 msgid "Physics 2D"
@@ -314,6 +340,37 @@ msgstr "Cargar"
 #: Examples/Demo/Assets/Physics/panel3d.rml:21
 msgid "Save"
 msgstr "Guardar"
+
+#. RML <h1>
+#: Examples/Demo/Assets/Shaders/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:187
+msgid "Shaders"
+msgstr "Shaders"
+
+#. RML <p>
+#: Examples/Demo/Assets/Shaders/panel.rml:9
+msgid "Godot spatial shaders on meshes: a ground drawn from the world position, swaying stalks and dissolving props, lit and shadowed."
+msgstr "Shaders espaciales de Godot en mallas: un suelo dibujado a partir de la posición en el mundo, tallos que se mecen y objetos que se disuelven, iluminados y con sombras."
+
+#. RML <span>
+#: Examples/Demo/Assets/Shaders/panel.rml:10
+msgid "Wind"
+msgstr "Viento"
+
+#. RML <span>
+#: Examples/Demo/Assets/Shaders/panel.rml:11
+msgid "Animate"
+msgstr "Animar"
+
+#. RML <span>
+#: Examples/Demo/Assets/Shaders/panel.rml:12
+msgid "Dissolve"
+msgstr "Disolver"
+
+#. RML <span>
+#: Examples/Demo/Assets/Shaders/panel.rml:13
+msgid "Strike the props"
+msgstr "Golpear los objetos"
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
@@ -409,6 +466,37 @@ msgstr "Cámara 2D"
 #: Examples/Demo/Assets/Spine/panel.rml:11
 msgid "Animation"
 msgstr "Animación"
+
+#. RML <span>
+#: Examples/Demo/Assets/Spine/panel.rml:18
+msgid "Shaped shadow"
+msgstr "Sombra con forma"
+
+#. RML <span>
+#: Examples/Demo/Assets/Spine/panel.rml:19
+msgid "Turned away"
+msgstr "De espaldas"
+
+#. RML <span>
+#: Examples/Demo/Assets/Spine/panel.rml:20
+msgid "Billboard"
+msgstr "Cartel"
+
+#. RML <option>
+#: Examples/Demo/Assets/Spine/panel.rml:22
+#: MainframeEngine/Assets/UI/settings/settings.rml:104
+msgid "Off"
+msgstr "Desactivadas"
+
+#. RML <option>
+#: Examples/Demo/Assets/Spine/panel.rml:23
+msgid "Fixed Y"
+msgstr "Y fija"
+
+#. RML <option>
+#: Examples/Demo/Assets/Spine/panel.rml:24
+msgid "Enabled"
+msgstr "Activado"
 
 #. RML <title>
 #: Examples/Demo/Assets/UI/showcase.rml:3
@@ -783,11 +871,6 @@ msgstr "Escala de la interfaz"
 #: MainframeEngine/Assets/UI/settings/settings.rml:102
 msgid "Shadows"
 msgstr "Sombras"
-
-#. RML <option>
-#: MainframeEngine/Assets/UI/settings/settings.rml:104
-msgid "Off"
-msgstr "Desactivadas"
 
 #. RML <p>
 #: MainframeEngine/Assets/UI/settings/settings.rml:110
