@@ -115,10 +115,10 @@ public class SpineNode : VisualInstance3D
     [Export]
     public BillboardMode Billboard { get; set; }
 
-    public ExposedList<Animation> AllAnimations => Skeleton.Data.Animations;
+    public ExposedList<Spine.Animation> AllAnimations => Skeleton.Data.Animations;
 
     /// <summary>The animation playing on track 0, or null.</summary>
-    public Animation? CurrentAnimation => _animation is { Tracks.Count: > 0 } state ? state.Tracks.Items[0]?.Animation : null;
+    public Spine.Animation? CurrentAnimation => _animation is { Tracks.Count: > 0 } state ? state.Tracks.Items[0]?.Animation : null;
 
     internal SpineRenderer? SpineRenderer => _spineRenderer;
     internal SpineTextureLoader? TextureLoader => _textureLoader;

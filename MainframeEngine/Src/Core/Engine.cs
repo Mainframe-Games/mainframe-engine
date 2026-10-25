@@ -569,6 +569,9 @@ public abstract class Engine : IDisposable
         var frameStarted = Renderer is not IVulkanContext vk || vk.FrameStarted;
         if (frameStarted)
         {
+            // ADR 0207: compute pre-skinning of the skinned meshes the frame prepared, before anything draws them.
+            Servers.Render?.SkinMeshes();
+
             // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
             OnShadowPass(_gameTime);
             Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters

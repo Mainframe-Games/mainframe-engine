@@ -260,7 +260,8 @@ public sealed unsafe class UploadQueue : IDisposable
         // Source: every stage that reads uploaded resources, so earlier frames' reads of a resource that is being
         // re-uploaded (GpuBuffer.Upload on an existing buffer, a replaced image) finish before it is overwritten.
         const PipelineStageFlags consumers = PipelineStageFlags.VertexInputBit | PipelineStageFlags.VertexShaderBit |
-                                             PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.TransferBit;
+                                             PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.TransferBit |
+                                             PipelineStageFlags.ComputeShaderBit;
         var anyBufferCopy = false;
         foreach (ref readonly var op in ops)
             anyBufferCopy |= op.Kind == OpKind.CopyBuffer;
@@ -373,7 +374,8 @@ public sealed unsafe class UploadQueue : IDisposable
                                 AccessFlags.UniformReadBit | AccessFlags.ShaderReadBit,
             };
             _vk.CmdPipelineBarrier(cb, PipelineStageFlags.TransferBit,
-                PipelineStageFlags.VertexInputBit | PipelineStageFlags.VertexShaderBit | PipelineStageFlags.FragmentShaderBit,
+                PipelineStageFlags.VertexInputBit | PipelineStageFlags.VertexShaderBit | PipelineStageFlags.FragmentShaderBit |
+                PipelineStageFlags.ComputeShaderBit, // the skinning pass reads its source vertices (ADR 0207)
                 0, 1, &barrier, 0, null, 0, null);
         }
 

@@ -311,6 +311,21 @@ public sealed class RenderServer : IServer
         }
     }
 
+    /// <summary>
+    /// Records the compute pre-skinning of every skinned <see cref="MeshInstance3D"/> the frame prepared (ADR 0207): each
+    /// instance's joint palette goes into this frame slot's ring and a compute pass writes its posed vertices, which the
+    /// shadow, prepass, picking and scene passes then draw. Call after <c>BeginFrame</c> with no render pass active, before
+    /// <see cref="RenderShadows(SceneViewport)"/> (<see cref="Engine"/> does).
+    /// </summary>
+    public void SkinMeshes()
+    {
+        if (Vulkan is { FrameStarted: true } vk && !_disposed)
+            _meshes?.DispatchSkinning(vk.CurrentCommandBuffer);
+    }
+
+    /// <summary>Skinned instances the last <see cref="SkinMeshes"/> dispatched (diagnostics, tests).</summary>
+    public int SkinnedInstances => _meshes?.Skinner?.LastDispatchCount ?? 0;
+
     // The shadow maps are shared (one set, one light-matrix ring region per frame): the main world uses them, unless it
     // has nothing to shadow; then the first rendering sub-viewport that asks for them (SubViewport.Shadows) gets them.
     private SubViewport? FindShadowView(SceneViewport root)
