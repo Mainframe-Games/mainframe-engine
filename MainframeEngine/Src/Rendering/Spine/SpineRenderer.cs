@@ -7,27 +7,31 @@ using Skeleton = Spine.Skeleton;
 namespace MainframeEngine;
 
 /// <summary>
-/// Draws one Spine skeleton: CPU-built vertices (<see cref="BuildVertices"/>) streamed each frame into the frame
+/// Draws one Spine skeleton: CPU-built vertices (<see cref="BuildVertices"/>) streamed once per frame into the frame
 /// slot's host-visible buffer, lit by the shared per-frame set 0 (camera + lights) and shadowed by set 1
 /// (<see cref="ShadowSystem"/> or the renderer's fallback); the atlas page is set 2 and the model matrix a push
-/// constant.
+/// constant. The shadow casters draw the same buffer, alpha-tested against the atlas page (ADR 0204).
 /// </summary>
 internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
 {
     /// <summary>Initial CPU/GPU vertex capacity; arrays and buffers grow (doubling) when a pose needs more.</summary>
     internal const int DefaultVertexCapacity = 8192;
+
+    /// <summary>Bytes per vertex (<see cref="Vertex"/>): the colour pass and the shadow casters read the same buffer.</summary>
+    internal const uint VertexStride = 40;
+
     private float[] _worldVerticesPositions;
     private Vertex[] _vertices;
-    private Vector3[] _shadowPositions;
     private int _preparedVertexCount;
-    private int _shadowUploadedSlots; // bit per frame slot: shadow positions uploaded since the last BuildVertices
+    private int _uploadedSlots; // bit per frame slot: vertices uploaded since the last BuildVertices
+    private float _shadowAlphaThreshold;
 
     private const uint TexSetIndex = 2; // set 0 frame, set 1 shadows, set 2 atlas page
+    private const uint ShadowTexSetIndex = 1; // shadow casters: set 0 light VP, set 1 atlas page
 
     private readonly IVulkanContext? _vkCtx;
     private GpuTexture[] _textures = [];
     private readonly GpuBuffer?[] _vertexBuffers = new GpuBuffer?[IVulkanContext.MaxFramesInFlight];
-    private readonly GpuBuffer?[] _shadowVertexBuffers = new GpuBuffer?[IVulkanContext.MaxFramesInFlight];
     private DescriptorSetLayout _texLayout;
     private DescriptorPool _descPool;
     private DescriptorSet[] _texDescSets = []; // [texIdx]: static, shared by every frame slot
@@ -39,7 +43,7 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
     // Per-frame draw batches: (texIdx, vertexStart)
     private readonly List<(int texIdx, int start)> _vkBatches = new();
 
-    // Saved state for shadow drawing (set during BuildVertices)
+    // The model matrix of the last BuildVertices, before billboarding (SpineNode turns it per view).
     private Matrix4x4 _modelMatrix;
 
     private readonly ShadowSystem? _shadowSystem;
@@ -51,8 +55,8 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
     {
         public Vector3 Position;     // offset  0
         public Vector2 Uv;           // offset 12
-        public Vector4 Color;        // offset 20
-        public float TextureIndex;   // offset 36
+        public Vector4 Color;        // offset 20 (the shadow casters read Color.W with the threshold, offset 32)
+        public float ShadowAlphaThreshold; // offset 36
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -73,12 +77,12 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         _shadowSystem = shadowSystem;
         _worldVerticesPositions = new float[Math.Max(8, initialVertexCapacity)]; // a region needs 8 floats
         _vertices = new Vertex[initialVertexCapacity];
-        _shadowPositions = new Vector3[initialVertexCapacity];
 
         if (renderer is IVulkanContext vkCtx)
         {
             _vkCtx = vkCtx;
             CreateVkResources(vkCtx, textureLoader.VkImageData);
+            shadowSystem?.EnsureSpineCasters();
         }
 
         // The pixels live on the GPU now (or are not needed); keep only the dimensions.
@@ -91,31 +95,32 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
     /// <summary>Vertex <paramref name="index"/> of the last <see cref="BuildVertices"/>, in world space (model matrix applied).</summary>
     internal Vector3 PreparedWorldPosition(int index) => Vector3.Transform(_vertices[index].Position, _modelMatrix);
 
+    /// <summary>The tint alpha (skeleton × slot) of prepared vertex <paramref name="index"/>; the shadow test multiplies it in.</summary>
+    internal float PreparedAlpha(int index) => _vertices[index].Color.W;
+
+    /// <summary>The shadow alpha threshold carried by prepared vertex <paramref name="index"/>.</summary>
+    internal float PreparedShadowAlphaThreshold(int index) => _vertices[index].ShadowAlphaThreshold;
+
     /// <summary>Current CPU vertex capacity (grows on demand).</summary>
     internal int VertexCapacity => _vertices.Length;
 
     /// <summary>
     /// Rebuilds the CPU vertex arrays from the current skeleton pose.
     /// Call this from <c>OnUpdate</c> so the data is ready for both the shadow pass
-    /// and the main render pass within the same frame.
+    /// and the main render pass within the same frame. The shadow casters discard where the atlas alpha × the tint
+    /// alpha is below <paramref name="shadowAlphaThreshold"/>; 0 casts the whole triangles.
     /// </summary>
-    public void BuildVertices(float zSpacing, Matrix4x4 model)
+    public void BuildVertices(float zSpacing, Matrix4x4 model, float shadowAlphaThreshold = 0f)
     {
         _modelMatrix = model;
         _vkBatches.Clear();
-        _shadowUploadedSlots = 0;
+        _uploadedSlots = 0;
 
         _zSpacing = zSpacing;
+        _shadowAlphaThreshold = float.IsNaN(shadowAlphaThreshold) ? 0f : Math.Max(0f, shadowAlphaThreshold);
         _buildVertexIndex = 0;
         _geometry.Build(_skeleton, this);
-        var vertexIndex = _buildVertexIndex;
-
-        if (_shadowPositions.Length < _vertices.Length)
-            Array.Resize(ref _shadowPositions, _vertices.Length);
-        for (int j = 0; j < vertexIndex; j++)
-            _shadowPositions[j] = _vertices[j].Position;
-
-        _preparedVertexCount = vertexIndex;
+        _preparedVertexCount = _buildVertexIndex;
     }
 
     private readonly SpineGeometry _geometry = new();
@@ -136,7 +141,7 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         for (var j = 0; j < triangles.Length; j++)
         {
             var idx = triangles[j] << 1;
-            AddVertex(vertices[idx], vertices[idx + 1], z, uvs[idx], uvs[idx + 1], c.X, c.Y, c.Z, c.W, texIdx, ref _buildVertexIndex);
+            AddVertex(vertices[idx], vertices[idx + 1], z, uvs[idx], uvs[idx + 1], c, ref _buildVertexIndex);
         }
     }
 
@@ -151,13 +156,20 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
     private static int GrowCapacity(int current, int required) => Math.Max(required, current * 2);
 
     /// <summary>
-    /// Uploads pre-built vertex data to the GPU and issues main-pass draw commands.
-    /// Call <see cref="BuildVertices"/> from <c>OnUpdate</c> before calling this.
+    /// Uploads pre-built vertex data to the GPU and issues main-pass draw commands with the model matrix of the last
+    /// <see cref="BuildVertices"/>. Call <see cref="BuildVertices"/> from <c>OnUpdate</c> before calling this.
     /// </summary>
-    public void Draw(Matrix4x4 view, Matrix4x4 projection, LightEnvironment lights, Vector3 cameraPosition)
+    public void Draw(Matrix4x4 view, Matrix4x4 projection, LightEnvironment lights, Vector3 cameraPosition) =>
+        Draw(_modelMatrix, view, projection, lights, cameraPosition);
+
+    /// <summary>
+    /// <see cref="Draw(Matrix4x4, Matrix4x4, LightEnvironment, Vector3)"/> with <paramref name="model"/> (this view's
+    /// billboarded pose) in place of the built one.
+    /// </summary>
+    public void Draw(in Matrix4x4 model, Matrix4x4 view, Matrix4x4 projection, LightEnvironment lights, Vector3 cameraPosition)
     {
         if (_vkCtx is not null)
-            DrawVulkan(_preparedVertexCount, view, projection, lights, cameraPosition);
+            DrawVulkan(_preparedVertexCount, model, view, projection, lights, cameraPosition);
     }
 
     private static int ResolveTexIdx(object region)
@@ -173,91 +185,99 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         _vkBatches.Add((texIdx, vertexStart));
     }
 
-    private void AddVertex(float x, float y, float z, float u, float v,
-        float r, float g, float b, float a, float textureIndex, ref int vertexIndex)
+    private void AddVertex(float x, float y, float z, float u, float v, in Vector4 color, ref int vertexIndex)
     {
         _vertices[vertexIndex++] = new Vertex
         {
             Position = new Vector3(x, y, z),
             Uv = new Vector2(u, v),
-            Color = new Vector4(r, g, b, a),
-            TextureIndex = textureIndex,
+            Color = color,
+            ShadowAlphaThreshold = _shadowAlphaThreshold,
         };
     }
 
     // ── Shadow pass ────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Called from the shadow pass draw callback for directional and spot lights.
-    /// Requires <see cref="BuildVertices"/> to have been called this frame (from <c>OnUpdate</c>).
+    /// Called from the shadow pass draw callback for directional and spot lights, with the pose to cast from
+    /// (<paramref name="model"/>: the main view's billboarded one, else the built one). Requires
+    /// <see cref="BuildVertices"/> to have been called this frame (from <c>OnUpdate</c>).
     /// </summary>
-    public unsafe void DrawShadow2D(CommandBuffer cb)
-    {
-        if (_vkCtx is null || _shadowSystem is null || _preparedVertexCount == 0) return;
-        var imageIdx = _vkCtx.FrameSlot;
-
-        // Upload this frame's shadow positions to the frame slot's GPU buffer (once per frame:
-        // a buffer already bound by an earlier pass of this frame must not be replaced).
-        UploadShadowVertices(imageIdx);
-
-        var vk     = _vkCtx.Vk;
-        var pipe   = _shadowSystem.DoubleSidedShadow2DPipeline; // a flat skeleton casts from either side
-        var layout = _shadowSystem.Shadow2DLayout;
-
-        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipe);
-
-        var vb  = _shadowVertexBuffers[imageIdx]!.Handle;
-        var off = 0ul;
-        vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &off);
-
-        var model = _modelMatrix;
-        vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit, 0, 64, &model);
-        vk.CmdDraw(cb, (uint)_preparedVertexCount, 1, 0, 0);
-    }
+    public void DrawShadow2D(CommandBuffer cb, in Matrix4x4 model) => DrawShadow(cb, model, point: false, default, 0f);
 
     /// <summary>
     /// Called from the shadow pass draw callback for point lights.
     /// Requires <see cref="BuildVertices"/> to have been called this frame (from <c>OnUpdate</c>).
     /// </summary>
-    public unsafe void DrawShadowPoint(CommandBuffer cb, Vector3 lightPos, float lightRange)
+    public void DrawShadowPoint(CommandBuffer cb, in Matrix4x4 model, Vector3 lightPos, float lightRange) =>
+        DrawShadow(cb, model, point: true, lightPos, lightRange);
+
+    // The alpha-tested, double-sided casters (ADR 0204): the frame slot's colour-pass vertices, one draw per atlas page
+    // batch with the page at set 1. Set 0 (the pass's light VP) stays bound: the Spine caster layouts share it and the
+    // push range with the plain caster layouts.
+    private unsafe void DrawShadow(CommandBuffer cb, in Matrix4x4 model, bool point, Vector3 lightPos, float lightRange)
     {
-        if (_vkCtx is null || _shadowSystem is null || _preparedVertexCount == 0) return;
-        var imageIdx = _vkCtx.FrameSlot;
+        if (_vkCtx is null || _shadowSystem is null || _preparedVertexCount == 0 || _vkBatches.Count == 0) return;
+        var vk = _vkCtx.Vk;
+        var buffer = UploadVertices(_vkCtx.FrameSlot);
+        var layout = _shadowSystem.SpineCasterLayout(point);
+        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _shadowSystem.SpineCasterPipeline(point));
 
-        UploadShadowVertices(imageIdx);
-
-        var vk     = _vkCtx.Vk;
-        var pipe   = _shadowSystem.DoubleSidedShadowPointPipeline;
-        var layout = _shadowSystem.ShadowPointLayout;
-
-        vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipe);
-
-        var vb  = _shadowVertexBuffers[imageIdx]!.Handle;
+        var vb  = buffer.Handle;
         var off = 0ul;
         vk.CmdBindVertexBuffers(cb, 0, 1, &vb, &off);
 
-        // Point shadow push constant: mat4 model (64) + vec4 lightPosRange (16) = 80 bytes
-        var push = stackalloc float[20];
-        *(Matrix4x4*)push = _modelMatrix;
-        push[16] = lightPos.X; push[17] = lightPos.Y; push[18] = lightPos.Z; push[19] = lightRange;
-        vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, 80, push);
-        vk.CmdDraw(cb, (uint)_preparedVertexCount, 1, 0, 0);
+        if (point)
+        {
+            // Point shadow push constant: mat4 model (64) + vec4 lightPosRange (16) = 80 bytes
+            var push = stackalloc float[20];
+            *(Matrix4x4*)push = model;
+            push[16] = lightPos.X; push[17] = lightPos.Y; push[18] = lightPos.Z; push[19] = lightRange;
+            vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, 80, push);
+        }
+        else
+        {
+            var m = model;
+            vk.CmdPushConstants(cb, layout, ShaderStageFlags.VertexBit, 0, 64, &m);
+        }
+
+        DrawBatches(vk, cb, layout, ShadowTexSetIndex, _preparedVertexCount);
     }
 
-    private unsafe void UploadShadowVertices(int imageIdx)
+    // Writes the prepared vertices into the frame slot's buffer once per BuildVertices: the shadow passes and every view
+    // of the colour pass draw the same data (a buffer bound by an earlier pass of this frame must not be replaced).
+    private unsafe GpuBuffer UploadVertices(int slot)
     {
-        var bit = 1 << imageIdx;
-        if ((_shadowUploadedSlots & bit) != 0) return;
-        _shadowUploadedSlots |= bit;
+        var bit = 1 << slot;
+        var buffer = EnsureBuffer(ref _vertexBuffers[slot], (ulong)(_preparedVertexCount * sizeof(Vertex)),
+            (ulong)(DefaultVertexCapacity * sizeof(Vertex)), out var created);
+        if ((_uploadedSlots & bit) == 0 || created)
+        {
+            _uploadedSlots |= bit;
+            buffer.Write<Vertex>(_vertices.AsSpan(0, _preparedVertexCount));
+        }
 
-        var buffer = EnsureBuffer(ref _shadowVertexBuffers[imageIdx], (ulong)(_preparedVertexCount * sizeof(Vector3)),
-            (ulong)(DefaultVertexCapacity * sizeof(Vector3)));
-        buffer.Write<Vector3>(_shadowPositions.AsSpan(0, _preparedVertexCount));
+        return buffer;
+    }
+
+    // One draw per atlas page batch, binding the page at `setIndex` of `layout`.
+    private unsafe void DrawBatches(Vk vk, CommandBuffer cb, PipelineLayout layout, uint setIndex, int vertexCount)
+    {
+        for (int b = 0; b < _vkBatches.Count; b++)
+        {
+            var (texIdx, start) = _vkBatches[b];
+            int count = b + 1 < _vkBatches.Count ? _vkBatches[b + 1].start - start : vertexCount - start;
+            if (count <= 0) continue;
+
+            var texDs = _texDescSets[texIdx];
+            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, setIndex, 1, &texDs, 0, null);
+            vk.CmdDraw(cb, (uint)count, 1, (uint)start, 0);
+        }
     }
 
     #region Vulkan draw
 
-    private unsafe void DrawVulkan(int vertexCount, Matrix4x4 view, Matrix4x4 projection,
+    private unsafe void DrawVulkan(int vertexCount, in Matrix4x4 model, Matrix4x4 view, Matrix4x4 projection,
                                    LightEnvironment lights, Vector3 cameraPosition)
     {
         if (_vkBatches.Count == 0 || vertexCount == 0) return;
@@ -272,13 +292,10 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         frame.EnsureCamera(view, projection, cameraPosition);
         frame.EnsureLights(lights, cameraPosition);
 
-        // Upload main vertex buffer
-        var buffer = EnsureBuffer(ref _vertexBuffers[imageIdx], (ulong)(vertexCount * sizeof(Vertex)),
-            (ulong)(DefaultVertexCapacity * sizeof(Vertex)));
-        buffer.Write<Vertex>(_vertices.AsSpan(0, vertexCount));
+        var buffer = UploadVertices(imageIdx);
 
         // Compute world-space normal (sprite faces local +Z)
-        var worldNormal = Vector3.Normalize(Vector3.TransformNormal(Vector3.UnitZ, _modelMatrix));
+        var worldNormal = Vector3.Normalize(Vector3.TransformNormal(Vector3.UnitZ, model));
 
         vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, _pipeline);
 
@@ -293,39 +310,39 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         frame.Bind(cb, _pipelineLayout, _shadowDescriptors);
 
         // Push model matrix + world-space normal
-        var push = new PushConstant { Model = _modelMatrix, WorldNormal = new Vector4(worldNormal, 0f) };
+        var push = new PushConstant { Model = model, WorldNormal = new Vector4(worldNormal, 0f) };
         vk.CmdPushConstants(cb, _pipelineLayout, FrameContext.PushConstantStages, 0, (uint)sizeof(PushConstant), &push);
 
         // Draw each texture batch, binding the texture descriptor set per batch
-        for (int b = 0; b < _vkBatches.Count; b++)
-        {
-            var (texIdx, start) = _vkBatches[b];
-            int count = b + 1 < _vkBatches.Count ? _vkBatches[b + 1].start - start : vertexCount - start;
-            if (count <= 0) continue;
-
-            var texDs = _texDescSets[texIdx];
-            vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout,
-                TexSetIndex, 1, &texDs, 0, null);
-
-            vk.CmdDraw(cb, (uint)count, 1, (uint)start, 0);
-        }
+        DrawBatches(vk, cb, _pipelineLayout, TexSetIndex, vertexCount);
     }
 
     // Grows a frame slot's streaming buffer (doubling, at least `initial`); the old one goes to the deletion queue.
-    private GpuBuffer EnsureBuffer(ref GpuBuffer? buffer, ulong required, ulong initial)
+    private GpuBuffer EnsureBuffer(ref GpuBuffer? buffer, ulong required, ulong initial, out bool created)
     {
+        created = false;
         if (buffer is not null && required <= buffer.Size)
             return buffer;
 
         var capacity = Math.Max(required, buffer is null ? initial : buffer.Size * 2);
         buffer?.Dispose();
         buffer = GpuBuffer.Create(_vkCtx!, capacity, BufferUsageFlags.VertexBufferBit, GpuMemoryUsage.Dynamic);
+        created = true;
         return buffer;
     }
 
     #endregion
 
     #region Vulkan setup
+
+    /// <summary>
+    /// The atlas page set: one combined image sampler at binding 0, fragment stage. The colour pass binds it at set 2 and
+    /// the shadow casters (<see cref="ShadowSystem.EnsureSpineCasters"/>) at set 1; both layouts come from here, so they
+    /// are identically defined and a page's set works with either.
+    /// </summary>
+    internal static DescriptorSetLayout CreateTextureSetLayout(IVulkanContext ctx) => PipelineBuilder.CreateSetLayout(ctx,
+        [new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit }],
+        "Spine texture");
 
     private unsafe void CreateVkResources(IVulkanContext ctx, List<(byte[] Pixels, int Width, int Height)> imageData)
     {
@@ -343,10 +360,8 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
             _textures[t] = GpuTexture.Create2D(ctx, (uint)width, (uint)height, pixels, colorSpace, TextureSampling.LinearClamp);
         }
 
-        // --- Set 2: one combined image sampler per atlas page ---
-        _texLayout = PipelineBuilder.CreateSetLayout(ctx,
-            [new DescriptorSetLayoutBinding { Binding = 0, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit }],
-            "Spine texture");
+        // --- Set 2: one combined image sampler per atlas page (set 1 of the shadow casters) ---
+        _texLayout = CreateTextureSetLayout(ctx);
         _descPool = PipelineBuilder.CreatePool(ctx, (uint)Math.Max(1, texCount),
             [new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (uint)texCount }], "Spine textures");
         _texDescSets = new DescriptorSet[texCount];
@@ -360,9 +375,9 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         // ShadowSystem exists, matching SpineLit.vk.frag.
         _pipelineLayout = ctx.Frame.CreatePipelineLayout(_shadowDescriptors, [_texLayout], "Spine");
 
-        // Vertex layout: Position(vec3,0) + UV(vec2,12) + Color(vec4,20) + TextureIndex(float,36) = stride 40
+        // Vertex layout: Position(vec3,0) + UV(vec2,12) + Color(vec4,20) + ShadowAlphaThreshold(float,36) = stride 40
         ReadOnlySpan<VertexInputBindingDescription> bindings =
-            [new VertexInputBindingDescription { Binding = 0, Stride = (uint)sizeof(Vertex), InputRate = VertexInputRate.Vertex }];
+            [new VertexInputBindingDescription { Binding = 0, Stride = VertexStride, InputRate = VertexInputRate.Vertex }];
         ReadOnlySpan<VertexInputAttributeDescription> attributes =
         [
             new() { Location = 0, Binding = 0, Format = Silk.NET.Vulkan.Format.R32G32B32Sfloat, Offset = 0 },
@@ -390,8 +405,6 @@ internal sealed class SpineRenderer : IDisposable, ISpineGeometrySink
         _disposed = true;
 
         foreach (var buffer in _vertexBuffers)
-            buffer?.Dispose();
-        foreach (var buffer in _shadowVertexBuffers)
             buffer?.Dispose();
         foreach (var texture in _textures)
             texture.Dispose();

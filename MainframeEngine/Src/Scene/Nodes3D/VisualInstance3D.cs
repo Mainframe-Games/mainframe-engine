@@ -107,6 +107,14 @@ public abstract class VisualInstance3D : Node3D, IRenderResourceOwner
     {
     }
 
+    /// <summary>
+    /// Called once per shadow render, before the passes, for non-batched casters: <paramref name="camera"/> is the view
+    /// the shadows are rendered for (null without one). A billboarded node turns its shadow pose toward it here.
+    /// </summary>
+    internal virtual void PrepareShadowCasting(ICamera? camera)
+    {
+    }
+
     /// <summary>Draws the node into a directional/spot shadow map.</summary>
     public virtual void DrawShadow2D(in CommandBuffer cb)
     {

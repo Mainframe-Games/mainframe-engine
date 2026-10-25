@@ -347,14 +347,15 @@ public sealed class RenderServer : IServer
             meshes.Prepare(draws, world, camera, collectCasters: true); // no-op when PrepareFrame ran
         }
 
-        // Visuals drawn one by one (Spine) have no bounds: they cast into every pass.
+        // Visuals drawn one by one (Spine) have no bounds: they cast into every pass, posed for the view that collected
+        // the casters (a billboarded SpineNode casts from the quad that view sees, ADR 0204).
         var unbounded = false;
         foreach (var visual in world.VisualList)
         {
             if (!visual.IsBatched && visual.CastShadows && visual.IsVisibleInTree())
             {
+                visual.PrepareShadowCasting(camera);
                 unbounded = true;
-                break;
             }
         }
 
