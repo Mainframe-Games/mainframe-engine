@@ -1,0 +1,15 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Assets/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="particles">
+    <div class="demo-panel">
+        <h1>Particles</h1>
+        <p class="hint">GpuParticles3D: additive HDR flames and sparks that glow, lit smoke sorted back to front, and a rain box of velocity-aligned streaks.</p>
+        <div class="demo-row"><span>Rain</span><input type="checkbox" data-checked="rain"/></div>
+        <div class="demo-row"><span>Glow</span><input type="checkbox" data-checked="glow"/></div>
+        <div class="demo-row"><button data-event-click="burst()">Burst of sparks</button></div>
+    </div>
+</body>
+</rml>
