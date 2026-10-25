@@ -55,6 +55,8 @@ headers, not Slang modules, because they are configured by macros defined before
 | `lights.slang` | Lights UBO, Blinn-Phong per light, `shadeLightsBlinnPhong(base, N, Ngeo, worldPos, specular, shininess)` (`Ngeo`: geometric normal for the shadow normal offset) and `shadeLights` (0.3, 32); `counts.w = 1` skips shadow maps (offscreen views) (needs `shadows.slang` first) | `LIGHTS_SET`/`LIGHTS_BINDING` (default 0/1) |
 | `material.slang` | `StandardMaterial3D` set 2 (`MATERIAL_SET`; the cutout shadow casters use 1) (parameters UBO, one sampler, albedo/normal/emission images), `materialUv/Albedo/Emission`, `materialNormal` (derivative tangent frame) | — |
 | `sky.slang` | Sky push constants (`SkyParams`), `skyRay(ndc)` | — |
+| `glsl_compat.slang` | `glsl_mat2/3/4`: GLSL's one-argument matrix constructors for translated Godot shaders (canvas and spatial) | — |
+| `spatial.slang` | The spatial-shader template's helpers (ADR 0205): `spatial_normal_matrix`, `spatial_inv_view`, `spatial_normal_map` (no descriptors, so the casters include it too) | — |
 
 ## Descriptor frequency model
 
@@ -133,8 +135,80 @@ shaders' SPIR-V when the engine moved to Slang):
   pipeline layouts come from C#).
 - **No Metal keywords as names** (`vertex`, `fragment`, `kernel`, `constant`, `device`, …): Slang keeps local names in
   the SPIR-V, and MoltenVK's SPIRV-Cross passes them into the Metal source, which then fails to compile.
-- Canvas shaders (`.gdshader`) are the exception: their Godot code is wrapped in a Slang template compiled with
-  `-allow-glsl` ([Canvas](canvas.md#canvas-shaders)).
+- Godot shaders (`.gdshader`: canvas_item and spatial) are the exception: their Godot code is wrapped in a Slang template
+  compiled with `-allow-glsl` ([Canvas](canvas.md#canvas-shaders), [Spatial shaders](#spatial-shaders) below).
+
+## Spatial shaders
+
+Godot `shader_type spatial` shaders draw 3D meshes as a `ShaderMaterial`
+([ADR 0205](../../memory/decisions/0205-spatial-shaders.md)): on a `MeshInstance3D` or `MultiMeshInstance3D`, as a
+surface material, `MaterialOverride`, `MaterialOverlay` or `NextPass`. `SpatialShaderCompiler` translates them like canvas
+shaders (`CanvasShaderCompiler`): the user's code keeps Godot's language and is wrapped in a Slang template per pass,
+compiled with `-allow-glsl` and the engine's flags (`include/spatial.slang`, `include/glsl_compat.slang` and the mesh
+includes). Uniform values come from `ShaderMaterial.SetShaderParameter` or a `.mres` (`ShaderParameters`); the mesh side is
+in [Materials & meshes](materials-and-meshes.md#shadermaterial-spatial-shaders-adr-0205).
+
+```glsl
+shader_type spatial;
+uniform sampler2D biome_map : filter_nearest, repeat_disable;
+uniform vec4 palette[2] : source_color;
+void fragment() {
+    vec2 world = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xz; // VERTEX is view space in fragment(), as in Godot
+    ALBEDO = mix(palette[0].rgb, palette[1].rgb, texture(biome_map, world / 64.0 + 0.5).r);
+}
+```
+
+**Passes.** Each shader is compiled for five passes, a vertex and a fragment stage each, and every pass runs the shader's
+`vertex()` and `fragment()`, so displacement, `discard` and the alpha scissor agree everywhere:
+
+| Pass | SPIR-V (`x.gdshader` + …) | Set 0 / the material set | What it writes |
+|---|---|---|---|
+| Colour | `.vert.spv`, `.frag.spv` | the frame, lights, sky lighting, SSAO / set 2 | the surface lit by the engine (or `unshaded`) + EMISSION, fogged |
+| Depth prepass (ADR 0163) | `.depth.vert.spv`, `.depth.frag.spv` | the frame / set 2 | depth and the velocity: `vertex()` runs for this frame and for the last (last frame's model matrix and `TIME`) |
+| Directional/spot shadows | `.shadow.*` | the light matrix / set 1 | depth (`TIME` and the camera from the casters' push block; in `fragment()` through a flat varying) |
+| Point shadows | `.shadow-point.*` | the light matrix / set 1 | the linear distance to the light (`SV_Depth`) |
+| Object IDs | `.id.*` | the frame / set 2 | the instance's object id (cut out like the colour pass) |
+
+In the shadow passes "view space" is world space (`VIEW_MATRIX` = identity), so `INV_VIEW_MATRIX * VERTEX` is still the
+world position. Constant 0 of the colour, depth and ID fragment stages is the alpha mode (a prepassed cutout runs as opaque:
+its EQUAL depth test replaces the discard); the casters are built for the shader's own mode. The colour and prepass vertex
+stages get an invariant position (`SpirvInvariance`). Next passes and overlays draw with a small depth bias towards the
+camera (another vertex module reaches the surface by other instructions, a rounding step apart).
+
+**Built-ins.** `vertex()`: VERTEX and NORMAL (model space; world space with `world_vertex_coords`), UV, UV2 (= UV: meshes
+have one UV set), COLOR (the raw vertex colour, white without one), CUSTOM0 (CUSTOM1–3 are zero), INSTANCE_ID and
+INSTANCE_CUSTOM (a `MultiMesh`'s index and custom data, zero otherwise), VERTEX_ID, MODEL_MATRIX, MODEL_NORMAL_MATRIX,
+MODELVIEW_MATRIX, VIEW_MATRIX, INV_VIEW_MATRIX, PROJECTION_MATRIX, INV_PROJECTION_MATRIX, NODE_POSITION_WORLD,
+CAMERA_POSITION_WORLD, CAMERA_DIRECTION_WORLD, VIEWPORT_SIZE, TIME, POINT_SIZE (ignored). `fragment()`: VERTEX (view space),
+NORMAL (view space; written back, it shades), VIEW, UV, UV2, COLOR, FRAGCOORD, FRONT_FACING, SCREEN_UV, the matrices,
+TIME, and the outputs ALBEDO, ALPHA, ALPHA_SCISSOR_THRESHOLD, EMISSION, METALLIC, ROUGHNESS, SPECULAR (Blinn-Phong only),
+AO, NORMAL_MAP + NORMAL_MAP_DEPTH (a tangent frame from screen derivatives, as `material.slang`), LIGHT_VERTEX. RIM,
+CLEARCOAT, ANISOTROPY, SSS, BACKLIGHT, FOG, RADIANCE and IRRADIANCE are declared and ignored. PI, TAU and E.
+
+**Alpha** follows Godot: `ALPHA_SCISSOR_THRESHOLD` in the fragment code makes the surface a cutout (it casts cut
+shadows); writing ALPHA, or a blend mode other than `blend_mix`, blends it (back to front, no shadow); otherwise opaque.
+
+**Render modes:** `blend_mix`, `blend_add`, `blend_premul_alpha`; `cull_back`, `cull_front`, `cull_disabled` (back faces
+lit with the flipped normal); `depth_draw_opaque`, `depth_draw_always`, `depth_draw_never`; `depth_test_disabled`;
+`unshaded`; `world_vertex_coords`; `fog_disabled`; `specular_blinn`/`specular_phong` (Godot 3's names: the engine's
+Blinn-Phong, shininess from ROUGHNESS, strength from SPECULAR, instead of PBR); `diffuse_lambert`, `diffuse_burley` and
+`specular_schlick_ggx` are accepted (the engine's PBR). Anything else is an error.
+
+**Uniforms:** scalars, vectors, matrices and arrays in one std140 block (binding 0 of the material set, declaration order),
+`source_color` vectors converted from sRGB to linear; up to **4** `sampler2D` (bindings 1–4; the mesh fragment stage
+already binds 12 of MoltenVK's 16 samplers), sampled as sRGB with `source_color`, linear otherwise, `filter_*` and
+`repeat_*` overriding the texture's sampling, unset ones white (`hint_default_black`, `hint_default_transparent`,
+`hint_normal`). Not yet: `instance uniform`, `global uniform`, `light()`, POSITION and DEPTH, TANGENT/BINORMAL, the
+preprocessor. Use `textureLod` in `vertex()`.
+
+**Building.** Like canvas shaders, the SPIR-V is built ahead of time (no runtime compiler) and committed next to the source
+with one `x.gdshader.spvlock` over all ten files: `just canvas-shaders [folders]` (mf-shaders `build`; each pass's fragment
+stage first, then its vertex stage writing only what that kept; ten slangc runs in parallel), and `just shaders-check`
+(mf-shaders `check` over `gdshader_folders`) fails on stale ones. `mf-shaders translate x.gdshader [pass]` prints the
+generated Slang. Errors name the file and line: the translator's (`ground.gdshader(12): render_mode 'x' is not
+supported.`) and slangc's, through `#line` directives around the user's code. A shader whose SPIR-V is missing draws with
+the default material (a warning). Identifiers starting with `gd_` and the engine includes' globals (`frame`, `lights`,
+`material`) are reserved.
 
 ## Constants that must match C#
 

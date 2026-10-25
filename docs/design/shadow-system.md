@@ -11,7 +11,8 @@ descriptor set (set 1 of every lit scene pipeline: meshes, Spine) that the main 
 - **Cube maps** for point lights.
 - **PCF** everywhere (hard, 3×3 or Poisson 16; a 20-tap disc for cubes), with receiver depth and normal-offset bias.
 - **Per-light settings** (`CastsShadows`, `ShadowResolution`, biases, cascade settings), exported on the light nodes.
-- **Per-pass caster culling**; passes nothing casts into are skipped. Cutout materials cast alpha-tested shadows.
+- **Per-pass caster culling**; passes nothing casts into are skipped. Cutout materials cast alpha-tested shadows; spatial
+  shaders (ADR 0205) cast through their own shadow stages (their `vertex()` and alpha scissor).
 - **Shadow quality (G8e.2, [ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md))**, opt-in
   per sun: **staggered cascades** (cascade 0 every frame, the others every 2 or 4 frames), **coarse casters** in the far
   cascades, **PCSS** from the light's angular size, **screen-space contact shadows** and a **far shadow** past the
