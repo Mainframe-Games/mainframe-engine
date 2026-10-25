@@ -70,6 +70,10 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/sound_fx.png" width="380" alt="Sound FX"><br><b>Sound FX</b> — ZzFX presets, randomize/mutate, a looping song</td>
     <td align="center" valign="top"><img src="docs/images/demo/settings.png" width="380" alt="Settings"><br><b>Settings</b> — the drop-in settings menu: volumes, rebinding, display</td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/demo/particles.png" width="380" alt="Particles"><br><b>Particles</b> — a campfire's glowing flames and smoke, rain</td>
+    <td></td>
+  </tr>
 </table>
 
 ### The editor

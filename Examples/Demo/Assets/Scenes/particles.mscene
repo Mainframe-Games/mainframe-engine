@@ -1,0 +1,450 @@
+{
+  "format": 2,
+  "uid": "scn_1bd8d1d9cf0f",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky",
+      "props": {
+        "SkyColor": [0.01, 0.015, 0.04],
+        "HorizonColor": [0.05, 0.06, 0.1],
+        "GroundColor": [0.02, 0.02, 0.02],
+        "SunDirection": [0.25916052, -0.8638684, 0.4319342]
+      }
+    },
+    "PostProcessProfile_ieid3": {
+      "type": "PostProcessProfile",
+      "props": {
+        "Tonemapper": "GodotAces",
+        "GlowEnabled": true,
+        "GlowNormalized": true,
+        "GlowStrength": 0.9
+      }
+    },
+    "StandardMaterial3D_qcml9": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.27450982, 0.22745098, 0.1882353, 1],
+        "Specular": 0.05
+      }
+    },
+    "PlaneMesh_lbh01": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [40, 40]
+      }
+    },
+    "StandardMaterial3D_4mpbf": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.28235295, 0.18039216, 0.11764706, 1],
+        "Specular": 0.05
+      }
+    },
+    "BoxMesh_zeiuf": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.9, 0.14, 0.16]
+      }
+    },
+    "BoxMesh_3145c": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.9, 0.14, 0.16]
+      }
+    },
+    "ParticleProcessMaterial_yhupn": {
+      "type": "ParticleProcessMaterial",
+      "props": {
+        "EmissionShape": "Box",
+        "EmissionBoxExtents": [0.18, 0.04, 0.18],
+        "Direction": [0, 1, 0],
+        "Spread": 12,
+        "InitialVelocityMin": 0.5,
+        "InitialVelocityMax": 0.9,
+        "Gravity": [0, 0.9, 0],
+        "AngleMin": -30,
+        "AngleMax": 30,
+        "AngularVelocityMin": -60,
+        "AngularVelocityMax": 60,
+        "ScaleMin": 0.3,
+        "ScaleMax": 0.45,
+        "ScaleCurve": { "res": "Curve_8qeuz" },
+        "Color": [1.6, 1.35, 1.2, 1],
+        "ColorRamp": { "res": "Gradient_dfn5d" },
+        "HueVariationMin": -0.02,
+        "HueVariationMax": 0.02
+      }
+    },
+    "QuadMesh_4u03l": {
+      "type": "QuadMesh",
+      "props": {
+        "Size": [1, 1.3]
+      }
+    },
+    "StandardMaterial3D_sytdo": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoTexture": { "res": "Texture2D_vqbxn" },
+        "BlendMode": "Add",
+        "VertexColorUseAsAlbedo": true,
+        "BillboardMode": "Particles",
+        "ShadingMode": "Unshaded"
+      }
+    },
+    "ParticleProcessMaterial_8aeif": {
+      "type": "ParticleProcessMaterial",
+      "props": {
+        "EmissionShape": "Sphere",
+        "EmissionSphereRadius": 0.15,
+        "Direction": [0, 1, 0],
+        "Spread": 25,
+        "InitialVelocityMin": 1,
+        "InitialVelocityMax": 1.8,
+        "Gravity": [0, 0.2, 0],
+        "DampingMin": 0.3,
+        "DampingMax": 0.6,
+        "Color": [3, 1.4, 0.5, 1],
+        "ColorRamp": { "res": "Gradient_36bty" },
+        "TurbulenceEnabled": true,
+        "TurbulenceNoiseScale": 0.6,
+        "TurbulenceInfluenceMin": 0.03,
+        "TurbulenceInfluenceMax": 0.08,
+        "ParticleFlagAlignY": true
+      }
+    },
+    "QuadMesh_euxq5": {
+      "type": "QuadMesh",
+      "props": {
+        "Size": [0.025, 0.09]
+      }
+    },
+    "StandardMaterial3D_s197s": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "BlendMode": "Add",
+        "VertexColorUseAsAlbedo": true,
+        "BillboardMode": "Particles",
+        "ShadingMode": "Unshaded"
+      }
+    },
+    "ParticleProcessMaterial_s736p": {
+      "type": "ParticleProcessMaterial",
+      "props": {
+        "EmissionShape": "Sphere",
+        "EmissionSphereRadius": 0.15,
+        "Direction": [0, 1, 0],
+        "Spread": 70,
+        "InitialVelocityMin": 2.5,
+        "InitialVelocityMax": 4.5,
+        "Gravity": [0, 0.2, 0],
+        "DampingMin": 0.3,
+        "DampingMax": 0.6,
+        "Color": [3, 1.4, 0.5, 1],
+        "ColorRamp": { "res": "Gradient_iefsa" },
+        "TurbulenceEnabled": true,
+        "TurbulenceNoiseScale": 0.6,
+        "TurbulenceInfluenceMin": 0.03,
+        "TurbulenceInfluenceMax": 0.08,
+        "ParticleFlagAlignY": true
+      }
+    },
+    "QuadMesh_3zbe7": {
+      "type": "QuadMesh",
+      "props": {
+        "Size": [0.03, 0.12]
+      }
+    },
+    "StandardMaterial3D_p8q36": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "BlendMode": "Add",
+        "VertexColorUseAsAlbedo": true,
+        "BillboardMode": "Particles",
+        "ShadingMode": "Unshaded"
+      }
+    },
+    "ParticleProcessMaterial_13do4": {
+      "type": "ParticleProcessMaterial",
+      "props": {
+        "EmissionShape": "Box",
+        "EmissionBoxExtents": [0.12, 0.05, 0.12],
+        "Direction": [0, 1, 0],
+        "Spread": 15,
+        "InitialVelocityMin": 0.35,
+        "InitialVelocityMax": 0.5,
+        "Gravity": [0.18, 0.08, 0],
+        "DampingMin": 0.02,
+        "DampingMax": 0.05,
+        "AngleMax": 360,
+        "AngularVelocityMin": -25,
+        "AngularVelocityMax": 25,
+        "ScaleMin": 0.45,
+        "ScaleMax": 0.6,
+        "ScaleCurve": { "res": "Curve_qw750" },
+        "Color": [0.8, 0.78, 0.76, 1],
+        "ColorRamp": { "res": "Gradient_32umc" }
+      }
+    },
+    "StandardMaterial3D_gabmt": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoTexture": { "res": "Texture2D_vqbxn" },
+        "Transparency": "Blend",
+        "VertexColorUseAsAlbedo": true,
+        "BillboardMode": "Particles"
+      }
+    },
+    "ParticleProcessMaterial_zsgyh": {
+      "type": "ParticleProcessMaterial",
+      "props": {
+        "EmissionShape": "Box",
+        "EmissionBoxExtents": [6, 0.5, 6],
+        "Direction": [0.1, -1, 0],
+        "Spread": 2,
+        "InitialVelocityMin": 8,
+        "InitialVelocityMax": 10,
+        "Gravity": [0, -9.8, 0],
+        "Color": [0.6, 0.65, 0.8, 0.35],
+        "ParticleFlagAlignY": true
+      }
+    },
+    "QuadMesh_mj05j": {
+      "type": "QuadMesh",
+      "props": {
+        "Size": [0.012, 0.35]
+      }
+    },
+    "StandardMaterial3D_evwzu": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "Transparency": "Blend",
+        "VertexColorUseAsAlbedo": true,
+        "BillboardMode": "Particles",
+        "ShadingMode": "Unshaded"
+      }
+    },
+    "Curve_8qeuz": {
+      "type": "Curve",
+      "props": {
+        "Offsets": [0, 0.25, 1],
+        "Values": [0.6, 1, 0.15]
+      }
+    },
+    "Gradient_dfn5d": {
+      "type": "Gradient",
+      "props": {
+        "Offsets": [0, 0.45, 1],
+        "Colors": [
+          [1, 0.9, 0.55, 0.9],
+          [1, 0.5, 0.12, 0.7],
+          [0.6, 0.1, 0.02, 0]
+        ]
+      }
+    },
+    "Texture2D_vqbxn": {
+      "ref": "tex_916a9d65930e",
+      "path": "Assets/Particles/soft.png"
+    },
+    "Gradient_36bty": {
+      "type": "Gradient",
+      "props": {
+        "Offsets": [0, 0.7, 1],
+        "Colors": [
+          [1, 1, 1, 1],
+          [1, 0.6, 0.4, 1],
+          [1, 0.3, 0.2, 0]
+        ]
+      }
+    },
+    "Gradient_iefsa": {
+      "type": "Gradient",
+      "props": {
+        "Offsets": [0, 0.7, 1],
+        "Colors": [
+          [1, 1, 1, 1],
+          [1, 0.6, 0.4, 1],
+          [1, 0.3, 0.2, 0]
+        ]
+      }
+    },
+    "Curve_qw750": {
+      "type": "Curve",
+      "props": {
+        "Values": [0.6, 2.2]
+      }
+    },
+    "Gradient_32umc": {
+      "type": "Gradient",
+      "props": {
+        "Offsets": [0, 0.15, 1],
+        "Colors": [
+          [1, 1, 1, 0],
+          [1, 1, 1, 0.7],
+          [1, 1, 1.05, 0]
+        ]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "particles",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera3D",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0, 1.4, 4.2],
+        "RotationDegrees": [-6.788975, 0, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" },
+        "AmbientColor": [0.06, 0.07, 0.12],
+        "PostProcess": { "res": "PostProcessProfile_ieid3" },
+        "FogEnabled": true,
+        "FogLightColor": [0.04, 0.05, 0.08],
+        "FogDensity": 0.05
+      }
+    },
+    {
+      "name": "Ground",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_qcml9" },
+        "Mesh": { "res": "PlaneMesh_lbh01" }
+      }
+    },
+    {
+      "name": "LogA",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, 0.08, 0],
+        "RotationDegrees": [0, 35, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_4mpbf" },
+        "Mesh": { "res": "BoxMesh_zeiuf" }
+      }
+    },
+    {
+      "name": "LogB",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, 0.16, 0],
+        "RotationDegrees": [0, -40, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_4mpbf" },
+        "Mesh": { "res": "BoxMesh_3145c" }
+      }
+    },
+    {
+      "name": "Firelight",
+      "parent": ".",
+      "type": "OmniLight3D",
+      "props": {
+        "Position": [0, 0.6, 0.1],
+        "Color": [1, 0.55, 0.25],
+        "Energy": 3,
+        "Range": 7
+      }
+    },
+    {
+      "name": "Campfire",
+      "parent": ".",
+      "type": "Node3D",
+      "props": {
+        "Position": [0, 0.2, 0]
+      }
+    },
+    {
+      "name": "Flames",
+      "parent": "Campfire",
+      "type": "GpuParticles3D",
+      "props": {
+        "ProcessMaterial": { "res": "ParticleProcessMaterial_yhupn" },
+        "DrawPass1": { "res": "QuadMesh_4u03l" },
+        "MaterialOverride": { "res": "StandardMaterial3D_sytdo" },
+        "Amount": 48,
+        "Lifetime": 0.9,
+        "Preprocess": 2
+      }
+    },
+    {
+      "name": "Embers",
+      "parent": "Campfire",
+      "type": "GpuParticles3D",
+      "props": {
+        "ProcessMaterial": { "res": "ParticleProcessMaterial_8aeif" },
+        "DrawPass1": { "res": "QuadMesh_euxq5" },
+        "MaterialOverride": { "res": "StandardMaterial3D_s197s" },
+        "Amount": 24,
+        "Lifetime": 1.6,
+        "Preprocess": 2
+      }
+    },
+    {
+      "name": "Sparks",
+      "parent": "Campfire",
+      "type": "GpuParticles3D",
+      "props": {
+        "ProcessMaterial": { "res": "ParticleProcessMaterial_s736p" },
+        "DrawPass1": { "res": "QuadMesh_3zbe7" },
+        "MaterialOverride": { "res": "StandardMaterial3D_p8q36" },
+        "Amount": 80,
+        "Lifetime": 1.4,
+        "OneShot": true,
+        "Explosiveness": 1,
+        "Emitting": false
+      }
+    },
+    {
+      "name": "Smoke",
+      "parent": "Campfire",
+      "type": "GpuParticles3D",
+      "props": {
+        "Position": [0, 0.65, 0],
+        "ProcessMaterial": { "res": "ParticleProcessMaterial_13do4" },
+        "MaterialOverride": { "res": "StandardMaterial3D_gabmt" },
+        "Amount": 24,
+        "Lifetime": 3,
+        "Preprocess": 4
+      }
+    },
+    {
+      "name": "Rain",
+      "parent": ".",
+      "type": "GpuParticles3D",
+      "props": {
+        "Position": [0, 6.5, -3],
+        "ProcessMaterial": { "res": "ParticleProcessMaterial_zsgyh" },
+        "DrawPass1": { "res": "QuadMesh_mj05j" },
+        "MaterialOverride": { "res": "StandardMaterial3D_evwzu" },
+        "Amount": 3000,
+        "Lifetime": 0.8,
+        "Preprocess": 1,
+        "VisibilityAabb": [-7, -10, -7, 7, 2, 7]
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "ParticlesPanel"
+    }
+  ]
+}

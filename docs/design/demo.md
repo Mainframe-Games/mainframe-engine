@@ -22,8 +22,8 @@ Examples/Demo/
 ├── Demo.Desktop/            `GameHost.Run(args, typeof(Demo.DemoScenes).Assembly)` + `--write-scenes <dir>`
 ├── Demo.Tests/               xUnit v3 tests of the Demo (see Tests and CI)
 └── Assets/
-    ├── Scenes/{basic_3d,basic_2d,audio_2d,audio_3d,sound_fx,ui,physics_2d,physics_3d,spine}.mscene
-    ├── Nav/, UI/, Basic3D/, Basic2D/, Audio/, SoundFx/, Physics/, Spine/   RmlUi panels (.rml/.rcss), one per scene
+    ├── Scenes/{basic_3d,basic_2d,audio_2d,audio_3d,sound_fx,ui,physics_2d,physics_3d,spine,particles}.mscene
+    ├── Nav/, UI/, Basic3D/, Basic2D/, Audio/, SoundFx/, Physics/, Spine/, Particles/   RmlUi panels (.rml/.rcss), one per scene
     ├── Audio/ (Audio/Sfx/*.mres: the ZzFX presets), Music/demo_loop.{msong,ogg}, Models/TestModel/, Models/Spine/SpineBoy/, Sky/, Basic2D/logo.png, icon.png
     ├── Settings/AudioBusLayout.mres
     └── locale/messages.pot, {es,qps}/LC_MESSAGES/messages.{po,mo}
@@ -72,6 +72,7 @@ Every scene is self-contained: its own camera, environment and lights, and a sma
 | `physics_2d` (Physics 2D) | Box2D: a funnel and pegboard of `StaticBody2D`s, `RigidBody2D` circles and boxes raining in (`Spawner2D`) | click to spawn, collision shapes, reset |
 | `physics_3d` (Physics 3D) | Jitter2: a crate stack, a ramp, a `CharacterBody3D` pusher that shoves crates (`Pusher3D`), click-to-drop crates by ray query (`Dropper3D`); three **save slots** (below) | click the floor, rain crates, collision shapes, reset, save/load |
 | `spine` (Spine) | SpineBoy (`SpineNode`) on a lit floor, casting his shadow onto a backdrop wall (3D view), seen by a `Camera3D` or a `Camera2D` | 2D camera toggle, animation picker; 3D view: shaped (alpha-tested) shadow, turned away, billboard mode (ADR 0204) |
+| `particles` (Particles) | `GpuParticles3D` at night (ADR 0206): a campfire's additive HDR flames and velocity-aligned embers that glow, lit smoke sorted back to front, a one-shot spark burst and a 3,000-streak rain box, with fog (`Assets/Particles/soft.png` is the soft sprite) | rain, glow, burst of sparks |
 
 **Save games (G4).** The Physics 3D panel saves and loads the crates through the engine's `SaveServer`
 ([Projects → Save games](project-and-gamehost.md#save-games)): three slots (`physics-1`…`3`) with a thumbnail, the
