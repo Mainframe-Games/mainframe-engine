@@ -65,7 +65,7 @@ flowchart LR
   The Linux folder also holds `install.sh` ([`build/linux/install-editor.sh`](../../build/linux/install-editor.sh)): it
   writes `~/.local/share/applications/com.mainframegames.editor.desktop` (from
   [`com.mainframegames.editor.desktop.in`](../../build/linux/com.mainframegames.editor.desktop.in), with the folder's
-  absolute path) and the hicolor icons, so the editor appears in the application launcher; `--uninstall` removes them,
+  absolute path) and the hicolor icons, so the editor appears in the application launcher as **Mainframe Editor**; `--uninstall` removes them,
   and moving the folder needs a re-run (self-updates keep it in place). The editor sets that id as its window class
   (`EditorBrand.AppId`, also the macOS bundle id → `EngineOptions.AppId` → Silk.NET's `WindowClass`: X11 `WM_CLASS`,
   Wayland `app_id`), which the entry's file name and `StartupWMClass` match, so the task bar shows its icon.

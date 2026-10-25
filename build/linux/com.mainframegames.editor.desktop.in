@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
 Version=1.5
-Name=Mainframe Engine
-GenericName=Game Engine
-Comment=Mainframe Engine editor
+Name=Mainframe Editor
+GenericName=Game Editor
+Comment=Game editor for Mainframe Engine
 Exec=@EXEC@ %f
 Path=@PATH@
 Icon=com.mainframegames.editor
