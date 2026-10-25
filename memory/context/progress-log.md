@@ -865,3 +865,16 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   resources and songs go to Assets. In list and grid views Up from a root shows the roots.
 - The header buttons are 18dp so eight fit beside the title. The `editor-filesystem` and `editor` goldens were
   re-recorded; `editor-walkthrough.qa` captures both views.
+
+### 2026-10-25 — 3D skeletal animation: Skeleton3D, AnimationPlayer, compute pre-skinning, skinned import (#119, ADR 0207/0208)
+- **Runtime:** `Skeleton3D` (bones as data), `Skin`, `MeshSurface.Joints`/`Weights`, `MeshInstance3D.Skeleton`/`Skin`,
+  `BoneAttachment3D`; `Animation` (position/rotation/scale + `EventTrack`), `AnimationLibrary`, `AnimationPlayer` (Godot's
+  play/queue/stop/seek/speed/crossfade API, `AnimationEvent`); deterministic, 0 B, works under `HeadlessHost`.
+- **Skinning:** `RenderServer.SkinMeshes()` after `BeginFrame` dispatches `Skinning/Skin.vk.comp` per instance into
+  frame-slot vertex buffers; a per-instance `MeshGpu` view makes every pipeline (shadows, outline, ids, sub-viewports)
+  draw the pose; `MeshDepthSkinned` gives limbs motion vectors.
+- **Import:** bones → `Skeleton3D`, skins, clips → `AnimationPlayer`; loops/events from `-loop`, glTF animation extras,
+  `.meta` `clips`. Silk's `QuatKey` is 8 bytes larger than the native Assimp 6.0.2 one: the importer detects the stride.
+- **Tests/assets:** `SkinnedCharacter` generates `Tests/Assets/Models/Character/character.glb`; unit suites under
+  `Tests/MainframeEngine.Tests/Animation/`; render tests `skinned` (moltenvk golden) and `skinned-crowd` (0 B, 120 fps);
+  Demo scene `animation_3d`. Lavapipe golden for `skinned` still to record.

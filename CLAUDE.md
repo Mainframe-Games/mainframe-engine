@@ -88,6 +88,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - Particles (ADR 0206): `Scene/Particles/` (`ParticleProcessMaterial`, shared 2D/3D; `ParticleSimulation3D`, CPU),
   `Scene/Nodes3D/GpuParticles3D.cs`, `Rendering/Particles/` (`ParticleRenderer`, its own pipelines, not `MeshRenderer`);
   see `docs/design/particles-3d.md`
+- `MainframeEngine/Src/Animation/` — `Animation` (transform + event tracks), `AnimationLibrary`, `AnimationPlayer` (ADR 0207);
+  `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
+  glTF/FBX import (ADR 0208). See `docs/design/animation.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;
   `MeshRenderer` batching, `PipelineStateCache`, picking, sub-viewports; `Src/Resources/Import/` — texture/model (Assimp) importers
 - `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`
@@ -251,7 +254,9 @@ inside its own step; engine code must not. See `docs/design/physics.md`.
    into its command list)
 3. `RenderServer.PrepareFrame(Root)` — cull/sort meshes, create/update their GPU resources, decide the post state (the
    root world's `PostProcessSettings`, whether the depth prepass runs, the TAA projection jitter); then `Renderer.BeginFrame`
-4. `OnShadowPass` (no render pass active), then `RenderServer.RenderShadows(Root)` — the tree's casters — and
+4. `RenderServer.SkinMeshes()` (ADR 0207: compute pre-skinning of the skinned meshes `PrepareFrame` queued, into
+   per-instance frame-slot vertex buffers the later passes draw), then `OnShadowPass` (no render pass active), then
+   `RenderServer.RenderShadows(Root)` — the tree's casters — and
    `RenderServer.RenderOffscreen(Root)` (sub-viewports, object-ID picking)
 5. `RenderServer.RenderPrepass(Root)` (ADR 0163) — starts the post effects (`OnBeginFrame`); when an enabled effect needs
    it (SSAO, TAA, the velocity view) or `ForceDepthPrepass`: the depth prepass (opaque + cutout into the scene depth and an

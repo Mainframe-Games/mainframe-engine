@@ -301,8 +301,8 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 
 | Feature | Status | Design doc |
 |---|---|---|
-| G1a Keyframe animation: `Animation` resource (property, transform, method tracks), `AnimationPlayer`, editor Animation panel (timeline) | ⬜ | [Keyframe animation](design/future/keyframe-animation.md) |
-| G1b glTF skeletons, skinning (GPU) and animation clips played through `AnimationPlayer` | ⬜ | [Keyframe animation](design/future/keyframe-animation.md) |
+| G1a Keyframe animation: `Animation` resource (property, transform, method tracks), `AnimationPlayer`, editor Animation panel (timeline) | 🚧 player core, transform and event tracks shipped (ADR 0207) | [Animation and skinning](design/animation.md) · [Keyframe animation](design/future/keyframe-animation.md) |
+| G1b glTF skeletons, skinning (GPU) and animation clips played through `AnimationPlayer` | ✅ (ADR 0207, 0208) | [Animation and skinning](design/animation.md) |
 | G1c Animation authoring: humanoid map, pose scripts baked to keys, `mfe` CLI (`anim rig/bake/describe/check/render`), editor reload of changed resources, `animate` Claude Code skill | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G1d Character animation editing: bones in the viewport, IK handles, curve view, onion skinning | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G1e Root motion: `AnimationPlayer` root motion track, `CharacterBody3D.ApplyRootMotion` | ⬜ | [Animation authoring](design/future/animation-authoring.md) |

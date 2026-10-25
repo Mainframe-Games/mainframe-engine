@@ -118,6 +118,35 @@ just editor Examples/Demo                                          # the Demo pr
 just editor Examples/Demo/Assets/Scenes/basic_3d.mscene           # open one scene
 ```
 
+### Animate a character
+
+Skeletal animation follows Godot 4 ([Animation and skinning](design/animation.md)):
+
+1. **In Blender**, rig the mesh to an armature and make one action per move (`idle`, `run`, `swing`, …). To loop a clip
+   or mark a moment, give the action custom properties: `loop` (a bool) and `events` (a group of name → seconds, e.g.
+   `HammerFist = 0.42`). Export glTF (`.glb`) with *Include → Custom Properties*, skins and animations.
+2. **Put the file in `Assets/`.** It imports to the armature's `Skeleton3D`, the skinned `MeshInstance3D` under it and an
+   `AnimationPlayer` with one animation per action. Loop modes, renames and events can also go in the model's `.meta`
+   (`"clips": [ { "name": "run", "loop": "Linear" } ]`), which is how FBX files get them.
+3. **Instance it** in a scene (drag it from the FileSystem panel, or `ResourceLoader.Load<PackedScene>(…).Instantiate()`),
+   and drive the player from your code:
+
+```csharp
+var player = crew.GetNode<AnimationPlayer>("AnimationPlayer");
+player.PlaybackDefaultBlendTime = 0.15f;                     // crossfade on every switch
+player.Play("run");                                          // loops (extras or .meta)
+player.Play("roll", customSpeed: (float)(player.GetAnimation("roll")!.Length / rollSeconds)); // fit to a duration
+player.Queue("idle");                                        // after the roll ends
+player.AnimationEvent += (clip, name) => { if (name == "HammerFist") Hit(); }; // also on a --headless server
+
+var hand = new BoneAttachment3D { BoneName = "Hand.R" };     // a child of the Skeleton3D
+crew.GetNode<Skeleton3D>("Armature").AddChild(hand);
+hand.AddChild(tool);                                         // the tool and a torch light ride on the hand
+```
+
+Skinned meshes cast shadows, take outline overlays and are picked in their pose. The Demo's **Animation 3D** scene shows
+all of it.
+
 ## The Demo
 
 [Examples/Demo](../Examples/Demo) is a standalone game project (`project.mfproj`, a node library and its desktop

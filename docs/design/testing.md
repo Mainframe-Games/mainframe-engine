@@ -106,6 +106,12 @@ table, so the 2D suites share the non-parallel `SerialBox2D` collection.
 | `PhysicsAllocationTests`, `Physics2DAllocationTests` | **0 bytes** per steady-state frame with ~500 bodies, monitors, areas, characters, debug draw and every query (3D single- and multi-threaded); 2D: 0 bytes beyond Box2D.NET's own step allocations |
 | `DebugDrawTests`, `FixedStepHookTests` | `DebugLines` primitives and cap, server debug draw; `BeforeFixedSteps`/`AfterFixedSteps` order and pause |
 
+Skeletal animation (ADR 0207/0208) has its suites under [`Animation/`](../../Tests/MainframeEngine.Tests/Animation/):
+`SkinnedImportTests` (the generated `character.glb`: skeleton, skin, clips, loop modes and events, CPU skinning, posed
+bounds), `AnimationPlayerTests` (playback, crossfades, queue, events, process modes, `BoneAttachment3D`, round trip) and
+`AnimationHeadlessTests` (events under `HeadlessHost`, **0 bytes** of steady playback with crossfades); see
+[Animation and skinning → Testing](animation.md#testing).
+
 Projects and tooling (M10, engine side) have suites under [`Project/`](../../Tests/MainframeEngine.Tests/Project/)
 (project file and migrations, `GameHost` options and `GameSession`, the editor link over real sockets, collectible
 game-assembly load → unload → **GC-verified collection** → reload with Roslyn-compiled game assemblies), plus
@@ -170,7 +176,10 @@ sequenceDiagram
   (ADR 0200: Snake Oil-style name tags behind a wall, one `NoDepthTest`; `--count 1`: depth-tested), `particles-campfire`
   and `particles-rain` (ADR 0206: additive flames and lit smoke with glow, `--count 1` glow off, `--count 2` TAA; 4,000
   rain streaks) and `particles-stress` (the #120 budget: `--alloc` and `--perf` only; [3D particles → tests](particles-3d.md#tests)), `polygon2d-skin` (ADR 0202:
-  a textured strip at rest and skinned to three bent bones, a vertex-coloured fan), `canvas-group` (#109: overlapping
+  a textured strip at rest and skinned to three bent bones, a vertex-coloured fan), `skinned` (ADR 0207: two imported
+  skinned characters posed by their `AnimationPlayer`s with CSM and point shadows, an outline overlay and a hand-attached
+  hammer and torch; self-checks the skinning dispatches and a pick on the raised hand; golden) and `skinned-crowd`
+  (`--count` characters, default 12, crossfading: the 0 B gate with the prepass and TAA, and the 120 fps budget), `canvas-group` (#109: overlapping
   squares in canvas groups faded by `Modulate` and `SelfModulate`; pixel checks against Godot's values, no golden), the forest-slice
   scenes (ADR 0151) `vertex-colors`, `multimesh` (`--count` instances, default 1 000; self-checked) and `foliage-wind`
   (`--count 1`: no wind) ([Materials & meshes → testing](materials-and-meshes.md#testing)), and `terrain` (G8a: a
