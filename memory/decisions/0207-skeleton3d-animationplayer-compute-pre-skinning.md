@@ -37,7 +37,7 @@ and impostors, and the spatial `ShaderMaterial` that issue #121 adds. Skinning i
   `PlayBackwards`, `Queue`, `Stop`, `Pause`, `Seek`, `Advance`, `SpeedScale`, `CurrentAnimationLength/Position`) and
   signals (`AnimationStarted`, `AnimationFinished`, `AnimationChanged`, plus `AnimationEvent(animation, name)`).
   Crossfades mix two animations per channel; a channel only the outgoing one animates blends to the bone's rest (or the
-  node's value at the switch). Tracks bind once per animation; evaluation uses per-track key cursors and typed calls
+  node's value at the switch); a `Play` during a crossfade blends from the pose captured at that moment. Tracks bind once per animation; evaluation uses per-track key cursors and typed calls
   and allocates nothing.
 - **Events are an `EventTrack`, not method tracks.** Method tracks need the generator's `[AnimationMethod]` invokers
   (G1.4); a named event raised as a signal is what the game needs now and works the same on the server.
@@ -53,6 +53,5 @@ and impostors, and the spatial `ShaderMaterial` that issue #121 adds. Skinning i
   allocates nothing with crossfades, events, the prepass and TAA; validation is clean.
 - Value, bezier, method and audio tracks, cubic interpolation, the editor timeline, blend trees and root motion remain
   in the proposal (`future/keyframe-animation.md`, `animation-graph.md`, `animation-authoring.md`).
-- A third `Play` during a crossfade drops the oldest animation instead of blending from the current mix.
 - `SpineNode.AllAnimations`/`CurrentAnimation` now name `Spine.Animation` explicitly (the engine's `Animation` shadows
   it inside the `MainframeEngine` namespace).

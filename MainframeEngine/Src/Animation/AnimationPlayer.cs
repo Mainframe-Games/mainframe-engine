@@ -30,7 +30,8 @@ public enum AnimationCallbackMode : byte
 /// (<see cref="HeadlessHost"/>): nothing here needs a renderer.</para>
 /// <para>Crossfades: during a blend both animations play; values both animate mix (vectors lerp, rotations slerp); a channel
 /// only the new one animates is set as is; one only the old one animates blends toward the bone's rest (or, for a node,
-/// the value it had when the blend started). Only the incoming animation raises events.</para>
+/// the value it had when the blend started). A <see cref="Play"/> during a crossfade blends from the pose as it is at that
+/// moment. Only the incoming animation raises events.</para>
 /// </remarks>
 [EditorIcon("player-play")]
 public class AnimationPlayer : Node
@@ -46,6 +47,7 @@ public class AnimationPlayer : Node
     private readonly Playback _second = new();
     private Playback? _current;
     private Playback? _from;
+    private bool _fromSnapshot; // the outgoing pose is a captured mix (a Play during a crossfade), not an animation
     private double _blendTime;
     private double _blendElapsed;
     private bool _playing;
@@ -174,6 +176,10 @@ public class AnimationPlayer : Node
         var blend = customBlend >= 0 ? customBlend : PlaybackDefaultBlendTime;
         if (blend > 0 && _current?.Bound is not null)
         {
+            // A Play during a crossfade blends from the current mix: the pose as it is now, held still.
+            _fromSnapshot = _from is not null;
+            if (_fromSnapshot)
+                CaptureSnapshot();
             _from = _current;
             _current = ReferenceEquals(_current, _first) ? _second : _first;
             _blendTime = blend;
@@ -183,6 +189,7 @@ public class AnimationPlayer : Node
         else
         {
             _from = null;
+            _fromSnapshot = false;
             _current ??= _first;
         }
 
@@ -206,6 +213,7 @@ public class AnimationPlayer : Node
     {
         _playing = false;
         _from = null;
+        _fromSnapshot = false;
         _queue?.Clear();
         if (_current is not { Bound: not null } current)
             return;
@@ -335,7 +343,7 @@ public class AnimationPlayer : Node
         {
             _blendElapsed += Math.Abs(delta * SpeedScale);
             blendDone = _blendElapsed >= _blendTime || from.Bound is null;
-            if (!blendDone)
+            if (!blendDone && !_fromSnapshot)
                 AdvancePlayback(from, delta, events: false);
         }
 
@@ -343,7 +351,10 @@ public class AnimationPlayer : Node
         var finished = AdvancePlayback(current, delta, events: true);
         Evaluate(); // a finished blend applies once more at full weight, then the old animation is dropped
         if (blendDone)
+        {
             _from = null;
+            _fromSnapshot = false;
+        }
 
         string? finishedName = null, nextName = null;
         if (finished)
@@ -503,8 +514,22 @@ public class AnimationPlayer : Node
         for (var i = 0; i < slots.Length; i++)
             slots[i].Flags = 0;
 
-        if (_from is { Bound: { } fromBound } from)
+        if (_fromSnapshot && _from is not null)
+        {
+            for (var i = 0; i < slots.Length; i++)
+            {
+                ref var slot = ref slots[i];
+                if (!slot.HasSnapshot)
+                    continue;
+                slot.FromV = slot.SnapshotV;
+                slot.FromQ = slot.SnapshotQ;
+                slot.Flags |= HasFrom;
+            }
+        }
+        else if (_from is { Bound: { } fromBound } from)
+        {
             Sample(fromBound, from.Position, to: false);
+        }
         Sample(current, _current.Position, to: true);
 
         var weight = _from is null ? 1f : (float)Math.Clamp(_blendElapsed / _blendTime, 0, 1);
@@ -623,6 +648,38 @@ public class AnimationPlayer : Node
                 slot.BaseV = slot.Kind == KindScale ? target.Scale : target.Position;
                 slot.BaseQ = target.Rotation;
             }
+        }
+    }
+
+    // The pose every channel shows now (read back from the targets), the outgoing side of a crossfade started during one.
+    private void CaptureSnapshot()
+    {
+        for (var i = 0; i < _slotCount; i++)
+        {
+            ref var slot = ref _slots[i];
+            slot.HasSnapshot = false;
+            if (slot.Target is not { IsFreed: false } target)
+                continue;
+            if (slot.Bone >= 0)
+            {
+                var skeleton = (Skeleton3D)target;
+                if (slot.Bone >= skeleton.GetBoneCount())
+                    continue;
+                slot.SnapshotV = slot.Kind switch
+                {
+                    KindPosition => skeleton.GetBonePosePosition(slot.Bone),
+                    KindScale => skeleton.GetBonePoseScale(slot.Bone),
+                    _ => default,
+                };
+                slot.SnapshotQ = skeleton.GetBonePoseRotation(slot.Bone);
+            }
+            else
+            {
+                slot.SnapshotV = slot.Kind == KindScale ? target.Scale : target.Position;
+                slot.SnapshotQ = target.Rotation;
+            }
+
+            slot.HasSnapshot = true;
         }
     }
 
@@ -759,7 +816,8 @@ public class AnimationPlayer : Node
         public int Bone;
         public byte Kind;
         public byte Flags;
-        public Vector3 FromV, ToV, BaseV;
-        public Quaternion FromQ, ToQ, BaseQ;
+        public Vector3 FromV, ToV, BaseV, SnapshotV;
+        public Quaternion FromQ, ToQ, BaseQ, SnapshotQ;
+        public bool HasSnapshot;
     }
 }

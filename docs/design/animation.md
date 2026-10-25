@@ -75,7 +75,8 @@ Code: [`Src/Animation/`](../../MainframeEngine/Src/Animation/) (`Animation`, tra
   evaluated and raised after it is applied, so handlers can call `Play`.
 - **Crossfade:** `Play` with a blend (custom, else `PlaybackDefaultBlendTime`) keeps the old animation advancing and mixes
   per channel: both → lerp/slerp by the blend weight; only the new one → its value; only the old one → toward the bone's
-  rest (a node: its value when the blend started). A third `Play` during a blend drops the oldest.
+  rest (a node: its value when the blend started). A `Play` during a blend starts a new one from the pose as it is at that
+  moment (captured, held still).
 - **Binding** happens once per animation (first play, or after its `Version` changed): paths and bone names resolve to
   slots shared by every animation of the player. Each frame finds the key from a per-track cursor, interpolates and
   calls the typed setter. Steady playback, crossfades and events allocate nothing (`AnimationHeadlessTests`).
@@ -183,7 +184,6 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
 - No value, bezier, method or audio tracks, no cubic interpolation, no editor timeline, blend trees, root motion, IK
   or morph targets ([Keyframe animation](future/keyframe-animation.md), [Animation graph](future/animation-graph.md),
   [Animation authoring](future/animation-authoring.md)).
-- A third `Play` during a crossfade drops the oldest animation instead of blending from the current mix.
 - Normals are skinned with the palette's 3×3 (renormalised), not its inverse transpose: non-uniform bone scale shades
   slightly wrong.
 - Skinned instances draw one by one (no instancing of identical characters).
