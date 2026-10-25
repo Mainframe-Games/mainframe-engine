@@ -46,6 +46,19 @@ public enum ShadingMode : byte
     Pbr,
 }
 
+/// <summary>Which surfaces write depth (Godot's <c>depth_draw_*</c> render modes).</summary>
+public enum DepthDrawMode : byte
+{
+    /// <summary>Opaque and cut-out surfaces write depth; blended and no-depth-test ones do not (<c>depth_draw_opaque</c>).</summary>
+    Default,
+
+    /// <summary>Every surface writes depth, blended ones too (<c>depth_draw_always</c>).</summary>
+    Always,
+
+    /// <summary>No surface writes depth (<c>depth_draw_never</c>).</summary>
+    Never,
+}
+
 /// <summary>
 /// How a surface is shaded (Godot's <c>Material</c>). Materials are resources: share one between many meshes and
 /// the renderer keeps one descriptor set (set 2) per material; instances drawn with the same material and mesh
@@ -113,13 +126,23 @@ public abstract class Material : Resource
 /// shares one <c>VkPipeline</c>.
 /// </summary>
 /// <param name="NoDepthTest">Drawn over everything before it (Godot's <c>no_depth_test</c>): see <see cref="StandardMaterial3D.NoDepthTest"/>.</param>
-public readonly record struct MaterialRenderState(AlphaMode Alpha, CullMode Cull, bool DoubleSided, bool NoDepthTest = false)
+/// <param name="DepthDraw">Overrides which surfaces write depth (a spatial shader's <c>depth_draw_*</c>, ADR 0205).</param>
+public readonly record struct MaterialRenderState(AlphaMode Alpha, CullMode Cull, bool DoubleSided, bool NoDepthTest = false,
+    DepthDrawMode DepthDraw = DepthDrawMode.Default)
 {
     /// <summary>The cull mode actually used: double-sided materials cull nothing.</summary>
     public CullMode EffectiveCull => DoubleSided ? CullMode.Disabled : Cull;
 
-    /// <summary>Blended and no-depth-test materials do not write depth.</summary>
-    public bool DepthWrite => Alpha != AlphaMode.Blend && !NoDepthTest;
+    /// <summary>
+    /// Blended and no-depth-test materials do not write depth, unless <see cref="DepthDraw"/> says
+    /// <see cref="DepthDrawMode.Always"/>; <see cref="DepthDrawMode.Never"/> writes none.
+    /// </summary>
+    public bool DepthWrite => DepthDraw switch
+    {
+        DepthDrawMode.Always => true,
+        DepthDrawMode.Never => false,
+        _ => Alpha != AlphaMode.Blend && !NoDepthTest,
+    };
 
     /// <summary>Blended and no-depth-test materials are drawn in the transparent pass, back to front.</summary>
     public bool IsTransparent => Alpha == AlphaMode.Blend || NoDepthTest;

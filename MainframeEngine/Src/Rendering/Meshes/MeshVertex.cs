@@ -68,14 +68,21 @@ public struct MeshVertexWind
 
 /// <summary>
 /// Per-instance data of a batched mesh draw (80 bytes, binding 1, instance rate): the model matrix (row-vector
-/// System.Numerics layout, read as the four rows of a row-major Slang <c>float4x4</c>) and the object id written by the ID pass.
+/// System.Numerics layout, read as the four rows of a row-major Slang <c>float4x4</c>), the object id written by the ID pass,
+/// and for spatial shaders (ADR 0205) Godot's <c>INSTANCE_CUSTOM</c> (a <see cref="MultiMesh"/> instance's custom data as
+/// four halves, zero elsewhere) and <c>INSTANCE_ID</c> (the index in the multimesh, 0 elsewhere).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct MeshInstanceData
 {
     public Matrix4x4 Model;
     public uint ObjectId;
-    private uint _pad0, _pad1, _pad2;
+
+    /// <summary>INSTANCE_CUSTOM as RGBA16F (<c>R16G16B16A16_SFLOAT</c> at offset 68).</summary>
+    public Half CustomX, CustomY, CustomZ, CustomW;
+
+    /// <summary>INSTANCE_ID (<c>R32_UINT</c> at offset 76).</summary>
+    public uint InstanceIndex;
 
     public const int Size = 80;
 
@@ -83,7 +90,16 @@ internal struct MeshInstanceData
     {
         Model = model;
         ObjectId = objectId;
-        _pad0 = _pad1 = _pad2 = 0;
+        CustomX = CustomY = CustomZ = CustomW = default;
+        InstanceIndex = 0;
+    }
+
+    public MeshInstanceData(in Matrix4x4 model, uint objectId, Vector4 custom, uint instanceIndex)
+    {
+        Model = model;
+        ObjectId = objectId;
+        (CustomX, CustomY, CustomZ, CustomW) = ((Half)custom.X, (Half)custom.Y, (Half)custom.Z, (Half)custom.W);
+        InstanceIndex = instanceIndex;
     }
 }
 
@@ -230,6 +246,25 @@ internal static class VertexLayouts
 
     /// <summary><c>Impostor/ImpostorDepth.vk.vert</c>: <see cref="ImpostorAttributes"/> + the previous model rows.</summary>
     public static readonly VertexInputAttributeDescription[] ImpostorDepthAttributes = [.. ImpostorAttributes, .. PreviousModelAttributes];
+
+    /// <summary>
+    /// Spatial shader pipelines (ADR 0205): every attribute their template can read, at the template's locations (0–2
+    /// the vertex, 3–7 the instance, 8–9 the second stream, 10–13 the previous instance in the prepass, 16 INSTANCE_CUSTOM,
+    /// 17 INSTANCE_ID). Each pipeline keeps the ones its compiled vertex stage reads (<see cref="SpirvInputs"/>).
+    /// </summary>
+    public static readonly VertexInputAttributeDescription[] SpatialAttributes =
+    [
+        .. MeshInstancedAttributes,
+        ColorAttribute,
+        Custom0Attribute,
+        .. PreviousModelAttributes,
+        new() { Location = 16, Binding = 1, Format = Format.R16G16B16A16Sfloat, Offset = 68 },
+        new() { Location = 17, Binding = 1, Format = Format.R32Uint, Offset = 76 },
+    ];
+
+    /// <summary>The attributes of <see cref="SpatialAttributes"/> a compiled vertex stage reads (its input locations).</summary>
+    public static VertexInputAttributeDescription[] Select(VertexInputAttributeDescription[] all, IReadOnlySet<int> locations) =>
+        [.. all.Where(a => locations.Contains((int)a.Location))];
 
     /// <summary>Shadow casters: binding 0 positions (stride 32), binding 1 model rows at locations 1–4.</summary>
     public static readonly VertexInputBindingDescription[] ShadowInstancedBindings = MeshInstancedBindings;

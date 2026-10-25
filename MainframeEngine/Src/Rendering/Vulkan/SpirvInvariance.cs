@@ -28,10 +28,22 @@ public static class SpirvInvariance
         "Impostor/ImpostorDepth.vk.vert.spv",
     ];
 
+    /// <summary>
+    /// The colour and prepass vertex stages of spatial shaders (ADR 0205): <c>x.gdshader.vert.spv</c> and
+    /// <c>x.gdshader.depth.vert.spv</c> (canvas shaders' vertex stages get it too; it changes nothing there).
+    /// </summary>
+    public static readonly string[] UserShaderSuffixes = [".gdshader.vert.spv", ".gdshader.depth.vert.spv"];
+
     /// <summary>True when the module at <paramref name="spvPath"/> gets an invariant position.</summary>
     public static bool Applies(string spvPath)
     {
         var path = spvPath.Replace('\\', '/');
+        foreach (var suffix in UserShaderSuffixes)
+        {
+            if (path.EndsWith(suffix, StringComparison.Ordinal))
+                return true;
+        }
+
         foreach (var name in Shaders)
         {
             if (path.EndsWith(name, StringComparison.Ordinal))

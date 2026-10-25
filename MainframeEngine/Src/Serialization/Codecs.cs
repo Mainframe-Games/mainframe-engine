@@ -94,6 +94,7 @@ public static class Codecs
         Cache<Color>.Value = new FloatArrayCodec<Color>(4, static (c, d) => { d[0] = c.R; d[1] = c.G; d[2] = c.B; d[3] = c.A; },
             static s => new Color(s[0], s[1], s[2], s[3]));
         Cache<NodePath>.Value = new NodePathCodec();
+        Cache<ShaderParameter>.Value = new ShaderParameter.Codec(); // ShaderMaterial values (ADR 0205)
     }
 
     /// <summary>The built-in codec for <typeparamref name="T"/> (primitives, string, vectors, colors, transforms, NodePath).</summary>

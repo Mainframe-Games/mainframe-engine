@@ -1,9 +1,33 @@
 using MainframeEngine;
 
-// mf-shaders build|check <folder>... (see the csproj comment).
+// mf-shaders build|check <folder>... | translate <file.gdshader> [pass] (see the csproj comment).
+if (args.Length >= 2 && args[0] == "translate")
+{
+    // Prints the generated Slang (debugging a translation): a canvas shader's two stages, or a spatial pass's.
+    var text = File.ReadAllText(args[1]);
+    var file = Path.GetFileName(args[1]);
+    if (SpatialShaderCompiler.IsSpatial(text))
+    {
+        var spatial = SpatialShaderCompiler.Translate(text, file);
+        var pass = args.Length > 2 ? Enum.Parse<SpatialPass>(args[2], ignoreCase: true) : SpatialPass.Color;
+        Console.WriteLine(spatial.VertexSource(pass));
+        Console.WriteLine("// ──────── fragment ────────");
+        Console.WriteLine(spatial.FragmentSource(pass));
+    }
+    else
+    {
+        var canvas = CanvasShaderCompiler.Translate(text, file);
+        Console.WriteLine(canvas.VertexSource);
+        Console.WriteLine("// ──────── fragment ────────");
+        Console.WriteLine(canvas.FragmentSource);
+    }
+
+    return 0;
+}
+
 if (args.Length < 2 || args[0] is not ("build" or "check"))
 {
-    Console.Error.WriteLine("usage: mf-shaders build|check <folder>...");
+    Console.Error.WriteLine("usage: mf-shaders build|check <folder>... | mf-shaders translate <file.gdshader> [color|depth|shadow|shadowpoint|objectid]");
     return 2;
 }
 
@@ -23,8 +47,7 @@ foreach (var folder in args.Skip(1))
         {
             if (args[0] == "check")
             {
-                var program = CanvasShaderCompiler.Translate(File.ReadAllText(file), Path.GetFileName(file));
-                if (!CanvasShaderBuild.IsUpToDate(file, program))
+                if (!CanvasShaderBuild.IsUpToDate(file))
                 {
                     Console.Error.WriteLine($"stale: {file} (run mf-shaders build)");
                     failures++;
@@ -45,6 +68,6 @@ foreach (var folder in args.Skip(1))
 }
 
 Console.WriteLine(args[0] == "check"
-    ? $"{checkedCount} canvas shader(s) checked, {failures} stale or invalid."
-    : $"{checkedCount} canvas shader(s), {built} built, {failures} failed.");
+    ? $"{checkedCount} Godot shader(s) checked (canvas_item, spatial), {failures} stale or invalid."
+    : $"{checkedCount} Godot shader(s) (canvas_item, spatial), {built} built, {failures} failed.");
 return failures == 0 ? 0 : 1;

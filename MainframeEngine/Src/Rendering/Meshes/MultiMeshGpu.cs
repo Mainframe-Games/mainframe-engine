@@ -69,11 +69,14 @@ internal sealed class MultiMeshGpu
             return false;
 
         var transforms = multimesh.Transforms;
+        var custom = multimesh.UseCustomData ? multimesh.CustomData : null;
         var data = ArrayPool<MeshInstanceData>.Shared.Rent(count);
         try
         {
+            // INSTANCE_ID (the index) and INSTANCE_CUSTOM for spatial shaders (ADR 0205).
             for (var i = 0; i < count; i++)
-                data[i] = new MeshInstanceData(transforms[i].ToMatrix4x4() * model, objectId);
+                data[i] = new MeshInstanceData(transforms[i].ToMatrix4x4() * model, objectId,
+                    custom is not null && i < custom.Length ? custom[i] : Vector4.Zero, (uint)i);
             Instances = GpuBuffer.CreateStatic<MeshInstanceData>(_ctx, data.AsSpan(0, count), BufferUsageFlags.VertexBufferBit);
         }
         finally

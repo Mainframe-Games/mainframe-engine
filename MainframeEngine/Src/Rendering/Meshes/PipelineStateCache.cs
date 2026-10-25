@@ -68,6 +68,18 @@ public enum ShaderSetId : byte
     /// position at binding 5 for the velocity) + <c>Mesh/MeshDepth.vk.frag</c>.
     /// </summary>
     MeshDepthSkinned,
+
+    /// <summary>
+    /// A <see cref="ShaderMaterial"/> with a <c>shader_type spatial</c> shader (ADR 0205): the shader's colour pass SPIR-V
+    /// (<see cref="PipelineKey.UserShader"/> says which), its own pipeline layout; always <see cref="VertexLayoutId.MeshInstancedExt"/>.
+    /// </summary>
+    MeshSpatial,
+
+    /// <summary>The depth prepass of a spatial shader (its <c>.depth</c> SPIR-V: <c>vertex()</c> now and a frame ago).</summary>
+    MeshDepthSpatial,
+
+    /// <summary>The object-ID pass of a spatial shader (its <c>.id</c> SPIR-V: displaced, cut out like the colour pass).</summary>
+    MeshObjectIdSpatial,
 }
 
 /// <summary>
@@ -88,6 +100,10 @@ public enum ShaderSetId : byte
 /// cutouts test EQUAL without their <c>discard</c> (the prepass kept only what passed the alpha test).
 /// </param>
 /// <param name="NoDepthTest">No depth test (<see cref="StandardMaterial3D.NoDepthTest"/>); never for the object-ID shaders.</param>
+/// <param name="UserShader">
+/// The user shader the pipeline runs (ADR 0205: a spatial <see cref="Shader"/>'s dense id in the mesh renderer, from 1), 0
+/// for the engine's shader sets. User-shader pipelines key by it with the same state fields as the built-in ones.
+/// </param>
 public readonly record struct PipelineKey(
     ShaderSetId Shaders,
     VertexLayoutId VertexLayout,
@@ -98,7 +114,8 @@ public readonly record struct PipelineKey(
     ulong RenderPass,
     bool ExtraPass = false,
     bool Prepassed = false,
-    bool NoDepthTest = false)
+    bool NoDepthTest = false,
+    int UserShader = 0)
 {
     /// <summary>
     /// The key for drawing a material's surfaces with <paramref name="shaders"/> into <paramref name="renderPass"/>.
@@ -110,12 +127,12 @@ public readonly record struct PipelineKey(
     /// (<see cref="VertexLayoutId.MeshInstancedExt"/>); foliage always does, the object-ID shaders never read it.
     /// </remarks>
     public static PipelineKey ForMaterial(ShaderSetId shaders, in MaterialRenderState state, bool mirrored, RenderPass renderPass,
-        bool extraPass = false, bool streams = false, bool prepassed = false)
+        bool extraPass = false, bool streams = false, bool prepassed = false, int userShader = 0)
     {
         var alpha = state.Alpha;
         var depthWrite = state.DepthWrite && !prepassed;
         var noDepthTest = state.NoDepthTest;
-        if (shaders == ShaderSetId.MeshObjectId)
+        if (shaders is ShaderSetId.MeshObjectId or ShaderSetId.MeshObjectIdSpatial)
         {
             if (alpha == AlphaMode.Blend)
                 alpha = AlphaMode.Opaque;
@@ -126,16 +143,18 @@ public readonly record struct PipelineKey(
         var layout = shaders switch
         {
             ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshWaterScene
-                or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray => VertexLayoutId.MeshInstancedExt,
+                or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray or ShaderSetId.MeshSpatial or ShaderSetId.MeshDepthSpatial
+                or ShaderSetId.MeshObjectIdSpatial => VertexLayoutId.MeshInstancedExt,
             ShaderSetId.MeshLit or ShaderSetId.MeshDepth when streams => VertexLayoutId.MeshInstancedExt,
             _ => VertexLayoutId.MeshInstanced,
         };
         return new PipelineKey(shaders, layout, alpha, state.EffectiveCull, mirrored, depthWrite, renderPass.Handle, extraPass, prepassed,
-            noDepthTest);
+            noDepthTest, userShader);
     }
 
     /// <summary>True for the depth prepass's shader sets (ADR 0163).</summary>
-    public bool IsDepthPrepass => Shaders is ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor or ShaderSetId.MeshDepthSkinned;
+    public bool IsDepthPrepass => Shaders is ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor
+        or ShaderSetId.MeshDepthSkinned or ShaderSetId.MeshDepthSpatial;
 }
 
 /// <summary>A cached pipeline and its small dense id (used in draw sort keys).</summary>
