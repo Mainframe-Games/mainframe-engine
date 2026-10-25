@@ -461,7 +461,18 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   the modification times of `project.mfproj` and the icon, and reports a change once so the rows rebuild and
   `RmlCore.ReleaseTextures()` re-reads the image. New projects ship `Assets/icon.png` (the template default, the brand
   logo) with `window.icon` set, and the Demo has its own. Project Settings › Window › Icon previews the PNG (32 dp)
-  beside its field.
+  beside its field. After the name, an **engine badge** shows what the project builds against
+  (`ProjectEngineVersion.Read`, read from its MSBuild files once per Open, never per keystroke of the filter):
+  `vX.Y.Z` for the `MainframeEngine` package (the template's `<MainframeEngineVersion>` in `Directory.Build.props`, or a
+  literal `PackageReference`/`PackageVersion` version) and **source** for project references into an engine checkout.
+  `engineVersion` in `project.mfproj` is not used: it records what the project was made with and can lag the package.
+  An older package than the editor is amber, a newer one red; the tooltip says what opening it does.
+- **Engine package upgrade**: opening a package project older than the editor (`EditorCommands.OpenProjectNow`, so
+  from the Project Manager, Open Project and start-up alike) moves it to the editor's version before it builds:
+  `ProjectEngineVersion.Upgrade` rewrites the `MainframeEngineVersion` property, literal `MainframeEngine` package
+  versions and `engineVersion` in `project.mfproj`, and the Output panel lists the files. The build then restores the
+  new package. Current and checkout projects are untouched; a project newer than the editor is never downgraded (a
+  warning), and a development editor (`0.0.0-dev`) upgrades nothing.
 - **New Project** (`new_project.rml`): name, parent folder, the engine source and a live validation
   (`NewProjectValidation`: a valid C# identifier, an empty or missing target folder, the engine, the SDK). The Engine row
   has two icon toggles:

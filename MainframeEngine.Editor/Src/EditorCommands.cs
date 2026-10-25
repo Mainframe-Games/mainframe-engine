@@ -938,6 +938,35 @@ public sealed class EditorCommands
         }
     }
 
+    /// <summary>
+    /// A package project older than this editor is moved to the editor's <c>MainframeEngine</c> version before it builds
+    /// (<see cref="ProjectEngineVersion.Upgrade"/>; the build restores the new package). Current, checkout and unknown
+    /// projects are left as they are, as is one newer than the editor, which is never downgraded (a warning).
+    /// </summary>
+    private void UpgradeEnginePackage(string directory)
+    {
+        try
+        {
+            var engine = ProjectEngineVersion.Read(directory);
+            switch (engine.StatusAgainst(EngineInfo.Version))
+            {
+                case ProjectEngineStatus.Older:
+                    var files = ProjectEngineVersion.Upgrade(directory, EngineInfo.Version);
+                    Log.Info($"[Editor] Updated the project's MainframeEngine package from {engine.Version} to {EngineInfo.Version} " +
+                             $"({string.Join(", ", files)}).");
+                    break;
+                case ProjectEngineStatus.Newer:
+                    Log.Warning($"[Editor] The project uses MainframeEngine {engine.Version}, newer than this editor " +
+                                $"({EngineInfo.Version}); update the editor to work on it.");
+                    break;
+            }
+        }
+        catch (Exception e) when (IsRecoverable(e))
+        {
+            ReportError($"Could not update the MainframeEngine package of {directory}", e);
+        }
+    }
+
     /// <summary>Opens a project at once (no questions): start-up and <see cref="OpenProject"/>; then <paramref name="scene"/> or the main scene.</summary>
     public void OpenProjectNow(string directory, string? scene)
     {
@@ -947,6 +976,7 @@ public sealed class EditorCommands
         _workspace.Inspector.CloseResource();
         // Music mode stays music mode: the start scene opens in game mode's tab strip, behind the music editor.
         var mode = _workspace.Mode;
+        UpgradeEnginePackage(directory);
         try
         {
             _workspace.Project.Open(directory, onReady: () =>

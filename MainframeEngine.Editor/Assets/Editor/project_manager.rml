@@ -56,7 +56,24 @@
         .pm-row .pm-icon { width: 36dp; height: 36dp; margin-right: 12dp; border-radius: 6dp; }
         .pm-row.missing .pm-icon { opacity: 0.4; }
         .pm-info { display: flex; flex-direction: column; flex: 1 1 auto; overflow: hidden; }
-        .pm-name { display: block; font-size: 14dp; font-weight: bold; color: #e8ebf2; }
+        .pm-title-row { display: flex; flex-direction: row; align-items: center; }
+        .pm-name { display: block; flex: 0 1 auto; font-size: 14dp; font-weight: bold; color: #e8ebf2; white-space: nowrap; overflow: hidden; }
+        .pm-engine {
+            display: block;
+            flex: 0 0 auto;
+            margin-left: 8dp;
+            padding: 0dp 6dp;
+            height: 16dp;
+            line-height: 16dp;
+            border-radius: 8dp;
+            font-size: 10dp;
+            font-weight: bold;
+            color: #b4bccc;
+            background-color: #2f333d;
+        }
+        .pm-engine.old { color: #fcd34d; background-color: #4a3410; }
+        .pm-engine.new { color: #fca5a5; background-color: #4a1d1d; }
+        .pm-engine.source { color: #93c5fd; background-color: #1c2b4a; }
         .pm-folder { display: block; font-size: 11dp; color: #8b93a5; white-space: nowrap; overflow: hidden; }
         .pm-row.missing .pm-name { color: #8b93a5; }
         .pm-row.missing .pm-folder { color: #f87171; }
@@ -123,7 +140,10 @@
                     <img class="pm-icon" data-if="p.has_icon" data-attr-src="p.icon"/>
                     <span data-if="!p.has_icon" data-attr-class="p.valid ? 'icon icon-lg icon-folder-code' : 'icon icon-lg icon-folder-x'"></span>
                     <div class="pm-info">
-                        <span class="pm-name">{{p.name}}</span>
+                        <div class="pm-title-row">
+                            <span class="pm-name">{{p.name}}</span>
+                            <span data-if="p.engine != ''" data-attr-class="'pm-engine ' + p.engine_class" data-attr-data-tooltip="p.engine_tip">{{p.engine}}</span>
+                        </div>
                         <span class="pm-folder">{{p.folder}}</span>
                     </div>
                     <span class="pm-when">{{p.when}}</span>
