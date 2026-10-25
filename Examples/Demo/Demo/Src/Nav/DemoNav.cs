@@ -183,6 +183,7 @@ public sealed class DemoNav : UiDocument
                 "physics_2d" => Tr._("Physics 2D"),
                 "physics_3d" => Tr._("Physics 3D"),
                 "spine" => Tr._("Spine"),
+                "animation_3d" => Tr._("Animation 3D"),
                 _ => tab.Scene.Title,
             };
     }

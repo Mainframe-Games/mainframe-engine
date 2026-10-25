@@ -9,6 +9,48 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: mf-l10n\n"
 
+msgid "Animation 3D"
+msgstr "[Åñîmåtîöñ 3Ð ~~~]"
+
+msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."
+msgstr "[Å skîññéð glTF çhåråçtér: 31 böñés, éîght çlîps, çrössfåðés, évéñts åñð å törçh öñ îts håñð. ~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Clip"
+msgstr "[Çlîp ~]"
+
+msgid "Idle"
+msgstr "[Îðlé ~]"
+
+msgid "Walk"
+msgstr "[Wålk ~]"
+
+msgid "Run"
+msgstr "[Rûñ ~]"
+
+msgid "Roll"
+msgstr "[Röll ~]"
+
+msgid "Swing"
+msgstr "[Swîñg ~]"
+
+msgid "Craft"
+msgstr "[Çråft ~]"
+
+msgid "Hit"
+msgstr "[Hît ~]"
+
+msgid "Down"
+msgstr "[Ðöwñ ~]"
+
+msgid "Crossfade"
+msgstr "[Çrössfåðé ~~]"
+
+msgid "Speed"
+msgstr "[Spééð ~]"
+
+msgid "Last event"
+msgstr "[Låst évéñt ~~]"
+
 msgid "Audio 2D"
 msgstr "[Åûðîö 2Ð ~~]"
 
@@ -156,9 +198,6 @@ msgstr "[Låsér ~]"
 msgid "Explosion"
 msgstr "[Éxplösîöñ ~~]"
 
-msgid "Hit"
-msgstr "[Hît ~]"
-
 msgid "Jump"
 msgstr "[Jûmp ~]"
 
@@ -195,15 +234,6 @@ msgstr "[2Ð çåmérå ~~]"
 msgid "Animation"
 msgstr "[Åñîmåtîöñ ~~]"
 
-msgid "Walk"
-msgstr "[Wålk ~]"
-
-msgid "Run"
-msgstr "[Rûñ ~]"
-
-msgid "Idle"
-msgstr "[Îðlé ~]"
-
 msgid "UI showcase"
 msgstr "[ÛÎ shöwçåsé ~~]"
 
@@ -220,7 +250,7 @@ msgid ".rml"
 msgstr "[.rml ~]"
 
 msgid "Assets/UI/showcase.rcss"
-msgstr "[Çöñtéñt/ÛÎ/shöwçåsé.rçss ~~~~~~]"
+msgstr "[Åsséts/ÛÎ/shöwçåsé.rçss ~~~~~]"
 
 msgid "Edit"
 msgstr "[Éðît ~]"

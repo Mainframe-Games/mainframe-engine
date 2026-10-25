@@ -22,6 +22,7 @@ public static class DemoScenes
         Scene("physics_3d", "Physics 3D", "box", Physics3DScene.Build),
         Scene("spine", "Spine", "run", SpineScene.Build),
         Scene("particles", "Particles", "flame", ParticlesScene.Build),
+        Scene("animation_3d", "Animation 3D", "bone", Animation3DScene.Build),
     ];
 
     public static DemoSceneInfo? ById(string id) => All.FirstOrDefault(s => s.Id == id);

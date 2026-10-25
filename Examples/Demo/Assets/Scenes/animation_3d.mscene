@@ -1,0 +1,127 @@
+{
+  "format": 2,
+  "uid": "scn_6b50da1ad79f",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "StandardMaterial3D_s8kz4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.36078432, 0.40784314, 0.3764706, 1]
+      }
+    },
+    "PlaneMesh_dcv7g": {
+      "type": "PlaneMesh",
+      "props": {
+        "Size": [30, 30]
+      }
+    },
+    "StandardMaterial3D_d20cs": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.5019608, 0.3372549, 0.19607843, 1]
+      }
+    },
+    "BoxMesh_stfb4": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.05, 0.05, 0.34]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "animation_3d",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [0.6, 1.55, 3.9],
+        "RotationDegrees": [-8.646005, 8.746162, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-50, 35, 0],
+        "Energy": 1.1
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_s8kz4" },
+        "Mesh": { "res": "PlaneMesh_dcv7g" }
+      }
+    },
+    {
+      "name": "Crew",
+      "parent": ".",
+      "instance": "mdl_c4a2ac7e2000",
+      "path": "Assets/Models/Character/character.glb",
+      "props": {
+        "RotationDegrees": [0, 20, 0]
+      }
+    },
+    {
+      "name": "HandSlot",
+      "parent": "Crew/Armature",
+      "type": "BoneAttachment3D",
+      "props": {
+        "BoneName": "Hand.R"
+      }
+    },
+    {
+      "name": "Hammer",
+      "parent": "Crew/Armature/HandSlot",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [-0.08, 0, 0.14],
+        "MaterialOverride": { "res": "StandardMaterial3D_d20cs" },
+        "Mesh": { "res": "BoxMesh_stfb4" }
+      }
+    },
+    {
+      "name": "Torch",
+      "parent": "Crew/Armature/HandSlot",
+      "type": "OmniLight3D",
+      "props": {
+        "Position": [-0.1, -0.12, 0.05],
+        "Color": [1, 0.62, 0.25],
+        "Energy": 1.6,
+        "Range": 3
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Animation3DPanel"
+    }
+  ]
+}
