@@ -143,7 +143,7 @@ jobs:
           echo stand-in > artifacts/package-smoke/publish/MainframeEngine.Editor
           build/package-editor.sh "$rid" 0.0.0-smoke artifacts/package-smoke/publish artifacts/package-smoke/out
           ls -l artifacts/package-smoke/out
-          test -s artifacts/package-smoke/out/MainframeEngine-0.0.0-smoke-"$rid".*
+          test -s artifacts/package-smoke/out/MainframeEditor-0.0.0-smoke-"$rid".*
 
       # Committed .mo files match their .po, translations keep their placeholders (and msgfmt -c agrees where installed).
       - name: Localization catalogs

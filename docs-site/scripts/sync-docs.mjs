@@ -69,7 +69,7 @@ export function routeOf(rel) {
 
 /**
  * The editor downloads the landing page offers: the release's archives (build/package-editor.sh names them
- * MainframeEngine-<version>-<rid>). Without a release tag ('dev') each one links to the latest release's page instead.
+ * MainframeEditor-<version>-<rid>). Without a release tag ('dev') each one links to the latest release's page instead.
  */
 export function releaseAssets(v = version) {
   const tagged = /^v\d+\.\d+\.\d+$/.test(v);
@@ -78,7 +78,7 @@ export function releaseAssets(v = version) {
     { os: 'windows', label: 'Windows', arch: 'x64', rid: 'win-x64', ext: 'zip' },
     { os: 'linux', label: 'Linux', arch: 'x64', rid: 'linux-x64', ext: 'tar.gz' },
   ].map((a) => {
-    const file = `MainframeEngine-${tagged ? v.slice(1) : 'X.Y.Z'}-${a.rid}.${a.ext}`;
+    const file = `MainframeEditor-${tagged ? v.slice(1) : 'X.Y.Z'}-${a.rid}.${a.ext}`;
     const url = tagged ? `${repoUrl}/releases/download/${v}/${file}` : `${repoUrl}/releases/latest`;
     return { ...a, file, url };
   });

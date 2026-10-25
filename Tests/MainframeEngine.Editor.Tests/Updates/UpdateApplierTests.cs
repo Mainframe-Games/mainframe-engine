@@ -21,8 +21,9 @@ public sealed class UpdateApplierTests : IDisposable
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 
+    // Installed before the archives were renamed MainframeEditor-*: the install keeps its folder name across updates.
     private string Root => Path.Combine(_directory, "My Tools", "MainframeEngine-1.0.0-linux-x64");
-    private string Staged => Path.Combine(_directory, "updates", "1.1.0", "app", "MainframeEngine-1.1.0-linux-x64");
+    private string Staged => Path.Combine(_directory, "updates", "1.1.0", "app", "MainframeEditor-1.1.0-linux-x64");
     private string Updates => Path.Combine(_directory, "updates");
     private string Backup => Root + ".old";
 

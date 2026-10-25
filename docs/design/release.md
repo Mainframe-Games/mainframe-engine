@@ -58,8 +58,11 @@ flowchart LR
 - **Tests first.** The full CI suite runs again (`workflow_call`) before anything is built.
 - **Artifacts.** Self-contained, ReadyToRun editor builds, packaged by
   [`build/package-editor.sh`](../../build/package-editor.sh):
-  `MainframeEngine-X.Y.Z-osx-arm64.tar.gz` (`Mainframe Editor.app` in the [macOS bundle layout](#macos-bundle-layout),
-  signed ad hoc and not notarized — first launch: right-click → Open), `MainframeEngine-X.Y.Z-win-x64.zip`, `MainframeEngine-X.Y.Z-linux-x64.tar.gz`; the
+  `MainframeEditor-X.Y.Z-osx-arm64.tar.gz` (`Mainframe Editor.app` in the [macOS bundle layout](#macos-bundle-layout),
+  signed ad hoc and not notarized — first launch: right-click → Open), `MainframeEditor-X.Y.Z-win-x64.zip`,
+  `MainframeEditor-X.Y.Z-linux-x64.tar.gz`. They are named for the editor, not the engine package, from the first release
+  after 1.1.5; editors up to 1.1.5 look for `MainframeEngine-*` and so cannot update to them by themselves (download the
+  new editor once by hand). The
   GitHub Release is titled "Mainframe Engine & Editor vX.Y.Z". `just publish-local [rid]` produces the same archive
   locally. The executable inside stays `MainframeEngine.Editor` (the assembly name the workflow and tests use).
   The Linux folder also holds `install.sh` ([`build/linux/install-editor.sh`](../../build/linux/install-editor.sh)): it
@@ -106,7 +109,7 @@ workflow is specific to it: the archives' names and layout are the contract. See
 
 **End-to-end check** (manual, on each OS, before a release that changes the updater):
 
-1. `just publish-local <rid> 0.9.0` and unpack `artifacts/release/MainframeEngine-0.9.0-<rid>.*` somewhere writable
+1. `just publish-local <rid> 0.9.0` and unpack `artifacts/release/MainframeEditor-0.9.0-<rid>.*` somewhere writable
    (macOS: `~/Applications`, then right-click → Open once).
 2. Start it, open a project, click the badge, **Update & restart**.
 3. The editor relaunches as the latest release with the project open; `~/.mainframe/updates/update.log` shows the run.

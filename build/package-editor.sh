@@ -7,7 +7,7 @@
 set -euo pipefail
 
 rid="$1" version="$2" publish_dir="$3" out_dir="$4"
-name="MainframeEngine-${version}-${rid}"
+name="MainframeEditor-${version}-${rid}"
 mkdir -p "$out_dir"
 out_dir="$(cd "$out_dir" && pwd)"
 staging="$(mktemp -d)"

@@ -5,8 +5,11 @@
 - **Milestone:** M10
 - **Amended 2026-10-22:** the editor's macOS app name changed from "Mainframe Engine" to **Mainframe Editor**
   (the editor is an optional download; the engine/NuGet package keeps "Mainframe Engine"). The mechanism below is
-  unchanged — only the `CFBundleName`/`CFBundleDisplayName` and `.app` folder name differ. The archive prefix stays
+  unchanged — only the `CFBundleName`/`CFBundleDisplayName` and `.app` folder name differ. The archive prefix stayed
   `MainframeEngine-X.Y.Z-<rid>` (the updater matches on it).
+- **Amended 2026-10-26:** the archives are now `MainframeEditor-X.Y.Z-<rid>` (and so is the Windows/Linux top folder),
+  matching the app name. A clean break: editors up to 1.1.5 match the old prefix and see no update; they are
+  replaced by hand once.
 
 ## Context
 
@@ -29,8 +32,9 @@ or from the executable file name when it is not inside a `.app`. Checked on macO
 
 - `build/macos/Info.plist.in`: `CFBundleName` = `CFBundleDisplayName` = "Mainframe Editor"; identifier
   `com.mainframegames.editor@BUNDLE_ID_SUFFIX@`.
-- Release: `build/package-editor.sh` builds `Mainframe Editor.app` (suffix empty). Archives stay
-  `MainframeEngine-X.Y.Z-<rid>` on every platform (the updater matches on that prefix), the GitHub Release is titled
+- Release: `build/package-editor.sh` builds `Mainframe Editor.app` (suffix empty). Archives are
+  `MainframeEditor-X.Y.Z-<rid>` on every platform (the updater matches on that prefix; `MainframeEngine-` before the
+  2026-10-26 amendment), the GitHub Release is titled
   "Mainframe Engine & Editor vX.Y.Z".
 - Development: `build/macos/DevAppBundle.targets` (imported by the editor project) runs after every macOS build without
   a RuntimeIdentifier and assembles `bin/<cfg>/net10.0/Mainframe Editor.app`: Info.plist from the same template

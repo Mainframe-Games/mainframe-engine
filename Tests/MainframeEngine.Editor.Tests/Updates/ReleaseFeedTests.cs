@@ -14,13 +14,13 @@ public sealed class ReleaseFeedTests
         Assert.StartsWith("## What's Changed", release.Notes, StringComparison.Ordinal);
         Assert.Equal("https://github.com/Mainframe-Games/mainframe-engine/releases/tag/v1.0.0", release.PageUrl.AbsoluteUri);
         Assert.Equal(3, release.Assets.Count);
-        var linux = release.FindAsset("MainframeEngine-1.0.0-linux-x64.tar.gz")!;
+        var linux = release.FindAsset("MainframeEditor-1.0.0-linux-x64.tar.gz")!;
         Assert.Equal(56920893, linux.Size);
         Assert.Equal("dfdf31c3d560f72aa9850e71af5511fe6e03f63e0e5fb052010fe2b16fa2f89e", linux.Sha256);
         // Upper-case hex is normalised; a non-SHA-256 digest is no digest.
-        Assert.Equal("857ef126ffc089afcc78405195c60550ded974703a418ec5e03eaf5c61afe6da", release.FindAsset("MainframeEngine-1.0.0-osx-arm64.tar.gz")!.Sha256);
-        Assert.Null(release.FindAsset("MainframeEngine-1.0.0-win-x64.zip")!.Sha256);
-        Assert.Null(release.FindAsset("MainframeEngine-1.0.0-osx-x64.tar.gz"));
+        Assert.Equal("857ef126ffc089afcc78405195c60550ded974703a418ec5e03eaf5c61afe6da", release.FindAsset("MainframeEditor-1.0.0-osx-arm64.tar.gz")!.Sha256);
+        Assert.Null(release.FindAsset("MainframeEditor-1.0.0-win-x64.zip")!.Sha256);
+        Assert.Null(release.FindAsset("MainframeEditor-1.0.0-osx-x64.tar.gz"));
     }
 
     [Theory]

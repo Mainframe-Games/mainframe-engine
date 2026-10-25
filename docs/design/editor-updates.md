@@ -49,10 +49,12 @@ update when:
 
 1. `tag_name` is `vX.Y.Z` (three numeric parts, no suffix) and `X.Y.Z` is **strictly greater** than
    `EngineInfo.Version` — never a downgrade;
-2. it has the asset for this platform: `MainframeEngine-X.Y.Z-<rid>.tar.gz` (`osx-arm64`, `linux-x64`) or
-   `MainframeEngine-X.Y.Z-win-x64.zip` — the names [`build/package-editor.sh`](../../build/package-editor.sh)
+2. it has the asset for this platform: `MainframeEditor-X.Y.Z-<rid>.tar.gz` (`osx-arm64`, `linux-x64`) or
+   `MainframeEditor-X.Y.Z-win-x64.zip` — the names [`build/package-editor.sh`](../../build/package-editor.sh)
    already produces. The RID comes from `OperatingSystem` + `RuntimeInformation.ProcessArchitecture`; any other
-   combination (Intel Mac, Windows on ARM, …) has no update;
+   combination (Intel Mac, Windows on ARM, …) has no update. Editors up to 1.1.5 look for the archives' former
+   `MainframeEngine-X.Y.Z-<rid>` names, so they report no update for releases after the rename (a clean break: those
+   installs are replaced by hand once);
 3. that asset has a `digest` of the form `sha256:<hex>`.
 
 Network errors, timeouts, rate limiting (HTTP 403/429; the unauthenticated limit is 60 requests/hour per IP) and
@@ -102,7 +104,7 @@ flowchart LR
 3. **Extract** to `~/.mainframe/updates/X.Y.Z/app/` (`System.Formats.Tar` over `GZipStream` keeps Unix execute
    bits; `ZipFile` on Windows; both reject entries that escape the target folder). Then locate the staged
    executable — `app/Mainframe Editor.app/Contents/MacOS/MainframeEngine.Editor` (macOS),
-   `app/MainframeEngine-X.Y.Z-<rid>/MainframeEngine.Editor[.exe]` (Windows, Linux) — and fail if it is missing.
+   `app/MainframeEditor-X.Y.Z-<rid>/MainframeEngine.Editor[.exe]` (Windows, Linux) — and fail if it is missing.
    Files downloaded with `HttpClient` carry no quarantine attribute, so Gatekeeper does not block the unsigned staged
    app.
 4. **Quit** through `EditorWorkspace.RequestQuit` (the existing unsaved-scenes dialog; cancelling it cancels the
@@ -159,7 +161,7 @@ delete.
   `<X>.app/Contents/MacOS/` in bundles before it, also accepted); the root is `<X>.app`. The executable the updater starts
   stays `Contents/MacOS/MainframeEngine.Editor`, so an older editor stages and launches a newer one unchanged. A bare executable
   outside a bundle cannot be updated in place.
-- **Windows, Linux:** the root is `AppContext.BaseDirectory` (the unpacked `MainframeEngine-X.Y.Z-<rid>` folder). The
+- **Windows, Linux:** the root is `AppContext.BaseDirectory` (the unpacked `MainframeEditor-X.Y.Z-<rid>` folder, or a `MainframeEngine-…` one from before the rename). The
   folder keeps its name after an update; the version in the name is just where it was first unpacked.
 - Every platform: `InstallLocation.Inspect` treats the root as an install only when it holds the editor executable
   (`UpdatePlatform.ExecutablePath`); otherwise the update is downloaded for installing by hand.
