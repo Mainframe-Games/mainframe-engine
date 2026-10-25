@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace MainframeEngine;
 
-/// <summary>How a node faces the camera (Godot's <c>BaseMaterial3D.BillboardMode</c>, without <c>Particles</c>).</summary>
+/// <summary>How a node faces the camera (Godot's <c>BaseMaterial3D.BillboardMode</c>).</summary>
 public enum BillboardMode : byte
 {
     /// <summary>The node's own rotation.</summary>
@@ -13,6 +13,12 @@ public enum BillboardMode : byte
 
     /// <summary>Turns about world Y only to face the camera, staying upright (Godot's <c>BILLBOARD_FIXED_Y</c>).</summary>
     FixedY,
+
+    /// <summary>
+    /// Particles (Godot's <c>BILLBOARD_PARTICLES</c>; ADR 0206): faces the camera turned by each particle's angle, or along
+    /// its velocity with <see cref="ParticleProcessMaterial.ParticleFlagAlignY"/>. Other nodes treat it as <see cref="Enabled"/>.
+    /// </summary>
+    Particles,
 }
 
 /// <summary>

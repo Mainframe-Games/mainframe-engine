@@ -34,6 +34,15 @@ internal enum BlendMode : byte
 
     /// <summary>The colour replaces the destination, the destination alpha stays: <c>rgb = src</c>, <c>a = dst</c> (ADR 0173).</summary>
     ColorOnly,
+
+    /// <summary>Additive (Godot's <c>BLEND_MODE_ADD</c>): <c>rgb = src·a + dst</c>, <c>a = dst</c>; additive particles (ADR 0206).</summary>
+    Additive,
+
+    /// <summary>
+    /// <see cref="Additive"/> that marks itself in the destination alpha like <see cref="AlphaReactive"/>: <c>rgb = src·a + dst</c>,
+    /// <c>a = dst·(1−a)</c>. Additive particles in the main view (ADR 0206): TAA's reactive mask.
+    /// </summary>
+    AdditiveReactive,
 }
 
 /// <summary>Fixed-function state for <see cref="PipelineBuilder"/>; viewport and scissor are always dynamic.</summary>
@@ -203,6 +212,28 @@ internal static unsafe class PipelineBuilder
                 BlendEnable = true,
                 SrcColorBlendFactor = BlendFactor.One,
                 DstColorBlendFactor = BlendFactor.Zero,
+                ColorBlendOp = BlendOp.Add,
+                SrcAlphaBlendFactor = BlendFactor.Zero,
+                DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,
+                AlphaBlendOp = BlendOp.Add,
+                ColorWriteMask = all,
+            },
+            BlendMode.Additive => new()
+            {
+                BlendEnable = true,
+                SrcColorBlendFactor = BlendFactor.SrcAlpha,
+                DstColorBlendFactor = BlendFactor.One,
+                ColorBlendOp = BlendOp.Add,
+                SrcAlphaBlendFactor = BlendFactor.Zero,
+                DstAlphaBlendFactor = BlendFactor.One,
+                AlphaBlendOp = BlendOp.Add,
+                ColorWriteMask = all,
+            },
+            BlendMode.AdditiveReactive => new()
+            {
+                BlendEnable = true,
+                SrcColorBlendFactor = BlendFactor.SrcAlpha,
+                DstColorBlendFactor = BlendFactor.One,
                 ColorBlendOp = BlendOp.Add,
                 SrcAlphaBlendFactor = BlendFactor.Zero,
                 DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,

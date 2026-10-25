@@ -153,6 +153,7 @@ public static class PropertyIcons
         PropertyEditorKind.Flags => "list-check",
         PropertyEditorKind.Vector2 or PropertyEditorKind.Vector3 or PropertyEditorKind.Vector4 => "axis-x",
         PropertyEditorKind.Quaternion => "rotate",
+        PropertyEditorKind.Aabb => "box",
         PropertyEditorKind.Color => "palette",
         PropertyEditorKind.NodePath => "target",
         PropertyEditorKind.Resource => "package",

@@ -87,6 +87,10 @@ public static class Codecs
         Cache<Rect2I>.Value = new FloatArrayCodec<Rect2I>(4,
             static (r, d) => { d[0] = r.Position.X; d[1] = r.Position.Y; d[2] = r.Size.X; d[3] = r.Size.Y; },
             static s => new Rect2I((int)s[0], (int)s[1], (int)s[2], (int)s[3]));
+        // ADR 0206: min then max corner (GpuParticles3D.VisibilityAabb).
+        Cache<Aabb>.Value = new FloatArrayCodec<Aabb>(6,
+            static (b, d) => { d[0] = b.Min.X; d[1] = b.Min.Y; d[2] = b.Min.Z; d[3] = b.Max.X; d[4] = b.Max.Y; d[5] = b.Max.Z; },
+            static s => new Aabb(new Vector3(s[0], s[1], s[2]), new Vector3(s[3], s[4], s[5])));
         Cache<Color>.Value = new FloatArrayCodec<Color>(4, static (c, d) => { d[0] = c.R; d[1] = c.G; d[2] = c.B; d[3] = c.A; },
             static s => new Color(s[0], s[1], s[2], s[3]));
         Cache<NodePath>.Value = new NodePathCodec();

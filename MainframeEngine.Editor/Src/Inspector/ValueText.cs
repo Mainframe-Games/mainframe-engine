@@ -31,6 +31,7 @@ public static class ValueText
         Color c => ColorHex(c),
         Vector2I v => $"{v.X}, {v.Y}",
         Rect2I r => $"{r.Position.X}, {r.Position.Y}, {r.Size.X}, {r.Size.Y}",
+        Aabb b => $"{Format(b.Min)} … {Format(b.Max)}",
         Transform3D t => $"origin ({Format(t.Origin)})",
         Transform2D t => $"origin ({Format(t.Origin)})",
         Resource r => Resource(r),

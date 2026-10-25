@@ -47,6 +47,12 @@ public abstract class VisualInstance3D : Node3D, IRenderResourceOwner
     internal virtual bool IsBatched => false;
 
     /// <summary>
+    /// True for blended visuals drawn by themselves (<see cref="GpuParticles3D"/> with a blended draw pass, ADR 0206): the
+    /// render server draws them after the blended meshes instead of before them.
+    /// </summary>
+    internal virtual bool DrawsTransparent => false;
+
+    /// <summary>
     /// True for debug visuals (the <see cref="Grid3D"/>) that a post-processed <see cref="SubViewport"/> draws after its
     /// post effects, ungraded and unblurred, with <see cref="DrawAfterPost"/> instead of <see cref="Draw"/> (ADR 0169).
     /// </summary>

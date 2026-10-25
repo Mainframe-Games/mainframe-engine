@@ -345,6 +345,23 @@ public sealed class StandardMaterial3D : Material
         }
     }
 
+    /// <summary>
+    /// How a blended surface combines with what is behind it (Godot's <c>blend_mode</c>): <see cref="BlendModeEnum.Mix"/>
+    /// (alpha blending) or <see cref="BlendModeEnum.Add"/> (fire, sparks, glows). Honoured by <see cref="GpuParticles3D"/>
+    /// draw passes (ADR 0206); mesh surfaces always mix for now.
+    /// </summary>
+    [Export]
+    public BlendModeEnum BlendMode
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
     /// <summary>Alpha below which <see cref="AlphaMode.Cutout"/> discards.</summary>
     [Export(Range = "0,1,0.01")]
     public float AlphaCutoff
@@ -357,6 +374,43 @@ public sealed class StandardMaterial3D : Material
             Touch();
         }
     } = 0.5f;
+
+    /// <summary>
+    /// Multiplies the albedo by the vertex colour (Godot's <c>vertex_color_use_as_albedo</c>): a particle's colour (its
+    /// process material's colour and ramps) reaches the surface only with this on, as in Godot (ADR 0206). Meshes with a
+    /// colour stream multiply by it either way.
+    /// </summary>
+    [ExportGroup("Vertex color")]
+    [Export]
+    public bool VertexColorUseAsAlbedo
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
+
+    /// <summary>
+    /// How a <see cref="GpuParticles3D"/> draw pass turns each particle toward the camera (Godot's <c>billboard_mode</c>;
+    /// ADR 0206): <see cref="MainframeEngine.BillboardMode.Particles"/> faces it and keeps the particle's angle, or, with
+    /// <see cref="ParticleProcessMaterial.ParticleFlagAlignY"/>, stretches along the velocity. Mesh surfaces ignore it
+    /// (<see cref="Sprite3D.Billboard"/> billboards whole sprites).
+    /// </summary>
+    [ExportGroup("Billboard")]
+    [Export]
+    public BillboardMode BillboardMode
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            Touch();
+        }
+    }
 
     [ExportGroup("Rendering")]
     [Export]
@@ -454,6 +508,18 @@ public sealed class StandardMaterial3D : Material
     }
 
     public override MaterialRenderState RenderState => new(Transparency, CullMode, DoubleSided, NoDepthTest);
+
+    /// <summary>Blend modes of <see cref="BlendMode"/> (Godot's <c>BaseMaterial3D.BlendMode</c> values).</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix",
+        Justification = "Godot's C# name (BaseMaterial3D.BlendModeEnum), kept for ported games.")]
+    public enum BlendModeEnum
+    {
+        /// <summary>Alpha blending: <c>src·a + dst·(1 − a)</c>.</summary>
+        Mix,
+
+        /// <summary>Additive: <c>src·a + dst</c>.</summary>
+        Add,
+    }
 }
 
 /// <summary>
