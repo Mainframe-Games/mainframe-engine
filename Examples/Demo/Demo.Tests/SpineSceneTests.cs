@@ -96,6 +96,38 @@ public sealed class SpineSceneTests : IDisposable
     }
 
     [Fact]
+    public void TheShadowIsShapedUnlessTurnedOff()
+    {
+        Tick();
+        Assert.True(Panel.ShapedShadow);
+        Assert.Equal(SpineNode.DefaultShadowAlphaThreshold, Spine.ShadowAlphaThreshold);
+        Panel.ShapedShadow = false;
+        Assert.Equal(0f, Spine.ShadowAlphaThreshold);
+    }
+
+    [Fact]
+    public void ABillboardTurnsSpineBoyBackOnlyIn3D()
+    {
+        Tick();
+        Panel.TurnedAway = true;
+        Panel.Billboard = "fixed_y";
+        Assert.Equal(new Vector3(0, SpinePanel.TurnedAwayYaw, 0), Spine.RotationDegrees);
+        Assert.Equal(BillboardMode.FixedY, Spine.Billboard);
+
+        Panel.Mode2D = true; // the pivot turns the skeleton over: no billboard, no turn
+        Tick();
+        Assert.Equal(BillboardMode.Disabled, Spine.Billboard);
+        Assert.Equal(Vector3.Zero, Spine.RotationDegrees);
+
+        Panel.Mode2D = false;
+        Tick();
+        Assert.Equal(BillboardMode.FixedY, Spine.Billboard);
+        Assert.Equal(new Vector3(0, SpinePanel.TurnedAwayYaw, 0), Spine.RotationDegrees);
+        Panel.Billboard = "enabled";
+        Assert.Equal(BillboardMode.Enabled, Spine.Billboard);
+    }
+
+    [Fact]
     public void LeavingTheSceneIn2DModeFreesTheDetachedCamera3D()
     {
         Tick();

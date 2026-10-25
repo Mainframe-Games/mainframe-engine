@@ -300,7 +300,8 @@ RmlUi debugger; Debug builds hot-reload `.rml`/`.rcss` from the project's `Asset
 Use `SpineNode` (not `SpineRenderer` directly): set `Folder` (and optionally `Animation`) and add it to the
 tree — it advances in `OnProcess` and the render server draws it and its shadows. Tree-less code uses
 `new SpineNode(renderer, folder)` + `Advance(gameTime)` + `Draw(camera, lights)`. `SpineScale` applies
-immediately; `SetAnimation` replaces track 0 (`QueueAnimation` appends).
+immediately; `SetAnimation` replaces track 0 (`QueueAnimation` appends). Shadows are alpha-tested against the atlas
+(`ShadowAlphaThreshold`, default 0.5, 0 = quads) and `Billboard` faces the camera on the CPU, shadows included (ADR 0204).
 
 ### Localization
 

@@ -147,7 +147,11 @@ sequenceDiagram
   point shadow casters; self-checks that every shadow sub-pass's ring slot holds its own matrix),
   `spine` (adds SpineBoy, content linked from `Tests/Content`), `spine-no-shadows` (Spine and shapes with
   no `ShadowSystem`: the fallback shadow set), `spine-small-scale` (the `spine` scene at `SpineScale` 0.005 with a
-  4× node scale; compared with the `spine` golden), `showcase` (mirrors the showcase fixture scene: the dev overlay with every panel expanded and a
+  4× node scale; compared with the `spine` golden), `spine-shadow` / `spine-shadow-quads` (ADR 0204: SpineBoy's
+  alpha-tested shadow under a 20° sun vs the quad shadow of `ShadowAlphaThreshold` 0), `spine-shadow-spot` /
+  `spine-shadow-omni` (the same through a spot tile and a point cube; `--count 1` quads), `spine-billboard` /
+  `spine-billboard-yaw` (a `FixedY` and an `Enabled` + `FlipX` skeleton from two camera yaws; `--count 1` edge-on),
+  `showcase` (mirrors the showcase fixture scene: the dev overlay with every panel expanded and a
   test panel, the light and axis screen gizmos, the audio bus mixer panel and the RmlUi HUD with bindings dirtied every frame, a
   streamed ambience and an orbiting doppler voice, and self-checks that both play, plus a stack of physics crates on
   single-threaded Jitter2; not used for goldens because it shows timings), `color-pipeline` (a solid-colour sRGB

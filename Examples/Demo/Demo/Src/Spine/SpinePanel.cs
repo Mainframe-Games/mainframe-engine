@@ -3,7 +3,10 @@ using MainframeEngine;
 
 namespace Demo;
 
-/// <summary>The Spine scene's controls: Camera3D ↔ Camera2D toggle and the animation picker.</summary>
+/// <summary>
+/// The Spine scene's controls: Camera3D ↔ Camera2D toggle, the animation picker, and (3D view) the shaped shadow,
+/// turning SpineBoy away from the camera and the billboard mode that turns him back (ADR 0204).
+/// </summary>
 public sealed class SpinePanel : UiDocument
 {
     /// <summary>Skeleton scale under the Camera3D: SpineBoy is ~540 skeleton units, so 0.005 x 540 = 2.7 m tall.</summary>
@@ -14,6 +17,9 @@ public sealed class SpinePanel : UiDocument
 
     /// <summary>The backdrop wall's Z: close enough behind SpineBoy that his shadow lands on it.</summary>
     public const float BackdropZ = -1.2f;
+
+    /// <summary>How far "Turned away" turns SpineBoy about Y (degrees), so that only a billboard faces him to the camera.</summary>
+    public const float TurnedAwayYaw = 60f;
 
     /// <summary>The sun lights the skeleton's +Z face (the 3D camera's side).</summary>
     public static readonly Vector3 SunRotation3D = new(-35, 40, 0);
@@ -30,6 +36,9 @@ public sealed class SpinePanel : UiDocument
     private MeshInstance3D? _backdrop;
     private bool _mode2d;
     private string _animation = "walk";
+    private bool _shapedShadow = true;
+    private bool _turnedAway;
+    private string _billboard = "off";
 
     public SpinePanel()
     {
@@ -55,6 +64,40 @@ public sealed class SpinePanel : UiDocument
         }
     }
 
+    /// <summary>Alpha-tested shadow (<see cref="SpineNode.ShadowAlphaThreshold"/> 0.5) or the attachments' quads (0).</summary>
+    public bool ShapedShadow
+    {
+        get => _shapedShadow;
+        set
+        {
+            _shapedShadow = value;
+            if (_spine is { } spine)
+                spine.ShadowAlphaThreshold = value ? SpineNode.DefaultShadowAlphaThreshold : 0f;
+        }
+    }
+
+    /// <summary>Turns SpineBoy <see cref="TurnedAwayYaw"/>° from the camera (3D view only).</summary>
+    public bool TurnedAway
+    {
+        get => _turnedAway;
+        set
+        {
+            _turnedAway = value;
+            ApplyFacing();
+        }
+    }
+
+    /// <summary>The billboard mode in the 3D view: <c>off</c>, <c>fixed_y</c> or <c>enabled</c>; the panel's select.</summary>
+    public string Billboard
+    {
+        get => _billboard;
+        set
+        {
+            _billboard = value;
+            ApplyFacing();
+        }
+    }
+
     protected override void OnReady()
     {
         var scene = _scene = Parent!.Parent!;
@@ -66,7 +109,24 @@ public sealed class SpinePanel : UiDocument
         _backdrop = scene.GetNode<MeshInstance3D>("Backdrop");
         CreateDataModel("spine")
             .Bind("mode2d", this, static d => d.Mode2D, static (d, v) => d.Mode2D = v)
-            .Bind("animation", this, static d => d._animation, static (d, v) => d.Animation = v);
+            .Bind("animation", this, static d => d._animation, static (d, v) => d.Animation = v)
+            .Bind("shaped", this, static d => d.ShapedShadow, static (d, v) => d.ShapedShadow = v)
+            .Bind("turned", this, static d => d.TurnedAway, static (d, v) => d.TurnedAway = v)
+            .Bind("billboard", this, static d => d._billboard, static (d, v) => d.Billboard = v);
+    }
+
+    // The 2D view turns the skeleton over with its pivot; a billboard would turn it back, so it is 3D-only.
+    private void ApplyFacing()
+    {
+        if (_spine is not { } spine)
+            return;
+        spine.RotationDegrees = _turnedAway && !_mode2d ? new Vector3(0, TurnedAwayYaw, 0) : Vector3.Zero;
+        spine.Billboard = _mode2d ? BillboardMode.Disabled : _billboard switch
+        {
+            "fixed_y" => BillboardMode.FixedY,
+            "enabled" => BillboardMode.Enabled,
+            _ => BillboardMode.Disabled,
+        };
     }
 
     private void SetMode(bool mode2d)
@@ -101,6 +161,7 @@ public sealed class SpinePanel : UiDocument
         spine.SpineScale = mode2d ? Scale2D : Scale3D;
         sun.RotationDegrees = mode2d ? SunRotation2D : SunRotation3D;
         backdrop.Visible = !mode2d; // the 3D view's shadow catcher only
+        ApplyFacing();
     }
 
     protected override void OnExitTree()

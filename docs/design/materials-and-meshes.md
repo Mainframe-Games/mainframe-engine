@@ -645,6 +645,7 @@ Shadows come from the casters of the view that collects them (the main view), so
 the main camera sees it. This is Godot's behaviour (`MAIN_CAM_INV_VIEW_MATRIX`), and a lit sprite's normal faces the
 camera. `FixedY` looking straight down takes its facing from the camera's right vector. `FlipH`/`FlipV` set the
 private material's `UvScale`/`UvOffset`, so cutout shadows and picking flip too. Render test: `sprite-billboard`.
+`SpineNode.Billboard` shares `Billboard.Face` (ADR 0204, [Spine → Billboards](spine.md#billboards)).
 
 ## Known issues
 

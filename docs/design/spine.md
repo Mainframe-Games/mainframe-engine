@@ -19,7 +19,7 @@ Both build triangles with `SpineGeometry` (draw order, sequences, tints, clippin
 
 | Type | File | Role |
 |---|---|---|
-| `SpineNode : VisualInstance3D` | [Nodes/SpineNode.cs](../../MainframeEngine/Src/Nodes/SpineNode.cs) | Loads the atlas and skeleton, drives animation in `OnProcess`, forwards draw calls (the design's `SpineSprite3D`) |
+| `SpineNode : VisualInstance3D` | [Nodes/SpineNode.cs](../../MainframeEngine/Src/Nodes/SpineNode.cs) | Loads the atlas and skeleton, drives animation in `OnProcess`, forwards draw calls (the design's `SpineSprite3D`); `ShadowAlphaThreshold`, `Billboard` (ADR 0204) |
 | `SpineFolder` | same file | `readonly struct`: folder → `Name`, first `*.atlas`, first `*.json` (throws if missing) |
 | `SpineRenderer` (internal) | [Rendering/Spine/SpineRenderer.cs](../../MainframeEngine/Src/Rendering/Spine/SpineRenderer.cs) | Builds vertices, owns the pipeline, buffers and descriptor sets |
 | `SpineTextureLoader` | [Rendering/Spine/SpineTextureLoader.cs](../../MainframeEngine/Src/Rendering/Spine/SpineTextureLoader.cs) | Decodes atlas pages to RGBA (StbImageSharp); `page.rendererObject = page index` |
@@ -32,6 +32,9 @@ Both build triangles with `SpineGeometry` (draw order, sequences, tints, clippin
 var boy = new SpineNode { Folder = "Assets/Models/Spine/SpineBoy", Animation = "walk", Scale = new Vector3(0.1f) };
 Root.AddChild(boy);   // the render server creates its renderer; it animates in OnProcess, draws and casts shadows
 boy.SetAnimation("run");
+boy.Billboard = BillboardMode.FixedY;   // upright, turned to each view's camera (Enabled also tilts to the view)
+boy.ShadowAlphaThreshold = 0.5f;        // the default: silhouette shadows; 0 casts the attachments' whole quads
+boy.FlipX(true);                        // mirrored, billboarded or not
 ```
 
 The skeleton data (atlas, JSON) loads on the CPU on first use (`Skeleton`, entering the tree, the first
@@ -47,16 +50,17 @@ flowchart TD
     subgraph Update["OnProcess (scene tree)"]
         U1["AnimationState.Update(dt)"] --> U2["AnimationState.Apply(Skeleton)"]
         U2 --> U3["Skeleton.Update(dt) (physics time)<br/>Skeleton.UpdateWorldTransform(UpdateType)"]
-        U3 --> U4["SpineRenderer.BuildVertices(ZSpacing, ModelMatrix)"]
-        U4 --> V[("CPU: Vertex[ ] (stride 40)<br/>+ Vector3[ ] shadow positions<br/>+ batches by atlas page")]
+        U3 --> U4["SpineRenderer.BuildVertices(ZSpacing, SpineScale × ModelMatrix, ShadowAlphaThreshold)"]
+        U4 --> V[("CPU: Vertex[ ] (stride 40)<br/>+ batches by atlas page")]
     end
     subgraph Shadow["RenderServer.RenderShadows (per light / face)"]
-        V --> S1["upload positions → frame-slot VB (once per frame)"]
-        S1 --> S2["DoubleSidedShadow2DPipeline / DoubleSidedShadowPointPipeline<br/>(no culling) push model (64/80 B), draw"]
+        V --> S0["PrepareShadowCasting(camera): shadow pose = Billboard.Face(model, Billboard, view)"]
+        S0 --> S1["upload vertices → frame-slot VB (once per BuildVertices, shared with the colour pass)"]
+        S1 --> S2["SpineCasterPipeline (alpha-tested, no culling)<br/>push model (64/80 B), atlas page at set 1 per batch, draw"]
     end
     subgraph Main["RenderServer.RenderMain"]
-        V --> M1["Frame.EnsureCamera/EnsureLights (set 0, once per frame), upload vertices"]
-        M1 --> M2["bind sets 0,1 (+ texture set 2 per batch)<br/>push model + worldNormal, CmdDraw per batch"]
+        V --> M1["Frame.EnsureCamera/EnsureLights (set 0, once per frame), upload vertices (if not yet)"]
+        M1 --> M2["bind sets 0,1 (+ texture set 2 per batch)<br/>push this view's billboarded model + worldNormal, CmdDraw per batch"]
     end
 ```
 
@@ -78,7 +82,7 @@ flowchart TD
 | `vec3 Position` | 0 |
 | `vec2 Uv` | 12 |
 | `vec4 Color` | 20 |
-| `float TextureIndex` (written, unused) | 36 |
+| `float ShadowAlphaThreshold` (the casters read `Color.a` and it as one `vec2` at 32) | 36 |
 
 ### Descriptor sets
 
@@ -96,7 +100,50 @@ depth test and write `Less`. The fragment shader discards alpha < 0.01. Pages ar
 Linear/ClampToEdge sampler: straight-alpha atlases `R8G8B8A8_SRGB`, premultiplied (`pma: true`, e.g.
 SpineBoy) `R8G8B8A8_UNORM`, which the shader un-premultiplies, decodes and re-premultiplies
 (specialization constant `kPremultipliedTexture`) — see [Color pipeline](color-pipeline.md#spine-premultiplied-alpha).
-Vertex buffers are per-frame-slot `GpuBuffer`s that grow by doubling; `Dispose` defers to the deletion queue.
+Vertex buffers are per-frame-slot `GpuBuffer`s that grow by doubling, written once per frame slot after each
+`BuildVertices` and drawn by the colour pass and the shadow casters alike; `Dispose` defers to the deletion queue.
+
+## Shadows
+
+ADR 0204. Spine casts into every shadow pass: cascades, spot atlas tiles and point cubes. It is not batched and has
+no bounds, so it is never culled per pass. The casters are `ShadowSystem.SpineCasterPipeline(point)`, built once by
+`EnsureSpineCasters` when the first renderer with a shadow system is created:
+
+- `Spine/SpineShadow2D.vk.vert` + `SpineShadow.vk.frag` for cascades and spot tiles.
+- `Spine/SpineShadowPoint.vk.{vert,frag}` for cubes (linear distance, like the other point casters).
+- No culling: a flat skeleton casts whichever side faces the light.
+
+Their layout (`SpineCasterLayout`) is the plain caster layout plus set 1:
+
+| Set | Contents |
+|---|---|
+| 0 | the light view-projection ring (dynamic offset), bound by `ShadowSystem.RecordPass`; compatible because the push ranges match the plain layouts (64 B vertex; 80 B vertex+fragment for points) |
+| 1 | the atlas page: the same descriptor set as the colour pass's set 2, from the identically defined `SpineRenderer.CreateTextureSetLayout` |
+
+The fragment discards where `atlas alpha × tint alpha < SpineNode.ShadowAlphaThreshold`. The threshold is exported, in
+the range 0–1, with a default of 0.5. It travels in each vertex: the 2D push range is full with the model matrix.
+
+- Attachments cast their silhouettes, not their quads.
+- A slot or skeleton fading out (tint alpha) fades its shadow.
+- 0 discards nothing: the quad shadows from before ADR 0204.
+- A premultiplied page's alpha is the same as a straight one's, so both atlas kinds test alike.
+
+## Billboards
+
+`SpineNode.Billboard` (`BillboardMode`, as on `Sprite3D` and `Label3D`) is done on the CPU (ADR 0199/0204):
+
+- **`FixedY`** turns the skeleton about world Y to face the camera and keeps it upright.
+- **`Enabled`** also tilts it back to meet the view.
+
+The node's position and scale (`SpineScale` included) are kept and its rotation is ignored.
+
+- **Colour pass:** `Draw(camera)` pushes `Billboard.Face(model, mode, camera.ViewMatrix)`, and the lighting normal comes
+  from that matrix. Each view sees its own facing skeleton.
+- **Shadows:** before each shadow render, `RenderServer` calls `VisualInstance3D.PrepareShadowCasting(camera)` on the
+  non-batched casters, with the camera the shadows are rendered for. The skeleton then casts from the pose that view
+  sees, as `Sprite3D` does.
+- **Flips:** `FlipX` (the skeleton's `ScaleX` sign) and a negative `SpineScale` live in the vertices, so they still
+  mirror a billboarded skeleton. `ZSpacing` stays along the billboard's +Z, toward the camera.
 
 ## Invariants
 
@@ -119,9 +166,10 @@ Vertex buffers are per-frame-slot `GpuBuffer`s that grow by doubling; `Dispose` 
   canvas blend modes, planned in [2D skeletal animation](future/skeleton-2d.md#canvas), would let `SpineSprite` honour
   slot blend modes.
 - Only `atlas.Pages[0].pma` is honoured.
-- Shadows come from the attachment triangles, not the atlas alpha (no alpha test): a region attachment casts its
-  whole quad. Casting is double-sided (`ShadowSystem.DoubleSidedShadow2DPipeline`), so the flat skeleton casts
-  whichever side faces the light.
+- Shadows are alpha-tested per pixel against the atlas (ADR 0204). Two limits remain:
+  - A skeleton has no bounds, so it is drawn into every shadow pass and never culled per pass.
+  - With several views in a frame, the shadows come from one billboarded pose: the view's that renders them.
+- The editor's selection box does not follow a billboarded skeleton.
 
 ## Related docs
 
