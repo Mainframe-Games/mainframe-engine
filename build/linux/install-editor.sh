@@ -62,4 +62,4 @@ done
 
 refresh
 echo "Installed $desktop_file"
-echo "Mainframe Engine is now in the application launcher (some desktops show it after the next log-in)."
+echo "Mainframe Editor is now in the application launcher (some desktops show it after the next log-in)."
