@@ -156,14 +156,14 @@ public sealed class AssetDatabase
     }
 
     /// <summary>
-    /// Files generated next to an asset that are part of it, not assets of their own: a canvas shader's SPIR-V and lock
-    /// (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, <c>x.gdshader.spvlock</c>, see <see cref="CanvasShaderBuild"/>) and a
-    /// light-probe bake's coefficients (<c>x.probes</c>, the data file of <c>x.mres</c>, see <see cref="LightProbeData"/>).
+    /// Files generated next to an asset that are part of it, not assets of their own: a Godot shader's SPIR-V and lock
+    /// (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, a spatial shader's other passes such as
+    /// <c>x.gdshader.depth.vert.spv</c>, and <c>x.gdshader.spvlock</c>, see <see cref="CanvasShaderBuild"/>) and a light-probe
+    /// bake's coefficients (<c>x.probes</c>, the data file of <c>x.mres</c>, see <see cref="LightProbeData"/>).
     /// </summary>
     public static bool IsBuildOutput(string fileName) =>
         fileName.EndsWith(".probes", StringComparison.OrdinalIgnoreCase)
-        || fileName.EndsWith(".gdshader.vert.spv", StringComparison.OrdinalIgnoreCase)
-        || fileName.EndsWith(".gdshader.frag.spv", StringComparison.OrdinalIgnoreCase)
+        || (fileName.EndsWith(".spv", StringComparison.OrdinalIgnoreCase) && fileName.Contains(".gdshader.", StringComparison.OrdinalIgnoreCase))
         || fileName.EndsWith(".gdshader" + CanvasShaderBuild.LockExtension, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Loads an <see cref="AssetIndex"/> file.</summary>

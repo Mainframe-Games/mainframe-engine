@@ -184,6 +184,7 @@ public sealed class SpatialShaderCompilerTests
     [InlineData("shader_type spatial;\ninstance uniform vec4 tint;", "s.gdshader(2): instance uniforms are not supported yet.")]
     [InlineData("shader_type spatial;\n#define X 1\nvoid fragment() {}", "s.gdshader(2): preprocessor directives are not supported")]
     [InlineData("shader_type spatial;\nuniform float4 x;", "s.gdshader(2): uniform type 'float4' is not supported.")]
+    [InlineData("shader_type spatial;\nuniform sampler2D t[2];", "s.gdshader(2): sampler2D arrays are not supported")]
     [InlineData("shader_type canvas_item;", "s.gdshader: only shader_type spatial is supported here (found 'canvas_item').")]
     public void ErrorsNameTheFileAndLine(string source, string expected)
     {
