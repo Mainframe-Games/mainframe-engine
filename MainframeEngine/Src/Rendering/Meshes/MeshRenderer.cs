@@ -205,6 +205,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     private int _nextMeshId = 1, _nextMaterialId = 1;
     private ulong _statsFrame;
     private int[] _visibleCasters = new int[256];
+    private MeshSkinner? _skinner;
     private bool _warnedUnsupportedMaterial;
     private bool _disposed;
 
@@ -277,7 +278,43 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     private ulong _epoch;
 
     /// <summary>Starts a frame's preparation: every view, mesh and material is rebuilt/refreshed once more.</summary>
-    public void BeginPreparation() => _epoch++;
+    public void BeginPreparation()
+    {
+        _epoch++;
+        _skinner?.BeginPreparation();
+    }
+
+    /// <summary>The compute pre-skinning pass (ADR 0207; created with the first skinned instance).</summary>
+    internal MeshSkinner? Skinner => _skinner;
+
+    /// <summary>
+    /// Records this frame's compute pre-skinning of every skinned instance the frame's views prepared (ADR 0207): call
+    /// after <c>BeginFrame</c>, with no render pass active, before the shadow pass (<see cref="RenderServer.SkinMeshes"/>).
+    /// </summary>
+    public void DispatchSkinning(CommandBuffer cb) => _skinner?.Dispatch(cb);
+
+    // A skinned node's per-instance view (its frame's skinned vertices), queued for this frame's skinning pass.
+    private MeshGpu SyncSkin(GeometryInstance3D node, MeshGpu mesh, SkinState pose)
+    {
+        var skinner = _skinner ??= new MeshSkinner(_ctx);
+        var skin = node.GpuSkin;
+        if (skin is not null && !ReferenceEquals(skin.Source, mesh))
+        {
+            skinner.Release(skin);
+            skin = null;
+        }
+
+        skin ??= node.GpuSkin = skinner.Create(mesh, _nextMeshId++);
+        if (skin.SourceGeneration != mesh.Generation)
+        {
+            skin.SourceGeneration = mesh.Generation;
+            skin.View.SyncFromSource();
+        }
+
+        skin.Pose = pose;
+        skinner.Queue(skin, CurrentFrame);
+        return skin.View;
+    }
 
     // ── Node resources ─────────────────────────────────────────────────────────
 
@@ -389,6 +426,12 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ReleaseMaterial(extra.Material);
         node.GpuExtraPasses = [];
         node.ResolvedOverlay = null;
+        if (node.GpuSkin is { } skin)
+        {
+            _skinner?.Release(skin);
+            node.GpuSkin = null;
+        }
+
         if (node.GpuMesh is { } mesh)
             ReleaseMesh(mesh);
         node.GpuMesh = null;
@@ -688,7 +731,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             var pass = shaders switch
             {
                 ShaderSetId.MeshObjectId => _idPassPrototype,
-                ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor => PrepassRenderPass,
+                ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor or ShaderSetId.MeshDepthSkinned => PrepassRenderPass,
                 _ => _ctx.RenderPass,
             };
             entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass, streams, prepassed));
@@ -740,6 +783,11 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
             Stats.Instances++;
             var mesh = node.GpuMesh!;
+            // ADR 0207: a skinned instance draws its own pre-skinned vertices (a per-instance view of the mesh) and is
+            // culled with its posed bounds.
+            var pose = mesh.IsSkinned ? node.PrepareSkin(CurrentFrame) : null;
+            if (pose is not null)
+                mesh = SyncSkin(node, mesh, pose);
             var model = Billboard.Face(node.ModelMatrix, node.RenderBillboard, viewMatrix);
             var mirrored = Determinant3(model) < 0f;
             var materials = node.GpuMaterials;
@@ -758,7 +806,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             }
             else
             {
-                bounds = mesh.Bounds.Transform(model);
+                bounds = (pose?.Bounds ?? mesh.Bounds).Transform(model);
             }
 
             if (node.CustomAabb is { } custom)
@@ -1040,7 +1088,10 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             }
 
             var range = item.Mesh.Surfaces[item.Surface];
-            var pipeline = GetPipeline(material, material.DepthShaders, item.Mirrored, streams: range.HasStreams).Pipeline;
+            // ADR 0207: a skinned instance's previous pose comes from last frame's skinned vertices (binding 5).
+            var skinned = item.Mesh.Skin is not null && !range.HasStreams && material.DepthShaders == ShaderSetId.MeshDepth;
+            var pipeline = GetPipeline(material, skinned ? ShaderSetId.MeshDepthSkinned : material.DepthShaders, item.Mirrored,
+                streams: range.HasStreams).Pipeline;
             if (pipeline.Handle != boundPipeline.Handle)
             {
                 vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
@@ -1061,6 +1112,12 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             {
                 BindMesh(vk, cb, item.Mesh);
                 boundMesh = item.Mesh;
+            }
+
+            if (skinned)
+            {
+                var previousVertices = (item.Mesh.Skin!.Previous ?? item.Mesh.Vertices!).Handle;
+                vk.CmdBindVertexBuffers(cb, VertexLayouts.PreviousSkinnedBinding, 1, &previousVertices, &zero);
             }
 
             // A multimesh draws its own instances, at binding 1 and (static: no previous transforms) binding 3.
@@ -1487,6 +1544,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
         var foliage = key.Shaders == ShaderSetId.MeshDepthFoliage;
         var impostor = key.Shaders == ShaderSetId.MeshDepthImpostor;
+        var skinned = key.Shaders == ShaderSetId.MeshDepthSkinned; // ADR 0207: last frame's skinned position at binding 5
         var streams = key.VertexLayout == VertexLayoutId.MeshInstancedExt;
         var constants = stackalloc int[2] { (int)key.Alpha, streams ? 1 : 0 };
         var entries = stackalloc SpecializationMapEntry[2]
@@ -1497,15 +1555,18 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         var specialization = new SpecializationInfo { MapEntryCount = 2, PMapEntries = entries, DataSize = 2 * sizeof(int), PData = constants };
         var vertex = foliage ? "Shaders/Foliage/FoliageDepth.vk.vert.spv"
             : impostor ? "Shaders/Impostor/ImpostorDepth.vk.vert.spv"
+            : skinned ? "Shaders/Mesh/MeshDepthSkinned.vk.vert.spv"
             : streams ? "Shaders/Mesh/MeshDepthExt.vk.vert.spv"
             : "Shaders/Mesh/MeshDepth.vk.vert.spv";
         var attributes = foliage ? VertexLayouts.DepthFoliageAttributes : impostor ? VertexLayouts.ImpostorDepthAttributes
+            : skinned ? VertexLayouts.DepthSkinnedAttributes
             : streams ? VertexLayouts.DepthExtAttributes : VertexLayouts.DepthAttributes;
         var fragment = foliage ? "Shaders/Foliage/FoliageDepth.vk.frag.spv"
             : impostor ? "Shaders/Impostor/ImpostorDepth.vk.frag.spv"
             : "Shaders/Mesh/MeshDepth.vk.frag.spv";
         return PipelineBuilder.Create(_ctx, state, _pipelineLayout, new RenderPass(key.RenderPass), vertex, fragment,
-            foliage ? VertexLayouts.DepthFoliageBindings : streams ? VertexLayouts.DepthExtBindings : VertexLayouts.DepthBindings, attributes,
+            foliage ? VertexLayouts.DepthFoliageBindings : skinned ? VertexLayouts.DepthSkinnedBindings
+                : streams ? VertexLayouts.DepthExtBindings : VertexLayouts.DepthBindings, attributes,
             $"mesh prepass ({key.Shaders}, {key.Alpha}, cull {key.Cull}{(key.Mirrored ? ", mirrored" : "")}{(streams ? ", streams" : "")})",
             &specialization);
     }
@@ -1558,6 +1619,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             texture.Release();
         _textures.Clear();
         _instances.Dispose();
+        _skinner?.Dispose();
         _materialSets.Dispose();
         Pipelines.Dispose();
         _whiteSrgb.Dispose();

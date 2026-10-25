@@ -22,6 +22,9 @@ internal sealed class MeshGpu
     private readonly IVulkanContext _ctx;
     private int _uploadedVersion;
 
+    // A skinned instance's view of a shared mesh (ADR 0207): its own vertices, the source's indices and streams.
+    private MeshGpu? _source;
+
     public MeshGpu(IVulkanContext ctx, Mesh mesh, int id)
     {
         _ctx = ctx;
@@ -46,6 +49,21 @@ internal sealed class MeshGpu
     public GpuBuffer? Indices { get; private set; }
 
     /// <summary>
+    /// The compute pre-skinning source (<see cref="SkinVertex"/> per vertex, a storage buffer; ADR 0207): uploaded with the
+    /// mesh when a surface is skinned, else null.
+    /// </summary>
+    public GpuBuffer? SkinSource { get; private set; }
+
+    /// <summary>True when a surface has skinning weights (<see cref="SkinSource"/> exists).</summary>
+    public bool IsSkinned => SkinSource is not null;
+
+    /// <summary>Vertices of every surface.</summary>
+    public int VertexCount => _vertexCount;
+
+    /// <summary>For a skinned instance's view: its skinning state (the view's vertices are its frame's output).</summary>
+    public SkinnedMeshGpu? Skin { get; set; }
+
+    /// <summary>
     /// The second vertex stream (<see cref="MeshVertexExt"/>, binding 2) covering every vertex of the mesh: uploaded
     /// when a surface has colours or custom0, or on demand (<see cref="EnsureStreams"/>) for a material that reads it.
     /// </summary>
@@ -64,9 +82,41 @@ internal sealed class MeshGpu
     /// <summary>Bumped on every re-upload (nodes refresh their per-surface materials).</summary>
     public int Generation { get; private set; }
 
+    /// <summary>
+    /// A per-instance view of <paramref name="source"/> for a skinned instance: drawn with the instance's skinned vertices
+    /// (<see cref="SetSkinnedVertices"/>; the bind pose until the first dispatch) and the source's indices and streams.
+    /// </summary>
+    public static MeshGpu CreateSkinnedView(IVulkanContext ctx, MeshGpu source, int id)
+    {
+        var view = new MeshGpu(ctx, source.Mesh, id) { _source = source };
+        view.SyncFromSource();
+        return view;
+    }
+
+    /// <summary>A view takes the source's current buffers and ranges (after the source re-uploaded).</summary>
+    public void SyncFromSource()
+    {
+        if (_source is not { } source)
+            return;
+        Vertices = source.Vertices;
+        Indices = source.Indices;
+        Streams = source.Streams;
+        WindStreams = source.WindStreams;
+        Surfaces = source.Surfaces;
+        Bounds = source.Bounds;
+        _vertexCount = source._vertexCount;
+        Generation = source.Generation;
+        HasGeometry = source.HasGeometry;
+    }
+
+    /// <summary>A view draws <paramref name="vertices"/> (this frame's skinned output) from now on.</summary>
+    public void SetSkinnedVertices(GpuBuffer vertices) => Vertices = vertices;
+
     /// <summary>Uploads the mesh if it changed since the last upload. Returns false when it has nothing to draw.</summary>
     public bool Update()
     {
+        if (_source is not null)
+            return Vertices is not null; // a view never uploads: its source does
         var version = Mesh.Version;
         if (version == _uploadedVersion)
             return Vertices is not null;
@@ -135,6 +185,31 @@ internal sealed class MeshGpu
 
         if (streams)
             UploadStreams();
+
+        var skinned = false;
+        for (var s = 0; s < surfaceCount; s++)
+            skinned |= Mesh.GetSurface(s).IsSkinned;
+        if (skinned)
+            UploadSkinSource();
+    }
+
+    private void UploadSkinSource()
+    {
+        var data = ArrayPool<SkinVertex>.Shared.Rent(_vertexCount);
+        try
+        {
+            for (var s = 0; s < Surfaces.Length; s++)
+            {
+                var surface = Mesh.GetSurface(s);
+                surface.WriteSkinVertices(data.AsSpan(Surfaces[s].VertexOffset, surface.VertexCount));
+            }
+
+            SkinSource = GpuBuffer.CreateStatic<SkinVertex>(_ctx, data.AsSpan(0, _vertexCount), BufferUsageFlags.StorageBufferBit);
+        }
+        finally
+        {
+            ArrayPool<SkinVertex>.Shared.Return(data);
+        }
     }
 
     /// <summary>
@@ -143,6 +218,14 @@ internal sealed class MeshGpu
     /// </summary>
     public void EnsureStreams()
     {
+        if (_source is { } source)
+        {
+            source.EnsureStreams();
+            Streams = source.Streams;
+            WindStreams = source.WindStreams;
+            return;
+        }
+
         if (Streams is null && Vertices is not null)
             UploadStreams();
     }
@@ -182,9 +265,17 @@ internal sealed class MeshGpu
         }
     }
 
-    /// <summary>Releases the buffers (deferred until frames in flight finish).</summary>
+    /// <summary>Releases the buffers (deferred until frames in flight finish). A view only drops its references.</summary>
     public void Release()
     {
+        if (_source is not null)
+        {
+            Vertices = Indices = Streams = WindStreams = null;
+            return;
+        }
+
+        SkinSource?.Dispose();
+        SkinSource = null;
         Vertices?.Dispose();
         Indices?.Dispose();
         Streams?.Dispose();
@@ -529,7 +620,7 @@ internal sealed class MaterialGpu
     // [shader set × extra pass × mirrored × vertex streams × prepassed] → pipeline; reset when the state changes.
     public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 16];
 
-    public const int ShaderSetCount = 13;
+    public const int ShaderSetCount = 14;
 
     public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false, bool prepassed = false) =>
         ((((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0)) * 2 + (prepassed ? 1 : 0);

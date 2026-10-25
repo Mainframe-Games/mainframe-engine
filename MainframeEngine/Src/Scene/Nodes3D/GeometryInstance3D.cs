@@ -102,6 +102,9 @@ public abstract class GeometryInstance3D : VisualInstance3D
     /// <summary>The mesh to draw this frame (null or empty: nothing).</summary>
     internal abstract Mesh? GetRenderMesh();
 
+    /// <summary>The skin palette and posed bounds of a skinned instance this frame (ADR 0207); null for static geometry.</summary>
+    internal virtual SkinState? PrepareSkin(ulong frame) => null;
+
     /// <summary>The material of surface <paramref name="surface"/>: the override, else the mesh's, else the default.</summary>
     internal virtual Material GetRenderMaterial(Mesh mesh, int surface) =>
         MaterialOverride ?? mesh.GetSurfaceMaterial(surface) ?? StandardMaterial3D.Default;
@@ -129,6 +132,9 @@ public abstract class GeometryInstance3D : VisualInstance3D
     /// <summary>Last frame's model matrix for motion vectors (ADR 0163), tracked while the depth prepass draws the node.</summary>
     internal MotionHistory Motion;
 
+    /// <summary>A skinned instance's own pre-skinned vertex buffers (ADR 0207), else null.</summary>
+    internal SkinnedMeshGpu? GpuSkin;
+
     protected override void ReleaseRenderResources()
     {
         RenderServer?.ReleaseGeometry(this); // also the instance buffer of a MultiMeshInstance3D
@@ -149,14 +155,51 @@ public enum GIMode : byte
     Dynamic,
 }
 
-/// <summary>Draws a <see cref="MainframeEngine.Mesh"/> (Godot's <c>MeshInstance3D</c>): primitives, imported models, procedural geometry.</summary>
+/// <summary>
+/// Draws a <see cref="MainframeEngine.Mesh"/> (Godot's <c>MeshInstance3D</c>): primitives, imported models, procedural
+/// geometry. A mesh with skinning weights (<see cref="MeshSurface.Joints"/>) deforms with the <see cref="Skeleton3D"/>
+/// named by <see cref="Skeleton"/> (ADR 0207): the renderer pre-skins it on the GPU each frame, so shadows, overlays, the
+/// depth prepass and picking all see the pose.
+/// </summary>
 [EditorIcon("cube")]
 public class MeshInstance3D : GeometryInstance3D
 {
     [Export]
     public Mesh? Mesh { get; set; }
 
+    /// <summary>The skeleton a skinned mesh follows (Godot's <c>skeleton</c>; default the parent). Ignored for static meshes.</summary>
+    [Export(NodeType = typeof(Skeleton3D))]
+    public NodePath Skeleton { get; set; } = "..";
+
+    /// <summary>Maps the mesh's joints to the skeleton's bones (null: joint <c>i</c> is bone <c>i</c>, bound at its rest).</summary>
+    [Export]
+    public Skin? Skin { get; set; }
+
     internal override Mesh? GetRenderMesh() => Mesh;
+
+    // Render-server state: the palette and posed bounds (built once per frame while the instance is drawn).
+    internal SkinState? SkinPose;
+
+    /// <summary>The skeleton a skinned mesh deforms with this frame (null: not skinned, or no skeleton found).</summary>
+    public Skeleton3D? GetSkeleton() =>
+        Mesh is { IsSkinned: true } && !Skeleton.IsEmpty ? GetNodeOrNull<Skeleton3D>(Skeleton) : null;
+
+    /// <summary>
+    /// Builds the skin palette and posed bounds for the current pose (once per <paramref name="frame"/>); null when the
+    /// instance is not skinned this frame.
+    /// </summary>
+    internal override SkinState? PrepareSkin(ulong frame)
+    {
+        if (Mesh is not { } mesh || GetSkeleton() is not { } skeleton)
+            return null;
+        var state = SkinPose ??= new SkinState();
+        if (state.PreparedFrame == frame)
+            return state.JointCount > 0 ? state : null;
+        state.PreparedFrame = frame;
+        Matrix4x4.Invert(ModelMatrix, out var meshInverse);
+        var skeletonToMesh = skeleton.ModelMatrix * meshInverse;
+        return state.Update(mesh, Skin, skeleton, skeletonToMesh) ? state : null;
+    }
 }
 
 /// <summary>How a <see cref="Sprite3D"/> treats its texture's alpha.</summary>

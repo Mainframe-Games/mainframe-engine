@@ -196,6 +196,26 @@ internal static class VertexLayouts
     public static readonly VertexInputAttributeDescription[] DepthAttributes =
         [MeshInstancedAttributes[0], .. MeshInstancedAttributes[2..7], .. PreviousModelAttributes];
 
+    /// <summary>
+    /// Binding 5 (ADR 0207): a skinned instance's previous frame-slot vertex buffer (<see cref="MeshVertex"/> stride), whose
+    /// position is last frame's pose for the velocity (<c>Mesh/MeshDepthSkinned.vk.vert</c>, location 14).
+    /// </summary>
+    public const uint PreviousSkinnedBinding = 5;
+
+    /// <summary>The skinned prepass: <see cref="DepthBindings"/> + last frame's skinned vertices.</summary>
+    public static readonly VertexInputBindingDescription[] DepthSkinnedBindings =
+    [
+        .. DepthBindings,
+        new() { Binding = PreviousSkinnedBinding, Stride = MeshVertex.Size, InputRate = VertexInputRate.Vertex },
+    ];
+
+    /// <summary><c>Mesh/MeshDepthSkinned.vk.vert</c>: <see cref="DepthAttributes"/> + last frame's skinned position.</summary>
+    public static readonly VertexInputAttributeDescription[] DepthSkinnedAttributes =
+    [
+        .. DepthAttributes,
+        new() { Location = 14, Binding = PreviousSkinnedBinding, Format = Format.R32G32B32Sfloat, Offset = 0 },
+    ];
+
     /// <summary><c>Mesh/MeshDepthExt.vk.vert</c>: <see cref="DepthAttributes"/> + colour.</summary>
     public static readonly VertexInputAttributeDescription[] DepthExtAttributes = [.. DepthAttributes, ColorAttribute];
 

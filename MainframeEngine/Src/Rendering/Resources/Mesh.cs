@@ -50,6 +50,18 @@ public abstract class Mesh : Resource
         }
     }
 
+    /// <summary>True when any surface has skinning weights (<see cref="MeshSurface.IsSkinned"/>).</summary>
+    public bool IsSkinned
+    {
+        get
+        {
+            for (var i = 0; i < SurfaceCount; i++)
+                if (GetSurface(i).IsSkinned)
+                    return true;
+            return false;
+        }
+    }
+
     /// <summary>Total vertex count of every surface.</summary>
     public int VertexCount
     {
@@ -90,6 +102,8 @@ public sealed class MeshSurface : Resource
     private Vector4[] _custom0 = [];
     private Vector4[] _custom1 = [];
     private Vector4[] _custom2 = [];
+    private int[] _joints = [];
+    private Vector4[] _weights = [];
     private Material? _material;
     private int _version = 1;
     private int _boundsVersion;
@@ -152,6 +166,23 @@ public sealed class MeshSurface : Resource
     [Export]
     public Vector4[] Custom2 { get => _custom2; set { _custom2 = value ?? []; Touch(); } }
 
+    /// <summary>
+    /// Skinning (Godot's <c>ARRAY_BONES</c>, ADR 0207): four joint indices per vertex (into the instance's <see cref="Skin"/>,
+    /// or the skeleton's bones without one), with <see cref="Weights"/>; empty for a static surface.
+    /// </summary>
+    [Export]
+    public int[] Joints { get => _joints; set { _joints = value ?? []; Touch(); } }
+
+    /// <summary>
+    /// Skinning weights (Godot's <c>ARRAY_WEIGHTS</c>): one per vertex, the four influences of its <see cref="Joints"/>,
+    /// summing to 1 (a vertex with all-zero weights is not skinned); empty for a static surface.
+    /// </summary>
+    [Export]
+    public Vector4[] Weights { get => _weights; set { _weights = value ?? []; Touch(); } }
+
+    /// <summary>True when the surface has <see cref="Joints"/> and <see cref="Weights"/> (a skeleton deforms it).</summary>
+    public bool IsSkinned => _weights.Length != 0 && _weights.Length == _positions.Length && _joints.Length == _positions.Length * 4;
+
     /// <summary>True when the surface has <see cref="Colors"/> or <see cref="Custom0"/> (it uploads the second vertex stream).</summary>
     public bool HasVertexStreams => _colors.Length != 0 || _custom0.Length != 0;
 
@@ -206,6 +237,11 @@ public sealed class MeshSurface : Resource
             throw new InvalidDataException($"Surface has {_custom1.Length} custom1 values for {_positions.Length} positions.");
         if (_custom2.Length != 0 && _custom2.Length != _positions.Length)
             throw new InvalidDataException($"Surface has {_custom2.Length} custom2 values for {_positions.Length} positions.");
+        if ((_joints.Length != 0 || _weights.Length != 0) && !IsSkinned)
+            throw new InvalidDataException($"Surface has {_joints.Length} joint indices and {_weights.Length} weights for {_positions.Length} positions (4 joints and one weight vector per vertex).");
+        foreach (var joint in _joints)
+            if ((uint)joint >= Skin.MaxJoints)
+                throw new InvalidDataException($"Surface joint index {joint} is out of range (at most {Skin.MaxJoints} joints).");
         foreach (var index in _indices)
             if ((uint)index >= (uint)_positions.Length)
                 throw new InvalidDataException($"Surface index {index} is out of range (vertex count {_positions.Length}).");
@@ -248,6 +284,27 @@ public sealed class MeshSurface : Resource
         var custom2 = _custom2.Length == _positions.Length ? _custom2 : null;
         for (var i = 0; i < _positions.Length; i++)
             destination[i] = new MeshVertexWind(custom1 is null ? default : custom1[i], custom2 is null ? default : custom2[i]);
+    }
+
+    /// <summary>
+    /// Writes the compute pre-skinning source (<see cref="SkinVertex"/>, ADR 0207): bind-pose position, normal and UV, the
+    /// four joints and weights (all zero for a static surface: the pass copies the vertex). Missing normals are generated.
+    /// </summary>
+    internal void WriteSkinVertices(Span<SkinVertex> destination)
+    {
+        if (destination.Length < _positions.Length)
+            throw new ArgumentException("Destination is smaller than the vertex count.", nameof(destination));
+        var normals = _normals;
+        if (normals.Length != _positions.Length)
+            normals = MeshGeometry.ComputeSmoothNormals(_positions, _indices);
+        var skinned = IsSkinned;
+        for (var i = 0; i < _positions.Length; i++)
+        {
+            var uv = _uvs.Length == _positions.Length ? _uvs[i] : default;
+            destination[i] = skinned
+                ? new SkinVertex(_positions[i], normals[i], uv, _joints[i * 4], _joints[i * 4 + 1], _joints[i * 4 + 2], _joints[i * 4 + 3], _weights[i])
+                : new SkinVertex(_positions[i], normals[i], uv, 0, 0, 0, 0, Vector4.Zero);
+        }
     }
 
     private void Touch()

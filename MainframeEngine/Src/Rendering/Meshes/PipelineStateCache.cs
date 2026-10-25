@@ -62,6 +62,12 @@ public enum ShaderSetId : byte
     /// water-scene pipeline layout (soft against the scene copy).
     /// </summary>
     MeshSpray,
+
+    /// <summary>
+    /// The depth prepass of a skinned instance (ADR 0207): <c>Mesh/MeshDepthSkinned.vk.vert</c> (last frame's skinned
+    /// position at binding 5 for the velocity) + <c>Mesh/MeshDepth.vk.frag</c>.
+    /// </summary>
+    MeshDepthSkinned,
 }
 
 /// <summary>
@@ -129,7 +135,7 @@ public readonly record struct PipelineKey(
     }
 
     /// <summary>True for the depth prepass's shader sets (ADR 0163).</summary>
-    public bool IsDepthPrepass => Shaders is ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor;
+    public bool IsDepthPrepass => Shaders is ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor or ShaderSetId.MeshDepthSkinned;
 }
 
 /// <summary>A cached pipeline and its small dense id (used in draw sort keys).</summary>
