@@ -105,8 +105,10 @@ public sealed class Shader : Resource
             throw new InvalidOperationException("The shader has no program.");
         var linearize = Spatial is not null;
         block.Clear();
-        foreach (var u in Uniforms)
+        var uniforms = Uniforms;
+        for (var i = 0; i < uniforms.Count; i++) // no enumerator: a uniform set every frame (a hit flash) allocates nothing here
         {
+            var u = uniforms[i];
             if (u.IsSampler)
                 continue;
             var target = block.Slice(u.Offset, u.Size);
@@ -409,7 +411,7 @@ public static partial class CanvasShaderBuild
                 process.WaitForExit();
                 if (process.ExitCode == 0)
                     return;
-                if (process.ExitCode > 128 && errors.Trim().Length == 0 && attempt < 4)
+                if (process.ExitCode > 128 && errors.Trim().Length == 0 && attempt < 6)
                     continue;
                 throw new InvalidOperationException($"slangc failed for {source} ({stage}, exit code {process.ExitCode}):\n{errors.Replace(temp, source + "(" + stage + ")", StringComparison.Ordinal)}");
             }

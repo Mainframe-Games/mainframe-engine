@@ -262,7 +262,10 @@ public static partial class SpatialShaderCompiler
                 throw new FormatException($"{at}: {s[..s.IndexOf(' ', StringComparison.Ordinal)]} uniforms are not supported yet.");
             if (s.StartsWith("uniform ", StringComparison.Ordinal))
             {
-                parsedUniforms.Add(CanvasShaderCompiler.ParseUniform(s, at));
+                var uniform = CanvasShaderCompiler.ParseUniform(s, at);
+                if (uniform.Type == ShaderUniformType.Sampler2D && uniform.ArrayLength > 0)
+                    throw new FormatException($"{at}: sampler2D arrays are not supported (declare the samplers one by one).");
+                parsedUniforms.Add(uniform);
                 uniformLines.Add(line);
                 continue;
             }

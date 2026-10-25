@@ -470,6 +470,7 @@ public sealed class SerializationTests : IDisposable
         File.WriteAllBytes(ContentPath("wave.gdshader.vert.spv"), [1]);
         File.WriteAllBytes(ContentPath("wave.gdshader.frag.spv"), [1]);
         File.WriteAllText(ContentPath("wave.gdshader.spvlock"), "x");
+        File.WriteAllBytes(ContentPath("wave.gdshader.shadow-point.vert.spv"), [1]); // a spatial shader's other passes (ADR 0205)
         // Nor is a light-probe bake's coefficients file, which belongs to its .mres.
         File.WriteAllBytes(ContentPath("lighting.probes"), [1]);
         // Nor is a file being written (a save's or a bake's temporary file); a .meta left for one that is gone is removed.
@@ -486,6 +487,7 @@ public sealed class SerializationTests : IDisposable
         Assert.False(File.Exists(ContentPath("wave.gdshader.vert.spv.meta")));
         Assert.False(File.Exists(ContentPath("wave.gdshader.frag.spv.meta")));
         Assert.False(File.Exists(ContentPath("wave.gdshader.spvlock.meta")));
+        Assert.False(File.Exists(ContentPath("wave.gdshader.shadow-point.vert.spv.meta")));
         Assert.False(File.Exists(ContentPath("lighting.probes.meta")));
         Assert.False(File.Exists(ContentPath("theme.ogg.baking.wav.tmp.meta")));
         Assert.False(File.Exists(ContentPath("old.ogg.baking.wav.tmp.meta")));
