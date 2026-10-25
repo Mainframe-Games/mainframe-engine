@@ -878,3 +878,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - **Tests/assets:** `SkinnedCharacter` generates `Tests/Assets/Models/Character/character.glb`; unit suites under
   `Tests/MainframeEngine.Tests/Animation/`; render tests `skinned` (moltenvk golden) and `skinned-crowd` (0 B, 120 fps);
   Demo scene `animation_3d`. Lavapipe golden for `skinned` still to record.
+
+### 2026-10-25 — Spatial shaders (#121, ADR 0205)
+- `shader_type spatial` `.gdshader`s load as `ShaderMaterial`s on 3D meshes: `SpatialShaderCompiler` (five passes:
+  colour, depth prepass + velocity, two shadow casters, object IDs), `MeshRenderer.Spatial.cs` (a set and pipeline layout per
+  shader, `PipelineKey.UserShader`), `ShaderParameters` in `.mres`, `MultiMesh` custom data (`INSTANCE_CUSTOM`).
+- `just shaders-check` also checks committed `.gdshader` SPIR-V; `mf-shaders translate` prints the Slang.
+- Render tests `spatial-shaders`, `spatial-shaders-taa` (+ allocation gate); lavapipe goldens still to record.

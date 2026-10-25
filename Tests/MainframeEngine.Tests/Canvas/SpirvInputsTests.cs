@@ -76,9 +76,10 @@ public sealed class SpirvInputsTests
     public void CanvasShadersCompileWithTheEngineFlagsGlslSyntaxAndNoNames()
     {
         // -obfuscate drops every OpName: MoltenVK's SPIRV-Cross would otherwise carry a user's local named like a Metal
-        // keyword (vertex, device, …) into the Metal source, which then fails to compile.
+        // keyword (vertex, device, …) into the Metal source, which then fails to compile. 41012: the shadow kernels' Gather
+        // (spatial shaders include shadows.slang, ADR 0205), as build/Shaders.targets.
         Assert.Equal(
-            ["in.slang", "-allow-glsl", "-obfuscate", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
+            ["in.slang", "-allow-glsl", "-obfuscate", "-warnings-disable", "41012", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
              "-entry", "main", "-stage", "fragment", "-I", "include", "-o", "out.spv"],
             CanvasShaderBuild.SlangcArguments("in.slang", "fragment", "include", "out.spv"));
     }

@@ -92,7 +92,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;
-  `MeshRenderer` batching, `PipelineStateCache`, picking, sub-viewports; `Src/Resources/Import/` — texture/model (Assimp) importers
+  `MeshRenderer` batching, `PipelineStateCache`, picking, sub-viewports; `Src/Resources/Import/` — texture/model (Assimp) importers;
+  `Rendering/Spatial/` — Godot `shader_type spatial` shaders as `ShaderMaterial`s on meshes (ADR 0205: `SpatialShaderCompiler`,
+  `MeshRenderer.Spatial.cs`; SPIR-V built by `just canvas-shaders` and checked by `just shaders-check`)
 - `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`
 - `MainframeEngine/Src/Audio/` — `AudioServer` (SoundFlow; null device when there is no audio device), buses,
   `AudioStream`, audio nodes (`AudioPlayer`/`2D`/`3D`, `AudioListener3D`); adaptive music in `Music/` (`MusicDirector`,

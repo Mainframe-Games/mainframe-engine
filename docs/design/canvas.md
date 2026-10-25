@@ -61,6 +61,8 @@ unread fragment inputs, and an unread vertex output is a validation warning; `Sp
 `just canvas-shaders <folders>` / `just canvas-shaders-check`. `ShaderMaterial.SetShaderParameter(name, value)` sets
 uniforms (vectors as `System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for samplers).
 Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes.
+The same `Shader`/`ShaderMaterial` carry Godot `shader_type spatial` shaders to 3D meshes ([Shaders → Spatial
+shaders](shaders.md#spatial-shaders), ADR 0205); `mf-shaders` builds both kinds.
 
 ## Camera and stretch
 
