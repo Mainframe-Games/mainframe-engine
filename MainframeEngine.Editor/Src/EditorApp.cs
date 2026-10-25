@@ -84,6 +84,7 @@ public sealed class EditorApp : Engine, IEditorHost
             MaxFrames = options.MaxFrames,
             EnableFrameCapture = options.EnableFrameCapture,
             IconPath = EditorBrand.WindowIconPath,
+            AppId = EditorBrand.AppId,
             DevOverlayVisible = false,
             // Audio previews (AudioPreview) on the engine's default bus layout: the project's layout is not applied, so a
             // project that mutes or ducks a bus cannot silence previews. Scenes stay silent (edit mode). No device: the

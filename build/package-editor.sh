@@ -51,6 +51,10 @@ case "$rid" in
     mkdir -p "$staging/$name" && cp -R "$publish_dir"/. "$staging/$name/"
     chmod +x "$staging/$name/MainframeEngine.Editor"
     if [[ -f "$staging/$name/mfplughost" ]]; then chmod +x "$staging/$name/mfplughost"; fi
+    # Launcher entry: ./install.sh writes the .desktop file (absolute paths, so it runs where the folder was extracted).
+    cp "$(dirname "$0")/linux/install-editor.sh" "$staging/$name/install.sh"
+    cp "$(dirname "$0")/linux/com.mainframegames.editor.desktop.in" "$staging/$name/"
+    chmod +x "$staging/$name/install.sh"
     tar -C "$staging" -czf "$out_dir/${name}.tar.gz" "$name"
     ;;
   *) echo "unsupported RID: $rid" >&2; exit 1 ;;
