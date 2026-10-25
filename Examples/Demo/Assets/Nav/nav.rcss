@@ -7,7 +7,7 @@ body.hud { pointer-events: none; }
 }
 #nav-logo { width: 28dp; height: 28dp; margin-right: 12dp; }
 #nav-tabs { display: flex; flex: 1; }
-.nav-tab { margin-right: 4dp; padding: 6dp 12dp; border-radius: 6dp; color: #c7d2fe; background-color: transparent; }
+.nav-tab { margin-right: 2dp; padding: 6dp 8dp; white-space: nowrap; border-radius: 6dp; color: #c7d2fe; background-color: transparent; }
 .nav-tab:hover { background-color: #ffffff14; }
 .nav-tab.active { background-color: #2563eb; color: #ffffff; }
 #nav-right { display: flex; align-items: center; }
