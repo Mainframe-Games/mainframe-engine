@@ -1,8 +1,11 @@
+using System.Numerics;
+
 namespace MainframeEngine;
 
 /// <summary>
-/// Many copies of one <see cref="MainframeEngine.Mesh"/>, each with its own transform (Godot's <c>MultiMesh</c>,
-/// transforms only), drawn by a <see cref="MultiMeshInstance3D"/> as one render item: one instanced draw per surface
+/// Many copies of one <see cref="MainframeEngine.Mesh"/>, each with its own transform and, with <see cref="UseCustomData"/>,
+/// a custom <see cref="System.Numerics.Vector4"/> that spatial shaders read as <c>INSTANCE_CUSTOM</c> (Godot's <c>MultiMesh</c>;
+/// no per-instance colour yet), drawn by a <see cref="MultiMeshInstance3D"/> as one render item: one instanced draw per surface
 /// from a persistent GPU instance buffer that is rewritten only when the transforms change (foliage, scatter).
 /// </summary>
 /// <remarks>
@@ -16,6 +19,7 @@ namespace MainframeEngine;
 public sealed class MultiMesh : Resource
 {
     private Transform3D[] _transforms = [];
+    private Vector4[] _customData = [];
     private int _version = 1;
     private int _contentVersion = 1;
     private int _boundsVersion;
@@ -47,6 +51,7 @@ public sealed class MultiMesh : Resource
             if (value == _transforms.Length) return;
             _transforms = new Transform3D[value];
             _transforms.AsSpan().Fill(Transform3D.Identity);
+            _customData = UseCustomData ? new Vector4[value] : [];
             Touch();
         }
     }
@@ -92,8 +97,70 @@ public sealed class MultiMesh : Resource
         set
         {
             _transforms = value ?? [];
+            if (UseCustomData && _customData.Length != _transforms.Length)
+                Array.Resize(ref _customData, _transforms.Length);
             Touch();
         }
+    }
+
+    /// <summary>
+    /// Whether instances carry custom data (Godot's <c>use_custom_data</c>): a <see cref="System.Numerics.Vector4"/> per
+    /// instance, <c>INSTANCE_CUSTOM</c> in a spatial shader's <c>vertex()</c> (ADR 0205; uploaded as half floats). Turning it
+    /// on clears the data to zero.
+    /// </summary>
+    [Export]
+    public bool UseCustomData
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+            field = value;
+            _customData = value ? new Vector4[_transforms.Length] : [];
+            Touch();
+        }
+    }
+
+    /// <summary>
+    /// Every instance's custom data (with <see cref="UseCustomData"/>; empty otherwise). Assigning copies as many values as
+    /// there are instances (the rest stay zero) and turns <see cref="UseCustomData"/> on when the array is not empty; after
+    /// editing the array in place call <see cref="NotifyChanged"/>.
+    /// </summary>
+    [Export]
+    public Vector4[] CustomData
+    {
+        get => _customData;
+        set
+        {
+            if (!UseCustomData)
+            {
+                if (value is not { Length: > 0 })
+                    return;
+                UseCustomData = true; // data implies the flag (whatever order a file sets them in)
+            }
+
+            _customData = new Vector4[_transforms.Length];
+            var source = value ?? [];
+            source.AsSpan(0, Math.Min(source.Length, _customData.Length)).CopyTo(_customData);
+            Touch();
+        }
+    }
+
+    /// <summary>Sets one instance's custom data (Godot's <c>set_instance_custom_data</c>; needs <see cref="UseCustomData"/>).</summary>
+    public void SetInstanceCustomData(int index, Vector4 data)
+    {
+        if (!UseCustomData)
+            throw new InvalidOperationException("Set UseCustomData before setting custom data.");
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)_customData.Length, nameof(index));
+        _customData[index] = data;
+        Touch();
+    }
+
+    /// <summary>One instance's custom data (zero without <see cref="UseCustomData"/>).</summary>
+    public Vector4 GetInstanceCustomData(int index)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual((uint)index, (uint)_transforms.Length, nameof(index));
+        return UseCustomData ? _customData[index] : Vector4.Zero;
     }
 
     /// <summary>The instances drawn: <see cref="VisibleInstanceCount"/>, or all.</summary>

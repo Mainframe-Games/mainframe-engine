@@ -35,7 +35,7 @@ internal enum BlendMode : byte
     /// <summary>The colour replaces the destination, the destination alpha stays: <c>rgb = src</c>, <c>a = dst</c> (ADR 0173).</summary>
     ColorOnly,
 
-    /// <summary>Additive (Godot's <c>BLEND_MODE_ADD</c>): <c>rgb = src·a + dst</c>, <c>a = dst</c>; additive particles (ADR 0206).</summary>
+    /// <summary>Additive (Godot's <c>BLEND_MODE_ADD</c>): <c>rgb = src·a + dst</c>, <c>a = dst</c>; additive particles (ADR 0206) and a spatial shader's <c>blend_add</c> (ADR 0205).</summary>
     Additive,
 
     /// <summary>
@@ -55,6 +55,14 @@ internal readonly record struct PipelineState()
     public bool DepthWrite { get; init; }
     public CompareOp DepthCompare { get; init; } = CompareOp.Less;
     public BlendMode Blend { get; init; } = BlendMode.Opaque;
+
+    /// <summary>
+    /// A static depth bias (constant, slope; negative = towards the camera), 0 = none. A spatial shader's next pass or
+    /// overlay (ADR 0205) uses it: its vertex module computes the position with other instructions than the surface's.
+    /// </summary>
+    public float DepthBiasConstant { get; init; }
+
+    public float DepthBiasSlope { get; init; }
 }
 
 /// <summary>
@@ -118,6 +126,9 @@ internal static unsafe class PipelineBuilder
                 LineWidth = 1f,
                 CullMode = state.CullMode,
                 FrontFace = state.FrontFace,
+                DepthBiasEnable = state.DepthBiasConstant != 0f || state.DepthBiasSlope != 0f,
+                DepthBiasConstantFactor = state.DepthBiasConstant,
+                DepthBiasSlopeFactor = state.DepthBiasSlope,
             };
             var multisampling = new PipelineMultisampleStateCreateInfo
             {

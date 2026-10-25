@@ -9,63 +9,103 @@ using System.Text.RegularExpressions;
 namespace MainframeEngine;
 
 /// <summary>
-/// A canvas item shader (Godot's <c>Shader</c>, <c>shader_type canvas_item</c>) loaded from a <c>.gdshader</c> file in Godot's
-/// shading language (ADR 0113). <see cref="CanvasShaderCompiler"/> translates it to Slang (ADR 0144); the SPIR-V is built
-/// ahead of time next to the source (<c>x.gdshader.vert.spv</c>, <c>x.gdshader.frag.spv</c>, plus <c>x.gdshader.spvlock</c>
-/// with the hash of the Slang it came from) by <see cref="CanvasShaderBuild"/> — the mf-shaders tool runs it
-/// (<c>just canvas-shaders</c>) — and committed, like the engine's own shaders.
+/// A shader in Godot's shading language (Godot's <c>Shader</c>) loaded from a <c>.gdshader</c> file: <c>shader_type
+/// canvas_item</c> (ADR 0113; <see cref="Program"/>, drawn by the canvas renderer) or <c>shader_type spatial</c> (ADR 0205;
+/// <see cref="Spatial"/>, drawn by the mesh renderer). <see cref="CanvasShaderCompiler"/> / <see cref="SpatialShaderCompiler"/>
+/// translate it to Slang (ADR 0144); the SPIR-V is built ahead of time next to the source (<c>x.gdshader.vert.spv</c>,
+/// <c>x.gdshader.frag.spv</c> and, for spatial shaders, one pair per other <see cref="SpatialPass"/>, plus
+/// <c>x.gdshader.spvlock</c> with the hash of the Slang it came from) by <see cref="CanvasShaderBuild"/> — the mf-shaders
+/// tool runs it (<c>just canvas-shaders</c>) — and committed, like the engine's own shaders.
 /// </summary>
 [EditorIcon("code")]
 public sealed class Shader : Resource
 {
-    /// <summary>The translated program (uniform layout, blend and render modes).</summary>
+    /// <summary>The translated canvas program (uniform layout, blend and render modes); null for a spatial shader.</summary>
     public CanvasShaderProgram? Program { get; private set; }
 
-    /// <summary>Absolute path of the vertex stage's SPIR-V (null for code-built shaders without one).</summary>
-    public string? VertexSpvPath { get; private set; }
+    /// <summary>The translated spatial program (ADR 0205); null for a canvas shader.</summary>
+    public SpatialShaderProgram? Spatial { get; private set; }
 
-    public string? FragmentSpvPath { get; private set; }
+    /// <summary>The <c>.gdshader</c> path the SPIR-V file names extend (null for code-built shaders without SPIR-V).</summary>
+    public string? SpvBasePath { get; private set; }
+
+    /// <summary>Absolute path of the vertex stage's SPIR-V (null for code-built shaders without one); a spatial shader's colour pass.</summary>
+    public string? VertexSpvPath => SpvBasePath is null ? null : SpvBasePath + ".vert.spv";
+
+    public string? FragmentSpvPath => SpvBasePath is null ? null : SpvBasePath + ".frag.spv";
+
+    /// <summary>The SPIR-V of one stage of a spatial shader's pass (<see cref="SpatialShaderProgram.PassSuffix"/>), or null without SPIR-V.</summary>
+    public string? SpatialSpvPath(SpatialPass pass, bool vertex) =>
+        SpvBasePath is null ? null : SpvBasePath + SpatialShaderProgram.PassSuffix(pass) + (vertex ? ".vert.spv" : ".frag.spv");
 
     /// <summary>True when the shader defines <c>vertex()</c>: its items keep local vertices and get MODEL_MATRIX.</summary>
-    public bool HasVertexFunction => Program?.HasVertexFunction ?? false;
+    public bool HasVertexFunction => Program?.HasVertexFunction ?? Spatial?.HasVertexFunction ?? false;
 
     /// <summary>The shader's <c>render_mode blend_*</c>.</summary>
     public CanvasBlendMode BlendMode => Program?.BlendMode ?? CanvasBlendMode.Mix;
 
     /// <summary>The shader's <c>render_mode unshaded</c>: the canvas modulation (CanvasModulate) does not apply.</summary>
-    public bool Unshaded => Program?.Unshaded ?? false;
+    public bool Unshaded => Program?.Unshaded ?? Spatial?.Unshaded ?? false;
+
+    /// <summary>The uniforms of either kind of shader.</summary>
+    public IReadOnlyList<ShaderUniform> Uniforms => Program?.Uniforms ?? Spatial?.Uniforms ?? [];
+
+    /// <summary>Bytes of the uniform block (std140, a multiple of 16).</summary>
+    public int UniformBlockSize => Program?.UniformBlockSize ?? Spatial?.UniformBlockSize ?? 0;
 
     /// <summary>A shader from an already translated program (tools, tests); <paramref name="spvBasePath"/> + <c>.vert.spv</c>/<c>.frag.spv</c> when drawn.</summary>
     public static Shader FromProgram(CanvasShaderProgram program, string? spvBasePath = null) => new()
     {
         Program = program ?? throw new ArgumentNullException(nameof(program)),
-        VertexSpvPath = spvBasePath is null ? null : spvBasePath + ".vert.spv",
-        FragmentSpvPath = spvBasePath is null ? null : spvBasePath + ".frag.spv",
+        SpvBasePath = spvBasePath,
     };
 
-    /// <summary>Loads a <c>.gdshader</c> file and its prebuilt SPIR-V (warning when the SPIR-V is stale).</summary>
+    /// <summary>A spatial shader from an already translated program (tools, tests); its SPIR-V extends <paramref name="spvBasePath"/>.</summary>
+    public static Shader FromProgram(SpatialShaderProgram program, string? spvBasePath = null) => new()
+    {
+        Spatial = program ?? throw new ArgumentNullException(nameof(program)),
+        SpvBasePath = spvBasePath,
+    };
+
+    /// <summary>Loads a <c>.gdshader</c> file (canvas_item or spatial) and its prebuilt SPIR-V (warning when the SPIR-V is stale).</summary>
+    /// <exception cref="FormatException">The shader does not translate (the message names the file and line).</exception>
     public static Shader Load(string path)
     {
         var fullPath = Path.GetFullPath(path);
         var source = File.ReadAllText(fullPath);
-        var program = CanvasShaderCompiler.Translate(source, Path.GetFileName(fullPath));
-        var shader = new Shader
+        var name = Path.GetFileName(fullPath);
+        Shader shader;
+        bool upToDate;
+        if (SpatialShaderCompiler.IsSpatial(source))
         {
-            Program = program,
-            VertexSpvPath = fullPath + ".vert.spv",
-            FragmentSpvPath = fullPath + ".frag.spv",
-        };
-        if (!CanvasShaderBuild.IsUpToDate(fullPath, program))
+            var spatial = SpatialShaderCompiler.Translate(source, name);
+            shader = new Shader { Spatial = spatial, SpvBasePath = fullPath };
+            upToDate = CanvasShaderBuild.IsUpToDate(fullPath, spatial);
+        }
+        else
+        {
+            var program = CanvasShaderCompiler.Translate(source, name);
+            shader = new Shader { Program = program, SpvBasePath = fullPath };
+            upToDate = CanvasShaderBuild.IsUpToDate(fullPath, program);
+        }
+
+        if (!upToDate)
             Log.Warning($"[Shader] '{path}': the SPIR-V is missing or older than the shader (or was built before the engine moved to Slang); rebuild it with mf-shaders (`just canvas-shaders <folder>` in the engine checkout, needs slangc).");
         return shader;
     }
 
-    /// <summary>The std140 bytes of the material block for <paramref name="parameters"/> over the shader's defaults.</summary>
+    /// <summary>
+    /// The std140 bytes of the material block for <paramref name="parameters"/> over the shader's defaults. A spatial
+    /// shader's <c>source_color</c> vectors are converted from sRGB to linear (Godot's 3D renderer is linear); a canvas
+    /// shader's are not (ADR 0113).
+    /// </summary>
     public void WriteUniformBlock(IReadOnlyDictionary<string, object> parameters, Span<byte> block)
     {
-        var program = Program ?? throw new InvalidOperationException("The shader has no program.");
+        if (Program is null && Spatial is null)
+            throw new InvalidOperationException("The shader has no program.");
+        var linearize = Spatial is not null;
         block.Clear();
-        foreach (var u in program.Uniforms)
+        foreach (var u in Uniforms)
         {
             if (u.IsSampler)
                 continue;
@@ -74,6 +114,10 @@ public sealed class Shader : Resource
                 ShaderValues.Write(u, value, target);
             else if (u.Default is { } d)
                 ShaderValues.Write(u, d, target);
+            else
+                continue;
+            if (linearize && u.SourceColor && u.Type is ShaderUniformType.Vec3 or ShaderUniformType.Vec4)
+                ShaderValues.Linearize(target, u.ArrayLength > 0 ? u.ArrayLength : 1, u.Stride);
         }
     }
 }
@@ -101,6 +145,17 @@ internal static class ShaderValues
 
         var count = Flatten(value, scratch);
         Store(target, scratch[..Math.Min(count, components)], isInt);
+    }
+
+    /// <summary>Converts the rgb of <paramref name="count"/> colours (<paramref name="stride"/> bytes apart) from sRGB to linear in place.</summary>
+    public static void Linearize(Span<byte> target, int count, int stride)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            var rgb = MemoryMarshal.Cast<byte, float>(target.Slice(i * stride, 12));
+            for (var c = 0; c < 3; c++)
+                rgb[c] = ColorSpace.SrgbToLinear(rgb[c]);
+        }
     }
 
     private static void Store(Span<byte> target, ReadOnlySpan<float> values, bool isInt)
@@ -146,7 +201,7 @@ internal static class ShaderValues
 }
 
 /// <summary>
-/// Builds the SPIR-V of <c>.gdshader</c> files ahead of time (the canvas-shader counterpart of build/Shaders.targets):
+/// Builds the SPIR-V of <c>.gdshader</c> files (canvas_item and spatial) ahead of time (the counterpart of build/Shaders.targets):
 /// translate, compile both stages with slangc (the engine's shader flags plus <c>-allow-glsl</c>, the engine's shader include
 /// directory) — the fragment stage first, so the vertex stage writes only the inputs it kept (<see cref="SpirvInputs"/>) —
 /// write <c>.vert.spv</c>/<c>.frag.spv</c> next to the source and a <c>.spvlock</c> with the hash of the Slang they came
@@ -177,25 +232,106 @@ public static partial class CanvasShaderBuild
         File.Exists(gdshaderPath + LockExtension) && File.ReadAllText(gdshaderPath + LockExtension).Trim() == Hash(program);
 
     /// <summary>
-    /// Compiles one shader when its SPIR-V is stale. Returns true when it compiled, false when it was up to date.
+    /// Revision of the engine includes a spatial shader compiles against (<c>spatial.slang</c>, <c>glsl_compat.slang</c> and
+    /// the mesh includes: frame, lights, shadows, fog): bump it when they change in a way compiled shaders must follow.
+    /// </summary>
+    public const int SpatialIncludeRevision = 1;
+
+    /// <summary>The hash a spatial shader's lock records: the Slang of every pass (ADR 0205) and <see cref="SpatialIncludeRevision"/>.</summary>
+    public static string Hash(SpatialShaderProgram program)
+    {
+        ArgumentNullException.ThrowIfNull(program);
+        var text = new StringBuilder("spatial\n");
+        foreach (var pass in SpatialShaderProgram.Passes)
+            text.Append(program.VertexSource(pass)).Append("\n//--\n").Append(program.FragmentSource(pass)).Append("\n//==\n");
+        text.Append("//includes ").Append(SpatialIncludeRevision.ToString(CultureInfo.InvariantCulture));
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
+    }
+
+    /// <summary>The SPIR-V files of a spatial shader: a vertex and a fragment stage per <see cref="SpatialPass"/>.</summary>
+    public static IEnumerable<string> SpatialSpvFiles(string gdshaderPath) =>
+        SpatialShaderProgram.Passes.SelectMany(pass => new[]
+        {
+            gdshaderPath + SpatialShaderProgram.PassSuffix(pass) + ".vert.spv",
+            gdshaderPath + SpatialShaderProgram.PassSuffix(pass) + ".frag.spv",
+        });
+
+    /// <summary>True when every SPIR-V file of the spatial shader exists and the lock matches its current translation.</summary>
+    public static bool IsUpToDate(string gdshaderPath, SpatialShaderProgram program) =>
+        SpatialSpvFiles(gdshaderPath).All(File.Exists) &&
+        File.Exists(gdshaderPath + LockExtension) && File.ReadAllText(gdshaderPath + LockExtension).Trim() == Hash(program);
+
+    /// <summary>
+    /// Translates a <c>.gdshader</c> of either kind and checks its SPIR-V (<c>mf-shaders check</c>, <c>just shaders-check</c>).
+    /// </summary>
+    /// <exception cref="FormatException">The shader does not translate.</exception>
+    public static bool IsUpToDate(string gdshaderPath)
+    {
+        var source = File.ReadAllText(gdshaderPath);
+        var name = Path.GetFileName(gdshaderPath);
+        return SpatialShaderCompiler.IsSpatial(source)
+            ? IsUpToDate(gdshaderPath, SpatialShaderCompiler.Translate(source, name))
+            : IsUpToDate(gdshaderPath, CanvasShaderCompiler.Translate(source, name));
+    }
+
+    /// <summary>
+    /// Compiles one shader (canvas_item or spatial) when its SPIR-V is stale. Returns true when it compiled, false when it
+    /// was up to date.
     /// </summary>
     /// <exception cref="InvalidOperationException">slangc failed (its output is in the message) or was not found.</exception>
+    /// <exception cref="FormatException">The shader does not translate (the message names the file and line).</exception>
     public static bool Build(string gdshaderPath, string includeDirectory, string? slangc = null)
     {
-        var program = CanvasShaderCompiler.Translate(File.ReadAllText(gdshaderPath), Path.GetFileName(gdshaderPath));
+        var source = File.ReadAllText(gdshaderPath);
+        var name = Path.GetFileName(gdshaderPath);
+        if (SpatialShaderCompiler.IsSpatial(source))
+            return BuildSpatial(gdshaderPath, SpatialShaderCompiler.Translate(source, name), includeDirectory, slangc);
+
+        var program = CanvasShaderCompiler.Translate(source, name);
         if (IsUpToDate(gdshaderPath, program))
             return false;
+        slangc = CheckedSlangc(slangc);
+        // The fragment stage first: the vertex stage then writes only the inputs its compiled code kept.
+        Compile(slangc, includeDirectory, program.FragmentSource, "fragment", gdshaderPath + ".frag.spv", gdshaderPath);
+        var fragmentInputs = SpirvInputs.InputLocations(File.ReadAllBytes(gdshaderPath + ".frag.spv"));
+        var vertexSource = CanvasShaderCompiler.Translate(source, name, fragmentInputs).VertexSource;
+        Compile(slangc, includeDirectory, vertexSource, "vertex", gdshaderPath + ".vert.spv", gdshaderPath);
+        File.WriteAllText(gdshaderPath + LockExtension, Hash(program) + "\n");
+        return true;
+    }
+
+    // Every pass of a spatial shader (in parallel: ten slangc runs), each fragment stage before its vertex stage.
+    private static bool BuildSpatial(string gdshaderPath, SpatialShaderProgram program, string includeDirectory, string? slangc)
+    {
+        if (IsUpToDate(gdshaderPath, program))
+            return false;
+        var compiler = CheckedSlangc(slangc);
+        try
+        {
+            Parallel.ForEach(SpatialShaderProgram.Passes, pass =>
+            {
+                var basePath = gdshaderPath + SpatialShaderProgram.PassSuffix(pass);
+                Compile(compiler, includeDirectory, program.FragmentSource(pass), "fragment", basePath + ".frag.spv", gdshaderPath);
+                var fragmentInputs = SpirvInputs.InputLocations(File.ReadAllBytes(basePath + ".frag.spv"));
+                Compile(compiler, includeDirectory, program.VertexSource(pass, fragmentInputs), "vertex", basePath + ".vert.spv", gdshaderPath);
+            });
+        }
+        catch (AggregateException e) when (e.InnerExceptions.Count > 0)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerExceptions[0]).Throw();
+        }
+
+        File.WriteAllText(gdshaderPath + LockExtension, Hash(program) + "\n");
+        return true;
+    }
+
+    private static string CheckedSlangc(string? slangc)
+    {
         slangc ??= FindSlangc() ?? throw new InvalidOperationException("slangc was not found (install the Vulkan SDK or put slangc on PATH).");
         var version = SlangcVersion(slangc);
         if (!IsSupportedSlangcVersion(version))
             throw new InvalidOperationException($"slangc {version.Trim()} is older than {MinimumSlangcVersion} (update the Vulkan SDK or Slang).");
-        // The fragment stage first: the vertex stage then writes only the inputs its compiled code kept.
-        Compile(slangc, includeDirectory, program.FragmentSource, "fragment", gdshaderPath + ".frag.spv", gdshaderPath);
-        var fragmentInputs = SpirvInputs.InputLocations(File.ReadAllBytes(gdshaderPath + ".frag.spv"));
-        var vertexSource = CanvasShaderCompiler.Translate(File.ReadAllText(gdshaderPath), Path.GetFileName(gdshaderPath), fragmentInputs).VertexSource;
-        Compile(slangc, includeDirectory, vertexSource, "vertex", gdshaderPath + ".vert.spv", gdshaderPath);
-        File.WriteAllText(gdshaderPath + LockExtension, Hash(program) + "\n");
-        return true;
+        return slangc;
     }
 
     /// <summary>The oldest slangc the shaders are written for (build/Shaders.targets checks the same version).</summary>
@@ -232,7 +368,8 @@ public static partial class CanvasShaderBuild
     /// </summary>
     internal static string[] SlangcArguments(string source, string stage, string includeDirectory, string output) =>
     [
-        source, "-allow-glsl", "-obfuscate", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
+        // -warnings-disable 41012: as build/Shaders.targets (the shadow kernels' Texture2DArray.Gather needs no extra capability).
+        source, "-allow-glsl", "-obfuscate", "-warnings-disable", "41012", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
         "-entry", "main", "-stage", stage, "-I", includeDirectory, "-o", output,
     ];
 
@@ -250,7 +387,7 @@ public static partial class CanvasShaderBuild
 
     private static void Compile(string slangc, string includeDirectory, string code, string stage, string output, string source)
     {
-        var temp = Path.Combine(Path.GetTempPath(), $"mf-canvas-{Guid.NewGuid():N}.{stage}.slang");
+        var temp = Path.Combine(Path.GetTempPath(), $"mf-gdshader-{Guid.NewGuid():N}.{stage}.slang");
         File.WriteAllText(temp, code);
         try
         {
@@ -262,11 +399,20 @@ public static partial class CanvasShaderBuild
             };
             foreach (var arg in SlangcArguments(temp, stage, includeDirectory, output))
                 start.ArgumentList.Add(arg);
-            using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {slangc}.");
-            var errors = process.StandardError.ReadToEnd() + process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-            if (process.ExitCode != 0)
-                throw new InvalidOperationException($"slangc failed for {source} ({stage}):\n{errors.Replace(temp, source + "(" + stage + ")", StringComparison.Ordinal)}");
+            // slangc 2026.1 sometimes dies of a signal (SIGBUS, exit code 138) with no output while other slangc processes
+            // run: a crash, not a compile error, so it is retried.
+            for (var attempt = 1; ; attempt++)
+            {
+                using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {slangc}.");
+                var stdout = process.StandardOutput.ReadToEndAsync();
+                var errors = process.StandardError.ReadToEnd() + stdout.GetAwaiter().GetResult();
+                process.WaitForExit();
+                if (process.ExitCode == 0)
+                    return;
+                if (process.ExitCode > 128 && errors.Trim().Length == 0 && attempt < 4)
+                    continue;
+                throw new InvalidOperationException($"slangc failed for {source} ({stage}, exit code {process.ExitCode}):\n{errors.Replace(temp, source + "(" + stage + ")", StringComparison.Ordinal)}");
+            }
         }
         finally
         {

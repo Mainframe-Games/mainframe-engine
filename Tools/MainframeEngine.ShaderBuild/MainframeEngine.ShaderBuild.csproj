@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    mf-shaders: builds the SPIR-V of canvas shaders written in Godot's shading language (.gdshader, ADR 0113): translates
-    each with CanvasShaderCompiler, compiles both stages with slangc and writes x.gdshader.{vert,frag}.spv + x.gdshader.spvlock
+    mf-shaders: builds the SPIR-V of shaders written in Godot's shading language (.gdshader): canvas_item (ADR 0113) and
+    spatial (ADR 0205). Translates each with CanvasShaderCompiler / SpatialShaderCompiler, compiles the stages with slangc and
+    writes x.gdshader.{vert,frag}.spv (a spatial shader also .depth, .shadow, .shadow-point and .id pairs) + x.gdshader.spvlock
     next to the source (committed, like the engine's own shaders). `check` fails when any is stale (CI without slangc).
       just canvas-shaders FOLDER (build) / just canvas-shaders-check FOLDER
   -->

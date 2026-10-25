@@ -37,9 +37,23 @@ public sealed record ShaderUniform(
     bool SourceColor,
     int Binding,
     CanvasTextureFilter Filter,
-    CanvasTextureRepeat Repeat)
+    CanvasTextureRepeat Repeat,
+    ShaderTextureHint TextureHint = ShaderTextureHint.White)
 {
     public bool IsSampler => Type == ShaderUniformType.Sampler2D;
+}
+
+/// <summary>
+/// What an unset <c>sampler2D</c> uniform samples (Godot's <c>hint_default_white</c> — the default —,
+/// <c>hint_default_black</c>, <c>hint_default_transparent</c>, <c>hint_normal</c>); spatial shaders also sample a
+/// <see cref="Normal"/> texture as linear data.
+/// </summary>
+public enum ShaderTextureHint : byte
+{
+    White,
+    Black,
+    Transparent,
+    Normal,
 }
 
 /// <summary>A translated canvas shader: Slang for both stages and the material interface.</summary>
@@ -302,10 +316,10 @@ public static partial class CanvasShaderCompiler
             blend, unshaded, lightOnly);
     }
 
-    private sealed record ParsedUniform(string Name, ShaderUniformType Type, int ArrayLength, float[]? Default, bool SourceColor,
-        CanvasTextureFilter Filter, CanvasTextureRepeat Repeat);
+    internal sealed record ParsedUniform(string Name, ShaderUniformType Type, int ArrayLength, float[]? Default, bool SourceColor,
+        CanvasTextureFilter Filter, CanvasTextureRepeat Repeat, ShaderTextureHint TextureHint = ShaderTextureHint.White);
 
-    private static ParsedUniform ParseUniform(string s, string name)
+    internal static ParsedUniform ParseUniform(string s, string name)
     {
         var m = UniformRegex().Match(s);
         if (!m.Success)
@@ -316,22 +330,26 @@ public static partial class CanvasShaderCompiler
         var sourceColor = false;
         var filter = CanvasTextureFilter.ParentNode;
         var repeat = CanvasTextureRepeat.ParentNode;
+        var textureHint = ShaderTextureHint.White;
         foreach (var hint in SplitHints(hints))
         {
             switch (hint)
             {
                 case "source_color": sourceColor = true; break;
-                case "filter_nearest": filter = CanvasTextureFilter.Nearest; break;
-                case "filter_linear": filter = CanvasTextureFilter.Linear; break;
+                case "filter_nearest" or "filter_nearest_mipmap" or "filter_nearest_mipmap_anisotropic": filter = CanvasTextureFilter.Nearest; break;
+                case "filter_linear" or "filter_linear_mipmap" or "filter_linear_mipmap_anisotropic": filter = CanvasTextureFilter.Linear; break;
                 case "repeat_enable": repeat = CanvasTextureRepeat.Enabled; break;
                 case "repeat_disable": repeat = CanvasTextureRepeat.Disabled; break;
+                case "hint_default_black": textureHint = ShaderTextureHint.Black; break;
+                case "hint_default_transparent": textureHint = ShaderTextureHint.Transparent; break;
+                case "hint_normal": textureHint = ShaderTextureHint.Normal; break;
             }
         }
 
         float[]? value = null;
         if (m.Groups["default"].Success)
             value = ParseDefault(m.Groups["default"].Value.Trim(), type, name);
-        return new ParsedUniform(m.Groups["name"].Value, type, array, value, sourceColor, filter, repeat);
+        return new ParsedUniform(m.Groups["name"].Value, type, array, value, sourceColor, filter, repeat, textureHint);
     }
 
     private static IEnumerable<string> SplitHints(string hints)
@@ -383,7 +401,7 @@ public static partial class CanvasShaderCompiler
         throw new FormatException($"{name}: cannot read the default value '{text}'.");
     }
 
-    private static List<ShaderUniform> Layout(List<ParsedUniform> uniforms, out int blockSize)
+    internal static List<ShaderUniform> Layout(List<ParsedUniform> uniforms, out int blockSize)
     {
         var result = new List<ShaderUniform>(uniforms.Count);
         var offset = 0;
@@ -412,7 +430,7 @@ public static partial class CanvasShaderCompiler
         blockSize = RoundUp(offset, 16);
         var binding = 1;
         foreach (var u in uniforms.Where(u => u.Type == ShaderUniformType.Sampler2D))
-            result.Add(new ShaderUniform(u.Name, u.Type, 0, 0, 0, 0, null, u.SourceColor, binding++, u.Filter, u.Repeat));
+            result.Add(new ShaderUniform(u.Name, u.Type, 0, 0, 0, 0, null, u.SourceColor, binding++, u.Filter, u.Repeat, u.TextureHint));
         return result;
     }
 
@@ -462,7 +480,7 @@ public static partial class CanvasShaderCompiler
     };
 
     // Godot's (GLSL) type names; the translated shader is compiled with -allow-glsl, which accepts them.
-    private static string ShaderTypeName(ShaderUniformType type) => type switch
+    internal static string ShaderTypeName(ShaderUniformType type) => type switch
     {
         ShaderUniformType.Bool => "bool",
         ShaderUniformType.Int => "int",
@@ -481,7 +499,7 @@ public static partial class CanvasShaderCompiler
     };
 
     // Comments become spaces/newlines so line numbers in errors stay meaningful.
-    private static string StripComments(string source)
+    internal static string StripComments(string source)
     {
         var sb = new StringBuilder(source.Length);
         for (var i = 0; i < source.Length; i++)
@@ -548,16 +566,16 @@ public static partial class CanvasShaderCompiler
         return result;
     }
 
-    private static string Head(string s) => s.Length <= 60 ? s : s[..60] + "…";
+    internal static string Head(string s) => s.Length <= 60 ? s : s[..60] + "…";
 
     [GeneratedRegex(@"^uniform\s+(?<type>\w+)\s+(?<name>\w+)\s*(\[\s*(?<array>\d+)\s*\])?\s*(:\s*(?<hints>[^=]+?))?\s*(=\s*(?<default>.+))?$", RegexOptions.Singleline)]
     private static partial Regex UniformRegex();
 
     [GeneratedRegex(@"^varying\s+(?<flat>flat\s+)?(?:(?:lowp|mediump|highp)\s+)?(?<type>\w+)\s+(?<name>\w+)$")]
-    private static partial Regex VaryingRegex();
+    internal static partial Regex VaryingRegex();
 
     [GeneratedRegex(@"^\s*\w+\s+(?<name>\w+)\s*\([^)]*\)\s*\{", RegexOptions.Singleline)]
-    private static partial Regex FunctionRegex();
+    internal static partial Regex FunctionRegex();
 
     [GeneratedRegex(@"^\w+\s*\((?<args>[^)]*)\)$")]
     private static partial Regex ConstructorRegex();

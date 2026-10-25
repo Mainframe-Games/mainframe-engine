@@ -1177,17 +1177,39 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         _ => ("Shaders/Shadows/ShadowPointCutoutInstanced.vk.vert.spv", "Shaders/Shadows/ShadowPointCutout.vk.frag.spv"),
     };
 
+    /// <summary>
+    /// A caster pipeline layout whose set 1 is <paramref name="materialLayout"/> (a spatial shader's material set, ADR 0205),
+    /// with the push range and set 0 of the cutout layouts, so the light matrix and the pushed constants stay valid across
+    /// it. The caller owns it (destroy through the deletion queue).
+    /// </summary>
+    internal PipelineLayout CreateMaterialCasterLayout(bool point, DescriptorSetLayout materialLayout, string what) =>
+        CreateCasterLayout(point, materialLayout, what);
+
+    /// <summary>
+    /// A caster pipeline from explicit SPIR-V (a spatial shader's <c>.shadow</c> / <c>.shadow-point</c> stages, ADR 0205) with
+    /// the casters' fixed state (front faces clockwise, dynamic depth bias); the caller keeps and destroys it.
+    /// </summary>
+    internal Pipeline BuildCasterPipeline(string vertexPath, string fragmentPath, CullMode cull, bool mirrored, PipelineLayout layout,
+        VertexInputBindingDescription[] bindings, VertexInputAttributeDescription[] attributes, string what) =>
+        BuildPipeline(vertexPath, fragmentPath, cull, mirrored, layout, bindings, attributes, what);
+
+    private Pipeline BuildPipeline(CasterShaders shaders, CullMode cull, bool mirrored, PipelineLayout layout,
+        VertexInputBindingDescription[] bindings, VertexInputAttributeDescription[] attributes, string what)
+    {
+        var (vertexPath, fragmentPath) = ShaderPaths(shaders);
+        return BuildPipeline(vertexPath, fragmentPath, cull, mirrored, layout, bindings, attributes, what);
+    }
+
     // Geometry is authored counter-clockwise (front faces CCW, right-handed). The main pass flips Y with a
     // negative-height viewport, which keeps CCW = front; shadow passes use a standard viewport, which mirrors the
     // winding, so geometric front faces (facing the light) arrive clockwise: FrontFace = Clockwise, back faces culled,
     // mirrored instances counter-clockwise. Depth bias is dynamic (set per pass).
-    private Pipeline BuildPipeline(CasterShaders shaders, CullMode cull, bool mirrored, PipelineLayout layout,
+    private Pipeline BuildPipeline(string vertexPath, string fragmentPath, CullMode cull, bool mirrored, PipelineLayout layout,
         VertexInputBindingDescription[] bindings, VertexInputAttributeDescription[] attributes, string what)
     {
         var entryPoint = (byte*)SilkMarshal.StringToPtr("main");
         try
         {
-            var (vertexPath, fragmentPath) = ShaderPaths(shaders);
             var stages = stackalloc PipelineShaderStageCreateInfo[]
             {
                 new() { SType = StructureType.PipelineShaderStageCreateInfo, Stage = ShaderStageFlags.VertexBit, Module = _ctx.Shaders.Get(vertexPath), PName = entryPoint },

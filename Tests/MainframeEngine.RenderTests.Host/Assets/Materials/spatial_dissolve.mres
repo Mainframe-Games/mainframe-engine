@@ -1,0 +1,18 @@
+{
+  "format": 2,
+  "uid": "res_7e2a51c09d34",
+  "type": "ShaderMaterial",
+  "resources": {
+    "Shader_dissolve": {
+      "path": "Assets/Shaders/spatial_dissolve.gdshader"
+    }
+  },
+  "props": {
+    "Shader": { "res": "Shader_dissolve" },
+    "ShaderParameters": [
+      { "name": "base_color", "value": [0.25, 0.6, 0.9, 1] },
+      { "name": "edge_energy", "value": 5 },
+      { "name": "progress", "value": 0.42 }
+    ]
+  }
+}

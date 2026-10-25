@@ -86,6 +86,9 @@ internal struct ShadowCasterItem
     /// <summary>An impostor caster (ADR 0172): a quad facing the light (<see cref="Cutout"/> is its material); directional only.</summary>
     public bool Impostor;
 
+    /// <summary>A spatial shader's caster (ADR 0205): its own shadow SPIR-V and set (<see cref="Cutout"/> is its material).</summary>
+    public bool Spatial;
+
     /// <summary>World bounds of the instance (culled per shadow pass).</summary>
     public Aabb Bounds;
 
@@ -104,6 +107,7 @@ internal struct ShadowCasterRun
     public MaterialGpu? Cutout;
     public bool Foliage;
     public bool Impostor;
+    public bool Spatial;
     public GpuBuffer Instances;
     public int Surface;
     public CullMode Cull;
@@ -512,6 +516,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         ReleaseTexture(gpu.Orm);
         gpu.Albedo = gpu.Normal = gpu.Emission = gpu.Orm = null;
         DestroySplat(gpu);
+        DestroySpatial(gpu);
     }
 
     private TextureGpu? AcquireTexture(Texture2D? texture, bool colorUsage)
@@ -550,17 +555,25 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         var impostor = material as ImpostorMaterial3D;   // ADR 0172
         var fall = material as WaterfallMaterial3D;   // ADR 0173
         var spray = material as SprayMaterial3D;
+        // ADR 0205: a ShaderMaterial with a spatial shader (whose SPIR-V exists) draws with the shader's own pipelines.
+        var shaderMaterial = material as ShaderMaterial;
+        // The entry the material already uses, else a lookup (measured: the reference-keyed lookup allocated 24 bytes per
+        // call, so steady frames skip it).
+        var spatialShader = shaderMaterial?.Shader is { Spatial: not null } userShader
+            ? ReferenceEquals(gpu.Spatial?.Shader.Shader, userShader) ? gpu.Spatial!.Shader : SpatialShaderFor(userShader)
+            : null;
         gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : foliage is not null ? ShaderSetId.MeshFoliage
             : water is not null ? ShaderSetId.MeshWater : splat is not null ? ShaderSetId.MeshTerrainSplat
             : fall is not null ? ShaderSetId.MeshWaterfall : spray is not null ? ShaderSetId.MeshSpray
-            : impostor is not null ? ShaderSetId.MeshImpostor : ShaderSetId.MeshLit;
+            : impostor is not null ? ShaderSetId.MeshImpostor : spatialShader is not null ? ShaderSetId.MeshSpatial : ShaderSetId.MeshLit;
         gpu.RefractsScene = water is { RefractionEnabled: true };
         var waterFamily = water is not null || fall is not null || spray is not null;
         if (material is not StandardMaterial3D standard)
         {
             // Splat materials keep this default set too: the object-ID pass binds it with the shared layout.
             standard = StandardMaterial3D.Default;
-            if (outline is null && foliage is null && !waterFamily && splat is null && impostor is null && !_warnedUnsupportedMaterial)
+            if (outline is null && foliage is null && !waterFamily && splat is null && impostor is null && !_warnedUnsupportedMaterial &&
+                shaderMaterial?.Shader?.Spatial is null)
             {
                 _warnedUnsupportedMaterial = true;
                 Log.Warning($"[Mesh] {material.GetType().Name} is not supported by the renderer yet; drawing with the default material.");
@@ -572,7 +585,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         if (changed)
         {
             gpu.UploadedVersion = material.Version;
-            var state = material.RenderState;
+            // A spatial shader without SPIR-V draws as the default material: with its state, not the shader's.
+            var state = shaderMaterial is not null && spatialShader is null ? StandardMaterial3D.Default.RenderState : material.RenderState;
             if (state != gpu.State || gpu.Params is null)
             {
                 gpu.State = state;
@@ -637,6 +651,13 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             WriteMaterialSet(gpu);
         if (splat is not null)
             PrepareSplat(gpu, splat);
+        if (spatialShader is not null)
+            PrepareSpatial(gpu, shaderMaterial!, spatialShader);
+        else if (gpu.Spatial is not null)
+        {
+            DestroySpatial(gpu); // the material's shader changed to one without SPIR-V
+            gpu.ResetPipelines();
+        }
     }
 
     // Points a texture slot at a texture (acquiring the new reference, releasing the old); true when it changed.
@@ -730,11 +751,14 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         {
             var pass = shaders switch
             {
-                ShaderSetId.MeshObjectId => _idPassPrototype,
-                ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor or ShaderSetId.MeshDepthSkinned => PrepassRenderPass,
+                ShaderSetId.MeshObjectId or ShaderSetId.MeshObjectIdSpatial => _idPassPrototype,
+                ShaderSetId.MeshDepth or ShaderSetId.MeshDepthFoliage or ShaderSetId.MeshDepthImpostor or ShaderSetId.MeshDepthSkinned
+                    or ShaderSetId.MeshDepthSpatial => PrepassRenderPass,
                 _ => _ctx.RenderPass,
             };
-            entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass, streams, prepassed));
+            // A spatial material's own shaders (ADR 0205) key by its shader; the shared ID shaders do not.
+            var userShader = shaders is ShaderSetId.MeshSpatial or ShaderSetId.MeshDepthSpatial or ShaderSetId.MeshObjectIdSpatial ? gpu.UserShader : 0;
+            entry = Pipelines.GetOrCreate(PipelineKey.ForMaterial(shaders, gpu.State, mirrored, pass, extraPass, streams, prepassed, userShader));
         }
 
         return entry;
@@ -927,7 +951,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             var cull = m.State.EffectiveCull;
             var foliage = m.FoliageCaster;
             var impostor = m.ImpostorCaster;
-            var cutout = m.State.Alpha == AlphaMode.Cutout || foliage || impostor ? m : null;
+            var spatial = m.SpatialCaster; // ADR 0205: its vertex() and alpha scissor run in the shadow pass
+            var cutout = m.State.Alpha == AlphaMode.Cutout || foliage || impostor || spatial ? m : null;
             view.Casters.Add(CasterKey(cull, mirrored, cutout?.Id ?? 0, mesh.Id, s),
                 new ShadowCasterItem
                 {
@@ -940,6 +965,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                     Cutout = cutout,
                     Foliage = foliage,
                     Impostor = impostor,
+                    Spatial = spatial,
                     Bounds = bounds,
                     Instances = multiInstances,
                     InstanceCount = multiCount,
@@ -1101,9 +1127,10 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
             if (!ReferenceEquals(material, boundMaterial))
             {
-                // The shared layout's set 2 (a terrain splat material's default set: the prepass reads no splat data).
-                var set = material.Set;
-                vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, _pipelineLayout, 2, 1, &set, 0, null);
+                // The shared layout's set 2 (a terrain splat material's default set: the prepass reads no splat data); a
+                // spatial material's own set with its shader's layout (ADR 0205).
+                var set = material.Spatial?.Set ?? material.Set;
+                vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, material.Spatial?.Shader.Layout ?? _pipelineLayout, 2, 1, &set, 0, null);
                 boundMaterial = material;
                 Stats.MaterialBinds++;
             }
@@ -1179,7 +1206,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 : item.Material.RefractsScene && view.Scene is not null ? ShaderSetId.MeshWaterScene : item.Material.ColorShaders;
 
             // ADR 0163: after a depth prepass its surfaces test the prepass depth and do not write it (cutouts: EQUAL, no discard).
-            var pipeline = shaders == ShaderSetId.MeshObjectId ? GetPipeline(item.Material, shaders, item.Mirrored).Pipeline
+            var pipeline = shaders == ShaderSetId.MeshObjectId ? GetPipeline(item.Material, item.Material.IdShaders, item.Mirrored).Pipeline
                 : sceneShaders == ShaderSetId.MeshWaterScene ? GetPipeline(item.Material, sceneShaders, item.Mirrored, extraPass: item.Extra).Pipeline
                 : view.Prepassed && !item.Extra && item.Material.Prepassable
                     ? GetPipeline(item.Material, item.Material.ColorShaders, item.Mirrored, streams: item.Mesh.Surfaces[item.Surface].HasStreams, prepassed: true).Pipeline
@@ -1194,9 +1221,11 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             if (!ReferenceEquals(item.Material, boundMaterial))
             {
                 // Terrain splat colour draws bind their own set 2 with their layout (sets 0 and 1 stay valid: same layouts).
+                // A spatial material binds its own set in every pass, with its shader's layout (ADR 0205).
                 var splat = shaders != ShaderSetId.MeshObjectId && item.Material.ColorShaders == ShaderSetId.MeshTerrainSplat;
-                var set = splat ? item.Material.Splat!.Set : item.Material.Set;
-                vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, splat ? _splatPipelineLayout : _pipelineLayout, 2, 1, &set, 0, null);
+                var set = item.Material.Spatial is { } spatial ? spatial.Set : splat ? item.Material.Splat!.Set : item.Material.Set;
+                var layout = item.Material.Spatial?.Shader.Layout ?? (splat ? _splatPipelineLayout : _pipelineLayout);
+                vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, 2, 1, &set, 0, null);
                 boundMaterial = item.Material;
                 Stats.MaterialBinds++;
                 if (UsesSceneLayout(sceneShaders))
@@ -1336,6 +1365,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 Cutout = item.Cutout,
                 Foliage = item.Foliage,
                 Impostor = item.Impostor,
+                Spatial = item.Spatial,
                 Instances = own ? item.Instances! : buffer!,
                 Surface = item.Surface,
                 Cull = item.Cull,
@@ -1387,7 +1417,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ref var run = ref view.ShadowRuns[r];
             if (run.Impostor && point)
                 continue; // impostors face directional lights only
-            if ((run.Foliage || run.Impostor) && !windPushed)
+            if ((run.Foliage || run.Impostor || run.Spatial) && !windPushed)
             {
                 // The casters' set 0 is the light matrix: the wind and time come as push constants (offset 0, unused by
                 // the instanced casters, whose model matrices are per instance).
@@ -1398,7 +1428,11 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 windPushed = true;
             }
 
-            var pipeline = _shadows.GetInstancedCasterPipeline(point, run.Cull, run.Mirrored, run.Cutout is not null, run.Foliage, run.Impostor);
+            // ADR 0205: a spatial caster runs its shader's shadow stages with its own set 1.
+            var spatial = run.Spatial ? run.Cutout?.Spatial : null;
+            var pipeline = spatial is not null
+                ? SpatialCasterPipeline(spatial.Shader, point, run.Cull, run.Mirrored)
+                : _shadows.GetInstancedCasterPipeline(point, run.Cull, run.Mirrored, run.Cutout is not null, run.Foliage, run.Impostor);
             if (pipeline.Handle != bound.Handle)
             {
                 vk.CmdBindPipeline(cb, PipelineBindPoint.Graphics, pipeline);
@@ -1407,9 +1441,9 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
             if (run.Cutout is { } material && !ReferenceEquals(material, boundMaterial))
             {
-                // Set 0 (the light VP) stays bound: the cutout layouts share it and the push range.
-                var layout = _shadows.CutoutLayout(point);
-                var set = material.Set;
+                // Set 0 (the light VP) stays bound: the cutout and spatial caster layouts share it and the push range.
+                var layout = spatial is not null ? point ? spatial.Shader.CasterLayoutPoint : spatial.Shader.CasterLayout2D : _shadows.CutoutLayout(point);
+                var set = spatial?.Set ?? material.Set;
                 vk.CmdBindDescriptorSets(cb, PipelineBindPoint.Graphics, layout, 1, 1, &set, 0, null);
                 boundMaterial = material;
             }
@@ -1441,6 +1475,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
     Pipeline IPipelineFactory.Create(in PipelineKey key)
     {
+        if (key.UserShader != 0)
+            return CreateSpatialPipeline(key);
         if (key.IsDepthPrepass)
             return CreatePrepassPipeline(key);
 
@@ -1612,6 +1648,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             material.Params = null;
             material.Splat?.Params?.Dispose();
             material.Splat?.DisposeArrays();
+            material.Spatial?.Params?.Dispose();
         }
 
         _materials.Clear();
@@ -1627,6 +1664,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         _whiteLinear.Dispose();
         DisposeSplatResources();
         DisposeWaterSceneResources();
+        DisposeSpatialResources();
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pipelineLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_materialLayout));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_idPassPrototype));

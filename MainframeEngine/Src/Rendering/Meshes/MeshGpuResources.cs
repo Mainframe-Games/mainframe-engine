@@ -603,13 +603,23 @@ internal sealed class MaterialGpu
     public TerrainSplatGpu? Splat;
 
     /// <summary>
+    /// A spatial <see cref="ShaderMaterial"/>'s uniforms, textures and set (ADR 0205): every pass of it binds this set, with
+    /// its shader's pipeline layout (set 2; set 1 in the casters), not <see cref="Set"/>.
+    /// </summary>
+    public SpatialMaterialGpu? Spatial;
+
+    /// <summary>The user shader of the material's pipelines (<see cref="PipelineKey.UserShader"/>), 0 for built-in materials.</summary>
+    public int UserShader => ColorShaders == ShaderSetId.MeshSpatial ? Spatial?.Shader.Id ?? 0 : 0;
+
+    /// <summary>
     /// A <see cref="WaterMaterial3D"/> with <see cref="WaterMaterial3D.RefractionEnabled"/> (ADR 0173): views that draw it
     /// split their scene pass for a scene copy, and draw it with <see cref="ShaderSetId.MeshWaterScene"/>.
     /// </summary>
     public bool RefractsScene;
 
     /// <summary>The material's vertex shaders read the second vertex stream whatever the surface (foliage, water).</summary>
-    public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray;
+    public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray
+        or ShaderSetId.MeshSpatial;
 
     /// <summary>Shadow casters run the foliage wind (<see cref="FoliageMaterial3D"/>).</summary>
     public bool FoliageCaster => ColorShaders == ShaderSetId.MeshFoliage;
@@ -617,10 +627,13 @@ internal sealed class MaterialGpu
     /// <summary>Shadow casters are impostor quads facing the light (<see cref="ImpostorMaterial3D"/>, ADR 0172).</summary>
     public bool ImpostorCaster => ColorShaders == ShaderSetId.MeshImpostor;
 
+    /// <summary>Shadow casters run the spatial shader's vertex() and alpha scissor (ADR 0205).</summary>
+    public bool SpatialCaster => ColorShaders == ShaderSetId.MeshSpatial;
+
     // [shader set × extra pass × mirrored × vertex streams × prepassed] → pipeline; reset when the state changes.
     public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 16];
 
-    public const int ShaderSetCount = 14;
+    public const int ShaderSetCount = 17;
 
     public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false, bool prepassed = false) =>
         ((((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0)) * 2 + (prepassed ? 1 : 0);
@@ -630,15 +643,20 @@ internal sealed class MaterialGpu
     /// splat materials. Outlines (an inverted hull) and water draw only in the scene pass.
     /// </summary>
     public bool Prepassable => !State.IsTransparent &&
-                               ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshFoliage or ShaderSetId.MeshTerrainSplat or ShaderSetId.MeshImpostor;
+                               (ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshFoliage or ShaderSetId.MeshTerrainSplat or ShaderSetId.MeshImpostor ||
+                                ColorShaders == ShaderSetId.MeshSpatial && State.DepthWrite); // depth_draw_never: not prepassed
 
     /// <summary>The prepass shader set of a <see cref="Prepassable"/> material.</summary>
     public ShaderSetId DepthShaders => ColorShaders switch
     {
         ShaderSetId.MeshFoliage => ShaderSetId.MeshDepthFoliage,
         ShaderSetId.MeshImpostor => ShaderSetId.MeshDepthImpostor,
+        ShaderSetId.MeshSpatial => ShaderSetId.MeshDepthSpatial,
         _ => ShaderSetId.MeshDepth,
     };
+
+    /// <summary>The object-ID shader set: a spatial shader's own (displaced, cut out), else the shared one.</summary>
+    public ShaderSetId IdShaders => ColorShaders == ShaderSetId.MeshSpatial ? ShaderSetId.MeshObjectIdSpatial : ShaderSetId.MeshObjectId;
 
     public void ResetPipelines() => Array.Clear(Pipelines);
 }
