@@ -42,6 +42,7 @@ public sealed class RenderServer : IServer
     private DebugLinesRenderer? _debugLines;
     private ScreenGizmosRenderer? _screenGizmosRenderer;
     private MeshRenderer? _meshes;
+    private ParticleRenderer? _particles;
     private SubViewportCompositor? _compositor;
     private ObjectIdPicker? _rootPicker;
     private WaterSceneTextures? _mainWater; // ADR 0173: the main view's scene copy for refracting water
@@ -241,6 +242,18 @@ public sealed class RenderServer : IServer
             if (_meshes is null && Vulkan is { } vk)
                 _meshes = new MeshRenderer(vk, Shadows);
             return _meshes;
+        }
+    }
+
+    /// <summary>The shared GPU side of <see cref="GpuParticles3D"/> (ADR 0206), created on first use; null without Vulkan.</summary>
+    internal ParticleRenderer? Particles
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_particles is null && Vulkan is { } vk)
+                _particles = new ParticleRenderer(vk, Shadows);
+            return _particles;
         }
     }
 
@@ -899,10 +912,17 @@ public sealed class RenderServer : IServer
     {
         world.Environment?.DrawSky(this, camera);
         var opaqueDrawn = meshes is null;
+        var transparentVisuals = false;
         foreach (var visual in world.VisualList)
         {
             if (visual.IsBatched || !visual.IsVisibleInTree() || (afterPost && visual.DrawsAfterPost))
                 continue;
+            if (visual.DrawsTransparent)
+            {
+                transparentVisuals = true; // ADR 0206: blended particles go after the blended meshes
+                continue;
+            }
+
             if (!opaqueDrawn && visual.RenderPriority >= 0)
             {
                 meshes!.DrawOpaque(draws, cb);
@@ -929,6 +949,12 @@ public sealed class RenderServer : IServer
             meshes.DrawTransparent(draws, cb);
             draws.Scene = null;
         }
+
+        if (!transparentVisuals)
+            return;
+        foreach (var visual in world.VisualList)
+            if (!visual.IsBatched && visual.DrawsTransparent && visual.IsVisibleInTree() && !(afterPost && visual.DrawsAfterPost))
+                visual.Draw(camera, world.Lights);
     }
 
     // ── Picking ────────────────────────────────────────────────────────────────
@@ -1105,6 +1131,8 @@ public sealed class RenderServer : IServer
         _compositor = null;
         _meshes?.Dispose();
         _meshes = null;
+        _particles?.Dispose();
+        _particles = null;
         _shadows?.Dispose();
         _shadows = null;
         _disposed = true;

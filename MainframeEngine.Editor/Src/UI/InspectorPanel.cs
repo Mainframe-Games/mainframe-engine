@@ -424,10 +424,13 @@ public sealed partial class InspectorPanel : EditorDocument
                 rml.Append("</div>");
                 break;
 
-            case PropertyEditorKind.Vector2 or PropertyEditorKind.Vector3 or PropertyEditorKind.Vector4 or PropertyEditorKind.Quaternion:
+            case PropertyEditorKind.Vector2 or PropertyEditorKind.Vector3 or PropertyEditorKind.Vector4 or PropertyEditorKind.Quaternion
+                or PropertyEditorKind.Aabb:
                 for (var c = 0; c < p.Components; c++)
                 {
-                    rml.Append("<span class=\"axis ").Append("xyzw"[c]).Append("\">").Append("XYZW"[c]).Append("</span>");
+                    // An Aabb's six fields are its min corner then its max corner (x, y, z twice).
+                    var axis = p.Kind == PropertyEditorKind.Aabb ? c % 3 : c;
+                    rml.Append("<span class=\"axis ").Append("xyzw"[axis]).Append("\">").Append("XYZW"[axis]).Append("</span>");
                     AppendText(rml, row, c, p, value);
                 }
 

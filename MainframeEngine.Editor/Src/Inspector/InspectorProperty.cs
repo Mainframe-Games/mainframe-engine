@@ -54,6 +54,9 @@ public enum PropertyEditorKind
 
     /// <summary>A type the inspector has no editor for (shown as text, read-only).</summary>
     Unsupported,
+
+    /// <summary>An <see cref="MainframeEngine.Aabb"/>: its min and max corners, six fields (ADR 0206).</summary>
+    Aabb,
 }
 
 /// <summary>
@@ -181,6 +184,7 @@ public sealed class InspectorProperty
         PropertyEditorKind.Vector2 => 2,
         PropertyEditorKind.Vector3 or PropertyEditorKind.Quaternion => 3,
         PropertyEditorKind.Vector4 => 4,
+        PropertyEditorKind.Aabb => 6,
         PropertyEditorKind.Color => ValueType == typeof(Vector3) ? 3 : 4,
         _ => 1,
     };
@@ -261,7 +265,7 @@ public sealed class InspectorProperty
     {
         switch (Kind)
         {
-            case PropertyEditorKind.Vector2 or PropertyEditorKind.Vector3 or PropertyEditorKind.Vector4:
+            case PropertyEditorKind.Vector2 or PropertyEditorKind.Vector3 or PropertyEditorKind.Vector4 or PropertyEditorKind.Aabb:
             case PropertyEditorKind.Color when IsFloatColor:
                 return ValueText.Number(ComponentsOf(value)[component]);
             case PropertyEditorKind.Quaternion:
@@ -295,6 +299,7 @@ public sealed class InspectorProperty
         Vector2I v => [v.X, v.Y],
         Rect2 r => [r.Position.X, r.Position.Y, r.Size.X, r.Size.Y],
         Rect2I r => [r.Position.X, r.Position.Y, r.Size.X, r.Size.Y],
+        Aabb b => [b.Min.X, b.Min.Y, b.Min.Z, b.Max.X, b.Max.Y, b.Max.Z],
         _ => [0, 0, 0, 0],
     };
 
@@ -306,6 +311,7 @@ public sealed class InspectorProperty
         : type == typeof(Color) ? new Color(c[0], c[1], c[2], c[3])
         : type == typeof(Rect2) ? new Rect2(c[0], c[1], c[2], c[3])
         : type == typeof(Rect2I) ? new Rect2I((int)MathF.Round(c[0]), (int)MathF.Round(c[1]), (int)MathF.Round(c[2]), (int)MathF.Round(c[3]))
+        : type == typeof(Aabb) ? new Aabb(new Vector3(c[0], c[1], c[2]), new Vector3(c[3], c[4], c[5]))
         : new Vector4(c[0], c[1], c[2], c[3]);
 
     /// <summary>Whether <paramref name="value"/> is "on" for flag <paramref name="flag"/>.</summary>
@@ -335,7 +341,7 @@ public sealed class InspectorProperty
         text = text.Trim();
         switch (Kind)
         {
-            case PropertyEditorKind.Vector2 or PropertyEditorKind.Vector3 or PropertyEditorKind.Vector4 or PropertyEditorKind.Color
+            case PropertyEditorKind.Vector2 or PropertyEditorKind.Vector3 or PropertyEditorKind.Vector4 or PropertyEditorKind.Aabb or PropertyEditorKind.Color
                 when IsFloatColor || Kind != PropertyEditorKind.Color:
                 {
                     if (!ValueText.TryParseFloat(text, out var f))
@@ -476,6 +482,8 @@ public sealed class InspectorProperty
             return PropertyEditorKind.Color;
         if (type == typeof(Rect2) || type == typeof(Rect2I))
             return PropertyEditorKind.Vector4; // x, y, width, height
+        if (type == typeof(Aabb))
+            return PropertyEditorKind.Aabb; // min x, y, z, max x, y, z
         if (type == typeof(Vector3))
             return namedColor ? PropertyEditorKind.Color : PropertyEditorKind.Vector3;
         if (type == typeof(Vector4))
