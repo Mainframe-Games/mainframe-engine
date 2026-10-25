@@ -66,18 +66,18 @@ public sealed class UpdateDownloaderTests : IDisposable
     [Fact]
     public async Task ALinuxArchiveIsStagedWithItsExecuteBit()
     {
-        var archive = TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable),
-                            ("MainframeEngine-1.1.0-linux-x64/Assets/a.txt", "a", Plain));
+        var archive = TarGz(("MainframeEditor-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable),
+                            ("MainframeEditor-1.1.0-linux-x64/Assets/a.txt", "a", Plain));
         var reports = new List<double>();
 
         var staged = await Download("linux-x64", archive, progress: new SyncProgress(reports));
 
         Assert.Equal(Version, staged.Version);
         Assert.Equal(Path.Combine(Updates, "1.1.0"), staged.Folder);
-        Assert.Equal(Path.Combine(Updates, "1.1.0", "app", "MainframeEngine-1.1.0-linux-x64"), staged.Root);
+        Assert.Equal(Path.Combine(Updates, "1.1.0", "app", "MainframeEditor-1.1.0-linux-x64"), staged.Root);
         Assert.True(File.Exists(staged.Executable));
         Assert.True(File.Exists(Path.Combine(staged.Root, "Assets", "a.txt")));
-        Assert.False(File.Exists(Path.Combine(staged.Folder, "MainframeEngine-1.1.0-linux-x64.tar.gz"))); // the archive is gone
+        Assert.False(File.Exists(Path.Combine(staged.Folder, "MainframeEditor-1.1.0-linux-x64.tar.gz"))); // the archive is gone
         Assert.Equal(1.0, reports[^1]);
         if (!OperatingSystem.IsWindows())
             Assert.True(File.GetUnixFileMode(staged.Executable).HasFlag(UnixFileMode.UserExecute));
@@ -96,14 +96,14 @@ public sealed class UpdateDownloaderTests : IDisposable
     [Fact]
     public async Task AWindowsZipIsStaged()
     {
-        var staged = await Download("win-x64", Zip(("MainframeEngine-1.1.0-win-x64/MainframeEngine.Editor.exe", "exe")));
+        var staged = await Download("win-x64", Zip(("MainframeEditor-1.1.0-win-x64/MainframeEngine.Editor.exe", "exe")));
         Assert.True(File.Exists(staged.Executable));
     }
 
     [Fact]
     public async Task AChecksumMismatchIsRefusedAndCleanedUp()
     {
-        var archive = TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
+        var archive = TarGz(("MainframeEditor-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
         var e = await Assert.ThrowsAsync<UpdateException>(() => Download("linux-x64", archive, sha256: new string('0', 64)));
         Assert.Contains("checksum", e.Message, StringComparison.Ordinal);
         Assert.False(Directory.Exists(Path.Combine(Updates, "1.1.0")));
@@ -121,7 +121,7 @@ public sealed class UpdateDownloaderTests : IDisposable
     [Fact]
     public async Task EntriesOutsideTheStagingFolderAreRefused()
     {
-        var archive = TarGz(("../escaped.txt", "x", Plain), ("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
+        var archive = TarGz(("../escaped.txt", "x", Plain), ("MainframeEditor-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
         await Assert.ThrowsAsync<UpdateException>(() => Download("linux-x64", archive));
         Assert.False(File.Exists(Path.Combine(Updates, "1.1.0", "escaped.txt")));
         Assert.False(File.Exists(Path.Combine(Updates, "escaped.txt")));
@@ -152,7 +152,7 @@ public sealed class UpdateDownloaderTests : IDisposable
     [Fact]
     public async Task NonHttpsDownloadsAreRefused()
     {
-        var archive = TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
+        var archive = TarGz(("MainframeEditor-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
         var (release, asset) = Release("linux-x64", archive, scheme: "http");
         var handler = Serving(archive);
         using var http = new HttpClient(handler);
@@ -166,7 +166,7 @@ public sealed class UpdateDownloaderTests : IDisposable
     [Fact]
     public async Task CancellingDeletesTheFolder()
     {
-        var archive = TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
+        var archive = TarGz(("MainframeEditor-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
         using var cancel = new CancellationTokenSource();
         await cancel.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Download("linux-x64", archive, ct: cancel.Token));
@@ -177,7 +177,7 @@ public sealed class UpdateDownloaderTests : IDisposable
     public async Task CancellingAfterTheDownloadFinishedStillDeletesTheFolder()
     {
         // The last progress report (1.0) comes after the body is read and before the checksum and extraction.
-        var archive = TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
+        var archive = TarGz(("MainframeEditor-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable));
         using var cancel = new CancellationTokenSource();
         var reports = 0;
         var progress = new CallbackProgress(value =>
@@ -193,7 +193,7 @@ public sealed class UpdateDownloaderTests : IDisposable
     public async Task AnEarlierStagingOfTheSameVersionIsReplaced()
     {
         Directory.CreateDirectory(Path.Combine(Updates, "1.1.0", "app", "stale"));
-        var staged = await Download("linux-x64", TarGz(("MainframeEngine-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable)));
+        var staged = await Download("linux-x64", TarGz(("MainframeEditor-1.1.0-linux-x64/MainframeEngine.Editor", "exe", Executable)));
         Assert.False(Directory.Exists(Path.Combine(staged.Folder, "app", "stale")));
     }
 

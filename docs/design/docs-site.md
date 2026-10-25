@@ -145,7 +145,7 @@ order: the hero, the showcase, the audio tools, the features, the downloads and 
   its parts for `landing.css`): the dots fade in from the core, the "M" draws, its joints pop, the core pulses, and a
   ripple runs out through the dots. The logo tilts toward the pointer.
 - **Downloads.** One card per editor archive from `releaseAssets()` in `sync-docs.mjs`:
-  `MainframeEngine-X.Y.Z-<rid>` for `osx-arm64`, `win-x64` and `linux-x64` (the names
+  `MainframeEditor-X.Y.Z-<rid>` for `osx-arm64`, `win-x64` and `linux-x64` (the names
   [`build/package-editor.sh`](../../build/package-editor.sh) gives them), linked to
   `releases/download/vX.Y.Z/…` of the site's [version](#version). A `dev` build links every card to the latest
   release's page. A script reads the visitor's OS (User-Agent Client Hints, else the user agent), marks that card

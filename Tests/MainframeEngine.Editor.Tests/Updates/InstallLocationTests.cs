@@ -24,9 +24,9 @@ public sealed class InstallLocationTests : IDisposable
     public void AssetNamesMatchThePackagingScript()
     {
         var v = new ReleaseVersion(1, 2, 3);
-        Assert.Equal("MainframeEngine-1.2.3-osx-arm64.tar.gz", UpdatePlatform.AssetName(v, "osx-arm64"));
-        Assert.Equal("MainframeEngine-1.2.3-linux-x64.tar.gz", UpdatePlatform.AssetName(v, "linux-x64"));
-        Assert.Equal("MainframeEngine-1.2.3-win-x64.zip", UpdatePlatform.AssetName(v, "win-x64"));
+        Assert.Equal("MainframeEditor-1.2.3-osx-arm64.tar.gz", UpdatePlatform.AssetName(v, "osx-arm64"));
+        Assert.Equal("MainframeEditor-1.2.3-linux-x64.tar.gz", UpdatePlatform.AssetName(v, "linux-x64"));
+        Assert.Equal("MainframeEditor-1.2.3-win-x64.zip", UpdatePlatform.AssetName(v, "win-x64"));
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public sealed class InstallLocationTests : IDisposable
         Assert.Equal(Path.Combine("x", "Mainframe Editor.app"), mac);
         Assert.Equal(Path.Combine(mac, "Contents", "MacOS", "MainframeEngine.Editor"), UpdatePlatform.ExecutablePath(mac, "osx-arm64"));
         var win = UpdatePlatform.StagedRoot("x", v, "win-x64");
-        Assert.Equal(Path.Combine("x", "MainframeEngine-1.2.3-win-x64"), win);
+        Assert.Equal(Path.Combine("x", "MainframeEditor-1.2.3-win-x64"), win);
         Assert.Equal(Path.Combine(win, "MainframeEngine.Editor.exe"), UpdatePlatform.ExecutablePath(win, "win-x64"));
         var linux = UpdatePlatform.StagedRoot("x", v, "linux-x64");
         Assert.Equal(Path.Combine(linux, "MainframeEngine.Editor"), UpdatePlatform.ExecutablePath(linux, "linux-x64"));
@@ -67,7 +67,7 @@ public sealed class InstallLocationTests : IDisposable
     [InlineData("win-x64")]
     public void OtherRootsAreTheEditorFolder(string rid)
     {
-        var folder = Path.Combine(_directory, "My Tools", "MainframeEngine-1.0.0-" + rid);
+        var folder = Path.Combine(_directory, "My Tools", "MainframeEditor-1.0.0-" + rid);
         Assert.Equal(Path.GetFullPath(folder), InstallLocation.FindRoot(folder + Path.DirectorySeparatorChar, rid));
     }
 
@@ -98,7 +98,7 @@ public sealed class InstallLocationTests : IDisposable
     [Fact]
     public void TheRealExecutableIsLookedForByDefault()
     {
-        var folder = Path.Combine(_directory, "MainframeEngine-1.0.0-linux-x64");
+        var folder = Path.Combine(_directory, "MainframeEditor-1.0.0-linux-x64");
         Directory.CreateDirectory(folder);
         Assert.Equal(InstallKind.NotBundled, InstallLocation.Inspect(folder, "linux-x64", _ => true).Kind);
         File.WriteAllText(UpdatePlatform.ExecutablePath(folder, "linux-x64"), "exe");
@@ -118,7 +118,7 @@ public sealed class InstallLocationTests : IDisposable
     [Fact]
     public void ReadOnlyFoldersCannotBeReplaced()
     {
-        var folder = Path.Combine(_directory, "MainframeEngine-1.0.0-linux-x64");
+        var folder = Path.Combine(_directory, "MainframeEditor-1.0.0-linux-x64");
         Assert.Equal(InstallKind.NotWritable, InstallLocation.Inspect(folder, "linux-x64", _ => false, _ => true).Kind);
         // The root's parent must be writable too (the root is renamed inside it).
         var parent = Path.GetFullPath(_directory);

@@ -14,15 +14,15 @@ internal static class ReleaseFixtures
           "draft": false,
           "prerelease": false,
           "assets": [
-            { "name": "MainframeEngine-1.0.0-linux-x64.tar.gz", "content_type": "application/x-gtar", "size": 56920893,
+            { "name": "MainframeEditor-1.0.0-linux-x64.tar.gz", "content_type": "application/x-gtar", "size": 56920893,
               "digest": "sha256:dfdf31c3d560f72aa9850e71af5511fe6e03f63e0e5fb052010fe2b16fa2f89e",
-              "browser_download_url": "https://github.com/Mainframe-Games/mainframe-engine/releases/download/v1.0.0/MainframeEngine-1.0.0-linux-x64.tar.gz" },
-            { "name": "MainframeEngine-1.0.0-osx-arm64.tar.gz", "content_type": "application/x-gtar", "size": 56772908,
+              "browser_download_url": "https://github.com/Mainframe-Games/mainframe-engine/releases/download/v1.0.0/MainframeEditor-1.0.0-linux-x64.tar.gz" },
+            { "name": "MainframeEditor-1.0.0-osx-arm64.tar.gz", "content_type": "application/x-gtar", "size": 56772908,
               "digest": "sha256:857EF126FFC089AFCC78405195C60550DED974703A418EC5E03EAF5C61AFE6DA",
-              "browser_download_url": "https://github.com/Mainframe-Games/mainframe-engine/releases/download/v1.0.0/MainframeEngine-1.0.0-osx-arm64.tar.gz" },
-            { "name": "MainframeEngine-1.0.0-win-x64.zip", "content_type": "application/zip", "size": 55036179,
+              "browser_download_url": "https://github.com/Mainframe-Games/mainframe-engine/releases/download/v1.0.0/MainframeEditor-1.0.0-osx-arm64.tar.gz" },
+            { "name": "MainframeEditor-1.0.0-win-x64.zip", "content_type": "application/zip", "size": 55036179,
               "digest": "md5:0123",
-              "browser_download_url": "https://github.com/Mainframe-Games/mainframe-engine/releases/download/v1.0.0/MainframeEngine-1.0.0-win-x64.zip" }
+              "browser_download_url": "https://github.com/Mainframe-Games/mainframe-engine/releases/download/v1.0.0/MainframeEditor-1.0.0-win-x64.zip" }
           ],
           "body": "## What's Changed\n* M0–M10: engine foundation through editor"
         }
@@ -34,7 +34,7 @@ internal static class ReleaseFixtures
         var version = tag.TrimStart('v');
         var assets = string.Join(",\n", rids.Select(rid =>
         {
-            var name = $"MainframeEngine-{version}-{rid}{(rid.StartsWith("win-", StringComparison.Ordinal) ? ".zip" : ".tar.gz")}";
+            var name = $"MainframeEditor-{version}-{rid}{(rid.StartsWith("win-", StringComparison.Ordinal) ? ".zip" : ".tar.gz")}";
             var digest = digests ? $"\"digest\": \"sha256:{new string('a', 64)}\"," : "";
             return $$"""{ "name": "{{name}}", "size": 1000, {{digest}} "browser_download_url": "https://github.com/Mainframe-Games/mainframe-engine/releases/download/{{tag}}/{{name}}" }""";
         }));

@@ -29,11 +29,11 @@ public static class UpdatePlatform
     public static bool IsWindows(string rid) => rid.StartsWith("win-", StringComparison.Ordinal);
 
     public static string AssetName(ReleaseVersion version, string rid) =>
-        $"MainframeEngine-{version}-{rid}{(IsWindows(rid) ? ".zip" : ".tar.gz")}";
+        $"MainframeEditor-{version}-{rid}{(IsWindows(rid) ? ".zip" : ".tar.gz")}";
 
     /// <summary>The install root inside an extracted archive: the bundle on macOS, the top folder elsewhere.</summary>
     public static string StagedRoot(string extracted, ReleaseVersion version, string rid) =>
-        IsMac(rid) ? Path.Combine(extracted, MacAppName) : Path.Combine(extracted, $"MainframeEngine-{version}-{rid}");
+        IsMac(rid) ? Path.Combine(extracted, MacAppName) : Path.Combine(extracted, $"MainframeEditor-{version}-{rid}");
 
     public static string ExecutablePath(string root, string rid) =>
         IsMac(rid) ? Path.Combine(root, "Contents", "MacOS", ExecutableName)

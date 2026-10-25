@@ -17,7 +17,7 @@ public sealed class UpdateCheckerTests
         var (result, _) = await Check(StubHandler.Json(ReleaseFixtures.Latest("v1.1.0")));
         Assert.Equal(UpdateCheckStatus.UpdateAvailable, result.Status);
         Assert.True(result.IsUpdate);
-        Assert.Equal("MainframeEngine-1.1.0-linux-x64.tar.gz", result.Asset!.Name);
+        Assert.Equal("MainframeEditor-1.1.0-linux-x64.tar.gz", result.Asset!.Name);
         Assert.Equal("Mainframe Editor v1.1.0 is available (you have v1.0.0).", result.Describe("1.0.0"));
     }
 
