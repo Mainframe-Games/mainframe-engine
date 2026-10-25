@@ -29,11 +29,9 @@ game notices what is missing, PBR and 3D particles first.
   `$mat.shininess` into `Shininess` (`MainframeEngine/Src/Resources/Import/ModelImporter.cs:396-449`).
   [Asset pipeline → known issues](../asset-pipeline.md#known-issues) lists "PBR metallic/roughness maps" as not
   imported.
-- **No 3D particles.** `GpuParticles2D` + `ParticleProcessMaterial` exist, but only in 2D
-  (`MainframeEngine/Src/Scene/Nodes2D/GpuParticles2D.cs:11`, `:78`). Despite the Godot name they simulate **on the
-  CPU** in `OnProcess` (`GpuParticles2D.cs:142-147`) and draw through the canvas (`:249-284`). The simulation is
-  private to the node and 2D-only (`Vector2` state, `:80-89`). The engine has no compute pipelines (the only mention
-  is a doc comment, `MainframeEngine/Src/Rendering/Vulkan/PipelineCache.cs:74`).
+- **No 3D particles** (shipped since: [3D particles](../particles-3d.md), ADR 0206). `GpuParticles2D` +
+  `ParticleProcessMaterial` existed only in 2D, simulated **on the CPU** in `OnProcess` and drawn through the canvas.
+  The engine has no compute pipelines.
 - **Billboards only on `Sprite3D`.** `Sprite3D.Billboard` shipped ahead of G6 (ADR 0199, CPU-side); materials have no
   billboard mode.
 - **No LODs.** [Materials & meshes → known issues](../materials-and-meshes.md#known-issues) (`:373`) lists "No PBR,
@@ -252,97 +250,18 @@ Blinn-Phong materials keep using the flat `ambientColor`, so their look does not
 
 ### 3D particles
 
-#### Shared simulation
+**Shipped (G6.3, ADR 0206):** the as-built design is [3D particles](../particles-3d.md). It differs from the plan that
+stood here:
 
-The 2D emitter's simulation is extracted into `ParticleSimulation` (new, internal sealed class, `Src/Scene/Particles/`).
-It holds 3D state (`Vector3` position and velocity, age, acceleration, angle, angular velocity, scale, seed) in
-arrays that are reallocated only when `Amount` changes. `Step(dt)` keeps today's ≤ 1/30 s sub-steps, phases and
-restart rules (`GpuParticles2D.cs:149-197`).
-
-- `GpuParticles2D` keeps its public API and calls the simulation in a 2D mode (z ignored, Y-down gravity).
-  `GpuParticles2DTests` must pass **unchanged**: same random draw order, same results.
-- If exact 2D parity would distort the shared code, the fallback is a sibling `ParticleSimulation3D` with the same
-  structure. That choice is made in G6.3 with the tests as the judge.
-- Like 2D, simulation is on the CPU in `OnProcess`. It stays in `Src/Scene`, not `Src/Physics` (no physics calls).
-
-`ParticleProcessMaterial` (`GpuParticles2D.cs:11-68`) already has `Vector3` direction, gravity and box extents.
-
-- Godot's default gravity is (0, −9.8, 0) in 3D. Our 2D default is (0, 98, 0) in pixels, so `GpuParticles3D` treats a
-  material whose gravity is still the 2D default as Godot's 3D default (documented, unit-tested).
-- New members (Godot names):
-
-| Member | Default | Notes |
-|---|---|---|
-| `AngularVelocityMin/Max` | 0 | Degrees per second about the particle's view axis |
-| `DampingMin/Max` | 0 | Velocity damping |
-| `ColorRamp` | null | `Gradient` (`Src/Rendering/Resources/Gradient.cs:17`), sampled by age. Godot uses a `GradientTexture1D`; a `Gradient` avoids a texture on a CPU path |
-| `ScaleCurve` | null | `Curve` (new resource, unless [keyframe animation](keyframe-animation.md) G1a adds one first): points with linear interpolation, sampled by age |
-
-#### `GpuParticles3D`
-
-```csharp
-[EditorIcon("sparkles", Family = EditorIconFamily.Space3D)]       // new atlas icon (Tabler "sparkles")
-public class GpuParticles3D : GeometryInstance3D                   // new
-{
-    [Export] public ParticleProcessMaterial? ProcessMaterial { get; set; }
-    [Export] public Mesh? DrawPass1 { get; set; }                  // Godot's draw_pass_1; typically a QuadMesh
-    [Export] public int Amount { get; set; } = 8;
-    [Export] public float Lifetime { get; set; } = 1f;
-    [Export(Range = "0,1,0.01")] public float AmountRatio { get; set; } = 1f;
-    [Export] public bool OneShot { get; set; }
-    [Export(Range = "0,1,0.01")] public float Explosiveness { get; set; }
-    [Export] public float Preprocess { get; set; }
-    [Export] public bool LocalCoords { get; set; }
-    [Export] public bool Emitting { get; set; } = true;
-    [Export] public DrawOrderEnum DrawOrder { get; set; }          // Index, Lifetime, ReverseLifetime, ViewDepth
-    [Export] public Aabb VisibilityAabb { get; set; } = new(new(-4), new(4));   // Godot's default box
-    public void Restart();
-}
-```
-
-- `OneShot` and `Explosiveness` live in `ParticleSimulation`, so `GpuParticles2D` can expose them later.
-- `CastShadows` defaults to `false` for particles.
-- `Aabb` (`MainframeEngine/Src/Rendering/Meshes/Aabb.cs:6`) is not serializable today. It gets a 6-float codec in
-  `Codecs.cs` and joins the generator's supported types (`MainframeEngine.Generators/TypeModelBuilder.cs:44`), as
-  `Rect2` did.
-- The `sparkles` (particles) and `sticker` (decal) icons are not in the editor atlas yet. They are added to
-  `MainframeEngine.Editor/Assets/icons/icons.txt` (`just editor-icons-fetch`, `just editor-icons`).
-
-#### Rendering
-
-Particles are drawn by the mesh batcher, not by a new renderer:
-
-- **Instances.** `MeshInstanceData` is 80 B with 12 B of padding (`MeshVertex.cs:28-34`). The padding becomes
-  a colour as four `System.Half` (8 B, linear, white for meshes) and `uint DecalMask` (4 B, see [decals](#decals)). The
-  size and the shadow and ID paths are unchanged.
-  - `Mesh.vk.vert` passes the colour on, and `Mesh.vk.frag` multiplies albedo by it.
-  - For particles, `ObjectId` is the emitter's id, so picking selects the emitter.
-- **Prepare.** In `MeshRenderer.Prepare`, a `GpuParticles3D` adds **one** draw item per `DrawPass1` surface. Its
-  instances are the emitter's live particles.
-  - The emitter writes them into its own preallocated `MeshInstanceData[]` during `Prepare`: transform from position,
-    angle and scale, colour from `Color × ColorRamp(age)`. `WriteInstances` copies the span in one block.
-  - `MeshDrawItem` gains an instance-span source. Emitter runs never merge with other nodes.
-  - Culling uses `VisibilityAabb` transformed by the emitter. Transparent sorting among other draws uses its centre,
-    as Godot does.
-- **Order within an emitter.** `DrawOrder.ViewDepth` sorts live particles back to front with `Span.Sort` over
-  preallocated key and index arrays. `Index`, `Lifetime` and `ReverseLifetime` need no per-frame sort.
-- **Billboards.** New `StandardMaterial3D.BillboardMode`: `Disabled`, `Enabled`, `FixedY`, `Particles` (Godot's
-  `billboard_mode`), plus `BillboardKeepScale`.
-  - The vertex shader builds the basis from `frame.invViewRotation`, a **specialization constant** (constant 1)
-    selected by a new `PipelineKey` field. Billboard mode joins `MaterialRenderState`.
-  - `Particles` mode faces the camera and keeps the particle's in-plane angle and scale, read from the instance
-    matrix (rotation about Z, column lengths).
-  - *Shipped ahead of G6 (ADR 0199):* `Sprite3D.Billboard` (`Disabled`/`Enabled`/`FixedY`), done on the CPU by
-    `MeshRenderer` (the model matrix faces each view's camera), shadows included. The material mode here remains for
-    `MeshInstance3D`s and particles; it can reuse `Billboard.Face` for non-instanced draws, or move to the vertex shader
-    for particles.
-  - Billboarded *particle* materials cast no shadows in G6 (the caster pipelines do not billboard).
-- **Lighting.** Particles use whatever material `DrawPass1` has. Unshaded + blended is the common case; lit materials
-  work with the billboard's camera-facing normal.
-
-**Allocation.** Arrays are resized only when `Amount` changes. The simulation uses no LINQ (the 2D `LiveCount`
-property uses LINQ but is never called per frame). Instances are written into preallocated arrays and copied into the
-frame slot's `InstanceBuffer`. Steady state allocates 0 B.
+- `GpuParticles3D` derives from `VisualInstance3D` and is drawn by a `ParticleRenderer` of its own (instanced draws per
+  draw-pass surface, per-particle colour, billboarding in its vertex shader), not by the mesh batcher's instance spans;
+  `MeshInstanceData` keeps its padding.
+- The simulation is a sibling `ParticleSimulation3D` (this plan's fallback), not one shared with 2D; `GpuParticles2DTests`
+  are unchanged.
+- `ParticleProcessMaterial` gained ring emission, flatness, the initial colour ramp, hue variation and turbulence (the
+  last was a G6 non-goal). `StandardMaterial3D` gained `BillboardMode`, `BlendMode` and `VertexColorUseAsAlbedo`, which
+  only particle draw passes honour so far.
+- `Aabb` is serializable (`VisibilityAabb`) and the `sparkles` icon was already in the atlas.
 
 ### LOD
 

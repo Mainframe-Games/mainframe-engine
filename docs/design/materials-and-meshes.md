@@ -133,6 +133,7 @@ colours are authored in sRGB and converted to linear when packed.
 | Transparency | `Transparency`: `Opaque`, `Cutout` (discard below `AlphaCutoff`), `Blend` (straight alpha, back to front, no depth write, casts no shadow); `NoDepthTest` (Godot's `no_depth_test`: drawn in the transparent pass with no depth test or writes; the object-ID pass still depth-tests it; ADR 0200) |
 | Rendering | `ShadingMode` (`BlinnPhong`, `Unshaded`, `Pbr`), `CullMode` (`Back`, `Front`, `Disabled`), `DoubleSided` (cull nothing, back faces lit with the flipped normal), `RenderPriority` (transparent order) |
 | UV | `UvScale`, `UvOffset` |
+| Particles (ADR 0206) | `BlendMode` (`Mix`, `Add`), `VertexColorUseAsAlbedo`, `BillboardMode` (`Disabled`, `Enabled`, `FixedY`, `Particles`): honoured by [`GpuParticles3D`](particles-3d.md) draw passes only; mesh surfaces always mix and are not billboarded |
 
 Each property setter bumps `Material.Version`. On the next frame the renderer:
 
