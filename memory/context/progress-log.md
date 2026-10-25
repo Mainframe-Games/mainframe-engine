@@ -7,6 +7,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 - **SpineNode alpha-tested shadows + Billboard (#122, 2026-10-25).** ADR 0204, `spine.md` Shadows/Billboards; render
   tests `spine-shadow[-quads|-spot|-omni]`, `spine-billboard[-yaw]` (moltenvk goldens; lavapipe to record), `spine`
   golden re-recorded.
+- **3D particles (2026-10-25, issue #120).** `GpuParticles3D` on the shared `ParticleProcessMaterial` (ADR 0206,
+  `docs/design/particles-3d.md`): CPU `ParticleSimulation3D`, its own `ParticleRenderer` (not `MeshRenderer`), campfire
+  and rain render tests (moltenvk goldens; lavapipe goldens still to record), allocation and frame-rate gates,
+  `ParticleBenchmarks` (not in `baseline.json` yet).
 
 - **Music mode (2026-10-17).** Branch `music-mode`: the music editor is a third `EditorMode` (Game | Music | Video) over
   the whole window, the transport in the toolbar, own menus and shortcuts, an empty state, songs closed with the

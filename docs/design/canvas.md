@@ -114,6 +114,8 @@ ranges, one colour; `Amount`, `Lifetime` (even restarts), `AmountRatio`, `Prepro
 `OneShot` (+ `Finished`), `Explosiveness`, a buffer-reusing `Restart`, and per material damping, spin, lifetime
 randomness, a `ScaleCurve` (`Curve`) and a `ColorRamp` (`Gradient`) over each particle's life.
 Each particle draws its texture centred on it (one canvas batch per emitter). Random streams differ from Godot's GPU ones.
+`ParticleProcessMaterial` lives in `Src/Scene/Particles/` and is shared with `GpuParticles3D` ([3D particles](particles-3d.md),
+ADR 0206); the 2D emitter ignores its 3D-only members (ring emission, flatness, initial ramp, hue variation, turbulence).
 
 ## Lights (ADR 0117)
 

@@ -85,6 +85,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `MainframeEngine/Src/Scene/` — Godot-style node tree: `Node`, `SceneTree`, `Node3D`/`Node2D`, transforms, `NodePath`,
   camera/light/sky/grid nodes (`Nodes3D/`, `Nodes2D/`), input events
 - `MainframeEngine/Src/Nodes/` — drawable/network nodes: `SpineNode`, `NetworkNode` (meshes: `Scene/Nodes3D/GeometryInstance3D.cs`)
+- Particles (ADR 0206): `Scene/Particles/` (`ParticleProcessMaterial`, shared 2D/3D; `ParticleSimulation3D`, CPU),
+  `Scene/Nodes3D/GpuParticles3D.cs`, `Rendering/Particles/` (`ParticleRenderer`, its own pipelines, not `MeshRenderer`);
+  see `docs/design/particles-3d.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;
   `MeshRenderer` batching, `PipelineStateCache`, picking, sub-viewports; `Src/Resources/Import/` — texture/model (Assimp) importers
 - `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`

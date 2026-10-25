@@ -96,6 +96,26 @@ public sealed class InspectorModelTests : IDisposable
     }
 
     [Fact]
+    public void AnAabbEditsAsItsMinAndMaxCorners()
+    {
+        // ADR 0206: GpuParticles3D.VisibilityAabb, six fields (min x, y, z, max x, y, z).
+        var particles = new GpuParticles3D();
+        try
+        {
+            var box = InspectorModel.Build(particles).Find(nameof(GpuParticles3D.VisibilityAabb)) ?? throw new InvalidOperationException("No VisibilityAabb row.");
+            Assert.Equal(PropertyEditorKind.Aabb, box.Kind);
+            Assert.Equal(6, box.Components);
+            Assert.Equal(["-4", "-4", "-4", "4", "4", "4"], Enumerable.Range(0, 6).Select(i => box.FormatComponent(i)));
+            Assert.True(box.TryParseComponent(4, "9", out var value));
+            Assert.Equal(new Aabb(new Vector3(-4f), new Vector3(4f, 9f, 4f)), value);
+        }
+        finally
+        {
+            particles.Free();
+        }
+    }
+
+    [Fact]
     public void VectorComponentsEditOneAxisAndKeepTheOthers()
     {
         _node.Direction = new Vector3(1, 2, 3);
