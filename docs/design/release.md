@@ -62,6 +62,13 @@ flowchart LR
   right-click → Open), `MainframeEngine-X.Y.Z-win-x64.zip`, `MainframeEngine-X.Y.Z-linux-x64.tar.gz`; the
   GitHub Release is titled "Mainframe Engine & Editor vX.Y.Z". `just publish-local [rid]` produces the same archive
   locally. The executable inside stays `MainframeEngine.Editor` (the assembly name the workflow and tests use).
+  The Linux folder also holds `install.sh` ([`build/linux/install-editor.sh`](../../build/linux/install-editor.sh)): it
+  writes `~/.local/share/applications/com.mainframegames.editor.desktop` (from
+  [`com.mainframegames.editor.desktop.in`](../../build/linux/com.mainframegames.editor.desktop.in), with the folder's
+  absolute path) and the hicolor icons, so the editor appears in the application launcher; `--uninstall` removes them,
+  and moving the folder needs a re-run (self-updates keep it in place). The editor sets that id as its window class
+  (`EditorBrand.AppId`, also the macOS bundle id → `EngineOptions.AppId` → Silk.NET's `WindowClass`: X11 `WM_CLASS`,
+  Wayland `app_id`), which the entry's file name and `StartupWMClass` match, so the task bar shows its icon.
 - **NuGet packages.** The `package` job runs [`build/pack-nuget.sh`](../../build/pack-nuget.sh) with the release
   version: `MainframeEngine.X.Y.Z.nupkg` + `.snupkg` (engine, generator, natives, content, mf-l10n) and
   `MainframeEngine.Templates.X.Y.Z.nupkg` (`mfgame`, defaulting to the engine of the same version); see

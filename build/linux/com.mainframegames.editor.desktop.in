@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Mainframe Engine
+GenericName=Game Engine
+Comment=Mainframe Engine editor
+Exec=@EXEC@ %f
+Path=@PATH@
+Icon=com.mainframegames.editor
+Terminal=false
+Categories=Development;IDE;
+Keywords=game;engine;editor;mainframe;
+StartupNotify=true
+StartupWMClass=com.mainframegames.editor

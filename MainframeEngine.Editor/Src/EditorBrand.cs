@@ -12,6 +12,12 @@ public static class EditorBrand
     /// </summary>
     public static string WindowIconPath => OperatingSystem.IsMacOS() ? "Assets/Brand/logo-macos-512.png" : "Assets/Brand/logo-48.png";
 
+    /// <summary>
+    /// The editor's application id: the macOS bundle id and, on Linux, the window class (<see cref="EngineOptions.AppId"/>)
+    /// that the release's <c>com.mainframegames.editor.desktop</c> entry matches (build/linux/install-editor.sh).
+    /// </summary>
+    public const string AppId = "com.mainframegames.editor";
+
     /// <summary>The splash logo (RmlUi renders PNGs, not SVG).</summary>
     public const string SplashLogoPath = "/Assets/Brand/logo-512.png";
 

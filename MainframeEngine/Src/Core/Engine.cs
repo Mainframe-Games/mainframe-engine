@@ -18,6 +18,14 @@ public struct EngineOptions()
     public string? IconPath;
 
     /// <summary>
+    /// Linux: the window's application id (X11 <c>WM_CLASS</c>, Wayland <c>app_id</c>). Desktop shells match it to the
+    /// <c>.desktop</c> file of the same name (or its <c>StartupWMClass</c>) for the task bar icon and launcher grouping.
+    /// Null (default) keeps Silk.NET's default. Silk.NET hands it to SDL as it creates the window (<c>SDL_VIDEO_X11_WMCLASS</c>,
+    /// which sdl2-compat also sends as the Wayland <c>app_id</c>). Ignored on other platforms.
+    /// </summary>
+    public string? AppId;
+
+    /// <summary>
     /// Fixed content scale: pixels per point of <see cref="WindowSize"/>. When greater than zero the framebuffer (swapchain,
     /// frame captures) is exactly <see cref="WindowSize"/> × <see cref="ContentScale"/> pixels on any display: the OS window
     /// is sized for the backing scale of the display it lands on (a 2× Retina window gets half the points of a 1× monitor's
@@ -305,6 +313,7 @@ public abstract class Engine : IDisposable
             API = WindowOptions.DefaultVulkan.API with { Version = new APIVersion(1, 2) },
             Size = engineOptions.WindowSize,
             IsVisible = engineOptions.WindowVisible,
+            WindowClass = engineOptions.AppId ?? WindowOptions.DefaultVulkan.WindowClass,
         };
 
         try
