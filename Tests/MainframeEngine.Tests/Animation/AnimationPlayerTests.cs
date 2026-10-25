@@ -126,6 +126,26 @@ public sealed class AnimationPlayerTests
     }
 
     [Fact]
+    public void APlayDuringACrossfadeBlendsFromTheCurrentMix()
+    {
+        var rig = BuildRig();
+        rig.Player.Play("run");
+        Advance(rig.Player, 0.5, 0.1);
+        rig.Player.Play("idle", customBlend: 0.4);
+        rig.Player.Advance(0.2); // half way between run and idle
+        var mix = rig.Skeleton.GetBonePoseRotation(1);
+
+        rig.Player.Play("once", customBlend: 0.4); // once does not animate the arm: it blends from the mix to the rest
+        rig.Player.Advance(0.001);
+        Assert.True(MathF.Abs(Quaternion.Dot(mix, rig.Skeleton.GetBonePoseRotation(1))) > 0.9999f, "the pose jumped at the third play");
+        rig.Player.Advance(0.2);
+        AssertNear(Quaternion.Slerp(mix, Quaternion.Identity, 0.5f + 0.001f / 0.4f), rig.Skeleton.GetBonePoseRotation(1));
+        rig.Player.Advance(0.25);
+        Assert.False(rig.Player.IsBlending);
+        AssertNear(Quaternion.Identity, rig.Skeleton.GetBonePoseRotation(1));
+    }
+
+    [Fact]
     public void AClipFitsADurationThroughItsLengthAndTheSpeed()
     {
         var rig = BuildRig();
