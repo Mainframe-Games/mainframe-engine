@@ -177,7 +177,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, 2D pin and spring joints, layers, queries, `MoveAndSlide`, interpolation, debug draw |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, captured and window-confined mouse modes, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
-| [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, loopback and simulated bad networks |
+| [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, Steam relay sockets, loopback and simulated bad networks |
 | [Localization](docs/design/localization.md) | gettext catalogs with plurals and contexts, runtime locale switching, translated UI and scenes, a pseudo-locale, `mf-l10n` tooling |
 | [Steamworks](docs/design/steamworks.md) | Lobbies, invites, rich presence, overlay and achievements over Facepunch.Steamworks, with Valve's natives for Windows, Linux and macOS |
 

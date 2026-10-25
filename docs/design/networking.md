@@ -5,8 +5,8 @@
 Multiplayer for Mainframe games: typed messages between a server and its clients over UDP (ENet) or in-process
 loopback, and on top of them **server-authoritative node replication** (M5): spawning scenes on clients by
 `PackedScene` UID, `[Replicated]` members sent as delta snapshots and interpolated on clients, `[Rpc]` methods with
-authority checks, and the connection lifecycle (handshake, timeouts, kicks). Its tests (`Tests/MainframeEngine.Tests/Networking`) run server and clients over loopback and ENet. Steam Networking Sockets are designed in but still stubbed; Steam itself now starts (Facepunch.Steamworks with
-Valve's natives shipped), so the transport is a follow-up (see [Steamworks](steamworks.md)).
+authority checks, and the connection lifecycle (handshake, timeouts, kicks). Its tests (`Tests/MainframeEngine.Tests/Networking`) run server and clients over loopback and ENet. Steam players
+connect through Steam Networking Sockets relayed by Valve (`SteamSocketsTransport`, [below](#steam-relay-sockets)).
 
 ## Layers
 
@@ -20,7 +20,8 @@ flowchart TB
     T --> E["EnetTransport (UDP)"]
     T --> L["LoopbackTransport (in-process, many clients)"]
     T --> SIM["SimulatedTransport (loss/latency/jitter decorator)"]
-    T -.-> S["SteamSocketsTransport (stub)"]
+    T --> S["SteamSocketsTransport (Steam relay, by SteamID)"]
+    T --> M["MultiServerTransport (one server on several transports)"]
     SEL["TransportSelector<br/>lobby connect string → transport"] --> T
     B --> W["NetBufferWriter / NetBufferReader<br/>(pooled arrays)"]
 ```
@@ -37,7 +38,8 @@ All types live in `MainframeEngine.Networking`, except `NetworkNode`, which is i
 | `ITransport`, `ITransportListener`, `NetChannel`, `DisconnectReason` | [Transport/ITransport.cs](../../MainframeEngine/Src/Networking/Transport/ITransport.cs) | Transport abstraction |
 | `EnetTransport` | [Transport/EnetTransport.cs](../../MainframeEngine/Src/Networking/Transport/EnetTransport.cs) | ENet server (`Listen`) or client (`Connect`) |
 | `LoopbackTransport` | [Transport/LoopbackTransport.cs](../../MainframeEngine/Src/Networking/Transport/LoopbackTransport.cs) | In-process server endpoint with any number of clients (`CreateServer` + `ConnectClient`, or `CreatePair`): single-player listen server, tests, benchmarks |
-| `SteamSocketsTransport` | [Transport/SteamSocketsTransport.cs](../../MainframeEngine/Src/Networking/Transport/SteamSocketsTransport.cs) | **Stub**: documents the design, `TryListen`/`TryConnect` return false; implementable now that the Steam natives ship |
+| `SteamSocketsTransport` | [Transport/SteamSocketsTransport.cs](../../MainframeEngine/Src/Networking/Transport/SteamSocketsTransport.cs) | Steam relay sockets (Facepunch `CreateRelaySocket`/`ConnectRelay`): host (`TryListen`) or client (`TryConnect` to a SteamID) while `Steam.Valid` |
+| `MultiServerTransport` | [Transport/MultiServerTransport.cs](../../MainframeEngine/Src/Networking/Transport/MultiServerTransport.cs) | One server over several accepting transports (Steam + ENet), its own peer ids |
 | `NetBufferWriter`, `NetBufferReader` | [Buffers/](../../MainframeEngine/Src/Networking/Buffers/) | Span-based serialization over `ArrayPool<byte>` arrays |
 | `NetBufferPool` | [Buffers/NetBufferPool.cs](../../MainframeEngine/Src/Networking/Buffers/NetBufferPool.cs) | Internal, thread-safe pool of writers and readers |
 | `INetworkTransferable` | [Transfer/INetworkTransferable.cs](../../MainframeEngine/Src/Networking/Transfer/INetworkTransferable.cs) | `NetworkWrite(writer)` / `NetworkRead(reader)`: the message payload contract |
@@ -286,8 +288,57 @@ Clients show interpolated members `InterpolationDelay` (default 0.1 s, about thr
   (default: ENet + Steam sockets; add `ITransportFactory`s such as `LoopbackTransportFactory`), which opens the first
   address whose transport works here. Connections complete asynchronously, so an attempt that later fails
   (`ConnectFailed`, or no handshake within `HandshakeTimeout`) moves on to the next address; `Disconnected` is raised
-  only when none is left. With Steam sockets stubbed, `steam:…;enet:…` falls through to ENet. See
+  only when none is left. `steam:` opens a Steam relay connection whenever Steam runs; without Steam, or when the
+  SteamID is the member's own account, it fails at once and `steam:…;enet:…` falls through to ENet. See
   [ADR 0043](../../memory/decisions/0043-lobby-connect-strings-transport-selection.md).
+
+### Steam relay sockets
+
+`SteamSocketsTransport` carries the same two channels over Steam Networking Sockets, relayed by Valve's network
+(SDR): no open ports, no IP addresses, peers found by SteamID. All Facepunch calls are in the Steamworks shim
+(`SteamworksSockets`, adapter `SteamSocketsApi`; [Steamworks › Layers](steamworks.md#layers)).
+
+```csharp
+// Host: listen on Steam and ENet at once, advertise both in the lobby (Steam first).
+ITransport server = EnetTransport.Listen(7777, 8);
+if (SteamSocketsTransport.TryListen(virtualPort: 0, maxPeers: 8, out var steam))
+    server = new MultiServerTransport(steam, server);
+mp.StartServer(server);
+var connect = NetworkAddress.FormatList(NetworkAddress.Steam(Steam.SteamId), NetworkAddress.Enet(NetworkNode.LocalIp, 7777));
+
+// Member: mp.TryConnect(lobby.ConnectAddress) as above: steam: first, enet: if Steam cannot be used.
+```
+
+- **Host.** `TryListen` calls `InitRelayNetworkAccess` and opens a relay listen socket (`CreateRelaySocket`). The host
+  is the server itself (`MultiplayerApi.ServerPeerId`), as with ENet: it never connects to its own socket (Speed
+  Golf's host did, because its server and client were separate objects). Connections are accepted from the transport's
+  poll, up to `maxPeers`; more are closed with `Kicked`.
+- **Client.** `TryConnect(steamId, virtualPort, connectData)` (`ConnectRelay`). It fails at once when Steam is not
+  running or the SteamID is this user's own (one account cannot relay-connect to itself), so the selector moves on.
+- **Connect data.** Steam has no connect payload (a connection's user data is local), so the client's first message
+  is a reliable 8-byte hello, `"MFS1"` + the registry fingerprint. The host reports the peer only once the hello
+  arrives (a first reliable message that is not one closes the connection with `ProtocolMismatch`; unreliable ones
+  before it are dropped) and stores the fingerprint as the connection's Steam user data.
+- **Lanes.** One connection, one lane: `Reliable` → `k_nSteamNetworkingSend_Reliable` (Nagle, pushed by `Flush`),
+  `Unreliable` → `UnreliableNoNagle`. The receiver reads the message's reliable flag for the channel and drops an
+  unreliable message whose message number is older than the last one delivered (sequenced, like ENet).
+- **Receive path.** `Poll` drains Steam's queued state changes (they arrive in `Steam.RunCallbacks`, pumped by the
+  engine's `SteamServer`), then calls the flat `ReceiveMessagesOnConnection` in batches of 32 into a stack buffer
+  and hands the listener a span over each message in place, releasing it afterwards (also when a handler throws).
+  Facepunch's own `SocketManager.Receive` is not used: it boxes every message (`Marshal.PtrToStructure`) and drops the
+  reliable flag. There are no managed message buffers to pool; sends are copied into Facepunch's pooled native
+  buffers. Steady state allocates nothing (tested over an in-memory fake Steam).
+- **Disconnects.** Reasons travel as Steam application end reasons (1000 + `DisconnectReason`); a local problem
+  (Steam's timeout) is `Timeout`, a connection that never completed `ConnectFailed`. Messages a peer sent before
+  closing are delivered before its disconnect. `Disconnect` lingers, so queued reliable data still goes out. If Steam
+  shuts down under an open transport, every peer is reported `Shutdown`.
+- **Peer ids** count up from 1 per transport and are never reused; `GetRemoteSteamId(peer)` gives the SteamID.
+- **Network conditioner.** `SteamSocketsTransport.SimulateNetworkConditions(lagMs, lossPercent)` sets Steam's global
+  fake lag and loss (`SteamNetworkingUtils.FakeSend/RecvPacketLag/Loss`). A dev-overlay panel for it is not done yet.
+- **Testing.** `SteamSocketsTransportTests` run the transport over `FakeSteamNetwork` (handshake, lanes, sequencing,
+  reasons, refusals, message release, the allocation gate, a lobby join through `MultiplayerApi`) and check the
+  shim's `SteamNetworkingMessage_t` offsets against Facepunch's. A real join needs two Steam accounts:
+  [Tests/QA/steam-relay.md](../../Tests/QA/steam-relay.md).
 
 ### Bandwidth stats
 
@@ -437,9 +488,10 @@ ENet natives are our own builds, not the package's. See [Native libraries](nativ
 - **Stale natives.** A publish for one RID still contains the other OSes' natives, because the referenced engine is
   built RID-agnostic. They are harmless but add size (ENet ~150 KB per OS, `mfrmlui` ~5 MB). Fixing this needs
   consumer-side targets, as in the NuGet distribution plan.
-- **`SteamSocketsTransport`** is a stub (see [Steamworks](steamworks.md)); `steam:` addresses fall back to the next
-  address of a connect string. Steam starts on every desktop platform now, so implementing it over Facepunch's
-  sockets is the follow-up.
+- **`SteamSocketsTransport`** is tested over a fake Steam only; a live relay join is the manual
+  [QA script](../../Tests/QA/steam-relay.md) (two Steam accounts). No dev-overlay network conditioner panel yet, no
+  per-peer round-trip time (`GetRoundTripTime` is ENet only), and Facepunch keeps a closed endpoint's manager in its
+  static socket/connection tables (a few objects per session).
 - **`EnetTransport.Listen(…, bindAddress)`** with an explicit IPv4 address does not accept connections on macOS
   (with ENet's `SetHost` or `SetIP`; the native uses dual-stack IPv6 sockets). Reproduced by the skipped
   `EnetTransportTests.AServerBoundToAnExplicitIPv4AddressAcceptsClients`. Bind every interface (the default).

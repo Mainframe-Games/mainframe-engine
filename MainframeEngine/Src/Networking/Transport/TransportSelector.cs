@@ -140,7 +140,7 @@ public sealed class TransportSelector
 {
     private readonly Dictionary<string, ITransportFactory> _factories = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>ENet (<c>enet:</c>) and Steam Networking Sockets (<c>steam:</c>, unavailable until Steam ships natives).</summary>
+    /// <summary>ENet (<c>enet:</c>) and Steam relay sockets (<c>steam:</c>, usable whenever <see cref="Steam.Valid"/>).</summary>
     public static TransportSelector Default { get; } = CreateDefault();
 
     /// <summary>A selector with the ENet and Steam factories.</summary>
@@ -224,9 +224,21 @@ public sealed class EnetTransportFactory : ITransportFactory
     }
 }
 
-/// <summary><c>steam:&lt;steamId&gt;</c> → <see cref="SteamSocketsTransport.TryConnect"/> (fails while the transport is a stub).</summary>
+/// <summary>
+/// <c>steam:&lt;steamId&gt;</c> → <see cref="SteamSocketsTransport.TryConnect(ulong, int, uint, out ITransport)"/>, a relay
+/// connection; fails at once (so the next address is tried) when Steam is not running or the id is this user's own.
+/// </summary>
 public sealed class SteamSocketsTransportFactory : ITransportFactory
 {
+    private readonly ISteamSocketsBackend _backend;
+
+    public SteamSocketsTransportFactory()
+        : this(SteamSocketsApi.Instance)
+    {
+    }
+
+    internal SteamSocketsTransportFactory(ISteamSocketsBackend backend) => _backend = backend;
+
     public string Scheme => NetworkAddress.SteamScheme;
 
     /// <summary>Steam virtual port.</summary>
@@ -241,14 +253,7 @@ public sealed class SteamSocketsTransportFactory : ITransportFactory
             return false;
         }
 
-        if (SteamSocketsTransport.TryConnect(address.SteamId, VirtualPort, connectData, out transport))
-        {
-            failure = null;
-            return true;
-        }
-
-        failure = SteamSocketsTransport.IsAvailable ? "connection refused" : "Steam Networking Sockets are not available (no Steam natives)";
-        return false;
+        return SteamSocketsTransport.TryConnect(_backend, address.SteamId, VirtualPort, connectData, out transport, out failure);
     }
 }
 

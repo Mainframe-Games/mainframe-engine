@@ -9,7 +9,8 @@ quiet no-op, and the game never fails because Steam is missing (CLAUDE.md: "only
 > **Status:** Steam runs on Windows x64, Linux x64 and macOS (x64 and Apple Silicon) through
 > [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) 2.4.1, the same setup as Speed Golf
 > ([ADR 0189](../../memory/decisions/0189-facepunch-steamworks.md)). The `steam_api` natives ship with the engine and
-> its NuGet package. Steam Networking Sockets (`SteamSocketsTransport`) and avatars as textures are still to do.
+> its NuGet package. Multiplayer connects over Steam relay sockets (`SteamSocketsTransport`); avatars as textures are
+> still to do.
 
 ## Lifecycle
 
@@ -91,6 +92,11 @@ directory, and otherwise the default probing finds them (a NuGet package game's 
 **Calls Facepunch keeps internal** go through the steam_api flat API in the shim (`SteamworksNative`, `LibraryImport`
 against the same library), never reflection: the connect-string invite dialog and the Remote Play Together invite
 dialog (`SteamAPI_ISteamFriends_*` on `SteamAPI_SteamFriends_v017()`).
+
+**Relay sockets** (`SteamSocketsTransport`, [Networking › Steam relay sockets](networking.md#steam-relay-sockets)) follow
+the same layers: the shim's `SteamworksSockets` owns Facepunch's `SocketManager`/`ConnectionManager` subclasses and
+queues their state changes; the adapter `Native/SteamSocketsApi.cs` is the transport's backend. Receiving uses the flat
+`ReceiveMessagesOnConnection` and `SteamNetworkingMessage_t_Release` (Facepunch's `Receive` allocates per message).
 
 The unit tests (`SteamTests`) run the real path on every CI OS: `TryInitialize(480)` must load the shim, this OS's
 Facepunch build and steam_api and reach `SteamNotRunning` (CI has no Steam client), or `Running` on a developer
@@ -198,8 +204,11 @@ The host advertises where its server can be reached in the lobby's `connect` met
 `;`-separated [`NetworkAddress`](networking.md#bad-networks-and-the-lobby-handoff) list, best first.
 
 ```csharp
-// Host
-mp.Host(7777, maxClients: 8);
+// Host: Steam relay and ENet at once (MultiServerTransport), Steam first in the lobby
+ITransport server = EnetTransport.Listen(7777, 8);
+if (SteamSocketsTransport.TryListen(virtualPort: 0, maxPeers: 8, out var steam))
+    server = new MultiServerTransport(steam, server);
+mp.StartServer(server);
 var connect = NetworkAddress.FormatList(NetworkAddress.Steam(Steam.SteamId), NetworkAddress.Enet(NetworkNode.LocalIp, 7777));
 var lobby = await SteamLobby.CreateLobbyAsync("My game", 8, connectAddress: connect);
 
@@ -209,17 +218,16 @@ if (!mp.TryConnect(lobby.ConnectAddress))
 ```
 
 `MultiplayerApi.TryConnect` gives the string to a `TransportSelector`, which opens the first address whose transport
-works on this machine: `steam:` → `SteamSocketsTransport` (still a stub, always unavailable, so it falls through),
-`enet:` → `EnetTransport`. The selection logic is tested end to end over `LoopbackTransport` (`loopback:` addresses
-through a `LoopbackTransportFactory`), so it needs no Steam client.
+works on this machine: `steam:` → `SteamSocketsTransport` (a relay connection whenever Steam runs; it fails at once
+without Steam or for the member's own SteamID, and the next address is tried), `enet:` → `EnetTransport`. The
+selection logic is tested end to end over `LoopbackTransport` (`loopback:` addresses through a
+`LoopbackTransportFactory`) and over an in-memory fake Steam, so it needs no Steam client.
 
 ## Known issues / not done
 
-- **Steam Networking Sockets.** `SteamSocketsTransport` is a stub (its intended mapping is documented in the type).
-  The natives ship now, so it can be built on Facepunch's relay sockets (`SocketManager`/`ConnectionManager`, as Speed
-  Golf does; [#57](https://github.com/Mainframe-Games/mainframe-engine/issues/57)); testing a join needs two Steam
-  accounts or machines. Until then `steam:` addresses are skipped and ENet
-  is used.
+- **Steam relay sockets** are unit-tested over a fake Steam only; a live join needs two Steam accounts
+  ([Tests/QA/steam-relay.md](../../Tests/QA/steam-relay.md)). The network conditioner
+  (`SteamSocketsTransport.SimulateNetworkConditions`) has no dev-overlay panel yet.
 - **Avatars** (Facepunch's `SteamFriends.GetLargeAvatarAsync` → RGBA → a Vulkan texture through the M3 GPU resource
   path, then `UiServer.RegisterTexture` for the UI) are not implemented yet
   ([#58](https://github.com/Mainframe-Games/mainframe-engine/issues/58)). The old commented-out Unity `SteamAvatar` and
