@@ -194,10 +194,11 @@ Games never reference it.
   SDK's `base`, `pluginterfaces`, `public.sdk` and `cmake` submodules are needed (a recursive checkout also fetches
   `vstgui4`, `doc` and `tutorials`; harmless). RtMidi's `RtMidi.cpp` is compiled by our CMake too (`mfph_rtmidi`,
   one API define per OS, warnings off); Linux links `libasound` dynamically when ALSA was found.
-- **Packaging:** `build/package-editor.sh` keeps the exec bit; on macOS the helper sits in `Contents/MacOS/`. Releases
-  are not signed yet; the commented `codesign` step and `build/macos/mfplughost.entitlements`
-  (`com.apple.security.cs.disable-library-validation`, needed to load vendor-signed plugins under the hardened runtime)
-  are ready for when they are.
+- **Packaging:** `build/package-editor.sh` keeps the exec bit; on macOS the helper sits in `Contents/MacOS/`, next to the
+  editor's executable (the rest of the editor is in `Contents/MonoBundle/`; `PluginHostClient.Locate` looks beside the
+  process too). Releases are signed ad hoc (`build/macos/sign-app.sh`, the helper before the bundle); with a Developer
+  ID (`MF_SIGN_IDENTITY`) the helper gets `build/macos/mfplughost.entitlements`
+  (`com.apple.security.cs.disable-library-validation`, needed to load vendor-signed plugins under the hardened runtime).
 
 ## CI: `.github/workflows/natives.yml`
 

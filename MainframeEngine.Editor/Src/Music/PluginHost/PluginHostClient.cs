@@ -49,7 +49,8 @@ public sealed class PluginHostClient : IPluginHost
 
     /// <summary>
     /// The helper binary for this editor, or null when there is none for this platform: <see cref="PathVariable"/>, else
-    /// next to the editor (the build copies <c>runtimes/&lt;rid&gt;/native/mfplughost</c> there), else under
+    /// next to the editor (the build copies <c>runtimes/&lt;rid&gt;/native/mfplughost</c> there), else next to the
+    /// editor's executable (the macOS release bundle's <c>Contents/MacOS</c>), else under
     /// <c>runtimes/&lt;rid&gt;/native/</c>.
     /// </summary>
     public static string? Locate()
@@ -59,6 +60,11 @@ public sealed class PluginHostClient : IPluginHost
         var beside = Path.Combine(AppContext.BaseDirectory, ExecutableName);
         if (File.Exists(beside))
             return beside;
+        // The macOS release bundle keeps helpers next to the editor's executable (Contents/MacOS), not in its app folder
+        // (Contents/MonoBundle): build/package-editor.sh.
+        if (Path.GetDirectoryName(Environment.ProcessPath) is { Length: > 0 } processDirectory &&
+            Path.Combine(processDirectory, ExecutableName) is var besideProcess && File.Exists(besideProcess))
+            return besideProcess;
         var underRuntimes = Path.Combine(AppContext.BaseDirectory, "runtimes", RuntimeInformation.RuntimeIdentifier, "native", ExecutableName);
         return File.Exists(underRuntimes) ? underRuntimes : null;
     }

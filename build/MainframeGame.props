@@ -82,6 +82,8 @@
     </PropertyGroup>
   </Target>
 
-  <!-- macOS: <name>.app around the game executable (targets and conditions evaluated when the build runs). -->
+  <!-- macOS: <name>.app around the game executable (targets and conditions evaluated when the build runs), and the
+       release bundle's apphost (build/package-game.sh publishes with MacBundleAppDirectory=MonoBundle). -->
   <Import Project="macos/DevAppBundle.targets" />
+  <Import Project="macos/BundleAppHost.targets" />
 </Project>

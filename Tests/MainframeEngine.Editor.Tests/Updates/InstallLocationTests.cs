@@ -43,12 +43,16 @@ public sealed class InstallLocationTests : IDisposable
         Assert.Equal(Path.Combine(linux, "MainframeEngine.Editor"), UpdatePlatform.ExecutablePath(linux, "linux-x64"));
     }
 
-    [Fact]
-    public void TheMacRootIsTheEnclosingBundle()
+    [Theory]
+    [InlineData("MonoBundle")] // the release bundle's app folder (build/package-editor.sh, issue #105)
+    [InlineData("MacOS")] // bundles before #105
+    public void TheMacRootIsTheEnclosingBundle(string appFolder)
     {
         var app = Path.Combine(_directory, "Apps", "Mainframe Editor.app");
-        var baseDirectory = Path.Combine(app, "Contents", "MacOS") + Path.DirectorySeparatorChar;
+        var baseDirectory = Path.Combine(app, "Contents", appFolder) + Path.DirectorySeparatorChar;
         Assert.Equal(Path.GetFullPath(app), InstallLocation.FindRoot(baseDirectory, "osx-arm64"));
+        Assert.Null(InstallLocation.FindRoot(Path.Combine(app, appFolder) + Path.DirectorySeparatorChar, "osx-arm64"));
+        Assert.Null(InstallLocation.FindRoot(Path.Combine(app, "Contents", "Resources"), "osx-arm64"));
     }
 
     [Fact]

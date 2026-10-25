@@ -58,8 +58,8 @@ flowchart LR
 - **Tests first.** The full CI suite runs again (`workflow_call`) before anything is built.
 - **Artifacts.** Self-contained, ReadyToRun editor builds, packaged by
   [`build/package-editor.sh`](../../build/package-editor.sh):
-  `MainframeEngine-X.Y.Z-osx-arm64.tar.gz` (`Mainframe Editor.app`, unsigned — first launch:
-  right-click → Open), `MainframeEngine-X.Y.Z-win-x64.zip`, `MainframeEngine-X.Y.Z-linux-x64.tar.gz`; the
+  `MainframeEngine-X.Y.Z-osx-arm64.tar.gz` (`Mainframe Editor.app` in the [macOS bundle layout](#macos-bundle-layout),
+  signed ad hoc and not notarized — first launch: right-click → Open), `MainframeEngine-X.Y.Z-win-x64.zip`, `MainframeEngine-X.Y.Z-linux-x64.tar.gz`; the
   GitHub Release is titled "Mainframe Engine & Editor vX.Y.Z". `just publish-local [rid]` produces the same archive
   locally. The executable inside stays `MainframeEngine.Editor` (the assembly name the workflow and tests use).
   The Linux folder also holds `install.sh` ([`build/linux/install-editor.sh`](../../build/linux/install-editor.sh)): it
@@ -127,7 +127,7 @@ bundle the executable runs from, once, when the process registers with LaunchSer
 |---|---|---|
 | Built by | [`build/package-editor.sh`](../../build/package-editor.sh) | [`build/macos/DevAppBundle.targets`](../../build/macos/DevAppBundle.targets) (after every macOS build of the editor; the editor's csproj sets `MacAppDisplayName`, `MacAppBundleId`, `MacAppIcon`) |
 | Bundle | `Mainframe Editor.app` in the archive | `MainframeEngine.Editor/bin/<cfg>/net10.0/Mainframe Editor.app` |
-| `Contents/MacOS/MainframeEngine.Editor` | the published files | a symlink to `../../../MainframeEngine.Editor` (the apphost) |
+| `Contents/MacOS/MainframeEngine.Editor` | the apphost (and `mfplughost`); the rest of the publish in `Contents/MonoBundle` ([layout](#macos-bundle-layout)) | a symlink to `../../../MainframeEngine.Editor` (the apphost) |
 | Identifier / version | `com.mainframegames.editor`, `X.Y.Z` | `com.mainframegames.editor.dev`, `$(Version)` (`0.0.0-dev`) |
 
 In development the build output stays where it is: the .NET apphost resolves its own path with `realpath`, so the app
@@ -163,6 +163,46 @@ bundle that names an icon (`MacAppBundle.HasIcon`, CoreFoundation's main bundle 
 `.icns`. Unbundled runs (`dotnet Game.Desktop.dll`, the scripts) still get `window.icon`, which is full-bleed for
 Windows and Linux. The template smoke test (`just template-smoke`) checks `SmokeGame.app`'s Info.plist and icon.
 
+## macOS bundle layout
+
+Both release bundles, a game's `<Name>.app` ([`build/package-game.sh`](../../build/package-game.sh)) and
+`Mainframe Editor.app` ([`build/package-editor.sh`](../../build/package-editor.sh)), pass
+`codesign --verify --deep --strict` (issue #105) with this layout:
+
+| Path | Holds |
+|---|---|
+| `Contents/MacOS/<exe>` | the apphost alone (the editor: and its plugin helper `mfplughost`) |
+| `Contents/MonoBundle/` | the rest of the publish: assemblies, `*.deps.json`/`*.runtimeconfig.json`, the runtime's dylibs (`libhostfxr`, `libhostpolicy`, `libcoreclr`, …, `createdump`), the engine's and packages' dylibs (`libmfrmlui`, `libSDL2`, `libMoltenVK`, `libsteam_api`, …), `steamworks/posix/`, `Assets/`, `project.mfproj` |
+| `Contents/Resources/` | Apple's resources: the `.icns` |
+| `Contents/Info.plist`, `Contents/_CodeSignature/` | |
+
+Why: Apple treats every file in `Contents/MacOS` as code, so a managed DLL there fails the check ("not signed"); and
+`Contents/Resources` is for resources, not code. The .NET host cannot split managed and native files: a self-contained
+apphost loads `libhostfxr` from the folder of the app's `.dll`, and hostpolicy and coreclr come from the same folder. So
+everything but the apphost lives in one folder outside the code locations, `Contents/MonoBundle`, where .NET for macOS
+also puts its assemblies and dylibs. codesign seals it as resources (any change breaks the bundle signature) and the
+signing step signs each Mach-O in it.
+
+How the apphost finds its app: the SDK writes the app's path, relative to the apphost, into the apphost
+("`<assembly>.dll`", beside it). An osx publish with `-p:MacBundleAppDirectory=MonoBundle`
+([`build/macos/BundleAppHost.targets`](../../build/macos/BundleAppHost.targets), imported by `MainframeGame.props` and
+the editor's project) rewrites the published apphost with the SDK's own `CreateAppHost` task (and its ad-hoc signature,
+on any OS) as "`../MonoBundle/<assembly>.dll`". The host resolves that path and takes its folder as the app's root, so
+`AppContext.BaseDirectory` is `Contents/MonoBundle/` and everything resolved against it works unchanged: `ContentPaths`,
+`SilkNativeResolver`, `VulkanLoaderBootstrap` (MoltenVK), `mfrmlui`/`enet` (`DllImport`, the app folder is a native
+search directory), `SteamworksLoader` (`steamworks/posix/`), `ModelImporter` (assimp). `package-game.sh` passes the
+property for osx RIDs; the editor's project sets it, so any osx publish of the editor is for the bundle (its folder does
+not start on its own). No symlink is involved: an earlier layout reached `Contents/Resources/<assembly>.dll` through a
+`Contents/MacOS` symlink, which breaks if a copy dereferences it (some archivers and uploaders do).
+
+Signing ([`build/macos/sign-app.sh`](../../build/macos/sign-app.sh), shared by both scripts) goes inside out and never
+uses `--deep`: every Mach-O except the main executable, deepest first, then the bundle (which signs the apphost and seals
+the rest), then `codesign --verify --deep --strict --verbose=2`. Ad hoc by default (Apple Silicon refuses unsigned code;
+no hardened runtime). With a Developer ID every Mach-O gets the hardened runtime and a secure timestamp; the main
+executable the .NET entitlements (`allow-jit`, `allow-unsigned-executable-memory`, `disable-library-validation`), and
+a `--helper` its own (the editor's `mfplughost`: `build/macos/mfplughost.entitlements`). On Linux and Windows there is
+no `codesign`: the package is built but left unsigned (a warning), so sign macOS packages on a Mac.
+
 ## Games
 
 `build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]`
@@ -175,16 +215,17 @@ Steam outside the client and must never reach players. Then per platform:
 
 | RID | Output | Notes |
 |---|---|---|
-| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | a layout `codesign --verify --deep --strict` accepts: only the apphost in `Contents/MacOS` (Apple seals only Mach-O code there, and a managed DLL fails the check), the assemblies, natives and content in `Contents/Resources`, and a `Contents/MacOS/<assembly>.dll` symlink to `../Resources/<assembly>.dll` through which the apphost finds its app (it resolves the real path, so `Resources` is `AppContext.BaseDirectory`); Info.plist (name, bundle id, version, copyright, games category), the desktop project's `MacAppIcon` when it is an `.icns`, else `.icns` from the PNG (`build/macos/png-to-icns.sh`), ad-hoc `codesign` by default (Apple Silicon refuses unsigned code). `--sign "Developer ID Application: …"` (or `MF_SIGN_IDENTITY`) signs each Mach-O in `Contents` and then the bundle, with the hardened runtime, a timestamp and the .NET entitlements (JIT, unsigned executable memory, library validation off). `--notarize <profile>` (or `MF_NOTARY_PROFILE`, from `xcrun notarytool store-credentials`) then submits, staples and re-zips |
+| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | the [macOS bundle layout](#macos-bundle-layout) (the apphost alone in `Contents/MacOS`, the rest of the publish in `Contents/MonoBundle`), which passes `codesign --verify --deep --strict`; Info.plist (name, bundle id, version, copyright, games category), the desktop project's `MacAppIcon` when it is an `.icns`, else `.icns` from the PNG (`build/macos/png-to-icns.sh`), in `Contents/Resources`; signed inside out, ad hoc by default (Apple Silicon refuses unsigned code). `--sign "Developer ID Application: …"` (or `MF_SIGN_IDENTITY`) signs each Mach-O and then the bundle with that identity, the hardened runtime, a timestamp and the .NET entitlements (JIT, unsigned executable memory, library validation off). `--notarize <profile>` (or `MF_NOTARY_PROFILE`, from `xcrun notarytool store-credentials`) then submits, staples and re-zips |
 | `win-*` | `<exe>-<version>-<rid>.zip` | a GUI-subsystem exe, so players get no console window (`-p:MainframeWindowsGui=true`: `MainframeGame.props` publishes the launcher as `WinExe`; `dotnet run` and dev builds keep the console); the desktop project's `ApplicationIcon`, else the exe icon from the PNG (`magick` → `.ico` → `ApplicationIcon`) |
 | `linux-*` | `<exe>-<version>-<rid>.tar.gz` | also the dedicated server (`<exe> --headless ++ …`, ADR 0120) |
 
 Defaults: name and version from `project.mfproj`, the exe from the name without spaces, the icon from `window.icon`.
-Cross-publishing works from any host (self-contained); only the `.icns` needs macOS.
+Cross-publishing works from any host (self-contained); the `.icns` and the signing (`codesign`) need macOS.
 
 Checkout and package games use the same script. `MainframeGame.props` (imported by checkout games, and by package games
 as `buildTransitive`) sets `MainframePackageGameScript` to the checkout's `build/package-game.sh` or the
-`MainframeEngine` package's `tools/package-game.sh` (with `tools/macos/png-to-icns.sh`):
+`MainframeEngine` package's `tools/package-game.sh` (with `tools/macos/png-to-icns.sh` and `sign-app.sh`; the package's
+`buildTransitive/macos/BundleAppHost.targets` writes the bundle apphost):
 
 ```bash
 script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"

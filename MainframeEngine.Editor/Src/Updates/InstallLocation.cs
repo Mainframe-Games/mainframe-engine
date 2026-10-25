@@ -40,10 +40,11 @@ public sealed record InstallLocation(string Root, InstallKind Kind)
         var directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDirectory));
         if (!UpdatePlatform.IsMac(rid))
             return directory;
-        // <X>.app/Contents/MacOS
+        // <X>.app/Contents/MonoBundle (the app folder of the release bundle, build/package-editor.sh), or
+        // <X>.app/Contents/MacOS (bundles before issue #105 kept everything beside the executable)
         var contents = Path.GetDirectoryName(directory);
         var app = contents is null ? null : Path.GetDirectoryName(contents);
-        return string.Equals(Path.GetFileName(directory), "MacOS", StringComparison.Ordinal) &&
+        return Path.GetFileName(directory) is "MonoBundle" or "MacOS" &&
                string.Equals(Path.GetFileName(contents), "Contents", StringComparison.Ordinal) &&
                app is not null && app.EndsWith(".app", StringComparison.OrdinalIgnoreCase)
             ? app

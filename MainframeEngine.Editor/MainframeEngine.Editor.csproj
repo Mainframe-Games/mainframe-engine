@@ -109,4 +109,11 @@
     </PropertyGroup>
     <Import Project="..\build\macos\DevAppBundle.targets" />
 
+    <!-- macOS release: an osx publish writes the apphost of the release bundle (Contents/MacOS), which starts the editor
+         from Contents/MonoBundle (build/macos/BundleAppHost.targets, build/package-editor.sh). -->
+    <PropertyGroup>
+        <MacBundleAppDirectory>MonoBundle</MacBundleAppDirectory>
+    </PropertyGroup>
+    <Import Project="..\build\macos\BundleAppHost.targets" />
+
 </Project>
