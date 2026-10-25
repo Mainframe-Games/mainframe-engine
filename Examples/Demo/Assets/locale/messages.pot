@@ -62,6 +62,7 @@ msgstr ""
 #. RML <option>
 #. RML <button>
 #: Examples/Demo/Assets/Animation3D/panel.rml:18
+#: Examples/Demo/Assets/Shaders/panel.rml:13
 #: Examples/Demo/Assets/SoundFx/panel.rml:23
 #: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:127
 msgid "Hit"
@@ -257,6 +258,31 @@ msgid "F12"
 msgstr ""
 
 #. RML <h1>
+#: Examples/Demo/Assets/Particles/panel.rml:8
+msgid "Particles"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Particles/panel.rml:9
+msgid "GpuParticles3D: additive HDR flames and sparks that glow, lit smoke sorted back to front, and a rain box of velocity-aligned streaks."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Particles/panel.rml:10
+msgid "Rain"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Particles/panel.rml:11
+msgid "Glow"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Assets/Particles/panel.rml:12
+msgid "Burst of sparks"
+msgstr ""
+
+#. RML <h1>
 #: Examples/Demo/Assets/Physics/panel2d.rml:8
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
 msgid "Physics 2D"
@@ -315,6 +341,37 @@ msgstr ""
 #. RML <button>
 #: Examples/Demo/Assets/Physics/panel3d.rml:21
 msgid "Save"
+msgstr ""
+
+#. RML <h1>
+#: Examples/Demo/Assets/Shaders/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:187
+msgid "Shaders"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Shaders/panel.rml:9
+msgid "Godot spatial shaders on meshes: a ground drawn from the world position, swaying stalks and dissolving props, lit and shadowed."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Shaders/panel.rml:10
+msgid "Wind"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Shaders/panel.rml:11
+msgid "Animate"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Shaders/panel.rml:12
+msgid "Dissolve"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Shaders/panel.rml:13
+msgid "Strike the props"
 msgstr ""
 
 #. RML <h1>
@@ -410,6 +467,37 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/Spine/panel.rml:11
 msgid "Animation"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Spine/panel.rml:18
+msgid "Shaped shadow"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Spine/panel.rml:19
+msgid "Turned away"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Spine/panel.rml:20
+msgid "Billboard"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Spine/panel.rml:22
+#: MainframeEngine/Assets/UI/settings/settings.rml:104
+msgid "Off"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Spine/panel.rml:23
+msgid "Fixed Y"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Spine/panel.rml:24
+msgid "Enabled"
 msgstr ""
 
 #. RML <title>
@@ -784,11 +872,6 @@ msgstr ""
 #. RML <span>
 #: MainframeEngine/Assets/UI/settings/settings.rml:102
 msgid "Shadows"
-msgstr ""
-
-#. RML <option>
-#: MainframeEngine/Assets/UI/settings/settings.rml:104
-msgid "Off"
 msgstr ""
 
 #. RML <p>
