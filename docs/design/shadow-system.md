@@ -282,7 +282,10 @@ The render server's callbacks:
 - `MeshRenderer.CullShadowCasters` and `DrawShadowCasters` handle the batched meshes (see
   [Culling](#caster-culling)).
 - Non-batched visuals (Spine) have no bounds: when any is visible and casting, every pass renders and they draw into
-  each pass with the per-object pipelines (`GetShadow2DPipeline(stride)` / `GetShadowPointPipeline(stride)`).
+  each pass. First they get `PrepareShadowCasting(camera)` (a billboarded `SpineNode` takes its shadow pose there).
+  Spine draws with the alpha-tested `SpineCasterPipeline(point)` (ADR 0204: the atlas page at set 1, set 0 and the push
+  ranges shared with the plain layouts; [Spine → Shadows](spine.md#shadows)). Other per-object casters use
+  `GetShadow2DPipeline(stride)` / `GetShadowPointPipeline(stride)`.
 
 ### Light view-projection ring
 

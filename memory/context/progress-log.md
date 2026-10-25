@@ -4,6 +4,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **SpineNode alpha-tested shadows + Billboard (#122, 2026-10-25).** ADR 0204, `spine.md` Shadows/Billboards; render
+  tests `spine-shadow[-quads|-spot|-omni]`, `spine-billboard[-yaw]` (moltenvk goldens; lavapipe to record), `spine`
+  golden re-recorded.
+
 - **Music mode (2026-10-17).** Branch `music-mode`: the music editor is a third `EditorMode` (Game | Music | Video) over
   the whole window, the transport in the toolbar, own menus and shortcuts, an empty state, songs closed with the
   project; ADR 0192, `editor.md` modes and song tab sections, `MusicModeTests.cs`, goldens `editor-music-empty` and

@@ -15,6 +15,14 @@
                 <option value="jump">Jump</option>
                 <option value="idle">Idle</option>
             </select></div>
+        <div class="demo-row"><span>Shaped shadow</span><input type="checkbox" data-checked="shaped"/></div>
+        <div class="demo-row"><span>Turned away</span><input type="checkbox" data-checked="turned"/></div>
+        <div class="demo-row"><span>Billboard</span>
+            <select data-value="billboard">
+                <option value="off">Off</option>
+                <option value="fixed_y">Fixed Y</option>
+                <option value="enabled">Enabled</option>
+            </select></div>
     </div>
 </body>
 </rml>

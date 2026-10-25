@@ -101,6 +101,7 @@ and CLAUDE.md back in line with the code.
 | Spine without `ShadowSystem` (dummy set) | ✅ | [Shadow system: without a ShadowSystem](design/shadow-system.md#without-a-shadowsystem) |
 | Exit code, validation in Debug only, overlay frame pairing and HiDPI, no busy-wait when minimised | ✅ | [Engine lifecycle](design/engine-lifecycle.md) · [Developer overlay](design/dev-overlay.md) |
 | `SpineNode` scale, animation order, `SetAnimation`, vertex growth, pixel release | ✅ | [Spine](design/spine.md) |
+| `SpineNode` alpha-tested shadows (`ShadowAlphaThreshold`, cascades/spot/point) and `Billboard` (ADR 0204, #122) | ✅ | [Spine](design/spine.md#shadows) |
 | CLAUDE.md sync with the code (README synced 2026-10-05) | ✅ | [CLAUDE.md](../CLAUDE.md) |
 
 ## M2 — Node system & scenes ✅
