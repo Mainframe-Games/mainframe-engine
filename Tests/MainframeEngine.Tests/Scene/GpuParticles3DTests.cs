@@ -401,8 +401,13 @@ public sealed class GpuParticles3DTests
         var allocated = AllocationGate.SmallestWindow(() =>
         {
             for (var i = 0; i < 60; i++)
+            {
                 host.Tree.Tick(new GameTime { DeltaTime = Step });
+                p.Restart(); // a pooled FX fired on the server: nothing to size or simulate
+                p.EmitParticle(Transform3D.Identity, Vector3.UnitY, new Color(1f, 1f, 1f, 1f), default, GpuParticles3D.EmitFlags.Position);
+            }
         });
+        Assert.True(p.Emitting);
         Assert.Equal(0, p.LiveCount);
         Assert.Empty(p.Simulation.Particles.ToArray());
         Assert.False(p.HasRenderResources);

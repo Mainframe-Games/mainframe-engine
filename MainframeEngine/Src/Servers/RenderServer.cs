@@ -24,7 +24,7 @@ internal interface IRenderResourceOwner
 /// <remarks>
 /// <para>Order inside a colour pass: the environment's sky, visuals with a negative render priority (the debug
 /// grid), opaque and cutout meshes (sorted pipeline → material → mesh), the remaining visuals (Spine), then
-/// blended meshes back to front.</para>
+/// blended meshes back to front, then blended visuals that draw themselves (<see cref="GpuParticles3D"/>, ADR 0206).</para>
 /// <para>The per-frame paths are allocation-free (picking requests allocate when made).</para>
 /// </remarks>
 public sealed class RenderServer : IServer

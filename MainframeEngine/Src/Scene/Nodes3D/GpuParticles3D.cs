@@ -61,6 +61,7 @@ public class GpuParticles3D : VisualInstance3D
     private double _accumulator;
     private float _interpolation = 1f;
     private bool _preprocessPending = true;
+    private bool _restartPending;
     private uint _seed;
     private bool _seeded;
 
@@ -164,14 +165,25 @@ public class GpuParticles3D : VisualInstance3D
 
     private bool IsActive => SimulateWithoutRenderer || Tree?.Servers.Render is not null;
 
-    /// <summary>Kills every particle and starts emitting from the start (Godot's <c>restart</c>); no allocation once sized.</summary>
+    /// <summary>
+    /// Kills every particle and starts emitting from the start (Godot's <c>restart</c>); no allocation once sized. Without a
+    /// render server (headless) it only marks the emitter as emitting: the restart waits until it can be drawn.
+    /// </summary>
     public void Restart()
     {
         _seeded = false;
         _accumulator = 0;
         _interpolation = 1f;
-        _simulation.Restart(Settings());
         _preprocessPending = true;
+        if (!IsActive)
+        {
+            _simulation.Emitting = true;
+            _restartPending = true; // inert: nothing is sized or simulated until there is a renderer
+            return;
+        }
+
+        _restartPending = false;
+        _simulation.Restart(Settings());
     }
 
     /// <summary>
@@ -202,6 +214,12 @@ public class GpuParticles3D : VisualInstance3D
     /// <summary>Advances the simulation by <paramref name="seconds"/> (already scaled by <see cref="SpeedScale"/>).</summary>
     internal void Advance(float seconds)
     {
+        if (_restartPending)
+        {
+            _restartPending = false;
+            _simulation.Restart(Settings());
+        }
+
         if (_preprocessPending)
         {
             _preprocessPending = false;
