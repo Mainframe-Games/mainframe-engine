@@ -168,7 +168,7 @@ public sealed class SpineNodeTests
     }
 
     /// <summary>An <see cref="IRenderer"/> that is not an <see cref="IVulkanContext"/>, so nodes create no GPU resources.</summary>
-    private sealed class HeadlessRenderer : IRenderer
+    internal sealed class HeadlessRenderer : IRenderer
     {
         public RenderingBackend Backend => RenderingBackend.Vulkan;
         public bool VSync { get; set; }

@@ -85,6 +85,11 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private PipelineLayout _layoutPoint;   // push: mat4 model + vec4 lightPosRange; set0: light VP (dynamic UBO)
     private PipelineLayout _layout2DCutout, _layoutPointCutout; // + set1: the mesh material (cutout casters)
 
+    // Alpha-tested Spine casters (ADR 0204), built when the first SpineRenderer asks: set 1 is the atlas page.
+    private DescriptorSetLayout _spineTextureLayout;
+    private PipelineLayout _layout2DSpine, _layoutPointSpine;
+    private Pipeline _pipe2DSpine, _pipePointSpine;
+
     // Light-VP ring: MaxFramesInFlight × MaxShadowPasses matrices, bound with a dynamic offset per pass.
     private readonly UniformRing _vpRing;
     private GpuBuffer _vpBuffer = null!;
@@ -1153,6 +1158,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         Foliage2D,
         FoliagePoint,
         Impostor2D,
+        Spine2D,
+        SpinePoint,
     }
 
     private static (string Vertex, string Fragment) ShaderPaths(CasterShaders shaders) => shaders switch
@@ -1165,6 +1172,8 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         CasterShaders.Foliage2D => ("Shaders/Shadows/Shadow2DFoliageInstanced.vk.vert.spv", "Shaders/Shadows/ShadowFoliageCutout.vk.frag.spv"),
         CasterShaders.FoliagePoint => ("Shaders/Shadows/ShadowPointFoliageInstanced.vk.vert.spv", "Shaders/Shadows/ShadowPointCutout.vk.frag.spv"),
         CasterShaders.Impostor2D => ("Shaders/Shadows/Shadow2DImpostorInstanced.vk.vert.spv", "Shaders/Shadows/ShadowImpostorCutout.vk.frag.spv"),
+        CasterShaders.Spine2D => ("Shaders/Spine/SpineShadow2D.vk.vert.spv", "Shaders/Spine/SpineShadow.vk.frag.spv"),
+        CasterShaders.SpinePoint => ("Shaders/Spine/SpineShadowPoint.vk.vert.spv", "Shaders/Spine/SpineShadowPoint.vk.frag.spv"),
         _ => ("Shaders/Shadows/ShadowPointCutoutInstanced.vk.vert.spv", "Shaders/Shadows/ShadowPointCutout.vk.frag.spv"),
     };
 
@@ -1333,6 +1342,40 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     internal PipelineLayout CutoutLayout(bool point) => point ? _layoutPointCutout : _layout2DCutout;
 
     /// <summary>
+    /// Builds the alpha-tested Spine caster pipelines (ADR 0204) once: double-sided, the Spine vertex (stride 40:
+    /// position, UV, and tint alpha + threshold at offset 32), set 1 = one atlas page
+    /// (<see cref="SpineRenderer.CreateTextureSetLayout"/>). Their layouts keep set 0 and the push range of
+    /// <see cref="Shadow2DLayout"/>/<see cref="ShadowPointLayout"/>, so the pass's light VP stays bound.
+    /// </summary>
+    internal void EnsureSpineCasters()
+    {
+        if (_pipe2DSpine.Handle != 0)
+            return;
+        _spineTextureLayout = SpineRenderer.CreateTextureSetLayout(_ctx);
+        _layout2DSpine = CreateCasterLayout(point: false, _spineTextureLayout, "shadow 2D Spine");
+        _layoutPointSpine = CreateCasterLayout(point: true, _spineTextureLayout, "shadow point Spine");
+        _pipe2DSpine = BuildPipeline(CasterShaders.Spine2D, CullMode.Disabled, mirrored: false, _layout2DSpine,
+            SpineCasterBindings, SpineCasterAttributes, "shadow (Spine, alpha-tested)");
+        _pipePointSpine = BuildPipeline(CasterShaders.SpinePoint, CullMode.Disabled, mirrored: false, _layoutPointSpine,
+            SpineCasterBindings, SpineCasterAttributes, "shadow (Spine, alpha-tested)");
+    }
+
+    /// <summary>The alpha-tested Spine caster pipeline (after <see cref="EnsureSpineCasters"/>).</summary>
+    internal Pipeline SpineCasterPipeline(bool point) => point ? _pipePointSpine : _pipe2DSpine;
+
+    /// <summary>The layout of <see cref="SpineCasterPipeline"/>: set 0 light VP, set 1 the atlas page.</summary>
+    internal PipelineLayout SpineCasterLayout(bool point) => point ? _layoutPointSpine : _layout2DSpine;
+
+    private static readonly VertexInputBindingDescription[] SpineCasterBindings = ObjectBindings(SpineRenderer.VertexStride);
+
+    private static readonly VertexInputAttributeDescription[] SpineCasterAttributes =
+    [
+        new() { Location = 0, Binding = 0, Format = Format.R32G32B32Sfloat, Offset = 0 },
+        new() { Location = 1, Binding = 0, Format = Format.R32G32Sfloat, Offset = 12 },
+        new() { Location = 2, Binding = 0, Format = Format.R32G32Sfloat, Offset = 32 }, // tint alpha, threshold
+    ];
+
+    /// <summary>
     /// The depth pipeline for instanced mesh batches: 2D or point, culling per the material (double-sided casters cull
     /// nothing), front faces flipped for mirrored instances, and for cutout materials an alpha test against the
     /// material (set 1 of <see cref="CutoutLayout"/>). Plain casters use the <see cref="Shadow2DLayout"/>/
@@ -1405,6 +1448,14 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             deletions.Enqueue(GpuDeletion.Of(_layout2DCutout));
         if (_layoutPointCutout.Handle != 0)
             deletions.Enqueue(GpuDeletion.Of(_layoutPointCutout));
+        if (_pipe2DSpine.Handle != 0)
+        {
+            deletions.Enqueue(GpuDeletion.Of(_pipe2DSpine));
+            deletions.Enqueue(GpuDeletion.Of(_pipePointSpine));
+            deletions.Enqueue(GpuDeletion.Of(_layout2DSpine));
+            deletions.Enqueue(GpuDeletion.Of(_layoutPointSpine));
+            deletions.Enqueue(GpuDeletion.Of(_spineTextureLayout));
+        }
 
         if (_timestamps.Handle != 0)
             deletions.Enqueue(GpuDeletion.Of(_timestamps));

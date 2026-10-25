@@ -10,12 +10,17 @@ namespace MainframeEngine;
 /// <see cref="SpineFolder"/>); the skeleton
 /// data is loaded on the CPU on first use and the GPU renderer is created through the
 /// <see cref="RenderServer"/> when the node enters a tree. Animation advances in <see cref="Node.OnProcess"/>.
+/// Shadows are alpha-tested against the atlas (<see cref="ShadowAlphaThreshold"/>) and <see cref="Billboard"/> turns the
+/// skeleton toward each view's camera, shadows included (ADR 0204).
 /// </summary>
 [EditorIcon("bone")]
 public class SpineNode : VisualInstance3D
 {
     /// <summary>Skeleton-space to world scale used when none is set (SpineBoy is ~500 units tall).</summary>
     public const float DefaultSpineScale = 0.02f;
+
+    /// <summary>The default <see cref="ShadowAlphaThreshold"/>: shadows keep the atlas pixels at least half opaque.</summary>
+    public const float DefaultShadowAlphaThreshold = 0.5f;
 
     private Skeleton? _skeleton;
     private AnimationState? _animation;
@@ -25,6 +30,8 @@ public class SpineNode : VisualInstance3D
     private string _folder = string.Empty;
     private float _spineScale = DefaultSpineScale;
     private bool _flipX;
+    private Matrix4x4 _buildModel = Matrix4x4.Identity; // SpineScale × ModelMatrix of the last build, before billboarding
+    private Matrix4x4 _shadowModel = Matrix4x4.Identity; // the pose the shadow passes cast from (PrepareShadowCasting)
 
     /// <summary>A node to configure (set <see cref="Folder"/>) and add to a tree.</summary>
     public SpineNode()
@@ -90,6 +97,23 @@ public class SpineNode : VisualInstance3D
 
     [Export]
     public Spine.Physics UpdateType { get; set; } = Spine.Physics.None;
+
+    /// <summary>
+    /// Shadows are cast where the atlas alpha × the slot's tint alpha reaches this value (an alpha test, as cutout
+    /// materials do), so attachments cast their silhouettes and fading slots fade their shadows; 0 casts every
+    /// attachment's whole triangles (the quads of region attachments). Casting stays double-sided.
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float ShadowAlphaThreshold { get; set; } = DefaultShadowAlphaThreshold;
+
+    /// <summary>
+    /// Faces the camera as <see cref="Sprite3D.Billboard"/> does (ADR 0199, on the CPU): <see cref="BillboardMode.FixedY"/>
+    /// turns the skeleton about world Y and keeps it upright, <see cref="BillboardMode.Enabled"/> also tilts it to the
+    /// view. The node's position and scale are kept and its rotation is ignored; <see cref="FlipX"/> still mirrors it.
+    /// Shadows cast from the pose the main view sees.
+    /// </summary>
+    [Export]
+    public BillboardMode Billboard { get; set; }
 
     public ExposedList<Animation> AllAnimations => Skeleton.Data.Animations;
 
@@ -171,13 +195,31 @@ public class SpineNode : VisualInstance3D
         // and the main render pass within the same frame.
         // SpineScale scales x/y only, so ZSpacing stays in node units.
         var spineScale = Math.Abs(_spineScale);
-        _spineRenderer?.BuildVertices(ZSpacing, Matrix4x4.CreateScale(spineScale, spineScale, 1f) * ModelMatrix);
+        _buildModel = Matrix4x4.CreateScale(spineScale, spineScale, 1f) * ModelMatrix;
+        _shadowModel = _buildModel;
+        _spineRenderer?.BuildVertices(ZSpacing, _buildModel, ShadowAlphaThreshold);
+    }
+
+    /// <summary>
+    /// The model matrix drawn for a view with <paramref name="view"/> matrix: the built one (<see cref="SpineScale"/> ×
+    /// <see cref="Node3D.ModelMatrix"/>) turned by <see cref="Billboard"/>.
+    /// </summary>
+    internal Matrix4x4 ViewModel(in Matrix4x4 view) => MainframeEngine.Billboard.Face(_buildModel, Billboard, view);
+
+    /// <summary>The pose the next shadow passes cast from (set by <see cref="PrepareShadowCasting"/>).</summary>
+    internal Matrix4x4 ShadowModel => _shadowModel;
+
+    internal override void PrepareShadowCasting(ICamera? camera)
+    {
+        base.PrepareShadowCasting(camera);
+        _shadowModel = camera is null ? _buildModel : ViewModel(camera.ViewMatrix);
     }
 
     public override void Draw(in ICamera camera, in LightEnvironment lightEnvironment)
     {
         base.Draw(camera, lightEnvironment);
         _spineRenderer?.Draw(
+            ViewModel(camera.ViewMatrix),
             camera.ViewMatrix,
             camera.ProjectionMatrix,
             lightEnvironment,
@@ -191,7 +233,7 @@ public class SpineNode : VisualInstance3D
     public override void DrawShadow2D(in CommandBuffer cb)
     {
         base.DrawShadow2D(cb);
-        _spineRenderer?.DrawShadow2D(cb);
+        _spineRenderer?.DrawShadow2D(cb, _shadowModel);
     }
 
     /// <summary>
@@ -201,7 +243,7 @@ public class SpineNode : VisualInstance3D
     public override void DrawShadowPoint(in CommandBuffer cb, in Vector3 lightPos, in float lightRange)
     {
         base.DrawShadowPoint(cb, lightPos, lightRange);
-        _spineRenderer?.DrawShadowPoint(cb, lightPos, lightRange);
+        _spineRenderer?.DrawShadowPoint(cb, _shadowModel, lightPos, lightRange);
     }
 
     /// <summary>
@@ -239,6 +281,7 @@ public class SpineNode : VisualInstance3D
         _animation!.AddAnimation(0, animation, true, delay);
     }
 
+    /// <summary>Mirrors the skeleton horizontally (its <c>ScaleX</c> sign), billboarded or not.</summary>
     public void FlipX(bool isFlipped)
     {
         _flipX = isFlipped;
