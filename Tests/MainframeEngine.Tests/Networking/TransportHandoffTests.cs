@@ -5,8 +5,10 @@ namespace MainframeEngine.Tests.Networking;
 
 /// <summary>
 /// Lobby → transport handoff: connect strings, address parsing and transport selection, exercised end to end over
-/// loopback (Steam itself cannot run here: no natives).
+/// loopback, on the no-Steam path (Steam sockets unavailable, so <c>steam:</c> falls through). Serial with
+/// <see cref="Steamworks.SteamTests"/>, which starts Steam for a moment on a machine with the Steam client open.
 /// </summary>
+[Collection(nameof(Steamworks.SerialSteam))]
 public sealed class TransportHandoffTests
 {
     /// <summary>A Steam sockets factory that behaves like the real one would without Steam.</summary>
@@ -86,12 +88,17 @@ public sealed class TransportHandoffTests
     }
 
     [Fact]
-    public void TheDefaultSelectorKnowsEnetAndSteamAndSteamSocketsAreUnavailable()
+    public void TheDefaultSelectorKnowsEnetAndSteamAndWithoutSteamSteamSocketsAreUnavailable()
     {
         Assert.True(TransportSelector.Default.Supports("enet"));
         Assert.True(TransportSelector.Default.Supports("steam"));
+        Assert.False(Steam.Valid);
         Assert.False(SteamSocketsTransport.IsAvailable);
+        Assert.False(SteamSocketsTransport.TryListen(0, 4, out _));
+        Assert.False(SteamSocketsTransport.SimulateNetworkConditions(100, 5));
         Assert.False(TransportSelector.Default.TryConnect("steam:76561197960287930", 0, out _, out _));
+        Assert.False(TransportSelector.Default.TryConnect(NetworkAddress.Steam(76561197960287930), 0, out _, out var failure));
+        Assert.Equal("Steam is not running", failure);
     }
 
     [Fact]

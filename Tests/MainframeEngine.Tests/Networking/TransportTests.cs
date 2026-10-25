@@ -223,4 +223,54 @@ public sealed class TransportTests
         if (loss > 0 || jitter > 0)
             Assert.True(a.Api.Stats.SnapshotsDiscarded + ((SimulatedTransport)net.Server.Bus!.Transport).Dropped > 0);
     }
+
+    [Fact]
+    public void AMultiServerTransportListensOnSeveralTransportsAtOnce()
+    {
+        var steamLike = LoopbackTransport.CreateServer();
+        var enetLike = LoopbackTransport.CreateServer();
+        var server = new MultiServerTransport(steamLike, enetLike);
+        var a = enetLike.ConnectClient(7);
+        var b = steamLike.ConnectClient(8);
+        var events = new Recorder();
+        server.Poll(events);
+        Assert.Equal(["connect 1 8", "connect 2 7"], events.Events); // ids of the server, in poll order
+        Assert.True(server.IsServer);
+        Assert.Equal(2, server.PeerCount);
+        Assert.True(server.TryGetInnerPeer(new PeerId(2), out var inner, out var innerPeer));
+        Assert.Same(enetLike, inner);
+        Assert.Equal(new PeerId(1), innerPeer);
+
+        a.Poll(new Recorder());
+        b.Poll(new Recorder());
+        Assert.True(a.Send(LoopbackTransport.RemotePeerId, NetChannel.Unreliable, [1]));
+        Assert.True(b.Send(LoopbackTransport.RemotePeerId, NetChannel.Reliable, [2]));
+        server.Poll(events);
+        Assert.Equal([(new PeerId(1), NetChannel.Reliable, (byte)2), (new PeerId(2), NetChannel.Unreliable, (byte)1)], events.Packets);
+
+        var aEvents = new Recorder();
+        Assert.True(server.Send(new PeerId(2), NetChannel.Reliable, [3]));
+        Assert.False(server.Send(new PeerId(3), NetChannel.Reliable, [0]));
+        server.Flush();
+        a.Poll(aEvents);
+        Assert.Equal((byte)3, Assert.Single(aEvents.Packets).Value);
+
+        server.Disconnect(new PeerId(2), DisconnectReason.Kicked);
+        server.Poll(events);
+        Assert.Equal("disconnect 2 Kicked", events.Events[^1]);
+        Assert.False(server.TryGetInnerPeer(new PeerId(2), out _, out _));
+        var c = enetLike.ConnectClient();
+        server.Poll(events);
+        Assert.Equal("connect 3 0", events.Events[^1]); // ids are never reused
+
+        server.Dispose();
+        Assert.True(steamLike.IsDisposed);
+        Assert.True(enetLike.IsDisposed);
+        Assert.Throws<ObjectDisposedException>(() => server.Poll(events));
+        Assert.Throws<ArgumentException>(() => new MultiServerTransport(LoopbackTransport.CreatePair().Client));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new MultiServerTransport());
+        a.Dispose();
+        b.Dispose();
+        c.Dispose();
+    }
 }
