@@ -71,7 +71,8 @@ ignored with a warning. `TextureImportSettings.ToMetaSettings()` writes the obje
 
 ```json
 { "uid": "mdl_7e57a55e7000", "importer": "model",
-  "settings": { "scale": 1, "generateNormals": true, "importMaterials": true, "optimizeMeshes": false } }
+  "settings": { "scale": 1, "generateNormals": true, "importMaterials": true, "optimizeMeshes": false,
+                "importAnimations": true, "optimizeAnimations": true, "clips": [ { "name": "run", "loop": "Linear" } ] } }
 ```
 
 Models import through **Silk.NET.Assimp** ([ADR 0013](../../memory/decisions/0013-assimp-for-model-import.md)). The
@@ -80,6 +81,7 @@ post-processing steps are:
 - Triangulate, join identical vertices, sort by primitive type, improve cache locality, validate.
 - `FlipUVs`, because Vulkan samples with a top-left UV origin, like glTF.
 - Optionally, smooth normals and mesh optimisation.
+- `LimitBoneWeights` (four influences per vertex), and FBX pivots not preserved (`IMPORT_FBX_PRESERVE_PIVOTS` = 0).
 
 | Assimp | Engine |
 |---|---|
@@ -88,6 +90,11 @@ post-processing steps are:
 | the node's meshes | one `ArrayMesh`, one `MeshSurface` per Assimp mesh; nodes using the same meshes share it; points and lines are dropped |
 | material | `StandardMaterial3D`: name, base colour or diffuse (linear → sRGB), opacity, emissive + intensity, shininess, two-sided, glTF alpha mode (`MASK` → cutout, `BLEND` → blend) and cutoff |
 | textures | base colour or diffuse → albedo, normals → normal map, emissive → emission. Files next to the model load through `ResourceLoader`, so their own `.meta` applies; embedded images (`*N`, e.g. GLB, or by file name, e.g. FBX) decode in memory |
+| bones (ADR 0208) | one `Skeleton3D` at the armature node (bones, rests); nodes under bones → `BoneAttachment3D`s |
+| skinned meshes | a `MeshInstance3D` under the skeleton with a `Skin` (inverse bind matrices) and `MeshSurface.Joints`/`Weights` |
+| animations | `Animation`s (named after the actions) in an `AnimationLibrary` on an `AnimationPlayer` child of the root; loop modes and events from a `-loop` suffix, glTF animation `extras` and the `.meta` `clips` |
+
+Skeletons, skins and clips are described in [Animation and skinning → Import](animation.md#import).
 
 `PackedScene.Instantiate()` on an imported scene clones the imported template. Exported properties are copied, so
 meshes, materials and textures are shared, and every node is owned by the instance root, as for scene files. A
@@ -113,13 +120,19 @@ lives in `Tests/Assets/Models/TestModel/` (the shared test assets) and in `Examp
 regenerate it, run `UPDATE_TEST_ASSETS=1 dotnet test Tests/MainframeEngine.Tests --filter TheCommittedTestModel`.
 A unit test fails if the committed copy and the generator drift apart.
 
+`SkinnedCharacter.cs` next to it generates the skinned character (`Tests/Assets/Models/Character/character.glb`, also
+in the Demo): a 31-bone Blender-style rig, a two-primitive skinned mesh of about 6 000 triangles and eight clips
+([Animation and skinning → Testing](animation.md#testing)).
+
 ## Known issues
 
 - Assimp is a native library from the `Ultz.Native.Assimp` package (loaded by Silk.NET's resolver). Where it
   cannot load, model imports throw `InvalidOperationException` and the import tests fail. See the M3 risks in the
   progress log for the Linux CI loader.
-- Not imported: skinning, animations, cameras, lights, PBR metallic/roughness maps, glTF sampler settings (the
+- Not imported: morph targets, cameras, lights, PBR metallic/roughness maps, glTF sampler settings (the
   image's `.meta` decides), and UV sets beyond the first.
+- Silk.NET's animation key structs are larger than the bundled Assimp's; the importer detects the key stride from the
+  data (ADR 0208).
 
 ## Related docs
 

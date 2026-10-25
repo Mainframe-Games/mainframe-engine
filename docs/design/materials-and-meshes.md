@@ -648,10 +648,20 @@ camera. `FixedY` looking straight down takes its facing from the camera's right 
 private material's `UvScale`/`UvOffset`, so cutout shadows and picking flip too. Render test: `sprite-billboard`.
 `SpineNode.Billboard` shares `Billboard.Face` (ADR 0204, [Spine → Billboards](spine.md#billboards)).
 
+## Skinned meshes (ADR 0207)
+
+A surface with `Joints`/`Weights` drawn by a `MeshInstance3D` whose `Skeleton` resolves is pre-skinned on the GPU each
+frame: `MeshRenderer.Prepare` swaps the node's shared `MeshGpu` for a per-instance view whose vertices are that frame
+slot's output of `Skinning/Skin.vk.comp`, culls it with its posed bounds, and queues it for
+`RenderServer.SkinMeshes()` (after `BeginFrame`, before shadows). The lit, outline, object-ID, shadow and sub-viewport
+pipelines draw the view like any mesh; the prepass uses `MeshDepthSkinned` for the previous pose. Details:
+[Animation and skinning](animation.md#gpu-skinning-compute-pre-skinning). Render tests: `skinned`, `skinned-crowd`.
+
 ## Known issues
 
 - Blended surfaces cast no shadow (cutout materials cast alpha-tested shadows since M4).
-- No skinning, morph targets, LODs or GPU-driven culling (shadow casters are culled per pass on the CPU).
+- No morph targets, LODs or GPU-driven culling (shadow casters are culled per pass on the CPU); skinned instances are
+  not instanced together.
 - PBR is opt-in (`ShadingMode.Pbr`); imported glTF materials stay Blinn-Phong (their metallic/roughness/occlusion are not
   imported yet). No `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
 - Billboards are a node feature (`Sprite3D.Billboard`); `StandardMaterial3D` has no `BillboardMode` yet, so a `MeshInstance3D`

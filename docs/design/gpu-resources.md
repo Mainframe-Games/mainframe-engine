@@ -90,6 +90,10 @@ sequenceDiagram
   buffer; the wrappers call `FlushIfRecording()`, which submits the pending work in a one-shot command
   buffer and waits on its **fence** (`SubmitAndWait`). Nothing in the engine calls `vkQueueWaitIdle`.
 
+**Compute.** The skinning pass (ADR 0207) is the engine's first compute work: `MeshSkinner` creates its compute pipeline
+through the same `VkPipelineCache` (`vkCreateComputePipelines`), and the upload queue's buffer barrier also covers the
+compute stage, so a skinned mesh's source buffer uploaded this frame is ready for the pass.
+
 ## Deletion queue
 
 `Dispose` on every renderer-owned object (`GpuBuffer`, `GpuImage`, `GpuTexture`, `RenderTarget`, sky,

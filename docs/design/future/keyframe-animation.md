@@ -1,7 +1,8 @@
 # Proposal: Keyframe animation (Animation, AnimationPlayer, skinning)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1: G1a animation + timeline, G1b skinning) ·
-**Status:** ⬜ planned · **Depends on:** [Scene serialization](../scene-serialization.md) (resources, generator),
+**Status:** 🚧 G1b and the G1a player core shipped: [Animation and skinning](../animation.md) (ADR 0207, 0208) is
+the current state; this proposal keeps what is still planned · **Depends on:** [Scene serialization](../scene-serialization.md) (resources, generator),
 [Editor](../editor.md), the song tab's timeline (merged to `main` with the music editor;
 [shared timeline](#shared-timeline-component), extracted by G17b) · **Related:** [2D skeletal animation](skeleton-2d.md)
 (G17: builds compute skinning first), [Animation graph](animation-graph.md) (state machines for both),
@@ -310,6 +311,13 @@ animation's `ResourceName`. A player has several libraries; a library's `Resourc
 
 ### AnimationPlayer node
 
+> **Shipped (ADR 0207):** the node with `Libraries`, `RootNode`, `Autoplay`, `CallbackModeProcess`,
+> `PlaybackDefaultBlendTime`, `SpeedScale`, `Active`; `Play`/`PlayBackwards`/`Pause`/`Stop`/`Seek`/`Queue`/`Advance`;
+> crossfades; `AnimationStarted`/`Finished`/`Changed`; and an `AnimationEvent(animation, name)` signal raised by
+> `EventTrack` keys (in place of method keys until G1.4). Transform tracks only. See
+> [Animation and skinning](../animation.md#animationplayer). Still planned below: `BlendTimes`, `CallbackModeMethod`,
+> value/bezier/method/audio tracks and their bindings, `GetSyncState`.
+
 ```csharp
 public enum AnimationCallbackMode : byte { Physics, Idle, Manual }     // Godot's callback_mode_process
 public enum AnimationMethodCallMode : byte { Deferred, Immediate }    // Godot's callback_mode_method
@@ -464,106 +472,16 @@ timeline exists afterwards.
 
 ### G1b: skeletons and skinning
 
-**Nodes and resources** (new, Godot 4 names):
+**Shipped** (ADR 0207, ADR 0208): `Skeleton3D`, `Skin`, `MeshSurface.Joints`/`Weights`, `MeshInstance3D.Skeleton`/`Skin`,
+`BoneAttachment3D`, compute pre-skinning (`RenderServer.SkinMeshes`, `Skinning/Skin.vk.comp`, per-instance frame-slot
+vertex buffers, posed bone-box bounds, skinned motion vectors) and the skinned glTF/FBX import (bones, skins, clips,
+`.meta` `clips`, glTF animation extras for loops and events). The current state is
+[Animation and skinning](../animation.md). Deviations from this proposal: no `MAX_SKIN_JOINTS`/`MAX_JOINT_INFLUENCES`
+in `limits.json` (`Skin.MaxJoints` in C#; the shader takes the joint count as a push constant), and events are an
+`EventTrack` until method tracks exist.
 
-```csharp
-[EditorIcon("bone", Family = EditorIconFamily.Space3D)]
-public class Skeleton3D : Node3D
-{
-    [Export] public string[] BoneNames { get; set; } = [];
-    [Export] public int[] BoneParents { get; set; } = [];           // -1 for roots; parents before children
-    [Export] public Transform3D[] BoneRests { get; set; } = [];
-    public int BoneCount { get; }
-    public int FindBone(string name);
-    public void SetBonePosePosition(int bone, Vector3 p);  public Vector3 GetBonePosePosition(int bone);
-    public void SetBonePoseRotation(int bone, Quaternion r); public Quaternion GetBonePoseRotation(int bone);
-    public void SetBonePoseScale(int bone, Vector3 s);     public Vector3 GetBonePoseScale(int bone);
-    public Transform3D GetBoneGlobalPose(int bone);
-    public void ResetBonePoses();
-}
-
-[EditorIcon("bone")]
-public sealed class Skin : Resource
-{
-    [Export] public string[] BindNames { get; set; } = [];          // bone per joint, matched by name when bound
-    [Export] public Transform3D[] BindPoses { get; set; } = [];     // inverse bind matrices
-}
-```
-
-- `MeshSurface` gains `[Export] int[] Joints` (4 per vertex) and `[Export] Vector4[] Weights` (one per vertex, sum 1);
-  both empty for static meshes. `MeshInstance3D` (`Scene/Nodes3D/GeometryInstance3D.cs:67`) gains
-  `[Export] NodePath Skeleton` and `[Export] Skin? Skin`.
-- Bones are data, not nodes (Godot 4's model): a 60-bone character is one node, and bone tracks address
-  `Path = "Armature/Skeleton3D"`, `Bone = "Hips"`. Pose arrays are allocated when `BoneNames` is set (load time). Global
-  poses are recomputed once per frame when dirty, parents first.
-- `BoneAttachment3D` (Godot's) follows a bone's global pose, for weapons and props (G1.11).
-
-**GPU skinning: a compute pre-pass.** Each skinned `MeshInstance3D` gets, per `FrameSlot`, its own vertex buffer in the
-`MeshVertex` layout, written by a compute shader from the bind-pose vertices, a joints/weights buffer and the instance's
-joint palette. After that the instance is an ordinary mesh: the existing mesh, shadow (`Shadow2DInstanced`,
-`ShadowPointInstanced`), picking (`MeshId`) and outline pipelines draw it unchanged, because shadows read only location 0
-with a 32-byte stride (`MeshVertex.cs:7-10`). One new shader replaces a skinned variant of every vertex shader, and the
-G6 PBR shaders need no skinning code. This is also how Godot 4 skins.
-
-- **Frame order.** `RenderServer.SkinMeshes(Root)` (new) runs right after `Renderer.BeginFrame()` and before
-  `OnShadowPass` (`Core/Engine.cs:513-522`), with no render pass active: it writes the palettes
-  (`skeleton global pose × inverse bind`, 3×4 floats per joint) into a host-visible ring keyed by
-  `IVulkanContext.FrameSlot` and sized `MaxFramesInFlight` (`Rendering/Vulkan/IVulkanContext.cs:18`, `:51`), dispatches
-  one compute per skinned surface range, then one barrier (compute write → vertex attribute read). Skipped frames
-  (`FrameStarted` false) skip it.
-- **Buffers.** The joints/weights buffer is uploaded with the mesh (`IVulkanContext.Uploads`); output buffers come from
-  `IVulkanContext.Allocator` and go to `Deletions` on free, like every other GPU object
-  ([GPU resources](../gpu-resources.md)). Memory per instance: vertices × 32 B × `MaxFramesInFlight`.
-- **Batching.** Skinned instances are not instanced together (each has its own vertex buffer); each is one draw per
-  surface. Many identical skinned characters are a later optimisation.
-- **Limits.** New entries in `MainframeEngine/Assets/Shaders/limits.json`: `MAX_SKIN_JOINTS` (256, joints per skin;
-  importer and `Skin` validation reject more) and `MAX_JOINT_INFLUENCES` (4, Assimp's `LimitBoneWeights` default).
-- **Bounds.** Culling uses per-bone bind-space boxes (computed once from the vertices each joint moves), transformed by
-  the current pose and merged: O(bones) per skinned instance, no allocation, tight enough for shadow-caster culling.
-- **Pipelines.** The renderer has no compute pipelines yet (`PipelineCache.cs:74` only mentions
-  `vkCreateComputePipelines`); G1.9 adds compute pipeline creation to `IVulkanContext.Pipelines`, unless G17a
-  ([2D skeletal animation](skeleton-2d.md#compute-skinning)) has already added it with `RenderServer.SkinMeshes`.
-  MoltenVK supports
-  compute.
-- **Allocation.** Palette writes and dispatches are per-frame code: no allocation (allocation gate), no validation
-  warnings (validation gate).
-
-**Import** (`MainframeEngine/Src/Resources/Import/ModelImporter.cs`, the `Builder`):
-
-1. Add `PostProcessSteps.LimitBoneWeights` when any mesh has bones.
-2. Bones are the nodes named by any mesh's `MBones`. Their lowest common ancestor's parent becomes a `Skeleton3D`
-   (named after the armature node); bone nodes become bones (name, parent, rest = node transform) and leave the node
-   tree. Non-bone children of bones become `BoneAttachment3D`s (G1.11; before that, a warning and they are kept under the
-   skeleton).
-3. Each skinned mesh's weights become `Joints`/`Weights` (top 4, normalised); its bones' offset matrices become a `Skin`.
-   The `MeshInstance3D` points at the skeleton.
-4. Each `aiAnimation` becomes an `Animation`: length = duration ÷ ticks per second (25 when the file says 0), one
-   `Position3DTrack`/`Rotation3DTrack`/`Scale3DTrack` per channel (bones by `Bone`, other nodes by path), keys in seconds.
-   Channels that never change are dropped; with `optimizeAnimations`, keys that linear interpolation reproduces within a
-   tolerance are removed.
-5. The clips go into an inline `AnimationLibrary` on a new `AnimationPlayer` child named `AnimationPlayer`
-   (`RootNode = ".."`). Instances share it: the importer's clone copies exported values and shares resources
-   (`ModelImporter.cs:244-268`).
-
-New `.meta` settings (`ModelImportSettings`, `ModelImporter.cs:20-36`, `FromMeta`/`ToMetaSettings`):
-
-```json
-{
-  "importer": "model",
-  "settings": {
-    "scale": 1,
-    "importAnimations": true,
-    "optimizeAnimations": true,
-    "clips": [ { "name": "Run", "loop": "Linear" }, { "name": "Jump", "loop": "None", "rename": "jump_start" } ]
-  }
-}
-```
-
-glTF has no loop flag, so `clips` sets loop modes and names. Clip entries need types in the `AssetJsonContext`
-source-generated JSON context (AOT). Nothing is written to disk: imports stay in memory
-([ADR 0011](../../../memory/decisions/0011-json-scenes-no-binary-bake.md)).
-
-**Root motion** is designed in [Animation authoring → G1e](animation-authoring.md#g1e-root-motion).
+Still planned for G1b: morph targets, instancing identical skinned characters, and the editor's "Save animations as
+`.mres`" ([G7](editor-viewport-tools.md)). Root motion is G1e ([Animation authoring](animation-authoring.md#g1e-root-motion)).
 
 ## Testing
 
@@ -618,7 +536,7 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
    `FloatArrayCodec`, `ExportPropertyInfo.Bind`, sub-component parsing; unit tests.
 2. **G1.2 Animation resource.** Track types, evaluation (nearest/linear/cubic, slerp, transitions, bezier, discrete),
    loop modes, key cursor; `.mres` round trip.
-3. **G1.3 AnimationLibrary + AnimationPlayer.** Play/backwards/pause/stop/seek/queue/speed/autoplay, signals, process
+3. 🚧 **G1.3 AnimationLibrary + AnimationPlayer.** (Shipped for transform and event tracks, ADR 0207; node warnings for bodies, the allocation gate over 1 000 nodes and the benchmark remain.) Play/backwards/pause/stop/seek/queue/speed/autoplay, signals, process
    modes, `Advance`, crossfade, node warnings; allocation gate; benchmark.
 4. **G1.4 Method and audio tracks.** `[AnimationMethod]` model, emitter and diagnostics; argument parsing; audio keys.
 5. **G1.5 Shared timeline.** Extract `Src/Timeline/` from the song tab and move the song tab onto it, unless G17b already
@@ -630,14 +548,14 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
 
 **G1b**
 
-8. **G1.8 Skeleton and skin.** `Skeleton3D`, `Skin`, `MeshSurface.Joints/Weights`, `MeshInstance3D.Skeleton/Skin`,
+8. ✅ **G1.8 Skeleton and skin.** `Skeleton3D`, `Skin`, `MeshSurface.Joints/Weights`, `MeshInstance3D.Skeleton/Skin`,
    bone tracks; unit tests.
-9. **G1.9 GPU skinning.** Compute pipelines, `Assets/Shaders/Skinning/Skin.vk.comp` (+ `.spv`, `shaders.lock`), palette
+9. ✅ **G1.9 GPU skinning.** Compute pipelines, `Assets/Shaders/Skinning/Skin.vk.comp` (+ `.spv`, `shaders.lock`), palette
    ring per `FrameSlot`, per-instance output buffers, `RenderServer.SkinMeshes` in the frame, bone-box bounds,
    `limits.json`; render golden, validation and allocation gates.
-10. **G1.10 Import.** Bones → `Skeleton3D`, weights, skins, clips → `AnimationLibrary` + `AnimationPlayer`, `.meta`
+10. ✅ **G1.10 Import.** Bones → `Skeleton3D`, weights, skins, clips → `AnimationLibrary` + `AnimationPlayer`, `.meta`
     settings; test model; `asset-pipeline.md`, `materials-and-meshes.md`.
-11. **G1.11 Follow-ups.** `BoneAttachment3D`; Demo skinned character; "Save animations as .mres" with
+11. 🚧 **G1.11 Follow-ups.** ✅ `BoneAttachment3D`; ✅ Demo skinned character (`animation_3d`); "Save animations as .mres" with
     [G7](editor-viewport-tools.md).
 
 ## Open questions

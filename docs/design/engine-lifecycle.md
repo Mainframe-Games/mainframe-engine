@@ -106,6 +106,7 @@ sequenceDiagram
     else
         E->>R: BeginFrame() (slot fence wait, acquire, begin cmd buffer)
         alt FrameStarted
+            E->>R: RenderServer.SkinMeshes() — compute pre-skinning of the prepared skinned meshes (ADR 0207)
             E->>G: OnShadowPass(gameTime) — no render pass active
             E->>R: RenderServer.RenderShadows(Root) — the tree's shadow casters
             E->>R: BeginRenderPass() — HDR scene target: clear color (linear) + depth

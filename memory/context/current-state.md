@@ -28,6 +28,8 @@ _Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publ
 
 ## Known gotchas
 
+- Inside `namespace MainframeEngine` the engine's `Animation` (ADR 0207) shadows `Spine.Animation`: qualify Spine's. Silk.NET's
+  Assimp key structs do not match the bundled native library's size; read keys through `ModelImporter`'s detected stride.
 - macOS: SDL and Silk.NET must bind the SAME Vulkan library — `VulkanLoaderBootstrap` enforces it; never call a bare
   `Vk.GetApi()`, take `Vk` from `IVulkanContext`. HiDPI: use `Engine.FramebufferSize` (pixels), not window sizes
   (points). Render tests, `just qa*` and the packaged editor need the display awake (`caffeinate -u -t 3000 &`).
