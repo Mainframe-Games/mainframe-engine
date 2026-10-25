@@ -1,0 +1,35 @@
+<Project>
+  <!--
+    macOS release bundle apphost (issue #105): the editor and every game executable (through build/MainframeGame.props).
+
+    A signed .app may hold only Mach-O code in Contents/MacOS (a managed .dll there fails codesign verify strict), so the
+    release bundles (build/package-game.sh, build/package-editor.sh) put the apphost alone in Contents/MacOS and the rest
+    of the publish output (assemblies, the runtime's and the engine's dylibs, content) in Contents/MonoBundle:
+
+      <Name>.app/Contents/MacOS/<exe>                       the apphost
+      <Name>.app/Contents/MonoBundle/$(AssemblyName).dll    the app (AppContext.BaseDirectory)
+
+    The apphost carries the path of its app relative to itself: the SDK writes "$(AssemblyName).dll" (beside it). With
+    -p:MacBundleAppDirectory=MonoBundle a publish for an osx RID rewrites the published apphost with the SDK's own
+    CreateAppHost task (and its ad-hoc signature, on any OS) so it carries "../MonoBundle/$(AssemblyName).dll". The host
+    resolves that path, takes its folder as the app's root (hostfxr, hostpolicy, coreclr and the deps.json are looked up
+    there in a self-contained app) and calls hostfxr_main_startupinfo, as for any app path with a directory in it.
+    No symlink is involved, so a copy that dereferences symlinks (some archivers, depot uploaders) still starts.
+
+    Only the published apphost changes (obj/ and bin/ keep the stock one), so a published folder with this apphost only
+    starts from inside a bundle. Off unless MacBundleAppDirectory is set; build/package-game.sh sets it for osx RIDs, and
+    the editor's project sets it for its release publish.
+  -->
+  <Target Name="_MacBundleAppHost" AfterTargets="Publish" DependsOnTargets="_GetAppHostPaths;_GetAppHostCreationConfiguration"
+          Condition="'$(MacBundleAppDirectory)' != '' and $(RuntimeIdentifier.StartsWith('osx')) and '$(UseAppHost)' == 'true' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true'">
+    <Error Condition="'$(AppHostSourcePath)' == '' or !Exists('$(AppHostSourcePath)')" Text="No apphost for $(RuntimeIdentifier) ('$(AppHostSourcePath)'): cannot write the bundle apphost." />
+    <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)"
+                   AppHostDestinationPath="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PublishDir)', '$(AssemblyName)'))"
+                   AppBinaryName="../$(MacBundleAppDirectory)/$(AssemblyName)$(TargetExt)"
+                   IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')"
+                   Retries="$(CopyRetryCount)"
+                   RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)"
+                   EnableMacOSCodeSign="$(_EnableMacOSCodeSign)" />
+    <Message Importance="high" Text="$(AssemblyName) -> bundle apphost for ../$(MacBundleAppDirectory)/$(AssemblyName)$(TargetExt)" />
+  </Target>
+</Project>

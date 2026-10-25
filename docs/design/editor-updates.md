@@ -155,7 +155,9 @@ delete.
 
 ### Install root
 
-- **macOS:** `AppContext.BaseDirectory` is `<X>.app/Contents/MacOS/`; the root is `<X>.app`. A bare executable
+- **macOS:** `AppContext.BaseDirectory` is `<X>.app/Contents/MonoBundle/` (the [bundle layout](release.md#macos-bundle-layout);
+  `<X>.app/Contents/MacOS/` in bundles before it, also accepted); the root is `<X>.app`. The executable the updater starts
+  stays `Contents/MacOS/MainframeEngine.Editor`, so an older editor stages and launches a newer one unchanged. A bare executable
   outside a bundle cannot be updated in place.
 - **Windows, Linux:** the root is `AppContext.BaseDirectory` (the unpacked `MainframeEngine-X.Y.Z-<rid>` folder). The
   folder keeps its name after an update; the version in the name is just where it was first unpacked.

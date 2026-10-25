@@ -143,13 +143,17 @@ if [ "$source" = "package" ]; then
         "+$base/steamworks/win64/MainframeEngine.Steamworks.dll" "+$base/steamworks/win64/Facepunch.Steamworks.Win64.dll" \
         "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" ;;
       osx-*)
-        # Only the apphost (and the symlink it finds its app through) in Contents/MacOS; the rest in Contents/Resources.
-        macos="SmokeGame.app/Contents/MacOS" res="SmokeGame.app/Contents/Resources"
-        check_archive "$archive" "+SmokeGame.app/Contents/Info.plist" "+$macos/SmokeGame" "+$macos/SmokeGame.Desktop.dll" \
-          "+$res/SmokeGame.Desktop.dll" "+$res/libsteam_api.dylib" "+$res/libmfrmlui.dylib" \
-          "+$res/steamworks/posix/MainframeEngine.Steamworks.dll" "+$res/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-          "+$res/Assets/Scenes/Main.mscene" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
+        # Only the apphost in Contents/MacOS; the rest of the publish in Contents/MonoBundle (issue #105).
+        macos="SmokeGame.app/Contents/MacOS" app="SmokeGame.app/Contents/MonoBundle"
+        check_archive "$archive" "+SmokeGame.app/Contents/Info.plist" "+$macos/SmokeGame" "-$macos/SmokeGame.Desktop.dll" \
+          "+$app/SmokeGame.Desktop.dll" "+$app/libsteam_api.dylib" "+$app/libmfrmlui.dylib" "+$app/libcoreclr.dylib" \
+          "+$app/steamworks/posix/MainframeEngine.Steamworks.dll" "+$app/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
+          "+$app/Assets/Scenes/Main.mscene" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
           "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt"
+        # The apphost starts ../MonoBundle/SmokeGame.Desktop.dll (build/macos/BundleAppHost.targets).
+        unzip -p "$archive" "$macos/SmokeGame" > "$work/packages/apphost"
+        LC_ALL=C grep -aqF "../MonoBundle/SmokeGame.Desktop.dll" "$work/packages/apphost" ||
+          { echo "template-smoke: $macos/SmokeGame does not start ../MonoBundle/SmokeGame.Desktop.dll" >&2; exit 1; }
         if [ "$(uname -s)" = "Darwin" ]; then
           check_archive "$archive" "+SmokeGame.app/Contents/Resources/icon.icns"
         fi

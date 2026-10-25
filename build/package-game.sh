@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Packages a GameHost game for players: a self-contained `dotnet publish` of its desktop project for one RID, then
-#   osx-*     <Name>.app (the apphost in Contents/MacOS, the rest in Contents/Resources; Info.plist from project.mfproj,
-#             .icns from a PNG, ad-hoc codesign) zipped as <exe>-<version>-<rid>.zip
+#   osx-*     <Name>.app (the apphost alone in Contents/MacOS, the rest of the publish in Contents/MonoBundle, the icon in
+#             Contents/Resources; Info.plist from project.mfproj, .icns from a PNG, signed inside out, ad hoc by default)
+#             zipped as <exe>-<version>-<rid>.zip; passes codesign --verify --deep --strict
 #   win-*     <exe>.exe (GUI subsystem: no console window) + its files in <exe>-<version>-<rid>.zip
 #   linux-*   <exe> + its files in <exe>-<version>-<rid>.tar.gz (also the dedicated server: run it with --headless)
 # Usage: build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v]
@@ -13,8 +14,10 @@
 # Without those tools the package has no icon (a warning on macOS). See docs/design/release.md (Games).
 # Games on the MainframeEngine package run the copy in its tools/ folder (as bash "<path>", the package drops the
 # executable bit): dotnet msbuild <Desktop.csproj> -getProperty:MainframePackageGameScript prints the path.
-# macOS signing: ad-hoc by default. --sign (or $MF_SIGN_IDENTITY) signs every Mach-O and the bundle with that identity, the
-# hardened runtime and a secure timestamp (entitlements for .NET: JIT and unsigned executable memory). --notarize (or
+# macOS signing (build/macos/sign-app.sh, inside out, never --deep): ad hoc by default; needs macOS (codesign), elsewhere
+# the bundle is left unsigned with a warning. --sign (or $MF_SIGN_IDENTITY) signs every Mach-O and then the bundle with
+# that identity, the hardened runtime and a secure timestamp (the .NET entitlements: JIT, unsigned executable memory,
+# library validation off). --notarize (or
 # $MF_NOTARY_PROFILE) then submits the zip with `xcrun notarytool --keychain-profile <profile> --wait`, staples the
 # ticket and re-zips. The profile comes from `xcrun notarytool store-credentials <profile>` (Apple ID, team, app password).
 set -euo pipefail
@@ -57,6 +60,8 @@ echo "Publishing $name $version for ${rid}…"
 extra=()
 # Windows: a GUI-subsystem exe (MainframeGame.props switches the launcher to WinExe), so players get no console window.
 [[ "$rid" == win-* ]] && extra+=("-p:MainframeWindowsGui=true")
+# macOS: an apphost that starts the app from Contents/MonoBundle (build/macos/BundleAppHost.targets, via MainframeGame.props).
+[[ "$rid" == osx-* ]] && extra+=("-p:MacBundleAppDirectory=MonoBundle")
 if [[ "$rid" == win-* ]] && [ -z "$(csproj_value ApplicationIcon)" ] && [ -n "$icon" ] && [ -f "$icon" ] && command -v magick >/dev/null; then
   # The exe's icon is a build input on Windows (ApplicationIcon); multi-size .ico from the PNG.
   magick "$icon" -define icon:auto-resize=256,128,64,48,32,16 "$stage/icon.ico"
@@ -93,13 +98,20 @@ base="$exe-$version-$rid"
 case "$rid" in
   osx-*)
     app="$stage/$name.app"
-    mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-    # Apple seals only Mach-O code in Contents/MacOS (a managed DLL there fails codesign --verify --strict): the apphost
-    # goes there and everything else (assemblies, natives, content) in Contents/Resources. The apphost finds its app
-    # through a symlink beside it; it resolves the real path, so Resources is the app's base directory.
-    cp -R "$publish"/. "$app/Contents/Resources/"
-    mv "$app/Contents/Resources/$exe" "$app/Contents/MacOS/$exe"
-    ln -s "../Resources/$assembly.dll" "$app/Contents/MacOS/$assembly.dll"
+    mkdir -p "$app/Contents/MacOS" "$app/Contents/MonoBundle" "$app/Contents/Resources"
+    # Contents/MacOS may hold only Mach-O code (a managed DLL there fails codesign --verify --strict), and the .NET host
+    # needs hostfxr, hostpolicy and coreclr beside the app's assemblies: so the apphost goes alone in Contents/MacOS and
+    # the rest of the publish (assemblies, the runtime's and the engine's dylibs, content) in Contents/MonoBundle, as .NET
+    # for macOS lays out its apps (Contents/Resources is for non-code resources: the icon). The publish wrote an apphost
+    # that carries "../MonoBundle/<assembly>.dll" (build/macos/BundleAppHost.targets): AppContext.BaseDirectory, and so
+    # ContentPaths, the natives and steamworks/, is Contents/MonoBundle.
+    if ! LC_ALL=C grep -aqF "../MonoBundle/$assembly.dll" "$publish/$exe"; then
+      echo "error: $publish/$exe does not start ../MonoBundle/$assembly.dll: the project does not import" >&2
+      echo "       build/macos/BundleAppHost.targets (MainframeGame.props, or the MainframeEngine package's buildTransitive)" >&2
+      exit 1
+    fi
+    cp -R "$publish"/. "$app/Contents/MonoBundle/"
+    mv "$app/Contents/MonoBundle/$exe" "$app/Contents/MacOS/$exe"
     icon_key=""
     if [ -n "$mac_icns" ] && [ -f "$mac_icns" ]; then
       cp "$mac_icns" "$app/Contents/Resources/icon.icns"
@@ -132,29 +144,15 @@ case "$rid" in
 </plist>
 PLIST
     zip_app() { (cd "$stage" && rm -f "$out/$base.zip" && ditto -c -k --norsrc --noextattr --keepParent "$name.app" "$out/$base.zip" 2>/dev/null || zip -qry "$out/$base.zip" "$name.app"); }
-    if [ -n "$sign_identity" ]; then
-      # Developer ID: inside out (every Mach-O, then the bundle), hardened runtime, the .NET entitlements.
-      ent="$stage/entitlements.plist"
-      cat > "$ent" <<ENT
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-	<key>com.apple.security.cs.allow-jit</key><true/>
-	<key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
-	<key>com.apple.security.cs.disable-library-validation</key><true/>
-</dict></plist>
-ENT
-      while IFS= read -r -d '' f; do
-        if file -b "$f" | grep -q "Mach-O"; then
-          codesign --force --timestamp --options runtime --entitlements "$ent" --sign "$sign_identity" "$f"
-        fi
-      done < <(find "$app/Contents" -type f -print0)
-      codesign --force --timestamp --options runtime --entitlements "$ent" --sign "$sign_identity" "$app"
-      codesign --verify --deep --strict "$app"
-    elif command -v codesign >/dev/null; then
-      # Ad-hoc signature: Apple Silicon refuses unsigned native code; players see Gatekeeper's warning until notarized.
-      codesign --force --deep --sign - "$app" >/dev/null
-      codesign --verify --deep --strict "$app"
+    if command -v codesign >/dev/null; then
+      # Inside out: every dylib and helper, then the bundle; then codesign --verify --deep --strict. Ad hoc without
+      # --sign (Apple Silicon refuses unsigned code; players see Gatekeeper's warning until the app is notarized).
+      bash "$(dirname "$0")/macos/sign-app.sh" "$app" --identity "${sign_identity:--}"
+    elif [ -n "$sign_identity" ]; then
+      echo "error: --sign needs macOS (codesign)" >&2
+      exit 1
+    else
+      echo "warning: no codesign (not macOS): $name.app is not signed; package it on a Mac to ship it" >&2
     fi
     zip_app
     if [ -n "$notary_profile" ]; then

@@ -155,7 +155,7 @@
                                              every assembly in the folder, so the natives it never calls are not needed)
         buildTransitive/                     build/package/MainframeEngine.props/.targets, MainframeGame.props,
                                              Localization.targets and macos/ (the files checkout games import directly)
-        tools/package-game.sh, tools/macos/  player builds (build/package-game.sh and the png-to-icns.sh it runs); games
+        tools/package-game.sh, tools/macos/  player builds (build/package-game.sh and the png-to-icns.sh, sign-app.sh it runs); games
                                              find it through MainframePackageGameScript (MainframeGame.props)
         README.md, icon.png
     -->
@@ -164,10 +164,10 @@
       <None Include="..\docs\images\brand\png\logo-256.png" Pack="true" PackagePath="icon.png" Visible="false" />
       <None Include="..\build\package\MainframeEngine.props;..\build\package\MainframeEngine.targets;..\build\MainframeGame.props;..\build\Localization.targets"
             Pack="true" PackagePath="buildTransitive/" Visible="false" />
-      <None Include="..\build\macos\DevAppBundle.targets;..\build\macos\Info.plist.in;..\build\macos\png-to-icns.sh"
+      <None Include="..\build\macos\DevAppBundle.targets;..\build\macos\BundleAppHost.targets;..\build\macos\Info.plist.in;..\build\macos\png-to-icns.sh"
             Pack="true" PackagePath="buildTransitive/macos/" Visible="false" />
       <None Include="..\build\package-game.sh" Pack="true" PackagePath="tools/" Visible="false" />
-      <None Include="..\build\macos\png-to-icns.sh" Pack="true" PackagePath="tools/macos/" Visible="false" />
+      <None Include="..\build\macos\png-to-icns.sh;..\build\macos\sign-app.sh" Pack="true" PackagePath="tools/macos/" Visible="false" />
     </ItemGroup>
 
     <Target Name="_MainframePackReferencedAssemblies" DependsOnTargets="ResolveProjectReferences">

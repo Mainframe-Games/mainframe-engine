@@ -166,7 +166,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   (`Native/natives.lock`, `docs/design/natives.md`)
 - `build/` — scripts shared by `justfile` and CI: `shaders.sh` (+ `Shaders.targets`), `Localization.targets`,
   `template-smoke.sh`, `package-editor.sh` / `next-version.sh` (release), `linux/` (the Docker Linux test
-  environment), `macos/` (the editor's dev `.app` bundle), `editor-icons/`, `brand/`
+  environment), `macos/` (the dev `.app` bundles; release bundles: `BundleAppHost.targets` + `sign-app.sh`, the apphost
+  alone in `Contents/MacOS` and the app in `Contents/MonoBundle`, `docs/design/release.md#macos-bundle-layout`),
+  `editor-icons/`, `brand/`
 - `.github/workflows/` — `ci.yml` (build-test on 3 OSes, format, shaders, lavapipe render tests, template smoke;
   `ci-success` is the required check; docs-only PRs skip the heavy jobs, `build/ci-changes.sh`), `publish.yml` (releases), `natives.yml` (native shims), `docs.yml` (docs site → Pages after each release)
 - `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Assets/Brand/`
