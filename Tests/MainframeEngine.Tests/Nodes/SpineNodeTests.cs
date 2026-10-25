@@ -113,6 +113,100 @@ public sealed class SpineNodeTests
     }
 
     [Fact]
+    public void SetAnimationLoopsByDefault()
+    {
+        using var node = CreateNode();
+        var entry = node.SetAnimation("walk");
+
+        Assert.NotNull(entry);
+        Assert.True(entry.Loop);
+        Assert.Same(entry, node.AnimationState.GetTrack(0));
+    }
+
+    [Fact]
+    public void AOneShotCompletesOnceAndRaisesItsEvents()
+    {
+        using var node = CreateNode();
+        var completed = new List<string>();
+        var footsteps = 0;
+        node.AnimationCompleted += e => completed.Add(e.Animation.Name);
+        node.AnimationEvent += (_, ev) => footsteps += ev.Data.Name == "footstep" ? 1 : 0;
+
+        var entry = node.SetAnimation("jump", loop: false);
+        Assert.False(entry!.Loop);
+        for (var i = 0; i < 180; i++) // 3 s, past the end of jump (~1.33 s)
+            node.Advance(Frame(1f / 60f));
+
+        Assert.Equal(["jump"], completed);
+        Assert.Equal(1, footsteps); // jump keys one footstep, at 1.2 s
+    }
+
+    [Fact]
+    public void WalkRaisesFootstepEventsAndCompletesEachLoop()
+    {
+        using var node = CreateNode();
+        var footsteps = 0;
+        var completions = 0;
+        node.AnimationEvent += (_, ev) => footsteps += ev.Data.Name == "footstep" ? 1 : 0;
+        node.AnimationCompleted += _ => completions++;
+
+        var walk = node.SetAnimation("walk")!;
+        var duration = walk.Animation.Duration;
+        for (var t = 0f; t < duration * 2.5f; t += 1f / 60f)
+            node.Advance(Frame(1f / 60f));
+
+        Assert.Equal(2, completions);
+        Assert.True(footsteps >= 4, $"walk keys two footsteps per loop; got {footsteps} over 2.5 loops.");
+    }
+
+    [Fact]
+    public void TheReturnedEntryScalesTheClipAndAddAnimationQueuesTheNext()
+    {
+        using var node = CreateNode();
+        var started = new List<string>();
+        node.AnimationStarted += e => started.Add(e.Animation.Name);
+
+        var jump = node.SetAnimation("jump", loop: false)!;
+        jump.TimeScale = jump.Animation.Duration / 0.5f; // fit the clip to half a second
+        var idle = node.AddAnimation("idle", loop: true, delay: 0f);
+        Assert.NotNull(idle);
+
+        for (var i = 0; i < 45; i++) // 0.75 s: past the stretched jump
+            node.Advance(Frame(1f / 60f));
+
+        Assert.Equal("idle", node.CurrentAnimation?.Name);
+        Assert.Equal(["jump", "idle"], started);
+    }
+
+    [Fact]
+    public void AnimationsPlayOnOtherTracks()
+    {
+        using var node = CreateNode();
+        node.SetAnimation("walk");
+        var aim = node.SetAnimation("aim", loop: true, track: 1);
+        node.Advance(Frame(1f / 60f));
+
+        Assert.Equal("walk", node.CurrentAnimation?.Name);
+        Assert.Same(aim, node.AnimationState.GetTrack(1));
+    }
+
+    [Fact]
+    public void BeforeAFolderSetAnimationOnlyNamesTheStartingAnimation()
+    {
+        using var node = new SpineNode();
+        Assert.Null(node.SetAnimation("walk"));
+        Assert.Equal("walk", node.Animation);
+    }
+
+    [Fact]
+    public void AnUnknownAnimationReturnsNull()
+    {
+        using var node = CreateNode();
+        Assert.Null(node.SetAnimation("no-such-clip"));
+        Assert.Null(node.AddAnimation("no-such-clip", loop: false));
+    }
+
+    [Fact]
     public void UpdateDrawsThisFramesPoseNotLastFrames()
     {
         using var node = CreateNode();

@@ -19,7 +19,7 @@ Both build triangles with `SpineGeometry` (draw order, sequences, tints, clippin
 
 | Type | File | Role |
 |---|---|---|
-| `SpineNode : VisualInstance3D` | [Nodes/SpineNode.cs](../../MainframeEngine/Src/Nodes/SpineNode.cs) | Loads the atlas and skeleton, drives animation in `OnProcess`, forwards draw calls (the design's `SpineSprite3D`); `ShadowAlphaThreshold`, `Billboard` (ADR 0204) |
+| `SpineNode : VisualInstance3D` | [Nodes/SpineNode.cs](../../MainframeEngine/Src/Nodes/SpineNode.cs) | Loads the atlas and skeleton, drives animation in `OnProcess`, forwards draw calls (the design's `SpineSprite3D`); `ShadowAlphaThreshold`, `Billboard` (ADR 0204); `AnimationState`, track entries and animation events |
 | `SpineFolder` | same file | `readonly struct`: folder → `Name`, first `*.atlas`, first `*.json` (throws if missing) |
 | `SpineRenderer` (internal) | [Rendering/Spine/SpineRenderer.cs](../../MainframeEngine/Src/Rendering/Spine/SpineRenderer.cs) | Builds vertices, owns the pipeline, buffers and descriptor sets |
 | `SpineTextureLoader` | [Rendering/Spine/SpineTextureLoader.cs](../../MainframeEngine/Src/Rendering/Spine/SpineTextureLoader.cs) | Decodes atlas pages to RGBA (StbImageSharp); `page.rendererObject = page index` |
@@ -31,7 +31,13 @@ Both build triangles with `SpineGeometry` (draw order, sequences, tints, clippin
 // In a scene (or a .mscene file: "type": "SpineNode", "props": { "Folder": ..., "Animation": "walk" }):
 var boy = new SpineNode { Folder = "Assets/Models/Spine/SpineBoy", Animation = "walk", Scale = new Vector3(0.1f) };
 Root.AddChild(boy);   // the render server creates its renderer; it animates in OnProcess, draws and casts shadows
-boy.SetAnimation("run");
+boy.SetAnimation("run");                                  // replaces track 0, looping
+var swing = boy.SetAnimation("swing", loop: false)!;     // a one-shot; returns the TrackEntry (null if unknown)
+swing.TimeScale = swing.Animation.Duration / useSeconds; // fit the clip to a gameplay duration
+boy.AddAnimation("idle", loop: true);                     // queued: starts when the swing completes
+boy.SetAnimation("aim", loop: true, track: 1);            // other tracks layer over track 0
+boy.AnimationEvent += (entry, e) => { if (e.Data.Name == "footstep") PlayStep(); };
+boy.AnimationCompleted += entry => Log.Info($"{entry.Animation.Name} done");
 boy.Billboard = BillboardMode.FixedY;   // upright, turned to each view's camera (Enabled also tilts to the view)
 boy.ShadowAlphaThreshold = 0.5f;        // the default: silhouette shadows; 0 casts the attachments' whole quads
 boy.FlipX(true);                        // mirrored, billboarded or not
@@ -42,6 +48,14 @@ process); the GPU renderer is created through the `RenderServer` when the node e
 server's `ShadowSystem`. Tree-less code uses
 `new SpineNode(renderer, folder)` (loads immediately, no shadows), then `Advance(gameTime)` and
 `Draw(camera, lights)` inside the main pass.
+
+Animation (issue #123, as `SpineSprite`): `SetAnimation(name, loop = true, track = 0)` and `AddAnimation(name, loop,
+delay = 0, track = 0)` return the Spine `TrackEntry` (`TimeScale`, `MixDuration`, `Alpha`, …); `QueueAnimation(name)` is
+`AddAnimation(name, loop: true)`. `AnimationState` is the skeleton's state (mixes through its `Data`, its own `TimeScale`,
+`GetTrack`, `ClearTrack`). The state's listeners are raised as the node's `[Signal]` events `AnimationStarted`,
+`AnimationInterrupted`, `AnimationEnded`, `AnimationCompleted` (each loop's end, or once for a one-shot),
+`AnimationDisposed` and `AnimationEvent(TrackEntry, Spine.Event)` for keyed events, on the main thread inside the
+node's `OnProcess` (or `Advance`). They are wired once when the skeleton loads, so updating allocates nothing.
 
 ## Per-frame data flow
 
@@ -150,12 +164,14 @@ The node's position and scale (`SpineScale` included) are kept and its rotation 
 - `Folder` cannot change once the skeleton is loaded. A `ShadowSystem` is optional
   (`RenderServer.ShadowsEnabled = false`, or the tree-less constructor): without one the node binds the
   renderer's fallback at set 1 and casts no shadows (`DrawShadow*` are no-ops). `Animation` (exported) is the
-  animation set when the skeleton loads; before loading, `SetAnimation` just sets it.
+  animation set when the skeleton loads (looping, track 0); before `Folder` is set, `SetAnimation` just sets it and
+  returns null, and once it is set, `SetAnimation` loads the skeleton.
 - `SpineScale` (default `SpineNode.DefaultSpineScale = 0.02`) applies immediately and keeps `FlipX`. It scales
   the drawn vertices (x/y of the model matrix passed to `BuildVertices`; `ZSpacing` stays in node units), not the
   skeleton: the skeleton keeps unit scale and only carries the flip signs, so bone world positions are in skeleton
   units. Spine's IK solver uses absolute epsilons (e.g. a parent determinant ≤ 0.0001), and a skeleton scaled below
-  ~0.01 solved a crumpled pose; the `spine-small-scale` render test guards this. `SetAnimation` replaces track 0 now; `QueueAnimation` appends after the current one.
+  ~0.01 solved a crumpled pose; the `spine-small-scale` render test guards this. `SetAnimation` replaces its track now and loops unless `loop: false`; `AddAnimation`/`QueueAnimation` append after
+  the current entry.
 - Atlas pixel arrays are released after the GPU upload (`SpineTextureLoader.ReleasePixelData`); only the
   page sizes stay.
 - Draw Spine after opaque geometry (tree order / `RenderPriority`). It alpha-blends but also writes depth.

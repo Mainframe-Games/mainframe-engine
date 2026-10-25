@@ -120,6 +120,31 @@ public class SpineNode : VisualInstance3D
     /// <summary>The animation playing on track 0, or null.</summary>
     public Spine.Animation? CurrentAnimation => _animation is { Tracks.Count: > 0 } state ? state.Tracks.Items[0]?.Animation : null;
 
+    /// <summary>
+    /// The skeleton's animation state (loads <see cref="Folder"/> on first access): tracks, mixes and its own
+    /// <c>TimeScale</c>. Its listeners are raised as this node's events, on the main thread during <see cref="Node.OnProcess"/>.
+    /// </summary>
+    public AnimationState AnimationState
+    {
+        get
+        {
+            EnsureLoaded();
+            return _animation!;
+        }
+    }
+
+    [Signal] public event Action<TrackEntry>? AnimationStarted;
+    [Signal] public event Action<TrackEntry>? AnimationInterrupted;
+    [Signal] public event Action<TrackEntry>? AnimationEnded;
+
+    /// <summary>Raised at the end of each loop of a looping entry, and once at the end of a one-shot.</summary>
+    [Signal] public event Action<TrackEntry>? AnimationCompleted;
+
+    [Signal] public event Action<TrackEntry>? AnimationDisposed;
+
+    /// <summary>Raised for each event keyed on a playing clip (e.g. SpineBoy's <c>footstep</c> on <c>walk</c>).</summary>
+    [Signal] public event Action<TrackEntry, Spine.Event>? AnimationEvent;
+
     internal SpineRenderer? SpineRenderer => _spineRenderer;
     internal SpineTextureLoader? TextureLoader => _textureLoader;
 
@@ -140,7 +165,15 @@ public class SpineNode : VisualInstance3D
         _skeleton.SetSkin(skeletonData.DefaultSkin);
         ApplySkeletonScale();
 
-        _animation = new AnimationState(new AnimationStateData(skeletonData));
+        // Wired once, so the per-frame update allocates nothing for them.
+        var state = new AnimationState(new AnimationStateData(skeletonData));
+        state.Start += e => AnimationStarted?.Invoke(e);
+        state.Interrupt += e => AnimationInterrupted?.Invoke(e);
+        state.End += e => AnimationEnded?.Invoke(e);
+        state.Complete += e => AnimationCompleted?.Invoke(e);
+        state.Dispose += e => AnimationDisposed?.Invoke(e);
+        state.Event += (e, ev) => AnimationEvent?.Invoke(e, ev);
+        _animation = state;
         if (!string.IsNullOrEmpty(Animation))
             SetAnimation(Animation);
         else if (skeletonData.Animations.Count > 0)
@@ -247,38 +280,44 @@ public class SpineNode : VisualInstance3D
     }
 
     /// <summary>
-    /// Replaces whatever plays on track 0 with <paramref name="animationName"/> (looping), immediately. Before
-    /// the skeleton loads this sets <see cref="Animation"/>.
+    /// Replaces whatever plays on <paramref name="track"/> with <paramref name="animationName"/>, immediately, and returns
+    /// its entry (set its <c>TimeScale</c> to fit the clip to a duration, its <c>MixDuration</c>, …); null for an unknown
+    /// animation. Before <see cref="Folder"/> is set this only sets <see cref="Animation"/> (played looping on track 0 when
+    /// the skeleton loads) and returns null.
     /// </summary>
-    public void SetAnimation(in string animationName)
+    public TrackEntry? SetAnimation(in string animationName, bool loop = true, int track = 0)
     {
-        if (_skeleton is null)
+        if (_skeleton is null && string.IsNullOrEmpty(_folder))
         {
             Animation = animationName;
-            return;
+            return null;
         }
 
-        var animation = _skeleton.Data.FindAnimation(animationName);
-        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-        if (animation is null)
-        {
-            Log.Error($"Animation {animationName} not found. options: {string.Join(", ", AllAnimations.Select(a => a.Name))}");
-            return;
-        }
-        _animation!.SetAnimation(0, animation, true);
+        var animation = FindAnimation(animationName);
+        return animation is null ? null : AnimationState.SetAnimation(track, animation, loop);
+    }
+
+    /// <summary>
+    /// Queues <paramref name="animationName"/> on <paramref name="track"/> after the current entry and returns its entry
+    /// (null for an unknown animation). A <paramref name="delay"/> of 0 or less starts it when the previous one completes
+    /// (minus the mix), plus the delay; a positive one is seconds after the previous entry starts (Spine's rule).
+    /// </summary>
+    public TrackEntry? AddAnimation(in string animationName, bool loop, float delay = 0f, int track = 0)
+    {
+        var animation = FindAnimation(animationName);
+        return animation is null ? null : AnimationState.AddAnimation(track, animation, loop, delay);
     }
 
     /// <summary>Queues <paramref name="animationName"/> on track 0 after the current one (looping).</summary>
-    public void QueueAnimation(in string animationName, float delay = 0f)
+    public void QueueAnimation(in string animationName, float delay = 0f) => AddAnimation(animationName, loop: true, delay);
+
+    private Spine.Animation? FindAnimation(string animationName)
     {
         var animation = Skeleton.Data.FindAnimation(animationName);
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (animation is null)
-        {
             Log.Error($"Animation {animationName} not found. options: {string.Join(", ", AllAnimations.Select(a => a.Name))}");
-            return;
-        }
-        _animation!.AddAnimation(0, animation, true, delay);
+        return animation;
     }
 
     /// <summary>Mirrors the skeleton horizontally (its <c>ScaleX</c> sign), billboarded or not.</summary>
