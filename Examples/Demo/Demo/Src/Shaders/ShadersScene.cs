@@ -25,8 +25,8 @@ public static class ShadersScene
     {
         var root = new Node3D { Name = "shaders" };
         var camera = Add(root, root, new Camera3D { Name = "Camera", Current = true, Position = new Vector3(0.5f, 4.6f, 10.5f), Fov = 50f });
-        camera.LookAt(new Vector3(0.5f, 0.8f, -0.5f));
-        camera.RotationDegrees = camera.RotationDegrees; // pin the Euler angles the saver writes
+        // Looking at (0.5f, 0.8f, -0.5f), as literal angles: LookAt's float result differs between x64 and arm64.
+        camera.RotationDegrees = new Vector3(-19.057703f, 0, 0);
         Add(root, root, new WorldEnvironment { Name = "Environment", Sky = new Sky { Mode = SkyEnvironmentType.Procedural } });
         var sun = Add(root, root, new DirectionalLight3D { Name = "Sun", Color = new Vector3(1f, 0.95f, 0.86f), Energy = 1.4f, CastsShadows = true });
         sun.RotationDegrees = new Vector3(-50, -35, 0);
