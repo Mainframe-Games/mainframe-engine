@@ -74,6 +74,15 @@ public static class PropertyIcons
         ["PitchScale"] = "music",
         ["Tags"] = "tag",
         ["Name"] = "tag",
+        ["BoneName"] = "bone", // ADR 0207: skeletons, attachments, animation players
+        ["BoneNames"] = "bone",
+        ["BoneRests"] = "bone",
+        ["BoneParents"] = "sitemap",
+        ["Libraries"] = "movie",
+        ["LoopMode"] = "repeat",
+        ["SpeedScale"] = "gauge",
+        ["PlaybackDefaultBlendTime"] = "hourglass",
+        ["CallbackModeProcess"] = "cpu",
     };
 
     /// <summary>The icon name for <paramref name="property"/> showing <paramref name="value"/>.</summary>
