@@ -51,11 +51,15 @@ public class SpineShadowTests
         Gates.AssertValidationClean(edgeOn);
         Gates.AssertMatchesGolden(faced, 10);
 
-        // Turned 90° from the camera, the skeletons are edge-on (a sliver) unless billboarded: count their red parts.
-        var red = RedPixels(Capture(faced, 10));
+        // Turned 90° from the camera, the skeletons are edge-on (a sliver) unless billboarded: count their red parts. The
+        // frame is 640x480 under a 2x display scale and 320x240 on lavapipe, so the floor is a share of the frame (600 px
+        // at 640x480).
+        var image = Capture(faced, 10);
+        var red = RedPixels(image);
         var sliver = RedPixels(Capture(edgeOn, 10));
-        TestContext.Current.SendDiagnosticMessage($"{scene}: red pixels billboarded {red}, edge-on {sliver}");
-        Assert.True(red > 600, $"the billboarded skeletons show only {red} red pixels");
+        var floor = image.Width * image.Height / 512;
+        TestContext.Current.SendDiagnosticMessage($"{scene}: red pixels billboarded {red} (floor {floor}), edge-on {sliver}");
+        Assert.True(red > floor, $"the billboarded skeletons show only {red} red pixels (floor {floor})");
         Assert.True(sliver * 3 < red, $"edge-on skeletons ({sliver} red px) should be a sliver of the billboarded ones ({red} px)");
     }
 
