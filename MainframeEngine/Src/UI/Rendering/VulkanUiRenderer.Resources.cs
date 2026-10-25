@@ -604,6 +604,7 @@ public sealed unsafe partial class VulkanUiRenderer
     {
         _ctx.RemoveOverlayRenderer(this);
         DropPreloads();
+        ReleaseEngineTextures();
         DestroyTargets();
         _arena.Dispose();
         foreach (var slot in _textures.AsSpan(0, _textureCount))

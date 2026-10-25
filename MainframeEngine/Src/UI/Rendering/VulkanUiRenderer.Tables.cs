@@ -184,6 +184,23 @@ public sealed unsafe partial class VulkanUiRenderer
     }
 
     /// <summary>
+    /// Uploads the pixels of <paramref name="texture"/> (a code-created or file-backed <see cref="Texture2D"/>, e.g. a Steam
+    /// avatar) and makes them available as <c>engine://<paramref name="name"/></c>. The upload is a snapshot owned by the
+    /// renderer: it is freed when the name is unregistered or replaced; register again after the texture's pixels change.
+    /// </summary>
+    public void RegisterTexture(string name, Texture2D texture)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(texture);
+        var (rgba, width, height) = texture.DecodePixelsReadOnly();
+        var sampling = texture.ImportSettings.Filter == TextureFilter.Nearest ? TextureSampling.NearestClamp : TextureSampling.LinearClamp;
+        // UNORM, whatever the texture's colour space: the UI samples the stored 8-bit values as they are (sRGB-encoded)
+        // and premultiplies their straight alpha.
+        var gpu = GpuTexture.Create2D(_ctx, (uint)width, (uint)height, rgba, TextureColorSpace.Linear, sampling);
+        Register(name, new UiEngineTexture(gpu, (uint)UiTextureConversion.Premultiply, ownsTexture: true));
+    }
+
+    /// <summary>
     /// Makes colour attachment <paramref name="colorAttachment"/> of a render target (rendered earlier in the frame,
     /// final layout <c>SHADER_READ_ONLY_OPTIMAL</c>) available as <c>engine://<paramref name="name"/></c>; follows
     /// <see cref="RenderTarget.Resize"/>. HDR targets are encoded to sRGB but not tonemapped.
@@ -216,6 +233,7 @@ public sealed unsafe partial class VulkanUiRenderer
         existing.IsRegistered = false;
         if (RmlCore.IsInitialised)
             RmlCore.ReleaseTextures(this);
+        existing.ReleaseOwned();
         return true;
     }
 
@@ -227,6 +245,19 @@ public sealed unsafe partial class VulkanUiRenderer
         _engineTextures.Add(name, texture);
         if (RmlCore.IsInitialised && previous is not null)
             RmlCore.ReleaseTextures(this); // documents re-load the name and pick up the new texture
+        previous?.ReleaseOwned();
+    }
+
+    /// <summary>Frees the uploads the renderer owns (<see cref="RegisterTexture(string, Texture2D)"/>), at teardown.</summary>
+    private void ReleaseEngineTextures()
+    {
+        foreach (var texture in _engineTextures.Values)
+        {
+            texture.IsRegistered = false;
+            texture.ReleaseOwned();
+        }
+
+        _engineTextures.Clear();
     }
 
     private static uint Resolve(UiTextureConversion flags, Format format)
@@ -628,10 +659,20 @@ internal sealed class UiEngineTexture
     private readonly Sampler _targetSampler;
     private readonly Func<UiTextureView>? _source;
 
-    public UiEngineTexture(GpuTexture texture, uint flags)
+    private readonly bool _ownsTexture;
+
+    public UiEngineTexture(GpuTexture texture, uint flags, bool ownsTexture = false)
     {
         _texture = texture;
+        _ownsTexture = ownsTexture;
         Flags = flags;
+    }
+
+    /// <summary>Disposes the texture when the renderer uploaded it (<see cref="VulkanUiRenderer.RegisterTexture(string, Texture2D)"/>).</summary>
+    public void ReleaseOwned()
+    {
+        if (_ownsTexture)
+            _texture!.Dispose();
     }
 
     public UiEngineTexture(RenderTarget target, int attachment, Sampler sampler, uint flags)

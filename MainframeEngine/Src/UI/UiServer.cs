@@ -364,6 +364,13 @@ public sealed class UiServer : IFrameServer, IInputServer
         Renderer?.RegisterTexture(name, texture, conversion);
 
     /// <summary>
+    /// Publishes a <see cref="Texture2D"/>'s pixels (e.g. a Steam avatar, <see cref="Steam.RegisterAvatarAsync"/>) as
+    /// <c>engine://name</c>: uploaded once and owned by the UI renderer until the name is unregistered or replaced. No-op
+    /// without the Vulkan renderer.
+    /// </summary>
+    public void RegisterTexture(string name, Texture2D texture) => Renderer?.RegisterTexture(name, texture);
+
+    /// <summary>
     /// Publishes a 2D sub-viewport (<see cref="SubViewport.Disable3D"/>) as <c>engine://name</c>, the canvas-view element
     /// for minimaps, previews and other live 2D scenes inside a document: the image the canvas server drew this frame,
     /// following resizes; nothing is drawn before its first pass. No-op without the Vulkan renderers.
