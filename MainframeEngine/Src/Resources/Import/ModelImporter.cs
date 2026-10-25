@@ -413,6 +413,9 @@ public sealed unsafe class ModelImporter : IAssetImporter
         }
     }
 
+    /// <summary>An imported clip's name: Blender's <c>Armature|</c> prefix and a <c>-loop</c>/<c>-cycle</c> suffix (which loops it) removed.</summary>
+    internal static string CleanClipName(string raw, int index, out bool loop) => Builder.CleanClipName(raw, index, out loop);
+
     /// <summary>A copy of <paramref name="template"/> (exported properties copied, resources shared), every node owned by the copy's root.</summary>
     internal static Node Clone(Node template)
     {
@@ -768,8 +771,57 @@ public sealed unsafe class ModelImporter : IAssetImporter
 
         // ── Animations (ADR 0208) ─────────────────────────────────────────────
 
+        // The native library's key sizes (ADR 0208): Silk.NET's QuatKey/VectorKey carry an mInterpolation field that the bundled
+        // Assimp does not have, so indexing its arrays reads the wrong keys. Detected from the data: the stride whose key
+        // times rise and stay within the clip.
+        private int _vectorKeyStride = 24;
+        private int _quatKeyStride = 24;
+
+        private void DetectKeyStrides()
+        {
+            _vectorKeyStride = DetectStride(rotations: false, sizeof(VectorKey));
+            _quatKeyStride = DetectStride(rotations: true, sizeof(QuatKey));
+        }
+
+        private int DetectStride(bool rotations, int declared)
+        {
+            ReadOnlySpan<int> candidates = [24, 32, 40];
+            foreach (var stride in (ReadOnlySpan<int>)[declared, .. candidates])
+            {
+                var valid = true;
+                var checkedChannels = 0;
+                for (var a = 0u; a < scene->MNumAnimations && valid; a++)
+                {
+                    var animation = scene->MAnimations[a];
+                    var limit = animation->MDuration * (1 + 1e-6) + 1e-6;
+                    for (var c = 0u; c < animation->MNumChannels && valid; c++)
+                    {
+                        var channel = animation->MChannels[c];
+                        var keys = rotations ? (byte*)channel->MRotationKeys : (byte*)channel->MPositionKeys;
+                        var count = (int)(rotations ? channel->MNumRotationKeys : channel->MNumPositionKeys);
+                        if (count < 3)
+                            continue;
+                        checkedChannels++;
+                        var previous = double.NegativeInfinity;
+                        for (var k = 0; k < count && valid; k++)
+                        {
+                            var time = *(double*)(keys + k * stride);
+                            valid = double.IsFinite(time) && time > previous && time >= 0 && time <= limit;
+                            previous = time;
+                        }
+                    }
+                }
+
+                if (valid && checkedChannels > 0)
+                    return stride;
+            }
+
+            return 24; // no channel with three keys: any stride reads key 0 right
+        }
+
         private void BuildAnimations(Node3D root)
         {
+            DetectKeyStrides();
             var extras = GltfAnimationExtras.Read(fullPath, projectPath);
             var library = new AnimationLibrary();
             var skipped = 0;
@@ -886,8 +938,9 @@ public sealed unsafe class ModelImporter : IAssetImporter
                 var values = new Vector3[count];
                 for (var k = 0; k < count; k++)
                 {
-                    times[k] = (float)(channel->MPositionKeys[k].MTime / ticks);
-                    values[k] = channel->MPositionKeys[k].MValue;
+                    var key = (byte*)channel->MPositionKeys + k * _vectorKeyStride;
+                    times[k] = (float)(*(double*)key / ticks);
+                    values[k] = *(Vector3*)(key + 8);
                 }
 
                 end = Math.Max(end, times[^1]);
@@ -902,9 +955,10 @@ public sealed unsafe class ModelImporter : IAssetImporter
                 var values = new Quaternion[count];
                 for (var k = 0; k < count; k++)
                 {
-                    times[k] = (float)(channel->MRotationKeys[k].MTime / ticks);
-                    var q = channel->MRotationKeys[k].MValue;
-                    var value = Quaternion.Normalize(new Quaternion(q.X, q.Y, q.Z, q.W));
+                    var key = (byte*)channel->MRotationKeys + k * _quatKeyStride;
+                    times[k] = (float)(*(double*)key / ticks);
+                    var q = (float*)(key + 8); // aiQuaternion: w, x, y, z
+                    var value = Quaternion.Normalize(new Quaternion(q[1], q[2], q[3], q[0]));
                     // Keep consecutive keys in one hemisphere (slerp takes the short way either way; key reduction compares).
                     if (k > 0 && Quaternion.Dot(values[k - 1], value) < 0f)
                         value = Quaternion.Negate(value);
@@ -923,8 +977,9 @@ public sealed unsafe class ModelImporter : IAssetImporter
                 var values = new Vector3[count];
                 for (var k = 0; k < count; k++)
                 {
-                    times[k] = (float)(channel->MScalingKeys[k].MTime / ticks);
-                    values[k] = channel->MScalingKeys[k].MValue;
+                    var key = (byte*)channel->MScalingKeys + k * _vectorKeyStride;
+                    times[k] = (float)(*(double*)key / ticks);
+                    values[k] = *(Vector3*)(key + 8);
                 }
 
                 end = Math.Max(end, times[^1]);

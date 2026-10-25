@@ -1,0 +1,10 @@
+{
+  "uid": "mdl_c4a2ac7e2000",
+  "importer": "model",
+  "settings": {
+    "scale": 1,
+    "clips": [
+      { "name": "craft", "loop": "Linear", "events": [ { "name": "Tap", "time": 0.5 } ] }
+    ]
+  }
+}
