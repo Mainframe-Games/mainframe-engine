@@ -3,8 +3,8 @@ namespace Demo.Tests;
 public sealed class DemoScenesTests
 {
     [Fact]
-    public void TabsAreTheTenFeaturesInOrder() =>
-        Assert.Equal(["basic_3d", "basic_2d", "audio_2d", "audio_3d", "sound_fx", "ui", "physics_2d", "physics_3d", "spine", "particles"],
+    public void TabsAreTheElevenFeaturesInOrder() =>
+        Assert.Equal(["basic_3d", "basic_2d", "audio_2d", "audio_3d", "sound_fx", "ui", "physics_2d", "physics_3d", "spine", "particles", "animation_3d"],
             DemoScenes.All.Select(s => s.Id));
 
     [Fact]

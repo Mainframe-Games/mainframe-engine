@@ -11,8 +11,85 @@ msgstr ""
 "X-Generator: mf-l10n\n"
 
 #. RML <h1>
+#: Examples/Demo/Assets/Animation3D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:186
+msgid "Animation 3D"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Animation3D/panel.rml:9
+msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Animation3D/panel.rml:10
+msgid "Clip"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Animation3D/panel.rml:12
+#: Examples/Demo/Assets/Spine/panel.rml:16
+msgid "Idle"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Animation3D/panel.rml:13
+#: Examples/Demo/Assets/Spine/panel.rml:13
+msgid "Walk"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Animation3D/panel.rml:14
+#: Examples/Demo/Assets/Spine/panel.rml:14
+msgid "Run"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Animation3D/panel.rml:15
+msgid "Roll"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Animation3D/panel.rml:16
+msgid "Swing"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Animation3D/panel.rml:17
+msgid "Craft"
+msgstr ""
+
+#. RML <option>
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:18
+#: Examples/Demo/Assets/SoundFx/panel.rml:23
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:127
+msgid "Hit"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Animation3D/panel.rml:19
+msgid "Down"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Animation3D/panel.rml:21
+msgid "Crossfade"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Animation3D/panel.rml:22
+msgid "Speed"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Animation3D/panel.rml:23
+msgid "Last event"
+msgstr ""
+
+#. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:167
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:179
 msgid "Audio 2D"
 msgstr ""
 
@@ -48,7 +125,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:168
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:180
 msgid "Audio 3D"
 msgstr ""
 
@@ -109,7 +186,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Basic2D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:166
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:178
 msgid "Basic 2D"
 msgstr ""
 
@@ -130,7 +207,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Basic3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:165
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:177
 msgid "Basic 3D"
 msgstr ""
 
@@ -181,7 +258,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:171
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
 msgid "Physics 2D"
 msgstr ""
 
@@ -210,7 +287,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:172
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:184
 msgid "Physics 3D"
 msgstr ""
 
@@ -242,7 +319,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:169
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:181
 msgid "Sound FX"
 msgstr ""
 
@@ -267,12 +344,6 @@ msgstr ""
 #: Examples/Demo/Assets/SoundFx/panel.rml:22
 #: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:126
 msgid "Explosion"
-msgstr ""
-
-#. RML <button>
-#: Examples/Demo/Assets/SoundFx/panel.rml:23
-#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:127
-msgid "Hit"
 msgstr ""
 
 #. RML <button>
@@ -322,7 +393,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:173
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:185
 msgid "Spine"
 msgstr ""
 
@@ -339,21 +410,6 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/Spine/panel.rml:11
 msgid "Animation"
-msgstr ""
-
-#. RML <option>
-#: Examples/Demo/Assets/Spine/panel.rml:13
-msgid "Walk"
-msgstr ""
-
-#. RML <option>
-#: Examples/Demo/Assets/Spine/panel.rml:14
-msgid "Run"
-msgstr ""
-
-#. RML <option>
-#: Examples/Demo/Assets/Spine/panel.rml:16
-msgid "Idle"
 msgstr ""
 
 #. RML <title>
@@ -479,15 +535,15 @@ msgstr ""
 msgid "Rose"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:125
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:137
 msgid "Effects"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:125
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:137
 msgid "Interface"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:170
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:182
 msgid "UI"
 msgstr ""
 
