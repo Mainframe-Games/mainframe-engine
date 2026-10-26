@@ -67,6 +67,11 @@
         #record.disabled .icon { image-color: #4b5263; }
         #record.recording { background-color: #3f1d1d; border-color: #ef4444; }
         #record.recording .icon { image-color: #ffffff; }
+        /* G7.5 Simulate: teal like physics while it runs. */
+        #sim-toggle .icon { image-color: #5eead4; }
+        #sim-toggle.active { background-color: #134e4a; border-color: #14b8a6; }
+        #sim-toggle.active .icon { image-color: #ffffff; }
+        #sim-pause.disabled .icon { image-color: #4b5263; }
         .play button.attention { border-color: #f59e0b; }
         .play button.busy { background-color: #3a2f12; border-color: #b45309; }
         #instances { display: flex; flex-direction: row; align-items: center; }
@@ -160,6 +165,10 @@
             <button id="tool-frame" class="tool-button" data-command="view.frame" data-tooltip="Frame Selection (F) — move the camera to the selected nodes"><span class="icon icon-focus-centered"></span></button>
             <button id="tool-grid" class="tool-button active" data-command="view.grid" data-tooltip="Grid (G) — show or hide the ground grid"><span class="icon icon-grid-3x3"></span></button>
             <button id="tool-post" class="tool-button active" data-command="view.post" data-tooltip="Preview Post-Processing — show the world's post effects in the view (tonemap, auto exposure, glow, SSAO, TAA, grade, depth of field, film); off: the plain tonemap"><span class="icon icon-sparkles"></span></button>
+        </div>
+        <div class="group simulate">
+            <button id="sim-toggle" class="tool-button" data-command="simulate.toggle" data-tooltip="Simulate (Alt+F6) — run physics and scripts in this view; Stop restores the scene. Game code runs inside the editor: use Play for full games"><span id="sim-toggle-icon" class="icon icon-atom"></span></button>
+            <button id="sim-pause" class="tool-button disabled" data-command="simulate.pause" data-tooltip="Pause Simulation — freeze the simulation; the camera still moves"><span class="icon icon-player-pause"></span></button>
         </div>
         <div class="spacer"></div>
         <div class="group play">

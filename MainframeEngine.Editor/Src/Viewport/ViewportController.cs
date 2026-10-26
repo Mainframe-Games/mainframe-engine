@@ -164,10 +164,7 @@ public sealed partial class ViewportController : Node
         if (_scene is null)
             return;
 
-        if (_grid is { IsFreed: false })
-            _grid.Free();
-        _grid = new Grid3D { Name = "EditorGrid", Visible = GridVisible && !_scene.Camera.Is2D };
-        _scene.Viewport.AddChild(_grid);
+        EnsureGrid(_scene, ViewOf(_scene));
         _scene.Viewport.CameraOverride = _scene.Camera.ActiveCamera;
         _nodes2DVersion = -1;
     }
@@ -183,7 +180,8 @@ public sealed partial class ViewportController : Node
             return;
         }
 
-        var viewport = scene.Viewport;
+        var viewport = ViewOf(scene); // the simulated copy's view while the scene simulates (G7.5)
+        EnsureGrid(scene, viewport);
         var pixels = ViewPixels;
         if (viewport.Width != (int)pixels.X || viewport.Height != (int)pixels.Y)
         {
@@ -220,7 +218,9 @@ public sealed partial class ViewportController : Node
             scene.Camera.Is2D ? "square" : _drag == DragKind.Fly ? "plane" : "perspective");
         PollPick(scene);
         PollBox(scene);
-        if (scene.Camera.Is2D)
+        if (IsSimulating(scene))
+            DrawSimulationVisuals(scene, viewport, pixels);
+        else if (scene.Camera.Is2D)
             DrawEditorVisuals2D(scene, pixels);
         else
             DrawEditorVisuals(scene, pixels);
@@ -481,7 +481,7 @@ public sealed partial class ViewportController : Node
             case DragKind.Gizmo:
                 UpdateGizmo(scene);
                 return true;
-            case DragKind.Click when Vector2.Distance(_mouse, _pressAt) > ClickPixels:
+            case DragKind.Click when Vector2.Distance(_mouse, _pressAt) > ClickPixels && !IsSimulating(scene):
                 _drag = DragKind.Box; // a drag from empty space draws a selection rectangle (every tool)
                 ShowBox();
                 return true;
@@ -580,13 +580,13 @@ public sealed partial class ViewportController : Node
             return;
         }
 
-        if (PickIcon(scene, pixel) is { } icon)
+        if (!IsSimulating(scene) && PickIcon(scene, pixel) is { } icon)
         {
             Select(scene, icon, additive);
             return;
         }
 
-        _pick = scene.Viewport.RequestPick((int)pixel.X, (int)pixel.Y);
+        _pick = ViewOf(scene).RequestPick((int)pixel.X, (int)pixel.Y);
         _pickScene = scene;
         _pickAdditive = additive;
         if (!_pick.IsValid && !additive)
@@ -612,10 +612,11 @@ public sealed partial class ViewportController : Node
             return;
         }
 
-        if (!scene.Viewport.TryGetPickResult(_pick, out var result))
+        if (!ViewOf(scene).TryGetPickResult(_pick, out var result))
             return;
         _pick = default;
-        var node = result.Hit ? scene.SelectableFor(result.Node) : null;
+        var hit = result.Hit && result.Node is { } picked && IsSimulating(scene) ? _workspace.Simulation.EditedFor(picked) : result.Node;
+        var node = result.Hit ? scene.SelectableFor(hit) : null;
         if (node is not null && EditorLock.IsLocked(node))
             node = null; // a locked node is not picked: the click selects nothing (G7.4)
         if (node is not null)

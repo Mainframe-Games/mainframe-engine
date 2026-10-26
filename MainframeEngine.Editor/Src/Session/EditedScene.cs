@@ -220,6 +220,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     public Node AddNode(Node node, Node? parent = null, int index = -1)
     {
         ArgumentNullException.ThrowIfNull(node);
+        if (RefusesEdits())
+            return node;
         parent ??= Selection.Primary is { } selected && IsEditable(selected) ? selected : Root;
         History.Commit(new AddNodeAction(parent, node, Root, index));
         Selection.Set(node);
@@ -230,6 +232,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     public Node InstanceScene(string path, Node? parent = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
+        if (RefusesEdits())
+            throw new InvalidOperationException("The scene is simulating: stop the simulation to add nodes.");
         var full = AssetDatabase.Current.ToAbsolutePath(path);
         if (FilePath is not null && string.Equals(Path.GetFullPath(full), Path.GetFullPath(FilePath), StringComparison.Ordinal))
             throw new InvalidOperationException("A scene cannot instance itself.");
@@ -256,6 +260,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     public bool Delete(IReadOnlyList<Node> nodes)
     {
         ArgumentNullException.ThrowIfNull(nodes);
+        if (RefusesEdits())
+            return false;
         var roots = TopLevel(nodes);
         if (roots.Count == 0)
             return false;
@@ -272,6 +278,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     public IReadOnlyList<Node> Duplicate(IReadOnlyList<Node> nodes)
     {
         ArgumentNullException.ThrowIfNull(nodes);
+        if (RefusesEdits())
+            return [];
         var roots = TopLevel(nodes);
         if (roots.Count == 0)
             return [];
@@ -365,6 +373,15 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
         if (!connection.Source.IsConnected(connection.Signal, connection.Target, connection.Method))
             return false;
         History.Commit(new DisconnectSignalAction(connection));
+        return true;
+    }
+
+    // Simulate (G7.5) locks the history: structural edits are refused before they build anything.
+    private bool RefusesEdits()
+    {
+        if (!History.IsLocked)
+            return false;
+        Log.Info("[Editor] The scene is simulating: edits wait until Stop.");
         return true;
     }
 

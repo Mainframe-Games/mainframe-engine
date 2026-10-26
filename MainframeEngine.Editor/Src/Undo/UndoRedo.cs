@@ -94,6 +94,16 @@ public sealed class UndoRedo
     public void Commit(IEditorAction action, bool alreadyApplied = false, string? mergeKey = null)
     {
         ArgumentNullException.ThrowIfNull(action);
+        if (IsLocked)
+        {
+            // Simulate (G7.5): the scene is not edited while it runs; an edit that was applied live is put back.
+            if (alreadyApplied)
+                action.Undo();
+            Discard(action, applied: false, absorbed: false);
+            Log.Info($"[Editor] '{action.Name}' ignored: the scene is simulating (edits wait until Stop).");
+            return;
+        }
+
         if (!alreadyApplied)
             action.Do();
 
@@ -129,6 +139,12 @@ public sealed class UndoRedo
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// While set (the scene simulates, G7.5) nothing is committed, undone or redone: commits are dropped (one applied live
+    /// is put back) and logged.
+    /// </summary>
+    public bool IsLocked { get; set; }
+
     /// <summary>Closes the merge window (mouse released, field committed): the next commit starts a new entry.</summary>
     public void EndMerge() => _mergeKey = null;
 
@@ -136,7 +152,7 @@ public sealed class UndoRedo
     public bool Undo()
     {
         _mergeKey = null;
-        if (_position == 0)
+        if (_position == 0 || IsLocked)
             return false;
         _actions[_position - 1].Undo();
         _position--;
@@ -148,7 +164,7 @@ public sealed class UndoRedo
     public bool Redo()
     {
         _mergeKey = null;
-        if (_position >= _actions.Count)
+        if (_position >= _actions.Count || IsLocked)
             return false;
         _actions[_position].Do();
         _position++;

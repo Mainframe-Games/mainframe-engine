@@ -105,6 +105,12 @@ public sealed class ToolbarPanel : EditorDocument
 
     private bool? _shownLocal;
     private GizmoPivot? _shownPivot;
+    private bool? _shownSimulating;
+
+    private const string SimulateTip =
+        "Simulate (Alt+F6) — run physics and scripts in this view; Stop restores the scene. Game code runs inside the editor: use Play for full games";
+
+    private const string SimulateStopTip = "Stop Simulation (Alt+F6) — free the simulated copy and show the scene as it was";
 
     /// <summary>The pivot button's tooltip for <paramref name="pivot"/>.</summary>
     internal static string PivotTooltip(GizmoPivot pivot) => pivot switch
@@ -118,6 +124,7 @@ public sealed class ToolbarPanel : EditorDocument
     {
         _shownLocal = null;
         _shownPivot = null;
+        _shownSimulating = null;
         _badgeVersion = null;
         _thumbSlot = -1;
         ResetVideo();
@@ -234,6 +241,25 @@ public sealed class ToolbarPanel : EditorDocument
             icon.SetClass("icon-point", gizmo.Pivot == GizmoPivot.Median);
             icon.SetClass("icon-target", gizmo.Pivot == GizmoPivot.Active);
             icon.SetClass("icon-circles", gizmo.Pivot == GizmoPivot.Individual);
+        }
+
+        if (Workspace.Simulation is { } simulation)
+        {
+            var simulating = simulation.IsActive;
+            if (_shownSimulating != simulating)
+            {
+                _shownSimulating = simulating;
+                var toggle = document.GetElementById("sim-toggle");
+                toggle.SetClass("active", simulating);
+                toggle.SetAttribute("data-tooltip", simulating ? SimulateStopTip : SimulateTip);
+                var icon = document.GetElementById("sim-toggle-icon");
+                icon.SetClass("icon-atom", !simulating);
+                icon.SetClass("icon-player-stop", simulating);
+            }
+
+            var pause = document.GetElementById("sim-pause");
+            pause.SetClass("disabled", !simulating);
+            pause.SetClass("active", simulation.IsPaused);
         }
 
         document.GetElementById("tool-snap").SetClass("active", gizmo.Snap.Enabled);

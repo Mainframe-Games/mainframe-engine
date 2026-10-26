@@ -40,7 +40,7 @@ public sealed partial class ViewportController
     {
         ArgumentNullException.ThrowIfNull(scene);
         RefreshTargets(scene);
-        return _workspace.Gizmo.Mode == GizmoMode.Select ? [] : _targets3D;
+        return _workspace.Gizmo.Mode == GizmoMode.Select || IsSimulating(scene) ? [] : _targets3D;
     }
 
     /// <summary>The 2D <see cref="GizmoTargets"/> (selected <see cref="Node2D"/>s).</summary>
@@ -48,7 +48,7 @@ public sealed partial class ViewportController
     {
         ArgumentNullException.ThrowIfNull(scene);
         RefreshTargets(scene);
-        return _workspace.Gizmo.Mode == GizmoMode.Select ? [] : _targets2D;
+        return _workspace.Gizmo.Mode == GizmoMode.Select || IsSimulating(scene) ? [] : _targets2D;
     }
 
     // Rebuilt when the selection or the scene changes, never per frame.

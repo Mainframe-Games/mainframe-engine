@@ -129,6 +129,13 @@
         .array-index { width: 20dp; color: #6b7488; font-size: 10dp; }
         .array-box { display: block; flex: 1 1 auto; }
         .empty { display: flex; flex-direction: column; align-items: center; padding: 26dp 12dp; color: #8b93a5; text-align: center; }
+        /* G7.5 Simulate: a banner, and the rows read-only (values update live at 10 Hz). */
+        .sim-banner { display: flex; flex-direction: row; align-items: center; margin: 4dp 6dp; padding: 4dp 6dp; border-radius: 3dp;
+                      border: 1dp #14b8a6; background-color: #134e4a; color: #ccfbf1; font-size: 11dp; }
+        .sim-banner .icon-atom { image-color: #5eead4; margin-right: 6dp; }
+        .sim-banner .sim-text { flex: 1 1 auto; }
+        .simulating .prop-editor, .simulating #node-name, .simulating .res-actions { pointer-events: none; }
+        .simulating .prop-editor { opacity: 0.8; }
         .empty .icon { margin-bottom: 8dp; }
         .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
         .color-picker { padding: 2dp 8dp 6dp 12dp; }

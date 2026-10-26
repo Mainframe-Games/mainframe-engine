@@ -349,6 +349,7 @@ public sealed partial class EditorWorkspace
     /// </summary>
     public void ReleaseEditorReferences()
     {
+        Simulation.Stop("Simulation stopped for code reload."); // freeing the copy drops every game object it created
         Popup.Close();
         if (ListPicker.Visible)
             ListPicker.Cancel();
@@ -380,6 +381,8 @@ public sealed partial class EditorWorkspace
             return "project.build_reload";
         if (command && !shift && key == Key.F5)
             return "play.instances";
+        if (!command && !shift && (modifiers & EditorModifiers.Alt) != 0 && key == Key.F6)
+            return "simulate.toggle"; // G7.5: Simulate / Stop in the editor's view
         if (command || (modifiers & EditorModifiers.Alt) != 0)
             return null;
         return key switch

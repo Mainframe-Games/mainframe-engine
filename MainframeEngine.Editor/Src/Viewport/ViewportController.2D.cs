@@ -80,8 +80,8 @@ public sealed partial class ViewportController
         RefreshNodes2D(scene);
         var world = scene.Camera.ScreenToWorld2D(pixel, ViewPixels);
         for (var i = _nodes2D.Count - 1; i >= 0; i--)
-            if (_nodes2D[i] is CollisionShape2D { Shape: { } shape, IsInsideTree: true } collision && Contains(collision, shape, world) &&
-                scene.SelectableFor(collision) is { } hit && !EditorLock.IsLocked(hit))
+            if (_nodes2D[i] is CollisionShape2D { IsInsideTree: true } collision && PickPose(scene, collision) is CollisionShape2D { Shape: { } shape } posed &&
+                Contains(posed, shape, world) && scene.SelectableFor(collision) is { } hit && !EditorLock.IsLocked(hit))
                 return hit;
 
         Node? best = null;
@@ -89,9 +89,10 @@ public sealed partial class ViewportController
         for (var i = _nodes2D.Count - 1; i >= 0; i--)
         {
             var node = _nodes2D[i];
-            if (!node.IsInsideTree || scene.SelectableFor(node) is not { } selectable || EditorLock.IsLocked(selectable))
+            if (!node.IsInsideTree || scene.SelectableFor(node) is not { } selectable || EditorLock.IsLocked(selectable) ||
+                PickPose(scene, node) is not { } posed)
                 continue; // locked nodes cannot be picked in the viewport (G7.4)
-            var at = scene.Camera.WorldToScreen2D(node.GlobalPosition, ViewPixels);
+            var at = scene.Camera.WorldToScreen2D(posed.GlobalPosition, ViewPixels);
             var distance = Vector2.Distance(at, pixel);
             if (distance < bestDistance)
             {
@@ -102,6 +103,10 @@ public sealed partial class ViewportController
 
         return best is null ? null : scene.SelectableFor(best);
     }
+
+    // Where a 2D node is for picking: its simulated counterpart while the scene simulates (G7.5), else itself.
+    private Node2D? PickPose(EditedScene scene, Node2D node) =>
+        IsSimulating(scene) ? _workspace.Simulation.CounterpartOf(node) as Node2D : node;
 
     private static bool Contains(CollisionShape2D node, Shape2D shape, Vector2 world)
     {

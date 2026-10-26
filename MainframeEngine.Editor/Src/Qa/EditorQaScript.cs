@@ -46,6 +46,13 @@ namespace MainframeEngine.Editor;
 /// collapse Node/Path / expand Node/Path  # a scene tree row
 /// update-preview X.Y.Z       # the update dialog for a made-up release (no network)
 /// view-resolution full        # the 3D view's resolution for this run (auto, full, threeQuarters, half; not saved)
+/// select-add Node/Path        # adds a node to the selection (it becomes the active one)
+/// pivot median|active|individual       # the multi-node gizmo's pivot (G7.1)
+/// res-menu Property [res-save|res-unique|res-unique-deep|res-open|res-show]   # a resource row's More menu (G7.2)
+/// handle-drag 0 dx dy [frames]          # drags range handle 0 of the selection by (dx, dy) points (G7.3)
+/// box-select x0 y0 x1 y1 [shift|cmd] [hold]   # a selection rectangle; hold keeps the button down until mouse-up (G7.4)
+/// mouse-up / lock Node/Path   # releases a held box; toggles a node's viewport lock (G7.4)
+/// simulate start|pause|stop|keep        # Simulate in the view (G7.5)
 /// quit
 /// </code>
 /// </summary>
@@ -205,6 +212,27 @@ public sealed class EditorQaScript : IEditorAutomation
                     _holdDrag = null;
                 }
 
+                break;
+            case "simulate":
+                // simulate start|pause|stop|keep (G7.5): starts without the rebuild question, pauses or resumes, stops, or
+                // Keep Transforms.
+                switch (step[1])
+                {
+                    case "start" when workspace.Session.Active is { } simulated:
+                        workspace.Simulation.StartNow(simulated);
+                        break;
+                    case "pause":
+                        workspace.Simulation.TogglePause();
+                        break;
+                    case "keep":
+                        workspace.Simulation.KeepTransforms();
+                        break;
+                    default:
+                        workspace.Simulation.Stop();
+                        break;
+                }
+
+                Log.Info($"[QA] simulate {step[1]}: {(workspace.Simulation.IsActive ? workspace.Simulation.IsPaused ? "paused" : "running" : "stopped")}");
                 break;
             case "lock":
                 // lock Node/Path: toggles the node's viewport lock (the Scene panel's lock button).

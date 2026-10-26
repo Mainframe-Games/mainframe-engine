@@ -132,6 +132,8 @@ public sealed partial class EditorWorkspace : Node
         CodeEditor = new CodeEditorLauncher(() => Settings, () => Session.ProjectRoot, Options.StartCodeEditor);
         var dotnet = DotnetSdk.FindDotnet() ?? "dotnet";
         Play = new PlayController(this, Options.GameBuilder ?? new DotnetGameBuilder(dotnet), Options.GameLauncher ?? new ProcessGameLauncher(dotnet));
+        Simulation = new SimulationController(this);
+        Simulation.Changed += OnSimulationChanged;
         // Message is built later (BuildUi), so the notifier reaches it through the property at call time.
         var recordingNotifier = new RecordingNotifier(
             request => Message.Show(request),
@@ -173,6 +175,18 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>Out-of-process Play.</summary>
     public PlayController Play { get; }
+
+    /// <summary>In-editor Simulate (G7.5, Alt+F6): the active scene's physics and scripts on a copy in the view.</summary>
+    public SimulationController Simulation { get; }
+
+    // A simulation started or stopped: the toolbar's Simulate buttons, the inspector (live, read-only) and the view follow.
+    private void OnSimulationChanged()
+    {
+        Viewport?.OnSimulationChanged();
+        Toolbar?.Refresh();
+        if (Inspector is not null && Inspector.InspectedResource is null)
+            Inspector.Rebuild();
+    }
 
     /// <summary>The sound preview (one voice): FileSystem Play, inspector AudioStream rows, the sound designer.</summary>
     public AudioPreview AudioPreview { get; }
@@ -467,6 +481,7 @@ public sealed partial class EditorWorkspace : Node
         Tooltips?.Tick(gameTime.DeltaTime);
         SyncLayout();
         Session.Tick();
+        Simulation.Tick(gameTime.DeltaTime);
         PlacePreview();
         ViewportPanel.Tick();
         UpdateTitle();

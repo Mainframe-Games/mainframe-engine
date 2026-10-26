@@ -77,9 +77,7 @@ public sealed partial class ViewportController
     }
 
     // Handles show while editing (not during a simulation, G7.5).
-    private static bool HandlesEnabled(EditedScene scene) => !IsSimulating(scene);
-
-    private static bool IsSimulating(EditedScene scene) => false;
+    private bool HandlesEnabled(EditedScene scene) => !IsSimulating(scene);
 
     /// <summary>The handle within the gizmo's grab distance of view pixel <paramref name="pixel"/>, or -1.</summary>
     public int HitTestHandle(EditedScene scene, Vector2 pixel)

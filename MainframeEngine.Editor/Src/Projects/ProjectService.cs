@@ -264,6 +264,7 @@ public sealed class ProjectService : IDisposable
         if (_loader is not null && _loader.IsLoaded)
             return ReloadGameAssembly();
         var stopwatch = Stopwatch.StartNew();
+        _workspace.Simulation.Stop("Simulation stopped for code reload.");
         // Scenes opened before the code was loaded hold missing nodes: re-create them with the real types.
         var snapshots = SuspendScenes(null);
         try
