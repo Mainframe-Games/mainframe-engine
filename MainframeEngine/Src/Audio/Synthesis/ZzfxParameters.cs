@@ -76,7 +76,7 @@ public record struct ZzfxParameters()
 
     public float Tremolo { get; init; }
 
-    /// <summary>Hz; positive = low-pass, negative = high-pass, 0 = off.</summary>
+    /// <summary>Hz; positive = high-pass, negative = low-pass (ZzFX's convention), 0 = off.</summary>
     public float Filter { get; init; }
 
     /// <summary>ZzFX's default for the value at <paramref name="index"/> (0–20, ZzFX order).</summary>

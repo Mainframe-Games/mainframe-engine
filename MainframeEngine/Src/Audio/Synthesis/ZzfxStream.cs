@@ -314,7 +314,7 @@ public sealed class ZzfxStream : AudioStream
         }
     }
 
-    /// <summary>Biquad filter cutoff in Hz: positive = low-pass, negative = high-pass, 0 = off.</summary>
+    /// <summary>Biquad filter cutoff in Hz: positive = high-pass, negative = low-pass (ZzFX's convention), 0 = off.</summary>
     [Export(Range = "-10000,10000,1")]
     public float Filter
     {

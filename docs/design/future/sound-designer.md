@@ -123,7 +123,7 @@ the generic inspector, which still shows inline sounds, reads in a sensible orde
 | | `PitchJump` (Hz), `PitchJumpTime` (s) | float | −1000..1000, 0..1 | 0 |
 | | `RepeatTime` (s) | float | 0..1 | 0 |
 | Effects | `Noise`, `Modulation` (Hz), `BitCrush`, `Delay` (s), `Tremolo` | float | 0..5, −500..500, 0..1, 0..0.5, 0..1 | 0 |
-| | `Filter` (Hz; positive = low-pass, negative = high-pass) | float | −10000..10000 | 0 |
+| | `Filter` (Hz; positive = high-pass, negative = low-pass, as in ZzFX) | float | −10000..10000 | 0 |
 
 Ranges only bound the sliders. The inspector clamps what you type, but loading and pasting never clamp, so a line from
 the web designer with an out-of-range value plays exactly as it did there.
