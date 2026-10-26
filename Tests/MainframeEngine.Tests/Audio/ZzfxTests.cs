@@ -77,6 +77,21 @@ public sealed class ZzfxTests
     }
 
     [Fact]
+    public void PositiveFilterIsHighPassAndNegativeIsLowPass()
+    {
+        // ZzFX's convention, which the Filter docs (the sound designer's tooltip) must state (#134).
+        var tone = ZzfxParameters.Default with { Shape = ZzfxShape.Sine, Frequency = 80f, Release = 0.3f };
+        var open = Rms(Zzfx.Generate(tone));
+        var highPass = Rms(Zzfx.Generate(tone with { Filter = 4000f }));
+        var lowPass = Rms(Zzfx.Generate(tone with { Filter = -4000f }));
+
+        Assert.True(highPass < open * 0.1, $"+4000 Hz should high-pass an 80 Hz tone away: {highPass} vs {open}");
+        Assert.True(lowPass > open * 0.9, $"-4000 Hz should low-pass, keeping an 80 Hz tone: {lowPass} vs {open}");
+
+        static double Rms(float[] samples) => Math.Sqrt(samples.Sum(s => (double)s * s) / samples.Length);
+    }
+
+    [Fact]
     public void PresetsStayWithinMaxSecondsAndMutateKeepsTheShape()
     {
         var random = new Random(1234);
