@@ -4,8 +4,8 @@ namespace MainframeEngine.Editor;
 /// Configuration warnings of a node (Godot's <c>_get_configuration_warnings</c>), shown as a warning badge on its scene
 /// tree row with the text as tooltip: a type that is not loaded, a collision shape outside a collision object or
 /// without a shape, a collision object without shapes, a mesh instance without a mesh (or a skinned one without its skeleton),
-/// a bone attachment outside a skeleton or naming no bone, an animation player without animations, an audio player without
-/// a stream.
+/// a bone attachment outside a skeleton or naming no bone, an animation player without animations (or with root motion
+/// outside the physics callback mode, or from no skeleton), an audio player without a stream.
 /// </summary>
 public static class NodeWarnings
 {
@@ -53,8 +53,20 @@ public static class NodeWarnings
                 else if (skeleton.FindBone(attachment.BoneName) < 0)
                     Add(attachment.BoneName.Length == 0 ? "No BoneName: pick the bone to follow." : $"The skeleton has no bone '{attachment.BoneName}'.");
                 break;
-            case AnimationPlayer player when !HasAnimations(player):
-                Add("No animations: add an AnimationLibrary with animations to Libraries.");
+            case AnimationPlayer player:
+                if (!HasAnimations(player))
+                    Add("No animations: add an AnimationLibrary with animations to Libraries.");
+                if (!player.RootMotionTrack.IsEmpty)
+                {
+                    var root = player.RootNode.IsEmpty ? player : player.GetNodeOrNull(player.RootNode);
+                    if (root?.GetNodeOrNull(player.RootMotionTrack) is not Skeleton3D rootSkeleton)
+                        Add($"RootMotionTrack '{player.RootMotionTrack}' is not a Skeleton3D: no root motion.");
+                    else if (player.RootMotionBone.Length > 0 && rootSkeleton.FindBone(player.RootMotionBone) < 0)
+                        Add($"The root motion skeleton has no bone '{player.RootMotionBone}'.");
+                    if (player.CallbackModeProcess != AnimationCallbackMode.Physics)
+                        Add("Root motion moves a body per physics step: set CallbackModeProcess to Physics.");
+                }
+
                 break;
             case AudioPlayer { Stream: null } or AudioPlayer2D { Stream: null } or AudioPlayer3D { Stream: null }:
                 Add("No Stream: nothing plays.");

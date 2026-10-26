@@ -32,6 +32,10 @@ public enum AnimationCallbackMode : byte
 /// only the new one animates is set as is; one only the old one animates blends toward the bone's rest (or, for a node,
 /// the value it had when the blend started). A <see cref="Play"/> during a crossfade blends from the pose as it is at that
 /// moment. Only the incoming animation raises events.</para>
+/// <para>Root motion (ADR 0210): with <see cref="RootMotionTrack"/> set, the horizontal movement and the yaw of one bone
+/// (<see cref="RootMotionBone"/>) are taken out of the pose and reported per update by <see cref="GetRootMotionPosition"/>
+/// and <see cref="GetRootMotionRotation"/>, for <see cref="CharacterBody3D.ApplyRootMotion"/> (or game code) to move the
+/// character with.</para>
 /// </remarks>
 [EditorIcon("player-play")]
 public class AnimationPlayer : Node
@@ -56,6 +60,18 @@ public class AnimationPlayer : Node
     private (string Animation, string Event)[] _pending = [];
     private int _pendingCount;
 
+    // Root motion (ADR 0210): the resolved skeleton and bone, their rest, and the last update's motion.
+    private int _rootSettingsVersion = 1; // bumped when a setting changes; the resolution below is redone then
+    private int _rootResolvedVersion;
+    private int _rootWarnedVersion;
+    private int _rootGeneration; // bumped by every resolution: bound animations rescan their root tracks
+    private Skeleton3D? _rootSkeleton;
+    private int _rootBone = -1;
+    private Vector3 _rootRestPosition;
+    private float _rootRestYaw;
+    private Vector3 _rootMotionPosition;
+    private float _rootMotionYaw;
+
     public AnimationPlayer()
     {
         UpdateProcessing();
@@ -73,6 +89,7 @@ public class AnimationPlayer : Node
         set
         {
             field = value;
+            _rootSettingsVersion++;
             InvalidateBindings();
         }
     } = "..";
@@ -100,6 +117,46 @@ public class AnimationPlayer : Node
     [Export(Range = "-64,64,0.01")]
     public float SpeedScale { get; set; } = 1f;
 
+    /// <summary>
+    /// The <see cref="Skeleton3D"/> whose <see cref="RootMotionBone"/> carries root motion, relative to <see cref="RootNode"/>
+    /// (Godot's <c>root_motion_track</c>; empty: no root motion). Its horizontal movement and yaw are then not applied to
+    /// the bone but reported by <see cref="GetRootMotionPosition"/> and <see cref="GetRootMotionRotation"/>. Use the
+    /// <see cref="AnimationCallbackMode.Physics"/> callback mode, so the motion is per physics step.
+    /// </summary>
+    [Export(NodeType = typeof(Skeleton3D))]
+    public NodePath RootMotionTrack
+    {
+        get;
+        set
+        {
+            field = value;
+            _rootSettingsVersion++;
+        }
+    }
+
+    /// <summary>
+    /// The bone whose motion moves the character (empty: the skeleton's first root bone). A rig with a bone above the hips
+    /// (Unreal's <c>root</c>) uses that; one whose hips are the top bone (Mixamo) uses the hips. Its pose is read relative
+    /// to its parent, so it should be a root bone or sit under static ones.
+    /// </summary>
+    [Export]
+    public string RootMotionBone
+    {
+        get;
+        set
+        {
+            field = value ?? "";
+            _rootSettingsVersion++;
+        }
+    } = "";
+
+    /// <summary>
+    /// Vertical movement of the root bone is root motion too (a climb, a jump that leaves the ground). Off (the default),
+    /// it stays in the pose: a crouch lowers the hips, the character does not move down.
+    /// </summary>
+    [Export]
+    public bool RootMotionVertical { get; set; }
+
     /// <summary>An inactive player does not advance or apply anything.</summary>
     [Export]
     public bool Active { get; set; } = true;
@@ -123,6 +180,24 @@ public class AnimationPlayer : Node
     public float GetPlayingSpeed() => _playing && _current is { } current ? SpeedScale * current.Speed : 0f;
 
     public bool IsPlaying() => _playing;
+
+    /// <summary>
+    /// How far the root motion bone moved in the last update (ADR 0210), in the skeleton's space, relative to the facing
+    /// the character had at the start of the update: rotate it by the skeleton's global basis to get the world motion.
+    /// Horizontal only unless <see cref="RootMotionVertical"/>. Zero when there is no root motion or nothing played; each
+    /// update replaces it (read it once per update, as <see cref="CharacterBody3D.ApplyRootMotion"/> does).
+    /// </summary>
+    public Vector3 GetRootMotionPosition() => _rootMotionPosition;
+
+    /// <summary>The root motion bone's turn about the skeleton's up axis in the last update (identity without root motion).</summary>
+    public Quaternion GetRootMotionRotation() =>
+        _rootMotionYaw == 0f ? Quaternion.Identity : Quaternion.CreateFromAxisAngle(Vector3.UnitY, _rootMotionYaw);
+
+    /// <summary>The last update's turn about the skeleton's up axis, in radians (counter-clockwise seen from above).</summary>
+    internal float RootMotionYaw => _rootMotionYaw;
+
+    /// <summary>The skeleton root motion is read from (resolved from <see cref="RootMotionTrack"/>), or null.</summary>
+    internal Skeleton3D? RootMotionSkeleton => _rootSkeleton is { IsFreed: false } skeleton ? skeleton : null;
 
     /// <summary>Raised when an animation starts (from <see cref="Play"/> or the queue).</summary>
     [Signal]
@@ -164,6 +239,9 @@ public class AnimationPlayer : Node
             return;
         }
 
+        if (_rootSkeleton is null)
+            _rootResolvedVersion = 0; // retry: the skeleton may have been added since
+        ResolveRootMotion();
         var bound = Bind(animation, name);
         if (_current is { } current && ReferenceEquals(current.Bound, bound) && !current.Finished)
         {
@@ -335,8 +413,11 @@ public class AnimationPlayer : Node
 
     private void Process(double delta)
     {
+        _rootMotionPosition = Vector3.Zero; // consumed per update
+        _rootMotionYaw = 0f;
         if (!_playing || !Active || _current?.Bound is null)
             return;
+        ResolveRootMotion();
 
         var blendDone = false;
         if (_from is { } from)
@@ -349,6 +430,15 @@ public class AnimationPlayer : Node
 
         var current = _current;
         var finished = AdvancePlayback(current, delta, events: true);
+        if (_rootSkeleton is not null)
+        {
+            // Crossfades mix the two clips' motion by the blend weight (a held snapshot does not move).
+            var fromMoves = _from is not null && !_fromSnapshot && !blendDone;
+            var weight = _from is null ? 1f : (float)Math.Clamp(_blendElapsed / _blendTime, 0, 1);
+            _rootMotionPosition = fromMoves ? Vector3.Lerp(_from!.RootPosition, current.RootPosition, weight) : current.RootPosition * weight;
+            _rootMotionYaw = fromMoves ? float.Lerp(_from!.RootYaw, current.RootYaw, weight) : current.RootYaw * weight;
+        }
+
         Evaluate(); // a finished blend applies once more at full weight, then the old animation is dropped
         if (blendDone)
         {
@@ -388,6 +478,8 @@ public class AnimationPlayer : Node
         var next = previous + step;
         var inclusive = playback.FireStart;
         playback.FireStart = false;
+        playback.RootPosition = Vector3.Zero;
+        playback.RootYaw = 0f;
         var bound = events ? playback.Bound : null;
         var finished = false;
         switch (animation.LoopMode)
@@ -404,14 +496,14 @@ public class AnimationPlayer : Node
                     finished = true;
                 }
 
-                Collect(bound, previous, next, inclusive, true);
+                Pass(playback, bound, previous, next, inclusive, true);
                 break;
             case AnimationLoopMode.Linear when length > 0:
                 if (step >= 0)
                 {
                     while (next >= length)
                     {
-                        Collect(bound, previous, length, inclusive, false);
+                        Pass(playback, bound, previous, length, inclusive, false);
                         previous = 0;
                         inclusive = true;
                         next -= length;
@@ -421,27 +513,27 @@ public class AnimationPlayer : Node
                 {
                     while (next < 0)
                     {
-                        Collect(bound, previous, 0, inclusive, true);
+                        Pass(playback, bound, previous, 0, inclusive, true);
                         previous = length;
                         inclusive = false;
                         next += length;
                     }
                 }
 
-                Collect(bound, previous, next, inclusive, true);
+                Pass(playback, bound, previous, next, inclusive, true);
                 break;
             case AnimationLoopMode.PingPong when length > 0:
                 for (var bounces = 0; (next > length || next < 0) && bounces < 64; bounces++)
                 {
                     var edge = next > length ? length : 0;
-                    Collect(bound, previous, edge, inclusive, true);
+                    Pass(playback, bound, previous, edge, inclusive, true);
                     next = 2 * edge - next;
                     previous = edge;
                     inclusive = false;
                     playback.Speed = -playback.Speed;
                 }
 
-                Collect(bound, previous, next, inclusive, true);
+                Pass(playback, bound, previous, next, inclusive, true);
                 break;
             default:
                 next = 0;
@@ -450,6 +542,14 @@ public class AnimationPlayer : Node
 
         playback.Position = next;
         return finished;
+    }
+
+    // One stretch of clip time without a wrap: its events and its root motion.
+    private void Pass(Playback playback, BoundAnimation? events, double from, double to, bool includeFrom, bool includeTo)
+    {
+        Collect(events, from, to, includeFrom, includeTo);
+        if (_rootSkeleton is not null && from != to)
+            AccumulateRootMotion(playback, from, to);
     }
 
     // Queues the event keys between from and to (in play direction) for raising after the pose is applied.
@@ -554,6 +654,8 @@ public class AnimationPlayer : Node
                 var q = hasTo ? hasFrom ? Quaternion.Slerp(slot.FromQ, slot.ToQ, weight) : slot.ToQ : Quaternion.Slerp(slot.FromQ, slot.BaseQ, weight);
                 if (slot.Bone >= 0)
                 {
+                    if (slot.Bone == _rootBone && ReferenceEquals(target, _rootSkeleton))
+                        q = WithoutRootYaw(q);
                     if (slot.Bone < ((Skeleton3D)target).GetBoneCount())
                         ((Skeleton3D)target).SetBonePoseRotation(slot.Bone, q);
                 }
@@ -571,7 +673,7 @@ public class AnimationPlayer : Node
                     if (slot.Bone >= skeleton.GetBoneCount())
                         continue;
                     if (slot.Kind == KindPosition)
-                        skeleton.SetBonePosePosition(slot.Bone, v);
+                        skeleton.SetBonePosePosition(slot.Bone, slot.Bone == _rootBone && ReferenceEquals(skeleton, _rootSkeleton) ? WithoutRootMotion(v) : v);
                     else
                         skeleton.SetBonePoseScale(slot.Bone, v);
                 }
@@ -683,6 +785,172 @@ public class AnimationPlayer : Node
         }
     }
 
+    // ── Root motion (ADR 0210) ─────────────────────────────────────────────────
+
+    // Finds the skeleton and bone of RootMotionTrack/RootMotionBone when a setting changed (or Play retries a failed lookup).
+    private void ResolveRootMotion()
+    {
+        if (_rootResolvedVersion == _rootSettingsVersion && _rootSkeleton is not { IsFreed: true })
+            return;
+        var warn = _rootWarnedVersion != _rootSettingsVersion; // once per setting change, not on every retry
+        _rootResolvedVersion = _rootSettingsVersion;
+        _rootGeneration++;
+        _rootSkeleton = null;
+        _rootBone = -1;
+        if (RootMotionTrack.IsEmpty)
+            return;
+
+        var root = RootNode.IsEmpty ? this : GetNodeOrNull(RootNode);
+        if (root?.GetNodeOrNull(RootMotionTrack) is not Skeleton3D skeleton)
+        {
+            if (warn)
+                Log.Warning($"[AnimationPlayer] '{Name}': RootMotionTrack '{RootMotionTrack}' is not a Skeleton3D under '{RootNode}'; no root motion.");
+            _rootWarnedVersion = _rootSettingsVersion;
+            return;
+        }
+
+        var bone = RootMotionBone.Length > 0 ? skeleton.FindBone(RootMotionBone) : FirstRootBone(skeleton);
+        if (bone < 0)
+        {
+            if (warn)
+                Log.Warning($"[AnimationPlayer] '{Name}': the skeleton has no bone '{RootMotionBone}'; no root motion.");
+            _rootWarnedVersion = _rootSettingsVersion;
+            return;
+        }
+
+        _rootSkeleton = skeleton;
+        _rootBone = bone;
+        skeleton.GetBoneRest(bone).Decompose(out _rootRestPosition, out var restRotation, out _);
+        _rootRestYaw = Yaw(restRotation);
+    }
+
+    private static int FirstRootBone(Skeleton3D skeleton)
+    {
+        for (var i = 0; i < skeleton.GetBoneCount(); i++)
+            if (skeleton.GetBoneParent(i) < 0)
+                return i;
+        return -1;
+    }
+
+    // The root bone's position and rotation tracks of an animation (rescanned after a binding or resolution change), and
+    // the clip's whole turn: the sum of its key-to-key turns, so a clip that turns more than half a circle loops right.
+    private void ResolveRootTracks(BoundAnimation bound)
+    {
+        if (bound.RootGeneration == _rootGeneration)
+            return;
+        bound.RootGeneration = _rootGeneration;
+        bound.RootPosition = null;
+        bound.RootRotation = null;
+        bound.FullYaw = 0f;
+        if (_rootSkeleton is not { } skeleton)
+            return;
+
+        var root = RootNode.IsEmpty ? this : GetNodeOrNull(RootNode);
+        var boneName = skeleton.GetBoneName(_rootBone);
+        foreach (var track in bound.Animation.Tracks)
+        {
+            if (track is not (Position3DTrack or Rotation3DTrack) || !track.Enabled || root?.GetNodeOrNull(track.Path) != skeleton)
+                continue;
+            if (track is Position3DTrack position && position.Bone == boneName)
+                bound.RootPosition = position;
+            else if (track is Rotation3DTrack rotation && rotation.Bone == boneName)
+                bound.RootRotation = rotation;
+        }
+
+        if (bound.RootRotation is { } turns)
+        {
+            var length = (double)bound.Animation.Length;
+            var cursor = -1;
+            var previous = RootYawAt(turns, 0, ref cursor);
+            var times = turns.Times;
+            for (var k = 0; k < times.Length; k++)
+            {
+                if (times[k] <= 0 || times[k] >= length)
+                    continue;
+                var yaw = RootYawAt(turns, times[k], ref cursor);
+                bound.FullYaw += WrapAngle(yaw - previous);
+                previous = yaw;
+            }
+
+            bound.FullYaw += WrapAngle(RootYawAt(turns, length, ref cursor) - previous);
+        }
+    }
+
+    // The root motion of one stretch of clip time without a wrap, added to the playback's motion of this update: the turn,
+    // and the movement turned from the clip's facing at `from` into the character's facing (its turn so far this update).
+    private void AccumulateRootMotion(Playback playback, double from, double to)
+    {
+        var bound = playback.Bound!;
+        ResolveRootTracks(bound);
+        if (bound.RootPosition is null && bound.RootRotation is null)
+            return;
+
+        var yawFrom = 0f;
+        var turn = 0f;
+        if (bound.RootRotation is { } rotation)
+        {
+            yawFrom = RootYawAt(rotation, from, ref bound.RootRotationCursor);
+            var length = (double)bound.Animation.Length;
+            if (from == 0 && to == length)
+                turn = bound.FullYaw;
+            else if (from == length && to == 0)
+                turn = -bound.FullYaw;
+            else
+                turn = WrapAngle(RootYawAt(rotation, to, ref bound.RootRotationCursor) - yawFrom);
+        }
+
+        if (bound.RootPosition is { } position)
+        {
+            var moved = position.Sample(to, ref bound.RootPositionCursor) - position.Sample(from, ref bound.RootPositionCursor);
+            if (!RootMotionVertical)
+                moved.Y = 0f;
+            playback.RootPosition += RotateY(moved, playback.RootYaw - yawFrom);
+        }
+
+        playback.RootYaw += turn;
+    }
+
+    // The clip's facing at `time`: the bone's yaw relative to its rest.
+    private float RootYawAt(Rotation3DTrack track, double time, ref int cursor) =>
+        WrapAngle(Yaw(track.Sample(time, ref cursor)) - _rootRestYaw);
+
+    // The root bone's pose position without the motion: horizontally (and vertically with RootMotionVertical) at its rest.
+    private Vector3 WithoutRootMotion(Vector3 position) =>
+        new(_rootRestPosition.X, RootMotionVertical ? _rootRestPosition.Y : position.Y, _rootRestPosition.Z);
+
+    // The root bone's pose rotation without its turn: the yaw (twist about the parent's up axis) back at the rest's.
+    private Quaternion WithoutRootYaw(Quaternion rotation)
+    {
+        var turn = WrapAngle(Yaw(rotation) - _rootRestYaw);
+        return turn == 0f ? rotation : Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Vector3.UnitY, -turn) * rotation);
+    }
+
+    /// <summary>The twist of <paramref name="rotation"/> about +Y, in radians (−π, π]; the same whichever side the swing is on.</summary>
+    internal static float Yaw(Quaternion rotation)
+    {
+        if (rotation.W < 0)
+            rotation = -rotation;
+        return rotation.Y == 0f && rotation.W == 0f ? 0f : WrapAngle(2f * MathF.Atan2(rotation.Y, rotation.W));
+    }
+
+    private static float WrapAngle(float radians)
+    {
+        if (radians > MathF.PI)
+            radians -= MathF.Tau;
+        else if (radians <= -MathF.PI)
+            radians += MathF.Tau;
+        return radians;
+    }
+
+    // Turns `v` by `radians` about +Y (counter-clockwise seen from above: +Z towards +X).
+    private static Vector3 RotateY(Vector3 v, float radians)
+    {
+        if (radians == 0f)
+            return v;
+        var (sin, cos) = MathF.SinCos(radians);
+        return new Vector3(cos * v.X + sin * v.Z, v.Y, cos * v.Z - sin * v.X);
+    }
+
     // ── Binding ────────────────────────────────────────────────────────────────
 
     private Animation? FindAnimation(ReadOnlySpan<char> name)
@@ -728,6 +996,7 @@ public class AnimationPlayer : Node
 
         bound.Version = animation.Version;
         bound.Name = name;
+        bound.RootGeneration = -1;
         var root = RootNode.IsEmpty ? this : GetNodeOrNull(RootNode);
         var tracks = new List<BoundTrack>(animation.Tracks.Count);
         var events = new List<EventTrack>();
@@ -791,6 +1060,11 @@ public class AnimationPlayer : Node
 
         /// <summary>A non-looping animation reached its end (playing it again restarts it).</summary>
         public bool Finished;
+
+        /// <summary>This update's root motion: movement (character space at the update's start) and turn.</summary>
+        public Vector3 RootPosition;
+
+        public float RootYaw;
     }
 
     private sealed class BoundAnimation(Animation animation)
@@ -800,6 +1074,14 @@ public class AnimationPlayer : Node
         public int Version = -1;
         public BoundTrack[] Tracks = [];
         public EventTrack[] Events = [];
+
+        // Root motion (ADR 0210): the root bone's tracks, their own cursors, and the clip's whole turn.
+        public int RootGeneration = -1;
+        public Position3DTrack? RootPosition;
+        public Rotation3DTrack? RootRotation;
+        public int RootPositionCursor = -1;
+        public int RootRotationCursor = -1;
+        public float FullYaw;
     }
 
     private struct BoundTrack

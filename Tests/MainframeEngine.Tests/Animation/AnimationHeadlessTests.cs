@@ -1,3 +1,4 @@
+using System.Numerics;
 using MainframeEngine.Tests.TestAssets;
 
 namespace MainframeEngine.Tests.Animation;
@@ -47,6 +48,31 @@ public sealed class AnimationHeadlessTests
 
         Assert.InRange(first.EventFrame, 24u, 25u); // HammerFist at 0.4 s of a 60 fps run
         Assert.InRange(first.FinishedFrame, 48u, 49u); // the 0.8 s clip
+        Assert.Equal(first, second);
+    }
+
+    // ADR 0210: a body walking the circle clip by root motion on a dedicated server, for two seconds.
+    private static (Vector3 Position, Quaternion Rotation) RunRootMotion()
+    {
+        using var host = new HeadlessHost(Settings(), new GameHostOptions { MaxFrames = 120, FixedFps = 60 });
+        var floor = new StaticBody3D { Name = "Floor", Position = new Vector3(0, -0.5f, 0) };
+        floor.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(40, 1, 40) } });
+        host.Tree.Root.AddChild(floor);
+        var (body, player) = RootMotionCharacterTests.AddWalker(host.Tree.Root, new Vector3(0, 0.05f, 0), 0);
+        player.Play("circle", customBlend: 0.1);
+
+        Assert.Equal(ExitCode.Ok, host.Run());
+        return (body.GlobalPosition, body.GlobalRotation);
+    }
+
+    [Fact]
+    public void RootMotionMovesABodyHeadlessTheSameWayEveryRun()
+    {
+        var first = RunRootMotion();
+        var second = RunRootMotion();
+
+        // Half the circle, turning left (+X): across it, a diameter from the start.
+        Assert.True(Vector3.Distance(new Vector3(2 * SkinnedCharacter.CircleRadius, 0, 0), first.Position) < 0.1f, $"at {first.Position}");
         Assert.Equal(first, second);
     }
 
