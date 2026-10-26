@@ -87,8 +87,9 @@ public sealed class PhysicsAllocationTests
 }
 
 /// <summary>
-/// The 3D joint allocation gate (ADR 0211): 200 joints (hinged chains with motors, pins, and whatever later types
-/// <see cref="JointGate.AddJoints"/> adds) step, read their state and draw their debug lines without allocating.
+/// The 3D joint allocation gate (ADR 0211): 320 joints (hinged chains with motors and springs, pinned chains, sprung
+/// sliders, distance springs, cone-twists, breakable welds) step, read their state and draw their debug lines without
+/// allocating.
 /// </summary>
 [Collection(nameof(SerialAllocationGates))]
 public sealed class JointAllocationTests
@@ -100,7 +101,7 @@ public sealed class JointAllocationTests
         h.Server.DebugDrawEnabled = true;
         h.AddFloor(size: 200);
         var joints = JointGate.AddJoints(h);
-        Assert.True(joints.Count >= 200, $"{joints.Count} joints");
+        Assert.True(joints.Count >= 300, $"{joints.Count} joints");
 
         var sum = 0f;
         void Frame()
@@ -147,7 +148,7 @@ internal static class JointGate
             {
                 var plank = h.AddBox(new Vector3(i * 0.6f + 0.3f, 10, z), size: 0.5f, name: $"Plank{c}_{i}");
                 plank.CanSleep = c % 2 == 0;
-                Join(new HingeJoint3D { Name = $"Hinge{c}_{i}", UseLimit = i % 2 == 0, MotorEnabled = i == 0, MotorTargetVelocity = 1f },
+                Join(new HingeJoint3D { Name = $"Hinge{c}_{i}", UseLimit = i % 2 == 0, MotorEnabled = i == 0, MotorTargetVelocity = 1f, SpringEnabled = i % 3 == 1 },
                     new Vector3(i * 0.6f, 10, z), i == 0 ? null : $"Plank{c}_{i - 1}", plank.Name);
             }
 
@@ -157,6 +158,22 @@ internal static class JointGate
                 ball.AddChild(new CollisionShape3D { Shape = new SphereShape3D { Radius = 0.15f } });
                 h.Add(ball);
                 Join(new PinJoint3D { Name = $"Pin{c}_{i}" }, new Vector3(-i * 0.5f, 10, z), i == 0 ? null : $"Ball{c}_{i - 1}", ball.Name);
+            }
+
+            // A few of every other type: sprung sliders with motors, distance springs, cone-twists and breakable welds.
+            for (var i = 0; i < 3; i++)
+            {
+                var x = -10f - i * 2f;
+                var piston = h.AddBox(new Vector3(x, 3, z), size: 0.3f, name: $"Piston{c}_{i}");
+                Join(new SliderJoint3D { Name = $"Slider{c}_{i}", UseLimit = true, MotorEnabled = true, SpringEnabled = true }, piston.Position, null, piston.Name);
+                var weight = h.AddBox(new Vector3(x, 5, z), size: 0.3f, name: $"Weight{c}_{i}");
+                Join(new DistanceJoint3D { Name = $"Spring{c}_{i}", AnchorB = new Vector3(0, -1, 0), SpringFrequency = 2f }, weight.Position + Vector3.UnitY,
+                    null, weight.Name);
+                var arm = h.AddBox(new Vector3(x, 8, z), size: 0.3f, name: $"Arm{c}_{i}");
+                Join(new ConeTwistJoint3D { Name = $"Cone{c}_{i}", SwingSpanDegrees = 30, TwistSpanDegrees = 20 }, arm.Position + Vector3.UnitY * 0.3f,
+                    null, arm.Name);
+                var sign = h.AddBox(new Vector3(x + 1, 8, z), size: 0.3f, name: $"Sign{c}_{i}");
+                Join(new WeldJoint3D { Name = $"Weld{c}_{i}", BreakForce = 1e6f, BreakTorque = 1e6f }, sign.Position, $"Arm{c}_{i}", sign.Name);
             }
         }
 

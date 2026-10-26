@@ -40,6 +40,9 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
     public CollisionObject3D? FramedA, FramedB;
     public bool HasFrames;
 
+    /// <summary>The distance between the two anchors at the authored pose (m).</summary>
+    public float AuthoredLength;
+
     /// <summary>Applied force (N) and torque (N·m) when the joint broke.</summary>
     public float BrokenForce, BrokenTorque;
 
@@ -335,6 +338,7 @@ public sealed partial class PhysicsSpace3D
             var anchorB = node.GetAnchorB(node.GlobalTransform);
             LocalFrame(bodyA, position, rotation, out record.FramePositionA, out record.FrameRotationA);
             LocalFrame(bodyB, anchorB, rotation, out record.FramePositionB, out record.FrameRotationB);
+            record.AuthoredLength = Vector3.Distance(position, anchorB);
             record.FramedA = a?.Node;
             record.FramedB = b?.Node;
             record.HasFrames = true;
@@ -527,6 +531,84 @@ public sealed partial class PhysicsSpace3D
         return motor;
     }
 
+    /// <summary>A cone limit on <paramref name="axis"/> (joint space): the angle between the axis on A and on B.</summary>
+    internal ConeLimit CreateConeLimit(JointRecord3D record, Vector3 axis)
+    {
+        var cone = _world.CreateConstraint<ConeLimit>(record.BodyA!, record.BodyB!);
+        var world = WorldAxisB(record, axis);
+        cone.Initialize(world, world, new AngularLimit(JAngle.FromRadian(0f), JAngle.FromRadian(MathF.PI / 4)));
+        ref var data = ref cone.Data;
+        data.LocalAxis1 = Vector3.Transform(axis, record.FrameRotationA).ToJ();
+        data.LocalAxis2 = Vector3.Transform(axis, record.FrameRotationB).ToJ();
+        return cone;
+    }
+
+    /// <summary>A twist limit about <paramref name="axis"/> (joint space), measured from the authored pose.</summary>
+    internal TwistAngle CreateTwistAngle(JointRecord3D record, Vector3 axis)
+    {
+        var twist = _world.CreateConstraint<TwistAngle>(record.BodyA!, record.BodyB!);
+        var world = WorldAxisB(record, axis);
+        twist.Initialize(world, world, AngularLimit.Full);
+        ref var data = ref twist.Data;
+        data.B = Vector3.Transform(axis, record.FrameRotationB).ToJ();
+        data.Q0 = record.RestRotation.ToJ();
+        return twist;
+    }
+
+    /// <summary>Locks the relative rotation at the authored one.</summary>
+    internal FixedAngle CreateFixedAngle(JointRecord3D record)
+    {
+        var fixedAngle = _world.CreateConstraint<FixedAngle>(record.BodyA!, record.BodyB!);
+        fixedAngle.Initialize();
+        fixedAngle.Data.Q0 = record.RestRotation.ToJ();
+        return fixedAngle;
+    }
+
+    /// <summary>B's anchor stays on the line through A's anchor along <paramref name="axis"/> (joint space, fixed in A).</summary>
+    internal PointOnLine CreatePointOnLine(JointRecord3D record, Vector3 axis)
+    {
+        var line = _world.CreateConstraint<PointOnLine>(record.BodyA!, record.BodyB!);
+        var anchor = record.BodyA!.Position;
+        line.Initialize(WorldAxisB(record, axis), anchor, anchor, LinearLimit.Full);
+        ref var data = ref line.Data;
+        data.LocalAxis = Vector3.Transform(axis, record.FrameRotationA).ToJ();
+        data.LocalAnchor1 = record.FramePositionA.ToJ();
+        data.LocalAnchor2 = record.FramePositionB.ToJ();
+        return line;
+    }
+
+    internal LinearMotor CreateLinearMotor(JointRecord3D record, Vector3 axis)
+    {
+        var motor = _world.CreateConstraint<LinearMotor>(record.BodyA!, record.BodyB!);
+        var world = WorldAxisB(record, axis);
+        motor.Initialize(world, world);
+        ref var data = ref motor.Data;
+        data.LocalAxis1 = Vector3.Transform(axis, record.FrameRotationA).ToJ();
+        data.LocalAxis2 = Vector3.Transform(axis, record.FrameRotationB).ToJ();
+        return motor;
+    }
+
+    /// <summary>The distance between the two anchors, limited (<see cref="SetDistanceLimit"/>); no limit until set.</summary>
+    internal DistanceLimit CreateDistanceLimit(JointRecord3D record)
+    {
+        var distance = _world.CreateConstraint<DistanceLimit>(record.BodyA!, record.BodyB!);
+        var anchor = record.BodyA!.Position;
+        distance.Initialize(anchor, anchor + JVector.UnitX, LinearLimit.Full);
+        ref var data = ref distance.Data;
+        data.LocalAnchor1 = record.FramePositionA.ToJ();
+        data.LocalAnchor2 = record.FramePositionB.ToJ();
+        data.Distance = 0f; // the limits are absolute lengths
+        return distance;
+    }
+
+    /// <summary>Keeps the anchors <paramref name="min"/>…<paramref name="max"/> metres apart (equal: a rod).</summary>
+    internal static void SetDistanceLimit(DistanceLimit distance, float min, float max)
+    {
+        ref var data = ref distance.Data;
+        data.LimitMin = min;
+        data.LimitMax = max;
+    }
+
     private static JVector WorldAxisB(JointRecord3D record, Vector3 axis) =>
         Vector3.Transform(Vector3.Transform(axis, record.FrameRotationB), record.BodyB!.Orientation.ToNumerics()).ToJ();
 
@@ -538,6 +620,97 @@ public sealed partial class PhysicsSpace3D
         foreach (var joint in _sprung)
             if (!joint.Disabled && IsAwake(joint))
                 joint.Node.ApplySpring(joint, delta);
+    }
+
+    /// <summary>
+    /// An implicit (unconditionally stable) PD spring about <paramref name="axis"/> (world) through
+    /// <paramref name="anchor"/>: the relative angular velocity the spring would reach after one step, turned into equal
+    /// and opposite torques on the dynamic bodies. <paramref name="error"/> is the angle past the target (rad); the
+    /// frequency is clamped to a quarter of the step rate.
+    /// </summary>
+    internal static void ApplyAngularSpring(JointRecord3D record, Vector3 axis, Vector3 anchor, float error, float frequency, float dampingRatio,
+        float delta)
+    {
+        var a = record.BodyA!;
+        var b = record.BodyB!;
+        ref var dataA = ref a.Data;
+        ref var dataB = ref b.Data;
+        var axisJ = axis.ToJ();
+        // Each body turns about the joint's anchor (the other constraints see to that): its inertia about the axis there.
+        var inverseInertia = InverseInertiaAbout(a, axisJ, anchor) + InverseInertiaAbout(b, axisJ, anchor);
+        if (!(inverseInertia > 0f))
+            return;
+        var speed = JVector.Dot(axisJ, dataB.AngularVelocity - dataA.AngularVelocity);
+        var target = SpringVelocity(speed, error, frequency, dampingRatio, delta);
+        var magnitude = (target - speed) / inverseInertia / delta;
+        if (MathF.Abs(magnitude) < 1e-7f)
+            return;
+        var torque = axisJ * magnitude;
+        if (b.MotionType == MotionType.Dynamic)
+        {
+            b.Torque += torque;
+            if (!b.IsActive)
+                b.SetActivationState(true);
+        }
+
+        if (a.MotionType == MotionType.Dynamic)
+        {
+            a.Torque -= torque;
+            if (!a.IsActive)
+                a.SetActivationState(true);
+        }
+    }
+
+    /// <summary>
+    /// An implicit PD spring along <paramref name="direction"/> (world, unit) between the anchors
+    /// <paramref name="pointA"/> and <paramref name="pointB"/>; <paramref name="error"/> is the distance past the target (m).
+    /// </summary>
+    internal static void ApplyLinearSpring(JointRecord3D record, Vector3 direction, float error, Vector3 pointA, Vector3 pointB, float frequency,
+        float dampingRatio, float delta)
+    {
+        var a = record.BodyA!;
+        var b = record.BodyB!;
+        ref var dataA = ref a.Data;
+        ref var dataB = ref b.Data;
+        var n = direction.ToJ();
+        var rA = pointA.ToJ() - dataA.Position;
+        var rB = pointB.ToJ() - dataB.Position;
+        var rnA = JVector.Cross(rA, n);
+        var rnB = JVector.Cross(rB, n);
+        var inverseMass = JVector.Dot(JVector.Multiply(n, dataA.InverseMassVector), n) + JVector.Dot(JVector.Multiply(n, dataB.InverseMassVector), n) +
+                          JVector.Dot(JVector.Transform(rnA, dataA.InverseInertiaWorld), rnA) +
+                          JVector.Dot(JVector.Transform(rnB, dataB.InverseInertiaWorld), rnB);
+        if (!(inverseMass > 0f))
+            return;
+        var velocityA = dataA.Velocity + JVector.Cross(dataA.AngularVelocity, rA);
+        var velocityB = dataB.Velocity + JVector.Cross(dataB.AngularVelocity, rB);
+        var speed = JVector.Dot(n, velocityB - velocityA);
+        var target = SpringVelocity(speed, error, frequency, dampingRatio, delta);
+        var force = n * ((target - speed) / inverseMass / delta);
+        if (b.MotionType == MotionType.Dynamic)
+            b.AddForce(force, pointB.ToJ());
+        if (a.MotionType == MotionType.Dynamic)
+            a.AddForce(-force, pointA.ToJ());
+    }
+
+    // 1 / (inertia about the axis at the centre of mass + m·d² to the anchor); 0 for a body that is not dynamic.
+    private static float InverseInertiaAbout(RigidBody body, in JVector axis, Vector3 anchor)
+    {
+        if (body.MotionType != MotionType.Dynamic)
+            return 0f;
+        ref var data = ref body.Data;
+        var inverse = JVector.Dot(JVector.Transform(axis, data.InverseInertiaWorld), axis);
+        if (!(inverse > 0f))
+            return 0f;
+        var arm = JVector.Cross(axis, data.Position - anchor.ToJ());
+        return 1f / (1f / inverse + body.Mass * arm.LengthSquared());
+    }
+
+    // Implicit Euler on x'' = −ω²x − 2ζωx': the velocity after one step, independent of the mass.
+    private static float SpringVelocity(float speed, float error, float frequency, float dampingRatio, float delta)
+    {
+        var omega = MathF.Tau * Math.Clamp(frequency, 0f, 0.25f / delta);
+        return (speed - delta * omega * omega * error) / (1f + 2f * delta * MathF.Max(0f, dampingRatio) * omega + delta * delta * omega * omega);
     }
 
     private static bool IsAwake(JointRecord3D record) =>
