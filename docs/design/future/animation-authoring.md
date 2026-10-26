@@ -4,7 +4,7 @@
 motion, G1f auto-rigging and non-humanoid rigs) · **Status:** ⬜ planned · **Depends on:**
 [Keyframe animation](keyframe-animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
 [Asset pipeline](../asset-pipeline.md) (`.meta` settings), [Editor](../editor.md) · **Related:**
-[Editor viewport tools](editor-viewport-tools.md) (G7: Save as `.mres`), [Physics](../physics.md) (`CharacterBody3D`),
+[Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mres`), [Physics](../physics.md) (`CharacterBody3D`),
 [Localization tool](../localization.md) (`mf-l10n`, the CLI pattern), [2D skeletal animation](skeleton-2d.md#agent-tooling) (`mfe skel`:
 the same CLI, whichever lands first creates it)
 
@@ -569,5 +569,5 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
 ## Related
 
 [Keyframe animation](keyframe-animation.md) · [Asset pipeline](../asset-pipeline.md) · [Editor](../editor.md) ·
-[Physics](../physics.md) · [Editor viewport tools](editor-viewport-tools.md) · [Localization](../localization.md) ·
+[Physics](../physics.md) · [Editor viewport tools](../editor.md#viewport-tools) · [Localization](../localization.md) ·
 [Testing](../testing.md)

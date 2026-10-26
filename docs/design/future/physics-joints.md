@@ -4,7 +4,7 @@
 spring joints shipped ([ADR 0201](../../../memory/decisions/0201-2d-joints-on-box2d.md), [Physics → 2D joints](../physics.md#2d-joints-adr-0201)) ·
 **Depends on:** [M6 physics](../physics.md) (bodies, spaces, signals), [M10 editor](../editor.md) (viewport, inspector,
 undo), [Keyframe animation](keyframe-animation.md) G1b (`Skeleton3D`; only for `PhysicalBone3D`) · **Related:**
-[Editor viewport tools](editor-viewport-tools.md) (G7.3 handles for limits), [Animation authoring](animation-authoring.md)
+[Editor viewport tools](../editor.md#viewport-tools) (G7.3 handles for limits), [Animation authoring](animation-authoring.md)
 (G1c `HumanoidMap`/`HumanoidLimits` seed ragdoll limits), [Networking](../networking.md), [Demo](../demo.md)
 
 ![A hinge joint selected in the editor (axis, anchors, limit arc, current angle), a cone-twist joint in the physics
@@ -291,7 +291,7 @@ flowchart LR
   New icons in `MainframeEngine.Editor/Assets/icons/icons.txt`: `pin`, `cone`, `arrows-horizontal`, `wave-sine`,
   `link-off`, `steering-wheel`, `accessible`; all joints use `EditorIconFamily.Physics`.
 - **Handles (G9.7, after G7.3).** An `IHandleProvider` per joint type exposes the limit ends, swing span and slider
-  range as `EditorHandle`s ([G7.3](editor-viewport-tools.md)), so limits are dragged in the viewport with undo.
+  range as `EditorHandle`s ([G7.3](../editor.md#viewport-tools)), so limits are dragged in the viewport with undo.
 - **Dev overlay.** The Physics panel (`MainframeEngine/Src/Debugging/DevOverlay/DevOverlayPanels.cs:238`) gains a
   joint count and broken-this-second count.
 
@@ -458,5 +458,5 @@ G9.1–G9.7 need nothing beyond `main` (G9.7 waits for G7.3); G9.8–G9.9 wait f
 - [Physics](../physics.md), [Scene graph and nodes](../scene-graph-and-nodes.md), [Editor](../editor.md),
   [Networking](../networking.md), [Demo](../demo.md), [Testing](../testing.md)
 - Gameplay toolkit siblings: [Keyframe animation](keyframe-animation.md) (G1b skeletons),
-  [Animation authoring](animation-authoring.md) (G1c humanoid map and limits), [Editor viewport tools](editor-viewport-tools.md)
+  [Animation authoring](animation-authoring.md) (G1c humanoid map and limits), [Editor viewport tools](../editor.md#viewport-tools)
   (G7.3 handles, G7.5 simulate mode for trying joints in the editor), [2D content](2d-content.md) (G2)

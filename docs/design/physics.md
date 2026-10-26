@@ -158,7 +158,9 @@ flowchart LR
 ![Fixed-step timeline](../images/physics-fixed-step.svg)
 
 The scene tree owns the clock ([Scene graph & nodes](scene-graph-and-nodes.md#the-frame-scenetreetick)): up to 5
-steps of 1/60 s per frame, frame deltas clamped to 0.25 s. Physics servers are `IFixedStepServer`s:
+steps of 1/60 s per frame, frame deltas clamped to 0.25 s. In edit mode (the editor) nothing steps, except the spaces of a
+sub-viewport whose `Simulation` is `Running` (the editor's Simulate: the servers step and interpolate only those spaces;
+[Scene graph & nodes](scene-graph-and-nodes.md#simulation-in-edit-mode)). Physics servers are `IFixedStepServer`s:
 
 ```
 frame (not paused):

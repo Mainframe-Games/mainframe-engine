@@ -321,5 +321,6 @@ row and [Future: editor](editor.md) (audio preview done), and this proposal's st
 - **Preview level.** Previews play at 0 dB on Master. If that proves loud next to a running game, add an Editor Settings
   "Preview volume" slider.
 - **Designer for inline sounds.** Custom inspector headers only appear for the top-level target. If designing inline
-  sounds matters, a "Save as .mres" action on the slot (already on the future-editor list) turns one into a file the
-  designer opens. Nesting custom headers is not planned.
+  sounds matters, a "Save as .mres" action on the slot turns one into a file the designer opens. Nesting custom headers
+  is not planned. **Answered by G7.2:** the resource row's More menu has Save as .mres and Open
+  ([Editor → Resource actions](../editor.md#resource-actions)).

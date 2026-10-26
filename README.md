@@ -87,7 +87,11 @@ Manager and New Project wizard, a scene tree, an inspector generated from the no
 a 3D or 2D viewport with GPU picking and gizmos, a FileSystem panel (a Simplified view of just Assets and Scripts, or the
 whole project folder) that keeps references when files move, and Play — the game builds and runs in its own process,
 its log streams into Output, and code changes reload into the open editor. Scenes open in tabs, each in its own world;
-nothing but `[Tool]` nodes runs while editing.
+nothing but `[Tool]` nodes runs while editing — until **Simulate** (Alt+F6) runs the scene's physics and scripts on a
+copy in the view and Stop gives the authored scene back. The gizmo moves, rotates and scales every selected node around
+a median, active or per-node pivot; a drag on empty space box-selects what is visible; locked nodes stay out of the way;
+light and audio ranges (and game floats marked `[Export(Handle = …)]`) are dragged in the view; and an inline resource
+can be saved as a `.mres` or made unique from the inspector.
 
 <table>
   <tr>
@@ -108,6 +112,14 @@ nothing but `[Tool]` nodes runs while editing.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-song-synth.png" width="380" alt="The Mainframe Wavetable window on the Demo song's Lead track playing the Evolving Pad preset: two stacked wavetables, the filter curve, sub, noise and voicing, LFO 1's editor, the modulation strip and a keyboard"><br><b>Wavetable synth</b> — two wavetable oscillators, filters, drag-to-modulate, presets</td>
+    <td align="center" valign="top"><img src="docs/images/editor-simulate.png" width="380" alt="Simulating the Demo's Physics 3D scene in the editor: the dropper's crates stacked in the view, the pusher's inspector live and read-only under a Simulating banner"><br><b>Simulate</b> — physics and scripts in the view (Alt+F6); Stop restores the scene, Keep Transforms keeps where things landed</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-box-select.png" width="380" alt="Box selection in the Demo's Basic 3D scene: the floor, plinth and camera locked, the ring's meshes selected, a Shift rectangle held and the move gizmo at their median"><br><b>Box selection and multi-node gizmo</b> — select what is visible, lock nodes, move them around a shared pivot</td>
+    <td align="center" valign="top"><img src="docs/images/editor-range-handles.png" width="380" alt="Dragging the blue omni light's range handle: the handle on the range circle and a Range 6.22 m label"><br><b>Range handles</b> — drag light and audio ranges and cone angles; game nodes get them from <code>[Export(Handle)]</code></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-resource-menu.png" width="380" alt="The inspector's resource row More menu on a mesh: Save as .mres, Make Unique, Make Unique (Deep), Open, Show in FileSystem"><br><b>Resource actions</b> — Save as .mres, Make Unique (deep), Open, Show in FileSystem</td>
     <td></td>
   </tr>
 </table>
@@ -199,7 +211,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 
 | Feature | What you get |
 |---|---|
-| [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos, FileSystem panel, Play in its own process, C# code reload |
+| [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos (multi-node, pivots), range handles, box selection and lock, Simulate in the view, resource Save as .mres / Make Unique, FileSystem panel, Play in its own process, C# code reload |
 | [Gameplay recording](docs/design/recording.md) | Record any game to MP4 through your own ffmpeg: F10 in the editor or `--record`, live or offline, with a sidecar of input, loading and pauses |
 | [Video mode](docs/design/video-editor.md) | The editor trims recordings for promo footage: detect silence and idle play, Whisper transcripts, remove filler words, export |
 | [Game UI](docs/design/game-ui.md) | RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library; the editor is built with it |

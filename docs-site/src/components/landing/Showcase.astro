@@ -1,5 +1,5 @@
 ---
-// Screenshots, first after the hero: the editor, the Demo's scenes, then the Forest's reference shots (the first one
+// Screenshots, first after the hero: the editor, its viewport tools, the Demo's scenes, then the Forest's reference shots (the first one
 // large) (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it full size in
 // a <dialog>.
 const base = import.meta.env.BASE_URL;
@@ -14,6 +14,12 @@ const forest = [
   { src: 'forest/readme-ferns.jpg', title: 'Fern floor', text: '32-tap depth of field, near and far' },
   { src: 'forest/readme-beach.jpg', title: 'The beach', text: 'A twelve-layer splat terrain, a lake into the mountains' },
   { src: 'forest/readme-cabin.jpg', title: 'The cabin', text: 'Firelight with cube shadows, particles, scanned furniture' },
+];
+const tools = [
+  { src: 'editor-simulate.png', title: 'Simulate', text: 'Physics and scripts in the view (Alt+F6); Stop restores the scene' },
+  { src: 'editor-box-select.png', title: 'Box selection', text: 'What the view shows, locked nodes skipped, the gizmo at the median' },
+  { src: 'editor-range-handles.png', title: 'Range handles', text: 'Light and audio ranges and cone angles, dragged with undo' },
+  { src: 'editor-resource-menu.png', title: 'Resource actions', text: 'Save as .mres, Make Unique, Open, Show in FileSystem' },
 ];
 const demo = [
   { src: 'demo/basic_3d.png', title: 'Basic 3D', text: 'Primitives, glTF, sky, cascaded and spot shadows' },
@@ -55,6 +61,20 @@ const demo = [
       />
     </button>
   </figure>
+
+  <h3 class="mf-showcase__label" data-reveal>Viewport tools <span>simulate, select, lock, drag ranges</span></h3>
+  <div class="mf-gallery">
+    {
+      tools.map((s, i) => (
+        <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
+          <img src={img(s.src)} width="1600" height="960" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
+          <span class="mf-shot__caption">
+            <strong>{s.title}</strong> {s.text}
+          </span>
+        </button>
+      ))
+    }
+  </div>
 
   <h3 class="mf-showcase__label" data-reveal>The Demo <span>one scene per feature</span></h3>
   <div class="mf-gallery">

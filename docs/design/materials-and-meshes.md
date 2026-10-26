@@ -577,7 +577,10 @@ allocator's pools are freeable and their live counts are exact.
 
 `RenderServer.PickAsync(x, y)` returns a `Task<PickResult>` (`ObjectId`, `Node`, `Hit`) for a pixel of the main
 view: framebuffer pixels, origin top-left. `RequestPick` and `TryGetPickResult` are the polling form, and
-`SubViewport.PickAsync`/`RequestPick` pick within an offscreen view.
+`SubViewport.PickAsync`/`RequestPick` pick within an offscreen view. `SubViewport.RequestPickRegion(x, y, w, h)` and
+`TryGetPickRegionResult(handle, nodes)` return the distinct nodes a rectangle shows (the editor's box selection): one
+region per frame slot is copied with one `vkCmdCopyImageToBuffer` into a transient readback `GpuBuffer` sized w × h ids,
+scanned and released (deletion queue) once the frame's fence has signalled.
 
 1. Each viewport has an `ObjectIdPicker`. The first frame with requests renders an **object-ID pass** into an
    `R32_UINT` + depth `RenderTarget` the size of the view. The pass draws the view's mesh draws with the

@@ -113,8 +113,8 @@ flowchart TB
 | Panel | Document | What it does |
 |---|---|---|
 | Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid, Switch to Video Mode), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Play and Record / Start Recording / Stop Recording, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right. Video mode has its own tables: File, Edit, View, Video, Help ([Editor modes](#editor-modes)) |
-| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); the play group — Play (F5), Play Scene (F6), Play and Record (F10, a red `point-filled` icon that is highlighted red (dark red fill, red border, white icon) while recording; its tooltip names what F10 does now), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload/recording status (a red dot and `REC m:ss` while recording, `Saving recording…` while the file is finalised); on the right the Game\|Video mode toggle, Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout. Video mode swaps the left groups for the video toolbar ([Editor modes](#editor-modes)) |
-| Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
+| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Pivot (median `point`, active `target`, individual `circles`; click cycles), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); Simulate (Alt+F6, `atom`; `player-stop` while it runs) and Pause Simulation; the play group — Play (F5), Play Scene (F6), Play and Record (F10, a red `point-filled` icon that is highlighted red (dark red fill, red border, white icon) while recording; its tooltip names what F10 does now), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload/recording status (a red dot and `REC m:ss` while recording, `Saving recording…` while the file is finalised); on the right the Game\|Video mode toggle, Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout. Video mode swaps the left groups for the video toolbar ([Editor modes](#editor-modes)) |
+| Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); a lock (shown on hover, amber when locked: the viewport cannot pick, box-select or move the node; undoable) and an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
 | Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`): level icon, time, category icon (subsystem; name in the tooltip), text, ×N for folded repeats, a link to the logging source line (opens `MAINFRAME_CODE_EDITOR`, VS Code or the system app). Header: per-level toggles with counts, filter field, Collapse Duplicates, Follow, Copy, Clear (filters and toggles persisted) |
@@ -144,7 +144,8 @@ Cmd (macOS) or Ctrl: N new · O open · S save · Shift+S save as · W close tab
 D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload. Plain keys:
 Delete/Backspace delete, F1 documentation (the [docs site](docs-site.md) in the browser), F2 rename, F frame, G grid,
 Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5 play (Shift+F5 another instance), F6 play the open
-scene, F7 pause/resume, F8 stop, F9 RmlUi debugger, F10 play and record (start/stop recording). Shortcuts are
+scene, Alt+F6 simulate / stop ([Simulate](#simulate)), F7 pause/resume, F8 stop, F9 RmlUi debugger, F10 play and record
+(start/stop recording). Shortcuts are
 unhandled input: a focused text field keeps its keys, and closed dialogs release focus.
 
 Music mode has its own table (`EditorWorkspace.MusicShortcutFor`). The song tab's own keys come first
@@ -317,7 +318,7 @@ comes from the value type and the `[Export]` hints:
 | Quaternion | `Quaternion` | Euler degrees (X→Y→Z, like `RotationDegrees`) |
 | Color | `System.Drawing.Color`, or a `Vector3`/`Vector4` named `…Color` (lights) | swatch + hex field; the swatch opens RGBA sliders |
 | NodePath | `NodePath` (`NodeType` hint filters) | field + pick from the scene's nodes (stored relative to the node) |
-| Resource | `Resource` subclasses | label with the resource's icon + Edit (fold), Save as .mres (inline only), Load (file), New (the create dialog: types assignable to the slot), Clear icon buttons; inline resources and `.mres` files expand into nested rows (up to 3 levels), their `[ExportGroup]`s as collapsible titles ([Resources in place](#resources-in-place)) |
+| Resource | `Resource` subclasses | label with the resource's icon (a `link` icon for a file; "inline ×N" when the scene uses it in N slots) + Edit (fold), Load (file), New (the create dialog: types assignable to the slot), Clear and More (Save as .mres, Make Unique, Open, Show in FileSystem: [Resource actions](#resource-actions)) icon buttons; inline resources and `.mres` files expand into nested rows (up to 3 levels), their `[ExportGroup]`s as collapsible titles ([Resources in place](#resources-in-place)) |
 | Array | `T[]`, `List<T>` | count, + Add, per-element fields (scalars) and remove; elements that are resources (a def's levels) get the resource buttons per element (Edit folds the element's properties in below the array under "Name [i]", Load, New, Clear) |
 | Transform, unsupported | `Transform3D/2D`, others | read-only text |
 
@@ -355,15 +356,10 @@ ADR 0169, for a `WorldEnvironment`'s `PostProcessProfile` (or any resource):
   every frame) and the file is written when the scene is saved (`EditedScene.EditedResourceFiles`, keeping its UID), as
   Godot saves edited sub-resources. Imported assets (a `.cube` LUT, a texture, a model) keep their data in the source
   file and do not open.
-- **Save as .mres** (`device-floppy`, on inline resources; the minimal G7.2 path of
-  [future/editor-viewport-tools.md](future/editor-viewport-tools.md#g72-inline-resource-actions)): a file picker under
-  `Assets/`, then a deep copy is saved (`ResourceSaver.Save`, a new `res_` UID) and every slot of the scene that held the
-  inline resource (nodes the scene saves and the inline resources they reach: `EditedScene.SlotsHolding`) gets the file,
-  as one undo step ("Save PostProcessProfile as look.mres"); undo puts the inline resource back, the file stays. A path
-  whose UID is loaded is refused. Make Unique, Open and Show in FileSystem (the More menu) are not built yet.
+- **Save as .mres, Make Unique, Open, Show in FileSystem**: the row's More menu ([Resource actions](#resource-actions)).
 - **New** creates a `PostProcessProfile` at once (one concrete type for the slot), expanded below.
 - **The slot's row.** The resource's icon and name take the editor column's whole width; the icon buttons (Play, Edit,
-  Save as .mres, Load, New, Clear) sit beside the name while both fit and otherwise wrap onto a line of their own below
+  Load, New, Clear, More) sit beside the name while both fit and otherwise wrap onto a line of their own below
   it, right-aligned (`.prop-editor.res`: `flex-wrap`, the buttons in one `.res-actions` group). Only a name longer than
   the column is cut, with an ellipsis (`text-overflow`). The name's tooltip holds where the value lives — the file's
   full path (`Assets/PostProcess/forest.mres`), "inline (saved in the scene)" or empty — and its type
@@ -373,7 +369,9 @@ ADR 0169, for a `WorldEnvironment`'s `PostProcessProfile` (or any resource):
 
 Each tab has an `UndoRedo` of `IEditorAction`s (`Do`, `Undo`, `TryMerge`): `SetPropertyAction`, `AddNodeAction` (new
 nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `RenameAction`, `MoveInTreeAction`,
-`CompositeAction` (multi-node edits), `ConnectSignalAction`/`DisconnectSignalAction`.
+`CompositeAction` (multi-node edits, gizmo and handle drags), `ConnectSignalAction`/`DisconnectSignalAction`,
+`SetGroupAction` (persistent groups: the viewport lock). While the scene simulates its history is locked
+(`UndoRedo.IsLocked`): commits are dropped (one applied live is put back) and logged, undo and redo wait.
 
 - Committing after undo cuts the redo branch; beyond 256 entries the oldest are dropped. Actions holding detached nodes
   free them when they leave the history (`IDiscardableAction`).
@@ -393,8 +391,11 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
 
 | Input (over the view) | Action |
 |---|---|
-| Left click | select (Cmd/Shift: toggle): icons of lights/cameras/audio first, else the GPU object-ID pick (two frames later). A picked node inside an instanced sub-scene selects the instance |
-| Left drag on a gizmo handle | move / rotate / scale along that axis (centre: view plane / uniform), snapped when Snap is on (move step, 15°, 0.1) |
+| Left click | select (Cmd/Shift: toggle): icons of lights/cameras/audio first, else the GPU object-ID pick (two frames later). A picked node inside an instanced sub-scene selects the instance; a locked node is not picked |
+| Left drag on a range handle | edit a light's or audio player's range, a spot's cone angles, a game node's `[Export(Handle)]` float ([Range handles](#range-handles-and-the-handle-api)) |
+| Left drag on a gizmo handle | move / rotate / scale every selected node around the pivot along that axis (centre: view plane / uniform), snapped when Snap is on (move step, 15°, 0.1) ([Multi-node gizmo](#multi-node-gizmo)) |
+| Left drag on empty space | box selection (Shift adds, Cmd/Ctrl toggles) ([Box selection](#box-selection-and-lock)) |
+| Esc / right click while dragging | cancel the gizmo, handle or box drag: everything goes back |
 | Alt + left drag, middle drag | orbit around the pivot |
 | Shift + middle drag | pan |
 | Wheel | zoom (while flying: fly speed) |
@@ -438,6 +439,178 @@ drawn. Picking is on the CPU (rectangle and circle shapes, then node origins; la
 `TransformGizmo2D` (axis arrows and a free-move square, a rotation ring, scale handles) shares the tool, space and snap
 settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. 2D tabs render through
 the canvas renderer (sprites, Spine, custom drawing, shaders) with the editor's shapes, markers and camera frames on top.
+
+## Viewport tools
+
+G7 ([0213](../../memory/decisions/0213-viewport-tools-gizmo-resources-handles.md),
+[0214](../../memory/decisions/0214-box-selection-lock-and-simulate.md)): the gizmo moves several nodes, inline resources
+become files and back, ranges are dragged in the view, a rectangle selects, nodes can be locked, and Simulate runs
+physics and scripts without leaving the editor.
+
+### Multi-node gizmo
+
+The gizmo moves, rotates and scales **every** selected node. Its targets (`ViewportController.GizmoTargets` /
+`GizmoTargets2D`) are the selected `Node3D`s (or `Node2D`s in a 2D tab) that are editable, inside the tree, visible and
+not locked, minus those whose ancestor is also a target (it follows its parent, as in Godot and Blender); the list is
+cached by scene and selection version (`Selection.Version`), so idle frames allocate nothing.
+
+| Pivot (toolbar button, cycles; lasts for the session) | Gizmo origin | Rotate / scale around |
+|---|---|---|
+| Median Point (`point`, default) | average of the targets' global positions | that point |
+| Active Node (`target`) | `Selection.Primary` (else the last target) | its origin |
+| Individual Origins (`circles`) | median point; a small cross marks each origin | each node's own origin |
+
+`TransformGizmo` stays a single-pose tool: the controller hands it the pivot's pose (the active node's rotation for the
+axes) and `MultiGizmo.Apply` turns the dragged pose into each target's — translate adds the pivot's (snapped) delta, in
+Local space along each node's *own* corresponding axis (Godot); rotate turns positions about the pivot; scale scales
+positions about the pivot in the gizmo frame and multiplies each node's own scale per local axis (no shear, as in Godot).
+In 2D one node keeps the old whole-pixel snapping of its position; several drag the pivot's delta from zero, so their
+relative offsets survive. Release commits **one** `CompositeAction` ("Move 3 nodes", or "Move Crate" for one); **Esc**
+or a **right click** during the drag puts every node back.
+
+![Box selection with locked floor, plinth and camera: the ring's meshes selected, a Shift box held, the gizmo at the median](../images/editor-box-select.png)
+
+### Resource actions
+
+The resource row keeps Edit, Load, New and Clear and adds **More** (`dots-vertical`, "More — save, make unique, show the
+file"), a popup with icons whose disabled items say why in their tooltip (`MenuItem.Tooltip`). The label shows where the
+value lives: a `link` icon before a file's name, "Type (inline)", or "Type (inline ×3)" when the scene holds the same
+inline resource in three slots (`EditedScene.SlotsHolding`). Nested resource editing is single-node, so the button is
+hidden with several nodes selected.
+
+| Item | Enabled when | What it does |
+|---|---|---|
+| Save as .mres… (`device-floppy`) | inline, savable (not `PackedScene`), in a scene | file picker (`*.mres`); a deep copy is saved (`ResourceSaver.Save`, a new `res_` UID, or the existing file's UID when it is overwritten after the picker's confirm) and **every** slot holding the inline resource gets the file, one undo step ("Save BoxMesh as crate.mres"). Undo puts the inline object back (its `SceneLocalId` too, so the re-saved scene is byte-identical); the file stays, as in Godot. A path whose UID is loaded is refused |
+| Make Unique (`copy`) | a `.mres` file, or an inline resource used by more than one slot | `EditedScene.MakeUnique`: this slot gets `Duplicate(deep: false)`, one undo step ("Make BoxMesh Unique"); the file and the other slots keep the original |
+| Make Unique (Deep) | as above, and the resource holds inline sub-resources | `Duplicate(deep: true)` |
+| Open (`pencil`) | a `.mres` file | `InspectResourceFile`: its own history, Save and custom inspector |
+| Show in FileSystem (`folder`) | any file | `FileSystemPanel.Select` (expands its folders) |
+
+Imported assets (a texture, a model, a sound, a LUT) are external but keep their data in their source file: Make Unique
+and Open are disabled for them, with the reason in the tooltip. The rules are `ResourceActions` (unit-tested). An inline
+`ZzfxStream` on a player is one Save as .mres and one Open away from the [sound designer](#sound-designer).
+
+![The resource row's More menu on a mesh](../images/editor-resource-menu.png)
+
+### Range handles and the handle API
+
+Every selected node with a handle provider shows its handles as small squares in the overlay lines (no depth test),
+highlighted on hover and while dragged, with a label next to the mouse ("Range 4.20 m", `#handle-label` in
+`viewport.rml`). Handles are hit-tested **before** the transform gizmo (grab distance: the gizmo's). A drag edits the
+one node whose handle was grabbed: its properties' values are captured on press, the provider applies the drag live
+through typed setters, release commits one `CompositeAction` ("Set Range on Lamp"), and Esc or a right click restores
+them. Values clamp to the property's `[Export(Range)]`; with Snap on, distances snap to the move step and angles to the
+rotate step. Locked nodes and simulating scenes show none. Idle frames allocate nothing (reused lists of structs; the
+label text is built only on mouse moves while hovering or dragging).
+
+| Node | Handles |
+|---|---|
+| `OmniLight3D` | Range: on a view-facing circle at the range, along the camera's right |
+| `SpotLight3D` | Range at the cone's tip (along forward); Outer angle on the end circle's rim (towards the camera's right; angle = atan(offset / range), pushes the inner angle down); Inner angle on a dimmer inner circle (≤ outer) |
+| `AudioPlayer3D` | Unit size on an inner circle; Max distance on the range sphere, hollow at 2 × unit size while 0 ("Max Distance: unlimited — drag to set"); unit size ≤ max distance |
+| `AudioPlayer2D` | Max distance: a circle with a handle on +X |
+| `PointLight2D` | Texture scale: the texture rectangle's right edge, along the node's +X (only with a texture) |
+
+**API** (`MainframeEngine.Editor/Src/Viewport/Handles/`; the handle half of Godot's `EditorNode3DGizmoPlugin` — commit and
+cancel are the editor's):
+
+```csharp
+public readonly record struct EditorHandle(int Id, Vector3 Position, Vector3 DragAxis, HandleStyle Style = HandleStyle.Square);
+
+public readonly struct HandleDrag   // NodeOrigin, HandleStart, Axis, Along (no jump when grabbed off-centre), Point,
+{ ... }                             // RayOrigin/RayDirection, Snap, SnapStep, AngleStep, Camera, Is2D;
+                                    // SnapDistance(d), SnapAngle(deg)
+
+public interface IHandleProvider
+{
+    void GetHandles(Node node, EditorCamera camera, Vector2 viewPixels, List<EditorHandle> handles); // per frame, no allocation
+    ReadOnlySpan<string> Properties(Node node, int id);   // captured for undo and cancel
+    string Describe(Node node, int id);                   // the label, while hovered or dragged
+    void Drag(Node node, int id, in HandleDrag drag);     // live, through typed setters
+    void Draw(Node node, EditorCamera camera, Vector2 viewPixels, DebugLines lines) { }  // optional: what the handles edit
+}
+
+[HandleProvider(typeof(OmniLight3D))] public sealed class OmniLight3DHandles : IHandleProvider { ... }
+```
+
+`HandleProviders.Find(type)` takes the nearest base type's `[HandleProvider]` class from every loaded assembly that
+references the editor (game assemblies included; the scan is shared with `CustomInspectors`, `EditorPluginTypes`, and
+reset on code reload), else the `HintHandleProvider` when the type has `[Export(Handle = …)]` floats; explicit providers
+win. `HandleProviders.Clamp(node, property, value)` applies a property's `Range`. Angle handles (joint limits) use the
+ray in `HandleDrag` to intersect their own plane.
+
+**Game nodes** do not reference the editor: a float export asks for a stock handle —
+`[Export(Range = "0,50,0.1", Handle = HandleHint.Radius)] public float AggroRadius { get; set; }` — `Radius` (a circle
+around the origin, handle on the camera's right / +X in 2D) or `Length` (along the node's forward: −Z in 3D, +X in 2D).
+The generator records it in `ExportHints.Handle`; `HintHandleProvider` reads and writes it with
+`ExportPropertyInfo.TryGetFloat` / `TrySetFloat` (no boxing).
+
+![Dragging the blue omni light's range: the handle on its view-facing circle and the label](../images/editor-range-handles.png)
+
+### Box selection and lock
+
+A left press on empty space (no handle, no gizmo axis) that moves past the click distance draws a **rectangle** (an
+RmlUi element over the view, `#box-select`: accent border, 15 % fill) in every tool. On release:
+
+| Modifier at release | Result |
+|---|---|
+| none | replace the selection (an empty box clears it) |
+| Shift | add |
+| Ctrl / Cmd | toggle each node |
+
+- **3D**: what the view shows in the rectangle — `SubViewport.RequestPickRegion(x, y, w, h)` copies the rectangle of the
+  object-ID target with one `vkCmdCopyImageToBuffer` into a transient readback `GpuBuffer` (released through the
+  deletion queue once read), read once the frame's fence has signalled; `TryGetPickRegionResult(handle, nodes)` appends
+  the distinct nodes — plus the icon nodes (lights, cameras, audio, markers) whose origin is inside. A full 2560 × 1440
+  view is about 15 MB for one frame on mouse release; idle frames never touch it. Occluded meshes are not selected.
+- **2D**: on the CPU, the nodes whose world bounds the rectangle encloses (Godot's rule): collision rectangles and circles,
+  sprites' rectangles, camera frames; other nodes by their origin.
+- Hits go through `EditedScene.SelectableFor` (a mesh inside an instance selects the instance); the scene root, hidden,
+  locked and duplicate nodes are dropped; the result is in tree order, so the active node is the last in the tree.
+  `Selection` has `Set(list)`, `AddRange` and `ToggleRange`, each raising `Changed` once.
+
+**Lock.** The Scene panel's lock toggle (`lock`, before the eye; on hover, amber while locked) puts the node in the
+reserved persistent group `_editor_locked` (`EditorLock`; `EditedScene.SetLocked`, an undoable `SetGroupAction`).
+Persistent groups are saved in the scene, so locks need no format change, are shared through version control (as
+Godot's `_edit_lock_`) and survive instancing. Click picks, box selection, the gizmo and handles skip locked nodes; the
+Scene panel and the inspector still edit them.
+
+### Simulate
+
+**Simulate** (toolbar `atom`, Run › Simulate, **Alt+F6**) runs the active scene's physics and game scripts inside the
+view; **Stop** (the same button, now `player-stop`, or Alt+F6) brings back the authored scene exactly as it was; **Pause**
+freezes the copy while the camera keeps moving. `SimulationController` (`EditorWorkspace.Simulation`):
+
+1. Asks "Game code changed since the last reload: Build & Reload first?" when `ProjectService.NeedsRebuild` (Simulate uses
+   the loaded game assembly); writes recovery copies of dirty scenes that use game code (the game runs in the editor's
+   process).
+2. `PackedScene.Pack(scene.Root)` — unsaved edits included, untitled scenes too — and instantiates the copy under a twin
+   `SubViewport` with `Simulation = ViewportSimulation.Running` (its own world and physics space), rendered through the
+   tab's editor camera and published as `engine://editor-viewport` instead of the edited view (which stops rendering). The
+   game's `OnEnterTree`/`OnReady` run for real.
+3. Stop frees the copy: the edited tree, its history and the selection were never touched (`SceneSaver.ToJson` is
+   byte-identical).
+
+While it runs: the scene's history is locked; gizmos, handles, box selection and scene-changing commands wait (saving
+works); a click picks in the copy and selects the edited node at the same path; selection boxes draw on the simulated
+counterparts; the inspector shows the counterparts' values live (10 Hz) and read-only under a banner "Simulating — values
+are live and read-only" whose **Keep Transforms** button (`device-floppy`) reads the selected counterparts' `Position` and
+`RotationDegrees`, stops, and applies them as one undo step ("Keep Transforms of 3 nodes" — drop rocks, keep where they
+land). A game exception (caught by the engine, logged with the node path and the throwing source line, clickable in
+Output) stops it with "Simulation stopped by …"; so do switching or closing the tab and a code reload ("Simulation stopped
+for code reload.", before `ReleaseEditorReferences`, so the GC-verified unload still works). Shared external resources a
+script changed are listed in Output on Stop.
+
+| Runs | Does not run |
+|---|---|
+| Lifecycle, process and physics callbacks of every node in the copy, game scripts with or without `[Tool]` | `OnInput`/`OnUnhandledInput` (the project's input map is not installed: actions read false) |
+| 3D and 2D physics of the copy's spaces only: bodies, areas, signals, `MoveAndSlide` | Audio (edit mode is silent: players advance silently) |
+| Timers, tweens, deferred calls, `QueueFree`; Spine, particles, `AnimationPlayer` | Networking (`MultiplayerApi` refuses Host/Connect with a warning), Steam, autoloads, the game's cameras and UI layers |
+
+The engine side is `SubViewport.Simulation` ([Scene graph & nodes](scene-graph-and-nodes.md#simulation-in-edit-mode)).
+Stepping one physics frame while paused is not offered yet (0214).
+
+![Simulating the Demo's Physics 3D scene: the dropper's crates stacked in the view, the pusher's inspector live and read-only](../images/editor-simulate.png)
 
 ## Projects
 
@@ -654,7 +827,8 @@ match the signal (`Node.Connect`'s rule), Deferred and One Shot flags. Connect a
 With several nodes selected, the inspector shows the properties **every** selected node has (the same exported member,
 such as `Node3D.Position` on a light and a mesh). A value that differs shows "—"; editing one vector component keeps
 each node's other components. An edit is one undo entry for all nodes (`EditedScene.SetProperties`), and slider drags
-merge as usual. Arrays, nested resource sub-inspectors, custom inspectors and the Signals tab stay single-node.
+merge as usual. Arrays, nested resource sub-inspectors (and the resource More menu), custom inspectors and the Signals
+tab stay single-node. In the view the gizmo moves every selected node ([Multi-node gizmo](#multi-node-gizmo)).
 
 ## Resource files and custom inspectors
 
@@ -947,6 +1121,9 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 | `SceneTree.ReleaseCodeOf` also clears the process lists' snapshots (they held freed game nodes and kept an unloaded game assembly alive) | `Scene/SceneTree.cs` |
 | Unregistering a UI texture releases RmlUi's texture cache entry, so a name registered again is reloaded (the viewport after switching tabs) | `UI/Rendering/VulkanUiRenderer.Tables.cs` |
 | `UiLayer.Region` (a layer confined to a window rectangle) and `UiServer.Reload(document, kind)` (the UI preview) | [Game UI](game-ui.md#uiserver-uilayer-uidocument) |
+| `SubViewport.Simulation` (`ViewportSimulation`), `Node.IsSimulated`/`ResolvedSimulation`, `SceneTree.IsSimulating`/`SimulationFault`; the physics servers step only a running simulation's spaces in edit mode (G7.5, Simulate) | [Scene graph & nodes](scene-graph-and-nodes.md#simulation-in-edit-mode), [Physics](physics.md) |
+| `SubViewport.RequestPickRegion`/`TryGetPickRegionResult` (object-ID region readback, G7.4 box selection) | [Materials & meshes](materials-and-meshes.md#offscreen-views-subviewport) |
+| `ExportAttribute.Handle` (`HandleHint`, recorded in `ExportHints.Handle`), `ExportPropertyInfo.TryGetFloat`/`TrySetFloat` (G7.3 handles) | [Scene serialization](scene-serialization.md#source-generator) |
 
 ## Testing and QA
 
@@ -979,7 +1156,18 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   validation on), the splash golden, the **Project Manager** and **FileSystem panel** goldens
   (`--smoke-golden project-manager|filesystem`, a fixed sample project), and the **video mode** goldens
   (`--smoke-golden video-empty|video-timeline`: the empty state, and a tab over a document built in code, whose steady
-  frames also get the allocation gate).
+  frames also get the allocation gate), and the **viewport tools** golden (`--smoke-golden viewport-tools`: three crates
+  and a lamp selected, the gizmo at their median and the lamp's range handle; then a box selection through the region
+  readback, a handle drag, Simulate for 60 frames and Stop with the scene byte-identical, and the allocation gate over idle
+  frames with the gizmo and handles shown). `SceneTests.ObjectIdPickingAndSubViewportsWork` adds a region pick (a box in
+  it, one occluded, one outside).
+- **Viewport tools tests**: `MultiGizmoMathTests`/`MultiNodeGizmoTests` (pivots, local translate, rotate and scale about
+  the pivot, nested selection, one undo entry, Esc and right-click cancel, 2D), `ResourceActionTests` (Save as .mres
+  swaps every slot and undo restores the scene's bytes, refusal, shallow and deep Make Unique, Open, the inline ×N label,
+  disabled states), `HandleTests` (the built-in providers, clamping, snapping, the hint provider, one entry per drag,
+  cancel, priority over the gizmo, the label), `BoxSelectionTests` (2D bounds, origins, hidden, locked, modifiers, the
+  3D icons, the lock as a persistent group), `SimulateTests` (a copy falls, Stop restores the bytes, edits wait, the live
+  inspector, Keep Transforms, pause, a game exception, a tab switch, Alt+F6); engine `ViewportSimulationTests`.
 - **Projects, Play and FileSystem tests**: the New Project validation, recent projects, SDK detection, the
   `ProjectSettingsModel` (every setting, input map, autoloads, undo, save), build-diagnostic parsing, `PlayService`
   with fake builder/launcher and a real `EditorLinkServer`, the file tree, file operations and reference fix-ups,
@@ -991,7 +1179,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
   editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, in layout points that the
   script turns into mouse points with `IEditorHost.PointerScale`, so `--scale 2` hits the same spots on 1× and 2× displays; drags, gizmo drags, keys,
-  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`, `view-resolution auto|full|threeQuarters|half`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
+  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`, `view-resolution auto|full|threeQuarters|half`, and for the viewport tools `select-add`, `pivot median|active|individual`, `box-select x0 y0 x1 y1 [shift|cmd] [hold]`/`mouse-up`, `lock`, `handle-drag <index> dx dy`, `res-menu <property> [item]`, `simulate start|pause|stop|keep`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
@@ -1046,7 +1234,11 @@ above (fewer leaves, more sky) the preview costs about 6 ms at Full (9.3 → 15.
 - Without Preview Post-Processing a 3D view has no depth prepass: in dense foliage it is slower than with it.
 
 - A code reload drops the undo history of the scenes it re-creates (selection, view and dirty state are kept).
-- The gizmo moves the last selected node only; there is no box selection.
+- Simulate runs game code inside the editor's process: exceptions are caught and stop it, but an infinite loop, a stack
+  overflow or a native crash takes the editor down (recovery copies of dirty scenes are written first). Shared external
+  resources a script changes stay changed (listed on Stop; there is no reload in place). The copy shares the tree's groups
+  with the edited scene, so `GetNodesInGroup` sees both.
+- 3D box selection selects what is visible (Blender with X-ray off); there is no select-through option yet.
 - Signal connections are real delegates in the editor: a `[Tool]` node emitting in edit mode calls its targets.
 - The accent colour recolours the shared style sheets; a few inline document styles keep the default blue.
 - A scene file rewritten by a reference fix-up loses hand-written formatting (other files are untouched).

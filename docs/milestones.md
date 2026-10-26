@@ -218,7 +218,7 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | Music editor: song tab (arrangement, piano roll, mixer, render to WAV) with the built-in ZzFX instrument | ✅ done (2026-10-08): built-in instrument, `mfplughost` helper with Vorbis encoding, VST3 instruments/inserts, MIDI keyboard input and recording; gaps in the proposal's open questions | [Editor → Song tab](design/editor.md#song-tab-music-editor), [Future: music editor](design/future/music-editor.md) |
 | Music editor: built-in wavetable synth (2 wavetable oscillators, unison, 2 filters, envelopes, LFOs, mod matrix, FX chain, presets) | ✅ engine, presets, window, FX panels and goldens (#84, #85, #87, #89) | [Future: wavetable synth](design/future/wavetable-synth.md), [ADR 0195](../memory/decisions/0195-wavetable-synth.md) |
 | Adaptive music: sections, layers, parameters and quantized transitions authored in the song editor, baked to stems for an `AdaptiveMusicPlayer` node | 🚧 A1 logic, A2 runtime, A3 bake, A4 editor + Live preview and A5 (Curves pane, transition popover, Baked audition) in; A6 (editor link, dev overlay, Demo scene) next | [Future: adaptive music](design/future/adaptive-music.md), [ADR 0196](../memory/decisions/0196-adaptive-music-baked-stems.md) |
-| Draggable audio range handles in the editor | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) (G7) |
+| Draggable audio range handles in the editor | ⬜ | [Editor viewport tools](design/editor.md#range-handles-and-the-handle-api) (G7) |
 
 ## M8 — Game UI (RmlUi) ✅
 
@@ -314,7 +314,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G4 Save games and settings: `SaveServer` (slots, versioned JSON + migrations, durable writes, recovery, thumbnails, cloud seam), `UserSettings`/`ConfigFile`, rebinding, drop-in settings menu | ✅ | [Save games and settings](design/future/save-and-settings.md) |
 | G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner | ⬜ | [Game export](design/future/game-export.md) |
 | G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | 🚧 | [Rendering features](design/future/rendering-features.md); 3D particles ✅ [3D particles](design/particles-3d.md) (ADR 0206) |
-| G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) |
+| G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ✅ | [Editor → Viewport tools](design/editor.md#viewport-tools) |
 | G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | 🚧 | [Terrain](design/future/terrain.md) |
 | G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | 🚧 | [Procedural trees](design/future/procedural-trees.md) |
 | G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | 🚧 | [Water](design/future/water.md) |

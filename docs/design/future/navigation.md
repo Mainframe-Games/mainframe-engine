@@ -2,7 +2,7 @@
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G3) · **Status:** ⬜ planned ·
 **Depends on:** [M6 physics](../physics.md) (bake from collision shapes), [M10 editor](../editor.md) (toggle, inspector)
-· **Related:** [2D content](2d-content.md) (G2: `TileMapLayer` feeds the grid), [Editor viewport tools](editor-viewport-tools.md)
+· **Related:** [2D content](2d-content.md) (G2: `TileMapLayer` feeds the grid), [Editor viewport tools](../editor.md#viewport-tools)
 (G7: region handles), [Networking](../networking.md) (server-authoritative movement), [Mobile](mobile.md) (AOT)
 
 ## Problem
@@ -410,7 +410,7 @@ Per-tile navigation polygons (Godot's `TileSetNavigationLayer`, a name G2 reserv
   inspector context, so they undo.
 - **Agent gizmo.** The selected `NavigationAgent2D` draws its `TargetDesiredDistance` and `PathDesiredDistance`
   circles into `OverlayLines`. Dragging the `Region` edges uses G7.3's handle API
-  ([Editor viewport tools](editor-viewport-tools.md)) once it exists; until then `Region` is edited in the inspector.
+  ([Editor viewport tools](../editor.md#viewport-tools)) once it exists; until then `Region` is edited in the inspector.
 - **Icons.** `route` and `wand` are added to `MainframeEngine.Editor/Assets/icons/icons.txt` (`just
   editor-icons-fetch`, then `just editor-icons`); `grid-3x3` and `trash` already exist.
 - Running games use the dev overlay: a "Navigation" checkbox in the Physics panel next to "Collision shapes"
@@ -563,6 +563,6 @@ later phases.
 
 - [Physics](../physics.md), [Scene graph and nodes](../scene-graph-and-nodes.md), [Networking](../networking.md),
   [Dev overlay](../dev-overlay.md), [Editor](../editor.md), [Demo](../demo.md)
-- Gameplay toolkit siblings: [2D content](2d-content.md) (G2), [Editor viewport tools](editor-viewport-tools.md)
+- Gameplay toolkit siblings: [2D content](2d-content.md) (G2), [Editor viewport tools](../editor.md#viewport-tools)
   (G7), [Save games and settings](save-and-settings.md) (G4: agents hold no saved state; save the target),
   [Keyframe animation](keyframe-animation.md) (G1)

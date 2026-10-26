@@ -188,8 +188,14 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
       {
         icon: 'layout',
         title: 'Editor',
-        text: 'Project Manager (engine version per project, upgraded on open), scene tree, generated inspector with undo, 3D/2D gizmos, FileSystem panel (Assets and Scripts, or the whole project), Play in its own process, code reload.',
+        text: 'Project Manager (engine version per project, upgraded on open), scene tree, generated inspector with undo, 3D/2D multi-node gizmos, FileSystem panel (Assets and Scripts, or the whole project), Play in its own process, code reload.',
         doc: 'editor',
+      },
+      {
+        icon: 'atom',
+        title: 'Viewport tools',
+        text: 'Simulate physics and scripts in the view and get the scene back on Stop; a multi-node gizmo with pivots; box selection and locks; draggable light, audio and [Export(Handle)] ranges; Save as .mres and Make Unique.',
+        doc: 'editor/#viewport-tools',
       },
       {
         icon: 'camera',

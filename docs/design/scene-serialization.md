@@ -46,6 +46,8 @@ public partial class DirectionalLight3D : Light3D   // `partial` is not required
 - Hints: `Range = "min,max[,step]"`, `File = "*.png,*.jpg"`, `Directory`, `Multiline`, `Flags`,
   `NodeType` (for `NodePath`), `Translatable` (player-facing text on `string`/`string[]`/`List<string>`: extracted by
   `mf-l10n`, shown with `Node.Atr`, stored as source text; see [Localization](localization.md#scene-strings)).
+  `Handle = HandleHint.Radius|Length` on a `float` gives game nodes a stock viewport handle in the editor (a radius around
+  the origin or a length along the forward axis, clamped to `Range`; [Editor](editor.md#range-handles-and-the-handle-api)).
   `[ExportGroup("Name")]` starts an inspector group for this and the following members (empty name ends it).
 - Supported types: `bool`, integer and floating-point primitives, `string`, enums, `Vector2/3/4`,
   `Quaternion`, `System.Drawing.Color`, `Transform3D`, `Transform2D`, `NodePath`, `Resource` subclasses
@@ -80,8 +82,8 @@ one `TypeRegistration_<Assembly>` class, a `[ModuleInitializer]` that calls `Typ
   forwarder factory for deferred/one-shot connections;
 - `MigrationInfo`s, the serialized version and traits (node/resource/tool/abstract);
 - editor metadata: the type's `[EditorIcon]` name and family (`NodeTypeInfo.Icon`/`IconFamily`, declared only — the
-  editor resolves inheritance) and its doc summary (`Description`); per member `ExportHints.Icon` and
-  `ExportHints.Description`. Summaries are read from the `///` trivia (no documentation file needed), stripped to
+  editor resolves inheritance) and its doc summary (`Description`); per member `ExportHints.Icon`,
+  `ExportHints.Description` and `ExportHints.Handle`. Summaries are read from the `///` trivia (no documentation file needed), stripped to
   plain text (`<see cref>` → the name, tags dropped, at most 600 characters); `<inheritdoc/>` gives none.
 
 The pipeline is incremental: per-type models are value-equatable records, so edits that do not change a
@@ -202,7 +204,8 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
   (`"NaN"`, `"Infinity"`); resources are `{"res": "key"}` into the table, `null` when unset.
 - **`nodes`** is a flat list in tree order (parents before children, siblings in order): the root first, then every
   node **owned** by the scene root. An entry is `name`, `parent` (path from the root, `"."` for the root's children;
-  the root has none), `type`, optional `v` (type version when not 1), `props` and `groups` (persistent only).
+  the root has none), `type`, optional `v` (type version when not 1), `props` and `groups` (persistent only; the editor's viewport lock is the
+  reserved group `_editor_locked`, [Editor](editor.md#box-selection-and-lock)).
   Reparenting a node changes its own `parent` line (and its descendants'), not the indentation of a subtree.
 - **Nested instances** store the sub-scene's UID (`instance`) with the path as a hint, the instance's
   name and parent, its root properties that differ from a pristine instance of the sub-scene (`props`), and `overrides`

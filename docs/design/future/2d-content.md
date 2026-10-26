@@ -3,7 +3,7 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G2) · **Status:** ⬜ planned ·
 **Depends on:** [2D canvas](../canvas.md), [Physics](../physics.md) (Box2D), [Editor → 2D view](../editor.md#2d-view) ·
 **Related:** [Keyframe animation](keyframe-animation.md) (G1), [Navigation](navigation.md) (G3),
-[Editor viewport tools](editor-viewport-tools.md) (G7), [Asset pipeline](../asset-pipeline.md),
+[Editor viewport tools](../editor.md#viewport-tools) (G7), [Asset pipeline](../asset-pipeline.md),
 [Scene serialization](../scene-serialization.md)
 
 ## Problem
@@ -539,7 +539,7 @@ what it does").
 - **Picking.** In Select mode a click on painted cells selects the layer. `Pick2D` gains drawn-rect picking for
   `Sprite2D`, `AnimatedSprite2D` and tile layers (the cell under the cursor is non-empty). Today it only hits shapes
   and origins. The same bounds (`AnimatedSprite2D.GetRect()`, and `GetUsedRect()` mapped to local pixels for a
-  layer) feed G7's box selection ([Editor viewport tools](editor-viewport-tools.md), which calls the layer `TileMap`
+  layer) feed G7's box selection ([Editor viewport tools](../editor.md#viewport-tools), which calls the layer `TileMap`
   and should read `TileMapLayer`).
 
 #### TileMap palette (bottom panel)
@@ -743,6 +743,6 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
 
 [2D canvas](../canvas.md) · [Physics](../physics.md) · [Editor](../editor.md) · [Asset pipeline](../asset-pipeline.md) ·
 [Scene serialization](../scene-serialization.md) · [Demo](../demo.md) · [Keyframe animation](keyframe-animation.md) (G1) ·
-[Navigation](navigation.md) (G3) · [Editor viewport tools](editor-viewport-tools.md) (G7, box selection shares the
+[Navigation](navigation.md) (G3) · [Editor viewport tools](../editor.md#viewport-tools) (G7, box selection shares the
 rectangle-select gesture with the paint bar's Select tool) · [Future: editor](editor.md) ·
 [Milestones](../../milestones.md#gameplay-toolkit-)
