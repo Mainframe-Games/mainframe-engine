@@ -33,6 +33,12 @@ if [[ ! -x "$exe" ]]; then
   echo "error: $exe not found or not executable; run this script from the extracted editor folder" >&2
   exit 1
 fi
+for size in "${icon_sizes[@]}"; do
+  if [[ ! -f "$here/Assets/Brand/logo-$size.png" ]]; then
+    echo "error: $here/Assets/Brand/logo-$size.png not found" >&2
+    exit 1
+  fi
+done
 
 # Desktop Entry spec: Exec quotes the program and escapes ", `, $ and \ inside the quotes with a backslash; then, like
 # every string value (Path too), each backslash is escaped again. So `a$b` is written "a\\$b".
@@ -53,11 +59,8 @@ mkdir -p "$data_home/applications"
 printf '%s\n' "$entry" > "$desktop_file"
 
 for size in "${icon_sizes[@]}"; do
-  icon="$here/Content/Brand/logo-$size.png"
-  if [[ -f "$icon" ]]; then
-    mkdir -p "$data_home/icons/hicolor/${size}x${size}/apps"
-    cp "$icon" "$data_home/icons/hicolor/${size}x${size}/apps/$app_id.png"
-  fi
+  mkdir -p "$data_home/icons/hicolor/${size}x${size}/apps"
+  cp "$here/Assets/Brand/logo-$size.png" "$data_home/icons/hicolor/${size}x${size}/apps/$app_id.png"
 done
 
 refresh
