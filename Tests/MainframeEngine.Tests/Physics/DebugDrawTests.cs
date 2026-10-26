@@ -82,4 +82,24 @@ public sealed class DebugDrawTests
         h2.Run(1);
         Assert.Equal(8 + 1 + 2 * 25 + 1, h2.Tree.Root.DebugLines.LineCount); // circles: 24 segments and a radius line
     }
+
+    [Fact]
+    public void DebugDrawJointsDrawsOnlyTheJoints()
+    {
+        using var h = new PhysicsHarness3D();
+        h.AddFloor();
+        var box = h.AddBox(new Vector3(0, 3, 0));
+        var pin = new PinJoint3D { Name = "Pin", Position = new Vector3(0, 4, 0) };
+        h.Add(pin);
+        pin.NodeB = "../" + box.Name;
+        var lines = h.Tree.Root.DebugLines;
+        h.Server.DebugDrawJoints = true;
+        h.Run(1);
+        var jointsOnly = lines.LineCount;
+        Assert.True(jointsOnly > 0);
+        lines.Clear();
+        h.Server.DebugDrawEnabled = true; // shapes and joints
+        h.Run(1);
+        Assert.Equal(jointsOnly + 24, lines.LineCount); // two boxes × 12 edges
+    }
 }

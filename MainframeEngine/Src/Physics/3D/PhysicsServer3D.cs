@@ -47,6 +47,9 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
     /// <summary>Draw every collision shape each frame (Godot's "Visible Collision Shapes").</summary>
     public bool DebugDrawEnabled { get; set; }
 
+    /// <summary>Draw the joints (ADR 0211) even while <see cref="DebugDrawEnabled"/> is off; on, it draws them anyway.</summary>
+    public bool DebugDrawJoints { get; set; }
+
     /// <summary>The spaces created so far (one per world with physics objects).</summary>
     public IReadOnlyList<PhysicsSpace3D> Spaces => _spaceList;
 
@@ -129,10 +132,10 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
             space.Dispose();
         }
 
-        if (!DebugDrawEnabled)
+        if (!DebugDrawEnabled && !DebugDrawJoints)
             return;
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines);
+            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines, shapes: DebugDrawEnabled);
     }
 
     public void Dispose()

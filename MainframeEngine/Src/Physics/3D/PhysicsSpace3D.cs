@@ -1252,8 +1252,14 @@ public sealed partial class PhysicsSpace3D : IDisposable
     private static readonly Vector4 AreaColor = new(0.2f, 0.9f, 0.9f, 0.7f);
 
     /// <summary>Adds the wireframe of every collision shape (at the nodes' current, interpolated pose) to <paramref name="lines"/>.</summary>
-    internal void DrawDebug(DebugLines lines)
+    internal void DrawDebug(DebugLines lines, bool shapes = true)
     {
+        if (!shapes)
+        {
+            DrawJointsDebug(lines);
+            return;
+        }
+
         foreach (var record in _records)
         {
             var color = record.Kind switch

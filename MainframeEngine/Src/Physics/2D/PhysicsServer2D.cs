@@ -98,6 +98,9 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
     /// <summary>Draw every 2D collision shape each frame into the viewport's <see cref="DebugLines"/> (z = 0 plane, pixels).</summary>
     public bool DebugDrawEnabled { get; set; }
 
+    /// <summary>Draw the joints (ADR 0211) even while <see cref="DebugDrawEnabled"/> is off; on, it draws them anyway.</summary>
+    public bool DebugDrawJoints { get; set; }
+
     public IReadOnlyList<PhysicsSpace2D> Spaces => _spaceList;
 
     /// <summary>The tree's 2D physics server, registering a default one if there is none.</summary>
@@ -178,10 +181,10 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
             space.Dispose();
         }
 
-        if (!DebugDrawEnabled)
+        if (!DebugDrawEnabled && !DebugDrawJoints)
             return;
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines);
+            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines, shapes: DebugDrawEnabled);
     }
 
     public void Dispose()

@@ -69,6 +69,16 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "JointBenchmarks.Step50Ragdolls",
+      "MeanNs": 605623.055,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "JointBenchmarks.StepChain100Pins",
+      "MeanNs": 57141.621,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "LightUboBenchmarks.PackAllSlots",
       "MeanNs": 86.489,
       "AllocatedBytes": 0

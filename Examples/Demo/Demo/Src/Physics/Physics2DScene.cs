@@ -4,7 +4,10 @@ using static Demo.DemoBuild;
 
 namespace Demo;
 
-/// <summary>Box2D bodies: a funnel and pegboard over a ground, shapes raining in, and click-to-spawn.</summary>
+/// <summary>
+/// Box2D bodies: a funnel and pegboard over a ground, shapes raining in, click-to-spawn, and joints (G9): a chain, a car on
+/// wheel joints and a breakable plank bridge.
+/// </summary>
 public static class Physics2DScene
 {
     private static readonly Vector4 Wall = new(0.39f, 0.45f, 0.55f, 1);
@@ -32,6 +35,9 @@ public static class Physics2DScene
             for (var col = 0; col < 7 - row % 2; col++)
                 StaticCircle(root, $"Peg{row}_{col}", new Vector2(-300 + col * 100 + row % 2 * 50, 20 + row * 70), 9f);
 
+        Joints2DBuild.AddChain(root);
+        Joints2DBuild.AddCar(root);
+        Joints2DBuild.AddBridge(root);
         Add(root, root, new Spawner2D { Name = "Bodies" });
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new Physics2DPanel { Name = "Panel" });

@@ -6,8 +6,9 @@ using MainframeEngine.UI.Rml;
 namespace Demo;
 
 /// <summary>
-/// The Physics 3D scene's controls: collision-shape overlay, crate count, rain and reset, and three save slots that save
-/// and load the crates through the engine's <see cref="SaveServer"/> (with thumbnails, description and play time).
+/// The Physics 3D scene's controls: collision-shape and joint overlays, crate count, rain and reset (crates, the
+/// mannequin and the sign), and three save slots that save and load the crates through the engine's
+/// <see cref="SaveServer"/> (with thumbnails, description and play time).
 /// </summary>
 public sealed class Physics3DPanel : UiDocument
 {
@@ -39,6 +40,7 @@ public sealed class Physics3DPanel : UiDocument
     private PhysicsServer3D? _physics;
     private SaveServer? _saves;
     private bool _enterDebugDraw;
+    private bool _enterDebugJoints;
     private int _selected;
     private string _status = "";
 
@@ -68,6 +70,7 @@ public sealed class Physics3DPanel : UiDocument
         // The collision-shape overlay is server-global: remember it so leaving this scene restores the other scenes' look.
         _physics = Tree?.Servers.Get<PhysicsServer3D>();
         _enterDebugDraw = _physics?.DebugDrawEnabled ?? false;
+        _enterDebugJoints = _physics?.DebugDrawJoints ?? false;
         _saves = Tree?.Servers.Get<SaveServer>();
         if (_saves is not null)
             _saves.Saved += OnSaved;
@@ -77,10 +80,12 @@ public sealed class Physics3DPanel : UiDocument
         _model = CreateDataModel("physics3d")
             .Bind("shapes", this, static d => d._physics?.DebugDrawEnabled ?? false,
                 static (d, v) => { if (d._physics is { } p) p.DebugDrawEnabled = v; })
+            .Bind("joints", this, static d => d._physics?.DebugDrawJoints ?? false,
+                static (d, v) => { if (d._physics is { } p) p.DebugDrawJoints = v; })
             .Bind("count", this, static d => d._crates?.Count ?? 0)
             .BindList("slots", _slots, SlotType)
             .Bind("status", this, static d => d._status)
-            .Event("reset", () => crates.ResetBodies())
+            .Event("reset", ResetScene)
             .Event("rain", crates.Rain)
             .Event("select", e => SelectedSlot = (int)e.GetArgument(0).GetDouble())
             .Event("save", () => _ = SaveAsync())
@@ -98,13 +103,31 @@ public sealed class Physics3DPanel : UiDocument
     protected override void OnExitTree()
     {
         if (_physics is { } p)
+        {
             p.DebugDrawEnabled = _enterDebugDraw;
+            p.DebugDrawJoints = _enterDebugJoints;
+        }
         if (_saves is not null)
             _saves.Saved -= OnSaved;
         _physics = null;
         _crates = null;
         _saves = null;
         base.OnExitTree();
+    }
+
+    /// <summary>Restores the crate stack, stands the mannequin up and hangs the sign back on a new weld.</summary>
+    public void ResetScene()
+    {
+        _crates?.ResetBodies();
+        var scene = Parent!.Parent!;
+        scene.GetNode<Mannequin3D>("Mannequin").ResetPose();
+        var board = scene.GetNode<RigidBody3D>("SignPost/Board");
+        var weld = scene.GetNode<WeldJoint3D>("SignPost/Weld");
+        board.Teleport(Transform3D.FromTrs(weld.GlobalPosition - new System.Numerics.Vector3(0, 0.5f, 0), System.Numerics.Quaternion.Identity,
+            System.Numerics.Vector3.One));
+        board.LinearVelocity = default;
+        board.AngularVelocity = default;
+        weld.Rebuild();
     }
 
     /// <summary>Saves the crates into the selected slot (serialized now, written on the save worker).</summary>

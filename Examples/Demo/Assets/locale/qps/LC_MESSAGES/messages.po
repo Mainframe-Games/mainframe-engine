@@ -168,8 +168,8 @@ msgstr "[Bûrst öf spårks ~~~]"
 msgid "Physics 2D"
 msgstr "[Phýsîçs 2Ð ~~]"
 
-msgid "Box2D bodies through a funnel and pegboard. Click to spawn a body."
-msgstr "[Böx2Ð böðîés thröûgh å fûññél åñð pégböårð. Çlîçk tö spåwñ å böðý. ~~~~~~~~~~~~~~~]"
+msgid "Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints and a breakable bridge. Click to spawn a body."
+msgstr "[Böx2Ð böðîés thröûgh å fûññél åñð pégböårð, å çhåîñ, å çår öñ whéél jöîñts åñð å bréåkåblé brîðgé. Çlîçk tö spåwñ å böðý. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "Bodies"
 msgstr "[Böðîés ~]"
@@ -177,14 +177,17 @@ msgstr "[Böðîés ~]"
 msgid "Collision shapes"
 msgstr "[Çöllîsîöñ shåpés ~~~~]"
 
+msgid "Joints"
+msgstr "[Jöîñts ~]"
+
 msgid "Reset"
 msgstr "[Rését ~]"
 
 msgid "Physics 3D"
 msgstr "[Phýsîçs 3Ð ~~]"
 
-msgid "Jitter2 rigid bodies, a ramp and a character body. Click the floor to drop a crate."
-msgstr "[Jîttér2 rîgîð böðîés, å råmp åñð å çhåråçtér böðý. Çlîçk thé flöör tö ðröp å çråté. ~~~~~~~~~~~~~~~~~~~]"
+msgid "Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign and a ragdoll. Click the floor to drop a crate."
+msgstr "[Jîttér2 rîgîð böðîés, å råmp, å çhåråçtér böðý åñð jöîñts: å röpé brîðgé, å bréåkåblé sîgñ åñð å rågðöll. Çlîçk thé flöör tö ðröp å çråté. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "Rain crates"
 msgstr "[Råîñ çråtés ~~]"
