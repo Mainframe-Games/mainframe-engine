@@ -134,4 +134,32 @@ public sealed class PhysicsJointsSceneTests : IDisposable
         Assert.True(car.Turns >= 2, $"{car.Turns} turns between {lowest} and {highest}");
         Assert.InRange(highest, car.Range.Y - 10, car.Range.Y + 150);
     }
+
+    [Fact]
+    public void TheSkinnedCharacterRagdollsAndStandsUpAgain()
+    {
+        _tree.ChangeScene(Animation3DScene.Build());
+        Run(30);
+        var panel = Scene.GetNode<Animation3DPanel>("Ui/Panel");
+        var ragdoll = Assert.IsType<PhysicalBoneSimulator3D>(panel.Ragdoll);
+        Assert.True(ragdoll.PhysicalBones.Length >= 10, $"{ragdoll.PhysicalBones.Length} physical bones");
+        var skeleton = ragdoll.Skeleton!;
+        var hips = ragdoll.PhysicalBones[0];
+        var standing = hips.GlobalPosition.Y;
+        Assert.False(ragdoll.IsSimulating);
+
+        panel.ToggleRagdoll();
+        Run(180);
+        Assert.True(ragdoll.IsSimulating);
+        Assert.True(hips.GlobalPosition.Y < standing - 0.3f, $"collapsed: hips at {hips.GlobalPosition.Y} (from {standing})");
+        var bone = (skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(hips.BoneIndex)).Origin;
+        Assert.True(bone.Y < standing - 0.2f, $"the skinned bone followed its body: {bone}");
+        foreach (var body in ragdoll.PhysicalBones)
+            Assert.True(body.Joint is null || body.Joint.GetSeparation() < 0.05f, $"{body.Name}'s joint separated {body.Joint?.GetSeparation()} m");
+
+        panel.ToggleRagdoll();
+        Run(30);
+        Assert.False(ragdoll.IsSimulating);
+        Assert.InRange(hips.GlobalPosition.Y, standing - 0.15f, standing + 0.15f); // back with the animation
+    }
 }

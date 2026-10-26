@@ -210,9 +210,10 @@ public sealed class PhysicalBoneSimulator3D : Node3D
     /// <summary>
     /// Builds a physical skeleton for <paramref name="skeleton"/> (not added to it; the editor's "Create physical
     /// skeleton" adds it as one undo step): a simulator with one <see cref="PhysicalBone3D"/> per bone at least
-    /// <paramref name="minBoneLength"/> long, a capsule from the bone to its first child (radius 20 % of the length, mass
-    /// from its volume at 1 000 kg/m³) and a 45°/30° cone-twist joint at the bone. Bones without children have no length
-    /// and get no body. Limits are generic: a humanoid map would make knees and elbows hinges (G1c, not yet).
+    /// <paramref name="minBoneLength"/> long, a capsule from the bone to its first child (radius 20 % of the length; the
+    /// default 1 kg, as Godot's: equal masses keep a chain of joints stiff, where a heavy thigh on a light pelvis stretches)
+    /// and a 45°/30° cone-twist joint at the bone. Bones without children have no length and get no body. Limits are
+    /// generic: a humanoid map would make knees and elbows hinges (G1c, not yet).
     /// </summary>
     public static PhysicalBoneSimulator3D Build(Skeleton3D skeleton, float minBoneLength = 0.05f)
     {
@@ -236,14 +237,12 @@ public sealed class PhysicalBoneSimulator3D : Node3D
             // start with its X (the cone-twist axis) along the bone.
             var offset = Transform3D.FromTrs(toChild / 2, FromTo(Vector3.UnitY, toChild / length), Vector3.One);
             var radius = length * 0.2f;
-            var volume = MathF.PI * radius * radius * (length - 2 * radius) + 4f / 3f * MathF.PI * radius * radius * radius;
             var body = new PhysicalBone3D
             {
                 Name = "Bone_" + SafeName(skeleton.GetBoneName(bone)),
                 BoneName = skeleton.GetBoneName(bone),
                 BodyOffset = offset,
                 JointOffset = Transform3D.FromTrs(new Vector3(0, -length / 2, 0), Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2), Vector3.One),
-                Mass = MathF.Max(0.05f, volume * 1000f),
                 Transform = skeleton.GetBoneGlobalRest(bone) * offset,
             };
             body.AddChild(new CollisionShape3D { Name = "Shape", Shape = new CapsuleShape3D { Radius = radius, Height = length } });

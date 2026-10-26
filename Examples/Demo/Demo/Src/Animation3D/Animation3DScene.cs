@@ -8,9 +8,12 @@ namespace Demo;
 /// <summary>
 /// A skinned glTF character (ADR 0207: <c>Assets/Models/Character/character.glb</c>, 31 bones, ten clips) played by its
 /// imported <see cref="AnimationPlayer"/>, with a hammer and a torch light on its right hand through a
-/// <see cref="BoneAttachment3D"/>, under a shadowing sun. <see cref="Animation3DPanel"/> picks the clip, the crossfade and
-/// the speed, and shows the clip's events as they fire. Behind it a second instance rides a <see cref="RootMotionWalker"/>
-/// body, moved only by root motion (ADR 0210): half circles and forward jumps around a closed loop.
+/// <see cref="BoneAttachment3D"/>, under a shadowing sun. A physical skeleton (ADR 0212,
+/// <see cref="PhysicalBoneSimulator3D.Build"/>: capsules and cone-twist joints) follows the animation and turns the
+/// character into a ragdoll on demand. <see cref="Animation3DPanel"/> picks the clip, the crossfade and the speed, shows
+/// the clip's events as they fire, and drops or stands up the ragdoll. Behind it a second instance rides a
+/// <see cref="RootMotionWalker"/> body, moved only by root motion (ADR 0210): half circles and forward jumps around a
+/// closed loop.
 /// </summary>
 public static class Animation3DScene
 {
@@ -42,7 +45,8 @@ public static class Animation3DScene
             Add(root, root, crew);
 
             // Added to the instance: a hammer and a torch ride on the right hand.
-            var hand = Add(root, crew.GetNode<Skeleton3D>("Armature"), new BoneAttachment3D { Name = "HandSlot", BoneName = "Hand.R" });
+            var armature = crew.GetNode<Skeleton3D>("Armature");
+            var hand = Add(root, armature, new BoneAttachment3D { Name = "HandSlot", BoneName = "Hand.R" });
             Add(root, hand, new MeshInstance3D
             {
                 Name = "Hammer",
@@ -78,6 +82,16 @@ public static class Animation3DScene
         finally
         {
             model.Release();
+        }
+
+        // The physical skeleton, as the editor's "Create physical skeleton" makes it (generic 45°/30° cone-twists).
+        var skeleton = root.GetNode<Skeleton3D>("Crew/Armature");
+        var simulator = Add(root, skeleton, PhysicalBoneSimulator3D.Build(skeleton));
+        foreach (var bone in simulator.Children)
+        {
+            bone.Owner = root;
+            foreach (var shape in bone.Children)
+                shape.Owner = root;
         }
 
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });

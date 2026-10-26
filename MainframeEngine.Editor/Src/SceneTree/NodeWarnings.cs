@@ -6,7 +6,7 @@ namespace MainframeEngine.Editor;
 /// without a shape, a collision object without shapes, a mesh instance without a mesh (or a skinned one without its skeleton),
 /// a bone attachment outside a skeleton or naming no bone, an animation player without animations (or with root motion
 /// outside the physics callback mode, or from no skeleton), an audio player without a stream, a joint whose paths name no
-/// body (ADR 0211).
+/// body (ADR 0211), a physical bone or simulator out of place (ADR 0212).
 /// </summary>
 public static class NodeWarnings
 {
@@ -33,6 +33,17 @@ public static class NodeWarnings
                     Add("A CollisionShape2D only works as a child of a 2D body or area (StaticBody2D, RigidBody2D, CharacterBody2D, Area2D).");
                 if (shape2D.Shape is null)
                     Add("No Shape: create one in the inspector.");
+                break;
+            case PhysicalBone3D physicalBone:
+                if (node.Parent is not PhysicalBoneSimulator3D)
+                    Add("A PhysicalBone3D drives a bone only as a child of a PhysicalBoneSimulator3D.");
+                else if (node.Parent.Parent is Skeleton3D boneSkeleton && boneSkeleton.FindBone(physicalBone.BoneName) < 0)
+                    Add(physicalBone.BoneName.Length == 0 ? "No BoneName: pick the bone it drives." : $"The skeleton has no bone '{physicalBone.BoneName}'.");
+                if (!HasChild<CollisionShape3D>(node))
+                    Add("No collision shape: add a CollisionShape3D child so it can collide.");
+                break;
+            case PhysicalBoneSimulator3D when node.Parent is not Skeleton3D:
+                Add("A PhysicalBoneSimulator3D drives bones only as a child of a Skeleton3D.");
                 break;
             case CollisionObject3D:
                 if (!HasChild<CollisionShape3D>(node))

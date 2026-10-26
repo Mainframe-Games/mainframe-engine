@@ -5,7 +5,8 @@ namespace Demo;
 
 /// <summary>
 /// The Animation 3D scene's controls (ADR 0207): the clip (played with the chosen crossfade), the player's speed scale,
-/// and the last event a clip raised (the swing's <c>HammerFist</c>, the run's <c>Step</c>, the craft's <c>Tap</c>).
+/// the last event a clip raised (the swing's <c>HammerFist</c>, the run's <c>Step</c>, the craft's <c>Tap</c>), and the
+/// ragdoll (ADR 0212): drop the character as it moves, then stand it up again.
 /// </summary>
 public sealed class Animation3DPanel : UiDocument
 {
@@ -57,9 +58,32 @@ public sealed class Animation3DPanel : UiDocument
     /// <summary>The character's player (the imported one).</summary>
     public AnimationPlayer? Player => _player;
 
+    /// <summary>The character's physical skeleton.</summary>
+    public PhysicalBoneSimulator3D? Ragdoll { get; private set; }
+
+    /// <summary>Drops the character as a ragdoll (it keeps the motion of its animation), or stands it up and plays the clip again.</summary>
+    public void ToggleRagdoll()
+    {
+        if (Ragdoll is not { } ragdoll)
+            return;
+        if (ragdoll.IsSimulating)
+        {
+            ragdoll.PhysicalBonesStopSimulation();
+            ragdoll.Skeleton?.ResetBonePoses();
+            _player?.Play(_clip, customBlend: 0);
+        }
+        else
+        {
+            ragdoll.PhysicalBonesStartSimulation();
+        }
+
+        _model?.Dirty("ragdoll");
+    }
+
     protected override void OnReady()
     {
         _player = Parent!.Parent!.GetNode<AnimationPlayer>("Crew/AnimationPlayer");
+        Ragdoll = Parent!.Parent!.GetNodeOrNull<PhysicalBoneSimulator3D>("Crew/Armature/PhysicalBoneSimulator3D");
         _player.AnimationEvent += OnAnimationEvent;
         _player.AnimationFinished += OnAnimationFinished;
         _player.Play(_clip);
@@ -67,7 +91,9 @@ public sealed class Animation3DPanel : UiDocument
             .Bind("clip", this, static d => d._clip, static (d, v) => d.Clip = v)
             .Bind("blend", this, static d => d._blend, static (d, v) => d.Blend = v)
             .Bind("speed", this, static d => d.Speed, static (d, v) => d.Speed = v)
-            .Bind("lastEvent", this, static d => d._lastEvent);
+            .Bind("lastEvent", this, static d => d._lastEvent)
+            .Bind("ragdoll", this, static d => d.Ragdoll?.IsSimulating ?? false)
+            .Event("toggleRagdoll", ToggleRagdoll);
     }
 
     private void OnAnimationEvent(string animation, string name)

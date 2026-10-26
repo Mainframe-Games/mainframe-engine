@@ -18,7 +18,7 @@ msgstr ""
 
 #. RML <p>
 #: Examples/Demo/Assets/Animation3D/panel.rml:9
-msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events and a torch on its hand. Behind it, root motion walks and jumps a body."
+msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton. Behind it, root motion walks and jumps a body."
 msgstr ""
 
 #. RML <span>
@@ -86,6 +86,16 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:23
 msgid "Last event"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:24
+msgid "Ragdoll"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:24
+msgid "Stand up"
 msgstr ""
 
 #. RML <h1>

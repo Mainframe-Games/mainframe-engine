@@ -87,9 +87,39 @@ public sealed class JointEditorTests : IDisposable
         _editor.Tick();
         Assert.False(hinge.IsBroken);
 
-        // The selected joint draws its gizmo into the viewport's overlay.
+        // The selected joint draws its gizmo into the viewport's overlay (at the node in edit mode).
         var lines = new DebugLines();
         hinge.DrawDebug(lines, Vector4.One);
         Assert.True(lines.LineCount > 10);
+    }
+
+    [Fact]
+    public void CreatePhysicalSkeletonAddsTheBodiesAsOneUndo()
+    {
+        var skeleton = new Skeleton3D { Name = "Skeleton" };
+        var hips = skeleton.AddBone("Hips", -1, Transform3D.Identity);
+        var spine = skeleton.AddBone("Spine", hips, Transform3D.FromTrs(new Vector3(0, 0.3f, 0), Quaternion.Identity, Vector3.One));
+        var head = skeleton.AddBone("Head", spine, Transform3D.FromTrs(new Vector3(0, 0.4f, 0), Quaternion.Identity, Vector3.One));
+        skeleton.AddBone("HeadTop.End", head, Transform3D.FromTrs(new Vector3(0, 0.02f, 0), Quaternion.Identity, Vector3.One)); // 2 cm: no body
+        _editor.Scene.AddNode(skeleton, _editor.Scene.Root);
+        _editor.Tick();
+
+        var inspector = CustomInspectors.Find(typeof(Skeleton3D));
+        Assert.IsType<Skeleton3DInspector>(inspector);
+        Assert.Contains(Skeleton3DInspector.CreateAction, inspector!.GetHeaderRml(skeleton));
+        _editor.Scene.Selection.Set(skeleton);
+        _editor.Tick();
+        _editor.Workspace.Inspector.RunHeaderAction(Skeleton3DInspector.CreateAction);
+        var simulator = Assert.Single(skeleton.Children.OfType<PhysicalBoneSimulator3D>());
+        Assert.Equal(["Bone_Hips", "Bone_Spine"], simulator.Children.OfType<PhysicalBone3D>().Select(b => b.Name));
+        Assert.Same(_editor.Scene.Root, simulator.Owner);
+        Assert.All(simulator.Children, b => Assert.Same(_editor.Scene.Root, b.Owner)); // saved with the scene
+        Assert.Null(NodeWarnings.For(simulator.GetChild(0)));
+        Assert.Null(inspector.GetHeaderRml(skeleton)); // one simulator per skeleton
+
+        _editor.Scene.History.Undo(); // one step removes it all
+        Assert.Empty(skeleton.Children.OfType<PhysicalBoneSimulator3D>());
+        _editor.Scene.History.Redo();
+        Assert.Single(skeleton.Children.OfType<PhysicalBoneSimulator3D>());
     }
 }

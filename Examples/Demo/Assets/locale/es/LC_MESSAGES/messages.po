@@ -16,8 +16,8 @@ msgstr "Animación 3D"
 
 #. RML <p>
 #: Examples/Demo/Assets/Animation3D/panel.rml:9
-msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events and a torch on its hand. Behind it, root motion walks and jumps a body."
-msgstr "Un personaje glTF con esqueleto: 31 huesos, diez clips, fundidos, eventos y una antorcha en la mano. Detrás, el movimiento raíz hace caminar y saltar a un cuerpo."
+msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton. Behind it, root motion walks and jumps a body."
+msgstr "Un personaje glTF con esqueleto: 31 huesos, diez clips, fundidos, eventos, una antorcha en la mano y un esqueleto físico. Detrás, el movimiento raíz hace caminar y saltar a un cuerpo."
 
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:10
@@ -85,6 +85,16 @@ msgstr "Velocidad"
 #: Examples/Demo/Assets/Animation3D/panel.rml:23
 msgid "Last event"
 msgstr "Último evento"
+
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:24
+msgid "Ragdoll"
+msgstr "Muñeco de trapo"
+
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:24
+msgid "Stand up"
+msgstr "Levantarse"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
