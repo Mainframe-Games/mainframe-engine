@@ -47,6 +47,7 @@ public sealed partial class ViewportController : Node
         None,
         Click,     // LMB pressed, may become a pick
         Gizmo,
+        Handle,    // a range handle (G7.3)
         Orbit,
         Pan,
         Fly,
@@ -129,6 +130,12 @@ public sealed partial class ViewportController : Node
         _targets3D.Clear();
         _targets2D.Clear();
         _targetsScene = null;
+        _handles.Clear();
+        _handleOwners.Clear();
+        _handleBefore.Clear();
+        _dragHandleNode = null;
+        _dragHandleProvider = null;
+        _hoverHandle = -1;
         _pick = default;
         _pickScene = null;
         _scene = null;
@@ -394,7 +401,7 @@ public sealed partial class ViewportController : Node
                 _drag = DragKind.Orbit;
                 return true;
             case MouseButton.Left:
-                if (TryBeginGizmo(scene))
+                if (TryBeginHandle(scene) || TryBeginGizmo(scene))
                     return true;
                 _drag = DragKind.Click;
                 return true;
@@ -418,7 +425,7 @@ public sealed partial class ViewportController : Node
             return false;
         var matches = scene.Camera.Is2D ? Release2DMatches(drag, e.Button) : drag switch
         {
-            DragKind.Click or DragKind.Gizmo => e.Button == MouseButton.Left,
+            DragKind.Click or DragKind.Gizmo or DragKind.Handle => e.Button == MouseButton.Left,
             DragKind.Orbit => e.Button is MouseButton.Left or MouseButton.Middle,
             DragKind.Pan => e.Button == MouseButton.Middle,
             DragKind.Fly => e.Button == MouseButton.Right,
@@ -429,6 +436,8 @@ public sealed partial class ViewportController : Node
         _drag = DragKind.None;
         if (drag == DragKind.Gizmo)
             EndAnyGizmo(scene, commit: true);
+        else if (drag == DragKind.Handle)
+            EndHandle(scene, commit: true);
         else if (drag == DragKind.Click && Vector2.Distance(_mouse, _pressAt) <= ClickPixels)
             Pick(scene, _mouse, (_workspace.Modifiers & (EditorModifiers.Command | EditorModifiers.Shift)) != 0);
         else if (drag == DragKind.Fly)
@@ -453,6 +462,9 @@ public sealed partial class ViewportController : Node
             case DragKind.Fly:
                 scene.Camera.Look(delta.X, delta.Y);
                 return true;
+            case DragKind.Handle:
+                UpdateHandle(scene);
+                return true;
             case DragKind.Gizmo when scene.Camera.Is2D:
                 UpdateGizmo2D(scene);
                 return true;
@@ -462,7 +474,14 @@ public sealed partial class ViewportController : Node
             case DragKind.Click:
                 return true;
             default:
-                // Hover highlight of the gizmo handles.
+                // Hover highlight of the range handles (they come first), then of the gizmo's.
+                if (HoverHandle(scene))
+                {
+                    _workspace.Gizmo.Hovered = GizmoHandle.None;
+                    Gizmo2D.Hovered = GizmoHandle.None;
+                    return false;
+                }
+
                 if (scene.Camera.Is2D)
                 {
                     Gizmo2D.Hovered = ViewRect.Contains(_mouse.X, _mouse.Y) && TryGetGizmoPose2D(scene, out var pivot2D, out var axes2D)
@@ -508,6 +527,8 @@ public sealed partial class ViewportController : Node
     {
         if (_drag == DragKind.Gizmo && _scene is { } scene)
             EndAnyGizmo(scene, commit: false);
+        else if (_drag == DragKind.Handle && _scene is { } handleScene)
+            EndHandle(handleScene, commit: false);
 
         _drag = DragKind.None;
         _fast = false;
@@ -699,6 +720,7 @@ public sealed partial class ViewportController : Node
                 DrawSelection(overlay, camera, displayHeight, node);
 
         DrawGizmo3D(scene, overlay, pixels, displayHeight);
+        DrawHandles(scene, overlay, pixels);
     }
 
     private static void DrawSelection(DebugLines lines, EditorCamera camera, float viewHeight, Node3D node)

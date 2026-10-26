@@ -49,7 +49,7 @@ public sealed partial class ViewportController
                 _drag = DragKind.Pan;
                 return true;
             case MouseButton.Left:
-                if (TryBeginGizmo2D(scene))
+                if (TryBeginHandle(scene) || TryBeginGizmo2D(scene))
                     return true;
                 _drag = DragKind.Click;
                 return true;
@@ -63,7 +63,7 @@ public sealed partial class ViewportController
 
     private static bool Release2DMatches(DragKind drag, MouseButton button) => drag switch
     {
-        DragKind.Click or DragKind.Gizmo => button == MouseButton.Left,
+        DragKind.Click or DragKind.Gizmo or DragKind.Handle => button == MouseButton.Left,
         DragKind.Pan => button is MouseButton.Left or MouseButton.Middle or MouseButton.Right,
         _ => false,
     };
@@ -201,6 +201,7 @@ public sealed partial class ViewportController
         }
 
         DrawGizmo2D(scene, overlay, pixels);
+        DrawHandles(scene, overlay, pixels);
     }
 
     private static void DrawShapeSelection(DebugLines lines, CollisionShape2D node, Shape2D shape, float unit)

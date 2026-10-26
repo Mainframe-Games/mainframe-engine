@@ -247,6 +247,9 @@ public sealed record ExportHints
     /// <summary>The member's XML doc <c>&lt;summary&gt;</c> as plain text (inspector tooltip), or null.</summary>
     public string? Description { get; init; }
 
+    /// <summary>The stock viewport handle (<see cref="ExportAttribute.Handle"/>; G7.3).</summary>
+    public HandleHint Handle { get; init; }
+
     /// <summary>Parses <see cref="Range"/> (<c>"min,max[,step]"</c>).</summary>
     public bool TryGetRange(out double min, out double max, out double step)
     {

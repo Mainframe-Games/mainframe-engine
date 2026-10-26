@@ -158,6 +158,8 @@ internal static class RegistrationEmitter
             parts.Add($"Icon = {Literal(e.Icon)}");
         if (e.Description is not null)
             parts.Add($"Description = {Literal(e.Description)}");
+        if (e.Handle != 0)
+            parts.Add($"Handle = (global::MainframeEngine.HandleHint){e.Handle}");
         return parts.Count == 0 ? "null" : $"new {Ser}.ExportHints {{ {string.Join(", ", parts)} }}";
     }
 

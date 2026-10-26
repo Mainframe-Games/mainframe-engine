@@ -173,3 +173,16 @@ public sealed class SignalNodeInspector : ICustomInspector
             Actions++;
     }
 }
+
+/// <summary>G7.3: stock viewport handles from [Export(Handle = …)] (a game node's radius and reach).</summary>
+public class HandleHintNode : Node3D
+{
+    [Export(Range = "0,50,0.1", Handle = HandleHint.Radius)]
+    public float AggroRadius { get; set; } = 8f;
+
+    [Export(Handle = HandleHint.Length)]
+    public float Reach { get; set; } = 2f;
+
+    [Export(Handle = HandleHint.Radius)]
+    public int NotAFloat { get; set; }
+}

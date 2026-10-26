@@ -230,6 +230,7 @@ internal static class TypeModelBuilder
 
         string? range = null, file = null, nodeType = null, icon = IconName(member);
         bool directory = false, multiline = false, flags = false, translatable = false;
+        var handle = 0;
         foreach (var named in attribute.NamedArguments)
         {
             switch (named.Key)
@@ -242,6 +243,7 @@ internal static class TypeModelBuilder
                 case "NodeType": nodeType = (named.Value.Value as ITypeSymbol)?.ToDisplayString(TypeFormat); break;
                 case "Translatable": translatable = named.Value.Value is true; break;
                 case "Icon" when named.Value.Value is string { Length: > 0 } name: icon = name; break;
+                case "Handle" when named.Value.Value is int hint: handle = hint; break;
             }
         }
 
@@ -252,7 +254,7 @@ internal static class TypeModelBuilder
         }
 
         return new ExportModel(member.Name, valueType.ToDisplayString(TypeFormat), codec, range, file, directory, multiline, flags, nodeType, group,
-            translatable, icon, DocComments.SummaryOf(member, ct));
+            translatable, icon, DocComments.SummaryOf(member, ct), handle);
     }
 
     /// <summary><c>string</c>, <c>string[]</c> or <c>List&lt;string&gt;</c>: the types <c>Translatable</c> accepts.</summary>

@@ -34,6 +34,16 @@ public abstract class ExportPropertyInfo
 
     public abstract void SetValue(object owner, object? value);
 
+    /// <summary>Reads a <c>float</c> member without boxing (tools that poll a value every frame); false for other types.</summary>
+    public virtual bool TryGetFloat(object owner, out float value)
+    {
+        value = 0f;
+        return false;
+    }
+
+    /// <summary>Writes a <c>float</c> member without boxing; false for other types.</summary>
+    public virtual bool TrySetFloat(object owner, float value) => false;
+
     /// <summary>True when the member has the same value on both instances (codec equality).</summary>
     public abstract bool ValueEquals(object ownerA, object ownerB);
 
@@ -76,6 +86,27 @@ public sealed class ExportPropertyInfo<TOwner, TValue> : ExportPropertyInfo wher
     public override object? GetValue(object owner) => _getter((TOwner)owner);
 
     public override void SetValue(object owner, object? value) => _setter((TOwner)owner, (TValue)value!);
+
+    public override bool TryGetFloat(object owner, out float value)
+    {
+        if (typeof(TValue) == typeof(float))
+        {
+            var v = _getter((TOwner)owner);
+            value = System.Runtime.CompilerServices.Unsafe.As<TValue, float>(ref v);
+            return true;
+        }
+
+        value = 0f;
+        return false;
+    }
+
+    public override bool TrySetFloat(object owner, float value)
+    {
+        if (typeof(TValue) != typeof(float))
+            return false;
+        _setter((TOwner)owner, System.Runtime.CompilerServices.Unsafe.As<float, TValue>(ref value));
+        return true;
+    }
 
     public override bool ValueEquals(object ownerA, object ownerB) =>
         Codec.ValueEquals(_getter((TOwner)ownerA), _getter((TOwner)ownerB));

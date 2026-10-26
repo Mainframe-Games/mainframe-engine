@@ -46,6 +46,27 @@ public sealed class ExportAttribute : Attribute
     /// <see cref="EditorIconAttribute"/>). Default: chosen by the editor from the name and value type.
     /// </summary>
     public string? Icon { get; set; }
+
+    /// <summary>
+    /// A stock viewport handle for a <c>float</c> member (editor-viewport-tools G7.3): the editor draws a draggable point
+    /// on the selected node — a radius around its origin or a length along its forward axis — and a drag edits the value
+    /// (clamped to <see cref="Range"/>, one undo step). Meant for game nodes, which do not reference the editor; editor
+    /// plugins write an <c>IHandleProvider</c> instead, which wins over hints.
+    /// </summary>
+    public HandleHint Handle { get; set; }
+}
+
+/// <summary>The stock viewport handle of an <see cref="ExportAttribute.Handle"/> float (G7.3).</summary>
+public enum HandleHint
+{
+    /// <summary>No handle (the default).</summary>
+    None = 0,
+
+    /// <summary>A radius: a sphere (3D) or a circle (2D) around the node's origin, dragged outwards.</summary>
+    Radius,
+
+    /// <summary>A length along the node's forward axis (−Z in 3D, +X in 2D).</summary>
+    Length,
 }
 
 /// <summary>

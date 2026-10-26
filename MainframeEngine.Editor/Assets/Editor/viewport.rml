@@ -131,6 +131,14 @@
             color: #6b7488;
         }
         #view-empty .icon { margin-bottom: 8dp; image-color: #4b5263; }
+        /* G7.3: the label next to the mouse over a range handle ("Range 4.20 m"). G7.4: the box-selection rectangle. */
+        #handle-label {
+            display: none; position: absolute; padding: 2dp 6dp; border-radius: 3dp; border: 1dp #3b3f4b;
+            background-color: #15171cdd; color: #e2e6ee; font-size: 11dp; white-space: nowrap;
+        }
+        #handle-label.shown { display: block; }
+        #box-select { display: none; position: absolute; border: 1dp #3b82f6; background-color: #3b82f626; }
+        #box-select.shown { display: block; }
     </style>
 </head>
 <body class="panel-doc viewport-doc" data-model="viewport_tabs">
@@ -161,6 +169,8 @@
         <img id="view-image"/>
         <div id="view-info" class="mono"><span id="view-info-icon" class="icon icon-sm icon-perspective"></span><span id="view-info-text">Perspective</span></div>
         <div id="view-empty"><span class="icon icon-lg icon-movie"></span><span>No scene open · File › New Scene or Open Scene</span></div>
+        <div id="handle-label" class="mono"></div>
+        <div id="box-select"></div>
     </div>
 </body>
 </rml>

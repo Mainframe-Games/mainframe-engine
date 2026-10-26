@@ -177,6 +177,29 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "handle-drag":
+                {
+                    // handle-drag <index> dx dy [frames]: drags range handle <index> of the selection (G7.3) by (dx, dy) points.
+                    if (workspace.Session.Active is not { } handleScene)
+                        throw new ArgumentException("handle-drag needs an open scene.");
+                    workspace.Viewport.CollectHandles(handleScene);
+                    var index = (int)Float(step, 1);
+                    var handles = workspace.Viewport.Handles;
+                    if ((uint)index >= (uint)handles.Count)
+                        throw new ArgumentException($"handle-drag: the selection has {handles.Count} handle(s).");
+                    var view = workspace.Viewport.ViewPixels;
+                    if (!handleScene.Camera.Project(handles[index].Position, view.X, view.Y, out var pixel))
+                        throw new ArgumentException("handle-drag: the handle is behind the camera.");
+                    var rect = workspace.Viewport.ViewRect;
+                    var start = new Vector2(rect.X, rect.Y) + pixel / workspace.Viewport.ViewScale;
+                    var end = start + new Vector2(Float(step, 2), Float(step, 3));
+                    _drag = (start, end, MouseButton.Left, step.Length > 4 ? Int(step, 4, 20) : 20, 0);
+                    _mouse = start;
+                    tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, start) });
+                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = Pointer(app, start) });
+                    break;
+                }
+
             case "wheel":
                 tree.PushInput(new InputEventMouseWheel { Delta = new Vector2(0, Float(step, 1)) });
                 break;
