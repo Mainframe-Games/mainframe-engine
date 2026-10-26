@@ -168,7 +168,7 @@ Godot 4.3's structure: a `PhysicalBoneSimulator3D` is a child of a `Skeleton3D` 
 | `PhysicalBonesStopSimulation()`, `IsSimulating`, `PhysicalBones` | |
 | `Build(skeleton)` | A physical skeleton for the skeleton (see below), not added |
 
-On ready (not in the editor's edit mode) the simulator puts each body at its bone's pose × `BodyOffset`, remembers
+On ready (in the editor only inside a running Simulate, G7.5) the simulator puts each body at its bone's pose × `BodyOffset`, remembers
 that ready pose, and creates each joint as an internal child node (no owner: not saved, not in the editor's tree) whose
 frames are set from the ready poses, so joint limits are measured from the pose the skeleton had then — also for a
 joint re-created at run time by a new `JointType` or `JointOffset`. Held bodies follow the animated bones in the fixed

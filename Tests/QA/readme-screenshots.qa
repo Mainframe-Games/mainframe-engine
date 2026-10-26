@@ -20,7 +20,7 @@ camera -0.3 0.9 -0.8 8.8 -18 -16
 move #play
 wait 60
 capture editor
-# 3b. Joints (ADR 0211): the Physics 3D rope bridge with a hinge selected (its axis, limit arc and angle in the
+# 2b. Joints (ADR 0211): the Physics 3D rope bridge with a hinge selected (its axis, limit arc and angle in the
 # selection colour, a line to each plank) and its Rebuild / Swap A/B buttons; then the Animation 3D character's
 # Create physical skeleton (ADR 0212): its simulator deleted and created again from the Skeleton3D inspector (undone).
 click #tool-select

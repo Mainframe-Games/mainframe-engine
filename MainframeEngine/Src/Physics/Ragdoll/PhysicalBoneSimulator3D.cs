@@ -13,7 +13,7 @@ namespace MainframeEngine;
 /// <remarks>
 /// Bodies of one simulator never collide with each other. The pose write runs at a high
 /// <see cref="Node.ProcessPriority"/> (after <see cref="AnimationPlayer"/>, before skinning). Joint limits are measured
-/// from the pose the skeleton has when the simulator becomes ready. Nothing happens in the editor's edit mode.
+/// from the pose the skeleton has when the simulator becomes ready. In the editor it works only inside a running Simulate.
 /// </remarks>
 [EditorIcon("sitemap", Family = EditorIconFamily.Physics)]
 public sealed class PhysicalBoneSimulator3D : Node3D
