@@ -225,6 +225,8 @@
     i-door: 142px 262px 16px 16px;
     i-adjustments-alt: 162px 262px 16px 16px;
     i-piano: 182px 262px 16px 16px;
+    i-circles: 202px 262px 16px 16px;
+    i-dots-vertical: 222px 262px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -447,6 +449,8 @@
     l-door: 213px 393px 24px 24px;
     l-adjustments-alt: 243px 393px 24px 24px;
     l-piano: 273px 393px 24px 24px;
+    l-circles: 303px 393px 24px 24px;
+    l-dots-vertical: 333px 393px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -672,6 +676,8 @@
         i-door: 284px 524px 32px 32px;
         i-adjustments-alt: 324px 524px 32px 32px;
         i-piano: 364px 524px 32px 32px;
+        i-circles: 404px 524px 32px 32px;
+        i-dots-vertical: 444px 524px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -894,6 +900,8 @@
         l-door: 426px 786px 48px 48px;
         l-adjustments-alt: 486px 786px 48px 48px;
         l-piano: 546px 786px 48px 48px;
+        l-circles: 606px 786px 48px 48px;
+        l-dots-vertical: 666px 786px 48px 48px;
     }
 }
 
@@ -1115,6 +1123,8 @@
 .icon-door { decorator: image(i-door); }
 .icon-adjustments-alt { decorator: image(i-adjustments-alt); }
 .icon-piano { decorator: image(i-piano); }
+.icon-circles { decorator: image(i-circles); }
+.icon-dots-vertical { decorator: image(i-dots-vertical); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1334,3 +1344,5 @@
 .icon-lg.icon-door { decorator: image(l-door); }
 .icon-lg.icon-adjustments-alt { decorator: image(l-adjustments-alt); }
 .icon-lg.icon-piano { decorator: image(l-piano); }
+.icon-lg.icon-circles { decorator: image(l-circles); }
+.icon-lg.icon-dots-vertical { decorator: image(l-dots-vertical); }

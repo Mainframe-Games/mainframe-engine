@@ -23,6 +23,22 @@ public enum GizmoHandle
     Center,
 }
 
+/// <summary>
+/// Where the gizmo of several selected nodes sits and what they rotate and scale around (toolbar pivot button; Blender's
+/// pivot point).
+/// </summary>
+public enum GizmoPivot
+{
+    /// <summary>The average of the targets' global positions; rotate and scale around it.</summary>
+    Median,
+
+    /// <summary>The active node (<see cref="Selection.Primary"/>); rotate and scale around its origin.</summary>
+    Active,
+
+    /// <summary>The gizmo at the median point; each node rotates and scales around its own origin.</summary>
+    Individual,
+}
+
 /// <summary>Snapping steps (toolbar snap toggle).</summary>
 public readonly record struct GizmoSnap(bool Enabled, float Translate = 0.5f, float RotateDegrees = 15f, float Scale = 0.1f);
 
@@ -70,6 +86,9 @@ public sealed class TransformGizmo
     public bool Local { get; set; }
 
     public GizmoSnap Snap { get; set; }
+
+    /// <summary>The pivot of a multi-node drag (lasts for the session, like the mode, space and snap).</summary>
+    public GizmoPivot Pivot { get; set; }
 
     /// <summary>The handle being dragged (None when idle).</summary>
     public GizmoHandle Active { get; private set; }

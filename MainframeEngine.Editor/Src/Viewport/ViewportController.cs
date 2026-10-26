@@ -42,12 +42,6 @@ public sealed partial class ViewportController : Node
     private EditedScene? _pickScene;
     private bool _pickAdditive;
 
-    // Gizmo drag: the node and its exported transform values before the drag.
-    private Node3D? _gizmoNode;
-    private Vector3 _startPosition;
-    private Vector3 _startRotationDegrees;
-    private Vector3 _startScale;
-
     private enum DragKind
     {
         None,
@@ -130,8 +124,11 @@ public sealed partial class ViewportController : Node
         _iconsVersion = -1;
         _nodes2D.Clear();
         _nodes2DVersion = -1;
-        _gizmoNode = null;
-        _gizmoNode2D = null;
+        _starts3D.Clear();
+        _starts2D.Clear();
+        _targets3D.Clear();
+        _targets2D.Clear();
+        _targetsScene = null;
         _pick = default;
         _pickScene = null;
         _scene = null;
@@ -363,6 +360,10 @@ public sealed partial class ViewportController : Node
                     scene.Camera.Zoom(wheel.Delta.Y);
                 Handled();
                 break;
+            case InputEventKey { Pressed: true, Key: Key.Escape } when IsCancellableDrag:
+                CancelDrag(); // Esc during a gizmo or handle drag puts everything back
+                Handled();
+                break;
             case InputEventKey key when _drag == DragKind.Fly:
                 if (FlyKey(key))
                     Handled();
@@ -374,6 +375,12 @@ public sealed partial class ViewportController : Node
 
     private bool Press(EditedScene scene, InputEventMouseButton e)
     {
+        if (e.Button == MouseButton.Right && IsCancellableDrag)
+        {
+            CancelDrag(); // a right click during a gizmo or handle drag cancels it (Blender, Godot)
+            return true;
+        }
+
         if (_drag != DragKind.None || !ViewRect.Contains(_mouse.X, _mouse.Y))
             return false;
         _pressAt = _mouse; // the event's position in layout points
@@ -420,10 +427,8 @@ public sealed partial class ViewportController : Node
         if (!matches)
             return true;
         _drag = DragKind.None;
-        if (drag == DragKind.Gizmo && scene.Camera.Is2D)
-            EndGizmo2D(scene, commit: true);
-        else if (drag == DragKind.Gizmo)
-            EndGizmo(scene, commit: true);
+        if (drag == DragKind.Gizmo)
+            EndAnyGizmo(scene, commit: true);
         else if (drag == DragKind.Click && Vector2.Distance(_mouse, _pressAt) <= ClickPixels)
             Pick(scene, _mouse, (_workspace.Modifiers & (EditorModifiers.Command | EditorModifiers.Shift)) != 0);
         else if (drag == DragKind.Fly)
@@ -460,14 +465,14 @@ public sealed partial class ViewportController : Node
                 // Hover highlight of the gizmo handles.
                 if (scene.Camera.Is2D)
                 {
-                    Gizmo2D.Hovered = ViewRect.Contains(_mouse.X, _mouse.Y) && GizmoTarget2D(scene) is { } node2D
-                        ? Gizmo2D.HitTest(scene.Camera, ViewPixels, node2D.GlobalPosition, node2D.GlobalRotation, LocalPixel(_mouse))
+                    Gizmo2D.Hovered = ViewRect.Contains(_mouse.X, _mouse.Y) && TryGetGizmoPose2D(scene, out var pivot2D, out var axes2D)
+                        ? Gizmo2D.HitTest(scene.Camera, ViewPixels, pivot2D, axes2D, LocalPixel(_mouse))
                         : GizmoHandle.None;
                     return false;
                 }
 
-                if (ViewRect.Contains(_mouse.X, _mouse.Y) && GizmoTarget(scene) is { } node)
-                    _workspace.Gizmo.Hovered = _workspace.Gizmo.HitTest(scene.Camera, ViewPixels, node.GlobalPosition, node.GlobalRotation, LocalPixel(_mouse));
+                if (ViewRect.Contains(_mouse.X, _mouse.Y) && TryGetGizmoPose(scene, out var pivot, out var axes))
+                    _workspace.Gizmo.Hovered = _workspace.Gizmo.HitTest(scene.Camera, ViewPixels, pivot, axes, LocalPixel(_mouse));
                 else
                     _workspace.Gizmo.Hovered = GizmoHandle.None;
                 return false;
@@ -502,12 +507,7 @@ public sealed partial class ViewportController : Node
     private void CancelDrag()
     {
         if (_drag == DragKind.Gizmo && _scene is { } scene)
-        {
-            if (_gizmoNode2D is not null)
-                EndGizmo2D(scene, commit: false);
-            else
-                EndGizmo(scene, commit: false);
-        }
+            EndAnyGizmo(scene, commit: false);
 
         _drag = DragKind.None;
         _fast = false;
@@ -611,89 +611,6 @@ public sealed partial class ViewportController : Node
         return best;
     }
 
-    // ── Gizmo ────────────────────────────────────────────────────────────────────────────────────────────────────
-
-    private Node3D? GizmoTarget(EditedScene scene) =>
-        _workspace.Gizmo.Mode != GizmoMode.Select && scene.Selection.Primary is Node3D node && scene.IsEditable(node) && node.IsInsideTree
-            ? node
-            : null;
-
-    private bool TryBeginGizmo(EditedScene scene)
-    {
-        if (GizmoTarget(scene) is not { } node)
-            return false;
-        var gizmo = _workspace.Gizmo;
-        var local = LocalPixel(_mouse);
-        var handle = gizmo.HitTest(scene.Camera, ViewPixels, node.GlobalPosition, node.GlobalRotation, local);
-        if (handle == GizmoHandle.None)
-            return false;
-        _gizmoNode = node;
-        _startPosition = node.Position;
-        _startRotationDegrees = node.RotationDegrees;
-        _startScale = node.Scale;
-        gizmo.BeginDrag(handle, scene.Camera, ViewPixels, local, node.GlobalPosition, node.GlobalRotation, node.Scale);
-        _drag = DragKind.Gizmo;
-        return true;
-    }
-
-    private void UpdateGizmo(EditedScene scene)
-    {
-        if (_gizmoNode is not { IsFreed: false } node)
-            return;
-        var (position, rotation, scale) = _workspace.Gizmo.Drag(scene.Camera, ViewPixels, LocalPixel(_mouse));
-        switch (_workspace.Gizmo.Mode)
-        {
-            case GizmoMode.Translate:
-                node.GlobalPosition = position;
-                break;
-            case GizmoMode.Rotate:
-                var parentRotation = node.Parent is Node3D parent ? parent.GlobalRotation : Quaternion.Identity;
-                node.Rotation = Quaternion.Normalize(Quaternion.Inverse(parentRotation) * rotation);
-                break;
-            case GizmoMode.Scale:
-                node.Scale = scale;
-                break;
-        }
-
-        _workspace.Inspector.RefreshValues(); // the fields follow the drag (committed on release)
-    }
-
-    // Commits the drag as one history entry (the node already shows the result), or restores the start on cancel.
-    private void EndGizmo(EditedScene scene, bool commit)
-    {
-        _workspace.Gizmo.EndDrag();
-        if (_gizmoNode is not { IsFreed: false } node)
-        {
-            _gizmoNode = null;
-            return;
-        }
-
-        _gizmoNode = null;
-        var info = Serialization.TypeRegistry.GetRequired(node.GetType());
-        var actions = new List<IEditorAction>(3);
-        AddChange(actions, node, info, "Position", _startPosition, node.Position);
-        AddChange(actions, node, info, "RotationDegrees", _startRotationDegrees, node.RotationDegrees);
-        AddChange(actions, node, info, "Scale", _startScale, node.Scale);
-        if (actions.Count == 0)
-            return;
-        if (!commit)
-        {
-            foreach (var action in actions)
-                action.Undo();
-            return;
-        }
-
-        var name = _workspace.Gizmo.Mode switch { GizmoMode.Rotate => "Rotate", GizmoMode.Scale => "Scale", _ => "Move" } + " " + node.Name;
-        scene.History.Commit(new CompositeAction(name, [.. actions]), alreadyApplied: true);
-    }
-
-    private static void AddChange(List<IEditorAction> actions, Node3D node, Serialization.NodeTypeInfo info, string property, Vector3 before, Vector3 after)
-    {
-        if (before == after || info.FindProperty(property) is not { } p)
-            return;
-        actions.Add(new SetPropertyAction(node, p, before, after));
-    }
-
     // ── Frame selected ───────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Points the camera at the selection (F): mesh bounds when known, else the node positions.</summary>
@@ -781,8 +698,7 @@ public sealed partial class ViewportController : Node
             if (selected[i] is Node3D { IsInsideTree: true } node)
                 DrawSelection(overlay, camera, displayHeight, node);
 
-        if (GizmoTarget(scene) is { } target)
-            _workspace.Gizmo.Draw(overlay, camera, pixels, target.GlobalPosition, target.GlobalRotation);
+        DrawGizmo3D(scene, overlay, pixels, displayHeight);
     }
 
     private static void DrawSelection(DebugLines lines, EditorCamera camera, float viewHeight, Node3D node)

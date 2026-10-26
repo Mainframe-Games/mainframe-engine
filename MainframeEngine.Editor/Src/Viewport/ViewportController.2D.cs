@@ -20,10 +20,6 @@ public sealed partial class ViewportController
 
     private readonly List<Node2D> _nodes2D = [];
     private int _nodes2DVersion = -1;
-    private Node2D? _gizmoNode2D;
-    private Vector2 _startPosition2D;
-    private float _startRotation2D;
-    private Vector2 _startScale2D;
 
     /// <summary>The 2D transform gizmo (shares mode, space and snapping with <see cref="EditorWorkspace.Gizmo"/>).</summary>
     public TransformGizmo2D Gizmo2D { get; }
@@ -71,84 +67,6 @@ public sealed partial class ViewportController
         DragKind.Pan => button is MouseButton.Left or MouseButton.Middle or MouseButton.Right,
         _ => false,
     };
-
-    private Node2D? GizmoTarget2D(EditedScene scene) =>
-        _workspace.Gizmo.Mode != GizmoMode.Select && scene.Selection.Primary is Node2D node && scene.IsEditable(node) && node.IsInsideTree
-            ? node
-            : null;
-
-    private bool TryBeginGizmo2D(EditedScene scene)
-    {
-        if (GizmoTarget2D(scene) is not { } node)
-            return false;
-        var local = LocalPixel(_mouse);
-        var global = node.GlobalTransform;
-        var handle = Gizmo2D.HitTest(scene.Camera, ViewPixels, global.Origin, global.Rotation, local);
-        if (handle == GizmoHandle.None)
-            return false;
-        _gizmoNode2D = node;
-        _startPosition2D = node.Position;
-        _startRotation2D = node.RotationDegrees;
-        _startScale2D = node.Scale;
-        Gizmo2D.BeginDrag(handle, scene.Camera, ViewPixels, local, global.Origin, global.Rotation, global.Origin, node.Scale);
-        _drag = DragKind.Gizmo;
-        return true;
-    }
-
-    private void UpdateGizmo2D(EditedScene scene)
-    {
-        if (_gizmoNode2D is not { IsFreed: false } node)
-            return;
-        var (position, rotation, scale) = Gizmo2D.Drag(scene.Camera, ViewPixels, LocalPixel(_mouse));
-        switch (_workspace.Gizmo.Mode)
-        {
-            case GizmoMode.Translate:
-                node.GlobalPosition = position;
-                if (Gizmo2D.PixelSnap && !_workspace.Gizmo.Snap.Enabled && node.ParentNode2D is not null)
-                    node.Position = new Vector2(MathF.Round(node.Position.X), MathF.Round(node.Position.Y));
-                break;
-            case GizmoMode.Rotate:
-                var parentRotation = node.ParentNode2D?.GlobalRotation ?? 0f;
-                node.Rotation = rotation - parentRotation;
-                break;
-            case GizmoMode.Scale:
-                node.Scale = scale;
-                break;
-        }
-
-        _workspace.Inspector.RefreshValues();
-    }
-
-    private void EndGizmo2D(EditedScene scene, bool commit)
-    {
-        Gizmo2D.EndDrag();
-        if (_gizmoNode2D is not { IsFreed: false } node)
-        {
-            _gizmoNode2D = null;
-            return;
-        }
-
-        _gizmoNode2D = null;
-        var info = Serialization.TypeRegistry.GetRequired(node.GetType());
-        var actions = new List<IEditorAction>(3);
-        if (node.Position != _startPosition2D && info.FindProperty("Position") is { } position)
-            actions.Add(new SetPropertyAction(node, position, _startPosition2D, node.Position));
-        if (node.RotationDegrees != _startRotation2D && info.FindProperty("RotationDegrees") is { } rotation)
-            actions.Add(new SetPropertyAction(node, rotation, _startRotation2D, node.RotationDegrees));
-        if (node.Scale != _startScale2D && info.FindProperty("Scale") is { } scale)
-            actions.Add(new SetPropertyAction(node, scale, _startScale2D, node.Scale));
-        if (actions.Count == 0)
-            return;
-        if (!commit)
-        {
-            foreach (var action in actions)
-                action.Undo();
-            return;
-        }
-
-        var name = _workspace.Gizmo.Mode switch { GizmoMode.Rotate => "Rotate", GizmoMode.Scale => "Scale", _ => "Move" } + " " + node.Name;
-        scene.History.Commit(new CompositeAction(name, [.. actions]), alreadyApplied: true);
-    }
 
     // ── Picking (CPU: 2D nodes have no object-ID geometry) ──────────────────────────────────────────────────────
 
@@ -282,11 +200,7 @@ public sealed partial class ViewportController
                 DrawShapeSelection(overlay, shapeNode, shape, unit);
         }
 
-        if (GizmoTarget2D(scene) is { } target)
-        {
-            var global = target.GlobalTransform;
-            Gizmo2D.Draw(overlay, camera, pixels, global.Origin, global.Rotation);
-        }
+        DrawGizmo2D(scene, overlay, pixels);
     }
 
     private static void DrawShapeSelection(DebugLines lines, CollisionShape2D node, Shape2D shape, float unit)

@@ -130,6 +130,16 @@ public sealed class EditorCommands
                 _workspace.Gizmo.Snap = _workspace.Gizmo.Snap with { Enabled = !_workspace.Gizmo.Snap.Enabled };
                 _workspace.Toolbar.Refresh();
                 return true;
+            case "gizmo.pivot":
+                // Median → Active → Individual Origins → Median (Blender's pivot point).
+                _workspace.Gizmo.Pivot = _workspace.Gizmo.Pivot switch
+                {
+                    GizmoPivot.Median => GizmoPivot.Active,
+                    GizmoPivot.Active => GizmoPivot.Individual,
+                    _ => GizmoPivot.Median,
+                };
+                _workspace.Toolbar.Refresh();
+                return true;
             case "view.frame": _workspace.Viewport.FrameSelection(); return true;
             case "view.grid":
                 _workspace.Viewport.GridVisible = !_workspace.Viewport.GridVisible;

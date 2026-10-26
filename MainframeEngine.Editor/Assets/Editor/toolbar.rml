@@ -152,6 +152,7 @@
         </div>
         <div class="group">
             <button id="tool-local" class="tool-button" data-command="gizmo.local" data-tooltip="Global Space (T) — handles follow the world axes; click for the node's local axes"><span id="tool-local-icon" class="icon icon-world"></span></button>
+            <button id="tool-pivot" class="tool-button" data-command="gizmo.pivot" data-tooltip="Pivot: Median Point — rotate and scale around the selection's centre (click to change)"><span id="tool-pivot-icon" class="icon icon-point"></span></button>
             <button id="tool-snap" class="tool-button" data-command="gizmo.snap" data-tooltip="Snap (Y) — move, rotate and scale in steps"><span class="icon icon-magnet"></span></button>
             <input type="text" class="text" id="snap-step" value="0.5" data-tooltip="Snap Step — the move step in metres (rotation snaps to 15°, scale to 0.1)"/>
         </div>

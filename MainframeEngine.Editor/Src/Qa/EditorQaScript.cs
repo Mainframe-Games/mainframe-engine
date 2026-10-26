@@ -305,6 +305,16 @@ public sealed class EditorQaScript : IEditorAutomation
                 if (workspace.Session.Active is { } selectScene)
                     selectScene.Selection.Set(selectScene.Root.GetNode(string.Join(' ', step[1..])));
                 break;
+            case "select-add":
+                // Adds a node to the selection (it becomes the active one): select A, select-add B, select-add C.
+                if (workspace.Session.Active is { } addScene)
+                    addScene.Selection.Add(addScene.Root.GetNode(string.Join(' ', step[1..])));
+                break;
+            case "pivot":
+                // pivot median|active|individual: the multi-node gizmo's pivot (as the toolbar button cycles it).
+                workspace.Gizmo.Pivot = Enum.Parse<GizmoPivot>(step[1], ignoreCase: true);
+                workspace.Toolbar.Refresh();
+                break;
             case "state":
                 if (workspace.Session.Active is { } active)
                 {
@@ -645,15 +655,14 @@ public sealed class EditorQaScript : IEditorAutomation
         return new Vector2(Float(step, at), Float(step, at + 1));
     }
 
-    /// <summary>Window point of a gizmo handle of the primary selection (70% along the axis; the centre for "center").</summary>
+    /// <summary>Window point of a gizmo handle of the selection (70% along the axis; the centre for "center"), at the gizmo's pivot.</summary>
     private static Vector2 GizmoPoint(EditorWorkspace workspace, string axisName)
     {
-        if (workspace.Session.Active is not { Selection.Primary: Node3D node } scene)
-            throw new ArgumentException("gizmo-drag needs a selected 3D node.");
+        if (workspace.Session.Active is not { } scene || !workspace.Viewport.TryGetGizmoPose(scene, out var origin, out var rotation))
+            throw new ArgumentException("gizmo-drag needs a selected 3D node and a move, rotate or scale tool.");
         var gizmo = workspace.Gizmo;
         var view = workspace.Viewport.ViewPixels;
-        var axes = gizmo.Axes(node.GlobalRotation);
-        var origin = node.GlobalPosition;
+        var axes = gizmo.Axes(rotation);
         var length = TransformGizmo.SizePixels * gizmo.PixelScale * scene.Camera.WorldPerPixel(origin, view.Y);
         var target = axisName switch
         {

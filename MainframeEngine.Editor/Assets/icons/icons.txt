@@ -240,3 +240,7 @@ box-multiple
 door
 adjustments-alt
 piano
+
+# Viewport tools (G7): multi-node pivot (point, target, circles), the resource row's More menu, box select and lock
+circles
+dots-vertical
