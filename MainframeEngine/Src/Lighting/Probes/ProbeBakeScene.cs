@@ -557,6 +557,7 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
     private readonly Dictionary<TreeMesh, int> _treeIndex = new(ReferenceEqualityComparer.Instance);
     private readonly List<ProbeTriangleMesh> _meshes = [];
     private readonly Dictionary<(Mesh, Material?), int> _meshIndex = new();
+    private readonly List<bool> _meshTraced = []; // per _meshIndex entry: it has opaque triangles (so its instances count)
     private readonly List<ProbeBakeScene.Instance> _instances = [];
     private readonly Dictionary<Texture2D, Vector4> _textureMeans = new(ReferenceEqualityComparer.Instance);
     private readonly TreeGenerator _generator = new();
@@ -775,6 +776,7 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
             _meshIndex.Add((mesh, materialOverride), index);
             var positions = new List<Vector3>();
             var albedos = new List<Vector3>();
+            var traced = false;
             for (var s = 0; s < mesh.SurfaceCount; s++)
             {
                 var surface = mesh.GetSurface(s);
@@ -782,15 +784,22 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
                 HashVectors(surface.Positions);
                 HashInts(surface.Indices);
                 HashMaterial(material);
-                if (FingerprintOnly || IsTransparent(material))
+                if (IsTransparent(material))
                     continue;
-                AppendTriangles(surface.Positions, surface.Indices, MaterialAlbedo(material).Color, positions, albedos);
+                traced |= surface.Indices.Length >= 3;
+                if (!FingerprintOnly)
+                    AppendTriangles(surface.Positions, surface.Indices, MaterialAlbedo(material).Color, positions, albedos);
             }
 
+            _meshTraced.Add(traced);
             if (!FingerprintOnly)
                 _meshes.Add(new ProbeTriangleMesh(positions, albedos));
         }
 
+        // A mesh with nothing opaque (glass) is not traced, so neither the bake nor the fingerprint counts its instances:
+        // the two must agree, or a fresh bake reads as stale.
+        if (!_meshTraced[index])
+            return;
         if (FingerprintOnly)
             AddInstance(ProbeBakeScene.InstanceKind.Mesh, index, default, transform);
         else if (_meshes[index].TriangleCount > 0)
