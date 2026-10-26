@@ -20,6 +20,37 @@ camera -0.3 0.9 -0.8 8.8 -18 -16
 move #play
 wait 60
 capture editor
+# 3b. Joints (ADR 0211): the Physics 3D rope bridge with a hinge selected (its axis, limit arc and angle in the
+# selection colour, a line to each plank) and its Rebuild / Swap A/B buttons; then the Animation 3D character's
+# Create physical skeleton (ADR 0212): its simulator deleted and created again from the Skeleton3D inspector (undone).
+click #tool-select
+open Examples/Demo/Assets/Scenes/physics_3d.mscene
+wait 20
+select Bridge/Hinge5
+camera -4.3 2.2 -5 1.6 -24 -14
+clear-output
+move 900 600
+wait 20
+capture editor-joints
+open Examples/Demo/Assets/Scenes/animation_3d.mscene
+wait 20
+select Crew/Armature/PhysicalBoneSimulator3D
+key Delete
+wait 5
+select Crew/Armature
+inspector-header skeleton-physical
+camera 0 0.95 0 2.4 25 -8
+clear-output
+move 900 600
+wait 20
+capture editor-physical-skeleton
+key Z cmd
+wait 3
+key Z cmd
+wait 3
+click #tool-translate
+open Examples/Demo/Assets/Scenes/basic_3d.mscene
+wait 10
 # 3. The create dialog: a favourite, a recent type (added and undone), a search and a description.
 move 800 500
 key A cmd

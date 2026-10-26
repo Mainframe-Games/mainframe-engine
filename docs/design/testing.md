@@ -103,7 +103,8 @@ table, so the 2D suites share the non-parallel `SerialBox2D` collection.
 | `Physics3DQueryTests` | raycasts (closest, exclude, mask, misses, moved bodies, areas ignored), shape casts, overlaps, concave/height-map shapes, every shape with scale, `MoveAndSlide` (floor, walls, 30° slope, steep slope, ceiling, snap down a step, recovery, pushing crates), interpolation (exact lerp, physics pose in `OnPhysicsProcess`, teleport, pause) |
 | `Physics2DTests` | the same behaviours on Box2D in pixels |
 | `PhysicsSerializationTests` | every 3D/2D body and shape round-trips through `.mscene` (shared resources stay shared), a loaded 2D scene simulates, every type is registered |
-| `PhysicsAllocationTests`, `Physics2DAllocationTests` | **0 bytes** per steady-state frame with ~500 bodies, monitors, areas, characters, debug draw and every query (3D single- and multi-threaded); 2D: 0 bytes beyond Box2D.NET's own step allocations |
+| `PhysicsAllocationTests`, `Physics2DAllocationTests` | **0 bytes** per steady-state frame with ~500 bodies, monitors, areas, characters, debug draw and every query (3D single- and multi-threaded); 2D: 0 bytes beyond Box2D.NET's own step allocations (one joint of each 2D type included) |
+| `Joints3DTests`, `JointBreakTests`, `Physics2DJointTests`, `Ragdoll3DTests`, `PhysicalBonesTests`, `JointAllocationTests` | joints, breaking, ragdolls and physical bones ([Physics joints → Tests](physics-joints.md#tests)); 0 bytes per frame with 320 3D joints (parts collide only with the floor: new contact pairs make Jitter2 allocate) |
 | `DebugDrawTests`, `FixedStepHookTests` | `DebugLines` primitives and cap, server debug draw; `BeforeFixedSteps`/`AfterFixedSteps` order and pause |
 
 Skeletal animation (ADR 0207/0208) has its suites under [`Animation/`](../../Tests/MainframeEngine.Tests/Animation/):
@@ -164,6 +165,8 @@ sequenceDiagram
   panorama fills the frame; screen-gizmo rectangles; exposure changes on frame 8), `physics` (crates and a ball dropped on a
   floor and ramp; Jitter2's deterministic solver on one thread so frames reproduce), `physics-debug` (the same with
   collision-shape debug lines, drawn into the HDR scene target with sRGB-authored colours converted to linear),
+  `physics-joints` (ADR 0211: a hinged plank bridge, a cone-twist box mannequin and a shelf whose breakable weld a crate
+  breaks, with the joint debug draw; frame 90),
   `sky-grid` (only the procedural sky and the grid, camera inside the grid so lines pass beside and behind it), since
   M3 `materials` (textured, cutout, normal-mapped, emissive, mirrored and blended primitives), `gltf` (the generated
   glTF test model imported through Assimp, plus a mirrored instance), `instances` (`--count` boxes, default 1 000,

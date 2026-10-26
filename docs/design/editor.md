@@ -407,8 +407,10 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
   accumulated screen angle around the pivot; local or global axes (scale is always local). Drawn into the view's
   `OverlayLines` (no depth test) with highlighted hover/active handles.
 - **Editor-only visuals** (never saved): `Grid3D`, orange selection boxes (mesh bounds) or crosses, sun/omni/spot icons
-  with direction, cone and (selected) range, camera frusta, audio markers and range spheres, collision shapes
-  (physics debug draw).
+  with direction, cone and (selected) range, camera frusta, audio markers and range spheres, collision shapes and joints
+  (physics debug draw; edit-mode joints are grey at their nodes). The **selected joint** (ADR 0211) is drawn on top in
+  the selection colour (`Joint3D/Joint2D.DrawDebug`: axis, limits, current angle or position) with a line to each body
+  its paths name, or a red marker for a path that names none ([Physics joints](physics-joints.md#debug-draw-and-editor)).
 - **Preview Post-Processing** (toolbar `sparkles` button and View menu, `view.post`; on by default; ADR 0169): the 3D view
   runs the edited world's post-processing (`SubViewport.PostProcessing`): its `WorldEnvironment`'s profile and lens with
   the open project's `rendering.antiAliasing`, `taaSharpness` and `exposure`, as the game shows them (TAA, SSAO, auto
@@ -835,8 +837,11 @@ tab stay single-node. In the view the gizmo moves every selected node ([Multi-no
 A `.mres` file opened from the FileSystem panel is edited in the inspector (`EditedResource`) with its own undo
 history and Save. `ICustomInspector` gets an `IInspectorContext` (a scene or a resource; the `EditedScene` overload
 still works), so a custom inspector can act on either. The shipped examples are `AudioBusLayoutInspector` (a mixer strip
-for `AudioBusLayout` buses, every change undoable) and the [sound designer](#sound-designer). Game assemblies'
-`[CustomInspector]`s are found when they load.
+for `AudioBusLayout` buses, every change undoable) and the [sound designer](#sound-designer). Nodes have them too:
+`LightProbeVolumeInspector` (Bake Lighting), the joints' `Joint3DInspector`/`Joint2DInspector` (Rebuild, and Swap A/B as
+one undo step) and `Skeleton3DInspector` (Create physical skeleton: `PhysicalBoneSimulator3D.Build` added as one undo
+step; ADR 0212, [Physics joints → Ragdolls](physics-joints.md#ragdolls)). Game assemblies' `[CustomInspector]`s are
+found when they load.
 
 **`OnPropertyChanged(target, property, context)`** (default method: nothing) tells a custom inspector about every
 committed change to its target, including edits made by the generated rows, which bypass it. It is called once per

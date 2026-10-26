@@ -271,5 +271,34 @@ wait 10
 command edit.undo # the two locks
 command edit.undo
 wait 3
+# Joints (ADR 0211): the Physics 3D bridge's middle hinge selected (its gizmo and lines to both planks), Swap A/B and
+# its undo; then Create physical skeleton (ADR 0212) on the Animation 3D character, after deleting its simulator, undone.
+click #tool-select
+open Examples/Demo/Assets/Scenes/physics_3d.mscene
+wait 10
+select Bridge/Hinge5
+camera -4.3 2.2 -5 1.6 -24 -14
+wait 5
+capture 25-joint-gizmo
+inspector-header joint-swap
+wait 3
+capture 25b-joint-swapped
+key Z cmd
+wait 3
+open Examples/Demo/Assets/Scenes/animation_3d.mscene
+wait 10
+select Crew/Armature/PhysicalBoneSimulator3D
+key Delete
+wait 3
+select Crew/Armature
+inspector-header skeleton-physical
+camera 0 0.95 0 2.4 25 -8
+wait 5
+capture 26-physical-skeleton
+key Z cmd
+wait 3
+key Z cmd
+wait 3
+click #tool-translate
 state
 quit

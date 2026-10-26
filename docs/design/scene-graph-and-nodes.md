@@ -93,6 +93,7 @@ classDiagram
 | `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | batched mesh drawables — see [Materials & meshes](materials-and-meshes.md) |
 | `SubViewport` | [Scene/SubViewport.cs](../../MainframeEngine/Src/Scene/SubViewport.cs) | offscreen view with its own world |
 | `SpineNode`, `NetworkNode` | [Nodes/](../../MainframeEngine/Src/Nodes/) | existing drawables, retargeted onto `VisualInstance3D` |
+| `Joint3D` (+6), `Joint2D` (+6), `Ragdoll3D`, `PhysicalBone3D`, `PhysicalBoneSimulator3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/), [Physics/2D/](../../MainframeEngine/Src/Physics/2D/), [Physics/Ragdoll/](../../MainframeEngine/Src/Physics/Ragdoll/) | joints and ragdolls — see [Physics joints and ragdolls](physics-joints.md) |
 
 ## The tree
 

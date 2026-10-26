@@ -49,6 +49,9 @@ Code: [`Src/Animation/`](../../MainframeEngine/Src/Animation/) (`Animation`, tra
   mesh follows; without one it draws its bind pose (the editor warns).
 - **`BoneAttachment3D`**, a child of the skeleton, sets its transform to `BoneName`'s skeleton-space pose whenever the
   pose changes: put a tool, a hat or a light under it. Its own transform is overwritten.
+- **Ragdolls:** a `PhysicalBoneSimulator3D` child with `PhysicalBone3D` bodies follows the animation and, once
+  simulated, writes the bones' poses after the `AnimationPlayer` (ADR 0212,
+  [Physics joints → Ragdolls](physics-joints.md#ragdolls)); the editor's Skeleton3D inspector creates one.
 
 ## AnimationPlayer
 
