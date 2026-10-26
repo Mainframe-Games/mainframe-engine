@@ -28,10 +28,18 @@ public sealed class ForestCameras : Node
     /// <summary>How far ahead on the spline the fly-over looks.</summary>
     public const float LookAhead = 14f;
 
+    /// <summary>
+    /// The least height the fly-over keeps above the ground or the water (the meadow's grass and the pond's reeds reach
+    /// about a metre). The spline's points stand higher, but between them the curve can sag into rising ground (the
+    /// first leg, north from the trailhead) or skim the pond: there the path is lifted, eased over ±half a segment.
+    /// </summary>
+    public const float MinClearance = 1.5f;
+
     private const int SamplesPerSegment = 32;
 
     private readonly Vector3[] _points = new Vector3[ForestBenchmark.Spline.Length];
     private float[] _lengths = [];
+    private float[] _lift = [];
     private Camera3D? _cinematic;
     private FreeFlyCamera? _free;
     private float _distance;
@@ -223,8 +231,10 @@ public sealed class ForestCameras : Node
         if (_resolved)
             return;
         _resolved = true;
-        ForestBenchmark.ResolveSpline(Height, Tree?.Root.World3D.Water, _points);
+        var water = Tree?.Root.World3D.Water;
+        ForestBenchmark.ResolveSpline(Height, water, _points);
         var segments = _points.Length;
+        _lift = Lift(segments * SamplesPerSegment, water);
         _lengths = new float[segments * SamplesPerSegment + 1];
         var previous = PointAt(0f);
         for (var i = 1; i < _lengths.Length; i++)
@@ -235,8 +245,58 @@ public sealed class ForestCameras : Node
         }
     }
 
-    /// <summary>A point on the closed Catmull-Rom loop through the spline at <paramref name="t"/> (0 … points).</summary>
+    /// <summary>
+    /// How far each of the loop's <paramref name="samples"/> points is lifted to keep <see cref="MinClearance"/> over the
+    /// ground and the water: what each needs, widened by a running maximum over ±half a segment and then averaged over as
+    /// much, so the lift is never less than a point needs and eases in and out instead of following every bump.
+    /// </summary>
+    private float[] Lift(int samples, WaterQueries? water)
+    {
+        var need = new float[samples];
+        for (var i = 0; i < samples; i++)
+        {
+            var p = CurveAt((float)i / SamplesPerSegment);
+            var ground = Height(p.X, p.Z);
+            var surface = water?.SurfaceHeightAt(new Vector3(p.X, ground, p.Z)) ?? float.NaN;
+            if (float.IsFinite(surface))
+                ground = MathF.Max(ground, surface);
+            need[i] = MathF.Max(0f, ground + MinClearance - p.Y);
+        }
+
+        const int window = SamplesPerSegment / 2;
+        var widened = new float[samples];
+        for (var i = 0; i < samples; i++)
+            for (var k = -window; k <= window; k++)
+                widened[i] = MathF.Max(widened[i], need[((i + k) % samples + samples) % samples]);
+        var lift = new float[samples];
+        for (var i = 0; i < samples; i++)
+        {
+            var sum = 0f;
+            for (var k = -window; k <= window; k++)
+                sum += widened[((i + k) % samples + samples) % samples];
+            lift[i] = sum / (2 * window + 1);
+        }
+
+        return lift;
+    }
+
+    /// <summary>A point on the closed loop at <paramref name="t"/> (0 … points): the curve, lifted clear of the ground.</summary>
     private Vector3 PointAt(float t)
+    {
+        var p = CurveAt(t);
+        if (_lift.Length == 0)
+            return p;
+        var u = t * SamplesPerSegment;
+        var i = (int)MathF.Floor(u);
+        var f = u - i;
+        var n = _lift.Length;
+        i = ((i % n) + n) % n;
+        p.Y += float.Lerp(_lift[i], _lift[(i + 1) % n], f);
+        return p;
+    }
+
+    /// <summary>A point on the closed Catmull-Rom loop through the spline at <paramref name="t"/> (0 … points).</summary>
+    private Vector3 CurveAt(float t)
     {
         var n = _points.Length;
         var i = (int)MathF.Floor(t);

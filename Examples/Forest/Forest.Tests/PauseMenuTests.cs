@@ -455,6 +455,20 @@ public sealed class ForestCamerasTests
     }
 
     [Fact]
+    public void TheFlyOverClearsTheGroundBetweenItsPoints()
+    {
+        // A hill on the first leg (north from the trailhead), lower at the spline's points than between them: the curve
+        // sagged into rising ground there.
+        static float Ground(float x, float z) => 8f * MathF.Exp(-((x - 61f) * (x - 61f) + (z - 184f) * (z - 184f)) / 120f);
+        var cameras = new ForestCameras { GroundHeight = Ground };
+        for (var d = 0f; d < cameras.FlyOverLength; d += 0.5f)
+        {
+            var p = cameras.FlyOverPosition(d);
+            Assert.True(p.Y >= Ground(p.X, p.Z) + ForestCameras.MinClearance - 0.05f, $"the fly-over is {p.Y - Ground(p.X, p.Z):0.00} m above the ground at {p}");
+        }
+    }
+
+    [Fact]
     public void TheMenuStopsThePlayerAndGivesControlBackToTheView()
     {
         var (h, player, cameras) = Setup();
