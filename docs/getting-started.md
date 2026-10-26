@@ -144,6 +144,11 @@ crew.GetNode<Skeleton3D>("Armature").AddChild(hand);
 hand.AddChild(tool);                                         // the tool and a torch light ride on the hand
 ```
 
+For clips that travel (a walk that covers ground, a leap), let the clip move the body: set the player's
+`RootMotionTrack` to the skeleton (`"Armature"`), `RootMotionBone` to the hips (or a `root` bone above them) and
+`CallbackModeProcess` to `Physics`, put the character under a `CharacterBody3D`, and call `ApplyRootMotion(player)`
+before `MoveAndSlide()` in its `OnPhysicsProcess` ([Root motion](design/animation.md#root-motion)).
+
 Skinned meshes cast shadows, take outline overlays and are picked in their pose. The Demo's **Animation 3D** scene shows
 all of it.
 

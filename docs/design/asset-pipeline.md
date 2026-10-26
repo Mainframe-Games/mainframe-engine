@@ -121,7 +121,7 @@ regenerate it, run `UPDATE_TEST_ASSETS=1 dotnet test Tests/MainframeEngine.Tests
 A unit test fails if the committed copy and the generator drift apart.
 
 `SkinnedCharacter.cs` next to it generates the skinned character (`Tests/Assets/Models/Character/character.glb`, also
-in the Demo): a 31-bone Blender-style rig, a two-primitive skinned mesh of about 6 000 triangles and eight clips
+in the Demo): a 31-bone Blender-style rig, a two-primitive skinned mesh of about 6 000 triangles and ten clips
 ([Animation and skinning → Testing](animation.md#testing)).
 
 ## Known issues

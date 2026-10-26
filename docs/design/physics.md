@@ -64,6 +64,7 @@ classDiagram
         +float FloorMaxAngle, FloorSnapLength, SafeMargin
         +bool FloorStopOnSlope
         +MoveAndSlide() bool
+        +ApplyRootMotion(AnimationPlayer)
         +IsOnFloor() / IsOnWall() / IsOnCeiling()
         +GetSlideCollision(i)
     }
@@ -324,6 +325,13 @@ Neither library ships a character controller, so it is the engine's. Call `MoveA
 
 The final position is written to the node, which turns into a kinematic move of the body for this step, so dynamic
 bodies in its way are pushed (the body collides with what its layer meets, even outside its own mask).
+
+**Root motion** ([ADR 0210](../../memory/decisions/0210-root-motion.md),
+[Animation → Root motion](animation.md#root-motion)): `CharacterBody3D.ApplyRootMotion(player)`, called before
+`MoveAndSlide()`, sets `Velocity` from the `AnimationPlayer`'s last root motion (turned into world space by the skeleton's
+global basis, divided by the physics step; only the horizontal part unless the player's `RootMotionVertical`, so gravity
+the game adds still applies) and turns the body by the motion's yaw about the skeleton's up axis. The player runs in
+the `Physics` callback mode so there is one motion per step; collisions still stop and slide the body as usual.
 
 **EPA warnings.** The casts, the recovery and the settle run with Jitter2's log listener detached (`JitterLogMute`):
 EPA not converging is expected there (the next query takes over), and Jitter2 formats its warning string whenever a

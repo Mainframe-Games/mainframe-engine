@@ -33,8 +33,8 @@ and an Animation panel. It does not give an agent a way to make a clip:
   on disk does not show up in an open scene.
 - **The G1a panel edits keys, not poses.** It has no bones in the viewport, no IK, no curves and no onion skin, so
   fixing a character's pose means typing quaternions.
-- **Root motion is an open question** ([keyframe animation, open question 3](keyframe-animation.md#open-questions)),
-  and a jump either moves the body by physics or by the clip.
+- **Root motion** has shipped (G1e, [Animation and skinning → Root motion](../animation.md#root-motion)); the baker
+  still has to write it, so a baked jump either moves the body by physics or carries its trajectory in the hips.
 
 ## Goals
 
@@ -222,7 +222,7 @@ the script is not kept by the engine ([open question 1](#open-questions)).
   - `"inPlace"` (default): the clip never translates the character. Horizontal hips drift and the arcs' vertical
     displacement are removed; key offsets stay (a crouch still lowers the hips). This is the jump for a game whose
     `CharacterBody3D` does the jumping.
-  - `"motion"`: arcs and horizontal motion are kept and written as root motion ([below](#g1e-root-motion)).
+  - `"motion"`: arcs and horizontal motion are kept and written as root motion ([G1e](../animation.md#root-motion)).
 - **Validation.** The script is parsed with a source-generated `System.Text.Json` context (AOT-safe, like
   `AssetJsonContext`). Errors name the JSON path and the problem (`keys[3].joints.LeftKnee: unknown bone (did you mean
   LeftLowerLeg?)`), exit code 2, nothing written.
@@ -398,21 +398,11 @@ Every instance of the model gets them; no scene is edited. A baked clip in the d
 
 ### G1e: root motion
 
-- **`AnimationPlayer`** gains `[Export] NodePath RootMotionTrack` (the skeleton) and `[Export] string RootMotionBone`
-  (Godot's `root_motion_track`), plus `[Export] bool RootMotionVertical` (default false). Each update the player
-  evaluates that bone's position and yaw, applies the pose **without** that motion (horizontal position and yaw, plus
-  vertical when `RootMotionVertical`), and accumulates the difference since the last update into
-  `GetRootMotionPosition()` and `GetRootMotionRotation()` (character space, consumed per update). Loop wraps add the
-  clip's full displacement, so a looping walk keeps walking. Crossfades blend the two clips' deltas by weight.
-- **Which bone.** Rigs with a bone above the hips (Unreal-style `root`) use it; Mixamo-style rigs, whose hips are the top
-  bone, use the hips. The baker in `root: "motion"` writes the trajectory into that bone and the rest of the hips motion
-  below it.
-- **`CharacterBody3D`** (`MainframeEngine/Src/Physics/3D/CharacterBody3D.cs`) keeps its API: `MoveAndSlide()` reads
-  `Velocity`. A convenience `ApplyRootMotion(AnimationPlayer player)` sets `Velocity` from the player's position delta (rotated
-  to the body's basis, times `PhysicsTicksPerSecond`) and turns the body by the yaw delta; the game calls it before
-  `MoveAndSlide()`.
-  The player must run in `Physics` callback mode (a node warning says so when `RootMotionTrack` is set).
-- This resolves [keyframe animation, open question 3](keyframe-animation.md#open-questions).
+✅ Shipped (ADR 0210): `AnimationPlayer.RootMotionTrack`/`RootMotionBone`/`RootMotionVertical`,
+`GetRootMotionPosition()`/`GetRootMotionRotation()` and `CharacterBody3D.ApplyRootMotion`; the design is now in
+[Animation and skinning → Root motion](../animation.md#root-motion). What remains here is the baker's side: in
+`root: "motion"` the baker writes the trajectory into the root motion bone (a bone above the hips when the rig has one,
+else the hips) and the rest of the hips motion below it.
 
 ### G1d: character animation editing
 
@@ -474,7 +464,7 @@ Designed in outline here; each gets its own detailed design when it starts.
   - Edits: absolute, relative and scaled values; `range`; `insert`; key times, counts and eases of untouched keys are
     unchanged (a hand-added key survives); `--replace` guard via `BakedHash`.
   - `AnimationChecks`: one crafted clip per check that triggers it, and one clean clip that passes all.
-  - Root motion: accumulated deltas over a non-looping and a looping clip, crossfade weighting, vertical flag.
+  - Root motion (shipped, `RootMotionTests`/`RootMotionCharacterTests`): the baker's `motion` clips play through it.
   - Script parsing: errors carry JSON paths and suggestions.
 - **CLI (`Tests/MainframeEngine.Tests/Cli/`):** `MfeCli.Run` with captured output, as `L10nCliTests` does
   (`Tests/MainframeEngine.Tests/Localization/L10nCliTests.cs`): `rig`, `bake`, `describe`, `check`, `list`, `--json`
@@ -535,7 +525,8 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
 
 **G1e**
 
-20. **G1.20 Root motion.** `RootMotionTrack`/`RootMotionBone`/`RootMotionVertical`, extraction and accumulation, loop
+20. ✅ **G1.20 Root motion.** (Shipped, ADR 0210, except the baker's `motion`, which waits for the G1c baker.)
+    `RootMotionTrack`/`RootMotionBone`/`RootMotionVertical`, extraction and accumulation, loop
     wrap, crossfade, `CharacterBody3D.ApplyRootMotion`, node warning, baker `motion`; unit tests, allocation gate;
     `physics.md`; a Demo jump with root motion.
 

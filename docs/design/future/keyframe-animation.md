@@ -481,7 +481,7 @@ in `limits.json` (`Skin.MaxJoints` in C#; the shader takes the joint count as a 
 `EventTrack` until method tracks exist.
 
 Still planned for G1b: morph targets, instancing identical skinned characters, and the editor's "Save animations as
-`.mres`" ([G7](editor-viewport-tools.md)). Root motion is G1e ([Animation authoring](animation-authoring.md#g1e-root-motion)).
+`.mres`" ([G7](editor-viewport-tools.md)). Root motion shipped as G1e ([Animation and skinning → Root motion](../animation.md#root-motion)).
 
 ## Testing
 
@@ -568,7 +568,7 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
    `$AssimpFbx$` pivot nodes unless its `PRESERVE_PIVOTS` option is off (the importer passes no options today), and
    morph targets and sparse accessors are uneven. A managed glTF reader would be exact for glTF. Candidate if needed:
    SharpGLTF (MIT, actively maintained). New dependency: discuss first.
-3. ~~**Root motion.**~~ Resolved: G1e in [Animation authoring](animation-authoring.md#g1e-root-motion)
+3. ~~**Root motion.**~~ Resolved and shipped: G1e, [Animation and skinning → Root motion](../animation.md#root-motion) (ADR 0210)
    (`RootMotionTrack`/`RootMotionBone` on the player, `CharacterBody3D.ApplyRootMotion`).
 4. **Large clips in JSON.** Imported clips are never written, but a clip saved as `.mres` (G7) can be megabytes of JSON.
    A binary sidecar would revisit ADR 0011.
