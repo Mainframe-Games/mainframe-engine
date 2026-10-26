@@ -163,4 +163,50 @@ public sealed class Ragdoll3DTests : IDisposable
         root.Free();
         copy.Free();
     }
+
+    [Fact]
+    public void ARagdollMovedRightAfterItIsAddedKeepsItsJointsTogether()
+    {
+        // Review fix 1: the parts are already held kinematic when the game moves the ragdoll to its spawn point, so the
+        // move is only a target the next step applies; the joints' frames must come from that pose, not the old one.
+        // A whole-body move shifts every part alike, so it shows on a joint to the world (a hook) and on one part moved
+        // on its own (as an animation posing the limbs at spawn would).
+        _h.AddFloor();
+        var joints = new List<Joint3D>();
+        var ragdoll = AddMannequin(Vector3.Zero, joints);
+        var hook = new PinJoint3D { Name = "Hook", Position = new Vector3(0, 1.67f, 0), NodeB = "../Torso" };
+        ragdoll.AddChild(hook);
+        joints.Add(hook);
+        ragdoll.GlobalPosition = new Vector3(5, 0, 3);
+        ragdoll.GetNode<RigidBody3D>("ArmL").RotationDegrees = new Vector3(0, 0, -40);
+        _h.Run(2);
+        ragdoll.StartSimulation();
+        _h.Run(1);
+        foreach (var joint in joints)
+            Assert.True(joint.GetSeparation() < 0.03f, $"{joint.Name} separated {joint.GetSeparation()} m");
+    }
+
+    [Fact]
+    public void APartTakenOutOfTheRagdollIsAnOrdinaryBodyAgain()
+    {
+        // Review fix 3: held kinematic and the exclusion group are the ragdoll's state; a part that leaves it drops both.
+        _h.AddFloor();
+        var ragdoll = AddMannequin(Vector3.Zero);
+        _h.Run(2);
+        var arm = ragdoll.GetNode<RigidBody3D>("ArmL");
+        Assert.True(arm.HeldKinematic);
+        Assert.NotEqual(0, arm.ExclusionGroup);
+        var y = arm.GlobalPosition.Y;
+        ragdoll.RemoveChild(arm);
+        _h.Scene.AddChild(arm);
+        Assert.False(arm.HeldKinematic);
+        Assert.Equal(0, arm.ExclusionGroup);
+        _h.RunSeconds(0.5f);
+        Assert.True(arm.GlobalPosition.Y < y - 0.3f, $"the arm falls: {arm.GlobalPosition}");
+
+        _h.Scene.RemoveChild(arm);
+        ragdoll.AddChild(arm); // and joins again in the ragdoll's state
+        Assert.True(arm.HeldKinematic);
+        Assert.NotEqual(0, arm.ExclusionGroup);
+    }
 }

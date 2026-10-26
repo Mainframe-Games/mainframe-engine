@@ -181,8 +181,6 @@ public sealed partial class PhysicsSpace2D
     private void TryCreate(JointRecord2D record)
     {
         var node = record.Node;
-        if (!node.IsEffectivelyEnabled)
-            return; // Box2D has no joint enable flag: a disabled joint does not exist there (frames are kept)
         if (!TryResolve(record, node.NodeA, out var a) || !TryResolve(record, node.NodeB, out var b))
             return;
         if (a is null && b is null)
@@ -200,12 +198,17 @@ public sealed partial class PhysicsSpace2D
             var pose = node.GlobalTransform;
             var poseB = node.GetAnchorB(pose);
             var angle = pose.Rotation + node.FrameAngle;
-            record.FrameA = LocalFrame(bodyA, pose.Origin, angle);
-            record.FrameB = LocalFrame(bodyB, poseB, angle);
+            record.FrameA = LocalFrame(a, bodyA, pose.Origin, angle);
+            record.FrameB = LocalFrame(b, bodyB, poseB, angle);
             record.FramedA = a?.Node;
             record.FramedB = b?.Node;
             record.HasFrames = true;
         }
+
+        // Box2D has no joint enable flag: a disabled joint does not exist there. Its frames are captured above all the
+        // same, so enabling it later joins the bodies as authored.
+        if (!node.IsEffectivelyEnabled)
+            return;
 
         var def = b2DefaultJointDef();
         def.bodyIdA = bodyA;
@@ -276,9 +279,19 @@ public sealed partial class PhysicsSpace2D
         return _worldBody;
     }
 
-    private B2Transform LocalFrame(B2BodyId body, Vector2 point, float rotation)
+    // The joint's pose in the body's frame, where the body is authored to be: a kinematic body's node move is only a
+    // target until the step applies it, so its node pose counts, not where Box2D still has it.
+    private B2Transform LocalFrame(BodyRecord2D? record, B2BodyId body, Vector2 point, float rotation)
     {
         var xf = b2Body_GetTransform(body);
+        if (record is { HasTarget: true })
+            xf = new B2Transform(ToB2(record.TargetPosition / PixelsPerMeter), b2MakeRot(record.TargetRotation));
+        else if (record is { TransformDirty: true })
+        {
+            var global = record.Node.GlobalTransform;
+            xf = new B2Transform(ToB2(global.Origin / PixelsPerMeter), b2MakeRot(global.Rotation));
+        }
+
         var p = ToB2(point / PixelsPerMeter);
         var q = b2MakeRot(rotation);
         return new B2Transform(b2InvTransformPoint(in xf, in p), b2InvMulRot(in xf.q, in q));
@@ -308,10 +321,11 @@ public sealed partial class PhysicsSpace2D
     {
         if (_brokenJoints.Count == 0)
             return;
-        // Index loop: a handler may break or free other joints (a freed joint is skipped).
+        // Index loop: a handler may break or free other joints. A freed joint is skipped, and so is one a body signal
+        // handler rebuilt since it broke (no longer broken).
         for (var i = 0; i < _brokenJoints.Count; i++)
-            if (!_brokenJoints[i].Removed)
-                _brokenJoints[i].Node.EmitBroken();
+            if (_brokenJoints[i] is { Removed: false, Broken: true } joint)
+                joint.Node.EmitBroken();
         _brokenJoints.Clear();
     }
 

@@ -450,7 +450,7 @@ public class ConeTwistJoint3D : Joint3D
 [EditorIcon("ruler-2", Family = EditorIconFamily.Physics)]
 public class DistanceJoint3D : Joint3D
 {
-    /// <summary>Body B's anchor in the joint's local space. Re-creates the joint.</summary>
+    /// <summary>Body B's anchor in the joint's local space. Changing it re-creates the joint like <see cref="Joint3D.Rebuild"/> (clears <see cref="Joint3D.IsBroken"/>).</summary>
     [Export]
     public Vector3 AnchorB
     {

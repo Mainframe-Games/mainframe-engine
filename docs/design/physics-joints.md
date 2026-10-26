@@ -32,7 +32,7 @@ Godot's: a joint is a node whose global pose gives the anchor and axes; `NodeA`/
 
 | Member | Notes |
 |---|---|
-| `NodeA`, `NodeB` | Changing one re-creates the joint (re-capturing its frames) |
+| `NodeA`, `NodeB` | Changing one re-creates the joint like `Rebuild()`: frames re-captured and `IsBroken` cleared (it is a new joint). So do the shape-giving `DistanceJoint3D.AnchorB`, `GrooveJoint2D.Length`/`InitialOffset` and `DampedSpringJoint2D.Length` |
 | `ExcludeNodesFromCollision` (3D) / `DisableCollision` (2D) | Default true: the joined bodies don't collide while the joint exists and is enabled |
 | `Enabled` | 3D: the constraints are disabled and kept. 2D: the Box2D joint is destroyed and re-created (no enable flag). A node under `ProcessMode.Disabled` counts as off |
 | `BreakForce`, `BreakTorque` | 0 = never. N and N·m in 3D, kg·px/s² and kg·px²/s² in 2D |
@@ -88,7 +88,9 @@ Box2D's prismatic and wheel axis is frame A's X, so the groove's frames are turn
   order paths are set in don't matter. Paths resolve with `GetNodeOrNull` from the joint. A path to a non-body or to
   another world's body, or both paths on one body, logs one error; both paths empty is a silent inactive joint.
 - **Frames** are the joint's pose (and a type's second anchor) in each body's local space, captured as soon as both
-  bodies are present and kept while the paths stay the same. 3D constraints are initialised and then their data is set
+  bodies are present and kept while the paths stay the same — even for a joint that is disabled or waiting for a dynamic
+  body. A kinematic body's node move is a target the next step applies, so the frames use the node's pose then (a
+  ragdoll moved to its spawn point right after it was added). 3D constraints are initialised and then their data is set
   from the frames (`LocalAnchor1/2`, axes, `Q0` = the authored relative rotation), so a re-created joint joins its
   bodies as authored and measures its limits from the authored pose wherever the bodies are. Moving a joint node after
   creation does nothing (Godot); `Rebuild()` re-captures.
@@ -102,7 +104,8 @@ Box2D's prismatic and wheel axis is frame A's X, so the groove's frames are turn
 - **Breaking.** 3D: after the step, joints with a threshold (a `_breakable` list) sum their last substep's linear
   impulses (socket, point-on-line, distance, linear motor) and angular ones (hinge, fixed, cone, twist) and divide by the
   substep length. 2D: Box2D's thresholds and `b2World_GetJointEvents`. A breaking joint is destroyed, `IsBroken` set, and
-  `Broken` raised after the body signals, in joint creation order; handlers may free nodes (freed joints are skipped).
+  `Broken` raised after the body signals, in joint creation order; handlers may free nodes (freed joints are skipped), and a
+  joint a body-signal handler rebuilt in that step raises no `Broken`.
 - **Edit mode** creates records like bodies but never steps, so joints draw grey at their nodes.
 
 ## Debug draw and editor
@@ -142,7 +145,8 @@ siblings because a parent's physics pose write teleports body children. Visuals 
 Holding is run-time state (`RigidBody3D.HeldKinematic`, internal): the parts' saved `Mode` is untouched. Held bodies are
 not interpolated, so moving their nodes every frame becomes exact kinematic velocities. Joints between two held parts
 wait and come back, at their authored frames, when the simulation starts. Exclusion is a group id shared by the parts
-(`CollisionObject3D.ExclusionGroup`), checked by the broad-phase filter.
+(`CollisionObject3D.ExclusionGroup`), checked by the broad-phase filter. A part that leaves the ragdoll (removed,
+reparented: a dismembered arm) drops both and is an ordinary body again; one that is added picks them up.
 
 ### `PhysicalBone3D` and `PhysicalBoneSimulator3D`
 
@@ -152,9 +156,9 @@ Godot 4.3's structure: a `PhysicalBoneSimulator3D` is a child of a `Skeleton3D` 
 | `PhysicalBone3D` | Notes |
 |---|---|
 | `BoneName` | The bone it drives |
-| `BodyOffset` | The body relative to the bone |
+| `BodyOffset` | The body relative to the bone (live) |
 | `JointType` | `None`, `Pin`, `ConeTwist` (default), `Hinge`, `Slider`: the joint to the physical bone of the nearest ancestor bone |
-| `JointOffset` | The joint frame relative to the body |
+| `JointOffset` | The joint frame relative to the body. Changing it or `JointType` re-creates the joint, at the ready pose |
 | "Joint" group | `SwingSpanDegrees` (45), `TwistSpanDegrees` (30), `LowerAngleDegrees`/`UpperAngleDegrees`, `LowerDistance`/`UpperDistance`: live |
 
 | `PhysicalBoneSimulator3D` | Notes |
@@ -164,12 +168,16 @@ Godot 4.3's structure: a `PhysicalBoneSimulator3D` is a child of a `Skeleton3D` 
 | `PhysicalBonesStopSimulation()`, `IsSimulating`, `PhysicalBones` | |
 | `Build(skeleton)` | A physical skeleton for the skeleton (see below), not added |
 
-On ready (not in the editor's edit mode) the simulator puts each body at its bone's pose × `BodyOffset`, creates each
-joint as an internal child node (no owner: not saved, not in the editor's tree) and flushes the space, so joint limits
-are measured from the pose the skeleton had then. Held bodies follow the animated bones in the fixed step (kinematic
-moves: they push and are hit by rays). Simulated bones' poses are written in `OnProcess` at process priority 1000 —
-after `AnimationPlayer`, before skinning — from their bodies' rendered poses, parents first, blended by `Influence`.
-The bodies of one simulator never collide with each other.
+On ready (not in the editor's edit mode) the simulator puts each body at its bone's pose × `BodyOffset`, remembers
+that ready pose, and creates each joint as an internal child node (no owner: not saved, not in the editor's tree) whose
+frames are set from the ready poses, so joint limits are measured from the pose the skeleton had then — also for a
+joint re-created at run time by a new `JointType` or `JointOffset`. Held bodies follow the animated bones in the fixed
+step (kinematic moves: they push and are hit by rays). Simulated bones' poses are written in `OnProcess` at process
+priority 1000 — after `AnimationPlayer`, before skinning — from their bodies' rendered poses, parents first, blended
+by `Influence` with the animated pose. The animated pose is kept per bone: a bone still holding what the blend wrote
+last frame (no track, a paused clip, an animation stepped at the physics rate) blends with the stored one, so the blend
+never feeds back into itself. The bodies of one simulator never collide with each other; a physical bone that leaves
+the simulator is an ordinary body again.
 
 ![Create physical skeleton on the Demo's character: capsules on its limbs](../images/editor-physical-skeleton.png)
 

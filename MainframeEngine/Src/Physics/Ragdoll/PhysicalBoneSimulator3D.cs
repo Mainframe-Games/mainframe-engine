@@ -23,7 +23,17 @@ public sealed class PhysicalBoneSimulator3D : Node3D
     private PhysicalBone3D[] _bones = [];
     private PhysicalBone3D?[] _byBone = [];
     private Transform3D[] _inverseOffsets = [];
+    private Transform3D[] _readyPoses = [];
     private Transform3D[] _globals = [];
+
+    // Per skeleton bone: the animated pose the blend mixes with, and what the blend last wrote. A bone whose pose still
+    // equals what was written was not re-posed by the animation (no track, paused, physics-rate animation at a higher
+    // frame rate), so the stored animated pose is used again instead of feeding the blend back into itself.
+    private Vector3[] _animatedPositions = [];
+    private Quaternion[] _animatedRotations = [];
+    private Vector3[] _writtenPositions = [];
+    private Quaternion[] _writtenRotations = [];
+    private bool[] _written = [];
     private Skeleton3D? _skeleton;
     private int _group;
     private bool _ready;
@@ -66,6 +76,8 @@ public sealed class PhysicalBoneSimulator3D : Node3D
             bone.HeldKinematic = false;
             bone.LinearVelocity = linear;
             bone.AngularVelocity = angular;
+            if (bone.BoneIndex >= 0 && bone.BoneIndex < _written.Length)
+                _written[bone.BoneIndex] = false; // the blend starts from the pose the animation has now
             IsSimulating = true;
         }
     }
@@ -87,6 +99,11 @@ public sealed class PhysicalBoneSimulator3D : Node3D
         var count = skeleton.GetBoneCount();
         _byBone = new PhysicalBone3D?[count];
         _globals = new Transform3D[count];
+        _animatedPositions = new Vector3[count];
+        _animatedRotations = new Quaternion[count];
+        _writtenPositions = new Vector3[count];
+        _writtenRotations = new Quaternion[count];
+        _written = new bool[count];
         var bones = new List<PhysicalBone3D>();
         foreach (var child in Children)
         {
@@ -106,6 +123,7 @@ public sealed class PhysicalBoneSimulator3D : Node3D
         bones.Sort(static (a, b) => a.BoneIndex.CompareTo(b.BoneIndex)); // parents before children
         _bones = [.. bones];
         _inverseOffsets = new Transform3D[_bones.Length];
+        _readyPoses = new Transform3D[_bones.Length];
         if (_group == 0)
             _group = Interlocked.Increment(ref s_groups);
         for (var i = 0; i < _bones.Length; i++)
@@ -115,14 +133,48 @@ public sealed class PhysicalBoneSimulator3D : Node3D
             bone.ExclusionGroup = _group;
             Hold(bone);
             bone.Teleport(Target(skeleton, bone));
+            bone.GlobalTransform.Decompose(out var position, out var rotation, out _);
+            _readyPoses[i] = Transform3D.FromTrs(position, Quaternion.Normalize(rotation), Vector3.One);
         }
 
         foreach (var bone in _bones)
             CreateJoint(bone);
-        // Capture the joints' frames now, at this pose (they would otherwise wait for a body to be simulated).
-        if (GetViewport() is { } viewport)
-            PhysicsServer3D.For(Tree!).FindSpace(viewport.World3D)?.FlushForQuery();
         _ready = true;
+    }
+
+    protected override void OnEnterTree()
+    {
+        base.OnEnterTree();
+        ChildEnteredTree += OnChildEnteredTree;
+        ChildExitingTree += OnChildExitingTree;
+    }
+
+    protected override void OnExitTree()
+    {
+        ChildEnteredTree -= OnChildEnteredTree;
+        ChildExitingTree -= OnChildExitingTree;
+        base.OnExitTree();
+    }
+
+    // A physical bone that leaves (removed, reparented, or the simulator leaving the tree) is an ordinary body again and
+    // stops driving its bone; one of the ready bones that comes back is held and drives it again.
+    private void OnChildExitingTree(Node child)
+    {
+        if (child is not PhysicalBone3D bone)
+            return;
+        bone.ExclusionGroup = 0;
+        bone.HeldKinematic = false;
+        if (bone.BoneIndex >= 0 && bone.BoneIndex < _byBone.Length && ReferenceEquals(_byBone[bone.BoneIndex], bone))
+            _byBone[bone.BoneIndex] = null;
+    }
+
+    private void OnChildEnteredTree(Node child)
+    {
+        if (!_ready || child is not PhysicalBone3D bone || Array.IndexOf(_bones, bone) < 0)
+            return;
+        _byBone[bone.BoneIndex] = bone;
+        bone.ExclusionGroup = _group;
+        Hold(bone);
     }
 
     protected override void OnPhysicsProcess(float delta)
@@ -158,14 +210,31 @@ public sealed class PhysicalBoneSimulator3D : Node3D
             var boneGlobal = toSkeleton * body.GlobalTransform * _inverseOffsets[physical];
             var local = parentGlobal.AffineInverse() * boneGlobal;
             local.Decompose(out var position, out var rotation, out _);
-            var animatedPosition = skeleton.GetBonePosePosition(i);
-            var animatedRotation = skeleton.GetBonePoseRotation(i);
-            position = Vector3.Lerp(animatedPosition, position, influence);
-            rotation = Quaternion.Normalize(Quaternion.Slerp(animatedRotation, Quaternion.Normalize(rotation), influence));
+            var posedPosition = skeleton.GetBonePosePosition(i);
+            var posedRotation = skeleton.GetBonePoseRotation(i);
+            if (!_written[i] || posedPosition != _writtenPositions[i] || posedRotation != _writtenRotations[i])
+            {
+                _animatedPositions[i] = posedPosition; // the animation posed the bone since our last write
+                _animatedRotations[i] = posedRotation;
+            }
+
+            position = Vector3.Lerp(_animatedPositions[i], position, influence);
+            rotation = Quaternion.Normalize(Quaternion.Slerp(_animatedRotations[i], Quaternion.Normalize(rotation), influence));
             skeleton.SetBonePosePosition(i, position);
             skeleton.SetBonePoseRotation(i, rotation);
+            _writtenPositions[i] = skeleton.GetBonePosePosition(i);
+            _writtenRotations[i] = skeleton.GetBonePoseRotation(i);
+            _written[i] = true;
             _globals[i] = parentGlobal * Transform3D.FromTrs(position, rotation, skeleton.GetBonePoseScale(i));
         }
+    }
+
+    /// <summary>A bone's <see cref="PhysicalBone3D.BodyOffset"/> changed: the pose write uses the new one at once.</summary>
+    internal void OnBodyOffsetChanged(PhysicalBone3D bone)
+    {
+        var index = Array.IndexOf(_bones, bone);
+        if (index >= 0)
+            _inverseOffsets[index] = bone.BodyOffset.AffineInverse();
     }
 
     /// <summary>A bone's joint type or offset changed (re-create its joint), or only its limits (copy them).</summary>
@@ -189,7 +258,9 @@ public sealed class PhysicalBoneSimulator3D : Node3D
     }
 
     // The joint to the physical bone of the nearest ancestor bone that has one (none for a root): an internal child of
-    // the simulator (no owner: not saved, not in the editor's tree) at the body's pose times its JointOffset.
+    // the simulator (no owner: not saved, not in the editor's tree). Its frames come from the ready pose (the body's
+    // ready pose times its JointOffset, in both bodies' ready frames), so one re-created at run time (a new JointType or
+    // JointOffset) is authored like the first, wherever the crumpled bodies are now.
     private void CreateJoint(PhysicalBone3D bone)
     {
         if (_skeleton is not { } skeleton || bone.BoneIndex < 0)
@@ -204,6 +275,8 @@ public sealed class PhysicalBoneSimulator3D : Node3D
         joint.GlobalTransform = bone.GlobalTransform * bone.JointOffset;
         joint.NodeA = "../" + parent.Name;
         joint.NodeB = "../" + bone.Name;
+        var readyBone = _readyPoses[Array.IndexOf(_bones, bone)];
+        joint.UseAuthoredFrames(parent, _readyPoses[Array.IndexOf(_bones, parent)], bone, readyBone, readyBone * bone.JointOffset);
         bone.Joint = joint;
     }
 

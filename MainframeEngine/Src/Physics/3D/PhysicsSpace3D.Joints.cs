@@ -334,8 +334,8 @@ public sealed partial class PhysicsSpace3D
             node.GlobalTransform.Decompose(out var position, out var rotation, out _);
             rotation = Quaternion.Normalize(rotation);
             var anchorB = node.GetAnchorB(node.GlobalTransform);
-            LocalFrame(bodyA, position, rotation, out record.FramePositionA, out record.FrameRotationA);
-            LocalFrame(bodyB, anchorB, rotation, out record.FramePositionB, out record.FrameRotationB);
+            LocalFrame(a, bodyA, position, rotation, out record.FramePositionA, out record.FrameRotationA);
+            LocalFrame(b, bodyB, anchorB, rotation, out record.FramePositionB, out record.FrameRotationB);
             record.AuthoredLength = Vector3.Distance(position, anchorB);
             record.FramedA = a?.Node;
             record.FramedB = b?.Node;
@@ -440,10 +440,31 @@ public sealed partial class PhysicsSpace3D
         Log.Error(message);
     }
 
-    private static void LocalFrame(RigidBody body, Vector3 position, Quaternion rotation, out Vector3 localPosition, out Quaternion localRotation)
+    // The joint's pose in the body's frame, where the body is authored to be: a kinematic body's node move is only a
+    // target until the step applies it (a ragdoll moved to its spawn point right after it was added), so its node pose
+    // counts, not where Jitter2 still has it.
+    private static void LocalFrame(BodyRecord3D? record, RigidBody body, Vector3 position, Quaternion rotation, out Vector3 localPosition,
+        out Quaternion localRotation)
     {
-        var inverse = Quaternion.Conjugate(body.Orientation.ToNumerics());
-        localPosition = Vector3.Transform(position - body.Position.ToNumerics(), inverse);
+        Vector3 origin;
+        Quaternion orientation;
+        if (record is { HasTarget: true })
+        {
+            origin = record.TargetPosition;
+            orientation = record.TargetRotation;
+        }
+        else if (record is { TransformDirty: true })
+        {
+            record.Node.GlobalTransform.Decompose(out origin, out orientation, out _);
+        }
+        else
+        {
+            origin = body.Position.ToNumerics();
+            orientation = body.Orientation.ToNumerics();
+        }
+
+        var inverse = Quaternion.Conjugate(Quaternion.Normalize(orientation));
+        localPosition = Vector3.Transform(position - origin, inverse);
         localRotation = Quaternion.Normalize(inverse * rotation);
     }
 
@@ -750,10 +771,11 @@ public sealed partial class PhysicsSpace3D
             return;
         if (_brokenJoints.Count > 1)
             _brokenJoints.Sort(JointOrder.Instance); // creation order
-        // Index loop: a handler may break or free other joints (a freed joint is skipped).
+        // Index loop: a handler may break or free other joints. A freed joint is skipped, and so is one a body signal
+        // handler rebuilt since it broke (no longer broken).
         for (var i = 0; i < _brokenJoints.Count; i++)
-            if (!_brokenJoints[i].Removed)
-                _brokenJoints[i].Node.EmitBroken();
+            if (_brokenJoints[i] is { Removed: false, Broken: true } joint)
+                joint.Node.EmitBroken();
         _brokenJoints.Clear();
     }
 

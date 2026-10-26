@@ -19,7 +19,7 @@ public abstract class Joint3D : Node3D
 {
     internal JointRecord3D? Record { get; set; }
 
-    /// <summary>The first body (empty: the static world). Changing it re-creates the joint.</summary>
+    /// <summary>The first body (empty: the static world). Changing it: Re-creates the joint like <see cref="Rebuild"/> (a new joint: frames re-captured, <see cref="IsBroken"/> cleared).</summary>
     [Export(NodeType = typeof(PhysicsBody3D))]
     public NodePath NodeA
     {
@@ -33,7 +33,7 @@ public abstract class Joint3D : Node3D
         }
     }
 
-    /// <summary>The second body (empty: the static world). Changing it re-creates the joint.</summary>
+    /// <summary>The second body (empty: the static world). Changing it: Re-creates the joint like <see cref="Rebuild"/> (a new joint: frames re-captured, <see cref="IsBroken"/> cleared).</summary>
     [Export(NodeType = typeof(PhysicsBody3D))]
     public NodePath NodeB
     {
@@ -165,6 +165,36 @@ public abstract class Joint3D : Node3D
         var pose = GlobalTransform;
         pose.Decompose(out var position, out var rotation, out _);
         DrawDebugShape(lines, Transform3D.FromTrs(position, Quaternion.Normalize(rotation), Vector3.One), GetAnchorB(pose), 0f, color);
+    }
+
+    /// <summary>
+    /// Sets the joint's frames from given poses instead of capturing them at creation: <paramref name="frame"/> (world)
+    /// expressed in <paramref name="poseA"/> and <paramref name="poseB"/> (unscaled world poses of the bodies). Call after
+    /// the paths are set (setting a path re-captures). The physical-bone simulator uses it to author joints at its ready pose.
+    /// </summary>
+    internal void UseAuthoredFrames(CollisionObject3D? bodyA, in Transform3D poseA, CollisionObject3D? bodyB, in Transform3D poseB,
+        in Transform3D frame)
+    {
+        if (Record is not { } record)
+            return;
+        frame.Decompose(out var position, out var rotation, out _);
+        rotation = Quaternion.Normalize(rotation);
+        var anchorB = GetAnchorB(frame);
+        Local(poseA, position, rotation, out record.FramePositionA, out record.FrameRotationA);
+        Local(poseB, anchorB, rotation, out record.FramePositionB, out record.FrameRotationB);
+        record.AuthoredLength = Vector3.Distance(position, anchorB);
+        record.FramedA = bodyA;
+        record.FramedB = bodyB;
+        record.HasFrames = true;
+        record.Space.MarkJointDirty(record, recapture: false);
+    }
+
+    private static void Local(in Transform3D pose, Vector3 position, Quaternion rotation, out Vector3 localPosition, out Quaternion localRotation)
+    {
+        pose.Decompose(out var origin, out var orientation, out _);
+        var inverse = Quaternion.Conjugate(Quaternion.Normalize(orientation));
+        localPosition = Vector3.Transform(position - origin, inverse);
+        localRotation = Quaternion.Normalize(inverse * rotation);
     }
 
     /// <summary>Creates the type's Jitter2 constraints into <paramref name="record"/> (bodies and frames are set).</summary>

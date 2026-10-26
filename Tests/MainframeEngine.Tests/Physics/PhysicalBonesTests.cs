@@ -129,4 +129,49 @@ public sealed class PhysicalBonesTests : IDisposable
 
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - before == 0, string.Join(", ", log));
     }
+
+    [Fact]
+    public void InfluenceDoesNotCompoundWhenNothingAnimatesTheBones()
+    {
+        // Review fix 2: with no animation rewriting the pose, the blend must mix the bodies with the animated (rest)
+        // pose, not with last frame's blend, which would creep toward the bodies whatever Influence says.
+        var simulator = AddSimulator();
+        simulator.Influence = 0.5f;
+        _h.Run(2);
+        simulator.PhysicalBonesStartSimulation(["Mid"]);
+        var mid = simulator.GetNode<PhysicalBone3D>("Bone_Mid");
+        mid.ApplyImpulse(new Vector3(0.5f, 0, 0));
+        _h.RunSeconds(3f);
+        var bodyAngle = Angle(mid.GlobalTransform.Basis.GetRotation());
+        var boneAngle = Angle(_skeleton.GetBonePoseRotation(1));
+        Assert.True(bodyAngle > 0.3f, $"the body leant over: {float.RadiansToDegrees(bodyAngle)}°");
+        Assert.InRange(boneAngle, bodyAngle * 0.5f - 0.03f, bodyAngle * 0.5f + 0.03f);
+    }
+
+    [Fact]
+    public void RunTimeJointAndOffsetChangesUseTheReadyPose()
+    {
+        // Review fix 4: a joint re-created at run time takes its frames from the pose the simulator was ready in, and a
+        // new BodyOffset applies to the pose write at once.
+        var simulator = AddSimulator();
+        _h.Run(2);
+        simulator.PhysicalBonesStartSimulation();
+        _h.RunSeconds(2f); // crumpled on the floor
+        var mid = simulator.GetNode<PhysicalBone3D>("Bone_Mid");
+        var offset = mid.JointOffset;
+        mid.JointOffset = Transform3D.FromTrs(offset.Origin + new Vector3(0.01f, 0, 0), offset.Basis.GetRotation(), Vector3.One);
+        _h.Run(1);
+        var record = mid.Joint!.Record!;
+        // At the ready pose Root's body was at (0, 2.25, 0) and Mid's at (0, 2.75, 0), both unrotated.
+        Assert.InRange(Vector3.Distance(record.FramePositionA, new Vector3(0.01f, 0.25f, 0)), 0f, 1e-3f);
+        Assert.True(mid.Joint.IsActive);
+
+        var newOffset = Transform3D.FromTrs(new Vector3(0, 0.1f, 0), Quaternion.Identity, Vector3.One);
+        mid.BodyOffset = newOffset;
+        _h.Run(1);
+        var expected = (_skeleton.GlobalTransform.AffineInverse() * mid.GlobalTransform * newOffset.AffineInverse()).Origin;
+        Assert.InRange(Vector3.Distance(_skeleton.GetBoneGlobalPose(1).Origin, expected), 0f, 1e-3f);
+    }
+
+    private static float Angle(Quaternion q) => 2f * MathF.Acos(Math.Clamp(MathF.Abs(Quaternion.Normalize(q).W), 0f, 1f));
 }

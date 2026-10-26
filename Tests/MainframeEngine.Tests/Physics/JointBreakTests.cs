@@ -118,4 +118,34 @@ public sealed class JointBreakTests : IDisposable
         _h.Run(3);
         Assert.Equal(3, names.Count); // once each
     }
+
+    [Fact]
+    public void AJointRebuiltByABodySignalInTheStepItBrokeDoesNotSignalBroken()
+    {
+        // Review minor: Broken is dispatched after the body signals; a handler that rebuilt the joint meanwhile wins.
+        // A crate lands on a welded shelf: the shelf's contact starts in the step the impact breaks the weld.
+        _h.AddStaticBox(new Vector3(0, 2, 0), new Vector3(0.2f, 4, 2), name: "Wall");
+        var shelf = _h.AddBox(new Vector3(0.6f, 2, 0), size: 1f, name: "Shelf");
+        shelf.ContactMonitor = true;
+        var weld = AddJoint(new WeldJoint3D { Name = "Weld", BreakForce = 400 }, new Vector3(0.1f, 2, 0), "Wall", "Shelf");
+        _h.RunSeconds(0.5f);
+        var crate = _h.AddBox(new Vector3(0.8f, 4.5f, 0), size: 0.5f, name: "Crate");
+        crate.Mass = 40;
+        var broken = 0;
+        var rebuilt = 0;
+        weld.Broken += () => broken++;
+        shelf.BodyEntered += body =>
+        {
+            if (body == crate && weld.IsBroken)
+            {
+                rebuilt++;
+                weld.Rebuild();
+            }
+        };
+        for (var i = 0; i < 120 && rebuilt == 0; i++)
+            _h.Run(1);
+        Assert.Equal(1, rebuilt); // the contact and the break came in the same step
+        Assert.Equal(0, broken);
+        Assert.False(weld.IsBroken);
+    }
 }

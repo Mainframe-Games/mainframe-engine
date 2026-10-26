@@ -139,12 +139,25 @@ public class Ragdoll3D : Node3D
     {
         base.OnEnterTree();
         ChildEnteredTree += OnChildEnteredTree;
+        ChildExitingTree += OnChildExitingTree;
     }
 
     protected override void OnExitTree()
     {
         ChildEnteredTree -= OnChildEnteredTree;
+        ChildExitingTree -= OnChildExitingTree;
         base.OnExitTree();
+    }
+
+    // A part that leaves (removed, reparented, or the whole ragdoll leaving the tree) is an ordinary body again: holding
+    // and the exclusion group are the ragdoll's state, which game code cannot clear. A part that comes back (or the
+    // ragdoll re-entering with its parts) picks the state up again in OnChildEnteredTree.
+    private void OnChildExitingTree(Node child)
+    {
+        if (child is not RigidBody3D part)
+            return;
+        part.ExclusionGroup = 0;
+        part.HeldKinematic = false;
     }
 
     // A part added after the ragdoll is ready joins in the ragdoll's current state.

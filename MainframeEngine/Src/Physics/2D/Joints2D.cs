@@ -23,7 +23,7 @@ public abstract class Joint2D : Node2D
 {
     internal JointRecord2D? Record { get; set; }
 
-    /// <summary>The first body (empty: the static world).</summary>
+    /// <summary>The first body (empty: the static world). Changing it re-creates the joint like <see cref="Rebuild"/> (a new joint: frames re-captured, <see cref="IsBroken"/> cleared).</summary>
     [Export(NodeType = typeof(PhysicsBody2D))]
     public NodePath NodeA
     {
@@ -37,7 +37,7 @@ public abstract class Joint2D : Node2D
         }
     }
 
-    /// <summary>The second body (empty: the static world).</summary>
+    /// <summary>The second body (empty: the static world). Changing it re-creates the joint like <see cref="Rebuild"/> (a new joint: frames re-captured, <see cref="IsBroken"/> cleared).</summary>
     [Export(NodeType = typeof(PhysicsBody2D))]
     public NodePath NodeB
     {
@@ -412,7 +412,7 @@ public class PinJoint2D : Joint2D
 [EditorIcon("wave-sine", Family = EditorIconFamily.Physics)]
 public class DampedSpringJoint2D : Joint2D
 {
-    /// <summary>The longest the spring stretches, and where body B's anchor is (pixels along the joint's +Y). Re-creates the joint.</summary>
+    /// <summary>The longest the spring stretches, and where body B's anchor is (pixels along the joint's +Y). Re-creates the joint like <see cref="Joint2D.Rebuild"/> (clears <see cref="Joint2D.IsBroken"/>).</summary>
     [Export(Range = "1,100000,1")]
     public float Length
     {
@@ -623,7 +623,7 @@ public class SliderJoint2D : Joint2D
 [EditorIcon("arrows-up-down", Family = EditorIconFamily.Physics)]
 public class GrooveJoint2D : Joint2D
 {
-    /// <summary>The groove's length in pixels along the joint's +Y. Re-creates the joint.</summary>
+    /// <summary>The groove's length in pixels along the joint's +Y. Re-creates the joint like <see cref="Joint2D.Rebuild"/> (clears <see cref="Joint2D.IsBroken"/>).</summary>
     [Export(Range = "1,100000,1")]
     public float Length
     {
@@ -631,7 +631,7 @@ public class GrooveJoint2D : Joint2D
         set => Reshape(ref field, MathF.Max(1f, value));
     } = 50f;
 
-    /// <summary>Where B's anchor starts along the groove, in pixels. Re-creates the joint.</summary>
+    /// <summary>Where B's anchor starts along the groove, in pixels. Re-creates the joint like <see cref="Joint2D.Rebuild"/> (clears <see cref="Joint2D.IsBroken"/>).</summary>
     [Export(Range = "0,100000,1")]
     public float InitialOffset
     {

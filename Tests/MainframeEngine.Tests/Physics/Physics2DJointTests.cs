@@ -306,6 +306,21 @@ public sealed class Physics2DJointTests : IDisposable
     }
 
     [Fact]
+    public void AJointAuthoredDisabledStillJoinsAtItsAuthoredFrames()
+    {
+        // Review fix 5: the frames of a joint that starts disabled are captured at the authored pose too.
+        var box = _h.AddBox(new Vector2(0, 50), size: 20);
+        var joint = AddJoint(new PinJoint2D { Name = "Pin", Enabled = false }, Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(1f);
+        Assert.False(joint.IsActive);
+        Assert.True(box.Position.Y > 200, "falls while the pin is off");
+        joint.Enabled = true;
+        _h.RunSeconds(3f);
+        Assert.True(joint.IsActive);
+        Assert.InRange(box.Position.Length(), 45f, 55f); // hanging 50 px from the pin, as authored
+    }
+
+    [Fact]
     public void ASliderMovesAlongItsAxisWithinItsLimits()
     {
         var carriage = _h.AddBox(Vector2.Zero, size: 20, name: "Carriage");

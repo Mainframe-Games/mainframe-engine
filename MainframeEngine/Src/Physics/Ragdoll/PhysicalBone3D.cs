@@ -35,7 +35,17 @@ public sealed class PhysicalBone3D : RigidBody3D
 
     /// <summary>The body's transform relative to its bone (a capsule's centre and axis along the bone).</summary>
     [Export]
-    public Transform3D BodyOffset { get; set; } = Transform3D.Identity;
+    public Transform3D BodyOffset
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+            field = value;
+            Simulator?.OnBodyOffsetChanged(this);
+        }
+    } = Transform3D.Identity;
 
     /// <summary>The joint to the nearest ancestor bone's physical bone. Changing it re-creates the joint.</summary>
     [ExportGroup("Joint")]
