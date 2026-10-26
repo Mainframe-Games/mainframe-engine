@@ -277,6 +277,25 @@ east-south-east over the glade), on a pad cut and filled level with the ground u
 - `CabinTests`: the door's eased swing, `interact` in reach and out of it, the real model keeping a player out with the
   door shut and letting them in (onto the floor) with it open; R9 on the pad.
 
+### Look pass (ADR 0209)
+
+After a playtest (2026-10-27: "the foliage isn't in the distance and the lighting looks weird; it should look like
+Unreal"): the shade was lifted so far (sky ambient 2.4) that every form washed out in one sunlit, yellow-green haze, the
+back-lit crowns and grass glowed white-yellow, the steep banks were bare sandstone and the ground cover ended at ≈ 30 m.
+
+| What | Before → after |
+|---|---|
+| Sky ambient / sun | `AmbientEnergy` 2.4 → 1.4, sun `Energy` 2 → 2.3: the shade has depth and the sky's blue |
+| Leaf tint (`ForestVegetation.Mute`) | broadleaf 0.97/0.86/0.68 → 0.78/0.84/0.62, conifers 0.96/0.9/0.78 → 0.8/0.86/0.76, aspen/birch 0.95/0.88/0.66 → 0.8/0.86/0.62 |
+| Crowns against the sun | cluster cards' translucency 0.8 → 0.45, colour 235/245/190 → 170/205/110 (new `TreeOptions.ClusterTranslucency`/`ClusterTranslucencyColor`; the impostors follow) |
+| Grass against the sun | translucency 0.75 → 0.5, colour 235/240/165 → 190/215/120 |
+| Grade (`ForestGrade`) | black lift ≈ 0.03 → 0.012; the light's warm cast halved; the shade a touch cooler; foliage half as olive |
+| Steep ground | rock from 42–54° (33–43° before) and darker (104/106/100), moss at the base of steep ground up to 75 %: forest banks are moss, litter and ferns |
+| Ground cover | grass to 46 m (36), woodland grass 1.8 → 2.2 /m² and on the needles too, to 46 m, on slopes to 50°; ferns 0.28 → 0.42 /m², to 60 m (55), on slopes to 50° |
+
+Cost on the benchmark spline (1920 × 1080, this Mac, the same session): p50 24.1 → 28.0 ms (the ground cover; a first try
+with ferns at 0.75 /m² to 85 m cost 39 ms). The pause menu's ground cover density and distance trade it back.
+
 ### Light probes
 
 The scene's `Lighting` node is a `LightProbeVolume` ([ADR 0170](../../memory/decisions/0170-light-probe-volume.md),

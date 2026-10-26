@@ -32,6 +32,9 @@ shader was capped at eight, all in use).
   stay as a backstop everywhere.
 - **Distant tree shadows** (follow-up): the impostors' shadow density 0.5 → 0.8 (at half the crowns past 55 m read
   evenly sunlit and pale); it and the impostor distance are pause-menu options.
+- **Look pass** (follow-up, after a playtest): darker shade (sky ambient 2.4 → 1.4), greener crowns that glow less
+  against the sun (new per-species cluster translucency on `TreeOptions`), a less yellow grade, mossy steep banks instead
+  of bare rock and ground cover to 46–60 m; +3.9 ms p50 on the benchmark spline.
 - **Distant mountains** are a second, coarse terrain (2048 m at 8 m, no collision, no shadows) starting at the valley's
   edge heights, with impostor-only conifers on the foothills.
 - **The cabin is a script**, not a hand-edited asset: `Tools/cabin/build_cabin.py` builds it in Blender headless

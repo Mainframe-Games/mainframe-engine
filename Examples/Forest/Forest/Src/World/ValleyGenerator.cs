@@ -776,9 +776,11 @@ public sealed class ValleyGenerator
             w[Leaves] = 0.1f;
 
         // Overrides, from the bottom up.
-        var rockBase = SmoothStep(20f, 30f, slope) * SmoothStep(-0.2f, 0.4f, convex) * 0.6f;
+        var rockBase = SmoothStep(24f, 40f, slope) * SmoothStep(-0.4f, 0.4f, convex) * 0.75f;
         Paint(w, Moss, rockBase + SmoothStep(0.3f, 0.6f, outcrop) * 0.5f * (1f - SmoothStep(30f, 38f, slope)));
-        var rock = MathF.Max(SmoothStep(33f, 43f, slope + 6f * (n3 - 0.5f)), outcrop * SmoothStep(18f, 30f, slope + 8f * convex));
+        // ADR 0209's look pass: rock from 42–54° (33–43° before): steep forest banks are moss, litter and ferns; bare rock is
+        // for real faces (the cliffs, the outcrop, cuts).
+        var rock = MathF.Max(SmoothStep(42f, 54f, slope + 6f * (n3 - 0.5f)), outcrop * SmoothStep(18f, 30f, slope + 8f * convex));
         Paint(w, Rock, rock);
 
         var edge = StreamEdgeDistance(x, z);

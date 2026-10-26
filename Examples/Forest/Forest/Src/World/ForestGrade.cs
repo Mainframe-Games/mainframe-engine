@@ -55,20 +55,24 @@ public static class ForestGrade
         var blueness = Math.Clamp((c.Z - MathF.Max(c.X, c.Y)) * 6f, 0f, 1f);
         c *= Vector3.Lerp(new Vector3(1.015f, 1f, 0.975f), Vector3.One, blueness);
 
-        // 2. The fitted tone curve, per channel.
+        // 2. The fitted tone curve, per channel; ADR 0209's look pass pulls its black lift (0.03) down to ≈ 0.012, so the
+        // shade has depth instead of a milky floor.
         c = new Vector3(Curve(c.X), Curve(c.Y), Curve(c.Z));
+        c -= new Vector3(0.018f) * (Vector3.One - c);
 
         // 3. Split toning by luminance: the shade's and the light's measured casts moved halfway to their targets.
         var l = Vector3.Dot(c, Luma);
         var shadows = 1f - SmoothStep(0f, 0.35f, l);
         var highlights = SmoothStep(0.4f, 0.95f, l);
-        c += shadows * ForestGradeFit.ShadeTint;
-        c += highlights * (1f - blueness) * ForestGradeFit.LightTint;
+        // ADR 0209: the light's warm cast halved (it read as a yellow haze over every sunlit leaf) and the shade a touch cooler
+        // (the open sky's blue in it, as in the Unreal references).
+        c += shadows * (ForestGradeFit.ShadeTint + new Vector3(-0.004f, 0f, 0.005f));
+        c += highlights * (1f - blueness) * ForestGradeFit.LightTint * 0.5f;
 
         // 4. Foliage: where green leads, a little less saturated and towards olive.
         l = Vector3.Dot(c, Luma);
         var greenness = Math.Clamp((c.Y - MathF.Max(c.X, c.Z)) * 5f, 0f, 1f);
-        c += greenness * ForestGradeFit.FoliageWarmth * new Vector3(0.035f, 0f, -0.02f);
+        c += greenness * ForestGradeFit.FoliageWarmth * 0.5f * new Vector3(0.035f, 0f, -0.02f); // ADR 0209: half as olive
         c = new Vector3(l) + (c - new Vector3(l)) * float.Lerp(1f, ForestGradeFit.FoliageSaturation, greenness);
 
         // 5. Saturation: a touch up in the mid-tones, down towards white (−8 %) and in the deepest shade (−6 %).

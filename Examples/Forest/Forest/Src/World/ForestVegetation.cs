@@ -74,6 +74,10 @@ public static class ForestVegetation
         // from level 0, which keeps their cost near the others'.
         options.ClusterFromLod = IsEzTreePreset(preset) ? 1 : 0;
         options.ClusterShadowDensity = clusterShadowDensity;
+        // ADR 0209's look pass: back-lit crowns glowed a flat yellow-white (0.8 through a 235/245/190 tint): less light
+        // through the leaves, and green, so a crown against the low sun keeps its form.
+        options.ClusterTranslucency = 0.45f;
+        options.ClusterTranslucencyColor = System.Drawing.Color.FromArgb(255, 170, 205, 110);
         options.LeafCoverageMips = true;
         options.HierarchicalWind = true;
         options.RootFlare = 1.6;
@@ -91,12 +95,14 @@ public static class ForestVegetation
     public static void Mute(TreeOptions options, string preset)
     {
         var conifer = IsConifer(preset) || preset == "Bush 3";
-        var (r, g, b) = conifer ? (0.96f, 0.9f, 0.78f) : (0.97f, 0.86f, 0.68f);
+        // ADR 0209's look pass: deeper and less yellow (0.96/0.9/0.78 and 0.97/0.86/0.68 before): the crowns read as a pale
+        // yellow-green wash against the sun.
+        var (r, g, b) = conifer ? (0.8f, 0.86f, 0.76f) : (0.78f, 0.84f, 0.62f);
         if (preset.StartsWith("Aspen", StringComparison.Ordinal) || options.LeafTexture == "aspen")
         {
             options.LeafTexture = "birch";
             options.LeafTint = System.Drawing.Color.White;
-            (r, g, b) = (0.95f, 0.88f, 0.66f);
+            (r, g, b) = (0.8f, 0.86f, 0.62f);
         }
 
         var tint = options.LeafTint;

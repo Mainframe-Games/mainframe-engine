@@ -65,7 +65,7 @@ public sealed class ForestValley : Node3D, ISceneLoadable
     [Export] public bool Dust { get; set; } = true;
 
     /// <summary>Distance at which grass is gone (it thins over the last 12 m).</summary>
-    [Export(Range = "10,80,1")] public float GrassDistance { get; set; } = 36f;
+    [Export(Range = "10,120,1")] public float GrassDistance { get; set; } = 46f; // ADR 0209: 36 → 46 (bare ground from 30 m out)
 
     /// <summary>Tree levels: level 1 from, level 2 from, and the distance at which trees end.</summary>
     [Export] public float TreeLod1Distance { get; set; } = 22f;
@@ -497,7 +497,8 @@ public sealed class ForestValley : Node3D, ISceneLoadable
         // ADR 0178: the moss scan is a vivid emerald: towards the references' olive and sage.
         material.Layers[ValleyGenerator.Moss].Tint = DrawingColor.FromArgb(255, 190, 172, 120);
         // The cliff scan is a pale sandstone: the path's cut banks and steep slopes read as bare sand facing the sun.
-        material.Layers[ValleyGenerator.Rock].Tint = DrawingColor.FromArgb(255, 132, 130, 116);
+        // ADR 0209's look pass: darker and cooler again (132/130/116 before), a weathered grey granite.
+        material.Layers[ValleyGenerator.Rock].Tint = DrawingColor.FromArgb(255, 104, 106, 100);
         return material;
     }
 
@@ -566,8 +567,9 @@ public sealed class ForestValley : Node3D, ISceneLoadable
         grassMaterial.InstanceValueJitter = 0.15f; // ADR 0175: no two clumps alike
         grassMaterial.InstanceHueJitter = 0.06f; // ADR 0178: 0.12 turned some tufts yellow
         // ADR 0178: blades lit from behind glow yellow-green (the references' back-lit meadow).
-        grassMaterial.Translucency = 0.75f;
-        grassMaterial.TranslucencyColor = DrawingColor.FromArgb(255, 235, 240, 165);
+        // ADR 0209's look pass: 0.75 through a pale 235/240/165 made the meadow a white-yellow glare against the sun.
+        grassMaterial.Translucency = 0.5f;
+        grassMaterial.TranslucencyColor = DrawingColor.FromArgb(255, 190, 215, 120);
         var density = GroundCoverDensity;
         const uint grass = 1u << ValleyGenerator.Grass, leaves = 1u << ValleyGenerator.Leaves, moss = 1u << ValleyGenerator.Moss,
             needles = 1u << ValleyGenerator.Needles, mud = 1u << ValleyGenerator.Mud, gravel = 1u << ValleyGenerator.Gravel,
@@ -612,12 +614,13 @@ public sealed class ForestValley : Node3D, ISceneLoadable
                 Mesh = GrassMesh.Clump(blades: 9, height: 0.32f, width: 0.03f, bend: 0.45f, seed: 2,
                     rootColor: new Vector4(0.08f, 0.09f, 0.04f, 1f), tipColor: new Vector4(0.35f, 0.37f, 0.2f, 1f)),
                 Material = grassMaterial,
-                Density = 1.8f * density,
-                LayerMask = leaves | moss,
+                Density = 2.2f * density, // ADR 0209: 1.8 → 2.2, and on the needles too: the floor read bare between ferns
+                LayerMask = leaves | moss | needles,
                 ScaleMin = 0.7f,
                 ScaleMax = 1.2f,
-                CullDistance = GrassDistance * 0.8f,
-                ThinBand = 10f,
+                SlopeMaxDegrees = 50f,
+                CullDistance = GrassDistance,
+                ThinBand = 18f,
                 Seed = 4,
             },
             new()
@@ -799,15 +802,15 @@ public sealed class ForestValley : Node3D, ISceneLoadable
             ResourceName = "Ferns",
             Mesh = FernMesh(),
             Material = FernMaterial(),
-            Density = 0.28f * density,
+            Density = 0.42f * density, // ADR 0209: 0.28 → 0.42: a fuller fern floor
             LayerMask = mask,
             ScaleMin = 0.55f,
-            ScaleMax = 0.95f,
+            ScaleMax = 1.05f,
             AlignToNormal = 0.3f,
             SinkMeters = 0.05f,
-            SlopeMaxDegrees = 38f,
-            CullDistance = 55f,
-            ThinBand = 15f,
+            SlopeMaxDegrees = 50f,
+            CullDistance = 60f, // 55 before
+            ThinBand = 20f,
             Seed = 6,
         };
     }
