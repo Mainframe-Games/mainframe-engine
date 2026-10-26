@@ -91,7 +91,7 @@ nothing but `[Tool]` nodes runs while editing.
 
 <table>
   <tr>
-    <td align="center" valign="top"><img src="docs/images/editor-project-manager.png" width="380" alt="The Project Manager with recent projects"><br><b>Project Manager</b> — recent projects, New Project, the Demo download</td>
+    <td align="center" valign="top"><img src="docs/images/editor-project-manager.png" width="380" alt="The Project Manager with recent projects"><br><b>Project Manager</b> — recent projects with their engine version, New Project, the Demo download</td>
     <td align="center" valign="top"><img src="docs/images/editor-add-node.png" width="380" alt="The create dialog: favourites, recent types, a searched inheritance tree and the type's description"><br><b>Create New Node</b> — favourites, recents, a searchable type tree</td>
   </tr>
   <tr>

@@ -5,7 +5,7 @@ namespace MainframeEngine.Editor;
 
 /// <summary>
 /// The Project Manager (E4, Godot's project list): shown when the editor starts without a project, and from Project ›
-/// Project Manager. Recent projects (icon, name, folder, last opened; a missing folder is flagged), a filter, New
+/// Project Manager. Recent projects (icon, name, engine badge, folder, last opened, a missing flag), a filter, New
 /// Project (the <see cref="NewProjectDialog"/>), Open Project (a <c>project.mfproj</c>), Open and Remove from the list (the files stay),
 /// Video Editor (video mode, which needs no project), and the .NET SDK check the project tools need.
 /// </summary>
@@ -19,11 +19,17 @@ public sealed class ProjectManager : EditorDocument
         public required string When { get; init; }
         public required string Folder { get; init; }
         public string Icon { get; init; } = "";
+        public string Engine { get; init; } = "";
+        public string EngineClass { get; init; } = "";
+        public string EngineTip { get; init; } = "";
         public bool Selected { get; set; }
     }
 
-    /// <summary>A listed project (Name, Path, and the absolute path of its icon PNG — "" when it has none), for tests and QA.</summary>
-    public sealed record Entry(string Name, string Path, string Icon);
+    /// <summary>
+    /// A listed project (Name, Path, the absolute path of its icon PNG — "" when it has none — and its engine badge text,
+    /// "" when it has none), for tests and QA.
+    /// </summary>
+    public sealed record Entry(string Name, string Path, string Icon, string Engine = "");
 
     private static readonly RmlStructType<Row> RowType = new RmlStructType<Row>()
         .Member("name", static r => r.Project.Name)
@@ -33,10 +39,16 @@ public sealed class ProjectManager : EditorDocument
         .Member("index", static r => r.Index)
         .Member("selected", static r => r.Selected)
         .Member("icon", static r => r.Icon)
-        .Member("has_icon", static r => r.Icon.Length > 0);
+        .Member("has_icon", static r => r.Icon.Length > 0)
+        .Member("engine", static r => r.Engine)
+        .Member("engine_class", static r => r.EngineClass)
+        .Member("engine_tip", static r => r.EngineTip);
 
     private readonly List<Row> _rows = [];
     private readonly ProjectIconResolver _icons = new();
+
+    // Engine references by project folder, read once per Open (the filter rebuilds the rows on every keystroke).
+    private readonly Dictionary<string, ProjectEngineVersion> _engines = new(StringComparer.Ordinal);
     private RmlDataModel? _model;
     private string _query = "";
     private int _selected = -1;
@@ -55,7 +67,7 @@ public sealed class ProjectManager : EditorDocument
     public DotnetSdkInfo? Sdk { get; private set; }
 
     /// <summary>The listed projects (after the filter), for tests and QA.</summary>
-    public IReadOnlyList<Entry> VisibleProjects => _rows.Select(r => new Entry(r.Project.Name, r.Project.Path, r.Icon)).ToArray();
+    public IReadOnlyList<Entry> VisibleProjects => _rows.Select(r => new Entry(r.Project.Name, r.Project.Path, r.Icon, r.Engine)).ToArray();
 
     protected override void OnReady()
     {
@@ -92,6 +104,7 @@ public sealed class ProjectManager : EditorDocument
     {
         Visible = true;
         _selected = -1;
+        _engines.Clear();
         Rebuild();
         if (_rows.Count > 0)
             Select(0);
@@ -142,12 +155,16 @@ public sealed class ProjectManager : EditorDocument
             var valid = RecentProjects.IsValid(project);
             var icon = valid ? _icons.Resolve(project.Path) : default;
             iconsChanged |= icon.Changed;
+            var (engine, engineClass, engineTip) = valid ? EngineBadge(EngineOf(project.Path), EngineInfo.Version) : ("", "", "");
             _rows.Add(new Row
             {
                 Project = project,
                 Index = _rows.Count,
                 Valid = valid,
                 Icon = icon.Path ?? "",
+                Engine = engine,
+                EngineClass = engineClass,
+                EngineTip = engineTip,
                 When = Ago(project.LastOpenedUtc),
                 Folder = folder,
             });
@@ -164,6 +181,34 @@ public sealed class ProjectManager : EditorDocument
             RmlCore.ReleaseTextures();
         _model?.DirtyAll();
     }
+
+    private ProjectEngineVersion EngineOf(string folder)
+    {
+        if (!_engines.TryGetValue(folder, out var engine))
+            _engines[folder] = engine = ProjectEngineVersion.Read(folder);
+        return engine;
+    }
+
+    /// <summary>
+    /// The badge after a project's name: its text ("v1.1.5", "source"; "" for none), the class that colours it ("old"
+    /// when opening it upgrades the package, "new" when it is newer than this editor) and its tooltip.
+    /// </summary>
+    public static (string Text, string Class, string Tooltip) EngineBadge(ProjectEngineVersion engine, string editorVersion) =>
+        engine.Source switch
+        {
+            ProjectEngineSource.Checkout => ("source", "source",
+                "Engine from source — builds against an engine checkout (project references), not a MainframeEngine package"),
+            ProjectEngineSource.Package => engine.StatusAgainst(editorVersion) switch
+            {
+                ProjectEngineStatus.Older => ("v" + engine.Version, "old",
+                    $"Engine {engine.Version} — opening the project updates its MainframeEngine package to {editorVersion}, " +
+                    "this editor's version"),
+                ProjectEngineStatus.Newer => ("v" + engine.Version, "new",
+                    $"Engine {engine.Version} — newer than this editor ({editorVersion}); update the editor to work on it"),
+                _ => ("v" + engine.Version, "", $"Engine {engine.Version} — the MainframeEngine package the project builds against"),
+            },
+            _ => ("", "", ""),
+        };
 
     /// <summary>"just now", "5 min ago", "3 h ago", "2 days ago", else the date.</summary>
     public static string Ago(DateTime utc)

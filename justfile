@@ -90,6 +90,11 @@ readme-screenshots:
     rm -rf "$projects" "$out"
     mkdir -p "$projects/Recordings"
     ln -s "{{justfile_directory()}}/Examples/Demo" "$projects/Demo"
+    # SpaceMiner is a package project, for the Project Manager's engine badge (the Demo shows "source", PuzzleBox is missing).
+    mkdir -p "$projects/SpaceMiner"
+    printf '{ "format": 4, "name": "SpaceMiner" }\n' > "$projects/SpaceMiner/project.mfproj"
+    printf '<Project><PropertyGroup><MainframeEngineVersion>1.1.5</MainframeEngineVersion></PropertyGroup></Project>\n' \
+      > "$projects/SpaceMiner/Directory.Build.props"
     build/readme-video-clip.sh "$projects/Recordings"
     dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \

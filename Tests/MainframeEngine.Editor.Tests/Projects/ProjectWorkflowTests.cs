@@ -273,6 +273,22 @@ public sealed class ProjectWorkflowTests : IDisposable
     }
 
     [Fact]
+    public void ProjectManagerShowsTheEngineVersionBadge()
+    {
+        _project.Write("Directory.Build.props", "<Project><PropertyGroup><MainframeEngineVersion>1.0.2</MainframeEngineVersion></PropertyGroup></Project>");
+        _editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true, GameBuilder = _builder, GameLauncher = _launcher });
+        var w = _editor.Workspace;
+        w.RecentProjects.Touch(Path.Combine(_project.Root, "gone"), "Gone");
+        w.RecentProjects.Touch(_project.Root, _project.Name);
+        w.ProjectManager.Open();
+        _editor.Tick(3);
+
+        Assert.Equal("v1.0.2", w.ProjectManager.VisibleProjects.Single(p => p.Name == _project.Name).Engine);
+        Assert.Equal("", w.ProjectManager.VisibleProjects.Single(p => p.Name == "Gone").Engine); // a missing project has none
+        Assert.Empty(_editor.RmlMessages);
+    }
+
+    [Fact]
     public void ProjectSettingsPreviewsTheWindowIconWhenItIsAnExistingPng()
     {
         WriteIcon();
