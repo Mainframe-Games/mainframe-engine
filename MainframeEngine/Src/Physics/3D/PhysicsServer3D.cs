@@ -64,7 +64,11 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
     /// <summary>The space simulating <paramref name="world"/>, if one exists.</summary>
     public PhysicsSpace3D? FindSpace(World3D world) => _spaces.GetValueOrDefault(world);
 
-    internal void AddObject(CollisionObject3D node)
+    internal void AddObject(CollisionObject3D node) => SpaceOf(node).AddObject(node);
+
+    internal JointRecord3D AddJoint(Joint3D node) => SpaceOf(node).AddJoint(node);
+
+    private PhysicsSpace3D SpaceOf(Node3D node)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var viewport = node.GetViewport() ?? throw new InvalidOperationException($"'{node.Name}' is not inside a viewport.");
@@ -75,7 +79,7 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
             _spaceList.Add(space);
         }
 
-        space.AddObject(node);
+        return space;
     }
 
     // In edit mode (the editor) only the spaces of a running simulation step and interpolate (G7.5); in a game, all of them.
