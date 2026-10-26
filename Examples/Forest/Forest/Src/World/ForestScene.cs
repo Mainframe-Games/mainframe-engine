@@ -55,7 +55,7 @@ public static class ForestScene
             Color = new Vector3(1f, 0.93f, 0.82f), // ADR 0178: a warm white morning sun (0.87, 0.7 before: the haze went orange)
             // 2.6 against a 1.6 sky blew out sun-facing slopes and canopy tops in shaded views: the probe-darkened shade pins
             // auto exposure at its maximum, so the sun / sky ratio is what keeps sunlit surfaces in range.
-            Energy = 2f,
+            Energy = 2.3f, // ADR 0209: 2 → 2.3 with the darker shade (auto exposure keeps the sunlit ground in range)
             CastsShadows = true,
             ShadowCascades = 4,
             ShadowResolution = 1024,
@@ -102,7 +102,9 @@ public static class ForestScene
         AmbientSource = AmbientSource.Sky,
         ReflectedLightSource = ReflectedLightSource.Sky,
         // The open canopy's skylight: shade stays readable next to the sun. ADR 0178: 2 → 2.4, the references' lifted shade.
-        AmbientEnergy = 2.4f,
+        // ADR 0209's look pass: 2.4 → 1.4. The lifted shade flattened every form (crowns, banks, the forest floor read as one
+        // sunlit wash); with the sun a little stronger the shade has depth and the sky's blue in it, as in the Unreal scenes.
+        AmbientEnergy = 1.4f,
 
         WindDirection = new Vector3(-1f, 0f, 0.25f), // from the east
         WindStrength = 0.35f,
@@ -138,8 +140,8 @@ public static class ForestScene
     };
 
     /// <summary>
-    /// The valley's probe volume (ADR 0170): terrain-following over the whole 256 m terrain, every 2 m, eight layers up to
-    /// the canopy (27 m). The valley is generated at load, so the volume checks its committed bake against what the valley
+    /// The valley's probe volume (ADR 0170): terrain-following over the whole 320 m terrain (the valley's, not the distant
+    /// mountains'), every 2 m, eight layers up to the canopy (27 m). The valley is generated at load, so the volume checks its committed bake against what the valley
     /// generated (the hash of everything the bake reads) and bakes in the background when they differ.
     /// </summary>
     public static LightProbeVolume CreateProbes() => new()
@@ -148,6 +150,7 @@ public static class ForestScene
         Position = new Vector3(ValleyLayout.SizeMeters * 0.5f, 0f, ValleyLayout.SizeMeters * 0.5f),
         Size = new Vector3(ValleyLayout.SizeMeters, 32f, ValleyLayout.SizeMeters),
         Layout = ProbeLayout.TerrainFollowing,
+        Terrain = "../Valley/Terrain",
         ProbeSpacing = new Vector3(2f),
         RaysPerProbe = 192,
         Bounces = 2,

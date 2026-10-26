@@ -258,15 +258,15 @@ public sealed class UserSettings
 
     // ── Display ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The window mode (<see cref="IWindowControl.Mode"/>); <see cref="MainframeEngine.WindowMode.Windowed"/> when unset.</summary>
+    /// <summary>The window mode (<see cref="IWindowControl.Mode"/>); the project's <see cref="WindowSettings.Mode"/> when unset.</summary>
     public WindowMode WindowMode
     {
-        get => EnumValue(DisplaySection, "mode", WindowMode.Windowed);
+        get => EnumValue(DisplaySection, "mode", _project.Window.Mode);
         set
         {
             if (!Enum.IsDefined(value))
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown window mode.");
-            if (!SetEnum(DisplaySection, "mode", value, WindowMode.Windowed, camelCase: true))
+            if (!SetEnum(DisplaySection, "mode", value, _project.Window.Mode, camelCase: true))
                 return;
             if (_tree?.Window is { } window)
                 window.Mode = value;
@@ -438,6 +438,7 @@ public sealed class UserSettings
     {
         if (Config.HasSectionKey(DisplaySection, "vsync"))
             options.VSync = VSync;
+        options.WindowMode = WindowMode;
         if (WindowSize is { } size)
             options.WindowSize = new Vector2D<int>(size.X, size.Y);
         if (Language is { } language)
@@ -561,6 +562,7 @@ public sealed class UserSettings
                     {
                         window.Mode = WindowMode.Windowed;
                         window.Size = new System.Numerics.Vector2(_project.Window.Width, _project.Window.Height);
+                        window.Mode = _project.Window.Mode;
                         window.VSync = _project.Window.VSync;
                         window.MaxFps = _project.Window.MaxFps;
                     }

@@ -127,7 +127,7 @@ the scene, for example `Assets/Scenes/world_terrain/`.
 | `terrain.mres` | both | JSON | the knobs and resource lists |
 | `heightmap.png` | both | 16-bit grey, (N+1)² | `h = HeightMin + v / 65535 · (HeightMax − HeightMin)` |
 | `surface.png` | Faceted | RGBA8, cells | R = surface id; G, B, A reserved (0) |
-| `splat-0.png`, `splat-1.png` | Realistic | RGBA8, cells | weights of layers 0–3 and 4–7 (sum 255) |
+| `splat-0.png`, `splat-1.png`, `splat-2.png` | Realistic | RGBA8, cells | weights of layers 0–3, 4–7 and 8–11 (sum 255; the third only once used — [built](../terrain.md#layers-and-files)) |
 | `user.png` | both | RGBA8, cells | four game-defined channels |
 | `water.png` | both | RGBA8, (N+1)² | R = depth fraction; G, B flow (reserved for G8c); A reserved |
 | `foliage-0.png`, `foliage-1.png` | both | RGBA8, cells | density of foliage types 0–3 and 4–7 |

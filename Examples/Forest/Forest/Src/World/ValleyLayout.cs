@@ -25,11 +25,14 @@ public readonly record struct ReferenceShot(string Name, Vector2 Eye, float EyeH
 /// metres (the terrain's corner is the origin), north is −Z, east is +X. A 256 m valley runs north to south: the stream
 /// starts in the rocky outcrop (north-west), drops over a small fall, steps down through three pools, passes under a
 /// fallen-log bridge and ends in the pond (south). The glade is west of the stream, the dense pine slope east. A walking
-/// loop (<see cref="PathPoints"/>) circles it all.
+/// loop (<see cref="PathPoints"/>) circles it all. The map is 320 m: past the pond a dune bank falls to a sand beach and
+/// a lake that runs off its south edge; cliffs close the west, north and east edges (the extra 64 m east is the pine
+/// ridge's top), and distant mountains (<see cref="ForestMountains"/>) stand beyond them. A log cabin stands at the glade's
+/// west edge, up a short spur off the loop.
 /// </summary>
 public static class ValleyLayout
 {
-    public const int SizeMeters = 256;
+    public const int SizeMeters = 320;
     public const float VertexSpacing = 0.5f;
     public const int ChunkMeters = 32;
 
@@ -62,6 +65,28 @@ public static class ValleyLayout
     public static readonly Vector2 PondRadii = new(27f, 18f);
     public const float PondLevel = 0.6f;
     public const float PondDepth = 1.7f;
+
+    /// <summary>
+    /// The lake (south): its water surface, the shoreline's mean z (the beach lies north of it) and how deep the bed gets
+    /// at the map's edge. The dune bank between the pond and the beach crests at <see cref="DuneHeight"/>.
+    /// </summary>
+    public const float LakeLevel = -0.4f;
+
+    public const float LakeShoreZ = 272f;
+    public const float LakeDepth = 6f;
+    public const float DuneHeight = 2.4f;
+
+    /// <summary>
+    /// The cliffs inside the west, north and east edges: the band from the edge (a plateau, then the face) and the face's
+    /// height (the north's a little lower, <see cref="NorthCliffHeight"/>, and bare on top). The morning sun is in the
+    /// north-north-east: <see cref="ValleyGenerator.SunCap"/> keeps every cliff under the sun's line from the valley's
+    /// showpieces, and where that holds one down a ravine at its foot makes up the face (<see cref="ValleyGenerator.RavineDepth"/>).
+    /// </summary>
+    public const float CliffPlateau = 9f;
+
+    public const float CliffFace = 9f;
+    public const float CliffHeight = 26f;
+    public const float NorthCliffHeight = 18f;
 
     /// <summary>The rocky outcrop (north-west): centre and radius of its plateau, and how high it rises above the valley.</summary>
     public static readonly Vector2 OutcropCentre = new(50f, 30f);
@@ -99,6 +124,35 @@ public static class ValleyLayout
         new(112f, 235f),
         new(88f, 222f),
     ];
+
+    /// <summary>
+    /// The log cabin (<see cref="ForestCabin"/>) at the glade's west edge, backed against the bank: its footprint's centre
+    /// (the model's origin), yaw in degrees (its door wall, the model's +Z, faces east-south-east over the glade) and the
+    /// half extents of the level pad it stands on (along its local x and z, footprint plus a margin).
+    /// </summary>
+    public static readonly Vector2 CabinCentre = new(40.5f, 133f);
+
+    public const float CabinYawDegrees = 75f;
+    public static readonly Vector2 CabinPadHalfExtents = new(5.2f, 4.6f);
+
+    /// <summary>The door's position on the cabin's front wall (model x, z at the threshold), for the spur's end.</summary>
+    public static readonly Vector2 CabinDoorLocal = new(1.4f, 3.6f);
+
+    /// <summary>A model-space point of the cabin to world XZ.</summary>
+    public static Vector2 CabinToWorld(Vector2 local)
+    {
+        var yaw = float.DegreesToRadians(CabinYawDegrees);
+        var (sin, cos) = MathF.SinCos(yaw);
+        // Rotation about +Y by yaw: model +Z → (sin, cos), model +X → (cos, −sin).
+        return CabinCentre + new Vector2(local.X * cos + local.Y * sin, -local.X * sin + local.Y * cos);
+    }
+
+    /// <summary>
+    /// The dirt spur from the walking loop (the glade leg, just south of R1) to the cabin's door step: loop end first,
+    /// door end last.
+    /// </summary>
+    public static Vector2[] CabinSpur => [new(61.3f, 124f), new(55f, 127.5f), CabinToWorld(CabinDoorLocal + new Vector2(0f, 3.2f)),
+        CabinToWorld(CabinDoorLocal + new Vector2(0f, 1.2f))];
 
     /// <summary>The path's half width (dirt), metres.</summary>
     public const float PathHalfWidth = 0.9f;
@@ -146,6 +200,7 @@ public static class ValleyLayout
         (PineGlade, 8f),                 // R6: a small glade among the outcrop's pines (ADR 0178)
         (new Vector2(88f, 55f), 3f),     // R7 (ADR 0178: pool 1's south bank)
         (new Vector2(70f, 98f), 6f),     // R5's fern dell (ADR 0178)
+        (CabinCentre, 9f),               // the log cabin and its yard
     ];
 
     /// <summary>
@@ -183,7 +238,7 @@ public static class ValleyLayout
     /// <summary>
     /// The eight reference shots (forest-showcase.md → Reference shots; G8e.7 recomposed R1 and added R6 and R7, ADR 0175;
     /// ADR 0178 recomposed them after the Unreal references, most of them into the low sun; R8 fills the pause menu's
-    /// 4 × 2 grid): pose, vertical FOV and, for the photo shots, depth of field. R8 stands on the path inside R5's fern
+    /// grid; R9, the cabin, makes it 3 × 3): pose, vertical FOV and, for the photo shots, depth of field. R8 stands on the path inside R5's fern
     /// dell clearing and looks along the path, which trees keep 3.2 m clear of, so it needs no clearing or corridor of its
     /// own (the nearest trunk is 3.2 m away) and the probe bake stays current.
     /// </summary>
@@ -206,6 +261,9 @@ public static class ValleyLayout
         // The path through the mixed wood south of the fall, straight into the sun: sunflecks on the path, spruce and fir
         // boughs and an ash's trunk framing the light in the haze.
         new("r8-woodland", new Vector2(72.5f, 94f), 1.5f, new Vector2(84f, 72f), 5f, 60f),
+        // Inside the log cabin, low by the bed's foot, across the table to the fire (the model's R9 empty, its heights
+        // above the pad the cabin stands on), the front and back windows' daylight at the frame's edges.
+        new("r9-cabin", CabinToWorld(new Vector2(1.86f, -0.30f)), 1.25f, CabinToWorld(new Vector2(-2.63f, -0.53f)), 1.16f, 62f),
     ];
 
     /// <summary>A Catmull-Rom point on the closed path loop at parameter <paramref name="t"/> (0 … <see cref="PathPoints"/>.Length).</summary>

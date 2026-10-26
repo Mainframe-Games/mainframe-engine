@@ -111,6 +111,14 @@ public static class ForestOptions
         },
         new()
         {
+            Key = "tree_far_shadows", Label = "Distant tree shadows", Page = Graphics, Group = Shadows, Kind = ForestOptionKind.Slider,
+            Min = 0.2f, Max = 1f, Step = 0.05f, Format = ForestOption.Percent,
+            Hint = "How dense the shadows of trees past 55 m are. Lower lets more sun through distant canopies; higher shades them like near trees.",
+            Get = static w => w.Trees?.ImpostorShadowDensity ?? 0.8f,
+            Set = static (w, v) => { if (w.Trees is { } t) t.ImpostorShadowDensity = v; },
+        },
+        new()
+        {
             Key = "pcss", Label = "Soft shadows (PCSS)", Page = Graphics, Group = Shadows, Kind = ForestOptionKind.Toggle,
             Hint = "Penumbrae that widen with the distance to the caster, from the sun's 0.5° disc.",
             Get = static w => w.Sun is { LightAngularDistance: > 0f } ? 1f : 0f,
@@ -302,6 +310,14 @@ public static class ForestOptions
             Hint = "How far the ground cover is drawn (grass reaches 36 m at 100 %).",
             Get = static w => w.Terrain?.FoliageDistanceScale ?? 1f,
             Set = static (w, v) => { if (w.Terrain is { } t) t.FoliageDistanceScale = v; },
+        },
+        new()
+        {
+            Key = "tree_detail", Label = "Tree detail distance", Page = Graphics, Group = Vegetation, Kind = ForestOptionKind.Slider,
+            Min = 60f, Max = 250f, Step = 5f, Format = ForestOption.Metres,
+            Hint = "Where trees become flat impostors. Further keeps distant crowns full, at a cost in frame time.",
+            Get = static w => w.Trees?.ImpostorDistance ?? 85f,
+            Set = static (w, v) => { if (w.Trees is { } t) t.ImpostorDistance = v; },
         },
 
         // ── Audio ────────────────────────────────────────────────────────────────────────────────────────────

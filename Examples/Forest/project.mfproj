@@ -22,6 +22,7 @@
     "crouch": { "bindings": ["key:C", "key:ControlLeft", "key:ControlRight"] },
     "crouch_toggle": { "bindings": ["pad:B"] },
     "jump": { "bindings": ["key:Space", "pad:A"] },
+    "interact": { "bindings": ["key:E", "pad:X"] },
     "pause": { "bindings": ["key:Escape", "pad:Start"] },
     "photo": { "bindings": ["key:F2", "pad:Back"] }
   },

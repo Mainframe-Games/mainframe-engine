@@ -73,7 +73,8 @@ public static class TreeMaterials
             ? new LeafKey(style, "", 0, 0f, options.LeafPaletteColor.ToArgb(), null)
             : new LeafKey(style, options.LeafTexture, options.LeafTint.ToArgb(), options.LeafAlphaCutoff, 0,
                 cluster ? TreeClusterBaker.GetOrBake(options) : null, !cluster && options.LeafCoverageMips,
-                cluster ? options.ClusterShadowDensity : 1f);
+                cluster ? options.ClusterShadowDensity : 1f, cluster ? options.ClusterTranslucency : 0f,
+                cluster ? options.ClusterTranslucencyColor.ToArgb() : 0);
         lock (Gate)
         {
             if (!LeafCache.TryGetValue(key, out var material))
@@ -98,8 +99,11 @@ public static class TreeMaterials
             return Load(LeafPath(options.LeafTexture), LeafImport);
     }
 
-    /// <summary>Translucency of the cluster cards (thickness-driven, so the dense centres stay dark).</summary>
+    /// <summary>Translucency of the cluster cards (thickness-driven, so the dense centres stay dark); <see cref="TreeOptions.ClusterTranslucency"/>'s default.</summary>
     public const float ClusterTranslucency = 0.8f;
+
+    /// <summary>The cluster cards' translucency colour; <see cref="TreeOptions.ClusterTranslucencyColor"/>'s default.</summary>
+    public static readonly DrawingColor ClusterTranslucencyColor = DrawingColor.FromArgb(255, 235, 245, 190);
 
     // Cluster cards (ADR 0172): the baked atlas with its normal and thickness maps, lit with outward (kept) normals, the
     // cutout dithered as alpha to coverage under TAA.
@@ -115,8 +119,8 @@ public static class TreeMaterials
         AlphaCutoff = options.LeafAlphaCutoff,
         AlphaAntialiasingMode = AlphaAntialiasing.AlphaToCoverage,
         BackFace = FoliageBackFace.Keep,
-        Translucency = ClusterTranslucency,
-        TranslucencyColor = DrawingColor.FromArgb(255, 235, 245, 190),
+        Translucency = Math.Clamp(options.ClusterTranslucency, 0f, 1f),
+        TranslucencyColor = options.ClusterTranslucencyColor,
         TranslucencyScatter = 3f,
         Roughness = LeafRoughness,
         ShadowDensity = Math.Clamp(options.ClusterShadowDensity, 0f, 1f),
@@ -241,5 +245,5 @@ public static class TreeMaterials
     private readonly record struct BarkKey(TreeStyle Style, string Set, bool Textured, int Tint, int Palette, float Moss = 0f, float Detail = 0f);
 
     private readonly record struct LeafKey(TreeStyle Style, string Texture, int Tint, float Cutoff, int Palette, TreeClusterAtlas? Cluster,
-        bool CoverageMips = false, float ShadowDensity = 1f);
+        bool CoverageMips = false, float ShadowDensity = 1f, float Translucency = 0f, int TranslucencyColor = 0);
 }

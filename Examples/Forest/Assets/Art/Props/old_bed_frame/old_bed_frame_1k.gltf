@@ -1,0 +1,190 @@
+{
+ "asset": {
+  "generator": "Khronos glTF Blender I/O v5.1.20",
+  "version": "2.0"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "old_bed_frame"
+  }
+ ],
+ "materials": [
+  {
+   "doubleSided": true,
+   "name": "old_bed_frame",
+   "normalTexture": {
+    "index": 0
+   },
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 1
+    },
+    "metallicRoughnessTexture": {
+     "index": 2
+    }
+   },
+   "occlusionTexture": {
+    "index": 2
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "name": "Plane.037",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2,
+      "COLOR_0": 3,
+      "COLOR_1": 4
+     },
+     "indices": 5,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "source": 0
+  },
+  {
+   "sampler": 0,
+   "source": 1
+  },
+  {
+   "sampler": 0,
+   "source": 2
+  }
+ ],
+ "images": [
+  {
+   "mimeType": "image/jpeg",
+   "name": "old_bed_frame_nor_gl",
+   "uri": "textures/old_bed_frame_nor_gl_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "old_bed_frame_diff",
+   "uri": "textures/old_bed_frame_diff_1k.jpg"
+  },
+  {
+   "mimeType": "image/jpeg",
+   "name": "old_bed_frame_arm",
+   "uri": "textures/old_bed_frame_arm_1k.jpg"
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 35560,
+   "max": [
+    0.4570513665676117,
+    1.2014838457107544,
+    1.0032745599746704
+   ],
+   "min": [
+    -0.44760647416114807,
+    5.0353154534832356e-08,
+    -0.9984514713287354
+   ],
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 35560,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 35560,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5121,
+   "count": 35560,
+   "normalized": true,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5123,
+   "count": 35560,
+   "normalized": true,
+   "type": "VEC4"
+  },
+  {
+   "bufferView": 5,
+   "componentType": 5123,
+   "count": 149970,
+   "type": "SCALAR"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteLength": 426720,
+   "byteOffset": 0,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 426720,
+   "byteOffset": 426720,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 284480,
+   "byteOffset": 853440,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 142240,
+   "byteOffset": 1137920,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 284480,
+   "byteOffset": 1280160,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteLength": 299940,
+   "byteOffset": 1564640,
+   "target": 34963
+  }
+ ],
+ "samplers": [
+  {
+   "magFilter": 9729,
+   "minFilter": 9987
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 1864580,
+   "uri": "old_bed_frame.bin"
+  }
+ ]
+}

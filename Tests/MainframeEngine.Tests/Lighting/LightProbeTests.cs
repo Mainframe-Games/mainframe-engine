@@ -358,6 +358,25 @@ public class LightProbeTests
     }
 
     [Fact]
+    public void AGlassOnlyMeshIsLeftOutOfTheBakeAndItsFingerprintAlike()
+    {
+        // A pane whose only surface is blended is not traced: the fingerprint (the staleness check) must skip its
+        // instance too, or a fresh bake of a scene with windows reads as stale.
+        var glass = new StandardMaterial3D { Transparency = AlphaMode.Blend };
+        ProbeBakeSceneBuilder Fill(bool fingerprint)
+        {
+            var builder = new ProbeBakeSceneBuilder(fingerprint) { SunDirection = Vector3.UnitY, SunRadiance = Vector3.One };
+            builder.AddMesh(new BoxMesh { Size = Vector3.One }, null, Transform3D.Identity);
+            builder.AddMesh(new QuadMesh { Size = Vector2.One }, glass, Transform3D.FromTrs(new Vector3(0f, 2f, 0f), Quaternion.Identity, Vector3.One));
+            return builder;
+        }
+
+        var built = Fill(false).Build();
+        Assert.Equal(1, built.InstanceCount);
+        Assert.Equal(built.ContentHash, Fill(true).Fingerprint());
+    }
+
+    [Fact]
     public void FoliageLeavesPassTheirTranslucencyToTheBake()
     {
         var tree = TreeMesh.Generate(TreePresets.Load("Bush 1"), 2, MainframeEngine.Trees.TreeStyle.Realistic);

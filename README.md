@@ -119,8 +119,10 @@ trimmed MP4 and the transcript as SRT or text.
 
 ### The Forest
 
-The [Forest](Examples/Forest) is a first-person walk through a generated 256 m valley: a stream over a fall, through
-three pools and under a log bridge into a pond, 1 846 Ez Tree trees and dense ground cover, all generated at load. PBR
+The [Forest](Examples/Forest) is a first-person walk through a generated 320 m valley: a stream over a fall, through
+three pools and under a log bridge into a pond, a sand beach on a lake, cliffs and distant mountains round the rest, a
+log cabin with a crackling fire and a door that opens, about 2 400 Ez Tree trees and dense ground cover, all generated
+at load. PBR
 materials lit by a physical sky and its image-based light, baked light probes, volumetric fog, histogram auto exposure,
 AgX and a colour-grading LUT, at 2560 × 1440 with 3D at 75 % and TAA upscaling.
 
@@ -136,6 +138,10 @@ AgX and a colour-grading LUT, at 2560 × 1440 with 3D at 75 % and TAA upscaling.
   <tr>
     <td align="center" valign="top"><img src="docs/images/forest/readme-upstream.jpg" width="380" alt="Forest stream"><br><b>Upstream</b> — the carved stream between birches, seen through the ripples</td>
     <td align="center" valign="top"><img src="docs/images/forest/readme-ferns.jpg" width="380" alt="Forest fern floor"><br><b>Fern floor</b> — 32-tap depth of field, near and far, over moss and ferns</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/forest/readme-beach.jpg" width="380" alt="Forest beach"><br><b>The beach</b> — a sand terrain layer (twelve-layer splat), a lake into distant mountains</td>
+    <td align="center" valign="top"><img src="docs/images/forest/readme-cabin.jpg" width="380" alt="Forest cabin"><br><b>The cabin</b> — firelight with cube shadows, particles, Poly Haven furniture</td>
   </tr>
 </table>
 

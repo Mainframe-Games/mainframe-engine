@@ -235,13 +235,13 @@ input.range:focus-visible sliderbar { background-color: #f0c76e; }
 
 /* ── Cameras ──────────────────────────────────────────────────────────────── */
 
-.heroes { display: flex; flex-direction: row; margin-bottom: 26dp; }
+.heroes { display: flex; flex-direction: row; margin-bottom: 18dp; }
 .heroes button.hero {
     display: block;
     flex: 1 1 0dp;
-    height: 92dp;
+    height: 58dp;
     margin-right: 16dp;
-    padding: 16dp 20dp;
+    padding: 12dp 20dp;
     text-align: left;
     line-height: 22dp;
     background-color: #ffffff0a;
@@ -260,9 +260,9 @@ input.range:focus-visible sliderbar { background-color: #f0c76e; }
 .shots button.shot {
     display: block;
     flex: 0 0 auto;
-    width: 300dp;
-    height: 213dp;
-    margin: 0dp 18dp 18dp 0dp;
+    width: 316dp;
+    height: 218dp;
+    margin: 0dp 18dp 14dp 0dp;
     padding: 0dp;
     text-align: left;
     background-color: #0000003a;
@@ -273,8 +273,8 @@ input.range:focus-visible sliderbar { background-color: #f0c76e; }
 .shots button.shot:hover { border-color: #ffffff4d; }
 .shots button.shot:focus-visible { border-color: #f0c76e99; }
 .shots button.shot.on { border: 2dp #f0c76e; }
-.shot img { display: block; width: 300dp; height: 169dp; }
-.shot-caption { height: 44dp; line-height: 44dp; padding: 0dp 14dp; white-space: nowrap; }
+.shot img { display: block; width: 316dp; height: 178dp; }
+.shot-caption { height: 40dp; line-height: 40dp; padding: 0dp 14dp; white-space: nowrap; }
 .shot-tag { font-size: 12dp; font-weight: bold; color: #f0c76e; margin-right: 8dp; }
 .shot-name { font-size: 15dp; color: #eef1e8; }
 

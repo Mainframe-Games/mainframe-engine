@@ -8,7 +8,7 @@ public enum TerrainProfile : byte
     /// <summary>Flat palette colours on 2 m facets, cells half a quad wide (low-poly games). No chunk LOD.</summary>
     Faceted,
 
-    /// <summary>Smooth normals at 0.5–1 m spacing, geomipmapped chunk LOD with skirts, eight splat-weighted layers.</summary>
+    /// <summary>Smooth normals at 0.5–1 m spacing, geomipmapped chunk LOD with skirts, up to twelve splat-weighted layers.</summary>
     Realistic,
 }
 
@@ -31,7 +31,7 @@ public enum TerrainLayers : ushort
     /// <summary>The height grid (<c>heightmap.png</c>).</summary>
     Height = 1,
 
-    /// <summary>Faceted surface ids (<c>surface.png</c>) or Realistic splat weights (<c>splat-0.png</c>, <c>splat-1.png</c>).</summary>
+    /// <summary>Faceted surface ids (<c>surface.png</c>) or Realistic splat weights (<c>splat-0.png</c>, <c>splat-1.png</c>, <c>splat-2.png</c>).</summary>
     Surface = 2,
 
     /// <summary>Four game-defined channels per cell (<c>user.png</c>).</summary>
@@ -72,5 +72,8 @@ public readonly record struct TerrainHit(Vector3 Position, Vector3 Normal, float
 /// </summary>
 public readonly record struct TerrainChange(TerrainLayers Layers, Rect2I Cells, Rect2I Chunks, bool FromUndo);
 
-/// <summary>Fills the eight splat weights of one cell centre (terrain-local metres) for <see cref="TerrainData.SetWeightsFrom"/>.</summary>
+/// <summary>
+/// Fills the splat weights of one cell centre (terrain-local metres) for <see cref="TerrainData.SetWeightsFrom"/>: the span
+/// holds <see cref="TerrainData.MaxLayers"/> zeros, one per layer; set the layers in use (only 0–7 is fine).
+/// </summary>
 public delegate void TerrainWeightGenerator(float x, float z, Span<float> weights);

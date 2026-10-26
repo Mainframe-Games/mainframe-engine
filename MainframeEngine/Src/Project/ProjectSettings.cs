@@ -165,6 +165,7 @@ public sealed class ProjectSettings
         EnableFrameCapture = Saves.Thumbnails,
         GameName = Window.Title ?? Name,
         WindowSize = new Vector2D<int>(Window.Width, Window.Height),
+        WindowMode = Window.Mode,
         ContentScale = Window.ContentScale,
         IconPath = Window.Icon,
         VSync = Window.VSync,
@@ -214,6 +215,23 @@ public sealed class WindowSettings
     } = DefaultHeight;
 
     public bool VSync { get; set; } = true;
+
+    /// <summary>
+    /// How the game's window opens: <see cref="WindowMode.Maximized"/> (the default), or windowed at <see cref="Width"/> ×
+    /// <see cref="Height"/>, or fullscreen. A player's saved choice (<see cref="UserSettings.WindowMode"/>) wins; automated
+    /// runs (<c>--screenshot</c>, <c>--max-frames</c>, <c>--hidden</c>, <c>--record</c>) open windowed at the project's size.
+    /// Restoring a maximized window returns to <see cref="Width"/> × <see cref="Height"/>.
+    /// </summary>
+    public WindowMode Mode
+    {
+        get;
+        set
+        {
+            if (!Enum.IsDefined(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown window mode.");
+            field = value;
+        }
+    } = WindowMode.Maximized;
 
     /// <summary>Frame-rate cap (<see cref="Engine.MaxFPS"/>) when VSync is off; 0 = unlimited.</summary>
     public int MaxFps

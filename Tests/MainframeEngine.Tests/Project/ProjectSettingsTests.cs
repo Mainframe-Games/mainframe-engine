@@ -52,6 +52,7 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Window.Height = 1080;
         s.Window.VSync = false;
         s.Window.MaxFps = 144;
+        s.Window.Mode = WindowMode.Windowed;
         s.Window.Icon = "Assets/icon.png";
         s.Physics.TicksPerSecond = 120;
         s.Physics.MaxStepsPerFrame = 8;
@@ -148,6 +149,27 @@ public sealed class ProjectSettingsTests : IDisposable
         Assert.Equal(bytes, parsed.ToJson());
         Assert.DoesNotContain("\r", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
         Assert.Contains("\"name\": \"Space Game ✓\"", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal); // not escaped
+    }
+
+    [Fact]
+    public void GamesOpenMaximizedUnlessTheProjectSaysOtherwise()
+    {
+        var s = new ProjectSettings { Name = "Game" };
+        Assert.Equal(WindowMode.Maximized, s.Window.Mode);
+        Assert.Equal(WindowMode.Maximized, s.ToEngineOptions().WindowMode);
+        Assert.DoesNotContain("\"mode\"", Encoding.UTF8.GetString(s.ToJson())); // the default is not written
+
+        var windowed = ProjectSettings.Parse("""{ "format": 4, "name": "Game", "window": { "mode": "windowed", "width": 1600 } }"""u8);
+        Assert.Equal(WindowMode.Windowed, windowed.Window.Mode);
+        Assert.Contains("\"mode\": \"windowed\"", Encoding.UTF8.GetString(windowed.ToJson()));
+        Assert.Equal(WindowMode.Fullscreen,
+            ProjectSettings.Parse("""{ "format": 4, "name": "G", "window": { "mode": "fullscreen" } }"""u8).Window.Mode);
+
+        // Automated runs open windowed at the project's size, whatever the project says.
+        Assert.Equal(WindowMode.Windowed, GameHostOptions.Parse(["--max-frames", "10"]).Apply(s.ToEngineOptions()).WindowMode);
+        Assert.Equal(WindowMode.Windowed, GameHostOptions.Parse(["--hidden"]).Apply(s.ToEngineOptions()).WindowMode);
+        Assert.Equal(WindowMode.Windowed, GameHostOptions.Parse(["--windowed"]).Apply(s.ToEngineOptions()).WindowMode);
+        Assert.Equal(WindowMode.Maximized, GameHostOptions.Parse([]).Apply(s.ToEngineOptions()).WindowMode);
     }
 
     [Fact]

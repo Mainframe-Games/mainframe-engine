@@ -885,3 +885,14 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   shader, `PipelineKey.UserShader`), `ShaderParameters` in `.mres`, `MultiMesh` custom data (`INSTANCE_CUSTOM`).
 - `just shaders-check` also checks committed `.gdshader` SPIR-V; `mf-shaders translate` prints the Slang.
 - Render tests `spatial-shaders`, `spatial-shaders-taa` (+ allocation gate); lavapipe goldens still to record.
+
+### 2026-10-26 — Forest: log cabin, beach and lake, edge cliffs, distant mountains (ADR 0209)
+- Engine: twelve terrain splat layers (third weight map `splat-2.png`, a texture array on the GPU; 8-layer terrains
+  byte-identical, goldens unchanged); the probe fingerprint skips glass-only meshes like the bake (fresh bakes read stale).
+- Forest: 320 m map; dune, sand beach (layer 8, Ground054) and lake off the south edge; cliffs W/N/E kept under the low
+  sun's line (`SunCap`) with ravines where held down; R6's frame keeps the old rim (≈ 20 m of north edge wall-only);
+  `ForestMountains` (2048 m coarse terrain, impostor conifers, far lake plane).
+- Cabin: Blender script `Tools/cabin/build_cabin.py` (`just forest-cabin`) → `Assets/Art/Cabin/cabin.gltf`; Poly Haven
+  furniture at `Place_` sockets; `CabinFire`, `CabinDoor` (`interact`, E/X), `CabinInterior` (dims sky ambient indoors),
+  fire crackle synth, sand footsteps; R9 `r9-cabin`; Cameras page 3 × 3.
+- Bench (loaded machine, same conditions): +1.6 ms p50 vs main; baseline not re-recorded (needs a quiet machine).

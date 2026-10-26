@@ -1,15 +1,15 @@
 namespace MainframeEngine;
 
 /// <summary>
-/// The Realistic terrain's material (ADR 0156): up to eight <see cref="TerrainLayer"/>s painted by the terrain's two
-/// splat weight maps (<see cref="TerrainData.GetSplatTexture"/>), shaded PBR. Assign it to <see cref="Terrain3D.Material"/>:
+/// The Realistic terrain's material (ADR 0156): up to twelve <see cref="TerrainLayer"/>s painted by the terrain's
+/// splat weight maps (<see cref="TerrainData.GetSplatTexture"/>: two, and a third for layers 8–11), shaded PBR. Assign it to <see cref="Terrain3D.Material"/>:
 /// the terrain links itself (<see cref="Terrain"/>) so the chunks read its weight maps.
 /// </summary>
 /// <remarks>
 /// <para>The renderer packs the layers' textures into three <see cref="Texture2DArray"/>s of
 /// <see cref="LayerTextureSize"/>² (albedo sRGB with the layer's height in alpha, normal and ORM linear; every image
-/// resized, full mip chains) and gives the material its own pipeline and descriptor set (the arrays, the two weight
-/// maps, two samplers and a parameter block). Per fragment it takes the four strongest weights (two in the far band),
+/// resized, full mip chains) and gives the material its own pipeline and descriptor set (the arrays, the weight maps
+/// as one array, two samplers and a parameter block). Per fragment it takes the four strongest weights (two in the far band),
 /// blends them by height (<see cref="TerrainLayer.HeightBlendContrast"/>), hex-tiles the near band
 /// (<see cref="AntiTiling"/>), projects triplanar on slopes between <see cref="TriplanarStartDegrees"/> and
 /// <see cref="TriplanarEndDegrees"/>, samples at <see cref="FarTilingScale"/> × the tiling past
@@ -22,8 +22,8 @@ namespace MainframeEngine;
 [EditorIcon("mountain")]
 public sealed class TerrainSplatMaterial3D : Material
 {
-    /// <summary>Layers per material: two RGBA8 weight maps.</summary>
-    public const int MaxLayers = 8;
+    /// <summary>Layers per material: three RGBA8 weight maps (layers 0–3, 4–7 and 8–11; <see cref="TerrainData.MaxLayers"/>).</summary>
+    public const int MaxLayers = TerrainData.MaxLayers;
 
     private TerrainLayer[] _layers = [];
 

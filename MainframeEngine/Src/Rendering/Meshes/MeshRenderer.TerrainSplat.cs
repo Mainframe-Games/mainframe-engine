@@ -4,9 +4,9 @@ namespace MainframeEngine;
 
 /// <summary>
 /// <see cref="TerrainSplatMaterial3D"/> in the mesh renderer (ADR 0156): a second set-2 layout (UBO, two samplers, three
-/// layer arrays, two weight maps) and a second pipeline layout sharing sets 0 and 1, so the frame and shadow sets bound
-/// once per list stay valid when a terrain draw rebinds set 2. Splat materials keep a default <see cref="MaterialGpu.Set"/>
-/// too, which the object-ID pass binds with the shared layout.
+/// layer arrays, the weight-map array) and a second pipeline layout sharing sets 0 and 1, so the frame and shadow sets
+/// bound once per list stay valid when a terrain draw rebinds set 2. Splat materials keep a default
+/// <see cref="MaterialGpu.Set"/> too, which the object-ID pass binds with the shared layout.
 /// </summary>
 internal sealed unsafe partial class MeshRenderer
 {
@@ -15,8 +15,11 @@ internal sealed unsafe partial class MeshRenderer
     private MaterialDescriptorAllocator _splatSets = null!;
     private GpuTexture _splatNoWeights = null!;
 
-    /// <summary>Images in the terrain splat set: three layer arrays and two weight maps (fragment-stage budget).</summary>
-    internal const int SplatSetImages = 5;
+    /// <summary>
+    /// Images in the terrain splat set: three layer arrays and one weight-map array (the two or three maps are its
+    /// layers, so twelve layers stay within the fragment stage's 16 sampled images).
+    /// </summary>
+    internal const int SplatSetImages = 4;
 
     /// <summary>Samplers in the terrain splat set: layers (repeat, anisotropic) and maps (clamp).</summary>
     internal const int SplatSetSamplers = 2;
@@ -32,15 +35,14 @@ internal sealed unsafe partial class MeshRenderer
             new() { Binding = 4, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 5, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = 6, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
-            new() { Binding = 7, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ];
         _splatLayout = PipelineBuilder.CreateSetLayout(_ctx, bindings, "terrain splat set 2");
         _splatPipelineLayout = _ctx.Frame.CreatePipelineLayout(_shadowDescriptors, [_splatLayout], "mesh (terrain splat)");
         _splatSets = new MaterialDescriptorAllocator(_ctx, _splatLayout, SplatSetSamplers, SplatSetImages);
 
-        // Weight maps of a material without a (Realistic) terrain: layer 0 everywhere (map 0), nothing (map 1).
+        // Weight maps of a material without a (Realistic) terrain: one zero layer, which every map reads (layer 0 everywhere).
         ReadOnlySpan<byte> none = [0, 0, 0, 0];
-        _splatNoWeights = GpuTexture.Create2D(_ctx, 1, 1, none, TextureColorSpace.Linear, TextureSampling.LinearClamp);
+        _splatNoWeights = GpuTexture.Create2DArray(_ctx, 1, 1, 1, none, TextureColorSpace.Linear, TextureSampling.LinearClamp);
     }
 
     /// <summary>The pipeline layout of a shader set: the terrain splat layout, the water-scene layout (ADR 0173), or the shared mesh layout.</summary>
@@ -73,13 +75,18 @@ internal sealed unsafe partial class MeshRenderer
         splat.Normal!.Update();
         splat.Orm!.Update();
 
-        // The terrain's weight maps (the data's own textures: painting re-uploads them through the texture cache).
+        // The terrain's weight maps as one array (painting re-uploads it; a third map, layers 8–11, comes as a new array).
         var data = material.Terrain?.Data;
-        var realistic = data is { Profile: TerrainProfile.Realistic };
-        rewrite |= SwapTexture(realistic ? data!.GetSplatTexture(0) : null, colorUsage: false, ref splat.Weights0);
-        rewrite |= SwapTexture(realistic ? data!.GetSplatTexture(1) : null, colorUsage: false, ref splat.Weights1);
-        splat.Weights0?.Update();
-        splat.Weights1?.Update();
+        var weights = data is { Profile: TerrainProfile.Realistic } ? data.GetSplatArray() : null;
+        if (!ReferenceEquals(splat.Weights?.Texture, weights))
+        {
+            splat.DisposeWeights();
+            if (weights is not null)
+                splat.Weights = new Texture2DArrayGpu(_ctx, weights, TextureColorSpace.Linear);
+            rewrite = true;
+        }
+
+        splat.Weights?.Update();
 
         if (splat.UploadedVersion != material.Version || splat.Params is null)
         {
@@ -106,17 +113,15 @@ internal sealed unsafe partial class MeshRenderer
         splat.SetStamp = splat.CurrentStamp();
 
         var albedo = splat.Albedo!.Gpu!;
-        var weights0 = splat.Weights0?.Gpu ?? _splatNoWeights;
-        var weights1 = splat.Weights1?.Gpu ?? _splatNoWeights;
+        var weights = splat.Weights?.Gpu ?? _splatNoWeights;
         var buffer = splat.Params!.Descriptor(0, TerrainSplatParams.Size);
-        var images = stackalloc DescriptorImageInfo[7];
+        var images = stackalloc DescriptorImageInfo[2 + SplatSetImages];
         images[0] = new DescriptorImageInfo { Sampler = albedo.Sampler };
         images[1] = new DescriptorImageInfo { Sampler = _splatNoWeights.Sampler }; // linear clamp (the maps' own sampler is the same)
         images[2] = new DescriptorImageInfo { ImageView = albedo.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
         images[3] = new DescriptorImageInfo { ImageView = splat.Normal!.Gpu!.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
         images[4] = new DescriptorImageInfo { ImageView = splat.Orm!.Gpu!.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
-        images[5] = new DescriptorImageInfo { ImageView = weights0.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
-        images[6] = new DescriptorImageInfo { ImageView = weights1.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
+        images[5] = new DescriptorImageInfo { ImageView = weights.View, ImageLayout = ImageLayout.ShaderReadOnlyOptimal };
 
         var writes = stackalloc WriteDescriptorSet[3];
         writes[0] = new WriteDescriptorSet
@@ -142,7 +147,7 @@ internal sealed unsafe partial class MeshRenderer
             SType = StructureType.WriteDescriptorSet,
             DstSet = splat.Set,
             DstBinding = 3,
-            DescriptorCount = 5,
+            DescriptorCount = SplatSetImages,
             DescriptorType = DescriptorType.SampledImage,
             PImageInfo = images + 2,
         };
@@ -158,9 +163,7 @@ internal sealed unsafe partial class MeshRenderer
         _splatSets.Free(splat.SetPool, splat.Set);
         splat.Set = default;
         splat.DisposeArrays();
-        ReleaseTexture(splat.Weights0);
-        ReleaseTexture(splat.Weights1);
-        splat.Weights0 = splat.Weights1 = null;
+        splat.DisposeWeights();
         gpu.Splat = null;
     }
 

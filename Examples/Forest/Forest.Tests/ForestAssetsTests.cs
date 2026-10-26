@@ -30,7 +30,7 @@ public sealed class ForestAssetsTests
     [Fact]
     public void LayersCoverTheForestSurfacesInSplatOrder()
     {
-        Assert.Equal(["grass", "leaves", "moss", "rock", "dirt", "gravel", "mud", "needles"], ForestAssets.TerrainLayers.Select(l => l.Tag));
+        Assert.Equal(["grass", "leaves", "moss", "rock", "dirt", "gravel", "mud", "needles", "sand"], ForestAssets.TerrainLayers.Select(l => l.Tag));
         Assert.True(ForestAssets.TerrainLayers.Count <= TerrainSplatMaterial3D.MaxLayers);
         Assert.Equal(3, ForestAssets.LayerIndex("rock"));
         Assert.Equal(-1, ForestAssets.LayerIndex("lava"));
@@ -64,7 +64,8 @@ public sealed class ForestAssetsTests
     {
         var notice = File.ReadAllText(Path.Combine(ForestRoot, "NOTICE.md"));
         foreach (var id in ForestAssets.TerrainLayers.Select(l => l.AssetId).Concat(ForestAssets.Props.Select(p => p.AssetId))
-                     .Concat(ForestAssets.Debris.Select(d => d.AssetId)).Append("lilienstein"))
+                     .Concat(ForestAssets.Debris.Select(d => d.AssetId)).Append("lilienstein")
+                     .Concat(ForestAssets.Furniture.Select(p => p.AssetId)).Concat(ForestAssets.CabinTextures.Select(t => t.AssetId)))
             Assert.Contains($"`{id}`", notice);
         Assert.DoesNotContain("no third-party assets yet", notice);
     }
@@ -176,10 +177,10 @@ public sealed class ForestAssetsTests
     [Fact]
     public void GalleryBandsPaintOneLayerEach()
     {
-        Span<float> w = stackalloc float[8];
+        Span<float> w = stackalloc float[TerrainSplatMaterial3D.MaxLayers];
         for (var band = 0; band < ForestAssets.TerrainLayers.Count; band++)
         {
-            ForestAssetGallery.Weights(4f + (band + 0.5f) * 7f, 20f, w);
+            ForestAssetGallery.Weights(4f + (band + 0.5f) * 6.5f, 20f, w);
             var strongest = 0;
             for (var i = 1; i < w.Length; i++)
                 if (w[i] > w[strongest])

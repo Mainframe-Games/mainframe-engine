@@ -58,6 +58,7 @@ internal static class MenuScene
     {
         var world = ForestWorld.Capture(scene, new FakeDisplay(), settings ?? new ForestSettings());
         world.Terrain ??= new Terrain3D();
+        world.Trees ??= new TreeScatter { ImpostorDistance = 85f, ImpostorShadowDensity = 0.8f };
         world.Fps ??= new FpsHud();
         world.CaptureBaselines();
         return world;
@@ -348,7 +349,7 @@ public sealed class ForestOptionsTests
         Assert.Contains("@media (max-width: 1599dp)", rcss, StringComparison.Ordinal);
         foreach (var shot in ValleyLayout.Shots)
             Assert.True(File.Exists(Path.Combine(content, "shots", shot.Name + ".jpg")), shot.Name);
-        Assert.Equal(0, ValleyLayout.Shots.Length % 4); // the Cameras page's rows of four cards have no empty slot
+        Assert.Equal(0, ValleyLayout.Shots.Length % 3); // the Cameras page's rows of three cards have no empty slot
         var rml = PauseMenu.BuildRml();
         Assert.DoesNotContain("data-visible", rml, StringComparison.Ordinal); // RmlUi's keeps the space: data-class-hidden
     }
@@ -455,6 +456,20 @@ public sealed class ForestCamerasTests
     }
 
     [Fact]
+    public void TheFlyOverClearsTheGroundBetweenItsPoints()
+    {
+        // A hill on the first leg (north from the trailhead), lower at the spline's points than between them: the curve
+        // sagged into rising ground there.
+        static float Ground(float x, float z) => 8f * MathF.Exp(-((x - 61f) * (x - 61f) + (z - 184f) * (z - 184f)) / 120f);
+        var cameras = new ForestCameras { GroundHeight = Ground };
+        for (var d = 0f; d < cameras.FlyOverLength; d += 0.5f)
+        {
+            var p = cameras.FlyOverPosition(d);
+            Assert.True(p.Y >= Ground(p.X, p.Z) + ForestCameras.MinClearance - 0.05f, $"the fly-over is {p.Y - Ground(p.X, p.Z):0.00} m above the ground at {p}");
+        }
+    }
+
+    [Fact]
     public void TheMenuStopsThePlayerAndGivesControlBackToTheView()
     {
         var (h, player, cameras) = Setup();
@@ -506,6 +521,7 @@ public sealed class PauseMenuTests
             Fps = FpsHud.Attach(H.Scene);
             World = ForestWorld.Capture(H.Scene, new FakeDisplay(), new ForestSettings());
             World.Terrain = new Terrain3D();
+            World.Trees = new TreeScatter { ImpostorDistance = 85f, ImpostorShadowDensity = 0.8f };
             World.CaptureBaselines();
             Cameras = new ForestCameras { Name = "Cameras", Player = Player, GroundHeight = static (_, _) => 0f };
             H.Scene.AddChild(Cameras);

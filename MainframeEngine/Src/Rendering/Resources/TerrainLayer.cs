@@ -5,7 +5,7 @@ namespace MainframeEngine;
 /// <summary>
 /// One texture layer of a <see cref="TerrainSplatMaterial3D"/> (ADR 0156): a PBR texture set tiled in world space and
 /// painted through the terrain's splat weights (the layer's index in <see cref="TerrainSplatMaterial3D.Layers"/> is its
-/// splat channel: layers 0–3 in <c>splat-0.png</c>, 4–7 in <c>splat-1.png</c>). Saved inline with the material.
+/// splat channel: layers 0–3 in <c>splat-0.png</c>, 4–7 in <c>splat-1.png</c>, 8–11 in <c>splat-2.png</c>). Saved inline with the material.
 /// </summary>
 /// <remarks>
 /// <para><b>Height</b> (for height blending) is packed into the alpha of the albedo array: <see cref="Height"/>'s red

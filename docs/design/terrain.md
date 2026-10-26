@@ -74,7 +74,8 @@ The layout knobs throw once the layers are loaded (`EnsureLoaded`); change them 
 |---|---|---|---|
 | `terrain.mres` | both | JSON | the knobs |
 | `heightmap.png` | both | 16-bit grey, (N+1)² | `h = HeightMin + v / 65535 · (HeightMax − HeightMin)` (flat at 0) |
-| `splat-0.png`, `splat-1.png` | Realistic | RGBA8, cells | weights of layers 0–3 and 4–7, sum 255 (layer 0) |
+| `splat-0.png`, `splat-1.png` | Realistic | RGBA8, cells | weights of layers 0–3 and 4–7, sum 255 with `splat-2.png` (layer 0) |
+| `splat-2.png` | Realistic | RGBA8, cells | weights of layers 8–11 (0; only once one of them holds weight) |
 | `surface.png` | Faceted | RGBA8, cells | R = surface id (0) |
 | `user.png` | both | RGBA8, cells | four game channels (0) |
 | `water.png` | both | RGBA8, (N+1)² | R = depth fraction of `MaxWaterDepth`; G, B, A reserved (0) |
@@ -95,8 +96,19 @@ The layout knobs throw once the layers are loaded (`EnsureLoaded`); change them 
   it by UID) and writes the layers there; external data rewrites its `.mres` and dirty layers in its own folder. A
   throwing hook fails the save before the scene file is written. (`SceneSaver.ToJson`, used by editor snapshots, runs
   no hook.)
-- `GetSplatTexture(0|1)`: the splat maps as linear, unmipmapped, bilinear, clamped `Texture2D`s (texel centres at
-  cell centres: UV = local XZ ÷ size), kept in sync with edits — each edit re-uploads the whole map for now.
+- **Splat layers** (Realistic): up to `MaxLayers` (12) in three maps of four. The third map (layers 8–11) exists only
+  once one of those layers holds weight (`SplatImageCount` 2 or 3): a terrain that never uses them keeps the two-map
+  format — the same `splat-0/1.png` bytes, no `splat-2.png` (a stale one is deleted on save), no third map in memory or
+  on the GPU — and an older terrain folder loads unchanged. `SetWeights` takes 1–12 weights per cell (eight, as ever,
+  for layers 0–7; nine for a ninth layer: `weights.Length / cells.Area`, missing layers 0); a `SetWeightsFrom`
+  generator gets a 12-long span of zeros. Each cell sums to 255 over all three maps; while layers 8–11 are zero it is
+  normalised over the first eight exactly as before. `PaintSurface`, `GetLayerWeight`, `GetSurface` / `SurfaceTagAt`,
+  `GetCells`/`SetCells` (`Surface` image 2), undo tiles, foliage masks, the macro texture and the probe bake all take
+  layers 8–11.
+- `GetSplatTexture(0|1|2)`: the splat maps as linear, unmipmapped, bilinear, clamped `Texture2D`s (texel centres at
+  cell centres: UV = local XZ ÷ size; map 2 is zero until used), kept in sync with edits — each edit re-uploads the
+  whole map for now. The splat material binds the maps in use as one `Texture2DArray` (internal `GetSplatArray`, two
+  or three layers), so twelve layers cost no extra image binding.
 
 ## Chunks and LOD
 
@@ -138,8 +150,8 @@ chunks draw it with the terrain's splat maps; no other wiring. Another mesh, or 
 
 | `TerrainSplatMaterial3D` | Default | What |
 |---|---|---|
-| `Layers` | [] | up to `MaxLayers` (8); index = splat channel (0–3 in `splat-0.png`, 4–7 in `splat-1.png`) |
-| `LayerTextureSize` | 1024 | packed size of every layer image (3 × 8 × 1024² RGBA8 with mips ≈ 128 MB; 512 is a quarter) |
+| `Layers` | [] | up to `MaxLayers` (12); index = splat channel (0–3 in `splat-0.png`, 4–7 in `splat-1.png`, 8–11 in `splat-2.png`) |
+| `LayerTextureSize` | 1024 | packed size of every layer image (3 × 8 × 1024² RGBA8 with mips ≈ 128 MB, 12 layers ≈ 192 MB; 512 is a quarter) |
 | `TriplanarStartDegrees` / `EndDegrees` | 35° / 45° | slope range over which every layer fades from planar to triplanar |
 | `AntiTiling` | true | hex-tiling in the near band |
 | `DetailDistance` / `FarDistance` / `FarTilingScale` | 60 m / 150 m / 4 | the near band to `DetailDistance`, the far band past `FarDistance`, both blended between |
@@ -152,7 +164,8 @@ chunks draw it with the terrain's splat maps; no other wiring. Another mesh, or 
 - **Height** (the albedo array's alpha) comes from `Height` when set; else the albedo's own alpha when it has one (any
   texel below 255: the common "albedo + height" packing, also Godot Terrain3D's); else the ORM's occlusion (crevices are
   low); else 0.5.
-- **Per fragment** (`Terrain/TerrainSplat.vk.frag`): both splat maps bilinear at the chunk UV → the four strongest
+- **Per fragment** (`Terrain/TerrainSplat.vk.frag`): the splat maps (layers of one array) bilinear at the chunk UV —
+  the third only for a material past eight layers on a terrain that has it → the four strongest
   weights (two in the far band; nothing painted = layer 0) → each layer sampled: planar on world XZ with an analytic
   frame (+X, +Z), hex-tiled in the near band, and/or triplanar (three plain lookups weighted by |N|⁴) on slopes →
   height blending `wᵢ' = max(hᵢ + wᵢ − (maxⱼ(hⱼ + wⱼ) − contrastᵢ), 0)`, normalised → albedo × tint, ORM, normals
@@ -162,12 +175,13 @@ chunks draw it with the terrain's splat maps; no other wiring. Another mesh, or 
 - **Hex-tiling** is written from Mikkelsen 2022 (JCGT 11(2)): a triangle grid over the UV plane, a random rotation and
   offset per vertex (a PCG hash), three lookups blended by barycentrics^7 weighted towards the brighter sample, normals
   rotated back. 9 fetches per layer instead of 3; off in the far band.
-- **Cost** in texture fetches: 2 for the weights; per layer with a non-zero weight (at most 4 near, 2 far) 9 near
+- **Cost** in texture fetches: 2 for the weights (3 with layers 8–11); per layer with a non-zero weight (at most 4 near, 2 far) 9 near
   (hex), 3 far, plus 9 on slopes (triplanar); the transition band between the distances pays both bands.
 - **Rendering** is the mesh renderer's, with the material's own set 2 and pipeline layout
   ([Materials & meshes](materials-and-meshes.md#terrainsplatmaterial3d-adr-0156)): chunks keep LOD, skirts, culling,
-  batching, picking and shadows (opaque casters, no material). Painting re-uploads the splat map through
-  `GetSplatTexture`'s version, and the set follows.
+  batching, picking and shadows (opaque casters, no material). Painting re-uploads the splat-map array through its
+  version (a third map arrives as a new array), and the set follows. Set 2 holds three layer arrays and the one
+  weight-map array: 4 images, inside the fragment stage's 16 (`ImageBasedLightingTests`).
 
 ## Macro texture (ADR 0175)
 
@@ -269,11 +283,12 @@ Edits go through `Terrain3D` or straight to `TerrainData` (the terrain listens t
 both rebuild):
 
 - heights: `GetHeights` / `SetHeights(Rect2I vertices, ReadOnlySpan<float>)`, `SetHeightsFrom(Func<x, z, h>)`;
-- splat weights (Realistic): `SetWeights(Rect2I cells, ReadOnlySpan<float>)` (8 per cell, normalised to sum 255 by
-  largest remainders), `SetWeightsFrom(TerrainWeightGenerator)`, `PaintSurface(center, radius, layer, strength)` (the
-  layer moves toward 1, the others scale; Faceted: writes the id);
+- splat weights (Realistic): `SetWeights(Rect2I cells, ReadOnlySpan<float>)` (1–12 per cell, the same count for
+  every cell — 8 as ever, 9 for a ninth layer — normalised to sum 255 by largest remainders),
+  `SetWeightsFrom(TerrainWeightGenerator)` (a 12-long span per cell), `PaintSurface(center, radius, layer, strength)`
+  (layers 0–11; the layer moves toward 1, the others scale; Faceted: writes the id);
 - water: `SetWaterDepth(Rect2I vertices, depths)`, `SetWaterDepthFrom(...)`;
-- raw texels: `GetCells` / `SetCells(TerrainLayers, image, Rect2I, uint RGBA)` for Surface (splat 0/1 or surface),
+- raw texels: `GetCells` / `SetCells(TerrainLayers, image, Rect2I, uint RGBA)` for Surface (splat 0/1/2 or surface),
   User and Water.
 
 Every write raises `Terrain3D.Changed(TerrainChange)` synchronously: the layers, the touched cells (for height/water:
@@ -310,7 +325,9 @@ bodies) is the planned fix for larger maps.
   (diagonal rule, winding, `HeightAt` on every triangle plane and continuous across edges, clamping, face/smooth
   normals, raycast against brute force for random, vertical, grazing, from-below and missing rays);
   `TerrainDataTests` (knobs and validation, idempotent quantising over all 65536 values, exact save/load, defaults
-  not written, dirty-only writes, weight normalisation, `SurfaceAt`, splat texture sync, water bed);
+  not written, dirty-only writes, weight normalisation, `SurfaceAt`, splat texture sync, water bed; layers 8–11: the
+  third map's round trip, an 8-layer terrain's unchanged `splat-0/1.png` bytes and no `splat-2.png`, stale-file
+  deletion, 1–12 weights per cell, painting layer 10 and the splat array);
   `Terrain3DTests` (headless tree: unowned unsaved chunks, mesh layout and UVs, collision faces = LOD 0 triangles bit
   for bit, `HeightAt` = drawn triangles, world raycast, edits rebuild only touched chunks and raise `Changed`, LOD errors
   and selection, skirts, undo/redo bit-exact, data replacement, Faceted, water, a `CharacterBody3D` capsule standing
@@ -324,7 +341,8 @@ bodies) is the planned fix for larger maps.
 - PNG: [`PngGray16Tests`](../../Tests/MainframeEngine.Tests/Imaging/PngGray16Tests.cs).
 - Splat material ([`TerrainSplatMaterialTests`](../../Tests/MainframeEngine.Tests/Terrain/TerrainSplatMaterialTests.cs)):
   packing (sizes, colour spaces, resampling both ways, defaults, the height sources in order, the content stamp),
-  the parameter block, layer subscription and the 8-layer cap, the shader set, the terrain link and `SurfaceTagAt`,
+  the parameter block, layer subscription and the 12-layer cap, the shader set, the terrain link and `SurfaceTagAt`
+  (a ninth layer's tag too),
   and a scene round trip; the fragment-stage budget with the terrain set is in `ImageBasedLightingTests`.
 - Render ([`TerrainFoliageRenderTests`](../../Tests/MainframeEngine.RenderTests/TerrainFoliageRenderTests.cs), scene
   `terrain-foliage`): grass, ferns and pebbles on the hill in the wind, golden at frame 30 (t = 0.5 s); a 0 B gate
@@ -338,6 +356,9 @@ bodies) is the planned fix for larger maps.
   triplanar rock face, a dirt path and moss patches height-blended into the grass, the far band behind. Golden at
   frame 10 (moltenvk, lavapipe), self-checks (`SurfaceTagAt` on the cliff, the path and the meadow; every chunk drawn), and a
   0 B allocation gate while the camera orbits.
+- Render, scene `terrain-splat-layers` (`TerrainSplatLayersScene`, no golden): two flat terrains with twelve-layer
+  materials of plain tints; the captured frame shows layers 0, 4, 9 and 11 where painted on the one with a third map,
+  and no layer 8 read from the second map on the one without.
 
 ## Known gaps (next waves)
 

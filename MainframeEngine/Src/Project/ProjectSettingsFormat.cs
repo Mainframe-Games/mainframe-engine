@@ -207,6 +207,8 @@ public static class ProjectSettingsFormat
             w.WriteNumber("width", s.Width);
         if (s.Height != d.Height)
             w.WriteNumber("height", s.Height);
+        if (s.Mode != d.Mode)
+            w.WriteString("mode", char.ToLowerInvariant(s.Mode.ToString()[0]) + s.Mode.ToString()[1..]);
         if (s.VSync != d.VSync)
             w.WriteBoolean("vsync", s.VSync);
         if (s.MaxFps != d.MaxFps)
@@ -558,10 +560,11 @@ public static class ProjectSettingsFormat
 
         private void ReadWindow(JsonObject o, WindowSettings s)
         {
-            Known(o, "window.", "title", "width", "height", "vsync", "maxFps", "icon", "stretchMode", "stretchAspect", "stretchScale", "stretchScaleMode", "contentScale");
+            Known(o, "window.", "title", "width", "height", "mode", "vsync", "maxFps", "icon", "stretchMode", "stretchAspect", "stretchScale", "stretchScaleMode", "contentScale");
             s.Title = String(o, "title", "window.title");
             s.Width = Int(o, "width", "window.width", s.Width, 1, 16384);
             s.Height = Int(o, "height", "window.height", s.Height, 1, 16384);
+            s.Mode = EnumValue(o, "mode", "window.mode", s.Mode);
             s.VSync = Bool(o, "vsync", "window.vsync", s.VSync);
             s.MaxFps = Int(o, "maxFps", "window.maxFps", s.MaxFps, 0, 10000);
             s.Icon = String(o, "icon", "window.icon");

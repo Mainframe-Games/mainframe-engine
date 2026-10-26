@@ -18,7 +18,7 @@ public sealed class ForestAssetGallery : Node3D
 
     // The terrain: 64 m at 0.5 m, its local origin at world (-32, 0, -40). Bands run north–south in local z < BandsEndZ.
     private const int TerrainSize = 64;
-    private const float BandWidth = 7f;
+    private const float BandWidth = 6.5f; // nine bands from x = 4 m on the 64 m terrain
     private const float BandsStartX = 4f;
     private const float BandsEndZ = 34f;
     private static readonly Vector3 TerrainOrigin = new(-32, 0, -40);
@@ -46,6 +46,9 @@ public sealed class ForestAssetGallery : Node3D
         (ForestAssets.DeadTrunk, new Vector2(4, 9), -15, 1),
         (ForestAssets.Fern, new Vector2(8, 9), 0, 1.5f),
         (ForestAssets.Fern, new Vector2(10.5f, 10), 120, 1.2f),
+        (ForestAssets.RockFace01, new Vector2(-11, 16), 0, 1),
+        (ForestAssets.RockFace02, new Vector2(-4, 16), 0, 1),
+        (ForestAssets.Mountainside, new Vector2(7, 19), 0, 0.6f),
     ];
 
     protected override void OnReady()
@@ -110,7 +113,7 @@ public sealed class ForestAssetGallery : Node3D
         return null;
     }
 
-    /// <summary>The band index (0–7) at local x, or -1 outside the bands.</summary>
+    /// <summary>The band index (0–8) at local x, or -1 outside the bands.</summary>
     private static int Band(float x)
     {
         if (x < BandsStartX)

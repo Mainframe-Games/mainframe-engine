@@ -344,6 +344,7 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["window.title"] = "Title",
             ["window.width"] = "1920",
             ["window.height"] = "1080",
+            ["window.mode"] = "Fullscreen",
             ["window.vsync"] = "false",
             ["window.maxFps"] = "144",
             ["window.icon"] = "Assets/icon.png",

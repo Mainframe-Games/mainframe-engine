@@ -8,7 +8,7 @@ namespace MainframeEngine;
 /// folder, written on scene save (<see cref="SaveLayers"/>) and read on first use (<see cref="EnsureLoaded"/>):
 /// <list type="table">
 /// <item><term><c>heightmap.png</c></term><description>16-bit grey, (N+1)²: <c>h = HeightMin + v / 65535 · (HeightMax − HeightMin)</c></description></item>
-/// <item><term><c>splat-0.png</c>, <c>splat-1.png</c></term><description>Realistic: RGBA8 per cell, weights of layers 0–3 and 4–7 (sum 255)</description></item>
+/// <item><term><c>splat-0.png</c>, <c>splat-1.png</c>, <c>splat-2.png</c></term><description>Realistic: RGBA8 per cell, weights of layers 0–3, 4–7 and 8–11 (sum 255 over the three; <c>splat-2.png</c> only once layers 8–11 hold weight)</description></item>
 /// <item><term><c>surface.png</c></term><description>Faceted: RGBA8 per cell, R = surface id</description></item>
 /// <item><term><c>user.png</c></term><description>RGBA8 per cell: four game-defined channels</description></item>
 /// <item><term><c>water.png</c></term><description>RGBA8 per vertex, R = water depth as a fraction of <see cref="MaxWaterDepth"/></description></item>
@@ -32,8 +32,11 @@ public sealed class TerrainData : Resource
     public const string UserFile = "user.png";
     public const string WaterFile = "water.png";
 
-    /// <summary>Realistic splat layers (two RGBA8 weight maps).</summary>
-    public const int MaxLayers = 8;
+    /// <summary>Realistic splat layers (three RGBA8 weight maps; the third exists only once layers 8–11 hold weight).</summary>
+    public const int MaxLayers = 12;
+
+    /// <summary>Splat layers in the first two weight maps (all a terrain had before <c>splat-2.png</c>).</summary>
+    private const int BaseLayers = 8;
 
     /// <summary>Largest vertex count per side (2049 × 2049 vertices).</summary>
     public const int MaxVerticesPerSide = 2049;
@@ -43,11 +46,13 @@ public sealed class TerrainData : Resource
     private byte[]? _water;      // RGBA8 per vertex
     private byte[]? _splat0;     // Realistic, RGBA8 per cell
     private byte[]? _splat1;
+    private byte[]? _splat2;     // layers 8–11: null (all zero) until one of them holds weight
     private byte[]? _surface;    // Faceted, RGBA8 per cell
     private byte[]? _user;       // RGBA8 per cell
     private float[] _chunkMin = [];
     private float[] _chunkMax = [];
-    private readonly Texture2D?[] _splatTextures = new Texture2D?[2];
+    private readonly Texture2D?[] _splatTextures = new Texture2D?[3];
+    private Texture2DArray? _splatArray;
     private LayerFiles _dirty;
     private string? _savedFolder;
     private int _version;
@@ -63,7 +68,8 @@ public sealed class TerrainData : Resource
         Surface = 8,
         User = 16,
         Water = 32,
-        All = 63,
+        Splat2 = 64,
+        All = 127,
     }
 
     /// <summary>
@@ -268,11 +274,13 @@ public sealed class TerrainData : Resource
         }
 
         var water = LoadRgba(folder, WaterFile, vertices, default);
-        byte[]? splat0 = null, splat1 = null, surface = null;
+        byte[]? splat0 = null, splat1 = null, splat2 = null, surface = null;
         if (Profile == TerrainProfile.Realistic)
         {
             splat0 = LoadRgba(folder, SplatFile(0), cells, 0x000000FFu);
             splat1 = LoadRgba(folder, SplatFile(1), cells, 0u);
+            if (folder is not null && File.Exists(Path.Combine(folder, SplatFile(2))))
+                splat2 = LoadRgba(folder, SplatFile(2), cells, 0u); // else layers 8–11 are zero, with no map
         }
         else
         {
@@ -286,6 +294,7 @@ public sealed class TerrainData : Resource
         _water = water;
         _splat0 = splat0;
         _splat1 = splat1;
+        _splat2 = splat2;
         _surface = surface;
         _user = user;
         _bed = new float[heights.Length];
@@ -297,8 +306,20 @@ public sealed class TerrainData : Resource
         _savedFolder = folder;
     }
 
-    /// <summary>The splat image file of <paramref name="image"/> (0: layers 0–3, 1: layers 4–7).</summary>
-    public static string SplatFile(int image) => image == 0 ? "splat-0.png" : "splat-1.png";
+    /// <summary>The splat image file of <paramref name="image"/> (0: layers 0–3, 1: layers 4–7, 2: layers 8–11).</summary>
+    public static string SplatFile(int image) => image switch
+    {
+        0 => "splat-0.png",
+        1 => "splat-1.png",
+        2 => "splat-2.png",
+        _ => throw new ArgumentOutOfRangeException(nameof(image), image, "Splat images are 0, 1 and 2."),
+    };
+
+    /// <summary>
+    /// The splat weight maps in use (Realistic): 2, or 3 once layers 8–11 hold weight (<c>splat-2.png</c> was loaded or
+    /// one of those layers was written). The third map stays once made; it saves no file while it is all zero.
+    /// </summary>
+    public int SplatImageCount => _splat2 is null ? 2 : 3;
 
     private static byte[] LoadRgba(string? folder, string file, int size, uint fill)
     {
@@ -369,6 +390,13 @@ public sealed class TerrainData : Resource
             SaveRgba(folder, SplatFile(0), _splat0, cells, 0x000000FFu);
         if ((write & LayerFiles.Splat1) != 0 && _splat1 is not null)
             SaveRgba(folder, SplatFile(1), _splat1, cells, 0u);
+        if ((write & LayerFiles.Splat2) != 0 && _splat0 is not null)
+        {
+            if (_splat2 is not null)
+                SaveRgba(folder, SplatFile(2), _splat2, cells, 0u);
+            else
+                DeleteIfExists(Path.Combine(folder, SplatFile(2))); // no weight in layers 8–11: no file
+        }
         if ((write & LayerFiles.Surface) != 0 && _surface is not null)
             SaveRgba(folder, SurfaceFile, _surface, cells, 0u);
         if ((write & LayerFiles.User) != 0)
@@ -490,14 +518,20 @@ public sealed class TerrainData : Resource
 
     /// <summary>
     /// Copies packed RGBA texels (R in the low byte) of <paramref name="layer"/> image <paramref name="image"/>:
-    /// <see cref="TerrainLayers.Surface"/> (Realistic splat 0/1, Faceted surface), <see cref="TerrainLayers.User"/>
+    /// <see cref="TerrainLayers.Surface"/> (Realistic splat 0/1/2, Faceted surface), <see cref="TerrainLayers.User"/>
     /// (cells) or <see cref="TerrainLayers.Water"/> (vertices).
     /// </summary>
     public void GetCells(TerrainLayers layer, int image, Rect2I rect, Span<uint> destination)
     {
         EnsureLoaded();
-        var (pixels, size, _) = LayerImage(layer, image);
+        var (pixels, size, _) = LayerImage(layer, image, write: false);
         CheckRect(rect, size, destination.Length);
+        if (pixels is null)
+        {
+            destination[..rect.Area].Clear(); // splat map 2 before layers 8–11 hold weight
+            return;
+        }
+
         for (var y = 0; y < rect.Size.Y; y++)
             for (var x = 0; x < rect.Size.X; x++)
                 destination[y * rect.Size.X + x] = ReadPacked(pixels, ((rect.Position.Y + y) * size + rect.Position.X + x) * 4);
@@ -512,8 +546,7 @@ public sealed class TerrainData : Resource
         var size = CellsPerSide;
         u = Math.Clamp(u, 0, size - 1);
         v = Math.Clamp(v, 0, size - 1);
-        var pixels = layer < 4 ? _splat0 : _splat1!;
-        return pixels[(v * size + u) * 4 + (layer & 3)] / 255f;
+        return SplatByte((v * size + u) * 4, layer) / 255f;
     }
 
     /// <summary>
@@ -531,9 +564,10 @@ public sealed class TerrainData : Resource
             return _surface[o];
         var best = 0;
         var bestWeight = -1;
-        for (var layer = 0; layer < MaxLayers; layer++)
+        var layers = _splat2 is null ? BaseLayers : MaxLayers; // layers 8–11 are zero without the third map
+        for (var layer = 0; layer < layers; layer++)
         {
-            int w = layer < 4 ? _splat0![o + layer] : _splat1![o + layer - 4];
+            int w = SplatByte(o, layer);
             if (w > bestWeight)
             {
                 bestWeight = w;
@@ -571,18 +605,39 @@ public sealed class TerrainData : Resource
     }
 
     /// <summary>
-    /// Splat weight map <paramref name="image"/> (0: layers 0–3 in RGBA, 1: layers 4–7) as a linear, unmipmapped,
-    /// bilinear, clamped texture (one texel per cell, texel centres at cell centres: UV = terrain-local XZ ÷ size). Kept
-    /// in sync with edits (each edit re-uploads the whole map for now). Realistic only.
+    /// Splat weight map <paramref name="image"/> (0: layers 0–3 in RGBA, 1: layers 4–7, 2: layers 8–11) as a linear,
+    /// unmipmapped, bilinear, clamped texture (one texel per cell, texel centres at cell centres: UV = terrain-local XZ ÷
+    /// size). Kept in sync with edits (each edit re-uploads the whole map for now). Map 2 is all zero until layers 8–11
+    /// hold weight. Realistic only.
     /// </summary>
     public Texture2D GetSplatTexture(int image)
     {
-        if ((uint)image > 1)
-            throw new ArgumentOutOfRangeException(nameof(image), image, "Splat images are 0 and 1.");
+        if ((uint)image > 2)
+            throw new ArgumentOutOfRangeException(nameof(image), image, "Splat images are 0, 1 and 2.");
         EnsureLoaded();
-        if (Profile != TerrainProfile.Realistic)
-            throw new InvalidOperationException("Splat maps belong to the Realistic profile.");
-        return _splatTextures[image] ??= Texture2D.FromPixels(CellsPerSide, CellsPerSide, image == 0 ? _splat0! : _splat1!, SplatTextureSettings);
+        RequireRealistic();
+        return _splatTextures[image] ??= Texture2D.FromPixels(CellsPerSide, CellsPerSide,
+            SplatPixels(image, allocate: false) ?? new byte[CellsPerSide * CellsPerSide * 4], SplatTextureSettings);
+    }
+
+    /// <summary>
+    /// The weight maps in use (<see cref="SplatImageCount"/>) as one texture array (layer i = map i, sampled like
+    /// <see cref="GetSplatTexture"/>): what the splat material binds, one image whatever the map count. A new array when
+    /// the map count changes; kept in sync with edits otherwise. Realistic only.
+    /// </summary>
+    internal Texture2DArray GetSplatArray()
+    {
+        EnsureLoaded();
+        RequireRealistic();
+        var count = SplatImageCount;
+        if (_splatArray is { } array && array.Layers == count)
+            return array;
+        var cells = CellsPerSide;
+        var bytes = cells * cells * 4;
+        var pixels = new byte[bytes * count];
+        for (var i = 0; i < count; i++)
+            SplatPixels(i, allocate: false)!.CopyTo(pixels, i * bytes);
+        return _splatArray = new Texture2DArray(cells, cells, count, pixels, SplatTextureSettings) { ResourceName = "Terrain splat maps" };
     }
 
     private static readonly TextureImportSettings SplatTextureSettings = new()
@@ -639,27 +694,36 @@ public sealed class TerrainData : Resource
     }
 
     /// <summary>
-    /// Writes splat weights into cell rectangle <paramref name="cells"/>: eight per cell (layers 0–7), any
-    /// non-negative scale; each cell is normalised to sum 255 (all zero: layer 0). Realistic only.
+    /// Writes splat weights into cell rectangle <paramref name="cells"/>, cell by cell (row by row), the same number for
+    /// every cell: 1 to <see cref="MaxLayers"/>, for layers 0 up (later layers get 0). <c>weights.Length</c> is that
+    /// number times the cell count: eight per cell (layers 0–7) as before, nine with a ninth layer, twelve for all. Any
+    /// non-negative scale; each cell is normalised to sum 255 over all its layers (all zero: layer 0). Realistic only.
     /// </summary>
     public void SetWeights(Rect2I cells, ReadOnlySpan<float> weights)
     {
         EnsureLoaded();
         RequireRealistic();
-        CheckRect(cells, CellsPerSide, weights.Length / MaxLayers);
-        if (weights.Length != cells.Area * MaxLayers)
-            throw new ArgumentException($"Expected {cells.Area * MaxLayers} weights (8 per cell), got {weights.Length}.", nameof(weights));
+        var area = cells.Size.X > 0 && cells.Size.Y > 0 ? cells.Area : 0;
+        var perCell = area > 0 ? weights.Length / area : 0;
+        if (perCell is < 1 or > MaxLayers || weights.Length != area * perCell)
+            throw new ArgumentException(
+                $"Expected 1 to {MaxLayers} weights per cell ({area} cells: a multiple of {area} up to {area * MaxLayers}), got {weights.Length}.",
+                nameof(weights));
+        CheckRect(cells, CellsPerSide, area);
         Recorder?.Capture(TerrainLayers.Surface, cells);
+        Span<float> cell = stackalloc float[MaxLayers];
         Span<byte> normalised = stackalloc byte[MaxLayers];
         var size = CellsPerSide;
         for (var y = 0; y < cells.Size.Y; y++)
             for (var x = 0; x < cells.Size.X; x++)
             {
-                NormalizeWeights(weights.Slice((y * cells.Size.X + x) * MaxLayers, MaxLayers), normalised);
+                cell.Clear();
+                weights.Slice((y * cells.Size.X + x) * perCell, perCell).CopyTo(cell);
+                NormalizeCell(cell, normalised);
                 StoreWeights(((cells.Position.Y + y) * size + cells.Position.X + x) * 4, normalised);
             }
 
-        Commit(TerrainLayers.Surface, cells, LayerFiles.Splat0 | LayerFiles.Splat1);
+        Commit(TerrainLayers.Surface, cells, SplatFiles);
     }
 
     /// <summary>Sets every cell's splat weights from <paramref name="weights"/> at the cell centres (terrain-local metres). Realistic only.</summary>
@@ -678,11 +742,11 @@ public sealed class TerrainData : Resource
             {
                 raw.Clear();
                 weights((u + 0.5f) * CellSize, (v + 0.5f) * CellSize, raw);
-                NormalizeWeights(raw, normalised);
+                NormalizeCell(raw, normalised);
                 StoreWeights((v * size + u) * 4, normalised);
             }
 
-        Commit(TerrainLayers.Surface, all, LayerFiles.Splat0 | LayerFiles.Splat1);
+        Commit(TerrainLayers.Surface, all, SplatFiles);
     }
 
     /// <summary>
@@ -721,18 +785,18 @@ public sealed class TerrainData : Resource
                 }
 
                 if ((uint)layer >= MaxLayers)
-                    throw new ArgumentOutOfRangeException(nameof(layer), layer, "Realistic terrains have layers 0–7.");
+                    throw new ArgumentOutOfRangeException(nameof(layer), layer, "Realistic terrains have layers 0–11.");
                 for (var l = 0; l < MaxLayers; l++)
                 {
-                    var w = (l < 4 ? _splat0![o + l] : _splat1![o + l - 4]) / 255f;
+                    var w = SplatByte(o, l) / 255f;
                     weights[l] = l == layer ? w + (1f - w) * strength : w * (1f - strength);
                 }
 
-                NormalizeWeights(weights, normalised);
+                NormalizeCell(weights, normalised);
                 StoreWeights(o, normalised);
             }
 
-        Commit(TerrainLayers.Surface, rect, _surface is not null ? LayerFiles.Surface : LayerFiles.Splat0 | LayerFiles.Splat1);
+        Commit(TerrainLayers.Surface, rect, _surface is not null ? LayerFiles.Surface : SplatFiles);
     }
 
     /// <summary>
@@ -742,9 +806,10 @@ public sealed class TerrainData : Resource
     public void SetCells(TerrainLayers layer, int image, Rect2I rect, ReadOnlySpan<uint> source)
     {
         EnsureLoaded();
-        var (pixels, size, file) = LayerImage(layer, image);
+        var (_, size, file) = LayerImage(layer, image, write: false);
         CheckRect(rect, size, source.Length);
         Recorder?.Capture(layer, rect);
+        var pixels = LayerImage(layer, image, write: true).Pixels!;
         for (var y = 0; y < rect.Size.Y; y++)
             for (var x = 0; x < rect.Size.X; x++)
                 WritePacked(pixels, ((rect.Position.Y + y) * size + rect.Position.X + x) * 4, source[y * rect.Size.X + x]);
@@ -801,7 +866,10 @@ public sealed class TerrainData : Resource
                 return;
             }
 
-            var (pixels, size, file) = LayerImage(layer, image);
+            var (current, size, file) = LayerImage(layer, image, write: false);
+            if (current is null && texels.AsSpan().IndexOfAnyExcept(0u) < 0)
+                return; // zeros into a third splat map that does not exist: nothing changes
+            var pixels = LayerImage(layer, image, write: true).Pixels!;
             for (var y = 0; y < rect.Size.Y; y++)
                 for (var x = 0; x < rect.Size.X; x++)
                     WritePacked(pixels, ((rect.Position.Y + y) * size + rect.Position.X + x) * 4, texels![y * rect.Size.X + x]);
@@ -827,22 +895,55 @@ public sealed class TerrainData : Resource
 
     private void SyncSplatTextures(LayerFiles files)
     {
-        if ((files & LayerFiles.Splat0) != 0 && _splatTextures[0] is { } t0)
-            t0.SetPixels(_splat0);
-        if ((files & LayerFiles.Splat1) != 0 && _splatTextures[1] is { } t1)
-            t1.SetPixels(_splat1);
+        for (var image = 0; image < _splatTextures.Length; image++)
+            if ((files & SplatFlag(image)) != 0 && _splatTextures[image] is { } texture && SplatPixels(image, allocate: false) is { } pixels)
+                texture.SetPixels(pixels);
+        if (_splatArray is { } array && array.Layers == SplatImageCount) // else GetSplatArray makes a new one
+            for (var image = 0; image < array.Layers; image++)
+                if ((files & SplatFlag(image)) != 0)
+                    array.SetLayerPixels(image, SplatPixels(image, allocate: false));
     }
 
-    private (byte[] Pixels, int Size, LayerFiles File) LayerImage(TerrainLayers layer, int image) => layer switch
+    private static LayerFiles SplatFlag(int image) => image switch
+    {
+        0 => LayerFiles.Splat0,
+        1 => LayerFiles.Splat1,
+        _ => LayerFiles.Splat2,
+    };
+
+    /// <summary>The splat files a weight write touches (the third once it exists).</summary>
+    private LayerFiles SplatFiles => LayerFiles.Splat0 | LayerFiles.Splat1 | (_splat2 is not null ? LayerFiles.Splat2 : LayerFiles.None);
+
+    /// <summary>Splat map <paramref name="image"/>'s pixels: map 2 is null until layers 8–11 hold weight, unless <paramref name="allocate"/>.</summary>
+    private byte[]? SplatPixels(int image, bool allocate) => image switch
+    {
+        0 => _splat0,
+        1 => _splat1,
+        _ => allocate ? _splat2 ??= new byte[CellsPerSide * CellsPerSide * 4] : _splat2,
+    };
+
+    /// <summary>The weight (0..255) of splat layer <paramref name="layer"/> at texel offset <paramref name="offset"/>; 0 for layers 8–11 without the third map.</summary>
+    private byte SplatByte(int offset, int layer) => layer switch
+    {
+        < 4 => _splat0![offset + layer],
+        < 8 => _splat1![offset + layer - 4],
+        _ => _splat2 is { } splat2 ? splat2[offset + layer - 8] : (byte)0,
+    };
+
+    /// <summary>
+    /// A layer image's pixels, size and file. Splat map 2's pixels are null while layers 8–11 hold no weight, unless
+    /// <paramref name="write"/> (which makes the map).
+    /// </summary>
+    private (byte[]? Pixels, int Size, LayerFiles File) LayerImage(TerrainLayers layer, int image, bool write) => layer switch
     {
         TerrainLayers.Surface when _surface is not null && image == 0 => (_surface, CellsPerSide, LayerFiles.Surface),
-        TerrainLayers.Surface when _surface is null && image is 0 or 1 =>
-            (image == 0 ? _splat0! : _splat1!, CellsPerSide, image == 0 ? LayerFiles.Splat0 : LayerFiles.Splat1),
+        TerrainLayers.Surface when _surface is null && image is >= 0 and <= 2 => (SplatPixels(image, write), CellsPerSide, SplatFlag(image)),
         TerrainLayers.User when image == 0 => (_user!, CellsPerSide, LayerFiles.User),
         TerrainLayers.Water when image == 0 => (_water!, VerticesPerSide, LayerFiles.Water),
         _ => throw new ArgumentException($"Terrain layer {layer} has no image {image}.", nameof(layer)),
     };
 
+    /// <summary>Writes one cell's <see cref="MaxLayers"/> normalised weights; the third map is made only for weight in layers 8–11.</summary>
     private void StoreWeights(int offset, ReadOnlySpan<byte> weights)
     {
         for (var l = 0; l < 4; l++)
@@ -850,6 +951,29 @@ public sealed class TerrainData : Resource
             _splat0![offset + l] = weights[l];
             _splat1![offset + l] = weights[l + 4];
         }
+
+        var upper = weights.Slice(BaseLayers, 4);
+        if (_splat2 is null && upper.IndexOfAnyExcept((byte)0) < 0)
+            return;
+        var splat2 = SplatPixels(2, allocate: true)!;
+        for (var l = 0; l < 4; l++)
+            splat2[offset + l] = upper[l];
+    }
+
+    /// <summary>
+    /// <see cref="NormalizeWeights"/> over a cell's <see cref="MaxLayers"/> weights — over the first eight only while
+    /// layers 8–11 are zero, so terrains without them round exactly as before those layers existed.
+    /// </summary>
+    private static void NormalizeCell(ReadOnlySpan<float> weights, Span<byte> result)
+    {
+        if (weights[BaseLayers..].IndexOfAnyExcept(0f) >= 0)
+        {
+            NormalizeWeights(weights, result);
+            return;
+        }
+
+        result.Clear();
+        NormalizeWeights(weights[..BaseLayers], result[..BaseLayers]);
     }
 
     private void RequireRealistic()

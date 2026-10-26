@@ -15,6 +15,13 @@ public struct EngineOptions()
     public RenderingBackend RenderingBackend = RenderingBackend.Vulkan;
     /// <summary>Initial window size in points (OS points, or layout points when <see cref="ContentScale"/> is fixed).</summary>
     public Vector2D<int> WindowSize = new(800, 600);
+
+    /// <summary>
+    /// How the window opens (<see cref="IWindowControl.Mode"/>): <see cref="MainframeEngine.WindowMode.Windowed"/> (the
+    /// default here) at <see cref="WindowSize"/>, or maximized or fullscreen once it has been placed. Games get their
+    /// project's <see cref="WindowSettings.Mode"/> (maximized unless the project says otherwise).
+    /// </summary>
+    public WindowMode WindowMode = WindowMode.Windowed;
     public string? IconPath;
 
     /// <summary>
@@ -327,6 +334,7 @@ public abstract class Engine : IDisposable
         }
         Tree.Window = new SilkWindowControl(Window, this);
         Window.Load += PlaceWindow;
+        Window.Load += ApplyStartMode;
         Window.Load += OnLoad;
         Window.FramebufferResize += OnFramebufferResize;
         Window.Update += OnUpdate;
@@ -372,6 +380,13 @@ public abstract class Engine : IDisposable
         WindowPixels.ResizeToPixels(Window, pixels); // size for this display first, so centring uses the final size
         CenterWindow();
         EnsureFramebufferSize(pixels); // centring may have moved it to a display of another scale
+    }
+
+    // After placing, so restoring a maximized window returns to the centred WindowSize.
+    private void ApplyStartMode()
+    {
+        if (EngineOptions.WindowMode != WindowMode.Windowed && EngineOptions.WindowVisible && Tree.Window is { } window)
+            window.Mode = EngineOptions.WindowMode;
     }
 
     private void CenterWindow()

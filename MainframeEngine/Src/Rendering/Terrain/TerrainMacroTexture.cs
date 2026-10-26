@@ -175,7 +175,7 @@ public sealed class TerrainMacroTexture
         private readonly float[] _contrast = [];
         private readonly Vector3[] _tint = [];
         private readonly float[] _roughness = [];
-        private readonly uint[] _splat0 = [], _splat1 = [];
+        private readonly uint[] _splat0 = [], _splat1 = [], _splat2 = []; // _splat2 empty: layers 8–11 unused or zero
         private readonly int _cells;
         private readonly float _cellSize;
         private readonly float _macroStrength, _invMacroScale;
@@ -225,6 +225,11 @@ public sealed class TerrainMacroTexture
             data.GetCells(TerrainLayers.Surface, 0, all, _splat0);
             if (_count > 4)
                 data.GetCells(TerrainLayers.Surface, 1, all, _splat1);
+            if (_count > 8 && data.SplatImageCount > 2)
+            {
+                _splat2 = new uint[_cells * _cells];
+                data.GetCells(TerrainLayers.Surface, 2, all, _splat2);
+            }
             _macroStrength = Math.Clamp(material.MacroStrength, 0f, 1f);
             _invMacroScale = 1f / MathF.Max(material.MacroScaleMeters, 1e-3f);
         }
@@ -349,8 +354,13 @@ public sealed class TerrainMacroTexture
             uint a = _splat0[c], b = _splat1[c];
             for (var l = 0; l < Math.Min(_count, 4); l++)
                 w[l] += ((a >> (8 * l)) & 0xFF) / 255f * f;
-            for (var l = 4; l < _count; l++)
+            for (var l = 4; l < Math.Min(_count, 8); l++)
                 w[l] += ((b >> (8 * (l - 4))) & 0xFF) / 255f * f;
+            if (_splat2.Length == 0)
+                return;
+            var e = _splat2[c];
+            for (var l = 8; l < _count; l++)
+                w[l] += ((e >> (8 * (l - 8))) & 0xFF) / 255f * f;
         }
 
         // Wrapping bilinear lookup of a layer's albedo (linear rgb) and height (w).

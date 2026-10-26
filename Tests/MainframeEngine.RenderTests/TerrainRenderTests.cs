@@ -43,6 +43,18 @@ public class TerrainRenderTests
     }
 
     [Fact]
+    public void SplatLayersEightToElevenRenderFromTheThirdMap()
+    {
+        // Self-checked colours (no golden): layers 0, 4, 9 and 11 where painted, and no layer 8 aliased from the second
+        // map on a terrain with two maps.
+        var result = HostRunner.Run("terrain-splat-layers", Output("terrain-splat-layers"), "--capture", "5", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Single(result.Captures);
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void TerrainSplatFramesAllocateNothingWhileTheCameraOrbits()
     {
         const int warmup = 150, measured = 240;

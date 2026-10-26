@@ -7,13 +7,14 @@ public sealed class ForestSynthTests
 {
     private static float Db(float linear) => 20f * MathF.Log10(MathF.Max(linear, 1e-9f));
 
-    public static TheoryData<string> Loops => ["wind", "rustle", "brook", "falls"];
+    public static TheoryData<string> Loops => ["wind", "rustle", "brook", "falls", "fire"];
 
     private static (float[] Samples, int Channels) Loop(string name, ulong seed) => name switch
     {
         "wind" => (ForestSynth.WindRoar(seed), 2),
         "rustle" => (ForestSynth.LeafRustle(seed), 2),
         "brook" => (ForestSynth.Brook(seed), 1),
+        "fire" => (ForestSynth.Fire(seed), 1),
         _ => (ForestSynth.Falls(seed), 1),
     };
 
@@ -61,6 +62,7 @@ public sealed class ForestSynthTests
             "wind" => ForestSynth.WindRms,
             "rustle" => ForestSynth.RustleRms,
             "brook" => ForestSynth.BrookRms,
+            "fire" => ForestSynth.FireRms,
             _ => ForestSynth.FallsRms,
         };
         Assert.All(samples, s => Assert.True(float.IsFinite(s)));
@@ -148,6 +150,22 @@ public sealed class ForestSynthTests
         Assert.InRange(shares[3], 0.005f, 0.3f);
         Assert.True(shares[4] > shares[2], text);
         Assert.True(shares[4] < 0.6f, text); // a roar, not a rumble
+    }
+
+    [Fact]
+    public void TheFireCracklesAndPops()
+    {
+        // Crackles are clicks a few milliseconds long: many 5 ms windows stand well above the roar, every second.
+        var fire = ForestSynth.Fire(9);
+        var rms = SignalTools.Rms(fire);
+        const int window = ForestSynth.Rate / 200;
+        var loud = 0;
+        for (var start = 0; start + window <= fire.Length; start += window)
+            if (SignalTools.Peak(fire.AsSpan(start, window)) > 3f * rms)
+                loud++;
+        Assert.True(loud > ForestSynth.FireSeconds * 4, $"{loud} crackling windows in {ForestSynth.FireSeconds} s");
+        // The roar is low: most of the steady energy sits below 400 Hz.
+        Assert.True(EnergyShare(fire, ForestSynth.Rate, 400f, low: true) > 0.4f);
     }
 
     [Fact]

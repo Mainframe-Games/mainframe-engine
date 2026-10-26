@@ -238,6 +238,17 @@ public sealed class TreeOptions : Resource
     public float ClusterShadowDensity { get; set => Set(ref field, value); } = 1f;
 
     /// <summary>
+    /// How much sunlight the cluster cards let through when lit from behind (<see cref="FoliageMaterial3D.Translucency"/>;
+    /// thickness-driven, so dense centres stay dark). Default <see cref="TreeMaterials.ClusterTranslucency"/>.
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float ClusterTranslucency { get; set => Set(ref field, value); } = TreeMaterials.ClusterTranslucency;
+
+    /// <summary>The colour the light takes through the cluster cards (sRGB; multiplies the leaf albedo). Default a pale yellow-green.</summary>
+    [Export]
+    public System.Drawing.Color ClusterTranslucencyColor { get; set => Set(ref field, value); } = TreeMaterials.ClusterTranslucencyColor;
+
+    /// <summary>
     /// Hierarchical wind (ADR 0172, Realistic style): the meshes carry each vertex's level-1 and level-2 branch pivots
     /// (<see cref="MeshSurface.Custom1"/>, <see cref="MeshSurface.Custom2"/>), so the trunk sways, branches bend about
     /// their bases and twigs about theirs, as rotations, before the leaves flutter. Off: Ez Tree's flutter plus a lean.
