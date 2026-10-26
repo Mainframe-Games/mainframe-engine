@@ -149,6 +149,59 @@ public sealed class SimulateTests : IDisposable
     }
 
     [Fact]
+    public void ClosingTheProjectStopsTheSimulationBeforeTheTabsAndCodeGo()
+    {
+        Crates();
+        Assert.True(W.Simulation.StartNow(_editor.Scene));
+        var copyView = W.Simulation.Viewport!;
+        var copy = W.Simulation.Root!;
+        W.Commands.Execute("project.close");
+        if (W.Message.Current is { } question)
+            W.Message.Answer(question.Buttons.ToList().IndexOf("Don't Save"));
+        Assert.False(W.Simulation.IsActive);
+        Assert.True(copyView.IsFreed); // freed synchronously, not by a later Tick against unloaded code
+        Assert.True(copy.IsFreed);
+        _editor.Tick(); // the Output panel drains the log
+        Assert.Contains(W.Output.Messages, e => e.Text.Contains("the project closes", StringComparison.Ordinal));
+
+        // ProjectService.Close (every other path that unloads the code) stops it too.
+        W.Session.NewScene();
+        _editor.Tick();
+        Crates();
+        Assert.True(W.Simulation.StartNow(_editor.Scene));
+        W.Project.Close();
+        Assert.False(W.Simulation.IsActive);
+    }
+
+    [Fact]
+    public void SimulatingAndDuplicatingReleaseTheReferencesTheyTake()
+    {
+        AssetDatabase.Current = new AssetDatabase(_editor.Directory);
+        var path = Path.Combine(_editor.Directory, "Assets", "Shared", "crate.mres");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        ResourceSaver.Save(new BoxMesh(), path);
+        ResourceLoader.ClearCache();
+        var mesh = ResourceLoader.Load<BoxMesh>("Assets/Shared/crate.mres");
+        var scene = _editor.Scene;
+        var node = new MeshInstance3D { Name = "Crate", Mesh = mesh };
+        scene.AddNode(node, scene.Root);
+        _editor.Tick();
+        var references = mesh.ReferenceCount;
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.True(W.Simulation.StartNow(scene));
+            _editor.Tick(2);
+            W.Simulation.Stop();
+            _editor.Tick();
+        }
+
+        Assert.Equal(references, mesh.ReferenceCount);
+        scene.Duplicate([node]);
+        Assert.Equal(references, mesh.ReferenceCount);
+    }
+
+    [Fact]
     public void SwitchingTabsStopsItAndAltF6Toggles()
     {
         Crates();

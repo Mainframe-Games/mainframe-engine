@@ -23,7 +23,8 @@ internal static class NodeDuplicator
             paths[i] = sceneRoot.GetPathTo(nodes[i]);
         }
 
-        var copyRoot = PackedScene.Pack(sceneRoot).Instantiate();
+        var packed = PackedScene.Pack(sceneRoot);
+        var copyRoot = packed.Instantiate();
         try
         {
             var copies = new List<Node>(nodes.Count);
@@ -48,6 +49,7 @@ internal static class NodeDuplicator
         finally
         {
             copyRoot.Free();
+            packed.ReleaseDependencies(); // the copies keep their resources; the throwaway scene's references go
         }
     }
 

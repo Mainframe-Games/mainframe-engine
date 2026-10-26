@@ -214,8 +214,7 @@ public sealed class SimulationController
 
         if (!scene.Viewport.IsFreed && ReferenceEquals(_workspace.Session.ActiveTab, scene))
             scene.Viewport.UpdateMode = SubViewportUpdateMode.Always;
-        if (_packed is { ReferenceCount: > 0 } packed)
-            packed.Release();
+        _packed?.ReleaseDependencies(); // the external resources and sub-scenes the copy loaded (a Pack'ed scene is not cached)
         _packed = null;
         tree?.ClearSimulationFault();
         ReportChangedResources();

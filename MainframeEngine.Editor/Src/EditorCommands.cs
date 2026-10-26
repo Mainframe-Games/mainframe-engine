@@ -992,6 +992,7 @@ public sealed class EditorCommands
     {
         _workspace.ProjectManager.Close();
         _workspace.Play.Stop();
+        _workspace.Simulation.Stop("Simulation stopped: the project closes."); // the copy holds game objects: free it before the code unloads
         Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
         // Music mode stays music mode: the start scene opens in game mode's tab strip, behind the music editor.
@@ -1070,6 +1071,7 @@ public sealed class EditorCommands
     private void ShowProjectManager() => AfterUnsavedScenes("Project Manager", () =>
     {
         _workspace.Play.Stop();
+        _workspace.Simulation.Stop("Simulation stopped: the project closes."); // the copy holds game objects: free it before the code unloads
         Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
         _workspace.Project.Close();
@@ -1110,6 +1112,7 @@ public sealed class EditorCommands
     private void CloseProject() => AfterUnsavedScenes("Close Project", () =>
     {
         _workspace.Play.Stop();
+        _workspace.Simulation.Stop("Simulation stopped: the project closes."); // the copy holds game objects: free it before the code unloads
         Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
         _workspace.Project.Close();

@@ -208,6 +208,8 @@ public sealed class ProjectService : IDisposable
 
     private void CloseCode()
     {
+        // A simulated copy holds game objects: it goes before the game code unloads (every close and switch path).
+        _workspace.Simulation.Stop("Simulation stopped: the project closes.");
         StopWatching();
         if (_loader is null)
             return;
