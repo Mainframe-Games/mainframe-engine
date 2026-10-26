@@ -101,9 +101,11 @@ public sealed class ForestValley : Node3D, ISceneLoadable
     /// <summary>
     /// The share of a far tree's impostor silhouette that casts into the coarse cascades and the far shadow
     /// (<see cref="TreeScatter.ImpostorShadowDensity"/>, ADR 0172): a whole tree in one view casts far denser than its
-    /// canopy does, and a low sun crosses many of them, so the glades and the floor keep their sunflecks.
+    /// canopy does, and a low sun crosses many of them, so the glades and the floor keep their sunflecks. ADR 0209: 0.5 →
+    /// 0.8; at half density the distant crowns barely shaded each other (past 55 m every canopy read evenly sunlit and
+    /// pale) and the floor beyond the hand-off read lighter than the near one. The pause menu's "Distant tree shadows".
     /// </summary>
-    [Export(Range = "0,1,0.01")] public float TreeImpostorShadowDensity { get; set; } = 0.5f;
+    [Export(Range = "0,1,0.01")] public float TreeImpostorShadowDensity { get; set; } = 0.8f;
 
     /// <summary>
     /// The share of each zone's trees that are G8e.5's species (<see cref="ForestVegetation.NewSpeciesShare"/>, ADR 0172):

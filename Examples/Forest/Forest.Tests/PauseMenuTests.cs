@@ -58,6 +58,7 @@ internal static class MenuScene
     {
         var world = ForestWorld.Capture(scene, new FakeDisplay(), settings ?? new ForestSettings());
         world.Terrain ??= new Terrain3D();
+        world.Trees ??= new TreeScatter { ImpostorDistance = 85f, ImpostorShadowDensity = 0.8f };
         world.Fps ??= new FpsHud();
         world.CaptureBaselines();
         return world;
@@ -520,6 +521,7 @@ public sealed class PauseMenuTests
             Fps = FpsHud.Attach(H.Scene);
             World = ForestWorld.Capture(H.Scene, new FakeDisplay(), new ForestSettings());
             World.Terrain = new Terrain3D();
+            World.Trees = new TreeScatter { ImpostorDistance = 85f, ImpostorShadowDensity = 0.8f };
             World.CaptureBaselines();
             Cameras = new ForestCameras { Name = "Cameras", Player = Player, GroundHeight = static (_, _) => 0f };
             H.Scene.AddChild(Cameras);

@@ -205,7 +205,7 @@ on the CPU the first time and then read from the tree-bake cache (`TreeBakeCache
 true)` gives every species leaf-cluster cards (from level 1 for Ez Tree's presets, from level 0 for the leaf-heavy new
 ones), coverage mips, hierarchical wind, a root flare, collars, moss (0.25 on conifers, 0.4 elsewhere) and detail normals.
 `ForestValley`'s knobs: `TreeClusters` (on), `TreeImpostorDistance` (85 m), `TreeLodFadeMargin` (4 m, per-instance
-levels), `TreeImpostorShadowDensity` (0.5: without it the impostor casters closed every sunfleck on the floor, R5),
+levels), `TreeImpostorShadowDensity` (0.8, 0.5 until ADR 0209: without it the impostor casters closed every sunfleck on the floor, R5; at half density the crowns past 55 m barely shaded each other and read evenly sunlit and pale, and the floor beyond the hand-off lighter than the near one),
 `TreeClusterShadowDensity` (1: 0.6 brings back R2's glade fleck for ≈ 2 ms of shadows), `TreeNewSpeciesShare` (0.35).
 Trees change the light-probe bake: re-bake after changing any of them.
 
@@ -234,9 +234,10 @@ coordinates; the new 64 m east are the pine ridge's top, the new 64 m south the 
   rise above a 21° line from the valley's showpieces in that direction (the shots' cameras, the fall, the pools, the
   bridge, the glade, the dust clouds; the line fades out over the last 15° of its 35° cone, so the cliffs have no step).
   Where that holds a cliff down, `RavineDepth` digs a ravine (up to 9 m) at its foot instead, with a long walkable slope
-  back up, so the north edge is a face too without darkening the fall. **R6** looks up into the sun at the old rim's
-  pines: its frame (`R6Frame`) keeps the old ground, so ≈ 20 m of the north edge behind the outcrop (x ≈ 41–62 m) is
-  closed by the wall alone; trees grow neither where a cliff was raised in the north nor in the ravines.
+  back up, so the north edge is a face too without darkening the fall. No ravine digs into a reference shot's frame
+  (`ShotFrame`: R6 looks up into the sun at the old rim's pines, R2 and R7 north at the fall, where a ravine bared a rock
+  wall and let the sun onto the pool), so ≈ 55 m of the north edge (x ≈ 41–62 m behind the outcrop, ≈ 98–130 m behind
+  the fall) is closed by the wall alone; trees grow neither where a cliff was raised in the north nor in the ravines.
   `ValleyEdgeTests` walks every edge (a 3 m run steeper than 50° on the way out) and checks the sun's line.
 - **The distant mountains** (`ForestMountains`): a second `Terrain3D` (2048 m at 8 m, centred on the map, no collision,
   no shadows, `LodBias` 0.6) sunk below the valley inside the map and, outside it, starting at the valley's edge heights
@@ -845,7 +846,7 @@ setting's effect shows at once. Resume (or Escape) recaptures the mouse and save
 
 | Page | Rows |
 |---|---|
-| **Graphics** | *Display*: upscaling (TAAU / FSR 1 / native), render scale (50–100 %), anti-aliasing (TAA / FXAA / off), VSync, field of view, the frame-rate readout. *Shadows and light*: shadow resolution (512–4096), distance (40–300 m), cascades (1–4), soft shadows (PCSS: the sun's 0.5° disc or 0), contact shadows, ambient occlusion and its strength. *Atmosphere*: haze (the distance fog, 0–400 % of the look), volumetric fog and its density (0–400 %), screen-space light shafts, wind (0–400 %; the trees, the grass and the wind sound). *Sun (lighting bake approximate)*: height (2–85°) and direction (0–355°). *Camera and post-processing*: tonemapper (AgX / ACES / Filmic / Reinhard), exposure (±2 EV), auto exposure, glow (0–400 %), the colour grade, depth of field and its focus distance, film grain, vignette, chromatic aberration. *Vegetation*: ground cover density (10–100 %) and distance (25–100 %) |
+| **Graphics** | *Display*: upscaling (TAAU / FSR 1 / native), render scale (50–100 %), anti-aliasing (TAA / FXAA / off), VSync, field of view, the frame-rate readout. *Shadows and light*: shadow resolution (512–4096), distance (40–300 m), cascades (1–4), distant tree shadows (the impostors' shadow density, 20–100 %; ADR 0209), soft shadows (PCSS: the sun's 0.5° disc or 0), contact shadows, ambient occlusion and its strength. *Atmosphere*: haze (the distance fog, 0–400 % of the look), volumetric fog and its density (0–400 %), screen-space light shafts, wind (0–400 %; the trees, the grass and the wind sound). *Sun (lighting bake approximate)*: height (2–85°) and direction (0–355°). *Camera and post-processing*: tonemapper (AgX / ACES / Filmic / Reinhard), exposure (±2 EV), auto exposure, glow (0–400 %), the colour grade, depth of field and its focus distance, film grain, vignette, chromatic aberration. *Vegetation*: ground cover density (10–100 %) and distance (25–100 %), tree detail distance (where trees become impostors, 60–250 m) |
 | **Audio** | master, ambience (wind, leaves, birds), water (the brook, the falls), footsteps (the Foley bus), mute |
 | **Controls** | mouse sensitivity, invert look, gamepad look speed, head bob; the keys for reference (E opens a door) |
 | **Cameras** | Return to player; **Fly-over**: a cinematic camera along the benchmark spline at 7 m/s (`ForestCameras.FlyOverSpeed`), looking 14 m ahead with an eased turn, closed into a ≈ 70 s loop, lifted wherever the curve between the spline's points would come within 1.5 m of the ground or the water (`ForestCameras.MinClearance`; the first leg sagged into the rising path); **Free camera**: WASD, Space up, C down, Shift faster, mouse or right stick (`FreeFlyCamera`, no collision); the reference shots **R1–R9** (Glade, Fall, Bridge, Vista, Floor, Pines, Fall close, Woodland, Cabin) as cards with thumbnails (a full 3 × 3 grid), with their photo lenses. In a shot, A / D (or left / right) step through the shots. A camera closes the menu; Escape then opens it again on the Cameras page |

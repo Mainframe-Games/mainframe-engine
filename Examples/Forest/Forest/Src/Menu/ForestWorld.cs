@@ -54,6 +54,9 @@ public sealed class ForestWorld
 
     public Terrain3D? Terrain { get; set; }
 
+    /// <summary>The valley's trees (not the bushes or the mountains' far conifers).</summary>
+    public TreeScatter? Trees { get; set; }
+
     public FirstPersonController? Player { get; set; }
 
     public ForestAudio? Audio { get; set; }
@@ -97,6 +100,7 @@ public sealed class ForestWorld
             Sun = Find<DirectionalLight3D>(scene),
             Probes = Find<LightProbeVolume>(scene),
             Terrain = Find<Terrain3D>(scene),
+            Trees = Find<ForestValley>(scene)?.Forest,
             Player = Find<FirstPersonController>(scene),
             Audio = Find<ForestAudio>(scene),
             Fps = Find<FpsHud>(scene),

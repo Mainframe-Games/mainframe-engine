@@ -66,15 +66,15 @@ public sealed class ValleyEdgeTests
                 Assert.True(SteepestClimb(new Vector2(size - inward, t), new Vector2(size - 0.5f, t)) > 3f, $"the east edge is climbable at z = {t}");
             }
 
-            // R6 looks up at the old north rim's pines against the sun: its stretch keeps the old ground (see
-            // ValleyGenerator.R6Frame), closed by the map's wall alone where its rim is low.
+            // The shots that look north into the sun (R6 at the old rim's pines, R2 and R7 at the fall) keep the ground
+            // they were composed with (ValleyGenerator.ShotFrame): there the map's wall alone closes the edge.
             if (SteepestClimb(new Vector2(t, inward), new Vector2(t, 0.5f)) > 3f)
                 continue;
-            Assert.True(ValleyGenerator.R6Frame(t, 8f) > 0.9f, $"the north edge is climbable at x = {t}");
+            Assert.True(ValleyGenerator.ShotFrame(t, 8f) > 0.9f, $"the north edge is climbable at x = {t}");
             open += 3f;
         }
 
-        Assert.True(open <= 30f, $"{open} m of the north edge has no cliff");
+        Assert.True(open <= 70f, $"{open} m of the north edge has no cliff");
     }
 
     [Fact]

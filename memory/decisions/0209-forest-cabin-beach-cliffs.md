@@ -27,8 +27,11 @@ shader was capped at eight, all in use).
 - **Cliffs bounded by the sun.** The morning sun is low (25°) in the north-north-east and the look-dev was tuned with the
   sun reaching the fall, the pools and the glade, so `SunCap` keeps every cliff and mountain under a 21° line from the
   showpieces in the sun's direction, fading over its cone's edge. Where that holds a cliff down, a ravine at its foot
-  makes the face (a long walkable slope back up). R6 looks up at the old rim's pines into the sun: its frame keeps the old
-  ground, so ≈ 20 m of north edge is closed by the wall alone. The invisible walls stay as a backstop everywhere.
+  makes the face (a long walkable slope back up). No ravine digs into a reference shot's frame (R6 looks up at the old
+  rim's pines, R2 and R7 north at the fall), so ≈ 55 m of north edge is closed by the wall alone. The invisible walls
+  stay as a backstop everywhere.
+- **Distant tree shadows** (follow-up): the impostors' shadow density 0.5 → 0.8 (at half the crowns past 55 m read
+  evenly sunlit and pale); it and the impostor distance are pause-menu options.
 - **Distant mountains** are a second, coarse terrain (2048 m at 8 m, no collision, no shadows) starting at the valley's
   edge heights, with impostor-only conifers on the foothills.
 - **The cabin is a script**, not a hand-edited asset: `Tools/cabin/build_cabin.py` builds it in Blender headless
@@ -48,4 +51,4 @@ shader was capped at eight, all in use).
   shadows, ≈ 300 more draws); the baseline is to be re-recorded on a quiet machine.
 - 43 MB of new LFS art (furniture, cabin textures) plus the rock scans and the sand: ≈ 210 MB of the 400 MB budget.
 - The probe bake is 207 368 probes (6.7 MB), ≈ 2 minutes.
-- R6's stretch of the north edge has no cliff; recomposing R6 would allow one there.
+- R6's and the fall's stretches of the north edge have no cliff; recomposing R2, R6 and R7 would allow them.

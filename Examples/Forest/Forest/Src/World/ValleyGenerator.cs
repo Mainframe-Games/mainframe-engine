@@ -528,7 +528,7 @@ public sealed class ValleyGenerator
     /// </summary>
     public float RavineDepth(float x, float z, float h)
     {
-        var keep = R6Frame(x, z);
+        var keep = ShotFrame(x, z);
         if (keep >= 1f)
             return 0f;
         var size = ValleyLayout.SizeMeters;
@@ -558,9 +558,24 @@ public sealed class ValleyGenerator
     /// at the old rim's pines against the sun, so its stretch of the north edge keeps the old ground (no cliff above it,
     /// no ravine before it).
     /// </summary>
-    public static float R6Frame(float x, float z)
+    public static float R6Frame(float x, float z) => InFrame(ValleyLayout.Shots[5], x, z);
+
+    /// <summary>
+    /// How far (x, z) is in any reference shot's frame, 0..1 (<see cref="InFrame"/>): no ravine digs into the ground a shot
+    /// was composed with (R2 and R7 look north at the fall: a ravine behind it bared a rock wall and let the low sun onto
+    /// the pool).
+    /// </summary>
+    public static float ShotFrame(float x, float z)
     {
-        var shot = ValleyLayout.Shots[5];
+        var frame = 0f;
+        foreach (var shot in ValleyLayout.Shots)
+            frame = MathF.Max(frame, InFrame(shot, x, z));
+        return frame;
+    }
+
+    /// <summary>1 within 70 m and 35° of <paramref name="shot"/>'s view, fading out by 90 m and 55°.</summary>
+    private static float InFrame(in ReferenceShot shot, float x, float z)
+    {
         var offset = new Vector2(x, z) - shot.Eye;
         var distance = offset.Length();
         if (distance < 1e-3f)
