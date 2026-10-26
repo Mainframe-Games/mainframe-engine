@@ -426,6 +426,7 @@ public sealed class ForestDev : Node
     {
         if (tree.Window is not { } window || window.Size.X <= 0)
             return;
+        window.Mode = WindowMode.Windowed; // a maximized window keeps its size
         var scale = tree.Root.Size.X / window.Size.X;
         if (!(scale > 0f))
             scale = 1f;

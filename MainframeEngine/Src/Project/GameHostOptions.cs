@@ -212,6 +212,9 @@ public sealed record GameHostOptions
         options.TimeScale = TimeScale;
         if (Hidden)
             options.WindowVisible = false;
+        // Automated runs capture at the project's size: never maximized or fullscreen.
+        if (Hidden || MaxFrames > 0 || ScreenshotPath is not null || LoadingScreenshotPath is not null || RecordPath is not null)
+            options.WindowMode = WindowMode.Windowed;
         if (NoVSync)
             options.VSync = false;
         if (Validation)

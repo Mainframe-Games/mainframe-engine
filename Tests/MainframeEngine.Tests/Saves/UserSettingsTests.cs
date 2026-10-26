@@ -73,7 +73,7 @@ public sealed class UserSettingsTests : IDisposable
         settings.SetBusVolume("Music", 1f);
         settings.VSync = true;
         settings.Shadows = ShadowQuality.High;
-        settings.WindowMode = WindowMode.Windowed;
+        settings.WindowMode = WindowMode.Maximized; // the project's (WindowSettings.Mode's default)
         Assert.Equal("{\n  \"format\": 1\n}\n", Json(settings));
     }
 
@@ -89,7 +89,12 @@ public sealed class UserSettingsTests : IDisposable
         Assert.False(settings.VSync);
         Assert.Equal(144, settings.MaxFps);
         Assert.Equal(ShadowQuality.Low, settings.Shadows);
-        Assert.Equal(WindowMode.Windowed, settings.WindowMode);
+        Assert.Equal(WindowMode.Maximized, settings.WindowMode); // the project's default
+        project.Window.Mode = WindowMode.Windowed;
+        Assert.Equal(WindowMode.Windowed, settings.WindowMode); // a project that opens windowed
+        Assert.Equal(WindowMode.Windowed, settings.PatchEngineOptions(project.ToEngineOptions()).WindowMode);
+        settings.WindowMode = WindowMode.Fullscreen;
+        Assert.Equal(WindowMode.Fullscreen, settings.PatchEngineOptions(project.ToEngineOptions()).WindowMode); // the player's choice wins
         Assert.Null(settings.WindowSize);
         Assert.Equal(1f, settings.UiScale);
         Assert.Null(settings.Language);
@@ -123,7 +128,7 @@ public sealed class UserSettingsTests : IDisposable
             """, Project());
         Assert.Equal(1f, edited.GetBusVolume("Music"));
         Assert.False(edited.IsBusMuted("Music"));
-        Assert.Equal(WindowMode.Windowed, edited.WindowMode);
+        Assert.Equal(WindowMode.Maximized, edited.WindowMode);
         Assert.Null(edited.WindowSize);
         Assert.Equal(0, edited.MaxFps);
         Assert.True(edited.VSync);
