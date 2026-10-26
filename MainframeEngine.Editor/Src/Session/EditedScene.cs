@@ -304,6 +304,19 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
         return true;
     }
 
+    /// <summary>
+    /// Locks or unlocks <paramref name="node"/> in the viewport (G7.4: the persistent group <see cref="EditorLock.Group"/>,
+    /// saved with the scene) through the history; false when it already is.
+    /// </summary>
+    public bool SetLocked(Node node, bool locked)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        if (!IsEditable(node) || EditorLock.IsLocked(node) == locked)
+            return false;
+        History.Commit(new SetGroupAction(node, EditorLock.Group, locked, $"{(locked ? "Lock" : "Unlock")} {node.Name}"));
+        return true;
+    }
+
     /// <summary>Renames <paramref name="node"/>; false when the name is empty or unchanged.</summary>
     public bool Rename(Node node, string name)
     {

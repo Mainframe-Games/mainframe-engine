@@ -63,7 +63,7 @@ public sealed partial class ViewportController
 
     private static bool Release2DMatches(DragKind drag, MouseButton button) => drag switch
     {
-        DragKind.Click or DragKind.Gizmo or DragKind.Handle => button == MouseButton.Left,
+        DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box => button == MouseButton.Left,
         DragKind.Pan => button is MouseButton.Left or MouseButton.Middle or MouseButton.Right,
         _ => false,
     };
@@ -80,16 +80,17 @@ public sealed partial class ViewportController
         RefreshNodes2D(scene);
         var world = scene.Camera.ScreenToWorld2D(pixel, ViewPixels);
         for (var i = _nodes2D.Count - 1; i >= 0; i--)
-            if (_nodes2D[i] is CollisionShape2D { Shape: { } shape, IsInsideTree: true } collision && Contains(collision, shape, world))
-                return scene.SelectableFor(collision);
+            if (_nodes2D[i] is CollisionShape2D { Shape: { } shape, IsInsideTree: true } collision && Contains(collision, shape, world) &&
+                scene.SelectableFor(collision) is { } hit && !EditorLock.IsLocked(hit))
+                return hit;
 
         Node? best = null;
         var bestDistance = PickPoints * ViewScale;
         for (var i = _nodes2D.Count - 1; i >= 0; i--)
         {
             var node = _nodes2D[i];
-            if (!node.IsInsideTree)
-                continue;
+            if (!node.IsInsideTree || scene.SelectableFor(node) is not { } selectable || EditorLock.IsLocked(selectable))
+                continue; // locked nodes cannot be picked in the viewport (G7.4)
             var at = scene.Camera.WorldToScreen2D(node.GlobalPosition, ViewPixels);
             var distance = Vector2.Distance(at, pixel);
             if (distance < bestDistance)

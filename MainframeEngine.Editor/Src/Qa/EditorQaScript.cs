@@ -177,6 +177,40 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "box-select":
+                {
+                    // box-select x0 y0 x1 y1 [shift|cmd] [hold]: a left drag from (x0, y0) to (x1, y1) layout points with the
+                    // modifier held (shift adds, cmd toggles); "hold" keeps the button down until mouse-up.
+                    var boxFrom = new Vector2(Float(step, 1), Float(step, 2));
+                    var boxTo = new Vector2(Float(step, 3), Float(step, 4));
+                    var options = step[5..];
+                    _dragModifier = options.Contains("shift") ? Key.ShiftLeft
+                        : options.Contains("cmd") ? OperatingSystem.IsMacOS() ? Key.SuperLeft : Key.ControlLeft
+                        : null;
+                    _holdDrag = options.Contains("hold") ? MouseButton.Left : null;
+                    if (_dragModifier is { } modifier)
+                        tree.PushInput(new InputEventKey { Key = modifier, Pressed = true });
+                    _drag = (boxFrom, boxTo, MouseButton.Left, 20, 0);
+                    _mouse = boxFrom;
+                    tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, boxFrom) });
+                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = Pointer(app, boxFrom) });
+                    break;
+                }
+
+            case "mouse-up":
+                if (_holdDrag is { } held)
+                {
+                    tree.PushInput(new InputEventMouseButton { Button = held, Pressed = false, Position = Pointer(app, _mouse) });
+                    ReleaseDragModifier(tree);
+                    _holdDrag = null;
+                }
+
+                break;
+            case "lock":
+                // lock Node/Path: toggles the node's viewport lock (the Scene panel's lock button).
+                if (workspace.Session.Active is { } lockScene && lockScene.Root.GetNodeOrNull(string.Join(' ', step[1..])) is { } lockNode)
+                    lockScene.SetLocked(lockNode, !EditorLock.IsLocked(lockNode));
+                break;
             case "handle-drag":
                 {
                     // handle-drag <index> dx dy [frames]: drags range handle <index> of the selection (G7.3) by (dx, dy) points.
@@ -622,6 +656,19 @@ public sealed class EditorQaScript : IEditorAutomation
         return new UpdateCheckResult(UpdateCheckStatus.UpdateAvailable, release, asset);
     }
 
+    // The modifier a box-select holds during its drag (released with the mouse button).
+    private Key? _dragModifier;
+
+    // A held drag's button (box-select … hold), released by mouse-up.
+    private MouseButton? _holdDrag;
+
+    private void ReleaseDragModifier(SceneTree tree)
+    {
+        if (_dragModifier is { } key)
+            tree.PushInput(new InputEventKey { Key = key, Pressed = false });
+        _dragModifier = null;
+    }
+
     private void StepDrag(EditorApp app, (Vector2 From, Vector2 To, MouseButton Button, int Frames, int Done) drag)
     {
         var done = drag.Done + 1;
@@ -630,8 +677,11 @@ public sealed class EditorQaScript : IEditorAutomation
         _mouse = position;
         if (done >= drag.Frames)
         {
-            app.Tree.PushInput(new InputEventMouseButton { Button = drag.Button, Pressed = false, Position = Pointer(app, position) });
             _drag = null;
+            if (_holdDrag is not null)
+                return; // box-select … hold: the button stays down until mouse-up (a capture shows the rectangle)
+            app.Tree.PushInput(new InputEventMouseButton { Button = drag.Button, Pressed = false, Position = Pointer(app, position) });
+            ReleaseDragModifier(app.Tree);
             return;
         }
 

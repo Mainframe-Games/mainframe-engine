@@ -166,7 +166,7 @@ public sealed partial class ViewportController
     public bool IsDraggingGizmo => _drag == DragKind.Gizmo;
 
     // Drags that Esc or a right click cancel (everything goes back to where it was).
-    private bool IsCancellableDrag => _drag is DragKind.Gizmo or DragKind.Handle;
+    private bool IsCancellableDrag => _drag is DragKind.Gizmo or DragKind.Handle or DragKind.Box;
 
     // ── 3D ───────────────────────────────────────────────────────────────────────────────────────────────────────
 

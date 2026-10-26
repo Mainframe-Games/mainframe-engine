@@ -383,3 +383,42 @@ public sealed class MoveInTreeAction : IEditorAction
 
     public void Undo() => Node.Parent!.MoveChild(Node, _oldIndex);
 }
+
+/// <summary>
+/// Puts a node in a persistent group or takes it out (saved with the scene): the viewport lock's
+/// <see cref="EditorLock.Group"/> (G7.4).
+/// </summary>
+public sealed class SetGroupAction : IEditorAction
+{
+    public SetGroupAction(Node node, string group, bool member, string name)
+    {
+        Node = node ?? throw new ArgumentNullException(nameof(node));
+        ArgumentException.ThrowIfNullOrEmpty(group);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        Group = group;
+        Member = member;
+        Name = name;
+    }
+
+    public Node Node { get; }
+    public string Group { get; }
+
+    /// <summary>True: Do adds the node to the group; false: Do removes it.</summary>
+    public bool Member { get; }
+
+    public string Name { get; }
+
+    public void Do() => Apply(Member);
+
+    public void Undo() => Apply(!Member);
+
+    private void Apply(bool member)
+    {
+        if (member)
+            Node.AddToGroup(Group, persistent: true);
+        else
+            Node.RemoveFromGroup(Group);
+    }
+
+    public bool TryMerge(IEditorAction next) => false;
+}

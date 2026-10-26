@@ -156,6 +156,25 @@ public class SubViewport : SceneViewport
     /// <summary>Queues a pick and returns a handle to poll with <see cref="TryGetPickResult"/>.</summary>
     public PickHandle RequestPick(int x, int y) => _server?.RequestPick(this, x, y) ?? default;
 
+    /// <summary>
+    /// Queues a rectangle pick (view pixels, origin top-left; clamped to the view): every node whose object id shows in
+    /// it — the visible meshes, not those hidden behind others — read back a couple of frames later like
+    /// <see cref="RequestPick"/>, through one transient GPU buffer (editor box selection). Poll with
+    /// <see cref="TryGetPickRegionResult"/>.
+    /// </summary>
+    public PickHandle RequestPickRegion(int x, int y, int width, int height) =>
+        _server?.RequestPickRegion(this, x, y, width, height) ?? default;
+
+    /// <summary>
+    /// Appends the distinct nodes of a <see cref="RequestPickRegion"/> to <paramref name="nodes"/> once it is ready
+    /// (true only once; nodes freed meanwhile are left out).
+    /// </summary>
+    public bool TryGetPickRegionResult(PickHandle handle, List<Node> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        return _server is not null && RenderServer.TryGetPickRegionResult(this, handle, nodes);
+    }
+
     /// <summary>The result of <see cref="RequestPick"/> once it is ready (taken: true only once).</summary>
     public bool TryGetPickResult(PickHandle handle, out PickResult result)
     {

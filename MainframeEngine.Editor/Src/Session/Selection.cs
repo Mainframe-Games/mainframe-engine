@@ -44,6 +44,53 @@ public sealed class Selection
         Raise();
     }
 
+    /// <summary>Selects exactly <paramref name="nodes"/>, in that order (the last is primary); one <see cref="Changed"/>.</summary>
+    public void Set(IReadOnlyList<Node> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        if (nodes.Count == _nodes.Count)
+        {
+            var same = true;
+            for (var i = 0; i < nodes.Count && same; i++)
+                same = ReferenceEquals(nodes[i], _nodes[i]);
+            if (same)
+                return;
+        }
+
+        _nodes.Clear();
+        foreach (var node in nodes)
+            if (!_nodes.Contains(node))
+                _nodes.Add(node);
+        Raise();
+    }
+
+    /// <summary>Adds <paramref name="nodes"/> in order (already selected ones move to the end); one <see cref="Changed"/>.</summary>
+    public void AddRange(IReadOnlyList<Node> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        if (nodes.Count == 0)
+            return;
+        foreach (var node in nodes)
+        {
+            _nodes.Remove(node);
+            _nodes.Add(node);
+        }
+
+        Raise();
+    }
+
+    /// <summary>Toggles each of <paramref name="nodes"/> (Ctrl/Cmd + box); one <see cref="Changed"/>.</summary>
+    public void ToggleRange(IReadOnlyList<Node> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        if (nodes.Count == 0)
+            return;
+        foreach (var node in nodes)
+            if (!_nodes.Remove(node))
+                _nodes.Add(node);
+        Raise();
+    }
+
     /// <summary>Adds <paramref name="node"/> (or makes it primary when already selected).</summary>
     public void Add(Node node)
     {

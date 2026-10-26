@@ -293,7 +293,8 @@ public sealed class InstancesScene(HostOptions host) : MeshSceneBase(host)
 /// <summary>
 /// Object-ID picking and an offscreen view. Frame 3 requests picks at the projected centres of three boxes and at a
 /// sky pixel of the main view, and at the centre of a <see cref="SubViewport"/> (its own world: a sphere under its
-/// own camera and light) shown in the corner through a UI image (<c>engine://picking-preview</c>). Frame 15 checks every result.
+/// own camera and light) shown in the corner through a UI image (<c>engine://picking-preview</c>), and a region of a third
+/// view (G7.4 box selection: a box in it, one hidden behind that box, one outside). Frame 15 checks every result.
 /// </summary>
 public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
 {
@@ -306,6 +307,11 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
     private MeshInstance3D _sphere = null!;
     private MeshInstance3D _frozenBox = null!;
     private PickHandle _polled;
+    private SubViewport _region = null!;
+    private readonly MeshInstance3D[] _regionBoxes = new MeshInstance3D[3];
+    private PickHandle _regionPick;
+    private readonly List<Node> _regionNodes = [];
+    private bool _regionDone;
     private bool _checked;
     private bool _registered;
 
@@ -348,6 +354,19 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
         _frozenBox = new MeshInstance3D { Name = "FrozenBox", Mesh = new BoxMesh() };
         _frozen.AddChild(_frozenBox);
         scene.AddChild(_frozen);
+
+        // A region pick (editor box selection, G7.4): a box in the rectangle, one hidden behind it, one outside it.
+        _region = new SubViewport { Name = "Region", Width = 64, Height = 32 };
+        _region.AddChild(new Camera3D { Name = "RegionCamera", Position = new Vector3(0, 0, 5f) });
+        string[] names = ["InBox", "Occluded", "Outside"];
+        Vector3[] positions = [new(-1.2f, 0, 0), new(-1.92f, 0, -3f), new(1.6f, 0, 0)]; // the second on the camera ray through the first
+        for (var i = 0; i < 3; i++)
+        {
+            _regionBoxes[i] = new MeshInstance3D { Name = names[i], Position = positions[i], Mesh = new BoxMesh() };
+            _region.AddChild(_regionBoxes[i]);
+        }
+
+        scene.AddChild(_region);
     }
 
     protected override void UpdateScene(in GameTime gameTime)
@@ -380,11 +399,21 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
             _picks.Add(("preview corner", _view.PickAsync(2, 2), null));
             _picks.Add(("frozen view", _frozen.PickAsync(16, 16), _frozenBox));
             _polled = render.RequestPick((int)Project(_boxes[0].GlobalPosition)!.Value.X, (int)Project(_boxes[0].GlobalPosition)!.Value.Y);
+            _regionPick = _region.RequestPickRegion(0, 0, _region.Width / 2, _region.Height);
         }
+
+        if (_regionPick.IsValid && !_regionDone && _region.TryGetPickRegionResult(_regionPick, _regionNodes))
+            _regionDone = true;
 
         if (gameTime.FrameCount == CheckFrame)
         {
             _checked = true;
+            if (!_regionDone)
+                Fail("the region pick did not complete");
+            else if (_regionNodes.Count != 1 || !ReferenceEquals(_regionNodes[0], _regionBoxes[0]))
+                Fail($"region pick: expected InBox only, got [{string.Join(", ", _regionNodes.Select(n => n.Name))}]");
+            if (_region.TryGetPickRegionResult(_regionPick, _regionNodes))
+                Fail("a region result was returned twice");
             foreach (var (what, task, expected) in _picks)
             {
                 if (!task.IsCompletedSuccessfully)

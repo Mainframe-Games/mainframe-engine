@@ -1012,6 +1012,14 @@ public sealed class RenderServer : IServer
     internal PickHandle RequestPick(SubViewport viewport, int x, int y) =>
         Vulkan is { } vk && !_disposed ? (EnsureTargets(viewport).Picker ??= new ObjectIdPicker(vk, viewport.Name)).Request(x, y, null) : default;
 
+    internal PickHandle RequestPickRegion(SubViewport viewport, int x, int y, int width, int height) =>
+        Vulkan is { } vk && !_disposed
+            ? (EnsureTargets(viewport).Picker ??= new ObjectIdPicker(vk, viewport.Name)).RequestRegion(x, y, width, height)
+            : default;
+
+    internal static bool TryGetPickRegionResult(SubViewport viewport, PickHandle handle, List<Node> nodes) =>
+        viewport.Targets?.Picker is { } picker && picker.TryTakeRegion(handle, nodes);
+
     internal static bool TryGetPickResult(SubViewport viewport, PickHandle handle, out PickResult result)
     {
         result = default;

@@ -48,6 +48,7 @@ public sealed partial class ViewportController : Node
         Click,     // LMB pressed, may become a pick
         Gizmo,
         Handle,    // a range handle (G7.3)
+        Box,       // a selection rectangle (G7.4)
         Orbit,
         Pan,
         Fly,
@@ -136,6 +137,9 @@ public sealed partial class ViewportController : Node
         _dragHandleNode = null;
         _dragHandleProvider = null;
         _hoverHandle = -1;
+        _boxPick = default;
+        _boxScene = null;
+        _boxNodes.Clear();
         _pick = default;
         _pickScene = null;
         _scene = null;
@@ -215,6 +219,7 @@ public sealed partial class ViewportController : Node
         _workspace.ViewportPanel.SetInfo(scene.Camera.Is2D ? Info2D : _drag == DragKind.Fly ? FlyInfo : PerspectiveInfo,
             scene.Camera.Is2D ? "square" : _drag == DragKind.Fly ? "plane" : "perspective");
         PollPick(scene);
+        PollBox(scene);
         if (scene.Camera.Is2D)
             DrawEditorVisuals2D(scene, pixels);
         else
@@ -425,7 +430,7 @@ public sealed partial class ViewportController : Node
             return false;
         var matches = scene.Camera.Is2D ? Release2DMatches(drag, e.Button) : drag switch
         {
-            DragKind.Click or DragKind.Gizmo or DragKind.Handle => e.Button == MouseButton.Left,
+            DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box => e.Button == MouseButton.Left,
             DragKind.Orbit => e.Button is MouseButton.Left or MouseButton.Middle,
             DragKind.Pan => e.Button == MouseButton.Middle,
             DragKind.Fly => e.Button == MouseButton.Right,
@@ -438,6 +443,11 @@ public sealed partial class ViewportController : Node
             EndAnyGizmo(scene, commit: true);
         else if (drag == DragKind.Handle)
             EndHandle(scene, commit: true);
+        else if (drag == DragKind.Box)
+        {
+            HideBox();
+            BoxSelect(scene, _pressAt, _mouse, ModeFromModifiers());
+        }
         else if (drag == DragKind.Click && Vector2.Distance(_mouse, _pressAt) <= ClickPixels)
             Pick(scene, _mouse, (_workspace.Modifiers & (EditorModifiers.Command | EditorModifiers.Shift)) != 0);
         else if (drag == DragKind.Fly)
@@ -470,6 +480,13 @@ public sealed partial class ViewportController : Node
                 return true;
             case DragKind.Gizmo:
                 UpdateGizmo(scene);
+                return true;
+            case DragKind.Click when Vector2.Distance(_mouse, _pressAt) > ClickPixels:
+                _drag = DragKind.Box; // a drag from empty space draws a selection rectangle (every tool)
+                ShowBox();
+                return true;
+            case DragKind.Box:
+                ShowBox();
                 return true;
             case DragKind.Click:
                 return true;
@@ -529,6 +546,8 @@ public sealed partial class ViewportController : Node
             EndAnyGizmo(scene, commit: false);
         else if (_drag == DragKind.Handle && _scene is { } handleScene)
             EndHandle(handleScene, commit: false);
+        else if (_drag == DragKind.Box)
+            HideBox();
 
         _drag = DragKind.None;
         _fast = false;
@@ -597,6 +616,8 @@ public sealed partial class ViewportController : Node
             return;
         _pick = default;
         var node = result.Hit ? scene.SelectableFor(result.Node) : null;
+        if (node is not null && EditorLock.IsLocked(node))
+            node = null; // a locked node is not picked: the click selects nothing (G7.4)
         if (node is not null)
             Select(scene, node, _pickAdditive);
         else if (!_pickAdditive)
@@ -619,13 +640,14 @@ public sealed partial class ViewportController : Node
         var bestDistance = IconPixels * ViewScale;
         foreach (var node in _iconNodes)
         {
-            if (!scene.Camera.Project(node.GlobalPosition, size.X, size.Y, out var at))
-                continue;
+            if (!scene.Camera.Project(node.GlobalPosition, size.X, size.Y, out var at) || scene.SelectableFor(node) is not { } selectable ||
+                EditorLock.IsLocked(selectable))
+                continue; // locked nodes cannot be picked in the viewport (G7.4)
             var distance = Vector2.Distance(at, pixel);
             if (distance < bestDistance)
             {
                 bestDistance = distance;
-                best = scene.SelectableFor(node);
+                best = selectable;
             }
         }
 
