@@ -19,6 +19,9 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public RigidBody? Body;
     public uint Layer;
     public uint Mask;
+
+    /// <summary>Bodies with the same non-zero group never collide (a ragdoll's parts, ADR 0212).</summary>
+    public int Group;
     public bool Removed;
     public bool TransformDirty;
     public bool ShapesDirty;
@@ -62,6 +65,13 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
         PhysicsBodyKind.Kinematic => KinematicVelocity,
         _ => Vector3.Zero,
     };
+
+    /// <summary>The Jitter2 body's velocities: for a kinematic body moved by its node, what reached the last target.</summary>
+    public void GetBodyVelocity(out Vector3 linear, out Vector3 angular)
+    {
+        linear = Body?.Velocity.ToNumerics() ?? Vector3.Zero;
+        angular = Body?.AngularVelocity.ToNumerics() ?? Vector3.Zero;
+    }
 
     public Vector3 GetAngularVelocity() => Kind switch
     {
@@ -141,6 +151,7 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     {
         Layer = Node.CollisionLayer;
         Mask = Node.CollisionMask;
+        Group = Node.ExclusionGroup;
         if (Body is { } body)
         {
             // Jitter2 keeps resting contacts until they break: drop them so the new filter applies now.
@@ -269,6 +280,7 @@ public sealed partial class PhysicsSpace3D : IDisposable
             Kind = node.Kind,
             Layer = node.CollisionLayer,
             Mask = node.CollisionMask,
+            Group = node.ExclusionGroup,
         };
         node.Record = record;
         _records.Add(record);
@@ -474,7 +486,9 @@ public sealed partial class PhysicsSpace3D : IDisposable
 
     private void UpdateMembership(BodyRecord3D record)
     {
-        record.Interpolated = record.IsMoving && record.Node.PhysicsInterpolation;
+        // A body held kinematic by a ragdoll follows its node every frame: interpolating it would render it a step
+        // behind, and the next node move would start from that lagging pose (ADR 0212).
+        record.Interpolated = record.IsMoving && record.Node.PhysicsInterpolation && record.Node is not RigidBody3D { HeldKinematic: true };
         SetMember(_moving, record, record.IsMoving);
         SetMember(_areas, record, record.Kind == PhysicsBodyKind.Area);
         var monitor = record.Node is RigidBody3D { ContactMonitor: true };
@@ -1310,6 +1324,8 @@ public sealed partial class PhysicsSpace3D : IDisposable
             if (proxyA is not RigidBodyShape { RigidBody.Tag: BodyRecord3D a } || proxyB is not RigidBodyShape { RigidBody.Tag: BodyRecord3D b })
                 return true;
             if ((a.Layer & b.Mask) == 0 && (b.Layer & a.Mask) == 0)
+                return false;
+            if (a.Group != 0 && a.Group == b.Group)
                 return false;
             if (a.Excluded is { } excluded)
                 foreach (var other in excluded)
