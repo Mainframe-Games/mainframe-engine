@@ -1,6 +1,8 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publish and public-release prep next._
+_Last updated: 2026-10-27 — M0–M10, Demo & polish and most of the 2D port work on `main`; latest release v1.1.5.
+In flight: G1e root motion, G9 3D joints + ragdolls, G7 editor viewport tools (branches `feature/g1e-root-motion`,
+`feature/g9-joints-ragdolls`, `feature/g7-viewport-tools`)._
 
 ## What exists
 
@@ -16,12 +18,23 @@ _Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publ
 - **Editor** (`MainframeEngine.Editor`, M10, UI in RmlUi): Project Manager, New Project wizard, project settings,
   FileSystem panel, scene tabs (one `SubViewport` world each), scene tree, generated inspector (multi-select, Signals
   tab, custom inspectors), undo/redo, 3D/2D viewport + gizmos, Play (separate process over the editor link), code
-  reload, Tabler icon atlas, editor settings. macOS app name "Mainframe Engine" via a dev `.app` bundle.
-- **Version** v1.0.0 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds.
+  reload, Tabler icon atlas, editor settings. macOS app name "Mainframe Editor" via a dev `.app` bundle (#118).
+- **Since M10** (details in `progress-log.md`): 2D canvas renderer, `Camera2D`, canvas text, canvas shaders, SVG
+  (ThorVG), 2D lights and canvas post, `Tween`, `GpuParticles2D`, `Polygon2D`/`Skeleton2D`, 2D joints (ADR 0201),
+  `SceneTree.TimeScale`; headless host, game packaging + signing, NuGet packages (ADR 0188); saves and settings (G4);
+  post-processing (ADR 0163) and the F12 dev overlay; gameplay recording (ADR 0190) and the editor's Video mode (ADR
+  0191); Music mode, DAW, wavetable synth and adaptive music (ADRs 0192–0196); `Assets/` content folder (ADR 0197); 3D
+  skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205); 3D particles (ADR 0206); Spine
+  shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
+  (terrain, trees, water, baked GI; ADR 0209); the docs site at engine.mainframe.games; editor self-update; Linux
+  launcher.
+- **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
+  the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
 - **Solution** `MainframeEngine.slnx` (no `.sln`). Everything local goes through `just` (see CLAUDE.md).
-- **Tests:** ~1 170 engine + ~430 editor unit tests; 43+ render tests (goldens `moltenvk` + `lavapipe`, validation
-  gate, 0-B allocation gate); benchmarks with `baseline.json`; QA scripts (`just qa`, `qa-editor`, `qa-projects`).
-  Lavapipe can be run locally in Docker: `just render-tests-linux` (x86_64 ubuntu:24.04, same packages as CI).
+- **Tests:** ~2 100 engine, ~1 090 editor and ~370 video unit tests; ~190 render tests (goldens `moltenvk` +
+  `lavapipe`, validation gate, 0-B allocation gate); benchmarks with `baseline.json`; QA scripts (`just qa`, `qa-editor`,
+  `qa-projects`, `qa-settings`). Lavapipe can be run locally in Docker: `just render-tests-linux` (x86_64 ubuntu:24.04,
+  same packages as CI).
 - **CI:** `ci.yml` (build-test ×3 OS, format, shaders, render-tests on lavapipe, template smoke, `ci-success`),
   `publish.yml`, `natives.yml`. Jobs fetch only the LFS files they need, cached by object ID. GitHub Actions
   minutes are scarce: run things locally (Docker for Linux) first.
@@ -60,17 +73,19 @@ _Last updated: 2026-10-05 — M0–M10 merged to `main` (`ec6bd70`); v1.0.0 publ
   quiet (parallel builds/agents skew results by 10–15 %).
 - Steam: Facepunch.Steamworks 2.4.1 (vendored, `Plugins/Facepunch.Steamworks`) behind the `MainframeEngine.Steamworks`
   shim (Win64/Posix builds, `SteamworksLoader` picks this OS's); Valve's `steam_api` natives ship in `runtimes/`, so
-  Steam starts on win-x64, linux-x64, osx-x64 and osx-arm64 when the client runs. Still to do: `SteamSocketsTransport`
-  (stub) and avatar textures.
+  Steam starts on win-x64, linux-x64, osx-x64 and osx-arm64 when the client runs. `SteamSocketsTransport` (relay
+  sockets) and avatar textures are done.
 
 ## Next steps
 
-1. Publish v1.0.0 (`publish.yml`); finish public-release prep (`chore/public-readiness`: licence notices, README
-   License section, CI LFS caching).
-2. M11 — backend-neutral GPU API + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
-3. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
+1. Land the in-flight branches: G1e root motion, G9 3D joints + ragdolls (G9.7 limit handles follow G7.3), G7 editor
+   viewport tools.
+2. Gameplay toolkit (`docs/milestones.md`): G2a/G2b sprites and tile maps, G5 export from the editor, G10 profiler,
+   then G3a navigation, G1c animation authoring, G11–G16.
+3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (the Forest cabin work added
+   ≈ 1.6 ms p50 on a loaded machine).
+4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
+5. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
    mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.
-4. M13 — mobile platform services (`docs/design/future/mobile-services.md`).
-5. Editor after M10 (`docs/design/future/editor.md`): remote scene tree, simulate mode, box selection, docking.
-6. User actions: code signing/notarization for the macOS editor build.
-7. Steam follow-ups: `SteamSocketsTransport` over Facepunch's sockets, avatar textures (`docs/design/steamworks.md`).
+6. M13 — mobile platform services (`docs/design/future/mobile-services.md`).
+7. User actions: code signing/notarization for the macOS editor build.

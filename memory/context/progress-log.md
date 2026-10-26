@@ -4,6 +4,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Gameplay toolkit run (2026-10-27).** Housekeeping on `chore/housekeeping` (`current-state.md` brought up to
+  v1.1.5); three branches built in parallel worktrees from `main` 3963719: `feature/g1e-root-motion` (G1.20, ADR 0210),
+  `feature/g9-joints-ragdolls` (G9.1–G9.6, G9.8–G9.9; ADRs 0211–0212; G9.7 waits for G7.3),
+  `feature/g7-viewport-tools` (G7.1–G7.5, ADRs 0213–0215). Budget stop raised to 90 % for this run. Benchmark
+  baseline to re-record on a quiet machine once they land.
+
 - **SpineNode alpha-tested shadows + Billboard (#122, 2026-10-25).** ADR 0204, `spine.md` Shadows/Billboards; render
   tests `spine-shadow[-quads|-spot|-omni]`, `spine-billboard[-yaw]` (moltenvk goldens; lavapipe to record), `spine`
   golden re-recorded.
@@ -896,3 +902,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
   furniture at `Place_` sockets; `CabinFire`, `CabinDoor` (`interact`, E/X), `CabinInterior` (dims sky ambient indoors),
   fire crackle synth, sand footsteps; R9 `r9-cabin`; Cameras page 3 × 3.
 - Bench (loaded machine, same conditions): +1.6 ms p50 vs main; baseline not re-recorded (needs a quiet machine).
+
+### 2026-10-27 — Housekeeping
+- `current-state.md` was last written for v1.0.0: now lists what shipped since M10, v1.1.5, the Steam follow-ups as
+  done (#127, #128), current test counts and the new next steps.
