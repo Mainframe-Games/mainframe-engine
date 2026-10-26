@@ -31,6 +31,9 @@ public sealed partial class ViewportController
         _boxPick = default;
         _boxNodes.Clear();
         _hoverHandle = -1;
+        _simulatedSelection.Clear();
+        _simulatedSelectionRoot = null;
+        _simulatedSelectionVersion = -1;
         _workspace.ViewportPanel?.SetHandleLabel(null, 0, 0);
         _handleLabelShown = false;
         // The stopped copy's target is gone: the UI must not sample it.
@@ -52,9 +55,31 @@ public sealed partial class ViewportController
         viewport.AddChild(_grid);
     }
 
-    // Selection boxes on the simulated counterparts (and the 2D grid); no icons, gizmo or handles.
+    // The selected nodes' simulated counterparts, looked up (a NodePath each) only when the selection or the copy changes.
+    private readonly List<Node> _simulatedSelection = [];
+    private Node? _simulatedSelectionRoot;
+    private int _simulatedSelectionVersion = -1;
+
+    private List<Node> SimulatedSelection(EditedScene scene)
+    {
+        var root = _workspace.Simulation.Root;
+        if (ReferenceEquals(root, _simulatedSelectionRoot) && _simulatedSelectionVersion == scene.Selection.Version)
+            return _simulatedSelection;
+        _simulatedSelectionRoot = root;
+        _simulatedSelectionVersion = scene.Selection.Version;
+        _simulatedSelection.Clear();
+        var selected = scene.Selection.Nodes;
+        for (var i = 0; i < selected.Count; i++)
+            if (_workspace.Simulation.CounterpartOf(selected[i]) is { } counterpart)
+                _simulatedSelection.Add(counterpart);
+        return _simulatedSelection;
+    }
+
+    // Selection boxes on the simulated counterparts (and the 2D grid); no icons, gizmo or handles. 0 B per frame: the
+    // counterparts are cached (game code may still allocate).
     private void DrawSimulationVisuals(EditedScene scene, SubViewport viewport, Vector2 pixels)
     {
+        var counterparts = SimulatedSelection(scene);
         var overlay = viewport.OverlayLines;
         var camera = scene.Camera;
         if (camera.Is2D)
@@ -63,10 +88,9 @@ public sealed partial class ViewportController
                 DrawGrid2D(viewport.DebugLines, camera, pixels);
             var unit = 1f / camera.Zoom2D;
             var marker = MarkerPoints * ViewScale * unit;
-            var selected2D = scene.Selection.Nodes;
-            for (var i = 0; i < selected2D.Count; i++)
+            for (var i = 0; i < counterparts.Count; i++)
             {
-                if (_workspace.Simulation.CounterpartOf(selected2D[i]) is not Node2D { IsInsideTree: true } simulated)
+                if (counterparts[i] is not Node2D { IsFreed: false, IsInsideTree: true } simulated)
                     continue;
                 if (simulated is CollisionShape2D { Shape: { } shape } shapeNode)
                 {
@@ -83,9 +107,8 @@ public sealed partial class ViewportController
         }
 
         var displayHeight = pixels.Y * _workspace.Host.PixelScale / ViewScale;
-        var selected = scene.Selection.Nodes;
-        for (var i = 0; i < selected.Count; i++)
-            if (_workspace.Simulation.CounterpartOf(selected[i]) is Node3D { IsInsideTree: true } simulated)
+        for (var i = 0; i < counterparts.Count; i++)
+            if (counterparts[i] is Node3D { IsFreed: false, IsInsideTree: true } simulated)
                 DrawSelection(overlay, camera, displayHeight, simulated);
     }
 }

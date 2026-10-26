@@ -140,6 +140,9 @@ public sealed partial class ViewportController : Node
         _boxPick = default;
         _boxScene = null;
         _boxNodes.Clear();
+        _simulatedSelection.Clear();
+        _simulatedSelectionRoot = null;
+        _simulatedSelectionVersion = -1;
         _pick = default;
         _pickScene = null;
         _scene = null;

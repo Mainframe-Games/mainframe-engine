@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using MainframeEngine.Serialization;
 
 namespace MainframeEngine.Editor;
@@ -168,10 +169,19 @@ public static class HandleProviders
     public static float Clamp(Node node, string property, float value)
     {
         ArgumentNullException.ThrowIfNull(node);
-        if (TypeRegistry.GetNearest(node.GetType())?.FindProperty(property) is { } info && info.Hints.TryGetRange(out var min, out var max, out _))
-            return Math.Clamp(value, (float)min, (float)max);
-        return value;
+        if (TypeRegistry.GetNearest(node.GetType())?.FindProperty(property) is not { } info)
+            return value;
+        // The hint is a string: parsed once per property, since drags clamp on every mouse move.
+        var range = Ranges.GetValue(info, static p => p.Hints.TryGetRange(out var min, out var max, out _)
+            ? new StrongBox<(float Min, float Max)>(((float)min, (float)max))
+            : NoRange);
+        return ReferenceEquals(range, NoRange) ? value : Math.Clamp(value, range.Value.Min, range.Value.Max);
     }
+
+    private static readonly StrongBox<(float Min, float Max)> NoRange = new();
+
+    // Weak keys: game types' property infos go away with a code reload.
+    private static readonly ConditionalWeakTable<ExportPropertyInfo, StrongBox<(float Min, float Max)>> Ranges = new();
 }
 
 /// <summary>The types of the loaded assemblies that can hold editor plugins: the editor's and those that reference it.</summary>

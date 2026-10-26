@@ -218,7 +218,7 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | Music editor: song tab (arrangement, piano roll, mixer, render to WAV) with the built-in ZzFX instrument | ✅ done (2026-10-08): built-in instrument, `mfplughost` helper with Vorbis encoding, VST3 instruments/inserts, MIDI keyboard input and recording; gaps in the proposal's open questions | [Editor → Song tab](design/editor.md#song-tab-music-editor), [Future: music editor](design/future/music-editor.md) |
 | Music editor: built-in wavetable synth (2 wavetable oscillators, unison, 2 filters, envelopes, LFOs, mod matrix, FX chain, presets) | ✅ engine, presets, window, FX panels and goldens (#84, #85, #87, #89) | [Future: wavetable synth](design/future/wavetable-synth.md), [ADR 0195](../memory/decisions/0195-wavetable-synth.md) |
 | Adaptive music: sections, layers, parameters and quantized transitions authored in the song editor, baked to stems for an `AdaptiveMusicPlayer` node | 🚧 A1 logic, A2 runtime, A3 bake, A4 editor + Live preview and A5 (Curves pane, transition popover, Baked audition) in; A6 (editor link, dev overlay, Demo scene) next | [Future: adaptive music](design/future/adaptive-music.md), [ADR 0196](../memory/decisions/0196-adaptive-music-baked-stems.md) |
-| Draggable audio range handles in the editor | ⬜ | [Editor viewport tools](design/editor.md#range-handles-and-the-handle-api) (G7) |
+| Draggable audio range handles in the editor | ✅ | [Editor viewport tools](design/editor.md#range-handles-and-the-handle-api) (G7.3) |
 
 ## M8 — Game UI (RmlUi) ✅
 
