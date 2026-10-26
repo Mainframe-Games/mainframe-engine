@@ -743,11 +743,38 @@ public sealed partial class ViewportController : Node
         var selected = scene.Selection.Nodes;
         for (var i = 0; i < selected.Count; i++)
             if (selected[i] is Node3D { IsInsideTree: true } node)
+            {
                 DrawSelection(overlay, camera, displayHeight, node);
+                if (node is Joint3D joint)
+                    DrawJoint(overlay, joint);
+            }
 
         DrawGizmo3D(scene, overlay, pixels, displayHeight);
         DrawHandles(scene, overlay, pixels);
     }
+
+    // The selected joint (ADR 0211): its shape in the selection colour on top, and a line to each body its paths name
+    // (red for a path that names no body).
+    private static void DrawJoint(DebugLines lines, Joint3D joint)
+    {
+        joint.DrawDebug(lines, SelectionColor);
+        var p = joint.GlobalPosition;
+        JointBodyLine(lines, joint, joint.NodeA, p);
+        JointBodyLine(lines, joint, joint.NodeB, p);
+    }
+
+    private static void JointBodyLine(DebugLines lines, Joint3D joint, NodePath path, Vector3 from)
+    {
+        if (path.IsEmpty)
+            return;
+        if (joint.GetNodeOrNull(path) is PhysicsBody3D { IsInsideTree: true } body)
+            lines.AddLine(from, body.GlobalPosition, JointBodyColor);
+        else
+            lines.AddSphere(new Transform3D(Basis.Identity, from), 0.12f, MissingBodyColor);
+    }
+
+    internal static readonly Vector4 JointBodyColor = new(1f, 0.75f, 0.2f, 0.8f);
+    internal static readonly Vector4 MissingBodyColor = new(1f, 0.25f, 0.2f, 1f);
 
     private static void DrawSelection(DebugLines lines, EditorCamera camera, float viewHeight, Node3D node)
     {

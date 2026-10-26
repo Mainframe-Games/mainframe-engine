@@ -132,6 +132,20 @@ public abstract class Joint2D : Node2D
     /// <summary>How far apart the joint's two anchors are in pixels (0 when it holds exactly).</summary>
     public float GetSeparation() => Record is { } r ? r.Space.GetJointSeparation(r) : 0f;
 
+    /// <summary>
+    /// Draws the joint into <paramref name="lines"/> (pixels, z = 0) in <paramref name="color"/>: its anchors, axis or
+    /// track, limits and current value, as the physics debug draw shows it; at its bodies when it exists, else at the node.
+    /// The editor draws the selected joint with it.
+    /// </summary>
+    public void DrawDebug(DebugLines lines, Vector4 color)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        if (Record is { } record)
+            record.Space.DrawJoint(record, lines, color);
+        else
+            PhysicsSpace2D.DrawLooseJoint(this, lines, color);
+    }
+
     /// <summary>Re-creates the joint at the next physics flush from its current pose, and clears <see cref="IsBroken"/>.</summary>
     public void Rebuild()
     {

@@ -112,7 +112,8 @@ public sealed class JointAllocationTests
             h.Tree.Root.DebugLines.Clear();
         }
 
-        for (var i = 0; i < 120; i++)
+        // Warm-up: bodies settle, lists and pools reach their size, everything is JIT-compiled.
+        for (var i = 0; i < 240; i++)
             Frame();
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var i = 0; i < 300; i++)
@@ -132,6 +133,14 @@ internal static class JointGate
         var joints = new List<Joint3D>();
         T Join<T>(T joint, Vector3 at, string? a, string b) where T : Joint3D
         {
+            // The parts collide with the floor only, not with each other: contacts between folding chains come and go
+            // chaotically, and what the library allocates for new contact pairs is not what this gate measures.
+            if (h.Scene.GetNodeOrNull(b) is CollisionObject3D part)
+            {
+                part.CollisionLayer = 2;
+                part.CollisionMask = 1;
+            }
+
             joint.Position = at;
             h.Add(joint);
             joint.NodeA = a is null ? default(NodePath) : "../" + a;

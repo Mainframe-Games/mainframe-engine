@@ -5,7 +5,8 @@ namespace MainframeEngine.Editor;
 /// tree row with the text as tooltip: a type that is not loaded, a collision shape outside a collision object or
 /// without a shape, a collision object without shapes, a mesh instance without a mesh (or a skinned one without its skeleton),
 /// a bone attachment outside a skeleton or naming no bone, an animation player without animations (or with root motion
-/// outside the physics callback mode, or from no skeleton), an audio player without a stream.
+/// outside the physics callback mode, or from no skeleton), an audio player without a stream, a joint whose paths name no
+/// body (ADR 0211).
 /// </summary>
 public static class NodeWarnings
 {
@@ -53,6 +54,12 @@ public static class NodeWarnings
                 else if (skeleton.FindBone(attachment.BoneName) < 0)
                     Add(attachment.BoneName.Length == 0 ? "No BoneName: pick the bone to follow." : $"The skeleton has no bone '{attachment.BoneName}'.");
                 break;
+            case Joint3D joint3D:
+                JointPaths(joint3D, joint3D.NodeA, joint3D.NodeB, typeof(PhysicsBody3D), Add);
+                break;
+            case Joint2D joint2D:
+                JointPaths(joint2D, joint2D.NodeA, joint2D.NodeB, typeof(PhysicsBody2D), Add);
+                break;
             case AnimationPlayer player:
                 if (!HasAnimations(player))
                     Add("No animations: add an AnimationLibrary with animations to Libraries.");
@@ -66,7 +73,6 @@ public static class NodeWarnings
                     if (player.CallbackModeProcess != AnimationCallbackMode.Physics)
                         Add("Root motion moves a body per physics step: set CallbackModeProcess to Physics.");
                 }
-
                 break;
             case AudioPlayer { Stream: null } or AudioPlayer2D { Stream: null } or AudioPlayer3D { Stream: null }:
                 Add("No Stream: nothing plays.");
@@ -74,6 +80,38 @@ public static class NodeWarnings
         }
 
         return warnings;
+    }
+
+    // A joint's paths: at least one set, each naming a physics body, and not the same one.
+    private static void JointPaths(Node joint, NodePath a, NodePath b, Type bodyType, Action<string> add)
+    {
+        if (a.IsEmpty && b.IsEmpty)
+        {
+            add("NodeA and NodeB are empty: pick the bodies to join (one empty path joins the other body to the world).");
+            return;
+        }
+
+        var bodyA = JointPath(joint, "NodeA", a, bodyType, add);
+        var bodyB = JointPath(joint, "NodeB", b, bodyType, add);
+        if (bodyA is not null && ReferenceEquals(bodyA, bodyB))
+            add("NodeA and NodeB are the same body: a joint needs two.");
+    }
+
+    private static Node? JointPath(Node joint, string name, NodePath path, Type bodyType, Action<string> add)
+    {
+        if (path.IsEmpty)
+            return null;
+        switch (joint.GetNodeOrNull(path))
+        {
+            case null:
+                add($"{name} '{path}' does not point at a node.");
+                return null;
+            case var node when !bodyType.IsInstanceOfType(node):
+                add($"{name} '{path}' is a {node.GetType().Name}, not a {bodyType.Name}.");
+                return null;
+            case var node:
+                return node;
+        }
     }
 
     private static bool HasAnimations(AnimationPlayer player)

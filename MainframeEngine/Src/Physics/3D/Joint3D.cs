@@ -147,6 +147,26 @@ public abstract class Joint3D : Node3D
 
     internal void EmitBroken() => Broken?.Invoke();
 
+    /// <summary>
+    /// Draws the joint into <paramref name="lines"/> in <paramref name="color"/>: its anchors, axis, limits and current
+    /// angle or position, as the physics debug draw shows it. An active joint is drawn at its bodies' rendered poses, an
+    /// inactive one (edit mode, waiting for its bodies, broken) at the node. The editor draws the selected joint with it.
+    /// </summary>
+    public void DrawDebug(DebugLines lines, Vector4 color)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        if (Record is { HasJoint: true } record)
+        {
+            PhysicsSpace3D.JointFrames(record, out var frame, out var anchorB);
+            DrawDebugShape(lines, frame, anchorB, GetDebugValue(record), color);
+            return;
+        }
+
+        var pose = GlobalTransform;
+        pose.Decompose(out var position, out var rotation, out _);
+        DrawDebugShape(lines, Transform3D.FromTrs(position, Quaternion.Normalize(rotation), Vector3.One), GetAnchorB(pose), 0f, color);
+    }
+
     /// <summary>Creates the type's Jitter2 constraints into <paramref name="record"/> (bodies and frames are set).</summary>
     internal abstract void CreateConstraints(JointRecord3D record);
 

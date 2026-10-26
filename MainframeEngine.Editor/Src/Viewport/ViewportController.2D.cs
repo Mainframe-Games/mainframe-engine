@@ -204,10 +204,36 @@ public sealed partial class ViewportController
 
             if (selected && node is CollisionShape2D { Shape: { } shape } shapeNode)
                 DrawShapeSelection(overlay, shapeNode, shape, unit);
+            if (selected && node is Joint2D joint)
+                DrawJoint2D(overlay, joint, marker);
         }
 
         DrawGizmo2D(scene, overlay, pixels);
         DrawHandles(scene, overlay, pixels);
+    }
+
+    // The selected joint (ADR 0211): its shape in the selection colour, and a line to each body its paths name (a red
+    // cross for a path that names no body).
+    private static void DrawJoint2D(DebugLines lines, Joint2D joint, float marker)
+    {
+        joint.DrawDebug(lines, SelectionColor);
+        var p = joint.GlobalPosition;
+        JointBodyLine2D(lines, joint, joint.NodeA, p, marker);
+        JointBodyLine2D(lines, joint, joint.NodeB, p, marker);
+    }
+
+    private static void JointBodyLine2D(DebugLines lines, Joint2D joint, NodePath path, Vector2 from, float marker)
+    {
+        if (path.IsEmpty)
+            return;
+        if (joint.GetNodeOrNull(path) is PhysicsBody2D { IsInsideTree: true } body)
+        {
+            lines.AddLine2D(Transform2D.Identity, from, body.GlobalPosition, JointBodyColor);
+            return;
+        }
+
+        lines.AddLine2D(Transform2D.Identity, from - new Vector2(marker), from + new Vector2(marker), MissingBodyColor);
+        lines.AddLine2D(Transform2D.Identity, from + new Vector2(-marker, marker), from + new Vector2(marker, -marker), MissingBodyColor);
     }
 
     private static void DrawShapeSelection(DebugLines lines, CollisionShape2D node, Shape2D shape, float unit)

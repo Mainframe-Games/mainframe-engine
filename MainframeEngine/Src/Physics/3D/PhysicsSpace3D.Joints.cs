@@ -777,18 +777,22 @@ public sealed partial class PhysicsSpace3D
                 continue;
             if (!joint.HasJoint)
             {
-                // Pending (edit mode, missing bodies) or broken: where the joint node is, greyed.
-                var pose = node.GlobalTransform;
-                node.DrawDebugShape(lines, pose, node.GetAnchorB(pose), 0f, InactiveJointColor);
+                node.DrawDebug(lines, InactiveJointColor); // pending (edit mode, missing bodies) or broken: greyed
                 continue;
             }
 
-            InterpolatedFrame(joint.A, joint.FramePositionA, joint.FrameRotationA, out var positionA, out var rotationA);
-            InterpolatedFrame(joint.B, joint.FramePositionB, joint.FrameRotationB, out var positionB, out _);
-            var frame = Transform3D.FromTrs(positionA, rotationA, Vector3.One);
-            var color = joint.Disabled ? InactiveJointColor : node.IsStretched(joint, positionA, positionB) ? StretchedJointColor : JointColor;
-            node.DrawDebugShape(lines, frame, positionB, node.GetDebugValue(joint), color);
+            JointFrames(joint, out var frame, out var anchorB);
+            var color = joint.Disabled ? InactiveJointColor : node.IsStretched(joint, frame.Origin, anchorB) ? StretchedJointColor : JointColor;
+            node.DrawDebugShape(lines, frame, anchorB, node.GetDebugValue(joint), color);
         }
+    }
+
+    /// <summary>The joint's frame on body A and its anchor on body B at the bodies' interpolated (rendered) poses.</summary>
+    internal static void JointFrames(JointRecord3D joint, out Transform3D frame, out Vector3 anchorB)
+    {
+        InterpolatedFrame(joint.A, joint.FramePositionA, joint.FrameRotationA, out var positionA, out var rotationA);
+        InterpolatedFrame(joint.B, joint.FramePositionB, joint.FrameRotationB, out anchorB, out _);
+        frame = Transform3D.FromTrs(positionA, rotationA, Vector3.One);
     }
 
     // A body's frame at its interpolated (rendered) pose, so the lines match what is drawn.

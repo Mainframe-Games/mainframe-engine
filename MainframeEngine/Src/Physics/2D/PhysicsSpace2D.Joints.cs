@@ -48,6 +48,9 @@ public sealed partial class PhysicsSpace2D
     private bool _retryPendingJoints;
     private long _jointSequence;
 
+    /// <summary>Joints that broke so far (the dev overlay shows the rate).</summary>
+    public long BrokenJointTotal { get; private set; }
+
     /// <summary>Joints in the space (created or waiting for their bodies).</summary>
     public int JointCount => _joints.Count;
 
@@ -296,6 +299,7 @@ public sealed partial class PhysicsSpace2D
             record.BrokenTorque = MathF.Abs(GetJointTorque(record));
             DestroyJoint(record);
             record.Broken = true;
+            BrokenJointTotal++;
             _brokenJoints.Add(record);
         }
     }
@@ -324,25 +328,59 @@ public sealed partial class PhysicsSpace2D
                 continue;
             if (!joint.HasJoint)
             {
-                // Pending (edit mode, missing bodies), disabled or broken: where the joint node is, greyed.
-                var pose = node.GlobalTransform;
-                var frame = Transform2D.FromTrs(pose.Origin, pose.Rotation + node.FrameAngle, Vector2.One);
-                var anchor = node.GetAnchorB(pose);
-                DrawAnchors(lines, frame.Origin, anchor, InactiveJointColor);
-                node.DrawDebugShape(lines, frame, anchor, 0f, InactiveJointColor);
+                DrawJoint(joint, lines, InactiveJointColor); // pending (edit mode, missing bodies), disabled or broken: greyed
                 continue;
             }
 
-            var xfA = b2Body_GetTransform(b2Joint_GetBodyA(joint.Id));
-            var xfB = b2Body_GetTransform(b2Joint_GetBodyB(joint.Id));
-            var a = ToNumerics(b2TransformPoint(in xfA, in joint.FrameA.p)) * PixelsPerMeter;
-            var b = ToNumerics(b2TransformPoint(in xfB, in joint.FrameB.p)) * PixelsPerMeter;
-            var rotation = b2MulRot(in xfA.q, in joint.FrameA.q);
-            var color = node.IsStretched(Vector2.Distance(a, b)) ? StretchedJointColor : JointColor;
-            DrawAnchors(lines, a, b, color);
-            node.DrawDebugShape(lines, Transform2D.FromTrs(a, b2Rot_GetAngle(rotation), Vector2.One), b, node.GetDebugValue(joint.Id, PixelsPerMeter),
-                color);
+            var color = node.IsStretched(AnchorDistance(joint)) ? StretchedJointColor : JointColor;
+            DrawJoint(joint, lines, color);
         }
+    }
+
+    private float AnchorDistance(JointRecord2D joint)
+    {
+        JointFrames(joint, out var frame, out var b);
+        return Vector2.Distance(frame.Origin, b);
+    }
+
+    /// <summary>Draws one joint: at its bodies' poses when it exists in Box2D, else at the node (pending, disabled, broken).</summary>
+    internal void DrawJoint(JointRecord2D joint, DebugLines lines, Vector4 color)
+    {
+        var node = joint.Node;
+        if (!joint.HasJoint)
+        {
+            var pose = node.GlobalTransform;
+            var frame = Transform2D.FromTrs(pose.Origin, pose.Rotation + node.FrameAngle, Vector2.One);
+            var anchor = node.GetAnchorB(pose);
+            DrawAnchors(lines, frame.Origin, anchor, color);
+            node.DrawDebugShape(lines, frame, anchor, 0f, color);
+            return;
+        }
+
+        JointFrames(joint, out var jointFrame, out var b);
+        DrawAnchors(lines, jointFrame.Origin, b, color);
+        node.DrawDebugShape(lines, jointFrame, b, node.GetDebugValue(joint.Id, PixelsPerMeter), color);
+    }
+
+    // The joint's frame on body A (pixels) and its anchor on body B, from the Box2D bodies.
+    private void JointFrames(JointRecord2D joint, out Transform2D frame, out Vector2 anchorB)
+    {
+        var xfA = b2Body_GetTransform(b2Joint_GetBodyA(joint.Id));
+        var xfB = b2Body_GetTransform(b2Joint_GetBodyB(joint.Id));
+        var a = ToNumerics(b2TransformPoint(in xfA, in joint.FrameA.p)) * PixelsPerMeter;
+        anchorB = ToNumerics(b2TransformPoint(in xfB, in joint.FrameB.p)) * PixelsPerMeter;
+        var rotation = b2MulRot(in xfA.q, in joint.FrameA.q);
+        frame = Transform2D.FromTrs(a, b2Rot_GetAngle(rotation), Vector2.One);
+    }
+
+    /// <summary>Draws a joint that is in no space (outside a tree): at the node.</summary>
+    internal static void DrawLooseJoint(Joint2D node, DebugLines lines, Vector4 color)
+    {
+        var pose = node.GlobalTransform;
+        var frame = Transform2D.FromTrs(pose.Origin, pose.Rotation + node.FrameAngle, Vector2.One);
+        var anchor = node.GetAnchorB(pose);
+        DrawAnchors(lines, frame.Origin, anchor, color);
+        node.DrawDebugShape(lines, frame, anchor, 0f, color);
     }
 
     private static void DrawAnchors(DebugLines lines, Vector2 a, Vector2 b, Vector4 color)
