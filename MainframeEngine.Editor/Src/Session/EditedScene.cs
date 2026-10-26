@@ -165,6 +165,25 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     }
 
     /// <summary>
+    /// Make Unique (G7.2): <paramref name="property"/> of <paramref name="target"/> gets an inline copy of the resource it
+    /// holds (<see cref="Resource.Duplicate"/>, <paramref name="deep"/> copies inline sub-resources too), as one undo
+    /// step. The file and every other slot keep the original. Returns the copy, or null when the slot is empty.
+    /// </summary>
+    public Resource? MakeUnique(object target, ExportPropertyInfo property, bool deep)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(property);
+        if (property.GetValue(target) is not Resource original)
+            return null;
+        var copy = original.Duplicate(deep);
+        if (target is Resource { IsExternal: true } file)
+            _editedResourceFiles.Add(file); // a slot of a .mres edited in place: written with the scene
+        History.Commit(new CompositeAction($"Make {original.GetType().Name} Unique{(deep ? " (Deep)" : "")}",
+            new SetPropertyAction(target, property, original, copy)));
+        return copy;
+    }
+
+    /// <summary>
     /// Sets <paramref name="property"/> on several objects at once (multi-selection) as ONE history entry:
     /// <paramref name="values"/>[i] goes to <paramref name="targets"/>[i]. Nothing is recorded when no value changes.
     /// Every target is part of the entry (unchanged ones too), so a continuous edit with <paramref name="mergeKey"/>

@@ -450,7 +450,10 @@ public sealed partial class InspectorPanel : EditorDocument
                         .Append(RmlText.Escape(ResourceTooltip(p, value))).Append("\">");
                     if (value is not null)
                         rml.Append("<span class=\"").Append(EditorIcons.Classes(resourceType)).Append(" icon-sm res-icon\"></span>");
-                    rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.IsMixed ? "— (differs)" : p.Format(value))).Append("</span></div>");
+                    // Where the value lives (G7.2): a link icon for a file, "inline ×N" when the scene uses it in N slots.
+                    if (value is Resource { IsExternal: true } && !p.IsMixed)
+                        rml.Append("<span class=\"icon icon-sm icon-link res-link\"></span>");
+                    rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.IsMixed ? "— (differs)" : ResourceLabel(p, value))).Append("</span></div>");
                     rml.Append("<div class=\"res-actions\">");
                     if (value is AudioStream sound && !p.IsMulti)
                         AppendPreviewButton(rml, row, Workspace.AudioPreview.IsPlaying(sound));
@@ -460,12 +463,13 @@ public sealed partial class InspectorPanel : EditorDocument
                             expanded ? "Fold — hide the resource's properties"
                             : editable.IsExternal ? $"Edit — show {Path.GetFileName(editable.ResourcePath)}'s properties below (saved to the file when the scene is saved)"
                             : "Edit — show the resource's properties below", expanded);
-                    if (value is Resource { IsExternal: false } inline && inline is not PackedScene && !p.IsMulti)
-                        AppendButton(rml, row, "res-save", "device-floppy", "Save as .mres — move the resource to its own file, shared by every slot that uses it");
                     AppendButton(rml, row, "res-load", "folder-open", "Load — use a resource file (.mres, image, model, sound)");
                     AppendButton(rml, row, "res-new", "circle-plus", $"New — create an inline {(p.ResourceType ?? typeof(Resource)).Name}");
                     if (value is not null)
                         AppendButton(rml, row, "res-clear", "x", "Clear — empty the slot");
+                    // More (G7.2): Save as .mres, Make Unique, Open, Show in FileSystem. Nested resource editing is single-node.
+                    if (value is Resource and not MissingResource && !p.IsMulti)
+                        AppendButton(rml, row, "res-more", "dots-vertical", "More — save, make unique, show the file");
                     rml.Append("</div>");
                     break;
                 }
@@ -945,6 +949,21 @@ public sealed partial class InspectorPanel : EditorDocument
                 break;
             case "res-save":
                 SaveResourceAs(p);
+                break;
+            case "res-more":
+                ShowResourceMenu(row);
+                break;
+            case "res-unique":
+                MakeUnique(p, deep: false);
+                break;
+            case "res-unique-deep":
+                MakeUnique(p, deep: true);
+                break;
+            case "res-open":
+                OpenResourceFile(p);
+                break;
+            case "res-show":
+                ShowResourceInFileSystem(p);
                 break;
             case "arr-add":
                 EditArray(p, list => list.Add(DefaultElement(p.ElementType)));

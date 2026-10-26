@@ -193,8 +193,9 @@ public sealed class PostProcessEditorTests : IDisposable
         var row = Row("AdjustmentColorCorrection", profile);
         Assert.True(row >= 0);
         Assert.True(Find($"[data-row=\"{row}\"][data-action=\"res-edit\"]").IsNull);
-        Assert.True(Find($"[data-row=\"{row}\"][data-action=\"res-save\"]").IsNull);
-        Assert.False(Find($"[data-row=\"{Row("PostProcess")}\"][data-action=\"res-save\"]").IsNull); // the inline profile can be saved
+        Assert.False(W.Inspector.ResourceMenu(row).Single(i => i.Command == "res-save").Enabled);
+        Assert.False(W.Inspector.ResourceMenu(row).Single(i => i.Command == "res-unique").Enabled); // imported: data in the source file
+        Assert.True(W.Inspector.ResourceMenu(Row("PostProcess")).Single(i => i.Command == "res-save").Enabled); // the inline profile can be saved
         lut.Release();
     }
 

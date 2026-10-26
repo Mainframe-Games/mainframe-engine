@@ -305,6 +305,23 @@ public sealed class EditorQaScript : IEditorAutomation
                 if (workspace.Session.Active is { } selectScene)
                     selectScene.Selection.Set(selectScene.Root.GetNode(string.Join(' ', step[1..])));
                 break;
+            case "res-menu":
+                {
+                    // res-menu <property> [res-save|res-unique|res-unique-deep|res-open|res-show]: opens the resource row's
+                    // More menu (a capture shows it), and chooses an item when one is given.
+                    var rows = workspace.Inspector.Rows;
+                    var index = -1;
+                    for (var i = 0; i < rows.Count && index < 0; i++)
+                        if (rows[i].Name == step[1])
+                            index = i;
+                    if (index < 0)
+                        throw new ArgumentException($"No inspector row '{step[1]}'.");
+                    workspace.Inspector.RunAction(index, "res-more");
+                    if (step.Length > 2)
+                        workspace.Popup.Choose(step[2]);
+                    break;
+                }
+
             case "select-add":
                 // Adds a node to the selection (it becomes the active one): select A, select-add B, select-add C.
                 if (workspace.Session.Active is { } addScene)
