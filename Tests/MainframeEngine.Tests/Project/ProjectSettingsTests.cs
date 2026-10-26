@@ -168,6 +168,7 @@ public sealed class ProjectSettingsTests : IDisposable
         // Automated runs open windowed at the project's size, whatever the project says.
         Assert.Equal(WindowMode.Windowed, GameHostOptions.Parse(["--max-frames", "10"]).Apply(s.ToEngineOptions()).WindowMode);
         Assert.Equal(WindowMode.Windowed, GameHostOptions.Parse(["--hidden"]).Apply(s.ToEngineOptions()).WindowMode);
+        Assert.Equal(WindowMode.Windowed, GameHostOptions.Parse(["--windowed"]).Apply(s.ToEngineOptions()).WindowMode);
         Assert.Equal(WindowMode.Maximized, GameHostOptions.Parse([]).Apply(s.ToEngineOptions()).WindowMode);
     }
 

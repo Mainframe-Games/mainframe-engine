@@ -49,6 +49,9 @@ public sealed record GameHostOptions
 
     public bool Hidden { get; init; }
 
+    /// <summary><c>--windowed</c>: open windowed at the project's size, whatever its <see cref="WindowSettings.Mode"/> or the player's choice.</summary>
+    public bool Windowed { get; init; }
+
     /// <summary><c>--headless</c>: run without a window, renderer or audio device (<see cref="HeadlessHost"/>).</summary>
     public bool Headless { get; init; }
 
@@ -143,6 +146,9 @@ public sealed record GameHostOptions
                 case "--hidden":
                     options = options with { Hidden = true };
                     break;
+                case "--windowed":
+                    options = options with { Windowed = true };
+                    break;
                 case "--frame-capture":
                     options = options with { FrameCapture = true };
                     break;
@@ -213,7 +219,7 @@ public sealed record GameHostOptions
         if (Hidden)
             options.WindowVisible = false;
         // Automated runs capture at the project's size: never maximized or fullscreen.
-        if (Hidden || MaxFrames > 0 || ScreenshotPath is not null || LoadingScreenshotPath is not null || RecordPath is not null)
+        if (Windowed || Hidden || MaxFrames > 0 || ScreenshotPath is not null || LoadingScreenshotPath is not null || RecordPath is not null)
             options.WindowMode = WindowMode.Windowed;
         if (NoVSync)
             options.VSync = false;

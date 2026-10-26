@@ -100,8 +100,9 @@ commas tolerated). Only values that differ from the defaults are written, except
 - **Window mode**: `window.mode` (`maximized` default, `windowed`, `fullscreen`, `exclusiveFullscreen`; optional key, no
   migration) → `EngineOptions.WindowMode`, applied once the window is placed, so restoring a maximized window returns to
   `width` × `height` centred. A player's saved `display.mode` wins (`UserSettings.WindowMode` falls back to the project's).
-  Automated runs (`--hidden`, `--max-frames`, `--screenshot`, `--loading-screenshot`, `--record`) open windowed at the
-  project's size, so captures keep their size. Engine subclasses (the editor, tests) default to windowed. The editor's
+  Automated runs (`--hidden`, `--max-frames`, `--screenshot`, `--loading-screenshot`, `--record`) and `--windowed` open
+  windowed at the project's size, so captures keep their size (a game that sizes its own window from a flag passes
+  `--windowed`: the Forest's launcher does for `--resolution` and `--benchmark`, since un-maximizing is asynchronous). Engine subclasses (the editor, tests) default to windowed. The editor's
   Project Settings show it under Window.
 - **Rendering**: `exposure` → `IVulkanContext.Exposure`, `shadows` → `RenderServer.ShadowQuality`, `antiAliasing`
   (`None` default, `Fxaa` or `Taa`; ADR 0154, ADR 0166) → `IVulkanContext.AntiAliasing`, `taaSharpness` (0–1, default

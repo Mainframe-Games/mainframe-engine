@@ -106,6 +106,7 @@ public sealed class ForestDev : Node
     {
         if (Tree is not { } tree)
             return;
+
         if (!_audioChecked && tree.CurrentScene is { } scene)
         {
             _audioChecked = true;
@@ -114,7 +115,7 @@ public sealed class ForestDev : Node
             if (!GameHost.IsHeadless && ShowsFps(GameHost.UserArgs)) // headless (--bake-lighting, servers) has no UI
                 FpsHud.Attach(scene); // F3 toggles it
             if (_resolution.X > 0)
-                Resize(tree, _resolution);
+                Resize(tree, _resolution); // the launcher opens such runs windowed (Forest.Desktop's Program)
             if (!GameHost.IsHeadless)
                 AttachMenu(tree, scene, GameHost.UserArgs);
             ApplyOverrides(scene, GameHost.UserArgs);
@@ -426,7 +427,6 @@ public sealed class ForestDev : Node
     {
         if (tree.Window is not { } window || window.Size.X <= 0)
             return;
-        window.Mode = WindowMode.Windowed; // a maximized window keeps its size
         var scale = tree.Root.Size.X / window.Size.X;
         if (!(scale > 0f))
             scale = 1f;
