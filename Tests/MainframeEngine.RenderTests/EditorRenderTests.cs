@@ -94,6 +94,26 @@ public class EditorRenderTests
     }
 
     [Fact]
+    public void ViewportToolsMatchGoldenAndLeaveTheSceneAndIdleFramesClean()
+    {
+        // G7: three crates and a lamp selected (the gizmo at their median, the lamp's range handle) for the golden; then a
+        // box selection through the object-ID region readback, a handle drag (one history entry), Simulate for 60 frames
+        // and Stop (the scene byte-identical), and the allocation gate over idle frames with the gizmo and handles shown.
+        var result = HostRunner.RunEditor(Output("editor-viewport-tools"),
+            new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "--smoke-golden", "viewport-tools", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Assert.True(result.MeasuredFrames > 0, "The viewport-tools run measured no frames.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"Idle frames with the multi-node gizmo and handles allocated {result.AllocatedBytes} managed bytes over {result.MeasuredFrames} frames.");
+        var capture = Assert.Single(result.Captures);
+        Assert.Equal((Px(result, 1280), Px(result, 720)), (capture.Width, capture.Height));
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
     public void MusicSongMatchesGoldenAndAllocatesNothingWhenSteady()
     {
         // A song tab in music mode (a project in the temp folder, a clip of eight notes): the full-window music editor with

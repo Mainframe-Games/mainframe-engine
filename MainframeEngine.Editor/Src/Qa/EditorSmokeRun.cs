@@ -409,9 +409,25 @@ public sealed class EditorSmokeRun : IEditorAutomation
                     break;
                 }
 
+            case ("viewport-tools", 3):
+                BuildViewportToolsScene(workspace);
+                break;
+            case ("viewport-tools", 30):
+                workspace.Output.Clear(); // the physics engine's debug lines: a clean panel for the golden
+                workspace.OutputPanel.Refresh();
+                break;
+
             case (_, 40):
                 _captureFrame = _frame;
                 app.CaptureFrame();
+                break;
+
+            // G7: then a box selection (GPU region readback), a handle drag, a simulate start/stop that leaves the scene
+            // byte-identical, and the allocation gate on idle frames with the gizmo and handles shown.
+            case ("viewport-tools", 44):
+                break;
+            case ("viewport-tools", > 44):
+                RunViewportTools(app, workspace);
                 break;
 
             // The timeline and song goldens then measure the managed allocations of steady video/music-mode frames (the allocation gate).
@@ -427,6 +443,168 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 app.Quit(ExitCode.Ok);
                 break;
             case (_, 44):
+                Next(Step.Done);
+                app.Quit(ExitCode.Ok);
+                break;
+        }
+    }
+
+    // ── viewport-tools (G7) ─────────────────────────────────────────────────────────────────────────────────────
+
+    private readonly List<MeshInstance3D> _crateMeshes = [];
+    private int _toolsStep;
+    private uint _toolsStepFrame;
+    private byte[]? _sceneBefore;
+
+    // A floor, three crates (rigid bodies with a mesh) and a lamp; three crates and the lamp selected, the pivot at their
+    // median: the golden shows the shared gizmo and the lamp's range handle.
+    private void BuildViewportToolsScene(EditorWorkspace workspace)
+    {
+        var scene = workspace.Session.NewScene();
+        var root = scene.Root;
+        workspace.Output.Clear();
+        var floor = new StaticBody3D { Name = "Floor", Position = new Vector3(0, -0.1f, 0) };
+        scene.AddNode(floor, root);
+        AddOwned(root, floor, new MeshInstance3D { Name = "Mesh", Mesh = new BoxMesh { Size = new Vector3(10, 0.2f, 10) } });
+        AddOwned(root, floor, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(10, 0.2f, 10) } });
+        _crateMeshes.Clear();
+        Vector3[] at = [new(-1.6f, 1.2f, 0), new(0, 2.2f, 0.4f), new(1.6f, 1.5f, -0.3f)];
+        for (var i = 0; i < at.Length; i++)
+        {
+            var crate = new RigidBody3D { Name = $"Crate{i + 1}", Position = at[i], RotationDegrees = new Vector3(0, i * 20f, 0) };
+            scene.AddNode(crate, root);
+            var mesh = new MeshInstance3D { Name = "Mesh", Mesh = new BoxMesh { Size = new Vector3(0.8f) } };
+            AddOwned(root, crate, mesh);
+            AddOwned(root, crate, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(0.8f) } });
+            _crateMeshes.Add(mesh);
+        }
+
+        var lamp = new OmniLight3D { Name = "Lamp", Position = new Vector3(0, 3.4f, -1.5f), Range = 2.5f };
+        scene.AddNode(lamp, root);
+        scene.AddNode(new DirectionalLight3D { Name = "Sun", RotationDegrees = new Vector3(-50, 30, 0), Position = new Vector3(-3, 4, 2) }, root);
+        scene.Camera.Pivot = new Vector3(0, 1.2f, 0);
+        scene.Camera.Distance = 9f;
+        scene.Camera.Yaw = 25f;
+        scene.Camera.Pitch = -22f;
+        workspace.Gizmo.Mode = GizmoMode.Translate;
+        workspace.Gizmo.Pivot = GizmoPivot.Median;
+        scene.Selection.Set([_crateMeshes[0].Parent!, _crateMeshes[1].Parent!, _crateMeshes[2].Parent!, lamp]);
+        workspace.Toolbar.Refresh();
+    }
+
+    private static void AddOwned(Node root, Node parent, Node child)
+    {
+        parent.AddChild(child);
+        child.Owner = root;
+    }
+
+    private void NextTool()
+    {
+        _toolsStep++;
+        _toolsStepFrame = 0;
+    }
+
+    private void RunViewportTools(EditorApp app, EditorWorkspace workspace)
+    {
+        if (workspace.Session.Active is not { } scene || scene.Root.GetNodeOrNull<OmniLight3D>("Lamp") is not { } lamp)
+            return;
+        _toolsStepFrame++;
+        var view = workspace.Viewport;
+        switch (_toolsStep)
+        {
+            case 0:
+                {
+                    // Box selection: a rectangle around the first two crates' meshes, read back from the object-ID target.
+                    var rect = view.ViewRect;
+                    Vector2 Window(Vector3 world)
+                    {
+                        scene.Camera.Project(world, view.ViewPixels.X, view.ViewPixels.Y, out var pixel);
+                        return new Vector2(rect.X, rect.Y) + pixel / view.ViewScale;
+                    }
+
+                    var a = Window(_crateMeshes[0].GlobalPosition);
+                    var b = Window(_crateMeshes[1].GlobalPosition);
+                    var min = Vector2.Min(a, b) - new Vector2(40);
+                    var max = Vector2.Max(a, b) + new Vector2(40);
+                    view.BoxSelect(scene, min, max, BoxSelectMode.Replace);
+                    NextTool();
+                    break;
+                }
+
+            case 1 when !view.IsBoxSelecting || _toolsStepFrame > 60:
+                {
+                    var selected = scene.Selection.Nodes;
+                    Check(selected.Contains(_crateMeshes[0]) && selected.Contains(_crateMeshes[1]),
+                        $"Box selection: expected Crate1 and Crate2's meshes, got [{string.Join(", ", selected.Select(n => n.GetPath().ToString()))}].");
+                    Check(!selected.Contains(_crateMeshes[2]), "Box selection selected the crate outside the rectangle.");
+                    NextTool();
+                    break;
+                }
+
+            case 2:
+                {
+                    // A handle drag: the lamp's range, one history entry.
+                    scene.Selection.Set(lamp);
+                    workspace.Gizmo.Mode = GizmoMode.Select;
+                    view.CollectHandles(scene);
+                    if (view.Handles.Count != 1)
+                    {
+                        Fail($"The lamp shows {view.Handles.Count} handles (expected 1).");
+                        NextTool();
+                        break;
+                    }
+
+                    var history = scene.History.Actions.Count;
+                    var rect = view.ViewRect;
+                    scene.Camera.Project(view.Handles[0].Position, view.ViewPixels.X, view.ViewPixels.Y, out var pixel);
+                    var start = new Vector2(rect.X, rect.Y) + pixel / view.ViewScale;
+                    var tree = app.Tree;
+                    tree.PushInput(new InputEventMouseMotion { Position = EditorQaScript.Pointer(app, start) });
+                    tree.PushInput(new InputEventMouseButton { Button = Silk.NET.Input.MouseButton.Left, Pressed = true, Position = EditorQaScript.Pointer(app, start) });
+                    tree.PushInput(new InputEventMouseMotion { Position = EditorQaScript.Pointer(app, start + new Vector2(60, 0)) });
+                    tree.PushInput(new InputEventMouseButton { Button = Silk.NET.Input.MouseButton.Left, Pressed = false, Position = EditorQaScript.Pointer(app, start + new Vector2(60, 0)) });
+                    Check(lamp.Range > 2.6f, $"The range handle drag left Range at {lamp.Range}.");
+                    Check(scene.History.Actions.Count == history + 1 && scene.History.UndoAction?.Name == "Set Range on Lamp",
+                        $"The handle drag made {scene.History.Actions.Count - history} history entries ({scene.History.UndoAction?.Name}).");
+                    NextTool();
+                    break;
+                }
+
+            case 3:
+                _sceneBefore = SceneSaver.ToJson(scene.Root);
+                Check(workspace.Simulation.StartNow(scene), "Simulate did not start.");
+                NextTool();
+                break;
+
+            case 4 when _toolsStepFrame == 60:
+                {
+                    var crate = (Node3D)_crateMeshes[1].Parent!;
+                    var simulated = workspace.Simulation.CounterpartOf(crate) as Node3D;
+                    Check(simulated is not null && simulated.Position.Y < crate.Position.Y - 0.3f,
+                        $"The simulated crate did not fall ({simulated?.Position.Y} from {crate.Position.Y}).");
+                    workspace.Simulation.Stop();
+                    NextTool();
+                    break;
+                }
+
+            case 5 when _toolsStepFrame == 3:
+                Check(_sceneBefore is not null && SceneSaver.ToJson(scene.Root).AsSpan().SequenceEqual(_sceneBefore),
+                    "The scene changed across Simulate and Stop.");
+                Check(!app.Tree.IsSimulating && scene.Viewport.UpdateMode == SubViewportUpdateMode.Always, "The edited view did not come back after Stop.");
+                // Idle frames afterwards: the gizmo at the median of three crates and the lamp's handle, no allocation.
+                workspace.Gizmo.Mode = GizmoMode.Translate;
+                scene.Selection.Set([_crateMeshes[0].Parent!, _crateMeshes[1].Parent!, _crateMeshes[2].Parent!, lamp]);
+                workspace.Output.Clear();
+                NextTool();
+                break;
+
+            case 6 when _toolsStepFrame == AllocationWarmup:
+                _allocationStart = GC.GetAllocatedBytesForCurrentThread();
+                break;
+
+            case 6 when _toolsStepFrame == AllocationWarmup + AllocationFrames:
+                _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
+                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} idle frames with the multi-node gizmo and handles.");
                 Next(Step.Done);
                 app.Quit(ExitCode.Ok);
                 break;
