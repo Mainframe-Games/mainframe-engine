@@ -281,6 +281,155 @@ public sealed class Physics2DJointTests : IDisposable
     }
 
     [Fact]
+    public void ADisabledJointLeavesBox2DAndComesBackAtItsFrames()
+    {
+        var box = _h.AddBox(new Vector2(0, 50), size: 20);
+        var joint = AddJoint(new PinJoint2D { Name = "Pin" }, Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.Run(2);
+        Assert.True(joint.IsActive);
+
+        joint.Enabled = false;
+        _h.RunSeconds(0.5f);
+        Assert.False(joint.IsActive);
+        Assert.True(box.Position.Y > 100, "falls while the pin is off");
+
+        box.Teleport(Transform2D.FromTrs(new Vector2(0, 50), 0, Vector2.One));
+        box.LinearVelocity = Vector2.Zero;
+        joint.Enabled = true;
+        joint.ProcessMode = ProcessMode.Disabled; // a disabled node too
+        _h.Run(2);
+        Assert.False(joint.IsActive);
+        joint.ProcessMode = ProcessMode.Inherit;
+        _h.RunSeconds(0.5f);
+        Assert.True(joint.IsActive);
+        Assert.InRange(box.Position.Length(), 47f, 53f);
+    }
+
+    [Fact]
+    public void ASliderMovesAlongItsAxisWithinItsLimits()
+    {
+        var carriage = _h.AddBox(Vector2.Zero, size: 20, name: "Carriage");
+        carriage.GravityScale = 0;
+        var slider = AddJoint(new SliderJoint2D { Name = "Slider", UseLimit = true, LowerTranslation = -20, UpperTranslation = 40, MotorEnabled = true, MotorTargetVelocity = 100 },
+            Vector2.Zero, null, "Carriage");
+        carriage.ApplyImpulse(new Vector2(0, 50));
+        carriage.AngularVelocity = 3f;
+        _h.RunSeconds(1f);
+        Assert.InRange(slider.GetTranslation(), 38f, 42f);
+        Assert.InRange(carriage.Position.X, 38f, 42f);
+        Assert.InRange(carriage.Position.Y, -1f, 1f);
+        Assert.InRange(carriage.Rotation, -0.01f, 0.01f);
+
+        slider.SpringEnabled = true; // live: the spring wins over a motor with no force
+        slider.MotorEnabled = false;
+        slider.SpringTargetTranslation = -10;
+        slider.SpringDampingRatio = 1;
+        _h.RunSeconds(2f);
+        Assert.InRange(slider.GetTranslation(), -12f, -8f);
+    }
+
+    [Fact]
+    public void AGrooveHoldsItsBodyOnTheGrooveBetweenItsEnds()
+    {
+        var bead = _h.AddBox(new Vector2(0, 50), size: 10, name: "Bead");
+        var groove = AddJoint(new GrooveJoint2D { Name = "Groove", Length = 100, InitialOffset = 50 }, Vector2.Zero, null, "Bead");
+        bead.ApplyImpulse(new Vector2(30, 0)); // sideways: held in the groove
+        var lowest = 0f;
+        for (var i = 0; i < 90; i++)
+        {
+            _h.Run(1);
+            lowest = MathF.Max(lowest, bead.Position.Y);
+            Assert.InRange(bead.Position.X, -1.5f, 1.5f);
+        }
+
+        Assert.True(groove.IsActive);
+        Assert.InRange(lowest, 95f, 103f); // slid down (gravity is +Y) to the groove's end
+        Assert.InRange(bead.Position.Y, 97f, 103f);
+    }
+
+    [Fact]
+    public void AWeldHoldsAndItsSpringsBend()
+    {
+        _h.AddStaticBox(Vector2.Zero, new Vector2(20, 20), name: "Post");
+        var sign = _h.AddBox(new Vector2(60, 0), size: 40, name: "Sign");
+        var weld = AddJoint(new WeldJoint2D { Name = "Weld" }, new Vector2(10, 0), "Post", "Sign");
+        _h.RunSeconds(1f);
+        Assert.InRange(sign.Position.Y, -1f, 1.5f);
+        Assert.InRange(sign.Rotation, -0.02f, 0.02f);
+
+        weld.AngularHertz = 1f; // live: a bendy sign sags
+        weld.AngularDampingRatio = 1f;
+        _h.RunSeconds(2f);
+        Assert.True(sign.Position.Y > 5f, $"sagged: {sign.Position}");
+        Assert.True(weld.IsActive);
+    }
+
+    [Fact]
+    public void AWheelDrivesAndRidesItsSuspension()
+    {
+        _h.AddStaticBox(Vector2.Zero, new Vector2(40, 10), name: "Chassis");
+        var wheel = new RigidBody2D { Name = "Wheel", Position = new Vector2(0, 40) };
+        wheel.AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = 15 } });
+        _h.Add(wheel);
+        // X of the joint points up the suspension (−90°): the wheel hangs on its spring below the chassis.
+        var axle = AddJoint(new WheelJoint2D { Name = "Axle", Rotation = -MathF.PI / 2, MotorEnabled = true, MotorTargetVelocity = 5, SpringHertz = 3 },
+            new Vector2(0, 40), "Chassis", "Wheel");
+        _h.RunSeconds(2f);
+        Assert.True(axle.IsActive);
+        Assert.InRange(wheel.AngularVelocity, 4.9f, 5.1f);
+        Assert.InRange(wheel.Position.X, -1f, 1f);
+        Assert.True(wheel.Position.Y > 40.5f, $"sags on its spring: {wheel.Position}");
+
+        axle.UseLimit = true; // live: the travel stops 5 px below
+        axle.LowerTranslation = -5;
+        axle.UpperTranslation = 5;
+        axle.SpringHertz = 0.5f;
+        _h.RunSeconds(2f);
+        Assert.InRange(wheel.Position.Y, 40f, 46f);
+    }
+
+    [Fact]
+    public void APinSpringSettlesAtItsTargetAngle()
+    {
+        var flap = _h.AddBox(new Vector2(40, 0), size: 20, name: "Flap");
+        flap.GravityScale = 0;
+        var pin = AddJoint(new PinJoint2D { Name = "Pin", SpringEnabled = true, SpringHertz = 4, SpringDampingRatio = 1, SpringTargetAngle = 0.5f },
+            Vector2.Zero, null, "Flap");
+        // Box2D's revolute spring uses the bodies' inertia about their centres, so an off-centre flap rings longer than
+        // the nominal 4 Hz, ratio 1.
+        _h.RunSeconds(5f);
+        Assert.True(MathF.Abs(pin.GetAngle() - 0.5f) < 0.02f && MathF.Abs(flap.Rotation - 0.5f) < 0.02f, $"angle {pin.GetAngle()}, rotation {flap.Rotation}");
+    }
+
+    [Fact]
+    public void NewJointTypesRoundTripThroughScenes()
+    {
+        var root = new Node2D { Name = "Root" };
+        root.AddChild(new SliderJoint2D { Name = "Slider", Enabled = false, UseLimit = true, LowerTranslation = -5, UpperTranslation = 7, MotorMaxForce = 3, SpringTargetTranslation = 2 });
+        root.AddChild(new GrooveJoint2D { Name = "Groove", Length = 80, InitialOffset = 10 });
+        root.AddChild(new WeldJoint2D { Name = "Weld", LinearHertz = 2, AngularHertz = 3, LinearDampingRatio = 0.2f, AngularDampingRatio = 0.3f });
+        root.AddChild(new WheelJoint2D { Name = "Wheel", SpringEnabled = false, SpringHertz = 4, UseLimit = true, MotorEnabled = true, MotorTargetVelocity = 6 });
+        root.AddChild(new PinJoint2D { Name = "Pin", SpringEnabled = true, SpringHertz = 5, SpringTargetAngle = 0.25f });
+        foreach (var child in root.Children)
+            child.Owner = root;
+
+        var copy = PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate();
+        var slider = copy.GetNode<SliderJoint2D>("Slider");
+        Assert.Equal((false, true, -5f, 7f, 3f, 2f), (slider.Enabled, slider.UseLimit, slider.LowerTranslation, slider.UpperTranslation, slider.MotorMaxForce,
+            slider.SpringTargetTranslation));
+        var groove = copy.GetNode<GrooveJoint2D>("Groove");
+        Assert.Equal((80f, 10f), (groove.Length, groove.InitialOffset));
+        var weld = copy.GetNode<WeldJoint2D>("Weld");
+        Assert.Equal((2f, 3f, 0.2f, 0.3f), (weld.LinearHertz, weld.AngularHertz, weld.LinearDampingRatio, weld.AngularDampingRatio));
+        var wheel = copy.GetNode<WheelJoint2D>("Wheel");
+        Assert.Equal((false, 4f, true, true, 6f), (wheel.SpringEnabled, wheel.SpringHertz, wheel.UseLimit, wheel.MotorEnabled, wheel.MotorTargetVelocity));
+        var pin = copy.GetNode<PinJoint2D>("Pin");
+        Assert.Equal((true, 5f, 0.25f), (pin.SpringEnabled, pin.SpringHertz, pin.SpringTargetAngle));
+        root.Free();
+        copy.Free();
+    }
+
+    [Fact]
     public void JointPropertiesRoundTripThroughScenes()
     {
         var root = new Node2D { Name = "Root" };

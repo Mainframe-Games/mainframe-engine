@@ -178,6 +178,8 @@ public sealed partial class PhysicsSpace2D
     private void TryCreate(JointRecord2D record)
     {
         var node = record.Node;
+        if (!node.IsEffectivelyEnabled)
+            return; // Box2D has no joint enable flag: a disabled joint does not exist there (frames are kept)
         if (!TryResolve(record, node.NodeA, out var a) || !TryResolve(record, node.NodeB, out var b))
             return;
         if (a is null && b is null)
@@ -194,8 +196,9 @@ public sealed partial class PhysicsSpace2D
         {
             var pose = node.GlobalTransform;
             var poseB = node.GetAnchorB(pose);
-            record.FrameA = LocalFrame(bodyA, pose.Origin, pose.Rotation);
-            record.FrameB = LocalFrame(bodyB, poseB, pose.Rotation);
+            var angle = pose.Rotation + node.FrameAngle;
+            record.FrameA = LocalFrame(bodyA, pose.Origin, angle);
+            record.FrameB = LocalFrame(bodyB, poseB, angle);
             record.FramedA = a?.Node;
             record.FramedB = b?.Node;
             record.HasFrames = true;
@@ -310,21 +313,42 @@ public sealed partial class PhysicsSpace2D
 
     private static readonly Vector4 JointColor = new(1f, 0.75f, 0.2f, 1f);
     private static readonly Vector4 StretchedJointColor = new(1f, 0.25f, 0.2f, 1f);
+    private static readonly Vector4 InactiveJointColor = new(0.55f, 0.55f, 0.6f, 1f);
 
     private void DrawJointsDebug(DebugLines lines)
     {
         foreach (var joint in _joints)
         {
-            if (!joint.HasJoint)
+            var node = joint.Node;
+            if (!node.IsVisibleInTree())
                 continue;
+            if (!joint.HasJoint)
+            {
+                // Pending (edit mode, missing bodies), disabled or broken: where the joint node is, greyed.
+                var pose = node.GlobalTransform;
+                var frame = Transform2D.FromTrs(pose.Origin, pose.Rotation + node.FrameAngle, Vector2.One);
+                var anchor = node.GetAnchorB(pose);
+                DrawAnchors(lines, frame.Origin, anchor, InactiveJointColor);
+                node.DrawDebugShape(lines, frame, anchor, 0f, InactiveJointColor);
+                continue;
+            }
+
             var xfA = b2Body_GetTransform(b2Joint_GetBodyA(joint.Id));
             var xfB = b2Body_GetTransform(b2Joint_GetBodyB(joint.Id));
             var a = ToNumerics(b2TransformPoint(in xfA, in joint.FrameA.p)) * PixelsPerMeter;
             var b = ToNumerics(b2TransformPoint(in xfB, in joint.FrameB.p)) * PixelsPerMeter;
-            var color = joint.Node.IsStretched(Vector2.Distance(a, b)) ? StretchedJointColor : JointColor;
-            lines.AddLine2D(Transform2D.Identity, a, b, color);
-            lines.AddCircle2D(Transform2D.Identity, a, 3f, color);
-            lines.AddCircle2D(Transform2D.Identity, b, 3f, color);
+            var rotation = b2MulRot(in xfA.q, in joint.FrameA.q);
+            var color = node.IsStretched(Vector2.Distance(a, b)) ? StretchedJointColor : JointColor;
+            DrawAnchors(lines, a, b, color);
+            node.DrawDebugShape(lines, Transform2D.FromTrs(a, b2Rot_GetAngle(rotation), Vector2.One), b, node.GetDebugValue(joint.Id, PixelsPerMeter),
+                color);
         }
+    }
+
+    private static void DrawAnchors(DebugLines lines, Vector2 a, Vector2 b, Vector4 color)
+    {
+        lines.AddLine2D(Transform2D.Identity, a, b, color);
+        lines.AddCircle2D(Transform2D.Identity, a, 3f, color);
+        lines.AddCircle2D(Transform2D.Identity, b, 3f, color);
     }
 }
