@@ -16,8 +16,8 @@ msgstr "Animación 3D"
 
 #. RML <p>
 #: Examples/Demo/Assets/Animation3D/panel.rml:9
-msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."
-msgstr "Un personaje glTF con esqueleto: 31 huesos, ocho clips, fundidos, eventos y una antorcha en la mano."
+msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events and a torch on its hand. Behind it, root motion walks and jumps a body."
+msgstr "Un personaje glTF con esqueleto: 31 huesos, diez clips, fundidos, eventos y una antorcha en la mano. Detrás, el movimiento raíz hace caminar y saltar a un cuerpo."
 
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:10
@@ -1335,6 +1335,10 @@ msgstr "Voz"
 msgctxt "settings"
 msgid "Ambience"
 msgstr "Ambiente"
+
+#. RML <p>
+#~ msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."
+#~ msgstr "Un personaje glTF con esqueleto: 31 huesos, ocho clips, fundidos, eventos y una antorcha en la mano."
 
 #. RML <p>
 #~ msgid "Hot reload is off in this build (it runs with a Debug engine)."

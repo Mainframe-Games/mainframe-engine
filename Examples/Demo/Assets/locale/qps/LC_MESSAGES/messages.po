@@ -12,8 +12,8 @@ msgstr ""
 msgid "Animation 3D"
 msgstr "[Åñîmåtîöñ 3Ð ~~~]"
 
-msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."
-msgstr "[Å skîññéð glTF çhåråçtér: 31 böñés, éîght çlîps, çrössfåðés, évéñts åñð å törçh öñ îts håñð. ~~~~~~~~~~~~~~~~~~~~~]"
+msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events and a torch on its hand. Behind it, root motion walks and jumps a body."
+msgstr "[Å skîññéð glTF çhåråçtér: 31 böñés, téñ çlîps, çrössfåðés, évéñts åñð å törçh öñ îts håñð. Béhîñð ît, rööt mötîöñ wålks åñð jûmps å böðý. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "Clip"
 msgstr "[Çlîp ~]"

@@ -6,10 +6,11 @@ using static Demo.DemoBuild;
 namespace Demo;
 
 /// <summary>
-/// A skinned glTF character (ADR 0207: <c>Assets/Models/Character/character.glb</c>, 31 bones, eight clips) played by its
+/// A skinned glTF character (ADR 0207: <c>Assets/Models/Character/character.glb</c>, 31 bones, ten clips) played by its
 /// imported <see cref="AnimationPlayer"/>, with a hammer and a torch light on its right hand through a
 /// <see cref="BoneAttachment3D"/>, under a shadowing sun. <see cref="Animation3DPanel"/> picks the clip, the crossfade and
-/// the speed, and shows the clip's events as they fire.
+/// the speed, and shows the clip's events as they fire. Behind it a second instance rides a <see cref="RootMotionWalker"/>
+/// body, moved only by root motion (ADR 0210): half circles and forward jumps around a closed loop.
 /// </summary>
 public static class Animation3DScene
 {
@@ -29,6 +30,8 @@ public static class Animation3DScene
             Mesh = new PlaneMesh { Size = new Vector2(30, 30) },
             MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(92, 104, 96) },
         });
+        var ground = Add(root, root, new StaticBody3D { Name = "Ground", Position = new Vector3(0, -0.5f, 0) });
+        Add(root, ground, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(30, 1, 30) } });
 
         var model = ResourceLoader.Load<PackedScene>(CharacterPath);
         try
@@ -55,6 +58,22 @@ public static class Animation3DScene
                 Energy = 1.6f,
                 Range = 3f,
             });
+
+            // Root motion (ADR 0210): a body walking the circle clip and jumping forward, facing −X at the start.
+            var walker = Add(root, root, new RootMotionWalker { Name = "Walker", Position = new Vector3(2.2f, 0, -5f), RotationDegrees = new Vector3(0, -90, 0) });
+            Add(root, walker, new CollisionShape3D
+            {
+                Name = "Shape",
+                Position = new Vector3(0, 0.9f, 0),
+                Shape = new CapsuleShape3D { Radius = 0.3f, Height = 1.8f },
+            });
+            var walkerModel = model.Instantiate<Node3D>();
+            walkerModel.Name = "Model";
+            Add(root, walker, walkerModel);
+            var walkerPlayer = walkerModel.GetNode<AnimationPlayer>("AnimationPlayer");
+            walkerPlayer.CallbackModeProcess = AnimationCallbackMode.Physics;
+            walkerPlayer.RootMotionTrack = "Armature";
+            walkerPlayer.RootMotionBone = "Hips";
         }
         finally
         {

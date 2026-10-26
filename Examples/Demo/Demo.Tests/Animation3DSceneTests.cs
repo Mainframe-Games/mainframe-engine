@@ -12,6 +12,7 @@ public sealed class Animation3DSceneTests : IDisposable
     public Animation3DSceneTests()
     {
         _servers.Register(new UiServer(options: new UiServerOptions { HotReload = false }));
+        _servers.Register(new PhysicsServer3D(new PhysicsSettings3D { MultiThreaded = false }));
         _tree = new SceneTree(_servers);
         _tree.ChangeScene(Animation3DScene.Build());
     }
@@ -76,5 +77,33 @@ public sealed class Animation3DSceneTests : IDisposable
         Tick(2);
         Assert.Equal("idle", Panel.Clip);
         Assert.Equal("idle", Player.CurrentAnimation);
+    }
+
+    [Fact]
+    public void RootMotionWalksAndJumpsTheWalkerRoundAClosedLoop()
+    {
+        var walker = Scene.GetNode<RootMotionWalker>("Walker");
+        var player = walker.GetNode<AnimationPlayer>("Model/AnimationPlayer");
+        Tick();
+        var start = walker.GlobalPosition;
+        Assert.Equal("circle", player.CurrentAnimation);
+        Assert.Equal("Armature", player.RootMotionTrack.ToString());
+
+        // Nearly half a circle to its left (+Z, it faces −X): across the circle, about a diameter on.
+        Tick(110);
+        Assert.Equal(0, walker.Jumps);
+        Assert.InRange(walker.GlobalPosition.Z - start.Z, 1.4f, 1.8f);
+        Assert.InRange(walker.GlobalPosition.X - start.X, -0.35f, 0.05f);
+        Tick(10);
+        Assert.Equal(1, walker.Jumps);
+        Assert.Equal("jump", player.CurrentAnimation);
+
+        // The jump, the other half circle and the jump back close the loop.
+        for (var i = 0; i < 600 && !(walker.Jumps == 2 && player.CurrentAnimation == "circle"); i++)
+            Tick();
+        Tick(); // the body moves by its player's motion a step later
+        Assert.Equal(2, walker.Jumps);
+        Assert.True(System.Numerics.Vector3.Distance(start, walker.GlobalPosition) < 0.02f, $"back at {walker.GlobalPosition}, started at {start}");
+        Assert.True(walker.IsOnFloor());
     }
 }

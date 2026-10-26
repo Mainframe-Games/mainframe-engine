@@ -17,6 +17,12 @@
         "Size": [30, 30]
       }
     },
+    "BoxShape3D_4fwnz": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [30, 1, 30]
+      }
+    },
     "StandardMaterial3D_d20cs": {
       "type": "StandardMaterial3D",
       "props": {
@@ -27,6 +33,13 @@
       "type": "BoxMesh",
       "props": {
         "Size": [0.05, 0.05, 0.34]
+      }
+    },
+    "CapsuleShape3D_xstdi": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.8
       }
     }
   },
@@ -73,6 +86,22 @@
       }
     },
     {
+      "name": "Ground",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [0, -0.5, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_4fwnz" }
+      }
+    },
+    {
       "name": "Crew",
       "parent": ".",
       "instance": "mdl_c4a2ac7e2000",
@@ -108,6 +137,37 @@
         "Color": [1, 0.62, 0.25],
         "Energy": 1.6,
         "Range": 3
+      }
+    },
+    {
+      "name": "Walker",
+      "parent": ".",
+      "type": "RootMotionWalker",
+      "props": {
+        "Position": [2.2, 0, -5],
+        "RotationDegrees": [0, -90, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walker",
+      "type": "CollisionShape3D",
+      "props": {
+        "Position": [0, 0.9, 0],
+        "Shape": { "res": "CapsuleShape3D_xstdi" }
+      }
+    },
+    {
+      "name": "Model",
+      "parent": "Walker",
+      "instance": "mdl_c4a2ac7e2000",
+      "path": "Assets/Models/Character/character.glb",
+      "overrides": {
+        "AnimationPlayer": {
+          "CallbackModeProcess": "Physics",
+          "RootMotionTrack": "Armature",
+          "RootMotionBone": "Hips"
+        }
       }
     },
     {
