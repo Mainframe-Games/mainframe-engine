@@ -131,25 +131,38 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
         return space;
     }
 
+    // In edit mode (the editor) only the spaces of a running simulation step and interpolate (G7.5); in a game, all of them.
+    private static bool Steps(SceneViewport viewport) =>
+        viewport.Tree is not { EditMode: true } || viewport.ResolvedSimulation == ViewportSimulation.Running;
+
     // Index loops: a signal handler may add the first body of another viewport (a new space) mid-step.
 
     public void BeforeFixedSteps()
     {
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].BeforeFixedSteps();
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].BeforeFixedSteps();
+        }
     }
 
     public void FixedStep(float delta)
     {
         // Several worlds step one at a time.
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].Step(delta);
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].Step(delta);
+        }
     }
 
     public void AfterFixedSteps(float interpolationFraction)
     {
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].AfterFixedSteps(interpolationFraction);
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].AfterFixedSteps(interpolationFraction);
+        }
     }
 
     /// <summary>Per frame (after transform sync): releases spaces of viewports that left the tree; debug drawing.</summary>

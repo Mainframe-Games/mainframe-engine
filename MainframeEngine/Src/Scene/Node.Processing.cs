@@ -47,6 +47,7 @@ public partial class Node
     // bytes (int-sized enums) the 10k-node transform benchmarks ran ~10 % slower than at 232 (cache layout).
     private byte _processMode;
     private byte _resolvedProcessMode = (byte)ProcessMode.Pausable;
+    private byte _simulation; // ViewportSimulation of the nearest simulating SubViewport (resolved on enter tree)
     private int _processPriority;
 
     // Bookkeeping owned by SceneTree.
@@ -91,6 +92,35 @@ public partial class Node
     /// </summary>
     public bool IsTool => _isTool;
 
+    /// <summary>
+    /// The <see cref="SubViewport.Simulation"/> this node runs under: its own (a sub-viewport that sets one) or its
+    /// parent's, resolved when it enters the tree. <see cref="ViewportSimulation.None"/> outside a simulation.
+    /// </summary>
+    public ViewportSimulation ResolvedSimulation => (ViewportSimulation)_simulation;
+
+    /// <summary>True inside a simulating sub-viewport (running or paused): game rules apply although the tree is in edit mode.</summary>
+    public bool IsSimulated => _simulation != (byte)ViewportSimulation.None;
+
+    /// <summary>The node's process and physics callbacks run in <see cref="SceneTree.EditMode"/>: a [Tool] type or a simulated node.</summary>
+    internal bool RunsInEditMode => _isTool || _simulation != (byte)ViewportSimulation.None;
+
+    private void ResolveSimulation() =>
+        _simulation = this is SubViewport { Simulation: not ViewportSimulation.None } own
+            ? (byte)own.Simulation
+            : _parent?._simulation ?? (byte)ViewportSimulation.None;
+
+    // A sub-viewport's Simulation changed inside the tree: its subtree follows (nested ones that set their own keep it).
+    private protected void PropagateSimulation()
+    {
+        ResolveSimulation();
+        for (var i = 0; _children is not null && i < _children.Count; i++)
+        {
+            var child = _children[i];
+            if (child is not SubViewport { Simulation: not ViewportSimulation.None })
+                child.PropagateSimulation();
+        }
+    }
+
     /// <summary>The effective mode after resolving <see cref="ProcessMode.Inherit"/>.</summary>
     public ProcessMode ResolvedProcessMode => (ProcessMode)_resolvedProcessMode;
 
@@ -101,13 +131,18 @@ public partial class Node
     public Tween CreateTween() =>
         (_tree ?? throw new InvalidOperationException($"'{Name}' must be inside the tree to create a tween.")).CreateTween().BindNode(this);
 
-    internal bool CanProcess(bool paused) => (ProcessMode)_resolvedProcessMode switch
+    // A paused simulation (G7.5) pauses its subtree as the tree's pause would.
+    internal bool CanProcess(bool paused)
     {
-        ProcessMode.Pausable => !paused,
-        ProcessMode.WhenPaused => paused,
-        ProcessMode.Always => true,
-        _ => false,
-    };
+        paused |= _simulation == (byte)ViewportSimulation.Paused;
+        return (ProcessMode)_resolvedProcessMode switch
+        {
+            ProcessMode.Pausable => !paused,
+            ProcessMode.WhenPaused => paused,
+            ProcessMode.Always => true,
+            _ => false,
+        };
+    }
 
     /// <summary>
     /// Enables or disables <see cref="OnProcess"/>. By default it is enabled exactly when the type overrides

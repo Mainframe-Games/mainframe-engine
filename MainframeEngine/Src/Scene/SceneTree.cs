@@ -105,6 +105,96 @@ public sealed partial class SceneTree
     /// </summary>
     public Func<Type, bool>? EditModeScripts { get; set; }
 
+    // Sub-viewports inside the tree whose Simulation is set (the editor's Simulate, G7.5).
+    private readonly List<SubViewport> _simulations = [];
+    private int _runningSimulations;
+
+    /// <summary>True while a sub-viewport of the tree simulates (running or paused; the editor's Simulate, G7.5).</summary>
+    public bool IsSimulating => _simulations.Count > 0;
+
+    /// <summary>
+    /// The first exception thrown by a simulated node's callback (or a physics signal, timer or deferred call while a
+    /// simulation runs), caught so it does not escape <see cref="Tick"/>; the editor stops the simulation when it is set.
+    /// Logged with the node's path and the throwing source line. Null when there is none; see <see cref="ClearSimulationFault"/>.
+    /// </summary>
+    public Exception? SimulationFault { get; private set; }
+
+    /// <summary>Forgets <see cref="SimulationFault"/> (a new simulation starts clean).</summary>
+    public void ClearSimulationFault() => SimulationFault = null;
+
+    internal void UpdateSimulation(SubViewport viewport)
+    {
+        _simulations.Remove(viewport);
+        if (viewport.Simulation != ViewportSimulation.None && ReferenceEquals(viewport.Tree, this))
+            _simulations.Add(viewport);
+        CountRunning();
+    }
+
+    internal void RemoveSimulation(SubViewport viewport)
+    {
+        if (_simulations.Remove(viewport))
+            CountRunning();
+    }
+
+    private void CountRunning()
+    {
+        _runningSimulations = 0;
+        foreach (var simulation in _simulations)
+            if (simulation.Simulation == ViewportSimulation.Running)
+                _runningSimulations++;
+    }
+
+    // Records an exception from simulated code (the first one is kept) with the throwing source line, for the Output link.
+    internal void RecordSimulationFault(Exception exception, Node? node)
+    {
+        SimulationFault ??= exception;
+        string? file = null;
+        var line = 0;
+        foreach (var frame in new System.Diagnostics.StackTrace(exception, fNeedFileInfo: true).GetFrames())
+        {
+            if (frame.GetFileName() is { Length: > 0 } name)
+            {
+                file = name;
+                line = frame.GetFileLineNumber();
+                break;
+            }
+        }
+
+        var where = node is null ? "" : $" in {node.GetPath()}";
+        var message = $"[Simulate] {exception.GetType().Name}{where}: {exception.Message}\n{exception.StackTrace}";
+        if (file is not null)
+            Log.Error(message, sourceFilePath: file, sourceLineNumber: line);
+        else
+            Log.Error(message);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private void InvokeProcessGuarded(Node node, in GameTime gameTime)
+    {
+        try
+        {
+            node.InvokeProcess(gameTime);
+        }
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        {
+            RecordSimulationFault(e, node);
+        }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private void InvokePhysicsProcessGuarded(Node node, float delta)
+    {
+        try
+        {
+            node.InvokePhysicsProcess(delta);
+        }
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        {
+            RecordSimulationFault(e, node);
+        }
+    }
+
+
     /// <summary>Fixed physics rate (default 60 Hz).</summary>
     public int PhysicsTicksPerSecond
     {
@@ -366,7 +456,7 @@ public sealed partial class SceneTree
             var tolerance = step * 1e-6;
             var steps = 0;
             var paused = Paused;
-            var stepServers = !paused && !EditMode;
+            var stepServers = !paused && (!EditMode || _runningSimulations > 0); // G7.5: a running simulation steps in edit mode
             if (stepServers && _accumulator + tolerance >= step)
                 foreach (var server in Servers.FixedStepServers)
                     server.BeforeFixedSteps();
@@ -397,11 +487,11 @@ public sealed partial class SceneTree
             var processTime = gameTime;
             processTime.DeltaTime = (float)Math.Max(0, gameTime.DeltaTime - dropped) * TimeScale;
             ProcessDeltaTime = processTime.DeltaTime;
-            FlushDeferredCalls(); // Godot's process: the message queue flushes before the callbacks (calls queued by ready, input)
+            FlushDeferredCallsMaybeGuarded(); // Godot's process: the message queue flushes before the callbacks (calls queued by ready, input)
             var processStart = System.Diagnostics.Stopwatch.GetTimestamp();
             RunProcess(processTime);
             ProcessSeconds = System.Diagnostics.Stopwatch.GetElapsedTime(processStart).TotalSeconds;
-            FlushDeferred();
+            FlushDeferredMaybeGuarded();
             FlushTransformNotifications();
 
             foreach (var server in Servers.FrameServers)
@@ -437,19 +527,82 @@ public sealed partial class SceneTree
         foreach (var node in _physics.Snapshot(this))
         {
             if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
-                (!editMode || node.IsTool))
-                node.InvokePhysicsProcess(delta);
+                (!editMode || node.RunsInEditMode))
+            {
+                if (node.IsSimulated)
+                    InvokePhysicsProcessGuarded(node, delta); // G7.5: game code in the editor never escapes Tick
+                else
+                    node.InvokePhysicsProcess(delta);
+            }
         }
 
+        if (IsSimulating)
+        {
+            try
+            {
+                PhysicsStepTail(delta, paused, editMode);
+            }
+            catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+            {
+                RecordSimulationFault(e, null); // a timer, tween, deferred call or physics signal of the simulation
+            }
+        }
+        else
+        {
+            PhysicsStepTail(delta, paused, editMode);
+        }
+
+        PhysicsFrames++;
+    }
+
+    // Deferred calls and frees may run a simulation's game code (G7.5): guarded only while one exists.
+    private void FlushDeferredCallsMaybeGuarded()
+    {
+        if (!IsSimulating)
+        {
+            FlushDeferredCalls();
+            return;
+        }
+
+        try
+        {
+            FlushDeferredCalls();
+        }
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        {
+            RecordSimulationFault(e, null);
+        }
+    }
+
+    private void FlushDeferredMaybeGuarded()
+    {
+        if (!IsSimulating)
+        {
+            FlushDeferred();
+            return;
+        }
+
+        try
+        {
+            FlushDeferred();
+        }
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+        {
+            RecordSimulationFault(e, null);
+        }
+    }
+
+    private void PhysicsStepTail(float delta, bool paused, bool editMode)
+    {
         FlushDeferredCalls(); // Godot's physics_process: the message queue flushes after the callbacks, before timers
         UpdateTimers(delta, physics: true);
         UpdateTweens(delta, physics: true);
 
-        if (!paused && !editMode && delta > 0f) // TimeScale 0: no game time passes, so the physics servers don't step
+        // TimeScale 0: no game time passes, so the physics servers don't step. In edit mode only a running simulation
+        // steps them, and they step only its spaces (G7.5).
+        if (!paused && (!editMode || _runningSimulations > 0) && delta > 0f)
             foreach (var server in Servers.FixedStepServers)
                 server.FixedStep(delta);
-
-        PhysicsFrames++;
     }
 
     private void RunProcess(in GameTime gameTime)
@@ -461,13 +614,33 @@ public sealed partial class SceneTree
         foreach (var node in _process.Snapshot(this))
         {
             if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
-                (!editMode || node.IsTool))
-                node.InvokeProcess(gameTime);
+                (!editMode || node.RunsInEditMode))
+            {
+                if (node.IsSimulated)
+                    InvokeProcessGuarded(node, gameTime);
+                else
+                    node.InvokeProcess(gameTime);
+            }
         }
 
         FlushPendingScene();
-        UpdateTimers(gameTime.DeltaTime, physics: false);
-        UpdateTweens(gameTime.DeltaTime, physics: false);
+        if (IsSimulating)
+        {
+            try
+            {
+                UpdateTimers(gameTime.DeltaTime, physics: false);
+                UpdateTweens(gameTime.DeltaTime, physics: false);
+            }
+            catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException))
+            {
+                RecordSimulationFault(e, null);
+            }
+        }
+        else
+        {
+            UpdateTimers(gameTime.DeltaTime, physics: false);
+            UpdateTweens(gameTime.DeltaTime, physics: false);
+        }
     }
 
     /// <summary>

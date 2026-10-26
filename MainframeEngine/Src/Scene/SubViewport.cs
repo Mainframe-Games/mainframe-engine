@@ -182,17 +182,41 @@ public class SubViewport : SceneViewport
         return _server is not null && RenderServer.TryGetPickResult(this, handle, out result);
     }
 
+    /// <summary>
+    /// How the subtree behaves while the tree is in <see cref="SceneTree.EditMode"/> (the editor's Simulate, G7.5):
+    /// <see cref="ViewportSimulation.Running"/> runs it as a game — every process and lifecycle callback, game scripts
+    /// included, and its physics spaces step — and <see cref="ViewportSimulation.Paused"/> pauses that subtree alone.
+    /// Input is never dispatched to it. Set it before adding children (their enter and ready callbacks follow it); a
+    /// change while inside the tree (Running ↔ Paused) applies to the subtree at once. Not saved.
+    /// </summary>
+    public ViewportSimulation Simulation
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+            field = value;
+            if (Tree is not { } tree)
+                return;
+            tree.UpdateSimulation(this);
+            PropagateSimulation();
+        }
+    }
+
     protected override void OnEnterTree()
     {
         base.OnEnterTree();
         _server = Tree?.Servers.Render;
         _server?.AddSubViewport(this);
+        Tree?.UpdateSimulation(this);
     }
 
     protected override void OnExitTree()
     {
         _server?.RemoveSubViewport(this);
         _server = null;
+        Tree?.RemoveSimulation(this);
         base.OnExitTree();
     }
 
