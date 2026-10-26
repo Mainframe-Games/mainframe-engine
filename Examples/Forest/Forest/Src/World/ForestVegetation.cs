@@ -161,7 +161,8 @@ public static class ForestVegetation
 
                 var pPine = pine * (understorey ? PineCellShare : 0.6f) + mixed * 0.1f;
                 var shore = SmoothStep(16f, 4f, ValleyGenerator.PondEdgeDistance(x, z)) * (1f - pine);
-                var pAspen = (bank * 0.62f + shore * 0.35f) * (1f - 0.6f * pine);
+                var dune = DuneBackMask(valley, x, z);
+                var pAspen = (bank * 0.62f + shore * 0.35f + dune * 0.3f) * (1f - 0.6f * pine);
                 var pAsh = gladeEdge * 0.09f + mixed * 0.15f;
                 var pOak = glade * (1f - gladeEdge) * 0.012f + gladeEdge * 0.04f + mixed * 0.07f;
                 var roll = Hash01(ci, cj, seed + 3);
@@ -278,21 +279,40 @@ public static class ForestVegetation
         return [.. placements];
     }
 
+    /// <summary>The back of the beach (the dune bank above the sand), where a few aspens and birches stand, 0..1.</summary>
+    public static float DuneBackMask(ValleyGenerator valley, float x, float z)
+    {
+        var s = z - valley.LakeShoreAt(x);
+        return SmoothStep(-32f, -24f, s) * SmoothStep(-15f, -20f, s);
+    }
+
     /// <summary>
-    /// Whether a tree or bush may stand at (x, z): inside the map, away from the path, the stream, the pond, the bridge
-    /// and the clearings, and not on steep rock.
+    /// Whether a tree or bush may stand at (x, z): inside the map, away from the path, the stream, the pond, the lake's
+    /// beach, the bridge and the clearings, and not on steep rock.
     /// </summary>
     public static bool IsClear(ValleyGenerator valley, float x, float z, float pathClearance, float waterClearance, Func<float, float, float> slopeDegrees)
     {
         const float margin = 1.5f;
         if (x < margin || z < margin || x > ValleyLayout.SizeMeters - margin || z > ValleyLayout.SizeMeters - margin)
             return false;
-        if (valley.PathField.Distance(x, z) < pathClearance)
+        if (valley.TrailDistance(x, z) < pathClearance)
             return false;
         if (valley.StreamEdgeDistance(x, z) < waterClearance)
             return false;
         if (ValleyGenerator.PondEdgeDistance(x, z) < waterClearance + 1f)
             return false;
+        if (z > 240f && valley.BeachMask(x, z, valley.GroundHeight(x, z)) > 0.1f)
+            return false;
+        // Where the north cliff raised the ground its rim stays bare (trees on it would shade the fall under the low
+        // north-north-east sun); where the sun's line held it at the old rim, the old trees stand.
+        // Nor do trees grow in the ravines (their flat floors would crowd the old slopes' views, R6's above all).
+        var edge = MathF.Min(MathF.Min(x, ValleyLayout.SizeMeters - x), z);
+        if (edge < ValleyLayout.CliffPlateau + ValleyLayout.CliffFace + 30f)
+        {
+            var change = valley.GroundHeight(x, z) - valley.GroundHeight(x, z, cliffs: false);
+            if (change < -0.5f || change > 1f && z < ValleyLayout.CliffPlateau + ValleyLayout.CliffFace + 2f && z < x && z < ValleyLayout.SizeMeters - x)
+                return false;
+        }
         if (Vector2.Distance(new Vector2(x, z), valley.BridgeCentre) < 7f)
             return false;
         foreach (var (centre, radius) in ValleyLayout.Clearings)
@@ -357,7 +377,108 @@ public static class ForestVegetation
         Scatter(props, valley, slopeDegrees, ForestAssets.Stump01, 4, 3f, 12f, seed + 3, "wood", 0.08f, new Vector2(0.8f, 1.1f));
         Scatter(props, valley, slopeDegrees, ForestAssets.Stump02, 4, 3f, 14f, seed + 4, "wood", 0.06f, new Vector2(0.8f, 1.1f));
         Scatter(props, valley, slopeDegrees, ForestAssets.DryBranches, 16, 1.6f, 9f, seed + 5, "leaves", 0.02f, new Vector2(0.9f, 1.4f), collision: false);
+
+        PlaceCliffRocks(props, valley, seed + 6);
+        PlaceBeachProps(props, valley, seed + 7);
         return props;
+    }
+
+    /// <summary>
+    /// Rock faces and the tall mountainside scan along the cliffs' feet (every ≈ 22 m, jittered), turned to face into the
+    /// valley and sunk into the talus: the edge reads as broken rock instead of a smooth terrain wall.
+    /// </summary>
+    private static void PlaceCliffRocks(List<PropPlacement> props, ValleyGenerator valley, int seed)
+    {
+        var size = ValleyLayout.SizeMeters;
+        const float spacing = 22f, foot = ValleyLayout.CliffPlateau + ValleyLayout.CliffFace - 2.5f;
+        // (start, along, inward normal, length): the west edge (south to north), the north edge, the east edge.
+        (Vector2 Start, Vector2 Along, Vector2 In, float Length)[] edges =
+        [
+            (new Vector2(0f, size - 30f), new Vector2(0f, -1f), new Vector2(1f, 0f), size - 30f),
+            (new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), size),
+            (new Vector2(size, 0f), new Vector2(0f, 1f), new Vector2(-1f, 0f), size - 30f),
+        ];
+        for (var e = 0; e < edges.Length; e++)
+        {
+            var (start, along, inward, length) = edges[e];
+            for (var k = 0; k * spacing < length; k++)
+            {
+                var t = (k + 0.2f + 0.6f * Hash01(e, k, seed)) * spacing;
+                if (t < 12f || t > length - 6f)
+                    continue;
+                var p = start + along * t + inward * (foot + 2f * Hash01(e, k, seed + 1));
+                if (valley.PathField.Distance(p.X, p.Y) < 5f || valley.StreamEdgeDistance(p.X, p.Y) < 3f || InAShot(p))
+                    continue;
+                var pick = Hash01(e, k, seed + 2);
+                var prop = pick < 0.35f ? ForestAssets.Mountainside : pick < 0.7f ? ForestAssets.RockFace01 : ForestAssets.RockFace02;
+                var scale = (prop == ForestAssets.Mountainside ? 0.9f : 1.2f) + 0.5f * Hash01(e, k, seed + 3);
+                // The scans face +Z: turn that towards the valley, ±20°.
+                var yaw = float.RadiansToDegrees(MathF.Atan2(inward.X, inward.Y)) + 40f * (Hash01(e, k, seed + 4) - 0.5f);
+                props.Add(new PropPlacement(prop, p, yaw, new Vector3(scale), 0.6f * scale, "rock"));
+            }
+        }
+    }
+
+    /// <summary>Whether <paramref name="p"/> is in the frame of a reference shot (within 60 m and 40° of its view): kept as composed.</summary>
+    private static bool InAShot(Vector2 p)
+    {
+        foreach (var shot in ValleyLayout.Shots)
+        {
+            var offset = p - shot.Eye;
+            var distance = offset.Length();
+            if (distance < 60f && Vector2.Dot(offset / MathF.Max(distance, 1e-3f), Vector2.Normalize(shot.Target - shot.Eye)) > MathF.Cos(float.DegreesToRadians(40f)))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Driftwood along the beach and boulders where the headlands meet the water.</summary>
+    private static void PlaceBeachProps(List<PropPlacement> props, ValleyGenerator valley, int seed)
+    {
+        var placed = 0;
+        for (var attempt = 0; attempt < 600 && placed < 7; attempt++)
+        {
+            var x = 30f + 260f * Hash01(attempt, 0, seed);
+            var shore = valley.LakeShoreAt(x);
+            var p = new Vector2(x, shore - 1.5f - 9f * Hash01(attempt, 1, seed));
+            var h = valley.GroundHeight(p.X, p.Y);
+            if (valley.BeachMask(p.X, p.Y, h) < 0.8f || h < ValleyLayout.LakeLevel + 0.15f)
+                continue;
+            var tooClose = false;
+            foreach (var other in props)
+                if (Vector2.Distance(other.Position, p) < 9f)
+                    tooClose = true;
+            if (tooClose)
+                continue;
+            var log = Hash01(attempt, 2, seed) < 0.6f ? ForestAssets.DeadTrunk : ForestAssets.DeadTrunk02;
+            var scale = log == ForestAssets.DeadTrunk ? 1.1f + 0.4f * Hash01(attempt, 3, seed) : 0.8f + 0.2f * Hash01(attempt, 3, seed);
+            props.Add(new PropPlacement(log, p, Hash01(attempt, 4, seed) * 360f, new Vector3(scale), log == ForestAssets.DeadTrunk ? 0.06f * scale : 0.3f, "wood"));
+            placed++;
+        }
+
+        placed = 0;
+        for (var attempt = 0; attempt < 2000 && placed < 9; attempt++)
+        {
+            var x = 10f + 300f * Hash01(attempt, 5, seed);
+            var z = 250f + 66f * Hash01(attempt, 6, seed);
+            var h = valley.GroundHeight(x, z);
+            // The waterline at the headlands' feet: just above the water, where the ground rises steeply to one side.
+            if (MathF.Abs(h - ValleyLayout.LakeLevel - 0.3f) > 0.35f)
+                continue;
+            if (MathF.Max(valley.GroundHeight(x - 3f, z), valley.GroundHeight(x + 3f, z)) - h < 1.5f)
+                continue;
+            var p = new Vector2(x, z);
+            var tooClose = false;
+            foreach (var other in props)
+                if (Vector2.Distance(other.Position, p) < 6f)
+                    tooClose = true;
+            if (tooClose)
+                continue;
+            var scale = 1.1f + 0.9f * Hash01(attempt, 7, seed);
+            props.Add(new PropPlacement(ForestAssets.Boulder, p, Hash01(attempt, 8, seed) * 360f, new Vector3(scale), 0.2f * scale, "rock"));
+            placed++;
+        }
     }
 
     private static void Scatter(List<PropPlacement> props, ValleyGenerator valley, Func<float, float, float> slopeDegrees, ForestPropAsset prop, int count,

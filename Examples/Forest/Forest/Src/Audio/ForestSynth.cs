@@ -18,6 +18,7 @@ public static class ForestSynth
     public const float RustleSeconds = 17f;
     public const float BrookSeconds = 14f;
     public const float FallsSeconds = 10f;
+    public const float FireSeconds = 12f;
     private const float LoopFadeSeconds = 1f;
 
     /// <summary>RMS level of each loop (the bus and node volumes set the mix on top).</summary>
@@ -26,6 +27,7 @@ public static class ForestSynth
     public const float RustleRms = 0.06f;
     public const float BrookRms = 0.1f;
     public const float FallsRms = 0.16f;
+    public const float FireRms = 0.08f;
 
     /// <summary>
     /// Wind through the trees, stereo at <see cref="WindRate"/>: decorrelated noise per channel through a band-pass
@@ -167,6 +169,62 @@ public static class ForestSynth
         return result;
     }
 
+    /// <summary>
+    /// A wood fire in a hearth, mono at <see cref="Rate"/>: a soft, breathing roar (low-passed noise under a slow swell), a
+    /// faint hiss of escaping steam, a steady patter of fine crackles (2–5 ms clicks, high-passed, ≈ 16 per second, most of
+    /// them quiet) and now and then a pop (a resinous knot bursting: a bright crack with a short low thump).
+    /// </summary>
+    public static float[] Fire(ulong seed)
+    {
+        var rng = new ForestRandom(seed);
+        var loop = (int)(FireSeconds * Rate);
+        var fade = (int)(LoopFadeSeconds * Rate);
+        var raw = new float[loop + fade];
+
+        var roar = Biquad.LowPass(320, 0.6, Rate);
+        var roarBody = Biquad.BandPass(140, 0.8, Rate);
+        var hiss = Biquad.BandPass(4200, 0.9, Rate);
+        var swell = new OnePole(0.9f, Rate);
+        var noise = new ForestRandom(rng.NextULong());
+        for (var i = 0; i < raw.Length; i++)
+        {
+            var white = noise.NextSigned();
+            var breathe = 0.7f + 0.3f * Math.Clamp(swell.Process(noise.NextSigned()) * 25f, -1f, 1f);
+            raw[i] = (roar.Process(white) * 0.5f + roarBody.Process(white) * 0.6f) * breathe + hiss.Process(white) * 0.04f * breathe;
+        }
+
+        // Crackles (Poisson), quiet on the whole with a few loud ones.
+        var time = rng.Exponential(1f / 16f);
+        var seconds = (loop + fade) / (float)Rate;
+        while (time < seconds)
+        {
+            var at = (int)(time * Rate);
+            var gain = MathF.Pow(rng.Range(0.02f, 1f), 2.2f) * 0.35f;
+            NoiseBurst(raw, at, rng.Range(0.002f, 0.005f), 0.0002f, rng.Range(0.0006f, 0.0015f), FilterKind.HighPass, rng.Range(1800f, 5000f), 0.7f, gain, ref rng);
+            time += rng.Exponential(1f / 16f);
+        }
+
+        // Pops: about one every two seconds.
+        time = rng.Exponential(1.8f);
+        while (time < seconds)
+        {
+            var at = (int)(time * Rate);
+            var gain = rng.Range(0.5f, 1f);
+            NoiseBurst(raw, at, 0.008f, 0.0002f, 0.002f, FilterKind.BandPass, rng.Range(2200f, 3800f), 0.8f, 0.4f * gain, ref rng);
+            Thump(raw, at, rng.Range(110f, 190f), 0.02f, 0.2f * gain);
+            // A short tail of embers settling.
+            var tail = rng.Range(2, 6);
+            for (var k = 0; k < tail; k++)
+                NoiseBurst(raw, at + (int)(rng.Range(0.01f, 0.12f) * Rate), 0.003f, 0.0002f, 0.001f, FilterKind.HighPass, 3000f, 0.7f,
+                    0.1f * gain * rng.NextFloat(), ref rng);
+            time += rng.Exponential(1.8f);
+        }
+
+        var result = SignalTools.FoldLoop(raw, 1, loop, fade);
+        SignalTools.NormalizeRms(result, FireRms, maxPeak: 0.7f);
+        return result;
+    }
+
     /// <summary>One bubble: a sine at a log-random pitch rising by 1.3–2.4× over its life, 1 ms attack, exponential decay.</summary>
     private static void Bubble(float[] buffer, int start, ref ForestRandom rng, float minHz, float maxHz, float gain)
     {
@@ -190,13 +248,13 @@ public static class ForestSynth
     // ── Footsteps ───────────────────────────────────────────────────────────────────────────────
 
     /// <summary>The footstep surfaces with their own sounds (anything else plays <c>default</c>).</summary>
-    public static readonly string[] FootstepSurfaces = ["grass", "leaves", "moss", "rock", "dirt", "gravel", "mud", "water", "wood", "default"];
+    public static readonly string[] FootstepSurfaces = ["grass", "leaves", "moss", "rock", "dirt", "gravel", "mud", "water", "wood", "default", "sand"];
 
     /// <summary>The peak level of each surface's steps (moss is soft, wood and water the loudest).</summary>
     public static float FootstepPeak(string surface) => surface switch
     {
         "moss" => 0.26f,
-        "grass" => 0.32f,
+        "grass" or "sand" => 0.32f,
         "leaves" => 0.38f,
         "gravel" or "rock" => 0.42f,
         "water" or "wood" => 0.46f,
@@ -260,6 +318,12 @@ public static class ForestSynth
                 Thump(b, at, 60 * p, 0.07f, 0.5f * gain);
                 Sweep(b, at, 0.18f, 1500 * p, 300 * p, 0.015f, 0.06f, 0.5f * gain, ref r);
                 Chirp(b, at + (int)(r.Range(0.1f, 0.14f) * Rate), 200 * p, 700 * p, 0.012f, 0.3f * gain);
+                break;
+            case "sand":
+                // A soft, dull crunch: a padded thump, low hiss and a dense spray of fine, quiet grains.
+                Thump(b, at, 75 * p, 0.05f, 0.5f * gain);
+                NoiseBurst(b, at, 0.14f, 0.01f, 0.05f, FilterKind.LowPass, 1100 * p, 0.7f, 0.45f * gain, ref r);
+                Grains(b, at, 0.14f, 140, 6000 * p, 0.9f, 0.18f * gain, ref r);
                 break;
             case "water":
                 NoiseBurst(b, at, 0.12f, 0.008f, 0.04f, FilterKind.LowPass, 500 * p, 0.7f, 0.4f * gain, ref r);

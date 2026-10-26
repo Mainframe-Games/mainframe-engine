@@ -5,9 +5,10 @@ A first-person walk through a small forest with a stream: the engine's showcase 
 [docs/design/future/forest-showcase.md](../../docs/design/future/forest-showcase.md)). It is a game project of its own,
 built against this checkout's engine, and **not** part of `MainframeEngine.slnx`.
 
-**Status: playable.** A generated 256 m valley: a stream from a rocky outcrop over a small fall, through three pools
-and under a fallen-log bridge into a pond; an oak and ash glade, aspen banks, a dense pine slope; a ≈ 3 minute walking
-loop from the trailhead. Physical morning sky, volumetric fog, baked light probes, histogram auto exposure, TAA
+**Status: playable.** A generated 320 m valley: a stream from a rocky outcrop over a small fall, through three pools
+and under a fallen-log bridge into a pond; an oak and ash glade, aspen banks, a dense pine slope; a sand beach on a lake
+past the pond; cliffs round the rest of the map and distant mountains beyond; a log cabin at the glade's edge (a fire, a
+bed, a table and chairs; E opens its door); a ≈ 3 minute walking loop from the trailhead. Physical morning sky, volumetric fog, baked light probes, histogram auto exposure, TAA
 upscaling, procedural audio, and a pause menu (Esc) with live graphics, audio and control settings and cameras (a
 fly-over, the reference shots, a free camera). Not yet: the release build.
 
@@ -19,15 +20,17 @@ fly-over, the reference shots, a free camera). Not yet: the release build.
 just forest                                  # Release; Esc opens the pause menu (settings, cameras, quit)
 just forest --fixed-fps 60 ++ --autowalk     # walk the path and check a 600-frame window allocates 0 B
 just forest --fixed-fps 60 ++ --autowalk-lap # walk the whole loop back to the trailhead
-just forest ++ --shot 3                      # a fixed camera at reference shot R3 (1–8)
+just forest ++ --shot 3                      # a fixed camera at reference shot R3 (1–9)
 just forest ++ --menu graphics               # open the pause menu on a page (graphics, audio, controls, cameras)
 just forest-test                             # Forest.Tests: controller, valley generator, project file (no GPU)
-just forest-screenshots                      # the reference shots R1–R8 into docs/images/forest (display awake)
+just forest-screenshots                      # the reference shots R1–R9 into docs/images/forest (display awake)
+just forest-cabin                            # rebuild the log cabin's glTF in Blender (Tools/cabin/build_cabin.py)
 just forest-bench                            # fly the benchmark spline at 1920 × 1080: p50/p90/p99, JSON, baseline
 ```
 
 The reference shots (`--shot <n>`, the pause menu's Cameras page, [docs/design/forest.md#reference-shots](../../docs/design/forest.md#reference-shots)):
-R1 Glade, R2 Fall, R3 Bridge, R4 Vista (the misty pond), R5 Floor (the fern dell), R6 Pines, R7 Fall close, R8 Woodland.
+R1 Glade, R2 Fall, R3 Bridge, R4 Vista (the misty pond), R5 Floor (the fern dell), R6 Pines, R7 Fall close, R8 Woodland,
+R9 Cabin (inside the log cabin, by the fire).
 
 Run it with `dotnet run --project Examples/Forest/Forest.Desktop -c Release`. Game flags go after `++`: `--autowalk`,
 `--autowalk-lap`, `--shot <n>`, `--view x,y,z,tx,ty,tz`, `--benchmark`, `--resolution WxH`, `--set Node.Property=value`
@@ -48,6 +51,7 @@ run `git lfs pull` once. `just forest --scene Assets/Scenes/asset_gallery.mscene
 | Sprint | Shift (held) | left stick press (toggle) |
 | Crouch | C or Ctrl (held) | B / Circle (toggle) |
 | Jump | Space | A / Cross |
+| Open / close a door | E | X / Square |
 | Pause menu | Escape | Start (B closes it) |
 | Frame rate readout | F3 | |
 
@@ -67,7 +71,7 @@ Examples/Forest/
 │                         Src/Menu (PauseMenu, ForestOptions, ForestWorld, ForestCameras, FreeFlyCamera)
 ├── Forest.Desktop/       GameHost.Run(args, …) + --write-scenes <dir>
 ├── Forest.Tests/         xUnit v3; no GPU (the asset tests skip without the LFS content)
-├── Tools/                fetch_assets.py: downloads and imports Assets/Art
+├── Tools/                fetch_assets.py: downloads and imports Assets/Art; cabin/build_cabin.py: the log cabin (Blender)
 └── Assets/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres,
                           Art/ (CC0 terrain layers, props, sky)
 ```

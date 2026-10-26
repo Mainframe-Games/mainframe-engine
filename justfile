@@ -137,6 +137,11 @@ forest-brand:
     build/brand/app-icon.sh Examples/Forest/Brand forest
     mkdir -p Examples/Forest/Assets/Brand && cp Examples/Forest/Brand/png/icon-256.png Examples/Forest/Assets/Brand/icon.png
 
+# Build the Forest's log cabin (Assets/Art/Cabin/cabin.gltf) headless in Blender from Tools/cabin/build_cabin.py, then its .meta sidecars (BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
+forest-cabin *args:
+    "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Forest/Tools/cabin/build_cabin.py -- {{args}}
+    python3 Examples/Forest/Tools/fetch_assets.py --only metas
+
 # Forest unit tests:the controller, the project file and the scene contract (no GPU, no LFS content)
 forest-test:
     dotnet test Examples/Forest/Forest.Tests

@@ -6,7 +6,7 @@ namespace Forest;
 /// <summary>
 /// Footstep sounds for a <see cref="FirstPersonController"/>: listens to its <see cref="FirstPersonController.Footstep"/>
 /// signal and plays one of the surface's <see cref="ForestSoundBank.FootstepVariants"/> synthesised steps
-/// (<see cref="ForestSynth.Footstep"/>; grass, leaves, moss, rock, dirt, gravel, mud, water, wood, default) at the feet
+/// (<see cref="ForestSynth.Footstep"/>; grass, leaves, moss, rock, dirt, gravel, mud, water, wood, sand, default) at the feet
 /// on the <see cref="ForestAudio.FoleyBus"/>. Never the same variation twice in a row; each step varies in pitch (the
 /// streams' <c>PitchRandomness</c> 0.08) and level (± <see cref="VolumeSpreadDb"/>); crouching is quieter and sprinting
 /// louder. Two players alternate so a step's tail is not cut by the next. 0 B per step.

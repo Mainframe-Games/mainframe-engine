@@ -25,8 +25,12 @@ public sealed class PolylineField
     /// <summary>Total arc length of the polyline.</summary>
     public float Length { get; private init; }
 
-    /// <summary>Builds the field over [0, <paramref name="size"/>]² with grid points every <paramref name="cell"/> metres.</summary>
-    public static PolylineField Build(ReadOnlySpan<Vector2> points, float size, float cell = 1f)
+    /// <summary>
+    /// Builds the field over [0, <paramref name="size"/>]² with grid points every <paramref name="cell"/> metres. Points
+    /// further than <paramref name="maxDistance"/> from the polyline store that distance (and no offset): a short polyline
+    /// then costs little, instead of every far point searching the whole map.
+    /// </summary>
+    public static PolylineField Build(ReadOnlySpan<Vector2> points, float size, float cell = 1f, float maxDistance = float.PositiveInfinity)
     {
         if (points.Length < 2)
             throw new ArgumentException("A polyline needs two points.", nameof(points));
@@ -63,12 +67,12 @@ public sealed class PolylineField
             {
                 var p = new Vector2(i * cell, j * cell);
                 int bx = Bucket(p.X), bz = Bucket(p.Y);
-                var best = float.MaxValue;
+                var best = maxDistance;
                 var bestOffset = 0f;
                 for (var ring = 0; ring < buckets; ring++)
                 {
                     // Every segment in a further ring is at least (ring − 1) buckets away.
-                    if (best < (ring - 1) * bucket)
+                    if (best < (ring - 1) * bucket || (ring - 1) * bucket > maxDistance)
                         break;
                     for (var z = bz - ring; z <= bz + ring; z++)
                         for (var x = bx - ring; x <= bx + ring; x++)

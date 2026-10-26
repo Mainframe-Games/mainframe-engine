@@ -138,8 +138,8 @@ public static class ForestScene
     };
 
     /// <summary>
-    /// The valley's probe volume (ADR 0170): terrain-following over the whole 256 m terrain, every 2 m, eight layers up to
-    /// the canopy (27 m). The valley is generated at load, so the volume checks its committed bake against what the valley
+    /// The valley's probe volume (ADR 0170): terrain-following over the whole 320 m terrain (the valley's, not the distant
+    /// mountains'), every 2 m, eight layers up to the canopy (27 m). The valley is generated at load, so the volume checks its committed bake against what the valley
     /// generated (the hash of everything the bake reads) and bakes in the background when they differ.
     /// </summary>
     public static LightProbeVolume CreateProbes() => new()
@@ -148,6 +148,7 @@ public static class ForestScene
         Position = new Vector3(ValleyLayout.SizeMeters * 0.5f, 0f, ValleyLayout.SizeMeters * 0.5f),
         Size = new Vector3(ValleyLayout.SizeMeters, 32f, ValleyLayout.SizeMeters),
         Layout = ProbeLayout.TerrainFollowing,
+        Terrain = "../Valley/Terrain",
         ProbeSpacing = new Vector3(2f),
         RaysPerProbe = 192,
         Bounces = 2,

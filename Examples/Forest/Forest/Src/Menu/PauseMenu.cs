@@ -357,6 +357,7 @@ public sealed class PauseMenu : UiDocument
         ("Shift", "Sprint"),
         ("C", "Crouch"),
         ("Space", "Jump"),
+        ("E", "Open a door"),
         ("Esc", "Menu"),
         ("F3", "Frame rate"),
         ("F12", "Developer overlay"),
@@ -410,7 +411,7 @@ public sealed class PauseMenu : UiDocument
         foreach (var (keys, what) in KeyReference)
             b.Append("<div class=\"opt\"><div class=\"opt-label\">").Append(what).Append("</div><div class=\"opt-val keys\">")
                 .Append(keys).Append("</div></div>");
-        b.Append("</div><div class=\"note\">Gamepad: left stick to move, right stick to look, A to jump, B to crouch, Start for this menu.</div>")
+        b.Append("</div><div class=\"note\">Gamepad: left stick to move, right stick to look, A to jump, B to crouch, X to open a door, Start for this menu.</div>")
             .Append("</div></div></div>");
 
         // Cameras.

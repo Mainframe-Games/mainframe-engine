@@ -17,10 +17,14 @@ Needs curl and Pillow. Downloads are cached (default: a temp folder), so re-runn
 - Debris (ambientCG 1K JPG sets of scattered leaves, ADR 0175): Color and Opacity merged into an RGBA PNG, NormalGL,
   and an ORM PNG (R = 255, G = Roughness, B = 0), for the ground-hugging leaf-litter cards.
 - Sky (Poly Haven HDRI): the tonemapped JPG, resized to 4096 × 2048 (the engine's panorama path is LDR).
+- Cabin (tiling PBR sets for the log cabin, Tools/cabin/build_cabin.py): ambientCG 2K JPG sets and Poly Haven 2K
+  textures (diff, nor_gl, arm) → Assets/Art/Cabin/Textures/<Id>_Color.jpg, <Id>_NormalGL.jpg and <Id>_ORM.png
+  (R = AO or 255, G = roughness, B = metallic or 0) at 1024².
 
     python3 Examples/Forest/Tools/fetch_assets.py --only props,debris --assets stone_01,ScatteredLeaves004
 
-fetches only some kinds (terrain, props, debris, sky) or assets; the NOTICE rows are printed for what it fetched.
+fetches only some kinds (terrain, props, debris, sky, cabin) or assets; the NOTICE rows are printed for what it fetched.
+`--only metas` fetches nothing and only writes the missing `.meta` sidecars (after `just forest-cabin`).
 """
 
 import argparse
@@ -49,6 +53,7 @@ TERRAIN = [
     ("gravel", "Ground108"),  # riverbed gravel (stream bed)
     ("mud", "Ground051"),     # dark wet mud with pebbles (banks)
     ("needles", "Ground082S"),  # forest soil covered in needles and twigs
+    ("sand", "Ground054"),    # trodden beach sand (the lake's shore; splat layer 8, the third weight map)
 ]
 LAYER_SIZE = 1024
 
@@ -75,12 +80,40 @@ PROPS = [
     ("grass_medium_01", "1k"),
     ("dead_quiver_branch_01", "1k"),
     ("nettle_plant", "1k"),
+    # The map's edge (cliffs) and the lake shore: rock faces at the cliffs' feet.
+    ("rock_face_01", "1k"),
+    ("rock_face_02", "1k"),
+    ("mountainside", "1k"),
+    # The log cabin's furniture and set dressing, placed at the cabin glTF's Place_<id> empties.
+    ("old_bed_frame", "1k"),
+    ("wooden_table_02", "1k"),
+    ("painted_wooden_chair_02", "1k"),
+    ("Rockingchair_01", "1k"),
+    ("Shelf_01", "1k"),
+    ("wooden_lantern_01", "1k"),
+    ("wooden_bucket_01", "1k"),
+    ("pot_enamel_01", "1k"),
+    ("wooden_axe", "1k"),
 ]
 
 # (ambientCG id, size): scattered-leaf debris with opacity, laid on the ground as cards (ADR 0175).
 DEBRIS = [
     ("ScatteredLeaves004", 1024),
 ]
+
+# (material, source, id): the log cabin's tiling sets; the material names are build_cabin.py's.
+CABIN = [
+    ("LogWall", "polyhaven", "rough_wood"),        # weathered grey-brown wood with checks: the debarked logs
+    ("LogEnd", "ambientcg", "TreeEnd002"),         # a sawn log end (rings; the bark ring falls outside the caps' UVs)
+    ("Floor", "polyhaven", "old_wood_floor"),      # dark worn floorboards
+    ("Roof", "ambientcg", "WoodSiding012"),        # weathered, slightly mossy wood shingles
+    ("Stone", "polyhaven", "stone_wall"),          # fieldstone with mortar: footing, hearth, chimney
+    ("DoorWood", "polyhaven", "weathered_planks"),  # dark weathered planks: door, frames, shelves
+    ("Fabric", "polyhaven", "wool_boucle"),        # checked wool: blanket and rug
+    ("Linen", "ambientcg", "Fabric045"),           # rough off-white canvas: mattress, pillow
+    ("Leather", "polyhaven", "fabric_leather_02"),  # aged leather: book covers
+]
+CABIN_SIZE = 1024
 
 HDRI = "lilienstein"
 SKY_SIZE = (4096, 2048)
@@ -128,8 +161,10 @@ def save_png(img, path):
     img.save(path, "PNG", optimize=True)
 
 
-def terrain(cache, rows):
+def terrain(cache, rows, wanted=None):
     for tag, asset in TERRAIN:
+        if wanted and asset not in wanted:
+            continue
         meta = get_json(f"https://ambientcg.com/api/v2/full_json?id={asset}&include=downloadData,displayData")
         found = meta["foundAssets"][0]
         name = f"{asset}_2K-JPG.zip"
@@ -238,6 +273,54 @@ def props(cache, rows, wanted=None):
         print(f"prop {asset} {res}", file=sys.stderr)
 
 
+def cabin(cache, rows, wanted=None):
+    out = os.path.join(ART, "Cabin", "Textures")
+    size = (CABIN_SIZE, CABIN_SIZE)
+
+    def fit(img):
+        return img.resize(size, Image.LANCZOS) if img.size != size else img
+
+    for material, source, asset in CABIN:
+        if wanted and asset not in wanted:
+            continue
+        if source == "ambientcg":
+            meta = get_json(f"https://ambientcg.com/api/v2/full_json?id={asset}&include=downloadData,displayData")
+            found = meta["foundAssets"][0]
+            name = f"{asset}_2K-JPG.zip"
+            url = f"https://ambientcg.com/get?file={name}"
+            path = cached(cache, os.path.join("ambientcg", name), url)
+            with zipfile.ZipFile(path) as zf:
+                def read(suffix, mode):
+                    entry = next((n for n in zf.namelist() if n.endswith(f"_{suffix}.jpg")), None)
+                    return None if entry is None else fit(Image.open(io.BytesIO(zf.read(entry))).convert(mode))
+
+                color = read("Color", "RGB")
+                normal = read("NormalGL", "RGB")
+                rough = read("Roughness", "L")
+                ao = read("AmbientOcclusion", "L") or Image.new("L", size, 255)
+                metal = read("Metalness", "L") or Image.new("L", size, 0)
+            orm = Image.merge("RGB", (ao, rough, metal))
+            rows.append((found["displayName"], asset, "Assets/Art/Cabin/Textures/", found["shortLink"], url, "ambientCG (no author listed)"))
+        else:
+            info = get_json(f"https://api.polyhaven.com/info/{asset}")
+            files = get_json(f"https://api.polyhaven.com/files/{asset}")
+
+            def read(key, mode):
+                f = files[key]["2k"]["jpg"]
+                return fit(Image.open(cached(cache, os.path.join("polyhaven", asset, os.path.basename(f["url"])), f["url"], f["md5"])).convert(mode))
+
+            color = read("Diffuse", "RGB")
+            normal = read("nor_gl", "RGB")
+            orm = read("arm", "RGB")  # Poly Haven's ARM is already R = AO, G = roughness, B = metallic
+            url = files["Diffuse"]["2k"]["jpg"]["url"]
+            authors = ", ".join(info["authors"])
+            rows.append((info["name"], asset, "Assets/Art/Cabin/Textures/", f"https://polyhaven.com/a/{asset}", url, f"Poly Haven ({authors})"))
+        save_jpg(color, os.path.join(out, f"{asset}_Color.jpg"), 90)
+        save_jpg(normal, os.path.join(out, f"{asset}_NormalGL.jpg"), 95, subsampling=0)
+        save_png(orm, os.path.join(out, f"{asset}_ORM.png"))
+        print(f"cabin {material:8} {asset}", file=sys.stderr)
+
+
 def sky(cache, rows):
     info = get_json(f"https://api.polyhaven.com/info/{HDRI}")
     files = get_json(f"https://api.polyhaven.com/files/{HDRI}")
@@ -272,20 +355,23 @@ def write_metas():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache", default=os.path.join(tempfile.gettempdir(), "mainframe-forest-assets"))
-    parser.add_argument("--only", default="terrain,props,debris,sky", help="comma-separated kinds: terrain, props, debris, sky")
-    parser.add_argument("--assets", default="", help="comma-separated asset ids (props and debris); default: all")
+    parser.add_argument("--only", default="terrain,props,debris,sky,cabin",
+                        help="comma-separated kinds: terrain, props, debris, sky, cabin (metas alone: only write .meta sidecars)")
+    parser.add_argument("--assets", default="", help="comma-separated asset ids (terrain, props, debris and cabin); default: all")
     args = parser.parse_args()
     kinds = set(args.only.split(","))
     wanted = set(a for a in args.assets.split(",") if a) or None
     rows = []
     if "terrain" in kinds:
-        terrain(args.cache, rows)
+        terrain(args.cache, rows, wanted)
     if "props" in kinds:
         props(args.cache, rows, wanted)
     if "debris" in kinds:
         debris(args.cache, rows, wanted)
     if "sky" in kinds:
         sky(args.cache, rows)
+    if "cabin" in kinds:
+        cabin(args.cache, rows, wanted)
     write_metas()
     for name, asset, where, page, url, author in rows:
         print(f"| {name} | `{asset}` | `{where}` | [{page.split('//')[1]}]({page}) · [download]({url}) | {author} | CC0 1.0 |")

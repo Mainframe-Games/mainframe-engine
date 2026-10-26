@@ -7,16 +7,17 @@ namespace Forest;
 /// <summary>
 /// Generates the Forest's valley from <see cref="ValleyLayout"/> and a seed, deterministically: the height field (the
 /// valley floor following the stream's surface profile, the west and east ridges, the outcrop, the glade's gentler
-/// ground, the pond basin, a smoothed path bed and the raised banks at the log bridge), the stream's
-/// <see cref="Curve3D"/>, the pond's water and the splat weights (painted by slope, height, curvature, zone and the
-/// distance to water and path). Heights are terrain-local metres; the terrain sits at the origin, so they are also world
+/// ground, the pond basin, the dune bank, beach and lake bed in the south, the cliffs inside the west, north and east
+/// edges, a smoothed path bed and the raised banks at the log bridge), the stream's <see cref="Curve3D"/>, the pond's
+/// and the lake's water and the splat weights (painted by slope, height, curvature, zone and the distance to water and
+/// path). Heights are terrain-local metres; the terrain sits at the origin, so they are also world
 /// coordinates. Pure C# apart from the <see cref="TerrainData"/> it fills.
 /// </summary>
 public sealed class ValleyGenerator
 {
     // Splat channels (ForestAssets.TerrainLayers order).
-    public const int Grass = 0, Leaves = 1, Moss = 2, Rock = 3, Dirt = 4, Gravel = 5, Mud = 6, Needles = 7;
-    public const int LayerCount = 8;
+    public const int Grass = 0, Leaves = 1, Moss = 2, Rock = 3, Dirt = 4, Gravel = 5, Mud = 6, Needles = 7, Sand = 8;
+    public const int LayerCount = 9;
 
     private const float TableStep = 0.5f;
     private readonly float[] _streamX;      // centreline x by z
@@ -24,6 +25,10 @@ public sealed class ValleyGenerator
     private readonly float[] _streamYFar;   // the surface smoothed over ±24 m: the floor away from the stream
     private readonly Vector2[] _streamPolyline;
     private readonly float[] _streamHalfWidths; // per polyline point
+    private readonly SunView[] _sunViews = [];
+
+    /// <summary>A line the cliffs and mountains stay under: from an eye, over a cone of bearings, rising at a slope.</summary>
+    private readonly record struct SunView(Vector2 Position, float Eye, float Slope, Vector2 Direction, float CosCone);
 
     private ValleyGenerator(int seed)
     {
@@ -74,11 +79,15 @@ public sealed class ValleyGenerator
             _streamYFar[r] = sum / weight;
         }
 
-        StreamField = PolylineField.Build(_streamPolyline, ValleyLayout.SizeMeters);
+        // Distances are only ever used near the stream and the trails: capped, so the map's far corners cost nothing.
+        StreamField = PolylineField.Build(_streamPolyline, ValleyLayout.SizeMeters, maxDistance: 64f);
         PathPolyline = ValleyLayout.SamplePath();
-        PathField = PolylineField.Build(PathPolyline, ValleyLayout.SizeMeters);
+        PathField = PolylineField.Build(PathPolyline, ValleyLayout.SizeMeters, maxDistance: 64f);
+        SpurPolyline = Resample(ValleyLayout.CabinSpur, 1f);
+        SpurField = PolylineField.Build(SpurPolyline, ValleyLayout.SizeMeters, maxDistance: 40f);
         (BridgeCentre, BridgeDirection) = FindBridge(PathPolyline, _streamPolyline);
         BridgeWaterLevel = SurfaceAtZ(BridgeCentre.Y);
+        _sunViews = SunViewpoints();
         Heights = BuildHeights();
     }
 
@@ -95,6 +104,31 @@ public sealed class ValleyGenerator
 
     /// <summary>The path loop as a 1 m polyline (closed).</summary>
     public Vector2[] PathPolyline { get; }
+
+    /// <summary>The cabin's spur off the loop (<see cref="ValleyLayout.CabinSpur"/>) as a 1 m polyline, loop end first.</summary>
+    public Vector2[] SpurPolyline { get; }
+
+    /// <summary>Distance to the cabin spur's centreline.</summary>
+    public PolylineField SpurField { get; }
+
+    /// <summary>Distance to the nearest trail: the walking loop or the cabin's spur.</summary>
+    public float TrailDistance(float x, float z) => MathF.Min(PathField.Distance(x, z), SpurField.Distance(x, z));
+
+    /// <summary>The level the cabin's pad is cut and filled to (the ground under its front wall): the model's y = 0.</summary>
+    public float CabinPadLevel { get; private set; }
+
+    /// <summary>
+    /// The cabin pad's weight at (x, z), 0..1: 1 on the footprint plus its margin (<see cref="ValleyLayout.CabinPadHalfExtents"/>),
+    /// falling to 0 over 4 m of cut and fill.
+    /// </summary>
+    public static float CabinPadMask(float x, float z)
+    {
+        var offset = new Vector2(x, z) - ValleyLayout.CabinCentre;
+        var (sin, cos) = MathF.SinCos(float.DegreesToRadians(ValleyLayout.CabinYawDegrees));
+        var local = new Vector2(offset.X * cos - offset.Y * sin, offset.X * sin + offset.Y * cos);
+        var outside = Vector2.Max(Vector2.Abs(local) - ValleyLayout.CabinPadHalfExtents, Vector2.Zero).Length();
+        return SmoothStep(4f, 0f, outside);
+    }
 
     /// <summary>Where the path crosses the stream (the log bridge), and the path's direction there.</summary>
     public Vector2 BridgeCentre { get; }
@@ -126,7 +160,7 @@ public sealed class ValleyGenerator
             ChunkMeters = ValleyLayout.ChunkMeters,
             HeightMin = -8f,
             HeightMax = 120f,
-            MaxWaterDepth = 2f,
+            MaxWaterDepth = 8f, // the lake; the pond's 1.7 m keeps 3 cm steps
         };
         data.SetHeights(new Rect2I(0, 0, VerticesPerSide, VerticesPerSide), Heights);
         return data;
@@ -206,10 +240,117 @@ public sealed class ValleyGenerator
 
     private static float PondTop => ValleyLayout.PondCentre.Y - ValleyLayout.PondRadii.Y;
 
+    /// <summary>The lake's mean shoreline z at <paramref name="x"/>: <see cref="ValleyLayout.LakeShoreZ"/> wandering by ±5 m into bays.</summary>
+    public float LakeShoreAt(float x) => ValleyLayout.LakeShoreZ + 10f * (Fbm(x, 0f, 38f, 2, Seed + 53) - 0.5f);
+
+    /// <summary>
+    /// The beach's influence at (x, z) on ground at height <paramref name="h"/>, 0..1: low ground from the dune bank's
+    /// foot down into the lake (the headlands' higher ground keeps its forest floor).
+    /// </summary>
+    public float BeachMask(float x, float z, float h) =>
+        SmoothStep(-17f, -11f, z - LakeShoreAt(x)) * SmoothStep(ValleyLayout.LakeLevel + 3.4f, ValleyLayout.LakeLevel + 2.4f, h);
+
+    /// <summary>
+    /// The south's ground before the ridges: the dune bank (<see cref="ValleyLayout.DuneHeight"/>), the beach falling to
+    /// the waterline at <paramref name="s"/> = 0 (metres south of the shoreline), then the lake bed shelving down to
+    /// <see cref="ValleyLayout.LakeDepth"/> below the surface.
+    /// </summary>
+    public static float BeachProfile(float s)
+    {
+        if (s >= 0f)
+            return ValleyLayout.LakeLevel - ValleyLayout.LakeDepth * SmoothStep(0f, 40f, s);
+        const float top = ValleyLayout.LakeLevel + 1.7f;
+        var beach = ValleyLayout.LakeLevel + 1.7f * SmoothStep(0f, -16f, s);
+        return beach + (ValleyLayout.DuneHeight - top) * SmoothStep(-15f, -28f, s);
+    }
+
+    /// <summary>
+    /// The cliffs inside the map's west, north and east edges at (x, z): how high they lift the ground (a plateau along
+    /// the edge, then a steep face down to the foot, <see cref="ValleyLayout.CliffPlateau"/> + <see cref="ValleyLayout.CliffFace"/>
+    /// in, the line wobbling a few metres), and the face's share there (0 on the plateau and below the foot).
+    /// </summary>
+    public (float Rise, float Face) Cliff(float x, float z)
+    {
+        var size = ValleyLayout.SizeMeters;
+        var wobble = 6f * (Fbm(x, z, 26f, 2, Seed + 51) - 0.5f);
+        const float top = ValleyLayout.CliffPlateau, foot = ValleyLayout.CliffPlateau + ValleyLayout.CliffFace;
+        var heightNoise = 0.75f + 0.5f * Fbm(x, z, 60f, 2, Seed + 52);
+        var west = SmoothStep(foot, top, x + wobble) * ValleyLayout.CliffHeight * heightNoise;
+        var east = SmoothStep(foot, top, size - x + wobble) * ValleyLayout.CliffHeight * heightNoise;
+        var north = SmoothStep(foot, top, z + wobble) * ValleyLayout.NorthCliffHeight * heightNoise;
+        var rise = MathF.Max(MathF.Max(west, east), north);
+        var e = MathF.Min(MathF.Min(x, size - x), z) + wobble;
+        var face = SmoothStep(top - 1f, top + 2f, e) * SmoothStep(foot + 1f, foot - 2f, e);
+        return (rise, face);
+    }
+
     // ── Heights ─────────────────────────────────────────────────────────────
 
     /// <summary>The analytic ground height at (x, z) before the path, bridge and carve passes.</summary>
-    public float GroundHeight(float x, float z)
+    public float GroundHeight(float x, float z) => GroundHeight(x, z, cliffs: true);
+
+    /// <summary>
+    /// The places the morning sun must reach (the shots' cameras, the fall, the bridge, the glade and the pools; eye
+    /// height 1.6 m), for <see cref="SunCap"/>: a 21° line over 35° either side of the sun's bearing. Their ground is far
+    /// from the cliffs, so it is measured without them. R6 looks up into the sun at the pines on the skyline: over its
+    /// whole frame the line is 4° (the cliffs there stay at the old rim, under the trees, and <see cref="RavineDepth"/>
+    /// leaves its frame alone), and from its pine glade 10°.
+    /// </summary>
+    private SunView[] SunViewpoints()
+    {
+        var points = new List<Vector2>();
+        foreach (var shot in ValleyLayout.Shots)
+            points.Add(shot.Eye);
+        points.Add(new Vector2(83f, 39.5f));  // the fall's lip
+        points.Add(new Vector2(89f, 51f));    // pool 1
+        points.Add(new Vector2(99f, 76f));    // pool 2
+        points.Add(BridgeCentre);
+        points.Add(ValleyLayout.GladeCentre);
+        points.Add(ValleyLayout.PineGlade);
+        foreach (var dust in ValleyLayout.DustClouds)
+            points.Add(dust.Centre);
+        var sun = new Vector2(MathF.Sin(float.DegreesToRadians(ValleyLayout.SunAzimuthDegrees)), -MathF.Cos(float.DegreesToRadians(ValleyLayout.SunAzimuthDegrees)));
+        var r6 = ValleyLayout.Shots[5];
+        var views = new List<SunView>();
+        foreach (var p in points)
+        {
+            var eye = GroundHeight(p.X, p.Y, cliffs: false) + 1.6f;
+            var slope = p == ValleyLayout.PineGlade ? 10f : 21f;
+            views.Add(new SunView(p, eye, MathF.Tan(float.DegreesToRadians(slope)), sun, MathF.Cos(float.DegreesToRadians(35f))));
+        }
+
+        views.Add(new SunView(r6.Eye, GroundHeight(r6.Eye.X, r6.Eye.Y, cliffs: false) + 1.6f, MathF.Tan(float.DegreesToRadians(4f)),
+            Vector2.Normalize(r6.Target - r6.Eye), MathF.Cos(float.DegreesToRadians(55f))));
+        return [.. views];
+    }
+
+    /// <summary>
+    /// The highest the cliffs and the distant mountains may rise at (x, z) and still leave the low morning sun (25°, north-north-east)
+    /// on the valley's showpieces: for every <see cref="SunViewpoints"/> line whose cone of bearings (x, z) lies in, its
+    /// height there (21° up from most eyes; 4° across R6's frame). Infinite where no viewpoint looks that way.
+    /// </summary>
+    public float SunCap(float x, float z)
+    {
+        var cap = float.PositiveInfinity;
+        foreach (var view in _sunViews)
+        {
+            var offset = new Vector2(x, z) - view.Position;
+            var distance = offset.Length();
+            if (distance < 1f)
+                continue;
+            // Full inside the cone's inner part, rising away over its last 15° (no step in the cliffs at its edge).
+            var cos = Vector2.Dot(offset / distance, view.Direction);
+            var edge = MathF.Cos(MathF.Acos(view.CosCone) - float.DegreesToRadians(15f));
+            if (cos < view.CosCone)
+                continue;
+            cap = MathF.Min(cap, view.Eye + view.Slope * distance + 150f * SmoothStep(edge, view.CosCone, cos));
+        }
+
+        return cap;
+    }
+
+    /// <summary>The analytic ground height at (x, z) before the path, bridge and carve passes; without <paramref name="cliffs"/>, as if the map had no edge cliffs (and no ravines).</summary>
+    public float GroundHeight(float x, float z, bool cliffs)
     {
         var u = x - StreamXAtZ(z);
         var d = MathF.Abs(u);
@@ -218,6 +359,9 @@ public sealed class ValleyGenerator
         var floor = near + (far - near) * SmoothStep(3f, 26f, d);
 
         var glade = GladeMask(x, z);
+        // South of the pond: the dune bank, the beach and the lake bed replace the floor, and the ridges sink towards the
+        // lake, so the beach opens between low headlands.
+        var lake = SmoothStep(239f, 250f, z);
         float rise;
         if (u < 0f)
         {
@@ -229,14 +373,18 @@ public sealed class ValleyGenerator
             rise = 46f * SmoothStep(9f, 118f, d);
         }
 
-        var h = floor + 0.4f + 0.04f * d + rise;
+        // By the map's south edge they are under the lake (only the cliffs at the corners stand out of it).
+        rise *= 1f - 0.82f * SmoothStep(230f, 300f, z) - 0.18f * SmoothStep(292f, 316f, z);
+        var ground = floor + 0.4f + 0.04f * d;
+        if (lake > 0f)
+            ground += (BeachProfile(z - LakeShoreAt(x)) - ground) * lake;
+        var h = ground + rise;
 
-        // The valley closes in the north and rises again past the pond in the south.
+        // The valley closes in the north.
         h += 11f * SmoothStep(30f, 0f, z) * SmoothStep(0f, 20f, d);
-        h += 9f * SmoothStep(236f, 256f, z);
 
-        // Rolling ground, quieter near the stream and in the glade.
-        var calm = SmoothStep(4f, 24f, d) * (1f - 0.6f * glade);
+        // Rolling ground, quieter near the stream, in the glade and on the beach.
+        var calm = SmoothStep(4f, 24f, d) * (1f - 0.6f * glade) * (1f - 0.85f * lake);
         h += calm * (5f * (Fbm(x, z, 70f, 3, Seed + 1) - 0.5f) + 1.4f * (Fbm(x, z, 19f, 3, Seed + 2) - 0.5f));
         h += (0.35f + 0.65f * calm) * 0.22f * (Fbm(x, z, 4.5f, 2, Seed + 3) - 0.5f);
 
@@ -247,6 +395,14 @@ public sealed class ValleyGenerator
             var ridges = Ridged(x, z, 14f, 3, Seed + 5);
             h += outcrop * (ValleyLayout.OutcropHeight + 3.5f * ridges) * SmoothStep(1.5f, 7f, d);
         }
+
+        // The cliffs at the map's edge, their faces broken by ridged noise, kept under the sun's line from the showpieces
+        // (but never below the ground they stand on).
+        var (cliff, cliffFace) = cliffs ? Cliff(x, z) : (0f, 0f);
+        if (cliff > 0f)
+            h = MathF.Max(h, MathF.Min(h + cliff + cliffFace * 2.5f * (Ridged(x, z, 9f, 3, Seed + 55) - 0.4f), SunCap(x, z)));
+        if (cliffs)
+            h -= RavineDepth(x, z, h);
 
         // The pond basin.
         var r = PondRadius(x, z);
@@ -320,6 +476,34 @@ public sealed class ValleyGenerator
                 heights[j * n + i] += (target - heights[j * n + i]) * w;
             }
 
+        // The cabin's pad, level with the ground under its front wall (its back is cut into the bank), then its spur:
+        // level across, a straight grade from the loop's bed to the pad.
+        var front = ValleyLayout.CabinToWorld(new Vector2(0f, ValleyLayout.CabinPadHalfExtents.Y));
+        CabinPadLevel = Sample(raw, n, s, front.X, front.Y);
+        for (var j = 0; j < n; j++)
+            for (var i = 0; i < n; i++)
+            {
+                var w = CabinPadMask(i * s, j * s);
+                if (w > 0f)
+                    heights[j * n + i] += (CabinPadLevel - heights[j * n + i]) * w;
+            }
+
+        var spurStart = Sample(heights, n, s, SpurPolyline[0].X, SpurPolyline[0].Y);
+        var spurLength = SpurField.Length;
+        for (var j = 0; j < n; j++)
+            for (var i = 0; i < n; i++)
+            {
+                var x = i * s;
+                var z = j * s;
+                var ds = SpurField.Distance(x, z);
+                if (ds > ValleyLayout.PathHalfWidth + band || PathField.Distance(x, z) < ds)
+                    continue;
+                var t = Math.Clamp(SpurField.Offset(x, z) / spurLength, 0f, 1f);
+                var target = float.Lerp(spurStart, CabinPadLevel, t) - 0.06f * SmoothStep(ValleyLayout.PathHalfWidth + 0.4f, 0f, ds);
+                var w = SmoothStep(ValleyLayout.PathHalfWidth + band, ValleyLayout.PathHalfWidth + 0.3f, ds) * (1f - CabinPadMask(x, z));
+                heights[j * n + i] += (target - heights[j * n + i]) * w;
+            }
+
         // Raised banks at the bridge, so the log spans a small gorge above the water.
         for (var j = 0; j < n; j++)
             for (var i = 0; i < n; i++)
@@ -335,6 +519,68 @@ public sealed class ValleyGenerator
             }
 
         return heights;
+    }
+
+    /// <summary>
+    /// Where <see cref="SunCap"/> holds a cliff below its height (the north, in the low sun's direction), a ravine at its
+    /// foot makes up the face instead: its depth at (x, z) on ground at <paramref name="h"/>, the shortfall at the rim up
+    /// to 9 m, a steep drop below the plateau and a long slope back up into the valley (walkable, so nobody is trapped).
+    /// </summary>
+    public float RavineDepth(float x, float z, float h)
+    {
+        var keep = R6Frame(x, z);
+        if (keep >= 1f)
+            return 0f;
+        var size = ValleyLayout.SizeMeters;
+        const float top = ValleyLayout.CliffPlateau, foot = ValleyLayout.CliffPlateau + ValleyLayout.CliffFace;
+        var wobble = 6f * (Fbm(x, z, 26f, 2, Seed + 51) - 0.5f);
+        var heightNoise = 0.75f + 0.5f * Fbm(x, z, 60f, 2, Seed + 52);
+        (float E, Vector2 Rim, float Height)[] edges =
+        [
+            (x + wobble, new Vector2(top * 0.5f, z), ValleyLayout.CliffHeight),
+            (size - x + wobble, new Vector2(size - top * 0.5f, z), ValleyLayout.CliffHeight),
+            (z + wobble, new Vector2(x, top * 0.5f), ValleyLayout.NorthCliffHeight),
+        ];
+        var depth = 0f;
+        foreach (var (e, rim, height) in edges)
+        {
+            if (e < top - 1f || e > foot + 26f)
+                continue;
+            var shortfall = Math.Clamp(h + height * heightNoise - SunCap(rim.X, rim.Y), 0f, 9f);
+            depth = MathF.Max(depth, shortfall * SmoothStep(top - 0.5f, top + 2.5f, e) * SmoothStep(foot + 26f, foot + 2f, e));
+        }
+
+        return depth * (1f - keep);
+    }
+
+    /// <summary>
+    /// How far (x, z) is in R6's frame, 0..1 (1 within 70 m and 35° of its view, fading out by 90 m and 55°): R6 looks up
+    /// at the old rim's pines against the sun, so its stretch of the north edge keeps the old ground (no cliff above it,
+    /// no ravine before it).
+    /// </summary>
+    public static float R6Frame(float x, float z)
+    {
+        var shot = ValleyLayout.Shots[5];
+        var offset = new Vector2(x, z) - shot.Eye;
+        var distance = offset.Length();
+        if (distance < 1e-3f)
+            return 1f;
+        var cos = Vector2.Dot(offset / distance, Vector2.Normalize(shot.Target - shot.Eye));
+        return SmoothStep(MathF.Cos(float.DegreesToRadians(55f)), MathF.Cos(float.DegreesToRadians(35f)), cos) * SmoothStep(90f, 70f, distance);
+    }
+
+    /// <summary>A polyline resampled to about <paramref name="spacing"/> metres per segment (open: ends kept).</summary>
+    private static Vector2[] Resample(Vector2[] points, float spacing)
+    {
+        var result = new List<Vector2> { points[0] };
+        for (var i = 1; i < points.Length; i++)
+        {
+            var steps = Math.Max(1, (int)MathF.Ceiling(Vector2.Distance(points[i - 1], points[i]) / spacing));
+            for (var k = 1; k <= steps; k++)
+                result.Add(Vector2.Lerp(points[i - 1], points[i], k / (float)steps));
+        }
+
+        return [.. result];
     }
 
     // Bilinear sample of a vertex grid.
@@ -431,10 +677,35 @@ public sealed class ValleyGenerator
     // ── Splat weights ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Paints the eight layers from the final (carved, flooded) ground of <paramref name="data"/>: rock on steep slopes and
+    /// Floods the lake after carving: every vertex south of the dune bank whose ground lies below
+    /// <see cref="ValleyLayout.LakeLevel"/> gets its stored height at the water surface and the difference as water depth.
+    /// </summary>
+    public static void ApplyLake(TerrainData data)
+    {
+        var n = data.VerticesPerSide;
+        var s = data.VertexSpacing;
+        var z0 = (int)MathF.Ceiling(246f / s);
+        var rect = new Rect2I(0, z0, n, n - z0);
+        var heights = new float[rect.Area];
+        data.GetHeights(rect, heights);
+        var depths = new float[rect.Area];
+        for (var k = 0; k < heights.Length; k++)
+        {
+            if (heights[k] >= ValleyLayout.LakeLevel - 0.005f)
+                continue;
+            depths[k] = MathF.Min(ValleyLayout.LakeLevel - heights[k], data.MaxWaterDepth);
+            heights[k] = ValleyLayout.LakeLevel;
+        }
+
+        data.SetHeights(rect, heights);
+        data.SetWaterDepth(rect, depths);
+    }
+
+    /// <summary>
+    /// Paints the nine layers from the final (carved, flooded) ground of <paramref name="data"/>: rock on steep slopes and
     /// the outcrop, needles under the pines, leaf litter on the aspen bank and the forest edges, grass in the glade, moss
     /// near water and around rock, gravel in the stream bed and along the path, mud on the banks and the pond's shore,
-    /// dirt on the path.
+    /// dirt on the path, sand on the beach and the lake's shallows (a shingle line at the waterline, silt in the deep bed).
     /// </summary>
     public void PaintWeights(TerrainData data)
     {
@@ -504,7 +775,17 @@ public sealed class ValleyGenerator
         Paint(w, Mud, SmoothStep(0.1f, -1.5f, pondEdge) * SmoothStep(-6f, -2f, pondEdge));
         Paint(w, Gravel, SmoothStep(-4f, -7f, pondEdge) * 0.5f);              // the pond's deep bed
 
-        var path = PathField.Distance(x, z);
+        // The beach: sand from the dune's foot into the lake, a shingle line at the waterline, silt in the deep bed.
+        var beach = BeachMask(x, z, h) * (1f - rock);
+        Paint(w, Sand, SmoothStep(0f, 0.6f, beach));
+        var waterline = SmoothStep(0.35f, 0.05f, MathF.Abs(h - ValleyLayout.LakeLevel - 0.08f + 0.2f * (n3 - 0.5f)));
+        Paint(w, Gravel, beach * waterline * 0.45f);
+        Paint(w, Mud, beach * SmoothStep(ValleyLayout.LakeLevel - 2.5f, ValleyLayout.LakeLevel - 5f, h) * 0.5f);
+
+        // The cabin's yard: bare, trodden dirt under and round it (no grass through its floor).
+        Paint(w, Dirt, SmoothStep(0.35f, 0.9f, CabinPadMask(x, z)));
+
+        var path = TrailDistance(x, z);
         var pathEdge = path - ValleyLayout.PathHalfWidth - 0.25f * (n3 - 0.5f);
         Paint(w, Gravel, SmoothStep(0.9f, 0.25f, pathEdge) * SmoothStep(-0.5f, 0.1f, pathEdge) * 0.55f);
         Paint(w, Dirt, SmoothStep(0.2f, -0.3f, pathEdge));

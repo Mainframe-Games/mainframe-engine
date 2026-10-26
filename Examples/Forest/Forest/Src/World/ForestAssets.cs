@@ -63,6 +63,7 @@ public enum ForestPropKind
     Stump,
     Debris,
     Plant,
+    Furniture,
 }
 
 /// <summary>One Poly Haven glTF model under <c>Assets/Art/Props/&lt;AssetId&gt;/</c> (see <see cref="ForestAssets"/>).</summary>
@@ -71,7 +72,8 @@ public enum ForestPropKind
 /// <param name="Kind">Rock, log, stump, debris or plant.</param>
 /// <param name="Size">The model's bounds in metres at scale 1 (x, y = up, z), as authored.</param>
 /// <param name="Cutout">Alpha-tested foliage (the albedo is a PNG with alpha; drawn double-sided).</param>
-public sealed record ForestPropAsset(string AssetId, string Resolution, ForestPropKind Kind, Vector3 Size, bool Cutout = false)
+/// <param name="ExtraTextures">A second texture set's maps under <c>textures/</c> (a model with two materials: the lantern's glass).</param>
+public sealed record ForestPropAsset(string AssetId, string Resolution, ForestPropKind Kind, Vector3 Size, bool Cutout = false, string[]? ExtraTextures = null)
 {
     /// <summary>The model's folder, project-relative.</summary>
     public string Folder => $"{ForestAssets.PropsFolder}/{AssetId}";
@@ -92,13 +94,28 @@ public sealed record ForestPropAsset(string AssetId, string Resolution, ForestPr
     public string BufferPath => $"{Folder}/{AssetId}.bin";
 
     /// <summary>Every file of the model.</summary>
-    public string[] Files => [ModelPath, BufferPath, AlbedoPath, NormalPath, OrmPath];
+    public string[] Files => [ModelPath, BufferPath, AlbedoPath, NormalPath, OrmPath, .. (ExtraTextures ?? []).Select(t => $"{Folder}/textures/{t}")];
+}
+
+/// <summary>
+/// One tiling texture set of the log cabin (<c>Assets/Art/Cabin/Textures/</c>, ambientCG or Poly Haven, imported at 1024² by
+/// <c>fetch_assets.py --only cabin</c>): colour, OpenGL normal and packed ORM, referenced by the cabin's glTF.
+/// </summary>
+public sealed record ForestTextureSet(string AssetId)
+{
+    public string AlbedoPath => $"{ForestAssets.CabinFolder}/Textures/{AssetId}_Color.jpg";
+
+    public string NormalPath => $"{ForestAssets.CabinFolder}/Textures/{AssetId}_NormalGL.jpg";
+
+    public string OrmPath => $"{ForestAssets.CabinFolder}/Textures/{AssetId}_ORM.png";
+
+    public string[] Files => [AlbedoPath, NormalPath, OrmPath];
 }
 
 /// <summary>
 /// The Forest's third-party art (all CC0; <c>Examples/Forest/NOTICE.md</c>), imported by
-/// <c>Examples/Forest/Tools/fetch_assets.py</c> into <c>Assets/Art</c>: eight ambientCG terrain layers, twenty Poly Haven
-/// props, an ambientCG leaf-litter set and a Poly Haven sky panorama. Paths are project-relative (<c>Assets/…</c>, what <see cref="ResourceLoader"/>
+/// <c>Examples/Forest/Tools/fetch_assets.py</c> into <c>Assets/Art</c>: nine ambientCG terrain layers, twenty-three Poly
+/// Haven props, an ambientCG leaf-litter set and a Poly Haven sky panorama. Paths are project-relative (<c>Assets/…</c>, what <see cref="ResourceLoader"/>
 /// and scenes use); <see cref="Resolve"/> gives the file on disk. The factories create new resources on every call (the
 /// textures themselves are shared through the resource cache), so a caller that builds many instances keeps the result.
 /// </summary>
@@ -108,6 +125,7 @@ public static class ForestAssets
     public const string TerrainFolder = ArtFolder + "/Terrain";
     public const string PropsFolder = ArtFolder + "/Props";
     public const string DebrisFolder = ArtFolder + "/Debris";
+    public const string CabinFolder = ArtFolder + "/Cabin";
 
     /// <summary>
     /// Poly Haven's "Lilienstein" (a sunlit meadow and forest edge, low sun, partly cloudy), its tonemapped JPG at
@@ -115,7 +133,7 @@ public static class ForestAssets
     /// </summary>
     public const string SkyPanorama = ArtFolder + "/Sky/lilienstein_4k.jpg";
 
-    // Terrain layers, in splat-channel order (index = channel: 0–3 in splat-0.png, 4–7 in splat-1.png).
+    // Terrain layers, in splat-channel order (index = channel: 0–3 in splat-0.png, 4–7 in splat-1.png, 8 in splat-2.png).
     // Ground037's photo is a bright, yellow-green meadow: tinted towards a shaded forest-edge green.
     public static readonly ForestLayerAsset Grass = new("Grass", "grass", "Ground037", 2.5f, 0.25f, System.Drawing.Color.FromArgb(196, 212, 170));
     public static readonly ForestLayerAsset Leaves = new("Leaves", "leaves", "Ground023", 2.5f, 0.25f);
@@ -126,8 +144,11 @@ public static class ForestAssets
     public static readonly ForestLayerAsset Mud = new("Mud", "mud", "Ground051", 2f, 0.15f);
     public static readonly ForestLayerAsset Needles = new("Needles", "needles", "Ground082S", 2f, 0.25f);
 
-    /// <summary>The eight layers in splat order (<see cref="TerrainSplatMaterial3D.MaxLayers"/>).</summary>
-    public static IReadOnlyList<ForestLayerAsset> TerrainLayers { get; } = [Grass, Leaves, Moss, Rock, Dirt, Gravel, Mud, Needles];
+    // The beach (the third weight map): warm, trodden beach sand.
+    public static readonly ForestLayerAsset Sand = new("Sand", "sand", "Ground054", 2.5f, 0.15f);
+
+    /// <summary>The nine layers in splat order (at most <see cref="TerrainSplatMaterial3D.MaxLayers"/>).</summary>
+    public static IReadOnlyList<ForestLayerAsset> TerrainLayers { get; } = [Grass, Leaves, Moss, Rock, Dirt, Gravel, Mud, Needles, Sand];
 
     // Props (sizes in metres, y up).
     public static readonly ForestPropAsset MossyRocks01 = new("rock_moss_set_01", "2k", ForestPropKind.Rock, new(8.0f, 1.77f, 6.95f));
@@ -153,11 +174,44 @@ public static class ForestAssets
     public static readonly ForestPropAsset DeadBranch = new("dead_quiver_branch_01", "1k", ForestPropKind.Debris, new(0.25f, 0.44f, 0.23f));
     public static readonly ForestPropAsset Nettles = new("nettle_plant", "1k", ForestPropKind.Plant, new(1.08f, 0.22f, 0.09f), Cutout: true);
 
+    // The map's edge: rock faces at the cliffs' feet and the lake's headlands.
+    public static readonly ForestPropAsset RockFace01 = new("rock_face_01", "1k", ForestPropKind.Rock, new(4.95f, 3.56f, 3.83f));
+    public static readonly ForestPropAsset RockFace02 = new("rock_face_02", "1k", ForestPropKind.Rock, new(2.71f, 2.47f, 2.13f));
+    public static readonly ForestPropAsset Mountainside = new("mountainside", "1k", ForestPropKind.Rock, new(10.21f, 10.52f, 5.25f));
+
+    // The log cabin's furniture and set dressing (Poly Haven, 1k), placed at the cabin model's Place_<id> sockets.
+    public static readonly ForestPropAsset Bed = new("old_bed_frame", "1k", ForestPropKind.Furniture, new(0.91f, 1.2f, 2f));
+    public static readonly ForestPropAsset Table = new("wooden_table_02", "1k", ForestPropKind.Furniture, new(1.13f, 0.8f, 0.71f));
+    public static readonly ForestPropAsset Chair = new("painted_wooden_chair_02", "1k", ForestPropKind.Furniture, new(0.64f, 1.26f, 0.66f));
+    public static readonly ForestPropAsset RockingChair = new("Rockingchair_01", "1k", ForestPropKind.Furniture, new(0.71f, 1.1f, 0.83f));
+    public static readonly ForestPropAsset Shelf = new("Shelf_01", "1k", ForestPropKind.Furniture, new(1f, 2.08f, 0.26f));
+    public static readonly ForestPropAsset Lantern = new("wooden_lantern_01", "1k", ForestPropKind.Furniture, new(0.22f, 0.53f, 0.24f),
+        ExtraTextures: ["wooden_lantern_01_glass_diff_1k.jpg", "wooden_lantern_01_glass_nor_gl_1k.jpg", "wooden_lantern_01_glass_arm_1k.jpg"]);
+    public static readonly ForestPropAsset Bucket = new("wooden_bucket_01", "1k", ForestPropKind.Furniture, new(0.37f, 0.55f, 0.34f));
+    public static readonly ForestPropAsset Pot = new("pot_enamel_01", "1k", ForestPropKind.Furniture, new(0.26f, 0.18f, 0.18f));
+    public static readonly ForestPropAsset Axe = new("wooden_axe", "1k", ForestPropKind.Furniture, new(0.05f, 0.63f, 0.21f));
+
+    /// <summary>The cabin's furniture (<see cref="ForestCabin"/>).</summary>
+    public static IReadOnlyList<ForestPropAsset> Furniture { get; } = [Bed, Table, Chair, RockingChair, Shelf, Lantern, Bucket, Pot, Axe];
+
+    /// <summary>The cabin model (<c>Tools/cabin/build_cabin.py</c>, <c>just forest-cabin</c>) and its buffer.</summary>
+    public const string CabinModel = CabinFolder + "/cabin.gltf";
+
+    public const string CabinBuffer = CabinFolder + "/cabin.bin";
+
+    /// <summary>The cabin's texture sets: log walls, log ends, floor, shingles, stone, door planks, wool, linen, leather.</summary>
+    public static IReadOnlyList<ForestTextureSet> CabinTextures { get; } =
+    [
+        new("rough_wood"), new("TreeEnd002"), new("old_wood_floor"), new("WoodSiding012"), new("stone_wall"), new("weathered_planks"),
+        new("wool_boucle"), new("Fabric045"), new("fabric_leather_02"),
+    ];
+
     /// <summary>Every prop.</summary>
     public static IReadOnlyList<ForestPropAsset> Props { get; } =
     [
         MossyRocks01, MossyRocks02, Boulder, Rock07, Rock09, DeadTrunk, DeadTrunk02, Stump01, Stump02, DryBranches, Fern,
         RootCluster01, RootCluster02, SingleRoot, BarkDebris, MossClumps, Stone01, GrassClumps, DeadBranch, Nettles,
+        RockFace01, RockFace02, Mountainside,
     ];
 
     /// <summary>ambientCG's scattered leaves: a 1.6 m patch fading out at its edges, the leaf-litter cards (ADR 0175).</summary>
@@ -171,7 +225,17 @@ public static class ForestAssets
 
     /// <summary>Every committed art file, project-relative (terrain, props, sky).</summary>
     public static IEnumerable<string> AllFiles =>
-        TerrainLayers.SelectMany(l => l.Files).Concat(Props.SelectMany(p => p.Files)).Concat(Debris.SelectMany(d => d.Files)).Append(SkyPanorama);
+        TerrainLayers.SelectMany(l => l.Files).Concat(Props.SelectMany(p => p.Files)).Concat(Debris.SelectMany(d => d.Files)).Append(SkyPanorama)
+            .Concat(Furniture.SelectMany(p => p.Files)).Concat(CabinTextures.SelectMany(t => t.Files)).Append(CabinModel).Append(CabinBuffer);
+
+    /// <summary>The prop or furniture with Poly Haven id <paramref name="assetId"/> (the cabin's sockets name them), or null.</summary>
+    public static ForestPropAsset? FindProp(string assetId)
+    {
+        foreach (var prop in Props.Concat(Furniture))
+            if (prop.AssetId == assetId)
+                return prop;
+        return null;
+    }
 
     /// <summary>The splat channel of the layer with <paramref name="tag"/>, or -1.</summary>
     public static int LayerIndex(string tag)
@@ -196,10 +260,10 @@ public static class ForestAssets
         Tint = layer.Tint ?? System.Drawing.Color.White,
     };
 
-    /// <summary>All eight layers in splat order.</summary>
+    /// <summary>All nine layers in splat order.</summary>
     public static TerrainLayer[] CreateTerrainLayers() => [.. TerrainLayers.Select(CreateTerrainLayer)];
 
-    /// <summary>A <see cref="TerrainSplatMaterial3D"/> with all eight layers (1024² packing, the default).</summary>
+    /// <summary>A <see cref="TerrainSplatMaterial3D"/> with all nine layers (1024² packing, the default).</summary>
     public static TerrainSplatMaterial3D CreateTerrainMaterial() => new() { Layers = CreateTerrainLayers() };
 
     /// <summary>
@@ -228,15 +292,21 @@ public static class ForestAssets
     /// a new <see cref="CreatePropMaterial"/>) as every mesh's <see cref="GeometryInstance3D.MaterialOverride"/>: the
     /// importer reads Blinn-Phong colour and normal maps only.
     /// </summary>
-    public static Node3D InstantiateProp(ForestPropAsset prop, StandardMaterial3D? material = null)
+    public static Node3D InstantiateProp(ForestPropAsset prop, StandardMaterial3D? material = null) => InstantiateProp(prop, true, material);
+
+    /// <summary>
+    /// <see cref="InstantiateProp(ForestPropAsset, StandardMaterial3D?)"/>; without <paramref name="materialOverride"/>
+    /// the meshes keep their imported materials (several texture sets per model: the caller converts them).
+    /// </summary>
+    public static Node3D InstantiateProp(ForestPropAsset prop, bool materialOverride, StandardMaterial3D? material = null)
     {
-        material ??= CreatePropMaterial(prop);
         var scene = ResourceLoader.Load<PackedScene>(prop.ModelPath);
         try
         {
             var root = scene.Instantiate<Node3D>();
             root.Name = prop.AssetId;
-            ApplyMaterial(root, material);
+            if (materialOverride)
+                ApplyMaterial(root, material ?? CreatePropMaterial(prop));
             return root;
         }
         finally

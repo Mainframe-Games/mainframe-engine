@@ -93,9 +93,10 @@
       "parent": ".",
       "type": "LightProbeVolume",
       "props": {
-        "Position": [128, 0, 128],
-        "Size": [256, 32, 256],
+        "Position": [160, 0, 160],
+        "Size": [320, 32, 320],
         "Layout": "TerrainFollowing",
+        "Terrain": "../Valley/Terrain",
         "RaysPerProbe": 192,
         "Bounces": 2,
         "Energy": 4,

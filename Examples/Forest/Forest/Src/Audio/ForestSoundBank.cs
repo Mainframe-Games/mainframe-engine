@@ -26,6 +26,7 @@ public sealed class ForestSoundBank
     private readonly ulong _seed;
     private readonly Lazy<(AudioStream Roar, AudioStream Rustle)> _wind;
     private readonly Lazy<(AudioStream Brook, AudioStream Falls)> _water;
+    private readonly Lazy<AudioStream> _fire;
     private readonly Lazy<Dictionary<string, AudioStream[]>> _footsteps;
     private readonly Lazy<AudioStream[][]> _birds;
 
@@ -38,6 +39,7 @@ public sealed class ForestSoundBank
         _water = new Lazy<(AudioStream, AudioStream)>(() => (
             Loop(ForestSynth.Brook(_seed + 3), 1, ForestSynth.Rate, "Brook"),
             Loop(ForestSynth.Falls(_seed + 4), 1, ForestSynth.Rate, "Falls")));
+        _fire = new Lazy<AudioStream>(() => Loop(ForestSynth.Fire(_seed + 5), 1, ForestSynth.Rate, "Fire"));
         _footsteps = new Lazy<Dictionary<string, AudioStream[]>>(BuildFootsteps);
         _birds = new Lazy<AudioStream[][]>(BuildBirds);
     }
@@ -57,6 +59,9 @@ public sealed class ForestSoundBank
     /// <summary>Rushing falls: a mono 10 s loop.</summary>
     public AudioStream Falls => _water.Value.Falls;
 
+    /// <summary>The cabin's hearth fire: a mono 12 s loop of roar, crackles and pops.</summary>
+    public AudioStream Fire => _fire.Value;
+
     /// <summary>
     /// The <see cref="FootstepVariants"/> variations for <paramref name="surface"/>; unknown surfaces (and a terrain
     /// layer named <c>leaf_litter</c> or <c>path</c>) map to their nearest set, else <c>default</c>.
@@ -75,6 +80,7 @@ public sealed class ForestSoundBank
     {
         _ = _wind.Value;
         _ = _water.Value;
+        _ = _fire.Value;
         _ = _footsteps.Value;
         _ = _birds.Value;
     }

@@ -8,8 +8,8 @@ namespace Forest;
 
 /// <summary>
 /// The Forest's valley, generated when the node is ready (the scene file holds this node and its knobs only): the
-/// <see cref="Terrain3D"/> from <see cref="ValleyGenerator"/> with the eight ambientCG layers, the stream
-/// (<see cref="River3D"/>, carved) and the pond, ground cover (grass, reeds, ferns, stones), trees and bushes
+/// <see cref="Terrain3D"/> from <see cref="ValleyGenerator"/> with the nine ambientCG layers, the stream
+/// (<see cref="River3D"/>, carved), the pond and the lake, the distant mountains (<see cref="ForestMountains"/>), ground cover (grass, reeds, ferns, stones), trees and bushes
 /// (<see cref="TreeScatter"/>), the Poly Haven props with their collision (the log bridge among them) and invisible walls
 /// at the map's edge. Everything it builds is an unowned child, never saved. It also stands the player on the ground,
 /// resolves footsteps from the terrain's layers and hands the pine density to the audio.
@@ -51,6 +51,15 @@ public sealed class ForestValley : Node3D, ISceneLoadable
 
     /// <summary>Wild flowers (ADR 0178, <see cref="ForestFlowers"/>): buttercups, daisies and heather in drifts.</summary>
     [Export] public bool Flowers { get; set; } = true;
+
+    /// <summary>The log cabin at the glade's edge (<see cref="ForestCabin"/>; needs the art).</summary>
+    [Export] public bool Cabin { get; set; } = true;
+
+    /// <summary>The distant mountains and the far lake beyond the map's edge (<see cref="ForestMountains"/>).</summary>
+    [Export] public bool Mountains { get; set; } = true;
+
+    /// <summary>Conifers on the mountains' foothills, drawn as impostors only (<see cref="ForestMountains.CreateTrees"/>).</summary>
+    [Export] public bool MountainTrees { get; set; } = true;
 
     /// <summary>Dust motes in the sunlit air at the walk's and the shots' places (ADR 0178, <see cref="ForestDust"/>).</summary>
     [Export] public bool Dust { get; set; } = true;
@@ -150,13 +159,22 @@ public sealed class ForestValley : Node3D, ISceneLoadable
 
     public Terrain3D? Terrain { get; private set; }
 
+    /// <summary>The distant mountains' terrain (<see cref="ForestMountains"/>), or null.</summary>
+    public Terrain3D? MountainTerrain { get; private set; }
+
     public River3D? Stream { get; private set; }
 
     public TreeScatter? Forest { get; private set; }
 
     public TreeScatter? Bushes { get; private set; }
 
+    /// <summary>The foothills' far conifers (impostors), or null.</summary>
+    public TreeScatter? FarTrees { get; private set; }
+
     public Node3D? Props { get; private set; }
+
+    /// <summary>The log cabin (<see cref="ForestCabin"/>), when the art is there.</summary>
+    public ForestCabin? LogCabin { get; private set; }
 
     /// <summary>The log bridge's walkable body.</summary>
     public SurfaceBody3D? Bridge { get; private set; }
@@ -248,6 +266,7 @@ public sealed class ForestValley : Node3D, ISceneLoadable
         };
         stream.Carve();
         ValleyGenerator.ApplyPond(data);
+        ValleyGenerator.ApplyLake(data);
         valley.PaintWeights(data);
         var carved = watch.Elapsed.TotalMilliseconds;
 
@@ -260,6 +279,10 @@ public sealed class ForestValley : Node3D, ISceneLoadable
             data.FoliageTypes = CreateGroundCover();
         AddChild(terrain);
         AddChild(stream);
+        if (Mountains)
+            // The far lake shares the terrain's water material: the two meet at the map's south edge without a seam.
+            MountainTerrain = ForestMountains.Build(this, valley, data, terrain.Material is TerrainSplatMaterial3D splat ? CreateMountainMaterial(splat) : null,
+                (WaterMaterial3D)terrain.WaterMaterial!);
         progress?.Report(CarvedAt, "Growing trees");
         progress?.ThrowIfCancellationRequested();
 
@@ -304,6 +327,16 @@ public sealed class ForestValley : Node3D, ISceneLoadable
             if (background)
                 Bushes.Rebuild(f => progress!.Report(CarvedAt + (TreesAt - CarvedAt) * (0.9f + 0.1f * f), "Growing bushes"));
             AddChild(Bushes);
+
+            if (MountainTerrain is { } mountains && MountainTrees)
+            {
+                FarTrees = ForestMountains.CreateTrees(mountains, Forest.Species, valley.Seed);
+                FarTrees.InstanceValueJitter = TreeValueJitter;
+                FarTrees.InstanceHueJitter = TreeHueJitter;
+                if (background)
+                    FarTrees.Rebuild();
+                AddChild(FarTrees);
+            }
         }
 
         var trees = watch.Elapsed.TotalMilliseconds;
@@ -320,6 +353,8 @@ public sealed class ForestValley : Node3D, ISceneLoadable
         AddChild(Props);
         BuildProps(valley, Height, Slope);
         BuildFernDell(Height);
+        if (Cabin && Art && PropModels && ResourceLoader.Exists(ForestCabin.ModelPath))
+            AddChild(LogCabin = ForestCabin.Create(valley.CabinPadLevel, gameplay: !editing));
         if (Dust)
             AddChild(ForestDust.Create(Height));
         if (!editing)
@@ -328,7 +363,7 @@ public sealed class ForestValley : Node3D, ISceneLoadable
         progress?.Report(1f);
 
         _buildLog = $"[Forest] Valley{(background ? " (loading thread)" : "")}: generated {generated:0} ms, carved and painted {carved - generated:0} ms, " +
-                    $"trees {trees - carved:0} ms ({Forest?.PlacementCount ?? 0} trees, {Bushes?.PlacementCount ?? 0} bushes), " +
+                    $"trees {trees - carved:0} ms ({Forest?.PlacementCount ?? 0} trees, {Bushes?.PlacementCount ?? 0} bushes, {FarTrees?.PlacementCount ?? 0} far), " +
                     $"{(background ? "terrain and " : "")}props {props - trees:0} ms.";
     }
 
@@ -404,14 +439,54 @@ public sealed class ForestValley : Node3D, ISceneLoadable
     /// </summary>
     private static TerrainSplatMaterial3D CreateTerrainMaterial()
     {
-        var material = ForestAssets.CreateTerrainMaterial();
-        foreach (var layer in material.Layers)
-            if (layer.Orm is { } orm)
-                layer.Orm = RoughenOrm(orm);
+        var material = CreateLayeredMaterial();
         material.DetailDistance = 45f;
         material.FarDistance = 110f;
         material.AntiTiling = false; // hex-tiling costs ≈ 3.5 ms at 1080p on an M5; the macro variation breaks the repeats instead
         material.MacroStrength = 0.22f;
+        return material;
+    }
+
+    /// <summary>
+    /// The far mountains' material: the valley's layers packed at 512² (they are never near), only the far band (two
+    /// layers, planar) from the start, with wide tiling and broad macro variation.
+    /// </summary>
+    private static TerrainSplatMaterial3D CreateMountainMaterial(TerrainSplatMaterial3D valley) => new()
+    {
+        ResourceName = "Mountains",
+        Layers = [.. valley.Layers.Select(MountainLayer)],
+        LayerTextureSize = 512,
+        DetailDistance = 0f,
+        FarDistance = 1f,
+        FarTilingScale = 12f,
+        AntiTiling = false,
+        MacroStrength = 0.35f,
+        MacroScaleMeters = 300f,
+    };
+
+    /// <summary>
+    /// A valley layer recoloured for the far slopes, which are seen only through the haze: the forest (needles) a dark
+    /// conifer green, the grassy shoulders a muted green, the rock a cool grey instead of the cliff scan's sandstone.
+    /// </summary>
+    private static TerrainLayer MountainLayer(TerrainLayer layer)
+    {
+        var copy = (TerrainLayer)layer.Duplicate();
+        copy.Tint = layer.Tag switch
+        {
+            "needles" => DrawingColor.FromArgb(255, 70, 92, 58),
+            "grass" => DrawingColor.FromArgb(255, 92, 104, 66),
+            "rock" => DrawingColor.FromArgb(255, 118, 128, 146),
+            _ => layer.Tint,
+        };
+        return copy;
+    }
+
+    private static TerrainSplatMaterial3D CreateLayeredMaterial()
+    {
+        var material = ForestAssets.CreateTerrainMaterial();
+        foreach (var layer in material.Layers)
+            if (layer.Orm is { } orm)
+                layer.Orm = RoughenOrm(orm);
         // The meadow photo is bright yellow-green: deeper and cooler under the morning sun.
         // ADR 0175: darker and greener again, so the meadow between the grass clumps reads as turf, not a pale tan floor.
         material.Layers[ValleyGenerator.Grass].Tint = DrawingColor.FromArgb(255, 78, 88, 52);
@@ -493,7 +568,8 @@ public sealed class ForestValley : Node3D, ISceneLoadable
         grassMaterial.TranslucencyColor = DrawingColor.FromArgb(255, 235, 240, 165);
         var density = GroundCoverDensity;
         const uint grass = 1u << ValleyGenerator.Grass, leaves = 1u << ValleyGenerator.Leaves, moss = 1u << ValleyGenerator.Moss,
-            needles = 1u << ValleyGenerator.Needles, mud = 1u << ValleyGenerator.Mud, gravel = 1u << ValleyGenerator.Gravel;
+            needles = 1u << ValleyGenerator.Needles, mud = 1u << ValleyGenerator.Mud, gravel = 1u << ValleyGenerator.Gravel,
+            sand = 1u << ValleyGenerator.Sand;
 
         var types = new List<FoliageType>
         {
@@ -558,6 +634,23 @@ public sealed class ForestValley : Node3D, ISceneLoadable
                 CullDistance = GrassDistance + 8f,
                 ThinBand = 12f,
                 Seed = 5,
+            },
+            new()
+            {
+                // Tufts of pale, wiry marram-like grass on the dry sand above the waterline.
+                ResourceName = "Dune grass",
+                Mesh = GrassMesh.Clump(blades: 14, height: 0.62f, width: 0.012f, bend: 0.35f, seed: 9,
+                    rootColor: new Vector4(0.16f, 0.17f, 0.08f, 1f), tipColor: new Vector4(0.58f, 0.55f, 0.32f, 1f)),
+                Material = grassMaterial,
+                Density = 0.35f * density,
+                LayerMask = sand,
+                HeightMin = ValleyLayout.LakeLevel + 0.8f,
+                ScaleMin = 0.7f,
+                ScaleMax = 1.4f,
+                AlignToNormal = 0.2f,
+                CullDistance = GrassDistance + 8f,
+                ThinBand = 12f,
+                Seed = 9,
             },
         };
 
@@ -912,6 +1005,26 @@ public sealed class ForestValley : Node3D, ISceneLoadable
     private void ConnectAudio(ValleyGenerator valley)
     {
         if (Parent?.FindChildren<ForestAudio>(owned: false) is [var audio, ..])
+        {
             audio.PineDensity = p => valley.PineMask(p.X, p.Z);
+            // The hearth's crackle: close and quiet, muffled with distance (the walls do not occlude).
+            if (LogCabin?.Fire is { } fire)
+            {
+                var player = new AudioPlayer3D
+                {
+                    Name = "Crackle",
+                    Stream = ForestSoundBank.Shared.Fire,
+                    Bus = ForestAudio.AmbienceBus,
+                    Loop = true,
+                    AttenuationModel = AttenuationModel.Inverse,
+                    UnitSize = 1.5f,
+                    MaxDistance = 25f,
+                    LowPassAtMaxDistance = 1500f,
+                    Position = new Vector3(0f, 0.3f, 0f),
+                };
+                fire.AddChild(player);
+                player.Play();
+            }
+        }
     }
 }

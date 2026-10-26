@@ -60,6 +60,7 @@ public sealed class ProjectTests
     [InlineData("jump")]
     [InlineData("sprint")]
     [InlineData("crouch")]
+    [InlineData("interact")]
     [InlineData("pause")]
     public void KeyboardActionsHaveAKey(string action) =>
         Assert.Contains(Load().Input.GetAction(action)!.Bindings, b => b.Kind == InputBindingKind.Key);
@@ -72,6 +73,7 @@ public sealed class ProjectTests
     [InlineData("jump")]
     [InlineData("sprint_toggle")]
     [InlineData("crouch_toggle")]
+    [InlineData("interact")]
     [InlineData("pause")]
     public void GamepadActionsHaveAPadBinding(string action) =>
         Assert.Contains(Load().Input.GetAction(action)!.Bindings, b => b.Kind is InputBindingKind.GamepadButton or InputBindingKind.GamepadAxis);
