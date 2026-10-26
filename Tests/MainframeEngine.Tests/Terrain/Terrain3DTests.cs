@@ -279,7 +279,7 @@ public sealed class Terrain3DTests : IDisposable
         Assert.False(terrain.Edit.IsActive);
         Assert.NotEqual(faces, terrain.GetChunkShape(0, 0)!.Faces);
         Assert.Equal(4, record.Tiles.Count(t => t.Layer == TerrainLayers.Height));
-        Assert.Equal(2, record.Tiles.Count(t => t.Layer == TerrainLayers.Surface)); // splat 0 and 1 of chunk (0, 0)
+        Assert.Equal(3, record.Tiles.Count(t => t.Layer == TerrainLayers.Surface)); // splat 0, 1 and 2 of chunk (0, 0)
         var after = terrain.Data.Heights.ToArray();
 
         var undoChanges = new List<TerrainChange>();
@@ -293,6 +293,31 @@ public sealed class Terrain3DTests : IDisposable
         record.Redo();
         Assert.Equal(after, terrain.Data.Heights.ToArray());
         Assert.Equal(2, terrain.SurfaceAt(3, 3));
+        Assert.Equal(2, terrain.Data.SplatImageCount); // undoing zeros into the third map does not make it
+    }
+
+    [Fact]
+    public void UndoAndRedoRestoreTheThirdSplatMap()
+    {
+        var terrain = AddTerrain();
+        var data = terrain.Data!;
+        Assert.Equal(2, data.SplatImageCount);
+
+        terrain.Edit.Begin(TerrainLayers.Surface);
+        terrain.PaintSurface(new Vector2(3, 3), 1.5f, 10);
+        var record = terrain.Edit.End();
+        Assert.Equal(3, data.SplatImageCount);
+        Assert.Equal(10, terrain.SurfaceAt(3, 3));
+        Assert.Contains(record.Tiles, t => t.Image == 2);
+
+        record.Undo();
+        Assert.Equal(0, terrain.SurfaceAt(3, 3));
+        Assert.Equal(0f, terrain.LayerWeightAt(10, 3, 3));
+        Assert.Equal(1f, terrain.LayerWeightAt(0, 3, 3));
+
+        record.Redo();
+        Assert.Equal(10, terrain.SurfaceAt(3, 3));
+        Assert.Equal(1f, terrain.LayerWeightAt(10, 3, 3));
     }
 
     [Fact]

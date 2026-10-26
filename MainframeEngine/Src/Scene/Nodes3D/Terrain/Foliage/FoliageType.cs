@@ -63,7 +63,7 @@ public sealed class FoliageType : Resource
     public int Seed { get; set => Set(ref field, value); }
 
     /// <summary>
-    /// Splat layers (Realistic, bits 0–7) whose summed weight is the growth probability, or surface ids (Faceted) where it
+    /// Splat layers (Realistic, bits 0–11) whose summed weight is the growth probability, or surface ids (Faceted) where it
     /// grows; 0 grows everywhere.
     /// </summary>
     [ExportGroup("Limits")]

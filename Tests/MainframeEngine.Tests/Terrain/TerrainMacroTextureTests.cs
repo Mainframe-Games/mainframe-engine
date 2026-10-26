@@ -84,6 +84,20 @@ public sealed class TerrainMacroTextureTests : IDisposable
     }
 
     [Fact]
+    public void ANinthLayerBakesWhereItIsPainted()
+    {
+        var data = Sloped();
+        data.SetWeightsFrom((x, _, w) => w[x < 16f ? 0 : 8] = 1f); // layer 0 west, layer 8 (the third map) east
+        var layers = Enumerable.Range(0, 9).Select(_ => new TerrainLayer { Albedo = Solid(8, 200, 200, 200) }).ToArray();
+        layers[8] = new TerrainLayer { Albedo = Solid(8, 40, 120, 40) };
+        var material = new TerrainSplatMaterial3D { MacroStrength = 0f, Layers = layers };
+
+        var macro = TerrainMacroTexture.Bake(data, material, 128);
+        Assert.Equal(ColorSpace.SrgbToLinear(200 / 255f), macro.AlbedoAt(4f, 16f).Y, 0.01f);
+        Assert.Equal(ColorSpace.SrgbToLinear(120 / 255f), macro.AlbedoAt(28f, 16f).Y, 0.01f);
+    }
+
+    [Fact]
     public void TheBakeIsDeterministic()
     {
         var data = Sloped();

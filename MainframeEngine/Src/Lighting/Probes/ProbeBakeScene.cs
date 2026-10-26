@@ -643,15 +643,19 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
         var origin = terrain.GlobalPosition;
         var heights = data.BedHeights;
 
-        // Splat weights per cell (Realistic: cells are quads; two RGBA images of four layers each) and water per vertex.
+        // Splat weights per cell (Realistic: cells are quads; two or three RGBA images of four layers each) and water per
+        // vertex. The third image (layers 8–11) only when the terrain has one, so other terrains fingerprint as before.
         var realistic = data.Profile == TerrainProfile.Realistic && data.CellsPerSide == quads;
         var cells = new Rect2I(0, 0, quads, quads);
         var splat0 = realistic ? new uint[quads * quads] : [];
         var splat1 = realistic ? new uint[quads * quads] : [];
+        var splat2 = realistic && data.SplatImageCount > 2 ? new uint[quads * quads] : [];
         if (realistic)
         {
             data.GetCells(TerrainLayers.Surface, 0, cells, splat0);
             data.GetCells(TerrainLayers.Surface, 1, cells, splat1);
+            if (splat2.Length > 0)
+                data.GetCells(TerrainLayers.Surface, 2, cells, splat2);
         }
 
         var stride = grid.Stride;
@@ -662,6 +666,8 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
         HashFloats(heights);
         HashUInts(splat0);
         HashUInts(splat1);
+        if (splat2.Length > 0)
+            HashUInts(splat2);
         HashUInts(water);
         HashMaterial(terrain.Material);
         if (FingerprintOnly)
@@ -683,9 +689,10 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
                 {
                     var sum = Vector3.Zero;
                     var total = 0f;
-                    for (var l = 0; l < Math.Min(layers.Length, 8); l++)
+                    var count = Math.Min(layers.Length, splat2.Length > 0 ? TerrainData.MaxLayers : 8);
+                    for (var l = 0; l < count; l++)
                     {
-                        var packed = l < 4 ? splat0[c] : splat1[c];
+                        var packed = l < 4 ? splat0[c] : l < 8 ? splat1[c] : splat2[c];
                         var w = (packed >> (8 * (l & 3))) & 0xFF;
                         sum += layers[l] * w;
                         total += w;

@@ -2,10 +2,11 @@
 // (TerrainSplatGpu in C#, MeshRenderer's second pipeline layout). Vertex shader: Mesh/Mesh.vk.vert (UV = terrain UV,
 // which is the splat maps' UV on Terrain3D chunks). Linear HDR output, PBR, fogged.
 //
-// Fragment-stage budget (≤ 16 sampled images and ≤ 16 samplers per stage, ≤ 4 sets): shadows 6 combined samplers
-// (set 1), the sky's IBL 3 combined samplers (set 0), this set 2 samplers + 5 images = 14 images, 11 samplers, 3 sets.
+// Fragment-stage budget (≤ 16 sampled images and ≤ 16 samplers per stage, ≤ 4 sets; ImageBasedLightingTests): set 0's
+// and set 1's images and samplers, and this set's 2 samplers + 4 images (three layer arrays and one weight-map array:
+// the two or three splat maps are its layers, so twelve layers cost no extra image).
 //
-// Per fragment: the four strongest of the eight splat weights (two in the far band) → each layer sampled planar (world
+// Per fragment: the four strongest of the (up to twelve) splat weights (two in the far band) → each layer sampled planar (world
 // XZ, hex-tiled in the near band) and/or triplanar on slopes → height-blended weights → albedo × tint, whiteout-blended
 // normals, ORM → macro variation → shadeLightsPbr → applyFog. Every texture lookup uses SampleGrad with gradients taken
 // at the top, so the dynamic branches (skipped layers, bands, slopes) keep mip selection defined.
@@ -14,13 +15,13 @@
 #include "lights.slang"
 #include "fog.slang"
 
-static const int kMaxLayers = 8;
+static const int kMaxLayers = 12;
 
-// TerrainSplatParams in C# (std140, 304 bytes).
+// TerrainSplatParams in C# (std140, 432 bytes).
 struct TerrainSplatParams
 {
-    float4 layers[8]; // x = 1 / tiling (repeats per metre), y = height blend contrast, z = normal scale, w = unused
-    float4 tints[8];  // rgb = linear tint
+    float4 layers[12]; // x = 1 / tiling (repeats per metre), y = height blend contrast, z = normal scale, w = unused
+    float4 tints[12];  // rgb = linear tint
     float4 bands;     // x = detail distance, y = far distance, z = 1 / far tiling scale, w = macro strength
     float4 slope;     // x = cos(triplanar start), y = cos(triplanar end), z = 1 / macro scale (m), w = layer count
     float4 options;   // x = hex-tiling on (1/0)
@@ -32,8 +33,7 @@ struct TerrainSplatParams
 [[vk::binding(3, 2)]] Texture2DArray albedoLayers; // sRGB rgb, a = height
 [[vk::binding(4, 2)]] Texture2DArray normalLayers; // linear, OpenGL convention
 [[vk::binding(5, 2)]] Texture2DArray ormLayers;    // linear: R = occlusion, G = roughness, B = metallic
-[[vk::binding(6, 2)]] Texture2D weights0;          // layers 0–3
-[[vk::binding(7, 2)]] Texture2D weights1;          // layers 4–7
+[[vk::binding(6, 2)]] Texture2DArray weightMaps;  // layer 0: layers 0–3, 1: 4–7, 2 (only when the terrain has it): 8–11
 
 struct FsIn
 {
@@ -318,11 +318,20 @@ float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
     float3 dPdy = materialGrad3(ddy(P));
     float3 Ngeo = normalize(input.inNormal);
 
-    // Splat weights: bilinear between cell centres (unmipmapped maps).
-    float4 w0 = weights0.SampleLevel(mapSampler, input.inUV, 0.0);
-    float4 w1 = weights1.SampleLevel(mapSampler, input.inUV, 0.0);
-    float w[kMaxLayers] = { w0.r, w0.g, w0.b, w0.a, w1.r, w1.g, w1.b, w1.a };
+    // Splat weights: bilinear between cell centres (unmipmapped maps). The third map only for materials past eight
+    // layers on terrains that have it (a two-map array would clamp layer 2 to layer 1).
+    float4 w0 = weightMaps.SampleLevel(mapSampler, float3(input.inUV, 0.0), 0.0);
+    float4 w1 = weightMaps.SampleLevel(mapSampler, float3(input.inUV, 1.0), 0.0);
+    float4 w2 = float4(0.0);
     int layerCount = int(splat.slope.w);
+    if (layerCount > 8)
+    {
+        uint mapWidth, mapHeight, maps;
+        weightMaps.GetDimensions(mapWidth, mapHeight, maps);
+        if (maps > 2u)
+            w2 = weightMaps.SampleLevel(mapSampler, float3(input.inUV, 2.0), 0.0);
+    }
+    float w[kMaxLayers] = { w0.r, w0.g, w0.b, w0.a, w1.r, w1.g, w1.b, w1.a, w2.r, w2.g, w2.b, w2.a };
     for (int l = 0; l < kMaxLayers; l++)
         if (l >= layerCount)
             w[l] = 0.0;

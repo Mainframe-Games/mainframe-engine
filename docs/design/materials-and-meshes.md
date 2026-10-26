@@ -36,7 +36,7 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `FoliageMaterial3D`, `FoliageBackFace` | [FoliageMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/FoliageMaterial3D.cs) | Leaves, grass, bark: vertex wind, cutout, translucency (ADR 0151) |
 | `WaterMaterial3D`, `WaterTextures` | [WaterMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs) | Rivers and ponds: flow ripples, reflection, absorption, foam (ADR 0159, [water.md](water.md#watermaterial3d)) |
 | `ShaderMaterial` + `Shader`, `ShaderParameter` | [Rendering/Canvas/ShaderMaterial.cs](../../MainframeEngine/Src/Rendering/Canvas/ShaderMaterial.cs) | A Godot `shader_type spatial` shader with per-material uniforms (ADR 0205, [below](#shadermaterial-spatial-shaders-adr-0205)) |
-| `TerrainSplatMaterial3D`, `TerrainLayer` | [TerrainSplatMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainSplatMaterial3D.cs), [TerrainLayer.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainLayer.cs) | The Realistic terrain's look: up to 8 splat-weighted PBR layers in texture arrays, its own set 2 and pipeline layout (ADR 0156, [Terrain](terrain.md#terrainsplatmaterial3d)) |
+| `TerrainSplatMaterial3D`, `TerrainLayer` | [TerrainSplatMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainSplatMaterial3D.cs), [TerrainLayer.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainLayer.cs) | The Realistic terrain's look: up to 12 splat-weighted PBR layers in texture arrays, its own set 2 and pipeline layout (ADR 0156, [Terrain](terrain.md#terrainsplatmaterial3d)) |
 | `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.meta` (see [Asset pipeline](asset-pipeline.md)) |
 | `OrmPacker` | [OrmPacker.cs](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Separate occlusion/roughness/metallic maps → one linear ORM texture (ADR 0158) |
 | `Texture2DArray`, `Texture2DArrayGpu` (internal) | [Texture2DArray.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2DArray.cs) | Layers of one size on a `2D_ARRAY` image (ADR 0151) |
@@ -259,7 +259,8 @@ Foliage, impostors and their prepasses and casters bind nothing new: the colour 
 is a vertex buffer, the thickness and impostor detail maps use the emission slot, and moss and detail normals reuse the
 normal map. The limit that binds on MoltenVK is the **sampler** count (`maxPerStageDescriptorSamplers` 16; sampled
 images are 256 per stage on Apple GPUs, `vulkaninfo`): ADR 0175's terrain macro texture (set 0 binding 7) is a sampled
-image without a sampler, so the water-scene layout and terrain splat are at 17 images and still 14 samplers.
+image without a sampler, so the water-scene layout is at 17 images and still 14 samplers; the terrain splat set, whose
+splat maps are the layers of one array, is at 16 images and 14 samplers.
 
 ### WaterMaterial3D (ADR 0159)
 
@@ -275,12 +276,14 @@ The Realistic terrain's material; the shading and properties are in [Terrain](te
 the mesh renderer it is the one material with **its own set 2**, kept to two contained changes:
 
 - `MeshRenderer.TerrainSplat.cs` (a partial of `MeshRenderer`) owns a second set layout (b0 `TerrainSplatParams` UBO,
-  304 B; b1 layer sampler: linear, repeat, anisotropic, mipmapped; b2 map sampler: linear, clamp; b3–b5 the albedo,
-  normal and ORM `Texture2DArray`s; b6–b7 the terrain's two splat maps), a second pipeline layout
+  432 B; b1 layer sampler: linear, repeat, anisotropic, mipmapped; b2 map sampler: linear, clamp; b3–b5 the albedo,
+  normal and ORM `Texture2DArray`s; b6 the terrain's splat maps as one `Texture2DArray`, two layers or three with
+  layers 8–11, `TerrainData.GetSplatArray`), a second pipeline layout
   (`Frame.CreatePipelineLayout(shadows, [splat layout])`, so sets 0 and 1 and the push range are identical to the mesh
   layout's and stay bound) and its own `MaterialDescriptorAllocator` (pools sized per layout). `PrepareMaterial`
   calls `PrepareSplat` for splat materials: re-pack the arrays when `TerrainLayerPacker.ContentStamp` (layer
-  textures and their versions, the size) changes, follow the terrain's weight maps through the shared texture cache,
+  textures and their versions, the size) changes, follow the terrain's weight-map array (a `Texture2DArrayGpu`, new
+  when the data hands out a new array),
   upload the parameters on a material version change, rewrite the set when an image moved.
 - `ShaderSetId.MeshTerrainSplat` (`Mesh/Mesh.vk.vert` + `Terrain/TerrainSplat.vk.frag`, `MeshInstanced` layout): the
   pipeline factory picks the splat pipeline layout for it, and `DrawList` binds `MaterialGpu.Splat.Set` with that
@@ -353,7 +356,7 @@ layers (wave 2):
   with `Auto` = sRGB for colour use, mipmaps, filter, wrap, anisotropy);
 - on the GPU: `GpuTexture.Create2DArray` (one image, `ArrayLayers` = layers, a `2D_ARRAY` view, mips blitted for every
   layer). `Texture2DArrayGpu` is the `TextureGpu`-shaped helper (`Update()` uploads on a version change) that the
-  material binding it owns: `TerrainSplatMaterial3D`'s three layer arrays;
+  material binding it owns: `TerrainSplatMaterial3D`'s three layer arrays and the terrain's splat-map array;
 - runtime-only: the pixels are not saved with scenes.
 
 ## Nodes
@@ -533,7 +536,7 @@ less-or-equal, and cutouts compare EQUAL with specialization constant 0 = opaque
 | 1 | shadow uniforms + maps (`ShadowSystem` or the fallback) | shadows |
 | 2 | material: b0 parameters UBO (96 B, device-local), b1 one `sampler`, b2–b5 albedo/normal/emission/ORM `texture2D` (1×1 fallbacks; the ORM one is linear white) | `MaterialGpu` |
 | 2 (spatial shader) | b0 the shader's std140 uniform block, b1…n (≤ 4) combined image samplers, vertex + fragment stages (ADR 0205) | `SpatialMaterialGpu` (`MaterialGpu.Spatial`) |
-| 2 (terrain splat) | b0 `TerrainSplatParams` (304 B), b1–b2 layer and map `sampler`s, b3–b5 albedo/normal/ORM `texture2DArray`, b6–b7 splat maps (1×1 zero fallbacks: layer 0 everywhere) | `TerrainSplatGpu` (`MaterialGpu.Splat`) |
+| 2 (terrain splat) | b0 `TerrainSplatParams` (432 B), b1–b2 layer and map `sampler`s, b3–b5 albedo/normal/ORM `texture2DArray`, b6 the splat maps `texture2DArray` (2 or 3 layers; a 1×1×1 zero fallback: layer 0 everywhere) | `TerrainSplatGpu` (`MaterialGpu.Splat`) |
 | binding 1 (vertex) | per-instance model matrix + object id | `InstanceBuffer`, or a `MultiMeshGpu` |
 | binding 2 (vertex) | the second stream: RGBA8 colour + float4 custom0 | `MeshGpu.Streams` |
 | binding 3 (vertex, prepass) | last frame's `MeshInstanceData` (motion vectors) | the view's instance allocation, or a `MultiMeshGpu` |
@@ -543,7 +546,7 @@ fragment stage within MoltenVK's limit of 16 samplers
 ([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The fragment stage now uses 14 images and 11
 samplers (shadows 6 combined, material 1 sampler + 4 images, sky lighting 3 combined, ambient occlusion 1 combined),
 within the G6 budget of 16 and 4 sets ([rendering-features.md](future/rendering-features.md#binding-budget)); the
-terrain splat set makes it 15 images and 12 samplers (2 samplers + 5 images instead of 1 + 4). The sampler is that of the material's
+terrain splat set keeps it at 14 images and 12 samplers (2 samplers + 4 images instead of 1 + 4). The sampler is that of the material's
 first texture. A material's set is never updated in place, because frames in flight may still bind it. Instead, a
 new set is written, and the old one is freed by `MaterialDescriptorAllocator` once its frame has completed. The
 allocator's pools are freeable and their live counts are exact.

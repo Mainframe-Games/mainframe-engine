@@ -158,7 +158,7 @@ public sealed class TerrainSplatMaterialTests
         layer.TilingMeters = 2f; // unsubscribed
         Assert.Equal(version, material.Version);
 
-        material.Layers = Enumerable.Range(0, 10).Select(_ => new TerrainLayer()).ToArray();
+        material.Layers = Enumerable.Range(0, TerrainSplatMaterial3D.MaxLayers + 2).Select(_ => new TerrainLayer()).ToArray();
         Assert.Equal(TerrainSplatMaterial3D.MaxLayers, material.LayerCount);
         Assert.Equal(TerrainSplatMaterial3D.MaxLayers, TerrainLayerPacker.Pack(new TerrainSplatMaterial3D { Layers = material.Layers, LayerTextureSize = 2 }).Albedo.Layers);
         Assert.Equal(new MaterialRenderState(AlphaMode.Opaque, CullMode.Back, false), material.RenderState);
@@ -214,6 +214,33 @@ public sealed class TerrainSplatMaterialTests
         Assert.Equal(VertexLayoutId.MeshInstanced, key.VertexLayout);
         Assert.NotEqual(PipelineKey.ForMaterial(ShaderSetId.MeshLit, material.RenderState, false, new RenderPass(1)), key);
         Assert.True((int)ShaderSetId.MeshTerrainSplat < MaterialGpu.ShaderSetCount);
+    }
+
+    [Fact]
+    public void ANinthLayerNamesItsSurfaceAndPacksItsParameters()
+    {
+        var data = TerrainData.Create(TerrainProfile.Realistic, 16, 1f, 8);
+        data.SetWeightsFrom((x, _, w) => w[x < 8f ? 0 : 8] = 1f);
+        var terrain = new Terrain3D { Data = data, Position = new Vector3(-8, 0, -8) };
+        var layers = Enumerable.Range(0, 9).Select(i => new TerrainLayer { Tag = $"layer{i}" }).ToArray();
+        layers[8] = new TerrainLayer { Tag = "sand", TilingMeters = 2f };
+        var material = new TerrainSplatMaterial3D { Layers = layers };
+        terrain.Material = material;
+        Assert.Equal(9, material.LayerCount);
+        Assert.Equal("layer0", terrain.SurfaceTagAt(-4f, 0f));
+        Assert.Equal("sand", terrain.SurfaceTagAt(4f, 0f));
+        Assert.Equal(1f, terrain.LayerWeightAt(8, 4f, 0f));
+
+        var p = TerrainSplatParams.From(material);
+        unsafe
+        {
+            Assert.Equal(0.5f, p.Layers[8 * 4]);
+            Assert.Equal(1f, p.Tints[11 * 4 + 3]);
+        }
+
+        Assert.Equal(9f, p.Slope.W);
+        Assert.Equal(9, TerrainLayerPacker.Pack(new TerrainSplatMaterial3D { Layers = layers, LayerTextureSize = 2 }).Albedo.Layers);
+        terrain.Free();
     }
 
     [Fact]
