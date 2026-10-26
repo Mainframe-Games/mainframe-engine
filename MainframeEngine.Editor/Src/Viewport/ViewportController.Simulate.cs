@@ -37,6 +37,8 @@ public sealed partial class ViewportController
         if (_registered is not null)
             Tree?.Servers.Get<UiServer>()?.UnregisterTexture(ViewportPanel.TextureName);
         _registered = null;
+        // The image drops its source until the other view's target is published (RmlUi would keep a failed load).
+        _workspace.ViewportPanel?.UpdateImage(false);
     }
 
     // The grid lives in the shown view (the copy brings none of its own).

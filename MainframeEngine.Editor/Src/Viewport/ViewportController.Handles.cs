@@ -28,6 +28,7 @@ public sealed partial class ViewportController
     private Vector3 _dragHandleGrab;
     private float _dragHandleAlong;
     private bool _handleLabelShown;
+    private int _handlesSelection = -1;
 
     // The node that owns handles [First, First + Count) of _handles.
     private readonly record struct HandleOwner(Node Node, IHandleProvider Provider, int First, int Count);
@@ -55,6 +56,18 @@ public sealed partial class ViewportController
         ArgumentNullException.ThrowIfNull(scene);
         _handles.Clear();
         _handleOwners.Clear();
+        if (_handlesSelection != scene.Selection.Version && _drag != DragKind.Handle)
+        {
+            // Another selection: the hovered handle (and its label) belonged to the previous one.
+            _handlesSelection = scene.Selection.Version;
+            _hoverHandle = -1;
+            if (_handleLabelShown)
+            {
+                _handleLabelShown = false;
+                _workspace.ViewportPanel.SetHandleLabel(null, 0, 0);
+            }
+        }
+
         if (!HandlesEnabled(scene))
             return;
         var is2D = scene.Camera.Is2D;
