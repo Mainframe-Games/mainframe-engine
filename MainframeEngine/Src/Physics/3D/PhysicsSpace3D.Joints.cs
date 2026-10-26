@@ -325,14 +325,12 @@ public sealed partial class PhysicsSpace3D
             return;
         }
 
-        // Jitter2 keeps no constraint without a dynamic body: wait until one is dynamic (OnJointBodyKindChanged retries).
-        if (a?.Kind != PhysicsBodyKind.Dynamic && b?.Kind != PhysicsBodyKind.Dynamic)
-            return;
-
         var bodyA = a?.Body ?? _world.NullBody;
         var bodyB = b?.Body ?? _world.NullBody;
         if (!record.HasFrames || !ReferenceEquals(record.FramedA, a?.Node) || !ReferenceEquals(record.FramedB, b?.Node))
         {
+            // Captured as soon as both bodies are there, even if the joint must wait (below): the authored pose is the
+            // one the scene starts in, not wherever kinematic bodies happen to be when one turns dynamic (ragdolls).
             node.GlobalTransform.Decompose(out var position, out var rotation, out _);
             rotation = Quaternion.Normalize(rotation);
             var anchorB = node.GetAnchorB(node.GlobalTransform);
@@ -343,6 +341,10 @@ public sealed partial class PhysicsSpace3D
             record.FramedB = b?.Node;
             record.HasFrames = true;
         }
+
+        // Jitter2 keeps no constraint without a dynamic body: wait until one is dynamic (OnJointBodyKindChanged retries).
+        if (a?.Kind != PhysicsBodyKind.Dynamic && b?.Kind != PhysicsBodyKind.Dynamic)
+            return;
 
         record.BodyA = bodyA;
         record.BodyB = bodyB;
