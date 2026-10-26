@@ -167,7 +167,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     /// <summary>
     /// Make Unique (G7.2): <paramref name="property"/> of <paramref name="target"/> gets an inline copy of the resource it
     /// holds (<see cref="Resource.Duplicate"/>, <paramref name="deep"/> copies inline sub-resources too), as one undo
-    /// step. The file and every other slot keep the original. Returns the copy, or null when the slot is empty.
+    /// step. The file and every other slot keep the original. Returns the copy, or null when the slot is empty or the edit
+    /// was refused (the history is locked while the scene simulates).
     /// </summary>
     public Resource? MakeUnique(object target, ExportPropertyInfo property, bool deep)
     {
@@ -176,10 +177,12 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
         if (property.GetValue(target) is not Resource original)
             return null;
         var copy = original.Duplicate(deep);
-        if (target is Resource { IsExternal: true } file)
-            _editedResourceFiles.Add(file); // a slot of a .mres edited in place: written with the scene
         History.Commit(new CompositeAction($"Make {original.GetType().Name} Unique{(deep ? " (Deep)" : "")}",
             new SetPropertyAction(target, property, original, copy)));
+        if (!ReferenceEquals(property.GetValue(target), copy))
+            return null; // refused (the scene simulates): nothing changed, no file to write
+        if (target is Resource { IsExternal: true } file)
+            _editedResourceFiles.Add(file); // a slot of a .mres edited in place: written with the scene
         return copy;
     }
 

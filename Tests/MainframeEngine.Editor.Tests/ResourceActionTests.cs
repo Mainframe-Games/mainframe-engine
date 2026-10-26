@@ -148,6 +148,47 @@ public sealed class ResourceActionTests : IDisposable
     }
 
     [Fact]
+    public void DeepCopiesReachResourcesInListsAndArrays()
+    {
+        var level = new TestSettings { Strength = 2f };
+        var extra = new TestSettings { Label = "bonus" };
+        var set = new TestLevelSet { Levels = [level], Extras = [extra] };
+        Assert.True(ResourceActions.HasInlineSubResources(set)); // only in a list and an array
+
+        var shallow = (TestLevelSet)set.Duplicate(deep: false);
+        Assert.NotSame(set.Levels, shallow.Levels); // a list of its own…
+        Assert.NotSame(set.Extras, shallow.Extras);
+        Assert.Same(level, shallow.Levels[0]); // …sharing the elements
+        Assert.Same(extra, shallow.Extras[0]);
+
+        var deep = (TestLevelSet)set.Duplicate(deep: true);
+        Assert.NotSame(level, deep.Levels[0]);
+        Assert.NotSame(extra, deep.Extras[0]);
+        Assert.Equal(2f, deep.Levels[0].Strength);
+        Assert.Equal("bonus", deep.Extras[0].Label);
+        Assert.False(ResourceActions.HasInlineSubResources(new TestLevelSet()));
+    }
+
+    [Fact]
+    public void MakeUniqueRefusedWhileSimulatingMarksNoFile()
+    {
+        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "box.mres");
+        ResourceSaver.Save(new BoxMesh { Material = new StandardMaterial3D() }, path);
+        var file = ResourceLoader.Load<BoxMesh>("Assets/Materials/box.mres");
+        var node = new MeshInstance3D { Name = "Crate", Mesh = file };
+        _editor.Scene.AddNode(node, _editor.Scene.Root);
+        _editor.Tick();
+        var materialSlot = Serialization.TypeRegistry.GetRequired(typeof(BoxMesh)).FindProperty("Material")!;
+        Assert.True(W.Simulation.StartNow(_editor.Scene));
+        Assert.Null(_editor.Scene.MakeUnique(file, materialSlot, deep: false)); // the history is locked
+        W.Simulation.Stop();
+        Assert.DoesNotContain(file, _editor.Scene.EditedResourceFiles);
+        Assert.NotNull(_editor.Scene.MakeUnique(file, materialSlot, deep: false));
+        Assert.Contains(file, _editor.Scene.EditedResourceFiles);
+        file.Release();
+    }
+
+    [Fact]
     public void ImportedAndSceneResourcesCannotBeMadeUniqueOrSaved()
     {
         Assert.False(ResourceActions.CanMakeUnique(new PackedScene(), 2, out var reason));

@@ -60,15 +60,26 @@ public static class ResourceActions
         return true;
     }
 
-    /// <summary>True when <paramref name="resource"/> holds inline sub-resources (Make Unique (Deep) copies them too).</summary>
+    /// <summary>True when <paramref name="resource"/> holds inline sub-resources, directly or in a list or array (Make Unique (Deep) copies them too).</summary>
     public static bool HasInlineSubResources(Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
         if (TypeRegistry.GetNearest(resource.GetType()) is not { } info)
             return false;
         foreach (var property in info.Properties)
-            if (property.GetValue(resource) is Resource { IsExternal: false })
-                return true;
+        {
+            switch (property.GetValue(resource))
+            {
+                case Resource { IsExternal: false }:
+                    return true;
+                case System.Collections.IList list:
+                    foreach (var element in list)
+                        if (element is Resource { IsExternal: false })
+                            return true;
+                    break;
+            }
+        }
+
         return false;
     }
 }

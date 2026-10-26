@@ -50,6 +50,12 @@ public abstract class ExportPropertyInfo
     /// <summary>Copies the value from one instance to another (resources are shared, not cloned).</summary>
     public abstract void CopyValue(object source, object destination);
 
+    /// <summary>
+    /// Replaces a collection value (list or array) of <paramref name="owner"/> with a copy whose elements are
+    /// <paramref name="element"/> of each (<see cref="Resource.Duplicate"/>); other values are left alone.
+    /// </summary>
+    internal abstract void CopyCollection(object owner, Func<object?, object?> element);
+
     internal abstract void Write(Utf8JsonWriter writer, object owner, SerializationContext context);
 
     internal abstract void Read(JsonElement element, object owner, DeserializationContext context);
@@ -112,6 +118,16 @@ public sealed class ExportPropertyInfo<TOwner, TValue> : ExportPropertyInfo wher
         Codec.ValueEquals(_getter((TOwner)ownerA), _getter((TOwner)ownerB));
 
     public override void CopyValue(object source, object destination) => _setter((TOwner)destination, _getter((TOwner)source));
+
+    internal override void CopyCollection(object owner, Func<object?, object?> element)
+    {
+        var value = _getter((TOwner)owner);
+        if (value is null)
+            return;
+        var copy = Codec.Copy(value, element);
+        if (!ReferenceEquals(copy, value))
+            _setter((TOwner)owner, copy);
+    }
 
     internal override void Write(Utf8JsonWriter writer, object owner, SerializationContext context) =>
         Codec.Write(writer, _getter((TOwner)owner), context);

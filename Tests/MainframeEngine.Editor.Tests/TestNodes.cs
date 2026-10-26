@@ -31,6 +31,16 @@ public class TestSettings : Resource
     public string Label { get; set; } = "";
 }
 
+/// <summary>Sub-resources only inside a list and an array (Make Unique (Deep) must copy them).</summary>
+public class TestLevelSet : Resource
+{
+    [Export]
+    public List<TestSettings> Levels { get; set; } = [];
+
+    [Export]
+    public TestSettings[] Extras { get; set; } = [];
+}
+
 /// <summary>An array of sub-resources (a def with levels).</summary>
 public class LevelsNode : Node3D
 {

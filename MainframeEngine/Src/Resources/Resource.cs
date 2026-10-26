@@ -74,8 +74,9 @@ public abstract class Resource
     }
 
     /// <summary>
-    /// A new, unsaved copy with the same exported values. Nested resources are shared unless
-    /// <paramref name="deep"/>, which duplicates inline sub-resources too (external ones stay shared).
+    /// A new, unsaved copy with the same exported values. Lists and arrays are copied (Godot duplicates arrays too); the
+    /// resources in them and nested resources are shared unless <paramref name="deep"/>, which duplicates inline
+    /// sub-resources too, inside lists and arrays included (external ones stay shared).
     /// </summary>
     public Resource Duplicate(bool deep = false)
     {
@@ -87,10 +88,17 @@ public abstract class Resource
             property.CopyValue(this, copy);
             if (deep && property.GetValue(copy) is Resource { IsExternal: false } nested)
                 property.SetValue(copy, nested.Duplicate(deep: true));
+            else
+                property.CopyCollection(copy, deep ? DeepElement : SameElement); // a list or array of its own, never shared
         }
 
         return copy;
     }
+
+    private static readonly Func<object?, object?> SameElement = static e => e;
+
+    private static readonly Func<object?, object?> DeepElement =
+        static e => e is Resource { IsExternal: false } nested ? nested.Duplicate(deep: true) : e;
 
     public override string ToString() => ResourcePath is null ? GetType().Name : $"{GetType().Name} ({ResourcePath})";
 }
