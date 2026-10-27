@@ -99,7 +99,7 @@ readme-screenshots:
     dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
       --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
-    for name in editor editor-joints editor-physical-skeleton editor-add-node editor-box-select editor-range-handles editor-resource-menu editor-simulate editor-game-project editor-project-manager editor-sound-designer editor-sprite-frames editor-sheet-slicer editor-song editor-song-effects editor-song-browser editor-song-synth editor-video; do
+    for name in editor editor-joints editor-physical-skeleton editor-add-node editor-box-select editor-range-handles editor-resource-menu editor-simulate editor-sprite-frames editor-sheet-slicer editor-crash editor-crash-dialog editor-game-project editor-project-manager editor-sound-designer editor-song editor-song-effects editor-song-browser editor-song-synth editor-video; do
       magick "$out/$name.png" -filter Lanczos -resize 1600x960 -strip -define png:compression-level=9 \
         -define png:compression-filter=5 "docs/images/$name.png"
     done
@@ -293,16 +293,19 @@ l10n-extract:
     dotnet tool restore
     dotnet build Examples/Demo/Demo/Demo.csproj -p:CompileLocales=false
     dotnet tool run GetText.Extractor -s Examples/Demo/Demo/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Assets/UI/settings/settings.pot --rml Examples/Demo/Assets --rml MainframeEngine/Assets/UI --scenes Examples/Demo/Assets --mfproj Examples/Demo/project.mfproj --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Assets/UI/settings/settings.pot --include MainframeEngine/Assets/UI/crash/crash.pot --rml Examples/Demo/Assets --rml MainframeEngine/Assets/UI --scenes Examples/Demo/Assets --mfproj Examples/Demo/project.mfproj --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
     {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
     {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
 
 # The engine's own player-facing strings (the settings menu, input binding names) into Assets/UI/settings/settings.pot,
-# which games merge into their catalog with `mf-l10n extract --include` (the Demo's l10n-extract does)
+# and the crash prompt's (G15) into Assets/UI/crash/crash.pot, which games merge into their catalog with
+# `mf-l10n extract --include` (the Demo's l10n-extract does)
 l10n-engine:
     dotnet tool restore
     dotnet tool run GetText.Extractor -s MainframeEngine/Src/UI/Settings -s MainframeEngine/Src/Scene/Input -t {{artifacts / "l10n" / "engine-code.pot"}} -u -o -as _ -ad P -ap N -adp NP
     {{l10n}} extract -o MainframeEngine/Assets/UI/settings/settings.pot --root . --project "Mainframe Engine" --include {{artifacts / "l10n" / "engine-code.pot"}} --rml MainframeEngine/Assets/UI/settings
+    dotnet tool run GetText.Extractor -s MainframeEngine/Src/UI/Crash -t {{artifacts / "l10n" / "crash-code.pot"}} -u -o -as _ -ad P -ap N -adp NP
+    {{l10n}} extract -o MainframeEngine/Assets/UI/crash/crash.pot --root . --project "Mainframe Engine" --include {{artifacts / "l10n" / "crash-code.pot"}} --rml MainframeEngine/Assets/UI/crash
 
 # Compile every .po to the committed .mo next to it (the build compiles them into the output itself)
 l10n-compile:

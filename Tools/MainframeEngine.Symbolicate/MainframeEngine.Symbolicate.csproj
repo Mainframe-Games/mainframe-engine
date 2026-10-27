@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    mf-symbolicate (G15, docs/design/crash-reporting.md#symbols): maps a crash report's frames (module MVID, method token,
+    IL offset) back to files and lines with the portable PDBs of that build — for games exported with their PDBs kept
+    apart, and for any release whose symbols zip is at hand. Run it with dotnet run (project Tools/MainframeEngine.Symbolicate):
+    mf-symbolicate report.json, symbols folder, optional output. Shared with M13 NativeAOT tooling later.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>mf-symbolicate</AssemblyName>
+    <RootNamespace>MainframeEngine.Symbolicate</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The report model (CrashReport and its source-generated JSON). -->
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+  </ItemGroup>
+
+</Project>

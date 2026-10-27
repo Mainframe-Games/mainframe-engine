@@ -114,6 +114,17 @@ jobs:
         shell: bash
         run: build/package-editor.sh ${{ matrix.rid }} ${{ needs.guard.outputs.version }} artifacts/publish/${{ matrix.rid }} artifacts/release
 
+      # G15.8: the PDBs ship in the editor (better traces); a copy with their assemblies goes into the release's symbols zip.
+      - name: Collect symbols
+        shell: bash
+        run: build/collect-symbols.sh artifacts/publish/${{ matrix.rid }} artifacts/symbols/editor/${{ matrix.rid }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: symbols-${{ matrix.rid }}
+          path: artifacts/symbols/
+          if-no-files-found: warn
+
       - uses: actions/upload-artifact@v4
         with:
           name: editor-${{ matrix.rid }}
@@ -229,6 +240,23 @@ jobs:
         with:
           name: nuget
           path: nuget
+
+      # G15.8: MainframeEngine-<version>-symbols.zip (engine and editor PDBs with their assemblies, per RID): what
+      # mf-symbolicate reads. Native symbols are natives.yml's native-symbols-* artefacts of the run that built the
+      # committed binaries.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: symbols-*
+          path: symbols
+          merge-multiple: true
+
+      - name: Zip the symbols
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          if [ -d symbols ] && [ -n "$(ls -A symbols)" ]; then
+            (cd symbols && zip -qr "../release/MainframeEngine-${VERSION}-symbols.zip" .)
+          fi
 
       - name: Create tag v${{ needs.guard.outputs.version }} and GitHub Release
         env:

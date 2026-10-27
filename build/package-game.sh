@@ -7,6 +7,9 @@
 #   linux-*   <exe> + its files in <exe>-<version>-<rid>.tar.gz (also the dedicated server: run it with --headless)
 # Usage: build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v]
 #        [--bundle-id id] [--copyright text] [--icon icon.png] [--sign "Developer ID Application: …"] [--notarize profile]
+#        [--symbols ship|separate]
+# --symbols (G15.8, ADR 0222): "ship" (default) keeps the PDBs next to the assemblies (crash reports get file and line);
+# "separate" moves them, with their assemblies, into <exe>-<version>-<rid>-symbols.zip for mf-symbolicate.
 # The icon PNG becomes the .app's .icns (macOS sips + iconutil) and the Windows exe's icon (ImageMagick `magick`), unless
 # the desktop project names its own: <MacAppIcon> ending in .icns (ADR 0182) and <ApplicationIcon> (.ico) win over the PNG.
 # Defaults: name and version from the project.mfproj next to the desktop project's folder (one level up), the exe from
@@ -27,7 +30,7 @@ mfproj="$project_dir/project.mfproj"
 [ -f "$mfproj" ] || { echo "error: no project.mfproj at $mfproj" >&2; exit 1; }
 json() { sed -n "s/^  \"$1\": \"\(.*\)\",\{0,1\}$/\1/p" "$mfproj" | head -n 1; }
 
-name="$(json name)"; version="$(json version)"; exe=""; bundle_id=""; copyright=""
+name="$(json name)"; version="$(json version)"; exe=""; bundle_id=""; copyright=""; symbols="ship"
 sign_identity="${MF_SIGN_IDENTITY:-}"; notary_profile="${MF_NOTARY_PROFILE:-}"
 icon="$(grep -o '"icon"[[:space:]]*:[[:space:]]*"[^"]*"' "$mfproj" | head -n 1 | sed 's/.*"\([^"]*\)"$/\1/')"
 [ -n "$icon" ] && icon="$project_dir/$icon"
@@ -41,6 +44,7 @@ while [ $# -gt 0 ]; do
     --icon) icon="$2"; shift 2 ;;
     --sign) sign_identity="$2"; shift 2 ;;
     --notarize) notary_profile="$2"; shift 2 ;;
+    --symbols) symbols="$2"; shift 2 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -86,6 +90,16 @@ case "$rid" in
   win-*) rm -rf "$publish/libsteam_api.so" "$publish/libsteam_api.dylib" "$publish/steamworks/posix" ;;
   linux-*) rm -rf "$publish/steam_api64.dll" "$publish/libsteam_api.dylib" "$publish/steamworks/win64" ;;
   osx-*) rm -rf "$publish/steam_api64.dll" "$publish/libsteam_api.so" "$publish/steamworks/win64" ;;
+esac
+case "$symbols" in
+  ship) ;;
+  separate)
+    symbols_dir="$stage/symbols"
+    bash "$(dirname "$0")/collect-symbols.sh" "$publish" "$symbols_dir" --move # bash: the package drops the executable bit
+    (cd "$symbols_dir" && rm -f "$out/$exe-$version-$rid-symbols.zip" && zip -qr "$out/$exe-$version-$rid-symbols.zip" .)
+    echo "Symbols: $out/$exe-$version-$rid-symbols.zip"
+    ;;
+  *) echo "error: --symbols must be ship or separate (got '$symbols')" >&2; exit 2 ;;
 esac
 # steam_appid.txt lets a game start Steam outside the client (GameHost writes it in development runs only); a player
 # build must never carry one.
