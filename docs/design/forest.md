@@ -833,12 +833,16 @@ The `Dev` autoload (`ForestDev`) is idle unless started with game arguments afte
   footsteps, 0 gen-0 collections.
 - `--autowalk-lap`: walks the whole loop and quits when back at the trailhead (exit 1 if stuck after 12 minutes).
   Measured: 150 s, 469 m, 98 % of frames on the floor, 618 footsteps; the bridge and every slope walkable.
-- `--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]]`: `ForestBenchmark` waits 240
-  frames, then a camera flies the 15-point `ForestBenchmark.Spline` (low through the glade, past the fall, over the pine
-  canopy, down to the pond and back to the trailhead) for n frames (default 1 800); it prints p50/p90/p99/p99.9/max of
-  the wall-clock frame intervals, the sun shadows', SSAO's and the volumetric fog's GPU time and the most draws, writes JSON and compares p50 and p99 with
-  the baseline (exit 1 when more than 10 % slower or when a frame allocated). `just forest-bench` runs it at
-  1920 × 1080 against `Examples/Forest/benchmark-baseline.json`.
+- `--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]] [--trace file.json]`:
+  `ForestBenchmark` waits 240 frames, then a camera flies the 15-point `ForestBenchmark.Spline` (low through the glade,
+  past the fall, over the pine canopy, down to the pond and back to the trailhead) for n frames (default 1 800); it
+  prints p50/p90/p99/p99.9/max of the wall-clock frame intervals, the sun shadows', SSAO's, the volumetric fog's and
+  auto exposure's GPU time and the most draws, writes JSON and compares p50 and p99 with the baseline (exit 1 when more
+  than 10 % slower or when a frame allocated). The [frame profiler](profiler.md) records the flight: the GPU columns
+  are its zones, and the JSON's `GpuZones` (every pass and post effect) and `CpuScopes` (the ten scopes with the most
+  self time) hold p50/p99 per zone or scope, read from its frames. `--trace file.json` also writes the flight as a
+  Chrome trace (Perfetto). `just forest-bench` runs it at 1920 × 1080 against `Examples/Forest/benchmark-baseline.json`
+  (its arguments are forwarded, `--trace` included).
 - `--shot`, `--view`, `--set`: [above](#reference-shots); `--resolution WxH` resizes the window to W × H pixels;
   `--scale s` sets the 3D render scale (ADR 0174; the project's is 0.75, `--scale 1` is native). A flag given twice
   takes its last value, so `just forest-bench --resolution 2560x1440 --scale 1` overrides the script's defaults.

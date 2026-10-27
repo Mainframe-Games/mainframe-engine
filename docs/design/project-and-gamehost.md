@@ -222,6 +222,9 @@ does not load), 2 (bad command line).
 | `--record <file.mp4>` | record gameplay (live; offline with `--fixed-fps`) with the user's ffmpeg and write `file.mp4.mfcap.json`; starts on the first update, so loading is recorded; implies frame capture; rejected with `--headless` ([Gameplay recording](recording.md)) |
 | `--record-scale <n>` | fixed content scale for the recording (a 1920×1080-point window at 2 is 4K, if the display can hold it) |
 | `--ffmpeg <path>` | the ffmpeg to record with (else `MAINFRAME_FFMPEG`, `PATH`, common install folders) |
+| `--profile` | the [frame profiler](profiler.md) records from the first frame (`ProfilerOptions.RecordFromStart`) |
+| `--profile-trace <file.json>` | record, and write a Chrome trace (Perfetto) on exit, or after `--profile-frames` frames and then quit ([Profiler → Trace export](profiler.md#trace-export)) |
+| `--profile-frames <n>` | loaded frames the trace keeps (loading frames excluded, like `--max-frames`); needs `--profile-trace` (a bad command line without it) |
 | `++ …` | everything after `++` is the game's (`GameHost.UserArgs`, Godot's `OS.get_cmdline_user_args`), never parsed by the host |
 
 Anything else before `++` is left in `GameHostOptions.Remaining` for the game. `GameHost.IsDebugBuild` is true when the
@@ -237,6 +240,11 @@ delta discarded (`Engine.DiscardFrameDelta`, so start-up time never reaches the 
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
 `Tree.ChangeSceneToFile(--scene ?? mainScene)` — or, by default, `GameSession.StartAsync` (below). Each frame
 `GameSession.Update` applies editor commands and reports status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the editor and render-test host do).
+
+The profiler's settings are `EngineOptions.Profiler` (`ProfilerOptions`: `RecordFromStart`, `GpuTimings`,
+`DetailedGpuZones`, `HistoryFrames`, `EventCapacity`, `MaxGpuZones`, `SpikeSlots`, `TrackAllocations`, `AudioThread`;
+[Profiler → Options](profiler.md#options)). The `--profile*` flags set `RecordFromStart` and grow `HistoryFrames` and
+`EventCapacity` to hold the trace's frames.
 
 ### Async loading and the loading screen (ADR 0183)
 
@@ -283,6 +291,8 @@ heard). It runs the same
 and `--max-frames` apply. Ctrl+C / SIGTERM raise `SceneTree.CloseRequested` (the game's chance to save), then quit.
 `GameHost.IsHeadless` tells game code (Godot's `DisplayServer.get_name() == "headless"`). `UiLayer`s warn and load
 nothing; `UiDocument.CreateDataModel` throws, so UI nodes check `IsHeadless` first.
+Each `HeadlessHost.Step` is one profiler frame (CPU lanes and counters, no GPU zones), so `--profile` and
+`--profile-trace` work on dedicated servers too.
 
 ### UI hot reload
 
@@ -544,16 +554,17 @@ sequenceDiagram
     G->>E: Hello (protocol, pid, project, engine version)
     loop while running
         G-->>E: Log entries · Status (state, frame, fps, scene) every 0.5 s and on change
-        E-->>G: Command: Stop · Pause · Resume · ReloadScene [scene] · Ping · RequestTree · StartRecording [path] · StopRecording
+        E-->>G: Command: Stop · Pause · Resume · ReloadScene [scene] · Ping · RequestTree · StartRecording [path] · StopRecording · ProfilerStart [args] · ProfilerStop
         G-->>E: Tree (on RequestTree: depth-first nodes)
         G-->>E: Recording (Started · Stopped · Failed)
+        G-->>E: ProfileMarkers · ProfileFrame · ProfileDropped (between ProfilerStart and ProfilerStop)
     end
     G->>E: Status Stopping · Goodbye (exit code)
 ```
 
 - **Wire format** (`EditorLinkProtocol`): `u32 length` (type byte + payload, ≤ 1 MiB) · `u8 type` · payload,
   little-endian; strings `u32` byte count + UTF-8 (strict). Oversized log text is truncated to fit. A malformed frame
-  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome, version 4 the recording commands and message, version 5 the crash report).
+  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome, version 4 the recording commands and message, version 5 the crash report and the profiler messages and commands).
 - **Game side** (`EditorLinkClient`): a background thread connects (and reconnects with back-off when the editor goes
   away), sends a hello per connection and waits for the editor's welcome; only then does the connection count
   (`IsConnected`, `ConnectionCount`) and drain queued logs (batched up to 64 KB), the latest status and the goodbye.
@@ -590,6 +601,12 @@ sequenceDiagram
   `GameSession` registers an `EditorLinkCrashSink` while the link is up; on the way down it waits up to 1 s for the link
   (a crash in the first frames can beat the connection) and for the frame to be written after the queued logs, before
   the goodbye. The editor raises `PlayService.Crashed` once the process has exited.
+- **Profiler** (protocol version 5, [Profiler → Editor link messages](profiler.md#editor-link-messages)). Editor → game:
+  `ProfilerStart = 9` (argument `gpu=1;spike=33.3;freeze=0`) and `ProfilerStop = 10`. Game → editor: `ProfileMarkers = 10`,
+  `ProfileFrame = 11` and `ProfileDropped = 12`. `GameSession` starts a `ProfilerStreamer` that holds the profiler and,
+  each update, copies frames whose GPU zones have arrived into one of `EditorLinkClient.ProfileBlockCount` (8)
+  preallocated blocks; the link thread serialises them. With no free block the frame is dropped and counted: the game
+  never waits for the editor.
 - **Sockets inherited by child processes.** macOS has no `SOCK_CLOEXEC`/`accept4`: .NET calls `socket()`/`accept()`
   and then sets `FD_CLOEXEC` separately, and `Process.Start` forks, so a child started in between (the editor runs
   `dotnet build`, whose build servers outlive it, and games) holds the socket for its whole life. Two consequences
@@ -692,6 +709,7 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 | `ProjectServersTests`, `ProjectLocalizationTests` | a project file's gravity moves a body at its tick rate, `maxStepsPerFrame` reaches the tree, the referenced bus layout is the one the audio server mixes with; `defaultLocale` + fallbacks drive `Tr`, `--locale` overrides |
 | `GameUnloadLeakTests` | a game type with `[Export(Translatable)]` re-translated on a locale switch, and a game HUD (`UiDocument` data model, data event, element listener, a raw model never disposed) — with forgotten `Tr`/`SceneTree.LocaleChanged` subscriptions — unload and are **collected** with no UI frame in between |
 | `GameAssemblyLoaderTests`, `DebouncerTests` | Roslyn-compiled game assemblies: load → tick → save/load scenes with inline game resources → unload → **collected** → rebuild in place → reload with values kept; `MissingNode` round trip while unloaded; leak detection; private dependencies; build-output discovery; debounce and the real watcher |
+| `ProfilerCommandLineTests`, `ProfilerLinkTests` ([Profiling/](../../Tests/MainframeEngine.Tests/Profiling/)) | the `--profile*` flags record from the first frame, a headless run writes its trace after `--profile-frames` and quits; profiler messages and commands round-trip, an oversized frame keeps its shallowest depths, a slow link drops frames without the game waiting, a session streams between `ProfilerStart` and `ProfilerStop` |
 
 ## Known issues
 
@@ -705,4 +723,4 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 
 [Editor](editor.md) · [Engine lifecycle](engine-lifecycle.md) · [Cameras & input](cameras-and-input.md) ·
 [Scene serialization](scene-serialization.md) · [Distribution via NuGet](distribution-nuget.md) ·
-[Release](release.md) · [Testing](testing.md)
+[Release](release.md) · [Profiler](profiler.md) · [Testing](testing.md)

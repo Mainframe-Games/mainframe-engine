@@ -121,6 +121,20 @@ game-assembly load → unload → **GC-verified collection** → reload with Ros
 [Projects & GameHost → Testing](project-and-gamehost.md#testing). The `mfgame` template is built and run by CI's
 `template` job (`just template-smoke`).
 
+The frame profiler (G10) has its suites under [`Profiling/`](../../Tests/MainframeEngine.Tests/Profiling/), in the
+serial `SerialProfiler` collection because `Profiler` is process-wide: `ProfilerTests` (off records nothing; nesting
+with `Auto` and `Begin`/`End` mixed; unbalanced scopes closed and counted; `Acquire`/`Release` and `Paused`; the
+`AppContext` switch through `Profiler.ReadAvailability`; ring wrap and the history ring; a full thread ring drops and
+counts; background threads record once named and land in the frame they ended in; a released lane is reused; counter
+rules and GC counters; spikes survive a wrap and `FreezeOnSpike` waits for GPU data; literal and same-line markers;
+allocation tracking; self/total statistics), `ProfilerAllocationTests` (**0 bytes** recording frames of scopes on two
+threads with counters and spikes, and scopes while not recording), `ChromeTraceTests` (golden JSON, read back, a saved
+history parses), `ProfilerLinkTests` and `ProfilerCommandLineTests` (see
+[Projects & GameHost → Testing](project-and-gamehost.md#testing)). `Debugging/DevOverlayProfilerTests` (`SerialRmlUi`)
+check that the overlay section holds the profiler only while expanded and shown, refreshes at 0 B and saves a trace under
+the game's user data; the editor's `ProfilerPanelTests` are in [Editor → Testing](editor.md#testing-and-qa). See
+[Profiler → Testing](profiler.md#testing).
+
 The game UI (M8) has its own suites under [`UI/`](../../Tests/MainframeEngine.Tests/UI/), in the serial
 `SerialRmlUi` collection because RmlUi is process-global: `RmlBindingTests` (the managed binding against the real
 `mfrmlui`), `UiServerTests` (headless `UiServer` with `NullUiRenderer`: documents, layers, input routing, hot reload,
@@ -223,7 +237,11 @@ sequenceDiagram
   warmup:frames` (the `--perf` window on a CPU device such as lavapipe, which then quits after it: for tests that enforce
   timings only on a GPU), `--no-validation`,
   `--no-shadows` (every light's `CastsShadows` off), `--prepass` (`RenderServer.ForceDepthPrepass`), `--jitter` (the TAA
-  projection jitter without TAA) and `--velocity-view` (`RenderDebugView.Velocity`). Scene self-check failures are reported in
+  projection jitter without TAA), `--velocity-view` (`RenderDebugView.Velocity`), `--profile` (G10: the profiler records
+  from the first frame and the showcase expands the overlay's Profiler section; `ProfileProbe` puts `GpuZones` (average
+  ms per zone), `TopCpuScopes`, `GpuZoneOrder`, the read-back latency, `ProfiledFrames` and the profiler's unbalanced and
+  dropped counts in `result.json`: logged, not gated) and `--stream` (`gamehost`: streams profiler frames to an
+  editor-link server in the host process; `StreamedFrames`). Scene self-check failures are reported in
   `SceneCheckFailures`; `result.json` also records the Vulkan device type (`DeviceType`), GPU allocator totals, shader-module count and the
   pipeline-cache bytes loaded. The runner points `MAINFRAME_PIPELINE_CACHE_DIR` at
   `artifacts/render-tests/pipeline-cache`.
@@ -260,6 +278,12 @@ sequenceDiagram
   this one shows the Shadows panel, also across a resize),
   `ShadowsOfEveryLightTypeAllocateNothingPerFrame`, `CutoutMaterialsCastCutoutShadows`,
   `ShadowEdgesDoNotShimmerWhenTheCameraMoves`.
+- **Profiler GPU zones** (G10, both drivers): `ProfilerGpuZoneTests.TheShowcaseRecordsEveryPassAsAZoneReadBackTwoFramesLate`
+  (`--profile`, 150 frames) checks the pass-level zones in frame order (`Uploads`, `Shadows`, `Offscreen`, `Main pass`,
+  `UI offscreen`, `Tonemap`, `Overlay`), durations ≥ 0, the read-back exactly `MaxFramesInFlight` frames late, no
+  unbalanced scopes and a clean validation log (query resets outside render passes, debug labels); it skips on a device
+  without graphics-queue timestamps. Structure only, never durations; no goldens (the profiler draws nothing unless the
+  overlay shows it).
 - **Window.** 320×240 layout points, hidden (`--hidden`); the swapchain still presents on MoltenVK and Xvfb. On macOS a
   hidden window also makes the process a background app (`SDL_MAC_BACKGROUND_APP`, `MacBackgroundApp`): no Dock icon,
   never activated, so render tests, smoke tests and QA runs do not take focus from the app you are typing in. The host
@@ -368,7 +392,7 @@ Lavapipe output changes with the Mesa/LLVM version in the runner image (recorded
 | Gate | Rule | Where |
 |---|---|---|
 | Validation | 0 warnings and 0 errors from `VK_LAYER_KHRONOS_validation`, including teardown (leaks, in-use destruction) | every scene |
-| Allocation | 0 managed bytes (`GC.GetAllocatedBytesForCurrentThread`) over 300 frames after 120 warm-up frames, host run with `DOTNET_TieredCompilation=0` | `showcase` scene; `gamehost` run (a real `GameHost`, real audio device) |
+| Allocation | 0 managed bytes (`GC.GetAllocatedBytesForCurrentThread`) over 300 frames after 120 warm-up frames, host run with `DOTNET_TieredCompilation=0` | `showcase` scene, and again with `--profile` (`ShowcaseRecordingTheProfilerAllocatesNothing`: scopes on every engine path, GPU zones, counters, the overlay section's refresh; also 0 unbalanced scopes and 0 dropped events); `gamehost` run (a real `GameHost`, real audio device), and again with `--stream` (`GameHostStreamingProfilerFramesToTheEditorAllocatesNothing`) |
 
 The debug messenger listens to WARNING and ERROR only, with a static `[UnmanagedCallersOnly]` callback,
 and records into `IVulkanContext.Validation` (`VulkanValidationLog`: counters plus the first 64
@@ -442,7 +466,9 @@ alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurves
 `Step1kRigidBodies3D`, `Step1kRigidBodies2D`, `Raycast10k3D`; the game UI: `Update500Idle`,
 `Update500DirtyBindings`, `Relayout500`, `Render500Callbacks`; `LocalizationBenchmarks`: `Tr` hit/miss/context
 lookups, formatting, `TranslateMarkup`, locale switch; `ShadowSetupBenchmarks`: `PlanSunCascades`, `PlanEveryLightType`,
-`PackAtlasElevenTiles`) and compares with
+`PackAtlasElevenTiles`; `ProfilerBenchmarks` (G10): `ScopeOff` (the `AppContext` switch set, in its own process),
+`ScopeIdle`, `ScopeRecording`, `ScopeRecordingWithAllocations`, `CounterAdd`, `EndFrame500Events`, `GpuZoneOffCpuSide`,
+all 0 B) and compares with
 [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. A run fails too when a benchmark produces no result
 or nothing runs at all (a filter that matches nothing, a build failure), and `just bench-baseline` then writes

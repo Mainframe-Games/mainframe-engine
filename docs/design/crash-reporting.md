@@ -392,4 +392,4 @@ gate (`SceneTreeAllocationTests`) and the render tests' allocation gates stay at
 - [Mobile services](future/mobile-services.md#analytics-and-crash-reporting) (M13): layer 1, Sentry native SDKs
 - [Consoles](future/consoles.md): the plumbing checklist (no processes or HTTP in runtime code)
 - Gameplay toolkit siblings: [Save games and settings](future/save-and-settings.md) (G4: `UserSettings`),
-  [Game export](future/game-export.md) (G5: symbols), [Profiler](future/profiler.md) (G10: GPU zones per pass)
+  [Game export](future/game-export.md) (G5: symbols), [Profiler](profiler.md) (G10: GPU zones per pass)

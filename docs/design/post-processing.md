@@ -118,6 +118,13 @@ internal sealed class MyEffect() : PostEffect("my effect", PostStage.BeforeTonem
 - Never rewrite a descriptor set a frame in flight may bind: keep one set per source image (the `LdrInputSets` and
   `SceneColorCopy` pattern), and rewrite only in `OnResize` (device idle).
 - Per-frame code allocates nothing (no lambdas capturing state, no LINQ).
+- **GPU timing** (G10): `PostProcessStack.Record` wraps each enabled effect's `Record` in a profiler GPU zone named
+  after `PostEffect.Name` (`PostEffect.GpuMarker`: "ssao", "taa", "glow", "volumetric fog", …), so an effect needs no
+  timestamps of its own. `SsaoEffect`, `AutoExposure` and `VolumetricFogEffect.LastGpuMilliseconds` (and
+  `RenderServer.SsaoGpuMilliseconds`, `AutoExposureGpuMilliseconds`, `VolumetricFogGpuMilliseconds`) are read-throughs
+  to `GpuProfiler.LastMilliseconds` of that zone; it sums every view's zones of the frame (a sub-viewport's SSAO adds to
+  the main view's). Pass-level timing is on by default (`ProfilerOptions.GpuTimings`), so they report without anything
+  recording ([Profiler → GPU zones](profiler.md#gpu-zones)).
 
 ## Scene textures
 
@@ -620,4 +627,4 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 
 [Color pipeline](color-pipeline.md) · [Vulkan renderer](vulkan-renderer.md) · [Materials & meshes](materials-and-meshes.md) ·
 [Lighting](lighting.md) · [Rendering features (G6.6)](future/rendering-features.md#ssao) ·
-[Forest showcase (G8d.8)](future/forest-showcase.md#g8d8-taa)
+[Forest showcase (G8d.8)](future/forest-showcase.md#g8d8-taa) · [Profiler](profiler.md)

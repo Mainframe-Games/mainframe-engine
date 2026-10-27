@@ -257,11 +257,12 @@ public void RenderShadows(LightEnvironment lights, Action<…> draw2D, Action<�
 ```
 
 It is called from `RenderServer.RenderShadows` after `Engine.OnShadowPass`, with the command buffer open and no render
-pass active. Call it at most once per frame.
+pass active. Call it at most once per frame. Its GPU work is the profiler's `Shadows` zone (the shared
+`GpuProfiler` query pool, [Profiler → GPU zones](profiler.md#gpu-zones)); the system has no timestamp pool of its own.
 
 ```mermaid
 flowchart TD
-    A["GPU timestamp (start)"] --> B["Plan: passes, uniforms, atlas"]
+    A["GPU zone Shadows (open)"] --> B["Plan: passes, uniforms, atlas"]
     B --> C["cull(state, pass) for every pass"]
     C --> D["ApplyCulling: empty cascade/tile/cube → shadow off;<br/>a cube with any caster renders all 6 faces"]
     D --> E["EnsureMaps (create / re-create at the planned sizes)"]
@@ -269,7 +270,7 @@ flowchart TD
     F --> G["Cascade layers, cube faces: one render pass each"]
     G --> H["Atlas: one render pass, a viewport per tile"]
     H --> I["Barrier: → read-only (new maps that did not render are initialised)"]
-    I --> J["Write this slot's uniforms; rewrite its set if a map changed;<br/>GPU timestamp (end)"]
+    I --> J["Write this slot's uniforms; rewrite its set if a map changed;<br/>GPU zone Shadows (close)"]
 ```
 
 Before each pass's callback runs, the system:
@@ -451,7 +452,7 @@ Shadows are optional:
 | `ResolutionLimit` | 8192 | caps every map side (cascade layer, atlas tile, cube face); power of two |
 | `DepthBiasConstant`, `DepthBiasSlope` | 1.25, 1.75 | raster bias of 2D maps |
 | `PlannedPasses`, `RenderedPasses`, `Passes`, `PassRendered(i)` | — | the last frame's passes |
-| `LastCpuMilliseconds`, `LastGpuMilliseconds` | — | CPU time of `RenderShadows`; GPU time between two timestamps (read when the frame slot comes round) |
+| `LastCpuMilliseconds`, `LastGpuMilliseconds` | — | CPU time of `RenderShadows` (a `Stopwatch`, always measured); GPU time of the `Shadows` zone, a read-through to `GpuProfiler.LastMilliseconds` (read when the frame slot comes round; pass-level GPU timing is on by default, `ProfilerOptions.GpuTimings`) |
 | `CascadeResolution`, `AtlasSize`, `AtlasPackCount`, `MapMemoryBytes` | — | resources |
 
 The dev overlay's **Shadows** panel ([Developer overlay](dev-overlay.md)) shows:
@@ -501,7 +502,7 @@ Per-light settings live on `Light`, exported on `Light3D` and saved in scenes wh
 Measured on an Apple M5 (MoltenVK), Release, validation off, averaged over 600 frames (ranges over several runs on
 a machine shared with other work). Frames are capped at the 120 Hz display (8.33 ms) with or without shadows, so
 the shadow pass is timed directly. CPU is `RenderShadows` (planning, culling callbacks, recording); GPU is between
-the two timestamps:
+the two timestamps of the `Shadows` zone:
 
 | Scene | Passes | Shadow CPU | Shadow GPU |
 |---|---|---|---|
@@ -605,4 +606,4 @@ Before M4, 116 MiB was allocated whatever the lights.
 ## Related docs
 
 [Lighting](lighting.md) · [Shaders](shaders.md) · [Materials & meshes](materials-and-meshes.md) ·
-[GPU resources](gpu-resources.md) · [Coordinate conventions](coordinate-conventions.md)
+[GPU resources](gpu-resources.md) · [Profiler](profiler.md) · [Coordinate conventions](coordinate-conventions.md)

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The in-engine debug tools. The **dev overlay** (F12) is an RmlUi layer of collapsible panels that shows frame, renderer,
+The in-engine debug tools. The **dev overlay** (F12) is an RmlUi layer of collapsible panels that shows frame, profiler, renderer,
 shadow, GPU, audio, physics and network numbers and lets a game add its own panels. **Screen gizmos** are Vulkan-drawn
 screen-space shapes (light icons, the corner axes) that the overlay toggles. RmlUi is the engine's only UI stack: the
 former ImGui overlay is gone ([ADR 0115](../../memory/decisions/0115-remove-imgui.md)).
@@ -25,6 +25,7 @@ Files: [Debugging/DevOverlay/](../../MainframeEngine/Src/Debugging/DevOverlay/) 
 | Id | Title | Contents |
 |---|---|---|
 | `frame` | Frame | FPS, frame ms (average / min / max over the refresh window), frame counter, VSync toggle, UI draw calls |
+| `profiler` | Profiler | The [frame profiler](profiler.md#dev-overlay-section) (G10), **collapsed** by default: Pause, Save trace, a spike threshold slider (0–100 ms) and Freeze on spike, a 60-frame graph, the selected frame's CPU / GPU / wait ms, the top 5 CPU scopes and GPU zones, a counters line |
 | `renderer` | Renderer | Exposure slider and reset, colour pipeline description, mesh counters (draw calls, surfaces, instances, culled, pipeline and material binds, shadow and ID draws), resident meshes / materials / textures, pipeline cache |
 | `shadows` | Shadows | Cascade colours, stable cascades, filter and radius, pass and draw counters, map sizes and memory, CPU / GPU ms, and the shadow-map images (see below) |
 | `gpu` | GPU memory | Allocator totals and per-memory-type usage, staging ring, pending uploads, deletion queue, pipeline cache and shader modules |
@@ -58,8 +59,11 @@ public sealed class EnemyCounter : Node
 ```
 
 Use the overlay's classes (`dev-row`, `dev-heading`, `dev-button`, `dev-slider`, `v` for values; see `overlay.rcss`) and
-the shared widget library for controls. `DevOverlayPanel.Expanded` is the open state; `Dirty(name)` marks a bound value
-changed and does nothing until the panel is bound.
+the shared widget library for controls. `DevOverlayPanel.Expanded` is the open state and `ExpandedChanged` fires when
+it changes; `DevOverlay.VisibleChanged` fires when the overlay is shown or hidden. A panel that holds something only
+while someone looks (the Profiler section holds `Profiler.Acquire()` while it is expanded and the overlay visible, and
+releases it otherwise) listens to both. `Dirty(name)` marks a bound value changed and does nothing until the panel is
+bound.
 
 ### Refresh model
 
@@ -129,4 +133,4 @@ Physics panel's checkboxes drive the flags. Game code can draw its own shapes th
 ## Related docs
 
 [Game UI](game-ui.md) · [Engine lifecycle](engine-lifecycle.md) · [Color pipeline](color-pipeline.md) ·
-[Shadow system](shadow-system.md) · [Lighting](lighting.md) · [Testing](testing.md)
+[Shadow system](shadow-system.md) · [Lighting](lighting.md) · [Profiler](profiler.md) · [Testing](testing.md)

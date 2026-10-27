@@ -179,6 +179,41 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "ProfilerBenchmarks.CounterAdd",
+      "MeanNs": 1.714,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ProfilerBenchmarks.EndFrame500Events",
+      "MeanNs": 10209.512,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ProfilerBenchmarks.GpuZoneOffCpuSide",
+      "MeanNs": 0.249,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ProfilerBenchmarks.ScopeIdle",
+      "MeanNs": 0.326,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ProfilerBenchmarks.ScopeOff",
+      "MeanNs": 0.244,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ProfilerBenchmarks.ScopeRecording",
+      "MeanNs": 20.129,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "ProfilerBenchmarks.ScopeRecordingWithAllocations",
+      "MeanNs": 21.769,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "ReplicationBenchmarks.CaptureChanges([NodeCount=1000])",
       "MeanNs": 11598.159,
       "AllocatedBytes": 0

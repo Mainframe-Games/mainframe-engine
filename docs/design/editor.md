@@ -118,6 +118,7 @@ flowchart TB
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
 | Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`): level icon, time, category icon (subsystem; name in the tooltip), text, ×N for folded repeats, a link to the logging source line (opens `MAINFRAME_CODE_EDITOR`, VS Code or the system app). Header: per-level toggles with counts, filter field, Collapse Duplicates, Follow, Copy, Clear (filters and toggles persisted) |
+| Profiler | `profiler.rml` | The bottom dock's second tab (G10, [Profiler → Editor Profiler tab](profiler.md#editor-profiler-tab)): source picker (each running game, or the editor itself), Record, Pause, Clear, GPU zones, spike threshold and auto-freeze, Save / Open trace; a 240-bar frame graph, a timeline of the selection (Main, other threads, GPU), the scope table and the frame's counters |
 | File system | `filesystem.rml` | The project's files (Simplified: Assets and Scripts; or the whole folder) as a tree, list or thumbnail grid ([FileSystem panel](#filesystem-panel)) |
 | Splitters | `splitters.rml` | Four drag handles (left dock, right dock, output, scene tree / file system) |
 | Project Manager, New Project | `project_manager.rml`, `new_project.rml` | Layer 40 above the panels ([Projects](#projects)) |
@@ -135,6 +136,9 @@ flowchart TB
   dock widths, output height, scene tree share), clamped to minimums; each document body is positioned in dp. Sizes,
   the window size and the output filter persist in **`~/.mainframe/editor_layout.json`** (user profile on every OS,
   written atomically; unreadable, newer or nonsensical files fall back to defaults).
+- **Bottom dock tabs** (G10): the Output and Profiler panels share the output rectangle; an **Output | Profiler** tab
+  strip in each one's header switches them (`BottomDockTab`, `EditorWorkspace.ShowBottomTab`; the active tab persists
+  with the layout as `BottomTab`). There is no new layout rectangle.
 - **Lists are data-bound** (no work on idle frames); the inspector is generated RML updated in place (see below).
 - The F12 developer overlay ([Developer overlay](dev-overlay.md)) is off by default in the editor; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
 
@@ -752,6 +756,11 @@ link ([Project & game host](project-and-gamehost.md)).
   (`PlayService.RequestTree` → `PlayInstance.RemoteTree`). The root and its children start expanded; expand state is kept
   by node path across snapshots. With several instances a chip per instance picks whose tree is shown. When the last game
   stops the panel goes back to Local. QA: `remote on|off`, `remote pick <n>`, `remote toggle <name>`.
+- **Profiler** (G10, editor-link protocol 5): Record in the Profiler tab sends `ProfilerStart` (argument
+  `gpu=1;spike=33.3;freeze=0`) to the chosen instance (`PlayService.StartProfiler`) and `ProfilerStop` to end it; the game
+  streams `ProfileMarkers`, `ProfileFrame` and `ProfileDropped` messages, which `PlayService` hands to the panel. A game
+  built against an engine older than protocol 5 (`PlayInstance.CanProfile`) cannot stream, and Record says so. See
+  [Profiler → Editor link messages](profiler.md#editor-link-messages).
 
 ## UI preview
 
@@ -1206,12 +1215,19 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
   walkthrough also captures the update dialog (`update-preview X.Y.Z`, no network) and the Editor Settings dialog.
+  Profiler steps (G10): `profile tab|output|record|stop|pause|editor|slowest`, `profile save <file>` (into `--qa-out`)
+  and `wait-for profiled N [seconds]`; the walkthrough profiles the editor itself (it builds no game), captures
+  `27-profiler` and saves `27-profiler-trace.json`.
 - **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): the fixture recording opened,
   silence then idle detection, a tiny.en transcription (`video set whisper-model tiny.en`), undo of the idle cut,
   playback across a cut and the mode switch, each captured (`video-01-empty` … `video-08-game-mode`). `wait N` counts frames, so the long steps wait on conditions: `wait-for video-jobs
   [seconds]` (no waveform, silence, transcription or export job left on the active video tab) and `wait-for
   video-position <s> [seconds]` (its playhead has reached a time). Needs a display, ffmpeg and (once) the network; not run in CI. See
   [Video editing mode](video-editor.md#testing).
+- **Profiler tab** ([ProfilerPanelTests](../../Tests/MainframeEngine.Editor.Tests/ProfilerPanelTests.cs)): the bottom
+  dock switches between Output and Profiler; frames from a fake link fill the graph, table and counters and a click
+  selects one; Pause freezes the view and Clear empties it; a saved trace reopens with its frames; the editor profiles
+  itself; Record without a game does nothing; counter values are formatted by unit.
 - **Record QA** ([record.qa](../../Tests/QA/record.qa), `just qa-editor Tests/QA/record.qa`): F10 from idle and mid-session, and Stop (F8) while
   recording, with captures of the REC readout, the saving state and the saved dialogs. Needs a display and ffmpeg; not run in CI.
 - **README screenshots** (`just readme-screenshots`, [readme-screenshots.qa](../../Tests/QA/readme-screenshots.qa)):
@@ -1219,8 +1235,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   create dialog (`favorite`, `search`, `pick`), the sound designer and a song tab, video mode (`mode video`; the recipe
   first runs [build/readme-video-clip.sh](../../build/readme-video-clip.sh): an offline `--record` of the Demo's Physics
   2D scene with its audio replaced by a narration from `say` or `espeak-ng`; the QA script cuts its silences,
-  transcribes it with base.en, removes its fillers, then saves the edit with Save As so closing the tab asks nothing)
-  and a new game after a code reload while it plays, captured at 2x
+  transcribes it with base.en, removes its fillers, then saves the edit with Save As so closing the tab asks nothing),
+  the Profiler tab on the running MyGame (`editor-profiler`) and a new game after a code reload while it plays, captured at 2x
   (`--scale 2`, 3200×1920 px) and downscaled to 1600×960 into `docs/images/editor*.png` with ImageMagick. The scene is
   [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose
   game code the editor loads, so every node type resolves. Projects are opened from the
@@ -1273,4 +1289,4 @@ above (fewer leaves, more sky) the preview costs about 6 ms at Full (9.3 → 15.
 [Future: editor](future/editor.md) · [Video editing mode](video-editor.md) · [Project & game host](project-and-gamehost.md) · [Game UI](game-ui.md) ·
 [Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Scene serialization](scene-serialization.md) · [Materials & meshes](materials-and-meshes.md) · [Release](release.md) ·
-[Editor updates](editor-updates.md) · [Testing](testing.md)
+[Editor updates](editor-updates.md) · [Profiler](profiler.md) · [Testing](testing.md)

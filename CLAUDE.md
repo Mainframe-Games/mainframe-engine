@@ -129,13 +129,19 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   (`SteamworksLoader` loads this OS's shim build; see `docs/design/steamworks.md`)
 - `MainframeEngine/Src/Debugging/` — `Log` + `ILogSink` sinks (console, rotating file, memory ring); `DevOverlay/` — the F12 developer
   overlay (RmlUi panels; games add panels with `DevOverlay.AddPanel`; see `docs/design/dev-overlay.md`)
+- `MainframeEngine/Src/Debugging/Profiling/` — the G10 frame profiler: static `Profiler` (consumers via `Acquire`/`Release`;
+  `ProfilerMarker`/`ProfilerScope`/`ProfilerCounter`, 0 B recording; other threads record once `SetThreadName`d), history ring
+  + spikes (`ProfilerSnapshot`), trace export (`ChromeTraceWriter`, `--profile`/`--profile-trace`/`--profile-frames`),
+  `EngineMarkers`/`EngineCounters`; GPU zones in `Rendering/Vulkan/GpuProfiler.cs` (the one timestamp pool, debug-utils labels;
+  pass-level timing always on); the overlay's Profiler section (`DevOverlay/DevOverlayProfiler.cs`); the editor's Profiler tab
+  (`MainframeEngine.Editor/Src/UI/ProfilerPanel.cs`). See `docs/design/profiler.md`
 - `MainframeEngine/Src/Localization/` — `Tr` (gettext catalogs, locale switching), RML text contract, font fallback
 - `MainframeEngine/Src/Saves/` — G4 save games: `SaveServer` (slots, `.msave` header + payload, worker, durable writes with
   backups, recovery, thumbnails), `SaveSchema<T>` (game `JsonTypeInfo` + `JsonMigration`s; trim/AOT analyzers are errors
   here), `ISaveStorage`/`ICloudSaveBackend` (M13 seam). `Src/Serialization/` also holds `JsonMigrations`, `DurableFile`,
   `ConfigFile`; `Src/UI/Settings/` the drop-in `SettingsMenu`
 - `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `UserSettings` (`settings.json`), `GameHost`/`GameSession`, `GameAssemblyLoader`
-  (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol (version 4: includes `StartRecording`/`StopRecording` and the `Recording` message), client and server
+  (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol (version 5: includes `StartRecording`/`StopRecording` and the `Recording` message, and the profiler's `ProfilerStart`/`ProfilerStop` with `ProfileMarkers`/`ProfileFrame`/`ProfileDropped`; `ProfilerStreamer`), client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template, the `MainframeEngine.Templates` NuGet package
   (the editor ships a copy too; defaults to the `MainframeEngine` package of its own version, `--engine-source project`
   for a checkout; `build/template-smoke.sh`)
