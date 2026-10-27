@@ -273,6 +273,17 @@ wait 30
 move 800 500
 wait 10
 capture editor-game-project
+# 6b. The Profiler tab (G10) on the running MyGame: about 2 s streamed over the editor link, the slowest frame selected.
+profile tab
+profile record
+wait-for profiled 120 60
+profile slowest
+profile pause
+move 800 500
+wait 10
+capture editor-profiler
+profile stop
+profile output
 command play.stop
 wait-for stopped 30
 quit

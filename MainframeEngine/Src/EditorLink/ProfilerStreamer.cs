@@ -28,6 +28,9 @@ internal sealed class ProfileFrameBlock
 
     /// <summary>The marker registry's size when the frame was copied (the link sends the markers it has not yet).</summary>
     public int MarkerCount;
+
+    /// <summary>The counter registry's size when the frame was copied.</summary>
+    public int CounterRegistryCount;
 }
 
 /// <summary>
@@ -146,6 +149,7 @@ internal sealed class ProfilerStreamer(EditorLinkClient client) : IDisposable
         block.GpuMs = _gpu ? frame.GpuMs : float.NaN;
         block.Flags = (byte)((frame.IsSpike ? ProfileFrameBlock.SpikeFlag : 0) | (EncoderBoundaries ? ProfileFrameBlock.EncoderBoundariesFlag : 0));
         block.MarkerCount = Profiler.MarkerCount;
+        block.CounterRegistryCount = Profiler.CounterCount;
 
         block.CounterCount = Math.Min(Profiler.CounterCount, block.CounterIds.Length);
         for (var c = 0; c < block.CounterCount; c++)

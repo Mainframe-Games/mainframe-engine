@@ -310,6 +310,27 @@ public sealed class PlayService : IDisposable
         return !_disposed && SendTo(instance, new EditorLinkCommand(EditorCommandKind.RequestTree));
     }
 
+    /// <summary>
+    /// G10: asks <paramref name="instance"/> to stream profiler frames (<paramref name="argument"/>:
+    /// <c>gpu=1;spike=33.3;freeze=0</c>); false when not connected or the game's link predates the profiler
+    /// (<see cref="PlayInstance.CanProfile"/>). Frames arrive through <see cref="ProfileMessage"/>.
+    /// </summary>
+    public bool StartProfiler(PlayInstance instance, string argument)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return !_disposed && instance.CanProfile && SendTo(instance, new EditorLinkCommand(EditorCommandKind.ProfilerStart, argument ?? ""));
+    }
+
+    /// <summary>G10: stops <paramref name="instance"/>'s profiler stream.</summary>
+    public bool StopProfiler(PlayInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return !_disposed && instance.CanProfile && SendTo(instance, new EditorLinkCommand(EditorCommandKind.ProfilerStop));
+    }
+
+    /// <summary>G10: a profiler message from a game (<c>ProfileMarkers</c>, <c>ProfileFrame</c>, <c>ProfileDropped</c>), main thread.</summary>
+    public event Action<PlayInstance, EditorLinkMessage>? ProfileMessage;
+
     /// <summary>True while any instance is recording or saving a recording.</summary>
     public bool AnyRecording
     {
@@ -574,6 +595,10 @@ public sealed class PlayService : IDisposable
                 case EditorLinkMessageType.CrashReport:
                     if (_byGameId.TryGetValue(message.GameId, out var crasher))
                         OnCrashReport(crasher, message.CrashReport);
+                    break;
+                case EditorLinkMessageType.ProfileMarkers or EditorLinkMessageType.ProfileFrame or EditorLinkMessageType.ProfileDropped:
+                    if (_byGameId.TryGetValue(message.GameId, out var profiled))
+                        ProfileMessage?.Invoke(profiled, message);
                     break;
                 case EditorLinkMessageType.LogDropped:
                     if (_byGameId.TryGetValue(message.GameId, out var dropper))

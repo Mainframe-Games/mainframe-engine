@@ -1,0 +1,135 @@
+<rml>
+<head>
+    <title>Profiler</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        .panel-header .dock-tab:last-of-type { margin-right: 10dp; }
+        .tools { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
+        .sep { display: block; width: 1dp; height: 16dp; margin: 0dp 5dp; background-color: #3b3f4b; }
+        button.source { display: inline-flex; align-items: center; height: 20dp; line-height: 20dp; padding: 0dp 4dp 0dp 6dp;
+                        background-color: #1f2128; border-color: #2f333d; max-width: 220dp; overflow: hidden; }
+        button.source .label { margin: 0dp 4dp 0dp 5dp; white-space: nowrap; }
+        button.tool-button.record .icon { image-color: #f87171; }
+        button.tool-button.record.active { background-color: #4a1d1d; border-color: #7f2a2a; }
+        .spike-icon { margin-left: 2dp; image-color: #fbbf24; }
+        #profiler-spike { width: 42dp; height: 20dp; margin-left: 3dp; padding: 2dp 4dp; font-size: 11dp; }
+        .stat { flex: 1 1 auto; text-align: right; color: #8b93a5; font-family: "Roboto Mono"; font-size: 11dp; white-space: nowrap; }
+        .stat .v { color: #c9cedb; }
+        .stat .warn { color: #fbbf24; }
+        .profiler-body { display: flex; flex-direction: column; padding: 0dp; overflow: hidden; }
+        .graph { position: relative; display: flex; flex-direction: row; align-items: flex-end; flex: 0 0 auto; height: 68dp;
+                 padding: 2dp 6dp 0dp 6dp; background-color: #191b21; border-bottom: 1dp #2f333d; }
+        .budget { position: absolute; left: 0dp; right: 0dp; height: 1dp; }
+        .budget.b60 { bottom: 32dp; background-color: #fbbf2444; }
+        .budget.b30 { bottom: 64dp; background-color: #f8717144; }
+        .bar { position: relative; flex: 1 1 auto; width: 1dp; margin-right: 1dp; background-color: #22c55e; cursor: pointer; }
+        .bar:hover { background-color: #4ade80; }
+        .bar.over { background-color: #fbbf24; }
+        .bar.spike { background-color: #ef4444; }
+        .bar.selected { background-color: #60a5fa; }
+        .gpu-mark { position: absolute; left: 0dp; right: 0dp; height: 2dp; background-color: #e8ebf2; }
+        .empty { display: block; padding: 10dp 12dp; color: #5f6676; font-size: 12dp; }
+        .split { display: flex; flex-direction: row; flex: 1 1 auto; overflow: hidden; }
+        .timeline-scroll { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; border-right: 1dp #2f333d; }
+        .timeline { position: relative; min-height: 100%; cursor: move; }
+        .lane { position: absolute; left: 4dp; height: 14dp; line-height: 14dp; color: #6b7488; font-size: 10dp; white-space: nowrap; }
+        .ev { position: absolute; height: 14dp; line-height: 14dp; padding-left: 3dp; overflow: hidden; white-space: nowrap;
+              font-size: 10dp; color: #0f1115; border-right: 1dp #191b21; }
+        .ev.cat-engine { background-color: #8c99b3; }
+        .ev.cat-script { background-color: #60a5fa; }
+        .ev.cat-physics { background-color: #fb9e40; }
+        .ev.cat-render { background-color: #4dd180; }
+        .ev.cat-ui { background-color: #bf85fa; }
+        .ev.cat-audio { background-color: #fad14d; }
+        .ev.cat-loading { background-color: #66d9d9; }
+        .ev.cat-network { background-color: #fa739e; }
+        .ev.cat-game { background-color: #d9d9d9; }
+        .ev.gpu { opacity: 0.85; }
+        .ev:hover { color: #ffffff; background-color: #3b82f6; }
+        .side { display: flex; flex-direction: column; flex: 0 0 auto; width: 46%; overflow: hidden; }
+        .table-head, .row { display: flex; flex-direction: row; align-items: center; height: 17dp; line-height: 17dp;
+                            padding: 0dp 6dp; font-family: "Roboto Mono"; font-size: 11dp; }
+        .table-head { flex: 0 0 auto; color: #8b93a5; background-color: #262931; border-bottom: 1dp #2f333d; }
+        .table-head span { cursor: pointer; }
+        .table-head span:hover { color: #e8ebf2; }
+        .table-head span.sorted { color: #e8ebf2; }
+        .rows { flex: 1 1 auto; overflow-y: auto; }
+        .row { color: #c9cedb; }
+        .row:hover { background-color: #23262e; }
+        .row.gpu .name { color: #86efac; }
+        .name { flex: 1 1 auto; overflow: hidden; white-space: nowrap; }
+        .num { flex: 0 0 auto; width: 54dp; text-align: right; }
+        .num.calls { width: 40dp; }
+        .source-link { flex: 0 0 auto; width: 14dp; }
+        .source-link .icon { image-color: #4b5263; }
+        .row:hover .source-link .icon { image-color: #8b93a5; }
+        .counters { flex: 0 0 auto; max-height: 40%; overflow-y: auto; border-top: 1dp #2f333d; padding: 2dp 0dp; }
+        .counter { display: flex; flex-direction: row; padding: 0dp 6dp; height: 15dp; line-height: 15dp; font-size: 11dp; }
+        .counter .cname { flex: 1 1 auto; color: #8b93a5; }
+        .counter .cvalue { color: #c9cedb; font-family: "Roboto Mono"; }
+    </style>
+</head>
+<body class="panel-doc" data-model="profiler">
+    <div class="panel-header">
+        <button class="dock-tab" id="dock-tab-output" data-event-click="tab(0)" data-tooltip="Output — the editor's and the running games' log"><span class="icon icon-sm icon-terminal-2"></span>Output</button>
+        <button class="dock-tab active" id="dock-tab-profiler" data-tooltip="Profiler — frame times, scopes and GPU zones of a running game or the editor"><span class="icon icon-sm icon-activity"></span>Profiler</button>
+        <div class="tools">
+            <button class="source" id="profiler-source" data-event-click="source()" data-tooltip="Source — the running game to profile, or the editor itself"><span class="icon icon-sm icon-device-gamepad-2"></span><span class="label">{{source}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
+            <button class="tool-button small record" id="profiler-record" data-class-active="recording" data-class-disabled="!can_record" data-event-click="record()" data-attr-data-tooltip="record_tip"><span class="icon icon-sm icon-circle-dot"></span></button>
+            <button class="tool-button small" id="profiler-pause" data-class-active="paused" data-event-click="pause()" data-tooltip="Pause — freeze the view (the game keeps running)"><span class="icon icon-sm icon-player-pause"></span></button>
+            <button class="tool-button small" id="profiler-clear" data-event-click="clear()" data-tooltip="Clear — drop every received frame"><span class="icon icon-sm icon-trash"></span></button>
+            <span class="sep"></span>
+            <button class="tool-button small" id="profiler-gpu" data-class-active="gpu" data-event-click="gpu()" data-tooltip="GPU zones — send the passes' GPU timings with each frame"><span class="icon icon-sm icon-cpu"></span></button>
+            <span class="icon icon-sm icon-bolt spike-icon"></span>
+            <input type="text" class="text" id="profiler-spike" data-value="spike" data-tooltip="Spike threshold (ms) — frames slower than this are kept as spikes; 0 = off"/>
+            <button class="tool-button small" id="profiler-freeze" data-class-active="freeze" data-event-click="freeze()" data-tooltip="Auto-freeze — pause the game's profiler and this view when a spike is captured"><span class="icon icon-sm icon-lock"></span></button>
+            <span class="sep"></span>
+            <button class="tool-button small" id="profiler-save" data-event-click="save()" data-tooltip="Save trace — write the frames (or the selected range) as a Chrome trace for Perfetto"><span class="icon icon-sm icon-device-floppy"></span></button>
+            <button class="tool-button small" id="profiler-open" data-event-click="open()" data-tooltip="Open trace — load a .json trace written by the profiler"><span class="icon icon-sm icon-file"></span></button>
+            <span class="stat">frame <span class="v">{{frame}}</span> · CPU <span class="v">{{cpu_ms | format(2)}}</span> · GPU <span class="v">{{gpu_ms | format(2)}}</span> · wait <span class="v">{{wait_ms | format(2)}}</span> ms<span class="warn" data-if="dropped > 0"> · {{dropped}} dropped</span></span>
+        </div>
+    </div>
+    <div class="panel-body profiler-body">
+        <div class="graph" id="profiler-graph">
+            <div class="budget b60"></div>
+            <div class="budget b30"></div>
+            <div data-for="b : bars" data-attr-class="b.css" data-style-height="b.h + 'dp'" data-attr-data-tooltip="b.tip" data-event-click="pick(b.index)"><div class="gpu-mark" data-if="b.g > 0" data-style-bottom="(b.g - 1) + 'dp'"></div></div>
+            <div class="empty" data-if="!has_frames">Press Record to stream frames from a running game (or pick Editor as the source).</div>
+        </div>
+        <div class="split">
+            <div class="timeline-scroll">
+                <div class="timeline" id="profiler-timeline" data-style-height="timeline_height + 'dp'">
+                    <div class="lane" data-for="l : lanes" data-style-top="l.top + 'dp'">{{l.name}}</div>
+                    <div data-for="e : events" data-attr-class="e.css" data-style-left="e.left + '%'" data-style-width="e.width + '%'" data-style-top="e.top + 'dp'" data-attr-data-tooltip="e.tip">{{e.label}}</div>
+                </div>
+            </div>
+            <div class="side">
+                <div class="table-head">
+                    <span class="name" data-class-sorted="sort == 5" data-event-click="sort(5)" data-tooltip="Sort by name">Scope</span>
+                    <span class="num calls" data-class-sorted="sort == 2" data-event-click="sort(2)" data-tooltip="Calls per frame">Calls</span>
+                    <span class="num" data-class-sorted="sort == 0" data-event-click="sort(0)" data-tooltip="Self ms per frame (without child scopes)">Self</span>
+                    <span class="num" data-class-sorted="sort == 1" data-event-click="sort(1)" data-tooltip="Total ms per frame">Total</span>
+                    <span class="num" data-class-sorted="sort == 3" data-event-click="sort(3)" data-tooltip="Longest single call, ms">Max</span>
+                    <span class="num" data-class-sorted="sort == 4" data-event-click="sort(4)" data-tooltip="Managed KiB allocated per frame (with allocation tracking)">Alloc</span>
+                    <span class="source-link"></span>
+                </div>
+                <div class="rows" id="profiler-rows">
+                    <div data-for="r, i : rows" class="row" data-class-gpu="r.gpu" data-event-dblclick="open_source(i)">
+                        <span class="name">{{r.name}}</span>
+                        <span class="num calls">{{r.calls}}</span>
+                        <span class="num">{{r.self | format(3)}}</span>
+                        <span class="num">{{r.total | format(3)}}</span>
+                        <span class="num">{{r.max | format(3)}}</span>
+                        <span class="num">{{r.alloc | format(1)}}</span>
+                        <span class="source-link"><span class="icon icon-sm icon-file-code" data-if="r.source" data-tooltip="Double-click the row to open the marker's source line"></span></span>
+                    </div>
+                </div>
+                <div class="counters">
+                    <div class="counter" data-for="c : counters"><span class="cname">{{c.name}}</span><span class="cvalue">{{c.value}}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</rml>

@@ -239,7 +239,8 @@ public readonly record struct EditorLinkCrashReport(string Json, string Folder);
 /// <item>Welcome: <c>i32 protocol</c></item>
 /// <item>Recording: <c>u8 state, str path, f32 elapsed s, i64 dropped, i64 duplicated, str error</c></item>
 /// <item>CrashReport: <c>str reportJson, str bundleFolder</c></item>
-/// <item>ProfileMarkers: <c>u16 count, count × (u16 id, u8 category, u8 kind, str name, str file, i32 line)</c></item>
+/// <item>ProfileMarkers: <c>u16 count, count × (u16 id, u8 category, u8 kind, str name, str file, i32 line)</c>; counters are
+/// entries of kind Counter (their own id space; line = unit)</item>
 /// <item>ProfileFrame: <c>u64 frame, i64 startTicks, i64 endTicks, i64 tickFrequency, f32 cpuMs, f32 waitMs, f32 gpuMs, u8 flags
 /// (1 spike, 2 truncated, 4 encoder boundaries), u8 counters × (u16 id, i64 value), u16 threads × (u8 id, str name),
 /// u32 cpu × (u16 marker, u8 thread, u8 depth, i32 startUs, u32 durUs, i32 alloc), u16 gpu × (u16 marker, u8 depth, i32 startUs,
@@ -387,6 +388,28 @@ public static class EditorLinkProtocol
             w.String(marker.Name);
             w.String(marker.File);
             w.Int32(marker.Line);
+        }
+
+        w.Finish();
+    }
+
+    /// <summary>
+    /// Counters <paramref name="from"/> .. <paramref name="to"/> - 1 as a ProfileMarkers message (G10): entries of kind
+    /// <see cref="ProfilerMarkerKind.Counter"/> whose id is the counter's and whose line holds its <see cref="ProfilerCounterUnit"/>.
+    /// </summary>
+    internal static void WriteProfileCounters(ArrayBufferWriter<byte> output, int from, int to)
+    {
+        var w = new FrameWriter(output, EditorLinkMessageType.ProfileMarkers);
+        w.UInt16((ushort)(to - from));
+        for (var id = from; id < to; id++)
+        {
+            var counter = Profiler.CounterAt((ushort)id);
+            w.UInt16((ushort)id);
+            w.Byte((byte)ProfilerCategory.Engine);
+            w.Byte((byte)ProfilerMarkerKind.Counter);
+            w.String(counter.Name);
+            w.String("");
+            w.Int32((int)counter.Unit);
         }
 
         w.Finish();

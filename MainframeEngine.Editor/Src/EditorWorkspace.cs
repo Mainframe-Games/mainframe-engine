@@ -233,6 +233,19 @@ public sealed partial class EditorWorkspace : Node
     public InspectorPanel Inspector { get; private set; } = null!;
     public OutputPanel OutputPanel { get; private set; } = null!;
 
+    /// <summary>The bottom dock's Profiler tab (G10).</summary>
+    public ProfilerPanel ProfilerPanel { get; private set; } = null!;
+
+    /// <summary>The bottom dock's active tab (Output or Profiler; kept with the layout).</summary>
+    public BottomDockTab BottomTab => Layout.Settings.BottomTab == (int)BottomDockTab.Profiler ? BottomDockTab.Profiler : BottomDockTab.Output;
+
+    /// <summary>Shows <paramref name="tab"/> in the bottom dock.</summary>
+    public void ShowBottomTab(BottomDockTab tab)
+    {
+        Layout.SetBottomTab(tab);
+        ApplyModePanels();
+    }
+
     /// <summary>The song tab's chrome (transport, track headers, mixer), shown over the view while a song tab is active.</summary>
     public SongPanel SongPanel { get; private set; } = null!;
 
@@ -307,6 +320,7 @@ public sealed partial class EditorWorkspace : Node
         ViewportPanel = new ViewportPanel(this) { Name = "Viewport" };
         Inspector = new InspectorPanel(this) { Name = "Inspector" };
         OutputPanel = new OutputPanel(this) { Name = "Output" };
+        ProfilerPanel = new ProfilerPanel(this) { Name = "Profiler", Visible = false };
         SongPanel = new SongPanel(this) { Name = "Song" };
         VideoPanel = new VideoPanel(this) { Name = "Video" };
         Splitters = new SplittersOverlay(this) { Name = "Splitters" };
@@ -321,6 +335,7 @@ public sealed partial class EditorWorkspace : Node
         PanelLayer.AddChild(FileSystem);
         PanelLayer.AddChild(Inspector);
         PanelLayer.AddChild(OutputPanel);
+        PanelLayer.AddChild(ProfilerPanel);
         PanelLayer.AddChild(Splitters);
         PanelLayer.AddChild(SynthWindow); // floats over the song view
         PanelLayer.AddChild(PluginWindow); // over the synth (its FX open from it)
@@ -481,6 +496,7 @@ public sealed partial class EditorWorkspace : Node
             Updates?.Dispose();
             AudioPreview.Stop();
             Midi.Dispose();
+            ProfilerPanel?.Shutdown();
             Play.Dispose();
             Session.Dispose();
             Project.Dispose();
@@ -503,6 +519,7 @@ public sealed partial class EditorWorkspace : Node
         if (Output.Drain())
             OutputPanel.Refresh();
         OutputPanel.Tick();
+        ProfilerPanel.Tick(gameTime.DeltaTime);
         TreePicker.Tick();
         EditorSettingsDialog.Tick();
         Tooltips?.Tick(gameTime.DeltaTime);
@@ -546,6 +563,7 @@ public sealed partial class EditorWorkspace : Node
         VideoPanel.SetRect(Layout.ViewportImage);
         Place(Inspector, Layout.Inspector);
         Place(OutputPanel, Layout.Output);
+        Place(ProfilerPanel, Layout.Output); // the bottom dock's other tab
         Splitters.Apply(Layout);
     }
 
@@ -739,10 +757,16 @@ public sealed partial class EditorWorkspace : Node
         else
             SongPanel.HideAndReleaseFocus();
 
-        if (Layout.ShowsOutput)
+        // The bottom dock shows one tab: Output or Profiler (G10).
+        var profiler = BottomTab == BottomDockTab.Profiler;
+        if (Layout.ShowsOutput && !profiler)
             OutputPanel.Visible = true;
         else
             OutputPanel.HideAndReleaseFocus();
+        if (Layout.ShowsOutput && profiler)
+            ProfilerPanel.Visible = true;
+        else
+            ProfilerPanel.HideAndReleaseFocus();
     }
 
     // The mode's remembered tab when it is still open, else its first open tab; no tab of the mode leaves none active.

@@ -142,7 +142,8 @@ public sealed class OutputPanel : EditorDocument
             .Event("crash_frame", e => OpenCrashFrame(e.GetArgument(0).GetInt32(), e.GetArgument(1).GetInt32()))
             .Event("crash_folder", e => OpenCrashFolder(e.GetArgument(0).GetInt32()))
             .Event("crash_copy", e => CopyCrash(e.GetArgument(0).GetInt32()))
-            .Event("crash_dump", e => OpenCrashDump(e.GetArgument(0).GetInt32()));
+            .Event("crash_dump", e => OpenCrashDump(e.GetArgument(0).GetInt32()))
+            .Event("tab", e => Workspace.ShowBottomTab((BottomDockTab)e.GetArgument(0).GetInt32()));
         Refresh();
     }
 

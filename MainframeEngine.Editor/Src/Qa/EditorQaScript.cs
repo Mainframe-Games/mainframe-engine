@@ -53,6 +53,10 @@ namespace MainframeEngine.Editor;
 /// box-select x0 y0 x1 y1 [shift|cmd] [hold]   # a selection rectangle; hold keeps the button down until mouse-up (G7.4)
 /// mouse-up / lock Node/Path   # releases a held box; toggles a node's viewport lock (G7.4)
 /// simulate start|pause|stop|keep        # Simulate in the view (G7.5)
+/// profile tab|output|record|stop|pause|editor|slowest   # the Profiler tab (G10): show it or Output, Record from the
+///                             # running game (or the editor), stop, pause, profile the editor, select the slowest frame
+/// profile save file.json      # writes the Profiler tab's frames (else the editor's own history) as a trace into --qa-out
+/// wait-for profiled 120 [seconds]       # until the Profiler tab holds 120 frames
 /// quit
 /// </code>
 /// </summary>
@@ -354,6 +358,9 @@ public sealed class EditorQaScript : IEditorAutomation
                 _pendingCapture = step.Length > 1 ? step[1] : $"frame{_index}";
                 app.CaptureFrame();
                 break;
+            case "profile":
+                Profile(workspace, step);
+                break;
             case "log":
                 Log.Info($"[QA] {string.Join(' ', step[1..])}");
                 break;
@@ -441,6 +448,15 @@ public sealed class EditorQaScript : IEditorAutomation
                 {
                     var position = Float(step, 2);
                     _waitFor = w => VideoPositionReached(w.Session.ActiveTab as Video.VideoTab, position);
+                    _waitForDeadline = step.Length > 3 ? Float(step, 3) : 120;
+                    _waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
+                    break;
+                }
+
+            case "wait-for" when step.Length > 2 && step[1] == "profiled":
+                {
+                    var frames = Int(step, 2, 1);
+                    _waitFor = w => w.ProfilerPanel.Capture.Count >= frames;
                     _waitForDeadline = step.Length > 3 ? Float(step, 3) : 120;
                     _waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
                     break;
@@ -839,6 +855,49 @@ public sealed class EditorQaScript : IEditorAutomation
         "middle" => MouseButton.Middle,
         _ => MouseButton.Left,
     };
+
+    // profile tab|output|record|stop|pause|editor|slowest · profile save <file> (G10).
+    private void Profile(EditorWorkspace workspace, string[] step)
+    {
+        var panel = workspace.ProfilerPanel;
+        switch (step.Length > 1 ? step[1] : "")
+        {
+            case "tab":
+                workspace.ShowBottomTab(BottomDockTab.Profiler);
+                break;
+            case "output":
+                workspace.ShowBottomTab(BottomDockTab.Output);
+                break;
+            case "record" when !panel.IsRecording:
+            case "stop" when panel.IsRecording:
+                panel.ToggleRecord();
+                break;
+            case "pause":
+                panel.SetPaused(!panel.IsPaused);
+                break;
+            case "editor":
+                panel.SelectEditorSource();
+                break;
+            case "slowest":
+                panel.PickSlowest();
+                break;
+            case "save" when step.Length > 2:
+                {
+                    var path = Path.IsPathRooted(step[2]) ? step[2] : Path.Combine(_outputDirectory, step[2]);
+                    if (panel.Capture.Count > 0)
+                        panel.SaveTrace(path);
+                    else
+                        Profiler.SaveTraceAsync(path, title: "Mainframe Editor").Wait();
+                    Log.Info($"[QA] profile saved {path}");
+                    break;
+                }
+
+            case "record" or "stop":
+                break;
+            default:
+                throw new ArgumentException("profile tab|output|record|stop|pause|editor|slowest|save <file>");
+        }
+    }
 
     private static float Float(string[] step, int at) => float.Parse(step[at], CultureInfo.InvariantCulture);
 

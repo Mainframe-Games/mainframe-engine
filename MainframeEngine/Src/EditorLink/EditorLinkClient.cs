@@ -68,6 +68,7 @@ public sealed class EditorLinkClient : IDisposable
     private long _profileDropped;
     private long _profileDroppedTotal;
     private int _markersSent;
+    private int _countersSent;
     private readonly bool[] _threadsSent = new bool[256];
 
     public EditorLinkClient(int port, EditorLinkHello hello, int queueCapacity = 4096)
@@ -247,6 +248,12 @@ public sealed class EditorLinkClient : IDisposable
                     _markersSent = block.MarkerCount;
                 }
 
+                if (block.CounterRegistryCount > _countersSent)
+                {
+                    EditorLinkProtocol.WriteProfileCounters(buffer, _countersSent, block.CounterRegistryCount);
+                    _countersSent = block.CounterRegistryCount;
+                }
+
                 var threads = 0;
                 for (var i = 0; i < block.CpuCount; i++)
                 {
@@ -359,7 +366,8 @@ public sealed class EditorLinkClient : IDisposable
             if (!ReadWelcome(connection))
                 return false;
             welcomed = true;
-            _markersSent = 0; // a new editor connection learns every marker and thread name again
+            _markersSent = 0; // a new editor connection learns every marker, counter and thread name again
+            _countersSent = 0;
             Array.Clear(_threadsSent);
             Interlocked.Increment(ref _connectionCount);
             _connected = true;

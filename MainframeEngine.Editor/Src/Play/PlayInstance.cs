@@ -142,6 +142,9 @@ public sealed class PlayInstance
     /// <summary>Crashed with a link that may still deliver a report: wait until then before reporting without one.</summary>
     internal DateTime? CrashReportDeadlineUtc { get; set; }
 
+    /// <summary>The game's link streams profiler frames (G10: protocol <see cref="EditorLink.EditorLinkProtocol.ProfilerVersion"/> or later).</summary>
+    public bool CanProfile => ProtocolVersion >= EditorLink.EditorLinkProtocol.ProfilerVersion;
+
     internal IGameProcess? Process { get; set; }
 
     /// <summary>When the editor asked it to stop (null: never).</summary>
