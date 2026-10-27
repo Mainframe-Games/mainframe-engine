@@ -287,11 +287,17 @@ internal sealed class MeshGpu
     }
 }
 
-/// <summary>A <see cref="Texture2D"/> uploaded in one colour space; shared by the materials using it.</summary>
+/// <summary>
+/// A <see cref="Texture2D"/> uploaded in one colour space; shared by the materials using it. A viewport texture
+/// (<see cref="Texture2D.FromViewport"/>, ADR 0216) uploads nothing: <see cref="Gpu"/> borrows the sub-viewport's colour
+/// image, through an sRGB view for colour slots, and follows it across resizes.
+/// </summary>
 internal sealed class TextureGpu
 {
     private readonly IVulkanContext _ctx;
     private int _uploadedVersion;
+    private GpuImage? _viewportImage;  // the sub-viewport image Gpu borrows
+    private Sampler _viewportSampler;  // owned: the texture's sampling (import settings)
 
     public TextureGpu(IVulkanContext ctx, Texture2D texture, TextureColorSpace colorSpace)
     {
@@ -308,9 +314,14 @@ internal sealed class TextureGpu
     /// <summary>Bumped on every re-upload (materials rewrite their descriptor sets).</summary>
     public int Generation { get; private set; }
 
-    /// <summary>Uploads the texture if it changed. Returns false when it could not be decoded.</summary>
+    /// <summary>
+    /// Uploads the texture if it changed (a viewport texture: rebinds when the view's image changed). Returns false when
+    /// it could not be decoded (a viewport texture: the view has not drawn yet).
+    /// </summary>
     public bool Update()
     {
+        if (Texture.Viewport is { } viewport)
+            return UpdateViewport(viewport);
         var version = Texture.Version;
         if (version == _uploadedVersion)
             return Gpu is not null;
@@ -338,10 +349,48 @@ internal sealed class TextureGpu
         return Gpu is not null;
     }
 
+    // Checked every frame the material is prepared: allocation-free unless the image changed (first draw, resize).
+    private bool UpdateViewport(SubViewport viewport)
+    {
+        var image = ViewportImage(viewport);
+        var version = Texture.Version;
+        if (ReferenceEquals(image, _viewportImage) && version == _uploadedVersion)
+            return Gpu is not null;
+        if (version != _uploadedVersion && _viewportSampler.Handle != 0)
+        {
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(_viewportSampler)); // new import settings: a new sampler
+            _viewportSampler = default;
+        }
+
+        _uploadedVersion = version;
+        _viewportImage = image;
+        Generation++; // materials rewrite their sets; the old ones are freed after the frames in flight
+        Gpu = null;   // borrowed: nothing to dispose
+        if (image is null)
+            return false;
+        if (_viewportSampler.Handle == 0)
+            _viewportSampler = GpuTexture.CreateSampler(_ctx, Texture.ImportSettings.ToSampling(), 1);
+        // The targets hold sRGB-encoded values in UNORM images: colour slots decode them through an sRGB view.
+        var view = image.ViewAs(ColorSpace == TextureColorSpace.Srgb ? Format.R8G8B8A8Srgb : Format.R8G8B8A8Unorm);
+        Gpu = GpuTexture.Borrow(_ctx, image, view, _viewportSampler, ColorSpace);
+        return true;
+    }
+
+    // The image a material shows this frame: a 3D view's last finished LDR image (drawn before the scene pass, so this
+    // frame's), a 2D view's canvas target (drawn after it: the previous frame's). Null before the view's first frame.
+    private static GpuImage? ViewportImage(SubViewport viewport) =>
+        viewport.Disable3D
+            ? viewport.Tree?.Servers.Get<CanvasServer>()?.Renderer?.SampleSubViewport(viewport)
+            : viewport.Targets?.Presented;
+
     public void Release()
     {
         Gpu?.Dispose();
         Gpu = null;
+        _viewportImage = null;
+        if (_viewportSampler.Handle != 0)
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(_viewportSampler));
+        _viewportSampler = default;
     }
 }
 

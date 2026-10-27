@@ -32,20 +32,24 @@ public readonly record struct TextureSampling(Filter Filter, SamplerAddressMode 
 public sealed unsafe class GpuTexture : IDisposable
 {
     private readonly IVulkanContext _ctx;
+    private readonly bool _borrowed;
     private bool _disposed;
 
-    private GpuTexture(IVulkanContext ctx, GpuImage image, Sampler sampler, TextureColorSpace colorSpace)
+    private GpuTexture(IVulkanContext ctx, GpuImage image, Sampler sampler, TextureColorSpace colorSpace, ImageView view = default,
+        bool borrowed = false)
     {
         _ctx = ctx;
         Image = image;
         Sampler = sampler;
         ColorSpace = colorSpace;
+        View = view.Handle != 0 ? view : image.View;
+        _borrowed = borrowed;
     }
 
     public GpuImage Image { get; }
     public Sampler Sampler { get; }
     public TextureColorSpace ColorSpace { get; }
-    public ImageView View => Image.View;
+    public ImageView View { get; }
     public uint Width => Image.Width;
     public uint Height => Image.Height;
 
@@ -53,9 +57,17 @@ public sealed unsafe class GpuTexture : IDisposable
     public DescriptorImageInfo Descriptor => new()
     {
         Sampler = Sampler,
-        ImageView = Image.View,
+        ImageView = View,
         ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
     };
+
+    /// <summary>
+    /// A texture over someone else's image (a sub-viewport's colour target, ADR 0216): <paramref name="view"/> of
+    /// <paramref name="image"/> with <paramref name="sampler"/>, both owned by the caller; <see cref="Dispose"/> releases
+    /// nothing. The image must be in <c>SHADER_READ_ONLY_OPTIMAL</c> whenever a draw samples it.
+    /// </summary>
+    internal static GpuTexture Borrow(IVulkanContext ctx, GpuImage image, ImageView view, Sampler sampler, TextureColorSpace colorSpace) =>
+        new(ctx, image, sampler, colorSpace, view, borrowed: true);
 
     /// <summary>The 8-bit RGBA format for a colour space.</summary>
     public static Format FormatFor(TextureColorSpace colorSpace) =>
@@ -217,6 +229,8 @@ public sealed unsafe class GpuTexture : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        if (_borrowed)
+            return;
         _ctx.Deletions.Enqueue(GpuDeletion.Of(Sampler));
         Image.Dispose();
     }

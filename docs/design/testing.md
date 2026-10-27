@@ -178,7 +178,9 @@ sequenceDiagram
   Y-billboard, flipped and full-billboard sprites with their shadows; `--count 1`: billboards off, edge-on), `spatial-shaders`
   and `spatial-shaders-taa` (ADR 0205: Godot spatial shaders — a procedural ground, swaying multimesh stalks and shadows, a
   dissolve cutout from a `.mres`, a rim next pass and overlay; picks self-checked; the `.gdshader` SPIR-V in the host's
-  `Assets/Shaders`, `just canvas-shaders`), `label3d`
+  `Assets/Shaders`, `just canvas-shaders`), `viewport-material` (ADR 0216: a 2D sub-viewport's pattern and a 3D one's
+  camera view on unshaded albedo, emission and a spatial shader sampler, filled in only after both views resize; `--count 1`:
+  the view's box spins, the allocation run), `label3d`
   (ADR 0200: Snake Oil-style name tags behind a wall, one `NoDepthTest`; `--count 1`: depth-tested), `particles-campfire`
   and `particles-rain` (ADR 0206: additive flames and lit smoke with glow, `--count 1` glow off, `--count 2` TAA; 4,000
   rain streaks) and `particles-stress` (the #120 budget: `--alloc` and `--perf` only; [3D particles → tests](particles-3d.md#tests)), `polygon2d-skin` (ADR 0202:

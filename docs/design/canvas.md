@@ -108,6 +108,14 @@ cleared to transparent black with `TransparentBg` (else the canvas clear colour)
 backed by that target for `Sprite2D`/draw calls. `UpdateMode.Once` draws on the next frame then keeps the image;
 `Disabled` keeps it. A target unused for 600 frames, or whose view left the tree, is released.
 
+The texture also works on 3D materials (ADR 0216, [materials-and-meshes.md](materials-and-meshes.md#offscreen-views-subviewport)):
+the target is created `MUTABLE_FORMAT` so colour slots sample it through an sRGB view. The scene pass runs before the
+canvas passes, so a material shows the image drawn the frame before: the one target is sampled, then overwritten, in
+submission order (the canvas pass's incoming dependency waits for the fragment reads; its outgoing one and the barrier
+after it make the new image visible to the next frame), so no second target or copy is needed. Sampling from a material
+counts as use, so a disabled view's image stays while a screen shows it. The target holds premultiplied colour: give a
+view shown on a mesh an opaque clear colour.
+
 ## Particles
 
 `GpuParticles2D` + `ParticleProcessMaterial` (Godot's names): a CPU simulation of the subset 2D games use — box/sphere/

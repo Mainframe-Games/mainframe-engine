@@ -583,6 +583,7 @@ public sealed class RenderServer : IServer
         }
 
         targets.Capture?.Copy(cb, targets.Ldr!);
+        targets.Presented = targets.Ldr!.GetColor(0); // ADR 0216: what materials showing the view sample from now on
         targets.RenderCount++;
         if (sub.UpdateMode == SubViewportUpdateMode.Once)
             sub.UpdateMode = SubViewportUpdateMode.Disabled;

@@ -8,6 +8,12 @@ namespace MainframeEngine;
 /// <param name="Usage">Usage besides colour attachment (sampled, transfer source, ...).</param>
 public readonly record struct RenderTargetAttachment(Format Format, ImageLayout FinalLayout, ImageUsageFlags Usage)
 {
+    /// <summary>
+    /// Create the image with <c>MUTABLE_FORMAT</c>, so it can also be sampled through a view of the other half of its
+    /// sRGB/UNORM pair (<see cref="GpuImage.ViewAs"/>: a sub-viewport's colour on a 3D material, ADR 0216).
+    /// </summary>
+    public bool MutableFormat { get; init; }
+
     /// <summary>A colour attachment sampled by a later pass (post-processing, editor viewport).</summary>
     public static RenderTargetAttachment Sampled(Format format) =>
         new(format, ImageLayout.ShaderReadOnlyOptimal, ImageUsageFlags.SampledBit);
@@ -213,7 +219,10 @@ public sealed unsafe class RenderTarget : IDisposable, IPostTarget
         {
             var attachment = Description.ColorAttachments[i];
             _colors[i] = GpuImage.Create(_ctx, new GpuImageDesc(extent.Width, extent.Height, attachment.Format,
-                ImageUsageFlags.ColorAttachmentBit | attachment.Usage), dedicated: false);
+                ImageUsageFlags.ColorAttachmentBit | attachment.Usage)
+            {
+                Flags = attachment.MutableFormat ? ImageCreateFlags.CreateMutableFormatBit : 0,
+            }, dedicated: false);
             views[count++] = _colors[i].View;
         }
 

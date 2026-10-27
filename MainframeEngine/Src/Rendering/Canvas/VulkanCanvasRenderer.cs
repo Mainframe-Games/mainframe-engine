@@ -497,6 +497,20 @@ public sealed unsafe partial class VulkanCanvasRenderer : IOverlayRenderer, IDis
     private readonly List<SubViewport> _subEvict = [];
 
     /// <summary>
+    /// The 2D sub-viewport's colour target for a 3D material (ADR 0216), or null before its first pass: premultiplied gamma
+    /// values in <c>SHADER_READ_ONLY_OPTIMAL</c>. The scene pass runs before this renderer's passes, so it samples the
+    /// image drawn the frame before, which this frame's pass then overwrites (ordered by the pass's incoming dependency).
+    /// Keeps the target from being evicted while a material shows it.
+    /// </summary>
+    internal GpuImage? SampleSubViewport(SubViewport viewport)
+    {
+        if (!_subTargets.TryGetValue(viewport, out var target))
+            return null;
+        target.LastUsed = _ctx.FrameNumber;
+        return target.Image;
+    }
+
+    /// <summary>
     /// Drops the targets keyed by scene objects (2D sub-viewports, clip-children owners) so nothing here keeps them alive
     /// (the editor, before it unloads game code); they are recreated on the next frame that draws them.
     /// </summary>
@@ -550,8 +564,12 @@ public sealed unsafe partial class VulkanCanvasRenderer : IOverlayRenderer, IDis
     private SubTarget CreateSubTarget(Extent2D extent, ulong now)
     {
         var target = new SubTarget { Extent = extent, LastUsed = now, Generation = ++_subGeneration };
+        // Mutable: a 3D material samples a 2D sub-viewport through an sRGB view (ADR 0216).
         target.Image = GpuImage.Create(_ctx, new GpuImageDesc(extent.Width, extent.Height, LayerFormat,
-            ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit));
+            ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit)
+        {
+            Flags = ImageCreateFlags.CreateMutableFormatBit,
+        });
         var view = target.Image.View;
         var info = new FramebufferCreateInfo
         {
