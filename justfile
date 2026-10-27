@@ -158,6 +158,15 @@ neon *args:
 neon-test:
     dotnet test Examples/Neon/Neon.Tests
 
+# Neon's eight reference shots (N1–N8) into docs/images/neon (1920x1080 → 1600 px wide); display awake (caffeinate -u)
+neon-screenshots frames="240":
+    build/neon-screenshots.sh {{frames}}
+
+# Regenerate Neon's app icon from Examples/Neon/Brand/*.svg: PNGs, neon.ico, neon.icns and the window icon Assets/Brand/icon.png (needs inkscape; .icns needs macOS)
+neon-brand:
+    build/brand/app-icon.sh Examples/Neon/Brand neon
+    mkdir -p Examples/Neon/Assets/Brand && cp Examples/Neon/Brand/png/icon-256.png Examples/Neon/Assets/Brand/icon.png
+
 # Build Neon's apartment (Assets/Art/Apartment/apartment.gltf): the posters, then headless Blender from Tools/apartment/build_apartment.py, then .meta sidecars (textures: python3 Examples/Neon/Tools/fetch_assets.py; BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
 neon-art *args:
     python3 Examples/Neon/Tools/apartment/make_posters.py
@@ -203,6 +212,7 @@ publish-local rid="" version="0.0.0-local":
     build/package-editor.sh "$rid" "{{version}}" "{{artifacts}}/publish/$rid" "{{artifacts}}/release"
     build/package-example.sh Demo "{{version}}" "{{artifacts}}/release"
     build/package-example.sh Forest "{{version}}" "{{artifacts}}/release"
+    build/package-example.sh Neon "{{version}}" "{{artifacts}}/release"
 
 # Next release version the publish workflow would create (patch bump of the latest vX.Y.Z tag)
 next-version bump="patch":

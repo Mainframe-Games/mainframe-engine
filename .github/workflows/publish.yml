@@ -191,8 +191,28 @@ jobs:
           path: artifacts/release/MainframeEngine.Forest*.zip
           if-no-files-found: error
 
+  neon:
+    needs: [guard, ci]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Fetch Neon's LFS objects
+        run: git lfs pull --include="Examples/Neon/**"
+
+      - name: Package Neon
+        run: build/package-example.sh Neon "${{ needs.guard.outputs.version }}" artifacts/release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neon
+          path: artifacts/release/MainframeEngine.Neon*.zip
+          if-no-files-found: error
+
   release:
-    needs: [guard, build, package, demo, forest]
+    needs: [guard, build, package, demo, forest, neon]
     runs-on: ubuntu-24.04
     environment: release
     permissions:
@@ -201,7 +221,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: "{editor-*,demo,forest}"
+          pattern: "{editor-*,demo,forest,neon}"
           path: release
           merge-multiple: true
 

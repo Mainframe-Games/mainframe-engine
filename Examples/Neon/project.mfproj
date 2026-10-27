@@ -5,7 +5,7 @@
   "mainScene": "Assets/Scenes/neon.mscene",
   "assemblies": ["Neon"],
   "window": {
-    "width": 1920, "height": 1080, "vsync": true, "contentScale": 1
+    "width": 1920, "height": 1080, "vsync": true, "contentScale": 1, "icon": "Assets/Brand/icon.png"
   },
   "physics": { "ticksPerSecond": 60, "maxStepsPerFrame": 5, "3d": { "gravity": [0, -9.81, 0] } },
   "input": {

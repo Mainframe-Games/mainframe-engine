@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Zips an example project (Examples/<Demo|Forest>) for a release: MainframeEngine.<Example>-v<version>.zip in <out-dir>,
+# Zips an example project (Examples/<Demo|Forest|Neon>) for a release: MainframeEngine.<Example>-v<version>.zip in <out-dir>,
 # top folder MainframeEngine.<Example>/ (the editor's Download menu fetches it: its own version's, or the latest release's).
-# Usage: build/package-example.sh <Demo|Forest> <version> <out-dir>. Needs the example's LFS content pulled (fails on pointer files).
+# Usage: build/package-example.sh <Demo|Forest|Neon> <version> <out-dir>. Needs the example's LFS content pulled (fails on pointer files).
 set -euo pipefail
 example="$1"; version="$2"; out="$(mkdir -p "$3" && cd "$3" && pwd)"
-case "$example" in Demo|Forest) ;; *) echo "usage: $0 <Demo|Forest> <version> <out-dir>" >&2; exit 2 ;; esac
+case "$example" in Demo|Forest|Neon) ;; *) echo "usage: $0 <Demo|Forest|Neon> <version> <out-dir>" >&2; exit 2 ;; esac
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 name="MainframeEngine.$example"
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT

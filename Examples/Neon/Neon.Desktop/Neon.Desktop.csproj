@@ -4,11 +4,13 @@
     The executable: runs the project with GameHost (project.mfproj next to the app). Its player-facing name is
     project.mfproj "name" ("Neon Demo", ADR 0182): build/MainframeGame.props makes it the macOS dev bundle
     (bin/<cfg>/net10.0/Neon Demo.app, which `dotnet run` / `just neon` launch) and the Windows file description and
-    product name. The assembly stays Neon.Desktop (scripts, tests and docs run Neon.Desktop.dll). The app icon comes
-    with the branding phase.
+    product name. The assembly stays Neon.Desktop (scripts, tests and docs run Neon.Desktop.dll).
+    Icons: Examples/Neon/Brand (`just neon-brand`); the .icns is the macOS one, on Apple's icon grid.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <ApplicationIcon>../Brand/neon.ico</ApplicationIcon>
+    <MacAppIcon>../Brand/neon.icns</MacAppIcon>
   </PropertyGroup>
 
   <ItemGroup>

@@ -51,6 +51,7 @@ public sealed class DownloadDemoWorkflowTests : IDisposable
     [Theory]
     [InlineData("Demo", "MainframeEngine.Demo")]
     [InlineData("Forest", "MainframeEngine.Forest")]
+    [InlineData("Neon", "MainframeEngine.Neon")]
     public void TheProjectManagerButtonListsTheExamplesAndOpensTheDialogForTheChosenOne(string id, string folder)
     {
         var editor = Editor(StubHandler.Bytes([]));
@@ -61,7 +62,7 @@ public sealed class DownloadDemoWorkflowTests : IDisposable
         w.ProjectManager.Document.GetElementById("pm-download-demo").Click();
         editor.Tick(2);
         Assert.True(w.Popup.Visible);
-        Assert.Equal(["Demo", "Forest"], w.Popup.Items.Where(i => i.Command is not null).Select(i => i.Command));
+        Assert.Equal(["Demo", "Forest", "Neon"], w.Popup.Items.Where(i => i.Command is not null).Select(i => i.Command));
         Assert.True(w.Popup.Choose(id));
         editor.Tick(2);
         Assert.True(w.DownloadDemo.Visible);

@@ -55,6 +55,7 @@ wave-sine
 arrows-minimize
 ripple
 mountain
+building-skyscraper
 circle
 capsule-horizontal
 line
