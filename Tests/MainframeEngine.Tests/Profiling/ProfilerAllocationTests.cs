@@ -37,7 +37,8 @@ public sealed class ProfilerAllocationTests : IDisposable
 
                 done.Release();
             }
-        }) { IsBackground = true };
+        })
+        { IsBackground = true };
         worker.Start();
 
         void Frames(int count)

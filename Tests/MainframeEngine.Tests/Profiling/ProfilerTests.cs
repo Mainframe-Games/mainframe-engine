@@ -206,9 +206,9 @@ public sealed class ProfilerTests : IDisposable
         {
             Profiler.SetThreadName("Worker");
             using (Inner.Auto())
-                using (Leaf.Auto())
-                {
-                }
+            using (Leaf.Auto())
+            {
+            }
         });
         named.Start();
         named.Join();
