@@ -524,15 +524,28 @@ public sealed partial class SceneTree
 
         var paused = Paused;
         var editMode = EditMode;
-        foreach (var node in _physics.Snapshot(this))
+        if (_simulations.Count == 0)
         {
-            if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
-                (!editMode || node.RunsInEditMode))
+            // No simulation (every game, and the editor outside Simulate): the loop without the per-node G7.5 checks.
+            foreach (var node in _physics.Snapshot(this))
             {
-                if (node.IsSimulated)
-                    InvokePhysicsProcessGuarded(node, delta); // G7.5: game code in the editor never escapes Tick
-                else
+                if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
+                    (!editMode || node.IsTool))
                     node.InvokePhysicsProcess(delta);
+            }
+        }
+        else
+        {
+            foreach (var node in _physics.Snapshot(this))
+            {
+                if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
+                    (!editMode || node.RunsInEditMode))
+                {
+                    if (node.IsSimulated)
+                        InvokePhysicsProcessGuarded(node, delta); // G7.5: game code in the editor never escapes Tick
+                    else
+                        node.InvokePhysicsProcess(delta);
+                }
             }
         }
 
@@ -611,15 +624,28 @@ public sealed partial class SceneTree
 
         var paused = Paused;
         var editMode = EditMode;
-        foreach (var node in _process.Snapshot(this))
+        if (_simulations.Count == 0)
         {
-            if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
-                (!editMode || node.RunsInEditMode))
+            // No simulation: the loop without the per-node G7.5 checks (ProcessTick10k).
+            foreach (var node in _process.Snapshot(this))
             {
-                if (node.IsSimulated)
-                    InvokeProcessGuarded(node, gameTime);
-                else
+                if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
+                    (!editMode || node.IsTool))
                     node.InvokeProcess(gameTime);
+            }
+        }
+        else
+        {
+            foreach (var node in _process.Snapshot(this))
+            {
+                if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
+                    (!editMode || node.RunsInEditMode))
+                {
+                    if (node.IsSimulated)
+                        InvokeProcessGuarded(node, gameTime);
+                    else
+                        node.InvokeProcess(gameTime);
+                }
             }
         }
 
