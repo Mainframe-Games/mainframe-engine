@@ -178,7 +178,7 @@ public sealed class ProfilerTests : IDisposable
     {
         var token = Profiler.Acquire();
         Profiler.BeginFrame();
-        for (var i = 0; i < 20000; i++) // the main thread's staging ring holds 16384 per frame
+        for (var i = 0; i < 40000; i++) // the main thread's staging ring holds 32768 per frame
             using (Leaf.Auto())
             {
             }
@@ -186,7 +186,7 @@ public sealed class ProfilerTests : IDisposable
         Profiler.EndFrame(1f, 0f);
         Profiler.Release(token);
         Assert.True(Profiler.DroppedEvents > 0);
-        Assert.Equal(16384, Newest().EventCount);
+        Assert.Equal(32768, Newest().EventCount);
     }
 
     [Fact]

@@ -237,7 +237,7 @@ public sealed class EditorLinkProtocolTests
     [Fact]
     public void ProtocolVersionIsFive()
     {
-        Assert.Equal(5, EditorLinkProtocol.Version); // 5: CrashReport (G15)
+        Assert.Equal(5, EditorLinkProtocol.Version); // 5: CrashReport (G15), profiler (G10)
     }
 }
 

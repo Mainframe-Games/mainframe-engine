@@ -26,6 +26,7 @@ public sealed class GameSession : IDisposable
     private bool _disposed;
     private GameRecorder? _recorder;
     private bool _mustReportRecording;
+    private ProfilerStreamer? _profiler; // G10: frames to the editor's Profiler tab while it records
 
     /// <summary>How long <see cref="Shutdown"/> waits for the link to connect when a recording failure is still unsent.</summary>
     private static readonly TimeSpan ReportConnectTimeout = TimeSpan.FromMilliseconds(EditorLinkClient.WelcomeTimeoutMilliseconds + 1000);
@@ -203,6 +204,7 @@ public sealed class GameSession : IDisposable
         _framesPerSecond = gameTime.FramesPerSecond;
         while (link.TryReceiveCommand(out var command))
             Apply(command);
+        _profiler?.Poll();
         _sinceStatus += gameTime.DeltaTime;
         ReportStatus(force: false);
     }
@@ -361,6 +363,15 @@ public sealed class GameSession : IDisposable
             case EditorCommandKind.StopRecording:
                 _recorder?.Stop(); // Stopped (with the file) follows once finalising is done
                 break;
+            case EditorCommandKind.ProfilerStart when Link is { } profileLink:
+                _profiler ??= new ProfilerStreamer(profileLink);
+                _profiler.EncoderBoundaries = Tree.Servers.Render?.Vulkan?.GpuProfiler.SamplesAtEncoderBoundaries ?? false;
+                _profiler.Start(command.Argument);
+                Log.Info("[Profiler] Streaming frames to the editor.");
+                break;
+            case EditorCommandKind.ProfilerStop:
+                _profiler?.Stop();
+                break;
         }
 
         ReportStatus(force: true);
@@ -453,6 +464,8 @@ public sealed class GameSession : IDisposable
 
     private void DisconnectEditor(ExitCode exitCode)
     {
+        _profiler?.Dispose();
+        _profiler = null;
         if (Link is null)
             return;
         if (_linkSink is not null)

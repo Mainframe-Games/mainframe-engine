@@ -43,6 +43,15 @@ public enum EditorLinkMessageType : byte
     /// </summary>
     CrashReport = 9,
 
+    /// <summary>Game → editor (G10): profiler markers the editor has not seen on this connection (<see cref="EditorLinkMessage.ProfileMarkers"/>).</summary>
+    ProfileMarkers = 10,
+
+    /// <summary>Game → editor (G10): one recorded frame (<see cref="EditorLinkMessage.ProfileFrame"/>), sent once its GPU zones arrived.</summary>
+    ProfileFrame = 11,
+
+    /// <summary>Game → editor (G10): frames dropped because the editor fell behind (<see cref="EditorLinkMessage.DroppedCount"/>).</summary>
+    ProfileDropped = 12,
+
     /// <summary>Editor → game: an <see cref="EditorLinkCommand"/>.</summary>
     Command = 16,
 
@@ -76,6 +85,58 @@ public enum EditorCommandKind : byte
 
     /// <summary>Stop the current recording; the game answers Recording Stopped once finalised.</summary>
     StopRecording = 8,
+
+    /// <summary>
+    /// G10: start streaming profiler frames. <see cref="EditorLinkCommand.Argument"/> is <c>gpu=1;spike=33.3;freeze=0</c>
+    /// (GPU zones on or off, the spike threshold in ms, freeze on spike).
+    /// </summary>
+    ProfilerStart = 9,
+
+    /// <summary>G10: stop streaming profiler frames.</summary>
+    ProfilerStop = 10,
+}
+
+/// <summary>A profiler marker as the editor learns it (<see cref="EditorLinkMessageType.ProfileMarkers"/>).</summary>
+public readonly record struct EditorLinkProfileMarker(ushort Id, ProfilerCategory Category, ProfilerMarkerKind Kind, string Name, string File, int Line);
+
+/// <summary>
+/// One profiled frame from a game (<see cref="EditorLinkMessageType.ProfileFrame"/>). Event times are microseconds on
+/// the game's clock (<see cref="StartMicroseconds"/> is the frame's start); GPU zones are aligned to the CPU clock.
+/// </summary>
+public sealed class EditorLinkProfileFrame
+{
+    public ulong Frame { get; init; }
+
+    /// <summary>The frame's start, microseconds on the game's monotonic clock.</summary>
+    public long StartMicroseconds { get; init; }
+
+    /// <summary>The frame's end (the next frame's start, near enough), microseconds.</summary>
+    public long EndMicroseconds { get; init; }
+
+    public float CpuMs { get; init; }
+    public float WaitMs { get; init; }
+
+    /// <summary>NaN when the frame had no GPU zones.</summary>
+    public float GpuMs { get; init; }
+
+    public bool IsSpike { get; init; }
+
+    /// <summary>The frame's events did not fit: only the shallowest depths were sent.</summary>
+    public bool Truncated { get; init; }
+
+    /// <summary>The game's GPU samples timestamps at encoder boundaries (MoltenVK): in-pass zones are approximate.</summary>
+    public bool EncoderBoundaries { get; init; }
+
+    public (ushort Counter, long Value)[] Counters { get; init; } = [];
+
+    /// <summary>Thread lanes named for the first time on this connection (id, name).</summary>
+    public (byte Thread, string Name)[] Threads { get; init; } = [];
+
+    /// <summary>CPU events, start/end in microseconds (absolute, like <see cref="StartMicroseconds"/>), begin order per thread.</summary>
+    public ProfilerEvent[] CpuEvents { get; init; } = [];
+
+    /// <summary>GPU zones, start/end in microseconds.</summary>
+    public ProfilerEvent[] GpuZones { get; init; } = [];
 }
 
 /// <summary>One node of a remote tree snapshot, depth-first: its depth below the root, name and type name.</summary>
@@ -155,6 +216,12 @@ public readonly record struct EditorLinkMessage
 
     /// <summary><see cref="EditorLinkMessageType.CrashReport"/>: the report and where its bundle is.</summary>
     public EditorLinkCrashReport CrashReport { get; init; }
+
+    /// <summary><see cref="EditorLinkMessageType.ProfileMarkers"/>: markers named for the first time on this connection.</summary>
+    public EditorLinkProfileMarker[]? ProfileMarkers { get; init; }
+
+    /// <summary><see cref="EditorLinkMessageType.ProfileFrame"/>: the frame.</summary>
+    public EditorLinkProfileFrame? ProfileFrame { get; init; }
 }
 
 /// <summary>A crash report, game → editor: <c>report.json</c> (at most <see cref="EditorLinkProtocol.MaxCrashReportBytes"/>) and the bundle folder.</summary>
@@ -172,18 +239,33 @@ public readonly record struct EditorLinkCrashReport(string Json, string Folder);
 /// <item>Welcome: <c>i32 protocol</c></item>
 /// <item>Recording: <c>u8 state, str path, f32 elapsed s, i64 dropped, i64 duplicated, str error</c></item>
 /// <item>CrashReport: <c>str reportJson, str bundleFolder</c></item>
+/// <item>ProfileMarkers: <c>u16 count, count × (u16 id, u8 category, u8 kind, str name, str file, i32 line)</c></item>
+/// <item>ProfileFrame: <c>u64 frame, i64 startTicks, i64 endTicks, i64 tickFrequency, f32 cpuMs, f32 waitMs, f32 gpuMs, u8 flags
+/// (1 spike, 2 truncated, 4 encoder boundaries), u8 counters × (u16 id, i64 value), u16 threads × (u8 id, str name),
+/// u32 cpu × (u16 marker, u8 thread, u8 depth, i32 startUs, u32 durUs, i32 alloc), u16 gpu × (u16 marker, u8 depth, i32 startUs,
+/// u32 durUs)</c>; times relative to the frame's start</item>
+/// <item>ProfileDropped: <c>i64 frames</c></item>
 /// </list>
 /// </summary>
 public static class EditorLinkProtocol
 {
     /// <summary>Bumped on any incompatible wire change; the editor checks <see cref="EditorLinkHello.ProtocolVersion"/>.</summary>
-    public const int Version = 5;   // 2: Tree / RequestTree · 3: Welcome · 4: StartRecording / StopRecording / Recording · 5: CrashReport
+    public const int Version = 5;   // 2: Tree / RequestTree · 3: Welcome · 4: StartRecording / StopRecording / Recording · 5: CrashReport (G15), profiler (G10)
 
     /// <summary>The first protocol whose games send <see cref="EditorLinkMessageType.CrashReport"/>.</summary>
     public const int MinCrashReportVersion = 5;
 
     /// <summary>The largest <c>report.json</c> a CrashReport frame carries (a longer one is not sent: the editor reads the bundle).</summary>
     public const int MaxCrashReportBytes = 256 * 1024 - 1024;
+
+    /// <summary>The first version that streams profiler frames (G10).</summary>
+    public const int ProfilerVersion = 5;
+
+    /// <summary>CPU events one <see cref="EditorLinkMessageType.ProfileFrame"/> carries at most (16 bytes each, under <see cref="MaxFrameLength"/>).</summary>
+    public const int MaxProfileEvents = 16384;
+
+    /// <summary>GPU zones one profile frame carries at most.</summary>
+    public const int MaxProfileGpuZones = 4096;
 
     /// <summary>Nodes in one tree snapshot at most (names are cut to <see cref="MaxTreeNameLength"/>), keeping a frame under the limit.</summary>
     public const int MaxTreeNodes = 3000; // × (12 + 2 × 48 chars × 3 UTF-8 bytes) < MaxFrameLength
@@ -291,6 +373,170 @@ public static class EditorLinkProtocol
         w.Finish();
     }
 
+    /// <summary>Profiler markers <paramref name="from"/> .. <paramref name="to"/> - 1 of the registry (G10).</summary>
+    internal static void WriteProfileMarkers(ArrayBufferWriter<byte> output, int from, int to)
+    {
+        var w = new FrameWriter(output, EditorLinkMessageType.ProfileMarkers);
+        w.UInt16((ushort)(to - from));
+        for (var id = from; id < to; id++)
+        {
+            var marker = Profiler.MarkerAt((ushort)id);
+            w.UInt16((ushort)id);
+            w.Byte((byte)marker.Category);
+            w.Byte((byte)marker.Kind);
+            w.String(marker.Name);
+            w.String(marker.File);
+            w.Int32(marker.Line);
+        }
+
+        w.Finish();
+    }
+
+    /// <summary>One profiled frame (G10); <paramref name="newThreads"/> are the lanes named for the first time on this connection.</summary>
+    internal static void WriteProfileFrame(ArrayBufferWriter<byte> output, ProfileFrameBlock block, ReadOnlySpan<byte> newThreads)
+    {
+        var w = new FrameWriter(output, EditorLinkMessageType.ProfileFrame);
+        w.UInt64((ulong)block.Frame);
+        w.Int64(block.StartTicks);
+        w.Int64(block.EndTicks);
+        w.Int64(block.TickFrequency);
+        w.Single(block.CpuMs);
+        w.Single(block.WaitMs);
+        w.Single(block.GpuMs);
+        w.Byte(block.Flags);
+        w.Byte((byte)block.CounterCount);
+        for (var i = 0; i < block.CounterCount; i++)
+        {
+            w.UInt16(block.CounterIds[i]);
+            w.Int64(block.CounterValues[i]);
+        }
+
+        w.UInt16((ushort)newThreads.Length);
+        foreach (var thread in newThreads)
+        {
+            w.Byte(thread);
+            w.String(Profiler.ThreadName(thread) ?? "Thread " + thread);
+        }
+
+        var frequency = block.TickFrequency;
+        w.UInt32((uint)block.CpuCount);
+        for (var i = 0; i < block.CpuCount; i++)
+        {
+            ref readonly var e = ref block.Cpu[i];
+            w.UInt16(e.Marker);
+            w.Byte(e.Thread);
+            w.Byte(e.Depth);
+            w.Int32(Microseconds(e.Start - block.StartTicks, frequency));
+            w.UInt32((uint)Math.Max(0, Microseconds(e.End - e.Start, frequency)));
+            w.Int32(e.AllocatedBytes);
+        }
+
+        w.UInt16((ushort)block.GpuCount);
+        for (var i = 0; i < block.GpuCount; i++)
+        {
+            ref readonly var e = ref block.Gpu[i];
+            w.UInt16(e.Marker);
+            w.Byte(e.Depth);
+            w.Int32(Microseconds(e.Start - block.StartTicks, frequency));
+            w.UInt32((uint)Math.Max(0, Microseconds(e.End - e.Start, frequency)));
+        }
+
+        w.Finish();
+    }
+
+    public static void WriteProfileDropped(ArrayBufferWriter<byte> output, long frames)
+    {
+        var w = new FrameWriter(output, EditorLinkMessageType.ProfileDropped);
+        w.Int64(frames);
+        w.Finish();
+    }
+
+    private static int Microseconds(long ticks, long frequency) =>
+        (int)Math.Clamp(ticks * 1_000_000.0 / frequency, int.MinValue, int.MaxValue);
+
+    private static bool TryDecodeMarkers(ref FrameReader r, out EditorLinkProfileMarker[] markers)
+    {
+        markers = [];
+        if (!r.UInt16(out var count) || count > Profiler.MaxMarkers)
+            return false;
+        markers = new EditorLinkProfileMarker[count];
+        for (var i = 0; i < count; i++)
+        {
+            if (!r.UInt16(out var id) || !r.Byte(out var category) || !r.Byte(out var kind) || !r.String(out var name)
+                || !r.String(out var file) || !r.Int32(out var line) || category > (byte)ProfilerCategory.Game || kind > (byte)ProfilerMarkerKind.GpuInPass)
+                return false;
+            markers[i] = new EditorLinkProfileMarker(id, (ProfilerCategory)category, (ProfilerMarkerKind)kind, name, file, line);
+        }
+
+        return true;
+    }
+
+    private static bool TryDecodeProfileFrame(ref FrameReader r, out EditorLinkProfileFrame? frame)
+    {
+        frame = null;
+        if (!r.UInt64(out var number) || !r.Int64(out var startTicks) || !r.Int64(out var endTicks) || !r.Int64(out var frequency)
+            || frequency <= 0 || !r.Single(out var cpuMs) || !r.Single(out var waitMs) || !r.Single(out var gpuMs) || !r.Byte(out var flags)
+            || !r.Byte(out var counterCount))
+            return false;
+        var counters = new (ushort, long)[counterCount];
+        for (var i = 0; i < counterCount; i++)
+        {
+            if (!r.UInt16(out var id) || !r.Int64(out var value))
+                return false;
+            counters[i] = (id, value);
+        }
+
+        if (!r.UInt16(out var threadCount))
+            return false;
+        var threads = new (byte, string)[threadCount];
+        for (var i = 0; i < threadCount; i++)
+        {
+            if (!r.Byte(out var id) || !r.String(out var name))
+                return false;
+            threads[i] = (id, name);
+        }
+
+        var startUs = (long)Math.Round(startTicks / (double)frequency * 1e6);
+        if (!r.UInt32(out var cpuCount) || cpuCount > MaxProfileEvents)
+            return false;
+        var cpu = new ProfilerEvent[cpuCount];
+        for (var i = 0; i < cpuCount; i++)
+        {
+            if (!r.UInt16(out var marker) || !r.Byte(out var thread) || !r.Byte(out var depth) || !r.Int32(out var start)
+                || !r.UInt32(out var duration) || !r.Int32(out var alloc))
+                return false;
+            cpu[i] = new ProfilerEvent(startUs + start, startUs + start + duration, marker, depth, thread, alloc);
+        }
+
+        if (!r.UInt16(out var gpuCount) || gpuCount > MaxProfileGpuZones)
+            return false;
+        var gpu = new ProfilerEvent[gpuCount];
+        for (var i = 0; i < gpuCount; i++)
+        {
+            if (!r.UInt16(out var marker) || !r.Byte(out var depth) || !r.Int32(out var start) || !r.UInt32(out var duration))
+                return false;
+            gpu[i] = new ProfilerEvent(startUs + start, startUs + start + duration, marker, depth, ProfilerEvent.GpuThread);
+        }
+
+        frame = new EditorLinkProfileFrame
+        {
+            Frame = number,
+            StartMicroseconds = startUs,
+            EndMicroseconds = (long)Math.Round(endTicks / (double)frequency * 1e6),
+            CpuMs = cpuMs,
+            WaitMs = waitMs,
+            GpuMs = gpuMs,
+            IsSpike = (flags & ProfileFrameBlock.SpikeFlag) != 0,
+            Truncated = (flags & ProfileFrameBlock.TruncatedFlag) != 0,
+            EncoderBoundaries = (flags & ProfileFrameBlock.EncoderBoundariesFlag) != 0,
+            Counters = counters,
+            Threads = threads,
+            CpuEvents = cpu,
+            GpuZones = gpu,
+        };
+        return true;
+    }
+
     /// <summary>
     /// Writes a crash report frame; false (nothing written) when <paramref name="report"/>'s JSON is over
     /// <see cref="MaxCrashReportBytes"/> UTF-8 bytes (it would be cut, and cut JSON is useless).
@@ -374,7 +620,7 @@ public static class EditorLinkProtocol
             case EditorLinkMessageType.Command:
                 if (!r.Byte(out var kind) || !r.String(out var argument))
                     return false;
-                if (kind is < (byte)EditorCommandKind.Stop or > (byte)EditorCommandKind.StopRecording)
+                if (kind is < (byte)EditorCommandKind.Stop or > (byte)EditorCommandKind.ProfilerStop)
                     return false;
                 message = new EditorLinkMessage { Type = type, Command = new EditorLinkCommand((EditorCommandKind)kind, argument) };
                 break;
@@ -395,6 +641,21 @@ public static class EditorLinkProtocol
                 if (!r.String(out var reportJson) || !r.String(out var bundle))
                     return false;
                 message = new EditorLinkMessage { Type = type, CrashReport = new EditorLinkCrashReport(reportJson, bundle) };
+                break;
+            case EditorLinkMessageType.ProfileMarkers:
+                if (!TryDecodeMarkers(ref r, out var markers))
+                    return false;
+                message = new EditorLinkMessage { Type = type, ProfileMarkers = markers };
+                break;
+            case EditorLinkMessageType.ProfileFrame:
+                if (!TryDecodeProfileFrame(ref r, out var profileFrame))
+                    return false;
+                message = new EditorLinkMessage { Type = type, ProfileFrame = profileFrame };
+                break;
+            case EditorLinkMessageType.ProfileDropped:
+                if (!r.Int64(out var profileDropped) || profileDropped < 0)
+                    return false;
+                message = new EditorLinkMessage { Type = type, DroppedCount = profileDropped };
                 break;
             case EditorLinkMessageType.Tree:
                 {
@@ -464,6 +725,18 @@ public static class EditorLinkProtocol
         public void Int32(int value)
         {
             BinaryPrimitives.WriteInt32LittleEndian(_output.GetSpan(4), value);
+            Advance(4);
+        }
+
+        public void UInt16(ushort value)
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(_output.GetSpan(2), value);
+            Advance(2);
+        }
+
+        public void UInt32(uint value)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(_output.GetSpan(4), value);
             Advance(4);
         }
 
@@ -545,6 +818,26 @@ public static class EditorLinkProtocol
             if (_data.Length - _offset < 4)
                 return false;
             value = BinaryPrimitives.ReadInt32LittleEndian(_data[_offset..]);
+            _offset += 4;
+            return true;
+        }
+
+        public bool UInt16(out ushort value)
+        {
+            value = 0;
+            if (_data.Length - _offset < 2)
+                return false;
+            value = BinaryPrimitives.ReadUInt16LittleEndian(_data[_offset..]);
+            _offset += 2;
+            return true;
+        }
+
+        public bool UInt32(out uint value)
+        {
+            value = 0;
+            if (_data.Length - _offset < 4)
+                return false;
+            value = BinaryPrimitives.ReadUInt32LittleEndian(_data[_offset..]);
             _offset += 4;
             return true;
         }

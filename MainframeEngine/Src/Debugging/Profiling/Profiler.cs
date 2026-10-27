@@ -36,7 +36,7 @@ public static partial class Profiler
     /// <summary>Thread lanes at most (0 = main; <see cref="ProfilerEvent.GpuThread"/> is the GPU's).</summary>
     public const int MaxThreads = 64;
 
-    private const int MainBufferCapacity = 16384;
+    private const int MainBufferCapacity = 32768;
     private const int ThreadBufferCapacity = 8192;
     private const int SpikeEventCapacity = 8192;
 
