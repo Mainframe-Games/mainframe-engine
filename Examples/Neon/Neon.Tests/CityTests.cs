@@ -1,3 +1,4 @@
+using System.Numerics;
 using MainframeEngine;
 
 namespace Neon.Tests;
@@ -100,6 +101,47 @@ public sealed class CityTests
         {
             city.Free();
         }
+    }
+
+    [Fact]
+    public void TheTrainAirshipsAndBalconyCarsFollowPathsInATree()
+    {
+        SkipWithoutArt();
+        using var h = new ControllerHarness(floor: false);
+        var city = new NeonCity { Name = "City", Rain = false };
+        h.Scene.AddChild(city);
+        var traffic = city.GetNode<CityTraffic>("Traffic");
+        var cars = traffic.Followers.Where(f => f.Name.StartsWith("TrainCar", StringComparison.Ordinal)).ToList();
+        Assert.Equal(4, cars.Count);
+        Assert.Equal(2, traffic.Followers.Count(f => f.Name.StartsWith("Airship", StringComparison.Ordinal)));
+        var hover = traffic.Followers.Where(f => f.Name.StartsWith("HoverCar", StringComparison.Ordinal)).ToList();
+        Assert.True(hover.Count >= 4, $"{hover.Count} hover cars on the balcony lane");
+        Assert.All(traffic.Followers, f => Assert.IsType<Path3D>(f.Parent));
+        Assert.Equal(PathRotationMode.Oriented, cars[0].RotationMode);
+
+        var start = cars.Select(c => c.GlobalPosition).ToList();
+        h.RunSeconds(2f);
+        for (var i = 0; i < cars.Count; i++)
+            Assert.True(Vector3.Distance(start[i], cars[i].GlobalPosition) > 5f, "the train moves");
+        Assert.All(hover, f => Assert.NotNull(f.GetNodeOrNull<CityTraffic.FlyBy>("FlyBy")));
+        // The cars keep their spacing along the rail (same speed, wrapping offsets).
+        Assert.InRange(MathF.Abs(cars[0].Progress - cars[1].Progress) % ((Path3D)cars[0].Parent!).Curve!.GetBakedLength(), 20f, 21f);
+
+        Span<Vector2> map = stackalloc Vector2[64];
+        var count = traffic.MapPositions(map);
+        Assert.Equal(64, count);
+        foreach (var p in map)
+            Assert.True(p.X is >= 0f and <= 1f && p.Y is >= 0f and <= 1f, $"{p}");
+
+        var smallest = long.MaxValue;
+        for (var w = 0; w < 4; w++)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            h.Run(30);
+            smallest = Math.Min(smallest, GC.GetAllocatedBytesForCurrentThread() - before);
+        }
+
+        Assert.Equal(0, smallest);
     }
 
     private static void SkipWithoutArt()

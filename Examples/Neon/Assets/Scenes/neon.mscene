@@ -22,6 +22,10 @@
       "ref": "res_2c4dcf095e19",
       "path": "Assets/PostProcess/neon-lens.mres"
     },
+    "LightProbeData_qxa3w": {
+      "ref": "res_cfd113a68c2d",
+      "path": "Assets/Scenes/neon-lighting.mres"
+    },
     "CapsuleShape3D_ak3q9": {
       "type": "CapsuleShape3D",
       "props": {
@@ -81,6 +85,21 @@
       "name": "Apartment",
       "parent": ".",
       "type": "NeonApartment"
+    },
+    {
+      "name": "Lighting",
+      "parent": ".",
+      "type": "LightProbeVolume",
+      "props": {
+        "Position": [0, 3, 1.25],
+        "Size": [14.6, 6.2, 13.9],
+        "ProbeSpacing": [1, 1, 1],
+        "RaysPerProbe": 192,
+        "Bounces": 2,
+        "Energy": 1.5,
+        "Data": { "res": "LightProbeData_qxa3w" },
+        "BakeWhenStale": true
+      }
     },
     {
       "name": "Player",

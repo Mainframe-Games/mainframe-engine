@@ -371,6 +371,7 @@ public sealed class NeonCity : Node3D
                 Mesh = mesh,
                 MaterialOverride = material,
                 CastShadows = false,
+                GIMode = GIMode.Disabled, // light, not an occluder (and it may move)
                 CustomAabb = bounds,
                 Transform = Transform3D.FromTrs(hologram.Position, Quaternion.CreateFromAxisAngle(Vector3.UnitY, hologram.Yaw), scale),
             });

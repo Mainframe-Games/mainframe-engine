@@ -139,7 +139,7 @@ public sealed class ComputerRig : Node3D
         var bar = new BoxMesh { Size = new Vector3(1f, 0.02f, 0.02f) };
         var post = new BoxMesh { Size = new Vector3(0.02f, 1f, 0.02f) };
         void Add(Mesh mesh, Material material, Vector3 position, Vector3 scale, float yaw = 0f) =>
-            tower.AddChild(new MeshInstance3D { Mesh = mesh, MaterialOverride = material, Position = position, Scale = scale, RotationDegrees = new Vector3(0, yaw, 0) });
+            tower.AddChild(new MeshInstance3D { Mesh = mesh, MaterialOverride = material, Position = position, Scale = scale, RotationDegrees = new Vector3(0, yaw, 0), GIMode = GIMode.Disabled });
 
         for (var floor = 0; floor <= 12; floor++)
         {

@@ -19,7 +19,7 @@ shots=(
   "n1-loft|-2.0,3,4.8,-46,-14|--tv 2"
   "n2-computer|-2.3,0,4.4,60,-8|--open-doors --music"
   "n3-shower|-3.0,0,-2.3,53,-6|--open-doors --shower"
-  "n4-balcony|0,0,7.4,180,-32|--open-doors"
+  "n4-balcony|-1.5,0,7.6,200,-24|--open-doors"
   "n5-skyline|5.2,0,7.5,160,6|--open-doors"
   "n6-bedroom|-3.6,3,-2.0,49,-4|--open-doors"
   "n7-kitchen|4.0,0,-1.0,32,-10|--tv 1"

@@ -2108,6 +2108,20 @@
   },
   {
    "doubleSided": true,
+   "name": "Linen",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.550000011920929,
+     0.5299999713897705,
+     0.5600000023841858,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.8500000238418579
+   }
+  },
+  {
+   "doubleSided": true,
    "name": "Mirror",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -2189,20 +2203,6 @@
     ],
     "metallicFactor": 0,
     "roughnessFactor": 0.4000000059604645
-   }
-  },
-  {
-   "doubleSided": true,
-   "name": "Linen",
-   "pbrMetallicRoughness": {
-    "baseColorFactor": [
-     0.550000011920929,
-     0.5299999713897705,
-     0.5600000023841858,
-     1
-    ],
-    "metallicFactor": 0,
-    "roughnessFactor": 0.8500000238418579
    }
   },
   {
@@ -3597,8 +3597,8 @@
       "NORMAL": 405,
       "TEXCOORD_0": 406
      },
-     "indices": 177,
-     "material": 25
+     "indices": 19,
+     "material": 28
     }
    ]
   },
@@ -3663,7 +3663,7 @@
       "TEXCOORD_0": 424
      },
      "indices": 19,
-     "material": 28
+     "material": 29
     }
    ]
   },
@@ -3695,7 +3695,7 @@
       "TEXCOORD_0": 434
      },
      "indices": 286,
-     "material": 29
+     "material": 30
     },
     {
      "attributes": {
@@ -3713,7 +3713,7 @@
       "TEXCOORD_0": 440
      },
      "indices": 19,
-     "material": 30
+     "material": 31
     }
    ]
   },
@@ -3745,7 +3745,7 @@
       "TEXCOORD_0": 449
      },
      "indices": 450,
-     "material": 30
+     "material": 31
     }
    ]
   },
@@ -3786,7 +3786,7 @@
       "TEXCOORD_0": 463
      },
      "indices": 464,
-     "material": 31
+     "material": 32
     }
    ]
   },
@@ -3827,7 +3827,7 @@
       "TEXCOORD_0": 477
      },
      "indices": 478,
-     "material": 31
+     "material": 32
     }
    ]
   },
@@ -4195,7 +4195,7 @@
       "TEXCOORD_0": 585
      },
      "indices": 586,
-     "material": 32
+     "material": 28
     },
     {
      "attributes": {
@@ -4346,7 +4346,7 @@
       "TEXCOORD_0": 636
      },
      "indices": 637,
-     "material": 32
+     "material": 28
     },
     {
      "attributes": {
@@ -4827,7 +4827,7 @@
       "TEXCOORD_0": 787
      },
      "indices": 19,
-     "material": 29
+     "material": 30
     }
    ]
   },
@@ -4841,7 +4841,7 @@
       "TEXCOORD_0": 790
      },
      "indices": 155,
-     "material": 29
+     "material": 30
     }
    ]
   },
@@ -9048,14 +9048,14 @@
    "componentType": 5126,
    "count": 24,
    "max": [
-    -6.880000114440918,
-    1.600000023841858,
-    -2.0999999046325684
+    -6.860000133514404,
+    1.6200000047683716,
+    -2.1500000953674316
    ],
    "min": [
-    -6.929999828338623,
-    0.8999999761581421,
-    -2.9000000953674316
+    -6.949999809265137,
+    0.8500000238418579,
+    -2.8499999046325684
    ],
    "type": "VEC3"
   },

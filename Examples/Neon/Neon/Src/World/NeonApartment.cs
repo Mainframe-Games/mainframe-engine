@@ -148,7 +148,7 @@ public sealed class NeonApartment : Node3D
         AddChild(model);
 
         var materials = new Dictionary<Material, Material>();
-        var fixtures = new Dictionary<Material, StandardMaterial3D>();
+        var fixtures = new Dictionary<string, StandardMaterial3D>(StringComparer.Ordinal); // by name: one per room
         var shell = new List<(string Name, ArrayMesh Mesh, Transform3D Transform)>();
         var furniture = new List<(string Name, Aabb Bounds)>();
         var doors = new List<Node3D>();
@@ -171,8 +171,8 @@ public sealed class NeonApartment : Node3D
                 // The fixtures' glow is this apartment's own (the switches change it; the imported meshes are shared).
                 if (name.StartsWith("LED_", StringComparison.Ordinal) && mesh.SurfaceCount > 0 && mesh.GetSurface(0).Material is StandardMaterial3D led)
                 {
-                    if (!fixtures.TryGetValue(led, out var own))
-                        fixtures[led] = own = (StandardMaterial3D)led.Duplicate();
+                    if (!fixtures.TryGetValue(led.ResourceName ?? "", out var own))
+                        fixtures[led.ResourceName ?? ""] = own = (StandardMaterial3D)led.Duplicate();
                     instance.MaterialOverride = own;
                 }
 
@@ -438,6 +438,7 @@ public sealed class NeonApartment : Node3D
 
         if (Tv is not null)
             AddChild(new TvFeed { Name = "TvFeed", Tv = Tv });
+        ConnectTraffic();
 
         var slats = new StandardMaterial3D
         {
@@ -471,6 +472,19 @@ public sealed class NeonApartment : Node3D
             AddChild(panel);
             BlindsPanels[room] = panel;
         }
+    }
+
+    /// <summary>
+    /// The city's traffic (a sibling <see cref="NeonCity"/>, built before this node in the scene) feeds the terminal's
+    /// <c>traffic</c> count and the computer's map.
+    /// </summary>
+    private void ConnectTraffic()
+    {
+        if (Parent?.GetNodeOrNull<CityTraffic>("City/Traffic") is not { } traffic)
+            return;
+        TrafficCount = () => traffic.VehicleCount;
+        if (Computer?.Map is { } map)
+            map.Positions = traffic.MapPositions;
     }
 
     /// <summary>The terminal's commands on this apartment.</summary>
@@ -533,6 +547,15 @@ public sealed class NeonApartment : Node3D
     /// source material.
     /// </summary>
     internal static void ConvertMaterials(ArrayMesh mesh, Dictionary<Material, Material> converted)
+    {
+        // The imported meshes are cached and shared by every apartment (tests build several at once): convert once.
+        lock (ConversionLock)
+            ConvertSurfaces(mesh, converted);
+    }
+
+    private static readonly Lock ConversionLock = new();
+
+    private static void ConvertSurfaces(ArrayMesh mesh, Dictionary<Material, Material> converted)
     {
         for (var s = 0; s < mesh.SurfaceCount; s++)
         {

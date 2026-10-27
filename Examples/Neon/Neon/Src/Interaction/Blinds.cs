@@ -51,7 +51,7 @@ public sealed class Blinds : Node3D
         var count = Math.Max(2, (int)(Drop / SlatPitch));
         for (var i = 0; i < count; i++)
         {
-            var slat = new MeshInstance3D { Name = $"Slat{i}", Mesh = mesh, MaterialOverride = SlatMaterial };
+            var slat = new MeshInstance3D { Name = $"Slat{i}", Mesh = mesh, MaterialOverride = SlatMaterial, GIMode = GIMode.Disabled }; // they move
             AddChild(slat);
             _slats.Add(slat);
         }

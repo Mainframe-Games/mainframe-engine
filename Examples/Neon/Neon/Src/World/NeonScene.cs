@@ -17,6 +17,9 @@ public static class NeonScene
     /// <summary>The scene file, relative to the project folder.</summary>
     public const string Path = "Assets/Scenes/neon.mscene";
 
+    /// <summary>The apartment's baked probes (<c>.mres</c> + LFS <c>.probes</c>), written by <c>--bake-lighting</c>.</summary>
+    public const string ProbesPath = "Assets/Scenes/neon-lighting.mres";
+
     /// <summary>Where the player starts (feet): the apartment model's <c>Spawn</c>, inside the front door.</summary>
     public static readonly Vector3 Spawn = new(5.1f, 0.02f, -4f);
 
@@ -41,6 +44,7 @@ public static class NeonScene
         Add(root, root, CreateEnvironment());
         Add(root, root, new NeonCity { Name = "City" });
         Add(root, root, new NeonApartment { Name = "Apartment" });
+        Add(root, root, CreateProbes());
         BuildPlayer(root);
         Add(root, root, new NeonAudio { Name = "Audio" });
         var safety = Add(root, root, FallSafety.Create(Spawn));
@@ -78,6 +82,26 @@ public static class NeonScene
         FogHeightDensity = 0.012f,
         PostProcess = NeonLook.LoadProfile(),
         CameraAttributes = NeonLook.LoadLens(),
+    };
+
+    /// <summary>
+    /// The apartment's probe volume (ADR 0170): a 1 m box grid over the rooms and the balcony. Its baked sky occlusion keeps
+    /// the open sky's magenta out of indoor reflections and ambient, and the moon's bounce fills the shade. The city and the
+    /// apartment are generated at load, so a stale bake re-bakes in the background.
+    /// </summary>
+    public static LightProbeVolume CreateProbes() => new()
+    {
+        Name = "Lighting",
+        Position = new Vector3(0f, 3f, 1.25f),
+        Size = new Vector3(14.6f, 6.2f, 13.9f),
+        Layout = ProbeLayout.Box,
+        ProbeSpacing = new Vector3(1f),
+        RaysPerProbe = 192,
+        Bounces = 2,
+        Energy = 1.5f,
+        SkyOcclusion = 1f,
+        BakeWhenStale = true,
+        Data = ResourceLoader.Exists(ProbesPath) ? ResourceLoader.Load<LightProbeData>(ProbesPath) : null,
     };
 
     private static void BuildPlayer(Node root)

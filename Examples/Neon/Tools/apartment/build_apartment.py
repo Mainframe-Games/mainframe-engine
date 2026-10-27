@@ -818,7 +818,7 @@ def furniture(rng):
     plumbing.box((-5.33, 1.05, Z0), (-5.17, 1.25, Z0 + 0.012), "Chrome")                 # the valve's plate
     plumbing.cylinder((-5.25, 1.15, Z0 + 0.012), (-5.25, 1.15, Z0 + 0.06), 0.03, "Chrome", 12)
     plumbing.cylinder((-6.9, 1.6, -3.0), (-6.9, 1.6, -2.0), 0.015, "Chrome", 8)        # towel rail
-    plumbing.box((-6.93, 0.9, -2.9), (-6.88, 1.6, -2.1), "Fabric")                      # a towel
+    plumbing.box((-6.95, 0.85, -2.85), (-6.86, 1.62, -2.15), "Linen")                  # a towel
     F.append(plumbing.finish())
 
     def vanity(b):
