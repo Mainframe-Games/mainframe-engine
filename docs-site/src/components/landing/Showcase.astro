@@ -1,6 +1,6 @@
 ---
-// Screenshots, first after the hero: the editor, its viewport tools, the Demo's scenes, then the Forest's reference shots (the first one
-// large) (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it full size in
+// Screenshots, first after the hero: the editor, its viewport tools, the Demo's scenes, then the Forest's and Neon's reference shots (the first
+// one of each large) (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it full size in
 // a <dialog>.
 const base = import.meta.env.BASE_URL;
 const img = (p: string) => `${base}images/${p}`;
@@ -14,6 +14,14 @@ const forest = [
   { src: 'forest/readme-ferns.jpg', title: 'Fern floor', text: '32-tap depth of field, near and far' },
   { src: 'forest/readme-beach.jpg', title: 'The beach', text: 'A twelve-layer splat terrain, a lake into the mountains' },
   { src: 'forest/readme-cabin.jpg', title: 'The cabin', text: 'Firelight with cube shadows, particles, scanned furniture' },
+];
+const neon = [
+  { src: 'neon/readme-loft.jpg', title: 'The loft', text: 'The city through the window wall, a koi hologram' },
+  { src: 'neon/readme-balcony.jpg', title: 'The balcony', text: 'Instanced towers, traffic on curves, rain' },
+  { src: 'neon/readme-computer.jpg', title: 'The rig', text: 'Six live sub-viewport monitors and a terminal' },
+  { src: 'neon/readme-skyline.jpg', title: 'The skyline', text: 'Holograms, an ad airship, emissive facades' },
+  { src: 'neon/readme-mezzanine.jpg', title: 'The mezzanine', text: '16 room lights, nearest-light selection, the TV feed' },
+  { src: 'neon/readme-shower.jpg', title: 'The shower', text: 'Water, steam and misting glass' },
 ];
 const tools = [
   { src: 'editor-simulate.png', title: 'Simulate', text: 'Physics and scripts in the view (Alt+F6); Stop restores the scene' },
@@ -96,6 +104,20 @@ const demo = [
   <div class="mf-gallery mf-gallery--feature">
     {
       forest.map((s, i) => (
+        <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
+          <img src={img(s.src)} width="1600" height="900" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
+          <span class="mf-shot__caption">
+            <strong>{s.title}</strong> {s.text}
+          </span>
+        </button>
+      ))
+    }
+  </div>
+
+  <h3 class="mf-showcase__label" data-reveal>Neon <span>a cyberpunk loft 20 floors up, in the rain</span></h3>
+  <div class="mf-gallery mf-gallery--feature">
+    {
+      neon.map((s, i) => (
         <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
           <img src={img(s.src)} width="1600" height="900" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
           <span class="mf-shot__caption">

@@ -88,6 +88,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - Particles (ADR 0206): `Scene/Particles/` (`ParticleProcessMaterial`, shared 2D/3D; `ParticleSimulation3D`, CPU),
   `Scene/Nodes3D/GpuParticles3D.cs`, `Rendering/Particles/` (`ParticleRenderer`, its own pipelines, not `MeshRenderer`);
   see `docs/design/particles-3d.md`
+- Paths (ADR 0215): `Scene/Nodes3D/Paths/` (`Path3D`, `PathFollow3D`: progress, rotation modes, `Speed`) over `Resources/Curve3D.cs`
+  (`Closed`, tangents, `UpVectorEnabled`); see `docs/design/paths.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform + event tracks), `AnimationLibrary`, `AnimationPlayer` (ADR 0207);
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
@@ -140,6 +142,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `build/package/` — the engine package's `buildTransitive` props/targets (content copy, localization; ADR 0188,
   `docs/design/distribution-nuget.md`); `build/pack-nuget.sh` packs both packages
 - `Examples/Demo/` — the Demo game (a `GameHost` project of its own: `Demo`, `Demo.Desktop`, `Demo.Tests`): one scene per feature, nav bar; README screenshots (`just demo-screenshots`). Standalone, not part of `MainframeEngine.slnx` (`Examples/Demo/Demo.slnx`); see `docs/design/demo.md`
+- `Examples/Neon/` — the Neon showcase (ADR 0218): a cyberpunk loft over a neon city; its own `Neon.slnx`, standalone like the
+  Forest; `just neon`, `neon-test`, `neon-art`, `neon-city-art`, `neon-audio`, `neon-screenshots`; see `docs/design/neon.md`
 - `MainframeEngine.Editor/` — the editor exe (M10; `just editor [project|scene]`): `EditorApp : Engine` runs the tree in
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Assets/Editor/`;
   `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Inspector/`, `SceneTree/`, `Viewport/` (camera,

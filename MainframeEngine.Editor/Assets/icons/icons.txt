@@ -34,6 +34,8 @@ network
 clock
 device-desktop
 help-hexagon
+route-2
+map-pin
 
 # ── Resource types ───────────────────────────────────────────────────────────────────────────────────────────────
 package
@@ -53,6 +55,7 @@ wave-sine
 arrows-minimize
 ripple
 mountain
+building-skyscraper
 circle
 capsule-horizontal
 line

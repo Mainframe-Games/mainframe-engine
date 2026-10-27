@@ -84,13 +84,13 @@ flowchart LR
 - **Docs site.** A successful run triggers [`docs.yml`](../../.github/workflows/docs.yml) (`workflow_run`), which
   builds the docs from the released commit and deploys them to GitHub Pages with the new version in the title. This is
   the only automatic docs deploy: merges to `main` do not publish docs ([Docs site](docs-site.md#deployment)).
-- **Demo and Forest assets.** The `demo` and `forest` jobs (need `guard` and `ci`; the release waits for them) pull the
-  example's LFS content and run [`build/package-example.sh`](../../build/package-example.sh) `<Demo|Forest> <version>
+- **Demo, Forest and Neon assets.** The `demo`, `forest` and `neon` jobs (need `guard` and `ci`; the release waits for them) pull the
+  example's LFS content and run [`build/package-example.sh`](../../build/package-example.sh) `<Demo|Forest|Neon> <version>
   <out-dir>` (`build/package-demo.sh <version> <out-dir>` is the Demo's wrapper). For the Demo it zips `Examples/Demo` (tracked and
   unignored files, no `bin/`/`obj/`, failing on LFS pointer files) under a top folder `MainframeEngine.Demo/` as
   `MainframeEngine.Demo-vX.Y.Z.zip` (plus a generated `Directory.Packages.props` with the versions of the packages the Demo
   references, read from the repo's, since the Demo builds outside it); the Forest gives `MainframeEngine.Forest-vX.Y.Z.zip`
-  (≈ 155 MB) the same way. Both are attached to the release, and only the versioned names: the editor's **Download
+  (≈ 155 MB) and Neon `MainframeEngine.Neon-vX.Y.Z.zip` the same way. All three are attached to the release, and only the versioned names: the editor's **Download
   Example** menu fetches its own version's zip, and a development build the latest release's (found through the release
   API, so no stable-name copy is needed), see
   [Editor: projects](editor.md#projects). CI zips the Demo the same way (version `0.0.0-ci`) and runs

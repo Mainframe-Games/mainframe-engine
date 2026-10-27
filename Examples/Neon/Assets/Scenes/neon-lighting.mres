@@ -1,0 +1,16 @@
+{
+  "format": 2,
+  "uid": "res_cfd113a68c2d",
+  "type": "LightProbeData",
+  "props": {
+    "Origin": [-7.3, -0.099999905, -5.7],
+    "Spacing": [1, 1, 1],
+    "CountX": 15,
+    "CountY": 7,
+    "CountZ": 14,
+    "BakeHash": "b2a06008e64442521c7e99495aa9052ca43774cf98ea6fa541531360d1325273",
+    "RaysPerProbe": 192,
+    "Bounces": 2,
+    "DataFile": "neon-lighting.probes"
+  }
+}

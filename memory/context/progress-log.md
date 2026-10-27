@@ -4,6 +4,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Neon showcase (2026-10-27/28).** Branch `neon-demo` (one PR): `Examples/Neon`, a cyberpunk loft 20 floors up
+  (ADR 0218, `docs/design/neon.md`), plus the three engine features it needed: `Path3D`/`PathFollow3D` and closed
+  `Curve3D` (ADR 0215, `docs/design/paths.md`), sub-viewport textures on 3D materials (ADR 0216), nearest-light
+  selection (ADR 0217). Built in phases N1–N6 with parallel sessions and worktree agents (N1 skeleton, N3 city, N5 audio)
+  cherry-picked on. Reference shots N1–N8 in `docs/images/neon`; 187 Neon tests. Not in CI (like the Forest).
+
 - **Gameplay toolkit run (2026-10-27).** Housekeeping on `chore/housekeeping` (`current-state.md` brought up to
   v1.1.5); three branches built in parallel worktrees from `main` 3963719: `feature/g1e-root-motion` (G1.20, ADR 0210),
   `feature/g9-joints-ragdolls` (G9.1–G9.6, G9.8–G9.9; ADRs 0211–0212; G9.7 waits for G7.3),

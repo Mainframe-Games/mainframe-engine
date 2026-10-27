@@ -26,7 +26,8 @@ In flight: G1e root motion, G9 3D joints + ragdolls, G7 editor viewport tools (b
   0191); Music mode, DAW, wavetable synth and adaptive music (ADRs 0192–0196); `Assets/` content folder (ADR 0197); 3D
   skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
-  (terrain, trees, water, baked GI; ADR 0209); the docs site at engine.mainframe.games; editor self-update; Linux
+  (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
+  (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); the docs site at engine.mainframe.games; editor self-update; Linux
   launcher.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.

@@ -1,0 +1,176 @@
+{
+  "format": 2,
+  "uid": "scn_46fdae7fe59e",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky",
+      "props": {
+        "SkyColor": [0.01, 0.012, 0.03],
+        "HorizonColor": [0.36, 0.09, 0.3],
+        "GroundColor": [0.18, 0.05, 0.16],
+        "HorizonSharpness": 2.2,
+        "SunColor": [0.7, 0.75, 1],
+        "SunIntensity": 0.3,
+        "SunAngularRadius": 0.3
+      }
+    },
+    "PostProcessProfile_m5hc5": {
+      "ref": "res_358fb4092ae8",
+      "path": "Assets/PostProcess/neon.mres"
+    },
+    "CameraAttributesPractical_vwyhr": {
+      "ref": "res_2c4dcf095e19",
+      "path": "Assets/PostProcess/neon-lens.mres"
+    },
+    "LightProbeData_qxa3w": {
+      "ref": "res_cfd113a68c2d",
+      "path": "Assets/Scenes/neon-lighting.mres"
+    },
+    "CapsuleShape3D_ak3q9": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.75
+      }
+    },
+    "BoxShape3D_3i7zb": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [400, 10, 400]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "neon",
+      "type": "Node3D"
+    },
+    {
+      "name": "Moon",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-40, 200, 0],
+        "Color": [0.55, 0.65, 1],
+        "Energy": 0.12,
+        "ShadowCascades": 2,
+        "ShadowMaxDistance": 40
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" },
+        "AmbientSource": "Sky",
+        "AmbientEnergy": 0.6,
+        "ReflectedLightSource": "Sky",
+        "PostProcess": { "res": "PostProcessProfile_m5hc5" },
+        "CameraAttributes": { "res": "CameraAttributesPractical_vwyhr" },
+        "FogEnabled": true,
+        "FogLightColor": [0.24, 0.07, 0.24],
+        "FogDensity": 0.0026,
+        "FogHeight": -40,
+        "FogHeightDensity": 0.012
+      }
+    },
+    {
+      "name": "City",
+      "parent": ".",
+      "type": "NeonCity"
+    },
+    {
+      "name": "Apartment",
+      "parent": ".",
+      "type": "NeonApartment"
+    },
+    {
+      "name": "Lighting",
+      "parent": ".",
+      "type": "LightProbeVolume",
+      "props": {
+        "Position": [0, 3, 1.25],
+        "Size": [14.6, 6.2, 13.9],
+        "ProbeSpacing": [1, 1, 1],
+        "RaysPerProbe": 192,
+        "Bounces": 2,
+        "Energy": 1.5,
+        "Data": { "res": "LightProbeData_qxa3w" },
+        "BakeWhenStale": true
+      }
+    },
+    {
+      "name": "Player",
+      "parent": ".",
+      "type": "FirstPersonController",
+      "props": {
+        "Position": [5.1, 0.02, -4],
+        "FloorSnapLength": 0.35
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Player",
+      "type": "CollisionShape3D",
+      "props": {
+        "Position": [0, 0.875, 0],
+        "Shape": { "res": "CapsuleShape3D_ak3q9" }
+      }
+    },
+    {
+      "name": "Head",
+      "parent": "Player",
+      "type": "Node3D",
+      "props": {
+        "Position": [0, 1.63, 0],
+        "RotationDegrees": [0, 180, 0]
+      }
+    },
+    {
+      "name": "Camera",
+      "parent": "Player/Head",
+      "type": "Camera3D",
+      "props": {
+        "Current": true,
+        "Fov": 58.71551,
+        "Near": 0.05,
+        "Far": 2000
+      }
+    },
+    {
+      "name": "Interactor",
+      "parent": "Player",
+      "type": "Interactor"
+    },
+    {
+      "name": "Audio",
+      "parent": ".",
+      "type": "NeonAudio"
+    },
+    {
+      "name": "Pause",
+      "parent": ".",
+      "type": "NeonPause"
+    },
+    {
+      "name": "FallSafety",
+      "parent": ".",
+      "type": "FallSafety",
+      "props": {
+        "Position": [0, -13, 0],
+        "Monitorable": false,
+        "RespawnPosition": [5.1, 0.02, -4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "FallSafety",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_3i7zb" }
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "format": 4,
+  "name": "Neon Demo",
+  "engineVersion": "0.0.0-dev",
+  "mainScene": "Assets/Scenes/neon.mscene",
+  "assemblies": ["Neon"],
+  "window": {
+    "width": 1920, "height": 1080, "vsync": true, "contentScale": 1, "icon": "Assets/Brand/icon.png"
+  },
+  "physics": { "ticksPerSecond": 60, "maxStepsPerFrame": 5, "3d": { "gravity": [0, -9.81, 0] } },
+  "input": {
+    "move_forward": { "deadzone": 0.2, "bindings": ["key:W", "key:Up", "axis:LeftY-"] },
+    "move_back": { "deadzone": 0.2, "bindings": ["key:S", "key:Down", "axis:LeftY+"] },
+    "move_left": { "deadzone": 0.2, "bindings": ["key:A", "key:Left", "axis:LeftX-"] },
+    "move_right": { "deadzone": 0.2, "bindings": ["key:D", "key:Right", "axis:LeftX+"] },
+    "look_left": { "deadzone": 0, "bindings": ["axis:RightX-"] },
+    "look_right": { "deadzone": 0, "bindings": ["axis:RightX+"] },
+    "look_up": { "deadzone": 0, "bindings": ["axis:RightY-"] },
+    "look_down": { "deadzone": 0, "bindings": ["axis:RightY+"] },
+    "sprint": { "bindings": ["key:ShiftLeft", "key:ShiftRight"] },
+    "sprint_toggle": { "bindings": ["pad:LeftStick"] },
+    "crouch": { "bindings": ["key:C", "key:ControlLeft", "key:ControlRight"] },
+    "crouch_toggle": { "bindings": ["pad:B"] },
+    "jump": { "bindings": ["key:Space", "pad:A"] },
+    "interact": { "bindings": ["key:E", "pad:X"] },
+    "pause": { "bindings": ["key:Escape", "pad:Start"] },
+    "photo": { "bindings": ["key:F2", "pad:Back"] }
+  },
+  "rendering": { "shadows": "High", "antiAliasing": "Taa" },
+  "audio": { "busLayout": "Assets/Settings/AudioBusLayout.mres" },
+  "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1 }
+}

@@ -607,8 +607,19 @@ render server renders it after the shadow pass and before the main pass. It uses
 | Target | Format | Use |
 |---|---|---|
 | `SceneImage` (+ `DepthImage`) | `R16G16B16A16_SFLOAT` + scene depth format (sampleable) | HDR colour; render-pass compatible with the main scene pass, so every scene pipeline (sky, grid, Spine, meshes) draws into it |
-| `ColorImage` | `R8G8B8A8_UNORM` | tonemapped (exposure, ACES) and sRGB-encoded by `SubViewportCompositor`, ready for UI; publish its render target once with `UiServer.RegisterTexture(name, viewport.ColorTarget!)` and show it as `<img src="engine://name"/>` |
+| `ColorImage` | `R8G8B8A8_UNORM` (`MUTABLE_FORMAT`) | tonemapped (exposure, ACES) and sRGB-encoded by `SubViewportCompositor`, ready for UI; publish its render target once with `UiServer.RegisterTexture(name, viewport.ColorTarget!)` and show it as `<img src="engine://name"/>`; on 3D materials through `GetTexture()` (below) |
 | `ObjectIdImage` | `R32_UINT` + depth | picking (`ObjectIds` or pending picks) |
+
+**On 3D materials (ADR 0216).** `GetTexture()` works in any material texture slot (albedo, emission, normal, ORM,
+particle materials, spatial shader samplers), Godot's `material.albedo_texture = $SubViewport.get_texture()`:
+- `TextureGpu` borrows the view's image instead of uploading pixels (`GpuTexture.Borrow`). Colour slots sample it through
+  an `R8G8B8A8_SRGB` view (`GpuImage.ViewAs`), so the sRGB-encoded values decode to linear like an sRGB texture; data
+  slots and samplers without `source_color` sample the stored values. Its sampler follows the texture's import settings.
+- A 3D view shows this frame: views render before the scene pass, and materials bind `SubViewportTargets.Presented`,
+  the LDR image of the view's last finished render. A 2D view (`Disable3D`) shows the previous frame
+  ([canvas.md](canvas.md#2d-sub-viewports-adr-0116)). Before a view's first frame the slot is empty.
+- A resize gives the view a new image; each material notices it the next time it is prepared and writes a new set, the
+  old one going through the deletion queue. Steady frames allocate nothing.
 
 **Transparent background and readback (ADR 0136).**
 - `TransparentBg` clears the HDR target to transparent black, and the tonemap keeps the scene's alpha (push-constant

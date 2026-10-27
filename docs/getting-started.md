@@ -172,7 +172,8 @@ just editor Examples/Demo                          # open it in the editor
 
 The [Forest](../Examples/Forest) is a first-person walk through a generated valley (`just forest`; Esc opens a pause
 menu with live graphics, audio and control settings and its cameras: a fly-over, the reference shots R1–R8 and a free
-camera). See [Demo](design/demo.md) and [Forest](design/forest.md).
+camera). [Neon](../Examples/Neon) is a cyberpunk loft 20 floors up in a rainy city (`just neon`; E uses things, Esc
+pauses). See [Demo](design/demo.md), [Forest](design/forest.md) and [Neon](design/neon.md).
 
 ## A tour of the code
 
@@ -352,7 +353,7 @@ mainframe-engine/
 ├── MainframeEngine.Generators/  # Roslyn source generator: node/resource registration, replication, editor icons
 ├── MainframeEngine.Editor/      # The editor (RmlUi UI in Assets/Editor)
 ├── MainframeEngine.Video/       # The editor's video mode (segments, detection, ffmpeg media, Whisper transcription)
-├── Examples/                    # Demo (one scene per feature; README screenshots) and Forest
+├── Examples/                    # Demo (one scene per feature; README screenshots), Forest and Neon
 ├── Templates/                   # `dotnet new mfgame` game template
 ├── Tools/MainframeEngine.L10n/  # mf-l10n: extract (RML, scenes), update, pseudo-locale, .po -> .mo compiler
 ├── Native/                      # Native shim sources (mfrmlui over RmlUi + FreeType, ENet), built by natives.yml
@@ -384,6 +385,7 @@ just render-tests-linux  # the same on lavapipe in an x86_64 Docker container, l
 just qa               # one screenshot per Demo scene (docs/images/demo);  just qa-editor / just qa-projects: scripted editor walkthroughs
 just readme-screenshots  # regenerate the editor screenshots in docs/images (needs ImageMagick)
 just forest-screenshots  # the Forest's reference shots (docs/images/forest)
+just neon-screenshots    # Neon's reference shots (docs/images/neon)
 just bench            # benchmarks against Tests/MainframeEngine.Benchmarks/baseline.json
 ```
 

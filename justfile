@@ -5,7 +5,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 solution := "MainframeEngine.slnx"
 # Folders with committed .gdshader SPIR-V (canvas-shaders, shaders-check)
-gdshader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets"
+gdshader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets Examples/Neon/Assets"
 artifacts := justfile_directory() / "artifacts"
 
 # List recipes
@@ -150,6 +150,37 @@ forest-test:
 forest-audio:
     dotnet test Examples/Forest/Forest.Tests --filter "FullyQualifiedName~ForestAudioRenderTests"
 
+# The Neon example, a first-person walk round a loft apartment, in Release (game flags after ++: --no-capture)
+neon *args:
+    dotnet run --project Examples/Neon/Neon.Desktop -c Release -- {{args}}
+
+# Neon unit tests: the controller, the interactables, the apartment's rooms and containment, the scene (no GPU; the apartment tests need the LFS model)
+neon-test:
+    dotnet test Examples/Neon/Neon.Tests
+
+# Neon's eight reference shots (N1–N8) into docs/images/neon (1920x1080 → 1600 px wide); display awake (caffeinate -u)
+neon-screenshots frames="240":
+    build/neon-screenshots.sh {{frames}}
+
+# Regenerate Neon's app icon from Examples/Neon/Brand/*.svg: PNGs, neon.ico, neon.icns and the window icon Assets/Brand/icon.png (needs inkscape; .icns needs macOS)
+neon-brand:
+    build/brand/app-icon.sh Examples/Neon/Brand neon
+    mkdir -p Examples/Neon/Assets/Brand && cp Examples/Neon/Brand/png/icon-256.png Examples/Neon/Assets/Brand/icon.png
+
+# Render Neon's synthesised soundscape to Examples/Neon/artifacts/audio/*.wav (mixes) and artifacts/audio/sounds/ (every sound) and check their levels
+neon-audio:
+    dotnet test Examples/Neon/Neon.Tests --filter "FullyQualifiedName~NeonAudioRenderTests"
+
+# Build Neon's apartment (Assets/Art/Apartment/apartment.gltf): the posters, then headless Blender from Tools/apartment/build_apartment.py, then .meta sidecars (textures: python3 Examples/Neon/Tools/fetch_assets.py; BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
+neon-art *args:
+    python3 Examples/Neon/Tools/apartment/make_posters.py
+    "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/apartment/build_apartment.py -- {{args}}
+    python3 Examples/Neon/Tools/fetch_assets.py --only metas
+
+# Build Neon's city kit (Assets/Art/City: towers, rail, vehicles, signs glTFs and the signs.png words atlas; fetches Noto Sans JP into a cache) headless in Blender from Tools/city/build_city_kit.py (args: --preview DIR, --verify DIR, --no-atlas)
+neon-city-art *args:
+    "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/city/build_city_kit.py -- {{args}}
+
 # Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
 template-smoke frames="30":
     build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}
@@ -189,6 +220,7 @@ publish-local rid="" version="0.0.0-local":
     build/package-editor.sh "$rid" "{{version}}" "{{artifacts}}/publish/$rid" "{{artifacts}}/release"
     build/package-example.sh Demo "{{version}}" "{{artifacts}}/release"
     build/package-example.sh Forest "{{version}}" "{{artifacts}}/release"
+    build/package-example.sh Neon "{{version}}" "{{artifacts}}/release"
 
 # Next release version the publish workflow would create (patch bump of the latest vX.Y.Z tag)
 next-version bump="patch":

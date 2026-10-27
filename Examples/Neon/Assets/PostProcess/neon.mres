@@ -1,0 +1,29 @@
+{
+  "format": 2,
+  "uid": "res_358fb4092ae8",
+  "type": "PostProcessProfile",
+  "props": {
+    "Tonemapper": "Agx",
+    "TonemapExposure": 1.1,
+    "GlowEnabled": true,
+    "GlowLevel1": 0.2,
+    "GlowLevel2": 0.5,
+    "GlowLevel3": 0.8,
+    "GlowLevel4": 0.7,
+    "GlowLevel5": 0.5,
+    "GlowLevel6": 0.3,
+    "GlowIntensity": 0.85,
+    "GlowStrength": 1.1,
+    "GlowBloom": 0.02,
+    "GlowBlendMode": "Additive",
+    "GlowHdrThreshold": 0.7,
+    "GlowHdrLuminanceCap": 10,
+    "SsaoEnabled": true,
+    "SsaoRadius": 0.7,
+    "SsaoIntensity": 1.2,
+    "SsaoPower": 1.3,
+    "AdjustmentEnabled": true,
+    "AdjustmentContrast": 1.06,
+    "AdjustmentSaturation": 1.15
+  }
+}

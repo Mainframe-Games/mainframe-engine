@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 473" width="824" height="473" font-family="Lato, Helvetica, Arial, sans-serif">
+<title>Neon apartment floor plans</title>
+<!-- Generated from Tools/apartment/build_apartment.py's dimensions (x east to the right, z south down). -->
+<style>
+.bg{fill:#0e0b18} .room{fill:#2a2433;stroke:#cfc8dc;stroke-width:2} .balcony{fill:#1d2c38;stroke:#5fd7ff;stroke-width:1.5;stroke-dasharray:6 4}
+.bath{fill:#2f3a44;stroke:#cfc8dc;stroke-width:1.5} .computer{fill:#2c1e4a;stroke:#cfc8dc;stroke-width:1.5} .bed2{fill:#1e3542;stroke:#cfc8dc;stroke-width:1.5}
+.loft{fill:#3a2236;stroke:#cfc8dc;stroke-width:1.5} .void{fill:#0e0b18;opacity:0.55} .furn{fill:#6d6578} .stairs{fill:#8a8494;opacity:0.7}
+.shower{fill:#7fd7ff;opacity:0.35} .door{fill:#ff4fb0} .locked{fill:#ff3030} .grid{stroke:#ffffff;stroke-opacity:0.05} .glass{stroke:#5fd7ff;stroke-width:3}
+.title{fill:#ffffff;font-size:17px;font-weight:bold} .label{fill:#ffffff;font-size:13px} .small{fill:#d9d2e6;font-size:11px} .key{fill:#a79fb6;font-size:12px}
+</style>
+<rect class="bg" width="100%" height="100%"/>
+<line class="grid" x1="24.0" y1="58.0" x2="24.0" y2="409.0"/>
+<line class="grid" x1="50.0" y1="58.0" x2="50.0" y2="409.0"/>
+<line class="grid" x1="76.0" y1="58.0" x2="76.0" y2="409.0"/>
+<line class="grid" x1="102.0" y1="58.0" x2="102.0" y2="409.0"/>
+<line class="grid" x1="128.0" y1="58.0" x2="128.0" y2="409.0"/>
+<line class="grid" x1="154.0" y1="58.0" x2="154.0" y2="409.0"/>
+<line class="grid" x1="180.0" y1="58.0" x2="180.0" y2="409.0"/>
+<line class="grid" x1="206.0" y1="58.0" x2="206.0" y2="409.0"/>
+<line class="grid" x1="232.0" y1="58.0" x2="232.0" y2="409.0"/>
+<line class="grid" x1="258.0" y1="58.0" x2="258.0" y2="409.0"/>
+<line class="grid" x1="284.0" y1="58.0" x2="284.0" y2="409.0"/>
+<line class="grid" x1="310.0" y1="58.0" x2="310.0" y2="409.0"/>
+<line class="grid" x1="336.0" y1="58.0" x2="336.0" y2="409.0"/>
+<line class="grid" x1="362.0" y1="58.0" x2="362.0" y2="409.0"/>
+<line class="grid" x1="388.0" y1="58.0" x2="388.0" y2="409.0"/>
+<line class="grid" x1="24.0" y1="58.0" x2="388.0" y2="58.0"/>
+<line class="grid" x1="24.0" y1="84.0" x2="388.0" y2="84.0"/>
+<line class="grid" x1="24.0" y1="110.0" x2="388.0" y2="110.0"/>
+<line class="grid" x1="24.0" y1="136.0" x2="388.0" y2="136.0"/>
+<line class="grid" x1="24.0" y1="162.0" x2="388.0" y2="162.0"/>
+<line class="grid" x1="24.0" y1="188.0" x2="388.0" y2="188.0"/>
+<line class="grid" x1="24.0" y1="214.0" x2="388.0" y2="214.0"/>
+<line class="grid" x1="24.0" y1="240.0" x2="388.0" y2="240.0"/>
+<line class="grid" x1="24.0" y1="266.0" x2="388.0" y2="266.0"/>
+<line class="grid" x1="24.0" y1="292.0" x2="388.0" y2="292.0"/>
+<line class="grid" x1="24.0" y1="318.0" x2="388.0" y2="318.0"/>
+<line class="grid" x1="24.0" y1="344.0" x2="388.0" y2="344.0"/>
+<line class="grid" x1="24.0" y1="370.0" x2="388.0" y2="370.0"/>
+<line class="grid" x1="24.0" y1="396.0" x2="388.0" y2="396.0"/>
+<line class="glass" x1="24.0" y1="344.0" x2="388.0" y2="344.0"/>
+<line class="grid" x1="436.0" y1="58.0" x2="436.0" y2="409.0"/>
+<line class="grid" x1="462.0" y1="58.0" x2="462.0" y2="409.0"/>
+<line class="grid" x1="488.0" y1="58.0" x2="488.0" y2="409.0"/>
+<line class="grid" x1="514.0" y1="58.0" x2="514.0" y2="409.0"/>
+<line class="grid" x1="540.0" y1="58.0" x2="540.0" y2="409.0"/>
+<line class="grid" x1="566.0" y1="58.0" x2="566.0" y2="409.0"/>
+<line class="grid" x1="592.0" y1="58.0" x2="592.0" y2="409.0"/>
+<line class="grid" x1="618.0" y1="58.0" x2="618.0" y2="409.0"/>
+<line class="grid" x1="644.0" y1="58.0" x2="644.0" y2="409.0"/>
+<line class="grid" x1="670.0" y1="58.0" x2="670.0" y2="409.0"/>
+<line class="grid" x1="696.0" y1="58.0" x2="696.0" y2="409.0"/>
+<line class="grid" x1="722.0" y1="58.0" x2="722.0" y2="409.0"/>
+<line class="grid" x1="748.0" y1="58.0" x2="748.0" y2="409.0"/>
+<line class="grid" x1="774.0" y1="58.0" x2="774.0" y2="409.0"/>
+<line class="grid" x1="800.0" y1="58.0" x2="800.0" y2="409.0"/>
+<line class="grid" x1="436.0" y1="58.0" x2="800.0" y2="58.0"/>
+<line class="grid" x1="436.0" y1="84.0" x2="800.0" y2="84.0"/>
+<line class="grid" x1="436.0" y1="110.0" x2="800.0" y2="110.0"/>
+<line class="grid" x1="436.0" y1="136.0" x2="800.0" y2="136.0"/>
+<line class="grid" x1="436.0" y1="162.0" x2="800.0" y2="162.0"/>
+<line class="grid" x1="436.0" y1="188.0" x2="800.0" y2="188.0"/>
+<line class="grid" x1="436.0" y1="214.0" x2="800.0" y2="214.0"/>
+<line class="grid" x1="436.0" y1="240.0" x2="800.0" y2="240.0"/>
+<line class="grid" x1="436.0" y1="266.0" x2="800.0" y2="266.0"/>
+<line class="grid" x1="436.0" y1="292.0" x2="800.0" y2="292.0"/>
+<line class="grid" x1="436.0" y1="318.0" x2="800.0" y2="318.0"/>
+<line class="grid" x1="436.0" y1="344.0" x2="800.0" y2="344.0"/>
+<line class="grid" x1="436.0" y1="370.0" x2="800.0" y2="370.0"/>
+<line class="grid" x1="436.0" y1="396.0" x2="800.0" y2="396.0"/>
+<line class="glass" x1="436.0" y1="344.0" x2="800.0" y2="344.0"/>
+<text class="title" x="24.0" y="44">Ground floor (y = 0)</text>
+<rect class="balcony" x="24.0" y="344.0" width="364.0" height="65.0"/>
+<rect class="room" x="24.0" y="58.0" width="364.0" height="286.0"/>
+<rect class="bath" x="24.0" y="58.0" width="139.9" height="102.4"/>
+<rect class="computer" x="24.0" y="163.6" width="139.9" height="180.4"/>
+<rect class="furn" x="200.8" y="58.0" width="117.0" height="16.9"/>
+<rect class="furn" x="221.6" y="110.0" width="57.2" height="23.4"/>
+<rect class="furn" x="268.4" y="211.4" width="23.4" height="83.2"/>
+<rect class="furn" x="291.8" y="211.4" width="44.2" height="23.4"/>
+<rect class="furn" x="377.6" y="117.8" width="10.4" height="78.0"/>
+<rect class="furn" x="375.0" y="227.0" width="13.0" height="52.0"/>
+<rect class="furn" x="26.6" y="208.8" width="26.0" height="88.4"/>
+<rect class="furn" x="120.2" y="167.2" width="40.3" height="18.2"/>
+<rect class="stairs" x="167.0" y="182.8" width="28.6" height="117.0"/>
+<rect class="shower" x="24.0" y="58.0" width="41.1" height="38.5"/>
+<rect class="door" x="163.9" y="107.4" width="3.1" height="23.4"/>
+<rect class="door" x="163.9" y="305.0" width="3.1" height="23.4"/>
+<rect class="locked" x="325.6" y="54.1" width="26.0" height="3.9"/>
+<rect class="door" x="258.0" y="342.4" width="36.4" height="1.6"/>
+<text class="label" x="237.2" y="169.8">Living (double height)</text>
+<text class="label" x="232.0" y="89.2">Kitchen</text>
+<text class="label" x="333.4" y="81.4">Entry</text>
+<text class="label" x="34.4" y="123.0">Bath</text>
+<text class="label" x="34.4" y="201.0">Computer</text>
+<text class="small" x="182.6" y="253.0">Stairs</text>
+<text class="small" x="317.8" y="50.2">front door (locked)</text>
+<text class="label" x="34.4" y="383.0">Balcony: 20 floors above the street</text>
+<text class="small" x="34.4" y="86.6">shower</text>
+<text class="small" x="258.0" y="336.2">slider</text>
+<text class="title" x="436.0" y="44">Mezzanine (y = 3 m)</text>
+<rect class="balcony" x="436.0" y="344.0" width="364.0" height="65.0"/>
+<rect class="room" x="436.0" y="58.0" width="364.0" height="286.0"/>
+<rect class="bed2" x="436.0" y="58.0" width="104.0" height="105.6"/>
+<rect class="loft" x="436.0" y="163.6" width="143.0" height="180.4"/>
+<rect class="loft" x="540.0" y="58.0" width="39.0" height="105.6"/>
+<rect class="loft" x="579.0" y="58.0" width="28.6" height="124.8"/>
+<rect class="stairs" x="579.0" y="182.8" width="28.6" height="117.0"/>
+<rect class="void" x="579.0" y="58.0" width="221.0" height="286.0"/>
+<rect class="furn" x="438.6" y="237.4" width="52.0" height="57.2"/>
+<rect class="furn" x="438.6" y="60.6" width="26.0" height="52.0"/>
+<rect class="furn" x="436.0" y="167.2" width="15.6" height="49.4"/>
+<rect class="door" x="540.0" y="97.0" width="3.1" height="23.4"/>
+<text class="label" x="446.4" y="138.6">Bedroom 2</text>
+<text class="label" x="446.4" y="315.4">Loft (master)</text>
+<text class="label" x="657.0" y="201.0">open to the living room</text>
+<text class="key" x="24" y="457.0">Glass window wall along the balcony edge of the rooms; doors in pink; furniture blocks grey. 1 square = 1 m.</text>
+</svg>

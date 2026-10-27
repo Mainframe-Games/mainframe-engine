@@ -111,6 +111,7 @@ public sealed class RenderServer : IServer
     internal PostProcessStack? PostEffects => (Vulkan as IPostProcessHost)?.PostEffects;
 
     private ulong _prepassFrame; // the frame RenderPrepass drew the main view's prepass in
+    private long _lightSelection; // PrepareFrame's stamp for LightEnvironment.SelectLights (once per world per frame)
     private int _mainCameraId;   // the main view's camera last frame (an identity hash: no reference is kept)
 
     /// <summary>
@@ -296,7 +297,10 @@ public sealed class RenderServer : IServer
         UpdatePostState(root, vk);
         var world = root.World3D;
         EnsureResources(world);
-        if (world.GeometryList.Count > 0 && GetRenderCamera(root, vk.SwapchainExtent) is { } camera)
+        _lightSelection++;
+        var camera = GetRenderCamera(root, vk.SwapchainExtent);
+        SelectLights(world, camera);
+        if (world.GeometryList.Count > 0 && camera is not null)
             Meshes!.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
 
         _shadowView = FindShadowView(root);
@@ -306,9 +310,22 @@ public sealed class RenderServer : IServer
                 continue;
             UpdateSubPostState(sub, vk);
             EnsureResources(sub.World3D);
-            if (sub.World3D.GeometryList.Count > 0 && GetRenderCamera(sub, Extent(sub)) is { } subCamera)
+            var subCamera = GetRenderCamera(sub, Extent(sub));
+            SelectLights(sub.World3D, subCamera);
+            if (sub.World3D.GeometryList.Count > 0 && subCamera is not null)
                 Meshes!.Prepare(EnsureTargets(sub).Draws, sub.World3D, subCamera, collectCasters: ReferenceEquals(sub, _shadowView));
         }
+    }
+
+    // ADR 0217: over the UBO limits a world keeps the point and spot lights nearest the camera of the first view that
+    // renders it this frame, before its shadow plan and lights UBOs read the lists. Every viewport owns its world, so the
+    // selection is per view; the stamp keeps it to once per world per frame (the hysteresis compares frames).
+    private void SelectLights(World3D world, ICamera? camera)
+    {
+        if (camera is null || world.Lights.SelectionStamp == _lightSelection)
+            return;
+        world.Lights.SelectionStamp = _lightSelection;
+        world.Lights.SelectLights(camera.Position);
     }
 
     /// <summary>
@@ -566,6 +583,7 @@ public sealed class RenderServer : IServer
         }
 
         targets.Capture?.Copy(cb, targets.Ldr!);
+        targets.Presented = targets.Ldr!.GetColor(0); // ADR 0216: what materials showing the view sample from now on
         targets.RenderCount++;
         if (sub.UpdateMode == SubViewportUpdateMode.Once)
             sub.UpdateMode = SubViewportUpdateMode.Disabled;

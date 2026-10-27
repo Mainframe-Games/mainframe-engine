@@ -1,0 +1,113 @@
+{
+  "format": 2,
+  "uid": "res_4e656f6e0b05",
+  "type": "AudioBusLayout",
+  "resources": {
+    "AudioBusInfo_mst01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Master",
+        "Send": "",
+        "MaxVoices": 16
+      }
+    },
+    "AudioBusInfo_amb01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Ambience",
+        "VolumeDb": -8,
+        "MaxVoices": 12
+      }
+    },
+    "AudioBusInfo_rai01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Rain",
+        "VolumeDb": -7,
+        "MaxVoices": 4
+      }
+    },
+    "AudioEffectReverb_fol01": {
+      "type": "AudioEffectReverb",
+      "props": {
+        "RoomSize": 0.35,
+        "Damp": 0.6,
+        "Wet": 0.08
+      }
+    },
+    "AudioBusInfo_fol01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Foley",
+        "VolumeDb": -6,
+        "MaxVoices": 20,
+        "Effects": [
+          { "res": "AudioEffectReverb_fol01" }
+        ]
+      }
+    },
+    "AudioEffectReverb_bth01": {
+      "type": "AudioEffectReverb",
+      "props": {
+        "RoomSize": 0.45,
+        "Damp": 0.25,
+        "Wet": 0.28,
+        "Width": 0.8
+      }
+    },
+    "AudioBusInfo_bth01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Bathroom",
+        "VolumeDb": -6,
+        "MaxVoices": 8,
+        "Effects": [
+          { "res": "AudioEffectReverb_bth01" }
+        ]
+      }
+    },
+    "AudioBusInfo_mus01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Music",
+        "VolumeDb": -8,
+        "MaxVoices": 4
+      }
+    },
+    "AudioBusInfo_tv001": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Tv",
+        "VolumeDb": -9,
+        "MaxVoices": 4
+      }
+    },
+    "AudioBusInfo_sfx01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "SFX",
+        "MaxVoices": 16
+      }
+    },
+    "AudioBusInfo_ui001": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "UI"
+      }
+    }
+  },
+  "props": {
+    "ResourceName": "Bus layout",
+    "Buses": [
+      { "res": "AudioBusInfo_mst01" },
+      { "res": "AudioBusInfo_amb01" },
+      { "res": "AudioBusInfo_rai01" },
+      { "res": "AudioBusInfo_fol01" },
+      { "res": "AudioBusInfo_bth01" },
+      { "res": "AudioBusInfo_mus01" },
+      { "res": "AudioBusInfo_tv001" },
+      { "res": "AudioBusInfo_sfx01" },
+      { "res": "AudioBusInfo_ui001" }
+    ]
+  }
+}

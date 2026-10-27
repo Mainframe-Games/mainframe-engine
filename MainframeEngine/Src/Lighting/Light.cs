@@ -92,6 +92,17 @@ public abstract class Light
         set => _shadowOpacity = Math.Clamp(value, 0f, 1f);
     }
 
+    /// <summary>
+    /// How far the light reaches, for <see cref="LightEnvironment.SelectLights"/> (ADR 0217): a camera within it scores 0.
+    /// </summary>
+    internal virtual float SelectionRange => 0f;
+
+    /// <summary>When <see cref="LightEnvironment.AddLight"/> added the light (ties of the nearest-light selection).</summary>
+    internal long RegistrationOrder { get; set; }
+
+    /// <summary>This frame's <see cref="LightEnvironment.SelectLights"/> sort key (smaller is selected first).</summary>
+    internal float SelectionKey { get; set; }
+
     /// <summary>The power of two nearest to <paramref name="value"/> (ties round up).</summary>
     internal static int RoundToPowerOfTwo(int value)
     {

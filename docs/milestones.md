@@ -319,12 +319,13 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | 🚧 | [Procedural trees](design/future/procedural-trees.md) |
 | G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | 🚧 | [Water](design/future/water.md) |
 | G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | 🚧 | [Forest showcase](design/future/forest-showcase.md) |
+| Neon showcase: `Examples/Neon` cyberpunk apartment (interactables, live monitors and terminal, instanced neon city, traffic on paths, synthesised audio) | ✅ (ADR 0218) | [Neon](design/neon.md) |
 | G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | 🚧 | [Forest visual quality](design/future/forest-visual-quality.md) |
 | G9 Physics joints and ragdolls: 3D/2D joint nodes over Jitter2 and Box2D (limits, motors, springs, breaking), anchor gizmos, ragdolls on G1b skeletons | 🚧 | [Physics joints and ragdolls](design/physics-joints.md) (ADR 0211, 0212): G9.1–G9.6, G9.8, G9.9 ✅; G9.7 limit handles (after G7.3) and G9.10 to come |
 | G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ⬜ | [Profiler](design/future/profiler.md) |
 | G11 World-space UI: `Label3D`, UI anchored to 3D points (nameplates, markers), RmlUi panels rendered onto meshes with ray-picked input | ⬜ | [World-space UI](design/future/world-space-ui.md) |
 | G12 Gamepad haptics and input glyphs: rumble, controller type and last-used device, action → glyph for RmlUi and canvas text | ⬜ | [Haptics and input glyphs](design/future/input-haptics-and-glyphs.md) |
-| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | ⬜ | [Paths](design/future/paths.md) |
+| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | 🚧 3D nodes shipped (ADR 0215) | [Paths](design/paths.md), [proposal](design/future/paths.md) |
 | G14 Accessibility: UI scale, colour-vision filters, subtitles and captions, motion comfort options, input assists | ⬜ | [Accessibility](design/future/accessibility.md) |
 | G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ⬜ | [Crash reporting](design/future/crash-reporting.md) |
 | G16 Video playback: `VideoStream`, `VideoPlayer`, `VideoTexture`, GPU YUV conversion, audio through `AudioServer` (codec choice pending) | ⬜ | [Video playback](design/future/video-playback.md) |

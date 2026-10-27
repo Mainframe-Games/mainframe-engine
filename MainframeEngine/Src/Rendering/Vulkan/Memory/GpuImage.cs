@@ -146,6 +146,27 @@ public sealed unsafe class GpuImage : IDisposable
         return view;
     }
 
+    /// <summary>
+    /// The default view, or a view of the whole image in <paramref name="format"/> (the other half of an sRGB/UNORM pair;
+    /// the image needs <c>MUTABLE_FORMAT</c>), created on first use and owned by the image.
+    /// </summary>
+    internal ImageView ViewAs(Format format)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (format == (Description.ViewFormat ?? Format))
+            return View;
+        if (_formatView.Handle == 0 || _formatViewFormat != format)
+        {
+            _formatView = CreateView(Description.ViewType, 0, ArrayLayers, format);
+            _formatViewFormat = format;
+        }
+
+        return _formatView;
+    }
+
+    private ImageView _formatView;
+    private Format _formatViewFormat;
+
     private static ImageView CreateViewHandle(IVulkanContext ctx, Image image, Format format, ImageAspectFlags aspect,
         ImageViewType type, uint baseLayer, uint layerCount, uint baseMip, uint mipCount)
     {

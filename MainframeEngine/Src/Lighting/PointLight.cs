@@ -10,4 +10,6 @@ public class PointLight : Light
     }
 
     public float Range { get; set; } = 10f;
+
+    internal override float SelectionRange => Range;
 }

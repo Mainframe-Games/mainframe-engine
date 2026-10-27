@@ -7,7 +7,9 @@ namespace MainframeEngine;
 /// tilt, plus two per-point values Godot does not have, <see cref="GetPointWidth">width</see> (default 1 m) and
 /// <see cref="GetPointDepth">depth</see> (default 0 m), used by <see cref="River3D"/>. The curve is baked into points at
 /// equal arc length (<see cref="BakeInterval"/>) for sampling by distance (<see cref="SampleBaked"/>) and closest-point
-/// queries (<see cref="GetClosestOffset"/>).
+/// queries (<see cref="GetClosestOffset"/>). A <see cref="Closed"/> curve adds the segment from the last point back to
+/// the first; the bake also keeps a unit tangent per baked point and, with <see cref="UpVectorEnabled"/>, a
+/// rotation-minimising up vector (ADR 0215), which <see cref="PathFollow3D"/> uses.
 /// </summary>
 /// <remarks>
 /// <para>Storage is one exported float array, <see cref="FloatsPerPoint"/> floats per point (position, in, out, tilt,
@@ -17,6 +19,9 @@ namespace MainframeEngine;
 /// by IEEE 754; the .NET JIT never contracts them into FMAs), with scalar dot products in a fixed order, so a curve bakes
 /// to the same bits on x64 and arm64. <see cref="Vector3.Dot"/>, <see cref="Vector3.Length"/> and
 /// <see cref="Vector3.Lerp"/> are avoided there because their SIMD forms may round differently per CPU.</para>
+/// <para>Up vectors of a closed curve spread the frame's leftover twist along the curve with <see cref="MathF.Sin"/> and
+/// <see cref="MathF.Cos"/>, which are not guaranteed to round the same on every CPU; open curves keep the bit-exact
+/// contract.</para>
 /// <para>Sampling and closest-point queries do not allocate. Main thread only.</para>
 /// </remarks>
 [EditorIcon("line", Family = EditorIconFamily.Resource)]
@@ -38,6 +43,8 @@ public sealed class Curve3D : Resource
 
     private float[] _points = [];
     private float _bakeInterval = 0.2f;
+    private bool _closed;
+    private bool _upVectorEnabled;
     private bool _dirty = true;
 
     // Baked data: _bakedCount points at equal arc-length steps (_bakedStep) from 0 to _bakedLength.
@@ -46,6 +53,8 @@ public sealed class Curve3D : Resource
     private float[] _bakedTilts = [];
     private float[] _bakedWidths = [];
     private float[] _bakedDepths = [];
+    private Vector3[] _bakedTangents = [];
+    private Vector3[] _bakedUps = [];
     private int _bakedCount;
     private float _bakedLength;
     private float _bakedStep;
@@ -68,6 +77,42 @@ public sealed class Curve3D : Resource
             if (_bakeInterval == value)
                 return;
             _bakeInterval = value;
+            Touch();
+        }
+    }
+
+    /// <summary>
+    /// Whether the curve continues from the last point back to the first (its <c>out</c> to the first point's <c>in</c>):
+    /// the seam is an ordinary segment, sampling and tangents are continuous across it, and
+    /// <see cref="WrapOffset"/> wraps instead of clamping.
+    /// </summary>
+    [Export]
+    public bool Closed
+    {
+        get => _closed;
+        set
+        {
+            if (_closed == value)
+                return;
+            _closed = value;
+            Touch();
+        }
+    }
+
+    /// <summary>
+    /// Bake rotation-minimising up vectors (Godot's <c>up_vector_enabled</c>, default off here so rivers bake as
+    /// before): <see cref="SampleBakedUpVector"/> and <see cref="SampleBakedWithRotation"/> then never flip on vertical
+    /// climbs or loops.
+    /// </summary>
+    [Export]
+    public bool UpVectorEnabled
+    {
+        get => _upVectorEnabled;
+        set
+        {
+            if (_upVectorEnabled == value)
+                return;
+            _upVectorEnabled = value;
             Touch();
         }
     }
@@ -168,7 +213,8 @@ public sealed class Curve3D : Resource
 
     /// <summary>
     /// The Bézier position on segment <paramref name="index"/> (from point index to index + 1) at
-    /// <paramref name="t"/> (0..1). Indices before the first or at/after the last point return that point (Godot).
+    /// <paramref name="t"/> (0..1). Indices before the first or at/after the last point return that point (Godot); a
+    /// <see cref="Closed"/> curve also has the seam segment, index <c>count − 1</c>.
     /// </summary>
     public Vector3 Sample(int index, float t)
     {
@@ -177,10 +223,53 @@ public sealed class Curve3D : Resource
             return Vector3.Zero;
         if (index < 0)
             return GetPointPosition(0);
-        if (index >= count - 1)
+        if (index >= SegmentCount)
             return GetPointPosition(count - 1);
         SegmentControls(index, out var p0, out var c0, out var c1, out var p1);
         return Bezier(p0, c0, c1, p1, t);
+    }
+
+    /// <summary>Number of Bézier segments: <c>count − 1</c>, plus the seam when <see cref="Closed"/> (0 below two points).</summary>
+    public int SegmentCount => PointCount < 2 ? 0 : _closed ? PointCount : PointCount - 1;
+
+    /// <summary>
+    /// <paramref name="offset"/> brought onto the curve: modulo the baked length when <see cref="Closed"/> (negative
+    /// offsets count back from the end), else clamped to 0..length.
+    /// </summary>
+    public float WrapOffset(float offset)
+    {
+        EnsureBaked();
+        if (float.IsNaN(offset) || _bakedLength <= 0)
+            return 0f;
+        if (!_closed)
+            return Math.Clamp(offset, 0f, _bakedLength);
+        var wrapped = offset % _bakedLength;
+        return wrapped < 0 ? wrapped + _bakedLength : wrapped;
+    }
+
+    /// <summary>
+    /// Replaces the points with a smooth Bézier through <paramref name="points"/> (a Catmull-Rom spline converted to
+    /// Bézier handles; <paramref name="tension"/> 0.5 is the uniform Catmull-Rom). Sets <see cref="Closed"/>. Extension.
+    /// </summary>
+    public void SetSmoothPoints(ReadOnlySpan<Vector3> points, bool closed, float tension = 0.5f)
+    {
+        var count = points.Length;
+        var data = new float[count * FloatsPerPoint];
+        for (var i = 0; i < count; i++)
+        {
+            var previous = i > 0 ? points[i - 1] : closed && count > 2 ? points[count - 1] : points[i];
+            var next = i < count - 1 ? points[i + 1] : closed && count > 2 ? points[0] : points[i];
+            var handle = (next - previous) * (tension / 3f);
+            var o = i * FloatsPerPoint;
+            Write(data, o, points[i]);
+            Write(data, o + InOffset, -handle);
+            Write(data, o + OutOffset, handle);
+            data[o + WidthOffset] = 1f;
+        }
+
+        _points = data;
+        _closed = closed && count > 2;
+        Touch();
     }
 
     /// <summary>Length of the baked curve in metres (0 with fewer than two points).</summary>
@@ -220,32 +309,84 @@ public sealed class Curve3D : Resource
         var b = _bakedPoints[index + 1];
         if (!cubic)
             return a + (b - a) * t;
-        var pre = index > 0 ? _bakedPoints[index - 1] : a;
-        var post = index + 2 < _bakedCount ? _bakedPoints[index + 2] : b;
+        var pre = index > 0 ? _bakedPoints[index - 1] : _closed && _bakedCount > 2 ? _bakedPoints[_bakedCount - 2] : a;
+        var post = index + 2 < _bakedCount ? _bakedPoints[index + 2] : _closed && _bakedCount > 2 ? _bakedPoints[1] : b;
         return CubicInterpolate(pre, a, b, post, t);
     }
 
     /// <summary>
-    /// A transform at <paramref name="offset"/>: the origin on the curve, <c>-Z</c> along the curve's direction (the
-    /// engine's forward, as Godot's <c>PathFollow3D.use_model_front</c>), <c>+Y</c> as close to world up as the direction
-    /// allows, rolled by the interpolated tilt when <paramref name="applyTilt"/>. A zero-length curve gives the identity basis.
+    /// The unit direction of the curve at <paramref name="offset"/>: baked tangents (central differences, continuous
+    /// across a closed seam) interpolated between baked points. <c>-Z</c> for a curve without length.
+    /// </summary>
+    public Vector3 SampleBakedTangent(float offset)
+    {
+        EnsureBaked();
+        if (_bakedCount < 2 || _bakedLength <= 0)
+            return -Vector3.UnitZ;
+        var index = Locate(offset, out var t);
+        return NormalizeOr(_bakedTangents[index] + (_bakedTangents[index + 1] - _bakedTangents[index]) * t, _bakedTangents[index]);
+    }
+
+    /// <summary>
+    /// The baked rotation-minimising up vector at <paramref name="offset"/>, perpendicular to
+    /// <see cref="SampleBakedTangent"/> and rolled by the tilt when <paramref name="applyTilt"/>. Without
+    /// <see cref="UpVectorEnabled"/> it is world up made perpendicular to the tangent.
+    /// </summary>
+    public Vector3 SampleBakedUpVector(float offset, bool applyTilt = false)
+    {
+        var tangent = SampleBakedTangent(offset);
+        Vector3 up;
+        if (_upVectorEnabled && _bakedCount >= 2 && _bakedLength > 0)
+        {
+            var index = Locate(offset, out var t);
+            up = _bakedUps[index] + (_bakedUps[index + 1] - _bakedUps[index]) * t;
+        }
+        else
+        {
+            up = Vector3.UnitY;
+        }
+
+        up = Perpendicular(up, tangent);
+        if (applyTilt)
+        {
+            var tilt = SampleBakedTilt(offset);
+            if (tilt != 0)
+                up = Vector3.Transform(up, Quaternion.CreateFromAxisAngle(tangent, tilt));
+        }
+
+        return up;
+    }
+
+    /// <summary>
+    /// A transform at <paramref name="offset"/>: the origin on the curve, <c>-Z</c> along the curve's interpolated
+    /// tangent (the engine's forward, as Godot's <c>PathFollow3D.use_model_front</c>), <c>+Y</c> the baked up vector with
+    /// <see cref="UpVectorEnabled"/>, else as close to world up as the direction allows, rolled by the interpolated tilt
+    /// when <paramref name="applyTilt"/>. A zero-length curve gives the identity basis.
     /// </summary>
     public Transform3D SampleBakedWithRotation(float offset, bool cubic = false, bool applyTilt = false)
     {
         var origin = SampleBaked(offset, cubic);
         if (_bakedCount < 2 || _bakedLength <= 0)
             return new Transform3D(Basis.Identity, origin);
-        var index = Locate(offset, out _);
-        var direction = _bakedPoints[index + 1] - _bakedPoints[index];
-        if (direction.LengthSquared() < 1e-20f)
-            return new Transform3D(Basis.Identity, origin);
-        var basis = Transform3D.BasisLookingAlong(direction, Vector3.UnitY);
+        var direction = SampleBakedTangent(offset);
+        Basis basis;
+        if (_upVectorEnabled)
+        {
+            var z = -direction;
+            var y = SampleBakedUpVector(offset);
+            basis = new Basis(Vector3.Cross(y, z), y, z);
+        }
+        else
+        {
+            basis = Transform3D.BasisLookingAlong(direction, Vector3.UnitY);
+        }
+
         if (applyTilt)
         {
             var tilt = SampleBakedTilt(offset);
             if (tilt != 0)
             {
-                var roll = Quaternion.CreateFromAxisAngle(Vector3.Normalize(direction), tilt);
+                var roll = Quaternion.CreateFromAxisAngle(direction, tilt);
                 basis = new Basis(Vector3.Transform(basis.X, roll), Vector3.Transform(basis.Y, roll), basis.Z);
             }
         }
@@ -307,15 +448,18 @@ public sealed class Curve3D : Resource
             _bakedTilts[0] = GetPointTilt(0);
             _bakedWidths[0] = GetPointWidth(0);
             _bakedDepths[0] = GetPointDepth(0);
+            _bakedTangents[0] = -Vector3.UnitZ;
+            _bakedUps[0] = Vector3.UnitY;
             return;
         }
 
+        var segments = SegmentCount;
         // 1. Adaptive subdivision of every segment into a dense polyline (fixed recursion order: deterministic).
         var tolerance = MathF.Max(_bakeInterval * 0.01f, 1e-4f);
         _denseCount = 0;
         SegmentControls(0, out var first, out _, out _, out _);
         AppendDense(first, 0f, 0f);
-        for (var segment = 0; segment < count - 1; segment++)
+        for (var segment = 0; segment < segments; segment++)
         {
             SegmentControls(segment, out var p0, out var c0, out var c1, out var p1);
             Subdivide(segment, p0, c0, c1, p1, 0f, p0, 1f, p1, 0, tolerance * tolerance);
@@ -342,11 +486,73 @@ public sealed class Curve3D : Resource
             _bakedPoints[i] = a + (b - a) * f;
             _bakedDistances[i] = target;
             var param = _denseParams[j] + (_denseParams[j + 1] - _denseParams[j]) * f;
-            var seg = Math.Min((int)param, count - 2);
+            var seg = Math.Min((int)param, segments - 1);
             var s = Smoothstep(param - seg);
-            _bakedTilts[i] = Mix(ReadScalar(seg, TiltOffset), ReadScalar(seg + 1, TiltOffset), s);
-            _bakedWidths[i] = Mix(ReadScalar(seg, WidthOffset), ReadScalar(seg + 1, WidthOffset), s);
-            _bakedDepths[i] = Mix(ReadScalar(seg, DepthOffset), ReadScalar(seg + 1, DepthOffset), s);
+            var end = seg + 1 == count ? 0 : seg + 1;
+            _bakedTilts[i] = Mix(ReadScalar(seg, TiltOffset), ReadScalar(end, TiltOffset), s);
+            _bakedWidths[i] = Mix(ReadScalar(seg, WidthOffset), ReadScalar(end, WidthOffset), s);
+            _bakedDepths[i] = Mix(ReadScalar(seg, DepthOffset), ReadScalar(end, DepthOffset), s);
+        }
+
+        BakeTangents();
+        if (_upVectorEnabled)
+            BakeUpVectors();
+    }
+
+    // 3. Unit tangents by central differences of the baked points (one-sided at open ends, wrapped across a closed
+    // seam, where the first and last baked points coincide). A degenerate difference repeats the previous tangent.
+    private void BakeTangents()
+    {
+        var n = _bakedCount;
+        var wrap = _closed && n > 2;
+        var previousTangent = -Vector3.UnitZ;
+        for (var i = 0; i < n; i++)
+        {
+            var before = i > 0 ? _bakedPoints[i - 1] : wrap ? _bakedPoints[n - 2] : _bakedPoints[i];
+            var after = i < n - 1 ? _bakedPoints[i + 1] : wrap ? _bakedPoints[1] : _bakedPoints[i];
+            var tangent = NormalizeOr(after - before, previousTangent);
+            _bakedTangents[i] = tangent;
+            previousTangent = tangent;
+        }
+    }
+
+    // 4. Rotation-minimising up vectors by double reflection (Wang et al. 2008), starting from world up made
+    // perpendicular to the first tangent. A closed curve spreads the leftover twist at the seam linearly by arc length.
+    private void BakeUpVectors()
+    {
+        var n = _bakedCount;
+        _bakedUps[0] = Perpendicular(Vector3.UnitY, _bakedTangents[0]);
+        for (var i = 0; i < n - 1; i++)
+        {
+            var r = _bakedUps[i];
+            var t = _bakedTangents[i];
+            var v1 = _bakedPoints[i + 1] - _bakedPoints[i];
+            var c1 = Dot(v1, v1);
+            if (c1 > 1e-12f)
+            {
+                r -= v1 * (2f / c1 * Dot(v1, r));
+                t -= v1 * (2f / c1 * Dot(v1, t));
+            }
+
+            var v2 = _bakedTangents[i + 1] - t;
+            var c2 = Dot(v2, v2);
+            if (c2 > 1e-12f)
+                r -= v2 * (2f / c2 * Dot(v2, r));
+            _bakedUps[i + 1] = Perpendicular(r, _bakedTangents[i + 1]);
+        }
+
+        if (!_closed || n < 3 || _bakedLength <= 0)
+            return;
+        var first = _bakedUps[0];
+        var last = _bakedUps[n - 1];
+        var twist = MathF.Atan2(Dot(Cross(last, first), _bakedTangents[0]), Dot(last, first));
+        for (var i = 1; i < n; i++)
+        {
+            var angle = twist * (_bakedDistances[i] / _bakedLength);
+            var axis = _bakedTangents[i];
+            var up = _bakedUps[i];
+            // Rodrigues around the tangent (up is perpendicular to it).
+            _bakedUps[i] = Perpendicular(up * MathF.Cos(angle) + Cross(axis, up) * MathF.Sin(angle), axis);
         }
     }
 
@@ -391,6 +597,8 @@ public sealed class Curve3D : Resource
         _bakedTilts = new float[count];
         _bakedWidths = new float[count];
         _bakedDepths = new float[count];
+        _bakedTangents = new Vector3[count];
+        _bakedUps = new Vector3[count];
     }
 
     // ------------------------------------------------------------------------------------------------
@@ -448,10 +656,11 @@ public sealed class Curve3D : Resource
 
     private void SegmentControls(int segment, out Vector3 p0, out Vector3 c0, out Vector3 c1, out Vector3 p1)
     {
+        var end = segment + 1 == PointCount ? 0 : segment + 1; // the closed seam
         p0 = GetPointPosition(segment);
         c0 = p0 + GetPointOut(segment);
-        p1 = GetPointPosition(segment + 1);
-        c1 = p1 + GetPointIn(segment + 1);
+        p1 = GetPointPosition(end);
+        c1 = p1 + GetPointIn(end);
     }
 
     internal static Vector3 Bezier(Vector3 p0, Vector3 c0, Vector3 c1, Vector3 p1, float t)
@@ -472,6 +681,25 @@ public sealed class Curve3D : Resource
 
     // Scalar, fixed-order arithmetic (see the determinism remark).
     private static float Dot(Vector3 a, Vector3 b) => a.X * b.X + a.Y * b.Y + a.Z * b.Z;
+
+    private static Vector3 Cross(Vector3 a, Vector3 b) =>
+        new(a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X);
+
+    private static Vector3 NormalizeOr(Vector3 v, Vector3 fallback)
+    {
+        var lengthSquared = Dot(v, v);
+        return lengthSquared > 1e-20f ? v * (1f / MathF.Sqrt(lengthSquared)) : fallback;
+    }
+
+    // v with its component along the unit vector `axis` removed, normalised; another perpendicular when v is parallel.
+    private static Vector3 Perpendicular(Vector3 v, Vector3 axis)
+    {
+        var p = v - axis * Dot(v, axis);
+        if (Dot(p, p) > 1e-12f)
+            return NormalizeOr(p, Vector3.UnitY);
+        var other = MathF.Abs(axis.Y) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
+        return NormalizeOr(other - axis * Dot(other, axis), Vector3.UnitY);
+    }
 
     private static float DistanceSquared(Vector3 a, Vector3 b)
     {

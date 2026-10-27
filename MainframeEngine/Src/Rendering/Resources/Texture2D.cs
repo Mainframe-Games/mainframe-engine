@@ -248,8 +248,8 @@ public class Texture2D : Resource
 
     /// <summary>
     /// A sub-viewport's rendered colour as a texture (Godot's <c>ViewportTexture</c>, <see cref="SubViewport.GetTexture"/>):
-    /// canvas items sample the target the canvas server drew this frame; its size follows the sub-viewport. It has no
-    /// CPU pixels.
+    /// canvas items sample the target the canvas server drew this frame, 3D materials the view's image (ADR 0216: a 3D
+    /// view's current frame, a 2D view's previous one); its size follows the sub-viewport. It has no CPU pixels.
     /// </summary>
     public static Texture2D FromViewport(SubViewport viewport)
     {

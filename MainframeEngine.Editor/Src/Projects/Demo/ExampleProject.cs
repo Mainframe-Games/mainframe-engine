@@ -2,7 +2,7 @@ namespace MainframeEngine.Editor;
 
 /// <summary>
 /// A downloadable example project, zipped per release by <c>build/package-example.sh</c>: the Demo (one scene per feature)
-/// or the Forest showcase. <see cref="AssetName"/> is both the release asset's name and the folder it is saved to.
+/// or the Forest and Neon showcases. <see cref="AssetName"/> is both the release asset's name and the folder it is saved to.
 /// </summary>
 public sealed record ExampleProject(string Id, string Title, string Icon)
 {
@@ -10,8 +10,10 @@ public sealed record ExampleProject(string Id, string Title, string Icon)
 
     public static ExampleProject Forest { get; } = new("Forest", "Forest Demo", "mountain");
 
+    public static ExampleProject Neon { get; } = new("Neon", "Neon Demo", "building-skyscraper");
+
     /// <summary>The examples in the Project Manager's download menu, in order.</summary>
-    public static IReadOnlyList<ExampleProject> All { get; } = [Demo, Forest];
+    public static IReadOnlyList<ExampleProject> All { get; } = [Demo, Forest, Neon];
 
     /// <summary><c>MainframeEngine.Demo</c>: the release asset (<c>MainframeEngine.Demo-v1.2.3.zip</c>) and the saved folder.</summary>
     public string AssetName => "MainframeEngine." + Id;

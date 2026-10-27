@@ -2,7 +2,8 @@
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G11) · **Status:** 🚧 a first slice shipped
 ([ADR 0200](../../../memory/decisions/0200-label3d-first-slice.md): `Camera3D.UnprojectPosition`/`IsPositionBehind` and a
-single-line `Label3D` on the mesh batcher; see [What shipped](#what-shipped-adr-0200)) ·
+single-line `Label3D` on the mesh batcher; see [What shipped](#what-shipped-adr-0200)), and sub-viewport textures on 3D
+materials ([ADR 0216](../../../memory/decisions/0216-viewport-textures-on-3d-materials.md), [What shipped](#what-shipped-adr-0216)) ·
 **Depends on:** [M8 game UI](../game-ui.md) (RmlUi, `VulkanUiRenderer`), [canvas text](../canvas.md#text-adr-0118)
 (ADR 0118: `Font`), [M6 physics](../physics.md) (occlusion and line-of-sight rays) · **Related:**
 [Rendering features](rendering-features.md) (G6.3 billboards), [Localization](../localization.md),
@@ -41,7 +42,7 @@ the screen:
   structural call is `ElementSetInnerRml`, `MainframeEngine/Src/UI/Rml/RmlNative.cs:356`; "the binding cannot create
   elements", [game-ui.md → Tooltips](../game-ui.md#tooltips-adr-0121)). Moving an existing element is cheap:
   `RmlElement.SetProperty` takes spans (`RmlElement.cs:179`).
-- **3D materials cannot show render targets.** `Texture2D.FromViewport` serves canvas items only
+- **3D materials cannot show render targets** (fixed by [ADR 0216](#what-shipped-adr-0216)). `Texture2D.FromViewport` serves canvas items only
   (`MainframeEngine/Src/Rendering/Resources/Texture2D.cs:249-258`). `TextureGpu.Update` decodes CPU pixels
   (`MainframeEngine/Src/Rendering/Meshes/MeshGpuResources.cs:221-246`), and a viewport texture throws "has no CPU pixels"
   (`Texture2D.cs:350-351`), which is logged as "cannot be uploaded". A `SubViewport` on a monitor mesh does not work
@@ -80,6 +81,25 @@ Still to do from this proposal: the batched `Text3DRenderer` and its shader (lab
 multiple lines and autowrap, `FixedSize`, fog, alpha cut, `VisibilityRangeEnd` fading, fallback fonts, atlas uploads
 without re-creating the texture, `UiMarker3D` and `UiPanel3D`. A Godot `render_priority` for the text itself is also
 missing: `VisualInstance3D.RenderPriority` already means node order, so the text draws at material priority 0.
+
+## What shipped (ADR 0216)
+
+`SubViewport.GetTexture()` on 3D materials, for the Neon example's monitors and TV: any material texture slot
+(`StandardMaterial3D` albedo, emission, normal, ORM; `GpuParticles3D` materials; spatial `ShaderMaterial` sampler
+uniforms) takes a viewport texture.
+
+- `TextureGpu` uploads nothing for a viewport texture: it borrows the view's colour image (`GpuTexture.Borrow`) and
+  follows it across resizes, rewriting the material's set through the deletion queue. Colour slots sample through an
+  `R8G8B8A8_SRGB` view of the `UNORM` target (the targets are created `MUTABLE_FORMAT`); data slots and samplers without
+  `source_color` sample the stored values. Steady frames allocate nothing.
+- A 3D view renders before the scene pass, so the scene shows its current frame (`SubViewportTargets.Presented`). A 2D
+  view (`Disable3D`) is drawn by the canvas after the scene pass: the scene samples the one target before the canvas
+  overwrites it, so it shows the previous frame, ordered by the canvas pass's dependencies (no second image or copy).
+- Before a view's first frame the slot is empty. A `TransparentBg` 2D view is premultiplied: give screens an opaque
+  clear colour. CPU consumers (bakes, packers) still get no pixels from a viewport texture.
+
+Not done from G11.1: `Texture2D.FromGpuSource` (the general external path, for `UiPanel3D`'s images),
+`IsPositionInFrustum`/`GetFrustumPlanes`.
 
 ## Goals
 
@@ -457,7 +477,7 @@ text is translated into Spanish and `qps`. `Demo.Tests` clicks the terminal head
 
 1. **G11.1 Projection and GPU textures.** `Camera3D.UnprojectPosition`/`IsPositionBehind`/`IsPositionInFrustum`/
    `GetFrustumPlanes`; `Texture2D.FromGpuSource` and the `TextureGpu` external path; `SubViewport.GetTexture()` on 3D
-   materials; tests and a `subviewport-monitor` golden.
+   materials (done: ADR 0216, the `viewport-material` golden); tests and a `subviewport-monitor` golden.
 2. **G11.2 Text layout.** `TextLayout`/`GlyphQuad` (multi-line, autowrap, alignment), `Font.Fallbacks` and locale
    faces from `FontFallbackTable`, `Font.Draw` on the shared code; tests (positions unchanged for existing canvas
    goldens).

@@ -52,10 +52,13 @@ internal sealed unsafe class SubViewportCompositor : IDisposable
     /// <summary>Linear, clamped sampler for showing view images (the UI).</summary>
     public Sampler DisplaySampler { get; }
 
-    /// <summary>The tonemapped target: sRGB-encoded values in a UNORM image, sampled afterwards.</summary>
+    /// <summary>
+    /// The tonemapped target: sRGB-encoded values in a UNORM image, sampled afterwards (the UI as stored; 3D materials
+    /// through an sRGB view, ADR 0216, hence mutable).
+    /// </summary>
     public static RenderTargetDesc LdrTargetDesc(string name) =>
         new($"{name} (LDR)", [new RenderTargetAttachment(Format.R8G8B8A8Unorm, ImageLayout.ShaderReadOnlyOptimal,
-            ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit)], null); // copied back by SubViewport.CaptureImage
+            ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit) { MutableFormat = true }], null); // copied back by SubViewport.CaptureImage
 
     public DescriptorSet AllocateSet(ImageView hdrView)
     {

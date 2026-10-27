@@ -79,7 +79,9 @@ public class SubViewport : SceneViewport
     /// <summary>Captures requested before the render server picked them up.</summary>
     internal List<Action<FrameCapture>>? PendingCaptures { get; private set; }
 
-    /// <summary>The view's colour as a texture for canvas items (Godot's <c>get_texture()</c>); one per view.</summary>
+    /// <summary>
+    /// The view's colour as a texture (Godot's <c>get_texture()</c>) for canvas items and 3D materials (ADR 0216); one per view.
+    /// </summary>
     public Texture2D GetTexture() => _texture ??= Texture2D.FromViewport(this);
 
     private Texture2D? _texture;
@@ -261,6 +263,12 @@ internal sealed class SubViewportTargets : IDisposable
     public MeshViewDraws Draws { get; } = new();
     public long RenderCount { get; set; }
 
+    /// <summary>
+    /// The LDR colour image the view last finished drawing, or null before its first frame and from a resize until the view
+    /// draws again: what 3D materials sample (ADR 0216), always in <c>SHADER_READ_ONLY_OPTIMAL</c> when they do.
+    /// </summary>
+    public GpuImage? Presented { get; set; }
+
     /// <summary>The view's post-processing at its current size (null while <see cref="SubViewport.PostProcessing"/> is off).</summary>
     public SubViewportPost? Post { get; private set; }
 
@@ -307,6 +315,9 @@ internal sealed class SubViewportTargets : IDisposable
         if (!changed)
             return;
 
+        // The old image is on its way to the deletion queue: materials prepared from now on wait for the new one, those
+        // prepared earlier this frame keep sampling the old one, which outlives the frame.
+        Presented = null;
         _compositor.FreeSet(_tonemapSet);
         _tonemapSet = _compositor.AllocateSet(Hdr.GetColor(0).View);
     }
@@ -330,5 +341,6 @@ internal sealed class SubViewportTargets : IDisposable
         Hdr?.Dispose();
         Ldr?.Dispose();
         Hdr = Ldr = null;
+        Presented = null;
     }
 }

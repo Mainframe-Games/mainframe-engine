@@ -26,6 +26,7 @@ public sealed partial class ViewportController : Node
 
     private readonly EditorWorkspace _workspace;
     private readonly List<Node3D> _iconNodes = [];
+    private readonly List<Path3D> _paths = [];
     private readonly bool[] _flyKeys = new bool[6]; // A D Q E S W  →  -x +x -y +y -z +z
     private EditedScene? _scene;
     private EditedScene? _backdrop;
@@ -123,6 +124,7 @@ public sealed partial class ViewportController : Node
     {
         CancelDrag();
         _iconNodes.Clear();
+        _paths.Clear();
         _iconsVersion = -1;
         _nodes2D.Clear();
         _nodes2DVersion = -1;
@@ -711,6 +713,7 @@ public sealed partial class ViewportController : Node
             return;
         _iconsVersion = scene.Version;
         _iconNodes.Clear();
+        _paths.Clear();
         Collect(scene, scene.Root);
     }
 
@@ -718,6 +721,8 @@ public sealed partial class ViewportController : Node
     {
         if (node is Light3D or Camera3D or AudioPlayer3D or AudioListener3D or Marker3D)
             _iconNodes.Add((Node3D)node);
+        else if (node is Path3D path)
+            _paths.Add(path);
         var children = node.Children;
         for (var i = 0; i < children.Count; i++)
             Collect(scene, children[i]);
@@ -740,6 +745,13 @@ public sealed partial class ViewportController : Node
             DrawIcon(lines, camera, displayHeight, node, scene.Selection.Contains(node));
         }
 
+        for (var i = 0; i < _paths.Count; i++)
+        {
+            var path = _paths[i];
+            if (path.IsInsideTree)
+                DrawPath(scene.Selection.Contains(path) ? overlay : lines, path, scene.Selection.Contains(path));
+        }
+
         var selected = scene.Selection.Nodes;
         for (var i = 0; i < selected.Count; i++)
             if (selected[i] is Node3D { IsInsideTree: true } node)
@@ -751,6 +763,21 @@ public sealed partial class ViewportController : Node
 
         DrawGizmo3D(scene, overlay, pixels, displayHeight);
         DrawHandles(scene, overlay, pixels);
+    }
+
+    // A path's baked curve (ADR 0215): depth-tested in its debug colour, on top in the selection colour when selected.
+    private static void DrawPath(DebugLines lines, Path3D path, bool selected)
+    {
+        if (path.Curve is not { } curve)
+            return;
+        var points = curve.GetBakedPoints();
+        if (points.Length < 2)
+            return;
+        var c = path.DebugColor;
+        var color = selected ? SelectionColor : new Vector4(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f);
+        var transform = path.GlobalTransform;
+        for (var i = 1; i < points.Length; i++)
+            lines.AddLine(transform, points[i - 1], points[i], color);
     }
 
     // The selected joint (ADR 0211): its shape in the selection colour on top, and a line to each body its paths name

@@ -1,0 +1,12 @@
+# Build outputs
+bin/
+obj/
+artifacts/
+TestResults/
+
+# IDEs and OS
+.vs/
+.idea/
+*.user
+*.suo
+.DS_Store
