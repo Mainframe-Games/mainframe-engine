@@ -60,10 +60,6 @@ internal sealed unsafe class SsaoEffect() : PostEffect("ssao", PostStage.AfterPr
     private Pipeline _denoisePipeline;
     private Pipeline _upsamplePipeline;
     private long _outputId;
-    private QueryPool _timestamps;
-    private readonly bool[] _timestampsPending = new bool[IVulkanContext.MaxFramesInFlight];
-    private double _timestampPeriodNs;
-    private ulong _timestampMask;
 
     public override PostEffectNeeds Needs => PostEffectNeeds.DepthPrepass;
 
@@ -72,8 +68,11 @@ internal sealed unsafe class SsaoEffect() : PostEffect("ssao", PostStage.AfterPr
     /// <summary>The frame whose AO <see cref="OutputView"/> holds (0: never drawn).</summary>
     public ulong DrawnFrame { get; private set; }
 
-    /// <summary>GPU time of the four passes in the last frame whose timestamps came back (0 without timestamp support).</summary>
-    public double LastGpuMilliseconds { get; private set; }
+    /// <summary>
+    /// GPU time of the four passes in the last frame whose timestamps came back (0 without timestamp support): a
+    /// read-through to the effect's GPU zone (<see cref="GpuProfiler.LastMilliseconds"/>, G10; every view's SSAO summed).
+    /// </summary>
+    public double LastGpuMilliseconds => IsCreated ? _ctx.GpuProfiler.LastMilliseconds(GpuMarker) : 0;
 
     /// <summary>The full-resolution AO (shader-read layout once a frame has recorded it).</summary>
     public ImageView OutputView => _output.GetColor(0).View;
@@ -104,7 +103,6 @@ internal sealed unsafe class SsaoEffect() : PostEffect("ssao", PostStage.AfterPr
         _denoisePipeline = PipelineBuilder.Create(ctx, new PipelineState(), _layout, _denoise.RenderPass, vertex, "Shaders/Post/GtaoDenoise.vk.frag.spv", [], [], "ssao denoise");
         _upsamplePipeline = PipelineBuilder.Create(ctx, new PipelineState(), _layout, _output.RenderPass, vertex, "Shaders/Post/GtaoUpsample.vk.frag.spv", [], [], "ssao upsample");
         _outputId++;
-        CreateTimestamps();
     }
 
     /// <summary>On frames with a prepass: binds the AO image for the main pass (the AfterPrepass stage writes it first).</summary>
@@ -135,15 +133,12 @@ internal sealed unsafe class SsaoEffect() : PostEffect("ssao", PostStage.AfterPr
             return;
         var push = Parameters(context.Settings.World, context.Camera.JitteredProjection, context.Scene.Extent, context.JitterIndex);
         var cb = context.CommandBuffer;
-        var slot = _ctx.FrameSlot;
-        BeginGpuTiming(cb, slot);
         Pass(cb, _gtao, _gtaoPipeline, _gtaoSet, ref push);
         push.Noise.W = -1f;
         Pass(cb, _denoise, _denoisePipeline, _denoiseSet, ref push);
         push.Noise.W = -2f;
         Pass(cb, _gtao, _denoisePipeline, _denoise2Set, ref push); // both half targets share a format: one pipeline
         Pass(cb, _output, _upsamplePipeline, _upsampleSet, ref push);
-        EndGpuTiming(cb, slot);
         DrawnFrame = context.FrameNumber;
     }
 
@@ -208,48 +203,6 @@ internal sealed unsafe class SsaoEffect() : PostEffect("ssao", PostStage.AfterPr
         PipelineBuilder.WriteImage(_ctx, _upsampleSet, 1, depth);
     }
 
-    // Two timestamps per frame slot around the passes (the ShadowSystem pattern), when the graphics queue has them.
-    private void CreateTimestamps()
-    {
-        _ctx.Vk.GetPhysicalDeviceProperties(_ctx.PhysicalDevice, out var props);
-        if (!props.Limits.TimestampComputeAndGraphics || props.Limits.TimestampPeriod <= 0f)
-            return;
-        var info = new QueryPoolCreateInfo
-        {
-            SType = StructureType.QueryPoolCreateInfo,
-            QueryType = QueryType.Timestamp,
-            QueryCount = 2 * IVulkanContext.MaxFramesInFlight,
-        };
-        _ctx.Vk.CreateQueryPool(_ctx.Device, in info, null, out _timestamps).Check("vkCreateQueryPool (ssao timing)");
-        _timestampPeriodNs = props.Limits.TimestampPeriod;
-        _timestampMask = ulong.MaxValue; // a narrower counter wrapping between the two writes reads wrong once (rare)
-    }
-
-    // Reads the slot's previous timestamps (its fence was waited) and starts this frame's.
-    private void BeginGpuTiming(CommandBuffer cb, int slot)
-    {
-        if (_timestamps.Handle == 0)
-            return;
-        if (_timestampsPending[slot])
-        {
-            var data = stackalloc ulong[2];
-            if (_ctx.Vk.GetQueryPoolResults(_ctx.Device, _timestamps, (uint)slot * 2, 2, 16, data, 8, QueryResultFlags.Result64Bit) == Result.Success)
-                LastGpuMilliseconds = ((data[1] - data[0]) & _timestampMask) * _timestampPeriodNs / 1e6;
-            _timestampsPending[slot] = false;
-        }
-
-        _ctx.Vk.CmdResetQueryPool(cb, _timestamps, (uint)slot * 2, 2);
-        _ctx.Vk.CmdWriteTimestamp(cb, PipelineStageFlags.TopOfPipeBit, _timestamps, (uint)slot * 2);
-    }
-
-    private void EndGpuTiming(CommandBuffer cb, int slot)
-    {
-        if (_timestamps.Handle == 0)
-            return;
-        _ctx.Vk.CmdWriteTimestamp(cb, PipelineStageFlags.BottomOfPipeBit, _timestamps, (uint)slot * 2 + 1);
-        _timestampsPending[slot] = true;
-    }
-
     private static DescriptorImageInfo Image(Sampler sampler, ImageView view, ImageLayout layout) =>
         new() { Sampler = sampler, ImageView = view, ImageLayout = layout };
 
@@ -263,8 +216,6 @@ internal sealed unsafe class SsaoEffect() : PostEffect("ssao", PostStage.AfterPr
         vk.DestroyPipelineLayout(_ctx.Device, _layout, null);
         vk.DestroyDescriptorPool(_ctx.Device, _pool, null);
         vk.DestroyDescriptorSetLayout(_ctx.Device, _setLayout, null);
-        if (_timestamps.Handle != 0)
-            vk.DestroyQueryPool(_ctx.Device, _timestamps, null);
     }
 
     /// <summary><c>include/gtao.slang</c>'s push block (std430, 96 bytes).</summary>

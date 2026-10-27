@@ -52,8 +52,18 @@ internal sealed class AudioMixRoot : SoundComponent
     /// <summary>Attaches (or, with null, detaches) the gameplay recorder's copy of the master mix. Any thread.</summary>
     internal void SetCaptureTap(AudioCaptureTap? tap) => Volatile.Write(ref _captureTap, tap);
 
+    private bool _profilerNamed;
+
     protected override void GenerateAudio(Span<float> buffer, int channels)
     {
+        // G10: opt-in (ProfilerOptions.AudioThread) "Mix" scope on the "Audio" lane; the recorder never waits.
+        if (Profiler.AudioThreadEnabled && !_profilerNamed)
+        {
+            _profilerNamed = true;
+            Profiler.SetThreadName("Audio");
+        }
+
+        using var mixScope = Profiler.AudioThreadEnabled ? EngineMarkers.Mix.Auto() : default;
         try
         {
             Drain();

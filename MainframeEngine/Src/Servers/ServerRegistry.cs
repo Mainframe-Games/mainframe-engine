@@ -60,7 +60,9 @@ public sealed class ServerRegistry : IDisposable
 {
     private readonly List<IServer> _servers = [];
     private IFrameServer[] _frameServers = [];
+    private ProfilerMarker[] _frameServerMarkers = [];
     private IFixedStepServer[] _fixedStepServers = [];
+    private ProfilerMarker[] _fixedStepServerMarkers = [];
     private IInputServer[] _inputServers = [];
     private bool _disposed;
 
@@ -72,6 +74,12 @@ public sealed class ServerRegistry : IDisposable
     internal ReadOnlySpan<IFrameServer> FrameServers => _frameServers;
 
     internal ReadOnlySpan<IFixedStepServer> FixedStepServers => _fixedStepServers;
+
+    /// <summary>G10: the profiler scope of each frame server (its type name), parallel to <see cref="FrameServers"/>.</summary>
+    internal ReadOnlySpan<ProfilerMarker> FrameServerMarkers => _frameServerMarkers;
+
+    /// <summary>G10: "<c>Type.FixedStep</c>" scopes, parallel to <see cref="FixedStepServers"/>.</summary>
+    internal ReadOnlySpan<ProfilerMarker> FixedStepServerMarkers => _fixedStepServerMarkers;
 
     internal ReadOnlySpan<IInputServer> InputServers => _inputServers;
 
@@ -129,6 +137,8 @@ public sealed class ServerRegistry : IDisposable
     {
         _frameServers = [.. _servers.OfType<IFrameServer>()];
         _fixedStepServers = [.. _servers.OfType<IFixedStepServer>()];
+        _frameServerMarkers = [.. _frameServers.Select(static s => EngineMarkers.ForType(s.GetType()))];
+        _fixedStepServerMarkers = [.. _fixedStepServers.Select(static s => EngineMarkers.ForType(s.GetType(), ".FixedStep", category: ProfilerCategory.Physics))];
         _inputServers = [.. _servers.OfType<IInputServer>()];
     }
 }

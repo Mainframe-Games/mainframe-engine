@@ -433,11 +433,15 @@ public sealed partial class SceneTree
         ObjectDisposedException.ThrowIf(_shutDown, this);
         if (_inTick)
             throw new InvalidOperationException("SceneTree.Tick is not re-entrant.");
+        using var tickScope = EngineMarkers.TreeTick.Auto();
 
         // M9: a locale change made on another thread is applied here, on the tree's own thread.
         _threadId = Environment.CurrentManagedThreadId;
         if (_sceneLoad is not null || _retiredLoads.Count > 0)
+        {
+            using var loadScope = EngineMarkers.SceneLoad.Auto();
             AdvanceSceneLoads(); // ADR 0183: an asynchronous scene change enters here, before anything processes
+        }
         if (_localeChangePending)
         {
             _localeChangePending = false;
@@ -487,15 +491,24 @@ public sealed partial class SceneTree
             var processTime = gameTime;
             processTime.DeltaTime = (float)Math.Max(0, gameTime.DeltaTime - dropped) * TimeScale;
             ProcessDeltaTime = processTime.DeltaTime;
-            FlushDeferredCallsMaybeGuarded(); // Godot's process: the message queue flushes before the callbacks (calls queued by ready, input)
+            using (EngineMarkers.Deferred.Auto())
+                FlushDeferredCallsMaybeGuarded(); // Godot's process: the message queue flushes before the callbacks (calls queued by ready, input)
             var processStart = System.Diagnostics.Stopwatch.GetTimestamp();
-            RunProcess(processTime);
+            using (EngineMarkers.Process.Auto())
+                RunProcess(processTime);
             ProcessSeconds = System.Diagnostics.Stopwatch.GetElapsedTime(processStart).TotalSeconds;
-            FlushDeferredMaybeGuarded();
-            FlushTransformNotifications();
+            using (EngineMarkers.Deferred.Auto())
+                FlushDeferredMaybeGuarded();
+            using (EngineMarkers.TransformSync.Auto())
+                FlushTransformNotifications();
 
-            foreach (var server in Servers.FrameServers)
-                server.Process(processTime);
+            var frameServers = Servers.FrameServers;
+            var frameMarkers = Servers.FrameServerMarkers;
+            for (var i = 0; i < frameServers.Length; i++)
+            {
+                using var serverScope = frameMarkers[i].Auto(); // G10: one scope per frame server, named by its type
+                frameServers[i].Process(processTime);
+            }
 
             ProcessFrames++;
         }
@@ -507,6 +520,7 @@ public sealed partial class SceneTree
 
     private void RunPhysicsStep(float delta)
     {
+        using var stepScope = EngineMarkers.PhysicsStep.Auto();
         IsInPhysicsStep = true;
         try
         {
@@ -626,8 +640,15 @@ public sealed partial class SceneTree
         // TimeScale 0: no game time passes, so the physics servers don't step. In edit mode only a running simulation
         // steps them, and they step only its spaces (G7.5).
         if (!paused && (!editMode || _runningSimulations > 0) && delta > 0f)
-            foreach (var server in Servers.FixedStepServers)
-                server.FixedStep(delta);
+        {
+            var fixedServers = Servers.FixedStepServers;
+            var fixedMarkers = Servers.FixedStepServerMarkers;
+            for (var i = 0; i < fixedServers.Length; i++)
+            {
+                using var serverScope = fixedMarkers[i].Auto(); // "PhysicsServer3D.FixedStep", ...
+                fixedServers[i].FixedStep(delta);
+            }
+        }
     }
 
     private void RunProcess(in GameTime gameTime)

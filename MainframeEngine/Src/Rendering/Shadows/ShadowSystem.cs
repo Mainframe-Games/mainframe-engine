@@ -135,10 +135,6 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
     private DescriptorSetLayout _materialLayout;
 
     // GPU timing of the shadow pass: two timestamps per frame slot, read when the slot comes round again.
-    private QueryPool _timestamps;
-    private readonly bool[] _timestampsPending = new bool[IVulkanContext.MaxFramesInFlight];
-    private readonly double _timestampPeriodNs;
-    private readonly ulong _timestampMask;
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -160,60 +156,6 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         _comparisonSampler = CreateComparisonSampler(ctx, _linearDepthFiltering);
         _pointSampler = CreatePointSampler(ctx);
         CreateMainDescriptorResources();
-        (_timestamps, _timestampPeriodNs, _timestampMask) = CreateTimestampPool(ctx, props);
-    }
-
-    private static (QueryPool Pool, double PeriodNs, ulong Mask) CreateTimestampPool(IVulkanContext ctx, in PhysicalDeviceProperties props)
-    {
-        if (!props.Limits.TimestampComputeAndGraphics || props.Limits.TimestampPeriod <= 0f)
-            return default;
-        uint familyCount = 0;
-        ctx.Vk.GetPhysicalDeviceQueueFamilyProperties(ctx.PhysicalDevice, ref familyCount, null);
-        var families = stackalloc QueueFamilyProperties[(int)Math.Min(familyCount, 64u)];
-        familyCount = Math.Min(familyCount, 64u);
-        ctx.Vk.GetPhysicalDeviceQueueFamilyProperties(ctx.PhysicalDevice, ref familyCount, families);
-        var validBits = 64u;
-        for (var i = 0; i < familyCount; i++)
-            if ((families[i].QueueFlags & QueueFlags.GraphicsBit) != 0)
-                validBits = Math.Min(validBits, families[i].TimestampValidBits);
-        if (validBits == 0)
-            return default;
-
-        var info = new QueryPoolCreateInfo
-        {
-            SType = StructureType.QueryPoolCreateInfo,
-            QueryType = QueryType.Timestamp,
-            QueryCount = 2 * IVulkanContext.MaxFramesInFlight,
-        };
-        ctx.Vk.CreateQueryPool(ctx.Device, in info, null, out var pool).Check("vkCreateQueryPool (shadow timing)");
-        var mask = validBits >= 64 ? ulong.MaxValue : (1ul << (int)validBits) - 1;
-        return (pool, props.Limits.TimestampPeriod, mask);
-    }
-
-    // Reads the slot's previous timestamps (completed: its fence was waited) and starts this frame's.
-    private void BeginGpuTiming(CommandBuffer cb, int slot)
-    {
-        if (_timestamps.Handle == 0)
-            return;
-        if (_timestampsPending[slot])
-        {
-            var data = stackalloc ulong[2];
-            var result = _ctx.Vk.GetQueryPoolResults(_ctx.Device, _timestamps, (uint)slot * 2, 2, 16, data, 8, QueryResultFlags.Result64Bit);
-            if (result == Result.Success)
-                LastGpuMilliseconds = ((data[1] - data[0]) & _timestampMask) * _timestampPeriodNs / 1e6;
-            _timestampsPending[slot] = false;
-        }
-
-        _ctx.Vk.CmdResetQueryPool(cb, _timestamps, (uint)slot * 2, 2);
-        _ctx.Vk.CmdWriteTimestamp(cb, PipelineStageFlags.TopOfPipeBit, _timestamps, (uint)slot * 2);
-    }
-
-    private void EndGpuTiming(CommandBuffer cb, int slot)
-    {
-        if (_timestamps.Handle == 0)
-            return;
-        _ctx.Vk.CmdWriteTimestamp(cb, PipelineStageFlags.BottomOfPipeBit, _timestamps, (uint)slot * 2 + 1);
-        _timestampsPending[slot] = true;
     }
 
     // ── Settings & stats ──────────────────────────────────────────────────────
@@ -349,9 +291,10 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
 
     /// <summary>
     /// GPU time of the shadow pass (all its render passes and barriers), measured with timestamps a couple of frames
-    /// ago; 0 when the device has no timestamps.
+    /// ago; 0 when the device has no timestamps. A read-through to the "Shadows" GPU zone
+    /// (<see cref="GpuProfiler.LastMilliseconds"/>, G10).
     /// </summary>
-    public double LastGpuMilliseconds { get; private set; }
+    public double LastGpuMilliseconds => _ctx.GpuProfiler.LastMilliseconds(EngineMarkers.GpuShadows);
 
     /// <summary>Side of each cascade layer (0 while there are none).</summary>
     public int CascadeResolution => (int)(_cascades?.Width ?? 0);
@@ -472,7 +415,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         var cb = _ctx.CurrentCommandBuffer;
         var frameSlot = _ctx.FrameSlot;
 
-        BeginGpuTiming(cb, frameSlot);
+        var gpuZone = _ctx.GpuProfiler.Begin(cb, EngineMarkers.GpuShadows.Id);
         _planner.Plan(lights, camera, casterBounds);
         var passes = _planner.Passes;
         for (var i = 0; i < passes.Length; i++)
@@ -535,7 +478,7 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
         }
 
         TransitionMaps(cb, renderCascades, renderAtlas, renderCube, toWrite: false);
-        EndGpuTiming(cb, frameSlot);
+        _ctx.GpuProfiler.EndTo(cb, gpuZone);
 
         // This frame slot's uniforms and set (the slot's previous frame has completed).
         _uniformBuffers[frameSlot].Write(_planner.Uniforms);
@@ -1479,8 +1422,6 @@ public sealed unsafe class ShadowSystem : IDisposable, IShadowDescriptors
             deletions.Enqueue(GpuDeletion.Of(_spineTextureLayout));
         }
 
-        if (_timestamps.Handle != 0)
-            deletions.Enqueue(GpuDeletion.Of(_timestamps));
         _vpBuffer.Dispose();
         deletions.Enqueue(GpuDeletion.Of(_vpPool));
         deletions.Enqueue(GpuDeletion.Of(_vpSetLayout));

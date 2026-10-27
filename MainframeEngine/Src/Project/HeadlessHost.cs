@@ -27,6 +27,9 @@ public sealed class HeadlessHost : IDisposable
         ArgumentNullException.ThrowIfNull(settings);
         options ??= new GameHostOptions();
         _options = options.Apply(settings.ToEngineOptions());
+        Profiler.Configure(_options.Profiler ?? new ProfilerOptions()); // G10: CPU lanes only (no renderer)
+        Profiler.SetMainThread();
+        EngineCounters.EnsureRegistered();
         Localization.Tr.Configure(_options.Localization ?? new Localization.LocalizationOptions(), _options.Locale);
         Tree = new SceneTree { PhysicsTicksPerSecond = _options.PhysicsTicksPerSecond, TimeScale = _options.TimeScale };
         Input.Current = Tree.Input;
@@ -130,6 +133,24 @@ public sealed class HeadlessHost : IDisposable
     /// <summary>One update of <paramref name="delta"/> seconds (the fixed delta with <c>--fixed-fps</c>): the session, the tree, the draws.</summary>
     public void Step(float delta)
     {
+        Profiler.BeginFrame();
+        try
+        {
+            StepFrame(delta);
+            if (Profiler.IsFrameRecording)
+                EngineCounters.Sample(Tree, null, ref _counterState);
+        }
+        finally
+        {
+            Profiler.EndFrame(float.NaN, 0f);
+        }
+    }
+
+    private EngineCounters.State _counterState;
+
+    private void StepFrame(float delta)
+    {
+        using var updateScope = EngineMarkers.Update.Auto();
         _fps.Update();
         var time = new GameTime
         {

@@ -53,6 +53,12 @@ public interface IVulkanContext
     /// </summary>
     int FrameSlot { get; }
 
+    /// <summary>
+    /// GPU zones (G10): timestamp pairs and debug labels around passes; add your own with
+    /// <c>using var _ = vk.GpuProfiler.Zone(cb, marker);</c>.
+    /// </summary>
+    GpuProfiler GpuProfiler { get; }
+
     /// <summary>The command buffer currently being recorded. Valid only when FrameStarted is true.</summary>
     CommandBuffer CurrentCommandBuffer { get; }
 

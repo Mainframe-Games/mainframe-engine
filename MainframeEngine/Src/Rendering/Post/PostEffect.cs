@@ -144,9 +144,13 @@ internal abstract class PostEffect : IDisposable
         Name = name;
         Stage = stage;
         Order = order;
+        GpuMarker = EngineMarkers.Gpu(name);
     }
 
     public string Name { get; }
+
+    /// <summary>The effect's GPU zone (G10: the stack times each effect's recording under its name).</summary>
+    public ProfilerMarker GpuMarker { get; }
     public PostStage Stage { get; }
     public int Order { get; }
 

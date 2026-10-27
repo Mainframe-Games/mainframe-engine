@@ -76,7 +76,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
     private bool _enableValidationLayers;
     private readonly string[] _validationLayers = ["VK_LAYER_KHRONOS_validation"];
     private ExtDebugUtils? _debugUtils;
+    private bool _debugUtilsEnabled; // VK_EXT_debug_utils: the messenger with validation, command-buffer labels always (G10)
     private DebugUtilsMessengerEXT _debugMessenger;
+    private GpuProfiler? _gpuProfiler;
+    private readonly ProfilerOptions _profilerOptions;
     private readonly VulkanValidationLog _validation = new();
     private GCHandle _validationHandle; // user data for the static debug callback
 
@@ -148,6 +151,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
     public PipelineCache Pipelines => _pipelineCache ?? throw new InvalidOperationException("The device is not initialised.");
     public ShaderModuleCache Shaders => _shaderModules ?? throw new InvalidOperationException("The device is not initialised.");
     public FrameContext Frame => _frameContext ??= new FrameContext(this);
+    public GpuProfiler GpuProfiler => _gpuProfiler ?? throw new InvalidOperationException("The device is not initialised.");
     public ulong FrameNumber => _frameNumber;
     public float MaxSamplerAnisotropy => _maxSamplerAnisotropy;
 
@@ -214,6 +218,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         _enableValidationLayers = options.EnableValidation;
         _vsync = options.VSync;
         _enableFrameCapture = options.EnableFrameCapture;
+        _profilerOptions = options.Profiler ?? Profiler.Options;
         AntiAliasing = options.AntiAliasing;
         TaaSharpness = options.TaaSharpness;
         _breadcrumbsRequested = options.GpuBreadcrumbs;
@@ -229,6 +234,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
 
     public void BeginFrame()
     {
+        using var _ = EngineMarkers.BeginFrame.Auto();
         _frameWaitTicks = 0;
 
         // A pending resize/VSync change, or a minimised window (0×0 drawable): no frame until the
@@ -243,9 +249,13 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         // The slot's previous submission must be done before its command buffer and per-frame
         // resources (UBOs, vertex buffers keyed by FrameSlot) are reused.
         var waitStart = Stopwatch.GetTimestamp();
-        _vk!.WaitForFences(_device, 1, in _inFlightFences[_currentFrame], true, ulong.MaxValue)
-            .Check("vkWaitForFences (frame slot)");
+        using (EngineMarkers.WaitFence.Auto())
+            _vk!.WaitForFences(_device, 1, in _inFlightFences[_currentFrame], true, ulong.MaxValue)
+                .Check("vkWaitForFences (frame slot)");
         _frameWaitTicks += Stopwatch.GetTimestamp() - waitStart;
+
+        // The slot's previous zones are complete now (its fence was waited): read them without waiting.
+        _gpuProfiler?.ReadBack(_currentFrame);
 
         // Frames finish in submission order: everything up to this slot's last frame is done.
         var completed = _slotFrameNumber[_currentFrame];
@@ -257,8 +267,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
 
         uint imageIndex;
         var acquireStart = Stopwatch.GetTimestamp();
-        var result = _khrSwapChain!.AcquireNextImage(_device, _swapChain, ulong.MaxValue,
-            _imageAvailableSemaphores[_currentFrame], default, &imageIndex);
+        Result result;
+        using (EngineMarkers.Acquire.Auto())
+            result = _khrSwapChain!.AcquireNextImage(_device, _swapChain, ulong.MaxValue,
+                _imageAvailableSemaphores[_currentFrame], default, &imageIndex);
         _frameWaitTicks += Stopwatch.GetTimestamp() - acquireStart;
 
         if (result == Result.ErrorOutOfDateKhr)
@@ -292,9 +304,15 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         _slotFrameNumber[_currentFrame] = _frameNumber;
         _deletions.BeginFrame(_frameNumber);
 
+        // G10: this slot's timestamp queries are reset first, outside any render pass.
+        var gpu = _gpuProfiler!;
+        gpu.BeginFrame(cb, _currentFrame);
+
         // Pending staging copies and layout initialisations run first, before any pass reads them.
         BeginPassMark(GpuPass.Uploads);
+        var uploads = gpu.Begin(cb, EngineMarkers.GpuUploads.Id);
         _uploads.Record(cb);
+        gpu.EndTo(cb, uploads);
         EndPassMark(GpuPass.Uploads);
     }
 
@@ -306,7 +324,9 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         var cb = _commandBuffers[_currentFrame];
 
         // Finish the pass sequence (scene → tonemap → overlay) and close the command buffer
-        EndPasses(cb);
+        using (EngineMarkers.Overlay.Auto())
+            EndPasses(cb);
+        _gpuProfiler?.EndFrame(cb); // zones and labels left open are closed (balanced command buffer)
         _frameStarted = false;
         if (_captureRequested)
             RecordCapture(cb, imageIndex);
@@ -342,7 +362,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
 
         var frameFence = _inFlightFences[_currentFrame];
         _vk.ResetFences(_device, 1, in frameFence).Check("vkResetFences");
-        _vk.QueueSubmit(_graphicsQueue, 1, in submitInfo, frameFence).Check("vkQueueSubmit (frame)");
+        var submitTicks = Stopwatch.GetTimestamp();
+        using (EngineMarkers.Submit.Auto())
+            _vk.QueueSubmit(_graphicsQueue, 1, in submitInfo, frameFence).Check("vkQueueSubmit (frame)");
+        _gpuProfiler?.Submitted(submitTicks);
         NoteSubmitted();
         SimulateDeviceLoss(frameFence);
         _deletions!.EndFrame();
@@ -363,7 +386,9 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         };
 
         var presentStart = Stopwatch.GetTimestamp();
-        var presentResult = _khrSwapChain!.QueuePresent(_presentQueue, in presentInfo);
+        Result presentResult;
+        using (EngineMarkers.Present.Auto())
+            presentResult = _khrSwapChain!.QueuePresent(_presentQueue, in presentInfo);
 
         // Read back before any recreation below (it waits for this frame's fence).
         if (_captureRecorded)
@@ -660,6 +685,12 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         CreateCommandPool();
         CreateCommandBuffers();
         CreateSyncObjects();
+        _gpuProfiler = new GpuProfiler(this, _debugUtils, IsDeviceExtensionAvailable(_physicalDevice, "VK_KHR_portability_subset"),
+            _profilerOptions.MaxGpuZones)
+        {
+            Enabled = _profilerOptions.GpuTimings,
+            DetailedZones = _profilerOptions.DetailedGpuZones,
+        };
         CreatePresentation(); // after the command pool: the scene target and tonemap pipeline use the upload queue
     }
 
@@ -751,7 +782,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         // SDL_Vulkan_GetInstanceExtensions through Silk's surface abstraction.
         var windowExtensions = _window.VkSurface!.GetRequiredExtensions(out var count);
         var extensions = SilkMarshal.PtrToStringArray((nint)windowExtensions, (int)count);
-        return _enableValidationLayers
+        // VK_EXT_debug_utils: the validation messenger, and (G10) command-buffer labels for RenderDoc/Xcode captures
+        // whenever the loader offers it.
+        _debugUtilsEnabled = _enableValidationLayers || IsInstanceExtensionAvailable(ExtDebugUtils.ExtensionName);
+        return _debugUtilsEnabled && !extensions.Contains(ExtDebugUtils.ExtensionName)
             ? extensions.Append(ExtDebugUtils.ExtensionName).ToArray()
             : extensions;
     }
@@ -795,8 +829,13 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
 
     private void SetupDebugMessenger()
     {
+        if (!_debugUtilsEnabled || !_vk!.TryGetInstanceExtension(_instance, out _debugUtils))
+        {
+            _debugUtils = null;
+            return;
+        }
+
         if (!_enableValidationLayers) return;
-        if (!_vk!.TryGetInstanceExtension(_instance, out _debugUtils)) return;
 
         var createInfo = CreateDebugMessengerInfo();
 
@@ -1286,6 +1325,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
             _frameContext = null;
             DestroyPresentation();
             CleanupSwapchain();
+
+            _gpuProfiler?.Dispose();
 
             // Everything games and subsystems released is idle now; then the memory itself.
             _deletions?.FlushAll();

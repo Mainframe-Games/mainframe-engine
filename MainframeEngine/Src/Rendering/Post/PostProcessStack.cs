@@ -106,7 +106,11 @@ internal sealed class PostProcessStack : IDisposable
                 continue;
             context.IsLastInStage = ++ran == enabled;
             context.Enter(effect);
+            // G10: one GPU zone per effect, named after it (the stack is used without a GPU in tests).
+            var gpu = context.Vulkan?.GpuProfiler;
+            var zone = gpu?.Begin(context.CommandBuffer, effect.GpuMarker.Id) ?? -1;
             effect.Record(context);
+            gpu?.EndTo(context.CommandBuffer, zone);
             if (context.OutputOpen)
                 throw new InvalidOperationException($"{effect} began an output pass and did not end it.");
         }

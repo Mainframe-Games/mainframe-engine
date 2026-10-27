@@ -52,12 +52,11 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
     private Pipeline _histogramAdaptPipeline;
     private bool _needsClear = true;
     private bool _wasEnabled;
-    private QueryPool _timestamps;
-    private readonly bool[] _timestampsPending = new bool[IVulkanContext.MaxFramesInFlight];
-    private double _timestampPeriodNs;
-
-    /// <summary>GPU time of the measure-and-adapt passes in a recent frame, in milliseconds (0 while off or untimed).</summary>
-    public double LastGpuMilliseconds { get; private set; }
+    /// <summary>
+    /// GPU time of the measure-and-adapt passes in a recent frame, in milliseconds (0 while off or untimed): a read-through
+    /// to the effect's GPU zone (<see cref="GpuProfiler.LastMilliseconds"/>, G10).
+    /// </summary>
+    public double LastGpuMilliseconds => _wasEnabled && IsCreated ? _ctx.GpuProfiler.LastMilliseconds(GpuMarker) : 0;
 
     /// <summary>Runs whenever the post tonemap pass does: the tonemap and glow bind its adapted luminance either way.</summary>
     public override bool IsEnabled(in PostEffectSettings settings) => settings.PostTonemap;
@@ -133,7 +132,6 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
             vertex, "Shaders/Post/AutoExposureHistogramSum.vk.frag.spv", [], [], "auto exposure histogram sum");
         _histogramAdaptPipeline = PipelineBuilder.Create(ctx, new PipelineState(), _histogramLayout, _adapted.RenderPass,
             vertex, "Shaders/Post/AutoExposureHistogramAdapt.vk.frag.spv", [], [], "auto exposure histogram adapt");
-        CreateTimestamps();
     }
 
     /// <summary>The adapted luminance (1 × 1 <c>R32_SFLOAT</c>, read with <c>Load</c>) for the tonemap and glow sets.</summary>
@@ -181,12 +179,9 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
         if (!settings.AutoExposureEnabled)
         {
             _wasEnabled = false;
-            LastGpuMilliseconds = 0;
             return;
         }
 
-        var slot = _ctx.FrameSlot;
-        BeginGpuTiming(cb, slot);
         var (minLuminance, maxLuminance) = AutoExposureHistogram.LuminanceRange(settings);
         var blend = _wasEnabled ? settings.AutoExposureBlend(deltaTime) : 1f;
         _wasEnabled = true;
@@ -220,48 +215,6 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
         }
 
         Pass(cb, _previous, _copyPipeline, _layout, _copySet, &push, sizeof(AdaptPush));
-        EndGpuTiming(cb, slot);
-    }
-
-    // Two timestamps per frame slot around the passes (SsaoEffect's pattern), when the graphics queue has them.
-    private void CreateTimestamps()
-    {
-        _ctx.Vk.GetPhysicalDeviceProperties(_ctx.PhysicalDevice, out var props);
-        if (!props.Limits.TimestampComputeAndGraphics || props.Limits.TimestampPeriod <= 0f)
-            return;
-        var info = new QueryPoolCreateInfo
-        {
-            SType = StructureType.QueryPoolCreateInfo,
-            QueryType = QueryType.Timestamp,
-            QueryCount = 2 * IVulkanContext.MaxFramesInFlight,
-        };
-        _ctx.Vk.CreateQueryPool(_ctx.Device, in info, null, out _timestamps).Check("vkCreateQueryPool (auto exposure timing)");
-        _timestampPeriodNs = props.Limits.TimestampPeriod;
-    }
-
-    // Reads the slot's previous timestamps (its fence was waited) and starts this frame's.
-    private void BeginGpuTiming(CommandBuffer cb, int slot)
-    {
-        if (_timestamps.Handle == 0)
-            return;
-        if (_timestampsPending[slot])
-        {
-            var data = stackalloc ulong[2];
-            if (_ctx.Vk.GetQueryPoolResults(_ctx.Device, _timestamps, (uint)slot * 2, 2, 16, data, 8, QueryResultFlags.Result64Bit) == Result.Success)
-                LastGpuMilliseconds = (data[1] - data[0]) * _timestampPeriodNs / 1e6;
-            _timestampsPending[slot] = false;
-        }
-
-        _ctx.Vk.CmdResetQueryPool(cb, _timestamps, (uint)slot * 2, 2);
-        _ctx.Vk.CmdWriteTimestamp(cb, PipelineStageFlags.TopOfPipeBit, _timestamps, (uint)slot * 2);
-    }
-
-    private void EndGpuTiming(CommandBuffer cb, int slot)
-    {
-        if (_timestamps.Handle == 0)
-            return;
-        _ctx.Vk.CmdWriteTimestamp(cb, PipelineStageFlags.BottomOfPipeBit, _timestamps, (uint)slot * 2 + 1);
-        _timestampsPending[slot] = true;
     }
 
     private void Pass(CommandBuffer cb, RenderTarget target, Pipeline pipeline, PipelineLayout layout, DescriptorSet set, void* push, int pushSize)
@@ -302,8 +255,6 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
         vk.DestroyDescriptorPool(_ctx.Device, _pool, null);
         vk.DestroyDescriptorSetLayout(_ctx.Device, _setLayout, null);
         vk.DestroySampler(_ctx.Device, _sampler, null);
-        if (_timestamps.Handle != 0)
-            vk.DestroyQueryPool(_ctx.Device, _timestamps, null);
         foreach (var level in _levels)
             level.Dispose();
         _adapted.Dispose();

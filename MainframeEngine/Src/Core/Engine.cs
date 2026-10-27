@@ -160,6 +160,12 @@ public struct EngineOptions()
 
     /// <summary>Catalog location, domain, source locale and fallbacks for <see cref="Localization.Tr"/>; null uses the defaults.</summary>
     public Localization.LocalizationOptions? Localization;
+
+    /// <summary>
+    /// The frame profiler's settings (G10, <see cref="MainframeEngine.Profiler"/>): history size, GPU zones, recording from
+    /// the first frame (<c>--profile</c>).
+    /// </summary>
+    public ProfilerOptions Profiler = new();
 }
 
 public abstract class Engine : IDisposable
@@ -173,6 +179,10 @@ public abstract class Engine : IDisposable
     private int _loadedFrames; // rendered while the tree was not loading a scene (MaxFrames, ADR 0183)
     private bool _loadingFrame; // the tree was loading when this frame's update began
     private InputRouter? _inputRouter; // M2: routes window input into the scene tree
+    private int _profilerToken;        // G10: --profile records from the first frame
+    private float _frameCpuMs = float.NaN; // the last rendered frame's CPU and wait times, for the profiler's frame record
+    private float _frameWaitMs;
+    private EngineCounters.State _counterState;
     private SdlEventBatch? _sdlEvents; // ADR 0139: Silk's event pump without its per-frame enumerator box
 
     public IWindow Window { get; }
@@ -304,6 +314,12 @@ public abstract class Engine : IDisposable
                 $"{nameof(EngineOptions)}.{nameof(EngineOptions.ContentScale)} must be 0 (the display's) or a positive scale.");
         EngineOptions = engineOptions;
         DevOverlayVisible = engineOptions.DevOverlayVisible;
+        // G10: the profiler records this thread's frames; --profile holds it from the first frame.
+        MainframeEngine.Profiler.Configure(engineOptions.Profiler ?? new ProfilerOptions());
+        MainframeEngine.Profiler.SetMainThread();
+        EngineCounters.EnsureRegistered();
+        if (engineOptions.Profiler?.RecordFromStart == true)
+            _profilerToken = MainframeEngine.Profiler.Acquire();
         // M9: catalogs load before any game code runs, so constructors and OnLoad can translate.
         Localization.Tr.Configure(engineOptions.Localization ?? new Localization.LocalizationOptions(), engineOptions.Locale);
         Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond, TimeScale = engineOptions.TimeScale }; // M2
@@ -430,6 +446,7 @@ public abstract class Engine : IDisposable
             TaaSharpness = EngineOptions.TaaSharpness,
             GpuBreadcrumbs = EngineOptions.GpuBreadcrumbs,
             SimulateDeviceLostAtFrame = EngineOptions.SimulateDeviceLostAtFrame,
+            Profiler = EngineOptions.Profiler,
         });
 
         // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,
@@ -513,6 +530,8 @@ public abstract class Engine : IDisposable
 
     private void OnUpdate(double delta)
     {
+        MainframeEngine.Profiler.BeginFrame(); // G10: a frame is this update and the render after it
+        using var updateScope = EngineMarkers.Update.Auto();
         var start = Stopwatch.GetTimestamp();
         _loadingFrame = Tree.IsLoading; // decided once, before anything runs, so hosts counting updates agree with MaxFrames
         _fps.Update();
@@ -521,7 +540,8 @@ public abstract class Engine : IDisposable
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;
 
-        OnUpdate(_gameTime);
+        using (EngineMarkers.OnUpdate.Auto())
+            OnUpdate(_gameTime);
         _loadingFrame |= Tree.IsLoading; // a load started by the hook (GameHost starts the scene here) makes this a loading frame
         if (_discardDelta)
         {
@@ -538,7 +558,13 @@ public abstract class Engine : IDisposable
 
     private void OnRender(double delta)
     {
-        RenderFrame();
+        _frameCpuMs = float.NaN;
+        _frameWaitMs = 0f;
+        using (EngineMarkers.Render.Auto())
+            RenderFrame();
+        if (MainframeEngine.Profiler.IsFrameRecording)
+            EngineCounters.Sample(Tree, Renderer as IVulkanContext, ref _counterState);
+        MainframeEngine.Profiler.EndFrame(_frameCpuMs, _frameWaitMs);
 
         // Close only between frames: SDL raises Closing synchronously inside Close(), and OnClose
         // disposes the renderer — never while a frame is being recorded or an update is running.
@@ -596,7 +622,8 @@ public abstract class Engine : IDisposable
         }
 
         // M3: cull and sort the scene's meshes, create/update their GPU resources (uploads join this frame).
-        Servers.Render?.PrepareFrame(Root);
+        using (EngineMarkers.PrepareFrame.Auto())
+            Servers.Render?.PrepareFrame(Root);
 
         Renderer.BeginFrame();
 
@@ -609,31 +636,49 @@ public abstract class Engine : IDisposable
             var crumbs = Renderer as VulkanRenderer;
 
             // ADR 0207: compute pre-skinning of the skinned meshes the frame prepared, before anything draws them.
-            crumbs?.BeginPassMark(GpuPass.Skinning);
-            Servers.Render?.SkinMeshes();
-            crumbs?.EndPassMark(GpuPass.Skinning);
+            using (EngineMarkers.Skinning.Auto())
+            {
+                crumbs?.BeginPassMark(GpuPass.Skinning);
+                Servers.Render?.SkinMeshes();
+                crumbs?.EndPassMark(GpuPass.Skinning);
+            }
 
             // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
-            crumbs?.BeginPassMark(GpuPass.Shadows);
-            OnShadowPass(_gameTime);
-            Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters
-            crumbs?.EndPassMark(GpuPass.Shadows);
-            crumbs?.BeginPassMark(GpuPass.Offscreen);
-            Servers.Render?.RenderOffscreen(Root); // M3: sub-viewports and object-ID picking passes
-            crumbs?.EndPassMark(GpuPass.Offscreen);
-            crumbs?.BeginPassMark(GpuPass.Prepass);
-            Servers.Render?.RenderPrepass(Root); // ADR 0163: depth prepass + velocity and the AfterPrepass effects, when needed
-            crumbs?.EndPassMark(GpuPass.Prepass);
+            using (EngineMarkers.Shadows.Auto())
+            {
+                crumbs?.BeginPassMark(GpuPass.Shadows);
+                OnShadowPass(_gameTime);
+                Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters
+                crumbs?.EndPassMark(GpuPass.Shadows);
+            }
+
+            using (EngineMarkers.Offscreen.Auto())
+            {
+                crumbs?.BeginPassMark(GpuPass.Offscreen);
+                Servers.Render?.RenderOffscreen(Root); // M3: sub-viewports and object-ID picking passes
+                crumbs?.EndPassMark(GpuPass.Offscreen);
+            }
+
+            using (EngineMarkers.Prepass.Auto())
+            {
+                crumbs?.BeginPassMark(GpuPass.Prepass);
+                Servers.Render?.RenderPrepass(Root); // ADR 0163: depth prepass + velocity and the AfterPrepass effects, when needed
+                crumbs?.EndPassMark(GpuPass.Prepass);
+            }
 
             // Begin the main render pass (it loads the prepass depth when there was one), then let the game draw geometry.
-            (Renderer as IVulkanContext)?.BeginRenderPass();
-
-            if (Servers.Render is { } render)
+            using (EngineMarkers.MainPass.Auto())
             {
-                render.GizmoScale = ContentScale;
-                render.RenderMain(Root); // M2: sky, then the scene tree's visuals
+                (Renderer as IVulkanContext)?.BeginRenderPass();
+
+                if (Servers.Render is { } render)
+                {
+                    render.GizmoScale = ContentScale;
+                    render.RenderMain(Root); // M2: sky, then the scene tree's visuals
+                }
+
+                OnRenderMainPass(_gameTime);
             }
-            OnRenderMainPass(_gameTime);
         }
         else
         {
@@ -650,6 +695,8 @@ public abstract class Engine : IDisposable
         _updateTicks = 0;
         var waitMs = Renderer is IVulkanContext context ? context.LastFrameWaitMilliseconds : 0;
         LastFrameCpuMilliseconds = Math.Max(0, Stopwatch.GetElapsedTime(0, cpuTicks).TotalMilliseconds - waitMs);
+        _frameCpuMs = (float)LastFrameCpuMilliseconds;
+        _frameWaitMs = (float)waitMs;
 
         _renderedFrames++;
         if (!_loadingFrame)
@@ -725,6 +772,8 @@ public abstract class Engine : IDisposable
         Tree.Shutdown();
         Servers.Dispose();
         ResourceLoader.ClearCache();
+        MainframeEngine.Profiler.Release(_profilerToken);
+        _profilerToken = 0;
 
         InputContext?.Dispose();
         Renderer?.Dispose();
