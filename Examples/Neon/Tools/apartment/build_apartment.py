@@ -738,15 +738,19 @@ def furniture(rng):
     tv = Builder("Decor_Tv")
     tv.box((6.94, 0.85, 0.75), (6.99, 2.25, 3.25), "Black")
     F.append(tv.finish())
-    F.append(single_box("Screen_Tv", (6.9, 0.9, 0.8), (6.94, 2.2, 3.2), "Screen"))
+    # The TV's picture: one quad facing the room (-X) with 0..1 UVs (u to the right, v up), for the TV's feed.
+    screen = Builder("Screen_Tv")
+    screen.face([(6.93, 0.9, 0.8), (6.93, 0.9, 3.2), (6.93, 2.2, 3.2), (6.93, 2.2, 0.8)], "Screen",
+                 [(0, 0), (1, 0), (1, 1), (0, 1)])
+    F.append(screen.finish())
     stereo = Builder("Decor_Stereo")
     stereo.box((6.58, 0.5, 1.15), (6.95, 0.66, 1.65), "Rubber")
     for z in (1.2, 1.6):
         stereo.cylinder((6.565, 0.55, z), (6.58, 0.55, z), 0.03, "Chrome", 10)
-    for z in (0.75, 3.25):  # the speakers either side of the TV
-        stereo.box((6.6, 0.5, z - 0.15), (6.95, 1.6, z + 0.15), "Black")
-        stereo.cylinder((6.598, 0.8, z), (6.6, 0.8, z), 0.1, "Rubber", 16)
-        stereo.cylinder((6.598, 1.3, z), (6.6, 1.3, z), 0.05, "Rubber", 12)
+    for z in (0.42, 3.58):  # floor-standing speakers either side of the TV
+        stereo.box((6.6, 0.0, z - 0.15), (6.95, 1.5, z + 0.15), "Black")
+        stereo.cylinder((6.598, 0.7, z), (6.6, 0.7, z), 0.1, "Rubber", 16)
+        stereo.cylinder((6.598, 1.2, z), (6.6, 1.2, z), 0.05, "Rubber", 12)
     F.append(stereo.finish())
     F.append(single_box("Decor_StereoDisplay", (6.565, 0.58, 1.25), (6.58, 0.61, 1.55), "Display_Stereo"))
 
@@ -917,11 +921,13 @@ def furniture(rng):
         a = math.radians(35 * (i % 3 - 1))
         x, z = -5.2 - 1.1 * math.cos(a), 2.0 + 1.1 * math.sin(a)
         y = 1.0 + 0.4 * (i // 3)
+        # The picture: one quad on local +X (towards the chair) with 0..1 UVs (u to the viewer's right, -Z; v up).
         m = Builder(f"Screen_Monitor_{i + 1}")
-        m.box((-0.012, -0.17, -0.29), (0.012, 0.17, 0.29), "Screen")
+        m.face([(0.0, -0.17, 0.29), (0.0, -0.17, -0.29), (0.0, 0.17, -0.29), (0.0, 0.17, 0.29)], "Screen",
+               [(0, 0), (1, 0), (1, 1), (0, 1)])
         F.append(m.finish((x, y, z), math.degrees(a)))
         bezel = Builder(f"Decor_Bezel_{i + 1}")
-        bezel.box((-0.045, -0.185, -0.305), (-0.012, 0.185, 0.305), "Black")
+        bezel.box((-0.04, -0.185, -0.305), (-0.002, 0.185, 0.305), "Black")
         bezel.box((-0.12, -0.03, -0.03), (-0.045, 0.03, 0.03), "Steel")
         F.append(bezel.finish((x, y, z), math.degrees(a)))
         # The socket's +Z faces the chair.

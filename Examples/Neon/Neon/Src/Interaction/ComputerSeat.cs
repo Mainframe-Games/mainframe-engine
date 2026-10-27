@@ -6,7 +6,7 @@ namespace Neon;
 /// <summary>
 /// The computer room's chair: <c>interact</c> sits the player down facing the monitors (the camera eases to
 /// <see cref="EyeHeight"/> over the seat, the controller stops moving the player) and <c>interact</c> or <c>pause</c>
-/// stands them back up where they were. While seated <see cref="IsSeated"/> is true and <see cref="Seated"/> /
+/// stands them back up where they were (only <c>pause</c> while the <see cref="KeyboardCaptured"/>). While seated <see cref="IsSeated"/> is true and <see cref="Seated"/> /
 /// <see cref="Stood"/> tell the terminal to take or give back the keyboard. This node is the seat: its −Z faces the
 /// screens.
 /// </summary>
@@ -38,8 +38,14 @@ public sealed class ComputerSeat : Node3D, IInteractable
 
     public bool CanInteract => !_sitting;
 
-    /// <summary>Whether the terminal should hold on to the keys this frame (<c>interact</c>/<c>pause</c> stand up).</summary>
+    /// <summary>Asks to stand up this frame (as <c>pause</c> does).</summary>
     public bool StandRequested { get; set; }
+
+    /// <summary>
+    /// While seated the keyboard types into the computer: only <c>pause</c> (Esc) stands up, as <c>interact</c> (E) is a
+    /// letter then.
+    /// </summary>
+    public bool KeyboardCaptured { get; set; }
 
     public void Interact()
     {
@@ -78,7 +84,7 @@ public sealed class ComputerSeat : Node3D, IInteractable
         if (_player is not { } player || Tree is not { } tree)
             return;
         if (_sitting && !_pressedThisFrame &&
-            (StandRequested || tree.Input.IsActionJustPressed("interact") || tree.Input.IsActionJustPressed("pause")))
+            (StandRequested || (!KeyboardCaptured && tree.Input.IsActionJustPressed("interact")) || tree.Input.IsActionJustPressed("pause")))
             StandUp();
         _pressedThisFrame = false;
         StandRequested = false;

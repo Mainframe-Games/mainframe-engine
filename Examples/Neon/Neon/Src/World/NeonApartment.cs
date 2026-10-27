@@ -92,6 +92,12 @@ public sealed class NeonApartment : Node3D
     /// <summary>The monitors' screens (own materials: the computer's feeds go on them), in order.</summary>
     public List<StandardMaterial3D> MonitorScreens { get; } = [];
 
+    /// <summary>The computer's screens and terminal.</summary>
+    public ComputerRig? Computer { get; private set; }
+
+    /// <summary>How many vehicles the city's traffic is moving (the terminal's <c>traffic</c>), when it runs.</summary>
+    public Func<int>? TrafficCount { get; set; }
+
     public FrontDoor? FrontDoor => Doors.GetValueOrDefault("Door_Front") as FrontDoor;
 
     /// <summary>Where the player starts (feet) in this node's parent's space, and the yaw in degrees.</summary>
@@ -419,6 +425,20 @@ public sealed class NeonApartment : Node3D
             Seat = seat;
         }
 
+        if (MonitorScreens.Count > 0)
+        {
+            var rig = new ComputerRig { Name = "Computer", Seat = Seat };
+            rig.Monitors.AddRange(MonitorScreens);
+            AddChild(rig);
+            rig.Setup(new TerminalHost(this), Stereo);
+            if (Seat is not null)
+                Seat.KeyboardCaptured = true;
+            Computer = rig;
+        }
+
+        if (Tv is not null)
+            AddChild(new TvFeed { Name = "TvFeed", Tv = Tv });
+
         var slats = new StandardMaterial3D
         {
             ResourceName = "Blind slats",
@@ -450,6 +470,50 @@ public sealed class NeonApartment : Node3D
                     panel.Blinds.Add(blinds);
             AddChild(panel);
             BlindsPanels[room] = panel;
+        }
+    }
+
+    /// <summary>The terminal's commands on this apartment.</summary>
+    private sealed class TerminalHost(NeonApartment apartment) : ITerminalHost
+    {
+        private readonly string[] _rooms = [.. apartment.Switches.Keys.Select(r => r.ToLowerInvariant()).Order()];
+
+        public IReadOnlyList<string> Rooms => _rooms;
+
+        public int TrafficCount => apartment.TrafficCount?.Invoke() ?? 0;
+
+        public bool SetLights(string room, bool on)
+        {
+            foreach (var (name, lightSwitch) in apartment.Switches)
+                if (string.Equals(name, room, StringComparison.OrdinalIgnoreCase))
+                {
+                    lightSwitch.SetOn(on);
+                    return true;
+                }
+
+            return false;
+        }
+
+        public void SetBlinds(bool open)
+        {
+            foreach (var panel in apartment.BlindsPanels.Values)
+                panel.SetOn(open);
+        }
+
+        public int Music(int track)
+        {
+            if (apartment.Stereo is not { } stereo)
+                return -1;
+            if (track == -2)
+                track = stereo.IsOn ? (stereo.Track + 1) % stereo.TrackCount : 0;
+            stereo.Play(track);
+            return stereo.IsOn ? stereo.Track : -1;
+        }
+
+        public void SetTv(bool on)
+        {
+            if (apartment.Tv is { } tv && tv.IsOn != on)
+                tv.Interact();
         }
     }
 

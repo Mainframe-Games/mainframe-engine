@@ -157,11 +157,50 @@ public sealed class ApplianceTests
         h.Release("move_forward");
         Assert.True(MathF.Abs(player.Position.X - seat.GlobalPosition.X) < 0.01f); // seated: no walking off
 
-        h.PressInteract();
+        h.PressInteract(); // E types into the computer while seated
+        Assert.True(seat.IsSeated);
+        h.Hold("pause");
+        h.Run(1);
+        h.Release("pause");
+        h.Run(1);
         Assert.False(seat.IsSeated);
         h.RunSeconds(1f);
         Assert.False(player.MovementLocked);
         Assert.True(Vector3.Distance(player.Position, start) < 0.05f);
+    }
+
+    [Fact]
+    public void SeatedTypingRunsTerminalCommandsOnTheApartment()
+    {
+        using var h = Load(out var apartment);
+        var computer = apartment.Computer!;
+        Assert.Equal(6, apartment.MonitorScreens.Count);
+        Assert.All(apartment.MonitorScreens, s => Assert.NotNull(s.EmissionTexture));
+        StandLookingAt(h, new Vector2(-4.0f, 2.0f), new Vector3(-5.2f, 0.7f, 2.0f));
+        h.PressInteract();
+        Assert.True(apartment.Seat!.IsSeated);
+
+        void Type(string text)
+        {
+            foreach (var c in text)
+                h.Tree.PushInput(new InputEventText { Character = c });
+            h.Tree.PushInput(new InputEventKey { Key = Silk.NET.Input.Key.Enter, Pressed = true });
+            h.Run(1);
+        }
+
+        Type("lights living off");
+        Assert.False(apartment.Switches["Living"].IsOn);
+        Type("music play");
+        Assert.True(apartment.Stereo!.IsOn);
+        Type("blinds close");
+        Assert.All(apartment.BlindsPanels.Values, p => Assert.False(p.IsOn));
+        Type("tv on");
+        Assert.True(apartment.Tv!.IsOn);
+        Assert.NotNull(apartment.Tv.Screen!.EmissionTexture);
+        Assert.Contains(computer.Terminal!.Lines, l => l.Contains("living lights off", StringComparison.Ordinal));
+        Type("exit");
+        h.Run(1);
+        Assert.False(apartment.Seat.IsSeated);
     }
 
     [Fact]
