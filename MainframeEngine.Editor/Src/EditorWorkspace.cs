@@ -26,6 +26,23 @@ public sealed record EditorWorkspaceOptions
     public string RecoveryDirectory { get; init; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "recovery");
 
+    /// <summary>The editor's own crash folder (default <c>~/.mainframe/crashes</c>).</summary>
+    public static string DefaultCrashDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "crashes");
+
+    /// <summary>The editor's own log folder (default <c>~/.mainframe/logs</c>: <c>editor.log</c>, the previous run's <c>editor.1.log</c>).</summary>
+    public static string DefaultLogDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "logs");
+
+    /// <summary>
+    /// Where the editor's crash reports go (G15; the editor executable passes <see cref="DefaultCrashDirectory"/>): the start
+    /// shows <see cref="CrashDialog"/> for the ones not seen yet. Null (tests, scripted runs): no reporter, no dialog.
+    /// </summary>
+    public string? CrashDirectory { get; init; }
+
+    /// <summary>Opens a URL in the browser (default: <see cref="OsShell.OpenUrl"/>); tests record instead.</summary>
+    public Action<Uri>? OpenUrl { get; init; }
+
     /// <summary>A project folder (holding <c>project.mfproj</c>) to open at start-up; wins over <see cref="InitialScene"/>'s project.</summary>
     public string? InitialProject { get; init; }
 

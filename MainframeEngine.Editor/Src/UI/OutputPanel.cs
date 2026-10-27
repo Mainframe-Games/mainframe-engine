@@ -11,7 +11,13 @@ public sealed class OutputRow
 
     /// <summary>How many identical consecutive messages the row stands for (Collapse Duplicates), 1 otherwise.</summary>
     public int Count { get; set; } = 1;
+
+    /// <summary>A crash row's frames while it is expanded (empty otherwise), each with its position in the crash.</summary>
+    public IReadOnlyList<OutputFrameRow> Frames => Message.Crash is { Expanded: true } crash ? crash.FrameRows : [];
 }
+
+/// <summary>A visible frame of an expanded crash row.</summary>
+public sealed record OutputFrameRow(OutputCrashFrame Frame, int Index);
 
 /// <summary>
 /// The output panel: engine <see cref="Log"/> messages (through <see cref="OutputLog"/>) as lines with a level icon, the
@@ -23,6 +29,12 @@ public sealed class OutputRow
 /// </summary>
 public sealed class OutputPanel : EditorDocument
 {
+    private static readonly RmlStructType<OutputFrameRow> FrameType = new RmlStructType<OutputFrameRow>()
+        .Member("text", static f => f.Frame.Text)
+        .Member("game", static f => f.Frame.IsGame)
+        .Member("has_source", static f => f.Frame.HasSource)
+        .Member("index", static f => f.Index);
+
     private static readonly RmlStructType<OutputRow> LineType = new RmlStructType<OutputRow>()
         .Member("level", static r => r.Message.LevelText)
         .Member("level_icon", static r => r.Message.LevelIcon)
@@ -33,7 +45,12 @@ public sealed class OutputPanel : EditorDocument
         .Member("count", static r => r.Count)
         .Member("has_source", static r => r.Message.HasSource)
         .Member("source", static r => r.Message.SourceText)
-        .Member("index", static r => r.Index);
+        .Member("index", static r => r.Index)
+        .Member("is_crash", static r => r.Message.Crash is not null)
+        .Member("expanded", static r => r.Message.Crash?.Expanded == true)
+        .Member("has_folder", static r => r.Message.Crash?.Folder is not null)
+        .Member("has_dump", static r => r.Message.Crash?.DumpPath is not null)
+        .List("frames", static r => r.Frames, FrameType);
 
     private static readonly RmlStructType<OutputRow> LineTypeWithoutTime = new RmlStructType<OutputRow>()
         .Member("level", static r => r.Message.LevelText)
@@ -45,7 +62,12 @@ public sealed class OutputPanel : EditorDocument
         .Member("count", static r => r.Count)
         .Member("has_source", static r => r.Message.HasSource)
         .Member("source", static r => r.Message.SourceText)
-        .Member("index", static r => r.Index);
+        .Member("index", static r => r.Index)
+        .Member("is_crash", static r => r.Message.Crash is not null)
+        .Member("expanded", static r => r.Message.Crash?.Expanded == true)
+        .Member("has_folder", static r => r.Message.Crash?.Folder is not null)
+        .Member("has_dump", static r => r.Message.Crash?.DumpPath is not null)
+        .List("frames", static r => r.Frames, FrameType);
 
     private readonly List<OutputRow> _rows = [];
     private readonly List<OutputMessage> _visible = [];
@@ -115,7 +137,12 @@ public sealed class OutputPanel : EditorDocument
             .Event("follow", _ => SetFollow(!_follow))
             .Event("copy", _ => Copy())
             .Event("clear", _ => Clear())
-            .Event("open_source", e => OpenSource(e.GetArgument(0).GetInt32()));
+            .Event("open_source", e => OpenSource(e.GetArgument(0).GetInt32()))
+            .Event("crash_toggle", e => ToggleCrash(e.GetArgument(0).GetInt32()))
+            .Event("crash_frame", e => OpenCrashFrame(e.GetArgument(0).GetInt32(), e.GetArgument(1).GetInt32()))
+            .Event("crash_folder", e => OpenCrashFolder(e.GetArgument(0).GetInt32()))
+            .Event("crash_copy", e => CopyCrash(e.GetArgument(0).GetInt32()))
+            .Event("crash_dump", e => OpenCrashDump(e.GetArgument(0).GetInt32()));
         Refresh();
     }
 
@@ -179,6 +206,56 @@ public sealed class OutputPanel : EditorDocument
         if ((uint)index >= (uint)_rows.Count || _rows[index].Message is not { HasSource: true } message)
             return false;
         return Workspace.SourceOpener(message.CallerFile, message.CallerLine);
+    }
+
+    // ── Crash rows (G15) ─────────────────────────────────────────────────────────────────────────────────────────
+
+    private OutputCrash? CrashAt(int index) => (uint)index < (uint)_rows.Count ? _rows[index].Message.Crash : null;
+
+    /// <summary>Expands or folds crash row <paramref name="index"/>'s frames; false when it is not a crash row.</summary>
+    public bool ToggleCrash(int index)
+    {
+        if (CrashAt(index) is not { } crash)
+            return false;
+        crash.Expanded = !crash.Expanded;
+        _model?.DirtyAll();
+        return true;
+    }
+
+    /// <summary>Opens frame <paramref name="frame"/> of crash row <paramref name="index"/> in the code editor (game frames with a file only).</summary>
+    public bool OpenCrashFrame(int index, int frame)
+    {
+        if (CrashAt(index) is not { } crash || (uint)frame >= (uint)crash.Frames.Count || crash.Frames[frame] is not { HasSource: true } target)
+            return false;
+        return Workspace.SourceOpener(target.File, target.Line);
+    }
+
+    /// <summary>Shows the crash's report bundle in the file browser.</summary>
+    public bool OpenCrashFolder(int index)
+    {
+        if (CrashAt(index)?.Folder is not { } folder || !Directory.Exists(folder))
+            return false;
+        return (Workspace.Options.OpenFolder ?? OsShell.OpenFolder)(folder);
+    }
+
+    /// <summary>Shows the crash's native dump in the file browser.</summary>
+    public bool OpenCrashDump(int index)
+    {
+        if (CrashAt(index)?.DumpPath is not { } dump)
+            return false;
+        (Workspace.Options.Reveal ?? OsShell.Reveal)(dump);
+        return true;
+    }
+
+    /// <summary>Copies the crash report (bundle report and log, or the link report) to the clipboard; returns the text.</summary>
+    public string? CopyCrash(int index)
+    {
+        if (CrashAt(index) is not { } crash)
+            return null;
+        var text = crash.CopyText;
+        if (Layer?.Server is { } server)
+            server.ClipboardText = text;
+        return text;
     }
 
     private void Rebuild()

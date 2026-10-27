@@ -18,27 +18,6 @@ internal static class CrashSupervisor
     /// <summary>Set on the child, so it runs the game instead of supervising again.</summary>
     public const string ChildVariable = "MAINFRAME_CRASH_CHILD";
 
-    /// <summary>The variables that make the runtime write a dump of <c>%p</c> into <paramref name="crashDirectory"/>.</summary>
-    public static Dictionary<string, string> DumpEnvironment(string crashDirectory, NativeDumpMode mode)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(crashDirectory);
-        var environment = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["DOTNET_DbgEnableMiniDump"] = "1",
-            // createdump's types: 1 mini, 2 heap (private read/write memory), 3 triage (stacks, no memory), 4 full.
-            ["DOTNET_DbgMiniDumpType"] = mode switch
-            {
-                NativeDumpMode.Triage => "3",
-                NativeDumpMode.Heap => "2",
-                _ => "1",
-            },
-            ["DOTNET_DbgMiniDumpName"] = Path.Combine(crashDirectory, "dump-%p.dmp"),
-        };
-        if (!OperatingSystem.IsWindows())
-            environment["DOTNET_EnableCrashReport"] = "1"; // <dump>.crashreport.json: native and managed stacks
-        return environment;
-    }
-
     /// <summary>Whether this start should supervise a child instead of running the game itself.</summary>
     public static bool ShouldSupervise(ProjectSettings settings, GameHostOptions options)
     {
@@ -72,7 +51,7 @@ internal static class CrashSupervisor
         foreach (var arg in args)
             start.ArgumentList.Add(arg);
         start.Environment[ChildVariable] = "1";
-        foreach (var (name, value) in DumpEnvironment(crashDirectory, settings.Crash.NativeDumps))
+        foreach (var (name, value) in NativeDumps.Environment(crashDirectory, settings.Crash.NativeDumps))
             start.Environment[name] = value;
 
         Process child;

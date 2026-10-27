@@ -37,6 +37,7 @@ public static class CrashReporter
     private static byte[]? s_reserve;
     private static Task<List<CrashReportInfo>>? s_pending;
     private static int s_fatal;
+    private static Exception? s_fatalException;
     private static bool s_handlersInstalled;
 
     /// <summary>Whether <see cref="Install"/> ran (and <see cref="Shutdown"/> did not since).</summary>
@@ -134,6 +135,7 @@ public static class CrashReporter
 
             s_writer = null;
             s_reserve = null;
+            s_fatalException = null;
             s_pending = null;
             s_sinks = [];
             Crashing = null;
@@ -275,10 +277,13 @@ public static class CrashReporter
             return null;
         if (Interlocked.Exchange(ref s_fatal, 1) == 1)
         {
-            CrashBundleWriter.Stderr($"[Crash] Another fatal error while reporting the first: {exception.GetType().FullName}: {exception.Message}");
+            // The same exception again (a filter reported it, then the runtime's unhandled-exception path): nothing new.
+            if (!ReferenceEquals(Volatile.Read(ref s_fatalException), exception))
+                CrashBundleWriter.Stderr($"[Crash] Another fatal error while reporting the first: {exception.GetType().FullName}: {exception.Message}");
             return null;
         }
 
+        Volatile.Write(ref s_fatalException, exception);
         s_reserve = null; // headroom for an out-of-memory report
         return WriteCore(exception, kind, note: null, fatal: true);
     }

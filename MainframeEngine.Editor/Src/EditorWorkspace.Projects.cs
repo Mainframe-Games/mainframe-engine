@@ -28,6 +28,9 @@ public sealed partial class EditorWorkspace
 
     public UpdateDialog UpdateDialog { get; private set; } = null!;
 
+    /// <summary>The editor's next-start crash dialog (G15).</summary>
+    public CrashDialog CrashDialog { get; private set; } = null!;
+
     /// <summary>A file dragged out of the FileSystem panel (absolute path) until the mouse is released.</summary>
     public string? FileDrag { get; private set; }
 
@@ -48,6 +51,8 @@ public sealed partial class EditorWorkspace
         Updates = new UpdateController(this, Options.Updates);
         UpdateDialog = new UpdateDialog(this) { Name = "UpdateDialog" };
         DialogLayer.AddChild(UpdateDialog);
+        CrashDialog = new CrashDialog(this) { Name = "CrashDialog" };
+        DialogLayer.AddChild(CrashDialog);
         Updates.Changed += OnUpdatesChanged;
         DialogLayer.MoveChild(FilePicker, DialogLayer.ChildCount - 1);
         DialogLayer.MoveChild(ListPicker, DialogLayer.ChildCount - 1);
@@ -57,6 +62,17 @@ public sealed partial class EditorWorkspace
         Session.ProjectChanged += OnProjectChanged;
         Project.Changed += OnProjectStateChanged;
         Play.Changed += OnProjectStateChanged;
+    }
+
+    // G15: the editor crashed last time (the reporter Program installed, in Options.CrashDirectory): offer the report and the
+    // recovery copies once.
+    private void ShowEarlierCrashes()
+    {
+        if (Options.CrashDirectory is not { } directory || !CrashReporter.IsInstalled ||
+            !string.Equals(Path.GetFullPath(CrashReporter.Directory), Path.GetFullPath(directory), StringComparison.Ordinal))
+            return;
+        if (CrashReporter.PendingReports is { Count: > 0 } pending)
+            CrashDialog.Open(pending);
     }
 
     private bool ProjectDialogOpen =>
@@ -69,6 +85,7 @@ public sealed partial class EditorWorkspace
     private void StartUp()
     {
         Updates.Start();
+        ShowEarlierCrashes();
         if (Options.InitialProject is { } project)
         {
             Commands.AfterAssetsFolderCheck(project, () =>

@@ -1,0 +1,49 @@
+<rml>
+<head>
+    <title>Crash</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 45%; width: 520dp; margin-left: -260dp; margin-top: -150dp; }
+        #cr-summary { display: block; color: #f87171; font-weight: bold; margin-bottom: 4dp; white-space: pre-wrap; }
+        #cr-detail { display: block; color: #8b93a5; font-size: 12dp; margin-bottom: 10dp; white-space: pre-wrap; }
+        #cr-copies-title { display: block; color: #c9cedb; font-size: 12dp; margin-bottom: 4dp; }
+        #cr-copies { display: block; max-height: 120dp; overflow-y: auto; background-color: #1b1d23; border: 1dp #2f333d; border-radius: 3dp; padding: 2dp 0dp; margin-bottom: 8dp; }
+        .copy { display: flex; flex-direction: row; align-items: center; height: 24dp; padding: 0dp 6dp; }
+        .copy:hover { background-color: #23262e; }
+        .copy .icon { margin-right: 6dp; image-color: #8b93a5; }
+        .copy .name { display: block; flex: 1 1 auto; color: #e8ebf2; font-size: 12dp; }
+        .copy button { height: 20dp; line-height: 20dp; padding: 0dp 8dp; font-size: 11dp; }
+        #cr-none { display: block; color: #6b7488; font-size: 12dp; margin-bottom: 8dp; }
+        #cr-status { display: block; color: #8fd1a8; font-size: 12dp; }
+        .dialog-buttons .spacer { flex: 1 1 auto; }
+    </style>
+</head>
+<body class="backdrop" data-model="crash_dialog">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-sm icon-alert-octagon icon-error"></span><span>The editor closed unexpectedly</span></div>
+        <div class="dialog-body">
+            <span id="cr-summary">{{summary}}</span>
+            <span id="cr-detail">{{detail}}</span>
+            <span id="cr-copies-title" data-if="copies.size > 0">Unsaved scenes were saved as recovery copies:</span>
+            <div id="cr-copies" data-if="copies.size > 0">
+                <div class="copy" data-for="c, i : copies">
+                    <span class="icon icon-sm icon-history"></span>
+                    <span class="name">{{c.name}}</span>
+                    <button data-event-click="open_copy(i)" data-tooltip="Open — the recovery copy in a new tab; save it over the original to keep it">Open</button>
+                </div>
+            </div>
+            <span id="cr-none" data-if="copies.size == 0">No unsaved scenes were lost.</span>
+            <span id="cr-status" data-if="status != ''">{{status}}</span>
+        </div>
+        <div class="dialog-buttons">
+            <button id="cr-copy" data-event-click="copy()" data-tooltip="Copy Report — copy the crash report and the editor's log to the clipboard"><span class="icon icon-copy"></span></button>
+            <button id="cr-folder" data-event-click="folder()" data-tooltip="Open Folder — show the crash report's folder"><span class="icon icon-folder-open"></span></button>
+            <button id="cr-issue" data-event-click="issue()" data-tooltip="Report Issue — copy the report and open a new GitHub issue (paste it there; only the version goes into the link)"><span class="icon icon-external-link"></span></button>
+            <div class="spacer"></div>
+            <button class="primary" id="cr-close" data-event-click="close()">Close</button>
+        </div>
+    </div>
+</body>
+</rml>

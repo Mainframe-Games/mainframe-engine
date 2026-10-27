@@ -53,6 +53,112 @@ public sealed record OutputMessage(OutputLevel Level, string Text, DateTime Time
 
     /// <summary>The line as copied to the clipboard: <c>12:00:01 WARN [Audio] text</c>.</summary>
     public string CopyText => Category.Length == 0 ? $"{TimeText} {LevelText.ToUpperInvariant()} {Text}" : $"{TimeText} {LevelText.ToUpperInvariant()} [{Category}] {Text}";
+
+    /// <summary>A game crash (G15): the row expands to its frames and has bundle, copy and dump buttons; null for ordinary lines.</summary>
+    public OutputCrash? Crash { get; init; }
+}
+
+/// <summary>One frame of a crash row: game frames with a file on this machine open in the code editor; engine frames are muted.</summary>
+public sealed record OutputCrashFrame(string Text, string File, int Line, bool IsGame)
+{
+    private bool? _hasSource;
+
+    /// <summary>A game frame whose file exists here (click-to-source).</summary>
+    public bool HasSource => _hasSource ??= IsGame && File.Length > 0 && System.IO.File.Exists(File);
+}
+
+/// <summary>
+/// The crash behind an Output crash row (docs/design/crash-reporting.md#editor-game-crashes-and-its-own): the game's link
+/// report (exception, node, scene, frames) or, without one, the decoded exit code; the bundle folder and the native dump.
+/// </summary>
+public sealed class OutputCrash
+{
+    public required string Title { get; init; }
+
+    /// <summary>The node and scene, the exit code in words, the dump.</summary>
+    public string Detail { get; init; } = "";
+
+    /// <summary>The first exception's frames, innermost first.</summary>
+    public IReadOnlyList<OutputCrashFrame> Frames { get; init; } = [];
+
+    public CrashReport? Report { get; init; }
+
+    public string? Folder { get; init; }
+
+    public string? DumpPath { get; init; }
+
+    /// <summary>The row shows its frames.</summary>
+    public bool Expanded { get; set; }
+
+    /// <summary>The frames with their positions, for the Output panel's nested list.</summary>
+    public IReadOnlyList<OutputFrameRow> FrameRows => _frameRows ??= [.. Frames.Select(static (f, i) => new OutputFrameRow(f, i))];
+
+    private OutputFrameRow[]? _frameRows;
+
+    /// <summary>Copy report: the bundle's report and log, else the report sent on the link, else the title and detail.</summary>
+    public string CopyText => Folder is { } folder && Directory.Exists(folder)
+        ? CrashPrompt.ReportText(folder)
+        : Report is { } report ? System.Text.Encoding.UTF8.GetString(report.ToJson()) : $"{Title}\n{Detail}";
+
+    /// <summary>The crash of <paramref name="instance"/> (<see cref="PlayService.Crashed"/>).</summary>
+    public static OutputCrash From(PlayInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        var who = $"{instance.Label} #{instance.Number}";
+        var exit = instance.ExitDescription;
+        var details = new List<string>(4);
+        if (instance.Crash is not { } report)
+        {
+            if (instance.DumpPath is { } dumpFile)
+                details.Add($"native dump: {dumpFile}");
+            details.Add(instance.HasConnected
+                ? "No crash report arrived: a native crash, a stack overflow, a fail fast or a kill (or a game built with an older engine)."
+                : "It exited before it connected to the editor.");
+            return new OutputCrash
+            {
+                Title = exit is null ? $"{who} crashed" : $"{who} crashed: {exit}",
+                Detail = string.Join("\n", details),
+                DumpPath = instance.DumpPath,
+            };
+        }
+
+        if (report.Session.Node is { } node)
+            details.Add(report.Session.Scene is { Length: > 0 } scene ? $"{node} · {scene}" : node);
+        else if (report.Session.Scene is { Length: > 0 } scene)
+            details.Add(scene);
+        if (report.Exception.Count > 0 && report.Exception[0].Message is { Length: > 0 } message)
+            details.Add(message);
+        if (report.GpuLoss is { InFlight.Count: > 0 } loss)
+            details.Add("GPU passes in flight: " + string.Join(", ", loss.InFlight));
+        var frames = new List<OutputCrashFrame>();
+        if (report.Exception.Count > 0)
+        {
+            foreach (var frame in report.Exception[0].Frames)
+            {
+                var text = frame.File is { Length: > 0 } file
+                    ? $"at {frame.Method} in {Path.GetFileName(file)}:{frame.Line ?? 0}"
+                    : $"at {frame.Method}";
+                frames.Add(new OutputCrashFrame(text, frame.File ?? "", frame.Line ?? 0, IsGameFrame(frame.Method)));
+            }
+        }
+
+        return new OutputCrash
+        {
+            Title = $"{who} crashed: {report.Summary}",
+            Detail = string.Join("\n", details),
+            Frames = frames,
+            Report = report,
+            Folder = instance.CrashFolder,
+            DumpPath = instance.DumpPath,
+        };
+    }
+
+    /// <summary>Engine, runtime and library frames are muted; the game's are click-to-source.</summary>
+    public static bool IsGameFrame(string method) =>
+        !(method.StartsWith("MainframeEngine.", StringComparison.Ordinal) || method.StartsWith("System.", StringComparison.Ordinal) ||
+          method.StartsWith("Microsoft.", StringComparison.Ordinal) || method.StartsWith("Silk.NET.", StringComparison.Ordinal) ||
+          method.StartsWith("Jitter2.", StringComparison.Ordinal) || method.StartsWith("Box2D", StringComparison.Ordinal) ||
+          method.StartsWith("SoundFlow.", StringComparison.Ordinal) || method.Length == 0);
 }
 
 /// <summary>Icons of the Output panel's levels and log categories (engine subsystems).</summary>
@@ -197,6 +303,14 @@ public sealed class OutputLog : ILogSink, IDisposable
             CallerFile = entry.CallerFile ?? "",
             CallerLine = entry.CallerLine,
         });
+    }
+
+    /// <summary>Adds a game crash row (thread-safe): an error line that expands to the crash's frames.</summary>
+    public void AddCrash(OutputCrash crash)
+    {
+        ArgumentNullException.ThrowIfNull(crash);
+        var text = crash.Detail.Length > 0 ? $"{crash.Title}\n{crash.Detail}" : crash.Title;
+        _incoming.Enqueue(new OutputMessage(OutputLevel.Error, text, DateTime.Now) { Category = "game", Crash = crash });
     }
 
     /// <summary>A game process entry's category: <c>game</c>, <c>game·Net</c>, <c>engine</c> or <c>engine·Vulkan</c>.</summary>

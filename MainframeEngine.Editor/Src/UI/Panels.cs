@@ -281,6 +281,14 @@ public sealed class ToolbarPanel : EditorDocument
     /// The <see cref="PlayController.RecordStatus"/> of the first recording instance, else of the first saving one; empty
     /// when none is. <paramref name="recording"/>: it is a running recording (the red dot shows).
     /// </summary>
+    /// <summary>A Play chip's tooltip; a crashed instance names its exit code in words (<c>SIGSEGV, a native crash</c>).</summary>
+    internal static string InstanceTooltip(PlayInstance instance) => instance.State switch
+    {
+        PlayInstanceState.Crashed => $"{instance.Label} #{instance.Number} — crashed ({instance.ExitDescription ?? "no exit code"})" +
+                                     (instance.Crash is { } report ? $": {report.Summary}" : "") + ". The Output panel has the details.",
+        _ => $"{instance.Label} #{instance.Number} — {instance.State}. Click to pause, reload its scene or stop it.",
+    };
+
     private static string RecordingStatus(PlayController play, out bool recording)
     {
         PlayInstance? saving = null;
@@ -343,7 +351,7 @@ public sealed class ToolbarPanel : EditorDocument
                 _ => ("exited", "check"),
             };
             rml.Append("<div class=\"instance ").Append(css).Append("\" data-instance=\"").Append(instance.Number)
-                .Append("\" data-tooltip=\"").Append(RmlText.Escape($"{instance.Label} #{instance.Number} — {instance.State}. Click to pause, reload its scene or stop it."))
+                .Append("\" data-tooltip=\"").Append(RmlText.Escape(InstanceTooltip(instance)))
                 .Append("\"><span class=\"icon icon-sm icon-").Append(icon).Append("\"></span><span>").Append(RmlText.Escape(instance.Label)).Append("</span></div>");
         }
 

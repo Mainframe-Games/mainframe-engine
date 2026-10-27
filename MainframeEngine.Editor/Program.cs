@@ -34,16 +34,39 @@ catch (ArgumentException e)
     return 2;
 }
 
+// G15: the editor's own crash reports (~/.mainframe/crashes) and a rotating log (~/.mainframe/logs/editor.log) whose
+// previous run an unclean exit's report attaches. Scripted and test runs (no crash folder) keep neither.
+var editorLog = EditorCrashReporting.Install(options.Workspace.CrashDirectory, EditorWorkspaceOptions.DefaultLogDirectory);
+
 using var app = new EditorApp(options);
 
-// Crash safety: an unhandled exception writes recovery copies of unsaved scenes before the process dies.
-AppDomain.CurrentDomain.UnhandledException += (_, _) =>
+// Crash safety: an unhandled exception writes recovery copies of unsaved scenes before the process dies (listed in the
+// crash report, which the next start's crash dialog offers back).
+IReadOnlyList<string> WriteRecoveryCopies()
 {
-    if (app.Workspace is { } workspace)
-        foreach (var path in workspace.WriteRecoveryCopies())
-            Console.Error.WriteLine($"[Editor] Recovery copy written: {path}");
-};
+    if (app.Workspace is not { } workspace)
+        return [];
+    var copies = workspace.WriteRecoveryCopies();
+    foreach (var path in copies)
+        Console.Error.WriteLine($"[Editor] Recovery copy written: {path}");
+    return copies;
+}
 
-var exit = app.Run();
+if (CrashReporter.IsInstalled)
+    CrashReporter.Crashing += report => EditorCrashReporting.ListRecoveryCopies(report, WriteRecoveryCopies());
+else
+    AppDomain.CurrentDomain.UnhandledException += (_, _) => WriteRecoveryCopies();
+
+ExitCode exit;
+try
+{
+    exit = app.Run();
+}
+catch (Exception e) when (EditorCrashReporting.ReportMainThread(e))
+{
+    throw; // never reached: the filter reports and lets the exception end the process as before
+}
+
 options.Automation?.OnExited((int)exit);
+EditorCrashReporting.End(editorLog);
 return (int)exit;
