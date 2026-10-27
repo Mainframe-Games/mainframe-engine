@@ -1,0 +1,83 @@
+{
+  "format": 2,
+  "uid": "res_6f03ebb0e621",
+  "type": "SpriteFrames",
+  "resources": {
+    "SpriteAnimation_3yglu": {
+      "type": "SpriteAnimation",
+      "props": {
+        "Name": "idle",
+        "Speed": 4,
+        "Textures": [
+          { "res": "Texture2D_srb15" }
+        ],
+        "Frames": [
+          [0, 0, 0, 32, 32, 1],
+          [0, 32, 0, 32, 32, 1],
+          [0, 64, 0, 32, 32, 1],
+          [0, 96, 0, 32, 32, 1]
+        ]
+      }
+    },
+    "SpriteAnimation_hdzjq": {
+      "type": "SpriteAnimation",
+      "props": {
+        "Name": "run",
+        "Speed": 10,
+        "Textures": [
+          { "res": "Texture2D_srb15" }
+        ],
+        "Frames": [
+          [0, 0, 32, 32, 32, 1],
+          [0, 32, 32, 32, 32, 1],
+          [0, 64, 32, 32, 32, 1],
+          [0, 96, 32, 32, 32, 1]
+        ]
+      }
+    },
+    "SpriteAnimation_kjxj7": {
+      "type": "SpriteAnimation",
+      "props": {
+        "Name": "jump",
+        "Speed": 8,
+        "Textures": [
+          { "res": "Texture2D_srb15" }
+        ],
+        "Frames": [
+          [0, 0, 64, 32, 32, 1],
+          [0, 32, 64, 32, 32, 1],
+          [0, 64, 64, 32, 32, 1],
+          [0, 96, 64, 32, 32, 1]
+        ]
+      }
+    },
+    "SpriteAnimation_npvio": {
+      "type": "SpriteAnimation",
+      "props": {
+        "Name": "coin",
+        "Speed": 8,
+        "Textures": [
+          { "res": "Texture2D_srb15" }
+        ],
+        "Frames": [
+          [0, 0, 96, 32, 32, 1],
+          [0, 32, 96, 32, 32, 1],
+          [0, 64, 96, 32, 32, 1],
+          [0, 96, 96, 32, 32, 1]
+        ]
+      }
+    },
+    "Texture2D_srb15": {
+      "ref": "tex_5f1d2c3b4a69",
+      "path": "Assets/Sprites2D/hero.png"
+    }
+  },
+  "props": {
+    "Animations": [
+      { "res": "SpriteAnimation_3yglu" },
+      { "res": "SpriteAnimation_hdzjq" },
+      { "res": "SpriteAnimation_kjxj7" },
+      { "res": "SpriteAnimation_npvio" }
+    ]
+  }
+}

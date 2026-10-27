@@ -26,7 +26,7 @@ public sealed class DemoNavLayer : UiLayer
 
 /// <summary>
 /// Tabs for every Demo scene, FPS, language picker and the settings menu (gear, F10 / Start). The input actions
-/// <c>scene_next</c>/<c>scene_prev</c> (Page Down/Up, RB/LB) step through the scenes, with number keys 1–9 as a fallback;
+/// <c>scene_next</c>/<c>scene_prev</c> (Page Down/Up, RB/LB) step through the scenes, with number keys 1–9 and 0 (the tenth) as a fallback;
 /// <c>quit</c> (Escape) quits.
 /// </summary>
 public sealed class DemoNav : UiDocument
@@ -124,6 +124,8 @@ public sealed class DemoNav : UiDocument
             Tree?.Quit(0);
         else if (inputEvent is InputEventKey { Pressed: true, Key: >= Key.Number1 and <= Key.Number9 } key)
             Open(key.Key - Key.Number1);
+        else if (inputEvent is InputEventKey { Pressed: true, Key: Key.Number0 })
+            Open(9); // the tenth tab, in keyboard-row order
     }
 
     /// <summary>Opens the engine's settings menu (all tabs; the game pauses while it is open).</summary>
