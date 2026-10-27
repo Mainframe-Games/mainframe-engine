@@ -4,7 +4,7 @@ using MainframeEngine;
 namespace Neon.Tests;
 
 /// <summary>
-/// The graybox apartment from <c>Tools/apartment/build_apartment.py</c>, loaded as in the game: its doors, switches and
+/// The apartment from <c>Tools/apartment/build_apartment.py</c>, loaded as in the game: its doors, switches and
 /// sockets, a walk through every room and up the stairs, and the containment (the railing, the front door). Skipped
 /// when the model's LFS buffer is not checked out.
 /// </summary>
@@ -38,7 +38,7 @@ public sealed class ApartmentTests
         Assert.IsType<SlidingDoor>(apartment.Doors["Door_Balcony"]);
         Assert.NotNull(apartment.FrontDoor);
         Assert.Equal(["Balcony", "Bath", "Bed2", "Computer", "Living", "Loft"], apartment.Switches.Keys.Order());
-        Assert.Equal(9, apartment.Lights.Count);
+        Assert.Equal(16, apartment.Lights.Count);
         foreach (var (room, lightSwitch) in apartment.Switches)
         {
             Assert.NotEmpty(lightSwitch.Lights);
@@ -47,9 +47,10 @@ public sealed class ApartmentTests
             Assert.True(lightSwitch.Fixtures[0].EmissionEnergy > 1f, room);
         }
 
-        foreach (var socket in new[] { "Spawn", "Seat", "Shower", "Tap_Kitchen", "Tap_Bath", "Tv", "Stereo", "Blinds_Living", "Monitor_1", "Monitor_6", "Zone_Living", "Zone_Balcony" })
+        foreach (var socket in new[] { "Spawn", "Seat", "Shower", "Tap_Kitchen", "Tap_Bath", "Tv", "Stereo", "Blinds_Living_1", "Valve_Shower", "Panel_Blinds_Living", "Monitor_1", "Monitor_6", "Zone_Living", "Zone_Balcony" })
             Assert.True(apartment.Sockets.ContainsKey(socket), socket);
-        Assert.Equal(4, apartment.Lights.Count(l => l.Parent!.Name.StartsWith("Light_Living", StringComparison.Ordinal)));
+        Assert.Equal(5, apartment.Lights.Count(l => l.Parent!.Name.StartsWith("Light_Living", StringComparison.Ordinal)));
+        Assert.Equal(4, apartment.Lights.Count(l => l.CastsShadows)); // the engine's limit of shadowed point lights
     }
 
     [Fact]

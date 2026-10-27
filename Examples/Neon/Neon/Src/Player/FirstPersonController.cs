@@ -180,6 +180,23 @@ public class FirstPersonController : CharacterBody3D
     }
 
     /// <summary>Turns the view by <paramref name="yawDegrees"/> (positive: left) and <paramref name="pitchDegrees"/> (positive: up).</summary>
+    /// <summary>
+    /// While true the player does not move, jump, crouch or fall and makes no footsteps (seated at the computer); the
+    /// view still turns. Whoever sets it places the body.
+    /// </summary>
+    public bool MovementLocked { get; set; }
+
+    /// <summary>An eye height over the feet that replaces the standing/crouching one (seated), or null.</summary>
+    public float? EyeHeightOverride { get; set; }
+
+    /// <summary>Sets the view: yaw (0 looks along −Z) and pitch, in degrees.</summary>
+    public void SetLook(float yawDegrees, float pitchDegrees)
+    {
+        _yaw = MathF.IEEERemainder(float.DegreesToRadians(yawDegrees), MathF.Tau);
+        _pitch = Math.Clamp(float.DegreesToRadians(pitchDegrees), float.DegreesToRadians(-89f), float.DegreesToRadians(89f));
+        ApplyLook();
+    }
+
     public void AddLook(float yawDegrees, float pitchDegrees)
     {
         _yaw += float.DegreesToRadians(yawDegrees);
@@ -239,7 +256,7 @@ public class FirstPersonController : CharacterBody3D
         // Crouch: the head eases to the new eye height.
         var targetHead = (_crouching ? CrouchHeight : StandingHeight) - EyeBelowTop;
         var rate = MathF.Abs(StandingHeight - CrouchHeight) / CrouchTransitionSeconds;
-        _headHeight = MoveToward(_headHeight, targetHead, rate * delta);
+        _headHeight = EyeHeightOverride ?? MoveToward(_headHeight, targetHead, rate * delta);
 
         // Head bob: amplitude follows the horizontal speed and eases out when stopping.
         var velocity = GetRealVelocity();
@@ -256,6 +273,13 @@ public class FirstPersonController : CharacterBody3D
     {
         if (Tree is not { } tree)
             return;
+        if (MovementLocked)
+        {
+            Velocity = Vector3.Zero;
+            _horizontal = Vector3.Zero;
+            return;
+        }
+
         var input = tree.Input;
         var move = input.GetVector("move_left", "move_right", "move_forward", "move_back");
 

@@ -40,6 +40,22 @@ public sealed class NeonApartment : Node3D
         ["Balcony"] = new(1f, 0.55f, 0.25f),
     };
 
+    // The four point lights with cube shadows (the engine's limit): one per main room.
+    private static readonly HashSet<string> ShadowedLights =
+        new(StringComparer.Ordinal) { "Light_Living_1", "Light_Computer_1", "Light_Bath_1", "Light_Loft_1" };
+
+    // Small accent lights: their own colour (null = the room's) and energy.
+    private static readonly Dictionary<string, (Vector3?, float)> AccentLights = new(StringComparer.Ordinal)
+    {
+        ["Light_Living_3"] = (null, 2.5f),
+        ["Light_Living_5"] = (new Vector3(1f, 0.55f, 0.3f), 2f),
+        ["Light_Bath_2"] = (null, 2f),
+        ["Light_Computer_2"] = (new Vector3(0.2f, 1f, 0.6f), 1.8f),
+        ["Light_Computer_3"] = (new Vector3(0.7f, 0.25f, 1f), 2.2f),
+        ["Light_Loft_2"] = (new Vector3(1f, 0.45f, 0.6f), 2.2f),
+        ["Light_Bed2_2"] = (new Vector3(1f, 0.15f, 0.6f), 3f),
+    };
+
     private bool _built;
 
     /// <summary>The model's root node (the glTF instance).</summary>
@@ -55,6 +71,26 @@ public sealed class NeonApartment : Node3D
     public Dictionary<string, LightSwitch> Switches { get; } = new(StringComparer.Ordinal);
 
     public List<OmniLight3D> Lights { get; } = [];
+
+    public Shower? Shower { get; private set; }
+
+    /// <summary>The taps by room (<c>Kitchen</c>, <c>Bath</c>).</summary>
+    public Dictionary<string, Tap> Taps { get; } = new(StringComparer.Ordinal);
+
+    public Tv? Tv { get; private set; }
+
+    public Stereo? Stereo { get; private set; }
+
+    public ComputerSeat? Seat { get; private set; }
+
+    /// <summary>The blinds by socket name (<c>Blinds_Living_1</c>, ...).</summary>
+    public Dictionary<string, Blinds> Blinds { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The blinds' wall panels by room.</summary>
+    public Dictionary<string, BlindsPanel> BlindsPanels { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The monitors' screens (own materials: the computer's feeds go on them), in order.</summary>
+    public List<StandardMaterial3D> MonitorScreens { get; } = [];
 
     public FrontDoor? FrontDoor => Doors.GetValueOrDefault("Door_Front") as FrontDoor;
 
@@ -110,6 +146,7 @@ public sealed class NeonApartment : Node3D
         var shell = new List<(string Name, ArrayMesh Mesh, Transform3D Transform)>();
         var furniture = new List<(string Name, Aabb Bounds)>();
         var doors = new List<Node3D>();
+        var meshes = new Dictionary<string, MeshInstance3D>(StringComparer.Ordinal);
         Walk(model, Transform3D.Identity);
 
         void Walk(Node node, Transform3D parent)
@@ -124,6 +161,7 @@ public sealed class NeonApartment : Node3D
             if (node is MeshInstance3D { Mesh: ArrayMesh mesh } instance)
             {
                 ConvertMaterials(mesh, materials);
+                meshes.TryAdd(name, instance);
                 // The fixtures' glow is this apartment's own (the switches change it; the imported meshes are shared).
                 if (name.StartsWith("LED_", StringComparison.Ordinal) && mesh.SurfaceCount > 0 && mesh.GetSurface(0).Material is StandardMaterial3D led)
                 {
@@ -172,6 +210,7 @@ public sealed class NeonApartment : Node3D
         foreach (var door in doors)
             MakeDoor(door);
         MakeLights(fixtures.Values);
+        MakeInteractables(meshes);
     }
 
     // ── Collision ─────────────────────────────────────────────────────────────────────────────────
@@ -185,12 +224,14 @@ public sealed class NeonApartment : Node3D
         var name = node.Name;
         return !(name.StartsWith("Stairs", StringComparison.Ordinal) || name.StartsWith("Rug_", StringComparison.Ordinal) ||
                  name.StartsWith("LED_", StringComparison.Ordinal) || name.StartsWith("Plate_", StringComparison.Ordinal) ||
-                 name.StartsWith("Screen_", StringComparison.Ordinal) || name.StartsWith("Decor_", StringComparison.Ordinal));
+                 name.StartsWith("Screen_", StringComparison.Ordinal) || name.StartsWith("Decor_", StringComparison.Ordinal) ||
+                 name.StartsWith("Glow_", StringComparison.Ordinal));
     }
 
     /// <summary>The footstep surface of a shell mesh (or a collider named after one).</summary>
     internal static string SurfaceOf(string name) =>
         name.StartsWith("Tile_", StringComparison.Ordinal) ? "tile"
+        : name.StartsWith("Planks_", StringComparison.Ordinal) ? "wood"
         : name.StartsWith("Mezzanine", StringComparison.Ordinal) || name.StartsWith("Stairs", StringComparison.Ordinal) ||
           name.StartsWith("Railing_", StringComparison.Ordinal) ? "metal"
         : "concrete";
@@ -280,14 +321,15 @@ public sealed class NeonApartment : Node3D
                 continue;
             // The socket's scale is the range: the light goes under it with the scale undone.
             var range = MathF.Abs(socket.Scale.X);
+            var accent = AccentLights.TryGetValue(name, out var a) ? a : ((Vector3?)null, 0f);
             var light = new OmniLight3D
             {
                 Name = "Light",
-                Color = LightColors.GetValueOrDefault(RoomOf(name), Vector3.One),
-                Energy = 1.6f,
+                Color = accent.Item1 ?? LightColors.GetValueOrDefault(RoomOf(name), Vector3.One),
+                Energy = accent.Item2 > 0 ? accent.Item2 : 4f,
                 Range = range,
                 Scale = new Vector3(1f / MathF.Max(range, 1e-3f)),
-                CastsShadows = name == "Light_Living_1",
+                CastsShadows = ShadowedLights.Contains(name),
             };
             socket.AddChild(light);
             Lights.Add(light);
@@ -308,6 +350,106 @@ public sealed class NeonApartment : Node3D
                     lightSwitch.AddFixture(fixture);
             AddChild(lightSwitch);
             Switches[room] = lightSwitch;
+        }
+    }
+
+    /// <summary>
+    /// The shower (head and valve), the taps, the TV and stereo, the computer's seat and screens, and the blinds with
+    /// their wall panels, at the model's sockets. Screens, the stereo's display and the shower's glass get their own
+    /// materials (they change at run time).
+    /// </summary>
+    private void MakeInteractables(Dictionary<string, MeshInstance3D> meshes)
+    {
+        StandardMaterial3D? Own(string mesh)
+        {
+            if (!meshes.TryGetValue(mesh, out var instance) || instance.Mesh is not { SurfaceCount: > 0 } m ||
+                m.GetSurface(0).Material is not StandardMaterial3D shared)
+                return null;
+            var own = (StandardMaterial3D)shared.Duplicate();
+            instance.MaterialOverride = own;
+            return own;
+        }
+
+        Vector3 At(string socket) => Sockets.TryGetValue(socket, out var node) ? ToApartment(node).Origin : Vector3.Zero;
+
+        if (Sockets.ContainsKey("Shower"))
+        {
+            var head = At("Shower");
+            var shower = new Shower { Name = "Shower", Position = head, Drop = head.Y - 0.01f, Glass = Own("Glass_Shower") };
+            shower.AddBody(new Vector3(0.22f, 0.3f, 0.2f), At("Valve_Shower") - head);
+            AddChild(shower);
+            Shower = shower;
+        }
+
+        foreach (var (room, drop) in new[] { ("Kitchen", 0.27f), ("Bath", 0.2f) })
+        {
+            if (!Sockets.ContainsKey("Tap_" + room))
+                continue;
+            var tap = new Tap { Name = "Tap_" + room, Position = At("Tap_" + room), Drop = drop };
+            tap.AddBody(new Vector3(0.3f, 0.32f, 0.36f), new Vector3(0f, 0.02f, -0.06f));
+            AddChild(tap);
+            Taps[room] = tap;
+        }
+
+        if (Sockets.TryGetValue("Tv", out var tvSocket))
+        {
+            var tv = new Tv { Name = "Tv", Transform = ToApartment(tvSocket), Screen = Own("Screen_Tv") };
+            tv.AddBody(new Vector3(2.4f, 1.3f, 0.12f));
+            AddChild(tv);
+            Tv = tv;
+        }
+
+        if (Sockets.ContainsKey("Stereo"))
+        {
+            var stereo = new Stereo { Name = "Stereo", Position = At("Stereo"), Display = Own("Decor_StereoDisplay") };
+            stereo.AddBody(new Vector3(0.45f, 0.22f, 0.6f), new Vector3(-0.02f, 0f, -0.02f));
+            AddChild(stereo);
+            Stereo = stereo;
+        }
+
+        for (var i = 1; meshes.ContainsKey($"Screen_Monitor_{i}"); i++)
+            if (Own($"Screen_Monitor_{i}") is { } screen)
+                MonitorScreens.Add(screen);
+
+        if (Sockets.TryGetValue("Seat", out var seatSocket))
+        {
+            var seat = new ComputerSeat { Name = "ComputerSeat", Transform = ToApartment(seatSocket) };
+            seat.AddBody(new Vector3(0.8f, 1.3f, 0.8f), new Vector3(0f, 0.65f, 0f));
+            AddChild(seat);
+            Seat = seat;
+        }
+
+        var slats = new StandardMaterial3D
+        {
+            ResourceName = "Blind slats",
+            ShadingMode = ShadingMode.Pbr,
+            AlbedoColor = DrawingColor.FromArgb(255, 34, 34, 40),
+            Metallic = 0.6f,
+            Roughness = 0.45f,
+            DoubleSided = true,
+        };
+        foreach (var (name, socket) in Sockets)
+        {
+            if (!name.StartsWith("Blinds_", StringComparison.Ordinal))
+                continue;
+            ToApartment(socket).Decompose(out var top, out _, out var scale);
+            var blinds = new Blinds { Name = name, Position = top, Width = MathF.Abs(scale.X) * 2f, Drop = MathF.Abs(scale.Y), SlatMaterial = slats };
+            AddChild(blinds);
+            Blinds[name] = blinds;
+        }
+
+        foreach (var (name, socket) in Sockets)
+        {
+            if (!name.StartsWith("Panel_Blinds_", StringComparison.Ordinal))
+                continue;
+            var room = name["Panel_Blinds_".Length..];
+            var panel = new BlindsPanel { Name = name, Transform = ToApartment(socket), IsOn = true };
+            panel.AddBody(new Vector3(0.18f, 0.24f, 0.18f));
+            foreach (var (blindsName, blinds) in Blinds)
+                if (RoomOf(blindsName) == room)
+                    panel.Blinds.Add(blinds);
+            AddChild(panel);
+            BlindsPanels[room] = panel;
         }
     }
 
@@ -339,6 +481,11 @@ public sealed class NeonApartment : Node3D
         }
     }
 
+    /// <summary>
+    /// The importer reads colour, normal maps, emission and alpha: each surface's material becomes PBR. A textured set
+    /// gets its packed ORM by name (<c>*_Color.jpg</c> → <c>*_ORM.png</c>: AO, roughness, metallic) and keeps its
+    /// colour as a tint; flat materials get a roughness and metalness by name; the glass becomes a clear, two-sided pane.
+    /// </summary>
     private static StandardMaterial3D ToPbr(StandardMaterial3D source)
     {
         var name = source.ResourceName ?? "";
@@ -347,32 +494,47 @@ public sealed class NeonApartment : Node3D
             {
                 ResourceName = name,
                 ShadingMode = ShadingMode.Pbr,
-                AlbedoColor = DrawingColor.FromArgb(40, 170, 190, 205),
+                AlbedoColor = DrawingColor.FromArgb(34, 170, 190, 205),
                 Roughness = 0.04f,
                 Metallic = 0f,
                 Transparency = AlphaMode.Blend,
                 DoubleSided = true,
             };
 
+        Texture2D? orm = null;
+        if (source.AlbedoTexture?.ResourcePath is { } albedo && albedo.Contains("_Color.", StringComparison.Ordinal))
+        {
+            var candidate = albedo[..albedo.LastIndexOf("_Color.", StringComparison.Ordinal)] + "_ORM.png";
+            if (ResourceLoader.Exists(candidate))
+                orm = ResourceLoader.Load<Texture2D>(candidate);
+        }
+
         return new StandardMaterial3D
         {
             ResourceName = name,
             ShadingMode = ShadingMode.Pbr,
+            AlbedoTexture = source.AlbedoTexture,
             AlbedoColor = source.AlbedoColor,
-            Metallic = name is "Steel" or "Grate" ? 0.6f : 0f,
-            Roughness = name switch
+            NormalTexture = source.NormalTexture,
+            OrmTexture = orm,
+            AmbientOcclusion = 1f,
+            Metallic = orm is not null ? 1f : name is "Chrome" or "Mirror" ? 1f : 0f,
+            Roughness = orm is not null ? 1f : name switch
             {
-                "Steel" => 0.4f,
-                "Grate" => 0.55f,
-                "Screen" => 0.15f,
-                "Tile" or "Porcelain" => 0.25f,
-                "Leather" => 0.45f,
-                _ when name.StartsWith("LED_", StringComparison.Ordinal) => 0.4f,
+                "Chrome" => 0.15f,
+                "Mirror" => 0.04f,
+                "Screen" => 0.12f,
+                "Porcelain" => 0.2f,
+                "Black" or "Door" => 0.45f,
+                _ when name.StartsWith("Poster_", StringComparison.Ordinal) => 0.6f,
+                _ when name.StartsWith("LED_", StringComparison.Ordinal) || name.StartsWith("Glow_", StringComparison.Ordinal) => 0.4f,
                 _ => 0.8f,
             },
             EmissionColor = source.EmissionColor,
             EmissionEnergy = source.EmissionEnergy,
-            DoubleSided = true, // the shell's slabs and walls are seen from both sides
+            EmissionTexture = source.EmissionTexture,
+            // The shell's slabs and walls are seen from both sides; textured sets are lit from the front only.
+            DoubleSided = source.AlbedoTexture is null,
         };
     }
 

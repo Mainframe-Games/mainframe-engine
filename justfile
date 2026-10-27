@@ -158,9 +158,11 @@ neon *args:
 neon-test:
     dotnet test Examples/Neon/Neon.Tests
 
-# Build Neon's apartment (Assets/Art/Apartment/apartment.gltf) headless in Blender from Tools/apartment/build_apartment.py (BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
+# Build Neon's apartment (Assets/Art/Apartment/apartment.gltf): the posters, then headless Blender from Tools/apartment/build_apartment.py, then .meta sidecars (textures: python3 Examples/Neon/Tools/fetch_assets.py; BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
 neon-art *args:
+    python3 Examples/Neon/Tools/apartment/make_posters.py
     "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/apartment/build_apartment.py -- {{args}}
+    python3 Examples/Neon/Tools/fetch_assets.py --only metas
 
 # Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
 template-smoke frames="30":

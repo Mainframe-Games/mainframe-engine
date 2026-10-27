@@ -40,4 +40,11 @@ public static class Verbs
     public const string Locked = "Locked";
     public const string TurnOn = "Turn on";
     public const string TurnOff = "Turn off";
+    public const string NextChannel = "Next channel";
+    public const string PlayMusic = "Play music";
+    public const string NextTrack = "Next track";
+    public const string StopMusic = "Stop music";
+    public const string OpenBlinds = "Open blinds";
+    public const string CloseBlinds = "Close blinds";
+    public const string Sit = "Sit";
 }

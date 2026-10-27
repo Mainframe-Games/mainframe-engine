@@ -38,7 +38,7 @@ public sealed class Interactor : Node
     {
         if (_player is not { Camera: { } camera } player || Tree is not { } tree)
             return;
-        Current = player.ProcessMode == ProcessMode.Disabled ? null : Find(player, camera);
+        Current = player.ProcessMode == ProcessMode.Disabled || player.MovementLocked ? null : Find(player, camera);
         if (Current is { CanInteract: true } target && tree.Input.IsActionJustPressed("interact"))
         {
             target.Interact();
