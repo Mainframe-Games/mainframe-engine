@@ -737,8 +737,15 @@ link ([Project & game host](project-and-gamehost.md)).
   only until the game connects, or when it crashes before connecting.
 - **Instances** (`PlayService`): each is a chip in the toolbar (status icon — launching, running, paused, exited,
   crashed — and label); clicking it opens its menu (pause/resume, reload scene, stop, clear). A hello is matched to its
-  instance by process id. Exit code 0 or a requested stop is *exited*, anything else *crashed* (the exit code is
-  logged).
+  instance by process id. Exit code 0 or a requested stop is *exited*, anything else *crashed*; the chip's tooltip names
+  the exit in words (`ExitCodes.Describe`: `SIGSEGV, a native crash (exit code 139)`, Windows NTSTATUS names).
+- **Game crashes** (G15, [Crash reporting](crash-reporting.md#editor-game-crashes-and-its-own)): every launched game
+  writes native dumps into its `{user data}/crashes` (the runtime's `DOTNET_DbgEnableMiniDump` variables). A crash
+  becomes **one expandable Output error row** (`PlayService.Crashed` → `OutputLog.AddCrash`): "Game #2 crashed:
+  NullReferenceException in PlayerController.OnPhysicsProcess", the node path and scene, from the report the game sent
+  on the link (protocol 5); without one, the decoded exit code and the dump. Icon buttons: Frames (expands the stack;
+  game frames with a file here are click-to-source, engine frames muted), Open Report (the bundle), Copy Report, Show
+  Dump. The game's earlier log rows stay above it.
 - **Remote scene tree** ([0133](../../memory/decisions/0133-remote-scene-tree.md), Godot's Local/Remote switch): while
   a launched game is connected, the Scene panel shows a Local | Remote toggle. Remote replaces the edited scene's rows
   with the game's live tree, read-only (names and type icons), asked for over the link once a second
@@ -1106,6 +1113,12 @@ captures the dialog with `update-preview X.Y.Z`. See [Editor updates](editor-upd
   their UID across saves. A failed save keeps the old file and the scene dirty and shows the error.
 - Every command runs guarded: an exception becomes an Output error and a message box, never a crash.
 - An unhandled exception writes recovery copies of unsaved scenes to `~/.mainframe/recovery/`.
+- **The editor's own crashes** (G15): `Program.cs` installs `CrashReporter` in `~/.mainframe/crashes` with a rotating
+  `~/.mainframe/logs/editor.log` (`EditorCrashReporting`); the report lists the recovery copies. On the next start
+  `CrashDialog` (after the update check starts) shows the summary, the recovery copies with **Open** each, Copy Report,
+  Open Folder and Report Issue (copies the report and opens the repository's new-issue page with only the version in the
+  title). A native crash or a kill leaves the session sentinel: the next start reports it as an unclean exit with the
+  tail of `editor.1.log`. Scripted and test runs keep neither.
 
 ## Brand
 

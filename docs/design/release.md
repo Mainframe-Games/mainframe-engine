@@ -56,6 +56,11 @@ flowchart LR
   allows `main` only. (Required reviewers on environments need GitHub Enterprise for private repos, so the
   actor check is the gate.)
 - **Tests first.** The full CI suite runs again (`workflow_call`) before anything is built.
+- **Symbols** (G15.8, [Crash reporting](crash-reporting.md#symbols)). The editor keeps its PDBs next to its assemblies
+  (crash reports get file and line). Each build leg also collects them with their assemblies
+  ([`build/collect-symbols.sh`](../../build/collect-symbols.sh)), and the release attaches
+  `MainframeEngine-<version>-symbols.zip`, what `mf-symbolicate` reads. Games choose with `build/package-game.sh
+  --symbols ship|separate` (`separate`: a `<exe>-<version>-<rid>-symbols.zip` beside the package, PDBs out of it).
 - **Artifacts.** Self-contained, ReadyToRun editor builds, packaged by
   [`build/package-editor.sh`](../../build/package-editor.sh):
   `MainframeEditor-X.Y.Z-osx-arm64.tar.gz` (`Mainframe Editor.app` in the [macOS bundle layout](#macos-bundle-layout),

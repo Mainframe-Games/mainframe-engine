@@ -215,6 +215,12 @@ Games never reference it.
   - **`collect`** merges all RIDs into **`natives-all`**: `MainframeEngine/runtimes/**`,
     `MainframeEngine.Editor/runtimes/**` plus a `Native/natives.lock` stamped for exactly these binaries.
   - **`verify-lock`** runs `Native/natives-lock.sh verify` against the committed tree.
+- **Symbols** (G15.8, [Crash reporting](crash-reporting.md#symbols)): every leg builds Release with debug info (`-O3 -g`;
+  MSVC `/Zi` + `/DEBUG`), then [`build/split-native-symbols.sh`](../../build/split-native-symbols.sh) strips the staged
+  binaries (macOS `dsymutil` + `strip -x`, Linux `objcopy --only-keep-debug` + `--strip-debug --add-gnu-debuglink`,
+  Windows the linker's `.pdb`) and uploads the symbols as **`native-symbols-<name>`**; the committed binaries stay
+  stripped and `natives.lock` records binaries only. Binaries committed before this change have no debug info until
+  the workflow next runs.
 - **Actions:** only official ones (`actions/checkout`, `actions/upload-artifact`, `actions/download-artifact`).
 
 ## `Native/natives.lock`

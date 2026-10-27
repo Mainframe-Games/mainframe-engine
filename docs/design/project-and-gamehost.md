@@ -417,8 +417,23 @@ read-only.
 │   ├── slot1.png            optional thumbnail
 │   ├── slot1.msave.corrupt-20261008T101500123Z   a damaged copy, kept for support
 │   └── .sync.json           the last synced hash per slot (with a cloud backend)
+├── crashes/                 CrashReporter: report bundles, the session sentinel, native dumps
 └── logs/                    FileLogSink
 ```
+
+## Crash reports
+
+`GameHost.Run` installs `CrashReporter` right after the file log (`crash.enabled`, default on; [Crash
+reporting](crash-reporting.md)): a fatal exception writes a bundle to `{user data}/crashes` first, then `Log.Fatal`, then a
+guarded shutdown (a second exception is logged, never thrown over the first). A session sentinel
+(`session-<pid>.json` + a held `.lock`) is removed at the end of the run; one left behind becomes an `UncleanExit`
+report with the previous log's tail on the next start. Once the first scene is on screen, `CrashPrompt` offers earlier
+reports (`crash.prompt`), or with `crash.upload.mode` `consented` and the player's agreement they are sent. The
+`crash` section: `enabled`, `prompt` (`ask`/`none`), `logEntries` (200), `maxReports` (10), `gpuBreadcrumbs` (true),
+`nativeDumps` (`off`/`triage`/`mini`/`heap`: a shipped desktop game relaunches itself as a child with the runtime's dump
+variables, ADR 0221) and `upload` (`url`, `format` `sentry-envelope`/`zip`, `mode` `ask`/`consented`, `includeLog`,
+`includeDumps`). The player's consent is `crash.uploadConsent` in `settings.json` (`UserSettings.CrashUploadConsent`).
+Headless runs install it too and log pending reports instead of prompting.
 
 ## Save games
 
@@ -538,7 +553,7 @@ sequenceDiagram
 
 - **Wire format** (`EditorLinkProtocol`): `u32 length` (type byte + payload, ≤ 1 MiB) · `u8 type` · payload,
   little-endian; strings `u32` byte count + UTF-8 (strict). Oversized log text is truncated to fit. A malformed frame
-  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome, version 4 the recording commands and message).
+  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome, version 4 the recording commands and message, version 5 the crash report).
 - **Game side** (`EditorLinkClient`): a background thread connects (and reconnects with back-off when the editor goes
   away), sends a hello per connection and waits for the editor's welcome; only then does the connection count
   (`IsConnected`, `ConnectionCount`) and drain queued logs (batched up to 64 KB), the latest status and the goodbye.
@@ -570,6 +585,11 @@ sequenceDiagram
   and tree, recording events are **queued** in `EditorLinkClient` (`MaxQueuedRecordings` 64, never coalesced) and written
   before the goodbye. The editor treats a recording as failed by itself only when the game's link is gone. A game must
   have been started with `--frame-capture` (the editor always does) for a mid-session start to succeed.
+- **Crash reports** (protocol version 5, [Crash reporting](crash-reporting.md#editor-game-crashes-and-its-own)). Game →
+  editor: `CrashReport = 9`, `str reportJson, str bundleFolder` (`report.json` at most 256 KB; a larger one is not sent).
+  `GameSession` registers an `EditorLinkCrashSink` while the link is up; on the way down it waits up to 1 s for the link
+  (a crash in the first frames can beat the connection) and for the frame to be written after the queued logs, before
+  the goodbye. The editor raises `PlayService.Crashed` once the process has exited.
 - **Sockets inherited by child processes.** macOS has no `SOCK_CLOEXEC`/`accept4`: .NET calls `socket()`/`accept()`
   and then sets `FD_CLOEXEC` separately, and `Process.Start` forks, so a child started in between (the editor runs
   `dotnet build`, whose build servers outlive it, and games) holds the socket for its whole life. Two consequences

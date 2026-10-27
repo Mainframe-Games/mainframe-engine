@@ -128,7 +128,7 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-sheet-slicer.png" width="380" alt="The Select Frames dialog slicing the Demo's hero sheet into a 4 by 4 grid with the run row picked and numbered"><br><b>Select Frames</b> — slice a sprite sheet by count or cell size, pick frames in order</td>
-    <td></td>
+    <td align="center" valign="top"><img src="docs/images/editor-crash.png" width="380" alt="A played game's crash in the Output panel: one red row naming the exception, the node and the scene, expanded to its stack frames, the game's frame with a link to its source and the engine's muted"><br><b>Crash reports</b> — a game's crash as one row: the node, scene and frames, click-to-source</td>
   </tr>
 </table>
 
@@ -247,6 +247,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos (multi-node, pivots), range handles, box selection and lock, Simulate in the view, resource Save as .mres / Make Unique, FileSystem panel, Play in its own process, C# code reload |
+| [Crash reporting](docs/design/crash-reporting.md) | A crash leaves a report bundle (exception, the node and callback it left, scene, GPU and driver, the last log lines); native crashes and kills are noticed on the next start, with optional native dumps; a next-launch prompt for players, opt-in upload to Sentry or your own endpoint; the editor shows a game's crash as one Output row with click-to-source frames |
 | [Gameplay recording](docs/design/recording.md) | Record any game to MP4 through your own ffmpeg: F10 in the editor or `--record`, live or offline, with a sidecar of input, loading and pauses |
 | [Video mode](docs/design/video-editor.md) | The editor trims recordings for promo footage: detect silence and idle play, Whisper transcripts, remove filler words, export |
 | [Game UI](docs/design/game-ui.md) | RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library; the editor is built with it |

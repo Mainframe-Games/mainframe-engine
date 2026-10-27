@@ -175,6 +175,13 @@ nodes; see [Testing](testing.md)).
 `Engine` owns one tree (`Engine.Tree`, `Engine.Root`) and ticks it after the legacy `OnUpdate` hook; see
 [Engine lifecycle](engine-lifecycle.md). Tests and tools create their own `SceneTree`.
 
+**Exceptions are fail-fast** ([Crash reporting](crash-reporting.md#capture-points), ADR 0222): an exception that leaves a
+callback propagates out of `Tick` (or `AddChild`, `PushInput`) unchanged, and `GameHost` reports it and exits. Before
+the stack unwinds, an exception filter that never catches notes the node and callback for the report
+(`CrashContext.NoteNode`): once per process and physics-process loop (the loop keeps the current node in a local), per
+call for `OnEnterTree`, `OnReady`, `OnExitTree`, `OnInput` and `OnUnhandledInput`, and by target for deferred calls; the
+innermost node wins. Only the editor's Simulate guards callbacks (below).
+
 ## Transforms
 
 `Node3D` stores local position, rotation (a normalized quaternion) and scale. `RotationDegrees` is Euler

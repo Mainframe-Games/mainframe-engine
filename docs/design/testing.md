@@ -19,6 +19,7 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | [`Tests/Content`](../../Tests/Assets/) | Shared test assets (not a project): the showcase fixture scene, glTF test model, SpineBoy, sky, ambience, logo, a Spanish catalog; linked into the test projects' output | — |
 | [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`, `just qa-projects`), see [Editor](editor.md#testing-and-qa) |
 | [`Tests/MainframeEngine.Benchmarks`](../../Tests/MainframeEngine.Benchmarks/) | BenchmarkDotNet, `MemoryDiagnoser` | locally (`just bench`) |
+| [`Tests/MainframeEngine.CrashTests.Fixture`](../../Tests/MainframeEngine.CrashTests.Fixture/) | A `GameHost` game that crashes on purpose (`++ crash=managed\|ready\|thread\|task\|failfast\|stackoverflow\|native`), headless | launched by `MainframeEngine.Tests` (`Crash/CrashProcessTests`): real crashes never take the test run down ([Crash reporting](crash-reporting.md#tests)) |
 
 The test projects run through VSTest (`Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio`, with
 `UseMicrosoftTestingPlatformRunner=false`) so `coverlet.collector` works; `just coverage` writes

@@ -455,6 +455,27 @@ msgstr "[Qûît ~]"
 msgid "Settings"
 msgstr "[Séttîñgs ~~]"
 
+msgid "Crash report"
+msgstr "[Çråsh répört ~~~]"
+
+msgid "A report was saved on this computer. It helps the developers fix the problem."
+msgstr "[Å répört wås såvéð öñ thîs çömpûtér. Ît hélps thé ðévélöpérs fîx thé pröblém. ~~~~~~~~~~~~~~~~~~]"
+
+msgid "Always send reports"
+msgstr "[Ålwåýs séñð répörts ~~~~~]"
+
+msgid "Open folder"
+msgstr "[Öpéñ fölðér ~~]"
+
+msgid "Copy report"
+msgstr "[Çöpý répört ~~]"
+
+msgid "Send report"
+msgstr "[Séñð répört ~~]"
+
+msgid "Close"
+msgstr "[Çlösé ~]"
+
 msgid "Credits"
 msgstr "[Çréðîts ~~]"
 
@@ -475,9 +496,6 @@ msgstr "[LÖÅÐÎÑG ~~]"
 
 msgid "MADE WITH MAINFRAME ENGINE"
 msgstr "[MÅÐÉ WÎTH MÅÎÑFRÅMÉ ÉÑGÎÑÉ ~~~~~~]"
-
-msgid "Close"
-msgstr "[Çlösé ~]"
 
 msgid "Audio"
 msgstr "[Åûðîö ~]"
@@ -838,6 +856,51 @@ msgstr "[RS Ûp ~]"
 msgctxt "input"
 msgid "RS Down"
 msgstr "[RS Ðöwñ ~]"
+
+#, csharp-format
+msgctxt "crash"
+msgid "{0} closed unexpectedly last time"
+msgstr "[{0} çlöséð ûñéxpéçtéðlý låst tîmé ~~~~~~~]"
+
+#, csharp-format
+msgid "There is {0} earlier report in the same folder."
+msgid_plural "There are {0} earlier reports in the same folder."
+msgstr[0] "[Théré îs {0} éårlîér répört îñ thé såmé fölðér. ~~~~~~~~~~]"
+msgstr[1] "[Théré åré {0} éårlîér répörts îñ thé såmé fölðér. ~~~~~~~~~~~]"
+
+msgctxt "crash"
+msgid "The graphics driver stopped responding."
+msgstr "[Thé gråphîçs ðrîvér stöppéð réspöñðîñg. ~~~~~~~~~~]"
+
+msgctxt "crash"
+msgid "The game stopped without saying why (a native crash, a forced quit or a power loss)."
+msgstr "[Thé gåmé stöppéð wîthöût såýîñg whý (å ñåtîvé çråsh, å förçéð qûît ör å pöwér löss). ~~~~~~~~~~~~~~~~~~~]"
+
+msgctxt "crash"
+msgid "The game stopped responding."
+msgstr "[Thé gåmé stöppéð réspöñðîñg. ~~~~~~~]"
+
+#, csharp-format
+msgctxt "crash"
+msgid "The folder could not be opened: {0}"
+msgstr "[Thé fölðér çöûlð ñöt bé öpéñéð: {0} ~~~~~~~]"
+
+msgctxt "crash"
+msgid "The report was copied."
+msgstr "[Thé répört wås çöpîéð. ~~~~~]"
+
+msgctxt "crash"
+msgid "Sending…"
+msgstr "[Séñðîñg… ~~]"
+
+msgctxt "crash"
+msgid "The report was sent. Thank you!"
+msgstr "[Thé répört wås séñt. Thåñk ýöû! ~~~~~~~]"
+
+#, csharp-format
+msgctxt "crash"
+msgid "The report could not be sent: {0}"
+msgstr "[Thé répört çöûlð ñöt bé séñt: {0} ~~~~~~]"
 
 #, csharp-format
 msgid "Reverting in {0} second"
