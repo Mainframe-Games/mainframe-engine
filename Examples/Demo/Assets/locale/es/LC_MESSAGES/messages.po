@@ -10,7 +10,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:186
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:188
 msgid "Animation 3D"
 msgstr "Animación 3D"
 
@@ -27,6 +27,7 @@ msgstr "Clip"
 #. RML <option>
 #: Examples/Demo/Assets/Animation3D/panel.rml:12
 #: Examples/Demo/Assets/Spine/panel.rml:16
+#: Examples/Demo/Assets/Sprites2D/panel.rml:12
 msgid "Idle"
 msgstr "Reposo"
 
@@ -39,6 +40,7 @@ msgstr "Caminar"
 #. RML <option>
 #: Examples/Demo/Assets/Animation3D/panel.rml:14
 #: Examples/Demo/Assets/Spine/panel.rml:14
+#: Examples/Demo/Assets/Sprites2D/panel.rml:13
 msgid "Run"
 msgstr "Correr"
 
@@ -78,6 +80,7 @@ msgstr "Fundido"
 
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:22
+#: Examples/Demo/Assets/Sprites2D/panel.rml:16
 msgid "Speed"
 msgstr "Velocidad"
 
@@ -98,7 +101,7 @@ msgstr "Levantarse"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:179
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:181
 msgid "Audio 2D"
 msgstr "Audio 2D"
 
@@ -134,7 +137,7 @@ msgstr "Distancia máxima"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:180
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:182
 msgid "Audio 3D"
 msgstr "Audio 3D"
 
@@ -195,7 +198,7 @@ msgstr "Velocidad de órbita"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Basic2D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:178
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:180
 msgid "Basic 2D"
 msgstr "2D básico"
 
@@ -216,7 +219,7 @@ msgstr "Pausar animación"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Basic3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:177
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:179
 msgid "Basic 3D"
 msgstr "3D básico"
 
@@ -292,7 +295,7 @@ msgstr "Ráfaga de chispas"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:185
 msgid "Physics 2D"
 msgstr "Física 2D"
 
@@ -327,7 +330,7 @@ msgstr "Reiniciar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:184
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:186
 msgid "Physics 3D"
 msgstr "Física 3D"
 
@@ -359,7 +362,7 @@ msgstr "Guardar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Shaders/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:187
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:189
 msgid "Shaders"
 msgstr "Shaders"
 
@@ -390,7 +393,7 @@ msgstr "Golpear los objetos"
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:181
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
 msgid "Sound FX"
 msgstr "Efectos de sonido"
 
@@ -421,6 +424,7 @@ msgstr "Explosión"
 #. RML <option>
 #: Examples/Demo/Assets/SoundFx/panel.rml:24
 #: Examples/Demo/Assets/Spine/panel.rml:15
+#: Examples/Demo/Assets/Sprites2D/panel.rml:14
 #: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:128
 msgid "Jump"
 msgstr "Saltar"
@@ -464,7 +468,7 @@ msgstr "Música (una canción del editor de música)"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:185
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:187
 msgid "Spine"
 msgstr "Spine"
 
@@ -480,6 +484,7 @@ msgstr "Cámara 2D"
 
 #. RML <span>
 #: Examples/Demo/Assets/Spine/panel.rml:11
+#: Examples/Demo/Assets/Sprites2D/panel.rml:10
 msgid "Animation"
 msgstr "Animación"
 
@@ -513,6 +518,42 @@ msgstr "Y fija"
 #: Examples/Demo/Assets/Spine/panel.rml:24
 msgid "Enabled"
 msgstr "Activado"
+
+#. RML <h1>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:190
+msgid "Sprites 2D"
+msgstr "Sprites 2D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:9
+msgid "AnimatedSprite2D: flipbook animations sliced from one sprite sheet into SpriteFrames, with Godot's timing and signals."
+msgstr "AnimatedSprite2D: animaciones fotograma a fotograma recortadas de una hoja de sprites en SpriteFrames, con la temporización y las señales de Godot."
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:17
+msgid "Play backwards"
+msgstr "Reproducir al revés"
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:18
+msgid "Flip"
+msgstr "Voltear"
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:19
+msgid "Pause"
+msgstr "Pausa"
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:20
+msgid "Frame"
+msgstr "Fotograma"
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:21
+msgid "Loops"
+msgstr "Vueltas"
 
 #. RML <title>
 #: Examples/Demo/Assets/UI/showcase.rml:3
@@ -637,15 +678,15 @@ msgstr "Verde"
 msgid "Rose"
 msgstr "Rosa"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:137
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:139
 msgid "Effects"
 msgstr "Efectos"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:137
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:139
 msgid "Interface"
 msgstr "Interfaz"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:182
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:184
 msgid "UI"
 msgstr "Interfaz"
 

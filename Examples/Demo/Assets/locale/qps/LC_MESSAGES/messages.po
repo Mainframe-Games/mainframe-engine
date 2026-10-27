@@ -294,6 +294,27 @@ msgstr "[Fîxéð Ý ~]"
 msgid "Enabled"
 msgstr "[Éñåbléð ~~]"
 
+msgid "Sprites 2D"
+msgstr "[Sprîtés 2Ð ~~]"
+
+msgid "AnimatedSprite2D: flipbook animations sliced from one sprite sheet into SpriteFrames, with Godot's timing and signals."
+msgstr "[ÅñîmåtéðSprîté2Ð: flîpböök åñîmåtîöñs slîçéð fröm öñé sprîté shéét îñtö SprîtéFråmés, wîth Göðöt's tîmîñg åñð sîgñåls. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Play backwards"
+msgstr "[Plåý båçkwårðs ~~~]"
+
+msgid "Flip"
+msgstr "[Flîp ~]"
+
+msgid "Pause"
+msgstr "[Påûsé ~]"
+
+msgid "Frame"
+msgstr "[Fråmé ~]"
+
+msgid "Loops"
+msgstr "[Lööps ~]"
+
 msgid "UI showcase"
 msgstr "[ÛÎ shöwçåsé ~~]"
 
