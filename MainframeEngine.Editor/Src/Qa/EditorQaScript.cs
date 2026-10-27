@@ -331,7 +331,9 @@ public sealed class EditorQaScript : IEditorAutomation
                     workspace.Message.Answer(message.DefaultButton);
                 break;
             case "cancel":
-                if (workspace.SignalDialog.Visible)
+                if (workspace.SheetSlicer.Visible)
+                    workspace.SheetSlicer.Cancel();
+                else if (workspace.SignalDialog.Visible)
                     workspace.SignalDialog.Cancel();
                 else if (workspace.NewProject.Visible)
                     workspace.NewProject.Cancel();
@@ -481,6 +483,28 @@ public sealed class EditorQaScript : IEditorAutomation
             case "fs-select":
                 workspace.FileSystem.Select(Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[1..])));
                 break;
+            case "sheet-slicer":
+                {
+                    // sheet-slicer <image (project path)> <columns> <rows> [x,y …]: the Select Frames dialog (ADR 0224) on
+                    // an image of the project, split into a grid with those cells picked in order (a capture shows it).
+                    var image = step[1];
+                    var texture = ResourceLoader.Load<Texture2D>(image);
+                    workspace.SheetSlicer.Show(image, new Vector2I(texture.Width, texture.Height), "Select Frames — " + Path.GetFileName(image),
+                        static (_, _) => { });
+                    workspace.SheetSlicer.SetField("cols", (int)Float(step, 2));
+                    workspace.SheetSlicer.SetField("rows", (int)Float(step, 3));
+                    foreach (var cell in step[4..])
+                    {
+                        var comma = cell.IndexOf(',', StringComparison.Ordinal);
+                        workspace.SheetSlicer.Model!.Toggle(new Vector2I(
+                            int.Parse(cell.AsSpan(0, comma), NumberStyles.Integer, CultureInfo.InvariantCulture),
+                            int.Parse(cell.AsSpan(comma + 1), NumberStyles.Integer, CultureInfo.InvariantCulture)));
+                    }
+
+                    workspace.SheetSlicer.SetField("cols", (int)Float(step, 2)); // re-renders with the picks
+                    break;
+                }
+
             case "inspector-header":
                 // A custom inspector header button by its data-action (the sound designer's presets, Export .wav …).
                 workspace.Inspector.RunHeaderAction(step[1]);

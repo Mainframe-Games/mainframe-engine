@@ -99,7 +99,7 @@ readme-screenshots:
     dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
       --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
-    for name in editor editor-joints editor-physical-skeleton editor-add-node editor-box-select editor-range-handles editor-resource-menu editor-simulate editor-game-project editor-project-manager editor-sound-designer editor-song editor-song-effects editor-song-browser editor-song-synth editor-video; do
+    for name in editor editor-joints editor-physical-skeleton editor-add-node editor-box-select editor-range-handles editor-resource-menu editor-simulate editor-game-project editor-project-manager editor-sound-designer editor-sprite-frames editor-sheet-slicer editor-song editor-song-effects editor-song-browser editor-song-synth editor-video; do
       magick "$out/$name.png" -filter Lanczos -resize 1600x960 -strip -define png:compression-level=9 \
         -define png:compression-filter=5 "docs/images/$name.png"
     done

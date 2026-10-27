@@ -206,19 +206,20 @@ public sealed class SheetSlicerDialog : EditorDocument
             .Append("\" data-op=\"counts\" data-tooltip=\"Split by count — Horizontal × Vertical cells; the cell size follows\"><span class=\"icon icon-sm icon-hash\"></span></button>")
             .Append("<button class=\"tool-button small").Append(counts ? "" : " active")
             .Append("\" data-op=\"size\" data-tooltip=\"Split by size — cells of a fixed size in pixels; the counts follow\"><span class=\"icon icon-sm icon-ruler-2\"></span></button>");
-        Pair(rml, "Horizontal", "Vertical", "cols", "rows", m.Columns, m.Rows, "Cells across × down");
-        Pair(rml, "Size W", "Size H", "size-x", "size-y", m.CellSize.X, m.CellSize.Y, "One cell in pixels");
-        Pair(rml, "Sep X", "Sep Y", "sep-x", "sep-y", m.Separation.X, m.Separation.Y, "Separation — gap between cells in pixels");
-        Pair(rml, "Offset X", "Offset Y", "off-x", "off-y", m.Offset.X, m.Offset.Y, "Offset — margin before the first cell in pixels");
+        Pair(rml, "Cells", "Horizontal", "Vertical", "cols", "rows", m.Columns, m.Rows, "Cells across × down");
+        Pair(rml, "Size", "Size W", "Size H", "size-x", "size-y", m.CellSize.X, m.CellSize.Y, "One cell in pixels");
+        Pair(rml, "Sep", "Sep X", "Sep Y", "sep-x", "sep-y", m.Separation.X, m.Separation.Y, "Separation — gap between cells in pixels");
+        Pair(rml, "Offset", "Offset X", "Offset Y", "off-x", "off-y", m.Offset.X, m.Offset.Y, "Offset — margin before the first cell in pixels");
         rml.Append("<span class=\"slicer-gap\"></span>")
             .Append("<button class=\"tool-button small\" data-op=\"all\" data-tooltip=\"Select All — pick every cell, row by row\"><span class=\"icon icon-sm icon-select-all\"></span></button>")
             .Append("<button class=\"tool-button small\" data-op=\"clear\" data-tooltip=\"Clear — unpick every cell\"><span class=\"icon icon-sm icon-clear-all\"></span></button>");
         return rml.ToString();
     }
 
-    private static void Pair(StringBuilder rml, string labelA, string labelB, string a, string b, int va, int vb, string tooltip)
+    private static void Pair(StringBuilder rml, string caption, string labelA, string labelB, string a, string b, int va, int vb, string tooltip)
     {
-        rml.Append("<span class=\"slicer-pair\" data-tooltip=\"").Append(RmlText.Escape(tooltip)).Append("\">");
+        rml.Append("<span class=\"slicer-pair\" data-tooltip=\"").Append(RmlText.Escape(tooltip)).Append("\"><span class=\"slicer-caption\">")
+            .Append(caption).Append("</span>");
         Field(rml, labelA, a, va);
         Field(rml, labelB, b, vb);
         rml.Append("</span>");

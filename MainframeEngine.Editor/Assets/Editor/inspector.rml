@@ -203,10 +203,11 @@
         .zzfx-row button { width: 24dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 4dp; }
         .sprite-frames { display: block; margin: 6dp 8dp; padding: 6dp; background-color: #1b1d23; border: 1dp #2a2d36; border-radius: 4dp; }
         .sf-bar { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; min-height: 26dp; }
-        .sf-bar button { width: 24dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 3dp; }
+        .sf-bar button { width: 22dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 2dp; }
         .sf-bar button.disabled { opacity: 0.35; }
-        .sf-label { display: block; width: 74dp; color: #8b93a5; font-size: 11dp; white-space: nowrap; }
-        .sf-sep { display: block; width: 6dp; }
+        .sf-label { display: block; margin-right: 8dp; color: #8b93a5; font-size: 11dp; white-space: nowrap; }
+        .sf-field .sf-label { width: 74dp; }
+        .sf-sep { display: block; width: 4dp; }
         .sf-anims { display: block; margin: 3dp 0dp 6dp 0dp; background-color: #121418; border: 1dp #2a2d36; border-radius: 3dp; }
         .sf-anim { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 6dp; cursor: pointer; }
         .sf-anim:hover { background-color: #2a2e38; }

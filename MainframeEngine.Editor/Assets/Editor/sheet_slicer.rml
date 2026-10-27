@@ -9,6 +9,7 @@
         #slicer-fields { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; flex: 0 0 auto; margin-bottom: 8dp; }
         #slicer-fields .tool-button { margin-right: 4dp; }
         .slicer-pair { display: flex; flex-direction: row; align-items: center; margin: 0dp 8dp 4dp 4dp; }
+        .slicer-caption { color: #8b93a5; font-size: 11dp; margin-right: 4dp; }
         input.slicer-field { width: 44dp; margin-right: 3dp; text-align: right; }
         .slicer-gap { flex: 1 1 auto; }
         #slicer-view {

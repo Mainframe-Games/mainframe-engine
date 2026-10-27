@@ -209,8 +209,8 @@ public sealed class SpriteFramesHeader
             rml.Append("<div class=\"sf-empty\">No frames: add them from an image or a sprite sheet.</div>");
         rml.Append("</div>");
         if (hasFrame)
-            rml.Append("<div class=\"sf-field\" data-tooltip=\"Duration — how long the selected frame shows, relative to the others (2 = twice as long)\">")
-                .Append("<span class=\"sf-label\">Frame ").Append(selectedFrame.ToString(CultureInfo.InvariantCulture)).Append(" duration</span>")
+            rml.Append("<div class=\"sf-field\" data-tooltip=\"Duration — how long the selected frame (highlighted) shows, relative to the others (2 = twice as long)\">")
+                .Append("<span class=\"sf-label\">Duration</span>")
                 .Append("<input type=\"text\" class=\"text\" data-header-input=\"sf-duration\" value=\"")
                 .Append(current.Frames[selectedFrame].Duration.ToString("0.##", CultureInfo.InvariantCulture)).Append("\"/></div>");
         return rml.Append("</div>").ToString();
