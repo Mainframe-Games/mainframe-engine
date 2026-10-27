@@ -76,8 +76,93 @@ public class LightEnvironment
     internal List<SpotLight> SpotLights { get; } = [];
 
     /// <summary>
+    /// Hysteresis of <see cref="SelectLights"/>: a light selected last frame keeps its slot unless a challenger's score
+    /// is lower than the incumbent's by this fraction of it plus <see cref="SelectionMarginDistance"/>.
+    /// </summary>
+    internal const float SelectionMarginFraction = 0.1f;
+
+    /// <summary>The fixed part of the <see cref="SelectLights"/> hysteresis margin (world units).</summary>
+    internal const float SelectionMarginDistance = 0.25f;
+
+    private long _registrations;
+    private bool _pointsReordered;
+    private bool _spotsReordered;
+
+    /// <summary>The render server's frame stamp of the last <see cref="SelectLights"/> (once per world per frame).</summary>
+    internal long SelectionStamp { get; set; }
+
+    /// <summary>
+    /// When there are more point or spot lights than the lights UBO holds (<see cref="MaxPoint"/>, <see cref="MaxSpot"/>),
+    /// moves the ones nearest <paramref name="cameraPosition"/> to the front of their list, where <see cref="WriteUbo(Span{byte}, in Vector3)"/>
+    /// and the shadow planner take them from (ADR 0217). The render server calls it once per frame per world, before
+    /// either reads the lists; tree-less code calls it itself (or keeps the first lights added).
+    /// </summary>
+    /// <remarks>
+    /// A light scores its distance beyond its range (0 when the camera is inside it); ties go to the light added first. Last
+    /// frame's selection keeps its slots unless a challenger scores better by a margin (<see cref="SelectionMarginFraction"/>,
+    /// <see cref="SelectionMarginDistance"/>), so lights at the cutoff do not flicker. The selected lights stay in the order
+    /// they were added, as an under-limit list does: their UBO slots and which of them cast shadows do not change as the
+    /// camera moves. A list within its limit is left alone (in the order added). Directional lights are never reordered.
+    /// Allocation-free.
+    /// </remarks>
+    public void SelectLights(Vector3 cameraPosition)
+    {
+        SelectNearest(PointLights, MaxPoint, cameraPosition, ref _pointsReordered);
+        SelectNearest(SpotLights, MaxSpot, cameraPosition, ref _spotsReordered);
+    }
+
+    private static void SelectNearest<T>(List<T> list, int max, Vector3 cameraPosition, ref bool reordered) where T : Light
+    {
+        var lights = CollectionsMarshal.AsSpan(list);
+        if (lights.Length <= max)
+        {
+            if (reordered)
+                SortByRegistration(lights); // back under the limit: the order added, as if never selected
+            reordered = false;
+            return;
+        }
+
+        for (var n = 0; n < lights.Length; n++)
+        {
+            var light = lights[n];
+            var score = MathF.Max(0f, Vector3.Distance(cameraPosition, light.Position) - light.SelectionRange);
+            // The first max are last frame's selection (or the first added): they win unless clearly beaten.
+            light.SelectionKey = n < max ? score - (SelectionMarginDistance + SelectionMarginFraction * score) : score;
+        }
+
+        // Insertion sort: frame to frame the order barely changes, so this is close to linear.
+        for (var n = 1; n < lights.Length; n++)
+        {
+            var light = lights[n];
+            var m = n - 1;
+            for (; m >= 0 && Precedes(light, lights[m]); m--)
+                lights[m + 1] = lights[m];
+            lights[m + 1] = light;
+        }
+
+        SortByRegistration(lights[..max]);
+        reordered = true;
+    }
+
+    private static bool Precedes(Light a, Light b) =>
+        a.SelectionKey < b.SelectionKey || (a.SelectionKey == b.SelectionKey && a.RegistrationOrder < b.RegistrationOrder);
+
+    private static void SortByRegistration<T>(Span<T> lights) where T : Light
+    {
+        for (var n = 1; n < lights.Length; n++)
+        {
+            var light = lights[n];
+            var m = n - 1;
+            for (; m >= 0 && light.RegistrationOrder < lights[m].RegistrationOrder; m--)
+                lights[m + 1] = lights[m];
+            lights[m + 1] = light;
+        }
+    }
+
+    /// <summary>
     /// Packs the lights into <paramref name="destination"/> using the std140 layout described by
-    /// <see cref="UboSize"/>. Lights beyond the per-type maximum are ignored; unused slots are zeroed. Colours are
+    /// <see cref="UboSize"/>. Lights beyond the per-type maximum are ignored (<see cref="SelectLights"/> puts the nearest
+    /// first); unused slots are zeroed. Colours are
     /// written linear (<see cref="Light.LinearColor"/>): the shaders light in linear space.
     /// </summary>
     internal void WriteUbo(Span<byte> destination, in Vector3 cameraPosition) => WriteUbo(destination, cameraPosition, shadows: true);
@@ -147,6 +232,8 @@ public class LightEnvironment
     /// <param name="light">The light to add. Can be of type DirectionalLight, PointLight, or SpotLight.</param>
     public void AddLight(Light light)
     {
+        ArgumentNullException.ThrowIfNull(light);
+        light.RegistrationOrder = ++_registrations;
         switch (light)
         {
             case DirectionalLight dl:

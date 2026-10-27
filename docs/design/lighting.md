@@ -33,7 +33,20 @@ that wrap these light objects and register them with their world's `LightEnviron
 - `AddLight(Light)` routes the light by its runtime type. Unknown subclasses are ignored.
   `RemoveLight(Light)` removes it (light nodes do both on enter/exit); `Count` counts every light.
 - Lists (`DirectionalLights`, `PointLights`, `SpotLights`) are `internal`.
-- Lights beyond the limits are silently dropped when the UBO is written.
+- **Nearest-light selection** ([ADR 0217](../../memory/decisions/0217-nearest-light-selection.md)): when a world has
+  more point or spot lights than `MaxPoint`/`MaxSpot`, `SelectLights(cameraPosition)` reorders that list in place so
+  the lights nearest the camera come first; the UBO and the shadow planner take the first `MaxPoint`/`MaxSpot`, so they
+  always agree. A light scores `max(0, distance(camera, light) − Range)` (a camera inside its range scores 0); ties go
+  to the light added first. Last frame's selection keeps its slots unless a challenger's score is lower by 10 % plus
+  0.25 units (`SelectionMarginFraction`, `SelectionMarginDistance`), so lamps at the cutoff do not flicker. The
+  selected lights stay in the order they were added (their UBO slots, and which ones get the four point-shadow cubes
+  and the spot atlas tiles, do not change as the camera moves); the dropped ones follow. A list within its limit is
+  left in the order added, and directional lights are never reordered (over `MaxDirectional`, the first four added
+  are kept). Insertion sorts, allocation-free.
+- `RenderServer.PrepareFrame` selects once per world per frame, before the shadow plan and any UBO write, with the
+  camera of the view that renders that world: the root world with the main camera, a `SubViewport`'s own world with
+  its camera (every viewport owns its world, so this is per view). A world with no camera that frame keeps its last
+  order. Tree-less code calls `SelectLights` itself, or keeps the first lights added.
 - Light gizmos are `LightGizmos.Draw(ScreenGizmoBatch, camera, viewport, lights, scale)`
   (`Rendering/Gizmos/`), queued by `RenderServer.RenderMain` for the root viewport while
   `RenderServer.ShowLightGizmos` is on: point lights as a dot with range rings, spot lights as cones, and
@@ -257,7 +270,9 @@ shadowSystem.RenderShadows(lights, draw2D, drawPoint);       // shadow pass (no 
 
 ## Known issues
 
-- Lights over the limit are dropped silently, with no warning.
+- Over the limits, the lights far from the camera are dropped (ADR 0217) with no warning, and a dropped lamp still
+  disappears at once rather than fading out when it leaves the selection. Point-light shadow cubes go to the first
+  four shadow-casting lights of the selection in the order added, not to the nearest four.
 - Point lights ignore `ShadowOpacity` (their UBO entry has no free slot; ADR 0123).
 - Directional gizmo arrows are not projected through the camera.
 - PBR has no `MetallicSpecular`, per-material `AoLightAffect` or multi-scattering energy compensation yet; without a
