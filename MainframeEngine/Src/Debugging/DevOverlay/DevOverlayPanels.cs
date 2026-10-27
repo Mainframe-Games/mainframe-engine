@@ -246,6 +246,8 @@ internal static class DevOverlayPanels
             <div data-if="has">
               <div class="dev-row"><span>3D bodies (awake)</span><span class="v">{{bodies3d}} ({{awake3d}})</span></div>
               <div class="dev-row"><span>2D bodies (awake)</span><span class="v">{{bodies2d}} ({{awake2d}})</span></div>
+              <div class="dev-row"><span>Joints (active)</span><span class="v">{{joints}} ({{activeJoints}})</span></div>
+              <div class="dev-row"><span>Joints broken / s</span><span class="v">{{broken | format(0)}}</span></div>
             </div>
             """ + Missing, p => p.Model!
             .Bind("has", stats, static s => s.Has)
@@ -255,7 +257,10 @@ internal static class DevOverlayPanels
             .Bind("bodies3d", stats, static s => s.Bodies3D)
             .Bind("awake3d", stats, static s => s.Awake3D)
             .Bind("bodies2d", stats, static s => s.Bodies2D)
-            .Bind("awake2d", stats, static s => s.Awake2D));
+            .Bind("awake2d", stats, static s => s.Awake2D)
+            .Bind("joints", stats, static s => s.Joints)
+            .Bind("activeJoints", stats, static s => s.ActiveJoints)
+            .Bind("broken", stats, static s => s.BrokenPerSecond));
         RefreshAt(overlay, panel, () => stats.Refresh(root));
     }
 

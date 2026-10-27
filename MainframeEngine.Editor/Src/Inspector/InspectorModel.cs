@@ -215,7 +215,7 @@ public static class CustomInspectors
         {
             if (Cache.TryGetValue(type, out var cached))
                 return cached;
-            _byTarget ??= Scan(AppDomain.CurrentDomain.GetAssemblies());
+            _byTarget ??= Scan();
             ICustomInspector? found = null;
             for (var t = type; t is not null && found is null; t = t.BaseType)
                 if (_byTarget.TryGetValue(t, out var inspectorType))
@@ -235,30 +235,14 @@ public static class CustomInspectors
         }
     }
 
-    private static Dictionary<Type, Type> Scan(IEnumerable<Assembly> assemblies)
+    // The editor plugin scan shared with HandleProviders: the editor and every loaded assembly that references it.
+    private static Dictionary<Type, Type> Scan()
     {
         var result = new Dictionary<Type, Type>();
-        var editor = typeof(ICustomInspector).Assembly;
-        foreach (var assembly in assemblies)
-        {
-            if (assembly.IsDynamic || (assembly != editor && !assembly.GetReferencedAssemblies().Any(a => a.Name == editor.GetName().Name)))
-                continue;
-            Type[] types;
-            try
-            {
-                types = assembly.GetTypes();
-            }
-            catch (ReflectionTypeLoadException e)
-            {
-                types = [.. e.Types.OfType<Type>()];
-            }
-
-            foreach (var type in types)
-                if (typeof(ICustomInspector).IsAssignableFrom(type) && !type.IsAbstract &&
-                    type.GetCustomAttribute<CustomInspectorAttribute>() is { } attribute)
-                    result[attribute.TargetType] = type;
-        }
-
+        foreach (var type in EditorPluginTypes.All())
+            if (typeof(ICustomInspector).IsAssignableFrom(type) && !type.IsAbstract &&
+                type.GetCustomAttribute<CustomInspectorAttribute>() is { } attribute)
+                result[attribute.TargetType] = type;
         return result;
     }
 }

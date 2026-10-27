@@ -16,8 +16,8 @@ msgstr "Animación 3D"
 
 #. RML <p>
 #: Examples/Demo/Assets/Animation3D/panel.rml:9
-msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."
-msgstr "Un personaje glTF con esqueleto: 31 huesos, ocho clips, fundidos, eventos y una antorcha en la mano."
+msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton. Behind it, root motion walks and jumps a body."
+msgstr "Un personaje glTF con esqueleto: 31 huesos, diez clips, fundidos, eventos, una antorcha en la mano y un esqueleto físico. Detrás, el movimiento raíz hace caminar y saltar a un cuerpo."
 
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:10
@@ -85,6 +85,16 @@ msgstr "Velocidad"
 #: Examples/Demo/Assets/Animation3D/panel.rml:23
 msgid "Last event"
 msgstr "Último evento"
+
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:24
+msgid "Ragdoll"
+msgstr "Muñeco de trapo"
+
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:24
+msgid "Stand up"
+msgstr "Levantarse"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
@@ -288,8 +298,8 @@ msgstr "Física 2D"
 
 #. RML <p>
 #: Examples/Demo/Assets/Physics/panel2d.rml:9
-msgid "Box2D bodies through a funnel and pegboard. Click to spawn a body."
-msgstr "Cuerpos de Box2D a través de un embudo y un tablero de clavijas. Haz clic para crear un cuerpo."
+msgid "Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints and a breakable bridge. Click to spawn a body."
+msgstr "Cuerpos de Box2D a través de un embudo y un tablero de clavijas, una cadena, un coche sobre articulaciones de rueda y un puente que se rompe. Haz clic para crear un cuerpo."
 
 #. RML <span>
 #: Examples/Demo/Assets/Physics/panel2d.rml:10
@@ -303,9 +313,15 @@ msgstr "Cuerpos"
 msgid "Collision shapes"
 msgstr "Formas de colisión"
 
-#. RML <button>
+#. RML <span>
 #: Examples/Demo/Assets/Physics/panel2d.rml:12
 #: Examples/Demo/Assets/Physics/panel3d.rml:12
+msgid "Joints"
+msgstr "Articulaciones"
+
+#. RML <button>
+#: Examples/Demo/Assets/Physics/panel2d.rml:13
+#: Examples/Demo/Assets/Physics/panel3d.rml:13
 msgid "Reset"
 msgstr "Reiniciar"
 
@@ -317,27 +333,27 @@ msgstr "Física 3D"
 
 #. RML <p>
 #: Examples/Demo/Assets/Physics/panel3d.rml:9
-msgid "Jitter2 rigid bodies, a ramp and a character body. Click the floor to drop a crate."
-msgstr "Cuerpos rígidos de Jitter2, una rampa y un cuerpo de personaje. Haz clic en el suelo para soltar una caja."
+msgid "Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign and a ragdoll. Click the floor to drop a crate."
+msgstr "Cuerpos rígidos de Jitter2, una rampa, un cuerpo de personaje y articulaciones: un puente colgante, un cartel que se rompe y un muñeco de trapo. Haz clic en el suelo para soltar una caja."
 
 #. RML <button>
 #. project.mfproj input action "rain"
-#: Examples/Demo/Assets/Physics/panel3d.rml:12 Examples/Demo/project.mfproj
+#: Examples/Demo/Assets/Physics/panel3d.rml:13 Examples/Demo/project.mfproj
 msgid "Rain crates"
 msgstr "Lluvia de cajas"
 
 #. RML <h2>
-#: Examples/Demo/Assets/Physics/panel3d.rml:13
+#: Examples/Demo/Assets/Physics/panel3d.rml:14
 msgid "Save games"
 msgstr "Partidas guardadas"
 
 #. RML <button>
-#: Examples/Demo/Assets/Physics/panel3d.rml:21
+#: Examples/Demo/Assets/Physics/panel3d.rml:22
 msgid "Load"
 msgstr "Cargar"
 
 #. RML <button>
-#: Examples/Demo/Assets/Physics/panel3d.rml:21
+#: Examples/Demo/Assets/Physics/panel3d.rml:22
 msgid "Save"
 msgstr "Guardar"
 
@@ -633,56 +649,56 @@ msgstr "Interfaz"
 msgid "UI"
 msgstr "Interfaz"
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:116
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:139
 #, csharp-format
 msgid "{0} crate"
 msgid_plural "{0} crates"
 msgstr[0] "{0} caja"
 msgstr[1] "{0} cajas"
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:117
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:140
 msgid "Saving…"
 msgstr "Guardando…"
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:132
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:155
 msgid "Loaded."
 msgstr "Cargada."
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:133
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:156
 #, csharp-format
 msgid "The save was damaged: restored the copy from {0}."
 msgstr "La partida estaba dañada: se restauró la copia de las {0}."
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:134
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:157
 msgid "This slot is empty."
 msgstr "Esta ranura está vacía."
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:135
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:158
 msgid "This save comes from a newer version of the game."
 msgstr "Esta partida es de una versión más reciente del juego."
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:136
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:159
 msgid "The save could not be loaded."
 msgstr "No se pudo cargar la partida."
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:146
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:169
 msgid "Saved."
 msgstr "Guardada."
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:146
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:169
 msgid "The game could not be saved."
 msgstr "No se pudo guardar la partida."
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:157
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:180
 #, csharp-format
 msgid "Slot {0}"
 msgstr "Ranura {0}"
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:162
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:185
 msgid "Empty"
 msgstr "Vacía"
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:165
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:188
 msgid "Unreadable"
 msgstr "Ilegible"
 
@@ -1335,6 +1351,10 @@ msgstr "Voz"
 msgctxt "settings"
 msgid "Ambience"
 msgstr "Ambiente"
+
+#. RML <p>
+#~ msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."
+#~ msgstr "Un personaje glTF con esqueleto: 31 huesos, ocho clips, fundidos, eventos y una antorcha en la mano."
 
 #. RML <p>
 #~ msgid "Hot reload is off in this build (it runs with a Debug engine)."

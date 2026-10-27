@@ -55,8 +55,8 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/basic_2d.png" width="380" alt="Basic 2D"><br><b>Basic 2D</b> — canvas items, gradients, sprites</td>
   </tr>
   <tr>
-    <td align="center" valign="top"><img src="docs/images/demo/physics_3d.png" width="380" alt="Physics 3D"><br><b>Physics 3D</b> — Jitter2, save slots with thumbnails</td>
-    <td align="center" valign="top"><img src="docs/images/demo/physics_2d.png" width="380" alt="Physics 2D"><br><b>Physics 2D</b> — Box2D</td>
+    <td align="center" valign="top"><img src="docs/images/demo/physics_3d.png" width="380" alt="Physics 3D"><br><b>Physics 3D</b> — Jitter2, joints, a ragdoll, save slots</td>
+    <td align="center" valign="top"><img src="docs/images/demo/physics_2d.png" width="380" alt="Physics 2D"><br><b>Physics 2D</b> — Box2D, a chain, a car, a breakable bridge</td>
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/audio_3d.png" width="380" alt="Audio 3D"><br><b>Audio 3D</b> — attenuation, low-pass, doppler</td>
@@ -72,7 +72,7 @@ game.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/particles.png" width="380" alt="Particles"><br><b>Particles</b> — a campfire's glowing flames and smoke, rain</td>
-    <td align="center" valign="top"><img src="docs/images/demo/animation_3d.png" width="380" alt="Animation 3D"><br><b>Animation 3D</b> — a skinned glTF character: clips, crossfades, events, a torch on its hand</td>
+    <td align="center" valign="top"><img src="docs/images/demo/animation_3d.png" width="380" alt="Animation 3D"><br><b>Animation 3D</b> — a skinned glTF character: clips, crossfades, events, a torch on its hand, a ragdoll; a body walked and jumped by root motion</td>
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/shaders.png" width="380" alt="Shaders"><br><b>Shaders</b> — Godot spatial shaders: a procedural ground, swaying stalks, dissolving props</td>
@@ -87,7 +87,11 @@ Manager and New Project wizard, a scene tree, an inspector generated from the no
 a 3D or 2D viewport with GPU picking and gizmos, a FileSystem panel (a Simplified view of just Assets and Scripts, or the
 whole project folder) that keeps references when files move, and Play — the game builds and runs in its own process,
 its log streams into Output, and code changes reload into the open editor. Scenes open in tabs, each in its own world;
-nothing but `[Tool]` nodes runs while editing.
+nothing but `[Tool]` nodes runs while editing — until **Simulate** (Alt+F6) runs the scene's physics and scripts on a
+copy in the view and Stop gives the authored scene back. The gizmo moves, rotates and scales every selected node around
+a median, active or per-node pivot; a drag on empty space box-selects what is visible; locked nodes stay out of the way;
+light and audio ranges (and game floats marked `[Export(Handle = …)]`) are dragged in the view; and an inline resource
+can be saved as a `.mres` or made unique from the inspector.
 
 <table>
   <tr>
@@ -108,6 +112,18 @@ nothing but `[Tool]` nodes runs while editing.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-song-synth.png" width="380" alt="The Mainframe Wavetable window on the Demo song's Lead track playing the Evolving Pad preset: two stacked wavetables, the filter curve, sub, noise and voicing, LFO 1's editor, the modulation strip and a keyboard"><br><b>Wavetable synth</b> — two wavetable oscillators, filters, drag-to-modulate, presets</td>
+    <td align="center" valign="top"><img src="docs/images/editor-simulate.png" width="380" alt="Simulating the Demo's Physics 3D scene in the editor: the dropper's crates stacked in the view, the pusher's inspector live and read-only under a Simulating banner"><br><b>Simulate</b> — physics and scripts in the view (Alt+F6); Stop restores the scene, Keep Transforms keeps where things landed</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-box-select.png" width="380" alt="Box selection in the Demo's Basic 3D scene: the floor, plinth and camera locked, the ring's meshes selected, a Shift rectangle held and the move gizmo at their median"><br><b>Box selection and multi-node gizmo</b> — select what is visible, lock nodes, move them around a shared pivot</td>
+    <td align="center" valign="top"><img src="docs/images/editor-range-handles.png" width="380" alt="Dragging the blue omni light's range handle: the handle on the range circle and a Range 6.22 m label"><br><b>Range handles</b> — drag light and audio ranges and cone angles; game nodes get them from <code>[Export(Handle)]</code></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-resource-menu.png" width="380" alt="The inspector's resource row More menu on a mesh: Save as .mres, Make Unique, Make Unique (Deep), Open, Show in FileSystem"><br><b>Resource actions</b> — Save as .mres, Make Unique (deep), Open, Show in FileSystem</td>
+    <td align="center" valign="top"><img src="docs/images/editor-joints.png" width="380" alt="A hinge of the Demo's rope bridge selected: its axis, limit arc and angle drawn on the planks, and its inspector with Rebuild and Swap A/B"><br><b>Joints</b> — the selected joint's gizmo, Rebuild and Swap A/B</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-physical-skeleton.png" width="380" alt="The Demo's skinned character with a physical skeleton: capsules on its limbs, created from the Skeleton3D inspector"><br><b>Physical skeleton</b> — one click: a capsule and a cone-twist joint per bone</td>
     <td></td>
   </tr>
 </table>
@@ -163,7 +179,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, canvas groups that fade as one image, layers, z-order and y-sort, wrapped multi-line TrueType text from the engine's own rasterizer; Godot's `BitMap` and `Geometry2D` (alpha to polygons, polygon booleans and offsets) |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting alpha-tested silhouette shadows, optionally billboarded to the camera, with animation tracks and queues |
 | [3D particles](docs/design/particles-3d.md) | `GpuParticles3D` on Godot's `ParticleProcessMaterial`: point, sphere, box and ring emission, spread, gravity, damping, turbulence, scale and colour curves, hue variation; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow, sorted back to front; deterministic seeds; 8 000 particles in under half a millisecond of CPU |
-| [Skeletal animation](docs/design/animation.md) | Skinned glTF/FBX characters with their clips: `Skeleton3D`, GPU (compute) skinning that shadows, outlines and picking all see, an `AnimationPlayer` with crossfades, queues and events (also on a headless server), `BoneAttachment3D` |
+| [Skeletal animation](docs/design/animation.md) | Skinned glTF/FBX characters with their clips: `Skeleton3D`, GPU (compute) skinning that shadows, outlines and picking all see, an `AnimationPlayer` with crossfades, queues and events (also on a headless server), root motion that moves a `CharacterBody3D`, `BoneAttachment3D` |
 | [Slang shaders](docs/design/shaders.md) | Every shader in Slang, compiled to SPIR-V at build time, with shared includes and light limits generated from one file; your own Godot `canvas_item` and `spatial` shaders on sprites and meshes, lit, shadowed and pickable |
 
 ### Worlds
@@ -180,7 +196,8 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
-| [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, 2D pin and spring joints, layers, queries, `MoveAndSlide`, interpolation, debug draw |
+| [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, queries, `MoveAndSlide`, interpolation, debug draw |
+| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D` and six 2D joints: limits, motors, springs, breaking, collision exclusion, debug draw and editor gizmos; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons and Create physical skeleton in the editor |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, captured and window-confined mouse modes, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, Steam relay sockets, loopback and simulated bad networks |
@@ -199,7 +216,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 
 | Feature | What you get |
 |---|---|
-| [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos, FileSystem panel, Play in its own process, C# code reload |
+| [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos (multi-node, pivots), range handles, box selection and lock, Simulate in the view, resource Save as .mres / Make Unique, FileSystem panel, Play in its own process, C# code reload |
 | [Gameplay recording](docs/design/recording.md) | Record any game to MP4 through your own ffmpeg: F10 in the editor or `--record`, live or offline, with a sidecar of input, loading and pauses |
 | [Video mode](docs/design/video-editor.md) | The editor trims recordings for promo footage: detect silence and idle play, Whisper transcripts, remove filler words, export |
 | [Game UI](docs/design/game-ui.md) | RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library; the editor is built with it |

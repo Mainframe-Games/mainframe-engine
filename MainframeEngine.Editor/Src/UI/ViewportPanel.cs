@@ -353,6 +353,50 @@ public sealed class ViewportPanel : EditorDocument
         SetText("preview-size", size);
     }
 
+    private string? _handleLabel;
+
+    /// <summary>The text shown next to the mouse over a range handle (G7.3), or null when none is shown.</summary>
+    public string? HandleLabel => _handleLabel;
+
+    /// <summary>
+    /// Shows <paramref name="text"/> next to the mouse at (<paramref name="x"/>, <paramref name="y"/>) dp from the view's
+    /// top-left corner, or hides the label (null). Called on mouse moves over handles, not per frame.
+    /// </summary>
+    public void SetHandleLabel(string? text, float x, float y)
+    {
+        if (!IsLoaded || Document.GetElementById("handle-label") is not { IsNull: false } label)
+            return;
+        if (!string.Equals(text, _handleLabel, StringComparison.Ordinal))
+        {
+            _handleLabel = text;
+            label.SetClass("shown", text is not null);
+            if (text is not null)
+                label.SetInnerRml(RmlText.Escape(text));
+        }
+
+        if (text is null)
+            return;
+        label.SetProperty("left", RmlText.Dp(x));
+        label.SetProperty("top", RmlText.Dp(y));
+    }
+
+    private LayoutRect? _boxSelect;
+
+    /// <summary>The box-selection rectangle in dp from the view's top-left corner (G7.4), or null to hide it.</summary>
+    public void SetBoxSelect(LayoutRect? rect)
+    {
+        if (rect == _boxSelect || !IsLoaded || Document.GetElementById("box-select") is not { IsNull: false } box)
+            return;
+        _boxSelect = rect;
+        box.SetClass("shown", rect is not null);
+        if (rect is not { } r)
+            return;
+        box.SetProperty("left", RmlText.Dp(r.X));
+        box.SetProperty("top", RmlText.Dp(r.Y));
+        box.SetProperty("width", RmlText.Dp(r.Width));
+        box.SetProperty("height", RmlText.Dp(r.Height));
+    }
+
     /// <summary>The corner label (view name, camera mode) after its icon; only touches the DOM when it changed.</summary>
     public void SetInfo(string info, string icon = "perspective")
     {

@@ -83,6 +83,9 @@ public static class PropertyIcons
         ["SpeedScale"] = "gauge",
         ["PlaybackDefaultBlendTime"] = "hourglass",
         ["CallbackModeProcess"] = "cpu",
+        ["RootMotionTrack"] = "run", // ADR 0210
+        ["RootMotionBone"] = "bone",
+        ["RootMotionVertical"] = "arrow-up",
     };
 
     /// <summary>The icon name for <paramref name="property"/> showing <paramref name="value"/>.</summary>

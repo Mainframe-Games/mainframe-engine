@@ -213,5 +213,92 @@ wait 5
 capture 17-post-preview-off
 command view.post
 wait 3
+# G7 viewport tools. Box selection (the floor and plinth locked first), then rotate the selection around its median
+# and undo.
+lock Floor
+lock Plinth
+camera -0.3 0.9 -0.8 8.8 -18 -16
+command gizmo.translate
+box-select 520 300 1000 600
+wait 20
+capture 18-box-selected
+pivot median
+command gizmo.rotate
+gizmo-drag y 40 30
+wait 5
+capture 19-rotated-around-median
+command edit.undo
+wait 3
+pivot individual
+gizmo-drag y 40 30
+wait 5
+capture 20-rotated-individual
+command edit.undo
+pivot median
+command gizmo.translate
+wait 3
+# A range handle: the blue omni light's range, dragged in, then undone.
+select Lights/Blue
+camera -1 1 1 17 -25 -20
+wait 5
+handle-drag 0 -40 0
+wait 10
+capture 21-range-handle
+command edit.undo
+wait 3
+# The resource row's More menu, then Save as .mres is left alone (a file picker): Make Unique on a fresh shared mesh.
+select Ring/Box
+wait 3
+res-menu Mesh
+wait 10
+capture 22-resource-menu
+cancel
+wait 3
+# Simulate the physics scene for 120 frames, capture, stop, capture (the crates back where they were authored).
+open Examples/Demo/Assets/Scenes/physics_3d.mscene
+wait 20
+select Pusher
+simulate start
+wait 120
+capture 23-simulating
+simulate pause
+wait 10
+simulate stop
+wait 10
+capture 24-simulation-stopped
+command file.close
+wait 10
+command edit.undo # the two locks
+command edit.undo
+wait 3
+# Joints (ADR 0211): the Physics 3D bridge's middle hinge selected (its gizmo and lines to both planks), Swap A/B and
+# its undo; then Create physical skeleton (ADR 0212) on the Animation 3D character, after deleting its simulator, undone.
+click #tool-select
+open Examples/Demo/Assets/Scenes/physics_3d.mscene
+wait 10
+select Bridge/Hinge5
+camera -4.3 2.2 -5 1.6 -24 -14
+wait 5
+capture 25-joint-gizmo
+inspector-header joint-swap
+wait 3
+capture 25b-joint-swapped
+key Z cmd
+wait 3
+open Examples/Demo/Assets/Scenes/animation_3d.mscene
+wait 10
+select Crew/Armature/PhysicalBoneSimulator3D
+key Delete
+wait 3
+select Crew/Armature
+inspector-header skeleton-physical
+camera 0 0.95 0 2.4 25 -8
+wait 5
+capture 26-physical-skeleton
+key Z cmd
+wait 3
+key Z cmd
+wait 3
+click #tool-translate
 state
 quit

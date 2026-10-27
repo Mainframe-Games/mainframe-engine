@@ -712,6 +712,7 @@ public partial class Node : IDisposable
         _depth = depth;
         _viewport = this as SceneViewport ?? viewport;
         ResolveProcessMode();
+        ResolveSimulation();
 
         tree.OnNodeEntered(this);
         InvokeEnterTree();

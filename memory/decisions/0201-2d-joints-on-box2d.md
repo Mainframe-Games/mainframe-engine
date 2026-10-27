@@ -3,7 +3,7 @@
 - **Date:** 2026-10-20
 - **Status:** accepted
 - **Milestone:** G9 (2D slice)
-- **Docs:** docs/design/physics.md#2d-joints-adr-0201, docs/design/future/physics-joints.md
+- **Docs:** docs/design/physics-joints.md
 
 ## Context
 

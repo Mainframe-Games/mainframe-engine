@@ -355,12 +355,27 @@ public sealed partial class MultiplayerApi : IFrameServer
     }
 
     /// <summary>Listens for ENet clients on <paramref name="port"/>.</summary>
-    public void Host(ushort port, int maxClients, string? bindAddress = null) =>
-        StartServer(EnetTransport.Listen(port, maxClients, bindAddress));
+    public void Host(ushort port, int maxClients, string? bindAddress = null)
+    {
+        if (!RefusedWhileSimulating("Host"))
+            StartServer(EnetTransport.Listen(port, maxClients, bindAddress));
+    }
 
     /// <summary>Connects to an ENet server.</summary>
-    public void Connect(string host, ushort port, uint timeoutMs = 0) =>
-        StartClient(EnetTransport.Connect(host, port, Messages.Fingerprint, timeoutMs));
+    public void Connect(string host, ushort port, uint timeoutMs = 0)
+    {
+        if (!RefusedWhileSimulating("Connect"))
+            StartClient(EnetTransport.Connect(host, port, Messages.Fingerprint, timeoutMs));
+    }
+
+    // The editor's Simulate (G7.5) runs game code in the editor process: no socket opens there (Play runs the game for that).
+    private bool RefusedWhileSimulating(string what)
+    {
+        if (!_tree.IsSimulating)
+            return false;
+        Log.Warning($"[Net] {what} refused: the editor is simulating the scene (use Play for networking).");
+        return true;
+    }
 
     /// <summary>
     /// Connects through <paramref name="connectString"/>: a <see cref="NetworkAddress"/> list such as a Steam lobby's
@@ -373,6 +388,8 @@ public sealed partial class MultiplayerApi : IFrameServer
     {
         ArgumentNullException.ThrowIfNull(connectString);
         ThrowIfDisposed();
+        if (RefusedWhileSimulating("TryConnect"))
+            return false;
         if (Mode != MultiplayerMode.Offline)
             throw new InvalidOperationException($"Already running as {Mode}; call Stop first.");
         _connectSelector = selector ?? TransportSelector.Default;

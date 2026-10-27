@@ -6,10 +6,14 @@ using static Demo.DemoBuild;
 namespace Demo;
 
 /// <summary>
-/// A skinned glTF character (ADR 0207: <c>Assets/Models/Character/character.glb</c>, 31 bones, eight clips) played by its
+/// A skinned glTF character (ADR 0207: <c>Assets/Models/Character/character.glb</c>, 31 bones, ten clips) played by its
 /// imported <see cref="AnimationPlayer"/>, with a hammer and a torch light on its right hand through a
-/// <see cref="BoneAttachment3D"/>, under a shadowing sun. <see cref="Animation3DPanel"/> picks the clip, the crossfade and
-/// the speed, and shows the clip's events as they fire.
+/// <see cref="BoneAttachment3D"/>, under a shadowing sun. A physical skeleton (ADR 0212,
+/// <see cref="PhysicalBoneSimulator3D.Build"/>: capsules and cone-twist joints) follows the animation and turns the
+/// character into a ragdoll on demand. <see cref="Animation3DPanel"/> picks the clip, the crossfade and the speed, shows
+/// the clip's events as they fire, and drops or stands up the ragdoll. Behind it a second instance rides a
+/// <see cref="RootMotionWalker"/> body, moved only by root motion (ADR 0210): half circles and forward jumps around a
+/// closed loop.
 /// </summary>
 public static class Animation3DScene
 {
@@ -29,6 +33,8 @@ public static class Animation3DScene
             Mesh = new PlaneMesh { Size = new Vector2(30, 30) },
             MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(92, 104, 96) },
         });
+        var ground = Add(root, root, new StaticBody3D { Name = "Ground", Position = new Vector3(0, -0.5f, 0) });
+        Add(root, ground, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(30, 1, 30) } });
 
         var model = ResourceLoader.Load<PackedScene>(CharacterPath);
         try
@@ -39,7 +45,8 @@ public static class Animation3DScene
             Add(root, root, crew);
 
             // Added to the instance: a hammer and a torch ride on the right hand.
-            var hand = Add(root, crew.GetNode<Skeleton3D>("Armature"), new BoneAttachment3D { Name = "HandSlot", BoneName = "Hand.R" });
+            var armature = crew.GetNode<Skeleton3D>("Armature");
+            var hand = Add(root, armature, new BoneAttachment3D { Name = "HandSlot", BoneName = "Hand.R" });
             Add(root, hand, new MeshInstance3D
             {
                 Name = "Hammer",
@@ -55,10 +62,44 @@ public static class Animation3DScene
                 Energy = 1.6f,
                 Range = 3f,
             });
+
+            // Root motion (ADR 0210): a body walking the circle clip and jumping forward, facing −X at the start.
+            var walker = Add(root, root, new RootMotionWalker { Name = "Walker", Position = new Vector3(2.2f, 0, -5f), RotationDegrees = new Vector3(0, -90, 0) });
+            Add(root, walker, new CollisionShape3D
+            {
+                Name = "Shape",
+                Position = new Vector3(0, 0.9f, 0),
+                Shape = new CapsuleShape3D { Radius = 0.3f, Height = 1.8f },
+            });
+            var walkerModel = model.Instantiate<Node3D>();
+            walkerModel.Name = "Model";
+            Add(root, walker, walkerModel);
+            var walkerPlayer = walkerModel.GetNode<AnimationPlayer>("AnimationPlayer");
+            walkerPlayer.CallbackModeProcess = AnimationCallbackMode.Physics;
+            walkerPlayer.RootMotionTrack = "Armature";
+            walkerPlayer.RootMotionBone = "Hips";
         }
         finally
         {
             model.Release();
+        }
+
+        // The physical skeleton, as the editor's "Create physical skeleton" makes it (generic 45°/30° cone-twists).
+        var skeleton = root.GetNode<Skeleton3D>("Crew/Armature");
+        var simulator = Add(root, skeleton, PhysicalBoneSimulator3D.Build(skeleton));
+        foreach (var bone in simulator.Children)
+        {
+            bone.Owner = root;
+            // Pin the Euler angles the saver writes, rounded: the quaternion-to-Euler trig differs in the last bit between
+            // x64 and arm64, and the committed scene file must match the builder on every platform.
+            if (bone is PhysicalBone3D physical)
+            {
+                var degrees = physical.RotationDegrees;
+                physical.RotationDegrees = new Vector3(MathF.Round(degrees.X, 3), MathF.Round(degrees.Y, 3), MathF.Round(degrees.Z, 3));
+            }
+
+            foreach (var shape in bone.Children)
+                shape.Owner = root;
         }
 
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });

@@ -42,6 +42,20 @@ public sealed class Physics2DAllocationTests
         h.Add(spring);
         spring.NodeA = "../Link7";
         spring.NodeB = "../Bob";
+        // One of each other type, hung from the world well away from everything (G9.4).
+        Joint2D Hang(Joint2D joint, string body, Vector2 at)
+        {
+            h.AddBox(at, 20, body);
+            joint.Position = at;
+            h.Add(joint);
+            joint.NodeB = "../" + body;
+            return joint;
+        }
+
+        Hang(new SliderJoint2D { Name = "Slider", UseLimit = true, MotorEnabled = true, MotorTargetVelocity = 30, SpringEnabled = true }, "Carriage", new Vector2(-2500, -800));
+        Hang(new GrooveJoint2D { Name = "Groove", Length = 100, InitialOffset = 0 }, "Bead", new Vector2(-2400, -800));
+        Hang(new WeldJoint2D { Name = "Weld", AngularHertz = 2, BreakForce = 1e9f }, "Sign", new Vector2(-2300, -800));
+        Hang(new WheelJoint2D { Name = "Wheel", Rotation = -MathF.PI / 2, MotorEnabled = true, MotorTargetVelocity = 3 }, "Tyre", new Vector2(-2200, -800));
         area.AreaEntered += _ => entered++;
         pickup.AreaEntered += _ => entered++;
         for (var i = 0; i < 4; i++)

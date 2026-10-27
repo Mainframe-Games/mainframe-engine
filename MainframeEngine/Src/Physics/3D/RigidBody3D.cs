@@ -236,7 +236,26 @@ public class RigidBody3D : PhysicsBody3D
 
     internal override PhysicsBodyKind Kind => _freeze
         ? _freezeMode == FreezeMode.Static ? PhysicsBodyKind.Static : PhysicsBodyKind.Kinematic
-        : _mode == RigidBodyMode.Dynamic ? PhysicsBodyKind.Dynamic : PhysicsBodyKind.Kinematic;
+        : _mode == RigidBodyMode.Dynamic && !_heldKinematic ? PhysicsBodyKind.Dynamic : PhysicsBodyKind.Kinematic;
+
+    private bool _heldKinematic;
+
+    /// <summary>
+    /// Kinematic while set, whatever <see cref="Mode"/> says (not saved): a ragdoll that is not simulating, or a physical
+    /// bone following its animated bone (ADR 0212). The body keeps its joints; it moves with its node.
+    /// </summary>
+    internal bool HeldKinematic
+    {
+        get => _heldKinematic;
+        set
+        {
+            if (_heldKinematic == value)
+                return;
+            _heldKinematic = value;
+            if (Record is { } record)
+                record.Space.OnKindChanged(record);
+        }
+    }
 
     // Godot: a body frozen or let go starts at rest.
     private void OnFrozenChanged()

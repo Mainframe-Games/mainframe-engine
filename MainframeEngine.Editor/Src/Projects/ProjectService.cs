@@ -208,10 +208,13 @@ public sealed class ProjectService : IDisposable
 
     private void CloseCode()
     {
+        // A simulated copy holds game objects: it goes before the game code unloads (every close and switch path).
+        _workspace.Simulation.Stop("Simulation stopped: the project closes.");
         StopWatching();
         if (_loader is null)
             return;
         CustomInspectors.Reset();
+        HandleProviders.Reset();
         UnloadLoader(_loader);
         _loader = null;
     }
@@ -263,6 +266,7 @@ public sealed class ProjectService : IDisposable
         if (_loader is not null && _loader.IsLoaded)
             return ReloadGameAssembly();
         var stopwatch = Stopwatch.StartNew();
+        _workspace.Simulation.Stop("Simulation stopped for code reload.");
         // Scenes opened before the code was loaded hold missing nodes: re-create them with the real types.
         var snapshots = SuspendScenes(null);
         try
@@ -271,6 +275,7 @@ public sealed class ProjectService : IDisposable
             _loader.Load();
             RememberLoaded(dll);
             CustomInspectors.Reset();
+            HandleProviders.Reset();
         }
         catch (Exception e) when (EditorCommands.IsRecoverable(e))
         {
@@ -303,6 +308,7 @@ public sealed class ProjectService : IDisposable
         _workspace.ReleaseEditorReferences();
         var snapshots = SuspendGameScenes(loader);
         CustomInspectors.Reset();
+        HandleProviders.Reset();
         _workspace.ReleaseEditorReferences();
         LastUnloadCollected = UnloadForReload(loader);
         if (LastUnloadCollected == false)
@@ -374,6 +380,7 @@ public sealed class ProjectService : IDisposable
             _loader.Load();
             RememberLoaded(dll);
             CustomInspectors.Reset();
+            HandleProviders.Reset();
             return true;
         }
         catch (Exception e) when (EditorCommands.IsRecoverable(e))

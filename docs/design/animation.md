@@ -4,9 +4,10 @@
 
 Skeletal animation of 3D characters (ADR 0207, ADR 0208): `Skeleton3D` bones, skinned `MeshInstance3D`s drawn through a
 compute pre-skinning pass, `BoneAttachment3D`, and keyed `Animation`s played by an `AnimationPlayer` with crossfades,
-queues and named events; skinned glTF/FBX characters import with their clips. Names follow Godot 4. This is the shipped
-part of the [Keyframe animation](future/keyframe-animation.md) proposal (G1a core, G1b); value/method/audio tracks and
-the editor's Animation panel are still proposals there.
+queues, named events and root motion (ADR 0210) that a `CharacterBody3D` applies; skinned glTF/FBX characters import
+with their clips. Names follow Godot 4. This is the shipped part of the [Keyframe animation](future/keyframe-animation.md)
+proposal (G1a core, G1b) and of [Animation authoring](future/animation-authoring.md) (G1e); value/method/audio tracks
+and the editor's Animation panel are still proposals there.
 
 ```mermaid
 flowchart LR
@@ -15,6 +16,7 @@ flowchart LR
     I --> P["AnimationPlayer<br/>AnimationLibrary → Animation"]
     P -->|"bone poses (typed calls)"| S
     P -->|"AnimationEvent / Finished / Changed"| G[Game code, also headless]
+    P -->|"root motion per update"| B["CharacterBody3D.ApplyRootMotion → MoveAndSlide"]
     S --> A[BoneAttachment3D children]
     S --> K["SkinState: palette + posed bounds"]
     M --> K
@@ -47,6 +49,9 @@ Code: [`Src/Animation/`](../../MainframeEngine/Src/Animation/) (`Animation`, tra
   mesh follows; without one it draws its bind pose (the editor warns).
 - **`BoneAttachment3D`**, a child of the skeleton, sets its transform to `BoneName`'s skeleton-space pose whenever the
   pose changes: put a tool, a hat or a light under it. Its own transform is overwritten.
+- **Ragdolls:** a `PhysicalBoneSimulator3D` child with `PhysicalBone3D` bodies follows the animation and, once
+  simulated, writes the bones' poses after the `AnimationPlayer` (ADR 0212,
+  [Physics joints → Ragdolls](physics-joints.md#ragdolls)); the editor's Skeleton3D inspector creates one.
 
 ## AnimationPlayer
 
@@ -82,6 +87,54 @@ Code: [`Src/Animation/`](../../MainframeEngine/Src/Animation/) (`Animation`, tra
   calls the typed setter. Steady playback, crossfades and events allocate nothing (`AnimationHeadlessTests`).
 - **Determinism and servers:** the pose and the events depend only on (clip, time), so peers that start clips from
   replicated state agree; nothing needs a renderer, so animations and events run under `HeadlessHost` too.
+
+## Root motion
+
+Clips that travel (a walk covering ground, a leap, a turn) move a character body instead of sliding away from it
+(ADR 0210, Godot's `root_motion_track`):
+
+- **`AnimationPlayer.RootMotionTrack`** (a `NodePath` to the `Skeleton3D`, relative to `RootNode`; empty: off),
+  **`RootMotionBone`** (empty: the skeleton's first root bone) and **`RootMotionVertical`** (default false). A rig with a
+  bone above the hips (Unreal's `root`) uses that bone; one whose hips are the top bone (Mixamo, Blender rigs) uses the
+  hips. The bone's pose is read relative to its parent.
+- **Taken out of the pose:** the bone's horizontal position and its yaw (the twist about its parent's +Y), relative to
+  its rest; vertical position too with `RootMotionVertical`. Everything else stays: the hips keep their rest position
+  horizontally and their rest facing, while a crouch or a jump's arc still moves them up and down.
+- **Reported per update:** `GetRootMotionPosition()` (skeleton space, in the facing the character had at the start of
+  the update) and `GetRootMotionRotation()` (a turn about the skeleton's +Y). Each update replaces them (zero when
+  nothing played), so read them once per update. A body that moves by the position and then turns by the rotation
+  retraces the clip's path.
+- **Loops, direction, crossfades:** the update is split into stretches of clip time without a wrap (the same stretches
+  that raise events), each adding `value(to) − value(from)`; a loop wrap therefore adds the clip's whole displacement
+  (a stretch over the whole clip adds its whole turn, the sum of its key-to-key turns, so a clip turning 360° loops
+  right), and backwards or ping-pong play subtracts. Crossfades lerp the two clips' motion by the blend weight; a clip
+  without root tracks contributes none. `Play`, `Seek` and clip switches never jump: nothing depends on the previous
+  update's sample. Turns per update must stay under half a circle.
+- **`CharacterBody3D.ApplyRootMotion(player)`** turns the motion into world space with the skeleton's global basis (its
+  scale included), sets `Velocity` so the next `MoveAndSlide` covers it in one step (only the horizontal part without
+  `RootMotionVertical`, so the game's gravity still applies) and turns the body by the yaw now:
+
+```csharp
+public sealed class Walker : CharacterBody3D
+{
+    private AnimationPlayer? _player; // CallbackModeProcess = Physics, RootMotionTrack = "Armature", RootMotionBone = "Hips"
+
+    protected override void OnReady() => _player = GetNode<AnimationPlayer>("Model/AnimationPlayer");
+
+    protected override void OnPhysicsProcess(float delta)
+    {
+        if (_player is not null)
+            ApplyRootMotion(_player);
+        Velocity -= UpDirection * (9.81f * delta);
+        MoveAndSlide();
+    }
+}
+```
+
+- The player should run in the `Physics` callback mode, one motion per physics step (the editor warns otherwise). A body
+  that processes before its player (its parent) moves by the previous step's motion: one step late, nothing lost.
+- Steady root motion with crossfades and `MoveAndSlide` allocates nothing; the motion depends only on clip time and the
+  fixed step, so it is deterministic and runs under `HeadlessHost`.
 
 ## GPU skinning: compute pre-skinning
 
@@ -151,8 +204,9 @@ sequenceDiagram
 The nodes and resources are registered like any other: inspector rows for every `[Export]` (bone arrays, the skin,
 libraries), icons (`bone` for `Skeleton3D`/`Skin`, `link` for `BoneAttachment3D`, `player-play` for `AnimationPlayer`,
 `movie` for `Animation`), semantic property icons (`BoneName`, `Libraries`, `SpeedScale`, `LoopMode`), and node warnings
-for a skinned mesh without its skeleton, an attachment outside a skeleton or naming no bone, and a player without
-animations. Skinned meshes draw (and pick) posed in the editor's views. There is no Animation panel or timeline yet, and
+for a skinned mesh without its skeleton, an attachment outside a skeleton or naming no bone, a player without
+animations, and root motion that is not on the physics step or names no skeleton or bone (`RootMotionTrack` has the
+`run` icon, `RootMotionBone` `bone`, `RootMotionVertical` `arrow-up`). Skinned meshes draw (and pick) posed in the editor's views. There is no Animation panel or timeline yet, and
 players do not advance in edit mode.
 
 ## Guide
@@ -163,32 +217,40 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
 ## Testing
 
 - **Unit** ([`Tests/MainframeEngine.Tests/Animation/`](../../Tests/MainframeEngine.Tests/Animation/)):
-  `SkinnedImportTests` (the generated character: skeleton, skin, weights, eight clips, loop modes and events from extras
+  `SkinnedImportTests` (the generated character: skeleton, skin, weights, ten clips, loop modes and events from extras
   and `.meta`, the CPU skinning reference at rest and posed, posed bounds containing every vertex, the import scale,
   clip settings round trip, `CleanClipName`), `AnimationPlayerTests` (loops and events across loops, crossfade values,
   fitting to a duration, queue, seek/stop/pause, backwards and ping-pong events, process modes and autoplay,
   `BoneAttachment3D` keeping a mesh and a light on the bone, global poses, scene round trip, static surfaces),
-  `AnimationHeadlessTests` (events on the same frames every run under `HeadlessHost`, 0 B steady playback with
-  crossfades, events and palettes). Editor: `AnimationNodesTests` (warnings, icons).
+  `AnimationHeadlessTests` (events on the same frames every run under `HeadlessHost`, a root-motion body ending at the
+  same pose every run, 0 B steady playback with crossfades, events and palettes), `RootMotionTests` (the pose without the
+  motion, per-update replacement, vertical, loop wraps over one and several loops, backwards, turns carried into the
+  facing closing a circle in small or large steps, a 360° clip, crossfade weights, settings changes, the yaw
+  extraction), `RootMotionCharacterTests` (the character's jump and circle moving a turned `CharacterBody3D`; 0 B with
+  crossfades, `MoveAndSlide` and palettes for four walkers). Editor: `AnimationNodesTests` (warnings, icons).
 - **Test asset:** `Tests/Assets/Models/Character/character.glb`, written by
   [`SkinnedCharacter`](../../Tests/MainframeEngine.Tests/TestAssets/SkinnedCharacter.cs) (31 bones, two primitives,
-  ~6 000 triangles, eight actions, both event forms, a `.meta` clip); `TheCommittedCharacterMatchesTheGenerator` keeps it
+  ~6 000 triangles, ten actions (`jump` and `circle` carry root motion in the hips), both event forms, a `.meta` clip); `TheCommittedCharacterMatchesTheGenerator` keeps it
   in sync (`UPDATE_TEST_ASSETS=1`).
 - **Render** (`SkinnedTests`): `skinned` (two posed characters with CSM and point shadows, an outline overlay and a
   hand-attached hammer and torch; self-checks the dispatch count, a pick on the raised hand and the torch position;
   golden), `skinned-crowd` (12 characters crossfading: 0 B with the prepass and TAA, and the 120 fps budget).
-- **Demo:** the `animation_3d` scene ([Demo](demo.md)).
+- **Demo:** the `animation_3d` scene ([Demo](demo.md)): a second character on a `RootMotionWalker` body walks half
+  circles and jumps around a closed loop (`Animation3DSceneTests` checks that it closes).
 
 ## Known issues
 
-- No value, bezier, method or audio tracks, no cubic interpolation, no editor timeline, blend trees, root motion, IK
-  or morph targets ([Keyframe animation](future/keyframe-animation.md), [Animation graph](future/animation-graph.md),
+- No value, bezier, method or audio tracks, no cubic interpolation, no editor timeline, blend trees, IK or morph
+  targets ([Keyframe animation](future/keyframe-animation.md), [Animation graph](future/animation-graph.md),
   [Animation authoring](future/animation-authoring.md)).
 - Normals are skinned with the palette's 3×3 (renormalised), not its inverse transpose: non-uniform bone scale shades
   slightly wrong.
 - Skinned instances draw one by one (no instancing of identical characters).
 - The editor's viewport focus and selection box use the mesh's bind-pose bounds.
 - Skinned surfaces with vertex colours draw their prepass without skinned motion vectors (the `MeshDepthExt` path).
+- Root motion comes from bone tracks only (not a plain `Node3D`'s), has no accumulators (Godot's
+  `get_root_motion_position_accumulator`), and a hips-as-root rig hands the hips' sideways sway to the body. The G1c
+  baker's `root: "motion"` is not written yet.
 
 ## Related
 

@@ -252,6 +252,40 @@ public class CharacterBody3D : PhysicsBody3D
         return _collisionCount > 0;
     }
 
+    /// <summary>
+    /// Moves and turns the body by <paramref name="player"/>'s root motion of its last update (ADR 0210): sets
+    /// <see cref="Velocity"/> so that the next <see cref="MoveAndSlide"/> covers the motion in one physics step, and turns the
+    /// body by the motion's yaw now. Without <see cref="AnimationPlayer.RootMotionVertical"/> only the horizontal velocity is
+    /// replaced, so gravity the game adds still applies. Call it from <see cref="Node.OnPhysicsProcess"/> before
+    /// <see cref="MoveAndSlide"/>; the player should run in <see cref="AnimationCallbackMode.Physics"/>, so there is one
+    /// motion per step (if the body processes before the player, it moves by the previous step's motion).
+    /// </summary>
+    public void ApplyRootMotion(AnimationPlayer player)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        if (Tree is not { } tree || tree.PhysicsDeltaTime <= 0f)
+            return;
+
+        // The motion is in the skeleton's space, relative to the facing at the start of the player's update: the
+        // skeleton's global basis (scale included: an FBX armature's 0.01) takes it to the world.
+        var global = GlobalTransform;
+        var frame = player.RootMotionSkeleton is { } skeleton ? skeleton.GlobalTransform.Basis : global.Basis;
+        var up = _upDirection;
+        var motion = frame.Transform(player.GetRootMotionPosition()) / tree.PhysicsDeltaTime;
+        Velocity = player.RootMotionVertical ? motion : motion - up * Vector3.Dot(motion, up) + up * Vector3.Dot(Velocity, up);
+
+        var yaw = player.RootMotionYaw;
+        if (yaw == 0f)
+            return;
+        var axis = frame.Y;
+        if (axis.LengthSquared() < 1e-12f)
+            return;
+        if (frame.Determinant() < 0f)
+            yaw = -yaw; // a mirrored skeleton turns the other way
+        var turn = Basis.FromQuaternion(Quaternion.CreateFromAxisAngle(Vector3.Normalize(axis), yaw));
+        GlobalTransform = new Transform3D(turn * global.Basis, global.Origin);
+    }
+
     private enum SurfaceKind
     {
         Floor,

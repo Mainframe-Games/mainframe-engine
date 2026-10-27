@@ -36,6 +36,9 @@ public sealed partial class SceneTreePanel : EditorDocument
         .Member("has_visible", static r => r.VisibleProperty is not null)
         .Member("shown", static r => r.Shown)
         .Member("eye_icon", static r => r.Shown ? "icon icon-sm icon-eye" : "icon icon-sm icon-eye-off")
+        .Member("lockable", static r => r.Lockable)
+        .Member("locked", static r => r.Locked)
+        .Member("lock_icon", static r => r.Locked ? "icon icon-sm icon-lock" : "icon icon-sm icon-lock-open")
         .Member("script", static r => r.Script)
         .Member("script_tooltip", static r => r.ScriptTooltip)
         .Member("warning", static r => r.Warning)
@@ -81,9 +84,23 @@ public sealed partial class SceneTreePanel : EditorDocument
                 ToggleVisible(e.GetArgument(0).GetInt32());
                 e.Event.StopPropagation();
             })
+            .Event("toggle_lock", e =>
+            {
+                ToggleLock(e.GetArgument(0).GetInt32());
+                e.Event.StopPropagation();
+            })
             .Event("rename", _ => Workspace.Commands.Rename());
         BindRemote(_model);
         Refresh();
+    }
+
+    /// <summary>Locks or unlocks row <paramref name="index"/>'s node in the viewport through the undo history (the lock toggle, G7.4).</summary>
+    public bool ToggleLock(int index)
+    {
+        if (Workspace.Session.Active is not { } scene || (uint)index >= (uint)_rows.Count || !_rows[index].Lockable)
+            return false;
+        var node = _rows[index].Node;
+        return scene.SetLocked(node, !EditorLock.IsLocked(node));
     }
 
     /// <summary>Flips the <c>Visible</c> flag of row <paramref name="index"/>'s node through the undo history (the eye toggle).</summary>

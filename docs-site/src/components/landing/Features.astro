@@ -68,7 +68,7 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
       {
         icon: 'run',
         title: 'Skeletal animation',
-        text: 'Skinned glTF and FBX characters with their clips: GPU skinning that shadows, outlines and picking all see, an AnimationPlayer with crossfades, queues and events, and attachments on bones.',
+        text: 'Skinned glTF and FBX characters with their clips: GPU skinning that shadows, outlines and picking all see, an AnimationPlayer with crossfades, queues and events, root motion that walks a character body, and attachments on bones.',
         doc: 'animation',
       },
       {
@@ -122,8 +122,14 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
       {
         icon: 'atom',
         title: 'Physics',
-        text: 'Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, 2D joints, layers, raycasts, MoveAndSlide and interpolation.',
+        text: 'Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, raycasts, MoveAndSlide and interpolation.',
         doc: 'physics',
+      },
+      {
+        icon: 'link',
+        title: 'Joints & ragdolls',
+        text: 'Pin, hinge, slider, cone-twist, distance and weld joints in 3D and six joint types in 2D, with limits, motors, springs and breaking; ragdolls from rigid parts or skinned skeletons, one click to build in the editor.',
+        doc: 'physics-joints',
       },
       {
         icon: 'device-gamepad-2',
@@ -188,8 +194,14 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
       {
         icon: 'layout',
         title: 'Editor',
-        text: 'Project Manager (engine version per project, upgraded on open), scene tree, generated inspector with undo, 3D/2D gizmos, FileSystem panel (Assets and Scripts, or the whole project), Play in its own process, code reload.',
+        text: 'Project Manager (engine version per project, upgraded on open), scene tree, generated inspector with undo, 3D/2D multi-node gizmos, FileSystem panel (Assets and Scripts, or the whole project), Play in its own process, code reload.',
         doc: 'editor',
+      },
+      {
+        icon: 'atom',
+        title: 'Viewport tools',
+        text: 'Simulate physics and scripts in the view and get the scene back on Stop; a multi-node gizmo with pivots; box selection and locks; draggable light, audio and [Export(Handle)] ranges; Save as .mres and Make Unique.',
+        doc: 'editor/#viewport-tools',
       },
       {
         icon: 'camera',

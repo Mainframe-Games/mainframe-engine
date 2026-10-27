@@ -15,6 +15,9 @@ public sealed record MenuItem(string Label, string? Command, string? Shortcut = 
 
     public bool IsSeparator { get; private init; }
     public bool IsHeader { get; private init; }
+
+    /// <summary>The item's tooltip: what it does, or why it is disabled.</summary>
+    public string? Tooltip { get; init; }
 }
 
 /// <summary>
@@ -73,7 +76,10 @@ public sealed class PopupMenu : EditorDocument
             rml.Append("<div class=\"menu-item").Append(item.Enabled ? "" : " disabled");
             if (item.Css is { } css)
                 rml.Append(' ').Append(css);
-            rml.Append("\" data-index=\"").Append(i).Append("\"><span class=\"");
+            rml.Append("\" data-index=\"").Append(i).Append('"');
+            if (item.Tooltip is { Length: > 0 } tooltip)
+                rml.Append(" data-tooltip=\"").Append(RmlText.Escape(tooltip)).Append('"');
+            rml.Append("><span class=\"");
             if (item.Icon is { Length: > 0 } icon)
                 rml.Append(icon.Contains(' ', StringComparison.Ordinal) ? icon : "icon icon-" + icon).Append(" menu-icon");
             else

@@ -20,6 +20,37 @@ camera -0.3 0.9 -0.8 8.8 -18 -16
 move #play
 wait 60
 capture editor
+# 2b. Joints (ADR 0211): the Physics 3D rope bridge with a hinge selected (its axis, limit arc and angle in the
+# selection colour, a line to each plank) and its Rebuild / Swap A/B buttons; then the Animation 3D character's
+# Create physical skeleton (ADR 0212): its simulator deleted and created again from the Skeleton3D inspector (undone).
+click #tool-select
+open Examples/Demo/Assets/Scenes/physics_3d.mscene
+wait 20
+select Bridge/Hinge5
+camera -4.3 2.2 -5 1.6 -24 -14
+clear-output
+move 900 600
+wait 20
+capture editor-joints
+open Examples/Demo/Assets/Scenes/animation_3d.mscene
+wait 20
+select Crew/Armature/PhysicalBoneSimulator3D
+key Delete
+wait 5
+select Crew/Armature
+inspector-header skeleton-physical
+camera 0 0.95 0 2.4 25 -8
+clear-output
+move 900 600
+wait 20
+capture editor-physical-skeleton
+key Z cmd
+wait 3
+key Z cmd
+wait 3
+click #tool-translate
+open Examples/Demo/Assets/Scenes/basic_3d.mscene
+wait 10
 # 3. The create dialog: a favourite, a recent type (added and undone), a search and a description.
 move 800 500
 key A cmd
@@ -42,6 +73,66 @@ capture editor-add-node
 cancel
 wait 5
 state
+# 3b. Viewport tools (G7). Box selection: the floor, the plinth and the camera locked (the Scene panel's lock), the Ring's
+# meshes selected by a first box, a second one held with Shift (the rectangle shows) while the move gizmo sits at their
+# median.
+expand Ring
+lock Floor
+lock Plinth
+lock Camera
+camera -0.3 0.9 -0.8 8.8 -18 -16
+command gizmo.translate
+pivot median
+box-select 520 300 1000 600
+wait 20
+box-select 1010 260 1130 420 shift hold
+wait 20
+clear-output
+wait 5
+capture editor-box-select
+mouse-up
+wait 10
+# Range handles: the blue omni light's range, dragged in from 7 m; the mouse rests on the handle (its label shows).
+command gizmo.select
+select Lights/Blue
+camera -1 1 1 17 -25 -20
+wait 10
+handle-drag 0 -40 0 20
+wait 20
+clear-output
+wait 5
+capture editor-range-handles
+command edit.undo
+wait 5
+# The resource row's More menu on the Box's inline mesh.
+select Ring/Box
+wait 10
+res-menu Mesh
+wait 20
+clear-output
+wait 5
+capture editor-resource-menu
+cancel
+wait 5
+# Simulate the physics scene: the Dropper's crates fall in the editor's view; the Pusher's inspector is live and read-only.
+open Examples/Demo/Assets/Scenes/physics_3d.mscene
+wait 20
+select Pusher
+simulate start
+wait 150
+move 800 500
+wait 10
+clear-output
+wait 5
+capture editor-simulate
+simulate stop
+wait 10
+command file.close
+wait 10
+command edit.undo # the three locks of basic_3d
+command edit.undo
+command edit.undo
+wait 5
 # 4. Audio: the sound designer on a Demo ZzFX preset, then the Demo's song in a song tab (the Lead clip in the piano
 # roll). Paths are relative to the checkout: the project is open under its real path.
 inspect Examples/Demo/Assets/Audio/Sfx/explosion.mres

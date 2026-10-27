@@ -28,7 +28,7 @@ public partial class Node
     {
         get
         {
-            if (_tree is not { EditMode: true, EditModeScripts: { } isScript } || _isTool)
+            if (_tree is not { EditMode: true, EditModeScripts: { } isScript } || _isTool || _simulation != 0)
                 return false;
             if (!ReferenceEquals(isScript, _scriptPredicate))
             {

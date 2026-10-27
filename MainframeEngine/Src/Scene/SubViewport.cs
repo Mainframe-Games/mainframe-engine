@@ -156,6 +156,25 @@ public class SubViewport : SceneViewport
     /// <summary>Queues a pick and returns a handle to poll with <see cref="TryGetPickResult"/>.</summary>
     public PickHandle RequestPick(int x, int y) => _server?.RequestPick(this, x, y) ?? default;
 
+    /// <summary>
+    /// Queues a rectangle pick (view pixels, origin top-left; clamped to the view): every node whose object id shows in
+    /// it — the visible meshes, not those hidden behind others — read back a couple of frames later like
+    /// <see cref="RequestPick"/>, through one transient GPU buffer (editor box selection). Poll with
+    /// <see cref="TryGetPickRegionResult"/>.
+    /// </summary>
+    public PickHandle RequestPickRegion(int x, int y, int width, int height) =>
+        _server?.RequestPickRegion(this, x, y, width, height) ?? default;
+
+    /// <summary>
+    /// Appends the distinct nodes of a <see cref="RequestPickRegion"/> to <paramref name="nodes"/> once it is ready
+    /// (true only once; nodes freed meanwhile are left out).
+    /// </summary>
+    public bool TryGetPickRegionResult(PickHandle handle, List<Node> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        return _server is not null && RenderServer.TryGetPickRegionResult(this, handle, nodes);
+    }
+
     /// <summary>The result of <see cref="RequestPick"/> once it is ready (taken: true only once).</summary>
     public bool TryGetPickResult(PickHandle handle, out PickResult result)
     {
@@ -163,17 +182,41 @@ public class SubViewport : SceneViewport
         return _server is not null && RenderServer.TryGetPickResult(this, handle, out result);
     }
 
+    /// <summary>
+    /// How the subtree behaves while the tree is in <see cref="SceneTree.EditMode"/> (the editor's Simulate, G7.5):
+    /// <see cref="ViewportSimulation.Running"/> runs it as a game — every process and lifecycle callback, game scripts
+    /// included, and its physics spaces step — and <see cref="ViewportSimulation.Paused"/> pauses that subtree alone.
+    /// Input is never dispatched to it. Set it before adding children (their enter and ready callbacks follow it); a
+    /// change while inside the tree (Running ↔ Paused) applies to the subtree at once. Not saved.
+    /// </summary>
+    public ViewportSimulation Simulation
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+            field = value;
+            if (Tree is not { } tree)
+                return;
+            tree.UpdateSimulation(this);
+            PropagateSimulation();
+        }
+    }
+
     protected override void OnEnterTree()
     {
         base.OnEnterTree();
         _server = Tree?.Servers.Render;
         _server?.AddSubViewport(this);
+        Tree?.UpdateSimulation(this);
     }
 
     protected override void OnExitTree()
     {
         _server?.RemoveSubViewport(this);
         _server = null;
+        Tree?.RemoveSimulation(this);
         base.OnExitTree();
     }
 

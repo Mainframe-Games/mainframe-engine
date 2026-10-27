@@ -3,7 +3,7 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G13) · **Status:** ⬜ planned ·
 **Depends on:** [Water](water.md) (G8c.2: `Curve3D`, shipped), [M6 physics](../physics.md) (kinematic bodies,
 `CharacterBody*`), [M10 editor](../editor.md), [Terrain](terrain.md) (G8a.2: `IEditorViewportTool`) ·
-**Related:** [Editor viewport tools](editor-viewport-tools.md) (G7.3 handles),
+**Related:** [Editor viewport tools](../editor.md#viewport-tools) (G7.3 handles),
 [Keyframe animation](keyframe-animation.md) (G1a: value tracks on `Progress`), [Navigation](navigation.md) (G3: patrol
 routes), [Forest showcase](forest-showcase.md) (G8d: camera rails), [Networking](../networking.md)
 
@@ -51,7 +51,7 @@ patrols, platforms, conveyor props, projectiles on arcs) is hand-written today:
   `EditorCamera` and `ViewportController`. The river editor (`River3DTool`, [water.md](water.md#editor), G8c.4) and the
   viewport-tool API it builds on ([`IEditorViewportTool`](terrain.md#editor-ieditorviewporttool), G8a.2) are still
   proposals, as is G7.3's handle API
-  ([editor-viewport-tools.md](editor-viewport-tools.md#g73-range-handles-and-the-handle-api)).
+  ([Editor → Range handles](../editor.md#range-handles-and-the-handle-api)).
   Terrain snapping exists only in code: `River3D.FitToTerrain` (`River3D.cs:397-416`) over `Terrain3D.HeightAt`
   (`MainframeEngine/Src/Scene/Nodes3D/Terrain/Terrain3D.cs:928`); `Terrain3D.Raycast` (`:1014`) can hit-test a cursor.
 
@@ -410,7 +410,7 @@ G13.1–G13.5 need nothing unbuilt and can ship before the editor tool; scenes c
 ## Related
 
 - [Water](water.md) (G8c: `Curve3D`, `River3D`, `River3DTool`), [Terrain](terrain.md) (G8a: viewport-tool API,
-  `Terrain3D`), [Editor viewport tools](editor-viewport-tools.md) (G7: handles),
+  `Terrain3D`), [Editor viewport tools](../editor.md#viewport-tools) (G7: handles),
   [Keyframe animation](keyframe-animation.md) (G1), [Navigation](navigation.md) (G3),
   [Forest showcase](forest-showcase.md) (G8d)
 - [Physics](../physics.md), [Scene graph and nodes](../scene-graph-and-nodes.md), [Editor](../editor.md),

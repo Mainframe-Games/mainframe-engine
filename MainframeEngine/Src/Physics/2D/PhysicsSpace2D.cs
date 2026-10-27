@@ -1339,8 +1339,14 @@ public sealed partial class PhysicsSpace2D : IDisposable
     private static readonly Vector4 KinematicColor = new(0.35f, 0.65f, 1f, 1f);
     private static readonly Vector4 AreaColor = new(0.2f, 0.9f, 0.9f, 0.7f);
 
-    internal void DrawDebug(DebugLines lines)
+    internal void DrawDebug(DebugLines lines, bool shapes = true)
     {
+        if (!shapes)
+        {
+            DrawJointsDebug(lines);
+            return;
+        }
+
         foreach (var record in _records)
         {
             var color = record.Kind switch

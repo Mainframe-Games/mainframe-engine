@@ -1,5 +1,5 @@
 ---
-// Screenshots, first after the hero: the editor, the Demo's scenes, then the Forest's reference shots (the first one
+// Screenshots, first after the hero: the editor, its viewport tools, the Demo's scenes, then the Forest's reference shots (the first one
 // large) (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it full size in
 // a <dialog>.
 const base = import.meta.env.BASE_URL;
@@ -15,14 +15,22 @@ const forest = [
   { src: 'forest/readme-beach.jpg', title: 'The beach', text: 'A twelve-layer splat terrain, a lake into the mountains' },
   { src: 'forest/readme-cabin.jpg', title: 'The cabin', text: 'Firelight with cube shadows, particles, scanned furniture' },
 ];
+const tools = [
+  { src: 'editor-simulate.png', title: 'Simulate', text: 'Physics and scripts in the view (Alt+F6); Stop restores the scene' },
+  { src: 'editor-box-select.png', title: 'Box selection', text: 'What the view shows, locked nodes skipped, the gizmo at the median' },
+  { src: 'editor-range-handles.png', title: 'Range handles', text: 'Light and audio ranges and cone angles, dragged with undo' },
+  { src: 'editor-resource-menu.png', title: 'Resource actions', text: 'Save as .mres, Make Unique, Open, Show in FileSystem' },
+  { src: 'editor-joints.png', title: 'Joints', text: 'A hinge of the rope bridge selected: its axis, limits and angle, Rebuild and Swap A/B' },
+  { src: 'editor-physical-skeleton.png', title: 'Physical skeleton', text: 'One click puts capsules and cone-twist joints on every bone' },
+];
 const demo = [
   { src: 'demo/basic_3d.png', title: 'Basic 3D', text: 'Primitives, glTF, sky, cascaded and spot shadows' },
   { src: 'demo/basic_2d.png', title: 'Basic 2D', text: 'Canvas items, gradients, sprites' },
-  { src: 'demo/physics_3d.png', title: 'Physics 3D', text: 'Jitter2, save slots with thumbnails' },
-  { src: 'demo/physics_2d.png', title: 'Physics 2D', text: 'Box2D' },
+  { src: 'demo/physics_3d.png', title: 'Physics 3D', text: 'Jitter2, a rope bridge, a breakable sign, a ragdoll, save slots' },
+  { src: 'demo/physics_2d.png', title: 'Physics 2D', text: 'Box2D, a chain, a car on wheel joints, a breakable bridge' },
   { src: 'demo/ui.png', title: 'UI', text: 'RmlUi widgets, data binding, hot reload' },
   { src: 'demo/spine.png', title: 'Spine', text: 'Under a 3D or 2D camera' },
-  { src: 'demo/animation_3d.png', title: 'Animation 3D', text: 'A skinned glTF character, crossfades and events' },
+  { src: 'demo/animation_3d.png', title: 'Animation 3D', text: 'A skinned glTF character, crossfades, events, root motion and a ragdoll' },
   { src: 'demo/audio_3d.png', title: 'Audio 3D', text: 'Attenuation, low-pass, doppler' },
   { src: 'demo/sound_fx.png', title: 'Sound FX', text: 'ZzFX presets and a looping song' },
   { src: 'demo/particles.png', title: 'Particles', text: 'A glowing campfire, its smoke and rain' },
@@ -55,6 +63,20 @@ const demo = [
       />
     </button>
   </figure>
+
+  <h3 class="mf-showcase__label" data-reveal>Viewport tools <span>simulate, select, lock, drag ranges, joints, ragdolls</span></h3>
+  <div class="mf-gallery">
+    {
+      tools.map((s, i) => (
+        <button class="mf-shot" type="button" data-full={img(s.src)} data-caption={`${s.title}: ${s.text}`} data-reveal style={`--i: ${i % 3}`}>
+          <img src={img(s.src)} width="1600" height="960" alt={`${s.title}: ${s.text}`} loading="lazy" decoding="async" />
+          <span class="mf-shot__caption">
+            <strong>{s.title}</strong> {s.text}
+          </span>
+        </button>
+      ))
+    }
+  </div>
 
   <h3 class="mf-showcase__label" data-reveal>The Demo <span>one scene per feature</span></h3>
   <div class="mf-gallery">

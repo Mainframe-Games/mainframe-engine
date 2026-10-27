@@ -47,6 +47,16 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
 
     private readonly record struct PendingPick(ulong Handle, int X, int Y, TaskCompletionSource<PickResult>? Completion);
 
+    // A rectangle request (box selection, G7.4): its pixels are copied into a transient readback buffer of its own.
+    private readonly record struct PendingRegion(ulong Handle, int X, int Y, int Width, int Height);
+
+    private readonly List<PendingRegion> _regionsQueued = [];
+    private readonly (PendingRegion Request, GpuBuffer? Buffer, int Count)[] _regionInFlight = new (PendingRegion, GpuBuffer?, int)[Slots];
+    private readonly ulong[] _regionFrame = new ulong[Slots];
+    private readonly List<ulong> _regionMisses = [];
+    private readonly Dictionary<ulong, Node[]> _completedRegions = [];
+    private readonly HashSet<uint> _regionIds = [];
+
     public ObjectIdPicker(IVulkanContext ctx, string name)
     {
         _ctx = ctx;
@@ -59,16 +69,42 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
     public RenderTarget? Target { get; private set; }
 
     /// <summary>Requests waiting for a frame to render the ID pass.</summary>
-    public bool HasQueued => _queued.Count > 0;
+    public bool HasQueued => _queued.Count > 0 || _regionsQueued.Count > 0;
 
     /// <summary>Requests copied but not read back yet (or answered as misses, not yet delivered).</summary>
-    public bool HasInFlight => _inFlight[0].Count > 0 || _inFlight[1].Count > 0 || _misses.Count > 0;
+    public bool HasInFlight => _inFlight[0].Count > 0 || _inFlight[1].Count > 0 || _misses.Count > 0 ||
+                               _regionInFlight[0].Buffer is not null || _regionInFlight[1].Buffer is not null || _regionMisses.Count > 0;
 
     /// <summary>Answers every queued request with a miss at the next <see cref="Collect"/> (the view cannot render).</summary>
     public void MissQueued()
     {
         _misses.AddRange(_queued);
         _queued.Clear();
+        foreach (var region in _regionsQueued)
+            _regionMisses.Add(region.Handle);
+        _regionsQueued.Clear();
+    }
+
+    /// <summary>
+    /// Queues a rectangle (view pixels, origin top-left): the distinct nodes whose ids it shows, read back like a point
+    /// pick, through one transient buffer of width × height ids released once read. One region is copied per frame slot.
+    /// </summary>
+    public PickHandle RequestRegion(int x, int y, int width, int height)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var handle = _nextHandle++;
+        _regionsQueued.Add(new PendingRegion(handle, x, y, Math.Max(0, width), Math.Max(0, height)));
+        return new PickHandle(handle);
+    }
+
+    /// <summary>Appends the nodes of a finished region request to <paramref name="nodes"/> (true once per handle).</summary>
+    public bool TryTakeRegion(PickHandle handle, List<Node> nodes)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        if (!_completedRegions.Remove(handle.Value, out var found))
+            return false;
+        nodes.AddRange(found);
+        return true;
     }
 
     public PickHandle Request(int x, int y, TaskCompletionSource<PickResult>? completion)
@@ -102,6 +138,75 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
         drawIds(state, cb);
         Target.End(cb); // explicit barrier: the copies below read the ids the pass wrote
         CopyQueued(cb);
+        CopyRegion(cb);
+    }
+
+    private void CopyRegion(CommandBuffer cb)
+    {
+        var slot = _ctx.FrameSlot;
+        if (_regionsQueued.Count == 0 || _regionInFlight[slot].Buffer is not null)
+            return; // the slot's previous region is read back first
+        var request = _regionsQueued[0];
+        _regionsQueued.RemoveAt(0);
+        var extent = Target!.Extent;
+        var x0 = Math.Clamp((int)MathF.Floor(request.X * _coordinateScale), 0, (int)extent.Width);
+        var y0 = Math.Clamp((int)MathF.Floor(request.Y * _coordinateScale), 0, (int)extent.Height);
+        var x1 = Math.Clamp((int)MathF.Ceiling((request.X + request.Width) * _coordinateScale), 0, (int)extent.Width);
+        var y1 = Math.Clamp((int)MathF.Ceiling((request.Y + request.Height) * _coordinateScale), 0, (int)extent.Height);
+        if (x1 <= x0 || y1 <= y0)
+        {
+            _regionMisses.Add(request.Handle); // outside the view: nothing
+            return;
+        }
+
+        var count = (x1 - x0) * (y1 - y0);
+        var buffer = GpuBuffer.Create(_ctx, (ulong)count * sizeof(uint), BufferUsageFlags.TransferDstBit, GpuMemoryUsage.Readback);
+        var region = new BufferImageCopy
+        {
+            ImageSubresource = new ImageSubresourceLayers(ImageAspectFlags.ColorBit, 0, 0, 1),
+            ImageOffset = new Offset3D(x0, y0, 0),
+            ImageExtent = new Extent3D((uint)(x1 - x0), (uint)(y1 - y0), 1),
+        };
+        _ctx.Vk.CmdCopyImageToBuffer(cb, Target.GetColor(0).Handle, ImageLayout.TransferSrcOptimal, buffer.Handle, 1, &region);
+        _regionInFlight[slot] = (request, buffer, count);
+        _regionFrame[slot] = _ctx.FrameNumber;
+        var barrier = new MemoryBarrier
+        {
+            SType = StructureType.MemoryBarrier,
+            SrcAccessMask = AccessFlags.TransferWriteBit,
+            DstAccessMask = AccessFlags.HostReadBit,
+        };
+        _ctx.Vk.CmdPipelineBarrier(cb, PipelineStageFlags.TransferBit, PipelineStageFlags.HostBit, 0, 1, &barrier, 0, null, 0, null);
+    }
+
+    // Region results: the distinct ids of each finished rectangle resolved to nodes (a one-off scan on the frame it lands).
+    private void CollectRegions(SceneTree? tree, ulong completedFrame)
+    {
+        foreach (var miss in _regionMisses)
+            _completedRegions[miss] = [];
+        _regionMisses.Clear();
+        for (var slot = 0; slot < Slots; slot++)
+        {
+            var (request, buffer, count) = _regionInFlight[slot];
+            if (buffer is null || _regionFrame[slot] > completedFrame)
+                continue;
+            _regionIds.Clear();
+            var ids = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, uint>(buffer.MappedSpan)[..count];
+            foreach (var id in ids)
+                if (id != 0)
+                    _regionIds.Add(id);
+            var nodes = new List<Node>(_regionIds.Count);
+            foreach (var id in _regionIds)
+                if (tree?.Find(new NodeId(id)) is { } node)
+                    nodes.Add(node);
+            _completedRegions[request.Handle] = [.. nodes];
+            buffer.Dispose(); // handed to the deletion queue
+            _regionInFlight[slot] = default;
+        }
+
+        // Region results nobody takes are dropped after a while.
+        if (_completedRegions.Count > MaxCompletedKept)
+            _completedRegions.Clear();
     }
 
     private float _coordinateScale = 1f;
@@ -177,6 +282,7 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
 
         _misses.Clear();
         var completedFrame = _ctx.Deletions.CompletedFrame;
+        CollectRegions(tree, completedFrame);
         for (var slot = 0; slot < Slots; slot++)
         {
             var batch = _inFlight[slot];
@@ -220,6 +326,9 @@ internal sealed unsafe class ObjectIdPicker : IDisposable
             foreach (var request in batch)
                 request.Completion?.TrySetCanceled();
         _queued.Clear();
+        for (var slot = 0; slot < Slots; slot++)
+            _regionInFlight[slot].Buffer?.Dispose();
+        _regionsQueued.Clear();
         foreach (var buffer in _readback)
             buffer.Dispose();
         Target?.Dispose();

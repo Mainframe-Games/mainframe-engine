@@ -177,6 +177,7 @@ public sealed partial class InspectorPanel : EditorDocument
         }
 
         _targets = SelectedTargets(scene);
+        var simulating = scene is not null && Workspace.Simulation.IsSimulating(scene);
         var node = _targets.Count > 0 ? (Node)_targets[^1] : null;
         _target = node;
         _scene = scene;
@@ -188,14 +189,17 @@ public sealed partial class InspectorPanel : EditorDocument
         var body = Document.GetElementById("inspector-body");
         if (body.IsNull)
             return;
+        body.SetClass("simulating", simulating);
         if (scene is null || node is null)
         {
-            body.SetInnerRml(EmptyRml);
+            body.SetInnerRml(simulating ? SimulationBanner + EmptyRml : EmptyRml);
             return;
         }
 
         var rml = new StringBuilder(4096);
         AppendHeader(rml, scene, node, _targets);
+        if (simulating)
+            rml.Append(SimulationBanner);
         if (Custom?.GetHeaderRml(node) is { } custom)
             rml.Append(custom);
         AppendSections(rml, _model!, 0);
@@ -228,18 +232,34 @@ public sealed partial class InspectorPanel : EditorDocument
         ApplyLabelWidth();
     }
 
-    // The selection as inspector targets (nodes that still exist), in selection order: the primary is last.
-    private static List<object> SelectedTargets(EditedScene? scene)
+    // The selection as inspector targets (nodes that still exist), in selection order: the primary is last. While the scene
+    // simulates (G7.5) they are the simulated counterparts, shown live and read-only.
+    private List<object> SelectedTargets(EditedScene? scene)
     {
         if (scene is null || scene.Selection.Count == 0)
             return [];
+        var simulation = Workspace.Simulation;
+        var simulating = simulation.IsSimulating(scene);
         var nodes = scene.Selection.Nodes;
         var list = new List<object>(nodes.Count);
         foreach (var n in nodes)
-            if (!n.IsFreed)
+        {
+            if (n.IsFreed)
+                continue;
+            if (!simulating)
                 list.Add(n);
+            else if (simulation.CounterpartOf(n) is { } counterpart)
+                list.Add(counterpart);
+        }
+
         return list;
     }
+
+    /// <summary>The banner over a simulating scene's inspector (G7.5), with Keep Transforms.</summary>
+    public const string SimulationBanner =
+        "<div class=\"sim-banner\"><span class=\"icon icon-sm icon-atom\"></span><span class=\"sim-text\">Simulating — values are live and read-only</span>" +
+        "<button class=\"tool-button small\" id=\"sim-keep\" data-action=\"sim-keep\" data-tooltip=\"Keep Transforms — copy the selected nodes' simulated " +
+        "positions and rotations into the scene, as one undo step\"><span class=\"icon icon-sm icon-device-floppy\"></span></button></div>";
 
     private static bool SameTargets(List<object> a, IReadOnlyList<Node> b)
     {
@@ -450,7 +470,10 @@ public sealed partial class InspectorPanel : EditorDocument
                         .Append(RmlText.Escape(ResourceTooltip(p, value))).Append("\">");
                     if (value is not null)
                         rml.Append("<span class=\"").Append(EditorIcons.Classes(resourceType)).Append(" icon-sm res-icon\"></span>");
-                    rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.IsMixed ? "— (differs)" : p.Format(value))).Append("</span></div>");
+                    // Where the value lives (G7.2): a link icon for a file, "inline ×N" when the scene uses it in N slots.
+                    if (value is Resource { IsExternal: true } && !p.IsMixed)
+                        rml.Append("<span class=\"icon icon-sm icon-link res-link\"></span>");
+                    rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(p.IsMixed ? "— (differs)" : ResourceLabel(p, value))).Append("</span></div>");
                     rml.Append("<div class=\"res-actions\">");
                     if (value is AudioStream sound && !p.IsMulti)
                         AppendPreviewButton(rml, row, Workspace.AudioPreview.IsPlaying(sound));
@@ -460,12 +483,13 @@ public sealed partial class InspectorPanel : EditorDocument
                             expanded ? "Fold — hide the resource's properties"
                             : editable.IsExternal ? $"Edit — show {Path.GetFileName(editable.ResourcePath)}'s properties below (saved to the file when the scene is saved)"
                             : "Edit — show the resource's properties below", expanded);
-                    if (value is Resource { IsExternal: false } inline && inline is not PackedScene && !p.IsMulti)
-                        AppendButton(rml, row, "res-save", "device-floppy", "Save as .mres — move the resource to its own file, shared by every slot that uses it");
                     AppendButton(rml, row, "res-load", "folder-open", "Load — use a resource file (.mres, image, model, sound)");
                     AppendButton(rml, row, "res-new", "circle-plus", $"New — create an inline {(p.ResourceType ?? typeof(Resource)).Name}");
                     if (value is not null)
                         AppendButton(rml, row, "res-clear", "x", "Clear — empty the slot");
+                    // More (G7.2): Save as .mres, Make Unique, Open, Show in FileSystem. Nested resource editing is single-node.
+                    if (value is Resource and not MissingResource && !p.IsMulti)
+                        AppendButton(rml, row, "res-more", "dots-vertical", "More — save, make unique, show the file");
                     rml.Append("</div>");
                     break;
                 }
@@ -904,6 +928,12 @@ public sealed partial class InspectorPanel : EditorDocument
     public void RunHeaderAction(string action)
     {
         ArgumentNullException.ThrowIfNull(action);
+        if (action == "sim-keep")
+        {
+            Workspace.Simulation.KeepTransforms(); // G7.5
+            return;
+        }
+
         if (HandleResourceAction(action))
             return;
         if (Custom is { } custom && _target is not null && EditContext is { } context)
@@ -945,6 +975,21 @@ public sealed partial class InspectorPanel : EditorDocument
                 break;
             case "res-save":
                 SaveResourceAs(p);
+                break;
+            case "res-more":
+                ShowResourceMenu(row);
+                break;
+            case "res-unique":
+                MakeUnique(p, deep: false);
+                break;
+            case "res-unique-deep":
+                MakeUnique(p, deep: true);
+                break;
+            case "res-open":
+                OpenResourceFile(p);
+                break;
+            case "res-show":
+                ShowResourceInFileSystem(p);
                 break;
             case "arr-add":
                 EditArray(p, list => list.Add(DefaultElement(p.ElementType)));

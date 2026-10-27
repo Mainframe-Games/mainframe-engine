@@ -760,7 +760,7 @@ settled; **Decision:** is what to build.
 [Milestones](../../milestones.md#gameplay-toolkit-) · [Terrain (G8a)](terrain.md) · [Water (G8c)](water.md) ·
 [Forest showcase (G8d)](forest-showcase.md) · [Rendering features (G6)](rendering-features.md) ·
 [Materials & meshes](../materials-and-meshes.md) · [Shadow system](../shadow-system.md) · [Shaders](../shaders.md) ·
-[Lighting](../lighting.md) · [Editor](../editor.md) · [Editor viewport tools (G7)](editor-viewport-tools.md) ·
+[Lighting](../lighting.md) · [Editor](../editor.md) · [Editor viewport tools (G7)](../editor.md#viewport-tools) ·
 [ADR 0074](../../../memory/decisions/0074-alpha-tested-shadow-casters.md) (cutout casters) ·
 [ADR 0144](../../../memory/decisions/0144-slang-shader-language.md) (Slang) ·
 [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md) ·

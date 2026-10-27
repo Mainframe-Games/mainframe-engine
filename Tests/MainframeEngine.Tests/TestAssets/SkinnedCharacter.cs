@@ -15,10 +15,11 @@ namespace MainframeEngine.Tests.TestAssets;
 /// arms, hands with two-bone thumbs and index fingers, legs, feet, toes; rests are translations, the T-pose), and a sibling
 /// node <c>Body</c> with one skinned mesh of two primitives (<c>Suit</c> and <c>Skin</c> materials, about 6 000 triangles):
 /// tapered tubes along the bones with joints blended over the ends, at most four weights per vertex.</para>
-/// <para>Eight actions: <c>idle</c>, <c>walk</c>, <c>run</c> (looping through <c>extras.loop</c>), <c>roll</c>,
+/// <para>Ten actions: <c>idle</c>, <c>walk</c>, <c>run</c> (looping through <c>extras.loop</c>), <c>roll</c>,
 /// <c>swing</c> (a <c>HammerFist</c> event at 0.4 s in <c>extras.events</c>, the object form), <c>craft</c> (looped and
 /// given a <c>Tap</c> event by the <c>.meta</c> clips), <c>hit</c> and <c>down</c>; <c>run</c> has <c>Step</c> events in the
-/// array form. Every value is computed in doubles and quantised to 1/4096 so the file is identical on every OS.</para>
+/// array form. Two carry root motion in the hips (ADR 0210): <c>jump</c> (a forward leap) and <c>circle</c> (a looping walk
+/// that turns a quarter circle per loop). Every value is computed in doubles and quantised to 1/4096 so the file is identical on every OS.</para>
 /// </remarks>
 public static class SkinnedCharacter
 {
@@ -28,7 +29,15 @@ public static class SkinnedCharacter
     public const string HandBone = "Hand.R";
     public const float SwingEventTime = 0.4f;
 
-    public static readonly string[] Clips = ["idle", "walk", "run", "roll", "swing", "craft", "hit", "down"];
+    /// <summary>The <c>jump</c> clip's length (s) and how far its hips travel forward (+Z, m): root motion (ADR 0210).</summary>
+    public const double JumpLength = 1.0;
+
+    public const float JumpDistance = 1.2f;
+
+    /// <summary>The radius (m) of the <c>circle</c> clip's arc: a quarter circle to the left per 1 s loop.</summary>
+    public const float CircleRadius = 0.8f;
+
+    public static readonly string[] Clips = ["idle", "walk", "run", "roll", "swing", "craft", "hit", "down", "jump", "circle"];
 
     private const int Radial = 16;
 
@@ -351,6 +360,44 @@ public static class SkinnedCharacter
             Legs(r, 10 * k, -5 * k, 10 * k, 20 * k);
             return r;
         }, t => new Vector3(0, 1.0f - (float)(0.82 * Math.Min(t / 0.7, 1)), (float)(-0.3 * Math.Min(t / 0.7, 1))), "{}"),
+        // Root motion clips (ADR 0210): the hips carry the trajectory.
+        new("jump", JumpLength, 31, t =>
+        {
+            // Crouch (0–0.25 s), take off and fly JumpDistance forward along an arc (0.25–0.7 s), land and stand (0.7–1 s).
+            var r = new Dictionary<int, Quaternion>();
+            var crouch = t < 0.25 ? Math.Sin(t / 0.25 * Math.PI / 2) : t < 0.35 ? 1 - (t - 0.25) / 0.1 : 0;
+            var tuck = t is >= 0.25 and < 0.7 ? Math.Sin((t - 0.25) / 0.45 * Math.PI) : 0;
+            var land = t >= 0.7 ? Math.Sin((t - 0.7) / 0.3 * Math.PI) : 0;
+            var bend = Math.Max(crouch, Math.Max(0.6 * tuck, 0.8 * land));
+            Arms(r, 75 - 55 * tuck, -40 * crouch + 50 * tuck, -40 * crouch + 50 * tuck, 20, 20);
+            Legs(r, 50 * bend, 50 * bend, 90 * bend, 90 * bend);
+            r[B("Spine")] = Euler(25 * bend, 0, 0);
+            return r;
+        }, t =>
+        {
+            var y = t < 0.25 ? 1 - 0.15 * Math.Sin(t / 0.25 * Math.PI / 2)
+                : t < 0.7 ? 0.85 + 0.6 * 4 * ((t - 0.25) / 0.45) * (1 - (t - 0.25) / 0.45)
+                : 0.85 + 0.15 * (1 - Math.Cos((t - 0.7) / 0.3 * Math.PI)) / 2;
+            var z = t < 0.25 ? 0 : t < 0.7 ? JumpDistance * (t - 0.25) / 0.45 : JumpDistance;
+            return new Vector3(0, (float)y, (float)z);
+        }, "{}"),
+        new("circle", 1.0, 21, t =>
+        {
+            // The walk, turning a quarter circle to the left (towards +X) per loop on a CircleRadius arc.
+            var r = new Dictionary<int, Quaternion>();
+            var s = Math.Sin(t * 2 * Math.PI);
+            var c = Math.Cos(t * 2 * Math.PI);
+            Arms(r, 75, -18 * s, 18 * s, 15, 15);
+            Legs(r, 25 * s, -25 * s, 20 + 20 * Math.Max(0, c), 20 + 20 * Math.Max(0, -c));
+            r[B("Spine")] = Euler(3, 5 * s, 0);
+            r[B("Hips")] = Euler(0, 90 * t, 0);
+            return r;
+        }, t =>
+        {
+            var angle = Math.PI / 2 * t;
+            return new Vector3((float)(CircleRadius * (1 - Math.Cos(angle))), 0.98f + (float)(0.02 * Math.Abs(Math.Cos(t * 2 * Math.PI))),
+                (float)(CircleRadius * Math.Sin(angle)));
+        }, """{ "loop": true }"""),
     ];
 
     // ── glTF ─────────────────────────────────────────────────────────────────

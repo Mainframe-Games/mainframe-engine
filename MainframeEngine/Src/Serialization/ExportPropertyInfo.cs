@@ -34,11 +34,27 @@ public abstract class ExportPropertyInfo
 
     public abstract void SetValue(object owner, object? value);
 
+    /// <summary>Reads a <c>float</c> member without boxing (tools that poll a value every frame); false for other types.</summary>
+    public virtual bool TryGetFloat(object owner, out float value)
+    {
+        value = 0f;
+        return false;
+    }
+
+    /// <summary>Writes a <c>float</c> member without boxing; false for other types.</summary>
+    public virtual bool TrySetFloat(object owner, float value) => false;
+
     /// <summary>True when the member has the same value on both instances (codec equality).</summary>
     public abstract bool ValueEquals(object ownerA, object ownerB);
 
     /// <summary>Copies the value from one instance to another (resources are shared, not cloned).</summary>
     public abstract void CopyValue(object source, object destination);
+
+    /// <summary>
+    /// Replaces a collection value (list or array) of <paramref name="owner"/> with a copy whose elements are
+    /// <paramref name="element"/> of each (<see cref="Resource.Duplicate"/>); other values are left alone.
+    /// </summary>
+    internal abstract void CopyCollection(object owner, Func<object?, object?> element);
 
     internal abstract void Write(Utf8JsonWriter writer, object owner, SerializationContext context);
 
@@ -77,10 +93,41 @@ public sealed class ExportPropertyInfo<TOwner, TValue> : ExportPropertyInfo wher
 
     public override void SetValue(object owner, object? value) => _setter((TOwner)owner, (TValue)value!);
 
+    public override bool TryGetFloat(object owner, out float value)
+    {
+        if (typeof(TValue) == typeof(float))
+        {
+            var v = _getter((TOwner)owner);
+            value = System.Runtime.CompilerServices.Unsafe.As<TValue, float>(ref v);
+            return true;
+        }
+
+        value = 0f;
+        return false;
+    }
+
+    public override bool TrySetFloat(object owner, float value)
+    {
+        if (typeof(TValue) != typeof(float))
+            return false;
+        _setter((TOwner)owner, System.Runtime.CompilerServices.Unsafe.As<float, TValue>(ref value));
+        return true;
+    }
+
     public override bool ValueEquals(object ownerA, object ownerB) =>
         Codec.ValueEquals(_getter((TOwner)ownerA), _getter((TOwner)ownerB));
 
     public override void CopyValue(object source, object destination) => _setter((TOwner)destination, _getter((TOwner)source));
+
+    internal override void CopyCollection(object owner, Func<object?, object?> element)
+    {
+        var value = _getter((TOwner)owner);
+        if (value is null)
+            return;
+        var copy = Codec.Copy(value, element);
+        if (!ReferenceEquals(copy, value))
+            _setter((TOwner)owner, copy);
+    }
 
     internal override void Write(Utf8JsonWriter writer, object owner, SerializationContext context) =>
         Codec.Write(writer, _getter((TOwner)owner), context);

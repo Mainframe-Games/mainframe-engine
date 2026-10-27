@@ -31,6 +31,17 @@ public sealed class AnimationNodesTests
         player.AddAnimationLibrary("", library);
         Assert.Null(NodeWarnings.For(player));
 
+        // Root motion (ADR 0210): from a skeleton, with a bone it has, on the physics step.
+        player.RootMotionTrack = "Loose"; // a BoneAttachment3D
+        Assert.Contains("is not a Skeleton3D", NodeWarnings.For(player));
+        player.RootMotionTrack = "Skeleton";
+        player.RootMotionBone = "Hips";
+        Assert.Contains("no bone 'Hips'", NodeWarnings.For(player));
+        Assert.Contains("set CallbackModeProcess to Physics", NodeWarnings.For(player));
+        player.RootMotionBone = "Hand";
+        player.CallbackModeProcess = AnimationCallbackMode.Physics;
+        Assert.Null(NodeWarnings.For(player));
+
         var surface = new MeshSurface([Vector3.Zero, Vector3.UnitX, Vector3.UnitY], [], [], [0, 1, 2])
         {
             Joints = new int[12],
@@ -54,5 +65,8 @@ public sealed class AnimationNodesTests
         Assert.Equal("movie", PropertyIcons.SemanticIcon("Libraries"));
         Assert.Equal("gauge", PropertyIcons.SemanticIcon("SpeedScale"));
         Assert.Equal("repeat", PropertyIcons.SemanticIcon("LoopMode"));
+        Assert.Equal("run", PropertyIcons.SemanticIcon("RootMotionTrack"));
+        Assert.Equal("bone", PropertyIcons.SemanticIcon("RootMotionBone"));
+        Assert.Equal("arrow-up", PropertyIcons.SemanticIcon("RootMotionVertical"));
     }
 }

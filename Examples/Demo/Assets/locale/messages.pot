@@ -18,7 +18,7 @@ msgstr ""
 
 #. RML <p>
 #: Examples/Demo/Assets/Animation3D/panel.rml:9
-msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."
+msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton. Behind it, root motion walks and jumps a body."
 msgstr ""
 
 #. RML <span>
@@ -86,6 +86,16 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:23
 msgid "Last event"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:24
+msgid "Ragdoll"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Assets/Animation3D/panel.rml:24
+msgid "Stand up"
 msgstr ""
 
 #. RML <h1>
@@ -290,7 +300,7 @@ msgstr ""
 
 #. RML <p>
 #: Examples/Demo/Assets/Physics/panel2d.rml:9
-msgid "Box2D bodies through a funnel and pegboard. Click to spawn a body."
+msgid "Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints and a breakable bridge. Click to spawn a body."
 msgstr ""
 
 #. RML <span>
@@ -305,9 +315,15 @@ msgstr ""
 msgid "Collision shapes"
 msgstr ""
 
-#. RML <button>
+#. RML <span>
 #: Examples/Demo/Assets/Physics/panel2d.rml:12
 #: Examples/Demo/Assets/Physics/panel3d.rml:12
+msgid "Joints"
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Assets/Physics/panel2d.rml:13
+#: Examples/Demo/Assets/Physics/panel3d.rml:13
 msgid "Reset"
 msgstr ""
 
@@ -319,27 +335,27 @@ msgstr ""
 
 #. RML <p>
 #: Examples/Demo/Assets/Physics/panel3d.rml:9
-msgid "Jitter2 rigid bodies, a ramp and a character body. Click the floor to drop a crate."
+msgid "Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign and a ragdoll. Click the floor to drop a crate."
 msgstr ""
 
 #. RML <button>
 #. project.mfproj input action "rain"
-#: Examples/Demo/Assets/Physics/panel3d.rml:12 Examples/Demo/project.mfproj
+#: Examples/Demo/Assets/Physics/panel3d.rml:13 Examples/Demo/project.mfproj
 msgid "Rain crates"
 msgstr ""
 
 #. RML <h2>
-#: Examples/Demo/Assets/Physics/panel3d.rml:13
+#: Examples/Demo/Assets/Physics/panel3d.rml:14
 msgid "Save games"
 msgstr ""
 
 #. RML <button>
-#: Examples/Demo/Assets/Physics/panel3d.rml:21
+#: Examples/Demo/Assets/Physics/panel3d.rml:22
 msgid "Load"
 msgstr ""
 
 #. RML <button>
-#: Examples/Demo/Assets/Physics/panel3d.rml:21
+#: Examples/Demo/Assets/Physics/panel3d.rml:22
 msgid "Save"
 msgstr ""
 
@@ -635,56 +651,56 @@ msgstr ""
 msgid "UI"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:116
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:139
 #, csharp-format
 msgid "{0} crate"
 msgid_plural "{0} crates"
 msgstr[0] ""
 msgstr[1] ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:117
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:140
 msgid "Saving…"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:132
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:155
 msgid "Loaded."
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:133
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:156
 #, csharp-format
 msgid "The save was damaged: restored the copy from {0}."
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:134
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:157
 msgid "This slot is empty."
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:135
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:158
 msgid "This save comes from a newer version of the game."
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:136
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:159
 msgid "The save could not be loaded."
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:146
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:169
 msgid "Saved."
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:146
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:169
 msgid "The game could not be saved."
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:157
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:180
 #, csharp-format
 msgid "Slot {0}"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:162
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:185
 msgid "Empty"
 msgstr ""
 
-#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:165
+#: Examples/Demo/Demo/Src/Physics/Physics3DPanel.cs:188
 msgid "Unreadable"
 msgstr ""
 

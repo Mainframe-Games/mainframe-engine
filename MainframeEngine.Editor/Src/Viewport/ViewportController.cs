@@ -42,17 +42,13 @@ public sealed partial class ViewportController : Node
     private EditedScene? _pickScene;
     private bool _pickAdditive;
 
-    // Gizmo drag: the node and its exported transform values before the drag.
-    private Node3D? _gizmoNode;
-    private Vector3 _startPosition;
-    private Vector3 _startRotationDegrees;
-    private Vector3 _startScale;
-
     private enum DragKind
     {
         None,
         Click,     // LMB pressed, may become a pick
         Gizmo,
+        Handle,    // a range handle (G7.3)
+        Box,       // a selection rectangle (G7.4)
         Orbit,
         Pan,
         Fly,
@@ -130,8 +126,23 @@ public sealed partial class ViewportController : Node
         _iconsVersion = -1;
         _nodes2D.Clear();
         _nodes2DVersion = -1;
-        _gizmoNode = null;
-        _gizmoNode2D = null;
+        _starts3D.Clear();
+        _starts2D.Clear();
+        _targets3D.Clear();
+        _targets2D.Clear();
+        _targetsScene = null;
+        _handles.Clear();
+        _handleOwners.Clear();
+        _handleBefore.Clear();
+        _dragHandleNode = null;
+        _dragHandleProvider = null;
+        _hoverHandle = -1;
+        _boxPick = default;
+        _boxScene = null;
+        _boxNodes.Clear();
+        _simulatedSelection.Clear();
+        _simulatedSelectionRoot = null;
+        _simulatedSelectionVersion = -1;
         _pick = default;
         _pickScene = null;
         _scene = null;
@@ -156,10 +167,7 @@ public sealed partial class ViewportController : Node
         if (_scene is null)
             return;
 
-        if (_grid is { IsFreed: false })
-            _grid.Free();
-        _grid = new Grid3D { Name = "EditorGrid", Visible = GridVisible && !_scene.Camera.Is2D };
-        _scene.Viewport.AddChild(_grid);
+        EnsureGrid(_scene, ViewOf(_scene));
         _scene.Viewport.CameraOverride = _scene.Camera.ActiveCamera;
         _nodes2DVersion = -1;
     }
@@ -175,7 +183,8 @@ public sealed partial class ViewportController : Node
             return;
         }
 
-        var viewport = scene.Viewport;
+        var viewport = ViewOf(scene); // the simulated copy's view while the scene simulates (G7.5)
+        EnsureGrid(scene, viewport);
         var pixels = ViewPixels;
         if (viewport.Width != (int)pixels.X || viewport.Height != (int)pixels.Y)
         {
@@ -211,7 +220,10 @@ public sealed partial class ViewportController : Node
         _workspace.ViewportPanel.SetInfo(scene.Camera.Is2D ? Info2D : _drag == DragKind.Fly ? FlyInfo : PerspectiveInfo,
             scene.Camera.Is2D ? "square" : _drag == DragKind.Fly ? "plane" : "perspective");
         PollPick(scene);
-        if (scene.Camera.Is2D)
+        PollBox(scene);
+        if (IsSimulating(scene))
+            DrawSimulationVisuals(scene, viewport, pixels);
+        else if (scene.Camera.Is2D)
             DrawEditorVisuals2D(scene, pixels);
         else
             DrawEditorVisuals(scene, pixels);
@@ -363,6 +375,10 @@ public sealed partial class ViewportController : Node
                     scene.Camera.Zoom(wheel.Delta.Y);
                 Handled();
                 break;
+            case InputEventKey { Pressed: true, Key: Key.Escape } when IsCancellableDrag:
+                CancelDrag(); // Esc during a gizmo or handle drag puts everything back
+                Handled();
+                break;
             case InputEventKey key when _drag == DragKind.Fly:
                 if (FlyKey(key))
                     Handled();
@@ -374,6 +390,12 @@ public sealed partial class ViewportController : Node
 
     private bool Press(EditedScene scene, InputEventMouseButton e)
     {
+        if (e.Button == MouseButton.Right && IsCancellableDrag)
+        {
+            CancelDrag(); // a right click during a gizmo or handle drag cancels it (Blender, Godot)
+            return true;
+        }
+
         if (_drag != DragKind.None || !ViewRect.Contains(_mouse.X, _mouse.Y))
             return false;
         _pressAt = _mouse; // the event's position in layout points
@@ -387,7 +409,7 @@ public sealed partial class ViewportController : Node
                 _drag = DragKind.Orbit;
                 return true;
             case MouseButton.Left:
-                if (TryBeginGizmo(scene))
+                if (TryBeginHandle(scene) || TryBeginGizmo(scene))
                     return true;
                 _drag = DragKind.Click;
                 return true;
@@ -411,7 +433,7 @@ public sealed partial class ViewportController : Node
             return false;
         var matches = scene.Camera.Is2D ? Release2DMatches(drag, e.Button) : drag switch
         {
-            DragKind.Click or DragKind.Gizmo => e.Button == MouseButton.Left,
+            DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box => e.Button == MouseButton.Left,
             DragKind.Orbit => e.Button is MouseButton.Left or MouseButton.Middle,
             DragKind.Pan => e.Button == MouseButton.Middle,
             DragKind.Fly => e.Button == MouseButton.Right,
@@ -420,10 +442,15 @@ public sealed partial class ViewportController : Node
         if (!matches)
             return true;
         _drag = DragKind.None;
-        if (drag == DragKind.Gizmo && scene.Camera.Is2D)
-            EndGizmo2D(scene, commit: true);
-        else if (drag == DragKind.Gizmo)
-            EndGizmo(scene, commit: true);
+        if (drag == DragKind.Gizmo)
+            EndAnyGizmo(scene, commit: true);
+        else if (drag == DragKind.Handle)
+            EndHandle(scene, commit: true);
+        else if (drag == DragKind.Box)
+        {
+            HideBox();
+            BoxSelect(scene, _pressAt, _mouse, ModeFromModifiers());
+        }
         else if (drag == DragKind.Click && Vector2.Distance(_mouse, _pressAt) <= ClickPixels)
             Pick(scene, _mouse, (_workspace.Modifiers & (EditorModifiers.Command | EditorModifiers.Shift)) != 0);
         else if (drag == DragKind.Fly)
@@ -448,26 +475,43 @@ public sealed partial class ViewportController : Node
             case DragKind.Fly:
                 scene.Camera.Look(delta.X, delta.Y);
                 return true;
+            case DragKind.Handle:
+                UpdateHandle(scene);
+                return true;
             case DragKind.Gizmo when scene.Camera.Is2D:
                 UpdateGizmo2D(scene);
                 return true;
             case DragKind.Gizmo:
                 UpdateGizmo(scene);
                 return true;
+            case DragKind.Click when Vector2.Distance(_mouse, _pressAt) > ClickPixels && !IsSimulating(scene):
+                _drag = DragKind.Box; // a drag from empty space draws a selection rectangle (every tool)
+                ShowBox();
+                return true;
+            case DragKind.Box:
+                ShowBox();
+                return true;
             case DragKind.Click:
                 return true;
             default:
-                // Hover highlight of the gizmo handles.
+                // Hover highlight of the range handles (they come first), then of the gizmo's.
+                if (HoverHandle(scene))
+                {
+                    _workspace.Gizmo.Hovered = GizmoHandle.None;
+                    Gizmo2D.Hovered = GizmoHandle.None;
+                    return false;
+                }
+
                 if (scene.Camera.Is2D)
                 {
-                    Gizmo2D.Hovered = ViewRect.Contains(_mouse.X, _mouse.Y) && GizmoTarget2D(scene) is { } node2D
-                        ? Gizmo2D.HitTest(scene.Camera, ViewPixels, node2D.GlobalPosition, node2D.GlobalRotation, LocalPixel(_mouse))
+                    Gizmo2D.Hovered = ViewRect.Contains(_mouse.X, _mouse.Y) && TryGetGizmoPose2D(scene, out var pivot2D, out var axes2D)
+                        ? Gizmo2D.HitTest(scene.Camera, ViewPixels, pivot2D, axes2D, LocalPixel(_mouse))
                         : GizmoHandle.None;
                     return false;
                 }
 
-                if (ViewRect.Contains(_mouse.X, _mouse.Y) && GizmoTarget(scene) is { } node)
-                    _workspace.Gizmo.Hovered = _workspace.Gizmo.HitTest(scene.Camera, ViewPixels, node.GlobalPosition, node.GlobalRotation, LocalPixel(_mouse));
+                if (ViewRect.Contains(_mouse.X, _mouse.Y) && TryGetGizmoPose(scene, out var pivot, out var axes))
+                    _workspace.Gizmo.Hovered = _workspace.Gizmo.HitTest(scene.Camera, ViewPixels, pivot, axes, LocalPixel(_mouse));
                 else
                     _workspace.Gizmo.Hovered = GizmoHandle.None;
                 return false;
@@ -502,12 +546,11 @@ public sealed partial class ViewportController : Node
     private void CancelDrag()
     {
         if (_drag == DragKind.Gizmo && _scene is { } scene)
-        {
-            if (_gizmoNode2D is not null)
-                EndGizmo2D(scene, commit: false);
-            else
-                EndGizmo(scene, commit: false);
-        }
+            EndAnyGizmo(scene, commit: false);
+        else if (_drag == DragKind.Handle && _scene is { } handleScene)
+            EndHandle(handleScene, commit: false);
+        else if (_drag == DragKind.Box)
+            HideBox();
 
         _drag = DragKind.None;
         _fast = false;
@@ -540,13 +583,13 @@ public sealed partial class ViewportController : Node
             return;
         }
 
-        if (PickIcon(scene, pixel) is { } icon)
+        if (!IsSimulating(scene) && PickIcon(scene, pixel) is { } icon)
         {
             Select(scene, icon, additive);
             return;
         }
 
-        _pick = scene.Viewport.RequestPick((int)pixel.X, (int)pixel.Y);
+        _pick = ViewOf(scene).RequestPick((int)pixel.X, (int)pixel.Y);
         _pickScene = scene;
         _pickAdditive = additive;
         if (!_pick.IsValid && !additive)
@@ -572,10 +615,13 @@ public sealed partial class ViewportController : Node
             return;
         }
 
-        if (!scene.Viewport.TryGetPickResult(_pick, out var result))
+        if (!ViewOf(scene).TryGetPickResult(_pick, out var result))
             return;
         _pick = default;
-        var node = result.Hit ? scene.SelectableFor(result.Node) : null;
+        var hit = result.Hit && result.Node is { } picked && IsSimulating(scene) ? _workspace.Simulation.EditedFor(picked) : result.Node;
+        var node = result.Hit ? scene.SelectableFor(hit) : null;
+        if (node is not null && EditorLock.IsLocked(node))
+            node = null; // a locked node is not picked: the click selects nothing (G7.4)
         if (node is not null)
             Select(scene, node, _pickAdditive);
         else if (!_pickAdditive)
@@ -598,100 +644,18 @@ public sealed partial class ViewportController : Node
         var bestDistance = IconPixels * ViewScale;
         foreach (var node in _iconNodes)
         {
-            if (!scene.Camera.Project(node.GlobalPosition, size.X, size.Y, out var at))
-                continue;
+            if (!scene.Camera.Project(node.GlobalPosition, size.X, size.Y, out var at) || scene.SelectableFor(node) is not { } selectable ||
+                EditorLock.IsLocked(selectable))
+                continue; // locked nodes cannot be picked in the viewport (G7.4)
             var distance = Vector2.Distance(at, pixel);
             if (distance < bestDistance)
             {
                 bestDistance = distance;
-                best = scene.SelectableFor(node);
+                best = selectable;
             }
         }
 
         return best;
-    }
-
-    // ── Gizmo ────────────────────────────────────────────────────────────────────────────────────────────────────
-
-    private Node3D? GizmoTarget(EditedScene scene) =>
-        _workspace.Gizmo.Mode != GizmoMode.Select && scene.Selection.Primary is Node3D node && scene.IsEditable(node) && node.IsInsideTree
-            ? node
-            : null;
-
-    private bool TryBeginGizmo(EditedScene scene)
-    {
-        if (GizmoTarget(scene) is not { } node)
-            return false;
-        var gizmo = _workspace.Gizmo;
-        var local = LocalPixel(_mouse);
-        var handle = gizmo.HitTest(scene.Camera, ViewPixels, node.GlobalPosition, node.GlobalRotation, local);
-        if (handle == GizmoHandle.None)
-            return false;
-        _gizmoNode = node;
-        _startPosition = node.Position;
-        _startRotationDegrees = node.RotationDegrees;
-        _startScale = node.Scale;
-        gizmo.BeginDrag(handle, scene.Camera, ViewPixels, local, node.GlobalPosition, node.GlobalRotation, node.Scale);
-        _drag = DragKind.Gizmo;
-        return true;
-    }
-
-    private void UpdateGizmo(EditedScene scene)
-    {
-        if (_gizmoNode is not { IsFreed: false } node)
-            return;
-        var (position, rotation, scale) = _workspace.Gizmo.Drag(scene.Camera, ViewPixels, LocalPixel(_mouse));
-        switch (_workspace.Gizmo.Mode)
-        {
-            case GizmoMode.Translate:
-                node.GlobalPosition = position;
-                break;
-            case GizmoMode.Rotate:
-                var parentRotation = node.Parent is Node3D parent ? parent.GlobalRotation : Quaternion.Identity;
-                node.Rotation = Quaternion.Normalize(Quaternion.Inverse(parentRotation) * rotation);
-                break;
-            case GizmoMode.Scale:
-                node.Scale = scale;
-                break;
-        }
-
-        _workspace.Inspector.RefreshValues(); // the fields follow the drag (committed on release)
-    }
-
-    // Commits the drag as one history entry (the node already shows the result), or restores the start on cancel.
-    private void EndGizmo(EditedScene scene, bool commit)
-    {
-        _workspace.Gizmo.EndDrag();
-        if (_gizmoNode is not { IsFreed: false } node)
-        {
-            _gizmoNode = null;
-            return;
-        }
-
-        _gizmoNode = null;
-        var info = Serialization.TypeRegistry.GetRequired(node.GetType());
-        var actions = new List<IEditorAction>(3);
-        AddChange(actions, node, info, "Position", _startPosition, node.Position);
-        AddChange(actions, node, info, "RotationDegrees", _startRotationDegrees, node.RotationDegrees);
-        AddChange(actions, node, info, "Scale", _startScale, node.Scale);
-        if (actions.Count == 0)
-            return;
-        if (!commit)
-        {
-            foreach (var action in actions)
-                action.Undo();
-            return;
-        }
-
-        var name = _workspace.Gizmo.Mode switch { GizmoMode.Rotate => "Rotate", GizmoMode.Scale => "Scale", _ => "Move" } + " " + node.Name;
-        scene.History.Commit(new CompositeAction(name, [.. actions]), alreadyApplied: true);
-    }
-
-    private static void AddChange(List<IEditorAction> actions, Node3D node, Serialization.NodeTypeInfo info, string property, Vector3 before, Vector3 after)
-    {
-        if (before == after || info.FindProperty(property) is not { } p)
-            return;
-        actions.Add(new SetPropertyAction(node, p, before, after));
     }
 
     // ── Frame selected ───────────────────────────────────────────────────────────────────────────────────────────
@@ -779,11 +743,38 @@ public sealed partial class ViewportController : Node
         var selected = scene.Selection.Nodes;
         for (var i = 0; i < selected.Count; i++)
             if (selected[i] is Node3D { IsInsideTree: true } node)
+            {
                 DrawSelection(overlay, camera, displayHeight, node);
+                if (node is Joint3D joint)
+                    DrawJoint(overlay, joint);
+            }
 
-        if (GizmoTarget(scene) is { } target)
-            _workspace.Gizmo.Draw(overlay, camera, pixels, target.GlobalPosition, target.GlobalRotation);
+        DrawGizmo3D(scene, overlay, pixels, displayHeight);
+        DrawHandles(scene, overlay, pixels);
     }
+
+    // The selected joint (ADR 0211): its shape in the selection colour on top, and a line to each body its paths name
+    // (red for a path that names no body).
+    private static void DrawJoint(DebugLines lines, Joint3D joint)
+    {
+        joint.DrawDebug(lines, SelectionColor);
+        var p = joint.GlobalPosition;
+        JointBodyLine(lines, joint, joint.NodeA, p);
+        JointBodyLine(lines, joint, joint.NodeB, p);
+    }
+
+    private static void JointBodyLine(DebugLines lines, Joint3D joint, NodePath path, Vector3 from)
+    {
+        if (path.IsEmpty)
+            return;
+        if (joint.GetNodeOrNull(path) is PhysicsBody3D { IsInsideTree: true } body)
+            lines.AddLine(from, body.GlobalPosition, JointBodyColor);
+        else
+            lines.AddSphere(new Transform3D(Basis.Identity, from), 0.12f, MissingBodyColor);
+    }
+
+    internal static readonly Vector4 JointBodyColor = new(1f, 0.75f, 0.2f, 0.8f);
+    internal static readonly Vector4 MissingBodyColor = new(1f, 0.25f, 0.2f, 1f);
 
     private static void DrawSelection(DebugLines lines, EditorCamera camera, float viewHeight, Node3D node)
     {

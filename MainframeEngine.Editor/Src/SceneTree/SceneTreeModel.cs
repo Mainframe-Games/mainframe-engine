@@ -31,6 +31,12 @@ public sealed class SceneTreeRow
     /// <summary>The <c>Visible</c> value shown by the eye toggle.</summary>
     public bool Shown { get; init; } = true;
 
+    /// <summary>The node can be locked in the viewport (a 3D or 2D node): the lock toggle (G7.4).</summary>
+    public bool Lockable { get; init; }
+
+    /// <summary>The node is locked (<see cref="EditorLock"/>): the viewport does not pick, box-select or move it.</summary>
+    public bool Locked { get; init; }
+
     /// <summary>Script badge icon classes: <c>code</c> (a game type), <c>tool</c> (a [Tool] type that runs in the editor) or "" (engine type).</summary>
     public string Script { get; init; } = "";
 
@@ -137,6 +143,8 @@ public sealed class SceneTreeModel
             InstanceTooltip = isInstance ? $"Instance of {node.SceneFilePath} — its nodes belong to that scene" : "",
             VisibleProperty = visible,
             Shown = visible is null || visible.GetValue(node) is true,
+            Lockable = node is Node3D or Node2D,
+            Locked = EditorLock.IsLocked(node),
             Script = script,
             ScriptTooltip = scriptTooltip,
             Warning = NodeWarnings.For(node) ?? "",

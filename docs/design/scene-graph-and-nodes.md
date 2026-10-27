@@ -93,6 +93,7 @@ classDiagram
 | `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | batched mesh drawables — see [Materials & meshes](materials-and-meshes.md) |
 | `SubViewport` | [Scene/SubViewport.cs](../../MainframeEngine/Src/Scene/SubViewport.cs) | offscreen view with its own world |
 | `SpineNode`, `NetworkNode` | [Nodes/](../../MainframeEngine/Src/Nodes/) | existing drawables, retargeted onto `VisualInstance3D` |
+| `Joint3D` (+6), `Joint2D` (+6), `Ragdoll3D`, `PhysicalBone3D`, `PhysicalBoneSimulator3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/), [Physics/2D/](../../MainframeEngine/Src/Physics/2D/), [Physics/Ragdoll/](../../MainframeEngine/Src/Physics/Ragdoll/) | joints and ragdolls — see [Physics joints and ragdolls](physics-joints.md) |
 
 ## The tree
 
@@ -256,6 +257,25 @@ usual, so edited scenes render, register with their worlds and can be picked, bu
 viewport with their own camera through `SceneViewport.CameraOverride` (any `ICamera`; it never touches the scene's
 cameras) and draw always-visible handles into `SceneViewport.OverlayLines` (debug lines without depth test). See
 [Editor](editor.md#edit-mode-and-edited-worlds).
+
+### Simulation in edit mode
+
+`SubViewport.Simulation` (`ViewportSimulation.None`, `Running`, `Paused`; G7.5, the editor's
+[Simulate](editor.md#simulate), ADR 0214) runs a subtree as a game inside an edit-mode tree. Every node resolves it when
+it enters the tree (`Node.ResolvedSimulation`, `IsSimulated`: a sub-viewport's own, else its parent's), so set it before
+adding children; a change inside the tree (Running ↔ Paused) re-resolves the subtree.
+
+- Simulated nodes run `OnProcess` and `OnPhysicsProcess` in edit mode (`RunsInEditMode` = `[Tool]` or simulated) and
+  their own lifecycle callbacks, game scripts included (`SkipsScriptCallbacks` is false for them). Input is never
+  dispatched to them (the input loops keep `IsTool`). A `Paused` simulation is a paused tree for that subtree only
+  (`CanProcess`).
+- `SceneTree.Tick` steps the fixed-step servers in edit mode while a simulation runs; the 3D and 2D physics servers then
+  step and interpolate only the spaces whose viewport resolves to `Running`.
+- Exceptions of simulated callbacks — and of timers, tweens, deferred calls and physics signals while a simulation exists
+  (`SceneTree.IsSimulating`) — are caught, logged with the node's path and the throwing source line (`Log.Error` with the
+  frame's file and line, so Output links to it) and kept in `SceneTree.SimulationFault` (the first; `ClearSimulationFault`)
+  instead of escaping `Tick`. The non-throwing path costs nothing; editor and game code outside a simulation still throw.
+- `MultiplayerApi` refuses `Host`, `Connect` and `TryConnect` while the tree simulates (a warning; no socket opens).
 
 ## Input
 

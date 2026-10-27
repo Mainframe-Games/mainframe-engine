@@ -218,7 +218,7 @@ Audio nodes on **SoundFlow** 1.4.1 (MIT, miniaudio natives for every desktop pla
 | Music editor: song tab (arrangement, piano roll, mixer, render to WAV) with the built-in ZzFX instrument | ✅ done (2026-10-08): built-in instrument, `mfplughost` helper with Vorbis encoding, VST3 instruments/inserts, MIDI keyboard input and recording; gaps in the proposal's open questions | [Editor → Song tab](design/editor.md#song-tab-music-editor), [Future: music editor](design/future/music-editor.md) |
 | Music editor: built-in wavetable synth (2 wavetable oscillators, unison, 2 filters, envelopes, LFOs, mod matrix, FX chain, presets) | ✅ engine, presets, window, FX panels and goldens (#84, #85, #87, #89) | [Future: wavetable synth](design/future/wavetable-synth.md), [ADR 0195](../memory/decisions/0195-wavetable-synth.md) |
 | Adaptive music: sections, layers, parameters and quantized transitions authored in the song editor, baked to stems for an `AdaptiveMusicPlayer` node | 🚧 A1 logic, A2 runtime, A3 bake, A4 editor + Live preview and A5 (Curves pane, transition popover, Baked audition) in; A6 (editor link, dev overlay, Demo scene) next | [Future: adaptive music](design/future/adaptive-music.md), [ADR 0196](../memory/decisions/0196-adaptive-music-baked-stems.md) |
-| Draggable audio range handles in the editor | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) (G7) |
+| Draggable audio range handles in the editor | ✅ | [Editor viewport tools](design/editor.md#range-handles-and-the-handle-api) (G7.3) |
 
 ## M8 — Game UI (RmlUi) ✅
 
@@ -305,7 +305,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G1b glTF skeletons, skinning (GPU) and animation clips played through `AnimationPlayer` | ✅ (ADR 0207, 0208) | [Animation and skinning](design/animation.md) |
 | G1c Animation authoring: humanoid map, pose scripts baked to keys, `mfe` CLI (`anim rig/bake/describe/check/render`), editor reload of changed resources, `animate` Claude Code skill | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G1d Character animation editing: bones in the viewport, IK handles, curve view, onion skinning | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
-| G1e Root motion: `AnimationPlayer` root motion track, `CharacterBody3D.ApplyRootMotion` | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
+| G1e Root motion: `AnimationPlayer` root motion track, `CharacterBody3D.ApplyRootMotion` | ✅ (ADR 0210; the baker's `root: "motion"` waits for G1c) | [Animation and skinning](design/animation.md#root-motion) |
 | G1f Non-humanoid rigs (native bone channels, rig profiles) and auto-rigging | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G2a Animated sprites: sprite sheet slicing, `SpriteFrames`, `AnimatedSprite2D` | ⬜ | [2D content](design/future/2d-content.md) |
 | G2b Tile maps: `TileSet`, tile map layer node (chunked rendering + physics), paint tools in the 2D view | ⬜ | [2D content](design/future/2d-content.md) |
@@ -314,13 +314,13 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G4 Save games and settings: `SaveServer` (slots, versioned JSON + migrations, durable writes, recovery, thumbnails, cloud seam), `UserSettings`/`ConfigFile`, rebinding, drop-in settings menu | ✅ | [Save games and settings](design/future/save-and-settings.md) |
 | G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner | ⬜ | [Game export](design/future/game-export.md) |
 | G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | 🚧 | [Rendering features](design/future/rendering-features.md); 3D particles ✅ [3D particles](design/particles-3d.md) (ADR 0206) |
-| G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ⬜ | [Editor viewport tools](design/future/editor-viewport-tools.md) |
+| G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ✅ | [Editor → Viewport tools](design/editor.md#viewport-tools) |
 | G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | 🚧 | [Terrain](design/future/terrain.md) |
 | G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | 🚧 | [Procedural trees](design/future/procedural-trees.md) |
 | G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | 🚧 | [Water](design/future/water.md) |
 | G8d Forest showcase: `Examples/Forest` first-person walk, physical sky, fog and light shafts, TAA, auto exposure, grading | 🚧 | [Forest showcase](design/future/forest-showcase.md) |
 | G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | 🚧 | [Forest visual quality](design/future/forest-visual-quality.md) |
-| G9 Physics joints and ragdolls: 3D/2D joint nodes over Jitter2 and Box2D (limits, motors, springs, breaking), anchor gizmos, ragdolls on G1b skeletons | ⬜ | [Physics joints](design/future/physics-joints.md) |
+| G9 Physics joints and ragdolls: 3D/2D joint nodes over Jitter2 and Box2D (limits, motors, springs, breaking), anchor gizmos, ragdolls on G1b skeletons | 🚧 | [Physics joints and ragdolls](design/physics-joints.md) (ADR 0211, 0212): G9.1–G9.6, G9.8, G9.9 ✅; G9.7 limit handles (after G7.3) and G9.10 to come |
 | G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ⬜ | [Profiler](design/future/profiler.md) |
 | G11 World-space UI: `Label3D`, UI anchored to 3D points (nameplates, markers), RmlUi panels rendered onto meshes with ray-picked input | ⬜ | [World-space UI](design/future/world-space-ui.md) |
 | G12 Gamepad haptics and input glyphs: rumble, controller type and last-used device, action → glyph for RmlUi and canvas text | ⬜ | [Haptics and input glyphs](design/future/input-haptics-and-glyphs.md) |

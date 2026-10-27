@@ -6,7 +6,7 @@ the Realistic profile also on [Rendering features](rendering-features.md) G6.1/G
 until then) and G6.4 (index-only LODs) · **Related:** [Procedural trees](procedural-trees.md) (G8b:
 `FoliageMaterial3D`, wind, `Tree3D` scatter), [Water](water.md) (G8c: renders the water layer),
 [Forest showcase](forest-showcase.md) (G8d: the Realistic profile's first user),
-[Editor viewport tools](editor-viewport-tools.md) (G7),
+[Editor viewport tools](../editor.md#viewport-tools) (G7),
 [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 
 ![The editor with a terrain selected: the Terrain dock beside the Inspector with mode tabs, brush settings and a list of texture layers, and a brush ring with a cursor label on the terrain in the viewport](../../images/terrain-dock.svg)
@@ -422,7 +422,7 @@ public sealed class EditorViewportToolAttribute(Type nodeType) : Attribute
 - **Discovery** scans for `[EditorViewportTool]` the way `CustomInspectors` scans for `[CustomInspector]`
   (`MainframeEngine.Editor/Src/Inspector/InspectorModel.cs:198-204`), reset on code reload.
 
-**Overlap with G7.** [Editor viewport tools](editor-viewport-tools.md) (G7) adds `IHandleProvider` point handles
+**Overlap with G7.** [Editor viewport tools](../editor.md#viewport-tools) (G7) adds `IHandleProvider` point handles
 (G7.3), box selection (G7.4) and Simulate (G7.5), not a tool that owns the viewport. The two meet in five places, and
 whichever lands first builds the shared piece: one attribute scan for `[CustomInspector]`, `[HandleProvider]` and
 `[EditorViewportTool]`; one drag/cursor label element in `viewport.rml`; the routing order (a captured tool drag
@@ -708,7 +708,7 @@ settled; **Decision:** is what to build.
 - [Procedural trees](procedural-trees.md) (G8b), [Water](water.md) (G8c), [Forest showcase](forest-showcase.md) (G8d),
   [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 - [Rendering features](rendering-features.md) (G6: PBR, IBL, LOD, binding budget),
-  [Editor viewport tools](editor-viewport-tools.md) (G7: handles, box selection, simulate)
+  [Editor viewport tools](../editor.md#viewport-tools) (G7: handles, box selection, simulate)
 - [Physics](../physics.md), [Materials & meshes](../materials-and-meshes.md), [Shaders](../shaders.md),
   [Editor](../editor.md), [Scene serialization](../scene-serialization.md),
   [Save games and settings](save-and-settings.md) (G4)

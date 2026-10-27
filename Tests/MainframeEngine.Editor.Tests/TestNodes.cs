@@ -31,6 +31,16 @@ public class TestSettings : Resource
     public string Label { get; set; } = "";
 }
 
+/// <summary>Sub-resources only inside a list and an array (Make Unique (Deep) must copy them).</summary>
+public class TestLevelSet : Resource
+{
+    [Export]
+    public List<TestSettings> Levels { get; set; } = [];
+
+    [Export]
+    public TestSettings[] Extras { get; set; } = [];
+}
+
 /// <summary>An array of sub-resources (a def with levels).</summary>
 public class LevelsNode : Node3D
 {
@@ -172,4 +182,17 @@ public sealed class SignalNodeInspector : ICustomInspector
         if (action == "ping")
             Actions++;
     }
+}
+
+/// <summary>G7.3: stock viewport handles from [Export(Handle = …)] (a game node's radius and reach).</summary>
+public class HandleHintNode : Node3D
+{
+    [Export(Range = "0,50,0.1", Handle = HandleHint.Radius)]
+    public float AggroRadius { get; set; } = 8f;
+
+    [Export(Handle = HandleHint.Length)]
+    public float Reach { get; set; } = 2f;
+
+    [Export(Handle = HandleHint.Radius)]
+    public int NotAFloat { get; set; }
 }

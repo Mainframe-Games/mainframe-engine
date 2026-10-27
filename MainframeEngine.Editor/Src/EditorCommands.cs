@@ -52,6 +52,13 @@ public sealed class EditorCommands
             return false;
         }
 
+        // Simulate (G7.5) locks the scene: edits wait until Stop (saving and opening files still work).
+        if (_workspace.Simulation?.IsActive == true && ChangesScene(id) && !id.StartsWith("file.", StringComparison.Ordinal))
+        {
+            Log.Info($"[Editor] '{id}' ignored while the scene simulates (Alt+F6 stops).");
+            return false;
+        }
+
         try
         {
             var known = Run(id);
@@ -130,6 +137,16 @@ public sealed class EditorCommands
                 _workspace.Gizmo.Snap = _workspace.Gizmo.Snap with { Enabled = !_workspace.Gizmo.Snap.Enabled };
                 _workspace.Toolbar.Refresh();
                 return true;
+            case "gizmo.pivot":
+                // Median → Active → Individual Origins → Median (Blender's pivot point).
+                _workspace.Gizmo.Pivot = _workspace.Gizmo.Pivot switch
+                {
+                    GizmoPivot.Median => GizmoPivot.Active,
+                    GizmoPivot.Active => GizmoPivot.Individual,
+                    _ => GizmoPivot.Median,
+                };
+                _workspace.Toolbar.Refresh();
+                return true;
             case "view.frame": _workspace.Viewport.FrameSelection(); return true;
             case "view.grid":
                 _workspace.Viewport.GridVisible = !_workspace.Viewport.GridVisible;
@@ -168,6 +185,9 @@ public sealed class EditorCommands
             case "play.another": _workspace.Play.PlayAnotherInstance(); return true;
             case "play.instances": _workspace.Play.PlayInstances(); return true;
             case "play.reload_scene": _workspace.Play.ReloadScene(); return true;
+            case "simulate.toggle": _workspace.Simulation.Toggle(); return true;
+            case "simulate.pause": _workspace.Simulation.TogglePause(); return true;
+            case "simulate.keep": _workspace.Simulation.KeepTransforms(); return true;
             case "project.build_reload": _workspace.Project.BuildAndReload(); return true;
             case "project.reload_code": _workspace.Project.ReloadGameAssembly(); return true;
             case "project.open": ChooseProjectFile(); return true;
@@ -972,6 +992,7 @@ public sealed class EditorCommands
     {
         _workspace.ProjectManager.Close();
         _workspace.Play.Stop();
+        _workspace.Simulation.Stop("Simulation stopped: the project closes."); // the copy holds game objects: free it before the code unloads
         Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
         // Music mode stays music mode: the start scene opens in game mode's tab strip, behind the music editor.
@@ -1050,6 +1071,7 @@ public sealed class EditorCommands
     private void ShowProjectManager() => AfterUnsavedScenes("Project Manager", () =>
     {
         _workspace.Play.Stop();
+        _workspace.Simulation.Stop("Simulation stopped: the project closes."); // the copy holds game objects: free it before the code unloads
         Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
         _workspace.Project.Close();
@@ -1090,6 +1112,7 @@ public sealed class EditorCommands
     private void CloseProject() => AfterUnsavedScenes("Close Project", () =>
     {
         _workspace.Play.Stop();
+        _workspace.Simulation.Stop("Simulation stopped: the project closes."); // the copy holds game objects: free it before the code unloads
         Session.CloseProjectTabs();
         _workspace.Inspector.CloseResource();
         _workspace.Project.Close();
@@ -1332,6 +1355,12 @@ public sealed class EditorCommands
                 new MenuItem(_workspace.Play.IsPaused ? "Resume" : "Pause", "play.pause", "F7", _workspace.Play.IsPlaying, Icon: "player-pause"),
                 new MenuItem("Reload Scene in Game", "play.reload_scene", null, _workspace.Play.IsPlaying, Icon: "refresh"),
                 new MenuItem("Stop", "play.stop", "F8", _workspace.Play.IsPlaying, Icon: "player-stop"),
+                MenuItem.Separator,
+                new MenuItem(_workspace.Simulation.IsActive ? "Stop Simulation" : "Simulate", "simulate.toggle", "Alt+F6", scene is not null,
+                    Icon: _workspace.Simulation.IsActive ? "player-stop" : "atom"),
+                new MenuItem(_workspace.Simulation.IsPaused ? "Resume Simulation" : "Pause Simulation", "simulate.pause", null, _workspace.Simulation.IsActive,
+                    Icon: "player-pause"),
+                new MenuItem("Keep Transforms", "simulate.keep", null, _workspace.Simulation.IsActive, Icon: "device-floppy"),
             ],
             "help" =>
             [
@@ -1541,7 +1570,7 @@ public sealed class EditorCommands
                   "Viewport: click select · RMB+WASD/QE fly (Shift faster) · Alt+LMB or MMB orbit · Shift+MMB pan · wheel zoom\n" +
                   "1 / 3 / 7 front, right, top view · F1 documentation · F12 developer overlay · F9 UI debugger\n" +
                   "Music mode: Space play/stop · R record · L loop · Home to start · M mixer · Del · Ctrl+C/V/D · arrows nudge (Shift: octave) · Q quantize · Ctrl+E render · Ctrl+B bake · Ctrl+wheel zoom\n" +
-                  "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · F10 play and record · Ctrl+Shift+B build & reload code",
+                  "F5 play · F6 play scene · Shift+F5 another instance · F7 pause · F8 stop · F10 play and record · Alt+F6 simulate · Ctrl+Shift+B build & reload code",
         Buttons = ["Close"],
     });
 

@@ -165,6 +165,28 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     }
 
     /// <summary>
+    /// Make Unique (G7.2): <paramref name="property"/> of <paramref name="target"/> gets an inline copy of the resource it
+    /// holds (<see cref="Resource.Duplicate"/>, <paramref name="deep"/> copies inline sub-resources too), as one undo
+    /// step. The file and every other slot keep the original. Returns the copy, or null when the slot is empty or the edit
+    /// was refused (the history is locked while the scene simulates).
+    /// </summary>
+    public Resource? MakeUnique(object target, ExportPropertyInfo property, bool deep)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(property);
+        if (property.GetValue(target) is not Resource original)
+            return null;
+        var copy = original.Duplicate(deep);
+        History.Commit(new CompositeAction($"Make {original.GetType().Name} Unique{(deep ? " (Deep)" : "")}",
+            new SetPropertyAction(target, property, original, copy)));
+        if (!ReferenceEquals(property.GetValue(target), copy))
+            return null; // refused (the scene simulates): nothing changed, no file to write
+        if (target is Resource { IsExternal: true } file)
+            _editedResourceFiles.Add(file); // a slot of a .mres edited in place: written with the scene
+        return copy;
+    }
+
+    /// <summary>
     /// Sets <paramref name="property"/> on several objects at once (multi-selection) as ONE history entry:
     /// <paramref name="values"/>[i] goes to <paramref name="targets"/>[i]. Nothing is recorded when no value changes.
     /// Every target is part of the entry (unchanged ones too), so a continuous edit with <paramref name="mergeKey"/>
@@ -201,6 +223,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     public Node AddNode(Node node, Node? parent = null, int index = -1)
     {
         ArgumentNullException.ThrowIfNull(node);
+        if (RefusesEdits())
+            return node;
         parent ??= Selection.Primary is { } selected && IsEditable(selected) ? selected : Root;
         History.Commit(new AddNodeAction(parent, node, Root, index));
         Selection.Set(node);
@@ -211,6 +235,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     public Node InstanceScene(string path, Node? parent = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
+        if (RefusesEdits())
+            throw new InvalidOperationException("The scene is simulating: stop the simulation to add nodes.");
         var full = AssetDatabase.Current.ToAbsolutePath(path);
         if (FilePath is not null && string.Equals(Path.GetFullPath(full), Path.GetFullPath(FilePath), StringComparison.Ordinal))
             throw new InvalidOperationException("A scene cannot instance itself.");
@@ -237,6 +263,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     public bool Delete(IReadOnlyList<Node> nodes)
     {
         ArgumentNullException.ThrowIfNull(nodes);
+        if (RefusesEdits())
+            return false;
         var roots = TopLevel(nodes);
         if (roots.Count == 0)
             return false;
@@ -253,6 +281,8 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     public IReadOnlyList<Node> Duplicate(IReadOnlyList<Node> nodes)
     {
         ArgumentNullException.ThrowIfNull(nodes);
+        if (RefusesEdits())
+            return [];
         var roots = TopLevel(nodes);
         if (roots.Count == 0)
             return [];
@@ -282,6 +312,19 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
         if (ReferenceEquals(node.Parent, newParent) && (index < 0 ? node.GetIndex() == newParent.ChildCount - 1 : index == node.GetIndex() || index == node.GetIndex() + 1))
             return false;
         History.Commit(new ReparentAction(node, newParent, index, keepGlobalTransform));
+        return true;
+    }
+
+    /// <summary>
+    /// Locks or unlocks <paramref name="node"/> in the viewport (G7.4: the persistent group <see cref="EditorLock.Group"/>,
+    /// saved with the scene) through the history; false when it already is.
+    /// </summary>
+    public bool SetLocked(Node node, bool locked)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        if (!IsEditable(node) || EditorLock.IsLocked(node) == locked)
+            return false;
+        History.Commit(new SetGroupAction(node, EditorLock.Group, locked, $"{(locked ? "Lock" : "Unlock")} {node.Name}"));
         return true;
     }
 
@@ -333,6 +376,15 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
         if (!connection.Source.IsConnected(connection.Signal, connection.Target, connection.Method))
             return false;
         History.Commit(new DisconnectSignalAction(connection));
+        return true;
+    }
+
+    // Simulate (G7.5) locks the history: structural edits are refused before they build anything.
+    private bool RefusesEdits()
+    {
+        if (!History.IsLocked)
+            return false;
+        Log.Info("[Editor] The scene is simulating: edits wait until Stop.");
         return true;
     }
 

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using MainframeEngine.Networking;
 using Silk.NET.Vulkan;
@@ -304,6 +305,10 @@ internal sealed class PhysicsStats(DevOverlaySources sources)
 {
     public bool Has;
     public int Bodies3D, Awake3D, Bodies2D, Awake2D;
+    public int Joints, ActiveJoints;
+    public float BrokenPerSecond;
+    private long _brokenTotal = -1;
+    private long _brokenSince;
 
     private PhysicsServer3D? Server3D => sources.Servers.Get<PhysicsServer3D>();
 
@@ -348,6 +353,25 @@ internal sealed class PhysicsStats(DevOverlaySources sources)
         Has = server3D is not null || server2D is not null;
         (Bodies3D, Awake3D) = server3D?.FindSpace(root.World3D) is { } space3D ? (space3D.ObjectCount, space3D.ActiveBodyCount) : (0, 0);
         (Bodies2D, Awake2D) = server2D?.FindSpace(root.World2D) is { } space2D ? (space2D.ObjectCount, space2D.ActiveBodyCount) : (0, 0);
+        var joints3D = server3D?.FindSpace(root.World3D);
+        var joints2D = server2D?.FindSpace(root.World2D);
+        Joints = (joints3D?.JointCount ?? 0) + (joints2D?.JointCount ?? 0);
+        ActiveJoints = (joints3D?.ActiveJointCount ?? 0) + (joints2D?.ActiveJointCount ?? 0);
+
+        // Breaks per second, measured over about a second (the panel refreshes more often).
+        var total = (joints3D?.BrokenJointTotal ?? 0) + (joints2D?.BrokenJointTotal ?? 0);
+        var now = Stopwatch.GetTimestamp();
+        if (_brokenTotal < 0 || total < _brokenTotal)
+        {
+            (_brokenTotal, _brokenSince) = (total, now);
+            return;
+        }
+
+        var seconds = (float)Stopwatch.GetElapsedTime(_brokenSince, now).TotalSeconds;
+        if (seconds < 1f)
+            return;
+        BrokenPerSecond = (total - _brokenTotal) / seconds;
+        (_brokenTotal, _brokenSince) = (total, now);
     }
 }
 

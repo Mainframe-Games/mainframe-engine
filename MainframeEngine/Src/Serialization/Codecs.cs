@@ -38,6 +38,13 @@ public abstract class ValueCodec<T>
 
     /// <summary>Equality used to skip default values when saving and to diff scene instances.</summary>
     public virtual bool ValueEquals(T a, T b) => EqualityComparer<T>.Default.Equals(a, b);
+
+    /// <summary>
+    /// A copy of a collection value (lists and arrays: a new collection whose elements are <paramref name="element"/>
+    /// of each, so <see cref="Resource.Duplicate"/> can copy inline resources inside them); other values are returned
+    /// as they are.
+    /// </summary>
+    public virtual T Copy(T value, Func<object?, object?> element) => value;
 }
 
 /// <summary>Built-in codecs. Generated registration code calls these; game code rarely needs to.</summary>
@@ -124,6 +131,8 @@ public static class Codecs
         public override T Read(JsonElement element, DeserializationContext context) => Target.Read(element, context);
 
         public override bool ValueEquals(T a, T b) => Target.ValueEquals(a, b);
+
+        public override T Copy(T value, Func<object?, object?> element) => Target.Copy(value, element);
     }
 
     /// <summary>
@@ -353,6 +362,16 @@ public static class Codecs
                     return false;
             return true;
         }
+
+        public override List<T> Copy(List<T> value, Func<object?, object?> map)
+        {
+            if (value is null)
+                return null!;
+            var copy = new List<T>(value.Count);
+            foreach (var item in value)
+                copy.Add((T)map(element.Copy(item, map))!);
+            return copy;
+        }
     }
 
     private sealed class ArrayCodec<T>(ValueCodec<T> element) : ValueCodec<T[]>
@@ -392,6 +411,16 @@ public static class Codecs
                 if (!element.ValueEquals(a[i], b[i]))
                     return false;
             return true;
+        }
+
+        public override T[] Copy(T[] value, Func<object?, object?> map)
+        {
+            if (value is null)
+                return null!;
+            var copy = new T[value.Length];
+            for (var i = 0; i < value.Length; i++)
+                copy[i] = (T)map(element.Copy(value[i], map))!;
+            return copy;
         }
     }
 }

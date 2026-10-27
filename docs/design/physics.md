@@ -64,6 +64,7 @@ classDiagram
         +float FloorMaxAngle, FloorSnapLength, SafeMargin
         +bool FloorStopOnSlope
         +MoveAndSlide() bool
+        +ApplyRootMotion(AnimationPlayer)
         +IsOnFloor() / IsOnWall() / IsOnCeiling()
         +GetSlideCollision(i)
     }
@@ -157,7 +158,9 @@ flowchart LR
 ![Fixed-step timeline](../images/physics-fixed-step.svg)
 
 The scene tree owns the clock ([Scene graph & nodes](scene-graph-and-nodes.md#the-frame-scenetreetick)): up to 5
-steps of 1/60 s per frame, frame deltas clamped to 0.25 s. Physics servers are `IFixedStepServer`s:
+steps of 1/60 s per frame, frame deltas clamped to 0.25 s. In edit mode (the editor) nothing steps, except the spaces of a
+sub-viewport whose `Simulation` is `Running` (the editor's Simulate: the servers step and interpolate only those spaces;
+[Scene graph & nodes](scene-graph-and-nodes.md#simulation-in-edit-mode)). Physics servers are `IFixedStepServer`s:
 
 ```
 frame (not paused):
@@ -231,37 +234,16 @@ a solver ([ADR 0022](../../memory/decisions/0022-physics-signal-dispatch.md)):
   in which case neither is reported. Queued events of removed bodies are skipped, so `Free()`/`QueueFree()` inside a
   signal handler or `OnPhysicsProcess` is safe.
 
-## 2D joints (ADR 0201)
+## Joints and ragdolls
 
-`PinJoint2D` (a Box2D revolute joint) and `DampedSpringJoint2D` (a distance joint with spring and max length) derive
-from `Joint2D : Node2D`. They connect the `PhysicsBody2D`s at `NodeA`/`NodeB` at the joint's position. An empty path
-is the static world: a shapeless static body per space, created on first use. This is the 2D slice of
-[G9](future/physics-joints.md); 3D joints are still to come.
-
-- **Creation is deferred** to the space's flush before a step or query, after the bodies are flushed. The paths may be
-  set before or after the bodies enter the tree (Buy My Snake Oil assigns them after). Changing a path, or
-  `DampedSpringJoint2D.Length`, re-creates the joint at the joint's current pose. Both paths empty is an inactive
-  joint, with nothing logged. A path to a non-body, to another world's body, or both paths on one body logs one error.
-- **Frames** are the joint's pose in each body's local space, captured when the joint is created (`localFrameA/B`).
-  For the spring, B's anchor is `Length` along the joint's +Y.
-- **Bodies leaving.** Box2D's `b2DestroyBody` destroys a body's joints. The record forgets its handle, and the joint is
-  re-created at the same frames when the body (or another at that path) joins again. Mode changes keep joints
-  (`b2Body_SetType`). A freed joint destroys its Box2D joint at once.
-- **Softness is Box2D's** (no Godot `Softness`/`Bias`): `ConstraintHertz` (default 60) and `ConstraintDampingRatio`
-  (default 2), per joint and live (`b2Joint_SetConstraintTuning`). `DisableCollision` (default true), thresholds,
-  `PinJoint2D` limits and motor, and the spring's rest length, frequency and damping are live too.
-- **Units are pixels:** forces are kg·px/s² and torques kg·px²/s², converted with `PixelsPerMeter`.
-  `PinJoint2D.MotorMaxTorque` defaults to 10⁶ kg·px²/s² (100 N·m) and must stay finite, because Box2D's limits are
-  soft and an unbounded motor drives through them.
-- **Breaking.** `BreakForce`/`BreakTorque` (0 = never) become Box2D's `forceThreshold`/`torqueThreshold`. After each
-  step, the space reads `b2World_GetJointEvents`, destroys each joint over its threshold, and emits `Broken` once, after
-  the body signals. `IsBroken` stays set and `GetAppliedForce`/`GetAppliedTorque` report the force that broke it, until
-  `Rebuild()`. `GetSeparation()` is the anchors' distance in pixels.
-- **Debug draw** shows each joint's two anchors and the line between them: amber, or red when the joint is stretched
-  past 5 px (the spring: past `Length`).
-- **Stability:** an 11 × 11 lattice of 0.2 kg bodies with 431 pins at 120 Hz and 4 substeps settles with under 0.1 px
-  of separation. After a hard yank on a corner, it peaks at 2.5 px and settles again. In a Debug build a step costs
-  about 0.27 ms (`Physics2DJointTests`).
+[Physics joints and ragdolls](physics-joints.md) (ADR 0201, 0211, 0212): `PinJoint3D`, `HingeJoint3D`,
+`SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D` over Jitter2 constraints and `PinJoint2D`,
+`DampedSpringJoint2D`, `SliderJoint2D`, `GrooveJoint2D`, `WeldJoint2D`, `WheelJoint2D` over Box2D joints, with limits,
+motors, springs, breaking (`Broken`, `Rebuild()`), collision exclusion and debug draw. Joints are created at the space's
+flush after their bodies, keep their authored frames when bodies leave and return or switch Dynamic ↔ Kinematic, and
+wait (3D) while neither body is dynamic. `Ragdoll3D` turns its rigid-body children into a ragdoll; `PhysicalBone3D`
+bodies under a `PhysicalBoneSimulator3D` ragdoll a `Skeleton3D`. A 2D lattice of 121 bodies and 431 pins at 120 Hz
+with 4 substeps settles under 0.1 px of separation and steps in about 0.27 ms in a Debug build (ADR 0201).
 
 ## Queries
 
@@ -324,6 +306,13 @@ Neither library ships a character controller, so it is the engine's. Call `MoveA
 
 The final position is written to the node, which turns into a kinematic move of the body for this step, so dynamic
 bodies in its way are pushed (the body collides with what its layer meets, even outside its own mask).
+
+**Root motion** ([ADR 0210](../../memory/decisions/0210-root-motion.md),
+[Animation → Root motion](animation.md#root-motion)): `CharacterBody3D.ApplyRootMotion(player)`, called before
+`MoveAndSlide()`, sets `Velocity` from the `AnimationPlayer`'s last root motion (turned into world space by the skeleton's
+global basis, divided by the physics step; only the horizontal part unless the player's `RootMotionVertical`, so gravity
+the game adds still applies) and turns the body by the motion's yaw about the skeleton's up axis. The player runs in
+the `Physics` callback mode so there is one motion per step; collisions still stop and slide the body as usual.
 
 **EPA warnings.** The casts, the recovery and the settle run with Jitter2's log listener detached (`JitterLogMute`):
 EPA not converging is expected there (the next query takes over), and Jitter2 formats its warning string whenever a
@@ -389,21 +378,21 @@ the first step after the terrain enters (and ≈ 0.65 s more over the next secon
 
 Unit tests in [`Tests/MainframeEngine.Tests/Physics/`](../../Tests/MainframeEngine.Tests/Physics/): gravity, rest and
 sleep; layer/mask semantics (incl. runtime changes on resting bodies); gravity scale and axis locks; contact, area,
-area-vs-area and sleep signals; 2D joints (creation order, bodies leaving and returning, breaking, live
-limits, motor and softness, springs, a 431-pin lattice at 120 Hz) (ordering, main thread, removal and `QueueFree` mid-dispatch); queries (rays, shape casts, overlaps,
+area-vs-area and sleep signals (ordering, main thread, removal and `QueueFree` mid-dispatch); joints and ragdolls
+([Physics joints → Tests](physics-joints.md#tests)); queries (rays, shape casts, overlaps,
 concave/height-map shapes, every shape type with scale); `MoveAndSlide` (floor, walls, 30° slopes, steep slopes,
 ceilings, snap down a 5 cm step, recovery, pushing crates); interpolation (exact lerp, physics pose in
 `OnPhysicsProcess`, teleport, pause); serialization round-trips of every body and shape; server lifecycle; debug
 draw; the fixed-step hooks; allocation gates (3D and 2D). Render tests: `physics` (frames 30 and 150),
-`physics-debug` (collision shapes) goldens and a determinism check (deterministic solver, one thread). See
+`physics-debug` (collision shapes) and `physics-joints` goldens and a determinism check (deterministic solver, one thread). See
 [Testing](testing.md).
 
 ## Known issues
 
 - Area-vs-area detection is a pairwise pass in 3D (O(monitoring areas × areas) bounds tests per step), fine for dozens
   of areas; there is no per-shape `area_shape_entered`.
-- Joints are 2D only, and only pin and damped spring (no 3D joints, slider, groove, weld or wheel yet: G9). No soft
-  bodies, vehicles or ragdoll tooling; no per-shape signals (`body_shape_entered`).
+- No soft bodies or vehicles (beyond `WheelJoint2D`), no 6-DOF joint ([Physics joints](physics-joints.md)); no
+  per-shape signals (`body_shape_entered`).
 - Contacts that begin and end within one step aren't reported; `ContactMonitor` reports touching bodies, not impulses.
 - Queries ignore a query shape's scale and never report areas; 2D has no height field, and chain shapes aren't used.
 - Kinematic/character moves made outside `OnPhysicsProcess` reach queries only after the next step.

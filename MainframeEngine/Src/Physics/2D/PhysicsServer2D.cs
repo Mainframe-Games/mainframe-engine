@@ -98,6 +98,9 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
     /// <summary>Draw every 2D collision shape each frame into the viewport's <see cref="DebugLines"/> (z = 0 plane, pixels).</summary>
     public bool DebugDrawEnabled { get; set; }
 
+    /// <summary>Draw the joints (ADR 0211) even while <see cref="DebugDrawEnabled"/> is off; on, it draws them anyway.</summary>
+    public bool DebugDrawJoints { get; set; }
+
     public IReadOnlyList<PhysicsSpace2D> Spaces => _spaceList;
 
     /// <summary>The tree's 2D physics server, registering a default one if there is none.</summary>
@@ -131,25 +134,38 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
         return space;
     }
 
+    // In edit mode (the editor) only the spaces of a running simulation step and interpolate (G7.5); in a game, all of them.
+    private static bool Steps(SceneViewport viewport) =>
+        viewport.Tree is not { EditMode: true } || viewport.ResolvedSimulation == ViewportSimulation.Running;
+
     // Index loops: a signal handler may add the first body of another viewport (a new space) mid-step.
 
     public void BeforeFixedSteps()
     {
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].BeforeFixedSteps();
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].BeforeFixedSteps();
+        }
     }
 
     public void FixedStep(float delta)
     {
         // Several worlds step one at a time.
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].Step(delta);
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].Step(delta);
+        }
     }
 
     public void AfterFixedSteps(float interpolationFraction)
     {
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].AfterFixedSteps(interpolationFraction);
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].AfterFixedSteps(interpolationFraction);
+        }
     }
 
     /// <summary>Per frame (after transform sync): releases spaces of viewports that left the tree; debug drawing.</summary>
@@ -165,10 +181,10 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
             space.Dispose();
         }
 
-        if (!DebugDrawEnabled)
+        if (!DebugDrawEnabled && !DebugDrawJoints)
             return;
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines);
+            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines, shapes: DebugDrawEnabled);
     }
 
     public void Dispose()

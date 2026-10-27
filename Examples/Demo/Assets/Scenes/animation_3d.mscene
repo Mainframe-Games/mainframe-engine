@@ -17,6 +17,12 @@
         "Size": [30, 30]
       }
     },
+    "BoxShape3D_4fwnz": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [30, 1, 30]
+      }
+    },
     "StandardMaterial3D_d20cs": {
       "type": "StandardMaterial3D",
       "props": {
@@ -27,6 +33,153 @@
       "type": "BoxMesh",
       "props": {
         "Size": [0.05, 0.05, 0.34]
+      }
+    },
+    "CapsuleShape3D_vcg32": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.024023438,
+        "Height": 0.12011719
+      }
+    },
+    "CapsuleShape3D_lllad": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.02998047,
+        "Height": 0.14990234
+      }
+    },
+    "CapsuleShape3D_afe4f": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.02998047,
+        "Height": 0.14990234
+      }
+    },
+    "CapsuleShape3D_d16o5": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.024023438,
+        "Height": 0.12011719
+      }
+    },
+    "CapsuleShape3D_d28kj": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.016015625,
+        "Height": 0.080078125
+      }
+    },
+    "CapsuleShape3D_twejm": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.04399414,
+        "Height": 0.2199707
+      }
+    },
+    "CapsuleShape3D_ye3h3": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.024023438,
+        "Height": 0.12011719
+      }
+    },
+    "CapsuleShape3D_1zma5": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.05600586,
+        "Height": 0.2800293
+      }
+    },
+    "CapsuleShape3D_u5rxi": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.052001953,
+        "Height": 0.26000977
+      }
+    },
+    "CapsuleShape3D_3nxnm": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.010009766,
+        "Height": 0.050048828
+      }
+    },
+    "CapsuleShape3D_hv2ql": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.024023438,
+        "Height": 0.12011719
+      }
+    },
+    "CapsuleShape3D_1fxrb": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.05600586,
+        "Height": 0.2800293
+      }
+    },
+    "CapsuleShape3D_b0i7s": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.052001953,
+        "Height": 0.26000977
+      }
+    },
+    "CapsuleShape3D_81nks": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.010009766,
+        "Height": 0.050048828
+      }
+    },
+    "CapsuleShape3D_d3o0z": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.08598633,
+        "Height": 0.42993164
+      }
+    },
+    "CapsuleShape3D_e5t0k": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.083984375,
+        "Height": 0.41992188
+      }
+    },
+    "CapsuleShape3D_d5xjf": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.026859019,
+        "Height": 0.13429509
+      }
+    },
+    "CapsuleShape3D_4prtt": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.08598633,
+        "Height": 0.42993164
+      }
+    },
+    "CapsuleShape3D_r3ohm": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.083984375,
+        "Height": 0.41992188
+      }
+    },
+    "CapsuleShape3D_1gxcp": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.026859019,
+        "Height": 0.13429509
+      }
+    },
+    "CapsuleShape3D_xstdi": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.8
       }
     }
   },
@@ -73,6 +226,22 @@
       }
     },
     {
+      "name": "Ground",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [0, -0.5, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Ground",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_4fwnz" }
+      }
+    },
+    {
       "name": "Crew",
       "parent": ".",
       "instance": "mdl_c4a2ac7e2000",
@@ -108,6 +277,442 @@
         "Color": [1, 0.62, 0.25],
         "Energy": 1.6,
         "Range": 3
+      }
+    },
+    {
+      "name": "PhysicalBoneSimulator3D",
+      "parent": "Crew/Armature",
+      "type": "PhysicalBoneSimulator3D"
+    },
+    {
+      "name": "Bone_Hips",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0, 1.0600586, 0],
+        "BoneName": "Hips",
+        "BodyOffset": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.060058594, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.060058594, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Hips",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_vcg32" }
+      }
+    },
+    {
+      "name": "Bone_Spine",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0, 1.1950684, 0],
+        "BoneName": "Spine",
+        "BodyOffset": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07495117, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.07495117, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Spine",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_lllad" }
+      }
+    },
+    {
+      "name": "Bone_Chest",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0, 1.3449707, 0],
+        "BoneName": "Chest",
+        "BodyOffset": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07495117, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.07495117, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Chest",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_afe4f" }
+      }
+    },
+    {
+      "name": "Bone_UpperChest",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0, 1.4799805, 0],
+        "BoneName": "UpperChest",
+        "BodyOffset": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.060058594, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.060058594, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_UpperChest",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_d16o5" }
+      }
+    },
+    {
+      "name": "Bone_Neck",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0, 1.5800781, 0],
+        "BoneName": "Neck",
+        "BodyOffset": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.040039062, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.040039062, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Neck",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_d28kj" }
+      }
+    },
+    {
+      "name": "Bone_Head",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0, 1.7301025, 0],
+        "BoneName": "Head",
+        "BodyOffset": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.10998535, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.10998535, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Head",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_twejm" }
+      }
+    },
+    {
+      "name": "Bone_Shoulder_L",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0.12011719, 1.5200195, 0],
+        "RotationDegrees": [0, 0, -90],
+        "Scale": [1.0000001, 1.0000001, 1],
+        "BoneName": "Shoulder.L",
+        "BodyOffset": [-1.1920929E-07, -1.0000001, -0, 1.0000001, -1.1920929E-07, 0, 0, -0, 1, 0.060058594, 0, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.060058594, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Shoulder_L",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_ye3h3" }
+      }
+    },
+    {
+      "name": "Bone_UpperArm_L",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0.32019043, 1.5200195, 0],
+        "RotationDegrees": [0, 0, -90],
+        "Scale": [1.0000001, 1.0000001, 1],
+        "BoneName": "UpperArm.L",
+        "BodyOffset": [-1.1920929E-07, -1.0000001, -0, 1.0000001, -1.1920929E-07, 0, 0, -0, 1, 0.14001465, 0, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.14001465, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_UpperArm_L",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_1zma5" }
+      }
+    },
+    {
+      "name": "Bone_LowerArm_L",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0.59020996, 1.5200195, 0],
+        "RotationDegrees": [0, 0, -90],
+        "Scale": [1.0000001, 1.0000001, 1],
+        "BoneName": "LowerArm.L",
+        "BodyOffset": [-1.1920929E-07, -1.0000001, -0, 1.0000001, -1.1920929E-07, 0, 0, -0, 1, 0.13000488, 0, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.13000488, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_LowerArm_L",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_u5rxi" }
+      }
+    },
+    {
+      "name": "Bone_Hand_L",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0.7352295, 1.5200195, 0.020019531],
+        "RotationDegrees": [65.772, 28.685, -43.152],
+        "BoneName": "Hand.L",
+        "BodyOffset": [0.64, -0.6, -0.48000002, 0.6, 0, 0.8, -0.48000002, -0.8, 0.35999995, 0.015014648, 0, 0.020019531],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.025024414, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Hand_L",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_3nxnm" }
+      }
+    },
+    {
+      "name": "Bone_Shoulder_R",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [-0.12011719, 1.5200195, 0],
+        "RotationDegrees": [0, 0, 90],
+        "Scale": [1.0000001, 1.0000001, 1],
+        "BoneName": "Shoulder.R",
+        "BodyOffset": [-1.1920929E-07, 1.0000001, 0, -1.0000001, -1.1920929E-07, 0, 0, -0, 1, -0.060058594, 0, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.060058594, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Shoulder_R",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_hv2ql" }
+      }
+    },
+    {
+      "name": "Bone_UpperArm_R",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [-0.32019043, 1.5200195, 0],
+        "RotationDegrees": [0, 0, 90],
+        "Scale": [1.0000001, 1.0000001, 1],
+        "BoneName": "UpperArm.R",
+        "BodyOffset": [-1.1920929E-07, 1.0000001, 0, -1.0000001, -1.1920929E-07, 0, 0, -0, 1, -0.14001465, 0, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.14001465, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_UpperArm_R",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_1fxrb" }
+      }
+    },
+    {
+      "name": "Bone_LowerArm_R",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [-0.59020996, 1.5200195, 0],
+        "RotationDegrees": [0, 0, 90],
+        "Scale": [1.0000001, 1.0000001, 1],
+        "BoneName": "LowerArm.R",
+        "BodyOffset": [-1.1920929E-07, 1.0000001, 0, -1.0000001, -1.1920929E-07, 0, 0, -0, 1, -0.13000488, 0, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.13000488, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_LowerArm_R",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_b0i7s" }
+      }
+    },
+    {
+      "name": "Bone_Hand_R",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [-0.7352295, 1.5200195, 0.020019531],
+        "RotationDegrees": [65.772, -28.685, 43.152],
+        "BoneName": "Hand.R",
+        "BodyOffset": [0.64, 0.6, 0.48000002, -0.6, 0, 0.8, 0.48000002, -0.8, 0.35999995, -0.015014648, 0, 0.020019531],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.025024414, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Hand_R",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_81nks" }
+      }
+    },
+    {
+      "name": "Bone_UpperLeg_L",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0.100097656, 0.73498535, 0],
+        "RotationDegrees": [-180, 0, 0],
+        "BoneName": "UpperLeg.L",
+        "BodyOffset": [1, 0, 0, 0, -1, -8.742278E-08, 0, 8.742278E-08, -1, 0, -0.21496582, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.21496582, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_UpperLeg_L",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_d3o0z" }
+      }
+    },
+    {
+      "name": "Bone_LowerLeg_L",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0.100097656, 0.3100586, 0],
+        "RotationDegrees": [-180, 0, 0],
+        "BoneName": "LowerLeg.L",
+        "BodyOffset": [1, 0, 0, 0, -1, -8.742278E-08, 0, 8.742278E-08, -1, 0, -0.20996094, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.20996094, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_LowerLeg_L",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_e5t0k" }
+      }
+    },
+    {
+      "name": "Bone_Foot_L",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [0.100097656, 0.07006836, 0.060058594],
+        "RotationDegrees": [116.565, 0, 0],
+        "BoneName": "Foot.L",
+        "BodyOffset": [1, 0, -0, 0, -0.44721353, 0.89442724, 0, -0.89442724, -0.44721353, 0, -0.030029297, 0.060058594],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.067147546, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Foot_L",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_d5xjf" }
+      }
+    },
+    {
+      "name": "Bone_UpperLeg_R",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [-0.100097656, 0.73498535, 0],
+        "RotationDegrees": [-180, 0, 0],
+        "BoneName": "UpperLeg.R",
+        "BodyOffset": [1, 0, 0, 0, -1, -8.742278E-08, 0, 8.742278E-08, -1, 0, -0.21496582, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.21496582, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_UpperLeg_R",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_4prtt" }
+      }
+    },
+    {
+      "name": "Bone_LowerLeg_R",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [-0.100097656, 0.3100586, 0],
+        "RotationDegrees": [-180, 0, 0],
+        "BoneName": "LowerLeg.R",
+        "BodyOffset": [1, 0, 0, 0, -1, -8.742278E-08, 0, 8.742278E-08, -1, 0, -0.20996094, 0],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.20996094, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_LowerLeg_R",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_r3ohm" }
+      }
+    },
+    {
+      "name": "Bone_Foot_R",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D",
+      "type": "PhysicalBone3D",
+      "props": {
+        "Position": [-0.100097656, 0.07006836, 0.060058594],
+        "RotationDegrees": [116.565, 0, 0],
+        "BoneName": "Foot.R",
+        "BodyOffset": [1, 0, -0, 0, -0.44721353, 0.89442724, 0, -0.89442724, -0.44721353, 0, -0.030029297, 0.060058594],
+        "JointOffset": [5.9604645E-08, 0.99999994, 0, -0.99999994, 5.9604645E-08, 0, 0, 0, 1, 0, -0.067147546, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crew/Armature/PhysicalBoneSimulator3D/Bone_Foot_R",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_1gxcp" }
+      }
+    },
+    {
+      "name": "Walker",
+      "parent": ".",
+      "type": "RootMotionWalker",
+      "props": {
+        "Position": [2.2, 0, -5],
+        "RotationDegrees": [0, -90, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walker",
+      "type": "CollisionShape3D",
+      "props": {
+        "Position": [0, 0.9, 0],
+        "Shape": { "res": "CapsuleShape3D_xstdi" }
+      }
+    },
+    {
+      "name": "Model",
+      "parent": "Walker",
+      "instance": "mdl_c4a2ac7e2000",
+      "path": "Assets/Models/Character/character.glb",
+      "overrides": {
+        "AnimationPlayer": {
+          "CallbackModeProcess": "Physics",
+          "RootMotionTrack": "Armature",
+          "RootMotionBone": "Hips"
+        }
       }
     },
     {

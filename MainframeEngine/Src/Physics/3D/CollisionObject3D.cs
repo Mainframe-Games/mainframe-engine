@@ -74,6 +74,22 @@ public abstract class CollisionObject3D : Node3D
         }
     }
 
+    /// <summary>
+    /// Objects with the same non-zero group never collide with each other, whatever their layers (a ragdoll's parts,
+    /// ADR 0212). Not saved: the owner sets it at run time.
+    /// </summary>
+    internal int ExclusionGroup
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+            field = value;
+            Record?.OnFilterChanged();
+        }
+    }
+
     /// <summary>The physics space this object is in (null outside a tree).</summary>
     public PhysicsSpace3D? Space => Record?.Space;
 

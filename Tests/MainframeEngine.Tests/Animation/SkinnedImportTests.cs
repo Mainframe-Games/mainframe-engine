@@ -6,7 +6,7 @@ namespace MainframeEngine.Tests.Animation;
 
 /// <summary>
 /// ADR 0207/0208: the generated Blender-style character imports to a <see cref="Skeleton3D"/>, a skinned
-/// <see cref="MeshInstance3D"/> with a <see cref="Skin"/>, and an <see cref="AnimationPlayer"/> with its eight clips (loop
+/// <see cref="MeshInstance3D"/> with a <see cref="Skin"/>, and an <see cref="AnimationPlayer"/> with its ten clips (loop
 /// modes and events from the glTF extras and the <c>.meta</c>); the clips evaluate and the CPU skinning reference follows.
 /// </summary>
 /// <remarks>Needs the Assimp native library.</remarks>
@@ -56,7 +56,7 @@ public sealed class SkinnedImportTests : IDisposable
     }
 
     [Fact]
-    public void ACharacterImportsToASkeletonASkinnedMeshAndAPlayerWithEightClips()
+    public void ACharacterImportsToASkeletonASkinnedMeshAndAPlayerWithTenClips()
     {
         var root = Instantiate();
 
@@ -101,6 +101,10 @@ public sealed class SkinnedImportTests : IDisposable
         Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation("idle")!.LoopMode);
         Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation("craft")!.LoopMode); // from the .meta clips
         Assert.Equal(AnimationLoopMode.None, player.GetAnimation("swing")!.LoopMode);
+        Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation("circle")!.LoopMode); // root motion clips (ADR 0210)
+        Assert.Equal(AnimationLoopMode.None, player.GetAnimation("jump")!.LoopMode);
+        var hips = player.GetAnimation("jump")!.Tracks.OfType<Position3DTrack>().Single(t => t.Bone == "Hips");
+        Assert.Equal(SkinnedCharacter.JumpDistance, hips.Sample(SkinnedCharacter.JumpLength).Z, 3);
         Assert.Equal(0.66f, player.GetAnimation("run")!.Length, 2);
         Assert.Equal([("HammerFist", SkinnedCharacter.SwingEventTime)], player.GetAnimation("swing")!.GetEvents().ToArray());
         Assert.Equal(["Step", "Step"], player.GetAnimation("run")!.GetEvents().Select(e => e.Name));

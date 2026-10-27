@@ -9,7 +9,7 @@ the current state; this proposal keeps what is still planned · **Depends on:** 
 [Animation authoring](animation-authoring.md) (G1c–G1f:
 Claude-made clips, `mfe`, posing tools, root motion), [2D content](2d-content.md) (G2: `AnimatedSprite2D` uses
 the same player ideas), [Rendering features](rendering-features.md) (G6: PBR shaders skinned meshes must still feed),
-[Editor viewport tools](editor-viewport-tools.md) (G7: Save as `.mres` / Make unique for imported libraries),
+[Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mres` / Make unique for imported libraries),
 [Mobile](mobile.md) (AOT), [Rendering backend abstraction](rendering-backend-abstraction.md) (compute in M11)
 
 ![The editor's Animation panel in the bottom dock: transport, track list grouped by node, timeline with keys, a method key and an audio clip, key editor, and key buttons in the inspector](../../images/animation-timeline.svg)
@@ -432,7 +432,7 @@ Layout (see the mockup): `animation.rml` (new) holds the chrome; the timeline is
   `RenameAnimationAction`. Key drags merge by key until release (`EndMerge`), like gizmo drags. Preview writes are not
   history entries. An animation in an external `.mres` library is edited the same way and saved with the scene
   ([open question 5](#open-questions)). Imported libraries (G1b) are read-only until saved as `.mres`
-  ([Editor viewport tools](editor-viewport-tools.md), G7).
+  ([Editor viewport tools](../editor.md#viewport-tools), G7).
 - **Icons** to add to `MainframeEngine.Editor/Assets/icons/icons.txt`: `keyframe`, `keyframes`, `player-skip-back`,
   `player-track-prev`, `repeat-off`, `vector-bezier`, `timeline`, `zoom-in`, `zoom-out`, `pin`, `books` (the `AnimationLibrary` type icon). Present already: `key`,
   `movie`, `player-play`, `player-pause`, `player-stop`, `repeat`, `magnet`, `plus`, `trash`, `filter`, `bone`.
@@ -481,7 +481,7 @@ in `limits.json` (`Skin.MaxJoints` in C#; the shader takes the joint count as a 
 `EventTrack` until method tracks exist.
 
 Still planned for G1b: morph targets, instancing identical skinned characters, and the editor's "Save animations as
-`.mres`" ([G7](editor-viewport-tools.md)). Root motion is G1e ([Animation authoring](animation-authoring.md#g1e-root-motion)).
+`.mres`" ([G7](../editor.md#viewport-tools)). Root motion shipped as G1e ([Animation and skinning → Root motion](../animation.md#root-motion)).
 
 ## Testing
 
@@ -556,7 +556,7 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
 10. ✅ **G1.10 Import.** Bones → `Skeleton3D`, weights, skins, clips → `AnimationLibrary` + `AnimationPlayer`, `.meta`
     settings; test model; `asset-pipeline.md`, `materials-and-meshes.md`.
 11. 🚧 **G1.11 Follow-ups.** ✅ `BoneAttachment3D`; ✅ Demo skinned character (`animation_3d`); "Save animations as .mres" with
-    [G7](editor-viewport-tools.md).
+    [G7](../editor.md#viewport-tools).
 
 ## Open questions
 
@@ -568,7 +568,7 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
    `$AssimpFbx$` pivot nodes unless its `PRESERVE_PIVOTS` option is off (the importer passes no options today), and
    morph targets and sparse accessors are uneven. A managed glTF reader would be exact for glTF. Candidate if needed:
    SharpGLTF (MIT, actively maintained). New dependency: discuss first.
-3. ~~**Root motion.**~~ Resolved: G1e in [Animation authoring](animation-authoring.md#g1e-root-motion)
+3. ~~**Root motion.**~~ Resolved and shipped: G1e, [Animation and skinning → Root motion](../animation.md#root-motion) (ADR 0210)
    (`RootMotionTrack`/`RootMotionBone` on the player, `CharacterBody3D.ApplyRootMotion`).
 4. **Large clips in JSON.** Imported clips are never written, but a clip saved as `.mres` (G7) can be megabytes of JSON.
    A binary sidecar would revisit ADR 0011.
@@ -588,5 +588,5 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
 [Scene serialization](../scene-serialization.md) · [Asset pipeline](../asset-pipeline.md) ·
 [Materials & meshes](../materials-and-meshes.md) · [GPU resources](../gpu-resources.md) · [Physics](../physics.md) ·
 [Networking](../networking.md) · [Editor](../editor.md) · [Music editor](music-editor.md) ·
-[2D content](2d-content.md) · [Rendering features](rendering-features.md) · [Editor viewport tools](editor-viewport-tools.md) ·
+[2D content](2d-content.md) · [Rendering features](rendering-features.md) · [Editor viewport tools](../editor.md#viewport-tools) ·
 [Mobile](mobile.md) · [Animation authoring](animation-authoring.md)

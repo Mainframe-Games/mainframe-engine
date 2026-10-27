@@ -46,6 +46,13 @@ namespace MainframeEngine.Editor;
 /// collapse Node/Path / expand Node/Path  # a scene tree row
 /// update-preview X.Y.Z       # the update dialog for a made-up release (no network)
 /// view-resolution full        # the 3D view's resolution for this run (auto, full, threeQuarters, half; not saved)
+/// select-add Node/Path        # adds a node to the selection (it becomes the active one)
+/// pivot median|active|individual       # the multi-node gizmo's pivot (G7.1)
+/// res-menu Property [res-save|res-unique|res-unique-deep|res-open|res-show]   # a resource row's More menu (G7.2)
+/// handle-drag 0 dx dy [frames]          # drags range handle 0 of the selection by (dx, dy) points (G7.3)
+/// box-select x0 y0 x1 y1 [shift|cmd] [hold]   # a selection rectangle; hold keeps the button down until mouse-up (G7.4)
+/// mouse-up / lock Node/Path   # releases a held box; toggles a node's viewport lock (G7.4)
+/// simulate start|pause|stop|keep        # Simulate in the view (G7.5)
 /// quit
 /// </code>
 /// </summary>
@@ -177,6 +184,84 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "box-select":
+                {
+                    // box-select x0 y0 x1 y1 [shift|cmd] [hold]: a left drag from (x0, y0) to (x1, y1) layout points with the
+                    // modifier held (shift adds, cmd toggles); "hold" keeps the button down until mouse-up.
+                    var boxFrom = new Vector2(Float(step, 1), Float(step, 2));
+                    var boxTo = new Vector2(Float(step, 3), Float(step, 4));
+                    var options = step[5..];
+                    _dragModifier = options.Contains("shift") ? Key.ShiftLeft
+                        : options.Contains("cmd") ? OperatingSystem.IsMacOS() ? Key.SuperLeft : Key.ControlLeft
+                        : null;
+                    _holdDrag = options.Contains("hold") ? MouseButton.Left : null;
+                    if (_dragModifier is { } modifier)
+                        tree.PushInput(new InputEventKey { Key = modifier, Pressed = true });
+                    _drag = (boxFrom, boxTo, MouseButton.Left, 20, 0);
+                    _mouse = boxFrom;
+                    tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, boxFrom) });
+                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = Pointer(app, boxFrom) });
+                    break;
+                }
+
+            case "mouse-up":
+                if (_holdDrag is { } held)
+                {
+                    tree.PushInput(new InputEventMouseButton { Button = held, Pressed = false, Position = Pointer(app, _mouse) });
+                    ReleaseDragModifier(tree);
+                    _holdDrag = null;
+                }
+
+                break;
+            case "simulate":
+                // simulate start|pause|stop|keep (G7.5): starts without the rebuild question, pauses or resumes, stops, or
+                // Keep Transforms.
+                switch (step[1])
+                {
+                    case "start" when workspace.Session.Active is { } simulated:
+                        workspace.Simulation.StartNow(simulated);
+                        break;
+                    case "pause":
+                        workspace.Simulation.TogglePause();
+                        break;
+                    case "keep":
+                        workspace.Simulation.KeepTransforms();
+                        break;
+                    default:
+                        workspace.Simulation.Stop();
+                        break;
+                }
+
+                Log.Info($"[QA] simulate {step[1]}: {(workspace.Simulation.IsActive ? workspace.Simulation.IsPaused ? "paused" : "running" : "stopped")}");
+                break;
+            case "lock":
+                // lock Node/Path: toggles the node's viewport lock (the Scene panel's lock button).
+                if (workspace.Session.Active is { } lockScene && lockScene.Root.GetNodeOrNull(string.Join(' ', step[1..])) is { } lockNode)
+                    lockScene.SetLocked(lockNode, !EditorLock.IsLocked(lockNode));
+                break;
+            case "handle-drag":
+                {
+                    // handle-drag <index> dx dy [frames]: drags range handle <index> of the selection (G7.3) by (dx, dy) points.
+                    if (workspace.Session.Active is not { } handleScene)
+                        throw new ArgumentException("handle-drag needs an open scene.");
+                    workspace.Viewport.CollectHandles(handleScene);
+                    var index = (int)Float(step, 1);
+                    var handles = workspace.Viewport.Handles;
+                    if ((uint)index >= (uint)handles.Count)
+                        throw new ArgumentException($"handle-drag: the selection has {handles.Count} handle(s).");
+                    var view = workspace.Viewport.ViewPixels;
+                    if (!handleScene.Camera.Project(handles[index].Position, view.X, view.Y, out var pixel))
+                        throw new ArgumentException("handle-drag: the handle is behind the camera.");
+                    var rect = workspace.Viewport.ViewRect;
+                    var start = new Vector2(rect.X, rect.Y) + pixel / workspace.Viewport.ViewScale;
+                    var end = start + new Vector2(Float(step, 2), Float(step, 3));
+                    _drag = (start, end, MouseButton.Left, step.Length > 4 ? Int(step, 4, 20) : 20, 0);
+                    _mouse = start;
+                    tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, start) });
+                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = Pointer(app, start) });
+                    break;
+                }
+
             case "wheel":
                 tree.PushInput(new InputEventMouseWheel { Delta = new Vector2(0, Float(step, 1)) });
                 break;
@@ -304,6 +389,33 @@ public sealed class EditorQaScript : IEditorAutomation
             case "select":
                 if (workspace.Session.Active is { } selectScene)
                     selectScene.Selection.Set(selectScene.Root.GetNode(string.Join(' ', step[1..])));
+                break;
+            case "res-menu":
+                {
+                    // res-menu <property> [res-save|res-unique|res-unique-deep|res-open|res-show]: opens the resource row's
+                    // More menu (a capture shows it), and chooses an item when one is given.
+                    var rows = workspace.Inspector.Rows;
+                    var index = -1;
+                    for (var i = 0; i < rows.Count && index < 0; i++)
+                        if (rows[i].Name == step[1])
+                            index = i;
+                    if (index < 0)
+                        throw new ArgumentException($"No inspector row '{step[1]}'.");
+                    workspace.Inspector.RunAction(index, "res-more");
+                    if (step.Length > 2)
+                        workspace.Popup.Choose(step[2]);
+                    break;
+                }
+
+            case "select-add":
+                // Adds a node to the selection (it becomes the active one): select A, select-add B, select-add C.
+                if (workspace.Session.Active is { } addScene)
+                    addScene.Selection.Add(addScene.Root.GetNode(string.Join(' ', step[1..])));
+                break;
+            case "pivot":
+                // pivot median|active|individual: the multi-node gizmo's pivot (as the toolbar button cycles it).
+                workspace.Gizmo.Pivot = Enum.Parse<GizmoPivot>(step[1], ignoreCase: true);
+                workspace.Toolbar.Refresh();
                 break;
             case "state":
                 if (workspace.Session.Active is { } active)
@@ -572,6 +684,19 @@ public sealed class EditorQaScript : IEditorAutomation
         return new UpdateCheckResult(UpdateCheckStatus.UpdateAvailable, release, asset);
     }
 
+    // The modifier a box-select holds during its drag (released with the mouse button).
+    private Key? _dragModifier;
+
+    // A held drag's button (box-select … hold), released by mouse-up.
+    private MouseButton? _holdDrag;
+
+    private void ReleaseDragModifier(SceneTree tree)
+    {
+        if (_dragModifier is { } key)
+            tree.PushInput(new InputEventKey { Key = key, Pressed = false });
+        _dragModifier = null;
+    }
+
     private void StepDrag(EditorApp app, (Vector2 From, Vector2 To, MouseButton Button, int Frames, int Done) drag)
     {
         var done = drag.Done + 1;
@@ -580,8 +705,11 @@ public sealed class EditorQaScript : IEditorAutomation
         _mouse = position;
         if (done >= drag.Frames)
         {
-            app.Tree.PushInput(new InputEventMouseButton { Button = drag.Button, Pressed = false, Position = Pointer(app, position) });
             _drag = null;
+            if (_holdDrag is not null)
+                return; // box-select … hold: the button stays down until mouse-up (a capture shows the rectangle)
+            app.Tree.PushInput(new InputEventMouseButton { Button = drag.Button, Pressed = false, Position = Pointer(app, position) });
+            ReleaseDragModifier(app.Tree);
             return;
         }
 
@@ -645,15 +773,14 @@ public sealed class EditorQaScript : IEditorAutomation
         return new Vector2(Float(step, at), Float(step, at + 1));
     }
 
-    /// <summary>Window point of a gizmo handle of the primary selection (70% along the axis; the centre for "center").</summary>
+    /// <summary>Window point of a gizmo handle of the selection (70% along the axis; the centre for "center"), at the gizmo's pivot.</summary>
     private static Vector2 GizmoPoint(EditorWorkspace workspace, string axisName)
     {
-        if (workspace.Session.Active is not { Selection.Primary: Node3D node } scene)
-            throw new ArgumentException("gizmo-drag needs a selected 3D node.");
+        if (workspace.Session.Active is not { } scene || !workspace.Viewport.TryGetGizmoPose(scene, out var origin, out var rotation))
+            throw new ArgumentException("gizmo-drag needs a selected 3D node and a move, rotate or scale tool.");
         var gizmo = workspace.Gizmo;
         var view = workspace.Viewport.ViewPixels;
-        var axes = gizmo.Axes(node.GlobalRotation);
-        var origin = node.GlobalPosition;
+        var axes = gizmo.Axes(rotation);
         var length = TransformGizmo.SizePixels * gizmo.PixelScale * scene.Camera.WorldPerPixel(origin, view.Y);
         var target = axisName switch
         {

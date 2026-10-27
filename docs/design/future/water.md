@@ -6,7 +6,7 @@
 G6.3 particles for spray; G6.6's depth prepass), [Shaders](../shaders.md)
 ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)) · **Related:**
 [Procedural trees](procedural-trees.md) (G8b: the shared wind), [Forest showcase](forest-showcase.md) (G8d: streams,
-fog), [Editor viewport tools](editor-viewport-tools.md) (G7: handle style), [Mobile core](mobile.md) (TBDR rules),
+fog), [Editor viewport tools](../editor.md#viewport-tools) (G7: handle style), [Mobile core](mobile.md) (TBDR rules),
 [Audio](../audio.md), [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 
 ## Problem
@@ -616,7 +616,7 @@ settled; **Decision:** is what to build.
 - [Terrain](terrain.md) (G8a), [Procedural trees](procedural-trees.md) (G8b), [Forest showcase](forest-showcase.md)
   (G8d), [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 - [Rendering features](rendering-features.md) (G6), [Rendering backend abstraction](rendering-backend-abstraction.md)
-  (M11), [Mobile core](mobile.md) (M12), [Editor viewport tools](editor-viewport-tools.md) (G7)
+  (M11), [Mobile core](mobile.md) (M12), [Editor viewport tools](../editor.md#viewport-tools) (G7)
 - [Vulkan renderer](../vulkan-renderer.md), [Color pipeline](../color-pipeline.md), [Sky](../sky.md),
   [Materials & meshes](../materials-and-meshes.md), [Engine lifecycle](../engine-lifecycle.md),
   [Shaders](../shaders.md), [Audio](../audio.md), [Physics](../physics.md)

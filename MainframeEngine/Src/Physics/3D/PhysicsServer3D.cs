@@ -47,6 +47,9 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
     /// <summary>Draw every collision shape each frame (Godot's "Visible Collision Shapes").</summary>
     public bool DebugDrawEnabled { get; set; }
 
+    /// <summary>Draw the joints (ADR 0211) even while <see cref="DebugDrawEnabled"/> is off; on, it draws them anyway.</summary>
+    public bool DebugDrawJoints { get; set; }
+
     /// <summary>The spaces created so far (one per world with physics objects).</summary>
     public IReadOnlyList<PhysicsSpace3D> Spaces => _spaceList;
 
@@ -64,7 +67,11 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
     /// <summary>The space simulating <paramref name="world"/>, if one exists.</summary>
     public PhysicsSpace3D? FindSpace(World3D world) => _spaces.GetValueOrDefault(world);
 
-    internal void AddObject(CollisionObject3D node)
+    internal void AddObject(CollisionObject3D node) => SpaceOf(node).AddObject(node);
+
+    internal JointRecord3D AddJoint(Joint3D node) => SpaceOf(node).AddJoint(node);
+
+    private PhysicsSpace3D SpaceOf(Node3D node)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var viewport = node.GetViewport() ?? throw new InvalidOperationException($"'{node.Name}' is not inside a viewport.");
@@ -75,28 +82,41 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
             _spaceList.Add(space);
         }
 
-        space.AddObject(node);
+        return space;
     }
+
+    // In edit mode (the editor) only the spaces of a running simulation step and interpolate (G7.5); in a game, all of them.
+    private static bool Steps(SceneViewport viewport) =>
+        viewport.Tree is not { EditMode: true } || viewport.ResolvedSimulation == ViewportSimulation.Running;
 
     // Index loops: a signal handler may add the first body of another viewport (a new space) mid-step.
 
     public void BeforeFixedSteps()
     {
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].BeforeFixedSteps();
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].BeforeFixedSteps();
+        }
     }
 
     public void FixedStep(float delta)
     {
         // Several worlds step one at a time.
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].Step(delta);
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].Step(delta);
+        }
     }
 
     public void AfterFixedSteps(float interpolationFraction)
     {
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].AfterFixedSteps(interpolationFraction);
+        {
+            if (Steps(_spaceList[i].Viewport))
+                _spaceList[i].AfterFixedSteps(interpolationFraction);
+        }
     }
 
     /// <summary>Per frame (after transform sync): releases spaces of viewports that left the tree; debug drawing.</summary>
@@ -112,10 +132,10 @@ public sealed class PhysicsServer3D : IFixedStepServer, IFrameServer
             space.Dispose();
         }
 
-        if (!DebugDrawEnabled)
+        if (!DebugDrawEnabled && !DebugDrawJoints)
             return;
         for (var i = 0; i < _spaceList.Count; i++)
-            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines);
+            _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines, shapes: DebugDrawEnabled);
     }
 
     public void Dispose()

@@ -52,6 +52,378 @@
     },
     "CapsuleMesh_egjeq": {
       "type": "CapsuleMesh"
+    },
+    "BoxShape3D_6y4d4": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.4, 2.6, 0.4]
+      }
+    },
+    "StandardMaterial3D_8j76l": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_20zv5": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.4, 2.6, 0.4]
+      }
+    },
+    "BoxShape3D_3xapy": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.4, 2.6, 0.4]
+      }
+    },
+    "StandardMaterial3D_cgeun": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_zk1k3": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.4, 2.6, 0.4]
+      }
+    },
+    "BoxShape3D_4byoo": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.45724908, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_harx9": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_kh26p": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.45724908, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_hceyf": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.45096686, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_z8kr2": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_790ru": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.45096686, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_7ffwq": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.44152507, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_4xpar": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_n9j8f": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.44152507, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_vtuz5": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.4327506, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_59fec": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_l9q54": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.4327506, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_4rawc": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.4293338, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_er4ep": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_zllm5": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.4293338, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_8if4b": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.43275082, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_iouaq": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_t0y3a": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.43275082, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_nel7i": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.44152483, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_udvpz": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_6gvwb": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.44152483, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_222d1": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.45096686, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_dmeh4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_nofes": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.45096686, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_fahf4": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.45724908, 0.08, 1.4]
+      }
+    },
+    "StandardMaterial3D_23l5x": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_q0mi1": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.45724908, 0.08, 1.4]
+      }
+    },
+    "BoxShape3D_higzw": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.25, 3.5, 0.25]
+      }
+    },
+    "StandardMaterial3D_5mk4x": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_y56ml": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.25, 3.5, 0.25]
+      }
+    },
+    "BoxShape3D_tgfui": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1.4, 0.15, 0.15]
+      }
+    },
+    "StandardMaterial3D_v7web": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_sjmof": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1.4, 0.15, 0.15]
+      }
+    },
+    "BoxShape3D_lw6ig": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1.1, 0.8, 0.08]
+      }
+    },
+    "StandardMaterial3D_wlj25": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.98039216, 0.8, 0.08235294, 1]
+      }
+    },
+    "BoxMesh_gdapd": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1.1, 0.8, 0.08]
+      }
+    },
+    "CapsuleShape3D_hv07q": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.2,
+        "Height": 0.75
+      }
+    },
+    "StandardMaterial3D_e5i4f": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.21960784, 0.7411765, 0.972549, 1]
+      }
+    },
+    "CapsuleMesh_h5mpf": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.2,
+        "Height": 0.75
+      }
+    },
+    "CapsuleShape3D_2jv9r": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.15,
+        "Height": 0.3
+      }
+    },
+    "StandardMaterial3D_fkrme": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1]
+      }
+    },
+    "CapsuleMesh_h32w2": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.15,
+        "Height": 0.3
+      }
+    },
+    "CapsuleShape3D_h87ov": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.07,
+        "Height": 0.62
+      }
+    },
+    "StandardMaterial3D_slomu": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1]
+      }
+    },
+    "CapsuleMesh_8tv7m": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.07,
+        "Height": 0.62
+      }
+    },
+    "CapsuleShape3D_co5j9": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.09,
+        "Height": 0.88
+      }
+    },
+    "StandardMaterial3D_wdro8": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.21960784, 0.7411765, 0.972549, 1]
+      }
+    },
+    "CapsuleMesh_c5thw": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.09,
+        "Height": 0.88
+      }
+    },
+    "CapsuleShape3D_98yit": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.07,
+        "Height": 0.62
+      }
+    },
+    "StandardMaterial3D_ren14": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1]
+      }
+    },
+    "CapsuleMesh_xfo7o": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.07,
+        "Height": 0.62
+      }
+    },
+    "CapsuleShape3D_nsrvz": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.09,
+        "Height": 0.88
+      }
+    },
+    "StandardMaterial3D_1xueu": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.21960784, 0.7411765, 0.972549, 1]
+      }
+    },
+    "CapsuleMesh_lc5mq": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.09,
+        "Height": 0.88
+      }
     }
   },
   "nodes": [
@@ -161,6 +533,760 @@
       "props": {
         "MaterialOverride": { "res": "StandardMaterial3D_nf8qe" },
         "Mesh": { "res": "CapsuleMesh_egjeq" }
+      }
+    },
+    {
+      "name": "Bridge",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "PostL",
+      "parent": "Bridge",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-6.6, 1.3, -5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/PostL",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_6y4d4" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/PostL",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_8j76l" },
+        "Mesh": { "res": "BoxMesh_20zv5" }
+      }
+    },
+    {
+      "name": "PostR",
+      "parent": "Bridge",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-2.0000002, 1.3, -5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/PostR",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_3xapy" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/PostR",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_cgeun" },
+        "Mesh": { "res": "BoxMesh_zk1k3" }
+      }
+    },
+    {
+      "name": "Plank0",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-6.166667, 2.5145, -5],
+        "RotationDegrees": [0, 0, -20.124],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank0",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_4byoo" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank0",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_harx9" },
+        "Mesh": { "res": "BoxMesh_kh26p" }
+      }
+    },
+    {
+      "name": "Plank1",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-5.7, 2.354, -5],
+        "RotationDegrees": [0, 0, -17.819],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank1",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_hceyf" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank1",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_z8kr2" },
+        "Mesh": { "res": "BoxMesh_790ru" }
+      }
+    },
+    {
+      "name": "Plank2",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-5.2333336, 2.223, -5],
+        "RotationDegrees": [0, 0, -13.496],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank2",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_7ffwq" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank2",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_4xpar" },
+        "Mesh": { "res": "BoxMesh_n9j8f" }
+      }
+    },
+    {
+      "name": "Plank3",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-4.766667, 2.1375, -5],
+        "RotationDegrees": [0, 0, -7.206],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank3",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_vtuz5" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank3",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_59fec" },
+        "Mesh": { "res": "BoxMesh_l9q54" }
+      }
+    },
+    {
+      "name": "Plank4",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-4.3, 2.108, -5],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank4",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_4rawc" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank4",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_er4ep" },
+        "Mesh": { "res": "BoxMesh_zllm5" }
+      }
+    },
+    {
+      "name": "Plank5",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-3.8333335, 2.1375, -5],
+        "RotationDegrees": [0, 0, 7.206],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank5",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_8if4b" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank5",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_iouaq" },
+        "Mesh": { "res": "BoxMesh_t0y3a" }
+      }
+    },
+    {
+      "name": "Plank6",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-3.3666668, 2.223, -5],
+        "RotationDegrees": [0, 0, 13.496],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank6",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_nel7i" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank6",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_udvpz" },
+        "Mesh": { "res": "BoxMesh_6gvwb" }
+      }
+    },
+    {
+      "name": "Plank7",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-2.9000003, 2.354, -5],
+        "RotationDegrees": [0, 0, 17.819],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank7",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_222d1" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank7",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_dmeh4" },
+        "Mesh": { "res": "BoxMesh_nofes" }
+      }
+    },
+    {
+      "name": "Plank8",
+      "parent": "Bridge",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-2.4333336, 2.5145, -5],
+        "RotationDegrees": [0, 0, 20.124],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank8",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_fahf4" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank8",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_23l5x" },
+        "Mesh": { "res": "BoxMesh_q0mi1" }
+      }
+    },
+    {
+      "name": "Hinge0",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-6.4, 2.6, -5],
+        "NodeA": "../PostL",
+        "NodeB": "../Plank0",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge1",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-5.9333334, 2.429, -5],
+        "NodeA": "../Plank0",
+        "NodeB": "../Plank1",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge2",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-5.4666667, 2.279, -5],
+        "NodeA": "../Plank1",
+        "NodeB": "../Plank2",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge3",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-5, 2.167, -5],
+        "NodeA": "../Plank2",
+        "NodeB": "../Plank3",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge4",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-4.533334, 2.108, -5],
+        "NodeA": "../Plank3",
+        "NodeB": "../Plank4",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge5",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-4.0666666, 2.108, -5],
+        "NodeA": "../Plank4",
+        "NodeB": "../Plank5",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge6",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-3.6000001, 2.167, -5],
+        "NodeA": "../Plank5",
+        "NodeB": "../Plank6",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge7",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-3.1333337, 2.279, -5],
+        "NodeA": "../Plank6",
+        "NodeB": "../Plank7",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge8",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-2.666667, 2.429, -5],
+        "NodeA": "../Plank7",
+        "NodeB": "../Plank8",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "Hinge9",
+      "parent": "Bridge",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-2.2000003, 2.6, -5],
+        "NodeA": "../Plank8",
+        "NodeB": "../PostR",
+        "UseLimit": true,
+        "LowerAngleDegrees": -40,
+        "UpperAngleDegrees": 40
+      }
+    },
+    {
+      "name": "SignPost",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Post",
+      "parent": "SignPost",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [9, 1.75, -3]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "SignPost/Post",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_higzw" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "SignPost/Post",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_5mk4x" },
+        "Mesh": { "res": "BoxMesh_y56ml" }
+      }
+    },
+    {
+      "name": "Arm",
+      "parent": "SignPost",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [8.3, 3.4, -3]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "SignPost/Arm",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_tgfui" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "SignPost/Arm",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_v7web" },
+        "Mesh": { "res": "BoxMesh_sjmof" }
+      }
+    },
+    {
+      "name": "Board",
+      "parent": "SignPost",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [8.2, 2.8, -3],
+        "Mass": 3
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "SignPost/Board",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_lw6ig" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "SignPost/Board",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_wlj25" },
+        "Mesh": { "res": "BoxMesh_gdapd" }
+      }
+    },
+    {
+      "name": "Weld",
+      "parent": "SignPost",
+      "type": "WeldJoint3D",
+      "props": {
+        "Position": [8.2, 3.3, -3],
+        "NodeA": "../Arm",
+        "NodeB": "../Board",
+        "BreakForce": 90
+      }
+    },
+    {
+      "name": "Mannequin",
+      "parent": ".",
+      "type": "Mannequin3D",
+      "props": {
+        "Position": [3, 0, 1.6]
+      }
+    },
+    {
+      "name": "Torso",
+      "parent": "Mannequin",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [0, 1.3, 0],
+        "Mass": 8,
+        "ContactMonitor": true
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Mannequin/Torso",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_hv07q" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Mannequin/Torso",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_e5i4f" },
+        "Mesh": { "res": "CapsuleMesh_h5mpf" }
+      }
+    },
+    {
+      "name": "Head",
+      "parent": "Mannequin",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [0, 1.88, 0],
+        "Mass": 2,
+        "ContactMonitor": true
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Mannequin/Head",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_2jv9r" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Mannequin/Head",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_fkrme" },
+        "Mesh": { "res": "CapsuleMesh_h32w2" }
+      }
+    },
+    {
+      "name": "Neck",
+      "parent": "Mannequin",
+      "type": "ConeTwistJoint3D",
+      "props": {
+        "Position": [0, 1.7, 0],
+        "RotationDegrees": [0, 0, -90],
+        "NodeA": "../Torso",
+        "NodeB": "../Head",
+        "SwingSpanDegrees": 35,
+        "TwistSpanDegrees": 40
+      }
+    },
+    {
+      "name": "ArmL",
+      "parent": "Mannequin",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-0.33, 1.32, 0],
+        "Mass": 1.5,
+        "ContactMonitor": true
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Mannequin/ArmL",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_h87ov" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Mannequin/ArmL",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_slomu" },
+        "Mesh": { "res": "CapsuleMesh_8tv7m" }
+      }
+    },
+    {
+      "name": "ShoulderL",
+      "parent": "Mannequin",
+      "type": "ConeTwistJoint3D",
+      "props": {
+        "Position": [-0.33, 1.6, 0],
+        "RotationDegrees": [0, 0, -90],
+        "NodeA": "../Torso",
+        "NodeB": "../ArmL",
+        "SwingSpanDegrees": 80,
+        "TwistSpanDegrees": 45
+      }
+    },
+    {
+      "name": "LegL",
+      "parent": "Mannequin",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-0.11, 0.45, 0],
+        "Mass": 3,
+        "ContactMonitor": true
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Mannequin/LegL",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_co5j9" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Mannequin/LegL",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_wdro8" },
+        "Mesh": { "res": "CapsuleMesh_c5thw" }
+      }
+    },
+    {
+      "name": "HipL",
+      "parent": "Mannequin",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [-0.11, 0.9, 0],
+        "RotationDegrees": [0, 90, 0],
+        "NodeA": "../Torso",
+        "NodeB": "../LegL",
+        "UseLimit": true,
+        "LowerAngleDegrees": -30
+      }
+    },
+    {
+      "name": "ArmR",
+      "parent": "Mannequin",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [0.33, 1.32, 0],
+        "Mass": 1.5,
+        "ContactMonitor": true
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Mannequin/ArmR",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_98yit" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Mannequin/ArmR",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_ren14" },
+        "Mesh": { "res": "CapsuleMesh_xfo7o" }
+      }
+    },
+    {
+      "name": "ShoulderR",
+      "parent": "Mannequin",
+      "type": "ConeTwistJoint3D",
+      "props": {
+        "Position": [0.33, 1.6, 0],
+        "RotationDegrees": [0, 0, -90],
+        "NodeA": "../Torso",
+        "NodeB": "../ArmR",
+        "SwingSpanDegrees": 80,
+        "TwistSpanDegrees": 45
+      }
+    },
+    {
+      "name": "LegR",
+      "parent": "Mannequin",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [0.11, 0.45, 0],
+        "Mass": 3,
+        "ContactMonitor": true
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Mannequin/LegR",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_nsrvz" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Mannequin/LegR",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_1xueu" },
+        "Mesh": { "res": "CapsuleMesh_lc5mq" }
+      }
+    },
+    {
+      "name": "HipR",
+      "parent": "Mannequin",
+      "type": "HingeJoint3D",
+      "props": {
+        "Position": [0.11, 0.9, 0],
+        "RotationDegrees": [0, 90, 0],
+        "NodeA": "../Torso",
+        "NodeB": "../LegR",
+        "UseLimit": true,
+        "LowerAngleDegrees": -30
       }
     },
     {

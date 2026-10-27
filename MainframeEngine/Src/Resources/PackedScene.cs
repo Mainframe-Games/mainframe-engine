@@ -272,7 +272,26 @@ public sealed class PackedScene : Resource
         return dropped;
     }
 
+    /// <summary>
+    /// Drops the references an uncached scene (from <see cref="Pack"/> or <see cref="Parse"/>, never loaded through
+    /// <see cref="ResourceLoader"/>) took while instantiating — its external resources and nested scenes — once it is no
+    /// longer needed. Nodes already instantiated keep their resources; a cached scene releases them on unload instead
+    /// (<see cref="Resource.Release"/>). The scene can still be instantiated afterwards (it takes them again).
+    /// </summary>
+    public void ReleaseDependencies()
+    {
+        if (ReferenceCount > 0)
+            throw new InvalidOperationException("A scene loaded through ResourceLoader releases its dependencies when it unloads (Release).");
+        ReleaseAll();
+    }
+
     protected internal override void OnUnloaded()
+    {
+        ReleaseAll();
+        base.OnUnloaded();
+    }
+
+    private void ReleaseAll()
     {
         RetireResources();
         foreach (var table in _retiredTables)
@@ -282,7 +301,6 @@ public sealed class PackedScene : Resource
             if (sub.ReferenceCount > 0)
                 sub.Release();
         _retiredSubScenes.Clear();
-        base.OnUnloaded();
     }
 
     /// <summary>The scene's raw JSON as an element (for tools).</summary>

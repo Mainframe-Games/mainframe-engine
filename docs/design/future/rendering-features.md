@@ -4,7 +4,7 @@
 **Depends on:** [M3 materials & meshes](../materials-and-meshes.md), [M4 shadows](../shadow-system.md), [sky](../sky.md);
 SSAO (G6.6) also on step 1 of [M11 backend abstraction](rendering-backend-abstraction.md) ·
 **Related:** [Mobile core](mobile.md) (quality tiers, TBDR rules), [Keyframe animation](keyframe-animation.md) (G1b
-skinning shares the mesh vertex shader), [Editor viewport tools](editor-viewport-tools.md) (G7: range handles, simulate
+skinning shares the mesh vertex shader), [Editor viewport tools](../editor.md#viewport-tools) (G7: range handles, simulate
 mode), [ADR 0014](../../../memory/decisions/0014-blinn-phong-now-pbr-later.md),
 [ADR 0016](../../../memory/decisions/0016-normal-maps-without-tangents.md)
 
@@ -387,7 +387,7 @@ public class Decal : VisualInstance3D                       // new (Godot's Deca
 - Decals affect Blinn-Phong and PBR surfaces. The ORM channels only matter for PBR.
 - Godot's `cull_mask` is omitted, because 3D visuals have no render layers yet.
 - Editor: a box gizmo along −Y. Its size handles come from G7's range handles
-  ([editor-viewport-tools.md](editor-viewport-tools.md)).
+  ([Editor → Viewport tools](../editor.md#viewport-tools)).
 
 ### SSAO
 
@@ -534,7 +534,7 @@ pulled forward when a 3D game needs PBR or particles first.
   It joins the nav bar and the README screenshots (`just demo-screenshots`).
 - **Editor QA** (`Tests/QA`): add a `GpuParticles3D` with a process material and a `QuadMesh` billboard, and a
   `Decal`. Check the inspector groups and the gizmos, save, reload and compare. Particle preview in the edit viewport
-  depends on G7's simulate mode ([editor-viewport-tools.md](editor-viewport-tools.md)).
+  depends on G7's simulate mode ([Editor → Viewport tools](../editor.md#viewport-tools)).
 
 ## Acceptance
 
@@ -635,6 +635,6 @@ pulled forward when a 3D game needs PBR or particles first.
 [Color pipeline](../color-pipeline.md) · [Vulkan renderer](../vulkan-renderer.md) · [2D canvas](../canvas.md#particles) ·
 [Asset pipeline](../asset-pipeline.md) · [Rendering backend abstraction (M11)](rendering-backend-abstraction.md) ·
 [Mobile core (M12)](mobile.md) · [Keyframe animation (G1)](keyframe-animation.md) ·
-[Editor viewport tools (G7)](editor-viewport-tools.md) · G8 builds on G6 and picks up some of its non-goals:
+[Editor viewport tools (G7)](../editor.md#viewport-tools) · G8 builds on G6 and picks up some of its non-goals:
 impostors in [Procedural trees (G8b)](procedural-trees.md), SSR as an option in [Water (G8c)](water.md), and fog, light
 shafts and TAA in [Forest showcase (G8d)](forest-showcase.md)

@@ -103,6 +103,16 @@ public class SceneTests
     }
 
     [Fact]
+    public void PhysicsJointsRenderCleanlyAndMatchGolden()
+    {
+        // ADR 0211: a hinged bridge, a cone-twist mannequin and a broken weld with the joint debug draw.
+        var result = HostRunner.Run("physics-joints", Output("physics-joints"), "--capture", "90", "--hidden");
+
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 90);
+    }
+
+    [Fact]
     public void PhysicsCapturesAreDeterministicAcrossRuns()
     {
         var first = HostRunner.Run("physics", Output("physics-determinism-a"), "--capture", "90", "--hidden");

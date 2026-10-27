@@ -19,6 +19,9 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public RigidBody? Body;
     public uint Layer;
     public uint Mask;
+
+    /// <summary>Bodies with the same non-zero group never collide (a ragdoll's parts, ADR 0212).</summary>
+    public int Group;
     public bool Removed;
     public bool TransformDirty;
     public bool ShapesDirty;
@@ -43,6 +46,15 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     /// <summary>World bounds of the area's shapes as of the current step's scan (area only).</summary>
     public JBoundingBox AreaBounds;
 
+    /// <summary>Joints created on this body (ADR 0211); removing the body destroys them and they wait for it to return.</summary>
+    public List<JointRecord3D>? Joints;
+
+    /// <summary>
+    /// Bodies this one must not collide with (joints with <c>ExcludeNodesFromCollision</c>). Replaced, never mutated, on
+    /// the main thread between steps: the broad-phase filter reads it on Jitter2's worker threads.
+    /// </summary>
+    public BodyRecord3D[]? Excluded;
+
     public bool IsMoving => Kind is PhysicsBodyKind.Dynamic or PhysicsBodyKind.Kinematic or PhysicsBodyKind.Character;
 
     // ---- state the nodes read and write --------------------------------------------------------------------------
@@ -53,6 +65,13 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
         PhysicsBodyKind.Kinematic => KinematicVelocity,
         _ => Vector3.Zero,
     };
+
+    /// <summary>The Jitter2 body's velocities: for a kinematic body moved by its node, what reached the last target.</summary>
+    public void GetBodyVelocity(out Vector3 linear, out Vector3 angular)
+    {
+        linear = Body?.Velocity.ToNumerics() ?? Vector3.Zero;
+        angular = Body?.AngularVelocity.ToNumerics() ?? Vector3.Zero;
+    }
 
     public Vector3 GetAngularVelocity() => Kind switch
     {
@@ -132,6 +151,7 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     {
         Layer = Node.CollisionLayer;
         Mask = Node.CollisionMask;
+        Group = Node.ExclusionGroup;
         if (Body is { } body)
         {
             // Jitter2 keeps resting contacts until they break: drop them so the new filter applies now.
@@ -174,7 +194,7 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
 /// for rendering and queues contact/area/sleep signals, dispatched on the main thread after each step.
 /// </summary>
 /// <remarks>Not thread-safe: nodes and queries use it from the main thread; Jitter2 may use its worker pool inside a step.</remarks>
-public sealed class PhysicsSpace3D : IDisposable
+public sealed partial class PhysicsSpace3D : IDisposable
 {
     private readonly World _world;
     private readonly PhysicsSettings3D _settings;
@@ -260,6 +280,7 @@ public sealed class PhysicsSpace3D : IDisposable
             Kind = node.Kind,
             Layer = node.CollisionLayer,
             Mask = node.CollisionMask,
+            Group = node.ExclusionGroup,
         };
         node.Record = record;
         _records.Add(record);
@@ -295,6 +316,7 @@ public sealed class PhysicsSpace3D : IDisposable
 
         UpdateMembership(record);
         MarkShapesDirty(record);
+        _retryPendingJoints |= _joints.Count > 0; // a joint may be waiting for this body
     }
 
     internal void RemoveObject(BodyRecord3D record)
@@ -309,6 +331,7 @@ public sealed class PhysicsSpace3D : IDisposable
         _monitors.Remove(record);
         _gravityScaled.Remove(record);
 
+        DetachJoints(record);
         if (record.Body is { } body)
         {
             foreach (var shape in record.Shapes)
@@ -410,6 +433,7 @@ public sealed class PhysicsSpace3D : IDisposable
             ApplyProperties(record);
             record.ShapesDirty = true; // mass (dynamic) or concave-shape eligibility may have changed
             AddDirty(record);
+            OnJointBodyKindChanged(record);
         }
 
         UpdateMembership(record);
@@ -462,7 +486,9 @@ public sealed class PhysicsSpace3D : IDisposable
 
     private void UpdateMembership(BodyRecord3D record)
     {
-        record.Interpolated = record.IsMoving && record.Node.PhysicsInterpolation;
+        // A body held kinematic by a ragdoll follows its node every frame: interpolating it would render it a step
+        // behind, and the next node move would start from that lagging pose (ADR 0212).
+        record.Interpolated = record.IsMoving && record.Node.PhysicsInterpolation && record.Node is not RigidBody3D { HeldKinematic: true };
         SetMember(_moving, record, record.IsMoving);
         SetMember(_areas, record, record.Kind == PhysicsBodyKind.Area);
         var monitor = record.Node is RigidBody3D { ContactMonitor: true };
@@ -531,8 +557,14 @@ public sealed class PhysicsSpace3D : IDisposable
     // Pushing node changes
     // ------------------------------------------------------------------------------------------------------------
 
-    /// <summary>Applies pending shape and transform changes; kinematic moves wait for the step unless stepping.</summary>
+    /// <summary>Applies pending shape, transform and joint changes; kinematic moves wait for the step unless stepping.</summary>
     private void Flush(bool stepping)
+    {
+        FlushBodies(stepping);
+        FlushJoints(); // after the bodies: their poses and masses are current
+    }
+
+    private void FlushBodies(bool stepping)
     {
         if (_dirty.Count == 0)
             return;
@@ -741,9 +773,11 @@ public sealed class PhysicsSpace3D : IDisposable
 
         _step++;
         PostStep();
+        CheckJointBreaks(delta);
         ScanContacts();
         ScanAreas();
         Dispatch();
+        DispatchJointBreaks();
     }
 
     private void PreStep(float delta)
@@ -774,6 +808,8 @@ public sealed class PhysicsSpace3D : IDisposable
                 body.AngularVelocity = JVector.Zero;
             }
         }
+
+        ApplyJointSprings(delta);
 
         if (_gravityScaled.Count > 0)
         {
@@ -1216,8 +1252,14 @@ public sealed class PhysicsSpace3D : IDisposable
     private static readonly Vector4 AreaColor = new(0.2f, 0.9f, 0.9f, 0.7f);
 
     /// <summary>Adds the wireframe of every collision shape (at the nodes' current, interpolated pose) to <paramref name="lines"/>.</summary>
-    internal void DrawDebug(DebugLines lines)
+    internal void DrawDebug(DebugLines lines, bool shapes = true)
     {
+        if (!shapes)
+        {
+            DrawJointsDebug(lines);
+            return;
+        }
+
         foreach (var record in _records)
         {
             var color = record.Kind switch
@@ -1232,6 +1274,8 @@ public sealed class PhysicsSpace3D : IDisposable
                 if (node.GetChild(i) is CollisionShape3D { Disabled: false, Shape: { } shape } owner && owner.IsVisibleInTree())
                     shape.DrawDebug(lines, owner.GlobalTransform, color);
         }
+
+        DrawJointsDebug(lines);
     }
 
     /// <summary>Destroys the Jitter2 world; the space's objects are detached from it.</summary>
@@ -1247,6 +1291,13 @@ public sealed class PhysicsSpace3D : IDisposable
             record.Body = null;
         }
 
+        foreach (var joint in _joints)
+        {
+            joint.Removed = true;
+            joint.ForgetConstraints();
+            joint.Node.Record = null;
+        }
+
         _records.Clear();
         _moving.Clear();
         _areas.Clear();
@@ -1254,6 +1305,11 @@ public sealed class PhysicsSpace3D : IDisposable
         _gravityScaled.Clear();
         _dirty.Clear();
         _shapeOwners.Clear();
+        _joints.Clear();
+        _dirtyJoints.Clear();
+        _brokenJoints.Clear();
+        _breakable.Clear();
+        _sprung.Clear();
         if (ReferenceEquals(World3D.PhysicsSpace, this))
             World3D.PhysicsSpace = null;
         _world.Dispose();
@@ -1273,7 +1329,15 @@ public sealed class PhysicsSpace3D : IDisposable
         {
             if (proxyA is not RigidBodyShape { RigidBody.Tag: BodyRecord3D a } || proxyB is not RigidBodyShape { RigidBody.Tag: BodyRecord3D b })
                 return true;
-            return (a.Layer & b.Mask) != 0 || (b.Layer & a.Mask) != 0;
+            if ((a.Layer & b.Mask) == 0 && (b.Layer & a.Mask) == 0)
+                return false;
+            if (a.Group != 0 && a.Group == b.Group)
+                return false;
+            if (a.Excluded is { } excluded)
+                foreach (var other in excluded)
+                    if (ReferenceEquals(other, b))
+                        return false;
+            return true;
         }
     }
 

@@ -187,6 +187,140 @@
       "props": {
         "Radius": 9
       }
+    },
+    "CapsuleShape2D_ouruc": {
+      "type": "CapsuleShape2D",
+      "props": {
+        "Radius": 5,
+        "Height": 24
+      }
+    },
+    "CapsuleShape2D_ppzgz": {
+      "type": "CapsuleShape2D",
+      "props": {
+        "Radius": 5,
+        "Height": 24
+      }
+    },
+    "CapsuleShape2D_h4pnq": {
+      "type": "CapsuleShape2D",
+      "props": {
+        "Radius": 5,
+        "Height": 24
+      }
+    },
+    "CapsuleShape2D_04bj1": {
+      "type": "CapsuleShape2D",
+      "props": {
+        "Radius": 5,
+        "Height": 24
+      }
+    },
+    "CapsuleShape2D_25eio": {
+      "type": "CapsuleShape2D",
+      "props": {
+        "Radius": 5,
+        "Height": 24
+      }
+    },
+    "CapsuleShape2D_ra2qn": {
+      "type": "CapsuleShape2D",
+      "props": {
+        "Radius": 5,
+        "Height": 24
+      }
+    },
+    "CapsuleShape2D_evxte": {
+      "type": "CapsuleShape2D",
+      "props": {
+        "Radius": 5,
+        "Height": 24
+      }
+    },
+    "CapsuleShape2D_udn5l": {
+      "type": "CapsuleShape2D",
+      "props": {
+        "Radius": 5,
+        "Height": 24
+      }
+    },
+    "RectangleShape2D_brxoj": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [96, 22]
+      }
+    },
+    "CircleShape2D_g3kna": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 15
+      }
+    },
+    "CircleShape2D_0028o": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 15
+      }
+    },
+    "RectangleShape2D_1ls2j": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [24, 110]
+      }
+    },
+    "RectangleShape2D_y1cnd": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [24, 110]
+      }
+    },
+    "RectangleShape2D_4byoo": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [41.35858, 8]
+      }
+    },
+    "RectangleShape2D_hceyf": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [40.648502, 8]
+      }
+    },
+    "RectangleShape2D_7ffwq": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [39.622406, 8]
+      }
+    },
+    "RectangleShape2D_vtuz5": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [38.8805, 8]
+      }
+    },
+    "RectangleShape2D_4rawc": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [38.8805, 8]
+      }
+    },
+    "RectangleShape2D_8if4b": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [39.622406, 8]
+      }
+    },
+    "RectangleShape2D_nel7i": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [40.648502, 8]
+      }
+    },
+    "RectangleShape2D_222d1": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [41.35858, 8]
+      }
     }
   },
   "nodes": [
@@ -1019,6 +1153,829 @@
         "Kind": "Circle",
         "Radius": 9,
         "Color": [0.89, 0.91, 0.94, 1]
+      }
+    },
+    {
+      "name": "Chain",
+      "parent": ".",
+      "type": "Node2D"
+    },
+    {
+      "name": "Link0",
+      "parent": "Chain",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [480, -318],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chain/Link0",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CapsuleShape2D_ouruc" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chain/Link0",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [10, 24],
+        "Color": [0.8, 0.82, 0.86, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin0",
+      "parent": "Chain",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [480, -330],
+        "NodeB": "../Link0"
+      }
+    },
+    {
+      "name": "Link1",
+      "parent": "Chain",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [480, -294],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chain/Link1",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CapsuleShape2D_ppzgz" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chain/Link1",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [10, 24],
+        "Color": [0.8, 0.82, 0.86, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin1",
+      "parent": "Chain",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [480, -306],
+        "NodeA": "../Link0",
+        "NodeB": "../Link1"
+      }
+    },
+    {
+      "name": "Link2",
+      "parent": "Chain",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [480, -270],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chain/Link2",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CapsuleShape2D_h4pnq" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chain/Link2",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [10, 24],
+        "Color": [0.8, 0.82, 0.86, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin2",
+      "parent": "Chain",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [480, -282],
+        "NodeA": "../Link1",
+        "NodeB": "../Link2"
+      }
+    },
+    {
+      "name": "Link3",
+      "parent": "Chain",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [480, -246],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chain/Link3",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CapsuleShape2D_04bj1" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chain/Link3",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [10, 24],
+        "Color": [0.8, 0.82, 0.86, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin3",
+      "parent": "Chain",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [480, -258],
+        "NodeA": "../Link2",
+        "NodeB": "../Link3"
+      }
+    },
+    {
+      "name": "Link4",
+      "parent": "Chain",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [480, -222],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chain/Link4",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CapsuleShape2D_25eio" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chain/Link4",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [10, 24],
+        "Color": [0.8, 0.82, 0.86, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin4",
+      "parent": "Chain",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [480, -234],
+        "NodeA": "../Link3",
+        "NodeB": "../Link4"
+      }
+    },
+    {
+      "name": "Link5",
+      "parent": "Chain",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [480, -198],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chain/Link5",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CapsuleShape2D_ra2qn" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chain/Link5",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [10, 24],
+        "Color": [0.8, 0.82, 0.86, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin5",
+      "parent": "Chain",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [480, -210],
+        "NodeA": "../Link4",
+        "NodeB": "../Link5"
+      }
+    },
+    {
+      "name": "Link6",
+      "parent": "Chain",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [480, -174],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chain/Link6",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CapsuleShape2D_evxte" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chain/Link6",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [10, 24],
+        "Color": [0.8, 0.82, 0.86, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin6",
+      "parent": "Chain",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [480, -186],
+        "NodeA": "../Link5",
+        "NodeB": "../Link6"
+      }
+    },
+    {
+      "name": "Link7",
+      "parent": "Chain",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [480, -150],
+        "Mass": 0.5,
+        "LinearVelocity": [-260, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chain/Link7",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CapsuleShape2D_udn5l" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chain/Link7",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [10, 24],
+        "Color": [0.8, 0.82, 0.86, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin7",
+      "parent": "Chain",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [480, -162],
+        "NodeA": "../Link6",
+        "NodeB": "../Link7"
+      }
+    },
+    {
+      "name": "Car",
+      "parent": ".",
+      "type": "Car2D",
+      "props": {
+        "Position": [-300, 0]
+      }
+    },
+    {
+      "name": "Chassis",
+      "parent": "Car",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [0, 278],
+        "Mass": 3
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Car/Chassis",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_brxoj" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Car/Chassis",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [96, 22],
+        "Color": [0.22, 0.74, 0.97, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "WheelL",
+      "parent": "Car",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [-34, 298]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Car/WheelL",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_g3kna" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Car/WheelL",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 15,
+        "Color": [0.12, 0.13, 0.16, 1],
+        "Outline": [0.8, 0.82, 0.86, 1],
+        "OutlineWidth": 3
+      }
+    },
+    {
+      "name": "WheelLJoint",
+      "parent": "Car",
+      "type": "WheelJoint2D",
+      "props": {
+        "Position": [-34, 298],
+        "RotationDegrees": -90,
+        "NodeA": "../Chassis",
+        "NodeB": "../WheelL",
+        "SpringHertz": 4,
+        "UseLimit": true,
+        "LowerTranslation": -8,
+        "UpperTranslation": 8,
+        "MotorEnabled": true,
+        "MotorTargetVelocity": 8,
+        "MotorMaxTorque": 600000
+      }
+    },
+    {
+      "name": "WheelR",
+      "parent": "Car",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [34, 298]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Car/WheelR",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_0028o" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Car/WheelR",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 15,
+        "Color": [0.12, 0.13, 0.16, 1],
+        "Outline": [0.8, 0.82, 0.86, 1],
+        "OutlineWidth": 3
+      }
+    },
+    {
+      "name": "WheelRJoint",
+      "parent": "Car",
+      "type": "WheelJoint2D",
+      "props": {
+        "Position": [34, 298],
+        "RotationDegrees": -90,
+        "NodeA": "../Chassis",
+        "NodeB": "../WheelR",
+        "SpringHertz": 4,
+        "UseLimit": true,
+        "LowerTranslation": -8,
+        "UpperTranslation": 8,
+        "MotorEnabled": true,
+        "MotorTargetVelocity": 8,
+        "MotorMaxTorque": 600000
+      }
+    },
+    {
+      "name": "Bridge",
+      "parent": ".",
+      "type": "Node2D"
+    },
+    {
+      "name": "BlockL",
+      "parent": "Bridge",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [158, 260]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/BlockL",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_1ls2j" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/BlockL",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [24, 110],
+        "Color": [0.39, 0.45, 0.55, 1]
+      }
+    },
+    {
+      "name": "BlockR",
+      "parent": "Bridge",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [512, 260]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/BlockR",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_y1cnd" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/BlockR",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [24, 110],
+        "Color": [0.39, 0.45, 0.55, 1]
+      }
+    },
+    {
+      "name": "Plank0",
+      "parent": "Bridge",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [190.625, 212.6535],
+        "RotationDegrees": 20.359,
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank0",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_4byoo" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank0",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [41.35858, 8],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Plank1",
+      "parent": "Bridge",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [231.875, 226.7955],
+        "RotationDegrees": 17.463,
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank1",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_hceyf" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank1",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [40.648502, 8],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Plank2",
+      "parent": "Bridge",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [273.125, 237.6195],
+        "RotationDegrees": 11.871001,
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank2",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_7ffwq" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank2",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [39.622406, 8],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Plank3",
+      "parent": "Bridge",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [314.375, 243.47751],
+        "RotationDegrees": 4.222,
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank3",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_vtuz5" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank3",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [38.8805, 8],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Plank4",
+      "parent": "Bridge",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [355.625, 243.47751],
+        "RotationDegrees": -4.222,
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank4",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_4rawc" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank4",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [38.8805, 8],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Plank5",
+      "parent": "Bridge",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [396.875, 237.6195],
+        "RotationDegrees": -11.871001,
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank5",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_8if4b" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank5",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [39.622406, 8],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Plank6",
+      "parent": "Bridge",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [438.125, 226.7955],
+        "RotationDegrees": -17.463,
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank6",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_nel7i" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank6",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [40.648502, 8],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Plank7",
+      "parent": "Bridge",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [479.375, 212.6535],
+        "RotationDegrees": -20.359,
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Bridge/Plank7",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_222d1" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Bridge/Plank7",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [41.35858, 8],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Pin0",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [170, 205],
+        "NodeA": "../BlockL",
+        "NodeB": "../Plank0",
+        "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Pin1",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [211.25, 220.307],
+        "NodeA": "../Plank0",
+        "NodeB": "../Plank1",
+        "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Pin2",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [252.5, 233.284],
+        "NodeA": "../Plank1",
+        "NodeB": "../Plank2",
+        "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Pin3",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [293.75, 241.955],
+        "NodeA": "../Plank2",
+        "NodeB": "../Plank3",
+        "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Pin4",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [335, 245],
+        "NodeA": "../Plank3",
+        "NodeB": "../Plank4",
+        "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Pin5",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [376.25, 241.955],
+        "NodeA": "../Plank4",
+        "NodeB": "../Plank5",
+        "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Pin6",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [417.5, 233.284],
+        "NodeA": "../Plank5",
+        "NodeB": "../Plank6",
+        "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Pin7",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [458.75, 220.307],
+        "NodeA": "../Plank6",
+        "NodeB": "../Plank7",
+        "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Pin8",
+      "parent": "Bridge",
+      "type": "PinJoint2D",
+      "props": {
+        "Position": [500, 205],
+        "NodeA": "../Plank7",
+        "NodeB": "../BlockR",
+        "BreakForce": 60000
       }
     },
     {

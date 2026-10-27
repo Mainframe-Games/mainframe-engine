@@ -40,6 +40,14 @@
         .eye:hover .icon { image-color: #ffffff; }
         .eye.off .icon { image-color: #5f6676; }
         .tree-row.selected .eye .icon { image-color: #dbeafe; }
+        /* G7.4: the lock toggle, before the eye; unlocked rows show it on hover only. */
+        .lock { display: inline-flex; align-items: center; justify-content: center; width: 20dp; height: 20dp; margin-left: 1dp;
+                border-radius: 3dp; visibility: hidden; }
+        .tree-row:hover .lock, .lock.on { visibility: visible; }
+        .lock:hover { background-color: #3a3f4c; }
+        .lock .icon { image-color: #6b7488; }
+        .lock.on .icon { image-color: #f59e0b; }
+        .lock:hover .icon { image-color: #ffffff; }
         .tree-empty { display: flex; flex-direction: column; align-items: center; padding: 22dp 14dp; color: #8b93a5; text-align: center; }
         .tree-empty .icon { margin-bottom: 8dp; image-color: #4b5263; }
         .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
@@ -103,6 +111,8 @@
             <span class="badge warning" data-if="row.warning != ''" data-attr-data-tooltip="row.warning"><span class="icon icon-sm icon-alert-triangle"></span></span>
             <span class="badge instance" data-if="row.instance" data-attr-data-tooltip="row.instance_tooltip"><span class="icon icon-sm icon-movie"></span></span>
             <span class="badge script" data-if="row.script != ''" data-attr-data-tooltip="row.script_tooltip"><span data-attr-class="row.script"></span></span>
+            <span class="lock" data-if="row.lockable" data-class-on="row.locked" data-event-mousedown="toggle_lock(row.index)"
+                  data-tooltip="Lock — the node cannot be picked, box-selected or moved in the viewport; select it here"><span data-attr-class="row.lock_icon"></span></span>
             <span class="eye" data-if="row.has_visible" data-class-off="!row.shown" data-event-mousedown="toggle_visible(row.index)"
                   data-tooltip="Toggle Visibility — hide or show the node and its children"><span data-attr-class="row.eye_icon"></span></span>
         </div>

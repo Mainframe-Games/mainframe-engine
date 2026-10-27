@@ -49,7 +49,7 @@ and player.
 - Scripted states, or C# code inside the graph. Code reacts to signals (`StateEntered`, `StateExited`) and sets
   parameters.
 - Inverse kinematics or procedural pose nodes. Those stay in the skeleton (constraints, bone overrides).
-- Root motion. 3D root motion is designed in [Animation authoring → G1e](animation-authoring.md); 2D clips are in place.
+- Root motion. 3D root motion has shipped ([Animation and skinning → Root motion](../animation.md#root-motion)); a blend tree mixes it like the player's crossfades; 2D clips are in place.
 - Driving non-skeleton node properties. That is G1a's `AnimationPlayer`, which can set graph parameters.
 
 ## Overview

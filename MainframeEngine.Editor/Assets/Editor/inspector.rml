@@ -118,6 +118,7 @@
             overflow: hidden;
         }
         .res-icon { margin-right: 4dp; }
+        .res-link { margin-right: 3dp; image-color: #8b93a5; }
         .res-name { display: block; flex: 1 1 auto; min-width: 0dp; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         /* A resource slot: the name takes its whole width; the buttons stay beside it while both fit, else they wrap onto
            a line of their own below it (right-aligned), and only a name longer than the row is cut with an ellipsis. */
@@ -128,6 +129,13 @@
         .array-index { width: 20dp; color: #6b7488; font-size: 10dp; }
         .array-box { display: block; flex: 1 1 auto; }
         .empty { display: flex; flex-direction: column; align-items: center; padding: 26dp 12dp; color: #8b93a5; text-align: center; }
+        /* G7.5 Simulate: a banner, and the rows read-only (values update live at 10 Hz). */
+        .sim-banner { display: flex; flex-direction: row; align-items: center; margin: 4dp 6dp; padding: 4dp 6dp; border-radius: 3dp;
+                      border: 1dp #14b8a6; background-color: #134e4a; color: #ccfbf1; font-size: 11dp; }
+        .sim-banner .icon-atom { image-color: #5eead4; margin-right: 6dp; }
+        .sim-banner .sim-text { flex: 1 1 auto; }
+        .simulating .prop-editor, .simulating #node-name, .simulating .res-actions { pointer-events: none; }
+        .simulating .prop-editor { opacity: 0.8; }
         .empty .icon { margin-bottom: 8dp; }
         .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
         .color-picker { padding: 2dp 8dp 6dp 12dp; }
@@ -195,6 +203,8 @@
         .zzfx-row button { width: 24dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 4dp; }
         .probe-bake { display: flex; flex-direction: row; align-items: center; height: 26dp; margin: 6dp 8dp; }
         .probe-bake button { width: 26dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 6dp; }
+        .joint-actions { display: flex; flex-direction: row; align-items: center; height: 26dp; margin: 6dp 8dp; }
+        .joint-actions button { width: 26dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 6dp; }
         .probe-bake-status { display: block; flex: 1 1 auto; color: #8b93a5; font-size: 11dp; white-space: nowrap; overflow: hidden; }
     </style>
 </head>
