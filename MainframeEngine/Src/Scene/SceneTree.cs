@@ -524,29 +524,41 @@ public sealed partial class SceneTree
 
         var paused = Paused;
         var editMode = EditMode;
-        if (_simulations.Count == 0)
+        Node? current = null; // G15: the node whose callback is running, for a crash report's exception filter
+        try
         {
-            // No simulation (every game, and the editor outside Simulate): the loop without the per-node G7.5 checks.
-            foreach (var node in _physics.Snapshot(this))
+            if (_simulations.Count == 0)
             {
-                if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
-                    (!editMode || node.IsTool))
-                    node.InvokePhysicsProcess(delta);
-            }
-        }
-        else
-        {
-            foreach (var node in _physics.Snapshot(this))
-            {
-                if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
-                    (!editMode || node.RunsInEditMode))
+                // No simulation (every game, and the editor outside Simulate): the loop without the per-node G7.5 checks.
+                foreach (var node in _physics.Snapshot(this))
                 {
-                    if (node.IsSimulated)
-                        InvokePhysicsProcessGuarded(node, delta); // G7.5: game code in the editor never escapes Tick
-                    else
+                    if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
+                        (!editMode || node.IsTool))
+                    {
+                        current = node;
                         node.InvokePhysicsProcess(delta);
+                    }
                 }
             }
+            else
+            {
+                foreach (var node in _physics.Snapshot(this))
+                {
+                    if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsPhysicsProcess && node.CanProcess(paused) &&
+                        (!editMode || node.RunsInEditMode))
+                    {
+                        current = node;
+                        if (node.IsSimulated)
+                            InvokePhysicsProcessGuarded(node, delta); // G7.5: game code in the editor never escapes Tick
+                        else
+                            node.InvokePhysicsProcess(delta);
+                    }
+                }
+            }
+        }
+        catch (Exception e) when (CrashContext.NoteNode(current, NodeCallback.PhysicsProcess, e))
+        {
+            // Never reached: the filter only notes the node, before the stack unwinds (G15).
         }
 
         if (IsSimulating)
@@ -624,29 +636,41 @@ public sealed partial class SceneTree
 
         var paused = Paused;
         var editMode = EditMode;
-        if (_simulations.Count == 0)
+        Node? current = null; // G15: the node whose callback is running, for a crash report's exception filter
+        try
         {
-            // No simulation: the loop without the per-node G7.5 checks (ProcessTick10k).
-            foreach (var node in _process.Snapshot(this))
+            if (_simulations.Count == 0)
             {
-                if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
-                    (!editMode || node.IsTool))
-                    node.InvokeProcess(gameTime);
-            }
-        }
-        else
-        {
-            foreach (var node in _process.Snapshot(this))
-            {
-                if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
-                    (!editMode || node.RunsInEditMode))
+                // No simulation: the loop without the per-node G7.5 checks (ProcessTick10k).
+                foreach (var node in _process.Snapshot(this))
                 {
-                    if (node.IsSimulated)
-                        InvokeProcessGuarded(node, gameTime);
-                    else
+                    if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
+                        (!editMode || node.IsTool))
+                    {
+                        current = node;
                         node.InvokeProcess(gameTime);
+                    }
                 }
             }
+            else
+            {
+                foreach (var node in _process.Snapshot(this))
+                {
+                    if (ReferenceEquals(node?.Tree, this) && !node.IsQueuedForDeletion && node.WantsProcess && node.CanProcess(paused) &&
+                        (!editMode || node.RunsInEditMode))
+                    {
+                        current = node;
+                        if (node.IsSimulated)
+                            InvokeProcessGuarded(node, gameTime);
+                        else
+                            node.InvokeProcess(gameTime);
+                    }
+                }
+            }
+        }
+        catch (Exception e) when (CrashContext.NoteNode(current, NodeCallback.Process, e))
+        {
+            // Never reached: the filter only notes the node, before the stack unwinds (G15).
         }
 
         FlushPendingScene();
@@ -793,11 +817,19 @@ public sealed partial class SceneTree
                 _deferred[i].Invoke();
             }
         }
+        catch (Exception e) when (CrashContext.NoteNode(DeferredNode(i), NodeCallback.Deferred, e))
+        {
+            // Never reached: the filter only notes the node, before the stack unwinds (G15).
+        }
         finally
         {
             _deferred.RemoveRange(0, Math.Min(i + 1, _deferred.Count));
         }
     }
+
+    // The node a deferred call belongs to (a lambda's target or the call's state), for a crash report.
+    private Node? DeferredNode(int index) =>
+        (uint)index < (uint)_deferred.Count ? _deferred[index].Action?.Target as Node ?? _deferred[index].State as Node : null;
 
     /// <summary>
     /// Runs queued deferred calls (including ones queued while flushing), then frees queued nodes; repeats
@@ -825,6 +857,10 @@ public sealed partial class SceneTree
 
                     _deferred[i].Invoke();
                 }
+            }
+            catch (Exception e) when (CrashContext.NoteNode(DeferredNode(i), NodeCallback.Deferred, e))
+            {
+                // Never reached: the filter only notes the node, before the stack unwinds (G15).
             }
             finally
             {

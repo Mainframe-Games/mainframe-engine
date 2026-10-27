@@ -235,38 +235,108 @@ public class GameHost : Engine
             return (int)ExitCode.Ok;
         }
 
+        // G15 (ADR 0221): native dumps need the runtime's variables before it starts; a shipped desktop game that asks
+        // for them runs as its own supervised child (before the file log, which the child owns).
+        if (CrashSupervisor.ShouldSupervise(settings, options) && CrashSupervisor.Run(args, settings) is { } childExit)
+            return childExit;
+
         var fileLog = options.LogFile ? TryCreateFileLog(settings.UserDataFolderName) : null;
         if (fileLog is not null)
             Log.AddSink(fileLog);
+        InstallCrashReporter(settings, fileLog, options.Headless);
         if (options.Headless)
             return RunHeadless(settings, options, gameAssemblies, fileLog);
 
         // The player's settings.json, before the window exists: VSync, the windowed size and the language patch the engine
         // options; the session applies the rest when it starts (after the file log, so a damaged file is reported there).
         var userSettings = UserSettings.Current = UserSettings.Load(settings);
+        CrashReporter.UploadConsent = userSettings.CrashUploadConsent;
 
         GameHost? host = null;
+        var exit = (int)ExitCode.Error;
+        Exception? failure = null;
         try
         {
             GameSession.LoadGameAssemblies(settings, gameAssemblies);
             host = new GameHost(settings, options, gameAssemblies, userSettings);
-            return (int)host.Run();
+            exit = (int)host.Run();
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
-            Log.Fatal(e);
-            return (int)ExitCode.Error;
+            // The report first: shutting down after a lost device can throw again and must not hide this.
+            failure = e;
+            ReportFatal(e);
         }
         finally
         {
-            // OnClose shuts the session down on a normal exit; after a crash the editor still gets its goodbye.
-            host?.Session.Shutdown(ExitCode.Error);
-            host?.Dispose();
-            if (fileLog is not null)
+            // OnClose shuts the session down on a normal exit; after a crash the editor still gets its goodbye. Each step
+            // is guarded: a second exception is logged, never thrown over the first.
+            ShutdownStep(host, static h => h.Session.Shutdown(ExitCode.Error), ref failure, ref exit);
+            ShutdownStep(host, static h => h.Dispose(), ref failure, ref exit);
+            EndCrashReporting(fileLog);
+        }
+
+        return exit;
+    }
+
+    // The fatal path's order: the report (bundle, editor link), then the log line, then shutdown.
+    private static void ReportFatal(Exception exception)
+    {
+        CrashReporter.WriteReport(exception, CrashKind.ManagedException);
+        Log.Fatal(exception);
+    }
+
+    private static void ShutdownStep<T>(T? target, Action<T> step, ref Exception? failure, ref int exit)
+        where T : class
+    {
+        if (target is null)
+            return;
+        try
+        {
+            step(target);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            if (failure is null)
             {
-                Log.RemoveSink(fileLog);
-                fileLog.Dispose();
+                failure = e;
+                exit = (int)ExitCode.Error;
+                ReportFatal(e);
             }
+            else
+            {
+                Log.Error($"[GameHost] Shutting down after the error failed too ({e.GetType().Name}: {e.Message}); the first error was reported.");
+            }
+        }
+    }
+
+    // G15: the crash reporter of a game run, after the file log so its tail and flush are this run's.
+    private static void InstallCrashReporter(ProjectSettings settings, FileLogSink? fileLog, bool headless)
+    {
+        if (!settings.Crash.Enabled)
+            return;
+        try
+        {
+            CrashReporter.Install(CrashReporterOptions.ForProject(settings, fileLog, headless, IsDebugBuild));
+            CrashReporter.Uploader = HttpCrashUploader.FromProject(settings.Crash);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            Log.Warning($"[Crash] Crash reporting is off: {e.Message}");
+        }
+    }
+
+    // A clean end of the run: the sentinel goes (no unclean-exit report next time), then the file log.
+    private static void EndCrashReporting(FileLogSink? fileLog)
+    {
+        if (CrashReporter.Uploader is IDisposable uploader)
+            uploader.Dispose();
+        CrashReporter.Shutdown();
+        CrashContext.Gpu = null;
+        if (fileLog is not null)
+        {
+            Log.RemoveSink(fileLog);
+            fileLog.Dispose();
         }
     }
 
@@ -277,27 +347,28 @@ public class GameHost : Engine
     {
         IsHeadless = true;
         HeadlessHost? host = null;
+        var exit = (int)ExitCode.Error;
+        Exception? failure = null;
         try
         {
             GameSession.LoadGameAssemblies(settings, gameAssemblies);
             host = new HeadlessHost(settings, options);
-            return (int)host.Run();
+            CrashReporter.UploadConsent = host.UserSettings.CrashUploadConsent;
+            exit = (int)host.Run();
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
-            Log.Fatal(e);
-            return (int)ExitCode.Error;
+            failure = e;
+            ReportFatal(e);
         }
         finally
         {
-            host?.Dispose();
+            ShutdownStep(host, static h => h.Dispose(), ref failure, ref exit);
             IsHeadless = false;
-            if (fileLog is not null)
-            {
-                Log.RemoveSink(fileLog);
-                fileLog.Dispose();
-            }
+            EndCrashReporting(fileLog);
         }
+
+        return exit;
     }
 
     /// <summary>
@@ -337,6 +408,81 @@ public class GameHost : Engine
         // first frame would otherwise lose (process deltas drop what the physics steps cannot cover).
         _startPending = true;
         CreateRecorder();
+        SetCrashContext();
+    }
+
+    // G15: what a crash report reads at crash time (never per frame).
+    private void SetCrashContext()
+    {
+        CrashContext.Scene = () => Tree.CurrentScene?.SceneFilePath;
+        CrashContext.RenderedFrames = () => RenderedFrameCount;
+        CrashContext.ProcessFrames = () => (long)Tree.ProcessFrames;
+        CrashContext.Settings = () => CrashSettingsSnapshot(Settings, Renderer as IVulkanContext, UserSettings);
+    }
+
+    /// <summary>
+    /// A report's <c>settings.json</c>: the effective <c>project.mfproj</c> (after the demo override; <c>crash.upload</c>
+    /// left out), the live render state and the player's <c>settings.json</c>.
+    /// </summary>
+    internal static byte[] CrashSettingsSnapshot(ProjectSettings settings, IVulkanContext? vulkan, UserSettings? user)
+    {
+        var root = new System.Text.Json.Nodes.JsonObject();
+        if (System.Text.Json.Nodes.JsonNode.Parse(settings.ToJson()) is System.Text.Json.Nodes.JsonObject project)
+        {
+            if (project["crash"] is System.Text.Json.Nodes.JsonObject crash)
+                crash.Remove("upload"); // the endpoint (a DSN's key) is the developer's, not part of a report
+            project["isDemo"] = settings.IsDemo;
+            root["project"] = project;
+        }
+
+        if (vulkan is not null)
+        {
+            root["render"] = new System.Text.Json.Nodes.JsonObject
+            {
+                ["antiAliasing"] = vulkan.AntiAliasing.ToString(),
+                ["scaling3DMode"] = vulkan.Scaling3DMode.ToString(),
+                ["scaling3DScale"] = vulkan.Scaling3DScale,
+                ["exposure"] = vulkan.Exposure,
+                ["vsync"] = (vulkan as IRenderer)?.VSync,
+                ["extent"] = $"{vulkan.SwapchainExtent.Width}x{vulkan.SwapchainExtent.Height}",
+            };
+        }
+
+        if (user is not null && System.Text.Json.Nodes.JsonNode.Parse(user.Config.ToJson()) is { } player)
+            root["user"] = player;
+        return System.Text.Encoding.UTF8.GetBytes(root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    // G15: once the first scene is on screen, the player's prompt for an earlier run's report (or, with their consent,
+    // the upload). Never in automated runs (--max-frames, --screenshot, --hidden, offline recording).
+    private void OfferCrashReports()
+    {
+        if (!CrashReporter.IsInstalled || !Settings.Crash.Enabled)
+            return;
+        var pending = CrashReporter.PendingReports;
+        if (pending.Count == 0)
+            return;
+        if (CrashReporter.Uploader is { } uploader && Settings.Crash.Upload.Mode == CrashUploadMode.Consented && CrashReporter.UploadConsent)
+        {
+            Log.Info($"[Crash] Sending {pending.Count} report(s) from earlier runs (the player agreed).");
+            _ = Task.Run(async () =>
+            {
+                foreach (var report in pending)
+                {
+                    var result = await uploader.SendAsync(report).ConfigureAwait(false);
+                    if (result.Success)
+                        CrashReporter.MarkHandled(report, CrashDisposition.Sent);
+                    else
+                        Log.Warning($"[Crash] Sending {report.Folder} failed: {result.Error}");
+                }
+            });
+            return;
+        }
+
+        if (Settings.Crash.Prompt != CrashPromptMode.Ask || Ui is null || HostOptions.MaxFrames > 0 || HostOptions.Hidden ||
+            HostOptions.ScreenshotPath is not null || HostOptions.RecordOffline)
+            return;
+        CrashPrompt.Show(Tree, new CrashPromptOptions { GameName = Settings.Name, Settings = UserSettings }, pending);
     }
 
     // Gameplay recording (ADR 0190): the renderer streams frames and the audio server exists from here on. --record
@@ -498,6 +644,7 @@ public class GameHost : Engine
             _loadedLogged = true;
             Log.Info($"[GameHost] Start scene on screen {SinceProcessStart():0} ms after the process started" +
                      (_startLoad is { } load ? $" (loaded asynchronously in {load.Elapsed.TotalSeconds:0.00} s)." : "."));
+            OfferCrashReports(); // after the loading screen (ADR 0183)
         }
     }
 

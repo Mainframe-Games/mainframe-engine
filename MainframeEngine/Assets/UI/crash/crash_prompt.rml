@@ -1,0 +1,36 @@
+<rml>
+<head>
+    <title>Crash report</title>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="crash_prompt.rcss"/>
+</head>
+<!--
+  The player's next-launch crash prompt (CrashPrompt, docs/design/crash-reporting.md#next-launch-prompt-games). Games can
+  copy this file into their own Assets/ and set CrashPromptOptions.Source; the "crash" data model below is the contract:
+
+  title (string: "Forest Demo closed unexpectedly last time"), summary (string: one line), more (string: earlier reports)
+  canOpen (bool: desktop), canSend (bool: an upload endpoint is set), sending (bool), status (string), alwaysSend (bool, two-way)
+  Events: open(), copy(), send(), close()
+-->
+<body data-model="crash">
+    <div id="crash" class="panel">
+        <div class="panel-title"><span class="no-tr">{{ title }}</span></div>
+        <div id="crash-body">
+            <p id="crash-summary" class="no-tr">{{ summary }}</p>
+            <p id="crash-hint">A report was saved on this computer. It helps the developers fix the problem.</p>
+            <p id="crash-more" class="no-tr" data-if="more != ''">{{ more }}</p>
+            <div id="crash-consent" data-if="canSend">
+                <input type="checkbox" id="crash-always" data-checked="alwaysSend"/>
+                <span>Always send reports</span>
+            </div>
+            <p id="crash-status" class="no-tr" data-if="status != ''">{{ status }}</p>
+        </div>
+        <div class="footer">
+            <button id="crash-open" data-if="canOpen" data-event-click="open()">Open folder</button>
+            <button id="crash-copy" data-event-click="copy()">Copy report</button>
+            <button id="crash-send" class="primary" data-if="canSend" data-class-disabled="sending" data-event-click="send()">Send report</button>
+            <button id="crash-close" data-attr-class="canSend ? '' : 'primary'" data-event-click="close()">Close</button>
+        </div>
+    </div>
+</body>
+</rml>

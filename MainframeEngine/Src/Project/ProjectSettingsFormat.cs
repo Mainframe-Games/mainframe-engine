@@ -163,6 +163,7 @@ public static class ProjectSettingsFormat
             WriteUi(w, settings.Ui);
             WriteLoading(w, settings.Loading);
             WriteSaves(w, settings.Saves);
+            WriteCrash(w, settings.Crash);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
             w.WriteEndObject();
@@ -446,6 +447,47 @@ public static class ProjectSettingsFormat
         w.WriteEndObject();
     }
 
+    private static void WriteCrash(Utf8JsonWriter w, CrashProjectSettings s)
+    {
+        var d = new CrashProjectSettings();
+        var u = s.Upload;
+        var du = d.Upload;
+        var upload = u.Url != du.Url || u.Format != du.Format || u.Mode != du.Mode || u.IncludeLog != du.IncludeLog || u.IncludeDumps != du.IncludeDumps;
+        if (s.Enabled == d.Enabled && s.Prompt == d.Prompt && s.LogEntries == d.LogEntries && s.MaxReports == d.MaxReports &&
+            s.GpuBreadcrumbs == d.GpuBreadcrumbs && s.NativeDumps == d.NativeDumps && !upload)
+            return;
+        w.WriteStartObject("crash");
+        if (s.Enabled != d.Enabled)
+            w.WriteBoolean("enabled", s.Enabled);
+        if (s.Prompt != d.Prompt)
+            w.WriteString("prompt", s.Prompt == CrashPromptMode.None ? "none" : "ask");
+        if (s.LogEntries != d.LogEntries)
+            w.WriteNumber("logEntries", s.LogEntries);
+        if (s.MaxReports != d.MaxReports)
+            w.WriteNumber("maxReports", s.MaxReports);
+        if (s.GpuBreadcrumbs != d.GpuBreadcrumbs)
+            w.WriteBoolean("gpuBreadcrumbs", s.GpuBreadcrumbs);
+        if (s.NativeDumps != d.NativeDumps)
+            w.WriteString("nativeDumps", s.NativeDumps.ToString().ToLowerInvariant());
+        if (upload)
+        {
+            w.WriteStartObject("upload");
+            if (u.Url != du.Url)
+                w.WriteString("url", u.Url);
+            if (u.Format != du.Format)
+                w.WriteString("format", u.Format == CrashUploadFormat.Zip ? "zip" : "sentry-envelope");
+            if (u.Mode != du.Mode)
+                w.WriteString("mode", u.Mode == CrashUploadMode.Consented ? "consented" : "ask");
+            if (u.IncludeLog != du.IncludeLog)
+                w.WriteBoolean("includeLog", u.IncludeLog);
+            if (u.IncludeDumps != du.IncludeDumps)
+                w.WriteBoolean("includeDumps", u.IncludeDumps);
+            w.WriteEndObject();
+        }
+
+        w.WriteEndObject();
+    }
+
     private static void WriteAutoloads(Utf8JsonWriter w, List<AutoloadSettings> autoloads)
     {
         if (autoloads.Count == 0)
@@ -512,7 +554,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "loading", "saves", "autoloads", "playInstances");
+                "audio", "localization", "rendering", "ui", "loading", "saves", "crash", "autoloads", "playInstances");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -542,6 +584,8 @@ public static class ProjectSettingsFormat
                 ReadLoading(loading, s.Loading);
             if (Object(root, "saves") is { } saves)
                 ReadSaves(saves, s.Saves);
+            if (Object(root, "crash") is { } crash)
+                ReadCrash(crash, s.Crash);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
             if (Array(root, "playInstances", "playInstances") is { } instances)
@@ -742,6 +786,63 @@ public static class ProjectSettingsFormat
                 var height = Int(thumbnail, "height", "saves.thumbnail.height", s.ThumbnailHeight, 1, 4096);
                 Guard("saves.thumbnail.height", () => s.ThumbnailHeight = height);
             }
+        }
+
+        private void ReadCrash(JsonObject o, CrashProjectSettings s)
+        {
+            Known(o, "crash.", "enabled", "prompt", "logEntries", "maxReports", "gpuBreadcrumbs", "nativeDumps", "upload");
+            s.Enabled = Bool(o, "enabled", "crash.enabled", s.Enabled);
+            if (String(o, "prompt", "crash.prompt") is { } prompt)
+            {
+                s.Prompt = prompt switch
+                {
+                    "ask" => CrashPromptMode.Ask,
+                    "none" => CrashPromptMode.None,
+                    _ => throw Error("crash.prompt", $"'{prompt}' is not \"ask\" or \"none\""),
+                };
+            }
+
+            s.LogEntries = Int(o, "logEntries", "crash.logEntries", s.LogEntries, 1, 10_000);
+            s.MaxReports = Int(o, "maxReports", "crash.maxReports", s.MaxReports, 1, 1000);
+            s.GpuBreadcrumbs = Bool(o, "gpuBreadcrumbs", "crash.gpuBreadcrumbs", s.GpuBreadcrumbs);
+            if (String(o, "nativeDumps", "crash.nativeDumps") is { } dumps)
+            {
+                s.NativeDumps = dumps switch
+                {
+                    "off" => NativeDumpMode.Off,
+                    "triage" => NativeDumpMode.Triage,
+                    "mini" => NativeDumpMode.Mini,
+                    "heap" => NativeDumpMode.Heap,
+                    _ => throw Error("crash.nativeDumps", $"'{dumps}' is not \"off\", \"triage\", \"mini\" or \"heap\""),
+                };
+            }
+
+            if (Object(o, "upload") is not { } upload)
+                return;
+            Known(upload, "crash.upload.", "url", "format", "mode", "includeLog", "includeDumps");
+            s.Upload.Url = String(upload, "url", "crash.upload.url") ?? s.Upload.Url;
+            if (String(upload, "format", "crash.upload.format") is { } format)
+            {
+                s.Upload.Format = format switch
+                {
+                    "sentry-envelope" => CrashUploadFormat.SentryEnvelope,
+                    "zip" => CrashUploadFormat.Zip,
+                    _ => throw Error("crash.upload.format", $"'{format}' is not \"sentry-envelope\" or \"zip\""),
+                };
+            }
+
+            if (String(upload, "mode", "crash.upload.mode") is { } mode)
+            {
+                s.Upload.Mode = mode switch
+                {
+                    "ask" => CrashUploadMode.Ask,
+                    "consented" => CrashUploadMode.Consented,
+                    _ => throw Error("crash.upload.mode", $"'{mode}' is not \"ask\" or \"consented\""),
+                };
+            }
+
+            s.Upload.IncludeLog = Bool(upload, "includeLog", "crash.upload.includeLog", s.Upload.IncludeLog);
+            s.Upload.IncludeDumps = Bool(upload, "includeDumps", "crash.upload.includeDumps", s.Upload.IncludeDumps);
         }
 
         private void ReadAutoloads(JsonArray array, List<AutoloadSettings> autoloads)

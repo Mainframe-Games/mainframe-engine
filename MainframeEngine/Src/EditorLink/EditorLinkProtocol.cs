@@ -37,6 +37,12 @@ public enum EditorLinkMessageType : byte
     /// <summary>Game → editor: a recording started, stopped or failed (<see cref="EditorLinkMessage.Recording"/>).</summary>
     Recording = 8,
 
+    /// <summary>
+    /// Game → editor (protocol 5): the game is crashing; its <c>report.json</c> without the log, which the editor already
+    /// has (<see cref="EditorLinkMessage.CrashReport"/>), sent before <see cref="Goodbye"/>.
+    /// </summary>
+    CrashReport = 9,
+
     /// <summary>Editor → game: an <see cref="EditorLinkCommand"/>.</summary>
     Command = 16,
 
@@ -146,7 +152,13 @@ public readonly record struct EditorLinkMessage
 
     /// <summary><see cref="EditorLinkMessageType.Recording"/>: the recording's state, file and totals.</summary>
     public EditorLinkRecording Recording { get; init; }
+
+    /// <summary><see cref="EditorLinkMessageType.CrashReport"/>: the report and where its bundle is.</summary>
+    public EditorLinkCrashReport CrashReport { get; init; }
 }
+
+/// <summary>A crash report, game → editor: <c>report.json</c> (at most <see cref="EditorLinkProtocol.MaxCrashReportBytes"/>) and the bundle folder.</summary>
+public readonly record struct EditorLinkCrashReport(string Json, string Folder);
 
 /// <summary>
 /// The editor link's wire format: little-endian frames of <c>u32 length</c> + <c>u8 type</c> + payload (length counts
@@ -159,12 +171,19 @@ public readonly record struct EditorLinkMessage
 /// <item>Tree: <c>u8 truncated, i32 count, count × (i32 depth, str name, str type)</c></item>
 /// <item>Welcome: <c>i32 protocol</c></item>
 /// <item>Recording: <c>u8 state, str path, f32 elapsed s, i64 dropped, i64 duplicated, str error</c></item>
+/// <item>CrashReport: <c>str reportJson, str bundleFolder</c></item>
 /// </list>
 /// </summary>
 public static class EditorLinkProtocol
 {
     /// <summary>Bumped on any incompatible wire change; the editor checks <see cref="EditorLinkHello.ProtocolVersion"/>.</summary>
-    public const int Version = 4;   // 2: Tree / RequestTree · 3: Welcome · 4: StartRecording / StopRecording / Recording
+    public const int Version = 5;   // 2: Tree / RequestTree · 3: Welcome · 4: StartRecording / StopRecording / Recording · 5: CrashReport
+
+    /// <summary>The first protocol whose games send <see cref="EditorLinkMessageType.CrashReport"/>.</summary>
+    public const int MinCrashReportVersion = 5;
+
+    /// <summary>The largest <c>report.json</c> a CrashReport frame carries (a longer one is not sent: the editor reads the bundle).</summary>
+    public const int MaxCrashReportBytes = 256 * 1024 - 1024;
 
     /// <summary>Nodes in one tree snapshot at most (names are cut to <see cref="MaxTreeNameLength"/>), keeping a frame under the limit.</summary>
     public const int MaxTreeNodes = 3000; // × (12 + 2 × 48 chars × 3 UTF-8 bytes) < MaxFrameLength
@@ -273,6 +292,21 @@ public static class EditorLinkProtocol
     }
 
     /// <summary>
+    /// Writes a crash report frame; false (nothing written) when <paramref name="report"/>'s JSON is over
+    /// <see cref="MaxCrashReportBytes"/> UTF-8 bytes (it would be cut, and cut JSON is useless).
+    /// </summary>
+    public static bool WriteCrashReport(ArrayBufferWriter<byte> output, in EditorLinkCrashReport report)
+    {
+        if (Encoding.UTF8.GetByteCount(report.Json ?? "") > MaxCrashReportBytes)
+            return false;
+        var w = new FrameWriter(output, EditorLinkMessageType.CrashReport);
+        w.String(report.Json);
+        w.String(report.Folder);
+        w.Finish();
+        return true;
+    }
+
+    /// <summary>
     /// Reads the frame length from a 4-byte header; false when it is outside 1..<see cref="MaxFrameLength"/> (a corrupt
     /// or hostile stream: close the connection).
     /// </summary>
@@ -357,6 +391,11 @@ public static class EditorLinkProtocol
                     };
                     break;
                 }
+            case EditorLinkMessageType.CrashReport:
+                if (!r.String(out var reportJson) || !r.String(out var bundle))
+                    return false;
+                message = new EditorLinkMessage { Type = type, CrashReport = new EditorLinkCrashReport(reportJson, bundle) };
+                break;
             case EditorLinkMessageType.Tree:
                 {
                     if (!r.Byte(out var truncated) || !r.Int32(out var count) || count < 0 || count > MaxTreeNodes)

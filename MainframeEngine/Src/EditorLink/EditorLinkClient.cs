@@ -38,6 +38,8 @@ public sealed class EditorLinkClient : IDisposable
     private readonly Queue<EditorLinkRecording> _recordings = new(); // guarded by _statusGate
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _goodbyeSent = new(false);
+    private readonly ManualResetEventSlim _crashSent = new(false);
+    private EditorLinkCrashReport? _crash; // guarded by _statusGate
     private readonly ManualResetEventSlim _stopped = new(false);
     private int _connectAttempts;
     private EditorLinkStatus _status;
@@ -128,6 +130,31 @@ public sealed class EditorLinkClient : IDisposable
         Wake();
     }
 
+    /// <summary>
+    /// Sends a crash report (protocol 5) ahead of the goodbye, waiting at most <paramref name="timeout"/> for it to be
+    /// written to the socket: called on the way down, possibly from a thread about to die. False when not connected,
+    /// when the report is too large for a frame, or on time-out.
+    /// </summary>
+    public bool SendCrashReport(in EditorLinkCrashReport report, TimeSpan timeout)
+    {
+        if (!_connected || _stopping)
+            return false;
+        if (System.Text.Encoding.UTF8.GetByteCount(report.Json ?? "") > EditorLinkProtocol.MaxCrashReportBytes)
+            return false;
+        lock (_statusGate)
+            _crash = report;
+        try
+        {
+            _crashSent.Reset();
+            Wake();
+            return _crashSent.Wait(timeout);
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>The next command from the editor, if any (call from the game loop).</summary>
     public bool TryReceiveCommand(out EditorLinkCommand command) => _commands.TryDequeue(out command);
 
@@ -171,6 +198,7 @@ public sealed class EditorLinkClient : IDisposable
         {
             _signal.Dispose();
             _goodbyeSent.Dispose();
+            _crashSent.Dispose();
             _stopped.Dispose();
         }
     }
@@ -262,6 +290,7 @@ public sealed class EditorLinkClient : IDisposable
     {
         while (!_stopping && !connection.IsDisposed)
         {
+            EditorLinkCrashReport? crash;
             buffer.Clear();
             while (buffer.WrittenCount < MaxBatchBytes && _logs.TryDequeue(out var entry))
             {
@@ -288,6 +317,12 @@ public sealed class EditorLinkClient : IDisposable
 
                 while (_recordings.TryDequeue(out var recording))
                     EditorLinkProtocol.WriteRecording(buffer, recording);
+                crash = _logs.IsEmpty ? _crash : null; // after the logs that led to it
+                if (crash is { } report)
+                {
+                    EditorLinkProtocol.WriteCrashReport(buffer, report);
+                    _crash = null;
+                }
             }
 
             var goodbye = _goodbyeRequested && _logs.IsEmpty;
@@ -296,6 +331,8 @@ public sealed class EditorLinkClient : IDisposable
 
             if (buffer.WrittenCount > 0)
                 connection.Write(buffer.WrittenSpan);
+            if (crash is not null)
+                _crashSent.Set();
             if (goodbye)
             {
                 _goodbyeRequested = false;

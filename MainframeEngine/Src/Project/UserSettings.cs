@@ -61,6 +61,7 @@ public sealed class UserSettings
     private const string InputSection = "input";
     private const string DisplaySection = "display";
     private const string LocaleSection = "locale";
+    private const string CrashSection = "crash";
 
     private readonly ProjectSettings _project;
     private readonly List<string> _strings = [];
@@ -304,6 +305,25 @@ public sealed class UserSettings
             if (_tree?.Window is { Mode: WindowMode.Windowed } window)
                 window.Size = new System.Numerics.Vector2(effective.X, effective.Y);
             Changed?.Invoke(UserSettingsSection.Display);
+        }
+    }
+
+    /// <summary>
+    /// The player agreed to send crash reports (the crash prompt's "Always send reports", <c>crash.uploadConsent</c>):
+    /// <see cref="GameHost"/> copies it into <see cref="CrashReporter.UploadConsent"/>. Default false. Not part of any
+    /// <see cref="Reset"/> section.
+    /// </summary>
+    public bool CrashUploadConsent
+    {
+        get => Config.GetBool(CrashSection, "uploadConsent");
+        set
+        {
+            if (CrashUploadConsent == value)
+                return;
+            if (value)
+                Config.SetValue(CrashSection, "uploadConsent", true);
+            else
+                Config.EraseSectionKey(CrashSection, "uploadConsent");
         }
     }
 
@@ -582,7 +602,7 @@ public sealed class UserSettings
             case UserSettingsSection.Game:
                 foreach (var name in Config.GetSections())
                 {
-                    if (name is not (AudioSection or InputSection or DisplaySection or LocaleSection))
+                    if (name is not (AudioSection or InputSection or DisplaySection or LocaleSection or CrashSection))
                         Config.EraseSection(name);
                 }
 

@@ -61,6 +61,13 @@ public sealed class HeadlessHost : IDisposable
         _size = new System.Numerics.Vector2(Math.Max(1, settings.Window.Width), Math.Max(1, settings.Window.Height));
         Tree.Root.SetSize(_size);
         FrameRate = settings.Window.MaxFps > 0 ? settings.Window.MaxFps : _options.PhysicsTicksPerSecond;
+
+        // G15: read only at crash time. No prompt headless: earlier reports are logged for the server's operator.
+        CrashContext.Scene = () => Tree.CurrentScene?.SceneFilePath;
+        CrashContext.ProcessFrames = () => (long)Tree.ProcessFrames;
+        CrashContext.Settings = () => GameHost.CrashSettingsSnapshot(settings, null, UserSettings);
+        if (CrashReporter.IsInstalled && CrashReporter.PendingReports is { Count: > 0 } pending)
+            Log.Warning($"[Crash] {pending.Count} crash report(s) from earlier runs in {CrashReporter.Directory} (newest: {pending[0].Summary}).");
     }
 
     /// <summary>The tree the game runs in.</summary>

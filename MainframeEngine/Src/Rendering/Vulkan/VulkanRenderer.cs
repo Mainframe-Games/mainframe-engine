@@ -216,6 +216,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         _enableFrameCapture = options.EnableFrameCapture;
         AntiAliasing = options.AntiAliasing;
         TaaSharpness = options.TaaSharpness;
+        _breadcrumbsRequested = options.GpuBreadcrumbs;
+        _simulateDeviceLostAt = options.SimulateDeviceLostAtFrame;
         _glow = new GlowEffect(_autoExposure);
         RegisterPostEffects();
         InitVulkan();
@@ -268,6 +270,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
             return;
         }
 
+        if (result == Result.ErrorDeviceLost)
+            throw new VulkanDeviceLostException("[Vulkan] vkAcquireNextImageKHR failed: the device was lost (VK_ERROR_DEVICE_LOST).");
         if (result != Result.Success && result != Result.SuboptimalKhr)
             throw new VulkanException($"[Vulkan] Failed to acquire a swapchain image: {result}");
 
@@ -289,7 +293,9 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         _deletions.BeginFrame(_frameNumber);
 
         // Pending staging copies and layout initialisations run first, before any pass reads them.
+        BeginPassMark(GpuPass.Uploads);
         _uploads.Record(cb);
+        EndPassMark(GpuPass.Uploads);
     }
 
     public void EndFrame()
@@ -337,6 +343,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         var frameFence = _inFlightFences[_currentFrame];
         _vk.ResetFences(_device, 1, in frameFence).Check("vkResetFences");
         _vk.QueueSubmit(_graphicsQueue, 1, in submitInfo, frameFence).Check("vkQueueSubmit (frame)");
+        NoteSubmitted();
+        SimulateDeviceLoss(frameFence);
         _deletions!.EndFrame();
 
         // Pending only once submitted: a flush waits on this slot's fence, which must be going to signal.
@@ -366,6 +374,10 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         {
             _framebufferResized = true;
             RecreateSwapchain(); // on failure (minimised) the flag stays set and BeginFrame retries
+        }
+        else if (presentResult == Result.ErrorDeviceLost)
+        {
+            throw new VulkanDeviceLostException("[Vulkan] vkQueuePresentKHR failed: the device was lost (VK_ERROR_DEVICE_LOST).");
         }
         else if (presentResult != Result.Success)
         {
@@ -639,8 +651,11 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         SetupDebugMessenger();
         CreateSurface();
         PickPhysicalDevice();
+        ReadGpuInfo(); // G15: logged, and in crash reports
         CreateLogicalDevice();
+        CreateDeviceFault();
         CreateGpuMemory();
+        CreateBreadcrumbs();
         CreateSwapchain();
         CreateCommandPool();
         CreateCommandBuffers();
@@ -891,6 +906,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         if (IsDeviceExtensionAvailable(_physicalDevice, "VK_KHR_portability_subset"))
             extensionList.Add("VK_KHR_portability_subset");
         AddPresentationExtensions(extensionList); // sRGB swapchain with a UNORM overlay view, when available
+        _deviceFaultEnabled = QueryDeviceFault(extensionList, out var faultFeatures); // G15: VK_EXT_device_fault, when available
         var deviceExtensions = extensionList.ToArray();
 
         // The lit shaders index their shadow sampler arrays with a loop counter, which needs
@@ -917,6 +933,8 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
             EnabledExtensionCount = (uint)deviceExtensions.Length,
             PpEnabledExtensionNames = (byte**)SilkMarshal.StringArrayToPtr(deviceExtensions)
         };
+        if (_deviceFaultEnabled)
+            createInfo.PNext = &faultFeatures;
 
         if (_enableValidationLayers)
         {
@@ -1234,9 +1252,24 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         var vk = _vk;
         if (vk is null) return;
 
+        try
+        {
+            DisposeDevice(vk);
+        }
+        catch (Exception e) when (DeviceIsLost && e is not OutOfMemoryException)
+        {
+            // G15: after a loss, releasing never throws over the error being reported.
+            IgnoreDisposeError(e);
+        }
+    }
+
+    private void DisposeDevice(Vk vk)
+    {
         if (_device.Handle != 0)
         {
-            vk.DeviceWaitIdle(_device);
+            if (!DeviceIsLost)
+                vk.DeviceWaitIdle(_device);
+            DisposeCrashObjects();
             _shadowFallback?.Dispose();
             _shadowFallback = null;
             _captureBuffer?.Dispose();

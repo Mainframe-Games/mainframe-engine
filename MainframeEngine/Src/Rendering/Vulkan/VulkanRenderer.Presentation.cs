@@ -804,6 +804,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         };
         clears[1] = new ClearValue { DepthStencil = new ClearDepthStencilValue(1f, 0) };
         var cb = _commandBuffers[_currentFrame];
+        BeginPassMark(GpuPass.Scene); // G15 breadcrumbs: outside the render pass
         if (_prepass is not null && _prepassFrame == _frameNumber)
             _sceneTarget!.Begin(cb, new ReadOnlySpan<ClearValue>(clears, 2), _prepass.SceneLoadPass);
         else
@@ -832,11 +833,14 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         // maps are created) the tonemap read the last rows of tiles before the scene pass had stored them (black
         // tiles). Ending the pass through the target records an explicit barrier on the HDR image.
         _sceneTarget!.End(cb);
+        EndPassMarkUnchecked(cb, GpuPass.Scene);
 
         // Offscreen overlay work (UI layers, clip masks, filters) between the scene pass and the tonemap. It never touches
         // the HDR image; the UI renderer orders its own passes with explicit barriers (ADR 0050).
+        BeginPassMarkUnchecked(cb, GpuPass.UiOffscreen);
         for (var i = 0; i < _overlayRenderers.Count; i++)
             _overlayRenderers[i].RecordOffscreen(cb);
+        EndPassMarkUnchecked(cb, GpuPass.UiOffscreen);
 
         // ADR 0174: a new output colour has no layout yet; the upscale's copy pass expects shader-read.
         if (_outputColorFresh && _outputColor is not null)
@@ -854,7 +858,9 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         var usePost = settings.PostTonemap;
         var exposure = FrameExposure;
         var context = PreparePostContext(cb, exposure);
+        BeginPassMarkUnchecked(cb, GpuPass.BeforeTonemap);
         _post.Record(PostStage.BeforeTonemap, context);
+        EndPassMarkUnchecked(cb, GpuPass.BeforeTonemap);
         var shafts = 0f;
         if (usePost)
         {
@@ -869,6 +875,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         // shader-encoded sRGB); the effects filter it in turn, the last one into the swapchain pass, and the overlay
         // renderers draw after it, unfiltered.
         var afterTonemap = _post.CountEnabled(PostStage.AfterTonemap, settings) > 0;
+        BeginPassMarkUnchecked(cb, GpuPass.Present); // tonemap → after-tonemap effects → overlay; ends in EndPasses
         if (afterTonemap)
         {
             EnsureLdrTonemap(usePost);
@@ -986,6 +993,7 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
         BeginOverlayPass();
         _vk!.CmdEndRenderPass(cb);
         _passState = PassState.None;
+        EndPassMark(GpuPass.Present);
     }
 
     // ── Teardown ──────────────────────────────────────────────────────────────

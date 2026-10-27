@@ -47,6 +47,16 @@ public struct EngineOptions()
     public bool VSync = true;
 
     /// <summary>
+    /// Per-pass GPU breadcrumbs (G15): each pass writes the frame number into a small host-visible buffer at its start and
+    /// end, so a lost device (<see cref="VulkanDeviceLostException"/>) names the passes the GPU was in. About twenty small
+    /// commands a frame, no allocation. Default on (<c>crash.gpuBreadcrumbs</c>).
+    /// </summary>
+    public bool GpuBreadcrumbs = true;
+
+    /// <summary>Tests: the renderer throws <see cref="VulkanDeviceLostException"/> after submitting this frame (0: never).</summary>
+    internal ulong SimulateDeviceLostAtFrame;
+
+    /// <summary>
     /// Enables the Khronos validation layers when they are installed. Messages are counted by
     /// <see cref="IVulkanContext.Validation"/>. Defaults to on in Debug builds of the engine and off in
     /// Release; set it explicitly to override (render tests force it on).
@@ -418,6 +428,8 @@ public abstract class Engine : IDisposable
             EnableFrameCapture = EngineOptions.EnableFrameCapture,
             AntiAliasing = EngineOptions.AntiAliasing,
             TaaSharpness = EngineOptions.TaaSharpness,
+            GpuBreadcrumbs = EngineOptions.GpuBreadcrumbs,
+            SimulateDeviceLostAtFrame = EngineOptions.SimulateDeviceLostAtFrame,
         });
 
         // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,
@@ -593,14 +605,25 @@ public abstract class Engine : IDisposable
         var frameStarted = Renderer is not IVulkanContext vk || vk.FrameStarted;
         if (frameStarted)
         {
+            // G15: per-pass GPU breadcrumbs (no-ops without them), between passes where no render pass is active.
+            var crumbs = Renderer as VulkanRenderer;
+
             // ADR 0207: compute pre-skinning of the skinned meshes the frame prepared, before anything draws them.
+            crumbs?.BeginPassMark(GpuPass.Skinning);
             Servers.Render?.SkinMeshes();
+            crumbs?.EndPassMark(GpuPass.Skinning);
 
             // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
+            crumbs?.BeginPassMark(GpuPass.Shadows);
             OnShadowPass(_gameTime);
             Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters
+            crumbs?.EndPassMark(GpuPass.Shadows);
+            crumbs?.BeginPassMark(GpuPass.Offscreen);
             Servers.Render?.RenderOffscreen(Root); // M3: sub-viewports and object-ID picking passes
+            crumbs?.EndPassMark(GpuPass.Offscreen);
+            crumbs?.BeginPassMark(GpuPass.Prepass);
             Servers.Render?.RenderPrepass(Root); // ADR 0163: depth prepass + velocity and the AfterPrepass effects, when needed
+            crumbs?.EndPassMark(GpuPass.Prepass);
 
             // Begin the main render pass (it loads the prepass depth when there was one), then let the game draw geometry.
             (Renderer as IVulkanContext)?.BeginRenderPass();
