@@ -324,7 +324,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ⬜ | [Profiler](design/future/profiler.md) |
 | G11 World-space UI: `Label3D`, UI anchored to 3D points (nameplates, markers), RmlUi panels rendered onto meshes with ray-picked input | ⬜ | [World-space UI](design/future/world-space-ui.md) |
 | G12 Gamepad haptics and input glyphs: rumble, controller type and last-used device, action → glyph for RmlUi and canvas text | ⬜ | [Haptics and input glyphs](design/future/input-haptics-and-glyphs.md) |
-| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | ⬜ | [Paths](design/future/paths.md) |
+| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | 🚧 3D nodes shipped (ADR 0215) | [Paths](design/paths.md), [proposal](design/future/paths.md) |
 | G14 Accessibility: UI scale, colour-vision filters, subtitles and captions, motion comfort options, input assists | ⬜ | [Accessibility](design/future/accessibility.md) |
 | G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ⬜ | [Crash reporting](design/future/crash-reporting.md) |
 | G16 Video playback: `VideoStream`, `VideoPlayer`, `VideoTexture`, GPU YUV conversion, audio through `AudioServer` (codec choice pending) | ⬜ | [Video playback](design/future/video-playback.md) |
