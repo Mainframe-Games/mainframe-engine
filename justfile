@@ -5,7 +5,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 solution := "MainframeEngine.slnx"
 # Folders with committed .gdshader SPIR-V (canvas-shaders, shaders-check)
-gdshader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets"
+gdshader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets Examples/Neon/Assets"
 artifacts := justfile_directory() / "artifacts"
 
 # List recipes
@@ -176,6 +176,10 @@ neon-art *args:
     python3 Examples/Neon/Tools/apartment/make_posters.py
     "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/apartment/build_apartment.py -- {{args}}
     python3 Examples/Neon/Tools/fetch_assets.py --only metas
+
+# Build Neon's city kit (Assets/Art/City: towers, rail, vehicles, signs glTFs and the signs.png words atlas; fetches Noto Sans JP into a cache) headless in Blender from Tools/city/build_city_kit.py (args: --preview DIR, --verify DIR, --no-atlas)
+neon-city-art *args:
+    "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/city/build_city_kit.py -- {{args}}
 
 # Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
 template-smoke frames="30":

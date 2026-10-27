@@ -5,9 +5,10 @@ namespace Neon;
 
 /// <summary>
 /// Neon's main scene (<c>Assets/Scenes/neon.mscene</c>, written by <c>--write-scenes</c>): a dim moonlight, a dark
-/// procedural night sky, two coloured "city glow" lights outside the window wall (placeholders until the city), the
-/// <see cref="NeonApartment"/> (built when ready), the <see cref="FirstPersonController"/> with its
-/// <see cref="Interactor"/> at the front door, the <see cref="NeonAudio"/> and the <see cref="FallSafety"/> under it all.
+/// procedural night sky glowing magenta at the horizon, the <see cref="NeonCity"/> round the tower (built when ready; no
+/// lights: its neon is emission and glow), the <see cref="NeonApartment"/> (built when ready), the
+/// <see cref="FirstPersonController"/> with its <see cref="Interactor"/> at the front door, the <see cref="NeonAudio"/>
+/// and the <see cref="FallSafety"/> under it all.
 /// </summary>
 public static class NeonScene
 {
@@ -38,9 +39,7 @@ public static class NeonScene
             RotationDegrees = new Vector3(-40f, 200f, 0f),
         });
         Add(root, root, CreateEnvironment());
-        // The city's glow below the window wall, until the city: magenta from the left, teal from the right.
-        Add(root, root, new OmniLight3D { Name = "CityGlowMagenta", Position = new Vector3(-10f, -4f, 18f), Color = new Vector3(1f, 0.2f, 0.65f), Energy = 3f, Range = 30f });
-        Add(root, root, new OmniLight3D { Name = "CityGlowTeal", Position = new Vector3(12f, -4f, 18f), Color = new Vector3(0.1f, 0.85f, 1f), Energy = 2.5f, Range = 30f });
+        Add(root, root, new NeonCity { Name = "City" });
         Add(root, root, new NeonApartment { Name = "Apartment" });
         BuildPlayer(root);
         Add(root, root, new NeonAudio { Name = "Audio" });
@@ -50,27 +49,35 @@ public static class NeonScene
         return root;
     }
 
-    /// <summary>A dark night: a navy sky over a magenta-lit horizon (the city's light in the haze), dim sky ambience, fog.</summary>
+    /// <summary>
+    /// A rainy night over the city: a near-black sky whose horizon glows magenta (the city's light in the cloud), purple
+    /// haze that thickens towards the streets 70 m below (height fog), dim sky ambience. The look (glow, tonemap, lens) is
+    /// <see cref="NeonLook"/>'s resource files.
+    /// </summary>
     public static WorldEnvironment CreateEnvironment() => new()
     {
         Name = "Environment",
         Sky = new Sky
         {
             Mode = SkyEnvironmentType.Procedural,
-            SkyColor = new Vector3(0.012f, 0.014f, 0.035f),
-            HorizonColor = new Vector3(0.16f, 0.05f, 0.14f),
-            GroundColor = new Vector3(0.05f, 0.025f, 0.06f),
-            HorizonSharpness = 3f,
+            SkyColor = new Vector3(0.01f, 0.012f, 0.03f),
+            HorizonColor = new Vector3(0.36f, 0.09f, 0.3f),
+            GroundColor = new Vector3(0.18f, 0.05f, 0.16f),
+            HorizonSharpness = 2.2f,
             SunColor = new Vector3(0.7f, 0.75f, 1f),
-            SunIntensity = 0.4f,
+            SunIntensity = 0.3f,
             SunAngularRadius = 0.3f,
         },
         AmbientSource = AmbientSource.Sky,
         ReflectedLightSource = ReflectedLightSource.Sky,
         AmbientEnergy = 0.6f,
         FogEnabled = true,
-        FogLightColor = new Vector3(0.12f, 0.05f, 0.12f),
-        FogDensity = 0.004f,
+        FogLightColor = new Vector3(0.24f, 0.07f, 0.24f),
+        FogDensity = 0.0026f,
+        FogHeight = CityLayout.GroundY + 30f,
+        FogHeightDensity = 0.012f,
+        PostProcess = NeonLook.LoadProfile(),
+        CameraAttributes = NeonLook.LoadLens(),
     };
 
     private static void BuildPlayer(Node root)

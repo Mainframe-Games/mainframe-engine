@@ -21,6 +21,8 @@ just neon ++ --open-doors                   # every door open (and --lights-off 
 just neon-test                              # Neon.Tests: interactables, a walk through every room, containment, audio (no GPU)
 just neon-audio                             # render the soundscape to artifacts/audio/*.wav to listen to, and check its levels
 just neon-art                               # rebuild the apartment's glTF in Blender (Tools/apartment/build_apartment.py)
+just neon-city-art                          # rebuild the city kit and the signs' words atlas (Tools/city/build_city_kit.py)
+just canvas-shaders Examples/Neon/Assets    # rebuild the city's spatial shaders' SPIR-V after editing a .gdshader
 ```
 
 Run it with `dotnet run --project Examples/Neon/Neon.Desktop -c Release`. Game flags go after `++`: `--no-capture`
@@ -39,6 +41,14 @@ X to use what you look at (a door, a light switch) within 2.2 m.
 - `Neon/Src/Audio/` — the synthesised soundscape (see [Audio](#audio)).
 - `Neon/Src/World/` — `NeonScene` (the scene builder: `--write-scenes`), `NeonApartment` (loads the model and turns its
   named nodes into doors, lights, switches, colliders and sockets), `FallSafety` (respawns a player who falls out).
+- `Neon/Src/World/` (the city, phase N3) — `CityLayout` (the seeded city as data: streets, blocks, towers, signs,
+  holograms and the traffic loops, in scene space with the street 70 m below the apartment), `NeonCity` (builds it at
+  load from the kit: tower MultiMeshes, the home tower, the wet streets, the far skyline, signs, holograms, the rail, the
+  balcony's puddles; no lights), `CityTraffic` (a first, simple traffic over the loops), `NeonRain`, `NeonLook` (the
+  post-processing files in `Assets/PostProcess`).
+- `Tools/city/build_city_kit.py` — the city kit and the signs' words atlas, headless in Blender (`Assets/Art/City`).
+- `Assets/Shaders/` — the city's Godot spatial shaders (`facade`, `skyline`, `street`, `hologram`, `screen`, `sign`,
+  `beam`) and their committed SPIR-V.
 - `Tools/apartment/build_apartment.py` — the apartment, headless in Blender (seeded; `--preview DIR`, `--verify DIR`).
   Its docstring lists the naming conventions the game reads.
 - `Assets/Scenes/neon.mscene` — written by `dotnet run --project Examples/Neon/Neon.Desktop -- --write-scenes

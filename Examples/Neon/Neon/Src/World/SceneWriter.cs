@@ -16,6 +16,8 @@ public static class SceneWriter
         AssetDatabase.Current = new AssetDatabase(project);
         try
         {
+            foreach (var written in NeonLook.WriteMissing())
+                Log.Info($"Wrote {written}");
             Write(directory, NeonScene.Id, NeonScene.Build());
         }
         finally
