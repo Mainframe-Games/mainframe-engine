@@ -61,6 +61,42 @@ public class CanvasRenderTests
         AssertPixel(image, (int)(5 * scale), (int)(5 * scale), 0, 0, 0);
     }
 
+    [Fact]
+    public void AnimatedSpritesPlayTheirFramesFlippedOffsetAndAtTheirSpeedsAndMatchGoldens()
+    {
+        // ADR 0223: frame 1 shows each sprite's first frame (the backwards one its last, the stopped one row 1's third);
+        // by frame 15 (0.25 s at 10 fps, half way through a frame) "run" is on its third frame, "Fast" on its eighth
+        // (wrapped to the fourth), "Backwards" on its second, "Durations" still on its first (it lasts 0.3 s).
+        var result = HostRunner.Run("animated-sprite", Output("animated-sprite"), "--capture", "1,15", "--size", "480x270", "--hidden");
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 1);
+        Gates.AssertMatchesGolden(result, 15);
+
+        var first = Png.ReadRgba8(result.Captures.Single(c => c.Frame == 1).Path);
+        var later = Png.ReadRgba8(result.Captures.Single(c => c.Frame == 15).Path);
+        var scale = first.Width / 480f;
+        // Inside "Plain" (centred at 60, 60, 64 px wide), away from the notch and ticks: frame 0's red, then frame 2's green.
+        AssertPixel(first, (int)(60 * scale), (int)(55 * scale), 220, 60, 60);
+        AssertPixel(later, (int)(60 * scale), (int)(55 * scale), 60, 200, 90);
+        // "Flipped" mirrors both axes: the notch is in the bottom-right corner (16 px cells × 4: 4..20 px in from it).
+        AssertPixel(first, (int)((160 + 32 - 10) * scale), (int)((60 + 32 - 10) * scale), 255, 255, 255);
+        AssertPixel(first, (int)((160 - 32 + 10) * scale), (int)((60 - 32 + 10) * scale), 220, 60, 60);
+        // "Durations" holds frame 0 (red); "Stopped" shows row 1's third cell (pink) in both.
+        AssertPixel(later, (int)(160 * scale), (int)(175 * scale), 220, 60, 60);
+        AssertPixel(first, (int)(260 * scale), (int)(175 * scale), 230, 120, 170);
+        AssertPixel(later, (int)(260 * scale), (int)(175 * scale), 230, 120, 170);
+    }
+
+    [Fact]
+    public void AThousandPlayingAnimatedSpritesAllocateNothing()
+    {
+        const int warmup = 60, measured = 240;
+        var result = HostRunner.Run("animated-sprite", Output("animated-sprite-alloc"), "--count", "1000", "--alloc", $"{warmup}:{measured}", "--hidden");
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0, $"1000 animated sprites allocated {result.AllocatedBytes} managed bytes over {measured} frames.");
+        Gates.AssertValidationClean(result);
+    }
+
     private static void AssertPixel(PngImage image, int x, int y, byte r, byte g, byte b, int tolerance = 1)
     {
         var i = (y * image.Width + x) * 4;
