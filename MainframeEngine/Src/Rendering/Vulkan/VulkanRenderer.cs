@@ -1267,7 +1267,7 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
     {
         if (_device.Handle != 0)
         {
-            if (!DeviceIsLost)
+            if (!DeviceIsLost || _simulateDeviceLostAt != 0) // a simulated loss (tests) leaves a working device to wait on
                 vk.DeviceWaitIdle(_device);
             DisposeCrashObjects();
             _shadowFallback?.Dispose();

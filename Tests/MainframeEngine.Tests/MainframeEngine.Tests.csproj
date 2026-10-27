@@ -39,6 +39,12 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
 
+  <!-- G15: the crashing fixture game the out-of-process crash tests run (Crash/CrashProcessTests.cs). -->
+  <ItemGroup>
+    <ProjectReference Include="..\MainframeEngine.CrashTests.Fixture\MainframeEngine.CrashTests.Fixture.csproj" />
+    <ProjectReference Include="..\..\Tools\MainframeEngine.Symbolicate\MainframeEngine.Symbolicate.csproj" />
+  </ItemGroup>
+
   <!-- M9: mf-l10n (in-process CLI, .po/.mo, extractors) and its fixture project (data, never compiled here). -->
   <ItemGroup>
     <ProjectReference Include="..\..\Tools\MainframeEngine.L10n\MainframeEngine.L10n.csproj" />

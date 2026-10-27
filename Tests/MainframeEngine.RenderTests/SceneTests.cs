@@ -198,6 +198,19 @@ public class SceneTests
     }
 
     [Fact]
+    public void ADeviceLossNamesThePassesAndShutsDownCleanly()
+    {
+        // G15: the renderer reports the device lost after frame 20 (simulated); the exception carries the breadcrumbs (every
+        // pass of the finished frame completed, none in flight), the previous frame's marks are begin == end, and the
+        // loss-safe teardown leaves validation clean.
+        var result = HostRunner.Run("device-lost", Output("device-lost"), "--simulate-device-lost", "20", "--frames", "100", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.InRange(result.RenderedFrames, 18, 19); // frame 20 was submitted, never presented
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void ShowcaseSteadyStateAllocatesNothing()
     {
         const int warmup = 120, measured = 300;

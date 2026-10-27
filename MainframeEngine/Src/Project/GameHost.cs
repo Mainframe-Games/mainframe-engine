@@ -363,6 +363,9 @@ public class GameHost : Engine
         }
         finally
         {
+            // After a crash the editor's goodbye carries the error (Dispose would report the host's own exit code).
+            if (failure is not null)
+                ShutdownStep(host, static h => h.Session.Shutdown(ExitCode.Error), ref failure, ref exit);
             ShutdownStep(host, static h => h.Dispose(), ref failure, ref exit);
             IsHeadless = false;
             EndCrashReporting(fileLog);

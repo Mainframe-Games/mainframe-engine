@@ -67,11 +67,12 @@
         .line.crash .text { flex: 1 1 0dp; }
         .crash-tools { display: inline-flex; flex: 0 0 auto; flex-direction: row; }
         .line.error .crash-tools .icon { image-color: #f87171; }
-        .crash-frames { display: block; flex: 0 0 100%; width: 100%; margin: 2dp 0dp 2dp 34dp; }
+        .crash-frames { display: block; flex: 0 0 100%; width: 100%; box-sizing: border-box; padding: 2dp 0dp 2dp 34dp; }
         .frame { display: flex; flex-direction: row; align-items: flex-start; line-height: 16dp; }
         .frame .frame-text { display: block; flex: 1 1 auto; white-space: pre-wrap; }
         .frame.game .frame-text { color: #e8ebf2; }
         .frame.engine .frame-text { color: #6b7488; }
+        .frame.game .source .icon { image-color: #c9cedb; }
     </style>
 </head>
 <body class="panel-doc" data-model="output">

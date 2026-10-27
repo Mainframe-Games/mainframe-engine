@@ -46,6 +46,7 @@ public abstract class RenderTestGame : Engine
         Audio = new AudioOptions { Device = AudioDeviceMode.Null, BusLayoutPath = null },
         DevOverlayVisible = false, // scenes opt in (showcase, shadow-lights --count 2)
         Locale = "en", // never the machine's language: captures must not depend on it
+        SimulateDeviceLostAtFrame = host.SimulateDeviceLostAtFrame,
     };
 
     protected IVulkanContext Vulkan => (IVulkanContext)Renderer;

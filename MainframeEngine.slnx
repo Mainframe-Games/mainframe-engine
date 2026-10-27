@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/MainframeEngine.Benchmarks/MainframeEngine.Benchmarks.csproj" />
+    <Project Path="Tests/MainframeEngine.CrashTests.Fixture/MainframeEngine.CrashTests.Fixture.csproj" />
     <Project Path="Tests/MainframeEngine.Editor.Tests/MainframeEngine.Editor.Tests.csproj" />
     <Project Path="Tests/MainframeEngine.RenderTests.Host/MainframeEngine.RenderTests.Host.csproj" />
     <Project Path="Tests/MainframeEngine.RenderTests/MainframeEngine.RenderTests.csproj" />
@@ -13,6 +14,7 @@
   <Folder Name="/Tools/">
     <Project Path="Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj" />
     <Project Path="Tools/MainframeEngine.ShaderBuild/MainframeEngine.ShaderBuild.csproj" />
+    <Project Path="Tools/MainframeEngine.Symbolicate/MainframeEngine.Symbolicate.csproj" />
   </Folder>
   <Project Path="MainframeEngine.Editor/MainframeEngine.Editor.csproj" />
   <Project Path="MainframeEngine.Generators/MainframeEngine.Generators.csproj" />

@@ -370,6 +370,14 @@ public sealed class EditorQaScript : IEditorAutomation
                 workspace.Output.Clear();
                 workspace.OutputPanel.Refresh();
                 break;
+            case "crash-row":
+                // G15: a played game's crash as the Output panel shows it (expanded), for screenshots.
+                QaCrashSamples.AddCrashRow(workspace);
+                break;
+            case "crash-dialog":
+                // G15: the editor's next-start crash dialog for a sample report with a recovery copy of the open scene.
+                QaCrashSamples.ShowCrashDialog(workspace, _outputDirectory);
+                break;
             case "inspect":
                 // A resource file in the inspector (the FileSystem panel's double-click on an .mres).
                 workspace.Inspector.InspectResourceFile(Path.GetFullPath(string.Join(' ', step[1..])));

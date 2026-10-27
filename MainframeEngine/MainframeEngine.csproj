@@ -167,6 +167,7 @@
       <None Include="..\build\macos\DevAppBundle.targets;..\build\macos\BundleAppHost.targets;..\build\macos\Info.plist.in;..\build\macos\png-to-icns.sh"
             Pack="true" PackagePath="buildTransitive/macos/" Visible="false" />
       <None Include="..\build\package-game.sh" Pack="true" PackagePath="tools/" Visible="false" />
+      <None Include="..\build\collect-symbols.sh" Pack="true" PackagePath="tools/" Visible="false" />
       <None Include="..\build\macos\png-to-icns.sh;..\build\macos\sign-app.sh" Pack="true" PackagePath="tools/macos/" Visible="false" />
     </ItemGroup>
 

@@ -544,6 +544,10 @@ internal sealed class EditorLinkCrashSink(EditorLinkClient client) : ICrashSink
 
     public void OnCrash(CrashReport report)
     {
+        // A crash in the first frames can beat the link's connection: give it the same moment the report gets.
+        var deadline = DateTime.UtcNow + Timeout;
+        while (!client.IsConnected && DateTime.UtcNow < deadline)
+            Thread.Sleep(10);
         var json = System.Text.Encoding.UTF8.GetString(report.ToJson());
         if (!client.SendCrashReport(new EditorLinkCrashReport(json, report.Folder ?? ""), Timeout))
             Log.Warning("[EditorLink] The crash report did not reach the editor (not connected, too large or timed out).");

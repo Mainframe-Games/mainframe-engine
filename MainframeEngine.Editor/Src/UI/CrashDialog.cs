@@ -72,7 +72,7 @@ public sealed class CrashDialog : EditorDocument
         _reports = reports;
         _report = CrashReporter.Load(reports[0]);
         _summary = _report?.Summary ?? reports[0].Summary;
-        var when = reports[0].TimestampUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+        var when = reports[0].TimestampUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture); // "g" can hold a narrow no-break space the UI font lacks
         var version = _report?.App.Version is { Length: > 0 } v ? v : EngineInfo.Version;
         _detail = reports.Count > 1
             ? $"Mainframe Editor {version}, {when} ({reports.Count - 1} earlier crash report(s) in the same folder)."

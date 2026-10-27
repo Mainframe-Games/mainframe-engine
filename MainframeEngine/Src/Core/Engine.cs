@@ -733,8 +733,26 @@ public abstract class Engine : IDisposable
 
     public ExitCode Run()
     {
-        Window.Run();
+        try
+        {
+            Window.Run();
+        }
+        catch (Exception) when (NoteRunFailed())
+        {
+            // Never reached: the filter only records the failure (the exception keeps its stack).
+        }
+
         return _exitCode;
+    }
+
+    // An exception left the window loop: Silk.NET still believes it is inside it, and its Dispose would throw over the
+    // error being reported (G15).
+    private bool _runFailed;
+
+    private bool NoteRunFailed()
+    {
+        _runFailed = true;
+        return false;
     }
 
     /// <summary>
@@ -756,6 +774,19 @@ public abstract class Engine : IDisposable
         if (ReferenceEquals(MainframeEngine.Input.Current, Tree.Input))
             MainframeEngine.Input.Current = null;
         _sdlEvents?.Uninstall();
-        Window.Dispose();
+        if (!_runFailed)
+        {
+            Window.Dispose();
+            return;
+        }
+
+        try
+        {
+            Window.Dispose();
+        }
+        catch (InvalidOperationException)
+        {
+            // "Cannot call Reset inside of the render loop": the loop ended with an exception; the process is ending.
+        }
     }
 }

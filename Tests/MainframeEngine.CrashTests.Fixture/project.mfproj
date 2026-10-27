@@ -1,0 +1,9 @@
+{
+  "format": 3,
+  "name": "CrashFixture",
+  "engineVersion": "0.0.0-dev",
+  "version": "1.0.0",
+  "audio": { "enabled": false },
+  "crash": { "logEntries": 50 },
+  "autoloads": [ { "name": "Crasher", "type": "Crasher" } ]
+}

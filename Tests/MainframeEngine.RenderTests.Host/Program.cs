@@ -9,6 +9,24 @@ Directory.CreateDirectory(options.OutputDirectory);
 if (options.PipelineCacheDirectory is not null)
     Environment.SetEnvironmentVariable(PipelineCache.DirectoryVariable, options.PipelineCacheDirectory);
 
+// G15: the renderer's simulated device loss escapes Run like a real one; the scene checks the report and shuts down.
+if (options.Scene == "device-lost")
+{
+    using var lostGame = new DeviceLostScene(options);
+    VulkanDeviceLostException? lost = null;
+    try
+    {
+        lostGame.Run();
+    }
+    catch (VulkanDeviceLostException e)
+    {
+        lost = e;
+    }
+
+    lostGame.CloseAfterLoss(lost);
+    return WriteResult(lostGame.Result, ExitCode.Ok);
+}
+
 if (options.Scene == "gamehost")
 {
     var (gameHostExit, gameHostResult) = GameHostRun.Run(options);
@@ -56,6 +74,7 @@ RenderTestGame game = options.Scene switch
     "ui-scaling" => new UiScalingScene(options),
     "loading-screen" => new LoadingScreenScene(options),
     "ui-settings-menu" => new SettingsMenuScene(options),
+    "ui-crash-prompt" => new CrashPromptScene(options),
     "csm" => new CsmScene(options),
     "shadow-pcf" => new ShadowPcfScene(options),
     "shadow-opacity" => new ShadowOpacityScene(options),
@@ -143,7 +162,7 @@ RenderTestGame game = options.Scene switch
     "tree-shadow-handoff" => new TreeShadowHandOffScene(options),
     _ => throw new ArgumentException(
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, spine-shadow, spine-shadow-quads, spine-shadow-spot, spine-shadow-omni, spine-billboard, spine-billboard-yaw, showcase, color-pipeline, " +
-        "physics, physics-debug, physics-joints, sky-grid, materials, outline, subviewport-capture, viewport-material, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, ui-scaling, loading-screen, ui-settings-menu, " +
+        "physics, physics-debug, physics-joints, sky-grid, materials, outline, subviewport-capture, viewport-material, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, ui-scaling, loading-screen, ui-settings-menu, ui-crash-prompt, device-lost, " +
         "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, light-selection, shadow-cutout, sprite-billboard, spatial-shaders, spatial-shaders-taa, label3d, particles-campfire, particles-rain, particles-stress, shadow-shimmer, shadow-pcss, contact-shadows, shadow-staggered, far-shadow, " +
         "sky-physical, fxaa, auto-exposure, auto-exposure-histogram, auto-exposure-average, pbr, fog, vertex-colors, multimesh, " +
         "foliage-wind, terrain, water, water-refraction, water-ssr, water-fall, terrain-splat, terrain-splat-layers, terrain-blend, terrain-foliage, light-shafts, volumetric-fog, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, taau, fsr1, taau-foliage, ssao, " +

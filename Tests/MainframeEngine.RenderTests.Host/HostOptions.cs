@@ -44,6 +44,9 @@ public sealed record HostOptions
     /// <summary>Call <c>Quit(ExitCode.Error)</c> on this frame; 0 = never.</summary>
     public uint QuitWithErrorAtFrame { get; init; }
 
+    /// <summary>G15: the renderer reports the device lost after submitting this frame (<c>--simulate-device-lost</c>); 0 = never.</summary>
+    public ulong SimulateDeviceLostAtFrame { get; init; }
+
     /// <summary>
     /// Minimise the window on this frame and restore it about 1.5 s later (the engine must block on events, not spin,
     /// and resume rendering after the restore); 0 = never.
@@ -178,6 +181,9 @@ public sealed record HostOptions
                     break;
                 case "--quit-error":
                     options = options with { QuitWithErrorAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
+                case "--simulate-device-lost":
+                    options = options with { SimulateDeviceLostAtFrame = ulong.Parse(Next(), CultureInfo.InvariantCulture) };
                     break;
                 case "--minimize":
                     options = options with { MinimizeAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
