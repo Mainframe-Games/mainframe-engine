@@ -150,6 +150,18 @@ forest-test:
 forest-audio:
     dotnet test Examples/Forest/Forest.Tests --filter "FullyQualifiedName~ForestAudioRenderTests"
 
+# The Neon example, a first-person walk round a loft apartment, in Release (game flags after ++: --no-capture)
+neon *args:
+    dotnet run --project Examples/Neon/Neon.Desktop -c Release -- {{args}}
+
+# Neon unit tests: the controller, the interactables, the apartment's rooms and containment, the scene (no GPU; the apartment tests need the LFS model)
+neon-test:
+    dotnet test Examples/Neon/Neon.Tests
+
+# Build Neon's apartment (Assets/Art/Apartment/apartment.gltf) headless in Blender from Tools/apartment/build_apartment.py (BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
+neon-art *args:
+    "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/apartment/build_apartment.py -- {{args}}
+
 # Create a game from the mfgame template against this checkout, build it and run it for N frames (CI job "template")
 template-smoke frames="30":
     build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}

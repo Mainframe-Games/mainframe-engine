@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Neon/Neon.csproj" />
+  <Project Path="Neon.Desktop/Neon.Desktop.csproj" />
+  <Project Path="Neon.Tests/Neon.Tests.csproj" />
+</Solution>

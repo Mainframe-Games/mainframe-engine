@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The executable: runs the project with GameHost (project.mfproj next to the app). Its player-facing name is
+    project.mfproj "name" ("Neon Demo", ADR 0182): build/MainframeGame.props makes it the macOS dev bundle
+    (bin/<cfg>/net10.0/Neon Demo.app, which `dotnet run` / `just neon` launch) and the Windows file description and
+    product name. The assembly stays Neon.Desktop (scripts, tests and docs run Neon.Desktop.dll). The app icon comes
+    with the branding phase.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Neon/Neon.csproj" />
+  </ItemGroup>
+
+  <!-- The project file and the game's content are copied next to the app. -->
+  <ItemGroup>
+    <None Include="../project.mfproj" Link="project.mfproj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Assets/**" LinkBase="Assets" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

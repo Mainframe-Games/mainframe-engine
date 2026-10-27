@@ -1,0 +1,152 @@
+{
+  "format": 2,
+  "uid": "scn_46fdae7fe59e",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky",
+      "props": {
+        "SkyColor": [0.012, 0.014, 0.035],
+        "HorizonColor": [0.16, 0.05, 0.14],
+        "GroundColor": [0.05, 0.025, 0.06],
+        "HorizonSharpness": 3,
+        "SunColor": [0.7, 0.75, 1],
+        "SunIntensity": 0.4,
+        "SunAngularRadius": 0.3
+      }
+    },
+    "CapsuleShape3D_ak3q9": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.3,
+        "Height": 1.75
+      }
+    },
+    "BoxShape3D_3i7zb": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [400, 10, 400]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "neon",
+      "type": "Node3D"
+    },
+    {
+      "name": "Moon",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-40, 200, 0],
+        "Color": [0.55, 0.65, 1],
+        "Energy": 0.12,
+        "ShadowCascades": 2,
+        "ShadowMaxDistance": 40
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" },
+        "AmbientSource": "Sky",
+        "AmbientEnergy": 0.6,
+        "ReflectedLightSource": "Sky",
+        "FogEnabled": true,
+        "FogLightColor": [0.12, 0.05, 0.12],
+        "FogDensity": 0.004
+      }
+    },
+    {
+      "name": "CityGlowMagenta",
+      "parent": ".",
+      "type": "OmniLight3D",
+      "props": {
+        "Position": [-10, -4, 18],
+        "Color": [1, 0.2, 0.65],
+        "Energy": 3,
+        "Range": 30
+      }
+    },
+    {
+      "name": "CityGlowTeal",
+      "parent": ".",
+      "type": "OmniLight3D",
+      "props": {
+        "Position": [12, -4, 18],
+        "Color": [0.1, 0.85, 1],
+        "Energy": 2.5,
+        "Range": 30
+      }
+    },
+    {
+      "name": "Apartment",
+      "parent": ".",
+      "type": "NeonApartment"
+    },
+    {
+      "name": "Player",
+      "parent": ".",
+      "type": "FirstPersonController",
+      "props": {
+        "Position": [5.1, 0.02, -4],
+        "FloorSnapLength": 0.35
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Player",
+      "type": "CollisionShape3D",
+      "props": {
+        "Position": [0, 0.875, 0],
+        "Shape": { "res": "CapsuleShape3D_ak3q9" }
+      }
+    },
+    {
+      "name": "Head",
+      "parent": "Player",
+      "type": "Node3D",
+      "props": {
+        "Position": [0, 1.63, 0],
+        "RotationDegrees": [0, 180, 0]
+      }
+    },
+    {
+      "name": "Camera",
+      "parent": "Player/Head",
+      "type": "Camera3D",
+      "props": {
+        "Current": true,
+        "Fov": 58.71551,
+        "Near": 0.05,
+        "Far": 2000
+      }
+    },
+    {
+      "name": "Interactor",
+      "parent": "Player",
+      "type": "Interactor"
+    },
+    {
+      "name": "FallSafety",
+      "parent": ".",
+      "type": "FallSafety",
+      "props": {
+        "Position": [0, -13, 0],
+        "Monitorable": false,
+        "RespawnPosition": [5.1, 0.02, -4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "FallSafety",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_3i7zb" }
+      }
+    }
+  ]
+}
