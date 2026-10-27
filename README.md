@@ -163,6 +163,31 @@ AgX and a colour-grading LUT, at 2560 × 1440 with 3D at 75 % and TAA upscaling.
 
 ---
 
+### Neon
+
+[Neon](Examples/Neon) is a first-person walk round a two-bedroom industrial loft 20 floors up in a rainy neon city at
+night: open the doors, run the shower, flip the lights and the blinds, watch TV, put music on, sit at a computer whose
+six monitors are live and whose terminal runs the apartment, and step out on the balcony over traffic, holograms and
+an elevated train — but never leave. Textured CC0 interiors built by a Blender script, about 820 instanced towers whose
+neon is all emission and glow, cars on baked curves, a train and fly-bys on `Path3D` followers, sub-viewport screens,
+nearest-light selection, baked probes, and synthesised sound with an adaptive-music stereo
+([design](docs/design/neon.md)). `just neon`.
+
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/neon/readme-loft.jpg" width="380" alt="Neon living room"><br><b>The loft</b> — the city through the window wall, a koi hologram</td>
+    <td align="center" valign="top"><img src="docs/images/neon/readme-balcony.jpg" width="380" alt="Neon balcony"><br><b>The balcony</b> — instanced towers, traffic streams, rain</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/neon/readme-computer.jpg" width="380" alt="Neon computer room"><br><b>The rig</b> — six live sub-viewport monitors and a terminal</td>
+    <td align="center" valign="top"><img src="docs/images/neon/readme-skyline.jpg" width="380" alt="Neon skyline"><br><b>The skyline</b> — holograms, an ad airship, emissive facades</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/neon/readme-mezzanine.jpg" width="380" alt="Neon mezzanine"><br><b>The mezzanine</b> — 16 room lights, nearest-light selection, the TV's feed</td>
+    <td align="center" valign="top"><img src="docs/images/neon/readme-shower.jpg" width="380" alt="Neon bathroom"><br><b>The shower</b> — water, steam and misting glass</td>
+  </tr>
+</table>
+
 ## Features
 
 Every subsystem has a design doc that describes it exactly as it is in the code.

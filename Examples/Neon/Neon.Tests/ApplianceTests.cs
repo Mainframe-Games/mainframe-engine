@@ -204,6 +204,18 @@ public sealed class ApplianceTests
     }
 
     [Fact]
+    public void EscOpensThePauseMenuExceptWhileSeated()
+    {
+        var player = new FirstPersonController();
+        Assert.True(NeonPause.WantsMenu(true, player));
+        Assert.False(NeonPause.WantsMenu(false, player));
+        player.MovementLocked = true; // seated: Esc stands up instead
+        Assert.False(NeonPause.WantsMenu(true, player));
+        Assert.True(NeonPause.WantsMenu(true, null));
+        Assert.DoesNotContain("Bathroom", NeonPause.BusLabels.Keys);
+    }
+
+    [Fact]
     public void RunningEverythingAllocatesNothingPerFrame()
     {
         using var h = Load(out var apartment);

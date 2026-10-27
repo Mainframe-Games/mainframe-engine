@@ -150,6 +150,11 @@
       "type": "NeonAudio"
     },
     {
+      "name": "Pause",
+      "parent": ".",
+      "type": "NeonPause"
+    },
+    {
       "name": "FallSafety",
       "parent": ".",
       "type": "FallSafety",

@@ -47,6 +47,7 @@ public static class NeonScene
         Add(root, root, CreateProbes());
         BuildPlayer(root);
         Add(root, root, new NeonAudio { Name = "Audio" });
+        Add(root, root, new NeonPause { Name = "Pause" });
         var safety = Add(root, root, FallSafety.Create(Spawn));
         foreach (var child in safety.Children)
             child.Owner = root;

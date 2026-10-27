@@ -5,12 +5,12 @@ living room, a mezzanine with the master bedroom, steel stairs, a bathroom, a co
 doors and flip the lights, but you can never leave. It is a game project of its own, built against this checkout's
 engine like [the Forest](../Forest/README.md), and **not** part of `MainframeEngine.slnx`.
 
-**Status: phase N1, a graybox.** The apartment is a flat-coloured model built by a Blender script; you can walk
-through every room, up the stairs to the loft and bedroom 2, and out onto the balcony. Doors (E) open and shut, the
-balcony's glass door slides, the front door stays locked, and each room's switch turns its lights and fixtures off
-and on. The synthesised [audio](#audio) is in (phase N5): rain and the city that change when you step outside,
-footsteps, doors, switches, the fridge and the PC fans, and the stereo's music. The city, visible rain, traffic, the
-working computer, the shower and the art come in later phases.
+**Status: complete** ([design](../../docs/design/neon.md), ADR 0218). A textured loft (CC0 sets, original posters) with
+doors, a locked front door, light switches, a shower with steam and misting glass, taps, a TV with three channels, a
+stereo playing two synthesised songs, motorised blinds, and a computer you sit at: six live monitors and a terminal
+whose commands run the apartment. Outside, a seeded neon city of ~820 instanced towers, signs, holograms and rain, with
+cars on the streets, hover cars, an elevated train and airships (the close ones on `Path3D` followers). Esc opens the
+settings menu.
 
 ## Run
 
@@ -26,12 +26,14 @@ just canvas-shaders Examples/Neon/Assets    # rebuild the city's spatial shaders
 ```
 
 Run it with `dotnet run --project Examples/Neon/Neon.Desktop -c Release`. Game flags go after `++`: `--no-capture`
-(do not capture the mouse), `--view`, `--open-doors`, `--lights-off <Room>`.
+(do not capture the mouse), `--view`, `--open-doors`, `--lights-off <Room>`, `--tv <channel>`, `--music`, `--shower`,
+`--blinds-closed`.
 
 ## Controls
 
 WASD / left stick to walk, mouse / right stick to look, Shift to sprint, C or Ctrl to crouch, Space to jump, E / gamepad
-X to use what you look at (a door, a light switch) within 2.2 m.
+X to use what you look at (a door, a switch, the shower valve, a tap, the TV, the stereo, a blinds panel, the chair)
+within 2.2 m. Seated at the computer, type commands (`help`); Esc stands up. Esc otherwise opens the settings menu.
 
 ## Layout
 
