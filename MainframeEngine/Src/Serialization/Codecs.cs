@@ -102,6 +102,10 @@ public static class Codecs
             static s => new Color(s[0], s[1], s[2], s[3]));
         Cache<NodePath>.Value = new NodePathCodec();
         Cache<ShaderParameter>.Value = new ShaderParameter.Codec(); // ShaderMaterial values (ADR 0205)
+        // ADR 0223: [texture, x, y, w, h, duration], one line per frame.
+        Cache<SpriteFrame>.Value = new FloatArrayCodec<SpriteFrame>(6,
+            static (f, d) => { d[0] = f.Texture; d[1] = f.Region.Position.X; d[2] = f.Region.Position.Y; d[3] = f.Region.Size.X; d[4] = f.Region.Size.Y; d[5] = f.Duration; },
+            static s => new SpriteFrame((int)s[0], new Rect2(s[1], s[2], s[3], s[4]), s[5]));
     }
 
     /// <summary>The built-in codec for <typeparamref name="T"/> (primitives, string, vectors, colors, transforms, NodePath).</summary>
