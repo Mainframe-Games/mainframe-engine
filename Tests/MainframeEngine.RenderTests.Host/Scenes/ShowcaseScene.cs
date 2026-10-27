@@ -45,8 +45,9 @@ public sealed class ShowcaseScene(HostOptions host) : SpineScene(host)
             .Bind("x", this, static s => s.Camera.GlobalPosition.X)
             .Bind("y", this, static s => s.Camera.GlobalPosition.Y)
             .Bind("z", this, static s => s.Camera.GlobalPosition.Z));
+        // G10: the Profiler section only with --profile (expanded, it records: the second allocation gate).
         foreach (var panel in overlay.Panels)
-            panel.Expanded = true;
+            panel.Expanded = panel.Id != "profiler" || Host.Profile;
     }
 
     /// <summary>

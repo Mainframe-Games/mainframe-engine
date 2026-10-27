@@ -88,5 +88,40 @@ public sealed record HostResult
     public double ShadowGpuMs { get; init; }
     public int MeshPipelines { get; init; }
 
+    /// <summary>G10 (<c>--profile</c>): average GPU ms per zone over the profiled frames (logged, not gated: machine-dependent).</summary>
+    public Dictionary<string, double> GpuZones { get; init; } = [];
+
+    /// <summary>G10: the top CPU scopes by self ms per frame over the profiled frames.</summary>
+    public Dictionary<string, double> TopCpuScopes { get; init; } = [];
+
+    /// <summary>G10: the GPU zone names of the last profiled frame, in begin order.</summary>
+    public List<string> GpuZoneOrder { get; init; } = [];
+
+    /// <summary>G10: frames between the newest recorded frame and the newest with GPU zones (min, max over the window).</summary>
+    public int GpuReadbackLatencyMin { get; init; }
+
+    public int GpuReadbackLatencyMax { get; init; }
+
+    /// <summary>G10: GPU zones with a negative duration, or outside their frame's GPU span (must be 0).</summary>
+    public int GpuZoneErrors { get; init; }
+
+    /// <summary>G10: frames whose GPU zones arrived (with --profile).</summary>
+    public int ProfiledFrames { get; init; }
+
+    /// <summary>G10: the GPU profiler's capabilities on this device.</summary>
+    public bool GpuTimestampsSupported { get; init; }
+
+    public bool GpuSamplesAtEncoderBoundaries { get; init; }
+
+    public bool GpuDebugLabels { get; init; }
+
+    /// <summary>G10 (<c>gamehost --stream</c>): profile frames the in-process editor-link server received.</summary>
+    public int StreamedFrames { get; init; }
+
+    /// <summary>G10: <c>Profiler.UnbalancedScopes</c> and <c>DroppedEvents</c> at the end (must be 0).</summary>
+    public long ProfilerUnbalancedScopes { get; init; }
+
+    public long ProfilerDroppedEvents { get; init; }
+
     public sealed record CaptureInfo(uint Frame, string Path, int Width, int Height);
 }

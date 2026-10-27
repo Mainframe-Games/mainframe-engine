@@ -91,6 +91,15 @@ public sealed record HostOptions
     /// <summary>Runs the depth prepass every frame (<c>RenderServer.ForceDepthPrepass</c>, ADR 0163).</summary>
     public bool Prepass { get; init; }
 
+    /// <summary>
+    /// G10 <c>--profile</c>: the profiler records from the first frame (and the showcase expands the overlay's Profiler
+    /// section); the result reports GPU zones, top CPU scopes and the zone checks.
+    /// </summary>
+    public bool Profile { get; init; }
+
+    /// <summary>G10 <c>--stream</c> (gamehost): streams profiler frames to an editor-link server in this process.</summary>
+    public bool Stream { get; init; }
+
     /// <summary>Jitters the main view's projection every frame (TAA's Halton jitter without TAA).</summary>
     public bool Jitter { get; init; }
 
@@ -227,6 +236,12 @@ public sealed record HostOptions
                     break;
                 case "--prepass":
                     options = options with { Prepass = true };
+                    break;
+                case "--profile":
+                    options = options with { Profile = true };
+                    break;
+                case "--stream":
+                    options = options with { Stream = true };
                     break;
                 case "--jitter":
                     options = options with { Jitter = true };

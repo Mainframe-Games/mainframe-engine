@@ -232,6 +232,44 @@ public class SceneTests
     }
 
     [Fact]
+    public void ShowcaseRecordingTheProfilerAllocatesNothing()
+    {
+        // G10: the same frames with the profiler recording from the first one (--profile) and the overlay's Profiler section
+        // expanded: CPU scopes on every engine path, GPU zones and their read-back, counters, the section's refresh.
+        const int warmup = 120, measured = 300;
+        var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "showcase", Output("showcase-profile"), "--alloc", $"{warmup}:{measured}", "--hidden", "--profile");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0,
+            $"Steady-state frames recording the profiler allocated {result.AllocatedBytes} managed bytes over {measured} frames " +
+            $"(~{result.AllocatedBytes / (double)measured:0.#} B/frame); per-frame code must not allocate.");
+        Assert.True(result.ProfiledFrames > 0, "No profiled frame had GPU zones.");
+        Assert.Equal(0, result.ProfilerUnbalancedScopes);
+        Assert.Equal(0, result.ProfilerDroppedEvents);
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void GameHostStreamingProfilerFramesToTheEditorAllocatesNothing()
+    {
+        // G10: the gamehost gate with an editor link in the process asking for profiler frames (ProfilerStart): the game
+        // copies every frame into the link's blocks, the link thread serialises them.
+        const int warmup = 120, measured = 300;
+        var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "gamehost", Output("gamehost-stream"), "--alloc", $"{warmup}:{measured}", "--hidden", "--stream");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.StreamedFrames > measured / 2, $"{result.StreamedFrames} profiler frames reached the editor link.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"GameHost frames streamed to the editor allocated {result.AllocatedBytes} managed bytes over {measured} frames " +
+            $"(~{result.AllocatedBytes / (double)measured:0.#} B/frame); per-frame code must not allocate.");
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void GameHostSteadyStateAllocatesNothing()
     {
         // A real GameHost as a shipped game runs (ProjectSettings, the default audio device playing a stream, a frame cap,

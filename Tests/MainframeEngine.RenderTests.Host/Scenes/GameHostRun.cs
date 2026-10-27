@@ -1,4 +1,5 @@
 using System.Numerics;
+using MainframeEngine.EditorLink;
 
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
@@ -18,10 +19,14 @@ public sealed class GameHostRun : GameHost
     private long? _allocatedBytes;
     private AudioPlayer? _ambience;
     private readonly InputCounter _input = new() { Name = "InputCounter" };
+    private readonly EditorLinkServer? _editor; // G10 --stream: an editor that asks for profiler frames
+    private bool _profilerRequested;
+    private int _streamedFrames;
 
-    private GameHostRun(HostOptions host, ProjectSettings settings, GameHostOptions options) : base(settings, options)
+    private GameHostRun(HostOptions host, ProjectSettings settings, GameHostOptions options, EditorLinkServer? editor) : base(settings, options)
     {
         _host = host;
+        _editor = editor;
     }
 
     /// <summary>Set once the host has shut down.</summary>
@@ -43,12 +48,17 @@ public sealed class GameHostRun : GameHost
         if (!host.NoValidation)
             args.Add("--validation");
 
+        // G10 --stream: a loopback editor link that streams profiler frames from the game while the gate measures.
+        using var editor = host.Stream ? new EditorLinkServer() : null;
+        if (editor is not null)
+            args.AddRange(["--editor-port", editor.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
+
         // GameHost.Run logs to a rotating file in the user data folder; here it goes to the output folder.
         var fileLog = new FileLogSink(Path.Combine(host.OutputDirectory, "logs"), "gamehost");
         Log.AddSink(fileLog);
         try
         {
-            using var game = new GameHostRun(host, settings, GameHostOptions.Parse(args));
+            using var game = new GameHostRun(host, settings, GameHostOptions.Parse(args), editor);
             var exit = game.Run();
             return (exit, game.Result);
         }
@@ -98,6 +108,7 @@ public sealed class GameHostRun : GameHost
         }
 
         PushInput(frame);
+        DrainEditor();
 
         if (frame == (uint)_host.AllocationWarmupFrames + 1)
         {
@@ -109,6 +120,8 @@ public sealed class GameHostRun : GameHost
             _allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
             _input.Counting = false;
             CheckInputArrived();
+            if (_editor is not null && _streamedFrames < _host.AllocationMeasuredFrames / 2)
+                Fail($"Only {_streamedFrames} profiler frames reached the editor link while {_host.AllocationMeasuredFrames} were measured.");
             Quit(ExitCode.Ok);
         }
     }
@@ -134,6 +147,20 @@ public sealed class GameHostRun : GameHost
     }
 
     private uint? _windowId;
+
+    // The in-process "editor": asks for profiler frames once the game said hello, then counts the frames that arrive.
+    private void DrainEditor()
+    {
+        if (_editor is null)
+            return;
+        while (_editor.TryRead(out var message))
+        {
+            if (message.Type == EditorLinkMessageType.Hello && !_profilerRequested)
+                _profilerRequested = _editor.SendCommand(message.GameId, new EditorLinkCommand(EditorCommandKind.ProfilerStart, "gpu=1;spike=0;freeze=0"));
+            else if (message.Type == EditorLinkMessageType.ProfileFrame && _input.Counting)
+                _streamedFrames++;
+        }
+    }
 
     // Every pushed event reached the tree (a frame's events are polled at the start of the next one): the gate measured
     // the input path, not a pump that dropped events.
@@ -193,6 +220,7 @@ public sealed class GameHostRun : GameHost
             MeasuredFrames = _allocatedBytes is null ? 0 : _host.AllocationMeasuredFrames,
             Captures = [],
             SceneCheckFailures = _checkFailures,
+            StreamedFrames = _streamedFrames,
         };
     }
 }
