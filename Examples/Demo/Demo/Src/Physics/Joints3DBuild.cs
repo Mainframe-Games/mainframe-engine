@@ -29,7 +29,7 @@ public static class Joints3DBuild
         StaticBox(root, bridge, "PostR", new Vector3(left + span + 0.2f, y / 2, z), new Vector3(0.4f, y, 0.4f), Post);
         var points = new Vector3[Planks + 1];
         for (var i = 0; i <= Planks; i++)
-            points[i] = new Vector3(left + span * i / Planks, y - sag * MathF.Sin(MathF.PI * i / Planks), z);
+            points[i] = new Vector3(left + span * i / Planks, MathF.Round(y - sag * MathF.Sin(MathF.PI * i / Planks), 3), z);
         for (var i = 0; i < Planks; i++)
         {
             var (a, b) = (points[i], points[i + 1]);
@@ -39,7 +39,9 @@ public static class Joints3DBuild
                 Name = $"Plank{i}",
                 Position = (a + b) / 2,
                 Mass = 2f,
-                Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.Atan2(b.Y - a.Y, b.X - a.X)),
+                // Rounded like the pins: MathF's trig differs in the last bit between platforms, and the committed
+                // scene file must match the builder on every platform.
+                RotationDegrees = new Vector3(0, 0, MathF.Round(float.RadiansToDegrees(MathF.Atan2(b.Y - a.Y, b.X - a.X)), 3)),
             });
             Add(root, plank, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = size } });
             Add(root, plank, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Wood } });

@@ -89,8 +89,7 @@ public static class Joints2DBuild
         {
             var (a, b) = (BridgePoint(i), BridgePoint(i + 1));
             var size = new Vector2(Vector2.Distance(a, b) * 0.94f, 8);
-            var pose = PlankPose(i);
-            var plank = Add(root, bridge, new RigidBody2D { Name = $"Plank{i}", Position = pose.Origin, Rotation = pose.Rotation, Mass = 0.5f });
+            var plank = Add(root, bridge, new RigidBody2D { Name = $"Plank{i}", Position = PlankCentre(i), RotationDegrees = PlankDegrees(i), Mass = 0.5f });
             Add(root, plank, new CollisionShape2D { Name = "Shape", Shape = new RectangleShape2D { Size = size } });
             Add(root, plank, new DemoShape2D { Name = "Visual", Kind = DemoShapeKind.Rect, Size = size, Color = Plank, Outline = Outline, OutlineWidth = 1.5f });
         }
@@ -110,16 +109,23 @@ public static class Joints2DBuild
 
     private const float BridgeY = 205f, BridgeLeft = 170f, BridgeSpan = 330f, BridgeSag = 40f;
 
-    // The bridge is authored sagging: pin i on a sine between the blocks (a chain between fixed ends needs slack).
+    // The bridge is authored sagging: pin i on a sine between the blocks (a chain between fixed ends needs slack). The
+    // pins and plank angles are rounded: MathF's trig differs in the last bit between platforms, and the committed scene
+    // file must match the builder on every platform.
     private static Vector2 BridgePoint(int i) =>
-        new(BridgeLeft + BridgeSpan * i / Planks, BridgeY + BridgeSag * MathF.Sin(MathF.PI * i / Planks));
+        new(BridgeLeft + BridgeSpan * i / Planks, MathF.Round(BridgeY + BridgeSag * MathF.Sin(MathF.PI * i / Planks), 3));
 
-    /// <summary>Plank <paramref name="i"/>'s authored pose (the Reset button puts it back there).</summary>
-    public static Transform2D PlankPose(int i)
+    private static Vector2 PlankCentre(int i) => (BridgePoint(i) + BridgePoint(i + 1)) / 2;
+
+    private static float PlankDegrees(int i)
     {
         var (a, b) = (BridgePoint(i), BridgePoint(i + 1));
-        return Transform2D.FromTrs((a + b) / 2, MathF.Atan2(b.Y - a.Y, b.X - a.X), Vector2.One);
+        return MathF.Round(float.RadiansToDegrees(MathF.Atan2(b.Y - a.Y, b.X - a.X)), 3);
     }
+
+    /// <summary>Plank <paramref name="i"/>'s authored pose (the Reset button puts it back there).</summary>
+    public static Transform2D PlankPose(int i) =>
+        Transform2D.FromTrs(PlankCentre(i), float.DegreesToRadians(PlankDegrees(i)), Vector2.One);
 
     // A pillar from the ground (its top at y = 315) up to the bridge's end.
     private static void Block(Node root, Node parent, string name, float x)

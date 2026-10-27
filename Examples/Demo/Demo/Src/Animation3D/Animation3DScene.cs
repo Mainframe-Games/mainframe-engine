@@ -90,6 +90,14 @@ public static class Animation3DScene
         foreach (var bone in simulator.Children)
         {
             bone.Owner = root;
+            // Pin the Euler angles the saver writes, rounded: the quaternion-to-Euler trig differs in the last bit between
+            // x64 and arm64, and the committed scene file must match the builder on every platform.
+            if (bone is PhysicalBone3D physical)
+            {
+                var degrees = physical.RotationDegrees;
+                physical.RotationDegrees = new Vector3(MathF.Round(degrees.X, 3), MathF.Round(degrees.Y, 3), MathF.Round(degrees.Z, 3));
+            }
+
             foreach (var shape in bone.Children)
                 shape.Owner = root;
         }

@@ -277,49 +277,49 @@
     "RectangleShape2D_4byoo": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [41.35869, 8]
+        "Size": [41.35858, 8]
       }
     },
     "RectangleShape2D_hceyf": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [40.648483, 8]
+        "Size": [40.648502, 8]
       }
     },
     "RectangleShape2D_7ffwq": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [39.62239, 8]
+        "Size": [39.622406, 8]
       }
     },
     "RectangleShape2D_vtuz5": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [38.880486, 8]
+        "Size": [38.8805, 8]
       }
     },
     "RectangleShape2D_4rawc": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [38.880486, 8]
+        "Size": [38.8805, 8]
       }
     },
     "RectangleShape2D_8if4b": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [39.62239, 8]
+        "Size": [39.622406, 8]
       }
     },
     "RectangleShape2D_nel7i": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [40.64849, 8]
+        "Size": [40.648502, 8]
       }
     },
     "RectangleShape2D_222d1": {
       "type": "RectangleShape2D",
       "props": {
-        "Size": [41.358685, 8]
+        "Size": [41.35858, 8]
       }
     }
   },
@@ -1652,8 +1652,8 @@
       "parent": "Bridge",
       "type": "RigidBody2D",
       "props": {
-        "Position": [190.625, 212.65367],
-        "RotationDegrees": 20.35924,
+        "Position": [190.625, 212.6535],
+        "RotationDegrees": 20.359,
         "Mass": 0.5
       }
     },
@@ -1670,7 +1670,7 @@
       "parent": "Bridge/Plank0",
       "type": "DemoShape2D",
       "props": {
-        "Size": [41.35869, 8],
+        "Size": [41.35858, 8],
         "Color": [0.71, 0.51, 0.32, 1],
         "Outline": [0, 0, 0, 0.35],
         "OutlineWidth": 1.5
@@ -1681,8 +1681,8 @@
       "parent": "Bridge",
       "type": "RigidBody2D",
       "props": {
-        "Position": [231.875, 226.7958],
-        "RotationDegrees": 17.463167,
+        "Position": [231.875, 226.7955],
+        "RotationDegrees": 17.463,
         "Mass": 0.5
       }
     },
@@ -1699,7 +1699,7 @@
       "parent": "Bridge/Plank1",
       "type": "DemoShape2D",
       "props": {
-        "Size": [40.648483, 8],
+        "Size": [40.648502, 8],
         "Color": [0.71, 0.51, 0.32, 1],
         "Outline": [0, 0, 0, 0.35],
         "OutlineWidth": 1.5
@@ -1710,8 +1710,8 @@
       "parent": "Bridge",
       "type": "RigidBody2D",
       "props": {
-        "Position": [273.125, 237.61972],
-        "RotationDegrees": 11.870971,
+        "Position": [273.125, 237.6195],
+        "RotationDegrees": 11.871001,
         "Mass": 0.5
       }
     },
@@ -1728,7 +1728,7 @@
       "parent": "Bridge/Plank2",
       "type": "DemoShape2D",
       "props": {
-        "Size": [39.62239, 8],
+        "Size": [39.622406, 8],
         "Color": [0.71, 0.51, 0.32, 1],
         "Outline": [0, 0, 0, 0.35],
         "OutlineWidth": 1.5
@@ -1739,8 +1739,8 @@
       "parent": "Bridge",
       "type": "RigidBody2D",
       "props": {
-        "Position": [314.375, 243.4776],
-        "RotationDegrees": 4.2215576,
+        "Position": [314.375, 243.47751],
+        "RotationDegrees": 4.222,
         "Mass": 0.5
       }
     },
@@ -1757,7 +1757,7 @@
       "parent": "Bridge/Plank3",
       "type": "DemoShape2D",
       "props": {
-        "Size": [38.880486, 8],
+        "Size": [38.8805, 8],
         "Color": [0.71, 0.51, 0.32, 1],
         "Outline": [0, 0, 0, 0.35],
         "OutlineWidth": 1.5
@@ -1768,8 +1768,8 @@
       "parent": "Bridge",
       "type": "RigidBody2D",
       "props": {
-        "Position": [355.625, 243.4776],
-        "RotationDegrees": -4.2215576,
+        "Position": [355.625, 243.47751],
+        "RotationDegrees": -4.222,
         "Mass": 0.5
       }
     },
@@ -1786,7 +1786,7 @@
       "parent": "Bridge/Plank4",
       "type": "DemoShape2D",
       "props": {
-        "Size": [38.880486, 8],
+        "Size": [38.8805, 8],
         "Color": [0.71, 0.51, 0.32, 1],
         "Outline": [0, 0, 0, 0.35],
         "OutlineWidth": 1.5
@@ -1797,8 +1797,8 @@
       "parent": "Bridge",
       "type": "RigidBody2D",
       "props": {
-        "Position": [396.875, 237.61972],
-        "RotationDegrees": -11.870971,
+        "Position": [396.875, 237.6195],
+        "RotationDegrees": -11.871001,
         "Mass": 0.5
       }
     },
@@ -1815,7 +1815,7 @@
       "parent": "Bridge/Plank5",
       "type": "DemoShape2D",
       "props": {
-        "Size": [39.62239, 8],
+        "Size": [39.622406, 8],
         "Color": [0.71, 0.51, 0.32, 1],
         "Outline": [0, 0, 0, 0.35],
         "OutlineWidth": 1.5
@@ -1826,8 +1826,8 @@
       "parent": "Bridge",
       "type": "RigidBody2D",
       "props": {
-        "Position": [438.125, 226.7958],
-        "RotationDegrees": -17.463188,
+        "Position": [438.125, 226.7955],
+        "RotationDegrees": -17.463,
         "Mass": 0.5
       }
     },
@@ -1844,7 +1844,7 @@
       "parent": "Bridge/Plank6",
       "type": "DemoShape2D",
       "props": {
-        "Size": [40.64849, 8],
+        "Size": [40.648502, 8],
         "Color": [0.71, 0.51, 0.32, 1],
         "Outline": [0, 0, 0, 0.35],
         "OutlineWidth": 1.5
@@ -1855,8 +1855,8 @@
       "parent": "Bridge",
       "type": "RigidBody2D",
       "props": {
-        "Position": [479.375, 212.65366],
-        "RotationDegrees": -20.359219,
+        "Position": [479.375, 212.6535],
+        "RotationDegrees": -20.359,
         "Mass": 0.5
       }
     },
@@ -1873,7 +1873,7 @@
       "parent": "Bridge/Plank7",
       "type": "DemoShape2D",
       "props": {
-        "Size": [41.358685, 8],
+        "Size": [41.35858, 8],
         "Color": [0.71, 0.51, 0.32, 1],
         "Outline": [0, 0, 0, 0.35],
         "OutlineWidth": 1.5
@@ -1895,7 +1895,7 @@
       "parent": "Bridge",
       "type": "PinJoint2D",
       "props": {
-        "Position": [211.25, 220.30734],
+        "Position": [211.25, 220.307],
         "NodeA": "../Plank0",
         "NodeB": "../Plank1",
         "BreakForce": 60000
@@ -1906,7 +1906,7 @@
       "parent": "Bridge",
       "type": "PinJoint2D",
       "props": {
-        "Position": [252.5, 233.28427],
+        "Position": [252.5, 233.284],
         "NodeA": "../Plank1",
         "NodeB": "../Plank2",
         "BreakForce": 60000
@@ -1917,7 +1917,7 @@
       "parent": "Bridge",
       "type": "PinJoint2D",
       "props": {
-        "Position": [293.75, 241.95518],
+        "Position": [293.75, 241.955],
         "NodeA": "../Plank2",
         "NodeB": "../Plank3",
         "BreakForce": 60000
@@ -1939,7 +1939,7 @@
       "parent": "Bridge",
       "type": "PinJoint2D",
       "props": {
-        "Position": [376.25, 241.95518],
+        "Position": [376.25, 241.955],
         "NodeA": "../Plank4",
         "NodeB": "../Plank5",
         "BreakForce": 60000
@@ -1950,7 +1950,7 @@
       "parent": "Bridge",
       "type": "PinJoint2D",
       "props": {
-        "Position": [417.5, 233.28427],
+        "Position": [417.5, 233.284],
         "NodeA": "../Plank5",
         "NodeB": "../Plank6",
         "BreakForce": 60000
@@ -1961,7 +1961,7 @@
       "parent": "Bridge",
       "type": "PinJoint2D",
       "props": {
-        "Position": [458.75, 220.30733],
+        "Position": [458.75, 220.307],
         "NodeA": "../Plank6",
         "NodeB": "../Plank7",
         "BreakForce": 60000

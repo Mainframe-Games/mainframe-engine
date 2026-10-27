@@ -92,7 +92,7 @@
     "BoxShape3D_4byoo": {
       "type": "BoxShape3D",
       "props": {
-        "Size": [0.45725223, 0.08, 1.4]
+        "Size": [0.45724908, 0.08, 1.4]
       }
     },
     "StandardMaterial3D_harx9": {
@@ -104,13 +104,13 @@
     "BoxMesh_kh26p": {
       "type": "BoxMesh",
       "props": {
-        "Size": [0.45725223, 0.08, 1.4]
+        "Size": [0.45724908, 0.08, 1.4]
       }
     },
     "BoxShape3D_hceyf": {
       "type": "BoxShape3D",
       "props": {
-        "Size": [0.45107505, 0.08, 1.4]
+        "Size": [0.45096686, 0.08, 1.4]
       }
     },
     "StandardMaterial3D_z8kr2": {
@@ -122,13 +122,13 @@
     "BoxMesh_790ru": {
       "type": "BoxMesh",
       "props": {
-        "Size": [0.45107505, 0.08, 1.4]
+        "Size": [0.45096686, 0.08, 1.4]
       }
     },
     "BoxShape3D_7ffwq": {
       "type": "BoxShape3D",
       "props": {
-        "Size": [0.44144338, 0.08, 1.4]
+        "Size": [0.44152507, 0.08, 1.4]
       }
     },
     "StandardMaterial3D_4xpar": {
@@ -140,13 +140,13 @@
     "BoxMesh_n9j8f": {
       "type": "BoxMesh",
       "props": {
-        "Size": [0.44144338, 0.08, 1.4]
+        "Size": [0.44152507, 0.08, 1.4]
       }
     },
     "BoxShape3D_vtuz5": {
       "type": "BoxShape3D",
       "props": {
-        "Size": [0.4327959, 0.08, 1.4]
+        "Size": [0.4327506, 0.08, 1.4]
       }
     },
     "StandardMaterial3D_59fec": {
@@ -158,7 +158,7 @@
     "BoxMesh_l9q54": {
       "type": "BoxMesh",
       "props": {
-        "Size": [0.4327959, 0.08, 1.4]
+        "Size": [0.4327506, 0.08, 1.4]
       }
     },
     "BoxShape3D_4rawc": {
@@ -182,7 +182,7 @@
     "BoxShape3D_8if4b": {
       "type": "BoxShape3D",
       "props": {
-        "Size": [0.43279612, 0.08, 1.4]
+        "Size": [0.43275082, 0.08, 1.4]
       }
     },
     "StandardMaterial3D_iouaq": {
@@ -194,13 +194,13 @@
     "BoxMesh_t0y3a": {
       "type": "BoxMesh",
       "props": {
-        "Size": [0.43279612, 0.08, 1.4]
+        "Size": [0.43275082, 0.08, 1.4]
       }
     },
     "BoxShape3D_nel7i": {
       "type": "BoxShape3D",
       "props": {
-        "Size": [0.44144318, 0.08, 1.4]
+        "Size": [0.44152483, 0.08, 1.4]
       }
     },
     "StandardMaterial3D_udvpz": {
@@ -212,13 +212,13 @@
     "BoxMesh_6gvwb": {
       "type": "BoxMesh",
       "props": {
-        "Size": [0.44144318, 0.08, 1.4]
+        "Size": [0.44152483, 0.08, 1.4]
       }
     },
     "BoxShape3D_222d1": {
       "type": "BoxShape3D",
       "props": {
-        "Size": [0.45107505, 0.08, 1.4]
+        "Size": [0.45096686, 0.08, 1.4]
       }
     },
     "StandardMaterial3D_dmeh4": {
@@ -230,13 +230,13 @@
     "BoxMesh_nofes": {
       "type": "BoxMesh",
       "props": {
-        "Size": [0.45107505, 0.08, 1.4]
+        "Size": [0.45096686, 0.08, 1.4]
       }
     },
     "BoxShape3D_fahf4": {
       "type": "BoxShape3D",
       "props": {
-        "Size": [0.45725223, 0.08, 1.4]
+        "Size": [0.45724908, 0.08, 1.4]
       }
     },
     "StandardMaterial3D_23l5x": {
@@ -248,7 +248,7 @@
     "BoxMesh_q0mi1": {
       "type": "BoxMesh",
       "props": {
-        "Size": [0.45725223, 0.08, 1.4]
+        "Size": [0.45724908, 0.08, 1.4]
       }
     },
     "BoxShape3D_higzw": {
@@ -595,8 +595,8 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-6.166667, 2.514495, -5],
-        "RotationDegrees": [0, 0, -20.12536],
+        "Position": [-6.166667, 2.5145, -5],
+        "RotationDegrees": [0, 0, -20.124],
         "Mass": 2
       }
     },
@@ -622,8 +622,8 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-5.7, 2.353798, -5],
-        "RotationDegrees": [0, 0, -17.861578],
+        "Position": [-5.7, 2.354, -5],
+        "RotationDegrees": [0, 0, -17.819],
         "Mass": 2
       }
     },
@@ -649,8 +649,8 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-5.2333336, 2.2227967, -5],
-        "RotationDegrees": [0, 0, -13.451492],
+        "Position": [-5.2333336, 2.223, -5],
+        "RotationDegrees": [0, 0, -13.496],
         "Mass": 2
       }
     },
@@ -676,8 +676,8 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-4.766667, 2.1372914, -5],
-        "RotationDegrees": [0, 0, -7.2528777],
+        "Position": [-4.766667, 2.1375, -5],
+        "RotationDegrees": [0, 0, -7.206],
         "Mass": 2
       }
     },
@@ -703,7 +703,7 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-4.3, 2.107596, -5],
+        "Position": [-4.3, 2.108, -5],
         "Mass": 2
       }
     },
@@ -729,8 +729,8 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-3.8333335, 2.1372914, -5],
-        "RotationDegrees": [0, 0, 7.2528763],
+        "Position": [-3.8333335, 2.1375, -5],
+        "RotationDegrees": [0, 0, 7.206],
         "Mass": 2
       }
     },
@@ -756,8 +756,8 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-3.3666668, 2.2227967, -5],
-        "RotationDegrees": [0, 0, 13.451499],
+        "Position": [-3.3666668, 2.223, -5],
+        "RotationDegrees": [0, 0, 13.496],
         "Mass": 2
       }
     },
@@ -783,8 +783,8 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-2.9000003, 2.353798, -5],
-        "RotationDegrees": [0, 0, 17.861578],
+        "Position": [-2.9000003, 2.354, -5],
+        "RotationDegrees": [0, 0, 17.819],
         "Mass": 2
       }
     },
@@ -810,8 +810,8 @@
       "parent": "Bridge",
       "type": "RigidBody3D",
       "props": {
-        "Position": [-2.4333336, 2.514495, -5],
-        "RotationDegrees": [0, 0, 20.12536],
+        "Position": [-2.4333336, 2.5145, -5],
+        "RotationDegrees": [0, 0, 20.124],
         "Mass": 2
       }
     },
@@ -850,7 +850,7 @@
       "parent": "Bridge",
       "type": "HingeJoint3D",
       "props": {
-        "Position": [-5.9333334, 2.42899, -5],
+        "Position": [-5.9333334, 2.429, -5],
         "NodeA": "../Plank0",
         "NodeB": "../Plank1",
         "UseLimit": true,
@@ -863,7 +863,7 @@
       "parent": "Bridge",
       "type": "HingeJoint3D",
       "props": {
-        "Position": [-5.4666667, 2.2786062, -5],
+        "Position": [-5.4666667, 2.279, -5],
         "NodeA": "../Plank1",
         "NodeB": "../Plank2",
         "UseLimit": true,
@@ -876,7 +876,7 @@
       "parent": "Bridge",
       "type": "HingeJoint3D",
       "props": {
-        "Position": [-5, 2.1669872, -5],
+        "Position": [-5, 2.167, -5],
         "NodeA": "../Plank2",
         "NodeB": "../Plank3",
         "UseLimit": true,
@@ -889,7 +889,7 @@
       "parent": "Bridge",
       "type": "HingeJoint3D",
       "props": {
-        "Position": [-4.533334, 2.107596, -5],
+        "Position": [-4.533334, 2.108, -5],
         "NodeA": "../Plank3",
         "NodeB": "../Plank4",
         "UseLimit": true,
@@ -902,7 +902,7 @@
       "parent": "Bridge",
       "type": "HingeJoint3D",
       "props": {
-        "Position": [-4.0666666, 2.107596, -5],
+        "Position": [-4.0666666, 2.108, -5],
         "NodeA": "../Plank4",
         "NodeB": "../Plank5",
         "UseLimit": true,
@@ -915,7 +915,7 @@
       "parent": "Bridge",
       "type": "HingeJoint3D",
       "props": {
-        "Position": [-3.6000001, 2.1669872, -5],
+        "Position": [-3.6000001, 2.167, -5],
         "NodeA": "../Plank5",
         "NodeB": "../Plank6",
         "UseLimit": true,
@@ -928,7 +928,7 @@
       "parent": "Bridge",
       "type": "HingeJoint3D",
       "props": {
-        "Position": [-3.1333337, 2.2786062, -5],
+        "Position": [-3.1333337, 2.279, -5],
         "NodeA": "../Plank6",
         "NodeB": "../Plank7",
         "UseLimit": true,
@@ -941,7 +941,7 @@
       "parent": "Bridge",
       "type": "HingeJoint3D",
       "props": {
-        "Position": [-2.666667, 2.42899, -5],
+        "Position": [-2.666667, 2.429, -5],
         "NodeA": "../Plank7",
         "NodeB": "../Plank8",
         "UseLimit": true,
