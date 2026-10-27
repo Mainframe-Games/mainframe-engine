@@ -307,7 +307,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G1d Character animation editing: bones in the viewport, IK handles, curve view, onion skinning | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G1e Root motion: `AnimationPlayer` root motion track, `CharacterBody3D.ApplyRootMotion` | ✅ (ADR 0210; the baker's `root: "motion"` waits for G1c) | [Animation and skinning](design/animation.md#root-motion) |
 | G1f Non-humanoid rigs (native bone channels, rig profiles) and auto-rigging | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
-| G2a Animated sprites: sprite sheet slicing, `SpriteFrames`, `AnimatedSprite2D` | ⬜ | [2D content](design/future/2d-content.md) |
+| G2a Animated sprites: sprite sheet slicing, `SpriteFrames`, `AnimatedSprite2D` | ✅ (ADR 0223, 0224) | [Animated sprites](design/animated-sprites.md) |
 | G2b Tile maps: `TileSet`, tile map layer node (chunked rendering + physics), paint tools in the 2D view | ⬜ | [2D content](design/future/2d-content.md) |
 | G3a Navigation 2D: grid A* and point graphs, `NavigationServer2D`, `NavigationAgent2D`, editor bake + debug overlay, tile map source (G3.1–G3.6) | ⬜ | [Navigation](design/future/navigation.md) |
 | G3b Later: avoidance, 2D navmesh polygons, async queries, 3D grid + `NavigationAgent3D`, 3D navmesh baking (G3.7–G3.12) | ⬜ | [Navigation](design/future/navigation.md) |

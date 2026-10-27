@@ -122,7 +122,7 @@ flowchart TB
 | Splitters | `splitters.rml` | Four drag handles (left dock, right dock, output, scene tree / file system) |
 | Project Manager, New Project | `project_manager.rml`, `new_project.rml` | Layer 40 above the panels ([Projects](#projects)) |
 | Settings dialogs | `project_settings.rml`, `editor_settings.rml`, `connect_signal.rml` | Project Settings, Editor Settings, Connect Signal |
-| Dialogs | `tree_picker.rml`, `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml` | The create dialog (Add Node, New Resource, Instance Scene; below), modal file picker with file-type icons (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (node paths), message box / prompt with a title icon, popup menus |
+| Dialogs | `tree_picker.rml`, `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml`, `sheet_slicer.rml` | The create dialog (Add Node, New Resource, Instance Scene; below), modal file picker with file-type icons (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (node paths), message box / prompt with a title icon, popup menus, Select Frames (sprite sheet slicing, [Animated sprites](animated-sprites.md#editor)) |
 | Tooltips | `tooltip.rml` | Its own layer above the dialogs ([Tooltips](#tooltips)) |
 | Splash | `splash.rml` | Logo, "Mainframe Editor", "vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts and while a scene loads, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch |
 
@@ -437,7 +437,8 @@ Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plan
 3D View switches any tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)). Middle or right drag (or Alt+left)
 pans, the wheel zooms around the mouse, F frames the selection. A pixel grid (power-of-two steps at least 16 screen
 pixels apart, every 8th brighter, coloured axes), Node2D markers, collision shape outlines and Camera2D frames are
-drawn. Picking is on the CPU (rectangle and circle shapes, then node origins; later nodes are on top).
+drawn. Picking is on the CPU (rectangle and circle shapes, then node origins, then the drawn rects of `Sprite2D`s and
+`AnimatedSprite2D`s; later nodes are on top).
 `TransformGizmo2D` (axis arrows and a free-move square, a rotation ring, scale handles) shares the tool, space and snap
 settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. 2D tabs render through
 the canvas renderer (sprites, Spine, custom drawing, shaders) with the editor's shapes, markers and camera frames on top.
@@ -805,7 +806,8 @@ missing dependency, import error (invalid JSON, undecodable image).
 
 - **Double click** opens scenes in a tab, UI documents (`.rml`) in a [UI preview](#ui-preview) tab, resource files in
   the inspector, C# files and style sheets in the code editor; folders open.
-- **Right-click menu**: Open (Preview UI and Open in Code Editor for `.rml`), New Folder, New Scene, New Resource (the create dialog), Rename (F2), Move To, Move to
+- **Right-click menu**: Open (Preview UI and Open in Code Editor for `.rml`), New Folder, New Scene, New Resource (the create dialog), New SpriteFrames
+  from Sheet… (images: Select Frames, then `<image>.mres`; [Animated sprites](animated-sprites.md#editor)), Rename (F2), Move To, Move to
   Trash (Del), Copy Path, Copy UID, Reveal in Finder / Show in File Manager.
 - **Rename and move** keep references working: the `.meta` moves with the file, and every scene, resource and
   `project.mfproj` that refers to a moved file is rewritten (`ReferenceFixer`: `path` hints of `ref`/`instance` objects
@@ -840,8 +842,10 @@ still works), so a custom inspector can act on either. The shipped examples are 
 for `AudioBusLayout` buses, every change undoable) and the [sound designer](#sound-designer). Nodes have them too:
 `LightProbeVolumeInspector` (Bake Lighting), the joints' `Joint3DInspector`/`Joint2DInspector` (Rebuild, and Swap A/B as
 one undo step) and `Skeleton3DInspector` (Create physical skeleton: `PhysicalBoneSimulator3D.Build` added as one undo
-step; ADR 0212, [Physics joints → Ragdolls](physics-joints.md#ragdolls)). Game assemblies' `[CustomInspector]`s are
-found when they load.
+step; ADR 0212, [Physics joints → Ragdolls](physics-joints.md#ragdolls)). The SpriteFrames editor is one too, on
+`SpriteFrames` and `AnimatedSprite2D` (`SpriteFramesHeader`, ADR 0224, [Animated sprites](animated-sprites.md#editor)).
+A header may hold text fields: `data-header-input="name"` sends `name=text` to `OnAction` on Enter or focus loss.
+Game assemblies' `[CustomInspector]`s are found when they load.
 
 **`OnPropertyChanged(target, property, context)`** (default method: nothing) tells a custom inspector about every
 committed change to its target, including edits made by the generated rows, which bypass it. It is called once per

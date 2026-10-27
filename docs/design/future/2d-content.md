@@ -1,10 +1,15 @@
-# Proposal: 2D content (animated sprites and tile maps)
+# Proposal: 2D content (tile maps)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G2) · **Status:** ⬜ planned ·
+**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G2) · **Status:** G2a ✅ shipped ([Animated sprites](../animated-sprites.md), ADR 0223/0224) · G2b ⬜ planned ·
 **Depends on:** [2D canvas](../canvas.md), [Physics](../physics.md) (Box2D), [Editor → 2D view](../editor.md#2d-view) ·
 **Related:** [Keyframe animation](keyframe-animation.md) (G1), [Navigation](navigation.md) (G3),
 [Editor viewport tools](../editor.md#viewport-tools) (G7), [Asset pipeline](../asset-pipeline.md),
 [Scene serialization](../scene-serialization.md)
+
+> **G2a (animated sprites) shipped.** `SpriteSheetGrid`, `SpriteFrames`, `AnimatedSprite2D`, the SpriteFrames
+> editor and Select Frames are described in [Animated sprites](../animated-sprites.md). This page keeps the tile map
+> part (G2b), which builds on them: the atlas source layout is a `SpriteSheetGrid`, and drawn-rect picking of sprites
+> already exists in the 2D view.
 
 ## Problem
 
@@ -43,7 +48,8 @@ What exists today (checked against the code):
   get one element per line ([scene serialization → file format](../scene-serialization.md#file-format)). That layout
   does not suit tens of thousands of cells.
 - **Geometry.** `CanvasPrimitives.Triangulate` does ear clipping (`Scene/Canvas/CanvasPrimitives.cs:610`).
-- No type named `SpriteFrames`, `AnimatedSprite2D`, `AtlasTexture`, `TileSet`, `TileMap` or `TileMapLayer` exists.
+- No type named `AtlasTexture`, `TileSet`, `TileMap` or `TileMapLayer` exists (`SpriteFrames` and `AnimatedSprite2D`
+  shipped with G2a).
 
 > **Stale docs found while checking.** At `HEAD`, the "2D content" row of [future/editor.md](editor.md) says "the
 > engine has no sprite renderer yet". That is false: `Sprite2D` and the canvas renderer exist (ADR 0111), and since
@@ -54,16 +60,14 @@ What exists today (checked against the code):
 
 ## Goals
 
-- **G2a, animated sprites.** A `SpriteFrames` resource (named animations, frames, fps, loop) and an
-  `AnimatedSprite2D` node with Godot 4's API and signals. No allocation per frame.
-- **Sprite sheets.** Slice an image into frames by cell count or cell size, with margins and separation. The same
-  grid maths serves tile set atlases.
+- **G2a, animated sprites** — shipped: [Animated sprites](../animated-sprites.md). Its `SpriteSheetGrid` serves tile
+  set atlases.
 - **G2b, tile maps.** A `TileSet` resource (atlas sources, tile size, per-tile collision polygons, custom data
   layers) and a `TileMapLayer` node with chunked storage, chunked rendering through the existing canvas batcher,
   y-sort, one static Box2D body per chunk, and a compact cell format in `.mscene`.
 - **Editor.** Paint tools in the 2D view (paint, line, rect, bucket fill, erase, picker, random scatter), a TileSet
-  palette, a TileSet editor, a SpriteFrames panel and a sheet slicer. All tools are icon buttons with tooltips, and
-  every edit can be undone.
+  palette and a TileSet editor (the SpriteFrames editor and sheet slicer shipped with G2a). All tools are icon
+  buttons with tooltips, and every edit can be undone.
 - **Demo.** A "Tiles 2D" scene with placeholder art generated in code, in keeping with the placeholder-first
   approach.
 
@@ -86,10 +90,7 @@ What exists today (checked against the code):
 
 | Type | Kind | Where |
 |---|---|---|
-| `SpriteSheetGrid` | value type: grid slicing maths | `MainframeEngine/Src/Scene/Nodes2D/Sprites/` |
-| `SpriteFrames`, `SpriteAnimation` | resources (`.mres`) | same |
-| `SpriteFrame` | `[SerializableValue]` struct with a built-in codec | same |
-| `AnimatedSprite2D` | node | same |
+| `SpriteSheetGrid` | value type: grid slicing maths (**shipped**, G2a) | `MainframeEngine/Src/Scene/Nodes2D/Sprites/` |
 | `TileSet`, `TileSetAtlasSource`, `TileData`, `TileSetPhysicsLayer`, `TileSetCustomDataLayer`, `TileCollisionPolygon` | resources | `MainframeEngine/Src/Scene/Nodes2D/Tiles/` |
 | `TileMapLayer` | node | same |
 | `TileCell` | value type: one cell | same |
@@ -99,163 +100,12 @@ What exists today (checked against the code):
 
 Godot 4 names, defaults and behaviour are used everywhere unless a deviation is called out.
 
-### Sprite sheets: `SpriteSheetGrid`, and where slicing lives
+### Sprite sheets and slicing (shipped with G2a)
 
-```csharp
-/// <summary>A uniform grid over an image (Godot's "Select Frames" dialog and TileSetAtlasSource layout). New.</summary>
-public readonly record struct SpriteSheetGrid(Vector2I CellSize, Vector2I Margins, Vector2I Separation)
-{
-    public static SpriteSheetGrid FromCounts(Vector2I imageSize, int columns, int rows, Vector2I margins = default, Vector2I separation = default);
-    public Vector2I GridSize(Vector2I imageSize);        // whole cells that fit
-    public Rect2I CellRect(Vector2I cell);              // texture pixels
-    public Vector2I CellAt(Vector2 texturePixel);       // (-1,-1) outside / in a gap
-}
-```
-
-**Decision: slicing is data in the resource that uses it, not an import setting.** A `SpriteAnimation` frame stores
-its texture and region. A `TileSetAtlasSource` stores its texture, `Margins`, `Separation` and
-`TextureRegionSize`. The texture stays one `Texture2D` with one `.meta`. Reasons:
-
-1. One sheet often feeds several animations, and sometimes a tile set too. Per-use data avoids one global slicing
-   that fits nobody.
-2. Import products such as sub-textures or generated `.mres` files would need cache invalidation and UID fix-ups
-   when a sheet changes. Regions in resources need neither.
-3. It is Godot's model (SpriteFrames regions, atlas source layout). Unity's per-texture "sprite mode: multiple" is
-   the alternative, and it ties every user of the sheet to one grid.
-
-The sheet slicer dialog remembers the last grid per texture in `<project>/.mainframe/cache/sheet_grids.json`. This
-editor state lives next to the thumbnail cache (`MainframeEngine.Editor/Src/FileSystem/ThumbnailCache.cs:11`) and is
-not committed. Pixel-art sheets should set `filter: nearest`, and linear-filtered sheets with transparent gutters
-should set `fixAlphaBorder: true` in their `.meta`. The canvas uses the node's `TextureFilter`, so pixel-art games set
-`TextureFilter = Nearest` on their root `Node2D`, and children inherit it via `ParentNode`.
-
-### `SpriteFrames` (G2a)
-
-```csharp
-[EditorIcon("library-photo")]
-public sealed class SpriteFrames : Resource                  // new
-{
-    [Export] public List<SpriteAnimation> Animations { get; set; } = [];   // "default" created by the editor
-
-    public SpriteAnimation? GetAnimation(string name);       // ordinal lookup, cached name → index, no allocation
-    public bool HasAnimation(string name);
-    public SpriteAnimation AddAnimation(string name);        // editor and tools; Godot's add_animation
-    public void RemoveAnimation(string name);
-    public void RenameAnimation(string from, string to);
-}
-
-public sealed class SpriteAnimation : Resource              // new, inline sub-resource
-{
-    [Export] public string Name { get; set; } = "default";
-    [Export(Range = "0,120,0.01")] public float Speed { get; set; } = 5f;   // frames per second (Godot's default)
-    [Export] public bool Loop { get; set; } = true;
-    [Export] public Texture2D?[] Textures { get; set; } = [];             // the sheets/images the frames use
-    [Export] public SpriteFrame[] Frames { get; set; } = [];
-}
-
-[SerializableValue]
-public readonly record struct SpriteFrame(int Texture, Rect2 Region, float Duration = 1f);  // new
-// Texture: index into Textures. Region: texture pixels (zero size = whole texture). Duration: relative (Godot).
-```
-
-`SpriteFrame` gets a built-in `FloatArray` codec registered in `Codecs` (six numbers:
-`[texture, x, y, w, h, duration]`). Each frame therefore takes one line in the file, and the 16-scalar layout rule
-already applies. Godot stores one `Texture2D` per frame, usually an `AtlasTexture`. A texture table plus a region
-keeps frames value-typed: there is no inline resource per frame, no `AtlasTexture` and no boxing.
-
-A `SpriteFrames` saved as `.mres`
-([`ResourceSaver`](../scene-serialization.md#saving) format: `format`, `uid`, `type`, `resources`, `props`):
-
-```json
-{
-  "format": 2,
-  "uid": "res_51c0aa7e3d19",
-  "type": "SpriteFrames",
-  "resources": {
-    "Texture2D_0h3k1": { "ref": "tex_9b2e40c7a1f3", "path": "Assets/Sprites/hero.png" },
-    "SpriteAnimation_4f2qz": {
-      "type": "SpriteAnimation",
-      "props": {
-        "Name": "run",
-        "Speed": 10,
-        "Textures": [{ "res": "Texture2D_0h3k1" }],
-        "Frames": [
-          [0, 0, 32, 32, 32, 1],
-          [0, 32, 32, 32, 32, 1],
-          [0, 64, 32, 32, 32, 1],
-          [0, 96, 32, 32, 32, 2]
-        ]
-      }
-    }
-  },
-  "props": { "Animations": [{ "res": "SpriteAnimation_4f2qz" }] }
-}
-```
-
-### `AnimatedSprite2D` (G2a)
-
-Godot 4's node. It draws like `Sprite2D` (centred, offset, flips) and reuses its rect maths through a shared
-internal helper. It does **not** subclass `Sprite2D` (Godot keeps them separate, and `Hframes`/`Region` would make no
-sense on it).
-
-```csharp
-[EditorIcon("slideshow", Family = EditorIconFamily.Space2D)]
-public class AnimatedSprite2D : Node2D                      // new
-{
-    [Export] public SpriteFrames? SpriteFrames { get; set; }
-    [Export] public string Animation { get; set; } = "default";
-    [Export] public string Autoplay { get; set; } = "";     // played on ready (not in edit mode)
-    [Export] public int Frame { get; set; }
-    [Export(Range = "0,1")] public float FrameProgress { get; set; }
-    [Export(Range = "-8,8,0.01")] public float SpeedScale { get; set; } = 1f;
-    [Export] public bool Centered { get; set; } = true;
-    [Export] public Vector2 Offset { get; set; }
-    [Export] public bool FlipH { get; set; }
-    [Export] public bool FlipV { get; set; }
-
-    public void Play(string? name = null, float customSpeed = 1f, bool fromEnd = false);
-    public void PlayBackwards(string? name = null);
-    public void Pause();
-    public void Stop();                                       // frame 0, progress 0
-    public bool IsPlaying();
-    public void SetFrameAndProgress(int frame, float progress);
-    public float GetPlayingSpeed();                           // SpeedScale × customSpeed, signed
-    public Rect2 GetRect();                                   // local drawn rect (editor picking)
-
-    [Signal] public event Action? AnimationChanged;
-    [Signal] public event Action? AnimationFinished;          // non-looping animation reached its end
-    [Signal] public event Action? AnimationLooped;
-    [Signal] public event Action? FrameChanged;
-    [Signal] public event Action? SpriteFramesChanged;
-}
-```
-
-- **Timing** follows Godot's `AnimatedSprite2D::_notification(INTERNAL_PROCESS)`. Each frame lasts
-  `Duration / (Speed × |playing speed|)` seconds. `OnProcess` carries the remainder across frames, so a long delta
-  skips frames and emits `FrameChanged` once per frame step (several per tick on a hitch) and
-  `AnimationLooped`/`AnimationFinished` at the boundary, in Godot's order.
-- **No allocation per frame.** `Play("run")` resolves the name through the resource's cached `Dictionary<string, int>`
-  (`TryGetValue` on the caller's literal) and stores the `SpriteAnimation` reference. Each tick does float arithmetic,
-  then `QueueRedraw()` when the frame index changed (an add to the tree's existing redraw list,
-  `SceneTree.Canvas.cs:11`). It invokes parameterless `Action` signals with no boxing, and the redraw adds one quad
-  through `CanvasPrimitives.TextureRectRegion`. The resource's `Changed` event (`Resource.cs:45`) is subscribed when
-  `SpriteFrames` is set, not per frame.
-- **Edit mode.** The node is not `[Tool]`, so it does not process in the editor (ADR 0080). The editor shows
-  `Animation`/`Frame` statically. The SpriteFrames panel's play button previews by setting `Frame` on the selected
-  node from an editor ticker, and restores the frame on stop with no undo entry and without dirtying the scene.
-- **Constructor** is empty. The name→index cache lives on `SpriteFrames` and is rebuilt lazily after `Changed`.
-
-### Interplay with keyframe animation (G1)
-
-`AnimatedSprite2D` is a self-timed flipbook: walk cycles, idle loops and effects. [Keyframe animation](keyframe-animation.md)
-(G1) choreographs properties over time. The two combine the way they do in Godot:
-
-- An `AnimationPlayer` can key `AnimatedSprite2D.Animation` (string discrete track), `Frame` (int) and `FlipH`, or
-  call `Play`/`Stop` through a method track. G1's typed property tracks write through `ExportPropertyInfo<TOwner,TValue>`
-  setters, so this needs nothing from G2.
-- The other Godot pattern, `Sprite2D` + `Hframes`/`Vframes` + an `AnimationPlayer` keying `Frame`, works as soon as
-  G1 lands.
-- G2 adds no timeline integration. A frame strip is not a G1 track type.
+`SpriteSheetGrid` (cell size, margins at the top-left, separation; `FromCounts`, `GridSize`, `CellRect`, `CellAt`)
+and the decision that slicing is data in the resource that uses it, not an import setting, shipped with G2a: see
+[Animated sprites → Sprite sheets](../animated-sprites.md#sprite-sheets-spritesheetgrid). A `TileSetAtlasSource`
+stores its texture, `Margins`, `Separation` and `TextureRegionSize`, and its `Grid` is a `SpriteSheetGrid`.
 
 ### `TileSet` (G2b)
 
@@ -544,7 +394,8 @@ what it does").
 
 #### TileMap palette (bottom panel)
 
-The bottom region becomes tabbed: **Output**, plus contextual **TileMap**, **TileSet** and **SpriteFrames** tabs that
+The bottom region becomes tabbed: **Output**, plus contextual **TileMap** and **TileSet** tabs (and, if it moves
+there, the SpriteFrames editor, today an inspector header: ADR 0224) that
 appear when the selection or opened resource needs them. This follows Godot's bottom panel. `EditorLayout` already
 owns the bottom rectangle (`Layout/EditorLayout.cs:257-264`). The TileMap tab shows:
 
@@ -570,24 +421,6 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
   polygon (`polygon`), Clear (`trash`) and Snap to ½/¼ tile (`magnet`). Drag moves points, a double-click on an edge
   inserts a point, and Delete removes one.
 
-#### SpriteFrames panel and sheet slicer
-
-![The SpriteFrames panel with the animation list and frame strip, and the Select Frames sheet slicer dialog](../../images/sprite-frames-editor.svg)
-
-- **SpriteFrames tab** (when an `AnimatedSprite2D` is selected or a `SpriteFrames` `.mres` is opened):
-  - the **animation list** with name, FPS and Loop toggle. Toolbar: Add, Duplicate, Rename, Delete, and Autoplay on
-    load (`player-play` badge on the row);
-  - the **frame strip** with thumbnails, index and relative duration (editable). Toolbar: Play backwards, Play, Stop,
-    Add frames from files (`file-plus`), Add frames from a sprite sheet (`layout-grid`), Copy, Paste, Move left/right,
-    Delete and Zoom. Drag reorders.
-- **Select Frames dialog** (`sheet_slicer.rml`, new): the sheet with the grid overlay. **Horizontal/Vertical**
-  (counts) or **Size** (cell size), **Separation** and **Offset** (margins) set the grid. Click or drag selects cells,
-  numbered in selection order. Buttons: Select all, Clear, Auto-slice by opaque bounds (later, see open questions).
-  The primary action "Add N Frames" uses text, per the icons rule (dialog primary actions keep text).
-- The same dialog serves "New SpriteFrames from sheet…" in the FileSystem context menu of an image. That creates a
-  `.mres` with one animation per selected row, which is the fastest path from a downloaded sheet to a playing
-  character.
-
 #### Undo
 
 - `PaintTilesAction : IEditorAction` (new, `MainframeEngine.Editor/Src/Undo/TileActions.cs`) records
@@ -595,7 +428,7 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
   `alreadyApplied: true` and a per-stroke merge key (`UndoRedo.Commit`, `UndoRedo.cs:94`). Mouse-up calls `EndMerge`,
   so one stroke is one entry: "Paint Tiles", "Erase Tiles", "Fill Tiles" or "Paste Tiles". Undo writes `before` back
   through `SetCell`, which marks the chunks dirty as usual.
-- SpriteFrames and TileSet edits go through `SetPropertyAction`, with typed setters on the resource and history in
+- TileSet edits go through `SetPropertyAction`, with typed setters on the resource and history in
   the scene or the `EditedResource`.
 
 ### Threading and allocation
@@ -614,11 +447,10 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
 `tiles_2d` ("Tiles 2D") is added to `DemoScenes.All` and built in code like the others ([Demo](../demo.md)):
 
 - **Placeholder art first.** The builder generates `Assets/Tiles2D/tiles.png` (a 16 px atlas: grass, dirt, stone,
-  water, a two-tile tree with a y-sort origin) and `Assets/Tiles2D/hero.png` (a 4×4 sheet of a blob with
-  idle/run/jump frames, numbered) with `Png.WriteRgba8` (`MainframeEngine/Src/Imaging/Png.cs:68`). It is all MIT and
-  replaceable by real art without code changes.
-- `tiles.mres` (`TileSet`: one physics layer with full-tile collision on stone, and custom data `surface`) and
-  `hero.mres` (`SpriteFrames`: idle, run and jump).
+  water, a two-tile tree with a y-sort origin) with `Png.WriteRgba8` (`MainframeEngine/Src/Imaging/Png.cs:68`). The hero
+  reuses the Sprites 2D scene's generated `Assets/Sprites2D/hero.png` and `hero.mres` (G2a: idle, run, jump, coin). It
+  is all MIT and replaceable by real art without code changes.
+- `tiles.mres` (`TileSet`: one physics layer with full-tile collision on stone, and custom data `surface`).
 - Scene: `Ground` and `Walls` `TileMapLayer`s, filled from a small ASCII level in the builder, and a y-sorted
   `Objects` layer with trees. A `CharacterBody2D` hero with an `AnimatedSprite2D` switches idle/run/jump from its
   velocity and walks behind or in front of the trees. A `Camera2D` follows.
@@ -633,11 +465,6 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
 ## Testing
 
 - **Unit (`Tests/MainframeEngine.Tests/Canvas/`, new files):**
-  - `SpriteSheetGridTests`: counts ↔ sizes, margins and separation, `CellAt` in gaps.
-  - `AnimatedSprite2DTests`: frame timing against Godot's rule (durations, negative speed, `PlayBackwards`, `fromEnd`),
-    signal order on loop and finish, several frame steps in one long tick, `SetFrameAndProgress`, the autoplay rule
-    in edit mode, and redraws only on frame change.
-  - `SpriteFramesSerializationTests`: `.mres` round trip, one line per frame, `SpriteFrame` codec.
   - `TileMapLayerTests`: `SetCell`/`EraseCell`/getters, chunk creation and removal, negative coordinates,
     `LocalToMap`/`MapToLocal`, `GetUsedRect`, alternative flip bits, invalid source ids (cell kept, not drawn, a warning
     as in Godot's `fix_invalid_tiles`).
@@ -655,24 +482,20 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
 - **Benchmark:** `TileMapLayerFrameBuild` in `Tests/MainframeEngine.Benchmarks` (a full-screen 16 px layer, 3 layers),
   added to `baseline.json`.
 - **Render tests (`Tests/MainframeEngine.RenderTests/CanvasRenderTests.cs`):** a `tiles` host scene with a tile layer,
-  flips and transposes, y-sorted rows with a sprite between them, and an `AnimatedSprite2D` captured at frames 1 and
-  12. Goldens for `moltenvk` and `lavapipe`, the validation gate, and a seam check: no neighbouring-tile colour along
+  flips and transposes, and y-sorted rows with a sprite between them (the `animated-sprite` scene shipped with G2a).
+  Goldens for `moltenvk` and `lavapipe`, the validation gate, and a seam check: no neighbouring-tile colour along
   tile edges at zoom 1.37 with linear filtering and padding on.
 - **Editor (`Tests/MainframeEngine.Editor.Tests`):** each tool's cell set (paint, line, rect, bucket contiguous and
   global, eraser, picker, random scatter with a seeded RNG). One undo entry per stroke, and undo/redo restoring exact
-  cells. Sheet slicer grid maths and "Add N Frames". Shortcut routing between the paint bar and the gizmo.
+  cells. Shortcut routing between the paint bar and the gizmo.
 - **QA (`Tests/QA/editor-walkthrough.qa`):** new steps: add a `TileMapLayer`, create a `TileSet` from the Demo atlas,
-  paint a rect, bucket-fill, undo, save, reopen, then create `SpriteFrames` from a sheet and preview. Screenshots go
+  paint a rect, bucket-fill, undo, save, reopen. Screenshots go
   to `artifacts/qa-editor`.
 - **Demo:** `SceneFilesTests.CommittedScenesMatchTheBuilders` covers `tiles_2d`. The headless run of every scene
   covers it too, and `just demo-screenshots` adds its README image.
 
 ## Acceptance
 
-- `AnimatedSprite2D` plays a `SpriteFrames` animation with Godot's timing and signals, in game and in the
-  SpriteFrames panel preview, with 0 bytes allocated in steady state.
-- A sprite sheet can be sliced by count or size with margins and separation into a new or existing animation in
-  under a minute, without touching `.meta` files.
 - A `TileSet` with an atlas source, full-tile and polygon collision and a custom data layer can be built in the
   TileSet tab and saved as `.mres`.
 - In a 2D tab, all seven tools plus random scatter and flips paint a `TileMapLayer` with a live preview. Each stroke
@@ -691,15 +514,7 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
 
 ## Task list
 
-**G2a: animated sprites**
-
-1. **G2a.1** `SpriteSheetGrid`, `SpriteFrames`, `SpriteAnimation`, `SpriteFrame` + codec; `.mres` round trip; unit
-   tests.
-2. **G2a.2** `AnimatedSprite2D` (timing, signals, drawing via the shared `Sprite2D` rect helper, `GetRect`); allocation
-   gate; render test frames.
-3. **G2a.3** Editor: bottom panel tabs (Output + contextual), SpriteFrames tab (animation list, frame strip, preview
-   ticker), Select Frames dialog, FileSystem "New SpriteFrames from sheet…"; icons added to `icons.txt` (`slideshow`,
-   `library-photo`, ...); editor tests; drawn-rect picking for sprites.
+**G2a: animated sprites** — shipped ([Animated sprites](../animated-sprites.md)).
 
 **G2b: tile maps**
 
@@ -719,11 +534,8 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
 
 ## Open questions
 
-- **`AtlasTexture`?** Godot's frames and UI textures are often `AtlasTexture`s. A subclass of the engine's concrete
-  `Texture2D` (file, pixels, GPU upload, viewport and clip-group variants, `Texture2D.cs:158-170`) would need every
-  `Texture2D` consumer, from canvas primitives to 3D materials to UI registration, to resolve the region. G2 avoids
-  it with region data in `SpriteFrame`. Should a later Godot-import effort add it, and with which consumers
-  supported?
+- **`AtlasTexture`?** Decided for G2a (ADR 0223): no subclass; frames are a texture index plus a region. A later
+  Godot importer maps `AtlasTexture` frames onto that.
 - **Collider type.** Widening `Collider` to `Node2D` is Godot-like but breaking. The alternative is keeping
   `CollisionObject2D? Collider` and adding a `Node2D ColliderObject`. Which does the user prefer? Should hits also
   expose a shape tag so game code can map any hit to a cell without the half-pixel idiom?
@@ -732,8 +544,8 @@ The **TileSet** tab edits the selected layer's `TileSet`, or a `TileSet` `.mres`
 - **Default canvas texture filter.** Godot has `rendering/textures/canvas_textures/default_texture_filter`. Add a
   `rendering.defaultCanvasTextureFilter` to `project.mfproj` so pixel-art projects do not set `Nearest` on every
   root? That is small, but outside G2's core.
-- **Auto-slice by opaque bounds** (packed, non-grid sheets): in G2a.3, or later? It needs a connected-components
-  pass over the pixels, which is cheap but extra UI (editable rects).
+- **Auto-slice by opaque bounds** (packed, non-grid sheets): later (ADR 0223); it pairs with
+  `CreateTilesFromOpaqueRegions` here.
 - **Custom data types.** Is the invariant-text storage acceptable, or should `TileData` hold typed parallel arrays
   (`long[]`, `double[]`, `string[]`) for a cleaner file?
 - **Chunk size.** Rendering and physics share `RenderingQuadrantSize` (16). Godot exposes separate quadrant sizes. Is

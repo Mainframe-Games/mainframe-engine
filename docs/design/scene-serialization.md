@@ -429,6 +429,8 @@ A game struct marked `[SerializableValue]` may be an `[Export]` type (or an arra
 registered (`Codecs.Register(Codecs.FloatArray<T>(...))`, before anything loads). Generated registration uses
 `Codecs.Deferred<T>()`, which looks the codec up when a value is read or written, so a module initializer of the game can
 register it in any order. Crash Site Defense uses this for its copies of Godot's math structs (`Godot.Vector2`, `Color`, …).
+The engine's own value types register built-in codecs in `Codecs`: `ShaderParameter` (ADR 0205) and `SpriteFrame`
+(ADR 0223: six numbers `[texture, x, y, w, h, duration]`, so a `SpriteFrame[]` writes one frame per line).
 
 ## Known issues
 

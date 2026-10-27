@@ -116,6 +116,12 @@ after it make the new image visible to the next frame), so no second target or c
 counts as use, so a disabled view's image stays while a screen shows it. The target holds premultiplied colour: give a
 view shown on a mesh an opaque clear colour.
 
+## Animated sprites
+
+`AnimatedSprite2D` plays the named flipbook animations of a `SpriteFrames` resource (frames cut from sprite sheets by
+`SpriteSheetGrid`) with Godot 4's timing and signals, and draws the current frame like `Sprite2D` (shared rect maths);
+it redraws only when its frame changes. See [Animated sprites](animated-sprites.md) (ADR 0223).
+
 ## Particles
 
 `GpuParticles2D` + `ParticleProcessMaterial` (Godot's names): a CPU simulation of the subset 2D games use — box/sphere/
