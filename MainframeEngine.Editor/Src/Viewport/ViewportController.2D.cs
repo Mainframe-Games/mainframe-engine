@@ -101,8 +101,31 @@ public sealed partial class ViewportController
             }
         }
 
-        return best is null ? null : scene.SelectableFor(best);
+        if (best is not null)
+            return scene.SelectableFor(best);
+
+        // G2a: a click inside a sprite's drawn rectangle picks it (the topmost, i.e. the last in tree order).
+        for (var i = _nodes2D.Count - 1; i >= 0; i--)
+        {
+            var node = _nodes2D[i];
+            if (!node.IsInsideTree || !node.IsVisibleInTree() || DrawnRect(node) is not { } rect ||
+                scene.SelectableFor(node) is not { } selectable || EditorLock.IsLocked(selectable) || PickPose(scene, node) is not { } posed)
+                continue;
+            var local = posed.GlobalTransform.AffineInverse().TransformPoint(world);
+            if (rect.Abs().HasPoint(local))
+                return selectable;
+        }
+
+        return null;
     }
+
+    /// <summary>The local rectangle a sprite draws (Godot's <c>get_rect</c>), or null for other nodes and empty sprites.</summary>
+    internal static Rect2? DrawnRect(Node2D node) => node switch
+    {
+        Sprite2D { Texture: not null } sprite => sprite.GetRect(),
+        AnimatedSprite2D animated when animated.GetRect() is { Size: { X: > 0, Y: > 0 } } rect => rect,
+        _ => null,
+    };
 
     // Where a 2D node is for picking: its simulated counterpart while the scene simulates (G7.5), else itself.
     private Node2D? PickPose(EditedScene scene, Node2D node) =>

@@ -36,6 +36,7 @@ device-desktop
 help-hexagon
 route-2
 map-pin
+slideshow
 
 # ── Resource types ───────────────────────────────────────────────────────────────────────────────────────────────
 package
@@ -64,6 +65,7 @@ movie
 cloud
 typography
 language
+library-photo
 
 # ── Toolbar, menus, commands ─────────────────────────────────────────────────────────────────────────────────────
 pointer
@@ -247,3 +249,8 @@ piano
 # Viewport tools (G7): multi-node pivot (point, target, circles), the resource row's More menu, box select and lock
 circles
 dots-vertical
+
+# Animated sprites (G2a): the SpriteFrames editor's frame strip and the Select Frames dialog
+player-track-prev
+arrow-left
+select-all

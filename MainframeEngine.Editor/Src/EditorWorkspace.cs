@@ -247,6 +247,12 @@ public sealed partial class EditorWorkspace : Node
     public MessageDialog Message { get; private set; } = null!;
     public TreePickerDialog TreePicker { get; private set; } = null!;
     public ConnectSignalDialog SignalDialog { get; private set; } = null!;
+
+    /// <summary>The Select Frames dialog (sprite sheet slicing, ADR 0224).</summary>
+    public SheetSlicerDialog SheetSlicer { get; private set; } = null!;
+
+    /// <summary>Plays an AnimatedSprite2D's animation in the edited scene without editing it (ADR 0224).</summary>
+    public SpriteFramesPreview SpritePreview { get; } = new();
     public UiLayer TooltipLayer { get; private set; } = null!;
 
     /// <summary>The tooltip widget (null until the workspace is ready).</summary>
@@ -258,7 +264,7 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>True while a modal dialog is open (shortcuts are suspended).</summary>
     public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || TreePicker.Visible || Message.Visible || Splash.Visible ||
-                                SignalDialog.Visible || ExportVideo.Visible || ProjectDialogOpen;
+                                SignalDialog.Visible || SheetSlicer.Visible || ExportVideo.Visible || ProjectDialogOpen;
 
     /// <summary>The modifier keys held (host state, or tracked from key events when the host has none).</summary>
     public EditorModifiers Modifiers => Host.ReportsModifiers && !TrackKeyModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
@@ -309,11 +315,13 @@ public sealed partial class EditorWorkspace : Node
         TreePicker = new TreePickerDialog(this) { Name = "TreePicker" };
         Message = new MessageDialog(this) { Name = "Message" };
         SignalDialog = new ConnectSignalDialog(this) { Name = "ConnectSignal" };
+        SheetSlicer = new SheetSlicerDialog(this) { Name = "SheetSlicer" };
         DialogLayer.AddChild(Popup);
         DialogLayer.AddChild(FilePicker);
         DialogLayer.AddChild(ListPicker);
         DialogLayer.AddChild(TreePicker);
         DialogLayer.AddChild(SignalDialog);
+        DialogLayer.AddChild(SheetSlicer);
         DialogLayer.AddChild(Message);
         ExportVideo = new ExportVideoDialog(this) { Name = "ExportVideo" };
         DialogLayer.AddChild(ExportVideo); // the picker and message boxes it opens are moved above it by CreateProjectUi
@@ -343,6 +351,7 @@ public sealed partial class EditorWorkspace : Node
         AddChild(SplashLayer);
 
         Session.ScenesChanged += OnScenesChanged;
+        SpritePreview.Changed += Inspector.RefreshPreviewButtons; // the SpriteFrames editor's Play/Stop
         Session.ActiveChanged += OnActiveChanged;
         Session.SceneEdited += OnSceneEdited;
         Session.SelectionChanged += OnSelectionChanged;
@@ -471,6 +480,7 @@ public sealed partial class EditorWorkspace : Node
             OnCloseRequested();
         Splash.Tick(gameTime.DeltaTime);
         AudioPreview.Tick();
+        SpritePreview.Tick(gameTime.DeltaTime);
         Midi.Update();
         ProcessProjects(gameTime.DeltaTime);
         if (Output.Drain())
@@ -1134,6 +1144,8 @@ public sealed partial class EditorWorkspace : Node
             TreePicker.Cancel();
         if (SignalDialog.Visible)
             SignalDialog.Cancel();
+        if (SheetSlicer.Visible)
+            SheetSlicer.Cancel();
         if (NewProject.Visible)
             NewProject.Cancel();
         if (DownloadDemo.Visible)

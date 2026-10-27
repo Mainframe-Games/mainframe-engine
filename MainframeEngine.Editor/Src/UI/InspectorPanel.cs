@@ -840,6 +840,13 @@ public sealed partial class InspectorPanel : EditorDocument
             return;
         }
 
+        if (target.GetAttribute("data-header-input") is { } headerInput)
+        {
+            if (e.GetParameter("linebreak", false))
+                RunHeaderAction(headerInput + "=" + (e.Value ?? ""));
+            return;
+        }
+
         if (!TryRow(target, out var row))
             return;
         var p = _rows[row].Property;
@@ -890,6 +897,13 @@ public sealed partial class InspectorPanel : EditorDocument
         if (target.Id == "node-name")
         {
             CommitName(text);
+            return;
+        }
+
+        // A custom header's field (data-header-input="name"): the inspector gets "name=text" as an action.
+        if (target.GetAttribute("data-header-input") is { } headerInput)
+        {
+            RunHeaderAction(headerInput + "=" + text); // an unchanged value edits nothing
             return;
         }
 

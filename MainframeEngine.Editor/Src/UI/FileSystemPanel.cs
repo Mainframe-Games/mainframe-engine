@@ -716,6 +716,9 @@ public sealed class FileSystemPanel : EditorDocument
             new MenuItem("New 2D Scene…", "fs.new_scene_2d", Icon: "square"),
             new MenuItem("New Resource…", "fs.new_resource", Icon: "file-plus"),
             new MenuItem("New Song…", "fs.new_song", Icon: "music"),
+            .. entry is { IsDirectory: false, Kind: FileKind.Texture }
+                ? [new MenuItem("New SpriteFrames from Sheet…", "fs.new_sprite_frames", Icon: "library-photo")]
+                : Array.Empty<MenuItem>(),
             MenuItem.Separator,
             new MenuItem("Rename…", "fs.rename", "F2", !isRoot, Icon: "pencil"),
             new MenuItem("Move To…", "fs.move", null, !isRoot, Icon: "folder-open"),
@@ -763,6 +766,10 @@ public sealed class FileSystemPanel : EditorDocument
                 return true;
             case "fs.new_resource":
                 NewResource();
+                return true;
+            case "fs.new_sprite_frames":
+                if (entry is { IsDirectory: false, Kind: FileKind.Texture })
+                    NewSpriteFramesFromSheet(entry);
                 return true;
             case "fs.new_song":
                 PromptName("New Song", "Song name:", "NewSong", name => Workspace.Commands.CreateSong(Path.Combine(AssetTargetFolder()!, name)));
@@ -854,6 +861,52 @@ public sealed class FileSystemPanel : EditorDocument
                     Select(path);
             });
         });
+    }
+
+    /// <summary>
+    /// "New SpriteFrames from Sheet…" (ADR 0224): slices the image in the Select Frames dialog and writes a
+    /// <c>.mres</c> beside it with one animation per picked row, then opens it in the inspector.
+    /// </summary>
+    public void NewSpriteFramesFromSheet(ProjectFileEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        Texture2D sheet;
+        try
+        {
+            sheet = ResourceLoader.Load<Texture2D>(entry.ProjectPath);
+        }
+        catch (Exception e) when (EditorCommands.IsRecoverable(e))
+        {
+            Workspace.Commands.ReportError($"Could not load {entry.Name}", e);
+            return;
+        }
+
+        Workspace.SheetSlicer.Show(entry.ProjectPath, new Vector2I(sheet.Width, sheet.Height), "New SpriteFrames — " + entry.Name, (grid, cells) =>
+        {
+            try
+            {
+                var path = CreateSpriteFrames(entry.FullPath, sheet, grid, cells);
+                Rescan();
+                Select(path);
+                Workspace.Inspector.InspectResourceFile(path);
+            }
+            catch (Exception e) when (EditorCommands.IsRecoverable(e))
+            {
+                Workspace.Commands.ReportError($"Could not create SpriteFrames for {entry.Name}", e);
+            }
+        });
+    }
+
+    /// <summary>Writes the SpriteFrames of <paramref name="cells"/> next to <paramref name="imagePath"/> (a free name); returns its path.</summary>
+    internal static string CreateSpriteFrames(string imagePath, Texture2D sheet, SpriteSheetGrid grid, IReadOnlyList<Vector2I> cells)
+    {
+        var folder = Path.GetDirectoryName(imagePath)!;
+        var stem = Path.GetFileNameWithoutExtension(imagePath);
+        var path = Path.Combine(folder, stem + ".mres");
+        for (var i = 2; File.Exists(path); i++)
+            path = Path.Combine(folder, $"{stem} {i.ToString(CultureInfo.InvariantCulture)}.mres");
+        ResourceSaver.Save(SpriteFramesEditing.FromSheet(sheet, grid, cells), AssetDatabase.Current.ToProjectPath(path));
+        return path;
     }
 
     /// <summary>Renames <paramref name="path"/> to <paramref name="newName"/> (references fixed by UID); open scenes follow.</summary>

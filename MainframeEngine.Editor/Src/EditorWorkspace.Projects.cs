@@ -357,6 +357,9 @@ public sealed partial class EditorWorkspace
             SignalDialog.Cancel();
         Inspector.ReleaseReferences();
         AudioPreview.Stop(); // the previewed stream may be a game resource
+        SpritePreview.Stop(); // the previewed sprite may be a game node's
+        if (SheetSlicer.Visible)
+            SheetSlicer.Cancel();
         SceneTree.Refresh();
         Viewport.ReleaseSceneReferences();
         Tree?.Servers.Get<CanvasServer>()?.ReleaseSceneReferences(); // the last canvas frame holds the 2D tabs' nodes
