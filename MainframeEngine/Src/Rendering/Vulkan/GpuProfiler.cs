@@ -56,6 +56,16 @@ public sealed unsafe class GpuProfiler : IDisposable
         public bool Recorded;
     }
 
+    /// <summary>A profiler without a device (benchmarks, tests): unsupported, no labels; every zone is a no-op.</summary>
+    internal GpuProfiler()
+    {
+        _vk = null!;
+        _maxZones = 1;
+        _slots = [new Slot(1), new Slot(1)];
+        _results = new ulong[2];
+        _events = new ProfilerEvent[1];
+    }
+
     internal GpuProfiler(IVulkanContext ctx, ExtDebugUtils? debugUtils, bool encoderBoundaries, int maxZones)
     {
         ArgumentNullException.ThrowIfNull(ctx);

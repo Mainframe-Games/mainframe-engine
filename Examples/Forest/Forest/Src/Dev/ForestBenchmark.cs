@@ -12,6 +12,9 @@ namespace Forest;
 /// past the fall, up over the pine canopy, over the pond and back to the trailhead) for <see cref="Frames"/> frames;
 /// wall-clock frame intervals are recorded (run it with <c>--fixed-fps 60 --no-vsync</c>: frame n shows the same pose on
 /// every machine), then p50/p90/p99 are printed and written as JSON, and the game quits. Allocation-free while flying.
+/// The frame profiler (G10) records the flight: every GPU zone (pass and post effect) and the top CPU scopes get p50/p99
+/// in the JSON, read from its frames (the sun shadows, SSAO, fog and auto exposure columns are its zones too), and
+/// <c>--trace file.json</c> writes the flight as a Chrome trace.
 /// </summary>
 public sealed class ForestBenchmark
 {
@@ -26,11 +29,9 @@ public sealed class ForestBenchmark
     ];
 
     private readonly float[] _frameMs;
-    private readonly float[] _shadowMs;
-    private readonly float[] _ssaoMs;
-    private readonly float[] _fogMs;
-    private readonly float[] _exposureMs;
+    private readonly long[] _frameNumbers; // the profiler's frame of each measured frame
     private readonly int[] _draws;
+    private int _profilerToken;
     private readonly long[] _allocations;
     private long _lastAllocated;
     private readonly Vector3[] _points;
@@ -53,6 +54,9 @@ public sealed class ForestBenchmark
     /// </summary>
     public string? FramesCsvPath { get; init; }
 
+    /// <summary><c>--trace</c>: writes the measured flight as a Chrome trace (Perfetto) from the profiler's history.</summary>
+    public string? TracePath { get; init; }
+
     /// <summary>The run's exit code: 1 when it allocated, or when p50 or p99 is more than 10 % slower than the baseline.</summary>
     public int ExitCode { get; private set; }
 
@@ -60,10 +64,7 @@ public sealed class ForestBenchmark
     {
         Frames = frames;
         _frameMs = new float[frames];
-        _shadowMs = new float[frames];
-        _ssaoMs = new float[frames];
-        _fogMs = new float[frames];
-        _exposureMs = new float[frames];
+        _frameNumbers = new long[frames];
         _draws = new int[frames];
         _allocations = new long[frames];
         _points = new Vector3[Spline.Length];
@@ -107,22 +108,19 @@ public sealed class ForestBenchmark
             _allocations[measured - 1] = allocatedNow - _lastAllocated;
             _lastAllocated = allocatedNow;
             _frameMs[measured - 1] = (float)Stopwatch.GetElapsedTime(_last, now).TotalMilliseconds;
+            _frameNumbers[measured - 1] = Profiler.FrameNumber - 1; // the frame that just ended (this update starts the next)
             if (tree.Servers.Render is { } render)
-            {
-                _shadowMs[measured - 1] = (float)(render.ExistingShadows?.LastGpuMilliseconds ?? 0);
-                _ssaoMs[measured - 1] = (float)render.SsaoGpuMilliseconds;
-                _fogMs[measured - 1] = (float)render.VolumetricFogGpuMilliseconds;
-                _exposureMs[measured - 1] = (float)render.AutoExposureGpuMilliseconds;
                 _draws[measured - 1] = render.MeshStats.DrawCalls;
-            }
         }
 
         _last = now;
         _frame++;
-        if (measured < Frames)
+        // Two more frames after the last measured one: its GPU zones are read back then (MaxFramesInFlight late).
+        if (measured < Frames + IVulkanContext.MaxFramesInFlight)
             return false;
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - _allocatedBefore;
+        var allocated = _lastAllocated - _allocatedBefore;
         Report(tree, allocated);
+        Profiler.Release(_profilerToken);
         Done = true;
         return true;
     }
@@ -136,12 +134,23 @@ public sealed class ForestBenchmark
         _camera = new Camera3D { Name = "BenchmarkCamera", Near = 0.05f, Far = 1200f, Fov = 55f };
         scene.AddChild(_camera);
         _camera.Current = true;
+
+        // G10: the profiler records the whole flight (its history sized for it; storage is allocated now, in the warm-up).
+        if (Profiler.ConsumerCount == 0)
+            Profiler.Configure(Profiler.Options with
+            {
+                HistoryFrames = Math.Max(Profiler.Options.HistoryFrames, WarmUpFrames + Frames + 16),
+                EventCapacity = Math.Clamp((WarmUpFrames + Frames + 16) * 512, Profiler.Options.EventCapacity, 1 << 22),
+            });
+        _profilerToken = Profiler.Acquire();
         Log.Info($"[Forest] Benchmark: {WarmUpFrames} warm-up frames, then {Frames} frames along the {Spline.Length}-point spline.");
         return true;
     }
 
     private void Report(SceneTree tree, long allocated)
     {
+        var zones = ZoneSamples();
+        var shadowMs = Column(zones, "Shadows");
         if (FramesCsvPath is { } csv)
         {
             var lines = new List<string>(Frames + 1) { "frame,ms,shadow_ms,draws,x,y,z" };
@@ -149,7 +158,7 @@ public sealed class ForestBenchmark
             {
                 var p = PositionAt(i);
                 lines.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                    $"{i},{_frameMs[i]:0.00},{_shadowMs[i]:0.00},{_draws[i]},{p.X:0.0},{p.Y:0.0},{p.Z:0.0}"));
+                    $"{i},{_frameMs[i]:0.00},{shadowMs[i]:0.00},{_draws[i]},{p.X:0.0},{p.Y:0.0},{p.Z:0.0}"));
             }
 
             File.WriteAllLines(csv, lines);
@@ -157,14 +166,10 @@ public sealed class ForestBenchmark
 
         var sorted = (float[])_frameMs.Clone();
         Array.Sort(sorted);
-        var shadows = (float[])_shadowMs.Clone();
-        Array.Sort(shadows);
-        var ssao = (float[])_ssaoMs.Clone();
-        Array.Sort(ssao);
-        var fog = (float[])_fogMs.Clone();
-        Array.Sort(fog);
-        var exposure = (float[])_exposureMs.Clone();
-        Array.Sort(exposure);
+        var shadows = Sorted(shadowMs);
+        var ssao = Sorted(Column(zones, "ssao"));
+        var fog = Sorted(Column(zones, "volumetric fog"));
+        var exposure = Sorted(Column(zones, "auto exposure"));
         var mean = _frameMs.Average();
         var size = tree.Root.Size;
         // ADR 0174: the output (window) and the 3D render resolution.
@@ -195,7 +200,15 @@ public sealed class ForestBenchmark
             RenderWidth: (int)render.Width,
             RenderHeight: (int)render.Height,
             Scaling: vk is null ? null : $"{vk.Scaling3DMode} {vk.Scaling3DScale:0.##}",
-            AutoExposureGpuP50Ms: Round(Percentile(exposure, 0.5f)));
+            AutoExposureGpuP50Ms: Round(Percentile(exposure, 0.5f)),
+            GpuZones: zones.ToDictionary(z => z.Key, z => Percentiles(z.Value)),
+            CpuScopes: CpuScopeSamples().ToDictionary(z => z.Key, z => Percentiles(z.Value)));
+        if (TracePath is { } tracePath)
+        {
+            var trace = Profiler.CaptureTrace(Frames + IVulkanContext.MaxFramesInFlight, "Forest benchmark");
+            ChromeTraceWriter.Save(tracePath, trace);
+            Log.Info($"[Forest] Benchmark trace ({trace.Frames.Count} frames) written to {Path.GetFullPath(tracePath)}");
+        }
         Log.Info($"[Forest] Benchmark {result.Width}x{result.Height} (3D at {result.RenderWidth}x{result.RenderHeight}, {result.Scaling}): p50 {result.P50Ms} ms, p90 {result.P90Ms} ms, p99 {result.P99Ms} ms, " +
                  $"max {result.MaxMs} ms (mean {result.MeanMs} ms, {result.Fps} fps); sun shadows GPU p50 {result.ShadowGpuP50Ms} ms; SSAO GPU p50 {result.SsaoGpuP50Ms} ms; " +
                  $"volumetric fog GPU p50 {result.VolumetricFogGpuP50Ms} ms; auto exposure GPU p50 {result.AutoExposureGpuP50Ms} ms; " +
@@ -252,6 +265,76 @@ public sealed class ForestBenchmark
 
     private static double Round(float value) => Math.Round(value, 2);
 
+    // GPU ms per zone name and measured frame, from the profiler's history (zones of one name in a frame are summed).
+    private Dictionary<string, float[]> ZoneSamples()
+    {
+        var zones = new Dictionary<string, float[]>();
+        var snapshot = Profiler.Snapshot;
+        for (var i = 0; i < Frames; i++)
+        {
+            if (!snapshot.TryFindFrame(_frameNumbers[i], out var frame))
+                continue;
+            var gpu = snapshot.GetGpuZones(frame);
+            for (var z = 0; z < gpu.Length; z++)
+            {
+                var name = snapshot.GetMarker(gpu[z].Marker).Name;
+                if (!zones.TryGetValue(name, out var samples))
+                    zones[name] = samples = new float[Frames];
+                samples[i] += (float)(gpu[z].DurationTicks * 1000.0 / Stopwatch.Frequency);
+            }
+        }
+
+        return zones;
+    }
+
+    // Self ms per CPU scope and measured frame, for the ten scopes with the most self time over the flight.
+    private Dictionary<string, float[]> CpuScopeSamples()
+    {
+        var snapshot = Profiler.Snapshot;
+        var statistics = new ProfilerStatistics();
+        var total = new ProfilerStatistics();
+        var perFrame = new Dictionary<ushort, float[]>();
+        for (var i = 0; i < Frames; i++)
+        {
+            if (!snapshot.TryFindFrame(_frameNumbers[i], out var frame))
+                continue;
+            statistics.Clear();
+            statistics.Add(snapshot.GetEvents(frame));
+            total.Add(snapshot.GetEvents(frame));
+            foreach (var marker in statistics.Markers)
+            {
+                if (!perFrame.TryGetValue(marker, out var samples))
+                    perFrame[marker] = samples = new float[Frames];
+                samples[i] = (float)(statistics.SelfTicks[marker] * 1000.0 / Stopwatch.Frequency);
+            }
+        }
+
+        Span<ushort> top = stackalloc ushort[10];
+        var found = total.Top(total.SelfTicks, top);
+        var scopes = new Dictionary<string, float[]>();
+        for (var i = 0; i < found; i++)
+            scopes.TryAdd(snapshot.GetMarker(top[i]).Name, perFrame[top[i]]);
+        return scopes;
+    }
+
+    private float[] Column(Dictionary<string, float[]> zones, string name) => zones.TryGetValue(name, out var samples) ? samples : new float[Frames];
+
+    private static float[] Sorted(float[] values)
+    {
+        var sorted = (float[])values.Clone();
+        Array.Sort(sorted);
+        return sorted;
+    }
+
+    private static Percentile2 Percentiles(float[] samples)
+    {
+        var sorted = Sorted(samples);
+        return new Percentile2(Round(Percentile(sorted, 0.5f)), Round(Percentile(sorted, 0.99f)));
+    }
+
+    /// <summary>A zone's or scope's p50 and p99 over the flight, in ms.</summary>
+    public sealed record Percentile2(double P50Ms, double P99Ms);
+
     /// <summary>The value at <paramref name="q"/> (0..1) of sorted <paramref name="sorted"/> (nearest rank).</summary>
     public static float Percentile(float[] sorted, float q)
     {
@@ -300,5 +383,6 @@ public sealed class ForestBenchmark
     public sealed record BenchmarkResult(string Machine, string Os, string Cpu, int Width, int Height, int Frames, double LoadMs, double MeanMs,
         double Fps, double P50Ms, double P90Ms, double P99Ms, double P999Ms, double MaxMs, double ShadowGpuP50Ms, double ShadowGpuP90Ms,
         int MaxDrawCalls, long AllocatedBytes, double SsaoGpuP50Ms = 0, double VolumetricFogGpuP50Ms = 0, int RenderWidth = 0,
-        int RenderHeight = 0, string? Scaling = null, double AutoExposureGpuP50Ms = 0);
+        int RenderHeight = 0, string? Scaling = null, double AutoExposureGpuP50Ms = 0,
+        Dictionary<string, Percentile2>? GpuZones = null, Dictionary<string, Percentile2>? CpuScopes = null);
 }
