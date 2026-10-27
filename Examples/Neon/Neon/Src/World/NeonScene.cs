@@ -7,7 +7,7 @@ namespace Neon;
 /// Neon's main scene (<c>Assets/Scenes/neon.mscene</c>, written by <c>--write-scenes</c>): a dim moonlight, a dark
 /// procedural night sky, two coloured "city glow" lights outside the window wall (placeholders until the city), the
 /// <see cref="NeonApartment"/> (built when ready), the <see cref="FirstPersonController"/> with its
-/// <see cref="Interactor"/> at the front door, and the <see cref="FallSafety"/> under it all.
+/// <see cref="Interactor"/> at the front door, the <see cref="NeonAudio"/> and the <see cref="FallSafety"/> under it all.
 /// </summary>
 public static class NeonScene
 {
@@ -43,6 +43,7 @@ public static class NeonScene
         Add(root, root, new OmniLight3D { Name = "CityGlowTeal", Position = new Vector3(12f, -4f, 18f), Color = new Vector3(0.1f, 0.85f, 1f), Energy = 2.5f, Range = 30f });
         Add(root, root, new NeonApartment { Name = "Apartment" });
         BuildPlayer(root);
+        Add(root, root, new NeonAudio { Name = "Audio" });
         var safety = Add(root, root, FallSafety.Create(Spawn));
         foreach (var child in safety.Children)
             child.Owner = root;

@@ -167,6 +167,10 @@ neon-brand:
     build/brand/app-icon.sh Examples/Neon/Brand neon
     mkdir -p Examples/Neon/Assets/Brand && cp Examples/Neon/Brand/png/icon-256.png Examples/Neon/Assets/Brand/icon.png
 
+# Render Neon's synthesised soundscape to Examples/Neon/artifacts/audio/*.wav (mixes) and artifacts/audio/sounds/ (every sound) and check their levels
+neon-audio:
+    dotnet test Examples/Neon/Neon.Tests --filter "FullyQualifiedName~NeonAudioRenderTests"
+
 # Build Neon's apartment (Assets/Art/Apartment/apartment.gltf): the posters, then headless Blender from Tools/apartment/build_apartment.py, then .meta sidecars (textures: python3 Examples/Neon/Tools/fetch_assets.py; BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
 neon-art *args:
     python3 Examples/Neon/Tools/apartment/make_posters.py

@@ -22,11 +22,18 @@ public sealed class LightSwitch : Node3D, IInteractable
     /// <summary>Whether the room's lights are on.</summary>
     [Export] public bool IsOn { get; set; } = true;
 
+    /// <summary>Raised when the player flips the switch (the new state), not when code calls <see cref="SetOn"/>: the click's hook.</summary>
+    [Signal] public event Action<bool>? Switched;
+
     public string Verb => IsOn ? Verbs.TurnOff : Verbs.TurnOn;
 
     public bool CanInteract => true;
 
-    public void Interact() => SetOn(!IsOn);
+    public void Interact()
+    {
+        SetOn(!IsOn);
+        Switched?.Invoke(IsOn);
+    }
 
     /// <summary>Adds an emissive fixture material; its current energy is its "on" energy.</summary>
     public void AddFixture(StandardMaterial3D material)

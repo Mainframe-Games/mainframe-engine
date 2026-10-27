@@ -131,6 +131,11 @@
       "type": "Interactor"
     },
     {
+      "name": "Audio",
+      "parent": ".",
+      "type": "NeonAudio"
+    },
+    {
       "name": "FallSafety",
       "parent": ".",
       "type": "FallSafety",

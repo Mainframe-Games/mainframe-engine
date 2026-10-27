@@ -27,5 +27,6 @@
     "photo": { "bindings": ["key:F2", "pad:Back"] }
   },
   "rendering": { "shadows": "High", "antiAliasing": "Taa" },
+  "audio": { "busLayout": "Assets/Settings/AudioBusLayout.mres" },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1 }
 }

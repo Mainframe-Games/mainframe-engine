@@ -37,6 +37,12 @@ public abstract class DoorBase : Node3D, IInteractable
         }
     }
 
+    /// <summary>Raised when the door starts to open (true) or shut (false): the audio's hook.</summary>
+    [Signal] public event Action<bool>? Toggled;
+
+    /// <summary>Raised when the door comes to rest open (true) or shut in its frame (false).</summary>
+    [Signal] public event Action<bool>? Settled;
+
     public string Verb => IsOpen ? Verbs.Close : Verbs.Open;
 
     public bool CanInteract => true;
@@ -44,7 +50,11 @@ public abstract class DoorBase : Node3D, IInteractable
     public void Interact() => Toggle();
 
     /// <summary>Opens a shut door or shuts an open one.</summary>
-    public void Toggle() => IsOpen = !IsOpen;
+    public void Toggle()
+    {
+        IsOpen = !IsOpen;
+        Toggled?.Invoke(IsOpen);
+    }
 
     /// <summary>A box collider (on the world and interact layers) over the leaf's meshes, in the leaf's space.</summary>
     public SurfaceBody3D AddBody(Aabb bounds, string surface = "wood")
@@ -63,6 +73,8 @@ public abstract class DoorBase : Node3D, IInteractable
         var step = gameTime.DeltaTime / MathF.Max(SwingSeconds, 1e-3f);
         Openness = target > Openness ? MathF.Min(Openness + step, 1f) : MathF.Max(Openness - step, 0f);
         Apply(Leaf, SmoothStep(Openness));
+        if (Openness == target)
+            Settled?.Invoke(IsOpen);
     }
 
     /// <summary>Places the leaf at <paramref name="eased"/> (0 shut, 1 open).</summary>
