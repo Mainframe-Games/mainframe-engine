@@ -651,6 +651,102 @@ public sealed class NeonAudio : Node
 
         if (Music is not null && apartment.Sockets.TryGetValue("Stereo", out var stereo))
             Music.StereoPosition = stereo.GlobalPosition;
+        HookAppliances(apartment);
+    }
+
+    /// <summary>The shower, taps, TV, stereo, blinds and the computer's keyboard (phase N2/N4 interactables).</summary>
+    private void HookAppliances(NeonApartment apartment)
+    {
+        void Water(Appliance appliance, NeonSound sound, string bus, Vector3 offset)
+        {
+            var loop = CreateLoop(sound, appliance, bus, offset);
+            void OnSwitched(bool on)
+            {
+                if (on)
+                    loop.Play();
+                else
+                    loop.Stop();
+            }
+
+            appliance.Switched += OnSwitched;
+            _unhook.Add(() => appliance.Switched -= OnSwitched);
+            if (appliance.IsOn)
+                loop.Play();
+        }
+
+        if (apartment.Shower is { } shower)
+            Water(shower, NeonSound.Shower, BathroomBus, new Vector3(0f, -1.2f, 0f));
+        foreach (var (room, tap) in apartment.Taps)
+            Water(tap, NeonSound.Tap, room == "Bath" ? BathroomBus : FoleyBus, new Vector3(0f, -0.2f, 0f));
+
+        if (apartment.Tv is { } tv)
+        {
+            var news = CreateLoop(NeonSound.TvStatic, tv, TvBus);
+            news.VolumeDb = -14f;
+            var jingle = CreateLoop(NeonSound.TvJingle, tv, TvBus);
+            void Channel()
+            {
+                news.Stop();
+                jingle.Stop();
+                if (!tv.IsOn)
+                    return;
+                if (tv.Channel == 0)
+                    news.Play();
+                else
+                    jingle.Play();
+                jingle.PitchScale = tv.Channel == 2 ? 0.84f : 1f; // the music video: the jingle, slowed into a groove
+            }
+
+            void OnSwitched(bool on)
+            {
+                PlayAt(NeonSound.TvBlip, tv.GlobalPosition, bus: TvBus);
+                Channel();
+            }
+
+            void OnChannel(int channel)
+            {
+                PlayAt(NeonSound.TvBlip, tv.GlobalPosition, bus: TvBus);
+                Channel();
+            }
+
+            tv.Switched += OnSwitched;
+            tv.ChannelChanged += OnChannel;
+            _unhook.Add(() =>
+            {
+                tv.Switched -= OnSwitched;
+                tv.ChannelChanged -= OnChannel;
+            });
+            Channel();
+        }
+
+        if (apartment.Stereo is { } deck && Music is { } music)
+        {
+            void OnTrack(int track)
+            {
+                if (track < 0)
+                    music.Stop();
+                else
+                    music.Play(track % music.SongCount);
+            }
+
+            deck.TrackChanged += OnTrack;
+            _unhook.Add(() => deck.TrackChanged -= OnTrack);
+            deck.TrackCount = music.SongCount;
+        }
+
+        foreach (var panel in apartment.BlindsPanels.Values)
+        {
+            void OnBlinds(bool open) => PlayAt(open ? NeonSound.SliderOpen : NeonSound.SliderClose, panel.GlobalPosition, -8f);
+            panel.Switched += OnBlinds;
+            _unhook.Add(() => panel.Switched -= OnBlinds);
+        }
+
+        if (apartment.Computer is { } computer)
+        {
+            void OnKey() => PlayAt(NeonSound.KeyClick, computer.KeyboardPosition, -4f);
+            computer.KeyPressed += OnKey;
+            _unhook.Add(() => computer.KeyPressed -= OnKey);
+        }
     }
 
     private static float Volume(Vector3 min, Vector3 max) => (max.X - min.X) * (max.Y - min.Y) * (max.Z - min.Z);

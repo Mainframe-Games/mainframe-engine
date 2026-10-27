@@ -191,6 +191,61 @@ public sealed class NeonAudioTests
     }
 
     [Fact]
+    public void TheShowerTapsTvStereoBlindsAndKeyboardSound()
+    {
+        using var h = new AudioHarness(floor: false);
+        var apartment = h.AddApartment();
+        h.Controller.AddPlayer(NeonScene.Spawn);
+        var audio = h.AddAudio();
+        h.Run(2);
+
+        AudioPlayer3D Loop(Node owner, NeonSound sound) =>
+            owner.FindChildren<AudioPlayer3D>(owned: false).Single(p => ReferenceEquals(p.Stream, NeonSoundBank.Shared.Variants(sound)[0]));
+
+        var shower = apartment.Shower!;
+        var water = Loop(shower, NeonSound.Shower);
+        Assert.False(water.Playing);
+        Assert.Equal(NeonAudio.BathroomBus, water.Bus);
+        shower.SetOn(true);
+        Assert.True(water.Playing);
+        shower.SetOn(false);
+        Assert.False(water.Playing);
+
+        var bathTap = Loop(apartment.Taps["Bath"], NeonSound.Tap);
+        Assert.Equal(NeonAudio.BathroomBus, bathTap.Bus);
+        Assert.Equal(NeonAudio.FoleyBus, Loop(apartment.Taps["Kitchen"], NeonSound.Tap).Bus);
+        apartment.Taps["Bath"].SetOn(true);
+        Assert.True(bathTap.Playing);
+
+        var tv = apartment.Tv!;
+        tv.Interact(); // on: the news
+        Assert.Equal(NeonSound.TvBlip, audio.LastPlayed.Sound);
+        Assert.True(Loop(tv, NeonSound.TvStatic).Playing);
+        tv.Interact(); // the ads
+        Assert.False(Loop(tv, NeonSound.TvStatic).Playing);
+        Assert.True(Loop(tv, NeonSound.TvJingle).Playing);
+        tv.Interact();
+        tv.Interact(); // off
+        Assert.False(Loop(tv, NeonSound.TvJingle).Playing);
+
+        var stereo = apartment.Stereo!;
+        stereo.Interact();
+        Assert.True(audio.Music!.IsPlaying);
+        Assert.Equal(0, audio.Music.Current);
+        stereo.Interact();
+        Assert.Equal(1, audio.Music.Current);
+        stereo.Interact();
+        Assert.False(audio.Music.IsPlaying);
+
+        apartment.BlindsPanels["Living"].Interact();
+        Assert.Equal(NeonSound.SliderClose, audio.LastPlayed.Sound);
+
+        apartment.Seat!.Interact();
+        h.Controller.Tree.PushInput(new InputEventText { Character = 'x' });
+        Assert.Equal(NeonSound.KeyClick, audio.LastPlayed.Sound);
+    }
+
+    [Fact]
     public void RoomsSetTheFootstepsBusAndTheStereosMuffle()
     {
         using var h = new AudioHarness(floor: false);

@@ -23,6 +23,12 @@ public sealed class ComputerRig : Node3D
 
     public ComputerSeat? Seat { get; set; }
 
+    /// <summary>A key was typed at the terminal (the audio clicks).</summary>
+    [Signal] public event Action? KeyPressed;
+
+    /// <summary>The keyboard on the desk (world space), for its clicks.</summary>
+    public Vector3 KeyboardPosition => Seat is { } seat ? seat.GlobalPosition + new Vector3(-0.95f, 0.78f, 0f) : GlobalPosition;
+
     public Terminal? Terminal { get; private set; }
 
     public MapPanel? Map { get; private set; }
@@ -108,14 +114,17 @@ public sealed class ComputerRig : Node3D
         {
             case InputEventText text:
                 terminal.Type(text.Character);
+                KeyPressed?.Invoke();
                 GetViewport()?.SetInputAsHandled();
                 break;
             case InputEventKey { Pressed: true, Key: Key.Backspace }:
                 terminal.Backspace();
+                KeyPressed?.Invoke();
                 GetViewport()?.SetInputAsHandled();
                 break;
             case InputEventKey { Pressed: true, Key: Key.Enter or Key.KeypadEnter }:
                 terminal.Enter();
+                KeyPressed?.Invoke();
                 GetViewport()?.SetInputAsHandled();
                 break;
         }
