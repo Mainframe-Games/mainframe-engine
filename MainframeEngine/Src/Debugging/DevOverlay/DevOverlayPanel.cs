@@ -21,7 +21,23 @@ public sealed class DevOverlayPanel
     public string Rml { get; }
 
     /// <summary>Whether the body is shown; bound as <c>open</c> in the panel's data model (the title toggles it).</summary>
-    public bool Expanded { get; set; } = true;
+    public bool Expanded
+    {
+        get => _expanded;
+        set
+        {
+            if (_expanded == value)
+                return;
+            _expanded = value;
+            Model?.Dirty("open");
+            ExpandedChanged?.Invoke();
+        }
+    }
+
+    private bool _expanded = true;
+
+    /// <summary>Raised when <see cref="Expanded"/> changes (the title was clicked, or code set it).</summary>
+    public event Action? ExpandedChanged;
 
     /// <summary>The panel's data model (<c>dev_{id}</c>); null until the overlay document bound it (inside the bind callback).</summary>
     public RmlDataModel? Model { get; internal set; }

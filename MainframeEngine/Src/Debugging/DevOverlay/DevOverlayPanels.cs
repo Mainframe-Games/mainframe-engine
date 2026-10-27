@@ -16,6 +16,7 @@ internal static class DevOverlayPanels
         ArgumentNullException.ThrowIfNull(overlay);
         var sources = new DevOverlaySources(overlay.Servers, engine);
         AddFrame(overlay, sources);
+        DevOverlayProfiler.Add(overlay, engine?.GameName ?? GameHost.Project?.Name ?? "Mainframe Engine"); // G10, collapsed
         AddRenderer(overlay, sources);
         AddShadows(overlay, sources);
         AddGpu(overlay, sources);

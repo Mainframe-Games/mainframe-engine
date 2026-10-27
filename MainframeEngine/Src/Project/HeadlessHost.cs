@@ -71,7 +71,14 @@ public sealed class HeadlessHost : IDisposable
         CrashContext.Settings = () => GameHost.CrashSettingsSnapshot(settings, null, UserSettings);
         if (CrashReporter.IsInstalled && CrashReporter.PendingReports is { Count: > 0 } pending)
             Log.Warning($"[Crash] {pending.Count} crash report(s) from earlier runs in {CrashReporter.Directory} (newest: {pending[0].Summary}).");
+
+        if (_options.Profiler?.RecordFromStart == true)
+            _profilerToken = Profiler.Acquire();
+        _profileTrace = ProfilerTraceRun.For(options, settings.Name, hasGpu: false);
     }
+
+    private int _profilerToken;
+    private readonly ProfilerTraceRun? _profileTrace;
 
     /// <summary>The tree the game runs in.</summary>
     public SceneTree Tree { get; }
@@ -159,6 +166,12 @@ public sealed class HeadlessHost : IDisposable
             FramesPerSecond = _fps.Fps,
             FramesTimeMs = _fps.Ms,
         };
+        if (_profileTrace?.Update(Tree.IsLoading) == true)
+        {
+            Quit(ExitCode.Ok); // --profile-frames: the trace is written
+            return;
+        }
+
         Session.Update(time);
         Tree.Root.SetSize(_size); // recomputes the content scale once the session has applied the project's stretch
         Tree.Tick(time);
@@ -205,6 +218,8 @@ public sealed class HeadlessHost : IDisposable
         if (_disposed)
             return;
         _disposed = true;
+        _profileTrace?.Exit();
+        Profiler.Release(_profilerToken);
         Session.Shutdown(_exitCode);
         Tree.Shutdown();
         Tree.Servers.Dispose();

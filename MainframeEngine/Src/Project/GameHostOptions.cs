@@ -27,6 +27,9 @@ namespace MainframeEngine;
 /// <item><term><c>--record &lt;file.mp4&gt;</c></term><description>record gameplay with ffmpeg until quit (live; offline with <c>--fixed-fps</c>) and write <c>file.mp4.mfcap.json</c>; not with <c>--headless</c></description></item>
 /// <item><term><c>--record-scale &lt;n&gt;</c></term><description>fixed content scale for the recording (a 1920×1080-point window at 2 is 4K)</description></item>
 /// <item><term><c>--ffmpeg &lt;path&gt;</c></term><description>the ffmpeg executable to record with (else <c>MAINFRAME_FFMPEG</c>, <c>PATH</c>, common install folders)</description></item>
+/// <item><term><c>--profile</c></term><description>the frame profiler records from the first frame (G10; <see cref="ProfilerOptions.RecordFromStart"/>)</description></item>
+/// <item><term><c>--profile-trace &lt;file.json&gt;</c></term><description>record, and write a Chrome trace (Perfetto) on exit, or after <c>--profile-frames</c> and then quit</description></item>
+/// <item><term><c>--profile-frames &lt;n&gt;</c></term><description>how many loaded frames the trace keeps (loading frames excluded, like <c>--max-frames</c>)</description></item>
 /// </list>
 /// Arguments the host does not know are kept in <see cref="Remaining"/> for the game. Everything after <c>++</c> is the
 /// game's own and is never parsed by the host (<see cref="UserArgs"/>, Godot's <c>OS.get_cmdline_user_args</c>), so a game
@@ -90,6 +93,15 @@ public sealed record GameHostOptions
 
     /// <summary><c>--ffmpeg</c>: the encoder executable. See <see cref="FfmpegResolver"/> for the lookup order.</summary>
     public string? FfmpegPath { get; init; }
+
+    /// <summary><c>--profile</c>: the profiler records from the first frame.</summary>
+    public bool Profile { get; init; }
+
+    /// <summary><c>--profile-trace</c>: where to write the trace (implies <see cref="Profile"/>).</summary>
+    public string? ProfileTracePath { get; init; }
+
+    /// <summary><c>--profile-frames</c>: loaded frames in the trace (0: the whole history, written on exit).</summary>
+    public int ProfileFrames { get; init; }
 
     /// <summary>Recording with a fixed timestep: deterministic, any resolution, audio from the manual null device.</summary>
     public bool RecordOffline => RecordPath is not null && FixedFps > 0;
@@ -191,6 +203,15 @@ public sealed record GameHostOptions
                 case "--ffmpeg":
                     options = options with { FfmpegPath = Value(args, ref i) };
                     break;
+                case "--profile":
+                    options = options with { Profile = true };
+                    break;
+                case "--profile-trace":
+                    options = options with { ProfileTracePath = Value(args, ref i) };
+                    break;
+                case "--profile-frames":
+                    options = options with { ProfileFrames = Int(args, ref i, 1, 1_000_000) };
+                    break;
                 default:
                     remaining.Add(arg);
                     break;
@@ -205,6 +226,8 @@ public sealed record GameHostOptions
     {
         if (options.Headless && options.RecordPath is not null)
             throw new ArgumentException("--record needs a window: --headless has no renderer to record (drop one of the two).");
+        if (options.ProfileFrames > 0 && options.ProfileTracePath is null)
+            throw new ArgumentException("--profile-frames needs --profile-trace <file.json> (the trace it limits).");
         return options;
     }
 
@@ -237,6 +260,19 @@ public sealed record GameHostOptions
             options.ContentScale = RecordScale;
         if (RecordOffline)
             options.Audio.Device = AudioDeviceMode.NullManual;
+        if (Profile || ProfileTracePath is not null)
+        {
+            // The history must hold the trace's frames (plus the frames it waits for the GPU zones).
+            var profiler = options.Profiler ?? new ProfilerOptions();
+            options.Profiler = profiler with
+            {
+                RecordFromStart = true,
+                HistoryFrames = Math.Max(profiler.HistoryFrames, ProfileFrames + 8),
+                // ~1000 events a frame, so the trace's frames keep their events (24 bytes each; at most 4M events).
+                EventCapacity = ProfileFrames > 0 ? Math.Clamp(ProfileFrames * 1024, profiler.EventCapacity, 1 << 22) : profiler.EventCapacity,
+            };
+        }
+
         return options;
     }
 

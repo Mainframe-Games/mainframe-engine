@@ -71,20 +71,25 @@ public static partial class Profiler
     /// Copies the newest <paramref name="lastFrames"/> frames (0 = the whole history) with their events, GPU zones,
     /// counters, markers and threads (main thread; allocates).
     /// </summary>
-    public static ProfilerTrace CaptureTrace(int lastFrames = 0, string? title = null)
+    public static ProfilerTrace CaptureTrace(int lastFrames = 0, string? title = null) => CaptureTrace(lastFrames, title, 0);
+
+    /// <summary>Like <see cref="CaptureTrace(int, string?)"/>, leaving out the newest <paramref name="skipNewest"/> frames.</summary>
+    internal static ProfilerTrace CaptureTrace(int lastFrames, string? title, int skipNewest)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(lastFrames);
+        ArgumentOutOfRangeException.ThrowIfNegative(skipNewest);
         var trace = new ProfilerTrace { Title = title ?? "Mainframe Engine" };
         lock (s_gate)
         {
             if (s_history is not { } history)
                 return trace;
-            var count = history.FrameCount;
+            var newest = history.FramesWritten - Math.Min(skipNewest, history.FrameCount); // one past the newest kept
+            var count = (int)Math.Min(history.FrameCount, newest - (history.FramesWritten - history.FrameCount));
             if (lastFrames > 0)
                 count = Math.Min(count, lastFrames);
             for (var i = 0; i < count; i++)
             {
-                ref readonly var record = ref history.FrameAt(history.FramesWritten - count + i);
+                ref readonly var record = ref history.FrameAt(newest - count + i);
                 var frame = new ProfilerTraceFrame
                 {
                     Number = record.Number,
@@ -107,7 +112,7 @@ public static partial class Profiler
                 for (var e = 0; e < gpu.Length; e++)
                     Note(trace, gpu[e]);
                 AddAll(trace.GpuEvents, gpu);
-                var counters = history.CountersOf(history.FramesWritten - count + i);
+                var counters = history.CountersOf(newest - count + i);
                 for (var c = 0; c < Math.Min(CounterCount, counters.Length); c++)
                 {
                     frame.Counters.Add(((ushort)c, counters[c]));

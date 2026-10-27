@@ -47,7 +47,10 @@ public class GameHost : Engine
         HostOptions = options ?? new GameHostOptions();
         Session = new GameSession(Tree, settings, HostOptions) { UserSettings = userSettings };
         Session.QuitRequested += code => Quit(code);
+        _profileTrace = ProfilerTraceRun.For(HostOptions, settings.Name, hasGpu: true);
     }
+
+    private readonly ProfilerTraceRun? _profileTrace; // --profile-trace
 
     private int _updates;
     private bool _startPending;
@@ -592,6 +595,12 @@ public class GameHost : Engine
         }
 
         LogStartTimes();
+        if (_profileTrace?.Update(Tree.IsLoading) == true)
+        {
+            Quit(ExitCode.Ok); // --profile-frames: the trace is written
+            return;
+        }
+
         Session.Update(gameTime);
         Tree.Recorder?.OnUpdate(Tree.IsLoading, Tree.Paused); // before the early return: loading frames are recorded too
         if (Tree.IsLoading)
@@ -706,6 +715,7 @@ public class GameHost : Engine
             }
         }
 
+        _profileTrace?.Exit();
         Session.Shutdown(CurrentExitCode);
         base.OnClose();
     }
