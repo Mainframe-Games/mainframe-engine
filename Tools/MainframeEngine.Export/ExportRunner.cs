@@ -3,6 +3,17 @@ using System.IO.Compression;
 
 namespace MainframeEngine.Export;
 
+/// <summary>What the editor's export service needs from a runner (the real <see cref="ExportRunner"/>, or a fake in tests).</summary>
+public interface IExportRunner
+{
+    /// <summary>Checks a preset without running anything slow. Thread-safe.</summary>
+    IReadOnlyList<ExportIssue> Validate(string projectDirectory, ProjectSettings project, ExportPreset preset, AssetDatabase? database = null);
+
+    /// <summary>Runs presets one after another; a failed or invalid preset does not stop the rest.</summary>
+    Task<IReadOnlyList<ExportResult>> RunAllAsync(string projectDirectory, IReadOnlyList<ExportPreset> presets,
+        IProgress<ExportProgress>? progress, Action<string>? onLine, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Runs export presets (docs/design/game-export.md): validate, <c>dotnet publish</c> for the preset's RID into a stage,
 /// stage it (rename the apphost, prune other platforms' natives, filter <c>Assets/</c>, write the asset index and the
@@ -14,7 +25,7 @@ namespace MainframeEngine.Export;
 /// <c>.mainframe/export</c>. Never touches RmlUi, a scene tree or <see cref="AssetDatabase.Current"/>; it builds its own
 /// <see cref="AssetDatabase"/> over the stage. Progress and output lines arrive on background threads.
 /// </remarks>
-public sealed class ExportRunner(ExportEnvironment environment)
+public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
 {
     public ExportEnvironment Environment { get; } = environment ?? throw new ArgumentNullException(nameof(environment));
 

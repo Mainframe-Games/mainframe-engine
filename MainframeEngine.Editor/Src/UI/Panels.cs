@@ -317,7 +317,8 @@ public sealed class ToolbarPanel : EditorDocument
         var document = Document;
         var play = Workspace.Play;
         var project = Workspace.Project;
-        var canPlay = project.DesktopProject is not null && !play.IsBuilding;
+        var exporting = Workspace.Export.IsRunning;
+        var canPlay = project.DesktopProject is not null && !play.IsBuilding && !exporting;
         document.GetElementById("play").SetClass("disabled", !canPlay);
         document.GetElementById("play-scene").SetClass("disabled", !canPlay || Workspace.Session.Active is null);
         var record = document.GetElementById("record");
@@ -334,7 +335,7 @@ public sealed class ToolbarPanel : EditorDocument
         document.GetElementById("pause").SetClass("active", play.IsPaused);
         document.GetElementById("stop").SetClass("disabled", !play.IsPlaying);
         var build = document.GetElementById("build-reload");
-        build.SetClass("disabled", project.GameLibraryProject is null);
+        build.SetClass("disabled", project.GameLibraryProject is null || exporting);
         build.SetClass("attention", project.NeedsRebuild && !project.IsBuilding);
         build.SetClass("busy", play.IsBuilding);
         document.GetElementById("user-data").SetClass("disabled", Workspace.Session.Project is null);
@@ -378,7 +379,24 @@ public sealed class ToolbarPanel : EditorDocument
             _playStatus = status;
             SetText("play-status", status);
         }
+
+        var exportStatus = Workspace.Export.Status;
+        if (exporting != _exportChip || !string.Equals(exportStatus, _exportStatus, StringComparison.Ordinal))
+        {
+            _exportChip = exporting;
+            _exportStatus = exportStatus;
+            document.GetElementById("export-chip").SetClass("on", exporting);
+            SetText("export-status", exportStatus);
+            var playTip = exporting ? $"Play (F5) — {ExportService.BusyText}" : GamePlayTip;
+            document.GetElementById("play").SetAttribute("data-tooltip", playTip);
+            document.GetElementById("build-reload").SetAttribute("data-tooltip", exporting ? $"Build & Reload — {ExportService.BusyText}" : BuildReloadTip);
+        }
     }
+
+    private const string GamePlayTip = "Play (F5) — build the project and run its main scene";
+    private const string BuildReloadTip = "Build & Reload (Ctrl+Shift+B) — compile the game's C# and reload it in the editor";
+    private bool _exportChip;
+    private string _exportStatus = "";
 
     protected override void OnClickElement(RmlEvent e)
     {

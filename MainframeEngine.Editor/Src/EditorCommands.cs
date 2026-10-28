@@ -115,6 +115,7 @@ public sealed class EditorCommands
             case "file.save_as": Save(Active, saveAs: true, then: null); return true;
             case "file.close": CloseTab(Session.ActiveTab); return true;
             case "file.quit": _workspace.RequestQuit(); return true;
+            case "file.export": _workspace.ExportDialog.Open(); return true;
             case "edit.undo": Active?.History.Undo(); return true;
             case "edit.redo": Active?.History.Redo(); return true;
             case "edit.history": ShowHistory(); return true;
@@ -1303,6 +1304,12 @@ public sealed class EditorCommands
                 MenuItem.Separator,
                 new MenuItem("Save", "file.save", "Ctrl+S", scene is not null || song is not null, Icon: "device-floppy"),
                 new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", scene is not null || song is not null, Icon: "file-export"),
+                new MenuItem("Export…", "file.export", "Ctrl+Shift+E", _workspace.Project.DesktopProject is not null, Icon: "package-export")
+                {
+                    Tooltip = _workspace.Project.DesktopProject is null
+                        ? "Open a game project with a desktop project to export it."
+                        : "Export player builds of the project from its export presets (project.mfproj).",
+                },
                 MenuItem.Separator,
                 new MenuItem("Close Tab", "file.close", "Ctrl+W", Session.ActiveTab is not null, Icon: "x"),
                 new MenuItem("Quit", "file.quit", "Ctrl+Q", Icon: "logout"),
@@ -1342,7 +1349,10 @@ public sealed class EditorCommands
                 new MenuItem("Open User Data Folder", "project.user_data", null, Session.Project is not null, Icon: "folder-user"),
                 MenuItem.Separator,
                 new MenuItem("Build & Reload Code", "project.build_reload", "Ctrl+Shift+B",
-                    _workspace.Project.GameLibraryProject is not null && !_workspace.Project.IsBuilding, Icon: "hammer"),
+                    _workspace.Project.GameLibraryProject is not null && !_workspace.Project.IsBuilding && !_workspace.Export.IsRunning, Icon: "hammer")
+                {
+                    Tooltip = _workspace.Export.IsRunning ? ExportService.BusyText : null,
+                },
                 new MenuItem("Reload Code", "project.reload_code", null, _workspace.Project.IsGameLoaded, Icon: "reload"),
                 MenuItem.Separator,
                 new MenuItem("Editor Settings…", "editor.settings", Icon: "adjustments"),

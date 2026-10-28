@@ -432,6 +432,12 @@ public sealed class PlayController : IDisposable
             return false;
         }
 
+        if (_workspace.Export.IsRunning)
+        {
+            Log.Info($"[Play] {ExportService.BusyText}");
+            return false;
+        }
+
         buildPath = project.BuildPath;
         desktopProject = project.DesktopProject;
         return true;

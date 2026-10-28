@@ -177,6 +177,7 @@ public static class OutputCategories
     /// The icon classes of a category: the game's own entries (<c>game</c>, <c>game·Net</c>) <c>device-gamepad-2</c>; the
     /// engine's by subsystem (also inside a game process, <c>engine·Vulkan</c>): rendering <c>brush</c>, audio <c>volume</c>,
     /// physics <c>atom</c>, networking <c>network</c>, UI <c>layout</c>, localization <c>language</c>, the editor <c>tool</c>,
+    /// game exports <c>package-export</c>,
     /// content and scenes <c>package</c>; any other <c>point</c>; "" for no category.
     /// </summary>
     public static string IconOf(string category)
@@ -189,6 +190,8 @@ public static class OutputCategories
             return "icon icon-sm icon-device-gamepad-2 icon-logic"; // the game's own code (game, game·Net): always the gamepad
         if (c.StartsWith("engine·", StringComparison.Ordinal))
             c = c["engine·".Length..]; // the engine inside a game process: its subsystem's icon
+        if (c.Equals("export", StringComparison.OrdinalIgnoreCase))
+            return "icon icon-sm icon-package-export icon-resource"; // File › Export, mf-export (G5)
         if (Has(c, "render") || Has(c, "vulkan") || Has(c, "shader") || Has(c, "shadow") || Has(c, "gpu") || Has(c, "sky") || Has(c, "texture") || Has(c, "mesh"))
             return "icon icon-sm icon-brush icon-3d";
         if (Has(c, "audio") || Has(c, "sound"))

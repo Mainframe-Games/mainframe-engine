@@ -1,0 +1,114 @@
+<rml>
+<head>
+    <title>Export</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 900dp; height: 640dp; margin-left: -450dp; margin-top: -320dp; }
+        .ex-top { display: flex; flex-direction: row; align-items: center; }
+        .ex-top .dialog-title { flex: 1 1 auto; }
+        .ex-tools { display: flex; flex-direction: row; align-items: center; padding: 0dp 10dp; height: 37dp; }
+        .ex-tools button { width: 26dp; padding: 0dp; }
+        #ex-state { margin-left: 8dp; color: #8b93a5; font-size: 11dp; }
+        .ex-columns { display: flex; flex-direction: row; flex: 1 1 auto; border-top: 1dp #2f333d; }
+        .ex-left { display: flex; flex-direction: column; flex: 0 0 auto; width: 230dp; border-right: 1dp #2f333d; }
+        .ex-list-tools { display: flex; flex-direction: row; align-items: center; height: 32dp; padding: 0dp 8dp; background-color: #262931; border-bottom: 1dp #2f333d; }
+        .ex-list-tools .caption { flex: 1 1 auto; color: #8b93a5; font-size: 11dp; }
+        .ex-list-tools button { width: 24dp; padding: 0dp; margin-left: 3dp; }
+        #ex-presets { display: block; flex: 1 1 auto; overflow-y: auto; padding: 4dp 0dp; }
+        .ex-preset { display: flex; flex-direction: row; align-items: center; height: 30dp; padding: 0dp 10dp; cursor: pointer; color: #c9cedb; }
+        .ex-preset:hover { background-color: #2a2e38; }
+        .ex-preset.selected { background-color: #1d4ed8; color: #ffffff; }
+        .ex-preset .icon { margin-right: 8dp; }
+        .ex-preset .ex-name { display: block; flex: 1 1 auto; white-space: nowrap; overflow: hidden; }
+        .ex-preset .ex-rid { display: block; margin: 0dp 6dp; color: #8b93a5; font-size: 10dp; }
+        .ex-preset.selected .ex-rid { color: #dbeafe; }
+        .badge-error { image-color: #f87171; }
+        .badge-warn { image-color: #fbbf24; }
+        .badge-ok { image-color: #4ade80; }
+        #ex-body { display: block; flex: 1 1 auto; padding: 6dp 16dp 10dp 16dp; overflow-y: auto; }
+        .ex-group { display: flex; flex-direction: row; align-items: center; margin: 10dp 0dp 4dp 0dp; color: #e8ebf2; font-weight: bold; font-size: 12dp; }
+        .ex-group .icon { margin-right: 6dp; image-color: #93c5fd; }
+        .ex-row { display: flex; flex-direction: row; align-items: center; min-height: 26dp; }
+        .ex-label { display: block; flex: 0 0 auto; width: 150dp; color: #b4bccc; font-size: 12dp; }
+        .ex-editor { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; }
+        .ex-editor input.text { flex: 1 1 auto; width: 60dp; }
+        .ex-editor select { flex: 1 1 auto; width: 60dp; }
+        .ex-editor button { width: 22dp; padding: 0dp; margin-left: 4dp; }
+        .ex-editor .readonly { color: #c9cedb; }
+        .ex-preview { width: 28dp; height: 28dp; margin-left: 6dp; border-radius: 4dp; }
+        .chips { display: flex; flex-direction: row; flex-wrap: wrap; flex: 1 1 auto; }
+        .chip { display: flex; flex-direction: row; align-items: center; height: 22dp; margin: 2dp 4dp 2dp 0dp; padding: 0dp 2dp 0dp 8dp;
+                border-radius: 11dp; background-color: #262931; border: 1dp #3b3f4b; font-family: "Roboto Mono"; font-size: 11dp; }
+        .chip button { width: 18dp; height: 18dp; line-height: 18dp; padding: 0dp; margin-left: 4dp; border-radius: 9dp; }
+        .ex-add { display: flex; flex-direction: row; align-items: center; margin: 2dp 0dp; }
+        .ex-add input.text { width: 200dp; margin-right: 4dp; font-family: "Roboto Mono"; font-size: 11dp; }
+        .ex-add button { width: 22dp; padding: 0dp; }
+        #ex-issues { display: block; flex: 0 0 auto; max-height: 92dp; overflow-y: auto; padding: 4dp 16dp; border-top: 1dp #2f333d; }
+        .issue { display: flex; flex-direction: row; align-items: center; min-height: 20dp; font-size: 11dp; color: #c9cedb; }
+        .issue .icon { margin-right: 6dp; }
+        .issue .code { margin-right: 6dp; color: #8b93a5; font-family: "Roboto Mono"; }
+        .issue .fix { margin-left: 6dp; color: #8b93a5; }
+        .issue button { width: 20dp; padding: 0dp; margin-left: 4dp; }
+        .issue.none { color: #4ade80; }
+        #ex-progress { display: block; flex: 0 0 auto; padding: 6dp 16dp; border-top: 1dp #2f333d; }
+        #ex-progress.hidden { display: none; }
+        #ex-status { display: block; font-size: 11dp; color: #c9cedb; margin-bottom: 4dp; }
+        #ex-bar { display: block; height: 6dp; background-color: #23262e; border-radius: 3dp; }
+        #ex-fill { display: block; height: 6dp; width: 0%; background-color: #3b82f6; border-radius: 3dp; }
+        #ex-fill.indeterminate { background-color: #1e40af; }
+        #ex-log { display: block; height: 70dp; margin-top: 6dp; overflow-y: auto; padding: 2dp 6dp; background-color: #15171c; border-radius: 3dp;
+                  font-family: "Roboto Mono"; font-size: 10dp; color: #9aa3b5; }
+        #ex-log div { display: block; white-space: nowrap; }
+        .result { display: flex; flex-direction: row; align-items: center; min-height: 20dp; font-size: 11dp; }
+        .result .icon { margin-right: 6dp; }
+        .result button { width: 20dp; padding: 0dp; margin-left: 6dp; }
+        .dialog-buttons .spacer { flex: 1 1 auto; }
+        .dialog-buttons button .icon { margin-right: 6dp; }
+        #ex-cancel { width: 30dp; padding: 0dp; }
+        #ex-cancel .icon { margin-right: 0dp; image-color: #f87171; }
+        #ex-cancel.disabled .icon { image-color: #4b5263; }
+        .empty { display: block; padding: 18dp 6dp; color: #8b93a5; }
+    </style>
+</head>
+<body class="backdrop">
+    <div class="dialog" id="dialog">
+        <div class="ex-top">
+            <div class="dialog-title"><span class="icon icon-sm icon-package-export"></span><span>Export</span></div>
+            <div class="ex-tools">
+                <button id="ex-undo" class="tool-button small" data-tooltip="Undo (Ctrl+Z) — revert the last preset change"><span class="icon icon-sm icon-arrow-back-up"></span></button>
+                <button id="ex-redo" class="tool-button small" data-tooltip="Redo (Ctrl+Shift+Z)"><span class="icon icon-sm icon-arrow-forward-up"></span></button>
+                <span id="ex-state">Saved</span>
+            </div>
+        </div>
+        <div class="ex-columns">
+            <div class="ex-left">
+                <div class="ex-list-tools">
+                    <span class="caption">Presets</span>
+                    <button id="ex-add" class="tool-button small" data-tooltip="Add Preset — a new export preset for a platform (this machine's first)"><span class="icon icon-sm icon-plus"></span></button>
+                    <button id="ex-duplicate" class="tool-button small" data-tooltip="Duplicate Preset — copy the selected preset"><span class="icon icon-sm icon-copy"></span></button>
+                    <button id="ex-delete" class="tool-button small" data-tooltip="Delete Preset — remove the selected preset (asks first)"><span class="icon icon-sm icon-trash"></span></button>
+                </div>
+                <div id="ex-presets"></div>
+            </div>
+            <div id="ex-body"></div>
+        </div>
+        <div id="ex-issues"></div>
+        <div id="ex-progress" class="hidden">
+            <span id="ex-status"></span>
+            <div id="ex-bar"><div id="ex-fill"></div></div>
+            <div id="ex-log"></div>
+        </div>
+        <div class="dialog-error" id="ex-error" style="padding: 0dp 16dp;"></div>
+        <div class="dialog-buttons">
+            <button id="ex-cancel" class="disabled" data-tooltip="Cancel Export — stop dotnet publish; the previous export stays"><span class="icon icon-sm icon-player-stop"></span></button>
+            <div class="spacer"></div>
+            <button id="ex-close">Close</button>
+            <button id="ex-save" data-tooltip="Save — write the presets to project.mfproj">Save</button>
+            <button id="ex-export-all" data-tooltip="Export All — every preset in turn; invalid ones are skipped"><span class="icon icon-sm icon-packages"></span><span>Export All</span></button>
+            <button class="primary" id="ex-export" data-tooltip="Export — build the selected preset into its output folder"><span class="icon icon-sm icon-package-export"></span><span>Export</span></button>
+        </div>
+    </div>
+</body>
+</rml>

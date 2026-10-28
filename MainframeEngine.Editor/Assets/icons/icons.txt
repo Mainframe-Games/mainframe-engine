@@ -255,3 +255,12 @@ dots-vertical
 player-track-prev
 arrow-left
 select-all
+
+# Game export (G5): File › Export, Export All, the platform glyphs of the presets, the archive result, mobile (M12.7, disabled)
+package-export
+packages
+brand-windows
+brand-apple
+brand-ubuntu
+file-zip
+device-mobile

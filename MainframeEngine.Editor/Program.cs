@@ -7,6 +7,8 @@ using MainframeEngine.Editor;
 //   --validate-demo-zip <zip> [--build [--engine <checkout>]]   check a packaged Demo zip like Download Demo does, and optionally build it (CI); no window, SDL or engine
 //   --render-song <path.msong>   render a song into its project (output + .meta) and exit 0/1; no window, SDL or engine
 //   --bake-song <path.msong>   bake an adaptive song into its project (stems + .mmusic) and exit 0/1; no window, SDL or engine
+//   --project <dir> --export-release "<preset>" [<out>] | --export-debug "<preset>" [<out>] | --export-all
+//                              export project.mfproj presets like File › Export (mf-export's runner; exit 0/1/2); no window, SDL or engine
 //   --apply-update <root> --wait-pid <pid> --from <version> [--project <folder>]   (internal: editor updates)
 // The staged editor of an update (docs/design/editor-updates.md): installs itself over the old editor and relaunches.
 // No window, SDL or engine is created.
@@ -21,6 +23,10 @@ if (MainframeEngine.Editor.Music.SongRenderCommand.IsRenderSong(args))
 
 if (MainframeEngine.Editor.Music.SongBakeCommand.IsBakeSong(args))
     return MainframeEngine.Editor.Music.SongBakeCommand.Run(args, Console.Out, Console.Error);
+
+// G5: headless exports (docs/design/game-export.md), Godot's flag names, before any EditorApp exists.
+if (ExportCli.IsEditorExport(args))
+    return ExportCli.RunEditorAsync(args, Console.Out, Console.Error).GetAwaiter().GetResult();
 
 EditorAppOptions options;
 try

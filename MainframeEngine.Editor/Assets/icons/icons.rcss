@@ -236,6 +236,13 @@
     i-player-track-prev: 42px 282px 16px 16px;
     i-arrow-left: 62px 282px 16px 16px;
     i-select-all: 82px 282px 16px 16px;
+    i-package-export: 102px 282px 16px 16px;
+    i-packages: 122px 282px 16px 16px;
+    i-brand-windows: 142px 282px 16px 16px;
+    i-brand-apple: 162px 282px 16px 16px;
+    i-brand-ubuntu: 182px 282px 16px 16px;
+    i-file-zip: 202px 282px 16px 16px;
+    i-device-mobile: 222px 282px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -469,6 +476,13 @@
     l-player-track-prev: 63px 423px 24px 24px;
     l-arrow-left: 93px 423px 24px 24px;
     l-select-all: 123px 423px 24px 24px;
+    l-package-export: 153px 423px 24px 24px;
+    l-packages: 183px 423px 24px 24px;
+    l-brand-windows: 213px 423px 24px 24px;
+    l-brand-apple: 243px 423px 24px 24px;
+    l-brand-ubuntu: 273px 423px 24px 24px;
+    l-file-zip: 303px 423px 24px 24px;
+    l-device-mobile: 333px 423px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -705,6 +719,13 @@
         i-player-track-prev: 84px 564px 32px 32px;
         i-arrow-left: 124px 564px 32px 32px;
         i-select-all: 164px 564px 32px 32px;
+        i-package-export: 204px 564px 32px 32px;
+        i-packages: 244px 564px 32px 32px;
+        i-brand-windows: 284px 564px 32px 32px;
+        i-brand-apple: 324px 564px 32px 32px;
+        i-brand-ubuntu: 364px 564px 32px 32px;
+        i-file-zip: 404px 564px 32px 32px;
+        i-device-mobile: 444px 564px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -938,6 +959,13 @@
         l-player-track-prev: 126px 846px 48px 48px;
         l-arrow-left: 186px 846px 48px 48px;
         l-select-all: 246px 846px 48px 48px;
+        l-package-export: 306px 846px 48px 48px;
+        l-packages: 366px 846px 48px 48px;
+        l-brand-windows: 426px 846px 48px 48px;
+        l-brand-apple: 486px 846px 48px 48px;
+        l-brand-ubuntu: 546px 846px 48px 48px;
+        l-file-zip: 606px 846px 48px 48px;
+        l-device-mobile: 666px 846px 48px 48px;
     }
 }
 
@@ -1170,6 +1198,13 @@
 .icon-player-track-prev { decorator: image(i-player-track-prev); }
 .icon-arrow-left { decorator: image(i-arrow-left); }
 .icon-select-all { decorator: image(i-select-all); }
+.icon-package-export { decorator: image(i-package-export); }
+.icon-packages { decorator: image(i-packages); }
+.icon-brand-windows { decorator: image(i-brand-windows); }
+.icon-brand-apple { decorator: image(i-brand-apple); }
+.icon-brand-ubuntu { decorator: image(i-brand-ubuntu); }
+.icon-file-zip { decorator: image(i-file-zip); }
+.icon-device-mobile { decorator: image(i-device-mobile); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1400,3 +1435,10 @@
 .icon-lg.icon-player-track-prev { decorator: image(l-player-track-prev); }
 .icon-lg.icon-arrow-left { decorator: image(l-arrow-left); }
 .icon-lg.icon-select-all { decorator: image(l-select-all); }
+.icon-lg.icon-package-export { decorator: image(l-package-export); }
+.icon-lg.icon-packages { decorator: image(l-packages); }
+.icon-lg.icon-brand-windows { decorator: image(l-brand-windows); }
+.icon-lg.icon-brand-apple { decorator: image(l-brand-apple); }
+.icon-lg.icon-brand-ubuntu { decorator: image(l-brand-ubuntu); }
+.icon-lg.icon-file-zip { decorator: image(l-file-zip); }
+.icon-lg.icon-device-mobile { decorator: image(l-device-mobile); }

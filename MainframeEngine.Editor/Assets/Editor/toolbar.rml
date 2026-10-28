@@ -98,6 +98,11 @@
         #rec-dot { display: none; width: 10dp; height: 10dp; margin-left: 6dp; image-color: #ef4444; }
         #rec-dot.on { display: inline-block; }
         #rec-dot.on + #play-status { margin-left: 3dp; }
+        /* A running export (G5): a chip that opens File › Export. */
+        #export-chip { display: none; flex-direction: row; align-items: center; height: 20dp; margin-left: 8dp; padding: 0dp 8dp; border-radius: 10dp;
+                       background-color: #1e293b; border: 1dp #3b82f6; font-size: 11dp; white-space: nowrap; cursor: pointer; }
+        #export-chip.on { display: flex; }
+        #export-chip .icon { margin-right: 5dp; image-color: #93c5fd; }
         /* Video mode: transport and position, the detection jobs ("Cancel n %" while one runs), kept time, Export. */
         .video-transport button.tool-button { width: 32dp; }
         #video-pos { display: inline-block; height: 20dp; line-height: 20dp; min-width: 96dp; padding: 0dp 8dp; margin-left: 6dp;
@@ -183,6 +188,7 @@
             <div id="instances"></div>
             <span id="rec-dot" class="icon icon-point-filled"></span>
             <span id="play-status" class="muted"></span>
+            <span id="export-chip" data-command="file.export" data-tooltip="Export running — open File › Export for its progress and log"><span class="icon icon-sm icon-package-export"></span><span id="export-status"></span></span>
         </div>
         <div class="spacer"></div>
     </div>

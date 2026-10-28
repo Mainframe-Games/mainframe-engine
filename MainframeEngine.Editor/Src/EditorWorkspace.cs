@@ -76,6 +76,9 @@ public sealed record EditorWorkspaceOptions
     /// <summary>Launches games (default: a process); tests pass a fake.</summary>
     public IGameLauncher? GameLauncher { get; init; }
 
+    /// <summary>Runs exports (default: an <see cref="ExportRunner"/> on this machine); tests pass a fake.</summary>
+    public IExportRunner? ExportRunner { get; init; }
+
     /// <summary>Opens source files (default: the external code editor command); tests record instead.</summary>
     public Func<System.Diagnostics.ProcessStartInfo, bool>? StartCodeEditor { get; init; }
 
@@ -163,6 +166,8 @@ public sealed partial class EditorWorkspace : Node
             Directory.Exists);
         Play.Service.RecordingFinished += (_, recording) => recordingNotifier.OnFinished(recording);
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
+        // One export pipeline at a time; it waits for Play's or Build & Reload's build (they share the game's projects).
+        Export = new ExportService(Options.ExportRunner, () => Play.IsBuilding || Project.IsBuilding);
         AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
         AudioPreview.Changed += OnAudioPreviewChanged;
         Midi = new Music.MidiInputService(Options.MidiHost ?? (static () => Music.PluginHostClient.TryCreate()));
@@ -192,6 +197,9 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>Out-of-process Play.</summary>
     public PlayController Play { get; }
+
+    /// <summary>File › Export (G5): the export pipeline's runs, progress and results.</summary>
+    public ExportService Export { get; }
 
     /// <summary>In-editor Simulate (G7.5, Alt+F6): the active scene's physics and scripts on a copy in the view.</summary>
     public SimulationController Simulation { get; }
@@ -498,6 +506,7 @@ public sealed partial class EditorWorkspace : Node
             Midi.Dispose();
             ProfilerPanel?.Shutdown();
             Play.Dispose();
+            Export.Dispose();
             Session.Dispose();
             Project.Dispose();
             Output.Dispose();
@@ -1203,6 +1212,8 @@ public sealed partial class EditorWorkspace : Node
             Popup.Close();
         if (ProjectSettings.Visible)
             ProjectSettings.RequestClose(() => RequestQuit());
+        else if (ExportDialog.Visible)
+            ExportDialog.RequestClose(() => RequestQuit());
         else
             RequestQuit();
     }
