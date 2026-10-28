@@ -636,6 +636,52 @@ msgstr "Fotograma"
 msgid "Loops"
 msgstr "Vueltas"
 
+#. RML <h1>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+msgid "Tiles 2D"
+msgstr "Mosaicos 2D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:9
+msgid "TileMapLayer: chunked tile layers painted from one TileSet, with per-chunk collision bodies, y-sorted rows and custom data."
+msgstr "TileMapLayer: capas de mosaicos por bloques pintadas con un TileSet, con cuerpos de colisión por bloque, filas ordenadas por Y y datos personalizados."
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:10
+msgid "Show collision"
+msgstr "Mostrar colisión"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:11
+msgid "Y-sort objects"
+msgstr "Ordenar objetos por Y"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:12
+msgid "Walk speed"
+msgstr "Velocidad al caminar"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:13
+msgid "Autopilot"
+msgstr "Piloto automático"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:14
+msgid "Surface"
+msgstr "Superficie"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:15
+msgid "Wall cells"
+msgstr "Celdas de muro"
+
+#. RML <p>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:16
+msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
+msgstr "Haz clic en el mapa para añadir o quitar un muro. WASD o las flechas caminan."
+
 #. RML <title>
 #: Examples/Demo/Assets/UI/showcase.rml:3
 msgid "UI showcase"
@@ -860,6 +906,26 @@ msgstr "Salir"
 #: MainframeEngine/Assets/UI/settings/settings.rml:23
 msgid "Settings"
 msgstr "Ajustes"
+
+#. project.mfproj input action "move_down"
+#: Examples/Demo/project.mfproj
+msgid "Walk down"
+msgstr "Caminar abajo"
+
+#. project.mfproj input action "move_left"
+#: Examples/Demo/project.mfproj
+msgid "Walk left"
+msgstr "Caminar a la izquierda"
+
+#. project.mfproj input action "move_right"
+#: Examples/Demo/project.mfproj
+msgid "Walk right"
+msgstr "Caminar a la derecha"
+
+#. project.mfproj input action "move_up"
+#: Examples/Demo/project.mfproj
+msgid "Walk up"
+msgstr "Caminar arriba"
 
 #. RML <title>
 #: MainframeEngine/Assets/UI/crash/crash_prompt.rml:3

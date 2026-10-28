@@ -363,6 +363,33 @@ msgstr "[Fråmé ~]"
 msgid "Loops"
 msgstr "[Lööps ~]"
 
+msgid "Tiles 2D"
+msgstr "[Tîlés 2Ð ~~]"
+
+msgid "TileMapLayer: chunked tile layers painted from one TileSet, with per-chunk collision bodies, y-sorted rows and custom data."
+msgstr "[TîléMåpLåýér: çhûñkéð tîlé låýérs påîñtéð fröm öñé TîléSét, wîth pér-çhûñk çöllîsîöñ böðîés, ý-sörtéð röws åñð çûstöm ðåtå. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Show collision"
+msgstr "[Shöw çöllîsîöñ ~~~]"
+
+msgid "Y-sort objects"
+msgstr "[Ý-sört öbjéçts ~~~]"
+
+msgid "Walk speed"
+msgstr "[Wålk spééð ~~]"
+
+msgid "Autopilot"
+msgstr "[Åûtöpîlöt ~~]"
+
+msgid "Surface"
+msgstr "[Sûrfåçé ~~]"
+
+msgid "Wall cells"
+msgstr "[Wåll çélls ~~]"
+
+msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
+msgstr "[Çlîçk thé måp tö åðð ör rémövé å wåll. WÅSÐ ör thé årröw kéýs wålk. ~~~~~~~~~~~~~~~]"
+
 msgid "UI showcase"
 msgstr "[ÛÎ shöwçåsé ~~]"
 
@@ -502,6 +529,18 @@ msgstr "[Qûît ~]"
 
 msgid "Settings"
 msgstr "[Séttîñgs ~~]"
+
+msgid "Walk down"
+msgstr "[Wålk ðöwñ ~~]"
+
+msgid "Walk left"
+msgstr "[Wålk léft ~~]"
+
+msgid "Walk right"
+msgstr "[Wålk rîght ~~]"
+
+msgid "Walk up"
+msgstr "[Wålk ûp ~]"
 
 msgid "Crash report"
 msgstr "[Çråsh répört ~~~]"

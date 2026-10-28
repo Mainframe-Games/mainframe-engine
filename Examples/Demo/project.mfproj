@@ -18,7 +18,11 @@
     "settings": { "bindings": ["key:F10", "pad:Start"], "label": "Settings", "group": "nav" },
     "quit": { "bindings": ["key:Escape"], "label": "Quit", "group": "nav", "rebindable": false },
     "drop": { "bindings": ["mouse:Left", "axis:RightTrigger+"], "label": "Drop crate", "group": "physics" },
-    "rain": { "bindings": ["key:R", "pad:Y"], "label": "Rain crates", "group": "physics" }
+    "rain": { "bindings": ["key:R", "pad:Y"], "label": "Rain crates", "group": "physics" },
+    "move_left": { "bindings": ["key:A", "key:Left", "axis:LeftX-"], "label": "Walk left", "group": "tiles" },
+    "move_right": { "bindings": ["key:D", "key:Right", "axis:LeftX+"], "label": "Walk right", "group": "tiles" },
+    "move_up": { "bindings": ["key:W", "key:Up", "axis:LeftY-"], "label": "Walk up", "group": "tiles" },
+    "move_down": { "bindings": ["key:S", "key:Down", "axis:LeftY+"], "label": "Walk down", "group": "tiles" }
   },
   "saves": { "backups": 2, "thumbnails": true },
   "audio": { "busLayout": "Assets/Settings/AudioBusLayout.mres" },

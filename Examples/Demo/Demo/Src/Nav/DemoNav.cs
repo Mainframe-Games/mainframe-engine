@@ -188,6 +188,7 @@ public sealed class DemoNav : UiDocument
                 "animation_3d" => Tr._("Animation 3D"),
                 "shaders" => Tr._("Shaders"),
                 "sprites_2d" => Tr._("Sprites 2D"),
+                "tiles_2d" => Tr._("Tiles 2D"),
                 "navigation_2d" => Tr._("Navigation 2D"),
                 _ => tab.Scene.Title,
             };

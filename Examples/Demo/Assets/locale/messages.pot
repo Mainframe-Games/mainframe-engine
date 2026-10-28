@@ -638,6 +638,52 @@ msgstr ""
 msgid "Loops"
 msgstr ""
 
+#. RML <h1>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+msgid "Tiles 2D"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:9
+msgid "TileMapLayer: chunked tile layers painted from one TileSet, with per-chunk collision bodies, y-sorted rows and custom data."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:10
+msgid "Show collision"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:11
+msgid "Y-sort objects"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:12
+msgid "Walk speed"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:13
+msgid "Autopilot"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:14
+msgid "Surface"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:15
+msgid "Wall cells"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:16
+msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
+msgstr ""
+
 #. RML <title>
 #: Examples/Demo/Assets/UI/showcase.rml:3
 msgid "UI showcase"
@@ -861,6 +907,26 @@ msgstr ""
 #: MainframeEngine/Assets/UI/settings/settings.rml:3
 #: MainframeEngine/Assets/UI/settings/settings.rml:23
 msgid "Settings"
+msgstr ""
+
+#. project.mfproj input action "move_down"
+#: Examples/Demo/project.mfproj
+msgid "Walk down"
+msgstr ""
+
+#. project.mfproj input action "move_left"
+#: Examples/Demo/project.mfproj
+msgid "Walk left"
+msgstr ""
+
+#. project.mfproj input action "move_right"
+#: Examples/Demo/project.mfproj
+msgid "Walk right"
+msgstr ""
+
+#. project.mfproj input action "move_up"
+#: Examples/Demo/project.mfproj
+msgid "Walk up"
 msgstr ""
 
 #. RML <title>
