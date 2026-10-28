@@ -243,6 +243,20 @@
     i-brand-ubuntu: 182px 282px 16px 16px;
     i-file-zip: 202px 282px 16px 16px;
     i-device-mobile: 222px 282px 16px 16px;
+    i-grid-pattern: 242px 282px 16px 16px;
+    i-bucket-droplet: 262px 282px 16px 16px;
+    i-color-picker: 282px 282px 16px 16px;
+    i-eraser: 302px 282px 16px 16px;
+    i-flip-horizontal: 2px 302px 16px 16px;
+    i-flip-vertical: 22px 302px 16px 16px;
+    i-rotate-clockwise: 42px 302px 16px 16px;
+    i-chevron-left: 62px 302px 16px 16px;
+    i-highlight: 82px 302px 16px 16px;
+    i-photo-plus: 102px 302px 16px 16px;
+    i-copy-plus: 122px 302px 16px 16px;
+    i-zoom-in: 142px 302px 16px 16px;
+    i-zoom-out: 162px 302px 16px 16px;
+    i-database: 182px 302px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -483,6 +497,20 @@
     l-brand-ubuntu: 273px 423px 24px 24px;
     l-file-zip: 303px 423px 24px 24px;
     l-device-mobile: 333px 423px 24px 24px;
+    l-grid-pattern: 363px 423px 24px 24px;
+    l-bucket-droplet: 393px 423px 24px 24px;
+    l-color-picker: 423px 423px 24px 24px;
+    l-eraser: 453px 423px 24px 24px;
+    l-flip-horizontal: 3px 453px 24px 24px;
+    l-flip-vertical: 33px 453px 24px 24px;
+    l-rotate-clockwise: 63px 453px 24px 24px;
+    l-chevron-left: 93px 453px 24px 24px;
+    l-highlight: 123px 453px 24px 24px;
+    l-photo-plus: 153px 453px 24px 24px;
+    l-copy-plus: 183px 453px 24px 24px;
+    l-zoom-in: 213px 453px 24px 24px;
+    l-zoom-out: 243px 453px 24px 24px;
+    l-database: 273px 453px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -726,6 +754,20 @@
         i-brand-ubuntu: 364px 564px 32px 32px;
         i-file-zip: 404px 564px 32px 32px;
         i-device-mobile: 444px 564px 32px 32px;
+        i-grid-pattern: 484px 564px 32px 32px;
+        i-bucket-droplet: 524px 564px 32px 32px;
+        i-color-picker: 564px 564px 32px 32px;
+        i-eraser: 604px 564px 32px 32px;
+        i-flip-horizontal: 4px 604px 32px 32px;
+        i-flip-vertical: 44px 604px 32px 32px;
+        i-rotate-clockwise: 84px 604px 32px 32px;
+        i-chevron-left: 124px 604px 32px 32px;
+        i-highlight: 164px 604px 32px 32px;
+        i-photo-plus: 204px 604px 32px 32px;
+        i-copy-plus: 244px 604px 32px 32px;
+        i-zoom-in: 284px 604px 32px 32px;
+        i-zoom-out: 324px 604px 32px 32px;
+        i-database: 364px 604px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -966,6 +1008,20 @@
         l-brand-ubuntu: 546px 846px 48px 48px;
         l-file-zip: 606px 846px 48px 48px;
         l-device-mobile: 666px 846px 48px 48px;
+        l-grid-pattern: 726px 846px 48px 48px;
+        l-bucket-droplet: 786px 846px 48px 48px;
+        l-color-picker: 846px 846px 48px 48px;
+        l-eraser: 906px 846px 48px 48px;
+        l-flip-horizontal: 6px 906px 48px 48px;
+        l-flip-vertical: 66px 906px 48px 48px;
+        l-rotate-clockwise: 126px 906px 48px 48px;
+        l-chevron-left: 186px 906px 48px 48px;
+        l-highlight: 246px 906px 48px 48px;
+        l-photo-plus: 306px 906px 48px 48px;
+        l-copy-plus: 366px 906px 48px 48px;
+        l-zoom-in: 426px 906px 48px 48px;
+        l-zoom-out: 486px 906px 48px 48px;
+        l-database: 546px 906px 48px 48px;
     }
 }
 
@@ -1205,6 +1261,20 @@
 .icon-brand-ubuntu { decorator: image(i-brand-ubuntu); }
 .icon-file-zip { decorator: image(i-file-zip); }
 .icon-device-mobile { decorator: image(i-device-mobile); }
+.icon-grid-pattern { decorator: image(i-grid-pattern); }
+.icon-bucket-droplet { decorator: image(i-bucket-droplet); }
+.icon-color-picker { decorator: image(i-color-picker); }
+.icon-eraser { decorator: image(i-eraser); }
+.icon-flip-horizontal { decorator: image(i-flip-horizontal); }
+.icon-flip-vertical { decorator: image(i-flip-vertical); }
+.icon-rotate-clockwise { decorator: image(i-rotate-clockwise); }
+.icon-chevron-left { decorator: image(i-chevron-left); }
+.icon-highlight { decorator: image(i-highlight); }
+.icon-photo-plus { decorator: image(i-photo-plus); }
+.icon-copy-plus { decorator: image(i-copy-plus); }
+.icon-zoom-in { decorator: image(i-zoom-in); }
+.icon-zoom-out { decorator: image(i-zoom-out); }
+.icon-database { decorator: image(i-database); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1442,3 +1512,17 @@
 .icon-lg.icon-brand-ubuntu { decorator: image(l-brand-ubuntu); }
 .icon-lg.icon-file-zip { decorator: image(l-file-zip); }
 .icon-lg.icon-device-mobile { decorator: image(l-device-mobile); }
+.icon-lg.icon-grid-pattern { decorator: image(l-grid-pattern); }
+.icon-lg.icon-bucket-droplet { decorator: image(l-bucket-droplet); }
+.icon-lg.icon-color-picker { decorator: image(l-color-picker); }
+.icon-lg.icon-eraser { decorator: image(l-eraser); }
+.icon-lg.icon-flip-horizontal { decorator: image(l-flip-horizontal); }
+.icon-lg.icon-flip-vertical { decorator: image(l-flip-vertical); }
+.icon-lg.icon-rotate-clockwise { decorator: image(l-rotate-clockwise); }
+.icon-lg.icon-chevron-left { decorator: image(l-chevron-left); }
+.icon-lg.icon-highlight { decorator: image(l-highlight); }
+.icon-lg.icon-photo-plus { decorator: image(l-photo-plus); }
+.icon-lg.icon-copy-plus { decorator: image(l-copy-plus); }
+.icon-lg.icon-zoom-in { decorator: image(l-zoom-in); }
+.icon-lg.icon-zoom-out { decorator: image(l-zoom-out); }
+.icon-lg.icon-database { decorator: image(l-database); }

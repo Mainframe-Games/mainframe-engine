@@ -115,6 +115,8 @@ public sealed class ViewportPanel : EditorDocument
 
     protected override void OnAttach(RmlDocument document)
     {
+        _paintVersion = -1;
+        _paintShown = false;
         _imageShown = false;
         _info = null;
         _previewSize = null;
@@ -171,9 +173,31 @@ public sealed class ViewportPanel : EditorDocument
         UpdateImage();
     }
 
+    private int _paintVersion = -1;
+    private bool _paintShown;
+
+    // G2b: the paint bar shows while a tile map layer is edited; rebuilt only when the tile tools' state changes.
+    private void TickPaintBar()
+    {
+        if (!IsLoaded || Workspace.TileMap is not { } tiles)
+            return;
+        var shown = tiles.IsActive;
+        if (shown == _paintShown && (!shown || tiles.Version == _paintVersion))
+            return;
+        _paintShown = shown;
+        _paintVersion = tiles.Version;
+        var bar = Document.GetElementById("paint-bar");
+        if (bar.IsNull)
+            return;
+        bar.SetClass("shown", shown);
+        Document.GetElementById("view-info").SetClass("below-bar", shown);
+        bar.SetInnerRml(shown ? tiles.PaintBarRml() : "");
+    }
+
     /// <summary>Every frame: refreshes the preview bar when the active preview changed (links re-read, backdrop).</summary>
     public void Tick()
     {
+        TickPaintBar();
         var preview = Workspace.Session.ActivePreview;
         if (ReferenceEquals(preview, _shownPreview) && (preview is null || preview.Version == _shownPreviewVersion))
             return;

@@ -79,6 +79,12 @@ public abstract class CanvasItem : Node
     [Export]
     public Vector4 SelfModulate { get; set; } = White;
 
+    /// <summary>
+    /// A colour the editor multiplies into this item and its children, never saved (Godot's editor sets the canvas item's
+    /// modulate on the rendering server directly): the tile map editor dims the layers it is not editing.
+    /// </summary>
+    public Vector4 EditorModulate { get; set; } = White;
+
     /// <summary>Draw order: higher draws on top (−4096 … 4096).</summary>
     [Export(Range = "-4096,4096,1")]
     public int ZIndex

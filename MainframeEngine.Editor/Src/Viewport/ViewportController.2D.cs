@@ -43,6 +43,14 @@ public sealed partial class ViewportController
     private bool Press2D(EditedScene scene, InputEventMouseButton e)
     {
         var alt = (_workspace.Modifiers & EditorModifiers.Alt) != 0;
+        // G2b: while a tile map layer is edited, the left and right buttons paint with the paint bar's tool.
+        if (!IsSimulating(scene) && _workspace.TileMap.Press(scene, scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels), e.Button, _workspace.Modifiers))
+        {
+            _drag = DragKind.Paint;
+            _paintButton = e.Button;
+            return true;
+        }
+
         switch (e.Button)
         {
             case MouseButton.Left when alt:
@@ -61,8 +69,9 @@ public sealed partial class ViewportController
         }
     }
 
-    private static bool Release2DMatches(DragKind drag, MouseButton button) => drag switch
+    private bool Release2DMatches(DragKind drag, MouseButton button) => drag switch
     {
+        DragKind.Paint => button == _paintButton,
         DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box => button == MouseButton.Left,
         DragKind.Pan => button is MouseButton.Left or MouseButton.Middle or MouseButton.Right,
         _ => false,
@@ -103,6 +112,16 @@ public sealed partial class ViewportController
 
         if (best is not null)
             return scene.SelectableFor(best);
+
+        // G2b: a click on a painted cell picks its tile map layer (the topmost).
+        for (var i = _nodes2D.Count - 1; i >= 0; i--)
+        {
+            if (_nodes2D[i] is not TileMapLayer { IsInsideTree: true } layer || !layer.IsVisibleInTree() || PickPose(scene, layer) is not TileMapLayer posed ||
+                scene.SelectableFor(layer) is not { } selectable || EditorLock.IsLocked(selectable))
+                continue;
+            if (!posed.GetCell(posed.LocalToMap(posed.ToLocal(world))).IsEmpty)
+                return selectable;
+        }
 
         // G2a: a click inside a sprite's drawn rectangle picks it (the topmost, i.e. the last in tree order).
         for (var i = _nodes2D.Count - 1; i >= 0; i--)
@@ -236,6 +255,7 @@ public sealed partial class ViewportController
             if (selection[i] is NavigationAgent2D { IsInsideTree: true } agent)
                 DrawAgent2D(overlay, agent);
 
+        _workspace.TileMap.Draw(scene, overlay, pixels);
         DrawGizmo2D(scene, overlay, pixels);
         DrawHandles(scene, overlay, pixels);
     }

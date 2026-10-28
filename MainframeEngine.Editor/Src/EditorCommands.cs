@@ -98,6 +98,8 @@ public sealed class EditorCommands
             return true;
         if (Session.ActiveTab is VideoTab video && RunVideo(video, id))
             return true;
+        if (id.StartsWith("tilemap.", StringComparison.Ordinal))
+            return _workspace.TileMap.RunCommand(id);
         switch (id)
         {
             case "file.new" when _workspace.Mode == EditorMode.Music: NewSong(); return true;

@@ -124,7 +124,7 @@ public sealed class CanvasCuller
             ownMaterialOwner = null;
         }
 
-        var modulate = ci.Modulate * parentModulate;
+        var modulate = ci.Modulate * ci.EditorModulate * parentModulate;
         if (modulate.W < 0.007f)
             return;
 
@@ -147,7 +147,7 @@ public sealed class CanvasCuller
                 {
                     Item = ci,
                     Xform = Transform2D.Identity,
-                    Modulate = Reciprocal(ci.Modulate),
+                    Modulate = Reciprocal(ci.Modulate * ci.EditorModulate),
                     Index = 0,
                     ParentAbsZ = parentZ,
                     MaterialOwner = materialOwner == ci ? null : materialOwner,
@@ -248,8 +248,8 @@ public sealed class CanvasCuller
             if (child.YSortEnabled)
             {
                 // A y-sorted child's sub-items (tile rows) sort with everything else; its own entry draws only its list.
-                AddSubEntries(child, xform, modulate * child.Modulate, ref index, absZ, child.UseParentMaterial ? materialOwner : null, filter, repeat);
-                CollectYSortChildren(child, xform, child.UseParentMaterial ? materialOwner : child, modulate * child.Modulate, ref index, absZ, filter, repeat);
+                AddSubEntries(child, xform, modulate * child.Modulate * child.EditorModulate, ref index, absZ, child.UseParentMaterial ? materialOwner : null, filter, repeat);
+                CollectYSortChildren(child, xform, child.UseParentMaterial ? materialOwner : child, modulate * child.Modulate * child.EditorModulate, ref index, absZ, filter, repeat);
             }
         }
     }

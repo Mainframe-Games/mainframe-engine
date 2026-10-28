@@ -139,6 +139,22 @@
         #handle-label.shown { display: block; }
         #box-select { display: none; position: absolute; border: 1dp #3b82f6; background-color: #3b82f626; }
         #box-select.shown { display: block; }
+        /* G2b: the tile map paint bar over the top of the 2D view while a TileMapLayer is edited. */
+        #paint-bar {
+            display: none; position: absolute; left: 0dp; top: 0dp; right: 0dp; height: 30dp; padding: 0dp 6dp;
+            flex-direction: row; align-items: center; background-color: #1b1d23e6; border-bottom: 1dp #2f333d;
+            pointer-events: auto; white-space: nowrap; overflow: hidden;
+        }
+        #paint-bar.shown { display: flex; }
+        #paint-bar .tool-button { margin-right: 2dp; }
+        #paint-bar .paint-sep { display: block; width: 1dp; height: 16dp; margin: 0dp 6dp; background-color: #3b3f4b; }
+        #paint-bar .paint-value { color: #c9cedb; font-size: 11dp; margin: 0dp 4dp; }
+        #paint-bar .paint-chip {
+            display: flex; flex-direction: row; align-items: center; height: 20dp; padding: 0dp 8dp 0dp 5dp; margin: 0dp 2dp;
+            background-color: #22252d; border: 1dp #2f333d; border-radius: 10dp; color: #c9cedb; font-size: 11dp;
+        }
+        #paint-bar .paint-chip .icon { margin-right: 4dp; }
+        #view-info.below-bar { top: 38dp; }
     </style>
 </head>
 <body class="panel-doc viewport-doc" data-model="viewport_tabs">
@@ -171,6 +187,7 @@
         <div id="view-empty"><span class="icon icon-lg icon-movie"></span><span>No scene open · File › New Scene or Open Scene</span></div>
         <div id="handle-label" class="mono"></div>
         <div id="box-select"></div>
+        <div id="paint-bar"></div>
     </div>
 </body>
 </rml>

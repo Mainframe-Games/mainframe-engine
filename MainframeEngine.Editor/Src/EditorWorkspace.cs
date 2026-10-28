@@ -244,13 +244,59 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>The bottom dock's Profiler tab (G10).</summary>
     public ProfilerPanel ProfilerPanel { get; private set; } = null!;
 
-    /// <summary>The bottom dock's active tab (Output or Profiler; kept with the layout).</summary>
-    public BottomDockTab BottomTab => Layout.Settings.BottomTab == (int)BottomDockTab.Profiler ? BottomDockTab.Profiler : BottomDockTab.Output;
+    /// <summary>The bottom dock's TileMap and TileSet tabs (G2b).</summary>
+    public TileMapPanel TileMapPanel { get; private set; } = null!;
+
+    /// <summary>Tile map editing in 2D tabs: the paint bar's state, viewport strokes, the palette's brush (G2b).</summary>
+    public TileMapEditor TileMap { get; private set; } = null!;
+
+    private BottomDockTab? _tileTab;   // the contextual TileMap / TileSet tab shown over the persisted one (never saved)
+    private bool _tilesShown;
+    private bool _tileSetShown;
+
+    /// <summary>
+    /// The bottom dock's active tab: Output or Profiler (kept with the layout), or the contextual TileMap / TileSet tab
+    /// while a tile map layer or tile set is edited.
+    /// </summary>
+    public BottomDockTab BottomTab =>
+        _tileTab is { } tile && TileTabAvailable(tile) ? tile
+        : Layout.Settings.BottomTab == (int)BottomDockTab.Profiler ? BottomDockTab.Profiler : BottomDockTab.Output;
+
+    private bool TileTabAvailable(BottomDockTab tab) => TileMap is { } tiles && (tab == BottomDockTab.TileMap ? tiles.IsActive : tiles.EditedTileSet is not null);
 
     /// <summary>Shows <paramref name="tab"/> in the bottom dock.</summary>
     public void ShowBottomTab(BottomDockTab tab)
     {
-        Layout.SetBottomTab(tab);
+        if (tab is BottomDockTab.TileMap or BottomDockTab.TileSet)
+            _tileTab = tab;
+        else
+        {
+            _tileTab = null;
+            Layout.SetBottomTab(tab);
+        }
+
+        ApplyModePanels();
+    }
+
+    // The TileMap tab opens when a tile map layer is selected (Godot's bottom panel) and the tile tabs leave with it.
+    private void SyncTileTabs()
+    {
+        var tiles = TileMap.IsActive;
+        var tileSet = TileMap.EditedTileSet is not null;
+        if (tiles == _tilesShown && tileSet == _tileSetShown)
+            return;
+        if (tiles && !_tilesShown && _tileTab is null)
+            _tileTab = BottomDockTab.TileMap;
+        _tilesShown = tiles;
+        _tileSetShown = tileSet;
+        foreach (var panel in (ReadOnlySpan<EditorDocument>)[OutputPanel, ProfilerPanel])
+        {
+            panel.SetElementClass("dock-tab-tilemap", "hidden", !tiles);
+            panel.SetElementClass("dock-tab-tileset", "hidden", !tileSet);
+        }
+
+        if (_tileTab is { } tab && !TileTabAvailable(tab))
+            _tileTab = null;
         ApplyModePanels();
     }
 
@@ -329,6 +375,7 @@ public sealed partial class EditorWorkspace : Node
         Inspector = new InspectorPanel(this) { Name = "Inspector" };
         OutputPanel = new OutputPanel(this) { Name = "Output" };
         ProfilerPanel = new ProfilerPanel(this) { Name = "Profiler", Visible = false };
+        TileMapPanel = new TileMapPanel(this) { Name = "TileMap", Visible = false };
         SongPanel = new SongPanel(this) { Name = "Song" };
         VideoPanel = new VideoPanel(this) { Name = "Video" };
         Splitters = new SplittersOverlay(this) { Name = "Splitters" };
@@ -344,6 +391,7 @@ public sealed partial class EditorWorkspace : Node
         PanelLayer.AddChild(Inspector);
         PanelLayer.AddChild(OutputPanel);
         PanelLayer.AddChild(ProfilerPanel);
+        PanelLayer.AddChild(TileMapPanel);
         PanelLayer.AddChild(Splitters);
         PanelLayer.AddChild(SynthWindow); // floats over the song view
         PanelLayer.AddChild(PluginWindow); // over the synth (its FX open from it)
@@ -378,6 +426,7 @@ public sealed partial class EditorWorkspace : Node
         Splash = new SplashScreen(this) { Name = "Splash" };
         SplashLayer.AddChild(Splash);
 
+        TileMap = new TileMapEditor(this);
         Viewport = new ViewportController(this) { Name = "ViewportController" };
         AddChild(Viewport);
         SongView = new Music.SongView(this) { Name = "SongView" };
@@ -529,6 +578,8 @@ public sealed partial class EditorWorkspace : Node
             OutputPanel.Refresh();
         OutputPanel.Tick();
         ProfilerPanel.Tick(gameTime.DeltaTime);
+        SyncTileTabs();
+        TileMapPanel.Tick();
         TreePicker.Tick();
         EditorSettingsDialog.Tick();
         Tooltips?.Tick(gameTime.DeltaTime);
@@ -573,6 +624,7 @@ public sealed partial class EditorWorkspace : Node
         Place(Inspector, Layout.Inspector);
         Place(OutputPanel, Layout.Output);
         Place(ProfilerPanel, Layout.Output); // the bottom dock's other tab
+        Place(TileMapPanel, Layout.Output);   // and the contextual tile map tabs
         Splitters.Apply(Layout);
     }
 
@@ -766,16 +818,23 @@ public sealed partial class EditorWorkspace : Node
         else
             SongPanel.HideAndReleaseFocus();
 
-        // The bottom dock shows one tab: Output or Profiler (G10).
-        var profiler = BottomTab == BottomDockTab.Profiler;
-        if (Layout.ShowsOutput && !profiler)
+        // The bottom dock shows one tab: Output, Profiler (G10), or TileMap / TileSet (G2b, one panel).
+        var tab = BottomTab;
+        if (Layout.ShowsOutput && tab == BottomDockTab.Output)
             OutputPanel.Visible = true;
         else
             OutputPanel.HideAndReleaseFocus();
-        if (Layout.ShowsOutput && profiler)
+        if (Layout.ShowsOutput && tab == BottomDockTab.Profiler)
             ProfilerPanel.Visible = true;
         else
             ProfilerPanel.HideAndReleaseFocus();
+        if (TileMapPanel is { } tiles)
+        {
+            if (Layout.ShowsOutput && tab is BottomDockTab.TileMap or BottomDockTab.TileSet)
+                tiles.Visible = true;
+            else
+                tiles.HideAndReleaseFocus();
+        }
     }
 
     // The mode's remembered tab when it is still open, else its first open tab; no tab of the mode leaves none active.
@@ -963,6 +1022,13 @@ public sealed partial class EditorWorkspace : Node
             }
 
             RunShortcut(MusicShortcutFor(key.Key, Modifiers));
+            return;
+        }
+
+        // G2b: the tile tools' keys while the paint bar shows (E and R only with a paint tool, as in Godot's editor).
+        if (TileMap.IsActive && TileMapEditor.ShortcutFor(key.Key, Modifiers, TileMap.Tool, TileMap.CellSelection is not null, TileMap.Clipboard is not null) is { } tileCommand)
+        {
+            RunShortcut(tileCommand);
             return;
         }
 

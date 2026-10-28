@@ -264,3 +264,19 @@ brand-apple
 brand-ubuntu
 file-zip
 device-mobile
+
+# Tile maps (G2b): the TileMapLayer type, the paint bar, the TileMap palette and the TileSet tab
+grid-pattern
+bucket-droplet
+color-picker
+eraser
+flip-horizontal
+flip-vertical
+rotate-clockwise
+chevron-left
+highlight
+photo-plus
+copy-plus
+zoom-in
+zoom-out
+database

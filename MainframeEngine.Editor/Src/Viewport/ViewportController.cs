@@ -42,6 +42,7 @@ public sealed partial class ViewportController : Node
     private PickHandle _pick;
     private EditedScene? _pickScene;
     private bool _pickAdditive;
+    private MouseButton _paintButton;
 
     private enum DragKind
     {
@@ -50,6 +51,7 @@ public sealed partial class ViewportController : Node
         Gizmo,
         Handle,    // a range handle (G7.3)
         Box,       // a selection rectangle (G7.4)
+        Paint,     // a tile map stroke (G2b)
         Orbit,
         Pan,
         Fly,
@@ -232,6 +234,7 @@ public sealed partial class ViewportController : Node
             scene.Camera.Is2D ? "square" : _drag == DragKind.Fly ? "plane" : "perspective");
         PollPick(scene);
         PollBox(scene);
+        _workspace.TileMap.Tick();
         if (IsSimulating(scene))
             DrawSimulationVisuals(scene, viewport, pixels);
         else if (scene.Camera.Is2D)
@@ -453,7 +456,9 @@ public sealed partial class ViewportController : Node
         if (!matches)
             return true;
         _drag = DragKind.None;
-        if (drag == DragKind.Gizmo)
+        if (drag == DragKind.Paint)
+            _workspace.TileMap.Release(scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels));
+        else if (drag == DragKind.Gizmo)
             EndAnyGizmo(scene, commit: true);
         else if (drag == DragKind.Handle)
             EndHandle(scene, commit: true);
@@ -489,6 +494,9 @@ public sealed partial class ViewportController : Node
             case DragKind.Handle:
                 UpdateHandle(scene);
                 return true;
+            case DragKind.Paint:
+                _workspace.TileMap.Move(scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels));
+                return true;
             case DragKind.Gizmo when scene.Camera.Is2D:
                 UpdateGizmo2D(scene);
                 return true;
@@ -509,6 +517,15 @@ public sealed partial class ViewportController : Node
                 if (HoverHandle(scene))
                 {
                     _workspace.Gizmo.Hovered = GizmoHandle.None;
+                    Gizmo2D.Hovered = GizmoHandle.None;
+                    return false;
+                }
+
+                if (scene.Camera.Is2D && _workspace.TileMap.IsActive)
+                {
+                    // The brush's ghost follows the mouse over the view.
+                    if (ViewRect.Contains(_mouse.X, _mouse.Y))
+                        _workspace.TileMap.Move(scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels));
                     Gizmo2D.Hovered = GizmoHandle.None;
                     return false;
                 }
@@ -556,6 +573,8 @@ public sealed partial class ViewportController : Node
 
     private void CancelDrag()
     {
+        if (_drag == DragKind.Paint)
+            _workspace.TileMap.CancelStroke(); // Esc or a right click during a stroke puts every cell back
         if (_drag == DragKind.Gizmo && _scene is { } scene)
             EndAnyGizmo(scene, commit: false);
         else if (_drag == DragKind.Handle && _scene is { } handleScene)

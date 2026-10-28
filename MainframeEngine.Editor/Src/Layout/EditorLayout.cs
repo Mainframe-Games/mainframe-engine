@@ -33,11 +33,13 @@ public enum Splitter
 /// The persisted panel sizes (Layout v1: fixed regions with draggable splitters, editor.md). Stored as JSON in
 /// <c>~/.mainframe/editor_layout.json</c> and written atomically (temp file + rename).
 /// </summary>
-/// <summary>The bottom dock's tabs (G10): the Output panel and the Profiler.</summary>
+/// <summary>The bottom dock's tabs (G10): the Output panel and the Profiler; TileMap and TileSet (G2b) while a tile map layer is edited.</summary>
 public enum BottomDockTab
 {
     Output = 0,
     Profiler = 1,
+    TileMap = 2,
+    TileSet = 3,
 }
 
 public sealed record EditorLayoutSettings
