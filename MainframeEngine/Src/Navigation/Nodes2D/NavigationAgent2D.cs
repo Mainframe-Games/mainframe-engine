@@ -214,8 +214,9 @@ public class NavigationAgent2D : Node
         _finished = false;
         if (_path.Count == 0)
         {
-            // Nowhere to go (outside every region, or no path): navigation ends.
-            Finish();
+            // Nowhere to go yet (no region here, or the map has not synced its regions): stand still, and try again when the
+            // map changes. No signal: navigation has not ended.
+            _finished = true;
             return;
         }
 

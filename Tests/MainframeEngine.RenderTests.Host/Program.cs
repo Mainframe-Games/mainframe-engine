@@ -92,6 +92,7 @@ RenderTestGame game = options.Scene switch
     "particles-stress" => new ParticleStressScene(options),
     "polygon2d-skin" => new Polygon2DSkinScene(options),
     "animated-sprite" => new AnimatedSpriteScene(options),
+    "navigation" => new NavigationScene(options),
     "skinned" => new SkinnedScene(options),
     "skinned-crowd" => new SkinnedCrowdScene(options),
     "canvas-group" => new CanvasGroupScene(options),

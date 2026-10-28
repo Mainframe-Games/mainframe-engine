@@ -304,6 +304,8 @@ public class NavigationGrid2D : Node2D
             return null;
         if (_data.Region != _region)
             return true;
+        if (_data.SourceHash.Length == 0)
+            return null; // data written by code (or an older bake) records no hash
         var hash = baker.SourceHash(this);
         return hash is null ? null : !string.Equals(hash, _data.SourceHash, StringComparison.Ordinal);
     }
