@@ -151,6 +151,17 @@ cancel
 wait 5
 command file.close
 wait 10
+# 3e. Navigation (G3a): the Demo's Navigation 2D scene with Visible Navigation on (the baked grid's solid cells, the dashed
+# mud, the region outline) and its NavigationGrid2D selected: the inspector's Bake / Clear buttons and status line.
+open Examples/Demo/Assets/Scenes/navigation_2d.mscene
+wait 20
+select Grid
+clear-output
+move 900 600
+wait 20
+capture editor-navigation
+command file.close
+wait 10
 # 3d. Crash reporting (G15): a played game's crash as one Output row, expanded to its frames (the game's frame links to
 # its source, engine frames are muted), with the report, copy and frame buttons; then the editor's own next-start
 # crash dialog with a recovery copy of the open scene (closed again: the sample report is marked handled).

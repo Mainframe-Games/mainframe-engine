@@ -51,6 +51,7 @@ RmlUi game UI, physics, audio, replication, localization and an RmlUi developer 
 | `Lighting/` | `LightEnvironment`, `Light` + Directional/Point/Spot | [Lighting](lighting.md) |
 | `Networking/` | `MultiplayerApi` (replication, RPCs), messages, transports (ENet, loopback, simulated), `PeerId`, `NetBuffer*` | [Networking](networking.md) |
 | `Physics/` | `PhysicsServer3D` (Jitter2), `PhysicsServer2D` (Box2D.NET), body/area/shape nodes, queries, `DebugLines` | [Physics](physics.md) |
+| `Navigation/` | `AStarGrid2D` (A*, JPS), `AStar2D`/`AStar3D`, `NavigationServer2D` and maps, `NavigationGrid2D` (physics bake), `NavigationAgent2D` | [Navigation](navigation.md) |
 | `Audio/` | `AudioServer` (SoundFlow), buses, audio nodes, streams, decoders | [Audio](audio.md) |
 | `Recording/` | `GameRecorder` (`SceneTree.Recorder`), ffmpeg child-process backend, `.mfcap.json` sidecar | [Recording](recording.md) |
 | `UI/` | `Rml/` binding over `mfrmlui`, `VulkanUiRenderer`, `UiServer`/`UiLayer`/`UiDocument` | [Game UI](game-ui.md) |
@@ -94,7 +95,7 @@ flowchart LR
   (`.mscene`) loaded through `ResourceLoader`; node properties are discovered by a source generator, not
   reflection.
 - **Nodes are front-ends to servers.** Nodes hold editable state; servers (`RenderServer`, the physics servers
-  `PhysicsServer3D`/`PhysicsServer2D` (M6), `AudioServer` (M7), `UiServer` (M8)) hold GPU, simulation, audio and native
+  `PhysicsServer3D`/`PhysicsServer2D` (M6), `NavigationServer2D` (G3a), `AudioServer` (M7), `UiServer` (M8)) hold GPU, simulation, audio and native
   objects and are reached through `SceneTree.Servers`. Physics library calls (Jitter2, Box2D.NET) never leave the
   physics spaces ([Physics](physics.md)).
 - **Vulkan is the only backend.** `IRenderer` is backend-neutral in name, but everything that draws

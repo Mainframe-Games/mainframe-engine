@@ -93,6 +93,7 @@ classDiagram
 | `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | batched mesh drawables — see [Materials & meshes](materials-and-meshes.md) |
 | `SubViewport` | [Scene/SubViewport.cs](../../MainframeEngine/Src/Scene/SubViewport.cs) | offscreen view with its own world |
 | `SpineNode`, `NetworkNode` | [Nodes/](../../MainframeEngine/Src/Nodes/) | existing drawables, retargeted onto `VisualInstance3D` |
+| `NavigationGrid2D`, `NavigationAgent2D` | [Navigation/Nodes2D/](../../MainframeEngine/Src/Navigation/Nodes2D/) | a grid navigation region baked from static bodies, and path following for its parent body — see [Navigation](navigation.md) |
 | `Joint3D` (+6), `Joint2D` (+6), `Ragdoll3D`, `PhysicalBone3D`, `PhysicalBoneSimulator3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/), [Physics/2D/](../../MainframeEngine/Src/Physics/2D/), [Physics/Ragdoll/](../../MainframeEngine/Src/Physics/Ragdoll/) | joints and ragdolls — see [Physics joints and ragdolls](physics-joints.md) |
 
 ## The tree
@@ -310,6 +311,7 @@ renderer) into `SceneTree.Servers` (`ServerRegistry`), and nodes reach them in `
 | `MultiplayerApi` | `IFrameServer` | M5: always registered (`Engine.Multiplayer`), idle until started; receives at `SceneTree.ProcessFrame`, sends in `Process` ([Networking](networking.md#frame-and-tick)) |
 | `AudioServer` | `IFrameServer` | M7: registered when `EngineOptions.Audio.Enabled` (default); voices, buses, listener; see [Audio](audio.md) |
 | `PhysicsServer3D`, `PhysicsServer2D` | `IFixedStepServer`, `IFrameServer` | M6: one Jitter2 / Box2D space per world; stepped after `OnPhysicsProcess`, frozen while paused; debug draw per frame ([Physics](physics.md)) |
+| `NavigationServer2D` | `IFixedStepServer`, `IFrameServer` | G3a: one map per `World2D`; maps sync after each fixed step (registered after the 2D physics server) or in `Process` without one; debug draw per frame ([Navigation](navigation.md)) |
 | UI (M8) | `IFrameServer` | ticked after transform sync |
 
 `ServerRegistry` holds one server per type (`Register`, `Get<T>`, `GetRequired<T>`, `Render`) and disposes

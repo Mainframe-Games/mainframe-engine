@@ -104,6 +104,7 @@ table, so the 2D suites share the non-parallel `SerialBox2D` collection.
 | `Physics3DQueryTests` | raycasts (closest, exclude, mask, misses, moved bodies, areas ignored), shape casts, overlaps, concave/height-map shapes, every shape with scale, `MoveAndSlide` (floor, walls, 30° slope, steep slope, ceiling, snap down a step, recovery, pushing crates), interpolation (exact lerp, physics pose in `OnPhysicsProcess`, teleport, pause) |
 | `Physics2DTests` | the same behaviours on Box2D in pixels |
 | `PhysicsSerializationTests` | every 3D/2D body and shape round-trips through `.mscene` (shared resources stay shared), a loaded 2D scene simulates, every type is registered |
+| `Navigation/` suites (G3a) | grid A* and JPS (optimality against Dijkstra on 200 seeded grids, golden maze), point graphs, maps and sync points, the physics bake, the RLE data, agents; `NavigationAllocationTests`: **0 bytes** over 300 ticks of 64 agents chasing moving targets on a 128 × 128 grid with cell edits and the debug draw ([Navigation → Tests](navigation.md#tests)) |
 | `PhysicsAllocationTests`, `Physics2DAllocationTests` | **0 bytes** per steady-state frame with ~500 bodies, monitors, areas, characters, debug draw and every query (3D single- and multi-threaded); 2D: 0 bytes beyond Box2D.NET's own step allocations (one joint of each 2D type included) |
 | `Joints3DTests`, `JointBreakTests`, `Physics2DJointTests`, `Ragdoll3DTests`, `PhysicalBonesTests`, `JointAllocationTests` | joints, breaking, ragdolls and physical bones ([Physics joints → Tests](physics-joints.md#tests)); 0 bytes per frame with 320 3D joints (parts collide only with the floor: new contact pairs make Jitter2 allocate) |
 | `DebugDrawTests`, `FixedStepHookTests` | `DebugLines` primitives and cap, server debug draw; `BeforeFixedSteps`/`AfterFixedSteps` order and pause |
@@ -468,6 +469,7 @@ alloc/free and churn; audio: `CommandBatchEnqueueAndDrain64`, `AttenuationCurves
 lookups, formatting, `TranslateMarkup`, locale switch; `ShadowSetupBenchmarks`: `PlanSunCascades`, `PlanEveryLightType`,
 `PackAtlasElevenTiles`; `ProfilerBenchmarks` (G10): `ScopeOff` (the `AppContext` switch set, in its own process),
 `ScopeIdle`, `ScopeRecording`, `ScopeRecordingWithAllocations`, `CounterAdd`, `EndFrame500Events`, `GpuZoneOffCpuSide`,
+all 0 B; `NavigationBenchmarks` (G3a): 256² open field and maze, A* and JPS, 8- and 4-way, and a 64-agent repath tick,
 all 0 B) and compares with
 [`baseline.json`](../../Tests/MainframeEngine.Benchmarks/baseline.json): a benchmark
 fails when its mean is **more than 10 % slower** or it allocates more per operation. A run fails too when a benchmark produces no result

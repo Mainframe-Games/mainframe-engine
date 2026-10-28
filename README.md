@@ -78,6 +78,10 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/shaders.png" width="380" alt="Shaders"><br><b>Shaders</b> — Godot spatial shaders: a procedural ground, swaying stalks, dissolving props</td>
     <td align="center" valign="top"><img src="docs/images/demo/sprites_2d.png" width="380" alt="Sprites 2D"><br><b>Sprites 2D</b> — AnimatedSprite2D flipbooks sliced from one sprite sheet: idle, run, jump, spinning coins</td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/demo/navigation_2d.png" width="380" alt="Navigation 2D"><br><b>Navigation 2D</b> — a baked grid, mud, and twelve chasers walking to the clicked point; click to add walls</td>
+    <td></td>
+  </tr>
 </table>
 
 ### The editor
@@ -129,6 +133,10 @@ can be saved as a `.mres` or made unique from the inspector.
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-sheet-slicer.png" width="380" alt="The Select Frames dialog slicing the Demo's hero sheet into a 4 by 4 grid with the run row picked and numbered"><br><b>Select Frames</b> — slice a sprite sheet by count or cell size, pick frames in order</td>
     <td align="center" valign="top"><img src="docs/images/editor-crash.png" width="380" alt="A played game's crash in the Output panel: one red row naming the exception, the node and the scene, expanded to its stack frames, the game's frame with a link to its source and the engine's muted"><br><b>Crash reports</b> — a game's crash as one row: the node, scene and frames, click-to-source</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-navigation.png" width="380" alt="The Demo's Navigation 2D maze in the editor with Visible Navigation on: the baked grid's solid cells and dashed mud, the NavigationGrid2D inspector with its Bake and Clear buttons and status line"><br><b>Navigation</b> — Visible Navigation, Bake and Clear with undo, out-of-date bakes flagged</td>
+    <td></td>
   </tr>
 </table>
 
@@ -207,6 +215,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Post-processing](docs/design/post-processing.md) | SSAO/GTAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX |
 | [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, canvas groups that fade as one image, layers, z-order and y-sort, wrapped multi-line TrueType text from the engine's own rasterizer; Godot's `BitMap` and `Geometry2D` (alpha to polygons, polygon booleans and offsets) |
 | [Animated sprites](docs/design/animated-sprites.md) | Godot's `SpriteFrames` and `AnimatedSprite2D`: flipbooks sliced from sprite sheets (count or cell size, margins, separation), Godot's timing and signals with no allocation per frame, a SpriteFrames editor and a Select Frames dialog |
+| [Navigation](docs/design/navigation.md) | Godot's `AStarGrid2D` (diagonal modes, heuristics, weights, jump point search) and `AStar2D`/`AStar3D` with allocation-free, deterministic queries; `NavigationServer2D`, grids baked from static bodies, `NavigationAgent2D` with Godot's repath rules and signals; Visible Navigation, Bake and Clear in the editor |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting alpha-tested silhouette shadows, optionally billboarded to the camera, with animation tracks and queues |
 | [3D particles](docs/design/particles-3d.md) | `GpuParticles3D` on Godot's `ParticleProcessMaterial`: point, sphere, box and ring emission, spread, gravity, damping, turbulence, scale and colour curves, hue variation; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow, sorted back to front; deterministic seeds; 8 000 particles in under half a millisecond of CPU |
 | [Skeletal animation](docs/design/animation.md) | Skinned glTF/FBX characters with their clips: `Skeleton3D`, GPU (compute) skinning that shadows, outlines and picking all see, an `AnimationPlayer` with crossfades, queues and events (also on a headless server), root motion that moves a `CharacterBody3D`, `BoneAttachment3D` |

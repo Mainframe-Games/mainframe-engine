@@ -93,6 +93,13 @@ shaders](shaders.md#spatial-shaders), ADR 0205); `mf-shaders` builds both kinds.
    3D scene). After the tonemap `RecordOverlay` composites the layer premultiplied (Godot's mix blend into a
    transparent target is premultiplied by construction), then the screen gizmos, the game UI and the dev overlay draw (`OverlayOrder`).
 
+## Debug lines
+
+A 2D sub-viewport (`Disable3D`) and, since G3a, a root viewport without a 3D camera (a 2D game) hand their `DebugLines`
+and `OverlayLines` to the canvas: `CanvasServer` appends them (z ignored, through the stretch and canvas transforms) after
+the viewport's canvas items and clears them, so collision shapes and navigation draw over the sprites. Views with a 3D
+camera keep drawing them in the 3D scene pass ([Navigation](navigation.md)).
+
 ## Known issues
 
 - Not yet: shader `light()`, `SCREEN_TEXTURE`/back buffer, 2D light shadows/normal maps/`DirectionalLight2D`, font oversampling and shaping beyond kerning,

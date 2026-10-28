@@ -219,6 +219,7 @@ GPU zone markers have their own ids: the CPU scope `Shadows` and the GPU zone `S
 | `Render` > `PrepareFrame`, `BeginFrame` (> `Wait (fence)`, `Acquire`), `Skinning`, `Shadows`, `Offscreen`, `Prepass`, `Main pass`, `Overlay`, `Submit`, `Present` | `Engine.RenderFrame` and the renderer; `Overlay` is `EndPasses` (UI offscreen, the post stages, the tonemap and the overlay pass) |
 | `Load scene` > `Instantiate`, `Prepare loadables` | the loader worker ("Loader" lane) |
 | `Mix` | the audio callback ("Audio" lane, opt-in) |
+| `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation debug draw` | a navigation map's sync, `NavigationMap2D.QueryPath` (agents' repaths included), grid bakes, the debug draw ([Navigation](navigation.md#profiler)) |
 
 Node callbacks are not wrapped one by one (a scope per node per frame);
 games mark their own hot paths ([ADR 0219](../../memory/decisions/0219-profiler-recording-model.md)).

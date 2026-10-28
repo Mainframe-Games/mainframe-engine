@@ -267,6 +267,8 @@ space.IntersectPoint(point, results);
 - Jitter2 queries go through `DynamicTree.RayCast/SweepCast/Query` with cached filter delegates; Box2D queries through
   `b2World_CastRay/CastShape/OverlapShape/OverlapAABB` with static callbacks (the space is the context object).
   Box2D.NET 3.1 ray casts do hit sensors, so the callbacks skip area shapes.
+- Navigation bakes its grids through these queries only (G3a, [Navigation](navigation.md#navigationgrid2d-and-navigationgriddata)):
+  one 2D `IntersectShape` per cell with a reused rectangle, static bodies only, so physics library calls stay here.
 
 ### `RayCast3D` node
 
