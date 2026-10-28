@@ -1,4 +1,4 @@
-namespace MainframeEngine.Editor;
+namespace MainframeEngine.Export;
 
 /// <summary>
 /// Where things are in a game project made from the <c>mfgame</c> template (docs/design/project-and-gamehost.md):

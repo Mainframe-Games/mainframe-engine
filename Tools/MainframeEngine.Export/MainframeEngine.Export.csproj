@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The export pipeline (G5, docs/design/game-export.md): ExportRunner turns a project.mfproj export preset into a player
+    build (dotnet publish, stage, icon, macOS bundle and signing, archive). One library for every entry point: the
+    editor's File › Export and its export flags, mf-export (Tools/MainframeEngine.Export.Cli, also shipped in the
+    MainframeEngine package's tools/mf-export) and so `just package-game` and CI. It also holds the tool helpers the
+    editor builds games with (ProcessRunner, DotnetSdk, GameProjectLayout, MsBuildOutputParser).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MainframeEngine.Export</RootNamespace>
+    <!-- CA1515: public on purpose, the editor and its tests use it. -->
+    <NoWarn>$(NoWarn);CA1515</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ProjectSettings and its export presets, AssetDatabase (the shipped asset index), Png and ImageResize (icons). -->
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MainframeEngine.Editor.Tests" />
+  </ItemGroup>
+
+  <!--
+    The engine's own natives per RID (MainframeEngine/runtimes/<rid>/native): baked into EngineNatives.g.cs, so an export
+    from the package or the released editor (no checkout) still knows which files of other platforms to prune, and a new
+    native is pruned without a code change.
+  -->
+  <ItemGroup>
+    <_MainframeEngineNative Include="..\..\MainframeEngine\runtimes\*\native\*" />
+  </ItemGroup>
+  <PropertyGroup>
+    <_MainframeEngineNativesFile>$(BaseIntermediateOutputPath)EngineNatives.g.cs</_MainframeEngineNativesFile>
+  </PropertyGroup>
+  <Target Name="_MainframeWriteEngineNatives" BeforeTargets="CoreCompile" Inputs="$(MSBuildProjectFullPath);@(_MainframeEngineNative)"
+          Outputs="$(_MainframeEngineNativesFile)">
+    <ItemGroup>
+      <_MainframeEngineNativeLine Include="@(_MainframeEngineNative->'        (&quot;%(RecursiveDir)&quot;, &quot;%(Filename)%(Extension)&quot;),')" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(_MainframeEngineNativesFile)" Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Lines="// &lt;auto-generated/&gt; from MainframeEngine/runtimes/*/native (MainframeEngine.Export.csproj).;namespace MainframeEngine.Export%3B;internal static partial class EngineNatives;{;    private static readonly (string Folder, string File)[] Files =;    [;@(_MainframeEngineNativeLine);    ]%3B;}" />
+  </Target>
+  <Target Name="_MainframeCompileEngineNatives" BeforeTargets="CoreCompile" AfterTargets="_MainframeWriteEngineNatives">
+    <ItemGroup>
+      <Compile Include="$(_MainframeEngineNativesFile)" />
+      <FileWrites Include="$(_MainframeEngineNativesFile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

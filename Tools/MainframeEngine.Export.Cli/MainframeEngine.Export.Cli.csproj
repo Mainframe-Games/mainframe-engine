@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    mf-export (G5, docs/design/game-export.md#headless-export-cli-just-ci): exports a game's project.mfproj presets from
+    the command line (just package-game, CI), with the same ExportRunner as the editor's File › Export. The MainframeEngine
+    package carries it in tools/mf-export (managed files + runtimeconfig, like mf-l10n); MainframeExportTool names it.
+      dotnet run - -project Tools/MainframeEngine.Export.Cli -c Release - - - -project <dir> - -preset "<name>"
+    (the dashes are spaced out only because XML comments cannot hold two in a row).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>mf-export</AssemblyName>
+    <RootNamespace>MainframeEngine.Export.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MainframeEngine.Export\MainframeEngine.Export.csproj" />
+  </ItemGroup>
+
+</Project>

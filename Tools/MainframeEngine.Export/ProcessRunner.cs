@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace MainframeEngine.Editor;
+namespace MainframeEngine.Export;
 
 /// <summary>The outcome of <see cref="ProcessRunner.RunAsync"/>.</summary>
 /// <param name="ExitCode">The process exit code (-1 when it could not start, was cancelled or timed out).</param>
@@ -73,7 +73,7 @@ public static class ProcessRunner
             {
                 onLine?.Invoke(e.Data);
             }
-            catch (Exception ex) when (EditorCommands.IsRecoverable(ex))
+            catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
             {
                 // A failing observer must not kill the reader thread.
                 Console.Error.WriteLine($"[ProcessRunner] Output handler failed: {ex.Message}");

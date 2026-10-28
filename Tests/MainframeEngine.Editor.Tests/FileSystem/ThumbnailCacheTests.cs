@@ -90,11 +90,11 @@ public sealed class ThumbnailCacheTests : IDisposable
             255, 0, 0, 255, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        var (width, height, pixels) = ThumbnailCache.Downscale(2, 2, quad, 1);
+        var (width, height, pixels) = ImageResize.Downscale(2, 2, quad, 1);
         Assert.Equal((1, 1), (width, height));
         Assert.Equal(new byte[] { 255, 0, 0, 64 }, pixels); // transparent black does not darken the red
 
-        var small = ThumbnailCache.Downscale(2, 2, quad, 96);
+        var small = ImageResize.Downscale(2, 2, quad, 96);
         Assert.Equal((2, 2), (small.Width, small.Height));
         Assert.Equal(quad, small.Pixels);
     }

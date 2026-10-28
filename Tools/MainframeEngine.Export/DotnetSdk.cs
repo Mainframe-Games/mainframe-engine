@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 
-namespace MainframeEngine.Editor;
+namespace MainframeEngine.Export;
 
 /// <summary>The outcome of <see cref="DotnetSdk.DetectAsync"/>.</summary>
 /// <param name="DotnetPath">The <c>dotnet</c> executable that was asked (null when none was found).</param>

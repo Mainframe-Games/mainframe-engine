@@ -12,6 +12,8 @@
     <Project Path="Tests/MainframeEngine.Video.Tests/MainframeEngine.Video.Tests.csproj" />
   </Folder>
   <Folder Name="/Tools/">
+    <Project Path="Tools/MainframeEngine.Export.Cli/MainframeEngine.Export.Cli.csproj" />
+    <Project Path="Tools/MainframeEngine.Export/MainframeEngine.Export.csproj" />
     <Project Path="Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj" />
     <Project Path="Tools/MainframeEngine.ShaderBuild/MainframeEngine.ShaderBuild.csproj" />
     <Project Path="Tools/MainframeEngine.Symbolicate/MainframeEngine.Symbolicate.csproj" />

@@ -92,12 +92,25 @@
       <_MainframeSteamworksDir>$(MSBuildThisFileDirectory)..\MainframeEngine.Steamworks\</_MainframeSteamworksDir>
       <_MainframeFacepunchDir>$(MSBuildThisFileDirectory)..\Plugins\Facepunch.Steamworks\</_MainframeFacepunchDir>
     </PropertyGroup>
+    <!--
+      Where the two shim builds land: their project's bin/<cfg>/<tfm>/, or under the artifacts path when the build uses
+      the artifacts layout (a publish with an artifacts path: the editor's and mf-export's exports, ADR 0229). Items are
+      evaluated after every property, so these conditions see the SDK's final UseArtifactsOutput.
+    -->
+    <ItemGroup Condition="'$(UseArtifactsOutput)' != 'true'">
+      <_MainframeSteamworksWin64 Include="$(_MainframeSteamworksDir)Win64\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll" />
+      <_MainframeSteamworksPosix Include="$(_MainframeSteamworksDir)Posix\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(UseArtifactsOutput)' == 'true'">
+      <_MainframeSteamworksWin64 Include="$(ArtifactsPath)\bin\MainframeEngine.Steamworks.Win64\$(Configuration.ToLowerInvariant())\MainframeEngine.Steamworks.dll" />
+      <_MainframeSteamworksPosix Include="$(ArtifactsPath)\bin\MainframeEngine.Steamworks.Posix\$(Configuration.ToLowerInvariant())\MainframeEngine.Steamworks.dll" />
+    </ItemGroup>
     <ItemGroup Condition="'$(RuntimeIdentifier)' == '' or $(RuntimeIdentifier.StartsWith('win'))">
-      <None Include="$(_MainframeSteamworksDir)Win64\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll;$(_MainframeFacepunchDir)Facepunch.Steamworks.Win64.dll"
+      <None Include="@(_MainframeSteamworksWin64);$(_MainframeFacepunchDir)Facepunch.Steamworks.Win64.dll"
             Link="steamworks\win64\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
     <ItemGroup Condition="'$(RuntimeIdentifier)' == '' or !$(RuntimeIdentifier.StartsWith('win'))">
-      <None Include="$(_MainframeSteamworksDir)Posix\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll;$(_MainframeFacepunchDir)Facepunch.Steamworks.Posix.dll"
+      <None Include="@(_MainframeSteamworksPosix);$(_MainframeFacepunchDir)Facepunch.Steamworks.Posix.dll"
             Link="steamworks\posix\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
 

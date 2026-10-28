@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace MainframeEngine.Editor;
+namespace MainframeEngine.Export;
 
 /// <summary>How serious a <see cref="BuildDiagnostic"/> is.</summary>
 public enum BuildDiagnosticSeverity
