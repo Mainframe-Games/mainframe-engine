@@ -163,7 +163,7 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
         {
             return Cancelled(preset.Name, stopwatch.Elapsed, issues, diagnostics);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException or AccessViolationException)) // failures are results, never exceptions
         {
             return Failed(preset.Name, stopwatch.Elapsed, issues, diagnostics, e.Message);
         }
