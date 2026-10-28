@@ -12,6 +12,10 @@ public sealed class NavigationScene(HostOptions host) : RenderTestGame(host)
 {
     protected override void LoadScene()
     {
+        // A fixed logical size: the camera shows the same 320 × 240 px grid at 640 × 480 (HiDPI) and 320 × 240 (lavapipe).
+        Root.ContentScaleMode = ContentScaleMode.CanvasItems;
+        Root.ContentScaleAspect = ContentScaleAspect.Keep;
+        Root.ContentScaleSize = new Vector2(640, 480);
         var root = new Node2D { Name = "Navigation" };
         root.AddChild(new Camera2D { Name = "Camera", Current = true, Position = new Vector2(160, 120), Zoom = new Vector2(2) });
         var grid = new NavigationGrid2D { Name = "Grid", Region = new Rect2I(0, 0, 20, 15), CellSize = new Vector2(16) };
