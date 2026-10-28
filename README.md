@@ -79,8 +79,8 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/sprites_2d.png" width="380" alt="Sprites 2D"><br><b>Sprites 2D</b> — AnimatedSprite2D flipbooks sliced from one sprite sheet: idle, run, jump, spinning coins</td>
   </tr>
   <tr>
+    <td align="center" valign="top"><img src="docs/images/demo/tiles_2d.png" width="380" alt="Tiles 2D"><br><b>Tiles 2D</b> — TileMapLayers with collision and custom data; a hero walks behind and in front of y-sorted trees; click to add walls</td>
     <td align="center" valign="top"><img src="docs/images/demo/navigation_2d.png" width="380" alt="Navigation 2D"><br><b>Navigation 2D</b> — a baked grid, mud, and twelve chasers walking to the clicked point; click to add walls</td>
-    <td></td>
   </tr>
 </table>
 
@@ -132,6 +132,10 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-sheet-slicer.png" width="380" alt="The Select Frames dialog slicing the Demo's hero sheet into a 4 by 4 grid with the run row picked and numbered"><br><b>Select Frames</b> — slice a sprite sheet by count or cell size, pick frames in order</td>
+    <td align="center" valign="top"><img src="docs/images/editor-tilemap.png" width="380" alt="The Demo's Tiles 2D scene with its Walls layer selected: the paint bar over the 2D view, the stone tile's ghost under the mouse and the TileMap palette in the bottom dock"><br><b>Tile map painting</b> — paint, line, rect, bucket, picker, eraser, random scatter; one undo per stroke</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-tileset.png" width="380" alt="The TileSet tab with the bush tile's collision polygon: snap points, the polygon's edges and points over the magnified tile"><br><b>TileSet editor</b> — atlas sources, tiles, tile data and collision polygons in the bottom dock</td>
     <td align="center" valign="top"><img src="docs/images/editor-crash.png" width="380" alt="A played game's crash in the Output panel: one red row naming the exception, the node and the scene, expanded to its stack frames, the game's frame with a link to its source and the engine's muted"><br><b>Crash reports</b> — a game's crash as one row: the node, scene and frames, click-to-source</td>
   </tr>
   <tr>
@@ -215,6 +219,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Post-processing](docs/design/post-processing.md) | SSAO/GTAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX |
 | [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, canvas groups that fade as one image, layers, z-order and y-sort, wrapped multi-line TrueType text from the engine's own rasterizer; Godot's `BitMap` and `Geometry2D` (alpha to polygons, polygon booleans and offsets) |
 | [Animated sprites](docs/design/animated-sprites.md) | Godot's `SpriteFrames` and `AnimatedSprite2D`: flipbooks sliced from sprite sheets (count or cell size, margins, separation), Godot's timing and signals with no allocation per frame, a SpriteFrames editor and a Select Frames dialog |
+| [Tile maps](docs/design/tile-maps.md) | Godot 4.3's `TileSet` and `TileMapLayer`: atlas sources with padding, alternatives and flips, collision polygons and typed custom data; chunked layers drawn in about one batch per atlas, y-sorted row by row with characters, one static Box2D body per chunk (merged rectangles, convex pieces), one base64 line per chunk in scenes; paint tools, a palette and a TileSet editor in the 2D view |
 | [Navigation](docs/design/navigation.md) | Godot's `AStarGrid2D` (diagonal modes, heuristics, weights, jump point search) and `AStar2D`/`AStar3D` with allocation-free, deterministic queries; `NavigationServer2D`, grids baked from static bodies, `NavigationAgent2D` with Godot's repath rules and signals; Visible Navigation, Bake and Clear in the editor |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting alpha-tested silhouette shadows, optionally billboarded to the camera, with animation tracks and queues |
 | [3D particles](docs/design/particles-3d.md) | `GpuParticles3D` on Godot's `ParticleProcessMaterial`: point, sphere, box and ring emission, spread, gravity, damping, turbulence, scale and colour curves, hue variation; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow, sorted back to front; deterministic seeds; 8 000 particles in under half a millisecond of CPU |

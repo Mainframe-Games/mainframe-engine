@@ -1,8 +1,8 @@
 # Animated sprites (`SpriteFrames`, `AnimatedSprite2D`)
 
 **Status:** shipped (Gameplay toolkit G2a; [ADR 0223](../../memory/decisions/0223-sprite-frames-and-animated-sprite2d.md),
-editor [ADR 0224](../../memory/decisions/0224-sprite-frames-editor.md)). Tile maps (G2b) are still a
-[proposal](future/2d-content.md).
+editor [ADR 0224](../../memory/decisions/0224-sprite-frames-editor.md)). Tile maps (G2b), which reuse
+`SpriteSheetGrid` for atlas sources, are in [Tile maps](tile-maps.md).
 
 Flipbook animation for the [2D canvas](canvas.md), Godot 4's API: a `SpriteFrames` resource holds named animations
 cut from sprite sheets, and an `AnimatedSprite2D` plays one with Godot's timing and signals.
@@ -149,4 +149,4 @@ Exports (Godot's names and defaults): `SpriteFrames`, `Animation` ("default"), `
 ## Related
 
 [2D canvas](canvas.md) · [Editor](editor.md) · [Scene serialization](scene-serialization.md) · [Demo](demo.md) ·
-[2D content proposal (tile maps)](future/2d-content.md)
+[Tile maps](tile-maps.md)

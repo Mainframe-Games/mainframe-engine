@@ -36,6 +36,11 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
   skipped with its subtree. `CanvasModulate` (the last visible one on a canvas) multiplies every fragment of the canvas
   after the item's colour and before lights, except for unshaded materials.
 - **Culling:** an item whose drawn bounds (transformed) miss the viewport rect is not attached; its children still are.
+- **Sub-items** (G2b, ADR 0225): an item may own draw lists besides its own (`CanvasSubItem`, a `TileMapLayer`'s chunks
+  and y-sorted rows). They attach after the item's list and before its children, each culled on its own bounds with a z
+  offset and the owner's modulate, material and texture state; under y-sort each is an entry sorted with the children.
+  `CulledCanvasItem.DrawList` is the list the frame reads. `EditorModulate` (never saved) multiplies like `Modulate`;
+  the editor dims layers with it.
 - **Textures** are sampled raw (UNORM, gamma space), straight alpha, with the item's resolved `TextureFilter`/
   `TextureRepeat` (default linear, no repeat); `draw_texture_rect(tile: true)` forces repeat for that rect.
 
@@ -128,6 +133,12 @@ view shown on a mesh an opaque clear colour.
 `AnimatedSprite2D` plays the named flipbook animations of a `SpriteFrames` resource (frames cut from sprite sheets by
 `SpriteSheetGrid`) with Godot 4's timing and signals, and draws the current frame like `Sprite2D` (shared rect maths);
 it redraws only when its frame changes. See [Animated sprites](animated-sprites.md) (ADR 0223).
+
+## Tile maps
+
+`TileMapLayer` paints cells of a `TileSet` (atlas sources cut by `SpriteSheetGrid`, collision polygons, custom data),
+stored, drawn and collided in chunks: a chunk is a sub-item per z (or per row when y-sorted), rebuilt only when one of
+its cells changes, so a layer using one atlas draws in about one batch. See [Tile maps](tile-maps.md) (ADR 0225).
 
 ## Particles
 

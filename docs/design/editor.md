@@ -138,7 +138,8 @@ flowchart TB
   written atomically; unreadable, newer or nonsensical files fall back to defaults).
 - **Bottom dock tabs** (G10): the Output and Profiler panels share the output rectangle; an **Output | Profiler** tab
   strip in each one's header switches them (`BottomDockTab`, `EditorWorkspace.ShowBottomTab`; the active tab persists
-  with the layout as `BottomTab`). There is no new layout rectangle.
+  with the layout as `BottomTab`). There is no new layout rectangle. G2b adds the contextual **TileMap** and **TileSet**
+  tabs (one `TileMapPanel`, `tilemap.rml`) while a tile map layer or tile set is edited; they are never persisted.
 - **Lists are data-bound** (no work on idle frames); the inspector is generated RML updated in place (see below).
 - The F12 developer overlay ([Developer overlay](dev-overlay.md)) is off by default in the editor; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
 
@@ -447,8 +448,14 @@ Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plan
 3D View switches any tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)). Middle or right drag (or Alt+left)
 pans, the wheel zooms around the mouse, F frames the selection. A pixel grid (power-of-two steps at least 16 screen
 pixels apart, every 8th brighter, coloured axes), Node2D markers, collision shape outlines and Camera2D frames are
-drawn. Picking is on the CPU (rectangle and circle shapes, then node origins, then the drawn rects of `Sprite2D`s and
-`AnimatedSprite2D`s; later nodes are on top).
+drawn. Picking is on the CPU (rectangle and circle shapes, then node origins, then painted cells of `TileMapLayer`s,
+then the drawn rects of `Sprite2D`s and `AnimatedSprite2D`s; later nodes are on top).
+**Tile maps** (G2b, ADR 0226): while the selection is a `TileMapLayer` with a `TileSet`, a paint bar overlays the top of
+the view (select, paint, line, rect, bucket, picker, eraser; random scatter, flips and turns, layer switcher, highlight,
+grid), the left button paints and the right button erases with the tool (one undo entry per stroke), a ghost of the
+brush follows the mouse, Godot's tile keys win over E/R only while a paint tool is active, and the contextual
+**TileMap** (palette) and **TileSet** (sources, tiles, tile data, collision) bottom tabs appear: [Tile maps →
+Editor](tile-maps.md#editor).
 `TransformGizmo2D` (axis arrows and a free-move square, a rotation ring, scale handles) shares the tool, space and snap
 settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. 2D tabs render through
 the canvas renderer (sprites, Spine, custom drawing, shaders) with the editor's shapes, markers and camera frames on top.

@@ -2,7 +2,7 @@
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G3) · **Status:** 🚧 G3.1–G3.5 shipped, see
 [Navigation](../navigation.md); G3.6 waits for tile maps (G2b), G3.7–G3.12 planned ·
-**Depends on:** [2D content](2d-content.md) (G2b: `TileMapLayer`), [Navigation](../navigation.md) (the shipped core)
+**Depends on:** [Tile maps](../tile-maps.md) (G2b: `TileMapLayer`), [Navigation](../navigation.md) (the shipped core)
 · **Related:** [Networking](../networking.md), [Mobile](mobile.md) (AOT)
 
 The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (physics bake), `NavigationAgent2D`, the
@@ -13,7 +13,7 @@ proposal keeps what is left: the tile map source and the later phases.
 
 ### G3.6 TileMapLayer source (with G2b)
 
-[2D content](2d-content.md) (G2b) adds `TileSet`/`TileMapLayer` and reserves this hook ("Navigation hook (G3)"
+[Tile maps](../tile-maps.md) (G2b) adds `TileSet`/`TileMapLayer` and reserves this hook ("Navigation hook (G3)"
 there): navigation reads a layer only through its public API (`GetUsedCells`, `GetUsedRect`, `GetCellTileData`,
 `MapToLocal`, `TileSet.TileSize`, the `Changed` signal) and G2 adds no navigation fields. With
 `Source = TileMapLayer` the grid:
@@ -118,4 +118,6 @@ grids stay axis-aligned; no cell painting in the editor yet; Godot's pixel defau
 
 - [Navigation](../navigation.md) (current state), [Physics](../physics.md), [Networking](../networking.md),
   [Dev overlay](../dev-overlay.md), [Editor](../editor.md), [Demo](../demo.md)
-- Gameplay toolkit siblings: [2D content](2d-content.md) (G2), [Keyframe animation](keyframe-animation.md) (G1)
+- Gameplay toolkit siblings: [Tile maps](../tile-maps.md) (G2), [Editor viewport tools](../editor.md#viewport-tools)
+  (G7), [Save games and settings](save-and-settings.md) (G4: agents hold no saved state; save the target),
+  [Keyframe animation](keyframe-animation.md) (G1)

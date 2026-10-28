@@ -46,6 +46,7 @@ public partial class DirectionalLight3D : Light3D   // `partial` is not required
 - Hints: `Range = "min,max[,step]"`, `File = "*.png,*.jpg"`, `Directory`, `Multiline`, `Flags`,
   `NodeType` (for `NodePath`), `Translatable` (player-facing text on `string`/`string[]`/`List<string>`: extracted by
   `mf-l10n`, shown with `Node.Atr`, stored as source text; see [Localization](localization.md#scene-strings)).
+  `Storage` saves a member without an inspector row (Godot's `PROPERTY_USAGE_STORAGE`: `TileMapLayer.TileMapData`).
   `Handle = HandleHint.Radius|Length` on a `float` gives game nodes a stock viewport handle in the editor (a radius around
   the origin or a length along the forward axis, clamped to `Range`; [Editor](editor.md#range-handles-and-the-handle-api)).
   `[ExportGroup("Name")]` starts an inspector group for this and the following members (empty name ends it).
@@ -195,7 +196,8 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
 - Written with `Utf8JsonWriter` (UTF-8, non-ASCII unescaped), then laid out by `SceneJsonLayout`
   (`SceneFormat.FormatJson`): two-space indent and `\n` on every OS, one member per line, except arrays of up to 16
   scalars (vectors, colours, transforms, group names) and resource references (`{ "res": "…" }`), which stay on one
-  line. Read with `JsonDocument` (comments and trailing commas tolerated for hand edits). The `.meta` sidecars and the
+  line. An array holding a string longer than 64 characters (a `TileMapLayer`'s base64 chunk lines,
+  [Tile maps](tile-maps.md#serialization-one-base64-line-per-chunk)) gets one element per line. Read with `JsonDocument` (comments and trailing commas tolerated for hand edits). The `.meta` sidecars and the
   runtime index use a source-generated `JsonSerializerContext`.
 - **Only non-default values are written**: a property is skipped when it equals the type's
   `DefaultInstance` (codec equality; resources by reference).
