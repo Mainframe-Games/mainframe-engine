@@ -27,12 +27,13 @@
   </PropertyGroup>
 
   <!-- The first "name", "icon" and "version" strings in the file: the top-level name and version (written before every
-       section) and window.icon (the only "icon" key). JSON escapes are not decoded. The file is read per use, like isDemo
+       section) and window.icon (the only "icon" key before the "export" presets, which have icons and versions of their
+       own and are written last, so the icon and version searches stop there). JSON escapes are not decoded. The file is read per use, like isDemo
        above: a value in a property would need quoting in property functions, which a name with an apostrophe breaks. -->
   <PropertyGroup Condition="'$(MainframeProjectFile)' != '' and Exists('$(MainframeProjectFile)')">
     <MainframeAppName Condition="'$(MainframeAppName)' == '' and $([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;name&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;name&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</MainframeAppName>
-    <_MainframeAppIcon Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;icon&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;icon&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppIcon>
-    <_MainframeAppVersion Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;version&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;version&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppVersion>
+    <_MainframeAppIcon Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?s)^(?:(?!&quot;export&quot;\s*:).)*?&quot;icon&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?s)^(?:(?!&quot;export&quot;\s*:).)*?&quot;icon&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppIcon>
+    <_MainframeAppVersion Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?s)^(?:(?!&quot;export&quot;\s*:).)*?&quot;version&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?s)^(?:(?!&quot;export&quot;\s*:).)*?&quot;version&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppVersion>
     <MacAppDisplayName Condition="'$(MacAppDisplayName)' == ''">$(MainframeAppName)</MacAppDisplayName>
     <MacAppIcon Condition="'$(MacAppIcon)' == '' and '$(_MainframeAppIcon)' != ''">$([System.IO.Path]::GetDirectoryName('$(MainframeProjectFile)'))/$(_MainframeAppIcon)</MacAppIcon>
     <MacAppVersion Condition="'$(MacAppVersion)' == ''">$(_MainframeAppVersion)</MacAppVersion>

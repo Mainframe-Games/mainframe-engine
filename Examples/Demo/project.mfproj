@@ -1,5 +1,5 @@
 {
-  "format": 4,
+  "format": 5,
   "name": "Mainframe Demo",
   "userDataName": "MainframeDemo",
   "engineVersion": "0.0.0-dev",
@@ -25,5 +25,13 @@
   "localization": { "sourceLocale": "en", "fallbacks": [], "directory": "Assets/locale" },
   "rendering": { "shadows": "High" },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1280, 720], "matchWidthOrHeight": 1 },
-  "autoloads": [ { "name": "Nav", "type": "DemoNavLayer" } ]
+  "autoloads": [ { "name": "Nav", "type": "DemoNavLayer" } ],
+  "export": [
+    { "name": "Windows", "platform": "windows", "rid": "win-x64", "output": "export/windows" },
+    { "name": "macOS", "platform": "macos", "rid": "osx-arm64", "output": "export/macos", "bundleId": "com.mainframegames.demo",
+      "copyright": "© Mainframe Games" },
+    { "name": "Linux", "platform": "linux", "rid": "linux-x64", "output": "export/linux" },
+    { "name": "Linux server", "platform": "linux", "rid": "linux-x64", "output": "export/server", "archive": false, "exe": "MainframeDemoServer",
+      "exclude": ["Assets/**/*.po", "Assets/**/*.pot", "Assets/Music/**"] }
+  ]
 }

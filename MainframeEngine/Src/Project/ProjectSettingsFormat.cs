@@ -17,7 +17,7 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 4;
+    public const int Current = 5;
 
     /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
     public static IReadOnlyList<ProjectMigration> Migrations { get; } =
@@ -45,6 +45,10 @@ public static class ProjectSettingsFormat
         // 3 → 4: the content folder is "Assets/", no longer "Content/" (ADR 0197). Every "Content/…" path value moves;
         // the editor renames the folder itself (a game build only reads the file).
         new(3, static root => UpgradeLegacyPaths(root)),
+
+        // 4 → 5: the "export" section (G5, ADR 0229). Nothing moves; the bump makes an older editor reject the file
+        // ("Update the engine.") instead of reading it, dropping the presets it does not model and deleting them on save.
+        new(4, static _ => { }),
     ];
 
     private static void UpgradeLegacyPaths(JsonNode? node)
@@ -166,6 +170,7 @@ public static class ProjectSettingsFormat
             WriteCrash(w, settings.Crash);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
+            WriteExport(w, settings.ExportPresets);
             w.WriteEndObject();
         }
 
@@ -528,6 +533,70 @@ public static class ProjectSettingsFormat
         w.WriteEndArray();
     }
 
+    private static void WriteExport(Utf8JsonWriter w, List<ExportPreset> presets)
+    {
+        if (presets.Count == 0)
+            return;
+        w.WriteStartArray("export");
+        foreach (var p in presets)
+        {
+            w.WriteStartObject();
+            w.WriteString("name", p.Name);
+            w.WriteString("platform", ExportPreset.PlatformKey(p.Platform));
+            var desktop = p.Options as DesktopExportOptions;
+            if (desktop is { Rid.Length: > 0 })
+                w.WriteString("rid", desktop.Rid);
+            if (p.Output is not null)
+                w.WriteString("output", p.Output);
+            if (p.Configuration != "Release")
+                w.WriteString("configuration", p.Configuration);
+            if (p.Demo)
+                w.WriteBoolean("demo", true);
+            if (p.Version.Length > 0)
+                w.WriteString("version", p.Version);
+            if (p.Icon.Length > 0)
+                w.WriteString("icon", p.Icon);
+            if (!p.Archive)
+                w.WriteBoolean("archive", false);
+            if (!p.Include.SequenceEqual(ExportPreset.DefaultInclude))
+                WriteStrings(w, "include", p.Include);
+            if (!p.Exclude.SequenceEqual(ExportPreset.DefaultExclude))
+                WriteStrings(w, "exclude", p.Exclude);
+            if (desktop is not null)
+            {
+                if (desktop.Steam)
+                    w.WriteBoolean("steam", true);
+                if (desktop.Exe.Length > 0)
+                    w.WriteString("exe", desktop.Exe);
+                if (!desktop.SelfContained)
+                    w.WriteBoolean("selfContained", false);
+                if (!desktop.ReadyToRun)
+                    w.WriteBoolean("readyToRun", false);
+                if (desktop.SingleFile)
+                    w.WriteBoolean("singleFile", true);
+                if (desktop.Trim)
+                    w.WriteBoolean("trim", true);
+                if (desktop.Symbols == ExportSymbols.Separate)
+                    w.WriteString("symbols", "separate");
+                if (desktop.MacOs is { } mac)
+                {
+                    if (mac.BundleId.Length > 0)
+                        w.WriteString("bundleId", mac.BundleId);
+                    if (mac.Copyright.Length > 0)
+                        w.WriteString("copyright", mac.Copyright);
+                    if (mac.Sign.Length > 0)
+                        w.WriteString("sign", mac.Sign);
+                    if (mac.NotaryProfile.Length > 0)
+                        w.WriteString("notaryProfile", mac.NotaryProfile);
+                }
+            }
+
+            w.WriteEndObject();
+        }
+
+        w.WriteEndArray();
+    }
+
     private static void WriteStrings(Utf8JsonWriter w, string name, List<string> values)
     {
         w.WriteStartArray(name);
@@ -554,7 +623,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "loading", "saves", "crash", "autoloads", "playInstances");
+                "audio", "localization", "rendering", "ui", "loading", "saves", "crash", "autoloads", "playInstances", "export");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -590,6 +659,8 @@ public static class ProjectSettingsFormat
                 ReadAutoloads(autoloads, s.Autoloads);
             if (Array(root, "playInstances", "playInstances") is { } instances)
                 ReadPlayInstances(instances, s.PlayInstances);
+            if (Array(root, "export", "export") is { } export)
+                ReadExport(export, s.ExportPresets);
             return s;
         }
 
@@ -881,6 +952,87 @@ public static class ProjectSettingsFormat
                 var instance = new PlayInstanceSettings { Label = label, DelaySeconds = Math.Clamp(Float(o, "delay", where + ".delay", 0f), 0f, 600f) };
                 instance.Arguments.AddRange(Strings(o, "args", where + ".args"));
                 instances.Add(instance);
+            }
+        }
+
+        // The keys every preset may have, then the desktop and macOS ones (an Android key on a Windows preset warns).
+        private static readonly string[] CommonExportKeys =
+            ["name", "platform", "output", "configuration", "demo", "version", "icon", "archive", "include", "exclude"];
+
+        private static readonly string[] DesktopExportKeys = ["rid", "steam", "exe", "selfContained", "readyToRun", "singleFile", "trim", "symbols"];
+
+        private static readonly string[] MacOsExportKeys = ["bundleId", "copyright", "sign", "notaryProfile"];
+
+        private void ReadExport(JsonArray array, List<ExportPreset> presets)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < array.Count; i++)
+            {
+                var where = $"export[{i.ToString(CultureInfo.InvariantCulture)}]";
+                if (array[i] is not JsonObject o)
+                    throw Error(where, "must be an object");
+                var name = String(o, "name", where + ".name");
+                if (string.IsNullOrWhiteSpace(name))
+                    throw Error(where + ".name", "must not be empty");
+                if (!names.Add(name))
+                    throw Error(where + ".name", $"'{name}' is used by another preset");
+                var platformText = String(o, "platform", where + ".platform")
+                                   ?? throw Error(where + ".platform", "is required (\"windows\", \"macos\" or \"linux\")");
+                if (!ExportPreset.TryParsePlatform(platformText, out var platform))
+                    throw Error(where + ".platform", $"'{platformText}' is not \"windows\", \"macos\" or \"linux\" (update the engine for other platforms)");
+
+                List<string> known = [.. CommonExportKeys, .. DesktopExportKeys];
+                if (platform == ExportPlatform.MacOS)
+                    known.AddRange(MacOsExportKeys);
+                Known(o, where + ".", [.. known]);
+
+                var preset = ExportPreset.Create(name, platform);
+                preset.Output = String(o, "output", where + ".output");
+                if (String(o, "configuration", where + ".configuration") is { } configuration)
+                    Guard(where + ".configuration", () => preset.Configuration = configuration);
+                preset.Demo = Bool(o, "demo", where + ".demo", false);
+                preset.Version = String(o, "version", where + ".version") ?? "";
+                preset.Icon = String(o, "icon", where + ".icon") ?? "";
+                preset.Archive = Bool(o, "archive", where + ".archive", true);
+                if (o.ContainsKey("include"))
+                {
+                    preset.Include.Clear();
+                    preset.Include.AddRange(Strings(o, "include", where + ".include"));
+                }
+
+                if (o.ContainsKey("exclude"))
+                {
+                    preset.Exclude.Clear();
+                    preset.Exclude.AddRange(Strings(o, "exclude", where + ".exclude"));
+                }
+
+                var desktop = preset.Desktop;
+                desktop.Rid = String(o, "rid", where + ".rid") ?? "";
+                desktop.Steam = Bool(o, "steam", where + ".steam", false);
+                desktop.Exe = String(o, "exe", where + ".exe") ?? "";
+                desktop.SelfContained = Bool(o, "selfContained", where + ".selfContained", true);
+                desktop.ReadyToRun = Bool(o, "readyToRun", where + ".readyToRun", true);
+                desktop.SingleFile = Bool(o, "singleFile", where + ".singleFile", false);
+                desktop.Trim = Bool(o, "trim", where + ".trim", false);
+                if (String(o, "symbols", where + ".symbols") is { } symbols)
+                {
+                    desktop.Symbols = symbols switch
+                    {
+                        "ship" => ExportSymbols.Ship,
+                        "separate" => ExportSymbols.Separate,
+                        _ => throw Error(where + ".symbols", $"'{symbols}' is not \"ship\" or \"separate\""),
+                    };
+                }
+
+                if (desktop.MacOs is { } mac)
+                {
+                    mac.BundleId = String(o, "bundleId", where + ".bundleId") ?? "";
+                    mac.Copyright = String(o, "copyright", where + ".copyright") ?? "";
+                    mac.Sign = String(o, "sign", where + ".sign") ?? "";
+                    mac.NotaryProfile = String(o, "notaryProfile", where + ".notaryProfile") ?? "";
+                }
+
+                presets.Add(preset);
             }
         }
 

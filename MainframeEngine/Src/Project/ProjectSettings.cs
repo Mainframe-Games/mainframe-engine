@@ -115,6 +115,12 @@ public sealed class ProjectSettings
     /// </summary>
     public List<PlayInstanceSettings> PlayInstances { get; } = [];
 
+    /// <summary>
+    /// The <c>export</c> section: presets for the editor's File › Export, <c>mf-export</c> and (M12.7) mobile exports
+    /// (docs/design/game-export.md). Names are unique. Exported builds carry none.
+    /// </summary>
+    public List<ExportPreset> ExportPresets { get; } = [];
+
     /// <summary>The file these settings were loaded from or last saved to (null for in-memory settings).</summary>
     public string? FilePath { get; internal set; }
 
