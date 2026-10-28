@@ -57,7 +57,7 @@ commas tolerated). Only values that differ from the defaults are written, except
 
 ```jsonc
 {
-  "format": 4,
+  "format": 5,
   "name": "Space Game",
   "engineVersion": "0.4.2",                    // the engine the project was created with / upgraded to
   "userDataName": "SpaceGame",                 // the user data folder's name (default: name); keep it stable
@@ -90,10 +90,11 @@ commas tolerated). Only values that differ from the defaults are written, except
 }
 ```
 
-- **Versioning.** `format` is `ProjectSettingsFormat.Current` (4; format 1 had a top-level `steamAppId`, which the
+- **Versioning.** `format` is `ProjectSettingsFormat.Current` (5; format 1 had a top-level `steamAppId`, which the
   1 → 2 migration moves to `steam.appId`; the 2 → 3 migration writes `ui.scaleMode: "ConstantPixelSize"` into projects
   that have none, so their UI keeps its size; the 3 → 4 migration moves every `Content/…` path value to `Assets/…`,
-  the content folder's new name, ADR 0197). Older files run through `ProjectMigration` steps
+  the content folder's new name, ADR 0197; the 4 → 5 step changes nothing: it guards the `export` presets from older
+  editors, ADR 0229). Older files run through `ProjectMigration` steps
   (`From` → `From + 1`, each editing the `JsonObject`) before they are read; newer files are rejected ("update the
   engine"). `engineVersion` is advisory: `GameHost` warns when its major/minor differs from `EngineInfo.Version`
   (development builds `0.0.0-*` never warn).
@@ -133,6 +134,11 @@ commas tolerated). Only values that differ from the defaults are written, except
   `thumbnails` (default false; true makes `ToEngineOptions` turn on `EngineOptions.EnableFrameCapture`, which slows some
   drivers, so it is opt-in) and `thumbnail.width`/`height` (default 320×180). `SaveOptions.FromProject` reads them.
   Optional keys, no migration.
+- **Export presets** (`export`, G5; [Game export](game-export.md#preset-schema-projectmfproj--export)): an array of
+  `ExportPreset`s for File › Export and `mf-export` (`name`, `platform`, `rid`, `output`, `configuration`, `demo`,
+  `steam`, `version`, `icon`, publish options, `include`/`exclude` globs, macOS signing). Format 5 added the section;
+  the step 4 → 5 changes nothing, it only makes an older editor refuse the file instead of dropping the presets on save.
+  Exported builds carry no presets.
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.
 - **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the
@@ -167,8 +173,9 @@ commas tolerated). Only values that differ from the defaults are written, except
   `MacAppDisplayName`, `MacAppIcon` and `MacAppVersion`: the macOS development bundle `bin/<cfg>/net10.0/<name>.app`,
   `Product` and the executable's `AssemblyTitle` (Windows file description). Desktop projects override them (an `.icns`
   on Apple's icon grid in `MacAppIcon`, an `.ico` in `ApplicationIcon`).
-- **Packaging.** `build/package-game.sh` names the `.app` and the executable from `name` and takes the icon from
-  `window.icon` ([Release → Games](release.md#games)).
+- **Exports.** [Game export](game-export.md) names the `.app` and the executable from `name` and takes the icon from
+  `window.icon` unless a preset sets its own ([Release → Games](release.md#games)). The props' searches for `window.icon`
+  and `version` stop at the `export` section, whose presets have icons and versions of their own.
 
 Renaming a game moves its user data folder (settings, saves, logs) with it unless `userDataName` pins the folder's
 name (new projects set it). The editor's Project Settings already edit `name` and `window.icon`.
@@ -188,6 +195,9 @@ name (new projects set it). The editor's Project Settings already edit `name` an
   `GameHost.Run` sets `ProjectSettings.IsDemo` from it (`GameHost.BuiltAsDemo`; the entry assembly first), so the
   running game agrees with how it was compiled even when `-p:MainframeDemo` differs from the copied project file.
   `GameHost.IsDemo` is the runtime check; Steam starts with the demo app id; the log says `Demo build (Steam app N)`.
+- **Exports.** An export preset's `demo` passes `-p:MainframeDemo=true|false` and writes `isDemo` into the exported
+  `project.mfproj`, so one project ships the full game and its demo with no manual edit (two presets, e.g. "Windows
+  (Steam)" and "Windows (Steam demo)"; [Game export](game-export.md)).
 - The editor builds and loads the game with the project's `isDemo`; save the setting and Play (or Build & Reload) to
   switch. Projects created before `MainframeGame.props` add the import to their `Directory.Build.props` by hand.
 

@@ -293,8 +293,9 @@ runs log the pending reports instead.
 ## Symbols
 
 - **Managed:** portable PDBs stay next to the assemblies in editor releases and game packages (ADR 0222).
-  `build/package-game.sh --symbols separate` moves them, with their assemblies, into `<exe>-<version>-<rid>-symbols.zip`
-  (`build/collect-symbols.sh`; G5's editor export will offer the same as `"symbols": "ship" | "separate"`).
+  An export preset's `"symbols": "separate"` ([Game export](game-export.md); `mf-export --symbols separate`) moves them,
+  with their assemblies, into `<exe>-<version>-<rid>-symbols.zip` (`SymbolCollector`, the C# twin of
+  `build/collect-symbols.sh`, which the editor's release keeps using).
   `mf-symbolicate <report.json> --symbols <folder> [--out <file>]` matches each frame's module MVID to an assembly in the
   folder and maps its method token and IL offset to the sequence point at or before it.
 - **Commit:** `EngineInfo.Commit` reads the `+<sha>` SourceLink adds to the informational version (8 digits; null
@@ -381,8 +382,8 @@ gate (`SceneTreeAllocationTests`) and the render tests' allocation gates stay at
 - **`Engine.Run`/`Dispose`** learned that a run ended with an exception (Silk.NET's dispose would throw over it).
 - **Crash tests live in `MainframeEngine.Tests`** (`Crash/`) with a fixture game project, not a separate test project.
 - **Natives:** the workflow builds and splits symbols, but the committed binaries are unchanged until `natives.yml`
-  runs, and `natives.lock` does not record symbols. **G5's `symbols` option** exists as `package-game.sh --symbols`
-  until the editor's export lands.
+  runs, and `natives.lock` does not record symbols. **G5's `symbols` option** shipped as the export preset key
+  `symbols` ([Game export](game-export.md)).
 
 ## Related
 
@@ -392,4 +393,4 @@ gate (`SceneTreeAllocationTests`) and the render tests' allocation gates stay at
 - [Mobile services](future/mobile-services.md#analytics-and-crash-reporting) (M13): layer 1, Sentry native SDKs
 - [Consoles](future/consoles.md): the plumbing checklist (no processes or HTTP in runtime code)
 - Gameplay toolkit siblings: [Save games and settings](future/save-and-settings.md) (G4: `UserSettings`),
-  [Game export](future/game-export.md) (G5: symbols), [Profiler](profiler.md) (G10: GPU zones per pass)
+  [Game export](game-export.md) (G5: symbols), [Profiler](profiler.md) (G10: GPU zones per pass)

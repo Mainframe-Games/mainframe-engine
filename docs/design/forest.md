@@ -61,7 +61,7 @@ The app is **Forest Demo** ([ADR 0182](../../memory/decisions/0182-game-app-name
 fresh once). On macOS `just forest` runs `bin/Release/net10.0/Forest Demo.app/Contents/MacOS/Forest.Desktop`, so the
 Dock, the app menu and Cmd+Tab say Forest Demo with the Forest icon; on Windows the exe's file description and product
 name are Forest Demo and it carries `forest.ico`. The assembly stays `Forest.Desktop` (the scripts and tests run
-`Forest.Desktop.dll`). `build/package-game.sh` makes `Forest Demo.app` / `ForestDemo.exe`.
+`Forest.Desktop.dll`). An export (`just package-game`, `mf-export`; [Game export](game-export.md)) makes `Forest Demo.app` / `ForestDemo.exe`.
 
 The icon, in the Mainframe brand family (the C3 logo's rounded tile and amber): a backlit spruce against a warm haze
 with light shafts, a misty far ridge of hazy pines, darker near pines and the valley floor. Sources in

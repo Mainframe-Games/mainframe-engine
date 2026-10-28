@@ -112,7 +112,7 @@ flowchart TB
 
 | Panel | Document | What it does |
 |---|---|---|
-| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid, Switch to Video Mode), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Play and Record / Start Recording / Stop Recording, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right. Video mode has its own tables: File, Edit, View, Video, Help ([Editor modes](#editor-modes)) |
+| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Export…, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid, Switch to Video Mode), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Play and Record / Start Recording / Stop Recording, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right. Video mode has its own tables: File, Edit, View, Video, Help ([Editor modes](#editor-modes)) |
 | Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Pivot (median `point`, active `target`, individual `circles`; click cycles), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles), Visible Navigation (route); Simulate (Alt+F6, `atom`; `player-stop` while it runs) and Pause Simulation; the play group — Play (F5), Play Scene (F6), Play and Record (F10, a red `point-filled` icon that is highlighted red (dark red fill, red border, white icon) while recording; its tooltip names what F10 does now), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload/recording status (a red dot and `REC m:ss` while recording, `Saving recording…` while the file is finalised); on the right the Game\|Video mode toggle, Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout. Video mode swaps the left groups for the video toolbar ([Editor modes](#editor-modes)) |
 | Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); a lock (shown on hover, amber when locked: the viewport cannot pick, box-select or move the node; undoable) and an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
@@ -145,7 +145,8 @@ flowchart TB
 ### Keyboard shortcuts
 
 Cmd (macOS) or Ctrl: N new · O open · S save · Shift+S save as · W close tab · Q quit · Z undo · Shift+Z / Y redo ·
-D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload. Plain keys:
+D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload · Shift+E File ›
+Export. Plain keys:
 Delete/Backspace delete, F1 documentation (the [docs site](docs-site.md) in the browser), F2 rename, F frame, G grid,
 Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5 play (Shift+F5 another instance), F6 play the open
 scene, Alt+F6 simulate / stop ([Simulate](#simulate)), F7 pause/resume, F8 stop, F9 RmlUi debugger, F10 play and record
@@ -737,6 +738,9 @@ link ([Project & game host](project-and-gamehost.md)).
 | Reload Scene in Game | Run menu, instance menu | the game re-reads its current scene from disk |
 | Build & Reload | Ctrl/Cmd+Shift+B | build, then reload the editor's game code |
 
+While an [export](#export) runs, Play, Play Scene and Build & Reload are disabled (their tooltips say why); an export
+started during a Play or Build & Reload build waits for it.
+
 - **Arguments:** host flags from a request come before `--editor-port`/`--scene`; anything from `++` on (the game's own) after them. Every launch passes `--frame-capture` just before `--editor-port`, so recording can start mid-session.
 - Before a code reload `ReleaseEditorReferences` also clears the canvas server's last frame and its per-node targets (`CanvasServer.ReleaseSceneReferences`), which would otherwise keep the 2D tabs' game nodes alive.
 - **Build errors** (`GameBuilder`: `-v:minimal -p:GenerateFullPaths=true`) are parsed into Output lines of category
@@ -766,6 +770,45 @@ link ([Project & game host](project-and-gamehost.md)).
   streams `ProfileMarkers`, `ProfileFrame` and `ProfileDropped` messages, which `PlayService` hands to the panel. A game
   built against an engine older than protocol 5 (`PlayInstance.CanProfile`) cannot stream, and Record says so. See
   [Profiler → Editor link messages](profiler.md#editor-link-messages).
+
+## Export
+
+(G5, [Game export](game-export.md), [ADR 0229](../../memory/decisions/0229-export-runner-in-csharp.md)) **File ›
+Export…** (`file.export`, Ctrl/Cmd+Shift+E, icon `package-export`; enabled when the project has a desktop project)
+opens the Export dialog on the project's `export` presets. The export itself is the shared `ExportRunner`
+(`Tools/MainframeEngine.Export`), the same as `mf-export`'s.
+
+![Export dialog](../images/editor-export.png)
+
+- **Dialog** (`ExportDialog`, `Assets/Editor/export.rml`, an `EditorDocument` like Project Settings):
+  - the presets on the left with a platform glyph (`brand-windows`, `brand-apple`, `brand-ubuntu`), the target RID and a
+    validation badge (errors, warnings, ready); icon buttons with tooltips: **Add Preset** (a popup of platforms, this
+    machine's first with its RID; Android and iOS listed, disabled until M12.7), **Duplicate**, **Delete** (confirmed);
+  - the selected preset's options in the schema's order, grouped General, Build, Steam (the effective app id read-only
+    and an icon button to Project Settings › Steamworks), Icon (browse, preview), macOS (macOS presets), Content
+    (include/exclude globs as chips with an add field);
+  - the validation under the options: each issue's code, message and fix, some with a fix button (Steamworks, pick an
+    icon);
+  - progress: a bar, `Exporting 2/5 · <preset> · <phase>`, the last log lines, then the run's results with Show in
+    Finder/Explorer;
+  - undo/redo of its own (Cmd/Ctrl+Z inside the dialog), Save, Close (asks about unsaved edits; so does quitting);
+    **Export** and **Export All** keep text labels with icons; **Cancel Export** is an icon button (`player-stop`).
+    Export saves the presets and every scene first and does not start if a save fails. The dialog may be closed while
+    an export runs.
+  - Edits go through an `ExportPresetsModel` over a `ProjectSettingsModel` (snapshots of the whole project file).
+- **`ExportService`** (`Src/Export/ExportService.cs`) follows `PlayService`'s threading: the runner works on the thread
+  pool, its progress and lines are only queued, and `Update()` (main thread, once per frame) raises `Changed`, `Line`
+  and `Finished`; an idle `Update` allocates nothing. One pipeline at a time. The .NET SDK check runs once, on first use.
+  Tests pass an `IExportRunner` through `EditorWorkspaceOptions.ExportRunner`.
+- **Toolbar**: a chip with the status while an export runs (click: the dialog).
+- **Output**: lines as `[export] …` (category `export`, icon `package-export`); compiler and MSBuild diagnostics are
+  added once, parsed, when a preset finishes, with file and line (click opens the code editor); one result line per
+  preset and the Export All tally.
+- **Headless**: `MainframeEngine.Editor --project <dir> --export-release "<preset>" [<out>]`, `--export-debug
+  "<preset>" [<out>]` and `--export-all` run `ExportCli` from `Program.cs` before an `EditorApp` exists (no window, SDL
+  or engine; exit 0/1/2).
+- **QA**: `export open|close|select N|add <platform|host>|set <key> <value>|exclude <glob>|run|run-all|cancel` and
+  `wait-for exported`; `Tests/QA/export.qa` (`just qa-export`).
 
 ## UI preview
 

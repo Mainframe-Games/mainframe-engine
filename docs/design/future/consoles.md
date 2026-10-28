@@ -274,7 +274,7 @@ requirements added (recorded in the M11 doc):
 ### Editor and tooling
 
 - No console UI in the public editor. The private repositories ship command-line build/deploy recipes first.
-- Later, [G5 export presets](game-export.md) gain an extension point: an export-target plugin assembly (loaded by the
+- Later, [G5 export presets](../game-export.md) gain an extension point: an export-target plugin assembly (loaded by the
   editor only when present) adds `xbox`/`ps5` presets, without the public editor knowing about consoles.
 - Remote logs and play control reuse the [editor link](../project-and-gamehost.md#editor-link) over the kit's network.
 
@@ -414,6 +414,6 @@ Decided by the user on 2026-10-08 and recorded in [ADR 0143](../../../memory/dec
 
 [Milestones](../../milestones.md) · [Rendering backend abstraction (M11)](rendering-backend-abstraction.md) ·
 [Mobile core (M12)](mobile.md) · [Mobile services (M13)](mobile-services.md) · [Save games and settings](save-and-settings.md) ·
-[Game export](game-export.md) · [Vulkan renderer](../vulkan-renderer.md) · [Shaders](../shaders.md) ·
+[Game export](../game-export.md) · [Vulkan renderer](../vulkan-renderer.md) · [Shaders](../shaders.md) ·
 [Audio](../audio.md) · [Networking](../networking.md) · [Game UI](../game-ui.md) · [Native libraries](../natives.md) ·
 [ADR 0143](../../../memory/decisions/0143-console-strategy.md)

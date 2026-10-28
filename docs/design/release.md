@@ -59,8 +59,8 @@ flowchart LR
 - **Symbols** (G15.8, [Crash reporting](crash-reporting.md#symbols)). The editor keeps its PDBs next to its assemblies
   (crash reports get file and line). Each build leg also collects them with their assemblies
   ([`build/collect-symbols.sh`](../../build/collect-symbols.sh)), and the release attaches
-  `MainframeEngine-<version>-symbols.zip`, what `mf-symbolicate` reads. Games choose with `build/package-game.sh
-  --symbols ship|separate` (`separate`: a `<exe>-<version>-<rid>-symbols.zip` beside the package, PDBs out of it).
+  `MainframeEngine-<version>-symbols.zip`, what `mf-symbolicate` reads. Games choose with an export preset's `symbols`
+  (`ship` or `separate`: a `<exe>-<version>-<rid>-symbols.zip` beside the export, PDBs out of it; [Game export](game-export.md)).
 - **Artifacts.** Self-contained, ReadyToRun editor builds, packaged by
   [`build/package-editor.sh`](../../build/package-editor.sh):
   `MainframeEditor-X.Y.Z-osx-arm64.tar.gz` (`Mainframe Editor.app` in the [macOS bundle layout](#macos-bundle-layout),
@@ -173,7 +173,7 @@ Windows and Linux. The template smoke test (`just template-smoke`) checks `Smoke
 
 ## macOS bundle layout
 
-Both release bundles, a game's `<Name>.app` ([`build/package-game.sh`](../../build/package-game.sh)) and
+Both release bundles, a game's `<Name>.app` (the [export](game-export.md)'s `AppBundleWriter`) and
 `Mainframe Editor.app` ([`build/package-editor.sh`](../../build/package-editor.sh)), pass
 `codesign --verify --deep --strict` (issue #105) with this layout:
 
@@ -198,52 +198,61 @@ the editor's project) rewrites the published apphost with the SDK's own `CreateA
 on any OS) as "`../MonoBundle/<assembly>.dll`". The host resolves that path and takes its folder as the app's root, so
 `AppContext.BaseDirectory` is `Contents/MonoBundle/` and everything resolved against it works unchanged: `ContentPaths`,
 `SilkNativeResolver`, `VulkanLoaderBootstrap` (MoltenVK), `mfrmlui`/`enet` (`DllImport`, the app folder is a native
-search directory), `SteamworksLoader` (`steamworks/posix/`), `ModelImporter` (assimp). `package-game.sh` passes the
+search directory), `SteamworksLoader` (`steamworks/posix/`), `ModelImporter` (assimp). The export passes the
 property for osx RIDs; the editor's project sets it, so any osx publish of the editor is for the bundle (its folder does
 not start on its own). No symlink is involved: an earlier layout reached `Contents/Resources/<assembly>.dll` through a
 `Contents/MacOS` symlink, which breaks if a copy dereferences it (some archivers and uploaders do).
 
-Signing ([`build/macos/sign-app.sh`](../../build/macos/sign-app.sh), shared by both scripts) goes inside out and never
+Signing ([`build/macos/sign-app.sh`](../../build/macos/sign-app.sh) for the editor; its C# twin `MacSigner` in the
+[export](game-export.md) for games) goes inside out and never
 uses `--deep`: every Mach-O except the main executable, deepest first, then the bundle (which signs the apphost and seals
 the rest), then `codesign --verify --deep --strict --verbose=2`. Ad hoc by default (Apple Silicon refuses unsigned code;
 no hardened runtime). With a Developer ID every Mach-O gets the hardened runtime and a secure timestamp; the main
 executable the .NET entitlements (`allow-jit`, `allow-unsigned-executable-memory`, `disable-library-validation`), and
 a `--helper` its own (the editor's `mfplughost`: `build/macos/mfplughost.entitlements`). On Linux and Windows there is
-no `codesign`: the package is built but left unsigned (a warning), so sign macOS packages on a Mac.
+no `codesign`: the editor package is built but left unsigned (a warning), and a game's macOS preset does not validate
+(`host-unsupported`), so build macOS packages on a Mac.
 
 ## Games
 
-`build/package-game.sh <Desktop.csproj> <rid> <out-dir> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]`
-(`just package-game`) packages a `GameHost` game for players: a self-contained, untrimmed Release `dotnet publish`
-for one RID (`project.mfproj` and `Assets/` ride along as the desktop project's copied items), the apphost renamed
-to the player-facing executable, and the engine's files for other platforms removed: the natives (`enet`, `mfrmlui`,
-`mfsvg`, Valve's `steam_api`) and the other `steamworks/{win64,posix}` folder (a checkout build copies every platform's;
-a package build with a RID has only its own). It fails if the publish output holds a `steam_appid.txt`: that file starts
-Steam outside the client and must never reach players. Then per platform:
+Games are exported from **export presets** in `project.mfproj` with one C# pipeline, `ExportRunner`
+([Game export](game-export.md)): the editor's **File › Export…**, `mf-export` (`just export --project <dir> --preset
+"<name>" | --all | --list`), the editor's `--export-release`/`--export-debug`/`--export-all` flags and CI all run it.
+`just package-game <Desktop.csproj> <rid> <out-dir> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]
+[--sign] [--notarize] [--demo] [--steam] [--symbols ship|separate]` keeps the old `build/package-game.sh` arguments
+(gone) as an unsaved preset.
+
+An export is a self-contained (by default), ReadyToRun, untrimmed `dotnet publish` for one RID with its intermediates
+under the project's `.mainframe/export/obj/<rid>-<full|demo>` (`--artifacts-path`, away from the editor's `bin/`/`obj/`),
+the apphost renamed to the player-facing executable, the engine's natives and `steamworks/` folder of other platforms
+removed, the game's `Assets/` filtered by the preset's globs, `Assets/assets.index.json` written, and a `project.mfproj`
+without presets (Steam's app ids zeroed when the preset has Steam off). It fails if the stage holds a `steam_appid.txt`.
+Then per platform:
 
 | RID | Output | Notes |
 |---|---|---|
-| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | the [macOS bundle layout](#macos-bundle-layout) (the apphost alone in `Contents/MacOS`, the rest of the publish in `Contents/MonoBundle`), which passes `codesign --verify --deep --strict`; Info.plist (name, bundle id, version, copyright, games category), the desktop project's `MacAppIcon` when it is an `.icns`, else `.icns` from the PNG (`build/macos/png-to-icns.sh`), in `Contents/Resources`; signed inside out, ad hoc by default (Apple Silicon refuses unsigned code). `--sign "Developer ID Application: …"` (or `MF_SIGN_IDENTITY`) signs each Mach-O and then the bundle with that identity, the hardened runtime, a timestamp and the .NET entitlements (JIT, unsigned executable memory, library validation off). `--notarize <profile>` (or `MF_NOTARY_PROFILE`, from `xcrun notarytool store-credentials`) then submits, staples and re-zips |
-| `win-*` | `<exe>-<version>-<rid>.zip` | a GUI-subsystem exe, so players get no console window (`-p:MainframeWindowsGui=true`: `MainframeGame.props` publishes the launcher as `WinExe`; `dotnet run` and dev builds keep the console); the desktop project's `ApplicationIcon`, else the exe icon from the PNG (`magick` → `.ico` → `ApplicationIcon`) |
-| `linux-*` | `<exe>-<version>-<rid>.tar.gz` | also the dedicated server (`<exe> --headless ++ …`, ADR 0120) |
+| `osx-*` | `<exe>-<version>-<rid>.zip` with `<Name>.app` | the [macOS bundle layout](#macos-bundle-layout) (the apphost alone in `Contents/MacOS`, the rest of the publish in `Contents/MonoBundle`), which passes `codesign --verify --deep --strict`; Info.plist (name, bundle id, version, copyright, games category), the desktop project's `MacAppIcon` when it is an `.icns`, else an `.icns` written in C# from the PNG, in `Contents/Resources`; signed inside out, ad hoc by default (Apple Silicon refuses unsigned code). A preset's `sign` (or `MF_SIGN_IDENTITY`) signs each Mach-O and then the bundle with that identity, the hardened runtime, a timestamp and the .NET entitlements; `notaryProfile` (or `MF_NOTARY_PROFILE`, from `xcrun notarytool store-credentials`) then submits, staples and re-zips. Needs a macOS host |
+| `win-*` | `<exe>-<version>-<rid>.zip` | a GUI-subsystem exe, so players get no console window (`-p:MainframeWindowsGui=true`: `MainframeGame.props` publishes the launcher as `WinExe`; `dotnet run` and dev builds keep the console); the desktop project's `ApplicationIcon`, else an `.ico` written in C# from the PNG. Works from any host |
+| `linux-*` | `<exe>-<version>-<rid>.tar.gz` | Unix modes set in the archive from any host; also the dedicated server (`<exe> --headless ++ …`, ADR 0120) |
 
-Defaults: name and version from `project.mfproj`, the exe from the name without spaces, the icon from `window.icon`.
-Cross-publishing works from any host (self-contained); the `.icns` and the signing (`codesign`) need macOS.
+`archive: false` leaves `<output>/<exe>-<version>-<rid>/` (a Steam depot's content root). `symbols: separate` writes
+`<exe>-<version>-<rid>-symbols.zip` beside it ([Crash reporting → Symbols](crash-reporting.md#symbols)). Defaults: the
+version from `project.mfproj` (else `0.0.0`), the exe from the name without spaces, the icon from `window.icon`. No
+external tools are needed for icons or archives (macOS still uses `codesign`, `ditto` and `xcrun`).
 
-Checkout and package games use the same script. `MainframeGame.props` (imported by checkout games, and by package games
-as `buildTransitive`) sets `MainframePackageGameScript` to the checkout's `build/package-game.sh` or the
-`MainframeEngine` package's `tools/package-game.sh` (with `tools/macos/png-to-icns.sh` and `sign-app.sh`; the package's
-`buildTransitive/macos/BundleAppHost.targets` writes the bundle apphost):
+Checkout and package games use the same exporter. `MainframeGame.props` (imported by checkout games, and by package games
+as `buildTransitive`) sets `MainframeExportTool`: the `MainframeEngine` package's `tools/mf-export/mf-export.dll`, or the
+checkout's `Tools/MainframeEngine.Export.Cli` project:
 
 ```bash
-script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"
-bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # also win-x64, linux-x64
+mf_export="$(dotnet msbuild MyGame.Desktop -getProperty:MainframeExportTool)"
+dotnet "$mf_export" --project . --preset "Windows"          # a package game; --all, --list
+dotnet "$mf_export" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # without a preset
 ```
 
-Run it with `bash` (NuGet drops the executable bit). `--sign`/`--notarize` (or `MF_SIGN_IDENTITY`/`MF_NOTARY_PROFILE`)
-work as above. CI's `template` job (`just template-smoke-package`) packages a package game for linux-x64, win-x64 and
-osx-arm64 this way and checks each archive's contents, Steam files included
-([Distribution via NuGet → Tests](distribution-nuget.md#tests)).
+CI's `template` job exports the template game for its host RID with `mf-export --preset`, unpacks it and runs it
+headless, and packages a package game for linux-x64 and win-x64 with the package's `mf-export`, checking each archive's
+contents, Steam files included ([Distribution via NuGet → Tests](distribution-nuget.md#tests)).
 
 ## Related docs
 [Editor updates](editor-updates.md) ·

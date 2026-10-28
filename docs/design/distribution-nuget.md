@@ -25,7 +25,7 @@ source generator that game code must run, and build steps. The package carries a
 | `mainframe/Assets/**` | exactly what the engine project copies to `<output>/Content` in a checkout build: `.spv` shaders (not the `.slang` sources), UI widgets, fonts, trees, brand | `buildTransitive/MainframeEngine.targets` copies it to the app's `Assets/` (build and publish) |
 | `mainframe/steamworks/{win64,posix}/` | `MainframeEngine.Steamworks.dll` (the shim) + `Facepunch.Steamworks.Win64.dll` / `.Posix.dll`: two builds of one assembly, so neither is in `lib/` ([Steamworks → Layers](steamworks.md#layers)) | `buildTransitive/MainframeEngine.targets` copies them to the app's `steamworks/` like Content (a build with a RID gets only that platform's folder); the engine's `SteamworksLoader` loads this OS's |
 | `tools/mf-l10n/` | `mf-l10n` (managed files + runtimeconfig; no `deps.json`, so the host loads the folder's assemblies and none of the natives it never calls) | `Localization.targets` compiles `Assets/locale/**/*.po` to `.mo` with it |
-| `tools/package-game.sh`, `tools/macos/png-to-icns.sh`, `tools/macos/sign-app.sh` | player builds: `build/package-game.sh`, the icon converter and the macOS signing step it runs ([Player builds](#player-builds)) | `MainframePackageGameScript` (set by `MainframeGame.props`) names the script |
+| `tools/mf-export/` | `mf-export`, the player-build exporter the editor's File › Export runs too ([Game export](game-export.md)): managed files + runtimeconfig, like `mf-l10n` | `MainframeExportTool` (set by `MainframeGame.props`) names its `.dll` ([Player builds](#player-builds)) |
 | `buildTransitive/` | `MainframeEngine.props` (imports `MainframeGame.props`), `MainframeEngine.targets`, `Localization.targets`, `macos/` (the dev `.app` bundle, and `BundleAppHost.targets`: the apphost of a packaged `.app`, [Release → macOS bundle layout](release.md#macos-bundle-layout)) | imported by every project that references the package, directly or through a game library |
 | `README.md`, `icon.png` | the nuget.org page ([`MainframeEngine/PACKAGE.md`](../../MainframeEngine/PACKAGE.md)) and the logo | — |
 
@@ -56,22 +56,24 @@ The checkout's game-facing build files are packed unchanged, so package and chec
 - **`MainframeGame.props`**, which checkout games import from their `Directory.Build.props`, provides the `DEMO` define
   and `AssemblyMetadata` from `"isDemo"`, the app name and icon from `project.mfproj`, the macOS development `.app`
   bundle, and `CopyLocalLockFileAssemblies`. All of it is inert without a `project.mfproj` above the project. It also
-  sets `MainframePackageGameScript`: the checkout's `build/package-game.sh`, or the package's `tools/package-game.sh`.
+  sets `MainframeExportTool`: the package's `tools/mf-export/mf-export.dll`, or the checkout's `mf-export` project.
 - **`Localization.targets`** sees `MfL10nPath` already set (to `tools/mf-l10n`), so it skips the `mf-l10n` project
   reference it uses in a checkout. Same `LocaleContentRoot`, same fallback to committed `.mo` files.
 
 ### Player builds
 
-A package game makes the same player archives as a checkout game ([Release → Games](release.md#games)), with the
-script the package ships. `MainframePackageGameScript` gives its path, so nothing hard-codes the package cache:
+A package game makes the same player builds as a checkout game ([Release → Games](release.md#games),
+[Game export](game-export.md)), from the export presets in its `project.mfproj`, with the `mf-export` the package ships.
+`MainframeExportTool` gives its path, so nothing hard-codes the package cache:
 
 ```bash
-script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"
-bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # or win-x64, linux-x64; --sign / --notarize
+mf_export="$(dotnet msbuild MyGame.Desktop -getProperty:MainframeExportTool)"
+dotnet "$mf_export" --project . --preset "Windows"     # or --all, --list
+dotnet "$mf_export" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # no preset: the old package-game.sh form
 ```
 
-Run it with `bash`: NuGet drops the executable bit. The archives are `<Exe>-<version>-osx-arm64.zip` (the `.app`),
-`-win-x64.zip` and `-linux-x64.tar.gz`, with this RID's natives (Valve's `steam_api` included) and `steamworks/` folder.
+The archives are `<Exe>-<version>-osx-arm64.zip` (the `.app`; macOS presets need a Mac), `-win-x64.zip` and
+`-linux-x64.tar.gz`, with this RID's natives (Valve's `steam_api` included) and `steamworks/` folder.
 
 ### Packing
 
@@ -146,15 +148,18 @@ verified check mark and stops others from using `MainframeEngine.*`.
 
 - `build/template-smoke.sh` runs in two modes. `ENGINE_SOURCE=project` is `just template-smoke`.
   `ENGINE_SOURCE=package` (`just template-smoke-package`, CI job `template` on Linux/lavapipe) works like this:
-  1. It packs this checkout as `0.0.0-smoke.<timestamp>` into a local feed (`build/pack-nuget.sh`: both packages).
+  1. It packs this checkout as `0.0.0-smoke.<timestamp>` into a local feed (`build/pack-nuget.sh`: both packages,
+     after building `mf-l10n` and `mf-export`).
   2. It installs the template from the packed `MainframeEngine.Templates` and creates the game with no options. It
      checks that the game references `MainframeEngine` of that version (the stamped default) and adds a `nuget.config`
      for the feed.
   3. It builds the game, runs 30 frames (no `[ERROR]`, a screenshot) and publishes it for the host RID.
   4. It checks the engine content, the compiled `.mo`, `mfrmlui` and the `steamworks/` shim builds in both outputs.
-  5. It packages the game for linux-x64, win-x64 and osx-arm64 with the script `MainframePackageGameScript` names (it
-     must be the package's `tools/package-game.sh`) and checks each archive: executable, natives, Valve's `steam_api`
-     for that platform, its `steamworks/` folder, none of the other platforms' Steam files, no `steam_appid.txt`.
+  5. It packages the game for linux-x64 and win-x64 (and osx-arm64 on a Mac) with the `mf-export` that
+     `MainframeExportTool` names (it must be the package's `tools/mf-export/mf-export.dll`) and checks each archive:
+     executable, natives, Valve's `steam_api` for that platform, its `steamworks/` folder, none of the other platforms'
+     Steam files, no `steam_appid.txt`. Then, like the checkout run, it exports a preset for the host RID with
+     `mf-export --preset`, unpacks it and runs it with `--headless`.
   6. It removes the version from the package cache.
 - Editor tests cover `NewProjectValidation.IsPackageVersion` and the per-source validation and `dotnet new` arguments.
 

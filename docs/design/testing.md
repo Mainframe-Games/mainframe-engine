@@ -13,11 +13,11 @@ gates (validation, allocation), and benchmarks with a stored baseline. Every rec
 | [`Tests/MainframeEngine.Tests`](../../Tests/MainframeEngine.Tests/) | xUnit v3 unit tests, no window/GPU | every OS in CI (`just test`) |
 | [`Tests/MainframeEngine.RenderTests`](../../Tests/MainframeEngine.RenderTests/) | xUnit v3 render tests (also the editor's `--smoke` run) | lavapipe in CI and in Docker (`just render-tests-linux`), MoltenVK locally (`just test-render`) |
 | [`Tests/MainframeEngine.RenderTests.Host`](../../Tests/MainframeEngine.RenderTests.Host/) | Console app that runs one scene | launched by the render tests |
-| [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless; projects, Play (fake builder/launcher), FileSystem, code reload (Roslyn-compiled game assemblies); one `Category=Slow` test runs the real `dotnet new mfgame` + build | every OS in CI (`just test`) |
+| [`Tests/MainframeEngine.Editor.Tests`](../../Tests/MainframeEngine.Editor.Tests/) | xUnit v3 editor tests: models and the whole editor UI headless; projects, Play (fake builder/launcher), FileSystem, code reload (Roslyn-compiled game assemblies); `Category=Slow` tests run the real `dotnet new mfgame` + build and a real export (G5); the export library's tests (`Export/`) | every OS in CI (`just test`) |
 | [`Tests/MainframeEngine.Video.Tests`](../../Tests/MainframeEngine.Video.Tests/) | xUnit v3 tests of `MainframeEngine.Video` (the video mode's logic, ported from Cutback): partition, planners, sidecar, projects, transcripts, ffmpeg argument and output parsing; never runs ffmpeg or loads a Whisper model ([Video editing mode](video-editor.md#testing)) | every OS in CI (`just test`) |
 | [`Examples/Demo/Demo.Tests`](../../Examples/Demo/Demo.Tests/) | xUnit v3 tests of the Demo game (own solution, not in `MainframeEngine.slnx`): scene files vs their builders, nav, every scene's panels; run by `build/demo-smoke.sh` and CI's `template` job, see [Demo](demo.md#tests-and-ci) | CI (`template` job), locally (`dotnet test Examples/Demo/Demo.Tests`) |
 | [`Tests/Content`](../../Tests/Assets/) | Shared test assets (not a project): the showcase fixture scene, glTF test model, SpineBoy, sky, ambience, logo, a Spanish catalog; linked into the test projects' output | — |
-| [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`, `just qa-projects`), see [Editor](editor.md#testing-and-qa) |
+| [`Tests/QA`](../../Tests/QA/) | Editor QA scripts (`--qa-script`) | locally (`just qa-editor`, `just qa-projects`, `just qa-export`), see [Editor](editor.md#testing-and-qa) |
 | [`Tests/MainframeEngine.Benchmarks`](../../Tests/MainframeEngine.Benchmarks/) | BenchmarkDotNet, `MemoryDiagnoser` | locally (`just bench`) |
 | [`Tests/MainframeEngine.CrashTests.Fixture`](../../Tests/MainframeEngine.CrashTests.Fixture/) | A `GameHost` game that crashes on purpose (`++ crash=managed\|ready\|thread\|task\|failfast\|stackoverflow\|native`), headless | launched by `MainframeEngine.Tests` (`Crash/CrashProcessTests`): real crashes never take the test run down ([Crash reporting](crash-reporting.md#tests)) |
 
@@ -120,7 +120,16 @@ Projects and tooling (M10, engine side) have suites under [`Project/`](../../Tes
 game-assembly load → unload → **GC-verified collection** → reload with Roslyn-compiled game assemblies), plus
 `LogRoutingTests`/`LogSinkTests` (0 B when filtered) and `InputMapTests` (0 B polling); details in
 [Projects & GameHost → Testing](project-and-gamehost.md#testing). The `mfgame` template is built and run by CI's
-`template` job (`just template-smoke`).
+`template` job (`just template-smoke`), which then exports it for the host RID with `mf-export --preset`, unpacks the
+archive and runs it `--headless`.
+
+Game export (G5) has `Project/ExportPresetFormatTests` (the `export` section and format 5) and the editor tests'
+[`Export/`](../../Tests/MainframeEngine.Editor.Tests/Export/) folder: the export library with no SDK (globs, content
+filter, natives pruning, icons, archives and their Unix modes, the plan's publish arguments, every validation code, the
+runner end to end over a fake `dotnet publish`/`codesign`/`ditto`/`xcrun`, `mf-export` parsing and exit codes), the
+editor's `ExportService` (main-thread events, 0 B idle `Update`), dialog and menus, and one SDK-gated `Slow` test that
+exports a template game for the host RID (and its demo) and runs it headless; details in
+[Game export → Testing](game-export.md#testing).
 
 The frame profiler (G10) has its suites under [`Profiling/`](../../Tests/MainframeEngine.Tests/Profiling/), in the
 serial `SerialProfiler` collection because `Profiler` is process-wide: `ProfilerTests` (off records nothing; nesting

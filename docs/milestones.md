@@ -312,7 +312,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G3a Navigation 2D: grid A* and point graphs, `NavigationServer2D`, `NavigationAgent2D`, editor bake + debug overlay (G3.1–G3.5 ✅), tile map source (G3.6, after G2b) | 🚧 | [Navigation](design/navigation.md), [G3.6](design/future/navigation.md) |
 | G3b Later: avoidance, 2D navmesh polygons, async queries, 3D grid + `NavigationAgent3D`, 3D navmesh baking (G3.7–G3.12) | ⬜ | [Navigation](design/future/navigation.md) |
 | G4 Save games and settings: `SaveServer` (slots, versioned JSON + migrations, durable writes, recovery, thumbnails, cloud seam), `UserSettings`/`ConfigFile`, rebinding, drop-in settings menu | ✅ | [Save games and settings](design/future/save-and-settings.md) |
-| G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner | ⬜ | [Game export](design/future/game-export.md) |
+| G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner (`mf-export`) | ✅ | [Game export](design/game-export.md) |
 | G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | 🚧 | [Rendering features](design/future/rendering-features.md); 3D particles ✅ [3D particles](design/particles-3d.md) (ADR 0206) |
 | G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ✅ | [Editor → Viewport tools](design/editor.md#viewport-tools) |
 | G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | 🚧 | [Terrain](design/future/terrain.md) |

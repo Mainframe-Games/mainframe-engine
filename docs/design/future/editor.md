@@ -10,7 +10,6 @@ and inspector, E3 viewport, E4 projects and Play, E5 polish) has shipped and is 
 |---|---|
 | Remote scene tree | Inspect the running game's tree and properties over the editor link (Godot's "Remote" tab). The link carries hello, logs, status and commands today. |
 | Docking and multi-window | Tear-off panels and editor windows on other monitors, once SDL multi-window is available. Layout today: fixed regions with persisted splitters. |
-| Export | File › Export with per-platform presets. Proposal: [Game export](game-export.md) (G5). |
 | Animation panel | Timeline for `Animation` resources. Proposal: [Keyframe animation](keyframe-animation.md) (G1). |
 | Shared widgets | Move the editor's controls (`tree-view`, `property-*` editors, `splitter`, `tabs`, `context-menu`) into core content so games' settings menus can use them. |
 | 2D content | Tile maps with paint tools in the 2D view. Proposal: [2D content](2d-content.md) (G2b). Animated sprites shipped (G2a): [Animated sprites](../animated-sprites.md). |

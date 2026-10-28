@@ -136,7 +136,7 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-navigation.png" width="380" alt="The Demo's Navigation 2D maze in the editor with Visible Navigation on: the baked grid's solid cells and dashed mud, the NavigationGrid2D inspector with its Bake and Clear buttons and status line"><br><b>Navigation</b> — Visible Navigation, Bake and Clear with undo, out-of-date bakes flagged</td>
-    <td></td>
+    <td align="center" valign="top"><img src="docs/images/editor-export.png" width="380" alt="File › Export on the Demo: Windows, macOS, Linux and Linux server presets, the server preset's options and a validation warning"><br><b>Export</b> — presets per platform, demo and Steam builds, one click or <code>mf-export</code> in CI</td>
   </tr>
 </table>
 
@@ -263,6 +263,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Developer overlay](docs/design/dev-overlay.md) | F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, physics and network panels; add your own in one call |
 | [Frame profiler](docs/design/profiler.md) | Zero-allocation CPU scopes on any thread, GPU timestamps per pass and post effect, counters, a frame history with spike capture; a Profiler section in the F12 overlay, an editor Profiler tab (frame graph, timeline, scope table) and Chrome/Perfetto trace export (`--profile-trace`) |
 | [Games in C#](docs/design/project-and-gamehost.md) | `dotnet new mfgame`, `project.mfproj` and `GameHost`: input actions, autoloads, structured logs, the editor link, headless dedicated servers |
+| [Game export](docs/design/game-export.md) | File › Export: presets in `project.mfproj` per platform (Windows, macOS, Linux), full and demo builds from one project, Steam checks, icons and signed macOS bundles written for you, zip/tar.gz or a depot folder; the same exporter as `mf-export` for scripts and CI |
 | [NuGet packages](docs/design/distribution-nuget.md) | The engine and the project template on nuget.org: build a game with the .NET SDK alone, no checkout or editor needed |
 | [Self-updating editor](docs/design/editor-updates.md) | The editor finds new releases on GitHub and updates itself in place on macOS, Windows and Linux |
 | [Quality](docs/design/testing.md) | Zero warnings, 1 600+ tests, golden-image render tests on MoltenVK and lavapipe, a Vulkan validation gate and a 0-bytes-per-frame allocation gate |

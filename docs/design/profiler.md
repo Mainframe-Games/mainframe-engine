@@ -412,4 +412,4 @@ measurement of the recording overhead on the Forest at 1920 × 1080.
 [GPU resources](gpu-resources.md) · [Post-processing](post-processing.md) · [Shadow system](shadow-system.md) ·
 [Color pipeline](color-pipeline.md) (MoltenVK timestamps) · [Forest](forest.md) ·
 [Rendering backend abstraction](future/rendering-backend-abstraction.md) (M11 moves `GpuProfiler` behind `IGpuDevice`) ·
-[Game export](future/game-export.md) (G5: the profiler switch per preset)
+[Game export](game-export.md) (G5: the profiler switch per preset)

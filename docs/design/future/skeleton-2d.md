@@ -371,7 +371,7 @@ milliseconds for a big rig. Builds are cached on disk the way tree bakes are (`T
 - **What it changes:** the source in the project stays JSON and PNG, as
   [ADR 0011](../../../memory/decisions/0011-json-scenes-no-binary-bake.md) requires. The cache lives outside the
   project and can be deleted.
-- **Exports:** `mf-cook` ([ADR 0100](../../../memory/decisions/0100-mobile-strategy.md), [Game export](game-export.md))
+- **Exports:** `mf-cook` ([ADR 0100](../../../memory/decisions/0100-mobile-strategy.md), [Game export](../game-export.md))
   ships the build files instead of the JSON and images. An exported game loads the cooked build directly.
 
 `SkeletonData : Resource` is what `ResourceLoader.Load<SkeletonData>("…/hero.mskel")` returns. It wraps the build:
