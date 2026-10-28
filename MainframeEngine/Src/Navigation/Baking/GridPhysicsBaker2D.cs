@@ -30,7 +30,7 @@ public sealed class GridPhysicsBaker2D : INavigationGridBaker
         var space = viewport.World2D.DirectSpaceState;
         var size = cells.CellSize + new Vector2(2f * (node.AgentRadius - Inset));
         var box = new RectangleShape2D { Size = Vector2.Max(size, new Vector2(0.01f)) };
-        var hits = new List<CollisionObject2D>(8);
+        var hits = new List<Node2D>(8);
         var region = cells.Region;
         var mask = node.BakeCollisionMask;
         for (var y = region.Position.Y; y < region.End.Y; y++)
@@ -64,7 +64,7 @@ public sealed class GridPhysicsBaker2D : INavigationGridBaker
         if (area.X <= 0f || area.Y <= 0f)
             return "";
         var centre = node.GlobalPosition + (new Vector2(region.Position.X, region.Position.Y) + new Vector2(region.Size.X, region.Size.Y) * 0.5f) * cellSize;
-        var hits = new List<CollisionObject2D>(32);
+        var hits = new List<Node2D>(32);
         viewport.World2D.DirectSpaceState.IntersectShape(new RectangleShape2D { Size = area }, new Transform2D(0f, centre), hits, node.BakeCollisionMask);
         ulong hash = 0;
         foreach (var hit in hits)
@@ -73,10 +73,12 @@ public sealed class GridPhysicsBaker2D : INavigationGridBaker
         return hash.ToString("x16", CultureInfo.InvariantCulture);
     }
 
-    private static bool HasStaticBody(List<CollisionObject2D> hits)
+    private static bool HasStaticBody(List<Node2D> hits)
     {
+        // Hits are Node2D since tile maps collide (ADR 0225): a tile layer's chunk bodies are static too. Its cells are not
+        // in the out-of-date hash yet; the tile map source (G3.6) tracks them.
         foreach (var hit in hits)
-            if (hit is StaticBody2D)
+            if (hit is StaticBody2D or TileMapLayer)
                 return true;
         return false;
     }
