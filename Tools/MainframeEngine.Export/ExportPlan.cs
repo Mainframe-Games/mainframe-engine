@@ -164,6 +164,8 @@ public sealed class ExportPlan
         };
         if (o.SingleFile)
             args.Add("-p:IncludeNativeLibrariesForSelfExtract=true");
+        if (!o.Profiler)
+            args.Add("-p:MainframeProfilerDisabled=true"); // MainframeGame.props: the Profiler.Disabled AppContext switch
         // Windows: a GUI-subsystem exe (no console window behind the game); macOS: an apphost that starts the app from
         // Contents/MonoBundle (build/MainframeGame.props, BundleAppHost.targets).
         if (Platform == ExportPlatform.Windows)

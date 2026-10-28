@@ -578,6 +578,8 @@ public static class ProjectSettingsFormat
                     w.WriteBoolean("trim", true);
                 if (desktop.Symbols == ExportSymbols.Separate)
                     w.WriteString("symbols", "separate");
+                if (!desktop.Profiler)
+                    w.WriteBoolean("profiler", false);
                 if (desktop.MacOs is { } mac)
                 {
                     if (mac.BundleId.Length > 0)
@@ -959,7 +961,7 @@ public static class ProjectSettingsFormat
         private static readonly string[] CommonExportKeys =
             ["name", "platform", "output", "configuration", "demo", "version", "icon", "archive", "include", "exclude"];
 
-        private static readonly string[] DesktopExportKeys = ["rid", "steam", "exe", "selfContained", "readyToRun", "singleFile", "trim", "symbols"];
+        private static readonly string[] DesktopExportKeys = ["rid", "steam", "exe", "selfContained", "readyToRun", "singleFile", "trim", "symbols", "profiler"];
 
         private static readonly string[] MacOsExportKeys = ["bundleId", "copyright", "sign", "notaryProfile"];
 
@@ -1014,6 +1016,7 @@ public static class ProjectSettingsFormat
                 desktop.ReadyToRun = Bool(o, "readyToRun", where + ".readyToRun", true);
                 desktop.SingleFile = Bool(o, "singleFile", where + ".singleFile", false);
                 desktop.Trim = Bool(o, "trim", where + ".trim", false);
+                desktop.Profiler = Bool(o, "profiler", where + ".profiler", true);
                 if (String(o, "symbols", where + ".symbols") is { } symbols)
                 {
                     desktop.Symbols = symbols switch

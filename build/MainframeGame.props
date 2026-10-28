@@ -67,6 +67,12 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <!-- An export preset with "profiler": false (mf-export passes MainframeProfilerDisabled=true): the runtimeconfig sets the
+       AppContext switch MainframeEngine.Profiler.Disabled, so profiler scopes cost nothing (docs/design/profiler.md). -->
+  <ItemGroup Condition="'$(MainframeProfilerDisabled)' == 'true'">
+    <RuntimeHostConfigurationOption Include="MainframeEngine.Profiler.Disabled" Value="true" Trim="true" />
+  </ItemGroup>
+
   <!-- The executable's file description (AssemblyTitle, the SDK default being the assembly name) is the app name. -->
   <Target Name="_MainframeAppAssemblyTitle" BeforeTargets="GetAssemblyAttributes"
           Condition="'$(MainframeAppName)' != '' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true' and '$(AssemblyTitle)' == '$(AssemblyName)'">

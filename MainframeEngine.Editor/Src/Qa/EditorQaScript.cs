@@ -57,6 +57,9 @@ namespace MainframeEngine.Editor;
 ///                             # running game (or the editor), stop, pause, profile the editor, select the slowest frame
 /// profile save file.json      # writes the Profiler tab's frames (else the editor's own history) as a trace into --qa-out
 /// wait-for profiled 120 [seconds]       # until the Profiler tab holds 120 frames
+/// export open|close|select 2|add linux|add host|run|run-all|cancel   # File › Export (G5): the dialog, a preset, an export
+/// export set demo true / export exclude Assets/Music/**   # an option of the selected preset; an exclude glob
+/// wait-for exported [seconds]           # until no export runs
 /// quit
 /// </code>
 /// </summary>
@@ -377,6 +380,9 @@ public sealed class EditorQaScript : IEditorAutomation
                 workspace.Output.Clear();
                 workspace.OutputPanel.Refresh();
                 break;
+            case "export":
+                RunExportStep(workspace, step);
+                break;
             case "crash-row":
                 // G15: a played game's crash as the Output panel shows it (expanded), for screenshots.
                 QaCrashSamples.AddCrashRow(workspace);
@@ -473,6 +479,7 @@ public sealed class EditorQaScript : IEditorAutomation
                     "render" => static w => w.SongView.Renders.Count == 0,
                     "bake" => static w => w.SongView.Bakes.Count == 0,
                     "video-jobs" => static w => VideoJobsIdle(w.Session.ActiveTab as Video.VideoTab),
+                    "exported" => static w => !w.Export.IsRunning,
                     _ => throw new ArgumentException($"Unknown wait-for '{step[1]}'."),
                 };
                 _waitForDeadline = step.Length > 2 ? Float(step, 2) : 120;
@@ -695,6 +702,47 @@ public sealed class EditorQaScript : IEditorAutomation
     /// </summary>
     internal static bool VideoJobsIdle(Video.VideoTab? tab) =>
         tab is null || (tab.WaveformJob is null && tab.SilenceJob is null && tab.TranscribeJob is null && tab.ExportJob is null);
+
+    // export open|close|select <index>|add <platform>|run|run-all|cancel: File › Export (G5) for QA and screenshots.
+    private static void RunExportStep(EditorWorkspace workspace, string[] step)
+    {
+        var dialog = workspace.ExportDialog;
+        switch (step.Length > 1 ? step[1] : "")
+        {
+            case "open":
+                dialog.Open();
+                break;
+            case "close":
+                dialog.RequestClose();
+                break;
+            case "select" when step.Length > 2:
+                dialog.Select(int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture));
+                break;
+            case "add" when step.Length > 2 && step[2] == "host":
+                dialog.AddPreset(ExportTargets.PlatformOf(ExportTargets.CurrentHost));
+                break;
+            case "add" when step.Length > 2 && ExportPreset.TryParsePlatform(step[2], out var platform):
+                dialog.AddPreset(platform);
+                break;
+            case "set" when step.Length > 3 && dialog.Model is { } model:
+                model.Set(dialog.Selected, step[2], string.Join(' ', step[3..]));
+                break;
+            case "exclude" when step.Length > 2 && dialog.Model is { } model:
+                model.AddGlob(dialog.Selected, include: false, step[2]);
+                break;
+            case "run":
+                dialog.StartExport(all: false);
+                break;
+            case "run-all":
+                dialog.StartExport(all: true);
+                break;
+            case "cancel":
+                workspace.Export.Cancel();
+                break;
+            default:
+                throw new ArgumentException($"Unknown export step '{string.Join(' ', step)}' (open, close, select N, add windows|macos|linux|host, set key value, exclude glob, run, run-all, cancel).");
+        }
+    }
 
     /// <summary><c>wait-for video-position &lt;seconds&gt;</c>: true once <paramref name="tab"/>'s playhead is at or past <paramref name="seconds"/>.</summary>
     internal static bool VideoPositionReached(Video.VideoTab? tab, double seconds) => tab is not null && tab.State.Playhead >= seconds;

@@ -100,7 +100,7 @@ public sealed partial class EditorWorkspace
 
             var seconds = result.Duration.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
             if (result.Succeeded)
-                Output.Add(OutputLevel.Info, $"[export] {result.Preset}: exported in {seconds} s → {result.ArtifactPath}");
+                Output.Add(OutputLevel.Info, $"[export] {result.Preset}: exported in {seconds} s: {result.ArtifactPath}");
             else if (result.Cancelled)
                 Output.Add(OutputLevel.Warning, $"[export] {result.Preset}: cancelled; the previous export is unchanged.");
             else

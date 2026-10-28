@@ -74,6 +74,7 @@ public sealed class ExportPlanAndValidationTests : IDisposable
         Assert.Contains("-p:MainframeWindowsGui=true", args);
         Assert.Contains("-p:ApplicationIcon=/stage/icon.ico", args);
         Assert.DoesNotContain("-p:IncludeNativeLibrariesForSelfExtract=true", args);
+        Assert.DoesNotContain("-p:MainframeProfilerDisabled=true", args);
         var artifacts = args.ToList().IndexOf("--artifacts-path");
         Assert.Equal(Plan(preset).ArtifactsPath, args[artifacts + 1]);
         Assert.Equal(Plan(preset).PublishDirectory, args[args.ToList().IndexOf("-o") + 1]);
@@ -84,7 +85,9 @@ public sealed class ExportPlanAndValidationTests : IDisposable
         preset.Desktop.ReadyToRun = false;
         preset.Desktop.SingleFile = true;
         preset.Desktop.Trim = true;
+        preset.Desktop.Profiler = false;
         var changed = Plan(preset).PublishArguments(null);
+        Assert.Contains("-p:MainframeProfilerDisabled=true", changed);
         Assert.Equal(["-c", "Debug"], changed.Skip(2).Take(2));
         Assert.Equal("false", changed[changed.ToList().IndexOf("--self-contained") + 1]);
         Assert.Contains("-p:MainframeDemo=true", changed);
@@ -265,7 +268,7 @@ public sealed class ExportPlanAndValidationTests : IDisposable
         var warnings = Validate(preset).Where(i => !i.IsError).ToArray();
 
         Assert.Equal(["broken-reference", "meta-excluded"], warnings.Select(w => w.Code).Order());
-        Assert.Contains("Assets/Scenes/Main.mscene → Assets/Music/theme.mres", warnings.Single(w => w.Code == "broken-reference").Message, StringComparison.Ordinal);
+        Assert.Contains("Assets/Scenes/Main.mscene uses Assets/Music/theme.mres", warnings.Single(w => w.Code == "broken-reference").Message, StringComparison.Ordinal);
         Assert.Contains("Assets/Textures/a.png.meta", warnings.Single(w => w.Code == "meta-excluded").Message, StringComparison.Ordinal);
     }
 }

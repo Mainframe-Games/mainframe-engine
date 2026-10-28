@@ -196,7 +196,7 @@ public static class ExportValidator
                 continue;
             foreach (var reference in ReferenceScanner.ReferencesOf(Path.Combine(root, path), database))
                 if (excluded.Contains(reference))
-                    broken.Add($"{path} → {reference}");
+                    broken.Add($"{path} uses {reference}");
         }
 
         broken.Sort(StringComparer.Ordinal);

@@ -51,6 +51,7 @@ public sealed class ExportPresetsModel
         new("singleFile", "Build", "Single File", ExportOptionKind.Bool, "One executable (natives extracted on first start); Assets/ stays beside it. Experimental.",
             [ExportPlatform.Windows, ExportPlatform.Linux]),
         new("trim", "Build", "Trim", ExportOptionKind.Bool, "Remove unused code. Experimental until the engine is trim-clean."),
+        new("profiler", "Build", "Profiler", ExportOptionKind.Bool, "The frame profiler (F12, the editor's Profiler tab) can record this build; off compiles its scopes out."),
         new("symbols", "Build", "Symbols", ExportOptionKind.Choice, "ship: PDBs beside the assemblies (crash reports get lines); separate: a -symbols.zip for mf-symbolicate."),
         new("steam", "Steam", "Steam", ExportOptionKind.Bool, "Validates the app id and the Steam files; off ships app id 0 (Steam stays inert)."),
         new("icon", "Icon", "Icon", ExportOptionKind.File, "A PNG (256 px or more; 512 for macOS) for the exe and the bundle. Empty: Window › Icon."),
@@ -90,6 +91,7 @@ public sealed class ExportPresetsModel
             "singleFile" => B(d.SingleFile),
             "trim" => B(d.Trim),
             "symbols" => d.Symbols == ExportSymbols.Separate ? "separate" : "ship",
+            "profiler" => B(d.Profiler),
             "steam" => B(d.Steam),
             "icon" => preset.Icon,
             "bundleId" => m.BundleId,
@@ -196,6 +198,7 @@ public sealed class ExportPresetsModel
             case "readyToRun": d.ReadyToRun = Bool(); break;
             case "singleFile": d.SingleFile = Bool(); break;
             case "trim": d.Trim = Bool(); break;
+            case "profiler": d.Profiler = Bool(); break;
             case "symbols":
                 d.Symbols = text switch
                 {

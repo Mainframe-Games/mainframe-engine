@@ -249,7 +249,7 @@ public sealed class ExportDialog : EditorDocument
         foreach (var issue in issues.OrderByDescending(i => i.IsError))
         {
             rml.Append("<div class=\"issue\"><span class=\"icon icon-sm ").Append(issue.IsError ? "icon-alert-circle badge-error" : "icon-alert-triangle badge-warn")
-                .Append("\"></span><span class=\"code\">").Append(RmlText.Escape(issue.Code)).Append("</span><span>").Append(RmlText.Escape(issue.Message)).Append("</span>");
+                .Append("\"></span><span class=\"code\">").Append(RmlText.Escape(issue.Code)).Append("</span><span class=\"text\">").Append(RmlText.Escape(issue.Message)).Append("</span>");
             if (issue.Fix is { } fix)
                 rml.Append("<span class=\"fix\">").Append(RmlText.Escape(fix)).Append("</span>");
             if (issue.Code.StartsWith("steam-app-id", StringComparison.Ordinal))
@@ -304,7 +304,9 @@ public sealed class ExportDialog : EditorDocument
                 {
                     log.Append("<div class=\"result\"><span class=\"icon icon-sm ")
                         .Append(result.Succeeded ? "icon-circle-check badge-ok" : result.Cancelled ? "icon-player-stop badge-warn" : "icon-circle-x badge-error")
-                        .Append("\"></span><span>").Append(RmlText.Escape($"{result.Preset}: {result.Summary}")).Append("</span>");
+                        .Append("\"></span><span>").Append(RmlText.Escape(result.ArtifactPath is { } done
+                            ? $"{result.Preset}: exported {Path.GetFileName(done)}"
+                            : $"{result.Preset}: {result.Summary}")).Append("</span>");
                     if (result.ArtifactPath is { } artifact)
                         log.Append("<button class=\"tool-button small\" data-op=\"reveal\" data-path=\"").Append(RmlText.Escape(artifact))
                             .Append("\" data-tooltip=\"").Append(OperatingSystem.IsMacOS() ? "Show in Finder" : "Show in Explorer")

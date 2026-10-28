@@ -198,6 +198,12 @@ public sealed class DesktopExportOptions : IExportPlatformOptions
     /// <summary>Ship the PDBs (default) or put them in a separate symbols zip.</summary>
     public ExportSymbols Symbols { get; set; }
 
+    /// <summary>
+    /// The frame profiler can record the build (default). Off sets the <c>AppContext</c> switch
+    /// <see cref="MainframeEngine.Profiler.DisabledSwitch"/> in its runtimeconfig, so profiler scopes cost nothing.
+    /// </summary>
+    public bool Profiler { get; set; } = true;
+
     /// <summary>The macOS keys (null on other platforms).</summary>
     public MacOsExportOptions? MacOs { get; set; }
 
@@ -214,6 +220,7 @@ public sealed class DesktopExportOptions : IExportPlatformOptions
         SingleFile = SingleFile,
         Trim = Trim,
         Symbols = Symbols,
+        Profiler = Profiler,
         MacOs = MacOs?.Clone(),
     };
 }

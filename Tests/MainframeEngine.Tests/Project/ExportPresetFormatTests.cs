@@ -23,7 +23,7 @@ public sealed class ExportPresetFormatTests
             { "name": "Linux", "platform": "linux", "rid": "linux-x64", "output": "export/linux" },
             { "name": "Linux server (headless)", "platform": "linux", "rid": "linux-x64",
               "output": "export/server", "archive": false, "exclude": ["Assets/Audio/**"], "selfContained": false,
-              "readyToRun": false, "singleFile": true, "trim": true, "symbols": "separate", "configuration": "Debug",
+              "readyToRun": false, "singleFile": true, "trim": true, "symbols": "separate", "profiler": false, "configuration": "Debug",
               "version": "1.2.3-beta", "icon": "Assets/server.png", "exe": "MyServer", "include": ["Assets/Scenes/**"] }
           ]
         }
@@ -52,6 +52,8 @@ public sealed class ExportPresetFormatTests
         Assert.Equal(("Debug", "1.2.3-beta", "Assets/server.png"), (server.Configuration, server.Version, server.Icon));
         var d = server.Desktop;
         Assert.Equal((false, false, true, true, ExportSymbols.Separate, "MyServer"), (d.SelfContained, d.ReadyToRun, d.SingleFile, d.Trim, d.Symbols, d.Exe));
+        Assert.False(d.Profiler);
+        Assert.True(windows.Desktop.Profiler);
     }
 
     [Fact]

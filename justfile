@@ -77,6 +77,10 @@ qa-editor script="Tests/QA/editor-walkthrough.qa":
 qa-projects:
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --qa-script Tests/QA/project-workflow.qa --qa-out {{artifacts / "qa-projects"}}
 
+# G5 export QA: create a game, add an export preset for this machine (demo on, an exclude), export it from File › Export, capture the dialog and the Output panel (artifacts/qa-export; needs the .NET SDK)
+qa-export:
+    dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --qa-script Tests/QA/export.qa --qa-out {{artifacts / "qa-export"}}
+
 # Regenerate the README's editor screenshots (docs/images/editor*.png): Tests/QA/readme-screenshots.qa captures at 2x,
 # ImageMagick downscales to 1600x960. macOS/Linux; needs the display awake, `magick`, ffmpeg and `say` or `espeak-ng` (the
 # video-mode shot's narrated Demo recording, build/readme-video-clip.sh). Review the PNGs before committing.
@@ -99,7 +103,7 @@ readme-screenshots:
     dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
       --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
-    for name in editor editor-joints editor-physical-skeleton editor-add-node editor-box-select editor-range-handles editor-resource-menu editor-simulate editor-sprite-frames editor-sheet-slicer editor-navigation editor-crash editor-crash-dialog editor-game-project editor-profiler editor-project-manager editor-sound-designer editor-song editor-song-effects editor-song-browser editor-song-synth editor-video; do
+    for name in editor editor-joints editor-physical-skeleton editor-add-node editor-box-select editor-range-handles editor-resource-menu editor-simulate editor-sprite-frames editor-sheet-slicer editor-navigation editor-crash editor-crash-dialog editor-export editor-game-project editor-profiler editor-project-manager editor-sound-designer editor-song editor-song-effects editor-song-browser editor-song-synth editor-video; do
       magick "$out/$name.png" -filter Lanczos -resize 1600x960 -strip -define png:compression-level=9 \
         -define png:compression-filter=5 "docs/images/$name.png"
     done

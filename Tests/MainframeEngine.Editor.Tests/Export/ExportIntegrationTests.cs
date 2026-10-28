@@ -57,6 +57,7 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
         var demo = full.Clone();
         demo.Name = "Here (demo)";
         demo.Demo = true;
+        demo.Desktop.Profiler = false;
         demo.Output = Path.Combine(_directory, "out-demo");
         settings.ExportPresets.AddRange([full, demo]);
         settings.Save(project);
@@ -99,6 +100,9 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
             : results[1].ArtifactPath!;
         Assert.True(IsDemoBuild(Path.Combine(demoApp, "ExportedGame.dll")));
         Assert.True(ProjectSettings.Load(Path.Combine(demoApp, ProjectSettings.FileName)).IsDemo);
+        Assert.Contains("\"MainframeEngine.Profiler.Disabled\": true", File.ReadAllText(Path.Combine(demoApp, "ExportedGame.Desktop.runtimeconfig.json")),
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("Profiler.Disabled", File.ReadAllText(Path.Combine(app, "ExportedGame.Desktop.runtimeconfig.json")), StringComparison.Ordinal);
 
         // The export isolates its intermediates: the editor's Debug bin/ and obj/ are untouched by it.
         Assert.False(Directory.Exists(Path.Combine(project, "ExportedGame.Desktop", "bin", "Release")));
