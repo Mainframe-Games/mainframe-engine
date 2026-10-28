@@ -37,7 +37,7 @@
   <Target Name="_MainframeWriteEngineNatives" BeforeTargets="CoreCompile" Inputs="$(MSBuildProjectFullPath);@(_MainframeEngineNative)"
           Outputs="$(_MainframeEngineNativesFile)">
     <ItemGroup>
-      <_MainframeEngineNativeLine Include="@(_MainframeEngineNative->'        (&quot;%(RecursiveDir)&quot;, &quot;%(Filename)%(Extension)&quot;),')" />
+      <_MainframeEngineNativeLine Include="@(_MainframeEngineNative->'        (@&quot;%(RecursiveDir)&quot;, @&quot;%(Filename)%(Extension)&quot;),')" />
     </ItemGroup>
     <WriteLinesToFile File="$(_MainframeEngineNativesFile)" Overwrite="true" WriteOnlyWhenDifferent="true"
                       Lines="// &lt;auto-generated/&gt; from MainframeEngine/runtimes/*/native (MainframeEngine.Export.csproj).;namespace MainframeEngine.Export%3B;internal static partial class EngineNatives;{;    private static readonly (string Folder, string File)[] Files =;    [;@(_MainframeEngineNativeLine);    ]%3B;}" />
