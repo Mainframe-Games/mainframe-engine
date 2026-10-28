@@ -9,7 +9,7 @@
     e.g. `dotnet publish MyGame.Desktop -c Release -p:MainframeDemo=true` for the demo next to the full game.
 
     App name and icon (ADR 0182): project.mfproj "name" is the player-facing app name and "window.icon" its icon, here as
-    in build/package-game.sh. On macOS every game executable is launched from a development bundle named after the game
+    in the export (mf-export, the editor's File › Export). On macOS every game executable is launched from a development bundle named after the game
     (bin/<cfg>/<tfm>/<name>.app, build/macos/DevAppBundle.targets), so the Dock, the app menu and Cmd+Tab show the name
     and the icon instead of "MyGame.Desktop". The executable's AssemblyTitle (the Windows file description) and every game
     assembly's Product are the name too. A project overrides any of it with MacAppDisplayName, MacAppIcon (an .icns or a
@@ -41,14 +41,16 @@
   </PropertyGroup>
 
   <!--
-    Player builds (docs/design/release.md#games): build/package-game.sh, which a checkout has next to this file and the
-    MainframeEngine package in tools/ (this file is its buildTransitive/MainframeGame.props). Games ask for the path
-    instead of hard-coding the package cache:
-      bash "$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds
+    Player builds (docs/design/game-export.md): mf-export, the exporter the editor's File › Export runs too. The
+    MainframeEngine package carries it in tools/mf-export (this file is its buildTransitive/MainframeGame.props); a checkout
+    has its project. Games ask for the path instead of hard-coding the package cache:
+      dotnet "$(dotnet msbuild MyGame.Desktop -getProperty:MainframeExportTool)" - -project . - -preset "Windows"
+    (a package: the .dll; a checkout: the .csproj, run with dotnet run - -project <it> -c Release - -; the dashes are spaced
+    out only because XML comments cannot hold two in a row).
   -->
   <PropertyGroup>
-    <MainframePackageGameScript Condition="'$(MainframePackageGameScript)' == '' and Exists('$(MSBuildThisFileDirectory)package-game.sh')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)package-game.sh'))</MainframePackageGameScript>
-    <MainframePackageGameScript Condition="'$(MainframePackageGameScript)' == '' and Exists('$(MSBuildThisFileDirectory)../tools/package-game.sh')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../tools/package-game.sh'))</MainframePackageGameScript>
+    <MainframeExportTool Condition="'$(MainframeExportTool)' == '' and Exists('$(MSBuildThisFileDirectory)../tools/mf-export/mf-export.dll')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../tools/mf-export/mf-export.dll'))</MainframeExportTool>
+    <MainframeExportTool Condition="'$(MainframeExportTool)' == '' and Exists('$(MSBuildThisFileDirectory)../Tools/MainframeEngine.Export.Cli/MainframeEngine.Export.Cli.csproj')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Tools/MainframeEngine.Export.Cli/MainframeEngine.Export.Cli.csproj'))</MainframeExportTool>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -74,7 +76,7 @@
   </Target>
 
   <!-- Windows player builds are GUI-subsystem executables (WinExe), so double-clicking the game opens no console window
-       behind it. build/package-game.sh passes MainframeWindowsGui=true; dotnet run and dev builds keep the console for
+       behind it. The export (mf-export) passes MainframeWindowsGui=true; dotnet run and dev builds keep the console for
        logs (they go to the user data folder too). Set in a target: OutputType is the csproj's, read after this file. -->
   <Target Name="_MainframeWindowsGui" BeforeTargets="_GetAppHostCreationConfiguration"
           Condition="'$(MainframeWindowsGui)' == 'true' and '$(OutputType)' == 'Exe' and $(RuntimeIdentifier.StartsWith('win'))">
@@ -84,7 +86,7 @@
   </Target>
 
   <!-- macOS: <name>.app around the game executable (targets and conditions evaluated when the build runs), and the
-       release bundle's apphost (build/package-game.sh publishes with MacBundleAppDirectory=MonoBundle). -->
+       release bundle's apphost (the export publishes with MacBundleAppDirectory=MonoBundle). -->
   <Import Project="macos/DevAppBundle.targets" />
   <Import Project="macos/BundleAppHost.targets" />
 </Project>

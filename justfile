@@ -189,7 +189,7 @@ template-smoke frames="30":
 template-smoke-package frames="30":
     ENGINE_SOURCE=package build/template-smoke.sh "{{artifacts / "template-smoke-package"}}" {{frames}}
 
-# Pack the NuGet packages (MainframeEngine: engine, generator, natives, content, mf-l10n; MainframeEngine.Templates) into artifacts/nuget
+# Pack the NuGet packages (MainframeEngine: engine, generator, natives, content, mf-l10n, mf-export; MainframeEngine.Templates) into artifacts/nuget
 pack version="0.0.0-dev":
     build/pack-nuget.sh {{version}} "{{artifacts / "nuget"}}"
 
@@ -206,9 +206,13 @@ bench-baseline:
     dotnet run -c Release --project Tests/MainframeEngine.Benchmarks -- --filter '*' --artifacts {{artifacts / "bench"}} --baseline-write Tests/MainframeEngine.Benchmarks/baseline.json
 
 # Publish + package the editor, the Demo and the Forest exactly like the release workflow (default RID: this machine's)
-# Package a GameHost game for players (docs/design/release.md, Games): just package-game path/to/Game.Desktop.csproj osx-arm64 out/
+# Package a GameHost game for players with mf-export, the old package-game.sh arguments (docs/design/game-export.md): just package-game path/to/Game.Desktop.csproj osx-arm64 out/
 package-game csproj rid out *args:
-    build/package-game.sh {{csproj}} {{rid}} {{out}} {{args}}
+    dotnet run --project Tools/MainframeEngine.Export.Cli -c Release -- {{csproj}} {{rid}} {{out}} {{args}}
+
+# Export a game's project.mfproj presets (mf-export; File › Export in the editor): just export --project <dir> --preset "Windows" | --all | --list
+export *args:
+    dotnet run --project Tools/MainframeEngine.Export.Cli -c Release -- {{args}}
 
 publish-local rid="" version="0.0.0-local":
     #!/usr/bin/env bash

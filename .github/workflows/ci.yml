@@ -359,9 +359,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     # `dotnet new mfgame` from source against this checkout, build it, run its desktop project (GameHost) headless for 30
-    # frames on lavapipe (build/template-smoke.sh; `just template-smoke` locally); the same against this checkout packed
-    # as the MainframeEngine NuGet package, plus a linux-x64 publish (`just template-smoke-package`); then build, test and
-    # run every scene of Examples/Demo the same way (build/demo-smoke.sh).
+    # frames on lavapipe, then export a linux-x64 preset with mf-export, unpack the .tar.gz and run it with --headless
+    # (build/template-smoke.sh; `just template-smoke` locally); the same against this checkout packed as the
+    # MainframeEngine NuGet package, plus a linux-x64 publish and the package's mf-export (`just template-smoke-package`);
+    # then build, test and run every scene of Examples/Demo the same way (build/demo-smoke.sh).
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
