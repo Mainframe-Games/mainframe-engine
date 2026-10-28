@@ -162,4 +162,7 @@ public sealed class World2D
 
     /// <summary>The physics space simulating this world, created by the <see cref="PhysicsServer2D"/> for its first body.</summary>
     public PhysicsSpace2D? PhysicsSpace { get; internal set; }
+
+    /// <summary>The navigation map of this world, created by the <see cref="NavigationServer2D"/> for its first region or agent.</summary>
+    public NavigationMap2D? NavigationMap { get; internal set; }
 }

@@ -122,6 +122,9 @@ public struct EngineOptions()
     /// <summary>Draw every collision shape each frame (Godot's "Visible Collision Shapes"); toggle later on the physics servers.</summary>
     public bool DebugCollisionShapes;
 
+    /// <summary>Start with the navigation debug draw on (grids, agent paths and targets; <see cref="NavigationServer2D.DebugDrawEnabled"/>).</summary>
+    public bool DebugNavigation;
+
     /// <summary>
     /// The game's Steam app id; when non-zero the engine registers a <see cref="SteamServer"/> (Steam stays
     /// optional: it is inert when Steam cannot start). 0 (default) leaves Steam alone.
@@ -464,6 +467,8 @@ public abstract class Engine : IDisposable
         // M6: physics servers, stepped by the tree's fixed tick; they create a space per world on demand.
         Servers.Register(new PhysicsServer3D(EngineOptions.Physics3D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
         Servers.Register(new PhysicsServer2D(EngineOptions.Physics2D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
+        // G3a: navigation syncs after the physics step (registered after it) and draws its debug lines per frame.
+        Servers.Register(new NavigationServer2D { DebugDrawEnabled = EngineOptions.DebugNavigation });
         // 2D canvas (ADR 0111): gamma-space canvas layer composited after the tonemap, below the game UI (registered first).
         Servers.Register(new CanvasServer(Tree, () => new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y), Renderer));
         if (EngineOptions.EnableUi)

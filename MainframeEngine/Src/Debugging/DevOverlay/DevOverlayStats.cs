@@ -326,6 +326,17 @@ internal sealed class PhysicsStats(DevOverlaySources sources)
         }
     }
 
+    /// <summary>G3a: the navigation debug draw (grids, agent paths and targets).</summary>
+    public bool Navigation
+    {
+        get => sources.Servers.Get<NavigationServer2D>()?.DebugDrawEnabled == true;
+        set
+        {
+            if (sources.Servers.Get<NavigationServer2D>() is { } navigation)
+                navigation.DebugDrawEnabled = value;
+        }
+    }
+
     public bool LightGizmos
     {
         get => sources.Servers.Render?.ShowLightGizmos ?? false;

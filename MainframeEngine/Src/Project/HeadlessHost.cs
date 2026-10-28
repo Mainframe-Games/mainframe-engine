@@ -56,6 +56,7 @@ public sealed class HeadlessHost : IDisposable
 
         Tree.Servers.Register(new PhysicsServer3D(_options.Physics3D));
         Tree.Servers.Register(new PhysicsServer2D(_options.Physics2D));
+        Tree.Servers.Register(new NavigationServer2D()); // G3a: dedicated servers are where agents run
         Tree.Servers.Register(GameHost.CreateSaveServer(settings, Tree)); // last: disposed (flushed) first
 
         Session = new GameSession(Tree, settings, options);
