@@ -144,6 +144,46 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "NavigationBenchmarks.Maze256AStar4Way",
+      "MeanNs": 2618858.467,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "NavigationBenchmarks.Maze256AStar8Way",
+      "MeanNs": 3885417.772,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "NavigationBenchmarks.Maze256Jps4Way",
+      "MeanNs": 410966.892,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "NavigationBenchmarks.Maze256Jps8Way",
+      "MeanNs": 226722.862,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "NavigationBenchmarks.OpenField256AStar4Way",
+      "MeanNs": 31351.414,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "NavigationBenchmarks.OpenField256AStar8Way",
+      "MeanNs": 25021.207,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "NavigationBenchmarks.OpenField256Jps8Way",
+      "MeanNs": 210802.405,
+      "AllocatedBytes": 0
+    },
+    {
+      "Name": "NavigationBenchmarks.Repath64AgentsTick",
+      "MeanNs": 15340909.107,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "NetBufferBenchmarks.ReadPooled",
       "MeanNs": 19.573,
       "AllocatedBytes": 40
