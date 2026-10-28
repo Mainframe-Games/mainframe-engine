@@ -141,11 +141,11 @@ public sealed class EditorLinkClient : IDisposable
             return false;
         if (System.Text.Encoding.UTF8.GetByteCount(report.Json ?? "") > EditorLinkProtocol.MaxCrashReportBytes)
             return false;
-        lock (_statusGate)
-            _crash = report;
         try
         {
-            _crashSent.Reset();
+            _crashSent.Reset(); // before queueing: the pump may write it (and set the event) at once
+            lock (_statusGate)
+                _crash = report;
             Wake();
             return _crashSent.Wait(timeout);
         }
