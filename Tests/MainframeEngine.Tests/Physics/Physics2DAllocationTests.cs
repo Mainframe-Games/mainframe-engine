@@ -66,7 +66,7 @@ public sealed class Physics2DAllocationTests
         }
 
         var query = h.Query;
-        var results = new List<CollisionObject2D>(64);
+        var results = new List<Node2D>(64);
         var probe = new CircleShape2D { Radius = 20 };
         var probeAt = Transform2D.FromTrs(new Vector2(0, -600), 0, Vector2.One);
 

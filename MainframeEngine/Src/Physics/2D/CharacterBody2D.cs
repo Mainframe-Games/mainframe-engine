@@ -5,8 +5,8 @@ namespace MainframeEngine;
 /// <summary>A collision reported by <see cref="CharacterBody2D.MoveAndSlide"/>.</summary>
 /// <param name="Position">Contact point (world pixels).</param>
 /// <param name="Normal">Surface normal at the contact, pointing towards the character.</param>
-/// <param name="Collider">The body hit.</param>
-public readonly record struct KinematicCollision2D(Vector2 Position, Vector2 Normal, CollisionObject2D Collider)
+/// <param name="Collider">The body hit: a collision object, or a <see cref="TileMapLayer"/> (Godot's <c>get_collider</c>).</param>
+public readonly record struct KinematicCollision2D(Vector2 Position, Vector2 Normal, Node2D Collider)
 {
     /// <summary>Angle in radians between the normal and <paramref name="up"/>.</summary>
     public float GetAngle(Vector2 up) => MathF.Acos(Math.Clamp(Vector2.Dot(Normal, Vector2.Normalize(up)), -1f, 1f));
@@ -258,7 +258,7 @@ public class CharacterBody2D : PhysicsBody2D
             var collided = false;
             var normal = Vector2.Zero;
             var point = position;
-            CollisionObject2D? collider = null;
+            Node2D? collider = null;
             var found = space.RecoverBody(record, ref position, rotation, margin, contacts, out _);
             if (found > 0)
             {
@@ -335,7 +335,7 @@ public class CharacterBody2D : PhysicsBody2D
 
     private bool IsFloor(Vector2 normal, Vector2 up) => MathF.Acos(Math.Clamp(Vector2.Dot(normal, up), -1f, 1f)) <= _floorMaxAngle + 0.001f;
 
-    private SurfaceKind Classify(Vector2 normal, Vector2 point, CollisionObject2D collider, Vector2 up, ref Vector2 velocity, bool report)
+    private SurfaceKind Classify(Vector2 normal, Vector2 point, Node2D collider, Vector2 up, ref Vector2 velocity, bool report)
     {
         SurfaceKind kind;
         if (IsFloor(normal, up))
@@ -370,7 +370,7 @@ internal struct CharacterContact2D
 {
     public Vector2 Normal;
     public Vector2 Point;
-    public CollisionObject2D Collider;
+    public Node2D Collider;
 }
 
 internal struct BodyCastHit2D
@@ -378,5 +378,5 @@ internal struct BodyCastHit2D
     public float Fraction;
     public Vector2 Normal;
     public Vector2 Point;
-    public CollisionObject2D Collider;
+    public Node2D Collider;
 }
