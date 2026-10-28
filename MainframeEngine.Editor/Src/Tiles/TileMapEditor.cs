@@ -500,8 +500,11 @@ public sealed class TileMapEditor
         if (_cellSelection is { } selection)
             Outline(lines, transform, size, selection, SelectColor);
         if (_preview is { } preview)
-            foreach (var cell in preview.ErasedCells)
-                Outline(lines, transform, size, new Rect2I(cell.X, cell.Y, 1, 1), EraseColor);
+        {
+            var erased = preview.ErasedCells; // an index loop: no boxed enumerator on idle frames
+            for (var i = 0; i < erased.Count; i++)
+                Outline(lines, transform, size, new Rect2I(erased[i].X, erased[i].Y, 1, 1), EraseColor);
+        }
         if (_hover is { } hover && _stroke == Stroke.None && _tool is TilePaintTool.Bucket or TilePaintTool.Picker or TilePaintTool.Select)
             Outline(lines, transform, size, new Rect2I(hover.X, hover.Y, 1, 1), HoverColor);
     }
