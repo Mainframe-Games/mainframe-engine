@@ -514,6 +514,30 @@ public sealed class EditorQaScript : IEditorAutomation
             case "fs-select":
                 workspace.FileSystem.Select(Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[1..])));
                 break;
+            case "camera2d":
+                // camera2d <x> <y> <zoom>: the active 2D tab's view centre (pixels) and zoom.
+                if (workspace.Session.Active is { } scene2D)
+                {
+                    scene2D.Camera.Center2D = new Vector2(Float(step, 1), Float(step, 2));
+                    scene2D.Camera.Zoom2D = Float(step, 3);
+                }
+
+                break;
+            case "tilemap-pick":
+                // tilemap-pick <source> <x,y …>: the TileMap palette's tiles (G2b): the brush the paint tools put down.
+                workspace.TileMap.SelectTiles((int)Float(step, 1), step[2..].Select(Cell).ToArray());
+                break;
+            case "tileset-tile":
+                // tileset-tile <source> <x,y> setup|select|collision: the TileSet tab on one tile, in that mode.
+                workspace.ShowBottomTab(BottomDockTab.TileSet);
+                workspace.TileMapPanel.SetMode(step[3] switch
+                {
+                    "select" => TileSetEditMode.Select,
+                    "collision" => TileSetEditMode.Collision,
+                    _ => TileSetEditMode.Setup,
+                });
+                workspace.TileMapPanel.SelectTile((int)Float(step, 1), Cell(step[2]));
+                break;
             case "sheet-slicer":
                 {
                     // sheet-slicer <image (project path)> <columns> <rows> [x,y …]: the Select Frames dialog (ADR 0224) on
@@ -948,6 +972,14 @@ public sealed class EditorQaScript : IEditorAutomation
     }
 
     private static float Float(string[] step, int at) => float.Parse(step[at], CultureInfo.InvariantCulture);
+
+    // "x,y" as a cell.
+    private static Vector2I Cell(string text)
+    {
+        var comma = text.IndexOf(',', StringComparison.Ordinal);
+        return new Vector2I(int.Parse(text.AsSpan(0, comma), NumberStyles.Integer, CultureInfo.InvariantCulture),
+            int.Parse(text.AsSpan(comma + 1), NumberStyles.Integer, CultureInfo.InvariantCulture));
+    }
 
     private static int Int(string[] step, int at, int fallback) =>
         step.Length > at && int.TryParse(step[at], CultureInfo.InvariantCulture, out var value) ? value : fallback;

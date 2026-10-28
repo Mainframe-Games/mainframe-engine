@@ -300,6 +300,28 @@ wait 3
 key Z cmd
 wait 3
 click #tool-translate
+# Tile maps (G2b): the Tiles 2D scene's Walls layer: pick the stone tile, paint a rectangle in the view, undo it; the
+# TileSet tab on the bush's collision.
+open Examples/Demo/Assets/Scenes/tiles_2d.mscene
+wait 20
+select Walls
+camera2d 336 168 2
+tilemap-pick 0 2,0
+command tilemap.tool.rect
+drag 700 450 820 520
+wait 30
+state
+capture 26b-tilemap-rect
+key Z cmd
+wait 3
+state
+capture 26c-tilemap-undone
+tileset-tile 0 3,1 collision
+wait 5
+capture 26d-tileset-collision
+command tilemap.palette
+command file.close
+wait 10
 # Profiler tab (G10): the editor profiling itself for about 2 s, the slowest frame selected, the trace saved with the captures.
 profile tab
 profile editor

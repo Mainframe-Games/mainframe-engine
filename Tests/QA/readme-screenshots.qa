@@ -151,6 +151,25 @@ cancel
 wait 5
 command file.close
 wait 10
+# 3c2. Tile maps (G2b): the Demo's Tiles 2D scene with its Walls layer selected: the paint bar over the view, the stone
+# tile's ghost under the mouse (Rect tool) and the TileMap palette with it picked; then the TileSet tab on the bush's
+# collision polygon. Nothing is painted, so the tab closes without asking.
+open Examples/Demo/Assets/Scenes/tiles_2d.mscene
+wait 20
+select Walls
+camera2d 300 150 4.6
+tilemap-pick 0 2,0
+command tilemap.tool.rect
+clear-output
+move 760 470
+wait 20
+capture editor-tilemap
+tileset-tile 0 3,1 collision
+move 760 470
+wait 20
+capture editor-tileset
+command file.close
+wait 10
 # 3e. Navigation (G3a): the Demo's Navigation 2D scene with Visible Navigation on (the baked grid's solid cells, the dashed
 # mud, the region outline) and its NavigationGrid2D selected: the inspector's Bake / Clear buttons and status line.
 open Examples/Demo/Assets/Scenes/navigation_2d.mscene

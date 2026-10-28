@@ -30,12 +30,12 @@ public enum TileSetEditMode
 /// </summary>
 public sealed class TileMapPanel : EditorDocument
 {
-    private const float TileViewSize = 176f; // dp, the collision editor's tile
+    private const float TileViewSize = 112f; // dp, the collision editor's tile
 
     private readonly List<RmlEventListener> _listeners = [];
     private int _shownVersion = -1;
     private int _ownVersion;
-    private float _zoom = 2f;
+    private float _zoom = 4f;
     private bool _dragging;
     private Vector2I _dragAnchor;
     private TileCollisionPolygon? _drawingPolygon;
