@@ -52,7 +52,7 @@ public sealed class ExportPlanAndValidationTests : IDisposable
         Assert.Equal(("osx-x64", "3.0.0", "Tiny", "com.example.tiny"), (plan.Rid, plan.Version, plan.Exe, plan.BundleId));
         Assert.Equal("Developer ID Application: B", plan.SignIdentity);
         Assert.Equal("p", plan.NotaryProfile);
-        Assert.Equal(Path.Combine("/abs/out", "Tiny-3.0.0-osx-x64"), plan.ArtifactPath);
+        Assert.Equal(Path.Combine(Path.GetFullPath("/abs/out"), "Tiny-3.0.0-osx-x64"), plan.ArtifactPath); // C:\abs\out on Windows
         Assert.EndsWith("osx-x64-demo", plan.ArtifactsPath, StringComparison.Ordinal);
 
         _game.Settings.Version = "";
