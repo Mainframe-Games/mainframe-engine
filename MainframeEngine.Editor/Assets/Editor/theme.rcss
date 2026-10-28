@@ -301,3 +301,4 @@ button.dock-tab .icon { margin-right: 5dp; image-color: #6b7488; }
 button.dock-tab:hover { background-color: #2f333d; color: #d7dbe4; }
 button.dock-tab.active { background-color: #1f2128; border-color: #3b3f4b; color: #e8ebf2; }
 button.dock-tab.active .icon { image-color: #c9cedb; }
+button.dock-tab.hidden { display: none; } /* the contextual TileMap / TileSet tabs (G2b) */
