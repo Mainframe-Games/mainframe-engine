@@ -24,6 +24,7 @@ just template-smoke   # dotnet new mfgame against this checkout, build it, run i
 just template-smoke-package  # the same against this checkout packed as the MainframeEngine package; also publishes
 just pack [version]   # NuGet: MainframeEngine + MainframeEngine.Templates → artifacts/nuget (build/pack-nuget.sh; nuget.org on release)
 just publish-local    # package the editor like the release workflow (artifacts/release)
+just export [args]    # mf-export: a game's export presets from project.mfproj (--preset, --all, --list; G5, docs/design/game-export.md)
 just l10n-check       # committed .mo files match their .po (CI runs it)
 just l10n-engine      # the engine's own strings (settings menu, input names) → Assets/UI/settings/settings.pot
 just docs             # the docs site (Astro Starlight, docs-site/) with live reload; just docs-build = the Pages build
@@ -171,6 +172,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   is `MainframeEngine.Editor/Src/Video/` (`VideoTab`, `VideoDocument`, `VideoView`, `VideoPanel`, the timeline, preview
   and transcript) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
+- `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
+  (presets in `project.mfproj`, publish, macOS bundle/signing, archives; replaces `package-game.sh`; ADRs 0229/0230);
+  `Tools/MainframeEngine.Symbolicate/` — `mf-symbolicate` for crash reports (G15)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Plugins/Facepunch.Steamworks/` — Facepunch.Steamworks 2.4.1 Win64/Posix builds (vendored, do not modify; Valve's
   matching `steam_api` natives are in `MainframeEngine/runtimes/<rid>/native`)
