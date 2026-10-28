@@ -78,8 +78,8 @@
 </head>
 <body class="panel-doc" data-model="output">
     <div class="panel-header">
-        <button class="dock-tab active" id="dock-tab-output" data-tooltip="Output — the editor's and the running games' log"><span class="icon icon-sm icon-terminal-2"></span>Output</button>
-        <button class="dock-tab" id="dock-tab-profiler" data-event-click="tab(1)" data-tooltip="Profiler — frame times, scopes and GPU zones of a running game or the editor"><span class="icon icon-sm icon-activity"></span>Profiler</button>
+        <button class="dock-tab active" id="dock-tab-output" data-tooltip="Output — the editor's and the running games' log"><span class="icon icon-sm icon-terminal-2"></span><span class="label">Output</span></button>
+        <button class="dock-tab" id="dock-tab-profiler" data-event-click="tab(1)" data-tooltip="Profiler — frame times, scopes and GPU zones of a running game or the editor"><span class="icon icon-sm icon-activity"></span><span class="label">Profiler</span></button>
         <div class="tools">
             <button class="level" id="level-error" data-class-active="show_error" data-event-click="toggle(3)" data-tooltip="Errors — show or hide error lines"><span class="icon icon-sm icon-alert-circle icon-error"></span><span class="count">{{count_error}}</span></button>
             <button class="level" id="level-warn" data-class-active="show_warn" data-event-click="toggle(2)" data-tooltip="Warnings — show or hide warning lines"><span class="icon icon-sm icon-alert-triangle icon-warn"></span><span class="count">{{count_warn}}</span></button>

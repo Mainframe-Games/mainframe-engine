@@ -72,8 +72,8 @@
 </head>
 <body class="panel-doc" data-model="profiler">
     <div class="panel-header">
-        <button class="dock-tab" id="dock-tab-output" data-event-click="tab(0)" data-tooltip="Output — the editor's and the running games' log"><span class="icon icon-sm icon-terminal-2"></span>Output</button>
-        <button class="dock-tab active" id="dock-tab-profiler" data-tooltip="Profiler — frame times, scopes and GPU zones of a running game or the editor"><span class="icon icon-sm icon-activity"></span>Profiler</button>
+        <button class="dock-tab" id="dock-tab-output" data-event-click="tab(0)" data-tooltip="Output — the editor's and the running games' log"><span class="icon icon-sm icon-terminal-2"></span><span class="label">Output</span></button>
+        <button class="dock-tab active" id="dock-tab-profiler" data-tooltip="Profiler — frame times, scopes and GPU zones of a running game or the editor"><span class="icon icon-sm icon-activity"></span><span class="label">Profiler</span></button>
         <div class="tools">
             <button class="source" id="profiler-source" data-event-click="source()" data-tooltip="Source — the running game to profile, or the editor itself"><span class="icon icon-sm icon-device-gamepad-2"></span><span class="label">{{source}}</span><span class="icon icon-sm icon-chevron-down"></span></button>
             <button class="tool-button small record" id="profiler-record" data-class-active="recording" data-class-disabled="!can_record" data-event-click="record()" data-attr-data-tooltip="record_tip"><span class="icon icon-sm icon-circle-dot"></span></button>
