@@ -4,19 +4,28 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
-- **Gameplay toolkit, all of it (2026-10-28).** Integration branch `feature/gameplay-toolkit` (local, not pushed; one
-  PR at the end). Budget stop 90 % weekly. Order: G10, G15, G2a ✅ → G2b tile maps (on G2a's `SpriteSheetGrid`, the
-  bottom-panel tab layout ADR 0224 left to it), G3a navigation (G3.6 tile map source after G2b), G5 export → G12, G11,
-  G13 2D paths, G14 → the big ones (G17, G1a panel/G1c/G1d/G1f, G6, G8, G9.7/G9.10, G3b). G16 skipped (codec not chosen).
-  - Wave 1 merged by cherry-pick: G2a animated sprites (ADRs 0223/0224), G15 crash reporting (ADRs 0221/0222), G10
-    profiler (ADRs 0219/0220). G10 and G15 both took editor link v5: merged as ONE v5 — `CrashReport = 9`,
-    `ProfileMarkers = 10`, `ProfileFrame = 11`, `ProfileDropped = 12`; commands `ProfilerStart = 9`, `ProfilerStop = 10`.
-  - Open from wave 1: lavapipe goldens for the new render tests (`animated-sprite_*`, crash prompt, profiler); a full
-    `just readme-screenshots` run (G10's `editor-profiler.png` is missing: the run stuck on an "Open Project: save
-    basic_3d changes?" prompt); `baseline.json` profiler numbers on a quiet machine; G15's CI symbol steps never ran;
-    G15.9 hang detection ("later"); `AnimatedSprite2D`/`Sprite2D` never unsubscribe from their resource's `Changed`.
-  - Lane branches kept until the PR: `feature/g2a-animated-sprites`, `feature/g15-crash-reports`, `feature/g10-profiler`
-    (worktrees `.claude/worktrees/agent-*`, removal needs `--force`: submodules). Next ADR number: 0225.
+- **Gameplay toolkit, all of it (2026-10-28).** Integration branch `feature/gameplay-toolkit` → one PR to `main`.
+  Budget stop 90 % weekly (reached after wave 2). Order for the rest: G3.6 tile map navigation source (small now:
+  `INavigationGridBaker` + the G2b API listed in `navigation.md`), G12, G11, G13 2D paths, G14 → the big ones (G17,
+  G1a panel/G1c/G1d/G1f, G6, G8, G9.7/G9.10, G3b). G16 skipped (codec not chosen).
+  - Wave 1: G2a animated sprites (ADRs 0223/0224), G15 crash reporting (0221/0222), G10 profiler (0219/0220). G10 and
+    G15 both took editor link v5: merged as ONE v5 — `CrashReport = 9`, `ProfileMarkers = 10`, `ProfileFrame = 11`,
+    `ProfileDropped = 12`; commands `ProfilerStart = 9`, `ProfilerStop = 10`.
+  - Wave 2: G3a navigation G3.1–G3.5 (0227/0228), G5 export + `mf-export` (0229/0230; `package-game.sh` removed;
+    project format 5), G2b tile maps (0225/0226; **breaking:** 2D collision hits are `Node2D`, the G3a physics bake was
+    adapted). Integration fixes: editor icon atlas regenerated from the merged `icons.txt` (250 icons); Demo tabs
+    `sprites_2d`, `tiles_2d`, `navigation_2d`.
+  - Open: G15.9 hang detection; a moving `Camera2D` allocates ~2 KB/frame in the full renderer (found by G2b); full
+    `just readme-screenshots` never ran in one go (each lane captured its PNGs with a cut-down script; G10's
+    `editor-profiler.png` missing — the run stuck on an "Open Project: save basic_3d changes?" prompt); `baseline.json`
+    numbers (profiler, navigation, tiles) recorded on a busy machine; G15's CI symbol steps never ran; Windows-host
+    export untested; `AnimatedSprite2D`/`Sprite2D` never unsubscribe from their resource's `Changed`;
+    `SongBakeTests.TheBakeSongFlagBakesIntoTheSongsProject` failed once under load (passes alone);
+    `ShowcaseRecordingTheProfilerAllocatesNothing` allocates 3096 B once (one frame, ~frame 243, not a spike) in about 1 of
+    3 runs of the allocation-gate set on MoltenVK, only when other render hosts run alongside; it vanishes with
+    `TrackAllocations` on (timing). Unfixed. `FlyingThroughAFoliageQualityForestAllocatesNothingPerFrame` times out (3 min)
+    under Docker's x86_64 emulation only.
+  - Next ADR number: 0231.
 
 - **Neon showcase (2026-10-27/28).** Branch `neon-demo` (one PR): `Examples/Neon`, a cyberpunk loft 20 floors up
   (ADR 0218, `docs/design/neon.md`), plus the three engine features it needed: `Path3D`/`PathFollow3D` and closed
