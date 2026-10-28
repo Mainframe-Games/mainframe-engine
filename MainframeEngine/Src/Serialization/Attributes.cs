@@ -30,6 +30,12 @@ public sealed class ExportAttribute : Attribute
     /// <summary>Edit the enum as a set of flags.</summary>
     public bool Flags { get; set; }
 
+    /// <summary>
+    /// Saved but not shown in the inspector (Godot's <c>PROPERTY_USAGE_STORAGE</c> without <c>EDITOR</c>): bulk data a
+    /// node edits through its own API, such as <see cref="TileMapLayer"/>'s cells.
+    /// </summary>
+    public bool Storage { get; set; }
+
     /// <summary>For <see cref="NodePath"/> values: the node type the path must point to.</summary>
     public Type? NodeType { get; set; }
 

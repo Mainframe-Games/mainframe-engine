@@ -182,7 +182,7 @@ public sealed class CanvasFrame
         for (var i = 0; i < items.Count; i++)
         {
             var culled = items[i];
-            var list = culled.Item.DrawList;
+            var list = culled.DrawList;
             var commands = list.Commands;
             if (culled.ClipComposite && culled.Item is CanvasGroup group)
             {

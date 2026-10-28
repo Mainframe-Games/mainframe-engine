@@ -235,6 +235,9 @@ public sealed record ExportHints
     public string? File { get; init; }
     public bool Directory { get; init; }
     public bool Multiline { get; init; }
+
+    /// <summary>Saved but hidden from the inspector (<see cref="ExportAttribute.Storage"/>).</summary>
+    public bool Storage { get; init; }
     public bool Flags { get; init; }
     public Type? NodeType { get; init; }
 

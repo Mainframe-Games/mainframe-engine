@@ -13,6 +13,9 @@ internal static class SceneJsonLayout
     /// <summary>Arrays of at most this many scalars are written on one line (a 4×4 matrix fits).</summary>
     public const int MaxInlineArrayLength = 16;
 
+    /// <summary>An array holding a string longer than this (encoded bytes) is written one element per line.</summary>
+    public const int MaxInlineStringLength = 64;
+
     private static readonly JsonReaderOptions ReaderOptions = new()
     {
         CommentHandling = JsonCommentHandling.Skip,
@@ -108,6 +111,9 @@ internal static class SceneJsonLayout
         while (scan.Read() && scan.TokenType != JsonTokenType.EndArray)
         {
             if (scan.TokenType is JsonTokenType.StartObject or JsonTokenType.StartArray || ++count > MaxInlineArrayLength)
+                return false;
+            // Long strings (tile map chunks: one base64 line each) get a line of their own.
+            if (scan.TokenType == JsonTokenType.String && scan.ValueSpan.Length > MaxInlineStringLength)
                 return false;
         }
 

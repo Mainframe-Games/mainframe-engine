@@ -138,6 +138,12 @@ public class Node2D : CanvasItem, ITransformNotifiable
 
     public float GlobalRotation => GlobalTransform.Rotation;
 
+    /// <summary>A global (canvas) point in this node's local space (Godot's <c>to_local</c>).</summary>
+    public Vector2 ToLocal(Vector2 globalPoint) => GlobalTransform.AffineInverse().TransformPoint(globalPoint);
+
+    /// <summary>A local point in global (canvas) space (Godot's <c>to_global</c>).</summary>
+    public Vector2 ToGlobal(Vector2 localPoint) => GlobalTransform.TransformPoint(localPoint);
+
     /// <summary>The parent the transform is relative to: the parent <see cref="Node2D"/>, or null for roots and top-level nodes.</summary>
     public Node2D? ParentNode2D => TopLevel ? null : Parent as Node2D;
 

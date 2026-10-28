@@ -68,8 +68,8 @@ public sealed class InspectorModel
         var sections = new List<(string Title, List<InspectorProperty> Rows, Type Type, bool IsGroup)>();
         foreach (var property in info.Properties)
         {
-            if (custom is not null && !custom.ShowProperty(target, property))
-                continue;
+            if (property.Hints.Storage || (custom is not null && !custom.ShowProperty(target, property)))
+                continue; // storage-only members (tile map cells) are saved, never shown
             var title = property.Group ?? property.DeclaringType.Name;
             var section = sections.FindIndex(s => string.Equals(s.Title, title, StringComparison.Ordinal));
             if (section < 0)
@@ -107,6 +107,8 @@ public sealed class InspectorModel
         var sections = new List<(string Title, List<InspectorProperty> Rows)>();
         foreach (var property in info.Properties)
         {
+            if (property.Hints.Storage)
+                continue;
             var shared = true;
             foreach (var other in others)
                 if (other is null || !ReferenceEquals(other.FindProperty(property.Name), property))

@@ -149,9 +149,9 @@ public sealed class CanvasServer : IFrameServer
                     if (!ReferenceEquals(member.ClipGroup, owner) || member.ClipComposite)
                         continue;
                     _groupItems.Add(member);
-                    if (member.Item.DrawList.IsEmpty)
+                    if (member.DrawList.IsEmpty)
                         continue;
-                    var rect = member.Item.DrawList.Bounds.Transformed(member.Transform);
+                    var rect = member.DrawList.Bounds.Transformed(member.Transform);
                     bounds = any ? bounds.Merge(rect) : rect;
                     any = true;
                 }

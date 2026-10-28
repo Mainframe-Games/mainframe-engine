@@ -82,7 +82,8 @@ internal sealed record ExportModel(
     bool Translatable,
     string? Icon,
     string? Description,
-    int Handle = 0);
+    int Handle = 0,
+    bool Storage = false);
 
 /// <summary>A <c>[Signal]</c> event.</summary>
 internal sealed record SignalModel(string Name, string DelegateType, EquatableArray<string> ParameterTypes, bool CanForward);
