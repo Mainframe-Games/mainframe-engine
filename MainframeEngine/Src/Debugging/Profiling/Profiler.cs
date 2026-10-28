@@ -498,7 +498,7 @@ public static partial class Profiler
         var end = Stopwatch.GetTimestamp();
         if (recording && s_frameScopeBuffer is { } mainBuffer && mainBuffer.Depth > 0)
         {
-            mainBuffer.EndMarker(EngineMarkers.Frame.Id);
+            mainBuffer.EndMarker(EngineMarkers.Frame.Id, end); // at the frame's own end: no event outlasts its frame
             mainBuffer.CloseAll(end);
         }
 

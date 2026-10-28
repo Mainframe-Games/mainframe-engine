@@ -268,7 +268,9 @@ public sealed class CrashReporterTests
         Assert.Equal(CrashKind.UncleanExit, back.Kind);
         Assert.Equal(139, back.ExitCode);
         Assert.Equal(report.Timestamp, back.Timestamp);
-        Assert.StartsWith("The game stopped unexpectedly (SIG", back.Summary, StringComparison.Ordinal);
+        // 139 is SIGSEGV's shell code on Unix; Windows names exit codes by NTSTATUS, so it stays a number there.
+        Assert.StartsWith(OperatingSystem.IsWindows() ? "The game stopped unexpectedly (exit code 139" : "The game stopped unexpectedly (SIG",
+            back.Summary, StringComparison.Ordinal);
     }
 
     [Fact]

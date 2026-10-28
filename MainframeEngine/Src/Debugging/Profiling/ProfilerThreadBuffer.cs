@@ -120,9 +120,11 @@ internal sealed class ProfilerThreadBuffer
     }
 
     /// <summary>Ends <paramref name="marker"/>'s innermost open scope; false when none is open.</summary>
-    public bool EndMarker(ushort marker)
+    public bool EndMarker(ushort marker) => EndMarker(marker, Stopwatch.GetTimestamp());
+
+    /// <summary>Ends <paramref name="marker"/>'s innermost open scope at <paramref name="now"/>; false when none is open.</summary>
+    public bool EndMarker(ushort marker, long now)
     {
-        var now = Stopwatch.GetTimestamp();
         for (var d = _depth - 1; d >= 0; d--)
         {
             if (_openMarker[d] != marker)
