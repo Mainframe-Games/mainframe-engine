@@ -156,6 +156,10 @@ public sealed class EditorCommands
                 _workspace.Viewport.PostPreview = !_workspace.Viewport.PostPreview;
                 _workspace.Toolbar.Refresh();
                 return true;
+            case "view.navigation":
+                _workspace.Viewport.NavigationVisible = !_workspace.Viewport.NavigationVisible;
+                _workspace.Toolbar.Refresh();
+                return true;
             case "view.front": Active?.Camera.SetView(EditorView.Front); return true;
             case "view.right": Active?.Camera.SetView(EditorView.Right); return true;
             case "view.top": Active?.Camera.SetView(EditorView.Top); return true;
@@ -1327,6 +1331,7 @@ public sealed class EditorCommands
                 MenuItem.Separator,
                 new MenuItem(_workspace.Viewport.GridVisible ? "Hide Grid" : "Show Grid", "view.grid", "G", Icon: "grid-3x3"),
                 new MenuItem(_workspace.Viewport.PostPreview ? "Hide Post-Processing" : "Preview Post-Processing", "view.post", null, Icon: "sparkles"),
+                new MenuItem(_workspace.Viewport.NavigationVisible ? "Hide Navigation" : "Visible Navigation", "view.navigation", null, Icon: "route"),
                 MenuItem.Separator,
                 new MenuItem("Switch to Music Mode", "editor.mode.music", Icon: "music"),
                 new MenuItem("Switch to Video Mode", "editor.mode.video", Icon: "video"),

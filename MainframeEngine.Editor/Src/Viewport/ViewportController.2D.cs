@@ -231,8 +231,29 @@ public sealed partial class ViewportController
                 DrawJoint2D(overlay, joint, marker);
         }
 
+        var selection = scene.Selection.Nodes;
+        for (var i = 0; i < selection.Count; i++)
+            if (selection[i] is NavigationAgent2D { IsInsideTree: true } agent)
+                DrawAgent2D(overlay, agent);
+
         DrawGizmo2D(scene, overlay, pixels);
         DrawHandles(scene, overlay, pixels);
+    }
+
+    // G3a: the selected agent's arrival circles around its parent body — TargetDesiredDistance (solid) and
+    // PathDesiredDistance (in the navigation path colour), and a line to its target when one is set.
+    private static void DrawAgent2D(DebugLines lines, NavigationAgent2D agent)
+    {
+        if (agent.Parent is not Node2D body)
+            return;
+        var at = body.GlobalPosition;
+        lines.AddCircle2D(Transform2D.Identity, at, agent.TargetDesiredDistance, SelectionColor);
+        lines.AddCircle2D(Transform2D.Identity, at, agent.PathDesiredDistance, NavigationDebugColors.Path);
+        if (agent.TargetPosition != default)
+        {
+            lines.AddLine2D(Transform2D.Identity, at, agent.TargetPosition, NavigationDebugColors.Target);
+            lines.AddCircle2D(Transform2D.Identity, agent.TargetPosition, agent.TargetDesiredDistance, NavigationDebugColors.Target);
+        }
     }
 
     // The selected joint (ADR 0211): its shape in the selection colour, and a line to each body its paths name (a red

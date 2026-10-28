@@ -80,6 +80,13 @@ public sealed partial class ViewportController : Node
     /// </summary>
     public bool PostPreview { get; set; } = true;
 
+    /// <summary>
+    /// Visible Navigation (G3a, on by default like collision shapes): the editor tree's <see cref="NavigationServer2D"/>
+    /// draws every edited scene's navigation grids (outline, cells, solid and weighted cells) and agent paths and targets.
+    /// Applied to the server every frame, so it also holds for a server registered later (the first grid of a scene).
+    /// </summary>
+    public bool NavigationVisible { get; set; } = true;
+
     /// <summary>The view rectangle in window points (dp).</summary>
     public LayoutRect ViewRect => _workspace.Layout.ViewportImage;
 
@@ -206,6 +213,8 @@ public sealed partial class ViewportController : Node
         if (view2D)
             viewport.CanvasTransform = Transform2D.FromTrs(pixels * 0.5f - scene.Camera.Center2D * scene.Camera.Zoom2D, 0f, new Vector2(scene.Camera.Zoom2D));
         ApplyPostPreview(viewport, PostPreview && !view2D);
+        if (_workspace.Tree?.Servers.Get<NavigationServer2D>() is { } navigation)
+            navigation.DebugDrawEnabled = NavigationVisible;
         PublishTarget(viewport);
 
         if (_drag == DragKind.Fly)
