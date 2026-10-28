@@ -4,6 +4,20 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Gameplay toolkit, all of it (2026-10-28).** Integration branch `feature/gameplay-toolkit` (local, not pushed; one
+  PR at the end). Budget stop 90 % weekly. Order: G10, G15, G2a ✅ → G2b tile maps (on G2a's `SpriteSheetGrid`, the
+  bottom-panel tab layout ADR 0224 left to it), G3a navigation (G3.6 tile map source after G2b), G5 export → G12, G11,
+  G13 2D paths, G14 → the big ones (G17, G1a panel/G1c/G1d/G1f, G6, G8, G9.7/G9.10, G3b). G16 skipped (codec not chosen).
+  - Wave 1 merged by cherry-pick: G2a animated sprites (ADRs 0223/0224), G15 crash reporting (ADRs 0221/0222), G10
+    profiler (ADRs 0219/0220). G10 and G15 both took editor link v5: merged as ONE v5 — `CrashReport = 9`,
+    `ProfileMarkers = 10`, `ProfileFrame = 11`, `ProfileDropped = 12`; commands `ProfilerStart = 9`, `ProfilerStop = 10`.
+  - Open from wave 1: lavapipe goldens for the new render tests (`animated-sprite_*`, crash prompt, profiler); a full
+    `just readme-screenshots` run (G10's `editor-profiler.png` is missing: the run stuck on an "Open Project: save
+    basic_3d changes?" prompt); `baseline.json` profiler numbers on a quiet machine; G15's CI symbol steps never ran;
+    G15.9 hang detection ("later"); `AnimatedSprite2D`/`Sprite2D` never unsubscribe from their resource's `Changed`.
+  - Lane branches kept until the PR: `feature/g2a-animated-sprites`, `feature/g15-crash-reports`, `feature/g10-profiler`
+    (worktrees `.claude/worktrees/agent-*`, removal needs `--force`: submodules). Next ADR number: 0225.
+
 - **Neon showcase (2026-10-27/28).** Branch `neon-demo` (one PR): `Examples/Neon`, a cyberpunk loft 20 floors up
   (ADR 0218, `docs/design/neon.md`), plus the three engine features it needed: `Path3D`/`PathFollow3D` and closed
   `Curve3D` (ADR 0215, `docs/design/paths.md`), sub-viewport textures on 3D materials (ADR 0216), nearest-light

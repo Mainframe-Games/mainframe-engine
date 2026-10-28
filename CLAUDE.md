@@ -141,7 +141,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   here), `ISaveStorage`/`ICloudSaveBackend` (M13 seam). `Src/Serialization/` also holds `JsonMigrations`, `DurableFile`,
   `ConfigFile`; `Src/UI/Settings/` the drop-in `SettingsMenu`
 - `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `UserSettings` (`settings.json`), `GameHost`/`GameSession`, `GameAssemblyLoader`
-  (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol (version 5: includes `StartRecording`/`StopRecording` and the `Recording` message, and the profiler's `ProfilerStart`/`ProfilerStop` with `ProfileMarkers`/`ProfileFrame`/`ProfileDropped`; `ProfilerStreamer`), client and server
+  (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol (version 5: includes `StartRecording`/`StopRecording` and the `Recording` message, and the profiler's `ProfilerStart`/`ProfilerStop` with `ProfileMarkers`/`ProfileFrame`/`ProfileDropped`; `ProfilerStreamer`; and G15's `CrashReport` message), client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template, the `MainframeEngine.Templates` NuGet package
   (the editor ships a copy too; defaults to the `MainframeEngine` package of its own version, `--engine-source project`
   for a checkout; `build/template-smoke.sh`)
