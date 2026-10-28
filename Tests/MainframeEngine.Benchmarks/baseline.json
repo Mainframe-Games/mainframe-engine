@@ -339,6 +339,11 @@
       "AllocatedBytes": 0
     },
     {
+      "Name": "TileMapBenchmarks.TileMapLayerFrameBuild",
+      "MeanNs": 1782000.0,
+      "AllocatedBytes": 0
+    },
+    {
       "Name": "UiBenchmarks.Relayout500",
       "MeanNs": 190808.198,
       "AllocatedBytes": 0
