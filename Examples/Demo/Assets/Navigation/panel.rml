@@ -1,0 +1,30 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Assets/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="navigation2d">
+    <div class="demo-panel">
+        <h1>Navigation 2D</h1>
+        <p class="hint">A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point.</p>
+        <div class="demo-row"><span>Diagonals</span>
+            <select data-value="diagonal">
+                <option value="none">No corner cutting</option>
+                <option value="one">One side free</option>
+                <option value="always">Always</option>
+                <option value="never">Never</option>
+            </select></div>
+        <div class="demo-row"><span>Heuristic</span>
+            <select data-value="heuristic">
+                <option value="octile">Octile</option>
+                <option value="euclidean">Euclidean</option>
+                <option value="manhattan">Manhattan</option>
+                <option value="chebyshev">Chebyshev</option>
+            </select></div>
+        <div class="demo-row"><span>Jump point search</span><input type="checkbox" data-checked="jumping"/></div>
+        <div class="demo-row"><span>Visible navigation</span><input type="checkbox" data-checked="debug"/></div>
+        <div class="demo-row"><span>Click adds walls</span><input type="checkbox" data-checked="walls"/></div>
+        <div class="demo-row"><span>Arrived</span><span>{{arrived}} / {{total}}</span></div>
+    </div>
+</body>
+</rml>

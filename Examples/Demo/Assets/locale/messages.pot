@@ -271,6 +271,87 @@ msgid "F12"
 msgstr ""
 
 #. RML <h1>
+#: Examples/Demo/Assets/Navigation/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+msgid "Navigation 2D"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Navigation/panel.rml:9
+msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:10
+msgid "Diagonals"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:12
+msgid "No corner cutting"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:13
+msgid "One side free"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:14
+msgid "Always"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:15
+msgid "Never"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:17
+msgid "Heuristic"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:19
+msgid "Octile"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:20
+msgid "Euclidean"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:21
+msgid "Manhattan"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:22
+msgid "Chebyshev"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:24
+msgid "Jump point search"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:25
+msgid "Visible navigation"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:26
+msgid "Click adds walls"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:27
+msgid "Arrived"
+msgstr ""
+
+#. RML <h1>
 #: Examples/Demo/Assets/Particles/panel.rml:8
 msgid "Particles"
 msgstr ""

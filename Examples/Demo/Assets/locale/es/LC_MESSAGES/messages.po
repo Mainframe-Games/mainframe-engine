@@ -269,6 +269,87 @@ msgid "F12"
 msgstr "F12"
 
 #. RML <h1>
+#: Examples/Demo/Assets/Navigation/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+msgid "Navigation 2D"
+msgstr "Navegación 2D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Navigation/panel.rml:9
+msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point."
+msgstr "Una cuadrícula horneada a partir de los muros, barro que cuesta el triple y perseguidores cuyos agentes caminan hasta el punto pulsado."
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:10
+msgid "Diagonals"
+msgstr "Diagonales"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:12
+msgid "No corner cutting"
+msgstr "Sin cortar esquinas"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:13
+msgid "One side free"
+msgstr "Un lado libre"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:14
+msgid "Always"
+msgstr "Siempre"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:15
+msgid "Never"
+msgstr "Nunca"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:17
+msgid "Heuristic"
+msgstr "Heurística"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:19
+msgid "Octile"
+msgstr "Octil"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:20
+msgid "Euclidean"
+msgstr "Euclídea"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:21
+msgid "Manhattan"
+msgstr "Manhattan"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:22
+msgid "Chebyshev"
+msgstr "Chebyshev"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:24
+msgid "Jump point search"
+msgstr "Búsqueda por puntos de salto"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:25
+msgid "Visible navigation"
+msgstr "Navegación visible"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:26
+msgid "Click adds walls"
+msgstr "Clic añade muros"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:27
+msgid "Arrived"
+msgstr "Llegados"
+
+#. RML <h1>
 #: Examples/Demo/Assets/Particles/panel.rml:8
 msgid "Particles"
 msgstr "Partículas"

@@ -156,6 +156,54 @@ msgstr "[Séttîñgs (F10 / Stårt) ~~~~]"
 msgid "F12"
 msgstr "[F12 ~]"
 
+msgid "Navigation 2D"
+msgstr "[Ñåvîgåtîöñ 2Ð ~~~]"
+
+msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point."
+msgstr "[Å grîð båkéð fröm thé wålls, mûð thåt çösts thréé tîmés ås mûçh, åñð çhåsérs whösé ågéñts wålk tö thé çlîçkéð pöîñt. ~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Diagonals"
+msgstr "[Ðîågöñåls ~~]"
+
+msgid "No corner cutting"
+msgstr "[Ñö çörñér çûttîñg ~~~~]"
+
+msgid "One side free"
+msgstr "[Öñé sîðé fréé ~~~]"
+
+msgid "Always"
+msgstr "[Ålwåýs ~]"
+
+msgid "Never"
+msgstr "[Ñévér ~]"
+
+msgid "Heuristic"
+msgstr "[Héûrîstîç ~~]"
+
+msgid "Octile"
+msgstr "[Öçtîlé ~]"
+
+msgid "Euclidean"
+msgstr "[Éûçlîðéåñ ~~]"
+
+msgid "Manhattan"
+msgstr "[Måñhåttåñ ~~]"
+
+msgid "Chebyshev"
+msgstr "[Çhébýshév ~~]"
+
+msgid "Jump point search"
+msgstr "[Jûmp pöîñt séårçh ~~~~]"
+
+msgid "Visible navigation"
+msgstr "[Vîsîblé ñåvîgåtîöñ ~~~~~]"
+
+msgid "Click adds walls"
+msgstr "[Çlîçk åððs wålls ~~~~]"
+
+msgid "Arrived"
+msgstr "[Årrîvéð ~~]"
+
 msgid "Particles"
 msgstr "[Pårtîçlés ~~]"
 

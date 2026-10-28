@@ -25,6 +25,7 @@ public static class DemoScenes
         Scene("animation_3d", "Animation 3D", "bone", Animation3DScene.Build),
         Scene("shaders", "Shaders", "palette", ShadersScene.Build),
         Scene("sprites_2d", "Sprites 2D", "slideshow", Sprites2DScene.Build),
+        Scene("navigation_2d", "Navigation 2D", "route", Navigation2DScene.Build),
     ];
 
     public static DemoSceneInfo? ById(string id) => All.FirstOrDefault(s => s.Id == id);
