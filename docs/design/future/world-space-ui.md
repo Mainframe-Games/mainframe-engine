@@ -424,7 +424,7 @@ work (expression strings, layout) is outside the managed heap and is covered by 
 
 ### Demo
 
-A `world_ui` tab (icon `device-tv`, the next free nav key as in [2D content](2d-content.md#demo-scene)): a street with
+A `world_ui` tab (icon `device-tv`, the next free nav key as in [Tile maps](../tile-maps.md#demo-scene)): a street with
 `Label3D` signs (billboard, fixed quad, a `FixedSize` + `NoDepthTest` debug tag, one in Japanese), six walking dummies
 with nameplate markers (health drains on click), a waypoint that clamps to the screen edge, and a terminal `UiPanel3D`
 that opens a gate (Tab toggles mouse and crosshair mode). The side panel toggles occlusion, distance scale and fog;

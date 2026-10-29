@@ -38,6 +38,8 @@ public sealed class EditorLinkClient : IDisposable
     private readonly Queue<EditorLinkRecording> _recordings = new(); // guarded by _statusGate
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _goodbyeSent = new(false);
+    private readonly ManualResetEventSlim _crashSent = new(false);
+    private EditorLinkCrashReport? _crash; // guarded by _statusGate
     private readonly ManualResetEventSlim _stopped = new(false);
     private int _connectAttempts;
     private EditorLinkStatus _status;
@@ -53,6 +55,21 @@ public sealed class EditorLinkClient : IDisposable
     private int _goodbyeExitCode;
     private volatile bool _goodbyeRequested;
     private FramedConnection? _connection;
+
+    // G10: profiler frames. A few preallocated blocks cycle between the game thread (Rent/Send) and the link thread
+    // (serialise, give back); markers and thread names are sent once per connection.
+    public const int ProfileBlockCount = 8;
+    private readonly Lock _profileGate = new();
+    private ProfileFrameBlock?[]? _profileFree;
+    private int _profileFreeCount;
+    private readonly ProfileFrameBlock?[] _profilePending = new ProfileFrameBlock?[ProfileBlockCount];
+    private int _profilePendingHead;
+    private int _profilePendingCount;
+    private long _profileDropped;
+    private long _profileDroppedTotal;
+    private int _markersSent;
+    private int _countersSent;
+    private readonly bool[] _threadsSent = new bool[256];
 
     public EditorLinkClient(int port, EditorLinkHello hello, int queueCapacity = 4096)
     {
@@ -128,6 +145,145 @@ public sealed class EditorLinkClient : IDisposable
         Wake();
     }
 
+    /// <summary>
+    /// Sends a crash report (protocol 5) ahead of the goodbye, waiting at most <paramref name="timeout"/> for it to be
+    /// written to the socket: called on the way down, possibly from a thread about to die. False when not connected,
+    /// when the report is too large for a frame, or on time-out.
+    /// </summary>
+    public bool SendCrashReport(in EditorLinkCrashReport report, TimeSpan timeout)
+    {
+        if (!_connected || _stopping)
+            return false;
+        if (System.Text.Encoding.UTF8.GetByteCount(report.Json ?? "") > EditorLinkProtocol.MaxCrashReportBytes)
+            return false;
+        try
+        {
+            _crashSent.Reset(); // before queueing: the pump may write it (and set the event) at once
+            lock (_statusGate)
+                _crash = report;
+            Wake();
+            return _crashSent.Wait(timeout);
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Profiler frames dropped because no block was free (the editor fell behind or is away; total).</summary>
+    public long DroppedProfileFrames => Interlocked.Read(ref _profileDroppedTotal);
+
+    /// <summary>A free profile block for the game thread to fill, or null (all in flight: drop the frame). Allocation-free after the first call.</summary>
+    internal ProfileFrameBlock? RentProfileBlock()
+    {
+        lock (_profileGate)
+        {
+            if (_profileFree is null)
+            {
+                _profileFree = new ProfileFrameBlock?[ProfileBlockCount];
+                for (var i = 0; i < ProfileBlockCount; i++)
+                    _profileFree[i] = new ProfileFrameBlock();
+                _profileFreeCount = ProfileBlockCount;
+            }
+
+            if (_profileFreeCount == 0 || _stopping)
+                return null;
+            var block = _profileFree[--_profileFreeCount];
+            _profileFree[_profileFreeCount] = null;
+            return block;
+        }
+    }
+
+    /// <summary>Queues a filled block (from <see cref="RentProfileBlock"/>) for the link thread.</summary>
+    internal void SendProfileFrame(ProfileFrameBlock block)
+    {
+        lock (_profileGate)
+        {
+            _profilePending[(_profilePendingHead + _profilePendingCount) % ProfileBlockCount] = block;
+            _profilePendingCount++;
+        }
+
+        Wake();
+    }
+
+    /// <summary>Counts a frame dropped for want of a block (reported as <see cref="EditorLinkMessageType.ProfileDropped"/>).</summary>
+    internal void CountProfileDropped()
+    {
+        Interlocked.Increment(ref _profileDropped);
+        Interlocked.Increment(ref _profileDroppedTotal);
+    }
+
+    /// <summary>The oldest queued block (the link thread's; tests).</summary>
+    internal ProfileFrameBlock? TakePendingProfileBlock()
+    {
+        lock (_profileGate)
+        {
+            if (_profilePendingCount == 0)
+                return null;
+            var block = _profilePending[_profilePendingHead];
+            _profilePending[_profilePendingHead] = null;
+            _profilePendingHead = (_profilePendingHead + 1) % ProfileBlockCount;
+            _profilePendingCount--;
+            return block;
+        }
+    }
+
+    internal void ReturnProfileBlock(ProfileFrameBlock block)
+    {
+        lock (_profileGate)
+            _profileFree![_profileFreeCount++] = block;
+    }
+
+    // Serialises the pending profile frames, writing each one out so the buffer stays at one frame (G10).
+    private void PumpProfileFrames(FramedConnection connection, ArrayBufferWriter<byte> buffer)
+    {
+        Span<byte> newThreads = stackalloc byte[256];
+        while (TakePendingProfileBlock() is { } block)
+        {
+            try
+            {
+                if (block.MarkerCount > _markersSent)
+                {
+                    EditorLinkProtocol.WriteProfileMarkers(buffer, _markersSent, block.MarkerCount);
+                    _markersSent = block.MarkerCount;
+                }
+
+                if (block.CounterRegistryCount > _countersSent)
+                {
+                    EditorLinkProtocol.WriteProfileCounters(buffer, _countersSent, block.CounterRegistryCount);
+                    _countersSent = block.CounterRegistryCount;
+                }
+
+                var threads = 0;
+                for (var i = 0; i < block.CpuCount; i++)
+                {
+                    var thread = block.Cpu[i].Thread;
+                    if (!_threadsSent[thread])
+                    {
+                        _threadsSent[thread] = true;
+                        newThreads[threads++] = thread;
+                    }
+                }
+
+                EditorLinkProtocol.WriteProfileFrame(buffer, block, newThreads[..threads]);
+            }
+            finally
+            {
+                ReturnProfileBlock(block);
+            }
+
+            connection.Write(buffer.WrittenSpan);
+            buffer.Clear();
+        }
+
+        if (Interlocked.Exchange(ref _profileDropped, 0) is var dropped and > 0)
+        {
+            EditorLinkProtocol.WriteProfileDropped(buffer, dropped);
+            connection.Write(buffer.WrittenSpan);
+            buffer.Clear();
+        }
+    }
+
     /// <summary>The next command from the editor, if any (call from the game loop).</summary>
     public bool TryReceiveCommand(out EditorLinkCommand command) => _commands.TryDequeue(out command);
 
@@ -171,6 +327,7 @@ public sealed class EditorLinkClient : IDisposable
         {
             _signal.Dispose();
             _goodbyeSent.Dispose();
+            _crashSent.Dispose();
             _stopped.Dispose();
         }
     }
@@ -209,6 +366,9 @@ public sealed class EditorLinkClient : IDisposable
             if (!ReadWelcome(connection))
                 return false;
             welcomed = true;
+            _markersSent = 0; // a new editor connection learns every marker, counter and thread name again
+            _countersSent = 0;
+            Array.Clear(_threadsSent);
             Interlocked.Increment(ref _connectionCount);
             _connected = true;
             reader.Start();
@@ -262,6 +422,7 @@ public sealed class EditorLinkClient : IDisposable
     {
         while (!_stopping && !connection.IsDisposed)
         {
+            EditorLinkCrashReport? crash;
             buffer.Clear();
             while (buffer.WrittenCount < MaxBatchBytes && _logs.TryDequeue(out var entry))
             {
@@ -288,6 +449,12 @@ public sealed class EditorLinkClient : IDisposable
 
                 while (_recordings.TryDequeue(out var recording))
                     EditorLinkProtocol.WriteRecording(buffer, recording);
+                crash = _logs.IsEmpty ? _crash : null; // after the logs that led to it
+                if (crash is { } report)
+                {
+                    EditorLinkProtocol.WriteCrashReport(buffer, report);
+                    _crash = null;
+                }
             }
 
             var goodbye = _goodbyeRequested && _logs.IsEmpty;
@@ -296,6 +463,10 @@ public sealed class EditorLinkClient : IDisposable
 
             if (buffer.WrittenCount > 0)
                 connection.Write(buffer.WrittenSpan);
+            if (crash is not null)
+                _crashSent.Set();
+            buffer.Clear();
+            PumpProfileFrames(connection, buffer);
             if (goodbye)
             {
                 _goodbyeRequested = false;

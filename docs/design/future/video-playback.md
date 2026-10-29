@@ -3,7 +3,7 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G16) · **Status:** ⬜ planned ·
 **Depends on:** [M7 audio](../audio.md) (buses, generator voices), [GPU resources](../gpu-resources.md) (upload queue,
 deletion queue), [M8 game UI](../game-ui.md) (`engine://` textures), [Native libraries](../natives.md) (if the chosen
-decoder is native) · **Related:** [Game export](game-export.md) (G5), [World-space UI](world-space-ui.md) (G11: GPU
+decoder is native) · **Related:** [Game export](../game-export.md) (G5), [World-space UI](world-space-ui.md) (G11: GPU
 textures on meshes), [Accessibility](accessibility.md) (G14: subtitles), [Mobile core](mobile.md) (M12),
 [Consoles](consoles.md), [Rendering backend abstraction](rendering-backend-abstraction.md) (M11)
 
@@ -320,7 +320,7 @@ if the load outlasts them. `--hidden`, `--max-frames` and QA runs skip intros (`
 
 ### Export and packaging
 
-- Videos ship through the preset's `include` globs like any `Assets/` file ([Game export](game-export.md)).
+- Videos ship through the preset's `include` globs like any `Assets/` file ([Game export](../game-export.md)).
   Archives store already-compressed video without deflate (`CompressionLevel.NoCompression` by extension).
 - Validation (`ExportIssue`): `video-source-format` (a `.mov`/`.mp4`/`.y4m` under `Assets/` that the game cannot
   play: warning, with an `exclude` fix), `video-large` (over 200 MB: warning about Steam patch sizes).
@@ -414,7 +414,7 @@ management, and it is unavailable on MoltenVK and lavapipe; the engine targets V
 - Docs updated when it ships: a new `docs/design/video.md`; `audio.md` (video voices), `gpu-resources.md`
   (`CopyBufferToImage`, external textures), `game-ui.md` (`engine://` video, `Cutscene`), `materials-and-meshes.md`
   (external textures), `asset-pipeline.md` (the `video` importer), `natives.md` (`mfvideo`),
-  `project-and-gamehost.md` (`loading.intro`), `editor.md`, `demo.md`, `future/game-export.md` (validation codes).
+  `project-and-gamehost.md` (`loading.intro`), `editor.md`, `demo.md`, `game-export.md` (validation codes).
 
 ## Task list
 
@@ -464,7 +464,7 @@ management, and it is unavailable on MoltenVK and lavapipe; the engine targets V
 - [Game UI](../game-ui.md): `UiLayer`, `engine://` textures, data models; [Localization](../localization.md): `Tr`
 - [Asset pipeline](../asset-pipeline.md): importers, `.meta`; [Native libraries](../natives.md): shims, CI, licences
 - [Project and GameHost](../project-and-gamehost.md): `loading` section, headless host
-- Gameplay toolkit siblings: [Game export](game-export.md) (G5), [Save games and settings](save-and-settings.md)
+- Gameplay toolkit siblings: [Game export](../game-export.md) (G5), [Save games and settings](save-and-settings.md)
   (G4: user volume), [World-space UI](world-space-ui.md) (G11: external textures),
   [Haptics and input glyphs](input-haptics-and-glyphs.md) (G12: skip glyph), [Accessibility](accessibility.md) (G14:
   captions)

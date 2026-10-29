@@ -10,7 +10,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:186
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:188
 msgid "Animation 3D"
 msgstr "Animación 3D"
 
@@ -27,6 +27,7 @@ msgstr "Clip"
 #. RML <option>
 #: Examples/Demo/Assets/Animation3D/panel.rml:12
 #: Examples/Demo/Assets/Spine/panel.rml:16
+#: Examples/Demo/Assets/Sprites2D/panel.rml:12
 msgid "Idle"
 msgstr "Reposo"
 
@@ -39,6 +40,7 @@ msgstr "Caminar"
 #. RML <option>
 #: Examples/Demo/Assets/Animation3D/panel.rml:14
 #: Examples/Demo/Assets/Spine/panel.rml:14
+#: Examples/Demo/Assets/Sprites2D/panel.rml:13
 msgid "Run"
 msgstr "Correr"
 
@@ -78,6 +80,7 @@ msgstr "Fundido"
 
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:22
+#: Examples/Demo/Assets/Sprites2D/panel.rml:16
 msgid "Speed"
 msgstr "Velocidad"
 
@@ -98,7 +101,7 @@ msgstr "Levantarse"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:179
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:181
 msgid "Audio 2D"
 msgstr "Audio 2D"
 
@@ -134,7 +137,7 @@ msgstr "Distancia máxima"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:180
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:182
 msgid "Audio 3D"
 msgstr "Audio 3D"
 
@@ -195,7 +198,7 @@ msgstr "Velocidad de órbita"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Basic2D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:178
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:180
 msgid "Basic 2D"
 msgstr "2D básico"
 
@@ -216,7 +219,7 @@ msgstr "Pausar animación"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Basic3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:177
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:179
 msgid "Basic 3D"
 msgstr "3D básico"
 
@@ -266,6 +269,87 @@ msgid "F12"
 msgstr "F12"
 
 #. RML <h1>
+#: Examples/Demo/Assets/Navigation/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+msgid "Navigation 2D"
+msgstr "Navegación 2D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Navigation/panel.rml:9
+msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point."
+msgstr "Una cuadrícula horneada a partir de los muros, barro que cuesta el triple y perseguidores cuyos agentes caminan hasta el punto pulsado."
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:10
+msgid "Diagonals"
+msgstr "Diagonales"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:12
+msgid "No corner cutting"
+msgstr "Sin cortar esquinas"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:13
+msgid "One side free"
+msgstr "Un lado libre"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:14
+msgid "Always"
+msgstr "Siempre"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:15
+msgid "Never"
+msgstr "Nunca"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:17
+msgid "Heuristic"
+msgstr "Heurística"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:19
+msgid "Octile"
+msgstr "Octil"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:20
+msgid "Euclidean"
+msgstr "Euclídea"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:21
+msgid "Manhattan"
+msgstr "Manhattan"
+
+#. RML <option>
+#: Examples/Demo/Assets/Navigation/panel.rml:22
+msgid "Chebyshev"
+msgstr "Chebyshev"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:24
+msgid "Jump point search"
+msgstr "Búsqueda por puntos de salto"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:25
+msgid "Visible navigation"
+msgstr "Navegación visible"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:26
+msgid "Click adds walls"
+msgstr "Clic añade muros"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/panel.rml:27
+msgid "Arrived"
+msgstr "Llegados"
+
+#. RML <h1>
 #: Examples/Demo/Assets/Particles/panel.rml:8
 msgid "Particles"
 msgstr "Partículas"
@@ -292,7 +376,7 @@ msgstr "Ráfaga de chispas"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:185
 msgid "Physics 2D"
 msgstr "Física 2D"
 
@@ -327,7 +411,7 @@ msgstr "Reiniciar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:184
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:186
 msgid "Physics 3D"
 msgstr "Física 3D"
 
@@ -359,7 +443,7 @@ msgstr "Guardar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Shaders/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:187
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:189
 msgid "Shaders"
 msgstr "Shaders"
 
@@ -390,7 +474,7 @@ msgstr "Golpear los objetos"
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:181
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
 msgid "Sound FX"
 msgstr "Efectos de sonido"
 
@@ -421,6 +505,7 @@ msgstr "Explosión"
 #. RML <option>
 #: Examples/Demo/Assets/SoundFx/panel.rml:24
 #: Examples/Demo/Assets/Spine/panel.rml:15
+#: Examples/Demo/Assets/Sprites2D/panel.rml:14
 #: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:128
 msgid "Jump"
 msgstr "Saltar"
@@ -464,7 +549,7 @@ msgstr "Música (una canción del editor de música)"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:185
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:187
 msgid "Spine"
 msgstr "Spine"
 
@@ -480,6 +565,7 @@ msgstr "Cámara 2D"
 
 #. RML <span>
 #: Examples/Demo/Assets/Spine/panel.rml:11
+#: Examples/Demo/Assets/Sprites2D/panel.rml:10
 msgid "Animation"
 msgstr "Animación"
 
@@ -513,6 +599,88 @@ msgstr "Y fija"
 #: Examples/Demo/Assets/Spine/panel.rml:24
 msgid "Enabled"
 msgstr "Activado"
+
+#. RML <h1>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:190
+msgid "Sprites 2D"
+msgstr "Sprites 2D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:9
+msgid "AnimatedSprite2D: flipbook animations sliced from one sprite sheet into SpriteFrames, with Godot's timing and signals."
+msgstr "AnimatedSprite2D: animaciones fotograma a fotograma recortadas de una hoja de sprites en SpriteFrames, con la temporización y las señales de Godot."
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:17
+msgid "Play backwards"
+msgstr "Reproducir al revés"
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:18
+msgid "Flip"
+msgstr "Voltear"
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:19
+msgid "Pause"
+msgstr "Pausa"
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:20
+msgid "Frame"
+msgstr "Fotograma"
+
+#. RML <span>
+#: Examples/Demo/Assets/Sprites2D/panel.rml:21
+msgid "Loops"
+msgstr "Vueltas"
+
+#. RML <h1>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+msgid "Tiles 2D"
+msgstr "Mosaicos 2D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:9
+msgid "TileMapLayer: chunked tile layers painted from one TileSet, with per-chunk collision bodies, y-sorted rows and custom data."
+msgstr "TileMapLayer: capas de mosaicos por bloques pintadas con un TileSet, con cuerpos de colisión por bloque, filas ordenadas por Y y datos personalizados."
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:10
+msgid "Show collision"
+msgstr "Mostrar colisión"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:11
+msgid "Y-sort objects"
+msgstr "Ordenar objetos por Y"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:12
+msgid "Walk speed"
+msgstr "Velocidad al caminar"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:13
+msgid "Autopilot"
+msgstr "Piloto automático"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:14
+msgid "Surface"
+msgstr "Superficie"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:15
+msgid "Wall cells"
+msgstr "Celdas de muro"
+
+#. RML <p>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:16
+msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
+msgstr "Haz clic en el mapa para añadir o quitar un muro. WASD o las flechas caminan."
 
 #. RML <title>
 #: Examples/Demo/Assets/UI/showcase.rml:3
@@ -637,15 +805,15 @@ msgstr "Verde"
 msgid "Rose"
 msgstr "Rosa"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:137
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:139
 msgid "Effects"
 msgstr "Efectos"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:137
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:139
 msgid "Interface"
 msgstr "Interfaz"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:182
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:184
 msgid "UI"
 msgstr "Interfaz"
 
@@ -739,6 +907,63 @@ msgstr "Salir"
 msgid "Settings"
 msgstr "Ajustes"
 
+#. project.mfproj input action "move_down"
+#: Examples/Demo/project.mfproj
+msgid "Walk down"
+msgstr "Caminar abajo"
+
+#. project.mfproj input action "move_left"
+#: Examples/Demo/project.mfproj
+msgid "Walk left"
+msgstr "Caminar a la izquierda"
+
+#. project.mfproj input action "move_right"
+#: Examples/Demo/project.mfproj
+msgid "Walk right"
+msgstr "Caminar a la derecha"
+
+#. project.mfproj input action "move_up"
+#: Examples/Demo/project.mfproj
+msgid "Walk up"
+msgstr "Caminar arriba"
+
+#. RML <title>
+#: MainframeEngine/Assets/UI/crash/crash_prompt.rml:3
+msgid "Crash report"
+msgstr "Informe de error"
+
+#. RML <p>
+#: MainframeEngine/Assets/UI/crash/crash_prompt.rml:20
+msgid "A report was saved on this computer. It helps the developers fix the problem."
+msgstr "Se guardó un informe en este equipo. Ayuda a los desarrolladores a corregir el problema."
+
+#. RML <span>
+#: MainframeEngine/Assets/UI/crash/crash_prompt.rml:24
+msgid "Always send reports"
+msgstr "Enviar siempre los informes"
+
+#. RML <button>
+#: MainframeEngine/Assets/UI/crash/crash_prompt.rml:29
+msgid "Open folder"
+msgstr "Abrir carpeta"
+
+#. RML <button>
+#: MainframeEngine/Assets/UI/crash/crash_prompt.rml:30
+msgid "Copy report"
+msgstr "Copiar informe"
+
+#. RML <button>
+#: MainframeEngine/Assets/UI/crash/crash_prompt.rml:31
+msgid "Send report"
+msgstr "Enviar informe"
+
+#. RML <button title="…">
+#. RML <button>
+#: MainframeEngine/Assets/UI/crash/crash_prompt.rml:32
+#: MainframeEngine/Assets/UI/settings/settings.rml:24
+msgid "Close"
+msgstr "Cerrar"
+
 #. RML <title>
 #: MainframeEngine/Assets/UI/credits.rml:3
 msgid "Credits"
@@ -773,11 +998,6 @@ msgstr "CARGANDO"
 #: MainframeEngine/Assets/UI/loading/loading.rml:26
 msgid "MADE WITH MAINFRAME ENGINE"
 msgstr "HECHO CON MAINFRAME ENGINE"
-
-#. RML <button title="…">
-#: MainframeEngine/Assets/UI/settings/settings.rml:24
-msgid "Close"
-msgstr "Cerrar"
 
 #. RML <button>
 #: MainframeEngine/Assets/UI/settings/settings.rml:28
@@ -1280,6 +1500,61 @@ msgstr "RS arriba"
 msgctxt "input"
 msgid "RS Down"
 msgstr "RS abajo"
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:109
+#, csharp-format
+msgctxt "crash"
+msgid "{0} closed unexpectedly last time"
+msgstr "{0} se cerró inesperadamente la última vez"
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:111
+#, csharp-format
+msgid "There is {0} earlier report in the same folder."
+msgid_plural "There are {0} earlier reports in the same folder."
+msgstr[0] "Hay {0} informe anterior en la misma carpeta."
+msgstr[1] "Hay {0} informes anteriores en la misma carpeta."
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:117
+msgctxt "crash"
+msgid "The graphics driver stopped responding."
+msgstr "El controlador gráfico dejó de responder."
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:118
+msgctxt "crash"
+msgid "The game stopped without saying why (a native crash, a forced quit or a power loss)."
+msgstr "El juego se detuvo sin indicar el motivo (un fallo nativo, un cierre forzado o un corte de corriente)."
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:119
+msgctxt "crash"
+msgid "The game stopped responding."
+msgstr "El juego dejó de responder."
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:142
+#, csharp-format
+msgctxt "crash"
+msgid "The folder could not be opened: {0}"
+msgstr "No se pudo abrir la carpeta: {0}"
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:154
+msgctxt "crash"
+msgid "The report was copied."
+msgstr "Se copió el informe."
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:190
+msgctxt "crash"
+msgid "Sending…"
+msgstr "Enviando…"
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:203
+msgctxt "crash"
+msgid "The report was sent. Thank you!"
+msgstr "Se envió el informe. ¡Gracias!"
+
+#: MainframeEngine/Src/UI/Crash/CrashPrompt.cs:208
+#, csharp-format
+msgctxt "crash"
+msgid "The report could not be sent: {0}"
+msgstr "No se pudo enviar el informe: {0}"
 
 #: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:320
 #: MainframeEngine/Src/UI/Settings/SettingsMenu.cs:608

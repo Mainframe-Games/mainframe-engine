@@ -44,6 +44,9 @@ public sealed record HostOptions
     /// <summary>Call <c>Quit(ExitCode.Error)</c> on this frame; 0 = never.</summary>
     public uint QuitWithErrorAtFrame { get; init; }
 
+    /// <summary>G15: the renderer reports the device lost after submitting this frame (<c>--simulate-device-lost</c>); 0 = never.</summary>
+    public ulong SimulateDeviceLostAtFrame { get; init; }
+
     /// <summary>
     /// Minimise the window on this frame and restore it about 1.5 s later (the engine must block on events, not spin,
     /// and resume rendering after the restore); 0 = never.
@@ -87,6 +90,15 @@ public sealed record HostOptions
 
     /// <summary>Runs the depth prepass every frame (<c>RenderServer.ForceDepthPrepass</c>, ADR 0163).</summary>
     public bool Prepass { get; init; }
+
+    /// <summary>
+    /// G10 <c>--profile</c>: the profiler records from the first frame (and the showcase expands the overlay's Profiler
+    /// section); the result reports GPU zones, top CPU scopes and the zone checks.
+    /// </summary>
+    public bool Profile { get; init; }
+
+    /// <summary>G10 <c>--stream</c> (gamehost): streams profiler frames to an editor-link server in this process.</summary>
+    public bool Stream { get; init; }
 
     /// <summary>Jitters the main view's projection every frame (TAA's Halton jitter without TAA).</summary>
     public bool Jitter { get; init; }
@@ -179,6 +191,9 @@ public sealed record HostOptions
                 case "--quit-error":
                     options = options with { QuitWithErrorAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
                     break;
+                case "--simulate-device-lost":
+                    options = options with { SimulateDeviceLostAtFrame = ulong.Parse(Next(), CultureInfo.InvariantCulture) };
+                    break;
                 case "--minimize":
                     options = options with { MinimizeAtFrame = uint.Parse(Next(), CultureInfo.InvariantCulture) };
                     break;
@@ -221,6 +236,12 @@ public sealed record HostOptions
                     break;
                 case "--prepass":
                     options = options with { Prepass = true };
+                    break;
+                case "--profile":
+                    options = options with { Profile = true };
+                    break;
+                case "--stream":
+                    options = options with { Stream = true };
                     break;
                 case "--jitter":
                     options = options with { Jitter = true };

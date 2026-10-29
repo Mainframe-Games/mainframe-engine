@@ -92,6 +92,7 @@ public sealed class EditorApp : Engine, IEditorHost
             Audio = new AudioOptions { Enabled = true, BusLayoutPath = null },
             // Collision shapes are part of what the editor shows.
             DebugCollisionShapes = true,
+            DebugNavigation = true, // G3a: Visible Navigation starts on, like collision shapes
             Ui = new UiServerOptions
             {
                 // The accent overlay (Editor Settings) is checked before the editor's own style sheets.

@@ -150,6 +150,16 @@ public abstract class EditorDocument : UiDocument
         Visible = false;
     }
 
+    /// <summary>Sets or clears a class on the element with <paramref name="id"/>, when the document is loaded and has it.</summary>
+    internal void SetElementClass(string id, string className, bool active)
+    {
+        if (!IsLoaded)
+            return;
+        var element = Document.GetElementById(id);
+        if (!element.IsNull)
+            element.SetClass(className, active);
+    }
+
     /// <summary>Sets an element's text content (escaped), when the element exists.</summary>
     protected void SetText(string id, string text)
     {

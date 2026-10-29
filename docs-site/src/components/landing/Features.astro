@@ -54,6 +54,18 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
         doc: 'canvas',
       },
       {
+        icon: 'slideshow',
+        title: 'Animated sprites',
+        text: "Godot's SpriteFrames and AnimatedSprite2D: flipbooks sliced from sprite sheets by count or cell size, Godot's timing and signals, no allocation per frame, and a SpriteFrames editor with a Select Frames dialog.",
+        doc: 'animated-sprites',
+      },
+      {
+        icon: 'grid-pattern',
+        title: 'Tile maps',
+        text: "Godot 4.3's TileSet and TileMapLayer: atlas tiles with flips, collision polygons and custom data; chunked layers drawn in about one batch, y-sorted with characters, one physics body per chunk; paint, line, rect, bucket and random tools with a palette and a TileSet editor.",
+        doc: 'tile-maps',
+      },
+      {
         icon: 'flame',
         title: '3D particles',
         text: "GpuParticles3D on Godot's ParticleProcessMaterial: emission shapes, gravity, damping, turbulence, curves and colour ramps; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow.",
@@ -124,6 +136,12 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
         title: 'Physics',
         text: 'Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, raycasts, MoveAndSlide and interpolation.',
         doc: 'physics',
+      },
+      {
+        icon: 'route',
+        title: 'Navigation',
+        text: "Godot's AStarGrid2D with jump point search and AStar2D/AStar3D point graphs, allocation-free and deterministic; grids baked from static bodies, NavigationAgent2D with Godot's repath rules and signals, and Visible Navigation, Bake and Clear in the editor.",
+        doc: 'navigation',
       },
       {
         icon: 'link',
@@ -204,6 +222,12 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
         doc: 'editor/#viewport-tools',
       },
       {
+        icon: 'bug',
+        title: 'Crash reporting',
+        text: 'A crash leaves a report: the exception, the node and callback, scene, GPU, the last log lines. Native crashes are noticed next start; players get a prompt, uploads are opt-in, and the editor shows a game crash with click-to-source frames.',
+        doc: 'crash-reporting',
+      },
+      {
         icon: 'camera',
         title: 'Gameplay recording',
         text: 'Record any game to MP4 through your own ffmpeg: F10 in the editor or --record, live or offline, with a sidecar of input, loading and pauses.',
@@ -228,10 +252,22 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
         doc: 'dev-overlay',
       },
       {
+        icon: 'clock',
+        title: 'Frame profiler',
+        text: 'Zero-allocation CPU scopes, GPU timestamps per pass, a Profiler section in the F12 overlay, an editor Profiler tab and Perfetto trace export (--profile-trace).',
+        doc: 'profiler',
+      },
+      {
         icon: 'brand-c-sharp',
         title: 'Games in C#',
         text: 'dotnet new mfgame, project.mfproj and GameHost: autoloads, structured logs, the editor link and headless dedicated servers.',
         doc: 'project-and-gamehost',
+      },
+      {
+        icon: 'package-export',
+        title: 'Game export',
+        text: 'File › Export: presets per platform in project.mfproj, full and demo builds from one project, Steam checks, icons and signed macOS bundles, archives or depot folders; mf-export runs the same presets in CI.',
+        doc: 'game-export',
       },
       {
         icon: 'package',

@@ -16,6 +16,7 @@ internal static class DevOverlayPanels
         ArgumentNullException.ThrowIfNull(overlay);
         var sources = new DevOverlaySources(overlay.Servers, engine);
         AddFrame(overlay, sources);
+        DevOverlayProfiler.Add(overlay, engine?.GameName ?? GameHost.Project?.Name ?? "Mainframe Engine"); // G10, collapsed
         AddRenderer(overlay, sources);
         AddShadows(overlay, sources);
         AddGpu(overlay, sources);
@@ -241,6 +242,7 @@ internal static class DevOverlayPanels
         var root = overlay.Tree.Root;
         var panel = overlay.AddPanel("physics", "Physics", """
             <div class="dev-row"><span>Collision shapes</span><input type="checkbox" data-checked="shapes"/></div>
+            <div class="dev-row"><span>Navigation</span><input type="checkbox" data-checked="navigation"/></div>
             <div class="dev-row"><span>Light gizmos</span><input type="checkbox" data-checked="lightGizmos"/></div>
             <div class="dev-row"><span>Axis gizmo</span><input type="checkbox" data-checked="axisGizmo"/></div>
             <div data-if="has">
@@ -252,6 +254,7 @@ internal static class DevOverlayPanels
             """ + Missing, p => p.Model!
             .Bind("has", stats, static s => s.Has)
             .Bind("shapes", stats, static s => s.Shapes, static (s, v) => s.Shapes = v)
+            .Bind("navigation", stats, static s => s.Navigation, static (s, v) => s.Navigation = v)
             .Bind("lightGizmos", stats, static s => s.LightGizmos, static (s, v) => s.LightGizmos = v)
             .Bind("axisGizmo", stats, static s => s.AxisGizmo, static (s, v) => s.AxisGizmo = v)
             .Bind("bodies3d", stats, static s => s.Bodies3D)

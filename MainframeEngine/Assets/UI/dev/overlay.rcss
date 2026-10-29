@@ -24,3 +24,15 @@ img.dev-atlas { display: inline-block; width: 358dp; height: 358dp; background-c
 .dev-tag { color: #9ca3af; margin: 0 6dp 0 11dp; }
 .dev-meter-track { width: 70dp; height: 8dp; margin-left: 8dp; background-color: #ffffff18; }
 .dev-wrap span.v { display: block; width: 100%; text-align: right; font-size: 15dp; }
+
+/* G10: the Profiler section (frame graph bars, top scopes). */
+.dev-graph { position: relative; display: flex; flex-direction: row; align-items: flex-end; height: 56dp; margin: 6dp 0;
+             background-color: #ffffff0c; border-bottom: 1dp #ffffff22; }
+.dev-budget { position: absolute; left: 0; right: 0; bottom: 28dp; height: 1dp; background-color: #fbbf2455; }
+.dev-bar { flex: 1 1 auto; width: 1dp; margin-right: 1dp; background-color: #22c55e; }
+.dev-bar.over { background-color: #fbbf24; }
+.dev-bar.spike { background-color: #ef4444; }
+.dev-scope { display: flex; align-items: center; margin: 1dp 0; }
+.dev-scope-name { flex: 1 1 auto; overflow: hidden; white-space: nowrap; }
+.dev-scope-bar { height: 8dp; margin: 0 8dp; background-color: #60a5fa; }
+.dev-scope-bar.gpu { background-color: #4ade80; }

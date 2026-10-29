@@ -6,6 +6,7 @@
     <style>
         .panel-header .title-icon { margin-right: 6dp; image-color: #8b93a5; }
         .panel-title { flex: 0 0 auto; margin-right: 10dp; }
+        .panel-header .dock-tab:last-of-type { margin-right: 10dp; }
         .tools { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; justify-content: flex-end; }
         .sep { display: block; width: 1dp; height: 16dp; margin: 0dp 5dp; background-color: #3b3f4b; }
         button.level {
@@ -62,12 +63,25 @@
         .source:hover { background-color: #3a3f4c; }
         .line .source:hover .icon { image-color: #ffffff; }
         .empty-lines { display: block; padding: 10dp 12dp; color: #5f6676; font-family: LatoLatin; font-size: 12dp; }
+        /* G15 crash rows: the frames wrap below the line. */
+        .line.crash { flex-wrap: wrap; }
+        .line.crash .text { flex: 1 1 0dp; }
+        .crash-tools { display: inline-flex; flex: 0 0 auto; flex-direction: row; }
+        .line.error .crash-tools .icon { image-color: #f87171; }
+        .crash-frames { display: block; flex: 0 0 100%; width: 100%; box-sizing: border-box; padding: 2dp 0dp 2dp 34dp; }
+        .frame { display: flex; flex-direction: row; align-items: flex-start; line-height: 16dp; }
+        .frame .frame-text { display: block; flex: 1 1 auto; white-space: pre-wrap; }
+        .frame.game .frame-text { color: #e8ebf2; }
+        .frame.engine .frame-text { color: #6b7488; }
+        .frame.game .source .icon { image-color: #c9cedb; }
     </style>
 </head>
 <body class="panel-doc" data-model="output">
     <div class="panel-header">
-        <span class="icon icon-terminal-2 title-icon"></span>
-        <span class="panel-title">Output</span>
+        <button class="dock-tab active" id="dock-tab-output" data-tooltip="Output — the editor's and the running games' log"><span class="icon icon-sm icon-terminal-2"></span><span class="label">Output</span></button>
+        <button class="dock-tab" id="dock-tab-profiler" data-event-click="tab(1)" data-tooltip="Profiler — frame times, scopes and GPU zones of a running game or the editor"><span class="icon icon-sm icon-activity"></span><span class="label">Profiler</span></button>
+        <button class="dock-tab hidden" id="dock-tab-tilemap" data-command="tilemap.palette" data-tooltip="TileMap — pick the tiles the paint tools put down (shown while a TileMapLayer is selected)"><span class="icon icon-sm icon-grid-pattern"></span><span class="label">TileMap</span></button>
+        <button class="dock-tab hidden" id="dock-tab-tileset" data-command="tilemap.edit_tileset" data-tooltip="TileSet — atlas sources, tiles, tile data and collision of the edited tile set"><span class="icon icon-sm icon-layout-grid"></span><span class="label">TileSet</span></button>
         <div class="tools">
             <button class="level" id="level-error" data-class-active="show_error" data-event-click="toggle(3)" data-tooltip="Errors — show or hide error lines"><span class="icon icon-sm icon-alert-circle icon-error"></span><span class="count">{{count_error}}</span></button>
             <button class="level" id="level-warn" data-class-active="show_warn" data-event-click="toggle(2)" data-tooltip="Warnings — show or hide warning lines"><span class="icon icon-sm icon-alert-triangle icon-warn"></span><span class="count">{{count_warn}}</span></button>
@@ -84,13 +98,25 @@
         </div>
     </div>
     <div class="panel-body lines" id="lines">
-        <div data-for="m : lines" data-attr-class="'line ' + m.level">
+        <div data-for="m : lines" data-attr-class="'line ' + m.level + (m.is_crash ? ' crash' : '')">
             <span data-attr-class="m.level_icon"></span>
             <span class="time" data-if="m.time != ''">{{m.time}}</span>
             <span class="cat" data-attr-data-tooltip="m.category"><span data-attr-class="m.category_icon"></span></span>
             <span class="text">{{m.text}}</span>
             <span class="repeat" data-if="m.count > 1">×{{m.count}}</span>
             <span class="source" data-if="m.has_source" data-attr-data-tooltip="m.source" data-event-click="open_source(m.index)"><span class="icon icon-sm icon-file-code"></span></span>
+            <span class="crash-tools" data-if="m.is_crash">
+                <span class="source crash-toggle" data-event-click="crash_toggle(m.index)" data-tooltip="Frames — show or hide the crash's stack frames"><span data-attr-class="m.expanded ? 'icon icon-sm icon-chevron-down' : 'icon icon-sm icon-chevron-right'"></span></span>
+                <span class="source crash-folder" data-if="m.has_folder" data-event-click="crash_folder(m.index)" data-tooltip="Open Report — show the crash report's folder"><span class="icon icon-sm icon-folder-open"></span></span>
+                <span class="source crash-copy" data-event-click="crash_copy(m.index)" data-tooltip="Copy Report — copy the crash report to the clipboard"><span class="icon icon-sm icon-copy"></span></span>
+                <span class="source crash-dump" data-if="m.has_dump" data-event-click="crash_dump(m.index)" data-tooltip="Show Dump — show the native dump the runtime wrote"><span class="icon icon-sm icon-cpu"></span></span>
+            </span>
+            <div class="crash-frames" data-if="m.expanded">
+                <div data-for="f : m.frames" data-attr-class="f.game ? 'frame game' : 'frame engine'">
+                    <span class="frame-text">{{f.text}}</span>
+                    <span class="source" data-if="f.has_source" data-event-click="crash_frame(m.index, f.index)" data-tooltip="Open — this frame's line in your code editor"><span class="icon icon-sm icon-file-code"></span></span>
+                </div>
+            </div>
         </div>
         <div class="empty-lines" data-if="lines.size == 0">No messages.</div>
     </div>

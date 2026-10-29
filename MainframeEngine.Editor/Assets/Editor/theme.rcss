@@ -282,3 +282,23 @@ button.with-icon .icon { margin-right: 5dp; }
 }
 
 .error-text { color: #fca5a5; }
+
+/* ── Bottom dock tabs (Output | Profiler, G10) ──────────────────────────── */
+
+button.dock-tab {
+    display: inline-flex;
+    align-items: center;
+    height: 22dp;
+    line-height: 22dp;
+    padding: 0dp 9dp 0dp 7dp;
+    margin: 0dp 2dp 0dp 0dp;
+    background-color: transparent;
+    border-color: transparent;
+    color: #8b93a5;
+    font-weight: bold;
+}
+button.dock-tab .icon { margin-right: 5dp; image-color: #6b7488; }
+button.dock-tab:hover { background-color: #2f333d; color: #d7dbe4; }
+button.dock-tab.active { background-color: #1f2128; border-color: #3b3f4b; color: #e8ebf2; }
+button.dock-tab.active .icon { image-color: #c9cedb; }
+button.dock-tab.hidden { display: none; } /* the contextual TileMap / TileSet tabs (G2b) */

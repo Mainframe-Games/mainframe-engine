@@ -61,6 +61,87 @@ public class CanvasRenderTests
         AssertPixel(image, (int)(5 * scale), (int)(5 * scale), 0, 0, 0);
     }
 
+    [Fact]
+    public void AnimatedSpritesPlayTheirFramesFlippedOffsetAndAtTheirSpeedsAndMatchGoldens()
+    {
+        // ADR 0223: frame 1 shows each sprite's first frame (the backwards one its last, the stopped one row 1's third);
+        // by frame 15 (0.25 s at 10 fps, half way through a frame) "run" is on its third frame, "Fast" on its eighth
+        // (wrapped to the fourth), "Backwards" on its second, "Durations" still on its first (it lasts 0.3 s).
+        var result = HostRunner.Run("animated-sprite", Output("animated-sprite"), "--capture", "1,15", "--size", "480x270", "--hidden");
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 1);
+        Gates.AssertMatchesGolden(result, 15);
+
+        var first = Png.ReadRgba8(result.Captures.Single(c => c.Frame == 1).Path);
+        var later = Png.ReadRgba8(result.Captures.Single(c => c.Frame == 15).Path);
+        var scale = first.Width / 480f;
+        // Inside "Plain" (centred at 60, 60, 64 px wide), away from the notch and ticks: frame 0's red, then frame 2's green.
+        AssertPixel(first, (int)(60 * scale), (int)(55 * scale), 220, 60, 60);
+        AssertPixel(later, (int)(60 * scale), (int)(55 * scale), 60, 200, 90);
+        // "Flipped" mirrors both axes: the notch is in the bottom-right corner (16 px cells × 4: 4..20 px in from it).
+        AssertPixel(first, (int)((160 + 32 - 10) * scale), (int)((60 + 32 - 10) * scale), 255, 255, 255);
+        AssertPixel(first, (int)((160 - 32 + 10) * scale), (int)((60 - 32 + 10) * scale), 220, 60, 60);
+        // "Durations" holds frame 0 (red); "Stopped" shows row 1's third cell (pink) in both.
+        AssertPixel(later, (int)(160 * scale), (int)(175 * scale), 220, 60, 60);
+        AssertPixel(first, (int)(260 * scale), (int)(175 * scale), 230, 120, 170);
+        AssertPixel(later, (int)(260 * scale), (int)(175 * scale), 230, 120, 170);
+    }
+
+    [Fact]
+    public void AThousandPlayingAnimatedSpritesAllocateNothing()
+    {
+        const int warmup = 60, measured = 240;
+        var result = HostRunner.Run("animated-sprite", Output("animated-sprite-alloc"), "--count", "1000", "--alloc", $"{warmup}:{measured}", "--hidden");
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0, $"1000 animated sprites allocated {result.AllocatedBytes} managed bytes over {measured} frames.");
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void TileMapLayersDrawFlipsAndYSortedRowsAndMatchGolden()
+    {
+        // G2b: a ground layer (a checker of two tiles and the notched tile under every transform) and a y-sorted 2× objects
+        // layer whose tree rows sort with two sprites: one behind a tree, one in front of another.
+        var result = HostRunner.Run("tiles", Output("tiles"), "--capture", "3", "--size", "480x270", "--hidden");
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 3);
+
+        var image = Png.ReadRgba8(result.Captures.Single().Path);
+        var scale = image.Width / 480f;
+        // Row 1 (y 16…32), tile x 1 (16…32): the notch at the top left; x 3 (FlipH): at the top right.
+        AssertPixel(image, (int)(19 * scale), (int)(18 * scale), 255, 255, 255);
+        AssertPixel(image, (int)((48 + 16 - 3) * scale), (int)(18 * scale), 255, 255, 255);
+        AssertPixel(image, (int)((48 + 3) * scale), (int)(18 * scale), 220, 60, 60);
+        // The objects layer is scaled 2× at y + 40: the front sprite (x 88, its top 50 → screen 176…200, y 140…164) covers
+        // the trunk of the tree at x 5 (screen 192…200); the trunk of the tree at x 2 (screen 76…84, y 136…168) hides the sprite behind it.
+        AssertPixel(image, (int)(178 * scale), (int)(150 * scale), 60, 90, 230);
+        AssertPixel(image, (int)(80 * scale), (int)(150 * scale), 130, 90, 50);
+    }
+
+    [Fact]
+    public void PaddedTilesShowNoNeighbourAtAFractionalZoomWithLinearFiltering()
+    {
+        // G2b: one solid tile, surrounded by magenta tiles in the atlas, fills the view at zoom 1.37 with linear filtering.
+        // Texture padding (each tile's own edge copied around it) keeps every pixel the tile's colour.
+        var result = HostRunner.Run("tiles-seam", Output("tiles-seam"), "--capture", "3", "--size", "480x270", "--hidden");
+        Gates.AssertValidationClean(result);
+        var image = Png.ReadRgba8(result.Captures.Single().Path);
+        var worst = 0;
+        for (var i = 0; i < image.Pixels.Length; i += 4)
+            worst = Math.Max(worst, Math.Max(Math.Abs(image.Pixels[i] - 40), Math.Max(Math.Abs(image.Pixels[i + 1] - 120), Math.Abs(image.Pixels[i + 2] - 200))));
+        Assert.True(worst <= 2, $"a pixel is {worst} away from the tile's colour: a neighbouring tile bled in.");
+    }
+
+    [Fact]
+    public void AScrolledLargeTileMapAllocatesNothing()
+    {
+        const int warmup = 60, measured = 240;
+        var result = HostRunner.Run("tiles", Output("tiles-alloc"), "--count", "256", "--alloc", $"{warmup}:{measured}", "--hidden");
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0, $"a 256 × 256 tile map allocated {result.AllocatedBytes} managed bytes over {measured} frames.");
+        Gates.AssertValidationClean(result);
+    }
+
     private static void AssertPixel(PngImage image, int x, int y, byte r, byte g, byte b, int tolerance = 1)
     {
         var i = (y * image.Width + x) * 4;

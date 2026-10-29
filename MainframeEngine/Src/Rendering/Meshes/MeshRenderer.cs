@@ -42,6 +42,12 @@ public struct MeshDrawStats
 
     /// <summary>Instanced draws in the depth prepass (ADR 0163).</summary>
     public int PrepassDrawCalls;
+
+    /// <summary>
+    /// Triangles drawn in colour passes: each <see cref="DrawCalls"/> draw's index count / 3 × its instances (MultiMesh
+    /// instances included). G10's "Triangles" counter.
+    /// </summary>
+    public long Triangles;
 }
 
 /// <summary>One surface of one instance in a colour/ID pass.</summary>
@@ -978,6 +984,9 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             view.CasterBounds = view.CasterBounds.Merge(bounds);
     }
 
+    /// <summary>Triangles of a draw of <paramref name="indexCount"/> indices (a triangle list) × <paramref name="instances"/>.</summary>
+    internal static long TrianglesOf(uint indexCount, uint instances) => indexCount / 3 * (long)instances;
+
     /// <summary>
     /// The shadow passes a caster draws into (ADR 0167, 0179): <paramref name="castsFine"/> (in its visibility range, or
     /// its shadow range) puts it into the fine passes, and an <see cref="ShadowCasterLod.All"/> caster into the coarse ones
@@ -1247,15 +1256,21 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             }
 
             var range = item.Mesh.Surfaces[item.Surface];
+            var drawInstances = item.Instances is not null ? item.InstanceCount : (uint)(end - i);
             if (item.Instances is not null)
                 vk.CmdDrawIndexed(cb, range.IndexCount, item.InstanceCount, range.FirstIndex, range.VertexOffset, 0);
             else
-                vk.CmdDrawIndexed(cb, range.IndexCount, (uint)(end - i), range.FirstIndex, range.VertexOffset,
+                vk.CmdDrawIndexed(cb, range.IndexCount, drawInstances, range.FirstIndex, range.VertexOffset,
                     view.FirstInstance + (uint)(instanceOffset + i));
             if (shaders == ShaderSetId.MeshObjectId)
+            {
                 Stats.ObjectIdDrawCalls++;
+            }
             else
+            {
                 Stats.DrawCalls++;
+                Stats.Triangles += TrianglesOf(range.IndexCount, drawInstances);
+            }
             i = end;
         }
     }

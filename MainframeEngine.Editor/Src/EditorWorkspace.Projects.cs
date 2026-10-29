@@ -21,12 +21,18 @@ public sealed partial class EditorWorkspace
     public NewProjectDialog NewProject { get; private set; } = null!;
     public DownloadDemoDialog DownloadDemo { get; private set; } = null!;
     public ProjectSettingsDialog ProjectSettings { get; private set; } = null!;
+
+    /// <summary>File › Export… (G5).</summary>
+    public ExportDialog ExportDialog { get; private set; } = null!;
     public EditorSettingsDialog EditorSettingsDialog { get; private set; } = null!;
 
     /// <summary>Editor updates (badges, dialog, Update &amp; restart).</summary>
     public UpdateController Updates { get; private set; } = null!;
 
     public UpdateDialog UpdateDialog { get; private set; } = null!;
+
+    /// <summary>The editor's next-start crash dialog (G15).</summary>
+    public CrashDialog CrashDialog { get; private set; } = null!;
 
     /// <summary>A file dragged out of the FileSystem panel (absolute path) until the mouse is released.</summary>
     public string? FileDrag { get; private set; }
@@ -39,15 +45,19 @@ public sealed partial class EditorWorkspace
         NewProject = new NewProjectDialog(this) { Name = "NewProject" };
         DownloadDemo = new DownloadDemoDialog(this) { Name = "DownloadDemo" };
         ProjectSettings = new ProjectSettingsDialog(this) { Name = "ProjectSettings" };
+        ExportDialog = new ExportDialog(this) { Name = "ExportDialog" };
         EditorSettingsDialog = new EditorSettingsDialog(this) { Name = "EditorSettings" };
         // Above the other dialogs' layer order: pickers and message boxes these dialogs open come later in the list.
         DialogLayer.AddChild(NewProject);
         DialogLayer.AddChild(DownloadDemo);
         DialogLayer.AddChild(ProjectSettings);
+        DialogLayer.AddChild(ExportDialog);
         DialogLayer.AddChild(EditorSettingsDialog);
         Updates = new UpdateController(this, Options.Updates);
         UpdateDialog = new UpdateDialog(this) { Name = "UpdateDialog" };
         DialogLayer.AddChild(UpdateDialog);
+        CrashDialog = new CrashDialog(this) { Name = "CrashDialog" };
+        DialogLayer.AddChild(CrashDialog);
         Updates.Changed += OnUpdatesChanged;
         DialogLayer.MoveChild(FilePicker, DialogLayer.ChildCount - 1);
         DialogLayer.MoveChild(ListPicker, DialogLayer.ChildCount - 1);
@@ -57,10 +67,64 @@ public sealed partial class EditorWorkspace
         Session.ProjectChanged += OnProjectChanged;
         Project.Changed += OnProjectStateChanged;
         Play.Changed += OnProjectStateChanged;
+        Export.Changed += OnProjectStateChanged;
+        Export.Line += OnExportLine;
+        Export.Finished += OnExportFinished;
+    }
+
+    // Export output goes to the Output panel as "[export] …"; compiler and MSBuild diagnostics are added once, parsed, when
+    // the preset finishes (with file and line, so errors open in the code editor), as Play's build does.
+    private void OnExportLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || MsBuildOutputParser.TryParse(line, out _))
+            return;
+        Output.Add(line.StartsWith("error ", StringComparison.Ordinal) ? OutputLevel.Error
+            : line.StartsWith("warning ", StringComparison.Ordinal) ? OutputLevel.Warning : OutputLevel.Info, "[export] " + line.Trim());
+    }
+
+    private void OnExportFinished(IReadOnlyList<ExportResult> results)
+    {
+        foreach (var result in results)
+        {
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                var level = diagnostic.Severity switch
+                {
+                    BuildDiagnosticSeverity.Error => OutputLevel.Error,
+                    BuildDiagnosticSeverity.Warning => OutputLevel.Warning,
+                    _ => OutputLevel.Info,
+                };
+                var where = diagnostic.File is null ? "" : $"{Path.GetFileName(diagnostic.File)}({diagnostic.Line},{diagnostic.Column}): ";
+                Output.Add(level, $"[export] {where}{diagnostic.Code}: {diagnostic.Message}", diagnostic.File, diagnostic.Line);
+            }
+
+            var seconds = result.Duration.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            if (result.Succeeded)
+                Output.Add(OutputLevel.Info, $"[export] {result.Preset}: exported in {seconds} s: {result.ArtifactPath}");
+            else if (result.Cancelled)
+                Output.Add(OutputLevel.Warning, $"[export] {result.Preset}: cancelled; the previous export is unchanged.");
+            else
+                Output.Add(OutputLevel.Error, $"[export] {result.Preset}: {result.Summary}");
+        }
+
+        if (results.Count > 1)
+            Output.Add(OutputLevel.Info, $"[export] {ExportResult.Tally(results)}.");
+    }
+
+    // G15: the editor crashed last time (the reporter Program installed, in Options.CrashDirectory): offer the report and the
+    // recovery copies once.
+    private void ShowEarlierCrashes()
+    {
+        if (Options.CrashDirectory is not { } directory || !CrashReporter.IsInstalled ||
+            !string.Equals(Path.GetFullPath(CrashReporter.Directory), Path.GetFullPath(directory), StringComparison.Ordinal))
+            return;
+        if (CrashReporter.PendingReports is { Count: > 0 } pending)
+            CrashDialog.Open(pending);
     }
 
     private bool ProjectDialogOpen =>
-        NewProject.Visible || DownloadDemo.Visible || ProjectSettings.Visible || EditorSettingsDialog.Visible || UpdateDialog.Visible || ProjectManager.Visible;
+        NewProject.Visible || DownloadDemo.Visible || ProjectSettings.Visible || ExportDialog.Visible || EditorSettingsDialog.Visible || UpdateDialog.Visible ||
+        ProjectManager.Visible;
 
     // ── Start-up ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -69,6 +133,7 @@ public sealed partial class EditorWorkspace
     private void StartUp()
     {
         Updates.Start();
+        ShowEarlierCrashes();
         if (Options.InitialProject is { } project)
         {
             Commands.AfterAssetsFolderCheck(project, () =>
@@ -114,6 +179,7 @@ public sealed partial class EditorWorkspace
     {
         Project.Update();
         Play.Update();
+        Export.Update();
         SceneTree.TickRemote(deltaTime);
         Updates.Tick();
         FileSystem.Tick();
@@ -357,8 +423,12 @@ public sealed partial class EditorWorkspace
             SignalDialog.Cancel();
         Inspector.ReleaseReferences();
         AudioPreview.Stop(); // the previewed stream may be a game resource
+        SpritePreview.Stop(); // the previewed sprite may be a game node's
+        if (SheetSlicer.Visible)
+            SheetSlicer.Cancel();
         SceneTree.Refresh();
         Viewport.ReleaseSceneReferences();
+        TileMap.Release(); // the brush ghost and the dimmed layers are scene nodes
         Tree?.Servers.Get<CanvasServer>()?.ReleaseSceneReferences(); // the last canvas frame holds the 2D tabs' nodes
         _titleScene = null;
         _titleFile = null;
@@ -372,13 +442,18 @@ public sealed partial class EditorWorkspace
 
     // ── Shortcuts ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>F5–F8 (play, play scene, pause, stop), F10 (play and record), Ctrl/Cmd+F5 (play instances) and Ctrl/Cmd+Shift+B (build &amp; reload); null when not one of them.</summary>
+    /// <summary>
+    /// F5–F8 (play, play scene, pause, stop), F10 (play and record), Ctrl/Cmd+F5 (play instances), Ctrl/Cmd+Shift+B (build &amp;
+    /// reload) and Ctrl/Cmd+Shift+E (File › Export); null when not one of them.
+    /// </summary>
     public static string? ProjectShortcutFor(Key key, EditorModifiers modifiers)
     {
         var command = (modifiers & EditorModifiers.Command) != 0;
         var shift = (modifiers & EditorModifiers.Shift) != 0;
         if (command && shift && key == Key.B)
             return "project.build_reload";
+        if (command && shift && key == Key.E)
+            return "file.export";
         if (command && !shift && key == Key.F5)
             return "play.instances";
         if (!command && !shift && (modifiers & EditorModifiers.Alt) != 0 && key == Key.F6)

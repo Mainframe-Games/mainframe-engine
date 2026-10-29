@@ -26,6 +26,23 @@ public sealed record EditorWorkspaceOptions
     public string RecoveryDirectory { get; init; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "recovery");
 
+    /// <summary>The editor's own crash folder (default <c>~/.mainframe/crashes</c>).</summary>
+    public static string DefaultCrashDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "crashes");
+
+    /// <summary>The editor's own log folder (default <c>~/.mainframe/logs</c>: <c>editor.log</c>, the previous run's <c>editor.1.log</c>).</summary>
+    public static string DefaultLogDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".mainframe", "logs");
+
+    /// <summary>
+    /// Where the editor's crash reports go (G15; the editor executable passes <see cref="DefaultCrashDirectory"/>): the start
+    /// shows <see cref="CrashDialog"/> for the ones not seen yet. Null (tests, scripted runs): no reporter, no dialog.
+    /// </summary>
+    public string? CrashDirectory { get; init; }
+
+    /// <summary>Opens a URL in the browser (default: <see cref="OsShell.OpenUrl"/>); tests record instead.</summary>
+    public Action<Uri>? OpenUrl { get; init; }
+
     /// <summary>A project folder (holding <c>project.mfproj</c>) to open at start-up; wins over <see cref="InitialScene"/>'s project.</summary>
     public string? InitialProject { get; init; }
 
@@ -58,6 +75,9 @@ public sealed record EditorWorkspaceOptions
 
     /// <summary>Launches games (default: a process); tests pass a fake.</summary>
     public IGameLauncher? GameLauncher { get; init; }
+
+    /// <summary>Runs exports (default: an <see cref="ExportRunner"/> on this machine); tests pass a fake.</summary>
+    public IExportRunner? ExportRunner { get; init; }
 
     /// <summary>Opens source files (default: the external code editor command); tests record instead.</summary>
     public Func<System.Diagnostics.ProcessStartInfo, bool>? StartCodeEditor { get; init; }
@@ -146,6 +166,8 @@ public sealed partial class EditorWorkspace : Node
             Directory.Exists);
         Play.Service.RecordingFinished += (_, recording) => recordingNotifier.OnFinished(recording);
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
+        // One export pipeline at a time; it waits for Play's or Build & Reload's build (they share the game's projects).
+        Export = new ExportService(Options.ExportRunner, () => Play.IsBuilding || Project.IsBuilding);
         AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
         AudioPreview.Changed += OnAudioPreviewChanged;
         Midi = new Music.MidiInputService(Options.MidiHost ?? (static () => Music.PluginHostClient.TryCreate()));
@@ -175,6 +197,9 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>Out-of-process Play.</summary>
     public PlayController Play { get; }
+
+    /// <summary>File › Export (G5): the export pipeline's runs, progress and results.</summary>
+    public ExportService Export { get; }
 
     /// <summary>In-editor Simulate (G7.5, Alt+F6): the active scene's physics and scripts on a copy in the view.</summary>
     public SimulationController Simulation { get; }
@@ -216,6 +241,65 @@ public sealed partial class EditorWorkspace : Node
     public InspectorPanel Inspector { get; private set; } = null!;
     public OutputPanel OutputPanel { get; private set; } = null!;
 
+    /// <summary>The bottom dock's Profiler tab (G10).</summary>
+    public ProfilerPanel ProfilerPanel { get; private set; } = null!;
+
+    /// <summary>The bottom dock's TileMap and TileSet tabs (G2b).</summary>
+    public TileMapPanel TileMapPanel { get; private set; } = null!;
+
+    /// <summary>Tile map editing in 2D tabs: the paint bar's state, viewport strokes, the palette's brush (G2b).</summary>
+    public TileMapEditor TileMap { get; private set; } = null!;
+
+    private BottomDockTab? _tileTab;   // the contextual TileMap / TileSet tab shown over the persisted one (never saved)
+    private bool _tilesShown;
+    private bool _tileSetShown;
+
+    /// <summary>
+    /// The bottom dock's active tab: Output or Profiler (kept with the layout), or the contextual TileMap / TileSet tab
+    /// while a tile map layer or tile set is edited.
+    /// </summary>
+    public BottomDockTab BottomTab =>
+        _tileTab is { } tile && TileTabAvailable(tile) ? tile
+        : Layout.Settings.BottomTab == (int)BottomDockTab.Profiler ? BottomDockTab.Profiler : BottomDockTab.Output;
+
+    private bool TileTabAvailable(BottomDockTab tab) => TileMap is { } tiles && (tab == BottomDockTab.TileMap ? tiles.IsActive : tiles.EditedTileSet is not null);
+
+    /// <summary>Shows <paramref name="tab"/> in the bottom dock.</summary>
+    public void ShowBottomTab(BottomDockTab tab)
+    {
+        if (tab is BottomDockTab.TileMap or BottomDockTab.TileSet)
+            _tileTab = tab;
+        else
+        {
+            _tileTab = null;
+            Layout.SetBottomTab(tab);
+        }
+
+        ApplyModePanels();
+    }
+
+    // The TileMap tab opens when a tile map layer is selected (Godot's bottom panel) and the tile tabs leave with it.
+    private void SyncTileTabs()
+    {
+        var tiles = TileMap.IsActive;
+        var tileSet = TileMap.EditedTileSet is not null;
+        if (tiles == _tilesShown && tileSet == _tileSetShown)
+            return;
+        if (tiles && !_tilesShown && _tileTab is null)
+            _tileTab = BottomDockTab.TileMap;
+        _tilesShown = tiles;
+        _tileSetShown = tileSet;
+        foreach (var panel in (ReadOnlySpan<EditorDocument>)[OutputPanel, ProfilerPanel])
+        {
+            panel.SetElementClass("dock-tab-tilemap", "hidden", !tiles);
+            panel.SetElementClass("dock-tab-tileset", "hidden", !tileSet);
+        }
+
+        if (_tileTab is { } tab && !TileTabAvailable(tab))
+            _tileTab = null;
+        ApplyModePanels();
+    }
+
     /// <summary>The song tab's chrome (transport, track headers, mixer), shown over the view while a song tab is active.</summary>
     public SongPanel SongPanel { get; private set; } = null!;
 
@@ -247,6 +331,12 @@ public sealed partial class EditorWorkspace : Node
     public MessageDialog Message { get; private set; } = null!;
     public TreePickerDialog TreePicker { get; private set; } = null!;
     public ConnectSignalDialog SignalDialog { get; private set; } = null!;
+
+    /// <summary>The Select Frames dialog (sprite sheet slicing, ADR 0224).</summary>
+    public SheetSlicerDialog SheetSlicer { get; private set; } = null!;
+
+    /// <summary>Plays an AnimatedSprite2D's animation in the edited scene without editing it (ADR 0224).</summary>
+    public SpriteFramesPreview SpritePreview { get; } = new();
     public UiLayer TooltipLayer { get; private set; } = null!;
 
     /// <summary>The tooltip widget (null until the workspace is ready).</summary>
@@ -258,7 +348,7 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>True while a modal dialog is open (shortcuts are suspended).</summary>
     public bool IsDialogOpen => FilePicker.Visible || ListPicker.Visible || TreePicker.Visible || Message.Visible || Splash.Visible ||
-                                SignalDialog.Visible || ExportVideo.Visible || ProjectDialogOpen;
+                                SignalDialog.Visible || SheetSlicer.Visible || ExportVideo.Visible || ProjectDialogOpen;
 
     /// <summary>The modifier keys held (host state, or tracked from key events when the host has none).</summary>
     public EditorModifiers Modifiers => Host.ReportsModifiers && !TrackKeyModifiers ? Host.Modifiers : Host.Modifiers | _trackedModifiers;
@@ -284,6 +374,8 @@ public sealed partial class EditorWorkspace : Node
         ViewportPanel = new ViewportPanel(this) { Name = "Viewport" };
         Inspector = new InspectorPanel(this) { Name = "Inspector" };
         OutputPanel = new OutputPanel(this) { Name = "Output" };
+        ProfilerPanel = new ProfilerPanel(this) { Name = "Profiler", Visible = false };
+        TileMapPanel = new TileMapPanel(this) { Name = "TileMap", Visible = false };
         SongPanel = new SongPanel(this) { Name = "Song" };
         VideoPanel = new VideoPanel(this) { Name = "Video" };
         Splitters = new SplittersOverlay(this) { Name = "Splitters" };
@@ -298,6 +390,8 @@ public sealed partial class EditorWorkspace : Node
         PanelLayer.AddChild(FileSystem);
         PanelLayer.AddChild(Inspector);
         PanelLayer.AddChild(OutputPanel);
+        PanelLayer.AddChild(ProfilerPanel);
+        PanelLayer.AddChild(TileMapPanel);
         PanelLayer.AddChild(Splitters);
         PanelLayer.AddChild(SynthWindow); // floats over the song view
         PanelLayer.AddChild(PluginWindow); // over the synth (its FX open from it)
@@ -309,11 +403,13 @@ public sealed partial class EditorWorkspace : Node
         TreePicker = new TreePickerDialog(this) { Name = "TreePicker" };
         Message = new MessageDialog(this) { Name = "Message" };
         SignalDialog = new ConnectSignalDialog(this) { Name = "ConnectSignal" };
+        SheetSlicer = new SheetSlicerDialog(this) { Name = "SheetSlicer" };
         DialogLayer.AddChild(Popup);
         DialogLayer.AddChild(FilePicker);
         DialogLayer.AddChild(ListPicker);
         DialogLayer.AddChild(TreePicker);
         DialogLayer.AddChild(SignalDialog);
+        DialogLayer.AddChild(SheetSlicer);
         DialogLayer.AddChild(Message);
         ExportVideo = new ExportVideoDialog(this) { Name = "ExportVideo" };
         DialogLayer.AddChild(ExportVideo); // the picker and message boxes it opens are moved above it by CreateProjectUi
@@ -330,6 +426,7 @@ public sealed partial class EditorWorkspace : Node
         Splash = new SplashScreen(this) { Name = "Splash" };
         SplashLayer.AddChild(Splash);
 
+        TileMap = new TileMapEditor(this);
         Viewport = new ViewportController(this) { Name = "ViewportController" };
         AddChild(Viewport);
         SongView = new Music.SongView(this) { Name = "SongView" };
@@ -343,6 +440,7 @@ public sealed partial class EditorWorkspace : Node
         AddChild(SplashLayer);
 
         Session.ScenesChanged += OnScenesChanged;
+        SpritePreview.Changed += Inspector.RefreshPreviewButtons; // the SpriteFrames editor's Play/Stop
         Session.ActiveChanged += OnActiveChanged;
         Session.SceneEdited += OnSceneEdited;
         Session.SelectionChanged += OnSelectionChanged;
@@ -455,7 +553,9 @@ public sealed partial class EditorWorkspace : Node
             Updates?.Dispose();
             AudioPreview.Stop();
             Midi.Dispose();
+            ProfilerPanel?.Shutdown();
             Play.Dispose();
+            Export.Dispose();
             Session.Dispose();
             Project.Dispose();
             Output.Dispose();
@@ -471,11 +571,15 @@ public sealed partial class EditorWorkspace : Node
             OnCloseRequested();
         Splash.Tick(gameTime.DeltaTime);
         AudioPreview.Tick();
+        SpritePreview.Tick(gameTime.DeltaTime);
         Midi.Update();
         ProcessProjects(gameTime.DeltaTime);
         if (Output.Drain())
             OutputPanel.Refresh();
         OutputPanel.Tick();
+        ProfilerPanel.Tick(gameTime.DeltaTime);
+        SyncTileTabs();
+        TileMapPanel.Tick();
         TreePicker.Tick();
         EditorSettingsDialog.Tick();
         Tooltips?.Tick(gameTime.DeltaTime);
@@ -519,6 +623,8 @@ public sealed partial class EditorWorkspace : Node
         VideoPanel.SetRect(Layout.ViewportImage);
         Place(Inspector, Layout.Inspector);
         Place(OutputPanel, Layout.Output);
+        Place(ProfilerPanel, Layout.Output); // the bottom dock's other tab
+        Place(TileMapPanel, Layout.Output);   // and the contextual tile map tabs
         Splitters.Apply(Layout);
     }
 
@@ -712,10 +818,23 @@ public sealed partial class EditorWorkspace : Node
         else
             SongPanel.HideAndReleaseFocus();
 
-        if (Layout.ShowsOutput)
+        // The bottom dock shows one tab: Output, Profiler (G10), or TileMap / TileSet (G2b, one panel).
+        var tab = BottomTab;
+        if (Layout.ShowsOutput && tab == BottomDockTab.Output)
             OutputPanel.Visible = true;
         else
             OutputPanel.HideAndReleaseFocus();
+        if (Layout.ShowsOutput && tab == BottomDockTab.Profiler)
+            ProfilerPanel.Visible = true;
+        else
+            ProfilerPanel.HideAndReleaseFocus();
+        if (TileMapPanel is { } tiles)
+        {
+            if (Layout.ShowsOutput && tab is BottomDockTab.TileMap or BottomDockTab.TileSet)
+                tiles.Visible = true;
+            else
+                tiles.HideAndReleaseFocus();
+        }
     }
 
     // The mode's remembered tab when it is still open, else its first open tab; no tab of the mode leaves none active.
@@ -903,6 +1022,13 @@ public sealed partial class EditorWorkspace : Node
             }
 
             RunShortcut(MusicShortcutFor(key.Key, Modifiers));
+            return;
+        }
+
+        // G2b: the tile tools' keys while the paint bar shows (E and R only with a paint tool, as in Godot's editor).
+        if (TileMap.IsActive && TileMapEditor.ShortcutFor(key.Key, Modifiers, TileMap.Tool, TileMap.CellSelection is not null, TileMap.Clipboard is not null) is { } tileCommand)
+        {
+            RunShortcut(tileCommand);
             return;
         }
 
@@ -1134,6 +1260,8 @@ public sealed partial class EditorWorkspace : Node
             TreePicker.Cancel();
         if (SignalDialog.Visible)
             SignalDialog.Cancel();
+        if (SheetSlicer.Visible)
+            SheetSlicer.Cancel();
         if (NewProject.Visible)
             NewProject.Cancel();
         if (DownloadDemo.Visible)
@@ -1150,6 +1278,8 @@ public sealed partial class EditorWorkspace : Node
             Popup.Close();
         if (ProjectSettings.Visible)
             ProjectSettings.RequestClose(() => RequestQuit());
+        else if (ExportDialog.Visible)
+            ExportDialog.RequestClose(() => RequestQuit());
         else
             RequestQuit();
     }

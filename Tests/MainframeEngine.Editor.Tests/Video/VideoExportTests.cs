@@ -1,5 +1,8 @@
 using MainframeEngine.Editor.Video;
 using MainframeEngine.Video.Media.Export;
+// The game export library (MainframeEngine.Export, a global using) has types of the same names.
+using ExportProgress = MainframeEngine.Video.Media.Export.ExportProgress;
+using ExportRequest = MainframeEngine.Video.Media.Export.ExportRequest;
 
 namespace MainframeEngine.Editor.Tests.Video;
 

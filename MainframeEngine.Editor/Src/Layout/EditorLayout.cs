@@ -33,6 +33,15 @@ public enum Splitter
 /// The persisted panel sizes (Layout v1: fixed regions with draggable splitters, editor.md). Stored as JSON in
 /// <c>~/.mainframe/editor_layout.json</c> and written atomically (temp file + rename).
 /// </summary>
+/// <summary>The bottom dock's tabs (G10): the Output panel and the Profiler; TileMap and TileSet (G2b) while a tile map layer is edited.</summary>
+public enum BottomDockTab
+{
+    Output = 0,
+    Profiler = 1,
+    TileMap = 2,
+    TileSet = 3,
+}
+
 public sealed record EditorLayoutSettings
 {
     public const int CurrentFormat = 1;
@@ -61,6 +70,9 @@ public sealed record EditorLayoutSettings
 
     /// <summary>The inspector's property-name column width in dp; 0 sizes it to the longest name.</summary>
     public float InspectorLabelWidth { get; init; }
+
+    /// <summary>The bottom dock's active tab (<see cref="BottomDockTab"/>; a file without the key reads Output).</summary>
+    public int BottomTab { get; init; }
 
     /// <summary>The output panel folds repeated lines into one with a ×N badge.</summary>
     public bool OutputCollapse { get; init; }
@@ -299,6 +311,9 @@ public sealed class EditorLayout
         Settings = Settings with { WindowWidth = Math.Max(0, width), WindowHeight = Math.Max(0, height) };
 
     public void SetOutputFilter(int filter) => Settings = Settings with { OutputFilter = filter };
+
+    /// <summary>The bottom dock's active tab.</summary>
+    public void SetBottomTab(BottomDockTab tab) => Settings = Settings with { BottomTab = (int)tab };
 
     /// <summary>The inspector's name column width in dp (0: sized to the names).</summary>
     public void SetInspectorLabelWidth(float width) => Settings = Settings with { InspectorLabelWidth = MathF.Max(0, width) };

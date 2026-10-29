@@ -336,8 +336,11 @@ public sealed class RenderServer : IServer
     /// </summary>
     public void SkinMeshes()
     {
-        if (Vulkan is { FrameStarted: true } vk && !_disposed)
-            _meshes?.DispatchSkinning(vk.CurrentCommandBuffer);
+        if (Vulkan is { FrameStarted: true } vk && !_disposed && _meshes is { } meshes)
+        {
+            using var zone = vk.GpuProfiler.Zone(vk.CurrentCommandBuffer, EngineMarkers.GpuSkinning);
+            meshes.DispatchSkinning(vk.CurrentCommandBuffer);
+        }
     }
 
     /// <summary>Skinned instances the last <see cref="SkinMeshes"/> dispatched (diagnostics, tests).</summary>
@@ -439,6 +442,7 @@ public sealed class RenderServer : IServer
         if (Vulkan is not { FrameStarted: true } vk)
             return;
         var cb = vk.CurrentCommandBuffer;
+        using var zone = vk.GpuProfiler.Zone(cb, EngineMarkers.GpuOffscreen); // G10: skies' LUTs, sub-viewports, picking
         root.World3D.Environment?.PrepareSky(this, cb); // ADR 0154: the physical sky's LUTs, before any pass draws a sky
 
         // Sky lighting first (ADR 0150): every view of a world binds its captured sky.
@@ -485,6 +489,7 @@ public sealed class RenderServer : IServer
             var meshes = Meshes!;
             meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
             // ADR 0174: the main view's frame set and viewport are at its render size; picks are in window pixels.
+            using var pickZone = vk.GpuProfiler.Zone(cb, EngineMarkers.GpuPicking);
             picker.Render(cb, vk.RenderExtent, (meshes, _mainDraws), static (s, c) => s.meshes.DrawObjectIds(s._mainDraws, c),
                 RenderScaling.ScaleOf(vk.RenderExtent, vk.SwapchainExtent));
         }

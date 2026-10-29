@@ -783,6 +783,8 @@ public sealed partial class AudioServer : IFrameServer
         {
             _faultLogged = true;
             Log.Error($"[Audio] The mixer stopped after an error on the audio thread: {fault}");
+            // G15: the game plays on in silence; a non-fatal report says why (once per exception type).
+            CrashReporter.ReportError(fault, CrashKind.AudioThread, "The audio mixer stopped after an error on the audio thread; the game kept running without sound.");
         }
     }
 

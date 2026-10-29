@@ -133,6 +133,78 @@ command edit.undo # the three locks of basic_3d
 command edit.undo
 command edit.undo
 wait 5
+# 3c. Animated sprites (ADR 0223/0224): the Demo's Sprites 2D scene with the showcase hero selected and its SpriteFrames
+# editor in the inspector (the animation list, the frame strip with thumbnails); then the Select Frames dialog slicing
+# the hero sheet into a 4x4 grid with the run row picked.
+open Examples/Demo/Assets/Scenes/sprites_2d.mscene
+wait 20
+select Showcase
+clear-output
+move 900 600
+wait 20
+capture editor-sprite-frames
+sheet-slicer Assets/Sprites2D/hero.png 4 4 0,1 1,1 2,1 3,1
+move 900 600
+wait 20
+capture editor-sheet-slicer
+cancel
+wait 5
+command file.close
+wait 10
+# 3c2. Tile maps (G2b): the Demo's Tiles 2D scene with its Walls layer selected: the paint bar over the view, the stone
+# tile's ghost under the mouse (Rect tool) and the TileMap palette with it picked; then the TileSet tab on the bush's
+# collision polygon. Nothing is painted, so the tab closes without asking.
+open Examples/Demo/Assets/Scenes/tiles_2d.mscene
+wait 20
+select Walls
+camera2d 300 150 4.6
+tilemap-pick 0 2,0
+command tilemap.tool.rect
+clear-output
+move 760 470
+wait 20
+capture editor-tilemap
+tileset-tile 0 3,1 collision
+move 760 470
+wait 20
+capture editor-tileset
+command file.close
+wait 10
+# 3e. Navigation (G3a): the Demo's Navigation 2D scene with Visible Navigation on (the baked grid's solid cells, the dashed
+# mud, the region outline) and its NavigationGrid2D selected: the inspector's Bake / Clear buttons and status line.
+open Examples/Demo/Assets/Scenes/navigation_2d.mscene
+wait 20
+select Grid
+clear-output
+move 900 600
+wait 20
+capture editor-navigation
+command file.close
+wait 10
+# 3d. Crash reporting (G15): a played game's crash as one Output row, expanded to its frames (the game's frame links to
+# its source, engine frames are muted), with the report, copy and frame buttons; then the editor's own next-start
+# crash dialog with a recovery copy of the open scene (closed again: the sample report is marked handled).
+clear-output
+crash-row
+move 800 500
+wait 20
+capture editor-crash
+crash-dialog
+wait 20
+capture editor-crash-dialog
+click #cr-close
+wait 10
+clear-output
+# 3e. Export (G5): File › Export… on the Demo's presets (Windows, macOS, Linux, Linux server) with the server preset
+# selected: a folder export without the music, so its scenes' music references warn.
+command file.export
+wait 10
+export select 3
+move 900 600
+wait 20
+capture editor-export
+export close
+wait 5
 # 4. Audio: the sound designer on a Demo ZzFX preset, then the Demo's song in a song tab (the Lead clip in the piano
 # roll). Paths are relative to the checkout: the project is open under its real path.
 inspect Examples/Demo/Assets/Audio/Sfx/explosion.mres
@@ -241,6 +313,17 @@ wait 30
 move 800 500
 wait 10
 capture editor-game-project
+# 6b. The Profiler tab (G10) on the running MyGame: about 2 s streamed over the editor link, the slowest frame selected.
+profile tab
+profile record
+wait-for profiled 120 60
+profile slowest
+profile pause
+move 800 500
+wait 10
+capture editor-profiler
+profile stop
+profile output
 command play.stop
 wait-for stopped 30
 quit

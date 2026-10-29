@@ -177,6 +177,7 @@ public static class EditorCommandLine
                 EditorSettingsPath = EditorSettings.DefaultPath,
                 ThemeOverlayDirectory = EditorTheme.DefaultOverlayDirectory,
                 Updates = hidden ? null : new GitHubUpdateService(),
+                CrashDirectory = EditorWorkspaceOptions.DefaultCrashDirectory,
             },
             WindowSize = size,
             ContentScale = scale,

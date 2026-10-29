@@ -1,0 +1,30 @@
+# File › Export QA (G5, docs/design/game-export.md; just qa-export → artifacts/qa-export): create a game from the editor
+# (under QA_PROJECTS, never the checkout), add an export preset for this machine, turn Demo on, exclude a folder, capture
+# the dialog, export it (a real dotnet publish; needs the .NET 10 SDK), wait for the result and capture the dialog's
+# results and the Output panel's [export] lines.
+wait 30
+command project.new
+wait 10
+new-project QA_PROJECTS ExportGame
+click #np-create
+wait-for project 300
+wait 20
+command file.export
+wait 10
+capture 01-export-empty
+export add host
+wait 3
+export set demo true
+export exclude Assets/Settings/Unused/**
+export set version 1.0.0
+wait 10
+capture 02-export-preset
+export run
+wait 30
+capture 03-exporting
+wait-for exported 900
+wait 20
+capture 04-exported
+export close
+wait 10
+capture 05-output

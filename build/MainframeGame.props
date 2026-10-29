@@ -9,7 +9,7 @@
     e.g. `dotnet publish MyGame.Desktop -c Release -p:MainframeDemo=true` for the demo next to the full game.
 
     App name and icon (ADR 0182): project.mfproj "name" is the player-facing app name and "window.icon" its icon, here as
-    in build/package-game.sh. On macOS every game executable is launched from a development bundle named after the game
+    in the export (mf-export, the editor's File › Export). On macOS every game executable is launched from a development bundle named after the game
     (bin/<cfg>/<tfm>/<name>.app, build/macos/DevAppBundle.targets), so the Dock, the app menu and Cmd+Tab show the name
     and the icon instead of "MyGame.Desktop". The executable's AssemblyTitle (the Windows file description) and every game
     assembly's Product are the name too. A project overrides any of it with MacAppDisplayName, MacAppIcon (an .icns or a
@@ -27,12 +27,13 @@
   </PropertyGroup>
 
   <!-- The first "name", "icon" and "version" strings in the file: the top-level name and version (written before every
-       section) and window.icon (the only "icon" key). JSON escapes are not decoded. The file is read per use, like isDemo
+       section) and window.icon (the only "icon" key before the "export" presets, which have icons and versions of their
+       own and are written last, so the icon and version searches stop there). JSON escapes are not decoded. The file is read per use, like isDemo
        above: a value in a property would need quoting in property functions, which a name with an apostrophe breaks. -->
   <PropertyGroup Condition="'$(MainframeProjectFile)' != '' and Exists('$(MainframeProjectFile)')">
     <MainframeAppName Condition="'$(MainframeAppName)' == '' and $([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;name&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;name&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</MainframeAppName>
-    <_MainframeAppIcon Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;icon&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;icon&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppIcon>
-    <_MainframeAppVersion Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;version&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '&quot;version&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppVersion>
+    <_MainframeAppIcon Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?s)^(?:(?!&quot;export&quot;\s*:).)*?&quot;icon&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?s)^(?:(?!&quot;export&quot;\s*:).)*?&quot;icon&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppIcon>
+    <_MainframeAppVersion Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?s)^(?:(?!&quot;export&quot;\s*:).)*?&quot;version&quot;\s*:\s*&quot;[^&quot;\\]+&quot;'))">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MainframeProjectFile)')), '(?s)^(?:(?!&quot;export&quot;\s*:).)*?&quot;version&quot;\s*:\s*&quot;([^&quot;\\]+)&quot;').Result('$1'))</_MainframeAppVersion>
     <MacAppDisplayName Condition="'$(MacAppDisplayName)' == ''">$(MainframeAppName)</MacAppDisplayName>
     <MacAppIcon Condition="'$(MacAppIcon)' == '' and '$(_MainframeAppIcon)' != ''">$([System.IO.Path]::GetDirectoryName('$(MainframeProjectFile)'))/$(_MainframeAppIcon)</MacAppIcon>
     <MacAppVersion Condition="'$(MacAppVersion)' == ''">$(_MainframeAppVersion)</MacAppVersion>
@@ -40,14 +41,16 @@
   </PropertyGroup>
 
   <!--
-    Player builds (docs/design/release.md#games): build/package-game.sh, which a checkout has next to this file and the
-    MainframeEngine package in tools/ (this file is its buildTransitive/MainframeGame.props). Games ask for the path
-    instead of hard-coding the package cache:
-      bash "$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds
+    Player builds (docs/design/game-export.md): mf-export, the exporter the editor's File › Export runs too. The
+    MainframeEngine package carries it in tools/mf-export (this file is its buildTransitive/MainframeGame.props); a checkout
+    has its project. Games ask for the path instead of hard-coding the package cache:
+      dotnet "$(dotnet msbuild MyGame.Desktop -getProperty:MainframeExportTool)" - -project . - -preset "Windows"
+    (a package: the .dll; a checkout: the .csproj, run with dotnet run - -project <it> -c Release - -; the dashes are spaced
+    out only because XML comments cannot hold two in a row).
   -->
   <PropertyGroup>
-    <MainframePackageGameScript Condition="'$(MainframePackageGameScript)' == '' and Exists('$(MSBuildThisFileDirectory)package-game.sh')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)package-game.sh'))</MainframePackageGameScript>
-    <MainframePackageGameScript Condition="'$(MainframePackageGameScript)' == '' and Exists('$(MSBuildThisFileDirectory)../tools/package-game.sh')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../tools/package-game.sh'))</MainframePackageGameScript>
+    <MainframeExportTool Condition="'$(MainframeExportTool)' == '' and Exists('$(MSBuildThisFileDirectory)../tools/mf-export/mf-export.dll')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../tools/mf-export/mf-export.dll'))</MainframeExportTool>
+    <MainframeExportTool Condition="'$(MainframeExportTool)' == '' and Exists('$(MSBuildThisFileDirectory)../Tools/MainframeEngine.Export.Cli/MainframeEngine.Export.Cli.csproj')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Tools/MainframeEngine.Export.Cli/MainframeEngine.Export.Cli.csproj'))</MainframeExportTool>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -64,6 +67,12 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <!-- An export preset with "profiler": false (mf-export passes MainframeProfilerDisabled=true): the runtimeconfig sets the
+       AppContext switch MainframeEngine.Profiler.Disabled, so profiler scopes cost nothing (docs/design/profiler.md). -->
+  <ItemGroup Condition="'$(MainframeProfilerDisabled)' == 'true'">
+    <RuntimeHostConfigurationOption Include="MainframeEngine.Profiler.Disabled" Value="true" Trim="true" />
+  </ItemGroup>
+
   <!-- The executable's file description (AssemblyTitle, the SDK default being the assembly name) is the app name. -->
   <Target Name="_MainframeAppAssemblyTitle" BeforeTargets="GetAssemblyAttributes"
           Condition="'$(MainframeAppName)' != '' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true' and '$(AssemblyTitle)' == '$(AssemblyName)'">
@@ -73,7 +82,7 @@
   </Target>
 
   <!-- Windows player builds are GUI-subsystem executables (WinExe), so double-clicking the game opens no console window
-       behind it. build/package-game.sh passes MainframeWindowsGui=true; dotnet run and dev builds keep the console for
+       behind it. The export (mf-export) passes MainframeWindowsGui=true; dotnet run and dev builds keep the console for
        logs (they go to the user data folder too). Set in a target: OutputType is the csproj's, read after this file. -->
   <Target Name="_MainframeWindowsGui" BeforeTargets="_GetAppHostCreationConfiguration"
           Condition="'$(MainframeWindowsGui)' == 'true' and '$(OutputType)' == 'Exe' and $(RuntimeIdentifier.StartsWith('win'))">
@@ -83,7 +92,7 @@
   </Target>
 
   <!-- macOS: <name>.app around the game executable (targets and conditions evaluated when the build runs), and the
-       release bundle's apphost (build/package-game.sh publishes with MacBundleAppDirectory=MonoBundle). -->
+       release bundle's apphost (the export publishes with MacBundleAppDirectory=MonoBundle). -->
   <Import Project="macos/DevAppBundle.targets" />
   <Import Project="macos/BundleAppHost.targets" />
 </Project>

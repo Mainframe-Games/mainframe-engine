@@ -148,6 +148,8 @@ internal static class RegistrationEmitter
             parts.Add("Directory = true");
         if (e.Multiline)
             parts.Add("Multiline = true");
+        if (e.Storage)
+            parts.Add("Storage = true");
         if (e.Flags)
             parts.Add("Flags = true");
         if (e.NodeType is not null)

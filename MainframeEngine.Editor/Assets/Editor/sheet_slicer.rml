@@ -1,0 +1,57 @@
+<rml>
+<head>
+    <title>Select Frames</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <link type="text/rcss" href="dialogs.rcss"/>
+    <style>
+        #dialog { left: 50%; top: 50%; width: 720dp; height: 580dp; margin-left: -360dp; margin-top: -290dp; }
+        #slicer-fields { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; flex: 0 0 auto; margin-bottom: 8dp; }
+        #slicer-fields .tool-button { margin-right: 4dp; }
+        .slicer-pair { display: flex; flex-direction: row; align-items: center; margin: 0dp 8dp 4dp 4dp; }
+        .slicer-caption { color: #8b93a5; font-size: 11dp; margin-right: 4dp; }
+        input.slicer-field { width: 44dp; margin-right: 3dp; text-align: right; }
+        .slicer-gap { flex: 1 1 auto; }
+        #slicer-view {
+            display: block;
+            flex: 1 1 auto;
+            overflow: auto;
+            background-color: #15171c;
+            border: 1dp #2f333d;
+            border-radius: 3dp;
+            padding: 8dp;
+            margin-bottom: 6dp;
+        }
+        .slicer-sheet { position: relative; display: block; background-color: #2a2e38; }
+        .slicer-image { position: absolute; left: 0dp; top: 0dp; }
+        .slicer-cell { position: absolute; display: block; border: 1dp #ffffff40; cursor: pointer; }
+        .slicer-cell:hover { background-color: #3b82f633; border-color: #93c5fd; }
+        .slicer-cell.picked { background-color: #3b82f655; border: 2dp #3b82f6; }
+        .slicer-number {
+            position: absolute;
+            left: 2dp;
+            top: 2dp;
+            padding: 0dp 4dp;
+            background-color: #1d4ed8;
+            border-radius: 3dp;
+            color: #ffffff;
+            font-size: 11dp;
+            line-height: 15dp;
+        }
+    </style>
+</head>
+<body class="backdrop">
+    <div class="dialog" id="dialog">
+        <div class="dialog-title"><span class="icon icon-layout-grid"></span><span id="slicer-title">Select Frames</span></div>
+        <div class="dialog-body">
+            <div id="slicer-fields"></div>
+            <div id="slicer-view"></div>
+            <div class="dialog-error" id="slicer-error"></div>
+        </div>
+        <div class="dialog-buttons">
+            <button data-op="cancel">Cancel</button>
+            <button class="primary" data-op="add" id="slicer-add">Add 0 Frames</button>
+        </div>
+    </div>
+</body>
+</rml>

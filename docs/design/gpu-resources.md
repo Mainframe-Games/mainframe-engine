@@ -30,6 +30,7 @@ recreation and shutdown waits for the device.
 | `ShaderModuleCache` | [ShaderModuleCache.cs](../../MainframeEngine/Src/Rendering/Vulkan/ShaderModuleCache.cs) | One `VkShaderModule` per `.spv` |
 | `PipelineBuilder`, `PipelineState`, `BlendMode` | [PipelineBuilder.cs](../../MainframeEngine/Src/Rendering/Vulkan/PipelineBuilder.cs) | internal — pipeline/descriptor boilerplate with the engine's conventions |
 | `RenderTarget` | [RenderTarget.cs](../../MainframeEngine/Src/Rendering/Vulkan/RenderTarget.cs) | Offscreen colour + depth targets — see [Color pipeline](color-pipeline.md#render-targets) |
+| `GpuProfiler` | [GpuProfiler.cs](../../MainframeEngine/Src/Rendering/Vulkan/GpuProfiler.cs) | The renderer's one timestamp query pool (`IVulkanContext.GpuProfiler`): named GPU zones keyed by frame slot, read back after the slot's fence without waiting — see [Profiler → GPU zones](profiler.md#gpu-zones) |
 | `GpuStats` panel | [DevOverlayStats.cs](../../MainframeEngine/Src/Debugging/DevOverlay/DevOverlayStats.cs) | the dev overlay's GPU memory and Renderer panels read all of the above ([Developer overlay](dev-overlay.md)) |
 
 The wrappers are named `Gpu*` rather than the proposal's `Vk*`: the codebase aliases
@@ -105,6 +106,15 @@ slot fence has been waited on — at the start of frame *N* + `MaxFramesInFlight
 submit and the next acquire wait for the right fence. Swapchain recreation (device idle) collects
 everything; renderer disposal flushes the queue before freeing the allocator.
 
+## Timestamp queries
+
+There is one timestamp query pool, `GpuProfiler`'s: `MaxFramesInFlight × MaxGpuZones × 2` queries (512 by default).
+Frame slot *s* owns its own range; the slot's range is reset with `vkCmdResetQueryPool` right after its command buffer
+begins (outside any render pass, before the upload queue's copies) and read with `vkGetQueryPoolResults` without
+`WAIT` right after the slot's fence wait. Shadows, SSAO, auto exposure and volumetric fog have no pools of their own:
+their `LastGpuMilliseconds` read the shared zones. Code that wants GPU timing opens a zone
+(`using var _ = vk.GpuProfiler.Zone(cb, marker)`); it never creates a query pool.
+
 ## Wrappers
 
 | Wrapper | Create | Notes |
@@ -165,4 +175,5 @@ under two spellings is one module) and keeps it until the renderer is disposed.
 ## Related docs
 
 [Vulkan renderer](vulkan-renderer.md) · [Color pipeline](color-pipeline.md) · [Shaders](shaders.md) ·
-[Testing](testing.md) · [Materials & meshes](materials-and-meshes.md) · [Asset pipeline](asset-pipeline.md)
+[Testing](testing.md) · [Materials & meshes](materials-and-meshes.md) · [Asset pipeline](asset-pipeline.md) ·
+[Profiler](profiler.md)

@@ -57,7 +57,7 @@ commas tolerated). Only values that differ from the defaults are written, except
 
 ```jsonc
 {
-  "format": 4,
+  "format": 5,
   "name": "Space Game",
   "engineVersion": "0.4.2",                    // the engine the project was created with / upgraded to
   "userDataName": "SpaceGame",                 // the user data folder's name (default: name); keep it stable
@@ -90,10 +90,11 @@ commas tolerated). Only values that differ from the defaults are written, except
 }
 ```
 
-- **Versioning.** `format` is `ProjectSettingsFormat.Current` (4; format 1 had a top-level `steamAppId`, which the
+- **Versioning.** `format` is `ProjectSettingsFormat.Current` (5; format 1 had a top-level `steamAppId`, which the
   1 → 2 migration moves to `steam.appId`; the 2 → 3 migration writes `ui.scaleMode: "ConstantPixelSize"` into projects
   that have none, so their UI keeps its size; the 3 → 4 migration moves every `Content/…` path value to `Assets/…`,
-  the content folder's new name, ADR 0197). Older files run through `ProjectMigration` steps
+  the content folder's new name, ADR 0197; the 4 → 5 step changes nothing: it guards the `export` presets from older
+  editors, ADR 0229). Older files run through `ProjectMigration` steps
   (`From` → `From + 1`, each editing the `JsonObject`) before they are read; newer files are rejected ("update the
   engine"). `engineVersion` is advisory: `GameHost` warns when its major/minor differs from `EngineInfo.Version`
   (development builds `0.0.0-*` never warn).
@@ -133,6 +134,11 @@ commas tolerated). Only values that differ from the defaults are written, except
   `thumbnails` (default false; true makes `ToEngineOptions` turn on `EngineOptions.EnableFrameCapture`, which slows some
   drivers, so it is opt-in) and `thumbnail.width`/`height` (default 320×180). `SaveOptions.FromProject` reads them.
   Optional keys, no migration.
+- **Export presets** (`export`, G5; [Game export](game-export.md#preset-schema-projectmfproj--export)): an array of
+  `ExportPreset`s for File › Export and `mf-export` (`name`, `platform`, `rid`, `output`, `configuration`, `demo`,
+  `steam`, `version`, `icon`, publish options, `include`/`exclude` globs, macOS signing). Format 5 added the section;
+  the step 4 → 5 changes nothing, it only makes an older editor refuse the file instead of dropping the presets on save.
+  Exported builds carry no presets.
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.
 - **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the
@@ -167,8 +173,9 @@ commas tolerated). Only values that differ from the defaults are written, except
   `MacAppDisplayName`, `MacAppIcon` and `MacAppVersion`: the macOS development bundle `bin/<cfg>/net10.0/<name>.app`,
   `Product` and the executable's `AssemblyTitle` (Windows file description). Desktop projects override them (an `.icns`
   on Apple's icon grid in `MacAppIcon`, an `.ico` in `ApplicationIcon`).
-- **Packaging.** `build/package-game.sh` names the `.app` and the executable from `name` and takes the icon from
-  `window.icon` ([Release → Games](release.md#games)).
+- **Exports.** [Game export](game-export.md) names the `.app` and the executable from `name` and takes the icon from
+  `window.icon` unless a preset sets its own ([Release → Games](release.md#games)). The props' searches for `window.icon`
+  and `version` stop at the `export` section, whose presets have icons and versions of their own.
 
 Renaming a game moves its user data folder (settings, saves, logs) with it unless `userDataName` pins the folder's
 name (new projects set it). The editor's Project Settings already edit `name` and `window.icon`.
@@ -188,6 +195,9 @@ name (new projects set it). The editor's Project Settings already edit `name` an
   `GameHost.Run` sets `ProjectSettings.IsDemo` from it (`GameHost.BuiltAsDemo`; the entry assembly first), so the
   running game agrees with how it was compiled even when `-p:MainframeDemo` differs from the copied project file.
   `GameHost.IsDemo` is the runtime check; Steam starts with the demo app id; the log says `Demo build (Steam app N)`.
+- **Exports.** An export preset's `demo` passes `-p:MainframeDemo=true|false` and writes `isDemo` into the exported
+  `project.mfproj`, so one project ships the full game and its demo with no manual edit (two presets, e.g. "Windows
+  (Steam)" and "Windows (Steam demo)"; [Game export](game-export.md)).
 - The editor builds and loads the game with the project's `isDemo`; save the setting and Play (or Build & Reload) to
   switch. Projects created before `MainframeGame.props` add the import to their `Directory.Build.props` by hand.
 
@@ -222,6 +232,9 @@ does not load), 2 (bad command line).
 | `--record <file.mp4>` | record gameplay (live; offline with `--fixed-fps`) with the user's ffmpeg and write `file.mp4.mfcap.json`; starts on the first update, so loading is recorded; implies frame capture; rejected with `--headless` ([Gameplay recording](recording.md)) |
 | `--record-scale <n>` | fixed content scale for the recording (a 1920×1080-point window at 2 is 4K, if the display can hold it) |
 | `--ffmpeg <path>` | the ffmpeg to record with (else `MAINFRAME_FFMPEG`, `PATH`, common install folders) |
+| `--profile` | the [frame profiler](profiler.md) records from the first frame (`ProfilerOptions.RecordFromStart`) |
+| `--profile-trace <file.json>` | record, and write a Chrome trace (Perfetto) on exit, or after `--profile-frames` frames and then quit ([Profiler → Trace export](profiler.md#trace-export)) |
+| `--profile-frames <n>` | loaded frames the trace keeps (loading frames excluded, like `--max-frames`); needs `--profile-trace` (a bad command line without it) |
 | `++ …` | everything after `++` is the game's (`GameHost.UserArgs`, Godot's `OS.get_cmdline_user_args`), never parsed by the host |
 
 Anything else before `++` is left in `GameHostOptions.Remaining` for the game. `GameHost.IsDebugBuild` is true when the
@@ -237,6 +250,11 @@ delta discarded (`Engine.DiscardFrameDelta`, so start-up time never reaches the 
 autoloads (each added as `/root/{Name}`, in order, before the scene; a failing one is logged and skipped), then
 `Tree.ChangeSceneToFile(--scene ?? mainScene)` — or, by default, `GameSession.StartAsync` (below). Each frame
 `GameSession.Update` applies editor commands and reports status. `GameHost` can be subclassed (call the bases); subclassing `Engine` directly still works (the editor and render-test host do).
+
+The profiler's settings are `EngineOptions.Profiler` (`ProfilerOptions`: `RecordFromStart`, `GpuTimings`,
+`DetailedGpuZones`, `HistoryFrames`, `EventCapacity`, `MaxGpuZones`, `SpikeSlots`, `TrackAllocations`, `AudioThread`;
+[Profiler → Options](profiler.md#options)). The `--profile*` flags set `RecordFromStart` and grow `HistoryFrames` and
+`EventCapacity` to hold the trace's frames.
 
 ### Async loading and the loading screen (ADR 0183)
 
@@ -283,6 +301,8 @@ heard). It runs the same
 and `--max-frames` apply. Ctrl+C / SIGTERM raise `SceneTree.CloseRequested` (the game's chance to save), then quit.
 `GameHost.IsHeadless` tells game code (Godot's `DisplayServer.get_name() == "headless"`). `UiLayer`s warn and load
 nothing; `UiDocument.CreateDataModel` throws, so UI nodes check `IsHeadless` first.
+Each `HeadlessHost.Step` is one profiler frame (CPU lanes and counters, no GPU zones), so `--profile` and
+`--profile-trace` work on dedicated servers too.
 
 ### UI hot reload
 
@@ -417,8 +437,23 @@ read-only.
 │   ├── slot1.png            optional thumbnail
 │   ├── slot1.msave.corrupt-20261008T101500123Z   a damaged copy, kept for support
 │   └── .sync.json           the last synced hash per slot (with a cloud backend)
+├── crashes/                 CrashReporter: report bundles, the session sentinel, native dumps
 └── logs/                    FileLogSink
 ```
+
+## Crash reports
+
+`GameHost.Run` installs `CrashReporter` right after the file log (`crash.enabled`, default on; [Crash
+reporting](crash-reporting.md)): a fatal exception writes a bundle to `{user data}/crashes` first, then `Log.Fatal`, then a
+guarded shutdown (a second exception is logged, never thrown over the first). A session sentinel
+(`session-<pid>.json` + a held `.lock`) is removed at the end of the run; one left behind becomes an `UncleanExit`
+report with the previous log's tail on the next start. Once the first scene is on screen, `CrashPrompt` offers earlier
+reports (`crash.prompt`), or with `crash.upload.mode` `consented` and the player's agreement they are sent. The
+`crash` section: `enabled`, `prompt` (`ask`/`none`), `logEntries` (200), `maxReports` (10), `gpuBreadcrumbs` (true),
+`nativeDumps` (`off`/`triage`/`mini`/`heap`: a shipped desktop game relaunches itself as a child with the runtime's dump
+variables, ADR 0221) and `upload` (`url`, `format` `sentry-envelope`/`zip`, `mode` `ask`/`consented`, `includeLog`,
+`includeDumps`). The player's consent is `crash.uploadConsent` in `settings.json` (`UserSettings.CrashUploadConsent`).
+Headless runs install it too and log pending reports instead of prompting.
 
 ## Save games
 
@@ -529,16 +564,17 @@ sequenceDiagram
     G->>E: Hello (protocol, pid, project, engine version)
     loop while running
         G-->>E: Log entries · Status (state, frame, fps, scene) every 0.5 s and on change
-        E-->>G: Command: Stop · Pause · Resume · ReloadScene [scene] · Ping · RequestTree · StartRecording [path] · StopRecording
+        E-->>G: Command: Stop · Pause · Resume · ReloadScene [scene] · Ping · RequestTree · StartRecording [path] · StopRecording · ProfilerStart [args] · ProfilerStop
         G-->>E: Tree (on RequestTree: depth-first nodes)
         G-->>E: Recording (Started · Stopped · Failed)
+        G-->>E: ProfileMarkers · ProfileFrame · ProfileDropped (between ProfilerStart and ProfilerStop)
     end
     G->>E: Status Stopping · Goodbye (exit code)
 ```
 
 - **Wire format** (`EditorLinkProtocol`): `u32 length` (type byte + payload, ≤ 1 MiB) · `u8 type` · payload,
   little-endian; strings `u32` byte count + UTF-8 (strict). Oversized log text is truncated to fit. A malformed frame
-  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome, version 4 the recording commands and message).
+  closes the connection. `EditorLinkProtocol.Version` is checked from the hello (version 3 added the welcome, version 4 the recording commands and message, version 5 the crash report and the profiler messages and commands).
 - **Game side** (`EditorLinkClient`): a background thread connects (and reconnects with back-off when the editor goes
   away), sends a hello per connection and waits for the editor's welcome; only then does the connection count
   (`IsConnected`, `ConnectionCount`) and drain queued logs (batched up to 64 KB), the latest status and the goodbye.
@@ -570,6 +606,17 @@ sequenceDiagram
   and tree, recording events are **queued** in `EditorLinkClient` (`MaxQueuedRecordings` 64, never coalesced) and written
   before the goodbye. The editor treats a recording as failed by itself only when the game's link is gone. A game must
   have been started with `--frame-capture` (the editor always does) for a mid-session start to succeed.
+- **Crash reports** (protocol version 5, [Crash reporting](crash-reporting.md#editor-game-crashes-and-its-own)). Game →
+  editor: `CrashReport = 9`, `str reportJson, str bundleFolder` (`report.json` at most 256 KB; a larger one is not sent).
+  `GameSession` registers an `EditorLinkCrashSink` while the link is up; on the way down it waits up to 1 s for the link
+  (a crash in the first frames can beat the connection) and for the frame to be written after the queued logs, before
+  the goodbye. The editor raises `PlayService.Crashed` once the process has exited.
+- **Profiler** (protocol version 5, [Profiler → Editor link messages](profiler.md#editor-link-messages)). Editor → game:
+  `ProfilerStart = 9` (argument `gpu=1;spike=33.3;freeze=0`) and `ProfilerStop = 10`. Game → editor: `ProfileMarkers = 10`,
+  `ProfileFrame = 11` and `ProfileDropped = 12`. `GameSession` starts a `ProfilerStreamer` that holds the profiler and,
+  each update, copies frames whose GPU zones have arrived into one of `EditorLinkClient.ProfileBlockCount` (8)
+  preallocated blocks; the link thread serialises them. With no free block the frame is dropped and counted: the game
+  never waits for the editor.
 - **Sockets inherited by child processes.** macOS has no `SOCK_CLOEXEC`/`accept4`: .NET calls `socket()`/`accept()`
   and then sets `FD_CLOEXEC` separately, and `Process.Start` forks, so a child started in between (the editor runs
   `dotnet build`, whose build servers outlive it, and games) holds the socket for its whole life. Two consequences
@@ -672,6 +719,7 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 | `ProjectServersTests`, `ProjectLocalizationTests` | a project file's gravity moves a body at its tick rate, `maxStepsPerFrame` reaches the tree, the referenced bus layout is the one the audio server mixes with; `defaultLocale` + fallbacks drive `Tr`, `--locale` overrides |
 | `GameUnloadLeakTests` | a game type with `[Export(Translatable)]` re-translated on a locale switch, and a game HUD (`UiDocument` data model, data event, element listener, a raw model never disposed) — with forgotten `Tr`/`SceneTree.LocaleChanged` subscriptions — unload and are **collected** with no UI frame in between |
 | `GameAssemblyLoaderTests`, `DebouncerTests` | Roslyn-compiled game assemblies: load → tick → save/load scenes with inline game resources → unload → **collected** → rebuild in place → reload with values kept; `MissingNode` round trip while unloaded; leak detection; private dependencies; build-output discovery; debounce and the real watcher |
+| `ProfilerCommandLineTests`, `ProfilerLinkTests` ([Profiling/](../../Tests/MainframeEngine.Tests/Profiling/)) | the `--profile*` flags record from the first frame, a headless run writes its trace after `--profile-frames` and quits; profiler messages and commands round-trip, an oversized frame keeps its shallowest depths, a slow link drops frames without the game waiting, a session streams between `ProfilerStart` and `ProfilerStop` |
 
 ## Known issues
 
@@ -685,4 +733,4 @@ Unit suites in [Tests/MainframeEngine.Tests/Project](../../Tests/MainframeEngine
 
 [Editor](editor.md) · [Engine lifecycle](engine-lifecycle.md) · [Cameras & input](cameras-and-input.md) ·
 [Scene serialization](scene-serialization.md) · [Distribution via NuGet](distribution-nuget.md) ·
-[Release](release.md) · [Testing](testing.md)
+[Release](release.md) · [Profiler](profiler.md) · [Testing](testing.md)

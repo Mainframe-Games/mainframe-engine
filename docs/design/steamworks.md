@@ -58,7 +58,7 @@ Steam.Shutdown();
   client and without a `steam_appid.txt`. Use `restartThroughSteam` (below) when a store build must run through Steam.
 - **Dev app id.** `writeDevAppIdFile: true` writes `steam_appid.txt` next to the executable, only when it is missing
   or different, and sets `SteamAppId` for the process. **Never enable it in shipped builds:** it bypasses Steam's
-  "launched through Steam" check. `build/package-game.sh` refuses a publish folder that contains the file.
+  "launched through Steam" check. The [export](game-export.md) refuses a stage that contains the file.
 - **`Steam.RestartAppIfNecessary(uint appId)`** wraps `SteamAPI_RestartAppIfNecessary`: true when the game was
   started outside the Steam client and Steam is relaunching it, so the process must exit at once. It never throws and
   returns false (carry on) when Steam cannot be asked: app id 0, an unsupported platform, no native library.
@@ -198,9 +198,9 @@ repositories carry them too). They are vendored, not built by `natives.yml`, and
 other natives; the NuGet package carries them in `runtimes/<rid>/native` and the Facepunch builds in
 `mainframe/steamworks/`, which its `buildTransitive` targets copy into the game's output.
 
-**Player builds.** `build/package-game.sh` (in the package: `tools/package-game.sh`, found through
-`MainframePackageGameScript`; see [Release → Games](release.md#games)) keeps only the RID's steam_api and
-`steamworks/` folder, and fails if a `steam_appid.txt` is in the publish output. macOS Developer ID signing signs
+**Player builds.** The [export](game-export.md) (File › Export, `mf-export`; in the package: `tools/mf-export`, found
+through `MainframeExportTool`; see [Release → Games](release.md#games)) keeps only the RID's steam_api and
+`steamworks/` folder, checks them for Steam presets ([Export](#export)), and fails if a `steam_appid.txt` is in the stage. macOS Developer ID signing signs
 `libsteam_api.dylib` with the other Mach-O files.
 
 ## Engine hook
@@ -224,6 +224,16 @@ applies it:
 | `restartThroughSteam` (Relaunch Through Steam) | false | Shipped runs (not development) call `Steam.RestartAppIfNecessary` in `GameHost.Run` before the window opens and exit when Steam relaunches the game, so ownership checks and the overlay always apply. |
 
 `ProjectSettings.SteamAppId` (read-only) is the id the build uses: `demoAppId` for a demo, else `appId`.
+
+## Export
+
+Export presets ([Game export](game-export.md#steam)) have `steam: true|false`; the app ids stay here. Steam off writes
+app ids 0 and `restartThroughSteam: false` into the exported `project.mfproj`, so Steam stays inert. Steam on is
+validated before building: the effective id (`demoAppId` for a `demo` preset, else `appId`) must not be 0
+(`steam-app-id`, an error naming Project Settings › Steamworks), a Debug configuration warns (`steam-debug`: a
+development run writes `steam_appid.txt` and never relaunches through Steam), and after the publish the stage must hold
+the RID's `steam_api` native and `steamworks/<win64|posix>/MainframeEngine.Steamworks.dll`, else the export fails. A
+`steam_appid.txt` in the stage always fails it. Only the RID's Steam files ship.
 
 ## Lobby → transport handoff
 

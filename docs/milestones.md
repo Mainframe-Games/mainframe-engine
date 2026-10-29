@@ -307,12 +307,12 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G1d Character animation editing: bones in the viewport, IK handles, curve view, onion skinning | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G1e Root motion: `AnimationPlayer` root motion track, `CharacterBody3D.ApplyRootMotion` | ✅ (ADR 0210; the baker's `root: "motion"` waits for G1c) | [Animation and skinning](design/animation.md#root-motion) |
 | G1f Non-humanoid rigs (native bone channels, rig profiles) and auto-rigging | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
-| G2a Animated sprites: sprite sheet slicing, `SpriteFrames`, `AnimatedSprite2D` | ⬜ | [2D content](design/future/2d-content.md) |
-| G2b Tile maps: `TileSet`, tile map layer node (chunked rendering + physics), paint tools in the 2D view | ⬜ | [2D content](design/future/2d-content.md) |
-| G3a Navigation 2D: grid A* and point graphs, `NavigationServer2D`, `NavigationAgent2D`, editor bake + debug overlay, tile map source (G3.1–G3.6) | ⬜ | [Navigation](design/future/navigation.md) |
+| G2a Animated sprites: sprite sheet slicing, `SpriteFrames`, `AnimatedSprite2D` | ✅ (ADR 0223, 0224) | [Animated sprites](design/animated-sprites.md) |
+| G2b Tile maps: `TileSet`, tile map layer node (chunked rendering + physics), paint tools in the 2D view | ✅ (ADR 0225, 0226) | [Tile maps](design/tile-maps.md) |
+| G3a Navigation 2D: grid A* and point graphs, `NavigationServer2D`, `NavigationAgent2D`, editor bake + debug overlay (G3.1–G3.5 ✅), tile map source (G3.6, after G2b) | 🚧 | [Navigation](design/navigation.md), [G3.6](design/future/navigation.md) |
 | G3b Later: avoidance, 2D navmesh polygons, async queries, 3D grid + `NavigationAgent3D`, 3D navmesh baking (G3.7–G3.12) | ⬜ | [Navigation](design/future/navigation.md) |
 | G4 Save games and settings: `SaveServer` (slots, versioned JSON + migrations, durable writes, recovery, thumbnails, cloud seam), `UserSettings`/`ConfigFile`, rebinding, drop-in settings menu | ✅ | [Save games and settings](design/future/save-and-settings.md) |
-| G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner | ⬜ | [Game export](design/future/game-export.md) |
+| G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner (`mf-export`) | ✅ | [Game export](design/game-export.md) |
 | G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | 🚧 | [Rendering features](design/future/rendering-features.md); 3D particles ✅ [3D particles](design/particles-3d.md) (ADR 0206) |
 | G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ✅ | [Editor → Viewport tools](design/editor.md#viewport-tools) |
 | G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | 🚧 | [Terrain](design/future/terrain.md) |
@@ -322,12 +322,12 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | Neon showcase: `Examples/Neon` cyberpunk apartment (interactables, live monitors and terminal, instanced neon city, traffic on paths, synthesised audio) | ✅ (ADR 0218) | [Neon](design/neon.md) |
 | G8e Forest visual quality (the Unreal look): baked probe GI with GTAO, cached soft shadows, volumetric light, cinematic post, Ez Tree cluster foliage and impostors, water SSR/refraction/falls, art pass, TAA upscaling | 🚧 | [Forest visual quality](design/future/forest-visual-quality.md) |
 | G9 Physics joints and ragdolls: 3D/2D joint nodes over Jitter2 and Box2D (limits, motors, springs, breaking), anchor gizmos, ragdolls on G1b skeletons | 🚧 | [Physics joints and ragdolls](design/physics-joints.md) (ADR 0211, 0212): G9.1–G9.6, G9.8, G9.9 ✅; G9.7 limit handles (after G7.3) and G9.10 to come |
-| G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ⬜ | [Profiler](design/future/profiler.md) |
+| G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ✅ (ADR 0219, 0220) | [Frame profiler](design/profiler.md) |
 | G11 World-space UI: `Label3D`, UI anchored to 3D points (nameplates, markers), RmlUi panels rendered onto meshes with ray-picked input | ⬜ | [World-space UI](design/future/world-space-ui.md) |
 | G12 Gamepad haptics and input glyphs: rumble, controller type and last-used device, action → glyph for RmlUi and canvas text | ⬜ | [Haptics and input glyphs](design/future/input-haptics-and-glyphs.md) |
 | G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | 🚧 3D nodes shipped (ADR 0215) | [Paths](design/paths.md), [proposal](design/future/paths.md) |
 | G14 Accessibility: UI scale, colour-vision filters, subtitles and captions, motion comfort options, input assists | ⬜ | [Accessibility](design/future/accessibility.md) |
-| G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ⬜ | [Crash reporting](design/future/crash-reporting.md) |
+| G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ✅ | [Crash reporting](design/crash-reporting.md) |
 | G16 Video playback: `VideoStream`, `VideoPlayer`, `VideoTexture`, GPU YUV conversion, audio through `AudioServer` (codec choice pending) | ⬜ | [Video playback](design/future/video-playback.md) |
 | G17a 2D skeletal runtime: `.mskel`/`.manim` data, bake cache, SoA pose, weighted meshes, skins, `AnimationTracks` mixing, events, `SkeletonSprite2D`, compute skinning, canvas skinned commands and blend modes, Spine 4.x JSON importer | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 | G17b Skeleton tab, Setup mode: `IDocumentTab`, shared `Timeline/` (song tab moved onto it), hierarchy, bones, slots, skins, PNG import | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |

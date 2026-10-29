@@ -4,6 +4,10 @@ obj/
 artifacts/
 TestResults/
 
+# Exports (File › Export, mf-export) and their intermediates
+export/
+.mainframe/
+
 # IDEs and OS
 .vs/
 .idea/

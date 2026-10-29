@@ -201,6 +201,31 @@
         .zzfx-row { display: flex; flex-direction: row; align-items: center; height: 26dp; }
         .zzfx-label { display: block; width: 52dp; color: #8b93a5; font-size: 11dp; }
         .zzfx-row button { width: 24dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 4dp; }
+        .sprite-frames { display: block; margin: 6dp 8dp; padding: 6dp; background-color: #1b1d23; border: 1dp #2a2d36; border-radius: 4dp; }
+        .sf-bar { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; min-height: 26dp; }
+        .sf-bar button { width: 22dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 2dp; }
+        .sf-bar button.disabled { opacity: 0.35; }
+        .sf-label { display: block; margin-right: 8dp; color: #8b93a5; font-size: 11dp; white-space: nowrap; }
+        .sf-field .sf-label { width: 74dp; }
+        .sf-sep { display: block; width: 4dp; }
+        .sf-anims { display: block; margin: 3dp 0dp 6dp 0dp; background-color: #121418; border: 1dp #2a2d36; border-radius: 3dp; }
+        .sf-anim { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 6dp; cursor: pointer; }
+        .sf-anim:hover { background-color: #2a2e38; }
+        .sf-anim.selected { background-color: #1d4ed8; color: #ffffff; }
+        .sf-anim .icon { margin-right: 5dp; }
+        .sf-anim-name { display: block; flex: 1 1 auto; white-space: nowrap; overflow: hidden; }
+        .sf-mark { image-color: #93c5fd; }
+        .sf-meta { display: block; margin-left: 6dp; color: #8b93a5; font-size: 11dp; white-space: nowrap; }
+        .sf-anim.selected .sf-meta { color: #bfdbfe; }
+        .sf-field { display: flex; flex-direction: row; align-items: center; height: 26dp; }
+        .sf-field input.text { width: 60dp; }
+        .sf-strip { display: flex; flex-direction: row; flex-wrap: wrap; margin: 3dp 0dp 6dp 0dp; padding: 3dp; background-color: #121418; border: 1dp #2a2d36; border-radius: 3dp; }
+        .sf-frame { display: flex; flex-direction: column; align-items: center; width: 58dp; margin: 2dp; padding: 2dp; border: 1dp #2a2d36; border-radius: 3dp; cursor: pointer; }
+        .sf-frame:hover { border-color: #4b5161; }
+        .sf-frame.selected { border-color: #3b82f6; background-color: #1d4ed844; }
+        .sf-thumb { display: flex; align-items: center; justify-content: center; width: 50dp; height: 50dp; background-color: #2a2e38; }
+        .sf-index { display: block; font-size: 10dp; color: #b4bccc; white-space: nowrap; }
+        .sf-empty { display: block; padding: 6dp; color: #6b7488; font-size: 11dp; }
         .probe-bake { display: flex; flex-direction: row; align-items: center; height: 26dp; margin: 6dp 8dp; }
         .probe-bake button { width: 26dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 6dp; }
         .joint-actions { display: flex; flex-direction: row; align-items: center; height: 26dp; margin: 6dp 8dp; }

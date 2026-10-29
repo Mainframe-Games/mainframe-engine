@@ -434,7 +434,7 @@ change and redraws on `GlyphsChanged`; a steady frame allocates nothing. G11's `
   no second lookup), the `glyphs` model in `data-for`, reload on locale change, `mf-l10n extract` keeps one msgid.
 - **Render tests** (both drivers, `just golden-update`, PNGs inspected): `ui-input-glyphs` (the same prompts under each
   forced `GlyphStyle` plus a keycap row) and `canvas-glyph-label` (tokens with outline and shadow).
-- **Demo:** an `input` scene (next free nav key, [2D content](2d-content.md#demo-scene) scheme): pad list, rumble
+- **Demo:** an `input` scene (next free nav key, [Tile maps](../tile-maps.md#demo-scene) scheme): pad list, rumble
   buttons (pulse, an RPM-driven loop, an exclusive explosion over it), light-bar picker, gyro readouts, switching HUD
   prompts. `just demo-screenshots` adds `input.png`.
 - **Manual QA matrix** (`Tests/QA/gamepads.md`): Xbox Series (USB and Bluetooth), DualSense, DualShock 4, Switch Pro,

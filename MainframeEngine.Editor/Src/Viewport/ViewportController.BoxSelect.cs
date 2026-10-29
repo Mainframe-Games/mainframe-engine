@@ -200,6 +200,12 @@ public sealed partial class ViewportController
 
             case Sprite2D sprite when sprite.GetRect() is { Size: { X: > 0, Y: > 0 } } local:
                 return TransformedBounds(transform, local.Position, local.End);
+            case TileMapLayer layer when layer.GetUsedRect() is { Size: { X: > 0, Y: > 0 } } used:
+                {
+                    var tile = new Vector2(layer.TileSize.X, layer.TileSize.Y);
+                    var min = new Vector2(used.Position.X, used.Position.Y) * tile;
+                    return TransformedBounds(transform, min, min + new Vector2(used.Size.X, used.Size.Y) * tile);
+                }
             case Camera2D camera:
                 {
                     var window = _workspace.Session.Project?.Window;

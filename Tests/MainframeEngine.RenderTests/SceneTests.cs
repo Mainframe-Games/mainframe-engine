@@ -198,6 +198,19 @@ public class SceneTests
     }
 
     [Fact]
+    public void ADeviceLossNamesThePassesAndShutsDownCleanly()
+    {
+        // G15: the renderer reports the device lost after frame 20 (simulated); the exception carries the breadcrumbs (every
+        // pass of the finished frame completed, none in flight), the previous frame's marks are begin == end, and the
+        // loss-safe teardown leaves validation clean.
+        var result = HostRunner.Run("device-lost", Output("device-lost"), "--simulate-device-lost", "20", "--frames", "100", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.InRange(result.RenderedFrames, 18, 19); // frame 20 was submitted, never presented
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void ShowcaseSteadyStateAllocatesNothing()
     {
         const int warmup = 120, measured = 300;
@@ -214,6 +227,44 @@ public class SceneTests
         Assert.Equal(measured, result.MeasuredFrames);
         Assert.True(result.AllocatedBytes == 0,
             $"Steady-state frames allocated {result.AllocatedBytes} managed bytes over {measured} frames " +
+            $"(~{result.AllocatedBytes / (double)measured:0.#} B/frame); per-frame code must not allocate.");
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void ShowcaseRecordingTheProfilerAllocatesNothing()
+    {
+        // G10: the same frames with the profiler recording from the first one (--profile) and the overlay's Profiler section
+        // expanded: CPU scopes on every engine path, GPU zones and their read-back, counters, the section's refresh.
+        const int warmup = 120, measured = 300;
+        var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "showcase", Output("showcase-profile"), "--alloc", $"{warmup}:{measured}", "--hidden", "--profile");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0,
+            $"Steady-state frames recording the profiler allocated {result.AllocatedBytes} managed bytes over {measured} frames " +
+            $"(~{result.AllocatedBytes / (double)measured:0.#} B/frame); per-frame code must not allocate.");
+        Assert.True(result.ProfiledFrames > 0, "No profiled frame had GPU zones.");
+        Assert.Equal(0, result.ProfilerUnbalancedScopes);
+        Assert.Equal(0, result.ProfilerDroppedEvents);
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
+    public void GameHostStreamingProfilerFramesToTheEditorAllocatesNothing()
+    {
+        // G10: the gamehost gate with an editor link in the process asking for profiler frames (ProfilerStart): the game
+        // copies every frame into the link's blocks, the link thread serialises them.
+        const int warmup = 120, measured = 300;
+        var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "gamehost", Output("gamehost-stream"), "--alloc", $"{warmup}:{measured}", "--hidden", "--stream");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.StreamedFrames > measured / 2, $"{result.StreamedFrames} profiler frames reached the editor link.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"GameHost frames streamed to the editor allocated {result.AllocatedBytes} managed bytes over {measured} frames " +
             $"(~{result.AllocatedBytes / (double)measured:0.#} B/frame); per-frame code must not allocate.");
         Gates.AssertValidationClean(result);
     }

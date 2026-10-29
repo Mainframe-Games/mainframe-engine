@@ -43,6 +43,14 @@ public sealed partial class ViewportController
     private bool Press2D(EditedScene scene, InputEventMouseButton e)
     {
         var alt = (_workspace.Modifiers & EditorModifiers.Alt) != 0;
+        // G2b: while a tile map layer is edited, the left and right buttons paint with the paint bar's tool.
+        if (!IsSimulating(scene) && _workspace.TileMap.Press(scene, scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels), e.Button, _workspace.Modifiers))
+        {
+            _drag = DragKind.Paint;
+            _paintButton = e.Button;
+            return true;
+        }
+
         switch (e.Button)
         {
             case MouseButton.Left when alt:
@@ -61,8 +69,9 @@ public sealed partial class ViewportController
         }
     }
 
-    private static bool Release2DMatches(DragKind drag, MouseButton button) => drag switch
+    private bool Release2DMatches(DragKind drag, MouseButton button) => drag switch
     {
+        DragKind.Paint => button == _paintButton,
         DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box => button == MouseButton.Left,
         DragKind.Pan => button is MouseButton.Left or MouseButton.Middle or MouseButton.Right,
         _ => false,
@@ -101,8 +110,41 @@ public sealed partial class ViewportController
             }
         }
 
-        return best is null ? null : scene.SelectableFor(best);
+        if (best is not null)
+            return scene.SelectableFor(best);
+
+        // G2b: a click on a painted cell picks its tile map layer (the topmost).
+        for (var i = _nodes2D.Count - 1; i >= 0; i--)
+        {
+            if (_nodes2D[i] is not TileMapLayer { IsInsideTree: true } layer || !layer.IsVisibleInTree() || PickPose(scene, layer) is not TileMapLayer posed ||
+                scene.SelectableFor(layer) is not { } selectable || EditorLock.IsLocked(selectable))
+                continue;
+            if (!posed.GetCell(posed.LocalToMap(posed.ToLocal(world))).IsEmpty)
+                return selectable;
+        }
+
+        // G2a: a click inside a sprite's drawn rectangle picks it (the topmost, i.e. the last in tree order).
+        for (var i = _nodes2D.Count - 1; i >= 0; i--)
+        {
+            var node = _nodes2D[i];
+            if (!node.IsInsideTree || !node.IsVisibleInTree() || DrawnRect(node) is not { } rect ||
+                scene.SelectableFor(node) is not { } selectable || EditorLock.IsLocked(selectable) || PickPose(scene, node) is not { } posed)
+                continue;
+            var local = posed.GlobalTransform.AffineInverse().TransformPoint(world);
+            if (rect.Abs().HasPoint(local))
+                return selectable;
+        }
+
+        return null;
     }
+
+    /// <summary>The local rectangle a sprite draws (Godot's <c>get_rect</c>), or null for other nodes and empty sprites.</summary>
+    internal static Rect2? DrawnRect(Node2D node) => node switch
+    {
+        Sprite2D { Texture: not null } sprite => sprite.GetRect(),
+        AnimatedSprite2D animated when animated.GetRect() is { Size: { X: > 0, Y: > 0 } } rect => rect,
+        _ => null,
+    };
 
     // Where a 2D node is for picking: its simulated counterpart while the scene simulates (G7.5), else itself.
     private Node2D? PickPose(EditedScene scene, Node2D node) =>
@@ -208,8 +250,30 @@ public sealed partial class ViewportController
                 DrawJoint2D(overlay, joint, marker);
         }
 
+        var selection = scene.Selection.Nodes;
+        for (var i = 0; i < selection.Count; i++)
+            if (selection[i] is NavigationAgent2D { IsInsideTree: true } agent)
+                DrawAgent2D(overlay, agent);
+
+        _workspace.TileMap.Draw(scene, overlay, pixels);
         DrawGizmo2D(scene, overlay, pixels);
         DrawHandles(scene, overlay, pixels);
+    }
+
+    // G3a: the selected agent's arrival circles around its parent body — TargetDesiredDistance (solid) and
+    // PathDesiredDistance (in the navigation path colour), and a line to its target when one is set.
+    private static void DrawAgent2D(DebugLines lines, NavigationAgent2D agent)
+    {
+        if (agent.Parent is not Node2D body)
+            return;
+        var at = body.GlobalPosition;
+        lines.AddCircle2D(Transform2D.Identity, at, agent.TargetDesiredDistance, SelectionColor);
+        lines.AddCircle2D(Transform2D.Identity, at, agent.PathDesiredDistance, NavigationDebugColors.Path);
+        if (agent.TargetPosition != default)
+        {
+            lines.AddLine2D(Transform2D.Identity, at, agent.TargetPosition, NavigationDebugColors.Target);
+            lines.AddCircle2D(Transform2D.Identity, agent.TargetPosition, agent.TargetDesiredDistance, NavigationDebugColors.Target);
+        }
     }
 
     // The selected joint (ADR 0211): its shape in the selection colour, and a line to each body its paths name (a red

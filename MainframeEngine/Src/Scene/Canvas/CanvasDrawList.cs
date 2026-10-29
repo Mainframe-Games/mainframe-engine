@@ -46,7 +46,7 @@ public sealed class CanvasDrawList
     private CanvasVertex[] _vertices = [];
     private uint[] _indices = [];
     private CanvasDrawCommand[] _commands = [];
-    private Vector2 _min, _max;
+    private Vector2 _min = new(float.MaxValue), _max = new(float.MinValue); // empty until a vertex is added
 
     public int VertexCount { get; private set; }
 

@@ -52,6 +52,7 @@ public abstract class CanvasItem : Node
     private bool _drawing;
     private bool _topLevel;
     private int _zIndex;
+    private bool _ySort;
     private Canvas? _rootOf;   // the canvas this item is registered in as a root (parent not a canvas item, or top level)
 
     /// <summary>Hidden items and their children are not drawn (Godot's <c>visible</c>).</summary>
@@ -78,6 +79,12 @@ public abstract class CanvasItem : Node
     [Export]
     public Vector4 SelfModulate { get; set; } = White;
 
+    /// <summary>
+    /// A colour the editor multiplies into this item and its children, never saved (Godot's editor sets the canvas item's
+    /// modulate on the rendering server directly): the tile map editor dims the layers it is not editing.
+    /// </summary>
+    public Vector4 EditorModulate { get; set; } = White;
+
     /// <summary>Draw order: higher draws on top (−4096 … 4096).</summary>
     [Export(Range = "-4096,4096,1")]
     public int ZIndex
@@ -92,7 +99,17 @@ public abstract class CanvasItem : Node
 
     /// <summary>Draws the children (and their y-sorted descendants) ordered by their Y position.</summary>
     [Export]
-    public bool YSortEnabled { get; set; }
+    public bool YSortEnabled
+    {
+        get => _ySort;
+        set
+        {
+            if (_ySort == value)
+                return;
+            _ySort = value;
+            OnYSortEnabledChanged();
+        }
+    }
 
     /// <summary>Draws this item before (below) its parent.</summary>
     [Export]
@@ -155,6 +172,12 @@ public abstract class CanvasItem : Node
 
     /// <summary>The commands recorded by the last draw.</summary>
     public CanvasDrawList DrawList => _drawList;
+
+    /// <summary>
+    /// Draw lists this item owns besides its own (<see cref="CanvasSubItem"/>: tile map chunks), in draw order; null for
+    /// every type that has none. The culler draws them after the item's own list and before its children.
+    /// </summary>
+    internal List<CanvasSubItem>? SubItems { get; private protected set; }
 
     /// <summary>The canvas this item is registered in as a root, or null when it hangs under another canvas item.</summary>
     internal Canvas? RootCanvas => _rootOf;
@@ -405,6 +428,11 @@ public abstract class CanvasItem : Node
         base.OnParentChanged();
         if (IsInsideTree)
             RefreshCanvasRegistration();
+    }
+
+    /// <summary>Called when <see cref="YSortEnabled"/> changes (a tile map layer rebuilds its chunks as rows).</summary>
+    private protected virtual void OnYSortEnabledChanged()
+    {
     }
 
     /// <summary>Called when <see cref="TopLevel"/> changes, before re-registration (Node2D invalidates its global transform).</summary>

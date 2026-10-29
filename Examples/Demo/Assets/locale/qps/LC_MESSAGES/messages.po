@@ -156,6 +156,54 @@ msgstr "[Séttîñgs (F10 / Stårt) ~~~~]"
 msgid "F12"
 msgstr "[F12 ~]"
 
+msgid "Navigation 2D"
+msgstr "[Ñåvîgåtîöñ 2Ð ~~~]"
+
+msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point."
+msgstr "[Å grîð båkéð fröm thé wålls, mûð thåt çösts thréé tîmés ås mûçh, åñð çhåsérs whösé ågéñts wålk tö thé çlîçkéð pöîñt. ~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Diagonals"
+msgstr "[Ðîågöñåls ~~]"
+
+msgid "No corner cutting"
+msgstr "[Ñö çörñér çûttîñg ~~~~]"
+
+msgid "One side free"
+msgstr "[Öñé sîðé fréé ~~~]"
+
+msgid "Always"
+msgstr "[Ålwåýs ~]"
+
+msgid "Never"
+msgstr "[Ñévér ~]"
+
+msgid "Heuristic"
+msgstr "[Héûrîstîç ~~]"
+
+msgid "Octile"
+msgstr "[Öçtîlé ~]"
+
+msgid "Euclidean"
+msgstr "[Éûçlîðéåñ ~~]"
+
+msgid "Manhattan"
+msgstr "[Måñhåttåñ ~~]"
+
+msgid "Chebyshev"
+msgstr "[Çhébýshév ~~]"
+
+msgid "Jump point search"
+msgstr "[Jûmp pöîñt séårçh ~~~~]"
+
+msgid "Visible navigation"
+msgstr "[Vîsîblé ñåvîgåtîöñ ~~~~~]"
+
+msgid "Click adds walls"
+msgstr "[Çlîçk åððs wålls ~~~~]"
+
+msgid "Arrived"
+msgstr "[Årrîvéð ~~]"
+
 msgid "Particles"
 msgstr "[Pårtîçlés ~~]"
 
@@ -293,6 +341,54 @@ msgstr "[Fîxéð Ý ~]"
 
 msgid "Enabled"
 msgstr "[Éñåbléð ~~]"
+
+msgid "Sprites 2D"
+msgstr "[Sprîtés 2Ð ~~]"
+
+msgid "AnimatedSprite2D: flipbook animations sliced from one sprite sheet into SpriteFrames, with Godot's timing and signals."
+msgstr "[ÅñîmåtéðSprîté2Ð: flîpböök åñîmåtîöñs slîçéð fröm öñé sprîté shéét îñtö SprîtéFråmés, wîth Göðöt's tîmîñg åñð sîgñåls. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Play backwards"
+msgstr "[Plåý båçkwårðs ~~~]"
+
+msgid "Flip"
+msgstr "[Flîp ~]"
+
+msgid "Pause"
+msgstr "[Påûsé ~]"
+
+msgid "Frame"
+msgstr "[Fråmé ~]"
+
+msgid "Loops"
+msgstr "[Lööps ~]"
+
+msgid "Tiles 2D"
+msgstr "[Tîlés 2Ð ~~]"
+
+msgid "TileMapLayer: chunked tile layers painted from one TileSet, with per-chunk collision bodies, y-sorted rows and custom data."
+msgstr "[TîléMåpLåýér: çhûñkéð tîlé låýérs påîñtéð fröm öñé TîléSét, wîth pér-çhûñk çöllîsîöñ böðîés, ý-sörtéð röws åñð çûstöm ðåtå. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Show collision"
+msgstr "[Shöw çöllîsîöñ ~~~]"
+
+msgid "Y-sort objects"
+msgstr "[Ý-sört öbjéçts ~~~]"
+
+msgid "Walk speed"
+msgstr "[Wålk spééð ~~]"
+
+msgid "Autopilot"
+msgstr "[Åûtöpîlöt ~~]"
+
+msgid "Surface"
+msgstr "[Sûrfåçé ~~]"
+
+msgid "Wall cells"
+msgstr "[Wåll çélls ~~]"
+
+msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
+msgstr "[Çlîçk thé måp tö åðð ör rémövé å wåll. WÅSÐ ör thé årröw kéýs wålk. ~~~~~~~~~~~~~~~]"
 
 msgid "UI showcase"
 msgstr "[ÛÎ shöwçåsé ~~]"
@@ -434,6 +530,39 @@ msgstr "[Qûît ~]"
 msgid "Settings"
 msgstr "[Séttîñgs ~~]"
 
+msgid "Walk down"
+msgstr "[Wålk ðöwñ ~~]"
+
+msgid "Walk left"
+msgstr "[Wålk léft ~~]"
+
+msgid "Walk right"
+msgstr "[Wålk rîght ~~]"
+
+msgid "Walk up"
+msgstr "[Wålk ûp ~]"
+
+msgid "Crash report"
+msgstr "[Çråsh répört ~~~]"
+
+msgid "A report was saved on this computer. It helps the developers fix the problem."
+msgstr "[Å répört wås såvéð öñ thîs çömpûtér. Ît hélps thé ðévélöpérs fîx thé pröblém. ~~~~~~~~~~~~~~~~~~]"
+
+msgid "Always send reports"
+msgstr "[Ålwåýs séñð répörts ~~~~~]"
+
+msgid "Open folder"
+msgstr "[Öpéñ fölðér ~~]"
+
+msgid "Copy report"
+msgstr "[Çöpý répört ~~]"
+
+msgid "Send report"
+msgstr "[Séñð répört ~~]"
+
+msgid "Close"
+msgstr "[Çlösé ~]"
+
 msgid "Credits"
 msgstr "[Çréðîts ~~]"
 
@@ -454,9 +583,6 @@ msgstr "[LÖÅÐÎÑG ~~]"
 
 msgid "MADE WITH MAINFRAME ENGINE"
 msgstr "[MÅÐÉ WÎTH MÅÎÑFRÅMÉ ÉÑGÎÑÉ ~~~~~~]"
-
-msgid "Close"
-msgstr "[Çlösé ~]"
 
 msgid "Audio"
 msgstr "[Åûðîö ~]"
@@ -817,6 +943,51 @@ msgstr "[RS Ûp ~]"
 msgctxt "input"
 msgid "RS Down"
 msgstr "[RS Ðöwñ ~]"
+
+#, csharp-format
+msgctxt "crash"
+msgid "{0} closed unexpectedly last time"
+msgstr "[{0} çlöséð ûñéxpéçtéðlý låst tîmé ~~~~~~~]"
+
+#, csharp-format
+msgid "There is {0} earlier report in the same folder."
+msgid_plural "There are {0} earlier reports in the same folder."
+msgstr[0] "[Théré îs {0} éårlîér répört îñ thé såmé fölðér. ~~~~~~~~~~]"
+msgstr[1] "[Théré åré {0} éårlîér répörts îñ thé såmé fölðér. ~~~~~~~~~~~]"
+
+msgctxt "crash"
+msgid "The graphics driver stopped responding."
+msgstr "[Thé gråphîçs ðrîvér stöppéð réspöñðîñg. ~~~~~~~~~~]"
+
+msgctxt "crash"
+msgid "The game stopped without saying why (a native crash, a forced quit or a power loss)."
+msgstr "[Thé gåmé stöppéð wîthöût såýîñg whý (å ñåtîvé çråsh, å förçéð qûît ör å pöwér löss). ~~~~~~~~~~~~~~~~~~~]"
+
+msgctxt "crash"
+msgid "The game stopped responding."
+msgstr "[Thé gåmé stöppéð réspöñðîñg. ~~~~~~~]"
+
+#, csharp-format
+msgctxt "crash"
+msgid "The folder could not be opened: {0}"
+msgstr "[Thé fölðér çöûlð ñöt bé öpéñéð: {0} ~~~~~~~]"
+
+msgctxt "crash"
+msgid "The report was copied."
+msgstr "[Thé répört wås çöpîéð. ~~~~~]"
+
+msgctxt "crash"
+msgid "Sending…"
+msgstr "[Séñðîñg… ~~]"
+
+msgctxt "crash"
+msgid "The report was sent. Thank you!"
+msgstr "[Thé répört wås séñt. Thåñk ýöû! ~~~~~~~]"
+
+#, csharp-format
+msgctxt "crash"
+msgid "The report could not be sent: {0}"
+msgstr "[Thé répört çöûlð ñöt bé séñt: {0} ~~~~~~]"
 
 #, csharp-format
 msgid "Reverting in {0} second"

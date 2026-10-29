@@ -14,3 +14,7 @@ BenchmarkDotNet.Artifacts/
 
 # CI: LFS object IDs hashed for the LFS cache key (.github/workflows)
 .lfs-assets-id
+
+# Game exports (File › Export, mf-export: docs/design/game-export.md) and their intermediates
+Examples/*/export/
+**/.mainframe/

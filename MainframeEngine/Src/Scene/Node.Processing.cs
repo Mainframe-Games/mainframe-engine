@@ -197,8 +197,30 @@ public partial class Node
 
     internal void InvokeProcess(in GameTime gameTime) => OnProcess(gameTime);
     internal void InvokePhysicsProcess(float delta) => OnPhysicsProcess(delta);
-    internal void InvokeInput(InputEvent inputEvent) => OnInput(inputEvent);
-    internal void InvokeUnhandledInput(InputEvent inputEvent) => OnUnhandledInput(inputEvent);
+    // Process and physics process note the node in the tree's loops (one filter per loop, not per node); input is rarer.
+    internal void InvokeInput(InputEvent inputEvent)
+    {
+        try
+        {
+            OnInput(inputEvent);
+        }
+        catch (Exception e) when (CrashContext.NoteNode(this, NodeCallback.Input, e))
+        {
+            // Never reached: the filter only notes the node for a crash report (G15).
+        }
+    }
+
+    internal void InvokeUnhandledInput(InputEvent inputEvent)
+    {
+        try
+        {
+            OnUnhandledInput(inputEvent);
+        }
+        catch (Exception e) when (CrashContext.NoteNode(this, NodeCallback.UnhandledInput, e))
+        {
+            // Never reached: the filter only notes the node for a crash report (G15).
+        }
+    }
 
     internal bool WantsProcess => (_enabledCallbacks & Callbacks.Process) != 0;
     internal bool WantsPhysicsProcess => (_enabledCallbacks & Callbacks.PhysicsProcess) != 0;

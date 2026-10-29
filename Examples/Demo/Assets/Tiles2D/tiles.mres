@@ -1,0 +1,172 @@
+{
+  "format": 2,
+  "uid": "res_2e9c6cc96296",
+  "type": "TileSet",
+  "resources": {
+    "TileSetPhysicsLayer_lvy7w": {
+      "type": "TileSetPhysicsLayer"
+    },
+    "TileSetCustomDataLayer_rt60o": {
+      "type": "TileSetCustomDataLayer",
+      "props": {
+        "Name": "surface",
+        "Type": "String"
+      }
+    },
+    "TileSetAtlasSource_w2e61": {
+      "type": "TileSetAtlasSource",
+      "props": {
+        "Texture": { "res": "Texture2D_72e6j" },
+        "Tiles": [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [3, 0],
+          [0, 1],
+          [1, 1],
+          [2, 1],
+          [3, 1]
+        ],
+        "TileOverrides": [
+          { "res": "TileData_caivy" },
+          { "res": "TileData_6vv8i" },
+          { "res": "TileData_a1t7z" },
+          { "res": "TileData_d7r7g" },
+          { "res": "TileData_gdp6x" },
+          { "res": "TileData_jjn6e" },
+          { "res": "TileData_mpl5v" },
+          { "res": "TileData_pvj5c" }
+        ]
+      }
+    },
+    "Texture2D_72e6j": {
+      "ref": "tex_7a3e91c40d25",
+      "path": "Assets/Tiles2D/tiles.png"
+    },
+    "TileData_caivy": {
+      "type": "TileData",
+      "props": {
+        "CustomData": ["grass"]
+      }
+    },
+    "TileData_6vv8i": {
+      "type": "TileData",
+      "props": {
+        "AtlasCoords": [2, 1],
+        "CustomData": ["grass"]
+      }
+    },
+    "TileData_a1t7z": {
+      "type": "TileData",
+      "props": {
+        "AtlasCoords": [1, 0],
+        "CustomData": ["dirt"]
+      }
+    },
+    "TileData_d7r7g": {
+      "type": "TileData",
+      "props": {
+        "AtlasCoords": [2, 0],
+        "Collision": [
+          { "res": "TileCollisionPolygon_y0quf" }
+        ],
+        "CustomData": ["stone"]
+      }
+    },
+    "TileData_gdp6x": {
+      "type": "TileData",
+      "props": {
+        "AtlasCoords": [3, 0],
+        "Collision": [
+          { "res": "TileCollisionPolygon_fzgyf" }
+        ],
+        "CustomData": ["water"]
+      }
+    },
+    "TileData_jjn6e": {
+      "type": "TileData",
+      "props": {
+        "AtlasCoords": [0, 1],
+        "YSortOrigin": 16
+      }
+    },
+    "TileData_mpl5v": {
+      "type": "TileData",
+      "props": {
+        "AtlasCoords": [1, 1],
+        "Collision": [
+          { "res": "TileCollisionPolygon_1gsno" }
+        ]
+      }
+    },
+    "TileData_pvj5c": {
+      "type": "TileData",
+      "props": {
+        "AtlasCoords": [3, 1],
+        "Probability": 0.5,
+        "Collision": [
+          { "res": "TileCollisionPolygon_d4aa4" }
+        ]
+      }
+    },
+    "TileCollisionPolygon_y0quf": {
+      "type": "TileCollisionPolygon",
+      "props": {
+        "Points": [
+          [-8, -8],
+          [8, -8],
+          [8, 8],
+          [-8, 8]
+        ]
+      }
+    },
+    "TileCollisionPolygon_fzgyf": {
+      "type": "TileCollisionPolygon",
+      "props": {
+        "Points": [
+          [-8, -8],
+          [8, -8],
+          [8, 8],
+          [-8, 8]
+        ]
+      }
+    },
+    "TileCollisionPolygon_1gsno": {
+      "type": "TileCollisionPolygon",
+      "props": {
+        "Points": [
+          [-3, 2],
+          [3, 2],
+          [3, 8],
+          [-3, 8]
+        ]
+      }
+    },
+    "TileCollisionPolygon_d4aa4": {
+      "type": "TileCollisionPolygon",
+      "props": {
+        "Points": [
+          [-6, 1],
+          [-3, -2],
+          [3, -2],
+          [6, 1],
+          [6, 4],
+          [3, 7],
+          [-3, 7],
+          [-6, 4]
+        ]
+      }
+    }
+  },
+  "props": {
+    "PhysicsLayers": [
+      { "res": "TileSetPhysicsLayer_lvy7w" }
+    ],
+    "CustomDataLayers": [
+      { "res": "TileSetCustomDataLayer_rt60o" }
+    ],
+    "Sources": [
+      { "res": "TileSetAtlasSource_w2e61" }
+    ]
+  }
+}

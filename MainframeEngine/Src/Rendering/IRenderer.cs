@@ -11,6 +11,9 @@ public interface IRenderer : IDisposable
 {
     RenderingBackend Backend { get; }
 
+    /// <summary>The GPU and driver this renderer runs on (read once at start-up; null when unknown).</summary>
+    GpuInfo? Gpu => null;
+
     /// <summary>Enables or disables vertical sync. Triggers swapchain recreation on change.</summary>
     bool VSync { get; set; }
 

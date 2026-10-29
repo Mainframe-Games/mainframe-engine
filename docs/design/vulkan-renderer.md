@@ -46,7 +46,7 @@ oldest first. A swapchain recreation at a **new size** ends the stream first (pe
 `FrameStarted`, **`FrameSlot`**, **`const MaxFramesInFlight = 2`**, `FrameNumber`, `CurrentCommandBuffer`
 (`default` outside a frame), `SwapchainExtent` (pixels; the scene target has the same size),
 `SwapchainImageCount`, `CurrentImageIndex`, `CurrentFramebuffer` (the scene target's), `BeginRenderPass()`,
-`Validation`, and since M3: `SceneTarget`, `OverlayRenderPass`, `OverlayEncodesSrgb`, `BeginOverlayPass()`,
+`Validation`, since G10 `GpuProfiler` ([Profiler → GPU zones](profiler.md#gpu-zones)), and since M3: `SceneTarget`, `OverlayRenderPass`, `OverlayEncodesSrgb`, `BeginOverlayPass()`,
 `Exposure` (+ `const DefaultExposure = 1.3`), since ADR 0154 `AntiAliasing` (`None`/`Fxaa`/`Taa`, from
 `EngineOptions.AntiAliasing`), since ADR 0166 `TaaSharpness` (+ `const DefaultTaaSharpness = 0.25`) and `FrameDeltaTime` (set by the engine; auto exposure adapts over it), `Frame` (`FrameContext`, with per-view copies and `Extent` of the
 view being drawn), `Allocator`, `Uploads`, `Deletions`, `Pipelines`, `Shaders`, `MaxSamplerAnisotropy` (the
@@ -69,7 +69,7 @@ flowchart LR
 
 | Step | Detail |
 |---|---|
-| Instance | API 1.2, window-required extensions (SDL), `VK_EXT_debug_utils` if validating, `VK_KHR_portability_enumeration` + flag when available (macOS). Layer `VK_LAYER_KHRONOS_validation` (dropped with a warning if missing). Validation is requested when `EngineOptions.EnableValidation` is set — **on by default in Debug builds, off in Release**. |
+| Instance | API 1.2, window-required extensions (SDL), `VK_EXT_debug_utils` whenever it is available (the validation messenger when validating; command-buffer labels always, G10), `VK_KHR_portability_enumeration` + flag when available (macOS). Layer `VK_LAYER_KHRONOS_validation` (dropped with a warning if missing). Validation is requested when `EngineOptions.EnableValidation` is set — **on by default in Debug builds, off in Release**. |
 | Debug messenger | Warning/Error × General/Performance/Validation → static `[UnmanagedCallersOnly]` function pointer (no delegate to keep alive) → `VulkanValidationLog` (`IVulkanContext.Validation`: counts + first 64 messages, rooted by a `GCHandle` passed as user data) and `Log.Warning`/`Log.Error`. Verbose/info are not subscribed (they would allocate a string per message). |
 | Physical device | First device with graphics + present queue families. No feature or extension scoring. |
 | Logical device | One queue per unique family. Extensions: `VK_KHR_swapchain` (+ `VK_KHR_portability_subset` if advertised; + `VK_KHR_swapchain_mutable_format`/`VK_KHR_image_format_list` only when the sRGB+UNORM-view swapchain is requested). Features: **`shaderSampledImageArrayDynamicIndexing`** when supported (the lit shaders index their shadow sampler arrays with a loop counter; a warning is logged otherwise). |
@@ -147,20 +147,31 @@ flowchart TD
    return with `FrameStarted = false`.
 2. Wait `inFlight[slot]` — after this the slot's command buffer and every per-frame resource keyed by
    `FrameSlot` are idle; the deletion queue destroys what that slot's last frame held and the staging
-   ring reclaims its space. A frame-stream copy the slot holds is complete too, and is handed to the sink here.
+   ring reclaims its space. A frame-stream copy the slot holds is complete too, and is handed to the sink here. The
+   slot's previous GPU zones are complete as well: `GpuProfiler.ReadBack(slot)` reads them without waiting.
 3. `AcquireNextImage(imageAvailable[slot])`. On `ErrorOutOfDateKhr`: recreate and return with
    `FrameStarted = false` (the fence stays signalled: it is only reset right before a submit).
 4. Reset and begin `commandBuffers[slot]` (`OneTimeSubmit`). `FrameStarted = true`, `FrameNumber++`.
-5. Record the upload queue's pending copies, transitions and clears (before any pass reads them).
+   `GpuProfiler.BeginFrame` resets the slot's timestamp queries (no render pass is active yet).
+5. Record the upload queue's pending copies, transitions and clears (before any pass reads them), inside the `Uploads`
+   GPU zone.
 
 **`EndFrame()`**
 1. Finish the pass sequence (tonemap if `BeginOverlayPass` was not called), end the pass, optional
-   capture copy, optional frame-stream copy into the slot's readback buffer, `EndCommandBuffer`.
+   capture copy, optional frame-stream copy into the slot's readback buffer, `EndCommandBuffer` (GPU zones and debug
+   labels left open are closed first, so the command buffer is balanced).
 2. Reset `inFlight[slot]`. Submit, waiting `imageAvailable[slot]` at `ColorAttachmentOutput` and
    signalling `renderFinished[image]`.
 3. Present, waiting on `renderFinished[image]`. Read back a requested capture (waits that fence)
    **before** any recreation, then on OutOfDate, Suboptimal or a pending resize: recreate.
 4. `slot = (slot + 1) % MaxFramesInFlight`.
+
+**Debug labels and GPU zones** (G10). Every GPU zone the renderer opens (`Uploads`, `Skinning`, `Shadows`,
+`Offscreen` > `Picking`, `Prepass`, one per post effect, `Main pass`, `UI offscreen`, `Tonemap`, `Overlay`) also records
+`vkCmdBeginDebugUtilsLabelEXT`/`End` with the zone's name and its category colour when `VK_EXT_debug_utils` is present,
+so RenderDoc and Xcode captures show the passes by name. Label strings are marshalled once per marker. The CPU side is
+scoped too (`BeginFrame` with `Wait (fence)` and `Acquire`, `Overlay`, `Submit`, `Present`). See
+[Profiler](profiler.md).
 
 ### Per-frame-slot resources
 
@@ -214,4 +225,5 @@ renderer; renderer-owned objects defer to the deletion queue, so their `Dispose`
 ## Related docs
 
 [Engine lifecycle](engine-lifecycle.md) · [Coordinate conventions](coordinate-conventions.md) ·
-[Shadow system](shadow-system.md) · [GPU resources](gpu-resources.md) · [Color pipeline](color-pipeline.md)
+[Shadow system](shadow-system.md) · [GPU resources](gpu-resources.md) · [Color pipeline](color-pipeline.md) ·
+[Profiler](profiler.md)

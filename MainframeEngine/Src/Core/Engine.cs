@@ -47,6 +47,16 @@ public struct EngineOptions()
     public bool VSync = true;
 
     /// <summary>
+    /// Per-pass GPU breadcrumbs (G15): each pass writes the frame number into a small host-visible buffer at its start and
+    /// end, so a lost device (<see cref="VulkanDeviceLostException"/>) names the passes the GPU was in. About twenty small
+    /// commands a frame, no allocation. Default on (<c>crash.gpuBreadcrumbs</c>).
+    /// </summary>
+    public bool GpuBreadcrumbs = true;
+
+    /// <summary>Tests: the renderer throws <see cref="VulkanDeviceLostException"/> after submitting this frame (0: never).</summary>
+    internal ulong SimulateDeviceLostAtFrame;
+
+    /// <summary>
     /// Enables the Khronos validation layers when they are installed. Messages are counted by
     /// <see cref="IVulkanContext.Validation"/>. Defaults to on in Debug builds of the engine and off in
     /// Release; set it explicitly to override (render tests force it on).
@@ -112,6 +122,9 @@ public struct EngineOptions()
     /// <summary>Draw every collision shape each frame (Godot's "Visible Collision Shapes"); toggle later on the physics servers.</summary>
     public bool DebugCollisionShapes;
 
+    /// <summary>Start with the navigation debug draw on (grids, agent paths and targets; <see cref="NavigationServer2D.DebugDrawEnabled"/>).</summary>
+    public bool DebugNavigation;
+
     /// <summary>
     /// The game's Steam app id; when non-zero the engine registers a <see cref="SteamServer"/> (Steam stays
     /// optional: it is inert when Steam cannot start). 0 (default) leaves Steam alone.
@@ -150,6 +163,12 @@ public struct EngineOptions()
 
     /// <summary>Catalog location, domain, source locale and fallbacks for <see cref="Localization.Tr"/>; null uses the defaults.</summary>
     public Localization.LocalizationOptions? Localization;
+
+    /// <summary>
+    /// The frame profiler's settings (G10, <see cref="MainframeEngine.Profiler"/>): history size, GPU zones, recording from
+    /// the first frame (<c>--profile</c>).
+    /// </summary>
+    public ProfilerOptions Profiler = new();
 }
 
 public abstract class Engine : IDisposable
@@ -163,6 +182,10 @@ public abstract class Engine : IDisposable
     private int _loadedFrames; // rendered while the tree was not loading a scene (MaxFrames, ADR 0183)
     private bool _loadingFrame; // the tree was loading when this frame's update began
     private InputRouter? _inputRouter; // M2: routes window input into the scene tree
+    private int _profilerToken;        // G10: --profile records from the first frame
+    private float _frameCpuMs = float.NaN; // the last rendered frame's CPU and wait times, for the profiler's frame record
+    private float _frameWaitMs;
+    private EngineCounters.State _counterState;
     private SdlEventBatch? _sdlEvents; // ADR 0139: Silk's event pump without its per-frame enumerator box
 
     public IWindow Window { get; }
@@ -294,6 +317,12 @@ public abstract class Engine : IDisposable
                 $"{nameof(EngineOptions)}.{nameof(EngineOptions.ContentScale)} must be 0 (the display's) or a positive scale.");
         EngineOptions = engineOptions;
         DevOverlayVisible = engineOptions.DevOverlayVisible;
+        // G10: the profiler records this thread's frames; --profile holds it from the first frame.
+        MainframeEngine.Profiler.Configure(engineOptions.Profiler ?? new ProfilerOptions());
+        MainframeEngine.Profiler.SetMainThread();
+        EngineCounters.EnsureRegistered();
+        if (engineOptions.Profiler?.RecordFromStart == true)
+            _profilerToken = MainframeEngine.Profiler.Acquire();
         // M9: catalogs load before any game code runs, so constructors and OnLoad can translate.
         Localization.Tr.Configure(engineOptions.Localization ?? new Localization.LocalizationOptions(), engineOptions.Locale);
         Tree = new SceneTree { PhysicsTicksPerSecond = engineOptions.PhysicsTicksPerSecond, TimeScale = engineOptions.TimeScale }; // M2
@@ -418,6 +447,9 @@ public abstract class Engine : IDisposable
             EnableFrameCapture = EngineOptions.EnableFrameCapture,
             AntiAliasing = EngineOptions.AntiAliasing,
             TaaSharpness = EngineOptions.TaaSharpness,
+            GpuBreadcrumbs = EngineOptions.GpuBreadcrumbs,
+            SimulateDeviceLostAtFrame = EngineOptions.SimulateDeviceLostAtFrame,
+            Profiler = EngineOptions.Profiler,
         });
 
         // Servers are disposed in reverse registration order (after the tree is freed): UI, physics, audio, multiplayer,
@@ -435,6 +467,8 @@ public abstract class Engine : IDisposable
         // M6: physics servers, stepped by the tree's fixed tick; they create a space per world on demand.
         Servers.Register(new PhysicsServer3D(EngineOptions.Physics3D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
         Servers.Register(new PhysicsServer2D(EngineOptions.Physics2D) { DebugDrawEnabled = EngineOptions.DebugCollisionShapes });
+        // G3a: navigation syncs after the physics step (registered after it) and draws its debug lines per frame.
+        Servers.Register(new NavigationServer2D { DebugDrawEnabled = EngineOptions.DebugNavigation });
         // 2D canvas (ADR 0111): gamma-space canvas layer composited after the tonemap, below the game UI (registered first).
         Servers.Register(new CanvasServer(Tree, () => new System.Numerics.Vector2(FramebufferSize.X, FramebufferSize.Y), Renderer));
         if (EngineOptions.EnableUi)
@@ -501,6 +535,8 @@ public abstract class Engine : IDisposable
 
     private void OnUpdate(double delta)
     {
+        MainframeEngine.Profiler.BeginFrame(); // G10: a frame is this update and the render after it
+        using var updateScope = EngineMarkers.Update.Auto();
         var start = Stopwatch.GetTimestamp();
         _loadingFrame = Tree.IsLoading; // decided once, before anything runs, so hosts counting updates agree with MaxFrames
         _fps.Update();
@@ -509,7 +545,8 @@ public abstract class Engine : IDisposable
         _gameTime.FramesPerSecond = _fps.Fps;
         _gameTime.FramesTimeMs = _fps.Ms;
 
-        OnUpdate(_gameTime);
+        using (EngineMarkers.OnUpdate.Auto())
+            OnUpdate(_gameTime);
         _loadingFrame |= Tree.IsLoading; // a load started by the hook (GameHost starts the scene here) makes this a loading frame
         if (_discardDelta)
         {
@@ -526,7 +563,13 @@ public abstract class Engine : IDisposable
 
     private void OnRender(double delta)
     {
-        RenderFrame();
+        _frameCpuMs = float.NaN;
+        _frameWaitMs = 0f;
+        using (EngineMarkers.Render.Auto())
+            RenderFrame();
+        if (MainframeEngine.Profiler.IsFrameRecording)
+            EngineCounters.Sample(Tree, Renderer as IVulkanContext, ref _counterState);
+        MainframeEngine.Profiler.EndFrame(_frameCpuMs, _frameWaitMs);
 
         // Close only between frames: SDL raises Closing synchronously inside Close(), and OnClose
         // disposes the renderer — never while a frame is being recorded or an update is running.
@@ -584,7 +627,8 @@ public abstract class Engine : IDisposable
         }
 
         // M3: cull and sort the scene's meshes, create/update their GPU resources (uploads join this frame).
-        Servers.Render?.PrepareFrame(Root);
+        using (EngineMarkers.PrepareFrame.Auto())
+            Servers.Render?.PrepareFrame(Root);
 
         Renderer.BeginFrame();
 
@@ -593,24 +637,53 @@ public abstract class Engine : IDisposable
         var frameStarted = Renderer is not IVulkanContext vk || vk.FrameStarted;
         if (frameStarted)
         {
+            // G15: per-pass GPU breadcrumbs (no-ops without them), between passes where no render pass is active.
+            var crumbs = Renderer as VulkanRenderer;
+
             // ADR 0207: compute pre-skinning of the skinned meshes the frame prepared, before anything draws them.
-            Servers.Render?.SkinMeshes();
+            using (EngineMarkers.Skinning.Auto())
+            {
+                crumbs?.BeginPassMark(GpuPass.Skinning);
+                Servers.Render?.SkinMeshes();
+                crumbs?.EndPassMark(GpuPass.Skinning);
+            }
 
             // Shadow pass runs before the main render pass (command buffer is open, no render pass active).
-            OnShadowPass(_gameTime);
-            Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters
-            Servers.Render?.RenderOffscreen(Root); // M3: sub-viewports and object-ID picking passes
-            Servers.Render?.RenderPrepass(Root); // ADR 0163: depth prepass + velocity and the AfterPrepass effects, when needed
+            using (EngineMarkers.Shadows.Auto())
+            {
+                crumbs?.BeginPassMark(GpuPass.Shadows);
+                OnShadowPass(_gameTime);
+                Servers.Render?.RenderShadows(Root); // M2: the scene tree's shadow casters
+                crumbs?.EndPassMark(GpuPass.Shadows);
+            }
+
+            using (EngineMarkers.Offscreen.Auto())
+            {
+                crumbs?.BeginPassMark(GpuPass.Offscreen);
+                Servers.Render?.RenderOffscreen(Root); // M3: sub-viewports and object-ID picking passes
+                crumbs?.EndPassMark(GpuPass.Offscreen);
+            }
+
+            using (EngineMarkers.Prepass.Auto())
+            {
+                crumbs?.BeginPassMark(GpuPass.Prepass);
+                Servers.Render?.RenderPrepass(Root); // ADR 0163: depth prepass + velocity and the AfterPrepass effects, when needed
+                crumbs?.EndPassMark(GpuPass.Prepass);
+            }
 
             // Begin the main render pass (it loads the prepass depth when there was one), then let the game draw geometry.
-            (Renderer as IVulkanContext)?.BeginRenderPass();
-
-            if (Servers.Render is { } render)
+            using (EngineMarkers.MainPass.Auto())
             {
-                render.GizmoScale = ContentScale;
-                render.RenderMain(Root); // M2: sky, then the scene tree's visuals
+                (Renderer as IVulkanContext)?.BeginRenderPass();
+
+                if (Servers.Render is { } render)
+                {
+                    render.GizmoScale = ContentScale;
+                    render.RenderMain(Root); // M2: sky, then the scene tree's visuals
+                }
+
+                OnRenderMainPass(_gameTime);
             }
-            OnRenderMainPass(_gameTime);
         }
         else
         {
@@ -627,6 +700,8 @@ public abstract class Engine : IDisposable
         _updateTicks = 0;
         var waitMs = Renderer is IVulkanContext context ? context.LastFrameWaitMilliseconds : 0;
         LastFrameCpuMilliseconds = Math.Max(0, Stopwatch.GetElapsedTime(0, cpuTicks).TotalMilliseconds - waitMs);
+        _frameCpuMs = (float)LastFrameCpuMilliseconds;
+        _frameWaitMs = (float)waitMs;
 
         _renderedFrames++;
         if (!_loadingFrame)
@@ -702,6 +777,8 @@ public abstract class Engine : IDisposable
         Tree.Shutdown();
         Servers.Dispose();
         ResourceLoader.ClearCache();
+        MainframeEngine.Profiler.Release(_profilerToken);
+        _profilerToken = 0;
 
         InputContext?.Dispose();
         Renderer?.Dispose();
@@ -710,8 +787,26 @@ public abstract class Engine : IDisposable
 
     public ExitCode Run()
     {
-        Window.Run();
+        try
+        {
+            Window.Run();
+        }
+        catch (Exception) when (NoteRunFailed())
+        {
+            // Never reached: the filter only records the failure (the exception keeps its stack).
+        }
+
         return _exitCode;
+    }
+
+    // An exception left the window loop: Silk.NET still believes it is inside it, and its Dispose would throw over the
+    // error being reported (G15).
+    private bool _runFailed;
+
+    private bool NoteRunFailed()
+    {
+        _runFailed = true;
+        return false;
     }
 
     /// <summary>
@@ -733,6 +828,19 @@ public abstract class Engine : IDisposable
         if (ReferenceEquals(MainframeEngine.Input.Current, Tree.Input))
             MainframeEngine.Input.Current = null;
         _sdlEvents?.Uninstall();
-        Window.Dispose();
+        if (!_runFailed)
+        {
+            Window.Dispose();
+            return;
+        }
+
+        try
+        {
+            Window.Dispose();
+        }
+        catch (InvalidOperationException)
+        {
+            // "Cannot call Reset inside of the render loop": the loop ended with an exception; the process is ending.
+        }
     }
 }

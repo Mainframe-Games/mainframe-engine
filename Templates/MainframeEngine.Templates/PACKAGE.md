@@ -23,15 +23,16 @@ version as this template package; `--engine-version` picks another release. The 
 
 ## Player builds
 
-The `MainframeEngine` package ships a script that packages the game for players; `MainframePackageGameScript` gives
-its path:
+Export presets in `project.mfproj` (the editor's **File › Export…** writes them) describe each player build. The
+`MainframeEngine` package ships `mf-export`, the same exporter the editor runs; `MainframeExportTool` gives its path:
 
 ```bash
-script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"
-bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # or win-x64, linux-x64
+mf_export="$(dotnet msbuild MyGame.Desktop -getProperty:MainframeExportTool)"
+dotnet "$mf_export" --project . --list                     # the presets and their validation
+dotnet "$mf_export" --project . --preset "Windows"         # or --all
+dotnet "$mf_export" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # no preset: the old package-game form
 ```
 
-The result is `builds/MyGame-<version>-osx-arm64.zip` (a signed `.app`), `-win-x64.zip` or `-linux-x64.tar.gz`. Use
-`bash`, since NuGet drops the executable bit.
+The result is `MyGame-<version>-osx-arm64.zip` (a signed `.app`), `-win-x64.zip` or `-linux-x64.tar.gz` (or a folder).
 
 [Documentation](https://engine.mainframe.games/docs/) · MIT licence

@@ -354,7 +354,7 @@ its clients agree after the same number of steps.
   lifts and a turntable (`AnimatableBody3D` on followers) the player capsule can ride, and a guard patrolling with
   the carrot recipe. It is added to `DemoScenes.All`. The number keys are full at nine scenes
   (`Examples/Demo/Demo/Src/Nav/DemoNav.cs:102-103`), so it takes the next key of the 1–9-then-0 scheme in
-  [2D content](2d-content.md#demo-scene), or none. `Demo.Tests` checks that the guard completes a lap headless.
+  [Tile maps](../tile-maps.md#demo-scene), or none. `Demo.Tests` checks that the guard completes a lap headless.
 
 ## Acceptance
 

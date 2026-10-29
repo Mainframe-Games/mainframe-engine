@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packs the NuGet packages (docs/design/distribution-nuget.md) at one version:
-#   MainframeEngine            the engine. mf-l10n is built first: the package carries it in tools/mf-l10n, and it
-#                              references the engine, so the engine's pack cannot build it.
+#   MainframeEngine            the engine. mf-l10n and mf-export are built first: the package carries them in
+#                              tools/mf-l10n and tools/mf-export, and they reference the engine, so its pack cannot build them.
 #   MainframeEngine.Templates  dotnet new mfgame, whose default engine version is this version.
 # Used by `just pack`, build/template-smoke.sh (ENGINE_SOURCE=package) and .github/workflows/publish.yml.
 #
@@ -15,6 +15,8 @@ out="${2:-$repo/artifacts/nuget}"
 
 # shellcheck disable=SC2086 # PACK_ARGS is a list of arguments
 dotnet build "$repo/Tools/MainframeEngine.L10n/MainframeEngine.L10n.csproj" -c Release -p:Version="$version" ${PACK_ARGS:-}
+# shellcheck disable=SC2086
+dotnet build "$repo/Tools/MainframeEngine.Export.Cli/MainframeEngine.Export.Cli.csproj" -c Release -p:Version="$version" ${PACK_ARGS:-}
 # shellcheck disable=SC2086
 dotnet pack "$repo/MainframeEngine/MainframeEngine.csproj" -c Release -p:Version="$version" -o "$out" ${PACK_ARGS:-}
 # shellcheck disable=SC2086

@@ -6,7 +6,7 @@
 [Skeleton editor](skeleton-2d-editor.md) (the Skeleton tab: Setup and Animate modes),
 [Animation graph](animation-graph.md) (the state machine shared with 3D), [Keyframe animation](keyframe-animation.md)
 (G1a `AnimationPlayer`, G1b compute skinning and `Skeleton3D`), [Animation authoring](animation-authoring.md) (`mfe`),
-[Spine](../spine.md) (the vendored runtime, which stays), [2D content](2d-content.md) (G2 sprite frames) ·
+[Spine](../spine.md) (the vendored runtime, which stays), [Tile maps](../tile-maps.md) (G2 sprite frames) ·
 **ADR:** [0184](../../../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)
 
 ![The Skeleton tab in Animate mode: hierarchy, viewport with a posed character and onion skins, dopesheet and graph editor](../../images/skeleton-editor-animate.svg)
@@ -371,7 +371,7 @@ milliseconds for a big rig. Builds are cached on disk the way tree bakes are (`T
 - **What it changes:** the source in the project stays JSON and PNG, as
   [ADR 0011](../../../memory/decisions/0011-json-scenes-no-binary-bake.md) requires. The cache lives outside the
   project and can be deleted.
-- **Exports:** `mf-cook` ([ADR 0100](../../../memory/decisions/0100-mobile-strategy.md), [Game export](game-export.md))
+- **Exports:** `mf-cook` ([ADR 0100](../../../memory/decisions/0100-mobile-strategy.md), [Game export](../game-export.md))
   ships the build files instead of the JSON and images. An exported game loads the cooked build directly.
 
 `SkeletonData : Resource` is what `ResourceLoader.Load<SkeletonData>("…/hero.mskel")` returns. It wraps the build:

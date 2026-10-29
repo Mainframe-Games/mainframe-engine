@@ -259,7 +259,7 @@ public sealed class Physics2DTests : IDisposable
         Assert.Equal(0.28f, hit.Fraction, 2); // 280 px of 1000
         Assert.Equal(-1, hit.Normal.Y, 3);
 
-        var results = new List<CollisionObject2D>();
+        var results = new List<Node2D>();
         var probe = new RectangleShape2D { Size = new Vector2(300, 20) };
         Assert.Equal(2, _h.Query.IntersectShape(probe, Transform2D.FromTrs(new Vector2(0, -100), 0, Vector2.One), results));
         Assert.Contains(a, results);

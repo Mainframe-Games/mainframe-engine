@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="MainframeEngine.Export" />
   </ItemGroup>
 
   <!-- The engine tests' 0-byte gate helper (smallest of up to three steady-state windows), shared rather than copied. -->

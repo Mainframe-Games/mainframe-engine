@@ -1,8 +1,8 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-27 — M0–M10, Demo & polish and most of the 2D port work on `main`; latest release v1.1.5.
-In flight: G1e root motion, G9 3D joints + ragdolls, G7 editor viewport tools (branches `feature/g1e-root-motion`,
-`feature/g9-joints-ragdolls`, `feature/g7-viewport-tools`)._
+_Last updated: 2026-10-28 — M0–M10, Demo & polish and most of the 2D port work on `main`; latest release v1.1.5.
+In review: `feature/gameplay-toolkit` (G2a animated sprites, G2b tile maps, G3a navigation G3.1–G3.5, G5 export, G10
+profiler, G15 crash reporting)._
 
 ## What exists
 
@@ -27,7 +27,10 @@ In flight: G1e root motion, G9 3D joints + ragdolls, G7 editor viewport tools (b
   skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
-  (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); the docs site at engine.mainframe.games; editor self-update; Linux
+  (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); on
+  `feature/gameplay-toolkit`: the frame profiler (ADRs 0219/0220), crash reporting (0221/0222), `AnimatedSprite2D`
+  (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation (0227/0228) and game export with
+  `mf-export` (0229/0230; `project.mfproj` format 5); editor link protocol 5; the docs site at engine.mainframe.games; editor self-update; Linux
   launcher.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.

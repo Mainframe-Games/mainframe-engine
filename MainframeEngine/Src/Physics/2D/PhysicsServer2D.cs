@@ -5,10 +5,10 @@ using static Box2D.NET.B2MathFunction;
 namespace MainframeEngine;
 
 /// <summary>A ray hit from <see cref="PhysicsDirectSpaceState2D.RayCast"/> (pixels).</summary>
-public readonly record struct RayHit2D(CollisionObject2D Collider, CollisionShape2D? Shape, Vector2 Position, Vector2 Normal, float Fraction);
+public readonly record struct RayHit2D(Node2D Collider, CollisionShape2D? Shape, Vector2 Position, Vector2 Normal, float Fraction);
 
 /// <summary>The first contact of a swept shape from <see cref="PhysicsDirectSpaceState2D.ShapeCast"/> (pixels).</summary>
-public readonly record struct ShapeCastHit2D(CollisionObject2D Collider, CollisionShape2D? Shape, Vector2 Position, Vector2 Normal, float Fraction);
+public readonly record struct ShapeCastHit2D(Node2D Collider, CollisionShape2D? Shape, Vector2 Position, Vector2 Normal, float Fraction);
 
 /// <summary>
 /// Immediate queries against a <see cref="World2D"/>'s physics (Godot's <c>PhysicsDirectSpaceState2D</c>), in pixels:
@@ -42,7 +42,7 @@ public sealed class PhysicsDirectSpaceState2D
     }
 
     /// <summary>Adds the bodies overlapping <paramref name="shape"/> at <paramref name="transform"/> to <paramref name="results"/>.</summary>
-    public int IntersectShape(Shape2D shape, in Transform2D transform, List<CollisionObject2D> results,
+    public int IntersectShape(Shape2D shape, in Transform2D transform, List<Node2D> results,
         uint collisionMask = CollisionLayers.All, CollisionObject2D? exclude = null)
     {
         ArgumentNullException.ThrowIfNull(shape);
@@ -53,7 +53,7 @@ public sealed class PhysicsDirectSpaceState2D
     }
 
     /// <summary>Adds the bodies containing <paramref name="point"/> to <paramref name="results"/>.</summary>
-    public int IntersectPoint(Vector2 point, List<CollisionObject2D> results, uint collisionMask = CollisionLayers.All, CollisionObject2D? exclude = null)
+    public int IntersectPoint(Vector2 point, List<Node2D> results, uint collisionMask = CollisionLayers.All, CollisionObject2D? exclude = null)
     {
         ArgumentNullException.ThrowIfNull(results);
         return _world.PhysicsSpace is { } space ? space.IntersectPoint(point, results, collisionMask, exclude) : 0;
@@ -120,6 +120,9 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
 
     internal JointRecord2D AddJoint(Joint2D node) => SpaceOf(node).AddJoint(node);
 
+    /// <summary>The static chunk bodies of a tile map layer in its viewport's space (removed with <see cref="TileBodies2D.Dispose"/>).</summary>
+    internal TileBodies2D AddTileLayer(TileMapLayer layer) => SpaceOf(layer).AddTileLayer(layer);
+
     private PhysicsSpace2D SpaceOf(Node2D node)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -182,7 +185,13 @@ public sealed class PhysicsServer2D : IFixedStepServer, IFrameServer
         }
 
         if (!DebugDrawEnabled && !DebugDrawJoints)
+        {
+            // Layers with CollisionVisibilityMode.ForceShow draw their shapes anyway.
+            for (var i = 0; i < _spaceList.Count; i++)
+                if (_spaceList[i].HasForcedTileDebug)
+                    _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines, shapes: false);
             return;
+        }
         for (var i = 0; i < _spaceList.Count; i++)
             _spaceList[i].DrawDebug(_spaceList[i].Viewport.DebugLines, shapes: DebugDrawEnabled);
     }

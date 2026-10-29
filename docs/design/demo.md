@@ -18,13 +18,14 @@ Examples/Demo/
 ├── Demo.slnx, Directory.Build.props, global.json, .gitignore, .gitattributes   (template copies)
 ├── project.mfproj            "Mainframe Demo", main scene basic_3d, window.icon, canvas_items stretch,
 │                             UI scaled with the screen from its 1280 × 720 base (ADR 0181), autoload Nav (DemoNavLayer), locales
-├── Demo/                     the node library: Src/{Nav,Basic3D,Basic2D,Audio,SoundFx,Ui,Physics,Spine,Particles,Animation3D,Shaders,Shared}
+├── Demo/                     the node library: Src/{Nav,Basic3D,Basic2D,Audio,SoundFx,Ui,Physics,Spine,Particles,Animation3D,Shaders,Sprites2D,Shared}
 ├── Demo.Desktop/            `GameHost.Run(args, typeof(Demo.DemoScenes).Assembly)` + `--write-scenes <dir>`
 ├── Demo.Tests/               xUnit v3 tests of the Demo (see Tests and CI)
 └── Assets/
-    ├── Scenes/{basic_3d,basic_2d,audio_2d,audio_3d,sound_fx,ui,physics_2d,physics_3d,spine,particles,animation_3d,shaders}.mscene
+    ├── Scenes/{basic_3d,basic_2d,audio_2d,audio_3d,sound_fx,ui,physics_2d,physics_3d,spine,particles,animation_3d,shaders,sprites_2d,navigation_2d}.mscene
     ├── Shaders/{ground,sway,dissolve}.gdshader + their SPIR-V (`just canvas-shaders`), the Shaders panel
     ├── Nav/, UI/, Basic3D/, Basic2D/, Audio/, SoundFx/, Physics/, Spine/, Particles/, Animation3D/   RmlUi panels (.rml/.rcss), one per scene
+    ├── Sprites2D/hero.{png,mres}: the generated sprite sheet and its SpriteFrames (written by `--write-scenes`)
     ├── Audio/ (Audio/Sfx/*.mres: the ZzFX presets), Music/demo_loop.{msong,ogg}, Models/TestModel/, Models/Character/ (the skinned test character), Models/Spine/SpineBoy/, Sky/, Basic2D/logo.png, icon.png
     ├── Settings/AudioBusLayout.mres
     └── locale/messages.pot, {es,qps}/LC_MESSAGES/messages.{po,mo}
@@ -50,7 +51,7 @@ before the main scene, so it survives scene changes (`SceneTree.ChangeSceneToFil
 - the project's input actions (`project.mfproj`, labelled and grouped, so the menu's Controls tab lists them):
   `scene_next`/`scene_prev` (Page Down/Up, RB/LB) step through the tabs, `settings` (F10, Start) opens the menu,
   `quit` (Escape, `"rebindable": false`) quits; in Physics 3D `drop` (Mouse Left, RT) and `rain` (R, Y). Keys **1–9**
-  still switch tabs, and without a project map (tests) Escape and the left button keep working.
+  and **0** (the tenth) still switch tabs, and without a project map (tests) Escape and the left button keep working.
 
 The layer keeps processing while the menu pauses the game (`ProcessMode.Always`: FPS and the active tab update).
 
@@ -76,6 +77,9 @@ Every scene is self-contained: its own camera, environment and lights, and a sma
 | `particles` (Particles) | `GpuParticles3D` at night (ADR 0206): a campfire's additive HDR flames and velocity-aligned embers that glow, lit smoke sorted back to front, a one-shot spark burst and a 3,000-streak rain box, with fog (`Assets/Particles/soft.png` is the soft sprite) | rain, glow, burst of sparks |
 | `animation_3d` (Animation 3D) | The skinned test character (`Models/Character/character.glb`: a `Skeleton3D`, a skinned mesh, an `AnimationPlayer` with ten clips; ADR 0207/0208) running under a shadowing sun, with a hammer and a torch light on its right hand (a `BoneAttachment3D` added to the instance), and a physical skeleton (ADR 0212: `PhysicalBoneSimulator3D.Build`, 20 capsule `PhysicalBone3D`s with cone-twist joints) over a ground collider. One-shot clips return to idle (`Animation3DPanel`). Behind it a second instance on a `RootMotionWalker` (`CharacterBody3D`) is moved only by root motion (ADR 0210): half circles of the `circle` clip and forward `jump`s around a closed loop | clip (crossfaded), crossfade time, speed, last event (`Step`, `HammerFist`, `Tap`), Ragdoll / Stand up |
 | `shaders` (Shaders) | Godot spatial shaders (ADR 0205): a ground whose albedo comes from the world position alone (`ground.gdshader`), fungal stalks in one `MultiMeshInstance3D` swaying with their shadows, out of step by `INSTANCE_CUSTOM` (`sway.gdshader`), props dissolving with a glowing edge, cut out in their shadows too, and a hit flash (`dissolve.gdshader`); `ShadersPanel` sets the uniforms | wind, animate, dissolve, hit |
+| `sprites_2d` (Sprites 2D) | `AnimatedSprite2D`s (ADR 0223) on one generated 4×4 sheet (`HeroArt`: a blob idling, running and jumping, a spinning coin; numbered frames) sliced into `Assets/Sprites2D/hero.mres`, drawn with nearest filtering: a showcase hero, a hero patrolling the ground (`Patrol2D`, flipped at each turn) and five coins at different speeds, one backwards (`Sprites2DPanel`) | animation, speed, backwards, flip, pause; frame and loop readouts (signals) |
+| `tiles_2d` (Tiles 2D) | `TileMapLayer`s (G2b, [Tile maps](tile-maps.md#demo-scene)) painted from an ASCII level with one generated atlas (`TilesArt`, `Assets/Tiles2D/tiles.png` + `tiles.mres`: collision on stone, water, trunks and bushes; `surface` custom data): Ground, Walls and a y-sorted Objects layer in which the Sprites 2D hero (`TileHero2D`, a `CharacterBody2D`) walks the paths behind and in front of trees, followed by a limited `Camera2D`; click the map to add or remove a wall | show collision, y-sort, walk speed, autopilot; surface and wall-cell readouts; WASD / arrows / left stick walk (`move_*` actions) |
+| `navigation_2d` (Navigation 2D) | G3a ([Navigation](navigation.md)): a maze of `StaticBody2D` walls on a 26 × 15 `NavigationGrid2D` of 32 px cells whose `Data` (written by code as a physics bake gives it; `Demo.Tests` checks it against a real bake) holds the walls and three mud patches (weight 3); twelve `NavChaser` character bodies (collision layer 2, slower in mud) with `NavigationAgent2D`s walk to the clicked point, each to its own spot on a ring (`NavigationDemo2D`); "Click adds walls" turns clicks into wall blocks (`SetCellSolid`: every chaser repaths). No number key (1–9 and 0 open the first ten tabs) | diagonal mode, heuristic, jump point search, Visible Navigation (the server's debug draw, restored on leaving), click adds walls; arrived count |
 
 **Save games (G4).** The Physics 3D panel saves and loads the crates through the engine's `SaveServer`
 ([Projects → Save games](project-and-gamehost.md#save-games)): three slots (`physics-1`…`3`) with a thumbnail, the
@@ -115,7 +119,8 @@ saved) and saved as `.mscene` (format 2). The committed files are generated:
 dotnet run --project Examples/Demo/Demo.Desktop -- --write-scenes Examples/Demo/Assets/Scenes
 ```
 
-The same command rewrites the Sound FX presets (`Assets/Audio/Sfx/*.mres`, keeping their UIDs).
+The same command rewrites the Sound FX presets (`Assets/Audio/Sfx/*.mres`, keeping their UIDs) and the Sprites 2D sheet
+and SpriteFrames (`Assets/Sprites2D/hero.png` + `hero.mres`, first, because the scene loads them).
 `SceneFilesTests.CommittedScenesMatchTheBuilders` is the contract: for every scene, building it and serializing it with
 the committed scene's UID must reproduce the committed file byte for byte. Change a builder, regenerate, commit the
 scenes; a regeneration that leaves a diff means the file was stale (or an asset's `.meta` is missing, see Layout).

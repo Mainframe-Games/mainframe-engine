@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    G15: a tiny GameHost game that crashes on purpose (`++ crash=<kind>`). The engine's out-of-process crash tests
+    (Tests/MainframeEngine.Tests/Crash/CrashProcessTests.cs) run it headless in its own process, so a real crash — a
+    thread exception, a fail fast, a stack overflow, a native fault — never takes the test run down.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>MainframeEngine.CrashTests.Fixture</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MainframeEngine\MainframeEngine.csproj" />
+    <ProjectReference Include="..\..\MainframeEngine.Generators\MainframeEngine.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <!-- In a subfolder: referencing projects get it as CrashFixture/project.mfproj (the tests pass it with -project). -->
+  <ItemGroup>
+    <None Include="project.mfproj" Link="CrashFixture\project.mfproj" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

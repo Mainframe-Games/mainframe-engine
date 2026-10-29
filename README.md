@@ -76,7 +76,11 @@ game.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/shaders.png" width="380" alt="Shaders"><br><b>Shaders</b> — Godot spatial shaders: a procedural ground, swaying stalks, dissolving props</td>
-    <td></td>
+    <td align="center" valign="top"><img src="docs/images/demo/sprites_2d.png" width="380" alt="Sprites 2D"><br><b>Sprites 2D</b> — AnimatedSprite2D flipbooks sliced from one sprite sheet: idle, run, jump, spinning coins</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/demo/tiles_2d.png" width="380" alt="Tiles 2D"><br><b>Tiles 2D</b> — TileMapLayers with collision and custom data; a hero walks behind and in front of y-sorted trees; click to add walls</td>
+    <td align="center" valign="top"><img src="docs/images/demo/navigation_2d.png" width="380" alt="Navigation 2D"><br><b>Navigation 2D</b> — a baked grid, mud, and twelve chasers walking to the clicked point; click to add walls</td>
   </tr>
 </table>
 
@@ -124,7 +128,19 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-physical-skeleton.png" width="380" alt="The Demo's skinned character with a physical skeleton: capsules on its limbs, created from the Skeleton3D inspector"><br><b>Physical skeleton</b> — one click: a capsule and a cone-twist joint per bone</td>
-    <td></td>
+    <td align="center" valign="top"><img src="docs/images/editor-sprite-frames.png" width="380" alt="The Demo's Sprites 2D scene with the showcase hero selected: the SpriteFrames editor in the inspector with its animations and frame strip"><br><b>SpriteFrames editor</b> — animations and a frame strip in the inspector, previewed on the sprite</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-sheet-slicer.png" width="380" alt="The Select Frames dialog slicing the Demo's hero sheet into a 4 by 4 grid with the run row picked and numbered"><br><b>Select Frames</b> — slice a sprite sheet by count or cell size, pick frames in order</td>
+    <td align="center" valign="top"><img src="docs/images/editor-tilemap.png" width="380" alt="The Demo's Tiles 2D scene with its Walls layer selected: the paint bar over the 2D view, the stone tile's ghost under the mouse and the TileMap palette in the bottom dock"><br><b>Tile map painting</b> — paint, line, rect, bucket, picker, eraser, random scatter; one undo per stroke</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-tileset.png" width="380" alt="The TileSet tab with the bush tile's collision polygon: snap points, the polygon's edges and points over the magnified tile"><br><b>TileSet editor</b> — atlas sources, tiles, tile data and collision polygons in the bottom dock</td>
+    <td align="center" valign="top"><img src="docs/images/editor-crash.png" width="380" alt="A played game's crash in the Output panel: one red row naming the exception, the node and the scene, expanded to its stack frames, the game's frame with a link to its source and the engine's muted"><br><b>Crash reports</b> — a game's crash as one row: the node, scene and frames, click-to-source</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-navigation.png" width="380" alt="The Demo's Navigation 2D maze in the editor with Visible Navigation on: the baked grid's solid cells and dashed mud, the NavigationGrid2D inspector with its Bake and Clear buttons and status line"><br><b>Navigation</b> — Visible Navigation, Bake and Clear with undo, out-of-date bakes flagged</td>
+    <td align="center" valign="top"><img src="docs/images/editor-export.png" width="380" alt="File › Export on the Demo: Windows, macOS, Linux and Linux server presets, the server preset's options and a validation warning"><br><b>Export</b> — presets per platform, demo and Steam builds, one click or <code>mf-export</code> in CI</td>
   </tr>
 </table>
 
@@ -202,6 +218,9 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Shadows](docs/design/shadow-system.md) | Four sun cascades, a spot/secondary-directional atlas, point-light cubes, PCF and PCSS soft shadows, cutout casters, per-light settings |
 | [Post-processing](docs/design/post-processing.md) | SSAO/GTAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX |
 | [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, canvas groups that fade as one image, layers, z-order and y-sort, wrapped multi-line TrueType text from the engine's own rasterizer; Godot's `BitMap` and `Geometry2D` (alpha to polygons, polygon booleans and offsets) |
+| [Animated sprites](docs/design/animated-sprites.md) | Godot's `SpriteFrames` and `AnimatedSprite2D`: flipbooks sliced from sprite sheets (count or cell size, margins, separation), Godot's timing and signals with no allocation per frame, a SpriteFrames editor and a Select Frames dialog |
+| [Tile maps](docs/design/tile-maps.md) | Godot 4.3's `TileSet` and `TileMapLayer`: atlas sources with padding, alternatives and flips, collision polygons and typed custom data; chunked layers drawn in about one batch per atlas, y-sorted row by row with characters, one static Box2D body per chunk (merged rectangles, convex pieces), one base64 line per chunk in scenes; paint tools, a palette and a TileSet editor in the 2D view |
+| [Navigation](docs/design/navigation.md) | Godot's `AStarGrid2D` (diagonal modes, heuristics, weights, jump point search) and `AStar2D`/`AStar3D` with allocation-free, deterministic queries; `NavigationServer2D`, grids baked from static bodies, `NavigationAgent2D` with Godot's repath rules and signals; Visible Navigation, Bake and Clear in the editor |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting alpha-tested silhouette shadows, optionally billboarded to the camera, with animation tracks and queues |
 | [3D particles](docs/design/particles-3d.md) | `GpuParticles3D` on Godot's `ParticleProcessMaterial`: point, sphere, box and ring emission, spread, gravity, damping, turbulence, scale and colour curves, hue variation; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow, sorted back to front; deterministic seeds; 8 000 particles in under half a millisecond of CPU |
 | [Skeletal animation](docs/design/animation.md) | Skinned glTF/FBX characters with their clips: `Skeleton3D`, GPU (compute) skinning that shadows, outlines and picking all see, an `AnimationPlayer` with crossfades, queues and events (also on a headless server), root motion that moves a `CharacterBody3D`, `BoneAttachment3D` |
@@ -242,11 +261,14 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos (multi-node, pivots), range handles, box selection and lock, Simulate in the view, resource Save as .mres / Make Unique, FileSystem panel, Play in its own process, C# code reload |
+| [Crash reporting](docs/design/crash-reporting.md) | A crash leaves a report bundle (exception, the node and callback it left, scene, GPU and driver, the last log lines); native crashes and kills are noticed on the next start, with optional native dumps; a next-launch prompt for players, opt-in upload to Sentry or your own endpoint; the editor shows a game's crash as one Output row with click-to-source frames |
 | [Gameplay recording](docs/design/recording.md) | Record any game to MP4 through your own ffmpeg: F10 in the editor or `--record`, live or offline, with a sidecar of input, loading and pauses |
 | [Video mode](docs/design/video-editor.md) | The editor trims recordings for promo footage: detect silence and idle play, Whisper transcripts, remove filler words, export |
 | [Game UI](docs/design/game-ui.md) | RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library; the editor is built with it |
 | [Developer overlay](docs/design/dev-overlay.md) | F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, physics and network panels; add your own in one call |
+| [Frame profiler](docs/design/profiler.md) | Zero-allocation CPU scopes on any thread, GPU timestamps per pass and post effect, counters, a frame history with spike capture; a Profiler section in the F12 overlay, an editor Profiler tab (frame graph, timeline, scope table) and Chrome/Perfetto trace export (`--profile-trace`) |
 | [Games in C#](docs/design/project-and-gamehost.md) | `dotnet new mfgame`, `project.mfproj` and `GameHost`: input actions, autoloads, structured logs, the editor link, headless dedicated servers |
+| [Game export](docs/design/game-export.md) | File › Export: presets in `project.mfproj` per platform (Windows, macOS, Linux), full and demo builds from one project, Steam checks, icons and signed macOS bundles written for you, zip/tar.gz or a depot folder; the same exporter as `mf-export` for scripts and CI |
 | [NuGet packages](docs/design/distribution-nuget.md) | The engine and the project template on nuget.org: build a game with the .NET SDK alone, no checkout or editor needed |
 | [Self-updating editor](docs/design/editor-updates.md) | The editor finds new releases on GitHub and updates itself in place on macOS, Windows and Linux |
 | [Quality](docs/design/testing.md) | Zero warnings, 1 600+ tests, golden-image render tests on MoltenVK and lavapipe, a Vulkan validation gate and a 0-bytes-per-frame allocation gate |

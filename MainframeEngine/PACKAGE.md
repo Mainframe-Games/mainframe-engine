@@ -12,7 +12,7 @@ This package is everything a game needs to build and run, with no engine checkou
 - Steam integration over Facepunch.Steamworks (bundled), which starts when the Steam client runs, Apple Silicon too
 - the engine content (compiled shaders, UI widgets, fonts), which is copied into your app's `Assets/` folder
 - build integration: `.po` → `.mo` localization, the `DEMO` define from `project.mfproj`, and macOS development app bundles
-- player builds: `tools/package-game.sh` (see below)
+- player builds: `tools/mf-export`, the exporter the editor's File › Export runs (see below)
 
 **Requirements:** .NET 10, plus a GPU with Vulkan 1.2 (MoltenVK is included on macOS).
 
@@ -38,15 +38,17 @@ Copy `project.mfproj` and your `Assets/` to the output folder, as the template's
 
 ## Player builds
 
-The package ships the engine's packaging script; `MainframePackageGameScript` gives its path:
+Player builds come from export presets in `project.mfproj` (the editor's File › Export… writes them). The package
+ships `mf-export`; `MainframeExportTool` gives its path:
 
 ```bash
-script="$(dotnet msbuild MyGame.Desktop -getProperty:MainframePackageGameScript)"
-bash "$script" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # or win-x64, linux-x64
+mf_export="$(dotnet msbuild MyGame.Desktop -getProperty:MainframeExportTool)"
+dotnet "$mf_export" --project . --preset "Windows"   # or --all, --list
+dotnet "$mf_export" MyGame.Desktop/MyGame.Desktop.csproj osx-arm64 builds   # without a preset (the old package-game form)
 ```
 
-It makes `<Exe>-<version>-osx-arm64.zip` (a `.app`), `-win-x64.zip` or `-linux-x64.tar.gz`. Run it with `bash`, since
-NuGet drops the executable bit. `--sign`/`--notarize` sign and notarize the macOS app.
+It makes `<Exe>-<version>-osx-arm64.zip` (a signed `.app`), `-win-x64.zip` or `-linux-x64.tar.gz`, with only that
+platform's natives. macOS presets sign (ad hoc, or a Developer ID) and notarize; they need a Mac.
 
 ## Links
 

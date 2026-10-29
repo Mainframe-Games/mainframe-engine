@@ -6,7 +6,7 @@
 (widget library, data binding), [M7 audio](../audio.md) (buses), [M9 localization](../localization.md) ·
 **Related:** [M13 mobile services](mobile-services.md#achievements-leaderboards-and-cloud-saves) (cloud saves build on
 this), [M12 mobile core](mobile.md) (lifecycle saves, app-private storage), [Editor → Shared widgets](editor.md),
-[Game export](game-export.md) (G5)
+[Game export](../game-export.md) (G5)
 
 ## Problem
 
@@ -869,4 +869,4 @@ differs from the text above:
 - [Mobile core](mobile.md) (M12): lifecycle saves, app-private storage
 - [Mobile services](mobile-services.md) (M13): `CloudSaveServer`, conflict policies, Steam/iCloud/Play backends
 - [Editor roadmap](editor.md): "Shared widgets" (the `.tabs` style starts here)
-- [Game export](game-export.md) (G5): exported builds keep `userDataName`, so player data survives renames
+- [Game export](../game-export.md) (G5): exported builds keep `userDataName`, so player data survives renames

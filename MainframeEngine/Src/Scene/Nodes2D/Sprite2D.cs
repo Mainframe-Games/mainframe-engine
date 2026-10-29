@@ -149,15 +149,7 @@ public class Sprite2D : Node2D
         var frameSize = baseRect.Size / new Vector2(_hframes, _vframes);
         var frameOffset = new Vector2(_frame % _hframes, _frame / _hframes) * frameSize;
         src = new Rect2(baseRect.Position + frameOffset, frameSize);
-
-        var destOffset = _offset;
-        if (_centered)
-            destOffset -= frameSize / 2f;
-        dst = new Rect2(destOffset, frameSize);
-        if (_flipH)
-            dst.Size.X = -dst.Size.X;
-        if (_flipV)
-            dst.Size.Y = -dst.Size.Y;
+        dst = SpriteRects.Destination(frameSize, _offset, _centered, _flipH, _flipV);
     }
 
     private void Set<T>(ref T field, T value)
@@ -166,5 +158,22 @@ public class Sprite2D : Node2D
             return;
         field = value;
         QueueRedraw();
+    }
+}
+
+/// <summary>The rect maths <see cref="Sprite2D"/> and <see cref="AnimatedSprite2D"/> share (Godot's <c>_get_rects</c>).</summary>
+internal static class SpriteRects
+{
+    /// <summary>The local rect a <paramref name="size"/> image draws into: centred or at <paramref name="offset"/>, flips as negative sizes.</summary>
+    public static Rect2 Destination(Vector2 size, Vector2 offset, bool centered, bool flipH, bool flipV)
+    {
+        if (centered)
+            offset -= size / 2f;
+        var dst = new Rect2(offset, size);
+        if (flipH)
+            dst.Size.X = -dst.Size.X;
+        if (flipV)
+            dst.Size.Y = -dst.Size.Y;
+        return dst;
     }
 }

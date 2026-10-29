@@ -391,6 +391,17 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["saves.thumbnails"] = "true",
             ["saves.thumbnail.width"] = "480",
             ["saves.thumbnail.height"] = "270",
+            ["crash.enabled"] = "false",
+            ["crash.prompt"] = "None",
+            ["crash.logEntries"] = "500",
+            ["crash.maxReports"] = "5",
+            ["crash.gpuBreadcrumbs"] = "false",
+            ["crash.nativeDumps"] = "Mini",
+            ["crash.upload.url"] = "https://key@sentry.example.com/9",
+            ["crash.upload.format"] = "Zip",
+            ["crash.upload.mode"] = "Consented",
+            ["crash.upload.includeLog"] = "false",
+            ["crash.upload.includeDumps"] = "true",
         };
         foreach (var setting in ProjectSettingsModel.Settings)
             if (setting.Set is not null)

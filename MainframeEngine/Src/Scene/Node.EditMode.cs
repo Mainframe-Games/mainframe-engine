@@ -42,26 +42,47 @@ public partial class Node
 
     private unsafe void InvokeEnterTree()
     {
-        if (SkipsScriptCallbacks)
-            ((delegate* managed<Node, void>)BaseCallbacks().EnterTree)(this);
-        else
-            OnEnterTree();
+        try
+        {
+            if (SkipsScriptCallbacks)
+                ((delegate* managed<Node, void>)BaseCallbacks().EnterTree)(this);
+            else
+                OnEnterTree();
+        }
+        catch (Exception e) when (CrashContext.NoteNode(this, NodeCallback.EnterTree, e))
+        {
+            // Never reached: the filter only notes the node for a crash report (G15).
+        }
     }
 
     private unsafe void InvokeReady()
     {
-        if (SkipsScriptCallbacks)
-            ((delegate* managed<Node, void>)BaseCallbacks().Ready)(this);
-        else
-            OnReady();
+        try
+        {
+            if (SkipsScriptCallbacks)
+                ((delegate* managed<Node, void>)BaseCallbacks().Ready)(this);
+            else
+                OnReady();
+        }
+        catch (Exception e) when (CrashContext.NoteNode(this, NodeCallback.Ready, e))
+        {
+            // Never reached: the filter only notes the node for a crash report (G15).
+        }
     }
 
     private unsafe void InvokeExitTree()
     {
-        if (SkipsScriptCallbacks)
-            ((delegate* managed<Node, void>)BaseCallbacks().ExitTree)(this);
-        else
-            OnExitTree();
+        try
+        {
+            if (SkipsScriptCallbacks)
+                ((delegate* managed<Node, void>)BaseCallbacks().ExitTree)(this);
+            else
+                OnExitTree();
+        }
+        catch (Exception e) when (CrashContext.NoteNode(this, NodeCallback.ExitTree, e))
+        {
+            // Never reached: the filter only notes the node for a crash report (G15).
+        }
     }
 
     private EngineBaseCallbacks BaseCallbacks()

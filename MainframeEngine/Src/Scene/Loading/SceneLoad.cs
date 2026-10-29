@@ -154,6 +154,21 @@ public sealed class SceneLoad
 
     private void RunWorker()
     {
+        // G10: the worker is the profiler's "Loader" lane while it runs (a pool thread: unnamed again afterwards).
+        Profiler.SetThreadName("Loader");
+        try
+        {
+            using var loadScope = EngineMarkers.LoadScene.Auto();
+            RunWorkerStages();
+        }
+        finally
+        {
+            Profiler.SetThreadName(null);
+        }
+    }
+
+    private void RunWorkerStages()
+    {
         var token = _cancel.Token;
         _prefetch?.CollectOnCurrentFlow(); // the textures this flow (and the tasks it starts) creates decode ahead
         SetStage(SceneLoadStage.Loading);
@@ -161,9 +176,11 @@ public sealed class SceneLoad
         token.ThrowIfCancellationRequested();
 
         SetStage(SceneLoadStage.Instantiating);
-        _root = _packed.Instantiate();
+        using (EngineMarkers.Instantiate.Auto())
+            _root = _packed.Instantiate();
         token.ThrowIfCancellationRequested();
 
+        using var prepareScope = EngineMarkers.PrepareLoadables.Auto();
         SetStage(SceneLoadStage.Preparing);
         var loadables = new List<ISceneLoadable>();
         CollectLoadables(_root, loadables);

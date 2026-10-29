@@ -23,6 +23,12 @@ public readonly record struct CulledCanvasItem(
     /// clip_children material), or for a <see cref="CanvasGroup"/> the group's image over its children's bounds.
     /// </summary>
     public bool ClipComposite { get; init; }
+
+    /// <summary>A sub-item's commands (<see cref="CanvasSubItem"/>: a tile map chunk) drawn for <see cref="Item"/>, or null.</summary>
+    internal CanvasDrawList? SubList { get; init; }
+
+    /// <summary>The commands this entry draws: a sub-item's, else the item's own.</summary>
+    public CanvasDrawList DrawList => SubList ?? Item.DrawList;
 }
 
 /// <summary>
@@ -55,8 +61,9 @@ public sealed class CanvasCuller
         public int Index;               // collection order (tie-break)
         public int ParentAbsZ;          // absolute z of the item's parent
         public CanvasItem? MaterialOwner;
-        public CanvasTextureFilter Filter;   // the parent's resolved filter / repeat
+        public CanvasTextureFilter Filter;   // the parent's resolved filter / repeat (a sub-item's: its owner's)
         public CanvasTextureRepeat Repeat;
+        public CanvasSubItem? Sub;           // a sub-item of Item (its own entry under y-sort), or null for the item itself
     }
 
     /// <summary>
@@ -117,7 +124,7 @@ public sealed class CanvasCuller
             ownMaterialOwner = null;
         }
 
-        var modulate = ci.Modulate * parentModulate;
+        var modulate = ci.Modulate * ci.EditorModulate * parentModulate;
         if (modulate.W < 0.007f)
             return;
 
@@ -140,7 +147,7 @@ public sealed class CanvasCuller
                 {
                     Item = ci,
                     Xform = Transform2D.Identity,
-                    Modulate = Reciprocal(ci.Modulate),
+                    Modulate = Reciprocal(ci.Modulate * ci.EditorModulate),
                     Index = 0,
                     ParentAbsZ = parentZ,
                     MaterialOwner = materialOwner == ci ? null : materialOwner,
@@ -148,14 +155,19 @@ public sealed class CanvasCuller
                     Repeat = parentRepeat,
                 });
                 var index = 1;
+                AddSubEntries(ci, Transform2D.Identity, Vector4.One, ref index, z, materialOwner == ci ? null : materialOwner, filter, repeat);
                 CollectYSortChildren(ci, Transform2D.Identity, materialOwner, Vector4.One, ref index, z, filter, repeat);
 
                 var count = _ysortScratch.Count - start;
-                _ysortScratch.Sort(start, count, YSortComparer.Instance);
+                // A span sort with a cached Comparison: List.Sort(IComparer) allocates a delegate per call.
+                System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_ysortScratch).Slice(start, count).Sort(YSortComparer.Comparison);
                 for (var i = 0; i < count; i++)
                 {
                     var e = _ysortScratch[start + i];
-                    CullItem(e.Item, finalXform * e.Xform, modulate * e.Modulate, e.ParentAbsZ, e.MaterialOwner, alreadyYSorted: true, e.Filter, e.Repeat);
+                    if (e.Sub is { } sub)
+                        AttachSub(e.Item, sub, finalXform * e.Xform, modulate * e.Modulate, e.ParentAbsZ, e.MaterialOwner, e.Filter, e.Repeat);
+                    else
+                        CullItem(e.Item, finalXform * e.Xform, modulate * e.Modulate, e.ParentAbsZ, e.MaterialOwner, alreadyYSorted: true, e.Filter, e.Repeat);
                 }
 
                 _ysortScratch.RemoveRange(start, count);
@@ -192,6 +204,9 @@ public sealed class CanvasCuller
         // The owner is the group's mask, so it draws in the group in both modes. Deviation (ADR 0119): Godot's Only hides the
         // owner's colours; here Only draws like AndDraw (nothing uses it yet).
         Attach(ci, finalXform, modulate, z, ownMaterialOwner, filter, repeat);
+        if (ci.SubItems is { Count: > 0 } subs)
+            for (var i = 0; i < subs.Count; i++)
+                AttachSub(ci, subs[i], finalXform * subs[i].Transform, modulate, z, ownMaterialOwner, filter, repeat);
         for (var i = 0; i < childCount; i++)
             if (children![i] is CanvasItem { TopLevel: false, ShowBehindParent: false } child)
                 CullItem(child, finalXform, modulate, z, materialOwner, false, filter, repeat);
@@ -231,8 +246,68 @@ public sealed class CanvasCuller
                 Repeat = parentRepeat,
             });
             if (child.YSortEnabled)
-                CollectYSortChildren(child, xform, child.UseParentMaterial ? materialOwner : child, modulate * child.Modulate, ref index, absZ, filter, repeat);
+            {
+                // A y-sorted child's sub-items (tile rows) sort with everything else; its own entry draws only its list.
+                AddSubEntries(child, xform, modulate * child.Modulate * child.EditorModulate, ref index, absZ, child.UseParentMaterial ? materialOwner : null, filter, repeat);
+                CollectYSortChildren(child, xform, child.UseParentMaterial ? materialOwner : child, modulate * child.Modulate * child.EditorModulate, ref index, absZ, filter, repeat);
+            }
         }
+    }
+
+    // One y-sort entry per sub-item of `owner` (at `ownerXform` relative to the sort root; `modulate` is the owner's full
+    // modulate below the root, `absZ` its absolute z, filter/repeat its resolved state).
+    private void AddSubEntries(CanvasItem owner, in Transform2D ownerXform, Vector4 modulate, ref int index, int absZ, CanvasItem? materialOwner,
+        CanvasTextureFilter filter, CanvasTextureRepeat repeat)
+    {
+        if (owner.SubItems is not { Count: > 0 } subs)
+            return;
+        for (var i = 0; i < subs.Count; i++)
+        {
+            _ysortScratch.Add(new YSortEntry
+            {
+                Item = owner,
+                Xform = ownerXform * subs[i].Transform,
+                Modulate = modulate,
+                Index = index++,
+                ParentAbsZ = absZ,
+                MaterialOwner = materialOwner,
+                Filter = filter,
+                Repeat = repeat,
+                Sub = subs[i],
+            });
+        }
+    }
+
+    // A sub-item's entry: the owner's state (modulate before its self modulate, material, filter), its own list, bounds and z offset.
+    private void AttachSub(CanvasItem owner, CanvasSubItem sub, in Transform2D xform, Vector4 modulate, int ownerZ, CanvasItem? materialOwner,
+        CanvasTextureFilter filter, CanvasTextureRepeat repeat)
+    {
+        var drawList = sub.DrawList;
+        if (drawList.IsEmpty || modulate.W < 0.007f)
+            return;
+        if (!_clip.Intersects(drawList.Bounds.Transformed(xform), includeBorders: true))
+            return;
+        var z = Math.Clamp(ownerZ + sub.ZOffset, ZMin, ZMax);
+        var list = ZList(z);
+        list.Add(new CulledCanvasItem(owner, xform, modulate * owner.SelfModulate, z, (materialOwner ?? owner).Material, filter, repeat)
+        {
+            ClipGroup = _clipOwner,
+            SubList = drawList,
+        });
+    }
+
+    private List<CulledCanvasItem> ZList(int z)
+    {
+        var zi = z - ZMin;
+        var list = _zLists[zi];
+        if (list is null)
+        {
+            list = _listPool.Count > 0 ? _listPool.Pop() : new List<CulledCanvasItem>(64);
+            _zLists[zi] = list;
+            _usedZ.Add(z);
+        }
+
+        return list;
     }
 
     private void Attach(CanvasItem ci, in Transform2D xform, Vector4 modulate, int z, CanvasItem? materialOwner, CanvasTextureFilter filter, CanvasTextureRepeat repeat,
@@ -249,15 +324,7 @@ public sealed class CanvasCuller
                 return;
         }
 
-        var zi = z - ZMin;
-        var list = _zLists[zi];
-        if (list is null)
-        {
-            list = _listPool.Count > 0 ? _listPool.Pop() : new List<CulledCanvasItem>(64);
-            _zLists[zi] = list;
-            _usedZ.Add(z);
-        }
-
+        var list = ZList(z);
         var material = (materialOwner ?? ci).Material;
         list.Add(new CulledCanvasItem(ci, xform, modulate * ci.SelfModulate, z, material, filter, repeat)
         {
@@ -286,6 +353,7 @@ public sealed class CanvasCuller
     private sealed class YSortComparer : IComparer<YSortEntry>
     {
         public static readonly YSortComparer Instance = new();
+        public static readonly Comparison<YSortEntry> Comparison = Instance.Compare;
 
         public int Compare(YSortEntry a, YSortEntry b)
         {

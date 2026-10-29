@@ -16,15 +16,44 @@ internal struct ShapeEntry2D
 {
     public B2ShapeId Id;
     public ShapeGeometry2D Geometry;
-    public CollisionShape2D Owner;
+
+    /// <summary>The shape node (null for a tile layer's shapes).</summary>
+    public CollisionShape2D? Owner;
 }
 
-/// <summary>The physics state of one 2D collision object in a <see cref="PhysicsSpace2D"/> (Box2D units: metres).</summary>
-internal sealed class BodyRecord2D(CollisionObject2D node, PhysicsSpace2D space, long sequence)
+/// <summary>
+/// The physics state of one 2D body in a <see cref="PhysicsSpace2D"/> (Box2D units: metres): a collision object's, or
+/// one static chunk body of a <see cref="TileMapLayer"/> (<see cref="TileBodies2D"/>, which has no
+/// <see cref="CollisionObject2D"/> and is never in the space's object lists).
+/// </summary>
+internal sealed class BodyRecord2D
 {
-    public readonly CollisionObject2D Node = node;
-    public readonly PhysicsSpace2D Space = space;
-    public readonly long Sequence = sequence;
+    private readonly CollisionObject2D? _node;
+
+    public BodyRecord2D(CollisionObject2D node, PhysicsSpace2D space, long sequence)
+        : this(node, node, space, sequence)
+    {
+    }
+
+    public BodyRecord2D(CollisionObject2D? node, Node2D owner, PhysicsSpace2D space, long sequence)
+    {
+        _node = node;
+        Owner = owner;
+        Space = space;
+        Sequence = sequence;
+    }
+
+    /// <summary>The collision object (only records in the space's object lists have one; tile bodies throw).</summary>
+    public CollisionObject2D Node => _node ?? throw new InvalidOperationException("A tile layer's body has no collision object.");
+
+    /// <summary>The node collisions and signals report: the collision object, or the <see cref="TileMapLayer"/>.</summary>
+    public readonly Node2D Owner;
+
+    /// <summary>True for a tile layer's chunk body.</summary>
+    public bool IsTileBody => _node is null;
+
+    public readonly PhysicsSpace2D Space;
+    public readonly long Sequence;
     public PhysicsBodyKind Kind;
     public B2BodyId Body;
     public bool HasBody;
@@ -192,9 +221,15 @@ internal sealed class BodyRecord2D(CollisionObject2D node, PhysicsSpace2D space,
     {
         if (Overlaps is not { } overlaps)
             return 0;
+        var count = 0;
         foreach (var other in overlaps.Keys)
-            results.Add(other.Node);
-        return overlaps.Count;
+            if (!results.Contains(other.Owner)) // a tile layer's chunk bodies report the layer once
+            {
+                results.Add(other.Owner);
+                count++;
+            }
+
+        return count;
     }
 }
 
@@ -243,7 +278,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
     private B2Vec2 _queryNormal;
     private bool _queryHit;
 
-    private readonly record struct ShapeRef(BodyRecord2D Record, CollisionShape2D Owner, int Index);
+    private readonly record struct ShapeRef(BodyRecord2D Record, CollisionShape2D? Owner, int Index);
 
     internal PhysicsSpace2D(SceneViewport viewport, PhysicsSettings2D settings)
     {
@@ -266,7 +301,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
     /// <summary>The conversion factor used by this space (fixed when it was created).</summary>
     public float PixelsPerMeter { get; }
 
-    public int ObjectCount => _records.Count;
+    public int ObjectCount => _records.Count + _tileLayers.Count;
 
     /// <summary>Bodies currently awake (simulated).</summary>
     public int ActiveBodyCount => b2World_GetAwakeBodyCount(_world);
@@ -402,24 +437,25 @@ public sealed partial class PhysicsSpace2D : IDisposable
         var count = _areas.Count + _monitors.Count;
         if (count == 0)
             return;
-        var removedArea = removed.Node as Area2D;
+        var removedArea = removed.Owner as Area2D;
         var receivers = ArrayPool<BodyRecord2D>.Shared.Rent(count);
         var n = 0;
         try
         {
             foreach (var area in _areas)
                 if ((removedArea is null ? area.Overlaps : area.AreaOverlaps) is { } overlaps && overlaps.Remove(removed) &&
-                    !IsEnterPending(area, removed))
+                    !IsEnterPending(area, removed) && !HasOwner(overlaps, removed.Owner))
                     receivers[n++] = area;
             foreach (var monitor in _monitors)
-                if (monitor.Overlaps is { } touching && touching.Remove(removed) && !IsEnterPending(monitor, removed))
+                if (monitor.Overlaps is { } touching && touching.Remove(removed) && !IsEnterPending(monitor, removed) &&
+                    !HasOwner(touching, removed.Owner))
                     receivers[n++] = monitor;
             for (var i = 0; i < n; i++)
             {
                 if (receivers[i].Removed)
                     continue;
                 if (removedArea is null)
-                    receivers[i].Node.EmitBodyExited(removed.Node);
+                    receivers[i].Node.EmitBodyExited(removed.Owner);
                 else
                     ((Area2D)receivers[i].Node).EmitAreaExited(removedArea);
             }
@@ -552,6 +588,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
     private void Flush(bool stepping)
     {
         FlushBodies(stepping);
+        FlushTileLayers();
         FlushJoints(); // after the bodies: their poses and masses are current
     }
 
@@ -952,7 +989,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
             foreach (var otherId in _shapeScratch)
             {
                 if (TryGetShape(otherId, out var other) && !ReferenceEquals(other.Record, area) &&
-                    other.Record.Node is Area2D { Monitorable: true })
+                    other.Record.Owner is Area2D { Monitorable: true })
                     Touch(area, overlaps, other.Record, PhysicsEventKind.AreaAreaEntered);
             }
         }
@@ -962,10 +999,26 @@ public sealed partial class PhysicsSpace2D : IDisposable
 
     private void Touch(BodyRecord2D receiver, Dictionary<BodyRecord2D, long> set, BodyRecord2D other, PhysicsEventKind entered)
     {
-        if (set.TryAdd(other, _step))
-            _events.Add(new PhysicsEvent<BodyRecord2D>(entered, receiver, other, receiver.Sequence, other.Sequence));
-        else
+        if (set.ContainsKey(other))
+        {
             set[other] = _step;
+            return;
+        }
+
+        // A tile layer is one body to its signals (Godot keys overlaps by object): only its first chunk body enters.
+        var reported = other.IsTileBody && HasOwner(set, other.Owner);
+        set.Add(other, _step);
+        if (!reported)
+            _events.Add(new PhysicsEvent<BodyRecord2D>(entered, receiver, other, receiver.Sequence, other.Sequence));
+    }
+
+    // True when another record of `owner` (a tile layer's other chunk bodies) is in the set.
+    private static bool HasOwner(Dictionary<BodyRecord2D, long> set, Node2D owner)
+    {
+        foreach (var record in set.Keys)
+            if (ReferenceEquals(record.Owner, owner))
+                return true;
+        return false;
     }
 
     private void Untouch(BodyRecord2D receiver, Dictionary<BodyRecord2D, long> set, PhysicsEventKind exited, bool everything = false)
@@ -977,6 +1030,8 @@ public sealed partial class PhysicsSpace2D : IDisposable
             if (!everything && seen == _step)
                 continue;
             set.Remove(other);
+            if (other.IsTileBody && HasOwner(set, other.Owner))
+                continue; // the layer is still touched through another chunk body
             _events.Add(new PhysicsEvent<BodyRecord2D>(exited, receiver, other, receiver.Sequence, other.Sequence));
         }
     }
@@ -1005,11 +1060,11 @@ public sealed partial class PhysicsSpace2D : IDisposable
                 {
                     case PhysicsEventKind.ContactEntered:
                     case PhysicsEventKind.AreaEntered:
-                        e.Receiver.Node.EmitBodyEntered(e.Other!.Node);
+                        e.Receiver.Node.EmitBodyEntered(e.Other!.Owner);
                         break;
                     case PhysicsEventKind.ContactExited:
                     case PhysicsEventKind.AreaExited:
-                        e.Receiver.Node.EmitBodyExited(e.Other!.Node);
+                        e.Receiver.Node.EmitBodyExited(e.Other!.Owner);
                         break;
                     case PhysicsEventKind.AreaAreaEntered:
                         ((Area2D)e.Receiver.Node).EmitAreaEntered((Area2D)e.Other!.Node);
@@ -1093,7 +1148,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
         _queryExclude = null;
         if (!_queryHit || !TryGetShape(_queryShape, out var shape))
             return false;
-        hit = new RayHit2D(shape.Record.Node, shape.Owner, ToNumerics(_queryPoint) * PixelsPerMeter, ToNumerics(_queryNormal), _queryFraction);
+        hit = new RayHit2D(shape.Record.Owner, shape.Owner, ToNumerics(_queryPoint) * PixelsPerMeter, ToNumerics(_queryNormal), _queryFraction);
         return true;
     }
 
@@ -1109,11 +1164,11 @@ public sealed partial class PhysicsSpace2D : IDisposable
         _queryExclude = null;
         if (!_queryHit || !TryGetShape(_queryShape, out var shape))
             return false;
-        hit = new ShapeCastHit2D(shape.Record.Node, shape.Owner, ToNumerics(_queryPoint) * PixelsPerMeter, ToNumerics(_queryNormal), _queryFraction);
+        hit = new ShapeCastHit2D(shape.Record.Owner, shape.Owner, ToNumerics(_queryPoint) * PixelsPerMeter, ToNumerics(_queryNormal), _queryFraction);
         return true;
     }
 
-    internal int IntersectShape(in B2ShapeProxy proxy, List<CollisionObject2D> results, uint mask, CollisionObject2D? exclude)
+    internal int IntersectShape(in B2ShapeProxy proxy, List<Node2D> results, uint mask, CollisionObject2D? exclude)
     {
         FlushForQuery();
         var p = proxy;
@@ -1124,9 +1179,9 @@ public sealed partial class PhysicsSpace2D : IDisposable
         var added = 0;
         foreach (var id in _shapeScratch)
         {
-            if (TryGetShape(id, out var shape) && !results.Contains(shape.Record.Node))
+            if (TryGetShape(id, out var shape) && !results.Contains(shape.Record.Owner))
             {
-                results.Add(shape.Record.Node);
+                results.Add(shape.Record.Owner);
                 added++;
             }
         }
@@ -1135,7 +1190,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
         return added;
     }
 
-    internal int IntersectPoint(Vector2 point, List<CollisionObject2D> results, uint mask, CollisionObject2D? exclude)
+    internal int IntersectPoint(Vector2 point, List<Node2D> results, uint mask, CollisionObject2D? exclude)
     {
         FlushForQuery();
         var p = ToB2(point / PixelsPerMeter);
@@ -1147,9 +1202,9 @@ public sealed partial class PhysicsSpace2D : IDisposable
         var added = 0;
         foreach (var id in _shapeScratch)
         {
-            if (TryGetShape(id, out var shape) && b2Shape_TestPoint(id, p) && !results.Contains(shape.Record.Node))
+            if (TryGetShape(id, out var shape) && b2Shape_TestPoint(id, p) && !results.Contains(shape.Record.Owner))
             {
-                results.Add(shape.Record.Node);
+                results.Add(shape.Record.Owner);
                 added++;
             }
         }
@@ -1183,7 +1238,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
             best = _queryFraction;
             hit.Fraction = _queryFraction;
             hit.Point = ToNumerics(_queryPoint) * PixelsPerMeter;
-            hit.Collider = other.Record.Node;
+            hit.Collider = other.Record.Owner;
             var normal = ToNumerics(_queryNormal);
             if (normal.LengthSquared() < 1e-12f && Penetration(shape.Geometry, origin, rot, _queryShape, out var n, out _, out var point))
             {
@@ -1231,7 +1286,7 @@ public sealed partial class PhysicsSpace2D : IDisposable
                 position += normal * push;
                 pushed |= push > 0;
                 if (found < contacts.Length)
-                    contacts[found++] = new CharacterContact2D { Normal = normal, Point = point * PixelsPerMeter, Collider = other.Record.Node };
+                    contacts[found++] = new CharacterContact2D { Normal = normal, Point = point * PixelsPerMeter, Collider = other.Record.Owner };
             }
 
             _shapeScratch.Clear();
@@ -1343,9 +1398,12 @@ public sealed partial class PhysicsSpace2D : IDisposable
     {
         if (!shapes)
         {
+            DrawTileLayersDebug(lines, forcedOnly: true);
             DrawJointsDebug(lines);
             return;
         }
+
+        DrawTileLayersDebug(lines, forcedOnly: false);
 
         foreach (var record in _records)
         {
@@ -1384,6 +1442,10 @@ public sealed partial class PhysicsSpace2D : IDisposable
             joint.Node.Record = null;
         }
 
+        foreach (var tiles in _tileLayers)
+            tiles.OnSpaceDisposed();
+        _tileLayers.Clear();
+        _dirtyTileLayers.Clear();
         _records.Clear();
         _moving.Clear();
         _areas.Clear();

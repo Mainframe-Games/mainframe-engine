@@ -258,6 +258,10 @@ space.IntersectShape(shape, transform, results);   // List<CollisionObject3D>, e
 space.IntersectPoint(point, results);
 ```
 
+- In 2D the collider is a `Node2D` (G2b, ADR 0225; Godot's `get_collider()` is an `Object`): a collision object, or a
+  [`TileMapLayer`](tile-maps.md#physics-one-static-body-per-chunk) for tiles (one static body per chunk, no
+  `CollisionShape2D`: `Shape` is null; `GetCoordsForCollision` finds the cell). `IntersectShape`/`IntersectPoint` fill a
+  `List<Node2D>`, `KinematicCollision2D.Collider` is a `Node2D` too.
 - Results report the body, the `CollisionShape*` hit, the position, the surface normal (zero when the query starts
   inside a shape) and the fraction along the motion. `RayCast(..., hitFromInside: false)` skips convex shapes that
   contain the ray's origin instead (Godot's default for `intersect_ray`; ADR 0131).
@@ -267,6 +271,8 @@ space.IntersectPoint(point, results);
 - Jitter2 queries go through `DynamicTree.RayCast/SweepCast/Query` with cached filter delegates; Box2D queries through
   `b2World_CastRay/CastShape/OverlapShape/OverlapAABB` with static callbacks (the space is the context object).
   Box2D.NET 3.1 ray casts do hit sensors, so the callbacks skip area shapes.
+- Navigation bakes its grids through these queries only (G3a, [Navigation](navigation.md#navigationgrid2d-and-navigationgriddata)):
+  one 2D `IntersectShape` per cell with a reused rectangle, static bodies only, so physics library calls stay here.
 
 ### `RayCast3D` node
 
@@ -328,7 +334,8 @@ to a few millimetres (closer reports "overlapping"), so `CharacterBody3D.SafeMar
 - `PhysicsServer3D/2D.DebugDrawEnabled` (or `EngineOptions.DebugCollisionShapes`) draws every enabled collision shape
   each frame (after interpolation, so lines match what is rendered) into the viewport's
   `SceneViewport.DebugLines`. Colours: static green, dynamic orange, sleeping grey, kinematic/character blue,
-  areas cyan. 2D shapes are drawn in the z = 0 plane in pixels (where `Camera2D` looks). The Demo's Physics panels have a toggle.
+  areas cyan. 2D shapes are drawn in the z = 0 plane in pixels (where `Camera2D` looks). Tile map layers' chunk shapes
+  draw too (unless `CollisionVisibilityMode.ForceHide`; `ForceShow` draws them with debug drawing off). The Demo's Physics panels have a toggle.
 - `DebugLines` is an immediate-mode batch of coloured segments (boxes, circles, spheres, capsules, cylinders,
   triangle lists, 2D polygons); the render server draws a viewport's batch after its visuals and clears it every
   frame (also when nothing could be drawn). At most 2¹⁸ lines per frame; more are dropped (`DroppedLines`).

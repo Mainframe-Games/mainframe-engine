@@ -22,6 +22,7 @@ public abstract class RenderTestGame : Engine
     private double _shadowCpuMs, _shadowGpuMs;
     private int _perfWarmupFrames, _perfMeasuredFrames; // the --perf window, or --perf-on-cpu's on a CPU device
     private uint _quitAfterFrame; // a --perf-on-cpu run on a CPU device ends after its window; 0 = MaxFrames
+    private readonly ProfileProbe _profile = new(); // G10: --profile
 
     protected RenderTestGame(HostOptions host) : base(CreateOptions(host))
     {
@@ -46,6 +47,8 @@ public abstract class RenderTestGame : Engine
         Audio = new AudioOptions { Device = AudioDeviceMode.Null, BusLayoutPath = null },
         DevOverlayVisible = false, // scenes opt in (showcase, shadow-lights --count 2)
         Locale = "en", // never the machine's language: captures must not depend on it
+        SimulateDeviceLostAtFrame = host.SimulateDeviceLostAtFrame,
+        Profiler = new ProfilerOptions { RecordFromStart = host.Profile }, // G10
     };
 
     protected IVulkanContext Vulkan => (IVulkanContext)Renderer;
@@ -136,6 +139,10 @@ public abstract class RenderTestGame : Engine
             }
             _lastFrameTimestamp = now;
         }
+
+        // G10: after the warm-up, the profiled frames' GPU zones, top scopes and read-back latency.
+        if (_host.Profile && frame > 30 && Profiler.IsRecording)
+            _profile.Sample();
 
         if (Array.BinarySearch(_host.CaptureFrames, frame) >= 0)
         {
@@ -282,6 +289,16 @@ public abstract class RenderTestGame : Engine
         var meshPipelines = Servers.Render?.PipelineStates?.Count ?? 0;
         var sortedTimes = _frameTimes.Order().ToArray();
         var sortedCpuTimes = _cpuFrameTimes.Order().ToArray();
+        var gpuProfiler = Vulkan.GpuProfiler;
+        var (timestamps, encoderBoundaries, labels) = (gpuProfiler.IsSupported, gpuProfiler.SamplesAtEncoderBoundaries, gpuProfiler.HasDebugLabels);
+        Dictionary<string, double> gpuZones = [];
+        Dictionary<string, double> topCpu = [];
+        List<string> zoneOrder = [];
+        _profile.Fill(gpuZones, topCpu, zoneOrder, out var latencyMin, out var latencyMax, out var zoneErrors, out var profiledFrames);
+        if (gpuZones.Count > 0)
+            Console.WriteLine("[Profiler] GPU ms/frame: " + string.Join(", ", gpuZones.Select(z => $"{z.Key} {z.Value:0.000}")));
+        if (topCpu.Count > 0)
+            Console.WriteLine("[Profiler] top CPU self ms/frame: " + string.Join(", ", topCpu.Select(z => $"{z.Key} {z.Value:0.000}")));
 
         StopWakeTimer();
         DisposeScene();
@@ -323,6 +340,18 @@ public abstract class RenderTestGame : Engine
             ShadowCpuMs = sortedTimes.Length > 0 ? _shadowCpuMs / sortedTimes.Length : 0,
             ShadowGpuMs = sortedTimes.Length > 0 ? _shadowGpuMs / sortedTimes.Length : 0,
             MeshPipelines = meshPipelines,
+            GpuZones = gpuZones,
+            TopCpuScopes = topCpu,
+            GpuZoneOrder = zoneOrder,
+            GpuReadbackLatencyMin = latencyMin,
+            GpuReadbackLatencyMax = latencyMax,
+            GpuZoneErrors = zoneErrors,
+            ProfiledFrames = profiledFrames,
+            GpuTimestampsSupported = timestamps,
+            GpuSamplesAtEncoderBoundaries = encoderBoundaries,
+            GpuDebugLabels = labels,
+            ProfilerUnbalancedScopes = Profiler.UnbalancedScopes,
+            ProfilerDroppedEvents = Profiler.DroppedEvents,
         };
     }
 

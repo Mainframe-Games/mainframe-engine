@@ -29,6 +29,15 @@
         <!-- Video mode (docs/design/video-editor.md): Cutback's logic, editor-only; games never reference it. -->
         <ProjectReference Include="..\MainframeEngine.Video\MainframeEngine.Video.csproj" />
         <!--
+          The export pipeline (File › Export, the export flags; docs/design/game-export.md) and the tool helpers the editor
+          builds games with (ProcessRunner, DotnetSdk, GameProjectLayout, MsBuildOutputParser), shared with mf-export.
+        -->
+        <ProjectReference Include="..\Tools\MainframeEngine.Export\MainframeEngine.Export.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="MainframeEngine.Export" />
+        <!--
           No MainframeEngine.Generators analyzer on purpose: editor nodes are tools, never serialized, and must not
           appear in the Add Node dialog (which lists the registered node types).
         -->

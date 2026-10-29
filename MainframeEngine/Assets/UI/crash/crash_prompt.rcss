@@ -1,0 +1,48 @@
+/*
+ * The player's crash prompt (CrashPrompt). Builds on the widget library (/Assets/UI/widgets/widgets.rcss: .panel,
+ * buttons, checkboxes). Sizes in dp; buttons are reachable by gamepad (nav: auto).
+ */
+
+body {
+    width: 100%;
+    height: 100%;
+    background-color: #00000080;
+}
+
+#crash {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 460dp;
+    margin-left: -230dp;
+    margin-top: -120dp;
+    padding-bottom: 14dp;
+}
+
+#crash .panel-title { height: 22dp; line-height: 22dp; }
+
+#crash-body { display: block; padding: 6dp 16dp 4dp 16dp; }
+
+#crash-body p { display: block; margin: 0dp 0dp 8dp 0dp; line-height: 18dp; }
+
+#crash-summary { color: #f2c46d; font-weight: bold; }
+
+#crash-hint, #crash-more { color: #a7b0c2; font-size: 13dp; }
+
+#crash-status { color: #8fd1a8; font-size: 13dp; }
+
+#crash-consent { display: block; height: 28dp; line-height: 28dp; color: #e6e9ef; }
+
+#crash-consent input { margin-right: 8dp; vertical-align: middle; }
+
+#crash .footer {
+    display: block;
+    text-align: right;
+    padding: 8dp 16dp 0dp 16dp;
+}
+
+#crash .footer button { margin-left: 6dp; nav: auto; }
+
+#crash-consent input { nav: auto; }
+
+#crash .footer button.disabled { opacity: 0.45; pointer-events: none; }

@@ -1,0 +1,958 @@
+{
+  "format": 2,
+  "uid": "scn_cc3c25efb26c",
+  "resources": {
+    "RectangleShape2D_s41nc": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [32, 288]
+      }
+    },
+    "RectangleShape2D_0c14n": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [32, 128]
+      }
+    },
+    "RectangleShape2D_qf22y": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [32, 288]
+      }
+    },
+    "RectangleShape2D_eth5d": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [128, 32]
+      }
+    },
+    "RectangleShape2D_nqx2k": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [32, 224]
+      }
+    },
+    "RectangleShape2D_ri1aj": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [160, 32]
+      }
+    },
+    "RectangleShape2D_6e7dq": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [32, 288]
+      }
+    },
+    "RectangleShape2D_pu5bp": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [96, 32]
+      }
+    },
+    "RectangleShape2D_32kds": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [96, 32]
+      }
+    },
+    "NavigationGridData_oto75": {
+      "type": "NavigationGridData",
+      "props": {
+        "Region": [0, 0, 26, 15],
+        "Solid": "rle1:BQEJAQ8BCQEPAQkBDwEJAQQBCgEEBgQBCgEEAQQBBAEGAwEBBAEEAQQBCgEEAQkBCgEEAQkBDwEEBg8BCQEKAQQBCQQHAQQBFAEZARQ=",
+        "Weights": "rle1:RAQAAEBAFgQAAEBAFgQAAEBAdAQAAEBAFgQAAEBAFgQAAEBAAQQAAEBAFgQAAEBAFgQAAEBA",
+        "BakedFrom": "Physics",
+        "SolidCount": 53,
+        "WeightedCount": 36
+      }
+    },
+    "CircleShape2D_i52t4": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_53rh3": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_xzsve": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_3hvld": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_292x8": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_mp8kr": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_9qq2m": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_bijdh": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_2h7tc": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_wi8bz": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_6q27v": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    },
+    "CircleShape2D_j2fz0": {
+      "type": "CircleShape2D",
+      "props": {
+        "Radius": 9
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "navigation_2d",
+      "type": "Node2D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera2D",
+      "props": {
+        "Position": [-120, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Backdrop",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [1800, 1000],
+        "Color": [0.05, 0.07, 0.12, 1],
+        "ColorBottom": [0.08, 0.1, 0.17, 1]
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [832, 480],
+        "Color": [0.13, 0.16, 0.22, 1],
+        "ColorBottom": [0.11, 0.13, 0.19, 1],
+        "Outline": [0.3, 0.36, 0.48, 1],
+        "OutlineWidth": 3
+      }
+    },
+    {
+      "name": "Mud",
+      "parent": ".",
+      "type": "Node2D"
+    },
+    {
+      "name": "Mud0",
+      "parent": "Mud",
+      "type": "DemoShape2D",
+      "props": {
+        "Position": [-160, 96],
+        "Size": [128, 96],
+        "Color": [0.42, 0.3, 0.18, 1],
+        "ColorBottom": [0.336, 0.24000001, 0.14400001, 1]
+      }
+    },
+    {
+      "name": "Mud1",
+      "parent": "Mud",
+      "type": "DemoShape2D",
+      "props": {
+        "Position": [160, -128],
+        "Size": [128, 96],
+        "Color": [0.42, 0.3, 0.18, 1],
+        "ColorBottom": [0.336, 0.24000001, 0.14400001, 1]
+      }
+    },
+    {
+      "name": "Mud2",
+      "parent": "Mud",
+      "type": "DemoShape2D",
+      "props": {
+        "Position": [0, 160],
+        "Size": [128, 96],
+        "Color": [0.42, 0.3, 0.18, 1],
+        "ColorBottom": [0.336, 0.24000001, 0.14400001, 1]
+      }
+    },
+    {
+      "name": "Walls",
+      "parent": ".",
+      "type": "Node2D"
+    },
+    {
+      "name": "Wall0",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [-240, -96]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall0",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_s41nc" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall0",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [32, 288],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Wall1",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [-240, 176]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall1",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_0c14n" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall1",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [32, 128],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Wall2",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [-80, 32]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall2",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_qf22y" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall2",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [32, 288],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Wall3",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [0, -96]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall3",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_eth5d" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall3",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [128, 32],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Wall4",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [80, -128]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall4",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_nqx2k" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall4",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [32, 224],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Wall5",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [144, 64]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall5",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_ri1aj" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall5",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [160, 32],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Wall6",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [240, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall6",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_6e7dq" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall6",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [32, 288],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Wall7",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [304, 128]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall7",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_pu5bp" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall7",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [96, 32],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Wall8",
+      "parent": "Walls",
+      "type": "StaticBody2D",
+      "props": {
+        "Position": [-336, -32]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Walls/Wall8",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_32kds" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Walls/Wall8",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [96, 32],
+        "Color": [0.39, 0.45, 0.55, 1],
+        "ColorBottom": [0.2925, 0.33749998, 0.41250002, 1]
+      }
+    },
+    {
+      "name": "Grid",
+      "parent": ".",
+      "type": "NavigationGrid2D",
+      "props": {
+        "Position": [-416, -240],
+        "Region": [0, 0, 26, 15],
+        "Data": { "res": "NavigationGridData_oto75" }
+      }
+    },
+    {
+      "name": "Target",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Position": [336, 0],
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [1, 0.45, 0.85, 0.9],
+        "Outline": [1, 1, 1, 0.8],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Chasers",
+      "parent": ".",
+      "type": "Node2D"
+    },
+    {
+      "name": "Chaser0",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-368, -192],
+        "CollisionLayer": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser0",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_i52t4" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser0",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.98, 0.8, 0.08, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser0",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser1",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-336, -192],
+        "CollisionLayer": 2,
+        "Hue": 0.083333336
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser1",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_53rh3" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser1",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.785, 0.8075, 0.21000001, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser1",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser2",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-304, -192],
+        "CollisionLayer": 2,
+        "Hue": 0.16666667
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser2",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_xzsve" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser2",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.59000003, 0.815, 0.34, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser2",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser3",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-368, -153.6],
+        "CollisionLayer": 2,
+        "Hue": 0.25
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser3",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_3hvld" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser3",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.395, 0.8225, 0.47000003, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser3",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser4",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-336, -153.6],
+        "CollisionLayer": 2,
+        "Hue": 0.33333334
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser4",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_292x8" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser4",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.2, 0.83, 0.6, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser4",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser5",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-304, -153.6],
+        "CollisionLayer": 2,
+        "Hue": 0.41666666
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser5",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_mp8kr" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser5",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.2175, 0.76, 0.685, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser5",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser6",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-368, -115.2],
+        "CollisionLayer": 2,
+        "Hue": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser6",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_9qq2m" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser6",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.23500001, 0.69, 0.77, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser6",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser7",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-336, -115.2],
+        "CollisionLayer": 2,
+        "Hue": 0.5833333
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser7",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_bijdh" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser7",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.25250003, 0.62, 0.855, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser7",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser8",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-304, -115.2],
+        "CollisionLayer": 2,
+        "Hue": 0.6666667
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser8",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_2h7tc" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser8",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.27, 0.55, 0.94, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser8",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser9",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-368, -76.79999],
+        "CollisionLayer": 2,
+        "Hue": 0.75
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser9",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_wi8bz" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser9",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.43, 0.5025, 0.7675, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser9",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser10",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-336, -76.79999],
+        "CollisionLayer": 2,
+        "Hue": 0.8333333
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser10",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_6q27v" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser10",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.59000003, 0.455, 0.595, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser10",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Chaser11",
+      "parent": "Chasers",
+      "type": "NavChaser",
+      "props": {
+        "Position": [-304, -76.79999],
+        "CollisionLayer": 2,
+        "Hue": 0.9166667
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Chasers/Chaser11",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "CircleShape2D_j2fz0" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Chasers/Chaser11",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 9,
+        "Color": [0.75, 0.40750003, 0.4225, 1],
+        "Outline": [0, 0, 0, 0.4],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Agent",
+      "parent": "Chasers/Chaser11",
+      "type": "NavigationAgent2D",
+      "props": {
+        "PathDesiredDistance": 14
+      }
+    },
+    {
+      "name": "Controller",
+      "parent": ".",
+      "type": "NavigationDemo2D"
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Navigation2DPanel"
+    }
+  ]
+}

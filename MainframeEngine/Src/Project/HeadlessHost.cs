@@ -27,6 +27,9 @@ public sealed class HeadlessHost : IDisposable
         ArgumentNullException.ThrowIfNull(settings);
         options ??= new GameHostOptions();
         _options = options.Apply(settings.ToEngineOptions());
+        Profiler.Configure(_options.Profiler ?? new ProfilerOptions()); // G10: CPU lanes only (no renderer)
+        Profiler.SetMainThread();
+        EngineCounters.EnsureRegistered();
         Localization.Tr.Configure(_options.Localization ?? new Localization.LocalizationOptions(), _options.Locale);
         Tree = new SceneTree { PhysicsTicksPerSecond = _options.PhysicsTicksPerSecond, TimeScale = _options.TimeScale };
         Input.Current = Tree.Input;
@@ -53,6 +56,7 @@ public sealed class HeadlessHost : IDisposable
 
         Tree.Servers.Register(new PhysicsServer3D(_options.Physics3D));
         Tree.Servers.Register(new PhysicsServer2D(_options.Physics2D));
+        Tree.Servers.Register(new NavigationServer2D()); // G3a: dedicated servers are where agents run
         Tree.Servers.Register(GameHost.CreateSaveServer(settings, Tree)); // last: disposed (flushed) first
 
         Session = new GameSession(Tree, settings, options);
@@ -61,7 +65,21 @@ public sealed class HeadlessHost : IDisposable
         _size = new System.Numerics.Vector2(Math.Max(1, settings.Window.Width), Math.Max(1, settings.Window.Height));
         Tree.Root.SetSize(_size);
         FrameRate = settings.Window.MaxFps > 0 ? settings.Window.MaxFps : _options.PhysicsTicksPerSecond;
+
+        // G15: read only at crash time. No prompt headless: earlier reports are logged for the server's operator.
+        CrashContext.Scene = () => Tree.CurrentScene?.SceneFilePath;
+        CrashContext.ProcessFrames = () => (long)Tree.ProcessFrames;
+        CrashContext.Settings = () => GameHost.CrashSettingsSnapshot(settings, null, UserSettings);
+        if (CrashReporter.IsInstalled && CrashReporter.PendingReports is { Count: > 0 } pending)
+            Log.Warning($"[Crash] {pending.Count} crash report(s) from earlier runs in {CrashReporter.Directory} (newest: {pending[0].Summary}).");
+
+        if (_options.Profiler?.RecordFromStart == true)
+            _profilerToken = Profiler.Acquire();
+        _profileTrace = ProfilerTraceRun.For(options, settings.Name, hasGpu: false);
     }
+
+    private int _profilerToken;
+    private readonly ProfilerTraceRun? _profileTrace;
 
     /// <summary>The tree the game runs in.</summary>
     public SceneTree Tree { get; }
@@ -123,6 +141,24 @@ public sealed class HeadlessHost : IDisposable
     /// <summary>One update of <paramref name="delta"/> seconds (the fixed delta with <c>--fixed-fps</c>): the session, the tree, the draws.</summary>
     public void Step(float delta)
     {
+        Profiler.BeginFrame();
+        try
+        {
+            StepFrame(delta);
+            if (Profiler.IsFrameRecording)
+                EngineCounters.Sample(Tree, null, ref _counterState);
+        }
+        finally
+        {
+            Profiler.EndFrame(float.NaN, 0f);
+        }
+    }
+
+    private EngineCounters.State _counterState;
+
+    private void StepFrame(float delta)
+    {
+        using var updateScope = EngineMarkers.Update.Auto();
         _fps.Update();
         var time = new GameTime
         {
@@ -131,6 +167,12 @@ public sealed class HeadlessHost : IDisposable
             FramesPerSecond = _fps.Fps,
             FramesTimeMs = _fps.Ms,
         };
+        if (_profileTrace?.Update(Tree.IsLoading) == true)
+        {
+            Quit(ExitCode.Ok); // --profile-frames: the trace is written
+            return;
+        }
+
         Session.Update(time);
         Tree.Root.SetSize(_size); // recomputes the content scale once the session has applied the project's stretch
         Tree.Tick(time);
@@ -177,6 +219,8 @@ public sealed class HeadlessHost : IDisposable
         if (_disposed)
             return;
         _disposed = true;
+        _profileTrace?.Exit();
+        Profiler.Release(_profilerToken);
         Session.Shutdown(_exitCode);
         Tree.Shutdown();
         Tree.Servers.Dispose();

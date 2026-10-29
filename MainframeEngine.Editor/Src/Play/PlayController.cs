@@ -21,7 +21,10 @@ public sealed class PlayController : IDisposable
         Service = new PlayService(builder, launcher)
         {
             FfmpegPath = () => VideoFfmpeg.GameArgument(_workspace.Settings.VideoFfmpegPath),
+            // G15: launched games write native dumps into their own crash folder.
+            CrashDirectory = () => _workspace.Project.UserDataDirectory is { } userData ? Path.Combine(userData, "crashes") : null,
         };
+        Service.Crashed += OnCrashed;
         Service.GameLog += OnGameLog;
         Service.GameOutput += OnGameOutput;
         Service.BuildOutput += OnBuildOutput;
@@ -429,6 +432,12 @@ public sealed class PlayController : IDisposable
             return false;
         }
 
+        if (_workspace.Export.IsRunning)
+        {
+            Log.Info($"[Play] {ExportService.BusyText}");
+            return false;
+        }
+
         buildPath = project.BuildPath;
         desktopProject = project.DesktopProject;
         return true;
@@ -478,6 +487,9 @@ public sealed class PlayController : IDisposable
     }
 
     private void OnGameLog(PlayInstance instance, LogEntry entry) => _workspace.Output.AddGame(entry, LabelFor(instance));
+
+    // G15: one expandable error row per crash, under the game's own log lines.
+    private void OnCrashed(PlayInstance instance) => _workspace.Output.AddCrash(OutputCrash.From(instance));
 
     private void OnGameOutput(PlayInstance instance, string line)
     {
@@ -561,6 +573,7 @@ public sealed class PlayController : IDisposable
     {
         Service.GameLog -= OnGameLog;
         Service.GameOutput -= OnGameOutput;
+        Service.Crashed -= OnCrashed;
         Service.BuildOutput -= OnBuildOutput;
         Service.BuildFinished -= OnBuildFinished;
         Service.RecordingFinished -= OnRecordingFinished;

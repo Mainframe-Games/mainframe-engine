@@ -175,6 +175,9 @@ public sealed class FakeGame : IGameProcess
 
     public bool TryReadOutput(out string line) => _output.TryDequeue(out line!);
 
+    /// <summary>G15: sent on the link (protocol 5) when <see cref="TriggerCrash"/> ends the game, before it dies.</summary>
+    public EditorLinkCrashReport? CrashReport { get; set; }
+
     /// <summary>Makes the game die: a stderr line, no goodbye, exit code <see cref="CrashExitCode"/>.</summary>
     public void TriggerCrash()
     {
@@ -348,6 +351,8 @@ public sealed class FakeGame : IGameProcess
             return KilledExitCode;
         }
 
+        if (CrashReport is { } report)
+            client?.SendCrashReport(report, TimeSpan.FromSeconds(2));
         client?.Dispose(); // dies without a goodbye
         _output.Enqueue("[stderr] Unhandled exception. System.InvalidOperationException: boom");
         return CrashExitCode;

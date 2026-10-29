@@ -96,6 +96,9 @@ public sealed class ProjectSettings
     /// <summary>Save games (<see cref="SaveServer"/>): size limit, backups, compression and thumbnails.</summary>
     public SavesProjectSettings Saves { get; } = new();
 
+    /// <summary>Crash reports (<see cref="CrashReporter"/>, G15): the prompt, GPU breadcrumbs, native dumps and the upload endpoint.</summary>
+    public CrashProjectSettings Crash { get; } = new();
+
     /// <summary>
     /// The Steam app id this build starts Steam with (<see cref="EngineOptions.SteamAppId"/>):
     /// <see cref="SteamProjectSettings.DemoAppId"/> for a demo (<see cref="IsDemo"/>), else
@@ -111,6 +114,12 @@ public sealed class ProjectSettings
     /// own game arguments and start delay, e.g. a host and two tiled joiners. Empty: the command plays the main scene once.
     /// </summary>
     public List<PlayInstanceSettings> PlayInstances { get; } = [];
+
+    /// <summary>
+    /// The <c>export</c> section: presets for the editor's File › Export, <c>mf-export</c> and (M12.7) mobile exports
+    /// (docs/design/game-export.md). Names are unique. Exported builds carry none.
+    /// </summary>
+    public List<ExportPreset> ExportPresets { get; } = [];
 
     /// <summary>The file these settings were loaded from or last saved to (null for in-memory settings).</summary>
     public string? FilePath { get; internal set; }
@@ -163,6 +172,7 @@ public sealed class ProjectSettings
     public EngineOptions ToEngineOptions() => new()
     {
         EnableFrameCapture = Saves.Thumbnails,
+        GpuBreadcrumbs = Crash.Enabled && Crash.GpuBreadcrumbs,
         GameName = Window.Title ?? Name,
         WindowSize = new Vector2D<int>(Window.Width, Window.Height),
         WindowMode = Window.Mode,
@@ -650,6 +660,109 @@ public sealed class SavesProjectSettings
             field = value;
         }
     } = DefaultThumbnailHeight;
+}
+
+/// <summary>Whether the next start shows the player <see cref="CrashPrompt"/> (<c>crash.prompt</c>).</summary>
+public enum CrashPromptMode
+{
+    /// <summary>Show the prompt once per unhandled report (default).</summary>
+    Ask,
+
+    /// <summary>No prompt: the game has its own flow (<see cref="CrashReporter.PendingReports"/>).</summary>
+    None,
+}
+
+/// <summary>Native dumps for shipped desktop games (<c>crash.nativeDumps</c>, ADR 0221): the .NET runtime's <c>createdump</c>.</summary>
+public enum NativeDumpMode
+{
+    /// <summary>No dumps (default): native crashes are noticed through the session sentinel only.</summary>
+    Off,
+
+    /// <summary>Triage dumps: stacks, no memory (small).</summary>
+    Triage,
+
+    /// <summary>Mini dumps: stacks and some memory (tens of MB).</summary>
+    Mini,
+
+    /// <summary>Heap dumps: the managed heap too (hundreds of MB).</summary>
+    Heap,
+}
+
+/// <summary>What <see cref="HttpCrashUploader"/> sends (<c>crash.upload.format</c>).</summary>
+public enum CrashUploadFormat
+{
+    /// <summary>A Sentry envelope (an event, breadcrumbs, attachments) to <c>/api/&lt;project&gt;/envelope/</c> of the DSN.</summary>
+    SentryEnvelope,
+
+    /// <summary>A multipart POST of the bundle as a zip to the game's own endpoint.</summary>
+    Zip,
+}
+
+/// <summary>When reports are sent (<c>crash.upload.mode</c>).</summary>
+public enum CrashUploadMode
+{
+    /// <summary>Only when the player presses Send report (default).</summary>
+    Ask,
+
+    /// <summary>On the next start while the player's consent (<see cref="CrashReporter.UploadConsent"/>) is on.</summary>
+    Consented,
+}
+
+/// <summary>The <c>crash.upload</c> object: where and how reports go (nothing is sent without <see cref="Url"/>).</summary>
+public sealed class CrashUploadSettings
+{
+    /// <summary>The endpoint: a Sentry DSN (<c>https://key@host/project</c>) or the game's URL; empty sends nothing.</summary>
+    public string Url { get; set; } = "";
+
+    public CrashUploadFormat Format { get; set; }
+
+    public CrashUploadMode Mode { get; set; }
+
+    /// <summary>Send <c>log.txt</c> (game logs can hold player names or chat; ADR 0222 keeps the default on).</summary>
+    public bool IncludeLog { get; set; } = true;
+
+    /// <summary>Send native dumps (large, and they hold memory).</summary>
+    public bool IncludeDumps { get; set; }
+}
+
+/// <summary>The <c>crash</c> section of <c>project.mfproj</c> (docs/design/crash-reporting.md). Every key is optional.</summary>
+public sealed class CrashProjectSettings
+{
+    /// <summary>Report crashes at all (default true).</summary>
+    public bool Enabled { get; set; } = true;
+
+    public CrashPromptMode Prompt { get; set; }
+
+    /// <summary>Log entries kept for a report (<c>logEntries</c>, 1–10000, default 200).</summary>
+    public int LogEntries
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 10_000);
+            field = value;
+        }
+    } = CrashReporterOptions.DefaultLogEntries;
+
+    /// <summary>Bundles kept (<c>maxReports</c>, 1–1000, default 10).</summary>
+    public int MaxReports
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 1000);
+            field = value;
+        }
+    } = CrashReporterOptions.DefaultMaxReports;
+
+    /// <summary>Per-pass GPU breadcrumbs, so a lost device names the passes in flight (default true; <see cref="EngineOptions.GpuBreadcrumbs"/>).</summary>
+    public bool GpuBreadcrumbs { get; set; } = true;
+
+    public NativeDumpMode NativeDumps { get; set; }
+
+    public CrashUploadSettings Upload { get; } = new();
 }
 
 /// <summary>One process of <see cref="ProjectSettings.PlayInstances"/>.</summary>

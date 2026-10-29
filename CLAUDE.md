@@ -24,6 +24,7 @@ just template-smoke   # dotnet new mfgame against this checkout, build it, run i
 just template-smoke-package  # the same against this checkout packed as the MainframeEngine package; also publishes
 just pack [version]   # NuGet: MainframeEngine + MainframeEngine.Templates → artifacts/nuget (build/pack-nuget.sh; nuget.org on release)
 just publish-local    # package the editor like the release workflow (artifacts/release)
+just export [args]    # mf-export: a game's export presets from project.mfproj (--preset, --all, --list; G5, docs/design/game-export.md)
 just l10n-check       # committed .mo files match their .po (CI runs it)
 just l10n-engine      # the engine's own strings (settings menu, input names) → Assets/UI/settings/settings.pot
 just docs             # the docs site (Astro Starlight, docs-site/) with live reload; just docs-build = the Pages build
@@ -90,6 +91,10 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   see `docs/design/particles-3d.md`
 - Paths (ADR 0215): `Scene/Nodes3D/Paths/` (`Path3D`, `PathFollow3D`: progress, rotation modes, `Speed`) over `Resources/Curve3D.cs`
   (`Closed`, tangents, `UpVectorEnabled`); see `docs/design/paths.md`
+- `MainframeEngine/Src/Navigation/` — G3a ([ADRs 0227/0228](memory/decisions/0227-grid-navigation-core.md)): `AStarGrid2D` (Godot's grid
+  A*, jump point search, span queries, 0 B, deterministic), `AStar2D`/`AStar3D`, `NavigationServer2D` (one map per
+  `World2D`, synced after each fixed step), `Nodes2D/` (`NavigationGrid2D` + `NavigationGridData`, `NavigationAgent2D`),
+  `Baking/` (`INavigationGridBaker` seam, the physics baker through queries only); see `docs/design/navigation.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform + event tracks), `AnimationLibrary`, `AnimationPlayer` (ADR 0207);
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
@@ -129,13 +134,19 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   (`SteamworksLoader` loads this OS's shim build; see `docs/design/steamworks.md`)
 - `MainframeEngine/Src/Debugging/` — `Log` + `ILogSink` sinks (console, rotating file, memory ring); `DevOverlay/` — the F12 developer
   overlay (RmlUi panels; games add panels with `DevOverlay.AddPanel`; see `docs/design/dev-overlay.md`)
+- `MainframeEngine/Src/Debugging/Profiling/` — the G10 frame profiler: static `Profiler` (consumers via `Acquire`/`Release`;
+  `ProfilerMarker`/`ProfilerScope`/`ProfilerCounter`, 0 B recording; other threads record once `SetThreadName`d), history ring
+  + spikes (`ProfilerSnapshot`), trace export (`ChromeTraceWriter`, `--profile`/`--profile-trace`/`--profile-frames`),
+  `EngineMarkers`/`EngineCounters`; GPU zones in `Rendering/Vulkan/GpuProfiler.cs` (the one timestamp pool, debug-utils labels;
+  pass-level timing always on); the overlay's Profiler section (`DevOverlay/DevOverlayProfiler.cs`); the editor's Profiler tab
+  (`MainframeEngine.Editor/Src/UI/ProfilerPanel.cs`). See `docs/design/profiler.md`
 - `MainframeEngine/Src/Localization/` — `Tr` (gettext catalogs, locale switching), RML text contract, font fallback
 - `MainframeEngine/Src/Saves/` — G4 save games: `SaveServer` (slots, `.msave` header + payload, worker, durable writes with
   backups, recovery, thumbnails), `SaveSchema<T>` (game `JsonTypeInfo` + `JsonMigration`s; trim/AOT analyzers are errors
   here), `ISaveStorage`/`ICloudSaveBackend` (M13 seam). `Src/Serialization/` also holds `JsonMigrations`, `DurableFile`,
   `ConfigFile`; `Src/UI/Settings/` the drop-in `SettingsMenu`
 - `MainframeEngine/Src/Project/` — `ProjectSettings` (`project.mfproj`), `UserSettings` (`settings.json`), `GameHost`/`GameSession`, `GameAssemblyLoader`
-  (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol (version 4: includes `StartRecording`/`StopRecording` and the `Recording` message), client and server
+  (collectible code reload), `DebouncedFileWatcher`; `Src/EditorLink/` — game ↔ editor protocol (version 5: includes `StartRecording`/`StopRecording` and the `Recording` message, and the profiler's `ProfilerStart`/`ProfilerStop` with `ProfileMarkers`/`ProfileFrame`/`ProfileDropped`; `ProfilerStreamer`; and G15's `CrashReport` message), client and server
 - `Templates/MainframeEngine.Templates/` — `dotnet new mfgame` template, the `MainframeEngine.Templates` NuGet package
   (the editor ships a copy too; defaults to the `MainframeEngine` package of its own version, `--engine-source project`
   for a checkout; `build/template-smoke.sh`)
@@ -161,6 +172,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   is `MainframeEngine.Editor/Src/Video/` (`VideoTab`, `VideoDocument`, `VideoView`, `VideoPanel`, the timeline, preview
   and transcript) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
+- `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
+  (presets in `project.mfproj`, publish, macOS bundle/signing, archives; replaces `package-game.sh`; ADRs 0229/0230);
+  `Tools/MainframeEngine.Symbolicate/` — `mf-symbolicate` for crash reports (G15)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Plugins/Facepunch.Steamworks/` — Facepunch.Steamworks 2.4.1 Win64/Posix builds (vendored, do not modify; Valve's
   matching `steam_api` natives are in `MainframeEngine/runtimes/<rid>/native`)

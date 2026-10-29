@@ -53,6 +53,13 @@ namespace MainframeEngine.Editor;
 /// box-select x0 y0 x1 y1 [shift|cmd] [hold]   # a selection rectangle; hold keeps the button down until mouse-up (G7.4)
 /// mouse-up / lock Node/Path   # releases a held box; toggles a node's viewport lock (G7.4)
 /// simulate start|pause|stop|keep        # Simulate in the view (G7.5)
+/// profile tab|output|record|stop|pause|editor|slowest   # the Profiler tab (G10): show it or Output, Record from the
+///                             # running game (or the editor), stop, pause, profile the editor, select the slowest frame
+/// profile save file.json      # writes the Profiler tab's frames (else the editor's own history) as a trace into --qa-out
+/// wait-for profiled 120 [seconds]       # until the Profiler tab holds 120 frames
+/// export open|close|select 2|add linux|add host|run|run-all|cancel   # File › Export (G5): the dialog, a preset, an export
+/// export set demo true / export exclude Assets/Music/**   # an option of the selected preset; an exclude glob
+/// wait-for exported [seconds]           # until no export runs
 /// quit
 /// </code>
 /// </summary>
@@ -331,7 +338,9 @@ public sealed class EditorQaScript : IEditorAutomation
                     workspace.Message.Answer(message.DefaultButton);
                 break;
             case "cancel":
-                if (workspace.SignalDialog.Visible)
+                if (workspace.SheetSlicer.Visible)
+                    workspace.SheetSlicer.Cancel();
+                else if (workspace.SignalDialog.Visible)
                     workspace.SignalDialog.Cancel();
                 else if (workspace.NewProject.Visible)
                     workspace.NewProject.Cancel();
@@ -352,6 +361,9 @@ public sealed class EditorQaScript : IEditorAutomation
                 _pendingCapture = step.Length > 1 ? step[1] : $"frame{_index}";
                 app.CaptureFrame();
                 break;
+            case "profile":
+                Profile(workspace, step);
+                break;
             case "log":
                 Log.Info($"[QA] {string.Join(' ', step[1..])}");
                 break;
@@ -367,6 +379,17 @@ public sealed class EditorQaScript : IEditorAutomation
             case "clear-output":
                 workspace.Output.Clear();
                 workspace.OutputPanel.Refresh();
+                break;
+            case "export":
+                RunExportStep(workspace, step);
+                break;
+            case "crash-row":
+                // G15: a played game's crash as the Output panel shows it (expanded), for screenshots.
+                QaCrashSamples.AddCrashRow(workspace);
+                break;
+            case "crash-dialog":
+                // G15: the editor's next-start crash dialog for a sample report with a recovery copy of the open scene.
+                QaCrashSamples.ShowCrashDialog(workspace, _outputDirectory);
                 break;
             case "inspect":
                 // A resource file in the inspector (the FileSystem panel's double-click on an .mres).
@@ -436,6 +459,15 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "wait-for" when step.Length > 2 && step[1] == "profiled":
+                {
+                    var frames = Int(step, 2, 1);
+                    _waitFor = w => w.ProfilerPanel.Capture.Count >= frames;
+                    _waitForDeadline = step.Length > 3 ? Float(step, 3) : 120;
+                    _waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
+                    break;
+                }
+
             case "wait-for":
                 _waitFor = step[1] switch
                 {
@@ -447,6 +479,7 @@ public sealed class EditorQaScript : IEditorAutomation
                     "render" => static w => w.SongView.Renders.Count == 0,
                     "bake" => static w => w.SongView.Bakes.Count == 0,
                     "video-jobs" => static w => VideoJobsIdle(w.Session.ActiveTab as Video.VideoTab),
+                    "exported" => static w => !w.Export.IsRunning,
                     _ => throw new ArgumentException($"Unknown wait-for '{step[1]}'."),
                 };
                 _waitForDeadline = step.Length > 2 ? Float(step, 2) : 120;
@@ -481,6 +514,52 @@ public sealed class EditorQaScript : IEditorAutomation
             case "fs-select":
                 workspace.FileSystem.Select(Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[1..])));
                 break;
+            case "camera2d":
+                // camera2d <x> <y> <zoom>: the active 2D tab's view centre (pixels) and zoom.
+                if (workspace.Session.Active is { } scene2D)
+                {
+                    scene2D.Camera.Center2D = new Vector2(Float(step, 1), Float(step, 2));
+                    scene2D.Camera.Zoom2D = Float(step, 3);
+                }
+
+                break;
+            case "tilemap-pick":
+                // tilemap-pick <source> <x,y …>: the TileMap palette's tiles (G2b): the brush the paint tools put down.
+                workspace.TileMap.SelectTiles((int)Float(step, 1), step[2..].Select(Cell).ToArray());
+                break;
+            case "tileset-tile":
+                // tileset-tile <source> <x,y> setup|select|collision: the TileSet tab on one tile, in that mode.
+                workspace.ShowBottomTab(BottomDockTab.TileSet);
+                workspace.TileMapPanel.SetMode(step[3] switch
+                {
+                    "select" => TileSetEditMode.Select,
+                    "collision" => TileSetEditMode.Collision,
+                    _ => TileSetEditMode.Setup,
+                });
+                workspace.TileMapPanel.SelectTile((int)Float(step, 1), Cell(step[2]));
+                break;
+            case "sheet-slicer":
+                {
+                    // sheet-slicer <image (project path)> <columns> <rows> [x,y …]: the Select Frames dialog (ADR 0224) on
+                    // an image of the project, split into a grid with those cells picked in order (a capture shows it).
+                    var image = step[1];
+                    var texture = ResourceLoader.Load<Texture2D>(image);
+                    workspace.SheetSlicer.Show(image, new Vector2I(texture.Width, texture.Height), "Select Frames — " + Path.GetFileName(image),
+                        static (_, _) => { });
+                    workspace.SheetSlicer.SetField("cols", (int)Float(step, 2));
+                    workspace.SheetSlicer.SetField("rows", (int)Float(step, 3));
+                    foreach (var cell in step[4..])
+                    {
+                        var comma = cell.IndexOf(',', StringComparison.Ordinal);
+                        workspace.SheetSlicer.Model!.Toggle(new Vector2I(
+                            int.Parse(cell.AsSpan(0, comma), NumberStyles.Integer, CultureInfo.InvariantCulture),
+                            int.Parse(cell.AsSpan(comma + 1), NumberStyles.Integer, CultureInfo.InvariantCulture)));
+                    }
+
+                    workspace.SheetSlicer.SetField("cols", (int)Float(step, 2)); // re-renders with the picks
+                    break;
+                }
+
             case "inspector-header":
                 // A custom inspector header button by its data-action (the sound designer's presets, Export .wav …).
                 workspace.Inspector.RunHeaderAction(step[1]);
@@ -648,6 +727,47 @@ public sealed class EditorQaScript : IEditorAutomation
     internal static bool VideoJobsIdle(Video.VideoTab? tab) =>
         tab is null || (tab.WaveformJob is null && tab.SilenceJob is null && tab.TranscribeJob is null && tab.ExportJob is null);
 
+    // export open|close|select <index>|add <platform>|run|run-all|cancel: File › Export (G5) for QA and screenshots.
+    private static void RunExportStep(EditorWorkspace workspace, string[] step)
+    {
+        var dialog = workspace.ExportDialog;
+        switch (step.Length > 1 ? step[1] : "")
+        {
+            case "open":
+                dialog.Open();
+                break;
+            case "close":
+                dialog.RequestClose();
+                break;
+            case "select" when step.Length > 2:
+                dialog.Select(int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture));
+                break;
+            case "add" when step.Length > 2 && step[2] == "host":
+                dialog.AddPreset(ExportTargets.PlatformOf(ExportTargets.CurrentHost));
+                break;
+            case "add" when step.Length > 2 && ExportPreset.TryParsePlatform(step[2], out var platform):
+                dialog.AddPreset(platform);
+                break;
+            case "set" when step.Length > 3 && dialog.Model is { } model:
+                model.Set(dialog.Selected, step[2], string.Join(' ', step[3..]));
+                break;
+            case "exclude" when step.Length > 2 && dialog.Model is { } model:
+                model.AddGlob(dialog.Selected, include: false, step[2]);
+                break;
+            case "run":
+                dialog.StartExport(all: false);
+                break;
+            case "run-all":
+                dialog.StartExport(all: true);
+                break;
+            case "cancel":
+                workspace.Export.Cancel();
+                break;
+            default:
+                throw new ArgumentException($"Unknown export step '{string.Join(' ', step)}' (open, close, select N, add windows|macos|linux|host, set key value, exclude glob, run, run-all, cancel).");
+        }
+    }
+
     /// <summary><c>wait-for video-position &lt;seconds&gt;</c>: true once <paramref name="tab"/>'s playhead is at or past <paramref name="seconds"/>.</summary>
     internal static bool VideoPositionReached(Video.VideoTab? tab, double seconds) => tab is not null && tab.State.Playhead >= seconds;
 
@@ -808,7 +928,58 @@ public sealed class EditorQaScript : IEditorAutomation
         _ => MouseButton.Left,
     };
 
+    // profile tab|output|record|stop|pause|editor|slowest · profile save <file> (G10).
+    private void Profile(EditorWorkspace workspace, string[] step)
+    {
+        var panel = workspace.ProfilerPanel;
+        switch (step.Length > 1 ? step[1] : "")
+        {
+            case "tab":
+                workspace.ShowBottomTab(BottomDockTab.Profiler);
+                break;
+            case "output":
+                workspace.ShowBottomTab(BottomDockTab.Output);
+                break;
+            case "record" when !panel.IsRecording:
+            case "stop" when panel.IsRecording:
+                panel.ToggleRecord();
+                break;
+            case "pause":
+                panel.SetPaused(!panel.IsPaused);
+                break;
+            case "editor":
+                panel.SelectEditorSource();
+                break;
+            case "slowest":
+                panel.PickSlowest();
+                break;
+            case "save" when step.Length > 2:
+                {
+                    var path = Path.IsPathRooted(step[2]) ? step[2] : Path.Combine(_outputDirectory, step[2]);
+                    if (panel.Capture.Count > 0)
+                        panel.SaveTrace(path);
+                    else
+                        Profiler.SaveTraceAsync(path, title: "Mainframe Editor").Wait();
+                    Log.Info($"[QA] profile saved {path}");
+                    break;
+                }
+
+            case "record" or "stop":
+                break;
+            default:
+                throw new ArgumentException("profile tab|output|record|stop|pause|editor|slowest|save <file>");
+        }
+    }
+
     private static float Float(string[] step, int at) => float.Parse(step[at], CultureInfo.InvariantCulture);
+
+    // "x,y" as a cell.
+    private static Vector2I Cell(string text)
+    {
+        var comma = text.IndexOf(',', StringComparison.Ordinal);
+        return new Vector2I(int.Parse(text.AsSpan(0, comma), NumberStyles.Integer, CultureInfo.InvariantCulture),
+            int.Parse(text.AsSpan(comma + 1), NumberStyles.Integer, CultureInfo.InvariantCulture));
+    }
 
     private static int Int(string[] step, int at, int fallback) =>
         step.Length > at && int.TryParse(step[at], CultureInfo.InvariantCulture, out var value) ? value : fallback;

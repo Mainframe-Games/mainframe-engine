@@ -139,6 +139,17 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void TheCrashPromptMatchesGolden()
+    {
+        // G15: the player's next-launch prompt for an earlier run's crash, with an upload endpoint (Send, Always send).
+        var result = HostRunner.Run("ui-crash-prompt", Output("ui-crash-prompt"), "--capture", "30", "--frames", "32", "--size", "960x600", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 30);
+    }
+
+    [Fact]
     public void UiCapturesAreDeterministicAcrossRuns()
     {
         var first = HostRunner.Run("ui-effects", Output("ui-determinism-a"), "--capture", "12", "--size", "480x270", "--hidden");

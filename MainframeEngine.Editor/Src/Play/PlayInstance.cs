@@ -121,6 +121,30 @@ public sealed class PlayInstance
     /// <summary>The first editor-link protocol with <c>StartRecording</c>/<c>StopRecording</c> and the <c>Recording</c> message.</summary>
     public const int MinRecordingProtocolVersion = 4;
 
+    /// <summary>
+    /// The crash report the game sent on the editor link before it died (protocol 5), or null: a native crash, a kill, an
+    /// older engine, or no crash at all.
+    /// </summary>
+    public CrashReport? Crash { get; internal set; }
+
+    /// <summary>The game's report bundle folder (from its link report), or null.</summary>
+    public string? CrashFolder { get; internal set; }
+
+    /// <summary>The native dump the runtime wrote for this process (the editor launches games with dumps on), or null.</summary>
+    public string? DumpPath { get; internal set; }
+
+    /// <summary>The exit code in words (<see cref="ExitCodes.Describe(int)"/>: <c>SIGSEGV, a native crash (exit code 139)</c>), or null while running.</summary>
+    public string? ExitDescription => ExitCode is { } code ? ExitCodes.Describe(code) : null;
+
+    /// <summary>The crash has been reported (the Output row was added).</summary>
+    internal bool CrashRaised { get; set; }
+
+    /// <summary>Crashed with a link that may still deliver a report: wait until then before reporting without one.</summary>
+    internal DateTime? CrashReportDeadlineUtc { get; set; }
+
+    /// <summary>The game's link streams profiler frames (G10: protocol <see cref="EditorLink.EditorLinkProtocol.ProfilerVersion"/> or later).</summary>
+    public bool CanProfile => ProtocolVersion >= EditorLink.EditorLinkProtocol.ProfilerVersion;
+
     internal IGameProcess? Process { get; set; }
 
     /// <summary>When the editor asked it to stop (null: never).</summary>

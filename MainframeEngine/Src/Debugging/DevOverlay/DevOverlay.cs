@@ -41,14 +41,20 @@ public sealed class DevOverlay : IServer, IFrameServer
         get => _visible;
         set
         {
+            var changed = _visible != value;
             _visible = value;
             if (value)
                 EnsureLayer();
             if (_layer is not null)
                 _layer.Visible = value;
             _sinceRefresh = _refreshInterval; // refresh on the next frame after showing
+            if (changed)
+                VisibleChanged?.Invoke();
         }
     }
+
+    /// <summary>Raised when <see cref="Visible"/> changes (and once on dispose, hidden).</summary>
+    public event Action? VisibleChanged;
 
     /// <summary>
     /// Adds a collapsible section whose body is <paramref name="rml"/>. <paramref name="bind"/> runs once the overlay
@@ -108,6 +114,12 @@ public sealed class DevOverlay : IServer, IFrameServer
 
     public void Dispose()
     {
+        if (_visible)
+        {
+            _visible = false;
+            VisibleChanged?.Invoke(); // consumers holding resources while shown (the Profiler section) let go
+        }
+
         if (_layer is { IsInsideTree: true })
             _layer.Free();
         _layer = null;

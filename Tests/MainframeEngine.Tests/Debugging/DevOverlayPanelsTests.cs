@@ -6,12 +6,12 @@ namespace MainframeEngine.Tests.Debugging;
 public sealed class DevOverlayPanelsTests
 {
     [Fact]
-    public void BuiltInsAreTheSevenPanelsInOrder()
+    public void BuiltInsAreTheEightPanelsInOrder()
     {
         using var ui = new UiTestTree();
         var overlay = new DevOverlay(ui.Tree);
         DevOverlayPanels.AddBuiltIns(overlay, engine: null);
-        Assert.Equal(["frame", "renderer", "shadows", "gpu", "audio", "physics", "network"], overlay.Panels.Select(p => p.Id));
+        Assert.Equal(["frame", "profiler", "renderer", "shadows", "gpu", "audio", "physics", "network"], overlay.Panels.Select(p => p.Id));
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public sealed class DevOverlayPanelsTests
         // No renderer/audio/physics/network servers registered: panels render "—" and RmlUi logs no warning or error.
         Assert.DoesNotContain(sink.Snapshot(), e => e.Category is "RmlUi" or "UI");
         var document = (UiDocument)ui.Tree.Root.GetNode<UiLayer>("DevOverlay").GetChild(0);
-        foreach (var id in new[] { "frame", "renderer", "shadows", "gpu", "audio", "physics", "network" })
+        foreach (var id in new[] { "frame", "profiler", "renderer", "shadows", "gpu", "audio", "physics", "network" })
             Assert.NotNull(document.QuerySelector($"[data-model=dev_{id}]"));
     }
 

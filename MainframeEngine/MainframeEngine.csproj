@@ -92,12 +92,25 @@
       <_MainframeSteamworksDir>$(MSBuildThisFileDirectory)..\MainframeEngine.Steamworks\</_MainframeSteamworksDir>
       <_MainframeFacepunchDir>$(MSBuildThisFileDirectory)..\Plugins\Facepunch.Steamworks\</_MainframeFacepunchDir>
     </PropertyGroup>
+    <!--
+      Where the two shim builds land: their project's bin/<cfg>/<tfm>/, or under the artifacts path when the build uses
+      the artifacts layout (a publish with an artifacts path: the editor's and mf-export's exports, ADR 0229). Items are
+      evaluated after every property, so these conditions see the SDK's final UseArtifactsOutput.
+    -->
+    <ItemGroup Condition="'$(UseArtifactsOutput)' != 'true'">
+      <_MainframeSteamworksWin64 Include="$(_MainframeSteamworksDir)Win64\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll" />
+      <_MainframeSteamworksPosix Include="$(_MainframeSteamworksDir)Posix\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(UseArtifactsOutput)' == 'true'">
+      <_MainframeSteamworksWin64 Include="$(ArtifactsPath)\bin\MainframeEngine.Steamworks.Win64\$(Configuration.ToLowerInvariant())\MainframeEngine.Steamworks.dll" />
+      <_MainframeSteamworksPosix Include="$(ArtifactsPath)\bin\MainframeEngine.Steamworks.Posix\$(Configuration.ToLowerInvariant())\MainframeEngine.Steamworks.dll" />
+    </ItemGroup>
     <ItemGroup Condition="'$(RuntimeIdentifier)' == '' or $(RuntimeIdentifier.StartsWith('win'))">
-      <None Include="$(_MainframeSteamworksDir)Win64\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll;$(_MainframeFacepunchDir)Facepunch.Steamworks.Win64.dll"
+      <None Include="@(_MainframeSteamworksWin64);$(_MainframeFacepunchDir)Facepunch.Steamworks.Win64.dll"
             Link="steamworks\win64\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
     <ItemGroup Condition="'$(RuntimeIdentifier)' == '' or !$(RuntimeIdentifier.StartsWith('win'))">
-      <None Include="$(_MainframeSteamworksDir)Posix\bin\$(Configuration)\$(TargetFramework)\MainframeEngine.Steamworks.dll;$(_MainframeFacepunchDir)Facepunch.Steamworks.Posix.dll"
+      <None Include="@(_MainframeSteamworksPosix);$(_MainframeFacepunchDir)Facepunch.Steamworks.Posix.dll"
             Link="steamworks\posix\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
 
@@ -155,8 +168,8 @@
                                              every assembly in the folder, so the natives it never calls are not needed)
         buildTransitive/                     build/package/MainframeEngine.props/.targets, MainframeGame.props,
                                              Localization.targets and macos/ (the files checkout games import directly)
-        tools/package-game.sh, tools/macos/  player builds (build/package-game.sh and the png-to-icns.sh, sign-app.sh it runs); games
-                                             find it through MainframePackageGameScript (MainframeGame.props)
+        tools/mf-export/                     mf-export, the player-build exporter (Tools/MainframeEngine.Export.Cli, packed like
+                                             mf-l10n); games find it through MainframeExportTool (MainframeGame.props)
         README.md, icon.png
     -->
     <ItemGroup>
@@ -166,8 +179,6 @@
             Pack="true" PackagePath="buildTransitive/" Visible="false" />
       <None Include="..\build\macos\DevAppBundle.targets;..\build\macos\BundleAppHost.targets;..\build\macos\Info.plist.in;..\build\macos\png-to-icns.sh"
             Pack="true" PackagePath="buildTransitive/macos/" Visible="false" />
-      <None Include="..\build\package-game.sh" Pack="true" PackagePath="tools/" Visible="false" />
-      <None Include="..\build\macos\png-to-icns.sh;..\build\macos\sign-app.sh" Pack="true" PackagePath="tools/macos/" Visible="false" />
     </ItemGroup>
 
     <Target Name="_MainframePackReferencedAssemblies" DependsOnTargets="ResolveProjectReferences">
@@ -192,14 +203,25 @@
       </MSBuild>
       <Error Condition="!Exists('$(_MainframeL10nAssembly)')" Code="MFPACK001"
              Text="mf-l10n is not built ($(_MainframeL10nAssembly)). Pack the engine with build/pack-nuget.sh (just pack), which builds it first." />
+      <!-- mf-export (references this project through the export library): built first by build/pack-nuget.sh, like mf-l10n. -->
+      <MSBuild Projects="..\Tools\MainframeEngine.Export.Cli\MainframeEngine.Export.Cli.csproj" Targets="GetTargetPath"
+               RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained">
+        <Output TaskParameter="TargetOutputs" PropertyName="_MainframeExportAssembly" />
+      </MSBuild>
+      <Error Condition="!Exists('$(_MainframeExportAssembly)')" Code="MFPACK002"
+             Text="mf-export is not built ($(_MainframeExportAssembly)). Pack the engine with build/pack-nuget.sh (just pack), which builds it first." />
       <PropertyGroup>
         <_MainframeL10nDir>$([System.IO.Path]::GetDirectoryName('$(_MainframeL10nAssembly)'))/</_MainframeL10nDir>
+        <_MainframeExportDir>$([System.IO.Path]::GetDirectoryName('$(_MainframeExportAssembly)'))/</_MainframeExportDir>
       </PropertyGroup>
       <ItemGroup>
         <_MainframeL10nFile Include="$(_MainframeL10nDir)*.dll;$(_MainframeL10nDir)mf-l10n.runtimeconfig.json"
                             Exclude="$(_MainframeL10nDir)enet.dll;$(_MainframeL10nDir)mfrmlui.dll;$(_MainframeL10nDir)mfsvg.dll" />
         <TfmSpecificPackageFile Include="@(_MainframeGeneratorAssembly)" PackagePath="analyzers/dotnet/cs/%(Filename)%(Extension)" />
         <TfmSpecificPackageFile Include="@(_MainframeL10nFile)" PackagePath="tools/mf-l10n/%(Filename)%(Extension)" />
+        <_MainframeExportFile Include="$(_MainframeExportDir)*.dll;$(_MainframeExportDir)mf-export.runtimeconfig.json"
+                              Exclude="$(_MainframeExportDir)enet.dll;$(_MainframeExportDir)mfrmlui.dll;$(_MainframeExportDir)mfsvg.dll;$(_MainframeExportDir)steam_api64.dll" />
+        <TfmSpecificPackageFile Include="@(_MainframeExportFile)" PackagePath="tools/mf-export/%(Filename)%(Extension)" />
         <_MainframeContentFile Include="@(AllItemsFullPathWithTargetPath)" PackagePath="mainframe/$([System.String]::Copy('%(AllItemsFullPathWithTargetPath.TargetPath)').Replace('\', '/'))" />
         <_MainframeContentFile Remove="@(_MainframeContentFile)" Condition="!($([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/Assets/')) or $([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/steamworks/'))) or '%(_MainframeContentFile.Extension)' == '.pot'" />
         <TfmSpecificPackageFile Include="@(_MainframeContentFile)" />

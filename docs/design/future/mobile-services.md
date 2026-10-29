@@ -426,7 +426,9 @@ always **behind `ConsentServer`**.
 ### Analytics and crash reporting
 
 - **Crash reporting**, built in layers:
-  1. **Engine-level, always available, no SDK.**
+  1. **Engine-level, always available, no SDK.** Shipped on desktop by G15 ([Crash reporting](../crash-reporting.md)):
+     `CrashReporter`, `CrashReport` (`report.json`, with the null `device.tier`/`thermalState` fields mobile fills),
+     `PendingReports` and `ICrashSink` (`RunsBeforeWrite` for the Sentry shim) are this layer unchanged.
      - `AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException` and the audio thread's captured fault
        write a crash file to user data on the way down: exception chain, last 200 log entries from a
        `MemoryLogSink`, device, OS, engine and game version, tier, thermal state.

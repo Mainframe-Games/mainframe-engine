@@ -112,17 +112,18 @@ flowchart TB
 
 | Panel | Document | What it does |
 |---|---|---|
-| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid, Switch to Video Mode), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Play and Record / Start Recording / Stop Recording, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right. Video mode has its own tables: File, Edit, View, Video, Help ([Editor modes](#editor-modes)) |
-| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Pivot (median `point`, active `target`, individual `circles`; click cycles), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles); Simulate (Alt+F6, `atom`; `player-stop` while it runs) and Pause Simulation; the play group — Play (F5), Play Scene (F6), Play and Record (F10, a red `point-filled` icon that is highlighted red (dark red fill, red border, white icon) while recording; its tooltip names what F10 does now), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload/recording status (a red dot and `REC m:ss` while recording, `Saving recording…` while the file is finalised); on the right the Game\|Video mode toggle, Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout. Video mode swaps the left groups for the video toolbar ([Editor modes](#editor-modes)) |
+| Menu bar | `menubar.rml` | The C3 logo mark (About), File (New/Open Scene, New/Open Project, Project Manager, Save, Save As, Export…, Close, Quit), Edit (Undo/Redo with the action names, Undo History, Add Node, Instance Scene, Rename, Duplicate, Delete), View (frame, axis views, reset, 2D/3D view, grid, Switch to Video Mode), Project (Project Settings, Open User Data Folder, Build & Reload Code, Reload Code, Editor Settings, Close Project), Run (Play, Play Scene, Play and Record / Start Recording / Stop Recording, Run Another Instance, Pause/Resume, Reload Scene in Game, Stop), Help (Documentation, shortcuts, Check for Updates…, about) — every item with a leading icon and its shortcut; the scene's icon and name and an unsaved dot on the right. Video mode has its own tables: File, Edit, View, Video, Help ([Editor modes](#editor-modes)) |
+| Toolbar | `toolbar.rml` | Icon tool buttons with tooltips: Select/Move/Rotate/Scale (Q/W/E/R), Global/Local (T, the icon switches world/cube), Pivot (median `point`, active `target`, individual `circles`; click cycles), Snap (Y) + move step, Frame (F), Grid (G), Preview Post-Processing (sparkles), Visible Navigation (route); Simulate (Alt+F6, `atom`; `player-stop` while it runs) and Pause Simulation; the play group — Play (F5), Play Scene (F6), Play and Record (F10, a red `point-filled` icon that is highlighted red (dark red fill, red border, white icon) while recording; its tooltip names what F10 does now), Pause (F7), Stop (F8), Build & Reload (Ctrl+Shift+B), Open User Data Folder (folder-user) — with a chip per running instance (status icon, label; click for its menu) and a build/reload/recording status (a red dot and `REC m:ss` while recording, `Saving recording…` while the file is finalised); on the right the Game\|Video mode toggle, Documentation (book, F1: the [docs site](docs-site.md) in the browser), the update badge and the fps / frame-time readout. Video mode swaps the left groups for the video toolbar ([Editor modes](#editor-modes)) |
 | Scene tree | `scene_tree.rml` | The hierarchy with a type icon tinted by family per row (name and type in its tooltip); badges for configuration warnings (`NodeWarnings`), instanced sub-scenes (their insides are not listed) and scripts (game types; tool scripts); a lock (shown on hover, amber when locked: the viewport cannot pick, box-select or move the node; undoable) and an eye toggling `Visible` (undoable); expand/collapse, click / Cmd+click / Shift+click, drag onto a row's middle to reparent or onto its top/bottom edge to reorder (global transform kept), double-click/F2 rename, right-click menu with icons (add child, instance scene, rename, duplicate, move up/down, delete); Add/Instance as header icon buttons |
 | Viewport | `viewport.rml` | Scene tabs (the root node's icon, title with `*` when dirty, file path tooltip, close ×, +), the 3D view, the view's mode with an icon in the corner, an empty-state hint |
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
 | Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`): level icon, time, category icon (subsystem; name in the tooltip), text, ×N for folded repeats, a link to the logging source line (opens `MAINFRAME_CODE_EDITOR`, VS Code or the system app). Header: per-level toggles with counts, filter field, Collapse Duplicates, Follow, Copy, Clear (filters and toggles persisted) |
+| Profiler | `profiler.rml` | The bottom dock's second tab (G10, [Profiler → Editor Profiler tab](profiler.md#editor-profiler-tab)): source picker (each running game, or the editor itself), Record, Pause, Clear, GPU zones, spike threshold and auto-freeze, Save / Open trace; a 240-bar frame graph, a timeline of the selection (Main, other threads, GPU), the scope table and the frame's counters |
 | File system | `filesystem.rml` | The project's files (Simplified: Assets and Scripts; or the whole folder) as a tree, list or thumbnail grid ([FileSystem panel](#filesystem-panel)) |
 | Splitters | `splitters.rml` | Four drag handles (left dock, right dock, output, scene tree / file system) |
 | Project Manager, New Project | `project_manager.rml`, `new_project.rml` | Layer 40 above the panels ([Projects](#projects)) |
 | Settings dialogs | `project_settings.rml`, `editor_settings.rml`, `connect_signal.rml` | Project Settings, Editor Settings, Connect Signal |
-| Dialogs | `tree_picker.rml`, `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml` | The create dialog (Add Node, New Resource, Instance Scene; below), modal file picker with file-type icons (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (node paths), message box / prompt with a title icon, popup menus |
+| Dialogs | `tree_picker.rml`, `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml`, `sheet_slicer.rml` | The create dialog (Add Node, New Resource, Instance Scene; below), modal file picker with file-type icons (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (node paths), message box / prompt with a title icon, popup menus, Select Frames (sprite sheet slicing, [Animated sprites](animated-sprites.md#editor)) |
 | Tooltips | `tooltip.rml` | Its own layer above the dialogs ([Tooltips](#tooltips)) |
 | Splash | `splash.rml` | Logo, "Mainframe Editor", "vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts and while a scene loads, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch |
 
@@ -135,13 +136,18 @@ flowchart TB
   dock widths, output height, scene tree share), clamped to minimums; each document body is positioned in dp. Sizes,
   the window size and the output filter persist in **`~/.mainframe/editor_layout.json`** (user profile on every OS,
   written atomically; unreadable, newer or nonsensical files fall back to defaults).
+- **Bottom dock tabs** (G10): the Output and Profiler panels share the output rectangle; an **Output | Profiler** tab
+  strip in each one's header switches them (`BottomDockTab`, `EditorWorkspace.ShowBottomTab`; the active tab persists
+  with the layout as `BottomTab`). There is no new layout rectangle. G2b adds the contextual **TileMap** and **TileSet**
+  tabs (one `TileMapPanel`, `tilemap.rml`) while a tile map layer or tile set is edited; they are never persisted.
 - **Lists are data-bound** (no work on idle frames); the inspector is generated RML updated in place (see below).
 - The F12 developer overlay ([Developer overlay](dev-overlay.md)) is off by default in the editor; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
 
 ### Keyboard shortcuts
 
 Cmd (macOS) or Ctrl: N new · O open · S save · Shift+S save as · W close tab · Q quit · Z undo · Shift+Z / Y redo ·
-D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload. Plain keys:
+D duplicate · A add node · Shift+A instance scene · Up/Down move in tree · Shift+B build & reload · Shift+E File ›
+Export. Plain keys:
 Delete/Backspace delete, F1 documentation (the [docs site](docs-site.md) in the browser), F2 rename, F frame, G grid,
 Q/W/E/R tool, T local/global, Y snap, 1/3/7 front/right/top, F5 play (Shift+F5 another instance), F6 play the open
 scene, Alt+F6 simulate / stop ([Simulate](#simulate)), F7 pause/resume, F8 stop, F9 RmlUi debugger, F10 play and record
@@ -411,6 +417,11 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
   (physics debug draw; edit-mode joints are grey at their nodes). The **selected joint** (ADR 0211) is drawn on top in
   the selection colour (`Joint3D/Joint2D.DrawDebug`: axis, limits, current angle or position) with a line to each body
   its paths name, or a red marker for a path that names none ([Physics joints](physics-joints.md#debug-draw-and-editor)).
+- **Visible Navigation** (toolbar `route` button after Preview Post-Processing and View menu, `view.navigation`; on by
+  default like collision shapes, G3a): `ViewportController.NavigationVisible`, applied every frame to the editor tree's
+  `NavigationServer2D.DebugDrawEnabled`, draws the edited scenes' navigation grids (outline, cells, solid and dashed
+  weighted cells) and agent paths and targets. A selected `NavigationAgent2D` draws its `TargetDesiredDistance` and
+  `PathDesiredDistance` circles around its body and a line to its target ([Navigation → Editor](navigation.md#editor)).
 - **Preview Post-Processing** (toolbar `sparkles` button and View menu, `view.post`; on by default; ADR 0169): the 3D view
   runs the edited world's post-processing (`SubViewport.PostProcessing`): its `WorldEnvironment`'s profile and lens with
   the open project's `rendering.antiAliasing`, `taaSharpness` and `exposure`, as the game shows them (TAA, SSAO, auto
@@ -437,7 +448,14 @@ Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plan
 3D View switches any tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)). Middle or right drag (or Alt+left)
 pans, the wheel zooms around the mouse, F frames the selection. A pixel grid (power-of-two steps at least 16 screen
 pixels apart, every 8th brighter, coloured axes), Node2D markers, collision shape outlines and Camera2D frames are
-drawn. Picking is on the CPU (rectangle and circle shapes, then node origins; later nodes are on top).
+drawn. Picking is on the CPU (rectangle and circle shapes, then node origins, then painted cells of `TileMapLayer`s,
+then the drawn rects of `Sprite2D`s and `AnimatedSprite2D`s; later nodes are on top).
+**Tile maps** (G2b, ADR 0226): while the selection is a `TileMapLayer` with a `TileSet`, a paint bar overlays the top of
+the view (select, paint, line, rect, bucket, picker, eraser; random scatter, flips and turns, layer switcher, highlight,
+grid), the left button paints and the right button erases with the tool (one undo entry per stroke), a ghost of the
+brush follows the mouse, Godot's tile keys win over E/R only while a paint tool is active, and the contextual
+**TileMap** (palette) and **TileSet** (sources, tiles, tile data, collision) bottom tabs appear: [Tile maps →
+Editor](tile-maps.md#editor).
 `TransformGizmo2D` (axis arrows and a free-move square, a rotation ring, scale handles) shares the tool, space and snap
 settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. 2D tabs render through
 the canvas renderer (sprites, Spine, custom drawing, shaders) with the editor's shapes, markers and camera frames on top.
@@ -727,6 +745,9 @@ link ([Project & game host](project-and-gamehost.md)).
 | Reload Scene in Game | Run menu, instance menu | the game re-reads its current scene from disk |
 | Build & Reload | Ctrl/Cmd+Shift+B | build, then reload the editor's game code |
 
+While an [export](#export) runs, Play, Play Scene and Build & Reload are disabled (their tooltips say why); an export
+started during a Play or Build & Reload build waits for it.
+
 - **Arguments:** host flags from a request come before `--editor-port`/`--scene`; anything from `++` on (the game's own) after them. Every launch passes `--frame-capture` just before `--editor-port`, so recording can start mid-session.
 - Before a code reload `ReleaseEditorReferences` also clears the canvas server's last frame and its per-node targets (`CanvasServer.ReleaseSceneReferences`), which would otherwise keep the 2D tabs' game nodes alive.
 - **Build errors** (`GameBuilder`: `-v:minimal -p:GenerateFullPaths=true`) are parsed into Output lines of category
@@ -736,14 +757,65 @@ link ([Project & game host](project-and-gamehost.md)).
   only until the game connects, or when it crashes before connecting.
 - **Instances** (`PlayService`): each is a chip in the toolbar (status icon — launching, running, paused, exited,
   crashed — and label); clicking it opens its menu (pause/resume, reload scene, stop, clear). A hello is matched to its
-  instance by process id. Exit code 0 or a requested stop is *exited*, anything else *crashed* (the exit code is
-  logged).
+  instance by process id. Exit code 0 or a requested stop is *exited*, anything else *crashed*; the chip's tooltip names
+  the exit in words (`ExitCodes.Describe`: `SIGSEGV, a native crash (exit code 139)`, Windows NTSTATUS names).
+- **Game crashes** (G15, [Crash reporting](crash-reporting.md#editor-game-crashes-and-its-own)): every launched game
+  writes native dumps into its `{user data}/crashes` (the runtime's `DOTNET_DbgEnableMiniDump` variables). A crash
+  becomes **one expandable Output error row** (`PlayService.Crashed` → `OutputLog.AddCrash`): "Game #2 crashed:
+  NullReferenceException in PlayerController.OnPhysicsProcess", the node path and scene, from the report the game sent
+  on the link (protocol 5); without one, the decoded exit code and the dump. Icon buttons: Frames (expands the stack;
+  game frames with a file here are click-to-source, engine frames muted), Open Report (the bundle), Copy Report, Show
+  Dump. The game's earlier log rows stay above it.
 - **Remote scene tree** ([0133](../../memory/decisions/0133-remote-scene-tree.md), Godot's Local/Remote switch): while
   a launched game is connected, the Scene panel shows a Local | Remote toggle. Remote replaces the edited scene's rows
   with the game's live tree, read-only (names and type icons), asked for over the link once a second
   (`PlayService.RequestTree` → `PlayInstance.RemoteTree`). The root and its children start expanded; expand state is kept
   by node path across snapshots. With several instances a chip per instance picks whose tree is shown. When the last game
   stops the panel goes back to Local. QA: `remote on|off`, `remote pick <n>`, `remote toggle <name>`.
+- **Profiler** (G10, editor-link protocol 5): Record in the Profiler tab sends `ProfilerStart` (argument
+  `gpu=1;spike=33.3;freeze=0`) to the chosen instance (`PlayService.StartProfiler`) and `ProfilerStop` to end it; the game
+  streams `ProfileMarkers`, `ProfileFrame` and `ProfileDropped` messages, which `PlayService` hands to the panel. A game
+  built against an engine older than protocol 5 (`PlayInstance.CanProfile`) cannot stream, and Record says so. See
+  [Profiler → Editor link messages](profiler.md#editor-link-messages).
+
+## Export
+
+(G5, [Game export](game-export.md), [ADR 0229](../../memory/decisions/0229-export-runner-in-csharp.md)) **File ›
+Export…** (`file.export`, Ctrl/Cmd+Shift+E, icon `package-export`; enabled when the project has a desktop project)
+opens the Export dialog on the project's `export` presets. The export itself is the shared `ExportRunner`
+(`Tools/MainframeEngine.Export`), the same as `mf-export`'s.
+
+![Export dialog](../images/editor-export.png)
+
+- **Dialog** (`ExportDialog`, `Assets/Editor/export.rml`, an `EditorDocument` like Project Settings):
+  - the presets on the left with a platform glyph (`brand-windows`, `brand-apple`, `brand-ubuntu`), the target RID and a
+    validation badge (errors, warnings, ready); icon buttons with tooltips: **Add Preset** (a popup of platforms, this
+    machine's first with its RID; Android and iOS listed, disabled until M12.7), **Duplicate**, **Delete** (confirmed);
+  - the selected preset's options in the schema's order, grouped General, Build, Steam (the effective app id read-only
+    and an icon button to Project Settings › Steamworks), Icon (browse, preview), macOS (macOS presets), Content
+    (include/exclude globs as chips with an add field);
+  - the validation under the options: each issue's code, message and fix, some with a fix button (Steamworks, pick an
+    icon);
+  - progress: a bar, `Exporting 2/5 · <preset> · <phase>`, the last log lines, then the run's results with Show in
+    Finder/Explorer;
+  - undo/redo of its own (Cmd/Ctrl+Z inside the dialog), Save, Close (asks about unsaved edits; so does quitting);
+    **Export** and **Export All** keep text labels with icons; **Cancel Export** is an icon button (`player-stop`).
+    Export saves the presets and every scene first and does not start if a save fails. The dialog may be closed while
+    an export runs.
+  - Edits go through an `ExportPresetsModel` over a `ProjectSettingsModel` (snapshots of the whole project file).
+- **`ExportService`** (`Src/Export/ExportService.cs`) follows `PlayService`'s threading: the runner works on the thread
+  pool, its progress and lines are only queued, and `Update()` (main thread, once per frame) raises `Changed`, `Line`
+  and `Finished`; an idle `Update` allocates nothing. One pipeline at a time. The .NET SDK check runs once, on first use.
+  Tests pass an `IExportRunner` through `EditorWorkspaceOptions.ExportRunner`.
+- **Toolbar**: a chip with the status while an export runs (click: the dialog).
+- **Output**: lines as `[export] …` (category `export`, icon `package-export`); compiler and MSBuild diagnostics are
+  added once, parsed, when a preset finishes, with file and line (click opens the code editor); one result line per
+  preset and the Export All tally.
+- **Headless**: `MainframeEngine.Editor --project <dir> --export-release "<preset>" [<out>]`, `--export-debug
+  "<preset>" [<out>]` and `--export-all` run `ExportCli` from `Program.cs` before an `EditorApp` exists (no window, SDL
+  or engine; exit 0/1/2).
+- **QA**: `export open|close|select N|add <platform|host>|set <key> <value>|exclude <glob>|run|run-all|cancel` and
+  `wait-for exported`; `Tests/QA/export.qa` (`just qa-export`).
 
 ## UI preview
 
@@ -805,7 +877,8 @@ missing dependency, import error (invalid JSON, undecodable image).
 
 - **Double click** opens scenes in a tab, UI documents (`.rml`) in a [UI preview](#ui-preview) tab, resource files in
   the inspector, C# files and style sheets in the code editor; folders open.
-- **Right-click menu**: Open (Preview UI and Open in Code Editor for `.rml`), New Folder, New Scene, New Resource (the create dialog), Rename (F2), Move To, Move to
+- **Right-click menu**: Open (Preview UI and Open in Code Editor for `.rml`), New Folder, New Scene, New Resource (the create dialog), New SpriteFrames
+  from Sheet… (images: Select Frames, then `<image>.mres`; [Animated sprites](animated-sprites.md#editor)), Rename (F2), Move To, Move to
   Trash (Del), Copy Path, Copy UID, Reveal in Finder / Show in File Manager.
 - **Rename and move** keep references working: the `.meta` moves with the file, and every scene, resource and
   `project.mfproj` that refers to a moved file is rewritten (`ReferenceFixer`: `path` hints of `ref`/`instance` objects
@@ -840,8 +913,13 @@ still works), so a custom inspector can act on either. The shipped examples are 
 for `AudioBusLayout` buses, every change undoable) and the [sound designer](#sound-designer). Nodes have them too:
 `LightProbeVolumeInspector` (Bake Lighting), the joints' `Joint3DInspector`/`Joint2DInspector` (Rebuild, and Swap A/B as
 one undo step) and `Skeleton3DInspector` (Create physical skeleton: `PhysicalBoneSimulator3D.Build` added as one undo
-step; ADR 0212, [Physics joints → Ragdolls](physics-joints.md#ragdolls)). Game assemblies' `[CustomInspector]`s are
-found when they load.
+step; ADR 0212, [Physics joints → Ragdolls](physics-joints.md#ragdolls)). The SpriteFrames editor is one too, on
+`SpriteFrames` and `AnimatedSprite2D` (`SpriteFramesHeader`, ADR 0224, [Animated sprites](animated-sprites.md#editor)).
+`NavigationGridInspector` (G3a) puts Bake (`wand`) and Clear (`trash`) icon buttons and a status line (size, solid and
+weighted cells, source, bake time, "out of date") above a `NavigationGrid2D`'s rows; both replace `Data` as one undo
+step, and only the current source's bake rows show ([Navigation → Editor](navigation.md#editor)).
+A header may hold text fields: `data-header-input="name"` sends `name=text` to `OnAction` on Enter or focus loss.
+Game assemblies' `[CustomInspector]`s are found when they load.
 
 **`OnPropertyChanged(target, property, context)`** (default method: nothing) tells a custom inspector about every
 committed change to its target, including edits made by the generated rows, which bypass it. It is called once per
@@ -1102,6 +1180,12 @@ captures the dialog with `update-preview X.Y.Z`. See [Editor updates](editor-upd
   their UID across saves. A failed save keeps the old file and the scene dirty and shows the error.
 - Every command runs guarded: an exception becomes an Output error and a message box, never a crash.
 - An unhandled exception writes recovery copies of unsaved scenes to `~/.mainframe/recovery/`.
+- **The editor's own crashes** (G15): `Program.cs` installs `CrashReporter` in `~/.mainframe/crashes` with a rotating
+  `~/.mainframe/logs/editor.log` (`EditorCrashReporting`); the report lists the recovery copies. On the next start
+  `CrashDialog` (after the update check starts) shows the summary, the recovery copies with **Open** each, Copy Report,
+  Open Folder and Report Issue (copies the report and opens the repository's new-issue page with only the version in the
+  title). A native crash or a kill leaves the session sentinel: the next start reports it as an unclean exit with the
+  tail of `editor.1.log`. Scripted and test runs keep neither.
 
 ## Brand
 
@@ -1189,12 +1273,19 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
   walkthrough also captures the update dialog (`update-preview X.Y.Z`, no network) and the Editor Settings dialog.
+  Profiler steps (G10): `profile tab|output|record|stop|pause|editor|slowest`, `profile save <file>` (into `--qa-out`)
+  and `wait-for profiled N [seconds]`; the walkthrough profiles the editor itself (it builds no game), captures
+  `27-profiler` and saves `27-profiler-trace.json`.
 - **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): the fixture recording opened,
   silence then idle detection, a tiny.en transcription (`video set whisper-model tiny.en`), undo of the idle cut,
   playback across a cut and the mode switch, each captured (`video-01-empty` … `video-08-game-mode`). `wait N` counts frames, so the long steps wait on conditions: `wait-for video-jobs
   [seconds]` (no waveform, silence, transcription or export job left on the active video tab) and `wait-for
   video-position <s> [seconds]` (its playhead has reached a time). Needs a display, ffmpeg and (once) the network; not run in CI. See
   [Video editing mode](video-editor.md#testing).
+- **Profiler tab** ([ProfilerPanelTests](../../Tests/MainframeEngine.Editor.Tests/ProfilerPanelTests.cs)): the bottom
+  dock switches between Output and Profiler; frames from a fake link fill the graph, table and counters and a click
+  selects one; Pause freezes the view and Clear empties it; a saved trace reopens with its frames; the editor profiles
+  itself; Record without a game does nothing; counter values are formatted by unit.
 - **Record QA** ([record.qa](../../Tests/QA/record.qa), `just qa-editor Tests/QA/record.qa`): F10 from idle and mid-session, and Stop (F8) while
   recording, with captures of the REC readout, the saving state and the saved dialogs. Needs a display and ffmpeg; not run in CI.
 - **README screenshots** (`just readme-screenshots`, [readme-screenshots.qa](../../Tests/QA/readme-screenshots.qa)):
@@ -1202,8 +1293,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   create dialog (`favorite`, `search`, `pick`), the sound designer and a song tab, video mode (`mode video`; the recipe
   first runs [build/readme-video-clip.sh](../../build/readme-video-clip.sh): an offline `--record` of the Demo's Physics
   2D scene with its audio replaced by a narration from `say` or `espeak-ng`; the QA script cuts its silences,
-  transcribes it with base.en, removes its fillers, then saves the edit with Save As so closing the tab asks nothing)
-  and a new game after a code reload while it plays, captured at 2x
+  transcribes it with base.en, removes its fillers, then saves the edit with Save As so closing the tab asks nothing),
+  the Profiler tab on the running MyGame (`editor-profiler`) and a new game after a code reload while it plays, captured at 2x
   (`--scale 2`, 3200×1920 px) and downscaled to 1600×960 into `docs/images/editor*.png` with ImageMagick. The scene is
   [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose
   game code the editor loads, so every node type resolves. Projects are opened from the
@@ -1256,4 +1347,4 @@ above (fewer leaves, more sky) the preview costs about 6 ms at Full (9.3 → 15.
 [Future: editor](future/editor.md) · [Video editing mode](video-editor.md) · [Project & game host](project-and-gamehost.md) · [Game UI](game-ui.md) ·
 [Scene graph & nodes](scene-graph-and-nodes.md) ·
 [Scene serialization](scene-serialization.md) · [Materials & meshes](materials-and-meshes.md) · [Release](release.md) ·
-[Editor updates](editor-updates.md) · [Testing](testing.md)
+[Editor updates](editor-updates.md) · [Profiler](profiler.md) · [Testing](testing.md)

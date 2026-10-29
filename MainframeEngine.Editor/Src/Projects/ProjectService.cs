@@ -240,6 +240,12 @@ public sealed class ProjectService : IDisposable
 
         if (IsBuilding)
             return false;
+        if (_workspace.Export.IsRunning)
+        {
+            Log.Info($"[Project] {ExportService.BusyText}");
+            return false;
+        }
+
         Build(GameLibraryProject, result =>
         {
             if (result.Succeeded)

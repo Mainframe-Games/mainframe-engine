@@ -139,6 +139,22 @@ public sealed class PlayService : IDisposable
     /// <summary>A raw stdout/stderr line of a game process.</summary>
     public event Action<PlayInstance, string>? GameOutput;
 
+    /// <summary>
+    /// A game crashed (G15): raised once per instance from <see cref="Update"/>, after its process exited, with the report
+    /// it sent on the link (<see cref="PlayInstance.Crash"/>, protocol 5) or, without one, the decoded exit code and the
+    /// native dump the runtime wrote (<see cref="PlayInstance.DumpPath"/>).
+    /// </summary>
+    public event Action<PlayInstance>? Crashed;
+
+    /// <summary>How long an exited game's link may still deliver its crash report before the crash is reported without it.</summary>
+    public static readonly TimeSpan CrashReportGrace = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// The running project's crash folder (<c>{user data}/crashes</c>), asked at each launch: launched games write native
+    /// dumps there (ADR 0221), and a crash without a link report looks for one. Null or empty: no dumps.
+    /// </summary>
+    public Func<string?>? CrashDirectory { get; set; }
+
     /// <summary>A build output line.</summary>
     public event Action<string>? BuildOutput;
 
@@ -211,7 +227,7 @@ public sealed class PlayService : IDisposable
         IGameProcess process;
         try
         {
-            process = _launcher.Launch(new GameLaunchRequest(programPath, arguments, workingDirectory, instance.Label));
+            process = _launcher.Launch(new GameLaunchRequest(programPath, arguments, workingDirectory, instance.Label, DumpEnvironment()));
         }
         catch (Exception e) when (EditorCommands.IsRecoverable(e))
         {
@@ -293,6 +309,27 @@ public sealed class PlayService : IDisposable
         ArgumentNullException.ThrowIfNull(instance);
         return !_disposed && SendTo(instance, new EditorLinkCommand(EditorCommandKind.RequestTree));
     }
+
+    /// <summary>
+    /// G10: asks <paramref name="instance"/> to stream profiler frames (<paramref name="argument"/>:
+    /// <c>gpu=1;spike=33.3;freeze=0</c>); false when not connected or the game's link predates the profiler
+    /// (<see cref="PlayInstance.CanProfile"/>). Frames arrive through <see cref="ProfileMessage"/>.
+    /// </summary>
+    public bool StartProfiler(PlayInstance instance, string argument)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return !_disposed && instance.CanProfile && SendTo(instance, new EditorLinkCommand(EditorCommandKind.ProfilerStart, argument ?? ""));
+    }
+
+    /// <summary>G10: stops <paramref name="instance"/>'s profiler stream.</summary>
+    public bool StopProfiler(PlayInstance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return !_disposed && instance.CanProfile && SendTo(instance, new EditorLinkCommand(EditorCommandKind.ProfilerStop));
+    }
+
+    /// <summary>G10: a profiler message from a game (<c>ProfileMarkers</c>, <c>ProfileFrame</c>, <c>ProfileDropped</c>), main thread.</summary>
+    public event Action<PlayInstance, EditorLinkMessage>? ProfileMessage;
 
     /// <summary>True while any instance is recording or saving a recording.</summary>
     public bool AnyRecording
@@ -463,6 +500,63 @@ public sealed class PlayService : IDisposable
         return Launch(program, ProcessGameLauncher.WorkingDirectoryOf(program), request.Scene, request.Label, request.ExtraArguments);
     }
 
+    // G15 (ADR 0221): the runtime writes a dump of a native crash into the game's crash folder.
+    private Dictionary<string, string?>? DumpEnvironment()
+    {
+        if (CrashDirectory?.Invoke() is not { Length: > 0 } directory)
+            return null;
+        try
+        {
+            Directory.CreateDirectory(directory);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var (name, value) in NativeDumps.Environment(directory, NativeDumpMode.Mini))
+            environment[name] = value;
+        return environment;
+    }
+
+    private void OnCrashReport(PlayInstance instance, in EditorLinkCrashReport report)
+    {
+        try
+        {
+            instance.Crash = CrashReport.FromJson(report.Json);
+            instance.Crash.Folder = report.Folder.Length > 0 ? report.Folder : null;
+            instance.CrashFolder = instance.Crash.Folder;
+        }
+        catch (System.Text.Json.JsonException e)
+        {
+            Log.Warning($"[Play] {instance.Label} #{instance.Number} sent a crash report the editor cannot read: {e.Message}");
+            return;
+        }
+
+        _changed = true;
+        if (!instance.IsAlive && !instance.CrashRaised && instance.State == PlayInstanceState.Crashed)
+            RaiseCrashed(instance);
+    }
+
+    // Once per instance: the report, or else the dump the runtime wrote for its process.
+    private void RaiseCrashed(PlayInstance instance)
+    {
+        if (instance.CrashRaised)
+            return;
+        instance.CrashRaised = true;
+        instance.CrashReportDeadlineUtc = null;
+        if (instance.Crash is null && instance.ProcessId is { } pid && CrashDirectory?.Invoke() is { Length: > 0 } directory)
+        {
+            var dump = NativeDumps.PathFor(directory, pid);
+            if (File.Exists(dump))
+                instance.DumpPath = dump;
+        }
+
+        _changed = true;
+        Crashed?.Invoke(instance);
+    }
+
     private void DrainLink(EditorLinkServer server)
     {
         while (server.TryRead(out var message))
@@ -497,6 +591,14 @@ public sealed class PlayService : IDisposable
                 case EditorLinkMessageType.Recording:
                     if (_byGameId.TryGetValue(message.GameId, out var recorder))
                         OnRecording(recorder, message.Recording);
+                    break;
+                case EditorLinkMessageType.CrashReport:
+                    if (_byGameId.TryGetValue(message.GameId, out var crasher))
+                        OnCrashReport(crasher, message.CrashReport);
+                    break;
+                case EditorLinkMessageType.ProfileMarkers or EditorLinkMessageType.ProfileFrame or EditorLinkMessageType.ProfileDropped:
+                    if (_byGameId.TryGetValue(message.GameId, out var profiled))
+                        ProfileMessage?.Invoke(profiled, message);
                     break;
                 case EditorLinkMessageType.LogDropped:
                     if (_byGameId.TryGetValue(message.GameId, out var dropper))
@@ -685,6 +787,8 @@ public sealed class PlayService : IDisposable
             {
                 exitedCount++;
                 DrainOutput(instance, process); // late lines
+                if (instance.CrashReportDeadlineUtc is { } crashDeadline && (instance.GameId is null || _utcNow() >= crashDeadline))
+                    RaiseCrashed(instance); // the link closed (or the grace ran out) without a report
                 continue;
             }
 
@@ -699,6 +803,15 @@ public sealed class PlayService : IDisposable
                 instance.PendingPause = null;
                 if (instance.GameId is null)
                     AbandonRecording(instance); // with a link still up, its Stopped/Failed (then Disconnected) may be unread: wait for them
+                if (instance.State == PlayInstanceState.Crashed)
+                {
+                    // G15: a protocol-5 game sends its report before the goodbye; the reader may not have queued it yet.
+                    if (instance.Crash is null && instance.GameId is not null && instance.ProtocolVersion >= EditorLinkProtocol.MinCrashReportVersion)
+                        instance.CrashReportDeadlineUtc = _utcNow() + CrashReportGrace;
+                    else if (instance.ProcessId is not null) // a launch that failed is reported by its output, not as a crash
+                        RaiseCrashed(instance);
+                }
+
                 _changed = true;
                 exitedCount++;
                 continue;

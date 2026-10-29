@@ -66,21 +66,29 @@ jobs:
         if: runner.os == 'macOS'
         run: command -v ninja || brew install ninja
 
+      # G15.8: Release optimisation with debug info (-g, /Zi + /DEBUG); "Split symbols" below strips the staged binaries
+      # and keeps the symbols as the native-symbols-<leg> artefact.
       - name: Configure (macOS, universal arm64 + x86_64)
         if: runner.os == 'macOS'
         run: >
           cmake -S Native -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -g" "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -g"
           "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Configure (Linux)
         if: runner.os == 'Linux'
-        run: cmake -S Native -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: >
+          cmake -S Native -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -g" "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -g"
 
       # MSVC through the newest installed Visual Studio generator (no third-party dev-shell action needed).
       # The static CRT (/MT) is set in the CMake files (CMAKE_MSVC_RUNTIME_LIBRARY).
       - name: Configure (Windows, MSVC x64)
         if: runner.os == 'Windows'
-        run: cmake -S Native -B build -A x64
+        run: >
+          cmake -S Native -B build -A x64
+          "-DCMAKE_C_FLAGS_RELEASE=-O2 -Ob2 -DNDEBUG -Zi" "-DCMAKE_CXX_FLAGS_RELEASE=-O2 -Ob2 -DNDEBUG -Zi"
+          "-DCMAKE_SHARED_LINKER_FLAGS_RELEASE=-DEBUG -OPT:REF -OPT:ICF" "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-DEBUG -OPT:REF -OPT:ICF"
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -110,6 +118,15 @@ jobs:
             done
           done
           find staging -type f -print0 | xargs -0 ls -l
+
+      - name: Split symbols
+        run: build/split-native-symbols.sh staging build native-symbols
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-symbols-${{ matrix.name }}
+          path: native-symbols/
+          if-no-files-found: warn
 
       - name: Inspect binaries
         run: |

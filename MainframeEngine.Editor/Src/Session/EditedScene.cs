@@ -107,6 +107,17 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     }
 
     /// <summary>
+    /// Records <paramref name="file"/> as edited in place by an action that is not a property change (a SpriteFrames
+    /// edit, ADR 0224): it is written when the scene is saved.
+    /// </summary>
+    internal void MarkResourceFileEdited(Resource file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        if (file.IsExternal)
+            _editedResourceFiles.Add(file);
+    }
+
+    /// <summary>
     /// Resource files (<c>.mres</c>, such as a shared <see cref="PostProcessProfile"/>) edited in place through this scene's
     /// inspector: <see cref="EditorSession.Save"/> writes them with the scene (Godot saves edited sub-resources the same way).
     /// </summary>

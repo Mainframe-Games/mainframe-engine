@@ -13,7 +13,7 @@ namespace Forest;
 /// quits when it is back (exit 1 if it got stuck). With <c>--fixed-fps</c> the walk is the same on every run.</item>
 /// <item><c>--shot &lt;1-8|name&gt;</c>: a fixed camera at a reference shot (<see cref="ValleyLayout.Shots"/>);
 /// <c>--view x,y,z,tx,ty,tz[,fov]</c>: a camera at a world position looking at a point (a y of 0: eye height above the ground; −h: h above it).</item>
-/// <item><c>--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]] [--frames-csv file.csv]</c>: <see cref="ForestBenchmark"/>
+/// <item><c>--benchmark [--frames n] [--out file.json] [--baseline file.json [--write-baseline]] [--frames-csv file.csv] [--trace file.json]</c>: <see cref="ForestBenchmark"/>
 /// (exit code 1 when it allocated or is more than 10 % slower than the baseline).</item>
 /// <item><c>--set Node.Property=value</c>: tunes the look from the command line (<see cref="ApplyOverrides"/>);
 /// <c>--warmup n</c>: the autowalk's warm-up frames.</item>
@@ -93,6 +93,7 @@ public sealed class ForestDev : Node
                 BaselinePath = Argument(args, "--baseline"),
                 WriteBaseline = args.Contains("--write-baseline"),
                 FramesCsvPath = Argument(args, "--frames-csv"),
+                TracePath = Argument(args, "--trace"),
             };
         }
 

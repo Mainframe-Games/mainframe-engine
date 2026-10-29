@@ -19,12 +19,14 @@ public sealed class GameSession : IDisposable
     private readonly List<Node> _autoloads = [];
     private readonly List<PackedScene> _autoloadScenes = [];
     private EditorLinkLogSink? _linkSink;
+    private EditorLinkCrashSink? _crashSink;
     private float _sinceStatus;
     private float _framesPerSecond;
     private GameRunState _reportedState = GameRunState.Starting;
     private bool _disposed;
     private GameRecorder? _recorder;
     private bool _mustReportRecording;
+    private ProfilerStreamer? _profiler; // G10: frames to the editor's Profiler tab while it records
 
     /// <summary>How long <see cref="Shutdown"/> waits for the link to connect when a recording failure is still unsent.</summary>
     private static readonly TimeSpan ReportConnectTimeout = TimeSpan.FromMilliseconds(EditorLinkClient.WelcomeTimeoutMilliseconds + 1000);
@@ -202,6 +204,7 @@ public sealed class GameSession : IDisposable
         _framesPerSecond = gameTime.FramesPerSecond;
         while (link.TryReceiveCommand(out var command))
             Apply(command);
+        _profiler?.Poll();
         _sinceStatus += gameTime.DeltaTime;
         ReportStatus(force: false);
     }
@@ -360,6 +363,15 @@ public sealed class GameSession : IDisposable
             case EditorCommandKind.StopRecording:
                 _recorder?.Stop(); // Stopped (with the file) follows once finalising is done
                 break;
+            case EditorCommandKind.ProfilerStart when Link is { } profileLink:
+                _profiler ??= new ProfilerStreamer(profileLink);
+                _profiler.EncoderBoundaries = Tree.Servers.Render?.Vulkan?.GpuProfiler.SamplesAtEncoderBoundaries ?? false;
+                _profiler.Start(command.Argument);
+                Log.Info("[Profiler] Streaming frames to the editor.");
+                break;
+            case EditorCommandKind.ProfilerStop:
+                _profiler?.Stop();
+                break;
         }
 
         ReportStatus(force: true);
@@ -445,16 +457,23 @@ public sealed class GameSession : IDisposable
         Link = new EditorLinkClient(port, new EditorLinkHello(EditorLinkProtocol.Version, Environment.ProcessId, Settings.Name, EngineInfo.Version));
         _linkSink = new EditorLinkLogSink(Link);
         Log.AddSink(_linkSink);
+        _crashSink = new EditorLinkCrashSink(Link); // G15: a crash reaches the editor before the goodbye
+        CrashReporter.AddSink(_crashSink);
         Log.Info($"[EditorLink] Connecting to the editor on localhost:{port}.");
     }
 
     private void DisconnectEditor(ExitCode exitCode)
     {
+        _profiler?.Dispose();
+        _profiler = null;
         if (Link is null)
             return;
         if (_linkSink is not null)
             Log.RemoveSink(_linkSink);
         _linkSink = null;
+        if (_crashSink is not null)
+            CrashReporter.RemoveSink(_crashSink);
+        _crashSink = null;
         if (_mustReportRecording && !Link.IsConnected)
         {
             // A game that fails its --record start quits on its first update, which can beat the link's connection: give it
@@ -526,4 +545,24 @@ public sealed class GameSession : IDisposable
     }
 
     private string CurrentScenePath() => Tree.CurrentScene?.SceneFilePath ?? string.Empty;
+}
+
+/// <summary>
+/// Sends this run's crash reports to the editor (<see cref="EditorLinkMessageType.CrashReport"/>, protocol 5), waiting at
+/// most <see cref="Timeout"/> on the way down so the frame is out before the process dies.
+/// </summary>
+internal sealed class EditorLinkCrashSink(EditorLinkClient client) : ICrashSink
+{
+    public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(1);
+
+    public void OnCrash(CrashReport report)
+    {
+        // A crash in the first frames can beat the link's connection: give it the same moment the report gets.
+        var deadline = DateTime.UtcNow + Timeout;
+        while (!client.IsConnected && DateTime.UtcNow < deadline)
+            Thread.Sleep(10);
+        var json = System.Text.Encoding.UTF8.GetString(report.ToJson());
+        if (!client.SendCrashReport(new EditorLinkCrashReport(json, report.Folder ?? ""), Timeout))
+            Log.Warning("[EditorLink] The crash report did not reach the editor (not connected, too large or timed out).");
+    }
 }

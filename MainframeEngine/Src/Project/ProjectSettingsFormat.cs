@@ -17,7 +17,7 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 4;
+    public const int Current = 5;
 
     /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
     public static IReadOnlyList<ProjectMigration> Migrations { get; } =
@@ -45,6 +45,10 @@ public static class ProjectSettingsFormat
         // 3 → 4: the content folder is "Assets/", no longer "Content/" (ADR 0197). Every "Content/…" path value moves;
         // the editor renames the folder itself (a game build only reads the file).
         new(3, static root => UpgradeLegacyPaths(root)),
+
+        // 4 → 5: the "export" section (G5, ADR 0229). Nothing moves; the bump makes an older editor reject the file
+        // ("Update the engine.") instead of reading it, dropping the presets it does not model and deleting them on save.
+        new(4, static _ => { }),
     ];
 
     private static void UpgradeLegacyPaths(JsonNode? node)
@@ -163,8 +167,10 @@ public static class ProjectSettingsFormat
             WriteUi(w, settings.Ui);
             WriteLoading(w, settings.Loading);
             WriteSaves(w, settings.Saves);
+            WriteCrash(w, settings.Crash);
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
+            WriteExport(w, settings.ExportPresets);
             w.WriteEndObject();
         }
 
@@ -446,6 +452,47 @@ public static class ProjectSettingsFormat
         w.WriteEndObject();
     }
 
+    private static void WriteCrash(Utf8JsonWriter w, CrashProjectSettings s)
+    {
+        var d = new CrashProjectSettings();
+        var u = s.Upload;
+        var du = d.Upload;
+        var upload = u.Url != du.Url || u.Format != du.Format || u.Mode != du.Mode || u.IncludeLog != du.IncludeLog || u.IncludeDumps != du.IncludeDumps;
+        if (s.Enabled == d.Enabled && s.Prompt == d.Prompt && s.LogEntries == d.LogEntries && s.MaxReports == d.MaxReports &&
+            s.GpuBreadcrumbs == d.GpuBreadcrumbs && s.NativeDumps == d.NativeDumps && !upload)
+            return;
+        w.WriteStartObject("crash");
+        if (s.Enabled != d.Enabled)
+            w.WriteBoolean("enabled", s.Enabled);
+        if (s.Prompt != d.Prompt)
+            w.WriteString("prompt", s.Prompt == CrashPromptMode.None ? "none" : "ask");
+        if (s.LogEntries != d.LogEntries)
+            w.WriteNumber("logEntries", s.LogEntries);
+        if (s.MaxReports != d.MaxReports)
+            w.WriteNumber("maxReports", s.MaxReports);
+        if (s.GpuBreadcrumbs != d.GpuBreadcrumbs)
+            w.WriteBoolean("gpuBreadcrumbs", s.GpuBreadcrumbs);
+        if (s.NativeDumps != d.NativeDumps)
+            w.WriteString("nativeDumps", s.NativeDumps.ToString().ToLowerInvariant());
+        if (upload)
+        {
+            w.WriteStartObject("upload");
+            if (u.Url != du.Url)
+                w.WriteString("url", u.Url);
+            if (u.Format != du.Format)
+                w.WriteString("format", u.Format == CrashUploadFormat.Zip ? "zip" : "sentry-envelope");
+            if (u.Mode != du.Mode)
+                w.WriteString("mode", u.Mode == CrashUploadMode.Consented ? "consented" : "ask");
+            if (u.IncludeLog != du.IncludeLog)
+                w.WriteBoolean("includeLog", u.IncludeLog);
+            if (u.IncludeDumps != du.IncludeDumps)
+                w.WriteBoolean("includeDumps", u.IncludeDumps);
+            w.WriteEndObject();
+        }
+
+        w.WriteEndObject();
+    }
+
     private static void WriteAutoloads(Utf8JsonWriter w, List<AutoloadSettings> autoloads)
     {
         if (autoloads.Count == 0)
@@ -486,6 +533,72 @@ public static class ProjectSettingsFormat
         w.WriteEndArray();
     }
 
+    private static void WriteExport(Utf8JsonWriter w, List<ExportPreset> presets)
+    {
+        if (presets.Count == 0)
+            return;
+        w.WriteStartArray("export");
+        foreach (var p in presets)
+        {
+            w.WriteStartObject();
+            w.WriteString("name", p.Name);
+            w.WriteString("platform", ExportPreset.PlatformKey(p.Platform));
+            var desktop = p.Options as DesktopExportOptions;
+            if (desktop is { Rid.Length: > 0 })
+                w.WriteString("rid", desktop.Rid);
+            if (p.Output is not null)
+                w.WriteString("output", p.Output);
+            if (p.Configuration != "Release")
+                w.WriteString("configuration", p.Configuration);
+            if (p.Demo)
+                w.WriteBoolean("demo", true);
+            if (p.Version.Length > 0)
+                w.WriteString("version", p.Version);
+            if (p.Icon.Length > 0)
+                w.WriteString("icon", p.Icon);
+            if (!p.Archive)
+                w.WriteBoolean("archive", false);
+            if (!p.Include.SequenceEqual(ExportPreset.DefaultInclude))
+                WriteStrings(w, "include", p.Include);
+            if (!p.Exclude.SequenceEqual(ExportPreset.DefaultExclude))
+                WriteStrings(w, "exclude", p.Exclude);
+            if (desktop is not null)
+            {
+                if (desktop.Steam)
+                    w.WriteBoolean("steam", true);
+                if (desktop.Exe.Length > 0)
+                    w.WriteString("exe", desktop.Exe);
+                if (!desktop.SelfContained)
+                    w.WriteBoolean("selfContained", false);
+                if (!desktop.ReadyToRun)
+                    w.WriteBoolean("readyToRun", false);
+                if (desktop.SingleFile)
+                    w.WriteBoolean("singleFile", true);
+                if (desktop.Trim)
+                    w.WriteBoolean("trim", true);
+                if (desktop.Symbols == ExportSymbols.Separate)
+                    w.WriteString("symbols", "separate");
+                if (!desktop.Profiler)
+                    w.WriteBoolean("profiler", false);
+                if (desktop.MacOs is { } mac)
+                {
+                    if (mac.BundleId.Length > 0)
+                        w.WriteString("bundleId", mac.BundleId);
+                    if (mac.Copyright.Length > 0)
+                        w.WriteString("copyright", mac.Copyright);
+                    if (mac.Sign.Length > 0)
+                        w.WriteString("sign", mac.Sign);
+                    if (mac.NotaryProfile.Length > 0)
+                        w.WriteString("notaryProfile", mac.NotaryProfile);
+                }
+            }
+
+            w.WriteEndObject();
+        }
+
+        w.WriteEndArray();
+    }
+
     private static void WriteStrings(Utf8JsonWriter w, string name, List<string> values)
     {
         w.WriteStartArray(name);
@@ -512,7 +625,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "loading", "saves", "autoloads", "playInstances");
+                "audio", "localization", "rendering", "ui", "loading", "saves", "crash", "autoloads", "playInstances", "export");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -542,10 +655,14 @@ public static class ProjectSettingsFormat
                 ReadLoading(loading, s.Loading);
             if (Object(root, "saves") is { } saves)
                 ReadSaves(saves, s.Saves);
+            if (Object(root, "crash") is { } crash)
+                ReadCrash(crash, s.Crash);
             if (Array(root, "autoloads", "autoloads") is { } autoloads)
                 ReadAutoloads(autoloads, s.Autoloads);
             if (Array(root, "playInstances", "playInstances") is { } instances)
                 ReadPlayInstances(instances, s.PlayInstances);
+            if (Array(root, "export", "export") is { } export)
+                ReadExport(export, s.ExportPresets);
             return s;
         }
 
@@ -744,6 +861,63 @@ public static class ProjectSettingsFormat
             }
         }
 
+        private void ReadCrash(JsonObject o, CrashProjectSettings s)
+        {
+            Known(o, "crash.", "enabled", "prompt", "logEntries", "maxReports", "gpuBreadcrumbs", "nativeDumps", "upload");
+            s.Enabled = Bool(o, "enabled", "crash.enabled", s.Enabled);
+            if (String(o, "prompt", "crash.prompt") is { } prompt)
+            {
+                s.Prompt = prompt switch
+                {
+                    "ask" => CrashPromptMode.Ask,
+                    "none" => CrashPromptMode.None,
+                    _ => throw Error("crash.prompt", $"'{prompt}' is not \"ask\" or \"none\""),
+                };
+            }
+
+            s.LogEntries = Int(o, "logEntries", "crash.logEntries", s.LogEntries, 1, 10_000);
+            s.MaxReports = Int(o, "maxReports", "crash.maxReports", s.MaxReports, 1, 1000);
+            s.GpuBreadcrumbs = Bool(o, "gpuBreadcrumbs", "crash.gpuBreadcrumbs", s.GpuBreadcrumbs);
+            if (String(o, "nativeDumps", "crash.nativeDumps") is { } dumps)
+            {
+                s.NativeDumps = dumps switch
+                {
+                    "off" => NativeDumpMode.Off,
+                    "triage" => NativeDumpMode.Triage,
+                    "mini" => NativeDumpMode.Mini,
+                    "heap" => NativeDumpMode.Heap,
+                    _ => throw Error("crash.nativeDumps", $"'{dumps}' is not \"off\", \"triage\", \"mini\" or \"heap\""),
+                };
+            }
+
+            if (Object(o, "upload") is not { } upload)
+                return;
+            Known(upload, "crash.upload.", "url", "format", "mode", "includeLog", "includeDumps");
+            s.Upload.Url = String(upload, "url", "crash.upload.url") ?? s.Upload.Url;
+            if (String(upload, "format", "crash.upload.format") is { } format)
+            {
+                s.Upload.Format = format switch
+                {
+                    "sentry-envelope" => CrashUploadFormat.SentryEnvelope,
+                    "zip" => CrashUploadFormat.Zip,
+                    _ => throw Error("crash.upload.format", $"'{format}' is not \"sentry-envelope\" or \"zip\""),
+                };
+            }
+
+            if (String(upload, "mode", "crash.upload.mode") is { } mode)
+            {
+                s.Upload.Mode = mode switch
+                {
+                    "ask" => CrashUploadMode.Ask,
+                    "consented" => CrashUploadMode.Consented,
+                    _ => throw Error("crash.upload.mode", $"'{mode}' is not \"ask\" or \"consented\""),
+                };
+            }
+
+            s.Upload.IncludeLog = Bool(upload, "includeLog", "crash.upload.includeLog", s.Upload.IncludeLog);
+            s.Upload.IncludeDumps = Bool(upload, "includeDumps", "crash.upload.includeDumps", s.Upload.IncludeDumps);
+        }
+
         private void ReadAutoloads(JsonArray array, List<AutoloadSettings> autoloads)
         {
             var names = new HashSet<string>(StringComparer.Ordinal);
@@ -780,6 +954,88 @@ public static class ProjectSettingsFormat
                 var instance = new PlayInstanceSettings { Label = label, DelaySeconds = Math.Clamp(Float(o, "delay", where + ".delay", 0f), 0f, 600f) };
                 instance.Arguments.AddRange(Strings(o, "args", where + ".args"));
                 instances.Add(instance);
+            }
+        }
+
+        // The keys every preset may have, then the desktop and macOS ones (an Android key on a Windows preset warns).
+        private static readonly string[] CommonExportKeys =
+            ["name", "platform", "output", "configuration", "demo", "version", "icon", "archive", "include", "exclude"];
+
+        private static readonly string[] DesktopExportKeys = ["rid", "steam", "exe", "selfContained", "readyToRun", "singleFile", "trim", "symbols", "profiler"];
+
+        private static readonly string[] MacOsExportKeys = ["bundleId", "copyright", "sign", "notaryProfile"];
+
+        private void ReadExport(JsonArray array, List<ExportPreset> presets)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < array.Count; i++)
+            {
+                var where = $"export[{i.ToString(CultureInfo.InvariantCulture)}]";
+                if (array[i] is not JsonObject o)
+                    throw Error(where, "must be an object");
+                var name = String(o, "name", where + ".name");
+                if (string.IsNullOrWhiteSpace(name))
+                    throw Error(where + ".name", "must not be empty");
+                if (!names.Add(name))
+                    throw Error(where + ".name", $"'{name}' is used by another preset");
+                var platformText = String(o, "platform", where + ".platform")
+                                   ?? throw Error(where + ".platform", "is required (\"windows\", \"macos\" or \"linux\")");
+                if (!ExportPreset.TryParsePlatform(platformText, out var platform))
+                    throw Error(where + ".platform", $"'{platformText}' is not \"windows\", \"macos\" or \"linux\" (update the engine for other platforms)");
+
+                List<string> known = [.. CommonExportKeys, .. DesktopExportKeys];
+                if (platform == ExportPlatform.MacOS)
+                    known.AddRange(MacOsExportKeys);
+                Known(o, where + ".", [.. known]);
+
+                var preset = ExportPreset.Create(name, platform);
+                preset.Output = String(o, "output", where + ".output");
+                if (String(o, "configuration", where + ".configuration") is { } configuration)
+                    Guard(where + ".configuration", () => preset.Configuration = configuration);
+                preset.Demo = Bool(o, "demo", where + ".demo", false);
+                preset.Version = String(o, "version", where + ".version") ?? "";
+                preset.Icon = String(o, "icon", where + ".icon") ?? "";
+                preset.Archive = Bool(o, "archive", where + ".archive", true);
+                if (o.ContainsKey("include"))
+                {
+                    preset.Include.Clear();
+                    preset.Include.AddRange(Strings(o, "include", where + ".include"));
+                }
+
+                if (o.ContainsKey("exclude"))
+                {
+                    preset.Exclude.Clear();
+                    preset.Exclude.AddRange(Strings(o, "exclude", where + ".exclude"));
+                }
+
+                var desktop = preset.Desktop;
+                desktop.Rid = String(o, "rid", where + ".rid") ?? "";
+                desktop.Steam = Bool(o, "steam", where + ".steam", false);
+                desktop.Exe = String(o, "exe", where + ".exe") ?? "";
+                desktop.SelfContained = Bool(o, "selfContained", where + ".selfContained", true);
+                desktop.ReadyToRun = Bool(o, "readyToRun", where + ".readyToRun", true);
+                desktop.SingleFile = Bool(o, "singleFile", where + ".singleFile", false);
+                desktop.Trim = Bool(o, "trim", where + ".trim", false);
+                desktop.Profiler = Bool(o, "profiler", where + ".profiler", true);
+                if (String(o, "symbols", where + ".symbols") is { } symbols)
+                {
+                    desktop.Symbols = symbols switch
+                    {
+                        "ship" => ExportSymbols.Ship,
+                        "separate" => ExportSymbols.Separate,
+                        _ => throw Error(where + ".symbols", $"'{symbols}' is not \"ship\" or \"separate\""),
+                    };
+                }
+
+                if (desktop.MacOs is { } mac)
+                {
+                    mac.BundleId = String(o, "bundleId", where + ".bundleId") ?? "";
+                    mac.Copyright = String(o, "copyright", where + ".copyright") ?? "";
+                    mac.Sign = String(o, "sign", where + ".sign") ?? "";
+                    mac.NotaryProfile = String(o, "notaryProfile", where + ".notaryProfile") ?? "";
+                }
+
+                presets.Add(preset);
             }
         }
 

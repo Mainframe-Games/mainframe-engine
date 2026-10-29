@@ -14,4 +14,13 @@ internal readonly record struct VulkanRendererOptions
 
     /// <summary>The initial <see cref="IVulkanContext.TaaSharpness"/>.</summary>
     public float TaaSharpness { get; init; }
+
+    /// <summary>Per-pass GPU breadcrumbs (<see cref="EngineOptions.GpuBreadcrumbs"/>).</summary>
+    public bool GpuBreadcrumbs { get; init; }
+
+    /// <summary>Tests: throw <see cref="VulkanDeviceLostException"/> after submitting this frame (0: never).</summary>
+    public ulong SimulateDeviceLostAtFrame { get; init; }
+
+    /// <summary>GPU zone settings (<see cref="ProfilerOptions.GpuTimings"/>, zones per frame); null uses <see cref="Profiler.Options"/>.</summary>
+    public ProfilerOptions? Profiler { get; init; }
 }

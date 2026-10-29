@@ -4,6 +4,9 @@ using MainframeEngine.Video.Analysis;
 using MainframeEngine.Video.Detection;
 using MainframeEngine.Video.Media;
 using MainframeEngine.Video.Media.Export;
+// The game export library (MainframeEngine.Export, a global using) has types of the same names.
+using ExportProgress = MainframeEngine.Video.Media.Export.ExportProgress;
+using ExportRequest = MainframeEngine.Video.Media.Export.ExportRequest;
 using MainframeEngine.Video.Models;
 using Silk.NET.Input;
 

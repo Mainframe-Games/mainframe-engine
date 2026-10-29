@@ -96,9 +96,6 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
     private Pipeline _marchPipeline;
     private Pipeline _temporalPipeline;
     private Pipeline _compositePipeline;
-    private QueryPool _timestamps;
-    private readonly bool[] _timestampsPending = new bool[IVulkanContext.MaxFramesInFlight];
-    private float _timestampPeriodNs;
 
     public override bool IsEnabled(in PostEffectSettings settings) => settings.VolumetricFog.Active;
 
@@ -111,8 +108,13 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
     /// <summary>Frames that started a new history (tests).</summary>
     internal long ResetFrames { get; private set; }
 
-    /// <summary>GPU time of the last measured frame's three passes, in milliseconds (0 without timestamps).</summary>
-    public double LastGpuMilliseconds { get; private set; }
+    /// <summary>
+    /// GPU time of the last measured frame's three passes, in milliseconds (0 without timestamps): a read-through to the
+    /// effect's GPU zone (<see cref="GpuProfiler.LastMilliseconds"/>, G10).
+    /// </summary>
+    public double LastGpuMilliseconds => _gpu?.LastMilliseconds(GpuMarker) ?? 0;
+
+    private GpuProfiler? _gpu;
 
     protected override void OnCreate(PostEffectContext context)
     {
@@ -148,7 +150,6 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
         _compositePipeline = PipelineBuilder.Create(ctx, new PipelineState(), _compositeLayout, composite.RenderPass,
             "Shaders/Post/Fullscreen.vk.vert.spv", "Shaders/Post/VolumetricFogComposite.vk.frag.spv", [], [], "volumetric fog composite");
         EnsureMarchPipeline(ShadowsFor(context), march.RenderPass);
-        CreateTimestamps();
     }
 
     protected override void OnBeginFrame(PostEffectContext context)
@@ -170,8 +171,7 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
         var cb = context.CommandBuffer;
         var march = context.Targets.Get(MarchDesc);
         EnsureMarchPipeline(ShadowsFor(context), march.RenderPass);
-        var slot = ctx.FrameSlot;
-        BeginGpuTiming(cb, slot);
+        _gpu = ctx.GpuProfiler;
 
         // 1. The march (half resolution).
         var temporal = settings.TemporalReprojection;
@@ -240,7 +240,6 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
         PipelineBuilder.SetViewport(vk, cb, composite.Extent, flipY: false);
         vk.CmdDraw(cb, 3, 1, 0, 0);
         composite.End(cb);
-        EndGpuTiming(cb, slot);
         context.CopyToSceneColor(composite.GetColor(0).View);
         DrawnFrame = context.FrameNumber;
     }
@@ -401,46 +400,6 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
         return sampler;
     }
 
-    // Two timestamps per frame slot around the passes (SsaoEffect's pattern), when the graphics queue has them.
-    private void CreateTimestamps()
-    {
-        _ctx.Vk.GetPhysicalDeviceProperties(_ctx.PhysicalDevice, out var props);
-        if (!props.Limits.TimestampComputeAndGraphics || props.Limits.TimestampPeriod <= 0f)
-            return;
-        var info = new QueryPoolCreateInfo
-        {
-            SType = StructureType.QueryPoolCreateInfo,
-            QueryType = QueryType.Timestamp,
-            QueryCount = 2 * IVulkanContext.MaxFramesInFlight,
-        };
-        _ctx.Vk.CreateQueryPool(_ctx.Device, in info, null, out _timestamps).Check("vkCreateQueryPool (volumetric fog timing)");
-        _timestampPeriodNs = props.Limits.TimestampPeriod;
-    }
-
-    private void BeginGpuTiming(CommandBuffer cb, int slot)
-    {
-        if (_timestamps.Handle == 0)
-            return;
-        if (_timestampsPending[slot])
-        {
-            var data = stackalloc ulong[2];
-            if (_ctx.Vk.GetQueryPoolResults(_ctx.Device, _timestamps, (uint)slot * 2, 2, 16, data, 8, QueryResultFlags.Result64Bit) == Result.Success)
-                LastGpuMilliseconds = (data[1] - data[0]) * _timestampPeriodNs / 1e6;
-            _timestampsPending[slot] = false;
-        }
-
-        _ctx.Vk.CmdResetQueryPool(cb, _timestamps, (uint)slot * 2, 2);
-        _ctx.Vk.CmdWriteTimestamp(cb, PipelineStageFlags.TopOfPipeBit, _timestamps, (uint)slot * 2);
-    }
-
-    private void EndGpuTiming(CommandBuffer cb, int slot)
-    {
-        if (_timestamps.Handle == 0)
-            return;
-        _ctx.Vk.CmdWriteTimestamp(cb, PipelineStageFlags.BottomOfPipeBit, _timestamps, (uint)slot * 2 + 1);
-        _timestampsPending[slot] = true;
-    }
-
     /// <summary>Destroys everything (the device is idle); the pool owns the targets.</summary>
     protected override void OnDispose()
     {
@@ -458,8 +417,6 @@ internal sealed unsafe class VolumetricFogEffect() : PostEffect("volumetric fog"
         vk.DestroyDescriptorSetLayout(device, _compositeSetLayout, null);
         vk.DestroySampler(device, _pointSampler, null);
         vk.DestroySampler(device, _linearSampler, null);
-        if (_timestamps.Handle != 0)
-            vk.DestroyQueryPool(device, _timestamps, null);
         _noise.Dispose();
     }
 

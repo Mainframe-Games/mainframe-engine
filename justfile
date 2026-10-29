@@ -77,6 +77,10 @@ qa-editor script="Tests/QA/editor-walkthrough.qa":
 qa-projects:
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --qa-script Tests/QA/project-workflow.qa --qa-out {{artifacts / "qa-projects"}}
 
+# G5 export QA: create a game, add an export preset for this machine (demo on, an exclude), export it from File › Export, capture the dialog and the Output panel (artifacts/qa-export; needs the .NET SDK)
+qa-export:
+    dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --qa-script Tests/QA/export.qa --qa-out {{artifacts / "qa-export"}}
+
 # Regenerate the README's editor screenshots (docs/images/editor*.png): Tests/QA/readme-screenshots.qa captures at 2x,
 # ImageMagick downscales to 1600x960. macOS/Linux; needs the display awake, `magick`, ffmpeg and `say` or `espeak-ng` (the
 # video-mode shot's narrated Demo recording, build/readme-video-clip.sh). Review the PNGs before committing.
@@ -99,7 +103,7 @@ readme-screenshots:
     dotnet build Examples/Demo/Demo.slnx -v q -nologo
     dotnet run --project MainframeEngine.Editor -c Release -- --project-manager --hidden --scale 2 \
       --qa-script Tests/QA/readme-screenshots.qa --qa-out "$out"
-    for name in editor editor-joints editor-physical-skeleton editor-add-node editor-box-select editor-range-handles editor-resource-menu editor-simulate editor-game-project editor-project-manager editor-sound-designer editor-song editor-song-effects editor-song-browser editor-song-synth editor-video; do
+    for name in editor editor-joints editor-physical-skeleton editor-add-node editor-box-select editor-range-handles editor-resource-menu editor-simulate editor-sprite-frames editor-sheet-slicer editor-tilemap editor-tileset editor-navigation editor-crash editor-crash-dialog editor-export editor-game-project editor-profiler editor-project-manager editor-sound-designer editor-song editor-song-effects editor-song-browser editor-song-synth editor-video; do
       magick "$out/$name.png" -filter Lanczos -resize 1600x960 -strip -define png:compression-level=9 \
         -define png:compression-filter=5 "docs/images/$name.png"
     done
@@ -189,7 +193,7 @@ template-smoke frames="30":
 template-smoke-package frames="30":
     ENGINE_SOURCE=package build/template-smoke.sh "{{artifacts / "template-smoke-package"}}" {{frames}}
 
-# Pack the NuGet packages (MainframeEngine: engine, generator, natives, content, mf-l10n; MainframeEngine.Templates) into artifacts/nuget
+# Pack the NuGet packages (MainframeEngine: engine, generator, natives, content, mf-l10n, mf-export; MainframeEngine.Templates) into artifacts/nuget
 pack version="0.0.0-dev":
     build/pack-nuget.sh {{version}} "{{artifacts / "nuget"}}"
 
@@ -206,9 +210,13 @@ bench-baseline:
     dotnet run -c Release --project Tests/MainframeEngine.Benchmarks -- --filter '*' --artifacts {{artifacts / "bench"}} --baseline-write Tests/MainframeEngine.Benchmarks/baseline.json
 
 # Publish + package the editor, the Demo and the Forest exactly like the release workflow (default RID: this machine's)
-# Package a GameHost game for players (docs/design/release.md, Games): just package-game path/to/Game.Desktop.csproj osx-arm64 out/
+# Package a GameHost game for players with mf-export, the old package-game.sh arguments (docs/design/game-export.md): just package-game path/to/Game.Desktop.csproj osx-arm64 out/
 package-game csproj rid out *args:
-    build/package-game.sh {{csproj}} {{rid}} {{out}} {{args}}
+    dotnet run --project Tools/MainframeEngine.Export.Cli -c Release -- {{csproj}} {{rid}} {{out}} {{args}}
+
+# Export a game's project.mfproj presets (mf-export; File › Export in the editor): just export --project <dir> --preset "Windows" | --all | --list
+export *args:
+    dotnet run --project Tools/MainframeEngine.Export.Cli -c Release -- {{args}}
 
 publish-local rid="" version="0.0.0-local":
     #!/usr/bin/env bash
@@ -293,16 +301,19 @@ l10n-extract:
     dotnet tool restore
     dotnet build Examples/Demo/Demo/Demo.csproj -p:CompileLocales=false
     dotnet tool run GetText.Extractor -s Examples/Demo/Demo/Src -t {{artifacts / "l10n" / "code.pot"}} -u -o -as _ -ad P -ap N -adp NP
-    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Assets/UI/settings/settings.pot --rml Examples/Demo/Assets --rml MainframeEngine/Assets/UI --scenes Examples/Demo/Assets --mfproj Examples/Demo/project.mfproj --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
+    {{l10n}} extract -o {{l10n_dir}}/messages.pot --root . --project "Mainframe Engine Demo" --include {{artifacts / "l10n" / "code.pot"}} --include MainframeEngine/Assets/UI/settings/settings.pot --include MainframeEngine/Assets/UI/crash/crash.pot --rml Examples/Demo/Assets --rml MainframeEngine/Assets/UI --scenes Examples/Demo/Assets --mfproj Examples/Demo/project.mfproj --assembly Examples/Demo/Demo/bin/Debug/net10.0/Demo.dll
     {{l10n}} update --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}}
     {{l10n}} pseudo --pot {{l10n_dir}}/messages.pot --dir {{l10n_dir}} --charset latin1
 
 # The engine's own player-facing strings (the settings menu, input binding names) into Assets/UI/settings/settings.pot,
-# which games merge into their catalog with `mf-l10n extract --include` (the Demo's l10n-extract does)
+# and the crash prompt's (G15) into Assets/UI/crash/crash.pot, which games merge into their catalog with
+# `mf-l10n extract --include` (the Demo's l10n-extract does)
 l10n-engine:
     dotnet tool restore
     dotnet tool run GetText.Extractor -s MainframeEngine/Src/UI/Settings -s MainframeEngine/Src/Scene/Input -t {{artifacts / "l10n" / "engine-code.pot"}} -u -o -as _ -ad P -ap N -adp NP
     {{l10n}} extract -o MainframeEngine/Assets/UI/settings/settings.pot --root . --project "Mainframe Engine" --include {{artifacts / "l10n" / "engine-code.pot"}} --rml MainframeEngine/Assets/UI/settings
+    dotnet tool run GetText.Extractor -s MainframeEngine/Src/UI/Crash -t {{artifacts / "l10n" / "crash-code.pot"}} -u -o -as _ -ad P -ap N -adp NP
+    {{l10n}} extract -o MainframeEngine/Assets/UI/crash/crash.pot --root . --project "Mainframe Engine" --include {{artifacts / "l10n" / "crash-code.pot"}} --rml MainframeEngine/Assets/UI/crash
 
 # Compile every .po to the committed .mo next to it (the build compiles them into the output itself)
 l10n-compile:
