@@ -11,12 +11,27 @@
         "MaxVoices": 16
       }
     },
+    "AudioEffectLowPass_amb01": {
+      "type": "AudioEffectLowPass",
+      "props": {
+        "CutoffHz": 20000
+      }
+    },
     "AudioBusInfo_amb01": {
       "type": "AudioBusInfo",
       "props": {
         "Name": "Ambience",
         "VolumeDb": -7,
-        "MaxVoices": 10
+        "MaxVoices": 10,
+        "Effects": [
+          { "res": "AudioEffectLowPass_amb01" }
+        ]
+      }
+    },
+    "AudioEffectLowPass_wat01": {
+      "type": "AudioEffectLowPass",
+      "props": {
+        "CutoffHz": 20000
       }
     },
     "AudioBusInfo_wat01": {
@@ -24,7 +39,10 @@
       "props": {
         "Name": "Water",
         "VolumeDb": -8,
-        "MaxVoices": 6
+        "MaxVoices": 6,
+        "Effects": [
+          { "res": "AudioEffectLowPass_wat01" }
+        ]
       }
     },
     "AudioEffectReverb_fol01": {
@@ -44,6 +62,14 @@
         "Effects": [
           { "res": "AudioEffectReverb_fol01" }
         ]
+      }
+    },
+    "AudioBusInfo_int01": {
+      "type": "AudioBusInfo",
+      "props": {
+        "Name": "Interior",
+        "VolumeDb": -7,
+        "MaxVoices": 2
       }
     },
     "AudioBusInfo_9fwoh": {
@@ -74,6 +100,7 @@
       { "res": "AudioBusInfo_amb01" },
       { "res": "AudioBusInfo_wat01" },
       { "res": "AudioBusInfo_fol01" },
+      { "res": "AudioBusInfo_int01" },
       { "res": "AudioBusInfo_9fwoh" },
       { "res": "AudioBusInfo_ixqmw" },
       { "res": "AudioBusInfo_frsnf" }

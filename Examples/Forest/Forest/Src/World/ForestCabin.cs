@@ -149,6 +149,7 @@ public sealed class ForestCabin : Node3D
                 Name = "Interior",
                 Position = interior.Position + new Vector3(0f, extents.Y * 0.5f, 0f),
                 HalfExtents = new Vector3(extents.X, extents.Y * 0.5f, extents.Z),
+                Door = Door,
             };
             AddChild(Interior);
         }

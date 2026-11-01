@@ -124,6 +124,99 @@ public sealed class ForestAudioRenderTests(ITestOutputHelper output)
         Assert.InRange(peak, -26f, -8f);
     }
 
+    /// <summary>The level of <paramref name="samples"/> and of their first difference (+6 dB/oct: mostly the top end), dBFS.</summary>
+    private static (float Rms, float Bright) Measure(float[] samples)
+    {
+        var difference = new float[samples.Length];
+        for (var i = 2; i < samples.Length; i++)
+            difference[i] = samples[i] - samples[i - 2]; // interleaved stereo
+        return (Db(SignalTools.Rms(samples)), Db(SignalTools.Rms(difference)));
+    }
+
+    /// <summary>
+    /// The Forest's audio with the camera out in the valley or in a room, settled, then <paramref name="seconds"/> of the
+    /// master mix; <paramref name="add"/> builds what plays.
+    /// </summary>
+    private (float Rms, float Bright) RenderRoom(string name, bool inside, float seconds, Action<AudioHarness, ForestAudio> add, Action<int>? perTick = null)
+    {
+        using var h = new AudioHarness();
+        var room = new CabinInterior { Name = "Room", HalfExtents = new Vector3(6f, 3f, 6f) };
+        h.Scene.AddChild(room);
+        h.AddListener(inside ? Vector3.UnitY : new Vector3(0f, 1f, 12f));
+        var audio = ForestAudio.Attach(h.Scene, null, null, settings: new ForestAudioSettings());
+        audio.Interior = room;
+        add(h, audio);
+        h.RunSeconds(room.BlendSeconds + 0.2f);
+        h.Capture = new List<float>((int)(seconds * AudioHarness.Rate * 2) + 4096);
+        h.RunSeconds(seconds, perTick);
+        var samples = h.Capture.ToArray();
+        WavWriter.Write(Path.Combine(OutputFolder, name + ".wav"), samples, 2, AudioHarness.Rate, WavSampleFormat.Pcm16);
+        var result = Measure(samples);
+        output.WriteLine($"{name,-22} RMS {result.Rms,6:0.0} dBFS   bright {result.Bright,6:0.0} dBFS");
+        return result;
+    }
+
+    /// <summary>Silences everything <see cref="ForestAudio"/> starts, so that one sound can be measured alone.</summary>
+    private static void Quieten(ForestAudio audio)
+    {
+        audio.Ambience!.Roar!.Stop();
+        audio.Ambience.Rustle!.Stop();
+        audio.Birds!.MeanInterval = 1e6f;
+    }
+
+    [Fact]
+    public void IndoorsTheValleyIsMuffledAndQuieter()
+    {
+        var outside = RenderRoom("room-outdoors", false, 6f, (h, _) => h.Scene.AddChild(new WorldEnvironment { WindStrength = 0.6f }));
+        var inside = RenderRoom("room-indoors", true, 6f, (h, _) => h.Scene.AddChild(new WorldEnvironment { WindStrength = 0.6f }));
+        Assert.True(inside.Rms < outside.Rms - 9f, $"{inside.Rms:0.0} vs {outside.Rms:0.0} dBFS");
+        Assert.True(inside.Bright < outside.Bright - 24f, $"top end {inside.Bright:0.0} vs {outside.Bright:0.0} dBFS");
+        Assert.True(inside.Rms > -70f, $"{inside.Rms:0.0} dBFS: the valley should still be there, faintly");
+    }
+
+    [Fact]
+    public void IndoorsTheFireAndTheFootstepsStayClear()
+    {
+        var (fireOut, fireIn) = (RenderFire(false), RenderFire(true));
+        Assert.Equal(fireOut.Rms, fireIn.Rms, 0.25f);
+        Assert.Equal(fireOut.Bright, fireIn.Bright, 0.25f);
+
+        var (stepsOut, stepsIn) = (RenderSteps(false), RenderSteps(true));
+        Assert.Equal(stepsOut.Rms, stepsIn.Rms, 1f); // the streams' pitch randomness moves it a little
+        Assert.Equal(stepsOut.Bright, stepsIn.Bright, 1f);
+        return;
+
+        (float Rms, float Bright) RenderFire(bool inside) => RenderRoom($"room-fire-{(inside ? "in" : "out")}", inside, 4f, (h, audio) =>
+        {
+            Quieten(audio);
+            var fire = new AudioPlayer3D
+            {
+                Stream = ForestSoundBank.Shared.Fire,
+                Bus = ForestAudio.InteriorBus,
+                Loop = true,
+                UnitSize = 100f, // full level wherever the listener stands
+                Position = new Vector3(0f, 1f, 6f), // as far from either camera
+            };
+            h.Scene.AddChild(fire);
+            fire.Play();
+        });
+
+        (float Rms, float Bright) RenderSteps(bool inside)
+        {
+            FootstepAudio? steps = null;
+            return RenderRoom($"room-steps-{(inside ? "in" : "out")}", inside, 3f, (h, audio) =>
+            {
+                Quieten(audio);
+                steps = new FootstepAudio { Name = "Steps", Position = new Vector3(0f, 1f, 6f) };
+                h.Scene.AddChild(steps);
+            }, tick =>
+            {
+                if (tick % 27 == 0)
+                    steps!.OnFootstep("wood");
+            });
+        }
+    }
+
     [Fact]
     public void TheWholeMixWalkingByTheStreamStaysCalm()
     {

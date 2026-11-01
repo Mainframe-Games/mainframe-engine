@@ -49,8 +49,8 @@ public sealed class ForestAudioTests
         var layout = AudioHarness.LoadLayout();
         Assert.Null(layout.Validate());
         var names = layout.Buses.Select(b => b.Name).ToArray();
-        Assert.Equal(["Master", "Ambience", "Water", "Foley", "Music", "SFX", "UI"], names);
-        foreach (var bus in new[] { "Ambience", "Water", "Foley" })
+        Assert.Equal(["Master", "Ambience", "Water", "Foley", "Interior", "Music", "SFX", "UI"], names);
+        foreach (var bus in new[] { "Ambience", "Water", "Foley", "Interior" })
         {
             var info = layout.Buses.Single(b => b.Name == bus);
             Assert.Equal("Master", info.Send);
@@ -58,6 +58,172 @@ public sealed class ForestAudioTests
         }
 
         Assert.IsType<AudioEffectReverb>(Assert.Single(layout.Buses.Single(b => b.Name == "Foley").Effects));
+
+        // The outdoor buses carry the room's low-pass, open until the player goes in; the room's own bus has none.
+        foreach (var bus in new[] { "Ambience", "Water" })
+            Assert.Equal(AudioEffectLowPass.OpenHz, Assert.IsType<AudioEffectLowPass>(Assert.Single(layout.Buses.Single(b => b.Name == bus).Effects)).CutoffHz);
+        Assert.Empty(layout.Buses.Single(b => b.Name == "Interior").Effects);
+    }
+
+    /// <summary>A 12 × 6 × 12 m room at the origin, a camera 20 m outside it and the Forest's audio connected to the room.</summary>
+    private static (ForestAudio Audio, CabinInterior Room, Camera3D Camera) AddRoom(AudioHarness h, ForestAudioSettings? settings = null, CabinDoor? door = null)
+    {
+        var room = new CabinInterior { Name = "Room", HalfExtents = new Vector3(6f, 3f, 6f), Door = door };
+        h.Scene.AddChild(room);
+        var camera = h.AddListener(new Vector3(0f, 1f, 20f));
+        var audio = ForestAudio.Attach(h.Scene, null, null, settings: settings ?? new ForestAudioSettings());
+        audio.Interior = room;
+        h.Run(1);
+        return (audio, room, camera);
+    }
+
+    [Fact]
+    public void TheRoomMufflesTheOutdoorBusesEasedAndLeavesTheOthersAlone()
+    {
+        using var h = new AudioHarness();
+        var (audio, room, camera) = AddRoom(h);
+        var ambience = h.Server.GetBus(ForestAudio.AmbienceBus)!;
+        var water = h.Server.GetBus(ForestAudio.WaterBus)!;
+        var foley = h.Server.GetBus(ForestAudio.FoleyBus)!;
+        var interior = h.Server.GetBus(ForestAudio.InteriorBus)!;
+        var (ambienceDb, waterDb, foleyDb, interiorDb) = (ambience.VolumeDb, water.VolumeDb, foley.VolumeDb, interior.VolumeDb);
+        Assert.Equal(AudioEffectLowPass.OpenHz, ambience.LowPassHz);
+
+        // Eased in: never a jump, closing every frame, half way at half time, then at the room's values.
+        camera.Position = Vector3.UnitY;
+        var cutoff = ambience.LowPassHz;
+        var level = ambience.VolumeDb;
+        for (var i = 0; i < room.BlendSeconds * 60f + 2; i++)
+        {
+            h.Frame();
+            Assert.True(ambience.LowPassHz <= cutoff && ambience.VolumeDb <= level);
+            Assert.True(level - ambience.VolumeDb < 1f, $"a {level - ambience.VolumeDb:0.00} dB step");
+            Assert.True(ambience.LowPassHz > cutoff * 0.75f, $"{cutoff:0} Hz to {ambience.LowPassHz:0} Hz in a frame");
+            (cutoff, level) = (ambience.LowPassHz, ambience.VolumeDb);
+            if (i == (int)(room.BlendSeconds * 30f))
+                Assert.InRange(ambience.VolumeDb, ambienceDb + audio.IndoorVolumeDb * 0.7f, ambienceDb + audio.IndoorVolumeDb * 0.3f);
+        }
+
+        Assert.Equal(1f, room.Enclosure);
+        Assert.Equal(audio.IndoorCutoffHz, ambience.LowPassHz, 1);
+        Assert.Equal(ambienceDb + audio.IndoorVolumeDb, ambience.VolumeDb, 3);
+        Assert.Equal(audio.IndoorCutoffHz, water.LowPassHz, 1);
+        Assert.Equal(waterDb + audio.IndoorVolumeDb, water.VolumeDb, 3);
+        Assert.Equal(foleyDb, foley.VolumeDb);
+        Assert.Equal(interiorDb, interior.VolumeDb);
+        Assert.False(foley.HasLowPass || interior.HasLowPass);
+
+        // Eased out, not stepped; then back exactly where it started.
+        camera.Position = new Vector3(0f, 1f, 20f);
+        h.RunSeconds(room.BlendSeconds * 0.5f);
+        Assert.InRange(ambience.VolumeDb, ambienceDb + audio.IndoorVolumeDb * 0.7f, ambienceDb + audio.IndoorVolumeDb * 0.3f);
+        h.RunSeconds(room.BlendSeconds);
+        Assert.Equal(ambienceDb, ambience.VolumeDb, 4);
+        Assert.Equal(waterDb, water.VolumeDb, 4);
+        Assert.Equal(AudioEffectLowPass.OpenHz, ambience.LowPassHz);
+        Assert.Equal(AudioEffectLowPass.OpenHz, water.LowPassHz);
+    }
+
+    [Fact]
+    public void AnOpenDoorLetsALittleMoreThrough()
+    {
+        using var h = new AudioHarness();
+        var door = new CabinDoor { Name = "Door" };
+        h.Scene.AddChild(door);
+        var (audio, room, camera) = AddRoom(h, door: door);
+        var ambience = h.Server.GetBus(ForestAudio.AmbienceBus)!;
+        var outsideDb = ambience.VolumeDb;
+        camera.Position = Vector3.UnitY;
+        h.RunSeconds(room.BlendSeconds + 0.1f);
+        var shutDb = ambience.VolumeDb;
+        var shutHz = ambience.LowPassHz;
+
+        // It follows the swing, so opening never jumps; still far from outdoors.
+        door.Toggle();
+        h.RunSeconds(door.SwingSeconds * 0.5f);
+        Assert.InRange(ambience.VolumeDb, shutDb + 0.5f, shutDb + audio.IndoorVolumeDb * -room.OpenDoorLeak - 0.5f);
+        h.RunSeconds(door.SwingSeconds);
+        Assert.Equal(1f - room.OpenDoorLeak, room.Enclosure, 4);
+        Assert.Equal(outsideDb + audio.IndoorVolumeDb * (1f - room.OpenDoorLeak), ambience.VolumeDb, 3);
+        Assert.InRange(ambience.LowPassHz, shutHz * 1.5f, 3000f);
+
+        // Shut again, the room seals; from outside the door does not matter.
+        door.Toggle();
+        h.RunSeconds(door.SwingSeconds + 0.1f);
+        Assert.Equal(shutDb, ambience.VolumeDb, 3);
+        door.Toggle();
+        camera.Position = new Vector3(0f, 1f, 20f);
+        h.RunSeconds(room.BlendSeconds + door.SwingSeconds);
+        Assert.Equal(outsideDb, ambience.VolumeDb, 4);
+    }
+
+    [Fact]
+    public void ThePauseMenusVolumesStackWithTheRoom()
+    {
+        using var h = new AudioHarness();
+        var (audio, room, camera) = AddRoom(h);
+        var ambience = h.Server.GetBus(ForestAudio.AmbienceBus)!;
+        var water = h.Server.GetBus(ForestAudio.WaterBus)!;
+        var interior = h.Server.GetBus(ForestAudio.InteriorBus)!;
+        var (ambienceDb, waterDb, interiorDb) = (ambience.VolumeDb, water.VolumeDb, interior.VolumeDb);
+        camera.Position = Vector3.UnitY;
+        h.RunSeconds(room.BlendSeconds + 0.1f);
+
+        // Changed indoors: the slider moves the bus and the room keeps its drop and its filter.
+        audio.ApplySettings(new ForestAudioSettings { AmbienceVolume = 0.5f, WaterVolume = 0f });
+        Assert.Equal(ambienceDb - 6.02f + audio.IndoorVolumeDb, ambience.VolumeDb, 2);
+        Assert.Equal(interiorDb - 6.02f, interior.VolumeDb, 2); // the hearth is ambience, without the room's drop
+        Assert.True(water.Mute);
+        Assert.Equal(audio.IndoorCutoffHz, ambience.LowPassHz, 1);
+        h.Run(5);
+        Assert.Equal(ambienceDb - 6.02f + audio.IndoorVolumeDb, ambience.VolumeDb, 2);
+
+        // Outside again the setting stays and the room's drop has gone.
+        camera.Position = new Vector3(0f, 1f, 20f);
+        h.RunSeconds(room.BlendSeconds + 0.1f);
+        Assert.Equal(ambienceDb - 6.02f, ambience.VolumeDb, 2);
+        Assert.True(water.Mute);
+        Assert.Equal(AudioEffectLowPass.OpenHz, ambience.LowPassHz);
+
+        audio.ApplySettings(new ForestAudioSettings());
+        Assert.Equal(ambienceDb, ambience.VolumeDb, 4);
+        Assert.Equal(waterDb, water.VolumeDb, 4);
+        Assert.False(water.Mute);
+    }
+
+    [Fact]
+    public void WalkingThroughTheRealDoorMufflesTheValleyAndTheHearthStaysOnItsBus()
+    {
+        var bin = ForestAssets.Resolve(ForestAssets.CabinBuffer);
+        if (!File.Exists(bin) || File.ReadAllText(bin).StartsWith("version https://git-lfs", StringComparison.Ordinal))
+            Assert.Skip("The Forest's LFS art is not checked out (git lfs pull).");
+
+        using var h = new AudioHarness();
+        var cabin = ForestCabin.Create(0f, gameplay: true);
+        cabin.Position = Vector3.Zero;
+        cabin.RotationDegrees = Vector3.Zero;
+        h.Scene.AddChild(cabin);
+        var player = h.Controller.AddPlayer(new Vector3(1.4f, 0f, 5.5f)); // facing north (−Z), at the steps
+        var audio = ForestAudio.Attach(h.Scene, null, player, settings: new ForestAudioSettings());
+        audio.ConnectCabin(cabin);
+        h.RunSeconds(0.3f);
+        Assert.Same(cabin.Door, cabin.Interior!.Door);
+        Assert.Equal(ForestAudio.InteriorBus, audio.Crackle!.Bus);
+        Assert.True(audio.Crackle.Playing);
+        Assert.Equal(0f, cabin.Interior.Enclosure);
+
+        cabin.Door!.Toggle();
+        h.Controller.Hold("move_forward");
+        h.RunSeconds(4f);
+        h.Controller.Release("move_forward");
+        h.RunSeconds(cabin.Interior.BlendSeconds);
+        Assert.True(cabin.Interior.CameraInside, $"the camera stopped at {player.Camera!.GlobalPosition}");
+        Assert.InRange(h.Server.GetBus(ForestAudio.AmbienceBus)!.LowPassHz, audio.IndoorCutoffHz, 3000f);
+
+        cabin.Door.Toggle();
+        h.RunSeconds(cabin.Door.SwingSeconds + 0.1f);
+        Assert.Equal(1f, cabin.Interior.Enclosure);
+        Assert.Equal(audio.IndoorCutoffHz, h.Server.GetBus(ForestAudio.WaterBus)!.LowPassHz, 1);
     }
 
     [Fact]
@@ -318,6 +484,13 @@ public sealed class ForestAudioTests
         var player = h.Controller.AddPlayer(new Vector3(-6, 0, 40));
         var audio = ForestAudio.Attach(h.Scene, river, player, [new Vector3(0, -0.5f, 0)]);
         audio.Birds!.MeanInterval = 0.5f; // plenty of triggers in the window
+        var door = new CabinDoor { Name = "Door" };
+        h.Scene.AddChild(door);
+        var room = new CabinInterior { Name = "Room", BlendSeconds = 0.5f, Door = door };
+        h.Scene.AddChild(room);
+        audio.Interior = room;
+        var ambience = h.Server.GetBus(ForestAudio.AmbienceBus)!;
+        var (closest, widest) = (float.MaxValue, 0f);
         ForestSoundBank.Shared.Preload();
 
         void Walk(int tick)
@@ -327,18 +500,24 @@ public sealed class ForestAudioTests
                 player.AddLook(25f, 0f);
             if (tick % 20 == 0)
                 audio.Footsteps!.OnFootstep(ForestSynth.FootstepSurfaces[tick / 20 % ForestSynth.FootstepSurfaces.Length]);
+            room.HalfExtents = tick % 120 < 60 ? new Vector3(1000f) : Vector3.Zero; // through the door and out, again and again
+            if (tick % 180 == 0)
+                door.Toggle();
+            (closest, widest) = (MathF.Min(closest, ambience.LowPassHz), MathF.Max(widest, ambience.LowPassHz));
         }
 
         Action<int> walk = Walk;
         h.Run(240, walk); // warm up: every voice, set and pooled player used once
         var triggered = audio.Birds.Triggered;
         var played = audio.Footsteps!.Played;
+        (closest, widest) = (float.MaxValue, 0f);
         var allocated = GC.GetAllocatedBytesForCurrentThread();
         h.Run(600, walk);
         allocated = GC.GetAllocatedBytesForCurrentThread() - allocated;
 
         Assert.True(audio.Birds.Triggered - triggered > 5);
         Assert.True(audio.Footsteps.Played - played > 30);
+        Assert.True(closest < 1500f && widest >= AudioEffectLowPass.OpenHz, $"the room swept {closest:0}–{widest:0} Hz");
         Assert.Equal(0, allocated);
     }
 }

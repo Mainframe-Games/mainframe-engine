@@ -1012,24 +1012,8 @@ public sealed class ForestValley : Node3D, ISceneLoadable
         if (Parent?.FindChildren<ForestAudio>(owned: false) is [var audio, ..])
         {
             audio.PineDensity = p => valley.PineMask(p.X, p.Z);
-            // The hearth's crackle: close and quiet, muffled with distance (the walls do not occlude).
-            if (LogCabin?.Fire is { } fire)
-            {
-                var player = new AudioPlayer3D
-                {
-                    Name = "Crackle",
-                    Stream = ForestSoundBank.Shared.Fire,
-                    Bus = ForestAudio.AmbienceBus,
-                    Loop = true,
-                    AttenuationModel = AttenuationModel.Inverse,
-                    UnitSize = 1.5f,
-                    MaxDistance = 25f,
-                    LowPassAtMaxDistance = 1500f,
-                    Position = new Vector3(0f, 0.3f, 0f),
-                };
-                fire.AddChild(player);
-                player.Play();
-            }
+            if (LogCabin is { } cabin)
+                audio.ConnectCabin(cabin);
         }
     }
 }

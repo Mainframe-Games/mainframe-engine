@@ -10,6 +10,8 @@ internal enum AudioCommandType : byte
     StopVoice,
     SeekVoice,
     SetBusGain,
+    /// <summary>The cutoff of the bus's low-pass effect (<see cref="VoiceParams.LowPassHz"/>, as the modifier takes it).</summary>
+    SetBusLowPass,
     SwapGraph,
     /// <summary>A streamed voice seeks: read stream generation <see cref="AudioCommand.StreamGeneration"/> from <see cref="AudioCommand.Frame"/>.</summary>
     RestartStream,

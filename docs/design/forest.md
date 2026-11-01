@@ -272,10 +272,12 @@ east-south-east over the glade), on a pad cut and filled level with the ground u
   `CabinDoor`: the `interact` action (E, gamepad X) swings the door 100° inwards over 0.7 s when the player is within
   2.4 m and looks at it; `InteractPrompt` (`Assets/UI/prompt.rml`) shows "E Open"/"Close". `CabinInterior`: the probe
   volume keeps 85 % of the sky light under any roof, so while the active camera is in the room the sky ambient eases to
-  22 % and the volumetric haze to 30 % (0.6 s), and back outside: the fire lights the room. The hearth crackles
-  (`ForestSynth.Fire`, [audio](#audio)). Per frame all of it is arithmetic (0 B).
+  22 % and the volumetric haze to 30 % (0.6 s), and back outside: the fire lights the room. The same blend muffles the
+  valley ([indoors](#indoors)). The hearth crackles (`ForestSynth.Fire`, [audio](#audio)). Per frame all of it is
+  arithmetic (0 B).
 - `CabinTests`: the door's eased swing, `interact` in reach and out of it, the real model keeping a player out with the
-  door shut and letting them in (onto the floor) with it open; R9 on the pad.
+  door shut and letting them in (onto the floor) with it open; the room following the camera, with or without an
+  environment; R9 on the pad.
 
 ### Look pass (ADR 0209)
 
@@ -737,7 +739,7 @@ the first `River3D` and `FirstPersonController` in its scene (its `Owner`, else 
 | `StreamAudio` | the **brook** (14 s mono: band-passed noise at 800 Hz and 2.5 kHz that undulates, a low rumble, ≈ 38 Minnaert bubbles per second — sines at 350 Hz – 2.4 kHz whose pitch rises 1.3–2.4× as they decay — and bursts of babble) on two `AudioPlayer3D`s: the near one at the river point closest to the listener (`Curve3D.GetClosestOffset`), pushed toward the listener by up to half the width; the far one 12 m further along, −5 dB, half a loop apart. Both move at most 30 m/s. Level `StreamVolumeDb + clamp(20·log10(flow / 1 m/s), −6, +6)` from `River3D.FlowSpeedAt`; `UnitSize` 3 m, `MaxDistance` 30 m, low-pass to 2.5 kHz at range. The **falls** loop (10 s: the brook's recipe, brighter and denser) plays at each of `FallPositions` (`MaxDistance` 80 m); the positions are parameters (`River3D.Falls` now lists the rendered falls, ADR 0173), and `StreamAudio.FindSteepPoints(river, minSlope 0.25, spacing 15 m)` finds candidates | Water |
 | `BirdSongs` | a pool of 6 `AudioPlayer3D`s (`UnitSize` 8 m, low-pass at range); Poisson-timed (mean 4 s, at least 0.8 s apart), 10–40 m away and 6–16 m above the listener; a species never twice in a row, nor a variant. Five ZzFX species (`BirdSynth`): Warbler (sliding whistles), Chickadee ("fee-bee"), Finch (a trill from ZzFX's repeat + tremolo, then a flourish), Thrush (flute phrases with pitch jumps, a soft trill), Woodpecker (a drum roll of `tan` knocks, slowing). Four songs and two calls each; pitch randomness 0.04. With `PineDensity`, songbirds are up to 8 dB quieter in dense pines and the woodpecker is likelier (weight 0.35 → 2) | Ambience |
 | `FootstepAudio` | `FirstPersonController.Footstep` → one of 6 variations of the surface's step, never the same twice in a row, `PitchRandomness` 0.08, ±1.5 dB, crouch −6 dB, sprint +2 dB; two alternating players at the feet. Each step is a heel and a softer toe impact 50–90 ms apart built from thumps, filtered noise bursts, grains (crunch), resonant modes and sweeps: `grass`, `leaves` (also `leaf_litter`), `moss`, `rock`, `dirt` (also `path`), `gravel`, `mud`, `water` (a splash with droplets), `wood` (the log bridge, the cabin), `sand` (a padded thump, low hiss and fine quiet grains) and `default` | Foley |
-| Hearth (`ForestValley`) | the cabin's **fire** (`ForestSynth.Fire`, 12 s mono: a breathing roar of low-passed noise, a faint steam hiss, ≈ 16 fine crackles a second — 2–5 ms high-passed clicks, most quiet — and a pop about every 2 s with a short tail of settling embers) on an `AudioPlayer3D` in the hearth (`UnitSize` 1.5 m, `MaxDistance` 25 m, low-pass to 1.5 kHz at range) | Ambience |
+| Hearth (`ForestValley`) | the cabin's **fire** (`ForestSynth.Fire`, 12 s mono: a breathing roar of low-passed noise, a faint steam hiss, ≈ 16 fine crackles a second — 2–5 ms high-passed clicks, most quiet — and a pop about every 2 s with a short tail of settling embers) on an `AudioPlayer3D` in the hearth (`UnitSize` 1.5 m, `MaxDistance` 25 m, low-pass to 1.5 kHz at range), placed by `ForestAudio.ConnectCabin` | Interior |
 
 `ForestSoundBank.Shared` builds each group on first use (≈ 0.5 s in Debug for all of it, at scene load; about 17 MB of
 samples, mostly the stereo beds); `Preload()` builds everything now. All synthesis is deterministic for its seed
@@ -746,8 +748,9 @@ samples, mostly the stereo beds); `Preload()` builds everything now. All synthes
 ### Mix
 
 `Assets/Settings/AudioBusLayout.mres` (`project.mfproj` → `audio.busLayout`): Master (16 voices) → **Ambience** −7 dB
-(10), **Water** −8 dB (6), **Foley** −7 dB (6, a light Freeverb: room 0.3, damp 0.7, wet 0.08), Music, SFX, UI. Measured
-through the offline path (`ForestAudioRenderTests`, master mix):
+(10), **Water** −8 dB (6), both with a low-pass that stands open outdoors, **Foley** −7 dB (6, a light Freeverb: room
+0.3, damp 0.7, wet 0.08), **Interior** −7 dB (2, the hearth), Music, SFX, UI. Measured through the offline path
+(`ForestAudioRenderTests`, master mix):
 
 | Scene | RMS | Peak |
 |---|---|---|
@@ -759,7 +762,31 @@ through the offline path (`ForestAudioRenderTests`, master mix):
 | everything, walking by the stream | −26 dBFS | −9 dBFS |
 
 `ForestAudioSettings` (`MasterVolume`, `AmbienceVolume`, `WaterVolume`, `FoleyVolume`, linear 0–1, default 1) scale the
-buses over the layout's levels (`ForestAudio.ApplySettings`; 0 mutes).
+buses over the layout's levels (`ForestAudio.ApplySettings`; 0 mutes). The Interior bus has no slider of its own: it
+follows `AmbienceVolume`, so the fire stays where the player set it when it moved off the Ambience bus.
+
+### Indoors
+
+In the cabin the valley is shut out: `ForestAudio` reads `CabinInterior.Enclosure` each frame and, while it changes,
+sweeps the **Ambience** and **Water** buses (wind, leaves, birds, the brook, the falls) from open to a 450 Hz low-pass
+(`IndoorCutoffHz`, exponentially, so the sweep sounds even) and 9 dB down (`IndoorVolumeDb`). The **Foley** and
+**Interior** buses are not touched, so footsteps and the fire stay clear; the fire left the Ambience bus for this.
+
+- `Enclosure` is the room's lighting blend, smoothstepped: the active camera in the room's box, eased over
+  `BlendSeconds` (0.6 s) both ways. It follows the camera, so the free camera and the shots hear what they see. It no
+  longer depends on a `WorldEnvironment`.
+- An open door gives up `OpenDoorLeak` (30 %) of it, following the swing: −6.3 dB and about 1.4 kHz with the door wide
+  open. From outside the door changes nothing.
+- The low-pass is the layout's `AudioEffectLowPass`, moved live through `AudioBus.LowPassHz`, the engine's one
+  live-automated effect parameter ([audio](audio.md#buses)). It is a one-pole, 6 dB/oct: what gets through is dull, not
+  gone. At `AudioEffectLowPass.OpenHz` it passes the signal unchanged, so the outdoor levels above stay as they were.
+- `ApplySettings` is the one place that sets the buses (layout + slider + room), and the per-frame path calls it only
+  while `Enclosure` moves, so the sliders work indoors and leaving the room restores exactly what the player set.
+- Sounds stay where they are: a bird's or the brook's distance attenuation and position are unchanged, only their
+  buses are filtered. From outside the walls still do not occlude the fire.
+
+`ForestAudioRenderTests` writes `room-*.wav` for listening: the bed outdoors and indoors, and the fire and wooden
+footsteps in both places, which must measure the same.
 
 ### Per frame
 
@@ -870,7 +897,7 @@ setting's effect shows at once. Resume (or Escape) recaptures the mouse and save
 | Page | Rows |
 |---|---|
 | **Graphics** | *Display*: quality (Low / Medium / High / Custom, see below), upscaling (TAAU / FSR 1 / native), render scale (50–100 %), anti-aliasing (TAA / FXAA / off), VSync, field of view, the frame-rate readout. *Shadows and light*: shadow resolution (512–4096), distance (40–300 m), cascades (1–4), distant tree shadows (the impostors' shadow density, 20–100 %; ADR 0209), soft shadows (PCSS: the sun's 0.5° disc or 0), contact shadows, ambient occlusion and its strength. *Atmosphere*: haze (the distance fog, 0–400 % of the look), volumetric fog and its density (0–400 %), screen-space light shafts, wind (0–400 %; the trees, the grass and the wind sound). *Sun (lighting bake approximate)*: height (2–85°) and direction (0–355°). *Camera and post-processing*: tonemapper (AgX / ACES / Filmic / Reinhard), exposure (±2 EV), auto exposure, glow (0–400 %), the colour grade, depth of field and its focus distance, film grain, vignette, chromatic aberration. *Vegetation*: ground cover density (10–100 %) and distance (25–100 %), tree detail distance (where trees become impostors, 60–250 m) |
-| **Audio** | master, ambience (wind, leaves, birds), water (the brook, the falls), footsteps (the Foley bus), mute |
+| **Audio** | master, ambience (wind, leaves, birds, the hearth), water (the brook, the falls), footsteps (the Foley bus), mute |
 | **Controls** | mouse sensitivity, invert look, gamepad look speed, head bob; the keys for reference (E opens a door) |
 | **Cameras** | Return to player; **Fly-over**: a cinematic camera along the benchmark spline at 7 m/s (`ForestCameras.FlyOverSpeed`), looking 14 m ahead with an eased turn, closed into a ≈ 70 s loop, lifted wherever the curve between the spline's points would come within 1.5 m of the ground or the water (`ForestCameras.MinClearance`; the first leg sagged into the rising path); **Free camera**: WASD, Space up, C down, Shift faster, mouse or right stick (`FreeFlyCamera`, no collision); the reference shots **R1–R9** (Glade, Fall, Bridge, Vista, Floor, Pines, Fall close, Woodland, Cabin) as cards with thumbnails (a full 3 × 3 grid), with their photo lenses. In a shot, A / D (or left / right) step through the shots. A camera closes the menu; Escape then opens it again on the Cameras page |
 
@@ -983,7 +1010,8 @@ flyover|free|<1-8|name>` starts a camera, `--option key=value` sets an option fo
   loops are seamless, levels and frequency bands are where they should be, birds sing in their register; the wiring, the
   wind following the environment, the brook's emitters (nearest point, half-width push, 30 m/s glide, louder with
   flow), steep-point detection, the Poisson bird schedule (count, spacing, no repeats, determinism, pines), footsteps
-  per surface without repeats and from the controller's signal, settings on the buses, 0 B per frame; and the offline
+  per surface without repeats and from the controller's signal, settings on the buses, the cabin's muffling (eased both
+  ways, the open door, the sliders on top of it, the walk through the real door), 0 B per frame; and the offline
   renders above, which must not clip and must stay within their RMS and peak windows.
 
 Not in CI yet (the G8d.9 CI step and `build/forest-smoke.sh` come with the release work).

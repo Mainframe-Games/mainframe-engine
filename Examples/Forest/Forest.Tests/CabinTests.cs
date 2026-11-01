@@ -83,6 +83,33 @@ public sealed class CabinTests
     }
 
     [Fact]
+    public void TheRoomTracksTheCameraWithoutAnEnvironment()
+    {
+        using var h = new ControllerHarness();
+        var room = new CabinInterior { Name = "Room", BlendSeconds = 0.5f, HalfExtents = new Vector3(4f, 2f, 4f) };
+        h.Scene.AddChild(room);
+        var camera = new Camera3D { Name = "Camera", Current = true, Position = new Vector3(0f, 0f, 10f) };
+        h.Scene.AddChild(camera);
+        h.Run(2);
+        Assert.False(room.CameraInside);
+        Assert.Equal(0f, room.Enclosure);
+
+        camera.Position = Vector3.Zero;
+        h.RunSeconds(0.25f);
+        Assert.True(room.CameraInside);
+        Assert.InRange(room.Enclosure, 0.2f, 0.8f);
+        h.RunSeconds(0.3f);
+        Assert.Equal(1f, room.Enclosure);
+
+        camera.Position = new Vector3(0f, 0f, 10f);
+        h.RunSeconds(0.25f);
+        Assert.False(room.CameraInside);
+        Assert.InRange(room.Enclosure, 0.2f, 0.8f);
+        h.RunSeconds(0.3f);
+        Assert.Equal(0f, room.Enclosure);
+    }
+
+    [Fact]
     public void TheCabinShotAndSpurStandOnThePad()
     {
         var r9 = ValleyLayout.Shots[^1];

@@ -1,5 +1,6 @@
 using SoundFlow.Abstracts;
 using SoundFlow.Components;
+using SoundFlow.Modifiers;
 using SoundFlow.Structs;
 
 namespace MainframeEngine.Audio;
@@ -53,10 +54,14 @@ internal sealed class AudioGraph : IDisposable
         {
             var info = layout.Buses[b];
             var mixer = new Mixer(engine, format) { Name = "Bus " + info.Name, Volume = UnityVolume };
+            LowPassModifier? lowPass = null;
             foreach (var effect in info.Effects)
             {
-                if (effect is not null)
-                    mixer.AddModifier(effect.CreateModifier(format));
+                if (effect is null)
+                    continue;
+                var modifier = effect.CreateModifier(format);
+                lowPass ??= modifier as LowPassModifier;
+                mixer.AddModifier(modifier);
             }
 
             var fader = new BusProcessor(format.SampleRate, busGains[b]);
@@ -90,7 +95,7 @@ internal sealed class AudioGraph : IDisposable
                 mixer.AddComponent(music);
             }
 
-            buses[b] = new BusNode(mixer, fader, parent, first, info.MaxVoices, firstMusic, nextMusic - firstMusic);
+            buses[b] = new BusNode(mixer, fader, lowPass, parent, first, info.MaxVoices, firstMusic, nextMusic - firstMusic);
         }
 
         return new AudioGraph(buses, voices, musicVoices);
@@ -113,6 +118,6 @@ internal sealed class AudioGraph : IDisposable
         Buses[0].Mixer.Dispose();
     }
 
-    internal sealed record BusNode(Mixer Mixer, BusProcessor Fader, int Parent, int FirstVoice, int VoiceCount, int FirstMusicVoice,
-        int MusicVoiceCount);
+    internal sealed record BusNode(Mixer Mixer, BusProcessor Fader, LowPassModifier? LowPass, int Parent, int FirstVoice, int VoiceCount,
+        int FirstMusicVoice, int MusicVoiceCount);
 }

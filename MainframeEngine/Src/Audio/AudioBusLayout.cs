@@ -128,15 +128,28 @@ public abstract class AudioEffect : Resource
     internal abstract SoundModifier CreateModifier(AudioFormat format);
 }
 
-/// <summary>One-pole low-pass (SoundFlow <c>LowPassModifier</c>).</summary>
+/// <summary>
+/// One-pole low-pass (SoundFlow <c>LowPassModifier</c>). <see cref="AudioBus.LowPassHz"/> moves the cutoff of a bus's
+/// first one at run time.
+/// </summary>
 [EditorIcon("wave-sine")]
 public class AudioEffectLowPass : AudioEffect
 {
+    /// <summary>A cutoff at or above this passes everything, unfiltered (a one-pole at 20 kHz would still dull the top end).</summary>
+    public const float OpenHz = 20000f;
+
+    /// <summary>The modifier's cutoff when open: far enough above any sample rate that its coefficient is 1 to float precision.</summary>
+    private const float PassAllHz = 1e9f;
+
     [Export(Range = "10,20000,1")]
     public float CutoffHz { get; set; } = 2000f;
 
     internal override SoundModifier CreateModifier(AudioFormat format) =>
-        new LowPassModifier(format, Math.Clamp(CutoffHz, 10f, format.SampleRate * 0.45f)) { Enabled = Enabled };
+        new LowPassModifier(format, ModifierCutoff(CutoffHz, format.SampleRate)) { Enabled = Enabled };
+
+    /// <summary>The cutoff <paramref name="hz"/> as the modifier takes it.</summary>
+    internal static float ModifierCutoff(float hz, int sampleRate) =>
+        hz >= OpenHz ? PassAllHz : Math.Clamp(hz, 10f, sampleRate * 0.45f);
 }
 
 /// <summary>One-pole high-pass (SoundFlow <c>HighPassModifier</c>).</summary>
