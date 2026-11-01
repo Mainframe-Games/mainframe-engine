@@ -374,7 +374,8 @@ gate (`SceneTreeAllocationTests`) and the render tests' allocation gates stay at
   frame's metadata `token` (with the MVID and IL offset it is what `mf-symbolicate` needs).
 - **Breadcrumbs use `vkCmdFillBuffer` only** (no local driver has `VK_AMD_buffer_marker`; per-draw AMD markers stay
   G15.9), nine passes with `Present` covering the tonemap through the overlay, and an execution barrier before each end
-  mark. A *simulated* loss keeps the renderer's waits (the device is fine).
+  mark. A *simulated* loss keeps the renderer's waits (the device is fine) and skips `vkGetDeviceFaultInfoEXT`, which
+  requires a lost device (`VUID-vkGetDeviceFaultInfoEXT-device-07336`).
 - **No G4 `DurableFile` for bundles:** a `.tmp` folder with a flushed `report.json`, renamed.
 - **The prompt shows the newest report** and dismisses the earlier ones with it; Open folder goes through SDL.
 - **The supervisor writes the report itself** and shows no native message box (the next start's prompt does).
