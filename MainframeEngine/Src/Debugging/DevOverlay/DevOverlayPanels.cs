@@ -14,7 +14,7 @@ internal static class DevOverlayPanels
     public static void AddBuiltIns(DevOverlay overlay, Engine? engine)
     {
         ArgumentNullException.ThrowIfNull(overlay);
-        var sources = new DevOverlaySources(overlay.Servers, engine);
+        var sources = new DevOverlaySources(overlay.Tree, engine);
         AddFrame(overlay, sources);
         DevOverlayProfiler.Add(overlay, engine?.GameName ?? GameHost.Project?.Name ?? "Mainframe Engine"); // G10, collapsed
         AddRenderer(overlay, sources);
@@ -42,6 +42,7 @@ internal static class DevOverlayPanels
             <div class="dev-row"><span>Frame ms (avg/min/max)</span><span class="v">{{ms | format(2)}} / {{min | format(2)}} / {{max | format(2)}}</span></div>
             <div class="dev-row"><span>Frame</span><span class="v">{{frame}}</span></div>
             <div class="dev-row"><span>VSync</span><input type="checkbox" data-checked="vsync"/></div>
+            <div class="dev-row"><span>Fullscreen</span><input type="checkbox" data-checked="fullscreen"/></div>
             <div class="dev-row"><span>UI draw calls</span><span class="v">{{ui}}</span></div>
             """, p => p.Model!
             .Bind("fps", stats, static s => s.Fps)
@@ -50,7 +51,8 @@ internal static class DevOverlayPanels
             .Bind("max", stats, static s => s.MaxMs)
             .Bind("frame", stats, static s => (int)s.Frame)
             .Bind("ui", stats, static s => s.UiDrawCalls)
-            .Bind("vsync", stats, static s => s.VSync, static (s, v) => s.VSync = v));
+            .Bind("vsync", stats, static s => s.VSync, static (s, v) => s.VSync = v)
+            .Bind("fullscreen", stats, static s => s.Fullscreen, static (s, v) => s.Fullscreen = v));
 
         // Accumulated every visible frame, published at the refresh (nothing is published for an empty window).
         overlay.Frame += stats.Accumulate;

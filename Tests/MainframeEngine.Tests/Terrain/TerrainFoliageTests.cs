@@ -265,6 +265,14 @@ public sealed class TerrainFoliageTests : IDisposable
         Assert.True(node.Visible);
         Assert.Same(transforms, multimesh.Transforms);
 
+        // Twice the distance: thinning from 40 m to 80 m (here at 60 m: half), and the tile's visibility range follows.
+        terrain.FoliageDistanceScale = 2f;
+        foliage.UpdateDistances(new Vector3(8 + 60f, 0, 8));
+        Assert.InRange(multimesh.DrawnInstanceCount, 0.4f * count, 0.6f * count);
+        Assert.Equal(80f, node.VisibilityRangeEnd);
+        terrain.FoliageDistanceScale = 3f;
+        Assert.Equal(2f, terrain.FoliageDistanceScale);
+
         terrain.FoliageDensityScale = 3f;
         terrain.FoliageDistanceScale = 0f;
         Assert.Equal(1f, terrain.FoliageDensityScale);

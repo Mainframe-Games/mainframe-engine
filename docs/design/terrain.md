@@ -240,9 +240,9 @@ type's `Material`, `CastShadows` = the type's and `VisibilityRangeEnd` = its `Cu
   [MultiMesh](materials-and-meshes.md#multimesh-adr-0151)), and tiles set `MultiMesh.CustomAabb`.
 - **Runtime quality scales** ([ADR 0180](../../memory/decisions/0180-forest-settings-menu.md)): `Terrain3D.FoliageDensityScale`
   (0–1) multiplies `f`, so every tile draws an even share of its sorted instances, and `Terrain3D.FoliageDistanceScale`
-  (0.1–1) multiplies `CullDistance` and `ThinBand`. Both apply the next frame without a rebuild or an upload (a settings
-  menu's ground cover density and distance; not saved). Above 1 would need a rebuild (`VisibilityRangeEnd`, the tiles'
-  instance counts), so they only reduce.
+  (0.1–2) multiplies `CullDistance` and `ThinBand`, and each tile's `VisibilityRangeEnd` follows. Both apply the next frame
+  without a rebuild or an upload (a settings menu's ground cover density and distance; not saved). Density stays at most 1:
+  more would need more instances, a rebuild.
 - **Rebuilds.** A `Changed` with heights, splat weights or water rebuilds the tiles within half a tile (+ a vertex) of
   the touched cells; user channels rebuild nothing. A changed type (or its mesh) rebuilds that type; a new list
   rebuilds all. Every tile of the map is placed at load (no build radius yet).

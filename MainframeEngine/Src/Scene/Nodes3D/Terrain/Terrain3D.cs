@@ -261,13 +261,13 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
 
     /// <summary>
     /// A runtime quality knob (a settings menu's "ground cover distance"): scales every foliage type's
-    /// <see cref="FoliageType.CullDistance"/> and <see cref="FoliageType.ThinBand"/>, 0.1–1 (default 1). Nothing is rebuilt. Not
+    /// <see cref="FoliageType.CullDistance"/> and <see cref="FoliageType.ThinBand"/>, 0.1–2 (default 1). Nothing is rebuilt. Not
     /// saved.
     /// </summary>
     public float FoliageDistanceScale
     {
         get;
-        set => field = Math.Clamp(value, 0.1f, 1f);
+        set => field = Math.Clamp(value, 0.1f, 2f);
     } = 1f;
 
     /// <summary>Records edits for undo (<see cref="TerrainEdit.Begin"/> / <see cref="TerrainEdit.End"/>).</summary>
