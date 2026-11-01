@@ -175,10 +175,12 @@ neon-brand:
 neon-audio:
     dotnet test Examples/Neon/Neon.Tests --filter "FullyQualifiedName~NeonAudioRenderTests"
 
-# Build Neon's apartment (Assets/Art/Apartment/apartment.gltf): the posters, then headless Blender from Tools/apartment/build_apartment.py, then .meta sidecars (textures: python3 Examples/Neon/Tools/fetch_assets.py; BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
+# Build Neon's apartment (Assets/Art/Apartment: apartment.gltf, resident.gltf): the posters, then headless Blender from Tools/apartment/build_apartment.py and build_resident.py (after fetch_mpfb_packs.py installs MPFB and its CC0 packs in your Blender), then .meta sidecars (textures: python3 Examples/Neon/Tools/fetch_assets.py; BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
 neon-art *args:
     python3 Examples/Neon/Tools/apartment/make_posters.py
     "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/apartment/build_apartment.py -- {{args}}
+    python3 Examples/Neon/Tools/apartment/fetch_mpfb_packs.py
+    "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/apartment/build_resident.py
     python3 Examples/Neon/Tools/fetch_assets.py --only metas
 
 # Build Neon's city kit (Assets/Art/City: towers, rail, vehicles, signs glTFs and the signs.png words atlas; fetches Noto Sans JP into a cache) headless in Blender from Tools/city/build_city_kit.py (args: --preview DIR, --verify DIR, --no-atlas)

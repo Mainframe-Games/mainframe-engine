@@ -21,7 +21,7 @@ public sealed class ComputerRig : Node3D
     private Node3D? _tower;
     private TerminalPanel? _terminalPanel;
 
-    public ComputerSeat? Seat { get; set; }
+    public Chair? Seat { get; set; }
 
     /// <summary>A key was typed at the terminal (the audio clicks).</summary>
     [Signal] public event Action? KeyPressed;

@@ -1,0 +1,344 @@
+/*
+ * Neon's pause menu (NeonMenu.cs). The document's rows are generated from NeonOptions; this sheet styles them. Sizes in dp.
+ * A terminal in the rain: square corners, hairlines, mono type, magenta for what is selected and cyan for what is a value.
+ */
+
+body {
+    font-family: LatoLatin;
+    font-size: 15dp;
+    color: #d6e2ee;
+    width: 100%;
+    height: 100%;
+}
+
+div, p, h1, h2, section { display: block; }
+
+/* The pages, headings and buttons of other pages (data-class-hidden: data-visible only hides, keeping the space). */
+#panel .hidden, #panel button.hidden { display: none; }
+
+@keyframes pulse {
+    from { opacity: 1; }
+    to { opacity: 0.25; }
+}
+
+/* ── Backdrop ─────────────────────────────────────────────────────────────── */
+
+#scrim {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    decorator: linear-gradient(90deg, #07060df7 0%, #07060dd8 26%, #0b0618a0 62%, #16062070 100%);
+}
+
+#scanlines {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    decorator: repeating-linear-gradient(180deg, #00000000 0dp, #00000000 2dp, #0000002e 2dp, #0000002e 4dp);
+    pointer-events: none;
+}
+
+/* ── Navigation (left) ────────────────────────────────────────────────────── */
+
+#nav {
+    position: absolute;
+    left: 48dp;
+    top: 0;
+    bottom: 0;
+    width: 250dp;
+    padding-top: 72dp;
+}
+
+.brand { margin-bottom: 34dp; padding-left: 16dp; border-left: 3dp #ff2a9d; }
+.brand-kicker { font-family: "Roboto Mono"; font-size: 12dp; letter-spacing: 2dp; color: #19e6ff; }
+.brand-title { font-size: 58dp; font-weight: bold; letter-spacing: 7dp; color: #ffffff; line-height: 64dp; }
+.brand-state { font-family: "Roboto Mono"; font-size: 12dp; letter-spacing: 1dp; color: #ff5fb4; margin-top: 2dp; }
+.pulse {
+    display: inline-block;
+    width: 7dp;
+    height: 7dp;
+    margin-right: 8dp;
+    background-color: #ff2a9d;
+    animation: 0.9s cubic-in-out infinite alternate pulse;
+}
+
+#nav button.nav-item {
+    display: block;
+    width: 100%;
+    height: 42dp;
+    line-height: 42dp;
+    padding: 0dp 14dp;
+    margin-bottom: 3dp;
+    text-align: left;
+    font-family: "Roboto Mono";
+    font-size: 15dp;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+    color: #9fb0c4;
+    background-color: transparent;
+    border-width: 0dp 0dp 0dp 2dp;
+    border-color: #ffffff14;
+    border-radius: 0dp;
+    transition: background-color color 0.12s cubic-out;
+}
+
+.nav-i { font-size: 11dp; letter-spacing: 0dp; color: #5d6c85; margin-right: 12dp; }
+
+#nav button.nav-item:hover { color: #ffffff; background-color: #19e6ff14; border-color: #19e6ff; }
+#nav button.nav-item:focus-visible { color: #ffffff; background-color: #19e6ff1f; border-color: #19e6ff; }
+#nav button.nav-item.active {
+    color: #ffffff;
+    border-color: #ff2a9d;
+    decorator: linear-gradient(90deg, #ff2a9d4d, #ff2a9d00);
+}
+#nav button.nav-item.active .nav-i { color: #ff5fb4; }
+#nav button.nav-item.resume { color: #19e6ff; margin-bottom: 16dp; }
+#nav button.nav-item.resume .nav-i { color: #19e6ff; }
+#nav button.nav-item.quit { color: #c9757f; }
+#nav button.nav-item.quit:hover { color: #ff8a97; background-color: #ff3b4e14; border-color: #ff3b4e; }
+.nav-gap { height: 18dp; }
+
+#nav-foot {
+    position: absolute;
+    left: 16dp;
+    bottom: 40dp;
+    width: 240dp;
+    font-family: "Roboto Mono";
+    font-size: 12dp;
+    color: #7c89a0;
+    line-height: 24dp;
+}
+
+.key {
+    padding: 1dp 6dp;
+    margin-right: 8dp;
+    border: 1dp #19e6ff55;
+    color: #19e6ff;
+    font-size: 11dp;
+}
+
+/* ── Panel (right) ────────────────────────────────────────────────────────── */
+
+#panel {
+    position: absolute;
+    left: 340dp;
+    right: 48dp;
+    top: 72dp;
+    bottom: 48dp;
+    max-width: 1420dp;
+    background-color: #0a0913dc;
+    border: 1dp #19e6ff2e;
+    backdrop-filter: blur(14dp);
+}
+
+/* Brackets on the panel's corners. */
+.corner { position: absolute; width: 18dp; height: 18dp; border-color: #ff2a9d; border-width: 0dp; }
+.corner.tl { left: -1dp; top: -1dp; border-left-width: 2dp; border-top-width: 2dp; }
+.corner.tr { right: -1dp; top: -1dp; border-right-width: 2dp; border-top-width: 2dp; }
+.corner.bl { left: -1dp; bottom: -1dp; border-left-width: 2dp; border-bottom-width: 2dp; }
+.corner.br { right: -1dp; bottom: -1dp; border-right-width: 2dp; border-bottom-width: 2dp; }
+
+.panel-head {
+    position: absolute;
+    left: 0; top: 0; right: 0;
+    height: 76dp;
+    padding: 0dp 36dp;
+    border-bottom: 1dp #19e6ff24;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.panel-head h1 {
+    font-family: "Roboto Mono";
+    font-size: 24dp;
+    letter-spacing: 4dp;
+    text-transform: uppercase;
+    color: #ffffff;
+    margin: 0dp;
+    flex: 0 0 auto;
+}
+.head-note { flex: 1 1 auto; margin-left: 20dp; font-size: 13dp; color: #7c89a0; }
+
+.panel-head button.reset, button.action {
+    flex: 0 0 auto;
+    height: 32dp;
+    line-height: 32dp;
+    padding: 0dp 14dp;
+    font-family: "Roboto Mono";
+    font-size: 12dp;
+    letter-spacing: 1dp;
+    text-transform: uppercase;
+    color: #19e6ff;
+    background-color: transparent;
+    border: 1dp #19e6ff66;
+    border-radius: 0dp;
+}
+.panel-head button.reset:hover, button.action:hover { background-color: #19e6ff; color: #07060d; }
+button.action { display: block; width: auto; margin-top: 10dp; text-align: center; }
+
+.panel-body {
+    position: absolute;
+    left: 0; top: 77dp; right: 0; bottom: 0;
+    padding: 16dp 36dp 26dp 36dp;
+    overflow-y: auto;
+}
+
+.columns { display: flex; flex-direction: row; align-items: flex-start; }
+.col { flex: 1 1 0dp; }
+.col-gap { flex: 0 0 48dp; }
+
+.group { margin-bottom: 18dp; }
+.group-title {
+    font-family: "Roboto Mono";
+    font-size: 12dp;
+    letter-spacing: 3dp;
+    text-transform: uppercase;
+    color: #ff5fb4;
+    padding-bottom: 6dp;
+    margin-bottom: 3dp;
+    border-bottom: 1dp #ff2a9d40;
+}
+
+/* ── Option rows ──────────────────────────────────────────────────────────── */
+
+.opt {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 36dp;
+    padding: 0dp 10dp;
+    margin: 0dp -10dp;
+    border-left: 2dp #00000000;
+    transition: background-color 0.1s cubic-out;
+}
+.opt:hover { background-color: #19e6ff0f; border-left-color: #19e6ff; }
+.opt.dim { opacity: 0.32; }
+
+.opt-label { flex: 1 1 auto; color: #d6e2ee; white-space: nowrap; }
+.opt-ctl {
+    flex: 0 0 auto;
+    width: 300dp;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.opt-ctl input.range { flex: 1 1 auto; width: 200dp; }
+.opt-val {
+    flex: 0 0 auto;
+    width: 70dp;
+    text-align: right;
+    font-family: "Roboto Mono";
+    font-size: 13dp;
+    color: #19e6ff;
+    white-space: nowrap;
+}
+
+input.range slidertrack {
+    margin-top: 8dp;
+    height: 2dp;
+    background-color: #ffffff24;
+    border-radius: 0dp;
+}
+input.range sliderprogress { height: 2dp; background-color: #ff2a9d; border-radius: 0dp; }
+input.range sliderbar {
+    width: 7dp;
+    height: 16dp;
+    margin-top: 1dp;
+    margin-left: -3dp;
+    margin-right: -3dp;
+    background-color: #19e6ff;
+    border-radius: 0dp;
+}
+input.range:hover sliderbar, input.range sliderbar:hover { background-color: #ffffff; }
+input.range:focus-visible sliderbar { background-color: #ff5fb4; }
+
+/* Segmented choices and Off/On switches. */
+.seg {
+    display: flex;
+    flex-direction: row;
+    border: 1dp #19e6ff40;
+}
+.seg button {
+    flex: 0 0 auto;
+    height: 26dp;
+    line-height: 26dp;
+    min-width: 44dp;
+    padding: 0dp 10dp;
+    font-family: "Roboto Mono";
+    font-size: 12dp;
+    color: #8fa3b8;
+    background-color: transparent;
+    border-width: 0dp;
+    border-radius: 0dp;
+}
+.seg button:hover { color: #ffffff; background-color: #19e6ff24; }
+.seg button.on { color: #07060d; background-color: #19e6ff; font-weight: bold; }
+.seg button:focus-visible { color: #ffffff; background-color: #ff2a9d66; }
+.seg button.on:focus-visible { color: #07060d; background-color: #7ff2ff; }
+
+/* The preset has five choices. */
+#opt-preset .seg button { min-width: 0dp; width: 59dp; padding: 0dp; text-align: center; }
+
+/* A stepper, for long lists. */
+.stepper { display: flex; flex-direction: row; align-items: center; border: 1dp #19e6ff40; }
+.stepper button {
+    flex: 0 0 auto;
+    width: 28dp;
+    height: 26dp;
+    line-height: 26dp;
+    padding: 0dp;
+    font-family: "Roboto Mono";
+    font-size: 13dp;
+    text-align: center;
+    color: #19e6ff;
+    background-color: transparent;
+    border-width: 0dp;
+    border-radius: 0dp;
+}
+.stepper button:hover { color: #07060d; background-color: #19e6ff; }
+.step-val {
+    flex: 0 0 auto;
+    width: 136dp;
+    text-align: center;
+    font-family: "Roboto Mono";
+    font-size: 13dp;
+    color: #ffffff;
+    white-space: nowrap;
+}
+
+.opt-val.keys { width: auto; color: #19e6ff; font-size: 12dp; }
+
+.note { font-size: 13dp; color: #7c89a0; line-height: 20dp; margin-top: 6dp; }
+
+/* The panel's own scrollbar, in the menu's colours. */
+.panel-body scrollbarvertical { width: 4dp; margin-left: 0dp; }
+.panel-body scrollbarvertical slidertrack { background-color: transparent; }
+.panel-body scrollbarvertical sliderbar { background-color: #ff2a9d80; border-radius: 0dp; }
+.panel-body scrollbarvertical sliderbar:hover { background-color: #ff2a9d; }
+
+/* ── Narrow layouts (below 1600 dp): one column of options. In dp, so it follows the layer's scale: with
+ * reference-resolution scaling (1 dp = 1 px at 1920 × 1080) every 16:9 window keeps the 1080p layout. ── */
+
+@media (max-width: 1599dp) {
+    .columns { display: block; }
+    .col-gap { display: none; }
+    .col { max-width: 820dp; }
+    #nav { left: 32dp; width: 230dp; }
+    #panel { left: 300dp; right: 32dp; }
+}
+
+/* ── Tooltips (the engine fills #tooltip from title attributes) ───────────── */
+
+#tooltip {
+    position: absolute;
+    display: none;
+    max-width: 340dp;
+    padding: 7dp 11dp;
+    font-size: 13dp;
+    line-height: 18dp;
+    color: #d6e2ee;
+    background-color: #07060df5;
+    border: 1dp #19e6ff55;
+    pointer-events: none;
+}

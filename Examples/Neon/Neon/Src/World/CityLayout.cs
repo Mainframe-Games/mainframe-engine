@@ -22,7 +22,7 @@ namespace Neon;
 /// <see cref="CityLoop.Width"/>), <see cref="SkyLanes"/> over street centre lines 40–120 m above the street (between the
 /// towers), <see cref="RailLoop"/> 22 m above the street and <see cref="AirshipLoops"/> over the tallest towers.</para>
 /// </remarks>
-public sealed class CityLayout
+public sealed partial class CityLayout
 {
     public const int DefaultSeed = 2077;
 
@@ -105,6 +105,7 @@ public sealed class CityLayout
         GenerateHolograms();
         GenerateLoops(rng);
         RailLoop ??= new CityLoop("Rail", CityLoopKind.Rail, [], 0f, 0f);
+        GenerateProps(new Random(seed + 101)); // its own stream: the towers and the traffic do not depend on it
     }
 
     public int Seed { get; }

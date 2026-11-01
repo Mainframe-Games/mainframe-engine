@@ -1,5 +1,5 @@
-"""Builds Neon's city kit: Examples/Neon/Assets/Art/City/{towers,rail,vehicles,signs}.gltf (+ .bin, glTF separate) and the
-neon sign words atlas signs.png.
+"""Builds Neon's city kit: Examples/Neon/Assets/Art/City/{towers,props,rail,vehicles,signs}.gltf (+ .bin, glTF separate) and
+the neon sign words atlas signs.png.
 
     just neon-city-art
     "$BLENDER" -b --factory-startup --python Examples/Neon/Tools/city/build_city_kit.py [-- --preview DIR] [-- --verify DIR]
@@ -13,9 +13,18 @@ Conventions (glTF space): metres, +Y up, every object's origin is its base centr
 named as the game looks it up:
 
 - towers.gltf: Tower_Slab, Tower_Setback, Tower_Twin, Tower_Needle, Tower_Block, Tower_Cross, Tower_Octagon,
-  Tower_Arcology. Footprints and roof heights are CityLayout.Archetypes' (change both together). Materials: Facade (the
-  walls; UV = metres along the facade, metres up), Roof (roofs, ledges, clutter, masts), Trim (the emissive accent bands:
-  the facade shader colours them per tower), Beacon (aviation lights).
+  Tower_Arcology, each twice: the plain name is the far mesh, <name>_Near adds what only shows close (piers on the wall
+  every BAY metres, risers, air conditioners). Footprints and roof heights are CityLayout.Archetypes' (change both
+  together). Towers are stretched up per instance, so nothing that must keep its shape goes on a tower: roof clutter is in
+  props.gltf. Materials: Facade (the walls; UV = metres along the face from a centred whole number of BAYs, metres up:
+  the shader's window columns divide BAY, so they land between the piers), Roof (roofs, ledges, structure), Trim (the
+  emissive accent lines: the facade shader colours them per tower), Beacon (aviation lights), Lamp (work lights). Ledges
+  stand at whole multiples of LEDGE, which the facade shader divides into whole storeys (its ledge_every).
+- props.gltf: placed unstretched by CityLayout's props, base centred on the origin, front along +Z. Roofs: Prop_Hvac,
+  Prop_Tank, Prop_Dish, Prop_Antenna, Prop_Bulkhead, Prop_Cooling, Prop_Pipes, Prop_Solar, Prop_LightMast, Prop_Helipad,
+  Prop_Lattice, Prop_Crane. Streets: Street_Lamp (its arm reaches +Z, over the road), Street_Kiosk, Street_Awning (2 m deep
+  from the wall along +Z, 1 m wide along X: stretched along X), Street_Signal, Street_Lantern (a paper lantern, its Trim
+  coloured by the instance), Street_Walker (a figure under an umbrella, walking +Z: crowd.gdshader).
 - rail.gltf: Rail_Track (an 8 m deck along Z, its underside at y = 0), Rail_Pillar (a T pillar, base at y = 0, its top at
   RAIL_HEIGHT - DECK), Train_Car (a 20 m car along Z, wheels at y = 0). Materials: Concrete, Steel, Trim, Body, Windows,
   Lamp.
@@ -56,6 +65,8 @@ FONT_URL = "https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/JP/Not
 RAIL_HEIGHT = 22.0      # CityLayout.RailHeight: the deck's top above the street
 DECK = 1.0              # deck thickness (the track's origin is the deck's underside)
 STOREY = 3.5            # CityLayout.StoreyHeight
+BAY = 6.0               # metres between a wall's piers (facade.gdshader's bay)
+LEDGE = 17.5            # kit metres between ledges (facade.gdshader's ledge_every)
 
 # Words on the signs (made-up names and plain words; no brands). CitySign.VerticalWords / HorizontalWords.
 HORIZONTAL_WORDS = ["KIRAMI", "ゼンカ", "NOVA-9", "電脳街", "HOSHIRO", "ヨルノ", "SOLKA", "麺 BAR"]
@@ -70,6 +81,7 @@ COLORS = {
     "Body": ((0.08, 0.08, 0.09), 0.3, 0.6),
     "Glass": ((0.01, 0.012, 0.016), 0.05, 0.0),
     "Frame": ((0.03, 0.03, 0.035), 0.5, 0.6),
+    "Canopy": ((0.2, 0.2, 0.22), 0.5, 0.0),
 }
 EMISSIVE = {
     # name: (emission colour (linear), strength)
@@ -175,6 +187,8 @@ class Builder:
             (ax, az), (bx, bz) = poly[i], poly[(i + 1) % n]
             (cx, cz), (dx, dz) = upper[(i + 1) % n], upper[i]
             w = math.hypot(bx - ax, bz - az)
+            if mat == "Facade":
+                u = -0.5 * (w % BAY)  # a whole number of bays, centred on the face
             # Outward faces: counter-clockwise from outside = a(bottom) -> b(bottom) -> b(top) -> a(top) when poly is
             # counter-clockwise seen from above... seen from outside the side, the order a -> b runs left to right.
             self.face([(ax, y0, az), (bx, y0, bz), (cx, y1, cz), (dx, y1, dz)], mat,
@@ -189,6 +203,35 @@ class Builder:
         """An axis-aligned box from its glTF min and max corners (all six faces)."""
         poly = rect_xz(lo[0], hi[0], lo[2], hi[2])
         self.prism(poly, lo[1], hi[1], mat, top=mat, bottom=mat)
+
+    def oface(self, pts, out, mat):
+        """A polygon whose winding is chosen so that it faces along `out`."""
+        a, b, c = (Vector(p) for p in pts[:3])
+        if (b - a).cross(c - a).dot(Vector(out)) < 0:
+            pts = pts[::-1]
+        self.face(pts, mat)
+
+    def obox(self, o, ax, ay, az, mat):
+        """A box at centre o with half axes ax, ay, az (three perpendicular vectors, any orientation)."""
+        o, ax, ay, az = Vector(o), Vector(ax), Vector(ay), Vector(az)
+        for (u, v, w) in ((ax, ay, az), (ay, az, ax), (az, ax, ay)):
+            for sign in (-1, 1):
+                c = o + w * sign
+                self.oface([tuple(c - u - v), tuple(c + u - v), tuple(c + u + v), tuple(c - u + v)], tuple(w * sign), mat)
+
+    def beam(self, p0, p1, r, mat):
+        """A square bar of half width r from p0 to p1."""
+        p0, p1 = Vector(p0), Vector(p1)
+        axis = (p1 - p0) * 0.5
+        side = axis.cross(Vector((0, 1, 0)))
+        if side.length < 1e-4:
+            side = axis.cross(Vector((1, 0, 0)))
+        side = side.normalized() * r
+        self.obox((p0 + p1) * 0.5, axis, side, axis.cross(side).normalized() * r, mat)
+
+    def cylinder(self, x, z, y0, y1, r, mat, n=8, top=None, top_r=None):
+        """An upright cylinder (or cone, with top_r) whose cap is `top` (default: the same material)."""
+        self.prism(circle(r, n, x, z), y0, y1, mat, top=top or mat, top_poly=circle(top_r, n, x, z) if top_r is not None else None)
 
     def finish(self):
         mesh = bpy.data.meshes.new(self.name)
@@ -255,130 +298,516 @@ def grow(poly, d):
     return out
 
 
-def trim(b, poly, y, h=0.8, out=0.25):
-    b.prism(grow(poly, out), y - h, y, "Trim", top="Roof", bottom="Roof")
+def edges(poly):
+    """Each wall of a polygon: its start (x, z), length, direction and outward normal (2D vectors)."""
+    n = len(poly)
+    for i in range(n):
+        a, b = Vector(poly[i]), Vector(poly[(i + 1) % n])
+        length = (b - a).length
+        t = (b - a) / length
+        yield a, length, t, Vector((-t.y, t.x))
 
 
-def clutter(b, rng, poly_bounds, y, count):
-    """Rooftop clutter: AC units, a water tank, a lift housing, vents."""
-    x0, x1, z0, z1 = poly_bounds
+def on_wall(b, a, t, n, u, y, d, half_u, half_y, half_d, mat):
+    """A box on a wall: u metres along it, y up, d metres out from its surface."""
+    b.obox((a.x + t.x * u + n.x * d, y, a.y + t.y * u + n.y * d), (t.x * half_u, 0, t.y * half_u), (0, half_y, 0),
+           (n.x * half_d, 0, n.y * half_d), mat)
+
+
+def cornice(b, poly, y, out=0.25, light=True):
+    """Where a wall ends: a dark cornice with a thin neon line under it."""
+    b.prism(grow(poly, out + 0.1), y, y + 0.4, "Roof", top="Roof", bottom="Roof")
+    if light:
+        b.prism(grow(poly, out), y - 0.22, y, "Trim", top=None, bottom="Roof")
+
+
+def parapet(b, poly, y, h=1.0, t=0.35):
+    """The wall round a roof: outside, inside and its coping."""
+    outer, inner = grow(poly, 0.05), grow(poly, -t)
+    n = len(poly)
+    b.prism(outer, y, y + h, "Roof", top=None)
+    for i in range(n):
+        j = (i + 1) % n
+        (ax, az), (bx, bz) = inner[i], inner[j]
+        b.oface([(ax, y, az), (bx, y, bz), (bx, y + h, bz), (ax, y + h, az)], (-(bz - az), 0, bx - ax), "Roof")
+        (cx, cz), (dx, dz) = outer[i], outer[j]
+        b.oface([(ax, y + h, az), (bx, y + h, bz), (dx, y + h, dz), (cx, y + h, cz)], (0, 1, 0), "Roof")
+
+
+def ledges(b, poly, y0, y1, every, out=0.35):
+    """A slab edge every `every` multiples of LEDGE between y0 and y1 (where the shader's floor lines fall)."""
+    k = math.ceil((y0 + 0.5) / (LEDGE * every))
+    while k * LEDGE * every < y1 - 1.0:
+        y = k * LEDGE * every
+        b.prism(grow(poly, out), y - 0.32, y, "Roof", top="Roof", bottom="Roof")
+        k += 1
+
+
+def corners(b, poly, y0, y1, w=0.55):
+    """A corner column at every vertex: the facade's window grid never meets at a bare edge."""
+    for i, (x, z) in enumerate(poly):
+        p = Vector((x, z))
+        a, c = Vector(poly[i - 1]), Vector(poly[(i + 1) % len(poly)])
+        e1, e2 = (p - a).normalized(), (c - p).normalized()
+        if e1.dot(e2) > 0.97:
+            continue
+        b.prism(rect(w * 2, w * 2, x, z), y0, y1, "Roof", top="Roof")
+
+
+def piers(b, poly, y0, y1, out=0.42, half=0.16, every=1):
+    """Piers proud of the wall every BAY, centred on the face as the facade's UV is (near only)."""
+    for a, length, t, n in edges(poly):
+        if length < BAY:
+            continue
+        count = int(length // BAY)
+        start = (length - count * BAY) * 0.5
+        for i in range(0, count + 1, every):
+            on_wall(b, a, t, n, start + i * BAY, (y0 + y1) * 0.5, out * 0.5, half, (y1 - y0) * 0.5, out * 0.5, "Roof")
+
+
+def risers(b, rng, poly, y0, y1, count):
+    """Service pipes up the walls (near only)."""
+    walls = list(edges(poly))
     for _ in range(count):
-        w, d, h = rng.uniform(1.5, 4.5), rng.uniform(1.5, 4.5), rng.uniform(1.0, 3.0)
-        cx = rng.uniform(x0 + w / 2 + 1, x1 - w / 2 - 1)
-        cz = rng.uniform(z0 + d / 2 + 1, z1 - d / 2 - 1)
-        if rng.random() < 0.25:
-            b.prism(circle(min(w, d) / 2, 8, cx, cz), y, y + h + 2.0, "Roof", top="Roof")
-        else:
-            b.box((cx - w / 2, y, cz - d / 2), (cx + w / 2, y + h, cz + d / 2), "Roof")
+        a, length, t, n = rng.choice(walls)
+        u = rng.uniform(1.0, max(1.5, length - 1.0))
+        r = rng.choice((0.12, 0.18, 0.26))
+        on_wall(b, a, t, n, u, (y0 + y1) * 0.5, r + 0.05, r, (y1 - y0) * 0.5, r, "Roof")
+        y = y0 + 6.0
+        while y < y1:
+            on_wall(b, a, t, n, u, y, r + 0.05, r + 0.08, 0.1, r + 0.08, "Roof")
+            y += 12.0
 
 
-def mast(b, x, z, y0, height, width=0.5):
-    b.box((x - width / 2, y0, z - width / 2), (x + width / 2, y0 + height, z + width / 2), "Roof")
-    b.box((x - 0.5, y0 + height, z - 0.5), (x + 0.5, y0 + height + 1.0, z + 0.5), "Beacon")
+def units(b, rng, poly, y0, y1, count):
+    """Air conditioners and service boxes on the walls (near only), on the storey lines."""
+    walls = list(edges(poly))
+    for _ in range(count):
+        a, length, t, n = rng.choice(walls)
+        y = y0 + rng.randrange(1, max(2, int((y1 - y0) / STOREY))) * STOREY
+        w, h, d = rng.uniform(0.35, 0.6), rng.uniform(0.25, 0.4), rng.uniform(0.25, 0.45)
+        on_wall(b, a, t, n, rng.uniform(0.8, max(1.0, length - 0.8)), y, d, w, h, d, "Roof")
 
 
-# ---------------------------------------------------------------------------------------------------------------------
-# Towers (footprints and heights: CityLayout.Archetypes)
+def core(b, a, t, n, u, half, out, y0, y1):
+    """A service core on a wall, running past the roof, with a lit slit up it."""
+    on_wall(b, a, t, n, u, (y0 + y1) * 0.5, out * 0.5, half, (y1 - y0) * 0.5, out * 0.5, "Roof")
+    on_wall(b, a, t, n, u, (y0 + y1) * 0.5, out + 0.03, 0.14, (y1 - y0) * 0.46, 0.04, "Lamp")
 
 
-def tower_slab(rng):
-    b = Builder("Tower_Slab")
+def storeys(b, poly, y0, y1, near, rng, trim=True, ledge_every=1):
+    """A block of the tower: its wall, slab edges, corners, cornice and, near, its piers, pipes and boxes."""
+    b.prism(poly, y0, y1, "Facade", top=None)
+    ledges(b, poly, y0, y1, ledge_every if near else ledge_every * 2)
+    corners(b, poly, y0, y1)
+    cornice(b, poly, y1, light=trim)
+    if near:
+        piers(b, poly, y0, y1)
+        risers(b, rng, poly, y0, y1, 3)
+        units(b, rng, poly, y0, y1, int((y1 - y0) * 0.9))
+
+
+def roof_slab(b, poly, y):
+    b.prism(grow(poly, -0.1), y, y + 0.02, "Roof", top="Roof")
+    parapet(b, poly, y)
+
+
+def tower_slab(near, rng):
+    b = Builder("Tower_Slab_Near" if near else "Tower_Slab")
     p = rect(30, 18)
-    b.prism(p, 0, 110, "Facade")
-    trim(b, p, 110, 1.0)
-    trim(b, p, 4.5, 0.5)
-    clutter(b, rng, (-15, 15, -9, 9), 110, 6)
+    storeys(b, p, 0, 105, near, rng)
+    # A plant floor set back on the roofline.
+    top = rect(24, 13)
+    b.prism(top, 105, 110, "Facade", top=None)
+    cornice(b, top, 110, light=False)
+    roof_slab(b, top, 110)
+    roof_slab(b, p, 105)
+    walls = list(edges(p))
+    core(b, walls[0][0], walls[0][2], walls[0][3], 4.0, 2.2, 0.55, 0, 114)
     b.box((-4, 110, -3), (4, 115, 3), "Roof")
     mast(b, 9, 3, 110, 14)
     return b.finish()
 
 
-def tower_setback(rng):
-    b = Builder("Tower_Setback")
-    for (w, y0, y1) in ((34, 0, 70), (26, 70, 115), (18, 115, 150)):
-        p = rect(w, w)
-        b.prism(p, y0, y1, "Facade")
-        trim(b, p, y1, 0.9)
-        clutter(b, rng, (-w / 2, w / 2, -w / 2, w / 2), y1, 3)
-    b.prism(octagon(4), 150, 176, "Roof", top="Roof", top_poly=octagon(0.6))
+def tower_setback(near, rng):
+    b = Builder("Tower_Setback_Near" if near else "Tower_Setback")
+    for (w, y0, y1) in ((34, 0, 70), (26, 70, 115.5), (18, 115.5, 150)):
+        p = chamfered(w, w, 2.0)
+        storeys(b, p, y0, y1, near, rng)
+        roof_slab(b, p, y1)
+    b.prism(octagon(5), 150, 158, "Roof", top="Roof", top_poly=octagon(3.5))
+    b.prism(octagon(3), 158, 176, "Roof", top="Roof", top_poly=octagon(0.6))
     b.box((-0.5, 176, -0.5), (0.5, 177, 0.5), "Beacon")
     return b.finish()
 
 
-def tower_twin(rng):
-    b = Builder("Tower_Twin")
+def tower_twin(near, rng):
+    b = Builder("Tower_Twin_Near" if near else "Tower_Twin")
     podium = rect(40, 30)
-    b.prism(podium, 0, 22, "Facade")
-    trim(b, podium, 22, 0.8)
-    for cx, h in ((-11, 105), (11, 85)):
-        p = rect(14, 14, cx)
-        b.prism(p, 22, h, "Facade")
-        trim(b, p, h, 0.9)
-        clutter(b, rng, (cx - 7, cx + 7, -7, 7), h, 2)
+    storeys(b, podium, 0, 21, near, rng)
+    roof_slab(b, podium, 21)
+    for cx, h in ((-11, 105), (11, 87.5)):
+        p = chamfered(14, 14, 1.2, cx)
+        storeys(b, p, 21, h, near, rng)
+        roof_slab(b, p, h)
+    # A sky bridge between the two, its glass lit.
+    for y in (70.0,):
+        b.box((-4.2, y - 3.5, -2.2), (4.2, y, 2.2), "Roof")
+        b.box((-4.2, y - 2.9, -2.26), (4.2, y - 0.8, 2.26), "Lamp")
     mast(b, -11, 0, 105, 12)
-    clutter(b, rng, (-20, 20, 8, 15), 22, 3)
     return b.finish()
 
 
-def tower_needle(rng):
-    b = Builder("Tower_Needle")
+def tower_needle(near, rng):
+    b = Builder("Tower_Needle_Near" if near else "Tower_Needle")
     p = chamfered(18, 18, 3)
-    b.prism(p, 0, 190, "Facade")
-    for y in (172, 181, 190):
-        trim(b, p, y, 0.7, 0.3)
-    b.prism(octagon(6), 190, 196, "Roof", top="Roof")
-    mast(b, 0, 0, 196, 24, 0.8)
+    storeys(b, p, 0, 190, near, rng, ledge_every=2)
+    for y in (122.5, 175.0):
+        b.prism(grow(p, 0.5), y - 0.5, y + 0.5, "Roof", top="Roof", bottom="Roof")
+        b.prism(grow(p, 0.4), y - 0.72, y - 0.5, "Trim", top=None, bottom="Roof")
+    parapet(b, p, 190)
+    b.prism(octagon(8), 190, 196, "Roof", top="Roof", top_poly=octagon(6))
+    b.prism(octagon(3.2), 196, 206, "Roof", top="Roof", top_poly=octagon(1.4))
+    mast(b, 0, 0, 206, 14, 0.8)
     return b.finish()
 
 
-def tower_block(rng):
-    b = Builder("Tower_Block")
+def tower_block(near, rng):
+    b = Builder("Tower_Block_Near" if near else "Tower_Block")
     p = rect(44, 36)
-    b.prism(p, 0, 42, "Facade")
-    trim(b, p, 42, 1.0)
-    trim(b, p, 5, 0.4)
-    clutter(b, rng, (-22, 22, -18, 18), 42, 10)
-    b.box((-21, 42, -17.5), (21, 43.2, -17.0), "Roof")  # a parapet along the back
+    storeys(b, p, 0, 42, near, rng)
+    roof_slab(b, p, 42)
     return b.finish()
 
 
-def tower_cross(rng):
-    b = Builder("Tower_Cross")
+def tower_cross(near, rng):
+    b = Builder("Tower_Cross_Near" if near else "Tower_Cross")
     p = cross_poly(30, 12)
-    b.prism(p, 0, 85, "Facade")
-    trim(b, p, 85, 0.9)
-    trim(b, p, 44, 0.5)
-    clutter(b, rng, (-6, 6, -6, 6), 85, 3)
+    storeys(b, p, 0, 70, near, rng)
+    roof_slab(b, p, 70)
+    # The arms stop short of the core, which carries on.
+    q = cross_poly(22, 12)
+    storeys(b, q, 70, 85, near, rng)
+    roof_slab(b, q, 85)
     mast(b, 0, 0, 85, 10)
     return b.finish()
 
 
-def tower_octagon(rng):
-    b = Builder("Tower_Octagon")
+def tower_octagon(near, rng):
+    b = Builder("Tower_Octagon_Near" if near else "Tower_Octagon")
     p = octagon(26)
-    b.prism(p, 0, 120, "Facade")
-    b.prism(grow(p, 0.6), 120, 124, "Trim", top=None, bottom="Roof")
-    b.prism(p, 124, 130, "Facade")
-    trim(b, p, 130, 0.6)
-    b.prism(octagon(10), 130, 136, "Roof", top="Roof")
+    storeys(b, p, 0, 120, near, rng, trim=False)
+    b.prism(grow(p, 0.5), 120, 121, "Trim", top=None, bottom="Roof")
+    b.prism(grow(p, 0.3), 121, 124, "Roof", top=None)
+    b.prism(p, 124, 130, "Facade", top=None)
+    cornice(b, p, 130)
+    parapet(b, p, 130)
+    b.prism(octagon(10), 130, 136, "Roof", top="Roof", top_poly=octagon(7))
     mast(b, 0, 0, 136, 10)
     return b.finish()
 
 
-def tower_arcology(rng):
-    b = Builder("Tower_Arcology")
+def tower_arcology(near, rng):
+    b = Builder("Tower_Arcology_Near" if near else "Tower_Arcology")
     podium = rect(50, 50)
-    b.prism(podium, 0, 18, "Facade")
-    trim(b, podium, 18, 0.8)
-    body = chamfered(42, 42, 8)
-    b.prism(body, 18, 95, "Facade")
-    trim(b, body, 60, 0.6)
-    trim(b, body, 95, 1.0)
+    storeys(b, podium, 0, 17.5, near, rng)
+    roof_slab(b, podium, 17.5)
+    # Terraces: the block steps in as it rises, a planted edge round each.
+    steps = ((42, 8, 17.5, 52.5), (38, 7, 52.5, 77), (32, 6, 77, 95))
+    for w, c, y0, y1 in steps:
+        body = chamfered(w, w, c)
+        storeys(b, body, y0, y1, near, rng)
+        parapet(b, body, y1)
     b.prism(chamfered(30, 30, 6), 95, 103, "Roof", top="Roof", top_poly=chamfered(16, 16, 3))
-    clutter(b, rng, (-24, 24, 13, 24), 18, 4)
     mast(b, 4, -2, 103, 12)
     return b.finish()
 
+
+TOWERS = (tower_slab, tower_setback, tower_twin, tower_needle, tower_block, tower_cross, tower_octagon, tower_arcology)
+
+
+def mast(b, x, z, y0, height, width=0.5):
+    b.prism(rect(width * 1.6, width * 1.6, x, z), y0, y0 + height * 0.35, "Roof", top="Roof")
+    b.prism(rect(width, width, x, z), y0 + height * 0.35, y0 + height, "Roof", top="Roof", top_poly=rect(width * 0.4, width * 0.4, x, z))
+    b.box((x - 0.4, y0 + height, z - 0.4), (x + 0.4, y0 + height + 0.8, z + 0.4), "Beacon")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Props: roof clutter and street furniture, unstretched
+
+
+def prop_hvac():
+    """A rooftop air handler, 5 x 2.4 m: a louvred casing and two fans in cowls."""
+    b = Builder("Prop_Hvac")
+    b.box((-2.5, 0.25, -1.2), (2.5, 1.7, 1.2), "Roof")
+    for x in (-2.3, 2.1):
+        b.box((x, 0, -1.1), (x + 0.2, 0.25, 1.1), "Roof")
+    for y in (0.5, 0.8, 1.1, 1.4):
+        b.box((-2.45, y, 1.2), (2.45, y + 0.12, 1.26), "Roof")
+    for x in (-1.2, 1.2):
+        b.cylinder(x, 0, 1.7, 2.15, 0.95, "Roof", n=12, top="Roof")
+        b.beam((x - 0.8, 2.18, 0), (x + 0.8, 2.18, 0), 0.04, "Roof")
+        b.beam((x, 2.18, -0.8), (x, 2.18, 0.8), 0.04, "Roof")
+    return b.finish()
+
+
+def prop_tank():
+    """A water tank on legs, 2 m across."""
+    b = Builder("Prop_Tank")
+    for x, z in ((-1.1, -1.1), (1.1, -1.1), (1.1, 1.1), (-1.1, 1.1)):
+        b.beam((x, 0, z), (x * 0.7, 2.5, z * 0.7), 0.07, "Roof")
+    b.beam((-1, 1.2, -1), (1, 1.2, -1), 0.04, "Roof")
+    b.beam((-1, 1.2, 1), (1, 1.2, 1), 0.04, "Roof")
+    b.cylinder(0, 0, 2.5, 5.0, 1.4, "Roof", n=12)
+    b.prism(circle(1.4, 12), 5.0, 5.7, "Roof", top="Roof", top_poly=circle(0.15, 12))
+    return b.finish()
+
+
+def prop_dish():
+    """A satellite dish on a post, tilted to the south."""
+    b = Builder("Prop_Dish")
+    b.cylinder(0, 0, 0, 1.6, 0.14, "Roof", n=6)
+    tilt = Vector((0, 0.7, 0.71)).normalized()
+    side = Vector((1, 0, 0))
+    up = tilt.cross(side).normalized()
+    centre = Vector((0, 1.7, 0))
+    n = 12
+    rim = [centre + tilt * 0.45 + (side * math.cos(i * math.tau / n) + up * math.sin(i * math.tau / n)) * 1.1 for i in range(n)]
+    for i in range(n):
+        b.oface([tuple(centre), tuple(rim[i]), tuple(rim[(i + 1) % n])], tuple(tilt), "Roof")
+        b.oface([tuple(centre), tuple(rim[i]), tuple(rim[(i + 1) % n])], tuple(-tilt), "Roof")
+    b.beam(tuple(centre), tuple(centre + tilt * 1.2), 0.03, "Roof")
+    return b.finish()
+
+
+def prop_antenna():
+    """A guyed lattice mast, 26 m tall, with arrays on it and a beacon."""
+    b = Builder("Prop_Antenna")
+    h = 26.0
+    w = 0.5
+    legs = [(-w, -w), (w, -w), (w, w), (-w, w)]
+    for x, z in legs:
+        b.beam((x, 0, z), (x * 0.3, h, z * 0.3), 0.05, "Roof")
+    for k in range(9):
+        y0, y1 = k * h / 9, (k + 1) * h / 9
+        s0, s1 = 1 - 0.7 * y0 / h, 1 - 0.7 * y1 / h
+        for i in range(4):
+            (ax, az), (cx, cz) = legs[i], legs[(i + 1) % 4]
+            b.beam((ax * s0, y0, az * s0), (cx * s1, y1, cz * s1), 0.018, "Roof")
+    for y, l in ((14.0, 1.6), (18.0, 1.2), (22.0, 0.9)):
+        b.beam((-l, y, 0), (l, y, 0), 0.03, "Roof")
+        for x in (-l, l):
+            b.beam((x, y - 0.8, 0), (x, y + 0.8, 0), 0.025, "Roof")
+    for i in range(3):
+        a = i * math.tau / 3 + 0.5
+        b.beam((0, 16, 0), (math.cos(a) * 7, 0, math.sin(a) * 7), 0.012, "Roof")
+    b.box((-0.2, h, -0.2), (0.2, h + 0.4, 0.2), "Beacon")
+    return b.finish()
+
+
+def prop_bulkhead():
+    """A stair and lift housing, 4 x 3.5 m and 3.5 m tall, a lamp over its door."""
+    b = Builder("Prop_Bulkhead")
+    b.box((-2, 0, -1.75), (2, 3.5, 1.75), "Roof")
+    b.box((-2.1, 3.5, -1.85), (2.1, 3.7, 1.85), "Roof")
+    b.box((-0.5, 0, 1.75), (0.5, 2.2, 1.78), "Roof")
+    b.box((-0.25, 2.4, 1.75), (0.25, 2.5, 1.9), "Lamp")
+    b.box((1.0, 3.7, -1.0), (1.8, 4.3, 0.4), "Roof")
+    return b.finish()
+
+
+def prop_cooling():
+    """A cooling tower, 5 m square: slatted sides, a fan stack on top."""
+    b = Builder("Prop_Cooling")
+    for x, z in ((-2.3, -2.3), (2.3, -2.3), (2.3, 2.3), (-2.3, 2.3)):
+        b.box((x - 0.12, 0, z - 0.12), (x + 0.12, 3.2, z + 0.12), "Roof")
+    for k in range(6):
+        y = 0.4 + k * 0.45
+        b.box((-2.3, y, -2.3), (2.3, y + 0.2, 2.3), "Roof")
+    b.box((-2.5, 3.2, -2.5), (2.5, 3.5, 2.5), "Roof")
+    b.prism(circle(2.1, 16), 3.5, 4.8, "Roof", top="Roof", top_poly=circle(1.7, 16))
+    return b.finish()
+
+
+def prop_pipes():
+    """A run of pipes on sleepers, 12 m long along X."""
+    b = Builder("Prop_Pipes")
+    for x in (-5.5, -2, 2, 5.5):
+        b.box((x - 0.1, 0, -0.9), (x + 0.1, 0.5, 0.9), "Roof")
+    for z, r in ((-0.55, 0.14), (-0.1, 0.22), (0.5, 0.18)):
+        b.beam((-6, 0.5 + r, z), (6, 0.5 + r, z), r, "Roof")
+    b.beam((6, 0.72, -0.1), (6, 2.2, -0.1), 0.22, "Roof")
+    return b.finish()
+
+
+def prop_solar():
+    """Rows of tilted panels, 8 x 6 m."""
+    b = Builder("Prop_Solar")
+    for k in range(4):
+        z = -2.6 + k * 1.75
+        a, c = (-4, 0.25, z + 0.6), (4, 0.25, z + 0.6)
+        d, e = (4, 1.0, z - 0.6), (-4, 1.0, z - 0.6)
+        b.oface([a, c, d, e], (0, 0.8, 0.6), "Roof")
+        b.oface([a, c, d, e], (0, -0.8, -0.6), "Roof")
+        for x in (-3.8, 0, 3.8):
+            b.beam((x, 0, z + 0.6), (x, 0.25, z + 0.6), 0.04, "Roof")
+            b.beam((x, 0, z - 0.6), (x, 1.0, z - 0.6), 0.04, "Roof")
+    return b.finish()
+
+
+def prop_lightmast():
+    """A work light on a pole."""
+    b = Builder("Prop_LightMast")
+    b.cylinder(0, 0, 0, 4.5, 0.07, "Roof", n=6)
+    b.beam((-0.5, 4.5, 0), (0.5, 4.5, 0), 0.05, "Roof")
+    for x in (-0.45, 0.45):
+        b.box((x - 0.14, 4.55, -0.14), (x + 0.14, 4.75, 0.14), "Lamp")
+    return b.finish()
+
+
+def prop_helipad():
+    """A landing deck 14 m across on stilts, ringed with lamps."""
+    b = Builder("Prop_Helipad")
+    r = 7.0
+    n = 16
+    for i in range(0, n, 2):
+        a = i * math.tau / n
+        b.beam((math.cos(a) * r * 0.9, 1.3, math.sin(a) * r * 0.9), (math.cos(a) * r * 0.45, 0, math.sin(a) * r * 0.45), 0.09, "Roof")
+    b.prism(circle(r, n), 1.3, 1.6, "Roof", top="Roof", bottom="Roof")
+    for i in range(n):
+        a = (i + 0.5) * math.tau / n
+        x, z = math.cos(a) * (r - 0.2), math.sin(a) * (r - 0.2)
+        b.box((x - 0.14, 1.6, z - 0.14), (x + 0.14, 1.7, z + 0.14), "Lamp")
+    for x0, z0, x1, z1 in ((-2.3, -3, -1.5, 3), (1.5, -3, 2.3, 3), (-1.5, -0.4, 1.5, 0.4)):
+        b.box((x0, 1.6, z0), (x1, 1.62, z1), "Trim")
+    return b.finish()
+
+
+def prop_lattice():
+    """An open steel crown, 12 m square and 14 m tall, stiffened by X braces: stretched to a roof's width."""
+    b = Builder("Prop_Lattice")
+    s, h, levels = 6.0, 14.0, 4
+    pts = [(-s, -s), (s, -s), (s, s), (-s, s)]
+    for k in range(levels):
+        y0, y1 = k * h / levels, (k + 1) * h / levels
+        for i in range(4):
+            (ax, az), (cx, cz) = pts[i], pts[(i + 1) % 4]
+            b.beam((ax, y0, az), (ax, y1, az), 0.14, "Roof")
+            b.beam((ax, y1, az), (cx, y1, cz), 0.1, "Roof")
+            b.beam((ax, y0, az), (cx, y1, cz), 0.05, "Roof")
+            b.beam((cx, y0, cz), (ax, y1, az), 0.05, "Roof")
+    for x, z in pts:
+        b.box((x - 0.2, h, z - 0.2), (x + 0.2, h + 0.3, z + 0.2), "Beacon")
+    b.prism(rect(12.4, 12.4), h - 0.1, h, "Trim", top=None, bottom=None)
+    return b.finish()
+
+
+def prop_crane():
+    """A tower crane, 34 m tall with a 40 m jib along +X: the city is never finished."""
+    b = Builder("Prop_Crane")
+    w, h = 0.8, 30.0
+    legs = [(-w, -w), (w, -w), (w, w), (-w, w)]
+    for x, z in legs:
+        b.beam((x, 0, z), (x, h, z), 0.08, "Roof")
+    for k in range(12):
+        y0, y1 = k * h / 12, (k + 1) * h / 12
+        for i in range(4):
+            (ax, az), (cx, cz) = legs[i], legs[(i + 1) % 4]
+            b.beam((ax, y0, az), (cx, y1, cz), 0.03, "Roof")
+    b.box((-1.3, h, -1.3), (1.3, h + 1.8, 1.3), "Roof")
+    b.box((1.3, h + 0.6, -0.55), (1.34, h + 1.5, 0.55), "Lamp")
+    top = h + 6.0
+    b.beam((0, h + 1.8, 0), (0, top, 0), 0.12, "Roof")
+    b.beam((0, h + 2.2, 0.5), (34, h + 2.2, 0.5), 0.09, "Roof")
+    b.beam((0, h + 2.2, -0.5), (34, h + 2.2, -0.5), 0.09, "Roof")
+    b.beam((0, h + 3.2, 0), (34, h + 2.3, 0), 0.08, "Roof")
+    for k in range(12):
+        x = k * 34 / 12
+        b.beam((x, h + 2.2, 0.5), (x + 34 / 24, h + 3.15, 0), 0.03, "Roof")
+        b.beam((x, h + 2.2, -0.5), (x + 34 / 24, h + 3.15, 0), 0.03, "Roof")
+    b.beam((-10, h + 2.2, 0), (0, h + 2.2, 0), 0.25, "Roof")
+    b.box((-10.5, h + 0.8, -0.8), (-8, h + 2.2, 0.8), "Roof")
+    b.beam((0, top, 0), (26, h + 3.0, 0), 0.03, "Roof")
+    b.beam((0, top, 0), (-9, h + 2.4, 0), 0.03, "Roof")
+    b.beam((22, h + 2.1, 0), (22, h - 12, 0), 0.02, "Roof")
+    b.box((21.6, h - 12.8, -0.4), (22.4, h - 12, 0.4), "Roof")
+    b.box((-0.2, top, -0.2), (0.2, top + 0.4, 0.2), "Beacon")
+    b.box((33.8, h + 2.4, -0.15), (34.1, h + 2.7, 0.15), "Beacon")
+    return b.finish()
+
+
+def street_lamp():
+    """A street lamp, 8.5 m tall: its arm reaches +Z over the road."""
+    b = Builder("Street_Lamp")
+    b.cylinder(0, 0, 0, 0.6, 0.16, "Roof", n=6)
+    b.cylinder(0, 0, 0.6, 8.2, 0.08, "Roof", n=6, top_r=0.05)
+    b.beam((0, 8.2, 0), (0, 8.5, 2.2), 0.04, "Roof")
+    b.box((-0.12, 8.32, 1.5), (0.12, 8.44, 2.4), "Roof")
+    b.box((-0.1, 8.29, 1.55), (0.1, 8.32, 2.35), "Lamp")
+    return b.finish()
+
+
+def street_signal():
+    """A traffic signal on a mast arm reaching +Z."""
+    b = Builder("Street_Signal")
+    b.cylinder(0, 0, 0, 6.2, 0.1, "Roof", n=6)
+    b.beam((0, 6.0, 0), (0, 6.0, 5.0), 0.05, "Roof")
+    for z in (2.6, 4.8):
+        b.box((-0.16, 5.3, z - 0.16), (0.16, 6.0, z + 0.16), "Roof")
+        b.box((-0.17, 5.4, z - 0.09), (-0.16, 5.55, z + 0.09), "Beacon")
+    return b.finish()
+
+
+def street_kiosk():
+    """A food stall, 3.2 x 2.2 m: a lit counter under a striped awning, its sign on the roof."""
+    b = Builder("Street_Kiosk")
+    b.box((-1.6, 0, -1.1), (1.6, 2.4, 1.1), "Roof")
+    b.box((-1.5, 0.95, 1.1), (1.5, 2.1, 1.12), "Lamp")
+    b.box((-1.65, 0.85, 1.1), (1.65, 0.95, 1.5), "Roof")
+    for k in range(7):
+        x = -1.75 + k * 0.5
+        a, c, d, e = (x, 2.6, 1.0), (x + 0.5, 2.6, 1.0), (x + 0.5, 2.15, 2.1), (x, 2.15, 2.1)
+        b.oface([a, c, d, e], (0, 0.9, 0.4), "Roof")
+        b.oface([a, c, d, e], (0, -0.9, -0.4), "Roof")
+    b.box((-1.72, 2.1, 2.06), (1.72, 2.16, 2.12), "Trim")
+    b.box((-1.4, 2.4, -0.2), (1.4, 2.95, -0.05), "Lamp")
+    b.box((-1.5, 2.4, -1.1), (1.5, 2.55, 1.0), "Roof")
+    return b.finish()
+
+
+def street_awning():
+    """An awning over a shop: 1 m of width along X (stretched), 2 m deep along +Z, lit from under its edge."""
+    b = Builder("Street_Awning")
+    b.oface([(-0.5, 0.45, 0), (0.5, 0.45, 0), (0.5, 0, 2), (-0.5, 0, 2)], (0, 1, 0.2), "Roof")
+    b.oface([(-0.5, 0.45, 0), (0.5, 0.45, 0), (0.5, 0, 2), (-0.5, 0, 2)], (0, -1, -0.2), "Roof")
+    b.box((-0.5, -0.32, 1.97), (0.5, 0, 2.03), "Trim")
+    b.box((-0.5, -0.04, 0.8), (0.5, 0.2, 0.86), "Lamp")
+    return b.finish()
+
+
+def street_lantern():
+    """A paper lantern hanging from y = 0, its body coloured by the instance."""
+    b = Builder("Street_Lantern")
+    b.prism(circle(0.22, 6), -0.5, -0.1, "Trim", top="Trim", bottom="Trim")
+    return b.finish()
+
+
+def street_walker():
+    """Someone walking +Z under an umbrella, feet at y = 0: the body in Body, the umbrella in Canopy (crowd.gdshader)."""
+    b = Builder("Street_Walker")
+    b.prism(circle(0.17, 6), 0, 1.35, "Body", top="Body", top_poly=circle(0.2, 6))
+    b.prism(circle(0.12, 6), 1.35, 1.65, "Body", top="Body", top_poly=circle(0.09, 6))
+    n = 8
+    rim = [(0.5 * math.cos(i * math.tau / n), 1.86, 0.5 * math.sin(i * math.tau / n)) for i in range(n)]
+    for i in range(n):
+        b.oface([(0, 2.1, 0), rim[i], rim[(i + 1) % n]], (0, 1, 0), "Canopy")
+    b.beam((0, 1.3, 0.1), (0, 2.08, 0), 0.015, "Body")
+    return b.finish()
+
+
+PROPS = (prop_hvac, prop_tank, prop_dish, prop_antenna, prop_bulkhead, prop_cooling, prop_pipes, prop_solar, prop_lightmast,
+         prop_helipad, prop_lattice, prop_crane, street_lamp, street_signal, street_kiosk, street_awning, street_lantern,
+         street_walker)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Rail and vehicles
@@ -826,7 +1255,7 @@ def previews(out_dir, towers, rest):
 
 def verify(out_dir):
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    for name in ("towers", "rail", "vehicles", "signs"):
+    for name in ("towers", "props", "rail", "vehicles", "signs"):
         bpy.ops.import_scene.gltf(filepath=os.path.join(OUT, name + ".gltf"))
     report = {o.name: tri_count(o) for o in bpy.data.objects if o.type == "MESH"}
     print("VERIFY objects", json.dumps(report, sort_keys=True))
@@ -850,13 +1279,13 @@ def main():
     make_materials()
     rng = random.Random(2077)
 
-    towers = [tower_slab(rng), tower_setback(rng), tower_twin(rng), tower_needle(rng), tower_block(rng),
-              tower_cross(rng), tower_octagon(rng), tower_arcology(rng)]
+    towers = [make(near, rng) for make in TOWERS for near in (False, True)]
+    props = [make() for make in PROPS]
     rail = [rail_track(), rail_pillar(), train_car()]
     vehicles = [car_ground(), car_hover(), airship()]
     signs = [billboard(), sign_blade(), sign_board(), holo_koi(), holo_logo()]
 
-    for name, objs in (("towers", towers), ("rail", rail), ("vehicles", vehicles), ("signs", signs)):
+    for name, objs in (("towers", towers), ("props", props), ("rail", rail), ("vehicles", vehicles), ("signs", signs)):
         export(name, objs)
         print("KIT", name, {o.name: tri_count(o) for o in objs})
     if "--no-atlas" not in argv:
@@ -864,7 +1293,7 @@ def main():
     write_metas()
 
     if preview_dir:
-        previews(preview_dir, towers, rail + vehicles + signs)
+        previews(preview_dir, towers, props + rail + vehicles + signs)
     if verify_dir:
         verify(verify_dir)
 

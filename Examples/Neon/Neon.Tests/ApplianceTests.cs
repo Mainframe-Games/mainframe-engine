@@ -170,6 +170,35 @@ public sealed class ApplianceTests
     }
 
     [Fact]
+    public void TheBalconyChairsFaceTheCityAndCanBeSatIn()
+    {
+        using var h = Load(out var apartment);
+        Assert.Equal(2, apartment.BalconyChairs.Count);
+        foreach (var balconyChair in apartment.BalconyChairs)
+            Assert.True(-balconyChair.GlobalTransform.Basis.Z.Z > 0.99f, "the chair faces away from the city"); // the city is +Z
+
+        var chair = apartment.BalconyChairs[0];
+        var player = StandLookingAt(h, new Vector2(chair.GlobalPosition.X, 5.6f), chair.GlobalPosition + new Vector3(0f, 0.5f, 0f));
+        var start = player.Position;
+        Assert.Equal(Verbs.Sit, Prompt(player));
+        h.PressInteract();
+        Assert.True(chair.IsSeated);
+        Assert.True(player.MovementLocked);
+        h.RunSeconds(1f);
+        Assert.True(Vector3.Distance(player.Position, chair.GlobalPosition with { Y = player.Position.Y }) < 0.01f);
+        Assert.Equal(chair.EyeHeight, player.Head!.Position.Y, 2);
+        Assert.True(MathF.Cos(float.DegreesToRadians(player.YawDegrees)) < -0.99f, "seated, the view does not face the city"); // yaw 180 looks at +Z
+        Assert.Equal(chair.LookPitch, player.PitchDegrees, 1);
+
+        h.PressInteract(); // nothing takes the keyboard out here: E stands up
+        h.Run(1);
+        Assert.False(chair.IsSeated);
+        h.RunSeconds(1f);
+        Assert.False(player.MovementLocked);
+        Assert.True(Vector3.Distance(player.Position, start) < 0.05f);
+    }
+
+    [Fact]
     public void SeatedTypingRunsTerminalCommandsOnTheApartment()
     {
         using var h = Load(out var apartment);
@@ -212,7 +241,7 @@ public sealed class ApplianceTests
         player.MovementLocked = true; // seated: Esc stands up instead
         Assert.False(NeonPause.WantsMenu(true, player));
         Assert.True(NeonPause.WantsMenu(true, null));
-        Assert.DoesNotContain("Bathroom", NeonPause.BusLabels.Keys);
+        Assert.DoesNotContain(NeonOptions.OnPage(NeonOptions.Audio), o => o.Label == "Bathroom");
     }
 
     [Fact]

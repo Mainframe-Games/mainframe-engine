@@ -61,8 +61,18 @@ public sealed class CityTests
             Assert.InRange(bounds.Size.Z, archetype.Depth, archetype.Depth + 1.5f);
             Assert.InRange(bounds.Min.Y, -0.01f, 0.01f);
             Assert.True(bounds.Max.Y >= archetype.Height, $"{archetype.Name} is {bounds.Max.Y} m tall");
+
+            // The near mesh is the same building: only what stands proud of its walls differs.
+            Assert.True(towers.TryGetValue(archetype.Name + "_Near", out var near), archetype.Name + "_Near");
+            Assert.InRange(near!.Bounds.Size.X, archetype.Width, archetype.Width + 3f);
+            Assert.Equal(bounds.Max.Y, near.Bounds.Max.Y, 2);
         }
 
+        var props = CityKit.Load(CityKit.PropsPath);
+        foreach (var kind in Enum.GetValues<CityPropKind>())
+            Assert.Contains(CityKit.PropMesh(kind), props.Keys);
+        Assert.Contains("Street_Lantern", props.Keys);
+        Assert.Contains("Street_Walker", props.Keys);
         Assert.Contains("Rail_Track", CityKit.Load(CityKit.RailPath).Keys);
         Assert.Contains("Train_Car", CityKit.Load(CityKit.RailPath).Keys);
         var vehicles = CityKit.Load(CityKit.VehiclesPath);
@@ -80,8 +90,14 @@ public sealed class CityTests
         try
         {
             city.Build();
-            Assert.Equal(CityLayout.Archetypes.Length, city.Towers.Count);
+            Assert.InRange(city.Towers.Count, CityLayout.Archetypes.Length + 1, CityLayout.Archetypes.Length * 2);
             Assert.Equal(city.Layout!.Towers.Count, city.Towers.Sum(t => t.Multimesh!.InstanceCount));
+            Assert.Contains(city.Towers, t => t.Name.EndsWith("_Near", StringComparison.Ordinal));
+            foreach (var kind in Enum.GetValues<CityPropKind>())
+                Assert.NotNull(city.GetNodeOrNull<MultiMeshInstance3D>(CityKit.PropMesh(kind) + "s"));
+            Assert.NotNull(city.GetNodeOrNull<MultiMeshInstance3D>("Crowd"));
+            Assert.NotNull(city.GetNodeOrNull<MultiMeshInstance3D>("Lanterns"));
+            Assert.NotNull(city.GetNodeOrNull<MeshInstance3D>("Spills"));
             Assert.NotNull(city.GetNodeOrNull<MultiMeshInstance3D>("HomeTower"));
             Assert.NotNull(city.GetNodeOrNull<MeshInstance3D>("Ground"));
             Assert.NotNull(city.GetNodeOrNull<MeshInstance3D>("HologramKoi"));
