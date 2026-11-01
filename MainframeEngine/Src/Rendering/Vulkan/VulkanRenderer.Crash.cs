@@ -148,6 +148,8 @@ internal sealed unsafe partial class VulkanRenderer
     {
         if (_deviceFault is not { } fault || _device.Handle == 0)
             return;
+        if (_simulateDeviceLostAt != 0) // a simulated loss (tests) leaves a working device; the call needs a lost one
+            return;
         var counts = new DeviceFaultCountsEXT { SType = StructureType.DeviceFaultCountsExt };
         var result = fault.GetDeviceFaultInfo(_device, &counts, null);
         if (result is not (Result.Success or Result.Incomplete))
