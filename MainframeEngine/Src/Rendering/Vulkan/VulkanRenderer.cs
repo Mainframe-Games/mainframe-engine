@@ -975,12 +975,6 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         if (_deviceFaultEnabled)
             createInfo.PNext = &faultFeatures;
 
-        if (_enableValidationLayers)
-        {
-            createInfo.EnabledLayerCount = (uint)_validationLayers.Length;
-            createInfo.PpEnabledLayerNames = (byte**)SilkMarshal.StringArrayToPtr(_validationLayers);
-        }
-
         if (_vk!.CreateDevice(_physicalDevice, in createInfo, null, out _device) != Result.Success)
             throw new VulkanException("[Vulkan] Failed to create logical device!");
 
@@ -988,8 +982,6 @@ internal sealed unsafe partial class VulkanRenderer : IRenderer, IVulkanContext,
         _vk!.GetDeviceQueue(_device, indices.GraphicsFamily!.Value, 0, out _graphicsQueue);
         _vk!.GetDeviceQueue(_device, indices.PresentFamily!.Value, 0, out _presentQueue);
 
-        if (_enableValidationLayers)
-            SilkMarshal.Free((nint)createInfo.PpEnabledLayerNames);
         SilkMarshal.Free((nint)createInfo.PpEnabledExtensionNames);
     }
 
