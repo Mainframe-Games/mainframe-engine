@@ -10,13 +10,13 @@ namespace Neon.Tests;
 /// </summary>
 public sealed class ApartmentTests
 {
-    private static ControllerHarness Load(out NeonApartment apartment)
+    private static ControllerHarness Load(out NeonApartment apartment, bool showResident = false)
     {
         var bin = Path.Combine(AppContext.BaseDirectory, NeonApartment.BufferPath);
         if (!File.Exists(bin) || File.ReadAllText(bin).StartsWith("version https://git-lfs", StringComparison.Ordinal))
             Assert.Skip("Neon's LFS art is not checked out (git lfs pull).");
         var h = new ControllerHarness(floor: false);
-        apartment = NeonApartment.Create();
+        apartment = NeonApartment.Create(showResident);
         h.Scene.AddChild(apartment);
         return h;
     }
@@ -47,7 +47,7 @@ public sealed class ApartmentTests
             Assert.True(lightSwitch.Fixtures[0].EmissionEnergy > 1f, room);
         }
 
-        foreach (var socket in new[] { "Spawn", "Seat", "Shower", "Tap_Kitchen", "Tap_Bath", "Tv", "Stereo", "Blinds_Living_1", "Valve_Shower", "Panel_Blinds_Living", "Monitor_1", "Monitor_6", "Zone_Living", "Zone_Balcony" })
+        foreach (var socket in new[] { "Spawn", "Seat", "Seat_Balcony_1", "Seat_Balcony_2", "Shower", "Tap_Kitchen", "Tap_Bath", "Tv", "Stereo", "Blinds_Living_1", "Valve_Shower", "Panel_Blinds_Living", "Monitor_1", "Monitor_6", "Zone_Living", "Zone_Balcony" })
             Assert.True(apartment.Sockets.ContainsKey(socket), socket);
         Assert.Equal(5, apartment.Lights.Count(l => l.Parent!.Name.StartsWith("Light_Living", StringComparison.Ordinal)));
         Assert.Equal(4, apartment.Lights.Count(l => l.CastsShadows)); // the engine's limit of shadowed point lights
@@ -203,5 +203,113 @@ public sealed class ApartmentTests
         h.RunSeconds(2f);
         h.Release("move_forward");
         Assert.True(player.GlobalPosition.X < -2.5f, $"the open bathroom door kept the player at {player.GlobalPosition}");
+    }
+
+    // A solid's top must face up and its underside down: a flipped face is culled or lit from the wrong side.
+    [Theory]
+    [InlineData("Furn_Island")]
+    [InlineData("Mezzanine")]
+    [InlineData("Decor_Slab")]
+    [InlineData("Furn_Counter")]
+    [InlineData("Floor")]
+    public void SolidsFaceOutwards(string meshName)
+    {
+        using var h = Load(out var apartment);
+        var mesh = apartment.FindChildren<MeshInstance3D>(owned: false).First(m => m.Name == meshName).Mesh!;
+        var triangles = new List<(Vector3 Normal, float Y)>();
+        for (var s = 0; s < mesh.SurfaceCount; s++)
+        {
+            var surface = mesh.GetSurface(s);
+            for (var i = 0; i + 2 < surface.Indices.Length; i += 3)
+            {
+                var (a, b, c) = (surface.Positions[surface.Indices[i]], surface.Positions[surface.Indices[i + 1]], surface.Positions[surface.Indices[i + 2]]);
+                triangles.Add((Vector3.Cross(b - a, c - a), a.Y));
+            }
+        }
+
+        var top = triangles.Max(t => t.Y);
+        var bottom = triangles.Min(t => t.Y);
+        foreach (var (normal, y) in triangles)
+        {
+            if (MathF.Abs(normal.Y) < normal.Length() * 0.9f)
+                continue; // only the flat faces say which way is out
+            if (y == top)
+                Assert.True(normal.Y > 0f, $"{meshName} has a top face pointing down");
+            if (y == bottom)
+                Assert.True(normal.Y < 0f, $"{meshName} has a bottom face pointing up");
+        }
+    }
+
+    [Fact]
+    public void TheBedsHeadIsAgainstTheWestWall()
+    {
+        using var h = Load(out var apartment);
+        var bed = apartment.FindChildren<MeshInstance3D>(owned: false).First(m => m.Name == "Furn_Bed");
+        Assert.InRange(bed.Mesh!.Bounds.Min.X, -7f, -6.9f);
+        Assert.InRange(bed.Mesh.Bounds.Max.X, -4.95f, -4.85f);
+    }
+
+    [Fact]
+    public void TheRacksLightsBlinkAndNoRackSurfaceSharesAPlaneWithItsLights()
+    {
+        using var h = Load(out var apartment);
+        var leds = apartment.FindChildren<MeshInstance3D>(owned: false).First(m => m.Name == NeonApartment.RackLeds);
+        Assert.IsType<ShaderMaterial>(leds.MaterialOverride);
+        var surface = leds.Mesh!.GetSurface(0);
+        Assert.True(surface.Positions.Length / 4 > 200, $"{surface.Positions.Length / 4} lights");
+        Assert.Contains(surface.UVs, uv => uv.X >= 1f && uv.X < 2f); // activity
+        Assert.Contains(surface.UVs, uv => uv.X >= 3f && uv.X < 4f); // heartbeat
+    }
+
+    [Fact]
+    public void TheBedIsEmptyByDefault()
+    {
+        using var h = Load(out var apartment);
+        h.Run(2);
+        Assert.Empty(apartment.FindChildren<NeonResident>(owned: false));
+    }
+
+    [Fact]
+    public void SheLiesOnTheBedAndHerIdleLoops()
+    {
+        using var h = Load(out var apartment, showResident: true);
+        h.Run(2);
+        var resident = apartment.GetNode<NeonResident>("Resident");
+        if (resident.Player is null)
+            Assert.Skip("Her LFS art is not checked out.");
+        var player = resident.Player;
+        Assert.Equal(NeonResident.IdleClip, player.CurrentAnimation);
+        Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation(NeonResident.IdleClip)!.LoopMode);
+        Assert.Equal(8f, player.GetAnimation(NeonResident.IdleClip)!.Length, 1);
+        Assert.InRange(resident.Position.X, -6.3f, -5.3f);
+        Assert.InRange(resident.Position.Z, 1.6f, 3.4f);
+
+        // Her textures and cutouts survive NeonResident's PBR pass.
+        var materials = resident.FindChildren<MeshInstance3D>(owned: false)
+            .SelectMany(m => Enumerable.Range(0, m.Mesh!.SurfaceCount).Select(s => m.Mesh.GetSurface(s)!.Material))
+            .OfType<StandardMaterial3D>()
+            .ToDictionary(m => m.ResourceName);
+        Assert.NotNull(materials["Skin"].AlbedoTexture);
+        Assert.Equal(AlphaMode.Opaque, materials["Skin"].Transparency);
+        foreach (var name in (string[])["Hair", "Lingerie", "Stocking", "Eye"])
+        {
+            Assert.NotNull(materials[name].AlbedoTexture);
+            Assert.Equal(AlphaMode.Cutout, materials[name].Transparency);
+        }
+
+        Assert.True(materials["Hair"].DoubleSided);
+
+        // She moves, and comes back to where she was when the clip closes.
+        var skeleton = resident.Skeleton!;
+        var head = skeleton.FindBone("head");
+        var start = skeleton.GetBoneGlobalPose(head).Origin;
+        player.Seek(2.0, update: true);
+        skeleton.ForceUpdatePose();
+        var later = skeleton.GetBoneGlobalPose(head).Origin;
+        Assert.True(Vector3.Distance(start, later) > 0.001f, "the head does not move");
+        player.Seek(0.0, update: true);
+        var begin = skeleton.GetBoneGlobalPose(head).Origin;
+        player.Seek(player.CurrentAnimationLength - 0.001, update: true);
+        Assert.True(Vector3.Distance(begin, skeleton.GetBoneGlobalPose(head).Origin) < 0.002f, "the loop does not close");
     }
 }

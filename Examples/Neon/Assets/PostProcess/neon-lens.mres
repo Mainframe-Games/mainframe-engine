@@ -4,7 +4,6 @@
   "type": "CameraAttributesPractical",
   "props": {
     "VignetteIntensity": 0.3,
-    "FilmGrainIntensity": 0.025,
     "ChromaticAberrationIntensity": 0.12
   }
 }

@@ -1,0 +1,93 @@
+/* Key rebinding (Assets/UI/keys.rml), in the pause menu's colours (menu.rcss). */
+
+body { font-family: LatoLatin; font-size: 15dp; color: #d6e2ee; width: 100%; height: 100%; background-color: #07060dd0; }
+
+div { display: block; }
+
+#scanlines {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    decorator: repeating-linear-gradient(180deg, #00000000 0dp, #00000000 2dp, #0000002e 2dp, #0000002e 4dp);
+    pointer-events: none;
+}
+
+#keys {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 780dp;
+    height: 880dp;
+    margin-left: -390dp;
+    margin-top: -440dp;
+    background-color: #0a0913f2;
+    border: 1dp #19e6ff2e;
+}
+
+.corner { position: absolute; width: 18dp; height: 18dp; border-color: #ff2a9d; border-width: 0dp; }
+.corner.tl { left: -1dp; top: -1dp; border-left-width: 2dp; border-top-width: 2dp; }
+.corner.tr { right: -1dp; top: -1dp; border-right-width: 2dp; border-top-width: 2dp; }
+.corner.bl { left: -1dp; bottom: -1dp; border-left-width: 2dp; border-bottom-width: 2dp; }
+.corner.br { right: -1dp; bottom: -1dp; border-right-width: 2dp; border-bottom-width: 2dp; }
+
+.head { height: 64dp; line-height: 64dp; padding: 0dp 28dp; border-bottom: 1dp #19e6ff24; white-space: nowrap; }
+.title { font-family: "Roboto Mono"; font-size: 20dp; letter-spacing: 3dp; text-transform: uppercase; color: #ffffff; }
+.note { margin-left: 18dp; font-size: 13dp; color: #ff5fb4; }
+
+#actions { position: absolute; left: 0; right: 0; top: 104dp; bottom: 62dp; padding: 0dp 28dp; overflow-y: auto; }
+
+.row { display: flex; flex-direction: row; align-items: center; height: 34dp; }
+.row.header {
+    height: 38dp;
+    padding: 0dp 28dp;
+    font-family: "Roboto Mono";
+    font-size: 11dp;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+    color: #ff5fb4;
+    border-bottom: 1dp #ff2a9d40;
+}
+.row.locked { opacity: 0.4; }
+.label { flex: 1 1 auto; white-space: nowrap; }
+.slot { flex: 0 0 auto; width: 148dp; margin-left: 8dp; text-align: center; }
+
+button.binding {
+    flex: 0 0 auto;
+    width: 148dp;
+    height: 26dp;
+    line-height: 26dp;
+    margin-left: 8dp;
+    padding: 0dp;
+    font-family: "Roboto Mono";
+    font-size: 12dp;
+    text-align: center;
+    color: #19e6ff;
+    background-color: transparent;
+    border: 1dp #19e6ff40;
+    border-radius: 0dp;
+}
+button.binding:hover { background-color: #19e6ff24; color: #ffffff; }
+button.binding.active { background-color: #ff2a9d; border-color: #ff2a9d; color: #07060d; }
+
+.foot { position: absolute; left: 0; right: 0; bottom: 0; height: 60dp; padding: 14dp 28dp 0dp 28dp; border-top: 1dp #19e6ff24; text-align: right; }
+.foot button {
+    display: inline-block;
+    width: auto;
+    height: 32dp;
+    line-height: 32dp;
+    margin-left: 10dp;
+    padding: 0dp 18dp;
+    font-family: "Roboto Mono";
+    font-size: 12dp;
+    letter-spacing: 1dp;
+    text-transform: uppercase;
+    color: #19e6ff;
+    background-color: transparent;
+    border: 1dp #19e6ff66;
+    border-radius: 0dp;
+}
+.foot button:hover { background-color: #19e6ff; color: #07060d; }
+.foot button.primary { background-color: #19e6ff; color: #07060d; }
+
+#actions scrollbarvertical { width: 4dp; }
+#actions scrollbarvertical slidertrack { background-color: transparent; }
+#actions scrollbarvertical sliderbar { background-color: #ff2a9d80; border-radius: 0dp; }

@@ -6,11 +6,12 @@ doors and flip the lights, but you can never leave. It is a game project of its 
 engine like [the Forest](../Forest/README.md), and **not** part of `MainframeEngine.slnx`.
 
 **Status: complete** ([design](../../docs/design/neon.md), ADR 0218). A textured loft (CC0 sets, original posters) with
-doors, a locked front door, light switches, a shower with steam and misting glass, taps, a TV with three channels, a
-stereo playing two synthesised songs, motorised blinds, and a computer you sit at: six live monitors and a terminal
-whose commands run the apartment. Outside, a seeded neon city of ~820 instanced towers, signs, holograms and rain, with
-cars on the streets, hover cars, an elevated train and airships (the close ones on `Path3D` followers). Esc opens the
-settings menu.
+doors, a locked front door, working server racks, light switches, a shower with steam and misting glass, taps, a TV with three channels, a
+stereo playing two synthesised songs, motorised blinds, balcony chairs you can sit in to watch the city, and a computer you sit at: six live monitors and a terminal
+whose commands run the apartment. Outside, a seeded neon city of ~820 instanced towers with rooms in parallax behind their
+windows, cluttered roofs, signs, holograms, light rain, wet streets, a crowd under umbrellas, lantern strings, cars,
+hover cars, an elevated train and airships (the close ones on `Path3D` followers). Esc opens a cyberpunk pause menu with
+every display, graphics, camera, audio and control option, applied live over the running city.
 
 ## Run
 
@@ -27,13 +28,14 @@ just canvas-shaders Examples/Neon/Assets    # rebuild the city's spatial shaders
 
 Run it with `dotnet run --project Examples/Neon/Neon.Desktop -c Release`. Game flags go after `++`: `--no-capture`
 (do not capture the mouse), `--view`, `--open-doors`, `--lights-off <Room>`, `--tv <channel>`, `--music`, `--shower`,
-`--blinds-closed`.
+`--blinds-closed`, `--menu [page]` (start with the menu open), `--option key=value` (a menu option for one run).
 
 ## Controls
 
 WASD / left stick to walk, mouse / right stick to look, Shift to sprint, C or Ctrl to crouch, Space to jump, E / gamepad
 X to use what you look at (a door, a switch, the shower valve, a tap, the TV, the stereo, a blinds panel, the chair)
-within 2.2 m. Seated at the computer, type commands (`help`); Esc stands up. Esc otherwise opens the settings menu.
+within 2.2 m. Seated at the computer, type commands (`help`); Esc stands up. Esc otherwise opens the menu, F3 shows the
+frame rate.
 
 ## Layout
 
@@ -44,15 +46,20 @@ within 2.2 m. Seated at the computer, type commands (`help`); Esc stands up. Esc
 - `Neon/Src/World/` — `NeonScene` (the scene builder: `--write-scenes`), `NeonApartment` (loads the model and turns its
   named nodes into doors, lights, switches, colliders and sockets), `FallSafety` (respawns a player who falls out).
 - `Neon/Src/World/` (the city, phase N3) — `CityLayout` (the seeded city as data: streets, blocks, towers, signs,
-  holograms and the traffic loops, in scene space with the street 70 m below the apartment), `NeonCity` (builds it at
-  load from the kit: tower MultiMeshes, the home tower, the wet streets, the far skyline, signs, holograms, the rail, the
-  balcony's puddles; no lights), `CityTraffic` (a first, simple traffic over the loops), `NeonRain`, `NeonLook` (the
-  post-processing files in `Assets/PostProcess`).
-- `Tools/city/build_city_kit.py` — the city kit and the signs' words atlas, headless in Blender (`Assets/Art/City`).
-- `Assets/Shaders/` — the city's Godot spatial shaders (`facade`, `skyline`, `street`, `hologram`, `screen`, `sign`,
-  `beam`) and their committed SPIR-V.
+  holograms, props and the traffic loops, in scene space with the street 70 m below the apartment), `NeonCity` (builds it
+  at load from the kit: tower MultiMeshes near and far, roof and street props, the crowd, lantern strings, sky bridges,
+  the home tower, the wet streets, the far skyline, signs, holograms, the rail, the balcony's puddles; no lights),
+  `CityTraffic` (a first, simple traffic over the loops), `NeonRain`, `NeonLook` (the post-processing files in
+  `Assets/PostProcess`).
+- `Neon/Src/Menu/` — `NeonMenu` (the pause menu, generated from `NeonOptions`), `NeonWorld` (what the options act on,
+  saved through the engine's `UserSettings`), `NeonPause` (sets it up), `NeonFps`; styled by `Assets/UI/menu.rcss`.
+- `Tools/city/build_city_kit.py` — the city kit (towers, props, rail, vehicles, signs) and the signs' words atlas,
+  headless in Blender (`Assets/Art/City`).
+- `Assets/Shaders/` — the city's Godot spatial shaders (`facade`, `skyline`, `street`, `spill`, `crowd`, `hologram`,
+  `screen`, `sign`, `beam`) and their committed SPIR-V.
 - `Tools/apartment/build_apartment.py` — the apartment, headless in Blender (seeded; `--preview DIR`, `--verify DIR`).
   Its docstring lists the naming conventions the game reads.
+- `Tools/apartment/build_resident.py` — the woman on the bed (off for now: `NeonApartment.ShowResident`), an MPFB character with baked lingerie and stockings and a looping idle (`--preview DIR`, `--no-export`); `fetch_mpfb_packs.py` installs MPFB and its CC0 packs in Blender.
 - `Assets/Scenes/neon.mscene` — written by `dotnet run --project Examples/Neon/Neon.Desktop -- --write-scenes
   Examples/Neon/Assets/Scenes`; a test checks it matches the builder.
 

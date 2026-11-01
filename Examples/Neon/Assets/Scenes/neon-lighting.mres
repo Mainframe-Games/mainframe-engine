@@ -8,7 +8,7 @@
     "CountX": 15,
     "CountY": 7,
     "CountZ": 14,
-    "BakeHash": "b2a06008e64442521c7e99495aa9052ca43774cf98ea6fa541531360d1325273",
+    "BakeHash": "22365974254bc347dd4d27ad6381391b748f0d774281db0db96b49f71bb04883",
     "RaysPerProbe": 192,
     "Bounces": 2,
     "DataFile": "neon-lighting.probes"

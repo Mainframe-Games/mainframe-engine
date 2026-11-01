@@ -151,4 +151,55 @@ public sealed class CityLayoutTests
     private static bool OnAStreet(Vector3 p, float margin) =>
         Layout.EastWest.Any(s => MathF.Abs(p.Z - s.Center) <= s.Width / 2 + margin) ||
         Layout.NorthSouth.Any(s => MathF.Abs(p.X - s.Center) <= s.Width / 2 + margin);
+
+    [Fact]
+    public void PropsAreSeededAndDoNotMoveTheCity()
+    {
+        var again = CityLayout.Generate();
+        Assert.Equal(Layout.Props, again.Props);
+        Assert.Equal(Layout.Walkers, again.Walkers);
+        Assert.Equal(Layout.Cables, again.Cables);
+        Assert.Equal(Layout.Skybridges, again.Skybridges);
+        Assert.InRange(Layout.Props.Count, 2000, 60000);
+        Assert.InRange(Layout.Walkers.Count, 300, 20000);
+        Assert.NotEmpty(Layout.Skybridges);
+        Assert.Contains(Layout.Cables, c => c.Lanterns);
+        Assert.Contains(Layout.Spills, s => s.Radial);
+        Assert.Contains(Layout.Spills, s => !s.Radial);
+        foreach (var kind in Enum.GetValues<CityPropKind>())
+            Assert.Contains(Layout.Props, p => p.Kind == kind);
+    }
+
+    [Fact]
+    public void RoofPropsStandOnARoofAndStreetPropsOnTheStreet()
+    {
+        foreach (var prop in Layout.Props)
+        {
+            var y = prop.Transform.Origin.Y;
+            switch (prop.Kind)
+            {
+                case CityPropKind.Lamp or CityPropKind.Signal or CityPropKind.Kiosk:
+                    Assert.Equal(CityLayout.GroundY, y, 3);
+                    break;
+                case CityPropKind.Awning:
+                    Assert.InRange(y, CityLayout.GroundY + 2.5f, CityLayout.GroundY + 4.5f);
+                    break;
+                default:
+                    Assert.True(y > CityLayout.GroundY + 4f, $"{prop.Kind} at {y}");
+                    break;
+            }
+        }
+    }
+
+    [Fact]
+    public void SkybridgesSpanAirBetweenTowersAboveTheStreet()
+    {
+        foreach (var bridge in Layout.Skybridges)
+        {
+            Assert.True(bridge.Min.Y > CityLayout.GroundY + 12f);
+            var size = bridge.Max - bridge.Min;
+            Assert.True(MathF.Max(size.X, size.Z) <= 30f, $"{size}");
+            Assert.True(MathF.Min(size.X, size.Z) < 4f, $"{size}");
+        }
+    }
 }

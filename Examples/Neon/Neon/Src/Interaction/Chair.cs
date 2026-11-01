@@ -4,13 +4,13 @@ using MainframeEngine;
 namespace Neon;
 
 /// <summary>
-/// The computer room's chair: <c>interact</c> sits the player down facing the monitors (the camera eases to
-/// <see cref="EyeHeight"/> over the seat, the controller stops moving the player) and <c>interact</c> or <c>pause</c>
-/// stands them back up where they were (only <c>pause</c> while the <see cref="KeyboardCaptured"/>). While seated <see cref="IsSeated"/> is true and <see cref="Seated"/> /
-/// <see cref="Stood"/> tell the terminal to take or give back the keyboard. This node is the seat: its −Z faces the
-/// screens.
+/// A chair the player can sit in, at the computer or on the balcony: <c>interact</c> sits the player down facing the way
+/// the chair faces (the camera eases to <see cref="EyeHeight"/> over the seat, the controller stops moving the player) and
+/// <c>interact</c> or <c>pause</c> stands them back up where they were (only <c>pause</c> while the <see cref="KeyboardCaptured"/>).
+/// While seated <see cref="IsSeated"/> is true and <see cref="Seated"/> / <see cref="Stood"/> tell the terminal to take or
+/// give back the keyboard. This node is the seat: its −Z is the way the chair faces.
 /// </summary>
-public sealed class ComputerSeat : Node3D, IInteractable
+public sealed class Chair : Node3D, IInteractable
 {
     private FirstPersonController? _player;
     private Vector3 _standPosition;
@@ -22,6 +22,9 @@ public sealed class ComputerSeat : Node3D, IInteractable
 
     /// <summary>The seated eye height over the seat's floor, metres.</summary>
     [Export(Range = "0.5,2,0.01")] public float EyeHeight { get; set; } = 1.18f;
+
+    /// <summary>Where the view settles when seated, degrees (down at a desk's screens by default).</summary>
+    [Export(Range = "-60,60,1")] public float LookPitch { get; set; } = -8f;
 
     /// <summary>Seconds to sit down or stand up.</summary>
     [Export(Range = "0.05,3,0.05")] public float Seconds { get; set; } = 0.6f;
@@ -96,12 +99,12 @@ public sealed class ComputerSeat : Node3D, IInteractable
         _blend = target > _blend ? MathF.Min(_blend + step, 1f) : MathF.Max(_blend - step, 0f);
         var e = DoorBase.SmoothStep(_blend);
 
-        // The feet move to the seat; the eye drops to the seated height; the view turns to the screens.
+        // The feet move to the seat; the eye drops to the seated height; the view turns the way the chair faces.
         var seat = GlobalPosition;
         var seatYaw = SeatYawDegrees();
         player.Position = Vector3.Lerp(_standPosition, new Vector3(seat.X, _standPosition.Y, seat.Z), e);
         player.EyeHeightOverride = _blend > 0f ? float.Lerp(player.StandingHeight - FirstPersonController.EyeBelowTop, EyeHeight, e) : null;
-        player.SetLook(LerpAngle(_standYaw, seatYaw, e), float.Lerp(_standPitch, -8f, e));
+        player.SetLook(LerpAngle(_standYaw, seatYaw, e), float.Lerp(_standPitch, LookPitch, e));
         if (_blend == 0f)
             player.MovementLocked = false;
     }

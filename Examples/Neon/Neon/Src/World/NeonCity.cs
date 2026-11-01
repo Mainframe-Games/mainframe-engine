@@ -9,9 +9,11 @@ namespace Neon;
 /// Blender kit (<see cref="CityKit"/>): no node of it is saved in the scene and nothing in it is a light (the neon is
 /// emission and the post glow). It builds:
 /// <list type="bullet">
-/// <item>the near ring: one <see cref="MultiMeshInstance3D"/> per tower archetype (<c>facade.gdshader</c>, each tower's
-/// window seed, hue, lit fraction and style in <c>INSTANCE_CUSTOM</c>), and the apartment's own tower round it;</item>
-/// <item>the ground: pavements, streets and crossings in one mesh (<c>street.gdshader</c>: wet asphalt, neon kerbs);</item>
+/// <item>the near ring: two <see cref="MultiMeshInstance3D"/>s per tower archetype, close and far (<c>facade.gdshader</c>,
+/// each tower's window seed, hue, lit fraction and style in <c>INSTANCE_CUSTOM</c>), and the apartment's own tower;</item>
+/// <item>roof clutter, street furniture, the crowd (<c>crowd.gdshader</c>), lantern strings and sky bridges;</item>
+/// <item>the ground: pavements, streets and crossings in one mesh (<c>street.gdshader</c>: wet asphalt that mirrors the
+/// street's lights) and the light spilling on it (<c>spill.gdshader</c>);</item>
 /// <item>the far ring: three cylinders of skyline cards (<c>skyline.gdshader</c>);</item>
 /// <item>billboards, blade signs and signboards (<c>screen.gdshader</c>, <c>sign.gdshader</c>) and the holograms
 /// (<c>hologram.gdshader</c>);</item>
@@ -30,8 +32,18 @@ public sealed class NeonCity : Node3D
     public const string HologramShader = "Assets/Shaders/hologram.gdshader";
     public const string ScreenShader = "Assets/Shaders/screen.gdshader";
     public const string SignShader = "Assets/Shaders/sign.gdshader";
+    public const string CrowdShader = "Assets/Shaders/crowd.gdshader";
+    public const string SpillShader = "Assets/Shaders/spill.gdshader";
 
     private bool _built;
+    private bool _detail = true;
+    private float _lit = 1f;
+    private float _neon = 1f;
+    private float _reflections = 1f;
+    private bool _holograms = true;
+    private bool _crowd = true;
+    private ShaderMaterial? _street;
+    private WaterMaterial3D? _puddles;
 
     /// <summary>The layout's seed.</summary>
     [Export] public int Seed { get; set; } = CityLayout.DefaultSeed;
@@ -48,8 +60,100 @@ public sealed class NeonCity : Node3D
     /// <summary>The towers' MultiMeshes by archetype (index into <see cref="CityLayout.Archetypes"/>).</summary>
     public List<MultiMeshInstance3D> Towers { get; } = [];
 
-    /// <summary>The facade material of each kit surface (<c>part</c> 0–3: facade, roof, trim, beacon).</summary>
-    public ShaderMaterial[] FacadeMaterials { get; } = new ShaderMaterial[4];
+    /// <summary>The facade material of each kit surface (<c>part</c> 0–4: facade, roof, trim, beacon, lamp).</summary>
+    public ShaderMaterial[] FacadeMaterials { get; } = new ShaderMaterial[5];
+
+    /// <summary>The rain, or null without it.</summary>
+    public NeonRain? RainNode { get; private set; }
+
+    /// <summary>The traffic, or null without it.</summary>
+    public CityTraffic? TrafficNode { get; private set; }
+
+    /// <summary>Rooms behind the windows and wall detail (the menu; off costs less).</summary>
+    public bool Detail
+    {
+        get => _detail;
+        set
+        {
+            _detail = value;
+            SetFacade("detail", value ? 1f : 0f);
+        }
+    }
+
+    /// <summary>A scale on the share of lit windows (the menu).</summary>
+    public float LitWindows
+    {
+        get => _lit;
+        set
+        {
+            _lit = value;
+            SetFacade("lit_scale", value);
+        }
+    }
+
+    /// <summary>A scale on the trims' and bands' brightness (the menu).</summary>
+    public float NeonBrightness
+    {
+        get => _neon;
+        set
+        {
+            _neon = value;
+            SetFacade("neon_scale", value);
+        }
+    }
+
+    /// <summary>How much of the city the wet streets mirror, 0 to 1 (the menu).</summary>
+    public float StreetReflections
+    {
+        get => _reflections;
+        set
+        {
+            _reflections = value;
+            _street?.SetShaderParameter("reflections", value);
+        }
+    }
+
+    /// <summary>Screen-space reflections in the balcony's puddles (the menu).</summary>
+    public bool PuddleReflections
+    {
+        get => _puddles?.ScreenSpaceReflections ?? true;
+        set
+        {
+            if (_puddles is { } puddles)
+                puddles.ScreenSpaceReflections = value;
+        }
+    }
+
+    /// <summary>Whether the koi, the dancer and the logo show (the menu).</summary>
+    public bool Holograms
+    {
+        get => _holograms;
+        set
+        {
+            _holograms = value;
+            foreach (var child in Children)
+                if (child is MeshInstance3D mesh && child.Name.StartsWith("Hologram", StringComparison.Ordinal))
+                    mesh.Visible = value;
+        }
+    }
+
+    /// <summary>Whether people walk the pavements (the menu).</summary>
+    public bool Crowd
+    {
+        get => _crowd;
+        set
+        {
+            _crowd = value;
+            if (GetNodeOrNull<MultiMeshInstance3D>("Crowd") is { } crowd)
+                crowd.Visible = value;
+        }
+    }
+
+    private void SetFacade(string parameter, float value)
+    {
+        foreach (var material in FacadeMaterials)
+            material?.SetShaderParameter(parameter, value);
+    }
 
     protected override void OnReady()
     {
@@ -65,8 +169,9 @@ public sealed class NeonCity : Node3D
         var towersKit = CityKit.Load(CityKit.TowersPath);
         var signsKit = CityKit.Load(CityKit.SignsPath);
         var railKit = CityKit.Load(CityKit.RailPath);
+        var propsKit = CityKit.Load(CityKit.PropsPath);
 
-        for (var part = 0; part < 4; part++)
+        for (var part = 0; part < FacadeMaterials.Length; part++)
         {
             var material = new ShaderMaterial { ResourceName = "Facade" + part, Shader = ResourceLoader.Load<Shader>(FacadeShader) };
             material.SetShaderParameter("part", (float)part);
@@ -77,16 +182,21 @@ public sealed class NeonCity : Node3D
 
         BuildTowers(towersKit);
         BuildHomeTower();
+        BuildProps(propsKit);
+        BuildCrowd(propsKit);
+        BuildCables(propsKit);
+        BuildSkybridges();
         BuildGround();
+        BuildSpills();
         BuildSkyline();
         BuildSigns(signsKit);
         BuildHolograms(signsKit);
         BuildRail(railKit);
         BuildPuddles();
         if (Traffic)
-            AddChild(new CityTraffic { Name = "Traffic", Layout = Layout });
+            AddChild(TrafficNode = new CityTraffic { Name = "Traffic", Layout = Layout });
         if (Rain)
-            AddChild(new NeonRain { Name = "Rain" });
+            AddChild(RainNode = new NeonRain { Name = "Rain" });
     }
 
     // ── Towers ────────────────────────────────────────────────────────────────────────────────────
@@ -96,33 +206,156 @@ public sealed class NeonCity : Node3D
         var layout = Layout!;
         for (var a = 0; a < CityLayout.Archetypes.Length; a++)
         {
-            var name = CityLayout.Archetypes[a];
-            if (!kit.TryGetValue(name.Name, out var mesh))
+            var name = CityLayout.Archetypes[a].Name;
+            AddTowers(kit, name, a, near: false);
+            AddTowers(kit, name + "_Near", a, near: true);
+        }
+
+        void AddTowers(Dictionary<string, ArrayMesh> meshes, string name, int archetype, bool near)
+        {
+            if (!meshes.TryGetValue(name, out var mesh))
             {
-                Log.Warning($"[Neon] The city kit has no {name.Name}.");
-                continue;
+                Log.Warning($"[Neon] The city kit has no {name}.");
+                return;
             }
 
+            var towers = layout.Towers.Where(t => t.Archetype == archetype && CityLayout.IsNear(t) == near).ToList();
+            if (towers.Count == 0)
+                return;
             ApplyFacade(mesh);
-            var count = 0;
-            foreach (var tower in layout.Towers)
-                if (tower.Archetype == a)
-                    count++;
-            var multimesh = new MultiMesh { Mesh = mesh, UseCustomData = true, InstanceCount = count };
-            var i = 0;
-            foreach (var tower in layout.Towers)
+            var multimesh = new MultiMesh { Mesh = mesh, UseCustomData = true, InstanceCount = towers.Count };
+            for (var i = 0; i < towers.Count; i++)
             {
-                if (tower.Archetype != a)
-                    continue;
-                multimesh.SetInstanceTransform(i, tower.Transform);
-                multimesh.SetInstanceCustomData(i, tower.Custom);
-                i++;
+                multimesh.SetInstanceTransform(i, towers[i].Transform);
+                multimesh.SetInstanceCustomData(i, towers[i].Custom);
             }
 
-            var instance = new MultiMeshInstance3D { Name = name.Name, Multimesh = multimesh, CastShadows = false };
+            var instance = new MultiMeshInstance3D { Name = name, Multimesh = multimesh, CastShadows = false };
             AddChild(instance);
             Towers.Add(instance);
         }
+    }
+
+    /// <summary>Roof clutter and street furniture: one <see cref="MultiMesh"/> per kit prop.</summary>
+    private void BuildProps(Dictionary<string, ArrayMesh> kit)
+    {
+        foreach (var kind in Enum.GetValues<CityPropKind>())
+        {
+            var meshName = CityKit.PropMesh(kind);
+            if (!kit.TryGetValue(meshName, out var mesh))
+            {
+                Log.Warning($"[Neon] The city kit has no {meshName}.");
+                continue;
+            }
+
+            var props = Layout!.Props.Where(p => p.Kind == kind).ToList();
+            if (props.Count == 0)
+                continue;
+            ApplyFacade(mesh);
+            var multimesh = new MultiMesh { Mesh = mesh, UseCustomData = true, InstanceCount = props.Count };
+            for (var i = 0; i < props.Count; i++)
+            {
+                multimesh.SetInstanceTransform(i, props[i].Transform);
+                multimesh.SetInstanceCustomData(i, props[i].Custom);
+            }
+
+            AddChild(new MultiMeshInstance3D { Name = meshName + "s", Multimesh = multimesh, CastShadows = false, GIMode = GIMode.Disabled });
+        }
+    }
+
+    /// <summary>The crowd: one instance per walker, moved along its pavement by the shader.</summary>
+    private void BuildCrowd(Dictionary<string, ArrayMesh> kit)
+    {
+        if (!kit.TryGetValue("Street_Walker", out var mesh) || Layout!.Walkers.Count == 0)
+            return;
+        var shader = ResourceLoader.Load<Shader>(CrowdShader);
+        for (var s = 0; s < mesh.SurfaceCount; s++)
+        {
+            var surface = mesh.GetSurface(s);
+            var material = new ShaderMaterial { ResourceName = surface.Material?.ResourceName ?? "Body", Shader = shader };
+            material.SetShaderParameter("part", surface.Material?.ResourceName == "Canopy" ? 1f : 0f);
+            surface.Material = material;
+        }
+
+        var walkers = Layout.Walkers;
+        var multimesh = new MultiMesh { Mesh = mesh, UseCustomData = true, InstanceCount = walkers.Count, CustomAabb = CityLayout.Bounds };
+        for (var i = 0; i < walkers.Count; i++)
+        {
+            multimesh.SetInstanceTransform(i, walkers[i].Transform);
+            multimesh.SetInstanceCustomData(i, walkers[i].Custom);
+        }
+
+        AddChild(new MultiMeshInstance3D { Name = "Crowd", Multimesh = multimesh, CastShadows = false, GIMode = GIMode.Disabled });
+    }
+
+    /// <summary>The wires over the side streets as thin bars, and the lanterns hung from them.</summary>
+    private void BuildCables(Dictionary<string, ArrayMesh> kit)
+    {
+        const int Segments = 8;
+        var wires = new CityMeshBuilder();
+        var lanterns = new List<(Vector3 Position, float Hue)>();
+        foreach (var cable in Layout!.Cables)
+        {
+            var previous = cable.From;
+            for (var i = 1; i <= Segments; i++)
+            {
+                var t = i / (float)Segments;
+                var point = Sag(cable, t);
+                wires.Beam(previous, point, 0.018f);
+                previous = point;
+            }
+
+            if (!cable.Lanterns)
+                continue;
+            var count = (int)(Vector3.Distance(cable.From, cable.To) / 1.7f);
+            for (var i = 1; i < count; i++)
+                lanterns.Add((Sag(cable, i / (float)count), cable.Hue));
+        }
+
+        var mesh = new ArrayMesh();
+        mesh.AddSurface(wires.Build(FacadeMaterials[1]));
+        var multimeshWires = new MultiMesh { Mesh = mesh, UseCustomData = true, InstanceCount = 1 };
+        multimeshWires.SetInstanceCustomData(0, new Vector4(0.5f, 0f, 0f, 0f));
+        AddChild(new MultiMeshInstance3D { Name = "Wires", Multimesh = multimeshWires, CastShadows = false, GIMode = GIMode.Disabled });
+
+        if (lanterns.Count == 0 || !kit.TryGetValue("Street_Lantern", out var lantern))
+            return;
+        ApplyFacade(lantern);
+        var multimesh = new MultiMesh { Mesh = lantern, UseCustomData = true, InstanceCount = lanterns.Count };
+        for (var i = 0; i < lanterns.Count; i++)
+        {
+            multimesh.SetInstanceTransform(i, new Transform3D(Basis.Identity, lanterns[i].Position));
+            multimesh.SetInstanceCustomData(i, new Vector4(0f, lanterns[i].Hue, 0f, 0f));
+        }
+
+        AddChild(new MultiMeshInstance3D { Name = "Lanterns", Multimesh = multimesh, CastShadows = false, GIMode = GIMode.Disabled });
+
+        static Vector3 Sag(in CityCable cable, float t) =>
+            Vector3.Lerp(cable.From, cable.To, t) - Vector3.UnitY * (cable.Sag * 4f * t * (1f - t));
+    }
+
+    /// <summary>The bridges between towers: a dark shell, glass down each side (a curtain wall of the facade shader).</summary>
+    private void BuildSkybridges()
+    {
+        var shells = new CityMeshBuilder();
+        var glass = new CityMeshBuilder();
+        foreach (var bridge in Layout!.Skybridges)
+        {
+            shells.Box(bridge.Min, bridge.Max with { Y = bridge.Min.Y + 0.7f });
+            shells.Box(bridge.Min with { Y = bridge.Max.Y - 0.5f }, bridge.Max);
+            var alongX = bridge.Max.X - bridge.Min.X > bridge.Max.Z - bridge.Min.Z;
+            var inset = alongX ? new Vector3(0f, 0f, 0.12f) : new Vector3(0.12f, 0f, 0f);
+            glass.Box(bridge.Min + inset with { Y = bridge.Min.Y + 0.7f }, bridge.Max - inset with { Y = 0.5f });
+        }
+
+        if (Layout.Skybridges.Count == 0)
+            return;
+        var mesh = new ArrayMesh();
+        mesh.AddSurface(shells.Build(FacadeMaterials[1]));
+        mesh.AddSurface(glass.Build(FacadeMaterials[0]));
+        var multimesh = new MultiMesh { Mesh = mesh, UseCustomData = true, InstanceCount = 1 };
+        multimesh.SetInstanceCustomData(0, new Vector4(0.5f, 0f, 1f, 0.12f));
+        AddChild(new MultiMeshInstance3D { Name = "Skybridges", Multimesh = multimesh, CastShadows = false, GIMode = GIMode.Disabled });
     }
 
     /// <summary>The kit's tower surfaces get the facade shader by their material's name.</summary>
@@ -136,6 +369,7 @@ public sealed class NeonCity : Node3D
                 "Roof" => FacadeMaterials[1],
                 "Trim" => FacadeMaterials[2],
                 "Beacon" => FacadeMaterials[3],
+                "Lamp" => FacadeMaterials[4],
                 _ => FacadeMaterials[0],
             };
         }
@@ -163,6 +397,30 @@ public sealed class NeonCity : Node3D
         walls.Wall(new Vector3(x0, y0, z0), new Vector3(x1, y1, z0), -Vector3.UnitZ, x0);
         var roof = new CityMeshBuilder();
         roof.Box(new Vector3(x0, y1, z0), new Vector3(x1, y1 + 0.6f, z1));
+        // Slab edges where the facade shader's ledges fall, and piers every bay, clear of the apartment's hole.
+        var ledge = 17.5f;
+        for (var y = y0 + ledge; y < y1 - 1f; y += ledge)
+        {
+            if (y > hole0.Y - 1f && y < hole1.Y + 1f)
+                continue;
+            roof.Box(new Vector3(x0 - 0.35f, y - 0.32f, z0 - 0.35f), new Vector3(x1 + 0.35f, y, z1 + 0.35f));
+        }
+
+        for (var x = x0; x <= x1 + 0.01f; x += 6f)
+        {
+            var hole = x > hole0.X - 0.3f && x < hole1.X + 0.3f;
+            roof.Box(new Vector3(x - 0.16f, y0, z1), new Vector3(x + 0.16f, hole ? hole0.Y : y1, z1 + 0.4f));
+            if (hole)
+                roof.Box(new Vector3(x - 0.16f, hole1.Y, z1), new Vector3(x + 0.16f, y1, z1 + 0.4f));
+            roof.Box(new Vector3(x - 0.16f, y0, z0 - 0.4f), new Vector3(x + 0.16f, y1, z0));
+        }
+
+        for (var z = z0; z <= z1 + 0.01f; z += 6f)
+        {
+            roof.Box(new Vector3(x0 - 0.4f, y0, z - 0.16f), new Vector3(x0, y1, z + 0.16f));
+            roof.Box(new Vector3(x1, y0, z - 0.16f), new Vector3(x1 + 0.4f, y1, z + 0.16f));
+        }
+
         // The neighbours' balconies: a slab and a glass-less rail every other storey, either side of the apartment.
         var trim = new CityMeshBuilder();
         for (var storey = 1; storey < 31; storey += 2)
@@ -225,9 +483,10 @@ public sealed class NeonCity : Node3D
         b.Ground(-F, -E, -E, E, y, p => p, pave);
         b.Ground(E, F, -E, E, y, p => p, pave);
 
-        var material = new ShaderMaterial { ResourceName = "Street", Shader = ResourceLoader.Load<Shader>(StreetShader) };
+        _street = new ShaderMaterial { ResourceName = "Street", Shader = ResourceLoader.Load<Shader>(StreetShader) };
+        _street.SetShaderParameter("reflections", _reflections);
         var mesh = new ArrayMesh();
-        mesh.AddSurface(b.Build(material));
+        mesh.AddSurface(b.Build(_street));
         AddChild(new MeshInstance3D { Name = "Ground", Mesh = mesh, CastShadows = false });
 
         static List<(float A, float B, CityStreet? Street)> Intervals(IReadOnlyList<CityStreet> lines)
@@ -248,6 +507,17 @@ public sealed class NeonCity : Node3D
                 list.Add((at, CityLayout.GridExtent, null));
             return list;
         }
+    }
+
+    /// <summary>The pools of light on the ground (<see cref="CityLayout.Spills"/>), additive, just over the street.</summary>
+    private void BuildSpills()
+    {
+        var b = new CityMeshBuilder();
+        foreach (var spill in Layout!.Spills)
+            b.Spill(spill);
+        var mesh = new ArrayMesh();
+        mesh.AddSurface(b.Build(new ShaderMaterial { ResourceName = "Spill", Shader = ResourceLoader.Load<Shader>(SpillShader) }));
+        AddChild(new MeshInstance3D { Name = "Spills", Mesh = mesh, CastShadows = false, GIMode = GIMode.Disabled });
     }
 
     // ── Far ring ──────────────────────────────────────────────────────────────────────────────────
@@ -424,7 +694,7 @@ public sealed class NeonCity : Node3D
     /// <summary>Rain puddles on the balcony floor: shallow water with screen-space reflections of the city.</summary>
     private void BuildPuddles()
     {
-        var water = new WaterMaterial3D
+        var water = _puddles = new WaterMaterial3D
         {
             ResourceName = "Puddle",
             RefractionEnabled = true,
@@ -459,12 +729,24 @@ public static class CityKit
     public const string RailPath = "Assets/Art/City/rail.gltf";
     public const string VehiclesPath = "Assets/Art/City/vehicles.gltf";
     public const string SignsPath = "Assets/Art/City/signs.gltf";
+    public const string PropsPath = "Assets/Art/City/props.gltf";
 
     /// <summary>The neon words atlas (horizontal words in the top half, vertical ones in the bottom half).</summary>
     public const string WordsPath = "Assets/Art/City/signs.png";
 
     /// <summary>The binary buffer of the towers (LFS): tests that need the kit skip when it is a pointer.</summary>
     public const string TowersBufferPath = "Assets/Art/City/towers.bin";
+
+    /// <summary>The kit mesh of a prop.</summary>
+    public static string PropMesh(CityPropKind kind) => kind switch
+    {
+        CityPropKind.LightMast => "Prop_LightMast",
+        CityPropKind.Lamp => "Street_Lamp",
+        CityPropKind.Signal => "Street_Signal",
+        CityPropKind.Kiosk => "Street_Kiosk",
+        CityPropKind.Awning => "Street_Awning",
+        _ => "Prop_" + kind,
+    };
 
     /// <summary>
     /// The meshes of a kit file by their node names. They are the loaded model's own (shared by every call): whoever builds
@@ -560,6 +842,71 @@ internal sealed class CityMeshBuilder
         Wall(min, new Vector3(min.X, max.Y, max.Z), -Vector3.UnitX, 0f);
         Flat(min.X, max.X, min.Z, max.Z, max.Y, Vector3.UnitY, p => p, default);
         Flat(min.X, max.X, min.Z, max.Z, min.Y, -Vector3.UnitY, p => p, default);
+    }
+
+    /// <summary>A square bar of half width <paramref name="r"/> from <paramref name="a"/> to <paramref name="b"/> (its four long faces).</summary>
+    public void Beam(Vector3 a, Vector3 b, float r)
+    {
+        var axis = Vector3.Normalize(b - a);
+        var side = Vector3.Normalize(Vector3.Cross(axis, MathF.Abs(axis.Y) > 0.9f ? Vector3.UnitX : Vector3.UnitY)) * r;
+        var up = Vector3.Normalize(Vector3.Cross(side, axis)) * r;
+        (Vector3 P, Vector3 Q, Vector3 N)[] faces = [(side, up, Vector3.Normalize(side)), (up, -side, Vector3.Normalize(up)), (-side, -up, -Vector3.Normalize(side)), (-up, side, -Vector3.Normalize(up))];
+        foreach (var (p, q, n) in faces)
+        {
+            var v0 = Vertex(a + p + q, n, Vector2.Zero);
+            var v1 = Vertex(a + p - q, n, Vector2.Zero);
+            var v2 = Vertex(b + p - q, n, Vector2.Zero);
+            var v3 = Vertex(b + p + q, n, Vector2.Zero);
+            if (Vector3.Dot(Vector3.Cross(b + p - q - (a + p + q), a + p - q - (a + p + q)), n) > 0f)
+                Quad(v0, v2, v1, v0, v3, v2);
+            else
+                Quad(v0, v1, v2, v0, v2, v3);
+        }
+    }
+
+    private void Quad(int a, int b, int c, int d, int e, int f)
+    {
+        _indices.Add(a);
+        _indices.Add(b);
+        _indices.Add(c);
+        _indices.Add(d);
+        _indices.Add(e);
+        _indices.Add(f);
+    }
+
+    /// <summary>A pool of light just over the street: UV.y runs from its bright edge or centre (0) to where it fades (1).</summary>
+    public void Spill(in CitySpill spill)
+    {
+        var colour = new Vector4(spill.Color, 1f);
+        var y = spill.Center with { Y = CityLayout.GroundY + 0.04f };
+        var n = Vector3.UnitY;
+        if (spill.Radial)
+        {
+            const int Sides = 20;
+            var c = Vertex(y, n, new Vector2(0.5f, 0f), colour);
+            var first = _positions.Count;
+            for (var i = 0; i < Sides; i++)
+            {
+                var a = i * MathF.Tau / Sides;
+                Vertex(y + new Vector3(MathF.Cos(a), 0f, MathF.Sin(a)) * (spill.Width * 0.5f), n, new Vector2(0.5f, 1f), colour);
+            }
+
+            for (var i = 0; i < Sides; i++)
+            {
+                _indices.Add(c);
+                _indices.Add(first + (i + 1) % Sides);
+                _indices.Add(first + i);
+            }
+
+            return;
+        }
+
+        var right = Vector3.Cross(Vector3.UnitY, spill.Normal) * (spill.Width * 0.5f);
+        var v0 = Vertex(y - right, n, new Vector2(0f, 0f), colour);
+        var v1 = Vertex(y + right, n, new Vector2(1f, 0f), colour);
+        var v2 = Vertex(y + right + spill.Normal * spill.Reach, n, new Vector2(1f, 1f), colour);
+        var v3 = Vertex(y - right + spill.Normal * spill.Reach, n, new Vector2(0f, 1f), colour);
+        Quad(v0, v2, v1, v0, v3, v2); // the shader draws both sides, so the winding does not matter
     }
 
     /// <summary>A ground rectangle facing up, UV from the (x, z) point, COLOR = <paramref name="color"/>.</summary>

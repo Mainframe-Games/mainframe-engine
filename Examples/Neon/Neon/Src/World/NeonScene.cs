@@ -81,6 +81,10 @@ public static class NeonScene
         FogDensity = 0.0026f,
         FogHeight = CityLayout.GroundY + 30f,
         FogHeightDensity = 0.012f,
+        // Off by default (the menu's Ultra preset): thin, so the city still reads through it.
+        VolumetricFogDensity = 0.004f,
+        VolumetricFogLength = 48f,
+        VolumetricFogAmbientInject = 0.6f,
         PostProcess = NeonLook.LoadProfile(),
         CameraAttributes = NeonLook.LoadLens(),
     };

@@ -4,6 +4,13 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Neon: AAA city and cyberpunk menu (2026-11-01).** Branch `neon-city-and-menu`, Examples/Neon and docs only
+  (ADR 0231, `docs/design/neon.md`). Grain off, rain 30 %, facades rebuilt (interior mapping, faked city light), kit with
+  near/far towers and a props kit, street mirror, crowd, lanterns, `NeonMenu` over `UserSettings`. Then: bed turned,
+  a quarter of the apartment's faces were flipped by `recalc_face_normals` (removed), racks rebuilt with `rack.gdshader`,
+  `build_resident.py` + `NeonResident`; then she was rebuilt as an MPFB character (ADR 0232, `fetch_mpfb_packs.py`) and switched off for now
+  (`NeonApartment.ShowResident`): the user will come back to her.
+
 - **Gameplay toolkit, all of it (2026-10-28).** Integration branch `feature/gameplay-toolkit` → one PR to `main`.
   Budget stop 90 % weekly (reached after wave 2). Order for the rest: G3.6 tile map navigation source (small now:
   `INavigationGridBaker` + the G2b API listed in `navigation.md`), G12, G11, G13 2D paths, G14 → the big ones (G17,
@@ -25,7 +32,7 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
     3 runs of the allocation-gate set on MoltenVK, only when other render hosts run alongside; it vanishes with
     `TrackAllocations` on (timing). Unfixed. `FlyingThroughAFoliageQualityForestAllocatesNothingPerFrame` times out (3 min)
     under Docker's x86_64 emulation only.
-  - Next ADR number: 0231.
+  - Next ADR number: 0233.
 
 - **Neon showcase (2026-10-27/28).** Branch `neon-demo` (one PR): `Examples/Neon`, a cyberpunk loft 20 floors up
   (ADR 0218, `docs/design/neon.md`), plus the three engine features it needed: `Path3D`/`PathFollow3D` and closed

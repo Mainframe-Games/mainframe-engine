@@ -25,7 +25,7 @@ Meshes (the name's prefix says what the game does with them):
 - Footstep surfaces follow the name: Tile_* tile, Planks_* wood, Mezzanine, Stairs and Railing_* metal, the rest
   concrete.
 - Materials LED_<Room> are the light fixtures' glow: Switch_<Room> dims them with the room's lights. Glow_* materials
-  (signs, the sofa's strip, the racks, the PC) always glow. Screen is the monitors' and the TV's glass (the game gives
+  (signs, the sofa's strip, the PC) always glow. RackLed is the racks' lights: UV.x = kind + seed, for rack.gdshader. Screen is the monitors' and the TV's glass (the game gives
   each screen its own copy); Display_Stereo the stereo's display.
 
 Empties exported as mesh-less nodes:
@@ -130,7 +130,7 @@ GLOWS = {
     "LED_Bed2": ((0.15, 0.85, 1.0), 6.0),
     "LED_Balcony": ((1.0, 0.45, 0.12), 6.0),
     "Glow_Red": ((1.0, 0.05, 0.08), 7.0),
-    "Glow_Rack": ((0.1, 1.0, 0.55), 5.0),
+    "RackLed": ((0.1, 1.0, 0.55), 5.0),
     "Glow_PC": ((0.7, 0.2, 1.0), 6.0),
     "Glow_Pink": ((1.0, 0.12, 0.6), 10.0),
     "Glow_Cyan": ((0.05, 0.9, 1.0), 10.0),
@@ -358,8 +358,11 @@ class Builder:
             self.face([tuple(a + ring[i]) for i in reversed(range(segments))], mat)
 
     def finish(self, location=(0, 0, 0), yaw=0.0):
-        """The object, its origin at glTF <location> turned <yaw> degrees about +Y (points were given in that frame)."""
-        bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces)
+        """The object, its origin at glTF <location> turned <yaw> degrees about +Y (points were given in that frame).
+
+        The faces keep the winding they were given. No recalc_face_normals here: every face has vertices of its own, so
+        each is an island with no inside, and recalculating flips about a quarter of them at random.
+        """
         mesh = bpy.data.meshes.new(self.name)
         self.bm.to_mesh(mesh)
         self.bm.free()
@@ -865,18 +868,119 @@ def furniture(rng):
         pc.cylinder((-6.6, y, 3.04), (-6.6, y, 3.06), 0.06, "Glow_PC", 14)
     F.append(pc.finish())
 
-    def rack(b, x0, x1):
-        b.box((x0, 0, -1.3), (x1, 2.0, -0.62), "Black")
-        b.box((x0 + 0.03, 0.05, -0.62), (x1 - 0.03, 1.95, -0.6), "Glass")
-        for i in range(16):
-            y = 0.12 + i * 0.115
-            b.box((x0 + 0.05, y, -0.64), (x1 - 0.05, y + 0.09, -0.63), "Steel")
-            for k in range(4):
-                if (i * 7 + k * 3) % 5:
-                    xx = x0 + 0.09 + k * 0.035
-                    b.box((xx, y + 0.03, -0.635), (xx + 0.012, y + 0.042, -0.628), "Glow_Rack")
-    furn("Furn_Rack1", lambda b: rack(b, -2.4, -1.75))
-    furn("Furn_Rack2", lambda b: rack(b, -3.3, -2.65))
+    # The racks: open-fronted cabinets of real kit. Nothing shares a plane (a surface on another flickers), and the lights
+    # are one mesh of small quads, each with its own blink: Decor_RackLeds, see rack_led and Assets/Shaders/rack.gdshader.
+    leds = Builder("Decor_RackLeds")
+
+    def rack_led(x, y, z, kind, seed, half=0.0035):
+        leds.face([(x - half, y - half, z), (x + half, y - half, z), (x + half, y + half, z), (x - half, y + half, z)], "RackLed",
+                  [(kind + seed * 0.98, 0.5)] * 4)
+
+    def rack(b, x0, x1, seed):
+        r = random.Random(seed)
+        face, unit = -0.668, 0.0445                # the fronts of the units, one rack unit
+        ux0, ux1 = x0 + 0.05, x1 - 0.05
+        b.box((x0, 0, -1.3), (x1, 2.0, -0.72), "Black")                       # the cabinet
+        b.box((x0, 0, -0.72), (x0 + 0.04, 2.0, -0.62), "Black")               # its posts, plinth and head
+        b.box((x1 - 0.04, 0, -0.72), (x1, 2.0, -0.62), "Black")
+        b.box((x0 + 0.04, 0, -0.72), (x1 - 0.04, 0.09, -0.625), "Black")
+        b.box((x0 + 0.04, 1.93, -0.72), (x1 - 0.04, 2.0, -0.625), "Black")
+        for x in (x0 + 0.042, x1 - 0.046):                                    # the mounting rails
+            b.box((x, 0.09, -0.725), (x + 0.004, 1.93, -0.655), "Steel")
+
+        def plate(y, h):                                                      # a unit's front, with its handles
+            b.box((ux0, y + 0.0015, -0.72), (ux1, y + h - 0.0015, face), "Steel" if h > unit * 1.5 else "Black")
+            for x in (ux0 + 0.012, ux1 - 0.018):
+                b.box((x, y + 0.006, face), (x + 0.006, y + h - 0.006, face + 0.012), "Chrome")
+
+        def vents(y, h, x_from, x_to):
+            x = x_from
+            while x < x_to:
+                b.box((x, y + 0.008, face), (x + 0.012, y + h - 0.008, face + 0.002), "Black")
+                x += 0.02
+
+        def server(y, height):
+            h = unit * height
+            plate(y, h)
+            for row in range(height):                                         # hot-swap drives
+                for i in range(8):
+                    x = ux0 + 0.05 + i * 0.03
+                    yy = y + row * unit + 0.008
+                    b.box((x, yy, face), (x + 0.026, yy + unit - 0.016, face + 0.003), "Rubber")
+                    rack_led(x + 0.006, yy + unit * 0.3, face + 0.0065, 1, r.random())
+                    rack_led(x + 0.017, yy + unit * 0.3, face + 0.0065, 0, r.random())
+            vents(y, h, ux0 + 0.31, ux1 - 0.13)
+            rack_led(ux1 - 0.06, y + h * 0.65, face + 0.003, 0, r.random(), 0.004)    # power
+            rack_led(ux1 - 0.045, y + h * 0.65, face + 0.003, 3, r.random(), 0.004)   # heartbeat
+            rack_led(ux1 - 0.03, y + h * 0.65, face + 0.003, 2 if r.random() < 0.5 else 1, r.random(), 0.004)
+            if r.random() < 0.07:
+                rack_led(ux1 - 0.06, y + h * 0.3, face + 0.003, 4, r.random(), 0.004) # something needs a look
+
+        def storage(y):
+            h = unit * 4
+            plate(y, h)
+            for row in range(3):
+                for i in range(7):
+                    x = ux0 + 0.03 + i * 0.066
+                    yy = y + 0.012 + row * 0.052
+                    b.box((x, yy, face), (x + 0.06, yy + 0.046, face + 0.004), "Rubber")
+                    rack_led(x + 0.01, yy + 0.012, face + 0.0075, 1, r.random())
+                    rack_led(x + 0.022, yy + 0.012, face + 0.0075, 2, r.random())
+
+        def switch(y):
+            plate(y, unit)
+            for i in range(24):
+                x = ux0 + 0.05 + (i % 12) * 0.03 + (i // 6) * 0.004
+                yy = y + 0.008 + (i // 12) * 0.015
+                b.box((x, yy, face), (x + 0.024, yy + 0.012, face + 0.0025), "Rubber")
+                rack_led(x + 0.02, yy + 0.009, face + 0.0055, 1 if r.random() < 0.72 else 2, r.random(), 0.0025)
+            rack_led(ux1 - 0.04, y + unit * 0.5, face + 0.003, 0, r.random())
+
+        def patch(y):
+            plate(y, unit)
+            colours = ("RedPaint", "Accent", "Chrome")
+            for i in range(10):
+                x = ux0 + 0.05 + i * 0.044
+                mat = r.choice(colours)
+                b.cylinder((x, y + unit * 0.5, face), (x, y + unit * 0.5, face + 0.022), 0.004, mat, 6, caps=False)
+                b.cylinder((x, y + unit * 0.5, face + 0.022), (ux0 + 0.012, y + unit * 0.5 - 0.012, face + 0.03), 0.0025, mat, 5, caps=False)
+
+        def ups(y):
+            h = unit * 3
+            plate(y, h)
+            vents(y, h, ux0 + 0.03, ux1 - 0.2)
+            b.box((ux1 - 0.17, y + 0.04, face), (ux1 - 0.05, y + 0.1, face + 0.003), "Rubber")
+            for i in range(5):
+                rack_led(ux1 - 0.155 + i * 0.022, y + 0.07, face + 0.0065, 0, r.random(), 0.004)
+
+        y = 0.095
+        while y < 1.9 - unit * 4.2:
+            roll = r.random()
+            if y < 0.2:
+                ups(y)
+                y += unit * 3
+            elif roll < 0.42:
+                height = r.choice((1, 1, 2))
+                server(y, height)
+                y += unit * height
+            elif roll < 0.58:
+                storage(y)
+                y += unit * 4
+            elif roll < 0.76:
+                switch(y)
+                y += unit
+                patch(y)
+                y += unit
+            else:
+                plate(y, unit)                                                # a blank
+                y += unit
+        while y < 1.92 - unit:                                                # blanks to the top of the rack
+            plate(y, unit)
+            y += unit
+
+    furn("Furn_Rack1", lambda b: rack(b, -2.4, -1.75, 41))
+    furn("Furn_Rack2", lambda b: rack(b, -3.3, -2.65, 42))
+    F.append(leds.finish())
 
     def cases(b):
         y = 0.0
@@ -934,20 +1038,20 @@ def furniture(rng):
         monitors.append(((x + 0.014 * math.cos(a), y, z - 0.014 * math.sin(a)), math.degrees(a) + 90))
 
     # ── Loft: the bed and its bedding, nightstands, the wardrobe, the rug ──────────────────────────────────────────
-    def bed(b):
+    def bed(b):  # the headboard on the west wall, the foot towards the loft
         b.box((-6.9, MZ, 1.4), (-4.9, MZ + 0.28, 3.6), "Wood")
         b.box((-6.85, MZ + 0.28, 1.45), (-4.95, MZ + 0.5, 3.55), "Linen")
-        b.box((-6.86, MZ + 0.5, 1.44), (-5.6, MZ + 0.55, 3.56), "Blanket")   # the blanket, turned down
-        b.box((-5.6, MZ + 0.5, 1.48), (-5.3, MZ + 0.56, 3.52), "Blanket")
+        b.box((-6.14, MZ + 0.5, 1.44), (-4.94, MZ + 0.55, 3.56), "Blanket")  # the blanket, turned down
+        b.box((-6.5, MZ + 0.5, 1.48), (-6.14, MZ + 0.56, 3.52), "Blanket")
         for z in (1.65, 2.55):
-            b.box((-4.9 - 0.42, MZ + 0.5, z), (-4.98, MZ + 0.64, z + 0.8), "Linen")
-        b.box((-4.9, MZ, 1.35), (-4.82, MZ + 1.0, 3.65), "Leather")         # headboard
+            b.box((-6.82, MZ + 0.5, z), (-6.48, MZ + 0.64, z + 0.8), "Linen")
+        b.box((-6.98, MZ, 1.35), (-6.9, MZ + 1.0, 3.65), "Leather")          # headboard
     furn("Furn_Bed", bed)
     for z in (0.9, 3.85):
         def nightstand(b, z=z):
-            b.box((-5.3, MZ, z - 0.25), (-4.9, MZ + 0.5, z + 0.25), "Wood")
-            b.cylinder((-5.1, MZ + 0.5, z), (-5.1, MZ + 0.85, z), 0.012, "Chrome", 8)
-            b.cylinder((-5.1, MZ + 0.82, z), (-5.1, MZ + 0.95, z), 0.09, "LED_Loft", 14)
+            b.box((-6.98, MZ, z - 0.25), (-6.58, MZ + 0.5, z + 0.25), "Wood")
+            b.cylinder((-6.78, MZ + 0.5, z), (-6.78, MZ + 0.85, z), 0.012, "Chrome", 8)
+            b.cylinder((-6.78, MZ + 0.82, z), (-6.78, MZ + 0.95, z), 0.09, "LED_Loft", 14)
         furn(f"Furn_Nightstand_{1 if z < 2 else 2}", nightstand)
 
     def wardrobe(b):
@@ -993,9 +1097,9 @@ def furniture(rng):
     for i, x in enumerate((-6.3, -0.5)):
         F.append(plant(f"Decor_Plant_Balcony_{i + 1}", (x, 0, 7.4), 1.0, rng))
 
-    def lounger(b, x):
+    def lounger(b, x):  # facing the city (+Z); the back on the -Z side
         b.box((x - 0.3, 0.35, 6.3), (x + 0.3, 0.42, 6.9), "Rubber")
-        b.box((x - 0.3, 0.42, 6.85), (x + 0.3, 0.9, 6.92), "Rubber")
+        b.box((x - 0.3, 0.42, 6.28), (x + 0.3, 0.9, 6.35), "Rubber")
         for dx in (-0.27, 0.25):
             for dz in (6.32, 6.85):
                 b.box((x + dx, 0, dz), (x + dx + 0.03, 0.35, dz + 0.03), "Steel")
@@ -1113,7 +1217,7 @@ LIGHTS = {
     "Light_Computer_2": ((-2.5, 1.2, -0.3), 3.5),
     "Light_Computer_3": ((-6.2, 0.8, 2.0), 2.5),
     "Light_Loft_1": ((-4.3, 5.4, 2.0), 7.0),
-    "Light_Loft_2": ((-5.1, MZ + 1.0, 0.9), 3.0),
+    "Light_Loft_2": ((-6.78, MZ + 1.0, 0.9), 3.0),
     "Light_Bed2_1": ((-5.0, 5.4, -3.5), 5.0),
     "Light_Bed2_2": ((-6.6, MZ + 1.7, -2.8), 3.0),
     "Light_Balcony_1": ((0.0, 5.5, 6.8), 9.0),
@@ -1210,7 +1314,10 @@ def empties(monitors):
     E.append(empty("Tap_Bath", (-2.7, 1.08, Z0 + 0.17)))
     E.append(empty("Tv", (6.89, 1.55, 2.0), yaw=90))
     E.append(empty("Stereo", (6.75, 0.58, 1.4)))
+    E.append(empty("Resident", (-5.92, MZ + 0.53, 2.42), yaw=6))              # the woman on the bed (build_resident.py)
     E.append(empty("Seat", (-5.2, 0.0, 2.0), yaw=90))
+    for i, x in enumerate((-3.6, -2.2)):
+        E.append(empty(f"Seat_Balcony_{i + 1}", (x, 0.0, 6.55), yaw=180))     # -Z faces the city, like the chair
     for i, (p, yaw) in enumerate(monitors):
         E.append(empty(f"Monitor_{i + 1}", p, size=0.1, yaw=yaw))
     E.append(empty("Spawn", (5.1, 0.0, -4.0), yaw=180))

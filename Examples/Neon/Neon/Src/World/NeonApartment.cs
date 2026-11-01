@@ -30,6 +30,14 @@ public sealed class NeonApartment : Node3D
     /// <summary>The model's binary buffer (LFS): tests that need the model skip when it is a pointer.</summary>
     public const string BufferPath = "Assets/Art/Apartment/apartment.bin";
 
+    /// <summary>The server racks' lights: one mesh of small quads, each blinking by itself in <see cref="RackShader"/>.</summary>
+    public const string RackLeds = "Decor_RackLeds";
+
+    public const string RackShader = "Assets/Shaders/rack.gdshader";
+
+    /// <summary>Seated on the balcony the view settles a little below level, on the streets.</summary>
+    private const float BalconyLookPitch = -5f;
+
     private static readonly Dictionary<string, Vector3> LightColors = new(StringComparer.Ordinal)
     {
         ["Living"] = new(1f, 0.72f, 0.5f),
@@ -81,7 +89,10 @@ public sealed class NeonApartment : Node3D
 
     public Stereo? Stereo { get; private set; }
 
-    public ComputerSeat? Seat { get; private set; }
+    public Chair? Seat { get; private set; }
+
+    /// <summary>The balcony's chairs, facing the city.</summary>
+    public List<Chair> BalconyChairs { get; } = [];
 
     /// <summary>The blinds by socket name (<c>Blinds_Living_1</c>, ...).</summary>
     public Dictionary<string, Blinds> Blinds { get; } = new(StringComparer.Ordinal);
@@ -97,6 +108,10 @@ public sealed class NeonApartment : Node3D
 
     /// <summary>How many vehicles the city's traffic is moving (the terminal's <c>traffic</c>), when it runs.</summary>
     public Func<int>? TrafficCount { get; set; }
+
+    /// <summary>Whether the woman on the bed (<see cref="NeonResident"/>) is added. Off for now: her model and code are kept,
+    /// and her test turns this on. Set it before the apartment builds (<see cref="Create"/>).</summary>
+    public bool ShowResident { get; set; }
 
     public FrontDoor? FrontDoor => Doors.GetValueOrDefault("Door_Front") as FrontDoor;
 
@@ -114,9 +129,9 @@ public sealed class NeonApartment : Node3D
     }
 
     /// <summary>The apartment, built now (tests and tools; in a scene it builds when ready).</summary>
-    public static NeonApartment Create()
+    public static NeonApartment Create(bool showResident = false)
     {
-        var apartment = new NeonApartment { Name = "Apartment" };
+        var apartment = new NeonApartment { Name = "Apartment", ShowResident = showResident };
         apartment.Build();
         return apartment;
     }
@@ -168,6 +183,8 @@ public sealed class NeonApartment : Node3D
             {
                 ConvertMaterials(mesh, materials);
                 meshes.TryAdd(name, instance);
+                if (name == RackLeds)
+                    instance.MaterialOverride = new ShaderMaterial { ResourceName = "RackLeds", Shader = ResourceLoader.Load<Shader>(RackShader) };
                 // The fixtures' glow is this apartment's own (the switches change it; the imported meshes are shared).
                 if (name.StartsWith("LED_", StringComparison.Ordinal) && mesh.SurfaceCount > 0 && mesh.GetSurface(0).Material is StandardMaterial3D led)
                 {
@@ -366,6 +383,9 @@ public sealed class NeonApartment : Node3D
     /// </summary>
     private void MakeInteractables(Dictionary<string, MeshInstance3D> meshes)
     {
+        if (ShowResident && Sockets.TryGetValue("Resident", out var resident))
+            AddChild(new NeonResident { Name = "Resident", Transform = ToApartment(resident) });
+
         StandardMaterial3D? Own(string mesh)
         {
             if (!meshes.TryGetValue(mesh, out var instance) || instance.Mesh is not { SurfaceCount: > 0 } m ||
@@ -419,10 +439,18 @@ public sealed class NeonApartment : Node3D
 
         if (Sockets.TryGetValue("Seat", out var seatSocket))
         {
-            var seat = new ComputerSeat { Name = "ComputerSeat", Transform = ToApartment(seatSocket) };
+            var seat = new Chair { Name = "ComputerSeat", Transform = ToApartment(seatSocket) };
             seat.AddBody(new Vector3(0.8f, 1.3f, 0.8f), new Vector3(0f, 0.65f, 0f));
             AddChild(seat);
             Seat = seat;
+        }
+
+        for (var i = 1; Sockets.TryGetValue($"Seat_Balcony_{i}", out var socket); i++)
+        {
+            var chair = new Chair { Name = $"BalconyChair{i}", Transform = ToApartment(socket), LookPitch = BalconyLookPitch };
+            chair.AddBody(new Vector3(0.7f, 1f, 0.7f), new Vector3(0f, 0.5f, 0f));
+            AddChild(chair);
+            BalconyChairs.Add(chair);
         }
 
         if (MonitorScreens.Count > 0)

@@ -1,0 +1,33 @@
+<rml>
+<head>
+    <title>Keys</title>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Assets/UI/keys.rcss"/>
+</head>
+<!-- Key rebinding: the Controls tab of the engine's SettingsMenu (its "settings" data model) in the pause menu's colours. -->
+<body data-model="settings">
+    <div id="scanlines"></div>
+    <div id="keys">
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <div class="head"><span class="title">Keys and buttons</span><span class="note no-tr">{{ notice }}</span></div>
+        <div class="row header">
+            <span class="label">Action</span>
+            <span class="slot">Keys / mouse</span>
+            <span class="slot">Alternate</span>
+            <span class="slot">Gamepad</span>
+        </div>
+        <div id="actions">
+            <div class="row" data-for="a, i : actions" data-class-capturing="a.capturing >= 0" data-class-locked="a.locked">
+                <span class="label no-tr">{{ a.label }}</span>
+                <button class="binding no-tr" data-class-active="a.capturing == 0" data-event-click="rebind(i, 0, 0)">{{ a.capturing == 0 ? '…' : a.key1 }}</button>
+                <button class="binding no-tr" data-class-active="a.capturing == 1" data-event-click="rebind(i, 0, 1)">{{ a.capturing == 1 ? '…' : a.key2 }}</button>
+                <button class="binding no-tr" data-class-active="a.capturing == 2" data-event-click="rebind(i, 1, 0)">{{ a.capturing == 2 ? '…' : a.pad }}</button>
+            </div>
+        </div>
+        <div class="foot">
+            <button data-event-click="reset('controls')">Defaults</button>
+            <button class="primary" data-event-click="close()">Done</button>
+        </div>
+    </div>
+</body>
+</rml>

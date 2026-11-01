@@ -73,7 +73,10 @@
         "FogLightColor": [0.24, 0.07, 0.24],
         "FogDensity": 0.0026,
         "FogHeight": -40,
-        "FogHeightDensity": 0.012
+        "FogHeightDensity": 0.012,
+        "VolumetricFogDensity": 0.004,
+        "VolumetricFogLength": 48,
+        "VolumetricFogAmbientInject": 0.6
       }
     },
     {
