@@ -12,7 +12,8 @@ shift || true
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="${NEON_SHOTS_OUT:-$repo/docs/images/neon}"
 mkdir -p "$out"
-dotnet build "$repo/Examples/Neon/Neon.slnx" -c Release -v q -nologo
+# The project, not Neon.slnx: a solution build leaves projects outside it (the engine) in Debug.
+dotnet build "$repo/Examples/Neon/Neon.Desktop" -c Release -v q -nologo
 bin="$repo/Examples/Neon/Neon.Desktop/bin/Release/net10.0"
 # name | feet x,y,z,yaw,pitch | extra game flags
 shots=(

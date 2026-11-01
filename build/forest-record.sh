@@ -16,7 +16,8 @@ for tool in ffmpeg ffprobe; do
 done
 rm -rf "$out/offline.mp4" "$out/offline.mp4.mfcap.json" "$out/offline.mp4.partial" \
   "$out/live.mp4" "$out/live.mp4.mfcap.json" "$out/live.mp4.partial"
-dotnet build "$repo/Examples/Forest/Forest.slnx" -c Release -v q -nologo
+# The project, not Forest.slnx: a solution build leaves projects outside it (the engine) in Debug.
+dotnet build "$repo/Examples/Forest/Forest.Desktop" -c Release -v q -nologo
 bin="$repo/Examples/Forest/Forest.Desktop/bin/Release/net10.0"
 
 (cd "$bin" && dotnet Forest.Desktop.dll --fixed-fps 60 --max-frames 3600 --no-log-file \

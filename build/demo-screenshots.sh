@@ -7,7 +7,8 @@ frames="${1:-240}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="$repo/docs/images/demo"
 mkdir -p "$out"
-dotnet build "$repo/Examples/Demo/Demo.slnx" -c Release -v q -nologo
+# The project, not Demo.slnx: a solution build leaves projects outside it (the engine) in Debug.
+dotnet build "$repo/Examples/Demo/Demo.Desktop" -c Release -v q -nologo
 bin="$repo/Examples/Demo/Demo.Desktop/bin/Release/net10.0"
 for scene in basic_3d basic_2d audio_2d audio_3d sound_fx ui physics_2d physics_3d spine particles animation_3d shaders sprites_2d tiles_2d navigation_2d; do
   dotnet "$bin/Demo.Desktop.dll" --scene "Assets/Scenes/$scene.mscene" --fixed-fps 60 --max-frames "$frames" \

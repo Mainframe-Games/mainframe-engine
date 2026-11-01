@@ -12,7 +12,8 @@ work="$dir/.clip"
 rm -rf "$work"
 mkdir -p "$work"
 
-dotnet build "$repo/Examples/Demo/Demo.slnx" -c Release -v q -nologo
+# The project, not Demo.slnx: a solution build leaves projects outside it (the engine) in Debug.
+dotnet build "$repo/Examples/Demo/Demo.Desktop" -c Release -v q -nologo
 bin="$repo/Examples/Demo/Demo.Desktop/bin/Release/net10.0"
 (cd "$repo/Examples/Demo/Demo.Desktop" && dotnet "$bin/Demo.Desktop.dll" --scene Assets/Scenes/physics_2d.mscene \
   --fixed-fps 60 --max-frames 900 --no-log-file --record "$work/gameplay.mp4")
