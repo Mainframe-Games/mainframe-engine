@@ -150,6 +150,7 @@ public sealed class TerrainFoliage3D : Node3D
                 }
 
                 tile.Multimesh!.VisibleInstanceCount = drawn;
+                node.VisibilityRangeEnd = cull;
                 node.Visible = true;
             }
         }

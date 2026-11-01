@@ -55,7 +55,8 @@ run `git lfs pull` once. `just forest --scene Assets/Scenes/asset_gallery.mscene
 | Pause menu | Escape | Start (B closes it) |
 | Frame rate readout | F3 | |
 
-The pause menu's settings (graphics, audio, controls) apply at once and are saved to `settings.json` in the game's user
+The Graphics page's Quality row sets Low, Medium (the default) or High (every distance, LOD and shadow option at maximum;
+about 30 fps at 1080p on an RTX 3070 Ti) in one click. The pause menu's settings (graphics, audio, controls) apply at once and are saved to `settings.json` in the game's user
 data folder when it closes ([docs/design/forest.md#pause-menu](../../docs/design/forest.md#pause-menu)).
 
 ## Layout

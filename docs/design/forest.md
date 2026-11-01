@@ -869,12 +869,27 @@ setting's effect shows at once. Resume (or Escape) recaptures the mouse and save
 
 | Page | Rows |
 |---|---|
-| **Graphics** | *Display*: upscaling (TAAU / FSR 1 / native), render scale (50–100 %), anti-aliasing (TAA / FXAA / off), VSync, field of view, the frame-rate readout. *Shadows and light*: shadow resolution (512–4096), distance (40–300 m), cascades (1–4), distant tree shadows (the impostors' shadow density, 20–100 %; ADR 0209), soft shadows (PCSS: the sun's 0.5° disc or 0), contact shadows, ambient occlusion and its strength. *Atmosphere*: haze (the distance fog, 0–400 % of the look), volumetric fog and its density (0–400 %), screen-space light shafts, wind (0–400 %; the trees, the grass and the wind sound). *Sun (lighting bake approximate)*: height (2–85°) and direction (0–355°). *Camera and post-processing*: tonemapper (AgX / ACES / Filmic / Reinhard), exposure (±2 EV), auto exposure, glow (0–400 %), the colour grade, depth of field and its focus distance, film grain, vignette, chromatic aberration. *Vegetation*: ground cover density (10–100 %) and distance (25–100 %), tree detail distance (where trees become impostors, 60–250 m) |
+| **Graphics** | *Display*: quality (Low / Medium / High / Custom, see below), upscaling (TAAU / FSR 1 / native), render scale (50–100 %), anti-aliasing (TAA / FXAA / off), VSync, field of view, the frame-rate readout. *Shadows and light*: shadow resolution (512–4096), distance (40–300 m), cascades (1–4), distant tree shadows (the impostors' shadow density, 20–100 %; ADR 0209), soft shadows (PCSS: the sun's 0.5° disc or 0), contact shadows, ambient occlusion and its strength. *Atmosphere*: haze (the distance fog, 0–400 % of the look), volumetric fog and its density (0–400 %), screen-space light shafts, wind (0–400 %; the trees, the grass and the wind sound). *Sun (lighting bake approximate)*: height (2–85°) and direction (0–355°). *Camera and post-processing*: tonemapper (AgX / ACES / Filmic / Reinhard), exposure (±2 EV), auto exposure, glow (0–400 %), the colour grade, depth of field and its focus distance, film grain, vignette, chromatic aberration. *Vegetation*: ground cover density (10–100 %) and distance (25–100 %), tree detail distance (where trees become impostors, 60–250 m) |
 | **Audio** | master, ambience (wind, leaves, birds), water (the brook, the falls), footsteps (the Foley bus), mute |
 | **Controls** | mouse sensitivity, invert look, gamepad look speed, head bob; the keys for reference (E opens a door) |
 | **Cameras** | Return to player; **Fly-over**: a cinematic camera along the benchmark spline at 7 m/s (`ForestCameras.FlyOverSpeed`), looking 14 m ahead with an eased turn, closed into a ≈ 70 s loop, lifted wherever the curve between the spline's points would come within 1.5 m of the ground or the water (`ForestCameras.MinClearance`; the first leg sagged into the rising path); **Free camera**: WASD, Space up, C down, Shift faster, mouse or right stick (`FreeFlyCamera`, no collision); the reference shots **R1–R9** (Glade, Fall, Bridge, Vista, Floor, Pines, Fall close, Woodland, Cabin) as cards with thumbnails (a full 3 × 3 grid), with their photo lenses. In a shot, A / D (or left / right) step through the shots. A camera closes the menu; Escape then opens it again on the Cameras page |
 
 ![The pause menu's Cameras page](../images/forest/menu-cameras.jpg)
+
+**Quality.** The Display group's first row sets the options that cost frame time together (`ForestQuality`): render scale,
+the sun's shadows, PCSS, contact shadows, SSAO, volumetric fog, and every vegetation and terrain distance. Medium is each
+option's default, the Forest as authored; High is each option's maximum; Low is the table's own values. Taste (haze, sun,
+lens, tonemapper) is left alone. The row is an `ForestOptionStore.Derived` option: it stores nothing, the options do, and
+it reads back the level they match or Custom, so a saved High comes back as High and any hand edit shows Custom.
+`tree_lod` does not go below 100 %: shorter tree LODs move `TreeScatter.ShadowHandOff` towards the camera, impostor quads
+cast into the near cascades and the ground stripes. On the benchmark spline (1920 × 1080, RTX 3070 Ti, Linux; `--option
+quality=0|1|2`):
+
+| Level | 3D scale | p50 | Sun shadows GPU p50 |
+|---|---|---|---|
+| Low | 0.6 | 7.3 ms | 1.0 ms |
+| Medium | 0.75 | 10.6 ms | 1.9 ms |
+| High | 1 | 33.0 ms | 13.8 ms |
 
 **How it works.**
 

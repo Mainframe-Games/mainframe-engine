@@ -1,3 +1,4 @@
+using MainframeEngine.Tests.Saves;
 using MainframeEngine.Tests.UI;
 
 namespace MainframeEngine.Tests.Debugging;
@@ -60,6 +61,39 @@ public sealed class DevOverlayPanelsTests
         var text = document.QuerySelector("[data-model=dev_frame]")!.InnerRml;
         Assert.Contains("60.0", text); // the tree ticks the overlay at 1/60 s
         Assert.Contains("16.67 / 16.67 / 16.67", text);
+    }
+
+    [Fact]
+    public void FramePanelFullscreenBoxFollowsAndDrivesTheWindow()
+    {
+        using var ui = new UiTestTree();
+        var window = new FakeWindow { Mode = WindowMode.ExclusiveFullscreen };
+        ui.Tree.Window = window;
+        var overlay = new DevOverlay(ui.Tree);
+        ui.Servers.Register(overlay);
+        DevOverlayPanels.AddBuiltIns(overlay, engine: null);
+        overlay.Visible = true;
+        ui.Tick(30);
+
+        // A refresh shows the mode without writing it back: exclusive stays exclusive.
+        var document = (UiDocument)ui.Tree.Root.GetNode<UiLayer>("DevOverlay").GetChild(0);
+        var box = document.Document.AsElement().QuerySelectorAll("[data-model=dev_frame] input[type=checkbox]")[1];
+        Assert.True(box.IsPseudoClassSet("checked"));
+        Assert.Equal(WindowMode.ExclusiveFullscreen, window.Mode);
+
+        box.Click();
+        ui.Tick(30);
+        Assert.Equal(WindowMode.Windowed, window.Mode);
+
+        box.Click();
+        ui.Tick(30);
+        Assert.Equal(WindowMode.Fullscreen, window.Mode);
+        Assert.True(box.IsPseudoClassSet("checked"));
+
+        // Changed elsewhere (the settings menu): the box follows after the next refresh.
+        window.Mode = WindowMode.Windowed;
+        ui.Tick(30);
+        Assert.False(box.IsPseudoClassSet("checked"));
     }
 
     [Fact]

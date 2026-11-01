@@ -57,6 +57,8 @@ public sealed class ForestWorld
     /// <summary>The valley's trees (not the bushes or the mountains' far conifers).</summary>
     public TreeScatter? Trees { get; set; }
 
+    public TreeScatter? Bushes { get; set; }
+
     public FirstPersonController? Player { get; set; }
 
     public ForestAudio? Audio { get; set; }
@@ -84,6 +86,16 @@ public sealed class ForestWorld
 
     public float BaseAngularDistance { get; set; } = 0.5f;
 
+    public float BaseTreeLod1 { get; set; } = 22f;
+
+    public float BaseTreeLod2 { get; set; } = 55f;
+
+    public float BaseBushLod1 { get; set; } = 18f;
+
+    public float BaseBushLod2 { get; set; } = 40f;
+
+    public float BaseBushDistance { get; set; } = 75f;
+
     /// <summary>The <see cref="ForestOptionStore.Scene"/> options' values when captured: their "Reset to defaults".</summary>
     public Dictionary<string, float> Defaults { get; } = new(StringComparer.Ordinal);
 
@@ -101,6 +113,7 @@ public sealed class ForestWorld
             Probes = Find<LightProbeVolume>(scene),
             Terrain = Find<Terrain3D>(scene),
             Trees = Find<ForestValley>(scene)?.Forest,
+            Bushes = Find<ForestValley>(scene)?.Bushes,
             Player = Find<FirstPersonController>(scene),
             Audio = Find<ForestAudio>(scene),
             Fps = Find<FpsHud>(scene),
@@ -130,6 +143,10 @@ public sealed class ForestWorld
             BaseAngularDistance = sun.LightAngularDistance;
         if (Sun is not null)
             BaseSunAngles = SunAngles();
+        if (Trees is { } trees)
+            (BaseTreeLod1, BaseTreeLod2) = (trees.Lod1Distance, trees.Lod2Distance);
+        if (Bushes is { } bushes)
+            (BaseBushLod1, BaseBushLod2, BaseBushDistance) = (bushes.Lod1Distance, bushes.Lod2Distance, bushes.MaxDistance);
         if (Display is { } display)
         {
             var scale = display.Scaling3DScale;
@@ -148,6 +165,8 @@ public sealed class ForestWorld
     {
         if (option.Store == ForestOptionStore.Scene)
             return Defaults.TryGetValue(option.Key, out var value) ? value : option.Clamp(option.Get(this));
+        if (option.Store == ForestOptionStore.Derived)
+            return option.Default;
         var fresh = new ForestWorld { Settings = new ForestSettings() };
         return option.Clamp(option.Get(fresh));
     }

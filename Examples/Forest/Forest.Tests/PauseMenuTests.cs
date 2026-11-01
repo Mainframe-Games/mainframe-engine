@@ -58,7 +58,8 @@ internal static class MenuScene
     {
         var world = ForestWorld.Capture(scene, new FakeDisplay(), settings ?? new ForestSettings());
         world.Terrain ??= new Terrain3D();
-        world.Trees ??= new TreeScatter { ImpostorDistance = 85f, ImpostorShadowDensity = 0.8f };
+        world.Trees ??= new TreeScatter { Lod1Distance = 22f, Lod2Distance = 55f, MaxDistance = 400f, ImpostorDistance = 85f, ImpostorShadowDensity = 0.8f };
+        world.Bushes ??= new TreeScatter { Lod1Distance = 18f, Lod2Distance = 40f, MaxDistance = 75f };
         world.Fps ??= new FpsHud();
         world.CaptureBaselines();
         return world;
@@ -163,7 +164,7 @@ public sealed class ForestOptionsTests
     public void EveryOptionReadsBackWhatWasApplied()
     {
         var world = MenuScene.World(MenuScene.Build(new Node3D()));
-        foreach (var option in ForestOptions.All)
+        foreach (var option in ForestOptions.All.Where(o => o.Store != ForestOptionStore.Derived))
         {
             float[] values = option.Kind switch
             {
@@ -265,6 +266,87 @@ public sealed class ForestOptionsTests
         Assert.Equal(100f, world.Settings.HorizontalFov);
         Set("mute", 1);
         Assert.Equal(0f, world.Settings.Audio.Volume(AudioBusLayout.MasterBus));
+    }
+
+    [Fact]
+    public void QualityStartsAtMediumWithTheScenesOwnValues()
+    {
+        var world = MenuScene.World(MenuScene.Build(new Node3D()));
+        var quality = ForestOptions.Find("quality")!;
+        Assert.Equal(ForestQuality.Medium, world.Value(quality));
+        Assert.Equal(ForestQuality.Medium, world.DefaultOf(quality));
+        Assert.Empty(world.Settings.Graphics);
+    }
+
+    [Fact]
+    public void HighIsEveryPresetOptionAtItsMaximumAndLowNeverExceedsTheDefault()
+    {
+        var world = MenuScene.World(MenuScene.Build(new Node3D()));
+        var quality = ForestOptions.Find("quality")!;
+        var defaults = ForestQuality.Options.ToDictionary(o => o.Key, o => world.DefaultOf(ForestOptions.Find(o.Key)!));
+
+        world.Apply(quality, ForestQuality.High);
+        foreach (var (key, _) in ForestQuality.Options)
+        {
+            var option = ForestOptions.Find(key)!;
+            var max = option.Kind == ForestOptionKind.Choice ? option.Choices.Length - 1 : option.Max;
+            Assert.Equal(max, world.Value(option), 3);
+        }
+
+        Assert.Equal(ForestQuality.High, world.Value(quality));
+        Assert.Equal(1500f, world.Trees!.MaxDistance);
+        Assert.Equal(250f, world.Trees.ImpostorDistance);
+        Assert.Equal(44f, world.Trees.Lod1Distance, 3);
+        Assert.Equal(110f, world.Trees.Lod2Distance, 3);
+        Assert.Equal(225f, world.Bushes!.MaxDistance);
+        Assert.Equal(120f, world.Bushes.Lod2Distance, 3);
+        Assert.Equal(2f, world.Terrain!.FoliageDistanceScale);
+        Assert.Equal(2f, world.Terrain.LodBias);
+
+        world.Apply(quality, ForestQuality.Low);
+        Assert.Equal(ForestQuality.Low, world.Value(quality));
+        foreach (var (key, _) in ForestQuality.Options)
+            Assert.True(world.Value(ForestOptions.Find(key)!) <= defaults[key], $"{key}: Low is above the default");
+
+        world.Apply(quality, ForestQuality.Medium);
+        Assert.Equal(ForestQuality.Medium, world.Value(quality));
+        Assert.Empty(world.Settings.Graphics);
+    }
+
+    [Fact]
+    public void ChangingAPresetOptionShowsCustomAndCustomChangesNothing()
+    {
+        var world = MenuScene.World(MenuScene.Build(new Node3D()));
+        var quality = ForestOptions.Find("quality")!;
+        world.Apply(quality, ForestQuality.High);
+        world.Apply(ForestOptions.Find("shadow_distance")!, 200f);
+        Assert.Equal(ForestQuality.Custom, world.Value(quality));
+
+        world.Apply(quality, ForestQuality.Custom);
+        Assert.Equal(200f, world.Value(ForestOptions.Find("shadow_distance")!));
+
+        // A taste option is not part of the preset.
+        world.Apply(quality, ForestQuality.High);
+        world.Apply(ForestOptions.Find("haze")!, 2f);
+        Assert.Equal(ForestQuality.High, world.Value(quality));
+    }
+
+    [Fact]
+    public void TheQualityComesBackFromTheOptionsItSavedAndResetIsMedium()
+    {
+        var settings = new ForestSettings();
+        var world = MenuScene.World(MenuScene.Build(new Node3D()), settings);
+        var quality = ForestOptions.Find("quality")!;
+        world.Apply(quality, ForestQuality.High);
+        Assert.DoesNotContain("quality", settings.Graphics.Keys);
+
+        var restarted = MenuScene.World(MenuScene.Build(new Node3D()), settings);
+        restarted.ApplySaved();
+        Assert.Equal(ForestQuality.High, restarted.Value(quality));
+
+        restarted.Reset(ForestOptions.Graphics);
+        Assert.Equal(ForestQuality.Medium, restarted.Value(quality));
+        Assert.Empty(settings.Graphics);
     }
 
     [Fact]

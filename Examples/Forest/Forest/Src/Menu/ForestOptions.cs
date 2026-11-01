@@ -41,6 +41,14 @@ public static class ForestOptions
         // ── Graphics: display ────────────────────────────────────────────────────────────────────────────────
         new()
         {
+            Key = "quality", Label = "Quality", Page = Graphics, Group = Display, Kind = ForestOptionKind.Choice,
+            Store = ForestOptionStore.Derived, Choices = ForestQuality.Names, Default = ForestQuality.Medium,
+            Hint = "Sets resolution, shadows, draw distances and detail together. High is everything at maximum and needs a strong GPU. Custom: changed by hand.",
+            Get = static w => ForestQuality.Detect(w),
+            Set = static (w, v) => ForestQuality.Apply(w, (int)v),
+        },
+        new()
+        {
             Key = "upscaling", Label = "Upscaling", Page = Graphics, Group = Display, Kind = ForestOptionKind.Choice,
             Choices = ["TAAU", "FSR 1", "Native"],
             Hint = "Render the 3D scene at a lower resolution and upscale it: TAAU (temporal), FSR 1 (spatial) or native resolution.",
@@ -306,7 +314,7 @@ public static class ForestOptions
         new()
         {
             Key = "grass_distance", Label = "Ground cover distance", Page = Graphics, Group = Vegetation, Kind = ForestOptionKind.Slider,
-            Min = 0.25f, Max = 1f, Step = 0.05f, Format = ForestOption.Percent,
+            Min = 0.25f, Max = 2f, Step = 0.05f, Format = ForestOption.Percent,
             Hint = "How far the ground cover is drawn (grass reaches 36 m at 100 %).",
             Get = static w => w.Terrain?.FoliageDistanceScale ?? 1f,
             Set = static (w, v) => { if (w.Terrain is { } t) t.FoliageDistanceScale = v; },
@@ -318,6 +326,52 @@ public static class ForestOptions
             Hint = "Where trees become flat impostors. Further keeps distant crowns full, at a cost in frame time.",
             Get = static w => w.Trees?.ImpostorDistance ?? 85f,
             Set = static (w, v) => { if (w.Trees is { } t) t.ImpostorDistance = v; },
+        },
+        new()
+        {
+            Key = "tree_lod", Label = "Tree mesh LOD distance", Page = Graphics, Group = Vegetation, Kind = ForestOptionKind.Slider,
+            Min = 1f, Max = 2f, Step = 0.05f, Format = ForestOption.Percent,
+            Hint = "How far trees keep their finer meshes (the first switch is at 22 m at 100 %). Their sun shadows follow.",
+            Get = static w => w.Trees is { } t && w.BaseTreeLod1 > 0f ? t.Lod1Distance / w.BaseTreeLod1 : 1f,
+            Set = static (w, v) =>
+            {
+                if (w.Trees is not { } t)
+                    return;
+                t.Lod1Distance = w.BaseTreeLod1 * v;
+                t.Lod2Distance = w.BaseTreeLod2 * v;
+            },
+        },
+        new()
+        {
+            Key = "tree_distance", Label = "Tree draw distance", Page = Graphics, Group = Vegetation, Kind = ForestOptionKind.Slider,
+            Min = 250f, Max = 1500f, Step = 50f, Format = ForestOption.Metres,
+            Hint = "Where trees stop being drawn. 1500 m reaches across the whole valley.",
+            Get = static w => w.Trees?.MaxDistance ?? 400f,
+            Set = static (w, v) => { if (w.Trees is { } t) t.MaxDistance = v; },
+        },
+        new()
+        {
+            Key = "bush_distance", Label = "Bush draw distance", Page = Graphics, Group = Vegetation, Kind = ForestOptionKind.Slider,
+            Min = 40f, Max = 225f, Step = 5f, Format = ForestOption.Metres,
+            Hint = "Where bushes stop being drawn; their LODs move with it.",
+            Get = static w => w.Bushes?.MaxDistance ?? 75f,
+            Set = static (w, v) =>
+            {
+                if (w.Bushes is not { } b)
+                    return;
+                var scale = v / w.BaseBushDistance;
+                b.Lod1Distance = w.BaseBushLod1 * scale;
+                b.Lod2Distance = w.BaseBushLod2 * scale;
+                b.MaxDistance = v;
+            },
+        },
+        new()
+        {
+            Key = "terrain_detail", Label = "Terrain detail", Page = Graphics, Group = Vegetation, Kind = ForestOptionKind.Slider,
+            Min = 0.5f, Max = 2f, Step = 0.05f, Format = ForestOption.Percent,
+            Hint = "How far the ground keeps its finer LOD levels.",
+            Get = static w => w.Terrain?.LodBias ?? 1f,
+            Set = static (w, v) => { if (w.Terrain is { } t) t.LodBias = v; },
         },
 
         // ── Audio ────────────────────────────────────────────────────────────────────────────────────────────

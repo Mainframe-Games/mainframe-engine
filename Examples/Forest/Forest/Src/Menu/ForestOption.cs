@@ -22,6 +22,9 @@ public enum ForestOptionStore
 
     /// <summary>A <see cref="ForestSettings"/> field (FOV, look, audio): the default is a fresh <see cref="ForestSettings"/>'s.</summary>
     Settings,
+
+    /// <summary>Read from other options and written through them, so never stored (<see cref="ForestQuality"/>): the default is <see cref="ForestOption.Default"/>.</summary>
+    Derived,
 }
 
 /// <summary>
@@ -46,6 +49,9 @@ public sealed class ForestOption
     public required ForestOptionKind Kind { get; init; }
 
     public ForestOptionStore Store { get; init; } = ForestOptionStore.Scene;
+
+    /// <summary>The default of a <see cref="ForestOptionStore.Derived"/> option.</summary>
+    public float Default { get; init; }
 
     public float Min { get; init; }
 

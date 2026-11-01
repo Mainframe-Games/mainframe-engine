@@ -11,11 +11,13 @@ namespace MainframeEngine;
 // cached and rebuilt only when its source changes, servers are looked up through the registry (no closures per call).
 
 /// <summary>Where the snapshots read from: the tree's servers, with the engine as a fallback for the renderer.</summary>
-internal sealed class DevOverlaySources(ServerRegistry servers, Engine? engine)
+internal sealed class DevOverlaySources(SceneTree tree, Engine? engine)
 {
-    public ServerRegistry Servers { get; } = servers;
+    public ServerRegistry Servers { get; } = tree.Servers;
 
     public Engine? Engine { get; } = engine;
+
+    public IWindowControl? Window => tree.Window;
 
     public IRenderer? Renderer => Servers.Render?.Renderer ?? Engine?.Renderer;
 
@@ -39,6 +41,17 @@ internal sealed class FrameStats(DevOverlaySources sources)
         {
             if (sources.Renderer is { } renderer)
                 renderer.VSync = value;
+        }
+    }
+
+    public bool Fullscreen
+    {
+        get => sources.Window?.Fullscreen ?? false;
+        set
+        {
+            // The checkbox also writes back what a refresh showed: exclusive fullscreen must stay exclusive.
+            if (sources.Window is { } window && window.Fullscreen != value)
+                window.Fullscreen = value;
         }
     }
 

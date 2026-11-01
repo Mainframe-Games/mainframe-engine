@@ -942,3 +942,11 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 ### 2026-10-27 — Housekeeping
 - `current-state.md` was last written for v1.0.0: now lists what shipped since M10, v1.1.5, the Steam follow-ups as
   done (#127, #128), current test counts and the new next steps.
+
+### 2026-11-01 — Forest quality presets, Linux setup
+- Forest: `ForestQuality` (Low / Medium / High / Custom row, derived from the options it sets, not stored); new rows tree
+  mesh LOD, tree and bush draw distance, terrain detail; `Terrain3D.FoliageDistanceScale` now reaches 2.
+- Dev overlay Frame panel: fullscreen toggle. Root `nuget.config` (`<clear/>` + nuget.org): extra user feeds failed
+  restore with NU1507.
+- `dotnet build Examples/Forest/Forest.slnx -c Release` builds the engine in Debug (projects outside a `.slnx` lose the
+  configuration), so `build/forest-bench.sh` measures a Debug engine with validation.

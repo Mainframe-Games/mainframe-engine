@@ -24,7 +24,7 @@ Files: [Debugging/DevOverlay/](../../MainframeEngine/Src/Debugging/DevOverlay/) 
 
 | Id | Title | Contents |
 |---|---|---|
-| `frame` | Frame | FPS, frame ms (average / min / max over the refresh window), frame counter, VSync toggle, UI draw calls |
+| `frame` | Frame | FPS, frame ms (average / min / max over the refresh window), frame counter, VSync and fullscreen toggles (borderless, not saved), UI draw calls |
 | `profiler` | Profiler | The [frame profiler](profiler.md#dev-overlay-section) (G10), **collapsed** by default: Pause, Save trace, a spike threshold slider (0–100 ms) and Freeze on spike, a 60-frame graph, the selected frame's CPU / GPU / wait ms, the top 5 CPU scopes and GPU zones, a counters line |
 | `renderer` | Renderer | Exposure slider and reset, colour pipeline description, mesh counters (draw calls, surfaces, instances, culled, pipeline and material binds, shadow and ID draws), resident meshes / materials / textures, pipeline cache |
 | `shadows` | Shadows | Cascade colours, stable cascades, filter and radius, pass and draw counters, map sizes and memory, CPU / GPU ms, and the shadow-map images (see below) |
