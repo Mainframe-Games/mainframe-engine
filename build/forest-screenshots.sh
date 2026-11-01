@@ -11,7 +11,8 @@ shift || true
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="${FOREST_SHOTS_OUT:-$repo/docs/images/forest}"
 mkdir -p "$out"
-dotnet build "$repo/Examples/Forest/Forest.slnx" -c Release -v q -nologo
+# The project, not Forest.slnx: a solution build leaves projects outside it (the engine) in Debug.
+dotnet build "$repo/Examples/Forest/Forest.Desktop" -c Release -v q -nologo
 bin="$repo/Examples/Forest/Forest.Desktop/bin/Release/net10.0"
 names=(r1-glade r2-fall r3-bridge r4-vista r5-floor r6-pines r7-fall-close r8-woodland r9-cabin)
 for n in ${FOREST_SHOTS:-1 2 3 4 5 6 7 8 9}; do

@@ -153,7 +153,8 @@ README's Showcase gallery; re-take them when a scene changes visibly. They need 
   `Camera3D`; Sound FX: the committed presets are the fixed-seed sounds, every button plays on the null device, the
   song's `.wav` loads with its loop settings and the toggle loops it on the Music bus). Tests that touch RmlUi are in the `SerialRmlUi` collection.
 - `build/demo-smoke.sh <work-dir> [frames]` (CI job `template`; `just` has no recipe, run it directly) builds
-  `Demo.slnx` with warnings as errors, runs `Demo.Tests`, then runs **every `Assets/Scenes/*.mscene`** headless
+  `Demo.Desktop` and `Demo.Tests` with warnings as errors (the projects: a solution build leaves the engine, which is
+  outside `Demo.slnx`, in Debug), runs `Demo.Tests`, then runs **every `Assets/Scenes/*.mscene`** headless
   (`--hidden --fixed-fps 60 --no-vsync`) for a few frames with its own user-data folder, and fails on a non-zero exit, a
   missing screenshot or an `[ERROR]`/`[FATAL]` line in the scene's log. It only cleans the per-scene folders and PNGs it
   creates under the work directory.

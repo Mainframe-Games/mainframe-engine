@@ -7,7 +7,8 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 out="$repo/artifacts/qa-settings"
 rm -rf "$out" && mkdir -p "$out"
 export MAINFRAME_USER_DATA="$out/user"
-dotnet build "$repo/Examples/Demo/Demo.slnx" -c Release -v q -nologo
+# The project, not Demo.slnx: a solution build leaves projects outside it (the engine) in Debug.
+dotnet build "$repo/Examples/Demo/Demo.Desktop" -c Release -v q -nologo
 bin="$repo/Examples/Demo/Demo.Desktop/bin/Release/net10.0"
 run() {
   local mode="$1" scene="$2"

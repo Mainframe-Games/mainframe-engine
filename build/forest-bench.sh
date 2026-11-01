@@ -7,7 +7,8 @@
 # Quiet machine only; the display must be awake. Usage: build/forest-bench.sh [--write-baseline] [game args...]
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/.." && pwd)"
-dotnet build "$repo/Examples/Forest/Forest.slnx" -c Release -v q -nologo
+# The project, not Forest.slnx: a solution build leaves projects outside it (the engine) in Debug.
+dotnet build "$repo/Examples/Forest/Forest.Desktop" -c Release -v q -nologo
 bin="$repo/Examples/Forest/Forest.Desktop/bin/Release/net10.0"
 mkdir -p "$repo/artifacts/forest-bench"
 out="$repo/artifacts/forest-bench/forest-bench-$(date +%Y%m%d-%H%M%S).json"

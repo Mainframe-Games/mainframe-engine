@@ -309,7 +309,7 @@ core; the valley renders without probes until then and logs a warning). After ch
 trees or the sun, re-bake and commit:
 
 ```bash
-dotnet build Examples/Forest/Forest.slnx -c Release
+dotnet build Examples/Forest/Forest.Desktop -c Release
 cd Examples/Forest/Forest.Desktop/bin/Release/net10.0
 dotnet Forest.Desktop.dll --bake-lighting --headless --project ../../../.. ++ --no-audio
 ```

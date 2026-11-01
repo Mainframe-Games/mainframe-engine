@@ -12,8 +12,11 @@ frames="${2:-10}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 config="${CONFIGURATION:-Release}"
 
-# shellcheck disable=SC2086 # BUILD_ARGS is a list of arguments
-dotnet build "$repo/Examples/Demo/Demo.slnx" -c "$config" -warnaserror ${BUILD_ARGS:-}
+# The projects, not Demo.slnx: a solution build leaves projects outside it (the engine) in Debug.
+for project in Demo.Desktop Demo.Tests; do
+  # shellcheck disable=SC2086 # BUILD_ARGS is a list of arguments
+  dotnet build "$repo/Examples/Demo/$project" -c "$config" -warnaserror ${BUILD_ARGS:-}
+done
 dotnet test "$repo/Examples/Demo/Demo.Tests" -c "$config" --no-build
 
 bin="$repo/Examples/Demo/Demo.Desktop/bin/$config/net10.0"
