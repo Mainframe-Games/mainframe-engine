@@ -404,7 +404,7 @@ inside an RmlUi callback, so a language dropdown can switch the language it live
 ## Demo
 
 Every [Demo](demo.md) scene has a small RmlUi panel (`UiDocument` + `CreateDataModel`, two-way bindings to live scene
-state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded nav bar (tabs, FPS, language picker, the settings menu's gear). The
+state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded nav bar (category and scene tabs, FPS, language picker, the settings menu's gear). The
 **UI** scene is the reference: the widget gallery, a data-bound form, and a live counter of UI hot reloads
 (`UiServer.HotReloaded`).
 

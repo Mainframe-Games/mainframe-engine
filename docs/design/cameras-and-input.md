@@ -183,8 +183,8 @@ neither RmlUi nor the game reacts to the key being bound. It processes while the
 
 The [Demo](demo.md) has no free-fly camera: Basic 3D orbits automatically (`OrbitCamera`), Basic 2D zooms from its
 panel, and the click-driven scenes (Audio 2D, Physics 2D and 3D) map the mouse into the world — canvas units through
-the root viewport's transforms (`CanvasInput`), a `Camera3D.ProjectRay*` ray for Physics 3D. Number keys 1–8 switch
-scenes and Escape quits.
+the root viewport's transforms (`CanvasInput`), a `Camera3D.ProjectRay*` ray for Physics 3D. Number keys 1–6 open the nav
+bar's categories, Page Down/Up step through the scenes and Escape quits.
 
 Tree-less code (no scene tree) can use the math cameras directly; in 2D, mouse movement pans and the wheel zooms.
 

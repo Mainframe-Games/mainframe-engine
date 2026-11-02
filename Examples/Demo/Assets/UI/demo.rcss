@@ -1,7 +1,7 @@
 body.hud { pointer-events: none; }
 .demo-panel {
     pointer-events: auto;
-    position: absolute; left: 16dp; top: 60dp; width: 280dp;
+    position: absolute; left: 16dp; top: 88dp; width: 280dp;
     padding: 14dp; border-radius: 10dp;
     background-color: #0b1220d9; border: 1dp #ffffff1f; color: #e2e8f0;
 }

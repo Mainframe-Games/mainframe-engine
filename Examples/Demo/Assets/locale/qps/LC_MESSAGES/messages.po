@@ -504,6 +504,18 @@ msgstr "[Éfféçts ~~]"
 msgid "Interface"
 msgstr "[Îñtérfåçé ~~]"
 
+msgid "3D"
+msgstr "[3Ð ~]"
+
+msgid "2D"
+msgstr "[2Ð ~]"
+
+msgid "Physics"
+msgstr "[Phýsîçs ~~]"
+
+msgid "Audio"
+msgstr "[Åûðîö ~]"
+
 msgid "UI"
 msgstr "[ÛÎ ~]"
 
@@ -622,9 +634,6 @@ msgstr "[LÖÅÐÎÑG ~~]"
 
 msgid "MADE WITH MAINFRAME ENGINE"
 msgstr "[MÅÐÉ WÎTH MÅÎÑFRÅMÉ ÉÑGÎÑÉ ~~~~~~]"
-
-msgid "Audio"
-msgstr "[Åûðîö ~]"
 
 msgid "Controls"
 msgstr "[Çöñtröls ~~]"

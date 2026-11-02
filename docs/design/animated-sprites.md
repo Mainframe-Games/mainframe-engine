@@ -144,7 +144,7 @@ Exports (Godot's names and defaults): `SpriteFrames`, `Animation` ("default"), `
 - Not built: drag-reordering frames and frame zoom in the strip, auto-slice by opaque bounds, a project-wide default
   canvas texture filter.
 - The Demo's animated sprite has its own scene, `sprites_2d` (Sprites 2D), with the generated `Assets/Sprites2D/hero.png`
-  and `hero.mres`, which the planned `tiles_2d` scene can reuse; number key 0 opens the tenth Demo tab.
+  and `hero.mres`, which the planned `tiles_2d` scene can reuse; it is in the nav bar's 2D category.
 
 ## Related
 

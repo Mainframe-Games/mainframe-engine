@@ -1,21 +1,41 @@
 body.hud { pointer-events: none; }
+/* Two rows, 72dp in all: categories (40dp) over the open category's scenes (32dp). Scene panels start below it
+   (Assets/UI/demo.rcss, top: 88dp). */
 #nav-bar {
     pointer-events: auto;
-    position: absolute; left: 0; top: 0; right: 0; height: 44dp;
+    position: absolute; left: 0; top: 0; right: 0; height: 40dp;
     display: flex; align-items: center; padding: 0 12dp;
-    background-color: #0b1220e6; border-bottom: 1dp #ffffff1a;
+    background-color: #0b1220f2;
 }
-#nav-logo { width: 28dp; height: 28dp; margin-right: 12dp; }
-#nav-tabs { display: flex; flex: 1; }
-.nav-tab { margin-right: 2dp; padding: 6dp 6dp; font-size: 14dp; white-space: nowrap; border-radius: 6dp; color: #c7d2fe; background-color: transparent; }
-.nav-tab:hover { background-color: #ffffff14; }
-.nav-tab.active { background-color: #2563eb; color: #ffffff; }
+#nav-logo { width: 26dp; height: 26dp; margin-right: 14dp; }
+#nav-categories { display: flex; flex: 1; }
+.nav-category {
+    height: 28dp; line-height: 28dp; margin-right: 4dp; padding: 0 14dp; font-size: 15dp; white-space: nowrap; border-radius: 6dp;
+    color: #c7d2fe; background-color: transparent; border-color: transparent;
+}
+.nav-category:hover { background-color: #ffffff14; }
+.nav-category.active { background-color: #2563eb; color: #ffffff; }
+.nav-category:focus-visible { border-color: #5aa0ff; }
 #nav-right { display: flex; align-items: center; }
-#nav-fps { margin-right: 12dp; color: #94a3b8; font-size: 13dp; }
+#nav-fps { width: 64dp; margin-right: 12dp; color: #94a3b8; font-size: 13dp; text-align: right; }
 #nav-locale { width: 72dp; margin-right: 12dp; }
 #nav-hint { color: #64748b; font-size: 12dp; }
 #nav-settings { width: 30dp; height: 28dp; padding: 0; margin-right: 12dp; display: flex; align-items: center; justify-content: center; }
 #nav-settings img { width: 18dp; height: 18dp; }
+#nav-scenes {
+    pointer-events: auto;
+    position: absolute; left: 0; top: 40dp; right: 0; height: 32dp;
+    display: flex; align-items: flex-end; padding: 0 12dp 0 52dp;
+    background-color: #0b1220d9; border-bottom: 1dp #ffffff1a;
+}
+.nav-scene {
+    height: 31dp; line-height: 29dp; margin-right: 4dp; padding: 0 14dp; font-size: 14dp; white-space: nowrap;
+    background-color: transparent; border-width: 0 0 2dp 0; border-color: transparent; border-radius: 0;
+    color: #94a3b8;
+}
+.nav-scene:hover { background-color: #ffffff0f; color: #e2e8f0; }
+.nav-scene.active { border-color: #3d8bfd; color: #ffffff; }
+.nav-scene:focus-visible { color: #ffffff; border-color: #5aa0ff; }
 #tooltip {
     position: absolute; display: none; pointer-events: none; padding: 3dp 8dp; font-size: 12dp;
     background-color: #0b0e14; border: 1dp #44506a; border-radius: 3dp; color: #e6e9ef;
