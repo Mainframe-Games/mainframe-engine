@@ -32,6 +32,14 @@ clear-output
 move 900 600
 wait 20
 capture editor-joints
+# Joint limit handles (G9.7): the hinge's upper limit dragged up; the mouse rests on the handle (its label shows).
+handle-drag 1 -30 -50 20
+wait 20
+clear-output
+wait 5
+capture editor-joint-limits
+command edit.undo
+wait 5
 open Examples/Demo/Assets/Scenes/animation_3d.mscene
 wait 20
 select Crew/Armature/PhysicalBoneSimulator3D
