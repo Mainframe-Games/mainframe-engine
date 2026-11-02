@@ -23,10 +23,10 @@ env:
 
 jobs:
   changes:
-    # Docs-only pull requests (every changed file in docs/ except docs/images/brand/, docs-site/, memory/ or a top-level
-    # *.md) skip the build, test, render and template jobs; docs.yml still builds the docs site for them, and ci-success
-    # still reports. Any other change, a manual run (workflow_dispatch) and publish.yml's run (workflow_call) run
-    # everything; so does a diff that cannot be read. The rule is build/ci-changes.sh.
+    # Docs-only pull requests (every changed file in docs/ except docs/images/brand/, docs-site/, memory/, .agents/,
+    # .claude/skills/ or a top-level *.md) skip the build, test, render and template jobs; docs.yml still builds the docs
+    # site for them, and ci-success still reports. Any other change, a manual run (workflow_dispatch) and publish.yml's
+    # run (workflow_call) run everything; so does a diff that cannot be read. The rule is build/ci-changes.sh.
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -444,10 +444,31 @@ jobs:
             ${{ runner.temp }}/demo-smoke/*.png
           if-no-files-found: warn
 
+  workflow:
+    # The Mainframe workflow's check (.agents/workflow.md). Always runs: docs-only changes are what add its documents.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          fetch-depth: 2
+
+      - name: Check the workflow's copy and documents
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          # A pull request run checks out GitHub's merge commit. Any other run only checks the pinned copy.
+          base=HEAD
+          if [ "$EVENT" = "pull_request" ]; then
+            base=HEAD^1
+          fi
+          bash .agents/mainframe-workflow/scripts/check.sh --base "$base"
+
   ci-success:
     # The single required status check (repo ruleset). Do not rename. Skipped jobs pass only on a docs-only change.
     if: always()
-    needs: [changes, build-test, format, shaders, render-tests, template]
+    needs: [changes, build-test, format, shaders, render-tests, template, workflow]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

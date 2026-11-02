@@ -379,6 +379,15 @@ Do not add NuGet packages without discussing the dependency first. Versions are 
   nuget.org via Trusted Publishing (OIDC, policy owned by the `Mainframe-Games` org; no secrets, `NUGET_USER` in the
   workflow is the policy creator). Never bump versions in files. See `docs/design/release.md`.
 
+## Workflow
+
+Work follows the [Mainframe workflow](https://github.com/Mainframe-Games/workflow), shared with the games: skills
+`mf-start`, `mf-propose`, `mf-plan`, `mf-decide`, `mf-ship`, `mf-engine-bug`. This project's paths and gates are in
+`.agents/workflow.md`. `.agents/mainframe-workflow/` and the `mf-*` skills are a pinned copy: never edit them here, change
+the workflow repo and re-run its `sync.sh`. ADR 0233 records why.
+
+@AGENTS.md
+
 ## Project memory
 
 @import memory/README.md

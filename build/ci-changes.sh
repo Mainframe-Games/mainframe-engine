@@ -4,8 +4,9 @@
 # docs/design/build-and-platforms.md#ci).
 #
 # code=false only when every path is documentation: docs/** (except docs/images/brand/**, which the editor icon, the
-# NuGet package icons and the release packaging read), docs-site/**, memory/** or a top-level *.md (README.md,
-# CLAUDE.md). Anything else is code, and so is an empty list: when unsure, run everything.
+# NuGet package icons and the release packaging read), docs-site/**, memory/**, the workflow's .agents/** and
+# .claude/skills/**, or a top-level *.md (README.md, CLAUDE.md). Anything else is code, and so is an empty list: when
+# unsure, run everything.
 #
 # usage: git diff --name-only origin/main... | build/ci-changes.sh
 set -euo pipefail
@@ -17,7 +18,7 @@ while IFS= read -r path; do
   count=$((count + 1))
   case "$path" in
     docs/images/brand/*) code=true ;;
-    docs/* | docs-site/* | memory/*) ;;
+    docs/* | docs-site/* | memory/* | .agents/* | .claude/skills/*) ;;
     */*) code=true ;;
     *.md) ;;
     *) code=true ;;

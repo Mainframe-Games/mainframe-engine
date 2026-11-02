@@ -114,7 +114,11 @@ Documentation means:
 - `docs/**`, except `docs/images/brand/**` (the editor icon, the NuGet package icons and release packaging read it);
 - `docs-site/**`;
 - `memory/**`;
+- `.agents/**` and `.claude/skills/**` (the [Mainframe workflow](https://github.com/Mainframe-Games/workflow));
 - a top-level `*.md` such as `README.md` or `CLAUDE.md`.
+
+The `workflow` job always runs, because docs-only pull requests are what add proposals, plans, decisions and logs. It
+runs the workflow's `check.sh`, and `ci-success` needs it.
 
 [`docs.yml`](../../.github/workflows/docs.yml) still builds the docs site for those PRs. The rule fails toward running
 everything:
