@@ -99,7 +99,7 @@ game.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/physics_3d.png" width="380" alt="Physics 3D"><br><b>Physics 3D</b> — Jitter2, joints, a ragdoll, save slots</td>
-    <td align="center" valign="top"><img src="docs/images/demo/physics_2d.png" width="380" alt="Physics 2D"><br><b>Physics 2D</b> — Box2D, a chain, a car, a breakable bridge</td>
+    <td align="center" valign="top"><img src="docs/images/demo/physics_2d.png" width="380" alt="Physics 2D"><br><b>Physics 2D</b> — Box2D, a chain, a car, a breakable bridge, a lift</td>
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/audio_3d.png" width="380" alt="Audio 3D"><br><b>Audio 3D</b> — attenuation, low-pass, doppler</td>
@@ -292,7 +292,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
 | [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, queries, `MoveAndSlide`, interpolation, debug draw |
-| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D` and six 2D joints: limits, motors, springs, breaking, collision exclusion, debug draw, editor gizmos and limit handles; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons and Create physical skeleton in the editor |
+| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D` and seven 2D joints (`MotorJoint2D` among them): limits, motors, springs, breaking, collision exclusion, debug draw, editor gizmos and limit handles; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons and Create physical skeleton in the editor |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, captured and window-confined mouse modes, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, Steam relay sockets, loopback and simulated bad networks |

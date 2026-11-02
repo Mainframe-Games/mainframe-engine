@@ -2,6 +2,8 @@ using System.Numerics;
 using Box2D.NET;
 using static Box2D.NET.B2DistanceJoints;
 using static Box2D.NET.B2Joints;
+using static Box2D.NET.B2MathFunction;
+using static Box2D.NET.B2MotorJoints;
 using static Box2D.NET.B2PrismaticJoints;
 using static Box2D.NET.B2RevoluteJoints;
 using static Box2D.NET.B2WeldJoints;
@@ -194,6 +196,9 @@ public abstract class Joint2D : Node2D
 
     /// <summary>Where body B is anchored, given the joint's global pose (the joint's position unless a type says otherwise).</summary>
     internal virtual Vector2 GetAnchorB(in Transform2D pose) => pose.Origin;
+
+    /// <summary>Where the debug draw puts body A's anchor, given the joint's frame on A (a motor joint's target; else the frame's origin).</summary>
+    internal virtual Vector2 GetAnchorA(in Transform2D frame) => frame.Origin;
 
     /// <summary>
     /// The frames' rotation relative to the joint's (radians): Box2D's prismatic and wheel axis is frame A's X, so a type
@@ -848,4 +853,167 @@ public class WheelJoint2D : Joint2D
     internal override void DrawDebugShape(DebugLines lines, in Transform2D frame, Vector2 anchorB, float value, Vector4 color) =>
         DrawTrack2D(lines, frame, UseLimit ? MathF.Min(LowerTranslation, UpperTranslation) : -10f,
             UseLimit ? MathF.Max(LowerTranslation, UpperTranslation) : 10f, Vector2.Dot(anchorB - frame.Origin, frame.X), UseLimit, color);
+}
+
+/// <summary>
+/// Drives body B towards a target relative to body A (a Box2D motor joint, G9.10): the target is the joint's pose on A
+/// moved by <see cref="LinearOffset"/> and <see cref="AngularOffset"/>, and a spring pulls B's frame (the joint's pose on
+/// B when it was created) onto it. The velocity part drives the bodies' relative velocity towards
+/// <see cref="LinearVelocity"/> and <see cref="AngularVelocity"/> with at most <see cref="MaxVelocityForce"/> and
+/// <see cref="MaxVelocityTorque"/>: with velocities of 0 that is friction (top-down ground friction is a motor joint to the
+/// world). All live.
+/// </summary>
+[EditorIcon("magnet", Family = EditorIconFamily.Physics)]
+public class MotorJoint2D : Joint2D
+{
+    /// <summary>The target's position in pixels, in the axes of the joint's frame on body A.</summary>
+    [Export]
+    public Vector2 LinearOffset
+    {
+        get;
+        set => Live(ref field, value);
+    }
+
+    /// <summary>The target's rotation in radians, relative to the joint's frame on body A.</summary>
+    [Export]
+    public float AngularOffset
+    {
+        get;
+        set => Live(ref field, value);
+    }
+
+    /// <summary>The linear spring's frequency in Hz; 0 turns it off.</summary>
+    [ExportGroup("Spring")]
+    [Export(Range = "0,60,0.01")]
+    public float LinearHertz
+    {
+        get;
+        set => Live(ref field, MathF.Max(0f, value));
+    } = 4f;
+
+    /// <summary>The linear spring's damping ratio (1: critically damped).</summary>
+    [Export(Range = "0,10,0.01")]
+    public float LinearDampingRatio
+    {
+        get;
+        set => Live(ref field, MathF.Max(0f, value));
+    } = 1f;
+
+    /// <summary>The most force the linear spring applies (kg·px/s²; the default is 100 N at 100 px/m).</summary>
+    [Export(Range = "0,100000000,1")]
+    public float MaxSpringForce
+    {
+        get;
+        set => Live(ref field, MathF.Max(0f, value));
+    } = 10_000f;
+
+    /// <summary>The angular spring's frequency in Hz; 0 turns it off.</summary>
+    [Export(Range = "0,60,0.01")]
+    public float AngularHertz
+    {
+        get;
+        set => Live(ref field, MathF.Max(0f, value));
+    } = 4f;
+
+    /// <summary>The angular spring's damping ratio (1: critically damped).</summary>
+    [Export(Range = "0,10,0.01")]
+    public float AngularDampingRatio
+    {
+        get;
+        set => Live(ref field, MathF.Max(0f, value));
+    } = 1f;
+
+    /// <summary>The most torque the angular spring applies (kg·px²/s²; the default is 100 N·m at 100 px/m).</summary>
+    [Export(Range = "0,100000000,1")]
+    public float MaxSpringTorque
+    {
+        get;
+        set => Live(ref field, MathF.Max(0f, value));
+    } = 1_000_000f;
+
+    /// <summary>The relative linear velocity (pixels per second, in world axes, not the frame's) the velocity part drives towards.</summary>
+    [ExportGroup("Velocity")]
+    [Export]
+    public Vector2 LinearVelocity
+    {
+        get;
+        set => Live(ref field, value);
+    }
+
+    /// <summary>The relative angular velocity (radians per second) the velocity part drives towards.</summary>
+    [Export]
+    public float AngularVelocity
+    {
+        get;
+        set => Live(ref field, value);
+    }
+
+    /// <summary>The most force the velocity part applies (kg·px/s²); 0 = off.</summary>
+    [Export(Range = "0,100000000,1")]
+    public float MaxVelocityForce
+    {
+        get;
+        set => Live(ref field, MathF.Max(0f, value));
+    }
+
+    /// <summary>The most torque the velocity part applies (kg·px²/s²); 0 = off.</summary>
+    [Export(Range = "0,100000000,1")]
+    public float MaxVelocityTorque
+    {
+        get;
+        set => Live(ref field, MathF.Max(0f, value));
+    }
+
+    internal override B2JointId CreateJoint(B2WorldId world, B2JointDef baseDef, float pixelsPerMeter)
+    {
+        var def = b2DefaultMotorJointDef();
+        def.@base = baseDef;
+        def.@base.localFrameA = TargetFrame(baseDef.localFrameA, pixelsPerMeter);
+        def.linearHertz = LinearHertz;
+        def.linearDampingRatio = LinearDampingRatio;
+        def.maxSpringForce = LinearHertz > 0f ? MaxSpringForce / pixelsPerMeter : 0f;
+        def.angularHertz = AngularHertz;
+        def.angularDampingRatio = AngularDampingRatio;
+        def.maxSpringTorque = AngularHertz > 0f ? MaxSpringTorque / (pixelsPerMeter * pixelsPerMeter) : 0f;
+        def.linearVelocity = new B2Vec2(LinearVelocity.X / pixelsPerMeter, LinearVelocity.Y / pixelsPerMeter);
+        def.angularVelocity = AngularVelocity;
+        def.maxVelocityForce = MaxVelocityForce / pixelsPerMeter;
+        def.maxVelocityTorque = MaxVelocityTorque / (pixelsPerMeter * pixelsPerMeter);
+        return b2CreateMotorJoint(world, in def);
+    }
+
+    internal override void ApplyLive(B2JointId id, JointRecord2D record, float pixelsPerMeter)
+    {
+        base.ApplyLive(id, record, pixelsPerMeter);
+        var frame = TargetFrame(record.FrameA, pixelsPerMeter);
+        b2Joint_SetLocalFrameA(id, in frame);
+        b2MotorJoint_SetLinearHertz(id, LinearHertz);
+        b2MotorJoint_SetLinearDampingRatio(id, LinearDampingRatio);
+        b2MotorJoint_SetMaxSpringForce(id, LinearHertz > 0f ? MaxSpringForce / pixelsPerMeter : 0f);
+        b2MotorJoint_SetAngularHertz(id, AngularHertz);
+        b2MotorJoint_SetAngularDampingRatio(id, AngularDampingRatio);
+        b2MotorJoint_SetMaxSpringTorque(id, AngularHertz > 0f ? MaxSpringTorque / (pixelsPerMeter * pixelsPerMeter) : 0f);
+        b2MotorJoint_SetLinearVelocity(id, new B2Vec2(LinearVelocity.X / pixelsPerMeter, LinearVelocity.Y / pixelsPerMeter));
+        b2MotorJoint_SetAngularVelocity(id, AngularVelocity);
+        b2MotorJoint_SetMaxVelocityForce(id, MaxVelocityForce / pixelsPerMeter);
+        b2MotorJoint_SetMaxVelocityTorque(id, MaxVelocityTorque / (pixelsPerMeter * pixelsPerMeter));
+        b2Joint_WakeBodies(id);
+    }
+
+    // The authored frame on body A (metres) moved by the offsets: the frame Box2D pulls body B's frame onto.
+    private B2Transform TargetFrame(in B2Transform authored, float pixelsPerMeter)
+    {
+        var offset = new B2Transform(new B2Vec2(LinearOffset.X / pixelsPerMeter, LinearOffset.Y / pixelsPerMeter), b2MakeRot(AngularOffset));
+        return b2MulTransforms(in authored, in offset);
+    }
+
+    internal override Vector2 GetAnchorA(in Transform2D frame) => frame.TransformPoint(LinearOffset);
+
+    internal override void DrawDebugShape(DebugLines lines, in Transform2D frame, Vector2 anchorB, float value, Vector4 color)
+    {
+        var target = frame * Transform2D.FromTrs(LinearOffset, AngularOffset, Vector2.One);
+        lines.AddLine2D(target, new Vector2(-6, -6), new Vector2(6, 6), color);
+        lines.AddLine2D(target, new Vector2(-6, 6), new Vector2(6, -6), color);
+        lines.AddLine2D(target, Vector2.Zero, new Vector2(10, 0), color); // the target's +X: its rotation
+    }
 }

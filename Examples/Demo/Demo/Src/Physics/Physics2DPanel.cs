@@ -1,3 +1,4 @@
+using System.Numerics;
 using MainframeEngine;
 using MainframeEngine.UI.Rml;
 
@@ -35,6 +36,7 @@ public sealed class Physics2DPanel : UiDocument
             {
                 bodies.ResetBodies();
                 ResetBridge(Parent!.Parent!);
+                ResetLift(Parent!.Parent!);
             });
     }
 
@@ -55,6 +57,23 @@ public sealed class Physics2DPanel : UiDocument
         foreach (var child in bridge.Children)
             if (child is Joint2D joint)
                 joint.Rebuild();
+    }
+
+    /// <summary>Puts the lift's platform and crates back at the bottom of its travel and starts it again.</summary>
+    public static void ResetLift(Node scene)
+    {
+        var lift = scene.GetNode<Lift2D>("Lift");
+        lift.Restart();
+        Place(lift.GetNode<RigidBody2D>("Platform"), Joints2DBuild.PlatformAt);
+        for (var i = 0; i < Joints2DBuild.CratesAt.Length; i++)
+            Place(lift.GetNode<RigidBody2D>($"Crate{i}"), Joints2DBuild.CratesAt[i]);
+
+        static void Place(RigidBody2D body, Vector2 at)
+        {
+            body.Teleport(Transform2D.FromTrs(at, 0, Vector2.One));
+            body.LinearVelocity = default;
+            body.AngularVelocity = 0;
+        }
     }
 
     protected override void OnExitTree()

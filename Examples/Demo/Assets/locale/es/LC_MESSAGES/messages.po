@@ -439,8 +439,8 @@ msgstr "Física 2D"
 
 #. RML <p>
 #: Examples/Demo/Assets/Physics/panel2d.rml:9
-msgid "Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints and a breakable bridge. Click to spawn a body."
-msgstr "Cuerpos de Box2D a través de un embudo y un tablero de clavijas, una cadena, un coche sobre articulaciones de rueda y un puente que se rompe. Haz clic para crear un cuerpo."
+msgid "Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints, a breakable bridge and a lift on a motor joint. Click to spawn a body."
+msgstr "Cuerpos de Box2D a través de un embudo y un tablero de clavijas, una cadena, un coche sobre articulaciones de rueda, un puente que se rompe y un ascensor sobre una articulación motora. Haz clic para crear un cuerpo."
 
 #. RML <span>
 #: Examples/Demo/Assets/Physics/panel2d.rml:10
@@ -1693,6 +1693,10 @@ msgstr "Voz"
 msgctxt "settings"
 msgid "Ambience"
 msgstr "Ambiente"
+
+#. RML <p>
+#~ msgid "Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints and a breakable bridge. Click to spawn a body."
+#~ msgstr "Cuerpos de Box2D a través de un embudo y un tablero de clavijas, una cadena, un coche sobre articulaciones de rueda y un puente que se rompe. Haz clic para crear un cuerpo."
 
 #. RML <p>
 #~ msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."

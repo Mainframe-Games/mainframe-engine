@@ -481,4 +481,154 @@ public sealed class Physics2DJointTests : IDisposable
         root.Free();
         copy.Free();
     }
+
+    // MotorJoint2D (G9.10a): the proposal's scenarios, in this file's naming.
+
+    private RigidBody2D AddFloatingBox(Vector2 position, string name = "Box")
+    {
+        var box = _h.AddBox(position, size: 20, name: name);
+        box.Mass = 1;
+        box.GravityScale = 0;
+        box.LinearDamp = 0; // the default 0.1 would add to the motor's friction
+        box.AngularDamp = 0;
+        return box;
+    }
+
+    [Fact]
+    public void AMotorJointsSpringPullsItsBodyOntoTheOffsetTarget()
+    {
+        var box = AddFloatingBox(new Vector2(0, 0));
+        var joint = AddJoint(new MotorJoint2D { Name = "Motor", LinearOffset = new Vector2(200, 0) }, Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(2f);
+        Assert.True(joint.IsActive);
+        Assert.InRange(Vector2.Distance(box.Position, new Vector2(200, 0)), 0f, 1f);
+        Assert.InRange(MathF.Abs(box.Rotation), 0f, 0.01f);
+    }
+
+    [Fact]
+    public void AMotorJointsOffsetIsInTheAxesOfItsFrameOnBodyA()
+    {
+        var box = AddFloatingBox(new Vector2(0, 0));
+        var joint = new MotorJoint2D { Name = "Motor", Rotation = MathF.PI / 2, LinearOffset = new Vector2(100, 0) };
+        AddJoint(joint, Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(2f);
+        Assert.InRange(Vector2.Distance(box.Position, new Vector2(0, 100)), 0f, 1f); // the frame's +X is the world's +Y
+    }
+
+    [Fact]
+    public void AMotorJointsAngularOffsetTurnsItsBody()
+    {
+        var box = AddFloatingBox(new Vector2(0, 0));
+        AddJoint(new MotorJoint2D { Name = "Motor", AngularOffset = MathF.PI / 2 }, Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(2f);
+        Assert.InRange(box.Rotation, MathF.PI / 2 - 0.0175f, MathF.PI / 2 + 0.0175f); // within 1°
+        Assert.InRange(box.Position.Length(), 0f, 1f);
+    }
+
+    [Fact]
+    public void AMotorJointWithoutASpringActsAsFriction()
+    {
+        var box = AddFloatingBox(new Vector2(0, 0));
+        box.LinearVelocity = new Vector2(500, 0);
+        AddJoint(new MotorJoint2D { Name = "Motor", LinearHertz = 0, AngularHertz = 0, MaxVelocityForce = 200 }, Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(1f);
+        Assert.InRange(box.LinearVelocity.X, 294f, 306f); // 500 px/s − 200 px/s² × 1 s, within 2 %
+    }
+
+    [Fact]
+    public void AMotorJointsVelocityIsInWorldAxes()
+    {
+        _h.AddStaticBox(new Vector2(0, -100), new Vector2(20, 20), rotationDegrees: 90, name: "A");
+        var box = AddFloatingBox(new Vector2(0, 0));
+        AddJoint(new MotorJoint2D { Name = "Motor", Rotation = MathF.PI / 2, LinearHertz = 0, AngularHertz = 0, LinearVelocity = new Vector2(100, 0), MaxVelocityForce = 100_000 },
+            Vector2.Zero, nodeA: "A", nodeB: "Box");
+        _h.RunSeconds(0.5f);
+        Assert.InRange(Vector2.Distance(box.LinearVelocity, new Vector2(100, 0)), 0f, 1f); // neither body A's nor the frame's axes
+    }
+
+    [Fact]
+    public void AMotorJointWithHertzZeroHasNoSpring()
+    {
+        var box = AddFloatingBox(new Vector2(0, 0));
+        var joint = AddJoint(new MotorJoint2D { Name = "Motor", LinearOffset = new Vector2(200, 0), LinearHertz = 0, AngularOffset = 1, AngularHertz = 0 },
+            Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(1f);
+        Assert.True(joint.IsActive);
+        Assert.InRange(box.Position.Length(), 0f, 0.5f);
+        Assert.InRange(MathF.Abs(box.Rotation), 0f, 0.01f);
+    }
+
+    [Fact]
+    public void AMotorJointsOffsetChangesLive()
+    {
+        var box = AddFloatingBox(new Vector2(0, 0));
+        var joint = AddJoint(new MotorJoint2D { Name = "Motor", LinearOffset = new Vector2(100, 0) }, Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(2f);
+        Assert.InRange(Vector2.Distance(box.Position, new Vector2(100, 0)), 0f, 1f);
+        var record = joint.Record;
+
+        joint.LinearOffset = new Vector2(-50, 80);
+        _h.RunSeconds(2f);
+        Assert.InRange(Vector2.Distance(box.Position, new Vector2(-50, 80)), 0f, 1f);
+        Assert.Same(record, joint.Record);
+        Assert.True(joint.IsActive);
+        Assert.False(joint.IsBroken);
+    }
+
+    [Fact]
+    public void AMotorJointIsDisabledAndBrokenLikeTheOthers()
+    {
+        var box = AddFloatingBox(new Vector2(0, 0));
+        var joint = AddJoint(new MotorJoint2D { Name = "Motor", LinearOffset = new Vector2(100, 0) }, Vector2.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(2f);
+
+        joint.Enabled = false;
+        _h.Run(1);
+        Assert.False(joint.IsActive);
+        joint.LinearOffset = Vector2.Zero;
+        joint.Enabled = true;
+        _h.RunSeconds(2f);
+        Assert.True(joint.IsActive);
+        Assert.InRange(box.Position.Length(), 0f, 1f); // re-created at the authored frames, pulled to the new target
+
+        var broken = 0;
+        joint.Broken += () => broken++;
+        joint.BreakForce = 1000; // kg·px/s²: less than the spring's pull 300 px away
+        joint.LinearOffset = new Vector2(300, 0);
+        _h.RunSeconds(0.5f);
+        Assert.Equal(1, broken);
+        Assert.True(joint.IsBroken);
+        Assert.False(joint.IsActive);
+    }
+
+    [Fact]
+    public void MotorJointsRoundTripThroughScenes()
+    {
+        var root = new Node2D { Name = "Root" };
+        root.AddChild(new MotorJoint2D
+        {
+            Name = "Motor",
+            LinearOffset = new Vector2(10, -20),
+            AngularOffset = 0.5f,
+            LinearHertz = 2,
+            LinearDampingRatio = 0.3f,
+            MaxSpringForce = 50,
+            AngularHertz = 3,
+            AngularDampingRatio = 0.4f,
+            MaxSpringTorque = 60,
+            LinearVelocity = new Vector2(1, 2),
+            AngularVelocity = 0.7f,
+            MaxVelocityForce = 70,
+            MaxVelocityTorque = 80,
+        });
+        root.GetChild(0).Owner = root;
+
+        var copy = PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate();
+        var motor = copy.GetNode<MotorJoint2D>("Motor");
+        Assert.Equal((new Vector2(10, -20), 0.5f, 2f, 0.3f, 50f, 3f, 0.4f, 60f), (motor.LinearOffset, motor.AngularOffset, motor.LinearHertz, motor.LinearDampingRatio,
+            motor.MaxSpringForce, motor.AngularHertz, motor.AngularDampingRatio, motor.MaxSpringTorque));
+        Assert.Equal((new Vector2(1, 2), 0.7f, 70f, 80f), (motor.LinearVelocity, motor.AngularVelocity, motor.MaxVelocityForce, motor.MaxVelocityTorque));
+        root.Free();
+        copy.Free();
+    }
 }
