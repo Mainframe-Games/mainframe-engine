@@ -270,7 +270,7 @@ msgstr "F12"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Navigation/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:192
 msgid "Navigation 2D"
 msgstr "Navegación 2D"
 
@@ -669,18 +669,28 @@ msgstr "Piloto automático"
 
 #. RML <span>
 #: Examples/Demo/Assets/Tiles2D/panel.rml:14
+msgid "Shadow chases"
+msgstr "La sombra persigue"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:15
+msgid "Show navigation"
+msgstr "Mostrar navegación"
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:16
 msgid "Surface"
 msgstr "Superficie"
 
 #. RML <span>
-#: Examples/Demo/Assets/Tiles2D/panel.rml:15
+#: Examples/Demo/Assets/Tiles2D/panel.rml:17
 msgid "Wall cells"
 msgstr "Celdas de muro"
 
 #. RML <p>
-#: Examples/Demo/Assets/Tiles2D/panel.rml:16
-msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
-msgstr "Haz clic en el mapa para añadir o quitar un muro. WASD o las flechas caminan."
+#: Examples/Demo/Assets/Tiles2D/panel.rml:18
+msgid "A shadow chases the hero on a navigation grid read from the walls layer. Click the map to add or remove a wall. WASD or the arrow keys walk."
+msgstr "Una sombra persigue al héroe por una cuadrícula de navegación leída de la capa de muros. Haz clic en el mapa para añadir o quitar un muro. WASD o las flechas caminan."
 
 #. RML <title>
 #: Examples/Demo/Assets/UI/showcase.rml:3
@@ -1626,6 +1636,10 @@ msgstr "Voz"
 msgctxt "settings"
 msgid "Ambience"
 msgstr "Ambiente"
+
+#. RML <p>
+#~ msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
+#~ msgstr "Haz clic en el mapa para añadir o quitar un muro. WASD o las flechas caminan."
 
 #. RML <p>
 #~ msgid "A skinned glTF character: 31 bones, eight clips, crossfades, events and a torch on its hand."

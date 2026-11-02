@@ -1,47 +1,16 @@
-# Proposal: Navigation — tile map source and later phases (G3.6, G3b)
+# Proposal: Navigation — later phases (G3b)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G3) · **Status:** 🚧 G3.1–G3.5 shipped, see
-[Navigation](../navigation.md); G3.6 waits for tile maps (G2b), G3.7–G3.12 planned ·
-**Depends on:** [Tile maps](../tile-maps.md) (G2b: `TileMapLayer`), [Navigation](../navigation.md) (the shipped core)
-· **Related:** [Networking](../networking.md), [Mobile](mobile.md) (AOT)
+**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G3) · **Status:** G3a shipped (G3.1–G3.6, see
+[Navigation](../navigation.md)); G3.7–G3.12 planned ·
+**Depends on:** [Navigation](../navigation.md) (the shipped core) · **Related:** [Networking](../networking.md),
+[Mobile](mobile.md) (AOT), [Tile maps](../tile-maps.md)
 
-The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (physics bake), `NavigationAgent2D`, the
-editor's Bake/Clear and Visible Navigation are current state: [Navigation](../navigation.md) (ADRs 0227 and 0228). This
-proposal keeps what is left: the tile map source and the later phases.
+The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (physics bake and the live tile map source),
+`NavigationAgent2D`, the editor's Bake/Clear and Visible Navigation are current state: [Navigation](../navigation.md)
+(ADRs 0227 and 0228; the tile map source and its changes from this proposal are in
+[Tile map source](../navigation.md#tile-map-source)). This proposal keeps what is left: the later phases.
 
 ## Design
-
-### G3.6 TileMapLayer source (with G2b)
-
-[Tile maps](../tile-maps.md) (G2b) adds `TileSet`/`TileMapLayer` and reserves this hook ("Navigation hook (G3)"
-there): navigation reads a layer only through its public API (`GetUsedCells`, `GetUsedRect`, `GetCellTileData`,
-`MapToLocal`, `TileSet.TileSize`, the `Changed` signal) and G2 adds no navigation fields. With
-`Source = TileMapLayer` the grid:
-
-- copies `TileSet.TileSize` as `CellSize`, the layer's position as its own, and `GetUsedRect()` as `Region` (unless
-  `Region` was set by hand). Grid cell `(x, y)` is map cell `(x, y)`, so `MapToLocal` and `GetPointPosition` agree;
-- marks a cell solid when its tile has collision on the physics layer `TilePhysicsLayer` (new export, default 0), or
-  when its tile's bool custom data layer named `SolidDataLayer` (default `"solid"`, G2's own example) is true; empty
-  cells are walkable;
-- reads weights from an optional float custom data layer `WeightDataLayer` (default empty = all 1);
-- re-reads the layer when it raises `Changed`, at most once per sync. With G2's signal as designed (no dirty rect)
-  that is O(used cells) with a reused `List<Vector2I>`, allocation-free once sized; a 256 × 256 layer re-reads in
-  well under a millisecond. If that proves too slow for games that dig every frame, a `CellsChanged(Rect2I)` signal
-  is the one addition navigation would ask of G2 ([Open questions](#open-questions)).
-
-Only `TileShape.Square` layers are accepted (the only shape G2 ships); others log a warning and leave the grid empty.
-Per-tile navigation polygons (Godot's `TileSetNavigationLayer`, a name G2 reserves) belong to 2D navmeshes (G3.9).
-
-What is already in place for it ([Navigation → Grid sources](../navigation.md#grid-sources-and-what-g36-plugs-in)):
-`NavigationGridSource.TileMapLayer`, the exports `TileMapLayerPath` (typed `Node2D` until `TileMapLayer` exists, then
-narrowed), `TilePhysicsLayer`, `SolidDataLayer` and `WeightDataLayer`, and the `INavigationGridBaker` seam. G3.6 adds a
-`TileMapLayerBaker` registered with `NavigationGridBakers.Register(NavigationGridSource.TileMapLayer, ...)` in the engine:
-`PrepareLayout` copies the layer's tile size, position and used rectangle; `Bake` marks cells from tile collision and
-custom data; `Attach`/`Detach` subscribe to the layer's `Changed` and call `NavigationGrid2D.MarkSourceChanged()` (the
-live grid re-reads at the next sync, at most once); `SourceHash` may stay null (the layer is the data). No navigation
-API changes. From the tile map it needs only: `TileSet.TileSize`, `GetUsedRect()`, `GetUsedCells()`,
-`GetCellTileData()` (collision per physics layer, bool and float custom data by name), `MapToLocal` agreeing with
-`AStarGrid2D.GetPointPosition`, the `TileShape` (only `Square` is accepted) and `Changed` (or `CellsChanged(Rect2I)`).
 
 ### Threading
 
@@ -77,15 +46,12 @@ API changes. From the tile map it needs only: `TileSet.TileSize`, `GetUsedRect()
 
 ## Testing
 
-- G3.6: `TileMapLayer` source from tile collision, a `"solid"` bool and a float weight custom data layer, re-read on
-  `Changed`, non-square layers rejected; a navigating enemy in G2's `tiles_2d` Demo scene.
 - G3.7: head-on pairs, crowds, the allocation gate with avoidance on. G3.10: delivery exactly one sync later, snapshot
   copy-on-write, determinism under thread scheduling.
 
 ## Task list
 
-1. **G3.6 TileMapLayer source** (after G2b.2/G2b.3): solid/weight from tile collision and custom data layers,
-   re-read on `Changed`; tests; a navigating enemy in G2's `tiles_2d` Demo scene.
+1. ~~**G3.6 TileMapLayer source**~~ shipped: [Navigation → Tile map source](../navigation.md#tile-map-source).
 2. **G3.7 Avoidance.** ORCA for agents, `NavigationObstacle2D`; tests (head-on pairs, crowds, allocation gate).
 3. **G3.8 Grid polish.** Isometric cell shapes if G2 needs them; HPA* only if a game needs it; cell painting in the
    inspector if tile maps do not cover it.
@@ -107,8 +73,8 @@ API changes. From the tile map it needs only: `TileSet.TileSize`, `GetUsedRect()
    dependency (ADR 0203, `Geometry2D`), so the question is only whether it covers the offsetting needs.
 3. **Avoidance algorithm source.** Write ORCA from the paper, or port RVO2 (Apache 2.0, the library Godot uses) with
    attribution. Either way it is plain C#; the question is licence notice and test vectors.
-4. **Tile map dirty rects.** Is G2's plain `Changed` signal enough (re-read the used cells), or should G2 add
-   `CellsChanged(Rect2I)` for games that dig or build every frame?
+4. **Tile map dirty rects.** G3.6 re-reads the used cells on the plain `Changed` signal (0 B once warm). Should tile maps
+   add `CellsChanged(Rect2I)` once a game digs or builds every frame and the full re-read shows in the profiler?
 
 Answered by G3a ([ADR 0227](../../../memory/decisions/0227-grid-navigation-core.md),
 [ADR 0228](../../../memory/decisions/0228-navigation-server-agents-and-sources.md)): JPS ignores weights like Godot;

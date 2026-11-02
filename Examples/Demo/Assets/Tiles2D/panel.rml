@@ -11,9 +11,11 @@
         <div class="demo-row"><span>Y-sort objects</span><input type="checkbox" data-checked="ysort"/></div>
         <div class="demo-row"><span>Walk speed</span><input type="range" min="0" max="200" step="5" data-value="speed"/></div>
         <div class="demo-row"><span>Autopilot</span><input type="checkbox" data-checked="autopilot"/></div>
+        <div class="demo-row"><span>Shadow chases</span><input type="checkbox" data-checked="chase"/></div>
+        <div class="demo-row"><span>Show navigation</span><input type="checkbox" data-checked="navigation"/></div>
         <div class="demo-row"><span>Surface</span><span>{{surface}}</span></div>
         <div class="demo-row"><span>Wall cells</span><span>{{walls}}</span></div>
-        <p class="hint">Click the map to add or remove a wall. WASD or the arrow keys walk.</p>
+        <p class="hint">A shadow chases the hero on a navigation grid read from the walls layer. Click the map to add or remove a wall. WASD or the arrow keys walk.</p>
     </div>
 </body>
 </rml>

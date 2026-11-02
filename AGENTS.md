@@ -97,7 +97,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `MainframeEngine/Src/Navigation/` — G3a ([ADRs 0227/0228](memory/decisions/0227-grid-navigation-core.md)): `AStarGrid2D` (Godot's grid
   A*, jump point search, span queries, 0 B, deterministic), `AStar2D`/`AStar3D`, `NavigationServer2D` (one map per
   `World2D`, synced after each fixed step), `Nodes2D/` (`NavigationGrid2D` + `NavigationGridData`, `NavigationAgent2D`),
-  `Baking/` (`INavigationGridBaker` seam, the physics baker through queries only); see `docs/design/navigation.md`
+  `Baking/` (`INavigationGridBaker` seam, the physics baker through queries only, `TileMapLayerBaker`: live grids from a
+  `TileMapLayer`, G3.6); see `docs/design/navigation.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform + event tracks), `AnimationLibrary`, `AnimationPlayer` (ADR 0207);
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`

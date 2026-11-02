@@ -23,6 +23,10 @@ public class NavigationGrid2D : Node2D
     private uint _layers = 1;
     private NavigationGridSource _source = NavigationGridSource.Physics;
     private NavigationGridData? _data;
+    private NodePath _tileMapLayerPath;
+    private int _tilePhysicsLayer;
+    private string _solidDataLayer = "solid";
+    private string _weightDataLayer = "";
     private bool _layoutDirty = true;   // region, cell size or data: rebuild and re-apply the data
     private bool _settingsDirty = true; // diagonal mode, heuristic, jumping: no cell changes
     private bool _sourceDirty;          // a live source (tile layer) changed: re-bake the live grid
@@ -145,21 +149,40 @@ public class NavigationGrid2D : Node2D
     [Export(Range = "0,256,0.5")]
     public float AgentRadius { get; set; }
 
-    /// <summary>TileMapLayer source (G3.6): the layer to read.</summary>
-    [Export(NodeType = typeof(Node2D))]
-    public NodePath TileMapLayerPath { get; set; }
+    /// <summary>
+    /// TileMapLayer source: the layer to read. It owns the layout (its tile size, global position and used rectangle
+    /// replace <see cref="CellSize"/>, the position and <see cref="Region"/>), and the live grid re-reads it when it changes.
+    /// </summary>
+    [Export(NodeType = typeof(TileMapLayer))]
+    public NodePath TileMapLayerPath
+    {
+        get => _tileMapLayerPath;
+        set => SetSourceOption(ref _tileMapLayerPath, value);
+    }
 
-    /// <summary>TileMapLayer source (G3.6): tiles with collision on this physics layer are solid.</summary>
+    /// <summary>TileMapLayer source: tiles with collision on this physics layer of the tile set are solid.</summary>
     [Export]
-    public int TilePhysicsLayer { get; set; }
+    public int TilePhysicsLayer
+    {
+        get => _tilePhysicsLayer;
+        set => SetSourceOption(ref _tilePhysicsLayer, value);
+    }
 
-    /// <summary>TileMapLayer source (G3.6): tiles whose bool custom data layer of this name is true are solid.</summary>
+    /// <summary>TileMapLayer source: tiles whose bool custom data layer of this name is true are solid ("" or absent: none).</summary>
     [Export]
-    public string SolidDataLayer { get; set; } = "solid";
+    public string SolidDataLayer
+    {
+        get => _solidDataLayer;
+        set => SetSourceOption(ref _solidDataLayer, value ?? "");
+    }
 
-    /// <summary>TileMapLayer source (G3.6): a float custom data layer with each tile's weight scale ("" = all 1).</summary>
+    /// <summary>TileMapLayer source: a float custom data layer with each tile's weight scale ("" = all 1; an unset value is 1).</summary>
     [Export]
-    public string WeightDataLayer { get; set; } = "";
+    public string WeightDataLayer
+    {
+        get => _weightDataLayer;
+        set => SetSourceOption(ref _weightDataLayer, value ?? "");
+    }
 
     /// <summary>Bake once when the scene is ready in a running game (procedural levels), after its bodies entered the tree.</summary>
     [Export]
@@ -277,7 +300,7 @@ public class NavigationGrid2D : Node2D
 
         if (NavigationGridBakers.Get(_source) is not { } baker)
         {
-            error = $"no baker is registered for the {_source} source (tile maps arrive with G3.6)";
+            error = $"no baker is registered for the {_source} source";
             return null;
         }
 
@@ -416,7 +439,12 @@ public class NavigationGrid2D : Node2D
         if (IsInsideTree)
             _grid.Offset = GlobalPosition;
         _grid.Update();
-        if (_data is { } data)
+        if (_attached is not null)
+        {
+            _grid.ClearCells();
+            _sourceDirty = true; // a live source owns the cells, not Data: re-read once, below
+        }
+        else if (_data is { } data)
         {
             if (!data.TryApply(_grid, out var error) && !_warnedData)
             {
@@ -428,9 +456,6 @@ public class NavigationGrid2D : Node2D
         {
             _grid.ClearCells();
         }
-
-        if (_attached is not null)
-            _sourceDirty = true; // a live source owns the cells: re-read once, below
     }
 
     private void ApplySettings()
@@ -449,6 +474,7 @@ public class NavigationGrid2D : Node2D
             return false;
         using var scope = NavigationMarkers.Bake.Auto();
         baker.PrepareLayout(this);
+        _layoutDirty = false; // a layout the source just set is applied here, not again at the next sync
         _grid.Region = _region;
         _grid.CellSize = _cellSize;
         _grid.Update();
@@ -460,6 +486,16 @@ public class NavigationGrid2D : Node2D
         }
 
         return true;
+    }
+
+    // A live source's options change what it reads: re-read it (a no-op for other sources).
+    private void SetSourceOption<T>(ref T field, T value)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+            return;
+        field = value;
+        if (_attached is not null)
+            MarkSourceChanged();
     }
 
     private void MarkLayout()

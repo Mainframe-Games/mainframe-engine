@@ -2,7 +2,8 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Fills a <see cref="NavigationGrid2D"/>'s cells from somewhere else in the scene: the static bodies
-/// (<see cref="GridPhysicsBaker2D"/>, <see cref="NavigationGridSource.Physics"/>) or, with G3.6, a <c>TileMapLayer</c>.
+/// (<see cref="GridPhysicsBaker2D"/>, <see cref="NavigationGridSource.Physics"/>) or a <see cref="TileMapLayer"/>
+/// (<see cref="TileMapLayerBaker"/>, <see cref="NavigationGridSource.TileMapLayer"/>).
 /// Bakers run on the main thread and may allocate (edit time, level loads, a tile layer that changed).
 /// </summary>
 public interface INavigationGridBaker
@@ -41,13 +42,14 @@ public interface INavigationGridBaker
 }
 
 /// <summary>
-/// The bakers of each <see cref="NavigationGridSource"/>: <see cref="NavigationGridSource.Physics"/> is built in;
-/// <see cref="NavigationGridSource.TileMapLayer"/> is registered by the tile map source (G3.6). Register on the main thread
+/// The bakers of each <see cref="NavigationGridSource"/>: <see cref="NavigationGridSource.Physics"/> and
+/// <see cref="NavigationGridSource.TileMapLayer"/> are built in, and a game may replace them. Register on the main thread
 /// before scenes load.
 /// </summary>
 public static class NavigationGridBakers
 {
-    private static readonly INavigationGridBaker?[] s_bakers = [null, new GridPhysicsBaker2D(), null];
+    private static readonly INavigationGridBaker?[] s_builtIn = [null, new GridPhysicsBaker2D(), new TileMapLayerBaker()];
+    private static readonly INavigationGridBaker?[] s_bakers = [.. s_builtIn];
 
     /// <summary>The baker of <paramref name="source"/>, or null (<see cref="NavigationGridSource.Manual"/>, or one not registered yet).</summary>
     public static INavigationGridBaker? Get(NavigationGridSource source) =>
@@ -62,10 +64,10 @@ public static class NavigationGridBakers
         s_bakers[(int)source] = baker;
     }
 
-    /// <summary>Removes the baker of <paramref name="source"/> (tests; the physics baker is built in and stays).</summary>
+    /// <summary>Puts back the built-in baker of <paramref name="source"/> (tests).</summary>
     internal static void Unregister(NavigationGridSource source)
     {
-        if (source is not (NavigationGridSource.Manual or NavigationGridSource.Physics) && (uint)source < (uint)s_bakers.Length)
-            s_bakers[(int)source] = null;
+        if ((uint)source < (uint)s_bakers.Length)
+            s_bakers[(int)source] = s_builtIn[(int)source];
     }
 }

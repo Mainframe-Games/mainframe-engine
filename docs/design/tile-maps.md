@@ -175,21 +175,24 @@ ADR 0226. While a 2D tab's selection is a `TileMapLayer` with a `TileSet`:
 
 ## Navigation hook
 
-[Navigation](future/navigation.md) (G3a, G3.6) reads a layer through public API: `GetUsedCells`, `GetCellTileData`,
-collision polygons on a chosen physics layer (`TileData.Collision`, `TileCollisionPolygon.PhysicsLayer`) or a custom data
-bool (`TileSet.GetCustomDataLayerByName`, `TileData.GetCustomBool`), and `Changed` to rebuild. Godot's per-tile
-navigation polygons (`TileSetNavigationLayer`) are reserved for that milestone.
+[Navigation](navigation.md#tile-map-source) (G3.6: `NavigationGrid2D` with `Source = TileMapLayer`) reads a layer
+through public API: `GetUsedRect`, `GetUsedCells`, `GetCellTileData`, collision polygons on a chosen physics layer
+(`TileData.GetCollisionPolygonsCount`), a custom data bool and float (`TileSet.GetCustomDataLayerByName`,
+`TileData.GetCustomBool`, `GetCustomFloat`), and `Changed` to re-read. Godot's per-tile navigation polygons
+(`TileSetNavigationLayer`) are reserved for 2D navmeshes ([G3.9](future/navigation.md)).
 
 ## Demo scene
 
 `tiles_2d` ("Tiles 2D", icon `grid-pattern`) in `DemoScenes.All` ([Demo](demo.md)): a generated 4 × 2 atlas of 16 px tiles
 (`TilesArt`, `Assets/Tiles2D/tiles.png`: grass, path, stone, water, a tree's canopy and trunk, flowers, a bush) and its
 `tiles.mres` (one physics layer: full tiles on stone and water, polygons on trunks and bushes; custom data `surface`),
-written by `--write-scenes`. Three layers from an ASCII level — "Ground", "Walls" and the y-sorted "Objects" — and the
-Sprites 2D hero (`hero.mres`) as a `TileHero2D` inside the objects layer: it walks the paths (or the `move_*` actions:
-WASD, arrows, left stick), plays idle or run, and reports the `surface` under its feet; a limited `Camera2D` follows.
-The panel shows collision, toggles y-sort, sets the walk speed and autopilot, and a click on the map adds or removes a
-wall (live chunk and body rebuild). The fourteenth tab: past the tenth, tabs are reached with the nav bar or
+written by `--write-scenes`. Three layers from an ASCII level — "Ground", "Walls" (stone and water: what blocks) and the
+y-sorted "Objects" — and the Sprites 2D hero (`hero.mres`) as a `TileHero2D` inside the objects layer: it walks the paths
+(or the `move_*` actions: WASD, arrows, left stick), plays idle or run, and reports the `surface` under its feet; a
+limited `Camera2D` follows. A `TileShadow2D`, a dark copy of the hero, chases it on a `NavigationGrid2D` that reads the
+walls layer ([Navigation → Tile map source](navigation.md#tile-map-source)). The panel shows collision and navigation,
+toggles y-sort and the chase, sets the walk speed and autopilot, and a click on the map adds or removes a wall (live
+chunk and body rebuild, and the shadow repaths). The fourteenth tab: past the tenth, tabs are reached with the nav bar or
 `scene_next`/`scene_prev`.
 
 ## Tests

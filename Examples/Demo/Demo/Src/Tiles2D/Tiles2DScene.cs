@@ -5,20 +5,22 @@ using static Demo.DemoBuild;
 namespace Demo;
 
 /// <summary>
-/// Tiles 2D (G2b): three <see cref="TileMapLayer"/>s painted from a small ASCII level with one generated atlas
+/// Tiles 2D (G2b, G3.6): three <see cref="TileMapLayer"/>s painted from a small ASCII level with one generated atlas
 /// (<see cref="TilesArt"/>, <c>Assets/Tiles2D/tiles.png</c> + the <see cref="TileSet"/> <c>tiles.mres</c>): "Ground"
-/// (grass, paths, flowers, water that blocks), "Walls" (stone with full-tile collision) and the y-sorted "Objects"
+/// (grass, paths, flowers), "Walls" (what blocks: stone and water, with full-tile collision) and the y-sorted "Objects"
 /// (trees whose canopy sorts at the trunk's base, bushes with polygon collision). The Sprites 2D hero
 /// (<c>hero.mres</c>) is a <see cref="TileHero2D"/> inside the objects layer, so it walks behind and in front of the
-/// trees; a camera follows it. The panel shows collision, toggles y-sort and the walk speed, and a click on the map adds
-/// or removes a wall cell at run time (the chunk's drawing and body rebuild).
+/// trees; a camera follows it. A <see cref="TileShadow2D"/> chases it on a <see cref="NavigationGrid2D"/> that reads the
+/// walls layer (<see cref="NavigationGridSource.TileMapLayer"/>). The panel shows collision and navigation, toggles y-sort,
+/// the walk speed and the chase, and a click on the map adds or removes a wall cell at run time (the chunk's drawing and
+/// body rebuild, and the shadow repaths).
 /// </summary>
 public static class Tiles2DScene
 {
     public const string AtlasPath = "Assets/Tiles2D/tiles.png";
     public const string TileSetPath = "Assets/Tiles2D/tiles.mres";
 
-    /// <summary>The level: # wall, . grass, = path, ~ water, * flowers, T tree (canopy above), b bush, @ hero start.</summary>
+    /// <summary>The level: # wall, . grass, = path, ~ water, * flowers, T tree (canopy above), b bush, @ hero start, s shadow start.</summary>
     public static readonly string[] Level =
     [
         "##########################################",
@@ -39,7 +41,7 @@ public static class Tiles2DScene
         "#..T.....=.....*....~~~~~~~.......=......#",
         "#........==========.~~~~~~~..T....=......#",
         "#...b..............~~~~~~~........=..*...#",
-        "#.........T.....*.........b.......=......#",
+        "#.........T.....*.........b.......=.....s#",
         "##########################################",
     ];
 
@@ -52,6 +54,7 @@ public static class Tiles2DScene
         var walls = Add(root, root, new TileMapLayer { Name = "Walls", TileSet = tiles });
         var objects = Add(root, root, new TileMapLayer { Name = "Objects", TileSet = tiles, YSortEnabled = true });
         var start = Vector2.Zero;
+        var shadowStart = Vector2.Zero;
         for (var y = 0; y < Level.Length; y++)
             for (var x = 0; x < Level[y].Length; x++)
             {
@@ -60,7 +63,6 @@ public static class Tiles2DScene
                 ground.SetCell(cell, 0, c switch
                 {
                     '=' or '@' => TilesArt.Path,
-                    '~' => TilesArt.Water,
                     '*' => TilesArt.Flowers,
                     _ => TilesArt.Grass,
                 }, (x * 7 + y * 3) % 5 == 0 && c == '.' ? TileSetAtlasSource.TransformFlipH : 0);
@@ -68,6 +70,9 @@ public static class Tiles2DScene
                 {
                     case '#':
                         walls.SetCell(cell, 0, TilesArt.Stone);
+                        break;
+                    case '~':
+                        walls.SetCell(cell, 0, TilesArt.Water);
                         break;
                     case 'T':
                         objects.SetCell(cell + new Vector2I(0, -1), 0, TilesArt.Canopy);
@@ -78,6 +83,9 @@ public static class Tiles2DScene
                         break;
                     case '@':
                         start = ground.MapToLocal(cell) + new Vector2(0, 6);
+                        break;
+                    case 's':
+                        shadowStart = ground.MapToLocal(cell) + new Vector2(0, 6);
                         break;
                 }
             }
@@ -105,6 +113,26 @@ public static class Tiles2DScene
             LimitRight = Level[0].Length * TilesArt.Cell,
             LimitBottom = Level.Length * TilesArt.Cell,
         });
+
+        // The shadow's navigation: the walls layer owns the grid's layout and solid cells, and is re-read when it changes.
+        Add(root, root, new NavigationGrid2D
+        {
+            Name = "Navigation",
+            Source = NavigationGridSource.TileMapLayer,
+            TileMapLayerPath = "../Walls",
+        });
+        var shadow = Add(root, objects, new TileShadow2D { Name = "Shadow", Position = shadowStart });
+        Add(root, shadow, new AnimatedSprite2D
+        {
+            Name = "Sprite",
+            SpriteFrames = frames,
+            Animation = "idle",
+            Autoplay = "idle",
+            Scale = new Vector2(0.75f),
+            Offset = new Vector2(0, -14),
+            Modulate = new Vector4(0.25f, 0.2f, 0.4f, 0.85f), // a dark copy of the hero
+        });
+        Add(root, shadow, new NavigationAgent2D { Name = "Agent", PathDesiredDistance = 4f }); // 16 px cells: never skip a corner
 
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new Tiles2DPanel { Name = "Panel" });
