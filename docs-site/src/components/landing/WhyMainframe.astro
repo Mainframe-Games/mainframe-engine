@@ -1,0 +1,124 @@
+---
+// Why Mainframe (README "Why Mainframe?"): the game is the engine, then the answer to "why not Godot?". Cards reuse
+// the Features styles (mf-feature), each linking to the doc that backs it up.
+import TablerIcon from './TablerIcon.astro';
+
+const base = import.meta.env.BASE_URL;
+
+interface Point {
+  icon: string;
+  title: string;
+  text: string;
+  doc: string;
+}
+
+const engine: Point[] = [
+  {
+    icon: 'brand-c-sharp',
+    title: 'One language, one process',
+    text: 'Engine and game are C# in the same process: no binding layer, no marshalling. The NuGet package carries symbols and sources, so the debugger steps from your node into the renderer.',
+    doc: 'design/distribution-nuget/',
+  },
+  {
+    icon: 'app-window',
+    title: 'The editor is a game too',
+    text: "The editor is an Engine subclass: its panels are the engine's game UI, its viewports the same scene tree, its music and video modes the same servers. What the editor does, your game can do.",
+    doc: 'design/editor/',
+  },
+  {
+    icon: 'player-play',
+    title: 'Play runs the real game',
+    text: 'Play builds your project and starts the executable you will ship, in its own process. --headless runs that same executable as a dedicated server.',
+    doc: 'design/project-and-gamehost/',
+  },
+  {
+    icon: 'terminal-2',
+    title: 'Your tools just work',
+    text: 'A game is a .NET solution: dotnet build, dotnet test, Rider or VS Code, NuGet packages, analyzers and your CI work as for any C# project.',
+    doc: 'getting-started/',
+  },
+  {
+    icon: 'book',
+    title: 'Nothing is out of reach',
+    text: 'MIT-licensed and small enough to read, with a design doc per subsystem that describes it as it is in the code. Override it, or point your game at a checkout and change it.',
+    doc: '',
+  },
+];
+
+const godot: Point[] = [
+  {
+    icon: 'code',
+    title: 'C# all the way down',
+    text: 'Godot is a C++ engine with C# as one of its scripting languages. Here the engine itself is C#, and per-frame code makes no allocations, which a CI gate enforces.',
+    doc: 'design/testing/',
+  },
+  {
+    icon: 'stack-2',
+    title: "Godot's model, kept",
+    text: 'Nodes, the scene tree, signals, [Export], MoveAndSlide, AStarGrid2D, TileMapLayer and Godot spatial shaders work as you know them, so moving over costs little.',
+    doc: 'design/scene-graph-and-nodes/',
+  },
+  {
+    icon: 'brand-steam',
+    title: 'The shipping kit is built in',
+    text: 'Saves, a settings menu with rebinding, Steam and demo builds, export presets, crash reports, localization, recording with a trailer-cutting video mode, music and sound tools: most of it what Godot leaves to add-ons.',
+    doc: 'design/game-export/',
+  },
+];
+---
+
+<section class="mf-section mf-features mf-why not-content" aria-labelledby="why-title">
+  <header class="mf-section__head" data-reveal>
+    <p class="mf-kicker">Why Mainframe</p>
+    <h2 id="why-title">The game is the engine</h2>
+    <p>
+      There is no runtime for your game to plug into. The engine is a C# library, a game is an ordinary .NET program
+      whose <code>Main</code> is one line, and what you ship is your executable with the engine inside it.
+    </p>
+  </header>
+  <div class="mf-features__grid">
+    {
+      engine.map((p, i) => (
+        <a class="mf-feature" href={`${base}docs/${p.doc}`} data-reveal style={`--i: ${i % 4}`}>
+          <span class="mf-feature__icon">
+            <TablerIcon name={p.icon} />
+          </span>
+          <h4>{p.title}</h4>
+          <p>{p.text}</p>
+          <span class="mf-feature__more" aria-hidden="true">
+            Read the doc →
+          </span>
+        </a>
+      ))
+    }
+  </div>
+
+  <header class="mf-section__head mf-why__godot" data-reveal>
+    <p class="mf-kicker">Why not Godot?</p>
+    <h2>If Godot works for you, use it</h2>
+    <p>
+      It is mature, with a large community, web and mobile exports, and GDScript. Mainframe is for people who want
+      Godot's way of making games with three differences.
+    </p>
+  </header>
+  <div class="mf-features__grid">
+    {
+      godot.map((p, i) => (
+        <a class="mf-feature" href={`${base}docs/${p.doc}`} data-reveal style={`--i: ${i % 4}`}>
+          <span class="mf-feature__icon">
+            <TablerIcon name={p.icon} />
+          </span>
+          <h4>{p.title}</h4>
+          <p>{p.text}</p>
+          <span class="mf-feature__more" aria-hidden="true">
+            Read the doc →
+          </span>
+        </a>
+      ))
+    }
+  </div>
+  <p class="mf-why__tradeoff" data-reveal>
+    The trade-offs: Mainframe targets desktop (macOS, Windows and Linux) for now, and it is young. Pick it if you would
+    rather read and change your engine than work around it.
+  </p>
+</section>

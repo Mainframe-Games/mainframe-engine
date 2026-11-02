@@ -50,7 +50,7 @@ That builds `docs-site/dist` exactly as CI does, including the Pagefind search i
 | `docs-site/src/styles/theme.css` | The editor theme (see [Theme](#theme)) |
 | `docs-site/src/styles/landing.css` | The landing page's layout and animations |
 | `docs-site/src/pages/index.astro` | The landing page (see [Landing page](#landing-page)) |
-| `docs-site/src/components/landing/` | Its sections in page order (`LandingHero`, `Showcase`, `Daw`, `VideoMode`, `Features`, `Download`), the grid canvas (`grid.ts`), the logo animation (`logo.ts`) and `TablerIcon` |
+| `docs-site/src/components/landing/` | Its sections in page order (`LandingHero`, `Showcase`, `WhyMainframe`, `Daw`, `VideoMode`, `Features`, `Download`), the grid canvas (`grid.ts`), the logo animation (`logo.ts`) and `TablerIcon` |
 | `docs-site/src/components/Head.astro` | Starlight's `<head>` plus the Mermaid renderer |
 | `docs-site/src/components/Hero.astro` | Starlight's hero, replaced on the landing page by `LandingHero` |
 | `docs-site/src/components/SocialIcons.astro` | The header's **Docs** and **Download** links before Starlight's GitHub icon |
@@ -136,7 +136,7 @@ The rest of the editor's look carries over too:
 `src/pages/index.astro` is a `StarlightPage` with the splash template, so it keeps Starlight's header, search, theme
 picker and fonts. Starlight's `Hero` component is overridden: on `/` it renders `LandingHero`, on any other page
 Starlight's own hero. The sections are marked `not-content`, so Starlight's Markdown styles leave them alone. In page
-order: the hero, the showcase, the audio tools, the features, the downloads and a closing call to action.
+order: the hero, the showcase, why Mainframe, the audio tools, the features, the downloads and a closing call to action.
 
 - **Hero.** A full-width canvas (`grid.ts`) draws the editor's scene grid in perspective: minor and major lines
   scrolling toward the viewer, data pulses running down them, stars above a glowing horizon. The vanishing point
@@ -158,6 +158,9 @@ order: the hero, the showcase, the audio tools, the features, the downloads and 
   arrangement and piano roll in time with the Demo song (8 bars at 140 BPM), and a sweep runs over the sound's
   waveform. They are positioned in percent of the 1600 × 960 screenshots (`landing.css`), so a re-captured screenshot
   with a different layout needs them moved.
+- **Why Mainframe**, after the showcase: the README's "Why Mainframe?" as two groups of `Features`-style cards, "The
+  game is the engine" and "Why not Godot?", each card linking to the doc that backs it, and a closing note on the
+  trade-offs. Keep it in step with the README section.
 - **Video mode.** Gameplay recording and the editor's video mode beside `editor-video.png`, in the audio tools' layout
   (the `mf-daw` classes), without overlays.
 - **Every feature is on the page.** A user-facing feature gets its card in `Features`, its row in the README's

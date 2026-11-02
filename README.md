@@ -33,10 +33,53 @@ the whole window) and a sound designer, and a video mode that turns gameplay rec
 It runs on macOS (Apple Silicon), Windows x64 and Linux x64, ships as the
 [`MainframeEngine`](https://www.nuget.org/packages/MainframeEngine) NuGet package and a self-updating editor, and is
 open source under the MIT licence. It started as a way to learn how engines work and to build a framework I like
-working in, and it is in active development (milestones M0–M10 are done; see the [roadmap](docs/milestones.md)). Feel
-free to use it, and to send pull requests or feature requests in Issues 😁
+working in, inspired by my work as Technical Producer on [BRUTAL](https://github.com/ahwootech/BRUTAL). It doesn't use
+BRUTAL under the hood because work on this engine began well before BRUTAL was open-sourced. It is in active
+development (milestones M0–M10 are done; see the [roadmap](docs/milestones.md)). Feel free to use it, and to send pull
+requests or feature requests in Issues 😁
 
 ![The editor: a 3D scene with a spot light selected, its inspector, the FileSystem and Output panels](docs/images/editor.png)
+
+---
+
+## Why Mainframe?
+
+### The game is the engine
+
+There is no runtime for your game to plug into. The engine is a C# library and a game is an ordinary .NET program
+that references it: its `Main` is one line, `return GameHost.Run(args, typeof(Player).Assembly);`, and what you ship is
+your executable with the engine inside it.
+
+- **One language, one process.** Engine and game are C# in the same process: no binding layer, no marshalling, no
+  second language for the engine's part. The NuGet package carries symbols and sources, so the debugger steps from
+  your node into the renderer, the physics or the mixer.
+- **The editor is a game too.** `EditorApp` is an `Engine` subclass. Its panels are the engine's RmlUi game UI, its
+  viewports are the same scene tree and `SubViewport`s your game uses, and its music, sound designer and video modes
+  run on the same audio and UI servers. What the editor does, your game can do.
+- **Play runs the real game.** Play builds your project and starts the executable you will ship, in its own process,
+  talking to the editor over the editor link. `--headless` runs that same executable as a dedicated server.
+- **Your tools just work.** A game is a .NET solution: `dotnet build`, `dotnet test`, Rider or VS Code, NuGet
+  packages, analyzers and your CI work as they do for any other C# project.
+- **Nothing is out of reach.** The engine is MIT-licensed and small enough to read, and every subsystem has a
+  [design doc](docs/design/) that describes it as it is in the code. Read it, override it, or point your game at a
+  checkout (`--engine-source project`) and change it.
+
+### Why not Godot?
+
+If Godot works for you, use it. It is mature, it has a large community and asset library, it exports to the web and
+mobile, and it has GDScript. Mainframe is for people who want Godot's way of making games with three differences:
+
+- **C# all the way down.** Godot is a C++ engine with C# as one of its scripting languages. Here the engine itself is
+  C# (see above), and per-frame code makes no allocations, which a CI gate enforces.
+- **Godot's model, kept.** Nodes, the scene tree, signals, `[Export]`, `MoveAndSlide`, `AStarGrid2D`, `TileMapLayer`
+  and Godot spatial shaders work as you know them, so moving over costs little.
+- **The shipping kit is built in.** Save games with backups and migrations, a drop-in settings menu with rebinding,
+  Steam and Steam demo builds, export presets with `mf-export` for CI, crash reports, gettext localization, gameplay
+  recording with a video mode that cuts trailers, and a music editor and sound designer: most of it is what Godot
+  leaves to add-ons or other programs.
+
+The trade-offs: Mainframe targets desktop (macOS, Windows and Linux) for now, and it is young. Pick it if you would
+rather read and change your engine than work around it.
 
 ---
 
