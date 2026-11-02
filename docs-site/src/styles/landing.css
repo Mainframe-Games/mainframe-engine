@@ -554,6 +554,32 @@
   translate: 0 0;
 }
 
+/* ── Why Mainframe (the Features cards, two groups and a closing note) ───── */
+
+/* Rows of five and three cards: centred, so a short row never leaves a hole on its right. */
+.mf-why .mf-features__grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.mf-why .mf-feature {
+  flex: 1 1 12.5rem;
+  max-width: 21rem;
+}
+.mf-why__godot {
+  margin-top: clamp(3rem, 2rem + 4vw, 5rem);
+}
+.mf-why .mf-section__head code {
+  font-size: 0.9em;
+}
+.mf-why__tradeoff {
+  max-width: 40rem;
+  margin: 2rem auto 0;
+  text-align: center;
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+}
+
 /* ── Audio tools (the DAW) ───────────────────────────────────────────────── */
 
 .mf-eq {
