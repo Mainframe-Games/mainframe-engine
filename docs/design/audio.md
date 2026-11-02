@@ -30,7 +30,7 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 | `AudioMixRoot`, `AudioGraph`, `AudioVoice`, `VoiceSource`, `SpatialSmoother`, `BusProcessor` | [Audio/Graph/](../../MainframeEngine/Src/Audio/Graph/) | audio-thread side (internal) |
 | `SpscRing<T>`, `AudioStreamChannel`, `AudioStreamer` | [Audio/Threading/](../../MainframeEngine/Src/Audio/Threading/) | lock-free rings, streaming thread (internal) |
 | `MusicGrid`, `MusicParameterSet`, `MusicCurve`, `MusicPlan`, `MusicDirector`, `MusicManifest` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | adaptive music logic shared by the editor and games (the beat grid, parameters, curves, rules, `.mmusic`) |
-| `AdaptiveMusic` (+ `AdaptiveMusicImporter`), `AdaptiveMusicInstance`, `AdaptiveMusicPlayer`, `MusicPosition` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | the adaptive-music runtime: the `.mmusic` resource and its stems, one playing piece on the game thread, the node; [Adaptive music, As built: A2](future/adaptive-music.md#as-built-a2) |
+| `AdaptiveMusic` (+ `AdaptiveMusicImporter`), `AdaptiveMusicInstance`, `AdaptiveMusicPlayer`, `MusicPosition` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | the adaptive-music runtime: the `.mmusic` resource and its stems, one playing piece on the game thread, the node; [Adaptive music](#adaptive-music) |
 | `MusicVoice` | [Audio/Graph/MusicVoice.cs](../../MainframeEngine/Src/Audio/Graph/MusicVoice.cs) | audio-thread music player: lane groups, the music clock, scheduled actions, fades, tails, the layer filter (internal) |
 | `Svf` | [Audio/Dsp/Svf.cs](../../MainframeEngine/Src/Audio/Dsp/Svf.cs) | state-variable filter shared by the editor's effects and the music layer filter |
 | `AudioDecoder` (`WavDecoder`, `VorbisDecoder`, `MiniAudioFileDecoder`), `AudioClipData`, `AudioStreamSource` | [Audio/Decoding/](../../MainframeEngine/Src/Audio/Decoding/) | decoding (internal) |
@@ -295,10 +295,44 @@ the audio thread), so a voice resumes exactly where it stopped. `Pausable` voice
 `Always` voices keep playing (menu sounds), `WhenPaused` play only while paused, `Disabled` never. One-shots carry
 their own `ProcessMode` (default `Pausable`).
 
+## Adaptive music
+
+Games play music authored in the editor's song editor as sections, layers, parameters and beat-quantized transitions
+(FMOD-style), baked to stems ([Adaptive music](adaptive-music.md) has the whole design; ADR 0196).
+
+- **Author and bake.** A song with an `adaptive` block ([Editor → Song tab](editor.md#song-tab-music-editor)) bakes
+  (Ctrl+B, or `just bake-song <path.msong>`) to `Assets/Music/<Song>.mmusic` and `<Song>.stems/*.ogg`: one stem per
+  layer per section, tails, stingers. Section bodies stream; tails, stingers and transition segments are memory-loaded.
+- **Play.** An `AdaptiveMusicPlayer` node (`Music` = the `.mmusic` by its `mus_` UID, `Bus` "Music", `Autoplay`,
+  `StartSection`, `ScheduleAhead`) wraps an `AdaptiveMusicInstance`; game code calls it:
+
+  ```csharp
+  var music = GetNode<AdaptiveMusicPlayer>("Music");
+  music.SetParameter("intensity", 0.8f);      // continuous parameters seek at their speed
+  music.SetParameter("area", "Combat");        // a labeled parameter by its label: the rule moves on the next bar
+  music.TriggerStinger("hit");                 // on its quantum, its pickup first
+  music.GoToSection("boss", MusicQuantize.Bar);
+  music.Bar += bar => { /* 1-based within the section */ };
+  ```
+
+  `CurrentSection`, `PendingTransition`, `PendingSeconds` and `GetPosition()` (section, bar, beat, seconds; for visual
+  sync) say where the music is; `SectionStarted`, `Beat`, `Bar`, `Marker`, `TransitionScheduled` and `Finished` are
+  signals. The game thread decides (the shared `MusicDirector`), the audio thread's `MusicVoice` executes on the exact
+  sample; see [Threading](adaptive-music.md#threading).
+- **Voices.** Each player needs a music voice on its bus (`AudioBusInfo.MusicVoices`, 2 on Music by default; see
+  [Buses](#buses)).
+- **Tweak a running game.** The dev overlay's Music panel drives every playing instance (parameters, stingers, Next);
+  the editor's Adaptive tab can target a game's player over the editor link (protocol 6), and a bake while the game
+  runs reloads the music at its next pass ([Adaptive music, As built: A6](adaptive-music.md#as-built-a6)).
+- **Demo:** the Music tab ([Demo](demo.md)) plays `Assets/Music/adaptive_theme.mmusic` with an intensity slider, an
+  area select and a stinger.
+
 ## Debugging and QA
 
 - The dev overlay's Audio panel ([Developer overlay](dev-overlay.md)) shows the device, voice/steal/underrun counters and a
-  fader, mute, solo and peak meter per bus (allocation-free; writes go through `AudioServer` commands).
+  fader, mute, solo and peak meter per bus (allocation-free; writes go through `AudioServer` commands). Its Music
+  panel appears once adaptive music plays: section, bar.beat, the scheduled transition, layer gains, a control per
+  parameter, Fire per stinger and Next (`AudioServer.MusicInstances` lists what plays).
 - `AudioServer.Stats`: active/total voices, steals, rejected plays, stream underruns and errors, rendered frames and
   blocks, pending commands, fault flag.
 

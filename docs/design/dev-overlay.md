@@ -30,6 +30,7 @@ Files: [Debugging/DevOverlay/](../../MainframeEngine/Src/Debugging/DevOverlay/) 
 | `shadows` | Shadows | Cascade colours, stable cascades, filter and radius, pass and draw counters, map sizes and memory, CPU / GPU ms, and the shadow-map images (see below) |
 | `gpu` | GPU memory | Allocator totals and per-memory-type usage, staging ring, pending uploads, deletion queue, pipeline cache and shader modules |
 | `audio` | Audio | Device name, voices / steals / underruns, and one row per bus: dB fader, mute, solo, peak meter (writes go through `AudioServer` commands) |
+| `music` | Music | Added at the first refresh that finds adaptive music playing ([Adaptive music](adaptive-music.md#editor-link-and-dev-overlay)). Per playing instance: the music, section and bar.beat, the scheduled transition and its countdown, a gain bar per layer, a slider, stepper or label buttons per parameter, Fire per stinger and Next (the matching transition, else the first from the section). Writes go through the instance, like game code |
 | `physics` | Physics | Toggles for collision shapes, navigation (G3a: `NavigationServer2D.DebugDrawEnabled`), light gizmos and the axis gizmo; 3D and 2D body counts (awake), joints (active) and joints broken per second |
 | `network` | Network | Mode, tick, networked nodes, clients, bytes per second in and out; "Offline" while no `MultiplayerApi` session is active |
 

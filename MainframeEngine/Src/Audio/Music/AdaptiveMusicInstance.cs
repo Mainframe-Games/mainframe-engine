@@ -121,10 +121,19 @@ public sealed class AdaptiveMusicInstance : IDisposable
     /// <summary>The destination of a scheduled transition, or null.</summary>
     public string? PendingTransition => _director is { PendingSection: >= 0 } d && Playing ? d.Plan.Sections[d.PendingSection].Id : null;
 
+    /// <summary>Seconds until the scheduled transition happens (from the last reported clock), or −1 when none is scheduled.</summary>
+    public float PendingSeconds =>
+        PendingTransition is not null && _director is { PendingFrame: >= 0 } d
+            ? Math.Max(0, d.PendingFrame - _clock) / (float)d.Plan.Grid.SampleRate
+            : -1f;
+
     /// <summary>The logic (parameters, layer values, the scheduled transition); null without music.</summary>
     public MusicDirector? Director => _director;
 
     internal IAdaptiveMusicOwner? Owner { get; set; }
+
+    /// <summary>The node that plays it, or null (an instance used without a tree, like the editor's Baked audition).</summary>
+    public AdaptiveMusicPlayer? Player => Owner as AdaptiveMusicPlayer;
 
     /// <summary>The music voice and its play (tests); −1 while not playing.</summary>
     internal int VoiceIndex => _voice;

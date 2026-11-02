@@ -46,6 +46,7 @@ public sealed class EditorLinkClient : IDisposable
     private bool _statusPending;
     private EditorLinkTreeNode[]? _tree;
     private bool _treeTruncated;
+    private EditorLinkMusicInstance[]? _music; // guarded by _statusGate
     private int _queued;
     private long _droppedPending;
     private long _droppedTotal;
@@ -300,6 +301,15 @@ public sealed class EditorLinkClient : IDisposable
         _signal.Set();
     }
 
+    /// <summary>Queues an adaptive music report (protocol 6); a newer one replaces it.</summary>
+    public void ReportMusic(EditorLinkMusicInstance[] instances)
+    {
+        ArgumentNullException.ThrowIfNull(instances);
+        lock (_statusGate)
+            _music = instances;
+        Wake();
+    }
+
     /// <summary>
     /// Sends the queued logs and a goodbye with <paramref name="exitCode"/>, waiting at most <paramref name="timeout"/>
     /// (call when the game exits; returns false when not connected or timed out).
@@ -445,6 +455,12 @@ public sealed class EditorLinkClient : IDisposable
                 {
                     EditorLinkProtocol.WriteTree(buffer, tree, _treeTruncated);
                     _tree = null;
+                }
+
+                if (_music is { } music)
+                {
+                    EditorLinkProtocol.WriteMusic(buffer, music);
+                    _music = null;
                 }
 
                 while (_recordings.TryDequeue(out var recording))

@@ -252,6 +252,25 @@ command edit.undo
 command edit.undo
 command edit.undo
 wait 5
+# Adaptive music (A6): the Demo's Music scene played hidden, its adaptive song open with the Adaptive tab targeting the
+# game's player over the editor link (intensity and area sent to the game), the Curves pane on the Lead's volume.
+play-args --hidden --scene Assets/Scenes/adaptive_music.mscene
+wait-for playing 120
+open Examples/Demo/Assets/Music/adaptive_theme.msong
+wait 10
+song adaptive-tab
+wait-for music 60
+song target 1
+song audition intensity 0.85
+song audition area 1
+song curve-select 1
+wait 240
+move 1500 700
+wait 20
+capture editor-song-adaptive
+song target 0
+command play.stop
+wait-for stopped 30
 # The wavetable synth on the Lead track with a factory preset (stacked wavetables, LFO 1 in the editor), playing so the
 # modulated knobs show their live dots; undone again.
 song synth 1

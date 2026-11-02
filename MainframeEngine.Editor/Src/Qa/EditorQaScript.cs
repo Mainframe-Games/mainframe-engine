@@ -475,6 +475,7 @@ public sealed class EditorQaScript : IEditorAutomation
                                             !w.NewProject.Visible,
                     "idle" => static w => !w.Project.IsBuilding && !w.Play.IsBuilding,
                     "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running && i.Frame >= 90),
+                    "music" => static w => w.Play.Service.Instances.Any(i => i.Music.Length > 0), // a game reported its adaptive music
                     "stopped" => static w => !w.Play.IsPlaying,
                     "render" => static w => w.SongView.Renders.Count == 0,
                     "bake" => static w => w.SongView.Bakes.Count == 0,
@@ -1269,6 +1270,16 @@ public sealed class EditorQaScript : IEditorAutomation
             case "stop":
                 tab.Player.Stop();
                 break;
+            case "target":
+                {
+                    // song target <n>: the Adaptive tab's Target (0: the editor; n: the n-th running game's player of this song)
+                    var n = int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture);
+                    var targets = Music.GameMusicTarget.For(workspace.Play.Service, tab.Document.Song.Uid);
+                    tab.SetGameTarget(n >= 1 && n <= targets.Count ? targets[n - 1] : null);
+                    Log.Info($"[QA] song target {tab.GameTarget?.Label ?? "Editor"} ({targets.Count} game player(s))");
+                    break;
+                }
+
             case "render":
                 workspace.Commands.Execute("song.render");
                 break;

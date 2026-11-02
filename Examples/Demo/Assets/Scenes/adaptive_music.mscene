@@ -1,0 +1,62 @@
+{
+  "format": 2,
+  "uid": "scn_e908a4db9b84",
+  "resources": {
+    "AdaptiveMusic_5t7ak": {
+      "ref": "mus_4a7b080e213f",
+      "path": "Assets/Music/adaptive_theme.mmusic"
+    }
+  },
+  "nodes": [
+    {
+      "name": "adaptive_music",
+      "type": "Node2D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera2D",
+      "props": {
+        "Current": true
+      }
+    },
+    {
+      "name": "Backdrop",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [1600, 900],
+        "Color": [0.04, 0.05, 0.1, 1],
+        "ColorBottom": [0.1, 0.04, 0.12, 1]
+      }
+    },
+    {
+      "name": "Music",
+      "parent": ".",
+      "type": "AdaptiveMusicPlayer",
+      "props": {
+        "Music": { "res": "AdaptiveMusic_5t7ak" },
+        "VolumeDb": -4,
+        "Autoplay": true
+      }
+    },
+    {
+      "name": "Visualizer",
+      "parent": ".",
+      "type": "MusicVisualizer2D"
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "AdaptiveMusicPanel"
+    }
+  ]
+}

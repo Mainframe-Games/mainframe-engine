@@ -1,6 +1,6 @@
 ---
-// The editor's audio tools (docs/design/editor.md: Song tab, Sound designer): the music editor and the ZzFX sound
-// designer, each beside its screenshot. The equalizer bars in the header are decorative; the overlays play the
+// The editor's audio tools (docs/design/editor.md: Song tab, Sound designer; docs/design/adaptive-music.md): the music
+// editor, adaptive music, the effects, the synth and the ZzFX sound designer, each beside its screenshot. The equalizer bars in the header are decorative; the overlays play the
 // screenshots: a playhead over the song's arrangement and piano roll, a sweep over the sound's waveform (landing.css
 // positions them in percent of the 1600 × 960 screenshots).
 import TablerIcon from './TablerIcon.astro';
@@ -27,6 +27,22 @@ const tools = [
       { icon: 'plug-connected', text: 'VST3 instruments and effect inserts in a crash-safe plugin host, with delay compensation' },
       { icon: 'keyboard', text: 'MIDI keyboards: play the armed track, record takes, loop-record, input quantize' },
       { icon: 'file-music', text: 'Render to OGG Vorbis or WAV, in the editor or headless in CI' },
+    ],
+  },
+  {
+    kicker: 'Adaptive music',
+    title: 'Music that follows the game, on the beat',
+    image: 'editor-song-adaptive.png',
+    overlay: 'none',
+    alt: "The Demo's adaptive song in music mode: the Sections lane with Explore outlined, the Adaptive tab targeting the running game's music player with Combat a bar away, and the Curves pane on the Lead layer's volume",
+    doc: `${base}docs/design/adaptive-music/`,
+    points: [
+      { icon: 'layout-grid', text: 'Sections on a lane under the ruler: loops, continuations, transition segments, stingers and exit markers' },
+      { icon: 'adjustments', text: 'Parameters (continuous, discrete, labeled) and layers whose volume and filter follow curves' },
+      { icon: 'arrows-right-left', text: 'Transitions that wait for the next beat, bar or exit marker, with fades and stingers' },
+      { icon: 'player-play', text: 'Hear it live while you write it, or play the bake exactly as the game will' },
+      { icon: 'package', text: 'Bake to sample-aligned stems in one command; only what changed renders again' },
+      { icon: 'device-gamepad-2', text: 'Drive a running game\'s music from the editor, and re-bake while it plays' },
     ],
   },
   {

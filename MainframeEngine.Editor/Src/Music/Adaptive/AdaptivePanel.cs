@@ -6,7 +6,7 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
-/// The right panel's Adaptive tab (A; docs/design/future/adaptive-music.md, "The Adaptive panel") for the active song tab:
+/// The right panel's Adaptive tab (A; docs/design/adaptive-music.md, "The Adaptive panel") for the active song tab:
 /// Now (what adaptive playback is on, the pending transition and its countdown, Play / Stop, the last bake), the
 /// parameters (an audition control each, with the smoothed value as a ghost while it seeks; Set as Default, an inline
 /// editor), the layers (colour, filter, a live gain meter, their curves), the transitions as sentences (from, to, when,
@@ -105,6 +105,7 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
         hash.Add(state.Playing);
         hash.Add(tab.IsPlayingAdaptive);
         hash.Add(tab.AuditionBaked);
+        hash.Add(tab.GameTarget is { } target ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(target) : 0);
         hash.Add(_editParam);
         hash.Add(_editRule);
         hash.Add(_auditionVersion);
@@ -188,10 +189,24 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
             .Append(_bakedAvailable ? "Baked — the last bake's stems through the runtime player, exactly what the game plays" : "Baked — bake the song first (Ctrl+B)")
             .Append("\">Baked</div></div><div class=\"ad-now\"><span id=\"ad-now\" class=\"mono\">")
             .Append(playing ? "" : "Stopped").Append("</span></div><div id=\"ad-pending\" class=\"ad-pending\"></div>");
+        BuildTarget(sb, tab);
         sb.Append("<div class=\"ad-bake\"><span class=\"grow\">").Append(RmlText.Escape(BakeText(tab))).Append("</span>")
             .Append("<button class=\"text-button\" data-ad=\"bake\" data-tooltip=\"Bake (Ctrl+B) — the stems and the .mmusic manifest the game plays\">Bake</button></div>");
         if (adaptive.Sections.Count == 0)
             sb.Append("<div class=\"ad-note\">Drag in the Sections lane under the ruler to make the first section.</div>");
+        sb.Append("</div>");
+    }
+
+    // The Target menu (A6): the editor, or a running game's player of this song; Copy to Defaults while a game is targeted.
+    private static void BuildTarget(StringBuilder sb, SongTab tab)
+    {
+        var target = tab.GameTarget;
+        sb.Append("<div class=\"ad-target\"><span class=\"ad-dim\">Target</span><button class=\"text-button with-icon").Append(target is null ? "" : " game")
+            .Append("\" data-ad=\"target\" data-tooltip=\"Target — what these controls drive: the editor, or the player of this song in a game Play started (its parameters, stingers and position)\">")
+            .Append("<span class=\"icon icon-sm icon-").Append(target is null ? "device-desktop" : "device-gamepad-2").Append("\"></span><span>")
+            .Append(RmlText.Escape(target?.Label ?? "Editor")).Append("</span><span class=\"icon icon-sm icon-chevron-down\"></span></button><span class=\"grow\"></span>");
+        if (target is not null && !tab.Document.IsReadOnly)
+            sb.Append("<button class=\"tool-button small\" data-ad=\"copy-defaults\" data-tooltip=\"Copy to Defaults — the game's current values become the parameters' defaults (one undo step)\"><span class=\"icon icon-sm icon-copy\"></span></button>");
         sb.Append("</div>");
     }
 
@@ -579,6 +594,17 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
     {
         if (tab.Document.Song.Adaptive is not { } adaptive || _plan is not { } plan || _params is not { } parameters)
             return;
+        if (tab.GameTarget is { } target)
+        {
+            if (target.IsLive)
+            {
+                TickGame(adaptive, plan, parameters, target);
+                return;
+            }
+
+            tab.SetGameTarget(null); // the game went away: back to the editor
+        }
+
         if (tab.AuditionBaked && tab.Baked.Instance is { Playing: true, Director: { } director } instance)
         {
             TickBaked(adaptive, instance, director);
@@ -662,6 +688,86 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
 
         // The transition that would fire now from the current (or selected, or start) section.
         var section = live ? state.Section : plan.FindSection(tab.SelectedSection?.Id ?? adaptive.Start ?? "");
+        var rule = section >= 0 ? plan.FirstMatchingRule(section, parameters)?.Index ?? -1 : -1;
+        if (rule != _shownRule)
+        {
+            if (_shownRule >= 0 && _document.GetElementById(ElementId(id, "ad-rule-", _shownRule)) is { IsNull: false } previous)
+                previous.SetClass("firing", false);
+            _shownRule = rule;
+            if (rule >= 0 && _document.GetElementById(ElementId(id, "ad-rule-", rule)) is { IsNull: false } firing)
+                firing.SetClass("firing", true);
+        }
+    }
+
+    // A game's player (A6): its last report, by id (the game's bake may differ from the song as it is now).
+    private void TickGame(SongAdaptive adaptive, MusicPlan plan, MusicParameterSet parameters, GameMusicTarget target)
+    {
+        var report = target.Report;
+        var section = report is null ? -1 : plan.FindSection(report.Section);
+        var nowKey = report is null ? -2 : Key(section + 1, report.Bar * 64L + report.Beat);
+        if (nowKey != _shownNow)
+        {
+            _shownNow = nowKey;
+            if (_document.GetElementById("ad-now") is { IsNull: false } now)
+                now.SetInnerRml(report is null ? "Not playing in the game" : RmlText.Escape(string.Create(CultureInfo.InvariantCulture,
+                    $"{adaptive.FindSection(report.Section)?.Name ?? report.Section} · bar {report.Bar}.{report.Beat} · in the game")));
+        }
+
+        var left = report is { PendingSeconds: >= 0 } ? Math.Max(0, report.PendingSeconds - (DateTime.UtcNow - target.Game.MusicReceivedUtc).TotalSeconds) : -1;
+        var pending = report is { Pending.Length: > 0 } ? plan.FindSection(report.Pending) : -1;
+        var pendingKey = pending >= 0 && left >= 0 ? Key(pending, (long)(left * 10)) : -1;
+        if (pendingKey != _shownPending)
+        {
+            _shownPending = pendingKey;
+            if (_document.GetElementById("ad-pending") is { IsNull: false } next)
+                next.SetInnerRml(pendingKey < 0 ? "" : RmlText.Escape(string.Create(CultureInfo.InvariantCulture,
+                    $"Next: {plan.Sections[pending].Name} in {left:0.0} s")));
+        }
+
+        Span<char> id = stackalloc char[16];
+        for (var m = 0; m < _meterLayer.Length && m < _meterLayerId.Length; m++)
+        {
+            var db = -80f;
+            foreach (var (layer, gain) in report?.Layers ?? [])
+            {
+                if (string.Equals(layer, _meterLayerId[m], StringComparison.Ordinal))
+                    db = gain;
+            }
+
+            var level = (int)MathF.Round(Math.Clamp((db + 60f) / 66f, 0, 1) * 100);
+            if (level == _shownMeter[m])
+                continue;
+            _shownMeter[m] = level;
+            if (_document.GetElementById(ElementId(id, "ad-lm-", m)) is { IsNull: false } fill)
+                fill.SetProperty("width", Percent[level]);
+        }
+
+        for (var g = 0; g < _ghostParam.Length; g++)
+        {
+            var p = _ghostParam[g];
+            if (p >= adaptive.Parameters.Count)
+                continue;
+            var info = adaptive.Parameters[p];
+            var at = target.ParameterValue(info.Name) is { } value
+                ? (int)MathF.Round(Math.Clamp((value - info.Min) / Math.Max(1e-6f, info.Max - info.Min), 0, 1) * 100)
+                : -1;
+            if (at == _shownGhost[g])
+                continue;
+            _shownGhost[g] = at;
+            if (_document.GetElementById(ElementId(id, "ad-pg-", p)) is not { IsNull: false } ghost)
+                continue;
+            ghost.SetClass("hidden", at < 0);
+            if (at >= 0)
+                ghost.SetProperty("left", Percent[at]);
+        }
+
+        // The rule that would fire now in the game: the game's values through the song's rules.
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (target.ParameterValue(parameters.NameOf(i)) is { } value)
+                parameters.SetTarget(i, value, immediate: true);
+        }
+
         var rule = section >= 0 ? plan.FirstMatchingRule(section, parameters)?.Index ?? -1 : -1;
         if (rule != _shownRule)
         {
@@ -793,6 +899,13 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
                     break;
                 case "mode":
                     tab.SetAuditionBaked(j == 1);
+                    break;
+                case "target":
+                    TargetMenu(tab, element);
+                    break;
+                case "copy-defaults" when editable && tab.GameTarget?.Report is { } report:
+                    if (!doc.SetParameterDefaults(report.Parameters))
+                        Log.Info("[Music] The game's values already are the defaults.");
                     break;
                 case "curve-open" when adaptive is not null && (uint)i < (uint)adaptive.Curves.Count:
                     tab.SelectCurve(adaptive.Curves[i]);
@@ -1330,6 +1443,24 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
     {
         var items = SongCanvas.Palette.Select(c => new MenuItem(c, c, Css: layer.Color == c ? "current" : null)).ToList();
         Show(items, anchor, command => doc.SetLayerColor(layer, command));
+    }
+
+    private void TargetMenu(SongTab tab, RmlElement anchor)
+    {
+        var targets = GameMusicTarget.For(workspace.Play.Service, tab.Document.Song.Uid);
+        var items = new List<MenuItem> { new("Editor", "editor", Css: tab.GameTarget is null ? "current" : null, Icon: "device-desktop") };
+        for (var t = 0; t < targets.Count; t++)
+            items.Add(new MenuItem(targets[t].Label, "game:" + t.ToString(CultureInfo.InvariantCulture), Css: targets[t].Same(tab.GameTarget) ? "current" : null, Icon: "device-gamepad-2"));
+        if (targets.Count == 0)
+            items.Add(new MenuItem("No game plays this song (Play the game first)", null, Enabled: false));
+        Show(items, anchor, command =>
+        {
+            if (command == "editor")
+                tab.SetGameTarget(null);
+            else if (command.StartsWith("game:", StringComparison.Ordinal) && int.TryParse(command.AsSpan(5), CultureInfo.InvariantCulture, out var t) && (uint)t < (uint)targets.Count)
+                tab.SetGameTarget(targets[t]);
+            _built = false;
+        });
     }
 
     private void Show(List<MenuItem> items, RmlElement anchor, Action<string> picked)

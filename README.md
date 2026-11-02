@@ -82,6 +82,10 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/tiles_2d.png" width="380" alt="Tiles 2D"><br><b>Tiles 2D</b> — TileMapLayers with collision and custom data; a hero walks behind and in front of y-sorted trees while a shadow chases it on a grid read from the walls; click to add walls</td>
     <td align="center" valign="top"><img src="docs/images/demo/navigation_2d.png" width="380" alt="Navigation 2D"><br><b>Navigation 2D</b> — a baked grid, mud, and twelve chasers walking to the clicked point; click to add walls</td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/demo/adaptive_music.png" width="380" alt="Music: the Demo's adaptive song with its sections, the bar's beats and three layer gain bars, and a panel with intensity, area and a stinger button"><br><b>Music</b> — adaptive music baked from the editor: intensity brings layers in, area changes section on the bar, a stinger</td>
+    <td></td>
+  </tr>
 </table>
 
 ### The editor
@@ -115,34 +119,35 @@ can be saved as a `.mres` or made unique from the inspector.
     <td align="center" valign="top"><img src="docs/images/editor-song-browser.png" width="380" alt="Music mode with the Browser open on the right (songs and plugins by category) and the mixer below, its strips showing insert slots"><br><b>Browser and mixer</b> — songs and plugins (F), drag onto a track; insert slots per strip</td>
   </tr>
   <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-song-adaptive.png" width="380" alt="The Demo's adaptive song in music mode: the Sections lane with Combat outlined, the Adaptive tab targeting the running game's music player, and the Curves pane on the Lead layer's volume"><br><b>Adaptive music</b> — sections, layers, parameters and transitions baked to stems; drive a running game's music from the editor</td>
     <td align="center" valign="top"><img src="docs/images/editor-song-synth.png" width="380" alt="The Mainframe Wavetable window on the Demo song's Lead track playing the Evolving Pad preset: two stacked wavetables, the filter curve, sub, noise and voicing, LFO 1's editor, the modulation strip and a keyboard"><br><b>Wavetable synth</b> — two wavetable oscillators, filters, drag-to-modulate, presets</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-simulate.png" width="380" alt="Simulating the Demo's Physics 3D scene in the editor: the dropper's crates stacked in the view, the pusher's inspector live and read-only under a Simulating banner"><br><b>Simulate</b> — physics and scripts in the view (Alt+F6); Stop restores the scene, Keep Transforms keeps where things landed</td>
-  </tr>
-  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-box-select.png" width="380" alt="Box selection in the Demo's Basic 3D scene: the floor, plinth and camera locked, the ring's meshes selected, a Shift rectangle held and the move gizmo at their median"><br><b>Box selection and multi-node gizmo</b> — select what is visible, lock nodes, move them around a shared pivot</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-range-handles.png" width="380" alt="Dragging the blue omni light's range handle: the handle on the range circle and a Range 6.22 m label"><br><b>Range handles</b> — drag light and audio ranges and cone angles; game nodes get them from <code>[Export(Handle)]</code></td>
-  </tr>
-  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-resource-menu.png" width="380" alt="The inspector's resource row More menu on a mesh: Save as .mres, Make Unique, Make Unique (Deep), Open, Show in FileSystem"><br><b>Resource actions</b> — Save as .mres, Make Unique (deep), Open, Show in FileSystem</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-joints.png" width="380" alt="A hinge of the Demo's rope bridge selected: its axis, limit arc and angle drawn on the planks, and its inspector with Rebuild and Swap A/B"><br><b>Joints</b> — the selected joint's gizmo, Rebuild and Swap A/B</td>
-  </tr>
-  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-joint-limits.png" width="380" alt="Dragging the upper limit of a rope bridge hinge: the limit arc with a handle at each end and an Upper Angle 72.0° label"><br><b>Joint limit handles</b> — drag hinge, slider, cone-twist, distance and 2D joint limits; one undo per drag</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-physical-skeleton.png" width="380" alt="The Demo's skinned character with a physical skeleton: capsules on its limbs, created from the Skeleton3D inspector"><br><b>Physical skeleton</b> — one click: a capsule and a cone-twist joint per bone</td>
-  </tr>
-  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-sprite-frames.png" width="380" alt="The Demo's Sprites 2D scene with the showcase hero selected: the SpriteFrames editor in the inspector with its animations and frame strip"><br><b>SpriteFrames editor</b> — animations and a frame strip in the inspector, previewed on the sprite</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-sheet-slicer.png" width="380" alt="The Select Frames dialog slicing the Demo's hero sheet into a 4 by 4 grid with the run row picked and numbered"><br><b>Select Frames</b> — slice a sprite sheet by count or cell size, pick frames in order</td>
-  </tr>
-  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-tilemap.png" width="380" alt="The Demo's Tiles 2D scene with its Walls layer selected: the paint bar over the 2D view, the stone tile's ghost under the mouse and the TileMap palette in the bottom dock"><br><b>Tile map painting</b> — paint, line, rect, bucket, picker, eraser, random scatter; one undo per stroke</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-tileset.png" width="380" alt="The TileSet tab with the bush tile's collision polygon: snap points, the polygon's edges and points over the magnified tile"><br><b>TileSet editor</b> — atlas sources, tiles, tile data and collision polygons in the bottom dock</td>
-  </tr>
-  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-crash.png" width="380" alt="A played game's crash in the Output panel: one red row naming the exception, the node and the scene, expanded to its stack frames, the game's frame with a link to its source and the engine's muted"><br><b>Crash reports</b> — a game's crash as one row: the node, scene and frames, click-to-source</td>
-    <td align="center" valign="top"><img src="docs/images/editor-navigation.png" width="380" alt="The Demo's Navigation 2D maze in the editor with Visible Navigation on: the baked grid's solid cells and dashed mud, the NavigationGrid2D inspector with its Bake and Clear buttons and status line"><br><b>Navigation</b> — Visible Navigation, Bake and Clear with undo, out-of-date bakes flagged</td>
   </tr>
   <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-navigation.png" width="380" alt="The Demo's Navigation 2D maze in the editor with Visible Navigation on: the baked grid's solid cells and dashed mud, the NavigationGrid2D inspector with its Bake and Clear buttons and status line"><br><b>Navigation</b> — Visible Navigation, Bake and Clear with undo, out-of-date bakes flagged</td>
     <td align="center" valign="top"><img src="docs/images/editor-export.png" width="380" alt="File › Export on the Demo: Windows, macOS, Linux and Linux server presets, the server preset's options and a validation warning"><br><b>Export</b> — presets per platform, demo and Steam builds, one click or <code>mf-export</code> in CI</td>
   </tr>
 </table>
@@ -258,6 +263,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Audio engine](docs/design/audio.md) | A bus mixer on its own thread, 2D and 3D players, streaming WAV, OGG, MP3 and FLAC, attenuation, low-pass and doppler, a null device fallback |
 | [Sound designer](docs/design/editor.md#sound-designer) | ZzFX sounds synthesised at run time: presets, randomize, mutate, a live waveform and export to WAV, in the inspector |
 | [Music editor](docs/design/editor.md#song-tab-music-editor) | A DAW in the editor's music mode, over the whole window: arrangement, piano roll and mixer (resizable, P / X), a Browser of songs and plugins (F), a built-in [wavetable synth](docs/design/future/wavetable-synth.md) (unison, warps, two filters, mod matrix, 39 presets, `.wav` wavetable import), 15 [built-in effects](docs/design/music-effects.md) with plugin windows (EQ curve, gain-reduction meters, tempo-synced delays and LFOs), VST3 instruments and effects, MIDI recording, render to OGG or WAV |
+| [Adaptive music](docs/design/adaptive-music.md) | Sections, layers, parameters and beat-quantized transitions authored in the song editor (heard live as you write), baked to sample-aligned OGG stems in one command, played by an `AdaptiveMusicPlayer` (`SetParameter`, `TriggerStinger`, beat and bar signals); a running game's music driven from the editor's Adaptive tab or the F12 overlay, and re-baked while it plays |
 
 ### Tools
 
@@ -268,7 +274,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Gameplay recording](docs/design/recording.md) | Record any game to MP4 through your own ffmpeg: F10 in the editor or `--record`, live or offline, with a sidecar of input, loading and pauses |
 | [Video mode](docs/design/video-editor.md) | The editor trims recordings for promo footage: detect silence and idle play, Whisper transcripts, remove filler words, export |
 | [Game UI](docs/design/game-ui.md) | RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library; the editor is built with it |
-| [Developer overlay](docs/design/dev-overlay.md) | F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, physics and network panels; add your own in one call |
+| [Developer overlay](docs/design/dev-overlay.md) | F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, adaptive music, physics and network panels; add your own in one call |
 | [Frame profiler](docs/design/profiler.md) | Zero-allocation CPU scopes on any thread, GPU timestamps per pass and post effect, counters, a frame history with spike capture; a Profiler section in the F12 overlay, an editor Profiler tab (frame graph, timeline, scope table) and Chrome/Perfetto trace export (`--profile-trace`) |
 | [Games in C#](docs/design/project-and-gamehost.md) | `dotnet new mfgame`, `project.mfproj` and `GameHost`: input actions, autoloads, structured logs, the editor link, headless dedicated servers |
 | [Game export](docs/design/game-export.md) | File › Export: presets in `project.mfproj` per platform (Windows, macOS, Linux), full and demo builds from one project, Steam checks, icons and signed macOS bundles written for you, zip/tar.gz or a depot folder; the same exporter as `mf-export` for scripts and CI |

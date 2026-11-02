@@ -5,7 +5,7 @@ using static MainframeEngine.Editor.Tests.Music.MusicTestUtil;
 namespace MainframeEngine.Editor.Tests.Music.Adaptive;
 
 /// <summary>
-/// Adaptive playback in the <see cref="SongEngine"/> (docs/design/future/adaptive-music.md, "Live preview"): the section
+/// Adaptive playback in the <see cref="SongEngine"/> (docs/design/adaptive-music.md, "Live preview"): the section
 /// program, transitions on the director's frames, layer buses, stingers over the music, edits while playing, and no
 /// allocation on steady blocks. The engine runs offline, block by block, with no audio device.
 /// </summary>

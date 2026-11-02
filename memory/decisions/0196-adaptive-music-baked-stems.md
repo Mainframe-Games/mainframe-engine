@@ -3,7 +3,7 @@
 - **Date:** 2026-10-18
 - **Status:** accepted (2026-10-18: the design's open questions decided with the recommended answers; A1 and A2 built)
 - **Milestone:** —
-- **Docs:** docs/design/future/adaptive-music.md
+- **Docs:** docs/design/adaptive-music.md
 
 ## Context
 

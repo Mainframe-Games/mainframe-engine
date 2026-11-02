@@ -9,6 +9,68 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. RML <h1>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:15
+msgid "Adaptive music"
+msgstr "Música adaptativa"
+
+#. RML <p>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:16
+msgid "A song from the editor's music mode, baked to stems. The game sets two parameters; the music follows on the beat."
+msgstr "Una canción del modo música del editor, horneada en pistas. El juego fija dos parámetros; la música los sigue a tiempo."
+
+#. RML <p>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:18
+msgid "bar {{bar}}.{{beat}}"
+msgstr "compás {{bar}}.{{beat}}"
+
+#. RML <span>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:19
+msgid "Next: {{pending}} in {{seconds | format(1)}} s"
+msgstr "Siguiente: {{pending}} en {{seconds | format(1)}} s"
+
+#. RML <span>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:20
+msgid "Intensity"
+msgstr "Intensidad"
+
+#. RML <p>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:21
+msgid "Fades the percussion in, then the lead, opening its filter."
+msgstr "Hace entrar la percusión y luego la melodía, abriendo su filtro."
+
+#. RML <span>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:22
+msgid "Area"
+msgstr "Zona"
+
+#. RML <option>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:23
+msgid "Calm"
+msgstr "Calma"
+
+#. RML <option>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:23
+msgid "Combat"
+msgstr "Combate"
+
+#. RML <p>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:24
+msgid "Combat starts at the next bar; back to Calm plays the Hit stinger."
+msgstr "El combate empieza en el siguiente compás; volver a Calma toca el golpe."
+
+#. RML <button>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:25
+msgid "Hit stinger"
+msgstr "Golpe"
+
+#. RML <span>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:26
+#: Examples/Demo/Assets/Audio/panel2d.rml:12
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:193
+msgid "Music"
+msgstr "Música"
+
+#. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:188
 msgid "Animation 3D"
@@ -119,11 +181,6 @@ msgstr "Principal"
 #: Examples/Demo/Assets/Audio/panel2d.rml:11
 msgid "SFX"
 msgstr "Efectos"
-
-#. RML <span>
-#: Examples/Demo/Assets/Audio/panel2d.rml:12
-msgid "Music"
-msgstr "Música"
 
 #. RML <span>
 #: Examples/Demo/Assets/Audio/panel2d.rml:13

@@ -301,6 +301,8 @@ public sealed class ArrangementCanvas : SongCanvas
         var current = plan is not null && (uint)state.Section < (uint)plan.Sections.Length ? plan.Sections[state.Section].Id : null;
         if (Tab.AuditionBaked && Tab.Baked.Instance is { Playing: true } baked)
             (current, plan) = (baked.CurrentSection, null); // the bake's section is outlined; its schedule is not drawn
+        if (Tab.GameTarget?.Report is { } game)
+            (current, plan) = (game.Section.Length > 0 ? game.Section : null, null); // a game's player: its section, as reported
 
         var ghost = c.SectionGhost;
         foreach (var section in adaptive.Sections)

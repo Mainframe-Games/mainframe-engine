@@ -1,18 +1,19 @@
-# Proposal: Adaptive music (FMOD-style, baked stems)
+# Adaptive music (FMOD-style, baked stems)
 
-**Milestone:** unscheduled (editor tooling + audio runtime; Phase 3 of the Logic-style Music mode) · **Status:** proposal
-(2026-10-18), its [questions decided](#decided-questions); PR A1 (shared logic and the song model) built, see
-[As built: A1](#as-built-a1); PR A2 (the runtime) built, see [As built: A2](#as-built-a2); PR A3 (the bake) built, see
-[As built: A3](#as-built-a3); [ADR 0196](../../../memory/decisions/0196-adaptive-music-baked-stems.md) (accepted) · **Depends on:**
-[Music editor](music-editor.md) (songs, `SongEngine`, Render), [Audio](../audio.md) (`AudioServer`, streaming, the
-command queue), [Editor](../editor.md) (Music mode), the Phase 1 right-hand Browser and built-in effects
-(`docs/design/music-effects.md`, not written yet) · **Related:** [Project and GameHost](../project-and-gamehost.md)
-(editor link), [Developer overlay](../dev-overlay.md), [Sound designer](sound-designer.md)
+**Status:** built (A1–A6, 2026-11-02). It was proposed on 2026-10-18; every open question was
+[decided](#decided-questions) with the recommended answer, and [ADR 0196](../../memory/decisions/0196-adaptive-music-baked-stems.md)
+records the baked-stems decision. The design below is the proposal as it was built: each PR's specifics and deviations
+are in its "As built" section ([A1](#as-built-a1), [A2](#as-built-a2), [A3](#as-built-a3), [A4](#as-built-a4),
+[A5](#as-built-a5), [A6](#as-built-a6)), and [Changes from the proposal](#changes-from-the-proposal) collects them.
+· **Built on:** [Music editor](future/music-editor.md) (songs, `SongEngine`, Render), [Audio](audio.md#adaptive-music)
+(`AudioServer`, streaming, the command queue), [Editor](editor.md#song-tab-music-editor) (Music mode, the Song tab),
+[Music effects](music-effects.md) · **Related:** [Project and GameHost](project-and-gamehost.md#editor-link) (editor link),
+[Developer overlay](dev-overlay.md), [Sound designer](future/sound-designer.md), [Demo](demo.md) (the Music scene)
 
 ## Problem
 
 Games can only play the music editor's output as one rendered `.ogg` on an `AudioPlayer`
-([music-editor.md, Non-goals](music-editor.md#non-goals)). Game music is rarely one fixed loop: exploration should
+([music-editor.md, Non-goals](future/music-editor.md#non-goals)). Game music is rarely one fixed loop: exploration should
 build up as danger rises, combat should start on the next bar instead of cutting in, a boss needs its own section, and
 a victory sting has to land on the beat. Today a game can only do this by hand: several renders, two players
 cross-faded by script, and loop points and bar lengths copied around as numbers. FMOD Studio and Wwise solve this with
@@ -108,7 +109,7 @@ The design rests on four decisions:
 2. **The game thread decides; the audio thread executes.** The director runs on the game thread and schedules actions
    at exact frames of the *music clock*, a little ahead of time. The audio thread's `MusicVoice` carries them out
    sample-accurately and reports what happened. This follows the engine's rule that the game thread owns logic and the
-   audio thread only mixes ([ADR 0033](../../../memory/decisions/0033-audio-threading-and-command-queue.md)).
+   audio thread only mixes ([ADR 0033](../../memory/decisions/0033-audio-threading-and-command-queue.md)).
 3. **Stems are rendered in isolation.** Each section is rendered per layer from a clean start. Its tail (reverb and
    delay after the end) is rendered as a separate one-shot. One run-time rule covers loop seams and transitions:
    *whenever a section ends at its end, its tail plays over whatever comes next.*
@@ -298,7 +299,7 @@ with `beat` quantization it adds at most one beat.
 
 ### Sections lane and layers
 
-![Music mode with the Sections lane, layer chips and the Adaptive panel](../../images/adaptive-music-editor.svg)
+![Music mode with the Sections lane, layer chips and the Adaptive panel](../images/adaptive-music-editor.svg)
 
 - **Sections lane.** A 22 dp lane under the ruler, part of the arrangement canvas (`SongCanvases`, drawn in the same
   `SubViewport`, so there are no extra RmlUi elements).
@@ -350,7 +351,7 @@ and full controls only in the popover.
 
 ### Curve editor
 
-![The curve editor in the bottom pane and the transition popover](../../images/adaptive-music-curves.svg)
+![The curve editor in the bottom pane and the transition popover](../images/adaptive-music-curves.svg)
 
 - **Where it lives.** A third bottom-pane editor, **Curves**, beside Piano Roll (P) and Mixer (X). It opens from a
   curve chip, and from View › Curves; it has no single-key shortcut in v1.
@@ -624,7 +625,7 @@ music clock stops while paused), and is silent in the editor's edit mode.
 
 ### Threading
 
-![Transition timing: the game thread schedules ahead, the audio thread executes at the exact frame](../../images/adaptive-music-transition-timing.svg)
+![Transition timing: the game thread schedules ahead, the audio thread executes at the exact frame](../images/adaptive-music-transition-timing.svg)
 
 **Game thread** (`AudioServer.Process`, after transform sync), each frame for each playing instance:
 
@@ -685,7 +686,7 @@ manifest and the stems' sources) travels as the existing `Ref`, which the audio 
 - **Requests.** A streamed lane is an ordinary `AudioStreamChannel` request with the body's loop points
   (`[0, lengthFrames)`). The `AudioStreamer` rewinds at the loop end, so a looping section streams seamlessly.
 - **Seeking costs.** Entering at an offset (`entry: "sync"`) seeks the OGG, which decodes forward from the start (see
-  [Audio known issues](../audio.md#known-issues)). That is cheap for short sections and costly for long ones; the bake
+  [Audio known issues](audio.md#known-issues)). That is cheap for short sections and costly for long ones; the bake
   report lists sections over 60 s that are `sync` destinations.
 - **Prefetch.** At most the current and the incoming section's layers are open at once (16 decoders per voice).
 
@@ -700,16 +701,17 @@ the audio for that graph but never crashes the process. A stem that fails to dec
 
 ## Editor link and dev overlay
 
-**Editor link, protocol version 5.**
+**Editor link, protocol version 6** (the proposal said 5, which the crash report and the profiler took first; see
+[As built: A6](#as-built-a6)).
 
 - **Editor → game commands:**
   - `WatchMusic` / `UnwatchMusic`: the game only reports music state while some editor panel is watching.
   - `SetMusicParameter`: argument `<nodePath>\n<parameter>\n<value>`; the value is a number or a label.
   - `TriggerMusicStinger` and `GoToMusicSection`: argument `<nodePath>\n<name>`.
-  - `ReloadMusic`: argument a `mus_` UID.
+  - `ReloadMusic`: argument `<mus_ UID>\n<project folder>`.
 - **Game → editor, a new `Music` message.** It is latest-wins like `Status`, at up to 10 Hz while watched and only on
-  change. For up to 8 playing instances it carries: node path, manifest UID, song UID, section, bar.beat, the pending
-  transition and its countdown, and the parameter values.
+  change. For up to 8 playing instances it carries: node path, manifest UID, song UID, section, bar.beat, seconds into
+  the section, the pending transition and its countdown, the parameter values and the layer gains.
 - **The Adaptive panel's Target menu** lists *Editor* plus every connected game's instances whose song UID matches the
   open song.
   - **Targeting a game:** the sliders and Fire buttons send commands, the Now row shows the game's state, and the
@@ -718,11 +720,11 @@ the audio for that graph but never crashes the process. A stem that fails to dec
 - **Bake while a game plays.** The editor sends `ReloadMusic`. Players using that manifest load it in the background
   and switch at the next section boundary, continuing with the same section id when it still exists.
 
-**Dev overlay.** A **Music** panel (`DevOverlayPanels`, registered when the first instance plays) shows each instance:
+**Dev overlay.** A **Music** panel (`DevOverlayMusic`, added when the first instance plays) shows each instance:
 
 - the song, section, bar.beat and the pending transition with its countdown
 - layer gain bars
-- a slider, select or stepper per parameter, and Fire per stinger
+- a slider, stepper or label buttons per parameter, and Fire per stinger
 - a **Next** button that takes the first matching transition now, quantized
 
 Writes go through `SetParameter`, so they behave exactly like game code. The panel updates allocation-free, like the
@@ -812,9 +814,9 @@ Audio panel. Release builds keep it (the dev overlay is a development tool every
   `editor-music-adaptive` capture on both drivers.
 - **QA:** `editor-walkthrough.qa` adds `song section`, `song layer`, `song param` and `song bake` verbs, and checks
   the captures by eye.
-- **Link:** round trips of the version 5 frames, and an old (version 4) game ignoring watch commands.
+- **Link:** round trips of the version 6 frames, and a version 5 game never being sent a music command.
 
-**Demo:** a new "Adaptive music" scene with an intensity slider, an area select and a stinger button, captured by
+**Demo:** a new "Adaptive music" scene (the Music tab) with an intensity slider, an area select and a stinger button, captured by
 `just demo-screenshots`.
 
 ## Performance budget
@@ -831,7 +833,7 @@ The benchmarks get an adaptive-instance frame and a 16-lane mix, with baselines 
 
 ## Delivery
 
-Six PRs, each usable on its own:
+Six PRs, each usable on its own, all built:
 
 | PR | Contents | After |
 |---|---|---|
@@ -1217,6 +1219,116 @@ Music panel and the Demo scene are A6.
 - **QA:** `song curve`, `song curve-select`, `song rule-edit`, `song audition-mode live|baked`, `wait-for bake`. The
   walkthrough captures `13e8-song-curves-popover` and `13e9-song-baked-playing`. `delete-file` also removes matching
   folders (a bake's `.stems`).
+
+## As built: A6
+
+A6 is the editor link (`MainframeEngine/Src/EditorLink/`: the protocol, `EditorLinkClient.ReportMusic`, `MusicLink`), the
+dev overlay's Music panel (`Debugging/DevOverlay/DevOverlayMusic.cs`), the editor's Target menu
+(`Music/Adaptive/GameMusicTarget.cs`, `AdaptivePanel`, `SongTab.GameTarget`, `PlayService`) and the Demo's Music scene.
+
+**Protocol 6, not 5.** Version 5 shipped first, with the crash report (G15) and the profiler (G10), so the music frames
+are version 6 (`EditorLinkProtocol.MusicVersion`).
+
+- **Commands** 11–16: `WatchMusic`, `UnwatchMusic`, `SetMusicParameter`, `TriggerMusicStinger`, `GoToMusicSection` (at
+  the next bar, with a half-beat fade, like `GoToSection`'s defaults), `ReloadMusic`. Fields are separated by `\n`
+  (`EditorLinkProtocol.MusicArgumentSeparator`).
+- **The `Music` message** (type 13) is `EditorLinkMusicInstance[]`: node path, `mus_` and `sng_` UIDs, section id, bar,
+  beat, seconds into the section, pending section and seconds (−1: none), every parameter (name, smoothed value, at most
+  32) and every layer (id, gain in dB).
+- **Older games.** A version 5 game's decoder refuses a command kind it does not know and drops the link, so the editor
+  sends music commands, `WatchMusic` and `ReloadMusic` only to games whose hello says 6 or later
+  (`PlayInstance.CanMusic`).
+
+**The game side** (`MusicLink`, created by `GameSession` at the first music command):
+
+- **Commands** find the player by its absolute node path (`/root/Level/Music`); a wrong path or argument is a warning,
+  never an exception.
+- **Reports** go out while watched, at most every 0.1 s, and only when a hash of what they show changed (section, bar,
+  beat, pending, its countdown in tenths, parameter values to 1/1000, gains to 0.1 dB). The hash allocates nothing; a
+  report that goes out allocates its snapshot. Only instances that a node plays (`AdaptiveMusicInstance.Player`) are
+  reported, up to 8.
+- **Reload.** A game the editor started reads its build output's `Assets/`, while a bake writes into the project's source
+  folder. So `ReloadMusic` names the editor's project folder: the game resolves the manifest's path by its UID in its
+  own database, reads that path under the project folder, and resolves every stem by its path there
+  (`AdaptiveMusic.LoadFromProject`; the new stems have UIDs the game has never seen). The load and `Preload` run on a
+  worker. Each player of that music switches at its next bar 1 (`Bar(1)`: the next pass, a loop included): the section
+  that played starts again at its downbeat in the new bake, every parameter keeps its target, and a section that no
+  longer exists plays from the start section. The new music is a fresh `Play`, so the switch has the start's short
+  prefill wait (at most 0.5 s while streamed stems buffer) and no tails from the old bake.
+
+**The dev overlay's Music panel** is added at the first overlay refresh that finds an instance playing, after the
+built-in panels.
+
+- **Rows.** One per playing instance, rebuilt only when the set of instances (or one's music) changes; refreshes copy
+  numbers and the manifest's own strings, so they allocate nothing (`DevOverlayMusicTests` gates `MusicStats.Refresh`).
+- **Labeled parameters** are buttons, one per label. RmlUi's data bindings allow one level of nested lists, so an
+  instance's labels are one flat list whose rows name their parameter; and because an event inside a nested
+  `data-for` can see a stale outer index, every event names its rows by indices the rows carry.
+- **Next** takes the transition that matches now; when none does, the first rule from the current section, so the panel
+  can walk the music without changing parameters. It uses the rule's quantize and fade.
+
+**The editor.**
+
+- **Watching.** `PlayService.WatchMusic` is on while the active song tab is an adaptive song (`SongView`), so the Target
+  menu and the Sections lane always have fresh reports; it sends `WatchMusic` to each new connection and
+  `UnwatchMusic` when it turns off.
+- **Target menu** (the Now row: an icon button, then Copy to Defaults while a game is targeted). It lists *Editor* and
+  `GameMusicTarget.For(service, song.Uid)`: every connected protocol 6 game's reported instance whose song UID is this
+  song's ("Game #1 · Music").
+- **Targeting a game** stops what the editor plays. Audition values and Fire go to the game (`SongTab.SetAudition`,
+  `TriggerStinger`); the Now row shows "Explore · bar 2.3 · in the game", the pending transition's countdown (moved on
+  from the report), the layer meters and ghost thumbs from the report, and the rule the game's values would fire. The
+  Sections lane outlines the game's section and the playhead is its section's start plus the report's seconds, moved on
+  by the time since it arrived (at most 1 s). When the game goes away, the target falls back to Editor.
+- **Copy to Defaults** is `SongDocument.SetParameterDefaults`: one undo entry for every changed default; nothing when the
+  defaults already are the game's values.
+- **After a bake** (`SongView`), every protocol 6 game is sent `ReloadMusic` with the manifest's UID and the project
+  folder; the Output panel says how many.
+
+**The Demo** has a Music tab (`adaptive_music`, [Demo](demo.md)): `Assets/Music/adaptive_theme.msong` (the Demo loop's
+ZzFX instruments; Intro → Explore and Combat, looping, a Hit stinger; Perc and Lead layers over `intensity`, the Lead's
+low-pass opening with it; `area` moves Explore to Combat at the next bar and back with the stinger), baked with
+`just bake-song` and committed with its stems. `MusicVisualizer2D` draws the sections, the beats and the layer gains;
+the panel has the intensity slider, the area select, the stinger and a music toggle.
+
+**Tests.**
+
+- `EditorLinkProtocolTests`: the music frames and commands round-trip, more than 8 instances are cut, malformed music
+  frames are refused, the version is 6.
+- `MusicLinkTests` (engine, the manual null device): the commands drive a real player by path (a label, a number, a
+  section, a stinger heard); reports only while watched, with the countdown; `ReloadMusic` switches at the next pass to a
+  bake read from another project folder, keeping the parameters, and the new body is heard.
+- `DevOverlayMusicTests`: the panel appears when music plays, its label buttons and Fire drive the instance, Next, and the
+  0-byte refresh.
+- `AdaptiveTargetTests` (editor): a watched protocol 6 game reports and receives every command; a version 5 game is never
+  sent one and keeps its link; the Target menu lists only this song's players, the panel shows the game's state, the
+  playhead follows it, audition values and stingers reach the game, Copy to Defaults is one undo entry, and a stopped
+  game drops the target.
+- `AdaptiveMusicSceneTests` (Demo): the committed bake loads with no missing stem, Intro continues to Explore, intensity
+  brings the layers in and opens the filter, area moves to Combat on the bar and back, the stinger is heard, the music
+  stops at a bar and starts again.
+
+## Changes from the proposal
+
+What was built differs from the design above in these ways (details in the "As built" sections):
+
+- **Protocol 6, not 5** (A6): version 5 shipped the crash report and the profiler first. `ReloadMusic` also carries the
+  editor's project folder, because a game started by the editor reads its build output's copy of `Assets/`.
+- **Reload restarts the section** (A6): the switch at the next pass is a fresh play of the same section in the new bake
+  (a short prefill, no old tails), not a seamless hand-over.
+- **Lane groups** (A2): a `MusicVoice` has 4 groups of 8 lanes (current, incoming, outgoing, prefetched continuation)
+  instead of 16 fixed lanes; continuations are prefetched and start without a readiness check.
+- **Tail points everywhere** (A2/A3): any exit that lands on a baked tail point (`tail: true` exit markers) plays that
+  marker's tails, not only `exitMarker` exits.
+- **Stems at the music's rate only** (A2): a stem at another rate is not used (its lane is silent, one error).
+- **`SectionStarted` on changes only** (A2): it does not fire when a section loops; `Bar(1)` does.
+- **Stems are WAV without the plugin helper** (A3), and the bake renders plugin stems one after another through one
+  offline rack.
+- **Transitions are edited with menus and an inline editor** (A4/A5): RmlUi has no floating popover that tracks a row.
+- **A curve has one shape** (A5), not one per segment.
+- **The Curves pane opens from View › Curves or a curve chip** (A5), with no shortcut, and only on adaptive songs.
+- **The dev overlay's labeled parameters are buttons** (A6), and its Next falls back to the first rule from the section.
+- **The Demo scene is "Music"** (A6) in the nav bar, with a visualiser of its own.
 
 ## Decided questions
 

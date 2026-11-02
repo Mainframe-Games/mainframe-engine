@@ -6,7 +6,7 @@ using Silk.NET.Input;
 namespace MainframeEngine.Editor.Tests.Music.Adaptive;
 
 /// <summary>
-/// The Sections lane under the ruler (docs/design/future/adaptive-music.md, "Sections lane and layers"): creating, moving
+/// The Sections lane under the ruler (docs/design/adaptive-music.md, "Sections lane and layers"): creating, moving
 /// and resizing sections snapped to bars without overlaps, a click looping a section, markers, menus and renames; each
 /// gesture one history entry.
 /// </summary>

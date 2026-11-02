@@ -2,7 +2,7 @@ using MainframeEngine.Audio.Music;
 
 namespace MainframeEngine.Editor.Music;
 
-// Undoable edits of the song's adaptive block (docs/design/future/adaptive-music.md). Sections snap to bar lines; drags
+// Undoable edits of the song's adaptive block (docs/design/adaptive-music.md). Sections snap to bar lines; drags
 // pass a mergeKey and become one history entry, like note drags. Objects keep their identity through undo and redo.
 public sealed partial class SongDocument
 {
@@ -304,6 +304,34 @@ public sealed partial class SongDocument
     /// <summary>Makes <paramref name="value"/> the parameter's default (Set as Default in the Adaptive panel).</summary>
     public void SetParameterDefault(MusicParameterInfo parameter, float value) =>
         EditParameter(parameter, p => p.Default = float.IsFinite(value) ? value : p.Default);
+
+    /// <summary>
+    /// Makes each named value its parameter's default, as one step (the Adaptive panel's Copy to Defaults: a running
+    /// game's values). Unknown names and values that are not finite are skipped; false when nothing changed.
+    /// </summary>
+    public bool SetParameterDefaults(IReadOnlyList<(string Name, float Value)> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        var changes = new List<(MusicParameterInfo Parameter, float Old, float New)>();
+        foreach (var (name, value) in values)
+        {
+            if (Adaptive.FindParameter(name) is { } parameter && float.IsFinite(value) && parameter.Default != value)
+                changes.Add((parameter, parameter.Default, value));
+        }
+
+        if (changes.Count == 0)
+            return false;
+        Commit("Copy to Defaults", () =>
+        {
+            foreach (var (parameter, _, value) in changes)
+                parameter.Default = value;
+        }, () =>
+        {
+            foreach (var (parameter, old, _) in changes)
+                parameter.Default = old;
+        });
+        return true;
+    }
 
     // --- curves -----------------------------------------------------------------------------------
 

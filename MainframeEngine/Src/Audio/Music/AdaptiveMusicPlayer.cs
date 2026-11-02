@@ -11,7 +11,7 @@ namespace MainframeEngine;
 /// <remarks>
 /// Like <see cref="AudioPlayer"/> it stops when it leaves the tree, follows its <see cref="Node.ProcessMode"/> against
 /// <see cref="SceneTree.Paused"/> (the music clock stops while paused), and is silent in the editor's edit mode. It
-/// preloads its stems when it enters the tree. See docs/design/future/adaptive-music.md.
+/// preloads its stems when it enters the tree. See docs/design/adaptive-music.md.
 /// </remarks>
 [EditorIcon("music", Family = EditorIconFamily.Audio)]
 public class AdaptiveMusicPlayer : Node, IAdaptiveMusicOwner
@@ -89,6 +89,9 @@ public class AdaptiveMusicPlayer : Node, IAdaptiveMusicOwner
 
     /// <summary>The destination of a scheduled transition, or null.</summary>
     public string? PendingTransition => _instance?.PendingTransition;
+
+    /// <inheritdoc cref="AdaptiveMusicInstance.PendingSeconds"/>
+    public float PendingSeconds => _instance?.PendingSeconds ?? -1f;
 
     /// <summary>The instance behind the node while it is in the tree (null in the editor's edit mode and outside the tree).</summary>
     public AdaptiveMusicInstance? Instance => _instance;

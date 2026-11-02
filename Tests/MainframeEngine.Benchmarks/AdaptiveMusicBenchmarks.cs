@@ -5,7 +5,7 @@ using MainframeEngine.Audio.Music;
 namespace MainframeEngine.Benchmarks;
 
 /// <summary>
-/// Adaptive music (docs/design/future/adaptive-music.md, Performance budget): the game thread's work for one playing
+/// Adaptive music (docs/design/adaptive-music.md, Performance budget): the game thread's work for one playing
 /// instance per frame (8 layers × 2 curves, a parameter moving every frame), and the audio thread mixing one 10 ms block
 /// of 16 lanes (8 layers cross-fading into 8 more, half of them through the layer filter). Stems are memory-loaded so
 /// the numbers do not depend on the streaming thread keeping up with a benchmark's pace.

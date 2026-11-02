@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-02 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/joint-limit-handles` (G9.7 joint limit handles)._
+`main`; latest release v1.1.5. In review: `feature/adaptive-music-a6` (A6, which completes adaptive music)._
 
 ## What exists
 
@@ -22,20 +22,20 @@ _Last updated: 2026-11-02 — M0–M10, Demo & polish, most of the 2D port work 
   (ThorVG), 2D lights and canvas post, `Tween`, `GpuParticles2D`, `Polygon2D`/`Skeleton2D`, 2D joints (ADR 0201),
   `SceneTree.TimeScale`; headless host, game packaging + signing, NuGet packages (ADR 0188); saves and settings (G4);
   post-processing (ADR 0163) and the F12 dev overlay; gameplay recording (ADR 0190) and the editor's Video mode (ADR
-  0191); Music mode, DAW, wavetable synth and adaptive music (ADRs 0192–0196); `Assets/` content folder (ADR 0197); 3D
+  0191); Music mode, DAW, wavetable synth and adaptive music (ADRs 0192–0196; A1–A6: the editor's Target menu, the overlay's Music panel, the Demo's Music tab); `Assets/` content folder (ADR 0197); 3D
   skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
   (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
-  editor viewport tools (G7), joints and ragdolls (G9, #136; G9.7 limit handles in review); the frame profiler (ADRs 0219/0220), crash reporting
+  editor viewport tools (G7), joints and ragdolls (G9, #136; G9.7 limit handles, #148); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
   (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
-  `project.mfproj` format 5; #138); editor link protocol 5; the docs site at engine.mainframe.games; editor self-update; Linux
+  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux
   launcher.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
 - **Solution** `MainframeEngine.slnx` (no `.sln`). Everything local goes through `just` (see AGENTS.md).
-- **Tests:** ~2 100 engine, ~1 090 editor and ~370 video unit tests; ~190 render tests (goldens `moltenvk` +
+- **Tests:** ~3 160 engine, ~1 780 editor, ~460 video and ~100 Demo unit tests; ~190 render tests (goldens `moltenvk` +
   `lavapipe`, validation gate, 0-B allocation gate); benchmarks with `baseline.json`; QA scripts (`just qa`, `qa-editor`,
   `qa-projects`, `qa-settings`). Lavapipe can be run locally in Docker: `just render-tests-linux` (x86_64 ubuntu:24.04,
   same packages as CI).
@@ -83,9 +83,9 @@ _Last updated: 2026-11-02 — M0–M10, Demo & polish, most of the 2D port work 
 
 ## Next steps
 
-1. Land `feature/joint-limit-handles` (G9.7).
-2. Gameplay toolkit (`docs/milestones.md`): finish adaptive music (A6: editor link, overlay, Demo scene, docs) and G9.10
-   (`Generic6DofJoint3D`, active ragdolls, `MotorJoint2D`); G12 haptics and glyphs (proposal awaits owner review); G1c
+1. Land `feature/adaptive-music-a6` (A6).
+2. Gameplay toolkit (`docs/milestones.md`): G9.10 (`Generic6DofJoint3D`, active ragdolls, `MotorJoint2D`); G12
+   haptics and glyphs (proposal awaits owner review); G1c
    animation authoring, G11, G13 2D paths, G14, G16, G17; G3b (avoidance first).
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (the Forest cabin work added
    ≈ 1.6 ms p50 on a loaded machine).

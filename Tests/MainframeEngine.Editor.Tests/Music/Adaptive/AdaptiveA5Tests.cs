@@ -7,7 +7,7 @@ using static MainframeEngine.Editor.Tests.Music.MusicTestUtil;
 namespace MainframeEngine.Editor.Tests.Music.Adaptive;
 
 /// <summary>
-/// The Curves pane (docs/design/future/adaptive-music.md, "Curve editor"): the mapping between the canvas and a curve, point
+/// The Curves pane (docs/design/adaptive-music.md, "Curve editor"): the mapping between the canvas and a curve, point
 /// drags (Shift: one axis), double-click to add or remove, step curves over labels; each gesture one history entry.
 /// </summary>
 [Collection(nameof(SerialEditor))]

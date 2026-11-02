@@ -268,6 +268,7 @@ public sealed class PlayService : IDisposable
             DrainLink(server);
         UpdateProcesses();
         TickRecording();
+        SyncMusicWatch();
         if (_changed)
         {
             _changed = false;
@@ -326,6 +327,63 @@ public sealed class PlayService : IDisposable
     {
         ArgumentNullException.ThrowIfNull(instance);
         return !_disposed && instance.CanProfile && SendTo(instance, new EditorLinkCommand(EditorCommandKind.ProfilerStop));
+    }
+
+    /// <summary>
+    /// Adaptive music reports wanted (the Adaptive panel shows): every connected game that has them (protocol 6,
+    /// <see cref="PlayInstance.CanMusic"/>) is sent <c>WatchMusic</c>, and <c>UnwatchMusic</c> when this turns off; reports
+    /// land in <see cref="PlayInstance.Music"/>.
+    /// </summary>
+    public bool WatchMusic { get; set; }
+
+    /// <summary>Sets a parameter of the player at <paramref name="nodePath"/> in <paramref name="instance"/> (false: not sent).</summary>
+    public bool SetMusicParameter(PlayInstance instance, string nodePath, string parameter, float value) =>
+        SendMusic(instance, EditorCommandKind.SetMusicParameter, nodePath, parameter, value.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+
+    /// <summary>Fires a stinger on the player at <paramref name="nodePath"/>.</summary>
+    public bool TriggerMusicStinger(PlayInstance instance, string nodePath, string stinger) =>
+        SendMusic(instance, EditorCommandKind.TriggerMusicStinger, nodePath, stinger);
+
+    /// <summary>Sends the player at <paramref name="nodePath"/> to <paramref name="section"/> at its next bar.</summary>
+    public bool GoToMusicSection(PlayInstance instance, string nodePath, string section) =>
+        SendMusic(instance, EditorCommandKind.GoToMusicSection, nodePath, section);
+
+    /// <summary>
+    /// After a bake: every game that has the music commands reloads <paramref name="uid"/> from
+    /// <paramref name="projectFolder"/> (the bake's source) at its next pass. Returns how many games were told.
+    /// </summary>
+    public int ReloadMusic(string uid, string projectFolder)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(uid);
+        var sent = 0;
+        foreach (var instance in _instances)
+        {
+            if (!_disposed && instance.CanMusic && SendTo(instance, new EditorLinkCommand(EditorCommandKind.ReloadMusic,
+                    uid + EditorLinkProtocol.MusicArgumentSeparator + (projectFolder ?? ""))))
+                sent++;
+        }
+
+        return sent;
+    }
+
+    // Music commands go only to games that know them: an older game drops its link on an unknown command.
+    private bool SendMusic(PlayInstance instance, EditorCommandKind kind, params string[] fields)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return !_disposed && instance.CanMusic && SendTo(instance, new EditorLinkCommand(kind, string.Join(EditorLinkProtocol.MusicArgumentSeparator, fields)));
+    }
+
+    private void SyncMusicWatch()
+    {
+        foreach (var instance in _instances)
+        {
+            if (!instance.CanMusic || instance.GameId is null || instance.MusicWatched == WatchMusic)
+                continue;
+            if (SendTo(instance, new EditorLinkCommand(WatchMusic ? EditorCommandKind.WatchMusic : EditorCommandKind.UnwatchMusic)))
+                instance.MusicWatched = WatchMusic;
+            if (!WatchMusic)
+                instance.Music = [];
+        }
     }
 
     /// <summary>G10: a profiler message from a game (<c>ProfileMarkers</c>, <c>ProfileFrame</c>, <c>ProfileDropped</c>), main thread.</summary>
@@ -600,6 +658,15 @@ public sealed class PlayService : IDisposable
                     if (_byGameId.TryGetValue(message.GameId, out var profiled))
                         ProfileMessage?.Invoke(profiled, message);
                     break;
+                case EditorLinkMessageType.Music:
+                    if (_byGameId.TryGetValue(message.GameId, out var musical) && message.Music is { } music)
+                    {
+                        musical.Music = music;
+                        musical.MusicVersion++;
+                        musical.MusicReceivedUtc = _utcNow();
+                    }
+
+                    break;
                 case EditorLinkMessageType.LogDropped:
                     if (_byGameId.TryGetValue(message.GameId, out var dropper))
                         GameLog?.Invoke(dropper, new LogEntry(Log.Level.Warning, _utcNow(), GameCategory,
@@ -657,6 +724,8 @@ public sealed class PlayService : IDisposable
             _byGameId.Remove(previous);
         match.GameId = gameId;
         _byGameId[gameId] = match;
+        match.MusicWatched = false; // a new connection is watched again (SyncMusicWatch)
+        match.Music = [];
         var first = !match.HasConnected;
         if (first)
         {

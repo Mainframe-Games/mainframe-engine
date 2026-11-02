@@ -166,6 +166,9 @@ public sealed class FakeGame : IGameProcess
     /// <summary>True when it ended because it was killed (not by quitting or crashing).</summary>
     public bool WasKilled => _wasKilled;
 
+    /// <summary>The adaptive music the game reports when the editor watches (protocol 6).</summary>
+    public EditorLinkMusicInstance[] MusicReport { get; set; } = [];
+
     /// <summary>Every command received, in order.</summary>
     public ConcurrentQueue<EditorLinkCommand> Commands { get; } = new();
 
@@ -319,6 +322,9 @@ public sealed class FakeGame : IGameProcess
                                 return;
                             }
 
+                            break;
+                        case EditorCommandKind.WatchMusic:
+                            client.ReportMusic(MusicReport); // protocol 6: what the game's players play
                             break;
                         case EditorCommandKind.ReloadScene:
                             if (command.Argument.Length > 0)

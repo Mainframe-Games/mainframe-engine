@@ -8,7 +8,7 @@ namespace MainframeEngine.Audio.Music;
 /// <summary>
 /// A baked adaptive song (<c>.mmusic</c>): the grid, parameters, sections in frames with their stems, layers, curves and
 /// transitions. The editor writes it (Bake) and games load it; the editor's live preview builds one in memory from the
-/// song. Unknown fields are kept (<see cref="Extra"/>). See docs/design/future/adaptive-music.md.
+/// song. Unknown fields are kept (<see cref="Extra"/>). See docs/design/adaptive-music.md.
 /// </summary>
 public sealed class MusicManifest
 {

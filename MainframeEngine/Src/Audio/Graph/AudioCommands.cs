@@ -16,7 +16,7 @@ internal enum AudioCommandType : byte
     /// <summary>A streamed voice seeks: read stream generation <see cref="AudioCommand.StreamGeneration"/> from <see cref="AudioCommand.Frame"/>.</summary>
     RestartStream,
 
-    // Adaptive music (Index: the music voice; Generation: its play). See MusicVoice and docs/design/future/adaptive-music.md.
+    // Adaptive music (Index: the music voice; Generation: its play). See MusicVoice and docs/design/adaptive-music.md.
 
     /// <summary>Starts a music voice: <see cref="AudioCommand.Ref"/> is the <c>MusicRuntime</c>; it waits for its first section.</summary>
     MusicPlay,

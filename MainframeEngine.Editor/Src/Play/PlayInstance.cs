@@ -145,6 +145,21 @@ public sealed class PlayInstance
     /// <summary>The game's link streams profiler frames (G10: protocol <see cref="EditorLink.EditorLinkProtocol.ProfilerVersion"/> or later).</summary>
     public bool CanProfile => ProtocolVersion >= EditorLink.EditorLinkProtocol.ProfilerVersion;
 
+    /// <summary>The game's link has the adaptive music commands and reports (protocol <see cref="EditorLinkProtocol.MusicVersion"/>).</summary>
+    public bool CanMusic => ProtocolVersion >= EditorLinkProtocol.MusicVersion;
+
+    /// <summary>The adaptive music the game reported last (while the editor watches; empty before a report).</summary>
+    public EditorLinkMusicInstance[] Music { get; internal set; } = [];
+
+    /// <summary>Bumped by every music report.</summary>
+    public int MusicVersion { get; internal set; }
+
+    /// <summary>When the last music report arrived (positions move on from it).</summary>
+    public DateTime MusicReceivedUtc { get; internal set; }
+
+    /// <summary>The game was sent <see cref="EditorCommandKind.WatchMusic"/> on this connection.</summary>
+    internal bool MusicWatched { get; set; }
+
     internal IGameProcess? Process { get; set; }
 
     /// <summary>When the editor asked it to stop (null: never).</summary>

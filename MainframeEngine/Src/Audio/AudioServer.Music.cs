@@ -4,7 +4,7 @@ namespace MainframeEngine;
 
 // Adaptive music on the game thread: the music voice slots (AudioBusInfo.MusicVoices), their lane groups and stream
 // channels, and the playing AdaptiveMusicInstances, which the server updates every frame. See MusicVoice for the audio
-// thread and docs/design/future/adaptive-music.md.
+// thread and docs/design/adaptive-music.md.
 public sealed partial class AudioServer
 {
     private readonly List<AdaptiveMusicInstance> _musicInstances = new(8);
@@ -14,6 +14,9 @@ public sealed partial class AudioServer
 
     /// <summary>Music voices across every bus.</summary>
     public int TotalMusicVoices => _musicSlots.Length;
+
+    /// <summary>The adaptive music instances playing now, in the order they started (the dev overlay and the editor link list them).</summary>
+    public IReadOnlyList<AdaptiveMusicInstance> MusicInstances => _musicInstances;
 
     /// <summary>The output's buffer length: how far behind the reported music clock the speakers are (an estimate).</summary>
     internal float OutputLatencySeconds => Math.Max(1, _options.BufferMilliseconds) / 1000f;

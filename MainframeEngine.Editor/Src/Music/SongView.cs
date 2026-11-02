@@ -77,6 +77,8 @@ public sealed class SongView : Node
         if (!ReferenceEquals(tab, _tab))
             Switch(tab);
         SyncPane(tab);
+        // Running games report their adaptive music while an adaptive song is open (the Target menu, the Sections lane).
+        _workspace.Play.Service.WatchMusic = tab?.Document.Song.Adaptive is not null;
         _workspace.Midi.Sink = tab?.Midi;
         tab?.Midi.Update();
         if (music)
@@ -501,6 +503,9 @@ public sealed class SongView : Node
             else
             {
                 _workspace.FileSystem.Rescan();
+                // Games playing this music switch to the new bake at their next pass, read from the project's folder.
+                if (job.Task.Result is { Uid.Length: > 0 } result && _workspace.Play.Service.ReloadMusic(result.Uid, _workspace.Session.ProjectRoot ?? "") is var games and > 0)
+                    Log.Info($"[Music] {games} running game(s) reload '{job.Name}' at the next pass.");
             }
         }
     }

@@ -6,7 +6,7 @@ namespace MainframeEngine.Audio.Dsp;
 /// </summary>
 /// <remarks>
 /// Shared by the editor's built-in effects and the adaptive-music runtime's layer filter, so a layer sounds the same in
-/// the editor's live preview and in a game (docs/design/future/adaptive-music.md, Curve targets). Allocation free.
+/// the editor's live preview and in a game (docs/design/adaptive-music.md, Curve targets). Allocation free.
 /// </remarks>
 public struct Svf
 {

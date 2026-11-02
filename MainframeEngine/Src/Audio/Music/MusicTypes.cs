@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace MainframeEngine.Audio.Music;
 
 // The adaptive-music data shared by the editor's song (.msong "adaptive" block) and the baked manifest (.mmusic): one
-// set of types, so both sides read a value the same way. See docs/design/future/adaptive-music.md.
+// set of types, so both sides read a value the same way. See docs/design/adaptive-music.md.
 
 /// <summary>What values a <see cref="MusicParameterInfo"/> takes.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<MusicParameterKind>))]

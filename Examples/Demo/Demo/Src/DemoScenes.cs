@@ -27,6 +27,7 @@ public static class DemoScenes
         Scene("sprites_2d", "Sprites 2D", "slideshow", Sprites2DScene.Build),
         Scene("tiles_2d", "Tiles 2D", "grid-pattern", Tiles2DScene.Build),
         Scene("navigation_2d", "Navigation 2D", "route", Navigation2DScene.Build),
+        Scene("adaptive_music", "Music", "playlist", AdaptiveMusicScene.Build),
     ];
 
     public static DemoSceneInfo? ById(string id) => All.FirstOrDefault(s => s.Id == id);
