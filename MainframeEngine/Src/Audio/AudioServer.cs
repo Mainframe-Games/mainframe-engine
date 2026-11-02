@@ -477,6 +477,12 @@ public sealed partial class AudioServer : IFrameServer
             var command = new AudioCommand { Type = AudioCommandType.SetBusGain, Index = i };
             command.Params.Gain = gains[i];
             Enqueue(command);
+            if (_buses[i].HasLowPass)
+            {
+                command = new AudioCommand { Type = AudioCommandType.SetBusLowPass, Index = i };
+                command.Params.LowPassHz = AudioEffectLowPass.ModifierCutoff(_buses[i].LowPassHz, SampleRate);
+                Enqueue(command);
+            }
         }
     }
 

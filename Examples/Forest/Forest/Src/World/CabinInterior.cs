@@ -9,8 +9,8 @@ namespace Forest;
 /// active camera is inside (the player's, a shot's or the free camera), this eases the <see cref="WorldEnvironment"/>'s
 /// sky ambient and volumetric haze down over <see cref="BlendSeconds"/>, so the fire is the room's light and the windows
 /// glow, and eases them back on the way out. The zone is a box over the room (this node's space, ± <see cref="HalfExtents"/>);
-/// the environment's values are captured when the camera steps in, so the pause menu's settings stay theirs. Nothing
-/// allocates per frame.
+/// the environment's values are captured when the camera steps in, so the pause menu's settings stay theirs.
+/// <see cref="ForestAudio"/> muffles the outdoors by <see cref="Enclosure"/>, the same blend. Nothing allocates per frame.
 /// </summary>
 public sealed class CabinInterior : Node3D
 {
@@ -23,11 +23,20 @@ public sealed class CabinInterior : Node3D
     /// <summary>How long the change takes.</summary>
     [Export(Range = "0.05,5,0.05")] public float BlendSeconds { get; set; } = 0.6f;
 
+    /// <summary>How much of the room's seal a wide-open door gives up (0: none, 1: as if outside).</summary>
+    [Export(Range = "0,1,0.01")] public float OpenDoorLeak { get; set; } = 0.3f;
+
     /// <summary>The room's half extents (the zone's box, centred on this node), metres.</summary>
     public Vector3 HalfExtents { get; set; } = new(3f, 1.4f, 2.5f);
 
+    /// <summary>The room's door; while it stands open, <see cref="Enclosure"/> eases off by <see cref="OpenDoorLeak"/>.</summary>
+    public CabinDoor? Door { get; set; }
+
     /// <summary>How far inside the camera is, 0 (out) to 1 (in), eased.</summary>
     public float Blend { get; private set; }
+
+    /// <summary>How shut in the camera is, 0 (outside) to 1 (in the room, the door shut): <see cref="Blend"/> smoothed, less what an open door lets in.</summary>
+    public float Enclosure => ValleyNoise.SmoothStep(0f, 1f, Blend) * (1f - OpenDoorLeak * (Door?.Openness ?? 0f));
 
     /// <summary>True while the active camera is in the room.</summary>
     public bool CameraInside { get; private set; }
@@ -50,10 +59,9 @@ public sealed class CabinInterior : Node3D
 
     protected override void OnProcess(in GameTime gameTime)
     {
-        if (_environment is not { } environment)
-            return;
+        var environment = _environment;
         var inside = GetViewport()?.ActiveCamera3D is { } camera && Contains(camera.GlobalPosition);
-        if (inside && !CameraInside && Blend <= 0f)
+        if (environment is not null && inside && !CameraInside && Blend <= 0f)
         {
             _ambient = environment.AmbientEnergy;
             _fog = environment.VolumetricFogDensity;
@@ -65,6 +73,8 @@ public sealed class CabinInterior : Node3D
             return;
         var step = gameTime.DeltaTime / MathF.Max(BlendSeconds, 1e-3f);
         Blend = target > Blend ? MathF.Min(Blend + step, 1f) : MathF.Max(Blend - step, 0f);
+        if (environment is null)
+            return;
         var t = ValleyNoise.SmoothStep(0f, 1f, Blend);
         environment.AmbientEnergy = _ambient * float.Lerp(1f, AmbientInside, t);
         environment.VolumetricFogDensity = _fog * float.Lerp(1f, FogInside, t);

@@ -122,6 +122,13 @@ internal sealed class AudioMixRoot : SoundComponent
             return;
         }
 
+        if (command.Type == AudioCommandType.SetBusLowPass)
+        {
+            if ((uint)command.Index < (uint)graph.Buses.Length && graph.Buses[command.Index].LowPass is { } lowPass)
+                lowPass.CutoffFrequency = command.Params.LowPassHz;
+            return;
+        }
+
         if (command.Type >= AudioCommandType.MusicPlay)
         {
             if ((uint)command.Index < (uint)graph.MusicVoices.Length)

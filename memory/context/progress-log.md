@@ -4,6 +4,12 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Forest: the cabin muffles the valley (2026-11-01).** Branch `forest-cabin-indoor-audio`. `CabinInterior.Enclosure`
+  sweeps the Ambience and Water buses to a 450 Hz low-pass and −9 dB (`docs/design/forest.md#indoors`); the fire moved to
+  a new Interior bus that follows the ambience slider. Bus effects had no live parameters, so the engine gained
+  `AudioBus.LowPassHz` (`SetBusLowPass`; at `AudioEffectLowPass.OpenHz` the filter passes everything). Tuned by numbers
+  only: nobody has listened to it yet.
+
 - **Neon: AAA city and cyberpunk menu (2026-11-01).** Branch `neon-city-and-menu`, Examples/Neon and docs only
   (ADR 0231, `docs/design/neon.md`). Grain off, rain 30 %, facades rebuilt (interior mapping, faked city light), kit with
   near/far towers and a props kit, street mirror, crowd, lanterns, `NeonMenu` over `UserSettings`. Then: bed turned,

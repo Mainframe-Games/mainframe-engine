@@ -20,7 +20,7 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 | Type | File | Notes |
 |---|---|---|
 | `AudioServer`, `AudioOptions`, `AudioDeviceMode`, `AudioVoiceHandle`, `AudioServerStats` | [Audio/AudioServer.cs](../../MainframeEngine/Src/Audio/AudioServer.cs) | `IFrameServer`; voice pools, stealing, listener, command batching |
-| `AudioBus` | [Audio/AudioBus.cs](../../MainframeEngine/Src/Audio/AudioBus.cs) | live fader / player volume (`UserVolume`) / mute / solo / meter |
+| `AudioBus` | [Audio/AudioBus.cs](../../MainframeEngine/Src/Audio/AudioBus.cs) | live fader / player volume (`UserVolume`) / low-pass cutoff (`LowPassHz`) / mute / solo / meter |
 | `AudioBusLayout`, `AudioBusInfo`, `AudioEffect` (+ `LowPass`, `HighPass`, `Reverb` (engine Freeverb), `Compressor`) | [Audio/AudioBusLayout.cs](../../MainframeEngine/Src/Audio/AudioBusLayout.cs) | `.mres` resources |
 | `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.meta` import settings; `PitchRandomness` |
 | `Zzfx`, `ZzfxParameters`, `ZzfxShape`, `ZzfxStream`, `ZzfxPresets` | [Audio/Synthesis/](../../MainframeEngine/Src/Audio/Synthesis/) | ZzFX 1.4.0 synthesiser, line format, the generated-sound resource, random recipes |
@@ -112,6 +112,11 @@ same resource inline in `project.mfproj` instead of the file.
   `ReverbProcessor` for reverb, because SoundFlow's `AlgorithmicReverbModifier` reallocates its comb buffers on the
   audio thread as its modulation moves) and then a `BusProcessor`: the fader gain (ramped over ~10 ms) and a peak
   meter (`AudioBus.Peak`).
+- **Live low-pass:** `AudioBus.LowPassHz` moves the cutoff of the bus's first `AudioEffectLowPass` at run time, one
+  `SetBusLowPass` command per change, 0 B (for example muffling a bus as the player goes indoors). The cutoff steps
+  once per audio block, unramped: sweep it, do not jump it. At `AudioEffectLowPass.OpenHz` (20 kHz) the filter passes
+  everything, so a bus can carry one that stands open. `GetBusLayout()` keeps the authored `CutoffHz`, and applying a
+  layout resets the live value.
 - **Solo:** when any bus is soloed, only soloed buses, their sub-buses, and the buses they send through are
   heard; a bus that only passes a soloed sub-bus through has its *own* voices silenced (`DirectAudible`).
 - `AudioBus.VolumeDb` / `UserVolume` / `Mute` / `Solo` setters mark the buses dirty; gains are recomputed and sent in
@@ -315,7 +320,8 @@ their own `ProcessMode` (default `Pausable`).
 - NVorbis seeking is not sample-accurate, so OGG seeks reopen the file and decode forward to the target: cheap for
   loops back to the start, but a loop point (or `Seek`) deep into a long OGG decodes up to it each time.
 - Linear interpolation resampling: fine for game audio, audible aliasing on bright content pitched far up.
-- `AudioEffect` parameters apply when a layout is applied; there is no live per-parameter automation yet.
+- `AudioEffect` parameters apply when a layout is applied; the only live one is the low-pass cutoff
+  (`AudioBus.LowPassHz`).
 - A stolen voice is restarted at once with the new sound, cutting its stop fade short (it can click); stealing only
   happens when a bus pool is exhausted.
 - If the audio or null-device thread fails to stop within 2 s at shutdown, its graph is left to the GC rather than

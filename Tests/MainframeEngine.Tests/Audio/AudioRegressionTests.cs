@@ -10,6 +10,62 @@ public sealed class AudioRegressionTests
     private const int Rate = AudioTestUtil.Rate;
 
     [Fact]
+    public void ABusLowPassMovesLiveAndOpensCompletely()
+    {
+        var layout = AudioBusLayout.CreateDefault();
+        layout.Buses[2].Effects = [new AudioEffectLowPass { CutoffHz = AudioEffectLowPass.OpenHz }];
+        var tree = new SceneTree();
+        using var server = AudioTestUtil.CreateServer(tree, layout);
+        var sfx = server.GetBus("SFX")!;
+        var music = server.GetBus("Music")!;
+        Assert.True(sfx.HasLowPass);
+        Assert.False(music.HasLowPass);
+        Assert.Equal(AudioEffectLowPass.OpenHz, sfx.LowPassHz);
+
+        var loop = AudioTestUtil.Sine(6000f, 1f);
+        loop.Loop = true;
+        server.PlayOneShot(loop, "SFX");
+        float Level()
+        {
+            AudioTestUtil.Render(server, 4800, tree); // lets the change and the ramp settle
+            return AudioTestUtil.Rms(AudioTestUtil.Render(server, 4800, tree), 0);
+        }
+
+        var open = Level();
+        Assert.True(open > 0.05f, $"{open}");
+
+        sfx.LowPassHz = 300f;
+        Assert.Equal(300f, sfx.LowPassHz);
+        var shut = Level();
+        Assert.True(shut < open * 0.1f, $"{shut} vs {open}"); // a one-pole: about −26 dB at 6 kHz
+
+        sfx.LowPassHz = AudioEffectLowPass.OpenHz;
+        Assert.Equal(open, Level(), 3);
+
+        // Clamped; the bus layout keeps what was authored.
+        sfx.LowPassHz = 1f;
+        Assert.Equal(10f, sfx.LowPassHz);
+        sfx.LowPassHz = float.NaN;
+        Assert.Equal(AudioEffectLowPass.OpenHz, sfx.LowPassHz);
+        sfx.LowPassHz = 800f;
+        Assert.Equal(AudioEffectLowPass.OpenHz, Assert.IsType<AudioEffectLowPass>(server.GetBusLayout().Buses[2].Effects[0]).CutoffHz);
+
+        // A sweep allocates nothing, and a bus without the effect ignores it.
+        var frame = 0;
+        var block = new float[960];
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+        {
+            for (var i = 0; i < 60; i++)
+            {
+                sfx.LowPassHz = 500f + frame++ % 100 * 50f;
+                music.LowPassHz = 500f;
+                server.Process(AudioTestUtil.Frame);
+                server.RenderNullDevice(480, block);
+            }
+        }));
+    }
+
+    [Fact]
     public void ReverbHasATailAndProcessesWithoutAllocating()
     {
         var reverb = new ReverbProcessor(Rate, roomSize: 0.8f, damp: 0.3f, wet: 0.5f, dry: 1f, width: 1f);

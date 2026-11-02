@@ -9,6 +9,7 @@ public sealed class AudioBus
     private readonly AudioServer _server;
     private float _volumeDb;
     private float _userVolume = 1f;
+    private float _lowPassHz = AudioEffectLowPass.OpenHz;
     private bool _mute;
     private bool _solo;
 
@@ -28,6 +29,15 @@ public sealed class AudioBus
         MusicVoices = info.ResolvedMusicVoices;
         FirstMusicVoice = firstMusicVoice;
         Effects = [.. info.Effects];
+        foreach (var effect in Effects)
+        {
+            if (effect is AudioEffectLowPass lowPass)
+            {
+                HasLowPass = true;
+                _lowPassHz = lowPass.CutoffHz;
+                break;
+            }
+        }
     }
 
     public string Name { get; }
@@ -69,6 +79,28 @@ public sealed class AudioBus
             if (_userVolume == clamped)
                 return;
             _userVolume = clamped;
+            _server.OnBusChanged();
+        }
+    }
+
+    /// <summary>True when the effect chain has an <see cref="AudioEffectLowPass"/>, which <see cref="LowPassHz"/> drives.</summary>
+    public bool HasLowPass { get; }
+
+    /// <summary>
+    /// The live cutoff of the bus's first <see cref="AudioEffectLowPass"/>, in Hz (its <see cref="AudioEffectLowPass.CutoffHz"/>
+    /// until set; <see cref="AudioEffectLowPass.OpenHz"/> passes everything). Safe to sweep every frame. Not part of
+    /// <see cref="AudioServer.GetBusLayout"/>, and ignored on a bus without the effect. Values are clamped to
+    /// 10..<see cref="AudioEffectLowPass.OpenHz"/> (NaN = open).
+    /// </summary>
+    public float LowPassHz
+    {
+        get => _lowPassHz;
+        set
+        {
+            var clamped = float.IsNaN(value) ? AudioEffectLowPass.OpenHz : Math.Clamp(value, 10f, AudioEffectLowPass.OpenHz);
+            if (_lowPassHz == clamped)
+                return;
+            _lowPassHz = clamped;
             _server.OnBusChanged();
         }
     }
