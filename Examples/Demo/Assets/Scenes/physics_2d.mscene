@@ -321,6 +321,18 @@
       "props": {
         "Size": [41.35858, 8]
       }
+    },
+    "RectangleShape2D_9a0cf": {
+      "type": "RectangleShape2D",
+      "props": {
+        "Size": [100, 16]
+      }
+    },
+    "RectangleShape2D_7am71": {
+      "type": "RectangleShape2D"
+    },
+    "RectangleShape2D_t3h46": {
+      "type": "RectangleShape2D"
     }
   },
   "nodes": [
@@ -1976,6 +1988,105 @@
         "NodeA": "../Plank7",
         "NodeB": "../BlockR",
         "BreakForce": 60000
+      }
+    },
+    {
+      "name": "Lift",
+      "parent": ".",
+      "type": "Lift2D"
+    },
+    {
+      "name": "Platform",
+      "parent": "Lift",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [-460, 160],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Lift/Platform",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_9a0cf" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Lift/Platform",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [100, 16],
+        "Color": [0.22, 0.74, 0.97, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Crate0",
+      "parent": "Lift",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [-485, 141],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Lift/Crate0",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_7am71" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Lift/Crate0",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [20, 20],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Crate1",
+      "parent": "Lift",
+      "type": "RigidBody2D",
+      "props": {
+        "Position": [-435, 141],
+        "Mass": 0.5
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Lift/Crate1",
+      "type": "CollisionShape2D",
+      "props": {
+        "Shape": { "res": "RectangleShape2D_t3h46" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Lift/Crate1",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [20, 20],
+        "Color": [0.71, 0.51, 0.32, 1],
+        "Outline": [0, 0, 0, 0.35],
+        "OutlineWidth": 1.5
+      }
+    },
+    {
+      "name": "Motor",
+      "parent": "Lift",
+      "type": "MotorJoint2D",
+      "props": {
+        "Position": [-460, 160],
+        "NodeB": "../Platform",
+        "MaxVelocityForce": 20000
       }
     },
     {

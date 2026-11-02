@@ -255,8 +255,8 @@ msgstr "[Bûrst öf spårks ~~~]"
 msgid "Physics 2D"
 msgstr "[Phýsîçs 2Ð ~~]"
 
-msgid "Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints and a breakable bridge. Click to spawn a body."
-msgstr "[Böx2Ð böðîés thröûgh å fûññél åñð pégböårð, å çhåîñ, å çår öñ whéél jöîñts åñð å bréåkåblé brîðgé. Çlîçk tö spåwñ å böðý. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgid "Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints, a breakable bridge and a lift on a motor joint. Click to spawn a body."
+msgstr "[Böx2Ð böðîés thröûgh å fûññél åñð pégböårð, å çhåîñ, å çår öñ whéél jöîñts, å bréåkåblé brîðgé åñð å lîft öñ å mötör jöîñt. Çlîçk tö spåwñ å böðý. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "Bodies"
 msgstr "[Böðîés ~]"

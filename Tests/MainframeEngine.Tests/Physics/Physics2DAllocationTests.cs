@@ -56,6 +56,7 @@ public sealed class Physics2DAllocationTests
         Hang(new GrooveJoint2D { Name = "Groove", Length = 100, InitialOffset = 0 }, "Bead", new Vector2(-2400, -800));
         Hang(new WeldJoint2D { Name = "Weld", AngularHertz = 2, BreakForce = 1e9f }, "Sign", new Vector2(-2300, -800));
         Hang(new WheelJoint2D { Name = "Wheel", Rotation = -MathF.PI / 2, MotorEnabled = true, MotorTargetVelocity = 3 }, "Tyre", new Vector2(-2200, -800));
+        var motor = (MotorJoint2D)Hang(new MotorJoint2D { Name = "Motor", MaxVelocityForce = 100 }, "Puck", new Vector2(-2100, -800)); // G9.10a
         area.AreaEntered += _ => entered++;
         pickup.AreaEntered += _ => entered++;
         for (var i = 0; i < 4; i++)
@@ -70,8 +71,10 @@ public sealed class Physics2DAllocationTests
         var probe = new CircleShape2D { Radius = 20 };
         var probeAt = Transform2D.FromTrs(new Vector2(0, -600), 0, Vector2.One);
 
+        var frames = 0;
         void Frame(float delta)
         {
+            motor.LinearOffset = new Vector2(frames++ % 60, 0); // a live change every frame
             h.Run(1, delta);
             query.RayCast(new Vector2(30, -1000), new Vector2(30, 1000), out _);
             query.ShapeCast(probe, probeAt, new Vector2(0, 1000), out _);

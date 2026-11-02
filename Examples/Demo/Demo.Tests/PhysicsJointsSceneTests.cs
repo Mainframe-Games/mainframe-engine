@@ -117,6 +117,33 @@ public sealed class PhysicsJointsSceneTests : IDisposable
     }
 
     [Fact]
+    public void TheLiftFollowsItsTargetAndCarriesItsCrates()
+    {
+        Load2D();
+        var lift = Scene.GetNode<Lift2D>("Lift");
+        var platform = lift.GetNode<RigidBody2D>("Platform");
+        var (top, bottom) = (float.MaxValue, float.MinValue);
+        for (var i = 0; i < 60 * 3; i++)
+        {
+            Run(1);
+            Assert.True(Vector2.Distance(platform.GlobalPosition, lift.Target) < 10f, $"frame {i}: the platform at {platform.GlobalPosition}, its target at {lift.Target}");
+            (top, bottom) = (MathF.Min(top, platform.GlobalPosition.Y), MathF.Max(bottom, platform.GlobalPosition.Y));
+        }
+
+        Assert.True(bottom - top > 150f, $"it travelled: {top} to {bottom}");
+        for (var i = 0; i < Joints2DBuild.CratesAt.Length; i++)
+        {
+            var crate = lift.GetNode<RigidBody2D>($"Crate{i}").GlobalPosition;
+            Assert.True(crate.Y < platform.GlobalPosition.Y && MathF.Abs(crate.X - platform.GlobalPosition.X) < Joints2DBuild.PlatformSize.X / 2,
+                $"Crate{i} rides the platform: {crate}, the platform at {platform.GlobalPosition}");
+        }
+
+        Physics2DPanel.ResetLift(Scene);
+        Run(1);
+        Assert.InRange(Vector2.Distance(platform.GlobalPosition, Joints2DBuild.PlatformAt), 0f, 3f);
+    }
+
+    [Fact]
     public void TheCarTurnsBackAtTheEndsOfItsRange()
     {
         Load2D();

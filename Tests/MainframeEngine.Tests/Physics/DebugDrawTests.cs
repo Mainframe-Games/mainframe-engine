@@ -84,6 +84,31 @@ public sealed class DebugDrawTests
     }
 
     [Fact]
+    public void AMotorJointDrawsItsTargetAndTurnsRedFarFromIt()
+    {
+        using var h = new PhysicsHarness2D();
+        var box = h.AddBox(Vector2.Zero, 20);
+        box.GravityScale = 0;
+        var motor = new MotorJoint2D { Name = "Motor", LinearOffset = new Vector2(100, 0), LinearHertz = 0.5f };
+        h.Add(motor);
+        motor.NodeB = "../Box";
+        h.Server.DebugDrawJoints = true;
+        var lines = h.Tree.Root.DebugLines;
+        h.Run(1);
+        // Anchor A is the target: two circles (24 segments and a radius line each), the line between them, the target's
+        // cross (two lines) and its +X.
+        Assert.Equal(2 * 25 + 1 + 3, lines.LineCount);
+        Assert.Contains(lines.Vertices.ToArray(), v => Vector2.Distance(new Vector2(v.Position.X, v.Position.Y), new Vector2(106, 6)) < 0.01f);
+        Assert.All(lines.Vertices.ToArray(), v => Assert.Equal(1f, v.Color.X)); // red or amber: the box is 100 px from it
+        Assert.Contains(lines.Vertices.ToArray(), v => v.Color.Y < 0.5f); // red
+
+        h.RunSeconds(10f);
+        lines.Clear();
+        h.Run(1);
+        Assert.DoesNotContain(lines.Vertices.ToArray(), v => v.Color.Y < 0.5f); // amber once it is on the target
+    }
+
+    [Fact]
     public void DebugDrawJointsDrawsOnlyTheJoints()
     {
         using var h = new PhysicsHarness3D();

@@ -92,6 +92,7 @@ public sealed class JointHandleTests : IDisposable
         Assert.Null(HandleProviders.Find(typeof(PinJoint3D)));
         Assert.Null(HandleProviders.Find(typeof(WeldJoint3D)));
         Assert.Null(HandleProviders.Find(typeof(WeldJoint2D)));
+        Assert.Null(HandleProviders.Find(typeof(MotorJoint2D)));
         Assert.Empty(Handles(new PhysicalBone3D { JointType = PhysicalBoneJointType.Pin }));
     }
 

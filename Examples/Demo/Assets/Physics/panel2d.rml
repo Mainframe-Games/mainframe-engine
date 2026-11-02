@@ -6,7 +6,7 @@
 <body class="hud" data-model="physics2d">
     <div class="demo-panel">
         <h1>Physics 2D</h1>
-        <p class="hint">Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints and a breakable bridge. Click to spawn a body.</p>
+        <p class="hint">Box2D bodies through a funnel and pegboard, a chain, a car on wheel joints, a breakable bridge and a lift on a motor joint. Click to spawn a body.</p>
         <div class="demo-row"><span>Bodies</span><span>{{count}}</span></div>
         <div class="demo-row"><span>Collision shapes</span><input type="checkbox" data-checked="shapes"/></div>
         <div class="demo-row"><span>Joints</span><input type="checkbox" data-checked="joints"/></div>
