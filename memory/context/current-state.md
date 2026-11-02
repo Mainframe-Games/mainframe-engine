@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-10-28 — M0–M10, Demo & polish and most of the 2D port work on `main`; latest release v1.1.5.
+_Last updated: 2026-11-02 — M0–M10, Demo & polish and most of the 2D port work on `main`; latest release v1.1.5.
 In review: `feature/gameplay-toolkit` (G2a animated sprites, G2b tile maps, G3a navigation G3.1–G3.5, G5 export, G10
 profiler, G15 crash reporting)._
 
@@ -42,6 +42,7 @@ profiler, G15 crash reporting)._
 - **CI:** `ci.yml` (build-test ×3 OS, format, shaders, render-tests on lavapipe, template smoke, `ci-success`),
   `publish.yml`, `natives.yml`. Jobs fetch only the LFS files they need, cached by object ID. GitHub Actions
   minutes are scarce: run things locally (Docker for Linux) first.
+- **Workflow:** the Mainframe workflow v1.0.0 (ADR 0233): `.agents/workflow.md`, `mf-*` skills, `check.sh` in CI.
 
 ## Known gotchas
 

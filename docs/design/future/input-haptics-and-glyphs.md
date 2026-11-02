@@ -184,10 +184,13 @@ public sealed class HapticsServer : IFrameServer
     public bool Enabled { get; set; } = true;          // player setting (G4 UserSettings)
     public float Intensity { get; set; } = 1f;         // 0..1, player setting
     public bool MuteWhenUnfocused { get; set; } = true;
-    public RumbleHandle Start(int device, float low, float high, float duration, in RumbleOptions options = default);
-    public RumbleHandle StartTriggers(int device, float left, float right, float duration,
-        in RumbleOptions options = default);
-    public RumbleHandle Play(RumblePattern pattern, int device = RumbleTarget.LastUsed, in RumbleOptions options = default);
+    // Overloads, not `= default`: default skips RumbleOptions' initializers (Scale 0, PauseMode Inherit).
+    public RumbleHandle Start(int device, float low, float high, float duration);
+    public RumbleHandle Start(int device, float low, float high, float duration, in RumbleOptions options);
+    public RumbleHandle StartTriggers(int device, float left, float right, float duration);
+    public RumbleHandle StartTriggers(int device, float left, float right, float duration, in RumbleOptions options);
+    public RumbleHandle Play(RumblePattern pattern, int device = RumbleTarget.LastUsed);
+    public RumbleHandle Play(RumblePattern pattern, int device, in RumbleOptions options);
     public void SetScale(RumbleHandle handle, float scale);   // e.g. a looping engine rumble driven by RPM
     public void Stop(RumbleHandle handle);
     public void StopAll(int device = RumbleTarget.All);
@@ -205,8 +208,10 @@ public static partial class Input   // Godot's names and semantics
 
 - **Channels.** `low` is SDL's low-frequency (strong) motor, `high` the high-frequency (weak) one; Godot's
   `weak`/`strong` map to `high`/`low`. Trigger motors need `GamepadCaps.TriggerRumble` and are dropped otherwise.
+- **Duration.** 0 means until stopped, for `Start` and `StartTriggers` as for `StartJoyVibration`.
 - **Targets.** An index resolves to an instance id when the voice starts, so a reconnect that shifts indices keeps the
-  same physical pad; a disconnect ends that pad's voices. `All` also covers pads connected later.
+  same physical pad; a disconnect ends that pad's voices. `All` also covers pads connected later. `LastUsed` needs
+  G12.4's `LastGamepad`, so it and `Play`'s default target arrive with G12.4.
 - **Mixing.** Per pad and motor: an `Exclusive` voice mutes lower priorities; the rest combine by `Max` (default;
   summed rumble saturates into mush) or clamped `Add`; then × `Intensity` × `Enabled`, and 0 while unfocused (Silk
   `IWindow.FocusChanged`).
@@ -417,7 +422,7 @@ change and redraws on `GlyphsChanged`; a steady frame allocates nothing. G11's `
 - **Unit (`Tests/MainframeEngine.Tests/Input/`, with a recording `FakeGamepadBackend`):**
   - `HapticsServerTests`: `Max`/`Add` mixing, exclusive gating, intensity and `Enabled`, quantization dedupe,
     keepalive and duration, a single zero on silence, pause freeze vs `Always`, focus mute, disconnect, index shift,
-    `LastUsed`/`All` targets, stale handles, dropped trigger channels, zeros on dispose.
+    the `All` target (`LastUsed` in G12.4), stale handles, dropped trigger channels, zeros on dispose.
   - `JoyVibrationFacadeTests` (Godot semantics), `RumblePatternTests` (sampling, loop, `Strength`, `.mres` round
     trip), `RumblePlayerTests` (autoplay, `Finished` once, stop on exit tree, `ProcessMode`).
   - `GamepadIdentityTests` (type → family tables, VID/PID fallback, Steam override, event order, `FindGamepad`) and
@@ -440,6 +445,61 @@ change and redraws on `GlyphsChanged`; a steady frame allocates nothing. G11's `
 - **Manual QA matrix** (`Tests/QA/gamepads.md`): Xbox Series (USB and Bluetooth), DualSense, DualShock 4, Switch Pro,
   Steam Deck (Steam Input on and off), a generic XInput pad; on macOS, Windows and Linux: type, glyphs, rumble feel,
   LED, gyro, unplug and alt-tab while rumbling.
+
+## Scenarios
+
+G12.1 and G12.2. Each scenario names its test.
+
+**Pad identity (`GamepadIdentityTests`, `SdlGamepadBackendTests`)**
+
+- **List pads.** Given two connected pads, when `GetConnectedGamepads` gets an eight-entry span, then it returns 2 and
+  the first two entries describe them, without allocating.
+- **Unknown device.** When `TryGetGamepad` gets an index with no pad, then it returns false.
+- **Index shift.** Given pads at 0 and 1, when pad 0 disconnects, then `FindGamepad` with the second pad's instance id
+  returns its new index.
+- **Disconnected pad.** Given a pad that disconnected, when `FindGamepad` gets its instance id, then it returns -1.
+- **Type from SDL.** When SDL reports a PS5 controller, then `Type` is `PS5` and `Family` is `PlayStation`.
+- **Deck from the table.** Given SDL reports `Unknown` with `0x28DE`/`0x1205`, when the pad connects, then `Type` and
+  `Family` are `SteamDeck`.
+- **Unrecognised pad.** Given SDL reports `Unknown` and the table has no entry, then `Type` is `Unknown` and `Family`
+  is `Generic`.
+- **No trigger motors.** Given SDL reports rumble but no trigger rumble, then `Caps` has `Rumble` and not
+  `TriggerRumble`.
+- **Connection signal.** When a pad connects or disconnects, then `GamepadConnectionChanged` fires once with its info
+  and true or false.
+- **Misc button.** Given a virtual pad, when it presses button 15, then the frame completes and no
+  `InputEventGamepadButton` is produced (`SdlGamepadBackendTests`; only if the crash reproduces).
+
+**Rumble (`HapticsServerTests`)**
+
+- **No options.** Given a connected pad, when `Start(0, 1, 1, 1)` runs, then `GetOutput(0)` reports low and high of 1.
+- **Duration ends a voice.** Given a duration of 0.5, when 0.6 seconds pass, then `IsPlaying` is false and output is 0.
+- **Duration 0.** Given a duration of 0, when ten seconds pass, then `IsPlaying` is true.
+- **Stale handle.** Given a stopped voice whose slot was reused, when `Stop` gets the old handle, then the new voice
+  keeps playing.
+- **Sources do not fight.** When voices of low 0.4 and 0.7 play on one pad, then low output is 0.7.
+- **Add clamps.** When two `Add` voices of low 0.7 play on one pad, then low output is 1.
+- **Exclusive.** Given a priority 0 voice of low 0.8, when an `Exclusive` priority 5 voice of low 0.2 starts, then low
+  output is 0.2 until it ends, then 0.8.
+- **Index shift.** Given a voice on the pad at index 1, when the pad at index 0 disconnects, then the voice keeps
+  rumbling the same physical pad.
+- **All covers a late pad.** Given a voice on `RumbleTarget.All`, when another pad connects, then it rumbles too.
+- **Dropped triggers.** When `StartTriggers` targets a pad without trigger motors, then the backend gets no trigger
+  rumble.
+- **Intensity.** Given `Intensity` 0.5, when a voice of low 1 plays, then low output is 0.5.
+- **Focus loss.** Given a rumbling pad, when the window loses focus, then output is 0 until focus returns.
+- **Pause and resume.** Given a `Pausable` voice with 0.5 seconds left, when the tree pauses for 3 seconds and resumes,
+  then it outputs 0 while paused and plays its remaining 0.5 seconds.
+- **Menu tick.** When an `Always` voice starts while the tree is paused, then it plays.
+- **Unchanged output.** When a constant voice plays for 90 ms, then the backend gets one send.
+- **Keepalive.** When a constant voice plays for 110 ms, then the backend gets a second send.
+- **Silence.** When the last voice on a pad ends, then the backend gets exactly one zero.
+- **Dispose.** Given two rumbling pads, when the server is disposed, then the backend gets zero for both.
+- **Replace (`JoyVibrationFacadeTests`).** Given a `StartJoyVibration` voice on pad 0, when it is called again, then
+  only the new values play.
+- **Motor mapping (`JoyVibrationFacadeTests`).** When `StartJoyVibration(0, 0.2, 0.9)` runs, then the low motor gets
+  0.9 and the high motor 0.2.
+- **Headless.** Given a headless host, when `Input.StartJoyVibration` runs, then nothing is thrown.
 
 ## Acceptance
 
@@ -464,7 +524,7 @@ G12.1–G12.3 do not need G4. G12.4 onwards use G4.4's `InputDeviceClass` and sl
 
 1. **G12.1 Gamepad backend and identity.** Reproduce the Silk button crash and add the `SdlEventBatch` guard if
    confirmed; `IGamepadBackend` (SDL, null, fake); `GamepadInfo`, types, families, caps, VID/PID table; `InputState`
-   pad list and `GamepadConnectionChanged`; the positional button-label hint. Unit and SDL virtual-joystick tests.
+   pad list and `GamepadConnectionChanged`. Unit and SDL virtual-joystick tests.
 2. **G12.2 HapticsServer.** Voices, mixing, priorities, intensity, pause, focus, keepalive, disconnects, the
    `Input.*JoyVibration` facade, registration in `Engine` and `HeadlessHost`; tests and allocation gate.
 3. **G12.3 Patterns and extras.** `RumblePattern`, `RumblePlayer` (+ icon), inspector plot and preview button,
