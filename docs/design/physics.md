@@ -238,7 +238,7 @@ a solver ([ADR 0022](../../memory/decisions/0022-physics-signal-dispatch.md)):
 
 [Physics joints and ragdolls](physics-joints.md) (ADR 0201, 0211, 0212): `PinJoint3D`, `HingeJoint3D`,
 `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D` over Jitter2 constraints and `PinJoint2D`,
-`DampedSpringJoint2D`, `SliderJoint2D`, `GrooveJoint2D`, `WeldJoint2D`, `WheelJoint2D` over Box2D joints, with limits,
+`DampedSpringJoint2D`, `SliderJoint2D`, `GrooveJoint2D`, `WeldJoint2D`, `WheelJoint2D`, `MotorJoint2D` over Box2D joints, with limits,
 motors, springs, breaking (`Broken`, `Rebuild()`), collision exclusion and debug draw. Joints are created at the space's
 flush after their bodies, keep their authored frames when bodies leave and return or switch Dynamic ↔ Kinematic, and
 wait (3D) while neither body is dynamic. `Ragdoll3D` turns its rigid-body children into a ragdoll; `PhysicalBone3D`

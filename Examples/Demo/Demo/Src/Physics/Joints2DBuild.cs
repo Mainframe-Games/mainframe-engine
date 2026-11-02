@@ -6,7 +6,8 @@ namespace Demo;
 
 /// <summary>
 /// The joints of the Physics 2D scene (G9): a chain of pinned links, a car on <see cref="WheelJoint2D"/>s that drives
-/// back and forth (<see cref="Car2D"/>) and a plank bridge on breakable pins under the pegboard.
+/// back and forth (<see cref="Car2D"/>), a plank bridge on breakable pins under the pegboard, and a lift: a platform a
+/// <see cref="MotorJoint2D"/> pulls up and down (<see cref="Lift2D"/>) with two crates riding it.
 /// </summary>
 public static class Joints2DBuild
 {
@@ -107,6 +108,29 @@ public static class Joints2DBuild
         }
     }
 
+    /// <summary>The lift's platform (left of the funnel) at the bottom of its travel.</summary>
+    public static readonly Vector2 PlatformAt = new(-460, 160), PlatformSize = new(100, 16);
+
+    /// <summary>The crates' authored positions, resting on the platform.</summary>
+    public static readonly Vector2[] CratesAt = [new(-485, 141), new(-435, 141)];
+
+    /// <summary>A platform held up by a motor joint to the world, moving up and down (<see cref="Lift2D"/>), carrying two crates.</summary>
+    public static void AddLift(Node root)
+    {
+        var lift = Add(root, root, new Lift2D { Name = "Lift" });
+        var platform = Add(root, lift, new RigidBody2D { Name = "Platform", Position = PlatformAt, Mass = 2f });
+        Add(root, platform, new CollisionShape2D { Name = "Shape", Shape = new RectangleShape2D { Size = PlatformSize } });
+        Add(root, platform, new DemoShape2D { Name = "Visual", Kind = DemoShapeKind.Rect, Size = PlatformSize, Color = Body, Outline = Outline, OutlineWidth = 2f });
+        for (var i = 0; i < CratesAt.Length; i++)
+        {
+            var crate = Add(root, lift, new RigidBody2D { Name = $"Crate{i}", Position = CratesAt[i], Mass = 0.5f });
+            Add(root, crate, new CollisionShape2D { Name = "Shape", Shape = new RectangleShape2D { Size = new Vector2(20) } });
+            Add(root, crate, new DemoShape2D { Name = "Visual", Kind = DemoShapeKind.Rect, Size = new Vector2(20), Color = Plank, Outline = Outline, OutlineWidth = 1.5f });
+        }
+
+        Add(root, lift, new MotorJoint2D { Name = "Motor", Position = PlatformAt, NodeB = "../Platform", MaxVelocityForce = 20_000f });
+    }
+
     private const float BridgeY = 205f, BridgeLeft = 170f, BridgeSpan = 330f, BridgeSag = 40f;
 
     // The bridge is authored sagging: pin i on a sine between the blocks (a chain between fixed ends needs slack). The
@@ -171,5 +195,37 @@ public sealed class Car2D : Node2D
         for (var i = 0; i < ChildCount; i++)
             if (GetChild(i) is WheelJoint2D joint)
                 joint.MotorTargetVelocity = WheelSpeed * _direction;
+    }
+}
+
+/// <summary>
+/// Moves its <see cref="MotorJoint2D"/>'s target up and down: the joint's velocity part moves the platform at the
+/// target's speed and its spring keeps it on the target.
+/// </summary>
+public sealed class Lift2D : Node2D
+{
+    /// <summary>How far the target rises above the bottom, in pixels.</summary>
+    [Export] public float Travel { get; set; } = 220f;
+
+    /// <summary>Seconds for one trip up and down.</summary>
+    [Export] public float Period { get; set; } = 5f;
+
+    private float _time;
+
+    /// <summary>Where the motor joint pulls the platform now (pixels, global).</summary>
+    public Vector2 Target => GetNodeOrNull<MotorJoint2D>("Motor") is { } motor ? motor.GlobalPosition + motor.LinearOffset : default;
+
+    /// <summary>Starts the trip again from the bottom (the panel's Reset).</summary>
+    public void Restart() => _time = 0f;
+
+    protected override void OnPhysicsProcess(float delta)
+    {
+        _time += delta;
+        if (GetNodeOrNull<MotorJoint2D>("Motor") is not { } motor)
+            return;
+        // Up and back down from rest at the bottom (2D is Y-down), easing in and out.
+        var phase = _time * MathF.Tau / Period;
+        motor.LinearOffset = new Vector2(0, -Travel * 0.5f * (1f - MathF.Cos(phase)));
+        motor.LinearVelocity = new Vector2(0, -Travel * 0.5f * MathF.Tau / Period * MathF.Sin(phase));
     }
 }

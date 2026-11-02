@@ -38,6 +38,7 @@ public static class Physics2DScene
         Joints2DBuild.AddChain(root);
         Joints2DBuild.AddCar(root);
         Joints2DBuild.AddBridge(root);
+        Joints2DBuild.AddLift(root);
         Add(root, root, new Spawner2D { Name = "Bodies" });
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new Physics2DPanel { Name = "Panel" });

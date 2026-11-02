@@ -56,6 +56,10 @@ public sealed class JointEditorTests : IDisposable
         Assert.Equal(typeof(PhysicsBody2D), TypeRegistry.GetRequired(typeof(WheelJoint2D)).FindProperty("NodeA")!.Hints.NodeType);
         Assert.IsType<Joint3DInspector>(CustomInspectors.Find(typeof(SliderJoint3D)));
         Assert.IsType<Joint2DInspector>(CustomInspectors.Find(typeof(PinJoint2D)));
+        var motor = TypeRegistry.GetRequired(typeof(MotorJoint2D)); // G9.10a
+        Assert.Equal(typeof(PhysicsBody2D), motor.FindProperty("NodeB")!.Hints.NodeType);
+        Assert.IsType<Joint2DInspector>(CustomInspectors.Find(typeof(MotorJoint2D)));
+        Assert.Equal(("magnet", EditorIconFamily.Physics), (motor.Icon, motor.IconFamily));
     }
 
     [Fact]

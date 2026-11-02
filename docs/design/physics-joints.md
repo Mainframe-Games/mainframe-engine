@@ -3,11 +3,11 @@
 The current state of G9 ([milestones](../milestones.md#gameplay-toolkit-)): joint nodes over Jitter2 (3D) and Box2D
 (2D) with limits, motors, springs and breaking; their debug draw and editor gizmo; rigid-part ragdolls
 (`Ragdoll3D`); skeleton ragdolls (`PhysicalBone3D`, `PhysicalBoneSimulator3D`) and the editor's Create physical
-skeleton; limit handles in the editor's viewport (G9.7). Decisions: [ADR 0201](../../memory/decisions/0201-2d-joints-on-box2d.md) (the first 2D joints),
+skeleton; limit handles in the editor's viewport (G9.7); `MotorJoint2D` (G9.10a). Decisions: [ADR 0201](../../memory/decisions/0201-2d-joints-on-box2d.md) (the first 2D joints),
 [ADR 0211](../../memory/decisions/0211-3d-joints-on-jitter2.md) (3D joints, the other 2D joints, breaking, editor) and
 [ADR 0212](../../memory/decisions/0212-ragdolls-and-physical-bones.md) (ragdolls); the limit handles use the G7.3 handle
-API ([ADR 0213](../../memory/decisions/0213-viewport-tools-gizmo-resources-handles.md)). Still to come: G9.10
-(`Generic6DofJoint3D`, active ragdolls, `MotorJoint2D`). Bodies, spaces and signals are in [Physics](physics.md).
+API ([ADR 0213](../../memory/decisions/0213-viewport-tools-gizmo-resources-handles.md)). Still to come: the rest of G9.10
+(`Generic6DofJoint3D`, active ragdolls; [proposal](future/physics-joints-g9-10.md)). Bodies, spaces and signals are in [Physics](physics.md).
 
 ![The Demo's rope bridge with a hinge selected in the editor: its axis, limit arc and angle, and its inspector with
 Rebuild and Swap A/B](../images/editor-joints.png)
@@ -79,8 +79,17 @@ ADR 0201's `PinJoint2D` (revolute: radians limits, motor, now also `SpringEnable
 | `GrooveJoint2D` | wheel joint, spring off, limit on; axis = the joint's +Y | `Length` (50), `InitialOffset` (25): body A holds the groove, B's anchor starts `InitialOffset` along it (both re-create) |
 | `WeldJoint2D` | weld | `LinearHertz`, `AngularHertz` (0 = rigid), `LinearDampingRatio`, `AngularDampingRatio` |
 | `WheelJoint2D` | wheel, along the joint's X (turn it −90° for a car's suspension) | `SpringEnabled` (true), `SpringHertz` (1), `SpringDampingRatio` (0.7); `UseLimit`, `LowerTranslation`, `UpperTranslation`; motor (rad/s, `MotorMaxTorque`) |
+| `MotorJoint2D` (G9.10a) | motor: a spring pulls frame B onto frame A moved by the offsets, plus a capped relative velocity | `LinearOffset` (px, in frame A's axes), `AngularOffset` (rad); spring: `LinearHertz`/`AngularHertz` (4; 0 = that spring off), `LinearDampingRatio`/`AngularDampingRatio` (1), `MaxSpringForce` (10 000 kg·px/s² = 100 N), `MaxSpringTorque` (1 000 000 kg·px²/s² = 100 N·m); velocity: `LinearVelocity` (px/s, **world axes**), `AngularVelocity` (rad/s), `MaxVelocityForce`/`MaxVelocityTorque` (0 = off) |
 
 Box2D's prismatic and wheel axis is frame A's X, so the groove's frames are turned a quarter turn (`FrameAngle`).
+
+**`MotorJoint2D`.** Box2D's own defaults are all zero (a joint that does nothing); the engine's pull body B onto its
+target as soon as it is added. The offsets move the authored frame A (`b2Joint_SetLocalFrameA`), so the record keeps the
+authored frames and `Rebuild()` still starts from them. With velocities of 0 the velocity part is friction: exactly
+`MaxVelocityForce` / mass (top-down ground friction is a motor joint to the world). Box2D reads `LinearVelocity` in world
+axes, not body A's or the frame's. For a target that moves (the Demo's lift), set the velocity to the target's too: the
+spring alone trails it (a 4 Hz spring trails a target moving at 140 px/s by about 10 px). The debug draw puts anchor A at
+the target, with a cross and the target's +X, so the line to body B's anchor (red over 5 px) shows how far off it is.
 
 ## In the space
 
@@ -125,7 +134,7 @@ The editor ([Editor](editor.md)):
 - **Inspector:** Rebuild (`refresh`) and Swap A/B (`arrows-right-left`, one undo step) icon buttons above the rows.
 - **Limit handles** (G9.7, below).
 - **Icons** (Physics family): `link` (bases), `point` (pins), `door` (hinge), `arrows-right-left` (sliders), `ripple`
-  (cone-twist), `ruler-2` (distance), `lock` (welds), `arrows-up-down` (groove), `circle` (wheel), `bone` (ragdolls,
+  (cone-twist), `ruler-2` (distance), `lock` (welds), `arrows-up-down` (groove), `circle` (wheel), `magnet` (motor), `bone` (ragdolls,
   physical bones), `sitemap` (simulator).
 - **Dev overlay:** the Physics panel shows joints (active) and joints broken per second.
 
@@ -244,8 +253,10 @@ nothing.
   `AllowTwist`, cone and twist spans, rope slack, spring period, PD springs, a welded cantilever; joints before their
   bodies, bodies leaving and returning, disabled joints and bodies, kinematic pairs, invalid paths logged once,
   collision exclusion; scene round trips), `JointBreakTests`, `Physics2DJointTests` (every 2D type, `Enabled`, pin
-  springs), `Ragdoll3DTests`, `PhysicalBonesTests`, `DebugDrawTests` (`DebugDrawJoints`), and allocation gates
-  (`JointAllocationTests`: 320 3D joints; the 2D gate has one joint of each type).
+  springs; the motor joint's offsets, world-axes velocity, friction, hertz 0, live offset, `Enabled` and breaking),
+  `Ragdoll3DTests`, `PhysicalBonesTests`, `DebugDrawTests` (`DebugDrawJoints`, the motor joint's target), and allocation
+  gates (`JointAllocationTests`: 320 3D joints; the 2D gate has one joint of each type, the motor joint's offset changed
+  every frame).
 - **Editor** (`JointEditorTests`): warnings, body-only pickers, Swap A/B undo, Rebuild, Create physical skeleton as one
   undo step. `JointHandleTests`: every type's provider and handle positions, angles from the ray (and the edge-on
   fallback), snapping, clamping, lower ≤ upper, hollow handles that turn a limit on, the ±180° stop, the physical bone's
@@ -254,7 +265,8 @@ nothing.
 - **Render test** `physics-joints`: a hinged bridge, a cone-twist mannequin and a broken weld with the joint debug
   draw, frame 90 (moltenvk golden; lavapipe still to record).
 - **Demo** (`PhysicsJointsSceneTests`): the bridge holds, the sign's weld breaks and resets, the mannequin falls and
-  stands, the chain hangs, the car drives and turns, the skinned character ragdolls with its joints holding.
+  stands, the chain hangs, the car drives and turns, the lift follows its target within 10 px carrying its crates, the
+  skinned character ragdolls with its joints holding.
 
 ## Differences from the plan
 
@@ -274,7 +286,10 @@ nothing.
 - **Limit handles also cover `PhysicalBone3D`, the 2D groove and spring lengths, and off limits** (hollow handles that
   turn the limit on); the mockup showed only a hinge's arc. They are drawn at a view-relative radius, not the debug
   draw's fixed one.
-- **Not yet:** `Generic6DofJoint3D`, active ragdolls and `MotorJoint2D` (G9.10), humanoid limits.
+- **`MotorJoint2D`** (G9.10a, [proposal](future/physics-joints-g9-10.md)): `LinearVelocity` is in world axes (the
+  proposal didn't say); the Demo's lift feeds its target's velocity as well as its offset, and starts at the bottom of
+  its travel, from rest.
+- **Not yet:** `Generic6DofJoint3D` and active ragdolls (G9.10b, G9.10c), humanoid limits.
 
 ## Related
 

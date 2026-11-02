@@ -354,7 +354,7 @@ public sealed partial class PhysicsSpace2D
     private float AnchorDistance(JointRecord2D joint)
     {
         JointFrames(joint, out var frame, out var b);
-        return Vector2.Distance(frame.Origin, b);
+        return Vector2.Distance(joint.Node.GetAnchorA(frame), b);
     }
 
     /// <summary>Draws one joint: at its bodies' poses when it exists in Box2D, else at the node (pending, disabled, broken).</summary>
@@ -366,13 +366,13 @@ public sealed partial class PhysicsSpace2D
             var pose = node.GlobalTransform;
             var frame = Transform2D.FromTrs(pose.Origin, pose.Rotation + node.FrameAngle, Vector2.One);
             var anchor = node.GetAnchorB(pose);
-            DrawAnchors(lines, frame.Origin, anchor, color);
+            DrawAnchors(lines, node.GetAnchorA(frame), anchor, color);
             node.DrawDebugShape(lines, frame, anchor, 0f, color);
             return;
         }
 
         JointFrames(joint, out var jointFrame, out var b);
-        DrawAnchors(lines, jointFrame.Origin, b, color);
+        DrawAnchors(lines, node.GetAnchorA(jointFrame), b, color);
         node.DrawDebugShape(lines, jointFrame, b, node.GetDebugValue(joint.Id, PixelsPerMeter), color);
     }
 
@@ -393,7 +393,7 @@ public sealed partial class PhysicsSpace2D
         var pose = node.GlobalTransform;
         var frame = Transform2D.FromTrs(pose.Origin, pose.Rotation + node.FrameAngle, Vector2.One);
         var anchor = node.GetAnchorB(pose);
-        DrawAnchors(lines, frame.Origin, anchor, color);
+        DrawAnchors(lines, node.GetAnchorA(frame), anchor, color);
         node.DrawDebugShape(lines, frame, anchor, 0f, color);
     }
 
