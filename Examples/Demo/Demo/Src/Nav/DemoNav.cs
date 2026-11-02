@@ -190,6 +190,7 @@ public sealed class DemoNav : UiDocument
                 "sprites_2d" => Tr._("Sprites 2D"),
                 "tiles_2d" => Tr._("Tiles 2D"),
                 "navigation_2d" => Tr._("Navigation 2D"),
+                "adaptive_music" => Tr._("Music"),
                 _ => tab.Scene.Title,
             };
     }

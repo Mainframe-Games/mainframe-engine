@@ -1041,8 +1041,8 @@ window: no Scene tree, Inspector or FileSystem.
   only stems whose inputs changed. Choosing it again cancels, and the previous bake stays intact. `--bake-song
   <path.msong>` (`just bake-song <path>`; `SongBakeCommand`) does the same headless. The FileSystem badges an adaptive
   song whose manifest is older than it ("Bake out of date") and marks `*.stems` folders as generated. See
-  [Adaptive music, As built: A3](future/adaptive-music.md#as-built-a3).
-- **Adaptive music** (A4, [design](future/adaptive-music.md#as-built-a4)): Song › Make Adaptive (or the Adaptive tab's
+  [Adaptive music, As built: A3](adaptive-music.md#as-built-a3).
+- **Adaptive music** (A4, [design](adaptive-music.md#as-built-a4)): Song › Make Adaptive (or the Adaptive tab's
   button) gives a song sections, parameters, layers and transitions.
   - **Sections lane** under the ruler (a 22 dp lane of the arrangement canvas; the track headers get a "Sections" row so
     they stay level): drag an empty spot to make a section, drag a block to move it or its edges to resize it (whole bars,
@@ -1061,7 +1061,7 @@ window: no Scene tree, Inspector or FileSystem.
     thread: the playhead follows the music, the current section is outlined in the lane and a scheduled transition shows
     as a dashed arrow with "Combat · bar 9 · 1.2 s". Tracks sum per layer (its filter and curve-driven gain); master
     inserts are bypassed, as in the bake. Space or Seek returns to the timeline.
-  - **Curves pane** (A5, [design](future/adaptive-music.md#as-built-a5); View › Curves, a curve chip or a layer's + Curve):
+  - **Curves pane** (A5, [design](adaptive-music.md#as-built-a5); View › Curves, a curve chip or a layer's + Curve):
     the third bottom pane of adaptive songs. It shows a layer's volume (dB) or filter cutoff (log Hz) over a parameter,
     with the other layers' curves on that parameter as ghosts and a line at the parameter's current value. Drag a point
     (Shift: one axis) or double-click to add or remove one, each one undo step; right-click for Linear, Smooth or Remove
@@ -1072,6 +1072,14 @@ window: no Scene tree, Inspector or FileSystem.
   - **Live | Baked** (A5) in the Now row: Baked plays the last bake through the runtime's `AdaptiveMusicInstance` on the
     editor's audio server, which is exactly what a game plays. Audition values, Fire and Stop go to it, and the panel,
     lane and playhead follow it. It is greyed out until the song is baked.
+  - **Target** (A6, [design](adaptive-music.md#as-built-a6)) in the Now row: *Editor*, or the player of this song in a
+    game that Play started ("Game #1 · Music"; games with editor link protocol 6, matched by the song's UID in their
+    bake). While a game is targeted the parameter controls and Fire drive the game's `AdaptiveMusicPlayer` over the
+    editor link; the Now row shows its section, bar.beat and countdown ("· in the game"), the meters, ghosts and firing
+    rule follow its values, and the Sections lane outlines its section with the playhead at its position. **Copy to
+    Defaults** makes the game's values the parameters' defaults (one undo step). While an adaptive song is open the
+    editor watches every running game's music, and after a bake every running game reloads the new bake at its next
+    pass.
 - **Browser** (F, View › Browser, the toolbar's sidebar button; `SongBrowser`, Logic's Browsers): a column on the right
   of the song view, with or without a song open. **Songs** lists every `.msong` in the project (the open one marked; a
   click opens it); **Plugins** lists the built-in effects by category, then the scanned VST3 effects and instruments. A

@@ -1,0 +1,29 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Assets/UI/demo.rcss"/>
+    <style>
+        .music-panel { width: 320dp; }
+        .music-now { font-size: 22dp; color: #f8fafc; margin: 8dp 0 2dp 0; }
+        .music-bar { font-size: 14dp; color: #93c5fd; font-family: "Roboto Mono"; }
+        .music-next { font-size: 13dp; color: #fbbf24; min-height: 18dp; margin-bottom: 6dp; }
+        .music-panel button.hit { box-sizing: border-box; width: 100%; margin-top: 8dp; border-color: #fbbf2499; color: #fde68a; }
+    </style>
+</head>
+<body class="hud" data-model="adaptive">
+    <div class="demo-panel music-panel">
+        <h1>Adaptive music</h1>
+        <p class="hint">A song from the editor's music mode, baked to stems. The game sets two parameters; the music follows on the beat.</p>
+        <p class="music-now">{{section}}</p>
+        <p class="music-bar">bar {{bar}}.{{beat}}</p>
+        <p class="music-next"><span data-if="pending != ''">Next: {{pending}} in {{seconds | format(1)}} s</span></p>
+        <div class="demo-row"><span>Intensity</span><input type="range" min="0" max="1" step="0.01" data-value="intensity"/></div>
+        <p class="hint">Fades the percussion in, then the lead, opening its filter.</p>
+        <div class="demo-row"><span>Area</span>
+            <select data-value="area"><option value="0">Calm</option><option value="1">Combat</option></select></div>
+        <p class="hint">Combat starts at the next bar; back to Calm plays the Hit stinger.</p>
+        <button class="hit" data-event-click="hit()">Hit stinger</button>
+        <div class="demo-row"><span>Music</span><input type="checkbox" data-checked="music"/></div>
+    </div>
+</body>
+</rml>

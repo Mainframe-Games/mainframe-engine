@@ -11,6 +11,68 @@ msgstr ""
 "X-Generator: mf-l10n\n"
 
 #. RML <h1>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:15
+msgid "Adaptive music"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:16
+msgid "A song from the editor's music mode, baked to stems. The game sets two parameters; the music follows on the beat."
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:18
+msgid "bar {{bar}}.{{beat}}"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:19
+msgid "Next: {{pending}} in {{seconds | format(1)}} s"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:20
+msgid "Intensity"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:21
+msgid "Fades the percussion in, then the lead, opening its filter."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:22
+msgid "Area"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:23
+msgid "Calm"
+msgstr ""
+
+#. RML <option>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:23
+msgid "Combat"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:24
+msgid "Combat starts at the next bar; back to Calm plays the Hit stinger."
+msgstr ""
+
+#. RML <button>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:25
+msgid "Hit stinger"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/AdaptiveMusic/panel.rml:26
+#: Examples/Demo/Assets/Audio/panel2d.rml:12
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:193
+msgid "Music"
+msgstr ""
+
+#. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:188
 msgid "Animation 3D"
@@ -120,11 +182,6 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/Audio/panel2d.rml:11
 msgid "SFX"
-msgstr ""
-
-#. RML <span>
-#: Examples/Demo/Assets/Audio/panel2d.rml:12
-msgid "Music"
 msgstr ""
 
 #. RML <span>

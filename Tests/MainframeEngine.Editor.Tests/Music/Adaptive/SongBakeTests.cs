@@ -6,7 +6,7 @@ using static MainframeEngine.Editor.Tests.Music.MusicTestUtil;
 namespace MainframeEngine.Editor.Tests.Music.Adaptive;
 
 /// <summary>
-/// The adaptive bake (docs/design/future/adaptive-music.md, "The bake"): stems rendered in isolation and aligned to the
+/// The adaptive bake (docs/design/adaptive-music.md, "The bake"): stems rendered in isolation and aligned to the
 /// downbeat, tails, plugin delay compensation, incremental re-bakes, the manifest through A1's reader and atomic
 /// commits. No audio device, ffmpeg or plugin helper: stems are WAV, or "encoded" by <see cref="FakePluginHost"/>.
 /// </summary>

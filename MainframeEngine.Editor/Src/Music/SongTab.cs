@@ -104,6 +104,23 @@ public sealed class SongTab : IEditorTab
     }
 
     /// <summary>
+    /// The Adaptive panel's Target when it is a running game's player (null: the editor). Parameter changes and stingers
+    /// go to the game, and the Sections lane follows the game's position.
+    /// </summary>
+    public GameMusicTarget? GameTarget { get; private set; }
+
+    /// <summary>Targets a game's player (null: back to the editor); what the editor plays stops.</summary>
+    public void SetGameTarget(GameMusicTarget? target)
+    {
+        if (target is null ? GameTarget is null : target.Same(GameTarget))
+            return;
+        if (target is not null)
+            StopAdaptive();
+        GameTarget = target;
+        ViewVersion++;
+    }
+
+    /// <summary>
     /// The playhead's tick: the baked music's (its section's start plus how far into it the instance is) while the bake
     /// plays, else the player's heard position.
     /// </summary>
@@ -111,6 +128,8 @@ public sealed class SongTab : IEditorTab
     {
         get
         {
+            if (GameTarget?.Report is { Section.Length: > 0 } game && Document.Song.Adaptive?.FindSection(game.Section) is { } played)
+                return played.Start + Document.Song.SecondsToTicks(GameTarget.SecondsNow(DateTime.UtcNow));
             if (AuditionBaked && Baked.Instance is { Playing: true } baked && baked.GetPosition() is { Section: { } id } position &&
                 Document.Song.Adaptive?.FindSection(id) is { } section)
                 return section.Start + Document.Song.SecondsToTicks(position.Seconds);
@@ -125,6 +144,12 @@ public sealed class SongTab : IEditorTab
     public void SetAudition(string name, float value)
     {
         Auditions[name] = value;
+        if (GameTarget is { } game)
+        {
+            game.SetParameter(name, value);
+            return;
+        }
+
         Player.SetParameter(name, value);
         Baked.SetParameter(name, value);
     }
@@ -158,6 +183,8 @@ public sealed class SongTab : IEditorTab
     /// </summary>
     public float ParameterValue(string name)
     {
+        if (GameTarget?.ParameterValue(name) is { } inGame)
+            return inGame;
         if (Baked.Instance is { Playing: true } baked)
             return baked.GetParameter(name);
         if (Player.IsAdaptive && Player.Plan is { } plan)
@@ -249,7 +276,9 @@ public sealed class SongTab : IEditorTab
     /// <summary>Fires stinger <paramref name="id"/> on what plays (live or baked).</summary>
     public void TriggerStinger(string id)
     {
-        if (AuditionBaked)
+        if (GameTarget is { } game)
+            game.TriggerStinger(id);
+        else if (AuditionBaked)
             Baked.TriggerStinger(id);
         else
             Player.TriggerStinger(id);
@@ -258,7 +287,7 @@ public sealed class SongTab : IEditorTab
     /// <summary>T: fires the selected stinger (else the song's first) at its quantum while the song plays adaptively.</summary>
     public void FireStinger()
     {
-        if (!IsPlayingAdaptive || Document.Song.Adaptive is not { } adaptive)
+        if (!(IsPlayingAdaptive || GameTarget is not null) || Document.Song.Adaptive is not { } adaptive)
             return;
         var stinger = SelectedSection is { Kind: Audio.Music.MusicSectionKind.Stinger } selected
             ? selected

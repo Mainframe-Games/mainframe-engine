@@ -3,7 +3,7 @@ using MainframeEngine.Audio.Music;
 
 namespace MainframeEngine.Editor.Music;
 
-// Adaptive playback (Shift+Space, docs/design/future/adaptive-music.md "Live preview"): the snapshot's MusicDirector runs
+// Adaptive playback (Shift+Space, docs/design/adaptive-music.md "Live preview"): the snapshot's MusicDirector runs
 // on the render thread with no lookahead. Each block starts with its Update; the actions it returns are kept in a small
 // queue sorted by music frame and carried out on their exact frame (the block is split there), as are the authored
 // continuations at section ends (loop, then, end). The sequencer plays the current section's song-frame range; a second

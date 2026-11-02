@@ -9,7 +9,7 @@ public sealed class SongAdaptiveTests
 {
     private const long Bar = 3840; // 960 PPQ, 4/4
 
-    // The design doc's example (docs/design/future/adaptive-music.md), with fields this editor does not know.
+    // The design doc's example (docs/design/adaptive-music.md), with fields this editor does not know.
     private const string Example = """
         {
           "format": 1,

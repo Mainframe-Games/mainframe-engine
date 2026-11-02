@@ -4,7 +4,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// The <see cref="DevOverlay"/>'s built-in panels: frame, renderer, shadows (with the shadow-map images), GPU memory,
-/// audio mixer, physics and network. Each one reads its numbers from the servers of the overlay's tree through a
+/// audio mixer, adaptive music (<see cref="DevOverlayMusic"/>, once some plays), physics and network. Each one reads its numbers from the servers of the overlay's tree through a
 /// snapshot (<c>DevOverlayStats.cs</c>) filled at the refresh rate; a panel whose server is not registered shows "—".
 /// </summary>
 internal static class DevOverlayPanels
@@ -21,6 +21,7 @@ internal static class DevOverlayPanels
         AddShadows(overlay, sources);
         AddGpu(overlay, sources);
         AddAudio(overlay, sources);
+        DevOverlayMusic.Watch(overlay, sources); // adaptive music: added once some plays
         AddPhysics(overlay, sources);
         AddNetwork(overlay, sources);
     }

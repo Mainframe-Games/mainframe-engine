@@ -27,6 +27,7 @@ public sealed class GameSession : IDisposable
     private GameRecorder? _recorder;
     private bool _mustReportRecording;
     private ProfilerStreamer? _profiler; // G10: frames to the editor's Profiler tab while it records
+    private MusicLink? _music; // protocol 6: adaptive music commands and reports
 
     /// <summary>How long <see cref="Shutdown"/> waits for the link to connect when a recording failure is still unsent.</summary>
     private static readonly TimeSpan ReportConnectTimeout = TimeSpan.FromMilliseconds(EditorLinkClient.WelcomeTimeoutMilliseconds + 1000);
@@ -62,6 +63,9 @@ public sealed class GameSession : IDisposable
 
     /// <summary>The editor link (null without <c>--editor-port</c>).</summary>
     public EditorLinkClient? Link { get; private set; }
+
+    /// <summary>The adaptive music side of the link (protocol 6); null until the editor sent a music command.</summary>
+    internal MusicLink? Music => _music;
 
     /// <summary>Test seam: where recording events go (default: the editor link).</summary>
     internal Action<EditorLinkRecording>? RecordingSink { get; set; }
@@ -199,6 +203,7 @@ public sealed class GameSession : IDisposable
             return;
         }
 
+        _music?.Update(gameTime.DeltaTime, Link); // a reload applied without a socket (tools, tests) finishes too
         if (Link is not { } link)
             return;
         _framesPerSecond = gameTime.FramesPerSecond;
@@ -371,6 +376,10 @@ public sealed class GameSession : IDisposable
                 break;
             case EditorCommandKind.ProfilerStop:
                 _profiler?.Stop();
+                break;
+            case EditorCommandKind.WatchMusic or EditorCommandKind.UnwatchMusic or EditorCommandKind.SetMusicParameter
+                or EditorCommandKind.TriggerMusicStinger or EditorCommandKind.GoToMusicSection or EditorCommandKind.ReloadMusic:
+                (_music ??= new MusicLink(Tree)).Apply(command);
                 break;
         }
 

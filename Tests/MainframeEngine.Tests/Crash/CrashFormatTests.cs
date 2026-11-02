@@ -154,7 +154,7 @@ public sealed class CrashFormatTests
         Assert.Equal(EditorLinkMessageType.CrashReport, message.Type);
         Assert.Equal("{\"format\":1}", message.CrashReport.Json);
         Assert.Equal("/tmp/crashes/x", message.CrashReport.Folder);
-        Assert.Equal(5, EditorLinkProtocol.Version);
+        Assert.Equal(5, EditorLinkProtocol.MinCrashReportVersion);
 
         // Too large for a frame: not written (cut JSON is useless; the editor reads the bundle instead).
         var big = new string('x', EditorLinkProtocol.MaxCrashReportBytes + 1);

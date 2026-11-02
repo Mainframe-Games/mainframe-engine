@@ -1,0 +1,265 @@
+{
+  "format": 1,
+  "uid": "mus_4a7b080e213f",
+  "song": "sng_31c3079a56fa",
+  "sampleRate": 48000,
+  "tempo": 140,
+  "timeSignature": [
+    4,
+    4
+  ],
+  "start": "intro",
+  "parameters": [
+    {
+      "name": "intensity",
+      "kind": "continuous",
+      "min": 0,
+      "max": 1,
+      "default": 0.3,
+      "seekSpeed": 0.6
+    },
+    {
+      "name": "area",
+      "kind": "labeled",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "seekSpeed": 0,
+      "labels": [
+        "Calm",
+        "Combat"
+      ]
+    }
+  ],
+  "layers": [
+    {
+      "id": "main",
+      "name": "Main"
+    },
+    {
+      "id": "perc",
+      "name": "Perc"
+    },
+    {
+      "id": "lead",
+      "name": "Lead",
+      "filter": "lowpass"
+    }
+  ],
+  "sections": [
+    {
+      "id": "intro",
+      "name": "Intro",
+      "kind": "section",
+      "bars": 2,
+      "lengthFrames": 164571,
+      "loop": false,
+      "then": "explore",
+      "markers": [],
+      "stems": {
+        "perc": null,
+        "lead": null,
+        "main": {
+          "body": {
+            "uid": "aud_2bf69a7836db",
+            "path": "Assets/Music/adaptive_theme.stems/intro.main.ff19c82a.ogg"
+          }
+        }
+      }
+    },
+    {
+      "id": "explore",
+      "name": "Explore",
+      "kind": "section",
+      "bars": 4,
+      "lengthFrames": 329143,
+      "loop": true,
+      "markers": [],
+      "stems": {
+        "main": {
+          "body": {
+            "uid": "aud_76affa7b0611",
+            "path": "Assets/Music/adaptive_theme.stems/explore.main.34b2b93b.ogg"
+          }
+        },
+        "perc": {
+          "body": {
+            "uid": "aud_41ea9dd0d573",
+            "path": "Assets/Music/adaptive_theme.stems/explore.perc.813f33d6.ogg"
+          }
+        },
+        "lead": {
+          "body": {
+            "uid": "aud_4f772fe9f52f",
+            "path": "Assets/Music/adaptive_theme.stems/explore.lead.c979938b.ogg"
+          }
+        }
+      }
+    },
+    {
+      "id": "combat",
+      "name": "Combat",
+      "kind": "section",
+      "bars": 4,
+      "lengthFrames": 329143,
+      "loop": true,
+      "markers": [],
+      "stems": {
+        "main": {
+          "body": {
+            "uid": "aud_1281ee18b0db",
+            "path": "Assets/Music/adaptive_theme.stems/combat.main.f3dcf27c.ogg"
+          }
+        },
+        "perc": {
+          "body": {
+            "uid": "aud_0f83e4ab3572",
+            "path": "Assets/Music/adaptive_theme.stems/combat.perc.5b25404c.ogg"
+          }
+        },
+        "lead": {
+          "body": {
+            "uid": "aud_d6520ac6f4bb",
+            "path": "Assets/Music/adaptive_theme.stems/combat.lead.0c03bdab.ogg"
+          }
+        }
+      }
+    },
+    {
+      "id": "hit",
+      "name": "Hit",
+      "kind": "stinger",
+      "bars": 1,
+      "lengthFrames": 82286,
+      "loop": false,
+      "quantize": "beat",
+      "markers": [],
+      "stems": {
+        "mix": {
+          "body": {
+            "uid": "aud_7ef986f9a49a",
+            "path": "Assets/Music/adaptive_theme.stems/hit.a3434037.ogg",
+            "frames": 82286
+          }
+        }
+      }
+    }
+  ],
+  "curves": [
+    {
+      "layer": "perc",
+      "target": "volume",
+      "parameter": "intensity",
+      "shape": "smooth",
+      "points": [
+        [
+          0,
+          -80
+        ],
+        [
+          0.2,
+          -80
+        ],
+        [
+          0.45,
+          0
+        ],
+        [
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "layer": "lead",
+      "target": "volume",
+      "parameter": "intensity",
+      "shape": "smooth",
+      "points": [
+        [
+          0,
+          -80
+        ],
+        [
+          0.45,
+          -80
+        ],
+        [
+          0.75,
+          -1
+        ],
+        [
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "layer": "lead",
+      "target": "cutoff",
+      "parameter": "intensity",
+      "shape": "linear",
+      "points": [
+        [
+          0.45,
+          700
+        ],
+        [
+          1,
+          18000
+        ]
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": [
+        "explore"
+      ],
+      "to": "combat",
+      "when": {
+        "all": [
+          {
+            "parameter": "area",
+            "op": "==",
+            "value": "Combat"
+          }
+        ]
+      },
+      "quantize": "bar",
+      "fadeOutBeats": 1
+    },
+    {
+      "from": [
+        "combat"
+      ],
+      "to": "explore",
+      "when": {
+        "all": [
+          {
+            "parameter": "area",
+            "op": "==",
+            "value": "Calm"
+          }
+        ]
+      },
+      "quantize": "bar",
+      "fadeOutBeats": 1,
+      "stinger": "hit"
+    }
+  ],
+  "bake": {
+    "editor": "0.0.0-dev",
+    "date": "2026-11-02T09:00:45Z",
+    "inputs": {
+      "intro/main": "ff19c82a342bbcacbbe2f5fce22ce38bdcbcba930bd48f7fa1382982b05b1825",
+      "explore/main": "34b2b93b6d006be24b033c6a5532dd61c53393b6aabac656010c5f180c90d65a",
+      "explore/perc": "813f33d6182e3d7410404ac074af9cde29279158454b3b5fda49091df6d7290c",
+      "explore/lead": "c979938b72250ae1ab855018e7ce676c58eee20e14ca240447007193d0f4402a",
+      "combat/main": "f3dcf27cc461b1cd712623f2fb978f5c60b836bec9aab8b8fe8028c12859ab03",
+      "combat/perc": "5b25404c9a10987e517a22a6cc1d2673b869f11d838ed4880718bc3cc9ee2458",
+      "combat/lead": "0c03bdab84f89284786280e5b23f76a394f345f83f52410bfe27ad2706a20b50",
+      "hit/mix": "a3434037334e17213087059283686a56a61043def04fb57ef3908707d9931141"
+    }
+  }
+}

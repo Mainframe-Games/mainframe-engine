@@ -83,7 +83,7 @@ public sealed class SongBakeException : Exception
 }
 
 /// <summary>
-/// Bakes an adaptive song (docs/design/future/adaptive-music.md, "The bake"): one body stem per layer per section (exactly
+/// Bakes an adaptive song (docs/design/adaptive-music.md, "The bake"): one body stem per layer per section (exactly
 /// the section's <see cref="MusicGrid.LengthFrames"/>) plus its trimmed tail, one mixed stem per stinger, tails for tail
 /// points, and the <c>.mmusic</c> manifest. Each stem is rendered in isolation (<see cref="RenderStem"/>), named by a hash
 /// of its inputs and reused while they do not change. New stems are staged as <c>*.baking.tmp</c>, moved into place

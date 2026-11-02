@@ -9,6 +9,42 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: mf-l10n\n"
 
+msgid "Adaptive music"
+msgstr "[Åðåptîvé mûsîç ~~~]"
+
+msgid "A song from the editor's music mode, baked to stems. The game sets two parameters; the music follows on the beat."
+msgstr "[Å söñg fröm thé éðîtör's mûsîç möðé, båkéð tö stéms. Thé gåmé séts twö påråmétérs; thé mûsîç föllöws öñ thé béåt. ~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "bar {{bar}}.{{beat}}"
+msgstr "[bår {{bar}}.{{beat}} ~]"
+
+msgid "Next: {{pending}} in {{seconds | format(1)}} s"
+msgstr "[Ñéxt: {{pending}} îñ {{seconds | format(1)}} s ~~]"
+
+msgid "Intensity"
+msgstr "[Îñtéñsîtý ~~]"
+
+msgid "Fades the percussion in, then the lead, opening its filter."
+msgstr "[Fåðés thé pérçûssîöñ îñ, théñ thé léåð, öpéñîñg îts fîltér. ~~~~~~~~~~~~~~]"
+
+msgid "Area"
+msgstr "[Åréå ~]"
+
+msgid "Calm"
+msgstr "[Çålm ~]"
+
+msgid "Combat"
+msgstr "[Çömbåt ~]"
+
+msgid "Combat starts at the next bar; back to Calm plays the Hit stinger."
+msgstr "[Çömbåt stårts åt thé ñéxt bår; båçk tö Çålm plåýs thé Hît stîñgér. ~~~~~~~~~~~~~~~]"
+
+msgid "Hit stinger"
+msgstr "[Hît stîñgér ~~]"
+
+msgid "Music"
+msgstr "[Mûsîç ~]"
+
 msgid "Animation 3D"
 msgstr "[Åñîmåtîöñ 3Ð ~~~]"
 
@@ -68,9 +104,6 @@ msgstr "[Måstér ~]"
 
 msgid "SFX"
 msgstr "[SFX ~]"
-
-msgid "Music"
-msgstr "[Mûsîç ~]"
 
 msgid "Panning"
 msgstr "[Påññîñg ~~]"

@@ -235,9 +235,66 @@ public sealed class EditorLinkProtocolTests
     }
 
     [Fact]
-    public void ProtocolVersionIsFive()
+    public void ProtocolVersionIsSix()
     {
-        Assert.Equal(5, EditorLinkProtocol.Version); // 5: CrashReport (G15), profiler (G10)
+        Assert.Equal(6, EditorLinkProtocol.Version); // 5: CrashReport (G15), profiler (G10) · 6: adaptive music
+        Assert.Equal(6, EditorLinkProtocol.MusicVersion);
+    }
+
+    [Fact]
+    public void MusicMessagesRoundTrip()
+    {
+        EditorLinkMusicInstance[] instances =
+        [
+            new()
+            {
+                NodePath = "/root/Level/Music",
+                Music = "mus_0123456789ab",
+                Song = "sng_ba9876543210",
+                Section = "combat",
+                Bar = 3,
+                Beat = 2,
+                Seconds = 4.25f,
+                Pending = "explore",
+                PendingSeconds = 1.5f,
+                Parameters = [("intensity", 0.75f), ("area", 1f)],
+                Layers = [("main", 0f), ("perc", -12.5f)],
+            },
+            new() { NodePath = "/root/Menu/Music", Music = "mus_000000000001", PendingSeconds = -1f },
+        ];
+        var message = RoundTrip(b => EditorLinkProtocol.WriteMusic(b, instances));
+        Assert.Equal(EditorLinkMessageType.Music, message.Type);
+        Assert.Equal(2, message.Music!.Length);
+        Assert.Equivalent(instances[0], message.Music[0]);
+        Assert.Equivalent(instances[1], message.Music[1]);
+        Assert.Empty(RoundTrip(b => EditorLinkProtocol.WriteMusic(b, [])).Music!);
+
+        // More than the cap: only the first eight are sent.
+        var many = Enumerable.Range(0, 12).Select(i => new EditorLinkMusicInstance { NodePath = "/root/M" + i }).ToArray();
+        Assert.Equal(EditorLinkProtocol.MaxMusicInstances, RoundTrip(b => EditorLinkProtocol.WriteMusic(b, many)).Music!.Length);
+    }
+
+    [Fact]
+    public void MusicCommandsRoundTripAndAreUnknownBeforeVersionSix()
+    {
+        foreach (var kind in new[] { EditorCommandKind.WatchMusic, EditorCommandKind.UnwatchMusic, EditorCommandKind.SetMusicParameter,
+                     EditorCommandKind.TriggerMusicStinger, EditorCommandKind.GoToMusicSection, EditorCommandKind.ReloadMusic })
+        {
+            var command = new EditorLinkCommand(kind, "/root/Music\nintensity\n0.5");
+            Assert.Equal(command, RoundTrip(b => EditorLinkProtocol.WriteCommand(b, command)).Command);
+            Assert.True((byte)kind > (byte)EditorCommandKind.ProfilerStop); // a version 5 decoder refuses them: the editor must not send them
+        }
+    }
+
+    [Fact]
+    public void AMalformedMusicMessageIsRejected()
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        EditorLinkProtocol.WriteMusic(buffer, [new EditorLinkMusicInstance { NodePath = "/root/M", Parameters = [("a", 1f)] }]);
+        var body = buffer.WrittenSpan[EditorLinkProtocol.HeaderLength..].ToArray();
+        Assert.False(EditorLinkProtocol.TryDecode(body.AsSpan(0, body.Length - 2), out _)); // truncated
+        body[1] = EditorLinkProtocol.MaxMusicInstances + 1; // count over the cap
+        Assert.False(EditorLinkProtocol.TryDecode(body, out _));
     }
 }
 

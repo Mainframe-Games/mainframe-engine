@@ -203,6 +203,12 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
         text: 'A DAW in the editor\'s music mode, over the whole window: arrangement, piano roll, mixer, VST3, MIDI recording, render to OGG.',
         doc: 'editor/#song-tab-music-editor',
       },
+      {
+        icon: 'arrows-right-left',
+        title: 'Adaptive music',
+        text: 'Sections, layers, parameters and beat-quantized transitions written in the song editor, baked to stems and played by an AdaptiveMusicPlayer; drive a running game\'s music from the editor.',
+        doc: 'adaptive-music',
+      },
     ],
   },
   {
@@ -248,7 +254,7 @@ const groups: { title: string; icon: string; features: Feature[] }[] = [
       {
         icon: 'activity',
         title: 'Developer overlay',
-        text: 'F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, physics and network panels; add your own in one call.',
+        text: 'F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, adaptive music, physics and network panels; add your own in one call.',
         doc: 'dev-overlay',
       },
       {

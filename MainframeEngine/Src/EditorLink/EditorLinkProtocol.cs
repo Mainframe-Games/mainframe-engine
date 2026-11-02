@@ -52,6 +52,12 @@ public enum EditorLinkMessageType : byte
     /// <summary>Game → editor (G10): frames dropped because the editor fell behind (<see cref="EditorLinkMessage.DroppedCount"/>).</summary>
     ProfileDropped = 12,
 
+    /// <summary>
+    /// Game → editor (protocol 6): the playing adaptive music instances (<see cref="EditorLinkMessage.Music"/>), latest
+    /// wins, at most 10 Hz while the editor watches (<see cref="EditorCommandKind.WatchMusic"/>) and only on change.
+    /// </summary>
+    Music = 13,
+
     /// <summary>Editor → game: an <see cref="EditorLinkCommand"/>.</summary>
     Command = 16,
 
@@ -94,6 +100,64 @@ public enum EditorCommandKind : byte
 
     /// <summary>G10: stop streaming profiler frames.</summary>
     ProfilerStop = 10,
+
+    /// <summary>Protocol 6: start reporting adaptive music (<see cref="EditorLinkMessageType.Music"/>).</summary>
+    WatchMusic = 11,
+
+    /// <summary>Protocol 6: stop reporting adaptive music.</summary>
+    UnwatchMusic = 12,
+
+    /// <summary>Protocol 6: <c>nodePath\nparameter\nvalue</c>, the value a number or a label (<c>AdaptiveMusicPlayer.SetParameter</c>).</summary>
+    SetMusicParameter = 13,
+
+    /// <summary>Protocol 6: <c>nodePath\nstinger</c> (<c>AdaptiveMusicPlayer.TriggerStinger</c>).</summary>
+    TriggerMusicStinger = 14,
+
+    /// <summary>Protocol 6: <c>nodePath\nsection</c> (<c>AdaptiveMusicPlayer.GoToSection</c>, at the next bar).</summary>
+    GoToMusicSection = 15,
+
+    /// <summary>
+    /// Protocol 6: <c>mus_uid\nprojectFolder</c>, sent after a bake. Players of that music read the new manifest and stems
+    /// from the project folder (the bake's source; a game reads its build's copy otherwise) and switch at the next pass.
+    /// </summary>
+    ReloadMusic = 16,
+}
+
+/// <summary>
+/// One playing adaptive music instance as the editor sees it (<see cref="EditorLinkMessageType.Music"/>). Bars and beats
+/// are 1-based within the section; <see cref="PendingSeconds"/> is negative when nothing is scheduled.
+/// </summary>
+public sealed record EditorLinkMusicInstance
+{
+    /// <summary>The <c>AdaptiveMusicPlayer</c>'s node path (what the music commands name).</summary>
+    public string NodePath { get; init; } = "";
+
+    /// <summary>The music's <c>mus_</c> UID.</summary>
+    public string Music { get; init; } = "";
+
+    /// <summary>The song it was baked from (<c>sng_</c>), or empty.</summary>
+    public string Song { get; init; } = "";
+
+    /// <summary>The section playing (its id), or empty.</summary>
+    public string Section { get; init; } = "";
+
+    public int Bar { get; init; }
+
+    public int Beat { get; init; }
+
+    /// <summary>Seconds into the section (the editor draws the position from it).</summary>
+    public float Seconds { get; init; }
+
+    /// <summary>The destination of a scheduled transition (its id), or empty.</summary>
+    public string Pending { get; init; } = "";
+
+    public float PendingSeconds { get; init; } = -1f;
+
+    /// <summary>Every parameter's current (smoothed) value, in the music's order.</summary>
+    public (string Name, float Value)[] Parameters { get; init; } = [];
+
+    /// <summary>Every layer's evaluated gain in dB, in the music's order.</summary>
+    public (string Layer, float GainDb)[] Layers { get; init; } = [];
 }
 
 /// <summary>A profiler marker as the editor learns it (<see cref="EditorLinkMessageType.ProfileMarkers"/>).</summary>
@@ -222,6 +286,9 @@ public readonly record struct EditorLinkMessage
 
     /// <summary><see cref="EditorLinkMessageType.ProfileFrame"/>: the frame.</summary>
     public EditorLinkProfileFrame? ProfileFrame { get; init; }
+
+    /// <summary><see cref="EditorLinkMessageType.Music"/>: the playing instances (empty when none plays).</summary>
+    public EditorLinkMusicInstance[]? Music { get; init; }
 }
 
 /// <summary>A crash report, game → editor: <c>report.json</c> (at most <see cref="EditorLinkProtocol.MaxCrashReportBytes"/>) and the bundle folder.</summary>
@@ -246,12 +313,14 @@ public readonly record struct EditorLinkCrashReport(string Json, string Folder);
 /// u32 cpu × (u16 marker, u8 thread, u8 depth, i32 startUs, u32 durUs, i32 alloc), u16 gpu × (u16 marker, u8 depth, i32 startUs,
 /// u32 durUs)</c>; times relative to the frame's start</item>
 /// <item>ProfileDropped: <c>i64 frames</c></item>
+/// <item>Music: <c>u8 count, count × (str nodePath, str music, str song, str section, u16 bar, u8 beat, f32 seconds, str pending,
+/// f32 pendingSeconds, u8 parameters × (str name, f32 value), u8 layers × (str id, f32 gainDb))</c></item>
 /// </list>
 /// </summary>
 public static class EditorLinkProtocol
 {
     /// <summary>Bumped on any incompatible wire change; the editor checks <see cref="EditorLinkHello.ProtocolVersion"/>.</summary>
-    public const int Version = 5;   // 2: Tree / RequestTree · 3: Welcome · 4: StartRecording / StopRecording / Recording · 5: CrashReport (G15), profiler (G10)
+    public const int Version = 6;   // 2: Tree / RequestTree · 3: Welcome · 4: StartRecording / StopRecording / Recording · 5: CrashReport (G15), profiler (G10) · 6: adaptive music
 
     /// <summary>The first protocol whose games send <see cref="EditorLinkMessageType.CrashReport"/>.</summary>
     public const int MinCrashReportVersion = 5;
@@ -261,6 +330,21 @@ public static class EditorLinkProtocol
 
     /// <summary>The first version that streams profiler frames (G10).</summary>
     public const int ProfilerVersion = 5;
+
+    /// <summary>
+    /// The first version with the adaptive music commands and the Music message. An older game drops its link on a command
+    /// kind it does not know, so the editor sends them only from this version on.
+    /// </summary>
+    public const int MusicVersion = 6;
+
+    /// <summary>Instances one Music message carries at most.</summary>
+    public const int MaxMusicInstances = 8;
+
+    /// <summary>Parameters reported per instance at most.</summary>
+    public const int MaxMusicParameters = 32;
+
+    /// <summary>Separates the fields of a music command's argument.</summary>
+    public const char MusicArgumentSeparator = '\n';
 
     /// <summary>CPU events one <see cref="EditorLinkMessageType.ProfileFrame"/> carries at most (16 bytes each, under <see cref="MaxFrameLength"/>).</summary>
     public const int MaxProfileEvents = 16384;
@@ -474,6 +558,93 @@ public static class EditorLinkProtocol
         w.Finish();
     }
 
+    public static void WriteMusic(ArrayBufferWriter<byte> output, IReadOnlyList<EditorLinkMusicInstance> instances)
+    {
+        ArgumentNullException.ThrowIfNull(instances);
+        var w = new FrameWriter(output, EditorLinkMessageType.Music);
+        var count = Math.Min(instances.Count, MaxMusicInstances);
+        w.Byte((byte)count);
+        for (var i = 0; i < count; i++)
+        {
+            var m = instances[i];
+            w.String(m.NodePath);
+            w.String(m.Music);
+            w.String(m.Song);
+            w.String(m.Section);
+            w.UInt16((ushort)Math.Clamp(m.Bar, 0, ushort.MaxValue));
+            w.Byte((byte)Math.Clamp(m.Beat, 0, byte.MaxValue));
+            w.Single(m.Seconds);
+            w.String(m.Pending);
+            w.Single(m.PendingSeconds);
+            var parameters = Math.Min(m.Parameters.Length, MaxMusicParameters);
+            w.Byte((byte)parameters);
+            for (var p = 0; p < parameters; p++)
+            {
+                w.String(m.Parameters[p].Name);
+                w.Single(m.Parameters[p].Value);
+            }
+
+            var layers = Math.Min(m.Layers.Length, Audio.Music.MusicPlan.MaxLayers + 1);
+            w.Byte((byte)layers);
+            for (var l = 0; l < layers; l++)
+            {
+                w.String(m.Layers[l].Layer);
+                w.Single(m.Layers[l].GainDb);
+            }
+        }
+
+        w.Finish();
+    }
+
+    private static bool TryDecodeMusic(ref FrameReader r, out EditorLinkMusicInstance[] instances)
+    {
+        instances = [];
+        if (!r.Byte(out var count) || count > MaxMusicInstances)
+            return false;
+        instances = new EditorLinkMusicInstance[count];
+        for (var i = 0; i < count; i++)
+        {
+            if (!r.String(out var path) || !r.String(out var music) || !r.String(out var song) || !r.String(out var section)
+                || !r.UInt16(out var bar) || !r.Byte(out var beat) || !r.Single(out var seconds) || !r.String(out var pending)
+                || !r.Single(out var pendingSeconds) || !r.Byte(out var parameterCount) || parameterCount > MaxMusicParameters)
+                return false;
+            var parameters = new (string, float)[parameterCount];
+            for (var p = 0; p < parameterCount; p++)
+            {
+                if (!r.String(out var name) || !r.Single(out var value))
+                    return false;
+                parameters[p] = (name, value);
+            }
+
+            if (!r.Byte(out var layerCount) || layerCount > Audio.Music.MusicPlan.MaxLayers + 1)
+                return false;
+            var layers = new (string, float)[layerCount];
+            for (var l = 0; l < layerCount; l++)
+            {
+                if (!r.String(out var id) || !r.Single(out var gain))
+                    return false;
+                layers[l] = (id, gain);
+            }
+
+            instances[i] = new EditorLinkMusicInstance
+            {
+                NodePath = path,
+                Music = music,
+                Song = song,
+                Section = section,
+                Bar = bar,
+                Beat = beat,
+                Seconds = seconds,
+                Pending = pending,
+                PendingSeconds = pendingSeconds,
+                Parameters = parameters,
+                Layers = layers,
+            };
+        }
+
+        return true;
+    }
+
     private static int Microseconds(long ticks, long frequency) =>
         (int)Math.Clamp(ticks * 1_000_000.0 / frequency, int.MinValue, int.MaxValue);
 
@@ -643,7 +814,7 @@ public static class EditorLinkProtocol
             case EditorLinkMessageType.Command:
                 if (!r.Byte(out var kind) || !r.String(out var argument))
                     return false;
-                if (kind is < (byte)EditorCommandKind.Stop or > (byte)EditorCommandKind.ProfilerStop)
+                if (kind is < (byte)EditorCommandKind.Stop or > (byte)EditorCommandKind.ReloadMusic)
                     return false;
                 message = new EditorLinkMessage { Type = type, Command = new EditorLinkCommand((EditorCommandKind)kind, argument) };
                 break;
@@ -674,6 +845,11 @@ public static class EditorLinkProtocol
                 if (!TryDecodeProfileFrame(ref r, out var profileFrame))
                     return false;
                 message = new EditorLinkMessage { Type = type, ProfileFrame = profileFrame };
+                break;
+            case EditorLinkMessageType.Music:
+                if (!TryDecodeMusic(ref r, out var music))
+                    return false;
+                message = new EditorLinkMessage { Type = type, Music = music };
                 break;
             case EditorLinkMessageType.ProfileDropped:
                 if (!r.Int64(out var profileDropped) || profileDropped < 0)

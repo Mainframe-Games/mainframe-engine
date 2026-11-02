@@ -7,7 +7,7 @@ namespace MainframeEngine;
 /// Baked adaptive music (<c>.mmusic</c>): the manifest the editor's Bake writes, compiled into a <see cref="MusicPlan"/>,
 /// plus its stems. Play it with an <see cref="AdaptiveMusicPlayer"/> node (or an <see cref="AdaptiveMusicInstance"/>).
 /// Loaded through <see cref="ResourceLoader"/> by <see cref="AdaptiveMusicImporter"/>, so an <c>[Export] AdaptiveMusic</c>
-/// property references it by its <c>mus_</c> UID. See docs/design/future/adaptive-music.md.
+/// property references it by its <c>mus_</c> UID. See docs/design/adaptive-music.md.
 /// </summary>
 /// <remarks>
 /// <para><b>Load modes.</b> Section bodies stream (a whole score decoded would not fit in memory); tails, stingers and
@@ -51,6 +51,22 @@ public sealed class AdaptiveMusic : Resource
             Log.Warning($"[Audio] {notice}");
         return music;
     }
+
+    /// <summary>
+    /// Reads the <c>.mmusic</c> at <paramref name="fullPath"/> with its stems resolved under <paramref name="projectFolder"/>
+    /// by path (the editor link's <c>ReloadMusic</c>: a bake in the editor's source project, whose new stems the game's own
+    /// asset database does not know).
+    /// </summary>
+    public static AdaptiveMusic LoadFromProject(string fullPath, string projectFolder)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(fullPath);
+        ArgumentException.ThrowIfNullOrEmpty(projectFolder);
+        var music = Load(fullPath);
+        music._stemRoot = Path.GetFullPath(projectFolder);
+        return music;
+    }
+
+    private string? _stemRoot;
 
     /// <summary>Wraps a manifest built in code (tests, the editor's audition). Stem paths are project paths, UIDs or absolute.</summary>
     public static AdaptiveMusic FromManifest(MusicManifest manifest, string? name = null)
@@ -158,7 +174,8 @@ public sealed class AdaptiveMusic : Resource
     private AudioSource? LoadStem(string section, string layer, MusicStemRef stem, AudioLoadMode mode, ref int missing)
     {
         var assets = AssetDatabase.Current;
-        var file = AssetUid.IsUid(stem.Uid) && assets.GetPath(stem.Uid) is { } byUid ? byUid : stem.Path;
+        var file = _stemRoot is not null && !string.IsNullOrEmpty(stem.Path) ? Path.GetFullPath(stem.Path, _stemRoot)
+            : AssetUid.IsUid(stem.Uid) && assets.GetPath(stem.Uid) is { } byUid ? byUid : stem.Path;
         if (string.IsNullOrEmpty(file) || !File.Exists(assets.ToAbsolutePath(file)))
         {
             missing++;
