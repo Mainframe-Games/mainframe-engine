@@ -210,7 +210,7 @@ flowchart LR
   - StoreKit 2 cannot be bound at all.
   - Generated Java bindings of Billing/PGS/ads pull large API surfaces into trimming and AOT analysis and break on
     every library update.
-  - Community plugins add third-party NuGet dependencies (needs discussion, CLAUDE.md) with their own release cadence.
+  - Community plugins add third-party NuGet dependencies (needs discussion, AGENTS.md) with their own release cadence.
   - A shim keeps each service at ~200–600 lines of Swift/Kotlin written against the vendor's documented API, which is
     easy to update when Play Billing's two-year deprecation cycle forces a bump.
 - **Tests per layer:**

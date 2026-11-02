@@ -64,7 +64,7 @@ All versions are in `Directory.Packages.props`. Silk.NET is unified on **2.23.0*
 | xunit.v3, xunit.runner.visualstudio, Microsoft.NET.Test.Sdk, coverlet.collector | see props | Tests only |
 | BenchmarkDotNet | see props | Benchmarks only |
 
-New NuGet dependencies must be discussed before they are added (CLAUDE.md).
+New NuGet dependencies must be discussed before they are added (AGENTS.md).
 
 ### Assets
 

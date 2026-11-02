@@ -4,7 +4,7 @@
 
 Optional Steam integration: identity, friends, lobbies, rich presence, overlay and achievements. All of it goes
 through an engine-owned `Steam` service, which starts only when Steam can really run. Otherwise every wrapper is a
-quiet no-op, and the game never fails because Steam is missing (CLAUDE.md: "only activate if Steam is running").
+quiet no-op, and the game never fails because Steam is missing (AGENTS.md: "only activate if Steam is running").
 
 > **Status:** Steam runs on Windows x64, Linux x64 and macOS (x64 and Apple Silicon) through
 > [Facepunch.Steamworks](https://github.com/Facepunch/Facepunch.Steamworks) 2.4.1, the same setup as Speed Golf

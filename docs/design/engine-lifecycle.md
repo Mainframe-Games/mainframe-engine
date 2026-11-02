@@ -170,7 +170,7 @@ dispose input → dispose renderer.
 
 - **`EngineOptions.RenderingBackend` is ignored**; `VulkanRenderer` is always created.
 - **FPS counts updates, not presents.**
-- README/CLAUDE.md show `Game(in EngineOptions options)`; a parameterless primary constructor that passes options
+- README/AGENTS.md show `Game(in EngineOptions options)`; a parameterless primary constructor that passes options
   to `Engine` directly works too.
 - The tree runs one fixed-step loop per update event, so physics process follows `UpdatesPerSecond`
   frames (accumulated), not a separate thread.

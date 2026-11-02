@@ -523,7 +523,7 @@ Still planned for G1b: morph targets, instancing identical skinned characters, a
   Animation panel, inspector key buttons, undo actions); `scene-serialization.md` (`[AnimationMethod]`, diagnostics);
   `asset-pipeline.md` (bones, skins, clips, `.meta` settings; the "Not imported" list); `materials-and-meshes.md`
   (skinning, known issues); `gpu-resources.md` and `vulkan-renderer.md` (compute pipelines, skinning pass);
-  `physics.md` (animating kinematic bodies); `demo.md`; and `CLAUDE.md` (project structure, frame order).
+  `physics.md` (animating kinematic bodies); `demo.md`; and `AGENTS.md` (project structure, frame order).
 
 ## Task list
 

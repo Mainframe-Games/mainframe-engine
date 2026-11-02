@@ -145,7 +145,7 @@ scene, `Layer = 10`) for its controls, and nothing that depends on another scene
 | LFS filters `MainframeEngine.Sandbox/**` in `ci.yml:300,311`, `publish.yml:72,83` | Removed; `publish.yml` keeps `Examples/**` excluded except where [Demo download](demo-download.md) needs it. |
 
 Then delete `MainframeEngine.Sandbox/` (and its entry in `MainframeEngine.slnx:21`), `Examples/EditorShowcase/` and
-`docs/design/sandbox.md`; add `docs/design/demo.md` (current-state doc once built). Update `CLAUDE.md` (project
+`docs/design/sandbox.md`; add `docs/design/demo.md` (current-state doc once built). Update `AGENTS.md` (project
 structure, `just sandbox`/`qa`, `--write-scene`), `README.md`, `THIRD_PARTY_NOTICES.md` (SpineBoy and sky paths),
 `docs/README.md`, the design docs that name the Sandbox (list in the exploration notes: architecture-overview,
 asset-pipeline, audio, build-and-platforms, cameras-and-input, game-ui, localization, physics, testing, …) and
@@ -167,7 +167,7 @@ asset-pipeline, audio, build-and-platforms, cameras-and-input, game-ui, localiza
 - `docs/images/demo/*.png` (8) committed and shown in the README Showcase section.
 - No reference to `MainframeEngine.Sandbox` or `EditorShowcase` remains outside `memory/` history
   (`git grep -n "Sandbox\|EditorShowcase" -- ':!memory'` only finds historical notes).
-- All gates in `CLAUDE.md` pass.
+- All gates in `AGENTS.md` pass.
 
 ## Task list
 
