@@ -3,11 +3,11 @@
 The current state of G9 ([milestones](../milestones.md#gameplay-toolkit-)): joint nodes over Jitter2 (3D) and Box2D
 (2D) with limits, motors, springs and breaking; their debug draw and editor gizmo; rigid-part ragdolls
 (`Ragdoll3D`); skeleton ragdolls (`PhysicalBone3D`, `PhysicalBoneSimulator3D`) and the editor's Create physical
-skeleton. Decisions: [ADR 0201](../../memory/decisions/0201-2d-joints-on-box2d.md) (the first 2D joints),
+skeleton; limit handles in the editor's viewport (G9.7). Decisions: [ADR 0201](../../memory/decisions/0201-2d-joints-on-box2d.md) (the first 2D joints),
 [ADR 0211](../../memory/decisions/0211-3d-joints-on-jitter2.md) (3D joints, the other 2D joints, breaking, editor) and
-[ADR 0212](../../memory/decisions/0212-ragdolls-and-physical-bones.md) (ragdolls). Still to come: limit handles in the
-viewport (G9.7, after [G7.3](future/editor-viewport-tools.md)) and G9.10 (`Generic6DofJoint3D`, active ragdolls,
-`MotorJoint2D`). Bodies, spaces and signals are in [Physics](physics.md).
+[ADR 0212](../../memory/decisions/0212-ragdolls-and-physical-bones.md) (ragdolls); the limit handles use the G7.3 handle
+API ([ADR 0213](../../memory/decisions/0213-viewport-tools-gizmo-resources-handles.md)). Still to come: G9.10
+(`Generic6DofJoint3D`, active ragdolls, `MotorJoint2D`). Bodies, spaces and signals are in [Physics](physics.md).
 
 ![The Demo's rope bridge with a hinge selected in the editor: its axis, limit arc and angle, and its inspector with
 Rebuild and Swap A/B](../images/editor-joints.png)
@@ -21,6 +21,7 @@ Rebuild and Swap A/B](../images/editor-joints.png)
 | [`Physics/2D/Joints2D.cs`](../../MainframeEngine/Src/Physics/2D/Joints2D.cs), [`PhysicsSpace2D.Joints.cs`](../../MainframeEngine/Src/Physics/2D/PhysicsSpace2D.Joints.cs) | `Joint2D`, the six 2D types, `JointRecord2D` |
 | [`Physics/Ragdoll/`](../../MainframeEngine/Src/Physics/Ragdoll/) | `Ragdoll3D`, `PhysicalBone3D`, `PhysicalBoneSimulator3D` |
 | [`Editor/Src/Inspector/JointInspector.cs`](../../MainframeEngine.Editor/Src/Inspector/JointInspector.cs), [`Skeleton3DInspector.cs`](../../MainframeEngine.Editor/Src/Inspector/Skeleton3DInspector.cs) | Rebuild, Swap A/B; Create physical skeleton |
+| [`Editor/Src/Viewport/Handles/JointHandles.cs`](../../MainframeEngine.Editor/Src/Viewport/Handles/JointHandles.cs) | The limit handles (G9.7): `JointFrame`, the shared angle and drawing math, a provider per joint type |
 
 Every Jitter2 and Box2D call stays in `Src/Physics` (the pinned-version rule in [Physics → Libraries](physics.md#libraries)).
 
@@ -122,10 +123,44 @@ The editor ([Editor](editor.md)):
   for a path that names none).
 - **Warnings** on the scene tree row: both paths empty, a path to nothing, to a non-body, or both to one body.
 - **Inspector:** Rebuild (`refresh`) and Swap A/B (`arrows-right-left`, one undo step) icon buttons above the rows.
+- **Limit handles** (G9.7, below).
 - **Icons** (Physics family): `link` (bases), `point` (pins), `door` (hinge), `arrows-right-left` (sliders), `ripple`
   (cone-twist), `ruler-2` (distance), `lock` (welds), `arrows-up-down` (groove), `circle` (wheel), `bone` (ragdolls,
   physical bones), `sitemap` (simulator).
 - **Dev overlay:** the Physics panel shows joints (active) and joints broken per second.
+
+### Limit handles
+
+![Dragging the upper limit of a rope bridge hinge: the limit arc in light blue with a handle at each end, the Upper
+Angle label, and the inspector's Upper Angle Degrees following](../images/editor-joint-limits.png)
+
+A selected joint's limits are [handles](editor.md#range-handles-and-the-handle-api) (G7.3's API, one
+`IHandleProvider` per type in `JointHandles.cs`): a drag is one undo entry ("Set Upper Angle Degrees on Hinge5"), Esc or
+a right click puts it back, Snap snaps angles to the rotate step and distances to the move step, and values clamp to the
+property's `Range`. They sit on the joint's frame at its node (the editor never steps physics, so that is where the
+joint is authored) and are drawn in light blue over the selected joint's debug draw.
+
+| Node | Handles |
+|---|---|
+| `HingeJoint3D` | `LowerAngleDegrees`, `UpperAngleDegrees` at the ends of an arc about local Z |
+| `SliderJoint3D` | `LowerDistance`, `UpperDistance` on local X |
+| `ConeTwistJoint3D` | `SwingSpanDegrees` on the cone's rim (on the side towards the camera's right), `TwistSpanDegrees` at the end of the twist arc (from local Y towards Z) |
+| `DistanceJoint3D` | `MinLength`, `MaxLength` on the line to `AnchorB` |
+| `PhysicalBone3D` | Its `JointType`'s "Joint" group (cone-twist spans, hinge angles or slider distances) at body × `JointOffset`; none for Pin and None |
+| `PinJoint2D` | `AngularLimitLower`, `AngularLimitUpper` (radians; the label shows degrees) |
+| `SliderJoint2D`, `WheelJoint2D` | `LowerTranslation`, `UpperTranslation` on local X |
+| `GrooveJoint2D`, `DampedSpringJoint2D` | `Length` on local +Y: the groove's end, the spring's longest stretch (re-creates the joint) |
+
+- **Angles** come from where the mouse ray meets the arc's plane (the dragged point on the handle's tangent when the
+  view looks along the plane), and the angle kept is the one nearest the previous value: a hinge dragged past ±180°
+  stops there instead of jumping to the other end. A span is the absolute angle, 0–180°.
+- **Arcs** are drawn at 15 % of the view's height (at least the debug draw's 0.2 m / 10 px), so the two handles of a
+  hinge stay apart at any zoom; linear limits are at their real distances.
+- **Off limits** have hollow handles: a hinge, slider or 2D limit with its toggle off ("Upper Angle: no limit — drag to
+  set"), a 180° span ("free"), a distance joint's 0 lengths (max at the authored length: "the authored 2.00 m", or
+  "none" for a spring; min at a quarter of it, "slack"). Dragging one sets the value and turns the toggle on in the same
+  undo entry.
+- **Order:** a lower or minimum handle stops at its upper or maximum, and the other way round.
 
 ## Ragdolls
 
@@ -212,7 +247,10 @@ nothing.
   springs), `Ragdoll3DTests`, `PhysicalBonesTests`, `DebugDrawTests` (`DebugDrawJoints`), and allocation gates
   (`JointAllocationTests`: 320 3D joints; the 2D gate has one joint of each type).
 - **Editor** (`JointEditorTests`): warnings, body-only pickers, Swap A/B undo, Rebuild, Create physical skeleton as one
-  undo step. `just qa-editor` selects the bridge hinge and creates the character's physical skeleton.
+  undo step. `JointHandleTests`: every type's provider and handle positions, angles from the ray (and the edge-on
+  fallback), snapping, clamping, lower ≤ upper, hollow handles that turn a limit on, the ±180° stop, the physical bone's
+  joint frame, the 2D types, a viewport drag that is one undo entry and Esc that restores it, and 0 B per frame.
+  `just qa-editor` selects the bridge hinge, drags its upper limit and creates the character's physical skeleton.
 - **Render test** `physics-joints`: a hinged bridge, a cone-twist mannequin and a broken weld with the joint debug
   draw, frame 90 (moltenvk golden; lavapipe still to record).
 - **Demo** (`PhysicsJointsSceneTests`): the bridge holds, the sign's weld breaks and resets, the mannequin falls and
@@ -233,7 +271,10 @@ nothing.
 - **No new icon SVGs**: joint icons reuse the editor atlas (no `cone`, `steering-wheel`, `accessible`).
 - **The 2D pin keeps ADR 0201's radians names** (`AngularLimitLower`…) rather than `LowerAngleDegrees`.
 - **The showcase render-allocation scene has no joint chain**: it would change its goldens; the unit gate covers joints.
-- **Not yet:** limit handles (G9.7), `Generic6DofJoint3D`, active ragdolls and `MotorJoint2D` (G9.10), humanoid limits.
+- **Limit handles also cover `PhysicalBone3D`, the 2D groove and spring lengths, and off limits** (hollow handles that
+  turn the limit on); the mockup showed only a hinge's arc. They are drawn at a view-relative radius, not the debug
+  draw's fixed one.
+- **Not yet:** `Generic6DofJoint3D`, active ragdolls and `MotorJoint2D` (G9.10), humanoid limits.
 
 ## Related
 

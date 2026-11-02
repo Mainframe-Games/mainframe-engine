@@ -530,6 +530,7 @@ label text is built only on mouse moves while hovering or dragging).
 | `AudioPlayer3D` | Unit size on an inner circle; Max distance on the range sphere, hollow at 2 × unit size while 0 ("Max Distance: unlimited — drag to set"); unit size ≤ max distance |
 | `AudioPlayer2D` | Max distance: a circle with a handle on +X |
 | `PointLight2D` | Texture scale: the texture rectangle's right edge, along the node's +X (only with a texture) |
+| Joints, `PhysicalBone3D` | Limits: hinge and 2D pin angles on an arc, slider/wheel translations, cone-twist spans, distance lengths ([Physics joints → Limit handles](physics-joints.md#limit-handles)) |
 
 **API** (`MainframeEngine.Editor/Src/Viewport/Handles/`; the handle half of Godot's `EditorNode3DGizmoPlugin` — commit and
 cancel are the editor's):

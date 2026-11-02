@@ -127,19 +127,22 @@ can be saved as a `.mres` or made unique from the inspector.
     <td align="center" valign="top"><img src="docs/images/editor-joints.png" width="380" alt="A hinge of the Demo's rope bridge selected: its axis, limit arc and angle drawn on the planks, and its inspector with Rebuild and Swap A/B"><br><b>Joints</b> — the selected joint's gizmo, Rebuild and Swap A/B</td>
   </tr>
   <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-joint-limits.png" width="380" alt="Dragging the upper limit of a rope bridge hinge: the limit arc with a handle at each end and an Upper Angle 72.0° label"><br><b>Joint limit handles</b> — drag hinge, slider, cone-twist, distance and 2D joint limits; one undo per drag</td>
     <td align="center" valign="top"><img src="docs/images/editor-physical-skeleton.png" width="380" alt="The Demo's skinned character with a physical skeleton: capsules on its limbs, created from the Skeleton3D inspector"><br><b>Physical skeleton</b> — one click: a capsule and a cone-twist joint per bone</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-sprite-frames.png" width="380" alt="The Demo's Sprites 2D scene with the showcase hero selected: the SpriteFrames editor in the inspector with its animations and frame strip"><br><b>SpriteFrames editor</b> — animations and a frame strip in the inspector, previewed on the sprite</td>
-  </tr>
-  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-sheet-slicer.png" width="380" alt="The Select Frames dialog slicing the Demo's hero sheet into a 4 by 4 grid with the run row picked and numbered"><br><b>Select Frames</b> — slice a sprite sheet by count or cell size, pick frames in order</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-tilemap.png" width="380" alt="The Demo's Tiles 2D scene with its Walls layer selected: the paint bar over the 2D view, the stone tile's ghost under the mouse and the TileMap palette in the bottom dock"><br><b>Tile map painting</b> — paint, line, rect, bucket, picker, eraser, random scatter; one undo per stroke</td>
-  </tr>
-  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-tileset.png" width="380" alt="The TileSet tab with the bush tile's collision polygon: snap points, the polygon's edges and points over the magnified tile"><br><b>TileSet editor</b> — atlas sources, tiles, tile data and collision polygons in the bottom dock</td>
-    <td align="center" valign="top"><img src="docs/images/editor-crash.png" width="380" alt="A played game's crash in the Output panel: one red row naming the exception, the node and the scene, expanded to its stack frames, the game's frame with a link to its source and the engine's muted"><br><b>Crash reports</b> — a game's crash as one row: the node, scene and frames, click-to-source</td>
   </tr>
   <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-crash.png" width="380" alt="A played game's crash in the Output panel: one red row naming the exception, the node and the scene, expanded to its stack frames, the game's frame with a link to its source and the engine's muted"><br><b>Crash reports</b> — a game's crash as one row: the node, scene and frames, click-to-source</td>
     <td align="center" valign="top"><img src="docs/images/editor-navigation.png" width="380" alt="The Demo's Navigation 2D maze in the editor with Visible Navigation on: the baked grid's solid cells and dashed mud, the NavigationGrid2D inspector with its Bake and Clear buttons and status line"><br><b>Navigation</b> — Visible Navigation, Bake and Clear with undo, out-of-date bakes flagged</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-export.png" width="380" alt="File › Export on the Demo: Windows, macOS, Linux and Linux server presets, the server preset's options and a validation warning"><br><b>Export</b> — presets per platform, demo and Steam builds, one click or <code>mf-export</code> in CI</td>
   </tr>
 </table>
@@ -241,7 +244,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
 | [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, queries, `MoveAndSlide`, interpolation, debug draw |
-| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D` and six 2D joints: limits, motors, springs, breaking, collision exclusion, debug draw and editor gizmos; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons and Create physical skeleton in the editor |
+| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D` and six 2D joints: limits, motors, springs, breaking, collision exclusion, debug draw, editor gizmos and limit handles; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons and Create physical skeleton in the editor |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, captured and window-confined mouse modes, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, Steam relay sockets, loopback and simulated bad networks |
