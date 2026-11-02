@@ -33,8 +33,10 @@ the whole window) and a sound designer, and a video mode that turns gameplay rec
 It runs on macOS (Apple Silicon), Windows x64 and Linux x64, ships as the
 [`MainframeEngine`](https://www.nuget.org/packages/MainframeEngine) NuGet package and a self-updating editor, and is
 open source under the MIT licence. It started as a way to learn how engines work and to build a framework I like
-working in, and it is in active development (milestones M0–M10 are done; see the [roadmap](docs/milestones.md)). Feel
-free to use it, and to send pull requests or feature requests in Issues 😁
+working in, inspired by my work as Technical Producer on [BRUTAL](https://github.com/ahwootech/BRUTAL). It doesn't use
+BRUTAL under the hood because work on this engine began well before BRUTAL was open-sourced. It is in active
+development (milestones M0–M10 are done; see the [roadmap](docs/milestones.md)). Feel free to use it, and to send pull
+requests or feature requests in Issues 😁
 
 ![The editor: a 3D scene with a spot light selected, its inspector, the FileSystem and Output panels](docs/images/editor.png)
 
