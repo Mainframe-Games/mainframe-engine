@@ -394,7 +394,7 @@ Every instance of the model gets them; no scene is edited. A baked clip in the d
 - **Motion notes:** anticipation before a jump (0.1–0.25 s crouch), arms swing back then up on take-off, a tuck at the
   apex, knees bend on landing (absorb over 0.1–0.2 s), overlap (the spine and arms lag the hips by a frame or two),
   arcs, and that a clip for a physics-driven jump uses `root: inPlace`.
-- `CLAUDE.md` gains one line pointing at the skill and `mfe`.
+- `AGENTS.md` gains one line pointing at the skill and `mfe`.
 
 ### G1e: root motion
 
@@ -495,7 +495,7 @@ Designed in outline here; each gets its own detailed design when it starts.
 - Per-frame engine code added here (root motion) allocates nothing and passes the validation gate.
 - Docs updated when this ships: a current-state `docs/design/animation-authoring.md` (or a section of the
   `animation.md` G1a creates); `asset-pipeline.md` (`humanoid`, `libraries` in `.meta`); `editor.md` (resource reload,
-  player preview, bone posing, IK, curves, onion); `physics.md` (root motion); `CLAUDE.md` (`mfe`, the skill, project
+  player preview, bone posing, IK, curves, onion); `physics.md` (root motion); `AGENTS.md` (`mfe`, the skill, project
   structure).
 
 ## Task list
@@ -520,7 +520,7 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
     labels, report, `--flat`, `--frame`; render smoke test.
 18. **G1.18 Editor reload and preview.** `ResourceReloader`, `ResourceLoader.GetCached/ReloadInPlace`, watcher paths,
     conflict notice, model `.meta` reopen; `AnimationPlayer` inspector preview; editor tests; QA script.
-19. **G1.19 Skill and docs.** `.claude/skills/animate/SKILL.md` (engine and template), `CLAUDE.md`, current-state doc,
+19. **G1.19 Skill and docs.** `.claude/skills/animate/SKILL.md` (engine and template), `AGENTS.md`, current-state doc,
     `asset-pipeline.md`; an end-to-end run on the CC0 character recorded in the PR.
 
 **G1e**

@@ -5,7 +5,7 @@ You are one lane of the autonomous M0→M10 build. The orchestrator integrates l
 ## Setup
 - You are in an isolated git worktree. Create your branch first: `git checkout -b lane/<id>` (id given in your prompt), based on the current `feature/m0-m10` HEAD (`git reset --hard feature/m0-m10` if your worktree started elsewhere — check with `git log -1`).
 - Init submodules you need: `git submodule update --init Plugins/Spine` (native submodules only if your lane needs them).
-- Read: `CLAUDE.md`, `memory/context/m0-m10-plan.md` (esp. Step 3 Definition of Done and the "Defaults for open questions"), `memory/context/progress-log.md`, `docs/design/testing.md`, `docs/design/build-and-platforms.md`, plus the design docs named in your prompt.
+- Read: `AGENTS.md`, `memory/context/m0-m10-plan.md` (esp. Step 3 Definition of Done and the "Defaults for open questions"), `memory/context/progress-log.md`, `docs/design/testing.md`, `docs/design/build-and-platforms.md`, plus the design docs named in your prompt.
 
 ## Rules
 - Build is warnings-as-errors with central package management (`Directory.Packages.props`). Approved NuGet packages only (see plan); anything else → stop and report.

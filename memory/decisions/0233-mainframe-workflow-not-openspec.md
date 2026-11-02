@@ -37,5 +37,4 @@ writing scenarios.
 - The workflow is ours to maintain, and a skill is only advice: `check.sh` is the only part every agent obeys.
 - Updating the workflow means running `sync.sh` from a newer tag and merging the diff in each project.
 - Only Claude Code has been tested. Other agents need a trial before they count as supported.
-- `CLAUDE.md` still imports `progress-log.md`, 952 lines loaded each session. Moving to `memory/logs/` makes it possible to
-  drop that import later.
+- Project rules live in `AGENTS.md`, so every agent reads them. `CLAUDE.md` is one line importing it, for Claude Code.

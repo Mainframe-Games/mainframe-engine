@@ -132,7 +132,7 @@ ImGui controller removes only the last step. Comments mentioning ImGui in `IOver
 
 - `docs/design/imgui-and-debug-tools.md` → `docs/design/dev-overlay.md` (DevOverlay, panels, `AddPanel`,
   `ScreenGizmos`, light/axis gizmos).
-- `CLAUDE.md`: frame order step 1 (`OnImGui`) removed, step 7 ("ImGui render") → UI + dev overlay; Dependencies list
+- `AGENTS.md`: frame order step 1 (`OnImGui`) removed, step 7 ("ImGui render") → UI + dev overlay; Dependencies list
   drops ImGui.NET; `Engine` legacy hooks list drops `OnImGui`.
 - `README.md`, `THIRD_PARTY_NOTICES.md:33`, `MainframeEngine/Assets/UI/credits.rml:23`, the ~30 design docs that
   mention ImGui (engine-lifecycle, vulkan-renderer, testing, color-pipeline, future/mobile, …) and the SVGs
@@ -143,7 +143,7 @@ ImGui controller removes only the last step. Comments mentioning ImGui in `IOver
 - `git grep -in imgui -- ':!memory' ':!docs/design/future/remove-imgui.md'` finds nothing.
 - No `cimgui` / `ImGui.NET.dll` in `just publish-local` output.
 - F12 shows the dev overlay in the Demo (GameHost) and in render-test games; every panel populates.
-- All gates in `CLAUDE.md` pass, including the allocation gate with the overlay visible.
+- All gates in `AGENTS.md` pass, including the allocation gate with the overlay visible.
 
 ## Task list
 

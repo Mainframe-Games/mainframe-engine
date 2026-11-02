@@ -165,7 +165,7 @@ pinned in `Native/natives.lock`. Vendored sources, all permissively licensed:
 | RtMidi | 6.x | MIT | MIDI input devices |
 | libogg + libvorbis/libvorbisenc | 1.3.x | BSD-3-Clause | Vorbis encoding for Render |
 
-These are new third-party native dependencies; per CLAUDE.md they are listed here for discussion before any
+These are new third-party native dependencies; per AGENTS.md they are listed here for discussion before any
 implementation, and they get `THIRD_PARTY_NOTICES.md` rows when they land. No new NuGet packages.
 
 ### Process and protocol

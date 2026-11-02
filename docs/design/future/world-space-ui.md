@@ -471,7 +471,7 @@ text is translated into Spanish and `qps`. `Demo.Tests` clicks the terminal head
   panels in input routing and rendering, the known-issue line), `canvas.md` (multi-line layout, fallbacks),
   `materials-and-meshes.md` (GPU-sourced textures), `scene-graph-and-nodes.md` (new nodes), `editor.md` (icons, panel
   preview), `localization.md` (`Label3D`, markers), `demo.md`, `testing.md` (goldens, allocation case), and the
-  project structure in `CLAUDE.md` (`Src/UI/World/`, `Src/Rendering/Text/`).
+  project structure in `AGENTS.md` (`Src/UI/World/`, `Src/Rendering/Text/`).
 
 ## Task list
 

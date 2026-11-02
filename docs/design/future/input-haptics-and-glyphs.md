@@ -129,7 +129,7 @@ public sealed partial class InputState   // additions
 - `InputRouter.Attach`/`Detach` already see every connection change (`InputRouter.cs:38-44`); they describe the pad
   through the backend, store it in `InputState` and raise `GamepadConnectionChanged`.
 - **Events live on `InputState`** (the tree's instance); static `Input` only forwards `+=`/`-=`. No engine static holds
-  game delegates past a collectible-assembly unload (CLAUDE.md: code reload). Nodes unsubscribe in `OnExitTree`.
+  game delegates past a collectible-assembly unload (AGENTS.md: code reload). Nodes unsubscribe in `OnExitTree`.
 - **Button guard.** If G12.1 confirms the crash, `SdlEventBatch`, which already walks every SDL event before Silk does
   (ADR 0139), drops controller button events with `button >= 15`. Binding them is [Open question 3](#open-questions).
 
@@ -515,7 +515,7 @@ G12.1 and G12.2. Each scenario names its test.
 - Docs updated when this ships: `cameras-and-input.md`, `game-ui.md`, `canvas.md`, `localization.md`, `steamworks.md`,
   `dev-overlay.md`, `project-and-gamehost.md`, `demo.md`; `future/mobile.md` (`LastDeviceClass`, `IHaptics` on
   `HapticsServer`), `future/consoles.md` (`IGlyphProvider`, `IGamepadBackend`), `future/save-and-settings.md` (open
-  question 4 answered); and `CLAUDE.md`'s project structure (`Src/Haptics/`, `Assets/Input/Glyphs/`).
+  question 4 answered); and `AGENTS.md`'s project structure (`Src/Haptics/`, `Assets/Input/Glyphs/`).
 
 ## Task list
 

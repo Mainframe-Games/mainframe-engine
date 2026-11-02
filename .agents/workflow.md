@@ -32,7 +32,7 @@ Commands that must pass before shipping. Rendering changes need a GPU and a disp
 
 When a proposal in `docs/design/future/` ships, move its content into the current-state doc in `docs/design/`, add a "Changes from the proposal" section, repoint links, and tick its row in `docs/milestones.md`.
 
-Update the `docs/design/` doc for any subsystem a change touches, and `CLAUDE.md` when the project structure changes. `docs-site/` is generated from `docs/`.
+Update the `docs/design/` doc for any subsystem a change touches, and `AGENTS.md` when the project structure changes. `docs-site/` is generated from `docs/`.
 
 `memory/context/progress-log.md` is history. New entries go in `memory/logs/`.
 

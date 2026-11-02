@@ -645,7 +645,7 @@ public class SkeletonSprite2D : Node2D
   drawn on the first frame it would be visible.
 - **In the editor's edit mode** a `SkeletonSprite2D` is a `[Tool]` node: it shows its setup pose, or `Clip`'s pose at
   `EditorPreviewTime`. That way scenes look right without running, which fixes the gap ADR 0127 notes for Spine rigs.
-- **Constructors are cheap.** Data binds when `Data` is set and the node enters the tree, as `CLAUDE.md` requires.
+- **Constructors are cheap.** Data binds when `Data` is set and the node enters the tree, as `AGENTS.md` requires.
 
 ### SkeletonSprite3D
 
@@ -1087,7 +1087,7 @@ Docs to update as each phase lands:
 - [Spine](../spine.md): points to the new system for new work;
 - [Testing](../testing.md): the new gates;
 - `README.md`: features and the showcase image;
-- `CLAUDE.md`: project structure;
+- `AGENTS.md`: project structure;
 - ADR [0184](../../../memory/decisions/0184-engine-owned-2d-skeletal-animation.md) records the decisions.
 
 ## Open questions

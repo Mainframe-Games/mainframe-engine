@@ -369,7 +369,7 @@ its clients agree after the same number of steps.
   additions, shared tool), `docs/design/physics.md` (`AnimatableBody*`, platform velocity),
   `docs/design/editor.md` (curve tool, icons), `docs/design/scene-graph-and-nodes.md` (new nodes),
   `docs/design/demo.md` (new scene), `docs/design/forest.md` (rails), `docs/design/testing.md` (allocation gate
-  row), and the project structure in `CLAUDE.md`.
+  row), and the project structure in `AGENTS.md`.
 
 ## Task list
 
