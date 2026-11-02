@@ -213,7 +213,8 @@ public partial class AStarGrid2D
     {
         RequireClean();
         Array.Clear(_solid);
-        _weights = null;
+        if (_weights is not null && _weightedCount > 0)
+            Array.Fill(_weights, 1f); // kept: a live source re-reads its weights into it without allocating
         _weightedCount = 0;
         _solidCount = 0;
         Version++;
@@ -312,7 +313,7 @@ public partial class AStarGrid2D
 
     internal int Height => _height;
 
-    internal bool HasWeights => _weights is not null;
+    internal bool HasWeights => _weightedCount > 0;
 
     internal int Index(int x, int y) => (y - _region.Position.Y) * _width + (x - _region.Position.X);
 

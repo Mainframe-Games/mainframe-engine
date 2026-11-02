@@ -158,8 +158,7 @@ public sealed class NavigationGridBakeTests
         grid.Source = NavigationGridSource.Manual;
         Assert.True(grid.Bake());
         Assert.Null(grid.Data);
-        grid.Source = NavigationGridSource.TileMapLayer; // G3.6 registers its baker
-        Assert.Null(NavigationGridBakers.Get(NavigationGridSource.TileMapLayer));
+        grid.Source = NavigationGridSource.TileMapLayer; // no TileMapLayerPath: the tile source cannot read anything
         Assert.False(grid.Bake());
         Assert.Throws<ArgumentOutOfRangeException>(() => NavigationGridBakers.Register(NavigationGridSource.Manual, new GridPhysicsBaker2D()));
         Assert.False(new NavigationGrid2D().Bake()); // not in a tree
@@ -196,7 +195,7 @@ public sealed class NavigationGridBakeTests
         }
     }
 
-    // Marks cell (bakes % 4, 0) solid and counts calls (a stand-in for G3.6's tile layer source).
+    // Marks cell (bakes % 4, 0) solid and counts calls (a stand-in for a live source).
     private sealed class CountingBaker : INavigationGridBaker
     {
         public int Bakes, Attached, Detached;

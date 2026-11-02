@@ -272,7 +272,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Navigation/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:192
 msgid "Navigation 2D"
 msgstr ""
 
@@ -671,17 +671,27 @@ msgstr ""
 
 #. RML <span>
 #: Examples/Demo/Assets/Tiles2D/panel.rml:14
-msgid "Surface"
+msgid "Shadow chases"
 msgstr ""
 
 #. RML <span>
 #: Examples/Demo/Assets/Tiles2D/panel.rml:15
+msgid "Show navigation"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:16
+msgid "Surface"
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Tiles2D/panel.rml:17
 msgid "Wall cells"
 msgstr ""
 
 #. RML <p>
-#: Examples/Demo/Assets/Tiles2D/panel.rml:16
-msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
+#: Examples/Demo/Assets/Tiles2D/panel.rml:18
+msgid "A shadow chases the hero on a navigation grid read from the walls layer. Click the map to add or remove a wall. WASD or the arrow keys walk."
 msgstr ""
 
 #. RML <title>

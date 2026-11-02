@@ -1,8 +1,7 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-11-02 — M0–M10, Demo & polish and most of the 2D port work on `main`; latest release v1.1.5.
-In review: `feature/gameplay-toolkit` (G2a animated sprites, G2b tile maps, G3a navigation G3.1–G3.5, G5 export, G10
-profiler, G15 crash reporting)._
+_Last updated: 2026-11-02 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
+`main`; latest release v1.1.5. In review: `feature/nav-tilemap-source` (G3.6, which completes G3a)._
 
 ## What exists
 
@@ -27,10 +26,11 @@ profiler, G15 crash reporting)._
   skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
-  (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); on
-  `feature/gameplay-toolkit`: the frame profiler (ADRs 0219/0220), crash reporting (0221/0222), `AnimatedSprite2D`
-  (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation (0227/0228) and game export with
-  `mf-export` (0229/0230; `project.mfproj` format 5); editor link protocol 5; the docs site at engine.mainframe.games; editor self-update; Linux
+  (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
+  editor viewport tools (G7), joints and ragdolls (G9, #136); the frame profiler (ADRs 0219/0220), crash reporting
+  (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
+  (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
+  `project.mfproj` format 5; #138); editor link protocol 5; the docs site at engine.mainframe.games; editor self-update; Linux
   launcher.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
@@ -83,10 +83,10 @@ profiler, G15 crash reporting)._
 
 ## Next steps
 
-1. Land the in-flight branches: G1e root motion, G9 3D joints + ragdolls (G9.7 limit handles follow G7.3), G7 editor
-   viewport tools.
-2. Gameplay toolkit (`docs/milestones.md`): G2a/G2b sprites and tile maps, G5 export from the editor, G10 profiler,
-   then G3a navigation, G1c animation authoring, G11–G16.
+1. Land `feature/nav-tilemap-source` (G3.6).
+2. Gameplay toolkit (`docs/milestones.md`): finish adaptive music (A6: editor link, overlay, Demo scene, docs) and G9
+   (G9.7 limit handles, now unblocked by G7.3; G9.10); G12 haptics and glyphs (proposal awaits owner review); G1c
+   animation authoring, G11, G13 2D paths, G14, G16, G17; G3b (avoidance first).
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (the Forest cabin work added
    ≈ 1.6 ms p50 on a loaded machine).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).

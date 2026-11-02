@@ -76,7 +76,7 @@ public sealed class GridPhysicsBaker2D : INavigationGridBaker
     private static bool HasStaticBody(List<Node2D> hits)
     {
         // Hits are Node2D since tile maps collide (ADR 0225): a tile layer's chunk bodies are static too. Its cells are not
-        // in the out-of-date hash yet; the tile map source (G3.6) tracks them.
+        // in the out-of-date hash: a grid that reads a tile layer uses the TileMapLayer source, which is live.
         foreach (var hit in hits)
             if (hit is StaticBody2D or TileMapLayer)
                 return true;

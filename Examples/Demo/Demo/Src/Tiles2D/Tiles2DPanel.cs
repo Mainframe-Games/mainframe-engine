@@ -5,15 +5,19 @@ using Silk.NET.Input;
 namespace Demo;
 
 /// <summary>
-/// The Tiles 2D scene's controls (G2b): show the tiles' collision shapes, y-sort the objects layer on or off, the hero's
-/// walk speed and autopilot; it shows the surface under the hero (custom data) and the cell counts. A click on the map
-/// (anywhere the panel is not) adds a wall cell, or removes one: the chunk redraws and its static body rebuilds.
+/// The Tiles 2D scene's controls (G2b, G3.6): show the tiles' collision shapes and the navigation grid, y-sort the objects
+/// layer on or off, the hero's walk speed and autopilot, the shadow's chase; it shows the surface under the hero (custom
+/// data) and the cell counts. A click on the map (anywhere the panel is not) adds a wall cell, or removes one: the chunk
+/// redraws, its static body rebuilds and the navigation grid re-reads the layer, so the shadow repaths.
 /// </summary>
 public sealed class Tiles2DPanel : UiDocument
 {
     private RmlDataModel? _model;
     private TileMapLayer? _ground, _walls, _objects;
     private TileHero2D? _hero;
+    private TileShadow2D? _shadow;
+    private NavigationServer2D? _navigation;
+    private bool _enterDebugDraw;
     private bool _collision;
     private string _surface = "";
     private int _wallCount;
@@ -68,6 +72,27 @@ public sealed class Tiles2DPanel : UiDocument
         }
     }
 
+    /// <summary>The navigation debug draw (the grid's solid cells, the shadow's path).</summary>
+    public bool ShowNavigation
+    {
+        get => _navigation?.DebugDrawEnabled ?? false;
+        set
+        {
+            if (_navigation is { } navigation)
+                navigation.DebugDrawEnabled = value;
+        }
+    }
+
+    public bool Chase
+    {
+        get => _shadow?.Chasing ?? false;
+        set
+        {
+            if (_shadow is { } shadow)
+                shadow.Chasing = value;
+        }
+    }
+
     public string Surface => _surface;
 
     public int WallCells => _wallCount;
@@ -79,6 +104,10 @@ public sealed class Tiles2DPanel : UiDocument
         _walls = scene.GetNode<TileMapLayer>("Walls");
         _objects = scene.GetNode<TileMapLayer>("Objects");
         _hero = scene.GetNodeOrNull<TileHero2D>("Objects/Hero");
+        _shadow = scene.GetNodeOrNull<TileShadow2D>("Objects/Shadow");
+        // The debug draw is server-global: remember it so leaving this scene restores the other scenes' look.
+        _navigation = Tree?.Servers.Get<NavigationServer2D>();
+        _enterDebugDraw = _navigation?.DebugDrawEnabled ?? false;
         _wallCount = _walls.UsedCellCount;
         _walls.Changed += OnWallsChanged;
         _model = CreateDataModel("tiles2d")
@@ -86,6 +115,8 @@ public sealed class Tiles2DPanel : UiDocument
             .Bind("ysort", this, static d => d.YSort, static (d, v) => d.YSort = v)
             .Bind("speed", this, static d => d.Speed, static (d, v) => d.Speed = v)
             .Bind("autopilot", this, static d => d.Autopilot, static (d, v) => d.Autopilot = v)
+            .Bind("navigation", this, static d => d.ShowNavigation, static (d, v) => d.ShowNavigation = v)
+            .Bind("chase", this, static d => d.Chase, static (d, v) => d.Chase = v)
             .Bind("surface", this, static d => d._surface)
             .Bind("walls", this, static d => d._wallCount);
     }
@@ -94,8 +125,12 @@ public sealed class Tiles2DPanel : UiDocument
     {
         if (_walls is { } walls)
             walls.Changed -= OnWallsChanged;
+        if (_navigation is { } navigation)
+            navigation.DebugDrawEnabled = _enterDebugDraw;
         _ground = _walls = _objects = null;
         _hero = null;
+        _shadow = null;
+        _navigation = null;
         base.OnExitTree();
     }
 
@@ -114,16 +149,19 @@ public sealed class Tiles2DPanel : UiDocument
             ToggleWall(walls.LocalToMap(walls.ToLocal(CanvasInput.WindowToCanvas(this, click.Position))));
     }
 
-    /// <summary>Adds a stone wall at <paramref name="cell"/>, or removes the one there (not under the hero).</summary>
+    /// <summary>Adds a stone wall at <paramref name="cell"/>, or removes the wall or water there (not under the hero or the shadow).</summary>
     public void ToggleWall(Vector2I cell)
     {
         if (_walls is not { } walls)
             return;
         if (!walls.GetCell(cell).IsEmpty)
             walls.EraseCell(cell);
-        else if (_hero is null || walls.LocalToMap(walls.ToLocal(_hero.GlobalPosition)) != cell)
+        else if (!IsUnder(_hero, walls, cell) && !IsUnder(_shadow, walls, cell))
             walls.SetCell(cell, 0, TilesArt.Stone);
     }
+
+    private static bool IsUnder(Node2D? node, TileMapLayer layer, Vector2I cell) =>
+        node is not null && layer.LocalToMap(layer.ToLocal(node.GlobalPosition)) == cell;
 
     private void OnWallsChanged()
     {

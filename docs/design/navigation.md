@@ -1,12 +1,12 @@
 # Navigation (grid A*, point graphs, `NavigationServer2D`, agents)
 
-**Status:** shipped for 2D grids (Gameplay toolkit G3a, G3.1–G3.5; [ADR 0227](../../memory/decisions/0227-grid-navigation-core.md),
-[ADR 0228](../../memory/decisions/0228-navigation-server-agents-and-sources.md)). The tile map source (G3.6, after the
-tile maps of G2b) and the later phases (avoidance, 2D navmeshes, async queries, 3D; G3b) are still a
-[proposal](future/navigation.md).
+**Status:** shipped for 2D grids (Gameplay toolkit G3a, G3.1–G3.6; [ADR 0227](../../memory/decisions/0227-grid-navigation-core.md),
+[ADR 0228](../../memory/decisions/0228-navigation-server-agents-and-sources.md)), including the tile map source (G3.6).
+The later phases (avoidance, 2D navmeshes, async queries, 3D; G3b) are still a [proposal](future/navigation.md).
 
 Godot 4's navigation API on grids: `AStarGrid2D` and the point graphs `AStar2D`/`AStar3D` (plain classes, usable without
-a tree), a `NavigationServer2D` with one map per `World2D`, the `NavigationGrid2D` region baked from static bodies, and
+a tree), a `NavigationServer2D` with one map per `World2D`, the `NavigationGrid2D` region baked from static bodies or read
+live from a `TileMapLayer`, and
 `NavigationAgent2D` for path following. Queries allocate nothing and give the same path on every OS and CPU.
 
 ![The Demo's Navigation 2D maze in the editor with Visible Navigation on and the grid's inspector](../images/editor-navigation.png)
@@ -21,7 +21,7 @@ a tree), a `NavigationServer2D` with one map per `World2D`, the `NavigationGrid2
 | `NavigationPath2D`, `NavigationPathQuery2D` | `NavigationPath2D.cs`, `NavigationTypes.cs` | A reusable query result; the query |
 | `NavigationGrid2D`, `NavigationGridData` | `Nodes2D/` | The grid region node and its baked data resource |
 | `NavigationAgent2D` | `Nodes2D/NavigationAgent2D.cs` | Path following |
-| `INavigationGridBaker`, `NavigationGridBakers`, `GridPhysicsBaker2D` | `Baking/` | Where a grid's cells come from |
+| `INavigationGridBaker`, `NavigationGridBakers`, `GridPhysicsBaker2D`, `TileMapLayerBaker` | `Baking/` | Where a grid's cells come from |
 | `NavigationDebugColors`, enums | `NavigationTypes.cs`, `NavigationDebugDraw.cs` | Debug draw colours; `GridDiagonalMode`, `GridHeuristic`, `GridPathStatus`, `NavigationPathPostprocessing`, `NavigationGridSource`, `NavigationWaypoint2D` |
 
 Navigation never calls Box2D.NET or Jitter2: the bake reads collision through `PhysicsDirectSpaceState2D`.
@@ -116,9 +116,9 @@ A `Node2D` that owns an `AStarGrid2D` and registers it with its viewport's map w
 | `Region`, `CellSize` | (0, 0, 32, 32), 32 × 32 px | the layout |
 | `DiagonalMode`, `Heuristic`, `JumpingEnabled` | `OnlyIfNoObstacles`, `Octile`, off | a body cannot squeeze between two diagonal wall corners; octile is exact for 8-way grids |
 | `NavigationLayers` | 1 | |
-| `Source` (Bake group) | `Physics` | `Manual`, `Physics`, `TileMapLayer` (G3.6) |
+| `Source` (Bake group) | `Physics` | `Manual`, `Physics`, `TileMapLayer` |
 | `BakeCollisionMask`, `AgentRadius` | layer 1, 0 | physics: the static bodies read; each cell's overlap box grown by the radius |
-| `TileMapLayerPath`, `TilePhysicsLayer`, `SolidDataLayer`, `WeightDataLayer` | —, 0, "solid", "" | the tile layer source (read by G3.6's baker) |
+| `TileMapLayerPath`, `TilePhysicsLayer`, `SolidDataLayer`, `WeightDataLayer` | —, 0, "solid", "" | the tile layer source: the layer, the physics layer whose collision is solid, a bool and a float custom data layer ([Tile map source](#tile-map-source)) |
 | `BakeOnReady` | off | bake once in a deferred call when ready in a running game (procedural levels) |
 | `Data` | null | the baked cells (null: every cell walkable) |
 
@@ -137,13 +137,37 @@ A `Node2D` that owns an `AStarGrid2D` and registers it with its viewport's map w
   `BakeCollisionMask`; only `StaticBody2D` hits count (rigid and character bodies move; areas are never reported). Its
   `SourceHash` hashes the static bodies one overlap query over the region finds (transforms, layers, shapes).
 
-### Grid sources (and what G3.6 plugs in)
+### Grid sources
 
 `INavigationGridBaker` is the seam: `PrepareLayout(node)` (a source that owns the layout sets `Region`, `CellSize` and
 the position), `Bake(node, cells, out failure)`, `Attach`/`Detach(node)` (a live source subscribes to its changes and
 calls `NavigationGrid2D.MarkSourceChanged()`, which re-bakes the live grid — not `Data` — at the next sync, at most
-once), and `SourceHash(node)`. `NavigationGridBakers.Register(source, baker)` sets the baker of a source; `Physics` is
-built in, `TileMapLayer` has none until G3.6 (baking then warns). Grids attach to live sources when they enter the tree.
+once), and `SourceHash(node)`. `NavigationGridBakers.Register(source, baker)` replaces the baker of a source; `Physics`
+and `TileMapLayer` are built in. Grids attach to live sources when they enter the tree, and a live source owns the live
+grid's cells: `Data` is not applied to it.
+
+### Tile map source
+
+`Source = TileMapLayer` (G3.6, `TileMapLayerBaker`) reads the layer at `TileMapLayerPath` through the tile map's public
+API only ([Tile maps → Navigation hook](tile-maps.md#navigation-hook)):
+
+- **Layout.** The layer owns it: its `TileSize` is `CellSize`, its global position is the grid's, and `GetUsedRect()` is
+  `Region` (an empty layer keeps the region). Grid cell (x, y) is map cell (x, y), so `layer.MapToLocal(cell)` and
+  `Grid.GetPointPosition(cell)` agree. The layer's rotation and scale are ignored, like the grid's.
+- **Cells.** A used cell is solid when its tile has collision on the tile set's physics layer `TilePhysicsLayer`, or when
+  its bool custom data layer `SolidDataLayer` (default `"solid"`; absent is fine) is true. The float custom data layer
+  `WeightDataLayer` (default "": none) gives the weight scale of walkable cells; a tile that leaves it unset weighs 1.
+  Empty cells are walkable.
+- **Live.** The grid re-reads the layer when it raises `Changed` (cells, properties or its tile set), at most once per
+  map sync, so agents repath on the next tick: a click that adds a wall in the Demo reroutes the chaser. Changing one of
+  the four options re-reads too. The re-read is O(used cells) into a reused list and allocates nothing once warm (a
+  128 × 128 layer is tested at 0 B). The layer may enter the tree after the grid: the first re-read finds it.
+- **Errors** leave the grid all walkable with a warning, and `BakeData` returns the reason: no layer at the path, a
+  non-square `TileShape`, a missing physics layer, `SolidDataLayer` not `Bool`, `WeightDataLayer` missing or not `Float`,
+  a used rectangle over `AStarGrid2D.MaxCells`.
+- **Bake** (the editor's button) still writes `Data` from the layer, but the live grid keeps reading the layer, and
+  `IsBakeOutOfDate()` is unknown (the source has no hash). One layer per grid: a level whose blocking tiles span several
+  layers puts them on one (the Demo's "Walls" holds stone and water).
 
 ## `NavigationAgent2D`
 
@@ -211,12 +235,16 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake` and `Navigation 
   a scene, corrupt data), `NavigationAgent2DTests` (a `CharacterBody2D` round a baked wall with signals in order, repath
   on a new wall, `TargetRepathDistance`, `PathMaxDistance`, unreachable targets, no map) and `NavigationAllocationTests`
   (**0 bytes** over 300 ticks of 64 agents chasing moving targets on a 128 × 128 grid with cell edits every 30 ticks and
-  the debug draw on; 0-byte grid queries).
+  the debug draw on; 0-byte grid queries), `TileMapNavigationTests` (the tile map source: layout and cell mapping,
+  collision per physics layer, `"solid"` and weight data, re-reads on `Changed` with an agent repathing round a new wall,
+  a layer that enters after the grid, detaching, every error, `Bake` into `Data`, a 0-byte re-read of a 128 × 128
+  layer).
 - Editor (`NavigationEditorTests`): the toggle, Bake/Clear with undo and staleness, source rows, the agent gizmo.
 - Render test `navigation` (`NavigationRenderTests`): grid, solid cells, mud, paths and targets over the collision
   shapes through a `Camera2D` (golden).
 - Demo: `Navigation2DSceneTests` (the saved grid equals a real bake, every chaser reaches the target, clicked walls
-  reroute, the panel).
+  reroute, the panel); `Tiles2DSceneTests` (the tile-sourced grid matches the walls layer, the shadow reaches the hero
+  without stepping on stone or water, a wall on its path makes it repath).
 - Benchmarks (`NavigationBenchmarks`, Apple M5): 256² open field A* 8-way ≈ 25 µs, JPS ≈ 0.21 ms, A* 4-way ≈ 31 µs; 256²
   maze A* 8-way ≈ 3.9 ms, JPS ≈ 0.23 ms, 4-way 2.6 ms / 0.4 ms; a tick with 64 agents repathing on a 128² maze ≈ 15 ms;
   all 0 B.
@@ -231,13 +259,16 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake` and `Navigation 
 - Agents that find no path (the map's regions not synced yet) wait for the next map iteration instead of finishing;
   finished agents stop updating until a new target (Godot 4.3); `NavigationAgent2D.CurrentPath` is new.
 - `NavigationGrid2D` gained `BakeData`, `IsBakeOutOfDate`, `MarkSourceChanged`, `CellAt`, `CellCenter`,
-  `LastBakeMilliseconds`; `NavigationGridData` gained `SourceHash` and the counts. `TileMapLayerPath` is typed `Node2D`
-  until `TileMapLayer` exists.
-- Sources are pluggable (`INavigationGridBaker`, `NavigationGridBakers`) so G3.6 adds a baker, not API.
+  `LastBakeMilliseconds`; `NavigationGridData` gained `SourceHash` and the counts.
+- Sources are pluggable (`INavigationGridBaker`, `NavigationGridBakers`), so G3.6 added a baker and no API.
+- **G3.6:** the tile layer owns `Region` always (the proposal kept a hand-set region, but nothing records that it was
+  set by hand); a live source's grid no longer applies `Data`; `AStarGrid2D.ClearCells()` keeps the weight array so a
+  re-read allocates nothing; `NavigationGridBakers.Unregister` (tests) puts the built-in back. The plain `Changed`
+  signal is enough so far: no `CellsChanged(Rect2I)` was added to tile maps.
 - 2D games' debug lines draw over the canvas (they drew under it before, unseen).
 - The Demo tab has no number key: keys 1–9 and 0 already go to the first ten tabs.
 
 ## Related
 
 [Physics](physics.md) (queries), [Canvas](canvas.md), [Editor](editor.md), [Dev overlay](dev-overlay.md),
-[Demo](demo.md), [Proposal: later phases and the tile map source](future/navigation.md)
+[Demo](demo.md), [Tile maps](tile-maps.md), [Proposal: later phases](future/navigation.md)

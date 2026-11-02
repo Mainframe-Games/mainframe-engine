@@ -381,14 +381,20 @@ msgstr "[Wålk spééð ~~]"
 msgid "Autopilot"
 msgstr "[Åûtöpîlöt ~~]"
 
+msgid "Shadow chases"
+msgstr "[Shåðöw çhåsés ~~~]"
+
+msgid "Show navigation"
+msgstr "[Shöw ñåvîgåtîöñ ~~~~]"
+
 msgid "Surface"
 msgstr "[Sûrfåçé ~~]"
 
 msgid "Wall cells"
 msgstr "[Wåll çélls ~~]"
 
-msgid "Click the map to add or remove a wall. WASD or the arrow keys walk."
-msgstr "[Çlîçk thé måp tö åðð ör rémövé å wåll. WÅSÐ ör thé årröw kéýs wålk. ~~~~~~~~~~~~~~~]"
+msgid "A shadow chases the hero on a navigation grid read from the walls layer. Click the map to add or remove a wall. WASD or the arrow keys walk."
+msgstr "[Å shåðöw çhåsés thé hérö öñ å ñåvîgåtîöñ grîð réåð fröm thé wålls låýér. Çlîçk thé måp tö åðð ör rémövé å wåll. WÅSÐ ör thé årröw kéýs wålk. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "UI showcase"
 msgstr "[ÛÎ shöwçåsé ~~]"

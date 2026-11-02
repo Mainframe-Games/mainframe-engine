@@ -75,7 +75,7 @@ public enum NavigationGridSource : byte
     /// <summary>Baked from the static bodies overlapping each cell (<see cref="GridPhysicsBaker2D"/>).</summary>
     Physics,
 
-    /// <summary>Read from a <c>TileMapLayer</c> (G3.6, after tile maps): a baker registered with <see cref="NavigationGridBakers"/>.</summary>
+    /// <summary>Read live from a <see cref="MainframeEngine.TileMapLayer"/> (<see cref="TileMapLayerBaker"/>): tile collision and custom data.</summary>
     TileMapLayer,
 }
 
