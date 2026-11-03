@@ -74,8 +74,8 @@ _Last updated: 2026-11-04 — M0–M10, Demo & polish, most of the 2D port work 
   (test projects opt out): features that open source files only work in local builds. Lavapipe goldens come from such
   builds (no Output source-link icons). Per-frame formatting: never interpolate enums, and prefer `int.TryFormat` over
   interpolated handlers in code that must not allocate in a busy process (tier-0 `AppendFormatted<T>` boxes).
-- Docker Linux tests (`just test-linux` / `just render-tests-linux`) run under Rosetta x86_64 emulation on a Mac: an
-  occasional whole-process stall is retried once by `build/linux/inside.sh`; never seen on native x64.
+- Docker Linux tests (`just test-linux` / `just render-tests-linux`): one shared build volume, one run at a time (a
+  second waits), synced by content, testing the committed `.spv`; a Rosetta stall on a Mac is retried once.
 - Game shaders (ADR 0237): after editing a `.slang` surface shader `just canvas-shaders <folder>`, commit its `.spv`,
   `.layout.json` and `.spvlock`; defaults are literals, matrices `mul(v, M)`; no `#line`, so no slangc `-obfuscate` crash.
 - Benchmarks: compare only on the machine that recorded `baseline.json` (MacBook, Apple M5), and only when it is

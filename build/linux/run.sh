@@ -3,8 +3,9 @@
 # Xvfb (build/linux/Dockerfile), like the ci.yml build-test (ubuntu) and render-tests jobs.
 #   build/linux/run.sh [all|unit|render] [extra `dotnet test` args, e.g. --filter FullyQualifiedName~Editor]
 # The working tree (tracked + untracked, not ignored; LFS content as checked out) is copied into a cached volume, built
-# Release with -warnaserror and tested. Results land in artifacts/linux/: TestResults/*.trx and render-tests/ (frames
-# without a lavapipe golden under render-tests/new-goldens/lavapipe/). See docs/design/testing.md#linux-tests-in-docker.
+# Release with -warnaserror and tested. Every checkout shares that volume, one run at a time (a second run waits for the
+# first). Results land in artifacts/linux/: TestResults/*.trx and render-tests/ (frames without a lavapipe golden under
+# render-tests/new-goldens/lavapipe/). See docs/design/testing.md#linux-tests-in-docker.
 set -euo pipefail
 export COPYFILE_DISABLE=1 # no AppleDouble ._ files in the tar streams (bsdtar on macOS)
 
@@ -87,11 +88,12 @@ git_tar() {
 
 case "$(uname -m)" in x86_64|amd64) speed="" ;; *) speed=" (x86_64 under emulation: slow)" ;; esac
 echo "Copying the working tree into the container and running the '$suite' tests$speed..."
+# --init (tini, killing the whole process group) so Ctrl-C stops the container, also while it waits for another run.
 (
   cd "$root"
   tar "${tar_flags[@]}" --no-recursion --null -cf - -T "$list"
   git_tar
-) | docker run --rm -i --platform "$platform" \
+) | docker run --rm -i --init -e TINI_KILL_PROCESS_GROUP=1 --platform "$platform" \
       -v mainframe-linux-work:/work -v mainframe-linux-nuget:/cache/nuget -v "$out":/out \
-      -e HOST_OWNER="$(id -u):$(id -g)" "$image" bash -c 'rm -rf /src && mkdir -p /src && tar -xif - -C /src && exec bash /src/build/linux/inside.sh "$@"' \
+      -e HOST_OWNER="$(id -u):$(id -g)" -e HOST_CHECKOUT="$root" "$image" bash -c 'rm -rf /src && mkdir -p /src && tar -xif - -C /src && exec bash /src/build/linux/inside.sh "$@"' \
       bash "$suite" "$@"
