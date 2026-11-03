@@ -51,7 +51,9 @@ Code: [`Src/Animation/`](../../MainframeEngine/Src/Animation/) (`Animation`, tra
   pose changes: put a tool, a hat or a light under it. Its own transform is overwritten.
 - **Ragdolls:** a `PhysicalBoneSimulator3D` child with `PhysicalBone3D` bodies follows the animation and, once
   simulated, writes the bones' poses after the `AnimationPlayer` (ADR 0212,
-  [Physics joints → Ragdolls](physics-joints.md#ragdolls)); the editor's Skeleton3D inspector creates one.
+  [Physics joints → Ragdolls](physics-joints.md#ragdolls)); the editor's Skeleton3D inspector creates one. Active
+  ragdolls (G9.10c, ADR 0235) pull the simulated bodies towards the animated pose with drives and holds, so the
+  character keeps its pose under physics ([Active ragdolls](physics-joints.md#active-ragdolls)).
 
 ## AnimationPlayer
 

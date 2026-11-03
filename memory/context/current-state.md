@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/g9-10b-6dof` (G9.10b `Generic6DofJoint3D`, ADR 0234)._
+`main`; latest release v1.1.5. In review: `feature/g9-10c-active-ragdolls` (G9.10c active ragdolls, ADR 0235; completes G9)._
 
 ## What exists
 
@@ -28,7 +28,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
   (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
   editor viewport tools (G7), joints and ragdolls (G9, #136; G9.7 limit handles, #148; G9.10a `MotorJoint2D`; G9.10b `Generic6DofJoint3D` on the engine's own
-  Jitter2 constraints, ADR 0234; G9.10c proposed in `docs/design/future/physics-joints-g9-10.md`); the frame profiler (ADRs 0219/0220), crash reporting
+  Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
   (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
   `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux
@@ -85,11 +85,10 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
 
 ## Next steps
 
-1. Land `feature/g9-10b-6dof` (G9.10b).
-2. Gameplay toolkit (`docs/milestones.md`): G9.10c (active ragdolls, from the accepted proposal; reuses `SoftRow`);
-   fix `just bench` (BenchmarkDotNet's child build can't copy the Steamworks shim; `--inProcess` works); G12
-   haptics and glyphs (proposal awaits owner review); G1c
-   animation authoring, G11, G13 2D paths, G14, G16, G17; G3b (avoidance first).
+1. Land `feature/g9-10c-active-ragdolls` (G9.10c).
+2. Gameplay toolkit (`docs/milestones.md`): G1c animation authoring (its humanoid limits would let active ragdolls
+   follow any clip); G12 haptics and glyphs (proposal awaits owner review); G11, G13 2D paths, G14, G16, G17; G3b
+   (avoidance first).
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (the Forest cabin work added
    ≈ 1.6 ms p50 on a loaded machine).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).

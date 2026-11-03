@@ -11,7 +11,7 @@
     "icon": "Assets/icon.png",
     "stretchMode": "canvas_items", "stretchAspect": "expand"
   },
-  "physics": { "ticksPerSecond": 60, "maxStepsPerFrame": 5, "3d": { "gravity": [0, -9.81, 0] } },
+  "physics": { "ticksPerSecond": 60, "maxStepsPerFrame": 5, "3d": { "gravity": [0, -9.81, 0], "substeps": 2 } },
   "input": {
     "scene_next": { "bindings": ["key:PageDown", "pad:RightBumper"], "label": "Next scene", "group": "nav" },
     "scene_prev": { "bindings": ["key:PageUp", "pad:LeftBumper"], "label": "Previous scene", "group": "nav" },
