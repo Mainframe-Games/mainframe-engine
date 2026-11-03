@@ -206,7 +206,10 @@ sequenceDiagram
   `Assets/Shaders`, `just canvas-shaders`), `viewport-material` (ADR 0216: a 2D sub-viewport's pattern and a 3D one's
   camera view on unshaded albedo, emission and a spatial shader sampler, filled in only after both views resize; `--count 1`:
   the view's box spins, the allocation run), `label3d`
-  (ADR 0200: Snake Oil-style name tags behind a wall, one `NoDepthTest`; `--count 1`: depth-tested), `particles-campfire`
+  (ADR 0200: Snake Oil-style name tags behind a wall, one `NoDepthTest`; `--count 1`: depth-tested), `gizmos` /
+  `gizmos-taa` (the editor's gizmo list: 3 and 8 px lines, a shaded cone and box, debug lines lying on a crate and on a
+  floor seen at a grazing angle; `GizmoRenderTests`: line widths and blended edges, the outlines under TAA, 0 B per
+  frame; [Gizmos](gizmos.md#tests)), `particles-campfire`
   and `particles-rain` (ADR 0206: additive flames and lit smoke with glow, `--count 1` glow off, `--count 2` TAA; 4,000
   rain streaks) and `particles-stress` (the #120 budget: `--alloc` and `--perf` only; [3D particles → tests](particles-3d.md#tests)), `polygon2d-skin` (ADR 0202:
   a textured strip at rest and skinned to three bent bones, a vertex-coloured fan), `skinned` (ADR 0207: two imported

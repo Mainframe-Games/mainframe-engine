@@ -15,6 +15,9 @@ public sealed partial class ViewportController
     private static readonly Vector4 GridMajor = new(0.55f, 0.58f, 0.65f, 0.28f);
     private static readonly Vector4 AxisX2D = new(0.96f, 0.32f, 0.32f, 0.55f);
     private static readonly Vector4 AxisY2D = new(0.35f, 0.85f, 0.35f, 0.55f);
+    private const float GridMinorWidth = 1f; // points
+    private const float GridMajorWidth = 1.5f;
+    private const float GridAxisWidth = 2f;
     private const float MarkerPoints = 6f;
     private const float PickPoints = 10f;
 
@@ -215,7 +218,7 @@ public sealed partial class ViewportController
         var overlay = scene.Viewport.OverlayLines;
         var camera = scene.Camera;
         if (GridVisible)
-            DrawGrid2D(lines, camera, pixels);
+            DrawGrid2D(scene.Viewport.Gizmos, camera, pixels, ViewScale);
 
         var unit = 1f / camera.Zoom2D;
         var marker = MarkerPoints * ViewScale * unit;
@@ -256,7 +259,7 @@ public sealed partial class ViewportController
                 DrawAgent2D(overlay, agent);
 
         _workspace.TileMap.Draw(scene, overlay, pixels);
-        DrawGizmo2D(scene, overlay, pixels);
+        DrawGizmo2D(scene, pixels);
         DrawHandles(scene, overlay, pixels);
     }
 
@@ -351,19 +354,22 @@ public sealed partial class ViewportController
         return step;
     }
 
-    private static void DrawGrid2D(DebugLines lines, EditorCamera camera, Vector2 pixels)
+    private static void DrawGrid2D(GizmoDrawList lines, EditorCamera camera, Vector2 pixels, float pixelScale)
     {
         var step = GridStep2D(camera.Zoom2D);
         var min = camera.ScreenToWorld2D(Vector2.Zero, pixels); // top-left (y down)
         var max = camera.ScreenToWorld2D(pixels, pixels);
         const float z = 1f; // behind the z = 0 plane (the 2D view looks along +Z)
+        var minor = GridMinorWidth * pixelScale;
+        var major = GridMajorWidth * pixelScale;
+        var axis = GridAxisWidth * pixelScale;
         var x0 = MathF.Floor(min.X / step);
         var x1 = MathF.Ceiling(max.X / step);
         for (var i = x0; i <= x1; i++)
         {
             var x = i * step;
-            var color = x == 0 ? AxisY2D : (long)i % 8 == 0 ? GridMajor : GridMinor;
-            lines.AddLine(new Vector3(x, min.Y, z), new Vector3(x, max.Y, z), color);
+            var (color, width) = x == 0 ? (AxisY2D, axis) : (long)i % 8 == 0 ? (GridMajor, major) : (GridMinor, minor);
+            lines.Line(new Vector3(x, min.Y, z), new Vector3(x, max.Y, z), color, width);
         }
 
         var y0 = MathF.Floor(min.Y / step);
@@ -371,8 +377,8 @@ public sealed partial class ViewportController
         for (var i = y0; i <= y1; i++)
         {
             var y = i * step;
-            var color = y == 0 ? AxisX2D : (long)i % 8 == 0 ? GridMajor : GridMinor;
-            lines.AddLine(new Vector3(min.X, y, z), new Vector3(max.X, y, z), color);
+            var (color, width) = y == 0 ? (AxisX2D, axis) : (long)i % 8 == 0 ? (GridMajor, major) : (GridMinor, minor);
+            lines.Line(new Vector3(min.X, y, z), new Vector3(max.X, y, z), color, width);
         }
     }
 }

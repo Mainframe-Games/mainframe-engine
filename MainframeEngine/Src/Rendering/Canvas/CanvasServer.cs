@@ -180,14 +180,15 @@ public sealed class CanvasServer : IFrameServer
 
         if (sub is not null || viewport.ActiveCamera3D is null)
         {
-            // A 2D sub-viewport's debug lines (z ignored) over its canvas, then the overlay lines; the render server only
+            // A 2D sub-viewport's debug lines and gizmos (z ignored) over its canvas, then the overlay lines and gizmos; the render server only
             // draws (and clears) the lines of 3D views. A root viewport without a 3D camera (a 2D game) draws them here
             // too, over its canvas, so collision shapes and navigation show over the sprites they belong to (G3a).
             var lineTransform = viewport.StretchTransform * viewport.RootCanvas.Transform;
             frame.AppendLines(viewport.DebugLines.Vertices, lineTransform);
+            frame.AppendGizmos(viewport.Gizmos.Vertices, lineTransform);
             frame.AppendLines(viewport.OverlayLines.Vertices, lineTransform);
-            viewport.DebugLines.Clear();
-            viewport.OverlayLines.Clear();
+            frame.AppendGizmos(viewport.OverlayGizmos.Vertices, lineTransform);
+            viewport.ClearDebugVisuals();
         }
 
         frame.EndPass();

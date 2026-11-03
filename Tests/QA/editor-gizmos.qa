@@ -1,0 +1,35 @@
+# Editor gizmo QA (just qa-editor Tests/QA/editor-gizmos.qa): the transform gizmo in each mode, idle and dragging, the
+# scene icons and the grid. Review the PNGs in artifacts/qa-editor.
+wait 40
+capture g00-scene
+select Ring/Column
+key F
+wait 8
+capture g01-translate
+gizmo-drag x 120 0 60 hold
+wait 30
+capture g02-translate-drag
+mouse-up
+wait 5
+key Z cmd
+key E
+wait 3
+capture g03-rotate
+gizmo-drag y 80 40 60 hold
+wait 40
+capture g04-rotate-drag
+mouse-up
+wait 5
+key Z cmd
+key R
+wait 3
+capture g05-scale
+key W
+move 800 500
+wheel -6
+wait 5
+capture g06-zoomed-out
+select Lights/WarmSpot
+wait 3
+capture g07-spot-selected
+quit

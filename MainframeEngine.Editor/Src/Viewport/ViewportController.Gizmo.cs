@@ -11,6 +11,7 @@ namespace MainframeEngine.Editor;
 public sealed partial class ViewportController
 {
     private static readonly Vector4 PivotCrossColor = new(1f, 0.85f, 0.2f, 0.9f);
+    private const float PivotCrossWidth = 2f; // points
 
     private readonly List<Node3D> _targets3D = [];
     private readonly List<Node2D> _targets2D = [];
@@ -378,8 +379,9 @@ public sealed partial class ViewportController
 
     // ── Drawing ──────────────────────────────────────────────────────────────────────────────────────────────────
 
-    private void DrawGizmo3D(EditedScene scene, DebugLines overlay, Vector2 pixels, float displayHeight)
+    private void DrawGizmo3D(EditedScene scene, Vector2 pixels, float displayHeight)
     {
+        var overlay = scene.Viewport.OverlayGizmos;
         // Drawn at the live pose: rotating or scaling about the median, the active origin or each origin leaves the
         // pivot where it is, and the active node's rotation turns the local axes with it, as for one node.
         if (!TryGetGizmoPose(scene, out var pivot, out var axes))
@@ -387,28 +389,31 @@ public sealed partial class ViewportController
         _workspace.Gizmo.Draw(overlay, scene.Camera, pixels, pivot, axes);
         if (_workspace.Gizmo.Pivot != GizmoPivot.Individual || _targets3D.Count < 2)
             return;
+        var width = PivotCrossWidth * ViewScale;
         for (var i = 0; i < _targets3D.Count; i++)
         {
             var p = _targets3D[i].GlobalPosition;
             var r = scene.Camera.WorldPerPixel(p, displayHeight) * 5f;
-            overlay.AddLine(p - scene.Camera.Right * r, p + scene.Camera.Right * r, PivotCrossColor);
-            overlay.AddLine(p - scene.Camera.Up * r, p + scene.Camera.Up * r, PivotCrossColor);
+            overlay.Line(p - scene.Camera.Right * r, p + scene.Camera.Right * r, PivotCrossColor, width);
+            overlay.Line(p - scene.Camera.Up * r, p + scene.Camera.Up * r, PivotCrossColor, width);
         }
     }
 
-    private void DrawGizmo2D(EditedScene scene, DebugLines overlay, Vector2 pixels)
+    private void DrawGizmo2D(EditedScene scene, Vector2 pixels)
     {
+        var overlay = scene.Viewport.OverlayGizmos;
         if (!TryGetGizmoPose2D(scene, out var pivot, out var axes))
             return;
         Gizmo2D.Draw(overlay, scene.Camera, pixels, pivot, axes);
         if (_workspace.Gizmo.Pivot != GizmoPivot.Individual || _targets2D.Count < 2)
             return;
         var r = 5f * ViewScale / scene.Camera.Zoom2D;
+        var width = PivotCrossWidth * ViewScale;
         for (var i = 0; i < _targets2D.Count; i++)
         {
             var p = new Vector3(_targets2D[i].GlobalPosition, 0f);
-            overlay.AddLine(p - new Vector3(r, 0, 0), p + new Vector3(r, 0, 0), PivotCrossColor);
-            overlay.AddLine(p - new Vector3(0, r, 0), p + new Vector3(0, r, 0), PivotCrossColor);
+            overlay.Line(p - new Vector3(r, 0, 0), p + new Vector3(r, 0, 0), PivotCrossColor, width);
+            overlay.Line(p - new Vector3(0, r, 0), p + new Vector3(0, r, 0), PivotCrossColor, width);
         }
     }
 }

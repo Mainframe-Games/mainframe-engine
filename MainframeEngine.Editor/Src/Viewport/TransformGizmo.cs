@@ -53,10 +53,26 @@ public sealed class TransformGizmo
     /// <summary>Handle length on screen, in pixels.</summary>
     public const float SizePixels = 90f;
 
-    /// <summary>How close (pixels) the mouse must be to a handle to grab it.</summary>
+    /// <summary>How close (points) the mouse must be to a handle to grab it (other handles' grab distance too).</summary>
     public const float GrabPixels = 9f;
 
-    private const int RingSegments = 48;
+    /// <summary>Width (points) of the shafts and rings; a hovered handle is <see cref="HoverLineWidth"/> wide.</summary>
+    public const float LineWidth = 3f;
+
+    /// <summary>Width (points) of a hovered or dragged handle's shaft or ring.</summary>
+    public const float HoverLineWidth = 4.5f;
+
+    /// <summary>How far (points) outside a drawn shaft, ring or head a click still grabs it.</summary>
+    public const float GrabMargin = 5f;
+
+    // Shapes as fractions of the handle length.
+    internal const float CenterGap = 0.14f;   // the shafts start this far out, clear of the centre handle
+    internal const float ConeHeight = 0.24f;
+    internal const float ConeRadius = 0.075f;
+    internal const float CubeHalf = 0.065f;
+    internal const float CenterRadius = 0.075f;
+
+    private const int RingSegments = 96;
 
     // Drag state.
     private Vector3 _startPosition;
@@ -69,6 +85,8 @@ public sealed class TransformGizmo
     private float _dragWorldPerPixel;
     private float _dragLastAngle;
     private float _dragAngle;            // accumulated screen angle (unwrapped, so several turns work)
+    private Vector3 _dragStartDirection; // rotate: unit vector in the ring's plane from the pivot towards the grab point
+    private float _dragRadians;          // rotate: the applied (snapped) turn, for the drawn sector
 
     public GizmoMode Mode { get; set; } = GizmoMode.Translate;
 
@@ -81,6 +99,7 @@ public sealed class TransformGizmo
 
     private float Size => SizePixels * PixelScale;
     private float Grab => GrabPixels * PixelScale;
+    private float GrabMarginPixels => GrabMargin * PixelScale;
 
     /// <summary>Handles follow the node's rotation (local) or the world axes (global). Scale is always local.</summary>
     public bool Local { get; set; }
@@ -114,7 +133,10 @@ public sealed class TransformGizmo
         _ => Vector3.Zero,
     };
 
-    /// <summary>The handle within <see cref="GrabPixels"/> of <paramref name="mouse"/> (view pixels), or None.</summary>
+    /// <summary>
+    /// The handle drawn under <paramref name="mouse"/> (view pixels), or None: a shaft, head or ring within
+    /// <see cref="GrabMargin"/> of its drawn edge (the nearest wins; a ring's front half before its back half).
+    /// </summary>
     public GizmoHandle HitTest(EditorCamera camera, Vector2 viewSize, Vector3 origin, Quaternion rotation, Vector2 mouse)
     {
         ArgumentNullException.ThrowIfNull(camera);
@@ -124,10 +146,15 @@ public sealed class TransformGizmo
         var length = Size * camera.WorldPerPixel(origin, viewSize.Y);
         var axes = Axes(rotation);
         var best = GizmoHandle.None;
-        var bestDistance = Grab;
+        var bestDistance = GrabMarginPixels;
+        var halfWidth = HoverLineWidth * PixelScale * 0.5f;
 
-        if (Mode != GizmoMode.Rotate && Vector2.Distance(mouse, center) <= Grab * 1.2f)
-            return GizmoHandle.Center;
+        if (Mode != GizmoMode.Rotate)
+        {
+            var centerRadius = MathF.Max(CenterRadius * Size, Grab * 0.6f);
+            if (Vector2.Distance(mouse, center) - centerRadius <= GrabMarginPixels * 0.5f)
+                return GizmoHandle.Center;
+        }
 
         for (var h = GizmoHandle.X; h <= GizmoHandle.Z; h++)
         {
@@ -135,13 +162,18 @@ public sealed class TransformGizmo
             float distance;
             if (Mode == GizmoMode.Rotate)
             {
-                distance = DistanceToRing(camera, viewSize, origin, axis, length, mouse);
+                distance = DistanceToRing(camera, viewSize, origin, axis, length, mouse) - halfWidth;
             }
             else
             {
-                if (!camera.Project(origin + axis * length, viewSize.X, viewSize.Y, out var end))
+                if (AxisVisibility(camera, origin, axis) <= 0.05f
+                    || !camera.Project(origin + axis * (length * CenterGap), viewSize.X, viewSize.Y, out var start)
+                    || !camera.Project(origin + axis * length, viewSize.X, viewSize.Y, out var end))
                     continue;
-                distance = DistanceToSegment(mouse, center, end);
+                var head = Mode == GizmoMode.Translate ? origin + axis * (length * (1f - ConeHeight * 0.4f)) : origin + axis * length;
+                camera.Project(head, viewSize.X, viewSize.Y, out var headPixel);
+                var headRadius = (Mode == GizmoMode.Translate ? ConeRadius * 1.6f : CubeHalf * 1.5f) * Size;
+                distance = MathF.Min(DistanceToSegment(mouse, start, end) - halfWidth, Vector2.Distance(mouse, headPixel) - headRadius);
             }
 
             if (distance < bestDistance)
@@ -175,6 +207,13 @@ public sealed class TransformGizmo
             : ClosestPointOnAxis(origin, direction, position, _dragAxis);
         _dragLastAngle = MathF.Atan2(mouse.Y - _dragCenterPixel.Y, mouse.X - _dragCenterPixel.X);
         _dragAngle = 0f;
+        _dragRadians = 0f;
+        if (Mode == GizmoMode.Rotate && handle != GizmoHandle.Center)
+        {
+            var onPlane = IntersectPlane(origin, direction, position, _dragAxis) - position;
+            onPlane -= _dragAxis * Vector3.Dot(onPlane, _dragAxis);
+            _dragStartDirection = onPlane.LengthSquared() > 1e-12f ? Vector3.Normalize(onPlane) : Perpendiculars(_dragAxis).U;
+        }
     }
 
     /// <summary>
@@ -221,6 +260,7 @@ public sealed class TransformGizmo
                     var radians = _dragAngle * sign;
                     if (Snap.Enabled)
                         radians = float.DegreesToRadians(SnapTo(float.RadiansToDegrees(radians), Snap.RotateDegrees));
+                    _dragRadians = radians;
                     var turn = Quaternion.CreateFromAxisAngle(_dragAxis, radians);
                     return (_startPosition, Quaternion.Normalize(turn * _startRotation), _startScale);
                 }
@@ -263,136 +303,208 @@ public sealed class TransformGizmo
     /// <summary>World units per pixel captured at drag start (for tests and constant-size drawing).</summary>
     public float DragWorldPerPixel => _dragWorldPerPixel;
 
-    /// <summary>Draws the handles into <paramref name="lines"/> (the viewport's overlay lines, no depth test).</summary>
-    public void Draw(DebugLines lines, EditorCamera camera, Vector2 viewSize, Vector3 origin, Quaternion rotation)
+    /// <summary>
+    /// Draws the handles into <paramref name="list"/> (the view's overlay gizmos, no depth test): shafts and rings
+    /// <see cref="LineWidth"/> points wide, solid shaded cones (translate) or cubes (scale), the centre handle, far
+    /// handles first. A hovered handle is wider and lighter; while dragging, the dragged one is yellow and the rest fade.
+    /// </summary>
+    public void Draw(GizmoDrawList list, EditorCamera camera, Vector2 viewSize, Vector3 origin, Quaternion rotation)
     {
-        ArgumentNullException.ThrowIfNull(lines);
+        ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(camera);
         if (Mode == GizmoMode.Select)
             return;
+        list.SetCamera(camera.Position, camera.Forward, camera.Up, orthographic: false);
         var length = Size * camera.WorldPerPixel(origin, viewSize.Y);
         var axes = Axes(rotation);
-        for (var h = GizmoHandle.X; h <= GizmoHandle.Z; h++)
+        if (Mode == GizmoMode.Rotate)
         {
-            var axis = AxisOf(h, axes);
-            var color = ColorOf(h);
-            switch (Mode)
+            DrawRotate(list, camera, origin, axes, length);
+            return;
+        }
+
+        // Far to near: the solid heads have no depth buffer, so a near head must draw over a far one.
+        Span<int> order = [0, 1, 2];
+        Span<float> depth = stackalloc float[3];
+        for (var i = 0; i < 3; i++)
+            depth[i] = Vector3.Dot(AxisOf(GizmoHandle.X + i, axes), camera.Forward);
+        for (var i = 1; i < 3; i++)
+            for (var j = i; j > 0 && depth[order[j]] > depth[order[j - 1]]; j--)
+                (order[j], order[j - 1]) = (order[j - 1], order[j]);
+
+        var centerDrawn = false; // after the axes pointing away from the camera, before those pointing at it
+        for (var k = 0; k < 3; k++)
+        {
+            var h = GizmoHandle.X + order[k];
+            if (depth[order[k]] < 0f && !centerDrawn)
             {
-                case GizmoMode.Translate:
-                    ThickLine(lines, camera, origin, origin + axis * length, length / Size, color);
-                    DrawCone(lines, origin + axis * length, axis, length * 0.14f, length * 0.05f, color);
-                    break;
-                case GizmoMode.Scale:
-                    ThickLine(lines, camera, origin, origin + axis * length, length / Size, color);
-                    DrawCube(lines, origin + axis * length, axes, length * 0.05f, color);
-                    break;
-                case GizmoMode.Rotate:
-                    DrawRing(lines, origin, axis, length, color);
-                    DrawRing(lines, origin, axis, length + length / Size * PixelScale, color);
-                    break;
+                DrawCenter(list, camera, origin, axes, length);
+                centerDrawn = true;
+            }
+
+            var axis = AxisOf(h, axes);
+            var visibility = AxisVisibility(camera, origin, axis);
+            if (visibility <= 0f)
+                continue;
+            var color = ColorOf(h);
+            color.W *= visibility;
+            var width = WidthOf(h);
+            var shaftStart = origin + axis * (length * CenterGap);
+            if (Mode == GizmoMode.Translate)
+            {
+                var coneBase = origin + axis * (length * (1f - ConeHeight));
+                list.Line(shaftStart, coneBase, color, width);
+                list.Cone(origin + axis * length, axis, length * ConeHeight, length * ConeRadius * (IsLit(h) ? 1.15f : 1f), color);
+            }
+            else
+            {
+                var cubeCenter = origin + axis * (length - length * CubeHalf);
+                list.Line(shaftStart, cubeCenter, color, width);
+                var half = length * CubeHalf * (IsLit(h) ? 1.15f : 1f);
+                list.Box(cubeCenter, axes.X * half, axes.Y * half, axes.Z * half, color);
             }
         }
 
-        if (Mode != GizmoMode.Rotate)
-        {
-            var c = Hovered == GizmoHandle.Center || Active == GizmoHandle.Center ? Highlight : new Vector4(0.9f, 0.9f, 0.9f, 1f);
-            var r = length * 0.07f;
-            var right = camera.Right * r;
-            var up = camera.Up * r;
-            lines.AddLine(origin - right - up, origin + right - up, c);
-            lines.AddLine(origin + right - up, origin + right + up, c);
-            lines.AddLine(origin + right + up, origin - right + up, c);
-            lines.AddLine(origin - right + up, origin - right - up, c);
-        }
+        if (!centerDrawn)
+            DrawCenter(list, camera, origin, axes, length);
     }
 
-    private static readonly Vector4 Highlight = new(1f, 0.85f, 0.2f, 1f);
+    private void DrawCenter(GizmoDrawList list, EditorCamera camera, Vector3 origin, (Vector3 X, Vector3 Y, Vector3 Z) axes, float length)
+    {
+        var lit = IsLit(GizmoHandle.Center);
+        var color = lit ? (Active == GizmoHandle.Center ? Highlight : Hover(CenterColor)) : CenterColor;
+        if (IsDragging && Active != GizmoHandle.Center)
+            color.W *= DimmedAlpha;
+        var radius = length * CenterRadius * (lit ? 1.2f : 1f);
+        if (Mode == GizmoMode.Scale)
+        {
+            list.Box(origin, axes.X * radius, axes.Y * radius, axes.Z * radius, color);
+            return;
+        }
+
+        // A screen-facing disc with a dark rim, like a small sphere.
+        var pixel = length / Size;
+        list.Disc(origin, camera.Right, camera.Up, radius + pixel * 1.5f * PixelScale, Outline with { W = Outline.W * color.W });
+        list.Disc(origin, camera.Right, camera.Up, radius, color);
+    }
+
+    private void DrawRotate(GizmoDrawList list, EditorCamera camera, Vector3 origin, (Vector3 X, Vector3 Y, Vector3 Z) axes, float length)
+    {
+        // The silhouette of the sphere the rings lie on, then every ring's far half (faint), then the near halves.
+        list.Circle(origin, camera.Right, camera.Up, length, SilhouetteColor, PixelScale * 1.5f, RingSegments);
+        for (var pass = 0; pass < 2; pass++)
+            for (var h = GizmoHandle.X; h <= GizmoHandle.Z; h++)
+            {
+                var axis = AxisOf(h, axes);
+                var color = ColorOf(h);
+                if (pass == 0)
+                    color.W *= BackAlpha;
+                var width = WidthOf(h);
+                var (u, v) = Perpendiculars(axis);
+                var previous = origin + u * length;
+                for (var i = 1; i <= RingSegments; i++)
+                {
+                    var (sin, cos) = MathF.SinCos(i * MathF.Tau / RingSegments);
+                    var point = origin + (u * cos + v * sin) * length;
+                    var back = Vector3.Dot((previous + point) * 0.5f - origin, camera.Forward) > 0f;
+                    if (back == (pass == 0))
+                        list.Line(previous, point, color, width);
+                    previous = point;
+                }
+            }
+
+        if (Active is GizmoHandle.X or GizmoHandle.Y or GizmoHandle.Z && MathF.Abs(_dragRadians) > 1e-4f)
+            DrawSector(list, origin, _dragAxis, length);
+    }
+
+    // The turn so far: a translucent pie from the grab direction through the applied angle, edged by two spokes.
+    private void DrawSector(GizmoDrawList list, Vector3 origin, Vector3 axis, float radius)
+    {
+        var start = _dragStartDirection;
+        var side = Vector3.Cross(axis, start);
+        var steps = Math.Clamp((int)MathF.Ceiling(MathF.Abs(_dragRadians) / MathF.Tau * RingSegments), 1, RingSegments * 4);
+        var previous = origin + start * radius;
+        for (var i = 1; i <= steps; i++)
+        {
+            var (sin, cos) = MathF.SinCos(_dragRadians * i / steps);
+            var point = origin + (start * cos + side * sin) * radius;
+            list.Triangle(origin, previous, point, SectorColor);
+            previous = point;
+        }
+
+        var width = LineWidth * PixelScale * 0.6f;
+        list.Line(origin, origin + start * radius, Highlight, width);
+        list.Line(origin, previous, Highlight, width);
+    }
+
+    private static readonly Vector4 Highlight = new(1f, 0.82f, 0.18f, 1f);
+    private static readonly Vector4 CenterColor = new(0.92f, 0.92f, 0.92f, 1f);
+    private static readonly Vector4 Outline = new(0.08f, 0.08f, 0.1f, 0.85f);
+    private static readonly Vector4 SilhouetteColor = new(0.85f, 0.85f, 0.85f, 0.35f);
+    private static readonly Vector4 SectorColor = new(1f, 0.82f, 0.18f, 0.22f);
+    private const float BackAlpha = 0.28f;
+    private const float DimmedAlpha = 0.3f;
+
+    private bool IsLit(GizmoHandle handle) => handle == Active || (Active == GizmoHandle.None && handle == Hovered);
+
+    private float WidthOf(GizmoHandle handle) => (IsLit(handle) ? HoverLineWidth : LineWidth) * PixelScale;
 
     private Vector4 ColorOf(GizmoHandle handle)
     {
-        if (handle == Active || (Active == GizmoHandle.None && handle == Hovered))
+        if (handle == Active)
             return Highlight;
-        return handle switch
+        var color = handle switch
         {
-            GizmoHandle.X => new Vector4(0.96f, 0.26f, 0.32f, 1f),
-            GizmoHandle.Y => new Vector4(0.45f, 0.86f, 0.25f, 1f),
-            _ => new Vector4(0.25f, 0.55f, 1f, 1f),
+            GizmoHandle.X => new Vector4(0.98f, 0.24f, 0.3f, 1f),
+            GizmoHandle.Y => new Vector4(0.48f, 0.9f, 0.22f, 1f),
+            _ => new Vector4(0.2f, 0.52f, 1f, 1f),
         };
+        if (Active == GizmoHandle.None && handle == Hovered)
+            return Hover(color);
+        if (IsDragging)
+            color.W *= DimmedAlpha;
+        return color;
     }
 
-    // Lines are one framebuffer pixel wide: draw handles as a few parallel lines (screen-space offsets) to read on HiDPI.
-    private void ThickLine(DebugLines lines, EditorCamera camera, Vector3 a, Vector3 b, float worldPerPixel, Vector4 color)
+    // Lighter, toward white: the hovered handle.
+    private static Vector4 Hover(Vector4 color) =>
+        new(color.X + (1f - color.X) * 0.45f, color.Y + (1f - color.Y) * 0.45f, color.Z + (1f - color.Z) * 0.45f, color.W);
+
+    // 1, fading to 0 as the axis turns to point at the camera (its shaft shrinks to a dot and cannot be dragged well).
+    private static float AxisVisibility(EditorCamera camera, Vector3 origin, Vector3 axis)
     {
-        var side = Vector3.Cross(b - a, camera.Forward);
-        side = side.LengthSquared() > 1e-12f ? Vector3.Normalize(side) * worldPerPixel : Vector3.Zero;
-        var count = Math.Max(1, (int)MathF.Round(PixelScale * 1.5f));
-        for (var i = 0; i < count; i++)
-        {
-            var offset = side * (i - (count - 1) * 0.5f);
-            lines.AddLine(a + offset, b + offset, color);
-        }
+        var toOrigin = origin - camera.Position;
+        var along = toOrigin.LengthSquared() > 1e-12f ? MathF.Abs(Vector3.Dot(Vector3.Normalize(toOrigin), axis)) : 0f;
+        return Math.Clamp((0.985f - along) / 0.04f, 0f, 1f);
     }
 
-    private static void DrawCone(DebugLines lines, Vector3 tip, Vector3 axis, float height, float radius, Vector4 color)
-    {
-        var (u, v) = Perpendiculars(axis);
-        var baseCenter = tip - axis * height;
-        const int segments = 8;
-        var previous = baseCenter + u * radius;
-        for (var i = 1; i <= segments; i++)
-        {
-            var a = i * MathF.Tau / segments;
-            var point = baseCenter + (u * MathF.Cos(a) + v * MathF.Sin(a)) * radius;
-            lines.AddLine(previous, point, color);
-            lines.AddLine(point, tip, color);
-            previous = point;
-        }
-    }
-
-    private static void DrawCube(DebugLines lines, Vector3 center, (Vector3 X, Vector3 Y, Vector3 Z) axes, float half, Vector4 color)
-    {
-        var transform = new Transform3D(new Basis(axes.X * half, axes.Y * half, axes.Z * half), center);
-        lines.AddBox(transform, Vector3.One, color);
-    }
-
-    private static void DrawRing(DebugLines lines, Vector3 center, Vector3 axis, float radius, Vector4 color)
-    {
-        var (u, v) = Perpendiculars(axis);
-        var previous = center + u * radius;
-        for (var i = 1; i <= RingSegments; i++)
-        {
-            var a = i * MathF.Tau / RingSegments;
-            var point = center + (u * MathF.Cos(a) + v * MathF.Sin(a)) * radius;
-            lines.AddLine(previous, point, color);
-            previous = point;
-        }
-    }
-
-    private static float DistanceToRing(EditorCamera camera, Vector2 viewSize, Vector3 center, Vector3 axis, float radius, Vector2 mouse)
+    // Screen distance to the ring; its far half counts as GrabMargin farther, so where the halves cross the near one wins.
+    private float DistanceToRing(EditorCamera camera, Vector2 viewSize, Vector3 center, Vector3 axis, float radius, Vector2 mouse)
     {
         var (u, v) = Perpendiculars(axis);
         var best = float.MaxValue;
-        var hasPrevious = camera.Project(center + u * radius, viewSize.X, viewSize.Y, out var previous);
+        var previousPoint = center + u * radius;
+        var hasPrevious = camera.Project(previousPoint, viewSize.X, viewSize.Y, out var previous);
         for (var i = 1; i <= RingSegments; i++)
         {
             var a = i * MathF.Tau / RingSegments;
-            var visible = camera.Project(center + (u * MathF.Cos(a) + v * MathF.Sin(a)) * radius, viewSize.X, viewSize.Y, out var point);
+            var world = center + (u * MathF.Cos(a) + v * MathF.Sin(a)) * radius;
+            var visible = camera.Project(world, viewSize.X, viewSize.Y, out var point);
             if (visible && hasPrevious)
-                best = MathF.Min(best, DistanceToSegment(mouse, previous, point));
+            {
+                var back = Vector3.Dot((previousPoint + world) * 0.5f - center, camera.Forward) > 0f;
+                best = MathF.Min(best, DistanceToSegment(mouse, previous, point) + (back ? GrabMarginPixels : 0f));
+            }
+
             previous = point;
+            previousPoint = world;
             hasPrevious = visible;
         }
 
         return best;
     }
 
-    internal static (Vector3 U, Vector3 V) Perpendiculars(Vector3 axis)
-    {
-        var reference = MathF.Abs(axis.Y) < 0.9f ? Vector3.UnitY : Vector3.UnitX;
-        var u = Vector3.Normalize(Vector3.Cross(axis, reference));
-        var v = Vector3.Cross(axis, u);
-        return (u, v);
-    }
+    internal static (Vector3 U, Vector3 V) Perpendiculars(Vector3 axis) => GizmoDrawList.Perpendiculars(axis);
 
     internal static float DistanceToSegment(Vector2 p, Vector2 a, Vector2 b)
     {

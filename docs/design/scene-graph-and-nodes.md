@@ -263,7 +263,8 @@ only for nodes whose type is marked `[Tool]` (`Node.IsTool`, not inherited by su
 fixed-step servers (physics). Lifecycle callbacks, deferred calls, frees, transform sync and frame servers run as
 usual, so edited scenes render, register with their worlds and can be picked, but game code does not run. Tools render a
 viewport with their own camera through `SceneViewport.CameraOverride` (any `ICamera`; it never touches the scene's
-cameras) and draw always-visible handles into `SceneViewport.OverlayLines` (debug lines without depth test). See
+cameras) and draw always-visible handles into `SceneViewport.OverlayLines` (debug lines without depth test) or
+`SceneViewport.OverlayGizmos` (pixel-wide anti-aliased lines, shaded solids and icons: [Gizmos](gizmos.md)). See
 [Editor](editor.md#edit-mode-and-edited-worlds).
 
 ### Simulation in edit mode

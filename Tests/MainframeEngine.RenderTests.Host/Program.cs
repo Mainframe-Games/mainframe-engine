@@ -87,6 +87,9 @@ RenderTestGame game = options.Scene switch
     // ADR 0205: the same under TAA (the depth prepass and velocity of spatial shaders).
     "spatial-shaders-taa" => new SpatialShaderScene(options with { AntiAliasing = options.AntiAliasing ?? AntiAliasing.Taa }),
     "label3d" => new Label3DScene(options),
+    "gizmos" => new GizmoScene(options),
+    "grid-analytic" => new GridAnalyticScene(options),
+    "gizmos-taa" => new GizmoScene(options with { AntiAliasing = options.AntiAliasing ?? AntiAliasing.Taa }),
     "particles-campfire" => new ParticleCampfireScene(options),
     "particles-rain" => new ParticleRainScene(options),
     "particles-stress" => new ParticleStressScene(options),

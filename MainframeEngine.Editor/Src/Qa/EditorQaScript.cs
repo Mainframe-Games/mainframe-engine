@@ -181,10 +181,12 @@ public sealed class EditorQaScript : IEditorAutomation
                 break;
             case "gizmo-drag":
                 {
-                    // gizmo-drag x|y|z|center dx dy [frames]: drags the selected node's handle by (dx, dy) points.
+                    // gizmo-drag x|y|z|center dx dy [frames] [hold]: drags the selected node's handle by (dx, dy) points;
+                    // "hold" keeps the button down until mouse-up (a capture shows the drag in progress).
                     var handle = GizmoPoint(workspace, step[1]);
                     var end = handle + new Vector2(Float(step, 2), Float(step, 3));
-                    _drag = (handle, end, MouseButton.Left, step.Length > 4 ? Int(step, 4, 20) : 20, 0);
+                    _holdDrag = step[^1] == "hold" ? MouseButton.Left : null;
+                    _drag = (handle, end, MouseButton.Left, step.Length > 4 && step[4] != "hold" ? Int(step, 4, 20) : 20, 0);
                     _mouse = handle;
                     tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, handle) });
                     tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = Pointer(app, handle) });

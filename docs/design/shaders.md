@@ -105,6 +105,8 @@ Each row's source is the name plus `.slang` (`Mesh/Mesh.vk.vert.slang` → `Mesh
 | `Sky/Sky.Panoramic.vk.frag` | same | NDC xy | s0 frame, s1 b0 `Sampler2D` (sRGB) | `SkyParams` |
 | `Sky/Sky.Cubemap.vk.frag` | same | NDC xy | s0 frame, s1 b0 `SamplerCube` (sRGB) | `SkyParams` |
 | `SceneGrid/SceneGrid.vk.vert/.frag` | `SceneGrid` | 0 `vec3`, 1 `vec4`, 2 `vec3` (other end of the line; the vertex shader clips the line) | s0 frame | — |
+| `SceneGrid/GridAnalytic.vk.vert/.frag` | `SceneGridAnalytic` ([Scene grid](scene-grid.md#analytic-style)) | none (6 vertices from `SV_VulkanVertexID`) | s0 frame | `vec4 params` (pixel scale, plane height, cell); specialization 0 `kDisplayOutput` |
+| `Gizmos/Gizmo.vk.vert/.frag` | `GizmoRenderer` ([Gizmos](gizmos.md)) | 0 `vec3`, 1 `vec3` (other end), 2 `vec4` (sRGB), 3 `vec2` UV, 4 `vec2` (side, width px) | s0 frame, s1 atlas | specialization 0 `kDisplayOutput` |
 | `Post/Fullscreen.vk.vert` | tonemap pass | `SV_VulkanVertexID` | — | — |
 | `Post/Tonemap.vk.frag` | `VulkanRenderer` | `SV_Position` | s0 b0 `Sampler2D` HDR scene | `float exposure; uint encodeSrgb` (8 B) |
 | `Post/TonemapPost.vk.frag` | `VulkanRenderer` (non-default `PostProcessSettings`, ADR 0124) | `SV_Position` | s0 b0 `Sampler2D` HDR scene, b1 `sampler2D[7]` glow levels | exposure, encodeSrgb, tonemapper, glow mode/enabled/intensity, white, whiteTonemapped, 7 weights (60 B) |

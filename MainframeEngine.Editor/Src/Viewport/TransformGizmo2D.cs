@@ -84,7 +84,7 @@ public sealed class TransformGizmo2D
 
         void Consider(GizmoHandle handle, Vector2 direction, ref GizmoHandle found, ref float distance)
         {
-            var d = DistanceToSegment(mouse, center, center + direction * Size);
+            var d = DistanceToSegment(mouse, center, center + direction * (Size + 12f * Shared.PixelScale));
             if (d < distance)
             {
                 distance = d;
@@ -204,10 +204,14 @@ public sealed class TransformGizmo2D
 
     public void EndDrag() => Active = GizmoHandle.None;
 
-    /// <summary>Draws the handles of a node at global <paramref name="origin"/> into <paramref name="lines"/> (z = 0 plane).</summary>
-    public void Draw(DebugLines lines, EditorCamera camera, Vector2 viewPixels, Vector2 origin, float rotation)
+    /// <summary>
+    /// Draws the handles of a node at global <paramref name="origin"/> into <paramref name="list"/> (z = 0 plane):
+    /// <see cref="TransformGizmo.LineWidth"/>-point shafts with solid arrow heads (move) or squares (scale), a solid
+    /// centre square, or the rotation ring; hovered and dragged handles wider and highlighted.
+    /// </summary>
+    public void Draw(GizmoDrawList list, EditorCamera camera, Vector2 viewPixels, Vector2 origin, float rotation)
     {
-        ArgumentNullException.ThrowIfNull(lines);
+        ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(camera);
         if (Mode == GizmoMode.Select)
             return;
@@ -217,61 +221,58 @@ public sealed class TransformGizmo2D
         if (Mode == GizmoMode.Rotate)
         {
             var color = Hot(GizmoHandle.Z) ? HotColor : RingColor;
-            const int segments = 64;
-            var previous = o + new Vector3(length, 0, 0);
-            for (var i = 1; i <= segments; i++)
-            {
-                var (sin, cos) = MathF.SinCos(i * MathF.Tau / segments);
-                var point = o + new Vector3(cos * length, sin * length, 0);
-                lines.AddLine(previous, point, color);
-                previous = point;
-            }
-
-            // A spoke shows the current angle.
+            var width = Width(GizmoHandle.Z);
+            list.Circle(o, Vector3.UnitX, Vector3.UnitY, length, color, width, 96);
+            // A spoke and a dot show the current angle.
             var (s, c) = MathF.SinCos(rotation);
-            lines.AddLine(o, o + new Vector3(c, s, 0) * length, color);
+            var end = o + new Vector3(c, s, 0) * length;
+            list.Line(o, end, color, width * 0.6f);
+            list.Disc(end, Vector3.UnitX, Vector3.UnitY, 5f * Shared.PixelScale * unit, color, 20);
             return;
         }
 
         var (x, y) = Axes(rotation);
-        DrawAxis(lines, o, x, length, unit, Hot(GizmoHandle.X) ? HotColor : XColor);
-        DrawAxis(lines, o, y, length, unit, Hot(GizmoHandle.Y) ? HotColor : YColor);
-        var half = Grab * unit;
+        DrawAxis(list, o, x, length, unit, Hot(GizmoHandle.X) ? HotColor : XColor, Width(GizmoHandle.X));
+        DrawAxis(list, o, y, length, unit, Hot(GizmoHandle.Y) ? HotColor : YColor, Width(GizmoHandle.Y));
+        var half = Grab * unit * (Hot(GizmoHandle.Center) ? 1.15f : 1f);
         var centerColor = Hot(GizmoHandle.Center) ? HotColor : CenterColor;
-        var a = o + new Vector3(-half, -half, 0);
-        var b = o + new Vector3(half, -half, 0);
-        var c2 = o + new Vector3(half, half, 0);
-        var d = o + new Vector3(-half, half, 0);
-        lines.AddLine(a, b, centerColor);
-        lines.AddLine(b, c2, centerColor);
-        lines.AddLine(c2, d, centerColor);
-        lines.AddLine(d, a, centerColor);
+        var rim = half + 1.5f * Shared.PixelScale * unit;
+        Square(list, o, rim, new Vector4(0.08f, 0.08f, 0.1f, 0.85f));
+        Square(list, o, half, centerColor with { W = 0.85f });
     }
 
     private bool Hot(GizmoHandle handle) => Active == handle || (Active == GizmoHandle.None && Hovered == handle);
 
-    private void DrawAxis(DebugLines lines, Vector3 origin, Vector2 axis, float length, float unit, Vector4 color)
+    private float Width(GizmoHandle handle) =>
+        (Hot(handle) ? TransformGizmo.HoverLineWidth : TransformGizmo.LineWidth) * Shared.PixelScale;
+
+    private static void Square(GizmoDrawList list, Vector3 center, float half, Vector4 color)
+    {
+        var a = center + new Vector3(-half, -half, 0);
+        var b = center + new Vector3(half, -half, 0);
+        var c = center + new Vector3(half, half, 0);
+        var d = center + new Vector3(-half, half, 0);
+        list.Triangle(a, b, c, color);
+        list.Triangle(a, c, d, color);
+    }
+
+    private void DrawAxis(GizmoDrawList list, Vector3 origin, Vector2 axis, float length, float unit, Vector4 color, float width)
     {
         var direction = new Vector3(axis, 0f);
         var side = new Vector3(-axis.Y, axis.X, 0f);
+        var start = origin + direction * (Grab * 1.6f * unit);
         var end = origin + direction * length;
-        lines.AddLine(origin, end, color);
-        // Lines are one pixel wide: a parallel line makes the shaft readable.
-        lines.AddLine(origin + side * unit, end + side * unit, color);
-        var tip = 9f * Shared.PixelScale * unit;
+        var tip = 14f * Shared.PixelScale * unit;
         if (Mode == GizmoMode.Scale)
         {
-            // A square end for scale handles.
-            var h = tip * 0.5f;
-            lines.AddLine(end + side * h, end + direction * tip + side * h, color);
-            lines.AddLine(end + direction * tip + side * h, end + direction * tip - side * h, color);
-            lines.AddLine(end + direction * tip - side * h, end - side * h, color);
-            lines.AddLine(end - side * h, end + side * h, color);
+            // A solid square end for scale handles.
+            var h = tip * 0.42f;
+            list.Line(start, end, color, width);
+            Square(list, end + direction * h, h, color);
             return;
         }
 
-        lines.AddLine(end + direction * tip, end + side * tip * 0.5f, color);
-        lines.AddLine(end + direction * tip, end - side * tip * 0.5f, color);
-        lines.AddLine(end + side * tip * 0.5f, end - side * tip * 0.5f, color);
+        list.Line(start, end, color, width);
+        list.Triangle(end + direction * tip, end + side * tip * 0.42f, end - side * tip * 0.42f, color);
     }
 }
