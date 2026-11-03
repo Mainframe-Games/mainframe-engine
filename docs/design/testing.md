@@ -455,7 +455,11 @@ matters: the `lavapipe` goldens are CI's x86_64 llvmpipe output, and physics aft
 - Results land in `artifacts/linux/`: `TestResults/*.trx` and `render-tests/` (failed comparisons' actual/expected/diff
   PNGs; frames without a golden in `render-tests/new-goldens/lavapipe/`, also listed at the end of the run).
 - The image is built on every run (cached layers; a Dockerfile change rebuilds from the changed instruction) and labelled
-  with a hash of the Dockerfile and `global.json`; the script stops if the image's label does not match.
+  with a hash of the Dockerfile and `global.json`; the script stops if the image's label does not match. Its build
+  context is a temporary directory holding those two files (the legacy builder, without buildx, rejects a tar context
+  on stdin with `-f`).
+- Hosts: macOS (Docker Desktop, bsdtar) and Linux (GNU tar, with or without buildx); the script picks the tar flags
+  for whichever `tar` it finds.
 - Docker Desktop on Apple Silicon runs the container under x86_64 emulation (Rosetta): the first run builds the image
   and restores packages; later runs rebuild incrementally. Docker needs about 8 GB of memory. Emulated test processes can stall
   with every thread idle (seen ~190 tests into the parallel unit suite, while tests start processes, SDL and sockets;

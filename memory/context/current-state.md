@@ -39,7 +39,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
 - **Tests:** ~3 160 engine, ~1 780 editor, ~460 video and ~100 Demo unit tests; ~190 render tests (goldens `moltenvk` +
   `lavapipe`, validation gate, 0-B allocation gate); benchmarks with `baseline.json`; QA scripts (`just qa`, `qa-editor`,
   `qa-projects`, `qa-settings`). Lavapipe can be run locally in Docker: `just render-tests-linux` (x86_64 ubuntu:24.04,
-  same packages as CI).
+  same packages as CI; macOS or Linux hosts).
 - **CI:** `ci.yml` (build-test ×3 OS, format, shaders, render-tests on lavapipe, template smoke, `ci-success`),
   `publish.yml`, `natives.yml`. Jobs fetch only the LFS files they need, cached by object ID. GitHub Actions
   minutes are scarce: run things locally (Docker for Linux) first.
@@ -59,8 +59,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   End every `RenderTarget` pass with `RenderTarget.End` (MoltenVK ignores render-pass external dependencies).
   Keep the default UNORM swapchain (MoltenVK mutable-format sRGB views go stale).
 - `ShadowSystem.RenderShadows` once per frame; comparison samplers are immutable (MoltenVK); shader limits only in
-  `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`). Linux slangc 2026.1
-  segfaults on `.mfshader` builds (`-obfuscate` + `#line`): `GLIBC_TUNABLES=glibc.malloc.mmap_threshold=0` avoids it.
+  `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`).
 - Scene tree: node constructors cheap and side-effect free; projects declaring node types need the generator analyzer.
   `MainframeEngine.Timer` shadows `System.Threading.Timer`.
 - Physics: Jitter2/Box2D calls stay in `Src/Physics`; the 6-DOF constraints copy Jitter2 2.9.0's constraint header and
@@ -75,8 +74,9 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   (test projects opt out): features that open source files only work in local builds. Lavapipe goldens come from such
   builds (no Output source-link icons). Per-frame formatting: never interpolate enums, and prefer `int.TryFormat` over
   interpolated handlers in code that must not allocate in a busy process (tier-0 `AppendFormatted<T>` boxes).
-- Docker Linux tests (`just test-linux` / `just render-tests-linux`) run under Rosetta x86_64 emulation: an
+- Docker Linux tests (`just test-linux` / `just render-tests-linux`) run under Rosetta x86_64 emulation on a Mac: an
   occasional whole-process stall is retried once by `build/linux/inside.sh`; never seen on native x64.
+- slangc 2026.1 (Linux) segfaults on `-obfuscate` + `#line`; `mf-shaders` strips `#line` there (errors: a plain compile).
 - Benchmarks: compare only on the machine that recorded `baseline.json` (MacBook, Apple M5), and only when it is
   quiet (parallel builds/agents skew results by 10–15 %).
 - Steam: Facepunch.Steamworks 2.4.1 (vendored, `Plugins/Facepunch.Steamworks`) behind the `MainframeEngine.Steamworks`

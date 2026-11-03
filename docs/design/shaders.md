@@ -218,7 +218,10 @@ with one `x.mfshader.spvlock` over all ten files: `just canvas-shaders [folders]
 stage first, then its vertex stage writing only what that kept; ten slangc runs in parallel), and `just shaders-check`
 (mf-shaders `check` over `mfshader_folders`) fails on stale ones. `mf-shaders translate x.mfshader [pass]` prints the
 generated Slang. Errors name the file and line: the translator's (`ground.mfshader(12): render_mode 'x' is not
-supported.`) and slangc's, through `#line` directives around the user's code. A shader whose SPIR-V is missing draws with
+supported.`) and slangc's, through `#line` directives around the user's code. The obfuscated compile gets the Slang
+without them (slangc 2026.1's Linux build crashes in `obfuscateModuleLocs` on `#line` under `-obfuscate`, which drops
+every location anyway: the SPIR-V is identical); when it fails, a second compile without `-obfuscate` and with the
+directives reports the errors. A shader whose SPIR-V is missing draws with
 the default material (a warning). Identifiers starting with `gd_` and the engine includes' globals (`frame`, `lights`,
 `material`) are reserved.
 
