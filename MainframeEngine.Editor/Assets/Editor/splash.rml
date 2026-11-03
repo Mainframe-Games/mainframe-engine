@@ -3,6 +3,7 @@
     <title>Splash</title>
     <link type="text/rcss" href="theme.rcss"/>
     <style>
+        /* The start-up splash (brand navy over everything) and, with .panel, the loading window over the editor. */
         body.splash {
             position: absolute;
             left: 0dp;
@@ -38,6 +39,15 @@
             font-size: 14dp;
             color: #93c5fd;
         }
+        #title {
+            display: none;
+            margin-top: 34dp;
+            height: 18dp;
+            font-size: 14dp;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        body.titled #title { display: block; }
         #status {
             display: block;
             margin-top: 34dp;
@@ -60,6 +70,42 @@
             background-color: #38bdf8;
             border-radius: 2dp;
         }
+        #meta {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            width: 260dp;
+            height: 16dp;
+            margin: 6dp auto 0dp auto;
+            font-size: 11dp;
+            color: #93c5fd;
+        }
+        #actions { display: block; height: 26dp; margin-top: 14dp; }
+        #cancel { height: 24dp; line-height: 24dp; padding: 0dp 16dp; }
+        body.titled #status { margin-top: 6dp; }
+        .hidden { visibility: hidden; }
+
+        /* The loading window: a card over the dimmed editor. */
+        body.splash.panel { background-color: #0008; }
+        body.panel #center {
+            top: 40%;
+            width: 440dp;
+            margin-left: -220dp;
+            margin-top: -70dp;
+            padding: 16dp 18dp 14dp 18dp;
+            background-color: #1f2128;
+            border: 1dp #3b3f4b;
+            border-radius: 6dp;
+            box-shadow: #000000a0 0dp 10dp 30dp 0dp;
+            text-align: left;
+        }
+        body.panel #logo, body.panel #wordmark, body.panel #version { display: none; }
+        body.panel #title { margin-top: 0dp; color: #ffffff; }
+        body.panel #status { color: #d7dbe4; }
+        body.panel #bar { width: 100%; height: 4dp; margin: 12dp 0dp 0dp 0dp; background-color: #2f333d; }
+        body.panel #fill { height: 4dp; background-color: #3b82f6; }
+        body.panel #meta { width: 100%; margin: 6dp 0dp 0dp 0dp; color: #8b93a5; }
+        body.panel #actions { text-align: right; margin-top: 10dp; }
     </style>
 </head>
 <body class="splash">
@@ -67,8 +113,11 @@
         <img id="logo" src="/Assets/Brand/logo-512.png"/>
         <div id="wordmark">Mainframe Editor</div>
         <div id="version"></div>
+        <div id="title"></div>
         <div id="status">Loading…</div>
         <div id="bar"><div id="fill"></div></div>
+        <div id="meta"><span id="detail"></span><span id="elapsed"></span></div>
+        <div id="actions"><button id="cancel" class="hidden">Cancel</button></div>
     </div>
 </body>
 </rml>

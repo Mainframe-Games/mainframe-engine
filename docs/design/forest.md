@@ -832,8 +832,11 @@ and paints ("Carving the stream"), grows the trees and bushes and bakes their im
 "Growing trees", "Baking tree impostors"), builds the terrain's chunks and ground-cover tiles (`Terrain3D.BuildNow`:
 "Shaping the terrain") and the props ("Placing props"), all before the scene enters the tree; ready then only connects
 the player and the audio. `PollLoaded` keeps the screen up through the pre-warm (every batch shown for
-`PrewarmFrames`: "Uploading to the GPU", "Compiling shaders"). Loaded synchronously (the editor, `--sync-load`, tests)
-it builds in ready as before; `ValleyTests` checks both builds match node for node.
+`PrewarmFrames`: "Uploading to the GPU", "Compiling shaders"). The editor opens the scene the same way
+([ADR 0238](../../memory/decisions/0238-editor-async-loading.md), the editor's [loading window](editor.md#loading-window)):
+`SceneLoadProgress.EditMode` makes the worker build the editor's variant (no gameplay parts, as the edit-mode ready
+does). Loaded synchronously (`--sync-load`, tests, code reload) it builds in ready as before; `ValleyTests` checks both
+builds match node for node.
 
 Start-up on an M5 (Release, 1920×1080, cached tree bakes; seconds from launch, three runs each):
 

@@ -29,6 +29,7 @@ internal sealed class ImagePrefetch : IDisposable
     private static readonly AsyncLocal<ImagePrefetch?> Collecting = new();
     private static readonly Lock ActiveGate = new();
     private static readonly List<ImagePrefetch> Active = [];
+    private static int s_acceptingLate; // live prefetches that take late textures (Defer's no-allocation early out)
 
     private readonly ConcurrentDictionary<FileKey, Lazy<Task<Decoded?>>> _files = new();
     private readonly ConditionalWeakTable<Texture2D, List<MipEntry>> _mips = [];
@@ -36,6 +37,7 @@ internal sealed class ImagePrefetch : IDisposable
     private int _queued;
     private int _completed;
     private volatile bool _disposed;
+    private bool _acceptsLate;
 
     private ImagePrefetch()
     {
@@ -73,6 +75,75 @@ internal sealed class ImagePrefetch : IDisposable
     {
         if (Collecting.Value is not { _disposed: false } prefetch)
             return;
+        prefetch.Queue(texture);
+    }
+
+    /// <summary>
+    /// From now until <see cref="Dispose"/>, textures reach this prefetch when their GPU upload first needs them
+    /// (<see cref="Defer"/>), not only when created on the load's flow: a scene warming up uses textures that process-wide
+    /// caches created earlier (model imports, tree materials, the editor's second open of a scene).
+    /// </summary>
+    public void AcceptLateTextures()
+    {
+        lock (ActiveGate)
+        {
+            if (_acceptsLate || _disposed)
+                return;
+            _acceptsLate = true;
+            s_acceptingLate++;
+        }
+    }
+
+    /// <summary>
+    /// Called before a file texture's GPU upload: true when a live prefetch is still preparing it — or, accepting late
+    /// textures (<see cref="AcceptLateTextures"/>), has just queued it — so the upload waits for a later frame (the
+    /// material keeps its fallback) instead of decoding on the main thread. False (upload now) when no prefetch takes late
+    /// textures, the texture has no image file, or its pixels (and coverage mips) are ready. Allocates nothing when no
+    /// prefetch takes late textures.
+    /// </summary>
+    internal static bool Defer(Texture2D texture)
+    {
+        if (Volatile.Read(ref s_acceptingLate) == 0 || texture.SourceFilePath is not { } path || IsSvg(path))
+            return false;
+        var settings = texture.ImportSettings;
+        var key = new FileKey(path, settings.FixAlphaBorder);
+        var mips = settings is { Mipmaps: true, PreserveAlphaCoverage: true };
+        ImagePrefetch? accepting = null;
+        foreach (var prefetch in Live())
+        {
+            if (prefetch._disposed)
+                continue;
+            if (prefetch._files.TryGetValue(key, out var entry) && (!mips || prefetch._mips.TryGetValue(texture, out _)))
+                return !entry.Value.IsCompleted || (mips && prefetch.MipsPending(texture));
+            if (prefetch._acceptsLate)
+                accepting ??= prefetch;
+        }
+
+        if (accepting is null)
+            return false;
+        accepting.Queue(texture);
+        return true;
+    }
+
+    /// <summary>Late textures still decoding: a load warming up waits for them (<see cref="SceneLoad"/>).</summary>
+    public bool HasPendingWork => Completed < Count;
+
+    private bool MipsPending(Texture2D texture)
+    {
+        if (!_mips.TryGetValue(texture, out var list))
+            return false;
+        lock (list)
+            foreach (var entry in list)
+                if (!entry.Chain.IsCompleted)
+                    return true;
+        return false;
+    }
+
+    // Queues the texture's file decode (once per file and decode settings) and, for a coverage-preserving mipmapped
+    // texture, its mip chains on the thread pool.
+    private void Queue(Texture2D texture)
+    {
+        var prefetch = this;
         var settings = texture.ImportSettings;
         Task<Decoded?>? pixels = null;
         if (texture.SourceFilePath is { } path)
@@ -216,7 +287,12 @@ internal sealed class ImagePrefetch : IDisposable
             return;
         _disposed = true;
         lock (ActiveGate)
+        {
             Active.Remove(this);
+            if (_acceptsLate)
+                s_acceptingLate--;
+        }
+
         if (ReferenceEquals(Collecting.Value, this))
             Collecting.Value = null;
         _files.Clear();

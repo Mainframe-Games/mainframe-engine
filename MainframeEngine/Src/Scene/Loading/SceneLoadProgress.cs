@@ -11,10 +11,11 @@ public sealed class SceneLoadProgress
     private float _fraction;
     private string? _stage;
 
-    internal SceneLoadProgress(CancellationToken cancellation, float weight = 1f)
+    internal SceneLoadProgress(CancellationToken cancellation, float weight = 1f, bool editMode = false)
     {
         CancellationToken = cancellation;
         Weight = weight;
+        EditMode = editMode;
     }
 
     /// <summary>A reporter nobody reads (tests, and loadables called outside a <see cref="SceneLoad"/>).</summary>
@@ -25,6 +26,13 @@ public sealed class SceneLoadProgress
 
     /// <summary>The reporter's share of its stage (<see cref="ISceneLoadable.LoadWeight"/>).</summary>
     public float Weight { get; }
+
+    /// <summary>
+    /// True when the scene loads into a tree in <see cref="SceneTree.EditMode"/> (the editor): a loadable builds what its
+    /// <see cref="Node.OnReady"/> would build there (visuals only, nothing that changes saved nodes). A node outside the
+    /// tree cannot ask its tree, so the load tells it.
+    /// </summary>
+    public bool EditMode { get; }
 
     /// <summary>The last reported fraction, 0–1 (never decreases).</summary>
     public float Fraction

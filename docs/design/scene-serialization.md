@@ -303,10 +303,27 @@ work runs on a worker thread:
   progress; the worker stops at its next check (`SceneLoadProgress.CancellationToken`) and what it built is freed on the
   main thread. **Errors** (a missing file, a loadable that throws, an `OnReady` that throws while entering) end in
   `Failed` with the current scene untouched (or the half-entered one).
+- **Instance loads** ([ADR 0238](../../memory/decisions/0238-editor-async-loading.md)):
+  `SceneTree.InstantiateSceneAsync(pathOrUid, enter, options?)` runs the same stages for a scene the caller places:
+  `enter(root, packed)` replaces the `Entering` stage's scene change and takes ownership of the `PackedScene`. The
+  editor opens its tabs this way. These loads never cancel or get cancelled by scene changes and do not count for
+  `IsLoading`; `SceneLoad.ChangesScene` tells them apart.
+- **Edit mode** (ADR 0238): a load started in a `SceneTree.EditMode` tree skips the loadables whose own callbacks the
+  tree would not run (`EditModeScripts` types that are not `[Tool]`) and tells the others through
+  `SceneLoadProgress.EditMode`, so they build what their edit-mode ready builds.
+- **Late textures and pacing** (ADR 0238; `SceneLoadOptions.PaceWarmUp`, off by default, on for the editor's tabs):
+  from `WarmingUp` on, the load's `ImagePrefetch` also takes textures that
+  process-wide caches created before the load (model imports, tree materials, the same scene opened again): when the
+  first GPU upload of such a file texture finds no prepared pixels, `ImagePrefetch.Defer` queues its decode on the pool
+  and the material keeps its fallback for those frames (terrain splat packing waits likewise). Meanwhile
+  `SceneLoadPacing` caps the GPU resources the mesh renderer creates for new nodes at 100 ms per frame (the rest wait for
+  later frames). The warm-up ends only when no late decode is pending and a frame created everything it met. Off, the
+  warm-up keeps its frame count (games' captures and physics timelines count on it).
+  `SceneLoad.StageDetail` is the stage's detail line ("112 / 274 textures", "40 objects to upload").
 - `SceneTree.CurrentLoad` is the load in progress; `SceneTree.IsLoading` is true while one runs or a `LoadingScreen` is
   shown. Tests: `SceneLoadTests` (stages and monotonic progress, a worker-built loadable, the loop ticking while a
   loadable blocks, sync/async equivalence of the saved and live trees, failures, cancellation, replacement, hold,
-  `LoadThreaded`), `ImagePrefetchTests`, `LoadingScreenTests`; the Forest's `ValleyTests` compare its valley built both
+  `LoadThreaded`; instance loads, edit-mode loadables, pacing), `ImagePrefetchTests` (late textures), `LoadingScreenTests`; the Forest's `ValleyTests` compare its valley built both
   ways node for node.
 - References from files resolve by UID first; the path is only a hint, so a moved file still loads (with a
   warning when the UID is unknown but the hint exists).

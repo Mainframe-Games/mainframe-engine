@@ -437,7 +437,7 @@ public sealed partial class SceneTree
 
         // M9: a locale change made on another thread is applied here, on the tree's own thread.
         _threadId = Environment.CurrentManagedThreadId;
-        if (_sceneLoad is not null || _retiredLoads.Count > 0)
+        if (_sceneLoad is not null || _retiredLoads.Count > 0 || _instanceLoads.Count > 0)
         {
             using var loadScope = EngineMarkers.SceneLoad.Auto();
             AdvanceSceneLoads(); // ADR 0183: an asynchronous scene change enters here, before anything processes

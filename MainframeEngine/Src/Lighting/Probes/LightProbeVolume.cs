@@ -146,11 +146,19 @@ public sealed class LightProbeVolume : Node3D, IRenderResourceOwner
     /// </summary>
     internal (ProbeBakeScene Scene, ProbeGrid Grid, string Hash) PrepareBake()
     {
-        var builder = Collect(fingerprintOnly: false);
-        var scene = builder.Build();
-        Log.Info($"[Probes] '{Name}': bake scene: {scene.Describe()}.");
+        var scene = BuildScene(CaptureInputs(), Name);
         var grid = ResolveGrid();
         return (scene, grid, ProbeBaker.Hash(scene.ContentHash, grid, ResolveSettings()));
+    }
+
+    // Main thread: what a bake reads from the nodes (cheap); BuildScene does the heavy part on any thread.
+    private ProbeBakeInputs CaptureInputs() => ProbeBakeSceneBuilder.Capture(SceneRoot(), FollowedTerrain());
+
+    private static ProbeBakeScene BuildScene(ProbeBakeInputs inputs, string name)
+    {
+        var scene = inputs.Replay().Build();
+        Log.Info($"[Probes] '{name}': bake scene: {scene.Describe()}.");
+        return scene;
     }
 
     /// <summary>
@@ -166,15 +174,23 @@ public sealed class LightProbeVolume : Node3D, IRenderResourceOwner
     // root viewport), collected for a bake or only hashed.
     private ProbeBakeSceneBuilder Collect(bool fingerprintOnly)
     {
+        var builder = new ProbeBakeSceneBuilder(fingerprintOnly);
+        if (FollowedTerrain() is { } terrain)
+            builder.AddTerrain(terrain); // the one to follow, before any other the walk finds
+        builder.AddTree(SceneRoot());
+        return builder;
+    }
+
+    private Node SceneRoot()
+    {
         Node sceneRoot = this;
         while (sceneRoot.Parent is { } parent and not SceneViewport)
             sceneRoot = parent;
-        var builder = new ProbeBakeSceneBuilder(fingerprintOnly);
-        if (Layout == ProbeLayout.TerrainFollowing && !Terrain.IsEmpty && GetNodeOrNull<Terrain3D>(Terrain) is { Data: not null } terrain)
-            builder.AddTerrain(terrain); // the one to follow, before any other the walk finds
-        builder.AddTree(sceneRoot);
-        return builder;
+        return sceneRoot;
     }
+
+    private Terrain3D? FollowedTerrain() =>
+        Layout == ProbeLayout.TerrainFollowing && !Terrain.IsEmpty && GetNodeOrNull<Terrain3D>(Terrain) is { Data: not null } terrain ? terrain : null;
 
     /// <summary>
     /// Bakes now on the calling thread (every core helps) and stores the result in <see cref="Data"/> (in memory: save it
@@ -190,14 +206,14 @@ public sealed class LightProbeVolume : Node3D, IRenderResourceOwner
     }
 
     /// <summary>
-    /// Starts a bake in the background (the scene is read now, on the main thread); the node takes the data when it is
-    /// done (its next process) and raises <see cref="Baked"/>. A running bake is cancelled first.
+    /// Starts a bake in the background: the nodes are read now, on the main thread (cheap: transforms, placements, the
+    /// terrain's cells), and the bake scene is built and baked on a task; the node takes the data when it is done (its
+    /// next process) and raises <see cref="Baked"/>. A running bake is cancelled first.
     /// </summary>
     public void BakeInBackground()
     {
         CancelBake();
-        var (scene, grid, _) = PrepareBake();
-        StartBake(scene, grid);
+        StartBake(CaptureInputs(), ResolveGrid());
     }
 
     /// <summary>Cancels a running background bake.</summary>
@@ -208,13 +224,19 @@ public sealed class LightProbeVolume : Node3D, IRenderResourceOwner
         _pending = null;
     }
 
-    private void StartBake(ProbeBakeScene scene, ProbeGrid grid)
+    private void StartBake(ProbeBakeInputs inputs, ProbeGrid grid)
     {
         var settings = ResolveSettings();
         var cancel = _cancel = new CancellationTokenSource();
         var progress = new Progress(this);
+        var name = Name;
         BakeProgress = 0f;
-        _pending = Task.Run(() => ProbeBaker.Bake(scene, grid, settings, progress, cancel.Token), cancel.Token);
+        _pending = Task.Run(() =>
+        {
+            var scene = BuildScene(inputs, name);
+            cancel.Token.ThrowIfCancellationRequested();
+            return ProbeBaker.Bake(scene, grid, settings, progress, cancel.Token);
+        }, cancel.Token);
         SetProcess(true);
     }
 
@@ -264,8 +286,7 @@ public sealed class LightProbeVolume : Node3D, IRenderResourceOwner
             {
                 Log.Warning($"[Probes] '{Name}': the bake is {(Data is { HasData: true } ? "stale" : "missing")}; baking in the background " +
                             "(the world renders without probes until it is done). Bake and save it in the editor to commit it.");
-                var (scene, grid, _) = PrepareBake();
-                StartBake(scene, grid);
+                StartBake(CaptureInputs(), ResolveGrid());
             }
         }
 

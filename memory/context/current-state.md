@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/g18-slang-shaders` (game shaders are Slang surface shaders, ADR 0237)._
+_Last updated: 2026-11-04 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
+`main`; latest release v1.1.5. In review: `feature/editor-loading` (editor loading window, async scene opens, ADR 0238)._
 
 ## What exists
 

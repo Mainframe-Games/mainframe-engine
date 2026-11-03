@@ -5,6 +5,7 @@ public sealed partial class SceneTree
 {
     private SceneLoad? _sceneLoad;
     private readonly List<SceneLoad> _retiredLoads = [];
+    private readonly List<SceneLoad> _instanceLoads = []; // InstantiateSceneAsync: until completed and their worker stopped
     private int _loadingScreens;
 
     /// <summary>
@@ -21,6 +22,25 @@ public sealed partial class SceneTree
         CancelSceneLoad();
         var load = new SceneLoad(this, pathOrUid, options ?? new SceneLoadOptions());
         _sceneLoad = load;
+        load.Start();
+        return load;
+    }
+
+    /// <summary>
+    /// Loads a scene by path or UID on a worker thread like <see cref="ChangeSceneToFileAsync"/> — load, instantiate,
+    /// <see cref="ISceneLoadable.LoadInBackground"/>, image decoding, then the warm-up frames — but the scene does not
+    /// replace the current one: when it is ready, <paramref name="enter"/> places its root (main thread, at the start of a
+    /// tick) and takes ownership of the <see cref="PackedScene"/> (release it when the root is freed). The editor opens
+    /// scene tabs this way. These loads never cancel, and are never cancelled by, scene changes or each other; they do not
+    /// count for <see cref="IsLoading"/>. When <paramref name="enter"/> throws, the load fails with the root half placed.
+    /// </summary>
+    public SceneLoad InstantiateSceneAsync(string pathOrUid, Action<Node, PackedScene> enter, SceneLoadOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(pathOrUid);
+        ArgumentNullException.ThrowIfNull(enter);
+        ObjectDisposedException.ThrowIf(_shutDown, this);
+        var load = new SceneLoad(this, pathOrUid, options ?? new SceneLoadOptions(), enter);
+        _instanceLoads.Add(load);
         load.Start();
         return load;
     }
@@ -68,14 +88,24 @@ public sealed partial class SceneTree
                 _sceneLoad = null;
         }
 
-        for (var i = _retiredLoads.Count - 1; i >= 0; i--)
+        AdvanceUntilIdle(_retiredLoads);
+        AdvanceUntilIdle(_instanceLoads);
+    }
+
+    // Advances each load; one that completed and whose worker stopped is advanced once more (a cancelled or failed load
+    // frees what its worker built) and dropped. Index loop: an enter callback may start another load.
+    private static void AdvanceUntilIdle(List<SceneLoad> loads)
+    {
+        for (var i = loads.Count - 1; i >= 0; i--)
         {
-            var retired = _retiredLoads[i];
-            retired.Advance();
-            if (retired.IsCompleted && retired.IsWorkerIdle)
+            if (i >= loads.Count)
+                continue;
+            var load = loads[i];
+            load.Advance();
+            if (load.IsCompleted && load.IsWorkerIdle)
             {
-                retired.Advance(); // frees what the worker built
-                _retiredLoads.RemoveAt(i);
+                load.Advance(); // frees what the worker built
+                loads.Remove(load);
             }
         }
     }
@@ -83,8 +113,13 @@ public sealed partial class SceneTree
     private void ShutdownSceneLoads()
     {
         CancelSceneLoad();
+        foreach (var load in _instanceLoads)
+            load.Cancel();
         foreach (var retired in _retiredLoads)
             retired.WaitForWorker(TimeSpan.FromSeconds(5));
+        foreach (var load in _instanceLoads)
+            load.WaitForWorker(TimeSpan.FromSeconds(5));
         _retiredLoads.Clear();
+        _instanceLoads.Clear();
     }
 }

@@ -325,6 +325,8 @@ internal sealed class TextureGpu
         var version = Texture.Version;
         if (version == _uploadedVersion)
             return Gpu is not null;
+        if (ImagePrefetch.Defer(Texture))
+            return Gpu is not null; // a scene warming up decodes it on the pool: upload on a later frame (the fallback meanwhile)
         _uploadedVersion = version;
         Generation++;
         Gpu?.Dispose();

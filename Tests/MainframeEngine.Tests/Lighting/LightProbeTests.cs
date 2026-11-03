@@ -358,6 +358,33 @@ public class LightProbeTests
     }
 
     [Fact]
+    public async Task ACapturedSceneReplaysOnAnotherThreadIntoTheSameBakeScene()
+    {
+        // ADR 0238: the background bake reads the nodes on the main thread and builds its scene on its task.
+        var root = new Node3D { Name = "Root" };
+        var terrain = RollingTerrain();
+        root.AddChild(terrain);
+        var box = new MeshInstance3D { Mesh = new BoxMesh { Size = Vector3.One }, Position = new Vector3(2f, 3f, 1f) };
+        root.AddChild(box);
+        root.AddChild(new DirectionalLight3D { RotationDegrees = new Vector3(-50f, 30f, 0f) });
+        root.AddChild(new Tree3D { Preset = "Bush 1", Seed = 2, Position = new Vector3(-3f, 2f, 0f) });
+
+        var direct = new ProbeBakeSceneBuilder();
+        direct.AddTerrain(terrain);
+        direct.AddTree(root);
+        var expected = direct.Build();
+        var inputs = ProbeBakeSceneBuilder.Capture(root, terrain);
+
+        // A snapshot: what changes after the capture is not in it.
+        box.Position = new Vector3(5f, 3f, 1f);
+        var replayed = await Task.Run(() => inputs.Replay().Build(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(expected.ContentHash, replayed.ContentHash);
+        Assert.Equal(expected.Describe(), replayed.Describe());
+        Assert.Equal(expected.ContentHash, inputs.Replay(fingerprintOnly: true).Fingerprint());
+    }
+
+    [Fact]
     public void AGlassOnlyMeshIsLeftOutOfTheBakeAndItsFingerprintAlike()
     {
         // A pane whose only surface is blended is not traced: the fingerprint (the staleness check) must skip its

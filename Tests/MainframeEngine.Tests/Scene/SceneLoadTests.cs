@@ -59,6 +59,17 @@ internal sealed class LoadableTestNode : Node3D, ISceneLoadable
     }
 }
 
+/// <summary>
+/// A [Tool] loadable (ADR 0238): runs in the editor's edit mode too, and records whether the load told it so.
+/// </summary>
+[Tool]
+internal sealed class ToolLoadableTestNode : Node3D, ISceneLoadable
+{
+    public bool? SawEditMode { get; private set; }
+
+    void ISceneLoadable.LoadInBackground(SceneLoadProgress progress) => SawEditMode = progress.EditMode;
+}
+
 /// <summary>Asynchronous scene changes (ADR 0183): the loader's state machine, progress, errors, cancellation, equivalence.</summary>
 [Collection(nameof(SerialResources))]
 public sealed class SceneLoadTests : IDisposable
@@ -443,5 +454,150 @@ public sealed class SceneLoadTests : IDisposable
         Assert.True(ResourceLoader.IsCached(uid));
         task.Dispose();
         Assert.False(ResourceLoader.IsCached(uid));
+    }
+
+    // ── ADR 0238: scenes placed by the caller (the editor's tabs), edit mode, pacing ────────────────────────────────
+
+    [Fact]
+    public void AnInstanceLoadHandsTheSceneToItsCallerAndLeavesTheCurrentSceneAlone()
+    {
+        var uid = SaveLevel("Tab");
+        var current = new Node3D { Name = "Current" };
+        _tree.ChangeScene(current);
+        var host = new Node3D { Name = "Host" };
+        _tree.Root.AddChild(host);
+        Node? entered = null;
+        PackedScene? owned = null;
+        var load = _tree.InstantiateSceneAsync(uid, (root, packed) =>
+        {
+            entered = root;
+            owned = packed;
+            host.AddChild(root);
+        });
+
+        Assert.False(load.ChangesScene);
+        Assert.Null(_tree.CurrentLoad); // not a scene change
+        Assert.False(_tree.IsLoading);
+        RunToCompletion(load);
+
+        Assert.Equal(SceneLoadStage.Done, load.Stage);
+        Assert.Same(current, _tree.CurrentScene);
+        Assert.Same(entered, load.Scene);
+        Assert.Same(host, entered!.Parent);
+        var loadable = entered.GetNode<LoadableTestNode>("Loadable");
+        Assert.NotNull(loadable.BackgroundThread);
+        Assert.Equal(loadable.WarmFrames, loadable.Polls);
+        Assert.True(ResourceLoader.IsCached(uid)); // the caller owns the reference now
+        owned!.Release();
+        Assert.False(ResourceLoader.IsCached(uid));
+    }
+
+    [Fact]
+    public void ANewerSceneChangeDoesNotCancelAnInstanceLoad()
+    {
+        var uid = SaveLevel("Kept");
+        using var gate = new ManualResetEventSlim(false);
+        LoadableTestNode.Gate = gate;
+        var entered = 0;
+        var load = _tree.InstantiateSceneAsync(uid, (root, _) =>
+        {
+            entered++;
+            _tree.Root.AddChild(root);
+        });
+        _tree.ChangeScene(new Node3D { Name = "Other" });
+        gate.Set();
+        RunToCompletion(load);
+        Assert.Equal(SceneLoadStage.Done, load.Stage);
+        Assert.Equal(1, entered);
+    }
+
+    [Fact]
+    public void ACancelledInstanceLoadNeverEntersAndFreesWhatItBuilt()
+    {
+        var uid = SaveLevel("Dropped");
+        using var gate = new ManualResetEventSlim(false);
+        LoadableTestNode.Gate = gate;
+        var entered = false;
+        var load = _tree.InstantiateSceneAsync(uid, (_, _) => entered = true);
+        var watch = Stopwatch.StartNew();
+        while (load.Stage != SceneLoadStage.Preparing)
+        {
+            Assert.True(watch.Elapsed < Timeout);
+            Tick();
+            Thread.Sleep(1);
+        }
+
+        load.Cancel();
+        RunToCompletion(load);
+        Tick(2); // the tree drops it once its worker stopped
+        Assert.Equal(SceneLoadStage.Canceled, load.Stage);
+        Assert.False(entered);
+        Assert.Null(load.Scene);
+        Assert.False(ResourceLoader.IsCached(uid));
+    }
+
+    [Fact]
+    public void InEditModeOnlyLoadablesThatRunThereLoadAndTheyAreToldSo()
+    {
+        var uid = SaveLevel("Edited", level =>
+        {
+            var tool = new ToolLoadableTestNode { Name = "Tool" };
+            level.AddChild(tool);
+            tool.Owner = level;
+        });
+        _tree.EditMode = true;
+        _tree.EditModeScripts = type => type == typeof(LoadableTestNode) || type == typeof(ToolLoadableTestNode); // "game code"
+        Node? scene = null;
+        var load = _tree.InstantiateSceneAsync(uid, (root, _) => _tree.Root.AddChild(scene = root));
+        Assert.True(load.EditMode);
+        RunToCompletion(load);
+
+        Assert.Equal(SceneLoadStage.Done, load.Stage);
+        // A game type that is not [Tool] neither loads in the background nor is polled (its ready does not run either).
+        var game = scene!.GetNode<LoadableTestNode>("Loadable");
+        Assert.Null(game.BackgroundThread);
+        Assert.Equal(0, game.Polls);
+        Assert.False(game.BuiltInReady);
+        // A [Tool] one loads, and knows it loads for the editor.
+        Assert.True(scene.GetNode<ToolLoadableTestNode>("Tool").SawEditMode);
+    }
+
+    [Fact]
+    public void TheWarmUpPacesTheRendererAndWaitsForItsDeferredCreations()
+    {
+        var uid = SaveLevel("Paced", level => level.GetNode<LoadableTestNode>("Loadable").WarmFrames = 1);
+        var load = _tree.ChangeSceneToFileAsync(uid, new SceneLoadOptions { PaceWarmUp = true });
+        var watch = Stopwatch.StartNew();
+        while (load.Stage != SceneLoadStage.WarmingUp)
+        {
+            Assert.True(watch.Elapsed < Timeout);
+            Tick();
+            Thread.Sleep(1);
+        }
+
+        Assert.True(SceneLoadPacing.IsActive);
+        SceneLoadPacing.ReportDeferred(12); // the renderer left nodes for later frames
+        Tick(5);
+        Assert.Equal(SceneLoadStage.WarmingUp, load.Stage);
+        Assert.Equal("12 objects to upload", load.StageDetail);
+        SceneLoadPacing.ReportDeferred(0);
+        Tick(2);
+        Assert.Equal(SceneLoadStage.Done, load.Stage);
+        Assert.False(SceneLoadPacing.IsActive);
+
+        // Without PaceWarmUp (games by default) the warm-up keeps its frame count and never waits for the renderer.
+        var plain = _tree.ChangeSceneToFileAsync(SaveLevel("Plain", level => level.GetNode<LoadableTestNode>("Loadable").WarmFrames = 1));
+        while (plain.Stage != SceneLoadStage.WarmingUp && !plain.IsCompleted)
+        {
+            Assert.True(watch.Elapsed < Timeout);
+            Tick();
+            Thread.Sleep(1);
+        }
+
+        Assert.False(SceneLoadPacing.IsActive);
+        SceneLoadPacing.ReportDeferred(12);
+        RunToCompletion(plain);
+        Assert.Equal(SceneLoadStage.Done, plain.Stage);
+        SceneLoadPacing.ReportDeferred(0);
     }
 }

@@ -563,6 +563,30 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
     private readonly TreeGenerator _generator = new();
     private ProbeBakeScene.TerrainProxy? _terrain;
     private bool _hasTerrain;
+    private List<Action<ProbeBakeSceneBuilder>>? _recording; // Capture: what to add, replayed later on another thread
+
+    /// <summary>
+    /// Main thread: reads the nodes a bake of <paramref name="root"/> traces (the terrain to follow first, when given)
+    /// into steps that a builder replays on any thread (<see cref="ProbeBakeInputs.Replay"/>). Only reading the nodes
+    /// happens here — transforms, visibility, the scatters' placements and variants, a terrain's heights and splat cells
+    /// (copied) — so it is cheap; the proxies, the triangles, the texture means and the hash are left to the replay.
+    /// </summary>
+    public static ProbeBakeInputs Capture(Node root, Terrain3D? follow = null)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        var recorder = new ProbeBakeSceneBuilder { _recording = [] };
+        if (follow is not null)
+            recorder.AddTerrain(follow);
+        recorder.AddTree(root);
+        var (sun, radiance, sky) = (recorder.SunDirection, recorder.SunRadiance, recorder.Sky);
+        recorder._recording.Add(b =>
+        {
+            b.SunDirection = sun;
+            b.SunRadiance = radiance;
+            b.Sky = sky;
+        });
+        return new ProbeBakeInputs(recorder._recording);
+    }
 
     /// <summary>Unit direction towards the sun (default straight up).</summary>
     public Vector3 SunDirection { get; set; } = Vector3.UnitY;
@@ -636,13 +660,26 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
     /// <summary>Adds a terrain's height field (its bed heights, the water layer darkening the cells under water).</summary>
     public void AddTerrain(Terrain3D terrain)
     {
+        var input = ReadTerrain(terrain);
+        _hasTerrain = true;
+        if (_recording is { } recording)
+            recording.Add(b => b.AddTerrain(input));
+        else
+            AddTerrain(input);
+    }
+
+    /// <summary>What <see cref="AddTerrain(TerrainInput)"/> reads from a terrain node and its data (copies: main thread).</summary>
+    internal sealed record TerrainInput(
+        TerrainGrid Grid, Vector3 Origin, float[] Heights, bool Realistic, uint[] Splat0, uint[] Splat1, uint[] Splat2,
+        uint[] Water, Material? Material, float MaxWaterDepth, float[] ChunkMin, float[] ChunkMax, int ChunkQuads,
+        float HeightMin, float HeightMax);
+
+    private static TerrainInput ReadTerrain(Terrain3D terrain)
+    {
         var data = terrain.Data!;
         data.EnsureLoaded();
-        _hasTerrain = true;
         var grid = data.Grid;
         var quads = grid.Quads;
-        var origin = terrain.GlobalPosition;
-        var heights = data.BedHeights;
 
         // Splat weights per cell (Realistic: cells are quads; two or three RGBA images of four layers each) and water per
         // vertex. The third image (layers 8–11) only when the terrain has one, so other terrains fingerprint as before.
@@ -662,6 +699,18 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
         var stride = grid.Stride;
         var water = new uint[stride * stride];
         data.GetCells(TerrainLayers.Water, 0, new Rect2I(0, 0, stride, stride), water);
+        return new TerrainInput(grid, terrain.GlobalPosition, data.BedHeights.ToArray(), realistic, splat0, splat1, splat2, water,
+            terrain.Material, data.MaxWaterDepth, data.ChunkMin.ToArray(), data.ChunkMax.ToArray(), data.ChunkQuads,
+            data.HeightMin, data.HeightMax);
+    }
+
+    private void AddTerrain(TerrainInput input)
+    {
+        _hasTerrain = true;
+        var (grid, origin, heights, realistic) = (input.Grid, input.Origin, input.Heights, input.Realistic);
+        var (splat0, splat1, splat2, water) = (input.Splat0, input.Splat1, input.Splat2, input.Water);
+        var quads = grid.Quads;
+        var stride = grid.Stride;
 
         HashVector(origin);
         HashFloats(heights);
@@ -670,16 +719,16 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
         if (splat2.Length > 0)
             HashUInts(splat2);
         HashUInts(water);
-        HashMaterial(terrain.Material);
+        HashMaterial(input.Material);
         if (FingerprintOnly)
             return;
 
         // Albedo per quad: the splat weights × each layer's mean colour (Realistic + TerrainSplatMaterial3D), else the
         // material's; water (deeper than 5 cm at the quad's centre) is dark.
         var albedo = new Vector3[quads * quads];
-        var layers = LayerAlbedos(terrain.Material);
-        var flat = MaterialAlbedo(terrain.Material).Color;
-        var waterDepth = data.MaxWaterDepth / 255f;
+        var layers = LayerAlbedos(input.Material);
+        var flat = MaterialAlbedo(input.Material).Color;
+        var waterDepth = input.MaxWaterDepth / 255f;
         for (var j = 0; j < quads; j++)
         {
             for (var i = 0; i < quads; i++)
@@ -714,12 +763,12 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
         var proxy = new ProbeBakeScene.TerrainProxy
         {
             Grid = grid,
-            Heights = heights.ToArray(),
-            ChunkMin = data.ChunkMin.ToArray(),
-            ChunkMax = data.ChunkMax.ToArray(),
-            ChunkQuads = data.ChunkQuads,
-            MinHeight = data.HeightMin - data.MaxWaterDepth,
-            MaxHeight = data.HeightMax,
+            Heights = heights,
+            ChunkMin = input.ChunkMin,
+            ChunkMax = input.ChunkMax,
+            ChunkQuads = input.ChunkQuads,
+            MinHeight = input.HeightMin - input.MaxWaterDepth,
+            MaxHeight = input.HeightMax,
             Origin = origin,
             Albedo = albedo,
         };
@@ -750,6 +799,12 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
     /// <summary>Adds one tree: its variant's proxy (built once per <see cref="TreeMesh"/>) at <paramref name="transform"/>.</summary>
     public void AddTreeInstance(TreeMesh mesh, Material? bark, Material? leaves, Transform3D transform)
     {
+        if (_recording is { } recording)
+        {
+            recording.Add(b => b.AddTreeInstance(mesh, bark, leaves, transform));
+            return;
+        }
+
         if (!_treeIndex.TryGetValue(mesh, out var index))
         {
             index = _treeIndex.Count;
@@ -770,6 +825,12 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
     /// <summary>Adds a static mesh (its surfaces' triangles; albedo from <paramref name="materialOverride"/> or each surface's material).</summary>
     public void AddMesh(Mesh mesh, Material? materialOverride, Transform3D transform)
     {
+        if (_recording is { } recording)
+        {
+            recording.Add(b => b.AddMesh(mesh, materialOverride, transform));
+            return;
+        }
+
         if (!_meshIndex.TryGetValue((mesh, materialOverride), out var index))
         {
             index = _meshIndex.Count;
@@ -809,6 +870,13 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
     /// <summary>Adds triangles (world space) with one albedo: tests and code-made occluders.</summary>
     public void AddTriangles(ReadOnlySpan<Vector3> positions, ReadOnlySpan<int> indices, Vector3 albedo)
     {
+        if (_recording is { } recording)
+        {
+            var (copiedPositions, copiedIndices) = (positions.ToArray(), indices.ToArray());
+            recording.Add(b => b.AddTriangles(copiedPositions, copiedIndices, albedo));
+            return;
+        }
+
         HashVectors(positions);
         HashInts(indices);
         HashVector(albedo);
@@ -1160,4 +1228,21 @@ internal sealed class ProbeBakeSceneBuilder(bool fingerprintOnly = false)
         }
     }
 
+}
+
+/// <summary>
+/// A bake's inputs read from the scene on the main thread (<see cref="ProbeBakeSceneBuilder.Capture"/>), replayed into a
+/// builder on any thread: the background bake builds its <see cref="ProbeBakeScene"/> on its own task, so a large scene
+/// (the Forest: 6 000 trees, 750 000 capsules) never holds the main thread for seconds.
+/// </summary>
+internal sealed class ProbeBakeInputs(List<Action<ProbeBakeSceneBuilder>> steps)
+{
+    /// <summary>A builder with every captured input added, in the order the scene walk found them (so the hash matches).</summary>
+    public ProbeBakeSceneBuilder Replay(bool fingerprintOnly = false)
+    {
+        var builder = new ProbeBakeSceneBuilder(fingerprintOnly);
+        foreach (var step in steps)
+            step(builder);
+        return builder;
+    }
 }

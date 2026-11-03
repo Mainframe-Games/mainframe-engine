@@ -51,6 +51,15 @@ public sealed record SceneLoadOptions
     /// default 0.
     /// </summary>
     public float HoldSeconds { get; init; }
+
+    /// <summary>
+    /// Spread the warm-up over more frames so none stalls the main loop (ADR 0238; default off, the editor turns it on):
+    /// textures that process-wide caches created before the load decode on the pool when their upload first needs them
+    /// (<see cref="ImagePrefetch.AcceptLateTextures"/>), and the renderer creates the GPU resources of new nodes within a
+    /// per-frame budget (<see cref="SceneLoadPacing"/>); the warm-up waits for both. Off, the warm-up keeps its frame count,
+    /// which games' captures and physics timelines rely on.
+    /// </summary>
+    public bool PaceWarmUp { get; init; }
 }
 
 /// <summary>
@@ -74,6 +83,9 @@ public sealed class SceneLoad
         EnteringWeight = 0.05f, WarmingUpWeight = 0.18f;
 
     private readonly SceneTree _tree;
+    private readonly Action<Node, PackedScene>? _enter;
+    private readonly bool _editMode;
+    private readonly Func<Type, bool>? _isScript;
     private readonly CancellationTokenSource _cancel = new();
     private readonly Stopwatch _watch = new();
     private readonly List<(ISceneLoadable Node, SceneLoadProgress Progress)> _background = [];
@@ -86,17 +98,33 @@ public sealed class SceneLoad
     private int _warmFrames;
     private float _progress;
     private string _stageText = "Loading";
+    private string? _stageDetail;
     private bool _completedRaised;
+    private bool _pacing;
 
-    internal SceneLoad(SceneTree tree, string pathOrUid, SceneLoadOptions options)
+    internal SceneLoad(SceneTree tree, string pathOrUid, SceneLoadOptions options, Action<Node, PackedScene>? enter = null)
     {
         _tree = tree;
+        _enter = enter;
+        // Read on the main thread now: the worker must not ask the tree. In edit mode the loadables the tree would not run
+        // (game code that is not [Tool]) are skipped, and the others are told (SceneLoadProgress.EditMode).
+        _editMode = tree.EditMode;
+        _isScript = tree.EditMode ? tree.EditModeScripts : null;
         Path = pathOrUid;
         Options = options;
     }
 
     /// <summary>The scene's path or UID.</summary>
     public string Path { get; }
+
+    /// <summary>
+    /// True for a scene change (<see cref="SceneTree.ChangeSceneToFileAsync"/>); false for a scene the caller places itself
+    /// (<see cref="SceneTree.InstantiateSceneAsync"/>: an editor tab).
+    /// </summary>
+    public bool ChangesScene => _enter is null;
+
+    /// <summary>True when the tree was in <see cref="SceneTree.EditMode"/> when the load started (the editor).</summary>
+    public bool EditMode => _editMode;
 
     public SceneLoadOptions Options { get; }
 
@@ -122,6 +150,12 @@ public sealed class SceneLoad
     /// else the stage's own ("Loading", "Decoding textures", "Preparing shaders"). Updated by the main thread each frame.
     /// </summary>
     public string StageText => _stageText;
+
+    /// <summary>
+    /// A detail line for the stage, or null: the textures decoded so far ("112 / 274 textures"), the loader at work among
+    /// several ("2 / 3"), the warm-up frame. Updated by the main thread each frame.
+    /// </summary>
+    public string? StageDetail => _stageDetail;
 
     /// <summary>Time since the load started.</summary>
     public TimeSpan Elapsed => _watch.Elapsed;
@@ -183,10 +217,10 @@ public sealed class SceneLoad
         using var prepareScope = EngineMarkers.PrepareLoadables.Auto();
         SetStage(SceneLoadStage.Preparing);
         var loadables = new List<ISceneLoadable>();
-        CollectLoadables(_root, loadables);
+        CollectLoadables(_root, loadables, _isScript);
         lock (_background)
             foreach (var loadable in loadables)
-                _background.Add((loadable, new SceneLoadProgress(token, Weight(loadable))));
+                _background.Add((loadable, new SceneLoadProgress(token, Weight(loadable), _editMode)));
         for (var i = 0; i < loadables.Count; i++)
         {
             SceneLoadProgress progress;
@@ -206,14 +240,18 @@ public sealed class SceneLoad
 
     private static float Weight(ISceneLoadable loadable) => float.IsFinite(loadable.LoadWeight) ? Math.Max(0f, loadable.LoadWeight) : 1f;
 
-    /// <summary>The loadable nodes under <paramref name="root"/> (itself included), depth-first in tree order.</summary>
-    internal static void CollectLoadables(Node root, List<ISceneLoadable> into)
+    /// <summary>
+    /// The loadable nodes under <paramref name="root"/> (itself included), depth-first in tree order. With
+    /// <paramref name="isScript"/> (edit mode) a node whose type it calls a script and that is not <see cref="Node.IsTool"/>
+    /// is left out, as the tree skips its own callbacks (<see cref="SceneTree.EditModeScripts"/>).
+    /// </summary>
+    internal static void CollectLoadables(Node root, List<ISceneLoadable> into, Func<Type, bool>? isScript = null)
     {
-        if (root is ISceneLoadable loadable)
+        if (root is ISceneLoadable loadable && (isScript is null || root.IsTool || !isScript(root.GetType())))
             into.Add(loadable);
         var children = root.Children;
         for (var i = 0; i < children.Count; i++)
-            CollectLoadables(children[i], into);
+            CollectLoadables(children[i], into, isScript);
     }
 
     // ── Main thread ──────────────────────────────────────────────────────────────────────────────────────────
@@ -279,7 +317,8 @@ public sealed class SceneLoad
                 loaded = false;
         }
 
-        if (loaded && _warmFrames >= Options.WarmUpFrames)
+        var paced = !_pacing || (_prefetch is not { HasPendingWork: true } && SceneLoadPacing.DeferredLastFrame == 0);
+        if (loaded && _warmFrames >= Options.WarmUpFrames && paced)
             Complete(SceneLoadStage.Done, null);
     }
 
@@ -291,13 +330,25 @@ public sealed class SceneLoad
         _root = null;
         _packed = null;
         Scene = root;
-        _tree.EnterLoadedScene(root, packed);
+        if (_enter is { } enter)
+            enter(root, packed); // the caller places the scene and owns the PackedScene from here
+        else
+            _tree.EnterLoadedScene(root, packed);
 
         // The loadables in the tree now (OnReady may have added some), polled until they report loaded.
         var loadables = new List<ISceneLoadable>();
-        CollectLoadables(root, loadables);
+        CollectLoadables(root, loadables, _isScript);
         foreach (var loadable in loadables)
-            _warming.Add((loadable, new SceneLoadProgress(_cancel.Token, Weight(loadable))));
+            _warming.Add((loadable, new SceneLoadProgress(_cancel.Token, Weight(loadable), _editMode)));
+        // PaceWarmUp: textures the scene's first frames use that no load prepared (process-wide caches made them earlier)
+        // decode on the pool too, and new GPU resources spread over frames; the warm-up waits for both.
+        if (Options.PaceWarmUp)
+        {
+            _prefetch?.AcceptLateTextures();
+            SceneLoadPacing.Begin(); // the renderer spreads the new GPU resources over the warm-up frames
+            _pacing = true;
+        }
+
         SetStage(SceneLoadStage.WarmingUp);
         Log.Info($"[Scene] '{Path}' entered the tree after {_watch.Elapsed.TotalSeconds:0.00} s; warming up.");
     }
@@ -309,6 +360,12 @@ public sealed class SceneLoad
         Error = error;
         SetStage(stage);
         _watch.Stop();
+        if (_pacing)
+        {
+            _pacing = false;
+            SceneLoadPacing.End();
+        }
+
         _prefetch?.Dispose(); // decoded images not used by now decode on demand again
         _prefetch = null;
         if (stage == SceneLoadStage.Done)
@@ -365,6 +422,7 @@ public sealed class SceneLoad
         var stage = Stage;
         float value;
         string text;
+        string? detail = null;
         switch (stage)
         {
             case SceneLoadStage.Loading:
@@ -387,10 +445,13 @@ public sealed class SceneLoad
                     {
                         value += DecodingWeight * (_prefetch?.Fraction ?? 1f);
                         text = _prefetch is { Count: > 0 } prefetch ? $"Decoding textures ({prefetch.Completed}/{prefetch.Count})" : "Decoding textures";
+                        detail = _prefetch is { Count: > 0 } decoding ? $"{decoding.Completed} / {decoding.Count} textures" : null;
                     }
                     else
                     {
                         text = label ?? "Preparing the world";
+                        lock (_background)
+                            detail = _background.Count > 1 ? $"{Math.Min(_background.Count, _background.Count(b => b.Progress.Fraction >= 1f) + 1)} / {_background.Count}" : null;
                     }
 
                     break;
@@ -409,6 +470,9 @@ public sealed class SceneLoad
                     var warm = (frames + fraction * (weights - 1f)) / weights;
                     value = 1f - WarmingUpWeight + WarmingUpWeight * warm;
                     text = label ?? "Preparing shaders";
+                    detail = _pacing && _prefetch is { HasPendingWork: true } late ? $"{late.Completed} / {late.Count} textures"
+                        : _pacing && SceneLoadPacing.DeferredLastFrame > 0 ? $"{SceneLoadPacing.DeferredLastFrame} objects to upload"
+                        : $"Frame {_warmFrames}";
                     break;
                 }
             case SceneLoadStage.Done:
@@ -423,6 +487,7 @@ public sealed class SceneLoad
 
         _progress = Math.Max(_progress, Math.Clamp(value, 0f, 1f));
         _stageText = text;
+        _stageDetail = detail;
     }
 
     // The weighted fraction of a list of reporters (1 when empty) and the newest stage label among those still working.

@@ -1,0 +1,30 @@
+# The Forest opens behind the loading window without blocking the editor (docs/design/editor.md#projects). Run from the
+# checkout after building the Forest (dotnet build Examples/Forest/Forest.slnx):
+#   dotnet run --project MainframeEngine.Editor -- Examples/Forest --hidden --qa-script Tests/QA/forest-open.qa \
+#     --qa-out artifacts/qa-forest-open
+# `state` logs the open's duration and its longest frame (the time the window went without events) and the open tabs.
+wait 40
+capture 01-forest-opening
+wait-for project 600
+wait 10
+state
+capture 02-forest-open
+# Close it and open it again as the FileSystem panel does: the loading window is a panel over the editor.
+command file.close
+wait 5
+open-loading Examples/Forest/Assets/Scenes/forest.mscene
+wait 30
+capture 03-forest-reopening
+# Cancel while the valley builds: no Forest tab, the editor goes on.
+click #cancel
+wait-for project 600
+wait 5
+state
+capture 04-forest-cancelled
+# And it opens again.
+open-loading Examples/Forest/Assets/Scenes/forest.mscene
+wait-for project 600
+wait 10
+state
+capture 05-forest-reopened
+quit

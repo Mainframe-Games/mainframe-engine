@@ -586,17 +586,7 @@ public sealed class FileSystemPanel : EditorDocument
         switch (entry.Kind)
         {
             case FileKind.Scene:
-                Workspace.RunWithSplash($"Loading {entry.Name}…", () =>
-                {
-                    try
-                    {
-                        Workspace.Session.Open(entry.FullPath);
-                    }
-                    catch (Exception e) when (EditorCommands.IsRecoverable(e))
-                    {
-                        Workspace.Commands.ReportError($"Could not open {entry.Name}", e);
-                    }
-                });
+                Workspace.OpenSceneLoading(entry.FullPath);
                 break;
             case FileKind.Song:
                 Workspace.Commands.OpenSong(entry.FullPath);
