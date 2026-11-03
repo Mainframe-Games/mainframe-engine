@@ -5,6 +5,10 @@ set -euo pipefail
 suite="$1"
 shift
 
+# The results directory (the host's artifacts/linux): emptied here, not on the host, since an earlier run's files are
+# root's on a Linux host; at the end they are handed to the host user (HOST_OWNER, uid:gid, from run.sh).
+find /out -mindepth 1 -delete
+
 # Sync into the cached tree, keeping its bin/obj so rebuilds are incremental.
 rsync -a --delete --exclude 'bin/' --exclude 'obj/' --exclude 'artifacts/' --exclude 'TestResults/' /src/ /work/
 cd /work
@@ -65,4 +69,5 @@ fi
 mkdir -p /out
 [ -d TestResults ] && cp -R TestResults /out/
 [ -d artifacts/render-tests ] && cp -R artifacts/render-tests /out/
+[ -z "${HOST_OWNER:-}" ] || chown -R "$HOST_OWNER" /out || true # never fails the run
 exit "$status"

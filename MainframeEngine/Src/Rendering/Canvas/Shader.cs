@@ -367,13 +367,24 @@ public static partial class CanvasShaderBuild
     /// slangc's arguments for one stage: the engine's flags (build/Shaders.targets), <c>-allow-glsl</c> for Godot's GLSL-like
     /// user code, and <c>-obfuscate</c>, which drops every name from the SPIR-V: MoltenVK's SPIRV-Cross would otherwise carry
     /// a local named like a Metal keyword (<c>vertex</c>, <c>device</c>, …) into the Metal source, which then fails to compile.
+    /// <paramref name="obfuscate"/> false is the diagnostic compile that reports a failed shader's errors.
     /// </summary>
-    internal static string[] SlangcArguments(string source, string stage, string includeDirectory, string output) =>
+    internal static string[] SlangcArguments(string source, string stage, string includeDirectory, string output, bool obfuscate = true) =>
     [
         // -warnings-disable 41012: as build/Shaders.targets (the shadow kernels' Texture2DArray.Gather needs no extra capability).
-        source, "-allow-glsl", "-obfuscate", "-warnings-disable", "41012", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
-        "-entry", "main", "-stage", stage, "-I", includeDirectory, "-o", output,
+        source, "-allow-glsl", .. (obfuscate ? (string[])["-obfuscate"] : []), "-warnings-disable", "41012", "-target", "spirv", "-capability", "spirv_1_5",
+        "-matrix-layout-row-major", "-entry", "main", "-stage", stage, "-I", includeDirectory, "-o", output,
     ];
+
+    /// <summary>
+    /// The generated Slang without its <c>#line</c> directives (each becomes an empty line), for the obfuscated compile:
+    /// slangc 2026.1's Linux build crashes (SIGSEGV in <c>obfuscateModuleLocs</c>) when <c>-obfuscate</c> meets
+    /// <c>#line</c> source maps, and <c>-obfuscate</c> drops every location from the SPIR-V anyway, so the output is the same.
+    /// </summary>
+    internal static string WithoutLineDirectives(string code) => LineDirectiveRegex().Replace(code, "");
+
+    [GeneratedRegex(@"^#line [^\n]*", RegexOptions.Multiline)]
+    private static partial Regex LineDirectiveRegex();
 
     /// <summary>slangc from <c>$VULKAN_SDK/bin</c> or PATH, or null.</summary>
     public static string? FindSlangc()
@@ -390,35 +401,48 @@ public static partial class CanvasShaderBuild
     private static void Compile(string slangc, string includeDirectory, string code, string stage, string output, string source)
     {
         var temp = Path.Combine(Path.GetTempPath(), $"mf-gdshader-{Guid.NewGuid():N}.{stage}.slang");
-        File.WriteAllText(temp, code);
+        File.WriteAllText(temp, WithoutLineDirectives(code));
         try
         {
-            var start = new ProcessStartInfo(slangc)
-            {
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-            };
-            foreach (var arg in SlangcArguments(temp, stage, includeDirectory, output))
-                start.ArgumentList.Add(arg);
-            // slangc 2026.1 sometimes dies of a signal (SIGBUS, exit code 138) with no output while other slangc processes
-            // run: a crash, not a compile error, so it is retried.
-            for (var attempt = 1; ; attempt++)
-            {
-                using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {slangc}.");
-                var stdout = process.StandardOutput.ReadToEndAsync();
-                var errors = process.StandardError.ReadToEnd() + stdout.GetAwaiter().GetResult();
-                process.WaitForExit();
-                if (process.ExitCode == 0)
-                    return;
-                if (process.ExitCode > 128 && errors.Trim().Length == 0 && attempt < 6)
-                    continue;
-                throw new InvalidOperationException($"slangc failed for {source} ({stage}, exit code {process.ExitCode}):\n{errors.Replace(temp, source + "(" + stage + ")", StringComparison.Ordinal)}");
-            }
+            var (exitCode, errors) = RunSlangc(slangc, SlangcArguments(temp, stage, includeDirectory, output));
+            if (exitCode == 0)
+                return;
+            // A compile error: the errors of a compile with the #line directives (not obfuscated, into a throwaway file)
+            // name the .gdshader's lines. Without -obfuscate slangc 2026.1 does not crash on them.
+            File.WriteAllText(temp, code);
+            var (diagnosticExitCode, diagnostics) = RunSlangc(slangc, SlangcArguments(temp, stage, includeDirectory, temp + ".spv", obfuscate: false));
+            if (diagnosticExitCode != 0 && diagnostics.Trim().Length > 0)
+                errors = diagnostics;
+            throw new InvalidOperationException($"slangc failed for {source} ({stage}, exit code {exitCode}):\n{errors.Replace(temp, source + "(" + stage + ")", StringComparison.Ordinal)}");
         }
         finally
         {
             File.Delete(temp);
+            File.Delete(temp + ".spv");
+        }
+    }
+
+    // slangc's exit code and output. slangc 2026.1 sometimes dies of a signal (SIGBUS, exit code 138) with no output while
+    // other slangc processes run: a crash, not a compile error, so it is retried.
+    private static (int ExitCode, string Output) RunSlangc(string slangc, string[] arguments)
+    {
+        var start = new ProcessStartInfo(slangc)
+        {
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+        };
+        foreach (var arg in arguments)
+            start.ArgumentList.Add(arg);
+        for (var attempt = 1; ; attempt++)
+        {
+            using var process = Process.Start(start) ?? throw new InvalidOperationException($"Could not start {slangc}.");
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var errors = process.StandardError.ReadToEnd() + stdout.GetAwaiter().GetResult();
+            process.WaitForExit();
+            if (process.ExitCode > 128 && errors.Trim().Length == 0 && attempt < 6)
+                continue;
+            return (process.ExitCode, errors);
         }
     }
 }
