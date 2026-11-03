@@ -275,6 +275,30 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     public static Format FindDepthFormat(IVulkanContext ctx) => ctx.SceneTarget.Depth?.Format ?? Format.D32Sfloat;
 
     /// <summary>
+    /// The time a frame may spend creating GPU resources for nodes met the first time while a scene load warms up
+    /// (<see cref="SceneLoadPacing"/>); further new nodes wait for the next frame.
+    /// </summary>
+    internal static readonly TimeSpan LoadCreationBudget = TimeSpan.FromMilliseconds(100);
+
+    private long _creationTicks; // this frame's creation time while pacing (Stopwatch ticks)
+    private int _deferredCreations;
+
+    // A node whose GPU resources do not exist yet (or follow a new mesh): what pacing spreads over frames.
+    private static bool NeedsCreation(GeometryInstance3D node) =>
+        node.GpuMesh is null || !ReferenceEquals(node.GetRenderMesh(), node.ResolvedMesh) || node is MultiMeshInstance3D { GpuMultiMesh: null };
+
+    // A new terrain chunk whose splat layers are still decoding on the pool (they pack on the main thread): it waits.
+    private static bool LayersDecoding(GeometryInstance3D node)
+    {
+        if (node.GetRenderMesh() is not { } mesh)
+            return false;
+        for (var s = 0; s < mesh.SurfaceCount; s++)
+            if (node.GetRenderMaterial(mesh, s) is TerrainSplatMaterial3D splat && TerrainLayerPacker.Defer(splat))
+                return true;
+        return false;
+    }
+
+    /// <summary>
     /// The frame being built: <see cref="IVulkanContext.FrameNumber"/> while it records, the next one before
     /// <c>BeginFrame</c> (the render server prepares draw lists before the frame starts).
     /// </summary>
@@ -290,6 +314,10 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     /// <summary>Starts a frame's preparation: every view, mesh and material is rebuilt/refreshed once more.</summary>
     public void BeginPreparation()
     {
+        if (SceneLoadPacing.IsActive)
+            SceneLoadPacing.ReportDeferred(_deferredCreations);
+        _deferredCreations = 0;
+        _creationTicks = 0;
         _epoch++;
         _skinner?.BeginPreparation();
     }
@@ -808,8 +836,22 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         for (var n = 0; n < geometry.Count; n++)
         {
             var node = geometry[n];
-            if (!node.IsVisibleInTree() || !Sync(node))
+            if (!node.IsVisibleInTree())
                 continue;
+            // ADR 0238: while a load warms up, new nodes share a per-frame creation budget.
+            var creating = SceneLoadPacing.IsActive && NeedsCreation(node) ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+            if (creating != 0 && (System.Diagnostics.Stopwatch.GetElapsedTime(0, _creationTicks) >= LoadCreationBudget || LayersDecoding(node)))
+            {
+                _deferredCreations++;
+                continue;
+            }
+
+            if (!Sync(node))
+            {
+                if (creating != 0)
+                    _creationTicks += System.Diagnostics.Stopwatch.GetTimestamp() - creating;
+                continue;
+            }
 
             Stats.Instances++;
             var mesh = node.GpuMesh!;
@@ -828,7 +870,10 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             uint multiCount = 0;
             if (node is MultiMeshInstance3D multiNode)
             {
-                if (SyncMultiMesh(multiNode, mesh, model) is not { } multi)
+                var multi = SyncMultiMesh(multiNode, mesh, model);
+                if (creating != 0)
+                    _creationTicks += System.Diagnostics.Stopwatch.GetTimestamp() - creating;
+                if (multi is null)
                     continue;
                 bounds = multi.WorldBounds;
                 multiInstances = multi.Instances;
@@ -836,6 +881,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             }
             else
             {
+                if (creating != 0)
+                    _creationTicks += System.Diagnostics.Stopwatch.GetTimestamp() - creating;
                 bounds = (pose?.Bounds ?? mesh.Bounds).Transform(model);
             }
 

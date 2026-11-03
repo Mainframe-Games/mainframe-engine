@@ -20,7 +20,8 @@ namespace Forest;
 /// everything above is built on the loading thread before the scene enters the tree
 /// (<see cref="ISceneLoadable.LoadInBackground"/>: the terrain's chunks and foliage tiles and the trees' variants and
 /// impostors included), and the loading screen stays up through the pre-warm frames
-/// (<see cref="ISceneLoadable.PollLoaded"/>). Loaded synchronously (the editor, tests) it builds in ready, as before.
+/// (<see cref="ISceneLoadable.PollLoaded"/>). The editor opens it the same way, in edit mode
+/// (<see cref="SceneLoadProgress.EditMode"/>: visuals only). Loaded synchronously (tests, code reload) it builds in ready.
 /// </summary>
 [Tool]
 public sealed class ForestValley : Node3D, ISceneLoadable
@@ -217,7 +218,8 @@ public sealed class ForestValley : Node3D, ISceneLoadable
     /// <summary>The share of the stages in the loading bar: measured times of a cached run (trees dominate; the first run bakes).</summary>
     private const float GeneratedAt = 0.08f, CarvedAt = 0.18f, TreesAt = 0.72f, TerrainAt = 0.92f;
 
-    void ISceneLoadable.LoadInBackground(SceneLoadProgress progress) => Build(editing: false, progress);
+    // The editor loads through the same path (SceneLoadProgress.EditMode): visuals only, as its ready builds them.
+    void ISceneLoadable.LoadInBackground(SceneLoadProgress progress) => Build(editing: progress.EditMode, progress);
 
     bool ISceneLoadable.PollLoaded(SceneLoadProgress progress)
     {

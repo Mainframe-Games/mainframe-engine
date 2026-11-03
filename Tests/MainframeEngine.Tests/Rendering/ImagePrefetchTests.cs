@@ -95,4 +95,28 @@ public sealed class ImagePrefetchTests : IDisposable
         }, TestContext.Current.CancellationToken);
         Assert.Equal(2, prefetch.Count);
     }
+
+    [Fact]
+    public async Task AWarmingLoadTakesTexturesCachesMadeEarlierWhenTheirUploadNeedsThem()
+    {
+        // ADR 0238: a texture created before the load (a process-wide cache) is not on the load's flow.
+        var cached = Texture2D.FromFile(WritePng("cached.png", 16, 16));
+        Assert.False(ImagePrefetch.Defer(cached)); // no load: upload (and decode) now
+
+        using var prefetch = ImagePrefetch.Begin();
+        Assert.False(ImagePrefetch.Defer(cached)); // a load that does not take late textures yet
+        prefetch.AcceptLateTextures();
+        Assert.True(ImagePrefetch.Defer(cached)); // queued on the pool: the upload waits
+        Assert.Equal(1, prefetch.Count);
+        await prefetch.WhenAll().WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        Assert.False(prefetch.HasPendingWork);
+        Assert.False(ImagePrefetch.Defer(cached)); // decoded: upload now, from the shared pixels
+        Assert.Equal(1, prefetch.Count);
+        Assert.Equal((16, 16), (cached.DecodePixelsReadOnly().Width, cached.DecodePixelsReadOnly().Height));
+
+        // Code-made textures have no file to decode: never deferred.
+        Assert.False(ImagePrefetch.Defer(Texture2D.FromPixels(2, 2, new byte[16])));
+        prefetch.Dispose();
+        Assert.False(ImagePrefetch.Defer(Texture2D.FromFile(WritePng("after.png", 4, 4))));
+    }
 }

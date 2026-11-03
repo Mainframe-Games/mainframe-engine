@@ -7,9 +7,14 @@ namespace MainframeEngine;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Both members are optional. The synchronous path (<see cref="SceneTree.ChangeSceneToFile"/>, the editor, tests) never
+/// Both members are optional. The synchronous path (<see cref="SceneTree.ChangeSceneToFile"/>, code reload, tests) never
 /// calls them, so a loadable node must still do its work in <see cref="Node.OnReady"/> when
 /// <see cref="LoadInBackground"/> has not run.
+/// </para>
+/// <para>
+/// The editor opens scenes through <see cref="SceneTree.InstantiateSceneAsync"/> in edit mode: then
+/// <see cref="SceneLoadProgress.EditMode"/> is true, and a game type that is not <see cref="ToolAttribute">[Tool]</see> is
+/// not called at all (its own ready does not run in edit mode either).
 /// </para>
 /// <para>
 /// <see cref="LoadInBackground"/> runs on a worker thread while the scene is still outside the tree: build what

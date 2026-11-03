@@ -302,6 +302,9 @@ public sealed class EditorQaScript : IEditorAutomation
                     break;
                 }
 
+            case "open-loading": // a scene through the loading window, as the FileSystem panel and File › Open do
+                workspace.OpenSceneLoading(Path.GetFullPath(string.Join(' ', step[1..])));
+                break;
             case "mode":
                 workspace.SetMode(Enum.Parse<EditorMode>(step[1], ignoreCase: true));
                 break;
@@ -449,6 +452,9 @@ public sealed class EditorQaScript : IEditorAutomation
                              $"dirty {active.IsDirty}");
                 }
 
+                Log.Info($"[QA] tabs: {string.Join(", ", workspace.Session.Tabs.Select(t => t.Title))}");
+                if (workspace.Loader.LastJob is { } job)
+                    Log.Info($"[QA] last load '{job.Title}' {job.Duration.TotalSeconds:0.0} s, longest frame {job.LongestFrame.TotalMilliseconds:0} ms");
                 break;
             case "wait-for" when step.Length > 2 && step[1] == "video-position":
                 {
@@ -471,7 +477,7 @@ public sealed class EditorQaScript : IEditorAutomation
             case "wait-for":
                 _waitFor = step[1] switch
                 {
-                    "project" => static w => w.Project.Root is not null && !w.Project.IsBuilding && w.Session.Active is not null && !w.Splash.Visible &&
+                    "project" => static w => w.Project.Root is not null && !w.Project.IsBuilding && w.Session.Active is not null && !w.Splash.Visible && !w.Loader.IsBusy &&
                                             !w.NewProject.Visible,
                     "idle" => static w => !w.Project.IsBuilding && !w.Play.IsBuilding,
                     "playing" => static w => w.Play.Service.Instances.Any(i => i.State == PlayInstanceState.Running && i.Frame >= 90),
@@ -878,7 +884,7 @@ public sealed class EditorQaScript : IEditorAutomation
         if (step[at].StartsWith('#'))
         {
             var id = step[at][1..];
-            foreach (var layer in (ReadOnlySpan<UiLayer>)[workspace.DialogLayer, workspace.ProjectLayer, workspace.PanelLayer])
+            foreach (var layer in (ReadOnlySpan<UiLayer>)[workspace.SplashLayer, workspace.DialogLayer, workspace.ProjectLayer, workspace.PanelLayer])
                 foreach (var document in layer.Documents)
                 {
                     if (!document.Visible || !document.IsLoaded || document.Document.GetElementById(id) is not { IsNull: false } element)

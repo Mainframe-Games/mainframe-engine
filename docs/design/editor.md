@@ -125,7 +125,7 @@ flowchart TB
 | Settings dialogs | `project_settings.rml`, `editor_settings.rml`, `connect_signal.rml` | Project Settings, Editor Settings, Connect Signal |
 | Dialogs | `tree_picker.rml`, `file_picker.rml`, `list_picker.rml`, `message.rml`, `popup_menu.rml`, `sheet_slicer.rml` | The create dialog (Add Node, New Resource, Instance Scene; below), modal file picker with file-type icons (open/save/folder, filters, Home/Project/Content places, overwrite confirmation), searchable list (node paths), message box / prompt with a title icon, popup menus, Select Frames (sprite sheet slicing, [Animated sprites](animated-sprites.md#editor)) |
 | Tooltips | `tooltip.rml` | Its own layer above the dialogs ([Tooltips](#tooltips)) |
-| Splash | `splash.rml` | Logo, "Mainframe Editor", "vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts and while a scene loads, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch |
+| Splash / loading window | `splash.rml` | Logo, "Mainframe Editor", "vX.Y.Z", status line, progress bar on the brand navy; shown while the editor starts, then fades. It never outlasts the loading, except a 1 s minimum on the very first launch. Opening a project or a scene shows it as the [loading window](#loading-window): the job's title, its step, a detail line, the elapsed time and Cancel (a panel over the dimmed editor once the editor is up) |
 
 - **Theme**: `theme.rcss` + `dialogs.rcss`, a dark palette (base `#15171c`, panels `#1f2128`, accent `#3b82f6`) over
   the shared widget library's controls; all sizes in dp. The editor is a desktop tool: its UI server keeps
@@ -729,6 +729,37 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   revealed in its parent), creating it when missing (`ProjectService.OpenUserDataFolder`). Tests swap the opener through
   `EditorWorkspaceOptions.OpenFolder`.
 
+### Loading window
+
+([0238](../../memory/decisions/0238-editor-async-loading.md)) Opening a project (start-up, Project Manager, Open
+Project) or a scene (FileSystem panel, File › Open, a start scene) is a job of `EditorLoader` (`Workspace.Loader`,
+[EditorLoader.cs](../../MainframeEngine.Editor/Src/Projects/EditorLoader.cs)) and never blocks the main loop for long,
+so the window keeps answering the OS (Mutter's "not responding" dialog asks after 5 s):
+
+- **A job** runs its work two frames after the window shows (`Loader.Run(title, work)`; `RunWithSplash` forwards to
+  it). The work may keep the job open: `Hold()` while the game code builds (`OpenProjectNow`), `Track(SceneLoad)` while a
+  scene opens. A job started during another waits for it. Each frame the window shows the title ("Opening Forest…",
+  "Loading forest.mscene…"), the step ("Scanning assets", "Building game code", the scene's stages and its loadables'
+  labels: "Generating the valley", "Growing trees", "Decoding textures", "Uploading to the GPU"), a detail line
+  ("112 / 274 textures", "40 objects to upload", the scene file) and the elapsed seconds. The log line at the end gives
+  the job's duration and its **longest frame** (`Loader.LastJob`; QA's `state` prints it).
+- **Scenes open asynchronously** through `EditorSession.OpenAsync` → `SceneTree.InstantiateSceneAsync` (engine,
+  [Scene serialization](scene-serialization.md#asynchronous-loading-adr-0183)): a worker reads and instantiates the scene
+  and runs its `[Tool]` loadables in edit mode (the Forest's valley), textures decode on the pool; the scene then enters a
+  new tab, which becomes active and warms up behind the window (`SceneLoadOptions.PaceWarmUp`: GPU resources spread over
+  frames, late textures decoded on the pool) until the load completes. The synchronous `EditorSession.Open` stays for tests, code reload, recovery and
+  scripted runs.
+- **Cancel** (or closing the window) cancels the job: work not started is dropped, a scene load stops at its worker's
+  next check (a tab it already made is closed), and the editor keeps what it had — an empty scene, or the Project
+  Manager when nothing is open. A build runs to its end.
+- **While a job runs** the window is modal, and code reload (the build-output watcher) waits until it ends, so no
+  worker holds game objects while their assembly unloads.
+- Without the splash (`EditorWorkspaceOptions.ShowSplash` off: tests, `--smoke`) jobs run at once and scenes open
+  synchronously, as before.
+- **The Forest** (Debug, RTX 3070 Ti, `Tests/QA/forest-open.qa`): before, ~43 s with frames of 6.8 s (the valley), 9.9 s
+  (texture decodes) and 4.8 s (the probe bake's scene); now ~16 s with no frame over ~1.1 s, and a reopen ~14 s under
+  ~0.9 s.
+
 ## Play
 
 ([0098](../../memory/decisions/0098-editor-play-pipeline.md)) Games run **out of process**, connected over the editor
@@ -1277,7 +1308,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 - **Scripted QA** (`just qa-editor`, [Tests/QA/editor-walkthrough.qa](../../Tests/QA/editor-walkthrough.qa)): the real
   editor driven through the UI input path (`--qa-script`: clicks by point or `#element-id`, in layout points that the
   script turns into mouse points with `IEditorHost.PointerScale`, so `--scale 2` hits the same spots on 1× and 2× displays; drags, gizmo drags, keys,
-  text, commands, dialog answers, `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`, `view-resolution auto|full|threeQuarters|half`, and for the viewport tools `select-add`, `pivot median|active|individual`, `box-select x0 y0 x1 y1 [shift|cmd] [hold]`/`mouse-up`, `lock`, `handle-drag <index> dx dy`, `res-menu <property> [item]`, `simulate start|pause|stop|keep`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
+  text, commands, dialog answers, `open-loading <scene>` (through the loading window), `window-close`, `inspector-header <action>`, `inspector-section <key>`, `inspector-set <property> <value>`, `fs-select`, `delete-file`, `view-resolution auto|full|threeQuarters|half`, and for the viewport tools `select-add`, `pivot median|active|individual`, `box-select x0 y0 x1 y1 [shift|cmd] [hold]`/`mouse-up`, `lock`, `handle-drag <index> dx dy`, `res-menu <property> [item]`, `simulate start|pause|stop|keep`) with captures in `artifacts/qa-editor`. **`just qa-projects`**
   ([project-workflow.qa](../../Tests/QA/project-workflow.qa)) creates a game from the Project Manager, adds nodes and
   saves, plays it (game frame and logs), pauses and stops, edits its C# and builds & reloads, with `timing` lines for
   each step (`wait-for project|playing|stopped|idle`, `new-project`, `add-node`, `replace-in-file`, `play-args`). The
@@ -1338,7 +1369,11 @@ above (fewer leaves, more sky) the preview costs about 6 ms at Full (9.3 → 15.
 - Hidden tabs keep their post state (TAA history, pooled targets) while hidden: memory, not time.
 - Without Preview Post-Processing a 3D view has no depth prepass: in dense foliage it is slower than with it.
 
-- A code reload drops the undo history of the scenes it re-creates (selection, view and dirty state are kept).
+- A code reload drops the undo history of the scenes it re-creates (selection, view and dirty state are kept), and
+  re-creates them synchronously: in the Forest it stalls like opening the scene did before the
+  [loading window](#loading-window).
+- In the Forest the idle editor runs at ~7 fps in a Debug build: it draws every collision shape every frame
+  (`DebugCollisionShapes`, ~120 ms).
 - Simulate runs game code inside the editor's process: exceptions are caught and stop it, but an infinite loop, a stack
   overflow or a native crash takes the editor down (recovery copies of dirty scenes are written first). Shared external
   resources a script changes stay changed (listed on Stop; there is no reload in place). The copy shares the tree's groups

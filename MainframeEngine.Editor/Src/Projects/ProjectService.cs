@@ -521,7 +521,8 @@ public sealed class ProjectService : IDisposable
             Changed?.Invoke();
         }
 
-        if (_build is null && Interlocked.Exchange(ref _outputChanged, 0) != 0 && AutoReload && IsGameLoaded)
+        // Not while a project or scene opens (EditorLoader): its worker may hold game objects; the reload runs after it.
+        if (_build is null && !_workspace.Loader.IsBusy && Interlocked.Exchange(ref _outputChanged, 0) != 0 && AutoReload && IsGameLoaded)
             ReloadIfChanged();
     }
 

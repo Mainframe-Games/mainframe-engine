@@ -131,8 +131,6 @@ public sealed partial class EditorWorkspace : Node
     private double _statsTimer;
     private EditorModifiers _trackedModifiers;
     private readonly bool _firstLaunch;
-    private Action? _pendingLoad;
-    private int _pendingLoadFrames;
 
     // Each mode's last active tab, re-activated when the editor comes back to that mode (closed tabs are dropped).
     private readonly Dictionary<EditorMode, IEditorTab> _activeByMode = [];
@@ -166,6 +164,7 @@ public sealed partial class EditorWorkspace : Node
             Directory.Exists);
         Play.Service.RecordingFinished += (_, recording) => recordingNotifier.OnFinished(recording);
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
+        Loader = new EditorLoader(this);
         // One export pipeline at a time; it waits for Play's or Build & Reload's build (they share the game's projects).
         Export = new ExportService(Options.ExportRunner, () => Play.IsBuilding || Project.IsBuilding);
         AudioPreview = new AudioPreview(() => Tree?.Servers.Get<AudioServer>());
@@ -194,6 +193,9 @@ public sealed partial class EditorWorkspace : Node
 
     /// <summary>The open game project: its code (load, build, reload) and watchers.</summary>
     public ProjectService Project { get; }
+
+    /// <summary>Opens projects and scenes behind the loading window without blocking the main loop.</summary>
+    public EditorLoader Loader { get; }
 
     /// <summary>Out-of-process Play.</summary>
     public PlayController Play { get; }
@@ -455,62 +457,70 @@ public sealed partial class EditorWorkspace : Node
 
     private void OpenInitialScene()
     {
-        if (Options.InitialScene is { } scene)
+        if (Options.InitialScene is not { } scene)
         {
-            try
-            {
-                Session.Open(scene);
-                return;
-            }
-            catch (Exception e) when (EditorCommands.IsRecoverable(e))
-            {
-                Log.Error($"[Editor] Could not open '{scene}': {e.Message}");
-            }
+            Session.NewScene();
+            return;
         }
 
-        Session.NewScene();
+        OpenSceneInJob(scene, failed: e =>
+        {
+            if (e is not null)
+                Log.Error($"[Editor] Could not open '{scene}': {e.Message}");
+            if (Session.Scenes.Count == 0)
+                Session.NewScene();
+        });
     }
 
     /// <summary>
-    /// Runs <paramref name="work"/> (opening a scene, later a project) behind the splash screen: the splash shows
-    /// <paramref name="status"/> first, the work runs once that frame has been presented, then the splash fades out.
-    /// Without the splash (<see cref="EditorWorkspaceOptions.ShowSplash"/> off) it runs at once.
+    /// Runs <paramref name="work"/> (opening a project or a video) behind the loading window (<see cref="EditorLoader.Run"/>):
+    /// the window shows <paramref name="status"/> first and the work runs once that frame has been presented. Without the
+    /// splash (<see cref="EditorWorkspaceOptions.ShowSplash"/> off) it runs at once.
     /// </summary>
-    public void RunWithSplash(string status, Action work)
-    {
-        ArgumentNullException.ThrowIfNull(work);
-        if (!Options.ShowSplash)
-        {
-            work();
-            return;
-        }
+    public void RunWithSplash(string status, Action work) => Loader.Run(status, work);
 
-        if (!Splash.Visible)
-            Splash.Show(status, 0.3f);
-        else
-            Splash.SetStatus(status, 0.4f);
-        _pendingLoad = work;
-        _pendingLoadFrames = 2; // the splash must reach the screen before the blocking load
+    /// <summary>
+    /// Opens the scene at <paramref name="path"/> in a tab (or activates its tab) behind the loading window: asynchronously
+    /// (<see cref="EditorSession.OpenAsync"/>) when the loader is, else at once. A failure is reported.
+    /// </summary>
+    public void OpenSceneLoading(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        Loader.Run($"Loading {Path.GetFileName(path)}…", () => OpenSceneInJob(path));
     }
 
-    private void RunPendingLoad()
+    /// <summary>
+    /// Inside a loading job (or at once without one): opens <paramref name="path"/>, its load tracked from
+    /// <paramref name="from"/> to the end of the bar. On a failure or a cancel <paramref name="failed"/> runs with the error
+    /// (null for a cancel); without it an error is reported in a message box.
+    /// </summary>
+    internal void OpenSceneInJob(string path, Action<Exception?>? failed = null, float from = 0f)
     {
-        if (_pendingLoad is null || --_pendingLoadFrames > 0)
-            return;
-        var work = _pendingLoad;
-        _pendingLoad = null;
+        var name = Path.GetFileName(path);
+        failed ??= e =>
+        {
+            if (e is not null)
+                Commands.ReportError($"Could not open {name}", e);
+        };
         try
         {
-            work();
+            if (!Loader.IsAsync || !Loader.IsBusy)
+            {
+                Session.Open(path);
+                return;
+            }
+
+            if (Session.OpenAsync(path) is { } load)
+                Loader.Track(load, name, from, 1f, ended: done =>
+                {
+                    if (done.Stage != SceneLoadStage.Done)
+                        failed(done.Error);
+                });
         }
         catch (Exception e) when (EditorCommands.IsRecoverable(e))
         {
-            Splash.Finish("Failed");
-            Commands.ReportError("Loading failed", e);
-            return;
+            failed(e);
         }
-
-        Splash.Finish();
     }
 
     /// <summary>
@@ -566,8 +576,8 @@ public sealed partial class EditorWorkspace : Node
 
     protected override void OnProcess(in GameTime gameTime)
     {
-        RunPendingLoad();
-        if (_closeRequested && _pendingLoad is null)
+        Loader.Tick();
+        if (_closeRequested && !Loader.IsBusy)
             OnCloseRequested();
         Splash.Tick(gameTime.DeltaTime);
         AudioPreview.Tick();
@@ -1234,13 +1244,14 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>
     /// The window's close button or the Dock's Quit (intercepted by the host): always ends in <see cref="RequestQuit"/>.
     /// Open dialogs are closed first — Project Settings asks about its unsaved edits — except a message box, which is
-    /// the question to answer (it may be the unsaved-changes one). During a load the request waits for it to finish.
+    /// the question to answer (it may be the unsaved-changes one). During a load the request cancels it and waits for it to end.
     /// </summary>
     public void OnCloseRequested()
     {
-        if (_pendingLoad is not null)
+        if (Loader.IsBusy)
         {
-            _closeRequested = true; // retried by OnProcess once the load has run
+            Loader.Cancel(); // a scene load stops at its worker's next check
+            _closeRequested = true; // retried by OnProcess once the job has ended
             return;
         }
 

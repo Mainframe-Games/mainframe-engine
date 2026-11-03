@@ -213,6 +213,52 @@ public sealed class ValleyTests
         }
     }
 
+    [Fact]
+    public void TheEditorsValleyBuiltOnTheLoadingThreadMatchesItsReadyBuild()
+    {
+        // ADR 0238: the editor opens the scene through an instance load in edit mode; the worker must build the editor's
+        // valley (no gameplay parts: walls, the cabin's gameplay), the same as the edit-mode ready does.
+        var scene = ForestScene.Build();
+        scene.GetNode<ForestValley>("Valley").Art = false; // no LFS content in CI
+        var path = Path.Combine(Path.GetTempPath(), $"forest-edit-{Guid.NewGuid():N}.mscene");
+        File.WriteAllBytes(path, SceneSaver.ToJson(scene));
+        scene.Free();
+        try
+        {
+            using var sync = new ControllerHarness(floor: false);
+            sync.Tree.EditMode = true;
+            var syncRoot = ResourceLoader.Load<PackedScene>(path).Instantiate();
+            sync.Tree.Root.AddChild(syncRoot);
+            sync.Run(4);
+            var syncValley = syncRoot.GetNode<ForestValley>("Valley");
+            Assert.True(syncValley.IsBuilt);
+
+            using var async = new ControllerHarness(floor: false);
+            async.Tree.EditMode = true;
+            Node? asyncRoot = null;
+            var load = async.Tree.InstantiateSceneAsync(path, (root, _) => async.Tree.Root.AddChild(asyncRoot = root));
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            while (!load.IsCompleted)
+            {
+                Assert.True(watch.Elapsed < TimeSpan.FromSeconds(120), $"The load is stuck in {load.Stage} ({load.StageText}).");
+                async.Run(1);
+                Thread.Sleep(1);
+            }
+
+            Assert.True(load.IsDone, $"{load.Stage}: {load.Error}");
+            var asyncValley = asyncRoot!.GetNode<ForestValley>("Valley");
+            var expected = Signature(syncValley);
+            var actual = Signature(asyncValley);
+            Assert.Equal(expected.Count, actual.Count);
+            for (var i = 0; i < expected.Count; i++)
+                Assert.True(expected[i] == actual[i], $"Node {i} differs:\n sync:  {expected[i]}\n async: {actual[i]}");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     // Every node under the valley (depth-first): type, name, local transform, and what it draws or collides with.
     private static List<string> Signature(Node root)
     {

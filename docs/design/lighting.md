@@ -177,7 +177,10 @@ probe, `RaysPerProbe` Fibonacci directions with a per-probe rotation:
 `BakeHash` hashes everything the bake reads (proxies, materials, sun, sky, grid and settings); `CurrentBakeHash()`
 fingerprints the same inputs without building proxies (≈ 40 ms for the Forest). A missing or stale bake renders as if
 there were no volume; with `BakeWhenStale` the volume bakes in the background once its siblings are ready and logs a
-warning. **Baking:** the editor's Bake Lighting button on the volume's inspector (background, cancellable; saves
+warning. A background bake reads the scene on the main thread only as far as `ProbeBakeSceneBuilder.Capture` goes
+(transforms, placements, variants, the terrain's cells, copied: ≈ 0.2 s for the Forest in a Debug build) and builds the
+proxies on its task ([ADR 0238](../../memory/decisions/0238-editor-async-loading.md); before, ≈ 4.7 s on the main
+thread). **Baking:** the editor's Bake Lighting button on the volume's inspector (background, cancellable; saves
 `<scene>-lighting.mres` next to the scene, or over the existing data, as one undoable change of `Data`), `Bake()` in
 code, or `--bake-lighting` on a game (`GameSession.BakeLighting`: bakes every volume of the start scene, saves under
 `--project`'s folder, quits; works with `--headless`).

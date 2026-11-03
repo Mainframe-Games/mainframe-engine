@@ -527,17 +527,7 @@ public sealed class EditorCommands
 
                 break;
             default:
-                _workspace.RunWithSplash($"Loading {Path.GetFileName(path)}…", () =>
-                {
-                    try
-                    {
-                        Session.Open(path);
-                    }
-                    catch (Exception e) when (IsRecoverable(e))
-                    {
-                        ReportError($"Could not open {Path.GetFileName(path)}", e);
-                    }
-                });
+                _workspace.OpenSceneLoading(path);
                 break;
         }
     }
@@ -1004,11 +994,23 @@ public sealed class EditorCommands
         _workspace.Inspector.CloseResource();
         // Music mode stays music mode: the start scene opens in game mode's tab strip, behind the music editor.
         var mode = _workspace.Mode;
+        var loader = _workspace.Loader;
+        loader.SetStep("Scanning assets", 0.02f);
         UpgradeEnginePackage(directory);
+        var release = loader.Hold(); // until the game code is loaded (it may build first), then the start scene
         try
         {
             _workspace.Project.Open(directory, onReady: () =>
             {
+                release();
+                if (loader.IsCancelled)
+                {
+                    if (Session.Scenes.Count == 0)
+                        Session.NewScene();
+                    return;
+                }
+
+                loader.SetStep("Opening the start scene", 0.2f);
                 OpenStartScene(scene);
                 if (mode == EditorMode.Music)
                     _workspace.SetMode(EditorMode.Music);
@@ -1016,31 +1018,32 @@ public sealed class EditorCommands
         }
         catch (Exception e) when (IsRecoverable(e))
         {
+            release();
             ReportError($"Could not open the project at {directory}", e);
             if (Session.Scenes.Count == 0 && Session.ProjectRoot is null)
                 _workspace.ProjectManager.Open();
         }
     }
 
-    // The requested scene, else the project's main scene, else an empty scene.
+    // The requested scene, else the project's main scene, else an empty scene; behind the loading window it loads
+    // asynchronously (the rest of the bar).
     private void OpenStartScene(string? scene)
     {
         var path = scene ?? _workspace.Project.MainScenePath();
-        if (path is not null)
+        if (path is null)
         {
-            try
-            {
-                Session.Open(path);
-                return;
-            }
-            catch (Exception e) when (IsRecoverable(e))
-            {
-                Log.Error($"[Editor] Could not open '{path}': {e.Message}");
-            }
+            if (Session.Scenes.Count == 0)
+                Session.NewScene();
+            return;
         }
 
-        if (Session.Scenes.Count == 0)
-            Session.NewScene();
+        _workspace.OpenSceneInJob(path, from: 0.2f, failed: e =>
+        {
+            if (e is not null)
+                Log.Error($"[Editor] Could not open '{path}': {e.Message}");
+            if (Session.Scenes.Count == 0)
+                Session.NewScene();
+        });
     }
 
     private void ChooseProjectFile()

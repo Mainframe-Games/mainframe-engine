@@ -29,6 +29,26 @@ internal static class TerrainLayerPacker
     private static readonly TextureImportSettings DataSettings = new() { ColorSpace = TextureImportColorSpace.Linear, Mipmaps = true, Wrap = TextureWrap.Repeat };
 
     /// <summary>Packs <paramref name="material"/>'s first <see cref="TerrainSplatMaterial3D.LayerCount"/> layers.</summary>
+    /// <summary>
+    /// While a scene load warms up (<see cref="ImagePrefetch.Defer"/>): true when a layer texture of
+    /// <paramref name="material"/> is still decoding on the pool (each undecoded one is queued now), so packing waits.
+    /// </summary>
+    public static bool Defer(TerrainSplatMaterial3D material)
+    {
+        var deferred = false;
+        for (var i = 0; i < material.LayerCount; i++)
+        {
+            if (material.Layers[i] is not { } layer)
+                continue;
+            deferred |= layer.Albedo is { } albedo && ImagePrefetch.Defer(albedo);
+            deferred |= layer.Normal is { } normal && ImagePrefetch.Defer(normal);
+            deferred |= layer.Orm is { } orm && ImagePrefetch.Defer(orm);
+            deferred |= layer.Height is { } height && ImagePrefetch.Defer(height);
+        }
+
+        return deferred;
+    }
+
     public static Packed Pack(TerrainSplatMaterial3D material)
     {
         var count = material.LayerCount;

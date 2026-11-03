@@ -450,6 +450,48 @@ public sealed class EditorSession : IDisposable
         return edited;
     }
 
+    // ADR 0238: the editor's loads spread their warm-up so no frame stalls the window.
+    private static readonly SceneLoadOptions EditorLoadOptions = new() { PaceWarmUp = true };
+
+    /// <summary>
+    /// Opens the <c>.mscene</c> at <paramref name="path"/> without blocking the main loop (ADR 0183's
+    /// <see cref="SceneTree.InstantiateSceneAsync"/>): a worker reads and instantiates it and runs its loadables in edit
+    /// mode (<see cref="ISceneLoadable"/>, the Forest's valley) while textures decode on the pool; then the scene enters a new
+    /// tab, which becomes active, and warms up there (GPU resources, pipelines) until the load completes. Returns null when
+    /// the scene is already open (its tab is activated). Throws, like <see cref="Open"/>, for a missing file or one of another
+    /// project; a load that fails later reports through <see cref="SceneLoad.Error"/>, and a cancelled one that already
+    /// entered keeps its tab (the caller closes it).
+    /// </summary>
+    public SceneLoad? OpenAsync(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var full = Path.GetFullPath(path);
+        foreach (var open in _scenes)
+            if (open.FilePath is not null && PathsEqual(open.FilePath, full))
+            {
+                Activate(open);
+                return null;
+            }
+
+        if (!File.Exists(full))
+            throw new FileNotFoundException($"Scene not found: {full}", full);
+        if (_host.Tree is not { } tree)
+            throw new InvalidOperationException("The session's host is not in a scene tree.");
+        UseProjectOf(full);
+        return tree.InstantiateSceneAsync(AssetDatabase.Current.ToProjectPath(full), (root, packed) =>
+        {
+            // Another tab of the same file may have opened meanwhile (a synchronous open): keep the first.
+            if (_scenes.Any(s => s.FilePath is not null && PathsEqual(s.FilePath, full)))
+            {
+                root.Free();
+                packed.Release();
+                throw new InvalidOperationException($"'{full}' was opened while it loaded.");
+            }
+
+            Activate(Attach(root, full, packed, untitled: 0));
+        }, EditorLoadOptions);
+    }
+
     /// <summary>
     /// Saves <paramref name="scene"/> to <paramref name="path"/> (default: its file). The write is atomic (temp file +
     /// rename): a failure leaves the previous file intact, the scene stays dirty and the exception propagates.
