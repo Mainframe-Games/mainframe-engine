@@ -51,7 +51,7 @@ public sealed partial class ViewportController
             return;
         if (_grid is { IsFreed: false } old)
             old.Free();
-        _grid = new Grid3D { Name = "EditorGrid", Visible = GridVisible && !scene.Camera.Is2D };
+        _grid = new Grid3D { Name = "EditorGrid", Style = GridStyle.Analytic, LineScale = ViewScale, Visible = GridVisible && !scene.Camera.Is2D };
         viewport.AddChild(_grid);
     }
 
@@ -85,7 +85,7 @@ public sealed partial class ViewportController
         if (camera.Is2D)
         {
             if (GridVisible)
-                DrawGrid2D(viewport.DebugLines, camera, pixels);
+                DrawGrid2D(viewport.Gizmos, camera, pixels, ViewScale);
             var unit = 1f / camera.Zoom2D;
             var marker = MarkerPoints * ViewScale * unit;
             for (var i = 0; i < counterparts.Count; i++)

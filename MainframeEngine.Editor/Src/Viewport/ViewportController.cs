@@ -671,7 +671,7 @@ public sealed partial class ViewportController : Node
         RefreshIcons(scene);
         var size = ViewPixels;
         Node? best = null;
-        var bestDistance = IconPixels * ViewScale;
+        var bestDistance = (IconPoints * 0.5f + 2f) * ViewScale;
         foreach (var node in _iconNodes)
         {
             if (!scene.Camera.Project(node.GlobalPosition, size.X, size.Y, out var at) || scene.SelectableFor(node) is not { } selectable ||
@@ -765,12 +765,19 @@ public sealed partial class ViewportController : Node
         // Icons and selection crosses are sized in display pixels, whatever the view's resolution (ViewScale).
         var displayHeight = pixels.Y * _workspace.Host.PixelScale / ViewScale;
 
+        if (_grid is { IsFreed: false } grid)
+            grid.LineScale = ViewScale;
+        EnsureIconAtlas();
+        var icons = scene.Viewport.OverlayGizmos;
+        icons.Atlas = _iconAtlas;
+        icons.SetCamera(camera.Position, camera.Forward, camera.Up, orthographic: false);
+        scene.Viewport.Gizmos.SetCamera(camera.Position, camera.Forward, camera.Up, orthographic: false);
         for (var i = 0; i < _iconNodes.Count; i++)
         {
             var node = _iconNodes[i];
             if (!node.IsInsideTree)
                 continue;
-            DrawIcon(lines, camera, displayHeight, node, scene.Selection.Contains(node));
+            DrawIcon(scene, lines, pixels, node, scene.Selection.Contains(node));
         }
 
         for (var i = 0; i < _paths.Count; i++)
@@ -789,7 +796,7 @@ public sealed partial class ViewportController : Node
                     DrawJoint(overlay, joint);
             }
 
-        DrawGizmo3D(scene, overlay, pixels, displayHeight);
+        DrawGizmo3D(scene, pixels, displayHeight);
         DrawHandles(scene, overlay, pixels);
     }
 
@@ -849,63 +856,6 @@ public sealed partial class ViewportController : Node
         lines.AddLine(p - Vector3.UnitZ * r, p + Vector3.UnitZ * r, SelectionColor);
     }
 
-    private static void DrawIcon(DebugLines lines, EditorCamera camera, float viewHeight, Node3D node, bool selected)
-    {
-        var p = node.GlobalPosition;
-        var unit = camera.WorldPerPixel(p, viewHeight);
-        var r = unit * IconPixels * 0.5f;
-        var right = camera.Right;
-        var up = camera.Up;
-        var forward = node.GlobalForward;
-        switch (node)
-        {
-            case DirectionalLight3D:
-                Circle(lines, p, right, up, r, LightColor);
-                lines.AddLine(p, p + forward * unit * 60f, LightColor);
-                break;
-            case OmniLight3D omni:
-                Circle(lines, p, right, up, r, LightColor);
-                for (var i = 0; i < 8; i++)
-                {
-                    var a = i * MathF.Tau / 8f;
-                    var d = right * MathF.Cos(a) + up * MathF.Sin(a);
-                    lines.AddLine(p + d * r * 1.3f, p + d * r * 1.9f, LightColor);
-                }
-
-                if (selected)
-                    lines.AddSphere(new Transform3D(Basis.Identity, p), omni.Range, LightColor with { W = 0.35f });
-                break;
-            case SpotLight3D spot:
-                Circle(lines, p, right, up, r, LightColor);
-                var length = selected ? spot.Range : unit * 60f;
-                var radius = MathF.Tan(float.DegreesToRadians(Math.Clamp(spot.OuterConeAngle, 1f, 89f))) * length;
-                var (u, v) = TransformGizmo.Perpendiculars(forward);
-                var end = p + forward * length;
-                for (var i = 0; i < 4; i++)
-                {
-                    var a = i * MathF.Tau / 4f;
-                    lines.AddLine(p, end + (u * MathF.Cos(a) + v * MathF.Sin(a)) * radius, LightColor);
-                }
-
-                Circle(lines, end, u, v, radius, LightColor);
-                break;
-            case Camera3D cam:
-                DrawCamera(lines, cam, unit, selected);
-                break;
-            case Marker3D marker:
-                DrawMarker3D(lines, marker, selected);
-                break;
-            case AudioPlayer3D audio:
-                Diamond(lines, p, right, up, r, AudioColor);
-                if (selected && audio.MaxDistance > 0)
-                    lines.AddSphere(new Transform3D(Basis.Identity, p), audio.MaxDistance, AudioColor with { W = 0.35f });
-                break;
-            default:
-                Diamond(lines, p, right, up, r, NodeColor);
-                break;
-        }
-    }
-
     // Godot's Marker3D gizmo: the local axes in their colours, GizmoExtents along each side of the node.
     private static void DrawMarker3D(DebugLines lines, Marker3D marker, bool selected)
     {
@@ -918,60 +868,10 @@ public sealed partial class ViewportController : Node
         lines.AddLine(p - global.Basis.Z * e, p + global.Basis.Z * e, new Vector4(0.16f, 0.55f, 0.96f, alpha));
     }
 
-    private static void DrawCamera(DebugLines lines, Camera3D camera, float unit, bool selected)
-    {
-        var global = camera.GlobalTransform;
-        var p = global.Origin;
-        var forward = -Vector3.Normalize(global.Basis.Z);
-        var right = Vector3.Normalize(global.Basis.X);
-        var up = Vector3.Normalize(global.Basis.Y);
-        var depth = selected ? MathF.Min(camera.Far, 6f) : unit * 40f;
-        var halfHeight = MathF.Tan(float.DegreesToRadians(camera.Fov) * 0.5f) * depth;
-        var halfWidth = halfHeight * 16f / 9f;
-        var center = p + forward * depth;
-        Span<Vector3> corners =
-        [
-            center + right * halfWidth + up * halfHeight,
-            center - right * halfWidth + up * halfHeight,
-            center - right * halfWidth - up * halfHeight,
-            center + right * halfWidth - up * halfHeight,
-        ];
-        for (var i = 0; i < 4; i++)
-        {
-            lines.AddLine(p, corners[i], CameraColor);
-            lines.AddLine(corners[i], corners[(i + 1) % 4], CameraColor);
-        }
-
-        // "Up" marker triangle.
-        var top = center + up * halfHeight * 1.35f;
-        lines.AddLine(corners[0], top, CameraColor);
-        lines.AddLine(top, corners[1], CameraColor);
-    }
-
-    private static void Circle(DebugLines lines, Vector3 center, Vector3 u, Vector3 v, float radius, Vector4 color)
-    {
-        const int segments = 16;
-        var previous = center + u * radius;
-        for (var i = 1; i <= segments; i++)
-        {
-            var a = i * MathF.Tau / segments;
-            var point = center + (u * MathF.Cos(a) + v * MathF.Sin(a)) * radius;
-            lines.AddLine(previous, point, color);
-            previous = point;
-        }
-    }
-
-    private static void Diamond(DebugLines lines, Vector3 p, Vector3 right, Vector3 up, float r, Vector4 color)
-    {
-        lines.AddLine(p + up * r, p + right * r, color);
-        lines.AddLine(p + right * r, p - up * r, color);
-        lines.AddLine(p - up * r, p - right * r, color);
-        lines.AddLine(p - right * r, p + up * r, color);
-    }
-
     protected override void OnExitTree()
     {
         CancelDrag();
+        _iconAtlas?.Dispose(); // the GPU copy; uploaded again if the view comes back
         base.OnExitTree();
     }
 }

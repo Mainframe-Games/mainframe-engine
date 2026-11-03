@@ -79,7 +79,21 @@ public sealed class HeadlessEditor : IDisposable
     public void Tick(int frames = 1)
     {
         for (var i = 0; i < frames; i++)
+        {
+            // No renderer here: drop the last frame's debug lines and gizmos as the render server does after drawing them
+            // (before the next frame, so a test can still inspect what the last one drew), so they do not pile up.
+            var scenes = Workspace.Session.Scenes;
+            for (var k = 0; k < scenes.Count; k++)
+            {
+                var viewport = scenes[k].Viewport;
+                viewport.DebugLines.Clear();
+                viewport.OverlayLines.Clear();
+                viewport.Gizmos.Clear();
+                viewport.OverlayGizmos.Clear();
+            }
+
             Tree.Tick(new GameTime { DeltaTime = 1f / 60f });
+        }
     }
 
     public void Key(Key key, params Key[] modifiers)

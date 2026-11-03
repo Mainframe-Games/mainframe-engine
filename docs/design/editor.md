@@ -91,7 +91,7 @@ flowchart TB
 - **One world per tab**: each open scene lives under its own `SubViewport` (its own `World3D`: lights, sky, physics
   space). Only the active tab renders. A 3D tab's tonemapped colour target (`SubViewport.ColorTarget`), or a 2D tab's
   canvas target (a `Disable3D` sub-viewport drawn by the canvas renderer with the editor camera as its canvas transform
-  and the grid, markers and gizmo as debug lines on top, ADR 0126/0127), is published to the UI as
+  and the grid, markers and gizmo as debug lines and gizmo shapes on top, ADR 0126/0127), is published to the UI as
   `engine://editor-viewport` and shown by an `<img>` in the viewport panel; the view's pixel size follows the panel.
 - **The editor camera** is `SceneViewport.CameraOverride` — the scene's own `Camera3D`s and their `Current` flags are
   never touched.
@@ -409,11 +409,15 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
 | F / 1 / 3 / 7 | frame the selection / front / right / top |
 
 - **Gizmos** (`TransformGizmo`): constant on-screen size (points × pixel scale), hit-tested by screen distance to the
-  projected axes or rings, dragged by intersecting the mouse ray with the axis line (or the view plane), rotation from the
-  accumulated screen angle around the pivot; local or global axes (scale is always local). Drawn into the view's
-  `OverlayLines` (no depth test) with highlighted hover/active handles.
-- **Editor-only visuals** (never saved): `Grid3D`, orange selection boxes (mesh bounds) or crosses, sun/omni/spot icons
-  with direction, cone and (selected) range, camera frusta, audio markers and range spheres, collision shapes and joints
+  drawn shafts, heads and rings, dragged by intersecting the mouse ray with the axis line (or the view plane), rotation
+  from the accumulated screen angle around the pivot; local or global axes (scale is always local). Drawn into the view's
+  `OverlayGizmos` (no depth test): 3-point anti-aliased shafts and rings, solid shaded cones and cubes, a centre disc,
+  rings with faded far halves and a sector showing the turn while dragging; hovered handles wider and lighter, the
+  dragged one yellow with the others faded ([Gizmos](gizmos.md)).
+- **Editor-only visuals** (never saved): `Grid3D` (the analytic style: anti-aliased minor and major lines that follow the
+  zoom, [Scene grid](scene-grid.md#analytic-style)), orange selection boxes (mesh bounds) or crosses, scene icons for
+  lights, cameras and audio nodes (SVG badges ringed in the light's colour, on top) with each light's direction, cone and
+  (selected) range, camera frusta and audio range spheres as anti-aliased lines ([Gizmos → Scene icons](gizmos.md#scene-icons)), collision shapes and joints
   (physics debug draw; edit-mode joints are grey at their nodes). The **selected joint** (ADR 0211) is drawn on top in
   the selection colour (`Joint3D/Joint2D.DrawDebug`: axis, limits, current angle or position) with a line to each body
   its paths name, or a red marker for a path that names none ([Physics joints](physics-joints.md#debug-draw-and-editor)).
@@ -447,7 +451,7 @@ nodes, duplicates, instanced scenes), `RemoveNodeAction`, `ReparentAction`, `Ren
 Scenes whose root is a `Node2D` open in an **orthographic view of the z = 0 plane** in pixels (y down, as in Godot; seen from −Z); View › 2D View /
 3D View switches any tab ([0101](../../memory/decisions/0101-editor-polish-e5.md)). Middle or right drag (or Alt+left)
 pans, the wheel zooms around the mouse, F frames the selection. A pixel grid (power-of-two steps at least 16 screen
-pixels apart, every 8th brighter, coloured axes), Node2D markers, collision shape outlines and Camera2D frames are
+pixels apart, every 8th brighter, coloured axes; anti-aliased gizmo lines 1, 1.5 and 2 points wide), Node2D markers, collision shape outlines and Camera2D frames are
 drawn. Picking is on the CPU (rectangle and circle shapes, then node origins, then painted cells of `TileMapLayer`s,
 then the drawn rects of `Sprite2D`s and `AnimatedSprite2D`s; later nodes are on top).
 **Tile maps** (G2b, ADR 0226): while the selection is a `TileMapLayer` with a `TileSet`, a paint bar overlays the top of
@@ -456,7 +460,8 @@ grid), the left button paints and the right button erases with the tool (one und
 brush follows the mouse, Godot's tile keys win over E/R only while a paint tool is active, and the contextual
 **TileMap** (palette) and **TileSet** (sources, tiles, tile data, collision) bottom tabs appear: [Tile maps →
 Editor](tile-maps.md#editor).
-`TransformGizmo2D` (axis arrows and a free-move square, a rotation ring, scale handles) shares the tool, space and snap
+`TransformGizmo2D` (3-point axis shafts with solid arrow heads and a free-move square, a rotation ring, scale handles
+with solid squares; drawn into `OverlayGizmos`) shares the tool, space and snap
 settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. 2D tabs render through
 the canvas renderer (sprites, Spine, custom drawing, shaders) with the editor's shapes, markers and camera frames on top.
 
@@ -1238,7 +1243,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 | Change | Where |
 |---|---|
 | `SceneTree.EditMode`, `Node.IsTool` | [Scene graph & nodes](scene-graph-and-nodes.md) |
-| `SceneViewport.CameraOverride`, `SceneViewport.OverlayLines`, `SubViewport.ColorTarget` | [Scene graph & nodes](scene-graph-and-nodes.md), [Materials & meshes](materials-and-meshes.md#offscreen-views-subviewport) |
+| `SceneViewport.CameraOverride`, `SceneViewport.OverlayLines`, `SceneViewport.Gizmos`/`OverlayGizmos` ([Gizmos](gizmos.md)), `SubViewport.ColorTarget` | [Scene graph & nodes](scene-graph-and-nodes.md), [Materials & meshes](materials-and-meshes.md#offscreen-views-subviewport) |
 | `SubViewport.Shadows` (a view of another world may own the shadow maps when the main world has nothing to shadow) | `Scene/SubViewport.cs`, `Servers/RenderServer.cs` |
 | `SubViewport.PostProcessing`, `AntiAliasing`, `TaaSharpness` (ADR 0169: the view's own post stack; debug visuals after it) | [Post-processing → Sub-viewports](post-processing.md#sub-viewports) |
 | `SceneSaver` save hooks skip unowned (runtime) nodes, so a `[Tool]` node's generated terrain is never written | [Scene serialization](scene-serialization.md#saving) |

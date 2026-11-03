@@ -40,6 +40,7 @@ public sealed class RenderServer : IServer
     private SubViewport? _shadowView;      // the sub-viewport that owns the shadow maps this frame (see SubViewport.Shadows)
     private ulong _shadowViewRenderedFrame = ulong.MaxValue; // frame number its shadow maps were recorded in
     private DebugLinesRenderer? _debugLines;
+    private GizmoRenderer? _gizmos;
     private ScreenGizmosRenderer? _screenGizmosRenderer;
     private MeshRenderer? _meshes;
     private ParticleRenderer? _particles;
@@ -472,8 +473,7 @@ public sealed class RenderServer : IServer
             }
 
             // Immediate mode, as in RenderMain: the frame's lines are consumed, or dropped when the view did not render.
-            sub.DebugLines.Clear();
-            sub.OverlayLines.Clear();
+            sub.ClearDebugVisuals();
         }
 
         vk.Frame.SetView(0, default);
@@ -643,7 +643,7 @@ public sealed class RenderServer : IServer
     private int DrawAfterPost(IVulkanContext vk, CommandBuffer cb, SubViewport sub, SubViewportPost post, ICamera camera, int overlayView)
     {
         var world = sub.World3D;
-        var any = sub.DebugLines.LineCount > 0 || sub.OverlayLines.LineCount > 0;
+        var any = sub.HasDebugVisuals;
         if (!any)
         {
             foreach (var visual in world.VisualList)
@@ -675,14 +675,14 @@ public sealed class RenderServer : IServer
         foreach (var visual in world.VisualList)
             if (visual.DrawsAfterPost && visual.IsVisibleInTree())
                 visual.DrawAfterPost(camera, pass);
-        if (sub.DebugLines.LineCount > 0 || sub.OverlayLines.LineCount > 0)
-        {
-            _debugLines ??= new DebugLinesRenderer(vk);
-            if (sub.DebugLines.LineCount > 0)
-                _debugLines.DrawAfterPost(sub.DebugLines, camera, pass, overlay: false);
-            if (sub.OverlayLines.LineCount > 0)
-                _debugLines.DrawAfterPost(sub.OverlayLines, camera, pass, overlay: true);
-        }
+        if (sub.DebugLines.LineCount > 0)
+            (_debugLines ??= new DebugLinesRenderer(vk)).DrawAfterPost(sub.DebugLines, camera, pass, overlay: false);
+        if (sub.Gizmos.VertexCount > 0)
+            (_gizmos ??= new GizmoRenderer(vk)).DrawAfterPost(sub.Gizmos, camera, pass, overlay: false);
+        if (sub.OverlayLines.LineCount > 0)
+            (_debugLines ??= new DebugLinesRenderer(vk)).DrawAfterPost(sub.OverlayLines, camera, pass, overlay: true);
+        if (sub.OverlayGizmos.VertexCount > 0)
+            (_gizmos ??= new GizmoRenderer(vk)).DrawAfterPost(sub.OverlayGizmos, camera, pass, overlay: true);
 
         post.EndOverlay(cb);
         return used;
@@ -873,8 +873,7 @@ public sealed class RenderServer : IServer
         finally
         {
             // Immediate mode: the frame's lines are consumed, or dropped when nothing could be drawn.
-            viewport.DebugLines.Clear();
-            viewport.OverlayLines.Clear();
+            viewport.ClearDebugVisuals();
         }
     }
 
@@ -931,16 +930,19 @@ public sealed class RenderServer : IServer
             new Vector4(origin.Y + macro.HeightMin, macro.HeightStep, macro.Resolution, 1f));
     }
 
-    // The viewport's debug lines (depth-tested), then its overlay lines (always on top).
+    // The viewport's debug lines and gizmos (depth-tested), then its overlay lines and gizmos (always on top).
     private void DrawLines(IVulkanContext vk, SceneViewport viewport, ICamera camera)
     {
-        if (viewport.DebugLines.LineCount == 0 && viewport.OverlayLines.LineCount == 0)
+        if (!viewport.HasDebugVisuals)
             return;
-        _debugLines ??= new DebugLinesRenderer(vk);
         if (viewport.DebugLines.LineCount > 0)
-            _debugLines.Draw(viewport.DebugLines, camera);
+            (_debugLines ??= new DebugLinesRenderer(vk)).Draw(viewport.DebugLines, camera);
+        if (viewport.Gizmos.VertexCount > 0)
+            (_gizmos ??= new GizmoRenderer(vk)).Draw(viewport.Gizmos, camera, overlay: false);
         if (viewport.OverlayLines.LineCount > 0)
-            _debugLines.Draw(viewport.OverlayLines, camera, overlay: true);
+            (_debugLines ??= new DebugLinesRenderer(vk)).Draw(viewport.OverlayLines, camera, overlay: true);
+        if (viewport.OverlayGizmos.VertexCount > 0)
+            (_gizmos ??= new GizmoRenderer(vk)).Draw(viewport.OverlayGizmos, camera, overlay: true);
     }
 
     // afterPost: a post-processed sub-viewport, whose debug visuals (DrawsAfterPost) draw after its effects instead.
@@ -1158,6 +1160,8 @@ public sealed class RenderServer : IServer
         _owners.Clear();
         _debugLines?.Dispose();
         _debugLines = null;
+        _gizmos?.Dispose();
+        _gizmos = null;
         _screenGizmosRenderer?.Dispose();
         _screenGizmosRenderer = null;
         foreach (var sub in _subViewportsWithTargets)

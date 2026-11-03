@@ -124,7 +124,8 @@ builds both kinds.
 ## Debug lines
 
 A 2D sub-viewport (`Disable3D`) and, since G3a, a root viewport without a 3D camera (a 2D game) hand their `DebugLines`
-and `OverlayLines` to the canvas: `CanvasServer` appends them (z ignored, through the stretch and canvas transforms) after
+and `OverlayLines` (and gizmo lists, `Gizmos`/`OverlayGizmos`: lines expanded to their width on the CPU, [Gizmos](gizmos.md))
+to the canvas: `CanvasServer` appends them (z ignored, through the stretch and canvas transforms) after
 the viewport's canvas items and clears them, so collision shapes and navigation draw over the sprites. Views with a 3D
 camera keep drawing them in the 3D scene pass ([Navigation](navigation.md)).
 

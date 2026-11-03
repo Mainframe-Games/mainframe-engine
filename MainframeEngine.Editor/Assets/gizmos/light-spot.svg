@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Mainframe editor scene icon: a dark badge with a white glyph (Tabler Icons, MIT, Paweł Kuna; redrawn filled).
+       The viewport draws the coloured ring around it (the light's colour, or the selection colour). -->
+  <circle cx="32" cy="32" r="30" fill="#14171d" fill-opacity="0.9"/>
+  <g transform="translate(12 12) scale(1.6667)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 11h14l-4 -7h-6l-4 7" fill="#ffffff"/>
+    <path d="M8 15l-1.5 3m5.5 -3v4m4 -4l1.5 3"/>
+  </g>
+</svg>

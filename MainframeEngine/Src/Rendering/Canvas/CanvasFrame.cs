@@ -362,6 +362,88 @@ public sealed class CanvasFrame
         });
     }
 
+    /// <summary>
+    /// A <see cref="GizmoDrawList"/> (world positions; z ignored) as one unshaded triangle batch in target pixels, through
+    /// <paramref name="transform"/>: triangles as they are, lines expanded here to their width in pixels with a 1-pixel
+    /// faded edge and square caps (the 3D views expand them on the GPU). Icons are not drawn in 2D.
+    /// </summary>
+    internal void AppendGizmos(ReadOnlySpan<GizmoVertex> vertices, in Transform2D transform)
+    {
+        if (vertices.Length < 3)
+            return;
+        var firstIndex = IndexCount;
+        var i = 0;
+        while (i + 2 < vertices.Length)
+        {
+            var v = vertices[i];
+            if (v.Line.Y <= 0f)
+            {
+                EnsureVertices(VertexCount + 3);
+                EnsureIndices(IndexCount + 3);
+                for (var k = 0; k < 3; k++)
+                {
+                    var p = vertices[i + k].Position;
+                    _indices[IndexCount++] = (uint)VertexCount;
+                    _vertices[VertexCount++] = new CanvasVertex { Position = transform.TransformPoint(new Vector2(p.X, p.Y)), Color = vertices[i + k].Color };
+                }
+
+                i += 3;
+                continue;
+            }
+
+            // A segment: six vertices, the first at its start with the end as its other point.
+            var a = transform.TransformPoint(new Vector2(v.Position.X, v.Position.Y));
+            var b = transform.TransformPoint(new Vector2(v.Other.X, v.Other.Y));
+            i += 6;
+            var delta = b - a;
+            var length = delta.Length();
+            if (length < 1e-4f)
+                continue;
+            var dir = delta / length;
+            var half = v.Line.Y * 0.5f;
+            a -= dir * half;
+            b += dir * half;
+            var normal = new Vector2(-dir.Y, dir.X);
+            var inner = normal * MathF.Max(half - 0.5f, 0f);
+            var outer = normal * (half + 0.5f);
+            var color = v.Color;
+            var clear = color with { W = 0f };
+            GizmoQuad(a + inner, b + inner, b - inner, a - inner, color, color);
+            GizmoQuad(a + outer, b + outer, b + inner, a + inner, clear, color);
+            GizmoQuad(a - inner, b - inner, b - outer, a - outer, color, clear);
+        }
+
+        if (IndexCount == firstIndex)
+            return;
+        _batches.Add(new CanvasBatch
+        {
+            FirstIndex = firstIndex,
+            IndexCount = IndexCount - firstIndex,
+            Sampler = CanvasSampler.LinearClamp,
+            Primitive = CanvasPrimitive.Triangles,
+            Material = LinesMaterial,
+            Blend = CanvasBlendMode.Mix,
+            CanvasModulate = Vector4.One,
+            Model = Transform2D.Identity,
+            CanvasTransform = Transform2D.Identity,
+        });
+    }
+
+    // Corners a, b (first edge, colour first) and c, d (second edge, colour second).
+    private void GizmoQuad(Vector2 a, Vector2 b, Vector2 c, Vector2 d, Vector4 first, Vector4 second)
+    {
+        EnsureVertices(VertexCount + 4);
+        EnsureIndices(IndexCount + 6);
+        var baseVertex = (uint)VertexCount;
+        _vertices[VertexCount++] = new CanvasVertex { Position = a, Color = first };
+        _vertices[VertexCount++] = new CanvasVertex { Position = b, Color = first };
+        _vertices[VertexCount++] = new CanvasVertex { Position = c, Color = second };
+        _vertices[VertexCount++] = new CanvasVertex { Position = d, Color = second };
+        ReadOnlySpan<uint> quad = [0, 1, 2, 2, 3, 0];
+        foreach (var k in quad)
+            _indices[IndexCount++] = baseVertex + k;
+    }
+
     private static readonly CanvasItemMaterial LinesMaterial = new() { LightMode = CanvasLightMode.Unshaded };
 
     /// <summary>The sampler for a resolved filter and repeat (ParentNode resolves to linear / disabled).</summary>

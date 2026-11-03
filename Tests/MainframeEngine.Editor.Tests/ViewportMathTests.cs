@@ -191,19 +191,52 @@ public sealed class TransformGizmoTests
     }
 
     [Fact]
-    public void DrawingAddsLinesToTheBatch()
+    public void DrawingAddsShapesToTheList()
     {
-        var lines = new DebugLines();
+        var list = new GizmoDrawList();
         foreach (var mode in new[] { GizmoMode.Translate, GizmoMode.Rotate, GizmoMode.Scale })
         {
-            lines.Clear();
-            new TransformGizmo { Mode = mode }.Draw(lines, _camera, View, Vector3.Zero, Quaternion.Identity);
-            Assert.True(lines.LineCount > 3, mode.ToString());
+            list.Clear();
+            new TransformGizmo { Mode = mode }.Draw(list, _camera, View, Vector3.Zero, Quaternion.Identity);
+            Assert.True(list.VertexCount > 6 * 3, mode.ToString());
         }
 
-        lines.Clear();
-        new TransformGizmo { Mode = GizmoMode.Select }.Draw(lines, _camera, View, Vector3.Zero, Quaternion.Identity);
-        Assert.Equal(0, lines.LineCount);
+        list.Clear();
+        new TransformGizmo { Mode = GizmoMode.Select }.Draw(list, _camera, View, Vector3.Zero, Quaternion.Identity);
+        Assert.Equal(0, list.VertexCount);
+    }
+
+    [Fact]
+    public void HitAreasMatchTheDrawnHeadsAndWidths()
+    {
+        var gizmo = new TransformGizmo { Mode = GizmoMode.Translate };
+        // The cone's middle (beyond the old 1-pixel shaft's grab distance from its tip line, inside the drawn head).
+        var center = Pixel(Vector3.Zero);
+        var coneMiddle = Pixel(Vector3.UnitX * Length * (1f - TransformGizmo.ConeHeight * 0.4f));
+        Assert.Equal(GizmoHandle.X, gizmo.HitTest(_camera, View, Vector3.Zero, Quaternion.Identity, coneMiddle));
+
+        // A shaft grabs up to half its hovered width plus GrabMargin away, scaled by PixelScale.
+        var shaft = Pixel(Vector3.UnitY * Length * 0.6f);
+        var across = Vector2.Normalize(new Vector2(-(shaft - center).Y, (shaft - center).X));
+        var reach = TransformGizmo.HoverLineWidth * 0.5f + TransformGizmo.GrabMargin;
+        Assert.Equal(GizmoHandle.Y, gizmo.HitTest(_camera, View, Vector3.Zero, Quaternion.Identity, shaft + across * (reach - 1f)));
+        Assert.Equal(GizmoHandle.None, gizmo.HitTest(_camera, View, Vector3.Zero, Quaternion.Identity, shaft + across * (reach + 1.5f)));
+        gizmo.PixelScale = 2f;
+        var length2 = Length * 2f;
+        var shaft2 = Pixel(Vector3.UnitY * length2 * 0.6f);
+        Assert.Equal(GizmoHandle.Y, gizmo.HitTest(_camera, View, Vector3.Zero, Quaternion.Identity, shaft2 + across * (2f * reach - 2f)));
+    }
+
+    [Fact]
+    public void RingsAreGrabbedOnTheirNearAndFarHalves()
+    {
+        var gizmo = new TransformGizmo { Mode = GizmoMode.Rotate };
+        // The X ring (in the YZ plane) at its point nearest the camera, and at the point farthest away: both are grabbed;
+        // the near one is drawn over the others there, so it wins where it crosses them.
+        var toCamera = Vector3.Normalize(_camera.Position);
+        var near = Vector3.Normalize(toCamera with { X = 0 }) * Length;
+        Assert.Equal(GizmoHandle.X, gizmo.HitTest(_camera, View, Vector3.Zero, Quaternion.Identity, Pixel(near)));
+        Assert.Equal(GizmoHandle.X, gizmo.HitTest(_camera, View, Vector3.Zero, Quaternion.Identity, Pixel(-near)));
     }
 
     [Fact]

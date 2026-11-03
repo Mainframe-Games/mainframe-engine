@@ -526,15 +526,16 @@ writes opaque images). The editor's scene view is the user ([Editor → Viewport
   `FrameContext.PostView` = the view, so SSAO and contact shadows bind for it), the view's camera and lights, the prepass
   and `AfterPrepass`, the scene pass (loading the prepass depth), the object-ID pass, then `BeforeTonemap`, the tonemap
   and `AfterTonemap`. `PostEffectContext.JitterIndex` and `LightShaftsSun` are the view's.
-- **Debug visuals after post.** In a post-processed view `Grid3D` (`VisualInstance3D.DrawsAfterPost`), `DebugLines` and
-  `OverlayLines` are not drawn in the scene pass: an overlay pass (`SubViewportPost.OverlayRenderPass`: the LDR image
+- **Debug visuals after post.** In a post-processed view `Grid3D` (`VisualInstance3D.DrawsAfterPost`), `DebugLines`,
+  `OverlayLines` and the gizmo lists (`Gizmos`, `OverlayGizmos`: [Gizmos](gizmos.md)) are not drawn in the scene pass: an overlay pass (`SubViewportPost.OverlayRenderPass`: the LDR image
   loaded, the scene depth read-only) draws them after the effects with pipeline variants whose fragment shaders write
   display values (specialization constant 0 of `SceneGrid` and `DebugLines`; the alpha is raised towards its sRGB
   encoding, which approximates the HDR pass's linear blend). Neither graded, blurred nor smeared. They use the camera
   unjittered, written into the next view slot, so TAA does not shimmer them. The scene depth they test is jittered by up
   to half a pixel, so a line lying on a surface (a selection wireframe, the grid on a floor) would pass and fail from
   frame to frame: the after-post variants write `afterPostLineDepth` (`include/frame.slang`, `SV_DepthLessEqual`), the
-  line pulled towards the camera by 4 pixels' footprint, which covers surfaces seen at down to about 7°. Lines along a
+  line pulled towards the camera by 4 pixels' footprint, which covers surfaces seen at down to about 7°. Debug lines pull
+  themselves 8 pixels' footprint in both passes (about 4°; [Gizmos → Debug lines on surfaces](gizmos.md#debug-lines-on-surfaces)). Lines along a
   silhouette can still flicker (the jitter moves the edge itself). Picking uses the view's jittered set, like the main
   view's.
 - **Resize and lifetime.** A view's post state has a fixed size: a resized view gets a new `SubViewportPost` and the old

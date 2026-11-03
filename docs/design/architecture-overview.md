@@ -46,7 +46,7 @@ RmlUi game UI, physics, audio, replication, localization and an RmlUi developer 
 | `Rendering/Spine/` | `SpineRenderer`, `SpineTextureLoader` | [Spine](spine.md) |
 | `Rendering/SceneGrid/` | `SceneGrid`, `SceneGrid2d`, `SceneGrid3d` | [Scene grid](scene-grid.md) |
 | `Rendering/Camera/` | `ICamera`, `PerspectiveCamera`, `OrthographicCamera` (math; the nodes wrap them) | [Cameras & input](cameras-and-input.md) |
-| `Rendering/Gizmos/`, `Debugging/DevOverlay/` | `ScreenGizmoBatch`, `LightGizmos`, `AxisGizmo`, `DevOverlay` | [Developer overlay](dev-overlay.md) |
+| `Rendering/Gizmos/`, `Debugging/DevOverlay/` | `GizmoDrawList`, `GizmoIconAtlas`; `ScreenGizmoBatch`, `LightGizmos`, `AxisGizmo`, `DevOverlay` | [Gizmos](gizmos.md), [Developer overlay](dev-overlay.md) |
 | `Debugging/`, `Utils/` | `Log` and its sinks | [Project & GameHost](project-and-gamehost.md#log-routing) |
 | `Lighting/` | `LightEnvironment`, `Light` + Directional/Point/Spot | [Lighting](lighting.md) |
 | `Networking/` | `MultiplayerApi` (replication, RPCs), messages, transports (ENet, loopback, simulated), `PeerId`, `NetBuffer*` | [Networking](networking.md) |

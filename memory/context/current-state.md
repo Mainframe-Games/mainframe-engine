@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-04 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/editor-loading` (editor loading window, async scene opens, ADR 0238)._
+`main`; latest release v1.1.5. In review: `feature/editor-gizmo-quality` (thick anti-aliased gizmos, SVG scene icons, analytic grid)._
 
 ## What exists
 
@@ -17,7 +17,8 @@ _Last updated: 2026-11-04 — M0–M10, Demo & polish, most of the 2D port work 
 - **Editor** (`MainframeEngine.Editor`, M10, UI in RmlUi): Project Manager, New Project wizard, project settings,
   FileSystem panel, scene tabs (one `SubViewport` world each), scene tree, generated inspector (multi-select, Signals
   tab, custom inspectors), undo/redo, 3D/2D viewport + gizmos, Play (separate process over the editor link), code
-  reload, Tabler icon atlas, editor settings. macOS app name "Mainframe Editor" via a dev `.app` bundle (#118).
+  reload, Tabler icon atlas, editor settings, a loading window for projects and scenes (ADR 0238). macOS app name
+  "Mainframe Editor" via a dev `.app` bundle (#118).
 - **Since M10** (details in `progress-log.md`): 2D canvas renderer, `Camera2D`, canvas text, canvas shaders, SVG
   (ThorVG), 2D lights and canvas post, `Tween`, `GpuParticles2D`, `Polygon2D`/`Skeleton2D`, 2D joints (ADR 0201),
   `SceneTree.TimeScale`; headless host, game packaging + signing, NuGet packages (ADR 0188); saves and settings (G4);
@@ -31,8 +32,7 @@ _Last updated: 2026-11-04 — M0–M10, Demo & polish, most of the 2D port work 
   Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
   (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
-  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux
-  launcher.
+  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)).
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
 - **Solution** `MainframeEngine.slnx` (no `.sln`). Everything local goes through `just` (see AGENTS.md).

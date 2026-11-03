@@ -130,7 +130,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `MainframeEngine.Steamworks/` — the only code that touches Facepunch.Steamworks: `Src/` built twice under one assembly
   name (`Win64/`, `Posix/`, against Facepunch's two builds), copied to `<output>/steamworks/{win64,posix}/`
 - `MainframeEngine/Src/Rendering/` — Vulkan renderer, meshes/materials/textures, camera math, sky, shadows, scene grids,
-  Spine renderer, `DebugLines`, `Gizmos/` (`ScreenGizmos`: light + axis gizmos), `Post/` (ADR 0163: `PostEffect` stages and
+  Spine renderer, `DebugLines`, `Gizmos/` (`GizmoDrawList`: the editor's pixel-wide anti-aliased lines, shaded solids and
+  SVG icons, `docs/design/gizmos.md`; `ScreenGizmos`: light + axis gizmos), `Post/` (ADR 0163: `PostEffect` stages and
   stack, the depth prepass and motion vectors, auto exposure, glow, light shafts, FXAA; `docs/design/post-processing.md`)
 - `MainframeEngine/Src/UI/` — game UI (M8): `Rml/` managed RmlUi binding over the `mfrmlui` C ABI, `Rendering/`
   `VulkanUiRenderer`, `UiServer`/`UiLayer`/`UiDocument`/`UiElement`; widget library and fonts in `Assets/UI/`

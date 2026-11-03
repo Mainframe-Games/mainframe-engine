@@ -135,6 +135,29 @@ public class SceneViewport : Node
     public DebugLines OverlayLines { get; } = new();
 
     /// <summary>
+    /// Editor gizmo shapes (pixel-wide anti-aliased lines, shaded solids, icons) drawn after the debug lines, depth-tested
+    /// against the scene. Cleared every frame.
+    /// </summary>
+    public GizmoDrawList Gizmos { get; } = new();
+
+    /// <summary>
+    /// Like <see cref="Gizmos"/> but drawn last, without depth testing (the transform gizmo, scene icons). Cleared every
+    /// frame.
+    /// </summary>
+    public GizmoDrawList OverlayGizmos { get; } = new();
+
+    internal bool HasDebugVisuals => DebugLines.LineCount > 0 || OverlayLines.LineCount > 0 || Gizmos.VertexCount > 0
+        || OverlayGizmos.VertexCount > 0;
+
+    internal void ClearDebugVisuals()
+    {
+        DebugLines.Clear();
+        OverlayLines.Clear();
+        Gizmos.Clear();
+        OverlayGizmos.Clear();
+    }
+
+    /// <summary>
     /// A camera that renders this viewport instead of <see cref="ActiveCamera3D"/> (tools: the editor's own camera,
     /// which must not touch the scene's cameras or their <c>Current</c> flags). A <see cref="PerspectiveCamera"/>
     /// gets the view's aspect ratio each frame. Null (default) uses the scene's cameras.
