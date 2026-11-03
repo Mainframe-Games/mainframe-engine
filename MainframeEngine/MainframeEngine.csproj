@@ -83,10 +83,13 @@
       deps.json: both go to steamworks/{win64,posix}/ with their Facepunch assembly, where SteamworksLoader picks this
       OS's at run time. A build with an explicit RID copies only that platform's. PrivateAssets: the package carries the
       files itself (mainframe/steamworks/, see "Package contents"), not as package dependencies.
+      UndefineProperties: a global OutDir/OutputPath (BenchmarkDotNet's per-job build passes both, as does "dotnet build
+      -o") would send both shim builds, one assembly name, into one folder, away from the paths below. Without them the
+      shims land in their own bin/ or artifacts folder whatever the caller sets.
     -->
     <ItemGroup>
-      <ProjectReference Include="..\MainframeEngine.Steamworks\Posix\MainframeEngine.Steamworks.Posix.csproj" Private="false" PrivateAssets="all" />
-      <ProjectReference Include="..\MainframeEngine.Steamworks\Win64\MainframeEngine.Steamworks.Win64.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+      <ProjectReference Include="..\MainframeEngine.Steamworks\Posix\MainframeEngine.Steamworks.Posix.csproj" Private="false" PrivateAssets="all" UndefineProperties="OutDir;OutputPath" />
+      <ProjectReference Include="..\MainframeEngine.Steamworks\Win64\MainframeEngine.Steamworks.Win64.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" UndefineProperties="OutDir;OutputPath" />
     </ItemGroup>
     <PropertyGroup>
       <_MainframeSteamworksDir>$(MSBuildThisFileDirectory)..\MainframeEngine.Steamworks\</_MainframeSteamworksDir>
