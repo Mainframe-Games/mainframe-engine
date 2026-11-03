@@ -23,7 +23,7 @@ just neon-test                              # Neon.Tests: interactables, a walk 
 just neon-audio                             # render the soundscape to artifacts/audio/*.wav to listen to, and check its levels
 just neon-art                               # rebuild the apartment's glTF in Blender (Tools/apartment/build_apartment.py)
 just neon-city-art                          # rebuild the city kit and the signs' words atlas (Tools/city/build_city_kit.py)
-just canvas-shaders Examples/Neon/Assets    # rebuild the city's spatial shaders' SPIR-V after editing a .gdshader
+just canvas-shaders Examples/Neon/Assets    # rebuild the city's spatial shaders' SPIR-V after editing a .mfshader
 ```
 
 Run it with `dotnet run --project Examples/Neon/Neon.Desktop -c Release`. Game flags go after `++`: `--no-capture`

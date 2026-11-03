@@ -6,7 +6,7 @@ the neon sign words atlas signs.png.
 
 Everything is generated here (seeded, so every run writes the same meshes). The game builds the city from these meshes
 (World/NeonCity.cs) where World/CityLayout.cs places them; the facade, screen, sign and hologram shaders
-(Assets/Shaders/*.gdshader) draw their surfaces, so the materials here only name the surfaces and give a flat colour.
+(Assets/Shaders/*.mfshader) draw their surfaces, so the materials here only name the surfaces and give a flat colour.
 
 Conventions (glTF space): metres, +Y up, every object's origin is its base centre (towers, pillars) or its centre
 (vehicles, signs), and it faces +Z (vehicles drive towards -Z, the engine's forward). One mesh object per kit piece,
@@ -24,7 +24,7 @@ named as the game looks it up:
   Prop_Tank, Prop_Dish, Prop_Antenna, Prop_Bulkhead, Prop_Cooling, Prop_Pipes, Prop_Solar, Prop_LightMast, Prop_Helipad,
   Prop_Lattice, Prop_Crane. Streets: Street_Lamp (its arm reaches +Z, over the road), Street_Kiosk, Street_Awning (2 m deep
   from the wall along +Z, 1 m wide along X: stretched along X), Street_Signal, Street_Lantern (a paper lantern, its Trim
-  coloured by the instance), Street_Walker (a figure under an umbrella, walking +Z: crowd.gdshader).
+  coloured by the instance), Street_Walker (a figure under an umbrella, walking +Z: crowd.mfshader).
 - rail.gltf: Rail_Track (an 8 m deck along Z, its underside at y = 0), Rail_Pillar (a T pillar, base at y = 0, its top at
   RAIL_HEIGHT - DECK), Train_Car (a 20 m car along Z, wheels at y = 0). Materials: Concrete, Steel, Trim, Body, Windows,
   Lamp.
@@ -65,8 +65,8 @@ FONT_URL = "https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/JP/Not
 RAIL_HEIGHT = 22.0      # CityLayout.RailHeight: the deck's top above the street
 DECK = 1.0              # deck thickness (the track's origin is the deck's underside)
 STOREY = 3.5            # CityLayout.StoreyHeight
-BAY = 6.0               # metres between a wall's piers (facade.gdshader's bay)
-LEDGE = 17.5            # kit metres between ledges (facade.gdshader's ledge_every)
+BAY = 6.0               # metres between a wall's piers (facade.mfshader's bay)
+LEDGE = 17.5            # kit metres between ledges (facade.mfshader's ledge_every)
 
 # Words on the signs (made-up names and plain words; no brands). CitySign.VerticalWords / HorizontalWords.
 HORIZONTAL_WORDS = ["KIRAMI", "ゼンカ", "NOVA-9", "電脳街", "HOSHIRO", "ヨルノ", "SOLKA", "麺 BAR"]
@@ -793,7 +793,7 @@ def street_lantern():
 
 
 def street_walker():
-    """Someone walking +Z under an umbrella, feet at y = 0: the body in Body, the umbrella in Canopy (crowd.gdshader)."""
+    """Someone walking +Z under an umbrella, feet at y = 0: the body in Body, the umbrella in Canopy (crowd.mfshader)."""
     b = Builder("Street_Walker")
     b.prism(circle(0.17, 6), 0, 1.35, "Body", top="Body", top_poly=circle(0.2, 6))
     b.prism(circle(0.12, 6), 1.35, 1.65, "Body", top="Body", top_poly=circle(0.09, 6))
@@ -862,7 +862,7 @@ def car_ground():
     for x in (-W / 2, W / 2 - 0.25):
         for z in (-1.4, 1.4):
             b.box((x, 0.0, z - 0.33), (x + 0.25, 0.5, z + 0.33), "Steel")
-    # The lights' pools on the wet road (drawn additively by beam.gdshader): UV u across, v from the car (0) outwards (1).
+    # The lights' pools on the wet road (drawn additively by beam.mfshader): UV u across, v from the car (0) outwards (1).
     b.face([(-1.1, 0.03, -L / 2 - 0.2), (1.1, 0.03, -L / 2 - 0.2), (1.6, 0.03, -L / 2 - 9.0), (-1.6, 0.03, -L / 2 - 9.0)][::-1],
            "Beam_Head", [(0, 1), (1, 1), (1, 0), (0, 0)][::-1])
     b.face([(-1.0, 0.03, L / 2 + 0.1), (-1.2, 0.03, L / 2 + 2.6), (1.2, 0.03, L / 2 + 2.6), (1.0, 0.03, L / 2 + 0.1)],

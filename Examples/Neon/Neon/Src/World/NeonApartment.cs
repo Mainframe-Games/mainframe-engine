@@ -33,7 +33,7 @@ public sealed class NeonApartment : Node3D
     /// <summary>The server racks' lights: one mesh of small quads, each blinking by itself in <see cref="RackShader"/>.</summary>
     public const string RackLeds = "Decor_RackLeds";
 
-    public const string RackShader = "Assets/Shaders/rack.gdshader";
+    public const string RackShader = "Assets/Shaders/rack.mfshader";
 
     /// <summary>Seated on the balcony the view settles a little below level, on the streets.</summary>
     private const float BalconyLookPitch = -5f;

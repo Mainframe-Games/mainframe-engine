@@ -124,8 +124,8 @@ public sealed class SpatialShaderProgram
     public string FragmentSource(SpatialPass pass) => SpatialShaderCompiler.WriteFragment(_parsed, pass);
 
     /// <summary>
-    /// What a pass's SPIR-V files add to the <c>.gdshader</c> path: <c>x.gdshader.vert.spv</c> for the colour pass,
-    /// <c>x.gdshader.depth.vert.spv</c>, <c>.shadow</c>, <c>.shadow-point</c> and <c>.id</c> for the others.
+    /// What a pass's SPIR-V files add to the <c>.mfshader</c> path: <c>x.mfshader.vert.spv</c> for the colour pass,
+    /// <c>x.mfshader.depth.vert.spv</c>, <c>.shadow</c>, <c>.shadow-point</c> and <c>.id</c> for the others.
     /// </summary>
     public static string PassSuffix(SpatialPass pass) => pass switch
     {
@@ -148,7 +148,7 @@ public sealed class SpatialShaderProgram
 /// fills before and reads after the user functions; the colour pass lights the result with the engine's lights and
 /// shadows (PBR, or Blinn-Phong with <c>specular_blinn</c>). Uniforms: one std140 block at binding 0 of the material set
 /// (set 2; set 1 in the shadow casters) and up to <see cref="MaxSamplers"/> samplers at bindings 1…n. <c>#line</c>
-/// directives make slangc's errors name the <c>.gdshader</c> and its line; the translator's own errors do too.
+/// directives make slangc's errors name the <c>.mfshader</c> and its line; the translator's own errors do too.
 /// No <c>light()</c>, instance or global uniforms, or preprocessor yet.
 /// </summary>
 public static partial class SpatialShaderCompiler
@@ -195,7 +195,7 @@ public static partial class SpatialShaderCompiler
         return m.Success ? m.Groups["type"].Value : null;
     }
 
-    /// <summary>Translates <paramref name="source"/> (the <c>.gdshader</c> text) named <paramref name="name"/> in errors.</summary>
+    /// <summary>Translates <paramref name="source"/> (the <c>.mfshader</c> text) named <paramref name="name"/> in errors.</summary>
     /// <exception cref="FormatException">Not a spatial shader, or a construct the translator does not handle (with the line).</exception>
     public static SpatialShaderProgram Translate(string source, string name = "shader")
     {
@@ -479,7 +479,7 @@ public static partial class SpatialShaderCompiler
 
     private static void AppendCommon(Source o, Parsed p, SpatialPass pass, bool vertexStage)
     {
-        o.Append($"// Translated from the Godot spatial shader {p.Name} ({pass} pass) by SpatialShaderCompiler. Do not edit: edit the .gdshader.\n");
+        o.Append($"// Translated from the Godot spatial shader {p.Name} ({pass} pass) by SpatialShaderCompiler. Do not edit: edit the .mfshader.\n");
         if (UsesFrame(pass))
             o.Append("#include \"frame.slang\"\n");
         if (pass == SpatialPass.Color && !vertexStage)
@@ -811,7 +811,7 @@ public static partial class SpatialShaderCompiler
         return o.ToString();
     }
 
-    /// <summary>Generated Slang with <c>#line</c> directives around the user's code (errors name the .gdshader and its line).</summary>
+    /// <summary>Generated Slang with <c>#line</c> directives around the user's code (errors name the .mfshader and its line).</summary>
     private sealed class Source
     {
         private readonly StringBuilder _text = new();

@@ -1,7 +1,7 @@
 # ADR 0113 — Canvas shaders in Godot's shading language, translated to GLSL at build time
 
 - **Date:** 2026-10-05
-- **Status:** accepted
+- **Status:** accepted; file extension superseded by [ADR 0235](0235-mfshader-extension.md) (`.mfshader`)
 - **Milestone:** port of Crash Site Defense (Godot 4.7) — PM1 / E5 (the game's `docs/porting.md`)
 
 ## Context

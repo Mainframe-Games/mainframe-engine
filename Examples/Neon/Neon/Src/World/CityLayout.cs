@@ -38,7 +38,7 @@ public sealed partial class CityLayout
     /// <summary>The street grid's half extent (lines beyond it are not generated).</summary>
     public const float GridExtent = 1100f;
 
-    /// <summary>The far ring's skyline cylinders (radii, metres): <c>skyline.gdshader</c>'s cards beyond the near ring.</summary>
+    /// <summary>The far ring's skyline cylinders (radii, metres): <c>skyline.mfshader</c>'s cards beyond the near ring.</summary>
     public static readonly float[] SkylineRadii = [1250f, 1550f, 1880f];
 
     /// <summary>The boulevard in front of the window wall: its centre line (z) and width.</summary>
@@ -652,10 +652,10 @@ public readonly record struct TowerPlacement(int Archetype, Vector3 Position, in
 
 public enum CitySignKind
 {
-    /// <summary>An animated screen in a frame (<c>screen.gdshader</c>); the transform's X/Y scale is its size.</summary>
+    /// <summary>An animated screen in a frame (<c>screen.mfshader</c>); the transform's X/Y scale is its size.</summary>
     Billboard,
 
-    /// <summary>A vertical neon word on a blade sticking out of a facade (<c>sign.gdshader</c>); Y scale is its height.</summary>
+    /// <summary>A vertical neon word on a blade sticking out of a facade (<c>sign.mfshader</c>); Y scale is its height.</summary>
     Blade,
 
     /// <summary>A horizontal neon word on a board over a shopfront; X/Y scale is its size.</summary>

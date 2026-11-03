@@ -1,6 +1,6 @@
 using MainframeEngine;
 
-// mf-shaders build|check <folder>... | translate <file.gdshader> [pass] (see the csproj comment).
+// mf-shaders build|check <folder>... | translate <file.mfshader> [pass] (see the csproj comment).
 if (args.Length >= 2 && args[0] == "translate")
 {
     // Prints the generated Slang (debugging a translation): a canvas shader's two stages, or a spatial pass's.
@@ -27,7 +27,7 @@ if (args.Length >= 2 && args[0] == "translate")
 
 if (args.Length < 2 || args[0] is not ("build" or "check"))
 {
-    Console.Error.WriteLine("usage: mf-shaders build|check <folder>... | mf-shaders translate <file.gdshader> [color|depth|shadow|shadowpoint|objectid]");
+    Console.Error.WriteLine("usage: mf-shaders build|check <folder>... | mf-shaders translate <file.mfshader> [color|depth|shadow|shadowpoint|objectid]");
     return 2;
 }
 
@@ -40,9 +40,13 @@ var built = 0;
 var checkedCount = 0;
 foreach (var folder in args.Skip(1))
 {
-    foreach (var file in Directory.EnumerateFiles(folder, "*.gdshader", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+    var files = Directory.EnumerateFiles(folder, "*" + Shader.Extension, SearchOption.AllDirectories)
+        .Concat(Directory.EnumerateFiles(folder, "*" + Shader.LegacyExtension, SearchOption.AllDirectories));
+    foreach (var file in files.Order(StringComparer.Ordinal))
     {
         checkedCount++;
+        if (Shader.IsLegacy(file))
+            Console.Error.WriteLine($"warning: {file}: the .gdshader extension is deprecated; rename it to .mfshader (ADR 0235)");
         try
         {
             if (args[0] == "check")

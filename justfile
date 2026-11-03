@@ -4,8 +4,8 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 solution := "MainframeEngine.slnx"
-# Folders with committed .gdshader SPIR-V (canvas-shaders, shaders-check)
-gdshader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets Examples/Neon/Assets"
+# Folders with committed .mfshader SPIR-V (canvas-shaders, shaders-check)
+mfshader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets Examples/Neon/Assets"
 artifacts := justfile_directory() / "artifacts"
 
 # List recipes
@@ -50,11 +50,11 @@ shaders:
     sh build/shaders.sh compile
     sh build/shaders.sh lock
 
-# Fail if a shader source or .spv no longer matches shaders.lock, or a committed Godot shader's (.gdshader: canvas_item and
+# Fail if a shader source or .spv no longer matches shaders.lock, or a committed Godot shader's (.mfshader: canvas_item and
 # spatial, ADR 0113/0205) SPIR-V is stale (`just canvas-shaders` rebuilds those)
 shaders-check:
     sh build/shaders.sh check
-    dotnet run --project Tools/MainframeEngine.ShaderBuild -- check {{gdshader_folders}}
+    dotnet run --project Tools/MainframeEngine.ShaderBuild -- check {{mfshader_folders}}
 
 # Run the editor (extra args are passed through, e.g. just editor Examples/Demo/Assets/Scenes/basic_3d.mscene)
 editor *args:
@@ -334,11 +334,11 @@ clean:
     dotnet clean {{solution}} -v q
     {{ if os_family() == "windows" { "if (Test-Path artifacts) { Remove-Item -Recurse -Force artifacts }" } else { "rm -rf artifacts" } }}
 
-# Build the SPIR-V of Godot shaders (.gdshader: canvas_item ADR 0113, spatial ADR 0205) under the given folders (default:
+# Build the SPIR-V of Godot shaders (.mfshader: canvas_item ADR 0113, spatial ADR 0205) under the given folders (default:
 # the engine's committed ones; `mf-shaders translate <file> [pass]` prints the generated Slang)
-canvas-shaders *folders=gdshader_folders:
+canvas-shaders *folders=mfshader_folders:
     dotnet run --project Tools/MainframeEngine.ShaderBuild -- build {{folders}}
 
 # Fail when any Godot shader's committed SPIR-V is stale (part of shaders-check)
-canvas-shaders-check *folders=gdshader_folders:
+canvas-shaders-check *folders=mfshader_folders:
     dotnet run --project Tools/MainframeEngine.ShaderBuild -- check {{folders}}

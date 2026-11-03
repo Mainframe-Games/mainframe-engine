@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/g9-10b-6dof` (G9.10b `Generic6DofJoint3D`, ADR 0234)._
+`main`; latest release v1.1.5. In review: `feature/mfshader-extension` (shader files are `.mfshader`, ADR 0235)._
 
 ## What exists
 
@@ -23,7 +23,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   `SceneTree.TimeScale`; headless host, game packaging + signing, NuGet packages (ADR 0188); saves and settings (G4);
   post-processing (ADR 0163) and the F12 dev overlay; gameplay recording (ADR 0190) and the editor's Video mode (ADR
   0191); Music mode, DAW, wavetable synth and adaptive music (ADRs 0192–0196; A1–A6: the editor's Target menu, the overlay's Music panel, the Demo's Music tab); `Assets/` content folder (ADR 0197); 3D
-  skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205); 3D particles (ADR 0206); Spine
+  skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205; `.mfshader` files since ADR 0235, `.gdshader` loads with a warning); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
   (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
@@ -59,7 +59,8 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   End every `RenderTarget` pass with `RenderTarget.End` (MoltenVK ignores render-pass external dependencies).
   Keep the default UNORM swapchain (MoltenVK mutable-format sRGB views go stale).
 - `ShadowSystem.RenderShadows` once per frame; comparison samplers are immutable (MoltenVK); shader limits only in
-  `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`).
+  `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`). Linux slangc 2026.1
+  segfaults in `-obfuscate` on spatial shaders: `GLIBC_TUNABLES=glibc.malloc.mmap_threshold=0 just canvas-shaders`.
 - Scene tree: node constructors cheap and side-effect free; projects declaring node types need the generator analyzer.
   `MainframeEngine.Timer` shadows `System.Threading.Timer`.
 - Physics: Jitter2/Box2D calls stay in `Src/Physics`; the 6-DOF constraints copy Jitter2 2.9.0's constraint header and
@@ -85,7 +86,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
 
 ## Next steps
 
-1. Land `feature/g9-10b-6dof` (G9.10b).
+1. Land `feature/mfshader-extension` (ADR 0235).
 2. Gameplay toolkit (`docs/milestones.md`): G9.10c (active ragdolls, from the accepted proposal; reuses `SoftRow`);
    fix `just bench` (BenchmarkDotNet's child build can't copy the Steamworks shim; `--inProcess` works); G12
    haptics and glyphs (proposal awaits owner review); G1c

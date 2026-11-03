@@ -88,7 +88,7 @@ public sealed class CanvasScene(HostOptions host) : RenderTestGame(host)
         });
 
         // A canvas shader (Godot shading language): vertex wobble, a uniform array, a sampler uniform, varyings.
-        var wave = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/wave.gdshader")) };
+        var wave = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/wave.mfshader")) };
         wave.SetShaderParameter("tints", new[] { new Vector4(1f, 0.4f, 0.1f, 1f), new Vector4(0.1f, 0.6f, 1f, 1f) });
         wave.SetShaderParameter("mask", texture);
         root.AddChild(new Sprite2D { Name = "Shaded", Texture = texture, Position = new Vector2(60, 230), Scale = new Vector2(10, 4), Material = wave });

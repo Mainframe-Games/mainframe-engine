@@ -9,14 +9,14 @@ namespace Neon;
 /// Blender kit (<see cref="CityKit"/>): no node of it is saved in the scene and nothing in it is a light (the neon is
 /// emission and the post glow). It builds:
 /// <list type="bullet">
-/// <item>the near ring: two <see cref="MultiMeshInstance3D"/>s per tower archetype, close and far (<c>facade.gdshader</c>,
+/// <item>the near ring: two <see cref="MultiMeshInstance3D"/>s per tower archetype, close and far (<c>facade.mfshader</c>,
 /// each tower's window seed, hue, lit fraction and style in <c>INSTANCE_CUSTOM</c>), and the apartment's own tower;</item>
-/// <item>roof clutter, street furniture, the crowd (<c>crowd.gdshader</c>), lantern strings and sky bridges;</item>
-/// <item>the ground: pavements, streets and crossings in one mesh (<c>street.gdshader</c>: wet asphalt that mirrors the
-/// street's lights) and the light spilling on it (<c>spill.gdshader</c>);</item>
-/// <item>the far ring: three cylinders of skyline cards (<c>skyline.gdshader</c>);</item>
-/// <item>billboards, blade signs and signboards (<c>screen.gdshader</c>, <c>sign.gdshader</c>) and the holograms
-/// (<c>hologram.gdshader</c>);</item>
+/// <item>roof clutter, street furniture, the crowd (<c>crowd.mfshader</c>), lantern strings and sky bridges;</item>
+/// <item>the ground: pavements, streets and crossings in one mesh (<c>street.mfshader</c>: wet asphalt that mirrors the
+/// street's lights) and the light spilling on it (<c>spill.mfshader</c>);</item>
+/// <item>the far ring: three cylinders of skyline cards (<c>skyline.mfshader</c>);</item>
+/// <item>billboards, blade signs and signboards (<c>screen.mfshader</c>, <c>sign.mfshader</c>) and the holograms
+/// (<c>hologram.mfshader</c>);</item>
 /// <item>the elevated rail's track and pillars along <see cref="CityLayout.RailLoop"/>;</item>
 /// <item>the rain (<see cref="NeonRain"/>) and the balcony's puddles;</item>
 /// <item>a first, simple traffic on the loops (<see cref="CityTraffic"/>).</item>
@@ -26,14 +26,14 @@ namespace Neon;
 [Tool]
 public sealed class NeonCity : Node3D
 {
-    public const string FacadeShader = "Assets/Shaders/facade.gdshader";
-    public const string SkylineShader = "Assets/Shaders/skyline.gdshader";
-    public const string StreetShader = "Assets/Shaders/street.gdshader";
-    public const string HologramShader = "Assets/Shaders/hologram.gdshader";
-    public const string ScreenShader = "Assets/Shaders/screen.gdshader";
-    public const string SignShader = "Assets/Shaders/sign.gdshader";
-    public const string CrowdShader = "Assets/Shaders/crowd.gdshader";
-    public const string SpillShader = "Assets/Shaders/spill.gdshader";
+    public const string FacadeShader = "Assets/Shaders/facade.mfshader";
+    public const string SkylineShader = "Assets/Shaders/skyline.mfshader";
+    public const string StreetShader = "Assets/Shaders/street.mfshader";
+    public const string HologramShader = "Assets/Shaders/hologram.mfshader";
+    public const string ScreenShader = "Assets/Shaders/screen.mfshader";
+    public const string SignShader = "Assets/Shaders/sign.mfshader";
+    public const string CrowdShader = "Assets/Shaders/crowd.mfshader";
+    public const string SpillShader = "Assets/Shaders/spill.mfshader";
 
     private bool _built;
     private bool _detail = true;
