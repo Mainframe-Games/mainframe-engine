@@ -165,7 +165,7 @@ public sealed class MountedResourceTests : IDisposable
         Assert.Equal("spineboy-pro", data.Name);
         Assert.NotEmpty(data.Bones);
         Assert.NotEmpty(data.Animations);
-        Assert.Equal([_project.PathOf(folder + "/spineboy-pro.png")], loader.Pages.Select(Path.GetFullPath));
+        Assert.Equal([Path.GetFullPath(_project.PathOf(folder + "/spineboy-pro.png"))], loader.Pages.Select(Path.GetFullPath));
         Assert.True(loader.PageBytes > 0);
     }
 
