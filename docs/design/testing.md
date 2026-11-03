@@ -454,6 +454,21 @@ matters: the `lavapipe` goldens are CI's x86_64 llvmpipe output, and physics aft
   `all` (`build/linux/run.sh all`).
 - Results land in `artifacts/linux/`: `TestResults/*.trx` and `render-tests/` (failed comparisons' actual/expected/diff
   PNGs; frames without a golden in `render-tests/new-goldens/lavapipe/`, also listed at the end of the run).
+- Every checkout and worktree shares the one build volume, so its `bin/`/`obj/` stay warm whichever checkout ran last.
+  Two things keep that safe ([`inside.sh`](../../build/linux/inside.sh)):
+  - **One run at a time.** A run holds `flock` on `/work/.linux-tests.lock` from the sync to the end. A second run (from
+    any checkout) prints which checkout and container hold it, then waits; Ctrl-C while it waits stops its container
+    (`docker run --init`, killing the process group). The lock goes with the holder's process, so a killed run never
+    leaves it stuck. A second run from the *same* checkout empties that checkout's `artifacts/linux/` when it starts.
+  - **Sync by content.** The tree is synced with `rsync --checksum` without `-t`: only files whose content differs from
+    the volume's copy are rewritten, and they get the current time, so they are newer than every output built from
+    another checkout's version (MSBuild's incremental targets and `PreserveNewest` copies compare timestamps, and `tar`
+    keeps the host's mtimes; syncing by time once let a run test another checkout's newer `.spv`). Unchanged files keep
+    their stamps, so an unchanged tree rebuilds in seconds. A volume last synced by an older `inside.sh` (by time, from a
+    checkout that does not have this yet) is detected by the missing `/work/.linux-tests.synced` marker, which that
+    script's `--delete` removes, and every source is restamped once (one full rebuild).
+- The container builds with `-p:CompileShaders=false`, like CI: it tests the committed `.spv`, not the `.slang`. After
+  a shader edit run `just shaders` before a Docker run.
 - The image is built on every run (cached layers; a Dockerfile change rebuilds from the changed instruction) and labelled
   with a hash of the Dockerfile and `global.json`; the script stops if the image's label does not match. Its build
   context is a temporary directory holding those two files (the legacy builder, without buildx, rejects a tar context

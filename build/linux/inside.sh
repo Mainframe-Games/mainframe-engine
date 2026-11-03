@@ -5,12 +5,35 @@ set -euo pipefail
 suite="$1"
 shift
 
+# One run at a time: every checkout and worktree shares /work (one warm build tree), so a second run waits here until
+# the first ends (the lock is the open file: released however that run ends, even if its container is killed). The
+# lock and its owner note are excluded from the sync below, which would otherwise delete them.
+exec 9>>/work/.linux-tests.lock
+if ! flock -n 9; then
+  echo "::: Another Linux test run is using the shared build volume ($(cat /work/.linux-tests.owner 2>/dev/null || echo "owner unknown"))."
+  echo "::: Waiting for it to finish (Ctrl-C gives up; docker ps --filter ancestor=mainframe-linux-tests lists the runs)..."
+  flock 9
+fi
+echo "${HOST_CHECKOUT:-unknown checkout}, container $(hostname), since $(date -u +%H:%M:%SZ)" > /work/.linux-tests.owner
+
 # The results directory (the host's artifacts/linux): emptied here, not on the host, since an earlier run's files are
 # root's on a Linux host; at the end they are handed to the host user (HOST_OWNER, uid:gid, from run.sh).
 find /out -mindepth 1 -delete
 
-# Sync into the cached tree, keeping its bin/obj so rebuilds are incremental.
-rsync -a --delete --exclude 'bin/' --exclude 'obj/' --exclude 'artifacts/' --exclude 'TestResults/' /src/ /work/
+# Sync into the cached tree, keeping its bin/obj so rebuilds are incremental. By content, not time: the tree was last
+# built from whichever checkout ran before this one, and tar keeps the host's mtimes, so an older-dated source would
+# lose to that checkout's newer outputs (MSBuild's Inputs/Outputs and PreserveNewest copies compare timestamps; that is
+# how a run once tested another checkout's .spv). --checksum without -t (-a minus times) rewrites only the files whose
+# content differs and stamps them with the current time, so they are newer than every output; the rest keep theirs.
+rsync -rlpgoD --checksum --delete --exclude 'bin/' --exclude 'obj/' --exclude 'artifacts/' --exclude 'TestResults/' \
+  --exclude '/.linux-tests.*' /src/ /work/
+# A tree last synced by time (an older inside.sh, from a checkout not yet on this one; its --delete also removes this
+# marker) can hold sources dated before outputs built from other content: stamp every source once (one slow rebuild).
+if [ ! -e /work/.linux-tests.synced ]; then
+  echo "::: The build volume was last synced by an older build/linux/inside.sh; restamping its sources (full rebuild)."
+  find /work \( -name bin -o -name obj \) -prune -o -type f ! -name '.linux-tests.*' -exec touch {} +
+  touch /work/.linux-tests.synced
+fi
 cd /work
 git config --global --add safe.directory '*'
 rm -rf artifacts TestResults
