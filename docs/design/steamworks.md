@@ -82,8 +82,10 @@ between itself and Facepunch:
 **How the right build loads.** The engine compiles against the Posix shim, but neither shim is copied next to the app
 or listed in its `deps.json` (`Private="false"`). Both go, with their Facepunch assembly, to
 `<output>/steamworks/win64/` and `<output>/steamworks/posix/`; a build or publish with a RID gets only that
-platform's folder. Before the first adapter call, `SteamworksLoader.Register()` hooks
-`AssemblyLoadContext.Default.Resolving`: the runtime's own probing misses `MainframeEngine.Steamworks`, and the
+platform's folder. The engine csproj finds the two shim builds in their own `bin/` (or artifacts) folders, so its
+references build them without a caller's global `OutDir`/`OutputPath` (`UndefineProperties`): BenchmarkDotNet's per-job
+build and `dotnet build -o` pass those, which would put both builds, one assembly name, in one folder. Before the first
+adapter call, `SteamworksLoader.Register()` hooks `AssemblyLoadContext.Default.Resolving`: the runtime's own probing misses `MainframeEngine.Steamworks`, and the
 handler loads it and `Facepunch.Steamworks.*` from this OS's folder. The shim then sets a `DllImportResolver` on
 Facepunch's assembly and its own (Speed Golf's `SteamNativeLoader`): `steam_api64` / `libsteam_api` load from the app
 directory, and otherwise the default probing finds them (a NuGet package game's RID-less build keeps them in
