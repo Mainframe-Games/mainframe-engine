@@ -4,7 +4,7 @@
   "type": "ShaderMaterial",
   "resources": {
     "Shader_dissolve": {
-      "path": "Assets/Shaders/spatial_dissolve.gdshader"
+      "path": "Assets/Shaders/spatial_dissolve.mfshader"
     }
   },
   "props": {

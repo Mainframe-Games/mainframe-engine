@@ -135,8 +135,20 @@ shaders' SPIR-V when the engine moved to Slang):
   pipeline layouts come from C#).
 - **No Metal keywords as names** (`vertex`, `fragment`, `kernel`, `constant`, `device`, …): Slang keeps local names in
   the SPIR-V, and MoltenVK's SPIRV-Cross passes them into the Metal source, which then fails to compile.
-- Godot shaders (`.gdshader`: canvas_item and spatial) are the exception: their Godot code is wrapped in a Slang template
+- Godot shaders (`.mfshader`: canvas_item and spatial) are the exception: their Godot code is wrapped in a Slang template
   compiled with `-allow-glsl` ([Canvas](canvas.md#canvas-shaders), [Spatial shaders](#spatial-shaders) below).
+
+### The `.mfshader` extension
+
+Shader files written in Godot's shading language are `.mfshader` ([ADR 0236](../../memory/decisions/0236-mfshader-extension.md));
+before that they were `.gdshader`. Old `.gdshader` files still load and build, with a deprecation warning: rename each one
+with its sidecars (`x.gdshader.meta`, `.spvlock` and every `.spv`) to keep its UID, then run `just canvas-shaders`, since the
+lock's hash covers the file name. For syntax highlighting, map the extension to a Godot shader mode in the editor, e.g. VS
+Code with the godot-tools extension:
+
+```json
+"files.associations": { "*.mfshader": "gdshader" }
+```
 
 ## Spatial shaders
 
@@ -161,7 +173,7 @@ void fragment() {
 **Passes.** Each shader is compiled for five passes, a vertex and a fragment stage each, and every pass runs the shader's
 `vertex()` and `fragment()`, so displacement, `discard` and the alpha scissor agree everywhere:
 
-| Pass | SPIR-V (`x.gdshader` + …) | Set 0 / the material set | What it writes |
+| Pass | SPIR-V (`x.mfshader` + …) | Set 0 / the material set | What it writes |
 |---|---|---|---|
 | Colour | `.vert.spv`, `.frag.spv` | the frame, lights, sky lighting, SSAO / set 2 | the surface lit by the engine (or `unshaded`) + EMISSION, fogged |
 | Depth prepass (ADR 0163) | `.depth.vert.spv`, `.depth.frag.spv` | the frame / set 2 | depth and the velocity: `vertex()` runs for this frame and for the last (last frame's model matrix and `TIME`) |
@@ -202,10 +214,10 @@ already binds 12 of MoltenVK's 16 samplers), sampled as sRGB with `source_color`
 preprocessor. Use `textureLod` in `vertex()`.
 
 **Building.** Like canvas shaders, the SPIR-V is built ahead of time (no runtime compiler) and committed next to the source
-with one `x.gdshader.spvlock` over all ten files: `just canvas-shaders [folders]` (mf-shaders `build`; each pass's fragment
+with one `x.mfshader.spvlock` over all ten files: `just canvas-shaders [folders]` (mf-shaders `build`; each pass's fragment
 stage first, then its vertex stage writing only what that kept; ten slangc runs in parallel), and `just shaders-check`
-(mf-shaders `check` over `gdshader_folders`) fails on stale ones. `mf-shaders translate x.gdshader [pass]` prints the
-generated Slang. Errors name the file and line: the translator's (`ground.gdshader(12): render_mode 'x' is not
+(mf-shaders `check` over `mfshader_folders`) fails on stale ones. `mf-shaders translate x.mfshader [pass]` prints the
+generated Slang. Errors name the file and line: the translator's (`ground.mfshader(12): render_mode 'x' is not
 supported.`) and slangc's, through `#line` directives around the user's code. A shader whose SPIR-V is missing draws with
 the default material (a warning). Identifiers starting with `gd_` and the engine includes' globals (`frame`, `lights`,
 `material`) are reserved.

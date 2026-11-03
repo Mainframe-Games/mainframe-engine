@@ -46,7 +46,7 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 
 ## Canvas shaders
 
-`.gdshader` files in Godot's shading language (`shader_type canvas_item`) load as `Shader` resources (`.gdshader` importer,
+`.mfshader` files in Godot's shading language (`shader_type canvas_item`) load as `Shader` resources (`.mfshader` importer,
 `Shader.Load`); `CanvasShaderCompiler` wraps them in a Slang template compiled with `-allow-glsl`, so the Godot code keeps
 its GLSL syntax and meaning (one-argument `matN(x)` calls are rewritten to `glsl_matN(x)` helpers, because Slang fills every
 element from a scalar where GLSL builds a diagonal; [ADR 0113](../../memory/decisions/0113-canvas-shaders-godot-language.md),
@@ -58,7 +58,7 @@ light_only`, varyings (flat for integers), helper functions and constants, `vert
 VERTEX, UV, COLOR, TEXTURE, TEXTURE_PIXEL_SIZE, TIME, FRAGCOORD, SCREEN_UV, SCREEN_PIXEL_SIZE, MODEL_MATRIX,
 CANVAS_MATRIX, SCREEN_MATRIX, PI, TAU, E. Items whose shader has `vertex()` keep local vertices (MODEL_MATRIX = the
 item's canvas-space transform, CANVAS_MATRIX = camera × stretch) and draw alone; others are batched pre-transformed.
-SPIR-V is built ahead of time with `slangc` and committed next to the source (`x.gdshader.vert.spv`, `.frag.spv`,
+SPIR-V is built ahead of time with `slangc` and committed next to the source (`x.mfshader.vert.spv`, `.frag.spv`,
 `.spvlock`), with `-obfuscate` so no name from the user's code reaches MoltenVK's Metal source (a local named `vertex` or
 `device` would not compile there). Projects whose canvas SPIR-V was built before the move to Slang get a stale-shader
 warning at load until it is rebuilt once with `just canvas-shaders <folder>`. The fragment stage compiles first; the vertex stage then writes only the inputs that stage kept (Slang drops

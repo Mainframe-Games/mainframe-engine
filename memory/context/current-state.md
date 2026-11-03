@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `fix/editor-viewport-taa-flicker` (editor view flicker; `moltenvk` goldens to re-record)._
+`main`; latest release v1.1.5. In review: `feature/mfshader-extension` (shader files are `.mfshader`, ADR 0236)._
 
 ## What exists
 
@@ -23,7 +23,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   `SceneTree.TimeScale`; headless host, game packaging + signing, NuGet packages (ADR 0188); saves and settings (G4);
   post-processing (ADR 0163) and the F12 dev overlay; gameplay recording (ADR 0190) and the editor's Video mode (ADR
   0191); Music mode, DAW, wavetable synth and adaptive music (ADRs 0192–0196; A1–A6: the editor's Target menu, the overlay's Music panel, the Demo's Music tab); `Assets/` content folder (ADR 0197); 3D
-  skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205); 3D particles (ADR 0206); Spine
+  skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205; `.mfshader` files since ADR 0236, `.gdshader` loads with a warning); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
   (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
@@ -60,7 +60,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   Keep the default UNORM swapchain (MoltenVK mutable-format sRGB views go stale).
 - `ShadowSystem.RenderShadows` once per frame; comparison samplers are immutable (MoltenVK); shader limits only in
   `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`). Linux slangc 2026.1
-  segfaults on `.gdshader` builds (`-obfuscate` + `#line`): strip `#line` in a slangc wrapper (log 2026-11-03 flicker).
+  segfaults on `.mfshader` builds (`-obfuscate` + `#line`): `GLIBC_TUNABLES=glibc.malloc.mmap_threshold=0` avoids it.
 - Scene tree: node constructors cheap and side-effect free; projects declaring node types need the generator analyzer.
   `MainframeEngine.Timer` shadows `System.Threading.Timer`.
 - Physics: Jitter2/Box2D calls stay in `Src/Physics`; the 6-DOF constraints copy Jitter2 2.9.0's constraint header and
@@ -86,7 +86,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
 
 ## Next steps
 
-1. Land `fix/editor-viewport-taa-flicker` (re-record its `moltenvk` goldens on the Mac).
+1. Land `feature/mfshader-extension` (ADR 0236); re-record #157's `moltenvk` goldens on the Mac.
 2. Gameplay toolkit (`docs/milestones.md`): G1c animation authoring (its humanoid limits would let active ragdolls
    follow any clip); G12 haptics and glyphs (proposal awaits owner review); G11, G13 2D paths, G14, G16, G17; G3b
    (avoidance first).

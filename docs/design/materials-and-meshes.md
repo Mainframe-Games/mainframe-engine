@@ -293,7 +293,7 @@ the mesh renderer it is the one material with **its own set 2**, kept to two con
 
 ### ShaderMaterial: spatial shaders (ADR 0205)
 
-A `ShaderMaterial` whose `Shader` is a Godot `shader_type spatial` `.gdshader` draws with that shader's own SPIR-V in every
+A `ShaderMaterial` whose `Shader` is a Godot `shader_type spatial` `.mfshader` draws with that shader's own SPIR-V in every
 pass: the colour pass, the depth prepass and velocity, both shadow casters and the object-ID pass (the language, built-ins
 and passes are in [Shaders](shaders.md#spatial-shaders)). `MeshRenderer.Spatial.cs` (a partial, like the terrain splat's)
 keeps it apart from the built-in materials:
@@ -523,7 +523,7 @@ less-or-equal, and cutouts compare EQUAL with specialization constant 0 = opaque
 | `MeshTerrainSplat` | `Mesh/Mesh.vk.vert` + `Terrain/TerrainSplat.vk.frag` (`TerrainSplatMaterial3D`; its own pipeline layout) | the scene pass |
 | `MeshDepth` | `Mesh/MeshDepth.vk.vert` (`MeshDepthExt.vk.vert` with streams) + `Mesh/MeshDepth.vk.frag` (velocity, cutout test; ADR 0163) | the depth prepass |
 | `MeshDepthFoliage` | `Foliage/FoliageDepth.vk.vert` (wind now and a frame ago) + `Mesh/MeshDepth.vk.frag` | the depth prepass |
-| `MeshSpatial`, `MeshDepthSpatial`, `MeshObjectIdSpatial` | a spatial shader's `x.gdshader.{vert,frag}.spv`, `.depth.*`, `.id.*` (ADR 0205; its own pipeline layout) | the scene pass, the depth prepass, the object-ID pass |
+| `MeshSpatial`, `MeshDepthSpatial`, `MeshObjectIdSpatial` | a spatial shader's `x.mfshader.{vert,frag}.spv`, `.depth.*`, `.id.*` (ADR 0205; its own pipeline layout) | the scene pass, the depth prepass, the object-ID pass |
 
 `MeshLit` with `VertexLayoutId.MeshInstancedExt` uses `Mesh/MeshExt.vk.vert` and sets specialization constant 1
 (vertex colour) of `Mesh.vk.frag`.

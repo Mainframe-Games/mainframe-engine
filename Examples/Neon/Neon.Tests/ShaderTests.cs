@@ -17,7 +17,7 @@ public sealed partial class ShaderTests
     public void InstanceCustomDataReachesTheFragmentFlat()
     {
         var checkedAny = false;
-        foreach (var path in Directory.EnumerateFiles(ShadersDirectory, "*.gdshader"))
+        foreach (var path in Directory.EnumerateFiles(ShadersDirectory, "*.mfshader"))
         {
             var source = File.ReadAllText(path);
             foreach (Match assignment in InstanceCustomAssignment().Matches(source))
