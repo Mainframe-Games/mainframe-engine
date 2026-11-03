@@ -1,0 +1,156 @@
+{
+  "format": 1,
+  "kind": "spatial",
+  "vertex": false,
+  "fragment": true,
+  "blockSize": 80,
+  "modes": {
+    "blend": 0,
+    "cull": "Disabled",
+    "depthDraw": "Opaque",
+    "alpha": "Opaque",
+    "noDepthTest": false,
+    "unshaded": true,
+    "lightOnly": false,
+    "worldVertexCoords": false,
+    "noFog": true,
+    "blinnPhong": false
+  },
+  "uniforms": [
+    {
+      "name": "seed",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 0,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        0
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "slot",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 4,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        26
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "min_height",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 8,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        40
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "max_height",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 12,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        260
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "haze",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 16,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        0.6
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "haze_color",
+      "type": "Vec4",
+      "arrayLength": 0,
+      "offset": 32,
+      "size": 16,
+      "stride": 16,
+      "default": [
+        0.28,
+        0.08,
+        0.3,
+        1
+      ],
+      "color": true,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "haze_low",
+      "type": "Vec4",
+      "arrayLength": 0,
+      "offset": 48,
+      "size": 16,
+      "stride": 16,
+      "default": [
+        0.5,
+        0.12,
+        0.38,
+        1
+      ],
+      "color": true,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "window_energy",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 64,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        1.2
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    }
+  ],
+  "varyings": []
+}

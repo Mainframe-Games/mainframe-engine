@@ -1,10 +1,11 @@
 # ADR 0236 — Shader files are `.mfshader`, not `.gdshader`
 
 - **Date:** 2026-11-03
-- **Status:** accepted
+- **Status:** superseded by [ADR 0237](0237-slang-surface-shaders.md) (game shaders are `.slang` Slang surface shaders;
+  `.mfshader` and `.gdshader` no longer load)
 - **Supersedes:** the file extension in [ADR 0113](0113-canvas-shaders-godot-language.md) and [ADR 0205](0205-spatial-shaders.md)
   (their shading language stays)
-- **Docs:** docs/design/shaders.md#spatial-shaders, docs/design/canvas.md#canvas-shaders
+- **Docs:** docs/design/shaders.md#surface-shaders, docs/design/canvas.md#canvas-shaders
 
 ## Context
 

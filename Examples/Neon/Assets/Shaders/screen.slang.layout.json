@@ -1,0 +1,123 @@
+{
+  "format": 1,
+  "kind": "spatial",
+  "vertex": true,
+  "fragment": true,
+  "blockSize": 32,
+  "modes": {
+    "blend": 0,
+    "cull": "Back",
+    "depthDraw": "Opaque",
+    "alpha": "Opaque",
+    "noDepthTest": false,
+    "unshaded": true,
+    "lightOnly": false,
+    "worldVertexCoords": false,
+    "noFog": false,
+    "blinnPhong": false
+  },
+  "uniforms": [
+    {
+      "name": "words",
+      "type": "Sampler2D",
+      "arrayLength": 0,
+      "offset": 0,
+      "size": 0,
+      "stride": 0,
+      "color": true,
+      "binding": 1,
+      "filter": "Linear",
+      "repeat": "Disabled",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "seed",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 0,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        0
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "hue",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 4,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        0
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "brightness",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 8,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        0
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "energy",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 12,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        2.2
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "aspect",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 16,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        1.8
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    }
+  ],
+  "varyings": [
+    {
+      "name": "custom",
+      "type": "float4",
+      "location": 12,
+      "locations": 1,
+      "flat": false
+    }
+  ]
+}

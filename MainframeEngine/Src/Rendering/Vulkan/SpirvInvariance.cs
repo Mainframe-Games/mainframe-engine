@@ -29,12 +29,10 @@ public static class SpirvInvariance
     ];
 
     /// <summary>
-    /// The colour and prepass vertex stages of spatial shaders (ADR 0205): <c>x.mfshader.vert.spv</c> and
-    /// <c>x.mfshader.depth.vert.spv</c> (canvas shaders' vertex stages get it too; it changes nothing there), and the same
-    /// for legacy <c>.gdshader</c> files (ADR 0236).
+    /// The colour and prepass vertex stages of spatial surface shaders (ADRs 0205, 0237): <c>x.slang.vert.spv</c> and
+    /// <c>x.slang.depth.vert.spv</c> (canvas shaders' vertex stages get it too; it changes nothing there).
     /// </summary>
-    public static readonly string[] UserShaderSuffixes =
-        [".mfshader.vert.spv", ".mfshader.depth.vert.spv", ".gdshader.vert.spv", ".gdshader.depth.vert.spv"];
+    public static readonly string[] UserShaderSuffixes = [".slang.vert.spv", ".slang.depth.vert.spv"];
 
     /// <summary>True when the module at <paramref name="spvPath"/> gets an invariant position.</summary>
     public static bool Applies(string spvPath)

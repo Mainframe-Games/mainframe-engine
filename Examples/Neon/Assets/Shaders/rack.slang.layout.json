@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "kind": "spatial",
+  "vertex": false,
+  "fragment": true,
+  "blockSize": 16,
+  "modes": {
+    "blend": 0,
+    "cull": "Back",
+    "depthDraw": "Opaque",
+    "alpha": "Opaque",
+    "noDepthTest": false,
+    "unshaded": true,
+    "lightOnly": false,
+    "worldVertexCoords": false,
+    "noFog": false,
+    "blinnPhong": false
+  },
+  "uniforms": [
+    {
+      "name": "energy",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 0,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        5
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    }
+  ],
+  "varyings": []
+}

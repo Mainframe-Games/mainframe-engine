@@ -1,9 +1,7 @@
-// Helpers of the template around translated Godot spatial shaders (SpatialShaderCompiler, ADR 0205; compiled with
-// -allow-glsl). Native Slang: mul(v, M) with the C# matrices. Nothing here reads a descriptor, so the shadow casters
-// (whose set 0 is the light matrix, not the frame) include it too.
+// Helpers of the entries generated around spatial surface shaders (SurfaceShaderCompiler, ADRs 0205 and 0237): mul(v, M)
+// with the C# matrices. Nothing here reads a descriptor, so the shadow casters (whose set 0 is the light matrix, not the
+// frame) include it too.
 #pragma once
-
-#include "glsl_compat.slang"
 
 // The normal matrix of a model matrix: the cofactor of its upper 3x3 (∝ the inverse transpose; non-uniform scale),
 // signed by the determinant so mirrored instances keep outward normals. As Mesh.vk.vert: mul(n, spatial_normal_matrix(M)).
@@ -16,15 +14,15 @@ float3x3 spatial_normal_matrix(float4x4 model)
 }
 
 // The inverse of a rigid view matrix from its inverse rotation and the camera position (FrameData.invViewRotation,
-// cameraPosition): Godot's INV_VIEW_MATRIX.
+// cameraPosition): SurfaceFragment.invViewMatrix.
 float4x4 spatial_inv_view(float4x4 invViewRotation, float3 cameraPosition)
 {
     return float4x4(invViewRotation[0], invViewRotation[1], invViewRotation[2], float4(cameraPosition, 1.0));
 }
 
-// Godot's NORMAL_MAP (tangent space, +Y up, 0..1) applied to the world normal N with a tangent frame solved from the
+// SurfaceFragment.normalMap (tangent space, +Y up, 0..1) applied to the world normal N with a tangent frame solved from the
 // screen-space derivatives of the position and UV (no vertex tangents; include/material.slang's materialNormal), scaled
-// by NORMAL_MAP_DEPTH.
+// by normalMapDepth.
 float3 spatial_normal_map(float3 N, float3 map, float depth, float3 dp1, float3 dp2, float2 duv1, float2 duv2)
 {
     float det = duv1.x * duv2.y - duv2.x * duv1.y;

@@ -38,7 +38,7 @@ public sealed partial class CityLayout
     /// <summary>The street grid's half extent (lines beyond it are not generated).</summary>
     public const float GridExtent = 1100f;
 
-    /// <summary>The far ring's skyline cylinders (radii, metres): <c>skyline.mfshader</c>'s cards beyond the near ring.</summary>
+    /// <summary>The far ring's skyline cylinders (radii, metres): <c>skyline.slang</c>'s cards beyond the near ring.</summary>
     public static readonly float[] SkylineRadii = [1250f, 1550f, 1880f];
 
     /// <summary>The boulevard in front of the window wall: its centre line (z) and width.</summary>
@@ -615,7 +615,7 @@ public readonly record struct TowerArchetype(string Name, float Width, float Dep
 /// <summary>
 /// A tower: <see cref="CityLayout.Archetypes"/>[<see cref="Archetype"/>] at <see cref="Position"/> (its base centre),
 /// turned <see cref="Quarter"/> quarter turns about +Y, scaled by <see cref="Scale"/> across and
-/// <see cref="HeightScale"/> up. <see cref="Custom"/> is the facade shader's <c>INSTANCE_CUSTOM</c>: (window seed, accent
+/// <see cref="HeightScale"/> up. <see cref="Custom"/> is the facade shader's <c>instanceCustom</c>: (window seed, accent
 /// hue, lit fraction, style), each 0..1.
 /// </summary>
 public readonly record struct TowerPlacement(int Archetype, Vector3 Position, int Quarter, float Scale, float HeightScale, Vector4 Custom)
@@ -652,10 +652,10 @@ public readonly record struct TowerPlacement(int Archetype, Vector3 Position, in
 
 public enum CitySignKind
 {
-    /// <summary>An animated screen in a frame (<c>screen.mfshader</c>); the transform's X/Y scale is its size.</summary>
+    /// <summary>An animated screen in a frame (<c>screen.slang</c>); the transform's X/Y scale is its size.</summary>
     Billboard,
 
-    /// <summary>A vertical neon word on a blade sticking out of a facade (<c>sign.mfshader</c>); Y scale is its height.</summary>
+    /// <summary>A vertical neon word on a blade sticking out of a facade (<c>sign.slang</c>); Y scale is its height.</summary>
     Blade,
 
     /// <summary>A horizontal neon word on a board over a shopfront; X/Y scale is its size.</summary>
@@ -663,7 +663,7 @@ public enum CitySignKind
 }
 
 /// <summary>
-/// A sign on a tower: its transform (the kit mesh's unit quad faces +Z) and the shader's <c>INSTANCE_CUSTOM</c>. Billboards:
+/// A sign on a tower: its transform (the kit mesh's unit quad faces +Z) and the shader's <c>instanceCustom</c>. Billboards:
 /// (seed, hue, brightness, ad 0..3). Blades and boards: (word index in the atlas, hue, brightness, flicker seed).
 /// </summary>
 public readonly record struct CitySign(CitySignKind Kind, Transform3D Transform, Vector4 Custom)

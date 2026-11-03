@@ -9,14 +9,14 @@ namespace Neon;
 /// Blender kit (<see cref="CityKit"/>): no node of it is saved in the scene and nothing in it is a light (the neon is
 /// emission and the post glow). It builds:
 /// <list type="bullet">
-/// <item>the near ring: two <see cref="MultiMeshInstance3D"/>s per tower archetype, close and far (<c>facade.mfshader</c>,
-/// each tower's window seed, hue, lit fraction and style in <c>INSTANCE_CUSTOM</c>), and the apartment's own tower;</item>
-/// <item>roof clutter, street furniture, the crowd (<c>crowd.mfshader</c>), lantern strings and sky bridges;</item>
-/// <item>the ground: pavements, streets and crossings in one mesh (<c>street.mfshader</c>: wet asphalt that mirrors the
-/// street's lights) and the light spilling on it (<c>spill.mfshader</c>);</item>
-/// <item>the far ring: three cylinders of skyline cards (<c>skyline.mfshader</c>);</item>
-/// <item>billboards, blade signs and signboards (<c>screen.mfshader</c>, <c>sign.mfshader</c>) and the holograms
-/// (<c>hologram.mfshader</c>);</item>
+/// <item>the near ring: two <see cref="MultiMeshInstance3D"/>s per tower archetype, close and far (<c>facade.slang</c>,
+/// each tower's window seed, hue, lit fraction and style in <c>instanceCustom</c>), and the apartment's own tower;</item>
+/// <item>roof clutter, street furniture, the crowd (<c>crowd.slang</c>), lantern strings and sky bridges;</item>
+/// <item>the ground: pavements, streets and crossings in one mesh (<c>street.slang</c>: wet asphalt that mirrors the
+/// street's lights) and the light spilling on it (<c>spill.slang</c>);</item>
+/// <item>the far ring: three cylinders of skyline cards (<c>skyline.slang</c>);</item>
+/// <item>billboards, blade signs and signboards (<c>screen.slang</c>, <c>sign.slang</c>) and the holograms
+/// (<c>hologram.slang</c>);</item>
 /// <item>the elevated rail's track and pillars along <see cref="CityLayout.RailLoop"/>;</item>
 /// <item>the rain (<see cref="NeonRain"/>) and the balcony's puddles;</item>
 /// <item>a first, simple traffic on the loops (<see cref="CityTraffic"/>).</item>
@@ -26,14 +26,14 @@ namespace Neon;
 [Tool]
 public sealed class NeonCity : Node3D
 {
-    public const string FacadeShader = "Assets/Shaders/facade.mfshader";
-    public const string SkylineShader = "Assets/Shaders/skyline.mfshader";
-    public const string StreetShader = "Assets/Shaders/street.mfshader";
-    public const string HologramShader = "Assets/Shaders/hologram.mfshader";
-    public const string ScreenShader = "Assets/Shaders/screen.mfshader";
-    public const string SignShader = "Assets/Shaders/sign.mfshader";
-    public const string CrowdShader = "Assets/Shaders/crowd.mfshader";
-    public const string SpillShader = "Assets/Shaders/spill.mfshader";
+    public const string FacadeShader = "Assets/Shaders/facade.slang";
+    public const string SkylineShader = "Assets/Shaders/skyline.slang";
+    public const string StreetShader = "Assets/Shaders/street.slang";
+    public const string HologramShader = "Assets/Shaders/hologram.slang";
+    public const string ScreenShader = "Assets/Shaders/screen.slang";
+    public const string SignShader = "Assets/Shaders/sign.slang";
+    public const string CrowdShader = "Assets/Shaders/crowd.slang";
+    public const string SpillShader = "Assets/Shaders/spill.slang";
 
     private bool _built;
     private bool _detail = true;
@@ -377,7 +377,7 @@ public sealed class NeonCity : Node3D
 
     /// <summary>
     /// The apartment's own tower: its walls from the street to the roof with the hole for the apartment in the front face,
-    /// as one instance of a MultiMesh (the facade shader reads its window seed from <c>INSTANCE_CUSTOM</c>), and the
+    /// as one instance of a MultiMesh (the facade shader reads its window seed from <c>instanceCustom</c>), and the
     /// neighbours' balconies beside and below it.
     /// </summary>
     private void BuildHomeTower()

@@ -41,20 +41,17 @@ public sealed class ShaderMaterialSerializationTests : IDisposable
     public void SpatialShaderMaterialsRoundTripThroughMres()
     {
         Directory.CreateDirectory(ContentPath("Shaders"));
-        File.WriteAllText(ContentPath("Shaders/dissolve.mfshader"), """
-            shader_type spatial;
-            uniform float progress = 0.5;
-            uniform vec4 tint : source_color;
-            uniform float weights[3];
-            uniform vec2 offsets[2];
-            uniform bool glow;
-            uniform sampler2D noise;
-            void fragment() { ALPHA = progress; ALPHA_SCISSOR_THRESHOLD = 0.5; }
-            """);
+        // A built shader as mf-shaders leaves it, minus the SPIR-V: the source and its layout (from the fixture's reflection).
+        var fixtures = Path.Combine(AppContext.BaseDirectory, "Rendering", "Fixtures");
+        var text = File.ReadAllText(Path.Combine(fixtures, "dissolve_material.slang"));
+        var layout = SlangReflection.Read(File.ReadAllText(Path.Combine(fixtures, "dissolve_material.reflection.json")),
+            SurfaceShaderSource.Parse(text, "dissolve.slang"));
+        File.WriteAllText(ContentPath("Shaders/dissolve.slang"), text);
+        File.WriteAllText(ContentPath("Shaders/dissolve.slang" + SurfaceShaderLayout.Extension), layout.Write());
         MeshSerializationTests.WritePng(ContentPath("Textures/noise.png"), 2, 2);
         AssetDatabase.Current.Scan();
 
-        var shader = ResourceLoader.Load<Shader>("Assets/Shaders/dissolve.mfshader"); // no SPIR-V here: a warning only
+        var shader = ResourceLoader.Load<Shader>("Assets/Shaders/dissolve.slang"); // no SPIR-V here: a warning only
         Assert.NotNull(shader.Spatial);
         var noise = ResourceLoader.Load<Texture2D>("Assets/Textures/noise.png");
         var material = new ShaderMaterial { Shader = shader };
@@ -67,7 +64,7 @@ public sealed class ShaderMaterialSerializationTests : IDisposable
         var uid = ResourceSaver.Save(material, ContentPath("Materials/dissolve.mres"));
         var json = File.ReadAllText(ContentPath("Materials/dissolve.mres"));
         Assert.Contains("\"ShaderParameters\"", json, StringComparison.Ordinal);
-        Assert.Contains("\"path\": \"Assets/Shaders/dissolve.mfshader\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"path\": \"Assets/Shaders/dissolve.slang\"", json, StringComparison.Ordinal);
 
         ResourceLoader.ClearCache();
         var reloaded = ResourceLoader.Load<ShaderMaterial>(uid);
@@ -87,33 +84,6 @@ public sealed class ShaderMaterialSerializationTests : IDisposable
         var floats = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(block);
         var weights = reloaded.Shader.Uniforms.Single(u => u.Name == "weights");
         Assert.Equal(2f, floats[(weights.Offset + weights.Stride) / 4]);
-    }
-
-    [Fact]
-    public void LegacyGdshaderFilesStillLoadWithADeprecationWarning()
-    {
-        // ADR 0236: shaders are .mfshader; a project's old .gdshader still loads and its SPIR-V still counts as build output.
-        Directory.CreateDirectory(ContentPath("Shaders"));
-        File.WriteAllText(ContentPath("Shaders/old.gdshader"), "shader_type canvas_item;");
-        AssetDatabase.Current.Scan();
-        var sink = new MemoryLogSink { Levels = Log.Level.Warning };
-        Log.AddSink(sink);
-        Shader shader;
-        try
-        {
-            shader = ResourceLoader.Load<Shader>("Assets/Shaders/old.gdshader");
-        }
-        finally
-        {
-            Log.RemoveSink(sink);
-        }
-
-        Assert.NotNull(shader.Program);
-        Assert.Contains(sink.Snapshot(), e => e.Message.Contains("old.gdshader': the .gdshader extension is deprecated", StringComparison.Ordinal));
-        Assert.True(AssetDatabase.IsBuildOutput("old.gdshader.vert.spv"));
-        Assert.True(AssetDatabase.IsBuildOutput("old.gdshader.spvlock"));
-        Assert.True(SpirvInvariance.Applies("/x/old.gdshader.depth.vert.spv"));
-        Assert.False(AssetDatabase.IsBuildOutput("old.gdshader"));
     }
 
     [Fact]

@@ -19,7 +19,7 @@ namespace Neon;
 /// </summary>
 public sealed class CityTraffic : Node3D
 {
-    public const string BeamShader = "Assets/Shaders/beam.mfshader";
+    public const string BeamShader = "Assets/Shaders/beam.slang";
 
     private readonly List<Lane> _lanes = [];
     private readonly List<Fleet> _fleets = [];

@@ -201,8 +201,8 @@ sequenceDiagram
   `--size` gives them larger windows), and the shadow scenes (M4) `csm`, `shadow-pcf`, `shadow-lights`,
   `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)), `sprite-billboard` (ADR 0199:
   Y-billboard, flipped and full-billboard sprites with their shadows; `--count 1`: billboards off, edge-on), `spatial-shaders`
-  and `spatial-shaders-taa` (ADR 0205: Godot spatial shaders — a procedural ground, swaying multimesh stalks and shadows, a
-  dissolve cutout from a `.mres`, a rim next pass and overlay; picks self-checked; the `.mfshader` SPIR-V in the host's
+  and `spatial-shaders-taa` (ADR 0205: spatial surface shaders, ADR 0237 — a procedural ground, swaying multimesh stalks and shadows, a
+  dissolve cutout from a `.mres`, a rim next pass and overlay; picks self-checked; the `.slang` surface shaders' SPIR-V in the host's
   `Assets/Shaders`, `just canvas-shaders`), `viewport-material` (ADR 0216: a 2D sub-viewport's pattern and a 3D one's
   camera view on unshaded albedo, emission and a spatial shader sampler, filled in only after both views resize; `--count 1`:
   the view's box spins, the allocation run), `label3d`

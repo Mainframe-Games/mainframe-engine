@@ -1,0 +1,35 @@
+{
+  "format": 1,
+  "kind": "spatial",
+  "vertex": false,
+  "fragment": true,
+  "blockSize": 0,
+  "modes": {
+    "blend": 0,
+    "cull": "Back",
+    "depthDraw": "Opaque",
+    "alpha": "Opaque",
+    "noDepthTest": false,
+    "unshaded": true,
+    "lightOnly": false,
+    "worldVertexCoords": false,
+    "noFog": false,
+    "blinnPhong": false
+  },
+  "uniforms": [
+    {
+      "name": "screen",
+      "type": "Sampler2D",
+      "arrayLength": 0,
+      "offset": 0,
+      "size": 0,
+      "stride": 0,
+      "color": true,
+      "binding": 1,
+      "filter": "Linear",
+      "repeat": "Disabled",
+      "defaultTexture": "White"
+    }
+  ],
+  "varyings": []
+}

@@ -32,7 +32,7 @@ public sealed class ShadersPanel : UiDocument
     /// <summary>The dissolve progress while <see cref="Animate"/> is off (0 solid, 1 gone).</summary>
     public float Dissolve { get; set; } = 0.4f;
 
-    /// <summary>The stalks' sway amplitude (the shader's <c>sway</c> uniform).</summary>
+    /// <summary>The stalks' sway amplitude (the shader's <c>sway</c> parameter).</summary>
     public float Wind
     {
         get => _sway?.GetShaderParameter("sway") is float sway ? sway : 0.4f;

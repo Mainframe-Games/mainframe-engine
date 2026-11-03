@@ -360,10 +360,10 @@ public enum CityPropKind
     Awning,
 }
 
-/// <summary>A prop: <see cref="Kind"/>'s kit mesh at <see cref="Transform"/>; <see cref="Custom"/> is the facade shader's <c>INSTANCE_CUSTOM</c>.</summary>
+/// <summary>A prop: <see cref="Kind"/>'s kit mesh at <see cref="Transform"/>; <see cref="Custom"/> is the facade shader's <c>instanceCustom</c>.</summary>
 public readonly record struct CityProp(CityPropKind Kind, Transform3D Transform, Vector4 Custom);
 
-/// <summary>Someone walking +Z from <see cref="Transform"/>; <see cref="Custom"/> is crowd.mfshader's (phase, hue, span, speed).</summary>
+/// <summary>Someone walking +Z from <see cref="Transform"/>; <see cref="Custom"/> is crowd.slang's (phase, hue, span, speed).</summary>
 public readonly record struct CityWalker(Transform3D Transform, Vector4 Custom);
 
 /// <summary>A wire from <see cref="From"/> to <see cref="To"/> sagging <see cref="Sag"/> metres, strung with lanterns of <see cref="Hue"/> or bare.</summary>
