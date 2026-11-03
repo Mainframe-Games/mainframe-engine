@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `fix/editor-viewport-taa-flicker` (editor view flicker; 4 goldens to re-record)._
+`main`; latest release v1.1.5. In review: `fix/editor-viewport-taa-flicker` (editor view flicker; `moltenvk` goldens to re-record)._
 
 ## What exists
 
@@ -86,7 +86,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
 
 ## Next steps
 
-1. Land `fix/editor-viewport-taa-flicker` (re-record 4 goldens: `moltenvk` on the Mac, `lavapipe`).
+1. Land `fix/editor-viewport-taa-flicker` (re-record its `moltenvk` goldens on the Mac).
 2. Gameplay toolkit (`docs/milestones.md`): G1c animation authoring (its humanoid limits would let active ragdolls
    follow any clip); G12 haptics and glyphs (proposal awaits owner review); G11, G13 2D paths, G14, G16, G17; G3b
    (avoidance first).

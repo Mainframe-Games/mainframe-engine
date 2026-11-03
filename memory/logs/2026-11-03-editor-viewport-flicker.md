@@ -73,6 +73,8 @@ identical in two frames: with the old shaders it is blue in one frame and the fl
 - **Goldens not re-recorded.** Comparing old and new line shaders on this GPU, four frames change, all where lines meet
   surfaces (the grid now shows over a floor at y = 0, selection edges at surfaces stay visible):
   `subviewport-post_frame0008`, `editor_frame0051`, `editor-viewport-tools_frame0040`, `editor-filesystem_frame0040`.
-  They need `just golden-update` on the Mac (`moltenvk`) and new `lavapipe` ones: `just render-tests-linux` does not run
-  on a Linux host (`build/linux/run.sh` uses bsdtar's `--no-mac-metadata`/`-n` and `docker build -f … -`, which the
+  `lavapipe`: three exceeded CI's tolerance (`editor_frame0051` stayed within it); their frames come from PR #157's CI
+  run (`render-tests-*` artifacts), inspected: the grid's axes and the selection outlines are whole where they lie on the
+  floor, nothing else moved. `moltenvk` still needs `just golden-update` on the Mac. `just render-tests-linux` does not
+  run on a Linux host (`build/linux/run.sh` uses bsdtar's `--no-mac-metadata`/`-n` and `docker build -f … -`, which the
   legacy builder rejects).
