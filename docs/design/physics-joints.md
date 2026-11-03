@@ -3,11 +3,12 @@
 The current state of G9 ([milestones](../milestones.md#gameplay-toolkit-)): joint nodes over Jitter2 (3D) and Box2D
 (2D) with limits, motors, springs and breaking; their debug draw and editor gizmo; rigid-part ragdolls
 (`Ragdoll3D`); skeleton ragdolls (`PhysicalBone3D`, `PhysicalBoneSimulator3D`) and the editor's Create physical
-skeleton; limit handles in the editor's viewport (G9.7); `MotorJoint2D` (G9.10a). Decisions: [ADR 0201](../../memory/decisions/0201-2d-joints-on-box2d.md) (the first 2D joints),
+skeleton; limit handles in the editor's viewport (G9.7); `MotorJoint2D` (G9.10a); `Generic6DofJoint3D` on the engine's
+own Jitter2 constraints (G9.10b). Decisions: [ADR 0201](../../memory/decisions/0201-2d-joints-on-box2d.md) (the first 2D joints),
 [ADR 0211](../../memory/decisions/0211-3d-joints-on-jitter2.md) (3D joints, the other 2D joints, breaking, editor) and
 [ADR 0212](../../memory/decisions/0212-ragdolls-and-physical-bones.md) (ragdolls); the limit handles use the G7.3 handle
-API ([ADR 0213](../../memory/decisions/0213-viewport-tools-gizmo-resources-handles.md)). Still to come: the rest of G9.10
-(`Generic6DofJoint3D`, active ragdolls; [proposal](future/physics-joints-g9-10.md)). Bodies, spaces and signals are in [Physics](physics.md).
+API ([ADR 0213](../../memory/decisions/0213-viewport-tools-gizmo-resources-handles.md)). [ADR 0234](../../memory/decisions/0234-engine-owned-jitter2-constraints.md) records the custom constraints. Still to come:
+active ragdolls (G9.10c, [proposal](future/physics-joints-g9-10.md)). Bodies, spaces and signals are in [Physics](physics.md).
 
 ![The Demo's rope bridge with a hinge selected in the editor: its axis, limit arc and angle, and its inspector with
 Rebuild and Swap A/B](../images/editor-joints.png)
@@ -17,6 +18,8 @@ Rebuild and Swap A/B](../images/editor-joints.png)
 | File | Contents |
 |---|---|
 | [`Physics/3D/Joint3D.cs`](../../MainframeEngine/Src/Physics/3D/Joint3D.cs), [`Joints3D.cs`](../../MainframeEngine/Src/Physics/3D/Joints3D.cs) | `Joint3D` and the six 3D types |
+| [`Physics/3D/Generic6DofJoint3D.cs`](../../MainframeEngine/Src/Physics/3D/Generic6DofJoint3D.cs) | `Generic6DofJoint3D`, `JointAxisMode` |
+| [`Physics/3D/Constraints/`](../../MainframeEngine/Src/Physics/3D/Constraints/) | The engine's Jitter2 constraints (ADR 0234): `SixDofLinear`, `SixDofAngular`, their drives, `SixDofMath`, `SoftRow` |
 | [`Physics/3D/PhysicsSpace3D.Joints.cs`](../../MainframeEngine/Src/Physics/3D/PhysicsSpace3D.Joints.cs) | `JointRecord3D`, creation and re-creation, constraint factories, exclusion, springs, breaking, debug draw |
 | [`Physics/2D/Joints2D.cs`](../../MainframeEngine/Src/Physics/2D/Joints2D.cs), [`PhysicsSpace2D.Joints.cs`](../../MainframeEngine/Src/Physics/2D/PhysicsSpace2D.Joints.cs) | `Joint2D`, the six 2D types, `JointRecord2D` |
 | [`Physics/Ragdoll/`](../../MainframeEngine/Src/Physics/Ragdoll/) | `Ragdoll3D`, `PhysicalBone3D`, `PhysicalBoneSimulator3D` |
@@ -57,6 +60,7 @@ Angles are exported in degrees with a radians property for code, like `Character
 | `ConeTwistJoint3D` | `BallSocket`, `ConeLimit`, `TwistAngle` | local X | `SwingSpanDegrees` (45), `TwistSpanDegrees` (180); 180° switches that limit off; `GetSwingAngle()`, `GetTwistAngle()` |
 | `DistanceJoint3D` | `DistanceLimit` | origin → `AnchorB` | `AnchorB` (local, default (0, −1, 0); re-creates); `MinLength` (0 = slack), `MaxLength` (0 = the authored distance for a rope, no maximum for a spring); `SpringFrequency` (0 = no spring), `SpringDampingRatio`, `RestLength` (0 = authored); `GetLength()` |
 | `WeldJoint3D` | `BallSocket`, `FixedAngle` | — | — (usually with `BreakForce`) |
+| `Generic6DofJoint3D` | the engine's `SixDofLinear`, `SixDofAngular` and their drives ([below](#custom-constraints)) | local X, Y, Z | per axis, in "Linear X"…"Angular Z" groups: `…Mode` (`Free`, `Limited`, `Locked`; default `Locked`: a weld); limits `LinearXLower`/`Upper` (−1, 1 m), `AngularXLowerDegrees`/`UpperDegrees` (−45°, 45°; Y within −90°…90°); motor (`…MotorEnabled`, `…MotorTargetVelocity` m/s or rad/s, `LinearXMotorMaxForce` 100 N, `AngularXMotorMaxTorque` 100 N·m); spring (`…SpringEnabled`, `…SpringFrequency` 2 Hz, `…SpringDampingRatio` 0.5, `LinearXSpringTarget`, `AngularXSpringTargetDegrees`); `GetLinearOffset()`, `GetAngularOffsetDegrees()`, `GetLinearMode(axis)`, `GetAngularMode(axis)` |
 
 Angles are body B relative to A, right-handed about the axis, measured from the authored pose. Motors always exist:
 off is a maximum force of 0, so toggling one never re-creates the joint.
@@ -90,6 +94,36 @@ authored frames and `Rebuild()` still starts from them. With velocities of 0 the
 axes, not body A's or the frame's. For a target that moves (the Demo's lift), set the velocity to the target's too: the
 spring alone trails it (a 4 Hz spring trails a target moving at 140 px/s by about 10 px). The debug draw puts anchor A at
 the target, with a cross and the target's +X, so the line to body B's anchor (red over 5 px) shows how far off it is.
+
+### Custom constraints
+
+![The Demo's 6-DOF gimbal selected in the editor: arcs about its X and Z axes with a lower and upper handle each, and
+the Generic6DofJoint3D inspector](../images/editor-6dof-handles.png)
+
+`Generic6DofJoint3D` is built on constraints the engine writes ([ADR 0234](../../memory/decisions/0234-engine-owned-jitter2-constraints.md)):
+`Constraint<T>` subclasses in `Physics/3D/Constraints/` whose static `Prepare`/`Iterate` run on Jitter2's worker
+threads. A constraint's data is at most 256 bytes including Jitter2's 32-byte header, so a joint has four:
+
+| Constraint | Rows |
+|---|---|
+| `SixDofLinear` | Locks and limits along frame A's axes, at B's anchor; all three locked, along world axes at each body's anchor (a ball socket's rows, stable however fast body A spins) |
+| `SixDofAngular` | Locks and limits on the relative rotation's XYZ Euler angles (`Rx·Ry·Rz`; Y in −90°…90°) |
+| `SixDofLinearDrive`, `SixDofAngularDrive` | Motors (velocity rows capped at force × dt) and springs (soft rows) |
+
+- **Locks and limits** use Jitter2's default softness and bias, so a 6-DOF joint feels like the others at its limits.
+  Limits are **speculative** (Box2D's): a limited axis is always solved against its nearer limit, and inside the range
+  only stops the body from crossing it this step. Jitter2 prepares constraints each substep with the whole step's dt,
+  so a limit that waited to be crossed let a fast body through by a step's motion.
+- **Angular rows** use each Euler angle's exact rate axis: the dual basis of A's X, B's Z and their cross product, so
+  `rate = axis · (ωB − ωA)` (tested numerically). The axes grow near Y = ±90° (gimbal lock), hence the limit.
+- **Springs** are soft rows in the solver (`SoftRow`, Box2D's `b2MakeSoft`): frequency and damping ratio, stable at any
+  stiffness and independent of mass. They differ from the hinge, slider and distance PD springs (below) in where they
+  run, not in their parameters.
+- **Drives cost nothing when off:** a drive with no motor or spring on returns at once.
+- **Breaking** counts the linear rows and drives as force, and the angular rows and springs as torque (not motors).
+- **Debug draw:** the frame's three axes, a track with ticks per limited linear axis, and an arc with its ends and the
+  current angle per limited angular axis (about X from Y towards Z, about Y from Z towards X, about Z from X towards Y).
+  Red when a locked or limited axis is more than 5 cm or 5° past what it allows.
 
 ## In the space
 
@@ -134,7 +168,8 @@ The editor ([Editor](editor.md)):
 - **Inspector:** Rebuild (`refresh`) and Swap A/B (`arrows-right-left`, one undo step) icon buttons above the rows.
 - **Limit handles** (G9.7, below).
 - **Icons** (Physics family): `link` (bases), `point` (pins), `door` (hinge), `arrows-right-left` (sliders), `ripple`
-  (cone-twist), `ruler-2` (distance), `lock` (welds), `arrows-up-down` (groove), `circle` (wheel), `magnet` (motor), `bone` (ragdolls,
+  (cone-twist), `ruler-2` (distance), `lock` (welds), `arrows-up-down` (groove), `circle` (wheel), `magnet` (motor),
+  `arrows-move` (6-DOF), `bone` (ragdolls,
   physical bones), `sitemap` (simulator).
 - **Dev overlay:** the Physics panel shows joints (active) and joints broken per second.
 
@@ -155,6 +190,7 @@ joint is authored) and are drawn in light blue over the selected joint's debug d
 | `SliderJoint3D` | `LowerDistance`, `UpperDistance` on local X |
 | `ConeTwistJoint3D` | `SwingSpanDegrees` on the cone's rim (on the side towards the camera's right), `TwistSpanDegrees` at the end of the twist arc (from local Y towards Z) |
 | `DistanceJoint3D` | `MinLength`, `MaxLength` on the line to `AnchorB` |
+| `Generic6DofJoint3D` | Per axis that isn't locked, a lower and an upper handle: on the axis for linear limits, on an arc about the axis for angular ones (the arcs at 100 %, 85 % and 70 % of the radius). A `Free` axis has hollow handles; dragging one makes it `Limited` in the same undo entry |
 | `PhysicalBone3D` | Its `JointType`'s "Joint" group (cone-twist spans, hinge angles or slider distances) at body × `JointOffset`; none for Pin and None |
 | `PinJoint2D` | `AngularLimitLower`, `AngularLimitUpper` (radians; the label shows degrees) |
 | `SliderJoint2D`, `WheelJoint2D` | `LowerTranslation`, `UpperTranslation` on local X |
@@ -248,16 +284,19 @@ nothing.
 
 ## Tests
 
-- **Unit** ([`Tests/MainframeEngine.Tests/Physics/`](../../Tests/MainframeEngine.Tests/Physics/)): `Joints3DTests`
+- **Unit** ([`Tests/MainframeEngine.Tests/Physics/`](../../Tests/MainframeEngine.Tests/Physics/)): `SixDofConstraintTests`
+  (data sizes, Euler round trips, each angle's rate axis, soft-row coefficients), `Joints3DTests`
   (pendulum period within 2 %, anchors within 1 cm under load, hinge limits, motor speed and torque, slider range and
   `AllowTwist`, cone and twist spans, rope slack, spring period, PD springs, a welded cantilever; joints before their
   bodies, bodies leaving and returning, disabled joints and bodies, kinematic pairs, invalid paths logged once,
-  collision exclusion; scene round trips), `JointBreakTests`, `Physics2DJointTests` (every 2D type, `Enabled`, pin
+  collision exclusion; scene round trips; the 6-DOF weld default, a free axis, a lower limit, a square range from two
+  limits, per-axis angular limits, an angular motor, a spring's period, a live mode change, breaking, a round trip, and a
+  multi-threaded deterministic scene that steps the same twice), `JointBreakTests`, `Physics2DJointTests` (every 2D type, `Enabled`, pin
   springs; the motor joint's offsets, world-axes velocity, friction, hertz 0, live offset, `Enabled` and breaking),
   `Ragdoll3DTests`, `PhysicalBonesTests`, `DebugDrawTests` (`DebugDrawJoints`, the motor joint's target), and allocation
-  gates (`JointAllocationTests`: 320 3D joints; the 2D gate has one joint of each type, the motor joint's offset changed
+  gates (`JointAllocationTests`: 370 3D joints, 50 of them 6-DOF; the 2D gate has one joint of each type, the motor joint's offset changed
   every frame).
-- **Editor** (`JointEditorTests`): warnings, body-only pickers, Swap A/B undo, Rebuild, Create physical skeleton as one
+- **Editor** (`JointEditorTests`, the 6-DOF handles in `JointHandleTests`): warnings, body-only pickers, Swap A/B undo, Rebuild, Create physical skeleton as one
   undo step. `JointHandleTests`: every type's provider and handle positions, angles from the ray (and the edge-on
   fallback), snapping, clamping, lower ≤ upper, hollow handles that turn a limit on, the ±180° stop, the physical bone's
   joint frame, the 2D types, a viewport drag that is one undo entry and Esc that restores it, and 0 B per frame.
@@ -265,8 +304,9 @@ nothing.
 - **Render test** `physics-joints`: a hinged bridge, a cone-twist mannequin and a broken weld with the joint debug
   draw, frame 90 (moltenvk golden; lavapipe still to record).
 - **Demo** (`PhysicsJointsSceneTests`): the bridge holds, the sign's weld breaks and resets, the mannequin falls and
-  stands, the chain hangs, the car drives and turns, the lift follows its target within 10 px carrying its crates, the
-  skinned character ragdolls with its joints holding.
+  stands, the gimbal tilts within its limits and springs back level, the drawer stops at 0.4 m and soft-closes, the chain
+  hangs, the car drives and turns, the lift follows its target within 10 px carrying its crates, the skinned character
+  ragdolls with its joints holding.
 
 ## Differences from the plan
 
@@ -289,7 +329,12 @@ nothing.
 - **`MotorJoint2D`** (G9.10a, [proposal](future/physics-joints-g9-10.md)): `LinearVelocity` is in world axes (the
   proposal didn't say); the Demo's lift feeds its target's velocity as well as its offset, and starts at the bottom of
   its travel, from rest.
-- **Not yet:** `Generic6DofJoint3D` and active ragdolls (G9.10b, G9.10c), humanoid limits.
+- **`Generic6DofJoint3D`** (G9.10b, ADR 0234): four constraints, not the proposal's two (the data didn't fit);
+  speculative limits; exact Euler rate axes instead of Bullet's; the soft rows aren't frequency-clamped (they are
+  stable at any stiffness). The benchmark chain's joints act as pins (angular axes free), not as the plan's twist-only
+  joint, so it compares with the pin chain: 82 µs a step against the pins' 56 µs (1.5×), 0 B. Fully locked linear axes
+  are solved as a ball socket's world-axis rows: frame-axis rows let that flailing chain blow up.
+- **Not yet:** active ragdolls (G9.10c), humanoid limits.
 
 ## Related
 

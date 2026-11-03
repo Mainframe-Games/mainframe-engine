@@ -87,13 +87,16 @@ public sealed class PhysicsAllocationTests
 }
 
 /// <summary>
-/// The 3D joint allocation gate (ADR 0211): 320 joints (hinged chains with motors and springs, pinned chains, sprung
-/// sliders, distance springs, cone-twists, breakable welds) step, read their state and draw their debug lines without
-/// allocating.
+/// The 3D joint allocation gate (ADR 0211): 370 joints (hinged chains with motors and springs, pinned chains, sprung
+/// sliders, distance springs, cone-twists, breakable welds, and 6-DOF joints with limits, motors, springs and breaking:
+/// G9.10b, ADR 0234) step, read their state and draw their debug lines without allocating.
 /// </summary>
 [Collection(nameof(SerialAllocationGates))]
 public sealed class JointAllocationTests
 {
+    // One thread: with Jitter2's thread pool the gate sees 0 or ~100 B per run even without the 6-DOF joints (pool
+    // bookkeeping, not joint code); the 3D physics gate covers multi-threaded stepping, Joints3DTests the 6-DOF
+    // constraints on worker threads.
     [Fact]
     public void SteadyState3DJointsDoNotAllocate()
     {
@@ -108,7 +111,11 @@ public sealed class JointAllocationTests
         {
             h.Run(1);
             foreach (var joint in joints)
+            {
                 sum += joint.GetAppliedForce() + joint.GetAppliedTorque() + joint.GetSeparation();
+                if (joint is Generic6DofJoint3D sixDof)
+                    sum += sixDof.GetLinearOffset().X + sixDof.GetAngularOffsetDegrees().Z;
+            }
             h.Tree.Root.DebugLines.Clear();
         }
 
@@ -183,6 +190,34 @@ internal static class JointGate
                     null, arm.Name);
                 var sign = h.AddBox(new Vector3(x + 1, 8, z), size: 0.3f, name: $"Sign{c}_{i}");
                 Join(new WeldJoint3D { Name = $"Weld{c}_{i}", BreakForce = 1e6f, BreakTorque = 1e6f }, sign.Position, $"Arm{c}_{i}", sign.Name);
+            }
+
+            // 6-DOF joints (G9.10b): a sprung gimbal, a motorised drawer, a spinning free axis, a sprung slide and a
+            // breakable lock.
+            for (var i = 0; i < 5; i++)
+            {
+                var x = 10f + i * 2f;
+                var part = h.AddBox(new Vector3(x, 6, z), size: 0.3f, name: $"SixDofPart{c}_{i}");
+                var joint = new Generic6DofJoint3D { Name = $"SixDof{c}_{i}", BreakForce = 1e6f, BreakTorque = 1e6f };
+                switch (i)
+                {
+                    case 0:
+                        (joint.AngularXMode, joint.AngularZMode) = (JointAxisMode.Limited, JointAxisMode.Limited);
+                        (joint.AngularXSpringEnabled, joint.AngularZSpringEnabled) = (true, true);
+                        break;
+                    case 1:
+                        (joint.LinearXMode, joint.LinearXLower, joint.LinearXUpper) = (JointAxisMode.Limited, 0f, 0.4f);
+                        (joint.LinearXMotorEnabled, joint.LinearXMotorTargetVelocity) = (true, 0.5f);
+                        break;
+                    case 2:
+                        (joint.AngularYMode, joint.AngularYMotorEnabled, joint.AngularYMotorTargetVelocity) = (JointAxisMode.Free, true, 2f);
+                        break;
+                    case 3:
+                        (joint.LinearYMode, joint.LinearYSpringEnabled, joint.LinearYSpringTarget) = (JointAxisMode.Free, true, -0.2f);
+                        break;
+                }
+
+                Join(joint, part.Position + Vector3.UnitY * 0.3f, null, part.Name);
             }
         }
 

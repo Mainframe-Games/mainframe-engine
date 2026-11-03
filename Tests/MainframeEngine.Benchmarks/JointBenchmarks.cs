@@ -4,14 +4,16 @@ using BenchmarkDotNet.Attributes;
 namespace MainframeEngine.Benchmarks;
 
 /// <summary>
-/// Joints at scale (G9, ADR 0211/0212): one fixed step of a 100-link pinned chain swinging from the world, and one of 50
-/// simulating ragdolls of 11 parts each (cone-twist and hinge joints) lying on a floor. Single-threaded Jitter2, through
-/// the scene tree; bodies never sleep.
+/// Joints at scale (G9, ADR 0211/0212): one fixed step of a 100-link pinned chain swinging from the world, the same chain
+/// on <see cref="Generic6DofJoint3D"/>s acting as pins (G9.10b, ADR 0234: linear axes locked, angular axes free), and one
+/// of 50 simulating ragdolls of 11 parts each (cone-twist and hinge joints) lying on a floor. Single-threaded Jitter2,
+/// through the scene tree; bodies never sleep.
 /// </summary>
 [MemoryDiagnoser]
 public class JointBenchmarks : IDisposable
 {
     private SceneTree _chain = null!;
+    private SceneTree _sixDofChain = null!;
     private SceneTree _ragdolls = null!;
     private readonly GameTime _step = new() { DeltaTime = 1f / 60f, FrameCount = 1 };
 
@@ -19,23 +21,14 @@ public class JointBenchmarks : IDisposable
     public void Setup()
     {
         _chain = NewTree();
-        var chain = new Node3D { Name = "Chain" };
-        var link = new SphereShape3D { Radius = 0.1f };
-        for (var i = 0; i < 100; i++)
+        _chain.ChangeScene(Chain(static () => new PinJoint3D()));
+        _sixDofChain = NewTree();
+        _sixDofChain.ChangeScene(Chain(static () => new Generic6DofJoint3D
         {
-            var body = new RigidBody3D { Name = $"Link{i}", Position = new Vector3((i + 1) * 0.3f, 40, 0), CanSleep = false };
-            body.AddChild(new CollisionShape3D { Shape = link });
-            chain.AddChild(body);
-            chain.AddChild(new PinJoint3D
-            {
-                Name = $"Pin{i}",
-                Position = new Vector3(i * 0.3f + (i == 0 ? 0 : 0.15f), 40, 0),
-                NodeA = i == 0 ? default(NodePath) : $"../Link{i - 1}",
-                NodeB = $"../Link{i}",
-            });
-        }
-
-        _chain.ChangeScene(chain);
+            AngularXMode = JointAxisMode.Free,
+            AngularYMode = JointAxisMode.Free,
+            AngularZMode = JointAxisMode.Free,
+        }));
 
         _ragdolls = NewTree();
         var scene = new Node3D { Name = "Ragdolls" };
@@ -49,13 +42,39 @@ public class JointBenchmarks : IDisposable
         for (var i = 0; i < 120; i++)
         {
             _chain.Tick(_step);
+            _sixDofChain.Tick(_step);
             _ragdolls.Tick(_step);
         }
+    }
+
+    // 100 links swinging from the world, joined by what newJoint makes.
+    private static Node3D Chain(Func<Joint3D> newJoint)
+    {
+        var chain = new Node3D { Name = "Chain" };
+        var link = new SphereShape3D { Radius = 0.1f };
+        for (var i = 0; i < 100; i++)
+        {
+            var body = new RigidBody3D { Name = $"Link{i}", Position = new Vector3((i + 1) * 0.3f, 40, 0), CanSleep = false };
+            body.AddChild(new CollisionShape3D { Shape = link });
+            chain.AddChild(body);
+            var joint = newJoint();
+            joint.Name = $"Joint{i}";
+            joint.Position = new Vector3(i * 0.3f + (i == 0 ? 0 : 0.15f), 40, 0);
+            joint.NodeA = i == 0 ? default(NodePath) : $"../Link{i - 1}";
+            joint.NodeB = $"../Link{i}";
+            chain.AddChild(joint);
+        }
+
+        return chain;
     }
 
     /// <summary>One frame with one physics step: a 100-link chain of pins.</summary>
     [Benchmark]
     public void StepChain100Pins() => _chain.Tick(_step);
+
+    /// <summary>One frame with one physics step: the same chain on 6-DOF joints acting as pins.</summary>
+    [Benchmark]
+    public void StepChain100SixDof() => _sixDofChain.Tick(_step);
 
     /// <summary>One frame with one physics step: 50 simulating ragdolls of 11 parts (500 joints).</summary>
     [Benchmark]
@@ -116,6 +135,8 @@ public class JointBenchmarks : IDisposable
     {
         _chain?.Shutdown();
         _chain?.Servers.Dispose();
+        _sixDofChain?.Shutdown();
+        _sixDofChain?.Servers.Dispose();
         _ragdolls?.Shutdown();
         _ragdolls?.Servers.Dispose();
         GC.SuppressFinalize(this);

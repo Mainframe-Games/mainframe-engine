@@ -91,6 +91,48 @@ public sealed class PhysicsJointsSceneTests : IDisposable
         Assert.True(weld.IsActive);
     }
 
+    [Fact]
+    public void TheGimbalTiltsWithinItsLimitsAndSpringsBackLevel()
+    {
+        _tree.ChangeScene(Physics3DScene.Build());
+        Run(30);
+        var gimbal = Scene.GetNode<Generic6DofJoint3D>("SixDof/Gimbal");
+        Assert.True(gimbal.IsActive);
+        Scene.GetNode<RigidBody3D>("SixDof/Dish").AngularVelocity = new Vector3(4, 0, 3);
+        var tilt = Vector3.Zero;
+        for (var i = 0; i < 60; i++)
+        {
+            Run(1);
+            var angles = gimbal.GetAngularOffsetDegrees();
+            tilt = Vector3.Max(tilt, new Vector3(MathF.Abs(angles.X), MathF.Abs(angles.Y), MathF.Abs(angles.Z)));
+        }
+
+        Assert.True(tilt.X > 10f && tilt.Z > 10f, $"it tilted: {tilt}");
+        Assert.True(tilt.X < 42f && tilt.Z < 42f && tilt.Y < 2f, $"within its limits: {tilt}");
+        Run(60 * 3);
+        var level = gimbal.GetAngularOffsetDegrees();
+        Assert.True(MathF.Abs(level.X) < 2f && MathF.Abs(level.Z) < 2f, $"level again: {level}");
+    }
+
+    [Fact]
+    public void TheDrawerSlidesOutToItsStopAndClosesAgain()
+    {
+        _tree.ChangeScene(Physics3DScene.Build());
+        Run(30);
+        var slide = Scene.GetNode<Generic6DofJoint3D>("SixDof/Slide");
+        Scene.GetNode<RigidBody3D>("SixDof/Drawer").LinearVelocity = new Vector3(0, 0, 6); // yanked out towards the camera (the soft-close damps a gentle pull)
+        var furthest = 0f;
+        for (var i = 0; i < 60; i++)
+        {
+            Run(1);
+            furthest = MathF.Max(furthest, slide.GetLinearOffset().X);
+        }
+
+        Assert.InRange(furthest, Joints3DBuild.DrawerTravel - 0.02f, Joints3DBuild.DrawerTravel + 0.02f);
+        Run(60 * 6);
+        Assert.InRange(slide.GetLinearOffset().X, 0f, 0.05f); // soft-closed
+    }
+
     // The 2D scene without its rain of bodies (they would land on the bridge and get under the car).
     private void Load2D()
     {

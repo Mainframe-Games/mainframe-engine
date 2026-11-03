@@ -56,6 +56,10 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
     public PointOnLine? Line;
     public LinearMotor? LinearMotor;
     public DistanceLimit? Distance;
+    public SixDofLinear? SixDofLinear;
+    public SixDofAngular? SixDofAngular;
+    public SixDofLinearDrive? SixDofLinearDrive;
+    public SixDofAngularDrive? SixDofAngularDrive;
 
     /// <summary>The rest rotation of B relative to A (Jitter2's <c>Q0</c>): <c>conj(qB) · qA</c> at the authored pose.</summary>
     public Quaternion RestRotation => FrameRotationB * Quaternion.Conjugate(FrameRotationA);
@@ -71,6 +75,10 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
         SetEnabled(Line, enabled);
         SetEnabled(LinearMotor, enabled);
         SetEnabled(Distance, enabled);
+        SetEnabled(SixDofLinear, enabled);
+        SetEnabled(SixDofAngular, enabled);
+        SetEnabled(SixDofLinearDrive, enabled);
+        SetEnabled(SixDofAngularDrive, enabled);
     }
 
     private static void SetEnabled(Constraint? constraint, bool enabled)
@@ -91,6 +99,10 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
         Remove(world, Line);
         Remove(world, LinearMotor);
         Remove(world, Distance);
+        Remove(world, SixDofLinear);
+        Remove(world, SixDofAngular);
+        Remove(world, SixDofLinearDrive);
+        Remove(world, SixDofAngularDrive);
     }
 
     private static void Remove(Jitter2.World world, Constraint? constraint)
@@ -111,6 +123,10 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
         Line = null;
         LinearMotor = null;
         Distance = null;
+        SixDofLinear = null;
+        SixDofAngular = null;
+        SixDofLinearDrive = null;
+        SixDofAngularDrive = null;
         BodyA = BodyB = null;
     }
 
@@ -126,6 +142,10 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
             sum += MathF.Abs(distance.Impulse);
         if (LinearMotor is { IsValid: true } motor)
             sum += MathF.Abs(motor.Impulse);
+        if (SixDofLinear is { IsValid: true } sixDof)
+            sum += sixDof.Impulse;
+        if (SixDofLinearDrive is { IsValid: true } sixDofDrive)
+            sum += sixDofDrive.Impulse;
         return sum;
     }
 
@@ -141,6 +161,10 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
             sum += MathF.Abs(cone.Impulse);
         if (Twist is { IsValid: true } twist)
             sum += MathF.Abs(twist.Impulse);
+        if (SixDofAngular is { IsValid: true } sixDof)
+            sum += sixDof.Impulse;
+        if (SixDofAngularDrive is { IsValid: true } sixDofDrive)
+            sum += sixDofDrive.SpringImpulse; // motors don't count, as for the hinge's
         return sum;
     }
 
@@ -630,6 +654,31 @@ public sealed partial class PhysicsSpace3D
         ref var data = ref distance.Data;
         data.LimitMin = min;
         data.LimitMax = max;
+    }
+
+    /// <summary>
+    /// A <see cref="Generic6DofJoint3D"/>'s four constraints (ADR 0234): linear and angular locks and limits, and linear
+    /// and angular motors and springs, all from the record's frames. Their settings are written by the node's
+    /// <see cref="Joint3D.ApplyLive"/>.
+    /// </summary>
+    internal void CreateSixDof(JointRecord3D record)
+    {
+        var a = record.FramePositionA.ToJ();
+        var b = record.FramePositionB.ToJ();
+        var frameA = record.FrameRotationA.ToJ();
+        var frameB = record.FrameRotationB.ToJ();
+        record.SixDofLinear = _world.CreateConstraint<SixDofLinear>(record.BodyA!, record.BodyB!);
+        ref var linear = ref record.SixDofLinear.Data;
+        (linear.LocalAnchor1, linear.LocalAnchor2, linear.LocalFrame1) = (a, b, frameA);
+        record.SixDofAngular = _world.CreateConstraint<SixDofAngular>(record.BodyA!, record.BodyB!);
+        ref var angular = ref record.SixDofAngular.Data;
+        (angular.LocalFrame1, angular.LocalFrame2) = (frameA, frameB);
+        record.SixDofLinearDrive = _world.CreateConstraint<SixDofLinearDrive>(record.BodyA!, record.BodyB!);
+        ref var linearDrive = ref record.SixDofLinearDrive.Data;
+        (linearDrive.LocalAnchor1, linearDrive.LocalAnchor2, linearDrive.LocalFrame1) = (a, b, frameA);
+        record.SixDofAngularDrive = _world.CreateConstraint<SixDofAngularDrive>(record.BodyA!, record.BodyB!);
+        ref var angularDrive = ref record.SixDofAngularDrive.Data;
+        (angularDrive.LocalFrame1, angularDrive.LocalFrame2) = (frameA, frameB);
     }
 
     private static JVector WorldAxisB(JointRecord3D record, Vector3 axis) =>

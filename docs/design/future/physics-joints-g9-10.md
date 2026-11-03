@@ -280,7 +280,7 @@ target. It has no limit handles (it has no limits).
 
 - [x] **G9.10a `MotorJoint2D`:** node, record, Box2D calls (frames, live offsets, "hertz 0 = off"), debug draw, icon,
   tests, the `physics_2d` platform, docs.
-- [ ] **G9.10b `Generic6DofJoint3D`:** `SoftRow`, `SixDofLinear`/`SixDofAngular` (size test first), the node, live
+- [x] **G9.10b `Generic6DofJoint3D`:** `SoftRow`, `SixDofLinear`/`SixDofAngular` (size test first), the node, live
   setters, breaking, debug draw, icon, limit handles, tests, allocation gate, benchmark, the `physics_3d` props, docs. ADR:
   the engine owns custom Jitter2 constraints (unsafe solver code in `Src/Physics`, re-checked on every Jitter2 upgrade).
 - [ ] **G9.10c Active ragdolls:** `PoseDrive` on `SoftRow`, `BoneDrive3D`, simulator and bone exports, targets, `Build`
