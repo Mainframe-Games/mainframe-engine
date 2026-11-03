@@ -137,13 +137,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      # The package carries the engine's content and natives (LFS) and the brand icon.
+      # The packages carry the engine's content and natives (LFS), the brand icon and the template's icon.png (LFS too):
+      # a path missing here packs as its pointer, which build/pack-nuget.sh rejects (#168).
       - uses: actions/checkout@v4
         with:
           lfs: false
 
-      - name: Fetch the engine's LFS objects
-        run: git lfs pull --include="MainframeEngine/**,docs/images/brand/**"
+      - name: Fetch the packages' LFS objects
+        run: git lfs pull --include="MainframeEngine/**,Templates/**,docs/images/brand/**"
 
       - run: git submodule update --init --depth 1 Plugins/Spine
 
