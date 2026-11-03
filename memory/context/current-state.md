@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/g9-10b-6dof` (G9.10b `Generic6DofJoint3D`, ADR 0234)._
+`main`; latest release v1.1.5. In review: `fix/editor-viewport-taa-flicker` (editor view flicker; 4 goldens to re-record)._
 
 ## What exists
 
@@ -59,7 +59,8 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   End every `RenderTarget` pass with `RenderTarget.End` (MoltenVK ignores render-pass external dependencies).
   Keep the default UNORM swapchain (MoltenVK mutable-format sRGB views go stale).
 - `ShadowSystem.RenderShadows` once per frame; comparison samplers are immutable (MoltenVK); shader limits only in
-  `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`).
+  `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`). Linux slangc 2026.1
+  segfaults on `.gdshader` builds (`-obfuscate` + `#line`): strip `#line` in a slangc wrapper (log 2026-11-03 flicker).
 - Scene tree: node constructors cheap and side-effect free; projects declaring node types need the generator analyzer.
   `MainframeEngine.Timer` shadows `System.Threading.Timer`.
 - Physics: Jitter2/Box2D calls stay in `Src/Physics`; the 6-DOF constraints copy Jitter2 2.9.0's constraint header and

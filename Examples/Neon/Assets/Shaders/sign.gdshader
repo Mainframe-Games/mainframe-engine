@@ -9,8 +9,8 @@ uniform float vertical = 0.0;
 uniform vec2 panel = vec2(1.0, 1.0);
 uniform float energy = 6.0;
 
-varying vec4 v_custom;
-varying vec2 v_size;
+varying flat vec4 v_custom;
+varying flat vec2 v_size;
 
 float hash11(float p) {
 	p = fract(p * 0.1031);
