@@ -3,7 +3,7 @@ namespace MainframeEngine.Tests.Canvas;
 /// <summary>
 /// How <see cref="CanvasShaderBuild"/> runs slangc: the obfuscated compile gets the generated Slang without its <c>#line</c>
 /// directives (slangc 2026.1's Linux build crashes on them under <c>-obfuscate</c>), and a failed shader's errors come from a
-/// second, non-obfuscated compile with them, so they still name the <c>.gdshader</c>'s lines.
+/// second, non-obfuscated compile with them, so they still name the <c>.mfshader</c>'s lines.
 /// </summary>
 public sealed class CanvasShaderBuildTests
 {
@@ -12,7 +12,7 @@ public sealed class CanvasShaderBuildTests
     [Fact]
     public void TheObfuscatedCompileGetsNoLineDirectivesAndKeepsTheLineCount()
     {
-        var code = SpatialShaderCompiler.Translate(Ground, "ground.gdshader").FragmentSource(SpatialPass.Color);
+        var code = SpatialShaderCompiler.Translate(Ground, "ground.mfshader").FragmentSource(SpatialPass.Color);
         Assert.Contains("#line ", code, StringComparison.Ordinal);
 
         // Each directive becomes an empty line; every other line is unchanged.
@@ -33,21 +33,21 @@ public sealed class CanvasShaderBuildTests
 
     // The crash: on Linux, slangc 2026.1 exits 139 for this shader when its #line directives reach the obfuscated compile.
     [Fact]
-    public void ASpatialShaderBuildsAndAnErrorNamesTheGdshaderLine()
+    public void ASpatialShaderBuildsAndAnErrorNamesTheShaderFileLine()
     {
         var slangc = SlangcOrSkip();
         var dir = Directory.CreateTempSubdirectory("mf-shaderbuild-");
         try
         {
-            var ground = Path.Combine(dir.FullName, "ground.gdshader");
+            var ground = Path.Combine(dir.FullName, "ground.mfshader");
             File.WriteAllText(ground, Ground);
             Assert.True(CanvasShaderBuild.Build(ground, IncludeDirectory, slangc));
             Assert.True(CanvasShaderBuild.IsUpToDate(ground));
 
-            var broken = Path.Combine(dir.FullName, "broken.gdshader");
+            var broken = Path.Combine(dir.FullName, "broken.mfshader");
             File.WriteAllText(broken, Ground.Replace("vec3(k)", "vec3(undefined_thing)", StringComparison.Ordinal));
             var e = Assert.Throws<InvalidOperationException>(() => CanvasShaderBuild.Build(broken, IncludeDirectory, slangc));
-            Assert.Contains("broken.gdshader(6)", e.Message, StringComparison.Ordinal);
+            Assert.Contains("broken.mfshader(6)", e.Message, StringComparison.Ordinal);
             Assert.Contains("undefined_thing", e.Message, StringComparison.Ordinal);
         }
         finally

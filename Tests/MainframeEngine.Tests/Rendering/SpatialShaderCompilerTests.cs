@@ -30,7 +30,7 @@ public sealed class SpatialShaderCompilerTests
     [Fact]
     public void UniformsGetStd140OffsetsAndSamplersBindingsWithHints()
     {
-        var p = SpatialShaderCompiler.Translate(Ground, "ground.gdshader");
+        var p = SpatialShaderCompiler.Translate(Ground, "ground.mfshader");
         var u = p.Uniforms.ToDictionary(x => x.Name);
         Assert.Equal(0, u["palette"].Offset);
         Assert.Equal(16, u["palette"].Stride);
@@ -121,7 +121,7 @@ public sealed class SpatialShaderCompilerTests
                 v_basis = mat3(MODEL_MATRIX);
             }
             void fragment() { ALBEDO = v_world * float(v_id) + v_basis[0]; ALPHA = 0.5; ALPHA_SCISSOR_THRESHOLD = 0.25; }
-            """, "sway.gdshader");
+            """, "sway.mfshader");
         Assert.Equal(AlphaMode.Cutout, p.Alpha);
         foreach (var pass in SpatialShaderProgram.Passes)
         {
@@ -136,8 +136,8 @@ public sealed class SpatialShaderCompilerTests
             Assert.Contains("[[vk::location(13)]] nointerpolation int v_id;", vertex, StringComparison.Ordinal);
             Assert.Contains("[[vk::location(14)]] mat3 v_basis;", vertex, StringComparison.Ordinal);
             // The user code keeps its file and lines.
-            Assert.Contains("#line 6 \"sway.gdshader\"", vertex, StringComparison.Ordinal);
-            Assert.Contains("#line 12 \"sway.gdshader\"", fragment, StringComparison.Ordinal);
+            Assert.Contains("#line 6 \"sway.mfshader\"", vertex, StringComparison.Ordinal);
+            Assert.Contains("#line 12 \"sway.mfshader\"", fragment, StringComparison.Ordinal);
         }
 
         // The prepass runs vertex() a frame ago too (last frame's model matrix and time) for the velocity.
@@ -179,16 +179,16 @@ public sealed class SpatialShaderCompilerTests
     }
 
     [Theory]
-    [InlineData("shader_type spatial;\nrender_mode blend_mul;", "s.gdshader(2): render_mode 'blend_mul' is not supported.")]
-    [InlineData("shader_type spatial;\n\nvoid light() { DIFFUSE_LIGHT = vec3(1.0); }", "s.gdshader(3): light() is not supported yet")]
-    [InlineData("shader_type spatial;\ninstance uniform vec4 tint;", "s.gdshader(2): instance uniforms are not supported yet.")]
-    [InlineData("shader_type spatial;\n#define X 1\nvoid fragment() {}", "s.gdshader(2): preprocessor directives are not supported")]
-    [InlineData("shader_type spatial;\nuniform float4 x;", "s.gdshader(2): uniform type 'float4' is not supported.")]
-    [InlineData("shader_type spatial;\nuniform sampler2D t[2];", "s.gdshader(2): sampler2D arrays are not supported")]
-    [InlineData("shader_type canvas_item;", "s.gdshader: only shader_type spatial is supported here (found 'canvas_item').")]
+    [InlineData("shader_type spatial;\nrender_mode blend_mul;", "s.mfshader(2): render_mode 'blend_mul' is not supported.")]
+    [InlineData("shader_type spatial;\n\nvoid light() { DIFFUSE_LIGHT = vec3(1.0); }", "s.mfshader(3): light() is not supported yet")]
+    [InlineData("shader_type spatial;\ninstance uniform vec4 tint;", "s.mfshader(2): instance uniforms are not supported yet.")]
+    [InlineData("shader_type spatial;\n#define X 1\nvoid fragment() {}", "s.mfshader(2): preprocessor directives are not supported")]
+    [InlineData("shader_type spatial;\nuniform float4 x;", "s.mfshader(2): uniform type 'float4' is not supported.")]
+    [InlineData("shader_type spatial;\nuniform sampler2D t[2];", "s.mfshader(2): sampler2D arrays are not supported")]
+    [InlineData("shader_type canvas_item;", "s.mfshader: only shader_type spatial is supported here (found 'canvas_item').")]
     public void ErrorsNameTheFileAndLine(string source, string expected)
     {
-        var e = Assert.Throws<FormatException>(() => SpatialShaderCompiler.Translate(source, "s.gdshader"));
+        var e = Assert.Throws<FormatException>(() => SpatialShaderCompiler.Translate(source, "s.mfshader"));
         Assert.StartsWith(expected, e.Message, StringComparison.Ordinal);
     }
 
@@ -196,8 +196,8 @@ public sealed class SpatialShaderCompilerTests
     public void MoreSamplersThanTheBudgetAreAnErrorAtTheExtraOne()
     {
         var source = "shader_type spatial;\n" + string.Concat(Enumerable.Range(0, SpatialShaderCompiler.MaxSamplers + 1).Select(i => $"uniform sampler2D t{i};\n"));
-        var e = Assert.Throws<FormatException>(() => SpatialShaderCompiler.Translate(source, "many.gdshader"));
-        Assert.StartsWith($"many.gdshader({SpatialShaderCompiler.MaxSamplers + 2}): more than {SpatialShaderCompiler.MaxSamplers} sampler2D", e.Message, StringComparison.Ordinal);
+        var e = Assert.Throws<FormatException>(() => SpatialShaderCompiler.Translate(source, "many.mfshader"));
+        Assert.StartsWith($"many.mfshader({SpatialShaderCompiler.MaxSamplers + 2}): more than {SpatialShaderCompiler.MaxSamplers} sampler2D", e.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -237,14 +237,14 @@ public sealed class SpatialShaderCompilerTests
     [Fact]
     public void SpatialPassesHaveTheirOwnSpirvFiles()
     {
-        var shader = Shader.FromProgram(SpatialShaderCompiler.Translate("shader_type spatial;"), "/x/ground.gdshader");
-        Assert.Equal("/x/ground.gdshader.vert.spv", shader.SpatialSpvPath(SpatialPass.Color, vertex: true));
-        Assert.Equal("/x/ground.gdshader.depth.frag.spv", shader.SpatialSpvPath(SpatialPass.Depth, vertex: false));
-        Assert.Equal("/x/ground.gdshader.shadow-point.vert.spv", shader.SpatialSpvPath(SpatialPass.ShadowPoint, vertex: true));
-        Assert.Equal(10, CanvasShaderBuild.SpatialSpvFiles("/x/ground.gdshader").Distinct().Count());
-        Assert.True(SpirvInvariance.Applies("/x/ground.gdshader.vert.spv")); // the colour and prepass positions meet exactly
-        Assert.True(SpirvInvariance.Applies("/x/ground.gdshader.depth.vert.spv"));
-        Assert.False(SpirvInvariance.Applies("/x/ground.gdshader.shadow.vert.spv"));
+        var shader = Shader.FromProgram(SpatialShaderCompiler.Translate("shader_type spatial;"), "/x/ground.mfshader");
+        Assert.Equal("/x/ground.mfshader.vert.spv", shader.SpatialSpvPath(SpatialPass.Color, vertex: true));
+        Assert.Equal("/x/ground.mfshader.depth.frag.spv", shader.SpatialSpvPath(SpatialPass.Depth, vertex: false));
+        Assert.Equal("/x/ground.mfshader.shadow-point.vert.spv", shader.SpatialSpvPath(SpatialPass.ShadowPoint, vertex: true));
+        Assert.Equal(10, CanvasShaderBuild.SpatialSpvFiles("/x/ground.mfshader").Distinct().Count());
+        Assert.True(SpirvInvariance.Applies("/x/ground.mfshader.vert.spv")); // the colour and prepass positions meet exactly
+        Assert.True(SpirvInvariance.Applies("/x/ground.mfshader.depth.vert.spv"));
+        Assert.False(SpirvInvariance.Applies("/x/ground.mfshader.shadow.vert.spv"));
     }
 
     [Fact]

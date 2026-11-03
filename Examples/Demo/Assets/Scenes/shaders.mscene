@@ -125,11 +125,11 @@
     },
     "Shader_vx6cx": {
       "ref": "ast_ba3acf2fea09",
-      "path": "Assets/Shaders/ground.gdshader"
+      "path": "Assets/Shaders/ground.mfshader"
     },
     "Shader_ar31j": {
       "ref": "ast_58fdab74bbb2",
-      "path": "Assets/Shaders/sway.gdshader"
+      "path": "Assets/Shaders/sway.mfshader"
     },
     "CylinderMesh_kzszc": {
       "type": "CylinderMesh",
@@ -145,7 +145,7 @@
     },
     "Shader_te2d3": {
       "ref": "ast_913339d591e5",
-      "path": "Assets/Shaders/dissolve.gdshader"
+      "path": "Assets/Shaders/dissolve.mfshader"
     }
   },
   "nodes": [

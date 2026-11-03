@@ -82,7 +82,7 @@ public sealed record CanvasShaderProgram(
 /// </summary>
 public static partial class CanvasShaderCompiler
 {
-    /// <summary>Translates <paramref name="source"/> (the <c>.gdshader</c> text).</summary>
+    /// <summary>Translates <paramref name="source"/> (the <c>.mfshader</c> text).</summary>
     /// <param name="fragmentInputs">
     /// The input locations the compiled fragment stage kept (<see cref="SpirvInputs"/>), or null for all: the vertex stage
     /// then writes only those. Slang drops unread fragment inputs, and a vertex output no fragment input reads is a
@@ -178,7 +178,7 @@ public static partial class CanvasShaderCompiler
         // texture()) and its meaning; the template around it is Slang. Built-ins and varyings are static globals the
         // user functions read and write; the entry points copy them to and from the stage interface.
         var common = new StringBuilder();
-        common.Append("// Translated from a Godot canvas_item shader by CanvasShaderCompiler. Do not edit: edit the .gdshader.\n");
+        common.Append("// Translated from a Godot canvas_item shader by CanvasShaderCompiler. Do not edit: edit the .mfshader.\n");
         common.Append("#include \"canvas.slang\"\n");
         common.Append("#define PI 3.1415926535897932384626433833\n#define TAU 6.2831853071795864769252867666\n#define E 2.7182818284590452353602874714\n");
         if (laidOut.Any(u => !u.IsSampler))

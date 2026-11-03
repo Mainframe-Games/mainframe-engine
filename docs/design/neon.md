@@ -42,7 +42,7 @@ Examples/Neon/
 ├── Tools/                fetch_assets.py (the CC0 texture sets), apartment/build_apartment.py + make_posters.py,
 │                         city/build_city_kit.py (Blender, headless)
 └── Assets/               Scenes/neon.mscene + neon-lighting.mres/.probes, PostProcess/neon.mres + neon-lens.mres,
-                          Settings/AudioBusLayout.mres, Shaders/*.gdshader (+ SPIR-V), UI/ (prompt, fps, menu.rcss, keys),
+                          Settings/AudioBusLayout.mres, Shaders/*.mfshader (+ SPIR-V), UI/ (prompt, fps, menu.rcss, keys),
                           Art/Apartment (glTF, textures, posters), Art/City (the kit and the signs' words)
 ```
 
@@ -72,7 +72,7 @@ script does, and exports `Assets/Art/Apartment/apartment.gltf`. Its docstring is
 
 The computer room's two racks are open-fronted cabinets of real kit, seeded per rack: servers with hot-swap drives,
 four-unit drive shelves, switches with patch panels and cables, a UPS. Their lights are one mesh, `Decor_RackLeds`, of
-small quads whose UV.x is kind + seed; `rack.gdshader` blinks each by itself (steady power, disk and link activity in
+small quads whose UV.x is kind + seed; `rack.mfshader` blinks each by itself (steady power, disk and link activity in
 bursts, a blue heartbeat, the odd red fault). No rack surface shares a plane with another.
 
 **The woman on the bed is off for now:** `NeonApartment.ShowResident` defaults to false, so the bed is empty in the game. Her
@@ -158,7 +158,7 @@ made-up words come from Noto Sans JP, OFL, rendered into an atlas):
   towers, pipes, solar rows, helipads, steel crowns, antennas and a few cranes on the roofs; lamps, signals, kiosks and
   awnings on the streets. Towers are stretched up per instance (`HeightScale`), so anything that must keep its shape is
   a prop and not part of the tower mesh;
-- the crowd (`crowd.gdshader`: one instance per walker, moved along its pavement by the shader; nobody is a node), wires
+- the crowd (`crowd.mfshader`: one instance per walker, moved along its pavement by the shader; nobody is a node), wires
   and lantern strings over the side streets, sky bridges between neighbouring towers;
 - the home tower's facade round the apartment and its neighbours' balconies, the wet `street` ground, the pools of light
   on it (`spill`), three `skyline` cylinders far off, the signs (`sign`, `screen`), the koi, dancer and logo `hologram`s,
@@ -170,7 +170,7 @@ neither the towers nor the traffic.
 
 ### The facades
 
-`facade.gdshader` draws the walls procedurally, and the storeys come from the kit height: the kit puts a ledge every
+`facade.mfshader` draws the walls procedurally, and the storeys come from the kit height: the kit puts a ledge every
 17.5 m (`LEDGE`, the shader's `ledge_every`) and the shader divides that stretched span into a whole number of storeys,
 so a ledge always lands on a floor line whatever the tower's `HeightScale`. Window columns divide the kit's 6 m `BAY`, so
 they land between the piers (the kit centres a whole number of bays on each face).
@@ -184,8 +184,13 @@ they land between the piers (the kit centres a whole number of bays on each face
   fading by the 20th floor, the sky above, the glow over downtown on the faces that look at it. Soft pools of sign colour
   wash the low floors. Wet glass mirrors a fake of the city (`glass_reflection()`).
 - All of this fades out above a few pixels a window. `detail` (the menu's Window interiors) turns it off.
+- **Per-instance values are `flat`.** The seeds reach `fragment()` through `varying flat vec4 v_custom` (and the scale
+  through `flat v_scale`; `crowd`, `screen` and `sign` do the same). Interpolated, the three equal vertex values come back
+  a few ulps apart per pixel, and the hashes, `floor`s and `step`s of them (room widths, lit windows, televisions) flipped
+  along rasterised rows: windows streaked, and under TAA's jitter they flickered from frame to frame, most visibly in the
+  editor's view from outside the home tower. `Neon.Tests` `ShaderTests` checks every varying fed by `INSTANCE_CUSTOM`.
 
-`street.gdshader` does the same for the ground. `city_mirror()` traces the reflected ray to an imaginary wall of shops
+`street.mfshader` does the same for the ground. `city_mirror()` traces the reflected ray to an imaginary wall of shops
 and windows across the street and draws only soft shapes, since a wet road smears a light into a streak; hard cells there
 turn into camouflage. Its strength is the menu's Street reflections.
 

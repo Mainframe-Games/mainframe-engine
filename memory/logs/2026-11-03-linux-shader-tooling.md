@@ -7,7 +7,8 @@ summary: >-
 # 2026-11-03: Linux shader and Docker tooling
 
 Branch `fix/linux-shader-tooling`. Small fix; both gaps were found while fixing the editor viewport flicker
-(`fix/editor-viewport-taa-flicker`, its log's "Tooling notes").
+(`fix/editor-viewport-taa-flicker`, its log's "Tooling notes"). Written before #156 renamed the files: `.gdshader` and
+`gdshader_folders` below are now `.mfshader` and `mfshader_folders` (the merge renamed the test's files too).
 
 ## What changed
 

@@ -148,8 +148,50 @@ public sealed class PhysicalBone3D : RigidBody3D
         }
     } = 0.1f;
 
+    /// <summary>
+    /// Active ragdolls (G9.10c): scales the simulator's <see cref="PhysicalBoneSimulator3D.DriveStrength"/> for this bone's
+    /// local drive (towards its animated rotation relative to its parent bone); 0 leaves this bone limp in an active body.
+    /// </summary>
+    [ExportGroup("Drive")]
+    [Export(Range = "0,1,0.01")]
+    public float DriveStrength
+    {
+        get;
+        set => field = Math.Clamp(value, 0f, 1f);
+    } = 1f;
+
+    /// <summary>
+    /// This bone's world hold (towards its animated world pose), scaled by the simulator's
+    /// <see cref="PhysicalBoneSimulator3D.HoldStrength"/>: usually 1 on the pelvis (<see cref="PhysicalBoneSimulator3D.Build"/>
+    /// sets it on the root body) and 0 elsewhere.
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float HoldStrength
+    {
+        get;
+        set => field = Math.Clamp(value, 0f, 1f);
+    }
+
+    /// <summary>
+    /// How far this body's rotation relative to its parent bone's body is from the animated one, in degrees, while it is
+    /// simulated (whatever the drive's strength; 0 otherwise, and for a root).
+    /// </summary>
+    public float GetDriveErrorDegrees() => LocalDrive is { HasTarget: true } drive ? drive.GetErrorDegrees() : 0f;
+
+    /// <summary>
+    /// How far this body is from its animated world position, in metres, while it is simulated (whatever the hold's
+    /// strength, so a game can tell a character has lost its balance; 0 otherwise).
+    /// </summary>
+    public float GetHoldError() => Hold is { HasTarget: true } hold ? hold.GetPositionError() : 0f;
+
     /// <summary>The simulator this bone belongs to (its parent), or null.</summary>
     public PhysicalBoneSimulator3D? Simulator => Parent as PhysicalBoneSimulator3D;
+
+    /// <summary>The local drive to the parent bone's body the simulator created (an internal node, not saved), or null.</summary>
+    internal BoneDrive3D? LocalDrive { get; set; }
+
+    /// <summary>The world hold the simulator created (an internal node, not saved), or null.</summary>
+    internal BoneDrive3D? Hold { get; set; }
 
     /// <summary>The joint the simulator created for this bone (an internal node, not saved), or null.</summary>
     public Joint3D? Joint { get; internal set; }

@@ -242,7 +242,8 @@ a solver ([ADR 0022](../../memory/decisions/0022-physics-signal-dispatch.md)):
 motors, springs, breaking (`Broken`, `Rebuild()`), collision exclusion and debug draw. Joints are created at the space's
 flush after their bodies, keep their authored frames when bodies leave and return or switch Dynamic ↔ Kinematic, and
 wait (3D) while neither body is dynamic. `Ragdoll3D` turns its rigid-body children into a ragdoll; `PhysicalBone3D`
-bodies under a `PhysicalBoneSimulator3D` ragdoll a `Skeleton3D`. A 2D lattice of 121 bodies and 431 pins at 120 Hz
+bodies under a `PhysicalBoneSimulator3D` ragdoll a `Skeleton3D`, and can be active ragdolls (drives and holds towards
+the animation, ADR 0235). A 2D lattice of 121 bodies and 431 pins at 120 Hz
 with 4 substeps settles under 0.1 px of separation and steps in about 0.27 ms in a Debug build (ADR 0201).
 
 ## Queries

@@ -7,9 +7,9 @@ namespace Demo;
 
 /// <summary>
 /// Godot spatial shaders on meshes (ADR 0205): a procedural ground computed from the world position
-/// (<c>Assets/Shaders/ground.gdshader</c>), fungal stalks in one <see cref="MultiMeshInstance3D"/> swaying with their shadows
-/// (<c>sway.gdshader</c>, out of step by <c>INSTANCE_CUSTOM</c>), and props dissolving with a glowing edge and a hit flash
-/// (<c>dissolve.gdshader</c>), under a shadowed sun and a warm omni light. <see cref="ShadersPanel"/> drives the uniforms.
+/// (<c>Assets/Shaders/ground.mfshader</c>), fungal stalks in one <see cref="MultiMeshInstance3D"/> swaying with their shadows
+/// (<c>sway.mfshader</c>, out of step by <c>INSTANCE_CUSTOM</c>), and props dissolving with a glowing edge and a hit flash
+/// (<c>dissolve.mfshader</c>), under a shadowed sun and a warm omni light. <see cref="ShadersPanel"/> drives the uniforms.
 /// </summary>
 public static class ShadersScene
 {
@@ -37,7 +37,7 @@ public static class ShadersScene
         {
             Name = "Ground",
             Mesh = new PlaneMesh { Size = new Vector2(60, 60) },
-            MaterialOverride = new ShaderMaterial { Shader = ResourceLoader.Load<Shader>("Assets/Shaders/ground.gdshader") },
+            MaterialOverride = new ShaderMaterial { Shader = ResourceLoader.Load<Shader>("Assets/Shaders/ground.mfshader") },
         });
 
         // Stalks: one multimesh, each instance with a phase and a cap colour as custom data.
@@ -60,11 +60,11 @@ public static class ShadersScene
         {
             Name = "Stalks",
             Multimesh = multimesh,
-            MaterialOverride = new ShaderMaterial { Shader = ResourceLoader.Load<Shader>("Assets/Shaders/sway.gdshader") },
+            MaterialOverride = new ShaderMaterial { Shader = ResourceLoader.Load<Shader>("Assets/Shaders/sway.mfshader") },
         });
 
         // Props: one dissolve material each (their progress differs).
-        var dissolve = ResourceLoader.Load<Shader>("Assets/Shaders/dissolve.gdshader");
+        var dissolve = ResourceLoader.Load<Shader>("Assets/Shaders/dissolve.mfshader");
         var props = Add(root, root, new Node3D { Name = "Props" });
         foreach (var (name, mesh, position, color, _) in Props)
         {
