@@ -106,7 +106,7 @@ threads. A constraint's data is at most 256 bytes including Jitter2's 32-byte he
 
 | Constraint | Rows |
 |---|---|
-| `SixDofLinear` | Locks and limits along frame A's axes, at B's anchor; all three locked, along world axes at each body's anchor (a ball socket's rows, stable however fast body A spins) |
+| `SixDofLinear` | Locks and limits along frame A's axes on B's anchor's offset, each body's arm to its own anchor (stable however fast body A spins) |
 | `SixDofAngular` | Locks and limits on the relative rotation's XYZ Euler angles (`Rx·Ry·Rz`; Y in −90°…90°) |
 | `SixDofLinearDrive`, `SixDofAngularDrive` | Motors (velocity rows capped at force × dt) and springs (soft rows) |
 
@@ -332,8 +332,8 @@ nothing.
 - **`Generic6DofJoint3D`** (G9.10b, ADR 0234): four constraints, not the proposal's two (the data didn't fit);
   speculative limits; exact Euler rate axes instead of Bullet's; the soft rows aren't frequency-clamped (they are
   stable at any stiffness). The benchmark chain's joints act as pins (angular axes free), not as the plan's twist-only
-  joint, so it compares with the pin chain: 82 µs a step against the pins' 56 µs (1.5×), 0 B. Fully locked linear axes
-  are solved as a ball socket's world-axis rows: frame-axis rows let that flailing chain blow up.
+  joint, so it compares with the pin chain: 82 µs a step against the pins' 57 µs (1.4×). The linear rows' arms reach
+  each body's own anchor, not the exact derivative's: with A's arm at B's anchor that flailing chain blew up.
 - **Not yet:** active ragdolls (G9.10c), humanoid limits.
 
 ## Related

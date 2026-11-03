@@ -10,7 +10,8 @@ namespace MainframeEngine;
 
 /// <summary>
 /// The linear locks and limits of a <see cref="Generic6DofJoint3D"/> (ADR 0234): three rows along frame A's axes, each
-/// measuring where B's anchor is from A's, solved like Jitter2's own constraints (its linear softness and bias).
+/// measuring where B's anchor is from A's, solved like Jitter2's own constraints (its linear softness and bias, each
+/// body's arm to its own anchor).
 /// </summary>
 internal sealed unsafe class SixDofLinear : Constraint<SixDofLinear.Values>
 {
@@ -33,9 +34,6 @@ internal sealed unsafe class SixDofLinear : Constraint<SixDofLinear.Values>
         public JVector R1, R2;
         public JVector Axis0, Axis1, Axis2;
     }
-
-    /// <summary><see cref="Values.Modes"/> with every axis <see cref="JointAxisMode.Locked"/>.</summary>
-    private const uint AllLocked = (uint)JointAxisMode.Locked * 0b010101;
 
     private static readonly uint s_dispatchId = RegisterFullConstraint(&Prepare, &Iterate);
 
@@ -82,19 +80,18 @@ internal sealed unsafe class SixDofLinear : Constraint<SixDofLinear.Values>
         var x2 = V(ref body2.Position);
         var pA = x1 + Vector3.Transform(V(ref data.LocalAnchor1), Q(body1.Orientation));
         var pB = x2 + Vector3.Transform(V(ref data.LocalAnchor2), Q(body2.Orientation));
+        // Each body's arm reaches its own anchor (as Jitter2's constraints). The exact derivative of an offset along axes
+        // that turn with body 1 would reach B's anchor instead, but that feeds body 1's spin straight into the rows: a
+        // flailing chain then gains energy until it blows up.
         var d = pB - pA;
-        // Every axis locked is a ball socket: rows along world axes at each body's own anchor (as Jitter2's BallSocket),
-        // which stay well conditioned however fast body 1 spins. Otherwise rows along frame A's axes, measured at B's
-        // anchor (the axes turn with body 1, so its arm reaches B's anchor).
-        var socket = data.Modes == AllLocked;
-        var r1 = socket ? pA - x1 : pB - x1;
+        var r1 = pA - x1;
         var r2 = pB - x2;
         V(ref data.R1) = r1;
         V(ref data.R2) = r2;
 
         for (var i = 0; i < 3; i++)
         {
-            var n = socket ? Axis(i) : Vector3.Transform(Axis(i), frameA);
+            var n = Vector3.Transform(Axis(i), frameA);
             AxisOf(ref data, i) = n;
             ref var row = ref data.Rows[i];
             var clamp = SixDofMath.Clamp((JointAxisMode)Get(data.Modes, i), Vector3.Dot(d, n), row.Lower, row.Upper, angular: false, out var error, out var inside);
@@ -207,7 +204,7 @@ internal sealed unsafe class SixDofLinearDrive : Constraint<SixDofLinearDrive.Va
         var x2 = V(ref body2.Position);
         var pA = x1 + Vector3.Transform(V(ref data.LocalAnchor1), Q(body1.Orientation));
         var pB = x2 + Vector3.Transform(V(ref data.LocalAnchor2), Q(body2.Orientation));
-        var r1 = pB - x1;
+        var r1 = pA - x1; // each body's own anchor, as SixDofLinear
         var r2 = pB - x2;
         var d = pB - pA;
         V(ref data.R1) = r1;

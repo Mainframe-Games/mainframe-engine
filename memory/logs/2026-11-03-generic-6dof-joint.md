@@ -50,9 +50,12 @@ Branch `feature/g9-10b-6dof`. Plan: [Generic6DofJoint3D](../plans/2026-11-03-gen
   style speculative limits stop it at 0.300 m.
 - **Exact Euler rate axes.** The plan's Bullet-derived axes fail the numeric rate test away from zero, so the axes are
   the dual basis of A's X, B's Z and their cross product.
-- **Fully locked linear axes are a ball socket's world-axis rows.** The benchmark's chain flails at more than
-  1,000 rad/s (Jitter2's own pin chain does too). There, the frame-axis rows went NaN within 4 s, and world-axis rows
-  stay bounded. A 30 s regression test covers both paths.
+- **The linear rows' arms reach each body's own anchor.** The exact derivative for frame-A axes puts A's arm at B's
+  anchor. On the benchmark's flailing chain that went NaN within 4 s. A world-axis "ball socket" special case for fully
+  locked joints only hid it: CI's x64 runners then failed the sliding variant of the regression test (NaN at 8 s and
+  13 s). Nudging the start reproduced it on arm64 too: all six seeds passed 10,000 m/s within 6–19 s. Own-anchor arms
+  (Jitter2's form) keep every seed calm for 60 s, so the special case was removed. The regression test now checks speed
+  (under 1,000 m/s), not just finiteness, for locked and sliding chains from two starts each.
 - **The benchmark chain's joints act as pins**, with angular axes free. The plan's twist-only joint would make a rigid
   30 m cantilever, which doesn't compare with the pin chain.
 - **The joint allocation gate stays single-threaded.** Without any 6-DOF joints, its multi-threaded run measured
@@ -84,15 +87,17 @@ Branch `feature/g9-10b-6dof`. Plan: [Generic6DofJoint3D](../plans/2026-11-03-gen
 ## Dead ends
 
 - Bullet's angular axis formulas: correct only near zero for this decomposition.
-- Frame-axis rows for a fully locked linear part: NaN on the flailing chain.
+- A-arms reaching B's anchor (the exact derivative): NaN on the flailing chain. A world-axis special case for fully
+  locked joints, which only hid it.
 - The multi-threaded joint allocation gate: flaky with or without 6-DOF joints.
 - `just bench`: BenchmarkDotNet's generated project can't copy the Steamworks shim (MSB3030), whatever the change. The
   numbers come from `--inProcess`. This is worth a fix of its own.
 
 ## Verified
 
-- Benchmark, in-process on a loaded machine, so indicative only: `StepChain100Pins` 55.9 µs, `StepChain100SixDof`
-  81.7 µs (1.46×, target ≤ 2×), 0 B; `Step50Ragdolls` 628 µs.
+- Benchmark, in-process on a loaded machine, so indicative only: `StepChain100Pins` 57.0 µs, `StepChain100SixDof`
+  82.1 µs (1.44×, target ≤ 2×), 1 B averaged per step (the pins 0 B; the unit allocation gate measures 0 B);
+  `Step50Ragdolls` 628 µs.
 - All 106 engine joint, ragdoll, physical-bone, 6-DOF and debug-draw tests pass, with the 3D joint allocation gate at
   0 B.
 - Editor joint tests: 30. Demo tests: 113.

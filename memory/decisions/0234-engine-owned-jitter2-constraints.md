@@ -31,10 +31,14 @@ bytes including Jitter2's 32-byte header, and registers a pair of static functio
   axis).
 - **One row per axis, solved like Jitter2's own constraints.**
   - Locks and limits use Jitter2's default softness and bias (`Constraint.DefaultLinear*`/`DefaultAngular*`).
-  - Linear rows run along frame A's axes, at B's anchor. When all three linear axes are locked, they run along world
-    axes at each body's own anchor instead, as Jitter2's `BallSocket` does. With frame-axis rows, the benchmark's
-    100-link chain flailing at more than 1,000 rad/s went NaN within 4 s. With world-axis rows it stays as bounded as
-    Jitter2's pin chain (`ALong6DofChainFlailingFor30SecondsStaysFinite`).
+  - Linear rows run along frame A's axes and measure B's anchor from A's. Each body's arm reaches its own anchor, as in
+    Jitter2's constraints. The exact derivative for axes that turn with body A would put A's arm at B's anchor, but
+    that feeds A's spin straight into the rows. The benchmark's 100-link chain, flailing at more than 1,000 rad/s, then
+    gained energy until links passed 10,000 m/s within 6–19 s and went NaN. That happened on every platform once its
+    start was nudged; CI's x64 runners caught it first. With own-anchor arms it stays as bounded as Jitter2's pin chain
+    (`ALong6DofChainFlailingFor30SecondsStaysCalm`, which checks speeds stay under 1,000 m/s, locked and sliding,
+    two starts each). A world-axis "ball socket" special case tried first only hid the problem for fully locked
+    joints, so it was dropped.
   - Angular rows are the relative rotation's XYZ Euler angles (`Rx·Ry·Rz`, as Bullet's `matrixToEulerXYZ`), so Y is
     limited to ±90°. Each angle's row axis is the dual basis of A's X, B's Z and their cross product, so its rate is
     exactly `axis·(ωB − ωA)`. A test checks this numerically.

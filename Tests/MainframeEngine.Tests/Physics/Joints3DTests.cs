@@ -763,24 +763,28 @@ public sealed class Joints3DTests : IDisposable
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ALong6DofChainFlailingFor30SecondsStaysFinite(bool slidingX)
+    [InlineData(false, 0)]
+    [InlineData(false, 3)]
+    [InlineData(true, 0)]
+    [InlineData(true, 3)]
+    public void ALong6DofChainFlailingFor30SecondsStaysCalm(bool slidingX, int perturbation)
     {
         // The joint benchmark's chain: 100 light links swinging from the world flail wildly (Jitter2's own pin chain
-        // does too). With every linear axis locked the rows are a ball socket's; with X limited they follow frame A.
-        // Either way nothing may blow up (an earlier frame-axis-only version went NaN within 4 s).
+        // spins past 1 000 rad/s too). With every linear axis locked or with X limited, nothing may blow up: rows whose
+        // arm on body A reached B's anchor gained energy until links passed 10 000 m/s within 6–19 s (then NaN), on
+        // every platform once the start was nudged. The nudge offsets each link in Z.
         var link = new SphereShape3D { Radius = 0.1f };
         var bodies = new List<RigidBody3D>();
         for (var i = 0; i < 100; i++)
         {
-            var body = new RigidBody3D { Name = $"Link{i}", Position = new Vector3((i + 1) * 0.3f, 40, 0), CanSleep = false };
+            var z = perturbation * 0.001f * i;
+            var body = new RigidBody3D { Name = $"Link{i}", Position = new Vector3((i + 1) * 0.3f, 40, z), CanSleep = false };
             body.AddChild(new CollisionShape3D { Shape = link });
             bodies.Add(_h.Add(body));
             var joint = new Generic6DofJoint3D
             {
                 Name = $"Joint{i}",
-                Position = new Vector3(i * 0.3f + (i == 0 ? 0 : 0.15f), 40, 0),
+                Position = new Vector3(i * 0.3f + (i == 0 ? 0 : 0.15f), 40, z),
                 AngularXMode = JointAxisMode.Free,
                 AngularYMode = JointAxisMode.Free,
                 AngularZMode = JointAxisMode.Free,
@@ -793,11 +797,16 @@ public sealed class Joints3DTests : IDisposable
             joint.NodeB = $"../Link{i}";
         }
 
-        for (var second = 0; second < 30; second++)
+        for (var frame = 0; frame < 30 * 60; frame++)
         {
-            _h.RunSeconds(1f);
+            _h.Run(1);
+            if (frame % 30 != 0)
+                continue;
             foreach (var body in bodies)
-                Assert.True(float.IsFinite(body.Position.X + body.Position.Y + body.Position.Z), $"{body.Name} at {second + 1} s: {body.Position}");
+            {
+                var speed = body.LinearVelocity.Length();
+                Assert.True(float.IsFinite(speed) && speed < 1000f, $"{body.Name} at frame {frame}: {speed} m/s");
+            }
         }
     }
 }
