@@ -71,7 +71,7 @@ public static partial class SurfaceShaderBuild
     /// check: it has no slangc and no engine includes).
     /// </summary>
     public static bool IsUpToDate(string shaderPath, string source, SurfaceShaderSource parsed, SurfaceShaderLayout layout) =>
-        SpvFiles(shaderPath, parsed.Kind).All(File.Exists) && ReadLock(shaderPath) is [var first, ..] && first == Hash(source, parsed, layout);
+        SpvFiles(shaderPath, parsed.Kind).All(ContentFiles.Exists) && ReadLock(shaderPath) is [var first, ..] && first == Hash(source, parsed, layout);
 
     /// <summary>
     /// True when the shader's SPIR-V, layout and lock are current: <see cref="IsUpToDate(string, string, SurfaceShaderSource,
@@ -106,7 +106,8 @@ public static partial class SurfaceShaderBuild
     private static string[] ReadLock(string shaderPath)
     {
         var lockPath = shaderPath + LockExtension;
-        return File.Exists(lockPath) ? File.ReadAllLines(lockPath).Where(l => l.Length > 0).ToArray() : [];
+        // Shader.Load reads it at run time, so through the content file system (the build and the check read the disk).
+        return ContentFiles.Exists(lockPath) ? ContentFiles.ReadAllText(lockPath).ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries) : [];
     }
 
     private static string Resolve(string entry, string includeDirectory, string shaderDirectory) =>

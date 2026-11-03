@@ -51,7 +51,7 @@ public static class ContentPaths
         if (ProjectDirectory is { } project && !string.IsNullOrWhiteSpace(path) && !Path.IsPathRooted(path) && IsContentRelativeToBase(path))
         {
             var inProject = Path.GetFullPath(Path.Combine(project, path));
-            if (File.Exists(inProject) || Directory.Exists(inProject))
+            if (ContentFiles.Exists(inProject) || ContentFiles.DirectoryExists(inProject))
                 return inProject;
         }
 

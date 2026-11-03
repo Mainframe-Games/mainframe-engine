@@ -35,7 +35,7 @@ public sealed unsafe class ShaderModuleCache : IDisposable
         byte[] code;
         try
         {
-            code = File.ReadAllBytes(path);
+            code = ContentFiles.ReadAllBytes(path);
         }
         catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
         {

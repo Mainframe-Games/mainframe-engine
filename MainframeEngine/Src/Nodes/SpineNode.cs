@@ -157,7 +157,7 @@ public class SpineNode : VisualInstance3D
 
         var folder = new SpineFolder(_folder);
         _textureLoader = new SpineTextureLoader();
-        var atlas = new Atlas(folder.AtlasPath, _textureLoader);
+        var atlas = SpineContent.ReadAtlas(folder.AtlasPath, _textureLoader);
         _pma = atlas.Pages[0].pma;
 
         var skeletonData = folder.ReadSkeletonData(atlas);
@@ -357,14 +357,12 @@ public readonly struct SpineFolder(in string rootFolder)
     public bool IsBinary => SkeletonPath.EndsWith(".skel", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Reads the skeleton data with the reader its format needs.</summary>
-    public SkeletonData ReadSkeletonData(Atlas atlas) => IsBinary
-        ? new SkeletonBinary(atlas).ReadSkeletonData(SkeletonPath)
-        : new SkeletonJson(atlas).ReadSkeletonData(SkeletonPath);
+    public SkeletonData ReadSkeletonData(Atlas atlas) => SpineContent.ReadSkeletonData(SkeletonPath, atlas);
 
     // The first match by name, so a folder loads the same file on every OS.
     private static string? Find(string folder, string pattern)
     {
-        var files = Directory.GetFiles(ContentPaths.Resolve(folder), pattern);
+        var files = ContentFiles.EnumerateFiles(ContentPaths.Resolve(folder), pattern).ToArray();
         if (files.Length == 0)
             return null;
         Array.Sort(files, StringComparer.Ordinal);

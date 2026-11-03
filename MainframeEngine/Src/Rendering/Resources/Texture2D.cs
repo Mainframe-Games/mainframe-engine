@@ -232,7 +232,7 @@ public class Texture2D : Resource
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         var fullPath = AssetDatabase.Current.ToAbsolutePath(path);
-        if (!File.Exists(fullPath))
+        if (!ContentFiles.Exists(fullPath))
             throw new FileNotFoundException($"Image not found: '{path}'.", fullPath);
         var texture = new Texture2D { _filePath = fullPath, _settings = settings ?? TextureImportSettings.Default };
         ImagePrefetch.OnTextureCreated(texture); // ADR 0183: during an async scene load, decode ahead on a worker
@@ -358,7 +358,7 @@ public class Texture2D : Resource
             return (shared ? prefetched.Rgba : (byte[])prefetched.Rgba.Clone(), _width, _height);
         }
 
-        var bytes = _encoded ?? File.ReadAllBytes(_filePath ?? throw new InvalidOperationException("The texture has no source."));
+        var bytes = _encoded ?? ContentFiles.ReadAllBytes(_filePath ?? throw new InvalidOperationException("The texture has no source."));
         byte[] data;
         if (IsSvg)
         {
@@ -377,7 +377,7 @@ public class Texture2D : Resource
 
     /// <summary>Decodes an image file (PNG, JPEG, TGA, BMP) to RGBA8 as a file-backed texture does. Thread-safe.</summary>
     internal static (byte[] Rgba, int Width, int Height) DecodeImageFile(string fullPath, bool fixAlphaBorder) =>
-        DecodeImage(File.ReadAllBytes(fullPath), fixAlphaBorder, fullPath);
+        DecodeImage(ContentFiles.ReadAllBytes(fullPath), fixAlphaBorder, fullPath);
 
     private static (byte[] Rgba, int Width, int Height) DecodeImage(byte[] bytes, bool fixAlphaBorder, string? name)
     {
@@ -422,7 +422,7 @@ public class Texture2D : Resource
             ImageInfo? info;
             if (IsSvg)
             {
-                (_width, _height) = Svg.PixelSize(_encoded ?? File.ReadAllBytes(_filePath!), _settings.SvgScale);
+                (_width, _height) = Svg.PixelSize(_encoded ?? ContentFiles.ReadAllBytes(_filePath!), _settings.SvgScale);
                 info = null;
             }
             else if (_encoded is not null)
@@ -432,7 +432,7 @@ public class Texture2D : Resource
             }
             else if (_filePath is not null)
             {
-                using var stream = File.OpenRead(_filePath);
+                using var stream = ContentFiles.OpenRead(_filePath);
                 info = ImageInfo.FromStream(stream);
             }
             else

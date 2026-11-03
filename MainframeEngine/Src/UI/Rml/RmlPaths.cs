@@ -12,7 +12,7 @@ public static class RmlPaths
         ArgumentNullException.ThrowIfNull(path);
         if (path.Length == 0)
             return path;
-        if ((path[0] == '/' || path[0] == '\\') && File.Exists(path))
+        if ((path[0] == '/' || path[0] == '\\') && ContentFiles.Exists(path))
             return path;
         if (path[0] == '/')
             return path[1..];

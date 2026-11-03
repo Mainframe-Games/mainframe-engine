@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using MainframeEngine.Tests.Physics;
 
@@ -124,7 +125,9 @@ public sealed class TerrainMacroTextureTests : IDisposable
         });
         Assert.Null(terrain.MacroTexture); // the build bakes on a worker thread
         Assert.True(terrain.IsBakingMacroTexture);
-        for (var i = 0; i < 600 && terrain.MacroTexture is null; i++)
+        // A wall-clock deadline, not a frame count: a busy CI runner can starve the worker for seconds.
+        var deadline = Stopwatch.StartNew();
+        while (terrain.MacroTexture is null && deadline.Elapsed < TimeSpan.FromSeconds(30))
         {
             Thread.Sleep(5);
             _h.Run(1);

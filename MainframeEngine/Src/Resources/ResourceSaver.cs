@@ -95,7 +95,7 @@ public static class ResourceSaver
     }
 
     internal static string? ExistingUid(string fullPath, string projectPath) =>
-        (File.Exists(fullPath) ? AssetDatabase.ReadEmbeddedUid(fullPath) : null) ?? AssetDatabase.Current.GetUid(projectPath);
+        (File.Exists(fullPath) ? AssetDatabase.ReadEmbeddedUid(fullPath) : null) ?? AssetDatabase.Current.GetUid(projectPath); // disk-io: the file about to be saved
 
     internal static void WriteAtomically(string fullPath, byte[] bytes) => DurableFile.Write(fullPath, bytes);
 }

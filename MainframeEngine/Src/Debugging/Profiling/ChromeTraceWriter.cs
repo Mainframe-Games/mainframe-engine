@@ -157,7 +157,7 @@ public static class ChromeTraceReader
 
     public static ProfilerTrace Load(string path)
     {
-        using var stream = File.OpenRead(path);
+        using var stream = File.OpenRead(path); // disk-io: a trace file the profiler wrote
         return Read(stream);
     }
 

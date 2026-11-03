@@ -334,7 +334,7 @@ public sealed unsafe partial class VulkanCanvasRenderer : IOverlayRenderer, IDis
             {
                 var batch = batches[i];
                 var shaderMaterial = batch.Material as ShaderMaterial;
-                var shader = shaderMaterial?.Shader is { Program: not null, VertexSpvPath: not null } s && File.Exists(s.VertexSpvPath) ? s : null;
+                var shader = shaderMaterial?.Shader is { Program: not null, VertexSpvPath: not null } s && ContentFiles.Exists(s.VertexSpvPath) ? s : null;
                 Pipeline pipeline;
                 PipelineLayout layout;
                 if (shader is not null)
@@ -1056,7 +1056,7 @@ public sealed unsafe partial class VulkanCanvasRenderer : IOverlayRenderer, IDis
         var attributes = stackalloc VertexInputAttributeDescription[CanvasVertexLayout.AttributeCount];
         // Only the attributes the vertex shader reads (pipeline creation, not per frame: the SPIR-V read is fine here).
         var attributeCount = geometry
-            ? CanvasVertexLayout.Select(SpirvInputs.InputLocations(File.ReadAllBytes(ContentPaths.Resolve(vertexSpv))),
+            ? CanvasVertexLayout.Select(SpirvInputs.InputLocations(ContentFiles.ReadAllBytes(ContentPaths.Resolve(vertexSpv))),
                 new Span<VertexInputAttributeDescription>(attributes, CanvasVertexLayout.AttributeCount))
             : 0;
         var vertexInput = new PipelineVertexInputStateCreateInfo

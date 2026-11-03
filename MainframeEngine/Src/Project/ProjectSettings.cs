@@ -131,11 +131,11 @@ public sealed class ProjectSettings
     public static ProjectSettings Load(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var file = Directory.Exists(path) ? Path.Combine(path, FileName) : path;
+        var file = ContentFiles.DirectoryExists(path) ? Path.Combine(path, FileName) : path;
         file = Path.GetFullPath(file);
-        if (!File.Exists(file))
+        if (!ContentFiles.Exists(file))
             throw new FileNotFoundException($"No project file at '{file}'.", file);
-        var settings = ProjectSettingsFormat.Parse(File.ReadAllBytes(file), file);
+        var settings = ProjectSettingsFormat.Parse(ContentFiles.ReadAllBytes(file), file);
         settings.FilePath = file;
         return settings;
     }
@@ -146,7 +146,7 @@ public sealed class ProjectSettings
     public static ProjectSettings? LoadFromApplicationDirectory()
     {
         var file = Path.Combine(ContentPaths.BaseDirectory, FileName);
-        return File.Exists(file) ? Load(file) : null;
+        return ContentFiles.Exists(file) ? Load(file) : null;
     }
 
     /// <summary>Parses <c>project.mfproj</c> JSON (older formats are upgraded); <paramref name="source"/> names it in errors.</summary>
@@ -159,7 +159,7 @@ public sealed class ProjectSettings
     public void Save(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var file = Path.GetFullPath(Directory.Exists(path) ? Path.Combine(path, FileName) : path);
+        var file = Path.GetFullPath(Directory.Exists(path) ? Path.Combine(path, FileName) : path); // disk-io: saves to disk
         ResourceSaver.WriteAtomically(file, ToJson());
         FilePath = file;
     }

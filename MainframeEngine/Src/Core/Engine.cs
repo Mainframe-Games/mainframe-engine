@@ -520,7 +520,7 @@ public abstract class Engine : IDisposable
             return;
 
         var img = ImageResult.FromMemory(
-            File.ReadAllBytes(ContentPaths.Resolve(path)),
+            ContentFiles.ReadAllBytes(ContentPaths.Resolve(path)),
             ColorComponents.RedGreenBlueAlpha
         ) ?? throw new InvalidDataException($"Failed to decode window icon '{path}'.");
         WindowIcon.ToSdlByteOrder(img.Data); // Silk's SDL icon surface reads A, B, G, R bytes (see WindowIcon)

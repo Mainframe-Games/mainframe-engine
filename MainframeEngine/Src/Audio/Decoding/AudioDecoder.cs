@@ -108,7 +108,7 @@ internal abstract class AudioDecoder : IDisposable
         var extension = Path.GetExtension(path).ToLowerInvariant();
         if (!IsSupportedExtension(path))
             throw new NotSupportedException($"'{path}': unsupported audio format '{extension}' (wav, ogg, mp3, flac).");
-        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024);
+        var stream = ContentFiles.OpenRead(path, FileShare.Read, 64 * 1024);
         try
         {
             return extension switch

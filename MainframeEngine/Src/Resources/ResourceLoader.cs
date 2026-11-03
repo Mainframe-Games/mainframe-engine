@@ -57,7 +57,7 @@ public static class ResourceLoader
         ArgumentException.ThrowIfNullOrEmpty(pathOrUid);
         var assets = AssetDatabase.Current;
         var path = AssetUid.IsUid(pathOrUid) ? assets.GetPath(pathOrUid) : pathOrUid;
-        return path is not null && File.Exists(assets.ToAbsolutePath(path));
+        return path is not null && ContentFiles.Exists(assets.ToAbsolutePath(path));
     }
 
     /// <summary>True if the resource with <paramref name="uid"/> is cached.</summary>
@@ -150,7 +150,7 @@ public static class ResourceLoader
             var fullPath = assets.ToAbsolutePath(scene.ResourcePath!);
             try
             {
-                scene.SetContent(File.ReadAllBytes(fullPath), assets.ToProjectPath(fullPath));
+                scene.SetContent(ContentFiles.ReadAllBytes(fullPath), assets.ToProjectPath(fullPath));
                 refreshed++;
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
@@ -182,7 +182,7 @@ public static class ResourceLoader
             }
 
             path = assets.GetPath(uid);
-            if (path is null && pathHint is not null && File.Exists(assets.ToAbsolutePath(pathHint)))
+            if (path is null && pathHint is not null && ContentFiles.Exists(assets.ToAbsolutePath(pathHint)))
             {
                 Log.Warning($"[Resources] UID {uid} (from '{referencedFrom}') is not in the asset database; using path '{pathHint}'.");
                 path = pathHint;
@@ -282,13 +282,13 @@ public static class ResourceLoader
 
     private static Resource ReadFile(string fullPath, string pathKey)
     {
-        if (!File.Exists(fullPath))
+        if (!ContentFiles.Exists(fullPath))
             throw new FileNotFoundException($"Resource file not found: '{pathKey}'.", fullPath);
 
         if (AssetImporters.Find(fullPath) is { } importer)
             return AssetDatabase.IsSelfDescribing(fullPath) ? ImportSelfDescribing(importer, fullPath, pathKey) : Import(importer, fullPath, pathKey);
 
-        var bytes = File.ReadAllBytes(fullPath);
+        var bytes = ContentFiles.ReadAllBytes(fullPath);
         if (fullPath.EndsWith(SceneFormat.SceneExtension, StringComparison.OrdinalIgnoreCase))
         {
             var scene = new PackedScene { ResourcePath = pathKey };

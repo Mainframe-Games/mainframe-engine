@@ -427,7 +427,8 @@ File log lines read like the console's (`2026-10-05T12:00:00.123Z [INFO] game Ne
 (`~/.local/share`); `MAINFRAME_USER_DATA` overrides the base folder (tests, CI, portable installs).
 `GameHost.UserDataDirectory` is the running game's folder, named by `userDataName`, else `name` (created on use), and
 `GameHost.UserDataPath("saves/x")` a path inside it. Nothing the game writes goes next to the app, which may be
-read-only.
+read-only. What the game reads from its own `Assets/` (level data, tables) goes through `ContentFiles`, not `File`, so
+it keeps loading when an export packs `Assets/` ([Content file system](asset-pipeline.md#content-file-system)).
 
 ```text
 {user data}/                 GameHost.UserDataDirectory

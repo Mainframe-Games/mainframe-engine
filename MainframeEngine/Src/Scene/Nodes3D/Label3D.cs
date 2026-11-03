@@ -153,7 +153,7 @@ public class Label3D : GeometryInstance3D
     {
         if (Text.Length == 0)
             return null;
-        Sync(Font ?? (_defaultFont ??= Font.FromData(File.ReadAllBytes(ContentPaths.Resolve(DefaultFontPath)))));
+        Sync(Font ?? (_defaultFont ??= Font.FromData(ContentFiles.ReadAllBytes(ContentPaths.Resolve(DefaultFontPath)))));
         return _mesh.SurfaceCount > 0 ? _mesh : null;
     }
 

@@ -1,5 +1,6 @@
 namespace MainframeEngine.Tests.Core;
 
+[Collection(nameof(Content.SerialContentPaths))]
 public sealed class ContentPathsTests
 {
     private static readonly string Base = Path.Combine(Path.GetTempPath(), "mf-app");

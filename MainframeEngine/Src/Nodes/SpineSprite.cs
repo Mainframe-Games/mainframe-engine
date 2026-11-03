@@ -54,11 +54,8 @@ public sealed class SpineSkeletonDataResource : Resource
             if (_data is not null)
                 return _data;
             var assets = AssetDatabase.Current;
-            _atlas = new Atlas(assets.ToAbsolutePath(AtlasRes), new CanvasTextureLoader());
-            var skeletonPath = assets.ToAbsolutePath(SkeletonFileRes);
-            _data = skeletonPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                ? new SkeletonJson(_atlas).ReadSkeletonData(skeletonPath)
-                : new SkeletonBinary(_atlas).ReadSkeletonData(skeletonPath);
+            _atlas = SpineContent.ReadAtlas(assets.ToAbsolutePath(AtlasRes), new CanvasTextureLoader());
+            _data = SpineContent.ReadSkeletonData(assets.ToAbsolutePath(SkeletonFileRes), _atlas);
             return _data;
         }
     }

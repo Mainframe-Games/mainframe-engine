@@ -170,7 +170,7 @@ public class AudioStream : Resource
         var path = ResolvePath(_file);
         var mode = _loadMode;
         if (mode == AudioLoadMode.Auto)
-            mode = new FileInfo(path).Length >= StreamThresholdBytes ? AudioLoadMode.Stream : AudioLoadMode.Memory;
+            mode = ContentFiles.GetInfo(path).Length >= StreamThresholdBytes ? AudioLoadMode.Stream : AudioLoadMode.Memory;
         return mode == AudioLoadMode.Stream ? AudioStreamSource.Probe(path) : AudioClipCache.GetOrDecode(path);
     }
 
@@ -203,7 +203,7 @@ public class AudioStream : Resource
         if (AssetUid.IsUid(file))
             path = assets.GetPath(file) ?? throw new FileNotFoundException($"Unknown audio asset UID '{file}'.");
         var full = assets.ToAbsolutePath(path);
-        if (!System.IO.File.Exists(full))
+        if (!ContentFiles.Exists(full))
             throw new FileNotFoundException($"Audio file not found: '{path}'.", full);
         return full;
     }

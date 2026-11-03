@@ -176,7 +176,7 @@ public sealed class AdaptiveMusic : Resource
         var assets = AssetDatabase.Current;
         var file = _stemRoot is not null && !string.IsNullOrEmpty(stem.Path) ? Path.GetFullPath(stem.Path, _stemRoot)
             : AssetUid.IsUid(stem.Uid) && assets.GetPath(stem.Uid) is { } byUid ? byUid : stem.Path;
-        if (string.IsNullOrEmpty(file) || !File.Exists(assets.ToAbsolutePath(file)))
+        if (string.IsNullOrEmpty(file) || !ContentFiles.Exists(assets.ToAbsolutePath(file)))
         {
             missing++;
             Log.Error($"[Audio] Adaptive music '{Label}': the {section}/{layer} stem '{(string.IsNullOrEmpty(file) ? stem.Uid : file)}' is missing; that lane is silent.");
