@@ -6,8 +6,8 @@ namespace MainframeEngine.RenderTests;
 /// <summary>
 /// ADR 0169: a post-processed <see cref="SubViewport"/> (the editor's scene view). The <c>subviewport-post</c> scene checks
 /// itself on the view's own image: with post-processing the scene is graded (grey) and vignetted while the debug and overlay
-/// lines keep their exact colours; without it the view is the engine tonemap alone; with TAA the view's history accumulates
-/// and the overlay does not jitter; the view's stack is the main view's built-in list. Goldens for on and off; 0 B per frame
+/// lines keep their exact colours; without it the view is the engine tonemap alone; with TAA the view's history accumulates,
+/// the overlay does not jitter and debug lines lying on the jittered floor stay whole from frame to frame; the view's stack is the main view's built-in list. Goldens for on and off; 0 B per frame
 /// with TAA, SSAO and glow; validation-clean throughout.
 /// </summary>
 public class SubViewportPostTests

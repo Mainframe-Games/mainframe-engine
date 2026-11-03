@@ -4,7 +4,7 @@ shader_type spatial;
 // the instance's space, starting again at the far end of the span metres.
 uniform float part = 0.0;
 
-varying vec3 v_custom;
+varying flat vec3 v_custom;
 
 float hash11(float p) {
 	p = fract(p * 0.1031);

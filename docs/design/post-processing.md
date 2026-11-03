@@ -531,8 +531,12 @@ writes opaque images). The editor's scene view is the user ([Editor → Viewport
   loaded, the scene depth read-only) draws them after the effects with pipeline variants whose fragment shaders write
   display values (specialization constant 0 of `SceneGrid` and `DebugLines`; the alpha is raised towards its sRGB
   encoding, which approximates the HDR pass's linear blend). Neither graded, blurred nor smeared. They use the camera
-  unjittered, written into the next view slot, so TAA does not shimmer them (the scene depth they test is jittered by
-  under a pixel). Picking uses the view's jittered set, like the main view's.
+  unjittered, written into the next view slot, so TAA does not shimmer them. The scene depth they test is jittered by up
+  to half a pixel, so a line lying on a surface (a selection wireframe, the grid on a floor) would pass and fail from
+  frame to frame: the after-post variants write `afterPostLineDepth` (`include/frame.slang`, `SV_DepthLessEqual`), the
+  line pulled towards the camera by 4 pixels' footprint, which covers surfaces seen at down to about 7°. Lines along a
+  silhouette can still flicker (the jitter moves the edge itself). Picking uses the view's jittered set, like the main
+  view's.
 - **Resize and lifetime.** A view's post state has a fixed size: a resized view gets a new `SubViewportPost` and the old
   one goes to `DeletionQueue.EnqueueDispose` (disposed once the frames that used it finished; its effects destroy objects
   directly). Turning `PostProcessing` off retires it; a view that stops rendering keeps it.
