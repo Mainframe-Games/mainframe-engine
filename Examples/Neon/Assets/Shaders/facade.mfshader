@@ -23,8 +23,8 @@ uniform float neon_scale = 1.0;
 
 varying vec3 v_world;
 varying vec3 v_normal;
-varying vec4 v_custom;
-varying vec2 v_scale;
+varying flat vec4 v_custom;
+varying flat vec2 v_scale;
 
 float hash11(float p) {
 	p = fract(p * 0.1031);

@@ -60,7 +60,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   Keep the default UNORM swapchain (MoltenVK mutable-format sRGB views go stale).
 - `ShadowSystem.RenderShadows` once per frame; comparison samplers are immutable (MoltenVK); shader limits only in
   `Assets/Shaders/limits.json`; after shader edits `just shaders` (commit `.spv` + `shaders.lock`). Linux slangc 2026.1
-  segfaults in `-obfuscate` on spatial shaders: `GLIBC_TUNABLES=glibc.malloc.mmap_threshold=0 just canvas-shaders`.
+  segfaults on `.mfshader` builds (`-obfuscate` + `#line`): `GLIBC_TUNABLES=glibc.malloc.mmap_threshold=0` avoids it.
 - Scene tree: node constructors cheap and side-effect free; projects declaring node types need the generator analyzer.
   `MainframeEngine.Timer` shadows `System.Threading.Timer`.
 - Physics: Jitter2/Box2D calls stay in `Src/Physics`; the 6-DOF constraints copy Jitter2 2.9.0's constraint header and
@@ -86,7 +86,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
 
 ## Next steps
 
-1. Land `feature/mfshader-extension` (ADR 0236).
+1. Land `feature/mfshader-extension` (ADR 0236); re-record #157's `moltenvk` goldens on the Mac.
 2. Gameplay toolkit (`docs/milestones.md`): G1c animation authoring (its humanoid limits would let active ragdolls
    follow any clip); G12 haptics and glyphs (proposal awaits owner review); G11, G13 2D paths, G14, G16, G17; G3b
    (avoidance first).
