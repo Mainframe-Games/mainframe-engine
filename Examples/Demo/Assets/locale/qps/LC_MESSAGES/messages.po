@@ -273,8 +273,8 @@ msgstr "[Rését ~]"
 msgid "Physics 3D"
 msgstr "[Phýsîçs 3Ð ~~]"
 
-msgid "Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign and a ragdoll. Click the floor to drop a crate."
-msgstr "[Jîttér2 rîgîð böðîés, å råmp, å çhåråçtér böðý åñð jöîñts: å röpé brîðgé, å bréåkåblé sîgñ åñð å rågðöll. Çlîçk thé flöör tö ðröp å çråté. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgid "Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign, a ragdoll, and a gimbal and drawer on 6-DOF joints. Click the floor to drop a crate."
+msgstr "[Jîttér2 rîgîð böðîés, å råmp, å çhåråçtér böðý åñð jöîñts: å röpé brîðgé, å bréåkåblé sîgñ, å rågðöll, åñð å gîmbål åñð ðråwér öñ 6-ÐÖF jöîñts. Çlîçk thé flöör tö ðröp å çråté. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "Rain crates"
 msgstr "[Råîñ çråtés ~~]"

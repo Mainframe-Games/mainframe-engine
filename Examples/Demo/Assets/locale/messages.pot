@@ -477,7 +477,7 @@ msgstr ""
 
 #. RML <p>
 #: Examples/Demo/Assets/Physics/panel3d.rml:9
-msgid "Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign and a ragdoll. Click the floor to drop a crate."
+msgid "Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign, a ragdoll, and a gimbal and drawer on 6-DOF joints. Click the floor to drop a crate."
 msgstr ""
 
 #. RML <button>

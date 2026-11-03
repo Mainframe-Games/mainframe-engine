@@ -98,7 +98,7 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/basic_2d.png" width="380" alt="Basic 2D"><br><b>Basic 2D</b> — canvas items, gradients, sprites</td>
   </tr>
   <tr>
-    <td align="center" valign="top"><img src="docs/images/demo/physics_3d.png" width="380" alt="Physics 3D"><br><b>Physics 3D</b> — Jitter2, joints, a ragdoll, save slots</td>
+    <td align="center" valign="top"><img src="docs/images/demo/physics_3d.png" width="380" alt="Physics 3D"><br><b>Physics 3D</b> — Jitter2, joints, a 6-DOF gimbal and drawer, a ragdoll, save slots</td>
     <td align="center" valign="top"><img src="docs/images/demo/physics_2d.png" width="380" alt="Physics 2D"><br><b>Physics 2D</b> — Box2D, a chain, a car, a breakable bridge, a lift</td>
   </tr>
   <tr>
@@ -192,6 +192,9 @@ can be saved as a `.mres` or made unique from the inspector.
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-navigation.png" width="380" alt="The Demo's Navigation 2D maze in the editor with Visible Navigation on: the baked grid's solid cells and dashed mud, the NavigationGrid2D inspector with its Bake and Clear buttons and status line"><br><b>Navigation</b> — Visible Navigation, Bake and Clear with undo, out-of-date bakes flagged</td>
     <td align="center" valign="top"><img src="docs/images/editor-export.png" width="380" alt="File › Export on the Demo: Windows, macOS, Linux and Linux server presets, the server preset's options and a validation warning"><br><b>Export</b> — presets per platform, demo and Steam builds, one click or <code>mf-export</code> in CI</td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-6dof-handles.png" width="380" alt="The Demo's 6-DOF gimbal selected: arcs about its X and Z axes with a lower and upper handle each, and the Generic6DofJoint3D inspector"><br><b>6-DOF joints</b> — every axis free, limited or locked; a handle pair per axis that isn't locked</td>
   </tr>
 </table>
 
@@ -292,7 +295,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
 | [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, queries, `MoveAndSlide`, interpolation, debug draw |
-| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D` and seven 2D joints (`MotorJoint2D` among them): limits, motors, springs, breaking, collision exclusion, debug draw, editor gizmos and limit handles; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons and Create physical skeleton in the editor |
+| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D`, `Generic6DofJoint3D` (6-DOF: every axis free, limited or locked) and seven 2D joints (`MotorJoint2D` among them): limits, motors, springs, breaking, collision exclusion, debug draw, editor gizmos and limit handles; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons and Create physical skeleton in the editor |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, captured and window-confined mouse modes, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, Steam relay sockets, loopback and simulated bad networks |

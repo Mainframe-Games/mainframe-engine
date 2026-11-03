@@ -109,6 +109,38 @@ public sealed class DebugDrawTests
     }
 
     [Fact]
+    public void A6DofJointDrawsItsAxesAndLimitsAndTurnsRedPastThem()
+    {
+        using var h = new PhysicsHarness3D();
+        var box = h.AddBox(Vector3.Zero, size: 0.3f);
+        box.GravityScale = 0;
+        // Authored 0.2 m short of its limited range: stretched until the joint pulls it in.
+        var joint = new Generic6DofJoint3D
+        {
+            Name = "SixDof",
+            LinearXMode = JointAxisMode.Limited,
+            LinearXLower = 0.2f,
+            LinearXUpper = 0.4f,
+            AngularZMode = JointAxisMode.Limited,
+        };
+        h.Add(joint);
+        joint.NodeB = "../Box";
+        h.Server.DebugDrawJoints = true;
+        var lines = h.Tree.Root.DebugLines;
+        h.Run(1);
+        var count = lines.LineCount;
+        // The anchor cross (3), three axes, the X track and its two ticks, and the Z limit arc with its two ends and the angle.
+        Assert.True(count >= 3 + 3 + 3 + 4, $"{count} lines");
+        Assert.Contains(lines.Vertices.ToArray(), v => v.Color.Y < 0.5f); // red: 0.2 m short of its range
+
+        h.RunSeconds(3f);
+        lines.Clear();
+        h.Run(1);
+        Assert.InRange(joint.GetLinearOffset().X, 0.18f, 0.42f); // pushed in (nothing damps it, so it may drift to the far limit)
+        Assert.DoesNotContain(lines.Vertices.ToArray(), v => v.Color.Y < 0.5f); // amber once it is inside its range
+    }
+
+    [Fact]
     public void DebugDrawJointsDrawsOnlyTheJoints()
     {
         using var h = new PhysicsHarness3D();

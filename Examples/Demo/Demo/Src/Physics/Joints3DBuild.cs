@@ -7,8 +7,9 @@ using static Demo.DemoBuild;
 namespace Demo;
 
 /// <summary>
-/// The joints of the Physics 3D scene (G9): a rope bridge of hinged planks, a shop sign on a breakable weld and a
-/// capsule mannequin (<see cref="Mannequin3D"/>, a <see cref="Ragdoll3D"/>) that falls when a crate hits it.
+/// The joints of the Physics 3D scene (G9): a rope bridge of hinged planks, a shop sign on a breakable weld, a capsule
+/// mannequin (<see cref="Mannequin3D"/>, a <see cref="Ragdoll3D"/>) that falls when a crate hits it, and two
+/// <see cref="Generic6DofJoint3D"/>s (G9.10b): a gimbal that tilts and springs back, and a drawer that slides out.
 /// </summary>
 public static class Joints3DBuild
 {
@@ -111,6 +112,71 @@ public static class Joints3DBuild
                 NodeB = $"../Leg{s}",
             });
         }
+    }
+
+    /// <summary>Where the gimbal's dish is joined to its pedestal.</summary>
+    public static readonly Vector3 GimbalAt = new(-2.5f, 1.25f, 3.5f);
+
+    /// <summary>Where the drawer's joint is (its X axis turned to point out of the cabinet, towards +Z).</summary>
+    public static readonly Vector3 DrawerAt = new(2f, 0.6f, 4.5f);
+
+    /// <summary>How far the drawer slides out (m).</summary>
+    public const float DrawerTravel = 0.4f;
+
+    /// <summary>
+    /// A dish on a pedestal that tilts up to 40° about X and Z and springs back level, and a drawer that slides 0.4 m out
+    /// of its cabinet, wobbling a few degrees, and softly closes: two 6-DOF joints, every other axis locked.
+    /// </summary>
+    public static void AddSixDof(Node root)
+    {
+        var props = Add(root, root, new Node3D { Name = "SixDof" });
+        StaticBox(root, props, "Pedestal", new Vector3(GimbalAt.X, 0.6f, GimbalAt.Z), new Vector3(0.3f, 1.2f, 0.3f), Post);
+        var dishSize = new Vector3(1.1f, 0.08f, 1.1f);
+        var dish = Add(root, props, new RigidBody3D { Name = "Dish", Position = GimbalAt + new Vector3(0, 0.05f, 0), Mass = 2f });
+        Add(root, dish, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = dishSize } });
+        Add(root, dish, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = dishSize }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Shirt } });
+        Add(root, props, new Generic6DofJoint3D
+        {
+            Name = "Gimbal",
+            Position = GimbalAt,
+            NodeA = "../Pedestal",
+            NodeB = "../Dish",
+            AngularXMode = JointAxisMode.Limited,
+            AngularXLowerDegrees = -40,
+            AngularXUpperDegrees = 40,
+            AngularXSpringEnabled = true,
+            AngularXSpringFrequency = 1.5f,
+            AngularXSpringDampingRatio = 0.3f,
+            AngularZMode = JointAxisMode.Limited,
+            AngularZLowerDegrees = -40,
+            AngularZUpperDegrees = 40,
+            AngularZSpringEnabled = true,
+            AngularZSpringFrequency = 1.5f,
+            AngularZSpringDampingRatio = 0.3f,
+        });
+
+        StaticBox(root, props, "Cabinet", new Vector3(DrawerAt.X, 0.5f, DrawerAt.Z - 0.2f), new Vector3(1f, 1f, 0.8f), Wood);
+        var drawerSize = new Vector3(0.8f, 0.3f, 0.7f);
+        var drawer = Add(root, props, new RigidBody3D { Name = "Drawer", Position = DrawerAt, Mass = 1f });
+        Add(root, drawer, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = drawerSize } });
+        Add(root, drawer, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = drawerSize }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Skin } });
+        Add(root, props, new Generic6DofJoint3D
+        {
+            Name = "Slide",
+            Position = DrawerAt,
+            Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2), // X out of the cabinet's front (+Z)
+            NodeA = "../Cabinet",
+            NodeB = "../Drawer",
+            LinearXMode = JointAxisMode.Limited,
+            LinearXLower = 0f,
+            LinearXUpper = DrawerTravel,
+            LinearXSpringEnabled = true, // soft-close
+            LinearXSpringFrequency = 0.6f,
+            LinearXSpringDampingRatio = 1f,
+            AngularYMode = JointAxisMode.Limited,
+            AngularYLowerDegrees = -5,
+            AngularYUpperDegrees = 5,
+        });
     }
 
     private static void Part(Node root, Node parent, string name, Vector3 at, float radius, float height, Color color, float mass)

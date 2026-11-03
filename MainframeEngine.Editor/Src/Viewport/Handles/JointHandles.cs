@@ -188,13 +188,13 @@ public static class JointHandles
     // ── Shared ───────────────────────────────────────────────────────────────────────────────────────────────────
 
     // The direction an angle handle moves in: the circle's tangent at its angle.
-    private static Vector3 Tangent(Vector3 u, Vector3 v, float angle)
+    internal static Vector3 Tangent(Vector3 u, Vector3 v, float angle)
     {
         var (sin, cos) = MathF.SinCos(angle);
         return v * cos - u * sin;
     }
 
-    private static void Arc(DebugLines lines, in JointFrame frame, Vector3 u, Vector3 v, float radius, float from, float to, Vector4 color)
+    internal static void Arc(DebugLines lines, in JointFrame frame, Vector3 u, Vector3 v, float radius, float from, float to, Vector4 color)
     {
         var segments = Math.Clamp((int)MathF.Ceiling(MathF.Abs(to - from) / (MathF.Tau / 48)), 1, 48);
         var previous = frame.OnCircle(u, v, from, radius);
@@ -313,6 +313,192 @@ public sealed class SliderJoint3DHandles : IHandleProvider
             return;
         var frame = JointFrame.Of(slider.GlobalTransform);
         JointHandles.DrawLinearRange(lines, frame.Origin, frame.X, slider.LowerDistance, slider.UpperDistance, slider.UseLimit);
+    }
+}
+
+/// <summary>
+/// <see cref="Generic6DofJoint3D"/> (G9.10b): a lower and an upper handle per axis that is not locked. Linear limits sit
+/// on their axis at their distances; angular limits on an arc about their axis (about X from Y towards Z, about Y from Z
+/// towards X, about Z from X towards Y; the arcs at 100 %, 85 % and 70 % of the radius so they stay apart). A
+/// <see cref="JointAxisMode.Limited"/> axis has square handles, a <see cref="JointAxisMode.Free"/> one hollow handles
+/// whose drag makes it limited in the same undo entry; a locked axis has none.
+/// </summary>
+[HandleProvider(typeof(Generic6DofJoint3D))]
+public sealed class Generic6DofJoint3DHandles : IHandleProvider
+{
+    /// <summary>The handle id of an axis's limit: <paramref name="axis"/> 0–2 linear X–Z, 3–5 angular X–Z.</summary>
+    public static int Id(int axis, bool upper) => axis * 2 + (upper ? 1 : 0);
+
+    private static readonly string[][] s_properties = BuildProperties();
+
+    private static string[][] BuildProperties()
+    {
+        var properties = new string[12][];
+        for (var axis = 0; axis < 6; axis++)
+        {
+            var name = Name(axis);
+            var suffix = axis < 3 ? "" : "Degrees";
+            properties[Id(axis, false)] = [name + "Lower" + suffix, name + "Mode"];
+            properties[Id(axis, true)] = [name + "Upper" + suffix, name + "Mode"];
+        }
+
+        return properties;
+    }
+
+    // "LinearX" … "AngularZ".
+    private static string Name(int axis) => (axis < 3 ? "Linear" : "Angular") + (char)('X' + axis % 3);
+
+    private static float ArcRadius(float radius, int axis) => radius * (1f - 0.15f * (axis % 3));
+
+    public void GetHandles(Node node, EditorCamera camera, Vector2 viewPixels, List<EditorHandle> handles)
+    {
+        if (node is not Generic6DofJoint3D joint)
+            return;
+        var frame = JointFrame.Of(joint.GlobalTransform);
+        var radius = JointHandles.Radius(camera, frame.Origin, viewPixels, 0.2f);
+        for (var axis = 0; axis < 6; axis++)
+        {
+            var mode = Mode(joint, axis);
+            if (mode == JointAxisMode.Locked)
+                continue;
+            var style = mode == JointAxisMode.Limited ? HandleStyle.Square : HandleStyle.Hollow;
+            var (lower, upper) = Limits(joint, axis);
+            if (axis < 3)
+            {
+                var direction = Axis(frame, axis);
+                handles.Add(new EditorHandle(Id(axis, false), frame.Origin + direction * lower, direction, style));
+                handles.Add(new EditorHandle(Id(axis, true), frame.Origin + direction * upper, direction, style));
+                continue;
+            }
+
+            var (u, v) = Plane(frame, axis - 3);
+            var r = ArcRadius(radius, axis);
+            handles.Add(new EditorHandle(Id(axis, false), frame.OnCircle(u, v, lower, r), JointHandles.Tangent(u, v, lower), style));
+            handles.Add(new EditorHandle(Id(axis, true), frame.OnCircle(u, v, upper, r), JointHandles.Tangent(u, v, upper), style));
+        }
+    }
+
+    public ReadOnlySpan<string> Properties(Node node, int id) => id >= 0 && id < s_properties.Length ? s_properties[id] : [];
+
+    public string Describe(Node node, int id)
+    {
+        if (node is not Generic6DofJoint3D joint || id < 0 || id >= 12)
+            return "";
+        var axis = id / 2;
+        var upper = id % 2 == 1;
+        var name = (axis < 3 ? "Linear " : "Angular ") + (char)('X' + axis % 3) + (upper ? " Upper" : " Lower");
+        if (Mode(joint, axis) == JointAxisMode.Free)
+            return JointHandles.Off(name, "free");
+        var (low, high) = Limits(joint, axis);
+        var value = upper ? high : low;
+        return name + " " + (axis < 3 ? HandleDrawing.Metres(value, false) : HandleDrawing.Degrees(float.RadiansToDegrees(value)));
+    }
+
+    public void Drag(Node node, int id, in HandleDrag drag)
+    {
+        if (node is not Generic6DofJoint3D joint || id < 0 || id >= 12)
+            return;
+        var axis = id / 2;
+        var upper = id % 2 == 1;
+        var (lower, high) = Limits(joint, axis);
+        var property = s_properties[id][0];
+        var frame = JointFrame.Of(joint.GlobalTransform);
+        float value;
+        if (axis < 3)
+        {
+            value = HandleProviders.Clamp(node, property, JointHandles.DragDistance(drag, frame.Origin));
+        }
+        else
+        {
+            var (u, v) = Plane(frame, axis - 3);
+            if (!JointHandles.TryAngle(drag, frame.Origin, u, v, out var radians))
+                return;
+            var degrees = HandleProviders.Clamp(node, property, JointHandles.DragDegrees(drag, radians, upper ? high : lower));
+            value = float.DegreesToRadians(degrees);
+        }
+
+        if (upper)
+            SetLimits(joint, axis, lower, MathF.Max(value, lower));
+        else
+            SetLimits(joint, axis, MathF.Min(value, high), high);
+        SetMode(joint, axis, JointAxisMode.Limited);
+    }
+
+    public void Draw(Node node, EditorCamera camera, Vector2 viewPixels, DebugLines lines)
+    {
+        if (node is not Generic6DofJoint3D joint)
+            return;
+        var frame = JointFrame.Of(joint.GlobalTransform);
+        var radius = JointHandles.Radius(camera, frame.Origin, viewPixels, 0.2f);
+        for (var axis = 0; axis < 6; axis++)
+        {
+            var mode = Mode(joint, axis);
+            if (mode == JointAxisMode.Locked)
+                continue;
+            var color = mode == JointAxisMode.Limited ? JointHandles.Color : JointHandles.OffColor;
+            var (lower, upper) = Limits(joint, axis);
+            if (axis < 3)
+            {
+                var direction = Axis(frame, axis);
+                lines.AddLine(frame.Origin + direction * lower, frame.Origin + direction * upper, color);
+                continue;
+            }
+
+            var (u, v) = Plane(frame, axis - 3);
+            var r = ArcRadius(radius, axis);
+            JointHandles.Arc(lines, frame, u, v, r, MathF.Min(lower, upper), MathF.Max(lower, upper), color);
+            lines.AddLine(frame.Origin, frame.OnCircle(u, v, lower, r), color);
+            lines.AddLine(frame.Origin, frame.OnCircle(u, v, upper, r), color);
+        }
+    }
+
+    private static Vector3 Axis(in JointFrame frame, int axis) => axis switch { 0 => frame.X, 1 => frame.Y, _ => frame.Z };
+
+    // The plane an angle about axis 0–2 turns in: from the next axis towards the one after (right-handed).
+    private static (Vector3 U, Vector3 V) Plane(in JointFrame frame, int axis) => axis switch
+    {
+        0 => (frame.Y, frame.Z),
+        1 => (frame.Z, frame.X),
+        _ => (frame.X, frame.Y),
+    };
+
+    private static JointAxisMode Mode(Generic6DofJoint3D joint, int axis) => axis < 3 ? joint.GetLinearMode(axis) : joint.GetAngularMode(axis - 3);
+
+    // Metres for linear axes, radians for angular ones.
+    private static (float Lower, float Upper) Limits(Generic6DofJoint3D j, int axis) => axis switch
+    {
+        0 => (j.LinearXLower, j.LinearXUpper),
+        1 => (j.LinearYLower, j.LinearYUpper),
+        2 => (j.LinearZLower, j.LinearZUpper),
+        3 => (j.AngularXLower, j.AngularXUpper),
+        4 => (j.AngularYLower, j.AngularYUpper),
+        _ => (j.AngularZLower, j.AngularZUpper),
+    };
+
+    private static void SetLimits(Generic6DofJoint3D j, int axis, float lower, float upper)
+    {
+        switch (axis)
+        {
+            case 0: (j.LinearXLower, j.LinearXUpper) = (lower, upper); break;
+            case 1: (j.LinearYLower, j.LinearYUpper) = (lower, upper); break;
+            case 2: (j.LinearZLower, j.LinearZUpper) = (lower, upper); break;
+            case 3: (j.AngularXLower, j.AngularXUpper) = (lower, upper); break;
+            case 4: (j.AngularYLower, j.AngularYUpper) = (lower, upper); break;
+            default: (j.AngularZLower, j.AngularZUpper) = (lower, upper); break;
+        }
+    }
+
+    private static void SetMode(Generic6DofJoint3D j, int axis, JointAxisMode mode)
+    {
+        switch (axis)
+        {
+            case 0: j.LinearXMode = mode; break;
+            case 1: j.LinearYMode = mode; break;
+            case 2: j.LinearZMode = mode; break;
+            case 3: j.AngularXMode = mode; break;
+            case 4: j.AngularYMode = mode; break;
+            default: j.AngularZMode = mode; break;
+        }
     }
 }
 

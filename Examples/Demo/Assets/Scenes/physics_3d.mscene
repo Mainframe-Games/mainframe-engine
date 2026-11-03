@@ -424,6 +424,78 @@
         "Radius": 0.09,
         "Height": 0.88
       }
+    },
+    "BoxShape3D_sj7iy": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.3, 1.2, 0.3]
+      }
+    },
+    "StandardMaterial3D_yod5v": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_xuf8v": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.3, 1.2, 0.3]
+      }
+    },
+    "BoxShape3D_uvm58": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1.1, 0.08, 1.1]
+      }
+    },
+    "StandardMaterial3D_ed5kx": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.21960784, 0.7411765, 0.972549, 1]
+      }
+    },
+    "BoxMesh_fdjrx": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1.1, 0.08, 1.1]
+      }
+    },
+    "BoxShape3D_asecy": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1, 1, 0.8]
+      }
+    },
+    "StandardMaterial3D_r09fv": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.50980395, 0.32156864, 1]
+      }
+    },
+    "BoxMesh_8vebr": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1, 1, 0.8]
+      }
+    },
+    "BoxShape3D_2y8rd": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.8, 0.3, 0.7]
+      }
+    },
+    "StandardMaterial3D_kl0mk": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1]
+      }
+    },
+    "BoxMesh_s5ehs": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.8, 0.3, 0.7]
+      }
     }
   },
   "nodes": [
@@ -1287,6 +1359,154 @@
         "NodeB": "../LegR",
         "UseLimit": true,
         "LowerAngleDegrees": -30
+      }
+    },
+    {
+      "name": "SixDof",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Pedestal",
+      "parent": "SixDof",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-2.5, 0.6, 3.5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "SixDof/Pedestal",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_sj7iy" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "SixDof/Pedestal",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_yod5v" },
+        "Mesh": { "res": "BoxMesh_xuf8v" }
+      }
+    },
+    {
+      "name": "Dish",
+      "parent": "SixDof",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [-2.5, 1.3, 3.5],
+        "Mass": 2
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "SixDof/Dish",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_uvm58" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "SixDof/Dish",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_ed5kx" },
+        "Mesh": { "res": "BoxMesh_fdjrx" }
+      }
+    },
+    {
+      "name": "Gimbal",
+      "parent": "SixDof",
+      "type": "Generic6DofJoint3D",
+      "props": {
+        "Position": [-2.5, 1.25, 3.5],
+        "NodeA": "../Pedestal",
+        "NodeB": "../Dish",
+        "AngularXMode": "Limited",
+        "AngularXLowerDegrees": -40,
+        "AngularXUpperDegrees": 40,
+        "AngularXSpringEnabled": true,
+        "AngularXSpringFrequency": 1.5,
+        "AngularXSpringDampingRatio": 0.3,
+        "AngularZMode": "Limited",
+        "AngularZLowerDegrees": -40,
+        "AngularZUpperDegrees": 40,
+        "AngularZSpringEnabled": true,
+        "AngularZSpringFrequency": 1.5,
+        "AngularZSpringDampingRatio": 0.3
+      }
+    },
+    {
+      "name": "Cabinet",
+      "parent": "SixDof",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [2, 0.5, 4.3]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "SixDof/Cabinet",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_asecy" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "SixDof/Cabinet",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_r09fv" },
+        "Mesh": { "res": "BoxMesh_8vebr" }
+      }
+    },
+    {
+      "name": "Drawer",
+      "parent": "SixDof",
+      "type": "RigidBody3D",
+      "props": {
+        "Position": [2, 0.6, 4.5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "SixDof/Drawer",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_2y8rd" }
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "SixDof/Drawer",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_kl0mk" },
+        "Mesh": { "res": "BoxMesh_s5ehs" }
+      }
+    },
+    {
+      "name": "Slide",
+      "parent": "SixDof",
+      "type": "Generic6DofJoint3D",
+      "props": {
+        "Position": [2, 0.6, 4.5],
+        "RotationDegrees": [0, -90, 0],
+        "NodeA": "../Cabinet",
+        "NodeB": "../Drawer",
+        "LinearXMode": "Limited",
+        "LinearXLower": 0,
+        "LinearXUpper": 0.4,
+        "LinearXSpringEnabled": true,
+        "LinearXSpringFrequency": 0.6,
+        "LinearXSpringDampingRatio": 1,
+        "AngularYMode": "Limited",
+        "AngularYLowerDegrees": -5,
+        "AngularYUpperDegrees": 5
       }
     },
     {

@@ -6,7 +6,7 @@
 <body class="hud" data-model="physics3d">
     <div class="demo-panel">
         <h1>Physics 3D</h1>
-        <p class="hint">Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign and a ragdoll. Click the floor to drop a crate.</p>
+        <p class="hint">Jitter2 rigid bodies, a ramp, a character body and joints: a rope bridge, a breakable sign, a ragdoll, and a gimbal and drawer on 6-DOF joints. Click the floor to drop a crate.</p>
         <div class="demo-row"><span>Bodies</span><span>{{count}}</span></div>
         <div class="demo-row"><span>Collision shapes</span><input type="checkbox" data-checked="shapes"/></div>
         <div class="demo-row"><span>Joints</span><input type="checkbox" data-checked="joints"/></div>

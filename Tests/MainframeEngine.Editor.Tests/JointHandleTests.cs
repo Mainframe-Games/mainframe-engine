@@ -84,6 +84,7 @@ public sealed class JointHandleTests : IDisposable
     [InlineData(typeof(WheelJoint2D), typeof(WheelJoint2DHandles))]
     [InlineData(typeof(GrooveJoint2D), typeof(GrooveJoint2DHandles))]
     [InlineData(typeof(DampedSpringJoint2D), typeof(DampedSpringJoint2DHandles))]
+    [InlineData(typeof(Generic6DofJoint3D), typeof(Generic6DofJoint3DHandles))]
     public void EveryLimitedJointTypeHasAProvider(Type node, Type provider) => Assert.IsType(provider, HandleProviders.Find(node));
 
     [Fact]
@@ -343,6 +344,7 @@ public sealed class JointHandleTests : IDisposable
         [
             new HingeJoint3D(), new SliderJoint3D(), new ConeTwistJoint3D(), new DistanceJoint3D(),
             new PhysicalBone3D { JointType = PhysicalBoneJointType.ConeTwist }, new PinJoint2D(), new SliderJoint2D(), new GrooveJoint2D(),
+            new Generic6DofJoint3D { LinearXMode = JointAxisMode.Limited, AngularYMode = JointAxisMode.Free, AngularZMode = JointAxisMode.Limited },
         ];
         var providers = nodes.Select(n => HandleProviders.Find(n.GetType())!).ToArray();
         void Frame()
@@ -361,5 +363,91 @@ public sealed class JointHandleTests : IDisposable
         Assert.Equal(0, AllocationGate.SmallestWindow(Frame));
         foreach (var node in nodes)
             node.Dispose();
+    }
+
+    // Generic6DofJoint3D (G9.10b).
+
+    [Fact]
+    public void SixDofHandlesShowLimitedAxesSolidFreeAxesHollowAndLockedAxesNot()
+    {
+        var joint = new Generic6DofJoint3D();
+        Assert.Empty(Handles(joint)); // the default locks every axis
+
+        joint.LinearYMode = JointAxisMode.Free;
+        joint.AngularXMode = JointAxisMode.Limited;
+        joint.AngularXLowerDegrees = -30;
+        joint.AngularXUpperDegrees = 30;
+        var handles = Handles(joint);
+        Assert.Equal(4, handles.Count);
+
+        var yLower = handles.Single(h => h.Id == Generic6DofJoint3DHandles.Id(1, upper: false));
+        var yUpper = handles.Single(h => h.Id == Generic6DofJoint3DHandles.Id(1, upper: true));
+        Assert.Equal((HandleStyle.Hollow, HandleStyle.Hollow), (yLower.Style, yUpper.Style));
+        Assert.Equal(-1f, yLower.Position.Y, 4);
+        Assert.Equal(1f, yUpper.Position.Y, 4);
+
+        // Angular X: an arc about X, from +Y towards +Z.
+        var xUpper = handles.Single(h => h.Id == Generic6DofJoint3DHandles.Id(3, upper: true));
+        Assert.Equal(HandleStyle.Square, xUpper.Style);
+        Assert.Equal(0f, xUpper.Position.X, 4);
+        Assert.Equal(30f, float.RadiansToDegrees(MathF.Atan2(xUpper.Position.Z, xUpper.Position.Y)), 2);
+        Assert.Equal("Angular X Upper 30.0°", HandleProviders.Find(typeof(Generic6DofJoint3D))!.Describe(joint, xUpper.Id));
+        Assert.Equal("Linear Y Upper: free — drag to set", HandleProviders.Find(typeof(Generic6DofJoint3D))!.Describe(joint, yUpper.Id));
+        joint.Dispose();
+    }
+
+    [Fact]
+    public void DraggingASixDofHollowHandleLimitsTheAxisAndLowerStaysUnderUpper()
+    {
+        var joint = new Generic6DofJoint3D { LinearYMode = JointAxisMode.Free };
+        var provider = HandleProviders.Find(typeof(Generic6DofJoint3D))!;
+        provider.Drag(joint, Generic6DofJoint3DHandles.Id(1, upper: true), Along(0.5f, Vector3.UnitY));
+        Assert.Equal(JointAxisMode.Limited, joint.LinearYMode);
+        Assert.Equal((-1f, 0.5f), (joint.LinearYLower, joint.LinearYUpper));
+
+        provider.Drag(joint, Generic6DofJoint3DHandles.Id(1, upper: false), Along(2f, Vector3.UnitY));
+        Assert.Equal(0.5f, joint.LinearYLower); // stops at the upper limit
+
+        // An angle from the mouse ray: angular Z turns from +X towards +Y.
+        joint.AngularZMode = JointAxisMode.Limited;
+        provider.Drag(joint, Generic6DofJoint3DHandles.Id(5, upper: true), At(Polar(60f), Vector3.UnitZ));
+        Assert.Equal(60f, joint.AngularZUpperDegrees, 2);
+        provider.Drag(joint, Generic6DofJoint3DHandles.Id(5, upper: true), At(Polar(52f), Vector3.UnitZ, snap: true));
+        Assert.Equal(45f, joint.AngularZUpperDegrees, 2); // snapped to the 15° rotate step
+
+        // The Y angle's limits stay within −90°…90° (its Range).
+        joint.AngularYMode = JointAxisMode.Limited;
+        provider.Drag(joint, Generic6DofJoint3DHandles.Id(4, upper: true), At(new Vector3(-0.5f, 0, -1f), Vector3.UnitY));
+        Assert.InRange(joint.AngularYUpperDegrees, 45f, 90f);
+        joint.Dispose();
+    }
+
+    [Fact]
+    public void DraggingASixDofHandleInTheViewportIsOneUndoEntryThatAlsoRestoresItsMode()
+    {
+        var joint = new Generic6DofJoint3D { Name = "SixDof", AngularZMode = JointAxisMode.Free };
+        _editor.Scene.AddNode(joint, _editor.Scene.Root);
+        _editor.Scene.Selection.Set(joint);
+        _editor.Tick();
+        W.Viewport.CollectHandles(_editor.Scene);
+        Assert.Equal(2, W.Viewport.Handles.Count);
+        var upper = W.Viewport.Handles.First(h => h.Id == Generic6DofJoint3DHandles.Id(5, upper: true));
+        var radius = upper.Position.Length();
+        var history = _editor.Scene.History.Actions.Count;
+
+        var from = WindowPoint(upper.Position);
+        var to = WindowPoint(Polar(60f, radius));
+        _editor.Tree.PushInput(new InputEventMouseMotion { Position = from });
+        _editor.Tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = from });
+        _editor.Tree.PushInput(new InputEventMouseMotion { Position = to });
+        _editor.Tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = false, Position = to });
+        _editor.Tick();
+        Assert.Equal(60f, joint.AngularZUpperDegrees, 0);
+        Assert.Equal(JointAxisMode.Limited, joint.AngularZMode);
+        Assert.Equal(history + 1, _editor.Scene.History.Actions.Count);
+
+        _editor.Scene.History.Undo();
+        Assert.Equal(45f, joint.AngularZUpperDegrees, 2);
+        Assert.Equal(JointAxisMode.Free, joint.AngularZMode);
     }
 }

@@ -119,7 +119,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   Cutback reads; fed by the renderer's `IFrameStreamSource` and the audio server's capture tap. See `docs/design/recording.md`
 - `MainframeEngine/Src/Physics/` — M6 physics: `PhysicsServer3D` (Jitter2) / `PhysicsServer2D` (Box2D.NET), spaces, body
   nodes (`StaticBody*`, `RigidBody*`, `CharacterBody*`, `Area*`), `CollisionShape*`, shape resources, queries; joints
-  (`Joint3D`/`Joint2D` + six types each, `PhysicsSpace*.Joints.cs`) and ragdolls (`Ragdoll/`: `Ragdoll3D`,
+  (`Joint3D`/`Joint2D` + their types, `PhysicsSpace*.Joints.cs`; `Generic6DofJoint3D` on the engine's own Jitter2
+  constraints in `3D/Constraints/`, ADR 0234) and ragdolls (`Ragdoll/`: `Ragdoll3D`,
   `PhysicalBone3D`, `PhysicalBoneSimulator3D`; ADR 0211/0212, `docs/design/physics-joints.md`)
 - `MainframeEngine/Src/Resources/`, `Src/Serialization/` — `Resource`, `PackedScene`, loader/savers, `AssetDatabase`;
   `[Export]`/`[Signal]` attributes, `TypeRegistry`, JSON scene format

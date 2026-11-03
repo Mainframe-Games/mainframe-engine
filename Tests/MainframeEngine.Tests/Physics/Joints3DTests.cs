@@ -485,4 +485,328 @@ public sealed class Joints3DTests : IDisposable
         root.Free();
         copy.Free();
     }
+
+    // Generic6DofJoint3D (G9.10b): the proposal's scenarios, in this file's naming.
+
+    private RigidBody3D AddCube(Vector3 position, string name = "Box", float mass = 1f, float gravityScale = 1f, float size = 0.2f)
+    {
+        var body = new RigidBody3D { Name = name, Position = position, Mass = mass, LinearDamp = 0, AngularDamp = 0, GravityScale = gravityScale };
+        body.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(size) } });
+        return _h.Add(body);
+    }
+
+    private static float MaxAbs(Vector3 v) => MathF.Max(MathF.Abs(v.X), MathF.Max(MathF.Abs(v.Y), MathF.Abs(v.Z)));
+
+    [Fact]
+    public void ADefault6DofJointLocksEveryAxisLikeAWeld()
+    {
+        AddCube(new Vector3(0.25f, 0, 0), size: 0.5f); // anchored at its edge: gravity twists the joint as well as pulling it
+        var joint = AddJoint(new Generic6DofJoint3D { Name = "SixDof" }, Vector3.Zero, nodeA: null, nodeB: "Box");
+        for (var i = 0; i < 120; i++)
+        {
+            _h.Run(1);
+            Assert.InRange(joint.GetLinearOffset().Length(), 0f, 0.01f);
+            Assert.InRange(MaxAbs(joint.GetAngularOffsetDegrees()), 0f, 1f);
+        }
+
+        Assert.True(joint.IsActive);
+    }
+
+    [Fact]
+    public void AFree6DofAxisSlidesWhileTheOthersHold()
+    {
+        var box = AddCube(new Vector3(0.5f, 0, 0));
+        var joint = AddJoint(new Generic6DofJoint3D { Name = "SixDof", LinearYMode = JointAxisMode.Free }, Vector3.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(1f);
+        var offset = joint.GetLinearOffset();
+        Assert.True(offset.Y < -4.5f, $"it fell along −Y: {offset}");
+        Assert.InRange(MathF.Abs(offset.X), 0f, 0.01f);
+        Assert.InRange(MathF.Abs(offset.Z), 0f, 0.01f);
+        Assert.InRange(MaxAbs(joint.GetAngularOffsetDegrees()), 0f, 1f);
+        Assert.True(box.Position.Y < -4.5f);
+    }
+
+    [Fact]
+    public void ALimited6DofAxisRestsOnItsLowerLimit()
+    {
+        AddCube(Vector3.Zero);
+        var joint = AddJoint(new Generic6DofJoint3D { Name = "SixDof", LinearYMode = JointAxisMode.Limited, LinearYLower = -0.5f, LinearYUpper = 0.5f },
+            Vector3.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(2f);
+        Assert.InRange(joint.GetLinearOffset().Y, -0.52f, -0.48f);
+    }
+
+    [Fact]
+    public void Two6DofLinearLimitsMakeASquareRange()
+    {
+        var box = AddCube(Vector3.Zero);
+        var joint = AddJoint(new Generic6DofJoint3D
+        {
+            Name = "SixDof",
+            LinearXMode = JointAxisMode.Limited,
+            LinearXLower = -0.3f,
+            LinearXUpper = 0.3f,
+            LinearZMode = JointAxisMode.Limited,
+            LinearZLower = -0.3f,
+            LinearZUpper = 0.3f,
+        }, Vector3.Zero, nodeA: null, nodeB: "Box");
+        _h.Run(1);
+        box.ApplyImpulse(new Vector3(5, 0, 5) / MathF.Sqrt(2));
+        var reached = Vector2.Zero;
+        for (var i = 0; i < 120; i++)
+        {
+            _h.Run(1);
+            var offset = joint.GetLinearOffset();
+            Assert.InRange(MathF.Abs(offset.X), 0f, 0.32f);
+            Assert.InRange(MathF.Abs(offset.Z), 0f, 0.32f);
+            Assert.InRange(MathF.Abs(offset.Y), 0f, 0.01f);
+            reached = Vector2.Max(reached, new Vector2(MathF.Abs(offset.X), MathF.Abs(offset.Z)));
+        }
+
+        Assert.True(reached.X > 0.28f && reached.Y > 0.28f, $"it reached the corner: {reached}");
+    }
+
+    [Fact]
+    public void Each6DofAngularLimitHoldsItsOwnAxis()
+    {
+        var box = AddCube(Vector3.Zero, gravityScale: 0f);
+        var joint = AddJoint(new Generic6DofJoint3D
+        {
+            Name = "SixDof",
+            AngularXMode = JointAxisMode.Limited,
+            AngularXLowerDegrees = -30,
+            AngularXUpperDegrees = 30,
+            AngularZMode = JointAxisMode.Limited,
+            AngularZLowerDegrees = -60,
+            AngularZUpperDegrees = 60,
+        }, Vector3.Zero, nodeA: null, nodeB: "Box");
+        _h.Run(1);
+        box.AngularVelocity = new Vector3(3, 0, 5);
+        var reached = Vector3.Zero;
+        for (var i = 0; i < 120; i++)
+        {
+            _h.Run(1);
+            var angles = joint.GetAngularOffsetDegrees();
+            Assert.InRange(angles.X, -32f, 32f);
+            Assert.InRange(angles.Z, -62f, 62f);
+            Assert.InRange(angles.Y, -2f, 2f);
+            reached = Vector3.Max(reached, new Vector3(MathF.Abs(angles.X), 0, MathF.Abs(angles.Z)));
+        }
+
+        Assert.True(reached.X > 28f && reached.Z > 58f, $"it reached both limits: {reached}");
+    }
+
+    [Fact]
+    public void A6DofAngularMotorReachesItsSpeed()
+    {
+        var box = AddCube(Vector3.Zero, gravityScale: 0f);
+        AddJoint(new Generic6DofJoint3D
+        {
+            Name = "SixDof",
+            AngularZMode = JointAxisMode.Free,
+            AngularZMotorEnabled = true,
+            AngularZMotorTargetVelocity = 2f,
+            AngularZMotorMaxTorque = 100f,
+        }, Vector3.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(1f);
+        Assert.InRange(box.AngularVelocity.Z, 1.96f, 2.04f);
+        Assert.InRange(MathF.Abs(box.AngularVelocity.X) + MathF.Abs(box.AngularVelocity.Y), 0f, 0.01f);
+    }
+
+    [Fact]
+    public void A6DofLinearSpringOscillatesAtItsFrequency()
+    {
+        AddCube(Vector3.Zero, gravityScale: 0f);
+        var joint = AddJoint(new Generic6DofJoint3D
+        {
+            Name = "SixDof",
+            LinearYMode = JointAxisMode.Free,
+            LinearYSpringEnabled = true,
+            LinearYSpringFrequency = 1f,
+            LinearYSpringDampingRatio = 0f,
+            LinearYSpringTarget = 0.2f,
+        }, Vector3.Zero, nodeA: null, nodeB: "Box");
+
+        var crossings = new List<float>();
+        var previous = joint.GetLinearOffset().Y - 0.2f;
+        for (var i = 1; i <= 60 * 5; i++)
+        {
+            _h.Run(1);
+            var y = joint.GetLinearOffset().Y - 0.2f;
+            if (previous < 0 && y >= 0)
+                crossings.Add((i - 1 + -previous / (y - previous)) * PhysicsHarness3D.Step);
+            previous = y;
+        }
+
+        Assert.True(crossings.Count >= 3, $"{crossings.Count} crossings");
+        var period = (crossings[^1] - crossings[0]) / (crossings.Count - 1);
+        Assert.InRange(period, 0.95f, 1.05f);
+    }
+
+    [Fact]
+    public void A6DofModeChangeIsLiveAndKeepsTheJoint()
+    {
+        var box = AddCube(Vector3.Zero);
+        var joint = AddJoint(new Generic6DofJoint3D { Name = "SixDof" }, Vector3.Zero, nodeA: null, nodeB: "Box");
+        _h.RunSeconds(0.5f);
+        Assert.InRange(box.Position.Y, -0.01f, 0.01f);
+        var record = joint.Record!;
+        var linear = record.SixDofLinear;
+
+        joint.LinearYMode = JointAxisMode.Free;
+        _h.RunSeconds(0.5f);
+        Assert.True(box.Position.Y < -1f, $"it falls once Y is free: {box.Position}");
+        Assert.Same(linear, joint.Record!.SixDofLinear);
+        Assert.True(joint.IsActive);
+        Assert.False(joint.IsBroken);
+    }
+
+    [Fact]
+    public void A6DofJointOverItsBreakForceBreaks()
+    {
+        AddCube(new Vector3(0, -0.5f, 0), mass: 10f);
+        var joint = AddJoint(new Generic6DofJoint3D { Name = "SixDof", BreakForce = 50f }, Vector3.Zero, nodeA: null, nodeB: "Box");
+        var broken = 0;
+        joint.Broken += () => broken++;
+        _h.Run(2);
+        Assert.Equal(1, broken);
+        Assert.True(joint.IsBroken);
+        Assert.False(joint.IsActive);
+        _h.RunSeconds(0.5f);
+        Assert.Equal(1, broken);
+    }
+
+    [Fact]
+    public void A6DofJointRoundTripsThroughScenes()
+    {
+        var root = new Node3D { Name = "Root" };
+        root.AddChild(new Generic6DofJoint3D
+        {
+            Name = "SixDof",
+            LinearXMode = JointAxisMode.Free,
+            LinearYMode = JointAxisMode.Limited,
+            LinearYLower = -0.25f,
+            LinearYUpper = 0.75f,
+            LinearZMotorEnabled = true,
+            LinearZMotorTargetVelocity = 1.5f,
+            LinearZMotorMaxForce = 20f,
+            LinearXSpringEnabled = true,
+            LinearXSpringFrequency = 3f,
+            LinearXSpringDampingRatio = 0.2f,
+            LinearXSpringTarget = 0.1f,
+            AngularXMode = JointAxisMode.Limited,
+            AngularXLowerDegrees = -20,
+            AngularXUpperDegrees = 35,
+            AngularYMode = JointAxisMode.Free,
+            AngularZMotorEnabled = true,
+            AngularZMotorTargetVelocity = -2f,
+            AngularZMotorMaxTorque = 7f,
+            AngularYSpringEnabled = true,
+            AngularYSpringFrequency = 4f,
+            AngularYSpringTargetDegrees = 10,
+        });
+        root.GetChild(0).Owner = root;
+
+        var copy = PackedScene.Parse(SceneSaver.ToJson(root)).Instantiate();
+        var j = copy.GetNode<Generic6DofJoint3D>("SixDof");
+        Assert.Equal((JointAxisMode.Free, JointAxisMode.Limited, JointAxisMode.Locked), (j.LinearXMode, j.LinearYMode, j.LinearZMode));
+        Assert.Equal((-0.25f, 0.75f), (j.LinearYLower, j.LinearYUpper));
+        Assert.Equal((true, 1.5f, 20f), (j.LinearZMotorEnabled, j.LinearZMotorTargetVelocity, j.LinearZMotorMaxForce));
+        Assert.Equal((true, 3f, 0.2f, 0.1f), (j.LinearXSpringEnabled, j.LinearXSpringFrequency, j.LinearXSpringDampingRatio, j.LinearXSpringTarget));
+        Assert.Equal((JointAxisMode.Limited, JointAxisMode.Free, JointAxisMode.Locked), (j.AngularXMode, j.AngularYMode, j.AngularZMode));
+        Assert.Equal(-20f, j.AngularXLowerDegrees, 3);
+        Assert.Equal(35f, j.AngularXUpperDegrees, 3);
+        Assert.Equal((true, -2f, 7f), (j.AngularZMotorEnabled, j.AngularZMotorTargetVelocity, j.AngularZMotorMaxTorque));
+        Assert.Equal((true, 4f), (j.AngularYSpringEnabled, j.AngularYSpringFrequency));
+        Assert.Equal(10f, j.AngularYSpringTargetDegrees, 3);
+        root.Free();
+        copy.Free();
+    }
+
+    [Fact]
+    public void A6DofSceneOnWorkerThreadsStepsTheSameEveryRun()
+    {
+        // Jitter2 runs the 6-DOF constraints' Prepare/Iterate on its worker threads (ADR 0234): in deterministic mode two
+        // runs of the same scene must agree to the bit.
+        static Vector3[] Run()
+        {
+            using var h = new PhysicsHarness3D(new PhysicsSettings3D { MultiThreaded = true, Deterministic = true });
+            var bodies = new List<RigidBody3D>();
+            for (var i = 0; i < 40; i++)
+            {
+                var box = h.AddBox(new Vector3(i % 8 * 2f, 3, i / 8 * 2f), size: 0.3f, name: $"Box{i}");
+                bodies.Add(box);
+                var joint = new Generic6DofJoint3D
+                {
+                    Name = $"SixDof{i}",
+                    Position = box.Position + Vector3.UnitY * 0.5f,
+                    AngularXMode = JointAxisMode.Limited,
+                    AngularZMode = JointAxisMode.Free,
+                    AngularZMotorEnabled = i % 2 == 0,
+                    AngularZMotorTargetVelocity = 1f,
+                    LinearYMode = JointAxisMode.Limited,
+                    LinearYLower = -0.3f,
+                    LinearYUpper = 0.1f,
+                    LinearXSpringEnabled = i % 3 == 0,
+                    LinearXMode = JointAxisMode.Free,
+                };
+                h.Add(joint);
+                joint.NodeB = "../" + box.Name;
+                box.AngularVelocity = new Vector3(i % 5 - 2, 1, 0);
+            }
+
+            h.RunSeconds(2f);
+            return [.. bodies.Select(b => b.Position)];
+        }
+
+        Assert.Equal(Run(), Run());
+    }
+
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(false, 3)]
+    [InlineData(true, 0)]
+    [InlineData(true, 3)]
+    public void ALong6DofChainFlailingFor30SecondsStaysCalm(bool slidingX, int perturbation)
+    {
+        // The joint benchmark's chain: 100 light links swinging from the world flail wildly (Jitter2's own pin chain
+        // spins past 1 000 rad/s too). With every linear axis locked or with X limited, nothing may blow up: rows whose
+        // arm on body A reached B's anchor gained energy until links passed 10 000 m/s within 6–19 s (then NaN), on
+        // every platform once the start was nudged. The nudge offsets each link in Z.
+        var link = new SphereShape3D { Radius = 0.1f };
+        var bodies = new List<RigidBody3D>();
+        for (var i = 0; i < 100; i++)
+        {
+            var z = perturbation * 0.001f * i;
+            var body = new RigidBody3D { Name = $"Link{i}", Position = new Vector3((i + 1) * 0.3f, 40, z), CanSleep = false };
+            body.AddChild(new CollisionShape3D { Shape = link });
+            bodies.Add(_h.Add(body));
+            var joint = new Generic6DofJoint3D
+            {
+                Name = $"Joint{i}",
+                Position = new Vector3(i * 0.3f + (i == 0 ? 0 : 0.15f), 40, z),
+                AngularXMode = JointAxisMode.Free,
+                AngularYMode = JointAxisMode.Free,
+                AngularZMode = JointAxisMode.Free,
+                LinearXMode = slidingX ? JointAxisMode.Limited : JointAxisMode.Locked,
+                LinearXLower = -0.05f,
+                LinearXUpper = 0.05f,
+            };
+            _h.Add(joint);
+            joint.NodeA = i == 0 ? default(NodePath) : $"../Link{i - 1}";
+            joint.NodeB = $"../Link{i}";
+        }
+
+        for (var frame = 0; frame < 30 * 60; frame++)
+        {
+            _h.Run(1);
+            if (frame % 30 != 0)
+                continue;
+            foreach (var body in bodies)
+            {
+                var speed = body.LinearVelocity.Length();
+                Assert.True(float.IsFinite(speed) && speed < 1000f, $"{body.Name} at frame {frame}: {speed} m/s");
+            }
+        }
+    }
 }

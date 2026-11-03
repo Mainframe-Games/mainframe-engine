@@ -8,7 +8,7 @@ namespace Demo;
 
 /// <summary>
 /// Jitter2 rigid bodies: a crate stack, a ramp, a character body that shoves, click-to-drop crates, and joints (G9): a
-/// rope bridge, a sign on a breakable weld and a ragdoll mannequin the crates knock down.
+/// rope bridge, a sign on a breakable weld, a ragdoll mannequin the crates knock down, and a 6-DOF gimbal and drawer.
 /// </summary>
 public static class Physics3DScene
 {
@@ -51,6 +51,7 @@ public static class Physics3DScene
         Joints3DBuild.AddBridge(root);
         Joints3DBuild.AddSign(root);
         Joints3DBuild.AddMannequin(root);
+        Joints3DBuild.AddSixDof(root);
         Add(root, root, new Dropper3D { Name = "Crates" });
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new Physics3DPanel { Name = "Panel" });
