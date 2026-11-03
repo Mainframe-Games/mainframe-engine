@@ -362,7 +362,7 @@ public sealed partial class EditorWorkspace : Node
     protected override void OnReady()
     {
         Output.Attach();
-        Output.Add(OutputLevel.Info, "Mainframe Editor started.");
+        Output.Add(OutputLevel.Info, EditorBrand.NameWithVersion + " started.");
         AddChild(ScenesHost);
 
         // The editor is a desktop tool: its layers stay at the display's DPI scale, never a game's UI scale (ADR 0181).
