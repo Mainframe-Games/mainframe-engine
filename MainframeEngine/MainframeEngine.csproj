@@ -173,6 +173,11 @@
                                              Localization.targets and macos/ (the files checkout games import directly)
         tools/mf-export/                     mf-export, the player-build exporter (Tools/MainframeEngine.Export.Cli, packed like
                                              mf-l10n); games find it through MainframeExportTool (MainframeGame.props)
+        tools/mf-shaders/                    mf-shaders, the surface-shader builder (Tools/MainframeEngine.ShaderBuild, packed like
+                                             mf-l10n); games run it through MainframeShadersTool / the MainframeShaders target
+        mainframe/shaders/include/**         Assets/Shaders/include/**/*.slang: the mainframe.* modules surface shaders import and
+                                             the engine includes their generated entries include (ADR 0237); MainframeGame.props
+                                             copies them to the game's .mainframe/shaders/include/ for editors
         README.md, icon.png
     -->
     <ItemGroup>
@@ -213,9 +218,17 @@
       </MSBuild>
       <Error Condition="!Exists('$(_MainframeExportAssembly)')" Code="MFPACK002"
              Text="mf-export is not built ($(_MainframeExportAssembly)). Pack the engine with build/pack-nuget.sh (just pack), which builds it first." />
+      <!-- mf-shaders (references this project): built first by build/pack-nuget.sh, like mf-l10n. -->
+      <MSBuild Projects="..\Tools\MainframeEngine.ShaderBuild\MainframeEngine.ShaderBuild.csproj" Targets="GetTargetPath"
+               RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained">
+        <Output TaskParameter="TargetOutputs" PropertyName="_MainframeShadersAssembly" />
+      </MSBuild>
+      <Error Condition="!Exists('$(_MainframeShadersAssembly)')" Code="MFPACK003"
+             Text="mf-shaders is not built ($(_MainframeShadersAssembly)). Pack the engine with build/pack-nuget.sh (just pack), which builds it first." />
       <PropertyGroup>
         <_MainframeL10nDir>$([System.IO.Path]::GetDirectoryName('$(_MainframeL10nAssembly)'))/</_MainframeL10nDir>
         <_MainframeExportDir>$([System.IO.Path]::GetDirectoryName('$(_MainframeExportAssembly)'))/</_MainframeExportDir>
+        <_MainframeShadersDir>$([System.IO.Path]::GetDirectoryName('$(_MainframeShadersAssembly)'))/</_MainframeShadersDir>
       </PropertyGroup>
       <ItemGroup>
         <_MainframeL10nFile Include="$(_MainframeL10nDir)*.dll;$(_MainframeL10nDir)mf-l10n.runtimeconfig.json"
@@ -225,6 +238,11 @@
         <_MainframeExportFile Include="$(_MainframeExportDir)*.dll;$(_MainframeExportDir)mf-export.runtimeconfig.json"
                               Exclude="$(_MainframeExportDir)enet.dll;$(_MainframeExportDir)mfrmlui.dll;$(_MainframeExportDir)mfsvg.dll;$(_MainframeExportDir)steam_api64.dll" />
         <TfmSpecificPackageFile Include="@(_MainframeExportFile)" PackagePath="tools/mf-export/%(Filename)%(Extension)" />
+        <_MainframeShadersFile Include="$(_MainframeShadersDir)*.dll;$(_MainframeShadersDir)mf-shaders.runtimeconfig.json"
+                               Exclude="$(_MainframeShadersDir)enet.dll;$(_MainframeShadersDir)mfrmlui.dll;$(_MainframeShadersDir)mfsvg.dll;$(_MainframeShadersDir)steam_api64.dll" />
+        <TfmSpecificPackageFile Include="@(_MainframeShadersFile)" PackagePath="tools/mf-shaders/%(Filename)%(Extension)" />
+        <_MainframeShaderInclude Include="Assets/Shaders/include/**/*.slang" />
+        <TfmSpecificPackageFile Include="@(_MainframeShaderInclude)" PackagePath="mainframe/shaders/include/%(RecursiveDir)%(Filename)%(Extension)" />
         <_MainframeContentFile Include="@(AllItemsFullPathWithTargetPath)" PackagePath="mainframe/$([System.String]::Copy('%(AllItemsFullPathWithTargetPath.TargetPath)').Replace('\', '/'))" />
         <_MainframeContentFile Remove="@(_MainframeContentFile)" Condition="!($([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/Assets/')) or $([System.String]::Copy('%(_MainframeContentFile.PackagePath)').StartsWith('mainframe/steamworks/'))) or '%(_MainframeContentFile.Extension)' == '.pot'" />
         <TfmSpecificPackageFile Include="@(_MainframeContentFile)" />

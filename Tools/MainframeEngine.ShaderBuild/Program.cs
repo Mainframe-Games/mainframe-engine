@@ -1,9 +1,32 @@
 using MainframeEngine;
 
-// mf-shaders build|check <folder>... | translate <file.slang> [pass] (see the csproj comment).
-var include = Path.Combine(AppContext.BaseDirectory, "Assets", "Shaders", "include");
-if (!Directory.Exists(include))
-    include = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "MainframeEngine", "Assets", "Shaders", "include"));
+// mf-shaders [--include <dir>] build|check <folder>... | translate <file.slang> [pass] (see the csproj comment).
+// The engine's shader include folder: --include, else the package's (tools/mf-shaders/ → mainframe/shaders/include/),
+// else a checkout's (Tools/MainframeEngine.ShaderBuild/bin/<cfg>/<tfm>/ → MainframeEngine/Assets/Shaders/include/).
+string? include = null;
+var includeAt = Array.IndexOf(args, "--include");
+if (includeAt >= 0)
+{
+    if (includeAt + 1 >= args.Length)
+    {
+        Console.Error.WriteLine("error: --include needs a folder.");
+        return 2;
+    }
+
+    include = Path.GetFullPath(args[includeAt + 1]);
+    args = [.. args[..includeAt], .. args[(includeAt + 2)..]];
+}
+
+include ??= new[]
+{
+    Path.Combine(AppContext.BaseDirectory, "..", "..", "mainframe", "shaders", "include"),
+    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "MainframeEngine", "Assets", "Shaders", "include"),
+}.Select(Path.GetFullPath).FirstOrDefault(d => File.Exists(Path.Combine(d, "mainframe", "spatial.slang")));
+if (include is null || !Directory.Exists(include))
+{
+    Console.Error.WriteLine("error: the engine's shader include folder was not found; pass --include <dir> (an engine checkout's MainframeEngine/Assets/Shaders/include).");
+    return 2;
+}
 
 if (args.Length >= 2 && args[0] == "translate")
 {
@@ -39,7 +62,7 @@ if (args.Length >= 2 && args[0] == "translate")
 
 if (args.Length < 2 || args[0] is not ("build" or "check"))
 {
-    Console.Error.WriteLine("usage: mf-shaders build|check <folder>... | mf-shaders translate <file.slang> [color|depth|shadow|shadowpoint|objectid]");
+    Console.Error.WriteLine("usage: mf-shaders [--include <dir>] build|check <folder>... | mf-shaders translate <file.slang> [color|depth|shadow|shadowpoint|objectid]");
     return 2;
 }
 

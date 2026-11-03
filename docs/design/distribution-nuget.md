@@ -26,6 +26,8 @@ source generator that game code must run, and build steps. The package carries a
 | `mainframe/steamworks/{win64,posix}/` | `MainframeEngine.Steamworks.dll` (the shim) + `Facepunch.Steamworks.Win64.dll` / `.Posix.dll`: two builds of one assembly, so neither is in `lib/` ([Steamworks → Layers](steamworks.md#layers)) | `buildTransitive/MainframeEngine.targets` copies them to the app's `steamworks/` like Content (a build with a RID gets only that platform's folder); the engine's `SteamworksLoader` loads this OS's |
 | `tools/mf-l10n/` | `mf-l10n` (managed files + runtimeconfig; no `deps.json`, so the host loads the folder's assemblies and none of the natives it never calls) | `Localization.targets` compiles `Assets/locale/**/*.po` to `.mo` with it |
 | `tools/mf-export/` | `mf-export`, the player-build exporter the editor's File › Export runs too ([Game export](game-export.md)): managed files + runtimeconfig, like `mf-l10n` | `MainframeExportTool` (set by `MainframeGame.props`) names its `.dll` ([Player builds](#player-builds)) |
+| `tools/mf-shaders/` | `mf-shaders`, the surface-shader builder ([Shaders → Surface shaders](shaders.md#surface-shaders)): managed files + runtimeconfig, like `mf-l10n` | `MainframeShadersTool` (set by `MainframeGame.props`) names its `.dll`; the `MainframeShaders` target runs it ([Surface shaders](#surface-shaders)) |
+| `mainframe/shaders/include/**` | the engine's `Assets/Shaders/include/**/*.slang`: the `mainframe.*` modules game shaders import and the includes their generated passes use | `MainframeShaderInclude` (set by `MainframeGame.props`); every build of the game's executable copies it to `.mainframe/shaders/include/` for editors |
 | `buildTransitive/` | `MainframeEngine.props` (imports `MainframeGame.props`), `MainframeEngine.targets`, `Localization.targets`, `macos/` (the dev `.app` bundle, and `BundleAppHost.targets`: the apphost of a packaged `.app`, [Release → macOS bundle layout](release.md#macos-bundle-layout)) | imported by every project that references the package, directly or through a game library |
 | `README.md`, `icon.png` | the nuget.org page ([`MainframeEngine/PACKAGE.md`](../../MainframeEngine/PACKAGE.md)) and the logo | — |
 
@@ -56,9 +58,27 @@ The checkout's game-facing build files are packed unchanged, so package and chec
 - **`MainframeGame.props`**, which checkout games import from their `Directory.Build.props`, provides the `DEMO` define
   and `AssemblyMetadata` from `"isDemo"`, the app name and icon from `project.mfproj`, the macOS development `.app`
   bundle, and `CopyLocalLockFileAssemblies`. All of it is inert without a `project.mfproj` above the project. It also
-  sets `MainframeExportTool`: the package's `tools/mf-export/mf-export.dll`, or the checkout's `mf-export` project.
+  sets `MainframeExportTool`: the package's `tools/mf-export/mf-export.dll`, or the checkout's `mf-export` project, and
+  `MainframeShadersTool` and `MainframeShaderInclude` the same way for surface shaders.
 - **`Localization.targets`** sees `MfL10nPath` already set (to `tools/mf-l10n`), so it skips the `mf-l10n` project
   reference it uses in a checkout. Same `LocaleContentRoot`, same fallback to committed `.mo` files.
+
+### Surface shaders
+
+A package game builds and checks its Slang surface shaders (ADR 0237) with the package's `mf-shaders` and include
+folder, through a target `MainframeGame.props` defines, so neither path is hard-coded:
+
+```bash
+dotnet msbuild MyGame.Desktop -t:MainframeShaders                                   # build stale ones (needs slangc)
+dotnet msbuild MyGame.Desktop -t:MainframeShaders -p:MainframeShadersCommand=check  # fail on stale ones (no slangc)
+```
+
+Both run over the `Assets` folder next to `project.mfproj`. slangc does not ship: building needs the Vulkan SDK or a
+Slang release on `PATH` (`SurfaceShaderBuild.MinimumSlangcVersion`), checking needs nothing. Every build of the game's
+executable copies the include folder to `.mainframe/shaders/include/` (git-ignored) next to `project.mfproj`, a path that
+does not move with the engine version: the template's `.vscode/settings.json` points the shader-slang extension there.
+Checkout games get the same target and copy, from the checkout. The template's `Assets/Shaders/example.slang` comes with
+its SPIR-V, so a new game builds without slangc; `just shaders-check` keeps it current.
 
 ### Player builds
 

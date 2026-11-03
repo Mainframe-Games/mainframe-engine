@@ -4,6 +4,7 @@
 *.mres text eol=lf
 *.mfproj text eol=lf
 *.meta text eol=lf
+*.slang text eol=lf
 
 # Large binary content lives in Git LFS (run `git lfs install` once per machine).
 # images
@@ -33,3 +34,5 @@
 *.po text eol=lf
 *.pot text eol=lf
 *.mo binary
+# surface shaders: their SPIR-V is built ahead of time and committed next to the .slang
+*.spv binary

@@ -53,6 +53,45 @@
     <MainframeExportTool Condition="'$(MainframeExportTool)' == '' and Exists('$(MSBuildThisFileDirectory)../Tools/MainframeEngine.Export.Cli/MainframeEngine.Export.Cli.csproj')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Tools/MainframeEngine.Export.Cli/MainframeEngine.Export.Cli.csproj'))</MainframeExportTool>
   </PropertyGroup>
 
+  <!--
+    Surface shaders (docs/design/shaders.md#surface-shaders, ADR 0237): mf-shaders and the engine's shader include folder
+    (the mainframe.* modules and the includes the generated passes use). The package carries them in tools/mf-shaders and
+    mainframe/shaders/include; a checkout has its project and MainframeEngine/Assets/Shaders/include.
+      dotnet msbuild MyGame.Desktop -t:MainframeShaders                                   builds stale shaders (needs slangc)
+      dotnet msbuild MyGame.Desktop -t:MainframeShaders -p:MainframeShadersCommand=check  fails on stale ones (no slangc)
+    over the Assets folder next to project.mfproj. Every build of the game's executable also copies the include folder to
+    .mainframe/shaders/include/ next to project.mfproj, one path that does not change with the engine version, for editors:
+    the template's .vscode/settings.json points the shader-slang extension (slang.additionalSearchPaths) there.
+  -->
+  <PropertyGroup>
+    <MainframeShadersTool Condition="'$(MainframeShadersTool)' == '' and Exists('$(MSBuildThisFileDirectory)../tools/mf-shaders/mf-shaders.dll')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../tools/mf-shaders/mf-shaders.dll'))</MainframeShadersTool>
+    <MainframeShadersTool Condition="'$(MainframeShadersTool)' == '' and Exists('$(MSBuildThisFileDirectory)../Tools/MainframeEngine.ShaderBuild/MainframeEngine.ShaderBuild.csproj')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Tools/MainframeEngine.ShaderBuild/MainframeEngine.ShaderBuild.csproj'))</MainframeShadersTool>
+    <MainframeShaderInclude Condition="'$(MainframeShaderInclude)' == '' and Exists('$(MSBuildThisFileDirectory)../mainframe/shaders/include')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../mainframe/shaders/include'))</MainframeShaderInclude>
+    <MainframeShaderInclude Condition="'$(MainframeShaderInclude)' == '' and Exists('$(MSBuildThisFileDirectory)../MainframeEngine/Assets/Shaders/include')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../MainframeEngine/Assets/Shaders/include'))</MainframeShaderInclude>
+    <MainframeShadersCommand Condition="'$(MainframeShadersCommand)' == ''">build</MainframeShadersCommand>
+  </PropertyGroup>
+
+  <Target Name="MainframeShaders">
+    <Error Condition="'$(MainframeShadersTool)' == '' or '$(MainframeShaderInclude)' == ''" Code="MFSHADER002"
+           Text="mf-shaders or the engine's shader include folder was not found (MainframeShadersTool, MainframeShaderInclude)." />
+    <Error Condition="'$(MainframeProjectFile)' == '' or !Exists('$(MainframeProjectFile)')" Code="MFSHADER003"
+           Text="No project.mfproj above $(MSBuildProjectDirectory): MainframeShaders builds the Assets folder next to it." />
+    <PropertyGroup>
+      <_MainframeShadersRun Condition="$(MainframeShadersTool.EndsWith('.dll'))">dotnet &quot;$(MainframeShadersTool)&quot;</_MainframeShadersRun>
+      <_MainframeShadersRun Condition="!$(MainframeShadersTool.EndsWith('.dll'))">dotnet run --project &quot;$(MainframeShadersTool)&quot; --</_MainframeShadersRun>
+    </PropertyGroup>
+    <Exec Command="$(_MainframeShadersRun) --include &quot;$(MainframeShaderInclude)&quot; $(MainframeShadersCommand) &quot;$([System.IO.Path]::GetDirectoryName('$(MainframeProjectFile)'))/Assets&quot;" />
+  </Target>
+
+  <Target Name="_MainframeCopyShaderInclude" AfterTargets="Build"
+          Condition="'$(MainframeShaderInclude)' != '' and '$(MainframeProjectFile)' != '' and Exists('$(MainframeProjectFile)') and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true'">
+    <ItemGroup>
+      <_MainframeShaderIncludeFile Include="$(MainframeShaderInclude)/**/*.slang" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_MainframeShaderIncludeFile)" SkipUnchangedFiles="true"
+          DestinationFiles="@(_MainframeShaderIncludeFile->'$([System.IO.Path]::GetDirectoryName('$(MainframeProjectFile)'))/.mainframe/shaders/include/%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+
   <PropertyGroup>
     <!-- The editor loads the game library from its build output into a collectible context, which resolves the game's own
          NuGet dependencies from that folder (assemblies the editor already has are shared). A class library does not copy

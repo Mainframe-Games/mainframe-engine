@@ -5,7 +5,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 solution := "MainframeEngine.slnx"
 # Folders with committed surface-shader SPIR-V (.slang, ADR 0237; canvas-shaders, shaders-check)
-surface_shader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets Examples/Neon/Assets"
+surface_shader_folders := "Tests/MainframeEngine.RenderTests.Host/Assets Examples/Demo/Assets Examples/Neon/Assets Templates/MainframeEngine.Templates/content/mfgame/Assets"
 artifacts := justfile_directory() / "artifacts"
 
 # List recipes

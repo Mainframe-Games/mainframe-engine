@@ -98,6 +98,22 @@ steam_files=(steamworks/win64/MainframeEngine.Steamworks.dll steamworks/win64/Fa
   steamworks/posix/MainframeEngine.Steamworks.dll steamworks/posix/Facepunch.Steamworks.Posix.dll)
 require "$out" "${steam_files[@]}"
 
+# Surface shaders (ADR 0237): the template's example ships its SPIR-V, the build copies the engine's shader modules to
+# .mainframe/shaders/include (for editors), and the MainframeShaders target checks the game's shaders with mf-shaders
+# (the package's in a package game) and, with slangc on PATH, builds a new one.
+desktop="$work/SmokeGame/SmokeGame.Desktop/SmokeGame.Desktop.csproj"
+require "$out" Assets/Shaders/example.slang Assets/Shaders/example.slang.vert.spv Assets/Shaders/example.slang.layout.json
+require "$work/SmokeGame" .mainframe/shaders/include/mainframe/spatial.slang .mainframe/shaders/include/frame.slang .vscode/settings.json
+dotnet msbuild "$desktop" -t:MainframeShaders -p:MainframeShadersCommand=check -nologo -v:m
+if command -v slangc > /dev/null 2>&1 || [ -x "${VULKAN_SDK:-/nonexistent}/bin/slangc" ]; then
+  sed 's/float glow = 0.6;/float glow = 0.8;/' "$work/SmokeGame/Assets/Shaders/example.slang" > "$work/SmokeGame/Assets/Shaders/smoke.slang"
+  dotnet msbuild "$desktop" -t:MainframeShaders -nologo -v:m
+  require "$work/SmokeGame" Assets/Shaders/smoke.slang.frag.spv Assets/Shaders/smoke.slang.shadow.vert.spv Assets/Shaders/smoke.slang.layout.json
+  dotnet msbuild "$desktop" -t:MainframeShaders -p:MainframeShadersCommand=check -nologo -v:m
+else
+  echo "template-smoke: slangc is not on PATH; the game's shaders were checked, not built."
+fi
+
 # Package games publish per RID: NuGet copies that RID's natives, the package's targets the engine content.
 if [ "$source" = "package" ]; then
   case "$(uname -s)-$(uname -m)" in
@@ -117,11 +133,15 @@ if [ "$source" = "package" ]; then
 
   # Player builds (#48): the package's tools/mf-export, found through MainframeExportTool, makes the archives a checkout
   # makes (the old package-game.sh arguments). Cross-RID publishes work from any host; macOS bundles need a Mac (codesign).
-  desktop="$work/SmokeGame/SmokeGame.Desktop/SmokeGame.Desktop.csproj"
   tool="$(dotnet msbuild "$desktop" -getProperty:MainframeExportTool)"
   case "$tool" in
     */mainframeengine/"$version"/tools/mf-export/mf-export.dll) ;;
     *) echo "template-smoke: MainframeExportTool is '$tool', not the package's tools/mf-export/mf-export.dll" >&2; exit 1 ;;
+  esac
+  shaders="$(dotnet msbuild "$desktop" -getProperty:MainframeShadersTool)"
+  case "$shaders" in
+    */mainframeengine/"$version"/tools/mf-shaders/mf-shaders.dll) ;;
+    *) echo "template-smoke: MainframeShadersTool is '$shaders', not the package's tools/mf-shaders/mf-shaders.dll" >&2; exit 1 ;;
   esac
   package_rids=(linux-x64 win-x64)
   [ "$(uname -s)" = "Darwin" ] && package_rids+=(osx-arm64)

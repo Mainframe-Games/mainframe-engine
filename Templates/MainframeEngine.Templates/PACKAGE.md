@@ -21,6 +21,13 @@ version as this template package; `--engine-version` picks another release. The 
 
 **Requirements:** the .NET 10 SDK, and a GPU with Vulkan 1.2 (MoltenVK is included on macOS).
 
+## Shaders
+
+`Assets/Shaders/example.slang` is a Slang surface shader with its prebuilt SPIR-V. After editing a shader, rebuild it with
+`dotnet msbuild MyGame.Desktop -t:MainframeShaders` (needs slangc, from the Vulkan SDK or a Slang release). The project's
+`.vscode/settings.json` points the shader-slang extension at the engine's modules, which every build copies to
+`.mainframe/shaders/include`.
+
 ## Player builds
 
 Export presets in `project.mfproj` (the editor's **File › Export…** writes them) describe each player build. The

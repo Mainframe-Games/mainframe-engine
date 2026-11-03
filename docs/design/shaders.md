@@ -313,14 +313,23 @@ material (a warning).
 ### Editor support
 
 `.slang` is the shader-slang VS Code extension's own language (slangd underneath): diagnostics, completion on `s.` and
-`v.`, hover with the modules' `///` docs, go-to-definition. It needs the engine's include folder on its search path:
+`v.`, hover with the modules' `///` docs, go-to-definition. It needs the engine's include folder on its search path. Every
+build of a game's executable copies that folder to `.mainframe/shaders/include/` next to `project.mfproj` (from the
+package's `mainframe/shaders/include/`, or a checkout's), and the `mfgame` template's `.vscode/settings.json` points there:
 
 ```json
-"slang.additionalSearchPaths": ["${workspaceFolder}/MainframeEngine/Assets/Shaders/include"]
+"slang.additionalSearchPaths": ["${workspaceFolder}/.mainframe/shaders/include"]
 ```
 
-In a game project, point it at an engine checkout's `MainframeEngine/Assets/Shaders/include` (the package does not ship
-the modules yet).
+In this repository, point it at `${workspaceFolder}/MainframeEngine/Assets/Shaders/include`.
+
+### Building from a game
+
+Games run mf-shaders through the `MainframeShaders` target (`MainframeGame.props`, the package's or a checkout's):
+`dotnet msbuild MyGame.Desktop -t:MainframeShaders` builds the stale shaders under `Assets/` (needs slangc), and
+`-p:MainframeShadersCommand=check` only checks them. mf-shaders takes `--include <dir>`; without it, the package's copy
+finds `mainframe/shaders/include/` next to itself and a checkout's finds `MainframeEngine/Assets/Shaders/include/`
+([Distribution via NuGet → Surface shaders](distribution-nuget.md#surface-shaders)).
 
 ### Porting from Godot
 
@@ -366,8 +375,8 @@ The G18 proposal (folded into this section when it shipped) left five questions 
 - **A textures-only material moves to binding 1**, and **the engine's constants live apart** (`mainframe.math`;
   `mainframe.surface.*` hold the structs the entries import), because slangc drops an empty block and `common.slang`
   declares its own PI. Neither was in the proposal.
-- **No editor or template wiring of the include path** (the proposal's `.mainframe/shaders/` copy): the package does not
-  ship the modules yet.
+- **The include path for editors**, the proposal's `.mainframe/shaders/` copy, came in a follow-up: the package ships the
+  modules and `mf-shaders`, and the template's `.vscode/settings.json` points there.
 
 ## Constants that must match C#
 
