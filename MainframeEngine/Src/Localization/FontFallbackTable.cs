@@ -79,6 +79,6 @@ public sealed class FontFallbackTable : Resource
     public static FontFallbackTable? TryLoad(string path = DefaultPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        return File.Exists(ContentPaths.Resolve(path)) ? ResourceLoader.Load<FontFallbackTable>(path) : null;
+        return ContentFiles.Exists(ContentPaths.Resolve(path)) ? ResourceLoader.Load<FontFallbackTable>(path) : null;
     }
 }

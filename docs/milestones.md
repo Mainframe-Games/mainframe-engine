@@ -337,6 +337,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G17f Animation graph: state machines, 1D/2D blend spaces, masked layers (shared with 3D), graph tab | ⬜ | [Animation graph](design/future/animation-graph.md) |
 | G17g `SkeletonSprite3D`, bone attachments, hitboxes, network sync, `AnimationPlayer` bridge, `mfe skel` + Claude skill, Demo scene | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 | G18 Slang surface shaders: game shaders are `.slang` files against `import mainframe.spatial;`/`mainframe.canvas;` (entry functions over camelCase built-in structs, `struct Material` read through slangc's reflection, literal defaults), the engine generating every pass; the Godot front end removed, the 19 in-repo shaders ported | ✅ (ADR 0237) | [Shaders → Surface shaders](design/shaders.md#surface-shaders) |
+| G19 Protected exports: `IContentFileSystem` for every runtime content read, `Assets.mfpak` packs (deterministic, Brotli, seekable stored media), AES-256-CTR encryption with a per-project key compiled into the game, then a `nativeAot` preset key | ⬜ | [Protected exports](design/future/protected-exports.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 

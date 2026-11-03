@@ -135,11 +135,11 @@ internal sealed class TranslationSet
         foreach (var candidate in chain)
         {
             var path = options.CatalogPath(candidate);
-            if (!File.Exists(path))
+            if (!ContentFiles.Exists(path))
                 continue;
             try
             {
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using var stream = ContentFiles.OpenRead(path);
                 Merge(entries, stream, candidate);
                 loaded.Add(candidate);
             }

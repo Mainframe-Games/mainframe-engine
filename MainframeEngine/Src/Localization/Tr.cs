@@ -148,7 +148,7 @@ public static class Tr
                 return normalized;
             foreach (var link in LocaleId.Chain(normalized, source, options.FallbackLocales))
             {
-                if (link != source && File.Exists(options.CatalogPath(link)))
+                if (link != source && ContentFiles.Exists(options.CatalogPath(link)))
                     return normalized;
             }
         }
@@ -163,12 +163,12 @@ public static class Tr
         var source = LocaleId.Normalize(options.SourceLocale);
         var locales = new List<string>();
         var directory = options.ResolveLocaleDirectory();
-        if (Directory.Exists(directory))
+        if (ContentFiles.DirectoryExists(directory))
         {
-            foreach (var folder in Directory.EnumerateDirectories(directory))
+            foreach (var folder in ContentFiles.EnumerateDirectories(directory))
             {
                 var locale = LocaleId.Normalize(Path.GetFileName(folder));
-                if (locale.Length > 0 && locale != source && File.Exists(options.CatalogPath(locale)))
+                if (locale.Length > 0 && locale != source && ContentFiles.Exists(options.CatalogPath(locale)))
                     locales.Add(locale);
             }
         }

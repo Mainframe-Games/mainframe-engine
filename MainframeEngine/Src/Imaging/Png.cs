@@ -206,7 +206,7 @@ public static class Png
     /// <summary>Decodes an 8-bit RGB or RGBA, non-interlaced PNG file into RGBA8.</summary>
     public static PngImage ReadRgba8(string path)
     {
-        using var stream = File.OpenRead(path);
+        using var stream = ContentFiles.OpenRead(path);
         return ReadRgba8(stream);
     }
 
@@ -243,7 +243,7 @@ public static class Png
     /// <summary>Decodes a greyscale (or colour, by its first channel) PNG file into 16-bit samples.</summary>
     public static PngGray16Image ReadGray16(string path)
     {
-        using var stream = File.OpenRead(path);
+        using var stream = ContentFiles.OpenRead(path);
         return ReadGray16(stream);
     }
 

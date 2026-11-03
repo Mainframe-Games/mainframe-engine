@@ -261,7 +261,7 @@ public sealed class TerrainData : Resource
 
         var heights = new float[vertices * vertices];
         var heightPath = folder is null ? null : Path.Combine(folder, HeightmapFile);
-        if (heightPath is not null && File.Exists(heightPath))
+        if (heightPath is not null && ContentFiles.Exists(heightPath))
         {
             var image = Png.ReadGray16(heightPath);
             RequireSize(image.Width, image.Height, vertices, HeightmapFile);
@@ -279,7 +279,7 @@ public sealed class TerrainData : Resource
         {
             splat0 = LoadRgba(folder, SplatFile(0), cells, 0x000000FFu);
             splat1 = LoadRgba(folder, SplatFile(1), cells, 0u);
-            if (folder is not null && File.Exists(Path.Combine(folder, SplatFile(2))))
+            if (folder is not null && ContentFiles.Exists(Path.Combine(folder, SplatFile(2))))
                 splat2 = LoadRgba(folder, SplatFile(2), cells, 0u); // else layers 8–11 are zero, with no map
         }
         else
@@ -325,7 +325,7 @@ public sealed class TerrainData : Resource
     {
         var pixels = new byte[size * size * 4];
         var path = folder is null ? null : Path.Combine(folder, file);
-        if (path is not null && File.Exists(path))
+        if (path is not null && ContentFiles.Exists(path))
         {
             var image = Png.ReadRgba8(path);
             RequireSize(image.Width, image.Height, size, file);
@@ -430,7 +430,7 @@ public sealed class TerrainData : Resource
 
     private static void DeleteIfExists(string path)
     {
-        if (File.Exists(path))
+        if (File.Exists(path)) // disk-io: an editor save
             File.Delete(path);
     }
 
@@ -1071,9 +1071,9 @@ public sealed class TerrainData : Resource
         if (_carves.TryGetValue(id, out var record))
             return record;
         var path = LayerFolder is { } folder ? Path.Combine(folder, TerrainCarveRecord.FileName(id)) : null;
-        if (path is not null && File.Exists(path))
+        if (path is not null && ContentFiles.Exists(path))
         {
-            using var stream = File.OpenRead(path);
+            using var stream = ContentFiles.OpenRead(path);
             record = TerrainCarveRecord.Read(stream, this);
         }
 
@@ -1093,10 +1093,10 @@ public sealed class TerrainData : Resource
     private void SaveCarveRecords(string folder, bool everything)
     {
         // Moving to a new folder: carry over the records that were never read from the old one.
-        if (everything && _savedFolder is { } previous && Directory.Exists(previous) &&
+        if (everything && _savedFolder is { } previous && Directory.Exists(previous) && // disk-io: an editor save
             !string.Equals(Path.GetFullPath(previous), folder, StringComparison.Ordinal))
         {
-            foreach (var path in Directory.EnumerateFiles(previous, "carve_*.json"))
+            foreach (var path in Directory.EnumerateFiles(previous, "carve_*.json")) // disk-io: an editor save
             {
                 var id = Path.GetFileNameWithoutExtension(path)["carve_".Length..];
                 if (TerrainCarveRecord.IsValidId(id) && !_carves.ContainsKey(id))

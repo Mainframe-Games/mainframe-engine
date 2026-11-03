@@ -66,7 +66,7 @@ internal sealed unsafe partial class MeshRenderer
             entry = new SpatialShaderGpu(shader, shader.Spatial!, _spatialById.Count + 1);
             _spatialShaders.Add(shader, entry);
             _spatialById.Add(entry);
-            if (SurfaceShaderBuild.SpvFiles(shader.SpvBasePath ?? "", SurfaceShaderKind.Spatial).Any(f => shader.SpvBasePath is null || !File.Exists(f)))
+            if (SurfaceShaderBuild.SpvFiles(shader.SpvBasePath ?? "", SurfaceShaderKind.Spatial).Any(f => shader.SpvBasePath is null || !ContentFiles.Exists(f)))
             {
                 entry.Missing = true;
                 Log.Warning($"[Mesh] The spatial shader '{shader.ResourcePath ?? shader.Spatial!.Name}' has no SPIR-V (build it with `just canvas-shaders <folder>`); drawing with the default material.");
@@ -261,7 +261,7 @@ internal sealed unsafe partial class MeshRenderer
     {
         if (!entry.VertexInputs.TryGetValue(vertexPath, out var locations))
         {
-            locations = SpirvInputs.InputLocations(File.ReadAllBytes(vertexPath));
+            locations = SpirvInputs.InputLocations(ContentFiles.ReadAllBytes(vertexPath));
             entry.VertexInputs.Add(vertexPath, locations);
         }
 

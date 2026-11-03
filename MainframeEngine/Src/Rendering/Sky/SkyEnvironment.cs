@@ -323,7 +323,7 @@ public class SkyEnvironment : IDisposable
         var size = 0;
         for (var i = 0; i < 6; i++)
         {
-            var face = ImageResult.FromMemory(File.ReadAllBytes(ContentPaths.Resolve(facePaths[i])), ColorComponents.RedGreenBlueAlpha)
+            var face = ImageResult.FromMemory(ContentFiles.ReadAllBytes(ContentPaths.Resolve(facePaths[i])), ColorComponents.RedGreenBlueAlpha)
                        ?? throw new InvalidDataException($"Could not decode cubemap face '{facePaths[i]}'.");
             if (face.Width != face.Height || (pixels is not null && face.Width != size))
                 throw new InvalidDataException($"Cubemap faces must be square and the same size ('{facePaths[i]}' is {face.Width}x{face.Height}).");

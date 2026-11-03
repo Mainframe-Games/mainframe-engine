@@ -86,7 +86,7 @@ public sealed record UiServerOptions
         foreach (var assembly in assemblies)
             foreach (var attribute in assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false))
                 if (attribute is System.Reflection.AssemblyMetadataAttribute { Key: ContentSourceMetadataKey, Value: { Length: > 0 } value } &&
-                    Directory.Exists(value))
+                    Directory.Exists(value)) // disk-io: source folders for hot reload
                     directories.Add(value);
         return directories;
     }
@@ -339,7 +339,7 @@ public sealed class UiServer : IFrameServer, IInputServer
             return;
         }
 
-        foreach (var file in Directory.EnumerateFiles(full).Order(StringComparer.Ordinal))
+        foreach (var file in ContentFiles.EnumerateFiles(full).Order(StringComparer.Ordinal))
         {
             if (IsFontFile(file))
                 RmlCore.LoadFontFace(file);

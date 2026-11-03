@@ -137,8 +137,8 @@ public static class TreeMaterials
     {
         var ambientCg = $"{BarkFolder}/{set}_1K-JPG/{set}_1K-JPG_{map}.jpg";
         var painted = $"{BarkFolder}/{set}/{set}_{map}.png";
-        return !File.Exists(ContentPaths.Resolve(ambientCg, ContentPaths.BaseDirectory)) &&
-               File.Exists(ContentPaths.Resolve(painted, ContentPaths.BaseDirectory))
+        return !ContentFiles.Exists(ContentPaths.Resolve(ambientCg, ContentPaths.BaseDirectory)) &&
+               ContentFiles.Exists(ContentPaths.Resolve(painted, ContentPaths.BaseDirectory))
             ? painted
             : ambientCg;
     }
@@ -232,7 +232,7 @@ public static class TreeMaterials
             return cached;
         var path = ContentPaths.Resolve(enginePath, ContentPaths.BaseDirectory);
         Texture2D? texture = null;
-        if (File.Exists(path))
+        if (ContentFiles.Exists(path))
             texture = Texture2D.FromFile(path, settings);
         else
             Log.Warning($"[Trees] Missing tree texture '{enginePath}'; the material stays untextured.");

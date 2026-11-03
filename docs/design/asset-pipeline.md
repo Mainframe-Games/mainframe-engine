@@ -27,6 +27,38 @@ covers everything `ResourceLoader` *imports*.
   interface and `AssetDatabase.ToAbsolutePath`. The editor renames an old project's folder when it opens it
   ([Projects](editor.md#projects)).
 
+## Content file system
+
+Every runtime content read goes through `ContentFiles` (`Src/Core/Content/`, G19 phase 1,
+[ADR 0239](../../memory/decisions/0239-protected-exports.md)): shaders and their locks, textures, scenes and resources,
+the asset index and `.meta` files, RmlUi documents, stylesheets and fonts, audio (streamed too), music manifests, `.mo`
+catalogs and locale folders, Spine exports, terrain and light-probe data, models, and `project.mfproj`. It replaces the
+`File`/`Directory` read calls one for one: `Exists`, `DirectoryExists`, `GetInfo` (length and last write),
+`OpenRead` (seekable), `ReadAllBytes`, `ReadAllText`, `EnumerateFiles`, `EnumerateDirectories`.
+
+- **Paths stay what they were.** It takes the paths `File` takes, so each call site is a one-for-one swap: absolute
+  paths (what `ContentPaths.Resolve` and `AssetDatabase.ToAbsolutePath` return, `Texture2D`'s file path, a shader's
+  SPIR-V paths) are used as they are, and any other relative path resolves against the working directory, as `File`
+  would (tools such as `mf-shaders check` pass repository-relative paths). Resolve `"Assets/…"` paths first.
+- **Mounts.** `ContentFiles.Mount(IContentSource, priority)` serves the paths under the source's `Root` directory until
+  the returned handle is disposed: a path under a mounted root is looked up in the mounts holding it (highest priority
+  first, then mount order), then on the disk. Paths outside every mount, and every path when nothing is mounted, read the
+  disk exactly as before. Enumeration unions the mounts and the disk, ordinal-sorted. Phase 2 mounts an export's
+  `Assets.mfpak` at `ContentPaths.BaseDirectory` ([Protected exports](future/protected-exports.md)); tests mount a
+  `MemoryContentSource`.
+- **Native readers.** RmlUi reads documents and font faces through the managed file interface, which opens
+  `ContentFiles` streams. Assimp is given an `aiFileIO` (`AssimpContentIO`) when the model lies under a mount, so a glTF's
+  `.bin` buffers and images come from the mount too; otherwise it opens the path itself. Spine exports are read through
+  the vendored runtime's stream overloads (`SpineContent`).
+- **Threads and allocation.** Mounts are an immutable array swapped under a lock, so the loader worker and the audio
+  streamer read while a mount changes. `Exists` on an absolute path allocates nothing (the canvas renderer asks while
+  drawing); sources take `ReadOnlySpan<char>` paths for it.
+- **Not content.** Writes (saves, `settings.json`, logs, crash reports, recordings, the pipeline cache, bake caches,
+  editor saves) and native libraries stay on `File`. A read that must see the disk carries a `// disk-io: <reason>`
+  comment, and `ContentIoAuditTests.RuntimeContentCodeDoesNotCallFileApis` fails on any other `File`/`Directory` read in
+  `MainframeEngine/Src` outside its list of user-data and build files.
+- **Games** read their own data files through `ContentFiles` too, so they keep loading once an export packs them.
+
 ## Importers
 
 `ResourceLoader.Load` hands every file that is not `.mscene`/`.mres` to the `IAssetImporter` registered for its

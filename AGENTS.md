@@ -53,8 +53,9 @@ just shaders-check
 ```
 
 Light/shadow limits live only in `MainframeEngine/Assets/Shaders/limits.json` (the build generates
-`ShaderLimits.g.cs` and `include/limits.slang`). Load content with `ContentPaths.Resolve`, never a
-working-directory-relative path.
+`ShaderLimits.g.cs` and `include/limits.slang`). Read content through `ContentFiles` (resolve the path with
+`ContentPaths.Resolve` first), never `File`/`Directory` or a working-directory-relative path: exports serve it from a pack, and
+`ContentIoAuditTests` fails on a direct read (a read that must see the disk says why with `// disk-io:`).
 
 Rendering changes must keep the render tests green; if output changes intentionally, run
 `just golden-update`, inspect the PNGs and commit them (see `docs/design/testing.md`). Per-frame code
@@ -83,7 +84,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 
 ## Project Structure
 
-- `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`, `Time` (ticks, Unix time)
+- `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`, `Time` (ticks, Unix time); `Content/` — `ContentFiles`,
+  the read-only content file system with `IContentSource` mounts (G19, `docs/design/asset-pipeline.md#content-file-system`)
 - `MainframeEngine/Src/Math/` — 2D value types from GodotSharp (MIT): `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, Godot's
   `Vector2` members as extensions on `System.Numerics.Vector2` (the one 2D vector). See `docs/design/math.md`
 - `MainframeEngine/Src/Scene/` — Godot-style node tree: `Node`, `SceneTree`, `Node3D`/`Node2D`, transforms, `NodePath`,

@@ -155,7 +155,7 @@ public sealed unsafe class GpuTexture : IDisposable
     public static GpuTexture Load(IVulkanContext ctx, string path, TextureColorSpace colorSpace, TextureSampling sampling,
         bool generateMips = false)
     {
-        var image = ImageResult.FromMemory(File.ReadAllBytes(ContentPaths.Resolve(path)), ColorComponents.RedGreenBlueAlpha)
+        var image = ImageResult.FromMemory(ContentFiles.ReadAllBytes(ContentPaths.Resolve(path)), ColorComponents.RedGreenBlueAlpha)
                     ?? throw new InvalidDataException($"Could not decode '{path}'.");
         return Create2D(ctx, (uint)image.Width, (uint)image.Height, image.Data, colorSpace, sampling, generateMips);
     }

@@ -81,18 +81,18 @@ public sealed class Shader : Resource
         if (IsGodotSyntax(fullPath))
             throw new FormatException(
                 $"{path}: Godot-syntax shaders were removed (ADR 0237); port it to a Slang surface shader (x.slang starting with `import mainframe.spatial;` or `import mainframe.canvas;`, see docs/design/shaders.md#porting-from-godot).");
-        var source = File.ReadAllText(fullPath);
+        var source = ContentFiles.ReadAllText(fullPath);
         var name = Path.GetFileName(fullPath);
         var parsed = SurfaceShaderSource.Parse(source, name);
         var layoutPath = fullPath + SurfaceShaderLayout.Extension;
-        if (!File.Exists(layoutPath))
+        if (!ContentFiles.Exists(layoutPath))
         {
             Log.Warning($"[Shader] '{path}' has no layout file (x.slang.layout.json): it is not built; build it with mf-shaders (`just canvas-shaders <folder>` in the engine checkout, needs slangc).");
             var empty = new SurfaceShaderLayout(parsed.Kind, [], 0, [], new SurfaceRenderModes(), parsed.Vertex is not null, parsed.Fragment is not null);
             return parsed.Kind == SurfaceShaderKind.Spatial ? new Shader { Spatial = empty.ToSpatial(name) } : new Shader { Program = empty.ToCanvas() };
         }
 
-        var layout = SurfaceShaderLayout.Read(File.ReadAllText(layoutPath), name);
+        var layout = SurfaceShaderLayout.Read(ContentFiles.ReadAllText(layoutPath), name);
         var shader = layout.Kind == SurfaceShaderKind.Spatial
             ? new Shader { Spatial = layout.ToSpatial(name), SpvBasePath = fullPath }
             : new Shader { Program = layout.ToCanvas(), SpvBasePath = fullPath };

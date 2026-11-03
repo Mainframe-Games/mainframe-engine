@@ -123,7 +123,7 @@ public class RmlContentFileInterface : RmlFileInterface
     {
         ArgumentNullException.ThrowIfNull(path);
         var full = ResolvePath(path);
-        return full is null ? null : new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096);
+        return full is null ? null : ContentFiles.OpenRead(full, FileShare.ReadWrite | FileShare.Delete);
     }
 
     /// <summary>The absolute file for <paramref name="path"/>, or null if it does not exist.</summary>
@@ -132,7 +132,7 @@ public class RmlContentFileInterface : RmlFileInterface
         if (string.IsNullOrWhiteSpace(path))
             return null;
         var full = ContentPaths.Resolve(path);
-        return File.Exists(full) ? full : null;
+        return ContentFiles.Exists(full) ? full : null;
     }
 }
 

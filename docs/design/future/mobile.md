@@ -593,6 +593,8 @@ flowchart LR
   `platforms` block.
 - **Shaders** ship the committed SPIR-V 1.3 set. **Scenes, RML/RCSS, `.mo`, fonts** are copied as they are.
 - **Packs (`.mfpak`).**
+  - [Protected exports](protected-exports.md) (G19) proposes building the seam and this format for desktop first, with
+    Brotli instead of LZ4/zstd unless a benchmark says otherwise, and optional encryption.
   - The format:
     - a header + sorted path index (UIDs and paths);
     - entries stored or LZ4/zstd-compressed per entry;

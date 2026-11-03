@@ -118,7 +118,7 @@ internal sealed class GltfAnimationExtras
             return extras;
         try
         {
-            var bytes = File.ReadAllBytes(fullPath);
+            var bytes = ContentFiles.ReadAllBytes(fullPath);
             var json = Json(bytes);
             if (json.IsEmpty)
                 return extras;

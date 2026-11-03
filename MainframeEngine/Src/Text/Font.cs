@@ -82,11 +82,11 @@ public sealed class Font : Resource
     public static Font FromFile(string path)
     {
         var font = new Font { FontPath = path };
-        font._face = new TrueTypeFont(File.ReadAllBytes(AssetDatabase.Current.ToAbsolutePath(path)));
+        font._face = new TrueTypeFont(ContentFiles.ReadAllBytes(AssetDatabase.Current.ToAbsolutePath(path)));
         return font;
     }
 
-    private TrueTypeFont Face => _face ??= new TrueTypeFont(File.ReadAllBytes(AssetDatabase.Current.ToAbsolutePath(FontPath)));
+    private TrueTypeFont Face => _face ??= new TrueTypeFont(ContentFiles.ReadAllBytes(AssetDatabase.Current.ToAbsolutePath(FontPath)));
 
     private float Scale(int size) => (float)size / Face.UnitsPerEm;
 

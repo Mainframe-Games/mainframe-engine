@@ -27,7 +27,7 @@ internal static class SteamAppIdFile
         var path = Path.Combine(directory, FileName);
         try
         {
-            if (File.Exists(path) && File.ReadAllText(path).Trim() == text)
+            if (File.Exists(path) && File.ReadAllText(path).Trim() == text) // disk-io: steam_appid.txt beside the executable
                 return true;
             File.WriteAllText(path, text);
             Log.Debug($"[Steam] wrote {path} ({text})");

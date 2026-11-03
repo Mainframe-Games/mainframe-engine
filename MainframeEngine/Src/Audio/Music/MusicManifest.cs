@@ -186,7 +186,7 @@ public static class MusicManifestFormat
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    public static MusicManifestReadResult Load(string path) => Parse(File.ReadAllBytes(path), System.IO.Path.GetFileName(path));
+    public static MusicManifestReadResult Load(string path) => Parse(ContentFiles.ReadAllBytes(path), System.IO.Path.GetFileName(path));
 
     /// <summary>Parses (and upgrades) a manifest. Throws <see cref="InvalidDataException"/> for files that are not one.</summary>
     public static MusicManifestReadResult Parse(ReadOnlySpan<byte> json, string source)

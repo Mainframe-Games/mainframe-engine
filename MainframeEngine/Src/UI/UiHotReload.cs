@@ -42,7 +42,7 @@ public sealed class UiHotReload : IDisposable
     /// <summary>Watches <paramref name="directory"/> recursively (ignored if it does not exist).</summary>
     public void Watch(string directory)
     {
-        if (!Directory.Exists(directory))
+        if (!Directory.Exists(directory)) // disk-io: watches source folders
             return;
         var full = Path.GetFullPath(directory);
         foreach (var existing in _watchers)

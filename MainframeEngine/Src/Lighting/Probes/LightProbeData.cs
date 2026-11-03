@@ -309,7 +309,7 @@ public sealed class LightProbeData : Resource
     /// <summary>Reads the coefficients file (throws <see cref="InvalidDataException"/> when it does not match the grid).</summary>
     public void ReadDataFile(string path)
     {
-        var bytes = File.ReadAllBytes(path);
+        var bytes = ContentFiles.ReadAllBytes(path);
         var grid = Grid;
         if (bytes.Length < 24 || BinaryPrimitives.ReadUInt64LittleEndian(bytes) != FileMagic)
             throw new InvalidDataException($"'{path}' is not a light probe file.");

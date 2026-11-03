@@ -97,7 +97,7 @@ public sealed class AssetDatabase
     public void Refresh(bool createMissingMeta = false)
     {
         var index = Path.Combine(ContentDirectory, IndexFileName);
-        if (!createMissingMeta && File.Exists(index))
+        if (!createMissingMeta && ContentFiles.Exists(index))
             LoadIndex(index);
         else
             Scan(createMissingMeta);
@@ -109,10 +109,10 @@ public sealed class AssetDatabase
         lock (_gate)
         {
             _scanned = true;
-            if (!Directory.Exists(ContentDirectory))
+            if (!ContentFiles.DirectoryExists(ContentDirectory))
                 return;
 
-            foreach (var file in Directory.EnumerateFiles(ContentDirectory, "*", SearchOption.AllDirectories))
+            foreach (var file in ContentFiles.EnumerateFiles(ContentDirectory, "*", recursive: true))
             {
                 var name = Path.GetFileName(file);
                 if (createMissingMeta && IsStaleTemporaryMeta(file))
@@ -141,7 +141,7 @@ public sealed class AssetDatabase
 
     // A .meta left for a temporary file that is gone (written by scans before temporary files were skipped).
     private static bool IsStaleTemporaryMeta(string path) =>
-        path.EndsWith(".tmp" + MetaExtension, StringComparison.OrdinalIgnoreCase) && !File.Exists(path[..^MetaExtension.Length]);
+        path.EndsWith(".tmp" + MetaExtension, StringComparison.OrdinalIgnoreCase) && !File.Exists(path[..^MetaExtension.Length]); // disk-io: editor scans clean up sidecars on disk
 
     private static void TryDelete(string path)
     {
@@ -170,7 +170,7 @@ public sealed class AssetDatabase
     /// <summary>Loads an <see cref="AssetIndex"/> file.</summary>
     public void LoadIndex(string indexPath)
     {
-        var index = JsonSerializer.Deserialize(File.ReadAllBytes(indexPath), AssetJsonContext.Default.AssetIndex)
+        var index = JsonSerializer.Deserialize(ContentFiles.ReadAllBytes(indexPath), AssetJsonContext.Default.AssetIndex)
                     ?? throw new InvalidDataException($"Empty asset index '{indexPath}'.");
         lock (_gate)
         {
@@ -245,7 +245,7 @@ public sealed class AssetDatabase
         var to = ToAbsolutePath(toPath);
         Directory.CreateDirectory(Path.GetDirectoryName(to)!);
         File.Move(from, to);
-        if (File.Exists(from + MetaExtension))
+        if (File.Exists(from + MetaExtension)) // disk-io: moves an asset on disk (editor)
             File.Move(from + MetaExtension, to + MetaExtension);
 
         lock (_gate)
@@ -260,8 +260,8 @@ public sealed class AssetDatabase
     public AssetMeta? ReadOrCreateMeta(string assetPath, bool create)
     {
         var metaPath = ToAbsolutePath(assetPath) + MetaExtension;
-        if (File.Exists(metaPath))
-            return JsonSerializer.Deserialize(File.ReadAllBytes(metaPath), AssetJsonContext.Default.AssetMeta);
+        if (ContentFiles.Exists(metaPath))
+            return JsonSerializer.Deserialize(ContentFiles.ReadAllBytes(metaPath), AssetJsonContext.Default.AssetMeta);
         if (!create)
             return null;
 
@@ -306,7 +306,7 @@ public sealed class AssetDatabase
     {
         try
         {
-            var reader = new Utf8JsonReader(File.ReadAllBytes(path), new JsonReaderOptions { CommentHandling = JsonCommentHandling.Skip });
+            var reader = new Utf8JsonReader(ContentFiles.ReadAllBytes(path), new JsonReaderOptions { CommentHandling = JsonCommentHandling.Skip });
             if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
                 return null;
             while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
@@ -330,7 +330,7 @@ public sealed class AssetDatabase
     {
         if (_pathByUid.TryGetValue(uid, out var existing) && !string.Equals(existing, path, StringComparison.Ordinal))
         {
-            if (File.Exists(ToAbsolutePath(existing)) && File.Exists(ToAbsolutePath(path)))
+            if (ContentFiles.Exists(ToAbsolutePath(existing)) && ContentFiles.Exists(ToAbsolutePath(path)))
                 Log.Warning($"[Assets] UID {uid} is used by both '{existing}' and '{path}'; using '{path}'.");
             _uidByPath.Remove(existing);
         }

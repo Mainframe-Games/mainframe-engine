@@ -40,7 +40,7 @@ public sealed class UiFileInterface : RmlContentFileInterface
         if (full is null)
             return null;
         // Documents load once (and on reload or a locale change), never per frame.
-        var prepared = PrepareDocument(File.ReadAllText(full, Encoding.UTF8));
+        var prepared = PrepareDocument(ContentFiles.ReadAllText(full, Encoding.UTF8));
         return new MemoryStream(Encoding.UTF8.GetBytes(prepared), writable: false);
     }
 
@@ -60,13 +60,13 @@ public sealed class UiFileInterface : RmlContentFileInterface
         if (string.IsNullOrWhiteSpace(path))
             return null;
         if (Path.IsPathRooted(path))
-            return File.Exists(path) ? path : null;
+            return ContentFiles.Exists(path) ? path : null;
 
         var relative = ContentRelative(path);
         foreach (var directory in _sourceDirectories)
         {
             var candidate = Path.GetFullPath(Path.Combine(directory, relative));
-            if (File.Exists(candidate))
+            if (ContentFiles.Exists(candidate))
                 return candidate;
         }
 
@@ -78,17 +78,17 @@ public sealed class UiFileInterface : RmlContentFileInterface
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (Path.IsPathRooted(path))
-            return Directory.Exists(path) ? path : null;
+            return ContentFiles.DirectoryExists(path) ? path : null;
         var relative = ContentRelative(path);
         foreach (var directory in _sourceDirectories)
         {
             var candidate = Path.GetFullPath(Path.Combine(directory, relative));
-            if (Directory.Exists(candidate))
+            if (ContentFiles.DirectoryExists(candidate))
                 return candidate;
         }
 
         var resolved = ContentPaths.Resolve(path);
-        return Directory.Exists(resolved) ? resolved : null;
+        return ContentFiles.DirectoryExists(resolved) ? resolved : null;
     }
 
     /// <summary><c>Assets/UI/x.rml</c> → <c>UI/x.rml</c>; other relative paths are already content-relative.</summary>

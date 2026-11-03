@@ -320,14 +320,14 @@ public sealed unsafe class ModelImporter : IAssetImporter
 
     private static Node GetTemplate(string fullPath, string projectPath, ModelImportSettings settings)
     {
-        var info = new FileInfo(fullPath);
+        var info = ContentFiles.GetInfo(fullPath);
         if (!info.Exists)
             throw new FileNotFoundException($"Model not found: '{projectPath}'.", fullPath);
 
         lock (Gate)
         {
             if (Cache.TryGetValue(fullPath, out var cached) && cached.Length == info.Length &&
-                cached.LastWriteUtc == info.LastWriteTimeUtc && cached.Settings == settings)
+                cached.LastWriteUtc == info.LastWriteUtc && cached.Settings == settings)
                 return cached.Template;
         }
 
@@ -337,7 +337,7 @@ public sealed unsafe class ModelImporter : IAssetImporter
         {
             if (!Cache.Remove(fullPath))
                 CacheOrder.Enqueue(fullPath);
-            Cache[fullPath] = new CacheEntry(info.Length, info.LastWriteTimeUtc, settings, template);
+            Cache[fullPath] = new CacheEntry(info.Length, info.LastWriteUtc, settings, template);
             while (Cache.Count > MaxCacheEntries && CacheOrder.TryDequeue(out var oldest))
                 Cache.Remove(oldest);
         }
@@ -392,7 +392,9 @@ public sealed unsafe class ModelImporter : IAssetImporter
             // FBX: no "$AssimpFbx$" pivot helper nodes between bones (they would become bones and break the clip channels).
             var properties = api.CreatePropertyStore();
             api.SetImportPropertyInteger(properties, "IMPORT_FBX_PRESERVE_PIVOTS", 0);
-            scene = api.ImportFileExWithProperties(fullPath, (uint)flags, (FileIO*)null, properties);
+            // Under a mount (a pack) Assimp reads the model and its sibling files through the content file system.
+            var io = AssimpContentIO.Create();
+            scene = api.ImportFileExWithProperties(fullPath, (uint)flags, ContentFiles.IsMounted(fullPath) ? &io : null, properties);
             api.ReleasePropertyStore(properties);
         }
         if (scene is null || scene->MRootNode is null || (scene->MFlags & (uint)SceneFlags.Incomplete) != 0)
@@ -1244,7 +1246,7 @@ public sealed unsafe class ModelImporter : IAssetImporter
         private Texture2D External(string reference)
         {
             var fullPath = Path.GetFullPath(Path.Combine(directory, Uri.UnescapeDataString(reference.Replace('\\', '/'))));
-            if (!System.IO.File.Exists(fullPath))
+            if (!ContentFiles.Exists(fullPath))
                 throw new FileNotFoundException($"'{fullPath}' does not exist.");
             return ResourceLoader.Load<Texture2D>(AssetDatabase.Current.ToProjectPath(fullPath));
         }
