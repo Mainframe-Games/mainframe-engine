@@ -5,8 +5,8 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine;
 
 /// <summary>
-/// A material running a <see cref="MainframeEngine.Shader"/> written in Godot's shading language with per-material uniform
-/// values (Godot's <c>ShaderMaterial</c>): a canvas_item shader on canvas items (ADR 0113), a spatial shader on
+/// A material running a <see cref="MainframeEngine.Shader"/> (a Slang surface shader, ADR 0237) with per-material parameter
+/// values (Godot's <c>ShaderMaterial</c>): a canvas shader on canvas items (ADR 0113), a spatial shader on
 /// <see cref="GeometryInstance3D"/>s — <see cref="MeshInstance3D"/>, <see cref="MultiMeshInstance3D"/>, overrides, overlays and
 /// next passes (ADR 0205). Values are set by name; unset uniforms use the shader's defaults. Samplers take a
 /// <see cref="Texture2D"/>. Saved with the material as <see cref="ShaderParameters"/> (<c>.mres</c>, <c>.mscene</c>).
@@ -30,7 +30,7 @@ public sealed class ShaderMaterial : Material
 
     /// <summary>
     /// Sets a uniform by name: float, int, bool, <see cref="Vector2"/>/<c>3</c>/<c>4</c> (colours are Vector4: a spatial shader's
-    /// <c>source_color</c> values are sRGB and converted to linear), arrays of those for array uniforms, or a
+    /// <c>[color]</c> values are sRGB and converted to linear), arrays of those for array uniforms, or a
     /// <see cref="Texture2D"/> for a sampler.
     /// </summary>
     public void SetShaderParameter(string name, object value)

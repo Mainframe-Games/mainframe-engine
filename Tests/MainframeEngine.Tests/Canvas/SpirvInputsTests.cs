@@ -42,7 +42,7 @@ public sealed class SpirvInputsTests
     [InlineData("slangc: unknown option", false)]
     [InlineData("", false)]
     public void SlangcVersionsBelowTheMinimumAreNotUsed(string versionOutput, bool supported) =>
-        Assert.Equal(supported, CanvasShaderBuild.IsSupportedSlangcVersion(versionOutput));
+        Assert.Equal(supported, SurfaceShaderBuild.IsSupportedSlangcVersion(versionOutput));
 
     // A minimal module: header, then OpDecorate/OpVariable instructions (ids only; types are not needed by the reader).
     private static byte[] Module(params uint[][] instructions)
@@ -73,15 +73,17 @@ public sealed class SpirvInputsTests
     }
 
     [Fact]
-    public void CanvasShadersCompileWithTheEngineFlagsGlslSyntaxAndNoNames()
+    public void SurfaceShadersCompileWithTheEngineFlagsAndNoNames()
     {
-        // -obfuscate drops every OpName: MoltenVK's SPIRV-Cross would otherwise carry a user's local named like a Metal
-        // keyword (vertex, device, …) into the Metal source, which then fails to compile. 41012: the shadow kernels' Gather
-        // (spatial shaders include shadows.slang, ADR 0205), as build/Shaders.targets.
+        // -obfuscate drops every OpName: MoltenVK's SPIRV-Cross would otherwise carry a name like a Metal keyword (vertex,
+        // fragment, device, …) into the Metal source, which then fails to compile. 41012: the shadow kernels' Gather
+        // (spatial shaders include shadows.slang, ADR 0205), as build/Shaders.targets. The engine includes come before the
+        // shader's folder (its module and the modules it imports). The reflection probe keeps its names.
         Assert.Equal(
-            ["in.slang", "-allow-glsl", "-obfuscate", "-warnings-disable", "41012", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
-             "-entry", "main", "-stage", "fragment", "-I", "include", "-o", "out.spv"],
-            CanvasShaderBuild.SlangcArguments("in.slang", "fragment", "include", "out.spv"));
+            ["in.slang", "-obfuscate", "-warnings-disable", "41012", "-target", "spirv", "-capability", "spirv_1_5", "-matrix-layout-row-major",
+             "-entry", "main", "-stage", "fragment", "-I", "include", "-I", "shaders", "-o", "out.spv"],
+            SurfaceShaderBuild.SlangcArguments("in.slang", "fragment", "include", "shaders", "out.spv"));
+        Assert.DoesNotContain("-obfuscate", SurfaceShaderBuild.SlangcArguments("in.slang", "fragment", "include", "shaders", "out.spv", obfuscate: false));
     }
 
     [Fact]

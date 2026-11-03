@@ -1,25 +1,37 @@
 using MainframeEngine;
 
-// mf-shaders build|check <folder>... | translate <file.mfshader> [pass] (see the csproj comment).
+// mf-shaders build|check <folder>... | translate <file.slang> [pass] (see the csproj comment).
+var include = Path.Combine(AppContext.BaseDirectory, "Assets", "Shaders", "include");
+if (!Directory.Exists(include))
+    include = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "MainframeEngine", "Assets", "Shaders", "include"));
+
 if (args.Length >= 2 && args[0] == "translate")
 {
-    // Prints the generated Slang (debugging a translation): a canvas shader's two stages, or a spatial pass's.
+    // Prints the generated entries (debugging a shader): a canvas shader's two stages, or a spatial pass's. The vertex
+    // stage is the one before the fragment stage's inputs are known (every output written); the layout is the committed one.
     var text = File.ReadAllText(args[1]);
     var file = Path.GetFileName(args[1]);
-    if (SpatialShaderCompiler.IsSpatial(text))
+    var parsed = SurfaceShaderSource.Parse(text, file);
+    var layoutPath = args[1] + SurfaceShaderLayout.Extension;
+    if (!File.Exists(layoutPath))
     {
-        var spatial = SpatialShaderCompiler.Translate(text, file);
+        Console.Error.WriteLine($"error: {args[1]} has no layout file; run mf-shaders build first.");
+        return 1;
+    }
+
+    var layout = SurfaceShaderLayout.Read(File.ReadAllText(layoutPath), file);
+    if (parsed.Kind == SurfaceShaderKind.Spatial)
+    {
         var pass = args.Length > 2 ? Enum.Parse<SpatialPass>(args[2], ignoreCase: true) : SpatialPass.Color;
-        Console.WriteLine(spatial.VertexSource(pass));
+        Console.WriteLine(SurfaceShaderCompiler.SpatialVertex(parsed, layout, file, pass));
         Console.WriteLine("// ──────── fragment ────────");
-        Console.WriteLine(spatial.FragmentSource(pass));
+        Console.WriteLine(SurfaceShaderCompiler.SpatialFragment(parsed, layout, file, pass));
     }
     else
     {
-        var canvas = CanvasShaderCompiler.Translate(text, file);
-        Console.WriteLine(canvas.VertexSource);
+        Console.WriteLine(SurfaceShaderCompiler.CanvasVertex(parsed, layout, file));
         Console.WriteLine("// ──────── fragment ────────");
-        Console.WriteLine(canvas.FragmentSource);
+        Console.WriteLine(SurfaceShaderCompiler.CanvasFragment(parsed, layout, file));
     }
 
     return 0;
@@ -27,40 +39,49 @@ if (args.Length >= 2 && args[0] == "translate")
 
 if (args.Length < 2 || args[0] is not ("build" or "check"))
 {
-    Console.Error.WriteLine("usage: mf-shaders build|check <folder>... | mf-shaders translate <file.mfshader> [color|depth|shadow|shadowpoint|objectid]");
+    Console.Error.WriteLine("usage: mf-shaders build|check <folder>... | mf-shaders translate <file.slang> [color|depth|shadow|shadowpoint|objectid]");
     return 2;
 }
-
-var include = Path.Combine(AppContext.BaseDirectory, "Assets", "Shaders", "include");
-if (!Directory.Exists(include))
-    include = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "MainframeEngine", "Assets", "Shaders", "include"));
 
 var failures = 0;
 var built = 0;
 var checkedCount = 0;
 foreach (var folder in args.Skip(1))
 {
-    var files = Directory.EnumerateFiles(folder, "*" + Shader.Extension, SearchOption.AllDirectories)
-        .Concat(Directory.EnumerateFiles(folder, "*" + Shader.LegacyExtension, SearchOption.AllDirectories));
-    foreach (var file in files.Order(StringComparer.Ordinal))
+    foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
     {
+        if (Shader.IsGodotSyntax(file))
+        {
+            Console.Error.WriteLine($"error: {file}: Godot-syntax shaders were removed (ADR 0237); port it to a Slang surface shader (docs/design/shaders.md#porting-from-godot).");
+            failures++;
+            continue;
+        }
+
+        // Helper modules share the extension: only files starting with `import mainframe.spatial|canvas;` are shaders.
+        if (!file.EndsWith(Shader.Extension, StringComparison.OrdinalIgnoreCase) || !SurfaceShaderSource.IsSurfaceShader(File.ReadAllText(file)))
+            continue;
         checkedCount++;
-        if (Shader.IsLegacy(file))
-            Console.Error.WriteLine($"warning: {file}: the .gdshader extension is deprecated; rename it to .mfshader (ADR 0236)");
         try
         {
             if (args[0] == "check")
             {
-                if (!CanvasShaderBuild.IsUpToDate(file))
+                if (!SurfaceShaderBuild.IsUpToDate(file, include))
                 {
                     Console.Error.WriteLine($"stale: {file} (run mf-shaders build)");
                     failures++;
                 }
             }
-            else if (CanvasShaderBuild.Build(file, include))
+            else
             {
-                Console.WriteLine($"built  {file}");
-                built++;
+                var warnings = new List<string>();
+                if (SurfaceShaderBuild.Build(file, include, warnings: warnings))
+                {
+                    Console.WriteLine($"built  {file}");
+                    built++;
+                }
+
+                foreach (var warning in warnings)
+                    Console.Error.WriteLine($"warning: {warning}");
             }
         }
         catch (Exception e) when (e is FormatException or InvalidOperationException or IOException)
@@ -72,6 +93,6 @@ foreach (var folder in args.Skip(1))
 }
 
 Console.WriteLine(args[0] == "check"
-    ? $"{checkedCount} Godot shader(s) checked (canvas_item, spatial), {failures} stale or invalid."
-    : $"{checkedCount} Godot shader(s) (canvas_item, spatial), {built} built, {failures} failed.");
+    ? $"{checkedCount} surface shader(s) checked, {failures} stale or invalid."
+    : $"{checkedCount} surface shader(s), {built} built, {failures} failed.");
 return failures == 0 ? 0 : 1;

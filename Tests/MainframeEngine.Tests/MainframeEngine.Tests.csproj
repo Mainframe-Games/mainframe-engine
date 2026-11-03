@@ -61,6 +61,10 @@
   <ItemGroup>
     <None Include="Recording\Fixtures\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Recording\Fixtures" />
   </ItemGroup>
+  <!-- Surface-shader fixtures: shaders and their probes' -reflection-json from the pinned slangc (Rendering/SurfaceShaderTests). -->
+  <ItemGroup>
+    <None Include="Rendering\Fixtures\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Rendering\Fixtures" />
+  </ItemGroup>
   <!-- Godot's BitMap and Geometry2D results for the same inputs (Imaging/Fixtures/godot-geometry-reference.gd). -->
   <ItemGroup>
     <None Include="Imaging\Fixtures\**" CopyToOutputDirectory="PreserveNewest" LinkBase="Imaging\Fixtures" />

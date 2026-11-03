@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/mfshader-extension` (shader files are `.mfshader`, ADR 0236)._
+`main`; latest release v1.1.5. In review: `feature/g18-slang-shaders` (game shaders are Slang surface shaders, ADR 0237)._
 
 ## What exists
 
@@ -23,7 +23,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   `SceneTree.TimeScale`; headless host, game packaging + signing, NuGet packages (ADR 0188); saves and settings (G4);
   post-processing (ADR 0163) and the F12 dev overlay; gameplay recording (ADR 0190) and the editor's Video mode (ADR
   0191); Music mode, DAW, wavetable synth and adaptive music (ADRs 0192–0196; A1–A6: the editor's Target menu, the overlay's Music panel, the Demo's Music tab); `Assets/` content folder (ADR 0197); 3D
-  skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205; `.mfshader` files since ADR 0236, `.gdshader` loads with a warning); 3D particles (ADR 0206); Spine
+  skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205), written since G18 as Slang surface shaders (`.slang`, `import mainframe.spatial;`, ADR 0237; Godot-syntax `.mfshader`/`.gdshader` no longer load); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
   (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
@@ -76,7 +76,8 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
   interpolated handlers in code that must not allocate in a busy process (tier-0 `AppendFormatted<T>` boxes).
 - Docker Linux tests (`just test-linux` / `just render-tests-linux`) run under Rosetta x86_64 emulation on a Mac: an
   occasional whole-process stall is retried once by `build/linux/inside.sh`; never seen on native x64.
-- slangc 2026.1 (Linux) segfaults on `-obfuscate` + `#line`; `mf-shaders` strips `#line` there (errors: a plain compile).
+- Game shaders (ADR 0237): after editing a `.slang` surface shader `just canvas-shaders <folder>`, commit its `.spv`,
+  `.layout.json` and `.spvlock`; defaults are literals, matrices `mul(v, M)`; no `#line`, so no slangc `-obfuscate` crash.
 - Benchmarks: compare only on the machine that recorded `baseline.json` (MacBook, Apple M5), and only when it is
   quiet (parallel builds/agents skew results by 10–15 %).
 - Steam: Facepunch.Steamworks 2.4.1 (vendored, `Plugins/Facepunch.Steamworks`) behind the `MainframeEngine.Steamworks`
@@ -86,7 +87,7 @@ _Last updated: 2026-11-03 — M0–M10, Demo & polish, most of the 2D port work 
 
 ## Next steps
 
-1. Land `feature/mfshader-extension` (ADR 0236); re-record #157's `moltenvk` goldens on the Mac.
+1. Land `feature/g18-slang-shaders` (ADR 0237) after a Mac `just test-render`; re-record #157's `moltenvk` goldens there.
 2. Gameplay toolkit (`docs/milestones.md`): G1c animation authoring (its humanoid limits would let active ragdolls
    follow any clip); G12 haptics and glyphs (proposal awaits owner review); G11, G13 2D paths, G14, G16, G17; G3b
    (avoidance first).

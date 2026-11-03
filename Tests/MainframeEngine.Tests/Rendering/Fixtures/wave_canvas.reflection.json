@@ -1,0 +1,227 @@
+{
+    "parameters": [
+        {
+            "name": "mf_material",
+            "binding": {"kind": "descriptorTableSlot", "space": 1, "index": 0, "count": 2},
+            "type": {
+                "kind": "constantBuffer",
+                "elementType": {
+                    "kind": "struct",
+                    "name": "Material",
+                    "fields": [
+                        {
+                            "name": "tints",
+                            "type": {
+                                "kind": "array",
+                                "elementCount": 2,
+                                "elementType": {
+                                    "kind": "vector",
+                                    "elementCount": 4,
+                                    "elementType": {
+                                        "kind": "scalar",
+                                        "scalarType": "float32"
+                                    }
+                                },
+                                "uniformStride": 16
+                            },
+                            "userAttribs": [
+                                {
+                                    "name": "color",
+                                    "arguments": [
+
+                                    ]
+                                }
+                            ],
+                            "binding": {"kind": "uniform", "offset": 0, "size": 32, "elementStride": 16}
+                        },
+                        {
+                            "name": "stripes",
+                            "type": {
+                                "kind": "scalar",
+                                "scalarType": "float32"
+                            },
+                            "binding": {"kind": "uniform", "offset": 32, "size": 4, "elementStride": 0}
+                        },
+                        {
+                            "name": "mask",
+                            "type": {
+                                "kind": "resource",
+                                "baseShape": "texture2D",
+                                "combined": true,
+                                "resultType": {
+                                    "kind": "vector",
+                                    "elementCount": 4,
+                                    "elementType": {
+                                        "kind": "scalar",
+                                        "scalarType": "float32"
+                                    }
+                                }
+                            },
+                            "userAttribs": [
+                                {
+                                    "name": "filter",
+                                    "arguments": [
+                                        1
+                                    ]
+                                }
+                            ],
+                            "binding": {"kind": "descriptorTableSlot", "index": 1}
+                        }
+                    ],
+                    "userAttribs": [
+                        {
+                            "name": "blend",
+                            "arguments": [
+                                3
+                            ]
+                        },
+                        {
+                            "name": "lightOnly",
+                            "arguments": [
+
+                            ]
+                        }
+                    ]
+                },
+                "containerVarLayout": {
+                    "binding": {"kind": "descriptorTableSlot", "index": 0}
+                },
+                "elementVarLayout": {
+                    "type": {
+                        "kind": "struct",
+                        "name": "Material",
+                        "fields": [
+                            {
+                                "name": "tints",
+                                "type": {
+                                    "kind": "array",
+                                    "elementCount": 2,
+                                    "elementType": {
+                                        "kind": "vector",
+                                        "elementCount": 4,
+                                        "elementType": {
+                                            "kind": "scalar",
+                                            "scalarType": "float32"
+                                        }
+                                    },
+                                    "uniformStride": 16
+                                },
+                                "userAttribs": [
+                                    {
+                                        "name": "color",
+                                        "arguments": [
+
+                                        ]
+                                    }
+                                ],
+                                "binding": {"kind": "uniform", "offset": 0, "size": 32, "elementStride": 16}
+                            },
+                            {
+                                "name": "stripes",
+                                "type": {
+                                    "kind": "scalar",
+                                    "scalarType": "float32"
+                                },
+                                "binding": {"kind": "uniform", "offset": 32, "size": 4, "elementStride": 0}
+                            },
+                            {
+                                "name": "mask",
+                                "type": {
+                                    "kind": "resource",
+                                    "baseShape": "texture2D",
+                                    "combined": true,
+                                    "resultType": {
+                                        "kind": "vector",
+                                        "elementCount": 4,
+                                        "elementType": {
+                                            "kind": "scalar",
+                                            "scalarType": "float32"
+                                        }
+                                    }
+                                },
+                                "userAttribs": [
+                                    {
+                                        "name": "filter",
+                                        "arguments": [
+                                            1
+                                        ]
+                                    }
+                                ],
+                                "binding": {"kind": "descriptorTableSlot", "index": 0}
+                            }
+                        ],
+                        "userAttribs": [
+                            {
+                                "name": "blend",
+                                "arguments": [
+                                    3
+                                ]
+                            },
+                            {
+                                "name": "lightOnly",
+                                "arguments": [
+
+                                ]
+                            }
+                        ]
+                    },
+                    "bindings": [
+                        {"kind": "descriptorTableSlot", "index": 1},
+                        {"kind": "uniform", "offset": 0, "size": 48, "elementStride": 0}
+                    ]
+                }
+            }
+        }
+    ],
+    "entryPoints": [
+        {
+            "name": "main",
+            "stage": "fragment",
+            "parameters": [
+                {
+                    "name": "mf_varyings",
+                    "stage": "fragment",
+                    "binding": {"kind": "varyingInput", "index": 2},
+                    "type": {
+                        "kind": "struct",
+                        "name": "Varyings",
+                        "fields": [
+                            {
+                                "name": "world",
+                                "type": {
+                                    "kind": "vector",
+                                    "elementCount": 2,
+                                    "elementType": {
+                                        "kind": "scalar",
+                                        "scalarType": "float32"
+                                    }
+                                },
+                                "stage": "fragment",
+                                "binding": {"kind": "varyingInput", "index": 0}
+                            }
+                        ]
+                    }
+                }
+            ],
+            "result": {
+                "stage": "fragment",
+                "binding": {"kind": "varyingOutput", "index": 0},
+                "semanticName": "SV_TARGET",
+                "type": {
+                    "kind": "vector",
+                    "elementCount": 4,
+                    "elementType": {
+                        "kind": "scalar",
+                        "scalarType": "float32"
+                    }
+                }
+            },
+            "bindings": [
+                {
+                    "name": "mf_material",
+                    "binding": {"kind": "descriptorTableSlot", "space": 1, "index": 0, "count": 2, "used": 0}
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,37 @@
+{
+    "parameters": [
+        {
+            "name": "strength",
+            "binding": {"kind": "uniform", "offset": 0, "size": 4, "elementStride": 0},
+            "type": {
+                "kind": "scalar",
+                "scalarType": "float32"
+            }
+        }
+    ],
+    "entryPoints": [
+        {
+            "name": "main",
+            "stage": "fragment",
+            "result": {
+                "stage": "fragment",
+                "binding": {"kind": "varyingOutput", "index": 0},
+                "semanticName": "SV_TARGET",
+                "type": {
+                    "kind": "vector",
+                    "elementCount": 4,
+                    "elementType": {
+                        "kind": "scalar",
+                        "scalarType": "float32"
+                    }
+                }
+            },
+            "bindings": [
+                {
+                    "name": "strength",
+                    "binding": {"kind": "uniform", "offset": 0, "size": 4, "elementStride": 0}
+                }
+            ]
+        }
+    ]
+}

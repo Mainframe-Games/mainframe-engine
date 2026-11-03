@@ -465,12 +465,13 @@ public sealed class SerializationTests : IDisposable
     public void AssetDatabaseScansMetaSidecarsAndWritesAnIndex()
     {
         File.WriteAllBytes(ContentPath("icon.png"), [1, 2, 3]);
-        // A canvas shader's SPIR-V and lock are part of the shader, not assets: no .meta of their own.
-        File.WriteAllText(ContentPath("wave.mfshader"), "shader_type canvas_item;");
-        File.WriteAllBytes(ContentPath("wave.mfshader.vert.spv"), [1]);
-        File.WriteAllBytes(ContentPath("wave.mfshader.frag.spv"), [1]);
-        File.WriteAllText(ContentPath("wave.mfshader.spvlock"), "x");
-        File.WriteAllBytes(ContentPath("wave.mfshader.shadow-point.vert.spv"), [1]); // a spatial shader's other passes (ADR 0205)
+        // A surface shader's SPIR-V, layout and lock are part of the shader, not assets: no .meta of their own.
+        File.WriteAllText(ContentPath("wave.slang"), "import mainframe.canvas;");
+        File.WriteAllBytes(ContentPath("wave.slang.vert.spv"), [1]);
+        File.WriteAllBytes(ContentPath("wave.slang.frag.spv"), [1]);
+        File.WriteAllText(ContentPath("wave.slang.spvlock"), "x");
+        File.WriteAllText(ContentPath("wave.slang.layout.json"), "{}");
+        File.WriteAllBytes(ContentPath("wave.slang.shadow-point.vert.spv"), [1]); // a spatial shader's other passes (ADR 0205)
         // Nor is a light-probe bake's coefficients file, which belongs to its .mres.
         File.WriteAllBytes(ContentPath("lighting.probes"), [1]);
         // Nor is a file being written (a save's or a bake's temporary file); a .meta left for one that is gone is removed.
@@ -483,11 +484,12 @@ public sealed class SerializationTests : IDisposable
         var meta = db.ReadOrCreateMeta("Assets/icon.png", create: false)!;
         Assert.StartsWith("tex_", meta.Uid, StringComparison.Ordinal);
         Assert.True(File.Exists(ContentPath("icon.png.meta")));
-        Assert.True(File.Exists(ContentPath("wave.mfshader.meta")));
-        Assert.False(File.Exists(ContentPath("wave.mfshader.vert.spv.meta")));
-        Assert.False(File.Exists(ContentPath("wave.mfshader.frag.spv.meta")));
-        Assert.False(File.Exists(ContentPath("wave.mfshader.spvlock.meta")));
-        Assert.False(File.Exists(ContentPath("wave.mfshader.shadow-point.vert.spv.meta")));
+        Assert.True(File.Exists(ContentPath("wave.slang.meta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.vert.spv.meta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.frag.spv.meta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.spvlock.meta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.layout.json.meta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.shadow-point.vert.spv.meta")));
         Assert.False(File.Exists(ContentPath("lighting.probes.meta")));
         Assert.False(File.Exists(ContentPath("theme.ogg.baking.wav.tmp.meta")));
         Assert.False(File.Exists(ContentPath("old.ogg.baking.wav.tmp.meta")));

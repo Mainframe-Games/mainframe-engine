@@ -55,8 +55,17 @@ headers, not Slang modules, because they are configured by macros defined before
 | `lights.slang` | Lights UBO, Blinn-Phong per light, `shadeLightsBlinnPhong(base, N, Ngeo, worldPos, specular, shininess)` (`Ngeo`: geometric normal for the shadow normal offset) and `shadeLights` (0.3, 32); `counts.w = 1` skips shadow maps (offscreen views) (needs `shadows.slang` first) | `LIGHTS_SET`/`LIGHTS_BINDING` (default 0/1) |
 | `material.slang` | `StandardMaterial3D` set 2 (`MATERIAL_SET`; the cutout shadow casters use 1) (parameters UBO, one sampler, albedo/normal/emission images), `materialUv/Albedo/Emission`, `materialNormal` (derivative tangent frame) | — |
 | `sky.slang` | Sky push constants (`SkyParams`), `skyRay(ndc)` | — |
-| `glsl_compat.slang` | `glsl_mat2/3/4`: GLSL's one-argument matrix constructors for translated Godot shaders (canvas and spatial) | — |
-| `spatial.slang` | The spatial-shader template's helpers (ADR 0205): `spatial_normal_matrix`, `spatial_inv_view`, `spatial_normal_map` (no descriptors, so the casters include it too) | — |
+| `spatial.slang` | The helpers of the entries generated around spatial surface shaders (ADR 0205): `spatial_normal_matrix`, `spatial_inv_view`, `spatial_normal_map` (no descriptors, so the casters include it too) | — |
+
+The surface-shader modules (ADR 0237) are real Slang modules under `include/mainframe/`, imported with `import`, never
+included:
+
+| Module | Contents |
+|---|---|
+| `mainframe/spatial.slang`, `mainframe/canvas.slang` | What a game shader imports (`import mainframe.spatial;` / `import mainframe.canvas;`): the render-mode attributes and their enums, and it re-exports the three below |
+| `mainframe/material.slang` | The parameter attributes (`[color]`, `[range]`, `[filter]`, `[repeat]`, `[defaultTexture]`, `[group]`) and their enums |
+| `mainframe/math.slang` | PI, TAU, E and GLSL's `mod` |
+| `mainframe/surface/spatial.slang`, `mainframe/surface/canvas.slang` | The built-in structs (`SurfaceVertex`, `SurfaceFragment`, `CanvasVertex`, `CanvasFragment`). The generated entries import only these, since they include `common.slang`'s own PI |
 
 ## Descriptor frequency model
 
@@ -135,95 +144,230 @@ shaders' SPIR-V when the engine moved to Slang):
   pipeline layouts come from C#).
 - **No Metal keywords as names** (`vertex`, `fragment`, `kernel`, `constant`, `device`, …): Slang keeps local names in
   the SPIR-V, and MoltenVK's SPIRV-Cross passes them into the Metal source, which then fails to compile.
-- Godot shaders (`.mfshader`: canvas_item and spatial) are the exception: their Godot code is wrapped in a Slang template
-  compiled with `-allow-glsl` ([Canvas](canvas.md#canvas-shaders), [Spatial shaders](#spatial-shaders) below).
+- Game shaders are surface shaders in plain Slang ([Surface shaders](#surface-shaders) below): the engine generates their
+  passes, so the rules above are its job, not the game's.
 
-### The `.mfshader` extension
+## Surface shaders
 
-Shader files written in Godot's shading language are `.mfshader` ([ADR 0236](../../memory/decisions/0236-mfshader-extension.md));
-before that they were `.gdshader`. Old `.gdshader` files still load and build, with a deprecation warning: rename each one
-with its sidecars (`x.gdshader.meta`, `.spvlock` and every `.spv`) to keep its UID, then run `just canvas-shaders`, since the
-lock's hash covers the file name. For syntax highlighting, map the extension to a Godot shader mode in the editor, e.g. VS
-Code with the godot-tools extension:
+Game shaders are **Slang surface shaders** ([ADR 0237](../../memory/decisions/0237-slang-surface-shaders.md)): `.slang` files
+under a project's `Assets/` whose first statement is `import mainframe.spatial;` (3D meshes, as a `ShaderMaterial`: on a
+`MeshInstance3D` or `MultiMeshInstance3D`, as a surface material, `MaterialOverride`, `MaterialOverlay` or `NextPass`; ADR
+0205) or `import mainframe.canvas;` (canvas items, [Canvas shaders](canvas.md#canvas-shaders); ADR 0113). The game writes
+a material, the values its stages share and up to two functions against built-in structs; the engine generates every pass
+around them and owns their descriptor sets, vertex inputs and stage interfaces. Any other `.slang` file under `Assets/` is
+a helper module shaders can `import` (start it with `module name;`), never a `Shader` resource. Before ADR 0237 game
+shaders were Godot's shading language (`.mfshader`, `.gdshader`); such files now fail to load with an error that points at
+[Porting from Godot](#porting-from-godot).
 
-```json
-"files.associations": { "*.mfshader": "gdshader" }
-```
+```slang
+import mainframe.spatial;
 
-## Spatial shaders
+[cull(Cull.Disabled), specular(Specular.BlinnPhong)]
+struct Material
+{
+    [color] float3 stalk_color = float3(0.85, 0.80, 0.70);
+    float sway = 0.45;
+    float speed = 1.3;
+};
 
-Godot `shader_type spatial` shaders draw 3D meshes as a `ShaderMaterial`
-([ADR 0205](../../memory/decisions/0205-spatial-shaders.md)): on a `MeshInstance3D` or `MultiMeshInstance3D`, as a
-surface material, `MaterialOverride`, `MaterialOverlay` or `NextPass`. `SpatialShaderCompiler` translates them like canvas
-shaders (`CanvasShaderCompiler`): the user's code keeps Godot's language and is wrapped in a Slang template per pass,
-compiled with `-allow-glsl` and the engine's flags (`include/spatial.slang`, `include/glsl_compat.slang` and the mesh
-includes). Uniform values come from `ShaderMaterial.SetShaderParameter` or a `.mres` (`ShaderParameters`); the mesh side is
-in [Materials & meshes](materials-and-meshes.md#shadermaterial-spatial-shaders-adr-0205).
+struct Varyings
+{
+    float3 tint;
+};
 
-```glsl
-shader_type spatial;
-uniform sampler2D biome_map : filter_nearest, repeat_disable;
-uniform vec4 palette[2] : source_color;
-void fragment() {
-    vec2 world = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xz; // VERTEX is view space in fragment(), as in Godot
-    ALBEDO = mix(palette[0].rgb, palette[1].rgb, texture(biome_map, world / 64.0 + 0.5).r);
+void vertex(inout SurfaceVertex v, Material m, out Varyings o)
+{
+    float3 world = mul(float4(v.vertex, 1.0), v.modelMatrix).xyz; // the C# matrices: mul(v, M)
+    float bend = (1.0 - v.uv.y) * (1.0 - v.uv.y);
+    v.vertex.x += sin(v.time * m.speed + v.instanceCustom.x * TAU + world.x * 0.4) * m.sway * bend;
+    o.tint = v.instanceCustom.yzw;
+}
+
+void fragment(inout SurfaceFragment s, Material m, Varyings i)
+{
+    s.albedo = lerp(m.stalk_color, i.tint, smoothstep(0.25, 0.15, s.uv.y));
+    s.roughness = 0.6;
 }
 ```
 
-**Passes.** Each shader is compiled for five passes, a vertex and a fragment stage each, and every pass runs the shader's
-`vertex()` and `fragment()`, so displacement, `discard` and the alpha scissor agree everywhere:
+### The contract
 
-| Pass | SPIR-V (`x.mfshader` + …) | Set 0 / the material set | What it writes |
+| Piece | Rule |
+|---|---|
+| `import mainframe.spatial;` / `import mainframe.canvas;` | The first statement (after comments): the file is a shader, and of that kind |
+| `struct Material` | Optional. Its fields are the material parameters, its attributes the render modes ([below](#material-parameters)) |
+| `struct Varyings` | Optional. What `vertex` passes to `fragment`; integer fields are flat, others take `nointerpolation` to be |
+| `void vertex(inout SurfaceVertex v[, Material m][, out Varyings o])` | Optional; the material and varyings in either order. Without it the mesh's own vertices draw |
+| `void fragment(inout SurfaceFragment s[, Material m][, Varyings i])` | Optional. Without it the surface is white (canvas: the vertex colour × the texture) |
+| Canvas | `CanvasVertex` / `CanvasFragment`, the same optional parameters |
+| Anything else | Helper functions, `static const`s, structs, `import`s of the project's modules (next to the shader or below it). A global shader parameter (`uniform float x;`, a global `Sampler2D`) is a build error: parameters go in `Material` |
+
+mf-shaders reads only the first statement, which optional parameters each function declares, the literal defaults and
+whether the code names `normalMap`, `lightVertex`, `alpha` or `alphaScissorThreshold`; slangc checks everything else.
+Names starting with `mf_`, `main` and the engine includes' globals (`frame`, `lights`, `shadeLightsPbr`, …) are reserved:
+the generated entry imports the shader as a module beside them.
+
+**Built-ins** are camelCase struct fields with the meanings and spaces Godot's built-ins have. `SurfaceVertex` (model space;
+world space with `[worldVertexCoords]`): `vertex` and `normal` (write them to displace, in every pass), `uv`, `uv2` (= `uv`:
+meshes have one UV set), `color` (white without vertex colours), `custom0` (`custom1`–`3` are zero), `instanceId` and
+`instanceCustom` (a `MultiMesh`'s index and custom data, zero otherwise), `vertexId`, `modelMatrix`, `modelNormalMatrix`
+(normals: `mul(n, modelNormalMatrix)`), `modelViewMatrix`, `modelViewNormalMatrix`, `viewMatrix`, `invViewMatrix`,
+`mainCamInvViewMatrix`, `projectionMatrix`, `invProjectionMatrix`, `nodePositionWorld`, `nodePositionView`,
+`cameraPositionWorld`, `cameraDirectionWorld`, `viewportSize`, `time`. `SurfaceFragment` (view space): `vertex`, `normal`
+(written back, it shades), `view`, `uv`, `uv2`, `color`, `fragCoord`, `frontFacing`, `screenUv`, the same matrices and
+camera values, `time`, and the outputs `albedo` (1), `alpha` (1), `alphaScissorThreshold` (0), `metallic` (0), `roughness`
+(1), `specular` (0.5, Blinn-Phong only), `ao` (1), `emission` (0), `normalMap` + `normalMapDepth` (a tangent frame from
+screen derivatives, as `material.slang`; the colour pass applies them only when the code names `normalMap`) and
+`lightVertex` (the position lights are computed at; used only when the code names it). Matrices are the C# values:
+`mul(v, M)`, `m[3].xyz` the translation. In the shadow passes "view space" is world space (`viewMatrix` = identity), so
+`mul(float4(s.vertex, 1.0), s.invViewMatrix)` is still the world position. Godot built-ins the engine ignored (rim,
+clearcoat, anisotropy, SSS, backlight, fog, radiance, irradiance, tangents, point size) are not declared, so using one is a
+compile error. `mainframe.math` adds PI, TAU, E and GLSL's `mod` (Slang's `fmod` rounds towards zero).
+
+### Material parameters
+
+`struct Material`'s fields are the parameters, read from slangc's `-reflection-json`: one std140 block at binding 0 of the
+material set (set 2; set 1 in the shadow casters; canvas: set 1) in declaration order, then the textures at bindings 1….
+A material of textures only is declared at binding 1, so its textures still start there (slangc drops the empty block).
+Types: `bool`, `int`, `uint`, `float`, `floatN`, `intN`/`uintN`, `float2x2`/`3x3`/`4x4`, 1-D arrays of those, and
+`Sampler2D` (up to **4** in a spatial shader: the mesh fragment stage already binds 12 of MoltenVK's 16 samplers). Anything
+else is a build error naming `Material.<field>`. Values come from `ShaderMaterial.SetShaderParameter` or a `.mres`
+(`ShaderParameters`); the mesh side is in [Materials & meshes](materials-and-meshes.md#shadermaterial-spatial-shaders-adr-0205).
+
+| Attribute | Meaning |
+|---|---|
+| `[color]` | A vector authored in sRGB: converted to linear for spatial shaders, kept as written for canvas ones (Godot's non-HDR canvas); on a texture, sampled as sRGB |
+| `[range(a, b)]` | The range an editor offers (stored nowhere yet) |
+| `[filter(Filter.Nearest)]`, `Filter.Linear` | A texture's filter over the texture's own sampling |
+| `[repeat(Repeat.Enabled)]`, `Repeat.Disabled` | A texture's repeat |
+| `[defaultTexture(DefaultTexture.Black)]`, `.Transparent`, `.Normal` | What an unset texture samples (white without it; `Normal` is linear data) |
+| `[group("Wind")]` | An inspector group (stored nowhere yet) |
+
+**Defaults are literal initializers**: `float sway = 0.45;`, `float4 tint = float4(0.4, 0.8, 0.3, 1.0);` (one value
+broadcasts), `bool on = true;`. mf-shaders reads them from the text and checks their count against the reflected type;
+anything computed (`0.5 * 2.0`, `PI`) is a build error, as are array defaults for now. Slang's reflection reports no
+initializers (its C API, scalars only), so this is the one place mf-shaders reads values from the source.
+
+### Render modes
+
+Attributes on `struct Material` (an empty `struct Material {}` carries them for a shader without parameters), typed by the
+module's enums, so slangc rejects a typo at its line (`'Disabld' is not a member of 'typeof(Cull)'`):
+
+| Attribute | Spatial |
+|---|---|
+| `[blend(Blend.Mix)]`, `Blend.Add`, `Blend.PremulAlpha` | Any but Mix blends the surface |
+| `[alpha(Alpha.Opaque)]`, `Alpha.Cutout`, `Alpha.Blend` | Opaque without it. Cutout discards below `alphaScissorThreshold` and casts cut shadows; Blend blends back to front, without shadows. A non-Mix blend implies Blend. mf-shaders warns when the code writes `alpha` on an opaque material, or names `alphaScissorThreshold` without Cutout |
+| `[cull(Cull.Back)]`, `Cull.Front`, `Cull.Disabled` | Disabled lights back faces with the flipped normal |
+| `[depthDraw(DepthDraw.Opaque)]`, `.Always`, `.Never` | Which surfaces write depth |
+| `[noDepthTest]`, `[unshaded]`, `[worldVertexCoords]`, `[noFog]` | No depth test; albedo + emission, no lights; `vertex` in world space; no fog |
+| `[specular(Specular.Pbr)]`, `Specular.BlinnPhong` | The engine's PBR (the default), or its Blinn-Phong (shininess from roughness, strength from specular) |
+
+Canvas shaders take `[blend(Blend.Mix|Add|Sub|Mul|PremulAlpha|Disabled)]`, `[unshaded]` and `[lightOnly]`.
+
+### Passes
+
+Each spatial shader is compiled for five passes, a vertex and a fragment stage each, and every pass runs the shader's
+`vertex` and `fragment`, so displacement, `discard` and the alpha cut agree everywhere:
+
+| Pass | SPIR-V (`x.slang` + …) | Set 0 / the material set | What it writes |
 |---|---|---|---|
-| Colour | `.vert.spv`, `.frag.spv` | the frame, lights, sky lighting, SSAO / set 2 | the surface lit by the engine (or `unshaded`) + EMISSION, fogged |
-| Depth prepass (ADR 0163) | `.depth.vert.spv`, `.depth.frag.spv` | the frame / set 2 | depth and the velocity: `vertex()` runs for this frame and for the last (last frame's model matrix and `TIME`) |
-| Directional/spot shadows | `.shadow.*` | the light matrix / set 1 | depth (`TIME` and the camera from the casters' push block; in `fragment()` through a flat varying) |
+| Colour | `.vert.spv`, `.frag.spv` | the frame, lights, sky lighting, SSAO / set 2 | the surface lit by the engine (or `[unshaded]`) + emission, fogged |
+| Depth prepass (ADR 0163) | `.depth.vert.spv`, `.depth.frag.spv` | the frame / set 2 | depth and the velocity: `vertex` runs for this frame and for the last (last frame's model matrix and `time`) |
+| Directional/spot shadows | `.shadow.*` | the light matrix / set 1 | depth (`time` and the camera from the casters' push block; in `fragment` through a flat varying) |
 | Point shadows | `.shadow-point.*` | the light matrix / set 1 | the linear distance to the light (`SV_Depth`) |
 | Object IDs | `.id.*` | the frame / set 2 | the instance's object id (cut out like the colour pass) |
 
-In the shadow passes "view space" is world space (`VIEW_MATRIX` = identity), so `INV_VIEW_MATRIX * VERTEX` is still the
-world position. Constant 0 of the colour, depth and ID fragment stages is the alpha mode (a prepassed cutout runs as opaque:
-its EQUAL depth test replaces the discard); the casters are built for the shader's own mode. The colour and prepass vertex
-stages get an invariant position (`SpirvInvariance`). Next passes and overlays draw with a small depth bias towards the
-camera (another vertex module reaches the surface by other instructions, a rounding step apart).
+Constant 0 of the colour, depth and ID fragment stages is the alpha mode (a prepassed cutout runs as opaque: its EQUAL
+depth test replaces the discard); the casters are built for the shader's own mode. The colour and prepass vertex stages
+get an invariant position (`SpirvInvariance`). Next passes and overlays draw with a small depth bias towards the camera
+(another vertex module reaches the surface by other instructions, a rounding step apart). `Varyings` sit from location 12
+(canvas: 2) up to 31.
 
-**Built-ins.** `vertex()`: VERTEX and NORMAL (model space; world space with `world_vertex_coords`), UV, UV2 (= UV: meshes
-have one UV set), COLOR (the raw vertex colour, white without one), CUSTOM0 (CUSTOM1–3 are zero), INSTANCE_ID and
-INSTANCE_CUSTOM (a `MultiMesh`'s index and custom data, zero otherwise), VERTEX_ID, MODEL_MATRIX, MODEL_NORMAL_MATRIX,
-MODELVIEW_MATRIX, VIEW_MATRIX, INV_VIEW_MATRIX, PROJECTION_MATRIX, INV_PROJECTION_MATRIX, NODE_POSITION_WORLD,
-CAMERA_POSITION_WORLD, CAMERA_DIRECTION_WORLD, VIEWPORT_SIZE, TIME, POINT_SIZE (ignored). `fragment()`: VERTEX (view space),
-NORMAL (view space; written back, it shades), VIEW, UV, UV2, COLOR, FRAGCOORD, FRONT_FACING, SCREEN_UV, the matrices,
-TIME, and the outputs ALBEDO, ALPHA, ALPHA_SCISSOR_THRESHOLD, EMISSION, METALLIC, ROUGHNESS, SPECULAR (Blinn-Phong only),
-AO, NORMAL_MAP + NORMAL_MAP_DEPTH (a tangent frame from screen derivatives, as `material.slang`), LIGHT_VERTEX. RIM,
-CLEARCOAT, ANISOTROPY, SSS, BACKLIGHT, FOG, RADIANCE and IRRADIANCE are declared and ignored. PI, TAU and E.
+**Not yet:** `light()`, instance and global parameters, POSITION/DEPTH writes, tangents. Use `SampleLevel` in `vertex`.
 
-**Alpha** follows Godot: `ALPHA_SCISSOR_THRESHOLD` in the fragment code makes the surface a cutout (it casts cut
-shadows); writing ALPHA, or a blend mode other than `blend_mix`, blends it (back to front, no shadow); otherwise opaque.
+### Building
 
-**Render modes:** `blend_mix`, `blend_add`, `blend_premul_alpha`; `cull_back`, `cull_front`, `cull_disabled` (back faces
-lit with the flipped normal); `depth_draw_opaque`, `depth_draw_always`, `depth_draw_never`; `depth_test_disabled`;
-`unshaded`; `world_vertex_coords`; `fog_disabled`; `specular_blinn`/`specular_phong` (Godot 3's names: the engine's
-Blinn-Phong, shininess from ROUGHNESS, strength from SPECULAR, instead of PBR); `diffuse_lambert`, `diffuse_burley` and
-`specular_schlick_ggx` are accepted (the engine's PBR). Anything else is an error.
+The SPIR-V is built ahead of time (no runtime compiler) and committed next to the source: `just canvas-shaders [folders]`
+(mf-shaders `build`) and `just shaders-check` (mf-shaders `check` over `surface_shader_folders`). For each shader
+`SurfaceShaderBuild`:
 
-**Uniforms:** scalars, vectors, matrices and arrays in one std140 block (binding 0 of the material set, declaration order),
-`source_color` vectors converted from sRGB to linear; up to **4** `sampler2D` (bindings 1–4; the mesh fragment stage
-already binds 12 of MoltenVK's 16 samplers), sampled as sRGB with `source_color`, linear otherwise, `filter_*` and
-`repeat_*` overriding the texture's sampling, unset ones white (`hint_default_black`, `hint_default_transparent`,
-`hint_normal`). Not yet: `instance uniform`, `global uniform`, `light()`, POSITION and DEPTH, TANGENT/BINORMAL, the
-preprocessor. Use `textureLod` in `vertex()`.
+1. compiles a probe entry (the material at its binding, a fragment input of the varyings, nothing else) for its
+   `-reflection-json`, which `SlangReflection` turns into the layout: the parameters with slangc's offsets, the render
+   modes, the varyings' locations. Every other reflected parameter is the shader's own global, which is an error;
+2. generates every pass's entry (`SurfaceShaderCompiler`; `mf-shaders translate x.slang [pass]` prints one), which
+   `import`s the shader as a module, fills the built-in struct, calls its functions with the parameters they declare and
+   finishes the pass. Each fragment stage compiles first; its vertex stage then writes only the inputs that stage kept
+   (`SpirvInputs`; Slang drops unread fragment inputs). Ten slangc runs in parallel for a spatial shader;
+3. writes `x.slang.layout.json` (the layout in the engine's own format, so nothing reads Slang's JSON at run time) and
+   `x.slang.spvlock`: its first line hashes the shader, its layout and its generated entries (what `Shader.Load` checks,
+   warning when stale); each further line hashes a file slangc's `-depfile` listed (`include:frame.slang`,
+   `include:mainframe/spatial.slang`, an imported `noise.slang`), which `check` verifies too.
 
-**Building.** Like canvas shaders, the SPIR-V is built ahead of time (no runtime compiler) and committed next to the source
-with one `x.mfshader.spvlock` over all ten files: `just canvas-shaders [folders]` (mf-shaders `build`; each pass's fragment
-stage first, then its vertex stage writing only what that kept; ten slangc runs in parallel), and `just shaders-check`
-(mf-shaders `check` over `mfshader_folders`) fails on stale ones. `mf-shaders translate x.mfshader [pass]` prints the
-generated Slang. Errors name the file and line: the translator's (`ground.mfshader(12): render_mode 'x' is not
-supported.`) and slangc's, through `#line` directives around the user's code. The obfuscated compile gets the Slang
-without them (slangc 2026.1's Linux build crashes in `obfuscateModuleLocs` on `#line` under `-obfuscate`, which drops
-every location anyway: the SPIR-V is identical); when it fails, a second compile without `-obfuscate` and with the
-directives reports the errors. A shader whose SPIR-V is missing draws with
-the default material (a warning). Identifiers starting with `gd_` and the engine includes' globals (`frame`, `lights`,
-`material`) are reserved.
+The flags are the engine's (`-matrix-layout-row-major`, `spirv_1_5`) plus `-obfuscate`, which drops every name from the
+SPIR-V (MoltenVK's SPIRV-Cross would carry a name like the Metal keyword `vertex` into the Metal source); the probe is not
+obfuscated. Errors name the shader's file and line, since slangc compiles it as a module: `ground.slang(11): error 30015:
+undefined identifier 'x'`. No `#line` directives are generated, so slangc 2026.1's Linux crash under `-obfuscate`, which
+needed them, cannot happen. A shader without its layout file loads with no parameters and draws with the default
+material (a warning).
+
+### Editor support
+
+`.slang` is the shader-slang VS Code extension's own language (slangd underneath): diagnostics, completion on `s.` and
+`v.`, hover with the modules' `///` docs, go-to-definition. It needs the engine's include folder on its search path:
+
+```json
+"slang.additionalSearchPaths": ["${workspaceFolder}/MainframeEngine/Assets/Shaders/include"]
+```
+
+In a game project, point it at an engine checkout's `MainframeEngine/Assets/Shaders/include` (the package does not ship
+the modules yet).
+
+### Porting from Godot
+
+A Godot `.mfshader` (or `.gdshader`) becomes `x.slang` in place: `git mv` it and its `.meta` (the UID stays) and delete
+its old `.spv` and `.spvlock`, then:
+
+- `shader_type spatial;` → `import mainframe.spatial;` (`canvas_item` → `mainframe.canvas`);
+- `uniform T name : hints = value;` → a `Material` field with the attribute table's attributes and a literal initializer
+  (`source_color` → `[color]`, `hint_range` → `[range]`, `filter_*` → `[filter(…)]`, `repeat_*` → `[repeat(…)]`,
+  `hint_default_*`/`hint_normal` → `[defaultTexture(…)]`); `render_mode` → `Material` attributes; `varying` → a
+  `Varyings` field (`flat` → `nointerpolation`);
+- give `vertex()`/`fragment()` their parameters, and prefix built-ins (`VERTEX` → `v.vertex`, `ALBEDO` → `s.albedo`,
+  `INSTANCE_CUSTOM` → `v.instanceCustom`), parameters (`m.name`) and varyings (`o.name` in `vertex`, `i.name` in
+  `fragment`). Helpers that sampled a uniform take the texture (or the `Material`) as a parameter;
+- the language: `vecN`/`ivecN`/`matN` → `floatN`/`intN`/`floatNxN`, `mix` → `lerp`, `fract` → `frac`, `dFdx`/`dFdy` →
+  `ddx`/`ddy`, `atan(y, x)` → `atan2(y, x)`, `texture(t, uv)` → `t.Sample(uv)`, `textureLod` → `SampleLevel`, `const` →
+  `static const`; rename locals that are HLSL keywords (`line`, `point`, `patch`, `sample`);
+- **matrix products swap**: `M * v` → `mul(v, M)` (`MODEL_MATRIX[3]` stays `modelMatrix[3]`);
+- Godot's alpha rule is gone: a shader that wrote `ALPHA_SCISSOR_THRESHOLD` takes `[alpha(Alpha.Cutout)]`, one that wrote
+  `ALPHA` `[alpha(Alpha.Blend)]`.
+
+The 19 shaders of the render-test host, the Demo and the Neon were ported this way with every render golden unchanged.
+
+### Changes from the proposal
+
+The G18 proposal (folded into this section when it shipped) left five questions to the owner, which
+[ADR 0237](../../memory/decisions/0237-slang-surface-shaders.md) records; those answers and what building it found:
+
+- **`.slang`, not `.mfshader`** (owner): the files are Slang's, so editors know them unconfigured. Detection is the first
+  statement, so helper modules share the extension.
+- **camelCase built-ins** (owner), not Godot's upper case.
+- **Literal initializers** (owner) instead of `[Default("…")]`. Slang's C API reports scalar defaults only, `slangi`
+  evaluated a vector initializer wrongly, and an extra SPIR-V compile can't default-construct a `Material` holding a
+  `Sampler2D`, so mf-shaders reads the literals itself.
+- **No deprecation period** (owner): the Godot front end, `-allow-glsl` and `glsl_compat.slang` are gone, and
+  `.mfshader`/`.gdshader` files fail to load with the porting error. The proposal's Godot/Slang golden-parity theory went
+  with it; the unchanged goldens prove the port instead.
+- **`import`, not `#include`**, of the user file: with a `.slang` extension the shader is a module, with its own
+  namespace, and errors still name it.
+- **Lowercase attributes** (`[color]`, `[cull(…)]`), as Slang's own (`[shader]`, `[numthreads]`).
+- **The per-pass code stays C# templates** (`SurfaceShaderCompiler`), ported from the Godot ones, rather than moving into
+  static Slang modules: the SPIR-V keeps the same maths.
+- **A textures-only material moves to binding 1**, and **the engine's constants live apart** (`mainframe.math`;
+  `mainframe.surface.*` hold the structs the entries import), because slangc drops an empty block and `common.slang`
+  declares its own PI. Neither was in the proposal.
+- **No editor or template wiring of the include path** (the proposal's `.mainframe/shaders/` copy): the package does not
+  ship the modules yet.
 
 ## Constants that must match C#
 

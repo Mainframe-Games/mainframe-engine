@@ -72,7 +72,7 @@ mobile, and it has GDScript. Mainframe is for people who want Godot's way of mak
 - **C# all the way down.** Godot is a C++ engine with C# as one of its scripting languages. Here the engine itself is
   C# (see above), and per-frame code makes no allocations, which a CI gate enforces.
 - **Godot's model, kept.** Nodes, the scene tree, signals, `[Export]`, `MoveAndSlide`, `AStarGrid2D`, `TileMapLayer`
-  and Godot spatial shaders work as you know them, so moving over costs little.
+  and surface shaders with Godot's built-ins (written in Slang) work as you know them, so moving over costs little.
 - **The shipping kit is built in.** Save games with backups and migrations, a drop-in settings menu with rebinding,
   Steam and Steam demo builds, export presets with `mf-export` for CI, crash reports, gettext localization, gameplay
   recording with a video mode that cuts trailers, and a music editor and sound designer: most of it is what Godot
@@ -118,7 +118,7 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/animation_3d.png" width="380" alt="Animation 3D"><br><b>Animation 3D</b> — a skinned glTF character: clips, crossfades, events, a torch on its hand, a ragdoll that can stay active; a body walked and jumped by root motion</td>
   </tr>
   <tr>
-    <td align="center" valign="top"><img src="docs/images/demo/shaders.png" width="380" alt="Shaders"><br><b>Shaders</b> — Godot spatial shaders: a procedural ground, swaying stalks, dissolving props</td>
+    <td align="center" valign="top"><img src="docs/images/demo/shaders.png" width="380" alt="Shaders"><br><b>Shaders</b> — Slang surface shaders: a procedural ground, swaying stalks, dissolving props</td>
     <td align="center" valign="top"><img src="docs/images/demo/sprites_2d.png" width="380" alt="Sprites 2D"><br><b>Sprites 2D</b> — AnimatedSprite2D flipbooks sliced from one sprite sheet: idle, run, jump, spinning coins</td>
   </tr>
   <tr>
@@ -278,7 +278,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting alpha-tested silhouette shadows, optionally billboarded to the camera, with animation tracks and queues |
 | [3D particles](docs/design/particles-3d.md) | `GpuParticles3D` on Godot's `ParticleProcessMaterial`: point, sphere, box and ring emission, spread, gravity, damping, turbulence, scale and colour curves, hue variation; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow, sorted back to front; deterministic seeds; 8 000 particles in under half a millisecond of CPU |
 | [Skeletal animation](docs/design/animation.md) | Skinned glTF/FBX characters with their clips: `Skeleton3D`, GPU (compute) skinning that shadows, outlines and picking all see, an `AnimationPlayer` with crossfades, queues and events (also on a headless server), root motion that moves a `CharacterBody3D`, `BoneAttachment3D` |
-| [Slang shaders](docs/design/shaders.md) | Every shader in Slang, compiled to SPIR-V at build time, with shared includes and light limits generated from one file; your own Godot `canvas_item` and `spatial` shaders on sprites and meshes, lit, shadowed and pickable |
+| [Slang shaders](docs/design/shaders.md) | Every shader in Slang, compiled to SPIR-V at build time, with shared includes and light limits generated from one file; your own surface shaders (`import mainframe.spatial;`) on sprites and meshes, lit, shadowed and pickable, with the engine generating every pass |
 
 ### Worlds
 

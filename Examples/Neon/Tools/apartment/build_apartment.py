@@ -25,7 +25,7 @@ Meshes (the name's prefix says what the game does with them):
 - Footstep surfaces follow the name: Tile_* tile, Planks_* wood, Mezzanine, Stairs and Railing_* metal, the rest
   concrete.
 - Materials LED_<Room> are the light fixtures' glow: Switch_<Room> dims them with the room's lights. Glow_* materials
-  (signs, the sofa's strip, the PC) always glow. RackLed is the racks' lights: UV.x = kind + seed, for rack.mfshader. Screen is the monitors' and the TV's glass (the game gives
+  (signs, the sofa's strip, the PC) always glow. RackLed is the racks' lights: uv.x = kind + seed, for rack.slang. Screen is the monitors' and the TV's glass (the game gives
   each screen its own copy); Display_Stereo the stereo's display.
 
 Empties exported as mesh-less nodes:
@@ -869,7 +869,7 @@ def furniture(rng):
     F.append(pc.finish())
 
     # The racks: open-fronted cabinets of real kit. Nothing shares a plane (a surface on another flickers), and the lights
-    # are one mesh of small quads, each with its own blink: Decor_RackLeds, see rack_led and Assets/Shaders/rack.mfshader.
+    # are one mesh of small quads, each with its own blink: Decor_RackLeds, see rack_led and Assets/Shaders/rack.slang.
     leds = Builder("Decor_RackLeds")
 
     def rack_led(x, y, z, kind, seed, half=0.0035):

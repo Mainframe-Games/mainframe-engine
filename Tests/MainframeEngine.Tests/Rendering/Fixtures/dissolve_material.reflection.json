@@ -1,0 +1,239 @@
+{
+    "parameters": [
+        {
+            "name": "mf_material",
+            "binding": {"kind": "descriptorTableSlot", "space": 2, "index": 0, "count": 2},
+            "type": {
+                "kind": "constantBuffer",
+                "elementType": {
+                    "kind": "struct",
+                    "name": "Material",
+                    "fields": [
+                        {
+                            "name": "progress",
+                            "type": {
+                                "kind": "scalar",
+                                "scalarType": "float32"
+                            },
+                            "binding": {"kind": "uniform", "offset": 0, "size": 4, "elementStride": 0}
+                        },
+                        {
+                            "name": "tint",
+                            "type": {
+                                "kind": "vector",
+                                "elementCount": 4,
+                                "elementType": {
+                                    "kind": "scalar",
+                                    "scalarType": "float32"
+                                }
+                            },
+                            "userAttribs": [
+                                {
+                                    "name": "color",
+                                    "arguments": [
+
+                                    ]
+                                }
+                            ],
+                            "binding": {"kind": "uniform", "offset": 16, "size": 16, "elementStride": 4}
+                        },
+                        {
+                            "name": "weights",
+                            "type": {
+                                "kind": "array",
+                                "elementCount": 3,
+                                "elementType": {
+                                    "kind": "scalar",
+                                    "scalarType": "float32"
+                                },
+                                "uniformStride": 16
+                            },
+                            "binding": {"kind": "uniform", "offset": 32, "size": 48, "elementStride": 16}
+                        },
+                        {
+                            "name": "offsets",
+                            "type": {
+                                "kind": "array",
+                                "elementCount": 2,
+                                "elementType": {
+                                    "kind": "vector",
+                                    "elementCount": 2,
+                                    "elementType": {
+                                        "kind": "scalar",
+                                        "scalarType": "float32"
+                                    }
+                                },
+                                "uniformStride": 16
+                            },
+                            "binding": {"kind": "uniform", "offset": 80, "size": 32, "elementStride": 16}
+                        },
+                        {
+                            "name": "glow",
+                            "type": {
+                                "kind": "scalar",
+                                "scalarType": "bool"
+                            },
+                            "binding": {"kind": "uniform", "offset": 112, "size": 4, "elementStride": 0}
+                        },
+                        {
+                            "name": "noise",
+                            "type": {
+                                "kind": "resource",
+                                "baseShape": "texture2D",
+                                "combined": true,
+                                "resultType": {
+                                    "kind": "vector",
+                                    "elementCount": 4,
+                                    "elementType": {
+                                        "kind": "scalar",
+                                        "scalarType": "float32"
+                                    }
+                                }
+                            },
+                            "binding": {"kind": "descriptorTableSlot", "index": 1}
+                        }
+                    ],
+                    "userAttribs": [
+                        {
+                            "name": "alpha",
+                            "arguments": [
+                                1
+                            ]
+                        }
+                    ]
+                },
+                "containerVarLayout": {
+                    "binding": {"kind": "descriptorTableSlot", "index": 0}
+                },
+                "elementVarLayout": {
+                    "type": {
+                        "kind": "struct",
+                        "name": "Material",
+                        "fields": [
+                            {
+                                "name": "progress",
+                                "type": {
+                                    "kind": "scalar",
+                                    "scalarType": "float32"
+                                },
+                                "binding": {"kind": "uniform", "offset": 0, "size": 4, "elementStride": 0}
+                            },
+                            {
+                                "name": "tint",
+                                "type": {
+                                    "kind": "vector",
+                                    "elementCount": 4,
+                                    "elementType": {
+                                        "kind": "scalar",
+                                        "scalarType": "float32"
+                                    }
+                                },
+                                "userAttribs": [
+                                    {
+                                        "name": "color",
+                                        "arguments": [
+
+                                        ]
+                                    }
+                                ],
+                                "binding": {"kind": "uniform", "offset": 16, "size": 16, "elementStride": 4}
+                            },
+                            {
+                                "name": "weights",
+                                "type": {
+                                    "kind": "array",
+                                    "elementCount": 3,
+                                    "elementType": {
+                                        "kind": "scalar",
+                                        "scalarType": "float32"
+                                    },
+                                    "uniformStride": 16
+                                },
+                                "binding": {"kind": "uniform", "offset": 32, "size": 48, "elementStride": 16}
+                            },
+                            {
+                                "name": "offsets",
+                                "type": {
+                                    "kind": "array",
+                                    "elementCount": 2,
+                                    "elementType": {
+                                        "kind": "vector",
+                                        "elementCount": 2,
+                                        "elementType": {
+                                            "kind": "scalar",
+                                            "scalarType": "float32"
+                                        }
+                                    },
+                                    "uniformStride": 16
+                                },
+                                "binding": {"kind": "uniform", "offset": 80, "size": 32, "elementStride": 16}
+                            },
+                            {
+                                "name": "glow",
+                                "type": {
+                                    "kind": "scalar",
+                                    "scalarType": "bool"
+                                },
+                                "binding": {"kind": "uniform", "offset": 112, "size": 4, "elementStride": 0}
+                            },
+                            {
+                                "name": "noise",
+                                "type": {
+                                    "kind": "resource",
+                                    "baseShape": "texture2D",
+                                    "combined": true,
+                                    "resultType": {
+                                        "kind": "vector",
+                                        "elementCount": 4,
+                                        "elementType": {
+                                            "kind": "scalar",
+                                            "scalarType": "float32"
+                                        }
+                                    }
+                                },
+                                "binding": {"kind": "descriptorTableSlot", "index": 0}
+                            }
+                        ],
+                        "userAttribs": [
+                            {
+                                "name": "alpha",
+                                "arguments": [
+                                    1
+                                ]
+                            }
+                        ]
+                    },
+                    "bindings": [
+                        {"kind": "descriptorTableSlot", "index": 1},
+                        {"kind": "uniform", "offset": 0, "size": 128, "elementStride": 0}
+                    ]
+                }
+            }
+        }
+    ],
+    "entryPoints": [
+        {
+            "name": "main",
+            "stage": "fragment",
+            "result": {
+                "stage": "fragment",
+                "binding": {"kind": "varyingOutput", "index": 0},
+                "semanticName": "SV_TARGET",
+                "type": {
+                    "kind": "vector",
+                    "elementCount": 4,
+                    "elementType": {
+                        "kind": "scalar",
+                        "scalarType": "float32"
+                    }
+                }
+            },
+            "bindings": [
+                {
+                    "name": "mf_material",
+                    "binding": {"kind": "descriptorTableSlot", "space": 2, "index": 0, "count": 2, "used": 0}
+                }
+            ]
+        }
+    ]
+}

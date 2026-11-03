@@ -35,7 +35,7 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `Material`, `StandardMaterial3D`, `MaterialRenderState`, `AlphaMode`, `CullMode`, `ShadingMode` | [Material.cs](../../MainframeEngine/Src/Rendering/Resources/Material.cs) | Surface shading; the state that selects a pipeline |
 | `FoliageMaterial3D`, `FoliageBackFace` | [FoliageMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/FoliageMaterial3D.cs) | Leaves, grass, bark: vertex wind, cutout, translucency (ADR 0151) |
 | `WaterMaterial3D`, `WaterTextures` | [WaterMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs) | Rivers and ponds: flow ripples, reflection, absorption, foam (ADR 0159, [water.md](water.md#watermaterial3d)) |
-| `ShaderMaterial` + `Shader`, `ShaderParameter` | [Rendering/Canvas/ShaderMaterial.cs](../../MainframeEngine/Src/Rendering/Canvas/ShaderMaterial.cs) | A Godot `shader_type spatial` shader with per-material uniforms (ADR 0205, [below](#shadermaterial-spatial-shaders-adr-0205)) |
+| `ShaderMaterial` + `Shader`, `ShaderParameter` | [Rendering/Canvas/ShaderMaterial.cs](../../MainframeEngine/Src/Rendering/Canvas/ShaderMaterial.cs) | A spatial surface shader with per-material parameters (ADRs 0205, 0237, [below](#shadermaterial-spatial-shaders-adr-0205)) |
 | `TerrainSplatMaterial3D`, `TerrainLayer` | [TerrainSplatMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainSplatMaterial3D.cs), [TerrainLayer.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainLayer.cs) | The Realistic terrain's look: up to 12 splat-weighted PBR layers in texture arrays, its own set 2 and pipeline layout (ADR 0156, [Terrain](terrain.md#terrainsplatmaterial3d)) |
 | `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.meta` (see [Asset pipeline](asset-pipeline.md)) |
 | `OrmPacker` | [OrmPacker.cs](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Separate occlusion/roughness/metallic maps → one linear ORM texture (ADR 0158) |
@@ -293,9 +293,9 @@ the mesh renderer it is the one material with **its own set 2**, kept to two con
 
 ### ShaderMaterial: spatial shaders (ADR 0205)
 
-A `ShaderMaterial` whose `Shader` is a Godot `shader_type spatial` `.mfshader` draws with that shader's own SPIR-V in every
-pass: the colour pass, the depth prepass and velocity, both shadow casters and the object-ID pass (the language, built-ins
-and passes are in [Shaders](shaders.md#spatial-shaders)). `MeshRenderer.Spatial.cs` (a partial, like the terrain splat's)
+A `ShaderMaterial` whose `Shader` is a spatial surface shader (`import mainframe.spatial;`, ADR 0237) draws with that
+shader's own SPIR-V in every pass: the colour pass, the depth prepass and velocity, both shadow casters and the object-ID
+pass (the contract, built-ins and passes are in [Shaders → Surface shaders](shaders.md#surface-shaders)). `MeshRenderer.Spatial.cs` (a partial, like the terrain splat's)
 keeps it apart from the built-in materials:
 
 - **Per shader** (`SpatialShaderGpu`, created on first use, kept until the renderer is disposed): a set layout (b0 the
@@ -305,25 +305,26 @@ keeps it apart from the built-in materials:
   cutout layouts' push range), a `MaterialDescriptorAllocator` and its caster pipelines (`ShadowSystem.BuildCasterPipeline`,
   per point/cull/mirrored). Its dense id is `PipelineKey.UserShader`.
 - **Per material** (`MaterialGpu.Spatial`): the std140 block in a device-local UBO (written from `Shader.WriteUniformBlock`
-  on a version change: the parameters over the shader's defaults, `source_color` vectors to linear), a `TextureGpu` per
-  sampler (sRGB for `source_color`) with a shared sampler per filter/address mode (hints override the texture's), and its
+  on a version change: the parameters over the shader's defaults, `[color]` vectors to linear), a `TextureGpu` per
+  texture (sRGB for `[color]`) with a shared sampler per filter/address mode (`[filter]`/`[repeat]` override the texture's), and its
   set. The material also keeps the default set 2 (unused). `MaterialGpu.ColorShaders` is `MeshSpatial`; its prepass set
   `MeshDepthSpatial`, its ID set `MeshObjectIdSpatial` (`MaterialGpu.IdShaders`).
 - **Pipelines** key by (`MeshSpatial`/`MeshDepthSpatial`/`MeshObjectIdSpatial`, the material's state, `UserShader`) in the
-  shared cache; always `MeshInstancedExt` (the second stream is ensured, for COLOR and CUSTOM0); the vertex attributes are
-  the `VertexLayouts.SpatialAttributes` the compiled vertex stage reads (`SpirvInputs`). Blend: `blend_add` →
-  `BlendMode.Additive`, `blend_premul_alpha` → `Premultiplied`, else `Alpha`. Next passes and overlays get a depth bias of
+  shared cache; always `MeshInstancedExt` (the second stream is ensured, for color and custom0); the vertex attributes are
+  the `VertexLayouts.SpatialAttributes` the compiled vertex stage reads (`SpirvInputs`). Blend: `Blend.Add` →
+  `BlendMode.Additive`, `Blend.PremulAlpha` → `Premultiplied`, else `Alpha`. Next passes and overlays get a depth bias of
   −2 (constant) and −1 (slope) towards the camera.
 - **Draws** bind the material's own set with its shader's layout in the colour, prepass and ID passes; casters bind it as
   set 1 and receive the foliage casters' push block (time, camera). Every spatial surface casts through its own caster
   (`ShadowCasterItem.Spatial`), opaque ones too, since `vertex()` may move it.
-- **State** (`ShaderMaterial.RenderState` = the shader's): Godot's alpha rule, the cull mode, `DepthDraw`
-  (`MaterialRenderState.DepthDraw`: `depth_draw_always` writes depth even when blended, `depth_draw_never` never, and is
-  not prepassed) and `depth_test_disabled`.
+- **State** (`ShaderMaterial.RenderState` = the shader's): the `[alpha]` mode, the cull mode, `DepthDraw`
+  (`MaterialRenderState.DepthDraw`: `DepthDraw.Always` writes depth even when blended, `DepthDraw.Never` never, and is
+  not prepassed) and `[noDepthTest]`.
 - **Saved** as `ShaderParameters` (`ShaderParameter` records in `.mres`/`.mscene`: `{"name", "value"}` with a number, bool,
   vector array or `{"res"}`, or `{"name", "array"}`).
 
-A shader without SPIR-V (never built) draws with the default material and a warning, like an unsupported material.
+A shader without SPIR-V or a layout file (never built) draws with the default material and a warning, like an unsupported
+material.
 
 ### Texture2D
 
@@ -523,7 +524,7 @@ less-or-equal, and cutouts compare EQUAL with specialization constant 0 = opaque
 | `MeshTerrainSplat` | `Mesh/Mesh.vk.vert` + `Terrain/TerrainSplat.vk.frag` (`TerrainSplatMaterial3D`; its own pipeline layout) | the scene pass |
 | `MeshDepth` | `Mesh/MeshDepth.vk.vert` (`MeshDepthExt.vk.vert` with streams) + `Mesh/MeshDepth.vk.frag` (velocity, cutout test; ADR 0163) | the depth prepass |
 | `MeshDepthFoliage` | `Foliage/FoliageDepth.vk.vert` (wind now and a frame ago) + `Mesh/MeshDepth.vk.frag` | the depth prepass |
-| `MeshSpatial`, `MeshDepthSpatial`, `MeshObjectIdSpatial` | a spatial shader's `x.mfshader.{vert,frag}.spv`, `.depth.*`, `.id.*` (ADR 0205; its own pipeline layout) | the scene pass, the depth prepass, the object-ID pass |
+| `MeshSpatial`, `MeshDepthSpatial`, `MeshObjectIdSpatial` | a spatial shader's `x.slang.{vert,frag}.spv`, `.depth.*`, `.id.*` (ADR 0205; its own pipeline layout) | the scene pass, the depth prepass, the object-ID pass |
 
 `MeshLit` with `VertexLayoutId.MeshInstancedExt` uses `Mesh/MeshExt.vk.vert` and sets specialization constant 1
 (vertex colour) of `Mesh.vk.frag`.
@@ -731,7 +732,7 @@ pipelines draw the view like any mesh; the prepass uses `MeshDepthSkinned` for t
 - Billboards are a node feature (`Sprite3D.Billboard`); `StandardMaterial3D` has no `BillboardMode` yet, so a `MeshInstance3D`
   can't billboard, and there is no `Particles` mode.
 - Only `StandardMaterial3D`, `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D`, `TerrainSplatMaterial3D` and spatial
-  `ShaderMaterial`s are rendered. Spatial shaders have no `light()`, instance uniforms or more than 4 samplers yet (ADR 0205).
+  `ShaderMaterial`s are rendered. Spatial surface shaders have no `light()`, instance parameters or more than 4 textures yet (ADRs 0205, 0237).
 - Foliage wind does not bend normals, and the object-ID pass draws foliage unswayed.
 - Visibility ranges have no margins or fade.
 - Spine, the grid and the sky do not appear in the object-ID pass.

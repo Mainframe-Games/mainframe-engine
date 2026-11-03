@@ -104,8 +104,10 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;
   `MeshRenderer` batching, `PipelineStateCache`, picking, sub-viewports; `Src/Resources/Import/` — texture/model (Assimp) importers;
-  `Rendering/Spatial/` — Godot `shader_type spatial` shaders as `ShaderMaterial`s on meshes (ADR 0205: `SpatialShaderCompiler`,
-  `MeshRenderer.Spatial.cs`; SPIR-V built by `just canvas-shaders` and checked by `just shaders-check`)
+  `Rendering/Shaders/` + `Assets/Shaders/include/mainframe/` — game shaders are Slang surface shaders (ADR 0237: `.slang`
+  files starting `import mainframe.spatial;` or `…canvas;`; `SurfaceShaderCompiler` generates every pass, `SlangReflection`
+  reads `struct Material` into `x.slang.layout.json`, `SurfaceShaderBuild` builds them: `just canvas-shaders`, checked by
+  `just shaders-check`); spatial ones draw as `ShaderMaterial`s on meshes (ADR 0205, `MeshRenderer.Spatial.cs`)
 - `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`
 - `MainframeEngine/Src/Audio/` — `AudioServer` (SoundFlow; null device when there is no audio device), buses,
   `AudioStream`, audio nodes (`AudioPlayer`/`2D`/`3D`, `AudioListener3D`); adaptive music in `Music/` (`MusicDirector`,

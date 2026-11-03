@@ -46,28 +46,51 @@ ADRs [0110 Y-down](../../memory/decisions/0110-y-down-2d.md), [0111 canvas rende
 
 ## Canvas shaders
 
-`.mfshader` files in Godot's shading language (`shader_type canvas_item`) load as `Shader` resources (`.mfshader` importer,
-`Shader.Load`); `CanvasShaderCompiler` wraps them in a Slang template compiled with `-allow-glsl`, so the Godot code keeps
-its GLSL syntax and meaning (one-argument `matN(x)` calls are rewritten to `glsl_matN(x)` helpers, because Slang fills every
-element from a scalar where GLSL builds a diagonal; [ADR 0113](../../memory/decisions/0113-canvas-shaders-godot-language.md),
-[ADR 0144](../../memory/decisions/0144-slang-shader-language.md)).
-Supported: uniforms of scalar/vector/matrix types and arrays (std140 block, set 1 binding 0, declaration order) with
-defaults and hints (`source_color` kept raw as in Godot's non-HDR canvas, `hint_range` ignored), `sampler2D` uniforms
-(set 1 bindings 1…, `filter_*`/`repeat_*`), `render_mode blend_mix|add|sub|mul|premul_alpha|disabled, unshaded,
-light_only`, varyings (flat for integers), helper functions and constants, `vertex()` and `fragment()`, and the built-ins
-VERTEX, UV, COLOR, TEXTURE, TEXTURE_PIXEL_SIZE, TIME, FRAGCOORD, SCREEN_UV, SCREEN_PIXEL_SIZE, MODEL_MATRIX,
-CANVAS_MATRIX, SCREEN_MATRIX, PI, TAU, E. Items whose shader has `vertex()` keep local vertices (MODEL_MATRIX = the
-item's canvas-space transform, CANVAS_MATRIX = camera × stretch) and draw alone; others are batched pre-transformed.
-SPIR-V is built ahead of time with `slangc` and committed next to the source (`x.mfshader.vert.spv`, `.frag.spv`,
-`.spvlock`), with `-obfuscate` so no name from the user's code reaches MoltenVK's Metal source (a local named `vertex` or
-`device` would not compile there). Projects whose canvas SPIR-V was built before the move to Slang get a stale-shader
-warning at load until it is rebuilt once with `just canvas-shaders <folder>`. The fragment stage compiles first; the vertex stage then writes only the inputs that stage kept (Slang drops
-unread fragment inputs, and an unread vertex output is a validation warning; `SpirvInputs`):
-`just canvas-shaders <folders>` / `just canvas-shaders-check`. `ShaderMaterial.SetShaderParameter(name, value)` sets
-uniforms (vectors as `System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for samplers).
-Runtime-updated textures (`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes.
-The same `Shader`/`ShaderMaterial` carry Godot `shader_type spatial` shaders to 3D meshes ([Shaders → Spatial
-shaders](shaders.md#spatial-shaders), ADR 0205); `mf-shaders` builds both kinds.
+Canvas items draw with **canvas surface shaders** (ADR 0237; the pipeline is ADR 0113's): `.slang` files whose first
+statement is `import mainframe.canvas;`, loaded as `Shader` resources (`Shader.Load`, the `.slang` importer) and drawn
+through a `ShaderMaterial`. The contract, parameters and building are the spatial ones ([Shaders → Surface
+shaders](shaders.md#surface-shaders)); what differs:
+
+```slang
+import mainframe.canvas;
+
+[blend(Blend.Add)]
+struct Material
+{
+    [color] float4 tints[2];
+    float stripes = 6.0;
+    [filter(Filter.Nearest), repeat(Repeat.Disabled)] Sampler2D mask;
+};
+
+void fragment(inout CanvasFragment s, Material m)
+{
+    float band = step(0.5, frac(s.uv.x * m.stripes));
+    s.color = lerp(m.tints[0], m.tints[1], band) * m.mask.Sample(s.uv).a;
+}
+```
+
+- **Built-ins.** `CanvasVertex`: `vertex` (local space; write it to move the vertex), `uv`, `color` (the item's
+  modulate), `modelMatrix` (the item's canvas-space transform), `canvasMatrix` (camera × stretch), `screenMatrix`, `time`,
+  `texturePixelSize`, `instanceCustom` (zero), `instanceId`, `vertexId`. `CanvasFragment`: `color` (on entry the vertex
+  colour × the item's texture at `uv`; the output), `uv`, `vertex` (screen pixels), `fragCoord`, `screenUv`,
+  `screenPixelSize`, `texturePixelSize`, `time`, `texture` (the item's texture, a `Sampler2D`). Matrices are the C#
+  values: `mul(float4(v.vertex, 0.0, 1.0), v.modelMatrix)`.
+- **Parameters**: one std140 block at set 1 binding 0, textures at set 1 bindings 1… (the item's texture is set 0, the 2D
+  lights set 2). `[color]` vectors are kept as written (Godot's non-HDR canvas), and `[range]` is not enforced.
+- **Render modes**: `[blend(Blend.Mix|Add|Sub|Mul|PremulAlpha|Disabled)]`, `[unshaded]` (no canvas modulation or lights)
+  and `[lightOnly]`.
+- **Varyings** start at location 2 (0 is uv + position, 1 the colour); integers are flat.
+- Items whose shader has `vertex()` keep local vertices (`modelMatrix` = the item's canvas-space transform,
+  `canvasMatrix` = camera × stretch) and draw alone; others are batched pre-transformed.
+
+SPIR-V is built ahead of time and committed next to the source (`x.slang.vert.spv`, `.frag.spv`, `.layout.json`,
+`.spvlock`): `just canvas-shaders <folders>` / `just canvas-shaders-check`. The fragment stage compiles first, and the vertex
+stage then writes only the inputs that stage kept (Slang drops unread fragment inputs, and an unread vertex output is a
+validation warning; `SpirvInputs`). `ShaderMaterial.SetShaderParameter(name, value)` sets parameters (vectors as
+`System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for textures). Runtime-updated textures
+(`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes. The same `Shader`/`ShaderMaterial` carry
+spatial surface shaders to 3D meshes ([Shaders → Surface shaders](shaders.md#surface-shaders), ADR 0205); `mf-shaders`
+builds both kinds.
 
 ## Camera and stretch
 

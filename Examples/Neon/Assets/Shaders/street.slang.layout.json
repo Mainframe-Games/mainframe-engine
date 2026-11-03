@@ -1,0 +1,62 @@
+{
+  "format": 1,
+  "kind": "spatial",
+  "vertex": true,
+  "fragment": true,
+  "blockSize": 16,
+  "modes": {
+    "blend": 0,
+    "cull": "Back",
+    "depthDraw": "Opaque",
+    "alpha": "Opaque",
+    "noDepthTest": false,
+    "unshaded": false,
+    "lightOnly": false,
+    "worldVertexCoords": false,
+    "noFog": false,
+    "blinnPhong": false
+  },
+  "uniforms": [
+    {
+      "name": "marking_energy",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 0,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        0.55
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "reflections",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 4,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        1
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    }
+  ],
+  "varyings": [
+    {
+      "name": "world",
+      "type": "float3",
+      "location": 12,
+      "locations": 1,
+      "flat": false
+    }
+  ]
+}

@@ -1,15 +1,13 @@
 // Canvas items (docs/design/canvas.md, ADR 0111): the push constants shared by the canvas renderer's default shaders and
-// every canvas_item shader, mirroring Godot 4.7's canvas.glsl data (world/canvas/screen transforms, modulation).
+// every canvas surface shader (ADR 0237), mirroring Godot 4.7's canvas.glsl data (world/canvas/screen transforms,
+// modulation).
 //
-// Spaces: vertices arrive in item-local space when the material's shader has vertex() (MODEL_MATRIX = the item's global
-// transform), else already transformed to target pixels (MODEL_MATRIX = CANVAS_MATRIX = identity). CANVAS_MATRIX maps
-// canvas space to target pixels (camera / layer × stretch); SCREEN maps target pixels to Vulkan NDC (y down).
+// Spaces: vertices arrive in item-local space when the material's shader has vertex() (modelMatrix = the item's global
+// transform), else already transformed to target pixels (modelMatrix = canvasMatrix = identity). canvasMatrix maps
+// canvas space to target pixels (camera / layer × stretch); the screen matrix maps target pixels to Vulkan NDC (y down).
 //
-// The matrix functions list the GLSL columns as constructor arguments (row-major layout): native code transforms with
-// mul(v, M), and translated canvas shaders (compiled with -allow-glsl) with GLSL's M * v; both give Godot's result.
+// The matrix functions list the C# rows as constructor arguments (row-major layout): code transforms with mul(v, M).
 #pragma once
-
-#include "glsl_compat.slang" // glsl_matN: GLSL's one-argument matrix constructors for translated canvas shaders
 
 struct CanvasPush
 {

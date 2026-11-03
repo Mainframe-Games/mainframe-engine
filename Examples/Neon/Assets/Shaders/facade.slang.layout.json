@@ -1,0 +1,195 @@
+{
+  "format": 1,
+  "kind": "spatial",
+  "vertex": true,
+  "fragment": true,
+  "blockSize": 48,
+  "modes": {
+    "blend": 0,
+    "cull": "Back",
+    "depthDraw": "Opaque",
+    "alpha": "Opaque",
+    "noDepthTest": false,
+    "unshaded": false,
+    "lightOnly": false,
+    "worldVertexCoords": false,
+    "noFog": false,
+    "blinnPhong": false
+  },
+  "uniforms": [
+    {
+      "name": "part",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 0,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        0
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "ground_y",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 4,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        -70
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "storey",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 8,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        3.5
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "ledge_every",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 12,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        17.5
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "window_energy",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 16,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        1.5
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "trim_energy",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 20,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        3.6
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "detail",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 24,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        1
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "lit_scale",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 28,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        1
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    },
+    {
+      "name": "neon_scale",
+      "type": "Float",
+      "arrayLength": 0,
+      "offset": 32,
+      "size": 4,
+      "stride": 4,
+      "default": [
+        1
+      ],
+      "color": false,
+      "binding": -1,
+      "filter": "ParentNode",
+      "repeat": "ParentNode",
+      "defaultTexture": "White"
+    }
+  ],
+  "varyings": [
+    {
+      "name": "world",
+      "type": "float3",
+      "location": 12,
+      "locations": 1,
+      "flat": false
+    },
+    {
+      "name": "normal",
+      "type": "float3",
+      "location": 13,
+      "locations": 1,
+      "flat": false
+    },
+    {
+      "name": "custom",
+      "type": "float4",
+      "location": 14,
+      "locations": 1,
+      "flat": false
+    },
+    {
+      "name": "scale",
+      "type": "float2",
+      "location": 15,
+      "locations": 1,
+      "flat": false
+    }
+  ]
+}

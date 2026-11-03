@@ -44,7 +44,7 @@ internal sealed class SpatialMaterialGpu(SpatialShaderGpu shader)
 }
 
 /// <summary>
-/// <see cref="ShaderMaterial"/>s with a <c>shader_type spatial</c> shader in the mesh renderer (ADR 0205). Each shader
+/// <see cref="ShaderMaterial"/>s with a spatial surface shader in the mesh renderer (ADRs 0205, 0237). Each shader
 /// gets its own set-2 layout and pipeline layout (like the terrain splat material's, sets 0 and 1 stay bound), and every
 /// pass draws it with the shader's own SPIR-V: the colour pass, the depth prepass and velocity, both shadow casters and
 /// the object-ID pass, so vertex displacement and the alpha scissor agree in all of them. Its pipelines live in the
@@ -66,7 +66,7 @@ internal sealed unsafe partial class MeshRenderer
             entry = new SpatialShaderGpu(shader, shader.Spatial!, _spatialById.Count + 1);
             _spatialShaders.Add(shader, entry);
             _spatialById.Add(entry);
-            if (CanvasShaderBuild.SpatialSpvFiles(shader.SpvBasePath ?? "").Any(f => shader.SpvBasePath is null || !File.Exists(f)))
+            if (SurfaceShaderBuild.SpvFiles(shader.SpvBasePath ?? "", SurfaceShaderKind.Spatial).Any(f => shader.SpvBasePath is null || !File.Exists(f)))
             {
                 entry.Missing = true;
                 Log.Warning($"[Mesh] The spatial shader '{shader.ResourcePath ?? shader.Spatial!.Name}' has no SPIR-V (build it with `just canvas-shaders <folder>`); drawing with the default material.");
@@ -165,7 +165,7 @@ internal sealed unsafe partial class MeshRenderer
             var gpu = texture?.Gpu ?? FallbackTexture(uniform.TextureHint);
             var settings = texture?.Texture.ImportSettings;
             var sampling = settings?.ToSampling() ?? TextureSampling.LinearRepeat;
-            // Godot's filter_* / repeat_* hints override the texture's own sampling.
+            // The parameter's [filter(…)] / [repeat(…)] override the texture's own sampling.
             if (uniform.Filter == CanvasTextureFilter.Nearest)
                 sampling = sampling with { Filter = Filter.Nearest };
             else if (uniform.Filter == CanvasTextureFilter.Linear)
@@ -201,7 +201,7 @@ internal sealed unsafe partial class MeshRenderer
         _ctx.Vk.UpdateDescriptorSets(_ctx.Device, samplers > 0 ? 2u : 1u, writes, 0, null);
     }
 
-    // What an unset sampler samples (Godot's hint_default_*; hint_normal: a flat normal).
+    // What an unset texture samples ([defaultTexture(…)]; Normal: a flat normal).
     private GpuTexture FallbackTexture(ShaderTextureHint hint)
     {
         switch (hint)

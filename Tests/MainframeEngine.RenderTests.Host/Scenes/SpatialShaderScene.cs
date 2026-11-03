@@ -7,14 +7,14 @@ using Color = System.Drawing.Color;
 /// <summary>
 /// Spatial shaders (ADR 0205), lit by a sun with cascaded shadows and an omni light:
 /// <list type="bullet">
-/// <item>the ground: a plane whose albedo is procedural in world space (<c>spatial_ground.mfshader</c>: a biome map,
+/// <item>the ground: a plane whose albedo is procedural in world space (<c>spatial_ground.slang</c>: a biome map,
 /// value noise, specks; a colour array, scalars and a nearest sampler set from C#);</item>
-/// <item>fungal stalks in one <see cref="MultiMeshInstance3D"/> swaying by world position and <c>TIME</c>, out of step by
-/// <c>INSTANCE_CUSTOM</c>, with matching swaying shadows (<c>spatial_sway.mfshader</c>, Blinn-Phong, cull_disabled);</item>
-/// <item>a dissolving sphere loaded from <c>spatial_dissolve.mres</c> (its uniforms from the file, a hit-flash tint from
-/// C#): a noise alpha scissor with an emissive edge, cut out in its shadow and in picking too;</item>
+/// <item>fungal stalks in one <see cref="MultiMeshInstance3D"/> swaying by world position and <c>time</c>, out of step by
+/// <c>instanceCustom</c>, with matching swaying shadows (<c>spatial_sway.slang</c>, Blinn-Phong, <c>Cull.Disabled</c>);</item>
+/// <item>a dissolving sphere loaded from <c>spatial_dissolve.mres</c> (its parameters from the file, a hit-flash tint from
+/// C#): a noise alpha cutout with an emissive edge, cut out in its shadow and in picking too;</item>
 /// <item>a box with a standard material and an additive rim glow as its <see cref="Material.NextPass"/>, and a small
-/// sphere with the rim as its <see cref="GeometryInstance3D.MaterialOverlay"/> (<c>spatial_rim.mfshader</c>).</item>
+/// sphere with the rim as its <see cref="GeometryInstance3D.MaterialOverlay"/> (<c>spatial_rim.slang</c>).</item>
 /// </list>
 /// Self-checks picks: the ground, a stalk, the box, a solid dissolve sphere (progress 0) and one cut away completely
 /// (progress 1.01, so the pick passes through to the ground).
@@ -39,7 +39,7 @@ public sealed class SpatialShaderScene(HostOptions host) : ShadowSceneBase(host)
         scene.AddChild(new OmniLight3D { Name = "Omni", Position = new Vector3(2.8f, 1.2f, 2.6f), Color = new Vector3(1f, 0.55f, 0.25f), Energy = 2.5f, Range = 4.5f });
 
         // Ground: one material, the albedo entirely from the world position.
-        var ground = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_ground.mfshader")) };
+        var ground = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_ground.slang")) };
         ground.SetShaderParameter("palette", new[]
         {
             Srgb(96, 112, 64), Srgb(122, 128, 74), // grass, low biome
@@ -61,7 +61,7 @@ public sealed class SpatialShaderScene(HostOptions host) : ShadowSceneBase(host)
             multimesh.SetInstanceCustomData(i, new Vector4(i * 0.137f, tint.X, tint.Y, tint.Z));
         }
 
-        var sway = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_sway.mfshader")) };
+        var sway = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_sway.slang")) };
         _stalks = new MultiMeshInstance3D { Name = "Stalks", Multimesh = multimesh, MaterialOverride = sway };
         scene.AddChild(_stalks);
 
@@ -83,7 +83,7 @@ public sealed class SpatialShaderScene(HostOptions host) : ShadowSceneBase(host)
         scene.AddChild(_gone);
 
         // A next pass and an overlay: the additive rim over standard materials.
-        var rimShader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_rim.mfshader"));
+        var rimShader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_rim.slang"));
         var boxMaterial = Plain(200, 200, 205, 0.2f);
         boxMaterial.NextPass = new ShaderMaterial { Shader = rimShader };
         _box = new MeshInstance3D { Name = "RimBox", Position = new Vector3(-1.3f, 0.6f, 0.4f), RotationDegrees = new Vector3(0, 30, 0), Mesh = new BoxMesh { Size = new Vector3(1.2f, 1.2f, 1.2f) }, MaterialOverride = boxMaterial };
@@ -102,7 +102,7 @@ public sealed class SpatialShaderScene(HostOptions host) : ShadowSceneBase(host)
 
     private static MeshInstance3D Dissolved(string name, Vector3 position, float progress)
     {
-        var material = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_dissolve.mfshader")) };
+        var material = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_dissolve.slang")) };
         material.SetShaderParameter("progress", progress);
         material.SetShaderParameter("base_color", Srgb(120, 200, 120));
         return new MeshInstance3D { Name = name, Position = position, Mesh = new SphereMesh { Radius = 0.6f, Height = 1.2f }, MaterialOverride = material };

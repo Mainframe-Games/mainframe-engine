@@ -70,7 +70,7 @@ public enum ShaderSetId : byte
     MeshDepthSkinned,
 
     /// <summary>
-    /// A <see cref="ShaderMaterial"/> with a <c>shader_type spatial</c> shader (ADR 0205): the shader's colour pass SPIR-V
+    /// A <see cref="ShaderMaterial"/> with a spatial surface shader (ADRs 0205, 0237): the shader's colour pass SPIR-V
     /// (<see cref="PipelineKey.UserShader"/> says which), its own pipeline layout; always <see cref="VertexLayoutId.MeshInstancedExt"/>.
     /// </summary>
     MeshSpatial,

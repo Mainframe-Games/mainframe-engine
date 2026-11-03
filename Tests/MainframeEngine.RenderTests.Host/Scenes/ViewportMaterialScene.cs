@@ -8,7 +8,7 @@ using Color = System.Drawing.Color;
 /// Sub-viewport textures on 3D materials (ADR 0216): four 16:9 screens facing the camera. The top two are unshaded
 /// <see cref="StandardMaterial3D"/>s: the left shows a 2D sub-viewport (<see cref="SubViewport.Disable3D"/>) drawing four
 /// coloured quadrants, the right a 3D sub-viewport's camera view (an orange box up and to the left on a teal clear colour).
-/// Bottom left: a spatial <see cref="ShaderMaterial"/> (<c>spatial_screen.mfshader</c>, channels rotated rgb → gbr)
+/// Bottom left: a spatial <see cref="ShaderMaterial"/> (<c>spatial_screen.slang</c>, channels rotated rgb → gbr)
 /// sampling the 2D view; bottom right: a lit black material whose <see cref="StandardMaterial3D.EmissionTexture"/> is the
 /// 3D view. Until <see cref="ResizeFrame"/> the panel is plain grey and the box hidden; then both views double in size and
 /// show their content, so the screens can only show it from the new images. <c>--count 1</c> spins the 3D view's box every
@@ -81,7 +81,7 @@ public sealed class ViewportMaterialScene(HostOptions host) : RenderTestGame(hos
             new StandardMaterial3D { ShadingMode = ShadingMode.Unshaded, AlbedoTexture = _panel.GetTexture() }));
         root.AddChild(Screen("ViewAlbedo", ViewAlbedo,
             new StandardMaterial3D { ShadingMode = ShadingMode.Unshaded, AlbedoTexture = _view.GetTexture() }));
-        var shader = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_screen.mfshader")) };
+        var shader = new ShaderMaterial { Shader = Shader.Load(ContentPaths.Resolve("Assets/Shaders/spatial_screen.slang")) };
         shader.SetShaderParameter("screen", _panel.GetTexture());
         root.AddChild(Screen("PanelShader", PanelShader, shader));
         root.AddChild(Screen("ViewEmission", ViewEmission, new StandardMaterial3D
