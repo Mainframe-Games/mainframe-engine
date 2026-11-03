@@ -71,6 +71,21 @@ float linearizeDepth(float depth)
     return near * far / (far - depth * (far - near));
 }
 
+// The depth a line drawn after post-processing (ADR 0169: the grid and debug lines, through the unjittered camera) tests
+// against the scene depth with. TAA jittered that depth by up to half a pixel, so a line lying on a surface (a selection
+// wireframe, the grid on a floor) would pass and fail from frame to frame; the line is pulled towards the camera by
+// 4 pixels' footprint, what a half-pixel shift changes on a surface seen at down to about 7 degrees.
+float afterPostLineDepth(float depth)
+{
+    float near = frame.clip.x;
+    float far  = frame.clip.y;
+    float pixel = 2.0 / (frame.projection[1][1] * frame.viewport.y); // one pixel's footprint per unit of view depth
+    if (frame.projection[2][3] == 0.0)
+        return saturate(depth - 4.0 * pixel / (far - near)); // orthographic: depth is linear in view depth
+    float z = max(linearizeDepth(depth) * (1.0 - 4.0 * pixel), near);
+    return saturate(far * (z - near) / (z * (far - near)));
+}
+
 // A clip position of this frame's (jittered) viewProjection without the jitter: what the unjittered projection gives.
 float4 unjitterClip(float4 clip)
 {

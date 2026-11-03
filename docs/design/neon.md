@@ -184,6 +184,11 @@ they land between the piers (the kit centres a whole number of bays on each face
   fading by the 20th floor, the sky above, the glow over downtown on the faces that look at it. Soft pools of sign colour
   wash the low floors. Wet glass mirrors a fake of the city (`glass_reflection()`).
 - All of this fades out above a few pixels a window. `detail` (the menu's Window interiors) turns it off.
+- **Per-instance values are `flat`.** The seeds reach `fragment()` through `varying flat vec4 v_custom` (and the scale
+  through `flat v_scale`; `crowd`, `screen` and `sign` do the same). Interpolated, the three equal vertex values come back
+  a few ulps apart per pixel, and the hashes, `floor`s and `step`s of them (room widths, lit windows, televisions) flipped
+  along rasterised rows: windows streaked, and under TAA's jitter they flickered from frame to frame, most visibly in the
+  editor's view from outside the home tower. `Neon.Tests` `ShaderTests` checks every varying fed by `INSTANCE_CUSTOM`.
 
 `street.gdshader` does the same for the ground. `city_mirror()` traces the reflected ray to an imaginary wall of shops
 and windows across the street and draws only soft shapes, since a wet road smears a light into a streak; hard cells there

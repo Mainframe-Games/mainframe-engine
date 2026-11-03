@@ -11,7 +11,7 @@ uniform float brightness = 0.0;
 uniform float energy = 2.2;
 uniform float aspect = 1.8;
 
-varying vec4 v_custom;
+varying flat vec4 v_custom;
 
 float hash11(float p) {
 	p = fract(p * 0.1031);

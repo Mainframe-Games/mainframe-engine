@@ -12,8 +12,8 @@ using Color = System.Drawing.Color;
 /// 0.02), adds glow, SSAO and a strong vignette. Self-checked on <see cref="SubViewport.CaptureImage"/>: with
 /// post-processing the scene is grey and the line patches keep their exact colours (drawn after the effects); without it the
 /// scene keeps its colours. <c>--count</c>: 0 post on, 1 post off (the same scene: the engine tonemap alone), 2 post on with
-/// TAA (the history accumulates; the overlay lines do not move with the jitter), 3 post on with TAA and an orbiting camera
-/// (the allocation run).
+/// TAA (the history accumulates; the overlay lines do not move with the jitter, and a patch of blue debug lines lying on the
+/// floor stays whole although the floor's depth is jittered), 3 post on with TAA and an orbiting camera (the allocation run).
 /// </summary>
 public sealed class SubViewportPostScene(HostOptions host) : RenderTestGame(host)
 {
@@ -24,6 +24,7 @@ public sealed class SubViewportPostScene(HostOptions host) : RenderTestGame(host
     private static readonly Vector3 CameraTarget = new(0f, 0.4f, 0f);
     private static readonly Vector3 RedPatch = new(-1.2f, 1.1f, 1.6f);   // in front of everything
     private static readonly Vector3 GreenPatch = new(1.2f, 1.1f, 1.6f);
+    private static readonly Vector3 FloorPatch = new(0f, 0f, 1.4f);      // on the floor: coplanar with it
     private static readonly Vector3 SphereProbe = new(-0.75f, 0.55f, 0.55f); // the sphere's lit front
     private static readonly Vector3 BoxProbe = new(0.8f, 0.5f, 0.31f);       // the box's front face
 
@@ -131,6 +132,12 @@ public sealed class SubViewportPostScene(HostOptions host) : RenderTestGame(host
             var y = (i - 12) * 0.004f;
             _view.DebugLines.AddLine(RedPatch + new Vector3(-0.05f, y, 0f), RedPatch + new Vector3(0.05f, y, 0f), new Vector4(1f, 0f, 0f, 1f));
             _view.OverlayLines.AddLine(GreenPatch + new Vector3(-0.05f, y, 0f), GreenPatch + new Vector3(0.05f, y, 0f), new Vector4(0f, 1f, 0f, 1f));
+            if (Taa)
+            {
+                // Lines lying on the floor (a selection wireframe, the grid): depth-tested against the jittered prepass depth.
+                var z = (i - 12) * 0.01f;
+                _view.DebugLines.AddLine(FloorPatch + new Vector3(-0.1f, 0f, z), FloorPatch + new Vector3(0.1f, 0f, z), new Vector4(0f, 0f, 1f, 1f));
+            }
         }
 
         if (Host.Count != 3 && gameTime.FrameCount is CheckFrame or CheckFrame + 12 or CheckFrame + 13)
@@ -221,6 +228,20 @@ public sealed class SubViewportPostScene(HostOptions host) : RenderTestGame(host
                     var probe = patch + new Vector3(0.03f, dy, 0f); // inside the patch: every pixel is a line
                     if (Pixel(a, width, height, probe) != Pixel(b, width, height, probe))
                         Fail($"A line patch changed between two frames at {probe}: the overlay is jittered.");
+                }
+            }
+
+            // The lines on the floor are whole in both frames: the jitter moves the floor's depth by up to half a pixel, and
+            // afterPostLineDepth keeps a line on it in front.
+            for (var dz = -0.1f; dz <= 0.1f; dz += 0.025f)
+            {
+                for (var dx = -0.06f; dx <= 0.06f; dx += 0.03f)
+                {
+                    var probe = FloorPatch + new Vector3(dx, 0f, dz);
+                    var first = Pixel(a, width, height, probe);
+                    var second = Pixel(b, width, height, probe);
+                    if (!(first.Z >= 250 && first.X <= 5 && first.Y <= 5) || first != second)
+                        Fail($"The debug lines on the floor at {probe} are {first}, then {second}: hidden by the jittered floor.");
                 }
             }
         }
