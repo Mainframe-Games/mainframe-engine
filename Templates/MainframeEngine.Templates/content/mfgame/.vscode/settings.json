@@ -1,0 +1,5 @@
+{
+  // The shader-slang extension (shader-slang.slang-language-extension) checks Assets/**/*.slang surface shaders against
+  // the engine's modules, which every build copies here (docs/design/shaders.md#editor-support).
+  "slang.additionalSearchPaths": ["${workspaceFolder}/.mainframe/shaders/include"]
+}

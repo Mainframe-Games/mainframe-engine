@@ -49,6 +49,11 @@
       "value": "(EngineSource == \"package\")"
     }
   },
+  "sources": [
+    {
+      "copyOnly": [ "**/*.spv" ]
+    }
+  ],
   "primaryOutputs": [
     { "path": "MyGame/MyGame.csproj" },
     { "path": "MyGame.Desktop/MyGame.Desktop.csproj" }

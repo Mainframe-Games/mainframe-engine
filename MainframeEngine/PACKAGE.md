@@ -13,6 +13,8 @@ This package is everything a game needs to build and run, with no engine checkou
 - the engine content (compiled shaders, UI widgets, fonts), which is copied into your app's `Assets/` folder
 - build integration: `.po` → `.mo` localization, the `DEMO` define from `project.mfproj`, and macOS development app bundles
 - player builds: `tools/mf-export`, the exporter the editor's File › Export runs (see below)
+- surface shaders: `tools/mf-shaders` and the engine's Slang modules (`import mainframe.spatial;`), run through the
+  `MainframeShaders` target (see below)
 
 **Requirements:** .NET 10, plus a GPU with Vulkan 1.2 (MoltenVK is included on macOS).
 
@@ -35,6 +37,20 @@ return GameHost.Run(args, typeof(MyNode).Assembly);
 ```
 
 Copy `project.mfproj` and your `Assets/` to the output folder, as the template's desktop project does.
+
+## Surface shaders
+
+Your own shaders are Slang surface shaders: `.slang` files under `Assets/` that start with `import mainframe.spatial;` (3D
+meshes) or `import mainframe.canvas;` (2D items); the engine generates every pass around their `vertex()` and
+`fragment()`. Their SPIR-V is built ahead of time and committed next to them:
+
+```bash
+dotnet msbuild MyGame.Desktop -t:MainframeShaders                                   # build stale ones (needs slangc)
+dotnet msbuild MyGame.Desktop -t:MainframeShaders -p:MainframeShadersCommand=check  # fail on stale ones
+```
+
+slangc comes with the Vulkan SDK or a Slang release. Every build copies the engine's modules to `.mainframe/shaders/include`
+for the shader-slang VS Code extension (`slang.additionalSearchPaths`).
 
 ## Player builds
 
