@@ -60,6 +60,7 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
     public SixDofAngular? SixDofAngular;
     public SixDofLinearDrive? SixDofLinearDrive;
     public SixDofAngularDrive? SixDofAngularDrive;
+    public PoseDrive? PoseDrive;
 
     /// <summary>The rest rotation of B relative to A (Jitter2's <c>Q0</c>): <c>conj(qB) · qA</c> at the authored pose.</summary>
     public Quaternion RestRotation => FrameRotationB * Quaternion.Conjugate(FrameRotationA);
@@ -79,6 +80,7 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
         SetEnabled(SixDofAngular, enabled);
         SetEnabled(SixDofLinearDrive, enabled);
         SetEnabled(SixDofAngularDrive, enabled);
+        SetEnabled(PoseDrive, enabled);
     }
 
     private static void SetEnabled(Constraint? constraint, bool enabled)
@@ -103,6 +105,7 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
         Remove(world, SixDofAngular);
         Remove(world, SixDofLinearDrive);
         Remove(world, SixDofAngularDrive);
+        Remove(world, PoseDrive);
     }
 
     private static void Remove(Jitter2.World world, Constraint? constraint)
@@ -127,6 +130,7 @@ internal sealed class JointRecord3D(Joint3D node, PhysicsSpace3D space, long seq
         SixDofAngular = null;
         SixDofLinearDrive = null;
         SixDofAngularDrive = null;
+        PoseDrive = null;
         BodyA = BodyB = null;
     }
 
@@ -679,6 +683,14 @@ public sealed partial class PhysicsSpace3D
         record.SixDofAngularDrive = _world.CreateConstraint<SixDofAngularDrive>(record.BodyA!, record.BodyB!);
         ref var angularDrive = ref record.SixDofAngularDrive.Data;
         (angularDrive.LocalFrame1, angularDrive.LocalFrame2) = (frameA, frameB);
+    }
+
+    /// <summary>An active-ragdoll drive (ADR 0235): off until <see cref="BoneDrive3D.Drive"/> gives it a target.</summary>
+    internal PoseDrive CreatePoseDrive(JointRecord3D record)
+    {
+        var drive = _world.CreateConstraint<PoseDrive>(record.BodyA!, record.BodyB!);
+        drive.Data.TargetRotation = JQuaternion.Identity;
+        return drive;
     }
 
     private static JVector WorldAxisB(JointRecord3D record, Vector3 axis) =>

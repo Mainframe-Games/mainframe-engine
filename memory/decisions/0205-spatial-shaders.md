@@ -1,7 +1,7 @@
 # ADR 0205 — Spatial shaders: ShaderMaterial with shader_type spatial on 3D meshes
 
 - **Date:** 2026-10-25
-- **Status:** accepted; file extension superseded by [ADR 0235](0235-mfshader-extension.md) (`.mfshader`)
+- **Status:** accepted; file extension superseded by [ADR 0236](0236-mfshader-extension.md) (`.mfshader`)
 - **Milestone:** — (Crash Site Defense's move to 3D, mainframe-engine#121; game issue Crash-Site-Defense#9)
 - **Docs:** docs/design/shaders.md#spatial-shaders, docs/design/materials-and-meshes.md#shadermaterial-spatial-shaders-adr-0205
 

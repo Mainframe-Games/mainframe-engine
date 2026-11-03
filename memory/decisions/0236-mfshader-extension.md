@@ -1,4 +1,4 @@
-# ADR 0235 — Shader files are `.mfshader`, not `.gdshader`
+# ADR 0236 — Shader files are `.mfshader`, not `.gdshader`
 
 - **Date:** 2026-11-03
 - **Status:** accepted

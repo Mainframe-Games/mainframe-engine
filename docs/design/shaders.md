@@ -140,7 +140,7 @@ shaders' SPIR-V when the engine moved to Slang):
 
 ### The `.mfshader` extension
 
-Shader files written in Godot's shading language are `.mfshader` ([ADR 0235](../../memory/decisions/0235-mfshader-extension.md));
+Shader files written in Godot's shading language are `.mfshader` ([ADR 0236](../../memory/decisions/0236-mfshader-extension.md));
 before that they were `.gdshader`. Old `.gdshader` files still load and build, with a deprecation warning: rename each one
 with its sidecars (`x.gdshader.meta`, `.spvlock` and every `.spv`) to keep its UID, then run `just canvas-shaders`, since the
 lock's hash covers the file name. For syntax highlighting, map the extension to a Godot shader mode in the editor, e.g. VS

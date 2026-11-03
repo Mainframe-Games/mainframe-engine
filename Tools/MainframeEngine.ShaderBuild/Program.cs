@@ -46,7 +46,7 @@ foreach (var folder in args.Skip(1))
     {
         checkedCount++;
         if (Shader.IsLegacy(file))
-            Console.Error.WriteLine($"warning: {file}: the .gdshader extension is deprecated; rename it to .mfshader (ADR 0235)");
+            Console.Error.WriteLine($"warning: {file}: the .gdshader extension is deprecated; rename it to .mfshader (ADR 0236)");
         try
         {
             if (args[0] == "check")

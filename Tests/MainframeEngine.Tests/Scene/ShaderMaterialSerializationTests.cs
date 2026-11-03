@@ -92,7 +92,7 @@ public sealed class ShaderMaterialSerializationTests : IDisposable
     [Fact]
     public void LegacyGdshaderFilesStillLoadWithADeprecationWarning()
     {
-        // ADR 0235: shaders are .mfshader; a project's old .gdshader still loads and its SPIR-V still counts as build output.
+        // ADR 0236: shaders are .mfshader; a project's old .gdshader still loads and its SPIR-V still counts as build output.
         Directory.CreateDirectory(ContentPath("Shaders"));
         File.WriteAllText(ContentPath("Shaders/old.gdshader"), "shader_type canvas_item;");
         AssetDatabase.Current.Scan();

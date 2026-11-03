@@ -20,10 +20,10 @@ namespace MainframeEngine;
 [EditorIcon("code")]
 public sealed class Shader : Resource
 {
-    /// <summary>The extension of a shader file (ADR 0235).</summary>
+    /// <summary>The extension of a shader file (ADR 0236).</summary>
     public const string Extension = ".mfshader";
 
-    /// <summary>The extension shaders had before ADR 0235: such files still load and build, with a warning to rename them.</summary>
+    /// <summary>The extension shaders had before ADR 0236: such files still load and build, with a warning to rename them.</summary>
     public const string LegacyExtension = ".gdshader";
 
     /// <summary>The translated canvas program (uniform layout, blend and render modes); null for a spatial shader.</summary>
@@ -81,7 +81,7 @@ public sealed class Shader : Resource
         var source = File.ReadAllText(fullPath);
         var name = Path.GetFileName(fullPath);
         if (IsLegacy(fullPath))
-            Log.Warning($"[Shader] '{path}': the .gdshader extension is deprecated; rename the file and its SPIR-V, lock and .meta to .mfshader (ADR 0235).");
+            Log.Warning($"[Shader] '{path}': the .gdshader extension is deprecated; rename the file and its SPIR-V, lock and .meta to .mfshader (ADR 0236).");
         Shader shader;
         bool upToDate;
         if (SpatialShaderCompiler.IsSpatial(source))
@@ -102,7 +102,7 @@ public sealed class Shader : Resource
         return shader;
     }
 
-    /// <summary>True when <paramref name="path"/> has the pre-ADR 0235 extension (<see cref="LegacyExtension"/>).</summary>
+    /// <summary>True when <paramref name="path"/> has the pre-ADR 0236 extension (<see cref="LegacyExtension"/>).</summary>
     public static bool IsLegacy(string path) => path.EndsWith(LegacyExtension, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>

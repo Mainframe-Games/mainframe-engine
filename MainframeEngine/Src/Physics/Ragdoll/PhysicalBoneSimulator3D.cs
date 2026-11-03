@@ -14,6 +14,10 @@ namespace MainframeEngine;
 /// Bodies of one simulator never collide with each other. The pose write runs at a high
 /// <see cref="Node.ProcessPriority"/> (after <see cref="AnimationPlayer"/>, before skinning). Joint limits are measured
 /// from the pose the skeleton has when the simulator becomes ready. In the editor it works only inside a running Simulate.
+/// Active ragdolls (G9.10c, ADR 0235): with <see cref="DriveStrength"/> above 0, simulated bones are pulled towards their
+/// animated rotation relative to their parent bone (local drives), and with <see cref="HoldStrength"/> above 0, bones
+/// with a <see cref="PhysicalBone3D.HoldStrength"/> towards their animated world pose (holds); both are soft constraints
+/// in the solver, capped by a torque or force. Both strengths default to 0: a passive ragdoll.
 /// </remarks>
 [EditorIcon("sitemap", Family = EditorIconFamily.Physics)]
 public sealed class PhysicalBoneSimulator3D : Node3D
@@ -34,6 +38,11 @@ public sealed class PhysicalBoneSimulator3D : Node3D
     private Vector3[] _writtenPositions = [];
     private Quaternion[] _writtenRotations = [];
     private bool[] _written = [];
+
+    // Active ragdolls: each skeleton bone's animated pose in skeleton space this fixed step, and per physical bone the
+    // index (into _bones) of the body its local drive pulls against (−1: none, a root).
+    private Transform3D[] _animatedGlobals = [];
+    private int[] _driveParents = [];
     private Skeleton3D? _skeleton;
     private int _group;
     private bool _ready;
@@ -50,6 +59,93 @@ public sealed class PhysicalBoneSimulator3D : Node3D
         get;
         set => field = Math.Clamp(value, 0f, 1f);
     } = 1f;
+
+    /// <summary>
+    /// Active ragdolls: how strongly simulated bones are pulled towards their animated rotation relative to their parent
+    /// bone, 0–1 (scales <see cref="DriveFrequency"/> and <see cref="DriveMaxTorque"/>; each bone's
+    /// <see cref="PhysicalBone3D.DriveStrength"/> scales it again). 0 is a passive ragdoll. Fade it to go limp.
+    /// </summary>
+    [ExportGroup("Drive")]
+    [Export(Range = "0,1,0.01")]
+    public float DriveStrength
+    {
+        get;
+        set => field = Math.Clamp(value, 0f, 1f);
+    }
+
+    /// <summary>
+    /// The local drives' frequency in Hz at full strength: higher is stiffer. A drive's stiffness is its body's inertia
+    /// × (2π·frequency)², and a spine carries the whole upper body, so drives that hold a person up are stiff (30 Hz).
+    /// They are soft rows in the solver: give an active ragdoll at least 2 physics substeps, or a stack of bones sags.
+    /// </summary>
+    [Export(Range = "0,120,0.1")]
+    public float DriveFrequency
+    {
+        get;
+        set => field = MathF.Max(0f, value);
+    } = 30f;
+
+    /// <summary>The local drives' damping ratio (1: critically damped).</summary>
+    [Export(Range = "0,10,0.01")]
+    public float DriveDampingRatio
+    {
+        get;
+        set => field = MathF.Max(0f, value);
+    } = 1f;
+
+    /// <summary>The most torque a local drive applies at full strength (N·m).</summary>
+    [Export(Range = "0,100000,1")]
+    public float DriveMaxTorque
+    {
+        get;
+        set => field = MathF.Max(0f, value);
+    } = 200f;
+
+    /// <summary>
+    /// Active ragdolls: how strongly bones with a <see cref="PhysicalBone3D.HoldStrength"/> are held at their animated
+    /// world pose, 0–1. 0 lets the body fall; with holds on the pelvis, the character stays up while its limbs react.
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float HoldStrength
+    {
+        get;
+        set => field = Math.Clamp(value, 0f, 1f);
+    }
+
+    /// <summary>
+    /// The holds' frequency in Hz at full strength. A hold's stiffness is its body's mass × (2π·frequency)², and a held
+    /// pelvis carries the whole body: 15 Hz keeps a 20-body character within a centimetre.
+    /// </summary>
+    [Export(Range = "0,120,0.1")]
+    public float HoldFrequency
+    {
+        get;
+        set => field = MathF.Max(0f, value);
+    } = 15f;
+
+    /// <summary>The holds' damping ratio.</summary>
+    [Export(Range = "0,10,0.01")]
+    public float HoldDampingRatio
+    {
+        get;
+        set => field = MathF.Max(0f, value);
+    } = 1f;
+
+    /// <summary>The most force a hold applies at full strength (N).</summary>
+    [Export(Range = "0,1000000,1")]
+    public float HoldMaxForce
+    {
+        get;
+        set => field = MathF.Max(0f, value);
+    } = 2000f;
+
+    /// <summary>The most torque a hold applies at full strength (N·m).</summary>
+    [Export(Range = "0,100000,1")]
+    public float HoldMaxTorque
+    {
+        get;
+        set => field = MathF.Max(0f, value);
+    } = 500f;
 
     /// <summary>Some bones are simulated (<see cref="PhysicalBonesStartSimulation"/>).</summary>
     public bool IsSimulating { get; private set; }
@@ -86,7 +182,11 @@ public sealed class PhysicalBoneSimulator3D : Node3D
     public void PhysicalBonesStopSimulation()
     {
         foreach (var bone in _bones)
+        {
             Hold(bone);
+            StopDrives(bone);
+        }
+
         IsSimulating = false;
     }
 
@@ -104,6 +204,7 @@ public sealed class PhysicalBoneSimulator3D : Node3D
         _writtenPositions = new Vector3[count];
         _writtenRotations = new Quaternion[count];
         _written = new bool[count];
+        _animatedGlobals = new Transform3D[count];
         var bones = new List<PhysicalBone3D>();
         foreach (var child in Children)
         {
@@ -139,6 +240,9 @@ public sealed class PhysicalBoneSimulator3D : Node3D
 
         foreach (var bone in _bones)
             CreateJoint(bone);
+        _driveParents = new int[_bones.Length];
+        for (var i = 0; i < _bones.Length; i++)
+            CreateDrives(i);
         _ready = true;
     }
 
@@ -185,6 +289,69 @@ public sealed class PhysicalBoneSimulator3D : Node3D
         foreach (var bone in _bones)
             if (bone.HeldKinematic)
                 bone.GlobalTransform = Target(skeleton, bone);
+        if (IsSimulating)
+            UpdateDrives(skeleton);
+    }
+
+    // Active ragdolls: the simulated bones' drive targets from the animated pose, every step while simulating (a strength
+    // of 0 keeps the target, for the error readbacks, and turns the force off). Not the skeleton's current pose: while
+    // bones are simulated, OnProcess writes the bodies into the skeleton, and reading it back would make the bodies chase
+    // themselves. The animated local pose is what OnProcess keeps (a bone whose pose still equals what it wrote has not
+    // been re-posed by the animation since); parents come first in a skeleton, so the globals compose in one pass.
+    private void UpdateDrives(Skeleton3D skeleton)
+    {
+        for (var i = 0; i < _animatedGlobals.Length; i++)
+        {
+            var position = skeleton.GetBonePosePosition(i);
+            var rotation = skeleton.GetBonePoseRotation(i);
+            if (_written[i] && position == _writtenPositions[i] && rotation == _writtenRotations[i])
+            {
+                position = _animatedPositions[i];
+                rotation = _animatedRotations[i];
+            }
+
+            var local = Transform3D.FromTrs(position, rotation, skeleton.GetBonePoseScale(i));
+            var parent = skeleton.GetBoneParent(i);
+            _animatedGlobals[i] = parent >= 0 ? _animatedGlobals[parent] * local : local;
+        }
+
+        var toWorld = skeleton.GlobalTransform;
+        for (var i = 0; i < _bones.Length; i++)
+        {
+            var bone = _bones[i];
+            if (bone.HeldKinematic)
+            {
+                StopDrives(bone);
+                continue;
+            }
+
+            AnimatedBody(toWorld, i, out var position, out var rotation);
+            var drive = DriveStrength * bone.DriveStrength;
+            if (bone.LocalDrive is { } local && _driveParents[i] >= 0)
+            {
+                AnimatedBody(toWorld, _driveParents[i], out _, out var parentRotation);
+                local.Drive(Quaternion.Normalize(Quaternion.Conjugate(parentRotation) * rotation), Vector3.Zero, DriveFrequency * drive, DriveDampingRatio,
+                    DriveMaxTorque * drive, 0f, 0f, 0f);
+            }
+
+            var hold = HoldStrength * bone.HoldStrength;
+            bone.Hold?.Drive(rotation, position, HoldFrequency * hold, HoldDampingRatio, HoldMaxTorque * hold, HoldFrequency * hold, HoldDampingRatio,
+                HoldMaxForce * hold);
+        }
+    }
+
+    // Physical bone i's body in the world at the animated pose.
+    private void AnimatedBody(in Transform3D toWorld, int i, out Vector3 position, out Quaternion rotation)
+    {
+        var bone = _bones[i];
+        (toWorld * _animatedGlobals[bone.BoneIndex] * bone.BodyOffset).Decompose(out position, out rotation, out _);
+        rotation = Quaternion.Normalize(rotation);
+    }
+
+    private static void StopDrives(PhysicalBone3D bone)
+    {
+        bone.LocalDrive?.Stop();
+        bone.Hold?.Stop();
     }
 
     protected override void OnProcess(in GameTime gameTime)
@@ -280,13 +447,46 @@ public sealed class PhysicalBoneSimulator3D : Node3D
         bone.Joint = joint;
     }
 
+    // Active ragdolls: physical bone i's local drive (to the body of its nearest ancestor bone that has one, as its joint)
+    // and its world hold, internal children like the joints. They stay off until strengths are above 0.
+    private void CreateDrives(int i)
+    {
+        var bone = _bones[i];
+        _driveParents[i] = -1;
+        if (_skeleton is not { } skeleton || bone.BoneIndex < 0)
+            return;
+        for (var b = skeleton.GetBoneParent(bone.BoneIndex); b >= 0 && _driveParents[i] < 0; b = skeleton.GetBoneParent(b))
+            if (_byBone[b] is { } parent)
+                _driveParents[i] = Array.IndexOf(_bones, parent);
+        // Anchored at the bone's joint (the drive's inertia is about it), the hold at the body's centre; frames from the
+        // ready pose, as the joints'.
+        var ready = _readyPoses[i];
+        if (_driveParents[i] >= 0)
+        {
+            var parent = _bones[_driveParents[i]];
+            var local = new BoneDrive3D { Name = bone.Name + "Drive" };
+            AddChild(local);
+            local.NodeA = "../" + parent.Name;
+            local.NodeB = "../" + bone.Name;
+            local.UseAuthoredFrames(parent, _readyPoses[_driveParents[i]], bone, ready, ready * bone.JointOffset);
+            bone.LocalDrive = local;
+        }
+
+        var hold = new BoneDrive3D { Name = bone.Name + "Hold" };
+        AddChild(hold);
+        hold.NodeB = "../" + bone.Name;
+        hold.UseAuthoredFrames(null, Transform3D.Identity, bone, ready, ready);
+        bone.Hold = hold;
+    }
+
     /// <summary>
     /// Builds a physical skeleton for <paramref name="skeleton"/> (not added to it; the editor's "Create physical
     /// skeleton" adds it as one undo step): a simulator with one <see cref="PhysicalBone3D"/> per bone at least
     /// <paramref name="minBoneLength"/> long, a capsule from the bone to its first child (radius 20 % of the length; the
     /// default 1 kg, as Godot's: equal masses keep a chain of joints stiff, where a heavy thigh on a light pelvis stretches)
     /// and a 45°/30° cone-twist joint at the bone. Bones without children have no length and get no body. Limits are
-    /// generic: a humanoid map would make knees and elbows hinges (G1c, not yet).
+    /// generic: a humanoid map would make knees and elbows hinges (G1c, not yet). The first body (the root's, usually the
+    /// pelvis) gets <see cref="PhysicalBone3D.HoldStrength"/> 1, for active ragdolls.
     /// </summary>
     public static PhysicalBoneSimulator3D Build(Skeleton3D skeleton, float minBoneLength = 0.05f)
     {
@@ -319,6 +519,8 @@ public sealed class PhysicalBoneSimulator3D : Node3D
                 Transform = skeleton.GetBoneGlobalRest(bone) * offset,
             };
             body.AddChild(new CollisionShape3D { Name = "Shape", Shape = new CapsuleShape3D { Radius = radius, Height = length } });
+            if (simulator.ChildCount == 0)
+                body.HoldStrength = 1f; // the root body: an active ragdoll stands on it
             simulator.AddChild(body);
         }
 

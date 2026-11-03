@@ -4,11 +4,13 @@ The current state of G9 ([milestones](../milestones.md#gameplay-toolkit-)): join
 (2D) with limits, motors, springs and breaking; their debug draw and editor gizmo; rigid-part ragdolls
 (`Ragdoll3D`); skeleton ragdolls (`PhysicalBone3D`, `PhysicalBoneSimulator3D`) and the editor's Create physical
 skeleton; limit handles in the editor's viewport (G9.7); `MotorJoint2D` (G9.10a); `Generic6DofJoint3D` on the engine's
-own Jitter2 constraints (G9.10b). Decisions: [ADR 0201](../../memory/decisions/0201-2d-joints-on-box2d.md) (the first 2D joints),
+own Jitter2 constraints (G9.10b); active ragdolls (G9.10c). G9 is complete. Decisions: [ADR 0201](../../memory/decisions/0201-2d-joints-on-box2d.md) (the first 2D joints),
 [ADR 0211](../../memory/decisions/0211-3d-joints-on-jitter2.md) (3D joints, the other 2D joints, breaking, editor) and
 [ADR 0212](../../memory/decisions/0212-ragdolls-and-physical-bones.md) (ragdolls); the limit handles use the G7.3 handle
-API ([ADR 0213](../../memory/decisions/0213-viewport-tools-gizmo-resources-handles.md)). [ADR 0234](../../memory/decisions/0234-engine-owned-jitter2-constraints.md) records the custom constraints. Still to come:
-active ragdolls (G9.10c, [proposal](future/physics-joints-g9-10.md)). Bodies, spaces and signals are in [Physics](physics.md).
+API ([ADR 0213](../../memory/decisions/0213-viewport-tools-gizmo-resources-handles.md)). [ADR 0234](../../memory/decisions/0234-engine-owned-jitter2-constraints.md) records the custom constraints and
+[ADR 0235](../../memory/decisions/0235-active-ragdolls-in-solver-pose-drives.md) the active ragdolls; G9.10's proposal
+moved into this page ([Changes from the G9.10 proposal](#changes-from-the-g910-proposal)). Bodies, spaces and signals
+are in [Physics](physics.md).
 
 ![The Demo's rope bridge with a hinge selected in the editor: its axis, limit arc and angle, and its inspector with
 Rebuild and Swap A/B](../images/editor-joints.png)
@@ -22,7 +24,8 @@ Rebuild and Swap A/B](../images/editor-joints.png)
 | [`Physics/3D/Constraints/`](../../MainframeEngine/Src/Physics/3D/Constraints/) | The engine's Jitter2 constraints (ADR 0234): `SixDofLinear`, `SixDofAngular`, their drives, `SixDofMath`, `SoftRow` |
 | [`Physics/3D/PhysicsSpace3D.Joints.cs`](../../MainframeEngine/Src/Physics/3D/PhysicsSpace3D.Joints.cs) | `JointRecord3D`, creation and re-creation, constraint factories, exclusion, springs, breaking, debug draw |
 | [`Physics/2D/Joints2D.cs`](../../MainframeEngine/Src/Physics/2D/Joints2D.cs), [`PhysicsSpace2D.Joints.cs`](../../MainframeEngine/Src/Physics/2D/PhysicsSpace2D.Joints.cs) | `Joint2D`, the six 2D types, `JointRecord2D` |
-| [`Physics/Ragdoll/`](../../MainframeEngine/Src/Physics/Ragdoll/) | `Ragdoll3D`, `PhysicalBone3D`, `PhysicalBoneSimulator3D` |
+| [`Physics/Ragdoll/`](../../MainframeEngine/Src/Physics/Ragdoll/) | `Ragdoll3D`, `PhysicalBone3D`, `PhysicalBoneSimulator3D`, `BoneDrive3D` (active ragdolls' internal drive nodes) |
+| [`Physics/3D/Constraints/PoseDrive.cs`](../../MainframeEngine/Src/Physics/3D/Constraints/PoseDrive.cs) | The active-ragdoll drive (ADR 0235): a soft angular block and soft linear rows, capped |
 | [`Editor/Src/Inspector/JointInspector.cs`](../../MainframeEngine.Editor/Src/Inspector/JointInspector.cs), [`Skeleton3DInspector.cs`](../../MainframeEngine.Editor/Src/Inspector/Skeleton3DInspector.cs) | Rebuild, Swap A/B; Create physical skeleton |
 | [`Editor/Src/Viewport/Handles/JointHandles.cs`](../../MainframeEngine.Editor/Src/Viewport/Handles/JointHandles.cs) | The limit handles (G9.7): `JointFrame`, the shared angle and drawing math, a provider per joint type |
 
@@ -268,6 +271,43 @@ a 45°/30° cone-twist at the bone with its twist axis along the bone. Every bod
 keep a chain of joints stiff (ADR 0212). The limits are generic; hinged knees and elbows from a humanoid map wait for
 G1c's `HumanoidMap`/`HumanoidLimits` ([Animation authoring](future/animation-authoring.md)).
 
+### Active ragdolls
+
+G9.10c ([ADR 0235](../../memory/decisions/0235-active-ragdolls-in-solver-pose-drives.md)): simulated physical bones
+pulled towards the animation, so a character staggers when hit and keeps standing.
+
+| `PhysicalBoneSimulator3D` ("Drive" group) | Default | Notes |
+|---|---|---|
+| `DriveStrength` | 0 | 0–1: every local drive (each simulated bone towards its animated rotation relative to its parent bone's body). 0 is a passive ragdoll |
+| `DriveFrequency`, `DriveDampingRatio`, `DriveMaxTorque` | 30 Hz, 1, 200 N·m | At full strength |
+| `HoldStrength` | 0 | 0–1: every world hold (a bone with a `HoldStrength` towards its animated world pose) |
+| `HoldFrequency`, `HoldDampingRatio`, `HoldMaxForce`, `HoldMaxTorque` | 15 Hz, 1, 2 000 N, 500 N·m | At full strength |
+
+| `PhysicalBone3D` ("Drive" group) | Default | Notes |
+|---|---|---|
+| `DriveStrength` | 1 | Scales the simulator's for this bone (0: a limp bone in an active body) |
+| `HoldStrength` | 0 | This bone's hold. `Build` sets 1 on the root body (the pelvis) |
+| `GetDriveErrorDegrees()`, `GetHoldError()` | | How far the body is from its animated rotation (relative to its parent's body) and position, while simulated, at any strength: fade a hold out and read it to tell a character has fallen |
+
+- **How:** each bone gets two internal `BoneDrive3D` joint nodes (no owner: not saved, not in the editor's tree), a
+  local drive to its nearest ancestor's body and a hold to the world, each a `PoseDrive` constraint. Strength × the
+  frequency and maximum are written every fixed step with the target; 0 turns the force off (a call's cost).
+- **Targets** are the animated pose the simulator keeps per bone (the pose the animation set, not what the blend wrote
+  back), composed parents first, so the bodies never chase themselves.
+- **Stiffness:** a drive's is its body's inertia × (2π·frequency)², a hold's its body's mass × (2π·frequency)², and a
+  spine drive or pelvis hold carries the whole body: hence the 30 Hz and 15 Hz defaults. A held body follows a moving
+  target and is kept awake (Jitter2's sleep timer restarts), and one whose drive stops falls.
+- **Substeps:** an active ragdoll needs at least 2 (`project.mfproj` `"physics": { "3d": { "substeps": 2 } }`). Soft
+  rows on a stack of light bodies need the convergence: at 1 the Demo character's chest staggered 33 cm and was still
+  7 cm off 1.5 s later; at 2, 18 cm and back within 7 mm.
+- **Partial bodies:** `PhysicalBonesStartSimulation(["Shoulder.L", …])` makes one limb active against the held rest
+  (the drive works against a kinematic parent).
+- **Limits:** Create physical skeleton's generic cone-twists (45°/30°, at the ready pose) don't reach every animated
+  pose: the Demo's upper arms stay about 29° off. Humanoid limits are G1c.
+- **The Demo** (Animation 3D): holds on the pelvis and the head (a spine drive alone lets the tall upper body sag),
+  2 substeps, and Active (fades both strengths in over 0.3 s), Push (40 N·s to the chest) and Let go (fades them out:
+  it falls).
+
 ## Networking and determinism
 
 Joints are server-side state like bodies: the server simulates and replicates poses through the game's `[Replicated]`
@@ -284,7 +324,11 @@ nothing.
 
 ## Tests
 
-- **Unit** ([`Tests/MainframeEngine.Tests/Physics/`](../../Tests/MainframeEngine.Tests/Physics/)): `SixDofConstraintTests`
+- **Unit** ([`Tests/MainframeEngine.Tests/Physics/`](../../Tests/MainframeEngine.Tests/Physics/)): `PoseDriveTests` (data
+  size, a target rotation reached, a hold against gravity, the torque cap, mass independence, a turned body A, stopping),
+  `ActiveRagdollTests` (on a four-bone arm: passive by default, drives keep it straight, a held root and a weak drive,
+  stopping, the hold error with the hold off, targets from the animation not the write-back, round trips without the
+  drive nodes, 0 B a step), `SixDofConstraintTests`
   (data sizes, Euler round trips, each angle's rate axis, soft-row coefficients), `Joints3DTests`
   (pendulum period within 2 %, anchors within 1 cm under load, hinge limits, motor speed and torque, slider range and
   `AllowTwist`, cone and twist spans, rope slack, spring period, PD springs, a welded cantilever; joints before their
@@ -304,7 +348,9 @@ nothing.
 - **Render test** `physics-joints`: a hinged bridge, a cone-twist mannequin and a broken weld with the joint debug
   draw, frame 90 (moltenvk golden; lavapipe still to record).
 - **Demo** (`PhysicsJointsSceneTests`): the bridge holds, the sign's weld breaks and resets, the mannequin falls and
-  stands, the gimbal tilts within its limits and springs back level, the drawer stops at 0.4 m and soft-closes, the chain
+  stands, the gimbal tilts within its limits and springs back level, the active character (`ActiveRagdollSceneTests`,
+  2 substeps) stands with its pelvis and head within 5 and 10 cm, staggers more than 10 cm when pushed and is back within
+  5 cm in 1.5 s, falls when let go, and moves one arm alone, the drawer stops at 0.4 m and soft-closes, the chain
   hangs, the car drives and turns, the lift follows its target within 10 px carrying its crates, the skinned character
   ragdolls with its joints holding.
 
@@ -326,15 +372,26 @@ nothing.
 - **Limit handles also cover `PhysicalBone3D`, the 2D groove and spring lengths, and off limits** (hollow handles that
   turn the limit on); the mockup showed only a hinge's arc. They are drawn at a view-relative radius, not the debug
   draw's fixed one.
-- **`MotorJoint2D`** (G9.10a, [proposal](future/physics-joints-g9-10.md)): `LinearVelocity` is in world axes (the
-  proposal didn't say); the Demo's lift feeds its target's velocity as well as its offset, and starts at the bottom of
-  its travel, from rest.
-- **`Generic6DofJoint3D`** (G9.10b, ADR 0234): four constraints, not the proposal's two (the data didn't fit);
-  speculative limits; exact Euler rate axes instead of Bullet's; the soft rows aren't frequency-clamped (they are
-  stable at any stiffness). The benchmark chain's joints act as pins (angular axes free), not as the plan's twist-only
-  joint, so it compares with the pin chain: 82 µs a step against the pins' 57 µs (1.4×). The linear rows' arms reach
-  each body's own anchor, not the exact derivative's: with A's arm at B's anchor that flailing chain blew up.
-- **Not yet:** active ragdolls (G9.10c), humanoid limits.
+- **Not yet:** humanoid limits (G1c).
+
+## Changes from the G9.10 proposal
+
+G9.10 (`Generic6DofJoint3D`, active ragdolls, `MotorJoint2D`) was proposed and accepted on 2026-11-03 and built in
+three phases; the proposal now lives on this page. What changed while building it:
+
+- **`MotorJoint2D`** (G9.10a): `LinearVelocity` is in world axes (the proposal didn't say). The Demo's lift feeds its
+  target's velocity as well as its offset, and starts at the bottom of its travel, from rest; `Lift2D` drives it, not a
+  `Tween`.
+- **`Generic6DofJoint3D`** (G9.10b, ADR 0234): four constraints, not two (the data didn't fit); speculative limits;
+  exact Euler rate axes instead of Bullet's; soft rows not frequency-clamped (stable at any stiffness); each body's arm
+  to its own anchor (the exact derivative's blew up a flailing chain). The benchmark chain's joints act as pins: 82 µs a
+  step against the pins' 57 µs (1.4×).
+- **Active ragdolls** (G9.10c, ADR 0235): defaults of 30 Hz drives and 15 Hz holds, not 10 and 4 (too soft to hold a
+  person); at least 2 physics substeps; the Demo holds the head as well as the pelvis and pushes with 40 N·s, not 20;
+  readbacks work at any strength (for balance detection); drives are kept awake; the one-arm check holds the forearm
+  and hand within 10° (the upper arm is at its generic limit). Effective inertia about the joint was tried and diverged.
+- **Not done, as proposed:** `PhysicalBone3D.JointType.SixDof` and moving the hinge, slider and distance springs into
+  the solver (the proposal's open questions, default no).
 
 ## Related
 

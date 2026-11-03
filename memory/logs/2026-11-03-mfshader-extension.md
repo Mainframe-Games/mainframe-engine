@@ -1,6 +1,6 @@
 ---
 summary: >-
-  Shader files are .mfshader instead of .gdshader (ADR 0235): every file and sidecar renamed, code and docs updated,
+  Shader files are .mfshader instead of .gdshader (ADR 0236): every file and sidecar renamed, code and docs updated,
   old .gdshader still loads with a warning. slangc 2026.1 crashes in -obfuscate on Linux; worked around with a glibc tunable.
 ---
 
@@ -25,12 +25,12 @@ Branch `feature/mfshader-extension`. Plan: [Shader files are `.mfshader`](../pla
   - canvas.md, shaders.md, materials-and-meshes.md, demo.md, neon.md and testing.md.
   - shaders.md has a new section on the `.mfshader` extension: the rename steps and a VS Code `files.associations`
     line for highlighting.
-- **ADRs.** The new ADR 0235 records the change; the status lines of ADRs 0113 and 0205 point at it.
+- **ADRs.** The new ADR 0236 records the change; the status lines of ADRs 0113 and 0205 point at it.
 
 ## Decisions
 
 - **The extension is `.mfshader`.** The brief said `.mshader`; the owner changed it to `.mfshader` mid-task. See
-  [ADR 0235](../decisions/0235-mfshader-extension.md).
+  [ADR 0236](../decisions/0236-mfshader-extension.md).
 - **Old `.gdshader` files load, with a deprecation warning.** The owner didn't answer the fallback question, so this
   is the cheap default. Dropping it is a few lines.
 - **The committed SPIR-V bytes are unchanged.**
@@ -59,7 +59,7 @@ Branch `feature/mfshader-extension`. Plan: [Shader files are `.mfshader`](../pla
 - `format-check` and `shaders-check` (151 engine shaders locked, 19 user shaders up to date): ok.
 - Demo tests: 113 passed. Neon tests: 214 passed.
 - `git grep -i gdshader` lists only history (ADRs, logs, progress log, old plans), the fallback code and its test,
-  ADR 0235, and the shaders.md note.
+  ADR 0236, and the shaders.md note.
 
 ## Not verified
 

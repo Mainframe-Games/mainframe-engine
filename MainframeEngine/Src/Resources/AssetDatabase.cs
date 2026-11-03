@@ -160,7 +160,7 @@ public sealed class AssetDatabase
     /// (<c>x.mfshader.vert.spv</c>, <c>x.mfshader.frag.spv</c>, a spatial shader's other passes such as
     /// <c>x.mfshader.depth.vert.spv</c>, and <c>x.mfshader.spvlock</c>, see <see cref="CanvasShaderBuild"/>) and a light-probe
     /// bake's coefficients (<c>x.probes</c>, the data file of <c>x.mres</c>, see <see cref="LightProbeData"/>). Legacy
-    /// <c>x.gdshader.*</c> outputs count too (ADR 0235).
+    /// <c>x.gdshader.*</c> outputs count too (ADR 0236).
     /// </summary>
     public static bool IsBuildOutput(string fileName) =>
         fileName.EndsWith(".probes", StringComparison.OrdinalIgnoreCase)

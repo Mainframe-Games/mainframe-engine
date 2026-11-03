@@ -84,12 +84,16 @@ public static class Animation3DScene
             model.Release();
         }
 
-        // The physical skeleton, as the editor's "Create physical skeleton" makes it (generic 45°/30° cone-twists).
+        // The physical skeleton, as the editor's "Create physical skeleton" makes it (generic 45°/30° cone-twists), with a
+        // hold on the head as well as the pelvis for the active ragdoll (G9.10c): a spine drive alone lets the tall upper
+        // body sag. The project runs 2 physics substeps for it.
         var skeleton = root.GetNode<Skeleton3D>("Crew/Armature");
         var simulator = Add(root, skeleton, PhysicalBoneSimulator3D.Build(skeleton));
         foreach (var bone in simulator.Children)
         {
             bone.Owner = root;
+            if (bone is PhysicalBone3D { BoneName: "Head" } head)
+                head.HoldStrength = 1f;
             // Pin the Euler angles the saver writes, rounded: the quaternion-to-Euler trig differs in the last bit between
             // x64 and arm64, and the committed scene file must match the builder on every platform.
             if (bone is PhysicalBone3D physical)

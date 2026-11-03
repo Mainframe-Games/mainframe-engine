@@ -115,7 +115,7 @@ game.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/particles.png" width="380" alt="Particles"><br><b>Particles</b> — a campfire's glowing flames and smoke, rain</td>
-    <td align="center" valign="top"><img src="docs/images/demo/animation_3d.png" width="380" alt="Animation 3D"><br><b>Animation 3D</b> — a skinned glTF character: clips, crossfades, events, a torch on its hand, a ragdoll; a body walked and jumped by root motion</td>
+    <td align="center" valign="top"><img src="docs/images/demo/animation_3d.png" width="380" alt="Animation 3D"><br><b>Animation 3D</b> — a skinned glTF character: clips, crossfades, events, a torch on its hand, a ragdoll that can stay active; a body walked and jumped by root motion</td>
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/shaders.png" width="380" alt="Shaders"><br><b>Shaders</b> — Godot spatial shaders: a procedural ground, swaying stalks, dissolving props</td>
@@ -295,7 +295,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
 | [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, queries, `MoveAndSlide`, interpolation, debug draw |
-| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D`, `Generic6DofJoint3D` (6-DOF: every axis free, limited or locked) and seven 2D joints (`MotorJoint2D` among them): limits, motors, springs, breaking, collision exclusion, debug draw, editor gizmos and limit handles; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons and Create physical skeleton in the editor |
+| [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D`, `Generic6DofJoint3D` (6-DOF: every axis free, limited or locked) and seven 2D joints (`MotorJoint2D` among them): limits, motors, springs, breaking, collision exclusion, debug draw, editor gizmos and limit handles; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons (active ones keep their pose under physics: stagger when pushed, then recover) and Create physical skeleton in the editor |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, captured and window-confined mouse modes, 2D, 3D and fly cameras |
 | [Saves & settings](docs/design/project-and-gamehost.md#save-games) | Save slots with thumbnails, versioned JSON with migrations, crash-safe writes with recovery, a drop-in settings menu |
 | [Multiplayer](docs/design/networking.md) | Generated `[Replicated]` and `[Rpc]`, delta snapshots, interpolation, authority, late join; ENet, Steam relay sockets, loopback and simulated bad networks |
