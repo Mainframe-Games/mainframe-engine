@@ -1,9 +1,12 @@
 ---
-// Starlight's <head> plus the Mermaid renderer for the diagrams remark-mermaid leaves as <pre class="mermaid">.
+// Starlight's <head> plus the Mermaid renderer for the diagrams remark-mermaid leaves as <pre class="mermaid">, and the
+// lightbox that enlarges images and diagrams.
 import Default from '@astrojs/starlight/components/Head.astro';
+import Lightbox from './Lightbox.astro';
 ---
 
 <Default />
+<Lightbox />
 
 <script>
   const nodes = () => [...document.querySelectorAll<HTMLElement>('pre.mermaid')];
@@ -41,6 +44,7 @@ import Default from '@astrojs/starlight/components/Head.astro';
       node.textContent = node.dataset.source;
     }
     await mermaid.run({ nodes: list });
+    for (const node of list) node.tabIndex = 0; // Enter opens the diagram in the lightbox (Lightbox.astro)
   }
 
   render();

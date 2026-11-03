@@ -51,7 +51,8 @@ That builds `docs-site/dist` exactly as CI does, including the Pagefind search i
 | `docs-site/src/styles/landing.css` | The landing page's layout and animations |
 | `docs-site/src/pages/index.astro` | The landing page (see [Landing page](#landing-page)) |
 | `docs-site/src/components/landing/` | Its sections in page order (`LandingHero`, `Showcase`, `WhyMainframe`, `Daw`, `VideoMode`, `Features`, `Download`), the grid canvas (`grid.ts`), the logo animation (`logo.ts`) and `TablerIcon` |
-| `docs-site/src/components/Head.astro` | Starlight's `<head>` plus the Mermaid renderer |
+| `docs-site/src/components/Head.astro` | Starlight's `<head>` plus the Mermaid renderer and the lightbox |
+| `docs-site/src/components/Lightbox.astro` | The lightbox: landing screenshots, docs images and Mermaid diagrams over the whole window (see [Lightbox](#lightbox)) |
 | `docs-site/src/components/Hero.astro` | Starlight's hero, replaced on the landing page by `LandingHero` |
 | `docs-site/src/components/SocialIcons.astro` | The header's **Docs** and **Download** links before Starlight's GitHub icon |
 | `docs-site/src/plugins/remark-mermaid.mjs` | Turns ` ```mermaid ` blocks into `<pre class="mermaid">` |
@@ -167,11 +168,21 @@ order: the hero, the showcase, why Mainframe, the audio tools, the features, the
   Features tables (grouped like the cards) and, when it is something you see in the editor, a screenshot captured by
   `just readme-screenshots` in the README and on this page.
 - **Showcase**, first after the hero (the eye-catching sections lead, the downloads come last): the editor screenshot
-  in a window frame, the Demo scenes, then the Forest shots with the first one large, all from `docs/images`.
-  Clicking one opens it in a `<dialog>`.
+  in a window frame, the viewport tools, one shot per Demo scene, then the Forest's and Neon's shots, six each (a
+  showcase project shows six, as in the README) with the first one large, all from `docs/images`. Clicking one opens it
+  in the [lightbox](#lightbox).
 - **Motion.** Sections fade and rise into view (`[data-reveal]`, an `IntersectionObserver`); cards light up under the
   pointer. Under `prefers-reduced-motion` nothing animates and the grid is one still frame. The canvas stops drawing
   while it is off screen or the tab is hidden.
+
+## Lightbox
+
+`components/Lightbox.astro`, on every page through `Head.astro`: a click (or Enter on a focused one) on a landing
+screenshot (`.mf-shot[data-full]`), a docs image or a drawn Mermaid diagram opens it in a `<dialog>` over the whole
+window, scaled to fit at its own aspect ratio (small images scaled up). A diagram is a copy of its SVG on the code-block
+background; the white mockup SVGs keep their white. ‹ › and the arrow keys step through the page's other images and
+diagrams; Esc or a click anywhere else closes it. Images inside links, and the landing's own `<img>`s
+(`.not-content`, opened through their `.mf-shot`), are left alone. Styles in `theme.css`.
 
 ## Diagrams
 
