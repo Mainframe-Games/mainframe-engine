@@ -48,8 +48,12 @@ Design: [Gizmos](../../docs/design/gizmos.md), [Scene grid → Analytic style](.
 - Lines first expanded each end in its own direction to the other end: the across-line coordinate flipped sign at the
   far end, so shafts came out striped. Both ends now work in the frame of the lexicographically first end.
 - A TAA render test of lines lying on a crate and a grazing floor in the root view does not reproduce z-fighting on this
-  NVIDIA driver even without the pull (lines and triangles get the same depth there); it stays as coverage. The editor's
-  case (after post, jittered scene depth) is the existing `SubViewportPostScene` check.
+  NVIDIA driver even without the pull (lines and triangles get the same depth there); it stays as coverage. On lavapipe
+  it does: CI's `physics-joints` and `physics-debug` frames show collider outlines whole where the old goldens had them
+  half hidden in the faces (the floor's edge, the cubes' lower edges), and those two goldens were re-recorded from CI.
+- The local Docker runs did not catch that: the shared `mainframe-linux-work` volume held newer `.spv` build outputs
+  from another checkout, so the incremental shader build kept the old `DebugLines` fragment shader. Results from that
+  volume are only trustworthy for shaders whose outputs are new.
 
 ## Verified
 
