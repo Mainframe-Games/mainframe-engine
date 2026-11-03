@@ -266,7 +266,7 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake` and `Navigation 
   re-read allocates nothing; `NavigationGridBakers.Unregister` (tests) puts the built-in back. The plain `Changed`
   signal is enough so far: no `CellsChanged(Rect2I)` was added to tile maps.
 - 2D games' debug lines draw over the canvas (they drew under it before, unseen).
-- The Demo tab has no number key: keys 1–9 and 0 already go to the first ten tabs.
+- The Demo scene is in the nav bar's 2D category; number keys open categories, not scenes ([Demo](demo.md#navigation)).
 
 ## Related
 

@@ -277,7 +277,7 @@ only uses Latin-1 accents (`[Séttîñgs ~~]`) for fonts limited to Latin-1. In 
 
 The [Demo](demo.md) ships `en` (source), `es` (hand-written) and `qps` in `Examples/Demo/Assets/locale`
 (`just l10n-extract` reads `Examples/Demo/Demo/Src`, the Demo's `Assets` and the engine's `MainframeEngine/Assets/UI`
-widgets; `just l10n-check` runs in CI). Its RmlUi panels are translated by the UI server; the tab titles are
+widgets; `just l10n-check` runs in CI). Its RmlUi panels are translated by the UI server; the category and scene tab titles are
 `Tr._(...)` literals in `DemoNav`, re-translated on `OnLocaleChanged`. The nav bar's **language picker** (a `data-for`
 `<select>` over `Tr.GetAvailableLocales()`) switches at run time. `--locale es` starts in Spanish.
 `Tests/Assets/locale` is a separate, small Spanish catalog for the render tests' allocation gate and the editor

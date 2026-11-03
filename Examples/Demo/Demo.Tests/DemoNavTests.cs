@@ -75,6 +75,76 @@ public sealed class DemoNavTests : IDisposable
     }
 
     [Fact]
+    public void TheSecondRowShowsTheActiveScenesCategory()
+    {
+        Assert.Equal("3d", _nav.ActiveCategory);
+        Assert.Equal(["basic_3d", "particles", "shaders"], _nav.ShownSceneIds);
+        Show(Index("tiles_2d"));
+        Assert.Equal("2d", _nav.ActiveCategory);
+        Assert.Equal(["basic_2d", "sprites_2d", "tiles_2d", "navigation_2d"], _nav.ShownSceneIds);
+    }
+
+    [Fact]
+    public void TheBarRendersBothRowsWithTheActiveTabsHighlighted()
+    {
+        Show(Index("adaptive_music"));
+        Tick();
+        var categories = _nav.QuerySelector("#nav-categories")!.InnerRml;
+        var scenes = _nav.QuerySelector("#nav-scenes")!.InnerRml;
+        Assert.Contains("Physics", categories, StringComparison.Ordinal);
+        Assert.Contains("Sound FX", scenes, StringComparison.Ordinal);
+        Assert.DoesNotContain("Basic 3D", scenes, StringComparison.Ordinal);
+        Assert.Single(categories.Split("class=\"nav-category active\"")[1..]);
+        Assert.Contains("Audio", _nav.QuerySelector(".nav-category.active")!.InnerRml, StringComparison.Ordinal);
+        Assert.Contains("Music", _nav.QuerySelector(".nav-scene.active")!.InnerRml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ACategoryReopensItsLastScene()
+    {
+        Show(Index("navigation_2d"));
+        Show(Index("spine"));
+        _nav.OpenCategory(DemoScenes.CategoryIndex("2d"));
+        Tick();
+        Tick();
+        Assert.Equal("navigation_2d", _nav.ActiveId);
+        _nav.OpenCategory(DemoScenes.CategoryIndex("audio")); // never visited: its first scene
+        Tick();
+        Tick();
+        Assert.Equal("audio_2d", _nav.ActiveId);
+    }
+
+    [Fact]
+    public void EverySceneIsReachableFromTheBar()
+    {
+        for (var c = 0; c < DemoScenes.Categories.Count; c++)
+        {
+            _nav.OpenCategory(c);
+            Tick();
+            Tick();
+            foreach (var id in _nav.ShownSceneIds.ToList())
+            {
+                _nav.Open(Index(id));
+                Tick();
+                Tick();
+                Assert.Equal(id, _nav.ActiveId);
+            }
+        }
+    }
+
+    [Fact]
+    public void NumberKeysOpenCategories()
+    {
+        _tree.PushInput(new InputEventKey { Key = Key.Number5, Pressed = true });
+        Tick();
+        Tick();
+        Assert.Equal("audio", _nav.ActiveCategory);
+        Assert.Equal("audio_2d", _nav.ActiveId);
+    }
+
+    private static int Index(string id) => DemoScenes.All.ToList().FindIndex(s => s.Id == id);
+
+    [Fact]
     public void EscapeRequestsQuit()
     {
         _tree.PushInput(new InputEventKey { Key = Key.Escape, Pressed = true });

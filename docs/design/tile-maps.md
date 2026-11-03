@@ -192,8 +192,8 @@ y-sorted "Objects" — and the Sprites 2D hero (`hero.mres`) as a `TileHero2D` i
 limited `Camera2D` follows. A `TileShadow2D`, a dark copy of the hero, chases it on a `NavigationGrid2D` that reads the
 walls layer ([Navigation → Tile map source](navigation.md#tile-map-source)). The panel shows collision and navigation,
 toggles y-sort and the chase, sets the walk speed and autopilot, and a click on the map adds or removes a wall (live
-chunk and body rebuild, and the shadow repaths). The fourteenth tab: past the tenth, tabs are reached with the nav bar or
-`scene_next`/`scene_prev`.
+chunk and body rebuild, and the shadow repaths). It is in the nav bar's 2D category
+([Demo → Navigation](demo.md#navigation)).
 
 ## Tests
 

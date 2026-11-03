@@ -66,13 +66,13 @@ msgstr "Golpe"
 #. RML <span>
 #: Examples/Demo/Assets/AdaptiveMusic/panel.rml:26
 #: Examples/Demo/Assets/Audio/panel2d.rml:12
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:193
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
 msgid "Music"
 msgstr "Música"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:188
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
 msgid "Animation 3D"
 msgstr "Animación 3D"
 
@@ -163,7 +163,7 @@ msgstr "Levantarse"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:181
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
 msgid "Audio 2D"
 msgstr "Audio 2D"
 
@@ -194,7 +194,7 @@ msgstr "Distancia máxima"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:182
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
 msgid "Audio 3D"
 msgstr "Audio 3D"
 
@@ -255,7 +255,7 @@ msgstr "Velocidad de órbita"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Basic2D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:180
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:250
 msgid "Basic 2D"
 msgstr "2D básico"
 
@@ -276,7 +276,7 @@ msgstr "Pausar animación"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Basic3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:179
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:247
 msgid "Basic 3D"
 msgstr "3D básico"
 
@@ -327,7 +327,7 @@ msgstr "F12"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Navigation/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:192
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:253
 msgid "Navigation 2D"
 msgstr "Navegación 2D"
 
@@ -408,6 +408,7 @@ msgstr "Llegados"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Particles/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:248
 msgid "Particles"
 msgstr "Partículas"
 
@@ -433,7 +434,7 @@ msgstr "Ráfaga de chispas"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:185
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:254
 msgid "Physics 2D"
 msgstr "Física 2D"
 
@@ -468,7 +469,7 @@ msgstr "Reiniciar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:186
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:255
 msgid "Physics 3D"
 msgstr "Física 3D"
 
@@ -500,7 +501,7 @@ msgstr "Guardar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Shaders/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:189
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:249
 msgid "Shaders"
 msgstr "Shaders"
 
@@ -531,7 +532,7 @@ msgstr "Golpear los objetos"
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:183
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
 msgid "Sound FX"
 msgstr "Efectos de sonido"
 
@@ -606,7 +607,7 @@ msgstr "Música (una canción del editor de música)"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:187
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:256
 msgid "Spine"
 msgstr "Spine"
 
@@ -623,6 +624,7 @@ msgstr "Cámara 2D"
 #. RML <span>
 #: Examples/Demo/Assets/Spine/panel.rml:11
 #: Examples/Demo/Assets/Sprites2D/panel.rml:10
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:239
 msgid "Animation"
 msgstr "Animación"
 
@@ -659,7 +661,7 @@ msgstr "Activado"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Sprites2D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:190
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:251
 msgid "Sprites 2D"
 msgstr "Sprites 2D"
 
@@ -695,7 +697,7 @@ msgstr "Vueltas"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Tiles2D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:191
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:252
 msgid "Tiles 2D"
 msgstr "Mosaicos 2D"
 
@@ -872,15 +874,34 @@ msgstr "Verde"
 msgid "Rose"
 msgstr "Rosa"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:139
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:161
 msgid "Effects"
 msgstr "Efectos"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:139
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:161
 msgid "Interface"
 msgstr "Interfaz"
 
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:184
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:236
+msgid "3D"
+msgstr "3D"
+
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:237
+msgid "2D"
+msgstr "2D"
+
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:238
+msgid "Physics"
+msgstr "Física"
+
+#. RML <button>
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:240
+#: MainframeEngine/Assets/UI/settings/settings.rml:28
+msgid "Audio"
+msgstr "Audio"
+
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:241
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
 msgid "UI"
 msgstr "Interfaz"
 
@@ -1065,11 +1086,6 @@ msgstr "CARGANDO"
 #: MainframeEngine/Assets/UI/loading/loading.rml:26
 msgid "MADE WITH MAINFRAME ENGINE"
 msgstr "HECHO CON MAINFRAME ENGINE"
-
-#. RML <button>
-#: MainframeEngine/Assets/UI/settings/settings.rml:28
-msgid "Audio"
-msgstr "Audio"
 
 #. RML <button>
 #: MainframeEngine/Assets/UI/settings/settings.rml:29

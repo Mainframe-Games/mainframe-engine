@@ -43,20 +43,28 @@ before the main scene, so it survives scene changes (`SceneTree.ChangeSceneToFil
 `DemoNavLayer` is a `UiLayer` (`Layer = 100`, above any scene UI) holding `DemoNav : UiDocument`
 (`Assets/Nav/nav.rml`):
 
-- one tab per scene, in the order of `DemoScenes.All` (the single registry: id, title, icon, path, builder);
+- **two rows** (72 dp; every scene panel starts below them, `top: 88dp` in `Assets/UI/demo.rcss`): the top row holds
+  the logo, one tab per **category** (`DemoScenes.Categories`: 3D, 2D, Physics, Animation, Audio, UI) and, on the
+  right, the controls below; the second row holds the open category's **scenes** as underlined tabs. The open category
+  is the current scene's. Clicking a category opens the scene last open in it (its first the first time). Scenes are
+  in the order of `DemoScenes.All` (the single registry: id, title, category, icon, path, builder), grouped by
+  category so stepping walks a category before the next. A category's row has room for about ten scenes, and a new
+  category is one more entry in `Categories` (the A6 bar, one row of sixteen tabs at 14 dp, had run out of room);
 - an FPS readout and a **language picker** (`en`, `es`, `qps`; it sets `UserSettings.Language`, so it persists);
 - a **gear button** (tooltip "Settings (F10 / Start)") that opens the engine's
   [settings menu](game-ui.md#settings-menu-g4) with all three tabs, pausing the game (bus labels: SFX → "Effects",
   UI → "Interface");
 - the project's input actions (`project.mfproj`, labelled and grouped, so the menu's Controls tab lists them):
-  `scene_next`/`scene_prev` (Page Down/Up, RB/LB) step through the tabs, `settings` (F10, Start) opens the menu,
-  `quit` (Escape, `"rebindable": false`) quits; in Physics 3D `drop` (Mouse Left, RT) and `rain` (R, Y). Keys **1–9**
-  and **0** (the tenth) still switch tabs, and without a project map (tests) Escape and the left button keep working.
+  `scene_next`/`scene_prev` (Page Down/Up, RB/LB) step through every scene, crossing categories and wrapping,
+  `settings` (F10, Start) opens the menu, `quit` (Escape, `"rebindable": false`) quits; in Physics 3D `drop` (Mouse
+  Left, RT) and `rain` (R, Y). Keys **1–6** open the categories, and without a project map (tests) Escape and the left
+  button keep working. The tabs are widget-library buttons (`tab-index: auto`, `nav: auto`), so RmlUi's focus
+  navigation (Tab, and the gamepad's D-pad and A) reaches them like any other button.
 
 The layer keeps processing while the menu pauses the game (`ProcessMode.Always`: FPS and the active tab update).
 
-`DemoNav` follows `SceneTree.CurrentScene` and highlights the tab whose id equals the scene root's name, so `--scene`
-and the editor's "play this scene" light the right tab. Switching frees the previous scene.
+`DemoNav` follows `SceneTree.CurrentScene` and highlights the scene tab whose id equals the scene root's name, and its
+category, so `--scene` and the editor's "play this scene" light the right tabs. Switching frees the previous scene.
 
 ## Scenes
 
@@ -79,7 +87,7 @@ Every scene is self-contained: its own camera, environment and lights, and a sma
 | `shaders` (Shaders) | Godot spatial shaders (ADR 0205): a ground whose albedo comes from the world position alone (`ground.gdshader`), fungal stalks in one `MultiMeshInstance3D` swaying with their shadows, out of step by `INSTANCE_CUSTOM` (`sway.gdshader`), props dissolving with a glowing edge, cut out in their shadows too, and a hit flash (`dissolve.gdshader`); `ShadersPanel` sets the uniforms | wind, animate, dissolve, hit |
 | `sprites_2d` (Sprites 2D) | `AnimatedSprite2D`s (ADR 0223) on one generated 4×4 sheet (`HeroArt`: a blob idling, running and jumping, a spinning coin; numbered frames) sliced into `Assets/Sprites2D/hero.mres`, drawn with nearest filtering: a showcase hero, a hero patrolling the ground (`Patrol2D`, flipped at each turn) and five coins at different speeds, one backwards (`Sprites2DPanel`) | animation, speed, backwards, flip, pause; frame and loop readouts (signals) |
 | `tiles_2d` (Tiles 2D) | `TileMapLayer`s (G2b, [Tile maps](tile-maps.md#demo-scene)) painted from an ASCII level with one generated atlas (`TilesArt`, `Assets/Tiles2D/tiles.png` + `tiles.mres`: collision on stone, water, trunks and bushes; `surface` custom data): Ground, Walls (stone and water) and a y-sorted Objects layer in which the Sprites 2D hero (`TileHero2D`, a `CharacterBody2D`) walks the paths behind and in front of trees, followed by a limited `Camera2D`; a `TileShadow2D` chases it on a `NavigationGrid2D` read from the walls layer (G3.6, [Navigation](navigation.md#tile-map-source)); click the map to add or remove a wall and the shadow repaths | show collision, y-sort, walk speed, autopilot, shadow chases, show navigation; surface and wall-cell readouts; WASD / arrows / left stick walk (`move_*` actions) |
-| `navigation_2d` (Navigation 2D) | G3a ([Navigation](navigation.md)): a maze of `StaticBody2D` walls on a 26 × 15 `NavigationGrid2D` of 32 px cells whose `Data` (written by code as a physics bake gives it; `Demo.Tests` checks it against a real bake) holds the walls and three mud patches (weight 3); twelve `NavChaser` character bodies (collision layer 2, slower in mud) with `NavigationAgent2D`s walk to the clicked point, each to its own spot on a ring (`NavigationDemo2D`); "Click adds walls" turns clicks into wall blocks (`SetCellSolid`: every chaser repaths). No number key (1–9 and 0 open the first ten tabs) | diagonal mode, heuristic, jump point search, Visible Navigation (the server's debug draw, restored on leaving), click adds walls; arrived count |
+| `navigation_2d` (Navigation 2D) | G3a ([Navigation](navigation.md)): a maze of `StaticBody2D` walls on a 26 × 15 `NavigationGrid2D` of 32 px cells whose `Data` (written by code as a physics bake gives it; `Demo.Tests` checks it against a real bake) holds the walls and three mud patches (weight 3); twelve `NavChaser` character bodies (collision layer 2, slower in mud) with `NavigationAgent2D`s walk to the clicked point, each to its own spot on a ring (`NavigationDemo2D`); "Click adds walls" turns clicks into wall blocks (`SetCellSolid`: every chaser repaths) | diagonal mode, heuristic, jump point search, Visible Navigation (the server's debug draw, restored on leaving), click adds walls; arrived count |
 | `adaptive_music` (Music) | [Adaptive music](adaptive-music.md): an `AdaptiveMusicPlayer` playing `Assets/Music/adaptive_theme.mmusic`, baked with `just bake-song` from `adaptive_theme.msong` (the Demo loop's ZzFX instruments at 140 BPM: Intro → Explore and Combat, both looping; a Hit stinger; a Perc layer (hats) and a Lead layer with a low-pass, both over `intensity`; `area` moves Explore to Combat at the next bar and back with the stinger). `MusicVisualizer2D` draws the sections (the playing one lit, the scheduled one outlined), the bar's beats pulsing on the `Beat` signal and one bar per layer (height: gain, brightness: the low-pass cutoff), captioned in the engine's Lato | intensity, area, Hit stinger, music on/off; section, bar.beat and the next section's countdown |
 
 **Save games (G4).** The Physics 3D panel saves and loads the crates through the engine's `SaveServer`
@@ -147,7 +155,10 @@ README's Showcase gallery; re-take them when a scene changes visibly. They need 
 
 ## Tests and CI
 
-- `Demo.Tests` (`dotnet test Examples/Demo/Demo.Tests`): the scene registry (order, paths, root-name mapping), the scene
+- `Demo.Tests` (`dotnet test Examples/Demo/Demo.Tests`): the scene registry (order, categories in contiguous runs,
+  paths, root-name mapping), the nav bar (`DemoNavTests`: the second row shows the current scene's category, both
+  rows render with one active tab each, a category reopens its last scene, every scene is reachable from the bar,
+  number keys open categories), the scene
   file contract above, switching every tab twice leaves exactly one scene, the project file (stretch mode, main scene
   and icon exist), canvas mouse mapping, `DemoShape2D`, and one test class per scene for its builder and panel
   (including that leaving a Physics scene restores the collision-shape overlay and toggling Spine back restores the

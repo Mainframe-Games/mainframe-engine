@@ -7,9 +7,9 @@
 <body class="hud" data-model="nav">
     <div id="nav-bar">
         <img id="nav-logo" src="/Assets/icon.png"/>
-        <div id="nav-tabs">
-            <button data-for="t : tabs" data-attr-class="t.active ? 'nav-tab active' : 'nav-tab'"
-                    data-event-click="open(t.index)">{{t.title}}</button>
+        <div id="nav-categories">
+            <button data-for="c : categories" data-attr-class="c.active ? 'nav-category active' : 'nav-category'"
+                    data-event-click="category(c.index)">{{c.title}}</button>
         </div>
         <div id="nav-right">
             <span id="nav-fps">{{fps}} FPS</span>
@@ -19,6 +19,10 @@
             <button id="nav-settings" title="Settings (F10 / Start)" data-event-click="settings()"><img src="settings.png"/></button>
             <span id="nav-hint">F12</span>
         </div>
+    </div>
+    <div id="nav-scenes">
+        <button data-for="t : scenes" data-attr-class="t.active ? 'nav-scene active' : 'nav-scene'"
+                data-event-click="open(t.index)">{{t.title}}</button>
     </div>
     <div id="tooltip"/>
 </body>
