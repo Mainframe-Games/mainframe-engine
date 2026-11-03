@@ -336,6 +336,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G17e IK, transform, path and physics constraints; clipping and path attachments | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 | G17f Animation graph: state machines, 1D/2D blend spaces, masked layers (shared with 3D), graph tab | ⬜ | [Animation graph](design/future/animation-graph.md) |
 | G17g `SkeletonSprite3D`, bone attachments, hitboxes, network sync, `AnimationPlayer` bridge, `mfe skel` + Claude skill, Demo scene | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
+| G18 Slang surface shaders: game `.mfshader` files in Slang syntax against `import mainframe.spatial;`/`mainframe.canvas;` (entry functions over built-in structs, `struct Material` with reflected attributes), the engine still generating every pass; Godot syntax deprecated, the 19 in-repo shaders migrated | ⬜ proposed, awaits owner review | [Slang surface shaders](design/future/slang-surface-shaders.md) |
 
 ## M11 — Backend abstraction / WebGPU ⬜
 
