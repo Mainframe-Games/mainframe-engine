@@ -6,8 +6,9 @@ namespace MainframeEngine.Benchmarks;
 /// <summary>
 /// Joints at scale (G9, ADR 0211/0212): one fixed step of a 100-link pinned chain swinging from the world, the same chain
 /// on <see cref="Generic6DofJoint3D"/>s acting as pins (G9.10b, ADR 0234: linear axes locked, angular axes free), and one
-/// of 50 simulating ragdolls of 11 parts each (cone-twist and hinge joints) lying on a floor. Single-threaded Jitter2,
-/// through the scene tree; bodies never sleep.
+/// of 50 simulating ragdolls of 11 parts each (cone-twist and hinge joints) lying on a floor, and 20 skeleton characters
+/// (11 bones, 10 physical bones) simulated passive against active (G9.10c: local drives, pelvis and head holds; two
+/// substeps, as active ragdolls want). Single-threaded Jitter2, through the scene tree; bodies never sleep.
 /// </summary>
 [MemoryDiagnoser]
 public class JointBenchmarks : IDisposable
@@ -15,6 +16,8 @@ public class JointBenchmarks : IDisposable
     private SceneTree _chain = null!;
     private SceneTree _sixDofChain = null!;
     private SceneTree _ragdolls = null!;
+    private SceneTree _passiveCharacters = null!;
+    private SceneTree _activeCharacters = null!;
     private readonly GameTime _step = new() { DeltaTime = 1f / 60f, FrameCount = 1 };
 
     [GlobalSetup]
@@ -39,12 +42,76 @@ public class JointBenchmarks : IDisposable
             scene.AddChild(Ragdoll($"Ragdoll{i}", new Vector3(i % 10 * 3f - 15, 0, i / 10 * 3f - 7.5f)));
         _ragdolls.ChangeScene(scene);
 
+        _passiveCharacters = Characters(active: false);
+        _activeCharacters = Characters(active: true);
+
         for (var i = 0; i < 120; i++)
         {
             _chain.Tick(_step);
             _sixDofChain.Tick(_step);
             _ragdolls.Tick(_step);
+            _passiveCharacters.Tick(_step);
+            _activeCharacters.Tick(_step);
         }
+    }
+
+    // 20 skeleton characters on a floor, every physical bone simulated; active ones drive and hold their rest pose.
+    private static SceneTree Characters(bool active)
+    {
+        var tree = NewTree(substeps: 2);
+        var scene = new Node3D { Name = "Characters" };
+        var floor = new StaticBody3D { Name = "Floor", Position = new Vector3(0, -0.5f, 0) };
+        floor.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(200, 1, 200) } });
+        scene.AddChild(floor);
+        var simulators = new List<PhysicalBoneSimulator3D>();
+        for (var i = 0; i < 20; i++)
+        {
+            var skeleton = Humanoid($"Character{i}", new Vector3(i % 5 * 3f - 6, 0, i / 5 * 3f - 4.5f));
+            var simulator = PhysicalBoneSimulator3D.Build(skeleton);
+            foreach (var body in simulator.Children)
+                if (body is PhysicalBone3D bone)
+                {
+                    bone.CanSleep = false;
+                    if (bone.BoneName == "Head")
+                        bone.HoldStrength = 1f;
+                }
+
+            if (active)
+                (simulator.DriveStrength, simulator.HoldStrength) = (1f, 1f);
+            skeleton.AddChild(simulator);
+            scene.AddChild(skeleton);
+            simulators.Add(simulator);
+        }
+
+        tree.ChangeScene(scene);
+        tree.Tick(new GameTime { DeltaTime = 1f / 60f, FrameCount = 1 });
+        foreach (var simulator in simulators)
+            simulator.PhysicalBonesStartSimulation();
+        return tree;
+    }
+
+    // Pelvis → spine → chest → head, chest → upper → lower arms, pelvis → upper → lower legs (feet and hands as leaves).
+    private static Skeleton3D Humanoid(string name, Vector3 at)
+    {
+        var skeleton = new Skeleton3D { Name = name, Position = at };
+        static Transform3D Offset(float x, float y) => Transform3D.FromTrs(new Vector3(x, y, 0), Quaternion.Identity, Vector3.One);
+        var pelvis = skeleton.AddBone("Hips", -1, Offset(0, 1f));
+        var spine = skeleton.AddBone("Spine", pelvis, Offset(0, 0.2f));
+        var chest = skeleton.AddBone("Chest", spine, Offset(0, 0.25f));
+        var head = skeleton.AddBone("Head", chest, Offset(0, 0.3f));
+        skeleton.AddBone("HeadTop", head, Offset(0, 0.25f));
+        for (var side = -1; side <= 1; side += 2)
+        {
+            var upperArm = skeleton.AddBone("UpperArm" + side, chest, Offset(side * 0.2f, 0.2f));
+            var lowerArm = skeleton.AddBone("LowerArm" + side, upperArm, Offset(0, -0.3f));
+            skeleton.AddBone("Hand" + side, lowerArm, Offset(0, -0.28f));
+            var upperLeg = skeleton.AddBone("UpperLeg" + side, pelvis, Offset(side * 0.1f, -0.05f));
+            var lowerLeg = skeleton.AddBone("LowerLeg" + side, upperLeg, Offset(0, -0.45f));
+            skeleton.AddBone("Foot" + side, lowerLeg, Offset(0, -0.45f));
+        }
+
+        skeleton.ResetBonePoses();
+        return skeleton;
     }
 
     // 100 links swinging from the world, joined by what newJoint makes.
@@ -79,6 +146,14 @@ public class JointBenchmarks : IDisposable
     /// <summary>One frame with one physics step: 50 simulating ragdolls of 11 parts (500 joints).</summary>
     [Benchmark]
     public void Step50Ragdolls() => _ragdolls.Tick(_step);
+
+    /// <summary>One frame with one physics step (two substeps): 20 passive skeleton ragdolls.</summary>
+    [Benchmark]
+    public void Step20PassiveCharacters() => _passiveCharacters.Tick(_step);
+
+    /// <summary>The same 20 characters active: local drives on every bone, pelvis and head holds.</summary>
+    [Benchmark]
+    public void Step20ActiveCharacters() => _activeCharacters.Tick(_step);
 
     // Pelvis, chest, head, upper and lower arms and legs: 11 capsules, 10 joints.
     private static Ragdoll3D Ragdoll(string name, Vector3 at)
@@ -123,10 +198,10 @@ public class JointBenchmarks : IDisposable
         return ragdoll;
     }
 
-    private static SceneTree NewTree()
+    private static SceneTree NewTree(int substeps = 1)
     {
         var servers = new ServerRegistry();
-        servers.Register(new PhysicsServer3D(new PhysicsSettings3D { MultiThreaded = false }));
+        servers.Register(new PhysicsServer3D(new PhysicsSettings3D { MultiThreaded = false, SubstepCount = substeps }));
         return new SceneTree(servers);
     }
 
@@ -137,6 +212,10 @@ public class JointBenchmarks : IDisposable
         _chain?.Servers.Dispose();
         _sixDofChain?.Shutdown();
         _sixDofChain?.Servers.Dispose();
+        _passiveCharacters?.Shutdown();
+        _passiveCharacters?.Servers.Dispose();
+        _activeCharacters?.Shutdown();
+        _activeCharacters?.Servers.Dispose();
         _ragdolls?.Shutdown();
         _ragdolls?.Servers.Dispose();
         GC.SuppressFinalize(this);
