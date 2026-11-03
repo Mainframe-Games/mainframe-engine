@@ -1,7 +1,7 @@
 ---
 // Screenshots, first after the hero: the editor, its viewport tools, the Demo's scenes, then the Forest's and Neon's reference shots (the first
-// one of each large) (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it full size in
-// a <dialog>.
+// one of each large; six shots each) (the README's Showcase; images synced from docs/images to public/images). Clicking one opens it
+// in the site's lightbox (components/Lightbox.astro).
 const base = import.meta.env.BASE_URL;
 const img = (p: string) => `${base}images/${p}`;
 
@@ -10,9 +10,7 @@ const forest = [
   { src: 'forest/readme-woodland.jpg', title: 'Woodland', text: 'PCSS soft shadows, GTAO, light probes' },
   { src: 'forest/readme-pond.jpg', title: 'Misty pond', text: 'Screen-space reflections, impostor canopies' },
   { src: 'forest/readme-fall.jpg', title: 'The fall', text: 'Refraction and caustics on the gravel bed' },
-  { src: 'forest/readme-upstream.jpg', title: 'Upstream', text: 'The carved stream seen through the ripples' },
   { src: 'forest/readme-ferns.jpg', title: 'Fern floor', text: '32-tap depth of field, near and far' },
-  { src: 'forest/readme-beach.jpg', title: 'The beach', text: 'A twelve-layer splat terrain, a lake into the mountains' },
   { src: 'forest/readme-cabin.jpg', title: 'The cabin', text: 'Firelight with cube shadows, particles, scanned furniture' },
 ];
 const neon = [
@@ -49,6 +47,7 @@ const demo = [
   { src: 'demo/spine.png', title: 'Spine', text: 'Under a 3D or 2D camera' },
   { src: 'demo/animation_3d.png', title: 'Animation 3D', text: 'A skinned glTF character, crossfades, events, root motion and an active ragdoll' },
   { src: 'demo/audio_3d.png', title: 'Audio 3D', text: 'Attenuation, low-pass, doppler' },
+  { src: 'demo/audio_2d.png', title: 'Audio 2D', text: 'Panning past a 2D listener, one-shots' },
   { src: 'demo/sound_fx.png', title: 'Sound FX', text: 'ZzFX presets and a looping song' },
   { src: 'demo/particles.png', title: 'Particles', text: 'A glowing campfire, its smoke and rain' },
   { src: 'demo/settings.png', title: 'Settings', text: 'Volumes, rebinding, display' },
@@ -56,6 +55,7 @@ const demo = [
   { src: 'demo/sprites_2d.png', title: 'Sprites 2D', text: 'AnimatedSprite2D flipbooks from one sprite sheet' },
   { src: 'demo/tiles_2d.png', title: 'Tiles 2D', text: 'Tile map layers, per-chunk collision, a hero among y-sorted trees and a shadow that chases it' },
   { src: 'demo/navigation_2d.png', title: 'Navigation 2D', text: 'A baked maze, mud and chasers that walk to the clicked point' },
+  { src: 'demo/adaptive_music.png', title: 'Music', text: 'Adaptive music: intensity brings layers in, area changes section on the bar, a stinger' },
 ];
 ---
 
@@ -63,7 +63,7 @@ const demo = [
   <header class="mf-section__head" data-reveal>
     <p class="mf-kicker">Showcase</p>
     <h2 id="showcase-title">Made with Mainframe</h2>
-    <p>Every image is the engine rendering in real time: the editor, the Demo's scenes and the Forest walk.</p>
+    <p>Every image is the engine rendering in real time: the editor, the Demo's scenes, the Forest walk and the Neon loft.</p>
   </header>
 
   <h3 class="mf-showcase__label" data-reveal>The editor <span>built with the engine's own game UI</span></h3>
@@ -139,30 +139,5 @@ const demo = [
       ))
     }
   </div>
-
-  <dialog class="mf-lightbox" data-mf-lightbox aria-label="Screenshot">
-    <form method="dialog"><button class="mf-lightbox__close" aria-label="Close">×</button></form>
-    <img alt="" />
-    <p></p>
-  </dialog>
 </section>
 
-<script>
-  const box = document.querySelector<HTMLDialogElement>('[data-mf-lightbox]');
-  if (box) {
-    const image = box.querySelector('img')!;
-    const caption = box.querySelector('p')!;
-    document.querySelectorAll<HTMLButtonElement>('.mf-shot[data-full]').forEach((shot) =>
-      shot.addEventListener('click', () => {
-        image.src = shot.dataset.full!;
-        image.alt = shot.dataset.caption ?? '';
-        caption.textContent = shot.dataset.caption ?? '';
-        box.showModal();
-      }),
-    );
-    // A click on the backdrop (the dialog itself, outside the image) closes it.
-    box.addEventListener('click', (e) => {
-      if (e.target === box) box.close();
-    });
-  }
-</script>

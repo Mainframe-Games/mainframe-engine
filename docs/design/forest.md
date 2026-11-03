@@ -384,17 +384,11 @@ it), so it needed no clearing or view corridor of its own and the probe bake is 
 shot's camera 2.5 m from a trunk: the ash at its right edge is 3.2 m away). Candidates that lost: the lookout and the
 outcrop looking south down the valley (front-lit, flat; pines now fill the lookout's foreground), the pine slope's path
 (the slope crosses the frame at an angle), the pond's birch bank (too close to R4) and the bridge looking upstream
-(close to R3; kept for the README).
+(close to R3).
 
-**README images.** The root README's Forest showcase is eight JPEGs (the beach and the cabin added by ADR 0209), `docs/images/forest/readme-*.jpg` (1600 px wide,
-quality 88, ≈ 3.8 MB together): R1, R8, R4, R7 and R5 converted from the `just forest-screenshots` PNGs, and
-`readme-upstream`, a pose that is not a reference shot: from the log bridge up the stream between its birches,
-
-```bash
-just forest --fixed-fps 60 --max-frames 300 --no-log-file --screenshot /tmp/upstream.png ++ --no-capture --no-audio \
-  --resolution 2560x1440 --view 119.5,10,134,105,11,88,55
-sips -s format jpeg -s formatOptions 88 --resampleWidth 1600 /tmp/upstream.png --out docs/images/forest/readme-upstream.jpg
-```
+**README images.** The root README's Forest showcase, and the website's, is six JPEGs (a showcase project shows six,
+the first large on the website), `docs/images/forest/readme-*.jpg` (1600 px wide, quality 88, ≈ 3.5 MB together): R1,
+R8, R4, R7 and R5 converted from the `just forest-screenshots` PNGs, and the cabin (ADR 0209).
 
 **Volumetric fog (G8e.3, [ADR 0171](../../memory/decisions/0171-volumetric-fog.md)).** The shots above are with it. Against
 the screen-space shafts it replaced: R1 keeps rays through the canopy around the sun but the trees to either side are no

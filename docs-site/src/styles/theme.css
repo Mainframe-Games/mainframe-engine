@@ -181,6 +181,123 @@ pre.mermaid {
   font-size: var(--sl-text-xs);
 }
 
+/* Images and diagrams open in the lightbox (components/Lightbox.astro). */
+.sl-markdown-content img:not(a img, .not-content img),
+pre.mermaid[data-processed] {
+  cursor: zoom-in;
+}
+
+/* The lightbox: the whole window, the image or diagram fitted into it, its caption below. */
+.mf-lightbox {
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgba(10, 12, 16, 0.94);
+  color: #e8ebf2;
+  cursor: zoom-out;
+}
+.mf-lightbox[open] {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+.mf-lightbox::backdrop {
+  background: transparent;
+}
+:root:has(.mf-lightbox[open]) {
+  overflow: hidden;
+}
+.mf-lightbox__stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 3.5rem 4.5rem 1rem;
+  container-type: size;
+}
+/* As large as fits, at its own aspect ratio (--ratio, set by the script), small images scaled up too. */
+.mf-lightbox__stage > * {
+  display: block;
+  width: min(100cqw, 100cqh * var(--ratio, 1.6));
+  height: auto;
+  aspect-ratio: var(--ratio, 1.6);
+}
+/* The mockups are drawn on white. */
+.mf-lightbox__stage > img[src$='.svg'] {
+  background: #ffffff;
+  border-radius: 6px;
+}
+.mf-lightbox__stage > svg {
+  padding: 1.5rem;
+  background: var(--mf-field);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 8px;
+}
+.mf-lightbox__caption {
+  margin: 0 auto;
+  max-width: 60rem;
+  padding: 0 1.5rem 1.25rem;
+  font-size: var(--sl-text-sm);
+  text-align: center;
+}
+.mf-lightbox__button {
+  position: absolute;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: rgba(10, 12, 16, 0.6);
+  color: #ffffff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.mf-lightbox__button:hover,
+.mf-lightbox__button:focus-visible {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.35);
+}
+.mf-lightbox__close {
+  top: 0.75rem;
+  right: 0.75rem;
+}
+.mf-lightbox__prev,
+.mf-lightbox__next {
+  top: 50%;
+  translate: 0 -50%;
+}
+.mf-lightbox__prev {
+  left: 0.75rem;
+}
+.mf-lightbox__next {
+  right: 0.75rem;
+}
+.mf-lightbox.is-single .mf-lightbox__prev,
+.mf-lightbox.is-single .mf-lightbox__next {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mf-lightbox[open] {
+    animation: mf-lightbox-in 0.2s ease-out;
+  }
+  .mf-lightbox[open] .mf-lightbox__stage > * {
+    animation: mf-lightbox-zoom 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+}
+@keyframes mf-lightbox-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes mf-lightbox-zoom {
+  from {
+    scale: 0.96;
+  }
+}
+
 /* Buttons (hero actions) like the editor's: square-ish, accent fill with white text. */
 .sl-link-button {
   border-radius: 4px;

@@ -777,7 +777,7 @@
 .mf-section__head + .mf-showcase__label {
   margin-top: 0;
 }
-/* The Forest: its first shot spans two columns and two rows of a three-column grid (4 + 5 cells = 3 × 3). */
+/* The Forest and Neon: six shots, the first spanning two columns and two rows of a three-column grid (4 + 5 cells = 3 × 3). */
 @media (min-width: 62rem) {
   .mf-gallery--feature {
     grid-template-columns: repeat(3, 1fr);
@@ -842,52 +842,6 @@
   .mf-shot__caption {
     translate: 0 0;
   }
-}
-
-.mf-lightbox {
-  width: min(94vw, 1600px);
-  max-width: none;
-  max-height: 94vh;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--sl-color-hairline-light);
-  border-radius: 10px;
-  background: var(--sl-color-bg-nav);
-  color: var(--sl-color-text);
-}
-.mf-lightbox[open] {
-  animation: mf-zoom-in 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-.mf-lightbox::backdrop {
-  background: rgba(10, 12, 16, 0.82);
-  backdrop-filter: blur(4px);
-}
-.mf-lightbox img {
-  display: block;
-  width: 100%;
-  max-height: calc(94vh - 3rem);
-  object-fit: contain;
-  background: #000;
-}
-.mf-lightbox p {
-  margin: 0;
-  padding: 0.75rem 1rem;
-  font-size: var(--sl-text-sm);
-}
-.mf-lightbox__close {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  z-index: 1;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  background: rgba(10, 12, 16, 0.6);
-  color: #ffffff;
-  font-size: 1.4rem;
-  line-height: 1;
-  cursor: pointer;
 }
 
 /* ── Closing call to action ───────────────────────────────────────────────── */
@@ -1130,13 +1084,6 @@
     opacity: 0;
   }
 }
-@keyframes mf-zoom-in {
-  from {
-    opacity: 0;
-    scale: 0.96;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .mf-hero *,
   .mf-hero,

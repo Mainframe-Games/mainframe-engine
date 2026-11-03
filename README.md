@@ -222,11 +222,7 @@ AgX and a colour-grading LUT, at 2560 × 1440 with 3D at 75 % and TAA upscaling.
     <td align="center" valign="top"><img src="docs/images/forest/readme-fall.jpg" width="380" alt="Forest fall"><br><b>The fall</b> — waterfall spray, refraction and caustics on the gravel bed</td>
   </tr>
   <tr>
-    <td align="center" valign="top"><img src="docs/images/forest/readme-upstream.jpg" width="380" alt="Forest stream"><br><b>Upstream</b> — the carved stream between birches, seen through the ripples</td>
     <td align="center" valign="top"><img src="docs/images/forest/readme-ferns.jpg" width="380" alt="Forest fern floor"><br><b>Fern floor</b> — 32-tap depth of field, near and far, over moss and ferns</td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><img src="docs/images/forest/readme-beach.jpg" width="380" alt="Forest beach"><br><b>The beach</b> — a sand terrain layer (twelve-layer splat), a lake into distant mountains</td>
     <td align="center" valign="top"><img src="docs/images/forest/readme-cabin.jpg" width="380" alt="Forest cabin"><br><b>The cabin</b> — firelight with cube shadows, particles, Poly Haven furniture</td>
   </tr>
 </table>
