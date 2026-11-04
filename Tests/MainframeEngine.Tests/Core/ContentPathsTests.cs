@@ -109,4 +109,16 @@ public sealed class ContentPathsTests
             Directory.Delete(project, recursive: true);
         }
     }
+
+    [Theory]
+    [InlineData("Assets/Video", true)]
+    [InlineData("Assets/Video/Media/clip.mp4", true)]
+    [InlineData("Assets\\Video\\Recordings\\a.mp4", true)]
+    [InlineData("assets/video/Timelines/t.mftimeline", true)]
+    [InlineData("./Assets/Video/a.mp4", true)]
+    [InlineData("Assets/Videos/a.mp4", false)]
+    [InlineData("Assets/VideoClips", false)]
+    [InlineData("Assets/Scenes/Video/a.mscene", false)]
+    [InlineData("Video/a.mp4", false)]
+    public void IsEditorOnly(string path, bool expected) => Assert.Equal(expected, ContentPaths.IsEditorOnly(path));
 }

@@ -1,0 +1,166 @@
+using System.Diagnostics;
+using MainframeEngine.Video.Media;
+using MainframeEngine.Video.Timelines;
+using MainframeEngine.Video.Timelines.Export;
+using static MainframeEngine.Video.Tests.Timelines.TimelineTestData;
+
+namespace MainframeEngine.Video.Tests.Timelines;
+
+/// <summary>
+/// Runs real ffmpeg on generated graphs (<c>just test-video-ffmpeg</c>; skipped unless <c>MAINFRAME_VIDEO_FFMPEG_TESTS=1</c>,
+/// so <c>just test</c> and CI never start ffmpeg). Renders lavfi test sources through a two-track vertical timeline
+/// with each kind of preset and checks the result with ffprobe; the recipe keeps the files in <c>artifacts/video-ffmpeg</c>.
+/// </summary>
+public sealed class TimelineFfmpegTests : IDisposable
+{
+    private readonly DirectoryInfo _dir = Directory.CreateTempSubdirectory("mf-timeline-ffmpeg-");
+
+    public void Dispose() => _dir.Delete(recursive: true);
+
+    private static FfmpegLocation Ffmpeg()
+    {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("MAINFRAME_VIDEO_FFMPEG_TESTS") == "1",
+            "Real-ffmpeg export tests run with `just test-video-ffmpeg` (MAINFRAME_VIDEO_FFMPEG_TESTS=1).");
+        return new FfmpegLocator(Environment.GetEnvironmentVariable("MAINFRAME_FFMPEG")).TryLocate()
+               ?? throw new InvalidOperationException("MAINFRAME_VIDEO_FFMPEG_TESTS=1 but no ffmpeg was found.");
+    }
+
+    [Theory]
+    [InlineData("vertical-30", 1080, 1920, 30.0)]
+    [InlineData("chat", 720, 1280, 30.0)]
+    [InlineData("gif", 480, 854, 20.0)]
+    [InlineData("webm-loop", 720, 1280, 30.0)]
+    public async Task ExportsATwoTrackVerticalTimeline(string presetId, int width, int height, double fps)
+    {
+        var ffmpeg = Ffmpeg();
+        var ct = TestContext.Current.CancellationToken;
+        var source = Path.Combine(_dir.FullName, "rec.mp4");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=60", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+            "-t", "6", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-y", source]);
+        var info = await new MediaProbe(ffmpeg).ProbeAsync(source, ct);
+        var media = new MediaRef("", source, "h", info.DurationSeconds, info.Width, info.Height, info.FrameRate, true, info.HasAudio);
+
+        // V1: 1–4 s of the recording, filled (cropped to 9:16) and with a 0.5 s cut; V2: a picture-in-picture from 1 s.
+        var t = Vertical();
+        t = TimelineEdits.Append(t, media, 1, 4, V1(t), A1(t));
+        t = Cut(t, On(t, V1(t), 0), 2, 2.5);
+        t = TimelineEdits.Overwrite(t, media, 0, 1, at: 1, V2(t), null);
+        var pip = On(t, V2(t), 0);
+        t = TimelineEdits.SetTransform(t, pip.Id, pip.Transform with { Fit = FrameFit.Fit, Scale = 0.5, Y = -500 });
+        var (start, end) = TimelineLayout.Range(t);
+        Assert.Equal(2.5, end, 6);
+
+        var preset = TimelineExportPresets.Find(presetId)!;
+        var output = Path.Combine(_dir.FullName, "out" + preset.Extension);
+        using var temp = new TempSession();
+        await new TimelineExporter(ffmpeg, temp).ExportAsync(t, preset, start, end, output, null, null, ct);
+
+        if (Environment.GetEnvironmentVariable("MAINFRAME_VIDEO_FFMPEG_OUT") is { Length: > 0 } keep) // for a look by eye
+        {
+            Directory.CreateDirectory(keep);
+            File.Copy(output, Path.Combine(keep, presetId + preset.Extension), overwrite: true);
+        }
+
+        var result = await new MediaProbe(ffmpeg).ProbeAsync(output, ct);
+        Assert.Equal((width, height), (result.Width, result.Height));
+        Assert.Equal(fps, result.FrameRate, 1);
+        Assert.InRange(result.DurationSeconds, 2.5 - 0.15, 2.5 + 0.15);
+        Assert.Equal(preset.HasAudio, result.HasAudio);
+    }
+
+    [Fact]
+    public async Task ExportsADissolveAStillAndFades()
+    {
+        // G20.2 through the real ffmpeg: two clips with a 1 s dissolve (xfade on RGBA, the sounds crossfading), an image
+        // held for 2 s on V2, a fade in, a clip at -6 dB, a dip-free 4 s timeline.
+        var ffmpeg = Ffmpeg();
+        var ct = TestContext.Current.CancellationToken;
+        var source = Path.Combine(_dir.FullName, "rec.mp4");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=60", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+            "-t", "8", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-y", source]);
+        var logo = Path.Combine(_dir.FullName, "logo.png");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "color=c=red:s=320x240", "-frames:v", "1", "-y", logo]);
+        var media = await MediaRefs.ProbeAsync(ffmpeg, source, source, "", ct);
+        var image = await MediaRefs.ProbeAsync(ffmpeg, logo, logo, "", ct);
+        Assert.Equal((320, 240, TimelineFactory.StillDuration), (image.Width, image.Height, image.Duration));
+
+        var t = Vertical();
+        t = TimelineEdits.Append(t, media, 1, 3, V1(t), A1(t));
+        t = TimelineEdits.Append(t, media, 5, 7, V1(t), A1(t));
+        t = TimelineEdits.AddTransition(t, On(t, V1(t), 0).Id, On(t, V1(t), 1).Id, TransitionKind.Dissolve, 1);
+        t = TimelineEdits.SetMix(t, On(t, V1(t), 0).Id, 0, 0.5, 0);
+        t = TimelineEdits.SetMix(t, On(t, A1(t), 1).Id, -6, 0, 0);
+        t = TimelineEdits.PlaceStill(t, image, ClipKind.Image, null, 1, 2, V2(t), insert: false);
+        Assert.Equal(2, t.Transitions.Length); // the picture's dissolve and its sound's twin
+        var preset = TimelineExportPresets.Vertical30;
+        var output = Path.Combine(_dir.FullName, "polish.mp4");
+        using var temp = new TempSession();
+        await new TimelineExporter(ffmpeg, temp).ExportAsync(t, preset, 0, TimelineLayout.Duration(t), output, null, null, ct);
+        if (Environment.GetEnvironmentVariable("MAINFRAME_VIDEO_FFMPEG_OUT") is { Length: > 0 } keep)
+        {
+            Directory.CreateDirectory(keep);
+            File.Copy(output, Path.Combine(keep, "polish.mp4"), overwrite: true);
+        }
+
+        var result = await new MediaProbe(ffmpeg).ProbeAsync(output, ct);
+        Assert.Equal((1080, 1920), (result.Width, result.Height));
+        Assert.InRange(result.DurationSeconds, 4 - 0.15, 4 + 0.15);
+        Assert.True(result.HasAudio);
+    }
+
+    [Fact]
+    public async Task PreviewDecodesRawFramesAndSamples()
+    {
+        var ffmpeg = Ffmpeg();
+        var source = Path.Combine(_dir.FullName, "rec.mp4");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=60", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+            "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-y", source]);
+        var media = await MediaRefs.ProbeAsync(ffmpeg, source, source, "", TestContext.Current.CancellationToken);
+        var t = TimelineEdits.Append(Vertical(), media, 0, 2, V1(Vertical()), null);
+        var fresh = Vertical();
+        t = TimelineEdits.Append(fresh, media, 0, 2, V1(fresh), A1(fresh));
+
+        var video = await Read(ffmpeg, TimelinePreviewArguments.Video(t, 0, 1, 540, 960, Rate30, null));
+        Assert.InRange(video, 29 * 540 * 960 * 4, 31 * 540 * 960 * 4); // 30 frames, give or take one
+        var audio = await Read(ffmpeg, TimelinePreviewArguments.Audio(t, 0, 1, 44100, null));
+        Assert.InRange(audio, 44100 * 8 * 49 / 50, 44100 * 8 * 51 / 50); // a second of stereo float, ±2 %
+        var frame = await Read(ffmpeg, TimelinePreviewArguments.Frame(t, 0.5, 540, 960, Rate30, null));
+        Assert.Equal(540 * 960 * 4, frame);
+    }
+
+    private static async Task<int> Read(FfmpegLocation ffmpeg, IEnumerable<string> args)
+    {
+        using var process = FfmpegProcess.Start(ffmpeg.FfmpegPath, args, redirectStandardOutput: true);
+        var stderr = process.StandardError.ReadToEndAsync();
+        using var buffer = new MemoryStream();
+        await process.StandardOutput.BaseStream.CopyToAsync(buffer);
+        await FfmpegProcess.WaitForSuccessAsync(process, stderr, "Previewing", CancellationToken.None);
+        return (int)buffer.Length;
+    }
+
+    [Fact]
+    public async Task DetectsSilenceInsideAWindowOnly()
+    {
+        // A 12 s tone, silent from 4 to 6 s and from 9 to 10.5 s; a clip's window of 2–8 s finds only the first, in source time.
+        var ffmpeg = Ffmpeg();
+        var ct = TestContext.Current.CancellationToken;
+        var source = Path.Combine(_dir.FullName, "tone.m4a");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=12",
+            "-af", "volume=enable='between(t,4,6)+between(t,9,10.5)':volume=0", "-c:a", "aac", "-y", source]);
+        var settings = MainframeEngine.Video.Models.DetectionSettings.Default;
+
+        var spans = await new MainframeEngine.Video.Media.SilenceDetector(ffmpeg).DetectAsync(source, 12, settings, null, ct, start: 2, end: 8);
+
+        var span = Assert.Single(spans);
+        Assert.InRange(span.Start, 3.9, 4.1);
+        Assert.InRange(span.End, 5.9, 6.1);
+    }
+
+    private static async Task Run(string exe, IEnumerable<string> args)
+    {
+        using var process = FfmpegProcess.Start(exe, args, redirectStandardOutput: false);
+        var stderr = process.StandardError.ReadToEndAsync();
+        await FfmpegProcess.WaitForSuccessAsync(process, stderr, "Making a test source", CancellationToken.None);
+        Debug.Assert(process.HasExited);
+    }
+}

@@ -478,9 +478,14 @@ public sealed class SerializationTests : IDisposable
         File.WriteAllBytes(ContentPath("theme.ogg.baking.wav.tmp"), [1]);
         File.WriteAllText(ContentPath("old.ogg.baking.wav.tmp.meta"), """{"uid":"snd_stale"}""");
         var sceneUid = SceneSaver.Save(new Node3D { Name = "S" }, ContentPath("S.mscene"));
+        // A video timeline carries its own uid (ADR 0241), like a scene.
+        File.WriteAllText(ContentPath("Edit.mftimeline"), """{ "version": 1, "uid": "vtl_0123456789ab", "settings": {} }""");
 
         var db = new AssetDatabase(_project);
         db.Scan(createMissingMeta: true);
+        Assert.Equal("Assets/Edit.mftimeline", db.GetPath("vtl_0123456789ab"));
+        Assert.False(File.Exists(ContentPath("Edit.mftimeline.meta")));
+        Assert.Equal(AssetUid.TimelinePrefix, AssetUid.PrefixForExtension(".mftimeline"));
         var meta = db.ReadOrCreateMeta("Assets/icon.png", create: false)!;
         Assert.StartsWith("tex_", meta.Uid, StringComparison.Ordinal);
         Assert.True(File.Exists(ContentPath("icon.png.meta")));

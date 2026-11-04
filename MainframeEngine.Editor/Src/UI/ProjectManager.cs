@@ -95,8 +95,7 @@ public sealed class ProjectManager : EditorDocument
             .Event("browse", _ => OpenProjectFile())
             .Event("download_demo", _ => ShowExamples())
             .Event("remove", _ => RemoveSelected())
-            .Event("download", _ => OpenDownloadPage())
-            .Event("video", _ => Workspace.Commands.Execute("editor.video_editor"));
+            .Event("download", _ => OpenDownloadPage());
     }
 
     /// <summary>Shows the manager (re-reads the recent list, checks the SDK once).</summary>

@@ -25,6 +25,26 @@ public static class ContentPaths
     /// <summary>The content folder's name before project format 4; <see cref="UpgradeLegacyPath"/> maps it.</summary>
     public const string LegacyFolderName = "Content";
 
+    /// <summary>
+    /// The project folder the editor keeps for itself: video mode's recordings, imported media and timelines (ADR 0241).
+    /// Builds never copy it next to a game (<c>build/MainframeGame.props</c>) and exports never ship it.
+    /// </summary>
+    public const string EditorOnlyFolder = "Assets/Video";
+
+    /// <summary>
+    /// Whether <paramref name="projectPath"/>, relative to the project root (<c>Assets/Video/Media/a.mp4</c>, either
+    /// separator), is <see cref="EditorOnlyFolder"/> or inside it. Case-insensitive, as the folder is on macOS and Windows.
+    /// </summary>
+    public static bool IsEditorOnly(string projectPath)
+    {
+        ArgumentNullException.ThrowIfNull(projectPath);
+        var path = projectPath.Replace('\\', '/');
+        while (path.StartsWith("./", StringComparison.Ordinal))
+            path = path[2..];
+        return path.StartsWith(EditorOnlyFolder, StringComparison.OrdinalIgnoreCase)
+               && (path.Length == EditorOnlyFolder.Length || path[EditorOnlyFolder.Length] == '/');
+    }
+
     /// <summary>The application's output folder (where the engine assembly and <c>Assets/</c> live).</summary>
     public static string BaseDirectory { get; } = AppContext.BaseDirectory;
 

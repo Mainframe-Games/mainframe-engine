@@ -233,6 +233,16 @@ public sealed class ExportPlanAndValidationTests : IDisposable
     }
 
     [Fact]
+    public void AnIncludeGlobNamingTheEditorOnlyFolderWarns()
+    {
+        var preset = ExportPreset.Create("W", ExportPlatform.Windows);
+        Assert.DoesNotContain("editor-only-content", Codes(Validate(preset), ExportIssueSeverity.Warning)); // Assets/** is fine
+
+        preset.Include.Add("Assets/Video/**");
+        Assert.Equal(["editor-only-content"], Codes(Validate(preset), ExportIssueSeverity.Warning));
+    }
+
+    [Fact]
     public void ExperimentalOptionsVersionsAndIconsWarn()
     {
         var preset = ExportPreset.Create("L", ExportPlatform.Windows);

@@ -57,6 +57,10 @@ public static class ExportValidator
                 Error("glob", $"The content glob '{glob}' {problem}.");
         if (preset.Include.Count == 0)
             Warn("include-empty", "No include globs: none of the game's Assets/ files ship.", "Add Assets/**.");
+        foreach (var glob in preset.Include)
+            if (ContentPaths.IsEditorOnly(glob))
+                Warn("editor-only-content", $"The include glob '{glob}' names {ContentPaths.EditorOnlyFolder}, which never ships: it holds the editor's video media and timelines.",
+                    "Remove the glob; put game content elsewhere in Assets/.");
 
         // Content: the main scene, autoload scenes and the bus layout must ship.
         database ??= ScanDatabase(root);

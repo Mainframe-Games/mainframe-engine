@@ -88,7 +88,9 @@ SPIR-V is built ahead of time and committed next to the source (`x.slang.vert.sp
 stage then writes only the inputs that stage kept (Slang drops unread fragment inputs, and an unread vertex output is a
 validation warning; `SpirvInputs`). `ShaderMaterial.SetShaderParameter(name, value)` sets parameters (vectors as
 `System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for textures). Runtime-updated textures
-(`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes. The same `Shader`/`ShaderMaterial` carry
+(`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes: into the same GPU image when the size is
+unchanged (`GpuTexture.Update2D`, ADR 0241), so a texture updated every frame (a video preview) keeps its descriptor
+sets and allocates nothing (render test `CanvasTextureUpdatesInPlace`). The same `Shader`/`ShaderMaterial` carry
 spatial surface shaders to 3D meshes ([Shaders → Surface shaders](shaders.md#surface-shaders), ADR 0205); `mf-shaders`
 builds both kinds.
 
@@ -207,7 +209,9 @@ read and rasterised in managed code (`TrueTypeFont`, `GlyphRasterizer`: TrueType
 exact-area coverage, outlines grown by `size / 4` px at 4× supersampling) into shared atlas pages per size and outline.
 Metrics follow FreeType's rounding. Unhinted, whole-pixel pen positions, no oversampling under a scaled canvas.
 Glyph placement is `Font.Layout` (one line into `GlyphQuad`s: pixel rectangle, atlas page and region), shared by
-`DrawString` and `Label3D` ([ADR 0200](../../memory/decisions/0200-label3d-first-slice.md)).
+`DrawString` and `Label3D` ([ADR 0200](../../memory/decisions/0200-label3d-first-slice.md)). `Font.RenderLine(text,
+size, outlineRadius, padding)` rasterises one line on the CPU into a `TextBitmap` (coverage bytes, baseline row, pen
+origin) with no atlas or GPU: the editor's video titles are drawn from it, so a headless run makes the same pixels.
 
 ## Polygons and bones (ADR 0202)
 

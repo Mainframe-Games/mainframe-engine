@@ -368,8 +368,9 @@ through an internal `IDurableFileOps` shim, which the tests use to simulate a cr
   used 32).
 - Scene and resource files carry their own `uid`. Other assets get a **`<file>.meta`** sidecar
   (`AssetMeta`: `uid`, `importer`, `settings`), created by the editor (`Scan(createMissingMeta: true)`). Files being
-  written (`*.tmp`: saves, bake stages) are never assets and get none; that scan also deletes a `*.tmp.meta` whose
-  temporary file is gone.
+  written (`*.tmp`: saves, bake stages; anything inside a `*.partial/` folder: a recording's streams while it records
+  into `Assets/Video/Recordings`) are never assets and get none; that scan also deletes a `*.tmp.meta` whose temporary
+  file is gone.
 - `AssetDatabase` maps UID ↔ project-relative path (`/` separators). `Refresh()` reads
   `Assets/assets.index.json` when present (shipped builds; `WriteIndex()` produces it) and scans `Assets/`
   otherwise; `AssetDatabase.Current` (rooted at `ContentPaths.BaseDirectory` — the app folder, never the working

@@ -31,15 +31,16 @@ public sealed class VideoTimelineCanvas : EditorCanvas
     private static readonly Vector4 ReasonText = Rgb(0x7C, 0x7C, 0x88);
     private static readonly Vector4 Hint = Rgb(0x60, 0x60, 0x6A);
     private static readonly Vector4 Marker = Rgb(0xB4, 0x8C, 0xFF);
+    private static readonly Vector4 OutsideWindow = Rgb(0x08, 0x08, 0x0A, 0.7f);
 
     private static readonly Dictionary<long, string> RulerLabels = [];   // by whole second
     private static readonly Dictionary<long, string> FineRulerLabels = []; // by tenth of a second
 
-    private readonly VideoDocument _document;
+    private readonly ICutTarget _document;
     private readonly VideoTimelineView _view;
     private readonly VideoCanvasState _state;
 
-    public VideoTimelineCanvas(VideoDocument document, VideoTimelineView view, VideoCanvasState state)
+    public VideoTimelineCanvas(ICutTarget document, VideoTimelineView view, VideoCanvasState state)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(view);
@@ -72,12 +73,13 @@ public sealed class VideoTimelineCanvas : EditorCanvas
         Box(0, ruler, w, h - ruler, BodyBackground);
         if (_view.Duration <= 0)
         {
-            Text("Open a recording to see its timeline", 12, h / 2, 13, Hint);
+            Text("Select a clip to see and edit its cuts", 12, h / 2, 13, Hint);
             return;
         }
 
         DrawSegments(w, h);
         DrawWaveform(w, h);
+        DrawWindow(w, h);
         DrawBoundaries(h);
         DrawPendingSection(h);
         DrawRuler(w);
@@ -179,6 +181,18 @@ public sealed class VideoTimelineCanvas : EditorCanvas
             var x = (c + 0.5f) / scale;
             Line(x, mid - MathF.Max(minHalf, max * k), x, mid - MathF.Min(-minHalf, min * k), enabled ? KeptWave : RemovedWave, minHalf);
         }
+    }
+
+    // Outside the clip's window (the source it does not show) is shaded: cuts there do not change the clip.
+    private void DrawWindow(float w, float h)
+    {
+        if (_document.Window is not { } window)
+            return;
+        var ruler = VideoTimelineView.RulerHeight;
+        var x0 = MathF.Max(0, (float)_view.TimeToX(window.Start));
+        var x1 = MathF.Min(w, (float)_view.TimeToX(window.End));
+        Box(0, ruler, x0, h - ruler, OutsideWindow);
+        Box(x1, ruler, w - x1, h - ruler, OutsideWindow);
     }
 
     private void DrawBoundaries(float h)

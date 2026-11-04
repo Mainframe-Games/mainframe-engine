@@ -123,7 +123,7 @@ public sealed class AssetDatabase
 
                 if (name.StartsWith('.') || name.EndsWith(MetaExtension, StringComparison.OrdinalIgnoreCase)
                                          || name.Equals(IndexFileName, StringComparison.OrdinalIgnoreCase) || IsBuildOutput(name)
-                                         || IsTemporary(name))
+                                         || IsTemporary(name) || IsInPartialFolder(file))
                     continue;
 
                 var uid = IsSelfDescribing(file) ? ReadEmbeddedUid(file) : ReadOrCreateMeta(file, createMissingMeta)?.Uid;
@@ -138,6 +138,19 @@ public sealed class AssetDatabase
     /// so a scan that runs while it exists (the editor's file watcher during a bake or a save) gives it no <c>.meta</c>.
     /// </summary>
     public static bool IsTemporary(string fileName) => fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The suffix of a folder still being written: a recording's <c>&lt;name&gt;.mp4.partial/</c> (its video stream and audio
+    /// while it records, ADR 0190), which recordings in the project's <c>Assets/Video/Recordings</c> put under Assets/.
+    /// </summary>
+    public const string PartialFolderSuffix = ".partial";
+
+    /// <summary>Whether <paramref name="path"/> is inside a <see cref="PartialFolderSuffix"/> folder (never an asset).</summary>
+    public static bool IsInPartialFolder(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return path.Replace('\\', '/').Contains(PartialFolderSuffix + "/", StringComparison.OrdinalIgnoreCase);
+    }
 
     // A .meta left for a temporary file that is gone (written by scans before temporary files were skipped).
     private static bool IsStaleTemporaryMeta(string path) =>
@@ -299,7 +312,8 @@ public sealed class AssetDatabase
 
     internal static bool IsSelfDescribing(string path) =>
         path.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase) ||
-        path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mmusic", StringComparison.OrdinalIgnoreCase);
+        path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mmusic", StringComparison.OrdinalIgnoreCase) ||
+        path.EndsWith(".mftimeline", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Reads the top-level <c>"uid"</c> of a scene/resource file without parsing the rest.</summary>
     internal static string? ReadEmbeddedUid(string path)

@@ -57,7 +57,9 @@ The checkout's game-facing build files are packed unchanged, so package and chec
 
 - **`MainframeGame.props`**, which checkout games import from their `Directory.Build.props`, provides the `DEMO` define
   and `AssemblyMetadata` from `"isDemo"`, the app name and icon from `project.mfproj`, the macOS development `.app`
-  bundle, and `CopyLocalLockFileAssemblies`. All of it is inert without a `project.mfproj` above the project. It also
+  bundle, `CopyLocalLockFileAssemblies`, and the `_MainframeExcludeEditorOnlyContent` target, which keeps the
+  editor-only `Assets/Video` folder (video mode's media, ADR 0241) out of the game's `Assets/**` copy, so builds,
+  publishes and exports never contain it. All of it is inert without a `project.mfproj` above the project. It also
   sets `MainframeExportTool`: the package's `tools/mf-export/mf-export.dll`, or the checkout's `mf-export` project, and
   `MainframeShadersTool` and `MainframeShaderInclude` the same way for surface shaders.
 - **`Localization.targets`** sees `MfL10nPath` already set (to `tools/mf-l10n`), so it skips the `mf-l10n` project

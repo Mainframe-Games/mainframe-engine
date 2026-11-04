@@ -9,7 +9,7 @@ public enum EditorMode
     /// <summary>Scenes and UI previews: the scene tree, inspector, file system, output, play and record.</summary>
     Game,
 
-    /// <summary>Trimming recordings (<c>.mfcut</c> tabs): the video panel, no project needed.</summary>
+    /// <summary>Editing video (<c>.mftimeline</c> tabs, the timeline editor) over the whole window; timelines belong to the game project.</summary>
     Video,
 
     /// <summary>Songs (<c>.msong</c> tabs, the music editor) over the whole window; songs belong to the game project.</summary>
@@ -20,8 +20,9 @@ public enum EditorMode
 public static class EditorModes
 {
     /// <summary>
-    /// Whether tabs of <paramref name="mode"/> belong to the open game project (game and music tabs): a project switch asks
-    /// about and closes them. Video tabs edit recordings outside any project, so they stay.
+    /// Whether tabs of <paramref name="mode"/> belong to the open game project: every mode's do since video mode edits the
+    /// project's timelines (ADR 0241), so a project switch asks about and closes them all. Kept as a seam for a mode that
+    /// would not.
     /// </summary>
-    public static bool UsesProject(this EditorMode mode) => mode != EditorMode.Video;
+    public static bool UsesProject(this EditorMode mode) => Enum.IsDefined(mode);
 }

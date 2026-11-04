@@ -257,6 +257,18 @@
     i-zoom-in: 142px 302px 16px 16px;
     i-zoom-out: 162px 302px 16px 16px;
     i-database: 182px 302px 16px 16px;
+    i-scissors: 202px 302px 16px 16px;
+    i-timeline: 222px 302px 16px 16px;
+    i-file-import: 242px 302px 16px 16px;
+    i-column-insert-right: 262px 302px 16px 16px;
+    i-replace: 282px 302px 16px 16px;
+    i-arrow-bar-to-right: 302px 302px 16px 16px;
+    i-arrow-bar-to-left: 2px 322px 16px 16px;
+    i-align-left: 22px 322px 16px 16px;
+    i-align-center: 42px 322px 16px 16px;
+    i-align-right: 62px 322px 16px 16px;
+    i-transition-right: 82px 322px 16px 16px;
+    i-subtitles: 102px 322px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -511,6 +523,18 @@
     l-zoom-in: 213px 453px 24px 24px;
     l-zoom-out: 243px 453px 24px 24px;
     l-database: 273px 453px 24px 24px;
+    l-scissors: 303px 453px 24px 24px;
+    l-timeline: 333px 453px 24px 24px;
+    l-file-import: 363px 453px 24px 24px;
+    l-column-insert-right: 393px 453px 24px 24px;
+    l-replace: 423px 453px 24px 24px;
+    l-arrow-bar-to-right: 453px 453px 24px 24px;
+    l-arrow-bar-to-left: 3px 483px 24px 24px;
+    l-align-left: 33px 483px 24px 24px;
+    l-align-center: 63px 483px 24px 24px;
+    l-align-right: 93px 483px 24px 24px;
+    l-transition-right: 123px 483px 24px 24px;
+    l-subtitles: 153px 483px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -768,6 +792,18 @@
         i-zoom-in: 284px 604px 32px 32px;
         i-zoom-out: 324px 604px 32px 32px;
         i-database: 364px 604px 32px 32px;
+        i-scissors: 404px 604px 32px 32px;
+        i-timeline: 444px 604px 32px 32px;
+        i-file-import: 484px 604px 32px 32px;
+        i-column-insert-right: 524px 604px 32px 32px;
+        i-replace: 564px 604px 32px 32px;
+        i-arrow-bar-to-right: 604px 604px 32px 32px;
+        i-arrow-bar-to-left: 4px 644px 32px 32px;
+        i-align-left: 44px 644px 32px 32px;
+        i-align-center: 84px 644px 32px 32px;
+        i-align-right: 124px 644px 32px 32px;
+        i-transition-right: 164px 644px 32px 32px;
+        i-subtitles: 204px 644px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -1022,6 +1058,18 @@
         l-zoom-in: 426px 906px 48px 48px;
         l-zoom-out: 486px 906px 48px 48px;
         l-database: 546px 906px 48px 48px;
+        l-scissors: 606px 906px 48px 48px;
+        l-timeline: 666px 906px 48px 48px;
+        l-file-import: 726px 906px 48px 48px;
+        l-column-insert-right: 786px 906px 48px 48px;
+        l-replace: 846px 906px 48px 48px;
+        l-arrow-bar-to-right: 906px 906px 48px 48px;
+        l-arrow-bar-to-left: 6px 966px 48px 48px;
+        l-align-left: 66px 966px 48px 48px;
+        l-align-center: 126px 966px 48px 48px;
+        l-align-right: 186px 966px 48px 48px;
+        l-transition-right: 246px 966px 48px 48px;
+        l-subtitles: 306px 966px 48px 48px;
     }
 }
 
@@ -1275,6 +1323,18 @@
 .icon-zoom-in { decorator: image(i-zoom-in); }
 .icon-zoom-out { decorator: image(i-zoom-out); }
 .icon-database { decorator: image(i-database); }
+.icon-scissors { decorator: image(i-scissors); }
+.icon-timeline { decorator: image(i-timeline); }
+.icon-file-import { decorator: image(i-file-import); }
+.icon-column-insert-right { decorator: image(i-column-insert-right); }
+.icon-replace { decorator: image(i-replace); }
+.icon-arrow-bar-to-right { decorator: image(i-arrow-bar-to-right); }
+.icon-arrow-bar-to-left { decorator: image(i-arrow-bar-to-left); }
+.icon-align-left { decorator: image(i-align-left); }
+.icon-align-center { decorator: image(i-align-center); }
+.icon-align-right { decorator: image(i-align-right); }
+.icon-transition-right { decorator: image(i-transition-right); }
+.icon-subtitles { decorator: image(i-subtitles); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1526,3 +1586,15 @@
 .icon-lg.icon-zoom-in { decorator: image(l-zoom-in); }
 .icon-lg.icon-zoom-out { decorator: image(l-zoom-out); }
 .icon-lg.icon-database { decorator: image(l-database); }
+.icon-lg.icon-scissors { decorator: image(l-scissors); }
+.icon-lg.icon-timeline { decorator: image(l-timeline); }
+.icon-lg.icon-file-import { decorator: image(l-file-import); }
+.icon-lg.icon-column-insert-right { decorator: image(l-column-insert-right); }
+.icon-lg.icon-replace { decorator: image(l-replace); }
+.icon-lg.icon-arrow-bar-to-right { decorator: image(l-arrow-bar-to-right); }
+.icon-lg.icon-arrow-bar-to-left { decorator: image(l-arrow-bar-to-left); }
+.icon-lg.icon-align-left { decorator: image(l-align-left); }
+.icon-lg.icon-align-center { decorator: image(l-align-center); }
+.icon-lg.icon-align-right { decorator: image(l-align-right); }
+.icon-lg.icon-transition-right { decorator: image(l-transition-right); }
+.icon-lg.icon-subtitles { decorator: image(l-subtitles); }

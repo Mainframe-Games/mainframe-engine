@@ -251,12 +251,12 @@ public sealed class MusicModeTests : IDisposable
     }
 
     [Fact]
-    public void ClosingTheProjectAsksAboutSongsAndClosesThemButKeepsVideoTabs()
+    public void ClosingTheProjectAsksAboutSongsAndClosesThemAndTheVideoTabs()
     {
         var song = OpenSong();
         song.Controller.ToggleLoop();
         Assert.True(song.IsDirty);
-        var video = new FakeVideoTab("run.mfcut");
+        var video = new FakeVideoTab("run.mftimeline");
         W.Session.Add(video);
 
         W.Commands.Execute("project.close");
@@ -265,7 +265,7 @@ public sealed class MusicModeTests : IDisposable
         W.Message.Answer(1); // Don't Save
 
         Assert.DoesNotContain(song, W.Session.Tabs);
-        Assert.Same(video, Assert.Single(W.Session.Tabs));
+        Assert.DoesNotContain(video, W.Session.Tabs); // timelines belong to the project too (ADR 0241)
         Assert.True(W.ProjectManager.Visible);
     }
 

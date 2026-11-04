@@ -170,7 +170,6 @@ public sealed class EditorSettingsDialog : EditorDocument
             .Bind("view_resolution", this, static d => d._working.ViewResolution.ToString(),
                 static (d, v) => d._working.ViewResolution = Enum.TryParse<ViewResolution>(v, out var r) && Enum.IsDefined(r) ? r : ViewResolution.Auto)
             .Bind("command", this, static d => d._working.CodeEditorCommand, static (d, v) => d._working.CodeEditorCommand = v ?? "")
-            .Bind("cutback", this, static d => d._working.CutbackPath, static (d, v) => d._working.CutbackPath = v ?? "")
             .Bind("auto_reload", this, static d => d._working.AutoReloadCode, static (d, v) => d._working.AutoReloadCode = v)
             .Bind("check_updates", this, static d => d._working.CheckForUpdates, static (d, v) => d._working.CheckForUpdates = v)
             .Bind("plugin_folders", this, static d => string.Join(";", d._working.PluginFolders),
@@ -367,7 +366,6 @@ public sealed class EditorSettingsDialog : EditorDocument
         // Not edited here, and saved while the dialog is open (a mode switch, a recording opened from the Recording saved
         // message): take the current values, or Apply would put back the ones from when the dialog opened.
         _working.LastMode = Workspace.Settings.LastMode;
-        _working.RecentVideos = [.. Workspace.Settings.RecentVideos];
         Workspace.ApplySettings(_working.Clone());
         HideAndReleaseFocus();
     }

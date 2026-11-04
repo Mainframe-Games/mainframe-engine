@@ -141,20 +141,18 @@ public sealed partial class EditorWorkspace
             return;
         }
 
-        if (Options.InitialScene is null && Settings.LastMode == EditorMode.Video)
+        // Songs and timelines belong to a project, so music and video mode come back behind the Project Manager: the project
+        // picked there opens into that mode (OpenProjectNow keeps the mode), on its empty state. Without the manager, the
+        // empty state says to open a project.
+        if (Options.InitialScene is null && Settings.LastMode is EditorMode.Music or EditorMode.Video)
         {
-            SetMode(EditorMode.Video); // needs no project: the Project Manager stays closed
-            if (Splash.Visible)
-                Splash.Finish();
-            return;
-        }
-
-        // Songs belong to a project, so music mode comes back behind the Project Manager: the project picked there opens
-        // into music mode (OpenProjectNow keeps the mode), on its empty state. Without the manager, the empty state says
-        // to open a project.
-        if (Options.InitialScene is null && Settings.LastMode == EditorMode.Music)
-        {
-            SetMode(EditorMode.Music);
+            Mode = Settings.LastMode; // entered directly: video mode refuses to switch without a project
+            Layout.SetMode(Mode);
+            ApplyModePanels();
+            ApplyLayout();
+            MenuBar.ApplyMode(Mode);
+            Toolbar.ApplyMode(Mode);
+            ViewportPanel.RefreshTabs();
             if (Options.ShowProjectManager)
                 ProjectManager.Open();
             if (Splash.Visible)
@@ -258,9 +256,7 @@ public sealed partial class EditorWorkspace
         ArgumentNullException.ThrowIfNull(settings);
         var accentChanged = !string.Equals(settings.Accent, Settings.Accent, StringComparison.Ordinal);
         Settings = settings;
-        foreach (var tab in Session.Tabs)
-            if (tab is Video.VideoTab video)
-                video.Document.Editor.History.Limit = settings.VideoUndoHistoryLimit;
+        Session.HistoryLimit = settings.VideoUndoHistoryLimit;
         Project.AutoReload = settings.AutoReloadCode;
         Midi.SetEnabled(settings.MidiInputs);
         _autosaveSeconds = 0;
@@ -316,6 +312,19 @@ public sealed partial class EditorWorkspace
     // ── File drags (FileSystem panel → scene tree, viewport, inspector, folders) ─────────────────────────────────
 
     public void BeginFileDrag(string path) => FileDrag = Path.GetFullPath(path);
+
+    /// <summary>
+    /// Files dropped on the window from the OS (<see cref="SceneTree.FilesDropped"/>): in video mode the media pool imports
+    /// them, and over the timeline they are placed there too (docs/design/future/video-nle.md). Elsewhere they are logged.
+    /// </summary>
+    public void DropOsFiles(FilesDroppedEvent drop)
+    {
+        var first = drop.Paths[0];
+        var more = drop.Paths.Count > 1 ? $" and {drop.Paths.Count - 1} more" : "";
+        Log.Info($"[Editor] Dropped {first}{more} at {drop.Position.X:0},{drop.Position.Y:0}.");
+        if (Mode == EditorMode.Video && !IsDialogOpen)
+            VideoView.DropOsFiles(drop.Paths, drop.Position);
+    }
 
     public void EndFileDrag() => FileDrag = null;
 

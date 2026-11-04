@@ -323,7 +323,9 @@ public sealed class ProjectFileSystem : IDisposable
             return true;
         if (name.StartsWith('.'))
             return false;
-        return isDirectory ? !HiddenFolderNames.Contains(name) : !name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
+        return isDirectory
+            ? !HiddenFolderNames.Contains(name) && !name.EndsWith(AssetDatabase.PartialFolderSuffix, StringComparison.OrdinalIgnoreCase)
+            : !name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
     }
 
     private static int CompareEntries(ProjectFileEntry a, ProjectFileEntry b)

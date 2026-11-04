@@ -191,20 +191,20 @@ Nothing else: no gizmo, view, Play or Record keys (F10 does nothing in video mod
 
 ## Editor modes
 
-The editor has three modes, **Game** (everything above), **Music** (songs: the music editor) and **Video** (trimming
-recordings), switched by the Game|Music|Video toggle near the right end of the toolbar or View › Switch to … Mode
+The editor has three modes, **Game** (everything above), **Music** (songs: the music editor) and **Video** (a multi-track
+timeline editor for the project's recordings and media), switched by the Game|Music|Video toggle near the right end of the toolbar or View › Switch to … Mode
 (ADR 0192). The toggle's thumb stretches to the new mode (an RCSS transition on its edges); the window switches at once.
 `EditorWorkspace.SetMode(EditorMode)`:
 
-![Video mode: a recording's preview, transcript and timeline with silences and filler words cut](../images/editor-video.png)
+![Video mode: a narrated recording on a 9:16 timeline, a pause cut out, the first clip selected in the cut editor](../images/editor-video.png)
 
 - **swaps the layout**: music and video mode hide the Scene tree, Inspector and FileSystem (and the Output unless that
   mode's View › Show/Hide Output is on, `MusicShowOutput` / `VideoShowOutput` in the layout file) and show their view
   under the tab strip over the whole window: the song panel (track headers, arrangement, piano roll or mixer) or the
-  video view (preview, transcript, notice line, timeline);
-- **swaps the menus** (Music: File, Edit, View, Song, Help; Video: File, Edit, View, Video, Help; Project and Run are
+  video view (media pool, Source and Timeline viewers, Inspector, notice line, tracks, cut editor);
+- **swaps the menus** (Music: File, Edit, View, Song, Help; Video: File, Edit, View, Timeline, Help; Project and Run are
   game mode's) and the **toolbar group** (music mode: the song transport, `ToolbarPanel.UpdateMusic`);
-- **filters the tab strip**: game mode shows scenes and UI previews, music mode song tabs, video mode video tabs. Tabs
+- **filters the tab strip**: game mode shows scenes and UI previews, music mode song tabs, video mode timeline tabs. Tabs
   of the hidden modes stay open, each mode remembers its active tab, and a hidden song or video tab stops playing.
   Closing the last song or video tab stays in that mode, on its empty state;
 - **persists the mode** (`EditorSettings.LastMode`), so the editor reopens in it.
@@ -215,11 +215,14 @@ about unsaved scenes and songs and closes both, and opening a project in music m
 opens behind it). Without a song, music mode shows New Song, Open Song and the project's songs (newest first); without
 a project, a Project Manager button. The editor reopens in music mode behind the Project Manager.
 
-Opening a recording (`.mp4 .mov .mkv .webm`), `.mfcut` or `.cutback` (File › Open, the FileSystem panel, Recent Videos),
-the Recording saved dialog's Open in Video Editor and the Project Manager's Video Editor button switch to video mode;
-no game project is needed. Opening, switching or closing a project closes and asks about the project's tabs only: video
-tabs and their jobs stay. Entering game mode with no project and no game tab opens the Project Manager. The video mode itself (Cutback's trimming, Whisper transcripts, gapless preview, export) is
-described in [Video editing mode](video-editor.md).
+Timelines belong to the game project too (ADR 0241): without a project, choosing video mode opens the Project Manager
+instead, and the editor reopens in video mode behind it. Opening a timeline (`.mftimeline`: File › Open Timeline…, the
+FileSystem panel, the media pool) or the Recording saved dialog's Open in Video Editor switches to video mode; opening,
+switching or closing a project asks about and closes timeline tabs as it does scenes and songs. The first use of a
+project in video mode makes `Assets/Video/{Recordings,Media,Timelines}`; a project opened in game mode is left as it is.
+Entering game mode with no project and no game tab opens the Project Manager. The video mode itself (media pool, viewers,
+tracks, Premiere's keys, the cut editor, Cutback's tools on a clip, titles, transitions, fades, speed, captions, export
+presets) is described in [Video editing mode](video-editor.md).
 
 ## Icons
 
@@ -776,7 +779,7 @@ link ([Project & game host](project-and-gamehost.md)).
 | Play Scene | F6 | the same with `--scene <uid>` of the open tab (an untitled scene asks for a file first) |
 | Run Another Instance | Shift+F5 | one more instance (server + client tests); each gets a label. It repeats the last launch without `--record`: it never records |
 | Play Instances | Ctrl/Cmd+F5 | every `project.mfproj` `playInstances` entry (`label`, `args` = the game's own arguments after `++`, `delay` in s from the first): one build, then each instance after its delay (Godot's Customize Run Instances; e.g. a host and two tiled joiners); the main scene once when there are none |
-| Play and Record | F10 | idle: launch the main scene with `--record <recordings path>`; while a game runs: start recording on its first running instance, then stop it (menu label Play and Record / Start Recording / Stop Recording / Saving recording…). The file is named after the main scene (Play and Record) or the running scene. A game built against an engine older than editor-link protocol 4 cannot record from the editor, and the editor says so. When the file is saved a dialog offers Open in Video Editor, Open in Cutback and Show in Folder. See [Gameplay recording](recording.md#recording-from-the-editor) |
+| Play and Record | F10 | idle: launch the main scene with `--record <recordings path>` (the project's `Assets/Video/Recordings`); while a game runs: start recording on its first running instance, then stop it (menu label Play and Record / Start Recording / Stop Recording / Saving recording…). The file is named after the main scene (Play and Record) or the running scene. A game built against an engine older than editor-link protocol 4 cannot record from the editor, and the editor says so. When the file is saved a dialog offers Open in Video Editor (a timeline with the recording on V1 and A1) and Show in Folder. See [Gameplay recording](recording.md#recording-from-the-editor) |
 | Pause / Resume | F7 | over the link |
 | Stop | F8 | a stop command; the process is killed after 3 s (at once if it never connected). A game that is recording or saving finalises its file first, so it gets 2 min 15 s and its recording shows "Saving recording…", then 3 s from its report that the file is saved; quitting the editor waits for it the same way |
 | Reload Scene in Game | Run menu, instance menu | the game re-reads its current scene from disk |
@@ -1198,11 +1201,9 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
 - **External code editor**: a command with `{file}`, `{line}`, `{column}` and `{project}` placeholders (with presets);
   empty means `MAINFRAME_CODE_EDITOR`, else VS Code when found, else the OS default. Used by Output links, build errors
   and C# files.
-- **Video** (also Edit › Video Settings… in video mode): ffmpeg (blank finds it), the Whisper model, filler words,
-  silence and idle-gameplay detection, and the undo limit. The text fields commit on Enter or blur. See
+- **Video** (also Edit › Video Settings… in video mode): ffmpeg (blank finds it), the undo limit, and the Whisper
+  model, filler words, silence and idle-gameplay detection for the clip tools. The text fields commit on Enter or blur. See
   [Video editing mode](video-editor.md#settings-editor-settings--video).
-- **Cutback**: the path of the Cutback app that Open in Cutback launches after Play and Record; empty finds it on `PATH` or in
-  its usual install folder (`CutbackPath`, [Gameplay recording](recording.md#recording-from-the-editor)).
 - **Reload code automatically** after builds.
 - **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
 - **3D view** resolution: Auto (one pixel per point, the default), Full, 75 % or 50 % of the display's pixels
@@ -1321,12 +1322,15 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   Profiler steps (G10): `profile tab|output|record|stop|pause|editor|slowest`, `profile save <file>` (into `--qa-out`)
   and `wait-for profiled N [seconds]`; the walkthrough profiles the editor itself (it builds no game), captures
   `27-profiler` and saves `27-profiler-trace.json`.
-- **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): the fixture recording opened,
-  silence then idle detection, a tiny.en transcription (`video set whisper-model tiny.en`), undo of the idle cut,
-  playback across a cut and the mode switch, each captured (`video-01-empty` … `video-08-game-mode`). `wait N` counts frames, so the long steps wait on conditions: `wait-for video-jobs
-  [seconds]` (no waveform, silence, transcription or export job left on the active video tab) and `wait-for
-  video-position <s> [seconds]` (its playhead has reached a time). Needs a display, ffmpeg and (once) the network; not run in CI. See
-  [Video editing mode](video-editor.md#testing).
+- **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): on the Demo, the fixture
+  imported (`video import`), a 9:16 timeline (`video timeline Vertical <name>`), the Source viewer (`video source`),
+  overwrite, Detect Silence, Detect Idle Gameplay and a tiny.en transcription on the clip (`video set whisper-model
+  tiny.en`), captions, two add edits and a ripple delete (`video seek`, `video select V1 <s>`), a cross dissolve, a title,
+  fit (`video fit`), unlink, playback and an export (`video export vertical-30`), each captured (`video-01-empty` …
+  `video-16-exported`); `video reset`
+  removes the Demo's `Assets/Video` and `Exports` at both ends. `wait N` counts frames, so the long steps wait on
+  conditions: `wait-for video-jobs [seconds]` (no probe, import, export or clip tool left) and `wait-for video-position <s>
+  [seconds]`. Needs a display and ffmpeg; not run in CI. See [Video editing mode](video-editor.md#testing).
 - **Profiler tab** ([ProfilerPanelTests](../../Tests/MainframeEngine.Editor.Tests/ProfilerPanelTests.cs)): the bottom
   dock switches between Output and Profiler; frames from a fake link fill the graph, table and counters and a click
   selects one; Pause freezes the view and Clear empties it; a saved trace reopens with its frames; the editor profiles
@@ -1337,8 +1341,9 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   the Project Manager (`recent-project` seeds the list), the showcase scene (`open-project`, `camera`, `collapse`), the
   create dialog (`favorite`, `search`, `pick`), the sound designer and a song tab, video mode (`mode video`; the recipe
   first runs [build/readme-video-clip.sh](../../build/readme-video-clip.sh): an offline `--record` of the Demo's Physics
-  2D scene with its audio replaced by a narration from `say` or `espeak-ng`; the QA script cuts its silences,
-  transcribes it with base.en, removes its fillers, then saves the edit with Save As so closing the tab asks nothing),
+  2D scene with its audio replaced by a narration from `say` or `espeak-ng`; the QA script imports it into the Demo,
+  places it on a 9:16 timeline, runs Detect Silence and Remove Fillers (base.en) on it, then saves, closes and removes
+  the Demo's `Assets/Video` again),
   the Profiler tab on the running MyGame (`editor-profiler`) and a new game after a code reload while it plays, captured at 2x
   (`--scale 2`, 3200×1920 px) and downscaled to 1600×960 into `docs/images/editor*.png` with ImageMagick. The scene is
   [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose

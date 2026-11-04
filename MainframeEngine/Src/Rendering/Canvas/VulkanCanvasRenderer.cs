@@ -210,13 +210,31 @@ public sealed unsafe partial class VulkanCanvasRenderer : IOverlayRenderer, IDis
             return; // drawn by the GPU each frame (EnsureSubTarget / EnsureGroupTarget), nothing to upload
         if (!_textures.TryGetValue(texture, out var entry) || entry.Version != texture.Version)
         {
-            if (entry is not null)
-                Release(entry);
-            entry = Upload(texture);
-            _textures[texture] = entry;
+            if (entry is not null && TryUpdateInPlace(entry, texture))
+            {
+                entry.Version = texture.Version;
+            }
+            else
+            {
+                if (entry is not null)
+                    Release(entry);
+                entry = Upload(texture);
+                _textures[texture] = entry;
+            }
         }
 
         entry.LastUsed = now;
+    }
+
+    // New pixels of the same size (SetPixels: a video frame, a painted canvas): written into the existing image, so its
+    // descriptor sets stay and nothing is created or freed each frame (ADR 0241).
+    private static bool TryUpdateInPlace(TextureEntry entry, Texture2D texture)
+    {
+        var (rgba, width, height) = texture.DecodePixelsReadOnly();
+        if (entry.Texture.Width != (uint)width || entry.Texture.Height != (uint)height || entry.Texture.Image.MipLevels != 1)
+            return false;
+        entry.Texture.Update2D(rgba);
+        return true;
     }
 
     private TextureEntry Upload(Texture2D texture)

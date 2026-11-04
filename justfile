@@ -22,6 +22,10 @@ test:
     dotnet test Tests/MainframeEngine.Editor.Tests
     dotnet test Tests/MainframeEngine.Video.Tests
 
+# The video timeline's export graphs through the real ffmpeg (opt-in, not CI): lavfi sources, each preset kind, ffprobe checks
+test-video-ffmpeg:
+    MAINFRAME_VIDEO_FFMPEG_TESTS=1 MAINFRAME_VIDEO_FFMPEG_OUT="{{justfile_directory()}}/artifacts/video-ffmpeg" dotnet test Tests/MainframeEngine.Video.Tests --filter "FullyQualifiedName~TimelineFfmpegTests"
+
 # Unit tests with coverage (Cobertura XML under artifacts/coverage)
 coverage:
     dotnet test Tests/MainframeEngine.Tests --collect:"XPlat Code Coverage" --results-directory {{artifacts / "coverage"}}
@@ -88,7 +92,7 @@ readme-screenshots:
     #!/usr/bin/env bash
     set -euo pipefail
     # Neutral project folder (no user paths on screen): the Demo project is linked in, MyGame is created there, and the
-    # video-mode shot opens Recordings/demo.mp4.
+    # video-mode shot imports Recordings/demo.mp4 into the Demo (and removes it again).
     projects=/tmp/MainframeProjects
     out="{{artifacts}}/readme-screenshots"
     rm -rf "$projects" "$out"

@@ -4,9 +4,8 @@ using MainframeEngine.EditorLink;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Tells the user a gameplay recording finished and offers the next step. The video editor is the default (it opens the
-/// recording in the editor's video mode); Cutback (the trimmer that reads the <c>.mfcap.json</c> sidecar) stays available
-/// alongside it, as does showing the file in the file browser. Failures show the recorder's own message, with the kept
+/// Tells the user a gameplay recording finished and offers the next step: Open in Video Editor (a timeline made from the
+/// recording in the project's <c>Assets/Video/Timelines</c>, ADR 0241) or showing the file in the file browser. Failures show the recorder's own message, with the kept
 /// <c>.partial</c> folder one click away when the message names one or the folder exists (a game that exited mid-recording
 /// sends no message, but leaves the folder). Everything it touches is a delegate, so it is tested without RmlUi, a process,
 /// a browser or the disk.
@@ -14,11 +13,7 @@ namespace MainframeEngine.Editor;
 internal sealed class RecordingNotifier(
     Action<MessageRequest> show,
     Action<string> openInVideoEditor,
-    Func<string?> cutbackSetting,
-    Func<string?, string?> findCutback,
-    Func<string, string, bool> launchCutback,
     Action<string> reveal,
-    Action<Uri> openUrl,
     Func<string, bool> directoryExists)
 {
     /// <summary>A recording event from a game: <c>Stopped</c> and <c>Failed</c> get a dialog, <c>Started</c> none.</summary>
@@ -44,37 +39,15 @@ internal sealed class RecordingNotifier(
             Title = "Recording saved",
             Message = string.Create(CultureInfo.InvariantCulture,
                 $"{Path.GetFileName(path)} ({(int)elapsed.TotalMinutes}:{elapsed.Seconds:00})\n{Path.GetDirectoryName(path)}"),
-            Buttons = ["Open in Video Editor", "Open in Cutback", "Show in Folder", "Close"],
+            Buttons = ["Open in Video Editor", "Show in Folder", "Close"],
             DefaultButton = 0,
-            CancelButton = 3,
+            CancelButton = 2,
             Callback = (button, _) =>
             {
                 if (button == 0)
                     openInVideoEditor(path);
                 else if (button == 1)
-                    OpenInCutback(path);
-                else if (button == 2)
                     reveal(path);
-            },
-        });
-    }
-
-    private void OpenInCutback(string path)
-    {
-        if (findCutback(cutbackSetting()) is { } app && launchCutback(app, path))
-            return;
-
-        show(new MessageRequest
-        {
-            Title = "Cutback is not installed",
-            Message = "Cutback trims recordings using what the game recorded. Download it, or set its path in Editor Settings.",
-            Buttons = ["Download", "Close"],
-            DefaultButton = 0,
-            CancelButton = 1,
-            Callback = (button, _) =>
-            {
-                if (button == 0)
-                    openUrl(new Uri(CutbackLocator.ReleasesUrl));
             },
         });
     }

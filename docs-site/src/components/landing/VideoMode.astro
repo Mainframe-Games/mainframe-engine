@@ -6,24 +6,26 @@ import TablerIcon from './TablerIcon.astro';
 const base = import.meta.env.BASE_URL;
 const img = (p: string) => `${base}images/${p}`;
 const alt =
-  "Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut";
+  'Video mode: a narrated Physics 2D recording on a 9:16 timeline with its silences cut and its filler words struck in the Transcript tab';
 const points = [
   { icon: 'camera', text: 'Record any game to MP4 with F10 in the editor or --record, through your own ffmpeg' },
-  { icon: 'volume-off', text: 'Detect Silence and Detect Idle Gameplay cut dead air, idle play, loading and pauses' },
-  { icon: 'file-text', text: 'Whisper transcripts on your machine: edit the video by clicking words' },
-  { icon: 'trash-x', text: 'Remove Fillers cuts every “um” and “uh”, aligned to the audio' },
-  { icon: 'player-play', text: 'Gapless preview that plays only the footage you kept' },
-  { icon: 'file-export', text: 'Export the trimmed MP4, precise or fast, and the transcript as SRT or text' },
+  { icon: 'file-import', text: 'A media pool in the project: import from a picker or drag files in from Finder' },
+  { icon: 'timeline', text: 'Video and audio tracks, Source and Timeline viewers, Premiere’s keys' },
+  { icon: 'scissors', text: 'Razor, add edit, ripple trim and delete, insert and overwrite, link and unlink' },
+  { icon: 'device-mobile', text: 'Reframe landscape gameplay for 9:16: fit, fill, scale, position, crop' },
+  { icon: 'file-text', text: 'Detect Silence and idle play, Whisper transcripts on your machine, Remove Fillers: per clip' },
+  { icon: 'typography', text: 'Titles and auto-captions, cross dissolves, fades and speed changes' },
+  { icon: 'file-export', text: 'Export presets for TikTok, Reels and Shorts, YouTube and Steam, X and Discord, GIF loops' },
 ];
 ---
 
 <section class="mf-section mf-daw mf-video not-content" aria-labelledby="video-title">
   <header class="mf-section__head" data-reveal>
     <p class="mf-kicker">Video mode</p>
-    <h2 id="video-title">Promo footage without leaving the editor</h2>
+    <h2 id="video-title">Socials and trailers without leaving the editor</h2>
     <p>
-      Record a play session, then flip the Game|Video toggle: the editor becomes a video editor that trims the
-      recording down to the good parts.
+      Record a play session, then flip the Game|Video toggle: the editor becomes a multi-track timeline editor, laid
+      out like Resolve’s Edit page, working on the project’s own recordings and media.
     </p>
   </header>
   <div class="mf-daw__row">
@@ -37,8 +39,8 @@ const points = [
       </button>
     </figure>
     <div class="mf-daw__copy" data-reveal style="--i: 1">
-      <p class="mf-kicker">Record, trim, export</p>
-      <h3>Cut the dead air, keep the action</h3>
+      <p class="mf-kicker">Record, edit, export</p>
+      <h3>From a play session to a vertical short</h3>
       <ul>
         {
           points.map((p) => (

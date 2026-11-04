@@ -74,7 +74,9 @@ written, like every other section.
 Globs (`Glob`, in the export library: no globbing package) are `*` (within one folder), `**` (any depth, also none) and
 `?`, matched case-sensitively on project-relative paths with `/`. **Only the game's own files are filtered**: a staged
 `Assets/` file that does not exist in the project's `Assets/` (engine shaders and UI, compiled `.mo` catalogs) always
-ships, so a narrow `include` cannot break the engine.
+ships, so a narrow `include` cannot break the engine. **The editor-only folder never ships:** `Assets/Video` (video
+mode's recordings, media and timelines, ADR 0241; `ContentPaths.IsEditorOnly`) is left out whatever the globs say, and
+builds never copy it to the output in the first place (`build/MainframeGame.props`).
 
 The C# model is [`ExportPreset`](../../MainframeEngine/Src/Project/ExportPreset.cs) (common keys) with
 `IExportPlatformOptions Options`: `DesktopExportOptions` (with `MacOsExportOptions? MacOs`) now, mobile options in M12.7.
@@ -213,6 +215,7 @@ The dialog re-runs it on every edit; the CLI before each preset.
 | `trim` | warning | experimental |
 | `configuration` | warning | neither Release nor Debug |
 | `include-empty` | warning | no include globs |
+| `editor-only-content` | warning | an include glob names `Assets/Video`, which never ships (the default `Assets/**` does not warn) |
 | `broken-reference` | warning | a shipped `.mscene`/`.mres` references an excluded file (`ReferenceScanner`: `{"ref"\|"instance": uid, "path"}` objects and `Assets/` strings; skipped when only translation sources are excluded) |
 | `meta-excluded` | warning | an `exclude` drops `.meta` sidecars of shipped files |
 | `icon` | warning | the icon is missing, not a PNG, or under 256 px (where the platform needs one) |

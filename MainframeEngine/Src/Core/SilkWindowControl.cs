@@ -122,6 +122,20 @@ internal sealed unsafe class SilkWindowControl(IWindow window, Engine? engine = 
             sdl.SetWindowMouseGrab(handle, confined ? SdlBool.True : SdlBool.False);
     }
 
+    /// <summary>
+    /// The pointer's position in window points from the window's top-left corner, read from SDL's global pointer (it
+    /// moves during an OS drag, when the window receives no motion events), or null without SDL.
+    /// </summary>
+    internal Vector2? PointerInWindow()
+    {
+        if (!TryGetSdl(out var sdl, out var handle))
+            return null;
+        int x, y, windowX, windowY;
+        sdl.GetGlobalMouseState(&x, &y);
+        sdl.GetWindowPosition(handle, &windowX, &windowY);
+        return new Vector2(x - windowX, y - windowY);
+    }
+
     private bool TryGetSdl(out Sdl sdl, out Silk.NET.SDL.Window* handle)
     {
         sdl = null!;

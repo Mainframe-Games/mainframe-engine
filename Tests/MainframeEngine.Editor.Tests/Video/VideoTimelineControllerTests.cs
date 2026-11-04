@@ -1,14 +1,18 @@
 using System.Numerics;
 using MainframeEngine.Editor.Video;
 using MainframeEngine.Video.Models;
+using MainframeEngine.Video.Timelines;
 using Silk.NET.Input;
 
 namespace MainframeEngine.Editor.Tests.Video;
 
+/// <summary>The cut editor's gestures (Cutback's timeline), on one timeline clip's cut list (<see cref="ClipCutTarget"/>).</summary>
 public sealed class VideoTimelineControllerTests
 {
     // 10 s over 1000 dp: 100 dp per second; the body starts at y 22
-    private readonly VideoDocument _doc;
+    private readonly TimelineDocument _timeline;
+    private readonly ClipCutTarget _doc;
+    private UndoRedo History => _timeline.History;
     private readonly VideoTimelineView _view = new() { Width = 1000 };
     private readonly VideoCanvasState _state = new();
     private readonly VideoTimelineController _controller;
@@ -16,7 +20,10 @@ public sealed class VideoTimelineControllerTests
 
     public VideoTimelineControllerTests()
     {
-        var project = VideoDocumentTests.Project("/r/a.mp4", duration: 10) with
+        var media = new MediaRef("", "/r/a.mp4", "h", 10, 320, 180, 30, HasVideo: true, HasAudio: true);
+        var t = TimelineFactory.New(new TimelineSettings(1920, 1080, new FrameRate(30, 1)));
+        t = TimelineEdits.Append(t, media, 0, 10, t.Tracks[0].Id, null);
+        var clip = t.Clips[0] with
         {
             Segments =
             [
@@ -25,7 +32,9 @@ public sealed class VideoTimelineControllerTests
                 Segment.Create(6, 10, true, SegmentOrigin.Auto),
             ],
         };
-        _doc = VideoDocument.FromProject(project, null, null, []);
+        _timeline = new TimelineDocument(t with { Clips = [clip] }, "/tmp/cuts.mftimeline", "/tmp");
+        _doc = new ClipCutTarget(_timeline, cache: null);
+        _doc.Show(clip.Id);
         _view.Reset(10);
         _controller = new VideoTimelineController(_doc, _view, _state) { Seek = _seeks.Add };
     }
@@ -64,9 +73,9 @@ public sealed class VideoTimelineControllerTests
         _controller.Release(new Vector2(350, 50));
         Assert.Equal(3.5, _doc.Segments.Segments[1].Start, 6); // no waveform: unsnapped
         Assert.Equal(-1, _state.DragBoundary);
-        Assert.True(_doc.Editor.Undo());
+        Assert.True(History.Undo());
         Assert.Equal(4, _doc.Segments.Segments[1].Start, 6);
-        Assert.False(_doc.Editor.Undo());
+        Assert.False(History.Undo());
     }
 
     [Fact]
@@ -101,7 +110,7 @@ public sealed class VideoTimelineControllerTests
         Assert.Equal(VideoGesture.Pan, _controller.Gesture);
         Assert.Equal(1.5, _view.Start, 6);
         _controller.Release(new Vector2(600, 50));
-        Assert.False(_doc.Editor.History.CanUndo);
+        Assert.False(History.CanUndo);
     }
 
     [Fact]
@@ -111,7 +120,7 @@ public sealed class VideoTimelineControllerTests
         _controller.Drag(new Vector2(300, 10), EditorModifiers.None);
         _controller.Release(new Vector2(300, 10));
         Assert.Equal([2.5, 3.0], _seeks);
-        Assert.False(_doc.Editor.History.CanUndo);
+        Assert.False(History.CanUndo);
     }
 
     [Fact]
@@ -171,7 +180,7 @@ public sealed class VideoTimelineControllerTests
         _controller.Hover(new Vector2(500, 50));
         Assert.True(_controller.Key(Key.Delete, EditorModifiers.None));
         Assert.Equal(0, _state.HoverSegment);
-        Assert.True(_doc.Editor.Undo());
+        Assert.True(History.Undo());
         Assert.Equal(1, _state.HoverSegment);
     }
 
@@ -204,9 +213,9 @@ public sealed class VideoTimelineControllerTests
         _controller.Drag(new Vector2(350, 50), EditorModifiers.None);
         _controller.CancelGesture();
         Assert.Equal(VideoGesture.None, _controller.Gesture);
-        Assert.False(_doc.Editor.IsDragging);
+        Assert.False(_doc.IsDragging);
         Assert.Equal(3.5, _doc.Segments.Segments[1].Start, 6);
-        Assert.True(_doc.Editor.Undo());
+        Assert.True(History.Undo());
         Assert.Equal(4, _doc.Segments.Segments[1].Start, 6);
     }
 
@@ -217,6 +226,6 @@ public sealed class VideoTimelineControllerTests
         _controller.Drag(new Vector2(300, 50), EditorModifiers.None);
         _controller.CancelGesture();
         Assert.Null(_state.PendingSection);
-        Assert.False(_doc.Editor.History.CanUndo);
+        Assert.False(History.CanUndo);
     }
 }

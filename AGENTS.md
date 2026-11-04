@@ -12,6 +12,7 @@ Local commands are `just` recipes (run `just` to list them); CI calls `dotnet` d
 just build            # dotnet build MainframeEngine.slnx — 0 warnings, warnings are errors
 just test             # unit tests: engine, editor and video (Tests/MainframeEngine.{Tests,Editor.Tests,Video.Tests})
 just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
+just test-video-ffmpeg  # the video timeline's export graphs through the real ffmpeg (opt-in; outputs in artifacts/video-ffmpeg)
 just test-linux       # CI's Linux unit/editor tests in Docker (x86_64 ubuntu:24.04)
 just render-tests-linux  # render tests on lavapipe in Docker: checks/records the `lavapipe` goldens locally
 just demo             # the Demo game: dotnet run --project Examples/Demo/Demo.Desktop (extra args: --scene Assets/Scenes/x.mscene, ...)
@@ -174,13 +175,18 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   (`--qa-script`, `--smoke`). The RmlUi debugger is F9 (F5–F8 are Play keys, F10 is Play and Record). Code reload re-creates scenes that use
   game code: editor code must not keep game nodes/types in fields or statics past `ReleaseEditorReferences`.
   References engine core only (no generator: editor nodes stay unregistered). See `docs/design/editor.md`
-- **Video mode** (ADR 0191): the editor has a Game|Video mode (`EditorWorkspace.SetMode`; the modes section of
-  `docs/design/editor.md`) whose video mode trims recordings. Its logic is `MainframeEngine.Video/`, an editor-only MIT
-  library copied from Cutback (`LICENSE-CUTBACK`; segments, detection, sidecar, `.mfcut` projects, ffmpeg media,
-  Whisper.net transcription); only the editor and its tests reference it, never the runtime or games. Its tests
-  (`Tests/MainframeEngine.Video.Tests`, and the editor's `Video/` tests) never run ffmpeg or load a Whisper model. The UI
-  is `MainframeEngine.Editor/Src/Video/` (`VideoTab`, `VideoDocument`, `VideoView`, `VideoPanel`, the timeline, preview
-  and transcript) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
+- **Video mode** (ADRs 0191, 0241): the editor has a Game|Music|Video mode (`EditorWorkspace.SetMode`; the modes section
+  of `docs/design/editor.md`) whose video mode is a multi-track timeline editor inside the open game project (media in
+  `Assets/Video/{Recordings,Media,Timelines}`, editor-only, never shipped). Its logic is `MainframeEngine.Video/`, an
+  editor-only MIT library copied from Cutback (`LICENSE-CUTBACK`; segments, detection, sidecar, ffmpeg media, Whisper.net
+  transcription) plus `Timelines/` (the `.mftimeline` model, edits, layout, snapping, reframing, export and preview
+  graphs, presets; `just test-video-ffmpeg`); only the editor and its tests reference it, never the runtime or games. Its
+  tests (`Tests/MainframeEngine.Video.Tests`, and the editor's `Video/` tests) never run ffmpeg or load a Whisper model.
+  The UI is `MainframeEngine.Editor/Src/Video/` (`TimelineTab`, `TimelineDocument`, `TimelineCanvas`,
+  `TimelineController`, `VideoView`, `VideoPanel`, the media pool, the Source and Timeline viewers over `VideoPreview`,
+  the cut editor, `ClipTools` and the Transcript tab: Cutback's tools on a clip, transcripts cached as
+  `<media>.mftranscript.json`; G20.2's titles (`TitleRasterizer`, CPU rasters through `Font.RenderLine`), transitions,
+  fades, speed and captions) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
   (presets in `project.mfproj`, publish, macOS bundle/signing, archives; replaces `package-game.sh`; ADRs 0229/0230);

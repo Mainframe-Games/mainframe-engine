@@ -451,45 +451,50 @@ public sealed class ToolbarPanel : EditorDocument
 
     // ── Video mode ───────────────────────────────────────────────────────────────────────────────────────────────
 
-    private const string IdleTip =
-        "Detect Idle Gameplay — cut loading, pauses and stretches without input, from the recording's Mainframe Engine data";
-    private const string IdleNeedsSidecarTip = "Needs a Mainframe Engine recording (its .mfcap.json sidecar)";
-    private const string PlayTip = "Play (Space) — the kept footage from the playhead, skipping the cuts";
+    private const string PlayTip = "Play (Space) — the timeline from the playhead";
     private const string PauseTip = "Pause (Space)";
 
-    // The buttons that need a video tab; Detect Idle also needs a sidecar and is handled on its own.
-    private static readonly string[] VideoTabButtons = ["video-play", "video-stop", "video-transcribe", "video-fillers", "video-silence", "video-export"];
+    // The buttons that need a timeline tab.
+    private static readonly string[] VideoTabButtons = ["video-play", "video-stop", "video-export", "video-tool-select", "video-tool-razor", "video-snap"];
 
     // What the video tools show, so UpdateVideo writes only what changed (null / -2: not written since the last load).
     private bool? _videoEnabled;
-    private int _videoIdle = -1;
     private bool? _videoPlaying;
+    private bool? _videoRazor;
+    private bool? _videoSnap;
+    private bool? _videoLinkable;
+    private bool? _videoHasClip;
+    private bool? _videoHasCapture;
+    private string? _videoCaptureClip;
+    private int _videoSilence = -2;
+    private int _videoTranscribe = -2;
     private long _videoPosition = -2;
     private long _videoDuration = -2;
-    private string? _videoKept;
-    private int _videoTranscribe = -2;
-    private int _videoSilence = -2;
     private int _videoExport = -2;
 
     private void ResetVideo()
     {
         _videoEnabled = null;
-        _videoIdle = -1;
         _videoPlaying = null;
+        _videoRazor = null;
+        _videoSnap = null;
+        _videoLinkable = null;
+        _videoHasClip = null;
+        _videoHasCapture = null;
+        _videoCaptureClip = null;
+        _videoSilence = -2;
+        _videoTranscribe = -2;
         _videoPosition = -2;
         _videoDuration = -2;
-        _videoKept = null;
-        _videoTranscribe = -2;
-        _videoSilence = -2;
         _videoExport = -2;
     }
 
     /// <summary>
-    /// Every frame (from the <see cref="Video.VideoView"/>): the video tools' disabled states, the play/pause icon, the
-    /// position (<c>1:02.3 / 6:00.0</c>), "Cancel n %" on a running job's button, and the kept time. Only what changed is
-    /// written; the position is formatted on the stack, so playing allocates nothing either.
+    /// Every frame (from the <see cref="Video.VideoView"/>): the tools' states, the play/pause icon, the position
+    /// (<c>1:02.3 / 6:00.0</c>) and "Cancel n %" on Export while it runs. Only what changed is written; the position is
+    /// formatted on the stack, so playing allocates nothing.
     /// </summary>
-    public void UpdateVideo(Video.VideoTab? tab)
+    public void UpdateVideo(Video.TimelineTab? tab)
     {
         if (!IsLoaded)
             return;
@@ -502,17 +507,7 @@ public sealed class ToolbarPanel : EditorDocument
                 document.GetElementById(id).SetClass("disabled", !enabled);
         }
 
-        // 0: no tab, 1: a recording without a sidecar (the tooltip says why it is disabled), 2: Detect Idle can run.
-        var idle = tab is null ? 0 : tab.Document.Capture is null ? 1 : 2;
-        if (_videoIdle != idle)
-        {
-            _videoIdle = idle;
-            var button = document.GetElementById("video-idle");
-            button.SetClass("disabled", idle != 2);
-            button.SetAttribute("data-tooltip", idle == 1 ? IdleNeedsSidecarTip : IdleTip);
-        }
-
-        var playing = tab?.Preview.IsPlaying == true;
+        var playing = tab?.Preview.IsPlaying == true || tab?.Source.IsPlaying == true;
         if (_videoPlaying != playing)
         {
             _videoPlaying = playing;
@@ -522,23 +517,90 @@ public sealed class ToolbarPanel : EditorDocument
             document.GetElementById("video-play").SetAttribute("data-tooltip", playing ? PauseTip : PlayTip);
         }
 
-        UpdateVideoPosition(tab);
-        var kept = Workspace.VideoPanel.Kept;
-        if (!ReferenceEquals(kept, _videoKept))
+        var razor = tab?.View.Tool == Video.TimelineTool.Razor;
+        if (_videoRazor != razor)
         {
-            _videoKept = kept;
-            SetText("video-kept", kept);
+            _videoRazor = razor;
+            document.GetElementById("video-tool-razor").SetClass("active", razor);
+            document.GetElementById("video-tool-select").SetClass("active", !razor);
         }
 
-        UpdateJobButton("video-transcribe", "Transcribe", tab is null ? -1 : TranscribePercent(tab), ref _videoTranscribe);
-        UpdateJobButton("video-silence", "Detect silence", tab is null ? -1 : Percent(tab.SilenceJob), ref _videoSilence);
+        var snap = tab?.View.Snapping != false;
+        if (_videoSnap != snap)
+        {
+            _videoSnap = snap;
+            document.GetElementById("video-snap").SetClass("active", snap);
+        }
+
+        var linkable = tab is not null && tab.View.Selection.Count > 0;
+        if (_videoLinkable != linkable)
+        {
+            _videoLinkable = linkable;
+            document.GetElementById("video-link").SetClass("disabled", !linkable);
+        }
+
+        UpdateVideoPosition(tab);
         UpdateJobButton("video-export", "Export", tab is null ? -1 : Percent(tab.ExportJob), ref _videoExport);
+        UpdateClipTools(tab);
     }
 
-    private void UpdateVideoPosition(Video.VideoTab? tab)
+    // The clip tools (G20d): enabled with a selected clip; Detect Idle Gameplay only when its recording has a sidecar
+    // (checked when the selected clip changes); a running job shows its percent beside the icon.
+    private void UpdateClipTools(Video.TimelineTab? tab)
     {
-        var position = tab is null ? -1 : (long)Math.Round(Math.Max(0, tab.State.Playhead) * 10, MidpointRounding.AwayFromZero);
-        var duration = tab is null ? -1 : (long)Math.Round(tab.Document.Duration * 10, MidpointRounding.AwayFromZero);
+        var document = Document;
+        var clip = tab?.Primary;
+        var hasClip = clip is not null;
+        if (_videoHasClip != hasClip)
+        {
+            _videoHasClip = hasClip;
+            document.GetElementById("video-silence").SetClass("disabled", !hasClip);
+            document.GetElementById("video-transcribe").SetClass("disabled", !hasClip);
+            document.GetElementById("video-fillers").SetClass("disabled", !hasClip);
+        }
+
+        if (!ReferenceEquals(_videoCaptureClip, clip?.Id))
+        {
+            _videoCaptureClip = clip?.Id;
+            var capture = tab is not null && Video.ClipTools.HasCapture(tab, clip);
+            if (_videoHasCapture != capture)
+            {
+                _videoHasCapture = capture;
+                var idle = document.GetElementById("video-idle");
+                idle.SetClass("disabled", !capture);
+                idle.SetAttribute("data-tooltip", capture
+                    ? "Detect Idle Gameplay — cut loading, pauses and stretches without input in the selected clip, from its recording's Mainframe data"
+                    : clip is null
+                        ? "Detect Idle Gameplay — select a clip of a recording made in the editor (F10)"
+                        : "Detect Idle Gameplay — needs the recording's Mainframe data (its .mfcap.json beside it): this clip's media has none");
+            }
+        }
+
+        UpdateToolJob("video-silence", tab is null ? -1 : Percent(tab.SilenceJob), ref _videoSilence);
+        UpdateToolJob("video-transcribe", tab is null ? -1 : Percent(tab.TranscribeJob), ref _videoTranscribe);
+    }
+
+    // An icon job button: busy with "n %" beside the icon while its job runs (pressing it then cancels).
+    private void UpdateToolJob(string id, int percent, ref int shown)
+    {
+        if (percent == shown)
+            return;
+        shown = percent;
+        var button = Document.GetElementById(id);
+        if (button.IsNull)
+            return;
+        button.SetClass("busy", percent >= 0);
+        var pct = button.QuerySelector(".pct");
+        if (!pct.IsNull)
+            pct.SetInnerRml(percent < 0 ? "" : string.Create(CultureInfo.InvariantCulture, $"{percent} %"));
+    }
+
+    private void UpdateVideoPosition(Video.TimelineTab? tab)
+    {
+        var playhead = tab is null ? 0 : tab.SourceFocused && tab.Source.Media is not null ? tab.Source.Position : tab.View.Playhead;
+        var length = tab is null ? 0 : tab.SourceFocused && tab.Source.Media is { } media ? media.Duration : MainframeEngine.Video.Timelines.TimelineLayout.Duration(tab.Timeline);
+        var position = tab is null ? -1 : (long)Math.Round(Math.Max(0, playhead) * 10, MidpointRounding.AwayFromZero);
+        var duration = tab is null ? -1 : (long)Math.Round(length * 10, MidpointRounding.AwayFromZero);
         if (position == _videoPosition && duration == _videoDuration)
             return;
         _videoPosition = position;
@@ -554,32 +616,17 @@ public sealed class ToolbarPanel : EditorDocument
         }
 
         Span<char> text = stackalloc char[40];
-        var n = Video.VideoFormat.FormatClock(text, tab.State.Playhead);
+        var n = Video.VideoFormat.FormatClock(text, playhead);
         " / ".CopyTo(text[n..]);
         n += 3;
-        n += Video.VideoFormat.FormatClock(text[n..], tab.Document.Duration);
+        n += Video.VideoFormat.FormatClock(text[n..], length);
         element.SetInnerRml(text[..n]);
     }
 
     // A running job's progress in whole percent, or -1 when there is none.
     private static int Percent<T>(Video.VideoJob<T>? job) => job is null || job.IsDone ? -1 : (int)(job.Progress * 100);
 
-    // Transcribing is two phases when the model has to be fetched first: the job's first half (progress under 0.5) is the
-    // download, which the button names. Encoded as DownloadingOffset + n so the cached value changes with the phase too.
-    private const int DownloadingOffset = 1000;
-
-    private static int TranscribePercent(Video.VideoTab tab)
-    {
-        if (tab.TranscribeJob is not { IsDone: false } job)
-            return -1;
-        var progress = job.Progress;
-        return tab.TranscribeRun is { Downloads: true } && progress < 0.5
-            ? DownloadingOffset + (int)(progress * 200) // the download's own 0–100 %
-            : (int)(progress * 100);
-    }
-
-    // A job button reads its label, or "Cancel n %" while its job runs (pressing it then cancels); a download phase
-    // (DownloadingOffset + n) reads "Downloading model n %".
+    // A job button reads its label, or "Cancel n %" while its job runs (pressing it then cancels).
     private void UpdateJobButton(string id, string label, int percent, ref int shown)
     {
         if (percent == shown)
@@ -589,12 +636,7 @@ public sealed class ToolbarPanel : EditorDocument
         if (button.IsNull)
             return;
         button.SetClass("busy", percent >= 0);
-        button.SetInnerRml(percent switch
-        {
-            < 0 => label,
-            >= DownloadingOffset => string.Create(CultureInfo.InvariantCulture, $"Downloading model {percent - DownloadingOffset} %"),
-            _ => string.Create(CultureInfo.InvariantCulture, $"Cancel {percent} %"),
-        });
+        button.SetInnerRml(percent < 0 ? label : string.Create(CultureInfo.InvariantCulture, $"Cancel {percent} %"));
     }
 
     // ── Music mode ───────────────────────────────────────────────────────────────────────────────────────────────

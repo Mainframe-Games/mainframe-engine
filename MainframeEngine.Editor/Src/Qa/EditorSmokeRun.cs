@@ -64,9 +64,9 @@ public sealed class EditorSmokeRun : IEditorAutomation
     public bool SplashOnly { get; init; }
 
     /// <summary>
-    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|music-empty|music-song|music-adaptive|music-curves|synth-osc|synth-matrix|synth-fx</c>: capture the
+    /// <c>--smoke-golden project-manager|filesystem|video-empty|video-timeline|video-title|music-empty|music-song|music-adaptive|music-curves|synth-osc|synth-matrix|synth-fx</c>: capture the
     /// Project Manager (fixed recent projects in the temp folder, a fixed SDK line), the FileSystem panel of the project
-    /// given with <c>--project</c>, video mode's empty state, a video tab over <see cref="VideoGolden"/>'s document (then
+    /// given with <c>--project</c>, video mode's empty state, a timeline tab over <see cref="VideoGolden"/>'s timeline (then
     /// measure the allocations of its steady frames), music mode's empty state without a project, or a song tab in a
     /// project in the temp folder (then measure the allocations of steady music-mode frames), that song made adaptive with the
     /// Adaptive tab open (then the allocation gate too), or that song's track with the
@@ -306,26 +306,39 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 }
 
             case ("video-empty", 3):
-                workspace.Session.CloseAll();
-                workspace.SetMode(EditorMode.Video);
-                workspace.Output.Clear();
-                break;
-
-            case ("video-timeline", 3):
                 {
-                    // A tab over a document built in code (no ffmpeg): its waveform given, its preview decoding colour bars.
+                    // A project's media pool (recordings, media, timelines) beside the empty state: no timeline open.
                     workspace.Session.CloseAll();
-                    var document = VideoGolden.Document();
-                    document.Waveform = VideoGolden.Waveform();
-                    var decoders = new VideoGolden.Decoders();
-                    var tab = workspace.Session.OpenVideo(document, decoders, ffmpeg: null);
-                    // Opening scrubs to 0 on the pool: wait for its frame, so the capture at frame 40 never sees a black preview.
-                    if (!decoders.FirstFrameRead.Wait(TimeSpan.FromSeconds(10)))
-                        Log.Warning("[Smoke] The video preview's first frame was not read within 10 s; the capture may show it black.");
+                    var root = VideoGolden.Project();
+                    workspace.Session.UseProjectOf(Path.Combine(root, ProjectSettings.FileName), allowSwitch: true);
                     workspace.SetMode(EditorMode.Video);
-                    tab.View.Reset(document.Duration); // fit all: the ruler labels depend only on the window size
+                    workspace.Output.Clear();
+                    break;
+                }
+
+            case ("video-timeline" or "video-title", 3):
+                {
+                    // A timeline built in code (no ffmpeg): its waveform given, its viewers decoding colour bars.
+                    workspace.Session.CloseAll();
+                    var root = VideoGolden.Project();
+                    workspace.Session.UseProjectOf(Path.Combine(root, ProjectSettings.FileName), allowSwitch: true);
+                    var cache = workspace.VideoView.CacheFor(null);
+                    cache?.SetWaveform(VideoGolden.Recording.Hash, VideoGolden.Waveform());
+                    cache?.SetWaveform(VideoGolden.Music.Hash, VideoGolden.Waveform());
+                    var decoders = new VideoGolden.Decoders();
+                    var title = Golden == "video-title";
+                    var document = new Video.TimelineDocument(title ? VideoGolden.TitleTimeline() : VideoGolden.Timeline(),
+                        Path.Combine(root, "Assets", "Video", "Timelines", "Trailer.mftimeline"), root);
+                    var tab = workspace.Session.OpenTimeline(document, decoders, ffmpeg: null, cache);
+                    if (!decoders.FirstFrameRead.Wait(TimeSpan.FromSeconds(10)))
+                        Log.Warning("[Smoke] The timeline viewer's first frame was not read within 10 s; the capture may show it black.");
+                    workspace.SetMode(EditorMode.Video);
+                    tab.View.Selection.Add(title
+                        ? tab.Timeline.Clips.First(c => c.Kind == MainframeEngine.Video.Timelines.ClipKind.Title).Id // its Inspector
+                        : tab.Timeline.ClipsOn(tab.Timeline.TracksOf(MainframeEngine.Video.Timelines.TrackKind.Video)[0].Id)[0].Id);
+                    tab.View.Fit(MainframeEngine.Video.Timelines.TimelineLayout.Duration(tab.Timeline));
                     tab.Seek(VideoGolden.Playhead);
-                    tab.Notice = VideoGolden.Notice; // replaces the "ffmpeg not found" notice of a tab opened without ffmpeg
+                    tab.Notice = VideoGolden.Notice;
                     workspace.Output.Clear();
                     break;
                 }
@@ -431,14 +444,14 @@ public sealed class EditorSmokeRun : IEditorAutomation
                 break;
 
             // The timeline and song goldens then measure the managed allocations of steady video/music-mode frames (the allocation gate).
-            case ("video-timeline" or "music-song" or "music-adaptive" or "music-curves" or "synth-osc", 44):
+            case ("video-timeline" or "video-title" or "music-song" or "music-adaptive" or "music-curves" or "synth-osc", 44):
                 break;
-            case ("video-timeline" or "music-song" or "music-adaptive" or "music-curves" or "synth-osc", AllocationWarmup):
+            case ("video-timeline" or "video-title" or "music-song" or "music-adaptive" or "music-curves" or "synth-osc", AllocationWarmup):
                 _allocationStart = GC.GetAllocatedBytesForCurrentThread();
                 break;
-            case ("video-timeline" or "music-song" or "music-adaptive" or "music-curves" or "synth-osc", AllocationWarmup + AllocationFrames):
+            case ("video-timeline" or "video-title" or "music-song" or "music-adaptive" or "music-curves" or "synth-osc", AllocationWarmup + AllocationFrames):
                 _allocated = GC.GetAllocatedBytesForCurrentThread() - _allocationStart;
-                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady {(Golden == "video-timeline" ? "video" : "music")}-mode frames.");
+                Log.Info($"[Smoke] {_allocated} B allocated over {AllocationFrames} steady {(Golden is "video-timeline" or "video-title" ? "video" : "music")}-mode frames.");
                 Next(Step.Done);
                 app.Quit(ExitCode.Ok);
                 break;

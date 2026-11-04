@@ -12,8 +12,8 @@ public sealed class MediaProbe
     }
 
     /// <exception cref="FileNotFoundException">The source does not exist.</exception>
-    /// <exception cref="MediaProbeException">ffprobe failed or the file has no video stream.</exception>
-    public async Task<MediaInfo> ProbeAsync(string path, CancellationToken cancellationToken)
+    /// <exception cref="MediaProbeException">ffprobe failed or the file has no video stream (with <paramref name="requireVideo"/>; else no stream at all).</exception>
+    public async Task<MediaInfo> ProbeAsync(string path, CancellationToken cancellationToken, bool requireVideo = true, bool still = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (!File.Exists(path))
@@ -41,6 +41,6 @@ public sealed class MediaProbe
             }
         }
 
-        return FfprobeJson.Parse(output, path);
+        return FfprobeJson.Parse(output, path, requireVideo, still);
     }
 }

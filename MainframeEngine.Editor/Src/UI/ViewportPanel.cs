@@ -67,7 +67,7 @@ public sealed class ViewportPanel : EditorDocument
     private string _newTooltip = NewSceneTooltip;
 
     private const string NewSceneTooltip = "New Scene (Ctrl+N) — open an empty scene in a new tab";
-    private const string OpenRecordingTooltip = "Open a recording (Ctrl+O)";
+    private const string NewTimelineTooltip = "New timeline (Ctrl+N)";
     private const string NewSongTooltip = "New Song (Ctrl+N) — create a song in the project's Assets/Music";
 
     public ViewportPanel(EditorWorkspace workspace)
@@ -97,7 +97,7 @@ public sealed class ViewportPanel : EditorDocument
             })
             .Event("create", _ => Workspace.Commands.Execute(Workspace.Mode switch
             {
-                EditorMode.Video => "file.open",
+                EditorMode.Video => "video.new_timeline",
                 EditorMode.Music => "file.new_song",
                 _ => "file.new",
             }))
@@ -157,7 +157,7 @@ public sealed class ViewportPanel : EditorDocument
 
         var newTooltip = mode switch
         {
-            EditorMode.Video => OpenRecordingTooltip,
+            EditorMode.Video => NewTimelineTooltip,
             EditorMode.Music => NewSongTooltip,
             _ => NewSceneTooltip,
         };

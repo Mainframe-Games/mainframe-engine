@@ -48,6 +48,23 @@ public sealed class ProjectFileSystemTests : IDisposable
     }
 
     [Fact]
+    public void ARecordingsPartialFolderIsHiddenAndGetsNoMetas()
+    {
+        // ADR 0241: recordings land in Assets/Video/Recordings; while one records, its .partial folder holds the streams.
+        var partial = _project.Abs("Assets/Video/Recordings/game.mp4.partial");
+        Directory.CreateDirectory(partial);
+        File.WriteAllText(Path.Combine(partial, "video.ts"), "x");
+        File.WriteAllText(Path.Combine(partial, "audio.wav"), "x");
+
+        _project.Database.Scan(createMissingMeta: true);
+        _fs.Refresh();
+
+        Assert.False(File.Exists(Path.Combine(partial, "video.ts.meta")));
+        Assert.Null(_fs.Find("Assets/Video/Recordings/game.mp4.partial"));
+        Assert.NotNull(_fs.Find("Assets/Video/Recordings"));
+    }
+
+    [Fact]
     public void MetaAndHiddenFoldersAreHiddenUntilToggled()
     {
         Assert.Null(_fs.Find("bin"));

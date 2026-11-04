@@ -373,6 +373,13 @@ maximize or restore. Silk.NET 2.23's own `WindowState.Fullscreen` is exclusive (
 `WindowState.Normal` only restores, which does not leave fullscreen. The `Fullscreen` shortcut means borderless.
 `IWindowControl.VSync` forwards to `IRenderer.VSync` and `IWindowControl.MaxFps` to `Engine.MaxFPS`.
 
+**Files dropped from the OS.** `SceneTree.FilesDropped` (Godot's `Window.files_dropped`) is raised once per drop with
+every path and the pointer's position in window points (`FilesDroppedEvent`). It comes from SDL's `DROPFILE` events,
+which Silk.NET collects until `DROPCOMPLETE` and raises as `IWindow.FileDrop`; SDL gives no position, so the engine reads
+the global pointer minus the window position. There is no drag-over event, so nothing can highlight a target before
+the drop. The editor logs drops for now; video mode's media pool and timeline take them in G20c
+([Video NLE](future/video-nle.md)).
+
 ## Input actions
 
 `InputMap` holds named actions (`InputAction`: deadzone, bindings, and for settings menus an optional `label`, a

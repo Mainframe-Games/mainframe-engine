@@ -78,6 +78,10 @@ msgid "Hello"
 msgstr "Bonjour"
 PO
 
+# The editor-only folder (ADR 0241): video mode's media must never reach the build output, a publish or an archive.
+mkdir -p "$work/SmokeGame/Assets/Video/Media"
+printf 'not a video' > "$work/SmokeGame/Assets/Video/Media/clip.mp4"
+
 # shellcheck disable=SC2086 # BUILD_ARGS is a list of arguments
 dotnet build "$work/SmokeGame/SmokeGame.slnx" -c "$config" -warnaserror ${BUILD_ARGS:-}
 
@@ -93,6 +97,16 @@ require() {
 }
 engine_files=(Assets/UI/widgets/widgets.rcss Assets/Shaders/Mesh/Mesh.vk.vert.spv Assets/locale/fr/LC_MESSAGES/messages.mo)
 require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Assets/Scenes/Main.mscene Assets/icon.png "${engine_files[@]}"
+# Lists what must not be there: the editor-only folder.
+forbid() {
+  for forbidden in "${@:2}"; do
+    if [ -e "$1/$forbidden" ]; then
+      echo "template-smoke: $1 must not contain $forbidden" >&2
+      exit 1
+    fi
+  done
+}
+forbid "$out" Assets/Video
 # Steamworks: both Facepunch builds behind the engine's shim (the engine loads this OS's) and every steam_api native.
 steam_files=(steamworks/win64/MainframeEngine.Steamworks.dll steamworks/win64/Facepunch.Steamworks.Win64.dll
   steamworks/posix/MainframeEngine.Steamworks.dll steamworks/posix/Facepunch.Steamworks.Posix.dll)
@@ -130,6 +144,7 @@ if [ "$source" = "package" ]; then
   esac
   require "$work/publish" "$rmlui" SmokeGame.Desktop.dll project.mfproj Assets/Scenes/Main.mscene "${engine_files[@]}" \
     "steamworks/$steam_variant/MainframeEngine.Steamworks.dll"
+  forbid "$work/publish" Assets/Video
 
   # Player builds (#48): the package's tools/mf-export, found through MainframeExportTool, makes the archives a checkout
   # makes (the old package-game.sh arguments). Cross-RID publishes work from any host; macOS bundles need a Mac (codesign).
@@ -165,17 +180,17 @@ if [ "$source" = "package" ]; then
     case "$package_rid" in
       linux-*) check_archive "$archive" "+$base/SmokeGame" "+$base/libsteam_api.so" "+$base/libmfrmlui.so" \
         "+$base/steamworks/posix/MainframeEngine.Steamworks.dll" "+$base/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-        "+$base/Assets/Scenes/Main.mscene" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
+        "+$base/Assets/Scenes/Main.mscene" "-Assets/Video" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
       win-*) check_archive "$archive" "+$base/SmokeGame.exe" "+$base/steam_api64.dll" "+$base/mfrmlui.dll" \
         "+$base/steamworks/win64/MainframeEngine.Steamworks.dll" "+$base/steamworks/win64/Facepunch.Steamworks.Win64.dll" \
-        "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" ;;
+        "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" "-Assets/Video" ;;
       osx-*)
         # Only the apphost in Contents/MacOS; the rest of the publish in Contents/MonoBundle (issue #105).
         macos="SmokeGame.app/Contents/MacOS" app="SmokeGame.app/Contents/MonoBundle"
         check_archive "$archive" "+SmokeGame.app/Contents/Info.plist" "+$macos/SmokeGame" "-$macos/SmokeGame.Desktop.dll" \
           "+$app/SmokeGame.Desktop.dll" "+$app/libsteam_api.dylib" "+$app/libmfrmlui.dylib" "+$app/libcoreclr.dylib" \
           "+$app/steamworks/posix/MainframeEngine.Steamworks.dll" "+$app/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-          "+$app/Assets/Scenes/Main.mscene" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
+          "+$app/Assets/Scenes/Main.mscene" "-Assets/Video" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
           "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt"
         # The apphost starts ../MonoBundle/SmokeGame.Desktop.dll (build/macos/BundleAppHost.targets).
         unzip -p "$archive" "$macos/SmokeGame" > "$work/packages/apphost"

@@ -74,7 +74,7 @@ public static class EditorIcons
 
     /// <summary>
     /// The icon of a file (by extension) or folder: scenes <c>movie</c>, resources <c>package</c>, images <c>photo</c>,
-    /// audio <c>music</c>, models <c>file-3d</c>, video projects <c>video</c> and recordings <c>movie</c>, fonts, UI documents
+    /// audio <c>music</c>, models <c>file-3d</c>, video timelines <c>video</c> and recordings <c>movie</c>, fonts, UI documents
     /// and styles, translations, shaders, C#, the project file, JSON and text; anything else <c>file</c>.
     /// </summary>
     public static string ForFile(string path, bool isDirectory = false)
@@ -92,7 +92,7 @@ public static class EditorIcons
             _ when Is(extension, ".mscene") => "movie",
             _ when Is(extension, ".mres") => "package",
             _ when Is(extension, ".msong") => "music",
-            _ when Is(extension, ".mfcut") || Is(extension, ".cutback") => "video",
+            _ when Is(extension, ".mftimeline") => "video",
             _ when Is(extension, ".mp4") || Is(extension, ".mov") || Is(extension, ".mkv") || Is(extension, ".webm") => "movie",
             _ when Is(extension, ".png") || Is(extension, ".jpg") || Is(extension, ".jpeg") || Is(extension, ".tga") || Is(extension, ".bmp") ||
                    Is(extension, ".ktx2") || Is(extension, ".dds") || Is(extension, ".hdr") => "photo",
@@ -122,7 +122,7 @@ public static class EditorIcons
         if (isDirectory)
             return "icon-dir";
         // Recordings share the scene icon but not its colour: they take the video tab's (audio) family.
-        if (FileKinds.Of(path, isDirectory: false) is FileKind.Video or FileKind.VideoProject)
+        if (FileKinds.Of(path, isDirectory: false) is FileKind.Video or FileKind.Timeline)
             return "icon-audio";
         return ForFile(path) switch
         {

@@ -1,45 +1,48 @@
 using System.Globalization;
 using MainframeEngine.UI.Rml;
 using MainframeEngine.Video.Models;
+using MainframeEngine.Video.Timelines;
 using MainframeEngine.Video.Transcript;
+using Clip = MainframeEngine.Video.Timelines.Clip;
 
 namespace MainframeEngine.Editor.Video;
 
 /// <summary>
-/// Edit by text: the behaviour of <c>#video-transcript-words</c> inside <see cref="VideoPanel"/>'s document (it is not a
-/// document of its own). The transcript is flowing text, one span per word; a click cuts or restores a word, a drag takes a
-/// run, Cmd/Ctrl+click plays from the word and a right-click opens a menu. Ported from Cutback's <c>TranscriptControl</c>.
+/// The Inspector's Transcript tab (G20d): the selected clip's words inside its window, from its media's transcript, as
+/// flowing text, one span per word, struck where the clip's cuts remove them. A click cuts or restores a word in the clip
+/// and its linked partner (one undo step), a drag takes a run, Cmd/Ctrl+click plays from the word and a right-click opens
+/// a menu. Ported from the old mode's panel (Cutback's <c>TranscriptControl</c>); the behaviour of
+/// <c>#video-transcript-words</c> inside <see cref="VideoPanel"/>'s document.
 /// <para>
-/// Cost model: the markup is rebuilt only when the transcript itself changes (another list or another count). A cut, an
-/// undo or a boundary drag changes only <see cref="VideoDocument.Version"/>, and then the cut states are recomputed in place
-/// and the <c>cut</c> class flips on just the spans whose state changed. While a boundary is being dragged nothing is
-/// touched; the first update after the drag catches up. The current word's class moves between two spans, and a steady frame
-/// allocates nothing.
+/// Cost model: the markup is rebuilt only when the words shown change (another clip, window or transcript). A cut, an undo
+/// or a boundary drag only flips the <c>cut</c> class of the spans whose state changed, nothing is touched during a cut
+/// editor drag, the current word's class moves between two spans, and a steady frame allocates nothing.
 /// </para>
 /// </summary>
 public sealed class TranscriptPanel
 {
-    private const string Placeholder = "<div class=\"transcript-empty hint\">No transcript yet. Transcribe to edit by text.</div>";
+    private const string NoClip = "<div class=\"transcript-empty hint\">Select a clip to see its words.</div>";
+    private const string NoTranscript = "<div class=\"transcript-empty hint\">No transcript yet. Transcribe (the toolbar or the clip's menu) to edit by text.</div>";
+    private const string NoWords = "<div class=\"transcript-empty hint\">No words in this clip.</div>";
 
     private readonly EditorWorkspace _workspace;
     private readonly RmlEventListener?[] _listeners = new RmlEventListener?[3];
     private RmlElement _words;
-    private VideoTab? _tab;
+    private TimelineTab? _tab;
 
-    // What the markup shows: the list it was built from (by reference and count), the partition version of the last cut
-    // states, and those states.
-    private IReadOnlyList<Word>? _builtWords;
-    private int _builtCount = -1;
+    // What the markup shows: the clip, its window, the transcript it came from (and the store's version), the words.
+    private string? _builtClip;
+    private (double In, double Out) _builtWindow;
+    private IReadOnlyList<Word>? _builtSource;
+    private int _builtStore = -1;
     private int _builtVersion = -1;
+    private IReadOnlyList<Word> _shown = [];
     private bool[] _states = [];
     private int _current = -1;
 
-    // The word spans of the markup, in word order, collected once per rebuild (_spanCount of them are valid; 0 when the
-    // markup did not have one span per word, and spans are then looked up by id).
     private RmlElement[] _spans = [];
     private int _spanCount;
 
-    // The run being drawn by a press: the word pressed, the word the pointer is over, and the marked (sel) range.
     private int _press = -1;
     private int _end = -1;
     private int _markedFirst = -1;
@@ -50,103 +53,105 @@ public sealed class TranscriptPanel
         _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
     }
 
-    /// <summary>How many times the whole markup was built (tests: an edit must not rebuild).</summary>
+    /// <summary>How many times the markup was built (tests: an edit must not rebuild).</summary>
     internal int Rebuilds { get; private set; }
 
-    /// <summary>The tab the panel follows (tests: a closed tab is let go of even while the panel is hidden).</summary>
-    internal VideoTab? Tab => _tab;
+    /// <summary>The words shown, in order (the clip's window of its media's transcript).</summary>
+    internal IReadOnlyList<Word> Words => _shown;
 
-    /// <summary>True while a press is drawing a run.</summary>
-    internal bool IsPressed => _press >= 0;
+    /// <summary>Whether each shown word is cut.</summary>
+    internal IReadOnlyList<bool> CutStates => _states;
 
-    /// <summary>After every load and hot reload of the video document: the elements are new, so everything is built again.</summary>
+    /// <summary>The shown word under the playhead, or -1.</summary>
+    internal int Current => _current;
+
+    /// <summary>After every load of the video document: the elements are new, so everything is built again.</summary>
     public void Attach(RmlDocument document)
     {
         foreach (var listener in _listeners)
             listener?.Remove();
         _words = default;
-        _spanCount = 0; // the elements were freed with the old document
-        _builtWords = null;
-        _builtCount = -1;
-        _builtVersion = -1;
-        _current = -1;
-        ResetRun();
+        _spanCount = 0;
+        Invalidate();
         var transcript = document.GetElementById("video-transcript");
         _words = document.GetElementById("video-transcript-words");
         if (transcript.IsNull || _words.IsNull)
             return;
         _listeners[0] = transcript.AddEventListener("mousedown", OnMouseDown);
         _listeners[1] = transcript.AddEventListener("mousemove", OnMouseMove);
-        // On the body, so releasing the button outside the panel still ends the run.
-        _listeners[2] = document.AsElement().AddEventListener("mouseup", OnMouseUp);
+        _listeners[2] = document.AsElement().AddEventListener("mouseup", OnMouseUp); // released outside the panel too
     }
 
-    /// <summary>
-    /// Every frame while the panel is hidden: only follows which tab is shown, building nothing, so a closed tab is not
-    /// kept alive; the next <see cref="Update"/> rebuilds for it.
-    /// </summary>
-    public void Follow(VideoTab? tab)
+    private void Invalidate()
     {
-        if (ReferenceEquals(tab, _tab))
-            return;
-        _tab = tab;
-        _builtWords = null;
+        _builtClip = null;
+        _builtSource = null;
+        _builtStore = -1;
+        _builtVersion = -1;
+        _current = -1;
         ResetRun();
     }
 
-    /// <summary>Every frame while a video tab is shown: follows its transcript and cuts, and moves the current word.</summary>
-    public void Update(VideoTab? tab)
+    /// <summary>Every frame while video mode shows a tab: follows its selected clip, its cuts and the playhead.</summary>
+    public void Update(TimelineTab? tab, ClipTools tools)
     {
-        if (_words.IsNull)
+        ArgumentNullException.ThrowIfNull(tools);
+        if (!ReferenceEquals(tab, _tab))
+        {
+            _tab = tab;
+            Invalidate();
+        }
+
+        if (_words.IsNull || tab is null)
             return;
-        Follow(tab);
-        if (tab is null)
-            return;
-        var document = tab.Document;
-        if (document.Editor.IsDragging)
-            return; // a boundary drag changes the partition on every pointer move; the first update after it catches up
-        var words = document.Transcript;
-        if (!ReferenceEquals(words, _builtWords) || words.Count != _builtCount)
-            Rebuild(document);
-        else if (document.Version != _builtVersion)
-            RefreshCuts(document);
+        if (tab.Cut.IsDragging)
+            return; // a boundary drag changes the cuts on every move; the first update after it catches up
+        var clip = tab.Primary;
+        var source = clip is null ? null : tools.WordsOf(tab, clip);
+        if (clip?.Id != _builtClip || source != _builtSource || tools.Transcripts.Version != _builtStore
+            || (clip is not null && (clip.SourceIn, clip.SourceOut) != _builtWindow))
+            Rebuild(clip, source, tools.Transcripts.Version, tab.Document.Version);
+        else if (clip is not null && tab.Document.Version != _builtVersion)
+            RefreshCuts(clip, tab.Document.Version);
         MoveCurrent(tab);
     }
 
-    private void Rebuild(VideoDocument document)
+    private void Rebuild(Clip? clip, IReadOnlyList<Word>? source, int store, int version)
     {
-        var words = document.Transcript;
-        _states = TranscriptView.CutStates(words, document.Segments.Segments);
-        _words.SetInnerRml(words.Count == 0 ? Placeholder : TranscriptMarkup.Build(words, _states));
-        CacheSpans(words.Count);
-        _builtWords = words;
-        _builtCount = words.Count;
-        _builtVersion = document.Version;
-        _current = -1; // the new spans carry no cur class
+        _builtClip = clip?.Id;
+        _builtSource = source;
+        _builtStore = store;
+        _builtVersion = version;
+        _builtWindow = clip is null ? default : (clip.SourceIn, clip.SourceOut);
+        _shown = clip is null || source is null ? [] : ClipDetection.WordsInWindow(source, clip.SourceIn, clip.SourceOut);
+        _states = clip is null ? [] : TranscriptView.CutStates(_shown, clip.Segments);
+        _words.SetInnerRml(clip is null ? NoClip : source is null ? NoTranscript : _shown.Count == 0 ? NoWords : TranscriptMarkup.Build(_shown, _states));
+        CacheSpans(_shown.Count);
+        _current = -1;
         ResetRun();
         Rebuilds++;
     }
 
-    // The partition changed under the same words: flip the cut class of the spans whose state changed, in place.
-    private void RefreshCuts(VideoDocument document)
+    // The cuts changed under the same words: flip the cut class of the spans whose state changed, in place.
+    private void RefreshCuts(Clip clip, int version)
     {
-        var words = document.Transcript;
-        var segments = document.Segments.Segments;
-        for (var i = 0; i < words.Count; i++)
+        var segments = clip.Segments;
+        for (var i = 0; i < _shown.Count; i++)
         {
-            var cut = TranscriptView.IsCut(words[i], segments);
+            var cut = TranscriptView.IsCut(_shown[i], segments);
             if (cut == _states[i])
                 continue;
             _states[i] = cut;
             Span(i).SetClass("cut", cut);
         }
 
-        _builtVersion = document.Version;
+        _builtVersion = version;
     }
 
-    private void MoveCurrent(VideoTab tab)
+    private void MoveCurrent(TimelineTab tab)
     {
-        var index = tab.CurrentWord;
+        var sourceTime = tab.CutState.Playhead; // the playhead in the selected clip's source time, or -1
+        var index = sourceTime < 0 || _shown.Count == 0 ? -1 : TranscriptView.IndexAtTime(_shown, sourceTime);
         if ((uint)index >= (uint)_states.Length)
             index = -1;
         if (index == _current)
@@ -166,7 +171,7 @@ public sealed class TranscriptPanel
             span.ScrollIntoView(alignWithTop: false);
     }
 
-    // Walks the paragraphs once, keeping each word's span (the spaces between them are text elements, without the class).
+    // Walks the paragraphs once, keeping each word's span (the spaces between them are text elements without the class).
     private void CacheSpans(int count)
     {
         if (_spans.Length < count)
@@ -192,7 +197,6 @@ public sealed class TranscriptPanel
     {
         if ((uint)index < (uint)_spanCount)
             return _spans[index];
-        IdLookups++;
         Span<char> id = stackalloc char[16]; // "w-" and an int, without allocating
         id[0] = 'w';
         id[1] = '-';
@@ -200,22 +204,16 @@ public sealed class TranscriptPanel
         return _words.GetElementById(id[..(2 + digits)]);
     }
 
-    /// <summary>Spans looked up by id (tests: a cut or an undo after a rebuild must use the cached spans, not search).</summary>
-    internal int IdLookups { get; private set; }
+    // ── Gestures ─────────────────────────────────────────────────────────────────────────────────────────────
 
-    // ── Gestures ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// A press on word <paramref name="word"/>: with Cmd/Ctrl the playhead goes to the word and nothing is cut; otherwise it
-    /// starts a run anchored there (a single click is a run of one word).
-    /// </summary>
+    /// <summary>A press on word <paramref name="word"/>: with Cmd/Ctrl the playhead goes to it; otherwise a run starts there.</summary>
     internal void Press(int word, EditorModifiers modifiers)
     {
-        if (_tab is not { } tab || (uint)word >= (uint)tab.Document.Transcript.Count)
+        if (_tab is not { } tab || (uint)word >= (uint)_shown.Count)
             return;
         if ((modifiers & EditorModifiers.Command) != 0)
         {
-            tab.Seek(tab.Document.Transcript[word].Start);
+            SeekTo(tab, word);
             return;
         }
 
@@ -224,19 +222,15 @@ public sealed class TranscriptPanel
         Mark(word, word);
     }
 
-    /// <summary>The pointer moved over <paramref name="word"/> while pressed: the run reaches it.</summary>
     internal void Drag(int word)
     {
-        if (_press < 0 || word == _end || _tab is not { } tab || (uint)word >= (uint)tab.Document.Transcript.Count)
+        if (_press < 0 || word == _end || (uint)word >= (uint)_shown.Count)
             return;
         _end = word;
         Mark(Math.Min(_press, word), Math.Max(_press, word));
     }
 
-    /// <summary>
-    /// The button went up: the run takes the opposite state of the word pressed (a kept word is cut, a struck word is
-    /// restored), as one undo step.
-    /// </summary>
+    /// <summary>The button went up: the run takes the opposite state of the word pressed, as one undo step.</summary>
     internal void Release()
     {
         if (_press < 0)
@@ -247,7 +241,31 @@ public sealed class TranscriptPanel
         Mark(-1, -1);
         _press = -1;
         _end = -1;
-        _tab?.Document.CutWords(first, last, anchor);
+        CutWords(first, last, anchor);
+    }
+
+    /// <summary>
+    /// Cuts (or restores) words <paramref name="first"/>..<paramref name="last"/>: the opposite state of word
+    /// <paramref name="anchor"/>, edges snapped to the waveform, on the clip and its linked partner. False when nothing changed.
+    /// </summary>
+    internal bool CutWords(int first, int last, int anchor)
+    {
+        if (_tab is not { } tab || _shown.Count == 0 || tab.Timeline.FindClip(_builtClip ?? "") is not { } clip)
+            return false;
+        var lastIndex = _shown.Count - 1;
+        var from = Math.Clamp(Math.Min(first, last), 0, lastIndex);
+        var to = Math.Clamp(Math.Max(first, last), 0, lastIndex);
+        var enabled = TranscriptView.IsCut(_shown[Math.Clamp(anchor, from, to)], clip.Segments);
+        var waveform = tab.Cache?.WaveformOf(clip.Media.Hash, tab.Document.Resolve(clip.Media), clip.Media.Duration);
+        var (start, end) = ClipTools.SnapWord(waveform, _shown[from].Start, _shown[to].End);
+        return tab.Document.Apply(enabled ? "Restore Words" : "Cut Words",
+            t => TimelineEdits.SetClipCuts(t, clip.Id, list => list.SetRange(start, end, enabled)));
+    }
+
+    private void SeekTo(TimelineTab tab, int word)
+    {
+        if (tab.Timeline.FindClip(_builtClip ?? "") is { } clip && TimelineLayout.TimelineTimeOf(clip, _shown[word].Start) is { } at)
+            tab.Seek(at);
     }
 
     private void ResetRun()
@@ -255,10 +273,9 @@ public sealed class TranscriptPanel
         _press = -1;
         _end = -1;
         _markedFirst = -1;
-        _markedLast = -1; // the spans it marked are gone with the markup (or the tab)
+        _markedLast = -1;
     }
 
-    // Moves the sel class from the old run to the new one, touching only the spans that change.
     private void Mark(int first, int last)
     {
         var oldFirst = _markedFirst;
@@ -276,7 +293,7 @@ public sealed class TranscriptPanel
         }
     }
 
-    // ── Events ───────────────────────────────────────────────────────────────────────────────────────────────────
+    // ── Events ───────────────────────────────────────────────────────────────────────────────────────────────
 
     private void OnMouseDown(RmlEvent e)
     {
@@ -311,7 +328,6 @@ public sealed class TranscriptPanel
             Guard("Transcript edit failed", Release);
     }
 
-    // The word index of the span the pointer is over (or inside one), else -1.
     private int WordOf(RmlElement target)
     {
         for (var element = target; !element.IsNull; element = element.Parent)
@@ -333,34 +349,27 @@ public sealed class TranscriptPanel
         return modifiers | (_workspace.Modifiers & EditorModifiers.Command);
     }
 
-    // Built only when a right-click opens it. Cut / Restore act on this word alone, whatever run is drawn.
     internal void ShowMenu(int word, float x, float y)
     {
-        if (_tab is not { } tab || (uint)word >= (uint)tab.Document.Transcript.Count)
+        if (_tab is not { } tab || (uint)word >= (uint)_shown.Count)
             return;
         var cut = word < _states.Length && _states[word];
         _workspace.Popup.Show(
         [
             new MenuItem("Play from here", "transcript.play", Icon: "player-play"),
-            cut
-                ? new MenuItem("Restore", "transcript.toggle", Icon: "arrow-back-up")
-                : new MenuItem("Cut", "transcript.toggle", Icon: "trash"),
+            cut ? new MenuItem("Restore", "transcript.toggle", Icon: "arrow-back-up") : new MenuItem("Cut", "transcript.toggle", Icon: "trash"),
         ], x, y, onCommand: id =>
         {
             if (id == "transcript.play")
-                Guard("Playback failed", () => PlayFrom(tab, word));
+                Guard("Playback failed", () =>
+                {
+                    SeekTo(tab, word);
+                    if (!tab.Preview.IsPlaying)
+                        tab.TogglePlay();
+                });
             else if (id == "transcript.toggle")
-                Guard("Transcript edit failed", () => tab.Document.CutWords(word, word, word));
+                Guard("Transcript edit failed", () => CutWords(word, word, word));
         });
-    }
-
-    private static void PlayFrom(VideoTab tab, int word)
-    {
-        if ((uint)word >= (uint)tab.Document.Transcript.Count)
-            return;
-        tab.Seek(tab.Document.Transcript[word].Start);
-        if (!tab.Preview.IsPlaying)
-            tab.TogglePlay();
     }
 
     private void Guard(string what, Action action)

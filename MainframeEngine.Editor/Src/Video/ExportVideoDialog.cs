@@ -1,29 +1,33 @@
 using MainframeEngine.UI.Rml;
-using MainframeEngine.Video.Media.Export;
-// The game export library (MainframeEngine.Export, a global using) has types of the same names.
-using ExportProgress = MainframeEngine.Video.Media.Export.ExportProgress;
-using ExportRequest = MainframeEngine.Video.Media.Export.ExportRequest;
+using MainframeEngine.Video.Timelines.Export;
 
 namespace MainframeEngine.Editor.Video;
 
 /// <summary>
-/// File › Export Video: where to save the trimmed recording and how (Precise re-encodes, Fast copies). It only chooses; Export
-/// hands the choice to <see cref="VideoView.StartExport"/>, which snapshots the document on the main thread and runs the job.
-/// A typed output that already exists asks first (a picked one was confirmed by the picker); the recording itself and any
-/// extension ffmpeg cannot write are refused with a message in the dialog.
+/// File › Export Video (Cmd+E): a preset (socials, YouTube and Steam, chat, loops, the timeline's own), the range (the whole
+/// timeline, or in to out) and the output (default <c>&lt;project&gt;/Exports/&lt;timeline&gt;-&lt;preset&gt;</c>). It only
+/// chooses: Export hands the choice to <see cref="VideoView.StartExport"/>, which snapshots the timeline and runs the job. A
+/// typed output that exists asks first; a source file, a folder and another format are refused in the dialog.
 /// </summary>
 public sealed class ExportVideoDialog : EditorDocument
 {
-    private const string FastHint = "Fast needs .mp4, .mov or .mkv: WebM cannot hold the recording's codecs, so it is always re-encoded.";
+    private sealed class PresetRow
+    {
+        public required int Index { get; init; }
+        public required string Name { get; init; }
+    }
 
-    private VideoTab? _tab;
+    private static readonly RmlStructType<PresetRow> PresetType = new RmlStructType<PresetRow>()
+        .Member("index", static r => r.Index)
+        .Member("name", static r => r.Name);
+
+    private readonly List<PresetRow> _presets = [.. TimelineExportPresets.All.Select((p, i) => new PresetRow { Index = i, Name = p.Name })];
+    private TimelineTab? _tab;
     private RmlDataModel? _model;
     private string _path = "";
-    private string _summary = "";
     private string _error = "";
-    private bool _fast;
-
-    // The path the file picker already asked about replacing; exporting to exactly it does not ask again.
+    private int _preset;
+    private bool _inOut;
     private string? _confirmed;
 
     public ExportVideoDialog(EditorWorkspace workspace)
@@ -33,52 +37,66 @@ public sealed class ExportVideoDialog : EditorDocument
         Modal = true;
     }
 
-    /// <summary>The tab being exported, or null while closed.</summary>
-    public VideoTab? Tab => _tab;
+    public TimelineTab? Tab => _tab;
 
-    /// <summary>The output file as typed (resolved and checked by Export). Choosing <c>.webm</c> turns Fast off.</summary>
+    public TimelineExportPreset Preset => TimelineExportPresets.All[_preset];
+
+    /// <summary>The preset picked (an index into <see cref="TimelineExportPresets.All"/>); the default path follows it.</summary>
+    public int PresetIndex
+    {
+        get => _preset;
+        set
+        {
+            var index = Math.Clamp(value, 0, TimelineExportPresets.All.Count - 1);
+            if (_tab is not null && _path == DefaultPath(_tab, Preset))
+                _path = DefaultPath(_tab, TimelineExportPresets.All[index]);
+            else if (_tab is not null)
+                _path = Path.ChangeExtension(_path, TimelineExportPresets.All[index].Extension);
+            _preset = index;
+            _error = "";
+            _model?.DirtyAll();
+        }
+    }
+
+    /// <summary>In to out (only when the timeline has an in or out point) instead of the whole timeline.</summary>
+    public bool InToOut
+    {
+        get => _inOut;
+        set
+        {
+            _inOut = value && HasInOut;
+            _model?.DirtyAll();
+        }
+    }
+
+    public bool HasInOut => _tab?.Timeline is { } t && (t.InPoint is not null || t.OutPoint is not null);
+
     public string OutputPath
     {
         get => _path;
         set
         {
             _path = value ?? "";
-            if (_fast && !FastAllowed)
-                _fast = false;
             _error = "";
             _model?.DirtyAll();
         }
     }
 
-    /// <summary>Fast export (stream copy) instead of Precise; never true for a WebM output.</summary>
-    public bool Fast
-    {
-        get => _fast;
-        set
-        {
-            _fast = value && FastAllowed;
-            _model?.Dirty("fast");
-        }
-    }
-
-    /// <summary>False for a <c>.webm</c> output, where only Precise is possible.</summary>
-    public bool FastAllowed => VideoExport.FastAllowed(_path);
-
-    /// <summary>"Kept 4:12.3 of 6:00.0 · 23 cuts".</summary>
-    public string Summary => _summary;
-
-    /// <summary>Why Export was refused (empty when it was not).</summary>
     public string Error => _error;
+
+    public string Summary => _tab is { } tab ? TimelineExport.Summary(tab.Timeline, Preset, _inOut) : "";
 
     protected override void OnReady() =>
         _model = CreateDataModel("video_export")
-            .Bind("summary", this, static d => d._summary)
+            .BindList("presets", _presets, PresetType)
+            .Bind("preset", this, static d => d._preset)
+            .Bind("in_out", this, static d => d._inOut)
+            .Bind("has_in_out", this, static d => d.HasInOut)
+            .Bind("summary", this, static d => d.Summary)
             .Bind("path", this, static d => d._path, static (d, v) => d.OutputPath = v ?? "")
-            .Bind("fast", this, static d => d._fast)
-            .Bind("fast_allowed", this, static d => d.FastAllowed)
-            .Bind("hint", this, static d => d.FastAllowed ? "" : FastHint)
             .Bind("error", this, static d => d._error)
-            .Event("choose", e => Fast = e.GetArgument(0).GetInt32() == 1)
+            .Event("choose", e => PresetIndex = e.GetArgument(0).GetInt32())
+            .Event("range", e => InToOut = e.GetArgument(0).GetInt32() == 1)
             .Event("browse", _ => Browse())
             .Event("export", _ => Export())
             .Event("cancel", _ => Cancel());
@@ -87,7 +105,6 @@ public sealed class ExportVideoDialog : EditorDocument
 
     private void OnKeyDown(RmlEvent e)
     {
-        // A picker or message box opened from here has the keys while it is up.
         if (!Visible || Workspace.FilePicker.Visible || Workspace.Message.Visible)
             return;
         switch ((RmlKey)e.GetParameter("key_identifier", 0))
@@ -101,22 +118,20 @@ public sealed class ExportVideoDialog : EditorDocument
         }
     }
 
-    /// <summary>Opens the dialog for <paramref name="tab"/>: Precise, next to the recording, under a name nothing uses yet.</summary>
-    public void Open(VideoTab tab)
+    /// <summary>Opens the dialog for <paramref name="tab"/>, on the preset used last (the first the first time).</summary>
+    public void Open(TimelineTab tab)
     {
         _tab = tab ?? throw new ArgumentNullException(nameof(tab));
-        _path = VideoExport.DefaultPath(tab.Document.SourcePath, File.Exists);
-        _fast = false;
+        _inOut = HasInOut;
+        _path = DefaultPath(tab, Preset);
         _error = "";
         _confirmed = null;
-        _summary = VideoExport.Summary(tab.Document);
         Visible = true;
         _model?.DirtyAll();
         if (EnsureLoaded() && Document.GetElementById("ev-path") is { IsNull: false } field)
             field.Focus(focusVisible: true);
     }
 
-    /// <summary>The Cancel button and Escape.</summary>
     public void Cancel()
     {
         _tab = null;
@@ -124,38 +139,31 @@ public sealed class ExportVideoDialog : EditorDocument
         HideAndReleaseFocus();
     }
 
-    /// <summary>Browse: a Save picker over the supported containers, starting at the current name.</summary>
     public void Browse()
     {
-        if (_tab is null)
+        if (_tab is not { } tab)
             return;
-        var source = _tab.Document.SourcePath;
-        var current = VideoExport.ResolveOutput(_path, source);
-        var directory = current.Length > 0 && Path.GetDirectoryName(current) is { Length: > 0 } d && Directory.Exists(d) ? d : Path.GetDirectoryName(source)!;
-        var name = current.Length > 0 ? Path.GetFileName(current) : Path.GetFileName(VideoExport.DefaultPath(source, File.Exists));
-        var model = new FilePickerModel(FilePickerMode.Save, directory, ["*.mp4", "*.mov", "*.mkv", "*.webm"], name);
+        var current = TimelineExport.ResolveOutput(_path, tab.Document.ProjectRoot, Preset);
+        var directory = current.Length > 0 && Path.GetDirectoryName(current) is { Length: > 0 } d && Directory.Exists(d) ? d : tab.Document.ProjectRoot;
+        var model = new FilePickerModel(FilePickerMode.Save, directory, ["*" + Preset.Extension], Path.GetFileName(current));
         Workspace.FilePicker.Show(model, "Export Video", "Export", picked =>
         {
-            var resolved = VideoExport.ResolveOutput(picked, source);
+            var resolved = TimelineExport.ResolveOutput(picked, tab.Document.ProjectRoot, Preset);
             OutputPath = resolved;
             if (File.Exists(resolved))
-                _confirmed = resolved; // the picker asked before it returned
+                _confirmed = resolved;
         });
     }
 
-    /// <summary>
-    /// The Export button: checks the output, asks before replacing a typed file that exists, then closes and starts the
-    /// job. A refused output keeps the dialog open with the reason in it.
-    /// </summary>
     public void Export()
     {
         if (_tab is not { } tab)
             return;
-        var source = tab.Document.SourcePath;
-        var path = VideoExport.ResolveOutput(_path, source);
-        var problem = VideoExport.Problem(source, path);
-        if (problem is null && VideoExport.KeptSeconds(tab.Document) <= 0)
-            problem = VideoExport.NothingToExport;
+        var path = TimelineExport.ResolveOutput(_path, tab.Document.ProjectRoot, Preset);
+        var problem = TimelineExport.Problem(tab.Timeline, tab.Document.Resolve, path, Preset);
+        var (start, end) = TimelineExport.Range(tab.Timeline, _inOut);
+        if (problem is null && end - start <= 0)
+            problem = TimelineExport.NothingToExport;
         if (problem is not null)
         {
             _error = problem;
@@ -164,9 +172,7 @@ public sealed class ExportVideoDialog : EditorDocument
         }
 
         _path = path;
-        _error = "";
-        _model?.DirtyAll();
-        var mode = _fast ? ExportMode.Fast : ExportMode.Precise;
+        var preset = Preset;
         if (File.Exists(path) && !string.Equals(_confirmed, path, StringComparison.Ordinal))
         {
             Workspace.Message.Show(new MessageRequest
@@ -179,18 +185,21 @@ public sealed class ExportVideoDialog : EditorDocument
                 Callback = (button, _) =>
                 {
                     if (button == 0)
-                        Start(tab, path, mode);
+                        Start(tab, preset, start, end, path);
                 },
             });
             return;
         }
 
-        Start(tab, path, mode);
+        Start(tab, preset, start, end, path);
     }
 
-    private void Start(VideoTab tab, string path, ExportMode mode)
+    private void Start(TimelineTab tab, TimelineExportPreset preset, double start, double end, string path)
     {
-        Cancel(); // closes first: a failure to start is a message box, not an error line in a hidden dialog
-        Workspace.VideoView.StartExport(tab, path, mode);
+        Cancel();
+        Workspace.VideoView.StartExport(tab, preset, start, end, path);
     }
+
+    private static string DefaultPath(TimelineTab tab, TimelineExportPreset preset) =>
+        TimelineExport.DefaultPath(tab.Document.ProjectRoot, tab.Document.FilePath, preset, File.Exists);
 }

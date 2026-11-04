@@ -126,6 +126,59 @@ public sealed class Font : Resource
     }
 
     /// <summary>
+    /// Rasterises one line of <paramref name="text"/> on the CPU into an alpha bitmap (no atlas, no GPU): what the editor's
+    /// video titles are drawn from, so a headless run makes the same pixels. <paramref name="outlineRadius"/> &gt; 0
+    /// returns the outline's stroke (the glyphs dilated by it) instead of the fill. The bitmap's
+    /// <see cref="TextBitmap.Baseline"/> is the baseline's row, and the pen starts at column
+    /// <see cref="TextBitmap.Origin"/>; both bitmaps of a line (fill and outline) share the same layout when given the same
+    /// <paramref name="padding"/>.
+    /// </summary>
+    public TextBitmap RenderLine(string text, int fontSize, float outlineRadius = 0, int padding = 0)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentOutOfRangeException.ThrowIfLessThan(fontSize, 1);
+        var face = Face;
+        var scale = Scale(fontSize);
+        var ascent = (int)GetAscent(fontSize);
+        var descent = (int)GetDescent(fontSize);
+        var pad = Math.Max(0, padding) + 1 + (int)MathF.Ceiling(outlineRadius);
+        var width = (int)MathF.Ceiling(Advance(text, fontSize)) + 2 * pad;
+        var height = ascent + descent + 2 * pad;
+        var alpha = new byte[Math.Max(1, width) * Math.Max(1, height)];
+        var baseline = pad + ascent;
+        var pen = 0f;
+        var previous = -1;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            var glyph = face.GlyphIndex(rune.Value);
+            if (previous >= 0)
+                pen += face.Kerning(previous, glyph) * scale;
+            var bitmap = GlyphRasterizer.Rasterize(face.Outline(glyph), scale, outlineRadius);
+            var x0 = pad + (int)MathF.Round(pen) + bitmap.Left;
+            var y0 = baseline - bitmap.Top;
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                var ty = y0 + y;
+                if ((uint)ty >= (uint)height)
+                    continue;
+                for (var x = 0; x < bitmap.Width; x++)
+                {
+                    var tx = x0 + x;
+                    if ((uint)tx >= (uint)width)
+                        continue;
+                    ref var target = ref alpha[ty * width + tx];
+                    target = Math.Max(target, bitmap.Alpha[y * bitmap.Width + x]);
+                }
+            }
+
+            pen += face.AdvanceWidth(glyph) * scale;
+            previous = glyph;
+        }
+
+        return new TextBitmap(alpha, width, height, baseline, pad);
+    }
+
+    /// <summary>
     /// Draws one line on <paramref name="item"/> with its baseline starting at <paramref name="position"/> (Godot's
     /// <c>draw_string</c>; <paramref name="outline"/> &gt; 0 draws <c>draw_string_outline</c>'s stroke instead).
     /// </summary>
@@ -231,6 +284,9 @@ public sealed class Font : Resource
         return new GlyphEntry(pageIndex, new Rect2(px, py, bitmap.Width, bitmap.Height), bitmap.Left, bitmap.Top);
     }
 }
+
+/// <summary>One line rasterised by <see cref="Font.RenderLine"/>: coverage bytes (row-major, Y down), the baseline's row and the pen's first column.</summary>
+public readonly record struct TextBitmap(byte[] Alpha, int Width, int Height, int Baseline, int Origin);
 
 /// <summary>A glyph placed by <see cref="Font.Layout"/>: its rectangle (pixels, Y down) and its region of an atlas page.</summary>
 internal readonly record struct GlyphQuad(Texture2D Page, Rect2 Rect, Rect2 Source);
