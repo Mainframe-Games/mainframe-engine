@@ -252,11 +252,11 @@ public sealed class PlayController : IDisposable
 
     /// <summary>
     /// Runs the main scene with <c>--record &lt;path&gt;</c> so the recording covers the game from its first frame (the
-    /// path is in the project's <c>recordings</c> folder, named after the main scene, see <see cref="RecordingPaths"/>).
+    /// path is in the project's <c>Assets/Video/Recordings</c> folder, named after the main scene, see <see cref="RecordingPaths"/>).
     /// </summary>
     public void PlayAndRecord()
     {
-        if (_workspace.Project.UserDataDirectory is not { } userData)
+        if (_workspace.Project.Root is not { } projectRoot)
         {
             _workspace.Message.Show(new MessageRequest { Title = "Play and Record", Message = "Open a project first.", Buttons = ["OK"] });
             return;
@@ -264,7 +264,7 @@ public sealed class PlayController : IDisposable
 
         if (!CanPlay(out _, out _)) // before the folder is created: a refused launch must not leave an empty recordings folder
             return;
-        if (!TryNewRecordingPath(userData, _workspace.Project.MainScenePath(), out var path))
+        if (!TryNewRecordingPath(projectRoot, _workspace.Project.MainScenePath(), out var path))
             return;
         PlayMain([RecordArgument, path]);
     }
@@ -312,9 +312,9 @@ public sealed class PlayController : IDisposable
             return;
         }
 
-        if (_workspace.Project.UserDataDirectory is not { } userData)
+        if (_workspace.Project.Root is not { } projectRoot)
             return;
-        if (!TryNewRecordingPath(userData, target.CurrentScene, out var path))
+        if (!TryNewRecordingPath(projectRoot, target.CurrentScene, out var path))
             return;
         if (Service.StartRecording(target, path))
         {
@@ -370,12 +370,12 @@ public sealed class PlayController : IDisposable
         return kept;
     }
 
-    private bool TryNewRecordingPath(string userData, string? scene, out string path)
+    private bool TryNewRecordingPath(string projectRoot, string? scene, out string path)
     {
-        path = RecordingPaths.NewPath(userData, scene, DateTime.Now, File.Exists);
+        path = RecordingPaths.NewPath(projectRoot, scene, DateTime.Now, File.Exists);
         try
         {
-            Directory.CreateDirectory(RecordingPaths.Directory(userData));
+            Directory.CreateDirectory(RecordingPaths.Directory(projectRoot));
             return true;
         }
         catch (Exception e) when (EditorCommands.IsRecoverable(e))

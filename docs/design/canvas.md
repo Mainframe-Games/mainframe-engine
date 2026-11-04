@@ -88,7 +88,9 @@ SPIR-V is built ahead of time and committed next to the source (`x.slang.vert.sp
 stage then writes only the inputs that stage kept (Slang drops unread fragment inputs, and an unread vertex output is a
 validation warning; `SpirvInputs`). `ShaderMaterial.SetShaderParameter(name, value)` sets parameters (vectors as
 `System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for textures). Runtime-updated textures
-(`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes. The same `Shader`/`ShaderMaterial` carry
+(`Texture2D.FromPixels` + `SetPixels`) re-upload when their version changes: into the same GPU image when the size is
+unchanged (`GpuTexture.Update2D`, ADR 0241), so a texture updated every frame (a video preview) keeps its descriptor
+sets and allocates nothing (render test `CanvasTextureUpdatesInPlace`). The same `Shader`/`ShaderMaterial` carry
 spatial surface shaders to 3D meshes ([Shaders → Surface shaders](shaders.md#surface-shaders), ADR 0205); `mf-shaders`
 builds both kinds.
 

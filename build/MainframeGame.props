@@ -130,6 +130,25 @@
     </PropertyGroup>
   </Target>
 
+  <!--
+    The editor-only folder (ADR 0241, ContentPaths.EditorOnlyFolder): <project>/Assets/Video holds video mode's recordings,
+    imported media and timelines, often gigabytes. The game's own `None Include="../Assets/**"` copy (and any Content
+    item) leaves it out, so no build output, publish folder or export contains it. Removed before AssignTargetPaths, where
+    the copy-to-output items are computed; a target because items in a .props file are evaluated before the project's.
+  -->
+  <Target Name="_MainframeExcludeEditorOnlyContent" BeforeTargets="AssignTargetPaths"
+          Condition="'$(MainframeProjectFile)' != '' and Exists('$(MainframeProjectFile)')">
+    <PropertyGroup>
+      <_MainframeEditorOnlyDirectory>$([MSBuild]::NormalizeDirectory($([System.IO.Path]::GetDirectoryName('$(MainframeProjectFile)')), 'Assets', 'Video').ToUpperInvariant())</_MainframeEditorOnlyDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <_MainframeEditorOnlyNone Include="@(None)" Condition="$([System.String]::Copy('%(FullPath)').ToUpperInvariant().StartsWith('$(_MainframeEditorOnlyDirectory)'))" />
+      <None Remove="@(_MainframeEditorOnlyNone)" />
+      <_MainframeEditorOnlyContent Include="@(Content)" Condition="$([System.String]::Copy('%(FullPath)').ToUpperInvariant().StartsWith('$(_MainframeEditorOnlyDirectory)'))" />
+      <Content Remove="@(_MainframeEditorOnlyContent)" />
+    </ItemGroup>
+  </Target>
+
   <!-- macOS: <name>.app around the game executable (targets and conditions evaluated when the build runs), and the
        release bundle's apphost (the export publishes with MacBundleAppDirectory=MonoBundle). -->
   <Import Project="macos/DevAppBundle.targets" />

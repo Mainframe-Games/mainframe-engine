@@ -184,7 +184,9 @@ Shift+F5, which is Run Another Instance. Its tooltip follows the state: "Play an
 | Recording | sends `StopRecording` to the instance that is recording | Stop Recording |
 | Saving | nothing (the item is disabled) | Saving recording… |
 
-- **Where.** `{project user data}/recordings/{scene}-{yyyyMMdd-HHmmss}.mp4`: the scene's file name (Play and Record: the
+- **Where.** `{project}/Assets/Video/Recordings/{scene}-{yyyyMMdd-HHmmss}.mp4`, in the project's editor-only folder
+  (ADR 0241: video mode finds recordings there, and builds and exports never include it; recordings made before this
+  stay in `{project user data}/recordings`): the scene's file name (Play and Record: the
   project's main scene; Start Recording: the scene the game reports running; `game` when there is none, characters other
   than letters, digits, `-` and `_` become `_`), with `-2`, `-3`… added while the name is taken (`RecordingPaths`). The
   folder is created before the launch; failing to create it is a dialog, not a launch.

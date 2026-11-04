@@ -88,6 +88,31 @@ public class CanvasRenderTests
     }
 
     [Fact]
+    public void CanvasTextureUpdatesInPlace()
+    {
+        // ADR 0241: SetPixels every frame (red, green, blue in turn) writes into the same GPU image. Three consecutive
+        // captures show the three colours in order, exactly; validation is clean; and steady frames allocate nothing,
+        // which re-creating the GpuTexture each frame (the old path) would not.
+        var result = HostRunner.Run("canvas-texture-update", Output("canvas-texture-update"), "--capture", "10,11,12", "--size", "64x64", "--hidden");
+        Gates.AssertValidationClean(result);
+        var colours = result.Captures.OrderBy(c => c.Frame).Select(c => Png.ReadRgba8(c.Path)).Select(image =>
+        {
+            var i = (image.Height / 2 * image.Width + image.Width / 2) * 4;
+            return (image.Pixels[i], image.Pixels[i + 1], image.Pixels[i + 2]);
+        }).ToArray();
+        (byte, byte, byte)[] cycle = [(255, 0, 0), (0, 255, 0), (0, 0, 255)];
+        var first = Array.IndexOf(cycle, colours[0]);
+        Assert.True(first >= 0, $"frame 10 is {colours[0]}, not red, green or blue");
+        Assert.Equal([cycle[first], cycle[(first + 1) % 3], cycle[(first + 2) % 3]], colours);
+
+        const int warmup = 60, measured = 240;
+        var alloc = HostRunner.Run("canvas-texture-update", Output("canvas-texture-update-alloc"), "--alloc", $"{warmup}:{measured}", "--hidden");
+        Assert.Equal(measured, alloc.MeasuredFrames);
+        Assert.True(alloc.AllocatedBytes == 0, $"a texture updated every frame allocated {alloc.AllocatedBytes} managed bytes over {measured} frames.");
+        Gates.AssertValidationClean(alloc);
+    }
+
+    [Fact]
     public void AThousandPlayingAnimatedSpritesAllocateNothing()
     {
         const int warmup = 60, measured = 240;

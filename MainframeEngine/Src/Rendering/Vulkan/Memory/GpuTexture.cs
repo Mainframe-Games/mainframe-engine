@@ -224,6 +224,23 @@ public sealed unsafe class GpuTexture : IDisposable
         return sampler;
     }
 
+    /// <summary>
+    /// Replaces the pixels of a one-level 2D texture in place (tightly packed, the image's size and format): the image, its
+    /// view, its sampler and every descriptor set holding them stay valid. The copy is recorded at the start of the next
+    /// frame, after earlier frames' reads of the image (<see cref="UploadQueue"/>'s barrier), so a frame in flight never
+    /// sees half an update; nothing is created, so a per-frame update allocates nothing.
+    /// </summary>
+    public void Update2D(ReadOnlySpan<byte> pixels)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_borrowed)
+            throw new InvalidOperationException("A borrowed texture's image belongs to someone else.");
+        if (Image.MipLevels != 1 || Image.ArrayLayers != 1 || Image.Depth != 1)
+            throw new InvalidOperationException("Only one-level 2D textures update in place.");
+        _ctx.Uploads.UploadImage(Image, pixels);
+        _ctx.Uploads.FlushIfRecording();
+    }
+
     /// <summary>Destroys the texture once no frame in flight can use it.</summary>
     public void Dispose()
     {

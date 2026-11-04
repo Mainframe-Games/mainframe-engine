@@ -3,25 +3,28 @@ using System.Globalization;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Where the editor's Record button saves: <c>{project user data}/recordings/{scene}-{yyyyMMdd-HHmmss}.mp4</c>. The name
-/// carries the scene and the start time so recordings sort by when they were made, and a suffix keeps two starts in
-/// the same second from overwriting each other.
+/// Where the editor's Record button saves: <c>{project}/Assets/Video/Recordings/{scene}-{yyyyMMdd-HHmmss}.mp4</c>, in the
+/// editor-only folder (<see cref="ContentPaths.EditorOnlyFolder"/>, ADR 0241), so video mode finds recordings in the
+/// project and games never ship them. The name carries the scene and the start time so recordings sort by when they were
+/// made, and a suffix keeps two starts in the same second from overwriting each other.
 /// </summary>
 public static class RecordingPaths
 {
-    public static string Directory(string userDataDirectory) => Path.Combine(userDataDirectory, "recordings");
+    /// <summary>The recordings folder of the project at <paramref name="projectRoot"/>.</summary>
+    public static string Directory(string projectRoot) =>
+        Path.Combine(projectRoot, ContentPaths.EditorOnlyFolder.Replace('/', Path.DirectorySeparatorChar), "Recordings");
 
     /// <summary>
     /// A path in <see cref="Directory"/> that <paramref name="exists"/> reports free: the scene's file name (or "game"
     /// without a scene) and <paramref name="now"/>, with <c>-2</c>, <c>-3</c>… appended while the name is taken.
     /// </summary>
-    public static string NewPath(string userDataDirectory, string? scenePath, DateTime now, Func<string, bool> exists)
+    public static string NewPath(string projectRoot, string? scenePath, DateTime now, Func<string, bool> exists)
     {
         var label = string.IsNullOrEmpty(scenePath) ? "game" : Safe(Path.GetFileNameWithoutExtension(scenePath));
         var stem = $"{label}-{now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}";
-        var path = Path.Combine(Directory(userDataDirectory), stem + ".mp4");
+        var path = Path.Combine(Directory(projectRoot), stem + ".mp4");
         for (var n = 2; exists(path); n++)
-            path = Path.Combine(Directory(userDataDirectory), $"{stem}-{n.ToString(CultureInfo.InvariantCulture)}.mp4");
+            path = Path.Combine(Directory(projectRoot), $"{stem}-{n.ToString(CultureInfo.InvariantCulture)}.mp4");
         return path;
     }
 

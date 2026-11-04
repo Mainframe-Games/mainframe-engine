@@ -1,6 +1,6 @@
 # Proposal: Video mode as a multi-track timeline editor
 
-**Status:** draft (awaiting owner review)
+**Status:** accepted (owner, 2026-11-04)
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G20a–G20d, G20.2, G20.3)
 **Decision:** [ADR 0241](../../../memory/decisions/0241-video-mode-nle.md), which partly supersedes
 [ADR 0191](../../../memory/decisions/0191-video-editing-mode.md)
@@ -324,8 +324,9 @@ Retired from the editor:
 
 ### Engine work
 
-- **`SceneTree.FilesDropped`**, an `Action<FilesDroppedEvent>` with the paths and the window position in pixels. It
-  lives in `Scene/SceneTree.Window.cs` beside `CloseRequested`, and is named after Godot's `files_dropped`.
+- **`SceneTree.FilesDropped`**, an `Action<FilesDroppedEvent>` with the paths and the window position in window points
+  (as mouse events). It lives in `Scene/SceneTree.Window.cs` beside `CloseRequested`, and is named after Godot's
+  `files_dropped`.
   - `Engine` subscribes to `Window.FileDrop` next to `Window.Closing`.
   - SDL gives no drop position, so it is read from `SDL_GetGlobalMouseState` minus the window position, through
     `SilkWindowControl.TryGetSdl`.
@@ -333,18 +334,20 @@ Retired from the editor:
 - **The editor-only folder.**
   - `ContentPaths.EditorOnlyFolder` is `"Assets/Video"`, with an `IsEditorOnly(path)` predicate.
   - An MSBuild target, `_MainframeExcludeEditorOnlyContent`, removes `None` and `Content` items under
-    `<project>/Assets/Video/` before `AssignTargetPaths`. It goes in `build/package/MainframeEngine.targets` (package
-    games) and `build/MainframeGame.props` (checkout games). Every game's Desktop csproj copies `../Assets/**`, so this
-    covers existing games.
+    `<project>/Assets/Video/` before `AssignTargetPaths`. It goes in `build/MainframeGame.props`, which checkout games
+    import and the package's `buildTransitive/MainframeEngine.props` imports, so it covers both. Every game's Desktop
+    csproj copies `../Assets/**`, so this covers existing games.
   - `ContentFilter.Ships` (`Tools/MainframeEngine.Export/Glob.cs:112`) returns false for these paths, and
-    `ExportValidator` warns when a preset includes them.
+    `ExportValidator` warns (`editor-only-content`) when an include glob names `Assets/Video`. The default
+    `Assets/**` does not warn, or every project with videos would warn on every export.
   - The G19 pack writer uses the same predicate (a line in `protected-exports.md`).
 - **In-place texture updates.** Today `VulkanCanvasRenderer` re-creates a `Texture2D`'s GPU image and descriptor sets
   whenever its version changes (`Rendering/Canvas/VulkanCanvasRenderer.cs:211-226`). `GpuTexture.Update2D` writes
   through a staging copy and a barrier, and the renderer uses it when size and format are unchanged. Several preview
   layers at 30 fps need this; every dynamic canvas texture benefits.
-- **Recordings.** `RecordingPaths.Directory` takes the project root and returns `Assets/Video/Recordings`, falling back
-  to user data only when no project is open (the game run from a terminal).
+- **Recordings.** `RecordingPaths.Directory` takes the project root and returns `Assets/Video/Recordings`. The editor
+  only records from Play, which always has a project; a game run from a terminal takes an explicit `--record` path. The
+  asset scan and the FileSystem panel skip a recording's `<name>.mp4.partial/` folder while it records.
 
 ## Scenarios
 
@@ -354,18 +357,21 @@ Test names are in the projects they will live in: `Video.Tests` (library), `Edit
 ### G20a: engine prerequisites
 
 - Given a window, when SDL reports two files dropped, then `SceneTree.FilesDropped` fires once with both paths and the
-  pointer's window position in pixels. Test: `FilesDroppedTests.RaisesOnceWithPathsAndPosition`.
+  pointer's window position in window points (the units of mouse events). Test:
+  `FilesDroppedTests.RaisesOnceWithPathsAndPosition`.
 - Given a game project with `Assets/Video/Media/a.mp4` and `Assets/Scenes/Main.mscene`, when its Desktop project
   builds, then `bin/…/Assets/Scenes/Main.mscene` exists and `bin/…/Assets/Video` does not. Test: template smoke
   (`build/template-smoke.sh`) asserts it.
-- Given an export preset whose include glob is `**/*`, when the files to ship are listed, then nothing under
-  `Assets/Video` ships and the validator warns once. Test: `ContentFilterTests.EditorOnlyFolderNeverShips`.
+- Given an export preset whose include glob is `Assets/**`, when the files to ship are listed, then nothing under
+  `Assets/Video` ships. Given an include glob `Assets/Video/**`, the validator warns `editor-only-content`. Tests:
+  `ExportLibraryTests.EditorOnlyFolderNeverShips`, `ExportPlanAndValidationTests.AnIncludeGlobNamingTheEditorOnlyFolderWarns`.
 - Given an open project, when F10 finishes a recording, then the MP4 and its `.mfcap.json` are in
-  `Assets/Video/Recordings`. Given no project, they go to the user-data folder. Test:
-  `RecordingPathsTests.ProjectRecordingsGoUnderAssetsVideo`.
+  `Assets/Video/Recordings`, and its `.partial` folder never gets `.meta` files or shows in the FileSystem panel. Tests:
+  `RecordingPathsTests.ProjectRecordingsGoUnderAssetsVideo`, `PlayRecordingControllerTests.PlayAndRecordLaunchesWithRecordArgs`,
+  `ProjectFileSystemTests.ARecordingsPartialFolderIsHiddenAndGetsNoMetas`.
 - Given a `Texture2D` whose pixels change but whose size does not, when frames render, then the GPU image is updated
   in place (no new image, no descriptor set churn), with no validation warnings and 0 B per frame. Test: render test
-  `canvas-texture-update-in-place` plus the allocation gate.
+  `CanvasRenderTests.CanvasTextureUpdatesInPlace` (host scene `canvas-texture-update`) with the allocation gate.
 
 ### G20b: timeline library
 

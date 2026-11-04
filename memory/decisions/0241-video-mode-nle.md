@@ -1,7 +1,7 @@
 # ADR 0241 — Video mode becomes a multi-track timeline editor
 
 **Date:** 2026-11-04
-**Status:** proposed (accepted when the owner accepts [the proposal](../../docs/design/future/video-nle.md))
+**Status:** accepted
 **Docs:** [Video NLE proposal](../../docs/design/future/video-nle.md), [Video editing mode](../../docs/design/video-editor.md),
 [Gameplay recording](../../docs/design/recording.md). Partly supersedes [ADR 0191](0191-video-editing-mode.md).
 

@@ -108,13 +108,16 @@ public static class Glob
 /// </summary>
 public static class ContentFilter
 {
-    /// <summary>Whether the game file at <paramref name="projectPath"/> (<c>Assets/…</c>) ships under these globs.</summary>
+    /// <summary>
+    /// Whether the game file at <paramref name="projectPath"/> (<c>Assets/…</c>) ships under these globs. The editor's own
+    /// folder (<see cref="ContentPaths.EditorOnlyFolder"/>: video mode's media and timelines) never ships, whatever they say.
+    /// </summary>
     public static bool Ships(string projectPath, IReadOnlyList<string> include, IReadOnlyList<string> exclude)
     {
         ArgumentNullException.ThrowIfNull(projectPath);
         ArgumentNullException.ThrowIfNull(include);
         ArgumentNullException.ThrowIfNull(exclude);
-        return Glob.IsMatchAny(include, projectPath) && !Glob.IsMatchAny(exclude, projectPath);
+        return !ContentPaths.IsEditorOnly(projectPath) && Glob.IsMatchAny(include, projectPath) && !Glob.IsMatchAny(exclude, projectPath);
     }
 
     /// <summary>

@@ -317,6 +317,17 @@ public sealed partial class EditorWorkspace
 
     public void BeginFileDrag(string path) => FileDrag = Path.GetFullPath(path);
 
+    /// <summary>
+    /// Files dropped on the window from the OS (<see cref="SceneTree.FilesDropped"/>). Logged for now; video mode's media
+    /// pool and timeline take them in G20c (docs/design/future/video-nle.md).
+    /// </summary>
+    public static void DropOsFiles(FilesDroppedEvent drop)
+    {
+        var first = drop.Paths[0];
+        var more = drop.Paths.Count > 1 ? $" and {drop.Paths.Count - 1} more" : "";
+        Log.Info($"[Editor] Dropped {first}{more} at {drop.Position.X:0},{drop.Position.Y:0}.");
+    }
+
     public void EndFileDrag() => FileDrag = null;
 
     /// <summary>

@@ -121,6 +121,7 @@ public sealed class EditorApp : Engine, IEditorHost
         _closeFilter = CloseRequestFilter.TryInstall();
         Workspace = new EditorWorkspace(this, _options.Workspace);
         Root.AddChild(Workspace);
+        Tree.FilesDropped += EditorWorkspace.DropOsFiles;
         Log.Info($"[Editor] Ready ({LayoutSize.X}x{LayoutSize.Y} pt, {PixelScale:0.#}x).");
     }
 

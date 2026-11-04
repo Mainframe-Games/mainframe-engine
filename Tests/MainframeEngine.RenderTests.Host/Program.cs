@@ -101,6 +101,7 @@ RenderTestGame game = options.Scene switch
     "skinned" => new SkinnedScene(options),
     "skinned-crowd" => new SkinnedCrowdScene(options),
     "canvas-group" => new CanvasGroupScene(options),
+    "canvas-texture-update" => new CanvasTextureUpdateScene(options),
     "shadow-shimmer" => new ShadowShimmerScene(options),
     "shadow-pcss" => new ShadowPcssScene(options),
     "contact-shadows" => new ContactShadowsScene(options),

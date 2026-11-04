@@ -112,8 +112,9 @@ mode, never a tab of the other mode, so closing never switches modes.
 
 **Without a project.** Video mode needs no game project: Recent Videos are their own list
 (`EditorSettings.RecentVideos`, 10 entries, 5 in the File menu), and opening a recording never calls
-`EditorSession.UseProjectOf` (recordings live in the user-data folder, and switching projects would throw while scene
-tabs are open).
+`EditorSession.UseProjectOf` (switching projects would throw while scene tabs are open). Recordings made from the
+editor now land in the project's `Assets/Video/Recordings` (ADR 0241); video mode becomes a timeline editor in the
+project ([Video NLE](future/video-nle.md)).
 
 **Project switches leave video tabs alone.** Open Project, File › Project Manager and Close Project ask about and close
 the game mode's tabs only (`EditorSession.CloseAll(EditorMode.Game)`): video tabs stay open, unsaved changes and all,
@@ -398,8 +399,9 @@ Cutback's project JSON, schema version 3, unchanged:
 ## Known limits
 
 - **Preview memory.** Four stream slots of six frame buffers each: up to about 48 MB at 960×540.
-- **Per-frame texture re-upload.** The preview's CPU `Texture2D` re-uploads (and recreates its GPU image) once per
-  displayed frame, at most 960×540 and 30 fps. G16's planned `VideoTexture` would remove that.
+- **Per-frame texture upload.** The preview's CPU `Texture2D` uploads once per displayed frame, at most 960×540 and
+  30 fps, into the same GPU image (`GpuTexture.Update2D`, ADR 0241). G16's planned `VideoTexture` would decode on the
+  GPU instead.
 - **Hard links** to the recording are not detected by the same-file checks (a hard link is a second name for the same
   data); symbolic links are.
 - **Crash recovery covers scenes only**: `WriteRecoveryCopies` does not write video projects.

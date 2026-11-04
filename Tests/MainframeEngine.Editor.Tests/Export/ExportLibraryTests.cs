@@ -93,6 +93,29 @@ public sealed class ExportLibraryTests : IDisposable
         Assert.True(File.Exists(Path.Combine(stage, "Assets", "Shaders", "Mesh.spv")));
     }
 
+    [Fact]
+    public void EditorOnlyFolderNeverShips()
+    {
+        // ADR 0241: Assets/Video holds the editor's recordings, media and timelines, whatever the globs say.
+        Assert.False(ContentFilter.Ships("Assets/Video/Media/clip.mp4", ExportPreset.DefaultInclude, []));
+        Assert.False(ContentFilter.Ships("Assets/Video/Timelines/t.mftimeline", ["Assets/Video/**"], []));
+        Assert.True(ContentFilter.Ships("Assets/Videos/intro.webm", ExportPreset.DefaultInclude, []));
+
+        var project = Path.Combine(_dir, "project");
+        var stage = Path.Combine(_dir, "stage");
+        foreach (var f in (string[])["Assets/Scenes/Main.mscene", "Assets/Video/Media/clip.mp4", "Assets/Video/Media/clip.mp4.meta"])
+        {
+            File_("project/" + f);
+            File_("stage/" + f);
+        }
+
+        var removed = ContentFilter.Apply(stage, project, ExportPreset.DefaultInclude, []);
+
+        Assert.Equal(["Assets/Video/Media/clip.mp4", "Assets/Video/Media/clip.mp4.meta"], removed);
+        Assert.False(Directory.Exists(Path.Combine(stage, "Assets", "Video")));
+        Assert.True(File.Exists(Path.Combine(stage, "Assets", "Scenes", "Main.mscene")));
+    }
+
     // ── Natives ──────────────────────────────────────────────────────────────────────────────────────────────────
 
     private static readonly Dictionary<string, IReadOnlyList<string>> Natives = new()

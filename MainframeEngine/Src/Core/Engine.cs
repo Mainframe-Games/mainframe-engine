@@ -361,7 +361,8 @@ public abstract class Engine : IDisposable
             // Silk reports only "not applicable" — surface SDL's own reason (missing video driver, display, …).
             throw new PlatformNotSupportedException($"{e.Message} SDL: {DescribeSdlFailure()}", e);
         }
-        Tree.Window = new SilkWindowControl(Window, this);
+        var windowControl = new SilkWindowControl(Window, this);
+        Tree.Window = windowControl;
         Window.Load += PlaceWindow;
         Window.Load += ApplyStartMode;
         Window.Load += OnLoad;
@@ -369,6 +370,8 @@ public abstract class Engine : IDisposable
         Window.Update += OnUpdate;
         Window.Render += OnRender;
         Window.Closing += OnClose;
+        // OS drag and drop: SDL's DROPFILE events, collected by Silk until DROPCOMPLETE (Godot's files_dropped).
+        Window.FileDrop += paths => Tree.NotifyFilesDropped(paths, windowControl.PointerInWindow() ?? System.Numerics.Vector2.Zero);
     }
 
     /// <summary>

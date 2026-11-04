@@ -126,7 +126,9 @@ seekable streams), `MusicManifest`/`AdaptiveMusic`, `SpineNode`/`SpineTextureLoa
 `PackWriter` lives in the export library (`Tools/MainframeEngine.Export`); `PackReader` lives in the engine
 (`Src/Core/Content/`). The export's stage step changes:
 
-1. As today: `ContentFilter`, the exported `project.mfproj`, `assets.index.json`.
+1. As today: `ContentFilter`, the exported `project.mfproj`, `assets.index.json`. `ContentFilter.Ships` already refuses
+   the editor-only folder (`ContentPaths.IsEditorOnly`: `Assets/Video`, ADR 0241), and the build never copies it to the
+   stage; the pack writer must not read the project's `Assets/` directly, or it would pack video mode's media.
 2. With `pack`: write `<stage>/Assets.mfpak` from `Assets/` + `project.mfproj` minus `loose`, then delete what was
    packed. The engine's own `Assets/` (shaders, widgets, fonts) go in the same pack, under the same paths.
 

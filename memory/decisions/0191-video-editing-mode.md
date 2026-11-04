@@ -1,7 +1,7 @@
 # ADR 0191 — Video editing mode in the editor
 
 - **Date:** 2026-10-14
-- **Status:** accepted; partly superseded by [ADR 0241](0241-video-mode-nle.md) (proposed: the multi-track timeline editor)
+- **Status:** accepted; partly superseded by [ADR 0241](0241-video-mode-nle.md) (the multi-track timeline editor)
 - **Milestone:** —
 - **Docs:** docs/design/video-editor.md, docs/design/editor.md#editor-modes
 
