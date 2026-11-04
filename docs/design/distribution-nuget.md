@@ -97,14 +97,19 @@ The archives are `<Exe>-<version>-osx-arm64.zip` (the `.app`; macOS presets need
 
 ### Packing
 
-`build/pack-nuget.sh [version] [out]` (`just pack`) packs both packages at one version in three steps:
+`build/pack-nuget.sh [version] [out]` (`just pack`) packs both packages at one version in four steps:
 
-1. It builds `mf-l10n`. That project references the engine, so the engine's own pack cannot build it: the reference
-   would wait on the project instance that is packing.
+1. It builds `mf-l10n`, `mf-export` and `mf-shaders`. Those projects reference the engine, so the engine's own pack
+   cannot build them: the reference would wait on the project instance that is packing.
 2. It runs `dotnet pack MainframeEngine -c Release -p:Version=…`.
 3. It runs `dotnet pack MainframeEngine.Templates` at the same version. The packed `template.json` defaults
    `EngineVersion` to that version (`_MainframeStampTemplateVersion`; the source keeps `0.0.0-dev`). A template installed
    from `MainframeEngine.Templates` X.Y.Z therefore creates games on `MainframeEngine` X.Y.Z with no options.
+4. It unzips both packages and fails if any file in them is a Git LFS pointer (starts with
+   `version https://git-lfs.github.com/spec/v1`). A checkout without a path's LFS objects packs the pointer in place of
+   the file: `publish.yml`'s `package` job pulls LFS only for `MainframeEngine/**`, `Templates/**` and
+   `docs/images/brand/**`, and 1.1.6 shipped the template's `Assets/icon.png` as a pointer before `Templates/**` was in
+   that list (#168), so new games crashed loading their window icon.
 
 In the engine csproj:
 

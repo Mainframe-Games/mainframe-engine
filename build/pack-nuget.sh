@@ -23,4 +23,26 @@ dotnet build "$repo/Tools/MainframeEngine.ShaderBuild/MainframeEngine.ShaderBuil
 dotnet pack "$repo/MainframeEngine/MainframeEngine.csproj" -c Release -p:Version="$version" -o "$out" ${PACK_ARGS:-}
 # shellcheck disable=SC2086
 dotnet pack "$repo/Templates/MainframeEngine.Templates/MainframeEngine.Templates.csproj" -c Release -p:Version="$version" -o "$out" ${PACK_ARGS:-}
+
+# A file whose Git LFS objects the checkout lacks packs as its pointer (publish.yml's package job pulls only some paths;
+# #168 shipped the template's icon.png that way). Fail on any packed pointer instead of releasing it.
+lfs_header='version https://git-lfs.github.com/spec/v1'
+unpacked="$(mktemp -d)"
+trap 'rm -rf "$unpacked"' EXIT
+pointers=()
+for pkg in "MainframeEngine.$version.nupkg" "MainframeEngine.Templates.$version.nupkg"; do
+    unzip -q "$out/$pkg" -d "$unpacked/$pkg"
+    while IFS= read -r -d '' file; do
+        # Pointers are at most 1024 bytes (the LFS spec); tr drops NULs so binary files do not warn.
+        if [[ "$(head -c ${#lfs_header} "$file" | tr -d '\0')" == "$lfs_header" ]]; then
+            pointers+=("$pkg: ${file#"$unpacked/$pkg/"}")
+        fi
+    done < <(find "$unpacked/$pkg" -type f -size -1025c -print0)
+done
+if ((${#pointers[@]})); then
+    echo "pack-nuget: Git LFS pointers packed instead of their files (git lfs pull those paths):" >&2
+    printf '  %s\n' "${pointers[@]}" >&2
+    exit 1
+fi
+
 echo "pack-nuget: $out/MainframeEngine.$version.nupkg, $out/MainframeEngine.Templates.$version.nupkg"
