@@ -16,24 +16,32 @@ internal readonly record struct UiGeometryRange(int Chunk, ulong Offset, VkBuffe
 /// <remarks>
 /// Ranges are released through <see cref="Release"/> with the frame that may still read them and returned to the free
 /// list by <see cref="Collect"/> once that frame has completed, so nothing in flight is overwritten. Render thread only;
-/// allocation-free once the chunk list and the pending queue have grown.
+/// allocation-free once the chunk list has grown. Each chunk's region list, and the pending queue per chunk, start with
+/// room for <see cref="ChunkRegions"/>: text changes every frame, so live ranges, ranges still in flight and the gaps
+/// between them peak at a timing-dependent moment, and lists grown on demand made that peak a late, intermittent
+/// allocation.
 /// </remarks>
 internal sealed class UiGeometryArena : IDisposable
 {
     /// <summary>Default chunk size; larger meshes get a chunk of their own size.</summary>
     public const ulong ChunkSize = 1ul << 20;
 
+    /// <summary>Regions (ranges and free gaps) a chunk tracks before its list grows: one per 512 bytes of a default chunk.</summary>
+    public const int ChunkRegions = 2048;
+
     private const ulong VertexSize = 20;
     private const ulong IndexSize = 4;
 
     private readonly Func<ulong, GpuBuffer> _createBuffer;
     private readonly List<Chunk> _chunks = [];
-    private readonly Queue<(ulong Frame, int Chunk, ulong Offset)> _pending = new(64);
+    // Every pending range is still allocated in a chunk, so the queue never holds more than the chunks' regions: sized to
+    // that up front and on each new chunk (which allocates anyway) instead of growing at a timing-dependent frame.
+    private readonly Queue<(ulong Frame, int Chunk, ulong Offset)> _pending = new(ChunkRegions);
 
     private sealed class Chunk(GpuBuffer buffer, ulong size)
     {
         public GpuBuffer Buffer { get; } = buffer;
-        public FreeListBlock Block { get; } = new(size, 1);
+        public FreeListBlock Block { get; } = new(size, 1, ChunkRegions);
     }
 
     /// <param name="createBuffer">Creates a mapped buffer of the given size (vertex + index usage).</param>
@@ -91,6 +99,7 @@ internal sealed class UiGeometryArena : IDisposable
             var chunkSize = Math.Max(ChunkSize, size);
             var chunk = new Chunk(_createBuffer(chunkSize), chunkSize);
             _chunks.Add(chunk);
+            _pending.EnsureCapacity(_chunks.Count * ChunkRegions);
             chunkIndex = _chunks.Count - 1;
             if (!chunk.Block.TryAllocate(size, IndexSize, GpuResourceKind.Linear, out offset))
                 throw new InvalidOperationException("A fresh geometry chunk could not hold the geometry.");

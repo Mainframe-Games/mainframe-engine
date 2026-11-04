@@ -197,4 +197,32 @@ public sealed class FreeListBlockTests
         Assert.Equal(1, block.FreeRegionCount);
         block.Validate();
     }
+
+    [Fact]
+    public void AFragmentedBlockWithinItsRegionCapacityAllocatesNothing()
+    {
+        // The UI arena's chunks churn text geometry every frame: their region list must not grow mid-game (a list grown
+        // on demand reached its peak at a timing-dependent frame and failed the render tests' allocation gate).
+        Fragment(new FreeListBlock(1 << 20, 1, UiGeometryArena.ChunkRegions)); // JIT and first-call work, outside the window
+        var block = new FreeListBlock(1 << 20, 1, UiGeometryArena.ChunkRegions);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        var regions = Fragment(block);
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(regions >= UiGeometryArena.ChunkRegions - 1, $"Only {regions} regions: the test no longer fragments the block.");
+        Assert.Equal(0, allocated);
+        block.Validate();
+    }
+
+    // Allocates ranges back to back, frees every other one (each leaves a gap), and returns the regions in use.
+    private static int Fragment(FreeListBlock block)
+    {
+        Span<ulong> offsets = stackalloc ulong[UiGeometryArena.ChunkRegions - 1]; // with the free tail: a full region list
+        for (var i = 0; i < offsets.Length; i++)
+            Assert.True(block.TryAllocate(100, 4, GpuResourceKind.Linear, out offsets[i]));
+        for (var i = 0; i < offsets.Length; i += 2)
+            block.Free(offsets[i]);
+        return block.AllocationCount + block.FreeRegionCount;
+    }
 }
