@@ -56,7 +56,7 @@ flowchart LR
 |---|---|
 | Blocks | 64 MiB `VkDeviceMemory` per memory type (heap/8 on small heaps, halved down to the request on `OUT_OF_DEVICE_MEMORY`). One empty block per type is kept; further empty blocks are freed. |
 | Dedicated | Requests over 32 MiB, or `dedicated: true`, get their own memory, freed immediately on `Free`. |
-| Placement | `FreeListBlock`: sorted region list, **best fit**, offsets aligned to the request, free neighbours **coalesced** on free. O(regions) per call, no allocation once grown. |
+| Placement | `FreeListBlock`: sorted region list, **best fit**, offsets aligned to the request, free neighbours **coalesced** on free. O(regions) per call, no allocation once grown; `regionCapacity` pre-sizes the list for blocks that churn per frame (the UI geometry arena). |
 | Granularity | `bufferImageGranularity`: a linear resource (buffer, linear image) and an optimal-tiling image never share a granularity page; padding goes in where they would. |
 | Memory type | `GpuMemoryUsage`: `DeviceLocal` (prefer DEVICE_LOCAL, avoid HOST_VISIBLE), `Dynamic` (HOST_VISIBLE + COHERENT, prefer DEVICE_LOCAL — uniform rings, streamed vertices), `Staging` (host-coherent, avoid DEVICE_LOCAL), `Readback` (host-coherent, prefer HOST_CACHED). Best score among allowed types; if that type's heap is exhausted the next type is tried. |
 | Mapping | Host-visible blocks are mapped once, persistently; `GpuAllocation.MappedPointer` is the CPU address of the allocation. Only coherent memory is used, so no flushes. |

@@ -29,16 +29,20 @@ internal sealed class FreeListBlock
         public GpuResourceKind Kind; // meaningful for allocated regions only
     }
 
-    private readonly List<Region> _regions = new(16);
+    private readonly List<Region> _regions;
 
-    public FreeListBlock(ulong size, ulong bufferImageGranularity)
+    /// <param name="regionCapacity">Regions the list holds before it grows (allocations plus the free gaps between them).
+    /// Size it for the block's working set when its allocations churn per frame.</param>
+    public FreeListBlock(ulong size, ulong bufferImageGranularity, int regionCapacity = 16)
     {
         ArgumentOutOfRangeException.ThrowIfZero(size);
         if (bufferImageGranularity == 0 || (bufferImageGranularity & (bufferImageGranularity - 1)) != 0)
             throw new ArgumentException($"Granularity {bufferImageGranularity} is not a power of two.", nameof(bufferImageGranularity));
 
+        ArgumentOutOfRangeException.ThrowIfLessThan(regionCapacity, 1);
         Size = size;
         Granularity = bufferImageGranularity;
+        _regions = new List<Region>(regionCapacity);
         _regions.Add(new Region { Offset = 0, Size = size, Free = true });
     }
 

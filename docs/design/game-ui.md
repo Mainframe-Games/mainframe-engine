@@ -213,7 +213,10 @@ flowchart LR
   their own) sub-allocated with the allocator's `FreeListBlock`; each allocation is vertices (aligned to a whole
   20-byte `Rml::Vertex`) then 32-bit indices, so a draw is one `vkCmdDrawIndexed(count, 1, firstIndex,
   vertexOffset, 0)` and buffers rebind only on a chunk change. RmlUi compiles geometry once and re-renders it by
-  handle (geometry caching); ranges are freed only after the frames that may read them complete.
+  handle (geometry caching); ranges are freed only after the frames that may read them complete. Each chunk's region
+  list starts with room for `UiGeometryArena.ChunkRegions` (2048) ranges and gaps: text that changes every frame
+  makes live ranges, ranges in flight and gaps peak at a timing-dependent moment, and a list grown on demand turned
+  that peak into an intermittent per-frame allocation.
 - **Textures.** Images load through the UI file interface (StbImageSharp). An `src` that is an absolute path to an
   existing file (`<img src="/home/me/Game/Assets/icon.png">`, `C:\…`) loads as written (the `JoinPath` callback keeps
   it instead of joining it onto the document's folder; the editor's Project Manager shows project icons this way).
