@@ -184,7 +184,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   tests (`Tests/MainframeEngine.Video.Tests`, and the editor's `Video/` tests) never run ffmpeg or load a Whisper model.
   The UI is `MainframeEngine.Editor/Src/Video/` (`TimelineTab`, `TimelineDocument`, `TimelineCanvas`,
   `TimelineController`, `VideoView`, `VideoPanel`, the media pool, the Source and Timeline viewers over `VideoPreview`,
-  the cut editor) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
+  the cut editor, `ClipTools` and the Transcript tab: Cutback's tools on a clip, transcripts cached as
+  `<media>.mftranscript.json`) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
   (presets in `project.mfproj`, publish, macOS bundle/signing, archives; replaces `package-game.sh`; ADRs 0229/0230);

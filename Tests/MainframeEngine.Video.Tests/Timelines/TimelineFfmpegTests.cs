@@ -98,6 +98,24 @@ public sealed class TimelineFfmpegTests : IDisposable
         return (int)buffer.Length;
     }
 
+    [Fact]
+    public async Task DetectsSilenceInsideAWindowOnly()
+    {
+        // A 12 s tone, silent from 4 to 6 s and from 9 to 10.5 s; a clip's window of 2–8 s finds only the first, in source time.
+        var ffmpeg = Ffmpeg();
+        var ct = TestContext.Current.CancellationToken;
+        var source = Path.Combine(_dir.FullName, "tone.m4a");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=12",
+            "-af", "volume=enable='between(t,4,6)+between(t,9,10.5)':volume=0", "-c:a", "aac", "-y", source]);
+        var settings = MainframeEngine.Video.Models.DetectionSettings.Default;
+
+        var spans = await new MainframeEngine.Video.Media.SilenceDetector(ffmpeg).DetectAsync(source, 12, settings, null, ct, start: 2, end: 8);
+
+        var span = Assert.Single(spans);
+        Assert.InRange(span.Start, 3.9, 4.1);
+        Assert.InRange(span.End, 5.9, 6.1);
+    }
+
     private static async Task Run(string exe, IEnumerable<string> args)
     {
         using var process = FfmpegProcess.Start(exe, args, redirectStandardOutput: false);

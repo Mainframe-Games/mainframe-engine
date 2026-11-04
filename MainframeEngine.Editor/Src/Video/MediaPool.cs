@@ -146,6 +146,9 @@ public static class MediaImporter
     /// <summary>A recording's sidecar (the engine recorder's <c>&lt;video&gt;.mfcap.json</c>).</summary>
     public const string SidecarSuffix = ".mfcap.json";
 
+    // The files that travel with a media file: the recording's sidecar and its transcript (G20d).
+    private static readonly string[] Sidecars = [SidecarSuffix, MainframeEngine.Video.Transcript.TranscriptSerializer.Suffix];
+
     /// <summary>The free name for <paramref name="fileName"/> in <paramref name="folder"/>: as it is, then <c>-2</c>, <c>-3</c>….</summary>
     public static string Destination(string folder, string fileName, Func<string, bool> exists)
     {
@@ -192,8 +195,9 @@ public static class MediaImporter
 
             var target = Destination(folder, Path.GetFileName(source), File.Exists);
             await CopyAsync(source, target, cancellationToken).ConfigureAwait(false);
-            if (File.Exists(source + SidecarSuffix))
-                await CopyAsync(source + SidecarSuffix, target + SidecarSuffix, cancellationToken).ConfigureAwait(false);
+            foreach (var suffix in Sidecars)
+                if (File.Exists(source + suffix))
+                    await CopyAsync(source + suffix, target + suffix, cancellationToken).ConfigureAwait(false);
             result.Add(target);
             progress?.Report((i + 1) / (double)sources.Count);
         }

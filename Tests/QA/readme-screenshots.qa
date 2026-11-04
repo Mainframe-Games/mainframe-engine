@@ -286,9 +286,11 @@ command edit.undo
 command edit.undo
 wait 5
 # 5. Video mode, the timeline editor: the recipe's narrated Physics 2D recording (build/readme-video-clip.sh) imported
-# into the Demo's Assets/Video, placed on a 9:16 timeline (Fill crops the landscape picture), the pile-up pause cut out
-# with two add edits and a ripple delete, the first clip selected so the cut editor shows its source, the playhead at
-# 2.8 s as the bodies fall through the pegs. `video reset` afterwards removes the Demo's Assets/Video again.
+# into the Demo's Assets/Video and placed on a 9:16 timeline (Fill crops the landscape picture); then Cutback's tools on
+# the clip: Detect Silence cuts the pauses, Remove Fillers transcribes it (base.en, the default: 148 MB on first use;
+# tiny.en's looser timings leave cut words unstruck) and cuts the "um" and "uh". The Transcript tab shows the struck
+# words, the cut editor the clip's cuts, the playhead at 2.8 s as the bodies fall through the pegs. `video reset`
+# afterwards removes the Demo's Assets/Video again.
 video reset
 mode video
 wait 10
@@ -300,13 +302,14 @@ wait 10
 video source Assets/Video/Media/demo.mp4
 wait-for video-jobs 60
 command video.overwrite
+wait 30
+video select V1 1
+command video.detect_silence
+wait-for video-jobs 60
 wait 10
-video seek 4.4
-command video.add_edit_all
-video seek 6.4
-command video.add_edit_all
-video select V1 5
-command video.ripple_delete
+video set whisper-model base.en
+command video.remove_fillers
+wait-for video-jobs 900
 wait 10
 video select V1 1
 video seek 2.8

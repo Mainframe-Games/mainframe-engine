@@ -51,7 +51,11 @@ public sealed class VideoView : Node
     public VideoView(EditorWorkspace workspace)
     {
         _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
+        Tools = new ClipTools(workspace);
     }
+
+    /// <summary>Cutback's tools on the selected clip, and the media's transcripts (G20d).</summary>
+    public ClipTools Tools { get; }
 
     /// <summary>The timeline tab shown (the active tab in video mode), or null.</summary>
     public TimelineTab? Tab => _tab;
@@ -114,6 +118,7 @@ public sealed class VideoView : Node
             _cache?.Dispose();
             _cache = new MediaCache(Path.Combine(root, ".mainframe", "cache", "video"));
             _cacheRoot = root;
+            Tools.Transcripts.Clear();
         }
 
         _cache.Ffmpeg ??= ffmpeg;
@@ -222,6 +227,11 @@ public sealed class VideoView : Node
             [
                 new MenuItem(clip.LinkGroup is null ? "Link" : "Unlink", "video.link", "Ctrl+L", Icon: "link"),
                 new MenuItem(clip.Enabled ? "Disable" : "Enable", "video.toggle_enabled", Icon: "eye-off"),
+                MenuItem.Separator,
+                new MenuItem("Detect Silence", "video.detect_silence", Icon: "volume-off"),
+                new MenuItem("Detect Idle Gameplay", "video.detect_idle", null, ClipTools.HasCapture(tab, clip), Icon: "hourglass"),
+                new MenuItem("Transcribe", "video.transcribe", Icon: "file-text"),
+                new MenuItem("Remove Filler Words", "video.remove_fillers", Icon: "eraser"),
                 MenuItem.Separator,
                 new MenuItem("Delete (Lift)", "video.lift", "Del", Icon: "trash"),
                 new MenuItem("Ripple Delete", "video.ripple_delete", "Shift+Del", Icon: "trash-x"),
@@ -464,6 +474,12 @@ public sealed class VideoView : Node
         "video.source_play",
         "video.stop",
         "video.toggle_enabled",
+        "video.detect_silence",
+        "video.detect_idle",
+        "video.transcribe",
+        "video.remove_fillers",
+        "video.show_transcript",
+        "video.show_inspector",
         "video.tool_razor",
         "video.tool_select",
         "video.zoom_fit",
@@ -656,6 +672,24 @@ public sealed class VideoView : Node
                 break;
             case "video.export":
                 Export(tab);
+                break;
+            case "video.detect_silence":
+                Tools.DetectSilence(tab);
+                break;
+            case "video.detect_idle":
+                Tools.DetectIdle(tab);
+                break;
+            case "video.transcribe":
+                Tools.Transcribe(tab);
+                break;
+            case "video.remove_fillers":
+                Tools.RemoveFillers(tab);
+                break;
+            case "video.show_transcript":
+                tab.ShowsTranscript = true;
+                break;
+            case "video.show_inspector":
+                tab.ShowsTranscript = false;
                 break;
         }
     }
@@ -1100,8 +1134,13 @@ public sealed class VideoView : Node
 
         var tabs = _workspace.Session.Tabs;
         for (var i = 0; i < tabs.Count; i++)
-            if (tabs[i] is TimelineTab { ExportJob: { IsDone: true } export } tab)
+        {
+            if (tabs[i] is not TimelineTab tab)
+                continue;
+            if (tab.ExportJob is { IsDone: true } export)
                 FinishExport(tab, export);
+            Tools.Poll(tab);
+        }
     }
 
     private void FinishExport(TimelineTab tab, VideoJob<string> job)

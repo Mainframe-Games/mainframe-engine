@@ -749,7 +749,7 @@ public sealed class EditorQaScript : IEditorAutomation
     /// result is applied).
     /// </summary>
     internal static bool VideoJobsIdle(EditorWorkspace workspace) =>
-        workspace.VideoView.IsIdle && workspace.Session.Tabs.All(t => t is not Video.TimelineTab { ExportJob: not null });
+        workspace.VideoView.IsIdle && workspace.Session.Tabs.All(t => t is not Video.TimelineTab tab || (tab.ExportJob is null && MainframeEngine.Editor.Video.ClipTools.IsIdle(tab)));
 
     // video import|source|seek|select|timeline: video mode for QA and screenshots.
     private static void Video(EditorWorkspace workspace, string[] step)

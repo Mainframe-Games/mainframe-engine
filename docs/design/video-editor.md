@@ -1,7 +1,7 @@
 # Video editing mode
 
-**Status:** ✅ G20c built (branch `feature/video-nle`, 2026-11-05): the multi-track timeline editor. The per-clip Cutback
-tools (Transcribe, Remove Fillers, Detect Silence, Detect Idle Gameplay) come back in G20d · **ADRs:**
+**Status:** ✅ G20c and G20d built (branch `feature/video-nle`, 2026-11-05): the multi-track timeline editor, with
+Cutback's tools (Detect Silence, Detect Idle Gameplay, Transcribe, Remove Fillers) on the selected clip · **ADRs:**
 [0241](../../memory/decisions/0241-video-mode-nle.md) (the timeline editor), which partly supersedes
 [0191](../../memory/decisions/0191-video-editing-mode.md) (the Cutback port) · **Proposal:**
 [Video NLE](future/video-nle.md) · **Depends on:** [Gameplay recording](recording.md) (the recorder, the `.mfcap.json`
@@ -16,13 +16,13 @@ another editor. Video mode is now a small timeline editor laid out like DaVinci 
 project: a media pool, a Source and a Timeline viewer, an Inspector, video and audio tracks with Premiere's keys, a cut
 editor under them, and export through presets.
 
-![Video mode: a narrated Physics 2D recording on a 9:16 timeline, the pile-up pause cut out, the first clip selected in the cut editor](../images/editor-video.png)
+![Video mode: a narrated Physics 2D recording on a 9:16 timeline with its silences cut and its filler words struck in the Transcript tab](../images/editor-video.png)
 
-*The Demo's Physics 2D recording with a short narration (`just readme-screenshots`), imported, placed on a vertical
-timeline (Fill crops the landscape picture), its pause removed with two add edits and a ripple delete.*
+*The Demo's Physics 2D recording with a short narration (`just readme-screenshots`), imported and placed on a vertical
+timeline (Fill crops the landscape picture); Detect Silence cut its pauses and Remove Fillers its "um" and "uh", struck
+in the Transcript tab; the cut editor shows the clip's cuts.*
 
 Not in scope yet:
-- **G20d:** the per-clip Cutback tools and the Inspector's Transcript tab. Until then, the cut editor edits cuts by hand.
 - **G20.2:** volume and fades, dissolves and fade to black, titles, still images, speed, auto-captions.
 - **G20.3:** nested timelines, proxies, roll/slip, sync lock, crash recovery for timelines.
 - **Games are unaffected:** neither the runtime nor shipped games reference any of this, and `Assets/Video` never ships.
@@ -63,6 +63,8 @@ are pure. `MediaRefs.ProbeAsync` probes and hashes a file into a `MediaRef`.
 | `SourceViewer` | The Source viewer: one media file, its In/Out marks per media. |
 | `MediaPool`, `MediaImporter` | The pool's listing of `Assets/Video`; copying files in. |
 | `MediaCache` | Waveforms, filmstrips and posters per media hash in `<project>/.mainframe/cache/video/`. |
+| `ClipTools`, `TranscriptStore` | Cutback's four tools on the selected clip and their jobs; the media's transcripts by hash. |
+| `TranscriptPanel` | The Inspector's Transcript tab: the selected clip's words, their gestures. |
 | `VideoPanel` + `video.rml` | The screen: pool, viewers, Inspector, notice, track headers, canvases, splitter. |
 | `VideoView` (`[Tool]` node) | Per-frame driver: places and publishes the four textures, routes pointer and keys, runs the `video.*` commands, probes, imports, drops, exports. |
 | `ExportVideoDialog` + `video_export.rml`, `TimelineExport` | Presets, range, output path; the export job. |
@@ -89,7 +91,7 @@ picked there opens into it. Project switches ask about and close timeline tabs l
 it (G20a). Exports go to `<project>/Exports`, outside `Assets/`.
 
 **The screen.**
-- **Top row:** media pool | Source viewer | Timeline viewer | Inspector. Without a timeline tab the pool sits beside
+- **Top row:** media pool | Source viewer | Timeline viewer | Inspector, with an Inspector | Transcript tab pair. Without a timeline tab the pool sits beside
   "Open a timeline from the media pool, or start one." with New Timeline and Import Media.
 - **Notice line** (amber): the last operation's result or problem ("Exported Trailer-vertical-30.mp4.", "ffmpeg not
   found…" with an Editor Settings link).
@@ -104,10 +106,13 @@ it (G20a). Exports go to `<project>/Exports`, outside `Assets/`.
 - **Edit:** Undo, Redo, Select All (Cmd+A), Delete (Lift) (Del), Ripple Delete (Shift+Del), Video Settings….
 - **View:** Zoom In (=), Zoom Out (−), Zoom to Fit (Shift+Z), Show/Hide Output, Switch to Game/Music Mode.
 - **Timeline:** Play/Pause, Selection Tool, Razor Tool, Snapping, Add Edit, Add Edit to All Tracks, Ripple Trim
-  Start/End to Playhead, Link/Unlink, Mark In, Mark Out, Clear In/Out, Insert, Overwrite, Add Video/Audio Track.
+  Start/End to Playhead, Link/Unlink, Mark In, Mark Out, Clear In/Out, Insert, Overwrite, Detect Silence, Detect Idle
+  Gameplay, Transcribe, Remove Filler Words, Add Video/Audio Track. The clip's right-click menu has the four tools too.
 
-**Toolbar:** Selection and Razor tools, Snapping, Link/Unlink; Play and Stop with the position; Import Media and New
-Timeline; on the right Export (reads "Cancel n %" while exporting), the Game|Music|Video toggle and Documentation.
+**Toolbar:** Selection and Razor tools, Snapping, Link/Unlink; Play and Stop with the position; Detect Silence, Detect
+Idle Gameplay, Transcribe and Remove Filler Words (icon buttons, enabled with a selected clip; a running one shows its
+percent and pressing it cancels; Detect Idle Gameplay's tooltip says when the clip's media has no sidecar); Import Media
+and New Timeline; on the right Export (reads "Cancel n %" while exporting), the Game|Music|Video toggle and Documentation.
 
 **Keys** (Premiere's, `EditorWorkspace.VideoShortcutFor`, after the tab's own):
 
@@ -169,6 +174,34 @@ Game-only keys (gizmos, Play, F10) do nothing in video mode.
 - **Nothing selected:** the timeline's size (even numbers), rate and background.
 - Fields commit on Enter or blur, each commit one undo step; a value that does not parse shows the current one again.
 
+### The per-clip Cutback tools
+
+Cutback's tools run on the selected clip (the video one of a linked pair). Each result is one undo step through
+`TimelineEdits.SetClipCuts`, so the clip and its linked audio cut together and the clips after them ripple; each keeps
+every manual cut, and the cuts of its own kind outside the clip's window (`ClipDetection.InWindow`), so a run in one
+clip never undoes another clip's results on the same partition. The notice reports the kept time a run removed inside
+the window, in Cutback's sentences.
+
+- **Detect Silence** reads only the clip's window (`SilenceDetector` with `-ss`/`-t`) in a job, then
+  `SilenceCutPlanner` → `ReplaceAutoSegments`. Settings: Video Settings' silence numbers (padding 60 ms, min silence
+  400 ms, threshold −34 dB, min keep 120 ms).
+- **Detect Idle Gameplay** reads the recording's `.mfcap.json` (the importer copies it along):
+  `GameplayCutPlanner` → `ReplaceOriginCuts(Gameplay)`, with Video Settings' gameplay numbers. Without a sidecar it is
+  disabled, and its tooltip says why.
+- **Transcribe** runs Whisper on this computer over the clip's **whole media file** (downloading the model first when
+  missing, the first half of the progress) and writes `<media>.mftranscript.json` beside it: every clip of that recording
+  then shows its words, also after a restart. A file that already has a transcript asks before making it again.
+- **Remove Filler Words** finds the fillers among the words inside the window and locates them on the media's waveform
+  (Cutback's envelope and DTW anchors, else Whisper's span snapped to the waveform): `FillerCutPlanner` →
+  `ApplyFillerCuts`. Without a transcript it transcribes first and cuts when the words arrive.
+- **The Transcript tab** shows the selected clip's words inside its window, paragraphs at 2 s pauses, struck where cut,
+  the word under the playhead highlighted. Click a word to cut it (or restore a struck one), drag across words for a
+  run, Cmd/Ctrl+click to move the playhead there, right-click for Play from here and Cut/Restore. Word edges snap
+  within ±40 ms; each edit is one undo step on the link group. The markup is rebuilt only when the words shown change;
+  an edit flips the classes in place, and steady frames allocate nothing.
+- **Jobs** (silence, transcription) live on the tab, one of each at a time, apply to the clip they started on if it
+  still exists, and are cancelled when the tab closes.
+
 ### The cut editor
 
 The selected clip's whole source window with its cuts greyed, as Cutback's timeline: click a region to cut or restore it,
@@ -210,7 +243,10 @@ collapsed cut is a thin tick on the clip.
 | Setting | Default | Range |
 |---|---|---|
 | ffmpeg | blank: `MAINFRAME_FFMPEG`, then PATH, then the usual install folders | a folder holding ffmpeg and ffprobe, or one of the two files |
-| Whisper model, filler words, silence and gameplay settings | Cutback's | kept for G20d's per-clip tools |
+| Whisper model | base.en | tiny.en (78 MB) to medium.en (1.5 GB) |
+| Filler words | Cutback's list | comma-separated |
+| Silence: threshold / min silence / padding / min keep | −34 dB / 400 / 60 / 120 ms | as before |
+| Gameplay: min idle / padding / min keep / marker window | 3000 / 500 / 1000 / 1500 ms | as before |
 | Undo history | 100 | 10–1000 |
 
 The ffmpeg setting also serves Play and Record: the editor passes it to the game as `--ffmpeg`.
@@ -221,6 +257,10 @@ Versioned JSON (`TimelineSerializer`, `TimelineMigrator`, version 1), written at
 at the top so the asset database reads it like a scene (no `.meta`). Media are `MediaRef`s: the asset UID (moves in the
 pool keep working), the project-relative path as a fallback, the content hash and the probed facts. The old `.mfcut` and
 `.cutback` projects are no longer read (ADR 0241: no migration).
+
+**`<media>.mftranscript.json`** (`TranscriptSerializer`, version 1, written atomically): `{ version, sourceHash, model,
+words: [{ text, start, end, confidence, anchor }] }`, in source seconds. It is read only when its `sourceHash` matches
+the media's, so a replaced file is transcribed again; a newer or broken file is ignored. The pool hides it.
 
 ## Licensing
 
@@ -234,7 +274,8 @@ pool keep working), the project-relative path as a fallback, the content hash an
 - **`Tests/MainframeEngine.Video.Tests`** (`just test`): the timeline model, edits, layout, snapping, reframing, file
   format, export and preview graphs, presets and arguments, and Cutback's tests. Nothing runs ffmpeg.
 - **`just test-video-ffmpeg`** (opt-in): real ffmpeg renders lavfi sources through the presets' graphs; ffprobe checks
-  size, rate and duration (outputs in `artifacts/video-ffmpeg`).
+  size, rate and duration (outputs in `artifacts/video-ffmpeg`); silence detection over a window finds only the silence
+  inside it.
 - **Editor tests** (`Tests/MainframeEngine.Editor.Tests/Video/`), with ffmpeg faked at its seams (`VideoView.Prober`,
   `DecoderFactory`, `ExporterFactory`):
   - `TimelineDocumentTests` (a drag is one step, nothing changed records nothing, dirty against the save), `MediaPoolTests`,
@@ -243,6 +284,10 @@ pool keep working), the project-relative path as a fallback, the content hash an
   - `VideoWorkflowTests`: folders on first use, New Timeline, Open in Video Editor, save and reopen, Add Edit, lift and
     ripple delete, tools and unlink, the track menu, Source marks with insert and overwrite, Finder drops on the timeline
     and the pool, the Inspector, the export dialog and job, the program's graph per visible track;
+  - `ClipToolsTests` (G20d, with the detector and transcriber faked): silence in the selected clip's window as one step
+    with ripple, a clip removed mid-job, cancel, `SharedBySourceHash`, fillers after transcribing, `WordCutAppliesToLinkGroup`,
+    `IdleNeedsSidecar`, `RestoreRipplesLater`, 0 B with the Transcript tab; the library's `ClipDetectionTests`
+    (`SilenceOnlyInsideWindow`, `ManualCutsSurvive`, `OtherWindowsKeepTheirCuts`) and `TranscriptSerializerTests`;
   - `EditorModeTests` (the mode needs a project, Premiere's keys), the cut editor's view, gestures and canvas, the Source
     preview, and `TimelineAllocationTests` (0 B steady frames, headless).
 - **Render goldens** (`EditorRenderTests`, no ffmpeg): `editor-video-empty` (a generated project's pool, no tab) and
@@ -250,8 +295,9 @@ pool keep working), the project-relative path as a fallback, the content hash an
   cuts selected in the cut editor, music on A2, colour bars from a fake decoder), then the **allocation gate** (0 B over
   300 frames).
 - **QA, by hand:** `just qa-editor Tests/QA/video.qa` on the Demo with the 12 s fixture: import, a 9:16 timeline, the
-  Source viewer, overwrite, two add edits and a ripple delete, fit, unlink, play, export; captures `video-01-empty` to
-  `video-10-exported` in `artifacts/qa-editor`. It waits on `wait-for video-jobs` and `wait-for video-position` and
+  Source viewer, overwrite, Detect Silence, Detect Idle Gameplay and a tiny.en transcription on the clip, two add edits
+  and a ripple delete, fit, unlink, play, export; captures `video-01-empty` to `video-13-exported` in
+  `artifacts/qa-editor`. It waits on `wait-for video-jobs` and `wait-for video-position` and
   removes the Demo's `Assets/Video` and `Exports` at both ends (`video reset`).
 
 ## Known limits
@@ -262,9 +308,19 @@ pool keep working), the project-relative path as a fallback, the content hash an
 - **Import Media's picker takes one file**; drag several from Finder instead.
 - **No drag-over highlight** for Finder drops (SDL sends none).
 - **Crash recovery covers scenes only**, not timelines (G20.3).
+- **Whisper is trained to drop disfluencies**; recall of "um"s depends on the prompt (Cutback's known issue, same
+  mitigation). The first transcription downloads 78 MB to 1.5 GB, depending on the model.
 - **Hard links** to a media file are not detected by the same-file export check; symbolic links are.
 
 ## Changes from the proposal
+
+G20d, built 2026-11-05:
+- **Transcribe covers the whole media file**, not the clip's window, so one transcript serves every clip of a recording.
+- **Detectors keep their own cuts outside the window** (`ClipDetection.InWindow`): the proposal did not say what a run
+  does to the rest of the shared partition.
+- **Export Transcript** (`.txt`/`.srt`) did not come back: on a timeline its times need the output's layout across clips;
+  with captions (G20.2).
+- **The Transcript tab** is beside the Inspector in its column, not a tab of its own panel.
 
 G20c, built 2026-11-05:
 - **The preview plays through the export graph** (`TimelineGraphBuilder.BuildPreview`), not per-track sprite layers and

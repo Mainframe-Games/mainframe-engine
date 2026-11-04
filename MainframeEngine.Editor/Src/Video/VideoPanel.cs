@@ -114,6 +114,7 @@ public sealed class VideoPanel : EditorDocument
     private float _headersTop;
     private string _cutsTitle = "";
     private string _inspMode = "none";
+    private bool _inspTranscript;
     private string _inspTitle = "";
     private string _tWidth = "", _tHeight = "", _tBackground = "", _tInOut = "";
     private int _cFit = 1;
@@ -124,7 +125,11 @@ public sealed class VideoPanel : EditorDocument
         : base(workspace, "video.rml")
     {
         Visible = false;
+        Transcript = new TranscriptPanel(workspace);
     }
+
+    /// <summary>The Inspector's Transcript tab (G20d).</summary>
+    public TranscriptPanel Transcript { get; }
 
     public LayoutRect SourceRect { get; private set; }
 
@@ -189,6 +194,7 @@ public sealed class VideoPanel : EditorDocument
             .BindList("rates", _rates, RateType)
             .Bind("cuts_title", this, static p => p._cutsTitle)
             .Bind("insp_mode", this, static p => p._inspMode)
+            .Bind("insp_transcript", this, static p => p._inspTranscript)
             .Bind("insp_title", this, static p => p._inspTitle)
             .Bind("t_width", this, static p => p._tWidth)
             .Bind("t_height", this, static p => p._tHeight)
@@ -217,6 +223,7 @@ public sealed class VideoPanel : EditorDocument
         foreach (var listener in _listeners)
             listener.Remove();
         _listeners.Clear();
+        Transcript.Attach(document);
         var root = document.AsElement();
         Add(root.AddEventListener("dblclick", OnDoubleClick));
         Add(root.AddEventListener("mousedown", OnPress));
@@ -275,6 +282,7 @@ public sealed class VideoPanel : EditorDocument
             return; // the layout changes on this frame's update; the rectangles are read on the next
         UpdatePool();
         Set(ref _notice, tab?.Notice ?? "", "notice");
+        Set(ref _inspTranscript, tab?.ShowsTranscript == true, "insp_transcript");
         Set(ref _noticeFfmpeg, tab?.NoticeNeedsFfmpegSetting == true, "notice_ffmpeg");
         var scale = MathF.Max(0.01f, Workspace.Host.PixelScale);
         PoolRect = RectOf("pool", scale);
@@ -287,6 +295,8 @@ public sealed class VideoPanel : EditorDocument
         ApplyTimelineHeight();
         UpdateTimeline(tab);
         UpdateViewers(tab);
+        if (_inspTranscript)
+            Transcript.Update(tab, Workspace.VideoView.Tools);
         SourceRect = RectOf("source-view", scale);
         SourceBarRect = RectOf("source-bar", scale);
         ProgramRect = RectOf("program-view", scale);

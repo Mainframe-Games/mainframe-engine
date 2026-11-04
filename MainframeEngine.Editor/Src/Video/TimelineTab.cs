@@ -113,6 +113,19 @@ public sealed class TimelineTab : IEditorTab
 
     public VideoJob<string>? ExportJob { get; set; }
 
+    /// <summary>Detect Silence on a clip (G20d), and what it started on.</summary>
+    public VideoJob<IReadOnlyList<MainframeEngine.Video.Detection.SilenceSpan>>? SilenceJob { get; set; }
+
+    internal ClipJob? SilenceRun { get; set; }
+
+    /// <summary>Transcribe on a clip's media, and what it started on.</summary>
+    public VideoJob<IReadOnlyList<Word>>? TranscribeJob { get; set; }
+
+    internal TranscribeRun? TranscribeRun { get; set; }
+
+    /// <summary>The Inspector column shows the Transcript tab (else the Inspector).</summary>
+    public bool ShowsTranscript { get; set; }
+
     public string? FilePath => Document.FilePath;
 
     public string DisplayName => Path.GetFileName(Document.FilePath);
@@ -301,6 +314,12 @@ public sealed class TimelineTab : IEditorTab
         Document.Changed -= OnChanged;
         ExportJob?.Dispose();
         ExportJob = null;
+        SilenceJob?.Dispose();
+        SilenceJob = null;
+        SilenceRun = null;
+        TranscribeJob?.Dispose();
+        TranscribeJob = null;
+        TranscribeRun = null;
         Preview.Dispose();
         Source.Dispose();
         if (!CanvasViewport.IsFreed)

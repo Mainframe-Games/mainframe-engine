@@ -463,6 +463,11 @@ public sealed class ToolbarPanel : EditorDocument
     private bool? _videoRazor;
     private bool? _videoSnap;
     private bool? _videoLinkable;
+    private bool? _videoHasClip;
+    private bool? _videoHasCapture;
+    private string? _videoCaptureClip;
+    private int _videoSilence = -2;
+    private int _videoTranscribe = -2;
     private long _videoPosition = -2;
     private long _videoDuration = -2;
     private int _videoExport = -2;
@@ -474,6 +479,11 @@ public sealed class ToolbarPanel : EditorDocument
         _videoRazor = null;
         _videoSnap = null;
         _videoLinkable = null;
+        _videoHasClip = null;
+        _videoHasCapture = null;
+        _videoCaptureClip = null;
+        _videoSilence = -2;
+        _videoTranscribe = -2;
         _videoPosition = -2;
         _videoDuration = -2;
         _videoExport = -2;
@@ -531,6 +541,58 @@ public sealed class ToolbarPanel : EditorDocument
 
         UpdateVideoPosition(tab);
         UpdateJobButton("video-export", "Export", tab is null ? -1 : Percent(tab.ExportJob), ref _videoExport);
+        UpdateClipTools(tab);
+    }
+
+    // The clip tools (G20d): enabled with a selected clip; Detect Idle Gameplay only when its recording has a sidecar
+    // (checked when the selected clip changes); a running job shows its percent beside the icon.
+    private void UpdateClipTools(Video.TimelineTab? tab)
+    {
+        var document = Document;
+        var clip = tab?.Primary;
+        var hasClip = clip is not null;
+        if (_videoHasClip != hasClip)
+        {
+            _videoHasClip = hasClip;
+            document.GetElementById("video-silence").SetClass("disabled", !hasClip);
+            document.GetElementById("video-transcribe").SetClass("disabled", !hasClip);
+            document.GetElementById("video-fillers").SetClass("disabled", !hasClip);
+        }
+
+        if (!ReferenceEquals(_videoCaptureClip, clip?.Id))
+        {
+            _videoCaptureClip = clip?.Id;
+            var capture = tab is not null && Video.ClipTools.HasCapture(tab, clip);
+            if (_videoHasCapture != capture)
+            {
+                _videoHasCapture = capture;
+                var idle = document.GetElementById("video-idle");
+                idle.SetClass("disabled", !capture);
+                idle.SetAttribute("data-tooltip", capture
+                    ? "Detect Idle Gameplay — cut loading, pauses and stretches without input in the selected clip, from its recording's Mainframe data"
+                    : clip is null
+                        ? "Detect Idle Gameplay — select a clip of a recording made in the editor (F10)"
+                        : "Detect Idle Gameplay — needs the recording's Mainframe data (its .mfcap.json beside it): this clip's media has none");
+            }
+        }
+
+        UpdateToolJob("video-silence", tab is null ? -1 : Percent(tab.SilenceJob), ref _videoSilence);
+        UpdateToolJob("video-transcribe", tab is null ? -1 : Percent(tab.TranscribeJob), ref _videoTranscribe);
+    }
+
+    // An icon job button: busy with "n %" beside the icon while its job runs (pressing it then cancels).
+    private void UpdateToolJob(string id, int percent, ref int shown)
+    {
+        if (percent == shown)
+            return;
+        shown = percent;
+        var button = Document.GetElementById(id);
+        if (button.IsNull)
+            return;
+        button.SetClass("busy", percent >= 0);
+        var pct = button.QuerySelector(".pct");
+        if (!pct.IsNull)
+            pct.SetInnerRml(percent < 0 ? "" : string.Create(CultureInfo.InvariantCulture, $"{percent} %"));
     }
 
     private void UpdateVideoPosition(Video.TimelineTab? tab)

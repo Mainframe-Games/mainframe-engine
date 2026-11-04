@@ -341,7 +341,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G20a Video NLE, engine prerequisites: `SceneTree.FilesDropped` (OS drag-drop), `Assets/Video` editor-only (never built or exported), recordings into the project, in-place canvas texture updates | ✅ (2026-11-04) | [Video NLE](design/future/video-nle.md) (ADR 0241) |
 | G20b Video NLE, timeline library: `.mftimeline` model, edits (razor, trim, ripple, link), snapping, multi-input export graph and presets | ✅ (2026-11-04) | [Video NLE](design/future/video-nle.md) |
 | G20c Video NLE, the editor: Resolve-style Edit page (media pool, Source and Timeline viewers, Inspector, multi-track timeline, cut editor), import and drop, reframe, Premiere keys, export presets | ✅ (2026-11-05) | [Video editing mode](design/video-editor.md), [Video NLE](design/future/video-nle.md) |
-| G20d Video NLE, per-clip Cutback tools: Transcribe, Remove Fillers, Detect Silence and Idle on a clip, transcript cache | ⬜ | [Video NLE](design/future/video-nle.md) |
+| G20d Video NLE, per-clip Cutback tools: Transcribe, Remove Fillers, Detect Silence and Idle on a clip, transcript cache | ✅ (2026-11-05) | [Video editing mode](design/video-editor.md), [Video NLE](design/future/video-nle.md) |
 | G20.2 Video NLE polish: volume and fades, dissolves and fade to black, titles, images, speed, auto-captions | ⬜ | [Video NLE](design/future/video-nle.md) |
 | G20.3 Video NLE later: nested timelines, proxies, roll/slip, sync lock, timeline crash recovery | ⬜ | [Video NLE](design/future/video-nle.md) |
 

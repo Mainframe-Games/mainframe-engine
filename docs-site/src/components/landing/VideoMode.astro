@@ -6,13 +6,14 @@ import TablerIcon from './TablerIcon.astro';
 const base = import.meta.env.BASE_URL;
 const img = (p: string) => `${base}images/${p}`;
 const alt =
-  'Video mode: a narrated Physics 2D recording on a 9:16 timeline with a pause cut out, the media pool, the Source and Timeline viewers, the Inspector and the cut editor';
+  'Video mode: a narrated Physics 2D recording on a 9:16 timeline with its silences cut and its filler words struck in the Transcript tab';
 const points = [
   { icon: 'camera', text: 'Record any game to MP4 with F10 in the editor or --record, through your own ffmpeg' },
   { icon: 'file-import', text: 'A media pool in the project: import from a picker or drag files in from Finder' },
   { icon: 'timeline', text: 'Video and audio tracks, Source and Timeline viewers, Premiere’s keys' },
   { icon: 'scissors', text: 'Razor, add edit, ripple trim and delete, insert and overwrite, link and unlink' },
   { icon: 'device-mobile', text: 'Reframe landscape gameplay for 9:16: fit, fill, scale, position, crop' },
+  { icon: 'file-text', text: 'Detect Silence and idle play, Whisper transcripts on your machine, Remove Fillers: per clip' },
   { icon: 'file-export', text: 'Export presets for TikTok, Reels and Shorts, YouTube and Steam, X and Discord, GIF loops' },
 ];
 ---

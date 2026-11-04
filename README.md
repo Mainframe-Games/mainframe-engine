@@ -155,7 +155,7 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-song.png" width="380" alt="Music mode on the Demo's song: the transport in the toolbar, four ZzFX tracks in the arrangement and the Lead clip in the piano roll"><br><b>Music mode</b> — a full-window DAW: arrangement, piano roll, mixer, built-in effects, VST3, MIDI</td>
-    <td align="center" valign="top"><img src="docs/images/editor-video.png" width="380" alt="Video mode: a narrated Physics 2D recording on a 9:16 timeline with a pause cut out, the media pool, Source and Timeline viewers, Inspector and the cut editor"><br><b>Video mode</b> — a multi-track timeline editor for socials and trailers</td>
+    <td align="center" valign="top"><img src="docs/images/editor-video.png" width="380" alt="Video mode: a narrated Physics 2D recording on a 9:16 timeline with its silences cut and its filler words struck in the Transcript tab"><br><b>Video mode</b> — a multi-track timeline editor for socials and trailers</td>
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-song-effects.png" width="380" alt="The Channel EQ's plugin window on the Demo song's master: the curve with its band handles and a column of knobs per band"><br><b>Built-in effects</b> — 15 effects: EQ with a draggable curve, dynamics, tempo-synced delay and modulation</td>
@@ -202,7 +202,8 @@ can be saved as a `.mres` or made unique from the inspector.
 Game|Video toggle turns the editor into a multi-track timeline editor laid out like Resolve's Edit page: a media pool
 (import from a picker or drag files in from Finder), Source and Timeline viewers, video and audio tracks with Premiere's
 keys (razor, add edit, ripple trim and delete, link and unlink, insert and overwrite), per-clip reframing for 9:16, a
-cut editor for the selected clip's source, and export through presets for TikTok, Reels and Shorts, YouTube and Steam,
+cut editor for the selected clip's source, Cutback's tools on a clip (Detect Silence, Detect Idle Gameplay, a Whisper
+transcript you edit by clicking words, Remove Fillers for the "um"s), and export through presets for TikTok, Reels and Shorts, YouTube and Steam,
 X and Discord, and GIF or WebM loops. `Assets/Video` stays in the editor: games never ship it.
 
 ### The Forest

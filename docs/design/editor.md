@@ -221,7 +221,7 @@ FileSystem panel, the media pool) or the Recording saved dialog's Open in Video 
 switching or closing a project asks about and closes timeline tabs as it does scenes and songs. The first use of a
 project in video mode makes `Assets/Video/{Recordings,Media,Timelines}`; a project opened in game mode is left as it is.
 Entering game mode with no project and no game tab opens the Project Manager. The video mode itself (media pool, viewers,
-tracks, Premiere's keys, the cut editor, export presets) is described in [Video editing mode](video-editor.md).
+tracks, Premiere's keys, the cut editor, Cutback's tools on a clip, export presets) is described in [Video editing mode](video-editor.md).
 
 ## Icons
 
@@ -1201,7 +1201,7 @@ Project › Editor Settings (`editor_settings.rml`, saved to `~/.mainframe/edito
   empty means `MAINFRAME_CODE_EDITOR`, else VS Code when found, else the OS default. Used by Output links, build errors
   and C# files.
 - **Video** (also Edit › Video Settings… in video mode): ffmpeg (blank finds it), the undo limit, and the Whisper
-  model, filler words, silence and idle-gameplay detection for the per-clip tools (G20d). The text fields commit on Enter or blur. See
+  model, filler words, silence and idle-gameplay detection for the clip tools. The text fields commit on Enter or blur. See
   [Video editing mode](video-editor.md#settings-editor-settings--video).
 - **Reload code automatically** after builds.
 - **Check for updates at startup** (default on) — see [Editor updates](editor-updates.md).
@@ -1323,10 +1323,11 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   `27-profiler` and saves `27-profiler-trace.json`.
 - **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): on the Demo, the fixture
   imported (`video import`), a 9:16 timeline (`video timeline Vertical <name>`), the Source viewer (`video source`),
-  overwrite, two add edits and a ripple delete (`video seek`, `video select V1 <s>`), fit (`video fit`), unlink, playback
-  and an export (`video export vertical-30`), each captured (`video-01-empty` … `video-10-exported`); `video reset`
+  overwrite, Detect Silence, Detect Idle Gameplay and a tiny.en transcription on the clip (`video set whisper-model
+  tiny.en`), two add edits and a ripple delete (`video seek`, `video select V1 <s>`), fit (`video fit`), unlink, playback
+  and an export (`video export vertical-30`), each captured (`video-01-empty` … `video-13-exported`); `video reset`
   removes the Demo's `Assets/Video` and `Exports` at both ends. `wait N` counts frames, so the long steps wait on
-  conditions: `wait-for video-jobs [seconds]` (no probe, import or export left) and `wait-for video-position <s>
+  conditions: `wait-for video-jobs [seconds]` (no probe, import, export or clip tool left) and `wait-for video-position <s>
   [seconds]`. Needs a display and ffmpeg; not run in CI. See [Video editing mode](video-editor.md#testing).
 - **Profiler tab** ([ProfilerPanelTests](../../Tests/MainframeEngine.Editor.Tests/ProfilerPanelTests.cs)): the bottom
   dock switches between Output and Profiler; frames from a fake link fill the graph, table and counters and a click
@@ -1339,7 +1340,8 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   create dialog (`favorite`, `search`, `pick`), the sound designer and a song tab, video mode (`mode video`; the recipe
   first runs [build/readme-video-clip.sh](../../build/readme-video-clip.sh): an offline `--record` of the Demo's Physics
   2D scene with its audio replaced by a narration from `say` or `espeak-ng`; the QA script imports it into the Demo,
-  places it on a 9:16 timeline and cuts a pause out, then saves, closes and removes the Demo's `Assets/Video` again),
+  places it on a 9:16 timeline, runs Detect Silence and Remove Fillers (base.en) on it, then saves, closes and removes
+  the Demo's `Assets/Video` again),
   the Profiler tab on the running MyGame (`editor-profiler`) and a new game after a code reload while it plays, captured at 2x
   (`--scale 2`, 3200×1920 px) and downscaled to 1600×960 into `docs/images/editor*.png` with ImageMagick. The scene is
   [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose

@@ -1,9 +1,10 @@
-# Video mode, the timeline editor (docs/design/future/video-nle.md): import a clip, make a 9:16 timeline, place, cut,
-# ripple delete, unlink, reframe, play and export; each step captured for review. Needs a display and ffmpeg
+# Video mode, the timeline editor (docs/design/video-editor.md): import a clip, make a 9:16 timeline, place, run Detect
+# Silence, Detect Idle Gameplay and Transcribe on the clip, cut, ripple delete, unlink, reframe, play and export; each step
+# captured for review. Needs a display, ffmpeg and (once, for the tiny.en model) the network
 # (just qa-editor Tests/QA/video.qa); not in CI. It runs on the Demo project and leaves its Assets/Video and Exports
 # folders as it found them (none). The fixture is build/make-video-fixture.sh's 12 s test pattern (a 440 Hz tone silent
 # from 4 to 6 s, with a sidecar). `wait N` counts frames; the long steps wait on conditions: `wait-for video-jobs` (no
-# probe, import or export left) and `wait-for video-position`. Review the PNGs in artifacts/qa-editor.
+# probe, import, export or clip tool left) and `wait-for video-position`. Review the PNGs in artifacts/qa-editor.
 wait-for project 300
 video reset
 mode video
@@ -22,6 +23,25 @@ capture video-03-source
 command video.overwrite
 wait 30
 capture video-04-placed
+# G20d: Cutback's tools on the placed clip. The fixture's tone drops out from 4 to 6 s (Detect Silence) and its sidecar
+# says loading from 7 to 9 s (Detect Idle Gameplay); Transcribe with tiny.en (78 MB on first use) fills the Transcript tab.
+video select V1 1
+command video.detect_silence
+wait-for video-jobs 60
+wait 20
+capture video-05-silence
+command video.detect_idle
+wait 20
+capture video-06-idle
+video set whisper-model tiny.en
+command video.transcribe
+wait-for video-jobs 900
+wait 20
+capture video-07-transcript
+command video.show_inspector
+command edit.undo
+command edit.undo
+wait 10
 # Cut 3-6 s out of the clip (and its sound) and close the gap.
 video seek 3
 command video.add_edit_all
@@ -30,30 +50,30 @@ command video.add_edit_all
 video select V1 4.5
 command video.ripple_delete
 wait 30
-capture video-05-ripple
+capture video-08-ripple
 # The picture fills the 9:16 frame; then fit it at 100 %, letterboxed.
 video select V1 1
 video fit 0 100
 wait 30
-capture video-06-fit
+capture video-09-fit
 command video.link
 wait 10
 video select A1 1
 wait 10
-capture video-07-unlinked
+capture video-10-unlinked
 command edit.undo
 video seek 0
 command video.play
 wait-for video-position 2 30
-capture video-08-playing
+capture video-11-playing
 command video.play
 video export vertical-30
 wait 10
-capture video-09-export-dialog
+capture video-12-export-dialog
 accept
 wait-for video-jobs 300
 wait 20
-capture video-10-exported
+capture video-13-exported
 accept
 mode game
 video reset
