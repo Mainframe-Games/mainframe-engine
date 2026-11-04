@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 470" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <title>A clip's cuts: the segment partition over the whole source, collapsed on the timeline</title>
+  <desc>Three rows. The source recording from 0 to 60 seconds carries the clip's segment partition, with kept and cut regions, and the clip's window from 10 to 40 seconds is bracketed. The cut editor shows that window uncollapsed: kept regions in blue, a silence cut and an idle cut in grey, boundaries that can be dragged. On the main timeline the clip is collapsed to its kept time, with thin ticks where the cuts were, and the next clip on the track ripples to follow. Restoring the silence cut lengthens the clip by its duration and moves the next clip later.</desc>
+  <rect width="1000" height="470" fill="#ffffff"/>
+  <style>
+    .k{fill:#111827;font-size:12.5px}
+    .kb{fill:#111827;font-size:13px;font-weight:600}
+    .ks{fill:#475569;font-size:11.5px}
+    .km{fill:#334155;font-size:11px;font-family:ui-monospace, Menlo, Consolas, monospace}
+    .kept{fill:#1d2e4d}
+    .cut{fill:#d4d4d8}
+    .cutl{fill:#3f3f46;font-size:11px}
+    .clip{fill:#1e3a6b;stroke:#3b82f6}
+    .next{fill:#1e3a6b;stroke:#3b82f6;opacity:0.85}
+    .w{fill:#e8ebf2;font-size:11px}
+    .arrow{fill:none;stroke:#475569;stroke-width:1.4;marker-end:url(#ah)}
+  </style>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+  </defs>
+  <!-- row 1: source partition -->
+  <text x="24" y="34" class="kb">1  The clip's Segments partition its whole source</text>
+  <text x="24" y="52" class="ks">recording.mp4, 0–60 s. Detectors and transcript words work in source time, unchanged from today.</text>
+  <rect x="40" y="66" width="920" height="30" class="cut"/>
+  <rect x="40" y="66" width="70" height="30" class="kept"/>
+  <rect x="140" y="66" width="120" height="30" class="kept"/>
+  <rect x="320" y="66" width="140" height="30" class="kept"/>
+  <rect x="560" y="66" width="120" height="30" class="kept"/>
+  <rect x="740" y="66" width="220" height="30" class="kept"/>
+  <rect x="110" y="66" width="30" height="30" class="cut"/><rect x="260" y="66" width="60" height="30" class="cut"/>
+  <rect x="460" y="66" width="100" height="30" class="cut"/><rect x="680" y="66" width="60" height="30" class="cut"/>
+  <text x="290" y="85" class="cutl" text-anchor="middle">silence</text><text x="510" y="85" class="cutl" text-anchor="middle">idle</text>
+  <text x="40" y="112" class="km">0</text><text x="960" y="112" class="km" text-anchor="end">60 s</text>
+  <path d="M193 64 v-4 h460 v4" fill="none" stroke="#f59e0b" stroke-width="2"/>
+  <path d="M193 60 v40 M653 60 v40" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="193" y="128" class="km" text-anchor="middle">In 10 s</text><text x="653" y="128" class="km" text-anchor="middle">Out 40 s</text>
+  <!-- row 2: cut editor -->
+  <text x="24" y="168" class="kb">2  The cut editor shows [In, Out] uncollapsed</text>
+  <text x="24" y="186" class="ks">Today's gestures: click a region to toggle it, drag a boundary, draw a section, Delete dissolves. Each edit is one undo step.</text>
+  <rect x="40" y="198" width="920" height="40" class="cut"/>
+  <rect x="40" y="198" width="134" height="40" class="kept"/>
+  <rect x="174" y="198" width="120" height="40" class="cut"/><text x="234" y="222" class="cutl" text-anchor="middle">silence (click to restore)</text>
+  <rect x="294" y="198" width="280" height="40" class="kept"/>
+  <rect x="574" y="198" width="200" height="40" class="cut"/><text x="674" y="222" class="cutl" text-anchor="middle">idle</text>
+  <rect x="774" y="198" width="186" height="40" class="kept"/>
+  <path d="M174 196 v44 M294 196 v44 M574 196 v44 M774 196 v44" stroke="#f59e0b" stroke-width="1.6"/>
+  <path d="M193 132 L60 194" class="arrow"/><path d="M653 132 L940 194" class="arrow"/>
+  <!-- row 3: timeline -->
+  <text x="24" y="282" class="kb">3  On the timeline the clip is its kept time; the clips after it ripple</text>
+  <text x="24" y="300" class="ks">Thin ticks mark collapsed cuts. Linked audio shares the cuts. The razor copies the partition into both halves.</text>
+  <text x="24" y="333" class="km">V1</text>
+  <rect x="60" y="314" width="300" height="30" class="clip"/>
+  <path d="M200 314 v30 M290 314 v30" stroke="#ffd166" stroke-width="1.4"/>
+  <text x="70" y="333" class="w">clip: kept time</text>
+  <rect x="362" y="314" width="200" height="30" class="next"/><text x="372" y="333" class="w">next clip</text>
+  <text x="24" y="383" class="km">V1</text>
+  <text x="600" y="333" class="ks">before</text>
+  <rect x="60" y="364" width="360" height="30" class="clip"/>
+  <path d="M350 364 v30" stroke="#ffd166" stroke-width="1.4"/>
+  <text x="70" y="383" class="w">clip: kept + silence</text>
+  <rect x="422" y="364" width="200" height="30" class="next"/><text x="432" y="383" class="w">next clip</text>
+  <text x="640" y="383" class="ks">after restoring the silence: the clip grows by the silence,</text>
+  <text x="640" y="399" class="ks">and the next clip moves later (ripple)</text>
+  <path d="M562 350 L622 360" class="arrow"/>
+  <text x="24" y="440" class="k">Clip length = kept time inside [In, Out] ÷ speed, rounded to frames. Unlinked clips cut independently.</text>
+</svg>
