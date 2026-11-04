@@ -231,6 +231,12 @@ jobs:
       contents: write # create the tag and the release
       id-token: write # nuget.org Trusted Publishing (NuGet/login)
     steps:
+      # build/release-notes.sh only.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: build
+          lfs: false
+
       - uses: actions/download-artifact@v4
         with:
           pattern: "{editor-*,demo,forest,neon}"
@@ -265,11 +271,14 @@ jobs:
           VERSION: ${{ needs.guard.outputs.version }}
         run: |
           ls -l release
+          # GitHub's generated notes, "What's Changed" grouped by PR title prefix (docs/design/release.md#release-notes).
+          build/release-notes.sh "v${VERSION}" "${GITHUB_SHA}" > "${RUNNER_TEMP}/notes.md"
+          cat "${RUNNER_TEMP}/notes.md" >> "$GITHUB_STEP_SUMMARY"
           gh release create "v${VERSION}" release/* nuget/*.nupkg \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "Mainframe Engine & Editor v${VERSION}" \
-            --generate-notes
+            --notes-file "${RUNNER_TEMP}/notes.md"
 
       # After the tag and the release, so a failed release never leaves a published package behind (nuget.org packages
       # can be unlisted, never deleted). The .snupkg next to the engine package is pushed to the symbol server too.

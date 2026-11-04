@@ -106,6 +106,16 @@ flowchart LR
   `MainframeEngine` package of the editor's version from nuget.org (no engine checkout); the editor ships the `mfgame`
   template (`Templates/mfgame` next to the executable) for it.
 
+## Release notes
+
+`build/release-notes.sh <tag> [target] [previous-tag]` writes the release body: GitHub's generated notes (the PRs since
+the previous release, New Contributors, Full Changelog) with "What's Changed" grouped under headers by each PR title's
+`Area:` prefix, in a fixed order: Rendering (`Shaders`, `Vulkan`, …), Physics, Audio, Navigation, UI, Core (`Content`,
+`Gameplay toolkit`, …), Editor, Examples (`Demo`, `Forest`, `Neon`), Build & Tooling (`Build`, `Release`, `Tests`,
+`Tools`, `Workflow`, …), Docs (`Docs`, `Docs site`), Other (no prefix, or one not in the script's map). Bullets keep the
+prefix: `* Shaders: … by @user (#160)`. Name new PRs with a prefix from the map, or add the new prefix to it. Preview the
+next release's notes locally with `build/release-notes.sh v<next> main` (the tag need not exist).
+
 ## Updates
 
 Released editors check GitHub Releases at start-up and update themselves in place — badge, release notes, **Update &
