@@ -65,6 +65,8 @@ public abstract class VideoEditorTestBase : IDisposable
     // What ffprobe would say: 10 s 1080p30 video with sound, or 30 s of audio.
     protected static MediaRef Probe(string full, string stored, string uid)
     {
+        if (TimelineFactory.IsImagePath(full))
+            return TimelineFactory.ImageMedia(new MediaRef(uid, stored.Replace('\\', '/'), "hash-" + Path.GetFileName(full), 0, 640, 480, 0, true, false));
         var audio = MediaPool.KindOf(full, isDirectory: false) == MediaPoolKind.Audio;
         return new MediaRef(uid, stored.Replace('\\', '/'), "hash-" + Path.GetFileName(full), audio ? 30 : 10,
             audio ? 0 : 1920, audio ? 0 : 1080, audio ? 0 : 30, HasVideo: !audio, HasAudio: true);

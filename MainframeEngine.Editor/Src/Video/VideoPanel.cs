@@ -120,6 +120,16 @@ public sealed class VideoPanel : EditorDocument
     private int _cFit = 1;
     private string _cScale = "", _cX = "", _cY = "", _cCropL = "", _cCropR = "", _cCropT = "", _cCropB = "", _cOpacity = "", _cWindow = "", _cGain = "";
     private bool _cEnabled = true;
+    private bool _cStill;
+    private string _cSpeed = "", _cVolume = "", _cFadeIn = "", _cFadeOut = "";
+
+    // A title clip's style fields (G20.2), and a selected transition's.
+    private string _ttText = "", _ttSize = "", _ttColor = "", _ttOutline = "", _ttOutlineColor = "", _ttShadow = "", _ttShadowX = "", _ttShadowY = "";
+    private string _ttBoxColor = "", _ttBoxOpacity = "", _ttBoxPadding = "", _ttX = "", _ttY = "";
+    private int _ttFont, _ttAlign;
+    private bool _ttBox;
+    private int _trKind;
+    private string _trDuration = "", _trProblem = "";
 
     public VideoPanel(EditorWorkspace workspace)
         : base(workspace, "video.rml")
@@ -212,6 +222,35 @@ public sealed class VideoPanel : EditorDocument
             .Bind("c_window", this, static p => p._cWindow)
             .Bind("c_gain", this, static p => p._cGain)
             .Bind("c_enabled", this, static p => p._cEnabled)
+            .Bind("c_still", this, static p => p._cStill)
+            .Bind("c_speed", this, static p => p._cSpeed)
+            .Bind("c_volume", this, static p => p._cVolume)
+            .Bind("c_fade_in", this, static p => p._cFadeIn)
+            .Bind("c_fade_out", this, static p => p._cFadeOut)
+            .Bind("tt_text", this, static p => p._ttText)
+            .Bind("tt_font", this, static p => p._ttFont)
+            .Bind("tt_size", this, static p => p._ttSize)
+            .Bind("tt_color", this, static p => p._ttColor)
+            .Bind("tt_outline", this, static p => p._ttOutline)
+            .Bind("tt_outline_color", this, static p => p._ttOutlineColor)
+            .Bind("tt_shadow", this, static p => p._ttShadow)
+            .Bind("tt_shadow_x", this, static p => p._ttShadowX)
+            .Bind("tt_shadow_y", this, static p => p._ttShadowY)
+            .Bind("tt_box", this, static p => p._ttBox)
+            .Bind("tt_box_color", this, static p => p._ttBoxColor)
+            .Bind("tt_box_opacity", this, static p => p._ttBoxOpacity)
+            .Bind("tt_box_padding", this, static p => p._ttBoxPadding)
+            .Bind("tt_align", this, static p => p._ttAlign)
+            .Bind("tt_x", this, static p => p._ttX)
+            .Bind("tt_y", this, static p => p._ttY)
+            .Bind("tr_kind", this, static p => p._trKind)
+            .Bind("tr_duration", this, static p => p._trDuration)
+            .Bind("tr_problem", this, static p => p._trProblem)
+            .Event("title_font", e => SetTitleFont(e.GetArgument(0).GetInt32()))
+            .Event("title_align", e => SetTitleAlign(e.GetArgument(0).GetInt32()))
+            .Event("title_box", _ => SetTitle("Title Box", t => t with { Box = !t.Box }))
+            .Event("transition_kind", e => SetTransition((TransitionKind)Math.Clamp(e.GetArgument(0).GetInt32(), 0, 1), null))
+            .Event("transition_remove", _ => Workspace.Commands.Execute("video.remove_transition"))
             .Event("preset", e => SetSize(SizePresets[Math.Clamp(e.GetArgument(0).GetInt32(), 0, SizePresets.Length - 1)]))
             .Event("rate", e => SetRate(Rates[Math.Clamp(e.GetArgument(0).GetInt32(), 0, Rates.Length - 1)]))
             .Event("fit", e => SetFit(e.GetArgument(0).GetInt32()))
@@ -613,7 +652,7 @@ public sealed class VideoPanel : EditorDocument
             return;
         var item = pool.Items[_pressedRow];
         _pressedRow = -1;
-        if (item.Kind is MediaPoolKind.Video or MediaPoolKind.Audio)
+        if (item.Kind is MediaPoolKind.Video or MediaPoolKind.Audio or MediaPoolKind.Image)
             Workspace.BeginFileDrag(item.Path);
     }
 
@@ -646,7 +685,8 @@ public sealed class VideoPanel : EditorDocument
     }
 
     // A cheap fingerprint of the selection (count and the primary clip), so the Inspector rebuilds when it changes.
-    private static int SelectionKey(TimelineTab tab) => HashCode.Combine(tab.View.Selection.Count, tab.Primary?.Id, tab.View.TargetVideo, tab.View.TargetAudio);
+    private static int SelectionKey(TimelineTab tab) =>
+        HashCode.Combine(tab.View.Selection.Count, tab.Primary?.Id, tab.View.TargetVideo, tab.View.TargetAudio, tab.View.SelectedTransition);
 
     private void RebuildTracks(TimelineTab tab)
     {
@@ -679,7 +719,15 @@ public sealed class VideoPanel : EditorDocument
     {
         var timeline = tab.Timeline;
         var clip = tab.Primary;
-        if (clip is null)
+        if (tab.View.SelectedTransition is { } id && timeline.FindTransition(id) is { } transition)
+        {
+            _inspMode = "transition";
+            _inspTitle = transition.Kind == TransitionKind.Dissolve ? "Cross Dissolve" : "Dip to Black";
+            _trKind = (int)transition.Kind;
+            _trDuration = N(transition.Duration);
+            _trProblem = "";
+        }
+        else if (clip is null)
         {
             var s = timeline.Settings;
             _inspMode = "timeline";
@@ -696,8 +744,33 @@ public sealed class VideoPanel : EditorDocument
         else
         {
             var video = timeline.FindTrack(clip.TrackId)?.Kind == TrackKind.Video;
-            _inspMode = video ? "video" : "audio";
-            _inspTitle = Path.GetFileName(clip.Media.Path);
+            _inspMode = clip.Kind == ClipKind.Title ? "title" : video ? "video" : "audio";
+            _inspTitle = clip.Kind == ClipKind.Title ? "Title" : Path.GetFileName(clip.Media.Path);
+            _cStill = clip.IsStill;
+            _cSpeed = N(clip.Speed * 100);
+            _cVolume = N(clip.VolumeDb);
+            _cFadeIn = N(clip.FadeIn);
+            _cFadeOut = N(clip.FadeOut);
+            if (clip.Title is { } style)
+            {
+                _ttText = style.Text;
+                _ttFont = Math.Max(0, Array.IndexOf(TitleRasterizer.Fonts, style.Font));
+                _ttSize = N(style.Size);
+                _ttColor = style.Color;
+                _ttOutline = N(style.Outline);
+                _ttOutlineColor = style.OutlineColor;
+                _ttShadow = N(style.ShadowOpacity * 100);
+                _ttShadowX = N(style.ShadowX);
+                _ttShadowY = N(style.ShadowY);
+                _ttBox = style.Box;
+                _ttBoxColor = style.BoxColor;
+                _ttBoxOpacity = N(style.BoxOpacity * 100);
+                _ttBoxPadding = N(style.BoxPadding);
+                _ttAlign = (int)style.Align;
+                _ttX = N(style.X);
+                _ttY = N(style.Y);
+            }
+
             var t = clip.Transform;
             _cFit = (int)t.Fit;
             _cScale = N(t.Scale * 100);
@@ -732,6 +805,28 @@ public sealed class VideoPanel : EditorDocument
             var colour = text.StartsWith('#') ? text : "#" + text;
             SetSettings("Background", s => s with { Background = colour.ToUpperInvariant() });
             return;
+        }
+
+        switch (field)
+        {
+            case "tt_text":
+                // "\n" typed in the field breaks a line (a text input has no newlines of its own).
+                var lines = text.Replace("\\n", "\n", StringComparison.Ordinal);
+                if (lines.Length > 0)
+                    SetTitle("Title Text", t => t with { Text = lines });
+                _shownTimeline = null;
+                return;
+            case "tt_color" or "tt_outline_color" or "tt_box_color":
+                var hex = (text.StartsWith('#') ? text : "#" + text).ToUpperInvariant();
+                if (hex.Length == 7 && int.TryParse(hex.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out _))
+                    SetTitle("Title Colour", t => field switch
+                    {
+                        "tt_color" => t with { Color = hex },
+                        "tt_outline_color" => t with { OutlineColor = hex },
+                        _ => t with { BoxColor = hex },
+                    });
+                _shownTimeline = null;
+                return;
         }
 
         if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
@@ -776,6 +871,45 @@ public sealed class VideoPanel : EditorDocument
                 if (tab.Primary is { } clip)
                     Track(tab, clip.TrackId, "Track Gain", t => t with { GainDb = Math.Clamp(value, -60, 24) });
                 break;
+            case "speed":
+                if (tab.Primary is { } sped)
+                    Guard("Speed", () => tab.Document.Apply("Clip Speed", t => TimelineEdits.SetSpeed(t, sped.Id, value / 100)));
+                break;
+            case "volume" or "fade_in" or "fade_out":
+                if (tab.Primary is { } mixed)
+                    Guard("Mix", () => tab.Document.Apply(field == "volume" ? "Clip Volume" : "Clip Fade", t => TimelineEdits.SetMix(t, mixed.Id,
+                        field == "volume" ? value : mixed.VolumeDb, field == "fade_in" ? value : mixed.FadeIn, field == "fade_out" ? value : mixed.FadeOut)));
+                break;
+            case "tt_size":
+                SetTitle("Title Size", t => t with { Size = Math.Clamp(value, 4, 2000) });
+                break;
+            case "tt_outline":
+                SetTitle("Title Outline", t => t with { Outline = Math.Clamp(value, 0, 64) });
+                break;
+            case "tt_shadow":
+                SetTitle("Title Shadow", t => t with { ShadowOpacity = Math.Clamp(value / 100, 0, 1) });
+                break;
+            case "tt_shadow_x":
+                SetTitle("Title Shadow", t => t with { ShadowX = value });
+                break;
+            case "tt_shadow_y":
+                SetTitle("Title Shadow", t => t with { ShadowY = value });
+                break;
+            case "tt_box_opacity":
+                SetTitle("Title Box", t => t with { BoxOpacity = Math.Clamp(value / 100, 0, 1) });
+                break;
+            case "tt_box_padding":
+                SetTitle("Title Box", t => t with { BoxPadding = Math.Clamp(value, 0, 500) });
+                break;
+            case "tt_x":
+                SetTitle("Title Position", t => t with { X = value });
+                break;
+            case "tt_y":
+                SetTitle("Title Position", t => t with { Y = value });
+                break;
+            case "tr_duration":
+                SetTransition(null, value);
+                break;
         }
 
         _shownTimeline = null;
@@ -812,6 +946,41 @@ public sealed class VideoPanel : EditorDocument
             return;
         Guard(name, () => tab.Document.Apply(name, t => TimelineEdits.SetTransform(t, clip.Id, change(clip.Transform))));
         _shownTimeline = null;
+    }
+
+    /// <summary>Changes the selected title clip's style as one undo step (its raster follows).</summary>
+    public void SetTitle(string name, Func<TitleStyle, TitleStyle> change)
+    {
+        if (_tab is not { } tab || tab.Primary is not { Kind: ClipKind.Title, Title: { } style } clip)
+            return;
+        Guard(name, () => tab.Document.Apply(name, t => TimelineEdits.SetTitle(t, clip.Id, change(style))));
+        _shownTimeline = null;
+    }
+
+    private void SetTitleFont(int index) =>
+        SetTitle("Title Font", t => t with { Font = TitleRasterizer.Fonts[Math.Clamp(index, 0, TitleRasterizer.Fonts.Length - 1)] });
+
+    private void SetTitleAlign(int align) => SetTitle("Title Alignment", t => t with { Align = (TitleAlign)Math.Clamp(align, 0, 2) });
+
+    /// <summary>Changes the selected transition's kind or length; a refusal is shown under the fields.</summary>
+    public void SetTransition(TransitionKind? kind, double? seconds)
+    {
+        if (_tab is not { } tab || tab.View.SelectedTransition is not { } id || tab.Timeline.FindTransition(id) is not { } transition)
+            return;
+        var newKind = kind ?? transition.Kind;
+        var length = seconds ?? transition.Duration;
+        var problem = TimelineEdits.TransitionProblem(tab.Timeline, transition.OutClip, transition.InClip, newKind, length);
+        if (problem is null)
+            Guard("Transition", () =>
+            {
+                tab.Document.Apply("Transition", t => TimelineEdits.SetTransition(t, id, newKind, length));
+                // A changed transition gets a new id: keep it selected.
+                tab.View.SelectedTransition = tab.Timeline.Transitions.FirstOrDefault(x => x.OutClip == transition.OutClip && x.TrackId == transition.TrackId)?.Id;
+            });
+        _shownTimeline = null;
+        RebuildInspector(tab);
+        _trProblem = problem ?? "";
+        _model?.Dirty("tr_problem");
     }
 
     private void SetFit(int fit) => SetTransform("Fit", t => t with { Fit = (FrameFit)Math.Clamp(fit, 0, 2) });

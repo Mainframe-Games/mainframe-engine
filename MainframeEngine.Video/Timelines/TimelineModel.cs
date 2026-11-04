@@ -139,6 +139,99 @@ public sealed record ClipTransform(
     public static ClipTransform Default { get; } = new();
 }
 
+/// <summary>What a clip shows (G20.2): a media file's window, a title (rasterised from its style) or a still image.</summary>
+public enum ClipKind
+{
+    [JsonStringEnumMemberName("media")]
+    Media,
+
+    [JsonStringEnumMemberName("title")]
+    Title,
+
+    [JsonStringEnumMemberName("image")]
+    Image,
+}
+
+/// <summary>How a title's lines line up.</summary>
+public enum TitleAlign
+{
+    [JsonStringEnumMemberName("left")]
+    Left,
+
+    [JsonStringEnumMemberName("center")]
+    Center,
+
+    [JsonStringEnumMemberName("right")]
+    Right,
+}
+
+/// <summary>
+/// A title's look (G20.2): rasterised by the editor into a PNG at the timeline's size, which the preview and export both
+/// overlay. Colours are <c>#RRGGBB</c>; sizes and offsets are timeline pixels.
+/// </summary>
+/// <param name="Text">The text; <c>\n</c> breaks lines.</param>
+/// <param name="Font">A font of the engine's UI fonts, by file name without <c>.ttf</c> (<c>LatoLatin-Bold</c>).</param>
+/// <param name="Size">Pixel size.</param>
+/// <param name="Color">Fill colour.</param>
+/// <param name="Outline">Outline width in pixels; 0 = none.</param>
+/// <param name="OutlineColor">Outline colour.</param>
+/// <param name="ShadowX">Shadow offset right.</param>
+/// <param name="ShadowY">Shadow offset down.</param>
+/// <param name="ShadowOpacity">0 = no shadow.</param>
+/// <param name="ShadowColor">Shadow colour.</param>
+/// <param name="Box">A box behind the text.</param>
+/// <param name="BoxColor">Box colour.</param>
+/// <param name="BoxOpacity">Box opacity, 0–1.</param>
+/// <param name="BoxPadding">Box padding around the text.</param>
+/// <param name="Align">Line alignment inside the text block.</param>
+/// <param name="X">The block's centre, right of the frame's centre.</param>
+/// <param name="Y">The block's centre, below the frame's centre.</param>
+public sealed record TitleStyle(
+    string Text = "Title",
+    string Font = "LatoLatin-Bold",
+    double Size = 96,
+    string Color = "#FFFFFF",
+    double Outline = 0,
+    string OutlineColor = "#000000",
+    double ShadowX = 4,
+    double ShadowY = 4,
+    double ShadowOpacity = 0,
+    string ShadowColor = "#000000",
+    bool Box = false,
+    string BoxColor = "#000000",
+    double BoxOpacity = 0.6,
+    double BoxPadding = 24,
+    TitleAlign Align = TitleAlign.Center,
+    double X = 0,
+    double Y = 0)
+{
+    /// <summary>A plain white title, centred.</summary>
+    public static TitleStyle Default { get; } = new();
+
+    /// <summary>Auto-captions: bold white words with a dark outline, low in a frame of <paramref name="height"/>.</summary>
+    public static TitleStyle Caption(string text, int height) =>
+        new(text, "LatoLatin-Bold", Math.Max(24, Math.Round(height / 22.0)), Outline: Math.Max(2, Math.Round(height / 400.0)),
+            ShadowOpacity: 0.5, Y: Math.Round(height * 0.28));
+}
+
+/// <summary>The kinds of transition at an edit (G20.2).</summary>
+public enum TransitionKind
+{
+    /// <summary>The outgoing picture dissolves into the incoming one; the sound crossfades. Needs handles.</summary>
+    [JsonStringEnumMemberName("dissolve")]
+    Dissolve,
+
+    /// <summary>The picture fades to black and back, the sound out and in. Needs no handles.</summary>
+    [JsonStringEnumMemberName("dip")]
+    DipToBlack,
+}
+
+/// <summary>
+/// A transition between two adjacent clips of a track, centred on the edit (G20.2): a dissolve takes half its length
+/// from beyond each clip's window.
+/// </summary>
+public sealed record Transition(string Id, string TrackId, string OutClip, string InClip, TransitionKind Kind, double Duration);
+
 /// <summary>
 /// A window <c>[SourceIn, SourceOut)</c> of a media file placed at <see cref="Start"/> on a track. Its
 /// <see cref="Segments"/> partition the whole file (Cutback's cut list, now per clip): only kept time inside the window
@@ -155,6 +248,11 @@ public sealed record ClipTransform(
 /// <param name="Speed">Playback speed; 1 = normal.</param>
 /// <param name="LinkGroup">Clips sharing a group select, move, trim and cut together (a recording's picture and sound).</param>
 /// <param name="Enabled">Off: the clip keeps its place but is not seen or heard.</param>
+/// <param name="Kind">Media, a title or a still image (G20.2).</param>
+/// <param name="VolumeDb">The clip's own gain (audio), on top of its track's.</param>
+/// <param name="FadeIn">Seconds fading in from black (video) or silence (audio).</param>
+/// <param name="FadeOut">Seconds fading out.</param>
+/// <param name="Title">A title clip's look.</param>
 public sealed record Clip(
     string Id,
     string TrackId,
@@ -166,7 +264,17 @@ public sealed record Clip(
     ClipTransform Transform,
     double Speed = 1,
     string? LinkGroup = null,
-    bool Enabled = true);
+    bool Enabled = true,
+    ClipKind Kind = ClipKind.Media,
+    double VolumeDb = 0,
+    double FadeIn = 0,
+    double FadeOut = 0,
+    TitleStyle? Title = null)
+{
+    /// <summary>A title or image: one picture held for the clip's length.</summary>
+    [JsonIgnore]
+    public bool IsStill => Kind != ClipKind.Media;
+}
 
 /// <summary>A named point on the timeline (snapping target).</summary>
 public sealed record Marker(string Id, double Time, string Name);
@@ -182,6 +290,7 @@ public sealed record Marker(string Id, double Time, string Name);
 /// <param name="Markers">Named points.</param>
 /// <param name="InPoint">The export and playback range start, or null for 0.</param>
 /// <param name="OutPoint">The range end, or null for the end of the last clip.</param>
+/// <param name="Transitions">Transitions at edits (G20.2).</param>
 public sealed record Timeline(
     string Uid,
     TimelineSettings Settings,
@@ -189,8 +298,20 @@ public sealed record Timeline(
     ImmutableArray<Clip> Clips,
     ImmutableArray<Marker> Markers,
     double? InPoint = null,
-    double? OutPoint = null)
+    double? OutPoint = null,
+    ImmutableArray<Transition> Transitions = default)
 {
+    public ImmutableArray<Transition> Transitions { get; init; } = Transitions.IsDefault ? [] : Transitions;
+
+    /// <summary>The transition with this id, or null.</summary>
+    public Transition? FindTransition(string id)
+    {
+        foreach (var transition in Transitions)
+            if (transition.Id == id)
+                return transition;
+        return null;
+    }
+
     [JsonIgnore]
     public FrameRate Rate => Settings.FrameRate;
 

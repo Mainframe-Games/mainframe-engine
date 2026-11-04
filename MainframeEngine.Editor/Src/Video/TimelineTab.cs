@@ -247,7 +247,7 @@ public sealed class TimelineTab : IEditorTab
     /// <summary>Keeps the cut editor on the primary selected clip, framed on its window.</summary>
     internal void SyncCutEditor()
     {
-        var primary = Primary;
+        var primary = Primary is { IsStill: true } ? null : Primary; // a title or image has no cuts
         if (primary?.Id == Cut.ClipId)
             return;
         Cut.Show(primary?.Id);

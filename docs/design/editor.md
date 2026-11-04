@@ -221,7 +221,8 @@ FileSystem panel, the media pool) or the Recording saved dialog's Open in Video 
 switching or closing a project asks about and closes timeline tabs as it does scenes and songs. The first use of a
 project in video mode makes `Assets/Video/{Recordings,Media,Timelines}`; a project opened in game mode is left as it is.
 Entering game mode with no project and no game tab opens the Project Manager. The video mode itself (media pool, viewers,
-tracks, Premiere's keys, the cut editor, Cutback's tools on a clip, export presets) is described in [Video editing mode](video-editor.md).
+tracks, Premiere's keys, the cut editor, Cutback's tools on a clip, titles, transitions, fades, speed, captions, export
+presets) is described in [Video editing mode](video-editor.md).
 
 ## Icons
 
@@ -1324,8 +1325,9 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
 - **Video QA** ([video.qa](../../Tests/QA/video.qa), `just qa-editor Tests/QA/video.qa`): on the Demo, the fixture
   imported (`video import`), a 9:16 timeline (`video timeline Vertical <name>`), the Source viewer (`video source`),
   overwrite, Detect Silence, Detect Idle Gameplay and a tiny.en transcription on the clip (`video set whisper-model
-  tiny.en`), two add edits and a ripple delete (`video seek`, `video select V1 <s>`), fit (`video fit`), unlink, playback
-  and an export (`video export vertical-30`), each captured (`video-01-empty` … `video-13-exported`); `video reset`
+  tiny.en`), captions, two add edits and a ripple delete (`video seek`, `video select V1 <s>`), a cross dissolve, a title,
+  fit (`video fit`), unlink, playback and an export (`video export vertical-30`), each captured (`video-01-empty` …
+  `video-16-exported`); `video reset`
   removes the Demo's `Assets/Video` and `Exports` at both ends. `wait N` counts frames, so the long steps wait on
   conditions: `wait-for video-jobs [seconds]` (no probe, import, export or clip tool left) and `wait-for video-position <s>
   [seconds]`. Needs a display and ffmpeg; not run in CI. See [Video editing mode](video-editor.md#testing).

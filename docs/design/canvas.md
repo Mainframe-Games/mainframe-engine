@@ -209,7 +209,9 @@ read and rasterised in managed code (`TrueTypeFont`, `GlyphRasterizer`: TrueType
 exact-area coverage, outlines grown by `size / 4` px at 4× supersampling) into shared atlas pages per size and outline.
 Metrics follow FreeType's rounding. Unhinted, whole-pixel pen positions, no oversampling under a scaled canvas.
 Glyph placement is `Font.Layout` (one line into `GlyphQuad`s: pixel rectangle, atlas page and region), shared by
-`DrawString` and `Label3D` ([ADR 0200](../../memory/decisions/0200-label3d-first-slice.md)).
+`DrawString` and `Label3D` ([ADR 0200](../../memory/decisions/0200-label3d-first-slice.md)). `Font.RenderLine(text,
+size, outlineRadius, padding)` rasterises one line on the CPU into a `TextBitmap` (coverage bytes, baseline row, pen
+origin) with no atlas or GPU: the editor's video titles are drawn from it, so a headless run makes the same pixels.
 
 ## Polygons and bones (ADR 0202)
 

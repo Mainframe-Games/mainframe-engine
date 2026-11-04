@@ -10,7 +10,8 @@ namespace MainframeEngine.Video.Media;
 internal static class FfprobeJson
 {
     /// <exception cref="MediaProbeException">The output is not JSON, has no video stream (unless <paramref name="requireVideo"/> is false and it has audio), or reports no usable duration.</exception>
-    public static MediaInfo Parse(string json, string path, bool requireVideo = true)
+    /// <param name="still">A still image: no duration is fine (its length is the timeline's to choose; 0 here).</param>
+    public static MediaInfo Parse(string json, string path, bool requireVideo = true, bool still = false)
     {
         ArgumentNullException.ThrowIfNull(json);
         var name = Path.GetFileName(path);
@@ -70,7 +71,11 @@ internal static class FfprobeJson
                 duration = streamDuration;
             }
 
-            if (!double.IsFinite(duration) || duration <= 0)
+            if (still && (!double.IsFinite(duration) || duration <= 0))
+            {
+                duration = 0;
+            }
+            else if (!double.IsFinite(duration) || duration <= 0)
             {
                 throw new MediaProbeException($"\"{name}\" reports no duration. Live streams and some raw formats are not supported.");
             }

@@ -4,7 +4,7 @@ using Timeline = MainframeEngine.Video.Timelines.Timeline;
 
 namespace MainframeEngine.Editor.Video;
 
-public enum TimelineGesture { None, Pending, Scrub, Move, Trim, Marquee }
+public enum TimelineGesture { None, Pending, Scrub, Move, Trim, Marquee, Fade }
 
 /// <summary>
 /// The multi-track timeline's mouse gestures (positions in canvas dp), Premiere's conventions:
@@ -65,6 +65,26 @@ public sealed class TimelineController
             return;
         }
 
+        if (_view.Tool == TimelineTool.Select && FadeHandleAt(p) is { } fade)
+        {
+            // A fade handle at a clip's top corner: drag to set its fade in or out.
+            Gesture = TimelineGesture.Fade;
+            _base = Timeline;
+            _clip = fade.Clip;
+            _edge = fade.Edge;
+            SelectGroup(fade.Clip, add: false);
+            _view.SelectedTransition = null;
+            return;
+        }
+
+        if (_view.Tool == TimelineTool.Select && TransitionAt(p) is { } transition)
+        {
+            _view.Selection.Clear();
+            _view.SelectedTransition = transition.Id;
+            return;
+        }
+
+        _view.SelectedTransition = null;
         var clip = ClipAt(p);
         if (_view.Tool == TimelineTool.Razor)
         {
@@ -138,6 +158,9 @@ public sealed class TimelineController
             case TimelineGesture.Trim:
                 Trim(p);
                 break;
+            case TimelineGesture.Fade:
+                Fade(p);
+                break;
             case TimelineGesture.Marquee:
                 _view.Marquee = (_press.X, _press.Y, p.X, p.Y);
                 break;
@@ -156,7 +179,7 @@ public sealed class TimelineController
     /// <summary>The pointer was lost, or the tab hidden: a drag stays where it is (one step), a marquee is dropped.</summary>
     public void CancelGesture()
     {
-        if (Gesture is TimelineGesture.Move or TimelineGesture.Trim)
+        if (Gesture is TimelineGesture.Move or TimelineGesture.Trim or TimelineGesture.Fade)
             _doc.History.EndMerge();
         Reset();
     }
@@ -232,6 +255,17 @@ public sealed class TimelineController
             : TimelineEdits.Trim(t, clip.Id, _edge, time), mergeKey: "timeline.trim");
     }
 
+    private void Fade(Vector2 p)
+    {
+        var clip = _clip!;
+        var rate = Timeline.Rate;
+        var end = TimelineLayout.End(clip, rate);
+        var time = Math.Clamp(_view.XToTime(p.X), clip.Start, end);
+        _doc.ApplyFrom(_base!, "Clip Fade", t => _edge == TrimEdge.Start
+            ? TimelineEdits.SetMix(t, clip.Id, clip.VolumeDb, time - clip.Start, clip.FadeOut)
+            : TimelineEdits.SetMix(t, clip.Id, clip.VolumeDb, clip.FadeIn, end - time), mergeKey: "timeline.fade");
+    }
+
     private double SnapTime(double time, IReadOnlyList<double> candidates)
     {
         time = Math.Max(0, time);
@@ -260,6 +294,50 @@ public sealed class TimelineController
     }
 
     // ── Hit tests ────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>The fade handle (a clip's top corner, or where its fade ends) under the point, or null.</summary>
+    public (Clip Clip, TrimEdge Edge)? FadeHandleAt(Vector2 p)
+    {
+        if (_view.LaneAt(Timeline, p.Y) is not { } lane)
+            return null;
+        var top = _view.LaneTop(lane) + 2;
+        if (p.Y > top + TimelineCanvas.FadeHandleSize * 2)
+            return null;
+        var grab = TimelineCanvas.FadeHandleSize * 1.5f;
+        foreach (var clip in Timeline.Clips)
+        {
+            if (clip.TrackId != lane.TrackId)
+                continue;
+            var x0 = (float)_view.TimeToX(clip.Start);
+            var x1 = (float)_view.TimeToX(TimelineLayout.End(clip, Timeline.Rate));
+            if (x1 - x0 < 4 * TimelineCanvas.FadeHandleSize)
+                continue;
+            var inX = x0 + (float)(clip.FadeIn * _view.PixelsPerSecond) + (clip.FadeIn > 0 ? 0 : TimelineCanvas.FadeHandleSize / 2);
+            var outX = x1 - (float)(clip.FadeOut * _view.PixelsPerSecond) - (clip.FadeOut > 0 ? 0 : TimelineCanvas.FadeHandleSize / 2);
+            if (MathF.Abs(p.X - inX) <= grab)
+                return (clip, TrimEdge.Start);
+            if (MathF.Abs(p.X - outX) <= grab)
+                return (clip, TrimEdge.End);
+        }
+
+        return null;
+    }
+
+    /// <summary>The transition box under the point (across an edit, in the lane's lower half), or null.</summary>
+    public Transition? TransitionAt(Vector2 p)
+    {
+        if (_view.LaneAt(Timeline, p.Y) is not { } lane)
+            return null;
+        var top = _view.LaneTop(lane);
+        if (p.Y < top + lane.Height * 0.45f || p.Y > top + lane.Height * 0.85f)
+            return null;
+        var time = _view.XToTime(p.X);
+        foreach (var transition in Timeline.Transitions)
+            if (transition.TrackId == lane.TrackId && Timeline.FindClip(transition.InClip) is { } incoming
+                && Math.Abs(time - incoming.Start) <= transition.Duration / 2)
+                return transition;
+        return null;
+    }
 
     /// <summary>The clip under the canvas point, or null.</summary>
     public Clip? ClipAt(Vector2 p)

@@ -11,7 +11,7 @@ namespace MainframeEngine.Video.Timelines;
 public static class TimelineSerializer
 {
     /// <summary>Schema version written by this build. Bump alongside a new <see cref="TimelineMigrator"/> step.</summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     /// <summary>The extension timelines are saved with.</summary>
     public const string FileExtension = ".mftimeline";
@@ -30,8 +30,9 @@ public static class TimelineSerializer
         ArgumentNullException.ThrowIfNull(timeline);
         var file = new TimelineFile(CurrentVersion, timeline.Uid, timeline.Settings, [.. timeline.Tracks],
             [.. timeline.Clips.OrderBy(c => c.Start).ThenBy(c => c.Id, StringComparer.Ordinal).Select(c => new TimelineFileClip(
-                c.Id, c.TrackId, c.Media, c.Start, c.SourceIn, c.SourceOut, c.Speed, c.LinkGroup, c.Enabled, c.Transform, [.. c.Segments]))],
-            [.. timeline.Markers], timeline.InPoint, timeline.OutPoint);
+                c.Id, c.TrackId, c.Media, c.Start, c.SourceIn, c.SourceOut, c.Speed, c.LinkGroup, c.Enabled, c.Transform, [.. c.Segments],
+                c.Kind, c.VolumeDb, c.FadeIn, c.FadeOut, c.Title))],
+            [.. timeline.Markers], timeline.InPoint, timeline.OutPoint, timeline.Transitions.Length == 0 ? null : [.. timeline.Transitions]);
         return JsonSerializer.Serialize(file, TimelineJsonContext.Default.TimelineFile);
     }
 
@@ -67,10 +68,13 @@ public static class TimelineSerializer
 
         var timeline = new Timeline(file.Uid, file.Settings, [.. file.Tracks],
             [.. file.Clips.Select(c => new Clip(c.Id, c.Track, c.Media, c.Start, c.In, c.Out, [.. c.Segments ?? []],
-                c.Transform ?? ClipTransform.Default, c.Speed, c.Link, c.Enabled))],
-            [.. file.Markers ?? []], file.In, file.Out);
+                c.Transform ?? ClipTransform.Default, c.Speed, c.Link, c.Enabled, c.Kind, c.VolumeDb, c.FadeIn, c.FadeOut, c.Title))],
+            [.. file.Markers ?? []], file.In, file.Out, [.. file.Transitions ?? []]);
         Validate(timeline);
-        return timeline;
+        // A transition whose clips no longer meet (a hand-edited file) is dropped, as an edit would drop it.
+        return timeline.Transitions.All(t => TimelineEdits.StillFits(timeline, t))
+            ? timeline
+            : timeline with { Transitions = [.. timeline.Transitions.Where(t => TimelineEdits.StillFits(timeline, t))] };
     }
 
     /// <summary>Writes to a sibling <c>.tmp</c> file and moves it into place, so a crash never leaves half a timeline.</summary>

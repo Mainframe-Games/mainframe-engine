@@ -1,7 +1,8 @@
 # Video editing mode
 
-**Status:** ✅ G20c and G20d built (branch `feature/video-nle`, 2026-11-05): the multi-track timeline editor, with
-Cutback's tools (Detect Silence, Detect Idle Gameplay, Transcribe, Remove Fillers) on the selected clip · **ADRs:**
+**Status:** ✅ G20c, G20d and G20.2 built (branch `feature/video-nle`, 2026-11-05): the multi-track timeline editor,
+Cutback's tools on the selected clip, and the polish (volume and fades, transitions, titles, images, speed,
+auto-captions) · **ADRs:**
 [0241](../../memory/decisions/0241-video-mode-nle.md) (the timeline editor), which partly supersedes
 [0191](../../memory/decisions/0191-video-editing-mode.md) (the Cutback port) · **Proposal:**
 [Video NLE](future/video-nle.md) · **Depends on:** [Gameplay recording](recording.md) (the recorder, the `.mfcap.json`
@@ -23,7 +24,6 @@ timeline (Fill crops the landscape picture); Detect Silence cut its pauses and R
 in the Transcript tab; the cut editor shows the clip's cuts.*
 
 Not in scope yet:
-- **G20.2:** volume and fades, dissolves and fade to black, titles, still images, speed, auto-captions.
 - **G20.3:** nested timelines, proxies, roll/slip, sync lock, crash recovery for timelines.
 - **Games are unaffected:** neither the runtime nor shipped games reference any of this, and `Assets/Video` never ships.
 
@@ -65,6 +65,7 @@ are pure. `MediaRefs.ProbeAsync` probes and hashes a file into a `MediaRef`.
 | `MediaCache` | Waveforms, filmstrips and posters per media hash in `<project>/.mainframe/cache/video/`. |
 | `ClipTools`, `TranscriptStore` | Cutback's four tools on the selected clip and their jobs; the media's transcripts by hash. |
 | `TranscriptPanel` | The Inspector's Transcript tab: the selected clip's words, their gestures. |
+| `TitleRasterizer` | A title's PNG at the timeline's size (box, shadow, outline, fill), cached by its media hash. |
 | `VideoPanel` + `video.rml` | The screen: pool, viewers, Inspector, notice, track headers, canvases, splitter. |
 | `VideoView` (`[Tool]` node) | Per-frame driver: places and publishes the four textures, routes pointer and keys, runs the `video.*` commands, probes, imports, drops, exports. |
 | `ExportVideoDialog` + `video_export.rml`, `TimelineExport` | Presets, range, output path; the export job. |
@@ -107,7 +108,8 @@ it (G20a). Exports go to `<project>/Exports`, outside `Assets/`.
 - **View:** Zoom In (=), Zoom Out (−), Zoom to Fit (Shift+Z), Show/Hide Output, Switch to Game/Music Mode.
 - **Timeline:** Play/Pause, Selection Tool, Razor Tool, Snapping, Add Edit, Add Edit to All Tracks, Ripple Trim
   Start/End to Playhead, Link/Unlink, Mark In, Mark Out, Clear In/Out, Insert, Overwrite, Detect Silence, Detect Idle
-  Gameplay, Transcribe, Remove Filler Words, Add Video/Audio Track. The clip's right-click menu has the four tools too.
+  Gameplay, Transcribe, Remove Filler Words, Create Captions, Add Title (Cmd+T), Add Cross Dissolve (Cmd+D), Add Dip to
+  Black (Shift+Cmd+D), Add Video/Audio Track. The clip's right-click menu has the four tools too.
 
 **Toolbar:** Selection and Razor tools, Snapping, Link/Unlink; Play and Stop with the position; Detect Silence, Detect
 Idle Gameplay, Transcribe and Remove Filler Words (icon buttons, enabled with a selected clip; a running one shows its
@@ -127,6 +129,7 @@ and New Timeline; on the right Export (reads "Cancel n %" while exporting), the 
 | ← / → | a frame | ↑ / ↓ | previous / next edit |
 | Home / End | start / end | = / − / Shift+Z | zoom in / out / fit |
 | Esc | deselect | Cmd+N, I, E | new timeline, import, export |
+| Cmd+T | add a title | Cmd+D / Shift+Cmd+D | cross dissolve / dip to black at the nearest edit |
 
 Game-only keys (gizmos, Play, F10) do nothing in video mode.
 
@@ -202,6 +205,32 @@ the window, in Cutback's sentences.
 - **Jobs** (silence, transcription) live on the tab, one of each at a time, apply to the clip they started on if it
   still exists, and are cancelled when the tab closes.
 
+### Titles, images, transitions, volume, speed, captions (G20.2)
+
+- **Titles.** Add Title puts a 3 s title at the playhead on the top video track (or a new one above it when that one is
+  taken there). The Inspector edits its text (`\n` breaks a line), font (the engine's Lato Bold, Regular, Italic, Roboto
+  Mono), size, colour, alignment, position, outline, shadow and box. `TitleRasterizer` draws it on the CPU with the
+  engine's TrueType rasteriser (`Font.RenderLine`) into `<project>/.mainframe/cache/video/titles/<hash>.png`, the hash
+  taken from the style and the timeline's size; the viewer and export overlay that same PNG
+  (`-loop 1 -framerate R -t len -i`), so what the viewer shows is what is written. A changed style is a new raster.
+- **Images** (`.png`, `.jpg`, `.webp`) import and drop like media and play as 5 s stills, Fit by default, reframed like
+  video. A title or image has no cuts and no sound; the clip tools say so.
+- **Transitions.** Cmd+D puts a 1 s Cross Dissolve, Shift+Cmd+D a Dip to Black, on the edit nearest the playhead on the
+  selected clip's track (else the target video track), and on its linked partners' edit too. A dissolve is centred on
+  the edit and takes half its length from beyond each clip's window; without those handle frames it is refused with
+  "Not enough frames past the edit". On the canvas a transition is a box across the edit: click it to select it, edit
+  its kind and length in the Inspector (a refusal is shown there), Delete removes it. An edit that separates its clips
+  drops it. In the graph a dissolve is an `xfade` of the two lengthened clips and an overlapping crossfade of their
+  sounds; a dip is a fade to black and back (`fade … color=black`, `afade`).
+- **Volume and fades.** The Inspector sets a clip's volume (−60 to +24 dB, on top of its track's gain) and its fade in
+  and out (seconds, from or to black for pictures and from or to silence for sounds); fades also have handles on the
+  clip's top corners (one undo step per drag), drawn as ramps.
+- **Speed.** 25 %–400 % in the Inspector, on the clip and its linked partner; the clips after them ripple. Pictures
+  `setpts`, sounds `atempo` (chained outside 0.5–2), the pitch kept.
+- **Create Captions** turns the selected clip's kept transcript words (Transcribe first) into caption titles on a new
+  "Captions" track on top: at most 7 words a caption, a break at a 0.5 s pause or after a sentence end, bold white with a
+  dark outline low in the frame (`CaptionPlanner`, `TitleStyle.Caption`). Each is an ordinary title clip afterwards.
+
 ### The cut editor
 
 The selected clip's whole source window with its cuts greyed, as Cutback's timeline: click a region to cut or restore it,
@@ -253,7 +282,9 @@ The ffmpeg setting also serves Play and Record: the editor passes it to the game
 
 ## File format: `.mftimeline`
 
-Versioned JSON (`TimelineSerializer`, `TimelineMigrator`, version 1), written atomically, with the asset UID (`vtl_…`)
+Versioned JSON (`TimelineSerializer`, `TimelineMigrator`, version 2: G20.2 added each clip's `kind` (media, title,
+image), `volumeDb`, `fadeIn`, `fadeOut` and `title`, and the timeline's `transitions`, all with defaults, so the 1 → 2
+step adds nothing), written atomically, with the asset UID (`vtl_…`)
 at the top so the asset database reads it like a scene (no `.meta`). Media are `MediaRef`s: the asset UID (moves in the
 pool keep working), the project-relative path as a fallback, the content hash and the probed facts. The old `.mfcut` and
 `.cutback` projects are no longer read (ADR 0241: no migration).
@@ -275,7 +306,7 @@ the media's, so a replaced file is transcribed again; a newer or broken file is 
   format, export and preview graphs, presets and arguments, and Cutback's tests. Nothing runs ffmpeg.
 - **`just test-video-ffmpeg`** (opt-in): real ffmpeg renders lavfi sources through the presets' graphs; ffprobe checks
   size, rate and duration (outputs in `artifacts/video-ffmpeg`); silence detection over a window finds only the silence
-  inside it.
+  inside it; a timeline with a dissolve, an image and fades exports at the vertical preset's size and length.
 - **Editor tests** (`Tests/MainframeEngine.Editor.Tests/Video/`), with ffmpeg faked at its seams (`VideoView.Prober`,
   `DecoderFactory`, `ExporterFactory`):
   - `TimelineDocumentTests` (a drag is one step, nothing changed records nothing, dirty against the save), `MediaPoolTests`,
@@ -288,16 +319,22 @@ the media's, so a replaced file is transcribed again; a newer or broken file is 
     with ripple, a clip removed mid-job, cancel, `SharedBySourceHash`, fillers after transcribing, `WordCutAppliesToLinkGroup`,
     `IdleNeedsSidecar`, `RestoreRipplesLater`, 0 B with the Transcript tab; the library's `ClipDetectionTests`
     (`SilenceOnlyInsideWindow`, `ManualCutsSurvive`, `OtherWindowsKeepTheirCuts`) and `TranscriptSerializerTests`;
+  - `VideoPolishTests` (G20.2): `PreviewAndExportShareRaster`, a raster's box, outline and fill, Cmd+D at the playhead's
+    edit with its Inspector and Delete, a dissolve refused without handles, clicking a transition, speed, volume and
+    fades from the Inspector, a fade handle drag, an image dropped as a 5 s still; `ClipToolsTests.CreateCaptions…`; the
+    library's `TimelinePolishTests` (`CrossDissolve`, `SpeedChainsAtempo`, `TransitionNeedsHandles`, fades, stills,
+    the version 2 file) and `CaptionPlannerTests.BreaksAtPausesSkipsCuts`; the engine's `Font.RenderLine` test;
   - `EditorModeTests` (the mode needs a project, Premiere's keys), the cut editor's view, gestures and canvas, the Source
     preview, and `TimelineAllocationTests` (0 B steady frames, headless).
 - **Render goldens** (`EditorRenderTests`, no ffmpeg): `editor-video-empty` (a generated project's pool, no tab) and
   `editor-video-timeline` (`VideoGolden`: 3 video and 2 audio tracks, linked pairs, a picture-in-picture, a clip with two
   cuts selected in the cut editor, music on A2, colour bars from a fake decoder), then the **allocation gate** (0 B over
-  300 frames).
+  300 frames); `editor-video-title` (that timeline with a dissolve, a fade and a styled title, the title's Inspector),
+  with the allocation gate too.
 - **QA, by hand:** `just qa-editor Tests/QA/video.qa` on the Demo with the 12 s fixture: import, a 9:16 timeline, the
-  Source viewer, overwrite, Detect Silence, Detect Idle Gameplay and a tiny.en transcription on the clip, two add edits
-  and a ripple delete, fit, unlink, play, export; captures `video-01-empty` to `video-13-exported` in
-  `artifacts/qa-editor`. It waits on `wait-for video-jobs` and `wait-for video-position` and
+  Source viewer, overwrite, Detect Silence, Detect Idle Gameplay and a tiny.en transcription on the clip, captions, two
+  add edits and a ripple delete, a cross dissolve, a title, fit, unlink, play, export; captures `video-01-empty` to
+  `video-16-exported` in `artifacts/qa-editor`. It waits on `wait-for video-jobs` and `wait-for video-position` and
   removes the Demo's `Assets/Video` and `Exports` at both ends (`video reset`).
 
 ## Known limits
@@ -313,6 +350,17 @@ the media's, so a replaced file is transcribed again; a newer or broken file is 
 - **Hard links** to a media file are not detected by the same-file export check; symbolic links are.
 
 ## Changes from the proposal
+
+G20.2, built 2026-11-05:
+- **Titles are rasterised on the CPU** with the engine's TrueType rasteriser (`Font.RenderLine`, new), not by a
+  `Label2D` captured from a `SubViewport`: no GPU is needed, so tests and headless runs make the same pixels, and the
+  viewer and export read one PNG.
+- **A dissolve's length is an even number of frames** (it is centred on whole frames: at 30 fps a 0.5 s dissolve is
+  16 frames); the scenario tests use 1 s.
+- **Dip to Black** is fades on both clips and needs no handles.
+- **No track volume in the header**: the Inspector's track gain is the one control.
+- **Title fonts** are the engine's four UI fonts; the shadow has an opacity and an offset, the box a colour, opacity and
+  padding.
 
 G20d, built 2026-11-05:
 - **Transcribe covers the whole media file**, not the clip's window, so one transcript serves every clip of a recording.

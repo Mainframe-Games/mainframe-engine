@@ -82,6 +82,24 @@ public class EditorRenderTests
     }
 
     [Fact]
+    public void VideoTitleMatchesGoldenAndAllocatesNothingWhenSteady()
+    {
+        // G20.2: the golden timeline with a dissolve, a fade and a styled title, the title selected (its Inspector); then
+        // the allocation gate over its steady frames.
+        var result = HostRunner.RunEditor(Output("editor-video-title"),
+            new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "--smoke-golden", "video-title", "--hidden", "--size", "1280x720");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Assert.True(result.MeasuredFrames > 0, "The video title run measured no frames.");
+        Assert.True(result.AllocatedBytes == 0,
+            $"Steady video-mode frames allocated {result.AllocatedBytes} managed bytes over {result.MeasuredFrames} frames.");
+        var capture = Assert.Single(result.Captures);
+        Gates.AssertMatchesGolden(result, capture.Frame);
+    }
+
+    [Fact]
     public void MusicEmptyStateMatchesGolden()
     {
         var result = HostRunner.RunEditor(Output("editor-music-empty"), null, "--smoke-golden", "music-empty", "--hidden", "--size", "1280x720");

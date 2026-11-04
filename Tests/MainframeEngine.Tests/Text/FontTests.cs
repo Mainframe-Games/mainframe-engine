@@ -109,4 +109,23 @@ public sealed class FontTests : IDisposable
         var xs = Enumerable.Range(0, (int)batch.IndexCount).Select(i => frame.Vertices[(int)frame.Indices[batch.FirstIndex + i]].Position.X).ToList();
         Assert.Contains(xs, x => x <= 10 + MathF.Floor((200 - advance) / 2));
     }
+
+    [Fact]
+    public void RenderLineRasterisesOnTheCpuWithAnOutlineAroundTheFill()
+    {
+        var font = Font.FromData(Lato);
+
+        var fill = font.RenderLine("Hi", 48, padding: 4);
+        var outline = font.RenderLine("Hi", 48, outlineRadius: 3, padding: 4);
+
+        Assert.True(fill.Width > 40 && fill.Height >= font.GetHeight(48));
+        Assert.Equal(font.GetAscent(48) + fill.Origin, fill.Baseline);
+        static int Covered(TextBitmap b) => b.Alpha.Count(a => a > 127);
+        Assert.InRange(Covered(fill), 100, fill.Width * fill.Height / 2);
+        Assert.True(Covered(outline) > Covered(fill)); // the stroke is the glyphs dilated
+        Assert.True(outline.Width > fill.Width); // room for it
+        // The pen's baseline row through the "H" has ink; the rows below the descent do not.
+        Assert.Contains(Enumerable.Range(0, fill.Width), x => fill.Alpha[(fill.Baseline - 2) * fill.Width + x] > 127);
+        Assert.Equal(fill.Alpha, font.RenderLine("Hi", 48, padding: 4).Alpha); // deterministic
+    }
 }

@@ -1,6 +1,6 @@
 # Video mode, the timeline editor (docs/design/video-editor.md): import a clip, make a 9:16 timeline, place, run Detect
 # Silence, Detect Idle Gameplay and Transcribe on the clip, cut, ripple delete, unlink, reframe, play and export; each step
-# captured for review. Needs a display, ffmpeg and (once, for the tiny.en model) the network
+# captured for review; G20.2's captions, a cross dissolve and a title too. Needs a display, ffmpeg and (once, for the tiny.en model) the network
 # (just qa-editor Tests/QA/video.qa); not in CI. It runs on the Demo project and leaves its Assets/Video and Exports
 # folders as it found them (none). The fixture is build/make-video-fixture.sh's 12 s test pattern (a 440 Hz tone silent
 # from 4 to 6 s, with a sidecar). `wait N` counts frames; the long steps wait on conditions: `wait-for video-jobs` (no
@@ -42,6 +42,12 @@ command video.show_inspector
 command edit.undo
 command edit.undo
 wait 10
+# G20.2: captions from the transcript (its words kept again) on a new track, then undone.
+command video.create_captions
+wait 20
+capture video-08-captions
+command edit.undo
+wait 10
 # Cut 3-6 s out of the clip (and its sound) and close the gap.
 video seek 3
 command video.add_edit_all
@@ -50,30 +56,42 @@ command video.add_edit_all
 video select V1 4.5
 command video.ripple_delete
 wait 30
-capture video-08-ripple
+capture video-09-ripple
+# G20.2: a 1 s cross dissolve on the edit at 3 s (both clips have frames past it), and a title above at 1 s.
+video seek 3
+command video.add_dissolve
+wait 20
+capture video-10-dissolve
+video seek 1
+command video.add_title
+wait 20
+capture video-11-title
+command edit.undo
+command edit.undo
+wait 10
 # The picture fills the 9:16 frame; then fit it at 100 %, letterboxed.
 video select V1 1
 video fit 0 100
 wait 30
-capture video-09-fit
+capture video-12-fit
 command video.link
 wait 10
 video select A1 1
 wait 10
-capture video-10-unlinked
+capture video-13-unlinked
 command edit.undo
 video seek 0
 command video.play
 wait-for video-position 2 30
-capture video-11-playing
+capture video-14-playing
 command video.play
 video export vertical-30
 wait 10
-capture video-12-export-dialog
+capture video-15-export-dialog
 accept
 wait-for video-jobs 300
 wait 20
-capture video-13-exported
+capture video-16-exported
 accept
 mode game
 video reset

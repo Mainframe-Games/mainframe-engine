@@ -74,6 +74,8 @@
         .chip:hover { background-color: #30343e; }
         .chip.on { background-color: #3b82f6; color: #ffffff; }
         .view img.off { visibility: hidden; } /* no texture published yet: an img without one draws white */
+        .row input.wide { width: 180dp; }
+        .note.warn { color: #fcd34d; }
         .note { display: block; margin-top: 8dp; color: #6b7488; line-height: 16dp; font-size: 11dp; }
 
         /* Notice */
@@ -194,16 +196,45 @@
                     <div class="row"><span class="label">Crop T / B</span><input type="text" class="text mono" data-field="crop_t" data-attr-value="c_crop_t"/><input type="text" class="text mono" data-field="crop_b" data-attr-value="c_crop_b"/></div>
                     <div class="row"><span class="label">Opacity</span><input type="text" class="text mono" data-field="opacity" data-attr-value="c_opacity"/><span class="unit">%</span></div>
                     <div class="section">Clip</div>
-                    <div class="row"><span class="label">Source</span><span class="mono">{{c_window}}</span></div>
+                    <div class="row" data-if="!c_still"><span class="label">Source</span><span class="mono">{{c_window}}</span></div>
+                    <div class="row" data-if="!c_still"><span class="label">Speed</span><input type="text" class="text mono" data-field="speed" data-attr-value="c_speed" data-tooltip="Speed — 25 % to 400 %; the clips after it move along"/><span class="unit">%</span></div>
+                    <div class="row"><span class="label">Fade in / out</span><input type="text" class="text mono" data-field="fade_in" data-attr-value="c_fade_in" data-tooltip="Fade in from black, in seconds"/><input type="text" class="text mono" data-field="fade_out" data-attr-value="c_fade_out" data-tooltip="Fade out to black, in seconds"/></div>
                     <div class="row"><span class="label">Enabled</span><div class="chips"><span class="chip" data-class-on="c_enabled" data-event-click="toggle_enabled()">{{c_enabled ? 'On' : 'Off'}}</span></div></div>
-                    <div class="note">Position is in timeline pixels from the centre. Crop is in source pixels.</div>
+                    <div class="note">Position is in timeline pixels from the centre. Crop is in source pixels. Fades also have handles on the clip's top corners.</div>
                 </div>
                 <div data-if="insp_mode == 'audio'">
                     <div class="section">Clip</div>
                     <div class="row"><span class="label">Source</span><span class="mono">{{c_window}}</span></div>
+                    <div class="row"><span class="label">Volume</span><input type="text" class="text mono" data-field="volume" data-attr-value="c_volume" data-tooltip="The clip's volume, −60 to +24 dB, on top of its track's gain"/><span class="unit">dB</span></div>
+                    <div class="row"><span class="label">Fade in / out</span><input type="text" class="text mono" data-field="fade_in" data-attr-value="c_fade_in" data-tooltip="Fade in from silence, in seconds"/><input type="text" class="text mono" data-field="fade_out" data-attr-value="c_fade_out" data-tooltip="Fade out to silence, in seconds"/></div>
+                    <div class="row"><span class="label">Speed</span><input type="text" class="text mono" data-field="speed" data-attr-value="c_speed" data-tooltip="Speed — 25 % to 400 %, the pitch kept; its linked picture follows"/><span class="unit">%</span></div>
                     <div class="row"><span class="label">Enabled</span><div class="chips"><span class="chip" data-class-on="c_enabled" data-event-click="toggle_enabled()">{{c_enabled ? 'On' : 'Off'}}</span></div></div>
                     <div class="section">Track</div>
                     <div class="row"><span class="label">Gain</span><input type="text" class="text mono" data-field="gain" data-attr-value="c_gain"/><span class="unit">dB</span></div>
+                </div>
+                <div data-if="insp_mode == 'title'">
+                    <div class="section">Text</div>
+                    <div class="row"><span class="label">Text</span><input type="text" class="text wide" data-field="tt_text" data-attr-value="tt_text" data-tooltip="The title's text; type \\n for a new line"/></div>
+                    <div class="row"><span class="label">Font</span><div class="chips"><span class="chip" data-class-on="tt_font == 0" data-event-click="title_font(0)" data-tooltip="Lato Bold">Bold</span><span class="chip" data-class-on="tt_font == 1" data-event-click="title_font(1)" data-tooltip="Lato Regular">Reg</span><span class="chip" data-class-on="tt_font == 2" data-event-click="title_font(2)" data-tooltip="Lato Italic">Ital</span><span class="chip" data-class-on="tt_font == 3" data-event-click="title_font(3)" data-tooltip="Roboto Mono">Mono</span></div></div>
+                    <div class="row"><span class="label">Size</span><input type="text" class="text mono" data-field="tt_size" data-attr-value="tt_size"/><span class="unit">px</span></div>
+                    <div class="row"><span class="label">Colour</span><input type="text" class="text mono" data-field="tt_color" data-attr-value="tt_color"/></div>
+                    <div class="row"><span class="label">Align</span><div class="chips"><span class="chip" data-class-on="tt_align == 0" data-event-click="title_align(0)" data-tooltip="Lines start together"><span class="icon icon-sm icon-align-left"></span></span><span class="chip" data-class-on="tt_align == 1" data-event-click="title_align(1)" data-tooltip="Lines centred"><span class="icon icon-sm icon-align-center"></span></span><span class="chip" data-class-on="tt_align == 2" data-event-click="title_align(2)" data-tooltip="Lines end together"><span class="icon icon-sm icon-align-right"></span></span></div></div>
+                    <div class="row"><span class="label">Position</span><input type="text" class="text mono" data-field="tt_x" data-attr-value="tt_x"/><input type="text" class="text mono" data-field="tt_y" data-attr-value="tt_y"/></div>
+                    <div class="section">Style</div>
+                    <div class="row"><span class="label">Outline</span><input type="text" class="text mono" data-field="tt_outline" data-attr-value="tt_outline"/><input type="text" class="text mono" data-field="tt_outline_color" data-attr-value="tt_outline_color"/></div>
+                    <div class="row"><span class="label">Shadow</span><input type="text" class="text mono" data-field="tt_shadow" data-attr-value="tt_shadow" data-tooltip="Shadow opacity, %"/><input type="text" class="text mono" data-field="tt_shadow_x" data-attr-value="tt_shadow_x"/><input type="text" class="text mono" data-field="tt_shadow_y" data-attr-value="tt_shadow_y"/></div>
+                    <div class="row"><span class="label">Box</span><div class="chips"><span class="chip" data-class-on="tt_box" data-event-click="title_box()">{{tt_box ? 'On' : 'Off'}}</span></div><input type="text" class="text mono" data-field="tt_box_color" data-attr-value="tt_box_color"/></div>
+                    <div class="row"><span class="label">Box opacity</span><input type="text" class="text mono" data-field="tt_box_opacity" data-attr-value="tt_box_opacity"/><span class="unit">%</span><input type="text" class="text mono" data-field="tt_box_padding" data-attr-value="tt_box_padding" data-tooltip="Box padding, px"/></div>
+                    <div class="section">Clip</div>
+                    <div class="row"><span class="label">Fade in / out</span><input type="text" class="text mono" data-field="fade_in" data-attr-value="c_fade_in"/><input type="text" class="text mono" data-field="fade_out" data-attr-value="c_fade_out"/></div>
+                    <div class="note">Sizes and positions are timeline pixels; position is the text's centre from the frame's. Colours are #RRGGBB.</div>
+                </div>
+                <div data-if="insp_mode == 'transition'">
+                    <div class="section">Transition</div>
+                    <div class="row"><span class="label">Kind</span><div class="chips"><span class="chip" data-class-on="tr_kind == 0" data-event-click="transition_kind(0)" data-tooltip="The pictures dissolve into each other and the sounds crossfade; needs frames past the edit">Dissolve</span><span class="chip" data-class-on="tr_kind == 1" data-event-click="transition_kind(1)" data-tooltip="Fade to black and back; the sound out and in">Dip to black</span></div></div>
+                    <div class="row"><span class="label">Length</span><input type="text" class="text mono" data-field="tr_duration" data-attr-value="tr_duration"/><span class="unit">s</span></div>
+                    <div class="note warn" data-if="tr_problem != ''">{{tr_problem}}</div>
+                    <div class="row"><button class="tool-button" data-event-click="transition_remove()" data-tooltip="Remove the transition (Delete)"><span class="icon icon-trash"></span></button></div>
                 </div>
             </div>
         </div>

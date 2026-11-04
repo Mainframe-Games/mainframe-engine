@@ -431,6 +431,12 @@ public sealed class ClipTools
     // The clip a tool runs on: the selected one (the video of a linked pair); else a notice says to select one.
     private static Clip? ClipOf(TimelineTab tab, string what)
     {
+        if (tab.Primary is { IsStill: true })
+        {
+            tab.Notice = $"{what} runs on a clip of a recording, not on a title or an image.";
+            return null;
+        }
+
         if (tab.Primary is { } clip)
             return clip;
         tab.Notice = $"Select a clip first: {what} runs on the selected clip.";

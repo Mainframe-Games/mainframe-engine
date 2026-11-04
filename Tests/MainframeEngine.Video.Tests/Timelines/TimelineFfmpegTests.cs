@@ -69,6 +69,46 @@ public sealed class TimelineFfmpegTests : IDisposable
     }
 
     [Fact]
+    public async Task ExportsADissolveAStillAndFades()
+    {
+        // G20.2 through the real ffmpeg: two clips with a 1 s dissolve (xfade on RGBA, the sounds crossfading), an image
+        // held for 2 s on V2, a fade in, a clip at -6 dB, a dip-free 4 s timeline.
+        var ffmpeg = Ffmpeg();
+        var ct = TestContext.Current.CancellationToken;
+        var source = Path.Combine(_dir.FullName, "rec.mp4");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=60", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+            "-t", "8", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-y", source]);
+        var logo = Path.Combine(_dir.FullName, "logo.png");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "color=c=red:s=320x240", "-frames:v", "1", "-y", logo]);
+        var media = await MediaRefs.ProbeAsync(ffmpeg, source, source, "", ct);
+        var image = await MediaRefs.ProbeAsync(ffmpeg, logo, logo, "", ct);
+        Assert.Equal((320, 240, TimelineFactory.StillDuration), (image.Width, image.Height, image.Duration));
+
+        var t = Vertical();
+        t = TimelineEdits.Append(t, media, 1, 3, V1(t), A1(t));
+        t = TimelineEdits.Append(t, media, 5, 7, V1(t), A1(t));
+        t = TimelineEdits.AddTransition(t, On(t, V1(t), 0).Id, On(t, V1(t), 1).Id, TransitionKind.Dissolve, 1);
+        t = TimelineEdits.SetMix(t, On(t, V1(t), 0).Id, 0, 0.5, 0);
+        t = TimelineEdits.SetMix(t, On(t, A1(t), 1).Id, -6, 0, 0);
+        t = TimelineEdits.PlaceStill(t, image, ClipKind.Image, null, 1, 2, V2(t), insert: false);
+        Assert.Equal(2, t.Transitions.Length); // the picture's dissolve and its sound's twin
+        var preset = TimelineExportPresets.Vertical30;
+        var output = Path.Combine(_dir.FullName, "polish.mp4");
+        using var temp = new TempSession();
+        await new TimelineExporter(ffmpeg, temp).ExportAsync(t, preset, 0, TimelineLayout.Duration(t), output, null, null, ct);
+        if (Environment.GetEnvironmentVariable("MAINFRAME_VIDEO_FFMPEG_OUT") is { Length: > 0 } keep)
+        {
+            Directory.CreateDirectory(keep);
+            File.Copy(output, Path.Combine(keep, "polish.mp4"), overwrite: true);
+        }
+
+        var result = await new MediaProbe(ffmpeg).ProbeAsync(output, ct);
+        Assert.Equal((1080, 1920), (result.Width, result.Height));
+        Assert.InRange(result.DurationSeconds, 4 - 0.15, 4 + 0.15);
+        Assert.True(result.HasAudio);
+    }
+
+    [Fact]
     public async Task PreviewDecodesRawFramesAndSamples()
     {
         var ffmpeg = Ffmpeg();

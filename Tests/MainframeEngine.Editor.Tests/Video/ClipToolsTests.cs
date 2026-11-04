@@ -247,6 +247,31 @@ public sealed class ClipToolsTests : VideoEditorTestBase
         Assert.True(allocated == 0, $"{allocated} B allocated over 100 steady frames with the Transcript tab");
     }
 
+    [Fact]
+    public void CreateCaptionsMakesTitlesFromTheKeptWords()
+    {
+        var tab = SplitTimeline();
+        Select(tab, ClipAt(tab, V1(tab), 0));
+        W.Commands.Execute("video.create_captions"); // no transcript yet
+        Assert.Contains("Transcribe it first", tab.Notice, StringComparison.Ordinal);
+        W.Commands.Execute("video.transcribe");
+        WaitForJobs(tab);
+        tab.Document.Apply("Cut", t => TimelineEdits.SetClipCuts(t, t.ClipsOn(V1(tab))[0].Id,
+            list => list.SetRange(1.0, 1.3, enabled: false))); // "um" is cut
+
+        W.Commands.Execute("video.create_captions");
+
+        var track = tab.Timeline.TracksOf(TrackKind.Video)[^1];
+        Assert.Equal("Captions", track.Name);
+        var captions = tab.Timeline.ClipsOn(track.Id);
+        Assert.NotEmpty(captions);
+        Assert.All(captions, c => Assert.Equal(ClipKind.Title, c.Kind));
+        Assert.DoesNotContain(captions, c => c.Title!.Text.Contains("um", StringComparison.Ordinal));
+        Assert.Equal(["so", "this is it"], captions.Select(c => c.Title!.Text)); // a 0.5 s pause after "so"; B's words are not A's
+        W.Commands.Execute("edit.undo"); // one step
+        Assert.DoesNotContain(tab.Timeline.Tracks, t => t.Name == "Captions");
+    }
+
     // ── Detect Idle Gameplay ─────────────────────────────────────────────────────────────────────────────────
 
     [Fact]

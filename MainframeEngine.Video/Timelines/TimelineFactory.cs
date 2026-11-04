@@ -51,5 +51,45 @@ public static class TimelineFactory
             [Segment.Create(0, media.Duration, enabled: true, SegmentOrigin.Auto)], ClipTransform.Default, LinkGroup: linkGroup);
     }
 
-    internal static Timeline With(this Timeline timeline, IEnumerable<Clip> clips) => timeline with { Clips = [.. clips] };
+    /// <summary>The clips replaced; transitions whose clips are gone or no longer meet are dropped with them.</summary>
+    internal static Timeline With(this Timeline timeline, IEnumerable<Clip> clips)
+    {
+        var next = timeline with { Clips = [.. clips] };
+        if (next.Transitions.Length == 0)
+            return next;
+        var fits = next.Transitions.Where(t => TimelineEdits.StillFits(next, t)).ToList();
+        return fits.Count == next.Transitions.Length ? next : next with { Transitions = [.. fits] };
+    }
+
+    /// <summary>What stills (titles and images) give as their media duration: any length fits inside it.</summary>
+    public const double StillDuration = 3600;
+
+    /// <summary>
+    /// The media of a title in <paramref name="style"/> on a timeline of <paramref name="settings"/>: its hash is the
+    /// style's and the size's, so a changed title is rasterised again and an unchanged one is shared.
+    /// </summary>
+    public static MediaRef TitleMedia(TitleStyle style, TimelineSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(style);
+        ArgumentNullException.ThrowIfNull(settings);
+        var key = string.Join('\u001f', style.Text, style.Font, F(style.Size), style.Color, F(style.Outline), style.OutlineColor, F(style.ShadowX),
+            F(style.ShadowY), F(style.ShadowOpacity), style.ShadowColor, style.Box ? "1" : "0", style.BoxColor, F(style.BoxOpacity), F(style.BoxPadding),
+            style.Align.ToString(), F(style.X), F(style.Y), settings.Width.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            settings.Height.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key)))[..24];
+        return new MediaRef("", "title:" + hash, "title-" + hash, StillDuration, settings.Width, settings.Height, settings.FrameRate.Fps, HasVideo: true, HasAudio: false);
+
+        static string F(double value) => value.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>A still image's media (G20.2): its size from the probe, any length.</summary>
+    public static MediaRef ImageMedia(MediaRef probed)
+    {
+        ArgumentNullException.ThrowIfNull(probed);
+        return probed with { Duration = StillDuration, HasVideo = true, HasAudio = false, FrameRate = 0 };
+    }
+
+    /// <summary>Whether <paramref name="path"/> is a still image the timeline takes.</summary>
+    public static bool IsImagePath(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".webp";
 }

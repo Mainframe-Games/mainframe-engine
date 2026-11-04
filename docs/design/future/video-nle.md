@@ -1,6 +1,6 @@
 # Proposal: Video mode as a multi-track timeline editor
 
-**Status:** accepted (owner, 2026-11-04); G20a–G20d built (2026-11-05, [Video editing mode](../video-editor.md)), G20.2 next
+**Status:** accepted (owner, 2026-11-04); G20a–G20d and G20.2 built (2026-11-05, [Video editing mode](../video-editor.md)); G20.3 is later
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G20a–G20d, G20.2, G20.3)
 **Decision:** [ADR 0241](../../../memory/decisions/0241-video-mode-nle.md), which partly supersedes
 [ADR 0191](../../../memory/decisions/0191-video-editing-mode.md)
@@ -530,11 +530,16 @@ Test names are in the projects they will live in: `Video.Tests` (library), `Edit
   - rewrite `video-editor.md`; README and docs-site with screenshots.
 - [x] **G20d, per-clip Cutback tools (PR):** Transcribe, Fillers, Silence and Idle on clips; the transcript cache; the
   Transcript tab.
-- [ ] **G20.2, polish (PR or PRs):** volume and fades, dissolves and fade to black, titles, images, speed,
+- [x] **G20.2, polish (PR or PRs):** volume and fades, dissolves and fade to black, titles, images, speed,
   auto-captions.
 - [ ] **G20.3, later:** nested timelines, proxies, roll/slip, sync lock, crash recovery for timelines.
 
 ## Changes while building
+
+G20.2 (2026-11-05): titles are rasterised on the CPU with the engine's TrueType rasteriser (`Font.RenderLine`) rather
+than a `Label2D` captured from a `SubViewport`, so the preview and export read one PNG and no GPU is needed; a dissolve
+is an even number of frames (centred on whole frames); Dip to Black needs no handles; there is no track volume in the
+header (the Inspector's track gain).
 
 G20d (2026-11-05): Transcribe covers the whole media file (one transcript per recording, shared by its clips); each
 detector keeps its own cuts outside the clip's window; Export Transcript waits for captions (G20.2); the Transcript tab

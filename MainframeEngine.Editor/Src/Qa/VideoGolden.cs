@@ -79,6 +79,24 @@ internal static class VideoGolden
         return TimelineEdits.AddMarker(t, 12, "boss");
     }
 
+    /// <summary>
+    /// G20.2's golden: <see cref="Timeline"/> with a 1 s dissolve between the two V1 clips, a fade in on the first, and a
+    /// styled title on V3 at 4 s.
+    /// </summary>
+    public static Timeline TitleTimeline()
+    {
+        var t = Timeline();
+        var v1 = t.TracksOf(TrackKind.Video)[0].Id;
+        var v3 = t.TracksOf(TrackKind.Video)[2].Id;
+        var first = t.ClipsOn(v1)[0];
+        t = TimelineEdits.AddTransition(t, first.Id, t.ClipsOn(v1)[1].Id, TransitionKind.Dissolve, 1);
+        t = TimelineEdits.SetMix(t, first.Id, 0, 0.5, 0);
+        return TimelineEdits.PlaceStill(t, TimelineFactory.TitleMedia(Title, t.Settings), ClipKind.Title, Title, 4, 3, v3, insert: false);
+    }
+
+    /// <summary>The golden's title.</summary>
+    public static TitleStyle Title { get; } = TitleStyle.Default with { Text = "Boss fight", Size = 120, Outline = 6, Y = -600 };
+
     private static string Reason(string format, double seconds) => string.Format(CultureInfo.InvariantCulture, format, seconds);
 
     /// <summary>

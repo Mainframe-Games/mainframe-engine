@@ -16,9 +16,11 @@ public static class MediaRefs
     public static async Task<MediaRef> ProbeAsync(FfmpegLocation ffmpeg, string fullPath, string storedPath, string uid, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ffmpeg);
-        var info = await new MediaProbe(ffmpeg).ProbeAsync(fullPath, cancellationToken, requireVideo: false).ConfigureAwait(false);
+        var info = await new MediaProbe(ffmpeg).ProbeAsync(fullPath, cancellationToken, requireVideo: false, still: TimelineFactory.IsImagePath(fullPath))
+            .ConfigureAwait(false);
         var hash = await SourceHash.ComputeAsync(fullPath, cancellationToken).ConfigureAwait(false);
-        return From(info, storedPath, uid, hash);
+        var media = From(info, storedPath, uid, hash);
+        return TimelineFactory.IsImagePath(fullPath) ? TimelineFactory.ImageMedia(media) : media; // a still: any length fits
     }
 
     /// <summary>The reference for probed media.</summary>

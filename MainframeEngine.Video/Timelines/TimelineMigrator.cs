@@ -12,8 +12,14 @@ public sealed class TimelineMigrator
     private readonly int _targetVersion;
     private readonly IReadOnlyDictionary<int, Action<JsonObject>> _steps;
 
-    /// <summary>The migrator <see cref="TimelineSerializer"/> uses. Version 1 is the first: no steps yet.</summary>
-    public static TimelineMigrator Default { get; } = new(TimelineSerializer.CurrentVersion, new Dictionary<int, Action<JsonObject>>());
+    /// <summary>
+    /// The migrator <see cref="TimelineSerializer"/> uses. 1 → 2 (G20.2) adds nothing: every new field (clip kind,
+    /// volume, fades, title, transitions) has a default.
+    /// </summary>
+    public static TimelineMigrator Default { get; } = new(TimelineSerializer.CurrentVersion, new Dictionary<int, Action<JsonObject>>
+    {
+        [1] = static _ => { },
+    });
 
     public TimelineMigrator(int targetVersion, IReadOnlyDictionary<int, Action<JsonObject>> steps)
     {

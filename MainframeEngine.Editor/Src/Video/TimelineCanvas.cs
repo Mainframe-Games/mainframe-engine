@@ -41,6 +41,15 @@ public sealed class TimelineCanvas : EditorCanvas
     private static readonly Vector4 MarqueeFill = Rgb(0x3B, 0x82, 0xF6, 0.15f);
     private static readonly Vector4 MarqueeEdge = Rgb(0x3B, 0x82, 0xF6, 0.8f);
     private static readonly Vector4 Hint = Rgb(0x60, 0x60, 0x6A);
+    private static readonly Vector4 TitleClip = Rgb(0x4C, 0x2A, 0x6E);
+    private static readonly Vector4 TitleEdge = Rgb(0xB4, 0x8C, 0xFF);
+    private static readonly Vector4 FadeRamp = Rgb(0xFF, 0xFF, 0xFF, 0.45f);
+    private static readonly Vector4 FadeHandle = Rgb(0xFF, 0xFF, 0xFF, 0.9f);
+    private static readonly Vector4 TransitionFill = Rgb(0x26, 0x2B, 0x38, 0.92f);
+    private static readonly Vector4 TransitionEdge = Rgb(0xC8, 0xC8, 0xD2);
+
+    /// <summary>A fade handle's half size, in dp (also its grab distance).</summary>
+    public const float FadeHandleSize = 4;
 
     private readonly Func<Timeline> _timeline;
     private readonly TimelineViewState _view;
@@ -96,6 +105,44 @@ public sealed class TimelineCanvas : EditorCanvas
                 continue;
             DrawClip(clip, lane, top, end, rate);
         }
+
+        foreach (var transition in timeline.Transitions)
+            if (transition.TrackId == lane.TrackId && timeline.FindClip(transition.InClip) is { } incoming)
+                DrawTransition(transition, incoming.Start, top, lane.Height);
+    }
+
+    // The fade ramps (a line from the clip's corner to where the fade ends) and their handles at the top corners.
+    private void DrawFades(Clip clip, float x0, float x1, float y, float height)
+    {
+        var pps = (float)_view.PixelsPerSecond;
+        var inX = x0 + (float)clip.FadeIn * pps;
+        var outX = x1 - (float)clip.FadeOut * pps;
+        if (clip.FadeIn > 0)
+            Line(x0, y + height, inX, y, FadeRamp, 1.5f);
+        if (clip.FadeOut > 0)
+            Line(outX, y, x1, y + height, FadeRamp, 1.5f);
+        if (x1 - x0 < 4 * FadeHandleSize)
+            return;
+        Box(inX - FadeHandleSize / 2 + (clip.FadeIn > 0 ? 0 : FadeHandleSize / 2), y, FadeHandleSize, FadeHandleSize, FadeHandle);
+        Box(outX - FadeHandleSize / 2 - (clip.FadeOut > 0 ? 0 : FadeHandleSize / 2), y, FadeHandleSize, FadeHandleSize, FadeHandle);
+    }
+
+    // A transition: a box across the edit, half the lane high, with its kind.
+    private void DrawTransition(Transition transition, double edit, float top, float laneHeight)
+    {
+        var half = transition.Duration / 2;
+        var x0 = (float)_view.TimeToX(edit - half);
+        var x1 = (float)_view.TimeToX(edit + half);
+        if (x1 < 0 || x0 > ViewSize.X)
+            return;
+        var y = top + laneHeight * 0.45f;
+        var h = laneHeight * 0.4f;
+        Box(x0, y, x1 - x0, h, TransitionFill);
+        var selected = _view.SelectedTransition == transition.Id;
+        Outline(x0, y, x1 - x0, h, selected ? Selected : TransitionEdge, selected ? 2 : 1);
+        Line(x0, y + h, x1, y, TransitionEdge, 1); // the crossing
+        if (x1 - x0 > 50)
+            Text(transition.Kind == TransitionKind.Dissolve ? "Dissolve" : "Dip", x0 + 4, y + h - 3, 10, ClipText);
     }
 
     private void DrawClip(Clip clip, TimelineLane lane, float top, double end, FrameRate rate)
@@ -107,10 +154,11 @@ public sealed class TimelineCanvas : EditorCanvas
         var video = lane.Kind == TrackKind.Video;
         var visible0 = MathF.Max(x0, -2);
         var visible1 = MathF.Min(x1, ViewSize.X + 2);
-        Box(visible0, y, visible1 - visible0, height, video ? VideoClip : AudioClip);
+        var title = clip.Kind == ClipKind.Title;
+        Box(visible0, y, visible1 - visible0, height, title ? TitleClip : video ? VideoClip : AudioClip);
 
         var media = clip.Media;
-        if (video && _cache?.FilmstripOf(media.Hash, _resolve(media), media.Duration) is { } strip)
+        if (video && !clip.IsStill && _cache?.FilmstripOf(media.Hash, _resolve(media), media.Duration) is { } strip)
             DrawFilmstrip(clip, strip, x0, x1, y, height, rate);
         else if (!video && _cache?.WaveformOf(media.Hash, _resolve(media), media.Duration) is { } wave)
             DrawWave(clip, wave, x0, x1, y, height, rate);
@@ -121,8 +169,9 @@ public sealed class TimelineCanvas : EditorCanvas
         if (x1 - x0 > 24)
             Text(LabelOf(clip, x1 - x0), MathF.Max(x0, 0) + 5, y + 13, 11, ClipText);
 
+        DrawFades(clip, x0, x1, y, height);
         var selected = _view.Selection.Contains(clip.Id);
-        Outline(x0, y, x1 - x0, height, selected ? Selected : video ? VideoEdge : AudioEdge, selected ? 2 : 1);
+        Outline(x0, y, x1 - x0, height, selected ? Selected : title ? TitleEdge : video ? VideoEdge : AudioEdge, selected ? 2 : 1);
         if (!clip.Enabled)
             Box(visible0, y, visible1 - visible0, height, Disabled);
         if (_view.HoverEdge is { } edge && edge.ClipId == clip.Id)
@@ -224,7 +273,7 @@ public sealed class TimelineCanvas : EditorCanvas
             return cached.Text;
         if (_labels.Count >= LabelCacheLimit)
             _labels.Clear();
-        var name = Path.GetFileName(clip.Media.Path);
+        var name = clip.Kind == ClipKind.Title ? "T  " + (clip.Title?.Text ?? "").Replace('\n', ' ') : Path.GetFileName(clip.Media.Path);
         if (Math.Abs(clip.Speed - 1) > 1e-6)
             name += $" ({clip.Speed:0.##}×)";
         var text = name.Length <= chars ? name : chars <= 1 ? "…" : name[..(chars - 1)] + "…";

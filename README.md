@@ -203,7 +203,8 @@ Game|Video toggle turns the editor into a multi-track timeline editor laid out l
 (import from a picker or drag files in from Finder), Source and Timeline viewers, video and audio tracks with Premiere's
 keys (razor, add edit, ripple trim and delete, link and unlink, insert and overwrite), per-clip reframing for 9:16, a
 cut editor for the selected clip's source, Cutback's tools on a clip (Detect Silence, Detect Idle Gameplay, a Whisper
-transcript you edit by clicking words, Remove Fillers for the "um"s), and export through presets for TikTok, Reels and Shorts, YouTube and Steam,
+transcript you edit by clicking words, Remove Fillers for the "um"s), titles and auto-captions, cross dissolves and
+dips to black, volume, fades and speed, and export through presets for TikTok, Reels and Shorts, YouTube and Steam,
 X and Discord, and GIF or WebM loops. `Assets/Video` stays in the editor: games never ship it.
 
 ### The Forest

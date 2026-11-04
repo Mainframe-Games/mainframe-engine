@@ -26,11 +26,11 @@ public sealed class TimelineSerializerTests
         Assert.Equal(t.Uid, back.Uid);
         Assert.Equal(t.Settings, back.Settings);
         Assert.Equal(t.Tracks, back.Tracks);
-        Assert.StartsWith("{\n  \"version\": 1,\n  \"uid\": \"vtl_", json.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.StartsWith("{\n  \"version\": 2,\n  \"uid\": \"vtl_", json.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("\"kind\": \"video\"", json, StringComparison.Ordinal);
         Assert.Contains("\"fit\": \"fit\"", json, StringComparison.Ordinal);
 
-        var newer = json.Replace("\"version\": 1", "\"version\": 2", StringComparison.Ordinal);
+        var newer = json.Replace("\"version\": 2", "\"version\": 3", StringComparison.Ordinal);
         var e = Assert.Throws<TimelineFormatException>(() => TimelineSerializer.Deserialize(newer));
         Assert.Contains("newer version", e.Message, StringComparison.Ordinal);
     }

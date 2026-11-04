@@ -478,6 +478,11 @@ public sealed class VideoView : Node
         "video.detect_idle",
         "video.transcribe",
         "video.remove_fillers",
+        "video.add_title",
+        "video.add_dissolve",
+        "video.add_dip",
+        "video.remove_transition",
+        "video.create_captions",
         "video.show_transcript",
         "video.show_inspector",
         "video.tool_razor",
@@ -606,6 +611,17 @@ public sealed class VideoView : Node
                 break;
             case "video.deselect":
                 view.Selection.Clear();
+                view.SelectedTransition = null;
+                break;
+            case "video.add_title":
+                AddTitle(tab, playhead);
+                break;
+            case "video.add_dissolve":
+            case "video.add_dip":
+                AddTransitionAtPlayhead(tab, id == "video.add_dissolve" ? TransitionKind.Dissolve : TransitionKind.DipToBlack);
+                break;
+            case "video.create_captions":
+                CreateCaptions(tab);
                 break;
             case "video.add_edit":
                 doc.Apply("Add Edit", t => TimelineEdits.Razor(t, playhead, EditTracks(tab)));
@@ -619,6 +635,12 @@ public sealed class VideoView : Node
                 doc.Apply("Ripple Trim", t => RippleToPlayhead(tab, t, playhead, edge));
                 if (edge == TrimEdge.Start && TimelineLayout.ClipAt(doc.Timeline, EditTracks(tab).FirstOrDefault() ?? "", playhead) is null)
                     tab.Seek(playhead); // the frame after the ripple
+                break;
+            case "video.lift" when view.SelectedTransition is not null:
+            case "video.remove_transition":
+                if (view.SelectedTransition is { } transition)
+                    doc.Apply("Remove Transition", t => TimelineEdits.RemoveTransition(t, transition));
+                view.SelectedTransition = null;
                 break;
             case "video.lift":
                 doc.Apply("Delete", t => TimelineEdits.Lift(t, [.. view.Selection]));
@@ -845,9 +867,14 @@ public sealed class VideoView : Node
         var video = lane is { Kind: TrackKind.Video } v ? v.TrackId : tab.View.TargetOf(timeline, TrackKind.Video);
         var audio = lane is { Kind: TrackKind.Audio } a ? a.TrackId : tab.View.TargetOf(timeline, TrackKind.Audio);
         var name = insert ? "Insert" : "Overwrite";
-        var placed = tab.Document.Apply(name, t => insert
-            ? TimelineEdits.Insert(t, media, sourceIn, sourceOut, at, video, audio)
-            : TimelineEdits.Overwrite(t, media, sourceIn, sourceOut, at, video, audio));
+        var still = TimelineFactory.IsImagePath(media.Path);
+        if (still)
+            (sourceIn, sourceOut) = (0, TimelineEdits.DefaultStillSeconds); // an image is a still: 5 s, longer by trimming
+        var placed = video is not null && still
+            ? tab.Document.Apply(name, t => TimelineEdits.PlaceStill(t, media, ClipKind.Image, null, at, sourceOut, video, insert))
+            : tab.Document.Apply(name, t => insert
+                ? TimelineEdits.Insert(t, media, sourceIn, sourceOut, at, video, audio)
+                : TimelineEdits.Overwrite(t, media, sourceIn, sourceOut, at, video, audio));
         if (!placed)
         {
             tab.Notice = $"{Path.GetFileName(media.Path)} could not be placed: its track is locked or of the wrong kind.";
@@ -859,6 +886,98 @@ public sealed class VideoView : Node
             tab.View.Fit(TimelineLayout.Duration(tab.Timeline));
         tab.Seek(end);
         return end;
+    }
+
+    // ── Titles, transitions, captions (G20.2) ────────────────────────────────────────────────────────────────
+
+    // A 3 s title at the playhead on the top video track, or on a new one above it when the top one is taken there.
+    private static void AddTitle(TimelineTab tab, double at)
+    {
+        const double Seconds = 3;
+        var style = TitleStyle.Default;
+        var placed = tab.Document.Apply("Add Title", t =>
+        {
+            var top = t.TracksOf(TrackKind.Video)[^1];
+            var busy = top.Locked || t.ClipsOn(top.Id).Any(c => c.Start < at + Seconds && TimelineLayout.End(c, t.Rate) > at);
+            if (busy)
+                t = TimelineEdits.AddTrack(t, TrackKind.Video);
+            var track = t.TracksOf(TrackKind.Video)[^1].Id;
+            return TimelineEdits.PlaceStill(t, TimelineFactory.TitleMedia(style, t.Settings), ClipKind.Title, style, at, Seconds, track, insert: false);
+        });
+        if (!placed)
+            return;
+        var title = tab.Timeline.Clips.Where(c => c.Kind == ClipKind.Title && Math.Abs(c.Start - tab.Timeline.Rate.Snap(at)) < 1e-6).LastOrDefault();
+        tab.View.Selection.Clear();
+        tab.View.SelectedTransition = null;
+        if (title is not null)
+            tab.View.Selection.Add(title.Id);
+        tab.ShowsTranscript = false;
+    }
+
+    // Cmd+D (dissolve) / Shift+Cmd+D (dip): at the edit nearest the playhead on the selected clip's track, else the
+    // target video track; the reason in the notice when it cannot go there.
+    private static void AddTransitionAtPlayhead(TimelineTab tab, TransitionKind kind)
+    {
+        var timeline = tab.Timeline;
+        var track = tab.Primary?.TrackId ?? tab.View.TargetOf(timeline, TrackKind.Video);
+        if (track is null)
+            return;
+        (Clip Out, Clip In)? best = null;
+        var bestDistance = double.MaxValue;
+        foreach (var clip in timeline.ClipsOn(track))
+        {
+            if (TimelineEdits.Following(timeline, clip) is not { } next)
+                continue;
+            var distance = Math.Abs(next.Start - tab.View.Playhead);
+            if (distance < bestDistance)
+            {
+                best = (clip, next);
+                bestDistance = distance;
+            }
+        }
+
+        if (best is not { } edit)
+        {
+            tab.Notice = "No edit on this track: a transition goes where one clip ends and the next begins.";
+            return;
+        }
+
+        if (TimelineEdits.TransitionProblem(timeline, edit.Out.Id, edit.In.Id, kind, TimelineEdits.DefaultTransitionSeconds) is { } problem)
+        {
+            tab.Notice = problem;
+            return;
+        }
+
+        tab.Document.Apply(kind == TransitionKind.Dissolve ? "Add Cross Dissolve" : "Add Dip to Black",
+            t => TimelineEdits.AddTransition(t, edit.Out.Id, edit.In.Id, kind, TimelineEdits.DefaultTransitionSeconds));
+        tab.View.Selection.Clear();
+        tab.View.SelectedTransition = tab.Timeline.Transitions.FirstOrDefault(x => x.OutClip == edit.Out.Id)?.Id;
+    }
+
+    // Timeline › Create Captions: the selected clip's kept transcript words as caption titles on a new track.
+    private void CreateCaptions(TimelineTab tab)
+    {
+        if (tab.Primary is not { } clip || clip.IsStill)
+        {
+            tab.Notice = "Select a clip of a recording first: its transcript becomes the captions.";
+            return;
+        }
+
+        if (Tools.WordsOf(tab, clip) is not { Count: > 0 } words)
+        {
+            tab.Notice = "This clip has no transcript yet: Transcribe it first (the toolbar or the clip's menu).";
+            return;
+        }
+
+        var captions = CaptionPlanner.Plan(clip, words, tab.Timeline.Rate);
+        if (captions.Count == 0)
+        {
+            tab.Notice = "No kept words in this clip to caption.";
+            return;
+        }
+
+        tab.Document.Apply("Create Captions", t => TimelineEdits.AddCaptions(t, captions));
+        tab.Notice = captions.Count == 1 ? "Made 1 caption." : $"Made {captions.Count} captions.";
     }
 
     // ── Import, OS drops, new timelines and folders ──────────────────────────────────────────────────────────
@@ -921,7 +1040,7 @@ public sealed class VideoView : Node
         ImportFiles(paths, folder, imported =>
         {
             if (overTimeline && tab is not null && _workspace.Session.Tabs.Contains(tab))
-                PlaceAt(tab, [.. imported.Where(p => MediaPool.KindOf(p, false) is MediaPoolKind.Video or MediaPoolKind.Audio)], local, insert: false);
+                PlaceAt(tab, [.. imported.Where(p => MediaPool.KindOf(p, false) is MediaPoolKind.Video or MediaPoolKind.Audio or MediaPoolKind.Image)], local, insert: false);
         });
     }
 

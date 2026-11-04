@@ -19,7 +19,7 @@ public enum TrimEdge
 /// overwrites them: covered clips are trimmed, split or removed (<c>ClearRange</c>); their linked partners elsewhere are
 /// left alone, as an NLE without sync lock does. Ripple shifts the clips after an edit on the edited clips' tracks only.
 /// </remarks>
-public static class TimelineEdits
+public static partial class TimelineEdits
 {
     private const double Epsilon = 1e-6;
 

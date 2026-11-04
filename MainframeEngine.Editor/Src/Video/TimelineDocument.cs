@@ -115,11 +115,33 @@ public sealed class TimelineDocument
 
             if (_resolved.TryGetValue(media, out var known))
                 return known;
+            if (TitleOf(media) is { } title)
+            {
+                // A title is its raster: drawn once per style and size into the project's video cache.
+                var raster = TitleRasterizer.Ensure(media, title, TitlesDirectory);
+                _resolved[media] = raster;
+                return raster;
+            }
+
             var path = media.Uid.Length > 0 && database.GetPath(media.Uid) is { } moved ? moved : media.Path;
             var full = Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(ProjectRoot, path));
             _resolved[media] = full;
             return full;
         }
+    }
+
+    /// <summary>Where title rasters are cached: <c>&lt;project&gt;/.mainframe/cache/video/titles</c>.</summary>
+    public string TitlesDirectory => Path.Combine(ProjectRoot, ".mainframe", "cache", "video", "titles");
+
+    // The style of the title clip showing `media`, or null for any other media.
+    private TitleStyle? TitleOf(MediaRef media)
+    {
+        if (!media.Path.StartsWith("title:", StringComparison.Ordinal))
+            return null;
+        foreach (var clip in Timeline.Clips)
+            if (clip.Kind == ClipKind.Title && clip.Media == media)
+                return clip.Title;
+        return null;
     }
 
     /// <summary>Files moved in the project: media paths are looked up again.</summary>

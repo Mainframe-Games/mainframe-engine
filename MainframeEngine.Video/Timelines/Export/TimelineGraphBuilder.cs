@@ -131,7 +131,11 @@ public static class TimelineGraphBuilder
         var n = 0;
         int AddInput(Clip clip)
         {
-            inputs.AddRange(["-ss", F(clip.SourceIn), "-t", F(clip.SourceOut - clip.SourceIn), "-i", resolvePath?.Invoke(clip.Media) ?? clip.Media.Path]);
+            var path = resolvePath?.Invoke(clip.Media) ?? clip.Media.Path;
+            if (clip.IsStill)
+                inputs.AddRange(["-loop", "1", "-framerate", compose.ToFfmpeg(), "-t", F(clip.SourceOut + compose.FrameDuration), "-i", path]); // a picture held
+            else
+                inputs.AddRange(["-ss", F(clip.SourceIn), "-t", F(clip.SourceOut - clip.SourceIn), "-i", path]);
             return inputCount++;
         }
 
@@ -149,24 +153,32 @@ public static class TimelineGraphBuilder
                 if (clips.Count == 0)
                     continue;
 
-                var parts = new List<string>();
+                var edits = Edits(timeline, track.Id, clips, start, end);
+                var parts = new List<(string Label, double Length, double Join)>(); // Join: the dissolve into this part (0 = a cut)
                 var cursor = 0.0;
-                foreach (var (clip, at) in clips)
+                for (var i = 0; i < clips.Count; i++)
                 {
-                    if (at > cursor + Epsilon)
-                        parts.Add(Gap(graph, at - cursor, frame, ref n));
-                    var length = TimelineLayout.Length(clip, rate);
+                    var (original, at) = clips[i];
+                    var into = i > 0 ? edits[i - 1] : null;
+                    var outOf = edits[i];
+                    var before = into is { Kind: TransitionKind.Dissolve } ? into.Duration / 2 : 0;
+                    var after = outOf is { Kind: TransitionKind.Dissolve } ? outOf.Duration / 2 : 0;
+                    var clip = Extend(original, before, after);
+                    var placedAt = at - before;
+                    if (before == 0 && placedAt > cursor + Epsilon)
+                        parts.Add((Gap(graph, placedAt - cursor, frame, ref n), placedAt - cursor, 0));
+                    var length = TimelineLayout.Length(original, rate) + before + after;
+                    var fades = Fades(original, into, outOf);
                     var transform = positionScale == 1 ? clip.Transform : clip.Transform with { X = clip.Transform.X * positionScale, Y = clip.Transform.Y * positionScale };
-                    parts.Add(ClipLayout.Visible(clip.Media.Width, clip.Media.Height, transform, width, height) is { } visible
-                        ? VideoClip(graph, clip, AddInput(clip), visible, length, frame, ref n)
-                        : Gap(graph, length, frame, ref n));
-                    cursor = at + length;
+                    var label = ClipLayout.Visible(clip.Media.Width, clip.Media.Height, transform, width, height) is { } visible
+                        ? VideoClip(graph, clip, AddInput(clip), visible, length, fades, frame, ref n)
+                        : Gap(graph, length, frame, ref n);
+                    parts.Add((label, length, before * 2));
+                    cursor = placedAt + length;
                 }
 
                 var trackLabel = $"[t{n++}]";
-                foreach (var part in parts)
-                    graph.Append(part);
-                graph.Append("concat=n=").Append(parts.Count).Append(":v=1:a=0").Append(trackLabel).Append(";\n");
+                Join(graph, parts, trackLabel, ref n);
                 var over = $"[o{n++}]";
                 graph.Append(below).Append(trackLabel).Append("overlay=eof_action=pass:format=auto").Append(over).Append(";\n");
                 below = over;
@@ -185,8 +197,28 @@ public static class TimelineGraphBuilder
             {
                 if (track.Kind != TrackKind.Audio || !track.Enabled || track.Muted || (anySolo && !track.Solo))
                     continue;
-                foreach (var (clip, at) in InRange(timeline, track.Id, start, end))
-                    mix.Add(AudioClip(graph, clip, AddInput(clip), at, TimelineLayout.Length(clip, rate), track.GainDb, settings.SampleRate, ref n));
+                var clips = InRange(timeline, track.Id, start, end);
+                var edits = Edits(timeline, track.Id, clips, start, end);
+                for (var i = 0; i < clips.Count; i++)
+                {
+                    var (original, at) = clips[i];
+                    if (original.IsStill)
+                        continue;
+                    var into = i > 0 ? edits[i - 1] : null;
+                    var outOf = edits[i];
+                    var before = into is { Kind: TransitionKind.Dissolve } ? into.Duration / 2 : 0;
+                    var after = outOf is { Kind: TransitionKind.Dissolve } ? outOf.Duration / 2 : 0;
+                    var clip = Extend(original, before, after);
+                    var length = TimelineLayout.Length(original, rate) + before + after;
+                    // A dissolve's sound crossfades: the overlapping clips fade over its whole length.
+                    var (fadeIn, fadeOut) = Fades(original, into, outOf);
+                    if (before > 0)
+                        fadeIn = Math.Max(fadeIn, before * 2);
+                    if (after > 0)
+                        fadeOut = Math.Max(fadeOut, after * 2);
+                    mix.Add(AudioClip(graph, clip, AddInput(clip), at - before, length, track.GainDb + original.VolumeDb, (fadeIn, fadeOut),
+                        settings.SampleRate, ref n));
+                }
             }
 
             foreach (var label in mix)
@@ -250,6 +282,85 @@ public static class TimelineGraphBuilder
         return result;
     }
 
+    // The transition leaving each clip of the track (edits[i] joins clips i and i+1), when both are in the range and the
+    // edit sits far enough inside it for the transition to play whole; else a cut.
+    private static Transition?[] Edits(Timeline timeline, string trackId, List<(Clip Clip, double At)> clips, double start, double end)
+    {
+        var edits = new Transition?[clips.Count];
+        if (timeline.Transitions.Length == 0)
+            return edits;
+        for (var i = 0; i + 1 < clips.Count; i++)
+        {
+            foreach (var transition in timeline.Transitions)
+            {
+                if (transition.TrackId != trackId || transition.OutClip != clips[i].Clip.Id || transition.InClip != clips[i + 1].Clip.Id)
+                    continue;
+                var edit = start + clips[i + 1].At;
+                var half = transition.Duration / 2;
+                if (edit - half >= start - Epsilon && edit + half <= end + Epsilon && TimelineEdits.StillFits(timeline, transition))
+                    edits[i] = transition;
+            }
+        }
+
+        return edits;
+    }
+
+    // A clip lengthened into its handles: `before` seconds earlier, `after` later (a still holds its picture longer).
+    private static Clip Extend(Clip clip, double before, double after)
+    {
+        if (before <= 0 && after <= 0)
+            return clip;
+        if (clip.IsStill)
+            return clip with { Start = clip.Start - before, SourceOut = clip.SourceOut + before + after };
+        return clip with { Start = clip.Start - before, SourceIn = clip.SourceIn - before * clip.Speed, SourceOut = clip.SourceOut + after * clip.Speed };
+    }
+
+    // A clip's fades: its own, and half of a dip to black at either edit.
+    private static (double In, double Out) Fades(Clip clip, Transition? into, Transition? outOf)
+    {
+        var fadeIn = clip.FadeIn;
+        var fadeOut = clip.FadeOut;
+        if (into is { Kind: TransitionKind.DipToBlack })
+            fadeIn = Math.Max(fadeIn, into.Duration / 2);
+        if (outOf is { Kind: TransitionKind.DipToBlack })
+            fadeOut = Math.Max(fadeOut, outOf.Duration / 2);
+        return (fadeIn, fadeOut);
+    }
+
+    // A track's parts into one stream: a concat of them all when every edit is a cut (one filter), else part by part,
+    // each dissolve an xfade of its two parts over the dissolve's length (offset: the running length less the overlap).
+    private static void Join(StringBuilder graph, List<(string Label, double Length, double Join)> parts, string output, ref int n)
+    {
+        if (parts.Count == 1 || parts.TrueForAll(p => p.Join <= 0))
+        {
+            foreach (var part in parts)
+                graph.Append(part.Label);
+            graph.Append("concat=n=").Append(parts.Count).Append(":v=1:a=0").Append(output).Append(";\n");
+            return;
+        }
+
+        var current = parts[0].Label;
+        var running = parts[0].Length;
+        for (var i = 1; i < parts.Count; i++)
+        {
+            var next = i == parts.Count - 1 ? output : $"[j{n++}]";
+            graph.Append(current).Append(parts[i].Label);
+            if (parts[i].Join > 0)
+            {
+                graph.Append("xfade=transition=fade:duration=").Append(F(parts[i].Join)).Append(":offset=").Append(F(running - parts[i].Join));
+                running += parts[i].Length - parts[i].Join;
+            }
+            else
+            {
+                graph.Append("concat=n=2:v=1:a=0");
+                running += parts[i].Length;
+            }
+
+            graph.Append(next).Append(";\n");
+            current = next;
+        }
+    }
+
     private static string Gap(StringBuilder graph, double seconds, Frame frame, ref int n)
     {
         var label = $"[g{n++}]";
@@ -258,7 +369,7 @@ public static class TimelineGraphBuilder
         return label;
     }
 
-    private static string VideoClip(StringBuilder graph, Clip clip, int input, VisiblePart visible, double length, Frame frame, ref int n)
+    private static string VideoClip(StringBuilder graph, Clip clip, int input, VisiblePart visible, double length, (double In, double Out) fades, Frame frame, ref int n)
     {
         var id = n++;
         Splice(graph, clip, $"[{input.ToString(CultureInfo.InvariantCulture)}:v]", "trim", "setpts", "", id, video: true);
@@ -272,11 +383,17 @@ public static class TimelineGraphBuilder
             graph.Append(",colorchannelmixer=aa=").Append(F(Math.Max(0, clip.Transform.Opacity)));
         var label = $"[v{id}]";
         graph.Append(",tpad=stop_mode=clone:stop_duration=").Append(F(frame.Rate.FrameDuration))
-             .Append(",trim=duration=").Append(F(length)).Append(",setpts=PTS-STARTPTS").Append(label).Append(";\n");
+             .Append(",trim=duration=").Append(F(length)).Append(",setpts=PTS-STARTPTS");
+        if (fades.In > Epsilon)
+            graph.Append(",fade=t=in:st=0:d=").Append(F(fades.In)).Append(":color=black");
+        if (fades.Out > Epsilon)
+            graph.Append(",fade=t=out:st=").Append(F(Math.Max(0, length - fades.Out))).Append(":d=").Append(F(fades.Out)).Append(":color=black");
+        graph.Append(label).Append(";\n");
         return label;
     }
 
-    private static string AudioClip(StringBuilder graph, Clip clip, int input, double at, double length, double gainDb, int sampleRate, ref int n)
+    private static string AudioClip(StringBuilder graph, Clip clip, int input, double at, double length, double gainDb, (double In, double Out) fades,
+        int sampleRate, ref int n)
     {
         var id = n++;
         Splice(graph, clip, $"[{input.ToString(CultureInfo.InvariantCulture)}:a]", "atrim", "asetpts", ",afade", id, video: false);
@@ -288,6 +405,10 @@ public static class TimelineGraphBuilder
              .Append(",apad=whole_dur=").Append(F(length)).Append(",atrim=duration=").Append(F(length));
         if (Math.Abs(gainDb) > Epsilon)
             graph.Append(",volume=").Append(F(gainDb)).Append("dB");
+        if (fades.In > Epsilon)
+            graph.Append(",afade=t=in:st=0:d=").Append(F(fades.In));
+        if (fades.Out > Epsilon)
+            graph.Append(",afade=t=out:st=").Append(F(Math.Max(0, length - fades.Out))).Append(":d=").Append(F(fades.Out));
         if (at > Epsilon)
             graph.Append(",adelay=delays=").Append(Math.Round(at * 1000).ToString(CultureInfo.InvariantCulture)).Append(":all=1");
         var label = $"[a{id}]";

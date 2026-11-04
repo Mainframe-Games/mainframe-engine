@@ -52,6 +52,9 @@ public sealed class TimelineViewState
 
     public HashSet<string> Selection { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>The transition selected (G20.2: the Inspector edits it, Delete removes it), or null; exclusive with clips.</summary>
+    public string? SelectedTransition { get; set; }
+
     public TimelineTool Tool { get; set; }
 
     public bool Snapping { get; set; } = true;
