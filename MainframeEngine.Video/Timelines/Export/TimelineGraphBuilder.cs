@@ -49,6 +49,72 @@ public static class TimelineGraphBuilder
     {
         ArgumentNullException.ThrowIfNull(timeline);
         ArgumentNullException.ThrowIfNull(preset);
+        var settings = timeline.Settings;
+        var (width, height) = preset.SizeFor(settings);
+        var outRate = preset.RateFor(settings);
+        var (inputs, graph, audioGraph, duration, below) = Core(timeline, start, end, settings.Width, settings.Height, settings.FrameRate,
+            video: true, audio: preset.HasAudio, resolvePath);
+
+        graph.Append(below);
+        if (width != settings.Width || height != settings.Height)
+            graph.Append("scale=").Append(width).Append(':').Append(height).Append(":force_original_aspect_ratio=decrease:force_divisible_by=2,pad=")
+                 .Append(width).Append(':').Append(height).Append(":(ow-iw)/2:(oh-ih)/2:color=").Append(settings.BackgroundForFfmpeg()).Append(',');
+        if (outRate != settings.FrameRate)
+            graph.Append("fps=").Append(outRate.ToFfmpeg()).Append(',');
+        if (preset.Format == TimelineExportFormat.Gif)
+            graph.Append("setsar=1,split[gifa][gifb];\n[gifa]palettegen=stats_mode=diff[gifp];\n[gifb][gifp]paletteuse=dither=bayer:bayer_scale=5").Append(VideoOutput);
+        else
+            graph.Append("setsar=1,format=yuv420p").Append(VideoOutput);
+        if (audioGraph.Length > 0)
+            graph.Append(";\n").Append(audioGraph);
+        return new TimelineGraph(inputs, graph.ToString(), preset.HasAudio, duration, width, height, outRate);
+    }
+
+    /// <summary>
+    /// The editor's preview graph (docs/design/future/video-nle.md, Preview): raw RGBA frames at
+    /// <paramref name="width"/>×<paramref name="height"/> (the timeline's aspect) and <paramref name="rate"/> on
+    /// <c>[outv]</c>, or (with <paramref name="audio"/> instead) only the mix on <c>[outa]</c>: two decodes per play, as
+    /// a pipe carries one stream. The timeline is composed at the preview size (positions scaled), so the preview is
+    /// what export writes, smaller.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The range is empty.</exception>
+    public static TimelineGraph BuildPreview(Timeline timeline, double start, double end, int width, int height, FrameRate rate, bool audio,
+        Func<MediaRef, string>? resolvePath = null)
+    {
+        ArgumentNullException.ThrowIfNull(timeline);
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, 2);
+        var (inputs, graph, audioGraph, duration, below) = Core(timeline, start, end, width, height, rate, video: !audio, audio, resolvePath);
+        if (!audio)
+            graph.Append(below).Append("format=rgba").Append(VideoOutput);
+        else
+            graph.Append(audioGraph);
+        return new TimelineGraph(inputs, graph.ToString(), audio, duration, width, height, rate);
+    }
+
+    /// <summary>The preview size of a timeline: its aspect, the long side at most <paramref name="maxLongSide"/>, even.</summary>
+    public static (int Width, int Height) PreviewSize(TimelineSettings settings, int maxLongSide = 960)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        var scale = Math.Min(1.0, (double)maxLongSide / Math.Max(settings.Width, settings.Height));
+        return (Even(settings.Width * scale), Even(settings.Height * scale));
+    }
+
+    /// <summary>The preview rate: the timeline's, at most 30 fps.</summary>
+    public static FrameRate PreviewRate(TimelineSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        return settings.FrameRate.Fps > 30 + Epsilon ? new FrameRate(30, 1) : settings.FrameRate;
+    }
+
+    private static int Even(double pixels) => Math.Max(2, (int)Math.Round(pixels / 2, MidpointRounding.AwayFromZero) * 2);
+
+    // Inputs, the graph up to the composited video (its label returned as `below`, the chain left open for the caller)
+    // and the finished audio graph (empty without audio), which the caller appends after the video output. `width`/`height`/`compose` are the frame the tracks are composed
+    // in: the timeline's for export, the preview's (positions scaled) for the preview.
+    private static (List<string> Inputs, StringBuilder Graph, string Audio, double Duration, string Below) Core(Timeline timeline, double start, double end,
+        int width, int height, FrameRate compose, bool video, bool audio, Func<MediaRef, string>? resolvePath)
+    {
         var rate = timeline.Rate;
         var settings = timeline.Settings;
         start = rate.Snap(Math.Max(0, start));
@@ -57,6 +123,8 @@ public static class TimelineGraphBuilder
         if (duration < rate.FrameDuration - Epsilon)
             throw new InvalidOperationException("The range to export is empty.");
 
+        var positionScale = (double)width / settings.Width;
+        var frame = new Frame(width, height, compose, settings.BackgroundForFfmpeg());
         var inputs = new List<string>();
         var inputCount = 0;
         var graph = new StringBuilder(4096);
@@ -67,60 +135,50 @@ public static class TimelineGraphBuilder
             return inputCount++;
         }
 
-        // ── Video ──
-        var size = $"{settings.Width}x{settings.Height}";
-        graph.Append("color=c=").Append(settings.BackgroundForFfmpeg()).Append(":s=").Append(size).Append(":r=").Append(rate.ToFfmpeg())
-             .Append(":d=").Append(F(duration)).Append(",format=rgba[base];\n");
-        var below = "[base]";
-        foreach (var track in timeline.Tracks)
+        var below = "";
+        if (video)
         {
-            if (track.Kind != TrackKind.Video || !track.Enabled)
-                continue;
-            var clips = InRange(timeline, track.Id, start, end);
-            if (clips.Count == 0)
-                continue;
-
-            var parts = new List<string>();
-            var cursor = 0.0;
-            foreach (var (clip, at) in clips)
+            graph.Append("color=c=").Append(frame.Background).Append(":s=").Append(width).Append('x').Append(height).Append(":r=").Append(compose.ToFfmpeg())
+                 .Append(":d=").Append(F(duration)).Append(",format=rgba[base];\n");
+            below = "[base]";
+            foreach (var track in timeline.Tracks)
             {
-                if (at > cursor + Epsilon)
-                    parts.Add(Gap(graph, at - cursor, settings, ref n));
-                var length = TimelineLayout.Length(clip, rate);
-                parts.Add(ClipLayout.Visible(clip.Media.Width, clip.Media.Height, clip.Transform, settings.Width, settings.Height) is { } visible
-                    ? VideoClip(graph, clip, AddInput(clip), visible, length, settings, ref n)
-                    : Gap(graph, length, settings, ref n));
-                cursor = at + length;
-            }
+                if (track.Kind != TrackKind.Video || !track.Enabled)
+                    continue;
+                var clips = InRange(timeline, track.Id, start, end);
+                if (clips.Count == 0)
+                    continue;
 
-            var trackLabel = $"[t{n++}]";
-            foreach (var part in parts)
-                graph.Append(part);
-            graph.Append("concat=n=").Append(parts.Count).Append(":v=1:a=0").Append(trackLabel).Append(";\n");
-            var over = $"[o{n++}]";
-            graph.Append(below).Append(trackLabel).Append("overlay=eof_action=pass:format=auto").Append(over).Append(";\n");
-            below = over;
+                var parts = new List<string>();
+                var cursor = 0.0;
+                foreach (var (clip, at) in clips)
+                {
+                    if (at > cursor + Epsilon)
+                        parts.Add(Gap(graph, at - cursor, frame, ref n));
+                    var length = TimelineLayout.Length(clip, rate);
+                    var transform = positionScale == 1 ? clip.Transform : clip.Transform with { X = clip.Transform.X * positionScale, Y = clip.Transform.Y * positionScale };
+                    parts.Add(ClipLayout.Visible(clip.Media.Width, clip.Media.Height, transform, width, height) is { } visible
+                        ? VideoClip(graph, clip, AddInput(clip), visible, length, frame, ref n)
+                        : Gap(graph, length, frame, ref n));
+                    cursor = at + length;
+                }
+
+                var trackLabel = $"[t{n++}]";
+                foreach (var part in parts)
+                    graph.Append(part);
+                graph.Append("concat=n=").Append(parts.Count).Append(":v=1:a=0").Append(trackLabel).Append(";\n");
+                var over = $"[o{n++}]";
+                graph.Append(below).Append(trackLabel).Append("overlay=eof_action=pass:format=auto").Append(over).Append(";\n");
+                below = over;
+            }
         }
 
-        var (width, height) = preset.SizeFor(settings);
-        var outRate = preset.RateFor(settings);
-        graph.Append(below);
-        var scaled = width != settings.Width || height != settings.Height;
-        if (scaled)
-            graph.Append("scale=").Append(width).Append(':').Append(height).Append(":force_original_aspect_ratio=decrease:force_divisible_by=2,pad=")
-                 .Append(width).Append(':').Append(height).Append(":(ow-iw)/2:(oh-ih)/2:color=").Append(settings.BackgroundForFfmpeg()).Append(',');
-        if (outRate != rate)
-            graph.Append("fps=").Append(outRate.ToFfmpeg()).Append(',');
-        if (preset.Format == TimelineExportFormat.Gif)
-            graph.Append("setsar=1,split[gifa][gifb];\n[gifa]palettegen=stats_mode=diff[gifp];\n[gifb][gifp]paletteuse=dither=bayer:bayer_scale=5").Append(VideoOutput);
-        else
-            graph.Append("setsar=1,format=yuv420p").Append(VideoOutput);
-
-        // ── Audio ──
-        var hasAudio = preset.HasAudio;
-        if (hasAudio)
+        var audioGraph = new StringBuilder();
+        if (audio)
         {
-            graph.Append(";\nanullsrc=r=").Append(settings.SampleRate).Append(":cl=stereo,atrim=duration=").Append(F(duration)).Append("[asil];\n");
+            var videoGraph = graph;
+            graph = audioGraph;
+            graph.Append("anullsrc=r=").Append(settings.SampleRate).Append(":cl=stereo,atrim=duration=").Append(F(duration)).Append("[asil];\n");
             var anySolo = timeline.Tracks.Any(t => t.Kind == TrackKind.Audio && t.Solo);
             var mix = new List<string> { "[asil]" };
             foreach (var track in timeline.Tracks)
@@ -136,10 +194,14 @@ public static class TimelineGraphBuilder
             graph.Append(mix.Count == 1
                 ? "anull"
                 : $"amix=inputs={mix.Count.ToString(CultureInfo.InvariantCulture)}:normalize=0:duration=first:dropout_transition=0").Append(AudioOutput);
+            graph = videoGraph;
         }
 
-        return new TimelineGraph(inputs, graph.ToString(), hasAudio, duration, width, height, outRate);
+        return (inputs, graph, audioGraph.ToString(), duration, below);
     }
+
+    // The frame the tracks are composed in.
+    private sealed record Frame(int Width, int Height, FrameRate Rate, string Background);
 
     /// <summary>The <c>atempo</c> chain for <paramref name="speed"/> (each stage takes 0.5–2).</summary>
     public static string Atempo(double speed)
@@ -188,28 +250,28 @@ public static class TimelineGraphBuilder
         return result;
     }
 
-    private static string Gap(StringBuilder graph, double seconds, TimelineSettings settings, ref int n)
+    private static string Gap(StringBuilder graph, double seconds, Frame frame, ref int n)
     {
         var label = $"[g{n++}]";
-        graph.Append("color=c=black@0:s=").Append(settings.Width).Append('x').Append(settings.Height).Append(":r=").Append(settings.FrameRate.ToFfmpeg())
+        graph.Append("color=c=black@0:s=").Append(frame.Width).Append('x').Append(frame.Height).Append(":r=").Append(frame.Rate.ToFfmpeg())
              .Append(":d=").Append(F(seconds)).Append(",format=rgba").Append(label).Append(";\n");
         return label;
     }
 
-    private static string VideoClip(StringBuilder graph, Clip clip, int input, VisiblePart visible, double length, TimelineSettings settings, ref int n)
+    private static string VideoClip(StringBuilder graph, Clip clip, int input, VisiblePart visible, double length, Frame frame, ref int n)
     {
         var id = n++;
         Splice(graph, clip, $"[{input.ToString(CultureInfo.InvariantCulture)}:v]", "trim", "setpts", "", id, video: true);
         graph.Append(Math.Abs(clip.Speed - 1) > Epsilon ? "setpts=(PTS-STARTPTS)/" + F(clip.Speed) : "setpts=PTS-STARTPTS")
-             .Append(",fps=").Append(settings.FrameRate.ToFfmpeg())
+             .Append(",fps=").Append(frame.Rate.ToFfmpeg())
              .Append(",crop=").Append(visible.SourceWidth).Append(':').Append(visible.SourceHeight).Append(':').Append(visible.SourceX).Append(':').Append(visible.SourceY)
              .Append(",scale=").Append(visible.Width).Append(':').Append(visible.Height)
-             .Append(",setsar=1,format=rgba,pad=").Append(settings.Width).Append(':').Append(settings.Height).Append(':').Append(visible.X).Append(':').Append(visible.Y)
+             .Append(",setsar=1,format=rgba,pad=").Append(frame.Width).Append(':').Append(frame.Height).Append(':').Append(visible.X).Append(':').Append(visible.Y)
              .Append(":color=black@0");
         if (clip.Transform.Opacity < 1 - Epsilon)
             graph.Append(",colorchannelmixer=aa=").Append(F(Math.Max(0, clip.Transform.Opacity)));
         var label = $"[v{id}]";
-        graph.Append(",tpad=stop_mode=clone:stop_duration=").Append(F(settings.FrameRate.FrameDuration))
+        graph.Append(",tpad=stop_mode=clone:stop_duration=").Append(F(frame.Rate.FrameDuration))
              .Append(",trim=duration=").Append(F(length)).Append(",setpts=PTS-STARTPTS").Append(label).Append(";\n");
         return label;
     }

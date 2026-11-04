@@ -271,7 +271,7 @@ public sealed class FileSystemPanel : EditorDocument
             return;
         var dirty = new HashSet<string>(StringComparer.Ordinal);
         foreach (var tab in Workspace.Session.Tabs)
-            if (tab is EditedScene or Music.SongTab or Video.VideoTab && tab.IsDirty && tab.FilePath is { } path)
+            if (tab is EditedScene or Music.SongTab or Video.TimelineTab && tab.IsDirty && tab.FilePath is { } path)
                 dirty.Add(path);
         _fs.SetUnsaved(dirty);
     }
@@ -591,8 +591,8 @@ public sealed class FileSystemPanel : EditorDocument
             case FileKind.Song:
                 Workspace.Commands.OpenSong(entry.FullPath);
                 break;
-            case FileKind.Video or FileKind.VideoProject:
-                Workspace.Commands.OpenVideo(entry.FullPath);
+            case FileKind.Video or FileKind.Timeline:
+                Workspace.Commands.OpenAny(entry.FullPath);
                 break;
             case FileKind.Rml:
                 try

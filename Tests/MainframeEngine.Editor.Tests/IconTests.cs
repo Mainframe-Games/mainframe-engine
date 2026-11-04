@@ -262,8 +262,8 @@ public sealed partial class IconAtlasTests
     [InlineData("thing.xyz", false, "file", "")]
     [InlineData("run.mp4", false, "movie", "icon-audio")]
     [InlineData("run.WEBM", false, "movie", "icon-audio")]
-    [InlineData("run.mfcut", false, "video", "icon-audio")]
-    [InlineData("run.cutback", false, "video", "icon-audio")]
+    [InlineData("Trailer.mftimeline", false, "video", "icon-audio")]
+    [InlineData("run.mfcut", false, "file", "")] // the old Cutback projects are no longer the editor's
     [InlineData("Assets", true, "folder", "icon-dir")]
     public void FilesGetIconsByExtension(string path, bool directory, string icon, string family)
     {

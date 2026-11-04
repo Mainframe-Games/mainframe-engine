@@ -68,6 +68,36 @@ public sealed class TimelineFfmpegTests : IDisposable
         Assert.Equal(preset.HasAudio, result.HasAudio);
     }
 
+    [Fact]
+    public async Task PreviewDecodesRawFramesAndSamples()
+    {
+        var ffmpeg = Ffmpeg();
+        var source = Path.Combine(_dir.FullName, "rec.mp4");
+        await Run(ffmpeg.FfmpegPath, ["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=60", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+            "-t", "3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-y", source]);
+        var media = await MediaRefs.ProbeAsync(ffmpeg, source, source, "", TestContext.Current.CancellationToken);
+        var t = TimelineEdits.Append(Vertical(), media, 0, 2, V1(Vertical()), null);
+        var fresh = Vertical();
+        t = TimelineEdits.Append(fresh, media, 0, 2, V1(fresh), A1(fresh));
+
+        var video = await Read(ffmpeg, TimelinePreviewArguments.Video(t, 0, 1, 540, 960, Rate30, null));
+        Assert.InRange(video, 29 * 540 * 960 * 4, 31 * 540 * 960 * 4); // 30 frames, give or take one
+        var audio = await Read(ffmpeg, TimelinePreviewArguments.Audio(t, 0, 1, 44100, null));
+        Assert.InRange(audio, 44100 * 8 * 49 / 50, 44100 * 8 * 51 / 50); // a second of stereo float, ±2 %
+        var frame = await Read(ffmpeg, TimelinePreviewArguments.Frame(t, 0.5, 540, 960, Rate30, null));
+        Assert.Equal(540 * 960 * 4, frame);
+    }
+
+    private static async Task<int> Read(FfmpegLocation ffmpeg, IEnumerable<string> args)
+    {
+        using var process = FfmpegProcess.Start(ffmpeg.FfmpegPath, args, redirectStandardOutput: true);
+        var stderr = process.StandardError.ReadToEndAsync();
+        using var buffer = new MemoryStream();
+        await process.StandardOutput.BaseStream.CopyToAsync(buffer);
+        await FfmpegProcess.WaitForSuccessAsync(process, stderr, "Previewing", CancellationToken.None);
+        return (int)buffer.Length;
+    }
+
     private static async Task Run(string exe, IEnumerable<string> args)
     {
         using var process = FfmpegProcess.Start(exe, args, redirectStandardOutput: false);

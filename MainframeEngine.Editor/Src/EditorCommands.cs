@@ -15,17 +15,10 @@ namespace MainframeEngine.Editor;
 /// </summary>
 public sealed class EditorCommands
 {
-    /// <summary>How many recordings <see cref="EditorSettings.RecentVideos"/> keeps.</summary>
-    internal const int RecentVideoLimit = 10;
-
-    /// <summary>How many of them the video-mode File menu lists.</summary>
-    private const int RecentVideoMenuItems = 5;
-
-    private const string RecentVideoCommand = "video.recent:";
     private const string RecentSongCommand = "song.recent:";
 
-    /// <summary>What File › Open accepts as a recording: the videos and the project files.</summary>
-    private static readonly string[] VideoFilters = ["*.mp4", "*.mov", "*.mkv", "*.webm", "*.mfcut", "*.cutback"];
+    /// <summary>What File › Open accepts besides scenes: timelines and videos (which open in video mode).</summary>
+    private static readonly string[] VideoFilters = ["*.mftimeline", "*.mp4", "*.mov", "*.mkv", "*.webm"];
 
     private readonly EditorWorkspace _workspace;
 
@@ -96,7 +89,9 @@ public sealed class EditorCommands
     {
         if (Session.ActiveTab is SongTab song && RunSong(song, id))
             return true;
-        if (Session.ActiveTab is VideoTab video && RunVideo(video, id))
+        if (id.StartsWith("video.", StringComparison.Ordinal) && _workspace.VideoView.RunCommand(id))
+            return true;
+        if (Session.ActiveTab is TimelineTab timeline && RunTimeline(timeline, id))
             return true;
         if (id.StartsWith("tilemap.", StringComparison.Ordinal))
             return _workspace.TileMap.RunCommand(id);
@@ -107,7 +102,7 @@ public sealed class EditorCommands
             case "file.new_song": NewSong(); return true;
             case "file.open":
                 if (_workspace.Mode == EditorMode.Video)
-                    OpenRecording();
+                    OpenTimelineFile();
                 else if (_workspace.Mode == EditorMode.Music)
                     OpenSongFile();
                 else
@@ -209,19 +204,10 @@ public sealed class EditorCommands
             case "editor.mode.video": _workspace.SetMode(EditorMode.Video); return true;
             case "editor.mode.music": _workspace.SetMode(EditorMode.Music); return true;
             case "music.settings": _workspace.EditorSettingsDialog.Open(scrollToMusic: true); return true;
-            case "editor.video_editor":
-                _workspace.ProjectManager.Close();
-                _workspace.SetMode(EditorMode.Video);
-                return true;
             case "view.output" when _workspace.Mode == EditorMode.Music: _workspace.ToggleMusicOutput(); return true;
             case "view.output": _workspace.ToggleVideoOutput(); return true;
-            case "video.toggle_transcript": _workspace.ToggleVideoTranscript(); return true;
             case "music.browser": _workspace.ToggleMusicBrowser(); return true;
             case "music.adaptive": _workspace.ToggleMusicAdaptive(); return true;
-            // The video toolbar's buttons without a video tab: they show disabled, and a click does nothing.
-            case "video.play" or "video.stop" or "video.transcribe" or "video.remove_fillers" or "video.detect_silence"
-                or "video.detect_idle" or "video.export" or "video.export_transcript" when Session.ActiveTab is not VideoTab:
-                return true;
             // The same for the music toolbar and the Song menu without a song tab.
             case { } command when command.StartsWith("song.", StringComparison.Ordinal) &&
                                   !command.StartsWith(RecentSongCommand, StringComparison.Ordinal) && Session.ActiveTab is not SongTab:
@@ -234,48 +220,31 @@ public sealed class EditorCommands
                     return true;
                 }
 
-                if (id.StartsWith(RecentVideoCommand, StringComparison.Ordinal) &&
-                    int.TryParse(id.AsSpan(RecentVideoCommand.Length), NumberStyles.None, CultureInfo.InvariantCulture, out var recent))
-                {
-                    OpenRecentVideo(recent);
-                    return true;
-                }
-
                 return id.StartsWith("fs.", StringComparison.Ordinal) && _workspace.FileSystem.RunCommand(id);
         }
     }
 
-    // Commands that act on the active video tab (false: not a video command, run it as usual).
-    private bool RunVideo(VideoTab video, string id)
+    // Commands that act on the active timeline tab instead of a scene (false: not one of them, run it as usual).
+    private bool RunTimeline(TimelineTab tab, string id)
     {
+        var history = tab.Document.History;
         switch (id)
         {
-            case "file.save": SaveVideo(video, saveAs: false, then: null); return true;
-            case "file.save_as": SaveVideo(video, saveAs: true, then: null); return true;
-            // A boundary drag in flight ends first, as one recorded step, so undo reverts exactly that drag.
+            case "file.save": SaveTimeline(tab, saveAs: false, then: null); return true;
+            case "file.save_as": SaveTimeline(tab, saveAs: true, then: null); return true;
+            // A drag in flight ends first, as one recorded step, so undo reverts exactly that drag.
             case "edit.undo":
-                video.Controller.CancelGesture();
-                video.Document.Editor.Undo();
+                tab.Controller.CancelGesture();
+                tab.CutController.CancelGesture();
+                history.Undo();
                 return true;
             case "edit.redo":
-                video.Controller.CancelGesture();
-                video.Document.Editor.Redo();
+                tab.Controller.CancelGesture();
+                tab.CutController.CancelGesture();
+                history.Redo();
                 return true;
             case "edit.history": return true;
-            case "edit.delete": video.Controller.DeleteHovered(); return true;
-            case "video.play": video.TogglePlay(); return true;
-            case "video.stop": video.Stop(); return true;
-            case "video.detect_idle":
-                video.Controller.CancelGesture();
-                video.Notice = video.Document.Capture is null
-                    ? "This recording has no Mainframe Engine sidecar."
-                    : video.Document.DetectIdleGameplay(_workspace.Settings.VideoGameplay);
-                return true;
-            case "video.detect_silence": _workspace.VideoView.DetectSilence(video); return true;
-            case "video.transcribe": _workspace.VideoView.Transcribe(video); return true;
-            case "video.remove_fillers": _workspace.VideoView.RemoveFillers(video); return true;
-            case "video.export": _workspace.VideoView.Export(video); return true;
-            case "video.export_transcript": ExportTranscript(video); return true;
+            case "edit.delete": _workspace.VideoView.RunCommand("video.lift"); return true;
             default: return false;
         }
     }
@@ -455,62 +424,49 @@ public sealed class EditorCommands
 
     // ── Video ────────────────────────────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>How many paths a recent list keeps.</summary>
+    internal const int RecentLimit = 10;
+
     /// <summary>
-    /// Opens a recording, <c>.mfcut</c> or <c>.cutback</c> in a video tab (switching to video mode) behind the splash and
-    /// puts it at the top of the recent videos. Without ffmpeg it says so instead.
+    /// Opens the <c>.mftimeline</c> at <paramref name="path"/> in a video tab (switching to video mode) behind the loading
+    /// window. The viewers need ffmpeg: without it the editor says so instead.
     /// </summary>
-    public void OpenVideo(string path)
+    public void OpenTimeline(string path)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        try
+        if (_workspace.VideoView.FfmpegOrReport() is not { } ffmpeg)
+            return;
+        _workspace.RunWithSplash($"Opening {Path.GetFileName(path)}…", () =>
         {
-            var ffmpeg = LocateFfmpeg(_workspace.Settings.VideoFfmpegPath);
-            _workspace.RunWithSplash($"Opening {Path.GetFileName(path)}…", () =>
+            try
             {
-                try
-                {
-                    Session.OpenVideo(path, ffmpeg, _workspace.Settings.VideoUndoHistoryLimit);
-                    TouchRecentVideo(path);
-                }
-                catch (Exception e) when (IsRecoverable(e))
-                {
-                    ReportError($"Could not open {Path.GetFileName(path)}", e);
-                }
-            });
-        }
-        catch (FfmpegMissingException e)
-        {
-            // No tab exists yet to hold a notice, so this one is modal, with the way to the setting on it.
-            Log.Error($"[Editor] The video editor needs ffmpeg: {e.Message}");
-            _workspace.Message.Show(new MessageRequest
+                Session.OpenTimeline(path, _workspace.VideoView.Decoders(ffmpeg), ffmpeg, _workspace.VideoView.CacheFor(ffmpeg));
+            }
+            catch (Exception e) when (IsRecoverable(e))
             {
-                Title = "Error",
-                Message = $"The video editor needs ffmpeg:\n{e.Message}",
-                Buttons = ["Video Settings…", "OK"],
-                CancelButton = 1,
-                Callback = (button, _) =>
-                {
-                    if (button == 0)
-                        Execute("video.settings");
-                },
-            });
-        }
+                ReportError($"Could not open {Path.GetFileName(path)}", e);
+            }
+        });
     }
 
     /// <summary>Finds ffmpeg for video mode (<see cref="VideoFfmpeg.Locate"/>); tests swap it so the machine's ffmpeg never matters.</summary>
     internal Func<string?, FfmpegLocation> LocateFfmpeg { get; set; } = VideoFfmpeg.Locate;
 
     /// <summary>
-    /// Opens any file by kind: recordings and video projects in a video tab, songs in a song tab, <c>.rml</c> in a UI
-    /// preview, anything else as a scene. File › Open's pickers use it.
+    /// Opens any file by kind: timelines in a video tab, videos in video mode's Source viewer, songs in a song tab,
+    /// <c>.rml</c> in a UI preview, anything else as a scene. File › Open's pickers and the FileSystem panel use it.
     /// </summary>
     public void OpenAny(string path)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         switch (FileKinds.Of(path, isDirectory: false))
         {
-            case FileKind.Video or FileKind.VideoProject:
-                OpenVideo(path);
+            case FileKind.Timeline:
+                OpenTimeline(path);
+                break;
+            case FileKind.Video:
+                _workspace.SetMode(EditorMode.Video);
+                _workspace.VideoView.ShowInSource(path);
                 break;
             case FileKind.Song:
                 OpenSong(path);
@@ -532,96 +488,44 @@ public sealed class EditorCommands
         }
     }
 
-    /// <summary>Video mode's File › Open: a picker for a recording or a video project.</summary>
-    public void OpenRecording()
+    /// <summary>Video mode's File › Open: a picker for a timeline, in the project's <c>Assets/Video/Timelines</c>.</summary>
+    public void OpenTimelineFile()
     {
-        var start = Session.ActiveVideo?.Document.SourcePath ?? _workspace.Settings.RecentVideos.FirstOrDefault();
-        var directory = start is not null && Path.GetDirectoryName(start) is { } folder && Directory.Exists(folder)
-            ? folder
-            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var model = new FilePickerModel(FilePickerMode.Open, directory, VideoFilters);
-        _workspace.FilePicker.Show(model, "Open Recording", "Open", OpenAny);
+        var root = Session.ProjectRoot ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var folder = Path.Combine(root, "Assets", "Video", "Timelines");
+        var model = new FilePickerModel(FilePickerMode.Open, Directory.Exists(folder) ? folder : root, ["*.mftimeline"]);
+        _workspace.FilePicker.Show(model, "Open Timeline", "Open", OpenAny);
     }
 
-    /// <summary>
-    /// Saves a video tab's project, then runs <paramref name="then"/> with whether it was saved. An unsaved recording (or an
-    /// imported <c>.cutback</c>) and Save As ask where, suggesting <c>&lt;video dir&gt;/&lt;video name&gt;.mfcut</c>.
-    /// </summary>
-    public void SaveVideo(VideoTab tab, bool saveAs, Action<bool>? then)
+    /// <summary>Saves a timeline tab (Save As asks where, in the project), then runs <paramref name="then"/> with whether it was saved.</summary>
+    public void SaveTimeline(TimelineTab tab, bool saveAs, Action<bool>? then)
     {
         ArgumentNullException.ThrowIfNull(tab);
-        if (!saveAs && tab.Document.FilePath is not null)
+        if (!saveAs)
         {
-            var saved = TrySaveVideo(tab, null); // not inside then?.Invoke(...): a null callback would skip the save
+            var saved = TrySaveTimeline(tab, null); // not inside then?.Invoke(...): a null callback would skip the save
             then?.Invoke(saved);
             return;
         }
 
-        var suggested = tab.Document.FilePath ?? tab.Document.DefaultProjectPath;
-        var model = new FilePickerModel(FilePickerMode.Save, Path.GetDirectoryName(suggested)!, ["*.mfcut"], Path.GetFileName(suggested));
-        _workspace.FilePicker.Show(model, "Save Video Project", "Save",
+        var current = tab.Document.FilePath;
+        var model = new FilePickerModel(FilePickerMode.Save, Path.GetDirectoryName(current)!, ["*.mftimeline"], Path.GetFileName(current));
+        _workspace.FilePicker.Show(model, "Save Timeline", "Save",
             path =>
             {
-                var saved = TrySaveVideo(tab, path); // not inside then?.Invoke(...): a null callback would skip the save
+                var saved = TrySaveTimeline(tab, path);
                 then?.Invoke(saved);
             },
             onCancel: () => then?.Invoke(false));
     }
 
-    /// <summary>
-    /// File › Export Transcript: asks where (default <c>&lt;recording name&gt;.txt</c> beside the recording) and writes the
-    /// edited transcript, cut words left out and times matching the exported video; <c>.srt</c> writes subtitles.
-    /// </summary>
-    public void ExportTranscript(VideoTab tab)
-    {
-        ArgumentNullException.ThrowIfNull(tab);
-        if (tab.Document.Transcript.Count == 0)
-        {
-            tab.Notice = "There is no transcript to export. Transcribe the recording first.";
-            return;
-        }
-
-        var source = tab.Document.SourcePath;
-        var model = new FilePickerModel(FilePickerMode.Save, Path.GetDirectoryName(source)!, ["*.txt", "*.srt"],
-            Path.GetFileNameWithoutExtension(source) + ".txt");
-        _workspace.FilePicker.Show(model, "Export Transcript", "Export", path => WriteTranscript(tab, path));
-    }
-
-    /// <summary>
-    /// Writes <paramref name="tab"/>'s edited transcript to <paramref name="path"/> as UTF-8 without a BOM: <c>.srt</c>
-    /// as subtitles, anything else as text (<c>.txt</c> is added unless the name already ends in it). Never the recording
-    /// itself. A failure is shown in a message box; false then.
-    /// </summary>
-    internal bool WriteTranscript(VideoTab tab, string path)
-    {
-        ArgumentNullException.ThrowIfNull(tab);
-        ArgumentException.ThrowIfNullOrEmpty(path);
-        var srt = path.EndsWith(".srt", StringComparison.OrdinalIgnoreCase);
-        if (!srt && !path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
-            path += ".txt";
-        try
-        {
-            if (VideoPaths.SameFile(path, tab.Document.SourcePath))
-                throw new IOException("That is the recording itself; the transcript goes in a separate file.");
-            File.WriteAllText(path, tab.Document.TranscriptText(srt), new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            tab.Notice = $"Exported {Path.GetFileName(path)}.";
-            return true;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            ReportError("Could not write the transcript", e);
-            return false;
-        }
-    }
-
-    private bool TrySaveVideo(VideoTab tab, string? path)
+    private bool TrySaveTimeline(TimelineTab tab, string? path)
     {
         try
         {
-            Session.SaveVideo(tab, path);
+            Session.SaveTimeline(tab, path);
             Log.Info($"[Editor] Saved {tab.FilePath}");
             _workspace.FileSystem.UpdateUnsaved();
-            TouchRecentVideo(tab.FilePath!, replacing: tab.Document.SourcePath);
             return true;
         }
         catch (Exception e) when (IsRecoverable(e))
@@ -633,7 +537,7 @@ public sealed class EditorCommands
 
     /// <summary>
     /// Moves <paramref name="path"/> to the front of <paramref name="list"/> (a copy already there is removed, ignoring case on
-    /// Windows) and keeps at most <see cref="RecentVideoLimit"/> entries.
+    /// Windows) and keeps at most <see cref="RecentLimit"/> entries.
     /// </summary>
     internal static void TouchRecent(List<string> list, string path)
     {
@@ -642,43 +546,8 @@ public sealed class EditorCommands
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         list.RemoveAll(p => string.Equals(p, path, comparison));
         list.Insert(0, path);
-        if (list.Count > RecentVideoLimit)
-            list.RemoveRange(RecentVideoLimit, list.Count - RecentVideoLimit);
-    }
-
-    // The saved project supersedes its recording in the list (replacing): reopening the bare video would start over.
-    private void TouchRecentVideo(string path, string? replacing = null)
-    {
-        var full = Path.GetFullPath(path);
-        var settings = _workspace.Settings.Clone();
-        if (replacing is not null && !EditorSession.PathsEqual(replacing, full))
-            settings.RecentVideos.RemoveAll(p => EditorSession.PathsEqual(p, replacing));
-        TouchRecent(settings.RecentVideos, full);
-        _workspace.StoreSettings(settings);
-    }
-
-    // File › Recent Videos: a recording that has gone is dropped from the list, with a message.
-    private void OpenRecentVideo(int index)
-    {
-        var recent = _workspace.Settings.RecentVideos;
-        if ((uint)index >= (uint)recent.Count)
-            return;
-        var path = recent[index];
-        if (File.Exists(path))
-        {
-            OpenVideo(path);
-            return;
-        }
-
-        var settings = _workspace.Settings.Clone();
-        settings.RecentVideos.RemoveAt(index);
-        _workspace.StoreSettings(settings);
-        _workspace.Message.Show(new MessageRequest
-        {
-            Title = "Recent Videos",
-            Message = $"{Path.GetFileName(path)} was moved or deleted.",
-            Buttons = ["OK"],
-        });
+        if (list.Count > RecentLimit)
+            list.RemoveRange(RecentLimit, list.Count - RecentLimit);
     }
 
     private void SetMode(GizmoMode mode)
@@ -750,16 +619,9 @@ public sealed class EditorCommands
             {
                 ok &= TrySaveSong(song, null);
             }
-            else if (tab is VideoTab { IsDirty: true } video)
+            else if (tab is TimelineTab { IsDirty: true } timeline)
             {
-                if (video.FilePath is null)
-                {
-                    Log.Warning($"[Editor] {video.DisplayName} has never been saved; use Save As to keep it.");
-                    ok = false;
-                    continue;
-                }
-
-                ok &= TrySaveVideo(video, null);
+                ok &= TrySaveTimeline(timeline, null);
             }
         }
 
@@ -781,7 +643,7 @@ public sealed class EditorCommands
     }
 
     /// <summary>
-    /// Saves every dirty scene and video project: those with a file at once, then each untitled one through Save As (one
+    /// Saves every dirty scene, song and timeline: those with a file at once, then each untitled one through Save As (one
     /// dialog after the other). <paramref name="then"/> gets true only when everything was saved (false on a failure or a
     /// cancelled dialog).
     /// </summary>
@@ -790,13 +652,13 @@ public sealed class EditorCommands
     private void SaveAll(Action<bool> then, Func<IEditorTab, bool> include)
     {
         ArgumentNullException.ThrowIfNull(then);
-        if (!SaveAll(include) && Session.Tabs.Any(t => t.IsDirty && include(t) && t is SongTab or EditedScene { FilePath: not null } or VideoTab { FilePath: not null }))
+        if (!SaveAll(include) && Session.Tabs.Any(t => t.IsDirty && include(t) && t is SongTab or EditedScene { FilePath: not null } or TimelineTab))
         {
             then(false); // a file-backed save failed (already reported)
             return;
         }
 
-        var untitled = new Queue<IEditorTab>(Session.Tabs.Where(t => t.IsDirty && include(t) && t.FilePath is null && t is EditedScene or VideoTab));
+        var untitled = new Queue<IEditorTab>(Session.Tabs.Where(t => t.IsDirty && include(t) && t.FilePath is null && t is EditedScene));
         void Next(bool previousSaved)
         {
             if (!previousSaved)
@@ -813,10 +675,7 @@ public sealed class EditorCommands
 
             var tab = untitled.Dequeue();
             Session.Activate(tab);
-            if (tab is VideoTab video)
-                SaveVideo(video, saveAs: true, then: Next);
-            else
-                Save((EditedScene)tab, saveAs: true, then: Next);
+            Save((EditedScene)tab, saveAs: true, then: Next);
         }
 
         Next(true);
@@ -838,14 +697,14 @@ public sealed class EditorCommands
     }
 
     /// <summary>
-    /// Closes <paramref name="tab"/>: a scene, song or video project with unsaved changes asks to save first
+    /// Closes <paramref name="tab"/>: a scene, song or timeline with unsaved changes asks to save first
     /// (<see cref="CloseScene"/>, <see cref="CloseWithPrompt"/>).
     /// </summary>
     public void CloseTab(IEditorTab? tab)
     {
         if (tab is EditedScene scene)
             CloseScene(scene);
-        else if (tab is SongTab { IsDirty: true } or VideoTab { IsDirty: true })
+        else if (tab is SongTab { IsDirty: true } or TimelineTab { IsDirty: true })
             CloseWithPrompt(tab);
         else if (tab is not null)
             Session.Close(tab);
@@ -1114,8 +973,8 @@ public sealed class EditorCommands
 
             if (tab is SongTab song)
                 SaveSong(song, saveAs: false, then: CloseIfSaved);
-            else if (tab is VideoTab video)
-                SaveVideo(video, saveAs: false, then: CloseIfSaved);
+            else if (tab is TimelineTab timeline)
+                SaveTimeline(timeline, saveAs: false, then: CloseIfSaved);
         },
     });
 
@@ -1394,24 +1253,27 @@ public sealed class EditorCommands
     }
 
     /// <summary>
-    /// Video mode's File, Edit and View menus, and the Video menu. The video commands (<c>video.*</c>) are defined here and
-    /// handled by the video tab; items that act on a recording are enabled only while a video tab is active.
+    /// Video mode's File, Edit and View menus, and the Timeline and Clip menus (Premiere's keys). The video commands
+    /// (<c>video.*</c>) are <see cref="Video.VideoView.RunCommand"/>'s; items that act on a timeline are enabled only while one
+    /// is active.
     /// </summary>
     private List<MenuItem> VideoMenuItems(string menu)
     {
-        var tab = Session.ActiveTab?.Mode == EditorMode.Video;
+        var tab = Session.ActiveTab is TimelineTab;
+        var selected = Session.ActiveTab is TimelineTab { View.Selection.Count: > 0 };
+        var project = Session.ProjectRoot is not null;
         return menu switch
         {
             "file" =>
             [
-                new MenuItem("Open…", "file.open", "Ctrl+O", Icon: "folder-open"),
-                .. RecentVideoItems(),
+                new MenuItem("New Timeline…", "video.new_timeline", "Ctrl+N", project, Icon: "timeline"),
+                new MenuItem("Open Timeline…", "file.open", "Ctrl+O", project, Icon: "folder-open"),
+                new MenuItem("Import Media…", "video.import", "Ctrl+I", project, Icon: "file-import"),
                 MenuItem.Separator,
                 new MenuItem("Save", "file.save", "Ctrl+S", tab, Icon: "device-floppy"),
                 new MenuItem("Save As…", "file.save_as", "Ctrl+Shift+S", tab, Icon: "device-floppy"),
                 MenuItem.Separator,
                 new MenuItem("Export Video…", "video.export", "Ctrl+E", tab, Icon: "download"),
-                new MenuItem("Export Transcript…", "video.export_transcript", null, tab && Session.ActiveVideo?.Document.Transcript.Count > 0, Icon: "file-text"),
                 MenuItem.Separator,
                 new MenuItem("Close Tab", "file.close", "Ctrl+W", tab, Icon: "x"),
                 new MenuItem("Quit", "file.quit", "Ctrl+Q", Icon: "logout"),
@@ -1421,14 +1283,19 @@ public sealed class EditorCommands
                 new MenuItem("Undo", "edit.undo", "Ctrl+Z", tab, Icon: "arrow-back-up"),
                 new MenuItem("Redo", "edit.redo", "Ctrl+Shift+Z", tab, Icon: "arrow-forward-up"),
                 MenuItem.Separator,
-                new MenuItem("Delete Region", "edit.delete", "Del", tab, Icon: "trash"),
+                new MenuItem("Select All", "video.select_all", "Ctrl+A", tab, Icon: "select-all"),
+                new MenuItem("Delete (Lift)", "video.lift", "Del", selected, Icon: "trash"),
+                new MenuItem("Ripple Delete", "video.ripple_delete", "Shift+Del", selected, Icon: "trash-x"),
                 MenuItem.Separator,
                 new MenuItem("Video Settings…", "video.settings", Icon: "settings"),
             ],
             "view" =>
             [
-                new MenuItem("Show/Hide Transcript", "video.toggle_transcript", null, tab, Icon: "file-text"),
-                new MenuItem("Show/Hide Output", "view.output", Icon: "terminal-2"), // a log, not a recording: needs no tab
+                new MenuItem("Zoom In", "video.zoom_in", "=", tab, Icon: "zoom-in"),
+                new MenuItem("Zoom Out", "video.zoom_out", "-", tab, Icon: "zoom-out"),
+                new MenuItem("Zoom to Fit", "video.zoom_fit", "Shift+Z", tab, Icon: "arrows-maximize"),
+                MenuItem.Separator,
+                new MenuItem("Show/Hide Output", "view.output", Icon: "terminal-2"),
                 MenuItem.Separator,
                 new MenuItem("Switch to Game Mode", "editor.mode.game", Icon: "device-gamepad-2"),
                 new MenuItem("Switch to Music Mode", "editor.mode.music", Icon: "music"),
@@ -1436,11 +1303,24 @@ public sealed class EditorCommands
             _ =>
             [
                 new MenuItem("Play/Pause", "video.play", "Space", tab, Icon: "player-play"),
+                new MenuItem("Selection Tool", "video.tool_select", "V", tab, Icon: "pointer"),
+                new MenuItem("Razor Tool", "video.tool_razor", "C", tab, Icon: "scissors"),
+                new MenuItem("Snapping", "video.snap", "S", tab, Icon: "magnet"),
                 MenuItem.Separator,
-                new MenuItem("Transcribe", "video.transcribe", null, tab, Icon: "language"),
-                new MenuItem("Remove Filler Words", "video.remove_fillers", null, tab, Icon: "clear-all"),
-                new MenuItem("Detect Silence", "video.detect_silence", null, tab, Icon: "volume-off"),
-                new MenuItem("Detect Idle Gameplay", "video.detect_idle", null, tab, Icon: "device-gamepad-2"),
+                new MenuItem("Add Edit", "video.add_edit", "Ctrl+K", tab, Icon: "scissors"),
+                new MenuItem("Add Edit to All Tracks", "video.add_edit_all", "Ctrl+Shift+K", tab, Icon: "scissors"),
+                new MenuItem("Ripple Trim Start to Playhead", "video.ripple_start", "Q", tab, Icon: "arrow-bar-to-right"),
+                new MenuItem("Ripple Trim End to Playhead", "video.ripple_end", "W", tab, Icon: "arrow-bar-to-left"),
+                new MenuItem("Link / Unlink", "video.link", "Ctrl+L", selected, Icon: "link"),
+                MenuItem.Separator,
+                new MenuItem("Mark In", "video.mark_in", "I", tab, Icon: "arrow-bar-to-right"),
+                new MenuItem("Mark Out", "video.mark_out", "O", tab, Icon: "arrow-bar-to-left"),
+                new MenuItem("Clear In/Out", "video.clear_marks", "Alt+X", tab, Icon: "x"),
+                new MenuItem("Insert", "video.insert", ",", tab, Icon: "column-insert-right"),
+                new MenuItem("Overwrite", "video.overwrite", ".", tab, Icon: "replace"),
+                MenuItem.Separator,
+                new MenuItem("Add Video Track", "video.add_video_track", null, tab, Icon: "plus"),
+                new MenuItem("Add Audio Track", "video.add_audio_track", null, tab, Icon: "plus"),
             ],
         };
     }
@@ -1541,19 +1421,6 @@ public sealed class EditorCommands
         items.Add(MenuItem.Header("Songs"));
         for (var i = 0; i < songs.Count; i++)
             items.Add(new MenuItem(Path.GetFileNameWithoutExtension(songs[i]), RecentSongCommand + i.ToString(CultureInfo.InvariantCulture), Icon: "music"));
-        return items;
-    }
-
-    // The "Recent Videos" header and the first few recent recordings; nothing when there are none.
-    private List<MenuItem> RecentVideoItems()
-    {
-        var recent = _workspace.Settings.RecentVideos;
-        var items = new List<MenuItem>();
-        if (recent.Count == 0)
-            return items;
-        items.Add(MenuItem.Header("Recent Videos"));
-        for (var i = 0; i < recent.Count && i < RecentVideoMenuItems; i++)
-            items.Add(new MenuItem(Path.GetFileName(recent[i]), RecentVideoCommand + i.ToString(CultureInfo.InvariantCulture), Icon: "video"));
         return items;
     }
 

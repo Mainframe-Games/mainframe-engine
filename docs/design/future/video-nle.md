@@ -1,6 +1,6 @@
 # Proposal: Video mode as a multi-track timeline editor
 
-**Status:** accepted (owner, 2026-11-04)
+**Status:** accepted (owner, 2026-11-04); G20a–G20c built (2026-11-05, [Video editing mode](../video-editor.md)), G20d next
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G20a–G20d, G20.2, G20.3)
 **Decision:** [ADR 0241](../../../memory/decisions/0241-video-mode-nle.md), which partly supersedes
 [ADR 0191](../../../memory/decisions/0191-video-editing-mode.md)
@@ -511,15 +511,15 @@ Test names are in the projects they will live in: `Video.Tests` (library), `Edit
 
 ## Task list
 
-- [ ] **G20a, engine prerequisites (PR):** `SceneTree.FilesDropped`, the editor-only folder (MSBuild target, export
+- [x] **G20a, engine prerequisites (PR):** `SceneTree.FilesDropped`, the editor-only folder (MSBuild target, export
   filter and validator, a G19 note), recordings under `Assets/Video/Recordings`, `GpuTexture.Update2D` and the in-place
   path; docs in `recording.md`, `editor.md`, `game-export.md` and `distribution-nuget.md`.
-- [ ] **G20b, timeline library (PR; today's mode untouched):**
+- [x] **G20b, timeline library (PR; today's mode untouched):**
   - the `Timelines/` model, edits, layout, snapping and `ClipLayout`;
   - `.mftimeline` and its serializer;
   - `TimelineGraphBuilder`, `TimelineExportPresets`, `FilmstripExtractor`;
   - `just test-video-ffmpeg`.
-- [ ] **G20c, the editor (PR):**
+- [x] **G20c, the editor (PR):**
   - the Edit-page layout, media pool, importer and OS drop;
   - the Source and Timeline viewers, preview and mixer;
   - the timeline canvas, tools and keys; Inspector with reframe and timeline settings;
@@ -533,6 +533,18 @@ Test names are in the projects they will live in: `Video.Tests` (library), `Edit
 - [ ] **G20.2, polish (PR or PRs):** volume and fades, dissolves and fade to black, titles, images, speed,
   auto-captions.
 - [ ] **G20.3, later:** nested timelines, proxies, roll/slip, sync lock, crash recovery for timelines.
+
+## Changes while building
+
+G20c (2026-11-05); the full list is in [Video editing mode](../video-editor.md#changes-from-the-proposal):
+- **The Timeline viewer plays through the export graph** (`TimelineGraphBuilder.BuildPreview` at preview size: one
+  video and one audio decoder per play), not per-track sprite layers with `TimelineAudioMixer`. What the viewer shows is
+  what export writes; an edit restarts the decode.
+- **`Assets/Video` and its folders are made when video mode first uses a project**, not when the project opens.
+- **J/K/L** has no reverse or fast shuttle yet; **Import Media's picker** takes one file (Finder drops take many).
+- **Add Edit on a selected clip** cuts its linked partner too, as the razor does.
+- **The scenario tests** are `VideoWorkflowTests` (drops, Add Edit, Open in Video Editor, the export dialog, the program's
+  graph per visible track), `EditorModeTests.VideoModeNeedsAProject` and the G20b library's graph tests for mute and solo.
 
 ## Open questions
 

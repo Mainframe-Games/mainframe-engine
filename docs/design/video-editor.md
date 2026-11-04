@@ -1,459 +1,285 @@
 # Video editing mode
 
-**Status:** ✅ built (branch `feature/video-editor`, 2026-10-14) · **ADR:**
-[0191](../../memory/decisions/0191-video-editing-mode.md) · **Depends on:** [Gameplay recording](recording.md) (the
-recorder, the `.mfcap.json` sidecar and Record from the editor), [Song tab](editor.md#song-tab-music-editor) (the canvas,
-`SubViewport` and job patterns this copies), [Audio](audio.md) (`AudioStreamGenerator`) · **Related:**
+**Status:** ✅ G20c built (branch `feature/video-nle`, 2026-11-05): the multi-track timeline editor. The per-clip Cutback
+tools (Transcribe, Remove Fillers, Detect Silence, Detect Idle Gameplay) come back in G20d · **ADRs:**
+[0241](../../memory/decisions/0241-video-mode-nle.md) (the timeline editor), which partly supersedes
+[0191](../../memory/decisions/0191-video-editing-mode.md) (the Cutback port) · **Proposal:**
+[Video NLE](future/video-nle.md) · **Depends on:** [Gameplay recording](recording.md) (the recorder, the `.mfcap.json`
+sidecar, F10), [Editor](editor.md#editor-modes) (modes, undo, file drag), [Song tab](editor.md#song-tab-music-editor)
+(the track-header and canvas-lane pattern), [Audio](audio.md) (`AudioStreamGenerator`) · **Related:**
 [Video playback](future/video-playback.md) (G16, games only; not used here), ADR 0190 (ffmpeg as a child process)
 
 ## Purpose
 
-The editor records gameplay (F10). Turning a recording into promo footage means trimming dead air and idle gameplay,
-transcribing speech, removing filler words and exporting the result: what [Cutback](https://github.com/brogan89/Cutback)
-does as a separate app. The editor now does all of it in a **video mode**. A Game|Video toggle switches the whole editor
-UI between the game-engine editor and the video editor; music mode (the song tabs, ADR 0192) works the same way.
+The editor records gameplay (F10). Turning recordings into socials and trailers (a 9:16 short, a Steam trailer) took
+another editor. Video mode is now a small timeline editor laid out like DaVinci Resolve's Edit page, inside the open game
+project: a media pool, a Source and a Timeline viewer, an Inspector, video and audio tracks with Premiere's keys, a cut
+editor under them, and export through presets.
 
-![Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut](../images/editor-video.png)
+![Video mode: a narrated Physics 2D recording on a 9:16 timeline, the pile-up pause cut out, the first clip selected in the cut editor](../images/editor-video.png)
 
-*A recording of the Demo's Physics 2D scene with a short narration (`just readme-screenshots`): Detect Silence cut the
-pauses, Transcribe wrote the transcript, and Remove Fillers cut the "um" and "uh" (struck through, greyed on the
-timeline).*
+*The Demo's Physics 2D recording with a short narration (`just readme-screenshots`), imported, placed on a vertical
+timeline (Fill crops the landscape picture), its pause removed with two add edits and a ripple delete.*
 
-Cutback's logic is copied into the engine (Cutback.Core, Cutback.Media and Cutback.Analysis are MIT, written by the same
-author), not consumed as packages. The Cutback repository and its Avalonia app are not touched, and the recording dialog
-still offers Open in Cutback beside Open in Video Editor.
-
-Not in scope, by design:
-- no multi-track timeline, transitions, titles, effects or music beds (Cutback's "not an NLE" rule);
-- no Claude analysis (Cutback's `ICutSuggester` is a stub and is not ported);
-- no change to games: neither the runtime nor shipped games reference any of this.
+Not in scope yet:
+- **G20d:** the per-clip Cutback tools and the Inspector's Transcript tab. Until then, the cut editor edits cuts by hand.
+- **G20.2:** volume and fades, dissolves and fade to black, titles, still images, speed, auto-captions.
+- **G20.3:** nested timelines, proxies, roll/slip, sync lock, crash recovery for timelines.
+- **Games are unaffected:** neither the runtime nor shipped games reference any of this, and `Assets/Video` never ships.
 
 ## Code layout
 
-![Where the code comes from](../images/video-editor-architecture.svg)
-
 ```
-MainframeEngine.Video/                    editor-only library, net10.0, MIT (LICENSE-CUTBACK); only the editor references it
-  SegmentList.cs  SegmentEditor.cs  EditHistory.cs                 ← Cutback.Core root files, plus SegmentEditor
-  Models/ Capture/ Detection/ Transcript/ Projects/ Playback/        ← Cutback.Core (CutbackProject is VideoProject)
-  Media/   (FfmpegLocator, MediaProbe + FfprobeJson, WaveformExtractor, PcmExtractor, SilenceDetector, FfmpegProcess, …)
-  Media/Export/ (Exporter, FilterGraphBuilder, KeyframeSnapper, DeliveryEncoder)
-  Media/Preview/PreviewDecoding.cs
-  Analysis/ (ITranscriber, WhisperTranscriber, WordAssembler, ModelStore, WhisperModel)
-  Timelines/ (G20b: the multi-track timeline, not used by this mode yet; see below)
-Tests/MainframeEngine.Video.Tests/        Cutback's tests in plain Assert; never runs ffmpeg or loads a model
-                                          (Timelines/TimelineFfmpegTests: only under `just test-video-ffmpeg`)
-MainframeEngine.Editor/Src/Video/         the mode's UI (below)
-MainframeEngine.Editor/Assets/Editor/    video.rml, video_export.rml; the toolbar's video group in toolbar.rml
+MainframeEngine.Video/                editor-only library, net10.0, MIT (LICENSE-CUTBACK); only the editor references it
+  SegmentList.cs                      Cutback's cut partition (a clip's cuts)
+  Timelines/                          the timeline model, edits, layout, snapping, reframing, .mftimeline, MediaRefs
+  Timelines/Export/                   TimelineGraphBuilder (export and preview graphs), presets, arguments, exporter
+  Media/                              FfmpegLocator, MediaProbe, WaveformExtractor, FilmstripExtractor, PosterExtractor, …
+  Media/Export/                       DeliveryEncoder, FfmpegProgressParser, FilterGraphBuilder (splice fades only)
+  Media/Preview/PreviewDecoding.cs    the Source viewer's decode arguments
+  Models/ Capture/ Detection/ Transcript/ Analysis/   Cutback's detectors, sidecar, transcript and Whisper (G20d)
+MainframeEngine.Editor/Src/Video/     the mode's UI (below)
+MainframeEngine.Editor/Assets/Editor/ video.rml, video_export.rml; the toolbar's video group (toolbar.rml), the Timeline menu
 ```
 
-- **Core** is copied file for file. The changes are the namespaces (`Cutback.Core` → `MainframeEngine.Video`,
-  `Cutback.Media` → `MainframeEngine.Video.Media`, `Cutback.Analysis` → `MainframeEngine.Video.Analysis`), the project
-  extension, `CutbackProject` → `VideoProject` and `FfmpegNotFoundException` → `FfmpegMissingException` (the engine
-  already has a public `FfmpegNotFoundException`). `TempSession`'s folder is `MainframeVideo`.
-- **`SegmentEditor`** holds the edit-session rules from Cutback's view model, so the UI never reimplements them: one edit
-  is one undo step and an edit that changes nothing leaves none; a boundary drag is one step; a drawn section takes the
-  opposite state of where it was anchored; dirty means "differs from the last save".
-- **`DeliveryEncoder`** picks export's H.264 encoder by probe-encoding a tiny clip: libx264, then the platform's hardware
-  encoder, then libopenh264, so export works on an ffmpeg built without x264. The probe is shared by concurrent callers,
-  each candidate has a 10 s timeout, and a cancelled or failed probe is evicted so the next export probes again.
-- **`MediaProbe`** has no FFMpegCore: it runs `ffprobe -v error -print_format json -show_format -show_streams` and parses
-  the JSON (`FfprobeJson`), falling back to the stream duration when the format has none.
-- **`PreviewDecoding`** builds the preview's decode arguments. The preview is at most 960 px wide (rounded down to even)
-  and 30 fps.
-- **`ModelStore`** takes the editor's user-data path (`~/.mainframe/models`) instead of Cutback's `CreateDefault()`.
-- **Dependencies:** System.Text.Json, and `Whisper.net` plus `Whisper.net.Runtime` 1.9.1 (MIT; whisper.cpp is MIT). The
-  runtime package brings native libraries per platform, with Metal on macOS.
+**Library (G20b, `Timelines/`).** Immutable records: `Timeline` (settings, tracks, clips, markers, in/out), `Track`,
+`Clip`, `MediaRef`, `ClipTransform`. A clip is a window of a media file at a start on a track. Its `Segments` are
+Cutback's partition of the whole file, so the detectors and `SegmentList` work on clips unchanged, and the clip lasts its
+kept time ÷ speed in whole frames. `TimelineEdits` returns a new timeline per edit, or the same instance when nothing
+changed or a lock refused it. `TimelineLayout`, `Snapping` and `ClipLayout` (fit, fill, stretch, scale, position, crop)
+are pure. `MediaRefs.ProbeAsync` probes and hashes a file into a `MediaRef`.
 
-**Editor side, `MainframeEngine.Editor/Src/Video/`:**
+**Editor (`Src/Video/`):**
 
 | Type | Role |
 |---|---|
-| `VideoDocument` | One project: `VideoProject`, `SegmentList` + `SegmentEditor`, capture sidecar, transcript, waveform. Open (video or `.mfcut`/`.cutback`), save, detect, transcript and filler cuts, export transcript. Main thread only. |
-| `VideoTab : IEditorTab` | A document plus its preview, timeline (view, state, controller, canvas in a `SubViewport`), notice and jobs. `Mode` is `EditorMode.Video`. |
-| `VideoTimelineView` | Zoom, pan, hit-testing and ruler maths. Pure. |
-| `VideoTimelineCanvas` | An `EditorCanvas` port of `TimelineControl`'s draw pass: segments, reasons, waveform, boundaries, pending section, ruler, markers, playhead. |
-| `VideoTimelineController` | The timeline gestures. One per document. |
-| `VideoPlaybackPlan` | The kept ranges from the playhead, contiguous ones merged, laid end to end on an output timeline and mapped back to source time. Pure. |
-| `VideoPreview` | ffmpeg decoders into a `Texture2D` in a `SubViewport`, with an `AudioStreamGenerator` voice as the clock. Decoders come from an `IVideoDecoderFactory`, so tests use fakes. |
-| `TranscriptPanel`, `TranscriptMarkup` | The transcript column: RmlUi word spans with the cut state, gestures and context menu. |
-| `VideoJob` / `VideoJob<T>` | Background work polled each frame: waveform, silence detection, model download and transcription, export. `VideoJob.Start<T>(name, work)` starts one (a static on the non-generic class, CA1000). |
-| `VideoView` (`[Tool]` node) | Per-frame driver: places and publishes `engine://video-preview` and `engine://video-timeline`, routes pointer and keys, polls jobs, starts detection, transcription and export. |
-| `VideoPanel` + `video.rml` | The video-mode view: empty state with recent videos, preview, transcript, notice line, timeline, splitters. |
-| `ExportVideoDialog` + `video_export.rml` | Output path, Precise/Fast, Export. |
-| `VideoExport`, `VideoPaths`, `VideoFfmpeg`, `VideoFormat` | Export request and defaults; same-file checks that protect the recording; which ffmpeg; `m:ss.t` formatting. |
+| `TimelineDocument` | An open `.mftimeline`: the current `Timeline`, its file, its history in the editor's `UndoRedo`. `Apply(name, edit, mergeKey)` and `ApplyFrom(base, …)` for gestures; `Resolve(MediaRef)` (cached) gives ffmpeg's path. |
+| `TimelineTab : IEditorTab` | A document plus its view state, controller, canvas, viewers, cut editor, notice and export job. |
+| `TimelineViewState` | Zoom, scroll, playhead, selection, tool, snapping, target tracks, lane geometry. |
+| `TimelineCanvas` | The tracks, drawn in a `SubViewport`: ruler in timecode, clips with names, filmstrips or waveforms, link marks, cut ticks, selection, in/out, markers, snap line, playhead. 0 B per frame. |
+| `TimelineController` | The gestures (below). |
+| `ClipCutTarget` (`ICutTarget`) | The selected clip's cuts for the cut editor (`VideoTimelineView`, `VideoTimelineController`, `VideoTimelineCanvas`, Cutback's strip), mapped to `TimelineEdits.SetClipCuts`. |
+| `VideoPreview` over `IPreviewProgram` | ffmpeg decoders into a `Texture2D` in a `SubViewport`, the audio voice as the clock. `SourceProgram` decodes one file; `TimelineProgram` decodes the timeline through `TimelineGraphBuilder.BuildPreview`. |
+| `SourceViewer` | The Source viewer: one media file, its In/Out marks per media. |
+| `MediaPool`, `MediaImporter` | The pool's listing of `Assets/Video`; copying files in. |
+| `MediaCache` | Waveforms, filmstrips and posters per media hash in `<project>/.mainframe/cache/video/`. |
+| `VideoPanel` + `video.rml` | The screen: pool, viewers, Inspector, notice, track headers, canvases, splitter. |
+| `VideoView` (`[Tool]` node) | Per-frame driver: places and publishes the four textures, routes pointer and keys, runs the `video.*` commands, probes, imports, drops, exports. |
+| `ExportVideoDialog` + `video_export.rml`, `TimelineExport` | Presets, range, output path; the export job. |
+| `VideoJob<T>`, `VideoFfmpeg`, `VideoPaths`, `VideoFormat` | Background jobs polled each frame; which ffmpeg; same-file checks; time formatting. |
 
-Settings live in `EditorSettings` (`Video*` properties) and are edited in the Editor Settings dialog's Video section.
+## The mode
 
-## Timeline library (G20b)
+![The video mode laid out like Resolve's Edit page](../images/video-nle-layout.svg)
 
-Video mode becomes a multi-track timeline editor ([Video NLE](future/video-nle.md), ADR 0241). Its headless library
-is in `MainframeEngine.Video/Timelines/`; the UI that replaces this mode comes in G20c.
+`EditorMode { Game, Video, Music }` lives on `EditorWorkspace`. **Video mode needs the open game project**
+(`EditorMode.UsesProject()`): without one, the Game|Video toggle opens the Project Manager instead. The last mode is
+remembered (`EditorSettings.LastMode`), so the editor reopens in video mode behind the Project Manager and the project
+picked there opens into it. Project switches ask about and close timeline tabs like scene tabs.
 
-- **Model.** Immutable records: `Timeline` (settings, tracks, clips, markers, in/out), `Track`, `Clip`, `MediaRef`,
-  `ClipTransform`. A clip is a window of a media file at a start on a track; its `Segments` are Cutback's partition of the
-  whole file, so the detectors and `SegmentList` work on clips unchanged, and the clip lasts its kept time ÷ speed in
-  whole frames (`FrameRate`). `TimelineLayout` maps timeline time to source time through the kept ranges.
-- **Edits.** `TimelineEdits`: insert, overwrite, append, razor, trim, ripple trim, lift, ripple delete, move (across
-  tracks), link, unlink, reframe, cut lists (`SetClipCuts`, rippling), tracks, in/out, markers. Each returns a new
-  timeline, or the same instance when nothing changed or a lock refused it. `Snapping` and `ClipLayout` (fit, fill,
-  stretch, scale, position, crop) are pure too.
-- **File.** `.mftimeline`: versioned JSON (`TimelineSerializer`, `TimelineMigrator`, version 1) with the asset `uid`
-  (`vtl_…`) at the top; the engine's AssetDatabase reads it like a scene (no `.meta`).
-- **Export.** `TimelineGraphBuilder` builds one graph for a range: an input per clip window (`-ss/-t`), per-clip
-  trims, speed, reframing (crop, scale, pad onto a transparent frame) and an exact-length pad and trim, one concatenated
-  RGBA stream per video track overlaid on the background, and the audible clips mixed (`amix`, not normalised) over a
-  silent bed. `TimelineExportPresets` (vertical 30/60, YouTube/Steam 1080p MP4 and WebM, 4K, X/Discord 720p in 25 MB,
-  a 20 fps GIF, a silent WebM loop, the timeline's own), `TimelineExportArguments` and `TimelineExporter` run it.
-  `FilmstripExtractor` tiles thumbnails for the timeline's clips.
-- **Tests.** `Tests/MainframeEngine.Video.Tests/Timelines/` covers the proposal's G20b scenarios without ffmpeg;
-  `just test-video-ffmpeg` renders a two-track vertical timeline through four presets with the real ffmpeg and checks
-  the results with ffprobe (outputs kept in `artifacts/video-ffmpeg`).
+**Folders** (made when video mode first uses the project, not when a project merely opens):
 
-## Modes
+| Folder | What goes there |
+|---|---|
+| `Assets/Video/Recordings` | F10 recordings and their `.mfcap.json` sidecars |
+| `Assets/Video/Media` | Imported files, original names kept; a clash becomes `name-2.ext` |
+| `Assets/Video/Timelines` | `*.mftimeline` |
 
-![One workspace, two modes](../images/video-editor-modes.svg)
+`Assets/Video` is the editor-only folder (`ContentPaths.EditorOnlyFolder`): builds do not copy it and export never ships
+it (G20a). Exports go to `<project>/Exports`, outside `Assets/`.
 
-`EditorMode { Game, Video, Music }` lives on `EditorWorkspace` (music mode: [Editor modes](editor.md#editor-modes)). `EditorWorkspace.SetMode`:
+**The screen.**
+- **Top row:** media pool | Source viewer | Timeline viewer | Inspector. Without a timeline tab the pool sits beside
+  "Open a timeline from the media pool, or start one." with New Timeline and Import Media.
+- **Notice line** (amber): the last operation's result or problem ("Exported Trailer-vertical-30.mp4.", "ffmpeg not
+  found…" with an Editor Settings link).
+- **Timeline:** track headers (V*n*…V1 over A1…A*n*: a target strip, the name, lock, show/hide for video, mute and solo
+  for audio; icon buttons with tooltips) beside the canvas; 240 dp by default, resizable with the splitter.
+- **Cut editor:** the selected clip's whole source with its cuts, under the tracks.
+- **Tab strip:** timeline tabs only; "+" is New Timeline.
 
-1. **Swaps the layout.** Game mode is the usual editor. Video mode hides the Scene tree, Inspector and FileSystem
-   (releasing their focus) and the Output unless View › Show/Hide Output is on, and shows `VideoPanel` over the viewport
-   panel's view area, below its tab strip. The transcript width (320 dp) and timeline height (180 dp) persist in the
-   layout file.
-2. **Swaps the menus.** Game: File, Edit, View, Project, Run, Help. Video: File, Edit, View, Video, Help.
-   `EditorCommands.MenuItems` returns the video tables in video mode; command ids are shared where the meaning is the
-   same (`file.save`, `edit.undo`) and a video tab handles them first.
-3. **Swaps the toolbar group.** The Game|Video toggle sits near the right end of the toolbar in both modes (before Documentation, the update badge and the fps readout).
-4. **Filters the tab strip.** Game mode shows scenes, songs and UI previews; video mode shows video tabs. Each mode
-   remembers its active tab. Tabs of the hidden mode stay open, and a video tab pauses when it is hidden (playback stops,
-   its gesture is cancelled and its viewports stop rendering).
-5. **Persists the mode** as `EditorSettings.LastMode`, so the editor reopens in the last mode.
+**Menus** (`EditorCommands`, video mode):
+- **File:** New Timeline… (Cmd+N), Open Timeline… (Cmd+O), Import Media… (Cmd+I), Save, Save As…, Export Video…
+  (Cmd+E), Close Tab, Quit.
+- **Edit:** Undo, Redo, Select All (Cmd+A), Delete (Lift) (Del), Ripple Delete (Shift+Del), Video Settings….
+- **View:** Zoom In (=), Zoom Out (−), Zoom to Fit (Shift+Z), Show/Hide Output, Switch to Game/Music Mode.
+- **Timeline:** Play/Pause, Selection Tool, Razor Tool, Snapping, Add Edit, Add Edit to All Tracks, Ripple Trim
+  Start/End to Playhead, Link/Unlink, Mark In, Mark Out, Clear In/Out, Insert, Overwrite, Add Video/Audio Track.
 
-**Entering video mode.** The toolbar toggle, View › Switch to Video Mode, and automatically when opening a video
-(`.mp4 .mov .mkv .webm`), `.mfcut` or `.cutback` from File › Open, Recent Videos, the FileSystem panel (double-click; the
-files have a video icon), the QA `open` verb, the recording dialog's **Open in Video Editor**, or the Project Manager's
-**Video Editor** button.
+**Toolbar:** Selection and Razor tools, Snapping, Link/Unlink; Play and Stop with the position; Import Media and New
+Timeline; on the right Export (reads "Cancel n %" while exporting), the Game|Music|Video toggle and Documentation.
 
-**Closing the last video tab stays in video mode**, on the empty state. Closing a tab activates a neighbour of the same
-mode, never a tab of the other mode, so closing never switches modes.
+**Keys** (Premiere's, `EditorWorkspace.VideoShortcutFor`, after the tab's own):
 
-**Without a project.** Video mode needs no game project: Recent Videos are their own list
-(`EditorSettings.RecentVideos`, 10 entries, 5 in the File menu), and opening a recording never calls
-`EditorSession.UseProjectOf` (switching projects would throw while scene tabs are open). Recordings made from the
-editor now land in the project's `Assets/Video/Recordings` (ADR 0241); video mode becomes a timeline editor in the
-project ([Video NLE](future/video-nle.md)).
+| Key | Does | Key | Does |
+|---|---|---|---|
+| V / C | Selection / Razor tool | Space | play/pause the focused viewer |
+| Cmd+K | add edit on the selected clips' tracks (all unlocked tracks when none) | Shift+Cmd+K | add edit on every track |
+| Q / W | ripple trim the start / end to the playhead | Del / Backspace | lift (leave the gap) |
+| Shift or Alt + Del | ripple delete | Cmd+L | link / unlink |
+| I / O, Alt+X | mark in / out, clear | `,` / `.` | insert / overwrite the Source range |
+| J / K / L | back a second (paused) / stop / play | S | snapping |
+| ← / → | a frame | ↑ / ↓ | previous / next edit |
+| Home / End | start / end | = / − / Shift+Z | zoom in / out / fit |
+| Esc | deselect | Cmd+N, I, E | new timeline, import, export |
 
-**Project switches leave video tabs alone.** Open Project, File › Project Manager and Close Project ask about and close
-the game mode's tabs only (`EditorSession.CloseAll(EditorMode.Game)`): video tabs stay open, unsaved changes and all,
-and their jobs (detection, transcription, export) keep running. `EditorSession.OpenProject` refuses a switch only while
-game tabs are open. Quit still asks about every unsaved tab, video ones included. Entering game mode with no project and
-no game tab (the editor started in video mode) opens the Project Manager.
-
-**Shortcuts in video mode** (`EditorWorkspace.VideoShortcutFor`, after the tab's own keys):
-- Space plays and pauses, Home goes to the start, Delete/Backspace dissolves the hovered region;
-- Cmd/Ctrl+O open, S save, Shift+S save as, W close tab, Q quit, Z undo, Shift+Z or Y redo, E export; F1 documentation;
-- nothing else: no gizmo, view, Play or Record keys (F10 does nothing).
-
-## The video-mode screen
-
-![The editor in Video mode](../images/video-editor-mode.svg)
-
-- **Menus:**
-  - **File:** Open… (Cmd+O), Recent Videos (up to 5), Save, Save As…, Export Video… (Cmd+E), Export Transcript… (enabled
-    with a transcript), Close Tab, Quit.
-  - **Edit:** Undo, Redo, Delete Region, Video Settings… (opens Editor Settings scrolled to its Video section).
-  - **View:** Show/Hide Transcript, Show/Hide Output, Switch to Game Mode.
-  - **Video:** Play/Pause, Transcribe, Remove Filler Words, Detect Silence, Detect Idle Gameplay.
-- **Toolbar.** Play/Pause and Stop (pause and go to the start), the position (`m:ss.t / m:ss.t`), then Transcribe,
-  Remove fillers, Detect silence and Detect idle gameplay. On the right: "Kept m:ss.t of m:ss.t", Export, and the
-  Game|Video toggle, followed by the editor's Documentation button, update badge and fps readout.
-  - Without a video tab every video button is disabled, and the position is hidden.
-  - Detect idle gameplay is disabled without a sidecar; its tooltip says why.
-  - **Remove fillers is enabled without a transcript**: it transcribes first and cuts the fillers when the words arrive
-    (while a transcription runs, it asks that one to cut them).
-  - Transcribe, Detect silence and Export show "Cancel n %" while their job runs, and pressing it cancels the job.
-    Transcribe shows "Downloading model n %" while the model downloads.
-- **Tab strip:** the viewport panel's own strip, filtered to video tabs; the title shows `*` when unsaved.
-- **Panels:**
-  - **Preview:** fitted to the video's aspect, with black bars. The image is sized in code (`VideoPanel`).
-  - **Transcript:** on the right, 320 dp by default, resizable with a splitter; View › Show/Hide Transcript hides it,
-    and a finished transcription or filler cut shows it again. Before a transcript exists it says "No transcript yet.
-    Transcribe to edit by text."
-  - **Timeline:** at the bottom, 180 dp by default, resizable.
-- **Notice line**, one amber line above the timeline: open warnings (bad sidecar, source changed), the last operation's
-  result ("Cut 3 stretches of idle gameplay, 0:42.1 removed.", in Cutback's wording), cancellations, and "ffmpeg not
-  found: Detect Silence needs it." followed by an **Editor Settings** link (`video.settings`). Opening a recording
-  without ffmpeg has no tab to hold a notice, so that one is a message box with a Video Settings… button.
-- **Empty state** (no video tab): "Open a recording (File › Open…) or record one in Game mode (F10)", and the Recent
-  Videos list.
-- **Colours.** The timeline uses Cutback's palette as `Vector4` constants in `VideoTimelineCanvas`:
-
-  | Colour | Value | Colour | Value |
-  |---|---|---|---|
-  | ruler | #18181C | body | #121215 |
-  | kept | #1D2E4D | kept hover | #26406A |
-  | removed | #1F1F24 | removed hover | #2A2A31 |
-  | kept wave | #6FA3F0 | removed wave | #45454E |
-  | boundary | #C8C8D2 at 0xB0 alpha | active boundary | #FFD166 |
-  | section fill | #FFD166 at 0x38 alpha | playhead | #FF5C5C |
-  | tick | #4E4E58 | label | #9A9AA6 |
-  | reason | #7C7C88 | marker | #B48CFF |
-
-  The chrome uses the editor's `theme.rcss`.
+Game-only keys (gizmos, Play, F10) do nothing in video mode.
 
 ## Behaviour
 
-### Preview and playback
+### Media pool and importing
 
-![Gapless preview](../images/video-editor-preview.svg)
+- **The pool** lists `Assets/Video` with folders first, then files, filtered to video, audio, images and timelines
+  (`.mfcap.json`, `.meta`, `.tmp` and everything else are hidden). Video items get a poster from the media cache once
+  ffmpeg has made it. Double-click: a folder opens, media shows in the Source viewer, a timeline opens as a tab. Media
+  drags onto the timeline. The pool follows file changes through a watcher.
+- **Importing:** File › Import Media…, the pool's Import button, or a **Finder drop** (`SceneTree.FilesDropped`). A drop
+  on the pool imports into the pool's folder; on the timeline, into `Media`, then places the clips at the drop time on
+  the track under the pointer (overwrite), one after another. SDL gives no drag-over events, so nothing highlights before
+  the drop.
+- **`MediaImporter`** copies through `<name>.tmp` (which the asset database skips) and renames, numbers clashes, copies a
+  recording's sidecar along, and uses a file already inside the project where it is.
 
-- **Decoders.** `VideoPreview` runs one video decoder (raw RGBA at the preview size and rate) per kept range, and one
-  audio task that decodes the ranges one after another (`f32le`, stereo, at `AudioServer.SampleRate`).
-- **Gapless video.** The next range's decoder starts **1.0 s** before the current range ends (at most three decode at
-  once), and frames switch at the boundary without a seek. Contiguous kept ranges are merged into one, so a seamless join
-  never restarts a decoder.
-- **Gapless audio.** All audio goes into one `AudioStreamGenerator` voice with a 1.0 s ring, on the master bus at
-  `int.MaxValue` priority with `ProcessMode.Always`. Each range is pushed after the previous one (one producer, the
-  ring's rule), with the export's 8 ms fades at every splice.
-- **Clock.** The voice's consumed frames are the clock, in output seconds; `VideoPlaybackPlan` maps them back to source
-  time for the playhead and the frame to show. Without an audio device a stopwatch is the clock.
-- **Threads.** Starting ffmpeg takes milliseconds, so only the user's own Play starts a decoder on the main thread:
-  prefetched readers, scrubs and the audio task start their own on the pool, and stopped decoders are killed on the pool.
-  The texture and the voice are touched only on the main thread.
-- **Buffers.** Each of four stream slots owns six frame buffers, allocated on first use and reused; a full pool blocks its
-  reader, which back-pressures ffmpeg.
-- **Edits while playing.** The plan is rebuilt from the playhead when the document's version changes, so a new cut is
-  skipped. **During a boundary drag the tab holds the version** it plays: each change would kill and respawn the
-  decoders, so the restart happens once, when the drag ends.
-- **Opening a tab shows its first frame**: the tab scrubs to 0 when it opens, so the preview is never black.
-- **Stopping.** Playback stops at the end of the last kept range, and pauses when the tab is hidden, the mode switches or
-  an export starts. Closing the tab kills every decoder.
-- **Play from the end.** Play starts over from 0 when no kept footage follows the playhead: where playback stopped on a
-  recording whose tail is cut, inside a trailing cut, or at the very end.
-- **Scrubbing while paused** decodes one frame (`-ss t -frames:v 1`); while one runs, only the newest request waits.
-- **Texture.** One `Texture2D` in its own `SubViewport`, published as `engine://video-preview`, updated with `SetPixels`
-  at most once per displayed frame.
-- **Failures.** A failed decoder logs `[Video] Preview decode failed: …` and pauses. A preview problem never opens a
-  dialog.
+### Timelines
 
-### Timeline
+- **New Timeline** asks for a name and a frame (Vertical 9:16, Landscape 16:9, Square 1:1 at 30 fps) and writes
+  `Assets/Video/Timelines/<name>.mftimeline` (numbered when taken). The Inspector changes the size, rate and background.
+- **The recording dialog's Open in Video Editor** writes `Timelines/<recording>.mftimeline` at the recording's size and
+  rate, with it on V1 and A1, linked, and opens it. Open in Cutback is gone.
+- **New tracks:** V1, V2, A1, A2. The Timeline menu and the header's right-click menu add tracks; the header menu
+  removes one (not the last of its kind, nor a locked one), clips and all.
 
-Cutback's gestures with Cutback's constants: the ruler is 22 dp; a boundary grab is within 6 dp; a drag starts after
-4 dp; the minimum view is 0.25 s; boundary snapping looks within 20 ms; the wheel zooms 1.25 per notch; ruler labels are
-at least 80 dp apart. Only the left button edits, and a gesture keeps the pointer until release wherever it moves.
+### Editing
 
-- **Click** a region to toggle it. It becomes manual.
-- **Drag a boundary** to move it. It snaps to the quietest waveform bucket on release, and the whole drag is one undo
-  step.
-- **Drag in the body** to draw a section with the opposite state of where the drag started.
-- **Shift+drag** pans. **Press or drag the ruler** to scrub.
-- **The wheel** zooms about the cursor; Shift+wheel or a horizontal wheel pans (in the song tab's direction).
-- **Right-click** › Delete, or **Delete/Backspace** over a region, dissolves it into its neighbours. The hover is
-  re-tested after every edit and cleared when the pointer leaves the timeline or the tab changes, so Delete never hits a
-  region the pointer has left.
-- **While playing,** the view follows the playhead and re-centres when the playhead leaves it.
-- **Losing the pointer** (another tab or mode activating) ends a boundary drag where it is, as one undo step, and drops
-  a section being drawn. **Undo or redo during a drag cancels the gesture first**, so the drag's step is never lost.
-- **Ruler intervals** are 0.1, 0.5, 1, 2, 5, 10, 15, 30 s and up; sub-second majors are labelled in tenths (`0:01.5`),
-  since whole seconds would repeat. There is no 0.25 s step. Labels are cached, so a steady view allocates nothing.
+- **Select tool:** click a clip to select it and its linked partner (Shift adds or removes); drag to move it, to another
+  track of its kind too; drag an edge to trim (Cmd: ripple trim); drag in empty space for a marquee. At a cut, the edge
+  on the pointer's side is the one trimmed.
+- **Razor tool:** click a clip to cut it and its linked partner there.
+- **Snapping** catches clip edges, the playhead, markers and in/out within 8 dp.
+- **Ruler:** press or drag to scrub. **Wheel** zooms about the pointer; Shift scrolls in time, Alt scrolls the tracks.
+- **Locks:** an edit that would touch a locked track (or a linked partner on one) changes nothing.
+- **Undo:** every edit is one step in the editor's history (`TimelineDocument`): a drag is one step (it re-applies to
+  the timeline as it was at the press under one merge key), an edit that changes nothing adds none, and undoing back to
+  the save is clean. The limit is Video Settings › Undo history (100).
 
-### Transcripts
+### Inspector
 
-- **Transcribe** runs `WhisperTranscriber` in a `VideoJob`:
-  1. If the model is missing, it downloads it into `~/.mainframe/models` first (the first half of the progress; the button
-     says "Downloading model n %"). This is the editor's only network access for video. Each download writes its own
-     `<model>.<id>.part` and moves it into place when complete; a `.part` left by an interrupted download (untouched for an
-     hour) is deleted the next time a model downloads.
-  2. It extracts 16 kHz PCM with ffmpeg and runs Whisper with Cutback's disfluent prompt and DTW anchors.
-  3. The words go into the project's `transcript` (saved in the `.mfcut`); the notice says "Transcribed n words." or "No
-     speech was recognised.".
+- **A selected clip:** Fit / Fill / Stretch, scale, position (timeline pixels from the centre), crop (source pixels),
+  opacity; the source range and its length on the timeline; enabled. An audio clip shows its track's gain.
+- **Nothing selected:** the timeline's size (even numbers), rate and background.
+- Fields commit on Enter or blur, each commit one undo step; a value that does not parse shows the current one again.
 
-  A model that fails to load is deleted when it looks truncated, so the next run downloads it again. When it is
-  Whisper's native library that failed to load (missing, the wrong architecture), the model is kept and the error says
-  "The speech recognition library could not be loaded."
-- **Model choice:** Video Settings, tiny.en (78 MB) to medium.en (1.5 GB); the default is base.en (148 MB).
-- **Transcript panel.** Paragraphs break after 2 s pauses; one `<span>` per word, struck through when cut
-  (`TranscriptView.IsCut`); the current word is highlighted. The panel rebuilds its markup only when the transcript
-  changes; an edit updates the `cut` class of the changed spans, and nothing changes mid-drag.
-  - **Click** a word to cut it, or restore it if struck. **Drag across words** to set the run to the opposite state of
-    the first word. **Cmd/Ctrl+click** plays from the word. **Right-click** offers Play from here and Cut/Restore.
-  - Word edges snap within ±40 ms, and every edit is one undo step (`SetRange`, manual).
-- **Remove Filler Words** runs `FillerDetector` → `FillerSpanLocator` (envelope bursts around DTW anchors) →
-  `FillerCutPlanner` → `ApplyFillerCuts`, as one undo step that never touches manual edits. Without a transcript it
-  transcribes first. The word list is in Video Settings, with Cutback's defaults.
-- **A transcript made before anchors existed** still works with heuristic spans, and the notice suggests transcribing
-  again. **Before the waveform has loaded** the anchors cannot be located either; the notice then says "The waveform is
-  still loading; filler cuts use Whisper's rough timing." instead.
-- **Export Transcript…** writes `.txt` or `.srt` (`TranscriptExporter`), with times remapped by `OutputTimeline` to match
-  the exported video.
+### The cut editor
 
-### Detection
+The selected clip's whole source window with its cuts greyed, as Cutback's timeline: click a region to cut or restore it,
+drag a boundary (one undo step), drag to draw a section, right-click › Delete Region. Each gesture is
+`TimelineEdits.SetClipCuts` on the clip and its linked partners, and the clips after them ripple. On the main timeline a
+collapsed cut is a thin tick on the clip.
 
-- **Detect Silence** runs ffmpeg's `silencedetect` in a `VideoJob` with the settings captured when it starts, then
-  `SilenceCutPlanner` → `ReplaceAutoSegments`, as one undo step that keeps every non-auto segment. Defaults: padding
-  60 ms, min silence 400 ms, threshold −34 dB, min keep 120 ms.
-- **Detect Idle Gameplay** reads the `.mfcap.json` sidecar: `GameplayCutPlanner` → `ReplaceOriginCuts(Gameplay)`, as one
-  undo step. Defaults: min idle 3000 ms, padding 500 ms, min keep 1000 ms, marker window 1500 ms. Cutback's rules: idle
-  only in live recordings; loading, pause and Skip cut exactly; Keep never cut; markers protect the footage around them.
-- The results use Cutback's sentences, but report the **kept time the run actually removed** (the kept duration before
-  minus after), not the sum of the planned cuts, which can overlap footage already cut by hand or by the other
-  detector: "Detected 2 silences, 0:02.8 removed." and "Cut 1 stretch of idle gameplay, 0:05.5 removed."; when nothing
-  changed, "Detected 1 silence; all were already cut." and "Found 1 stretch of idle gameplay; all were already cut."; a
-  re-run that gives footage back says "restored".
+### Viewers and preview
+
+- **The Timeline viewer plays the timeline through the export's own filter graph** at preview size
+  (`TimelineGraphBuilder.BuildPreview`: the long side at most 960 px, at most 30 fps, raw RGBA; 540×960 for vertical):
+  one video decoder and one audio decoder per play, the audio voice as the clock. What it shows is what export writes.
+  An edit restarts the decode from the playhead; paused, a scrub decodes one frame (newest request wins).
+- **The Source viewer** decodes the one file (`SourceProgram`, today's `VideoPreview` machinery: gapless ranges,
+  prefetch, decoders started and killed on the pool). It has its own scrub bar, Play, Mark In/Out (kept per media) and
+  Insert/Overwrite.
+- **One viewer plays at a time.** Space plays the focused one; showing media focuses the Source viewer, placing it hands
+  focus back to the timeline.
+- **Textures:** `engine://video-source`, `engine://video-program`, `engine://video-timeline`, `engine://video-cuts`, each
+  a `SubViewport` updated only while shown, uploaded in place (`GpuTexture.Update2D`).
+- **Caches** (`MediaCache`, `<project>/.mainframe/cache/video/<hash>/`): waveforms, `filmstrip-<h>.png`, `poster.png`.
+  A miss starts one background job per file and allocates nothing on the frames that ask again.
 
 ### Export
 
-- **Export Video…** opens `ExportVideoDialog` (nothing to export when every segment is cut, which the notice says):
-  - The output defaults to `<video>-cut.mp4` beside the source, numbered if taken; the folder button opens the save
-    picker. The format follows the extension: `.mp4 .mov .mkv .webm`; any other is refused with a readable message.
-  - **Precise** (the default) re-encodes with `DeliveryEncoder`'s choice: libx264 at CRF 20, else hardware or OpenH264 at
-    0.1 bit per pixel per frame. Audio is AAC 192k, and the filter graph goes in a file.
-  - **Fast** stream-copies with keyframe-snapped starts, labelled "approximate: cuts snap back to keyframes". It is
-    disabled for `.webm`.
-  - A typed path that exists asks "Replace file?"; a picked one was confirmed by the picker.
-- **Running.** The request is snapshotted on the main thread, so edits during the export do not touch it; the preview
-  pauses. The Export button reads "Cancel n %". Cancelling kills ffmpeg and deletes the partial file.
-- **Finishing.** It is reported by how the job ended, not by whether Cancel was pressed: success shows "Export finished"
-  with Show in Folder and Close; failure shows the ffmpeg error with the tail of its stderr; a cancel says "Export
-  cancelled.".
-- **Closing a tab** cancels its export; quitting the editor cancels exports and waits up to 2 s before removing the
-  scratch folder.
-
-### Protecting the recording
-
-The source is opened read-only and never written. Save As, Export and Export Transcript **resolve their output path
-component by component** (`VideoPaths.SameFile`: a symbolic link anywhere in the path counts, `/tmp` and `/var` on macOS
-included) and **refuse the source recording**. Save paths are also normalised to one `.mfcut` (`trim.mp4` saves as
-`trim.mfcut`, `x.mfcut.mfcut` collapses).
-
-### Opening, saving, undo
-
-- **Opening a video** probes it and refuses it with "has no audio track" when it has none (export and the preview clock
-  splice audio). It is hashed (`SourceHash`) and starts as one kept segment. The sidecar is read when present; a bad or
-  newer one is a notice, never a failed open. The waveform is extracted by a job, so the tab appears at once.
-- **Opening a `.mfcut` or `.cutback`** uses the saved source info without probing; it is refused, naming the path, when
-  the source is missing, and opens with a warning when the source's hash changed. A `.cutback` opens unsaved as
-  `<name>.mfcut` and is never overwritten.
-- **Opening a file that is already open** activates its tab.
-- **Save** writes atomically; an unsaved recording asks where, suggesting `<video dir>/<video name>.mfcut`; Save As moves
-  the project.
-- **Undo** is `SegmentEditor`: one edit is one step, a boundary drag is one step, and undoing back to the saved partition
-  is clean. The limit is 100 steps (Video Settings, 10–1000).
-- **Unsaved changes.** Close and Quit ask Save / Don't Save / Cancel through the editor's unsaved-changes flow.
+- **File › Export Video…** (Cmd+E) opens `ExportVideoDialog`: a preset list (TikTok/Reels/Shorts 30 and 60 fps,
+  YouTube/Steam 1080p MP4 and WebM, 4K, X/Discord 720p within 25 MB, a GIF loop, a silent WebM loop, the timeline's own;
+  the table is in the [proposal](future/video-nle.md#export)), the range (the whole timeline, or in to out when either is
+  set) and the output, `<project>/Exports/<timeline>-<preset>.<ext>` by default (numbered when taken; it follows the
+  preset until edited). An empty timeline has nothing to export (a notice).
+- **Refused outputs:** a folder, the wrong extension for the preset, and any of the timeline's media files. An existing
+  file asks "Replace file?".
+- **The job** gets the timeline snapshot taken when Export was pressed, with every media path resolved on the main thread,
+  so edits while it runs do not touch it. The viewers pause; Export reads "Cancel n %". It ends in "Export finished" with
+  Show in Folder, the ffmpeg error, or "Export cancelled.". Closing the tab cancels it.
 
 ### Settings (Editor Settings › Video)
 
 | Setting | Default | Range |
 |---|---|---|
 | ffmpeg | blank: `MAINFRAME_FFMPEG`, then PATH, then the usual install folders | a folder holding ffmpeg and ffprobe, or one of the two files |
-| Whisper model | base.en | tiny.en, base.en, small.en, medium.en |
-| Filler words | Cutback's list | comma-separated; nothing usable falls back to the defaults |
-| Silence: threshold / min silence / padding / min keep | −34 dB / 400 / 60 / 120 ms | −80–0 dB / 50–5000 / 0–500 / 0–2000 ms |
-| Gameplay: min idle / padding / min keep / marker window | 3000 / 500 / 1000 / 1500 ms | 500–60000 / 0–2000 / 0–10000 / 0–10000 ms |
+| Whisper model, filler words, silence and gameplay settings | Cutback's | kept for G20d's per-clip tools |
 | Undo history | 100 | 10–1000 |
 
-Every value clamps in its setter. The text fields commit on Enter or when they lose focus (Apply commits the focused
-one), so typing "100" or "-40" is never rewritten mid-keystroke. Apply keeps the last mode and the recent videos as they are
-now, not as they were when the dialog opened: neither is edited in the dialog, and both can be saved while it is open. The ffmpeg setting also serves Play and Record: the
-editor passes it to the game as `--ffmpeg` (the `ffmpeg` inside a folder, or beside an `ffprobe`).
+The ffmpeg setting also serves Play and Record: the editor passes it to the game as `--ffmpeg`.
 
-**Which ffmpeg runs.** Opening a recording locates ffmpeg (`VideoFfmpeg.Locate`) for the probe, the waveform and the
-preview. Detect Silence, Transcribe and Export locate it again when they start, so a changed setting reaches tabs that
-are already open; when nothing is found then, they use the one the tab opened with. **The preview keeps the ffmpeg its
-tab opened with** (its decoder factory is built at open); reopen the tab to change it. A job whose ffmpeg cannot be
-started (the binary has gone since it was found) gives the same "ffmpeg not found" notice with the Editor Settings link,
-not a failed-operation dialog.
+## File format: `.mftimeline`
 
-## File format: `.mfcut`
-
-Cutback's project JSON, schema version 3, unchanged:
-
-```jsonc
-{ "version": 3,
-  "source": { "path": "/abs/recording.mp4", "sha256": "…", "durationSeconds": 612.44, "width": 1920, "height": 1080, "frameRate": 60.0 },
-  "segments": [ { "id": "…", "start": 0.0, "end": 3.21, "enabled": true, "origin": "auto", "reason": null } ],
-  "transcript": [ { "text": "so", "start": 1.02, "end": 1.18, "confidence": 0.93, "anchor": 1.05 } ],
-  "settings": { "paddingMs": 60, "minSilenceMs": 400, "silenceThresholdDb": -34.0, "minKeepMs": 120 } }
-```
-
-- **Segments partition `[0, duration]`.** The invariant is enforced and tested (`SegmentList`).
-- **`origin`** is `auto | manual | claude | filler | gameplay`. Each detector replaces only its own cuts, and manual
-  edits survive every detector.
-- **Paths.** The source path is absolute. The `.mfcut` lives next to the video by default, usually the recordings folder
-  in user data; one inside a project folder appears in the FileSystem panel with a video icon.
-- **Compatibility.** The engine owns the format from now on. A `.mfcut` renamed to `.cutback` opens in Cutback today, but
-  that is not promised.
+Versioned JSON (`TimelineSerializer`, `TimelineMigrator`, version 1), written atomically, with the asset UID (`vtl_…`)
+at the top so the asset database reads it like a scene (no `.meta`). Media are `MediaRef`s: the asset UID (moves in the
+pool keep working), the project-relative path as a fallback, the content hash and the probed facts. The old `.mfcut` and
+`.cutback` projects are no longer read (ADR 0241: no migration).
 
 ## Licensing
 
-- **The copied code is MIT.** Cutback.Core and Cutback.Media were already MIT. Cutback.Analysis and the Cutback.App logic
-  this ports (`TimelineControl`'s draw pass and gestures, `TranscriptControl`'s gestures, the view model's flows) are
-  GPL-3.0 in Cutback's repository; their sole author relicensed them as MIT for this copy (2026-10-13). The UI parts are
-  reimplemented on the engine's canvas and RmlUi; no Avalonia code is copied.
-- **`MainframeEngine.Video/LICENSE-CUTBACK`** keeps the line `Copyright (c) 2026 Cutback contributors`.
-  `THIRD_PARTY_NOTICES.md` lists the Cutback code, Whisper.net and whisper.cpp (all MIT, editor only).
-- **ffmpeg** remains the user's, run as a separate program and never linked (ADR 0190).
-- **Shipped games are unaffected**: `MainframeEngine` never references `MainframeEngine.Video`.
+- The Cutback code (`MainframeEngine.Video`, the cut editor's gestures and draw pass) is MIT, its author's relicensing of
+  the GPL parts for this copy (2026-10-13); `MainframeEngine.Video/LICENSE-CUTBACK` keeps its copyright line, and
+  `THIRD_PARTY_NOTICES.md` lists it with Whisper.net and whisper.cpp (all MIT, editor only).
+- ffmpeg remains the user's, run as a separate program and never linked (ADR 0190).
 
 ## Testing
 
-- **`Tests/MainframeEngine.Video.Tests`** (part of `just test`): Cutback's Core, Media and Analysis tests in plain
-  `Assert` (the partition invariant, `SetRange`, `Dissolve`, `Restore`, `EditHistory`; the silence, filler and gameplay
-  planners, `ReplaceOriginCuts`, the sidecar reader; project round-trips, migration, hashing; the transcript view and
-  exporters, the output timeline; locator, peaks, parsers, capabilities, filter graphs, keyframe snapping; word assembly
-  and model metadata), plus `SegmentEditor`, `DeliveryEncoder`, `PreviewDecoding` and the ffprobe JSON parser. Nothing
-  runs ffmpeg or loads a model.
-- **Editor tests** (mostly `Tests/MainframeEngine.Editor.Tests/Video/`): modes (layout, menus, tab filter, persistence,
-  auto-switch, closing), `VideoTab` in the session (open, save `.mfcut`, `.cutback` import, close prompt, undo during a
-  drag), the timeline view, gestures and canvas, the playback plan, the preview with a fake decoder factory (kill on
-  pause, close and mode switch; rebuild on edit; the held version during a drag; the first frame), the transcript panel,
-  transcription and filler flows with a fake transcriber, the export dialog and job with a fake runner, the same-file
-  checks, Video Settings (clamps, typing), the recording dialog's Open in Video Editor, and 0 B idle video frames.
-- **Render goldens** (`EditorRenderTests`, MoltenVK and lavapipe, no ffmpeg needed, so CI checks them):
-  - `editor-video-empty`: video mode's empty state.
-  - `editor-video-timeline`: a tab over a document built in code (`VideoGolden`: segments of every origin, a synthetic
-    waveform, markers, a transcript with struck words, colour bars from a fake decoder), fitted to its 60 s. Its steady
-    frames then get the **allocation gate** (0 B over 300 frames).
-- **QA, by hand:** `just qa-editor Tests/QA/video.qa` over the committed 12 s fixture `Tests/QA/Fixtures/video/sample.mp4`
-  (`build/make-video-fixture.sh`: a test pattern whose 440 Hz tone drops out from 4 to 6 s, with a hand-written sidecar:
-  loading 7–9 s, a marker at 10 s). It opens the fixture, runs Detect Silence and then Detect Idle Gameplay (so each
-  capture shows more cut: the idle cut, 3.5–9.0 s, takes in the silence cut), transcribes with tiny.en (`video set
-  whisper-model tiny.en`), undoes (the idle cut comes back), plays past the silence cut and switches modes. Captures:
-  `video-01-empty`, `video-02-opened`, `video-03-silence`, `video-04-idle`, `video-05-transcript`, `video-06-undo`,
-  `video-07-playing`, `video-08-game-mode`. It waits on conditions, not frame counts: `wait-for video-jobs` and
-  `wait-for video-position`.
+- **`Tests/MainframeEngine.Video.Tests`** (`just test`): the timeline model, edits, layout, snapping, reframing, file
+  format, export and preview graphs, presets and arguments, and Cutback's tests. Nothing runs ffmpeg.
+- **`just test-video-ffmpeg`** (opt-in): real ffmpeg renders lavfi sources through the presets' graphs; ffprobe checks
+  size, rate and duration (outputs in `artifacts/video-ffmpeg`).
+- **Editor tests** (`Tests/MainframeEngine.Editor.Tests/Video/`), with ffmpeg faked at its seams (`VideoView.Prober`,
+  `DecoderFactory`, `ExporterFactory`):
+  - `TimelineDocumentTests` (a drag is one step, nothing changed records nothing, dirty against the save), `MediaPoolTests`,
+    `MediaImporterTests`, `TimelineControllerTests` (select, move across tracks, trim and ripple trim, razor, marquee,
+    snapping, locks);
+  - `VideoWorkflowTests`: folders on first use, New Timeline, Open in Video Editor, save and reopen, Add Edit, lift and
+    ripple delete, tools and unlink, the track menu, Source marks with insert and overwrite, Finder drops on the timeline
+    and the pool, the Inspector, the export dialog and job, the program's graph per visible track;
+  - `EditorModeTests` (the mode needs a project, Premiere's keys), the cut editor's view, gestures and canvas, the Source
+    preview, and `TimelineAllocationTests` (0 B steady frames, headless).
+- **Render goldens** (`EditorRenderTests`, no ffmpeg): `editor-video-empty` (a generated project's pool, no tab) and
+  `editor-video-timeline` (`VideoGolden`: 3 video and 2 audio tracks, linked pairs, a picture-in-picture, a clip with two
+  cuts selected in the cut editor, music on A2, colour bars from a fake decoder), then the **allocation gate** (0 B over
+  300 frames).
+- **QA, by hand:** `just qa-editor Tests/QA/video.qa` on the Demo with the 12 s fixture: import, a 9:16 timeline, the
+  Source viewer, overwrite, two add edits and a ripple delete, fit, unlink, play, export; captures `video-01-empty` to
+  `video-10-exported` in `artifacts/qa-editor`. It waits on `wait-for video-jobs` and `wait-for video-position` and
+  removes the Demo's `Assets/Video` and `Exports` at both ends (`video reset`).
 
 ## Known limits
 
-- **Preview memory.** Four stream slots of six frame buffers each: up to about 48 MB at 960×540.
-- **Per-frame texture upload.** The preview's CPU `Texture2D` uploads once per displayed frame, at most 960×540 and
-  30 fps, into the same GPU image (`GpuTexture.Update2D`, ADR 0241). G16's planned `VideoTexture` would decode on the
-  GPU instead.
-- **Hard links** to the recording are not detected by the same-file checks (a hard link is a second name for the same
-  data); symbolic links are.
-- **Crash recovery covers scenes only**: `WriteRecoveryCopies` does not write video projects.
-- **No drag-in from the OS**: the engine does not deliver SDL drop events yet.
-- **Whisper is trained to drop disfluencies**; recall of "um"s depends on the prompt (Cutback's known issue, same
-  mitigation). The first transcription downloads 78 MB to 1.5 GB, depending on the model.
+- **An edit restarts the preview decode** (the cost of previewing through the export graph); scrubbing while paused
+  decodes one frame each time.
+- **No reverse or fast shuttle:** J steps back a second while paused, L plays at normal speed.
+- **Import Media's picker takes one file**; drag several from Finder instead.
+- **No drag-over highlight** for Finder drops (SDL sends none).
+- **Crash recovery covers scenes only**, not timelines (G20.3).
+- **Hard links** to a media file are not detected by the same-file export check; symbolic links are.
 
 ## Changes from the proposal
 
-The proposal was agreed on 2026-10-13; these changed while it was built:
-- Remove Fillers is enabled without a transcript (it transcribes first); the proposal said it was disabled.
-- Closing the last video tab stays in video mode; closing never activates a tab of the other mode.
-- "ffmpeg not found" for a tab's operation is a notice with an Editor Settings link, not a dialog.
-- Save As, Export and Export Transcript refuse the source after resolving links component by component.
-- Undo or redo during a drag cancels the gesture first; the preview holds its version during a boundary drag.
-- The preview starts and kills decoders off the main thread, merges contiguous ranges, and shows the first frame on open.
-- The ruler has no 0.25 s interval; sub-second labels show tenths.
-- The Video Settings text fields commit on Enter or blur.
-- Jobs start with `VideoJob.Start<T>`; `DeliveryEncoder`'s probe is shared, time-limited and evicted on failure.
-- The view menu has Switch to Game/Video Mode items, not a toggle; the Edit menu opens Video Settings.
-- Detection notices report the kept time a run actually removed (Cutback sums the planned cuts), and say when all of it
-  was cut already.
-- The recording dialog offers Open in Video Editor first and keeps Open in Cutback.
+G20c, built 2026-11-05:
+- **The preview plays through the export graph** (`TimelineGraphBuilder.BuildPreview`), not per-track sprite layers and
+  a separate audio mixer: one video and one audio decoder per play, and what it shows is exactly what export writes.
+  `TimelinePreviewTests.OneLayerPerVisibleTrack` and `TimelineAudioMixerTests.MuteAndSolo` became the graph tests (a chain
+  per visible track; muted and solo tracks) and `VideoWorkflowTests.TheProgramPlaysTheTimelineThroughOneGraphPerVisibleTrack`.
+- **Folders are made when video mode first uses a project**, so opening a project in game mode never adds `Assets/Video`.
+- **J/K/L:** no reverse or fast shuttle yet (above).
+- **Import Media's picker takes one file.**
+- **Add Edit with a clip selected** cuts that clip's tracks and its linked partner's, as the razor does.
+- **The Inspector commits one undo step per field commit** (Enter or blur) rather than merging a field's edits.
+- **The scenario tests live in `VideoWorkflowTests`** (`OsDropOnTimelineInsertsAtTimeAndTrack`, `AddEditAtPlayhead`,
+  `OpenInVideoEditorCreatesTimeline`, `ExportDialogPresetAndDefaultPath`) and `EditorModeTests.VideoModeNeedsAProject`.
 
 ## Related docs
 
-- [Editor](editor.md#editor-modes) (modes, shortcuts) · [Gameplay recording](recording.md) · [Audio](audio.md) ·
-  [Testing](testing.md)
+- [Video NLE proposal](future/video-nle.md) · [Editor](editor.md#editor-modes) (modes, shortcuts) ·
+  [Gameplay recording](recording.md) · [Audio](audio.md) · [Testing](testing.md)

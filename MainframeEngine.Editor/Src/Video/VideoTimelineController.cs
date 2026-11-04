@@ -18,7 +18,7 @@ public enum VideoGesture { None, Pending, Scrub, Pan, Boundary, Section }
 /// </summary>
 public sealed class VideoTimelineController
 {
-    private readonly VideoDocument _doc;
+    private readonly ICutTarget _doc;
     private readonly VideoTimelineView _view;
     private readonly VideoCanvasState _state;
     private Vector2 _press;
@@ -29,7 +29,7 @@ public sealed class VideoTimelineController
     // (an undo, a Delete that merges neighbours). Without it the hovered index would name a segment that no longer exists.
     private Vector2? _lastPointer;
 
-    public VideoTimelineController(VideoDocument document, VideoTimelineView view, VideoCanvasState state)
+    public VideoTimelineController(ICutTarget document, VideoTimelineView view, VideoCanvasState state)
     {
         _doc = document ?? throw new ArgumentNullException(nameof(document));
         _view = view ?? throw new ArgumentNullException(nameof(view));
@@ -68,7 +68,7 @@ public sealed class VideoTimelineController
         {
             Gesture = VideoGesture.Boundary;
             _state.DragBoundary = boundary;
-            _doc.Editor.BeginBoundaryDrag();
+            _doc.BeginBoundaryDrag();
             return;
         }
 
@@ -83,7 +83,7 @@ public sealed class VideoTimelineController
                 Seek?.Invoke(_view.ClampTime(_view.XToTime(p.X)));
                 break;
             case VideoGesture.Boundary:
-                _doc.Editor.UpdateBoundaryDrag(_state.DragBoundary, _view.XToTime(p.X));
+                _doc.UpdateBoundaryDrag(_state.DragBoundary, _view.XToTime(p.X));
                 break;
             case VideoGesture.Pending when Math.Abs(p.X - _press.X) > VideoTimelineView.DragThreshold:
                 if ((modifiers & EditorModifiers.Shift) != 0)
@@ -114,16 +114,16 @@ public sealed class VideoTimelineController
         switch (Gesture)
         {
             case VideoGesture.Pending:
-                _doc.Editor.Toggle(_view.SegmentAt(_doc.Segments, p.X, p.Y));
+                _doc.Toggle(_view.SegmentAt(_doc.Segments, p.X, p.Y));
                 break;
             case VideoGesture.Boundary:
-                _doc.Editor.EndBoundaryDrag(_state.DragBoundary, _doc.SnapTime(_view.XToTime(p.X)));
+                _doc.EndBoundaryDrag(_state.DragBoundary, _doc.SnapTime(_view.XToTime(p.X)));
                 break;
             case VideoGesture.Section when _state.PendingSection is { } section:
                 var start = _view.ClampTime(_doc.SnapTime(section.Start));
                 var end = _view.ClampTime(_doc.SnapTime(section.End));
                 if (end > start)
-                    _doc.Editor.CreateSection(start, end, _anchor);
+                    _doc.CreateSection(start, end, _anchor);
                 break;
         }
 
@@ -139,9 +139,9 @@ public sealed class VideoTimelineController
     public void CancelGesture()
     {
         // Guarded as in Cutback: a drag index outside the boundaries must not reach MoveBoundary.
-        if (Gesture == VideoGesture.Boundary && _doc.Editor.IsDragging
+        if (Gesture == VideoGesture.Boundary && _doc.IsDragging
             && _state.DragBoundary >= 1 && _state.DragBoundary < _doc.Segments.Count)
-            _doc.Editor.EndBoundaryDrag(_state.DragBoundary, _doc.Segments.Segments[_state.DragBoundary].Start);
+            _doc.EndBoundaryDrag(_state.DragBoundary, _doc.Segments.Segments[_state.DragBoundary].Start);
         Reset();
         RefreshHover();
     }
@@ -171,7 +171,7 @@ public sealed class VideoTimelineController
     /// <summary>Dissolves the hovered segment into its neighbours (Delete, Backspace, or the menu's Delete).</summary>
     public bool DeleteHovered()
     {
-        if (!_doc.Editor.Dissolve(_state.HoverSegment))
+        if (!_doc.Dissolve(_state.HoverSegment))
             return false;
         // The dissolve may have merged neighbours, so the index is recomputed from the pointer rather than cleared.
         _state.HoverSegment = -1;

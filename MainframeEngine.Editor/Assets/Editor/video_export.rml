@@ -5,36 +5,38 @@
     <link type="text/rcss" href="theme.rcss"/>
     <link type="text/rcss" href="dialogs.rcss"/>
     <style>
-        #dialog { left: 50%; top: 50%; width: 560dp; height: 276dp; margin-left: -280dp; margin-top: -138dp; }
+        #dialog { left: 50%; top: 50%; width: 580dp; height: 470dp; margin-left: -290dp; margin-top: -235dp; }
         .dialog-row .caption { width: 100dp; }
         .dialog-row button { width: 26dp; padding: 0dp; margin-left: 6dp; }
-        #ev-summary { display: block; flex: 0 0 auto; margin-bottom: 10dp; color: #b4bccc; }
-        .mode-row { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 24dp; padding: 0dp 6dp; border-radius: 3dp; cursor: pointer; color: #d7dbe4; }
-        .mode-row:hover { background-color: #2a2e38; }
-        .mode-row .radio { display: block; flex: 0 0 auto; width: 10dp; height: 10dp; margin-right: 9dp; border-radius: 7dp; border: 2dp #6b7488; }
-        .mode-row.selected .radio { background-color: #3b82f6; border-color: #3b82f6; }
-        .mode-row.disabled { color: #6b7488; cursor: default; }
-        .mode-row.disabled:hover { background-color: transparent; }
-        .hint { display: block; flex: 0 0 auto; margin: 2dp 0dp 0dp 25dp; color: #8b93a5; font-size: 11dp; }
+        #ev-summary { display: block; flex: 0 0 auto; margin: 6dp 0dp 10dp 0dp; color: #b4bccc; }
+        .section { display: block; flex: 0 0 auto; margin: 4dp 0dp 4dp 0dp; color: #8b93a5; font-size: 11dp; }
+        .choice { display: flex; flex-direction: row; align-items: center; flex: 0 0 auto; height: 24dp; padding: 0dp 6dp; border-radius: 3dp; cursor: pointer; color: #d7dbe4; }
+        .choice:hover { background-color: #2a2e38; }
+        .choice .radio { display: block; flex: 0 0 auto; width: 10dp; height: 10dp; margin-right: 9dp; border-radius: 7dp; border: 2dp #6b7488; }
+        .choice.selected .radio { background-color: #3b82f6; border-color: #3b82f6; }
+        .choice.disabled { color: #6b7488; cursor: default; }
+        .choice.disabled:hover { background-color: transparent; }
+        #ev-ranges { display: flex; flex-direction: row; flex: 0 0 auto; }
+        #ev-ranges .choice { margin-right: 16dp; }
     </style>
 </head>
 <body class="backdrop" data-model="video_export">
     <div class="dialog" id="dialog">
         <div class="dialog-title"><span class="icon icon-sm icon-download"></span><span>Export Video</span></div>
         <div class="dialog-body">
+            <div class="section">Preset</div>
+            <div class="choice" data-for="p : presets" data-class-selected="p.index == preset" data-event-click="choose(p.index)"><span class="radio"></span><span>{{p.name}}</span></div>
+            <div class="section">Range</div>
+            <div id="ev-ranges">
+                <div class="choice" id="ev-whole" data-class-selected="!in_out" data-event-click="range(0)"><span class="radio"></span><span>Whole timeline</span></div>
+                <div class="choice" id="ev-inout" data-class-selected="in_out" data-class-disabled="!has_in_out" data-event-click="range(1)"><span class="radio"></span><span>In to out</span></div>
+            </div>
             <div id="ev-summary">{{summary}}</div>
             <div class="dialog-row">
                 <span class="caption">Output file</span>
                 <input type="text" class="text mono" id="ev-path" data-value="path"/>
                 <button id="ev-browse" data-event-click="browse()" data-tooltip="Browse — choose where to save the exported video"><span class="icon icon-sm icon-folder-open"></span></button>
             </div>
-            <div class="mode-row" id="ev-precise" data-class-selected="!fast" data-event-click="choose(0)">
-                <span class="radio"></span><span>Precise (re-encode, frame-accurate)</span>
-            </div>
-            <div class="mode-row" id="ev-fast" data-class-selected="fast" data-class-disabled="!fast_allowed" data-event-click="choose(1)">
-                <span class="radio"></span><span>Fast (copy, approximate: cuts snap back to keyframes)</span>
-            </div>
-            <div class="hint" id="ev-hint">{{hint}}</div>
             <div class="dialog-error" id="ev-error">{{error}}</div>
         </div>
         <div class="dialog-buttons">

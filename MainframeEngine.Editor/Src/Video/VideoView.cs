@@ -1,113 +1,135 @@
+using System.Collections.Frozen;
 using System.Numerics;
 using MainframeEngine.Editor.Music;
-using MainframeEngine.Video.Analysis;
-using MainframeEngine.Video.Detection;
 using MainframeEngine.Video.Media;
-using MainframeEngine.Video.Media.Export;
+using MainframeEngine.Video.Timelines;
+using MainframeEngine.Video.Timelines.Export;
+using Silk.NET.Input;
 // The game export library (MainframeEngine.Export, a global using) has types of the same names.
 using ExportProgress = MainframeEngine.Video.Media.Export.ExportProgress;
-using ExportRequest = MainframeEngine.Video.Media.Export.ExportRequest;
-using MainframeEngine.Video.Models;
-using Silk.NET.Input;
+using Timeline = MainframeEngine.Video.Timelines.Timeline;
 
 namespace MainframeEngine.Editor.Video;
 
 /// <summary>
-/// The video tab's per-frame driver, a <c>[Tool]</c> node of the workspace beside <see cref="SongView"/>: it sizes the
-/// active tab's timeline viewport to the <see cref="VideoPanel"/>'s timeline area, keeps the preview viewport rendering,
-/// publishes both to the UI as <c>engine://video-timeline</c> and <c>engine://video-preview</c>, routes the pointer over
-/// the timeline and the tab's keys to its <see cref="VideoTimelineController"/>, keeps the toolbar current and applies
-/// finished detection jobs on the main thread. Steady-state frames allocate nothing.
+/// Video mode's per-frame driver, a <c>[Tool]</c> node of the workspace (docs/design/future/video-nle.md). It publishes the
+/// active timeline tab's four sub-viewports to the UI (the Source and Timeline viewers, the timeline canvas and the cut
+/// editor), routes the pointer over them, runs every <c>video.*</c> command (Premiere's keys come here through
+/// <see cref="EditorWorkspace.VideoShortcutFor"/>), and runs the background jobs: probes, imports and exports. Steady frames
+/// allocate nothing.
 /// </summary>
 [Tool]
 public sealed class VideoView : Node
 {
+    public const string SourceTexture = "video-source";
+    public const string ProgramTexture = "video-program";
     public const string TimelineTexture = "video-timeline";
-    public const string PreviewTexture = "video-preview";
+    public const string CutsTexture = "video-cuts";
 
-    /// <summary>An off-canvas point: hovering there clears the hovered segment and boundary.</summary>
-    private static readonly Vector2 Away = new(-1, -1);
+    private enum Area : byte
+    {
+        None,
+        Timeline,
+        Cuts,
+        SourceBar,
+    }
 
     private readonly EditorWorkspace _workspace;
-    private VideoTab? _tab;
-    private SubViewport? _timelineRegistered;
-    private SubViewport? _previewRegistered;
+    private readonly Dictionary<string, MediaRef> _probed = new(StringComparer.Ordinal);
+    private readonly List<(string Path, VideoJob<MediaRef> Job, List<Action<MediaRef>> Then)> _probes = [];
+    private readonly SubViewport?[] _registered = new SubViewport?[4];
+    private TimelineTab? _tab;
+    private MediaCache? _cache;
+    private string? _cacheRoot;
     private Vector2 _mouse;
-
-    // A left press on the timeline started a gesture: every motion and the release go to the controller until then,
-    // wherever the pointer is.
-    private bool _dragging;
-
-    // The pointer was over the timeline at the last motion; leaving clears the hover so Delete cannot hit a region the
-    // pointer has left.
-    private bool _hovering;
+    private Area _dragging;
+    private Area _hovering;
+    private VideoJob<IReadOnlyList<string>>? _import;
+    private Action<IReadOnlyList<string>>? _imported;
+    private TempSession? _temp;
 
     public VideoView(EditorWorkspace workspace)
     {
         _workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
     }
 
-    /// <summary>The video tab shown (the active tab in video mode), or null.</summary>
-    public VideoTab? Tab => _tab;
+    /// <summary>The timeline tab shown (the active tab in video mode), or null.</summary>
+    public TimelineTab? Tab => _tab;
 
-    /// <summary>True while either texture is published to the UI (tests: a switch away unpublishes both).</summary>
-    internal bool PublishesTextures => _timelineRegistered is not null || _previewRegistered is not null;
+    /// <summary>The project's media cache (waveforms, filmstrips, posters), or null before video mode found ffmpeg.</summary>
+    public MediaCache? Cache => _cache;
 
-    // Editor Settings › Video, read when an operation starts (jobs keep what they started with).
-    private DetectionSettings Detection => _workspace.Settings.VideoDetection;
+    /// <summary>No probe or import is running (QA's <c>wait-for video-jobs</c>).</summary>
+    public bool IsIdle => _probes.Count == 0 && _import is null;
 
-    private WhisperModel SpeechModel => WhisperModelInfo.Parse(_workspace.Settings.VideoWhisperModel);
+    /// <summary>True while any viewer or canvas texture is published (tests: a switch away unpublishes them).</summary>
+    internal bool PublishesTextures => _registered.Any(r => r is not null);
 
-    private IReadOnlyList<string> FillerWords => _workspace.Settings.VideoFillerWords;
+    /// <summary>Starts preview decodes; tests swap it for a fake so ffmpeg never runs.</summary>
+    internal Func<FfmpegLocation, IVideoDecoderFactory> DecoderFactory { get; set; } = static ffmpeg => new FfmpegVideoDecoderFactory(ffmpeg.FfmpegPath);
 
-    /// <summary>
-    /// The ffmpeg an operation runs: Editor Settings › Video's, located when the operation starts, so a changed setting
-    /// reaches tabs already open; else the one the tab opened with. Null when neither exists (the notice says so). The
-    /// preview keeps the ffmpeg its tab opened with: its decoder factory is built once, when the tab opens.
-    /// </summary>
-    private FfmpegLocation? FfmpegFor(VideoTab tab)
+    /// <summary>Probes a file into a <see cref="MediaRef"/>; tests swap it.</summary>
+    internal Func<FfmpegLocation, string, string, string, CancellationToken, Task<MediaRef>> Prober { get; set; } = MediaRefs.ProbeAsync;
+
+    /// <summary>Runs one export; tests swap it so ffmpeg never starts.</summary>
+    internal Func<FfmpegLocation, TempSession, TimelineExportRunner> ExporterFactory { get; set; } =
+        static (ffmpeg, temp) => new TimelineExporter(ffmpeg, temp).ExportAsync;
+
+    /// <summary>The ffmpeg video mode uses (Editor Settings › Video), or null after telling the user it is missing.</summary>
+    public FfmpegLocation? FfmpegOrReport()
     {
         try
         {
             return _workspace.Commands.LocateFfmpeg(_workspace.Settings.VideoFfmpegPath);
         }
-        catch (FfmpegMissingException)
+        catch (FfmpegMissingException e)
         {
-            return tab.Ffmpeg;
+            Log.Error($"[Editor] The video editor needs ffmpeg: {e.Message}");
+            _workspace.Message.Show(new MessageRequest
+            {
+                Title = "ffmpeg not found",
+                Message = $"The video editor needs ffmpeg:\n{e.Message}",
+                Buttons = ["Video Settings…", "OK"],
+                CancelButton = 1,
+                Callback = (button, _) =>
+                {
+                    if (button == 0)
+                        _workspace.Commands.Execute("video.settings");
+                },
+            });
+            return null;
         }
     }
 
-    /// <summary>
-    /// A job failed because its ffmpeg could not be started: the binary is gone (moved, uninstalled) since it was found.
-    /// That is reported like ffmpeg not being found, in the notice line with the settings link, not as a failed operation.
-    /// </summary>
-    internal static bool IsMissingFfmpeg(Exception error) =>
-        error is FfmpegMissingException or System.ComponentModel.Win32Exception { NativeErrorCode: 2 or 3 }; // no such file / path
+    public IVideoDecoderFactory Decoders(FfmpegLocation ffmpeg) => DecoderFactory(ffmpeg);
 
-    /// <summary>Creates the speech recogniser for a downloaded model file; tests swap it so no model is ever loaded.</summary>
-    public Func<FfmpegLocation, string, WhisperModel, ITranscriber> TranscriberFactory { get; set; } =
-        static (ffmpeg, modelPath, model) => new WhisperTranscriber(ffmpeg, modelPath, model);
+    /// <summary>The open project's media cache, made for <paramref name="ffmpeg"/> (one per project).</summary>
+    public MediaCache? CacheFor(FfmpegLocation? ffmpeg)
+    {
+        var root = _workspace.Session.ProjectRoot;
+        if (root is null)
+            return null;
+        if (_cache is null || _cacheRoot is null || !EditorSession.PathsEqual(_cacheRoot, root))
+        {
+            _cache?.Dispose();
+            _cache = new MediaCache(Path.Combine(root, ".mainframe", "cache", "video"));
+            _cacheRoot = root;
+        }
 
-    /// <summary>Creates the runner of one export; tests swap it so ffmpeg never starts.</summary>
-    internal Func<FfmpegLocation, TempSession, VideoExportRunner> ExporterFactory { get; set; } =
-        static (ffmpeg, temp) => new Exporter(ffmpeg, temp).ExportAsync;
+        _cache.Ffmpeg ??= ffmpeg;
+        return _cache;
+    }
 
-    // Scratch space for filter scripts and fast-export pieces: made by the first export, removed when the editor closes.
-    private TempSession? _temp;
-
-    /// <summary>The temp session's folder, or null until an export has started.</summary>
-    internal string? TempDirectory => _temp?.Directory;
+    // ── Every frame ──────────────────────────────────────────────────────────────────────────────────────────
 
     protected override void OnProcess(in GameTime gameTime)
     {
-        var tabs = _workspace.Session.Tabs;
-        for (var i = 0; i < tabs.Count; i++)
-            if (tabs[i] is VideoTab video)
-                PollJobs(video);
-
-        var tab = _workspace.Mode == EditorMode.Video ? _workspace.Session.ActiveTab as VideoTab : null;
+        _cache?.Pump();
+        PollJobs();
+        var tab = _workspace.Mode == EditorMode.Video ? _workspace.Session.ActiveTab as TimelineTab : null;
         if (!ReferenceEquals(tab, _tab))
             Switch(tab);
+        tab?.SyncCutEditor(); // first: the panel's cut editor title and Inspector read the clip it shows
         var panel = _workspace.VideoPanel;
         panel.Tick(tab);
         _workspace.Toolbar.UpdateVideo(tab);
@@ -116,179 +138,280 @@ public sealed class VideoView : Node
 
         var scale = _workspace.Host.PixelScale;
         var timeline = panel.TimelineRect;
-        var preview = panel.PreviewRect;
+        var cuts = panel.CutsRect;
         var showTimeline = timeline.Width > 1 && timeline.Height > 1;
-        var showPreview = preview.Width > 1 && preview.Height > 1;
+        var showCuts = cuts.Width > 1 && cuts.Height > 1;
         if (showTimeline)
+        {
             tab.View.Width = timeline.Width;
-        SongView.Place(tab.TimelineViewport, tab.Timeline, timeline, scale, showTimeline);
-        // The preview sizes its own viewport (the decode size); it only has to keep rendering while it is shown.
-        var mode = showPreview ? SubViewportUpdateMode.Always : SubViewportUpdateMode.Disabled;
-        if (tab.Preview.Viewport.UpdateMode != mode)
-            tab.Preview.Viewport.UpdateMode = mode;
-        Publish(tab, showTimeline, showPreview);
+            tab.View.Height = timeline.Height;
+        }
+
+        if (showCuts)
+            tab.CutView.Width = cuts.Width;
+        SongView.Place(tab.CanvasViewport, tab.Canvas, timeline, scale, showTimeline);
+        SongView.Place(tab.CutViewport, tab.CutCanvas, cuts, scale, showCuts);
+        var showProgram = panel.ProgramRect.Width > 1;
+        var showSource = panel.SourceRect.Width > 1 && tab.Source.Preview is not null;
+        SetMode(tab.Preview.Viewport, showProgram);
+        if (tab.Source.Preview is { } source)
+            SetMode(source.Viewport, showSource);
+        Publish(0, SourceTexture, showSource ? tab.Source.Preview?.Viewport : null);
+        Publish(1, ProgramTexture, showProgram ? tab.Preview.Viewport : null);
+        Publish(2, TimelineTexture, showTimeline ? tab.CanvasViewport : null);
+        Publish(3, CutsTexture, showCuts ? tab.CutViewport : null);
+        panel.SetImages(_registered[0] is not null, _registered[1] is not null, _registered[2] is not null, _registered[3] is not null);
     }
 
-    private void Publish(VideoTab tab, bool timeline, bool preview)
+    private static void SetMode(SubViewport viewport, bool shown)
     {
-        if (Tree?.Servers.Get<UiServer>() is not { } ui)
+        var mode = shown ? SubViewportUpdateMode.Always : SubViewportUpdateMode.Disabled;
+        if (viewport.UpdateMode != mode)
+            viewport.UpdateMode = mode;
+    }
+
+    private void Publish(int slot, string name, SubViewport? viewport)
+    {
+        if (ReferenceEquals(_registered[slot], viewport) || Tree?.Servers.Get<UiServer>() is not { } ui)
             return;
-        if (timeline && !ReferenceEquals(_timelineRegistered, tab.TimelineViewport))
-        {
-            ui.RegisterTexture(TimelineTexture, tab.TimelineViewport);
-            _timelineRegistered = tab.TimelineViewport;
-        }
-
-        if (preview && !ReferenceEquals(_previewRegistered, tab.Preview.Viewport))
-        {
-            ui.RegisterTexture(PreviewTexture, tab.Preview.Viewport);
-            _previewRegistered = tab.Preview.Viewport;
-        }
-
-        _workspace.VideoPanel.SetImages(_previewRegistered is not null && preview, _timelineRegistered is not null && timeline);
+        if (viewport is null)
+            ui.UnregisterTexture(name);
+        else
+            ui.RegisterTexture(name, viewport);
+        _registered[slot] = viewport;
     }
 
-    // The shown tab changed (another tab, a mode switch, a close): the old one's gesture ends, the UI stops sampling its
-    // targets, and the new one's segment menu opens here.
-    private void Switch(VideoTab? tab)
+    // The shown tab changed: the old one's gestures end, and the UI stops sampling its targets.
+    private void Switch(TimelineTab? tab)
     {
-        if (_dragging)
+        if (_dragging != Area.None)
+        {
             _tab?.Controller.CancelGesture();
-        _dragging = false;
-        _hovering = false;
-        if (_tab is { } old)
-        {
-            old.Controller.ShowSegmentMenu = null;
-            old.Controller.Hover(Away); // no stale hovered region survives the switch (Delete would hit it on return)
+            _tab?.CutController.CancelGesture();
         }
 
+        _dragging = Area.None;
+        _hovering = Area.None;
         _tab = tab;
-        if (_timelineRegistered is not null || _previewRegistered is not null)
-        {
-            var ui = Tree?.Servers.Get<UiServer>();
-            ui?.UnregisterTexture(TimelineTexture);
-            ui?.UnregisterTexture(PreviewTexture);
-            _timelineRegistered = null;
-            _previewRegistered = null;
-        }
+        if (Tree?.Servers.Get<UiServer>() is { } ui)
+            for (var i = 0; i < _registered.Length; i++)
+                if (_registered[i] is not null)
+                {
+                    ui.UnregisterTexture(i switch { 0 => SourceTexture, 1 => ProgramTexture, 2 => TimelineTexture, _ => CutsTexture });
+                    _registered[i] = null;
+                }
 
-        _workspace.VideoPanel.SetImages(false, false);
-        if (tab is null)
-            return;
-        tab.Controller.ShowSegmentMenu = (_, x, y) => ShowSegmentMenu(tab, x, y);
+        _workspace.VideoPanel.SetImages(false, false, false, false);
+        if (tab is not null)
+        {
+            tab.Controller.ShowMenu = (clip, x, y) => ShowClipMenu(tab, clip, x, y);
+            tab.CutController.ShowSegmentMenu = (_, x, y) => ShowCutMenu(tab, x, y);
+        }
     }
 
-    // Built only when a right-click opens it.
-    private void ShowSegmentMenu(VideoTab tab, float x, float y)
+    private void ShowClipMenu(TimelineTab tab, Clip? clip, float x, float y)
     {
         var rect = _workspace.VideoPanel.TimelineRect;
-        _workspace.Popup.Show([new MenuItem("Delete", "edit.delete", "Del", Icon: "trash")], rect.X + x, rect.Y + y, onCommand: id =>
+        List<MenuItem> items = clip is null
+            ?
+            [
+                new MenuItem("Add Video Track", "video.add_video_track", Icon: "plus"),
+                new MenuItem("Add Audio Track", "video.add_audio_track", Icon: "plus"),
+            ]
+            :
+            [
+                new MenuItem(clip.LinkGroup is null ? "Link" : "Unlink", "video.link", "Ctrl+L", Icon: "link"),
+                new MenuItem(clip.Enabled ? "Disable" : "Enable", "video.toggle_enabled", Icon: "eye-off"),
+                MenuItem.Separator,
+                new MenuItem("Delete (Lift)", "video.lift", "Del", Icon: "trash"),
+                new MenuItem("Ripple Delete", "video.ripple_delete", "Shift+Del", Icon: "trash-x"),
+            ];
+        _workspace.Popup.Show(items, rect.X + x, rect.Y + y, onCommand: id =>
         {
-            if (id == "edit.delete")
-                Guard("Delete failed", () => tab.Controller.DeleteHovered());
+            if (id is not null)
+                RunCommand(id);
         });
     }
 
-    // ── Input ────────────────────────────────────────────────────────────────────────────────────────────────────
+    private void ShowCutMenu(TimelineTab tab, float x, float y)
+    {
+        var rect = _workspace.VideoPanel.CutsRect;
+        _workspace.Popup.Show([new MenuItem("Delete Region", "edit.delete", "Del", Icon: "trash")], rect.X + x, rect.Y + y, onCommand: id =>
+        {
+            if (id == "edit.delete")
+                Guard("Delete failed", () => tab.CutController.DeleteHovered());
+        });
+    }
+
+    // ── Input ────────────────────────────────────────────────────────────────────────────────────────────────
 
     protected override void OnInput(InputEvent inputEvent)
     {
         if (_tab is not { } tab || _workspace.IsDialogOpen || _workspace.Popup.Visible)
             return;
+        var panel = _workspace.VideoPanel;
         var scale = _workspace.Host.PointerScale;
         switch (inputEvent)
         {
             case InputEventMouseButton { Button: MouseButton.Left } button:
                 _mouse = button.Position * scale;
                 if (button.Pressed)
-                {
-                    if (!InTimeline(_mouse))
-                        return;
-                    _dragging = true;
-                    Guard("Timeline edit failed", () => tab.Controller.Press(Local(_mouse), _workspace.Modifiers));
-                    Handled();
-                }
-                else if (_dragging)
-                {
-                    _dragging = false;
-                    Guard("Timeline edit failed", () => tab.Controller.Release(Local(_mouse)));
-                    _hovering = InTimeline(_mouse);
-                    if (!_hovering)
-                        tab.Controller.Hover(Away);
-                    Handled();
-                }
-
+                    Press(tab, panel);
+                else
+                    Release(tab, panel);
                 break;
             case InputEventMouseButton { Button: MouseButton.Right, Pressed: true } right:
                 _mouse = right.Position * scale;
-                if (_dragging || !InTimeline(_mouse))
+                if (_dragging != Area.None)
                     return;
-                Guard("Timeline edit failed", () => tab.Controller.RightClick(Local(_mouse)));
-                Handled();
+                if (In(panel.TimelineRect))
+                {
+                    Guard("Timeline edit failed", () => tab.Controller.RightClick(Local(panel.TimelineRect)));
+                    Handled();
+                }
+                else if (In(panel.CutsRect))
+                {
+                    Guard("Cut edit failed", () => tab.CutController.RightClick(Local(panel.CutsRect)));
+                    Handled();
+                }
+
                 break;
             case InputEventMouseMotion motion:
                 _mouse = motion.Position * scale;
-                if (_dragging)
+                Move(tab, panel);
+                break;
+            case InputEventMouseWheel wheel:
+                if (In(panel.TimelineRect))
                 {
-                    Guard("Timeline edit failed", () => tab.Controller.Drag(Local(_mouse), _workspace.Modifiers));
+                    tab.Controller.Wheel(Local(panel.TimelineRect), wheel.Delta, _workspace.Modifiers);
                     Handled();
                 }
-                else if (InTimeline(_mouse))
+                else if (In(panel.CutsRect))
                 {
-                    _hovering = true;
-                    tab.Controller.Hover(Local(_mouse));
-                }
-                else if (_hovering)
-                {
-                    _hovering = false;
-                    tab.Controller.Hover(Away);
+                    tab.CutController.Wheel(Local(panel.CutsRect), wheel.Delta, _workspace.Modifiers);
+                    Handled();
                 }
 
                 break;
-            case InputEventMouseWheel wheel:
-                if (!InTimeline(_mouse))
-                    return;
-                tab.Controller.Wheel(Local(_mouse), wheel.Delta, _workspace.Modifiers);
+        }
+    }
+
+    private void Press(TimelineTab tab, VideoPanel panel)
+    {
+        if (In(panel.SourceRect) || In(panel.SourceBarRect))
+            tab.SourceFocused = true;
+        else if (In(panel.ProgramRect) || In(panel.TimelineRect))
+            tab.SourceFocused = false;
+
+        if (In(panel.TimelineRect))
+        {
+            _dragging = Area.Timeline;
+            Guard("Timeline edit failed", () => tab.Controller.Press(Local(panel.TimelineRect), _workspace.Modifiers));
+            Handled();
+        }
+        else if (In(panel.CutsRect))
+        {
+            _dragging = Area.Cuts;
+            Guard("Cut edit failed", () => tab.CutController.Press(Local(panel.CutsRect), _workspace.Modifiers));
+            Handled();
+        }
+        else if (In(panel.SourceBarRect) && tab.Source.Media is not null)
+        {
+            _dragging = Area.SourceBar;
+            ScrubSource(tab, panel);
+            Handled();
+        }
+    }
+
+    private void Release(TimelineTab tab, VideoPanel panel)
+    {
+        // A media pool row dragged here: placed where it is let go (overwrite; Cmd inserts).
+        if (_workspace.FileDrag is { } file)
+        {
+            _workspace.EndFileDrag();
+            if (In(panel.TimelineRect))
+            {
+                var local = Local(panel.TimelineRect);
+                PlaceAt(tab, [file], local, insert: (_workspace.Modifiers & EditorModifiers.Command) != 0);
+                Handled();
+            }
+
+            return;
+        }
+
+        switch (_dragging)
+        {
+            case Area.Timeline:
+                Guard("Timeline edit failed", () => tab.Controller.Release(Local(panel.TimelineRect)));
+                Handled();
+                break;
+            case Area.Cuts:
+                Guard("Cut edit failed", () => tab.CutController.Release(Local(panel.CutsRect)));
+                Handled();
+                break;
+            case Area.SourceBar:
                 Handled();
                 break;
         }
+
+        _dragging = Area.None;
+    }
+
+    private void Move(TimelineTab tab, VideoPanel panel)
+    {
+        switch (_dragging)
+        {
+            case Area.Timeline:
+                Guard("Timeline edit failed", () => tab.Controller.Drag(Local(panel.TimelineRect), _workspace.Modifiers));
+                Handled();
+                return;
+            case Area.Cuts:
+                Guard("Cut edit failed", () => tab.CutController.Drag(Local(panel.CutsRect), _workspace.Modifiers));
+                Handled();
+                return;
+            case Area.SourceBar:
+                ScrubSource(tab, panel);
+                Handled();
+                return;
+        }
+
+        var over = In(panel.TimelineRect) ? Area.Timeline : In(panel.CutsRect) ? Area.Cuts : Area.None;
+        if (over == Area.Timeline)
+            tab.Controller.Hover(Local(panel.TimelineRect));
+        else if (_hovering == Area.Timeline)
+            tab.View.HoverEdge = null;
+        if (over == Area.Cuts)
+            tab.CutController.Hover(Local(panel.CutsRect));
+        else if (_hovering == Area.Cuts)
+            tab.CutController.Hover(new Vector2(-1, -1));
+        _hovering = over;
+    }
+
+    private void ScrubSource(TimelineTab tab, VideoPanel panel)
+    {
+        var bar = panel.SourceBarRect;
+        if (tab.Source.Media is not { } media || bar.Width <= 0)
+            return;
+        tab.Source.Seek(Math.Clamp((_mouse.X - bar.X) / bar.Width, 0, 1) * media.Duration);
+        panel.SourceChanged();
     }
 
     /// <summary>
-    /// The video tab's keys: Space plays and pauses, Home goes to the start, and the controller takes the rest
-    /// (Delete/Backspace). False when no video tab is shown or the key is not one of them, so its shortcut runs instead.
+    /// The keys only this view knows: Delete/Backspace over the cut editor dissolve the hovered region. Everything else is a
+    /// command (<see cref="EditorWorkspace.VideoShortcutFor"/>).
     /// </summary>
     public bool HandleKey(Key key, EditorModifiers modifiers)
     {
-        if (_workspace.Mode != EditorMode.Video || _workspace.Session.ActiveTab is not VideoTab tab)
+        if (_workspace.Mode != EditorMode.Video || _tab is not { } tab || _hovering != Area.Cuts)
             return false;
-        if (modifiers == EditorModifiers.None)
-        {
-            if (key == Key.Space)
-            {
-                Guard("Playback failed", tab.TogglePlay);
-                return true;
-            }
-
-            if (key == Key.Home)
-            {
-                Guard("Playback failed", () => tab.Seek(0));
-                return true;
-            }
-        }
-
         var handled = false;
-        Guard("Timeline edit failed", () => handled = tab.Controller.Key(key, modifiers));
+        Guard("Cut edit failed", () => handled = tab.CutController.Key(key, modifiers));
         return handled;
     }
 
-    private bool InTimeline(Vector2 p) => _workspace.VideoPanel.TimelineRect.Contains(p.X, p.Y);
+    private bool In(LayoutRect rect) => rect.Width > 0 && rect.Contains(_mouse.X, _mouse.Y);
 
-    private Vector2 Local(Vector2 p)
-    {
-        var rect = _workspace.VideoPanel.TimelineRect;
-        return new Vector2(p.X - rect.X, p.Y - rect.Y);
-    }
+    private Vector2 Local(LayoutRect rect) => new(_mouse.X - rect.X, _mouse.Y - rect.Y);
 
     private void Handled() => GetViewport()?.SetInputAsHandled();
 
@@ -304,82 +427,588 @@ public sealed class VideoView : Node
         }
     }
 
-    // ── Detection ────────────────────────────────────────────────────────────────────────────────────────────────
+    // ── Commands ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Runs a <c>video.*</c> command. False when it is not one (the caller runs it as usual).</summary>
+    // The commands Run knows: one outside this set warns "Unknown command" as any other does.
+    private static readonly FrozenSet<string> TimelineCommands = FrozenSet.ToFrozenSet(
+    [
+        "video.add_audio_track",
+        "video.add_edit",
+        "video.add_edit_all",
+        "video.add_video_track",
+        "video.clear_marks",
+        "video.deselect",
+        "video.end",
+        "video.export",
+        "video.frame_back",
+        "video.frame_forward",
+        "video.home",
+        "video.insert",
+        "video.lift",
+        "video.link",
+        "video.mark_in",
+        "video.mark_out",
+        "video.next_edit",
+        "video.overwrite",
+        "video.play",
+        "video.prev_edit",
+        "video.ripple_delete",
+        "video.ripple_end",
+        "video.ripple_start",
+        "video.select_all",
+        "video.shuttle_back",
+        "video.shuttle_forward",
+        "video.shuttle_stop",
+        "video.snap",
+        "video.source_play",
+        "video.stop",
+        "video.toggle_enabled",
+        "video.tool_razor",
+        "video.tool_select",
+        "video.zoom_fit",
+        "video.zoom_in",
+        "video.zoom_out",
+    ], StringComparer.Ordinal);
+
+    public bool RunCommand(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        switch (id)
+        {
+            case "video.import": Import(); return true;
+            case "video.new_timeline": NewTimeline(); return true;
+            case "video.new_folder": NewFolder(); return true;
+            case "video.settings": return false;
+        }
+
+        if (!TimelineCommands.Contains(id))
+            return false;
+        if (_workspace.Session.ActiveTab is not TimelineTab tab)
+            return true; // a video command without a timeline: its buttons show disabled; nothing to do
+        Guard("Timeline edit failed", () => Run(tab, id));
+        return true;
+    }
+
+    private void Run(TimelineTab tab, string id)
+    {
+        var doc = tab.Document;
+        var view = tab.View;
+        var timeline = tab.Timeline;
+        var playhead = view.Playhead;
+        switch (id)
+        {
+            case "video.play":
+                if (tab.SourceFocused && tab.Source.Media is not null)
+                {
+                    tab.Pause();
+                    tab.Source.TogglePlay();
+                }
+                else
+                {
+                    tab.TogglePlay();
+                }
+
+                break;
+            case "video.source_play":
+                tab.SourceFocused = true;
+                tab.Pause();
+                tab.Source.TogglePlay();
+                break;
+            case "video.stop":
+                tab.Source.Pause();
+                tab.Pause();
+                tab.Seek(0);
+                break;
+            case "video.shuttle_forward":
+                if (tab.SourceFocused && tab.Source.Media is not null)
+                {
+                    if (!tab.Source.IsPlaying)
+                        tab.Source.TogglePlay();
+                }
+                else if (!tab.Preview.IsPlaying)
+                {
+                    tab.TogglePlay();
+                }
+
+                break;
+            case "video.shuttle_stop":
+                tab.Pause();
+                tab.Source.Pause();
+                break;
+            case "video.shuttle_back":
+                tab.Pause();
+                tab.Source.Pause();
+                if (tab.SourceFocused && tab.Source.Media is not null)
+                    tab.Source.Seek(tab.Source.Position - 1);
+                else
+                    tab.Seek(playhead - 1);
+                _workspace.VideoPanel.SourceChanged();
+                break;
+            case "video.frame_back":
+                tab.Pause();
+                tab.Seek(playhead - timeline.Rate.FrameDuration);
+                break;
+            case "video.frame_forward":
+                tab.Pause();
+                tab.Seek(playhead + timeline.Rate.FrameDuration);
+                break;
+            case "video.home":
+                tab.Seek(0);
+                break;
+            case "video.end":
+                tab.Seek(TimelineLayout.Duration(timeline));
+                break;
+            case "video.prev_edit":
+                tab.Seek(EditPoint(timeline, playhead, forward: false));
+                break;
+            case "video.next_edit":
+                tab.Seek(EditPoint(timeline, playhead, forward: true));
+                break;
+            case "video.tool_select":
+                view.Tool = TimelineTool.Select;
+                break;
+            case "video.tool_razor":
+                view.Tool = TimelineTool.Razor;
+                break;
+            case "video.snap":
+                view.Snapping = !view.Snapping;
+                break;
+            case "video.zoom_in":
+                view.ZoomAbout(view.TimeToX(playhead), 2);
+                break;
+            case "video.zoom_out":
+                view.ZoomAbout(view.TimeToX(playhead), -2);
+                break;
+            case "video.zoom_fit":
+                view.Fit(TimelineLayout.Duration(timeline));
+                break;
+            case "video.select_all":
+                view.Selection.Clear();
+                foreach (var clip in timeline.Clips)
+                    view.Selection.Add(clip.Id);
+                break;
+            case "video.deselect":
+                view.Selection.Clear();
+                break;
+            case "video.add_edit":
+                doc.Apply("Add Edit", t => TimelineEdits.Razor(t, playhead, EditTracks(tab)));
+                break;
+            case "video.add_edit_all":
+                doc.Apply("Add Edit", t => TimelineEdits.Razor(t, playhead));
+                break;
+            case "video.ripple_start":
+            case "video.ripple_end":
+                var edge = id == "video.ripple_start" ? TrimEdge.Start : TrimEdge.End;
+                doc.Apply("Ripple Trim", t => RippleToPlayhead(tab, t, playhead, edge));
+                if (edge == TrimEdge.Start && TimelineLayout.ClipAt(doc.Timeline, EditTracks(tab).FirstOrDefault() ?? "", playhead) is null)
+                    tab.Seek(playhead); // the frame after the ripple
+                break;
+            case "video.lift":
+                doc.Apply("Delete", t => TimelineEdits.Lift(t, [.. view.Selection]));
+                break;
+            case "video.ripple_delete":
+                doc.Apply("Ripple Delete", t => TimelineEdits.RippleDelete(t, [.. view.Selection]));
+                break;
+            case "video.link":
+                var selected = view.Selection.ToList();
+                var linked = selected.Any(s => timeline.FindClip(s)?.LinkGroup is not null);
+                doc.Apply(linked ? "Unlink" : "Link", t => linked ? TimelineEdits.Unlink(t, selected) : TimelineEdits.Link(t, selected));
+                break;
+            case "video.toggle_enabled":
+                if (tab.Primary is { } primary)
+                {
+                    var ids = timeline.LinkedWith(primary).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+                    doc.Apply("Enable Clip", t => t with { Clips = [.. t.Clips.Select(c => ids.Contains(c.Id) ? c with { Enabled = !primary.Enabled } : c)] });
+                }
+
+                break;
+            case "video.mark_in":
+                if (tab.SourceFocused && tab.Source.Media is not null)
+                    tab.Source.MarkIn();
+                else
+                    doc.Apply("Mark In", t => TimelineEdits.SetInOut(t, playhead, t.OutPoint is { } o && o > playhead ? o : null));
+                _workspace.VideoPanel.SourceChanged();
+                break;
+            case "video.mark_out":
+                if (tab.SourceFocused && tab.Source.Media is not null)
+                    tab.Source.MarkOut();
+                else
+                    doc.Apply("Mark Out", t => TimelineEdits.SetInOut(t, t.InPoint is { } i && i < playhead ? i : null, playhead));
+                _workspace.VideoPanel.SourceChanged();
+                break;
+            case "video.clear_marks":
+                if (tab.SourceFocused && tab.Source.Media is not null)
+                    tab.Source.ClearMarks();
+                else
+                    doc.Apply("Clear In/Out", t => TimelineEdits.SetInOut(t, null, null));
+                _workspace.VideoPanel.SourceChanged();
+                break;
+            case "video.insert":
+            case "video.overwrite":
+                PlaceFromSource(tab, insert: id == "video.insert");
+                break;
+            case "video.add_video_track":
+                doc.Apply("Add Track", t => TimelineEdits.AddTrack(t, TrackKind.Video));
+                break;
+            case "video.add_audio_track":
+                doc.Apply("Add Track", t => TimelineEdits.AddTrack(t, TrackKind.Audio));
+                break;
+            case "video.export":
+                Export(tab);
+                break;
+        }
+    }
+
+    // Add Edit cuts the tracks of the selected clips, or every unlocked track when nothing is selected.
+    private static List<string> EditTracks(TimelineTab tab)
+    {
+        var tracks = new List<string>();
+        foreach (var id in tab.View.Selection)
+            if (tab.Timeline.FindClip(id) is { } clip && !tracks.Contains(clip.TrackId))
+                tracks.Add(clip.TrackId);
+        if (tracks.Count == 0)
+            tracks.AddRange(tab.Timeline.Tracks.Where(t => !t.Locked).Select(t => t.Id));
+        return tracks;
+    }
+
+    // Q / W: the selected clips under the playhead (else every clip there) ripple-trim their start or end to it.
+    private static Timeline RippleToPlayhead(TimelineTab tab, Timeline timeline, double playhead, TrimEdge edge)
+    {
+        var tracks = EditTracks(tab);
+        var done = new HashSet<string>(StringComparer.Ordinal);
+        var result = timeline;
+        foreach (var trackId in tracks)
+        {
+            if (TimelineLayout.ClipAt(result, trackId, playhead) is not { } clip || done.Contains(clip.LinkGroup ?? clip.Id))
+                continue;
+            done.Add(clip.LinkGroup ?? clip.Id);
+            result = TimelineEdits.RippleTrim(result, clip.Id, edge, playhead);
+        }
+
+        return result;
+    }
+
+    /// <summary>The nearest clip start or end before or after <paramref name="time"/> (0 and the end at the extremes).</summary>
+    internal static double EditPoint(Timeline timeline, double time, bool forward)
+    {
+        var best = forward ? TimelineLayout.Duration(timeline) : 0;
+        foreach (var clip in timeline.Clips)
+        {
+            foreach (var t in (ReadOnlySpan<double>)[clip.Start, TimelineLayout.End(clip, timeline.Rate)])
+            {
+                if (forward && t > time + 1e-6 && t < best)
+                    best = t;
+                else if (!forward && t < time - 1e-6 && t > best)
+                    best = t;
+            }
+        }
+
+        return best;
+    }
+
+    // ── Media: probe, Source viewer, placing ─────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Detect Silence: runs ffmpeg's <c>silencedetect</c> over the recording in the background; <see cref="PollJobs"/> lays
-    /// out the cuts when it finishes. A second call while it runs cancels it; once it has finished, it does nothing.
+    /// The <see cref="MediaRef"/> of the project file at <paramref name="fullPath"/>, probed once (in the background the
+    /// first time) and passed to <paramref name="then"/> on the main thread.
     /// </summary>
-    public void DetectSilence(VideoTab tab)
+    public void WithMedia(string fullPath, Action<MediaRef> then)
     {
-        ArgumentNullException.ThrowIfNull(tab);
-        if (tab.SilenceJob is { } running)
+        ArgumentException.ThrowIfNullOrEmpty(fullPath);
+        ArgumentNullException.ThrowIfNull(then);
+        var full = Path.GetFullPath(fullPath);
+        if (_probed.TryGetValue(full, out var known))
         {
-            // A job that finished since the last frame is not cancelled: PollJobs applies its result.
-            if (!running.IsDone)
-                running.Cancel();
+            then(known);
             return;
         }
 
-        if (FfmpegFor(tab) is not { } ffmpeg)
+        foreach (var pending in _probes)
+            if (pending.Path == full)
+            {
+                pending.Then.Add(then);
+                return;
+            }
+
+        if (FfmpegOrReport() is not { } ffmpeg)
+            return;
+        var database = AssetDatabase.Current;
+        var stored = MediaImporter.IsInProject(full, database.ProjectRoot) ? database.ToProjectPath(full) : full;
+        var uid = stored != full ? database.ReadOrCreateMeta(stored, create: true)?.Uid ?? "" : "";
+        var prober = Prober;
+        _probes.Add((full, VideoJob.Start("probe", (_, ct) => prober(ffmpeg, full, stored, uid, ct)), [then]));
+    }
+
+    /// <summary>Shows a media file in the active timeline's Source viewer (double-click in the pool, File › Open).</summary>
+    public void ShowInSource(string fullPath)
+    {
+        if (_workspace.Session.ActiveTab is not TimelineTab tab)
         {
-            tab.ReportNoFfmpeg("Detect Silence");
+            _workspace.Message.Show(new MessageRequest
+            {
+                Title = "Source viewer",
+                Message = "Open or create a timeline first: the Source viewer belongs to a timeline tab.",
+                Buttons = ["New Timeline", "OK"],
+                CancelButton = 1,
+                Callback = (button, _) =>
+                {
+                    if (button == 0)
+                        NewTimeline();
+                },
+            });
             return;
         }
 
-        var document = tab.Document;
-        var settings = Detection;
-        tab.SilenceSettings = settings;
-        tab.SilenceJob = VideoJob.Start("silence",
-            (p, ct) => new SilenceDetector(ffmpeg).DetectAsync(document.SourcePath, document.Duration, settings, p, ct));
-        Log.Info($"[Video] Detecting silence in {Path.GetFileName(document.SourcePath)}…");
-    }
-
-    /// <summary>
-    /// Main thread, every frame: applies <paramref name="tab"/>'s finished silence detection and transcription, or
-    /// reports how they ended. A tab closed mid-run is no longer polled; closing it cancelled and disposed its jobs.
-    /// </summary>
-    internal void PollJobs(VideoTab tab)
-    {
-        ArgumentNullException.ThrowIfNull(tab);
-        if (tab.SilenceJob is { IsDone: true } silence)
-            FinishSilence(tab, silence);
-        if (tab.TranscribeJob is { IsDone: true } transcribe)
-            FinishTranscribe(tab, transcribe);
-        if (tab.ExportJob is { IsDone: true } export)
-            FinishExport(tab, export);
-    }
-
-    private void FinishSilence(VideoTab tab, VideoJob<IReadOnlyList<SilenceSpan>> job)
-    {
-        tab.SilenceJob = null;
-        var settings = tab.SilenceSettings ?? Detection; // the ones it detected with
-        tab.SilenceSettings = null;
-        var task = job.Task;
-        if (task.IsCanceled || job.IsCancelled || task.Exception?.GetBaseException() is OperationCanceledException)
-            tab.Notice = "Silence detection cancelled.";
-        else if (task.Exception?.GetBaseException() is { } error)
-            ReportFailure(tab, "Detect Silence", error);
-        else
-            ApplySilence(tab, task.Result, settings);
-        job.Dispose();
-    }
-
-    // Kept out of PollJobs: a lambda capturing its parameter would allocate a closure on every call, every frame.
-    private void ApplySilence(VideoTab tab, IReadOnlyList<SilenceSpan> spans, DetectionSettings settings) =>
-        Guard("Detect Silence failed", () =>
+        WithMedia(fullPath, media =>
         {
-            tab.Controller.CancelGesture();
-            tab.Notice = tab.Document.ApplySilence(spans, settings);
+            tab.Source.Load(media, fullPath);
+            tab.SourceFocused = true;
+            _workspace.VideoPanel.SourceChanged();
         });
+    }
 
-    // ── Export ───────────────────────────────────────────────────────────────────────────────────────────────────
+    // , and .: the Source viewer's marked range at the playhead, on the target tracks.
+    private static void PlaceFromSource(TimelineTab tab, bool insert)
+    {
+        if (tab.Source.Media is not { } media)
+        {
+            tab.Notice = "Show a clip in the Source viewer first (double-click it in the media pool).";
+            return;
+        }
+
+        var (i, o) = tab.Source.Range;
+        Place(tab, media, i, o, tab.View.Playhead, null, insert);
+        tab.SourceFocused = false;
+    }
+
+    // Media dropped on the timeline (from the pool or Finder): each file at the drop time, one after another, on the track
+    // under the pointer when it is of the file's kind, else the target track.
+    private void PlaceAt(TimelineTab tab, IReadOnlyList<string> files, Vector2 local, bool insert)
+    {
+        var at = Math.Max(0, tab.View.XToTime(local.X));
+        if (tab.View.Snapping)
+            at = Snapping.Snap(at, Snapping.Candidates(tab.Timeline, tab.View.Playhead), TimelineViewState.SnapPixels * tab.View.SecondsPerPixel).Time;
+        var lane = tab.View.LaneAt(tab.Timeline, local.Y);
+        PlaceSequence(tab, files, 0, at, lane, insert);
+    }
+
+    private void PlaceSequence(TimelineTab tab, IReadOnlyList<string> files, int index, double at, TimelineLane? lane, bool insert)
+    {
+        if (index >= files.Count)
+            return;
+        WithMedia(files[index], media =>
+        {
+            var end = Place(tab, media, 0, media.Duration, at, lane, insert);
+            PlaceSequence(tab, files, index + 1, end, lane, insert);
+        });
+    }
+
+    // Places [sourceIn, sourceOut) of the media at `at`; the end of what was placed (the next file's start).
+    private static double Place(TimelineTab tab, MediaRef media, double sourceIn, double sourceOut, double at, TimelineLane? lane, bool insert)
+    {
+        var timeline = tab.Timeline;
+        var video = lane is { Kind: TrackKind.Video } v ? v.TrackId : tab.View.TargetOf(timeline, TrackKind.Video);
+        var audio = lane is { Kind: TrackKind.Audio } a ? a.TrackId : tab.View.TargetOf(timeline, TrackKind.Audio);
+        var name = insert ? "Insert" : "Overwrite";
+        var placed = tab.Document.Apply(name, t => insert
+            ? TimelineEdits.Insert(t, media, sourceIn, sourceOut, at, video, audio)
+            : TimelineEdits.Overwrite(t, media, sourceIn, sourceOut, at, video, audio));
+        if (!placed)
+        {
+            tab.Notice = $"{Path.GetFileName(media.Path)} could not be placed: its track is locked or of the wrong kind.";
+            return at;
+        }
+
+        var end = at + timeline.Rate.Snap(sourceOut - sourceIn);
+        if (TimelineLayout.Duration(timeline) <= 0)
+            tab.View.Fit(TimelineLayout.Duration(tab.Timeline));
+        tab.Seek(end);
+        return end;
+    }
+
+    // ── Import, OS drops, new timelines and folders ──────────────────────────────────────────────────────────
+
+    /// <summary>File › Import Media: a picker; the file is copied into the pool's folder.</summary>
+    public void Import()
+    {
+        if (_workspace.VideoPanel.Pool is not { } pool)
+        {
+            ShowNeedsProject();
+            return;
+        }
+
+        var model = new FilePickerModel(FilePickerMode.Open, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ["*.mp4", "*.mov", "*.mkv", "*.webm", "*.m4v", "*.wav", "*.ogg", "*.mp3", "*.flac", "*.m4a", "*.png", "*.jpg"]);
+        _workspace.FilePicker.Show(model, "Import Media", "Import", path => ImportFiles([path], pool.Folder, null));
+    }
+
+    /// <summary>Copies <paramref name="files"/> into <paramref name="folder"/> in the background; <paramref name="then"/> gets the pool's files.</summary>
+    public void ImportFiles(IReadOnlyList<string> files, string folder, Action<IReadOnlyList<string>>? then)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        if (_import is not null)
+        {
+            _workspace.Message.Show(new MessageRequest { Title = "Import Media", Message = "An import is still copying; try again when it finishes.", Buttons = ["OK"] });
+            return;
+        }
+
+        var root = _workspace.Session.ProjectRoot;
+        if (root is null)
+        {
+            ShowNeedsProject();
+            return;
+        }
+
+        _imported = then;
+        _import = VideoJob.Start<IReadOnlyList<string>>("import", (p, ct) => MediaImporter.ImportAsync(files, folder, root, p, ct));
+        Log.Info($"[Video] Importing {files.Count} file(s) into {Path.GetRelativePath(root, folder)}…");
+    }
 
     /// <summary>
-    /// File › Export Video: opens the export dialog. A second call while an export runs cancels it (the toolbar button reads
-    /// "Cancel n %"); with every segment cut there is nothing to export; without ffmpeg it is reported.
+    /// Files dropped from Finder (<see cref="SceneTree.FilesDropped"/> through the workspace): over the timeline they are
+    /// imported and placed at the time and track there; anywhere else in video mode they are imported into the pool.
     /// </summary>
-    public void Export(VideoTab tab)
+    public void DropOsFiles(IReadOnlyList<string> paths, Vector2 position)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        var panel = _workspace.VideoPanel;
+        if (panel.Pool is not { } pool)
+        {
+            ShowNeedsProject();
+            return;
+        }
+
+        _mouse = position * _workspace.Host.PointerScale;
+        var tab = _tab;
+        var overTimeline = tab is not null && In(panel.TimelineRect);
+        var local = Local(panel.TimelineRect);
+        var folder = In(panel.PoolRect) ? pool.Folder : Path.Combine(pool.RootFolder, "Media");
+        ImportFiles(paths, folder, imported =>
+        {
+            if (overTimeline && tab is not null && _workspace.Session.Tabs.Contains(tab))
+                PlaceAt(tab, [.. imported.Where(p => MediaPool.KindOf(p, false) is MediaPoolKind.Video or MediaPoolKind.Audio)], local, insert: false);
+        });
+    }
+
+    /// <summary>File › New Timeline: asks for a name and a shape, writes it in <c>Assets/Video/Timelines</c> and opens it.</summary>
+    public void NewTimeline()
+    {
+        if (_workspace.VideoPanel.Pool is not { } pool)
+        {
+            ShowNeedsProject();
+            return;
+        }
+
+        _workspace.Message.Show(new MessageRequest
+        {
+            Title = "New Timeline",
+            Message = "Name the timeline and choose its frame (you can change the size and rate in the Inspector later):",
+            Input = NextTimelineName(pool),
+            Buttons = ["Vertical 9:16", "Landscape 16:9", "Square 1:1", "Cancel"],
+            DefaultButton = 0,
+            CancelButton = 3,
+            Icon = "timeline",
+            Callback = (button, name) =>
+            {
+                if (button is < 0 or > 2)
+                    return;
+                var (w, h) = VideoPanel.SizePresets[button];
+                CreateTimeline(pool, name, new TimelineSettings(w, h, new FrameRate(30, 1)), null);
+            },
+        });
+    }
+
+    private static string NextTimelineName(MediaPool pool)
+    {
+        var folder = Path.Combine(pool.RootFolder, "Timelines");
+        for (var n = 1; ; n++)
+        {
+            var name = n == 1 ? "Timeline" : $"Timeline {n}";
+            if (!File.Exists(Path.Combine(folder, name + TimelineSerializer.FileExtension)))
+                return name;
+        }
+    }
+
+    /// <summary>Writes a new timeline (with <paramref name="media"/> on V1 and A1, when given) and opens it.</summary>
+    internal void CreateTimeline(MediaPool pool, string? name, TimelineSettings settings, MediaRef? media)
+    {
+        var clean = string.Join("_", (name ?? "").Trim().Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+        if (clean.Length == 0)
+            clean = "Timeline";
+        var folder = Path.Combine(pool.RootFolder, "Timelines");
+        Directory.CreateDirectory(folder);
+        var path = MediaImporter.Destination(folder, clean + TimelineSerializer.FileExtension, File.Exists);
+        var timeline = TimelineFactory.New(settings);
+        if (media is not null)
+        {
+            var tracks = timeline.Tracks;
+            timeline = TimelineEdits.Append(timeline, media, 0, media.Duration, tracks[0].Id, tracks.First(t => t.Kind == TrackKind.Audio).Id);
+        }
+
+        Guard("Could not create the timeline", () =>
+        {
+            TimelineSerializer.SaveAsync(timeline, path, CancellationToken.None).GetAwaiter().GetResult();
+            AssetDatabase.Current.Register(timeline.Uid, path);
+            _workspace.VideoPanel.RefreshPool();
+            _workspace.Commands.OpenTimeline(path);
+        });
+    }
+
+    /// <summary>
+    /// The recording dialog's Open in Video Editor: a timeline named after the recording, at its size and rate, with it on
+    /// V1 and A1, in <c>Assets/Video/Timelines</c>, opened in video mode.
+    /// </summary>
+    public void OpenRecording(string recording)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(recording);
+        _workspace.SetMode(EditorMode.Video);
+        if (_workspace.VideoPanel.Pool is not { } pool)
+        {
+            ShowNeedsProject();
+            return;
+        }
+
+        WithMedia(recording, media => CreateTimeline(pool, Path.GetFileNameWithoutExtension(recording), TimelineFactory.SettingsFor(media), media));
+    }
+
+    private void NewFolder()
+    {
+        if (_workspace.VideoPanel.Pool is not { } pool)
+        {
+            ShowNeedsProject();
+            return;
+        }
+
+        _workspace.Message.Show(new MessageRequest
+        {
+            Title = "New Folder",
+            Message = $"A folder in {pool.DisplayPath}:",
+            Input = "New Folder",
+            Buttons = ["Create", "Cancel"],
+            DefaultButton = 0,
+            CancelButton = 1,
+            Callback = (button, name) =>
+            {
+                if (button != 0 || string.IsNullOrWhiteSpace(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                    return;
+                Guard("Could not create the folder", () => Directory.CreateDirectory(Path.Combine(pool.Folder, name.Trim())));
+                _workspace.VideoPanel.RefreshPool();
+            },
+        });
+    }
+
+    private void ShowNeedsProject() => _workspace.Message.Show(new MessageRequest
+    {
+        Title = "Video",
+        Message = "Video mode edits a game project's video: open a project first.",
+        Buttons = ["OK"],
+    });
+
+    // ── Export ───────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>File › Export Video: opens the dialog, or cancels the export that is running.</summary>
+    public void Export(TimelineTab tab)
     {
         ArgumentNullException.ThrowIfNull(tab);
         if (tab.ExportJob is { } running)
@@ -388,15 +1017,9 @@ public sealed class VideoView : Node
             return;
         }
 
-        if (VideoExport.KeptSeconds(tab.Document) <= 0)
+        if (TimelineLayout.Duration(tab.Timeline) <= 0)
         {
-            tab.Notice = VideoExport.NothingToExport;
-            return;
-        }
-
-        if (FfmpegFor(tab) is null)
-        {
-            tab.ReportNoFfmpeg("Export");
+            tab.Notice = TimelineExport.NothingToExport;
             return;
         }
 
@@ -405,55 +1028,96 @@ public sealed class VideoView : Node
     }
 
     /// <summary>
-    /// Starts the export job: pauses the preview, builds the immutable <see cref="ExportRequest"/> here on the main thread
-    /// (the job never reads the document, so edits made while it runs do not touch it) and runs it in the background;
-    /// <see cref="PollJobs"/> reports how it ends. The output is refused when it is the recording itself.
+    /// Starts the export job on the timeline as it is now (an immutable snapshot, with every media file's path resolved
+    /// here on the main thread) and pauses the viewers; <see cref="PollJobs"/> reports how it ends.
     /// </summary>
-    /// <param name="tab">The video tab to export.</param>
-    /// <param name="path">The output file (full path, a supported extension).</param>
-    /// <param name="mode">Precise re-encodes, Fast copies.</param>
-    public void StartExport(VideoTab tab, string path, ExportMode mode)
+    public void StartExport(TimelineTab tab, TimelineExportPreset preset, double start, double end, string path)
     {
         ArgumentNullException.ThrowIfNull(tab);
-        ArgumentException.ThrowIfNullOrEmpty(path);
+        ArgumentNullException.ThrowIfNull(preset);
         if (tab.ExportJob is not null || !_workspace.Session.Tabs.Contains(tab))
             return;
-        if (FfmpegFor(tab) is not { } ffmpeg)
-        {
-            tab.ReportNoFfmpeg("Export");
+        if (FfmpegOrReport() is not { } ffmpeg)
             return;
-        }
-
-        ExportRequest? snapshot = null;
-        Guard("Export failed", () => snapshot = VideoExport.Request(tab.Document, path, mode));
-        if (snapshot is not { } request)
-            return;
-        tab.Controller.CancelGesture();
-        tab.Preview.Pause();
+        var timeline = tab.Timeline;
+        var paths = timeline.Clips.Select(c => c.Media).Distinct().ToDictionary(m => m, tab.Document.Resolve);
+        tab.Pause();
+        tab.Source.Pause();
         var runner = ExporterFactory(ffmpeg, _temp ??= new TempSession());
         tab.ExportJob = VideoJob.Start("export", async (p, ct) =>
         {
-            await runner(request, new ExportProgressSink(p), ct).ConfigureAwait(false);
-            return request.OutputPath;
+            await runner(timeline, preset, start, end, path, m => paths[m], new ProgressSink(p), ct).ConfigureAwait(false);
+            return path;
         });
-        Log.Info($"[Video] Exporting {Path.GetFileName(request.SourcePath)} to {request.OutputPath} ({mode})…");
+        Log.Info($"[Video] Exporting {Path.GetFileName(tab.FilePath)} to {path} ({preset.Name})…");
     }
 
-    private void FinishExport(VideoTab tab, VideoJob<string> job)
+    // ── Jobs ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Main thread, every frame: finished probes, imports and exports.</summary>
+    internal void PollJobs()
+    {
+        for (var i = _probes.Count - 1; i >= 0; i--)
+        {
+            var (path, job, then) = _probes[i];
+            if (!job.IsDone)
+                continue;
+            _probes.RemoveAt(i);
+            if (job.Task.IsCompletedSuccessfully)
+            {
+                _probed[path] = job.Task.Result;
+                foreach (var action in then)
+                    Guard("Could not use " + Path.GetFileName(path), () => action(job.Task.Result));
+            }
+            else if (job.Task.Exception?.GetBaseException() is { } error)
+            {
+                _workspace.Commands.ReportError($"Could not read {Path.GetFileName(path)}", error);
+            }
+
+            job.Dispose();
+        }
+
+        if (_import is { IsDone: true } import)
+        {
+            _import = null;
+            var then = _imported;
+            _imported = null;
+            if (import.Task.IsCompletedSuccessfully)
+            {
+                _workspace.VideoPanel.RefreshPool();
+                var files = import.Task.Result; // a block local: a lambda over `import` would allocate on every call
+                Log.Info($"[Video] Imported {files.Count} file(s).");
+                if (then is not null)
+                    Guard("Could not place the imported media", () => then(files));
+            }
+            else if (import.Task.Exception?.GetBaseException() is { } error)
+            {
+                _workspace.Commands.ReportError("Import failed", error);
+            }
+
+            import.Dispose();
+        }
+
+        var tabs = _workspace.Session.Tabs;
+        for (var i = 0; i < tabs.Count; i++)
+            if (tabs[i] is TimelineTab { ExportJob: { IsDone: true } export } tab)
+                FinishExport(tab, export);
+    }
+
+    private void FinishExport(TimelineTab tab, VideoJob<string> job)
     {
         tab.ExportJob = null;
         var task = job.Task;
-        // By how the work ended, not by whether Cancel was pressed: a cancel that came after the file was written is a success.
         if (task.IsCompletedSuccessfully)
             ShowExported(tab, task.Result);
         else if (task.IsCanceled || task.Exception?.GetBaseException() is OperationCanceledException)
             tab.Notice = "Export cancelled.";
         else if (task.Exception?.GetBaseException() is { } error)
-            ReportFailure(tab, "Export", error);
+            _workspace.Commands.ReportError("Export failed", error);
         job.Dispose();
     }
 
-    private void ShowExported(VideoTab tab, string path)
+    private void ShowExported(TimelineTab tab, string path)
     {
         var name = Path.GetFileName(path);
         Log.Info($"[Video] Exported {path}");
@@ -475,179 +1139,29 @@ public sealed class VideoView : Node
         });
     }
 
-    // A missing ffmpeg is the notice with the settings link; anything else is "<what> failed".
-    private void ReportFailure(VideoTab tab, string what, Exception error)
-    {
-        if (IsMissingFfmpeg(error))
-            tab.ReportNoFfmpeg(what);
-        else
-            _workspace.Commands.ReportError(what + " failed", error);
-    }
-
-    // Maps the exporter's progress to the job's 0…1. A sink of its own, not Progress<T>: that would post every report to a
-    // synchronisation context, and the job only wants the latest value stored.
-    private sealed class ExportProgressSink(IProgress<double> inner) : IProgress<ExportProgress>
+    // Stores the exporter's progress as the job's 0…1, without Progress<T>'s synchronisation context.
+    private sealed class ProgressSink(IProgress<double> inner) : IProgress<ExportProgress>
     {
         public void Report(ExportProgress value) => inner.Report(value.Fraction);
     }
 
     protected override void OnExitTree()
     {
-        // The jobs are cancelled first: an export still writing its filter script must not find its folder gone.
-        var tabs = _workspace.Session.Tabs;
         var running = new List<Task>();
-        for (var i = 0; i < tabs.Count; i++)
-            if (tabs[i] is VideoTab { ExportJob: { } job })
+        foreach (var tab in _workspace.Session.Tabs)
+            if (tab is TimelineTab { ExportJob: { } job })
             {
                 job.Cancel();
                 running.Add(job.Task);
             }
 
-        // Bounded: ffmpeg is killed through the token, so they end at once; a stuck one must not hold the editor open.
-        // WaitAny, not WaitAll: a cancelled or failed task would make WaitAll throw.
         if (running.Count > 0 && Task.WaitAny([Task.WhenAll(running)], TimeSpan.FromSeconds(2)) < 0)
             Log.Warning("[Video] An export did not stop within 2 s of closing the editor; its scratch folder is removed anyway.");
+        _import?.Cancel();
         _temp?.Dispose();
         _temp = null;
+        _cache?.Dispose();
+        _cache = null;
         base.OnExitTree();
-    }
-
-    // ── Transcription ────────────────────────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Transcribe: downloads the speech model first if it is not cached (the first half of the progress), then runs
-    /// Whisper over the recording's audio in the background; <see cref="PollJobs"/> installs the words when it finishes.
-    /// A second call while it runs cancels it; once it has finished, it does nothing. Everything runs on this machine; the
-    /// model download is the only network use.
-    /// </summary>
-    /// <param name="tab">The video tab to transcribe.</param>
-    /// <param name="thenRemoveFillers">Cuts the filler words as soon as the transcript arrives.</param>
-    public void Transcribe(VideoTab tab, bool thenRemoveFillers = false)
-    {
-        ArgumentNullException.ThrowIfNull(tab);
-        if (tab.TranscribeJob is { } running)
-        {
-            // A job that finished since the last frame is not cancelled: PollJobs installs its words.
-            if (!running.IsDone)
-                running.Cancel();
-            return;
-        }
-
-        if (FfmpegFor(tab) is not { } ffmpeg)
-        {
-            tab.ReportNoFfmpeg("Transcribe");
-            return;
-        }
-
-        var model = SpeechModel;
-        var store = new ModelStore(_workspace.Options.VideoModelsDirectory);
-        var downloads = !store.IsDownloaded(model);
-        var factory = TranscriberFactory;
-        var path = tab.Document.SourcePath;
-        tab.TranscribeRun = new TranscribeRun(model, downloads, thenRemoveFillers);
-        tab.TranscribeJob = VideoJob.Start<IReadOnlyList<Word>>("transcribe", async (p, ct) =>
-        {
-            // With a download the first half of the bar is the model; the recognition takes the rest.
-            var share = downloads ? 0.5 : 0.0;
-            var modelPath = await store.EnsureAsync(model, downloads ? new PhaseProgress(p, 0, 0.5) : null, ct).ConfigureAwait(false);
-            return await factory(ffmpeg, modelPath, model).TranscribeAsync(path, new PhaseProgress(p, share, 1 - share), ct).ConfigureAwait(false);
-        });
-        Log.Info($"[Video] Transcribing {Path.GetFileName(path)} with {WhisperModelInfo.For(model).Key}…");
-    }
-
-    /// <summary>
-    /// Remove Filler Words: cuts the "um"s and "uh"s of the transcript (one undo step). With no transcript it
-    /// transcribes first and cuts when that finishes; while a transcription is already running it just asks that one to.
-    /// </summary>
-    public void RemoveFillers(VideoTab tab)
-    {
-        ArgumentNullException.ThrowIfNull(tab);
-        if (tab.Document.Transcript.Count == 0)
-        {
-            if (tab.TranscribeRun is { } run && tab.TranscribeJob is not null)
-                run.ThenRemoveFillers = true; // not Transcribe(): a second call there would cancel the running job
-            else
-                Transcribe(tab, thenRemoveFillers: true);
-            return;
-        }
-
-        ApplyFillers(tab);
-    }
-
-    private void ApplyFillers(VideoTab tab) =>
-        Guard("Remove Filler Words failed", () =>
-        {
-            tab.Controller.CancelGesture();
-            tab.Notice = tab.Document.RemoveFillerWords(FillerWords, Detection);
-            ShowTranscript();
-        });
-
-    // The transcript panel is where the result is; show it if the user had hidden it.
-    private void ShowTranscript()
-    {
-        if (!_workspace.Layout.Settings.VideoShowTranscript)
-            _workspace.Layout.SetVideoShowTranscript(true);
-    }
-
-    private void FinishTranscribe(VideoTab tab, VideoJob<IReadOnlyList<Word>> job)
-    {
-        var run = tab.TranscribeRun;
-        tab.TranscribeJob = null;
-        tab.TranscribeRun = null;
-        var task = job.Task;
-        if (task.IsCanceled || job.IsCancelled || task.Exception?.GetBaseException() is OperationCanceledException)
-            tab.Notice = "Transcription cancelled.";
-        else if (task.Exception?.GetBaseException() is { } error && IsMissingFfmpeg(error))
-            tab.ReportNoFfmpeg("Transcribe");
-        else if (task.Exception?.GetBaseException() is { } failure)
-            _workspace.Commands.ReportError("Transcription failed", ExplainTranscribeFailure(failure, run));
-        else
-            InstallTranscript(tab, task.Result, run?.ThenRemoveFillers == true);
-        job.Dispose();
-    }
-
-    private void InstallTranscript(VideoTab tab, IReadOnlyList<Word> words, bool thenRemoveFillers) =>
-        Guard("Transcription failed", () =>
-        {
-            tab.Document.SetTranscript(words);
-            tab.Notice = words.Count == 0 ? "No speech was recognised." : $"Transcribed {words.Count} words.";
-            ShowTranscript();
-            if (words.Count > 0 && thenRemoveFillers)
-                ApplyFillers(tab);
-        });
-
-    // Cutback's advice per failure: a model that would not load is deleted when it looks truncated so the next run fetches
-    // it again; a native library that would not load says so, whether it surfaced on its own or inside the model load
-    // (the model is fine then, and kept). Anything else keeps its own message.
-    private Exception ExplainTranscribeFailure(Exception error, TranscribeRun? run)
-    {
-        switch (error)
-        {
-            case ModelLoadException { IsNativeLibraryFailure: true } native:
-                return new InvalidOperationException(
-                    "The speech recognition library could not be loaded. " + native.InnerException!.Message, native);
-            case ModelLoadException load:
-                var store = new ModelStore(_workspace.Options.VideoModelsDirectory);
-                var model = run?.Model ?? SpeechModel;
-                if (!store.IsPlausiblyComplete(model))
-                {
-                    store.Delete(model);
-                    return new InvalidOperationException(
-                        load.Message + " The cached file looked incomplete and has been removed; run Transcribe again to download it.", load);
-                }
-
-                return new InvalidOperationException(
-                    load.Message + $" If this keeps happening, delete the file at {load.ModelPath} to download it again.", load);
-            case DllNotFoundException:
-                return new InvalidOperationException("The speech recognition library could not be loaded. " + error.Message, error);
-            default:
-                return error;
-        }
-    }
-
-    // One phase of a job's progress mapped into [offset, offset + scale] of the whole bar.
-    private sealed class PhaseProgress(IProgress<double> inner, double offset, double scale) : IProgress<double>
-    {
-        public void Report(double value) => inner.Report(offset + Math.Clamp(value, 0, 1) * scale);
     }
 }

@@ -155,7 +155,7 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-song.png" width="380" alt="Music mode on the Demo's song: the transport in the toolbar, four ZzFX tracks in the arrangement and the Lead clip in the piano roll"><br><b>Music mode</b> — a full-window DAW: arrangement, piano roll, mixer, built-in effects, VST3, MIDI</td>
-    <td align="center" valign="top"><img src="docs/images/editor-video.png" width="380" alt="Video mode on a narrated recording of the Demo's Physics 2D scene: the preview, the transcript with the filler words struck through, and the timeline with silences and fillers cut"><br><b>Video mode</b> — trim recordings by transcript, cut silence and fillers</td>
+    <td align="center" valign="top"><img src="docs/images/editor-video.png" width="380" alt="Video mode: a narrated Physics 2D recording on a 9:16 timeline with a pause cut out, the media pool, Source and Timeline viewers, Inspector and the cut editor"><br><b>Video mode</b> — a multi-track timeline editor for socials and trailers</td>
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-song-effects.png" width="380" alt="The Channel EQ's plugin window on the Demo song's master: the curve with its band handles and a column of knobs per band"><br><b>Built-in effects</b> — 15 effects: EQ with a draggable curve, dynamics, tempo-synced delay and modulation</td>
@@ -198,10 +198,12 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
 </table>
 
-**Video mode:** Run › Play and Record (F10) records the game to MP4, and the Game|Video toggle turns the editor into a
-video editor that trims it for promo footage: Detect Silence and Detect Idle Gameplay cut dead air and idle play,
-Transcribe writes a Whisper transcript you edit by clicking words, Remove Fillers cuts the "um"s, and Export writes the
-trimmed MP4 and the transcript as SRT or text.
+**Video mode:** Run › Play and Record (F10) records the game into the project's `Assets/Video/Recordings`, and the
+Game|Video toggle turns the editor into a multi-track timeline editor laid out like Resolve's Edit page: a media pool
+(import from a picker or drag files in from Finder), Source and Timeline viewers, video and audio tracks with Premiere's
+keys (razor, add edit, ripple trim and delete, link and unlink, insert and overwrite), per-clip reframing for 9:16, a
+cut editor for the selected clip's source, and export through presets for TikTok, Reels and Shorts, YouTube and Steam,
+X and Discord, and GIF or WebM loops. `Assets/Video` stays in the editor: games never ship it.
 
 ### The Forest
 
@@ -314,7 +316,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos (multi-node, pivots), range handles, box selection and lock, Simulate in the view, resource Save as .mres / Make Unique, FileSystem panel, Play in its own process, C# code reload |
 | [Crash reporting](docs/design/crash-reporting.md) | A crash leaves a report bundle (exception, the node and callback it left, scene, GPU and driver, the last log lines); native crashes and kills are noticed on the next start, with optional native dumps; a next-launch prompt for players, opt-in upload to Sentry or your own endpoint; the editor shows a game's crash as one Output row with click-to-source frames |
 | [Gameplay recording](docs/design/recording.md) | Record any game to MP4 through your own ffmpeg: F10 in the editor or `--record`, live or offline, with a sidecar of input, loading and pauses |
-| [Video mode](docs/design/video-editor.md) | The editor trims recordings for promo footage: detect silence and idle play, Whisper transcripts, remove filler words, export |
+| [Video mode](docs/design/video-editor.md) | A multi-track timeline editor for the project's recordings and media: tracks, Premiere's keys, reframing, a cut editor, export presets for socials and trailers |
 | [Game UI](docs/design/game-ui.md) | RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library; the editor is built with it |
 | [Developer overlay](docs/design/dev-overlay.md) | F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, adaptive music, physics and network panels; add your own in one call |
 | [Frame profiler](docs/design/profiler.md) | Zero-allocation CPU scopes on any thread, GPU timestamps per pass and post effect, counters, a frame history with spike capture; a Profiler section in the F12 overlay, an editor Profiler tab (frame graph, timeline, scope table) and Chrome/Perfetto trace export (`--profile-trace`) |

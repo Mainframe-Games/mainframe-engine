@@ -9,8 +9,8 @@ namespace MainframeEngine.Video.Media;
 /// </summary>
 internal static class FfprobeJson
 {
-    /// <exception cref="MediaProbeException">The output is not JSON, has no video stream, or reports no usable duration.</exception>
-    public static MediaInfo Parse(string json, string path)
+    /// <exception cref="MediaProbeException">The output is not JSON, has no video stream (unless <paramref name="requireVideo"/> is false and it has audio), or reports no usable duration.</exception>
+    public static MediaInfo Parse(string json, string path, bool requireVideo = true)
     {
         ArgumentNullException.ThrowIfNull(json);
         var name = Path.GetFileName(path);
@@ -58,9 +58,9 @@ internal static class FfprobeJson
                 }
             }
 
-            if (video is not { } v)
+            if (video is null && (requireVideo || audio is null))
             {
-                throw new MediaProbeException($"\"{name}\" has no video stream.");
+                throw new MediaProbeException(requireVideo ? $"\"{name}\" has no video stream." : $"\"{name}\" has no video or audio stream.");
             }
 
             // Some containers (a MediaRecorder WebM, say) carry no format duration but do give their streams one.
@@ -73,6 +73,11 @@ internal static class FfprobeJson
             if (!double.IsFinite(duration) || duration <= 0)
             {
                 throw new MediaProbeException($"\"{name}\" reports no duration. Live streams and some raw formats are not supported.");
+            }
+
+            if (video is not { } v)
+            {
+                return new MediaInfo(duration, 0, 0, 0, HasAudio: true, VideoCodec: null, AudioCodec: String(audio!.Value, "codec_name"), HasVideo: false);
             }
 
             // Phone recordings store landscape frames with a rotation; present the displayed size.

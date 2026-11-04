@@ -92,7 +92,7 @@ readme-screenshots:
     #!/usr/bin/env bash
     set -euo pipefail
     # Neutral project folder (no user paths on screen): the Demo project is linked in, MyGame is created there, and the
-    # video-mode shot opens Recordings/demo.mp4.
+    # video-mode shot imports Recordings/demo.mp4 into the Demo (and removes it again).
     projects=/tmp/MainframeProjects
     out="{{artifacts}}/readme-screenshots"
     rm -rf "$projects" "$out"

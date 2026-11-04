@@ -280,3 +280,12 @@ copy-plus
 zoom-in
 zoom-out
 database
+
+# ── Video mode (the timeline editor, ADR 0241) ───────────────────────────────────────────────────────────────────
+scissors
+timeline
+file-import
+column-insert-right
+replace
+arrow-bar-to-right
+arrow-bar-to-left

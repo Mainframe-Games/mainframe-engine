@@ -69,4 +69,14 @@ public static class VideoFormat
 
     private static long Ticks(double seconds, int perSecond) =>
         double.IsFinite(seconds) ? (long)Math.Round(Math.Max(0, seconds) * perSecond, MidpointRounding.AwayFromZero) : 0;
+
+    /// <summary><c>00:01:02:15</c>: hours, minutes, seconds and frames at <paramref name="rate"/> (the timeline header's).</summary>
+    public static string Timecode(double seconds, MainframeEngine.Video.Timelines.FrameRate rate)
+    {
+        var frames = Math.Max(0, rate.FrameAt(seconds));
+        var perSecond = Math.Max(1, (long)Math.Round(rate.Fps));
+        var frame = frames % perSecond;
+        var total = frames / perSecond;
+        return string.Create(CultureInfo.InvariantCulture, $"{total / 3600:00}:{total / 60 % 60:00}:{total % 60:00}:{frame:00}");
+    }
 }

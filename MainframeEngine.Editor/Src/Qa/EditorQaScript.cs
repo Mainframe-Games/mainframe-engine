@@ -18,10 +18,18 @@ namespace MainframeEngine.Editor;
 /// hold W / release W
 /// type Box2                   # text into the focused field
 /// command file.save           # any EditorCommands id
-/// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab; a recording (.mp4 .mov .mkv .webm) or a
-///                             # .mfcut/.cutback opens a video tab in video mode
+/// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab; a .mftimeline opens a timeline tab in video
+///                             # mode, a video (.mp4 .mov .mkv .webm) shows in its Source viewer
 /// mode game|video             # switches the editor mode
 /// video set whisper-model tiny.en   # a Video setting (whisper-model, ffmpeg) for this run (QA runs save no settings)
+/// video import path/to/clip.mp4     # copies an outside file into Assets/Video/Media (wait-for video-jobs)
+/// video source Assets/Video/Media/clip.mp4   # shows a project file in the Source viewer (wait-for video-jobs)
+/// video seek 4.5              # moves the active timeline's playhead
+/// video select V1 2.0         # selects the clip on that track at that time (and its linked partners)
+/// video timeline Vertical name # a new timeline (Vertical, Landscape or Square) in Assets/Video/Timelines, opened
+/// video fit 1 [scale%]        # the selected video clip's Fit (0 fit, 1 fill, 2 stretch) and scale
+/// video export vertical-30    # opens Export Video on that preset (then accept, wait-for video-jobs)
+/// video reset                 # deletes the project's Assets/Video and Exports (QA runs on the Demo)
 /// menu 2                      # choose item 2 of the open popup menu (or: menu edit.undo)
 /// pick Floor                  # tree or list picker: select the row with this label
 /// search omni                 # tree or list picker: type into the search field
@@ -30,8 +38,8 @@ namespace MainframeEngine.Editor;
 /// capture name                # saves &lt;out&gt;/name.png
 /// log text                    # writes to the output
 /// wait-for project|idle|playing|stopped [seconds]   # until a project and scene are open / no build runs / a game runs
-/// wait-for video-jobs [seconds]                      # until the active video tab runs no waveform, silence, transcribe or export job
-/// wait-for video-position 9.5 [seconds]              # until the active video tab's playhead is at or past 9.5 s
+/// wait-for video-jobs [seconds]                      # until video mode runs no probe, import or export job
+/// wait-for video-position 9.5 [seconds]              # until the active timeline's playhead is at or past 9.5 s
 /// file-drag Assets/x.mscene #element-id   # drags a project file from the FileSystem panel onto an element
 /// edit-file path text…        # appends a line to a project file (QA of code reload)
 /// replace-in-file path old new   # edits a project file in place
@@ -293,8 +301,8 @@ public sealed class EditorQaScript : IEditorAutomation
             case "open":
                 {
                     var path = Path.GetFullPath(string.Join(' ', step[1..]));
-                    if (FileKinds.Of(path, isDirectory: false) is FileKind.Video or FileKind.VideoProject)
-                        workspace.Commands.OpenVideo(path);
+                    if (FileKinds.Of(path, isDirectory: false) is FileKind.Video or FileKind.Timeline)
+                        workspace.Commands.OpenAny(path);
                     else if (path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
                         workspace.Session.OpenUiPreview(path);
                     else if (path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
@@ -341,6 +349,8 @@ public sealed class EditorQaScript : IEditorAutomation
                     workspace.FilePicker.Accept();
                 else if (workspace.Message.Current is { } message)
                     workspace.Message.Answer(message.DefaultButton);
+                else if (workspace.ExportVideo.Visible)
+                    workspace.ExportVideo.Export();
                 break;
             case "cancel":
                 if (workspace.SheetSlicer.Visible)
@@ -359,6 +369,8 @@ public sealed class EditorQaScript : IEditorAutomation
                     workspace.Message.Answer(message.CancelButton >= 0 ? message.CancelButton : message.Buttons.Count - 1);
                 else if (workspace.UpdateDialog.Visible)
                     workspace.UpdateDialog.Close();
+                else if (workspace.ExportVideo.Visible)
+                    workspace.ExportVideo.Cancel();
                 else
                     workspace.Popup.Close();
                 break;
@@ -461,7 +473,7 @@ public sealed class EditorQaScript : IEditorAutomation
             case "wait-for" when step.Length > 2 && step[1] == "video-position":
                 {
                     var position = Float(step, 2);
-                    _waitFor = w => VideoPositionReached(w.Session.ActiveTab as Video.VideoTab, position);
+                    _waitFor = w => VideoPositionReached(w.Session.ActiveTab as Video.TimelineTab, position);
                     _waitForDeadline = step.Length > 3 ? Float(step, 3) : 120;
                     _waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
                     break;
@@ -487,7 +499,7 @@ public sealed class EditorQaScript : IEditorAutomation
                     "stopped" => static w => !w.Play.IsPlaying,
                     "render" => static w => w.SongView.Renders.Count == 0,
                     "bake" => static w => w.SongView.Bakes.Count == 0,
-                    "video-jobs" => static w => VideoJobsIdle(w.Session.ActiveTab as Video.VideoTab),
+                    "video-jobs" => static w => VideoJobsIdle(w),
                     "exported" => static w => !w.Export.IsRunning,
                     _ => throw new ArgumentException($"Unknown wait-for '{step[1]}'."),
                 };
@@ -717,6 +729,9 @@ public sealed class EditorQaScript : IEditorAutomation
             case "video" when step.Length > 3 && step[1] == "set":
                 SetVideoSetting(workspace, step[2], string.Join(' ', step[3..]));
                 break;
+            case "video" when step.Length > 1:
+                Video(workspace, step);
+                break;
             case "song":
                 Song(workspace, step);
                 break;
@@ -730,11 +745,76 @@ public sealed class EditorQaScript : IEditorAutomation
     }
 
     /// <summary>
-    /// <c>wait-for video-jobs</c>: true when <paramref name="tab"/> has no waveform, silence, transcription or export job
-    /// (a finished job counts until its result is applied), or there is no video tab to wait for.
+    /// <c>wait-for video-jobs</c>: true when video mode runs no probe, import or export (a finished job counts until its
+    /// result is applied).
     /// </summary>
-    internal static bool VideoJobsIdle(Video.VideoTab? tab) =>
-        tab is null || (tab.WaveformJob is null && tab.SilenceJob is null && tab.TranscribeJob is null && tab.ExportJob is null);
+    internal static bool VideoJobsIdle(EditorWorkspace workspace) =>
+        workspace.VideoView.IsIdle && workspace.Session.Tabs.All(t => t is not Video.TimelineTab { ExportJob: not null });
+
+    // video import|source|seek|select|timeline: video mode for QA and screenshots.
+    private static void Video(EditorWorkspace workspace, string[] step)
+    {
+        var view = workspace.VideoView;
+        var tab = workspace.Session.ActiveTab as Video.TimelineTab;
+        var root = workspace.Session.ProjectRoot ?? "";
+        switch (step[1])
+        {
+            case "import" when step.Length > 2 && workspace.VideoPanel.Pool is { } pool:
+                view.ImportFiles([Path.GetFullPath(string.Join(' ', step[2..]))], Path.Combine(pool.RootFolder, "Media"), null);
+                break;
+            case "source" when step.Length > 2:
+                view.ShowInSource(Path.GetFullPath(Path.Combine(root, string.Join(' ', step[2..]))));
+                break;
+            case "seek" when step.Length > 2 && tab is not null:
+                tab.Seek(Float(step, 2));
+                break;
+            case "select" when step.Length > 3 && tab is not null:
+                {
+                    var track = tab.Timeline.Tracks.FirstOrDefault(t => t.Name == step[2]);
+                    tab.View.Selection.Clear();
+                    if (track is not null && MainframeEngine.Video.Timelines.TimelineLayout.ClipAt(tab.Timeline, track.Id, Float(step, 3)) is { } clip)
+                        foreach (var member in tab.Timeline.LinkedWith(clip))
+                            tab.View.Selection.Add(member.Id);
+                    break;
+                }
+
+            case "fit" when step.Length > 2:
+                {
+                    var fit = (MainframeEngine.Video.Timelines.FrameFit)int.Parse(step[2], System.Globalization.CultureInfo.InvariantCulture);
+                    var scale = step.Length > 3 ? Float(step, 3) / 100 : 1;
+                    workspace.VideoPanel.SetTransform("Reframe", t => t with { Fit = fit, Scale = scale });
+                    break;
+                }
+
+            case "export" when step.Length > 2:
+                {
+                    var index = MainframeEngine.Video.Timelines.Export.TimelineExportPresets.All.ToList().FindIndex(p => p.Id == step[2]);
+                    workspace.Commands.Execute("video.export");
+                    if (index >= 0 && workspace.ExportVideo.Visible)
+                        workspace.ExportVideo.PresetIndex = index;
+                    break;
+                }
+
+            case "reset" when root.Length > 0:
+                // QA only: a clean Assets/Video and Exports in the project it runs on (the Demo), before and after.
+                foreach (var folder in (string[])[Path.Combine(root, "Assets", "Video"), Path.Combine(root, "Exports")])
+                    if (Directory.Exists(folder))
+                        Directory.Delete(folder, recursive: true);
+                workspace.VideoPanel.RefreshPool();
+                break;
+            case "timeline" when step.Length > 2 && workspace.VideoPanel.Pool is { } pool:
+                {
+                    var (w, h) = step[2] switch { "Landscape" => (1920, 1080), "Square" => (1080, 1080), _ => (1080, 1920) };
+                    view.CreateTimeline(pool, step.Length > 3 ? string.Join(' ', step[3..]) : "Timeline",
+                        new MainframeEngine.Video.Timelines.TimelineSettings(w, h, new MainframeEngine.Video.Timelines.FrameRate(30, 1)), null);
+                    break;
+                }
+
+            default:
+                Log.Warning($"[QA] Unknown video step '{string.Join(' ', step)}' (set, import, source, seek, select, timeline; video mode needs a project).");
+                break;
+        }
+    }
 
     // export open|close|select <index>|add <platform>|run|run-all|cancel: File › Export (G5) for QA and screenshots.
     private static void RunExportStep(EditorWorkspace workspace, string[] step)
@@ -778,7 +858,7 @@ public sealed class EditorQaScript : IEditorAutomation
     }
 
     /// <summary><c>wait-for video-position &lt;seconds&gt;</c>: true once <paramref name="tab"/>'s playhead is at or past <paramref name="seconds"/>.</summary>
-    internal static bool VideoPositionReached(Video.VideoTab? tab, double seconds) => tab is not null && tab.State.Playhead >= seconds;
+    internal static bool VideoPositionReached(Video.TimelineTab? tab, double seconds) => tab is not null && tab.View.Playhead >= seconds;
 
     // video set <setting> <value>: changes a Video setting the way Editor Settings › Video does. A QA run has no settings
     // file, so the change lasts for the run only.

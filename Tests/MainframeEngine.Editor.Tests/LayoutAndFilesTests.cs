@@ -148,7 +148,7 @@ public sealed class EditorLayoutTests : IDisposable
         Assert.True(loaded.VideoShowTranscript);
         Assert.False(loaded.VideoShowOutput);
         Assert.Equal(320, loaded.VideoTranscriptWidth);
-        Assert.Equal(180, loaded.VideoTimelineHeight);
+        Assert.Equal(240, loaded.VideoTimelineHeight);
         Assert.Equal(300, loaded.LeftWidth);
         Assert.Equal(SongBottomPanel.PianoRoll, loaded.MusicPane);
         Assert.Equal(300, loaded.MusicPaneHeight);

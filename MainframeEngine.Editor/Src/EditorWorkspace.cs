@@ -92,9 +92,6 @@ public sealed record EditorWorkspaceOptions
     public string VideoModelsDirectory { get; init; } =
         Path.Combine(Path.GetDirectoryName(EditorSettings.DefaultPath)!, "models");
 
-    /// <summary>Starts Cutback (app path, recording path) as its own process; true when it started (default: a detached process); tests record instead.</summary>
-    public Func<string, string, bool>? LaunchCutback { get; init; }
-
     /// <summary>Shows a file or folder in the OS file browser (default: <see cref="OsShell.Reveal"/>); tests record instead.</summary>
     public Action<string>? Reveal { get; init; }
 
@@ -146,6 +143,7 @@ public sealed partial class EditorWorkspace : Node
         ScenesHost = new Node { Name = "EditedScenes" };
         Session = new EditorSession(ScenesHost);
         Settings = EditorSettings.Load(Options.EditorSettingsPath);
+        Session.HistoryLimit = Settings.VideoUndoHistoryLimit;
         RecentProjects = RecentProjects.Load(Options.RecentProjectsPath);
         CodeEditor = new CodeEditorLauncher(() => Settings, () => Session.ProjectRoot, Options.StartCodeEditor);
         var dotnet = DotnetSdk.FindDotnet() ?? "dotnet";
@@ -155,12 +153,8 @@ public sealed partial class EditorWorkspace : Node
         // Message is built later (BuildUi), so the notifier reaches it through the property at call time.
         var recordingNotifier = new RecordingNotifier(
             request => Message.Show(request),
-            path => Commands.OpenVideo(path),
-            () => Settings.CutbackPath,
-            CutbackLocator.FindForThisMachine,
-            Options.LaunchCutback ?? LaunchCutback,
+            path => VideoView.OpenRecording(path),
             Options.Reveal ?? OsShell.Reveal,
-            OsShell.OpenUrl,
             Directory.Exists);
         Play.Service.RecordingFinished += (_, recording) => recordingNotifier.OnFinished(recording);
         Project = new ProjectService(this) { AutoReload = Settings.AutoReloadCode };
@@ -523,28 +517,6 @@ public sealed partial class EditorWorkspace : Node
         }
     }
 
-    /// <summary>
-    /// Starts Cutback on <paramref name="file"/> as a separate process (it is a GPL app; the editor never links it). It is a
-    /// GUI app, so its output is not redirected, and the editor does not wait for it: <c>Process.Start</c> returns at once.
-    /// On macOS a bundle is opened through <c>open -a</c> (<see cref="CutbackLocator.LaunchCommand"/>).
-    /// </summary>
-    private static bool LaunchCutback(string app, string file)
-    {
-        try
-        {
-            var (fileName, arguments) = CutbackLocator.LaunchCommand(app, file,
-                OperatingSystem.IsWindows() ? OsKind.Windows : OperatingSystem.IsMacOS() ? OsKind.MacOS : OsKind.Linux);
-            var info = ProcessRunner.CreateStartInfo(fileName, arguments, redirectOutput: false);
-            using var process = System.Diagnostics.Process.Start(info);
-            return process is not null;
-        }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            Log.Warning($"[Recorder] Could not start Cutback ({app}): {e.Message}");
-            return false;
-        }
-    }
-
     protected override void OnExitTree()
     {
         SaveLayout();
@@ -774,6 +746,13 @@ public sealed partial class EditorWorkspace : Node
     {
         if (mode == Mode)
             return;
+        // Video mode edits the open project's timelines (ADR 0241): without one, the Project Manager opens instead.
+        if (mode == EditorMode.Video && Session.ProjectRoot is null && Options.ShowProjectManager)
+        {
+            ProjectManager.Open();
+            return;
+        }
+
         if (Session.ActiveTab is { } current && current.Mode == Mode)
             _activeByMode[Mode] = current;
         Mode = mode;
@@ -785,8 +764,7 @@ public sealed partial class EditorWorkspace : Node
         ViewportPanel.RefreshTabs();
         if (!keepActive)
             ActivateModeTab(mode);
-        // Game mode with no project and no game tab has nothing to show (video mode started without one): the Project
-        // Manager opens, as it does at start-up.
+        // Game mode with no project and no game tab has nothing to show: the Project Manager opens, as it does at start-up.
         if (mode == EditorMode.Game && Session.ActiveTab is null && Project.Root is null)
             ProjectManager.Open();
 
@@ -944,13 +922,6 @@ public sealed partial class EditorWorkspace : Node
     }
 
     /// <summary>View › Show/Hide Transcript: the video panel gives the preview the transcript's width (or takes it back).</summary>
-    internal void ToggleVideoTranscript()
-    {
-        Layout.SetVideoShowTranscript(!Layout.Settings.VideoShowTranscript);
-        ApplyLayout();
-        SaveLayout();
-    }
-
     // A preview started or ended: the Play/Stop icons and the FileSystem badge follow it.
     private void OnAudioPreviewChanged()
     {
@@ -1067,17 +1038,27 @@ public sealed partial class EditorWorkspace : Node
     }
 
     /// <summary>
-    /// Video mode's command for a key with modifiers, or null: Cmd/Ctrl+O open, +S save, +Shift+S save as, +W close, +Q
-    /// quit, +Z undo, +Shift+Z or +Y redo, +E export; Space play/pause; Delete or Backspace delete the region; F1 the docs.
+    /// Video mode's command for a key with modifiers, or null (Premiere's keys, docs/design/future/video-nle.md):
+    /// <list type="bullet">
+    /// <item>Cmd/Ctrl: N new timeline, O open, I import, S save, Shift+S save as, W close, Q quit, Z undo, Shift+Z or Y redo,
+    /// E export, K add edit (Shift: on every track), L link/unlink, A select all.</item>
+    /// <item>V select tool, C razor, S snapping, Space play, J/K/L shuttle back/stop/forward, I/O mark in/out, Alt+X clear
+    /// them, Q/W ripple trim to the playhead, Delete/Backspace lift, Shift or Alt+Delete ripple delete, , insert,
+    /// . overwrite, ←/→ a frame, ↑/↓ the previous/next edit, Home/End, = and - zoom, Shift+Z zoom to fit, Esc deselect,
+    /// F1 the docs.</item>
+    /// </list>
     /// </summary>
     public static string? VideoShortcutFor(Key key, EditorModifiers modifiers)
     {
         var shift = (modifiers & EditorModifiers.Shift) != 0;
+        var alt = (modifiers & EditorModifiers.Alt) != 0;
         if ((modifiers & EditorModifiers.Command) != 0)
         {
             return key switch
             {
+                Key.N => "video.new_timeline",
                 Key.O => "file.open",
+                Key.I => "video.import",
                 Key.S when shift => "file.save_as",
                 Key.S => "file.save",
                 Key.W => "file.close",
@@ -1086,15 +1067,44 @@ public sealed partial class EditorWorkspace : Node
                 Key.Z => "edit.undo",
                 Key.Y => "edit.redo",
                 Key.E => "video.export",
+                Key.K when shift => "video.add_edit_all",
+                Key.K => "video.add_edit",
+                Key.L => "video.link",
+                Key.A => "video.select_all",
                 _ => null,
             };
         }
 
         return key switch
         {
-            Key.Delete or Key.Backspace when modifiers == EditorModifiers.None => "edit.delete",
-            Key.Space when modifiers == EditorModifiers.None => "video.play",
-            Key.F1 when (modifiers & EditorModifiers.Alt) == 0 => "help.docs",
+            Key.Delete or Key.Backspace when shift || alt => "video.ripple_delete",
+            Key.Delete or Key.Backspace => "video.lift",
+            Key.X when alt => "video.clear_marks",
+            Key.Z when shift => "video.zoom_fit",
+            _ when modifiers != EditorModifiers.None && key != Key.F1 => null,
+            Key.Space => "video.play",
+            Key.V => "video.tool_select",
+            Key.C => "video.tool_razor",
+            Key.S => "video.snap",
+            Key.J => "video.shuttle_back",
+            Key.K => "video.shuttle_stop",
+            Key.L => "video.shuttle_forward",
+            Key.I => "video.mark_in",
+            Key.O => "video.mark_out",
+            Key.Q => "video.ripple_start",
+            Key.W => "video.ripple_end",
+            Key.Comma => "video.insert",
+            Key.Period => "video.overwrite",
+            Key.Left => "video.frame_back",
+            Key.Right => "video.frame_forward",
+            Key.Up => "video.prev_edit",
+            Key.Down => "video.next_edit",
+            Key.Home => "video.home",
+            Key.End => "video.end",
+            Key.Equal => "video.zoom_in",
+            Key.Minus => "video.zoom_out",
+            Key.Escape => "video.deselect",
+            Key.F1 => "help.docs",
             _ => null,
         };
     }

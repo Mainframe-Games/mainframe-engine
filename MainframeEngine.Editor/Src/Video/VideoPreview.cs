@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using MainframeEngine.Video.Media.Preview;
 using MainframeEngine.Video.Models;
 
 namespace MainframeEngine.Editor.Video;
@@ -57,7 +56,7 @@ public sealed class VideoPreview : IDisposable
 
     private readonly IVideoDecoderFactory _decoders;
     private readonly Func<AudioServer?> _audio;
-    private readonly string _sourcePath;
+    private readonly IPreviewProgram _program;
     private readonly double _frameRate;
     private readonly int _frameBytes;
     private readonly Texture2D _texture;
@@ -89,17 +88,24 @@ public sealed class VideoPreview : IDisposable
     private byte[]? _seekFrame;
     private double _pendingSeek = double.NaN;
 
+    /// <summary>A preview of one media file (<see cref="SourceProgram"/>).</summary>
     public VideoPreview(IVideoDecoderFactory decoders, Func<AudioServer?> audio, string sourcePath, int sourceWidth,
         int sourceHeight, double sourceFrameRate, int number)
+        : this(decoders, audio, new SourceProgram(sourcePath, sourceWidth, sourceHeight, sourceFrameRate), number)
+    {
+    }
+
+    /// <summary>A preview of <paramref name="program"/>: a file, or a timeline through its export graph.</summary>
+    public VideoPreview(IVideoDecoderFactory decoders, Func<AudioServer?> audio, IPreviewProgram program, int number)
     {
         ArgumentNullException.ThrowIfNull(decoders);
         ArgumentNullException.ThrowIfNull(audio);
-        ArgumentException.ThrowIfNullOrEmpty(sourcePath);
+        ArgumentNullException.ThrowIfNull(program);
         _decoders = decoders;
         _audio = audio;
-        _sourcePath = sourcePath;
-        (Width, Height) = PreviewDecoding.PreviewSize(sourceWidth, sourceHeight);
-        _frameRate = PreviewDecoding.PreviewFrameRate(sourceFrameRate);
+        _program = program;
+        (Width, Height) = (program.Width, program.Height);
+        _frameRate = program.FrameRate;
         _frameBytes = Width * Height * 4;
 
         var black = new byte[_frameBytes];
@@ -123,7 +129,7 @@ public sealed class VideoPreview : IDisposable
     /// <summary>The texture's only parent; the owner keeps it in the tree and publishes it to the UI.</summary>
     public SubViewport Viewport { get; }
 
-    /// <summary>Preview frame width: at most <see cref="PreviewDecoding.MaxWidth"/>, the source's aspect.</summary>
+    /// <summary>Preview frame width: the program's (a file at most 960 px wide, a timeline at most 960 px on its long side).</summary>
     public int Width { get; }
 
     public int Height { get; }
@@ -320,7 +326,11 @@ public sealed class VideoPreview : IDisposable
         _voice = voice;
         _playback = playback;
         _consumedAtStart = playback.FramesConsumed;
-        var run = new AudioRun(this, _plan.Ranges, _sampleRate, playback);
+        // Built here, on the main thread: the program reads the timeline snapshot, which the audio task must not.
+        var arguments = new IReadOnlyList<string>[_plan.Ranges.Count];
+        for (var i = 0; i < arguments.Length; i++)
+            arguments[i] = _program.AudioArguments(_plan.Ranges[i].Start, _plan.Ranges[i].End, _sampleRate);
+        var run = new AudioRun(this, arguments, playback);
         _audioRun = run;
         run.Task = Task.Factory.StartNew(static state => ((AudioRun)state!).Run(), run, CancellationToken.None,
             TaskCreationOptions.LongRunning, TaskScheduler.Default);
@@ -432,7 +442,7 @@ public sealed class VideoPreview : IDisposable
             return false;
 
         var r = _plan.Ranges[range];
-        var arguments = PreviewDecoding.VideoArguments(_sourcePath, r.Start, r.End, Width, Height, _frameRate);
+        var arguments = _program.VideoArguments(r.Start, r.End);
         idle.Start(range, arguments, startNow, _plan.OutputStartOf(range), _frameRate, _frameBytes);
         return true;
     }
@@ -497,7 +507,7 @@ public sealed class VideoPreview : IDisposable
 
     private void StartSeek(double time)
     {
-        var arguments = PreviewDecoding.FrameArguments(_sourcePath, time, Width, Height);
+        var arguments = _program.FrameArguments(time);
         var cancel = new CancellationTokenSource();
         _seekCancel = cancel;
         _seekTask = Task.Run(() => ReadSeekFrame(arguments, cancel.Token));
@@ -825,7 +835,7 @@ public sealed class VideoPreview : IDisposable
     /// stops it with <see cref="Stop"/>; whichever side takes the current decoder out of <c>_decoder</c> kills it, so it
     /// dies exactly once even when the task starts it just as the main thread stops.
     /// </summary>
-    private sealed class AudioRun(VideoPreview owner, IReadOnlyList<PlayRange> ranges, int sampleRate, AudioStreamGeneratorPlayback playback)
+    private sealed class AudioRun(VideoPreview owner, IReadOnlyList<IReadOnlyList<string>> ranges, AudioStreamGeneratorPlayback playback)
         : IDisposable
     {
         private readonly CancellationTokenSource _cancel = new();
@@ -856,7 +866,7 @@ public sealed class VideoPreview : IDisposable
                 {
                     if (cancellation.IsCancellationRequested)
                         return; // stopped while the last range was ending: start no more decoders
-                    var decoder = owner.StartDecoder(PreviewDecoding.AudioArguments(owner._sourcePath, range.Start, range.End, sampleRate));
+                    var decoder = owner.StartDecoder(range);
                     Interlocked.Exchange(ref _decoder, decoder); // a full fence: a Stop before this is seen below
                     if (cancellation.IsCancellationRequested)
                         return;

@@ -8,6 +8,7 @@ namespace MainframeEngine.Video.Media;
 /// <param name="HasAudio">False if there is no audio stream. Waveform, silence detection and export all need one.</param>
 /// <param name="VideoCodec">e.g. "h264". Informational.</param>
 /// <param name="AudioCodec">e.g. "aac". Null when <paramref name="HasAudio"/> is false.</param>
+/// <param name="HasVideo">False for an audio file probed with <c>requireVideo: false</c> (its size and rate are 0).</param>
 public sealed record MediaInfo(
     double DurationSeconds,
     int Width,
@@ -15,4 +16,5 @@ public sealed record MediaInfo(
     double FrameRate,
     bool HasAudio,
     string? VideoCodec,
-    string? AudioCodec);
+    string? AudioCodec,
+    bool HasVideo = true);

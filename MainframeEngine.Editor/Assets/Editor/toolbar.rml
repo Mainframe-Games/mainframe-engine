@@ -193,18 +193,23 @@
         <div class="spacer"></div>
     </div>
     <div id="video-tools" class="tools hidden">
-        <div class="group video-transport">
-            <button id="video-play" class="tool-button disabled" data-command="video.play" data-tooltip="Play (Space) — the kept footage from the playhead, skipping the cuts"><span id="video-play-icon" class="icon icon-player-play"></span></button>
-            <button id="video-stop" class="tool-button disabled" data-command="video.stop" data-tooltip="Stop — pause and go back to the start"><span class="icon icon-player-stop"></span></button>
-            <span id="video-pos" class="mono empty" data-tooltip="Position — the playhead and the recording's length"></span>
+        <div class="group">
+            <button id="video-tool-select" class="tool-button active" data-command="video.tool_select" data-tooltip="Selection tool (V) — select, move and trim clips"><span class="icon icon-pointer"></span></button>
+            <button id="video-tool-razor" class="tool-button" data-command="video.tool_razor" data-tooltip="Razor tool (C) — click a clip to cut it there"><span class="icon icon-scissors"></span></button>
+            <button id="video-snap" class="tool-button active" data-command="video.snap" data-tooltip="Snapping (S) — clip edges, the playhead, markers and in/out catch dragged clips and edges"><span class="icon icon-magnet"></span></button>
+            <button id="video-link" class="tool-button disabled" data-command="video.link" data-tooltip="Link / Unlink (Ctrl+L) — join or separate the selected clips' picture and sound"><span class="icon icon-link"></span></button>
         </div>
-        <button id="video-transcribe" class="video-job disabled" data-command="video.transcribe" data-tooltip="Transcribe — recognise the speech on this computer, for editing by text and removing filler words">Transcribe</button>
-        <button id="video-fillers" class="video-job disabled" data-command="video.remove_fillers" data-tooltip="Remove Fillers — cut the um's and uh's (transcribes first when there is no transcript)">Remove fillers</button>
-        <button id="video-silence" class="video-job disabled" data-command="video.detect_silence" data-tooltip="Detect Silence — cut the pauses; your own cuts and kept regions stay">Detect silence</button>
-        <button id="video-idle" class="video-job disabled" data-command="video.detect_idle" data-tooltip="Detect Idle Gameplay — cut loading, pauses and stretches without input, from the recording's Mainframe Engine data">Detect idle gameplay</button>
+        <div class="group video-transport">
+            <button id="video-play" class="tool-button disabled" data-command="video.play" data-tooltip="Play (Space) — the timeline from the playhead"><span id="video-play-icon" class="icon icon-player-play"></span></button>
+            <button id="video-stop" class="tool-button disabled" data-command="video.stop" data-tooltip="Stop — pause and go back to the start"><span class="icon icon-player-stop"></span></button>
+            <span id="video-pos" class="mono empty" data-tooltip="Position — the playhead and the timeline's length"></span>
+        </div>
+        <div class="group">
+            <button id="video-import" class="tool-button" data-command="video.import" data-tooltip="Import Media (Ctrl+I) — copy video, audio and images into Assets/Video/Media"><span class="icon icon-file-import"></span></button>
+            <button id="video-new" class="tool-button" data-command="video.new_timeline" data-tooltip="New Timeline — a timeline in Assets/Video/Timelines"><span class="icon icon-timeline"></span></button>
+        </div>
         <div class="spacer"></div>
-        <span id="video-kept" class="muted" data-tooltip="Kept — how long the export will be, of the recording's full length"></span>
-        <button id="video-export" class="accent disabled" data-command="video.export" data-tooltip="Export Video (Ctrl+E) — write the kept footage to a new file">Export</button>
+        <button id="video-export" class="accent disabled" data-command="video.export" data-tooltip="Export Video (Ctrl+E) — render the timeline through a preset">Export</button>
     </div>
     <div id="music-tools" class="tools hidden">
         <div class="group song-transport">
@@ -234,7 +239,7 @@
         <div id="mode-thumb"></div>
         <button id="mode-game" class="mode active" data-command="editor.mode.game" data-tooltip="Game mode: scenes, play and record"><span class="icon icon-sm icon-device-gamepad-2"></span><span>Game</span></button>
         <button id="mode-music" class="mode" data-command="editor.mode.music" data-tooltip="Music mode: compose, mix and render the game's songs"><span class="icon icon-sm icon-music"></span><span>Music</span></button>
-        <button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: trim and export recordings"><span class="icon icon-sm icon-video"></span><span>Video</span></button>
+        <button id="mode-video" class="mode" data-command="editor.mode.video" data-tooltip="Video mode: edit the project video on a timeline and export it"><span class="icon icon-sm icon-video"></span><span>Video</span></button>
     </div>
     <button id="docs" class="tool-button" data-command="help.docs" data-tooltip="Documentation (F1) — open the engine docs in your browser"><span class="icon icon-book"></span></button>
     <button id="update" class="tool-button" data-command="help.update" data-tooltip="Update available"><span class="icon icon-arrow-bar-to-down"></span></button>

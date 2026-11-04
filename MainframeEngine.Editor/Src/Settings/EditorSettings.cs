@@ -14,7 +14,7 @@ namespace MainframeEngine.Editor;
 /// theme accent colour, the autosave interval, the external code editor command (opens <c>.cs</c> files and
 /// click-to-source lines), whether code reloads automatically after a build, whether the editor checks for updates,
 /// the 3D view's resolution, the mode the editor was last in, and video mode's settings (Editor Settings › Video:
-/// ffmpeg, the speech model, filler words, the silence and gameplay detection numbers, the undo limit) and recent videos.
+/// ffmpeg, the speech model, filler words, the silence and gameplay detection numbers, the undo limit).
 /// Every <c>Video*</c> number clamps in its setter, so a hand-edited file or a typed value cannot leave its range.
 /// </summary>
 public sealed class EditorSettings
@@ -58,11 +58,6 @@ public sealed class EditorSettings
     /// </summary>
     public string CodeEditorCommand { get; set; } = "";
 
-    /// <summary>
-    /// The Cutback app that trims recordings (Run › Play and Record); empty finds it on PATH or in its usual install
-    /// folder (<see cref="CutbackLocator"/>).
-    /// </summary>
-    public string CutbackPath { get; set; } = "";
 
     /// <summary>Reload the game code automatically when its build output changes.</summary>
     public bool AutoReloadCode { get; set; } = true;
@@ -168,12 +163,15 @@ public sealed class EditorSettings
         set => field = Math.Clamp(value, 0, 10000);
     } = GameplaySettings.Default.MarkerWindowMs;
 
-    /// <summary>How many undo steps a video tab keeps; 10…1000.</summary>
+    /// <summary>The undo steps a timeline tab keeps by default.</summary>
+    public const int DefaultVideoUndoHistoryLimit = 100;
+
+    /// <summary>How many undo steps a timeline tab keeps (from when it opens); 10…1000.</summary>
     public int VideoUndoHistoryLimit
     {
         get;
         set => field = Math.Clamp(value, 10, 1000);
-    } = VideoDocument.DefaultHistoryLimit;
+    } = DefaultVideoUndoHistoryLimit;
 
     /// <summary>Detect Silence's and Remove Filler Words' numbers, as the video library takes them.</summary>
     public DetectionSettings VideoDetection => new(VideoPaddingMs, VideoMinSilenceMs, VideoSilenceThresholdDb, VideoMinKeepMs);
@@ -181,8 +179,6 @@ public sealed class EditorSettings
     /// <summary>Detect Idle Gameplay's numbers, as the video library takes them.</summary>
     public GameplaySettings VideoGameplay => new(VideoGameplayMinIdleMs, VideoGameplayPaddingMs, VideoGameplayMinKeepMs, VideoGameplayMarkerWindowMs);
 
-    /// <summary>Recordings and video projects opened lately, most recent first, at most 10, as full paths.</summary>
-    public List<string> RecentVideos { get; set; } = [];
 
     /// <summary>
     /// The 3D view's pixels per display pixel for <paramref name="resolution"/> on a display of <paramref name="pixelScale"/>
@@ -215,7 +211,6 @@ public sealed class EditorSettings
                 Accent = data.Accent ?? DefaultAccent,
                 AutosaveMinutes = data.AutosaveMinutes,
                 CodeEditorCommand = data.CodeEditor ?? "",
-                CutbackPath = data.CutbackPath ?? "",
                 AutoReloadCode = data.AutoReloadCode ?? true,
                 CheckForUpdates = data.CheckForUpdates ?? true,
                 PluginFolders = data.PluginFolders ?? [],
@@ -234,8 +229,7 @@ public sealed class EditorSettings
                 VideoGameplayPaddingMs = data.VideoGameplayPaddingMs ?? GameplaySettings.Default.PaddingMs,
                 VideoGameplayMinKeepMs = data.VideoGameplayMinKeepMs ?? GameplaySettings.Default.MinKeepMs,
                 VideoGameplayMarkerWindowMs = data.VideoGameplayMarkerWindowMs ?? GameplaySettings.Default.MarkerWindowMs,
-                VideoUndoHistoryLimit = data.VideoUndoHistoryLimit ?? VideoDocument.DefaultHistoryLimit,
-                RecentVideos = [.. (data.RecentVideos ?? []).Where(p => !string.IsNullOrWhiteSpace(p)).Take(EditorCommands.RecentVideoLimit)],
+                VideoUndoHistoryLimit = data.VideoUndoHistoryLimit ?? DefaultVideoUndoHistoryLimit,
             };
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
@@ -255,7 +249,6 @@ public sealed class EditorSettings
             Accent = Accent,
             AutosaveMinutes = AutosaveMinutes,
             CodeEditor = CodeEditorCommand,
-            CutbackPath = CutbackPath,
             AutoReloadCode = AutoReloadCode,
             CheckForUpdates = CheckForUpdates,
             PluginFolders = PluginFolders.Count > 0 ? PluginFolders : null,
@@ -273,8 +266,7 @@ public sealed class EditorSettings
             VideoGameplayPaddingMs = Changed(VideoGameplayPaddingMs, GameplaySettings.Default.PaddingMs),
             VideoGameplayMinKeepMs = Changed(VideoGameplayMinKeepMs, GameplaySettings.Default.MinKeepMs),
             VideoGameplayMarkerWindowMs = Changed(VideoGameplayMarkerWindowMs, GameplaySettings.Default.MarkerWindowMs),
-            VideoUndoHistoryLimit = Changed(VideoUndoHistoryLimit, VideoDocument.DefaultHistoryLimit),
-            RecentVideos = RecentVideos.Count > 0 ? RecentVideos : null,
+            VideoUndoHistoryLimit = Changed(VideoUndoHistoryLimit, DefaultVideoUndoHistoryLimit),
         };
         AtomicFile.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(data, EditorSettingsJson.Default.EditorSettingsData));
     }
@@ -284,7 +276,6 @@ public sealed class EditorSettings
         Accent = Accent,
         AutosaveMinutes = AutosaveMinutes,
         CodeEditorCommand = CodeEditorCommand,
-        CutbackPath = CutbackPath,
         AutoReloadCode = AutoReloadCode,
         CheckForUpdates = CheckForUpdates,
         PluginFolders = [.. PluginFolders],
@@ -303,7 +294,6 @@ public sealed class EditorSettings
         VideoGameplayMinKeepMs = VideoGameplayMinKeepMs,
         VideoGameplayMarkerWindowMs = VideoGameplayMarkerWindowMs,
         VideoUndoHistoryLimit = VideoUndoHistoryLimit,
-        RecentVideos = [.. RecentVideos],
     };
 
     // A number is written only when it differs from the default, like the other settings: a default that changes later
@@ -394,7 +384,6 @@ internal sealed class EditorSettingsData
     public string? Accent { get; set; }
     public int AutosaveMinutes { get; set; }
     public string? CodeEditor { get; set; }
-    public string? CutbackPath { get; set; }
     public bool? AutoReloadCode { get; set; }
     public bool? CheckForUpdates { get; set; }
     public List<string>? PluginFolders { get; set; }
@@ -413,7 +402,6 @@ internal sealed class EditorSettingsData
     public int? VideoGameplayMinKeepMs { get; set; }
     public int? VideoGameplayMarkerWindowMs { get; set; }
     public int? VideoUndoHistoryLimit { get; set; }
-    public List<string>? RecentVideos { get; set; }
 }
 
 /// <summary>The 3D view's resolution (Editor Settings): see <see cref="EditorSettings.ViewResolutionScale"/>.</summary>

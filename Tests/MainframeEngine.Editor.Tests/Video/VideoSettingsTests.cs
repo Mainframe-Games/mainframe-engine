@@ -203,7 +203,6 @@ public sealed class VideoSettingsWiringTests : IDisposable
     private readonly string _dir = Directory.CreateTempSubdirectory("video-settings-ws-").FullName;
     private readonly string _models;
     private readonly HeadlessEditor _editor;
-    private int _tabs;
 
     public VideoSettingsWiringTests()
     {
@@ -225,372 +224,6 @@ public sealed class VideoSettingsWiringTests : IDisposable
         var settings = W.Settings.Clone();
         change(settings);
         W.ApplySettings(settings);
-    }
-
-    // A one-byte "recording" and a .mfcut beside it (and its Mainframe Engine sidecar); returns the project's path.
-    private string SaveProject(string name, bool sidecar = false)
-    {
-        var video = Path.Combine(_dir, name + ".mp4");
-        File.WriteAllBytes(video, [0]);
-        if (sidecar)
-            File.WriteAllText(video + MainframeEngine.Video.Capture.CaptureSidecar.FileSuffix, VideoDocumentTests.Sidecar);
-        var path = Path.Combine(_dir, name + ".mfcut");
-        ProjectSerializer.SaveAsync(VideoDocumentTests.Project(video), path, CancellationToken.None).GetAwaiter().GetResult();
-        return path;
-    }
-
-    // A tab on a real one-byte recording with an ffmpeg location that cannot run (no job here ever reaches ffmpeg).
-    private VideoTab OpenTab(bool sidecar = false)
-    {
-        var path = SaveProject($"talk{++_tabs}", sidecar);
-        var tab = W.Session.OpenVideo(path, NoFfmpeg, W.Settings.VideoUndoHistoryLimit);
-        // The waveform job fails on the missing ffmpeg and adds a notice; let it finish so it cannot land after ours.
-        Assert.True(SpinWait.SpinUntil(() => { _editor.Tick(); return tab.WaveformJob is null; }, TimeSpan.FromSeconds(10)));
-        return tab;
-    }
-
-    private static void Replace(VideoTab tab, IReadOnlyList<SilenceSpan> spans)
-    {
-        tab.SilenceJob!.Dispose(); // the real job (it cannot start /x/ffmpeg) makes way for one that finishes with these spans
-        tab.SilenceJob = VideoJob.Start("silence", (_, _) => Task.FromResult(spans));
-        Assert.True(SpinWait.SpinUntil(() => tab.SilenceJob.IsDone, TimeSpan.FromSeconds(10)));
-    }
-
-    [Fact]
-    public void DetectSilenceUsesTheSettings()
-    {
-        var tab = OpenTab();
-        Apply(s =>
-        {
-            s.VideoPaddingMs = 0;
-            s.VideoMinKeepMs = 0;
-        });
-
-        W.Commands.Execute("video.detect_silence");
-        Assert.NotNull(tab.SilenceJob);
-        Assert.Equal(W.Settings.VideoDetection, tab.SilenceSettings);
-
-        // The settings change while the job runs: it still lays its cuts out with the ones it started with.
-        Apply(s => s.VideoPaddingMs = 500);
-        Replace(tab, [new SilenceSpan(10, 20), new SilenceSpan(30, 31)]);
-        _editor.Tick();
-
-        Assert.Equal(0, tab.Document.Project.Settings.PaddingMs);
-        var cuts = tab.Document.Segments.Segments.Where(s => !s.Enabled).Select(s => (s.Start, s.End)).ToList();
-        Assert.Equal([(10.0, 20.0), (30.0, 31.0)], cuts); // padding 0: the cuts are exactly the spans
-        Assert.Null(tab.SilenceSettings);
-    }
-
-    [Fact]
-    public void TheNextSilenceRunSeesTheChangedSettings()
-    {
-        var tab = OpenTab();
-        Apply(s => s.VideoPaddingMs = 0);
-        W.Commands.Execute("video.detect_silence");
-        Assert.Equal(0, tab.SilenceSettings!.PaddingMs);
-        tab.SilenceJob!.Dispose();
-        tab.SilenceJob = null;
-
-        Apply(s =>
-        {
-            s.VideoPaddingMs = 200;
-            s.VideoSilenceThresholdDb = -50;
-        });
-        W.Commands.Execute("video.detect_silence");
-        Assert.Equal(200, tab.SilenceSettings!.PaddingMs);
-        Assert.Equal(-50, tab.SilenceSettings.SilenceThresholdDb);
-    }
-
-    [Fact]
-    public void DetectIdleUsesTheGameplaySettings()
-    {
-        // The fixture: input until 14 s and from 20 s, loading from 14.5 s to 19 s.
-        var tab = OpenTab(sidecar: true);
-        List<(double Start, double End)> Cuts() => [.. tab.Document.Segments.Segments.Where(s => !s.Enabled).Select(s => (s.Start, s.End))];
-
-        Apply(s => s.VideoGameplayMinIdleMs = 60000); // longer than the 6 s without input: only the loading is cut
-        W.Commands.Execute("video.detect_idle");
-        Assert.Equal([(14.5, 19.0)], Cuts());
-
-        Apply(s =>
-        {
-            s.VideoGameplayMinIdleMs = 3000;
-            s.VideoGameplayPaddingMs = 0;
-        });
-        W.Commands.Execute("video.detect_idle"); // a re-run withdraws its own cuts first
-        Assert.Equal([(14.0, 20.0)], Cuts()); // all six seconds without input, no lead-in or lead-out kept
-    }
-
-    [Fact]
-    public void RemoveFillersUsesTheFillerWordsAndTheDetectionSettings()
-    {
-        var tab = OpenTab();
-        tab.Document.SetTranscript(VideoDocumentTests.Words());
-        Apply(s => s.VideoFillerWords = ["nothing-matches-this"]);
-        W.Commands.Execute("video.remove_fillers");
-        Assert.Single(tab.Document.Segments.Segments);
-
-        double CutLength() => tab.Document.Segments.Segments.Where(s => !s.Enabled).Sum(s => s.Duration);
-
-        Apply(s =>
-        {
-            s.VideoFillerWords = [.. FillerDetector.DefaultWords];
-            s.VideoMinKeepMs = 0;
-        });
-        W.Commands.Execute("video.remove_fillers");
-        var unpadded = CutLength();
-        Assert.True(unpadded > 0);
-
-        // The detection settings' min keep applies too: the stretch before the filler is shorter than 2 s, so it goes with the cut.
-        Apply(s => s.VideoMinKeepMs = 2000);
-        W.Commands.Execute("video.remove_fillers"); // a re-run replaces its own cuts
-        Assert.True(CutLength() > unpadded + 0.5, $"{CutLength()} vs {unpadded}");
-    }
-
-    [Fact]
-    public void TranscribeUsesTheModelFromTheSettingsAndKeepsItWhileItRuns()
-    {
-        File.WriteAllBytes(Path.Combine(_models, WhisperModelInfo.For(WhisperModel.TinyEn).FileName), [1, 2, 3]);
-        var started = new ManualResetEventSlim();
-        var release = new ManualResetEventSlim();
-        WhisperModel? usedModel = null;
-        string? usedPath = null;
-        W.VideoView.TranscriberFactory = (_, path, model) =>
-        {
-            usedModel = model;
-            usedPath = path;
-            return new SlowTranscriber(started, release);
-        };
-        var tab = OpenTab();
-        Apply(s => s.VideoWhisperModel = "tiny.en");
-
-        W.Commands.Execute("video.transcribe");
-        Assert.True(started.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
-        Apply(s => s.VideoWhisperModel = "medium.en"); // too late for this run
-        Assert.Equal(WhisperModel.TinyEn, tab.TranscribeRun!.Model);
-        release.Set();
-        Assert.True(SpinWait.SpinUntil(() => tab.TranscribeJob is { IsDone: true }, TimeSpan.FromSeconds(10)));
-        _editor.Tick();
-
-        Assert.Equal(WhisperModel.TinyEn, usedModel);
-        Assert.Equal(Path.Combine(_models, "ggml-tiny.en.bin"), usedPath);
-        Assert.Null(tab.TranscribeJob);
-    }
-
-    private sealed class SlowTranscriber(ManualResetEventSlim started, ManualResetEventSlim release) : ITranscriber
-    {
-        public Task<IReadOnlyList<Word>> TranscribeAsync(string mediaPath, IProgress<double>? progress, CancellationToken cancellationToken) =>
-            Task.Run<IReadOnlyList<Word>>(() =>
-            {
-                started.Set();
-                release.Wait(cancellationToken);
-                return [];
-            }, cancellationToken);
-    }
-
-    [Fact]
-    public void TheUndoLimitAppliesToOpenTabs()
-    {
-        var first = OpenTab();
-        var second = OpenTab();
-        Assert.Equal(100, first.Document.Editor.History.Limit);
-
-        for (var i = 0; i < 30; i++)
-            first.Document.Editor.CreateSection(i * 2, i * 2 + 1, anchor: i * 2);
-        Apply(s => s.VideoUndoHistoryLimit = 12);
-        Assert.Equal(12, first.Document.Editor.History.Limit);
-        Assert.Equal(12, second.Document.Editor.History.Limit);
-        var undone = 0;
-        while (first.Document.Editor.History.CanUndo)
-        {
-            first.Document.Editor.Undo();
-            undone++;
-        }
-
-        Assert.Equal(12, undone); // lowering the limit dropped the oldest steps at once
-
-        Apply(s => s.VideoUndoHistoryLimit = 1000);
-        Assert.Equal(1000, second.Document.Editor.History.Limit);
-        Assert.False(second.IsDirty); // a limit is not an edit
-    }
-
-    [Fact]
-    public void ANewTabStartsWithTheConfiguredUndoLimit()
-    {
-        Apply(s => s.VideoUndoHistoryLimit = 25);
-        var path = SaveProject("limit");
-        W.Commands.LocateFfmpeg = _ => NoFfmpeg;
-
-        W.Commands.OpenVideo(path);
-        _editor.Tick(3);
-
-        Assert.Equal(25, W.Session.ActiveVideo!.Document.Editor.History.Limit);
-    }
-
-    // ── ffmpeg not found ─────────────────────────────────────────────────────────────────────────────────────────
-
-    private VideoTab TabWithoutFfmpeg()
-    {
-        var document = VideoDocument.FromProject(VideoDocumentTests.Project("/r/a.mp4"), null, null, []);
-        var preview = new VideoPreview(new VideoTabTests.CountingFactory(320 * 180 * 4), () => null,
-            "/r/a.mp4", 320, 180, 30, 850 + ++_tabs);
-        var tab = new VideoTab(document, preview, null, 850 + _tabs);
-        W.ScenesHost.AddChild(tab.TimelineViewport);
-        W.ScenesHost.AddChild(preview.Viewport);
-        W.Session.Add(tab);
-        _editor.Tick(2);
-        return tab;
-    }
-
-    [Theory]
-    [InlineData("video.detect_silence", "Detect Silence")]
-    [InlineData("video.transcribe", "Transcribe")]
-    [InlineData("video.export", "Export")]
-    public void WithoutFfmpegAnOperationSaysSoInTheNoticeLineNotInAModal(string command, string what)
-    {
-        var tab = TabWithoutFfmpeg();
-        W.Commands.Execute(command);
-        _editor.Tick();
-
-        Assert.False(W.Message.Visible);
-        Assert.Equal($"ffmpeg not found: {what} needs it.", tab.Notice);
-        Assert.True(tab.NoticeNeedsFfmpegSetting);
-        Assert.Equal(tab.Notice, W.VideoPanel.NoticeText);
-        Assert.True(W.VideoPanel.NoticeHasSettingsLink);
-        Assert.Null(tab.SilenceJob);
-        Assert.Null(tab.TranscribeJob);
-        Assert.Null(tab.ExportJob);
-        Assert.False(W.ExportVideo.Visible);
-        Assert.Empty(_editor.RmlMessages);
-    }
-
-    // An ffmpeg/ffprobe pair the locator accepts (it only checks that the files exist); nothing ever runs them.
-    private string FakeFfmpegFolder()
-    {
-        var dir = Path.Combine(_dir, "ffmpeg-" + ++_tabs);
-        Directory.CreateDirectory(dir);
-        var locator = new FfmpegLocator();
-        File.WriteAllBytes(Path.Combine(dir, locator.ExecutableName("ffmpeg")), []);
-        File.WriteAllBytes(Path.Combine(dir, locator.ExecutableName("ffprobe")), []);
-        return dir;
-    }
-
-    [Fact]
-    public void AnOperationUsesTheFfmpegTheSettingNamesNowNotTheOneTheTabOpenedWith()
-    {
-        var tab = TabWithoutFfmpeg(); // opened when no ffmpeg was found
-        var folder = FakeFfmpegFolder();
-        Apply(s => s.VideoFfmpegPath = folder); // then the user set one
-
-        FfmpegLocation? exportedWith = null;
-        W.VideoView.ExporterFactory = (ffmpeg, _) =>
-        {
-            exportedWith = ffmpeg;
-            return (_, _, _) => Task.CompletedTask;
-        };
-        W.VideoView.StartExport(tab, Path.Combine(_dir, "out.mp4"), MainframeEngine.Video.Media.Export.ExportMode.Precise);
-        Assert.Equal(Path.Combine(folder, new FfmpegLocator().ExecutableName("ffmpeg")), exportedWith?.FfmpegPath);
-        Assert.True(SpinWait.SpinUntil(() => tab.ExportJob is not { IsDone: false }, TimeSpan.FromSeconds(10)));
-        _editor.Tick();
-        W.Message.Answer(1); // Export finished: Close
-
-        File.WriteAllBytes(Path.Combine(_models, WhisperModelInfo.Default.FileName), [1, 2, 3]);
-        FfmpegLocation? transcribedWith = null;
-        W.VideoView.TranscriberFactory = (ffmpeg, _, _) =>
-        {
-            transcribedWith = ffmpeg;
-            throw new IOException("stop here");
-        };
-        W.VideoView.Transcribe(tab);
-        Assert.True(SpinWait.SpinUntil(() => tab.TranscribeJob is not { IsDone: false }, TimeSpan.FromSeconds(10)));
-        Assert.Equal(exportedWith, transcribedWith);
-    }
-
-    [Fact]
-    public void AnFfmpegThatIsGoneWhenTheJobStartsGivesTheNoticeNotAModal()
-    {
-        // Opened with an ffmpeg that is no longer there, and none is found now: the tab's own is tried, and fails to start.
-        var document = VideoDocument.FromProject(VideoDocumentTests.Project("/r/a.mp4"), null, null, []);
-        var preview = new VideoPreview(new VideoTabTests.CountingFactory(320 * 180 * 4), () => null, "/r/a.mp4", 320, 180, 30, 850 + ++_tabs);
-        var tab = new VideoTab(document, preview, NoFfmpeg, 850 + _tabs);
-        W.ScenesHost.AddChild(tab.TimelineViewport);
-        W.ScenesHost.AddChild(preview.Viewport);
-        W.Session.Add(tab);
-        Assert.True(SpinWait.SpinUntil(() => { _editor.Tick(); return tab.WaveformJob is null; }, TimeSpan.FromSeconds(10)));
-
-        W.Commands.Execute("video.detect_silence");
-        Assert.NotNull(tab.SilenceJob);
-        Assert.True(SpinWait.SpinUntil(() => { _editor.Tick(); return tab.SilenceJob is null; }, TimeSpan.FromSeconds(10)));
-
-        Assert.False(W.Message.Visible);
-        Assert.Equal("ffmpeg not found: Detect Silence needs it.", tab.Notice);
-        Assert.True(tab.NoticeNeedsFfmpegSetting);
-    }
-
-    [Fact]
-    public void TheWaveformWithoutFfmpegIsTheSameNotice()
-    {
-        var tab = TabWithoutFfmpeg();
-        Assert.Null(tab.WaveformJob);
-        Assert.Equal("ffmpeg not found: the waveform needs it.", tab.Notice);
-        Assert.True(tab.NoticeNeedsFfmpegSetting);
-    }
-
-    [Fact]
-    public void TheNoticeLinkOpensTheDialogOnTheVideoSection()
-    {
-        var tab = TabWithoutFfmpeg();
-        W.Commands.Execute("video.detect_silence");
-        _editor.Tick(2);
-        var link = W.VideoPanel.Document.GetElementById("video-notice-link");
-        Assert.Equal("Editor Settings", link.InnerRml);
-        Assert.False(link.Bounds.Width <= 0);
-        Assert.False(W.EditorSettingsDialog.Visible);
-
-        link.Click();
-        _editor.Tick(3);
-
-        Assert.True(W.EditorSettingsDialog.Visible);
-        Assert.True(SectionIsInView(), SectionPlace());
-        Assert.Empty(_editor.RmlMessages);
-
-        // The link goes with the message: any other notice drops it.
-        W.EditorSettingsDialog.Cancel();
-        tab.Notice = "Detected 2 silences.";
-        _editor.Tick(2);
-        Assert.False(W.VideoPanel.NoticeHasSettingsLink);
-    }
-
-    [Fact]
-    public void TheNoticeLinkStaysVisibleWhenTheTextIsLong()
-    {
-        var tab = TabWithoutFfmpeg();
-        tab.ReportNoFfmpeg(string.Join(" ", Enumerable.Repeat("a very long operation name", 40)));
-        _editor.Tick(4);
-        var notice = W.VideoPanel.Document.GetElementById("video-notice").Bounds;
-        var link = W.VideoPanel.Document.GetElementById("video-notice-link").Bounds;
-        Assert.True(link.Width > 0);
-        Assert.True(link.X + link.Width <= notice.X + notice.Width + 1, $"link {link.X}+{link.Width}, notice {notice.X}+{notice.Width}");
-        Assert.True(link.X >= notice.X);
-    }
-
-    [Fact]
-    public void OpeningWithoutFfmpegOffersTheSettingsOnTheMessage()
-    {
-        W.Commands.LocateFfmpeg = _ => throw new FfmpegMissingException("ffmpeg is not installed.");
-        W.Commands.OpenVideo(Path.Combine(_dir, "none.mp4"));
-
-        var request = W.Message.Current;
-        Assert.NotNull(request);
-        Assert.Contains("The video editor needs ffmpeg", request.Message, StringComparison.Ordinal);
-        Assert.Contains("ffmpeg is not installed.", request.Message, StringComparison.Ordinal);
-        Assert.Equal(["Video Settings…", "OK"], request.Buttons);
-        Assert.Null(W.Session.ActiveVideo);
-
-        W.Message.Answer(0);
-        _editor.Tick(3);
-        Assert.True(W.EditorSettingsDialog.Visible);
-        Assert.True(SectionIsInView(), SectionPlace());
     }
 
     [Fact]
@@ -629,21 +262,15 @@ public sealed class VideoSettingsWiringTests : IDisposable
     }
 
     [Fact]
-    public void ApplyKeepsTheModeAndRecentVideosSavedWhileTheDialogWasOpen()
+    public void ApplyKeepsTheModeSavedWhileTheDialogWasOpen()
     {
         W.EditorSettingsDialog.Open();
         _editor.Tick(2);
 
-        // Saved while the dialog is open: a mode switch, and a recording added to the recent list.
-        W.SetMode(EditorMode.Video);
-        var recent = W.Settings.Clone();
-        recent.RecentVideos.Insert(0, Path.GetFullPath("/r/new.mp4"));
-        W.StoreSettings(recent);
-
+        W.SetMode(EditorMode.Music); // saved while the dialog is open
         W.EditorSettingsDialog.Apply();
 
-        Assert.Equal(EditorMode.Video, W.Settings.LastMode);
-        Assert.Equal(Path.GetFullPath("/r/new.mp4"), W.Settings.RecentVideos[0]);
+        Assert.Equal(EditorMode.Music, W.Settings.LastMode);
     }
 
     [Fact]
@@ -655,12 +282,13 @@ public sealed class VideoSettingsWiringTests : IDisposable
         var scale = W.Host.PixelScale;
         Assert.InRange(dialog.Height, 540 * scale, 544 * scale); // its size plus the border
         Assert.InRange(dialog.Width, 560 * scale, 564 * scale);
-        Assert.False(SectionIsInView(), SectionPlace()); // below the fold until asked for
+        var unscrolled = SectionTop();
 
         W.EditorSettingsDialog.Cancel();
         W.EditorSettingsDialog.Open(scrollToVideo: true);
         _editor.Tick(3);
         Assert.True(SectionIsInView(), SectionPlace());
+        Assert.True(SectionTop() < unscrolled - 10, SectionPlace()); // the body scrolled to it
         var scrolled = W.EditorSettingsDialog.Document.GetElementById("dialog").Bounds;
         Assert.Equal(dialog.Height, scrolled.Height, 1); // the dialog did not grow
         Assert.Equal(dialog.Width, scrolled.Width, 1);
@@ -669,9 +297,11 @@ public sealed class VideoSettingsWiringTests : IDisposable
         W.EditorSettingsDialog.Cancel();
         W.EditorSettingsDialog.Open();
         _editor.Tick(3);
-        Assert.False(SectionIsInView(), SectionPlace());
+        Assert.Equal(unscrolled, SectionTop(), 1);
         Assert.Empty(_editor.RmlMessages);
     }
+
+    private float SectionTop() => W.EditorSettingsDialog.Document.GetElementById(EditorSettingsDialog.VideoSectionId).Bounds.Y;
 
     [Fact]
     public void TheVideoSectionOffersEveryModelWithItsSize()

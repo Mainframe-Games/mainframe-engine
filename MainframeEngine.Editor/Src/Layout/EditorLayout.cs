@@ -128,7 +128,7 @@ public sealed record EditorLayoutSettings
     public float VideoTranscriptWidth { get; init; } = 320;
 
     /// <summary>Video mode's timeline height in dp (a file without the key reads 0, which <c>Load</c> restores to 180).</summary>
-    public float VideoTimelineHeight { get; init; } = 180;
+    public float VideoTimelineHeight { get; init; } = 240;
 
     /// <summary>
     /// Music mode's bottom pane (P / X, Logic style: one editor at a time, or none), shown for whichever song tab is active.
@@ -563,7 +563,7 @@ public sealed class EditorLayout
         PickerFavorites = CleanLists(s.PickerFavorites, int.MaxValue),
         PickerRecent = CleanLists(s.PickerRecent, MaxRecent),
         VideoTranscriptWidth = Finite(s.VideoTranscriptWidth, 320),
-        VideoTimelineHeight = Finite(s.VideoTimelineHeight, 180),
+        VideoTimelineHeight = Finite(s.VideoTimelineHeight, 240),
         MusicPane = Enum.IsDefined(s.MusicPane) ? s.MusicPane : SongBottomPanel.PianoRoll,
         MusicPaneHeight = Finite(s.MusicPaneHeight, 300),
         MusicBrowserWidth = Finite(s.MusicBrowserWidth, 260),

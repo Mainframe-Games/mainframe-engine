@@ -285,38 +285,41 @@ song synth-close
 command edit.undo
 command edit.undo
 wait 5
-# 5. Video mode: the recipe's narrated Physics 2D recording (build/readme-video-clip.sh) with its silences and filler
-# words cut and a transcript, the playhead stopped at 2.8 s as the bodies fall through the pegs. base.en (the default,
-# 148 MB on first use) because tiny.en's looser word timings leave cut words unstruck in the transcript.
+# 5. Video mode, the timeline editor: the recipe's narrated Physics 2D recording (build/readme-video-clip.sh) imported
+# into the Demo's Assets/Video, placed on a 9:16 timeline (Fill crops the landscape picture), the pile-up pause cut out
+# with two add edits and a ripple delete, the first clip selected so the cut editor shows its source, the playhead at
+# 2.8 s as the bodies fall through the pegs. `video reset` afterwards removes the Demo's Assets/Video again.
+video reset
 mode video
-open /tmp/MainframeProjects/Recordings/demo.mp4
+wait 10
+video import /tmp/MainframeProjects/Recordings/demo.mp4
+wait-for video-jobs 60
+video timeline Vertical Physics Short
 wait-for video-jobs 60
 wait 10
-command video.detect_silence
+video source Assets/Video/Media/demo.mp4
 wait-for video-jobs 60
+command video.overwrite
 wait 10
-video set whisper-model base.en
-command video.transcribe
-wait-for video-jobs 900
+video seek 4.4
+command video.add_edit_all
+video seek 6.4
+command video.add_edit_all
+video select V1 5
+command video.ripple_delete
 wait 10
-command video.remove_fillers
-wait 10
-command video.play
-wait-for video-position 2.8 60
-command video.play
-wait 20
+video select V1 1
+video seek 2.8
+wait 30
 move 1500 700
 wait 20
 capture editor-video
-# Save the edit (Save As defaults to Recordings/demo.mfcut) so closing the tab asks nothing and Play below has nothing
-# unsaved to write.
-command file.save_as
-wait 10
-accept
+command file.save
 wait 10
 command file.close
 wait 10
 mode game
+video reset
 wait 10
 # 6. The game workflow: create MyGame, add an [Export] property to its C#, Build & Reload, play it.
 command project.new

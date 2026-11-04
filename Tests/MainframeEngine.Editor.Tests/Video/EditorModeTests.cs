@@ -2,7 +2,7 @@ using Silk.NET.Input;
 
 namespace MainframeEngine.Editor.Tests.Video;
 
-/// <summary>A minimal video-mode tab for mode tests before VideoTab exists (Task 10 adds the real one).</summary>
+/// <summary>A minimal video-mode tab for mode tests that need no timeline.</summary>
 internal sealed class FakeVideoTab(string name) : IEditorTab
 {
     public string? FilePath => null;
@@ -76,7 +76,7 @@ public sealed class EditorModeTests : IDisposable
     [Fact]
     public void ActivatingAVideoTabSwitchesToVideoMode()
     {
-        var video = new FakeVideoTab("run.mfcut");
+        var video = new FakeVideoTab("run.mftimeline");
         W.Session.Add(video);
         Assert.Equal(EditorMode.Video, W.Mode);
         Assert.Same(video, W.Session.ActiveTab);
@@ -86,7 +86,7 @@ public sealed class EditorModeTests : IDisposable
     public void SwitchingModesKeepsEachModesActiveTab()
     {
         var scene = W.Session.ActiveTab!;
-        var video = new FakeVideoTab("run.mfcut");
+        var video = new FakeVideoTab("run.mftimeline");
         W.Session.Add(video);
         W.SetMode(EditorMode.Game);
         Assert.Same(scene, W.Session.ActiveTab);
@@ -98,7 +98,7 @@ public sealed class EditorModeTests : IDisposable
     public void TheTabStripShowsOnlyTheModesTabs()
     {
         W.Session.NewScene();
-        W.Session.Add(new FakeVideoTab("run.mfcut"));
+        W.Session.Add(new FakeVideoTab("run.mftimeline"));
         Assert.Single(W.ViewportPanel.VisibleTabs);
         W.SetMode(EditorMode.Game);
         Assert.Equal(2, W.ViewportPanel.VisibleTabs.Count);
@@ -107,7 +107,7 @@ public sealed class EditorModeTests : IDisposable
     [Fact]
     public void ClosingAFilteredTabClosesThatTab()
     {
-        var video = new FakeVideoTab("run.mfcut");
+        var video = new FakeVideoTab("run.mftimeline");
         W.Session.Add(video);
         W.ViewportPanel.CloseAt(0); // the first *visible* tab: the video tab, not the session's first (a scene)
         Assert.DoesNotContain(video, W.Session.Tabs);
@@ -122,7 +122,8 @@ public sealed class EditorModeTests : IDisposable
         var file = W.Commands.MenuItems("file");
         Assert.Contains(file, i => i.Command == "video.export");
         Assert.DoesNotContain(file, i => i.Command == "file.new");
-        Assert.Contains(W.Commands.MenuItems("video"), i => i.Command == "video.transcribe");
+        Assert.Contains(file, i => i.Command == "video.new_timeline");
+        Assert.Contains(file, i => i.Command == "video.import");
     }
 
     [Fact]
@@ -135,9 +136,10 @@ public sealed class EditorModeTests : IDisposable
             new EditorSettings { LastMode = EditorMode.Video }.Save(settings);
             Assert.Equal(EditorMode.Video, EditorSettings.Load(settings).LastMode);
 
+            // Timelines belong to a project: the mode comes back behind the Project Manager.
             using var editor = new HeadlessEditor(configure: o => o with { EditorSettingsPath = settings, ShowProjectManager = true });
             Assert.Equal(EditorMode.Video, editor.Workspace.Mode);
-            Assert.False(editor.Workspace.ProjectManager.Visible);
+            Assert.True(editor.Workspace.ProjectManager.Visible);
         }
         finally
         {
@@ -202,25 +204,36 @@ public sealed class EditorModeTests : IDisposable
     }
 
     [Fact]
-    public void TheProjectManagerOpensTheVideoEditorWithoutAProject()
+    public void VideoModeNeedsAProject()
     {
         using var editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true });
-        Assert.True(editor.Workspace.ProjectManager.Visible);
-        editor.Workspace.Commands.Execute("editor.video_editor");
-        Assert.False(editor.Workspace.ProjectManager.Visible);
-        Assert.Equal(EditorMode.Video, editor.Workspace.Mode);
+        var w = editor.Workspace;
+        w.ProjectManager.Close();
+
+        w.SetMode(EditorMode.Video); // no project: the Project Manager opens instead
+        Assert.Equal(EditorMode.Game, w.Mode);
+        Assert.True(w.ProjectManager.Visible);
     }
 
     [Fact]
     public void GameModeWithoutAProjectOrAGameTabOpensTheProjectManager()
     {
-        using var editor = new HeadlessEditor(configure: o => o with { ShowProjectManager = true });
-        var w = editor.Workspace;
-        w.Commands.Execute("editor.video_editor");
-        Assert.False(w.ProjectManager.Visible);
+        var directory = Directory.CreateTempSubdirectory("mf-editor-mode").FullName;
+        try
+        {
+            var settings = Path.Combine(directory, "settings.json");
+            new EditorSettings { LastMode = EditorMode.Video }.Save(settings);
+            using var editor = new HeadlessEditor(configure: o => o with { EditorSettingsPath = settings, ShowProjectManager = true });
+            var w = editor.Workspace;
+            w.ProjectManager.Close();
 
-        w.SetMode(EditorMode.Game); // nothing to show: no project, no scene
-        Assert.True(w.ProjectManager.Visible);
+            w.SetMode(EditorMode.Game); // nothing to show: no project, no scene
+            Assert.True(w.ProjectManager.Visible);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Fact]
@@ -236,8 +249,26 @@ public sealed class EditorModeTests : IDisposable
     [InlineData(Key.S, EditorModifiers.Command | EditorModifiers.Shift, "file.save_as")]
     [InlineData(Key.Z, EditorModifiers.Command | EditorModifiers.Shift, "edit.redo")]
     [InlineData(Key.E, EditorModifiers.Command, "video.export")]
-    [InlineData(Key.Backspace, EditorModifiers.None, "edit.delete")]
-    [InlineData(Key.W, EditorModifiers.None, null)]   // the gizmo keys are game-only
+    [InlineData(Key.Backspace, EditorModifiers.None, "video.lift")]
+    [InlineData(Key.Backspace, EditorModifiers.Shift, "video.ripple_delete")]
+    [InlineData(Key.Delete, EditorModifiers.Alt, "video.ripple_delete")]
+    [InlineData(Key.K, EditorModifiers.Command, "video.add_edit")]
+    [InlineData(Key.K, EditorModifiers.Command | EditorModifiers.Shift, "video.add_edit_all")]
+    [InlineData(Key.L, EditorModifiers.Command, "video.link")]
+    [InlineData(Key.I, EditorModifiers.Command, "video.import")]
+    [InlineData(Key.V, EditorModifiers.None, "video.tool_select")]
+    [InlineData(Key.C, EditorModifiers.None, "video.tool_razor")]
+    [InlineData(Key.S, EditorModifiers.None, "video.snap")]
+    [InlineData(Key.J, EditorModifiers.None, "video.shuttle_back")]
+    [InlineData(Key.K, EditorModifiers.None, "video.shuttle_stop")]
+    [InlineData(Key.L, EditorModifiers.None, "video.shuttle_forward")]
+    [InlineData(Key.I, EditorModifiers.None, "video.mark_in")]
+    [InlineData(Key.O, EditorModifiers.None, "video.mark_out")]
+    [InlineData(Key.Q, EditorModifiers.None, "video.ripple_start")]
+    [InlineData(Key.W, EditorModifiers.None, "video.ripple_end")] // not the move gizmo: that is game-only
+    [InlineData(Key.Comma, EditorModifiers.None, "video.insert")]
+    [InlineData(Key.Period, EditorModifiers.None, "video.overwrite")]
+    [InlineData(Key.R, EditorModifiers.None, null)]   // the gizmo keys are game-only
     [InlineData(Key.F5, EditorModifiers.None, null)]  // so is Play
     public void VideoShortcuts(Key key, EditorModifiers modifiers, string? command) =>
         Assert.Equal(command, EditorWorkspace.VideoShortcutFor(key, modifiers));

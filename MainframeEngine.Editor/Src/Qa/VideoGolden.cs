@@ -2,60 +2,81 @@ using System.Globalization;
 using MainframeEngine.Editor.Video;
 using MainframeEngine.Video.Media;
 using MainframeEngine.Video.Models;
-using VideoCapture = MainframeEngine.Video.Capture;
+using MainframeEngine.Video.Timelines;
 
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The <c>video-timeline</c> golden's recording, built in code so the render tests need neither ffmpeg nor a video file:
-/// a 60 s 1080p project with kept, silence, gameplay and manual regions (the manual cut strikes four words), a synthetic waveform with a silent stretch, a
-/// recording sidecar with markers, a short transcript, and a preview decoder that "decodes" colour bars. Everything is
-/// computed from fixed numbers, so every run draws the same pixels.
+/// The <c>video-timeline</c> golden's timeline, built in code so the render tests need neither ffmpeg nor a video file: a
+/// 1080×1920 timeline with three video and two audio tracks, a linked 1080p recording on V1/A1 with silence and idle cuts
+/// collapsed inside it, a picture-in-picture clip on V2, music on A2; a synthetic waveform; and a preview decoder that
+/// "decodes" colour bars. Everything is computed from fixed numbers, so every run draws the same pixels.
 /// </summary>
 internal static class VideoGolden
 {
     public const double Duration = 60;
 
-    /// <summary>Where the playhead sits for the capture: inside the word "building", which the transcript highlights.</summary>
-    public const double Playhead = 21.3;
+    /// <summary>Where the playhead sits for the capture.</summary>
+    public const double Playhead = 6.5;
 
-    public const string Notice = "Cut 2 stretches of idle gameplay, 0:12.5 removed.";
+    public const string Notice = "Detected 2 silences, 0:03.6 removed.";
 
-    /// <summary>The document: never probed, never saved (the source path does not exist).</summary>
-    public static VideoDocument Document()
+    public static MediaRef Recording { get; } = new("ast_000000000001", "Assets/Video/Recordings/forest-run.mp4", new string('1', 64), Duration, 1920, 1080, 60, true, true);
+
+    public static MediaRef Music { get; } = new("aud_000000000002", "Assets/Video/Media/theme.ogg", new string('2', 64), 90, 0, 0, 0, false, true);
+
+    /// <summary>
+    /// A game project in a fixed temp folder for the video goldens: the media pool's folders with the timeline's media
+    /// (placeholder bytes: nothing decodes them, the decoders are fakes) and two timelines. Made fresh on every call.
+    /// </summary>
+    public static string Project()
     {
-        var source = new SourceInfo(Path.Combine(GoldenPaths.Root, "forest-run.mp4"), new string('0', 64), Duration, 1920, 1080, 60);
-        Segment[] segments =
-        [
-            Segment.Create(0, 6.0, true, SegmentOrigin.Auto),
-            Segment.Create(6.0, 9.6, false, SegmentOrigin.Auto, Reason("silence {0:0.00}s", 9.6 - 6.0)),
-            Segment.Create(9.6, 14.5, true, SegmentOrigin.Auto),
-            Segment.Create(14.5, 19.0, false, SegmentOrigin.Gameplay, Reason("loading {0:0.0}s", 19.0 - 14.5)),
-            Segment.Create(19.0, 31.0, true, SegmentOrigin.Auto),
-            Segment.Create(31.0, 34.5, false, SegmentOrigin.Manual),
-            Segment.Create(34.5, 44.0, true, SegmentOrigin.Manual),
-            Segment.Create(44.0, 52.0, false, SegmentOrigin.Gameplay, Reason("idle {0:0.0}s", 52.0 - 44.0)),
-            Segment.Create(52.0, Duration, true, SegmentOrigin.Auto),
-        ];
-        Word[] words =
-        [
-            new("so", 19.4, 19.7, 0.92, 19.5), new("um", 19.9, 20.3, 0.71, 20.0), new("today", 20.4, 20.8, 0.95, 20.5),
-            new("we're", 20.9, 21.1, 0.9, 20.95), new("building", 21.2, 21.7, 0.96, 21.3), new("the", 21.8, 21.9, 0.9, 21.85),
-            new("forest", 22.0, 22.5, 0.94, 22.1), new("level.", 22.6, 23.1, 0.93, 22.7),
-            new("Here's", 26.0, 26.3, 0.9, 26.1), new("the", 26.4, 26.5, 0.9, 26.45), new("boss.", 26.6, 27.1, 0.92, 26.7),
-            new("Hang", 31.6, 31.9, 0.8, 31.7), new("on,", 32.0, 32.3, 0.8, 32.1), new("wrong", 32.4, 32.8, 0.85, 32.5),
-            new("take.", 32.9, 33.3, 0.85, 33.0),
-        ];
-        var project = new VideoProject(source, segments, words, DetectionSettings.Default);
-        var capture = new VideoCapture.CaptureSidecar(VideoCapture.CaptureMode.Live, Duration, 60, 1920, 1080, "Forest",
-            "res://Scenes/Forest.mscene",
-            Input: [new(0, 14), new(19, 44), new(52, Duration)],
-            Loading: [new(14.5, 19)],
-            Paused: [],
-            Keep: [],
-            Skip: [],
-            Markers: [new(26, "boss intro"), new(41, "chest opens")]);
-        return VideoDocument.FromProject(project, projectPath: null, capture, []);
+        var root = Path.Combine(GoldenPaths.Root, "VideoGame");
+        if (Directory.Exists(root))
+            Directory.Delete(root, recursive: true);
+        new ProjectSettings { Name = "VideoGame" }.Save(Directory.CreateDirectory(root).FullName);
+        foreach (var (file, bytes) in new[]
+        {
+            (Recording.Path, 48 * 1024),
+            ("Assets/Video/Recordings/forest-boss.mp4", 96 * 1024),
+            (Music.Path, 12 * 1024),
+            ("Assets/Video/Media/whoosh.wav", 3 * 1024),
+        })
+        {
+            var path = Path.Combine(root, file.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllBytes(path, new byte[bytes]);
+        }
+
+        var timelines = Directory.CreateDirectory(Path.Combine(root, "Assets", "Video", "Timelines")).FullName;
+        File.WriteAllText(Path.Combine(timelines, "Trailer.mftimeline"), TimelineSerializer.Serialize(Timeline()));
+        File.WriteAllText(Path.Combine(timelines, "Steam Capsule.mftimeline"),
+            TimelineSerializer.Serialize(TimelineFactory.New(new TimelineSettings(1920, 1080, new FrameRate(30, 1)))));
+        return root;
+    }
+
+    /// <summary>The timeline: its media are <see cref="Project"/>'s placeholder files.</summary>
+    public static Timeline Timeline()
+    {
+        var t = TimelineFactory.New(new TimelineSettings(1080, 1920, new FrameRate(30, 1)));
+        t = TimelineEdits.AddTrack(t, TrackKind.Video);
+        var v1 = t.TracksOf(TrackKind.Video)[0].Id;
+        var v2 = t.TracksOf(TrackKind.Video)[1].Id;
+        var a1 = t.TracksOf(TrackKind.Audio)[0].Id;
+        var a2 = t.TracksOf(TrackKind.Audio)[1].Id;
+        t = TimelineEdits.Append(t, Recording, 2, 16, v1, a1);
+        t = TimelineEdits.Append(t, Recording, 30, 40, v1, a1);
+        var first = t.ClipsOn(v1)[0];
+        t = TimelineEdits.SetClipCuts(t, first.Id, list =>
+        {
+            list.SetRange(6.0, 9.6, enabled: false, SegmentOrigin.Auto, Reason("silence {0:0.00}s", 3.6));
+            list.SetRange(12.0, 13.5, enabled: false, SegmentOrigin.Gameplay, Reason("idle {0:0.0}s", 1.5));
+        });
+        t = TimelineEdits.Overwrite(t, Recording, 44, 49, at: 3, v2, null);
+        var pip = t.ClipsOn(v2)[0];
+        t = TimelineEdits.SetTransform(t, pip.Id, new ClipTransform(FrameFit.Fit, 0.5, 0, -560, new CropRect(240, 0, 240, 0), 1));
+        t = TimelineEdits.Append(t, Music, 0, 20, null, a2);
+        return TimelineEdits.AddMarker(t, 12, "boss");
     }
 
     private static string Reason(string format, double seconds) => string.Format(CultureInfo.InvariantCulture, format, seconds);
@@ -95,8 +116,8 @@ internal static class VideoGolden
     }
 
     /// <summary>
-    /// "Decodes" any request into one frame of colour bars at the size the preview asked for (its <c>scale=W:H</c>
-    /// filter): the paused preview's first-frame scrub then shows a picture without ffmpeg. That scrub reads on the
+    /// "Decodes" any request into one frame of colour bars at the size the preview asked for (a timeline graph's base
+    /// <c>color=…:s=WxH</c>, or a file's <c>scale=W:H</c> filter): the paused preview's first-frame scrub then shows a picture without ffmpeg. That scrub reads on the
     /// thread pool, so the golden waits for <see cref="FirstFrameRead"/> before it goes on: the capture never races it.
     /// </summary>
     public sealed class Decoders : IVideoDecoderFactory
@@ -115,6 +136,19 @@ internal static class VideoGolden
 
         private static (int Width, int Height) ScaleOf(IReadOnlyList<string> arguments)
         {
+            foreach (var argument in arguments)
+            {
+                var color = argument.IndexOf("color=c=", StringComparison.Ordinal);
+                var s = color < 0 ? -1 : argument.IndexOf(":s=", color, StringComparison.Ordinal);
+                if (s >= 0)
+                {
+                    var size = argument[(s + 3)..].Split(':')[0].Split('x');
+                    if (size.Length == 2 && int.TryParse(size[0], CultureInfo.InvariantCulture, out var cw) &&
+                        int.TryParse(size[1], CultureInfo.InvariantCulture, out var ch))
+                        return (cw, ch);
+                }
+            }
+
             foreach (var argument in arguments)
             {
                 var at = argument.IndexOf("scale=", StringComparison.Ordinal);

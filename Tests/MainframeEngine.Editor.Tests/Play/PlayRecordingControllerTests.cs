@@ -34,7 +34,6 @@ public sealed class PlayRecordingControllerTests : IDisposable
     private readonly TestProject _project = new();
     private readonly FakeGameBuilder _builder = new();
     private readonly FakeGameLauncher _launcher = new();
-    private readonly List<(string App, string File)> _launched = [];
     private readonly List<string> _revealed = [];
     private readonly HeadlessEditor _editor;
 
@@ -48,11 +47,6 @@ public sealed class PlayRecordingControllerTests : IDisposable
                 InitialProject = _project.Root,
                 GameBuilder = _builder,
                 GameLauncher = _launcher,
-                LaunchCutback = (app, file) =>
-                {
-                    _launched.Add((app, file));
-                    return true;
-                },
                 Reveal = _revealed.Add,
             });
             _editor.Tick(3);
@@ -330,11 +324,8 @@ public sealed class PlayRecordingControllerTests : IDisposable
     }
 
     [Fact]
-    public void AStoppedRecordingShowsTheSavedDialogAndOpensItInCutback()
+    public void AStoppedRecordingShowsTheSavedDialogAndShowInFolderRevealsIt()
     {
-        var cutback = Path.Combine(_userData, "cutback-fake");
-        File.WriteAllText(cutback, "");
-        _editor.Workspace.Settings.CutbackPath = cutback;
         var instances = StartTwoGames();
         Play.ToggleRecording();
         TickUntil(() => instances[0].Recording == PlayRecordingState.Recording, "recording to start");
@@ -344,12 +335,11 @@ public sealed class PlayRecordingControllerTests : IDisposable
 
         var dialog = _editor.Workspace.Message.Current!;
         Assert.Equal("Recording saved", dialog.Title);
-        Assert.Equal(["Open in Video Editor", "Open in Cutback", "Show in Folder", "Close"], dialog.Buttons);
+        Assert.Equal(["Open in Video Editor", "Show in Folder", "Close"], dialog.Buttons);
 
         _editor.Workspace.Message.Answer(1);
-        var launched = Assert.Single(_launched);
-        Assert.Equal(cutback, launched.App);
-        Assert.StartsWith(RecordingPaths.Directory(_project.Root), launched.File, StringComparison.Ordinal);
+        var revealed = Assert.Single(_revealed);
+        Assert.StartsWith(RecordingPaths.Directory(_project.Root), revealed, StringComparison.Ordinal);
         Assert.Null(_editor.Workspace.Message.Current);
     }
 
