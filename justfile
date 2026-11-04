@@ -22,6 +22,10 @@ test:
     dotnet test Tests/MainframeEngine.Editor.Tests
     dotnet test Tests/MainframeEngine.Video.Tests
 
+# The video timeline's export graphs through the real ffmpeg (opt-in, not CI): lavfi sources, each preset kind, ffprobe checks
+test-video-ffmpeg:
+    MAINFRAME_VIDEO_FFMPEG_TESTS=1 MAINFRAME_VIDEO_FFMPEG_OUT="{{justfile_directory()}}/artifacts/video-ffmpeg" dotnet test Tests/MainframeEngine.Video.Tests --filter "FullyQualifiedName~TimelineFfmpegTests"
+
 # Unit tests with coverage (Cobertura XML under artifacts/coverage)
 coverage:
     dotnet test Tests/MainframeEngine.Tests --collect:"XPlat Code Coverage" --results-directory {{artifacts / "coverage"}}

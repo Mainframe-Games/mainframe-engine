@@ -40,7 +40,9 @@ MainframeEngine.Video/                    editor-only library, net10.0, MIT (LIC
   Media/Export/ (Exporter, FilterGraphBuilder, KeyframeSnapper, DeliveryEncoder)
   Media/Preview/PreviewDecoding.cs
   Analysis/ (ITranscriber, WhisperTranscriber, WordAssembler, ModelStore, WhisperModel)
+  Timelines/ (G20b: the multi-track timeline, not used by this mode yet; see below)
 Tests/MainframeEngine.Video.Tests/        Cutback's tests in plain Assert; never runs ffmpeg or loads a model
+                                          (Timelines/TimelineFfmpegTests: only under `just test-video-ffmpeg`)
 MainframeEngine.Editor/Src/Video/         the mode's UI (below)
 MainframeEngine.Editor/Assets/Editor/    video.rml, video_export.rml; the toolbar's video group in toolbar.rml
 ```
@@ -82,6 +84,31 @@ MainframeEngine.Editor/Assets/Editor/    video.rml, video_export.rml; the toolba
 | `VideoExport`, `VideoPaths`, `VideoFfmpeg`, `VideoFormat` | Export request and defaults; same-file checks that protect the recording; which ffmpeg; `m:ss.t` formatting. |
 
 Settings live in `EditorSettings` (`Video*` properties) and are edited in the Editor Settings dialog's Video section.
+
+## Timeline library (G20b)
+
+Video mode becomes a multi-track timeline editor ([Video NLE](future/video-nle.md), ADR 0241). Its headless library
+is in `MainframeEngine.Video/Timelines/`; the UI that replaces this mode comes in G20c.
+
+- **Model.** Immutable records: `Timeline` (settings, tracks, clips, markers, in/out), `Track`, `Clip`, `MediaRef`,
+  `ClipTransform`. A clip is a window of a media file at a start on a track; its `Segments` are Cutback's partition of the
+  whole file, so the detectors and `SegmentList` work on clips unchanged, and the clip lasts its kept time ÷ speed in
+  whole frames (`FrameRate`). `TimelineLayout` maps timeline time to source time through the kept ranges.
+- **Edits.** `TimelineEdits`: insert, overwrite, append, razor, trim, ripple trim, lift, ripple delete, move (across
+  tracks), link, unlink, reframe, cut lists (`SetClipCuts`, rippling), tracks, in/out, markers. Each returns a new
+  timeline, or the same instance when nothing changed or a lock refused it. `Snapping` and `ClipLayout` (fit, fill,
+  stretch, scale, position, crop) are pure too.
+- **File.** `.mftimeline`: versioned JSON (`TimelineSerializer`, `TimelineMigrator`, version 1) with the asset `uid`
+  (`vtl_…`) at the top; the engine's AssetDatabase reads it like a scene (no `.meta`).
+- **Export.** `TimelineGraphBuilder` builds one graph for a range: an input per clip window (`-ss/-t`), per-clip
+  trims, speed, reframing (crop, scale, pad onto a transparent frame) and an exact-length pad and trim, one concatenated
+  RGBA stream per video track overlaid on the background, and the audible clips mixed (`amix`, not normalised) over a
+  silent bed. `TimelineExportPresets` (vertical 30/60, YouTube/Steam 1080p MP4 and WebM, 4K, X/Discord 720p in 25 MB,
+  a 20 fps GIF, a silent WebM loop, the timeline's own), `TimelineExportArguments` and `TimelineExporter` run it.
+  `FilmstripExtractor` tiles thumbnails for the timeline's clips.
+- **Tests.** `Tests/MainframeEngine.Video.Tests/Timelines/` covers the proposal's G20b scenarios without ffmpeg;
+  `just test-video-ffmpeg` renders a two-track vertical timeline through four presets with the real ffmpeg and checks
+  the results with ffprobe (outputs kept in `artifacts/video-ffmpeg`).
 
 ## Modes
 

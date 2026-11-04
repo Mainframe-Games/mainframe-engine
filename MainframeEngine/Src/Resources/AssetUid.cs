@@ -33,6 +33,9 @@ public static class AssetUid
     /// <summary>Baked adaptive music (<c>.mmusic</c>; the UID is stored in the file and kept across bakes).</summary>
     public const string MusicPrefix = "mus";
 
+    /// <summary>A video timeline (<c>.mftimeline</c>, video mode, ADR 0241); the video library writes the same prefix.</summary>
+    public const string TimelinePrefix = "vtl";
+
     /// <summary>
     /// Hex digits in a new UID. 48 bits (the design sketch showed 32) keeps accidental collisions across
     /// branches negligible for projects with tens of thousands of assets.
@@ -68,6 +71,7 @@ public static class AssetUid
         ".mres" => ResourcePrefix,
         ".msong" => SongPrefix,
         ".mmusic" => MusicPrefix,
+        ".mftimeline" => TimelinePrefix,
         ".png" or ".jpg" or ".jpeg" or ".hdr" or ".ktx" or ".ktx2" or ".svg" => TexturePrefix,
         ".ogg" or ".wav" or ".mp3" or ".flac" => AudioPrefix,
         ".gltf" or ".glb" or ".fbx" or ".obj" or ".dae" => ModelPrefix,

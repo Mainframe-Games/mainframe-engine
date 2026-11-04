@@ -12,6 +12,7 @@ Local commands are `just` recipes (run `just` to list them); CI calls `dotnet` d
 just build            # dotnet build MainframeEngine.slnx — 0 warnings, warnings are errors
 just test             # unit tests: engine, editor and video (Tests/MainframeEngine.{Tests,Editor.Tests,Video.Tests})
 just test-render      # render tests: goldens + validation gate + allocation gate (needs a GPU/display)
+just test-video-ffmpeg  # the video timeline's export graphs through the real ffmpeg (opt-in; outputs in artifacts/video-ffmpeg)
 just test-linux       # CI's Linux unit/editor tests in Docker (x86_64 ubuntu:24.04)
 just render-tests-linux  # render tests on lavapipe in Docker: checks/records the `lavapipe` goldens locally
 just demo             # the Demo game: dotnet run --project Examples/Demo/Demo.Desktop (extra args: --scene Assets/Scenes/x.mscene, ...)
@@ -177,7 +178,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - **Video mode** (ADR 0191): the editor has a Game|Video mode (`EditorWorkspace.SetMode`; the modes section of
   `docs/design/editor.md`) whose video mode trims recordings. Its logic is `MainframeEngine.Video/`, an editor-only MIT
   library copied from Cutback (`LICENSE-CUTBACK`; segments, detection, sidecar, `.mfcut` projects, ffmpeg media,
-  Whisper.net transcription); only the editor and its tests reference it, never the runtime or games. Its tests
+  Whisper.net transcription; `Timelines/`, the multi-track `.mftimeline` model, edits and export of the coming NLE,
+  ADR 0241, `just test-video-ffmpeg`); only the editor and its tests reference it, never the runtime or games. Its tests
   (`Tests/MainframeEngine.Video.Tests`, and the editor's `Video/` tests) never run ffmpeg or load a Whisper model. The UI
   is `MainframeEngine.Editor/Src/Video/` (`VideoTab`, `VideoDocument`, `VideoView`, `VideoPanel`, the timeline, preview
   and transcript) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`

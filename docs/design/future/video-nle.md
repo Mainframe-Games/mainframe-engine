@@ -224,7 +224,7 @@ default output is `<project>/Exports/<timeline>-<preset>.mp4`, outside `Assets/`
 | YouTube / Steam 1080p | 1920×1080 | timeline | H.264, CRF 18 (or VP9 `.webm`) | AAC 192k (Opus for webm) |
 | YouTube 4K | 3840×2160 | timeline | H.264, CRF 18 | AAC 192k |
 | X / Discord | 1280×720 or 720×1280 | 30 | H.264 at a bitrate that fits the size cap (default 25 MB) | AAC 128k |
-| GIF loop | 480 px wide | 15 | palettegen/paletteuse | none |
+| GIF loop | 480 px wide | 20 (GIF delays are hundredths of a second: 15 fps would play at 16.7) | palettegen/paletteuse | none |
 | WebM loop | 720 px wide | 30 | VP9 | none |
 | Timeline | the timeline's own | timeline | H.264, CRF 20 | AAC 192k |
 
@@ -294,7 +294,7 @@ All new library code is pure and immutable, in `MainframeEngine.Video/Timelines/
 | `Snapping` | Snap candidates and resolution |
 | `ClipLayout` | A clip's rectangle, scale and crop in the timeline frame (preview and export) |
 | `TimelineFile`, `TimelineSerializer`, `TimelineMigrator` | `.mftimeline`, version 1, source-generated System.Text.Json (the `Projects/` pattern) |
-| `TimelineGraphBuilder`, `ExportPresets` | Export |
+| `TimelineGraphBuilder`, `TimelineExportPresets`, `TimelineExportArguments`, `TimelineExporter` | Export: graph, presets, command line, the run |
 | `FilmstripExtractor` | Filmstrip tiles |
 
 `.mftimeline`:
@@ -517,7 +517,7 @@ Test names are in the projects they will live in: `Video.Tests` (library), `Edit
 - [ ] **G20b, timeline library (PR; today's mode untouched):**
   - the `Timelines/` model, edits, layout, snapping and `ClipLayout`;
   - `.mftimeline` and its serializer;
-  - `TimelineGraphBuilder`, `ExportPresets`, `FilmstripExtractor`;
+  - `TimelineGraphBuilder`, `TimelineExportPresets`, `FilmstripExtractor`;
   - `just test-video-ffmpeg`.
 - [ ] **G20c, the editor (PR):**
   - the Edit-page layout, media pool, importer and OS drop;
