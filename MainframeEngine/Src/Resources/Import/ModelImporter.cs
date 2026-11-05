@@ -74,6 +74,18 @@ public sealed record ModelImportSettings
     /// <summary>Per-clip loop modes, names and events.</summary>
     public IReadOnlyList<ModelClipSettings> Clips { get; init; } = [];
 
+    /// <summary>
+    /// G6.4: the errors of authored levels (<c>&lt;name&gt;_LOD1</c> …) as fractions of the LOD0 mesh's bounds radius, one
+    /// per level; missing entries continue the default series (1 %, doubling per level).
+    /// </summary>
+    public IReadOnlyList<float> LodErrors { get; init; } = [];
+
+    /// <summary>
+    /// G6.4, reserved: generate coarser levels with a mesh simplifier (Godot's <c>meshes/generate_lods</c>). Not built yet
+    /// (it needs a simplifier dependency); true only logs that. Default false, so projects keep their look when it lands.
+    /// </summary>
+    public bool GenerateLods { get; init; }
+
     /// <summary>The settings of the clip named <paramref name="name"/>, or null.</summary>
     public ModelClipSettings? FindClip(string name)
     {
@@ -86,7 +98,7 @@ public sealed record ModelImportSettings
     public bool Equals(ModelImportSettings? other) =>
         other is not null && Scale.Equals(other.Scale) && GenerateNormals == other.GenerateNormals && ImportMaterials == other.ImportMaterials &&
         OptimizeMeshes == other.OptimizeMeshes && ImportAnimations == other.ImportAnimations && OptimizeAnimations == other.OptimizeAnimations &&
-        Clips.SequenceEqual(other.Clips);
+        Clips.SequenceEqual(other.Clips) && LodErrors.SequenceEqual(other.LodErrors) && GenerateLods == other.GenerateLods;
 
     public override int GetHashCode() => HashCode.Combine(Scale, GenerateNormals, ImportMaterials, OptimizeMeshes, ImportAnimations, OptimizeAnimations, Clips.Count);
 
@@ -109,6 +121,8 @@ public sealed record ModelImportSettings
                     "importAnimations" => settings with { ImportAnimations = value.GetBoolean() },
                     "optimizeAnimations" => settings with { OptimizeAnimations = value.GetBoolean() },
                     "clips" => settings with { Clips = ReadClips(value, where) },
+                    "lodErrors" => settings with { LodErrors = [.. value.EnumerateArray().Select(static e => e.GetSingle())] },
+                    "generateLods" => settings with { GenerateLods = value.GetBoolean() },
                     _ => Unknown(settings, key, where),
                 };
             }
@@ -136,6 +150,8 @@ public sealed record ModelImportSettings
         ["importAnimations"] = JsonSerializer.SerializeToElement(ImportAnimations, AssetJsonContext.Default.Boolean),
         ["optimizeAnimations"] = JsonSerializer.SerializeToElement(OptimizeAnimations, AssetJsonContext.Default.Boolean),
         ["clips"] = WriteClips(Clips),
+        ["lodErrors"] = JsonSerializer.SerializeToElement(LodErrors.ToArray(), AssetJsonContext.Default.SingleArray),
+        ["generateLods"] = JsonSerializer.SerializeToElement(GenerateLods, AssetJsonContext.Default.Boolean),
     };
 
     // [ { "name": "run", "loop": "Linear" | true, "rename": "jog", "events": [ { "name": "Step", "time": 0.25 } ] } ]
@@ -495,6 +511,10 @@ public sealed unsafe class ModelImporter : IAssetImporter
             }
 
             AttachSkinnedMeshes();
+            // G6.4: authored <name>_LODn siblings become one mesh with levels (before the clips resolve node paths).
+            ModelLods.Merge(root, settings.LodErrors, $"'{projectPath}'");
+            if (settings.GenerateLods)
+                Log.Warning($"[Import] '{projectPath}': generateLods is reserved; generated levels of detail are not built yet.");
             if (settings.ImportAnimations && scene->MNumAnimations > 0)
                 BuildAnimations(root);
             return root;
