@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/video-nle` (the video timeline editor, G20a–G20.2, ADR 0241)._
+`main`; latest release v1.1.5. In review: `feature/paths-2d` (2D paths and the 2D curve tool, G13.2/G13.4/G13.7, ADR 0242)._
 
 ## What exists
 
@@ -27,7 +27,7 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
   skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205), written since G18 as Slang surface shaders (`.slang`, `import mainframe.spatial;`, ADR 0237; Godot-syntax `.mfshader`/`.gdshader` no longer load); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
-  (ADR 0215), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
+  (ADR 0215; 2D paths and the editor's 2D curve tool, ADR 0242), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
   editor viewport tools (G7), joints and ragdolls (G9, #136; G9.7 limit handles, #148; G9.10a `MotorJoint2D`; G9.10b `Generic6DofJoint3D` on the engine's own
   Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
@@ -36,7 +36,7 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
 - **Solution** `MainframeEngine.slnx` (no `.sln`). Everything local goes through `just` (see AGENTS.md).
-- **Tests:** ~3 280 engine, ~1 660 editor, ~470 video and ~100 Demo unit tests; ~190 render tests (goldens `moltenvk` +
+- **Tests:** ~3 280 engine, ~1 660 editor, ~470 video and ~120 Demo unit tests; ~190 render tests (goldens `moltenvk` +
   `lavapipe`, validation gate, 0-B allocation gate); benchmarks with `baseline.json`; QA scripts (`just qa`, `qa-editor`,
   `qa-projects`, `qa-settings`). Lavapipe can be run locally in Docker: `just render-tests-linux` (x86_64 ubuntu:24.04,
   same packages as CI; macOS or Linux hosts).
@@ -88,9 +88,9 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
 ## Next steps
 
 1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 2 `.mfpak` packs, then encryption, AOT.
-2. Gameplay toolkit (`docs/milestones.md`): G20.3 video (nested timelines, proxies, roll/slip, sync lock); G1c animation authoring (its humanoid limits would let active ragdolls
-   follow any clip); G12 haptics and glyphs (proposal awaits owner review); G11, G13 2D paths, G14, G16, G17; G3b
-   (avoidance first).
+2. Gameplay toolkit (`docs/milestones.md`): G13's rest (G13.5 platforms, G13.6 3D curve tool); G20.3 video; G1c
+   animation authoring (would let active ragdolls follow any clip); G12 (proposal awaits owner review); G11, G14, G16,
+   G17; G3b (avoidance first).
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (the Forest cabin work added
    ≈ 1.6 ms p50 on a loaded machine).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).

@@ -252,50 +252,18 @@ public class PathFollow3D : Node3D
         if (length <= 0)
             return;
 
-        var next = _progress + _speed * _direction * delta;
-        if (_loop || curve.Closed)
-        {
-            if (next >= length || next < 0)
-                Looped?.Invoke();
-            Progress = next;
-            return;
-        }
-
-        if (next > length || next < 0)
-        {
-            if (PingPong)
-            {
-                next = next > length ? 2 * length - next : -next;
-                _direction = -_direction;
-                EndReached?.Invoke();
-            }
-            else if (!_atEnd)
-            {
-                _atEnd = true;
-                EndReached?.Invoke();
-            }
-        }
-        else
-        {
-            _atEnd = false;
-        }
-
+        var step = PathMotion.Step(_progress, _speed, delta, length, _loop || curve.Closed, PingPong, ref _direction, ref _atEnd, out var next);
+        if (step == PathStepEvent.Looped)
+            Looped?.Invoke();
+        else if (step == PathStepEvent.EndReached)
+            EndReached?.Invoke();
         Progress = next;
     }
 
     private float Constrain(float value)
     {
-        if (!float.IsFinite(value))
-            return 0f;
-        if (PathCurve is not { } curve || curve.GetBakedLength() is var length && length <= 0)
-            return value;
-        if (_loop || curve.Closed)
-        {
-            var wrapped = value % length;
-            return wrapped < 0 ? wrapped + length : wrapped;
-        }
-
-        return Math.Clamp(value, 0f, length);
+        var curve = PathCurve;
+        return PathMotion.Constrain(value, curve?.GetBakedLength() ?? 0f, _loop || curve is { Closed: true });
     }
 
     private void UpdateCallbacks()

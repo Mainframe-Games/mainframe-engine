@@ -1,8 +1,10 @@
 # Proposal: Paths (`Path3D`/`PathFollow3D`, `Path2D`/`PathFollow2D`)
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G13) · **Status:** 🚧 a first slice shipped
+**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G13) · **Status:** 🚧 two slices shipped
 ([ADR 0215](../../../memory/decisions/0215-path3d-and-pathfollow3d-first-slice.md): `Curve3D` `Closed`, tangents and up
-vectors, `Path3D`, `PathFollow3D`; see [Paths](../paths.md)) ·
+vectors, `Path3D`, `PathFollow3D`; [ADR 0242](../../../memory/decisions/0242-path2d-and-the-curve-tool.md): `CurveBaker`,
+`Curve2D`, `Path2D`, `PathFollow2D`, the 2D curve tool; see [Paths](../paths.md)). Left: G13.5 moving platforms, G13.6
+the 3D curve tool, the closest-point grid and hinted query, G13.8's Forest rails ·
 **Depends on:** [Water](water.md) (G8c.2: `Curve3D`, shipped), [M6 physics](../physics.md) (kinematic bodies,
 `CharacterBody*`), [M10 editor](../editor.md), [Terrain](terrain.md) (G8a.2: `IEditorViewportTool`) ·
 **Related:** [Editor viewport tools](../editor.md#viewport-tools) (G7.3 handles),

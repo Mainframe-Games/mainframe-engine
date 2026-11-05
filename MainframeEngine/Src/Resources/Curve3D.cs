@@ -36,34 +36,18 @@ public sealed class Curve3D : Resource
     private const int WidthOffset = 10;
     private const int DepthOffset = 11;
 
-    /// <summary>Each Bézier segment is split at least 2^MinDepth times, at most 2^MaxDepth times.</summary>
-    private const int MinDepth = 3;
-
-    private const int MaxDepth = 10;
-
     private float[] _points = [];
     private float _bakeInterval = 0.2f;
     private bool _closed;
     private bool _upVectorEnabled;
     private bool _dirty = true;
 
-    // Baked data: _bakedCount points at equal arc-length steps (_bakedStep) from 0 to _bakedLength.
-    private Vector3[] _bakedPoints = [];
-    private float[] _bakedDistances = [];
+    // Baked data: the shared baker's points, distances, params and tangents, plus this curve's own per-point values.
+    private readonly CurveBaker _baker = new();
     private float[] _bakedTilts = [];
     private float[] _bakedWidths = [];
     private float[] _bakedDepths = [];
-    private Vector3[] _bakedTangents = [];
     private Vector3[] _bakedUps = [];
-    private int _bakedCount;
-    private float _bakedLength;
-    private float _bakedStep;
-
-    // Bake scratch: the adaptively subdivided polyline, its cumulative lengths and curve parameters (segment + t).
-    private Vector3[] _dense = [];
-    private float[] _denseLengths = [];
-    private float[] _denseParams = [];
-    private int _denseCount;
 
     /// <summary>Distance between baked points in metres (Godot's <c>bake_interval</c>); the last step is shortened evenly.</summary>
     [Export(Range = "0.01,64,0.01")]
@@ -239,12 +223,7 @@ public sealed class Curve3D : Resource
     public float WrapOffset(float offset)
     {
         EnsureBaked();
-        if (float.IsNaN(offset) || _bakedLength <= 0)
-            return 0f;
-        if (!_closed)
-            return Math.Clamp(offset, 0f, _bakedLength);
-        var wrapped = offset % _bakedLength;
-        return wrapped < 0 ? wrapped + _bakedLength : wrapped;
+        return _baker.WrapOffset(offset);
     }
 
     /// <summary>
@@ -272,25 +251,49 @@ public sealed class Curve3D : Resource
         Touch();
     }
 
+    /// <summary>
+    /// Reverses the curve: the points in the opposite order with their <c>in</c> and <c>out</c> swapped and their tilt
+    /// negated (the roll is about the reversed tangent), so the shape is unchanged. Extension.
+    /// </summary>
+    public void Reverse()
+    {
+        var count = PointCount;
+        if (count < 2)
+            return;
+        var points = new float[_points.Length];
+        for (var i = 0; i < count; i++)
+        {
+            var from = (count - 1 - i) * FloatsPerPoint;
+            var o = i * FloatsPerPoint;
+            Array.Copy(_points, from, points, o, FloatsPerPoint);
+            Array.Copy(_points, from + OutOffset, points, o + InOffset, 3);
+            Array.Copy(_points, from + InOffset, points, o + OutOffset, 3);
+            points[o + TiltOffset] = -_points[from + TiltOffset];
+        }
+
+        _points = points;
+        Touch();
+    }
+
     /// <summary>Length of the baked curve in metres (0 with fewer than two points).</summary>
     public float GetBakedLength()
     {
         EnsureBaked();
-        return _bakedLength;
+        return _baker.Length;
     }
 
     /// <summary>The baked points, equally spaced along the curve (valid until the curve changes).</summary>
     public ReadOnlySpan<Vector3> GetBakedPoints()
     {
         EnsureBaked();
-        return _bakedPoints.AsSpan(0, _bakedCount);
+        return _baker.Points.AsSpan(0, _baker.Count);
     }
 
     /// <summary>Arc length of each baked point (0, step, 2 × step, …, length).</summary>
     public ReadOnlySpan<float> GetBakedDistances()
     {
         EnsureBaked();
-        return _bakedDistances.AsSpan(0, _bakedCount);
+        return _baker.Distances.AsSpan(0, _baker.Count);
     }
 
     /// <summary>
@@ -300,18 +303,7 @@ public sealed class Curve3D : Resource
     public Vector3 SampleBaked(float offset, bool cubic = false)
     {
         EnsureBaked();
-        if (_bakedCount == 0)
-            return Vector3.Zero;
-        if (_bakedCount == 1)
-            return _bakedPoints[0];
-        var index = Locate(offset, out var t);
-        var a = _bakedPoints[index];
-        var b = _bakedPoints[index + 1];
-        if (!cubic)
-            return a + (b - a) * t;
-        var pre = index > 0 ? _bakedPoints[index - 1] : _closed && _bakedCount > 2 ? _bakedPoints[_bakedCount - 2] : a;
-        var post = index + 2 < _bakedCount ? _bakedPoints[index + 2] : _closed && _bakedCount > 2 ? _bakedPoints[1] : b;
-        return CubicInterpolate(pre, a, b, post, t);
+        return _baker.SampleBaked(offset, cubic);
     }
 
     /// <summary>
@@ -321,10 +313,7 @@ public sealed class Curve3D : Resource
     public Vector3 SampleBakedTangent(float offset)
     {
         EnsureBaked();
-        if (_bakedCount < 2 || _bakedLength <= 0)
-            return -Vector3.UnitZ;
-        var index = Locate(offset, out var t);
-        return NormalizeOr(_bakedTangents[index] + (_bakedTangents[index + 1] - _bakedTangents[index]) * t, _bakedTangents[index]);
+        return _baker.SampleTangent(offset, -Vector3.UnitZ);
     }
 
     /// <summary>
@@ -336,9 +325,9 @@ public sealed class Curve3D : Resource
     {
         var tangent = SampleBakedTangent(offset);
         Vector3 up;
-        if (_upVectorEnabled && _bakedCount >= 2 && _bakedLength > 0)
+        if (_upVectorEnabled && _baker.Count >= 2 && _baker.Length > 0)
         {
-            var index = Locate(offset, out var t);
+            var index = _baker.Locate(offset, out var t);
             up = _bakedUps[index] + (_bakedUps[index + 1] - _bakedUps[index]) * t;
         }
         else
@@ -366,7 +355,7 @@ public sealed class Curve3D : Resource
     public Transform3D SampleBakedWithRotation(float offset, bool cubic = false, bool applyTilt = false)
     {
         var origin = SampleBaked(offset, cubic);
-        if (_bakedCount < 2 || _bakedLength <= 0)
+        if (_baker.Count < 2 || _baker.Length <= 0)
             return new Transform3D(Basis.Identity, origin);
         var direction = SampleBakedTangent(offset);
         Basis basis;
@@ -406,14 +395,16 @@ public sealed class Curve3D : Resource
     /// <summary>The arc offset of the baked curve point closest to <paramref name="toPoint"/> (projected on each baked segment).</summary>
     public float GetClosestOffset(Vector3 toPoint)
     {
-        ClosestOnBaked(toPoint, out var offset, out _);
+        EnsureBaked();
+        _baker.Closest(toPoint, out var offset, out _);
         return offset;
     }
 
     /// <summary>The baked curve point closest to <paramref name="toPoint"/>.</summary>
     public Vector3 GetClosestPoint(Vector3 toPoint)
     {
-        ClosestOnBaked(toPoint, out _, out var point);
+        EnsureBaked();
+        _baker.Closest(toPoint, out _, out var point);
         return point;
     }
 
@@ -431,61 +422,40 @@ public sealed class Curve3D : Resource
     {
         _dirty = false;
         var count = PointCount;
-        _bakedLength = 0;
-        _bakedStep = 0;
         if (count == 0)
         {
-            _bakedCount = 0;
+            _baker.BakeEmpty();
             return;
         }
 
         if (count == 1)
         {
-            EnsureBakedCapacity(1);
-            _bakedCount = 1;
-            _bakedPoints[0] = GetPointPosition(0);
-            _bakedDistances[0] = 0;
+            _baker.BakeSingle(GetPointPosition(0));
+            EnsureOwnCapacity();
             _bakedTilts[0] = GetPointTilt(0);
             _bakedWidths[0] = GetPointWidth(0);
             _bakedDepths[0] = GetPointDepth(0);
-            _bakedTangents[0] = -Vector3.UnitZ;
             _bakedUps[0] = Vector3.UnitY;
             return;
         }
 
         var segments = SegmentCount;
-        // 1. Adaptive subdivision of every segment into a dense polyline (fixed recursion order: deterministic).
-        var tolerance = MathF.Max(_bakeInterval * 0.01f, 1e-4f);
-        _denseCount = 0;
-        SegmentControls(0, out var first, out _, out _, out _);
-        AppendDense(first, 0f, 0f);
+        var controls = _baker.PrepareControls(segments);
         for (var segment = 0; segment < segments; segment++)
         {
             SegmentControls(segment, out var p0, out var c0, out var c1, out var p1);
-            Subdivide(segment, p0, c0, c1, p1, 0f, p0, 1f, p1, 0, tolerance * tolerance);
+            controls[segment * 4] = p0;
+            controls[segment * 4 + 1] = c0;
+            controls[segment * 4 + 2] = c1;
+            controls[segment * 4 + 3] = p1;
         }
 
-        var length = _denseLengths[_denseCount - 1];
-        // 2. Resample at equal arc length.
-        var steps = length > 0 ? Math.Max(1, (int)MathF.Ceiling(length / _bakeInterval)) : 1;
-        EnsureBakedCapacity(steps + 1);
-        _bakedCount = steps + 1;
-        _bakedLength = length;
-        _bakedStep = length / steps;
-        var j = 0;
-        for (var i = 0; i <= steps; i++)
+        _baker.Bake(segments, _bakeInterval, _closed);
+        EnsureOwnCapacity();
+        var parameters = _baker.Params;
+        for (var i = 0; i < _baker.Count; i++)
         {
-            var target = i == steps ? length : _bakedStep * i;
-            while (j < _denseCount - 2 && _denseLengths[j + 1] < target)
-                j++;
-            var la = _denseLengths[j];
-            var span = _denseLengths[j + 1] - la;
-            var f = span > 0 ? Math.Clamp((target - la) / span, 0f, 1f) : 0f;
-            var a = _dense[j];
-            var b = _dense[j + 1];
-            _bakedPoints[i] = a + (b - a) * f;
-            _bakedDistances[i] = target;
-            var param = _denseParams[j] + (_denseParams[j + 1] - _denseParams[j]) * f;
+            var param = parameters[i];
             var seg = Math.Min((int)param, segments - 1);
             var s = Smoothstep(param - seg);
             var end = seg + 1 == count ? 0 : seg + 1;
@@ -494,39 +464,23 @@ public sealed class Curve3D : Resource
             _bakedDepths[i] = Mix(ReadScalar(seg, DepthOffset), ReadScalar(end, DepthOffset), s);
         }
 
-        BakeTangents();
         if (_upVectorEnabled)
             BakeUpVectors();
     }
 
-    // 3. Unit tangents by central differences of the baked points (one-sided at open ends, wrapped across a closed
-    // seam, where the first and last baked points coincide). A degenerate difference repeats the previous tangent.
-    private void BakeTangents()
-    {
-        var n = _bakedCount;
-        var wrap = _closed && n > 2;
-        var previousTangent = -Vector3.UnitZ;
-        for (var i = 0; i < n; i++)
-        {
-            var before = i > 0 ? _bakedPoints[i - 1] : wrap ? _bakedPoints[n - 2] : _bakedPoints[i];
-            var after = i < n - 1 ? _bakedPoints[i + 1] : wrap ? _bakedPoints[1] : _bakedPoints[i];
-            var tangent = NormalizeOr(after - before, previousTangent);
-            _bakedTangents[i] = tangent;
-            previousTangent = tangent;
-        }
-    }
-
-    // 4. Rotation-minimising up vectors by double reflection (Wang et al. 2008), starting from world up made
+    // Rotation-minimising up vectors by double reflection (Wang et al. 2008), starting from world up made
     // perpendicular to the first tangent. A closed curve spreads the leftover twist at the seam linearly by arc length.
     private void BakeUpVectors()
     {
-        var n = _bakedCount;
-        _bakedUps[0] = Perpendicular(Vector3.UnitY, _bakedTangents[0]);
+        var n = _baker.Count;
+        var points = _baker.Points;
+        var tangents = _baker.Tangents;
+        _bakedUps[0] = Perpendicular(Vector3.UnitY, tangents[0]);
         for (var i = 0; i < n - 1; i++)
         {
             var r = _bakedUps[i];
-            var t = _bakedTangents[i];
-            var v1 = _bakedPoints[i + 1] - _bakedPoints[i];
+            var t = tangents[i];
+            var v1 = points[i + 1] - points[i];
             var c1 = Dot(v1, v1);
             if (c1 > 1e-12f)
             {
@@ -534,124 +488,48 @@ public sealed class Curve3D : Resource
                 t -= v1 * (2f / c1 * Dot(v1, t));
             }
 
-            var v2 = _bakedTangents[i + 1] - t;
+            var v2 = tangents[i + 1] - t;
             var c2 = Dot(v2, v2);
             if (c2 > 1e-12f)
                 r -= v2 * (2f / c2 * Dot(v2, r));
-            _bakedUps[i + 1] = Perpendicular(r, _bakedTangents[i + 1]);
+            _bakedUps[i + 1] = Perpendicular(r, tangents[i + 1]);
         }
 
-        if (!_closed || n < 3 || _bakedLength <= 0)
+        if (!_closed || n < 3 || _baker.Length <= 0)
             return;
         var first = _bakedUps[0];
         var last = _bakedUps[n - 1];
-        var twist = MathF.Atan2(Dot(Cross(last, first), _bakedTangents[0]), Dot(last, first));
+        var twist = MathF.Atan2(Dot(Cross(last, first), tangents[0]), Dot(last, first));
         for (var i = 1; i < n; i++)
         {
-            var angle = twist * (_bakedDistances[i] / _bakedLength);
-            var axis = _bakedTangents[i];
+            var angle = twist * (_baker.Distances[i] / _baker.Length);
+            var axis = tangents[i];
             var up = _bakedUps[i];
             // Rodrigues around the tangent (up is perpendicular to it).
             _bakedUps[i] = Perpendicular(up * MathF.Cos(angle) + Cross(axis, up) * MathF.Sin(angle), axis);
         }
     }
 
-    private void Subdivide(int segment, Vector3 p0, Vector3 c0, Vector3 c1, Vector3 p1, float t0, Vector3 a, float t1, Vector3 b,
-        int depth, float toleranceSquared)
+    // This curve's own baked arrays follow the baker's capacity.
+    private void EnsureOwnCapacity()
     {
-        var tm = (t0 + t1) * 0.5f;
-        var m = Bezier(p0, c0, c1, p1, tm);
-        var chordMid = (a + b) * 0.5f;
-        if (depth < MaxDepth && (depth < MinDepth || DistanceSquared(m, chordMid) > toleranceSquared))
-        {
-            Subdivide(segment, p0, c0, c1, p1, t0, a, tm, m, depth + 1, toleranceSquared);
-            Subdivide(segment, p0, c0, c1, p1, tm, m, t1, b, depth + 1, toleranceSquared);
+        var capacity = _baker.Points.Length;
+        if (_bakedTilts.Length >= capacity)
             return;
-        }
-
-        AppendDense(b, segment + t1, MathF.Sqrt(DistanceSquared(a, b)));
-    }
-
-    private void AppendDense(Vector3 point, float param, float pieceLength)
-    {
-        if (_denseCount == _dense.Length)
-        {
-            var size = Math.Max(64, _dense.Length * 2);
-            Array.Resize(ref _dense, size);
-            Array.Resize(ref _denseLengths, size);
-            Array.Resize(ref _denseParams, size);
-        }
-
-        _dense[_denseCount] = point;
-        _denseLengths[_denseCount] = _denseCount == 0 ? 0f : _denseLengths[_denseCount - 1] + pieceLength;
-        _denseParams[_denseCount] = param;
-        _denseCount++;
-    }
-
-    private void EnsureBakedCapacity(int count)
-    {
-        if (_bakedPoints.Length >= count)
-            return;
-        _bakedPoints = new Vector3[count];
-        _bakedDistances = new float[count];
-        _bakedTilts = new float[count];
-        _bakedWidths = new float[count];
-        _bakedDepths = new float[count];
-        _bakedTangents = new Vector3[count];
-        _bakedUps = new Vector3[count];
+        _bakedTilts = new float[capacity];
+        _bakedWidths = new float[capacity];
+        _bakedDepths = new float[capacity];
+        _bakedUps = new Vector3[capacity];
     }
 
     // ------------------------------------------------------------------------------------------------
     // Sampling helpers
     // ------------------------------------------------------------------------------------------------
 
-    /// <summary>The baked segment holding <paramref name="offset"/> (clamped) and the fraction along it.</summary>
-    private int Locate(float offset, out float t)
-    {
-        var o = float.IsNaN(offset) ? 0f : Math.Clamp(offset, 0f, _bakedLength);
-        var index = _bakedStep > 0 ? Math.Min((int)(o / _bakedStep), _bakedCount - 2) : 0;
-        var span = _bakedDistances[index + 1] - _bakedDistances[index];
-        t = span > 0 ? Math.Clamp((o - _bakedDistances[index]) / span, 0f, 1f) : 0f;
-        return index;
-    }
-
     private float SampleScalar(float[] baked, float offset, float empty)
     {
         EnsureBaked();
-        if (_bakedCount == 0)
-            return empty;
-        if (_bakedCount == 1)
-            return baked[0];
-        var index = Locate(offset, out var t);
-        return Mix(baked[index], baked[index + 1], t);
-    }
-
-    private void ClosestOnBaked(Vector3 toPoint, out float offset, out Vector3 point)
-    {
-        EnsureBaked();
-        offset = 0;
-        point = Vector3.Zero;
-        if (_bakedCount == 0)
-            return;
-        point = _bakedPoints[0];
-        if (_bakedCount == 1)
-            return;
-        var best = float.PositiveInfinity;
-        for (var i = 0; i < _bakedCount - 1; i++)
-        {
-            var a = _bakedPoints[i];
-            var d = _bakedPoints[i + 1] - a;
-            var lengthSquared = Dot(d, d);
-            var t = lengthSquared > 0 ? Math.Clamp(Dot(toPoint - a, d) / lengthSquared, 0f, 1f) : 0f;
-            var q = a + d * t;
-            var distance = DistanceSquared(q, toPoint);
-            if (distance < best)
-            {
-                best = distance;
-                point = q;
-                offset = _bakedDistances[i] + (_bakedDistances[i + 1] - _bakedDistances[i]) * t;
-            }
-        }
+        return _baker.SampleScalar(baked, offset, empty);
     }
 
     private void SegmentControls(int segment, out Vector3 p0, out Vector3 c0, out Vector3 c1, out Vector3 p1)
@@ -663,33 +541,15 @@ public sealed class Curve3D : Resource
         c1 = p1 + GetPointIn(end);
     }
 
-    internal static Vector3 Bezier(Vector3 p0, Vector3 c0, Vector3 c1, Vector3 p1, float t)
-    {
-        var u = 1f - t;
-        var uu = u * u;
-        var tt = t * t;
-        return p0 * (uu * u) + c0 * (3f * uu * t) + c1 * (3f * u * tt) + p1 * (tt * t);
-    }
-
-    // Godot's cubic_interpolate (Catmull-Rom through pre, from, to, post).
-    private static Vector3 CubicInterpolate(Vector3 pre, Vector3 from, Vector3 to, Vector3 post, float t)
-    {
-        var t2 = t * t;
-        var t3 = t2 * t;
-        return (from * 2f + (to - pre) * t + (pre * 2f - from * 5f + to * 4f - post) * t2 + (from * 3f - pre - to * 3f + post) * t3) * 0.5f;
-    }
+    internal static Vector3 Bezier(Vector3 p0, Vector3 c0, Vector3 c1, Vector3 p1, float t) => CurveBaker.Bezier(p0, c0, c1, p1, t);
 
     // Scalar, fixed-order arithmetic (see the determinism remark).
-    private static float Dot(Vector3 a, Vector3 b) => a.X * b.X + a.Y * b.Y + a.Z * b.Z;
+    private static float Dot(Vector3 a, Vector3 b) => CurveBaker.Dot(a, b);
 
     private static Vector3 Cross(Vector3 a, Vector3 b) =>
         new(a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X);
 
-    private static Vector3 NormalizeOr(Vector3 v, Vector3 fallback)
-    {
-        var lengthSquared = Dot(v, v);
-        return lengthSquared > 1e-20f ? v * (1f / MathF.Sqrt(lengthSquared)) : fallback;
-    }
+    private static Vector3 NormalizeOr(Vector3 v, Vector3 fallback) => CurveBaker.NormalizeOr(v, fallback);
 
     // v with its component along the unit vector `axis` removed, normalised; another perpendicular when v is parallel.
     private static Vector3 Perpendicular(Vector3 v, Vector3 axis)
@@ -699,12 +559,6 @@ public sealed class Curve3D : Resource
             return NormalizeOr(p, Vector3.UnitY);
         var other = MathF.Abs(axis.Y) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
         return NormalizeOr(other - axis * Dot(other, axis), Vector3.UnitY);
-    }
-
-    private static float DistanceSquared(Vector3 a, Vector3 b)
-    {
-        var d = a - b;
-        return d.X * d.X + d.Y * d.Y + d.Z * d.Z;
     }
 
     private static float Smoothstep(float t)

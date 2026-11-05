@@ -1,0 +1,401 @@
+{
+  "format": 2,
+  "uid": "scn_70790966c280",
+  "resources": {
+    "Curve2D_a7txx": {
+      "type": "Curve2D",
+      "props": {
+        "Closed": true,
+        "Points": [
+          320,
+          0,
+          1.2715658E-05,
+          -31.8198,
+          -1.2715658E-05,
+          31.8198,
+          226.27417,
+          95.45941,
+          53.333336,
+          -22.5,
+          -53.333336,
+          22.5,
+          -1.3987645E-05,
+          135,
+          75.42473,
+          -0,
+          -75.42473,
+          0,
+          -226.27417,
+          95.45941,
+          53.333336,
+          22.500004,
+          -53.333336,
+          -22.500004,
+          -320,
+          -1.1802075E-05,
+          -7.6293945E-06,
+          31.819807,
+          7.6293945E-06,
+          -31.819807,
+          -226.27412,
+          -95.45943,
+          -53.333336,
+          22.499998,
+          53.333336,
+          -22.499998,
+          3.815962E-06,
+          -135,
+          -75.42473,
+          -7.6293945E-06,
+          75.42473,
+          7.6293945E-06,
+          226.27425,
+          -95.45938,
+          -53.333336,
+          -22.5,
+          53.333336,
+          22.5
+        ]
+      }
+    },
+    "Curve2D_c5tuq": {
+      "type": "Curve2D",
+      "props": {
+        "Points": [
+          0,
+          150,
+          -20,
+          25,
+          20,
+          -25,
+          120,
+          0,
+          -41.666668,
+          15,
+          41.666668,
+          -15,
+          250,
+          60,
+          -35,
+          -28.333334,
+          35,
+          28.333334,
+          330,
+          170,
+          -13.333334,
+          -18.333334,
+          13.333334,
+          18.333334
+        ]
+      }
+    },
+    "Curve2D_5cxon": {
+      "type": "Curve2D",
+      "props": {
+        "Closed": true,
+        "Points": [
+          -140,
+          -90,
+          -32.666668,
+          22.166666,
+          32.666668,
+          -22.166666,
+          140,
+          -90,
+          -35,
+          -21,
+          35,
+          21,
+          160,
+          90,
+          32.666668,
+          -22.166666,
+          -32.666668,
+          22.166666,
+          -140,
+          100,
+          35,
+          21,
+          -35,
+          -21
+        ]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "paths_2d",
+      "type": "Node2D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera2D",
+      "props": {
+        "Position": [-120, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Backdrop",
+      "parent": ".",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [1800, 1000],
+        "Color": [0.05, 0.07, 0.12, 1],
+        "ColorBottom": [0.08, 0.1, 0.17, 1]
+      }
+    },
+    {
+      "name": "Track",
+      "parent": ".",
+      "type": "Path2D",
+      "props": {
+        "Position": [60, -120],
+        "Curve": { "res": "Curve2D_a7txx" }
+      }
+    },
+    {
+      "name": "Road",
+      "parent": "Track",
+      "type": "PathTrack2D",
+      "props": {
+        "Width": 26
+      }
+    },
+    {
+      "name": "Car0",
+      "parent": "Track",
+      "type": "PathFollow2D",
+      "props": {
+        "VOffset": -6,
+        "Speed": 210
+      }
+    },
+    {
+      "name": "Body",
+      "parent": "Track/Car0",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Polygon",
+        "Points": [
+          [16, 0],
+          [-10, -9],
+          [-5, 0],
+          [-10, 9]
+        ],
+        "Color": [1, 0.42, 0.38, 1],
+        "Outline": [0, 0, 0, 0.45],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Car1",
+      "parent": "Track",
+      "type": "PathFollow2D",
+      "props": {
+        "Progress": 385,
+        "VOffset": 6,
+        "Speed": 180
+      }
+    },
+    {
+      "name": "Body",
+      "parent": "Track/Car1",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Polygon",
+        "Points": [
+          [16, 0],
+          [-10, -9],
+          [-5, 0],
+          [-10, 9]
+        ],
+        "Color": [1, 0.8, 0.3, 1],
+        "Outline": [0, 0, 0, 0.45],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Car2",
+      "parent": "Track",
+      "type": "PathFollow2D",
+      "props": {
+        "Progress": 770,
+        "VOffset": -6,
+        "Speed": 150
+      }
+    },
+    {
+      "name": "Body",
+      "parent": "Track/Car2",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Polygon",
+        "Points": [
+          [16, 0],
+          [-10, -9],
+          [-5, 0],
+          [-10, 9]
+        ],
+        "Color": [0.4, 0.85, 0.55, 1],
+        "Outline": [0, 0, 0, 0.45],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Car3",
+      "parent": "Track",
+      "type": "PathFollow2D",
+      "props": {
+        "Progress": 1155,
+        "VOffset": 6,
+        "Speed": 120
+      }
+    },
+    {
+      "name": "Body",
+      "parent": "Track/Car3",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Polygon",
+        "Points": [
+          [16, 0],
+          [-10, -9],
+          [-5, 0],
+          [-10, 9]
+        ],
+        "Color": [0.45, 0.7, 1, 1],
+        "Outline": [0, 0, 0, 0.45],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Arc",
+      "parent": ".",
+      "type": "Path2D",
+      "props": {
+        "Position": [-390, 90],
+        "Curve": { "res": "Curve2D_c5tuq" }
+      }
+    },
+    {
+      "name": "Rail",
+      "parent": "Arc",
+      "type": "PathTrack2D",
+      "props": {
+        "Width": 6,
+        "Color": [0.36, 0.4, 0.5, 1],
+        "LineColor": [0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "Lift",
+      "parent": "Arc",
+      "type": "PathFollow2D",
+      "props": {
+        "Rotates": false,
+        "Loop": false,
+        "Speed": 140,
+        "PingPong": true
+      }
+    },
+    {
+      "name": "Platform",
+      "parent": "Arc/Lift",
+      "type": "DemoShape2D",
+      "props": {
+        "Size": [64, 14],
+        "Color": [0.95, 0.6, 0.95, 1],
+        "ColorBottom": [0.7, 0.4, 0.75, 1],
+        "Outline": [1, 1, 1, 0.5],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Route",
+      "parent": ".",
+      "type": "Path2D",
+      "props": {
+        "Position": [260, 200],
+        "Curve": { "res": "Curve2D_5cxon" }
+      }
+    },
+    {
+      "name": "Trail",
+      "parent": "Route",
+      "type": "PathTrack2D",
+      "props": {
+        "Width": 4,
+        "Color": [0.4, 0.75, 0.55, 0.5],
+        "LineColor": [0, 0, 0, 0]
+      }
+    },
+    {
+      "name": "Carrot",
+      "parent": "Route",
+      "type": "PathFollow2D",
+      "props": {
+        "Rotates": false
+      }
+    },
+    {
+      "name": "Marker",
+      "parent": "Route/Carrot",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 4,
+        "Color": [1, 0.6, 0.2, 0.9]
+      }
+    },
+    {
+      "name": "Guard",
+      "parent": ".",
+      "type": "PathGuard2D",
+      "props": {
+        "Position": [260, 200],
+        "Route": "../Route"
+      }
+    },
+    {
+      "name": "Body",
+      "parent": "Guard",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 12,
+        "Color": [0.4, 0.85, 0.6, 1],
+        "Outline": [0, 0, 0, 0.45],
+        "OutlineWidth": 2
+      }
+    },
+    {
+      "name": "Facing",
+      "parent": "Guard",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Polygon",
+        "Points": [
+          [20, 0],
+          [10, -5],
+          [10, 5]
+        ],
+        "Color": [1, 1, 1, 0.85]
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Paths2DPanel"
+    }
+  ]
+}

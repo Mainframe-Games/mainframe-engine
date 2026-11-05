@@ -54,6 +54,13 @@ public sealed partial class ViewportController
             return true;
         }
 
+        // G13: while a Path2D is selected, the curve tool takes clicks on its points, handles and (per tool) the view.
+        if (!IsSimulating(scene) && _workspace.Curves.Press(scene.History, scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels), CurvePixel(scene), e.Button, _workspace.Modifiers))
+        {
+            _drag = _workspace.Curves.IsDragging ? DragKind.Curve : DragKind.None;
+            return true;
+        }
+
         switch (e.Button)
         {
             case MouseButton.Left when alt:
@@ -75,6 +82,7 @@ public sealed partial class ViewportController
     private bool Release2DMatches(DragKind drag, MouseButton button) => drag switch
     {
         DragKind.Paint => button == _paintButton,
+        DragKind.Curve => button == MouseButton.Left,
         DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box => button == MouseButton.Left,
         DragKind.Pan => button is MouseButton.Left or MouseButton.Middle or MouseButton.Right,
         _ => false,
@@ -229,7 +237,9 @@ public sealed partial class ViewportController
                 continue;
             var selected = scene.Selection.Contains(node);
             var p = new Vector3(node.GlobalPosition, 0f);
-            if (node is Camera2D cam)
+            if (node is Path2D path)
+                DrawPath2D(selected ? overlay : lines, path, selected, marker);
+            else if (node is Camera2D cam)
                 DrawCamera2D(overlay, cam, selected ? SelectionColor : CameraColor);
             else if (node is Marker2D markerNode)
             {
@@ -259,8 +269,37 @@ public sealed partial class ViewportController
                 DrawAgent2D(overlay, agent);
 
         _workspace.TileMap.Draw(scene, overlay, pixels);
+        _workspace.Curves.Draw(overlay, CurvePixel(scene));
         DrawGizmo2D(scene, pixels);
         DrawHandles(scene, overlay, pixels);
+    }
+
+    /// <summary>The world size of one display point in the 2D view (the curve tool's grab and handle sizes).</summary>
+    private float CurvePixel(EditedScene scene) => ViewScale / scene.Camera.Zoom2D;
+
+    // G13: a path's baked curve in its debug colour, or in the selection colour on top when selected; an empty path
+    // shows the node cross.
+    private static void DrawPath2D(DebugLines lines, Path2D path, bool selected, float marker)
+    {
+        var c = path.DebugColor;
+        var color = selected ? SelectionColor : new Vector4(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f);
+        var points = path.Curve is { } curve ? curve.GetBakedPoints() : default;
+        if (points.Length < 2)
+        {
+            var p = new Vector3(path.GlobalPosition, 0f);
+            lines.AddLine(p - new Vector3(marker, 0, 0), p + new Vector3(marker, 0, 0), color);
+            lines.AddLine(p - new Vector3(0, marker, 0), p + new Vector3(0, marker, 0), color);
+            return;
+        }
+
+        var transform = path.GlobalTransform;
+        var previous = new Vector3(transform.TransformPoint(points[0]), 0f);
+        for (var i = 1; i < points.Length; i++)
+        {
+            var next = new Vector3(transform.TransformPoint(points[i]), 0f);
+            lines.AddLine(previous, next, color);
+            previous = next;
+        }
     }
 
     // G3a: the selected agent's arrival circles around its parent body — TargetDesiredDistance (solid) and
