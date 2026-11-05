@@ -1,7 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/g6-rendering-features` (G6 LOD, decals, `.hdr` skies, PBR import; ADRs 0245/0246)._
+_Last updated: 2026-11-05 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5; G6 in review._
 
 ## What exists
 
@@ -33,8 +32,7 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
   (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
   `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), the seam for packed and encrypted exports.
-- **G6 rendering features** ([Rendering features](../../docs/design/rendering-features.md)): PBR + sky IBL, SSAO, 3D particles, mesh
-  LODs by projected error (ADR 0245), forward decals (ADR 0246), `.hdr` panoramas. Owner-pending: the PBR default flip, the LOD simplifier.
+- **G6** ([Rendering features](../../docs/design/rendering-features.md)): PBR + IBL, SSAO, 3D particles, mesh LODs (ADR 0245), forward decals (ADR 0246), `.hdr` skies; owner-pending: PBR default, LOD simplifier.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
 - **Solution** `MainframeEngine.slnx` (no `.sln`). Everything local goes through `just` (see AGENTS.md).
@@ -54,6 +52,8 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
 - macOS: SDL and Silk.NET must bind the SAME Vulkan library — `VulkanLoaderBootstrap` enforces it; never call a bare
   `Vk.GetApi()`, take `Vk` from `IVulkanContext`. HiDPI: use `Engine.FramebufferSize` (pixels), not window sizes
   (points). Render tests, `just qa*` and the packaged editor need the display awake (`caffeinate -u -t 3000 &`).
+  A rendering change re-records both golden sets (`moltenvk` needs a Mac: #157 and #164 left it stale), and scene
+  self-checks must hold at the Mac's 640×480 as well as CI's 320×240. slangc depfiles name real paths (`/private/var`).
 - Linux: Silk's resolver doesn't probe `runtimes/linux-x64/native` on distro RIDs — `SilkNativeResolver.Install()`
   (Engine ctor) fixes it; call it before Silk native use without an Engine.
 - Per-frame GPU resources keyed by `IVulkanContext.FrameSlot`; GPU memory only via `GpuAllocator`/`GpuBuffer`/
@@ -82,10 +82,9 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
   `.layout.json` and `.spvlock`; defaults are literals, matrices `mul(v, M)`; no `#line`, so no slangc `-obfuscate` crash.
 - Benchmarks: compare only on the machine that recorded `baseline.json` (MacBook, Apple M5), and only when it is
   quiet (parallel builds/agents skew results by 10–15 %).
-- Steam: Facepunch.Steamworks 2.4.1 (vendored, `Plugins/Facepunch.Steamworks`) behind the `MainframeEngine.Steamworks`
-  shim (Win64/Posix builds, `SteamworksLoader` picks this OS's); Valve's `steam_api` natives ship in `runtimes/`, so
-  Steam starts on win-x64, linux-x64, osx-x64 and osx-arm64 when the client runs. `SteamSocketsTransport` (relay
-  sockets) and avatar textures are done.
+- Steam: Facepunch.Steamworks 2.4.1 (vendored) behind the `MainframeEngine.Steamworks` shim (Win64/Posix builds,
+  `SteamworksLoader` picks this OS's); Valve's `steam_api` natives ship in `runtimes/`, so Steam starts on win-x64,
+  linux-x64, osx-x64 and osx-arm64 when the client runs. `SteamSocketsTransport` and avatar textures are done.
 
 ## Next steps
 
@@ -97,4 +96,5 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
 5. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
    mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.
-6. M13 — mobile platform services. User actions: code signing/notarization for the macOS editor build.
+6. M13 — mobile platform services (`docs/design/future/mobile-services.md`).
+7. User actions: code signing/notarization for the macOS editor build.
