@@ -90,12 +90,10 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
 ## Next steps
 
 1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 2 `.mfpak` packs, then encryption, AOT.
-2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (terrain
-   dock and Faceted look, tree inspector, river tool, forest goldens and frame budget); G20.3 video; G1c
-   animation authoring (would let active ragdolls follow any clip); G12 (proposal awaits owner review); G11, G14, G16,
-   G17; G3b (avoidance first).
-3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (Forest cabin: ≈ +1.6 ms p50; G6's two new
-   benchmarks have no entries).
+2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (terrain dock and Faceted look, tree
+   inspector, river tool, forest goldens and frame budget); G20.3 video; G1c animation authoring (would let active
+   ragdolls follow any clip); G12 (proposal awaits owner review); G11, G14, G16, G17; G3b (avoidance first).
+3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (Forest cabin ≈ +1.6 ms p50; G6's two).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
 5. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
    mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.
