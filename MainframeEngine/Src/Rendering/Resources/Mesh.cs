@@ -193,6 +193,17 @@ public sealed class MeshSurface : Resource
     [Export]
     public Material? Material { get => _material; set { _material = value; Touch(); } }
 
+    /// <summary>
+    /// Coarser levels of detail (G6.4), in ascending <see cref="MeshLod.Error"/>; the surface itself is level 0. At most
+    /// <see cref="MeshLod.MaxLevels"/> − 1. The renderer picks a level per instance by projected error
+    /// (<see cref="GeometryInstance3D.LodBias"/>, <c>rendering.meshLodThreshold</c>). Assign a new array (or call
+    /// <see cref="NotifyChanged"/>) after changing a level.
+    /// </summary>
+    [Export]
+    public MeshLod[] Lods { get => _lods; set { _lods = value ?? []; Touch(); } }
+
+    private MeshLod[] _lods = [];
+
     public int VertexCount => _positions.Length;
     public int IndexCount => _indices.Length;
 
@@ -245,6 +256,17 @@ public sealed class MeshSurface : Resource
         foreach (var index in _indices)
             if ((uint)index >= (uint)_positions.Length)
                 throw new InvalidDataException($"Surface index {index} is out of range (vertex count {_positions.Length}).");
+        if (_lods.Length >= MeshLod.MaxLevels)
+            throw new InvalidDataException($"Surface has {_lods.Length} LOD levels; at most {MeshLod.MaxLevels - 1} besides the surface.");
+        var previous = 0f;
+        for (var l = 0; l < _lods.Length; l++)
+        {
+            var lod = _lods[l] ?? throw new InvalidDataException($"Surface LOD {l + 1} is null.");
+            if (!(lod.Error >= previous) || !float.IsFinite(lod.Error))
+                throw new InvalidDataException($"Surface LOD {l + 1} has error {lod.Error}; errors must be finite and ascending.");
+            previous = lod.Error;
+            lod.Validate(this, l + 1);
+        }
     }
 
     /// <summary>Writes interleaved <see cref="MeshVertex"/> data (generating missing normals).</summary>
@@ -311,6 +333,76 @@ public sealed class MeshSurface : Resource
     {
         _version++;
         EmitChanged();
+    }
+}
+
+/// <summary>
+/// One coarser level of detail of a <see cref="MeshSurface"/> (G6.4): a triangle list over the surface's own vertices
+/// (Godot's index-only LODs), or over its own <see cref="Geometry"/> (authored LODs from a model file). Drawn with the
+/// surface's material.
+/// </summary>
+[EditorIcon("stairs-down")]
+public sealed class MeshLod : Resource
+{
+    /// <summary>Levels a surface can have, the surface itself included (3 bits of the draw sort key).</summary>
+    public const int MaxLevels = 8;
+
+    private float _error;
+    private int[] _indices = [];
+    private MeshSurface? _geometry;
+
+    public MeshLod()
+    {
+    }
+
+    public MeshLod(float error, int[] indices)
+    {
+        _error = error;
+        _indices = indices ?? throw new ArgumentNullException(nameof(indices));
+    }
+
+    public MeshLod(float error, MeshSurface geometry)
+    {
+        _error = error;
+        _geometry = geometry ?? throw new ArgumentNullException(nameof(geometry));
+    }
+
+    /// <summary>
+    /// The geometric error of this level in mesh units: how far, at most, it strays from the surface. The renderer draws
+    /// it while that error projects to at most <c>rendering.meshLodThreshold</c> pixels.
+    /// </summary>
+    [Export]
+    public float Error { get => _error; set { _error = value; EmitChanged(); } }
+
+    /// <summary>Triangle list into the surface's vertices (ignored when <see cref="Geometry"/> is set).</summary>
+    [Export]
+    public int[] Indices { get => _indices; set { _indices = value ?? []; EmitChanged(); } }
+
+    /// <summary>The level's own vertices and indices (authored LODs), or null to index the surface's vertices.</summary>
+    [Export]
+    public MeshSurface? Geometry { get => _geometry; set { _geometry = value; EmitChanged(); } }
+
+    /// <summary>Indices drawn: the geometry's when it has its own, else <see cref="Indices"/>.</summary>
+    public int IndexCount => _geometry?.IndexCount ?? _indices.Length;
+
+    internal void Validate(MeshSurface surface, int level)
+    {
+        if (_geometry is { } geometry)
+        {
+            if (geometry.Lods.Length != 0)
+                throw new InvalidDataException($"Surface LOD {level}'s geometry has LODs of its own.");
+            if (geometry.IsSkinned != surface.IsSkinned)
+                throw new InvalidDataException($"Surface LOD {level}'s geometry is {(geometry.IsSkinned ? "" : "not ")}skinned and the surface is {(surface.IsSkinned ? "" : "not")}.");
+            geometry.Validate();
+            return;
+        }
+
+        if (_indices.Length % 3 != 0)
+            throw new InvalidDataException($"Surface LOD {level} has {_indices.Length} indices; triangles need a multiple of 3.");
+        var count = (uint)surface.VertexCount;
+        foreach (var index in _indices)
+            if ((uint)index >= count)
+                throw new InvalidDataException($"Surface LOD {level} index {index} is out of range (vertex count {count}).");
     }
 }
 

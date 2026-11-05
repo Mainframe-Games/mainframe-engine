@@ -465,6 +465,22 @@ public sealed class RenderingProjectSettings
     public WaterSsrQuality WaterSsr { get; set; } = WaterSsrQuality.Low;
 
     /// <summary>
+    /// The largest projected error, in pixels, a mesh level of detail may have and still draw (G6.4, Godot's
+    /// <c>mesh_lod_threshold</c>; <see cref="RenderServer.MeshLodThreshold"/>; default 1). Higher is faster and coarser;
+    /// 0 always draws the full surfaces.
+    /// </summary>
+    public float MeshLodThreshold
+    {
+        get;
+        set
+        {
+            if (!(value >= 0f) || !float.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The mesh LOD threshold must be finite and not negative.");
+            field = value;
+        }
+    } = 1f;
+
+    /// <summary>
     /// How the 3D view upscales from its render resolution (Godot's <c>scaling_3d_mode</c>; <see cref="IVulkanContext.Scaling3DMode"/>,
     /// ADR 0174): bilinear (default), FSR 1 or TAAU (which turns TAA on). Only with a <see cref="Scaling3DScale"/> below 1.
     /// </summary>

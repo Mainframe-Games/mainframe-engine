@@ -27,6 +27,17 @@ public abstract class GeometryInstance3D : VisualInstance3D
     public Material? MaterialOverlay { get; set; }
 
     /// <summary>
+    /// Level-of-detail bias (G6.4, Godot's <c>lod_bias</c>): above 1 keeps finer levels of the mesh's surfaces
+    /// (<see cref="MeshSurface.Lods"/>) further away, below 1 drops to coarser ones sooner. Default 1.
+    /// </summary>
+    [ExportGroup("LOD")]
+    [Export(Range = "0.01,128,0.01")]
+    public float LodBias { get; set; } = 1f;
+
+    /// <summary>The coarsest level of detail any surface drew in the last prepared view (G6.4; 0 = the surfaces).</summary>
+    internal int RenderLod;
+
+    /// <summary>
     /// Distance from the camera (to the centre of the world bounds) below which the instance is not drawn, in the main
     /// pass or the shadow maps (Godot's <c>visibility_range_begin</c>, an HLOD distance); 0 = no lower bound.
     /// </summary>

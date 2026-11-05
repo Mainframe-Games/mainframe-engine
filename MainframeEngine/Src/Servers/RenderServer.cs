@@ -214,6 +214,23 @@ public sealed class RenderServer : IServer
         set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown water SSR quality.");
     } = WaterSsrQuality.Low;
 
+    /// <summary>
+    /// The largest projected error, in pixels, a mesh level of detail may have and still draw (G6.4; Godot's
+    /// <c>mesh_lod_threshold</c>, <c>rendering.meshLodThreshold</c>; default 1). Higher drops to coarser levels sooner;
+    /// 0 always draws the full surfaces. Applies from the next frame.
+    /// </summary>
+    public float MeshLodThreshold
+    {
+        get;
+        set
+        {
+            if (!(value >= 0f) || !float.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The mesh LOD threshold must be finite and not negative.");
+            field = value;
+            _meshes?.MeshLodThreshold = value;
+        }
+    } = 1f;
+
     /// <summary>The main view's scene copy for refracting water (ADR 0173; null until a frame drew some).</summary>
     internal WaterSceneTextures? MainWaterScene => _mainWater;
 
@@ -242,7 +259,7 @@ public sealed class RenderServer : IServer
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_meshes is null && Vulkan is { } vk)
-                _meshes = new MeshRenderer(vk, Shadows);
+                _meshes = new MeshRenderer(vk, Shadows) { MeshLodThreshold = MeshLodThreshold };
             return _meshes;
         }
     }
@@ -314,7 +331,7 @@ public sealed class RenderServer : IServer
             var subCamera = GetRenderCamera(sub, Extent(sub));
             SelectLights(sub.World3D, subCamera);
             if (sub.World3D.GeometryList.Count > 0 && subCamera is not null)
-                Meshes!.Prepare(EnsureTargets(sub).Draws, sub.World3D, subCamera, collectCasters: ReferenceEquals(sub, _shadowView));
+                Meshes!.Prepare(EnsureTargets(sub).Draws, sub.World3D, subCamera, collectCasters: ReferenceEquals(sub, _shadowView), Extent(sub).Height);
         }
     }
 
@@ -529,7 +546,7 @@ public sealed class RenderServer : IServer
             BindSkyLighting(frame, world);
             frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber);
             meshes = world.GeometryList.Count > 0 ? Meshes : null;
-            meshes?.Prepare(targets.Draws, world, camera, collectCasters: false);
+            meshes?.Prepare(targets.Draws, world, camera, collectCasters: false, extent.Height);
         }
 
         if (prepass)
