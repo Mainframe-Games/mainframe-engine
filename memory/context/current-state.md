@@ -1,7 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/paths-and-keyframe-animation` (G13 complete, ADR 0243; G1a keyframe animation complete, ADR 0244)._
+_Last updated: 2026-11-05 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5._
 
 ## What exists
 
@@ -52,6 +51,8 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
 - macOS: SDL and Silk.NET must bind the SAME Vulkan library — `VulkanLoaderBootstrap` enforces it; never call a bare
   `Vk.GetApi()`, take `Vk` from `IVulkanContext`. HiDPI: use `Engine.FramebufferSize` (pixels), not window sizes
   (points). Render tests, `just qa*` and the packaged editor need the display awake (`caffeinate -u -t 3000 &`).
+  A rendering change re-records both golden sets (`moltenvk` needs a Mac: #157 and #164 left it stale), and scene
+  self-checks must hold at the Mac's 640×480 as well as CI's 320×240. slangc depfiles name real paths (`/private/var`).
 - Linux: Silk's resolver doesn't probe `runtimes/linux-x64/native` on distro RIDs — `SilkNativeResolver.Install()`
   (Engine ctor) fixes it; call it before Silk native use without an Engine.
 - Per-frame GPU resources keyed by `IVulkanContext.FrameSlot`; GPU memory only via `GpuAllocator`/`GpuBuffer`/
@@ -80,10 +81,9 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
   `.layout.json` and `.spvlock`; defaults are literals, matrices `mul(v, M)`; no `#line`, so no slangc `-obfuscate` crash.
 - Benchmarks: compare only on the machine that recorded `baseline.json` (MacBook, Apple M5), and only when it is
   quiet (parallel builds/agents skew results by 10–15 %).
-- Steam: Facepunch.Steamworks 2.4.1 (vendored, `Plugins/Facepunch.Steamworks`) behind the `MainframeEngine.Steamworks`
-  shim (Win64/Posix builds, `SteamworksLoader` picks this OS's); Valve's `steam_api` natives ship in `runtimes/`, so
-  Steam starts on win-x64, linux-x64, osx-x64 and osx-arm64 when the client runs. `SteamSocketsTransport` (relay
-  sockets) and avatar textures are done.
+- Steam: Facepunch.Steamworks 2.4.1 (vendored) behind the `MainframeEngine.Steamworks` shim (Win64/Posix builds,
+  `SteamworksLoader` picks this OS's); Valve's `steam_api` natives ship in `runtimes/`, so Steam starts on win-x64,
+  linux-x64, osx-x64 and osx-arm64 when the client runs. `SteamSocketsTransport` and avatar textures are done.
 
 ## Next steps
 

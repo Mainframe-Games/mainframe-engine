@@ -126,7 +126,7 @@ public sealed class SubViewportPostScene(HostOptions host) : RenderTestGame(host
             _camera.LookAt(CameraTarget);
         }
 
-        // Immediate mode: the lines are drawn this frame, then cleared. A patch of 24 lines, about 12 pixels square.
+        // Immediate mode: the lines are drawn this frame, then cleared. Patches of 24 lines, about 12 pixels square at scale 1.
         for (var i = 0; i < 24; i++)
         {
             var y = (i - 12) * 0.004f;
@@ -135,8 +135,13 @@ public sealed class SubViewportPostScene(HostOptions host) : RenderTestGame(host
             if (Taa)
             {
                 // Lines lying on the floor (a selection wireframe, the grid): depth-tested against the jittered prepass depth.
-                var z = (i - 12) * 0.01f;
-                _view.DebugLines.AddLine(FloorPatch + new Vector3(-0.1f, 0f, z), FloorPatch + new Vector3(0.1f, 0f, z), new Vector4(0f, 0f, 1f, 1f));
+                // Two per step, 0.005 apart: under a pixel at Mac's canonical scale 2 too (0.01 left empty rows at 640×480,
+                // where a probe found the floor between two lines), so every probed pixel is a line.
+                for (var k = 0; k < 2; k++)
+                {
+                    var z = (i - 12) * 0.01f + k * 0.005f;
+                    _view.DebugLines.AddLine(FloorPatch + new Vector3(-0.1f, 0f, z), FloorPatch + new Vector3(0.1f, 0f, z), new Vector4(0f, 0f, 1f, 1f));
+                }
             }
         }
 
