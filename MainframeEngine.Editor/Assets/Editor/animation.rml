@@ -1,0 +1,54 @@
+<rml>
+<head>
+    <title>Animation</title>
+    <link type="text/rcss" href="/Assets/icons/icons.rcss"/>
+    <link type="text/rcss" href="theme.rcss"/>
+    <style>
+        .panel-header .dock-tab:last-of-type { margin-right: 10dp; }
+        .tools { display: flex; flex-direction: row; align-items: center; flex: 1 1 auto; justify-content: flex-end; }
+        .tools .tool-button { margin-left: 3dp; }
+        .tools .sep { display: block; width: 1dp; height: 16dp; margin: 0dp 5dp; background-color: #3b3f4b; }
+        .tools .caption { color: #c9cedb; font-size: 11dp; margin: 0dp 4dp; white-space: nowrap; }
+        .tools .chip { display: flex; flex-direction: row; align-items: center; height: 20dp; padding: 0dp 6dp; margin-left: 4dp;
+            border-radius: 3dp; background-color: #2a2e38; color: #e5e7eb; font-size: 11dp; cursor: pointer; }
+        .tools .chip:hover { background-color: #343946; }
+        .tools .chip .icon { margin-right: 4dp; }
+        .an-scroll { display: block; flex: 1 1 auto; overflow-y: auto; min-height: 0dp; }
+        .an-main { display: flex; flex-direction: row; }
+        .an-tracks { display: block; flex: 0 0 230dp; border-right: 1dp #2f333d; }
+        .an-ruler-spacer { display: block; height: 24dp; background-color: #262931; }
+        .an-track { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 4dp; color: #c9cedb; font-size: 11dp; }
+        .an-track:nth-child(even) { background-color: #1b1d23; }
+        .an-track:nth-child(odd) { background-color: #20232a; }
+        .an-track.disabled { color: #6b7280; }
+        .an-track .icon { margin-right: 5dp; }
+        .an-track .an-name { flex: 1 1 auto; overflow: hidden; white-space: nowrap; }
+        .an-track .tool-button { margin-left: 2dp; }
+        .an-empty { color: #6b7488; padding: 8dp; font-size: 11dp; }
+        .an-timeline { display: block; flex: 1 1 auto; }
+        #an-canvas { display: block; width: 100%; height: 90dp; }
+        .an-keyrow { display: flex; flex-direction: row; align-items: center; height: 26dp; padding: 0dp 6dp; border-top: 1dp #2f333d; }
+        .an-keyrow .caption { color: #8b93a5; font-size: 11dp; margin: 0dp 4dp 0dp 6dp; }
+        .an-keyrow .mono { color: #c9cedb; }
+        .an-keyrow input.num { width: 56dp; height: 18dp; padding: 1dp 4dp; font-size: 11dp; text-align: right; }
+        .axis-x { color: #f87171; }
+        .axis-y { color: #4ade80; }
+        .axis-z { color: #60a5fa; }
+    </style>
+</head>
+<body class="panel-doc">
+    <div class="panel-header">
+        <button class="dock-tab" data-tab="0" data-tooltip="Output — the editor's and the running games' log"><span class="icon icon-sm icon-terminal-2"></span><span class="label">Output</span></button>
+        <button class="dock-tab" data-tab="1" data-tooltip="Profiler — frame times, scopes and GPU zones of a running game or the editor"><span class="icon icon-sm icon-activity"></span><span class="label">Profiler</span></button>
+        <button class="dock-tab active" id="dock-tab-animation" data-tooltip="Animation — keyframes of the selected AnimationPlayer"><span class="icon icon-sm icon-movie"></span><span class="label">Animation</span></button>
+        <div class="tools" id="an-tools"></div>
+    </div>
+    <div class="an-scroll">
+        <div class="an-main">
+            <div class="an-tracks" id="an-tracks"></div>
+            <div class="an-timeline"><img id="an-canvas"/></div>
+        </div>
+    </div>
+    <div class="an-keyrow" id="an-keyrow"></div>
+</body>
+</rml>

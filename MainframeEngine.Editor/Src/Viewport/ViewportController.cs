@@ -417,6 +417,14 @@ public sealed partial class ViewportController : Node
         _pressAt = _mouse; // the event's position in layout points
         if (scene.Camera.Is2D)
             return Press2D(scene, e);
+        // G13.6: while a Path3D is selected, the curve tool takes clicks on its points, handles and (per tool) the view.
+        if (!IsSimulating(scene) && _workspace.Curves.Press3D(scene.History, CurveView(scene), LocalPixel(_mouse), e.Button, _workspace.Modifiers))
+        {
+            _drag = _workspace.Curves.IsDragging ? DragKind.Curve : DragKind.None;
+            ShowCurveLabel();
+            return true;
+        }
+
         var alt = (_workspace.Modifiers & EditorModifiers.Alt) != 0;
         var shift = (_workspace.Modifiers & EditorModifiers.Shift) != 0;
         switch (e.Button)
@@ -449,7 +457,7 @@ public sealed partial class ViewportController : Node
             return false;
         var matches = scene.Camera.Is2D ? Release2DMatches(drag, e.Button) : drag switch
         {
-            DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box => e.Button == MouseButton.Left,
+            DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box or DragKind.Curve => e.Button == MouseButton.Left,
             DragKind.Orbit => e.Button is MouseButton.Left or MouseButton.Middle,
             DragKind.Pan => e.Button == MouseButton.Middle,
             DragKind.Fly => e.Button == MouseButton.Right,
@@ -461,7 +469,10 @@ public sealed partial class ViewportController : Node
         if (drag == DragKind.Paint)
             _workspace.TileMap.Release(scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels));
         else if (drag == DragKind.Curve)
+        {
             _workspace.Curves.Release(scene.History);
+            ShowCurveLabel();
+        }
         else if (drag == DragKind.Gizmo)
             EndAnyGizmo(scene, commit: true);
         else if (drag == DragKind.Handle)
@@ -501,8 +512,12 @@ public sealed partial class ViewportController : Node
             case DragKind.Paint:
                 _workspace.TileMap.Move(scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels));
                 return true;
-            case DragKind.Curve:
+            case DragKind.Curve when scene.Camera.Is2D:
                 _workspace.Curves.Move(scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels), CurvePixel(scene), _workspace.Modifiers);
+                return true;
+            case DragKind.Curve:
+                _workspace.Curves.Move3D(CurveView(scene), LocalPixel(_mouse), _workspace.Modifiers);
+                ShowCurveLabel();
                 return true;
             case DragKind.Gizmo when scene.Camera.Is2D:
                 UpdateGizmo2D(scene);
@@ -546,6 +561,12 @@ public sealed partial class ViewportController : Node
                         ? Gizmo2D.HitTest(scene.Camera, ViewPixels, pivot2D, axes2D, LocalPixel(_mouse))
                         : GizmoHandle.None;
                     return false;
+                }
+
+                if (_workspace.Curves.IsActive && ViewRect.Contains(_mouse.X, _mouse.Y))
+                {
+                    _workspace.Curves.Move3D(CurveView(scene), LocalPixel(_mouse), _workspace.Modifiers);
+                    ShowCurveLabel();
                 }
 
                 if (ViewRect.Contains(_mouse.X, _mouse.Y) && TryGetGizmoPose(scene, out var pivot, out var axes))
@@ -808,8 +829,25 @@ public sealed partial class ViewportController : Node
                     DrawJoint(overlay, joint);
             }
 
+        _workspace.Curves.Draw3D(overlay, CurveView(scene));
         DrawGizmo3D(scene, pixels, displayHeight);
         DrawHandles(scene, overlay, pixels);
+    }
+
+    /// <summary>The curve tool's view of a 3D tab (G13.6).</summary>
+    private CurveEditor.View3D CurveView(EditedScene scene) => new(scene.Camera, ViewPixels, ViewScale);
+
+    private bool _curveLabelShown;
+
+    // The tilt label next to the mouse while the curve tool hovers or drags a tilt handle.
+    private void ShowCurveLabel()
+    {
+        var text = _workspace.Curves.Label;
+        if (text is null && !_curveLabelShown)
+            return;
+        _curveLabelShown = text is not null;
+        var rect = ViewRect;
+        _workspace.ViewportPanel.SetHandleLabel(text, _mouse.X - rect.X + 14f, _mouse.Y - rect.Y + 10f);
     }
 
     // A path's baked curve (ADR 0215): depth-tested in its debug colour, on top in the selection colour when selected.

@@ -121,7 +121,8 @@ first in river order) gives the distance `r`, and interpolated half width `hw`, 
 
 So the ribbon (at `y`) always sits `ShoreLift` below its banks: the shoreline is a clean cut. Streams made in code put
 their points in the ground first: `FitToTerrain(0.3f)` sets every point to `HeightAt − 0.3 m` in one curve change (call
-it before carving; it samples the current ground).
+it before carving; it samples the current ground). It is `CurveTerrainFit.Fit`, which the editor's curve tool also uses
+for Fit to Ground ([Paths → Editor](paths.md#editor)).
 
 **Carve records.** The terrain data keeps, per `CarveId`, the original heights of the rectangle the carve wrote
 (`TerrainCarveRecord`). `Carve` with a record (and `Recarve`) first writes them back, then carves the current curve, so

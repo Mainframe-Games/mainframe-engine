@@ -392,11 +392,26 @@ public sealed class Curve3D : Resource
     /// <summary>The depth at <paramref name="offset"/> (extension; smoothstep between points).</summary>
     public float SampleBakedDepth(float offset) => SampleScalar(_bakedDepths, offset, 0f);
 
-    /// <summary>The arc offset of the baked curve point closest to <paramref name="toPoint"/> (projected on each baked segment).</summary>
+    /// <summary>
+    /// The arc offset of the baked curve point closest to <paramref name="toPoint"/> (projected on each baked segment).
+    /// Long curves search a grid of the baked segments, built once per bake; the result equals a full scan's.
+    /// </summary>
     public float GetClosestOffset(Vector3 toPoint)
     {
         EnsureBaked();
         _baker.Closest(toPoint, out var offset, out _);
+        return offset;
+    }
+
+    /// <summary>
+    /// As <see cref="GetClosestOffset(Vector3)"/>, searching only within <paramref name="window"/> metres of
+    /// <paramref name="hintOffset"/> (wrapping when <see cref="Closed"/>): for a point that moves a little each frame
+    /// near where it was (a patrol's walker, stream audio). Extension.
+    /// </summary>
+    public float GetClosestOffset(Vector3 toPoint, float hintOffset, float window)
+    {
+        EnsureBaked();
+        _baker.Closest(toPoint, hintOffset, window, out var offset, out _);
         return offset;
     }
 

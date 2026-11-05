@@ -15,6 +15,33 @@ public enum AnimationCallbackMode : byte
     Manual,
 }
 
+/// <summary>When an <see cref="AnimationPlayer"/> calls <see cref="MethodTrack"/> keys (Godot's <c>callback_mode_method</c>).</summary>
+public enum AnimationMethodCallMode : byte
+{
+    /// <summary>After all of the player's tracks are applied this update (in key order).</summary>
+    Deferred,
+
+    /// <summary>As playback passes the key, before this update's values are applied.</summary>
+    Immediate,
+}
+
+/// <summary>A crossfade time for one pair of animations (<see cref="AnimationPlayer.BlendTimes"/>; Godot's blend times).</summary>
+public sealed class AnimationBlendTime : Resource
+{
+    [Export]
+    public string From { get; set; } = "";
+
+    [Export]
+    public string To { get; set; } = "";
+
+    /// <summary>Seconds.</summary>
+    [Export(Range = "0,10,0.01")]
+    public float Seconds { get; set; }
+}
+
+/// <summary>An <see cref="AnimationPlayer"/>'s playback for a late-joining peer (<see cref="AnimationPlayer.GetSyncState"/>).</summary>
+public readonly record struct AnimationSyncState(string Animation, double Position, bool Playing);
+
 /// <summary>
 /// Plays <see cref="Animation"/>s from its <see cref="Libraries"/> on the nodes under <see cref="RootNode"/> (Godot's
 /// <c>AnimationPlayer</c>, ADR 0207): <see cref="Play"/>, <see cref="Queue"/>, <see cref="Stop"/>, <see cref="Seek"/>,
@@ -41,7 +68,8 @@ public enum AnimationCallbackMode : byte
 public class AnimationPlayer : Node
 {
     private const byte HasFrom = 1, HasTo = 2;
-    private const byte KindPosition = 0, KindRotation = 1, KindScale = 2;
+    private const byte KindPosition = 0, KindRotation = 1, KindScale = 2, KindValue = 3, KindBezier = 4;
+    private const int MaxValueComponents = 16;
 
     private AnimationCallbackMode _callbackMode = AnimationCallbackMode.Idle;
     private Dictionary<Animation, BoundAnimation>? _bound;
@@ -57,8 +85,11 @@ public class AnimationPlayer : Node
     private bool _playing;
     private string _assigned = "";
     private Queue<string>? _queue;
-    private (string Animation, string Event)[] _pending = [];
+    private Pending[] _pending = [];
     private int _pendingCount;
+    private ValueSlot[] _values = [];
+    private int _valueCount;
+    private readonly List<Node> _audioStarted = []; // audio players this player started (stopped by Stop)
 
     // Root motion (ADR 0210): the resolved skeleton and bone, their rest, and the last update's motion.
     private int _rootSettingsVersion = 1; // bumped when a setting changes; the resolution below is redone then
@@ -112,6 +143,14 @@ public class AnimationPlayer : Node
     /// <summary>The crossfade, in seconds, when <see cref="Play"/> switches animation without a custom blend.</summary>
     [Export(Range = "0,10,0.01")]
     public float PlaybackDefaultBlendTime { get; set; }
+
+    /// <summary>Crossfade times for pairs of animations (From → To), before <see cref="PlaybackDefaultBlendTime"/>.</summary>
+    [Export]
+    public List<AnimationBlendTime> BlendTimes { get; set; } = [];
+
+    /// <summary>When <see cref="MethodTrack"/> keys are called (G1.4).</summary>
+    [Export]
+    public AnimationMethodCallMode CallbackModeMethod { get; set; }
 
     /// <summary>Speed multiplier of every animation (negative plays backwards).</summary>
     [Export(Range = "-64,64,0.01")]
@@ -251,7 +290,7 @@ public class AnimationPlayer : Node
             return;
         }
 
-        var blend = customBlend >= 0 ? customBlend : PlaybackDefaultBlendTime;
+        var blend = customBlend >= 0 ? customBlend : BlendTimeFor(_current?.Bound?.Name, name);
         if (blend > 0 && _current?.Bound is not null)
         {
             // A Play during a crossfade blends from the current mix: the pose as it is now, held still.
@@ -263,6 +302,7 @@ public class AnimationPlayer : Node
             _blendTime = blend;
             _blendElapsed = 0;
             CaptureBases();
+            CaptureValueBases();
         }
         else
         {
@@ -275,6 +315,33 @@ public class AnimationPlayer : Node
         if (_from is null)
             Evaluate(); // the first frame already shows the pose (a crossfade starts from the old one)
         AnimationStarted?.Invoke(name);
+    }
+
+    // BlendTimes' entry for the pair, else the default.
+    private double BlendTimeFor(string? from, string to)
+    {
+        if (from is not null)
+            foreach (var entry in BlendTimes)
+                if (entry is not null && entry.From == from && entry.To == to)
+                    return entry.Seconds;
+        return PlaybackDefaultBlendTime;
+    }
+
+    /// <summary>
+    /// The assigned animation, its position and whether it plays: what a game sends a late-joining peer in its own spawn
+    /// data (the player itself is not replicated; peers start the same clips from replicated state).
+    /// </summary>
+    public AnimationSyncState GetSyncState() => new(_assigned, CurrentAnimationPosition, _playing);
+
+    /// <summary>Applies a <see cref="GetSyncState"/> from another peer: plays the animation at its position (no crossfade).</summary>
+    public void ApplySyncState(AnimationSyncState state)
+    {
+        if (string.IsNullOrEmpty(state.Animation) || FindAnimation(state.Animation) is null)
+            return;
+        Play(state.Animation, customBlend: 0);
+        Seek(state.Position, update: true);
+        if (!state.Playing)
+            Pause();
     }
 
     /// <summary>Plays <paramref name="name"/> backwards from its end.</summary>
@@ -293,6 +360,9 @@ public class AnimationPlayer : Node
         _from = null;
         _fromSnapshot = false;
         _queue?.Clear();
+        foreach (var audio in _audioStarted)
+            StopAudio(audio);
+        _audioStarted.Clear();
         if (_current is not { Bound: not null } current)
             return;
         current.Position = 0;
@@ -552,43 +622,65 @@ public class AnimationPlayer : Node
             AccumulateRootMotion(playback, from, to);
     }
 
-    // Queues the event keys between from and to (in play direction) for raising after the pose is applied.
+    // Queues the event, method and audio keys between from and to (in play direction): raised after the pose is applied
+    // (Immediate method keys are called now).
     private void Collect(BoundAnimation? bound, double from, double to, bool includeFrom, bool includeTo)
     {
-        if (bound is null || bound.Events.Length == 0 || (from == to && !includeFrom))
+        if (bound is null || (bound.Events.Length == 0 && bound.Methods.Length == 0 && bound.Audio.Length == 0) || (from == to && !includeFrom))
             return;
         var forward = to >= from;
         foreach (var track in bound.Events)
         {
             var times = track.Times;
-            var names = track.Names;
-            var count = Math.Min(times.Length, names.Length);
-            if (forward)
+            var count = Math.Min(times.Length, track.Names.Length);
+            for (var k = 0; k < count; k++)
             {
-                for (var i = 0; i < count; i++)
-                {
-                    var t = times[i];
-                    if ((includeFrom ? t >= from : t > from) && (includeTo ? t <= to : t < to))
-                        AddPending(bound.Name, names[i]);
-                }
+                var i = forward ? k : count - 1 - k;
+                if (Crosses(times[i], from, to, forward, includeFrom, includeTo))
+                    AddPending(new Pending { Animation = bound.Name, Event = track.Names[i] });
             }
-            else
+        }
+
+        for (var m = 0; m < bound.Methods.Length; m++)
+        {
+            var track = bound.Methods[m];
+            var times = track.Track.Times;
+            var count = Math.Min(times.Length, track.Infos.Length);
+            for (var k = 0; k < count; k++)
             {
-                for (var i = count - 1; i >= 0; i--)
-                {
-                    var t = times[i];
-                    if ((includeFrom ? t <= from : t < from) && (includeTo ? t >= to : t > to))
-                        AddPending(bound.Name, names[i]);
-                }
+                var i = forward ? k : count - 1 - k;
+                if (track.Infos[i] is not { } info || !Crosses(times[i], from, to, forward, includeFrom, includeTo))
+                    continue;
+                if (CallbackModeMethod == AnimationMethodCallMode.Immediate)
+                    Call(track.Target, info, track.Arguments[i]);
+                else
+                    AddPending(new Pending { Target = track.Target, Method = info, Arguments = track.Arguments[i] });
+            }
+        }
+
+        for (var a = 0; a < bound.Audio.Length; a++)
+        {
+            var track = bound.Audio[a];
+            var times = track.Track.Times;
+            var count = times.Length;
+            for (var k = 0; k < count; k++)
+            {
+                var i = forward ? k : count - 1 - k;
+                if (Crosses(times[i], from, to, forward, includeFrom, includeTo))
+                    AddPending(new Pending { Target = track.Target, AudioTrack = track.Track, AudioKey = i });
             }
         }
     }
 
-    private void AddPending(string animation, string name)
+    private static bool Crosses(double t, double from, double to, bool forward, bool includeFrom, bool includeTo) => forward
+        ? (includeFrom ? t >= from : t > from) && (includeTo ? t <= to : t < to)
+        : (includeFrom ? t <= from : t < from) && (includeTo ? t >= to : t > to);
+
+    private void AddPending(in Pending pending)
     {
         if (_pendingCount == _pending.Length)
             Array.Resize(ref _pending, Math.Max(8, _pending.Length * 2));
-        _pending[_pendingCount++] = (animation, name);
+        _pending[_pendingCount++] = pending;
     }
 
     private void RaisePendingEvents()
@@ -597,9 +689,66 @@ public class AnimationPlayer : Node
         _pendingCount = 0;
         for (var i = 0; i < count; i++)
         {
-            var (animation, name) = _pending[i];
+            var pending = _pending[i];
             _pending[i] = default;
-            AnimationEvent?.Invoke(animation, name);
+            if (pending.Method is { } method)
+                Call(pending.Target, method, pending.Arguments);
+            else if (pending.AudioTrack is { } audio)
+                PlayAudio(pending.Target, audio, pending.AudioKey);
+            else if (pending.Event is { } name)
+                AnimationEvent?.Invoke(pending.Animation!, name);
+        }
+    }
+
+    private static void Call(Node? target, Serialization.AnimationMethodInfo method, object?[]? arguments)
+    {
+        if (target is { IsFreed: false })
+            method.Invoke(target, arguments ?? []);
+    }
+
+    // An audio key: the target player takes the key's stream and plays from its start offset.
+    private void PlayAudio(Node? target, AudioTrack track, int key)
+    {
+        if (target is not { IsFreed: false } || key >= track.Streams.Length || track.Streams[key] is not { } stream)
+            return;
+        var offset = key < track.StartOffsets.Length ? track.StartOffsets[key] : 0f;
+        switch (target)
+        {
+            case AudioPlayer player:
+                player.Stream = stream;
+                player.Play(offset);
+                break;
+            case AudioPlayer2D player2D:
+                player2D.Stream = stream;
+                player2D.Play(offset);
+                break;
+            case AudioPlayer3D player3D:
+                player3D.Stream = stream;
+                player3D.Play(offset);
+                break;
+            default:
+                return;
+        }
+
+        if (!_audioStarted.Contains(target))
+            _audioStarted.Add(target);
+    }
+
+    private static void StopAudio(Node target)
+    {
+        if (target.IsFreed)
+            return;
+        switch (target)
+        {
+            case AudioPlayer player:
+                player.Stop();
+                break;
+            case AudioPlayer2D player2D:
+                player2D.Stop();
+                break;
+            case AudioPlayer3D player3D:
+                player3D.Stop();
+                break;
         }
     }
 
@@ -613,6 +762,9 @@ public class AnimationPlayer : Node
         var slots = _slots.AsSpan(0, _slotCount);
         for (var i = 0; i < slots.Length; i++)
             slots[i].Flags = 0;
+        var values = _values.AsSpan(0, _valueCount);
+        for (var i = 0; i < values.Length; i++)
+            values[i].Flags = 0;
 
         if (_fromSnapshot && _from is not null)
         {
@@ -624,6 +776,15 @@ public class AnimationPlayer : Node
                 slot.FromV = slot.SnapshotV;
                 slot.FromQ = slot.SnapshotQ;
                 slot.Flags |= HasFrom;
+            }
+
+            for (var i = 0; i < values.Length; i++)
+            {
+                ref var value = ref values[i];
+                if (!value.HasSnapshot)
+                    continue;
+                value.Snapshot.AsSpan(0, value.Components).CopyTo(value.From);
+                value.Flags |= HasFrom;
             }
         }
         else if (_from is { Bound: { } fromBound } from)
@@ -688,44 +849,109 @@ public class AnimationPlayer : Node
             }
         }
 
+        stale |= ApplyValues(values, weight);
         if (stale)
             InvalidateBindings(); // a target was freed: bind again on the next Play
+    }
+
+    // Mixes and writes the value slots (G1.2): floats lerp, discrete values switch at half the blend.
+    private bool ApplyValues(Span<ValueSlot> values, float weight)
+    {
+        var stale = false;
+        Span<float> mixed = stackalloc float[MaxValueComponents];
+        for (var i = 0; i < values.Length; i++)
+        {
+            ref var value = ref values[i];
+            if (value.Flags == 0 || (_from is null && (value.Flags & HasTo) == 0))
+                continue;
+            if (value.Binding.Owner is Node { IsFreed: true })
+            {
+                stale = true;
+                continue;
+            }
+
+            var n = value.Components;
+            var hasTo = (value.Flags & HasTo) != 0;
+            var hasFrom = (value.Flags & HasFrom) != 0;
+            var from = value.From;
+            var target = hasTo ? value.To : value.Base; // only the outgoing animation animates it: blend toward its base
+            if (hasTo && !hasFrom)
+            {
+                value.To.AsSpan(0, n).CopyTo(mixed);
+            }
+            else if (value.Binding.Discrete)
+            {
+                (weight < 0.5f ? from : target).AsSpan(0, n).CopyTo(mixed);
+            }
+            else
+            {
+                for (var c = 0; c < n; c++)
+                    mixed[c] = from[c] + (target[c] - from[c]) * weight;
+            }
+
+            value.Binding.Write(mixed[..n]);
+        }
+
+        return stale;
     }
 
     private void Sample(BoundAnimation bound, double time, bool to)
     {
         var tracks = bound.Tracks;
         var flag = to ? HasTo : HasFrom;
+        var length = bound.Animation.Length;
+        var loop = bound.Animation.LoopMode != AnimationLoopMode.None;
         for (var i = 0; i < tracks.Length; i++)
         {
             ref var track = ref tracks[i];
             if (!track.Track.Enabled)
                 continue;
+            if (track.Kind >= KindValue)
+            {
+                ref var value = ref _values[track.Slot];
+                var into = (to ? value.To : value.From).AsSpan(0, value.Components);
+                var written = track.Track switch
+                {
+                    ValueTrack v => v.Sample(time, ref track.Cursor, length, loop, value.Binding.Discrete, into),
+                    BezierTrack b => WriteOne(into, b.Sample(time, ref track.Cursor)),
+                    _ => false,
+                };
+                if (written)
+                    value.Flags |= flag;
+                continue;
+            }
+
             ref var slot = ref _slots[track.Slot];
             switch (track.Track)
             {
                 case Position3DTrack position:
                     if (to)
-                        slot.ToV = position.Sample(time, ref track.Cursor);
+                        slot.ToV = position.Sample(time, ref track.Cursor, length, loop);
                     else
-                        slot.FromV = position.Sample(time, ref track.Cursor);
+                        slot.FromV = position.Sample(time, ref track.Cursor, length, loop);
                     break;
                 case Rotation3DTrack rotation:
                     if (to)
-                        slot.ToQ = rotation.Sample(time, ref track.Cursor);
+                        slot.ToQ = rotation.Sample(time, ref track.Cursor, length, loop);
                     else
-                        slot.FromQ = rotation.Sample(time, ref track.Cursor);
+                        slot.FromQ = rotation.Sample(time, ref track.Cursor, length, loop);
                     break;
                 case Scale3DTrack scale:
                     if (to)
-                        slot.ToV = scale.Sample(time, ref track.Cursor);
+                        slot.ToV = scale.Sample(time, ref track.Cursor, length, loop);
                     else
-                        slot.FromV = scale.Sample(time, ref track.Cursor);
+                        slot.FromV = scale.Sample(time, ref track.Cursor, length, loop);
                     break;
             }
 
             slot.Flags |= flag;
         }
+    }
+
+    private static bool WriteOne(Span<float> into, float value)
+    {
+        into[0] = value;
+        return true;
     }
 
     // The values channels blend toward when only the outgoing animation animates them: a bone's rest, a node's current value.
@@ -753,9 +979,28 @@ public class AnimationPlayer : Node
         }
     }
 
+    // The value slots' bases: what each property holds when a crossfade starts.
+    private void CaptureValueBases()
+    {
+        for (var i = 0; i < _valueCount; i++)
+        {
+            ref var value = ref _values[i];
+            if (value.Binding.Owner is not Node { IsFreed: true })
+                value.Binding.Read(value.Base);
+        }
+    }
+
     // The pose every channel shows now (read back from the targets), the outgoing side of a crossfade started during one.
     private void CaptureSnapshot()
     {
+        for (var i = 0; i < _valueCount; i++)
+        {
+            ref var value = ref _values[i];
+            value.HasSnapshot = value.Binding.Owner is not Node { IsFreed: true };
+            if (value.HasSnapshot)
+                value.Binding.Read(value.Snapshot);
+        }
+
         for (var i = 0; i < _slotCount; i++)
         {
             ref var slot = ref _slots[i];
@@ -1000,12 +1245,43 @@ public class AnimationPlayer : Node
         var root = RootNode.IsEmpty ? this : GetNodeOrNull(RootNode);
         var tracks = new List<BoundTrack>(animation.Tracks.Count);
         var events = new List<EventTrack>();
+        var methods = new List<BoundMethodTrack>();
+        var audio = new List<BoundAudioTrack>();
         var missing = 0;
         foreach (var track in animation.Tracks)
         {
+            if (track is null)
+                continue;
             if (track is EventTrack eventTrack)
             {
                 events.Add(eventTrack);
+                continue;
+            }
+
+            if (track is ValueTrack or BezierTrack)
+            {
+                if (BindValue(root, track, name) is { } valueSlot)
+                    tracks.Add(new BoundTrack { Track = track, Slot = valueSlot, Cursor = -1, Kind = track is ValueTrack ? KindValue : KindBezier });
+                else
+                    missing++;
+                continue;
+            }
+
+            if (track is MethodTrack methodTrack)
+            {
+                if (BindMethods(root, methodTrack, name) is { } bound2)
+                    methods.Add(bound2);
+                else
+                    missing++;
+                continue;
+            }
+
+            if (track is AudioTrack audioTrack)
+            {
+                if (root?.GetNodeOrNull(track.Path) is AudioPlayer or AudioPlayer2D or AudioPlayer3D)
+                    audio.Add(new BoundAudioTrack { Track = audioTrack, Target = root.GetNodeOrNull(track.Path) });
+                else
+                    missing++;
                 continue;
             }
 
@@ -1035,7 +1311,80 @@ public class AnimationPlayer : Node
             Log.Warning($"[AnimationPlayer] '{Name}': {missing} track(s) of '{name}' have no target under '{RootNode}'; they are skipped.");
         bound.Tracks = [.. tracks];
         bound.Events = [.. events];
+        bound.Methods = [.. methods];
+        bound.Audio = [.. audio];
         return bound;
+    }
+
+    // A value or bezier track's property binding, shared by every animation that animates the same property; -1 when the
+    // node or property is missing or cannot be animated (reported once per bind).
+    private int? BindValue(Node? root, AnimationTrack track, string animation)
+    {
+        var property = track is ValueTrack v ? v.Property : ((BezierTrack)track).Property;
+        if (root?.GetNodeOrNull(track.Path) is not { } target)
+            return null;
+        for (var i = 0; i < _valueCount; i++)
+            if (ReferenceEquals(_values[i].Binding.Owner, target) && _values[i].Property == property)
+                return i;
+        var binding = PropertyBinding.Create(target, property, out var problem);
+        if (binding is null || binding.Components > MaxValueComponents || (track is BezierTrack && binding.Components != 1))
+        {
+            Log.Warning($"[AnimationPlayer] '{Name}': track '{track.Path}:{property}' of '{animation}' is skipped: {problem ?? "a bezier track animates one float"}.");
+            return null;
+        }
+
+        if (track is ValueTrack value && value.Components != binding.Components)
+        {
+            Log.Warning($"[AnimationPlayer] '{Name}': track '{track.Path}:{property}' of '{animation}' has {value.Components} float(s) per key, the property {binding.Components}; it is skipped.");
+            return null;
+        }
+
+        if (_valueCount == _values.Length)
+            Array.Resize(ref _values, Math.Max(8, _values.Length * 2));
+        var n = binding.Components;
+        _values[_valueCount] = new ValueSlot
+        {
+            Binding = binding,
+            Property = property,
+            Components = n,
+            From = new float[n],
+            To = new float[n],
+            Base = new float[n],
+            Snapshot = new float[n],
+        };
+        return _valueCount++;
+    }
+
+    // A method track's keys resolved to the target's [AnimationMethod]s, with their arguments parsed once.
+    private BoundMethodTrack? BindMethods(Node? root, MethodTrack track, string animation)
+    {
+        if (root?.GetNodeOrNull(track.Path) is not { } target)
+            return null;
+        var type = Serialization.TypeRegistry.GetNearest(target.GetType());
+        var count = track.Times.Length;
+        var infos = new Serialization.AnimationMethodInfo?[count];
+        var arguments = new object?[]?[count];
+        for (var i = 0; i < count; i++)
+        {
+            var method = i < track.Methods.Length ? track.Methods[i] : "";
+            if (type?.FindAnimationMethod(method) is not { } info)
+            {
+                Log.Warning($"[AnimationPlayer] '{Name}': '{animation}' calls '{method}' on '{track.Path}', which has no [AnimationMethod] of that name; the key is skipped.");
+                continue;
+            }
+
+            try
+            {
+                arguments[i] = info.ParseArguments(i < track.Arguments.Length ? track.Arguments[i] : "[]");
+                infos[i] = info;
+            }
+            catch (Exception e) when (e is FormatException or System.Text.Json.JsonException)
+            {
+                Log.Warning($"[AnimationPlayer] '{Name}': '{animation}' key {i} of '{track.Path}': {e.Message}; the key is skipped.");
+            }
+        }
+
+        return new BoundMethodTrack { Track = track, Target = target, Infos = infos, Arguments = arguments };
     }
 
     private int SlotFor(Node3D target, int bone, byte kind)
@@ -1074,6 +1423,8 @@ public class AnimationPlayer : Node
         public int Version = -1;
         public BoundTrack[] Tracks = [];
         public EventTrack[] Events = [];
+        public BoundMethodTrack[] Methods = [];
+        public BoundAudioTrack[] Audio = [];
 
         // Root motion (ADR 0210): the root bone's tracks, their own cursors, and the clip's whole turn.
         public int RootGeneration = -1;
@@ -1087,8 +1438,46 @@ public class AnimationPlayer : Node
     private struct BoundTrack
     {
         public AnimationTrack Track;
-        public int Slot;
+        public int Slot;   // into _slots, or _values for value and bezier tracks
         public int Cursor;
+        public byte Kind;
+    }
+
+    private sealed class BoundMethodTrack
+    {
+        public MethodTrack Track = null!;
+        public Node Target = null!;
+        public Serialization.AnimationMethodInfo?[] Infos = [];
+        public object?[]?[] Arguments = [];
+    }
+
+    private struct BoundAudioTrack
+    {
+        public AudioTrack Track;
+        public Node? Target;
+    }
+
+    // An event, method call or audio key passed this update, raised after the pose is applied.
+    private struct Pending
+    {
+        public string? Animation;
+        public string? Event;
+        public Node? Target;
+        public Serialization.AnimationMethodInfo? Method;
+        public object?[]? Arguments;
+        public AudioTrack? AudioTrack;
+        public int AudioKey;
+    }
+
+    // One animated property (G1.2), shared by every animation that animates it: its binding and float buffers.
+    private struct ValueSlot
+    {
+        public PropertyBinding Binding;
+        public string Property;
+        public int Components;
+        public byte Flags;
+        public float[] From, To, Base, Snapshot;
+        public bool HasSnapshot;
     }
 
     // One animated channel (a node's or a bone's position, rotation or scale) shared by every animation that animates it.

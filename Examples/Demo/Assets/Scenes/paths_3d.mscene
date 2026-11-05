@@ -1,0 +1,842 @@
+{
+  "format": 2,
+  "uid": "scn_ec38d6f0e4df",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "BoxShape3D_4qo38": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [36, 1, 28]
+      }
+    },
+    "StandardMaterial3D_36o92": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.30588236, 0.3529412, 0.4392157, 1]
+      }
+    },
+    "BoxMesh_rnpn6": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [36, 1, 28]
+      }
+    },
+    "Curve3D_vtffm": {
+      "type": "Curve3D",
+      "props": {
+        "UpVectorEnabled": true,
+        "Points": [
+          -8,
+          0.25,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          -8,
+          4.75,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    "BoxShape3D_lr9b6": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [3, 0.5, 3]
+      }
+    },
+    "StandardMaterial3D_xeuhg": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1]
+      }
+    },
+    "BoxMesh_81cag": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [3, 0.5, 3]
+      }
+    },
+    "BoxShape3D_ts305": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [5, 5, 5]
+      }
+    },
+    "StandardMaterial3D_l65tn": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_h3k6v": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [5, 5, 5]
+      }
+    },
+    "BoxShape3D_dh5e8": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [3, 2, 3]
+      }
+    },
+    "StandardMaterial3D_1ptm2": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_ta6su": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [3, 2, 3]
+      }
+    },
+    "BoxShape3D_1shwq": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [3, 2, 3]
+      }
+    },
+    "StandardMaterial3D_qsw7g": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+      }
+    },
+    "BoxMesh_ymkxs": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [3, 2, 3]
+      }
+    },
+    "Curve3D_ujebp": {
+      "type": "Curve3D",
+      "props": {
+        "UpVectorEnabled": true,
+        "Points": [
+          -1,
+          1.75,
+          7,
+          -0.6666667,
+          -0.16666667,
+          -0.33333334,
+          0.6666667,
+          0.16666667,
+          0.33333334,
+          0,
+          1,
+          0,
+          3,
+          2.75,
+          9,
+          -1.3333334,
+          -0,
+          -0,
+          1.3333334,
+          0,
+          0,
+          0,
+          1,
+          0,
+          7,
+          1.75,
+          7,
+          -0.6666667,
+          0.16666667,
+          0.33333334,
+          0.6666667,
+          -0.16666667,
+          -0.33333334,
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    "BoxShape3D_0mhvy": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [2.5, 0.5, 2.5]
+      }
+    },
+    "StandardMaterial3D_g3vhk": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1]
+      }
+    },
+    "BoxMesh_as3s4": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [2.5, 0.5, 2.5]
+      }
+    },
+    "CylinderShape3D_rhi7j": {
+      "type": "CylinderShape3D",
+      "props": {
+        "Radius": 3,
+        "Height": 0.4
+      }
+    },
+    "StandardMaterial3D_3uyf9": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1]
+      }
+    },
+    "CylinderMesh_73ngp": {
+      "type": "CylinderMesh",
+      "props": {
+        "TopRadius": 3,
+        "BottomRadius": 3,
+        "Height": 0.4
+      }
+    },
+    "StandardMaterial3D_xb261": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.11764706, 0.16078432, 0.23137255, 1]
+      }
+    },
+    "BoxMesh_kvb5x": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [3, 0.02, 0.3]
+      }
+    },
+    "Curve3D_5cxon": {
+      "type": "Curve3D",
+      "props": {
+        "Closed": true,
+        "UpVectorEnabled": true,
+        "Points": [
+          -6,
+          0,
+          -11,
+          -1.6666667,
+          -0,
+          0.8333334,
+          1.6666667,
+          0,
+          -0.8333334,
+          0,
+          1,
+          0,
+          2,
+          0,
+          -12,
+          -1.6666667,
+          -0,
+          -0.5,
+          1.6666667,
+          0,
+          0.5,
+          0,
+          1,
+          0,
+          4,
+          0,
+          -8,
+          0.6666667,
+          -0,
+          -1,
+          -0.6666667,
+          0,
+          1,
+          0,
+          1,
+          0,
+          -2,
+          0,
+          -6,
+          2,
+          -0,
+          -0.16666667,
+          -2,
+          0,
+          0.16666667,
+          0,
+          1,
+          0,
+          -8,
+          0,
+          -7,
+          0.6666667,
+          -0,
+          0.8333334,
+          -0.6666667,
+          0,
+          -0.8333334,
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    "CapsuleShape3D_j6qzz": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.4,
+        "Height": 1.8
+      }
+    },
+    "StandardMaterial3D_1z891": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.43137255, 0.8627451, 0.5882353, 1]
+      }
+    },
+    "CapsuleMesh_nu5op": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.4,
+        "Height": 1.8
+      }
+    },
+    "StandardMaterial3D_2cpvl": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.11764706, 0.16078432, 0.23137255, 1]
+      }
+    },
+    "BoxMesh_m01ct": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.5, 0.15, 0.15]
+      }
+    },
+    "Curve3D_7dryw": {
+      "type": "Curve3D",
+      "props": {
+        "Closed": true,
+        "UpVectorEnabled": true,
+        "Points": [
+          20,
+          9,
+          0,
+          7.9472863E-07,
+          -1,
+          -3.7712355,
+          -7.9472863E-07,
+          1,
+          3.7712355,
+          0,
+          1,
+          0,
+          14.142136,
+          12,
+          11.313708,
+          3.3333335,
+          -0,
+          -2.6666667,
+          -3.3333335,
+          0,
+          2.6666667,
+          0,
+          1,
+          0,
+          -8.742278E-07,
+          9,
+          16,
+          4.7140455,
+          1,
+          -0,
+          -4.7140455,
+          -1,
+          0,
+          0,
+          1,
+          0,
+          -14.142136,
+          6,
+          11.313708,
+          3.3333335,
+          -1.5894572E-07,
+          2.666667,
+          -3.3333335,
+          1.5894572E-07,
+          -2.666667,
+          0,
+          1,
+          0,
+          -20,
+          9.000001,
+          -1.3987644E-06,
+          -4.7683716E-07,
+          -1,
+          3.7712364,
+          4.7683716E-07,
+          1,
+          -3.7712364,
+          0,
+          1,
+          0,
+          -14.142133,
+          12,
+          -11.31371,
+          -3.3333335,
+          1.5894572E-07,
+          2.6666665,
+          3.3333335,
+          -1.5894572E-07,
+          -2.6666665,
+          0,
+          1,
+          0,
+          2.3849762E-07,
+          9,
+          -16,
+          -4.7140455,
+          1,
+          -9.536743E-07,
+          4.7140455,
+          -1,
+          9.536743E-07,
+          0,
+          1,
+          0,
+          14.14214,
+          6,
+          -11.3137045,
+          -3.3333335,
+          -0,
+          -2.6666667,
+          3.3333335,
+          0,
+          2.6666667,
+          0,
+          1,
+          0
+        ]
+      }
+    },
+    "CapsuleShape3D_ruhiu": {
+      "type": "CapsuleShape3D",
+      "props": {
+        "Radius": 0.35,
+        "Height": 1.6
+      }
+    },
+    "StandardMaterial3D_8djb4": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1]
+      }
+    },
+    "CapsuleMesh_6bwlo": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.35,
+        "Height": 1.6
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "paths_3d",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [-6, 11, 19],
+        "RotationDegrees": [-32, -12, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-55, -30, 0],
+        "Energy": 1.2
+      }
+    },
+    {
+      "name": "Floor",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [0, -0.5, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Floor",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_4qo38" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Floor",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_36o92" },
+        "Mesh": { "res": "BoxMesh_rnpn6" }
+      }
+    },
+    {
+      "name": "LiftPath",
+      "parent": ".",
+      "type": "Path3D",
+      "props": {
+        "Curve": { "res": "Curve3D_vtffm" }
+      }
+    },
+    {
+      "name": "Markers",
+      "parent": "LiftPath",
+      "type": "PathMarkers3D",
+      "props": {
+        "Spacing": 0.5
+      }
+    },
+    {
+      "name": "Follow",
+      "parent": "LiftPath",
+      "type": "PathFollow3D",
+      "props": {
+        "RotationMode": "None",
+        "Loop": false,
+        "Speed": 1.6,
+        "PingPong": true,
+        "ProcessCallback": "Physics"
+      }
+    },
+    {
+      "name": "Lift",
+      "parent": "LiftPath/Follow",
+      "type": "AnimatableBody3D"
+    },
+    {
+      "name": "Shape",
+      "parent": "LiftPath/Follow/Lift",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_lr9b6" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "LiftPath/Follow/Lift",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_xeuhg" },
+        "Mesh": { "res": "BoxMesh_81cag" }
+      }
+    },
+    {
+      "name": "Landing",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-12, 2.25, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Landing",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_ts305" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Landing",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_l65tn" },
+        "Mesh": { "res": "BoxMesh_h3k6v" }
+      }
+    },
+    {
+      "name": "PadWest",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-4, 1, 7]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "PadWest",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_dh5e8" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "PadWest",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_1ptm2" },
+        "Mesh": { "res": "BoxMesh_ta6su" }
+      }
+    },
+    {
+      "name": "PadEast",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [10, 1, 7]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "PadEast",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_1shwq" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "PadEast",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_qsw7g" },
+        "Mesh": { "res": "BoxMesh_ymkxs" }
+      }
+    },
+    {
+      "name": "FerryPath",
+      "parent": ".",
+      "type": "Path3D",
+      "props": {
+        "Curve": { "res": "Curve3D_ujebp" }
+      }
+    },
+    {
+      "name": "Markers",
+      "parent": "FerryPath",
+      "type": "PathMarkers3D"
+    },
+    {
+      "name": "Follow",
+      "parent": "FerryPath",
+      "type": "PathFollow3D",
+      "props": {
+        "RotationMode": "Y",
+        "Loop": false,
+        "Speed": 2.2,
+        "PingPong": true,
+        "ProcessCallback": "Physics"
+      }
+    },
+    {
+      "name": "Ferry",
+      "parent": "FerryPath/Follow",
+      "type": "AnimatableBody3D"
+    },
+    {
+      "name": "Shape",
+      "parent": "FerryPath/Follow/Ferry",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_0mhvy" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "FerryPath/Follow/Ferry",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_g3vhk" },
+        "Mesh": { "res": "BoxMesh_as3s4" }
+      }
+    },
+    {
+      "name": "Turntable",
+      "parent": ".",
+      "type": "Turntable3D",
+      "props": {
+        "Position": [8, 0.2, -3]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Turntable",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CylinderShape3D_rhi7j" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Turntable",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_3uyf9" },
+        "Mesh": { "res": "CylinderMesh_73ngp" }
+      }
+    },
+    {
+      "name": "Stripe",
+      "parent": "Turntable",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [1.5, 0.21, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_xb261" },
+        "Mesh": { "res": "BoxMesh_kvb5x" }
+      }
+    },
+    {
+      "name": "Route",
+      "parent": ".",
+      "type": "Path3D",
+      "props": {
+        "Curve": { "res": "Curve3D_5cxon" }
+      }
+    },
+    {
+      "name": "Markers",
+      "parent": "Route",
+      "type": "PathMarkers3D",
+      "props": {
+        "Color": [0.43137255, 0.8627451, 0.5882353, 1]
+      }
+    },
+    {
+      "name": "Carrot",
+      "parent": "Route",
+      "type": "PathFollow3D",
+      "props": {
+        "RotationMode": "None"
+      }
+    },
+    {
+      "name": "Guard",
+      "parent": ".",
+      "type": "PathGuard3D",
+      "props": {
+        "Position": [-1, 1, -9],
+        "Route": "../Route"
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Guard",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_j6qzz" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Guard",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_1z891" },
+        "Mesh": { "res": "CapsuleMesh_nu5op" }
+      }
+    },
+    {
+      "name": "Visor",
+      "parent": "Guard",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0, 0.45, -0.35],
+        "MaterialOverride": { "res": "StandardMaterial3D_2cpvl" },
+        "Mesh": { "res": "BoxMesh_m01ct" }
+      }
+    },
+    {
+      "name": "Rail",
+      "parent": ".",
+      "type": "Path3D",
+      "props": {
+        "Curve": { "res": "Curve3D_7dryw" }
+      }
+    },
+    {
+      "name": "Follow",
+      "parent": "Rail",
+      "type": "PathFollow3D",
+      "props": {
+        "RotationMode": "None",
+        "Speed": 4
+      }
+    },
+    {
+      "name": "Camera",
+      "parent": "Rail/Follow",
+      "type": "RailCamera3D",
+      "props": {
+        "Fov": 60,
+        "Target": [0, 1, 0]
+      }
+    },
+    {
+      "name": "Rider",
+      "parent": ".",
+      "type": "PathRider3D",
+      "props": {
+        "Position": [-8, 1.4, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Rider",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "CapsuleShape3D_ruhiu" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Rider",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_8djb4" },
+        "Mesh": { "res": "CapsuleMesh_6bwlo" }
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "Paths3DPanel"
+    }
+  ]
+}

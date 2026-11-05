@@ -181,6 +181,148 @@
         "Radius": 0.3,
         "Height": 1.8
       }
+    },
+    "BoxShape3D_m5qt5": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1, 0.15, 1]
+      }
+    },
+    "StandardMaterial3D_z26nb": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1]
+      }
+    },
+    "BoxMesh_z42bv": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1, 0.15, 1]
+      }
+    },
+    "StandardMaterial3D_qi71g": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.47058824, 0.32941177, 0.21568628, 1]
+      }
+    },
+    "BoxMesh_5s37s": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.8, 1.8, 0.06]
+      }
+    },
+    "StandardMaterial3D_vpr0k": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.9372549, 0.26666668, 0.26666668, 1],
+        "EmissionColor": [0.9372549, 0.26666668, 0.26666668, 1],
+        "EmissionEnergy": 2
+      }
+    },
+    "SphereMesh_nxr3c": {
+      "type": "SphereMesh",
+      "props": {
+        "Radius": 0.05,
+        "Height": 0.1
+      }
+    },
+    "AnimationLibrary_vqq10": {
+      "type": "AnimationLibrary",
+      "props": {
+        "Animations": [
+          { "res": "Animation_v1f7r" }
+        ]
+      }
+    },
+    "Animation_v1f7r": {
+      "type": "Animation",
+      "props": {
+        "ResourceName": "workshop",
+        "Length": 6,
+        "LoopMode": "Linear",
+        "Tracks": [
+          { "res": "Position3DTrack_ib7j4" },
+          { "res": "Rotation3DTrack_ib7j4" },
+          { "res": "MethodTrack_ib7j4" },
+          { "res": "ValueTrack_ib7j4" },
+          { "res": "AudioTrack_ib7j4" }
+        ]
+      }
+    },
+    "Position3DTrack_ib7j4": {
+      "type": "Position3DTrack",
+      "props": {
+        "Path": "Lift",
+        "Times": [0, 0.5, 2.5, 3.5, 5.5],
+        "Transitions": [1, -2, 1, -2, 1],
+        "Values": [
+          [0, 0, 0],
+          [0, 0, 0],
+          [0, 1.4, 0],
+          [0, 1.4, 0],
+          [0, 0, 0]
+        ]
+      }
+    },
+    "Rotation3DTrack_ib7j4": {
+      "type": "Rotation3DTrack",
+      "props": {
+        "Path": "Hinge",
+        "Times": [0, 1.5, 2.3, 4.2, 5],
+        "Interpolation": "Cubic",
+        "LoopWrap": false,
+        "Values": [
+          [0, 0, 0, 1],
+          [0, 0, 0, 1],
+          [-0, -0.7173561, -0, 0.6967067],
+          [-0, -0.7173561, -0, 0.6967067],
+          [0, 0, 0, 1]
+        ]
+      }
+    },
+    "MethodTrack_ib7j4": {
+      "type": "MethodTrack",
+      "props": {
+        "Path": "Latch",
+        "Times": [1.4, 5.1],
+        "Methods": ["Unlock", "Lock"],
+        "Arguments": ["[]", "[]"]
+      }
+    },
+    "ValueTrack_ib7j4": {
+      "type": "ValueTrack",
+      "props": {
+        "Path": "Lamp",
+        "Times": [0, 0.4, 0.55, 0.7, 2, 3.1, 3.2, 3.35, 4.5],
+        "Interpolation": "Cubic",
+        "Property": "Energy",
+        "Values": [1.5, 1.4, 0.3, 1.6, 1.5, 1.45, 0.4, 1.5, 1.5]
+      }
+    },
+    "AudioTrack_ib7j4": {
+      "type": "AudioTrack",
+      "props": {
+        "Path": "Chime",
+        "Times": [2.3],
+        "Streams": [
+          { "res": "ZzfxStream_rjv46" }
+        ],
+        "StartOffsets": [0]
+      }
+    },
+    "ZzfxStream_rjv46": {
+      "type": "ZzfxStream",
+      "props": {
+        "ResourceName": "Chime",
+        "Frequency": 1646,
+        "Shape": "Triangle",
+        "Attack": 0.0132,
+        "Sustain": 0.0268,
+        "ReleaseTime": 0.142,
+        "PitchJump": 422,
+        "PitchJumpTime": 0.0338
+      }
     }
   },
   "nodes": [
@@ -715,6 +857,113 @@
           "RootMotionTrack": "Armature",
           "RootMotionBone": "Hips"
         }
+      }
+    },
+    {
+      "name": "Workshop",
+      "parent": ".",
+      "type": "Node3D",
+      "props": {
+        "Position": [-1.9, 0, -3.2]
+      }
+    },
+    {
+      "name": "Lift",
+      "parent": "Workshop",
+      "type": "AnimatableBody3D"
+    },
+    {
+      "name": "Shape",
+      "parent": "Workshop/Lift",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_m5qt5" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Workshop/Lift",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_z26nb" },
+        "Mesh": { "res": "BoxMesh_z42bv" }
+      }
+    },
+    {
+      "name": "Hinge",
+      "parent": "Workshop",
+      "type": "Node3D",
+      "props": {
+        "Position": [0.9, 0, 0.6]
+      }
+    },
+    {
+      "name": "Door",
+      "parent": "Workshop/Hinge",
+      "type": "MeshInstance3D",
+      "props": {
+        "Position": [0.4, 0.9, 0],
+        "MaterialOverride": { "res": "StandardMaterial3D_qi71g" },
+        "Mesh": { "res": "BoxMesh_5s37s" }
+      }
+    },
+    {
+      "name": "Latch",
+      "parent": "Workshop",
+      "type": "DoorLatch",
+      "props": {
+        "Position": [1.7, 1.1, 0.62]
+      }
+    },
+    {
+      "name": "Indicator",
+      "parent": "Workshop/Latch",
+      "type": "OmniLight3D",
+      "props": {
+        "Position": [0, 0.05, 0.1],
+        "Color": [0.9372549, 0.26666668, 0.26666668],
+        "Energy": 1.2,
+        "Range": 1.5
+      }
+    },
+    {
+      "name": "Bulb",
+      "parent": "Workshop/Latch",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_vpr0k" },
+        "Mesh": { "res": "SphereMesh_nxr3c" }
+      }
+    },
+    {
+      "name": "Lamp",
+      "parent": "Workshop",
+      "type": "OmniLight3D",
+      "props": {
+        "Position": [0.5, 2.2, 0.2],
+        "Color": [1, 0.85, 0.6],
+        "Energy": 1.5,
+        "Range": 4
+      }
+    },
+    {
+      "name": "Chime",
+      "parent": "Workshop",
+      "type": "AudioPlayer3D",
+      "props": {
+        "Position": [0.5, 1.5, 0]
+      }
+    },
+    {
+      "name": "WorkshopPlayer",
+      "parent": "Workshop",
+      "type": "AnimationPlayer",
+      "props": {
+        "Libraries": [
+          { "res": "AnimationLibrary_vqq10" }
+        ],
+        "Autoplay": "workshop",
+        "CallbackModeProcess": "Physics"
       }
     },
     {

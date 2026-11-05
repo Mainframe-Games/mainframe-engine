@@ -1,7 +1,7 @@
 # Current state — mainframe-engine
 
 _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work and much of the gameplay toolkit on
-`main`; latest release v1.1.5. In review: `feature/paths-2d` (2D paths and the 2D curve tool, G13.2/G13.4/G13.7, ADR 0242)._
+`main`; latest release v1.1.5. In review: `feature/paths-and-keyframe-animation` (G13 complete, ADR 0243; G1a keyframe animation complete, ADR 0244)._
 
 ## What exists
 
@@ -27,7 +27,7 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
   skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205), written since G18 as Slang surface shaders (`.slang`, `import mainframe.spatial;`, ADR 0237; Godot-syntax `.mfshader`/`.gdshader` no longer load); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
   (terrain, trees, water, baked GI; ADR 0209); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
-  (ADR 0215; 2D paths and the editor's 2D curve tool, ADR 0242), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e),
+  (ADR 0215; 2D paths and the curve tool, ADR 0242; moving platforms and the 3D curve tool, ADR 0243: G13 complete), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e), keyframe tracks for any property, method and audio keys and the editor's Animation panel (G1a, ADR 0244),
   editor viewport tools (G7), joints and ragdolls (G9, #136; G9.7 limit handles, #148; G9.10a `MotorJoint2D`; G9.10b `Generic6DofJoint3D` on the engine's own
   Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
@@ -88,11 +88,11 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most of the 2D port work 
 ## Next steps
 
 1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 2 `.mfpak` packs, then encryption, AOT.
-2. Gameplay toolkit (`docs/milestones.md`): G13's rest (G13.5 platforms, G13.6 3D curve tool); G20.3 video; G1c
+2. Gameplay toolkit (`docs/milestones.md`): G6 (LOD, decals, `.hdr` panoramas, PBR default); G8a–e rest (terrain
+   dock and Faceted look, tree inspector, river tool, forest goldens and frame budget); G20.3 video; G1c
    animation authoring (would let active ragdolls follow any clip); G12 (proposal awaits owner review); G11, G14, G16,
    G17; G3b (avoidance first).
-3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (the Forest cabin work added
-   ≈ 1.6 ms p50 on a loaded machine).
+3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (Forest cabin: ≈ +1.6 ms p50).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
 5. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
    mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.

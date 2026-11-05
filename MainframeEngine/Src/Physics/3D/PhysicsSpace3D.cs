@@ -37,6 +37,12 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public Quaternion PreviousRotation = Quaternion.Identity, CurrentRotation = Quaternion.Identity, TargetRotation = Quaternion.Identity;
     public Vector3 KinematicVelocity, KinematicAngularVelocity;
 
+    /// <summary>A kinematic body's velocities in its last step (what reached a node-set target, or its own velocity), G13.5.</summary>
+    public Vector3 StepVelocity, StepAngularVelocity;
+
+    /// <summary>The last step moved this kinematic body to a target its node set (not by its own velocity).</summary>
+    public bool MovedByTarget;
+
     /// <summary>Touching bodies (contact monitor) or overlapping bodies (area), with the step they were last seen.</summary>
     public Dictionary<BodyRecord3D, long>? Overlaps;
 
@@ -62,7 +68,7 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public Vector3 GetLinearVelocity() => Kind switch
     {
         PhysicsBodyKind.Dynamic => Body!.Velocity.ToNumerics(),
-        PhysicsBodyKind.Kinematic => KinematicVelocity,
+        PhysicsBodyKind.Kinematic => MovedByTarget ? StepVelocity : KinematicVelocity,
         _ => Vector3.Zero,
     };
 
@@ -76,16 +82,59 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
     public Vector3 GetAngularVelocity() => Kind switch
     {
         PhysicsBodyKind.Dynamic => Body!.AngularVelocity.ToNumerics(),
-        PhysicsBodyKind.Kinematic => KinematicAngularVelocity,
+        PhysicsBodyKind.Kinematic => MovedByTarget ? StepAngularVelocity : KinematicAngularVelocity,
         _ => Vector3.Zero,
     };
+
+    /// <summary>
+    /// How far a point riding this body (a character on a platform, G13.5) moves in the coming step of
+    /// <paramref name="delta"/> seconds: a kinematic body's node already moved this step carries the point rigidly to its
+    /// new pose; otherwise the body's velocities of its last step (dynamic: its current ones) turn and move it. Static
+    /// bodies, areas and characters carry nothing.
+    /// </summary>
+    public Vector3 PlatformDisplacement(Vector3 point, float delta)
+    {
+        if (Removed || delta <= 0f)
+            return Vector3.Zero;
+        Vector3 linear, angular;
+        switch (Kind)
+        {
+            case PhysicsBodyKind.Kinematic:
+                Node.GlobalTransform.Decompose(out var position, out var rotation, out _);
+                if (Vector3.DistanceSquared(position, CurrentPosition) > 1e-12f || !RotationsEqual(rotation, CurrentRotation))
+                {
+                    var local = Vector3.Transform(point - CurrentPosition, Quaternion.Conjugate(CurrentRotation));
+                    return Vector3.Transform(local, rotation) + position - point;
+                }
+
+                linear = MovedByTarget ? StepVelocity : KinematicVelocity;
+                angular = MovedByTarget ? StepAngularVelocity : KinematicAngularVelocity;
+                break;
+            case PhysicsBodyKind.Dynamic:
+                linear = Body!.Velocity.ToNumerics();
+                angular = Body.AngularVelocity.ToNumerics();
+                break;
+            default:
+                return Vector3.Zero;
+        }
+
+        var offset = point - CurrentPosition;
+        var angle = angular.Length() * delta;
+        var turned = angle > 1e-9f ? Vector3.Transform(offset, Quaternion.CreateFromAxisAngle(Vector3.Normalize(angular), angle)) : offset;
+        return turned - offset + linear * delta;
+    }
+
+    private static bool RotationsEqual(Quaternion a, Quaternion b) => MathF.Abs(Quaternion.Dot(a, b)) > 1f - 1e-9f;
 
     public void SetLinearVelocity(Vector3 velocity)
     {
         if (Kind == PhysicsBodyKind.Dynamic)
             Body!.Velocity = velocity.ToJ();
         else if (Kind == PhysicsBodyKind.Kinematic)
+        {
             KinematicVelocity = velocity;
+            MovedByTarget = false;
+        }
     }
 
     public void SetAngularVelocity(Vector3 velocity)
@@ -93,7 +142,10 @@ internal sealed class BodyRecord3D(CollisionObject3D node, PhysicsSpace3D space,
         if (Kind == PhysicsBodyKind.Dynamic)
             Body!.AngularVelocity = velocity.ToJ();
         else if (Kind == PhysicsBodyKind.Kinematic)
+        {
             KinematicAngularVelocity = velocity;
+            MovedByTarget = false;
+        }
     }
 
     public bool IsSleeping => Kind == PhysicsBodyKind.Dynamic && Body is { IsActive: false };
@@ -794,13 +846,21 @@ public sealed partial class PhysicsSpace3D : IDisposable
                 // Reach the target pose in exactly one step: contacts see a moving body, not a teleport.
                 var position = body.Position.ToNumerics();
                 var rotation = body.Orientation.ToNumerics();
-                body.Velocity = ((record.TargetPosition - position) * inverseDelta).ToJ();
-                body.AngularVelocity = (AngularVelocityBetween(rotation, record.TargetRotation) * inverseDelta).ToJ();
+                var linear = (record.TargetPosition - position) * inverseDelta;
+                var angular = AngularVelocityBetween(rotation, record.TargetRotation) * inverseDelta;
+                body.Velocity = linear.ToJ();
+                body.AngularVelocity = angular.ToJ();
+                record.StepVelocity = linear;
+                record.StepAngularVelocity = angular;
+                record.MovedByTarget = true;
             }
             else if (record.Kind == PhysicsBodyKind.Kinematic)
             {
                 body.Velocity = record.KinematicVelocity.ToJ();
                 body.AngularVelocity = record.KinematicAngularVelocity.ToJ();
+                record.StepVelocity = record.KinematicVelocity;
+                record.StepAngularVelocity = record.KinematicAngularVelocity;
+                record.MovedByTarget = false;
             }
             else
             {
@@ -823,7 +883,7 @@ public sealed partial class PhysicsSpace3D : IDisposable
     }
 
     /// <summary>The rotation vector (axis × angle) taking <paramref name="from"/> to <paramref name="to"/>.</summary>
-    private static Vector3 AngularVelocityBetween(Quaternion from, Quaternion to)
+    internal static Vector3 AngularVelocityBetween(Quaternion from, Quaternion to)
     {
         var delta = Quaternion.Normalize(to * Quaternion.Conjugate(from));
         if (delta.W < 0)

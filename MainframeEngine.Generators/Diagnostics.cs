@@ -42,6 +42,11 @@ internal static class Diagnostics
         "[Export(Translatable = true)] member '{0}' has type '{1}'; only string, string[] and List<string> can be translated",
         Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor InvalidAnimationMethod = new(
+        "MFG011", "Invalid [AnimationMethod] method",
+        "[AnimationMethod] method '{0}' {1}",
+        Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
+
     private const string NetCategory = "MainframeEngine.Networking";
 
     public static readonly DiagnosticDescriptor InvalidReplicated = new(
@@ -70,6 +75,7 @@ internal static class Diagnostics
         "MFG004" => DuplicateTypeName,
         "MFG005" => InvalidMigration,
         "MFG010" => TranslatableNotString,
+        "MFG011" => InvalidAnimationMethod,
         _ => TypeNotAccessible,
     };
 }

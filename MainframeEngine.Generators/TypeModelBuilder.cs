@@ -24,6 +24,7 @@ internal static class TypeModelBuilder
     private const string PropertyBagType = "MainframeEngine.Serialization.PropertyBag";
     private const string ReplicatedAttribute = "MainframeEngine.ReplicatedAttribute";
     private const string RpcAttribute = "MainframeEngine.RpcAttribute";
+    private const string AnimationMethodAttribute = "MainframeEngine.AnimationMethodAttribute";
     private const string TransferableInterface = "MainframeEngine.Networking.INetworkTransferable";
 
     /// <summary>Most <c>[Replicated]</c> members one type may declare (one bit each in a 64-bit change mask).</summary>
@@ -76,7 +77,8 @@ internal static class TypeModelBuilder
         var diagnostics = new List<DiagnosticInfo>();
         var members = OrderedMembers(type);
         var hasAnnotatedMembers = members.Any(m => HasAttribute(m, ExportAttribute) || HasAttribute(m, SignalAttribute)
-                                                   || HasAttribute(m, ReplicatedAttribute) || HasAttribute(m, RpcAttribute));
+                                                   || HasAttribute(m, ReplicatedAttribute) || HasAttribute(m, RpcAttribute)
+                                                   || HasAttribute(m, AnimationMethodAttribute));
 
         if (!IsAccessibleFromAssembly(type))
         {
@@ -92,6 +94,7 @@ internal static class TypeModelBuilder
         var migrations = new List<MigrationModel>();
         var replicated = new List<ReplicatedModel>();
         var rpcs = new List<RpcModel>();
+        var animationMethods = new List<AnimationMethodModel>();
         string? group = null;
 
         foreach (var member in members)
@@ -105,6 +108,12 @@ internal static class TypeModelBuilder
             {
                 if (BuildReplicated(member, replicatedAttribute, diagnostics) is { } model)
                     replicated.Add(model);
+            }
+
+            if (member is IMethodSymbol animated && HasAttribute(animated, AnimationMethodAttribute))
+            {
+                if (BuildAnimationMethod(animated, diagnostics) is { } model)
+                    animationMethods.Add(model);
             }
 
             if (member is IMethodSymbol rpcMethod && GetAttribute(rpcMethod, RpcAttribute) is { } rpcAttribute)
@@ -154,6 +163,7 @@ internal static class TypeModelBuilder
         {
             Replicated = EquatableArray.From(replicated),
             Rpcs = EquatableArray.From(rpcs),
+            AnimationMethods = EquatableArray.From(animationMethods),
             Namespace = type.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : null,
             IsPublic = IsPublicFromOutside(type),
             FlatName = FlatName(type),
@@ -379,6 +389,40 @@ internal static class TypeModelBuilder
         }
 
         return new ReplicatedModel(value, interpolate);
+    }
+
+    private static AnimationMethodModel? BuildAnimationMethod(IMethodSymbol method, List<DiagnosticInfo> diagnostics)
+    {
+        var location = LocationInfo.From(method.Locations.FirstOrDefault());
+        if (method.IsStatic || method.IsGenericMethod || !IsAccessible(method) || method.MethodKind != MethodKind.Ordinary)
+        {
+            diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidAnimationMethod.Id, location, method.Name,
+                "must be a non-static, non-generic public or internal method"));
+            return null;
+        }
+
+        var parameters = new List<AnimationParameterModel>();
+        foreach (var parameter in method.Parameters)
+        {
+            if (parameter.RefKind != RefKind.None || parameter.IsParams)
+            {
+                diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidAnimationMethod.Id, location, method.Name,
+                    $"parameter '{parameter.Name}' must be passed by value (no ref, out, in or params)"));
+                return null;
+            }
+
+            var codec = CodecFor(parameter.Type);
+            if (codec is null || codec.Contains("ResourceOf<"))
+            {
+                diagnostics.Add(new DiagnosticInfo(Diagnostics.InvalidAnimationMethod.Id, location, method.Name,
+                    $"parameter '{parameter.Name}' has type '{parameter.Type.ToDisplayString()}', which a key cannot store (use a type [Export] supports, not a resource)"));
+                return null;
+            }
+
+            parameters.Add(new AnimationParameterModel(parameter.Name, parameter.Type.ToDisplayString(TypeFormat), codec));
+        }
+
+        return new AnimationMethodModel(method.Name, EquatableArray.From(parameters));
     }
 
     private static RpcModel? BuildRpc(IMethodSymbol method, AttributeData attribute, List<DiagnosticInfo> diagnostics)

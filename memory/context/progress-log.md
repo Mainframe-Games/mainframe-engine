@@ -4,6 +4,10 @@ Plan: [m0-m10-plan.md](m0-m10-plan.md). Branch: `feature/m0-m10`. Final PR → `
 
 ## ▶ Resume here
 
+- **Gameplay toolkit: the partly-done items (2026-11-05).** G13 (ADR 0243) and G1a (ADR 0244) shipped as one PR from
+  `feature/paths-and-keyframe-animation`; stopped at 69 % weekly before G6. Left: G6 (LOD, decals, `.hdr`, PBR default),
+  G19 phases 2–4 (phase 4 placement is an owner call), G8a–e rest (logs `2026-11-05-keyframe-animation-g1a.md`).
+
 - **Forest: the cabin muffles the valley (2026-11-01).** Branch `forest-cabin-indoor-audio`. `CabinInterior.Enclosure`
   sweeps the Ambience and Water buses to a 450 Hz low-pass and −9 dB (`docs/design/forest.md#indoors`); the fire moved to
   a new Interior bus that follows the ambience slider. Bus effects had no live parameters, so the engine gained

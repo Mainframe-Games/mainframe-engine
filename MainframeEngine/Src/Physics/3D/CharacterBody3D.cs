@@ -18,7 +18,9 @@ public readonly record struct KinematicCollision3D(Vector3 Position, Vector3 Nor
 /// slides along what it hits (up to <see cref="MaxSlides"/> times), classifies contacts as floor, wall or ceiling
 /// against <see cref="UpDirection"/> and <see cref="FloorMaxAngle"/>, and snaps down to the floor
 /// (<see cref="FloorSnapLength"/>) when walking over edges and down slopes. Dynamic bodies it walks into are pushed
-/// (it is a kinematic body in the simulation).
+/// (it is a kinematic body in the simulation). Standing on a moving body (an <see cref="AnimatableBody3D"/>, a kinematic
+/// or dynamic <see cref="RigidBody3D"/>) carries it along, turning platforms included, and leaving one keeps its velocity
+/// as <see cref="PlatformOnLeave"/> says (G13.5).
 /// </summary>
 [EditorIcon("run")]
 public class CharacterBody3D : PhysicsBody3D
@@ -34,6 +36,9 @@ public class CharacterBody3D : PhysicsBody3D
     private Vector3 _floorNormal, _wallNormal;
     private Vector3 _lastMotion;
     private Vector3 _realVelocity;
+    private Vector3 _platformVelocity;
+    private BodyRecord3D? _platform;
+    private CollisionObject3D? _floorCollider;
 
     /// <summary>Velocity in m/s used (and updated) by <see cref="MoveAndSlide"/>.</summary>
     [Export]
@@ -106,7 +111,18 @@ public class CharacterBody3D : PhysicsBody3D
         }
     } = 0.01f;
 
+    /// <summary>What <see cref="Velocity"/> keeps of the platform's velocity when the body leaves it.</summary>
+    [Export]
+    public PlatformOnLeave PlatformOnLeave { get; set; } = PlatformOnLeave.AddVelocity;
+
+    /// <summary>The collision layers of the floors that carry the body when they move (all by default).</summary>
+    [Export(Flags = true)]
+    public uint PlatformFloorLayers { get; set; } = uint.MaxValue;
+
     internal override PhysicsBodyKind Kind => PhysicsBodyKind.Character;
+
+    /// <summary>The velocity of the moving floor under the body in the last <see cref="MoveAndSlide"/> (zero when none).</summary>
+    public Vector3 GetPlatformVelocity() => _platformVelocity;
 
     public bool IsOnFloor() => _onFloor;
 
@@ -160,6 +176,9 @@ public class CharacterBody3D : PhysicsBody3D
         _onFloor = _onWall = _onCeiling = false;
         _floorNormal = _wallNormal = Vector3.Zero;
         _collisionCount = 0;
+        var platform = _platform is { Removed: false } previous && previous.Node.IsInsideTree ? previous : null;
+        _platform = null;
+        _floorCollider = null;
 
         var space = record.Space;
         var global = GlobalTransform;
@@ -185,6 +204,19 @@ public class CharacterBody3D : PhysicsBody3D
             }
             if (!pushed)
                 break; // nothing closer than the margin is left
+        }
+
+        // Left a moving platform (jumped or walked off it): keep its velocity as PlatformOnLeave says (G13.5).
+        if (platform is not null && !_onFloor)
+        {
+            var carried = platform.PlatformDisplacement(position, delta) / delta;
+            velocity += PlatformOnLeave switch
+            {
+                PlatformOnLeave.AddVelocity => carried,
+                PlatformOnLeave.AddUpwardVelocity => up * MathF.Max(0f, Vector3.Dot(carried, up)),
+                _ => Vector3.Zero,
+            };
+            _platformVelocity = carried;
         }
 
         // 2. Slide. Standing on a slope with no sideways intent (only gravity): stay put rather than slide down it.
@@ -243,6 +275,20 @@ public class CharacterBody3D : PhysicsBody3D
         // a slope doesn't launch the body; a jump (upward intent) is kept.
         if (_onFloor && Vector3.Dot(intent, up) <= 0)
             velocity -= up * Vector3.Dot(velocity, up);
+
+        // 5. Ride a moving floor: move by where the platform takes this point in its coming step (exact for turntables).
+        if (_onFloor && _floorCollider is { Record: { } floor } && (floor.Node.CollisionLayer & PlatformFloorLayers) != 0 &&
+            floor.Kind is PhysicsBodyKind.Kinematic or PhysicsBodyKind.Dynamic)
+        {
+            var carry = floor.PlatformDisplacement(position, delta);
+            position += carry;
+            _platformVelocity = carry / delta;
+            _platform = floor;
+        }
+        else if (platform is null || _onFloor)
+        {
+            _platformVelocity = Vector3.Zero;
+        }
 
         Velocity = velocity;
         _lastMotion = position - start;
@@ -303,6 +349,7 @@ public class CharacterBody3D : PhysicsBody3D
             kind = SurfaceKind.Floor;
             _onFloor = true;
             _floorNormal = normal;
+            _floorCollider = collider;
         }
         else if (MathF.Acos(Math.Clamp(Vector3.Dot(normal, -up), -1f, 1f)) <= _floorMaxAngle + 0.001f)
         {

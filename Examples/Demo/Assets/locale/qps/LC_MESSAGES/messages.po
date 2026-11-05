@@ -48,8 +48,8 @@ msgstr "[Mûsîç ~]"
 msgid "Animation 3D"
 msgstr "[Åñîmåtîöñ 3Ð ~~~]"
 
-msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton that can stay active under physics. Behind it, root motion walks and jumps a body."
-msgstr "[Å skîññéð glTF çhåråçtér: 31 böñés, téñ çlîps, çrössfåðés, évéñts, å törçh öñ îts håñð åñð å phýsîçål skélétöñ thåt çåñ ståý åçtîvé ûñðér phýsîçs. Béhîñð ît, rööt mötîöñ wålks åñð jûmps å böðý. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton that can stay active under physics. Behind it, root motion walks and jumps a body, and keyframe tracks run a workshop: a lift, a latched door, a flickering lamp and a chime."
+msgstr "[Å skîññéð glTF çhåråçtér: 31 böñés, téñ çlîps, çrössfåðés, évéñts, å törçh öñ îts håñð åñð å phýsîçål skélétöñ thåt çåñ ståý åçtîvé ûñðér phýsîçs. Béhîñð ît, rööt mötîöñ wålks åñð jûmps å böðý, åñð kéýfråmé tråçks rûñ å wörkshöp: å lîft, å låtçhéð ðöör, å flîçkérîñg låmp åñð å çhîmé. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "Clip"
 msgstr "[Çlîp ~]"
@@ -270,6 +270,18 @@ msgstr "[Påth2Ð çûrvés wîth PåthFöllöw2Ð föllöwérs: çårs låppî�
 msgid "Pause"
 msgstr "[Påûsé ~]"
 
+msgid "Paths 3D"
+msgstr "[Påths 3Ð ~~]"
+
+msgid "Platforms on Path3D followers carry the capsule: ride the lift, the ferry or the turntable. WASD walks, Space jumps."
+msgstr "[Plåtförms öñ Påth3Ð föllöwérs çårrý thé çåpsûlé: rîðé thé lîft, thé férrý ör thé tûrñtåblé. WÅSÐ wålks, Spåçé jûmps. ~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Ride the camera rail"
+msgstr "[Rîðé thé çåmérå råîl ~~~~~]"
+
+msgid "Jump"
+msgstr "[Jûmp ~]"
+
 msgid "Physics 2D"
 msgstr "[Phýsîçs 2Ð ~~]"
 
@@ -338,9 +350,6 @@ msgstr "[Låsér ~]"
 
 msgid "Explosion"
 msgstr "[Éxplösîöñ ~~]"
-
-msgid "Jump"
-msgstr "[Jûmp ~]"
 
 msgid "Blip"
 msgstr "[Blîp ~]"

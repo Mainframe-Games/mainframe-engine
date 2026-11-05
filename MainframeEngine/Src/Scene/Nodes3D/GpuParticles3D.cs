@@ -169,6 +169,7 @@ public class GpuParticles3D : VisualInstance3D
     /// Kills every particle and starts emitting from the start (Godot's <c>restart</c>); no allocation once sized. Without a
     /// render server (headless) it only marks the emitter as emitting: the restart waits until it can be drawn.
     /// </summary>
+    [AnimationMethod]
     public void Restart()
     {
         _seeded = false;

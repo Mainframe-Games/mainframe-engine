@@ -8,7 +8,7 @@ namespace MainframeEngine.Editor.Music;
 /// dp drawing helpers live in <see cref="EditorCanvas"/>. Drawing allocates nothing in steady state: labels come from caches.
 /// </summary>
 [Tool]
-public abstract class SongCanvas : EditorCanvas
+public abstract class SongCanvas : TimelineCanvasBase
 {
     private static readonly Dictionary<string, Vector4> Colors = new(StringComparer.OrdinalIgnoreCase);
     private static readonly string[] BarLabels = new string[1000];

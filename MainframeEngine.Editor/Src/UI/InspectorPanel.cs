@@ -354,6 +354,9 @@ public sealed partial class InspectorPanel : EditorDocument
             .Append(" icon-sm prop-icon\"></span><span class=\"prop-name\">").Append(RmlText.Escape(property.Label))
             .Append("</span></div><div class=\"prop-editor").Append(property.Kind == PropertyEditorKind.Resource ? " res" : "").Append("\">");
         AppendEditor(rml, property, index, value);
+        // G1.6: a key button while the Animation panel edits an animation (the value at the playhead, the track made if needed).
+        if (depth == 0 && !property.IsMulti && Workspace.Animations.CanKey(property.Target, property.Name))
+            AppendButton(rml, index, "anim-key", "key", $"Insert Key (K) — {property.Label} at {Workspace.Animations.Playhead:0.00} s in {Workspace.Animations.AnimationName}");
         rml.Append("</div></div>");
 
         if (property.Kind == PropertyEditorKind.Color && _expanded.Contains((property.Target, property.Name)))
@@ -992,6 +995,9 @@ public sealed partial class InspectorPanel : EditorDocument
                 break;
             case "res-more":
                 ShowResourceMenu(row);
+                break;
+            case "anim-key" when p.Target is Node keyed:
+                Workspace.Animations.InsertPropertyKey(keyed, p.Name);
                 break;
             case "res-unique":
                 MakeUnique(p, deep: false);
