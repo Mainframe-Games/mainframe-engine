@@ -37,6 +37,12 @@ public struct MeshDrawStats
     /// <summary>Surface instances drawn at a coarser level of detail than the surface (G6.4).</summary>
     public int LodSurfaceInstances;
 
+    /// <summary>Decals the prepared views apply (G6.5; summed over views).</summary>
+    public int Decals;
+
+    /// <summary>Instances that take at least one decal (G6.5; summed over views).</summary>
+    public int DecalInstances;
+
     /// <summary>Instances outside their visibility range (<see cref="GeometryInstance3D.VisibilityRangeBegin"/>/End).</summary>
     public int OutOfRange;
 
@@ -67,6 +73,9 @@ internal struct MeshDrawItem
 
     /// <summary>The surface's level of detail (G6.4; 0 = the surface).</summary>
     public int Lod;
+
+    /// <summary>The view's decals the instance receives (G6.5: bits into <see cref="MeshViewDraws.Decals"/>).</summary>
+    public uint DecalMask;
     public bool Mirrored;
 
     /// <summary>A next-pass or overlay draw (skipped by the object-ID pass).</summary>
@@ -177,6 +186,9 @@ internal sealed class MeshViewDraws
     /// <summary>The view's scene copy while its blended draws record after the split (ADR 0173), else null.</summary>
     public WaterSceneTextures? Scene;
 
+    /// <summary>The decals the view applies this frame (G6.5; set 0 bindings 8 and 9 while the view draws).</summary>
+    public readonly DecalSelection Decals = new();
+
     public void Clear()
     {
         SceneReaders = 0;
@@ -218,6 +230,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     private readonly GpuTexture _flatNormal;
     private readonly GpuTexture _whiteLinear;
     private readonly InstanceBuffer _instances;
+    private DecalAtlas? _decalAtlas;
+    private readonly List<DecalSelection> _decalSelections = [];
     private readonly Dictionary<Mesh, MeshGpu> _meshes = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Material, MaterialGpu> _materials = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<(Texture2D, TextureColorSpace), TextureGpu> _textures = [];
@@ -852,6 +866,10 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         var projection = camera.ProjectionMatrix;
         var lodPixelScale = LodSelection.PixelScale(projection, viewHeight != 0 ? viewHeight : _ctx.RenderExtent.Height);
         var lodPerspective = LodSelection.IsPerspective(projection);
+        // G6.5: the view's decals (the nearest MaxDecals visible ones) before the instances test against them.
+        var decals = view.Decals;
+        decals.Select(world.DecalList, frustum, cameraPosition, world.DecalList.Count > 0 ? EnsureDecalAtlas(world.DecalList) : null);
+        Stats.Decals += decals.Count;
 
         var geometry = world.GeometryList;
         for (var n = 0; n < geometry.Count; n++)
@@ -944,6 +962,9 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             var depth = Vector3.Dot(bounds.Center - cameraPosition, forward);
             var lods = mesh.Lods;
             var nodeLod = 0;
+            var decalMask = decals.Count > 0 && multiInstances is null ? decals.MaskFor(bounds) : 0u;
+            if (decalMask != 0u)
+                Stats.DecalInstances++;
             for (var s = 0; s < surfaces.Length; s++)
             {
                 if (surfaces[s].IndexCount == 0 || materials[s] is not { } material)
@@ -960,6 +981,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                     Pipeline = pipeline,
                     Surface = s,
                     Lod = lod,
+                    DecalMask = material.ReceivesDecals ? decalMask : 0u,
                     Mirrored = mirrored,
                     Instances = multiInstances,
                     InstanceCount = multiCount,
@@ -1016,7 +1038,33 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         view.Opaque.Sort();
         view.Transparent.Sort();
         view.Casters.Sort();
+        if (decals.Count > 0)
+        {
+            decals.Upload(_ctx);
+            if (!_decalSelections.Contains(decals))
+                _decalSelections.Add(decals);
+        }
     }
+
+    // G6.5: the shared decal atlas, rebuilt when a decal of this world shows a texture it does not hold.
+    private DecalAtlas EnsureDecalAtlas(List<Decal> decals)
+    {
+        var atlas = _decalAtlas ??= new DecalAtlas(_ctx);
+        foreach (var decal in decals)
+        {
+            if (!atlas.Holds(decal.TextureAlbedo) || !atlas.Holds(decal.TextureNormal) || !atlas.Holds(decal.TextureOrm) ||
+                !atlas.Holds(decal.TextureEmission))
+            {
+                atlas.Rebuild(decals);
+                break;
+            }
+        }
+
+        return atlas;
+    }
+
+    /// <summary>The shared decal atlas (G6.5), once a world had decals.</summary>
+    internal DecalAtlas? DecalAtlas => _decalAtlas;
 
     /// <summary>Caster pass mask: the fine shadow passes (nearer cascades, atlas tiles, cubes).</summary>
     internal const byte FinePasses = 1;
@@ -1127,7 +1175,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         for (var k = 0; k < view.Opaque.Count; k++)
         {
             ref var item = ref view.Opaque[k];
-            data[i++] = new MeshInstanceData(item.Model, item.Node.ObjectId);
+            data[i++] = new MeshInstanceData(item.Model, item.Node.ObjectId, item.DecalMask);
         }
 
         for (var k = 0; k < view.Transparent.Count; k++)
@@ -1650,6 +1698,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ShaderSetId.MeshFoliage => VertexLayouts.FoliageAttributes,
             ShaderSetId.MeshWater or ShaderSetId.MeshWaterScene or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray => VertexLayouts.WaterAttributes,
             ShaderSetId.MeshImpostor => VertexLayouts.ImpostorAttributes,
+            ShaderSetId.MeshOutline => VertexLayouts.MeshOutlineAttributes,
             _ when streams => VertexLayouts.MeshExtAttributes,
             _ => VertexLayouts.MeshAttributes,
         };
@@ -1759,6 +1808,10 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         _textures.Clear();
         _instances.Dispose();
         _skinner?.Dispose();
+        _decalAtlas?.Dispose();
+        foreach (var selection in _decalSelections)
+            selection.ReleaseBuffers();
+        _decalSelections.Clear();
         _materialSets.Dispose();
         Pipelines.Dispose();
         _whiteSrgb.Dispose();

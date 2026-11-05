@@ -501,7 +501,7 @@ public sealed class RenderServer : IServer
         {
             var world = root.World3D;
             vk.Frame.Environment = world.Environment?.FrameEnvironment ?? default;
-            BindSkyLighting(vk.Frame, world);
+            BindSkyLighting(vk.Frame, world, _mainDraws);
             vk.Frame.Begin(camera, world.Lights); // the main pass rewrites the same data
             var meshes = Meshes!;
             meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
@@ -543,7 +543,7 @@ public sealed class RenderServer : IServer
             // The shadow maps belong to the main world, unless this view owns them this frame (SubViewport.Shadows).
             // ADR 0171: while the view runs the volumetric fog, the analytic fog starts where it ends.
             frame.Environment = world.Environment?.GetFrameEnvironment(post is { Settings.VolumetricFog.Active: true }) ?? default;
-            BindSkyLighting(frame, world);
+            BindSkyLighting(frame, world, targets.Draws);
             frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber);
             meshes = world.GeometryList.Count > 0 ? Meshes : null;
             meshes?.Prepare(targets.Draws, world, camera, collectCasters: false, extent.Height);
@@ -683,6 +683,7 @@ public sealed class RenderServer : IServer
             frame.ResetView(overlayView);
             frame.EnvironmentMaps = null;
             frame.Probes = null;
+            frame.Decals = null;
             frame.Begin(camera, null, shadows: false);
             used = 1;
         }
@@ -809,7 +810,7 @@ public sealed class RenderServer : IServer
         var frame = vk.Frame;
         frame.SetView(0, default);
         frame.Environment = MainEnvironment(world, vk);
-        BindSkyLighting(frame, world);
+        BindSkyLighting(frame, world, _mainDraws);
         frame.Begin(camera!, world.Lights); // the scene pass rewrites the same data
         MeshRenderer? meshes = null;
         if (world.GeometryList.Count > 0)
@@ -867,7 +868,7 @@ public sealed class RenderServer : IServer
             EnsureResources(world);
             vk.Frame.SetView(0, default);
             vk.Frame.Environment = viewport.IsTreeRoot ? MainEnvironment(world, vk) : world.Environment?.FrameEnvironment ?? default;
-            BindSkyLighting(vk.Frame, world);
+            BindSkyLighting(vk.Frame, world, _mainDraws);
             vk.Frame.Begin(camera, world.Lights); // shared set 0: camera + lights, once per frame
             MeshRenderer? meshes = null;
             if (world.GeometryList.Count > 0)
@@ -895,9 +896,10 @@ public sealed class RenderServer : IServer
     }
 
     // The world's sky lighting for the next FrameContext.Begin: the captured cubes (set 0), the light probe volume
-    // (ADR 0170) and the lights UBO's ambient energy and environment flags.
-    private void BindSkyLighting(FrameContext frame, World3D world)
+    // (ADR 0170) and the lights UBO's ambient energy and environment flags; and the view's decals (G6.5).
+    private void BindSkyLighting(FrameContext frame, World3D world, MeshViewDraws draws)
     {
+        frame.Decals = draws.Decals;
         var environment = world.Environment;
         var maps = environment?.SkyLightingMaps;
         frame.EnvironmentMaps = maps;

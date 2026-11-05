@@ -67,10 +67,11 @@ public struct MeshVertexWind
 }
 
 /// <summary>
-/// Per-instance data of a batched mesh draw (80 bytes, binding 1, instance rate): the model matrix (row-vector
+/// Per-instance data of a batched mesh draw (84 bytes, binding 1, instance rate): the model matrix (row-vector
 /// System.Numerics layout, read as the four rows of a row-major Slang <c>float4x4</c>), the object id written by the ID pass,
-/// and for spatial shaders (ADR 0205) Godot's <c>INSTANCE_CUSTOM</c> (a <see cref="MultiMesh"/> instance's custom data as
-/// four halves, zero elsewhere) and <c>INSTANCE_ID</c> (the index in the multimesh, 0 elsewhere).
+/// for spatial shaders (ADR 0205) Godot's <c>INSTANCE_CUSTOM</c> (a <see cref="MultiMesh"/> instance's custom data as
+/// four halves, zero elsewhere) and <c>INSTANCE_ID</c> (the index in the multimesh, 0 elsewhere), and the decals the
+/// instance receives (G6.5: bits into the view's decal UBO; 0 for everything but lit opaque surfaces and terrain).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct MeshInstanceData
@@ -84,7 +85,10 @@ internal struct MeshInstanceData
     /// <summary>INSTANCE_ID (<c>R32_UINT</c> at offset 76).</summary>
     public uint InstanceIndex;
 
-    public const int Size = 80;
+    /// <summary>The decal mask (<c>R32_UINT</c> at offset 80, location 10; G6.5).</summary>
+    public uint DecalMask;
+
+    public const int Size = 84;
 
     public MeshInstanceData(in Matrix4x4 model, uint objectId)
     {
@@ -92,7 +96,11 @@ internal struct MeshInstanceData
         ObjectId = objectId;
         CustomX = CustomY = CustomZ = CustomW = default;
         InstanceIndex = 0;
+        DecalMask = 0;
     }
+
+    public MeshInstanceData(in Matrix4x4 model, uint objectId, uint decalMask)
+        : this(model, objectId) => DecalMask = decalMask;
 
     public MeshInstanceData(in Matrix4x4 model, uint objectId, Vector4 custom, uint instanceIndex)
     {
@@ -100,6 +108,7 @@ internal struct MeshInstanceData
         ObjectId = objectId;
         (CustomX, CustomY, CustomZ, CustomW) = ((Half)custom.X, (Half)custom.Y, (Half)custom.Z, (Half)custom.W);
         InstanceIndex = instanceIndex;
+        DecalMask = 0;
     }
 }
 
@@ -168,17 +177,27 @@ internal static class VertexLayouts
     // Each pipeline gets exactly the attributes its vertex shader reads: Slang drops unread shader inputs, and an
     // attribute the shader does not read is a validation warning (ADR 0144).
 
-    /// <summary>Lit and outline pipelines (<c>Mesh.vk.vert</c>, <c>MeshOutline.vk.vert</c>): all but the object id.</summary>
-    public static readonly VertexInputAttributeDescription[] MeshAttributes = MeshInstancedAttributes[..7];
+    /// <summary>Location 10: the instance's decal mask (G6.5), read by the lit vertex shaders only.</summary>
+    public static readonly VertexInputAttributeDescription DecalMaskAttribute =
+        new() { Location = 10, Binding = 1, Format = Format.R32Uint, Offset = 80 };
+
+    /// <summary>Position, normal, uv and the model rows: what every mesh vertex shader reads.</summary>
+    internal static readonly VertexInputAttributeDescription[] MeshCoreAttributes = MeshInstancedAttributes[..7];
+
+    /// <summary>Lit and terrain pipelines (<c>Mesh.vk.vert</c>): the core attributes + the decal mask (no object id).</summary>
+    public static readonly VertexInputAttributeDescription[] MeshAttributes = [.. MeshCoreAttributes, DecalMaskAttribute];
 
     /// <summary>Lit pipelines of surfaces with vertex streams (<c>MeshExt.vk.vert</c>): <see cref="MeshAttributes"/> + colour.</summary>
     public static readonly VertexInputAttributeDescription[] MeshExtAttributes = [.. MeshAttributes, ColorAttribute];
 
+    /// <summary>Outline pipelines (<c>MeshOutline.vk.vert</c>): the core attributes (outlines take no decals).</summary>
+    public static readonly VertexInputAttributeDescription[] MeshOutlineAttributes = MeshCoreAttributes;
+
     /// <summary>Foliage pipelines (<c>Foliage.vk.vert</c>): <see cref="MeshAttributes"/> + colour + custom0 + custom1 + custom2.</summary>
-    public static readonly VertexInputAttributeDescription[] FoliageAttributes = [.. MeshAttributes, ColorAttribute, Custom0Attribute, .. WindAttributes];
+    public static readonly VertexInputAttributeDescription[] FoliageAttributes = [.. MeshCoreAttributes, ColorAttribute, Custom0Attribute, .. WindAttributes];
 
     /// <summary>Water pipelines (<c>Water.vk.vert</c>): <see cref="MeshAttributes"/> + custom0 (column depth, flow, foam).</summary>
-    public static readonly VertexInputAttributeDescription[] WaterAttributes = [.. MeshAttributes, Custom0Attribute];
+    public static readonly VertexInputAttributeDescription[] WaterAttributes = [.. MeshCoreAttributes, Custom0Attribute];
 
     /// <summary>Object-ID pipeline (<c>MeshId.vk.vert</c>): position, uv, model rows and object id (no normal).</summary>
     public static readonly VertexInputAttributeDescription[] MeshIdAttributes = [MeshInstancedAttributes[0], .. MeshInstancedAttributes[2..]];

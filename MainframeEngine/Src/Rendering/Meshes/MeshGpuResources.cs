@@ -748,6 +748,12 @@ internal sealed class MaterialGpu
     public bool RefractsScene;
 
     /// <summary>The material's vertex shaders read the second vertex stream whatever the surface (foliage, water).</summary>
+    /// <summary>
+    /// The surfaces take decals (G6.5): opaque or cutout <see cref="StandardMaterial3D"/>s and terrain splats, whose
+    /// shaders read the instance's decal mask.
+    /// </summary>
+    public bool ReceivesDecals => !State.IsTransparent && ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshTerrainSplat;
+
     public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray
         or ShaderSetId.MeshSpatial;
 

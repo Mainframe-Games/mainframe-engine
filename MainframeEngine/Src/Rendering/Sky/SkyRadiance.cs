@@ -109,7 +109,7 @@ internal sealed unsafe class SkyRadiance : IDisposable
             "sky radiance source");
         _pool = PipelineBuilder.CreatePool(ctx, 7,
         [
-            new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 12 },
+            new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 6 * FrameContext.UniformBindings },
             new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = 6 * FrameContext.ImageBindings + 1 },
             new DescriptorPoolSize { Type = DescriptorType.SampledImage, DescriptorCount = 6 },
         ], "sky radiance");

@@ -114,6 +114,7 @@ RenderTestGame game = options.Scene switch
     "auto-exposure-average" => new AutoExposureHistogramScene(options, histogram: false),
     "pbr" => new PbrSpheresScene(options),
     "lod" => new LodScene(options),
+    "decals" => new DecalScene(options),
     "fog" => new FogScene(options),
     "vertex-colors" => new VertexColorsScene(options),
     "multimesh" => new MultiMeshScene(options),
