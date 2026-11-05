@@ -56,6 +56,36 @@ public sealed class MeshSerializationTests : IDisposable
     }
 
     [Fact]
+    public void MeshLevelsOfDetailAndLodBiasRoundTrip()
+    {
+        var root = new Node3D { Name = "Root" };
+        var surface = new MeshSurface(
+            [new(-1, 0, -1), new(1, 0, -1), new(1, 0, 1), new(-1, 0, 1)], [], [], [0, 2, 1, 0, 3, 2])
+        {
+            Lods =
+            [
+                new MeshLod(0.25f, [0, 2, 1]),
+                new MeshLod(0.75f, new MeshSurface([new(-1, 0, -1), new(1, 0, -1), new(0, 0, 1)], [], [], [0, 2, 1])),
+            ],
+        };
+        var mesh = new ArrayMesh();
+        mesh.AddSurface(surface);
+        Own(root, new MeshInstance3D { Name = "Rock", Mesh = mesh, LodBias = 2.5f });
+
+        var loaded = RoundTrip(root).GetNode<MeshInstance3D>("Rock");
+
+        Assert.Equal(2.5f, loaded.LodBias);
+        var lods = Assert.IsType<ArrayMesh>(loaded.Mesh).GetSurface(0).Lods;
+        Assert.Equal(2, lods.Length);
+        Assert.Equal(0.25f, lods[0].Error);
+        Assert.Equal([0, 2, 1], lods[0].Indices);
+        Assert.Null(lods[0].Geometry);
+        Assert.Equal(0.75f, lods[1].Error);
+        Assert.Equal(3, lods[1].Geometry!.VertexCount);
+        loaded.Mesh!.GetSurface(0).Validate();
+    }
+
+    [Fact]
     public void OverlaysNextPassesAndOutlinesRoundTrip()
     {
         var root = new Node3D { Name = "Root" };

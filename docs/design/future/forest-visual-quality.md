@@ -3,10 +3,10 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G8e) · **Status:** ⬜ planned ·
 **Depends on:** [Forest showcase](forest-showcase.md) (G8d; current state in [forest.md](../forest.md)); ADR 0163 (the
 post-processing system: `PostEffect` stages `AfterPrepass` / `BeforeTonemap` / `AfterTonemap`, `SceneTextures`, the
-depth prepass, motion vectors and projection jitter); SSAO/GTAO ([G6.6](rendering-features.md#ssao)) and TAA
+depth prepass, motion vectors and projection jitter); SSAO/GTAO ([G6.6](../post-processing.md#ssao)) and TAA
 ([G8d.8](forest-showcase.md#g8d8-taa)), both now on Vulkan ahead of M11; [Procedural trees](procedural-trees.md)
 (G8b: `TreeImpostor`); [Water](water.md) (G8c: refraction, SSR, falls) · **Related:**
-[Rendering features](rendering-features.md) (G6.3 particles, G6.4 LOD), [Terrain](terrain.md) (G8a),
+[Rendering features](../rendering-features.md) (G6.3 particles, G6.4 LOD), [Terrain](terrain.md) (G8a),
 [Rendering backend abstraction](rendering-backend-abstraction.md) (M11: compute), [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md),
 [ADR 0164](../../../memory/decisions/0164-forest-visual-quality-plan.md)
 
@@ -140,7 +140,7 @@ TAAU history 59 MiB: ≈ 0.45 GiB, within G8d's 2 GiB.
 ### Binding budget
 
 The mesh fragment stage stays within 16 sampled images and 16 samplers
-([G6 → Binding budget](rendering-features.md#binding-budget)):
+([G6 → Binding budget](../rendering-features.md#binding-budget)):
 
 | Fragment stage | Today | After G8e |
 |---|---|---|
@@ -643,7 +643,7 @@ Refresh `.spv` and `shaders.lock` in every phase that touches shaders.
 
 [Milestones](../../milestones.md#gameplay-toolkit-) · [Forest showcase (G8d)](forest-showcase.md) ·
 [Forest (current state)](../forest.md) · [Procedural trees (G8b)](procedural-trees.md) · [Water (G8c)](water.md) ·
-[Terrain (G8a)](terrain.md) · [Rendering features (G6)](rendering-features.md) · [Rendering backend abstraction
+[Terrain (G8a)](terrain.md) · [Rendering features (G6)](../rendering-features.md) · [Rendering backend abstraction
 (M11)](rendering-backend-abstraction.md) · [Lighting](../lighting.md) · [Shadow system](../shadow-system.md) ·
 [Color pipeline](../color-pipeline.md) · [Sky](../sky.md) · [Materials & meshes](../materials-and-meshes.md) ·
 [ADR 0164](../../../memory/decisions/0164-forest-visual-quality-plan.md) · [ADR

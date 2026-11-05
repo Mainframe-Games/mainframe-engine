@@ -173,9 +173,9 @@ world and every rendering sub-viewport world), when the world has a sky and `Amb
 
 | Step | Detail |
 |---|---|
-| Capture | The sky's own fragment shader renders into a 128² `R16G16B16A16_SFLOAT` cube, one face per pass, through a 90° camera per face: six set-0-compatible sets holding a `FrameData` each (`SkyRadiance.FaceView`, a unit test checks them against Vulkan's cube addressing), an empty lights block, and the sky's push constants with `sun.z = 1` (`SkyEnvironment.DrawCapture`). Any sky type works, including later ones, as long as its inputs are its push constants and set 1. No fog, no sun disk (the directional light lights with the sun; a sub-texel disk would flicker as it moves). |
+| Capture | The sky's own fragment shader renders into a `Sky.RadianceSize`² (default 128²) `R16G16B16A16_SFLOAT` cube, one face per pass, through a 90° camera per face: six set-0-compatible sets holding a `FrameData` each (`SkyRadiance.FaceView`, a unit test checks them against Vulkan's cube addressing), an empty lights block, and the sky's push constants with `sun.z = 1` (`SkyEnvironment.DrawCapture`). Any sky type works, including later ones, as long as its inputs are its push constants and set 1. No fog, no sun disk (the directional light lights with the sun; a sub-texel disk would flicker as it moves). |
 | Mips | `vkCmdBlitImage` builds the captured cube's mip chain (one mip when the format cannot be blitted linearly). |
-| Radiance | 6 mips (128 … 4): mip m = perceptual roughness m / 5, GGX importance sampling with 128 samples per texel, reading the source mip whose texel matches each sample's solid angle (filtered importance sampling). Mip 0 copies the sky. `Sky/SkyPrefilter.vk.frag`. |
+| Radiance | 6 mips (at 128: 128 … 4): mip m = perceptual roughness m / 5, GGX importance sampling with 128 samples per texel, reading the source mip whose texel matches each sample's solid angle (filtered importance sampling). Mip 0 copies the sky. `Sky/SkyPrefilter.vk.frag`. |
 | Irradiance | 32² cube: 256 cosine-weighted samples, divided by π (an ambient colour per normal). `Sky/SkyIrradiance.vk.frag`. |
 | BRDF LUT | `BrdfLut`: 64² `R16G16_SFLOAT` split-sum scale and bias, 256 GGX samples per texel, computed on the CPU once per process and uploaded by `FrameContext`. Unit-tested against a numerical integral. |
 
@@ -183,8 +183,16 @@ Every pass is a fullscreen triangle (`Post/Fullscreen.vk.vert`) in one colour-on
 every layout change, and the first waits for earlier frames' sampling, so the cubes are rewritten in place.
 
 **When.** A bake runs when the sky changes: another `SkyEnvironment` (mode or images), or other push constants
-(`SkyEnvironment.CaptureParams`: colours, sun direction, …). Parameter changes re-bake at most every
-`SkyRadiance.MinFramesBetweenBakes` (4) frames, so a moving sun costs a bake every few frames. A still sky bakes once.
+(`SkyEnvironment.CaptureParams`: colours, sun direction, …). With `Sky.ProcessMode` `Automatic` (default) parameter
+changes re-bake at most every `SkyRadiance.MinFramesBetweenBakes` (4) frames, so a moving sun costs a bake every few
+frames; `RealTime` re-bakes every frame the sky changes (pair it with a small `RadianceSize`). A still sky bakes once.
+
+**Size.** `Sky.RadianceSize` (Godot's `radiance_size`: 32, 64, 128, 256, 512 or 1024 pixels per face, default 128; Godot's
+default is 256) sizes the source and radiance cubes; changing it rebuilds the world's `SkyRadiance` on the next frame.
+
+**HDR panoramas (G6.2).** A `Sky.Panorama` ending in `.hdr` (Radiance RGBE) decodes through StbImageSharp's float path
+(`HdrImage.DecodeHalf`) into an `R16G16B16A16_SFLOAT` image instead of the sRGB `R8G8B8A8` one, so a sun of radiance 60 in
+the file lights and reflects at 60. LDR panoramas still work. Render test: `pbr-ibl-hdr`.
 
 **Binding.** Set 0 (`FrameContext`), per frame slot and view: b2 radiance cube, b3 irradiance cube, b4 BRDF LUT, one
 linear mipmapped clamp sampler. Before each view's `Begin` the render server sets `FrameContext.EnvironmentMaps` to its
@@ -228,7 +236,8 @@ exports' round trip.
 ## Known issues
 
 - One capture per `WorldEnvironment` (a `Sky` shared by two worlds is baked twice). The bake runs whole in one frame.
-- The radiance cube is 128²: mirror-like metals show a soft sky. Panoramas are LDR (no `.hdr` decoding yet).
+- The radiance cube defaults to 128²: mirror-like metals show a soft sky unless `RadianceSize` is raised. EXR panoramas
+  need a new dependency (not supported); `.hdr` and LDR images are.
 
 - Cubemap faces must be square and equal-sized (checked); a Panoramic or Cubemap sky without paths throws.
 - The panorama is sampled without mips (the longitude seam would select the smallest mip).

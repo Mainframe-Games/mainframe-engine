@@ -19,6 +19,19 @@ public class PbrTests
     }
 
     [Fact]
+    public void HdrPanoramaLightsAndReflectsMatchGolden()
+    {
+        // G6.2: a Radiance .hdr sky (decoded as half floats) with a sun of radiance 60 reflected by metal and glossy spheres.
+        var result = HdrRun("pbr-ibl-hdr");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 6);
+    }
+
+    private static HostResult HdrRun(string scene) => HostRunner.Run(scene, Output(scene), "--capture", "6", "--hidden");
+
+    [Fact]
     public void FogMatchesGolden()
     {
         // Distance + height fog with sun scatter on lit surfaces, and the sky fading into it at the horizon.

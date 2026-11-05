@@ -8,12 +8,14 @@
 //
 // Per fragment: the four strongest of the (up to twelve) splat weights (two in the far band) → each layer sampled planar (world
 // XZ, hex-tiled in the near band) and/or triplanar on slopes → height-blended weights → albedo × tint, whiteout-blended
-// normals, ORM → macro variation → shadeLightsPbr → applyFog. Every texture lookup uses SampleGrad with gradients taken
-// at the top, so the dynamic branches (skipped layers, bands, slopes) keep mip selection defined.
+// normals, ORM → macro variation → the instance's decals (decals.slang, G6.5) → shadeLightsPbr → applyFog. Every texture
+// lookup uses SampleGrad with gradients taken at the top, so the dynamic branches (skipped layers, bands, slopes) keep mip
+// selection defined.
 #include "frame.slang"
 #include "shadows.slang"
 #include "lights.slang"
 #include "fog.slang"
+#include "decals.slang"
 
 static const int kMaxLayers = 12;
 
@@ -41,6 +43,7 @@ struct FsIn
     [[vk::location(1)]] float3 inNormal;
     [[vk::location(2)]] float2 inUV;
     [[vk::location(3)]] float4 inColor; // white from Mesh.vk.vert; multiplies the albedo
+    [[vk::location(4)]] nointerpolation uint inDecalMask; // G6.5
 };
 
 // One layer's lookup: albedo (a = height), the normal map in its UV frame (x along +u, y along +v, z out) and ORM.
@@ -367,12 +370,21 @@ float4 main(FsIn input, float4 fragCoord : SV_Position) : SV_Target0
     float len = length(N);
     N = len > 1e-5 ? N / len : Ngeo;
 
+    // G6.5: the decals over this chunk (tracks, scorch marks), before lighting.
+    DecalSurface decal;
+    decal.albedo = albedo;
+    decal.N = N;
+    decal.orm = saturate(surface.orm);
+    decal.emission = float3(0.0);
+    if (input.inDecalMask != 0u)
+        applyDecals(input.inDecalMask, P, dPdx, dPdy, Ngeo, decal);
+
     PbrSurface s;
-    s.albedo = albedo;
-    s.ao = saturate(surface.orm.x);
-    s.roughness = saturate(surface.orm.y);
-    s.metallic = saturate(surface.orm.z);
-    s.N = N;
+    s.albedo = decal.albedo;
+    s.ao = decal.orm.x;
+    s.roughness = decal.orm.y;
+    s.metallic = decal.orm.z;
+    s.N = decal.N;
     float3 color = shadeLightsPbr(s, Ngeo, P, ambientOcclusionAt(fragCoord)); // × the screen-space AO (ADR 0165)
-    return float4(applyFog(color, P), 1.0);
+    return float4(applyFog(color + decal.emission, P), 1.0);
 }

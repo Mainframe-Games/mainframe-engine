@@ -199,7 +199,11 @@ sequenceDiagram
   `SubViewport` shown through a `UiDocument` `<img src="engine://picking-preview"/>`; self-checked), and the game-UI scenes (M8) `ui-hud` (HUD over lit-shapes),
   `ui-effects`, `ui-text`, `ui-widgets` (documents in the host's `Assets/UI/` and the engine's widget demo;
   `--size` gives them larger windows), and the shadow scenes (M4) `csm`, `shadow-pcf`, `shadow-lights`,
-  `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)), `sprite-billboard` (ADR 0199:
+  `shadow-cutout` and `shadow-shimmer` ([Shadow system → testing](shadow-system.md#testing)), the G6 scenes `lod` (ADR 0245:
+  levels of detail by distance, bias, an index-only level and a visibility range; self-checked at both pixel scales), `decals`
+  (ADR 0246: albedo, normal, ORM and emission decals on PBR and Blinn-Phong surfaces with angle and distance fades; atlas
+  rebuilds and selection self-checked; `--count 1` moves one) and `pbr-ibl-hdr` (a generated `.hdr` sky as RGBA16F, its sun
+  reflected), `sprite-billboard` (ADR 0199:
   Y-billboard, flipped and full-billboard sprites with their shadows; `--count 1`: billboards off, edge-on), `spatial-shaders`
   and `spatial-shaders-taa` (ADR 0205: spatial surface shaders, ADR 0237 — a procedural ground, swaying multimesh stalks and shadows, a
   dissolve cutout from a `.mres`, a rim next pass and overlay; picks self-checked; the `.slang` surface shaders' SPIR-V in the host's

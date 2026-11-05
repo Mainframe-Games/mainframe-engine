@@ -408,6 +408,7 @@ public class GameHost : Engine
         {
             render.ShadowQuality = Settings.Rendering.Shadows; // before any visual creates GPU resources (Off)
             render.WaterSsr = Settings.Rendering.WaterSsr;
+            render.MeshLodThreshold = Settings.Rendering.MeshLodThreshold; // G6.4
         }
         // The session (autoloads, the main scene) starts on the first update, once the window is up (Godot readies the
         // scene after its window exists): SDL shows the window after OnLoad, which took ~0.3 s that the first scene's

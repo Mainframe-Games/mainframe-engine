@@ -89,7 +89,7 @@ Every game needs to save progress and remember the player's options. The engine 
 - **Syncing settings across devices.** Display settings are per device. Cloud sync of the portable parts (audio, input)
   is an M13 question.
 - **Render-resolution scale, quality presets beyond shadows, per-monitor selection.** These come with
-  [Rendering features](rendering-features.md) (G6) or later.
+  [Rendering features](../rendering-features.md) (G6) or later.
 - **Gamepad glyph images.** Bindings show text labels (`A`, `LB`, `RT`). Platform glyph sets are an open question.
 
 ## Design
@@ -857,7 +857,7 @@ differs from the text above:
    1 MB), or keep all settings per device?
 7. **Thumbnail capture cost.** `EnableFrameCapture` adds transfer-source usage to the swapchain, which is slower on
    MoltenVK (`Engine.cs:50-53`). Should thumbnails instead render into a small offscreen target (a sub-viewport pass),
-   so the swapchain flag is not needed? This would depend on [Rendering features](rendering-features.md).
+   so the swapchain flag is not needed? This would depend on [Rendering features](../rendering-features.md).
 
 ## Related
 

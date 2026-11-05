@@ -92,6 +92,11 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `MainframeEngine/Src/Scene/` — Godot-style node tree: `Node`, `SceneTree`, `Node3D`/`Node2D`, transforms, `NodePath`,
   camera/light/sky/grid nodes (`Nodes3D/`, `Nodes2D/`), input events
 - `MainframeEngine/Src/Nodes/` — drawable/network nodes: `SpineNode`, `NetworkNode` (meshes: `Scene/Nodes3D/GeometryInstance3D.cs`)
+- Rendering features (G6, `docs/design/rendering-features.md`): mesh levels of detail (ADR 0245: `MeshLod` in
+  `Rendering/Resources/Mesh.cs`, `Rendering/Meshes/LodSelection.cs`, authored `_LODn` import in
+  `Resources/Import/ModelLods.cs`), forward decals (ADR 0246: `Scene/Nodes3D/Decal.cs`, `Rendering/Meshes/DecalSelection.cs`
+  and `DecalAtlas.cs`, `Assets/Shaders/include/decals.slang`, set 0 bindings 8 and 9), `.hdr` sky panoramas
+  (`Rendering/Sky/HdrImage.cs`)
 - Particles (ADR 0206): `Scene/Particles/` (`ParticleProcessMaterial`, shared 2D/3D; `ParticleSimulation3D`, CPU),
   `Scene/Nodes3D/GpuParticles3D.cs`, `Rendering/Particles/` (`ParticleRenderer`, its own pipelines, not `MeshRenderer`);
   see `docs/design/particles-3d.md`

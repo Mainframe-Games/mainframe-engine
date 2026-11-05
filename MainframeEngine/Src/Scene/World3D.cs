@@ -11,6 +11,7 @@ public sealed class World3D
     private readonly List<GeometryInstance3D> _geometry = [];
     private readonly List<WorldEnvironment> _environments = [];
     private readonly List<LightProbeVolume> _probeVolumes = [];
+    private readonly List<Decal> _decals = [];
     private readonly List<Terrain3D> _terrains = [];
 
     public World3D()
@@ -85,6 +86,15 @@ public sealed class World3D
             return null;
         }
     }
+
+    /// <summary>The <see cref="Decal"/>s in this world (G6.5), in entry order.</summary>
+    public IReadOnlyList<Decal> Decals => _decals;
+
+    internal List<Decal> DecalList => _decals;
+
+    internal void AddDecal(Decal decal) => _decals.Add(decal);
+
+    internal void RemoveDecal(Decal decal) => _decals.Remove(decal);
 
     internal void AddTerrain(Terrain3D terrain) => _terrains.Add(terrain);
 

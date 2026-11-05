@@ -587,6 +587,11 @@ The generator records it in `ExportHints.Handle`; `HintHandleProvider` reads and
 
 ![Dragging the blue omni light's range: the handle on its view-facing circle and the label](../images/editor-range-handles.png)
 
+`Decal` (G6.5) has a scene icon (`Assets/gizmos/decal.svg`, with its projection arrow) and `DecalHandles`: the projection
+box, an arrow along −Y, and a handle on the +X, +Y and +Z faces that sets that `Size` component (the box stays centred).
+
+![A Decal added under the blue light: its projection box and handles in the view, its textures and fades in the Inspector](../images/editor-decal.png)
+
 ### Box selection and lock
 
 A left press on empty space (no handle, no gizmo axis) that moves past the click distance draws a **rectangle** (an

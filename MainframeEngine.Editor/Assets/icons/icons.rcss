@@ -272,11 +272,13 @@
     i-align-right: 122px 322px 16px 16px;
     i-transition-right: 142px 322px 16px 16px;
     i-subtitles: 162px 322px 16px 16px;
-    i-keyframe: 182px 322px 16px 16px;
-    i-player-skip-back: 202px 322px 16px 16px;
-    i-repeat-off: 222px 322px 16px 16px;
-    i-pin: 242px 322px 16px 16px;
-    i-help: 262px 322px 16px 16px;
+    i-sticker: 182px 322px 16px 16px;
+    i-stairs-down: 202px 322px 16px 16px;
+    i-keyframe: 222px 322px 16px 16px;
+    i-player-skip-back: 242px 322px 16px 16px;
+    i-repeat-off: 262px 322px 16px 16px;
+    i-pin: 282px 322px 16px 16px;
+    i-help: 302px 322px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -546,11 +548,13 @@
     l-align-right: 183px 483px 24px 24px;
     l-transition-right: 213px 483px 24px 24px;
     l-subtitles: 243px 483px 24px 24px;
-    l-keyframe: 273px 483px 24px 24px;
-    l-player-skip-back: 303px 483px 24px 24px;
-    l-repeat-off: 333px 483px 24px 24px;
-    l-pin: 363px 483px 24px 24px;
-    l-help: 393px 483px 24px 24px;
+    l-sticker: 273px 483px 24px 24px;
+    l-stairs-down: 303px 483px 24px 24px;
+    l-keyframe: 333px 483px 24px 24px;
+    l-player-skip-back: 363px 483px 24px 24px;
+    l-repeat-off: 393px 483px 24px 24px;
+    l-pin: 423px 483px 24px 24px;
+    l-help: 453px 483px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -823,11 +827,13 @@
         i-align-right: 244px 644px 32px 32px;
         i-transition-right: 284px 644px 32px 32px;
         i-subtitles: 324px 644px 32px 32px;
-        i-keyframe: 364px 644px 32px 32px;
-        i-player-skip-back: 404px 644px 32px 32px;
-        i-repeat-off: 444px 644px 32px 32px;
-        i-pin: 484px 644px 32px 32px;
-        i-help: 524px 644px 32px 32px;
+        i-sticker: 364px 644px 32px 32px;
+        i-stairs-down: 404px 644px 32px 32px;
+        i-keyframe: 444px 644px 32px 32px;
+        i-player-skip-back: 484px 644px 32px 32px;
+        i-repeat-off: 524px 644px 32px 32px;
+        i-pin: 564px 644px 32px 32px;
+        i-help: 604px 644px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -1097,11 +1103,13 @@
         l-align-right: 366px 966px 48px 48px;
         l-transition-right: 426px 966px 48px 48px;
         l-subtitles: 486px 966px 48px 48px;
-        l-keyframe: 546px 966px 48px 48px;
-        l-player-skip-back: 606px 966px 48px 48px;
-        l-repeat-off: 666px 966px 48px 48px;
-        l-pin: 726px 966px 48px 48px;
-        l-help: 786px 966px 48px 48px;
+        l-sticker: 546px 966px 48px 48px;
+        l-stairs-down: 606px 966px 48px 48px;
+        l-keyframe: 666px 966px 48px 48px;
+        l-player-skip-back: 726px 966px 48px 48px;
+        l-repeat-off: 786px 966px 48px 48px;
+        l-pin: 846px 966px 48px 48px;
+        l-help: 906px 966px 48px 48px;
     }
 }
 
@@ -1370,6 +1378,8 @@
 .icon-align-right { decorator: image(i-align-right); }
 .icon-transition-right { decorator: image(i-transition-right); }
 .icon-subtitles { decorator: image(i-subtitles); }
+.icon-sticker { decorator: image(i-sticker); }
+.icon-stairs-down { decorator: image(i-stairs-down); }
 .icon-keyframe { decorator: image(i-keyframe); }
 .icon-player-skip-back { decorator: image(i-player-skip-back); }
 .icon-repeat-off { decorator: image(i-repeat-off); }
@@ -1641,6 +1651,8 @@
 .icon-lg.icon-align-right { decorator: image(l-align-right); }
 .icon-lg.icon-transition-right { decorator: image(l-transition-right); }
 .icon-lg.icon-subtitles { decorator: image(l-subtitles); }
+.icon-lg.icon-sticker { decorator: image(l-sticker); }
+.icon-lg.icon-stairs-down { decorator: image(l-stairs-down); }
 .icon-lg.icon-keyframe { decorator: image(l-keyframe); }
 .icon-lg.icon-player-skip-back { decorator: image(l-player-skip-back); }
 .icon-lg.icon-repeat-off { decorator: image(l-repeat-off); }

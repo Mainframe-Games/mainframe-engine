@@ -13,6 +13,12 @@ namespace MainframeEngine;
 internal readonly record struct SurfaceRange(uint FirstIndex, uint IndexCount, int VertexOffset, bool HasStreams = false);
 
 /// <summary>
+/// One coarser level of a surface (G6.4, <see cref="MeshLod"/>) inside a <see cref="MeshGpu"/>: its index range (after
+/// every surface's), the vertex offset of the vertices it indexes (the surface's, or its own geometry's) and its error.
+/// </summary>
+internal readonly record struct LodRange(SurfaceRange Range, float Error);
+
+/// <summary>
 /// A <see cref="Mesh"/> on the GPU: every surface's vertices in one device-local vertex buffer and indices in one
 /// index buffer (uploaded through the upload queue), plus each surface's range. Shared by every instance of the
 /// mesh (reference-counted by the nodes using it); re-uploaded when <see cref="Mesh.Version"/> changes.
@@ -77,6 +83,16 @@ internal sealed class MeshGpu
 
     private int _vertexCount;
     public SurfaceRange[] Surfaces { get; private set; } = [];
+
+    /// <summary>Per surface: its coarser levels (G6.4; level <c>l</c> ≥ 1 is <c>Lods[s][l - 1]</c>), empty without LODs.</summary>
+    public LodRange[][] Lods { get; private set; } = [];
+
+    /// <summary>The largest level count of any surface (1 without LODs).</summary>
+    public int MaxLevels { get; private set; } = 1;
+
+    /// <summary>The index range of surface <paramref name="surface"/> at level <paramref name="lod"/> (0 = the surface).</summary>
+    public SurfaceRange Range(int surface, int lod) =>
+        lod == 0 ? Surfaces[surface] : Lods[surface][lod - 1].Range;
     public Aabb Bounds { get; private set; } = Aabb.Empty;
 
     /// <summary>Bumped on every re-upload (nodes refresh their per-surface materials).</summary>
@@ -103,6 +119,8 @@ internal sealed class MeshGpu
         Streams = source.Streams;
         WindStreams = source.WindStreams;
         Surfaces = source.Surfaces;
+        Lods = source.Lods;
+        MaxLevels = source.MaxLevels;
         Bounds = source.Bounds;
         _vertexCount = source._vertexCount;
         Generation = source.Generation;
@@ -132,28 +150,73 @@ internal sealed class MeshGpu
             Log.Error($"[Mesh] '{Mesh.ResourcePath ?? Mesh.ResourceName}' cannot be drawn: {e.Message}");
             Release();
             Surfaces = new SurfaceRange[Mesh.SurfaceCount];
+            Lods = new LodRange[Mesh.SurfaceCount][];
+            Array.Fill(Lods, []);
+            MaxLevels = 1;
         }
 
         return Vertices is not null;
     }
 
-    private void Upload()
+    /// <summary>
+    /// The buffer layout of <paramref name="mesh"/> (validating every surface): each surface's vertices and indices in
+    /// order, then every surface's coarser levels (G6.4), a level with its own geometry appending its vertices too.
+    /// Returns the largest level count of any surface.
+    /// </summary>
+    internal static int Layout(Mesh mesh, out SurfaceRange[] ranges, out LodRange[][] lods, out int vertexCount, out int indexCount)
     {
-        var surfaceCount = Mesh.SurfaceCount;
-        var ranges = new SurfaceRange[surfaceCount];
-        int vertexCount = 0, indexCount = 0;
-        var streams = false;
+        var surfaceCount = mesh.SurfaceCount;
+        ranges = new SurfaceRange[surfaceCount];
+        lods = new LodRange[surfaceCount][];
+        vertexCount = 0;
+        indexCount = 0;
         for (var s = 0; s < surfaceCount; s++)
         {
-            var surface = Mesh.GetSurface(s);
+            var surface = mesh.GetSurface(s);
             surface.Validate();
             ranges[s] = new SurfaceRange((uint)indexCount, (uint)surface.IndexCount, vertexCount, surface.HasVertexStreams);
-            streams |= surface.HasVertexStreams;
             vertexCount += surface.VertexCount;
             indexCount += surface.IndexCount;
         }
 
+        var maxLevels = 1;
+        for (var s = 0; s < surfaceCount; s++)
+        {
+            var surfaceLods = mesh.GetSurface(s).Lods;
+            var levels = surfaceLods.Length == 0 ? [] : new LodRange[surfaceLods.Length];
+            for (var l = 0; l < surfaceLods.Length; l++)
+            {
+                var lod = surfaceLods[l];
+                var vertexOffset = ranges[s].VertexOffset;
+                if (lod.Geometry is { } geometry)
+                {
+                    vertexOffset = vertexCount;
+                    vertexCount += geometry.VertexCount;
+                }
+
+                // Drawn with the surface's pipeline: own geometry's streams are its own or the defaults.
+                levels[l] = new LodRange(new SurfaceRange((uint)indexCount, (uint)lod.IndexCount, vertexOffset, ranges[s].HasStreams), lod.Error);
+                indexCount += lod.IndexCount;
+            }
+
+            lods[s] = levels;
+            maxLevels = Math.Max(maxLevels, levels.Length + 1);
+        }
+
+        return maxLevels;
+    }
+
+    private void Upload()
+    {
+        var surfaceCount = Mesh.SurfaceCount;
+        var maxLevels = Layout(Mesh, out var ranges, out var lods, out var vertexCount, out var indexCount);
+        var streams = false;
+        foreach (var range in ranges)
+            streams |= range.HasStreams;
+
         Surfaces = ranges;
+        Lods = lods;
+        MaxLevels = maxLevels;
         Bounds = Mesh.Bounds;
         _vertexCount = vertexCount;
         if (vertexCount == 0 || indexCount == 0)
@@ -168,10 +231,15 @@ internal sealed class MeshGpu
                 var surface = Mesh.GetSurface(s);
                 var range = ranges[s];
                 surface.WriteVertices(vertices.AsSpan(range.VertexOffset, surface.VertexCount));
-                var src = surface.Indices;
-                var dst = indices.AsSpan((int)range.FirstIndex, src.Length);
-                for (var i = 0; i < src.Length; i++)
-                    dst[i] = (uint)src[i];
+                CopyIndices(surface.Indices, indices.AsSpan((int)range.FirstIndex, surface.IndexCount));
+                for (var l = 0; l < surface.Lods.Length; l++)
+                {
+                    var lod = surface.Lods[l];
+                    var lodRange = lods[s][l].Range;
+                    if (lod.Geometry is { } geometry)
+                        geometry.WriteVertices(vertices.AsSpan(lodRange.VertexOffset, geometry.VertexCount));
+                    CopyIndices(lod.Geometry?.Indices ?? lod.Indices, indices.AsSpan((int)lodRange.FirstIndex, (int)lodRange.IndexCount));
+                }
             }
 
             Vertices = GpuBuffer.CreateStatic<MeshVertex>(_ctx, vertices.AsSpan(0, vertexCount), BufferUsageFlags.VertexBufferBit);
@@ -193,16 +261,33 @@ internal sealed class MeshGpu
             UploadSkinSource();
     }
 
+    private static void CopyIndices(int[] source, Span<uint> destination)
+    {
+        for (var i = 0; i < source.Length; i++)
+            destination[i] = (uint)source[i];
+    }
+
+    // Every block of the mesh's vertices: each surface's, then the LODs with their own geometry (upload time only).
+    private IEnumerable<(MeshSurface Surface, int Offset)> VertexBlocks()
+    {
+        for (var s = 0; s < Surfaces.Length; s++)
+        {
+            var surface = Mesh.GetSurface(s);
+            yield return (surface, Surfaces[s].VertexOffset);
+            var levels = Lods[s];
+            for (var l = 0; l < levels.Length; l++)
+                if (surface.Lods[l].Geometry is { } geometry)
+                    yield return (geometry, levels[l].Range.VertexOffset);
+        }
+    }
+
     private void UploadSkinSource()
     {
         var data = ArrayPool<SkinVertex>.Shared.Rent(_vertexCount);
         try
         {
-            for (var s = 0; s < Surfaces.Length; s++)
-            {
-                var surface = Mesh.GetSurface(s);
-                surface.WriteSkinVertices(data.AsSpan(Surfaces[s].VertexOffset, surface.VertexCount));
-            }
+            foreach (var (surface, offset) in VertexBlocks())
+                surface.WriteSkinVertices(data.AsSpan(offset, surface.VertexCount));
 
             SkinSource = GpuBuffer.CreateStatic<SkinVertex>(_ctx, data.AsSpan(0, _vertexCount), BufferUsageFlags.StorageBufferBit);
         }
@@ -235,11 +320,8 @@ internal sealed class MeshGpu
         var data = ArrayPool<MeshVertexExt>.Shared.Rent(_vertexCount);
         try
         {
-            for (var s = 0; s < Surfaces.Length; s++)
-            {
-                var surface = Mesh.GetSurface(s);
-                surface.WriteVertexStreams(data.AsSpan(Surfaces[s].VertexOffset, surface.VertexCount));
-            }
+            foreach (var (surface, offset) in VertexBlocks())
+                surface.WriteVertexStreams(data.AsSpan(offset, surface.VertexCount));
 
             Streams = GpuBuffer.CreateStatic<MeshVertexExt>(_ctx, data.AsSpan(0, _vertexCount), BufferUsageFlags.VertexBufferBit);
         }
@@ -251,11 +333,8 @@ internal sealed class MeshGpu
         var wind = ArrayPool<MeshVertexWind>.Shared.Rent(_vertexCount);
         try
         {
-            for (var s = 0; s < Surfaces.Length; s++)
-            {
-                var surface = Mesh.GetSurface(s);
-                surface.WriteWindStreams(wind.AsSpan(Surfaces[s].VertexOffset, surface.VertexCount));
-            }
+            foreach (var (surface, offset) in VertexBlocks())
+                surface.WriteWindStreams(wind.AsSpan(offset, surface.VertexCount));
 
             WindStreams = GpuBuffer.CreateStatic<MeshVertexWind>(_ctx, wind.AsSpan(0, _vertexCount), BufferUsageFlags.VertexBufferBit);
         }
@@ -669,6 +748,12 @@ internal sealed class MaterialGpu
     public bool RefractsScene;
 
     /// <summary>The material's vertex shaders read the second vertex stream whatever the surface (foliage, water).</summary>
+    /// <summary>
+    /// The surfaces take decals (G6.5): opaque or cutout <see cref="StandardMaterial3D"/>s and terrain splats, whose
+    /// shaders read the instance's decal mask.
+    /// </summary>
+    public bool ReceivesDecals => !State.IsTransparent && ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshTerrainSplat;
+
     public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray
         or ShaderSetId.MeshSpatial;
 

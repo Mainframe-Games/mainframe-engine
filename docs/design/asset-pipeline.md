@@ -104,7 +104,8 @@ ignored with a warning. `TextureImportSettings.ToMetaSettings()` writes the obje
 ```json
 { "uid": "mdl_7e57a55e7000", "importer": "model",
   "settings": { "scale": 1, "generateNormals": true, "importMaterials": true, "optimizeMeshes": false,
-                "importAnimations": true, "optimizeAnimations": true, "clips": [ { "name": "run", "loop": "Linear" } ] } }
+                "importAnimations": true, "optimizeAnimations": true, "clips": [ { "name": "run", "loop": "Linear" } ],
+                "shading": "blinnPhong", "lodErrors": [], "generateLods": false } }
 ```
 
 Models import through **Silk.NET.Assimp** ([ADR 0013](../../memory/decisions/0013-assimp-for-model-import.md)). The
@@ -127,6 +128,25 @@ post-processing steps are:
 | animations | `Animation`s (named after the actions) in an `AnimationLibrary` on an `AnimationPlayer` child of the root; loop modes and events from a `-loop` suffix, glTF animation `extras` and the `.meta` `clips` |
 
 Skeletons, skins and clips are described in [Animation and skinning → Import](animation.md#import).
+
+#### PBR materials (G6.1)
+
+`"shading": "pbr"` imports materials as `ShadingMode.Pbr` (the default `"blinnPhong"` keeps the old look until the owner
+flips it, [Rendering features](rendering-features.md#open-questions)):
+
+- `Metallic` from `$mat.metallicFactor` (0 without one), `Roughness` from `$mat.roughnessFactor`, or from the shininess
+  (√(2 / (n + 2))) for files without it (FBX, OBJ);
+- glTF's `metallicRoughnessTexture` (Assimp's `Metalness`/`DiffuseRoughness`, `Unknown` in older builds) and
+  `occlusionTexture` (`Lightmap`, or `AmbientOcclusion`) become one `OrmTexture`: the image itself when both are the same
+  packed ORM file, else `OrmPacker.PackGltf` (occlusion's R, the metallic-roughness map's G and B; nearest resampling to
+  the larger size).
+
+#### Authored levels of detail (G6.4)
+
+Sibling mesh nodes named `<name>_LOD0` … `<name>_LOD7` merge into one `MeshInstance3D` `<name>` whose surfaces carry the
+other levels as `MeshLod`s with their own geometry; `"lodErrors"` gives their errors as fractions of the LOD0 bounds
+radius (default 1 %, doubling). `"generateLods"` is reserved (no simplifier yet). Details:
+[Rendering features → Authored LODs on import](rendering-features.md#authored-lods-on-import).
 
 `PackedScene.Instantiate()` on an imported scene clones the imported template. Exported properties are copied, so
 meshes, materials and textures are shared, and every node is owned by the instance root, as for scene files. A
@@ -161,8 +181,8 @@ in the Demo): a 31-bone Blender-style rig, a two-primitive skinned mesh of about
 - Assimp is a native library from the `Ultz.Native.Assimp` package (loaded by Silk.NET's resolver). Where it
   cannot load, model imports throw `InvalidOperationException` and the import tests fail. See the M3 risks in the
   progress log for the Linux CI loader.
-- Not imported: morph targets, cameras, lights, PBR metallic/roughness maps, glTF sampler settings (the
-  image's `.meta` decides), and UV sets beyond the first.
+- Not imported: morph targets, cameras, lights, glTF sampler settings (the image's `.meta` decides), and UV sets beyond
+  the first. PBR data is read only with `"shading": "pbr"`; generated LODs need a mesh simplifier (not chosen yet).
 - Silk.NET's animation key structs are larger than the bundled Assimp's; the importer detects the key stride from the
   data (ADR 0208).
 

@@ -151,6 +151,31 @@ public sealed unsafe class GpuTexture : IDisposable
         return new GpuTexture(ctx, image, sampler, TextureColorSpace.Linear);
     }
 
+    /// <summary>
+    /// A 2D texture (no mips) from tightly packed texels of <paramref name="format"/> (an uncompressed colour format, e.g.
+    /// <c>R16G16B16A16_SFLOAT</c> for an HDR panorama), sampled as stored (<see cref="TextureColorSpace.Linear"/>).
+    /// </summary>
+    public static GpuTexture Create2DTexels(IVulkanContext ctx, uint width, uint height, Format format, ReadOnlySpan<byte> texels,
+        TextureSampling sampling)
+    {
+        ArgumentNullException.ThrowIfNull(ctx);
+        var image = GpuImage.Create(ctx, new GpuImageDesc(width, height, format, ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit));
+        Sampler sampler;
+        try
+        {
+            ctx.Uploads.UploadImage(image, texels);
+            ctx.Uploads.FlushIfRecording();
+            sampler = CreateSampler(ctx, sampling, 1);
+        }
+        catch
+        {
+            image.Dispose();
+            throw;
+        }
+
+        return new GpuTexture(ctx, image, sampler, TextureColorSpace.Linear);
+    }
+
     /// <summary>Decodes an image file (PNG, JPEG, TGA, BMP; path via <see cref="ContentPaths.Resolve(string)"/>) into a 2D texture.</summary>
     public static GpuTexture Load(IVulkanContext ctx, string path, TextureColorSpace colorSpace, TextureSampling sampling,
         bool generateMips = false)

@@ -367,7 +367,7 @@ public static class ProjectSettingsFormat
         var d = new RenderingProjectSettings();
         if (s.Exposure == d.Exposure && s.Shadows == d.Shadows && s.CanvasClearColor is null && s.AntiAliasing == d.AntiAliasing
             && s.TaaSharpness == d.TaaSharpness && s.WaterSsr == d.WaterSsr && s.Scaling3DMode == d.Scaling3DMode
-            && s.Scaling3DScale == d.Scaling3DScale && s.FsrSharpness == d.FsrSharpness)
+            && s.Scaling3DScale == d.Scaling3DScale && s.FsrSharpness == d.FsrSharpness && s.MeshLodThreshold == d.MeshLodThreshold)
             return;
         w.WriteStartObject("rendering");
         if (s.Exposure != d.Exposure)
@@ -386,6 +386,8 @@ public static class ProjectSettingsFormat
             w.WriteNumber("scaling3DScale", s.Scaling3DScale);
         if (s.FsrSharpness != d.FsrSharpness)
             w.WriteNumber("fsrSharpness", s.FsrSharpness);
+        if (s.MeshLodThreshold != d.MeshLodThreshold)
+            w.WriteNumber("meshLodThreshold", s.MeshLodThreshold);
         if (s.CanvasClearColor is { } c)
             WriteFloats(w, "canvasClearColor", [c.X, c.Y, c.Z, c.W]);
         w.WriteEndObject();
@@ -785,7 +787,7 @@ public static class ProjectSettingsFormat
         private void ReadRendering(JsonObject o, RenderingProjectSettings s)
         {
             Known(o, "rendering.", "exposure", "shadows", "canvasClearColor", "antiAliasing", "taaSharpness", "waterSsr",
-                "scaling3DMode", "scaling3DScale", "fsrSharpness");
+                "scaling3DMode", "scaling3DScale", "fsrSharpness", "meshLodThreshold");
             s.AntiAliasing = EnumValue(o, "antiAliasing", "rendering.antiAliasing", s.AntiAliasing);
             s.WaterSsr = EnumValue(o, "waterSsr", "rendering.waterSsr", s.WaterSsr);
             var taaSharpness = Float(o, "taaSharpness", "rendering.taaSharpness", s.TaaSharpness);
@@ -795,6 +797,8 @@ public static class ProjectSettingsFormat
             Guard("rendering.scaling3DScale", () => s.Scaling3DScale = scale);
             var fsrSharpness = Float(o, "fsrSharpness", "rendering.fsrSharpness", s.FsrSharpness);
             Guard("rendering.fsrSharpness", () => s.FsrSharpness = fsrSharpness);
+            var lodThreshold = Float(o, "meshLodThreshold", "rendering.meshLodThreshold", s.MeshLodThreshold);
+            Guard("rendering.meshLodThreshold", () => s.MeshLodThreshold = lodThreshold);
             if (Floats(o, "canvasClearColor", "rendering.canvasClearColor", 4) is { } clear)
                 s.CanvasClearColor = new System.Numerics.Vector4(clear[0], clear[1], clear[2], clear[3]);
             var exposure = Float(o, "exposure", "rendering.exposure", s.Exposure);

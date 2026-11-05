@@ -297,6 +297,8 @@ align-center
 align-right
 transition-right
 subtitles
+sticker
+stairs-down
 # Animation panel (G1.6)
 keyframe
 player-skip-back

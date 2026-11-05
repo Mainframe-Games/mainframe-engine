@@ -329,8 +329,15 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     {
         if (!UsesSkyLighting || server.Vulkan is not { } vk || SyncSky(server) is not { CanDraw: true } env)
             return;
-        _radiance ??= new SkyRadiance(vk);
-        _radiance.Update(cb, env);
+        var size = Sky!.RadianceSizePixels;
+        if (_radiance is not null && _radiance.Size != size)
+        {
+            _radiance.Dispose(); // deletion-queued; the views rebind the new cubes (their id changes)
+            _radiance = null;
+        }
+
+        _radiance ??= new SkyRadiance(vk, size);
+        _radiance.Update(cb, env, Sky.ProcessMode);
     }
 
     /// <summary>The captured sky to bind for this world's views, or null (no sky lighting yet, or none wanted).</summary>
@@ -437,6 +444,27 @@ public class WorldEnvironment : Node, IRenderResourceOwner
     }
 }
 
+/// <summary>Pixels across a face of a sky's lighting cube (<see cref="Sky.RadianceSize"/>, Godot's <c>radiance_size</c>).</summary>
+public enum SkyRadianceSize : byte
+{
+    Size32,
+    Size64,
+    Size128,
+    Size256,
+    Size512,
+    Size1024,
+}
+
+/// <summary>How a sky's lighting follows its changes (<see cref="Sky.ProcessMode"/>, Godot's <c>process_mode</c>).</summary>
+public enum SkyProcessMode : byte
+{
+    /// <summary>A changing sky re-bakes at most every <see cref="SkyRadiance.MinFramesBetweenBakes"/> frames (a static one once).</summary>
+    Automatic,
+
+    /// <summary>A changing sky re-bakes every frame.</summary>
+    RealTime,
+}
+
 /// <summary>
 /// Sky settings for a <see cref="WorldEnvironment"/>: procedural gradient + sun, an equirectangular panorama,
 /// or a cubemap (see <see cref="SkyEnvironment"/>). Defaults match <see cref="SkyEnvironment"/>'s.
@@ -446,6 +474,32 @@ public class Sky : Resource
 {
     [Export]
     public SkyEnvironmentType Mode { get; set; } = SkyEnvironmentType.Procedural;
+
+    /// <summary>
+    /// Pixels across a face of the sky's image-based lighting cube (Godot's <c>radiance_size</c>): larger keeps sharper
+    /// mirror reflections and costs more per bake. Default <see cref="SkyRadianceSize.Size128"/> (Godot's is 256).
+    /// </summary>
+    [Export]
+    public SkyRadianceSize RadianceSize { get; set; } = SkyRadianceSize.Size128;
+
+    /// <summary>
+    /// How the sky's lighting follows changes (Godot's <c>process_mode</c>): <see cref="SkyProcessMode.Automatic"/>
+    /// re-bakes a changing sky at most every few frames; <see cref="SkyProcessMode.RealTime"/> every frame it changes
+    /// (a fast day-night cycle; use a small <see cref="RadianceSize"/>).
+    /// </summary>
+    [Export]
+    public SkyProcessMode ProcessMode { get; set; } = SkyProcessMode.Automatic;
+
+    /// <summary><see cref="RadianceSize"/> in pixels.</summary>
+    public uint RadianceSizePixels => RadianceSize switch
+    {
+        SkyRadianceSize.Size32 => 32,
+        SkyRadianceSize.Size64 => 64,
+        SkyRadianceSize.Size256 => 256,
+        SkyRadianceSize.Size512 => 512,
+        SkyRadianceSize.Size1024 => 1024,
+        _ => SkyRadiance.DefaultSize,
+    };
 
     /// <summary>Equirectangular image for <see cref="SkyEnvironmentType.Panoramic"/>.</summary>
     [Export(File = "*.png,*.jpg,*.jpeg,*.hdr")]

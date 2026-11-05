@@ -205,6 +205,10 @@ can be saved as a `.mres` or made unique from the inspector.
     <td align="center" valign="top"><img src="docs/images/editor-path3d.png" width="380" alt="The Demo's camera rail selected in the 3D view: its points, mirrored tangent handles and a selected point's tilt ring, with the curve bar's 3D tools"><br><b>3D curves</b> — the same tool on Path3D: camera-plane and vertical drags, tilt rings, snap and fit to the terrain</td>
     <td align="center" valign="top"><img src="docs/images/editor-animation.png" width="380" alt="The Animation panel in the bottom dock editing an AnimationPlayer's animation: transport and animation tools, position and rotation tracks with keys on a seconds ruler, and the playhead"><br><b>Animation panel</b> — key any property from the inspector, cubic and eased keys, method and audio tracks, scrub and preview; saves never keep a preview</td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-decal.png" width="380" alt="A Decal added under the Demo's blue light: its projection box and size handles in the view, its textures and fades in the Inspector"><br><b>Decals</b> — a projection box with size handles; albedo, normal, ORM and emission maps with Godot's fades</td>
+    <td></td>
+  </tr>
 </table>
 
 **Video mode:** Run › Play and Record (F10) records the game into the project's `Assets/Video/Recordings`, and the
@@ -277,7 +281,8 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Vulkan renderer](docs/design/vulkan-renderer.md) | Vulkan 1.2 on macOS (MoltenVK), Windows and Linux: HDR with linear lighting, an in-house GPU allocator and upload queue, a persisted pipeline cache, zero allocations per frame |
 | [Materials & meshes](docs/design/materials-and-meshes.md) | PBR `StandardMaterial3D`, sRGB-aware textures with GPU mips, instanced and sorted batches (10 000 instances in a few draws), frustum culling, GPU picking, `SubViewport`s, billboarded `Sprite3D`s that cast shadows, outlined `Label3D` name tags |
-| [Lighting & sky](docs/design/lighting.md) | Directional, omni and spot lights; procedural, physical, panoramic and cubemap [skies](docs/design/sky.md) with image-based lighting; baked light probes |
+| [Rendering features](docs/design/rendering-features.md) | Mesh levels of detail picked by projected error (`LodBias`, a project-wide threshold, shadows at the same level, authored `_LOD0…7` nodes from model files); forward decals that change albedo, normal, roughness/metal and emission before lighting, with angle and distance fades and a box gizmo in the editor |
+| [Lighting & sky](docs/design/lighting.md) | Directional, omni and spot lights; procedural, physical, panoramic (`.hdr` too) and cubemap [skies](docs/design/sky.md) with image-based lighting; baked light probes |
 | [Shadows](docs/design/shadow-system.md) | Four sun cascades, a spot/secondary-directional atlas, point-light cubes, PCF and PCSS soft shadows, cutout casters, per-light settings |
 | [Post-processing](docs/design/post-processing.md) | SSAO/GTAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX |
 | [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, canvas groups that fade as one image, layers, z-order and y-sort, wrapped multi-line TrueType text from the engine's own rasterizer; Godot's `BitMap` and `Geometry2D` (alpha to polygons, polygon booleans and offsets) |

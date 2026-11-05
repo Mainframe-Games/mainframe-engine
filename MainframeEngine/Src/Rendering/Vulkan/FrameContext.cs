@@ -323,6 +323,9 @@ public sealed unsafe class FrameContext : IDisposable
     private readonly ulong[] _probeImages = new ulong[Slots * MaxViews];
     private readonly long[] _macroIds = new long[Slots * MaxViews];       // terrain macro id bound at binding 7 (0 = none)
     private readonly ulong[] _macroImages = new ulong[Slots * MaxViews];
+    private readonly ulong[] _decalBuffers = new ulong[Slots * MaxViews]; // decal UBO bound at binding 8 (G6.5)
+    private readonly long[] _decalAtlasIds = new long[Slots * MaxViews];  // decal atlas id bound at binding 9 (-1 = the fallback)
+    private readonly GpuBuffer _noDecals;
     private readonly ViewHistory[] _history = new ViewHistory[MaxViews];
     private readonly GpuImage _blackCube;
     private readonly GpuImage _brdfLut;
@@ -360,11 +363,13 @@ public sealed unsafe class FrameContext : IDisposable
             new() { Binding = AmbientOcclusionBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = ProbeVolumeBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
             new() { Binding = TerrainMacroBinding, DescriptorType = DescriptorType.SampledImage, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = DecalBinding, DescriptorType = DescriptorType.UniformBuffer, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
+            new() { Binding = DecalAtlasBinding, DescriptorType = DescriptorType.CombinedImageSampler, DescriptorCount = 1, StageFlags = ShaderStageFlags.FragmentBit },
         ];
         SetLayout = PipelineBuilder.CreateSetLayout(ctx, bindings, "frame set 0");
         _pool = PipelineBuilder.CreatePool(ctx, Slots * MaxViews,
         [
-            new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = 2 * Slots * MaxViews },
+            new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = UniformBindings * Slots * MaxViews },
             new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = ImageBindings * Slots * MaxViews },
             new DescriptorPoolSize { Type = DescriptorType.SampledImage, DescriptorCount = Slots * MaxViews },
         ], "frame set 0");
@@ -401,6 +406,9 @@ public sealed unsafe class FrameContext : IDisposable
         // Binding 7 without a terrain macro texture: a 1×1, two-layer array the shaders never read (terrainMacroActive() is false).
         _noMacro = GpuTexture.Create2DArray(ctx, 1, 1, TerrainMacroTexture.Layers, new byte[4 * TerrainMacroTexture.Layers],
             TextureColorSpace.Linear, TextureSampling.LinearClamp);
+        // Binding 8 without decals: a zeroed UBO (count 0; no instance has a decal bit). Binding 9: the white image.
+        _noDecals = GpuBuffer.Create(ctx, DecalSelection.UboSize, BufferUsageFlags.UniformBufferBit, GpuMemoryUsage.Dynamic);
+        _noDecals.MappedSpan.Clear();
 
         for (var slot = 0; slot < Slots; slot++)
         {
@@ -418,6 +426,10 @@ public sealed unsafe class FrameContext : IDisposable
                 PipelineBuilder.WriteImage(ctx, set, AmbientOcclusionBinding, NoOcclusionDescriptor);
                 PipelineBuilder.WriteImage(ctx, set, ProbeVolumeBinding, NoProbesDescriptor);
                 PipelineBuilder.WriteSampledImage(ctx, set, TerrainMacroBinding, NoMacroDescriptor);
+                PipelineBuilder.WriteUniformBuffer(ctx, set, DecalBinding, _noDecals.Descriptor(0, DecalSelection.UboSize));
+                PipelineBuilder.WriteImage(ctx, set, DecalAtlasBinding, NoOcclusionDescriptor);
+                _decalBuffers[slot * MaxViews + view] = _noDecals.Handle.Handle;
+                _decalAtlasIds[slot * MaxViews + view] = -1;
                 _sets[slot * MaxViews + view] = set;
             }
         }
@@ -425,15 +437,34 @@ public sealed unsafe class FrameContext : IDisposable
 
     /// <summary>
     /// Layout of set 0 (binding 0 camera, binding 1 lights, bindings 2–4 image-based lighting, binding 5 screen-space
-    /// occlusion, binding 6 the light probe volume, binding 7 the terrain macro texture).
+    /// occlusion, binding 6 the light probe volume, binding 7 the terrain macro texture, binding 8 the view's decals and
+    /// binding 9 the decal atlas).
     /// </summary>
     public DescriptorSetLayout SetLayout { get; }
 
     /// <summary>Image-based-lighting bindings of set 0 (radiance cube, irradiance cube, BRDF LUT).</summary>
     internal const int EnvironmentBindings = 3;
 
-    /// <summary>Image bindings of set 0: the image-based lighting, the screen-space occlusion and the probe volume.</summary>
-    internal const int ImageBindings = EnvironmentBindings + 2;
+    /// <summary>
+    /// Combined image-sampler bindings of set 0: the image-based lighting, the screen-space occlusion, the probe volume
+    /// and the decal atlas.
+    /// </summary>
+    internal const int ImageBindings = EnvironmentBindings + 3;
+
+    /// <summary>Uniform-buffer bindings of set 0: the camera, the lights and the decals.</summary>
+    internal const int UniformBindings = 3;
+
+    /// <summary>Set 0's decal UBO binding (<c>decalData</c> in <c>include/decals.slang</c>, G6.5): the view's <see cref="DecalSelection"/>.</summary>
+    public const uint DecalBinding = 8;
+
+    /// <summary>Set 0's decal atlas binding (<c>decalAtlas</c> in <c>include/decals.slang</c>, G6.5): <see cref="DecalAtlas"/>.</summary>
+    public const uint DecalAtlasBinding = 9;
+
+    /// <summary>
+    /// The decals the next <see cref="Begin(ICamera, LightEnvironment?, bool)"/> binds for the current view (null: none).
+    /// The render server sets the view's own before each <c>Begin</c>; the mesh renderer fills it when it prepares the view.
+    /// </summary>
+    internal DecalSelection? Decals { get; set; }
 
     /// <summary>Set 0's screen-space ambient occlusion binding (<c>ssaoTexture</c> in <c>include/ambient_occlusion.slang</c>).</summary>
     public const uint AmbientOcclusionBinding = 5;
@@ -702,6 +733,23 @@ public sealed unsafe class FrameContext : IDisposable
             PipelineBuilder.WriteSampledImage(_ctx, _sets[index], TerrainMacroBinding, macro is { } boundMacro ? boundMacro.Image : NoMacroDescriptor);
         }
 
+        // The view's decals (G6.5): its own UBO once it has selected any, and the atlas their tiles refer to.
+        var decals = Decals;
+        var decalBuffer = decals is { Count: > 0 } ? decals.BufferFor(_ctx, _ctx.FrameSlot) : _noDecals;
+        if (_decalBuffers[index] != decalBuffer.Handle.Handle)
+        {
+            _decalBuffers[index] = decalBuffer.Handle.Handle;
+            PipelineBuilder.WriteUniformBuffer(_ctx, _sets[index], DecalBinding, decalBuffer.Descriptor(0, DecalSelection.UboSize));
+        }
+
+        var atlas = decals is { Count: > 0, Atlas.Descriptor: { } } ? decals.Atlas : null;
+        var atlasId = atlas?.Id ?? -1;
+        if (_decalAtlasIds[index] != atlasId)
+        {
+            _decalAtlasIds[index] = atlasId;
+            PipelineBuilder.WriteImage(_ctx, _sets[index], DecalAtlasBinding, atlas?.Descriptor ?? NoOcclusionDescriptor);
+        }
+
         var maps = EnvironmentMaps;
         var id = maps?.Id ?? 0;
         if (_environmentIds[index] == id)
@@ -840,6 +888,7 @@ public sealed unsafe class FrameContext : IDisposable
         _white.Dispose();
         _noProbes.Dispose();
         _noMacro.Dispose();
+        _noDecals.Dispose();
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_iblSampler));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(_pool));
         _ctx.Deletions.Enqueue(GpuDeletion.Of(SetLayout));

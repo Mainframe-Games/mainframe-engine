@@ -23,6 +23,10 @@ public class MeshDrawListBenchmarks
     private Vector3 _forward;
     private readonly Aabb _bounds = new BoxMesh().Bounds;
 
+    // G6.4: three coarser levels (errors in mesh units) and the 1080p, 1-radian view's pixel scale.
+    private readonly LodRange[] _levels = [new(default, 0.005f), new(default, 0.02f), new(default, 0.08f)];
+    private float _lodPixelScale;
+
     [GlobalSetup]
     public void Setup()
     {
@@ -45,7 +49,9 @@ public class MeshDrawListBenchmarks
         var view = Matrix4x4.CreateLookAt(_cameraPosition, Vector3.Zero, Vector3.UnitY);
         _frustum = new Frustum(view * Matrix4x4.CreatePerspectiveFieldOfView(1f, 16f / 9f, 0.1f, 500f));
         _forward = -new Vector3(view.M13, view.M23, view.M33);
+        _lodPixelScale = LodSelection.PixelScale(Matrix4x4.CreatePerspectiveFieldOfView(1f, 16f / 9f, 0.1f, 500f), 1080f);
         BuildAndSortOpaque10k();
+        BuildAndSortOpaqueWithLod10k();
         BuildAndSortTransparent10k();
     }
 
@@ -64,6 +70,33 @@ public class MeshDrawListBenchmarks
             if (!_frustum.Intersects(_bounds.Transform(model)))
                 continue;
             _opaque.Add(DrawSortKey.Opaque(mirrored ? 2 : 1, i & 3, 1, 0), i);
+        }
+
+        _opaque.Sort();
+        return _opaque.Count;
+    }
+
+    /// <summary>
+    /// <see cref="BuildAndSortOpaque10k"/> with G6.4's level-of-detail selection per instance (distance to the bounds, the
+    /// model's largest scale, the projected error against three levels) and the level in the key. Budget: ≤ 10 % over it.
+    /// </summary>
+    [Benchmark]
+    public int BuildAndSortOpaqueWithLod10k()
+    {
+        _opaque.Clear();
+        for (var i = 0; i < _nodes.Length; i++)
+        {
+            var node = _nodes[i];
+            if (!node.IsVisibleInTree())
+                continue;
+            var model = node.ModelMatrix;
+            var mirrored = MeshRenderer.Determinant3(model) < 0f;
+            var bounds = _bounds.Transform(model);
+            var allowed = LodSelection.AllowedError(_lodPixelScale, true, LodSelection.Distance(_cameraPosition, bounds),
+                LodSelection.MaxScale(model), 1f, node.LodBias);
+            if (!_frustum.Intersects(bounds))
+                continue;
+            _opaque.Add(DrawSortKey.Opaque(mirrored ? 2 : 1, i & 3, 1, 0, LodSelection.Select(_levels, allowed)), i);
         }
 
         _opaque.Sort();

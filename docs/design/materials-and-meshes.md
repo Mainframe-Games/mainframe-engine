@@ -43,7 +43,7 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `MultiMesh` | [MultiMesh.cs](../../MainframeEngine/Src/Rendering/Resources/MultiMesh.cs) | Many transforms of one mesh (ADR 0151) |
 | `GeometryInstance3D`, `MeshInstance3D`, `Sprite3D` | [Scene/Nodes3D/GeometryInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs) | Nodes; `MaterialOverride`, `CastShadows`, `ObjectId`, `VisibilityRangeBegin/End`, `CustomAabb` |
 | `MultiMeshInstance3D`, `MultiMeshGpu` (internal) | [MultiMeshInstance3D.cs](../../MainframeEngine/Src/Scene/Nodes3D/MultiMeshInstance3D.cs), [MultiMeshGpu.cs](../../MainframeEngine/Src/Rendering/Meshes/MultiMeshGpu.cs) | Draws a `MultiMesh` from a persistent instance buffer |
-| `MeshVertex`, `MeshVertexExt`, `MeshInstanceData`, `VertexLayouts` | [Rendering/Meshes/MeshVertex.cs](../../MainframeEngine/Src/Rendering/Meshes/MeshVertex.cs) | 32-byte vertex; 20-byte second stream; 80-byte instance; vertex input layouts |
+| `MeshVertex`, `MeshVertexExt`, `MeshInstanceData`, `VertexLayouts` | [Rendering/Meshes/MeshVertex.cs](../../MainframeEngine/Src/Rendering/Meshes/MeshVertex.cs) | 32-byte vertex; 20-byte second stream; 84-byte instance (G6.5's decal mask); vertex input layouts |
 | `Aabb`, `Frustum` | [Aabb.cs](../../MainframeEngine/Src/Rendering/Meshes/Aabb.cs) | Bounds, transformed bounds, frustum culling |
 | `PipelineKey`, `PipelineStateCache`, `ShaderSetId` | [PipelineStateCache.cs](../../MainframeEngine/Src/Rendering/Meshes/PipelineStateCache.cs) | State-hash cache of mesh pipelines |
 | `DrawSortKey`, `DrawList<T>` | [DrawList.cs](../../MainframeEngine/Src/Rendering/Meshes/DrawList.cs) | 64-bit sort keys; reusable sorted lists |
@@ -390,7 +390,7 @@ none) would draw; `Tree3D` and `TreeScatter` give every level the union of their
 - A `MultiMeshInstance3D` is **one render item**: frustum-culled by the world AABB of all its instances, one draw
   item per surface (never merged with other items), one instanced draw per surface with `instanceCount` = the drawn
   instances, materials resolved as for `MeshInstance3D`.
-- Its instances live in a **persistent device-local buffer** (`MultiMeshGpu`) in the 80-byte `MeshInstanceData`
+- Its instances live in a **persistent device-local buffer** (`MultiMeshGpu`) in the 84-byte `MeshInstanceData`
   layout, in world space (instance transform × node transform) with the node's object id. It is rebuilt only when
   the multimesh's version, the node's transform or the mesh's bounds change: a new buffer replaces the old one,
   which the deletion queue frees after frames in flight. A static multimesh costs one comparison per frame. A
@@ -448,13 +448,14 @@ For every `GeometryInstance3D` in the world's `GeometryList` that is visible in 
    `MaterialGpu`s and release the old ones (reference-counted, shared across nodes). Each mesh and material is then
    refreshed at most once per frame: re-upload on a version change, rewrite the material set if one of its textures
    was re-uploaded.
-2. **Shadow casters**, main view only: one entry per surface whose material casts shadows, with its world bounds.
-   The key is (cull mode, mirrored, cutout material, mesh, surface). Casters are not culled against the camera but
+2. **Shadow casters**, main view only: one entry per surface whose material casts shadows, with its world bounds, at the
+   level of detail the camera picked. The key is (cull mode, mirrored, cutout material, mesh, surface, level). Casters are not culled against the camera but
    against each shadow pass (see [Shadow system](shadow-system.md#caster-culling)).
 3. **Cull**: transform the mesh `Aabb` by the model matrix (Arvo's method), then test it against the camera
    `Frustum` (planes from the view-projection, Vulkan's [0, 1] depth).
 4. **Keys**: one draw item per surface (`DrawSortKey`).
-   - **Opaque/cutout**: `[pipeline 12 bits][material 20][mesh 20][surface 12]`.
+   - **Opaque/cutout**: `[pipeline 12 bits][material 20][mesh 17][surface 12][lod 3]` (G6.4: the level of detail
+     picked by projected error, [Rendering features → LOD](rendering-features.md#levels-of-detail-g64)).
    - **Transparent**: `[render priority 8][inverted view depth 32][pipeline 12][material 12]`. This sorts
      back to front within a priority.
 5. **Sort**: sort `(key, index)` pairs with `Span.Sort`. Only keys and indices move. The `DrawList`s grow and are
@@ -468,8 +469,8 @@ culling and `gl_FrontFacing` right under negative scale.
 - **Preparation epoch**: `PrepareFrame` starts a new epoch, so a frame that `BeginFrame` skipped (swapchain
   recreation) never leaves stale lists for the next frame.
 - **Instances**: on first use in a frame, the view's opaque and transparent instances are written to the frame
-  slot's `InstanceBuffer`, in sorted order. Each instance is an 80-byte `MeshInstanceData`: the model matrix and
-  the object id.
+  slot's `InstanceBuffer`, in sorted order. Each instance is an 84-byte `MeshInstanceData`: the model matrix, the
+  object id and the decal mask ([Rendering features → Decals](rendering-features.md#decals-g65)).
   - The `InstanceBuffer` is persistently mapped and bump-allocated from zero each frame.
   - If a frame needs more room, it switches to a buffer twice the size. The old buffer stays valid for the draws
     already recorded from it, through the deletion queue.
@@ -533,21 +534,22 @@ less-or-equal, and cutouts compare EQUAL with specialization constant 0 = opaque
 
 | Set | Contents | Owner |
 |---|---|---|
-| 0 | b0 camera (`FrameData`, 576 B), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)), b5 screen-space ambient occlusion (white 1×1 without SSAO, [Post-processing](post-processing.md#ambient-occlusion-binding)) | `FrameContext` (per frame slot and view) |
+| 0 | b0 camera (`FrameData`, 576 B), b1 lights UBO, b2 radiance cube, b3 irradiance cube, b4 BRDF LUT (the sky's image-based lighting, [Sky](sky.md#image-based-lighting)), b5 screen-space ambient occlusion (white 1×1 without SSAO, [Post-processing](post-processing.md#ambient-occlusion-binding)), b6 light probe volume, b7 terrain macro texture, b8 the view's decal UBO, b9 the decal atlas ([Rendering features → Decals](rendering-features.md#decals-g65)) | `FrameContext` (per frame slot and view) |
 | 1 | shadow uniforms + maps (`ShadowSystem` or the fallback) | shadows |
 | 2 | material: b0 parameters UBO (96 B, device-local), b1 one `sampler`, b2–b5 albedo/normal/emission/ORM `texture2D` (1×1 fallbacks; the ORM one is linear white) | `MaterialGpu` |
 | 2 (spatial shader) | b0 the shader's std140 uniform block, b1…n (≤ 4) combined image samplers, vertex + fragment stages (ADR 0205) | `SpatialMaterialGpu` (`MaterialGpu.Spatial`) |
 | 2 (terrain splat) | b0 `TerrainSplatParams` (432 B), b1–b2 layer and map `sampler`s, b3–b5 albedo/normal/ORM `texture2DArray`, b6 the splat maps `texture2DArray` (2 or 3 layers; a 1×1×1 zero fallback: layer 0 everywhere) | `TerrainSplatGpu` (`MaterialGpu.Splat`) |
-| binding 1 (vertex) | per-instance model matrix + object id | `InstanceBuffer`, or a `MultiMeshGpu` |
+| binding 1 (vertex) | per-instance model matrix, object id, `INSTANCE_CUSTOM`, `INSTANCE_ID`, decal mask (location 10) | `InstanceBuffer`, or a `MultiMeshGpu` |
 | binding 2 (vertex) | the second stream: RGBA8 colour + float4 custom0 | `MeshGpu.Streams` |
 | binding 3 (vertex, prepass) | last frame's `MeshInstanceData` (motion vectors) | the view's instance allocation, or a `MultiMeshGpu` |
 
 The material set uses a single `sampler` with separate `texture2D`s. Before M4 the shadow set held 15 samplers and this kept the
 fragment stage within MoltenVK's limit of 16 samplers
-([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The fragment stage now uses 14 images and 11
-samplers (shadows 6 combined, material 1 sampler + 4 images, sky lighting 3 combined, ambient occlusion 1 combined),
-within the G6 budget of 16 and 4 sets ([rendering-features.md](future/rendering-features.md#binding-budget)); the
-terrain splat set keeps it at 14 images and 12 samplers (2 samplers + 4 images instead of 1 + 4). The sampler is that of the material's
+([ADR 0019](../../memory/decisions/0019-one-sampler-per-material.md)). The fragment stage now uses 16 images and 14
+samplers (shadows 6 images and 7 samplers, material 1 sampler + 4 images, set 0's six combined: sky lighting 3, ambient
+occlusion, probe volume, decal atlas), within the G6 budget of 16 and 4 sets
+([Rendering features → Binding budget](rendering-features.md#binding-budget)); the terrain splat set gives 16 images and
+15 samplers (2 samplers + 4 images instead of 1 + 4). The sampler is that of the material's
 first texture. A material's set is never updated in place, because frames in flight may still bind it. Instead, a
 new set is written, and the old one is freed by `MaterialDescriptorAllocator` once its frame has completed. The
 allocator's pools are freeable and their live counts are exact.
@@ -697,6 +699,16 @@ Measured on an Apple M5 with MoltenVK:
     swaying shadows, a dissolve cutout from a `.mres` with cut shadows, a rim next pass and overlay; picks through a
     vanished dissolve; the stalks must move between frames 30 and 50), and an allocation gate.
 
+## Levels of detail and decals (G6.4, G6.5)
+
+`MeshSurface.Lods` holds coarser levels (`MeshLod`: index-only or with their own geometry) appended after the surfaces in
+`MeshGpu`'s buffers; `MeshRenderer.Prepare` picks one per instance and view by projected error
+(`GeometryInstance3D.LodBias`, `rendering.meshLodThreshold`), shadows use the same level, and authored `<name>_LODn`
+nodes merge on import. `Decal` nodes project albedo, normal, ORM and emission onto opaque `StandardMaterial3D` and
+terrain surfaces before lighting: each view keeps the 32 nearest decals in a UBO and atlas at set 0 bindings 8 and 9, and
+every instance carries a mask of the decals its bounds touch. Both are documented in
+[Rendering features](rendering-features.md#levels-of-detail-g64). Render tests: `lod`, `decals`.
+
 ## Billboards (ADR 0199)
 
 `Sprite3D.Billboard` turns the sprite toward the camera: `Enabled` faces it fully, `FixedY` turns about world Y only and
@@ -725,10 +737,13 @@ pipelines draw the view like any mesh; the prepass uses `MeshDepthSkinned` for t
 ## Known issues
 
 - Blended surfaces cast no shadow (cutout materials cast alpha-tested shadows since M4).
-- No morph targets, LODs or GPU-driven culling (shadow casters are culled per pass on the CPU); skinned instances are
-  not instanced together.
-- PBR is opt-in (`ShadingMode.Pbr`); imported glTF materials stay Blinn-Phong (their metallic/roughness/occlusion are not
-  imported yet). No `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
+- No morph targets, generated LODs (authored and code-built levels only, G6.4) or GPU-driven culling (shadow casters
+  are culled per pass on the CPU); skinned instances are not instanced together.
+- PBR is opt-in (`ShadingMode.Pbr`), and imported models stay Blinn-Phong unless their `.meta` says `"shading": "pbr"`
+  (the default flip is the owner's call, [Rendering features](rendering-features.md#open-questions)). No
+  `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
+- Decals reach only opaque `StandardMaterial3D` and terrain surfaces, not `MultiMesh` instances, foliage, water or spatial
+  shaders; at most 32 per view.
 - Billboards are a node feature (`Sprite3D.Billboard`); `StandardMaterial3D` has no `BillboardMode` yet, so a `MeshInstance3D`
   can't billboard, and there is no `Particles` mode.
 - Only `StandardMaterial3D`, `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D`, `TerrainSplatMaterial3D` and spatial

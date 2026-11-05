@@ -1,5 +1,6 @@
 // Batched mesh instances (MeshRenderer): set 0 frame (camera), MeshVertex at binding 0, MeshInstanceData at binding 1
-// (instance rate: model matrix + object id). One instanced draw per (pipeline, material, mesh surface) run.
+// (instance rate: model matrix, decal mask). One instanced draw per (pipeline, material, mesh surface) run. Shared by the
+// lit (Mesh.vk.frag) and terrain splat (TerrainSplat.vk.frag) pipelines, which both read every output.
 #include "frame.slang"
 
 struct VsIn
@@ -12,7 +13,7 @@ struct VsIn
     [[vk::location(4)]] float4 inModel1;
     [[vk::location(5)]] float4 inModel2;
     [[vk::location(6)]] float4 inModel3;
-    [[vk::location(7)]] uint inObjectId;
+    [[vk::location(10)]] uint inDecalMask; // G6.5: the decals of the view the instance receives
 };
 
 struct VsOut
@@ -22,6 +23,7 @@ struct VsOut
     [[vk::location(1)]] float3 outNormal;
     [[vk::location(2)]] float2 outUV;
     [[vk::location(3)]] float4 outColor; // white: Mesh.vk.frag multiplies by it only for MeshExt.vk.vert's surfaces
+    [[vk::location(4)]] nointerpolation uint outDecalMask;
 };
 
 [shader("vertex")]
@@ -41,6 +43,7 @@ VsOut main(VsIn input)
     o.outNormal = mul(input.inNormal, cofactor) * (det < 0.0 ? -1.0 : 1.0);
     o.outUV = input.inUV;
     o.outColor = float4(1.0);
+    o.outDecalMask = input.inDecalMask;
     o.position = mul(worldPos, frame.viewProjection);
     return o;
 }

@@ -83,15 +83,16 @@ public sealed class ImageBasedLightingTests
     {
         // MoltenVK / Android baseline: ≤ 16 samplers and ≤ 16 sampled images per stage (rendering-features.md). Set 0:
         // the sky lighting (3), the ambient occlusion (ADR 0163) and the contact shadows (ADR 0167), all combined image
-        // samplers. Set 1 (ADR 0167): the cascade array is a separate image with a comparison and a point sampler.
+        // samplers, and the decal atlas (G6.5). Set 1 (ADR 0167): the cascade array is a separate image with a comparison and a
+        // point sampler. The terrain macro texture (binding 7) is a sampled image without a sampler of its own.
         const int materialImages = 4, materialSamplers = 1;
-        Assert.Equal(5, FrameContext.ImageBindings);
+        Assert.Equal(6, FrameContext.ImageBindings);
         Assert.Equal(6, ShadowSystem.ImageCount);
         Assert.Equal(7, ShadowSystem.SamplerCount);
         var images = ShadowSystem.ImageCount + materialImages + FrameContext.ImageBindings;
         var samplers = ShadowSystem.SamplerCount + materialSamplers + FrameContext.ImageBindings;
-        Assert.Equal(15, images);
-        Assert.Equal(13, samplers);
+        Assert.Equal(16, images);
+        Assert.Equal(14, samplers);
         Assert.True(images <= 16 && samplers <= 16);
         Assert.Equal(6u, SkyRadiance.RadianceMips); // environment.slang: kRadianceMaxMip = 5
 
@@ -99,8 +100,8 @@ public sealed class ImageBasedLightingTests
         // its layers: twelve splat layers), two samplers; 3 sets.
         var terrainImages = ShadowSystem.ImageCount + MeshRenderer.SplatSetImages + FrameContext.ImageBindings;
         var terrainSamplers = ShadowSystem.SamplerCount + MeshRenderer.SplatSetSamplers + FrameContext.ImageBindings;
-        Assert.Equal(15, terrainImages);
-        Assert.Equal(14, terrainSamplers);
+        Assert.Equal(16, terrainImages);
+        Assert.Equal(15, terrainSamplers);
         Assert.True(terrainImages <= 16 && terrainSamplers <= 16);
     }
 

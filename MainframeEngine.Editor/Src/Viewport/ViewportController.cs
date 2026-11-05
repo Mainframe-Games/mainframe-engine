@@ -20,6 +20,7 @@ public sealed partial class ViewportController : Node
     private static readonly Vector4 LightColor = new(1f, 0.9f, 0.35f, 0.9f);
     private static readonly Vector4 CameraColor = new(0.78f, 0.6f, 1f, 0.9f);
     private static readonly Vector4 AudioColor = new(0.3f, 0.85f, 0.95f, 0.9f);
+    private static readonly Vector4 DecalColor = new(0.95f, 0.55f, 0.9f, 0.9f);
     private static readonly Vector4 NodeColor = new(0.75f, 0.78f, 0.85f, 0.7f);
     private const float IconPixels = 14f;
     private const float ClickPixels = 4f;
@@ -780,7 +781,7 @@ public sealed partial class ViewportController : Node
 
     private void Collect(EditedScene scene, Node node)
     {
-        if (node is Light3D or Camera3D or AudioPlayer3D or AudioListener3D or Marker3D)
+        if (node is Light3D or Camera3D or AudioPlayer3D or AudioListener3D or Marker3D or Decal)
             _iconNodes.Add((Node3D)node);
         else if (node is Path3D path)
             _paths.Add(path);

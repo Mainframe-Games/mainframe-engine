@@ -11,3 +11,4 @@
 #define MAX_SHADOW_ATLAS_MAPS 11 // Atlas tiles: secondary directional lights (MAX_SHADOW_DIR - 1) plus spot lights (MAX_SHADOW_SPOT).
 #define MAX_CANVAS_LIGHTS 32 // 2D lights in one canvas frame (bits of a batch's uint light mask, ADR 0186).
 #define MAX_CANVAS_LIGHT_TEXTURES 8 // Distinct 2D light textures in one canvas frame (the light texture array, ADR 0186).
+#define MAX_DECALS 32 // Decals one view applies (the nearest visible ones; bits of an instance's uint decal mask, G6.5).

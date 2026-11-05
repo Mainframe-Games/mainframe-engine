@@ -208,7 +208,7 @@ unjittered (UV 0,0 top-left, +y down): `previousUv = uv − velocity`. Written b
   (`unjitterClip`) and last frame's through `FrameData.PreviousViewProjection`; the fragment shader divides
   (`velocityFromClip`, `include/frame.slang`).
 - **Moving nodes**: last frame's model matrix at vertex binding 3 (`VertexLayouts.PreviousInstanceBinding`, locations
-  10–13). `MeshInstanceData` is 80 bytes with 12 spare, too small for a matrix (G6.3 claims the padding), so a
+  10–13). `MeshInstanceData` (84 bytes since G6.5's decal mask) has no room for a second matrix, so a
   prepassed view's instance allocation is followed by a block of previous `MeshInstanceData` for its opaque instances,
   bound at binding 3 with an offset that lines up the instance indices. Each node keeps `GeometryInstance3D.Motion`
   (`MotionHistory`): the model matrix of the frame before, when the prepass drew it then (a node not drawn last frame
@@ -631,5 +631,5 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 ## Related docs
 
 [Color pipeline](color-pipeline.md) · [Vulkan renderer](vulkan-renderer.md) · [Materials & meshes](materials-and-meshes.md) ·
-[Lighting](lighting.md) · [Rendering features (G6.6)](future/rendering-features.md#ssao) ·
+[Lighting](lighting.md) · [Rendering features (G6.6)](post-processing.md#ssao) ·
 [Forest showcase (G8d.8)](future/forest-showcase.md#g8d8-taa) · [Profiler](profiler.md)

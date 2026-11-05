@@ -7,14 +7,18 @@ namespace MainframeEngine;
 /// </summary>
 public static class DrawSortKey
 {
-    private const int PipelineBits = 12, MaterialBits = 20, MeshBits = 20, SurfaceBits = 12;
+    private const int PipelineBits = 12, MaterialBits = 20, MeshBits = 17, SurfaceBits = 12, LodBits = 3;
 
-    /// <summary>[pipeline 12][material 20][mesh 20][surface 12], most significant first.</summary>
-    public static ulong Opaque(int pipelineId, int materialId, int meshId, int surface) =>
-        ((ulong)(uint)pipelineId & Mask(PipelineBits)) << (MaterialBits + MeshBits + SurfaceBits) |
-        ((ulong)(uint)materialId & Mask(MaterialBits)) << (MeshBits + SurfaceBits) |
-        ((ulong)(uint)meshId & Mask(MeshBits)) << SurfaceBits |
-        ((ulong)(uint)surface & Mask(SurfaceBits));
+    /// <summary>
+    /// [pipeline 12][material 20][mesh 17][surface 12][lod 3], most significant first (G6.4: up to 8 levels and 131 072
+    /// resident meshes; equal levels stay adjacent, so instancing still merges them).
+    /// </summary>
+    public static ulong Opaque(int pipelineId, int materialId, int meshId, int surface, int lod = 0) =>
+        ((ulong)(uint)pipelineId & Mask(PipelineBits)) << (MaterialBits + MeshBits + SurfaceBits + LodBits) |
+        ((ulong)(uint)materialId & Mask(MaterialBits)) << (MeshBits + SurfaceBits + LodBits) |
+        ((ulong)(uint)meshId & Mask(MeshBits)) << (SurfaceBits + LodBits) |
+        ((ulong)(uint)surface & Mask(SurfaceBits)) << LodBits |
+        ((ulong)(uint)lod & Mask(LodBits));
 
     /// <summary>
     /// [render priority 8][inverted depth 32][pipeline 12][material 12]: lower priority first, then farther first

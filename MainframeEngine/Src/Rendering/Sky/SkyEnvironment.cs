@@ -81,6 +81,9 @@ public class SkyEnvironment : IDisposable
     private DescriptorPool _descPool;
     private DescriptorSet _texSet;             // static: shared by every frame slot
     private GpuTexture? _texture;
+
+    /// <summary>The format of the panorama or cubemap image (null for skies without one): RGBA16F for an <c>.hdr</c> panorama.</summary>
+    internal Format? TextureFormat => _texture?.Image.Format;
     private PhysicalSkyLuts? _luts;            // Physical only
     private bool _disposed;
 
@@ -103,7 +106,8 @@ public class SkyEnvironment : IDisposable
         switch (type)
         {
             case SkyEnvironmentType.Panoramic when panoramicPath is not null:
-                _texture = GpuTexture.Load(ctx, panoramicPath, TextureColorSpace.Srgb, TextureSampling.LinearClamp);
+                _texture = HdrImage.IsHdr(panoramicPath) ? LoadHdr(ctx, panoramicPath)
+                    : GpuTexture.Load(ctx, panoramicPath, TextureColorSpace.Srgb, TextureSampling.LinearClamp);
                 break;
             case SkyEnvironmentType.Cubemap when cubeFacePaths is not null:
                 _texture = LoadCubemap(ctx, cubeFacePaths);
@@ -313,6 +317,14 @@ public class SkyEnvironment : IDisposable
     }
 
     // ─── Image loading ────────────────────────────────────────────────────────
+
+    // G6.2: a Radiance .hdr panorama as linear half floats (values above 1 light and reflect as bright as they are).
+    private static GpuTexture LoadHdr(IVulkanContext ctx, string path)
+    {
+        var (texels, width, height) = HdrImage.DecodeHalf(ContentFiles.ReadAllBytes(ContentPaths.Resolve(path)));
+        return GpuTexture.Create2DTexels(ctx, (uint)width, (uint)height, Format.R16G16B16A16Sfloat, texels,
+            TextureSampling.LinearClamp);
+    }
 
     private static GpuTexture LoadCubemap(IVulkanContext ctx, string[] facePaths)
     {

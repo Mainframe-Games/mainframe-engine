@@ -1,12 +1,14 @@
 // StandardMaterial3D (Blinn-Phong, unshaded or PBR): set 0 frame + lights + sky lighting, set 1 shadows, set 2 material.
 // Linear HDR output, fogged (fog.slang). Opaque and cutout surfaces take the screen-space AO (ADR 0165; exactly 1
-// without SSAO); blended ones are not in the depth prepass, so the AO under them belongs to what is behind.
+// without SSAO); blended ones are not in the depth prepass, so the AO under them belongs to what is behind. Opaque and
+// cutout surfaces apply the decals of their instance's mask (decals.slang, G6.5) before lighting.
 #include "frame.slang"
 #include "shadows.slang"
 #include "lights.slang"
 #include "material.slang"
 #include "fog.slang"
 #include "terrain_macro.slang"
+#include "decals.slang"
 
 // AlphaMode of the pipeline: opaque pipelines never discard (early depth test stays on).
 [vk::constant_id(0)] const int kAlphaMode = kAlphaOpaque;
@@ -21,6 +23,7 @@ struct FsIn
     [[vk::location(1)]] float3 inNormal;
     [[vk::location(2)]] float2 inUV;
     [[vk::location(3)]] float4 inColor; // linear RGBA vertex colour
+    [[vk::location(4)]] nointerpolation uint inDecalMask; // G6.5: 0 for blended surfaces and outlines
 };
 
 [shader("fragment")]
@@ -44,19 +47,38 @@ float4 main(FsIn input, float4 fragCoord : SV_Position, bool frontFacing : SV_Is
     float3 color;
     float ssao = kAlphaMode == kAlphaBlend ? 1.0 : ambientOcclusionAt(fragCoord);
     uint shading = material.flags.y; // uniform: the branches keep derivatives defined
+
+    // The mapped normal and the ORM (every lookup takes explicit gradients, so these run outside the shading branches).
+    float3 Nmap = N;
+    float3 orm = float3(1.0);
+    if (shading != kShadingUnshaded)
+        Nmap = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
+    if (shading == kShadingPbr)
+        orm = materialOrm(uv, duvdx, duvdy);
+
+    // G6.5: decals change the surface before it is lit (the mask is 0 for blended surfaces and outlines).
+    DecalSurface decal;
+    decal.albedo = albedo.rgb;
+    decal.N = Nmap;
+    decal.orm = orm;
+    decal.emission = float3(0.0);
+    uint decalMask = kAlphaMode == kAlphaBlend ? 0u : input.inDecalMask;
+    if (decalMask != 0u)
+        applyDecals(decalMask, input.inWorldPos, dpdx, dpdy, N, decal);
+    albedo.rgb = decal.albedo;
+
     if (shading == kShadingUnshaded)
     {
         color = albedo.rgb;
     }
     else if (shading == kShadingPbr)
     {
-        float3 orm = materialOrm(uv, duvdx, duvdy);
         PbrSurface s;
         s.albedo = albedo.rgb;
-        s.ao = orm.x;
-        s.roughness = orm.y;
-        s.metallic = orm.z;
-        s.N = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
+        s.ao = decal.orm.x;
+        s.roughness = decal.orm.y;
+        s.metallic = decal.orm.z;
+        s.N = decal.N;
         // ADR 0175: near the ground the surface takes on the terrain below (StandardMaterial3D.TerrainBlend; uniform test).
         if (material.terrainBlend.x > 0.0 && terrainMacroActive())
         {
@@ -75,11 +97,10 @@ float4 main(FsIn input, float4 fragCoord : SV_Position, bool frontFacing : SV_Is
     }
     else
     {
-        float3 Nmap = materialNormal(N, uv, dpdx, dpdy, duvdx, duvdy);
-        color = shadeLightsBlinnPhong(albedo.rgb, Nmap, N, input.inWorldPos, material.params.x, material.params.y, ssao);
+        color = shadeLightsBlinnPhong(albedo.rgb, decal.N, N, input.inWorldPos, material.params.x, material.params.y, ssao);
     }
 
-    color += materialEmission(uv, duvdx, duvdy);
+    color += materialEmission(uv, duvdx, duvdy) + decal.emission;
     color = applyFog(color, input.inWorldPos);
     return float4(color, kAlphaMode == kAlphaBlend ? albedo.a : 1.0);
 }

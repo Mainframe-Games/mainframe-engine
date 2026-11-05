@@ -36,4 +36,7 @@ internal static class ShaderLimits
 
     /// <summary>Distinct 2D light textures in one canvas frame (the light texture array, ADR 0186).</summary>
     public const int MaxCanvasLightTextures = 8;
+
+    /// <summary>Decals one view applies (the nearest visible ones; bits of an instance's uint decal mask, G6.5).</summary>
+    public const int MaxDecals = 32;
 }

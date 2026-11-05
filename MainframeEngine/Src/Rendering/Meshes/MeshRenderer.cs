@@ -34,6 +34,15 @@ public struct MeshDrawStats
     /// <summary>Draws in object-ID passes.</summary>
     public int ObjectIdDrawCalls;
 
+    /// <summary>Surface instances drawn at a coarser level of detail than the surface (G6.4).</summary>
+    public int LodSurfaceInstances;
+
+    /// <summary>Decals the prepared views apply (G6.5; summed over views).</summary>
+    public int Decals;
+
+    /// <summary>Instances that take at least one decal (G6.5; summed over views).</summary>
+    public int DecalInstances;
+
     /// <summary>Instances outside their visibility range (<see cref="GeometryInstance3D.VisibilityRangeBegin"/>/End).</summary>
     public int OutOfRange;
 
@@ -61,6 +70,12 @@ internal struct MeshDrawItem
     public MaterialGpu Material;
     public PipelineEntry Pipeline;
     public int Surface;
+
+    /// <summary>The surface's level of detail (G6.4; 0 = the surface).</summary>
+    public int Lod;
+
+    /// <summary>The view's decals the instance receives (G6.5: bits into <see cref="MeshViewDraws.Decals"/>).</summary>
+    public uint DecalMask;
     public bool Mirrored;
 
     /// <summary>A next-pass or overlay draw (skipped by the object-ID pass).</summary>
@@ -80,6 +95,9 @@ internal struct ShadowCasterItem
     public Matrix4x4 Model;
     public MeshGpu Mesh;
     public int Surface;
+
+    /// <summary>The level of detail the view's camera picked (G6.4): shadows and the lit surface agree.</summary>
+    public int Lod;
     public CullMode Cull;
     public bool Mirrored;
 
@@ -116,6 +134,7 @@ internal struct ShadowCasterRun
     public bool Spatial;
     public GpuBuffer Instances;
     public int Surface;
+    public int Lod;
     public CullMode Cull;
     public bool Mirrored;
     public uint FirstInstance;
@@ -167,6 +186,9 @@ internal sealed class MeshViewDraws
     /// <summary>The view's scene copy while its blended draws record after the split (ADR 0173), else null.</summary>
     public WaterSceneTextures? Scene;
 
+    /// <summary>The decals the view applies this frame (G6.5; set 0 bindings 8 and 9 while the view draws).</summary>
+    public readonly DecalSelection Decals = new();
+
     public void Clear()
     {
         SceneReaders = 0;
@@ -208,6 +230,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     private readonly GpuTexture _flatNormal;
     private readonly GpuTexture _whiteLinear;
     private readonly InstanceBuffer _instances;
+    private DecalAtlas? _decalAtlas;
+    private readonly List<DecalSelection> _decalSelections = [];
     private readonly Dictionary<Mesh, MeshGpu> _meshes = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<Material, MaterialGpu> _materials = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<(Texture2D, TextureColorSpace), TextureGpu> _textures = [];
@@ -813,10 +837,17 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     }
 
     /// <summary>
-    /// Culls and sorts <paramref name="world"/>'s geometry for <paramref name="camera"/> into <paramref name="view"/>
-    /// (once per frame), collecting shadow casters when <paramref name="collectCasters"/>.
+    /// The largest projected error, in pixels, a level of detail may have and still draw (G6.4; Godot's
+    /// <c>mesh_lod_threshold</c>, <c>rendering.meshLodThreshold</c>; default 1). 0 always draws the surfaces themselves.
     /// </summary>
-    public void Prepare(MeshViewDraws view, World3D world, ICamera camera, bool collectCasters)
+    public float MeshLodThreshold { get; set; } = 1f;
+
+    /// <summary>
+    /// Culls and sorts <paramref name="world"/>'s geometry for <paramref name="camera"/> into <paramref name="view"/>
+    /// (once per frame), collecting shadow casters when <paramref name="collectCasters"/>. <paramref name="viewHeight"/> is
+    /// the view's height in pixels for the level-of-detail selection (0: the main view's render height).
+    /// </summary>
+    public void Prepare(MeshViewDraws view, World3D world, ICamera camera, bool collectCasters, uint viewHeight = 0)
     {
         if (view.PreparedFrame == CurrentFrame)
             return;
@@ -831,6 +862,14 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         view.CameraPosition = cameraPosition;
         // Camera forward in world space: -Z of the view matrix's rotation (row-vector convention: its third column).
         var forward = -new Vector3(viewMatrix.M13, viewMatrix.M23, viewMatrix.M33);
+        // G6.4: pixels per mesh unit at distance 1 (perspective) for the level-of-detail selection.
+        var projection = camera.ProjectionMatrix;
+        var lodPixelScale = LodSelection.PixelScale(projection, viewHeight != 0 ? viewHeight : _ctx.RenderExtent.Height);
+        var lodPerspective = LodSelection.IsPerspective(projection);
+        // G6.5: the view's decals (the nearest MaxDecals visible ones) before the instances test against them.
+        var decals = view.Decals;
+        decals.Select(world.DecalList, frustum, cameraPosition, world.DecalList.Count > 0 ? EnsureDecalAtlas(world.DecalList) : null);
+        Stats.Decals += decals.Count;
 
         var geometry = world.GeometryList;
         for (var n = 0; n < geometry.Count; n++)
@@ -889,6 +928,11 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             if (node.CustomAabb is { } custom)
                 bounds = custom.Transform(model);
 
+            // G6.4: the error a level may have here; casters use the same level as the lit surface, even when culled.
+            var allowedError = mesh.MaxLevels > 1
+                ? LodSelection.AllowedError(lodPixelScale, lodPerspective, LodSelection.Distance(cameraPosition, bounds),
+                    LodSelection.MaxScale(model), MeshLodThreshold, node.LodBias)
+                : 0f;
             var inRange = node.IsInVisibilityRange(cameraPosition, bounds);
             if (collectCasters && node.CastShadows)
             {
@@ -896,7 +940,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 // coarse shadow level, an impostor) also casts into the coarse passes from any distance.
                 var passes = CasterPasses(node.ShadowCasterLod, node.HasShadowRange ? node.IsInShadowRange(cameraPosition, bounds) : inRange);
                 if (passes != 0)
-                    AddCasters(view, node, model, mesh, mirrored, bounds, multiInstances, multiCount, passes);
+                    AddCasters(view, node, model, mesh, mirrored, bounds, multiInstances, multiCount, passes, allowedError);
             }
 
             if (!inRange)
@@ -916,10 +960,17 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             }
 
             var depth = Vector3.Dot(bounds.Center - cameraPosition, forward);
+            var lods = mesh.Lods;
+            var nodeLod = 0;
+            var decalMask = decals.Count > 0 && multiInstances is null ? decals.MaskFor(bounds) : 0u;
+            if (decalMask != 0u)
+                Stats.DecalInstances++;
             for (var s = 0; s < surfaces.Length; s++)
             {
                 if (surfaces[s].IndexCount == 0 || materials[s] is not { } material)
                     continue;
+                var lod = LodSelection.Select(lods[s], allowedError);
+                nodeLod = Math.Max(nodeLod, lod);
                 var pipeline = GetPipeline(material, material.ColorShaders, mirrored, streams: surfaces[s].HasStreams);
                 var item = new MeshDrawItem
                 {
@@ -929,6 +980,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                     Material = material,
                     Pipeline = pipeline,
                     Surface = s,
+                    Lod = lod,
+                    DecalMask = material.ReceivesDecals ? decalMask : 0u,
                     Mirrored = mirrored,
                     Instances = multiInstances,
                     InstanceCount = multiCount,
@@ -941,17 +994,21 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 }
                 else
                 {
-                    view.Opaque.Add(DrawSortKey.Opaque(pipeline.Id, material.Id, mesh.Id, s), item);
+                    view.Opaque.Add(DrawSortKey.Opaque(pipeline.Id, material.Id, mesh.Id, s, lod), item);
                 }
 
                 Stats.SurfaceInstances++;
+                if (lod != 0)
+                    Stats.LodSurfaceInstances++;
                 Stats.MultiMeshInstances += (int)multiCount;
             }
 
+            node.RenderLod = nodeLod;
             foreach (var extra in node.GpuExtraPasses)
             {
                 if (surfaces[extra.Surface].IndexCount == 0)
                     continue;
+                var lod = LodSelection.Select(lods[extra.Surface], allowedError);
                 var material = extra.Material;
                 if (material.NeedsStreams)
                     mesh.EnsureStreams();
@@ -964,6 +1021,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                     Material = material,
                     Pipeline = pipeline,
                     Surface = extra.Surface,
+                    Lod = lod,
                     Mirrored = mirrored,
                     Extra = true,
                     Instances = multiInstances,
@@ -972,7 +1030,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 if (material.State.IsTransparent)
                     view.Transparent.Add(DrawSortKey.Transparent(material.RenderPriority, depth, pipeline.Id, material.Id), item);
                 else
-                    view.Opaque.Add(DrawSortKey.Opaque(pipeline.Id, material.Id, mesh.Id, extra.Surface), item);
+                    view.Opaque.Add(DrawSortKey.Opaque(pipeline.Id, material.Id, mesh.Id, extra.Surface, lod), item);
                 Stats.SurfaceInstances++;
             }
         }
@@ -980,7 +1038,33 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         view.Opaque.Sort();
         view.Transparent.Sort();
         view.Casters.Sort();
+        if (decals.Count > 0)
+        {
+            decals.Upload(_ctx);
+            if (!_decalSelections.Contains(decals))
+                _decalSelections.Add(decals);
+        }
     }
+
+    // G6.5: the shared decal atlas, rebuilt when a decal of this world shows a texture it does not hold.
+    private DecalAtlas EnsureDecalAtlas(List<Decal> decals)
+    {
+        var atlas = _decalAtlas ??= new DecalAtlas(_ctx);
+        foreach (var decal in decals)
+        {
+            if (!atlas.Holds(decal.TextureAlbedo) || !atlas.Holds(decal.TextureNormal) || !atlas.Holds(decal.TextureOrm) ||
+                !atlas.Holds(decal.TextureEmission))
+            {
+                atlas.Rebuild(decals);
+                break;
+            }
+        }
+
+        return atlas;
+    }
+
+    /// <summary>The shared decal atlas (G6.5), once a world had decals.</summary>
+    internal DecalAtlas? DecalAtlas => _decalAtlas;
 
     /// <summary>Caster pass mask: the fine shadow passes (nearer cascades, atlas tiles, cubes).</summary>
     internal const byte FinePasses = 1;
@@ -990,10 +1074,11 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
 
     // One caster item per shadow-casting surface of node.
     private static void AddCasters(MeshViewDraws view, GeometryInstance3D node, in Matrix4x4 model, MeshGpu mesh, bool mirrored, in Aabb bounds,
-        GpuBuffer? multiInstances, uint multiCount, byte passes)
+        GpuBuffer? multiInstances, uint multiCount, byte passes, float allowedError)
     {
         var materials = node.GpuMaterials;
         var surfaces = mesh.Surfaces;
+        var lods = mesh.Lods;
         var casts = false;
         for (var s = 0; s < surfaces.Length; s++)
         {
@@ -1006,13 +1091,15 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             var impostor = m.ImpostorCaster;
             var spatial = m.SpatialCaster; // ADR 0205: its vertex() and alpha scissor run in the shadow pass
             var cutout = m.State.Alpha == AlphaMode.Cutout || foliage || impostor || spatial ? m : null;
-            view.Casters.Add(CasterKey(cull, mirrored, cutout?.Id ?? 0, mesh.Id, s),
+            var lod = LodSelection.Select(lods[s], allowedError);
+            view.Casters.Add(CasterKey(cull, mirrored, cutout?.Id ?? 0, mesh.Id, s, lod),
                 new ShadowCasterItem
                 {
                     Node = node,
                     Model = model,
                     Mesh = mesh,
                     Surface = s,
+                    Lod = lod,
                     Cull = cull,
                     Mirrored = mirrored,
                     Cutout = cutout,
@@ -1048,12 +1135,12 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     };
 
     /// <summary>
-    /// Caster sort key: <c>[cull 2][mirrored 1][cutout material 20][mesh 20][surface 12]</c>: opaque casters (material
-    /// 0) first, so pipelines and material sets change as rarely as possible.
+    /// Caster sort key: <c>[cull 2][mirrored 1][cutout material 20][mesh 20][surface 12][lod 3]</c>: opaque casters
+    /// (material 0) first, so pipelines and material sets change as rarely as possible.
     /// </summary>
-    internal static ulong CasterKey(CullMode cull, bool mirrored, int cutoutMaterialId, int meshId, int surface) =>
-        ((ulong)cull & 0x3) << 53 | (mirrored ? 1ul << 52 : 0ul) | ((ulong)(uint)cutoutMaterialId & 0xFFFFF) << 32 |
-        ((ulong)(uint)meshId & 0xFFFFF) << 12 | ((ulong)(uint)surface & 0xFFF);
+    internal static ulong CasterKey(CullMode cull, bool mirrored, int cutoutMaterialId, int meshId, int surface, int lod = 0) =>
+        ((ulong)cull & 0x3) << 56 | (mirrored ? 1ul << 55 : 0ul) | ((ulong)(uint)cutoutMaterialId & 0xFFFFF) << 35 |
+        ((ulong)(uint)meshId & 0xFFFFF) << 15 | ((ulong)(uint)surface & 0xFFF) << 3 | ((ulong)(uint)lod & 0x7);
 
     internal static float Determinant3(in Matrix4x4 m) =>
         m.M11 * (m.M22 * m.M33 - m.M23 * m.M32) -
@@ -1088,7 +1175,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         for (var k = 0; k < view.Opaque.Count; k++)
         {
             ref var item = ref view.Opaque[k];
-            data[i++] = new MeshInstanceData(item.Model, item.Node.ObjectId);
+            data[i++] = new MeshInstanceData(item.Model, item.Node.ObjectId, item.DecalMask);
         }
 
         for (var k = 0; k < view.Transparent.Count; k++)
@@ -1169,7 +1256,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 continue;
             }
 
-            var range = item.Mesh.Surfaces[item.Surface];
+            var range = item.Mesh.Range(item.Surface, item.Lod);
             // ADR 0207: a skinned instance's previous pose comes from last frame's skinned vertices (binding 5).
             var skinned = item.Mesh.Skin is not null && !range.HasStreams && material.DepthShaders == ShaderSetId.MeshDepth;
             var pipeline = GetPipeline(material, skinned ? ShaderSetId.MeshDepthSkinned : material.DepthShaders, item.Mirrored,
@@ -1302,7 +1389,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 boundInstances = instances;
             }
 
-            var range = item.Mesh.Surfaces[item.Surface];
+            var range = item.Mesh.Range(item.Surface, item.Lod);
             var drawInstances = item.Instances is not null ? item.InstanceCount : (uint)(end - i);
             if (item.Instances is not null)
                 vk.CmdDrawIndexed(cb, range.IndexCount, item.InstanceCount, range.FirstIndex, range.VertexOffset, 0);
@@ -1344,7 +1431,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
     }
 
     private static bool SameDraw(ref MeshDrawItem a, ref MeshDrawItem b) =>
-        a.Instances is null && b.Instances is null && ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && ReferenceEquals(a.Material, b.Material) &&
+        a.Instances is null && b.Instances is null && ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && a.Lod == b.Lod && ReferenceEquals(a.Material, b.Material) &&
         a.Pipeline.Pipeline.Handle == b.Pipeline.Pipeline.Handle && a.Extra == b.Extra;
 
     /// <summary>
@@ -1430,6 +1517,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 Spatial = item.Spatial,
                 Instances = own ? item.Instances! : buffer!,
                 Surface = item.Surface,
+                Lod = item.Lod,
                 Cull = item.Cull,
                 Mirrored = item.Mirrored,
                 FirstInstance = own ? 0 : first + (uint)written,
@@ -1523,14 +1611,14 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 boundMesh = run.Mesh;
             }
 
-            var range = run.Mesh.Surfaces[run.Surface];
+            var range = run.Mesh.Range(run.Surface, run.Lod);
             vk.CmdDrawIndexed(cb, range.IndexCount, run.InstanceCount, range.FirstIndex, range.VertexOffset, run.FirstInstance);
             Stats.ShadowDrawCalls++;
         }
     }
 
     private static bool SameCaster(ref ShadowCasterItem a, ref ShadowCasterItem b) =>
-        a.Instances is null && b.Instances is null && ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && a.Cull == b.Cull && a.Mirrored == b.Mirrored &&
+        a.Instances is null && b.Instances is null && ReferenceEquals(a.Mesh, b.Mesh) && a.Surface == b.Surface && a.Lod == b.Lod && a.Cull == b.Cull && a.Mirrored == b.Mirrored &&
         ReferenceEquals(a.Cutout, b.Cutout);
 
     // ── IPipelineFactory ───────────────────────────────────────────────────────
@@ -1610,6 +1698,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ShaderSetId.MeshFoliage => VertexLayouts.FoliageAttributes,
             ShaderSetId.MeshWater or ShaderSetId.MeshWaterScene or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray => VertexLayouts.WaterAttributes,
             ShaderSetId.MeshImpostor => VertexLayouts.ImpostorAttributes,
+            ShaderSetId.MeshOutline => VertexLayouts.MeshOutlineAttributes,
             _ when streams => VertexLayouts.MeshExtAttributes,
             _ => VertexLayouts.MeshAttributes,
         };
@@ -1719,6 +1808,10 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         _textures.Clear();
         _instances.Dispose();
         _skinner?.Dispose();
+        _decalAtlas?.Dispose();
+        foreach (var selection in _decalSelections)
+            selection.ReleaseBuffers();
+        _decalSelections.Clear();
         _materialSets.Dispose();
         Pipelines.Dispose();
         _whiteSrgb.Dispose();

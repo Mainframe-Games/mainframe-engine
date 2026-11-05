@@ -189,6 +189,9 @@ public sealed class ProjectSettingsModel
             static (s, v) => s.Rendering.Scaling3DScale = ParseFloat(v), "0.25 to 1: the 3D view's render resolution (0.75 renders 1440p as 1080p)."),
         new("rendering.fsrSharpness", "Rendering", "FSR Sharpness", SettingKind.Number, static s => Num(s.Rendering.FsrSharpness),
             static (s, v) => s.Rendering.FsrSharpness = ParseFloat(v), "0 (sharpest) to 2: the sharpen after an FSR 1 upscale."),
+        new("rendering.meshLodThreshold", "Rendering", "Mesh LOD Threshold", SettingKind.Number, static s => Num(s.Rendering.MeshLodThreshold),
+            static (s, v) => s.Rendering.MeshLodThreshold = ParseFloat(v),
+            "Pixels of error a mesh's coarser level may show and still draw: higher is faster and coarser, 0 always draws full detail."),
 
         new("ui.scaleMode", "UI", "Scale Mode", SettingKind.Choice, static s => s.Ui.ScaleMode.ToString(),
             static (s, v) => s.Ui.ScaleMode = Enum.Parse<UiScalingMode>(v, ignoreCase: true),

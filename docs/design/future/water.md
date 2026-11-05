@@ -2,7 +2,7 @@
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G8c) · **Status:** ⬜ planned ·
 **Depends on:** [Terrain](terrain.md) (G8a: `Terrain3D`, the water layer, the edit API, `MeshSurface.Custom0`,
-`IEditorViewportTool`), [Rendering features](rendering-features.md) (G6.1 PBR and G6.2 IBL for `WaterMaterial3D`;
+`IEditorViewportTool`), [Rendering features](../rendering-features.md) (G6.1 PBR and G6.2 IBL for `WaterMaterial3D`;
 G6.3 particles for spray; G6.6's depth prepass), [Shaders](../shaders.md)
 ([ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)) · **Related:**
 [Procedural trees](procedural-trees.md) (G8b: the shared wind), [Forest showcase](forest-showcase.md) (G8d: streams,
@@ -615,7 +615,7 @@ settled; **Decision:** is what to build.
 
 - [Terrain](terrain.md) (G8a), [Procedural trees](procedural-trees.md) (G8b), [Forest showcase](forest-showcase.md)
   (G8d), [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
-- [Rendering features](rendering-features.md) (G6), [Rendering backend abstraction](rendering-backend-abstraction.md)
+- [Rendering features](../rendering-features.md) (G6), [Rendering backend abstraction](rendering-backend-abstraction.md)
   (M11), [Mobile core](mobile.md) (M12), [Editor viewport tools](../editor.md#viewport-tools) (G7)
 - [Vulkan renderer](../vulkan-renderer.md), [Color pipeline](../color-pipeline.md), [Sky](../sky.md),
   [Materials & meshes](../materials-and-meshes.md), [Engine lifecycle](../engine-lifecycle.md),
