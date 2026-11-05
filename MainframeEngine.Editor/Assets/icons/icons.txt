@@ -37,6 +37,7 @@ help-hexagon
 route-2
 route
 map-pin
+elevator
 arrows-exchange
 slideshow
 

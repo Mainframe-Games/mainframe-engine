@@ -52,6 +52,18 @@ internal sealed class CurveBaker
     /// <summary>Whether the last bake was of a closed curve.</summary>
     public bool Closed { get; private set; }
 
+    // The closest-point grid (G13.1): baked segments bucketed into uniform cells, built on the first closest query after a
+    // bake and kept (arrays grow, never shrink). _cellStart[c].._cellStart[c + 1] index _cellSegments.
+    private const int GridMinSegments = 32;
+    private const int GridMaxCells = 65536;
+    private bool _gridValid;
+    private Vector3 _gridMin;
+    private float _cell;
+    private int _nx, _ny, _nz;
+    private int[] _cellStart = [];
+    private int[] _cellSegments = [];
+    private int[] _cellFill = [];
+
     /// <summary>Space for <paramref name="segments"/> × (p0, c0, c1, p1) absolute control points, for the owner to fill.</summary>
     public Span<Vector3> PrepareControls(int segments)
     {
@@ -64,6 +76,7 @@ internal sealed class CurveBaker
     /// <summary>No points: an empty bake.</summary>
     public void BakeEmpty()
     {
+        _gridValid = false;
         Count = 0;
         Length = 0;
         Step = 0;
@@ -73,6 +86,7 @@ internal sealed class CurveBaker
     /// <summary>One point: a single baked point with tangent <c>-Z</c>.</summary>
     public void BakeSingle(Vector3 point)
     {
+        _gridValid = false;
         EnsureCapacity(1);
         Count = 1;
         Length = 0;
@@ -87,6 +101,7 @@ internal sealed class CurveBaker
     /// <summary>Bakes the <paramref name="segments"/> (≥ 1) segments written by <see cref="PrepareControls"/>.</summary>
     public void Bake(int segments, float interval, bool closed)
     {
+        _gridValid = false;
         Closed = closed;
         // 1. Adaptive subdivision of every segment into a dense polyline (fixed recursion order: deterministic).
         var tolerance = MathF.Max(interval * 0.01f, 1e-4f);
@@ -252,7 +267,11 @@ internal sealed class CurveBaker
         return baked[index] + (baked[index + 1] - baked[index]) * t;
     }
 
-    /// <summary>The baked curve point closest to <paramref name="toPoint"/> and its offset (projected on each baked segment).</summary>
+    /// <summary>
+    /// The baked curve point closest to <paramref name="toPoint"/> and its offset (projected on each baked segment). Long
+    /// curves search a grid of the baked segments outward from the point; the result is the full scan's, ties included
+    /// (the lower offset wins).
+    /// </summary>
     public void Closest(Vector3 toPoint, out float offset, out Vector3 point)
     {
         offset = 0;
@@ -262,22 +281,214 @@ internal sealed class CurveBaker
         point = Points[0];
         if (Count == 1)
             return;
+        var segments = Count - 1;
         var best = float.PositiveInfinity;
-        for (var i = 0; i < Count - 1; i++)
+        var bestSegment = -1;
+        var bestT = 0f;
+        if (segments < GridMinSegments)
         {
-            var a = Points[i];
-            var d = Points[i + 1] - a;
-            var lengthSquared = Dot(d, d);
-            var t = lengthSquared > 0 ? Math.Clamp(Dot(toPoint - a, d) / lengthSquared, 0f, 1f) : 0f;
-            var q = a + d * t;
-            var distance = DistanceSquared(q, toPoint);
-            if (distance < best)
+            for (var i = 0; i < segments; i++)
+                Consider(i, toPoint, ref best, ref bestSegment, ref bestT);
+        }
+        else
+        {
+            if (!_gridValid)
+                BuildGrid();
+            SearchGrid(toPoint, ref best, ref bestSegment, ref bestT);
+        }
+
+        Result(bestSegment, bestT, out offset, out point);
+    }
+
+    /// <summary>
+    /// As <see cref="Closest(Vector3, out float, out Vector3)"/>, searching only the baked segments within
+    /// <paramref name="window"/> of <paramref name="hintOffset"/> (wrapping on a closed curve): for followers that track a
+    /// moving point near where it was.
+    /// </summary>
+    public void Closest(Vector3 toPoint, float hintOffset, float window, out float offset, out Vector3 point)
+    {
+        if (Count < 2 || Step <= 0 || !(window >= 0) || window * 2 >= Length || float.IsNaN(hintOffset))
+        {
+            Closest(toPoint, out offset, out point);
+            return;
+        }
+
+        var segments = Count - 1;
+        var first = (int)MathF.Floor((hintOffset - window) / Step);
+        var last = (int)MathF.Floor((hintOffset + window) / Step);
+        if (!Closed)
+        {
+            first = Math.Max(first, 0);
+            last = Math.Min(last, segments - 1);
+        }
+
+        var best = float.PositiveInfinity;
+        var bestSegment = -1;
+        var bestT = 0f;
+        for (var k = first; k <= last; k++)
+        {
+            var i = ((k % segments) + segments) % segments;
+            Consider(i, toPoint, ref best, ref bestSegment, ref bestT);
+        }
+
+        if (bestSegment < 0)
+        {
+            Closest(toPoint, out offset, out point);
+            return;
+        }
+
+        Result(bestSegment, bestT, out offset, out point);
+    }
+
+    // The projection of `toPoint` on baked segment i; the smaller distance wins, and on a tie the lower segment, as the
+    // linear scan's first strictly smaller hit does.
+    private void Consider(int i, Vector3 toPoint, ref float best, ref int bestSegment, ref float bestT)
+    {
+        var a = Points[i];
+        var d = Points[i + 1] - a;
+        var lengthSquared = Dot(d, d);
+        var t = lengthSquared > 0 ? Math.Clamp(Dot(toPoint - a, d) / lengthSquared, 0f, 1f) : 0f;
+        var q = a + d * t;
+        var distance = DistanceSquared(q, toPoint);
+        if (distance < best || distance == best && i < bestSegment)
+        {
+            best = distance;
+            bestSegment = i;
+            bestT = t;
+        }
+    }
+
+    private void Result(int segment, float t, out float offset, out Vector3 point)
+    {
+        var a = Points[segment];
+        point = a + (Points[segment + 1] - a) * t;
+        offset = Distances[segment] + (Distances[segment + 1] - Distances[segment]) * t;
+    }
+
+    private void BuildGrid()
+    {
+        _gridValid = true;
+        var segments = Count - 1;
+        var min = Points[0];
+        var max = Points[0];
+        for (var i = 1; i < Count; i++)
+        {
+            min = Vector3.Min(min, Points[i]);
+            max = Vector3.Max(max, Points[i]);
+        }
+
+        var size = max - min;
+        var cell = MathF.Max(MathF.Max(4 * Step, Length / 256f), 1e-4f);
+        // Grow the cells until the grid fits the budget (a long, thin curve in a big box).
+        while (Cells(size, cell) > GridMaxCells)
+            cell *= 1.5f;
+        _gridMin = min;
+        _cell = cell;
+        _nx = Axis(size.X, cell);
+        _ny = Axis(size.Y, cell);
+        _nz = Axis(size.Z, cell);
+        var cells = _nx * _ny * _nz;
+        if (_cellStart.Length < cells + 1)
+        {
+            _cellStart = new int[cells + 1];
+            _cellFill = new int[cells];
+        }
+
+        // Counting sort: each segment goes into every cell its box touches (segments are about one Step long).
+        Array.Clear(_cellStart, 0, cells + 1);
+        var total = 0;
+        for (var pass = 0; pass < 2; pass++)
+        {
+            if (pass == 1)
             {
-                best = distance;
-                point = q;
-                offset = Distances[i] + (Distances[i + 1] - Distances[i]) * t;
+                var running = 0;
+                for (var c = 0; c < cells; c++)
+                {
+                    var n = _cellStart[c];
+                    _cellStart[c] = running;
+                    _cellFill[c] = running;
+                    running += n;
+                }
+
+                _cellStart[cells] = running;
+                total = running;
+                if (_cellSegments.Length < total)
+                    _cellSegments = new int[total];
+            }
+
+            for (var i = 0; i < segments; i++)
+            {
+                var lo = Vector3.Min(Points[i], Points[i + 1]);
+                var hi = Vector3.Max(Points[i], Points[i + 1]);
+                CellOf(lo, out var x0, out var y0, out var z0);
+                CellOf(hi, out var x1, out var y1, out var z1);
+                for (var z = z0; z <= z1; z++)
+                    for (var y = y0; y <= y1; y++)
+                        for (var x = x0; x <= x1; x++)
+                        {
+                            var c = (z * _ny + y) * _nx + x;
+                            if (pass == 0)
+                                _cellStart[c]++;
+                            else
+                                _cellSegments[_cellFill[c]++] = i;
+                        }
             }
         }
+    }
+
+    private static long Cells(Vector3 size, float cell) => (long)Axis(size.X, cell) * Axis(size.Y, cell) * Axis(size.Z, cell);
+
+    private static int Axis(float extent, float cell) => Math.Max(1, (int)MathF.Ceiling(extent / cell));
+
+    private void CellOf(Vector3 p, out int x, out int y, out int z)
+    {
+        x = Math.Clamp((int)MathF.Floor((p.X - _gridMin.X) / _cell), 0, _nx - 1);
+        y = Math.Clamp((int)MathF.Floor((p.Y - _gridMin.Y) / _cell), 0, _ny - 1);
+        z = Math.Clamp((int)MathF.Floor((p.Z - _gridMin.Z) / _cell), 0, _nz - 1);
+    }
+
+    // Rings of cells outward from the point's cell (clamped into the grid) until no cell left out can hold a closer
+    // segment: the distance from the point to the searched block's open faces bounds every cell outside it.
+    private void SearchGrid(Vector3 toPoint, ref float best, ref int bestSegment, ref float bestT)
+    {
+        CellOf(toPoint, out var cx, out var cy, out var cz);
+        var maxRing = Math.Max(Math.Max(_nx, _ny), _nz);
+        for (var r = 0; r <= maxRing; r++)
+        {
+            int x0 = Math.Max(cx - r, 0), x1 = Math.Min(cx + r, _nx - 1);
+            int y0 = Math.Max(cy - r, 0), y1 = Math.Min(cy + r, _ny - 1);
+            int z0 = Math.Max(cz - r, 0), z1 = Math.Min(cz + r, _nz - 1);
+            for (var z = z0; z <= z1; z++)
+                for (var y = y0; y <= y1; y++)
+                    for (var x = x0; x <= x1; x++)
+                    {
+                        // Only the ring's shell: inner cells were searched by smaller rings.
+                        if (r > 0 && Math.Abs(x - cx) < r && Math.Abs(y - cy) < r && Math.Abs(z - cz) < r)
+                            continue;
+                        var c = (z * _ny + y) * _nx + x;
+                        for (var k = _cellStart[c]; k < _cellStart[c + 1]; k++)
+                            Consider(_cellSegments[k], toPoint, ref best, ref bestSegment, ref bestT);
+                    }
+
+            var bound = float.PositiveInfinity;
+            Face(cx - r > 0, toPoint.X - (_gridMin.X + (cx - r) * _cell), ref bound);
+            Face(cx + r < _nx - 1, _gridMin.X + (cx + r + 1) * _cell - toPoint.X, ref bound);
+            Face(cy - r > 0, toPoint.Y - (_gridMin.Y + (cy - r) * _cell), ref bound);
+            Face(cy + r < _ny - 1, _gridMin.Y + (cy + r + 1) * _cell - toPoint.Y, ref bound);
+            Face(cz - r > 0, toPoint.Z - (_gridMin.Z + (cz - r) * _cell), ref bound);
+            Face(cz + r < _nz - 1, _gridMin.Z + (cz + r + 1) * _cell - toPoint.Z, ref bound);
+            if (float.IsPositiveInfinity(bound))
+                return; // the whole grid is searched
+            // Strictly closer than the bound: a segment at exactly the bound distance outside could tie on a lower index.
+            if (bestSegment >= 0 && best < bound * bound)
+                return;
+        }
+    }
+
+    private static void Face(bool open, float distance, ref float bound)
+    {
+        if (open)
+            bound = MathF.Min(bound, MathF.Max(distance, 0f));
     }
 
     // ------------------------------------------------------------------------------------------------

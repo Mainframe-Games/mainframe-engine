@@ -35,6 +35,7 @@ public static class DemoScenes
         Scene("paths_2d", "Paths 2D", "2d", "route-2", Paths2DScene.Build),
         Scene("physics_2d", "Physics 2D", "physics", "circles", Physics2DScene.Build),
         Scene("physics_3d", "Physics 3D", "physics", "box", Physics3DScene.Build),
+        Scene("paths_3d", "Paths 3D", "physics", "route-2", Paths3DScene.Build),
         Scene("spine", "Spine", "animation", "run", SpineScene.Build),
         Scene("animation_3d", "Animation 3D", "animation", "bone", Animation3DScene.Build),
         Scene("audio_2d", "Audio 2D", "audio", "volume", Audio2DScene.Build),

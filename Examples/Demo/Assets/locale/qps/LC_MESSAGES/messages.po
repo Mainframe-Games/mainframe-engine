@@ -270,6 +270,18 @@ msgstr "[Påth2Ð çûrvés wîth PåthFöllöw2Ð föllöwérs: çårs låppî�
 msgid "Pause"
 msgstr "[Påûsé ~]"
 
+msgid "Paths 3D"
+msgstr "[Påths 3Ð ~~]"
+
+msgid "Platforms on Path3D followers carry the capsule: ride the lift, the ferry or the turntable. WASD walks, Space jumps."
+msgstr "[Plåtförms öñ Påth3Ð föllöwérs çårrý thé çåpsûlé: rîðé thé lîft, thé férrý ör thé tûrñtåblé. WÅSÐ wålks, Spåçé jûmps. ~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Ride the camera rail"
+msgstr "[Rîðé thé çåmérå råîl ~~~~~]"
+
+msgid "Jump"
+msgstr "[Jûmp ~]"
+
 msgid "Physics 2D"
 msgstr "[Phýsîçs 2Ð ~~]"
 
@@ -338,9 +350,6 @@ msgstr "[Låsér ~]"
 
 msgid "Explosion"
 msgstr "[Éxplösîöñ ~~]"
-
-msgid "Jump"
-msgstr "[Jûmp ~]"
 
 msgid "Blip"
 msgstr "[Blîp ~]"

@@ -68,13 +68,13 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/AdaptiveMusic/panel.rml:26
 #: Examples/Demo/Assets/Audio/panel2d.rml:12
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
 msgid "Music"
 msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
 msgid "Animation 3D"
 msgstr ""
 
@@ -145,6 +145,7 @@ msgstr ""
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:22
 #: Examples/Demo/Assets/Paths2D/panel.rml:10
+#: Examples/Demo/Assets/Paths3D/panel.rml:10
 #: Examples/Demo/Assets/Sprites2D/panel.rml:16
 msgid "Speed"
 msgstr ""
@@ -181,7 +182,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
 msgid "Audio 2D"
 msgstr ""
 
@@ -212,7 +213,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
 msgid "Audio 3D"
 msgstr ""
 
@@ -463,8 +464,35 @@ msgstr ""
 
 #. RML <span>
 #: Examples/Demo/Assets/Paths2D/panel.rml:11
+#: Examples/Demo/Assets/Paths3D/panel.rml:11
 #: Examples/Demo/Assets/Sprites2D/panel.rml:19
 msgid "Pause"
+msgstr ""
+
+#. RML <h1>
+#: Examples/Demo/Assets/Paths3D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
+msgid "Paths 3D"
+msgstr ""
+
+#. RML <p>
+#: Examples/Demo/Assets/Paths3D/panel.rml:9
+msgid "Platforms on Path3D followers carry the capsule: ride the lift, the ferry or the turntable. WASD walks, Space jumps."
+msgstr ""
+
+#. RML <span>
+#: Examples/Demo/Assets/Paths3D/panel.rml:12
+msgid "Ride the camera rail"
+msgstr ""
+
+#. RML <button>
+#. RML <option>
+#: Examples/Demo/Assets/Paths3D/panel.rml:13
+#: Examples/Demo/Assets/SoundFx/panel.rml:24
+#: Examples/Demo/Assets/Spine/panel.rml:15
+#: Examples/Demo/Assets/Sprites2D/panel.rml:14
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:128
+msgid "Jump"
 msgstr ""
 
 #. RML <h1>
@@ -567,7 +595,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
 msgid "Sound FX"
 msgstr ""
 
@@ -592,15 +620,6 @@ msgstr ""
 #: Examples/Demo/Assets/SoundFx/panel.rml:22
 #: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:126
 msgid "Explosion"
-msgstr ""
-
-#. RML <button>
-#. RML <option>
-#: Examples/Demo/Assets/SoundFx/panel.rml:24
-#: Examples/Demo/Assets/Spine/panel.rml:15
-#: Examples/Demo/Assets/Sprites2D/panel.rml:14
-#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:128
-msgid "Jump"
 msgstr ""
 
 #. RML <button>
@@ -642,7 +661,7 @@ msgstr ""
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
 msgid "Spine"
 msgstr ""
 
@@ -931,7 +950,7 @@ msgid "Audio"
 msgstr ""
 
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:241
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:264
 msgid "UI"
 msgstr ""
 

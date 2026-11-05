@@ -74,6 +74,13 @@ internal sealed class BodyRecord2D
     public float PreviousRotation, CurrentRotation, TargetRotation;   // radians
     public Vector2 KinematicVelocity;                                  // px/s
     public float KinematicAngularVelocity;
+
+    /// <summary>A kinematic body's velocities in its last step (px/s, rad/s): what reached a node-set target, or its own (G13.5).</summary>
+    public Vector2 StepVelocity;
+    public float StepAngularVelocity;
+
+    /// <summary>The last step moved this kinematic body to a target its node set (not by its own velocity).</summary>
+    public bool MovedByTarget;
     public Dictionary<BodyRecord2D, long>? Overlaps;
 
     /// <summary>Overlapping monitorable areas (area only), with the step they were last seen.</summary>
@@ -89,7 +96,7 @@ internal sealed class BodyRecord2D
     public Vector2 GetLinearVelocity()
     {
         if (Kind == PhysicsBodyKind.Kinematic)
-            return KinematicVelocity;
+            return MovedByTarget ? StepVelocity : KinematicVelocity;
         if (Kind != PhysicsBodyKind.Dynamic || !HasBody)
             return Vector2.Zero;
         var v = b2Body_GetLinearVelocity(Body);
@@ -98,15 +105,74 @@ internal sealed class BodyRecord2D
 
     public float GetAngularVelocity() => Kind switch
     {
-        PhysicsBodyKind.Kinematic => KinematicAngularVelocity,
+        PhysicsBodyKind.Kinematic => MovedByTarget ? StepAngularVelocity : KinematicAngularVelocity,
         PhysicsBodyKind.Dynamic when HasBody => b2Body_GetAngularVelocity(Body),
         _ => 0f,
     };
 
+    /// <summary>
+    /// How far a point riding this body (a character on a platform, G13.5) moves in the coming step of
+    /// <paramref name="delta"/> seconds: a kinematic body's node already moved this step carries the point rigidly to its
+    /// new pose; otherwise the body's velocities of its last step (dynamic: its current ones) turn and move it. Static
+    /// bodies, tile bodies, areas and characters carry nothing.
+    /// </summary>
+    public Vector2 PlatformDisplacement(Vector2 point, float delta)
+    {
+        if (Removed || IsTileBody || !HasBody || delta <= 0f)
+            return Vector2.Zero;
+        Vector2 linear;
+        float angular;
+        switch (Kind)
+        {
+            case PhysicsBodyKind.Kinematic:
+                var global = Node.GlobalTransform;
+                var position = global.Origin;
+                var rotation = global.Rotation;
+                var turn = AngleBetween(CurrentRotation, rotation);
+                if (Vector2.DistanceSquared(position, CurrentPosition) > 1e-10f || MathF.Abs(turn) > 1e-7f)
+                    return Rotate(point - CurrentPosition, turn) + position - point;
+                linear = MovedByTarget ? StepVelocity : KinematicVelocity;
+                angular = MovedByTarget ? StepAngularVelocity : KinematicAngularVelocity;
+                break;
+            case PhysicsBodyKind.Dynamic:
+                var v = b2Body_GetLinearVelocity(Body);
+                linear = new Vector2(v.X, v.Y) * Ppm;
+                angular = b2Body_GetAngularVelocity(Body);
+                break;
+            default:
+                return Vector2.Zero;
+        }
+
+        var offset = point - CurrentPosition;
+        return Rotate(offset, angular * delta) - offset + linear * delta;
+    }
+
+    /// <summary>The signed turn from <paramref name="from"/> to <paramref name="to"/>, in (−π, π].</summary>
+    internal static float AngleBetween(float from, float to)
+    {
+        var d = (to - from) % MathF.Tau;
+        if (d > MathF.PI)
+            d -= MathF.Tau;
+        else if (d <= -MathF.PI)
+            d += MathF.Tau;
+        return d;
+    }
+
+    private static Vector2 Rotate(Vector2 v, float angle)
+    {
+        if (angle == 0f)
+            return v;
+        var (sin, cos) = MathF.SinCos(angle);
+        return new Vector2(v.X * cos - v.Y * sin, v.X * sin + v.Y * cos);
+    }
+
     public void SetLinearVelocity(Vector2 velocity)
     {
         if (Kind == PhysicsBodyKind.Kinematic)
+        {
             KinematicVelocity = velocity;
+            MovedByTarget = false;
+        }
         else if (Kind == PhysicsBodyKind.Dynamic && HasBody)
             b2Body_SetLinearVelocity(Body, PhysicsSpace2D.ToB2(velocity / Ppm));
     }
@@ -114,7 +180,10 @@ internal sealed class BodyRecord2D
     public void SetAngularVelocity(float velocity)
     {
         if (Kind == PhysicsBodyKind.Kinematic)
+        {
             KinematicAngularVelocity = velocity;
+            MovedByTarget = false;
+        }
         else if (Kind == PhysicsBodyKind.Dynamic && HasBody)
             b2Body_SetAngularVelocity(Body, velocity);
     }
@@ -859,11 +928,17 @@ public sealed partial class PhysicsSpace2D : IDisposable
             {
                 var target = new B2Transform(ToB2(record.TargetPosition / PixelsPerMeter), b2MakeRot(record.TargetRotation));
                 b2Body_SetTargetTransform(record.Body, target, delta, true);
+                record.StepVelocity = (record.TargetPosition - record.CurrentPosition) / delta;
+                record.StepAngularVelocity = BodyRecord2D.AngleBetween(record.CurrentRotation, record.TargetRotation) / delta;
+                record.MovedByTarget = true;
             }
             else if (record.Kind == PhysicsBodyKind.Kinematic)
             {
                 b2Body_SetLinearVelocity(record.Body, ToB2(record.KinematicVelocity / PixelsPerMeter));
                 b2Body_SetAngularVelocity(record.Body, record.KinematicAngularVelocity);
+                record.StepVelocity = record.KinematicVelocity;
+                record.StepAngularVelocity = record.KinematicAngularVelocity;
+                record.MovedByTarget = false;
             }
             else
             {

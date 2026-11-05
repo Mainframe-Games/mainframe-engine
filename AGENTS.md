@@ -95,10 +95,11 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - Particles (ADR 0206): `Scene/Particles/` (`ParticleProcessMaterial`, shared 2D/3D; `ParticleSimulation3D`, CPU),
   `Scene/Nodes3D/GpuParticles3D.cs`, `Rendering/Particles/` (`ParticleRenderer`, its own pipelines, not `MeshRenderer`);
   see `docs/design/particles-3d.md`
-- Paths (ADRs 0215, 0242): `Scene/Nodes3D/Paths/` (`Path3D`, `PathFollow3D`: progress, rotation modes, `Speed`; `PathMotion`) and
-  `Scene/Nodes2D/Paths/` (`Path2D`, `PathFollow2D`) over `Resources/Curve3D.cs` (`Closed`, tangents, `UpVectorEnabled`) and
-  `Resources/Curve2D.cs`, both baked by `Resources/CurveBaker.cs`; the editor's curve tool in
-  `MainframeEngine.Editor/Src/Viewport/Curves/`; see `docs/design/paths.md`
+- Paths (ADRs 0215, 0242, 0243): `Scene/Nodes3D/Paths/` (`Path3D`, `PathFollow3D`: progress, rotation modes, `Speed`;
+  `PathMotion`, `CurveTerrainFit`) and `Scene/Nodes2D/Paths/` (`Path2D`, `PathFollow2D`) over `Resources/Curve3D.cs`
+  (`Closed`, tangents, `UpVectorEnabled`) and `Resources/Curve2D.cs`, both baked (with a closest-point grid) by
+  `Resources/CurveBaker.cs`; moving platforms are `AnimatableBody3D`/`2D` with `CharacterBody*` platform riding; the
+  editor's curve tool (2D and 3D) in `MainframeEngine.Editor/Src/Viewport/Curves/`; see `docs/design/paths.md`
 - `MainframeEngine/Src/Navigation/` — G3a ([ADRs 0227/0228](memory/decisions/0227-grid-navigation-core.md)): `AStarGrid2D` (Godot's grid
   A*, jump point search, span queries, 0 B, deterministic), `AStar2D`/`AStar3D`, `NavigationServer2D` (one map per
   `World2D`, synced after each fixed step), `Nodes2D/` (`NavigationGrid2D` + `NavigationGridData`, `NavigationAgent2D`),

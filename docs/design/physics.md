@@ -29,8 +29,8 @@ Physics is single precision and offers no cross-platform lockstep mode
 |---|---|---|
 | `PhysicsServer3D`, `PhysicsSpace3D`, `PhysicsDirectSpaceState3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/) | one Jitter2 `World` per `World3D` |
 | `PhysicsServer2D`, `PhysicsSpace2D`, `PhysicsDirectSpaceState2D` | [Physics/2D/](../../MainframeEngine/Src/Physics/2D/) | one Box2D world per `World2D` |
-| `CollisionObject3D` → `StaticBody3D`, `RigidBody3D`, `CharacterBody3D`, `Area3D`; `CollisionShape3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/) | `PhysicsBody3D` is the base of the colliding ones |
-| `CollisionObject2D` → `StaticBody2D`, `RigidBody2D`, `CharacterBody2D`, `Area2D`; `CollisionShape2D` | [Physics/2D/](../../MainframeEngine/Src/Physics/2D/) | pixels |
+| `CollisionObject3D` → `StaticBody3D` (→ `AnimatableBody3D`), `RigidBody3D`, `CharacterBody3D`, `Area3D`; `CollisionShape3D` | [Physics/3D/](../../MainframeEngine/Src/Physics/3D/) | `PhysicsBody3D` is the base of the colliding ones |
+| `CollisionObject2D` → `StaticBody2D` (→ `AnimatableBody2D`), `RigidBody2D`, `CharacterBody2D`, `Area2D`; `CollisionShape2D` | [Physics/2D/](../../MainframeEngine/Src/Physics/2D/) | pixels |
 | `Shape3D`: `BoxShape3D`, `SphereShape3D`, `CapsuleShape3D`, `CylinderShape3D`, `ConvexPolygonShape3D`, `ConcavePolygonShape3D`, `HeightMapShape3D` | [Physics/3D/Shapes3D.cs](../../MainframeEngine/Src/Physics/3D/Shapes3D.cs) | `Resource`s |
 | `Shape2D`: `RectangleShape2D`, `CircleShape2D`, `CapsuleShape2D`, `ConvexPolygonShape2D`, `SegmentShape2D`, `ConcavePolygonShape2D` | [Physics/2D/Shapes2D.cs](../../MainframeEngine/Src/Physics/2D/Shapes2D.cs) | `Resource`s |
 | `PhysicsMaterial`, `PhysicsSettings3D`/`2D`, `CollisionLayers`, `AxisLock`, `RigidBodyMode`, `FreezeMode` | [Physics/](../../MainframeEngine/Src/Physics/) | |
@@ -311,8 +311,18 @@ Neither library ships a character controller, so it is the engine's. Call `MoveA
    it with EPA's distance (Jitter2's sweeps stop a few millimetres short on large shapes). A body resting or walking on
    the floor then holds its height to the float (Godot's 1 mm `safe_margin` gives the same resting height as Godot).
 
+8. **Ride a moving floor (G13.5, [Paths → Moving platforms](paths.md#moving-platforms-g135))**: on a floor that is a
+   kinematic or dynamic body on one of `PlatformFloorLayers`, the body moves by where that floor's rigid motion takes
+   it in the coming step (exact for an `AnimatableBody*` whose node already moved, turning included);
+   `GetPlatformVelocity()` reports it. Leaving a platform adds its velocity to `Velocity` as `PlatformOnLeave` says
+   (`AddVelocity`, `AddUpwardVelocity`, `DoNothing`).
+
 The final position is written to the node, which turns into a kinematic move of the body for this step, so dynamic
 bodies in its way are pushed (the body collides with what its layer meets, even outside its own mask).
+
+**Kinematic bodies moved by their node** (`AnimatableBody*`, kinematic `RigidBody*`): the move becomes a velocity for
+the step, and the body record keeps it (`StepVelocity`), so `LinearVelocity` / `GetStepVelocity()` report the real
+speed of a lift on a path; setting `LinearVelocity` takes over again.
 
 **Root motion** ([ADR 0210](../../memory/decisions/0210-root-motion.md),
 [Animation → Root motion](animation.md#root-motion)): `CharacterBody3D.ApplyRootMotion(player)`, called before

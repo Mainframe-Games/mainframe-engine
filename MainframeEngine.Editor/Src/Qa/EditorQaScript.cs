@@ -535,6 +535,10 @@ public sealed class EditorQaScript : IEditorAutomation
             case "fs-select":
                 workspace.FileSystem.Select(Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[1..])));
                 break;
+            case "curve-point":
+                // curve-point <index>: the curve tool's selected point (its tilt ring shows with Tilt Handles on), G13.
+                workspace.Curves.SelectedPoint = (int)Float(step, 1);
+                break;
             case "camera2d":
                 // camera2d <x> <y> <zoom>: the active 2D tab's view centre (pixels) and zoom.
                 if (workspace.Session.Active is { } scene2D)
