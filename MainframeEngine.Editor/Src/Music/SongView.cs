@@ -119,25 +119,8 @@ public sealed class SongView : Node
     /// Sizes <paramref name="viewport"/> to <paramref name="rect"/> (dp) in pixels and redraws <paramref name="canvas"/> in
     /// it; a hidden view stops rendering. The video view places its timeline the same way.
     /// </summary>
-    internal static void Place(SubViewport viewport, EditorCanvas canvas, LayoutRect rect, float scale, bool show)
-    {
-        var mode = show ? SubViewportUpdateMode.Always : SubViewportUpdateMode.Disabled;
-        if (viewport.UpdateMode != mode)
-            viewport.UpdateMode = mode;
-        if (!show)
-            return;
-        var w = Math.Max(1, (int)MathF.Round(rect.Width * scale));
-        var h = Math.Max(1, (int)MathF.Round(rect.Height * scale));
-        if (viewport.Width != w || viewport.Height != h)
-        {
-            viewport.Width = w;
-            viewport.Height = h;
-        }
-
-        canvas.PixelScale = scale;
-        canvas.ViewSize = new Vector2(rect.Width, rect.Height);
-        canvas.QueueRedraw();
-    }
+    internal static void Place(SubViewport viewport, EditorCanvas canvas, LayoutRect rect, float scale, bool show) =>
+        TimelineHost.Place(viewport, canvas, rect, scale, show);
 
     private void Publish(SongTab tab, bool showRoll)
     {

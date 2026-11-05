@@ -115,7 +115,7 @@ game.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/particles.png" width="380" alt="Particles"><br><b>Particles</b> — a campfire's glowing flames and smoke, rain</td>
-    <td align="center" valign="top"><img src="docs/images/demo/animation_3d.png" width="380" alt="Animation 3D"><br><b>Animation 3D</b> — a skinned glTF character: clips, crossfades, events, a torch on its hand, a ragdoll that can stay active; a body walked and jumped by root motion</td>
+    <td align="center" valign="top"><img src="docs/images/demo/animation_3d.png" width="380" alt="Animation 3D"><br><b>Animation 3D</b> — a skinned glTF character: clips, crossfades, events, a torch on its hand, a ragdoll that can stay active; a body walked and jumped by root motion; a workshop lift, door, lamp and chime on keyframe tracks</td>
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/shaders.png" width="380" alt="Shaders"><br><b>Shaders</b> — Slang surface shaders: a procedural ground, swaying stalks, dissolving props</td>
@@ -203,7 +203,7 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-path3d.png" width="380" alt="The Demo's camera rail selected in the 3D view: its points, mirrored tangent handles and a selected point's tilt ring, with the curve bar's 3D tools"><br><b>3D curves</b> — the same tool on Path3D: camera-plane and vertical drags, tilt rings, snap and fit to the terrain</td>
-    <td></td>
+    <td align="center" valign="top"><img src="docs/images/editor-animation.png" width="380" alt="The Animation panel in the bottom dock editing an AnimationPlayer's animation: transport and animation tools, position and rotation tracks with keys on a seconds ruler, and the playhead"><br><b>Animation panel</b> — key any property from the inspector, cubic and eased keys, method and audio tracks, scrub and preview; saves never keep a preview</td>
   </tr>
 </table>
 
@@ -287,7 +287,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Paths](docs/design/paths.md) | Godot's `Path2D`/`PathFollow2D` and `Path3D`/`PathFollow3D` on Bézier curves baked to equal arc length: closed curves, smooth tangents, rotation-minimising up vectors that never flip on a loop, followers that move by themselves (speed, loop, ping-pong) with no allocation; fast closest-point queries; moving platforms (`AnimatableBody3D/2D`) that carry characters, turntables included; a curve tool in the editor's 2D and 3D views with tilt rings and terrain snapping |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting alpha-tested silhouette shadows, optionally billboarded to the camera, with animation tracks and queues |
 | [3D particles](docs/design/particles-3d.md) | `GpuParticles3D` on Godot's `ParticleProcessMaterial`: point, sphere, box and ring emission, spread, gravity, damping, turbulence, scale and colour curves, hue variation; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow, sorted back to front; deterministic seeds; 8 000 particles in under half a millisecond of CPU |
-| [Skeletal animation](docs/design/animation.md) | Skinned glTF/FBX characters with their clips: `Skeleton3D`, GPU (compute) skinning that shadows, outlines and picking all see, an `AnimationPlayer` with crossfades, queues and events (also on a headless server), root motion that moves a `CharacterBody3D`, `BoneAttachment3D` |
+| [Animation](docs/design/animation.md) | Keyframe tracks for any property (cubic, eased, sub-components such as `Position:y`), method keys calling `[AnimationMethod]`s through generated invokers, audio keys, an editor Animation panel; skinned glTF/FBX characters with their clips: `Skeleton3D`, GPU (compute) skinning that shadows, outlines and picking all see, an `AnimationPlayer` with crossfades, queues and events (also on a headless server, 0 B per frame), root motion that moves a `CharacterBody3D`, `BoneAttachment3D` |
 | [Slang shaders](docs/design/shaders.md) | Every shader in Slang, compiled to SPIR-V at build time, with shared includes and light limits generated from one file; your own surface shaders (`import mainframe.spatial;`) on sprites and meshes, lit, shadowed and pickable, with the engine generating every pass |
 
 ### Worlds

@@ -91,7 +91,12 @@ The pipeline is incremental: per-type models are value-equatable records, so edi
 type's shape do not regenerate. Diagnostics (all errors): MFG001 inaccessible/unwritable export, MFG002
 unsupported type, MFG003 bad signal event, MFG004 duplicate type name, MFG005 invalid migration method,
 MFG006 a type with exports/signals that cannot be registered (e.g. nested in a private type), MFG010
-`Translatable` on a member that is not text.
+`Translatable` on a member that is not text, MFG011 an `[AnimationMethod]` that is static, generic, has `ref`/`out`
+parameters or a parameter type `[Export]` cannot serialize.
+
+**Animation methods** (G1a): `[AnimationMethod]` methods get a typed invoker and a codec per parameter in the type's
+registration (`NodeTypeInfo.AnimationMethods`, `FindAnimationMethod`), which `MethodTrack` keys call with arguments
+parsed once from JSON ([Animation and skinning](animation.md#animationplayer)). No reflection.
 
 **Extension point.** Models (`TypeModel` in [Models.cs](../../MainframeEngine.Generators/Models.cs)) carry
 one collection per member feature; `TypeModelBuilder` fills them and each feature has its own emitter. M5 added

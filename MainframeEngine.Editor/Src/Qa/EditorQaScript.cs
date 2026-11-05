@@ -535,6 +535,23 @@ public sealed class EditorQaScript : IEditorAutomation
             case "fs-select":
                 workspace.FileSystem.Select(Path.Combine(workspace.Session.ProjectRoot ?? "", string.Join(' ', step[1..])));
                 break;
+            case "anim-key":
+                // anim-key <node path> <property>: the inspector's key button for that property (G1.6), at the playhead.
+                if (workspace.Session.Active is { } keyed)
+                    workspace.Animations.InsertPropertyKey(keyed.Root.GetNode(step[1]), step[2]);
+                break;
+            case "anim-scrub":
+                // anim-scrub <seconds>: moves the Animation panel's playhead (the scene previews there).
+                workspace.Animations.Scrub(Float(step, 1));
+                break;
+            case "set-node":
+                // set-node <node path> <property> <value>: an inspector edit without undo (QA setup).
+                if (workspace.Session.Active is { } setScene && setScene.Root.GetNode(step[1]) is { } setNode &&
+                    Serialization.TypeRegistry.GetNearest(setNode.GetType())?.FindProperty(step[2]) is { } info)
+                    info.SetValue(setNode, info.ValueType == typeof(System.Numerics.Vector3)
+                        ? ParseVector3(step[3])
+                        : Convert.ChangeType(step[3], info.ValueType, System.Globalization.CultureInfo.InvariantCulture));
+                break;
             case "curve-point":
                 // curve-point <index>: the curve tool's selected point (its tilt ring shows with Tilt Handles on), G13.
                 workspace.Curves.SelectedPoint = (int)Float(step, 1);
@@ -1383,5 +1400,14 @@ public sealed class EditorQaScript : IEditorAutomation
                 Log.Warning($"[QA] Unknown song step '{step[1]}'.");
                 break;
         }
+    }
+
+    private static System.Numerics.Vector3 ParseVector3(string text)
+    {
+        var parts = text.Split(',');
+        return new System.Numerics.Vector3(
+            float.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture),
+            float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture),
+            float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture));
     }
 }

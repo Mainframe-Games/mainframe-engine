@@ -73,12 +73,14 @@ public class AudioPlayer2D : Node2D, IAudioVoiceOwner
     [Signal]
     public event Action? Finished;
 
+    [AnimationMethod]
     public void Play(float fromSeconds = 0f)
     {
         if (_playback.Server is { } server)
             _playback.Play(this, Stream, Bus, Priority, fromSeconds, Loop, positional: true, MaxPolyphony, Compute(server));
     }
 
+    [AnimationMethod]
     public void Stop() => _playback.StopAll();
 
     public void Seek(float seconds) => _playback.Seek(seconds);

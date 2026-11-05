@@ -1,0 +1,32 @@
+# Animation panel QA (G1.6, just qa-editor Tests/QA/animation-walkthrough.qa): in the Demo's Basic 3D scene, add an
+# AnimationPlayer, create an animation, key a node's Position at 0 s and 1 s (the inspector's key button) and its
+# Rotation, scrub to 0.5 s (the scene previews), undo a key, and capture the panel.
+wait 40
+open Examples/Demo/Assets/Scenes/basic_3d.mscene
+wait 20
+add-node AnimationPlayer Player
+wait 3
+select Player
+wait 5
+command anim.new
+wait 3
+anim-key Ring Position
+anim-key Ring RotationDegrees
+anim-scrub 1
+set-node Ring Position 0,3,0
+anim-key Ring Position
+set-node Ring RotationDegrees 0,90,0
+anim-key Ring RotationDegrees
+anim-scrub 0.5
+wait 10
+state
+capture 01-animation-panel
+command anim.play
+wait 30
+capture 02-animation-playing
+command anim.stop
+key Z cmd
+wait 5
+state
+capture 03-animation-undone
+quit

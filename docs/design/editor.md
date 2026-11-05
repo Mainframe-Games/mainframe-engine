@@ -119,6 +119,7 @@ flowchart TB
 | Inspector | `inspector.rml` | Header with the type's icon and family-coloured name (doc summary and base chain in its tooltip), editable name, Properties / Signals tabs, custom-inspector header, collapsible sections per declaring type (its icon) / `[ExportGroup]`, one row per `[Export]` with an icon before its name and a tooltip (below); also edits resource files ([Resource files](#resource-files-and-custom-inspectors)) |
 | Output | `output.rml` | Engine `Log` messages (`OutputLog` is an `ILogSink`): level icon, time, category icon (subsystem; name in the tooltip), text, ×N for folded repeats, a link to the logging source line (opens `MAINFRAME_CODE_EDITOR`, VS Code or the system app). Header: per-level toggles with counts, filter field, Collapse Duplicates, Follow, Copy, Clear (filters and toggles persisted) |
 | Profiler | `profiler.rml` | The bottom dock's second tab (G10, [Profiler → Editor Profiler tab](profiler.md#editor-profiler-tab)): source picker (each running game, or the editor itself), Record, Pause, Clear, GPU zones, spike threshold and auto-freeze, Save / Open trace; a 240-bar frame graph, a timeline of the selection (Main, other threads, GPU), the scope table and the frame's counters |
+| Animation | `animation.rml` | The bottom dock's contextual Animation tab while an `AnimationPlayer` is selected or pinned (G1a, [Animation and skinning → Animation panel](animation.md#animation-panel)): transport, animation picker and library actions, length, loop, snap, method and audio tracks, zoom, pin; the track list, the timeline canvas (keys, rubber band, playhead) and the selected key's row. The inspector shows `key` buttons on animatable rows while it edits |
 | File system | `filesystem.rml` | The project's files (Simplified: Assets and Scripts; or the whole folder) as a tree, list or thumbnail grid ([FileSystem panel](#filesystem-panel)) |
 | Splitters | `splitters.rml` | Four drag handles (left dock, right dock, output, scene tree / file system) |
 | Project Manager, New Project | `project_manager.rml`, `new_project.rml` | Layer 40 above the panels ([Projects](#projects)) |
@@ -139,7 +140,9 @@ flowchart TB
 - **Bottom dock tabs** (G10): the Output and Profiler panels share the output rectangle; an **Output | Profiler** tab
   strip in each one's header switches them (`BottomDockTab`, `EditorWorkspace.ShowBottomTab`; the active tab persists
   with the layout as `BottomTab`). There is no new layout rectangle. G2b adds the contextual **TileMap** and **TileSet**
-  tabs (one `TileMapPanel`, `tilemap.rml`) while a tile map layer or tile set is edited; they are never persisted.
+  tabs (one `TileMapPanel`, `tilemap.rml`) while a tile map layer or tile set is edited; they are never persisted. G1a
+  adds the contextual **Animation** tab (`AnimationPanel`, `animation.rml`) while an `AnimationPlayer` is selected or
+  pinned; its edits are `AnimationEditAction`/`AnimationLibraryAction` steps in the scene's history.
 - **Lists are data-bound** (no work on idle frames); the inspector is generated RML updated in place (see below).
 - The F12 developer overlay ([Developer overlay](dev-overlay.md)) is off by default in the editor; F9 opens the RmlUi debugger (F8 is Stop, as in Godot).
 

@@ -40,6 +40,9 @@ public enum BottomDockTab
     Profiler = 1,
     TileMap = 2,
     TileSet = 3,
+
+    /// <summary>The Animation panel (G1.6): contextual, while an AnimationPlayer is selected or pinned.</summary>
+    Animation = 4,
 }
 
 public sealed record EditorLayoutSettings

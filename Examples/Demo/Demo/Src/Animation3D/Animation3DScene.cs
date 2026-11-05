@@ -106,8 +106,78 @@ public static class Animation3DScene
                 shape.Owner = root;
         }
 
+        BuildWorkshop(root);
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new Animation3DPanel { Name = "Panel" });
         return root;
+    }
+
+    /// <summary>The workshop animation's length in seconds (it loops).</summary>
+    public const float WorkshopLength = 6f;
+
+    // G1a keyframe animation, authored as tracks (the editor's Animation panel edits the same data): a lift that is an
+    // AnimatableBody3D animated on the physics tick, a door that unlocks (a method key), swings open and shut and locks
+    // again, a flickering lamp (a cubic value track) and a chime (an audio track).
+    private static void BuildWorkshop(Node root)
+    {
+        var workshop = Add(root, root, new Node3D { Name = "Workshop", Position = new Vector3(-1.9f, 0, -3.2f) });
+        var lift = Add(root, workshop, new AnimatableBody3D { Name = "Lift" });
+        Add(root, lift, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(1f, 0.15f, 1f) } });
+        Add(root, lift, new MeshInstance3D { Name = "Mesh", Mesh = new BoxMesh { Size = new Vector3(1f, 0.15f, 1f) }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(245, 158, 11) } });
+
+        var hinge = Add(root, workshop, new Node3D { Name = "Hinge", Position = new Vector3(0.9f, 0, 0.6f) });
+        Add(root, hinge, new MeshInstance3D
+        {
+            Name = "Door",
+            Position = new Vector3(0.4f, 0.9f, 0),
+            Mesh = new BoxMesh { Size = new Vector3(0.8f, 1.8f, 0.06f) },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(120, 84, 55) },
+        });
+        var latch = Add(root, workshop, new DoorLatch { Name = "Latch", Position = new Vector3(1.7f, 1.1f, 0.62f) });
+        DoorLatch.Build(root, latch);
+        Add(root, workshop, new OmniLight3D { Name = "Lamp", Position = new Vector3(0.5f, 2.2f, 0.2f), Energy = 1.5f, Range = 4f, Color = new Vector3(1f, 0.85f, 0.6f) });
+        Add(root, workshop, new AudioPlayer3D { Name = "Chime", Position = new Vector3(0.5f, 1.5f, 0f) });
+
+        var animation = new MainframeEngine.Animation { ResourceName = "workshop", Length = WorkshopLength, LoopMode = AnimationLoopMode.Linear };
+        animation.AddTrack(new Position3DTrack
+        {
+            Path = "Lift",
+            Times = [0f, 0.5f, 2.5f, 3.5f, 5.5f],
+            Values = [Vector3.Zero, Vector3.Zero, new Vector3(0, 1.4f, 0), new Vector3(0, 1.4f, 0), Vector3.Zero],
+            Transitions = [1f, -2f, 1f, -2f, 1f], // ease in-out on the moving segments
+        });
+        animation.AddTrack(new Rotation3DTrack
+        {
+            Path = "Hinge",
+            Times = [0f, 1.5f, 2.3f, 4.2f, 5f],
+            Values = [Quaternion.Identity, Quaternion.Identity, Quaternion.CreateFromAxisAngle(Vector3.UnitY, -1.6f), Quaternion.CreateFromAxisAngle(Vector3.UnitY, -1.6f), Quaternion.Identity],
+            Interpolation = AnimationInterpolation.Cubic,
+            LoopWrap = false,
+        });
+        animation.AddTrack(new MethodTrack { Path = "Latch", Times = [1.4f, 5.1f], Methods = ["Unlock", "Lock"], Arguments = ["[]", "[]"] });
+        animation.AddTrack(new ValueTrack
+        {
+            Path = "Lamp",
+            Property = "Energy",
+            Times = [0f, 0.4f, 0.55f, 0.7f, 2f, 3.1f, 3.2f, 3.35f, 4.5f],
+            Values = [1.5f, 1.4f, 0.3f, 1.6f, 1.5f, 1.45f, 0.4f, 1.5f, 1.5f],
+            Interpolation = AnimationInterpolation.Cubic,
+        });
+        animation.AddTrack(new AudioTrack
+        {
+            Path = "Chime",
+            Times = [2.3f],
+            Streams = [new ZzfxStream { ResourceName = "Chime", Parameters = ZzfxPresets.Coin(new Random(7)) }],
+            StartOffsets = [0f],
+        });
+        var library = new AnimationLibrary();
+        library.Animations.Add(animation);
+        var player = Add(root, workshop, new AnimationPlayer
+        {
+            Name = "WorkshopPlayer",
+            CallbackModeProcess = AnimationCallbackMode.Physics, // the lift is a body: it moves on the physics tick
+            Autoplay = "workshop",
+        });
+        player.Libraries.Add(library);
     }
 }

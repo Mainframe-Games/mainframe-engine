@@ -97,6 +97,8 @@ public sealed class EditorCommands
             return _workspace.TileMap.RunCommand(id);
         if (id.StartsWith("curve.", StringComparison.Ordinal))
             return _workspace.Curves.RunCommand(id);
+        if (id.StartsWith("anim.", StringComparison.Ordinal))
+            return _workspace.AnimationPanel.RunCommand(id);
         switch (id)
         {
             case "file.new" when _workspace.Mode == EditorMode.Music: NewSong(); return true;
@@ -687,7 +689,18 @@ public sealed class EditorCommands
     {
         try
         {
-            Session.Save(scene, path);
+            // G1.6: a saved scene holds authored values, never the Animation panel's preview frame.
+            var previewing = _workspace.Animations.BeforeSave(scene);
+            try
+            {
+                Session.Save(scene, path);
+            }
+            finally
+            {
+                if (previewing)
+                    _workspace.Animations.AfterSave();
+            }
+
             Log.Info($"[Editor] Saved {Session.DisplayPath(scene.FilePath)}");
             return true;
         }

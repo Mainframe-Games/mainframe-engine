@@ -97,6 +97,7 @@ public class GpuParticles2D : Node2D
     }
 
     /// <summary>Kills every particle and starts emitting from the start (Godot's <c>restart</c>); no allocation once sized.</summary>
+    [AnimationMethod]
     public void Restart()
     {
         Array.Clear(_particles);

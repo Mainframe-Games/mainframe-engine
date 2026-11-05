@@ -105,7 +105,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `World2D`, synced after each fixed step), `Nodes2D/` (`NavigationGrid2D` + `NavigationGridData`, `NavigationAgent2D`),
   `Baking/` (`INavigationGridBaker` seam, the physics baker through queries only, `TileMapLayerBaker`: live grids from a
   `TileMapLayer`, G3.6); see `docs/design/navigation.md`
-- `MainframeEngine/Src/Animation/` — `Animation` (transform + event tracks), `AnimationLibrary`, `AnimationPlayer` (ADR 0207);
+- `MainframeEngine/Src/Animation/` — `Animation` (transform, value, bezier, method, audio and event tracks; cubic, transitions),
+  `AnimationLibrary`, `AnimationPlayer` (ADRs 0207, 0244), `PropertyBinding`/`AnimationValueOps` (typed property writes),
+  `[AnimationMethod]` (generated invokers, MFG011);
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;
@@ -171,7 +173,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   Forest; `just neon`, `neon-test`, `neon-art`, `neon-city-art`, `neon-audio`, `neon-screenshots`; see `docs/design/neon.md`
 - `MainframeEngine.Editor/` — the editor exe (M10; `just editor [project|scene]`): `EditorApp : Engine` runs the tree in
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Assets/Editor/`;
-  `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Inspector/`, `SceneTree/`, `Viewport/` (camera,
+  `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Animation/` (the Animation panel, G1a), `Timeline/`
+  (the timeline shared by the song, animation and video views), `Inspector/`, `SceneTree/`, `Viewport/` (camera,
   3D/2D gizmos, picking), `Projects/` (`ProjectService`: game assembly in a collectible ALC, code reload; New Project,
   Project Settings; `EditorLoader`: projects and scenes open behind the loading window, ADR 0238), `Play/` (`dotnet build` + game processes over the editor link), `FileSystem/` (file tree, moves
   with UID reference fix-ups, OS trash), `Settings/` (editor settings, code editor), `Updates/` (self-update from GitHub Releases: check, download, `--apply-update` swap), `UI/` (panels, dialogs), `Qa/`

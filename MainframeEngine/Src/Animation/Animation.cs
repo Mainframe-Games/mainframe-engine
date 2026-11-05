@@ -79,6 +79,10 @@ public sealed class Animation : Resource
         }
     }
 
+    /// <summary>The editor's snap step in seconds (Godot's <c>step</c>; 1/30 s by default).</summary>
+    [Export(Range = "0.001,1,0.001")]
+    public float Step { get; set; } = 1f / 30;
+
     [Export]
     public List<AnimationTrack> Tracks
     {

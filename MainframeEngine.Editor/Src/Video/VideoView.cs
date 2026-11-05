@@ -154,8 +154,8 @@ public sealed class VideoView : Node
 
         if (showCuts)
             tab.CutView.Width = cuts.Width;
-        SongView.Place(tab.CanvasViewport, tab.Canvas, timeline, scale, showTimeline);
-        SongView.Place(tab.CutViewport, tab.CutCanvas, cuts, scale, showCuts);
+        TimelineHost.Place(tab.CanvasViewport, tab.Canvas, timeline, scale, showTimeline);
+        TimelineHost.Place(tab.CutViewport, tab.CutCanvas, cuts, scale, showCuts);
         var showProgram = panel.ProgramRect.Width > 1;
         var showSource = panel.SourceRect.Width > 1 && tab.Source.Preview is not null;
         SetMode(tab.Preview.Viewport, showProgram);

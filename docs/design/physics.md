@@ -322,7 +322,8 @@ bodies in its way are pushed (the body collides with what its layer meets, even 
 
 **Kinematic bodies moved by their node** (`AnimatableBody*`, kinematic `RigidBody*`): the move becomes a velocity for
 the step, and the body record keeps it (`StepVelocity`), so `LinearVelocity` / `GetStepVelocity()` report the real
-speed of a lift on a path; setting `LinearVelocity` takes over again.
+speed of a lift on a path; setting `LinearVelocity` takes over again. An `AnimationPlayer` moves one with a transform
+track and `CallbackModeProcess = Physics` (the editor warns otherwise; [Animation and skinning](animation.md#animationplayer)).
 
 **Root motion** ([ADR 0210](../../memory/decisions/0210-root-motion.md),
 [Animation → Root motion](animation.md#root-motion)): `CharacterBody3D.ApplyRootMotion(player)`, called before

@@ -1,6 +1,6 @@
 # Plan: G1a keyframe animation (value, bezier, method and audio tracks; the Animation panel)
 
-**Status:** in progress
+**Status:** done
 **Docs:** [Keyframe animation proposal](../../docs/design/future/keyframe-animation.md) (§ Animation resource, Evaluation,
 Binding properties, Method tracks, Audio tracks, AnimationPlayer, Editor: the Animation panel, Shared timeline, Task list
 G1.1–G1.7), [Animation and skinning](../../docs/design/animation.md) (what shipped: ADR 0207, 0208, 0210)
@@ -34,18 +34,25 @@ The rest of G1a, as the proposal designs it:
 
 ## Steps
 
-- [ ] Bindings and value ops. Verified by: `AnimationBindingTests` (each value kind, sub-components, discrete, game
+- [x] Bindings and value ops. Verified by: `AnimationBindingTests` (each value kind, sub-components, discrete, game
   struct, unsupported type warns once), 0 B writes.
-- [ ] Value and bezier tracks, cubic, transitions, loop wrap. Verified by: `AnimationTrackTests` per mode and value
+- [x] Value and bezier tracks, cubic, transitions, loop wrap. Verified by: `AnimationTrackTests` per mode and value
   type, `.mres` round trip.
-- [ ] `[AnimationMethod]` generator and method/audio tracks. Verified by: generator tests (invokers, diagnostics),
+- [x] `[AnimationMethod]` generator and method/audio tracks. Verified by: generator tests (invokers, diagnostics),
   `AnimationPlayerTests` (keys across loops, backwards, ping-pong, deferred/immediate).
-- [ ] Player: value blending, blend times, sync state. Verified by: crossfade and capture tests; allocation gate over
+- [x] Player: value blending, blend times, sync state. Verified by: crossfade and capture tests; allocation gate over
   1 000 nodes during a crossfade with method keys; benchmark runs.
-- [ ] Shared timeline, song tab on it. Verified by: the song tab's tests unchanged and green; timeline math tests.
-- [ ] Animation panel. Verified by: editor tests for every undo action, key buttons, preview restore, save never
+- [x] Shared timeline, song tab on it. Verified by: the song tab's tests unchanged and green; timeline math tests.
+- [x] Animation panel. Verified by: editor tests for every undo action, key buttons, preview restore, save never
   writes the preview; `Tests/QA/animation-walkthrough.qa` captures inspected.
-- [ ] Demo, docs, proposal moved. Verified by: `Demo.Tests`, the screenshot, `check.sh`.
+- [x] Demo, docs, proposal moved. Verified by: `Demo.Tests`, the screenshot, `check.sh`.
+
+## Outcome
+
+Done (ADR 0244). Changes from the plan: undo is two snapshot actions; gestures were not extracted into the timeline;
+the panel adds method and audio tracks from header buttons instead of a `+` menu; the curve view, key copy/paste and
+play backwards are follow-ups (animation.md → Known issues). Tests: `ValueTrackTests` (17), generator MFG011,
+`AnimationEditorTests` (10), `TimelineTests` (2), `Animation3DSceneTests` (5); QA `animation-walkthrough.qa`.
 
 ## Done when
 

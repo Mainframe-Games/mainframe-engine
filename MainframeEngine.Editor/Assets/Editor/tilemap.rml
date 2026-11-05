@@ -57,6 +57,7 @@
         <button class="dock-tab" data-tab="1" data-tooltip="Profiler — frame times, scopes and GPU zones of a running game or the editor"><span class="icon icon-sm icon-activity"></span><span class="label">Profiler</span></button>
         <button class="dock-tab" id="tm-tab-map" data-tab="2" data-tooltip="TileMap — pick the tiles the paint tools put down (shown while a TileMapLayer is selected)"><span class="icon icon-sm icon-grid-pattern"></span><span class="label">TileMap</span></button>
         <button class="dock-tab" id="tm-tab-set" data-tab="3" data-tooltip="TileSet — atlas sources, tiles, tile data and collision of the edited tile set"><span class="icon icon-sm icon-layout-grid"></span><span class="label">TileSet</span></button>
+        <button class="dock-tab hidden" id="dock-tab-animation" data-tab="4" data-tooltip="Animation — keyframes of the selected AnimationPlayer"><span class="icon icon-sm icon-movie"></span><span class="label">Animation</span></button>
         <div class="tools" id="tm-tools"></div>
     </div>
     <div class="tm-main">

@@ -249,6 +249,16 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>Curve editing of the selected <see cref="Path2D"/> in 2D tabs: the curve bar and viewport gestures (G13).</summary>
     public CurveEditor Curves { get; private set; } = null!;
 
+    /// <summary>The Animation panel's model (G1.6): the edited player and animation, keys, preview, undo.</summary>
+    public AnimationEditor Animations { get; private set; } = null!;
+
+    /// <summary>The bottom dock's contextual Animation tab (G1.6).</summary>
+    public AnimationPanel AnimationPanel { get; private set; } = null!;
+
+    private bool _animationTab;      // the contextual Animation tab is shown (never saved)
+    private bool _animationShown;    // an AnimationPlayer is edited: the Animation dock tab is offered
+    private bool _keysShown;         // the inspector shows key buttons
+
     private BottomDockTab? _tileTab;   // the contextual TileMap / TileSet tab shown over the persisted one (never saved)
     private bool _tilesShown;
     private bool _tileSetShown;
@@ -259,6 +269,7 @@ public sealed partial class EditorWorkspace : Node
     /// </summary>
     public BottomDockTab BottomTab =>
         _tileTab is { } tile && TileTabAvailable(tile) ? tile
+        : _animationTab && Animations is { IsActive: true } ? BottomDockTab.Animation
         : Layout.Settings.BottomTab == (int)BottomDockTab.Profiler ? BottomDockTab.Profiler : BottomDockTab.Output;
 
     private bool TileTabAvailable(BottomDockTab tab) => TileMap is { } tiles && (tab == BottomDockTab.TileMap ? tiles.IsActive : tiles.EditedTileSet is not null);
@@ -267,14 +278,51 @@ public sealed partial class EditorWorkspace : Node
     public void ShowBottomTab(BottomDockTab tab)
     {
         if (tab is BottomDockTab.TileMap or BottomDockTab.TileSet)
+        {
             _tileTab = tab;
+        }
+        else if (tab == BottomDockTab.Animation)
+        {
+            _tileTab = null;
+            _animationTab = true;
+        }
         else
         {
             _tileTab = null;
+            _animationTab = false;
             Layout.SetBottomTab(tab);
         }
 
         ApplyModePanels();
+    }
+
+    // The Animation tab opens when an AnimationPlayer is selected (Godot's bottom panel) and leaves with it; the inspector
+    // shows key buttons while it edits an animation.
+    private void SyncAnimationTab()
+    {
+        var shown = Animations.IsActive;
+        if (shown != _animationShown)
+        {
+            if (shown && _tileTab is null)
+                _animationTab = true;
+            if (!shown)
+            {
+                _animationTab = false;
+                Animations.EndPreview();
+            }
+
+            _animationShown = shown;
+            foreach (var panel in (ReadOnlySpan<EditorDocument>)[OutputPanel, ProfilerPanel, TileMapPanel])
+                panel.SetElementClass("dock-tab-animation", "hidden", !shown);
+            ApplyModePanels();
+        }
+
+        var keys = Animations.KeysShown;
+        if (keys != _keysShown)
+        {
+            _keysShown = keys;
+            Inspector.Rebuild();
+        }
     }
 
     // The TileMap tab opens when a tile map layer is selected (Godot's bottom panel) and the tile tabs leave with it.
@@ -375,6 +423,8 @@ public sealed partial class EditorWorkspace : Node
         OutputPanel = new OutputPanel(this) { Name = "Output" };
         ProfilerPanel = new ProfilerPanel(this) { Name = "Profiler", Visible = false };
         TileMapPanel = new TileMapPanel(this) { Name = "TileMap", Visible = false };
+        Animations = new AnimationEditor(this);
+        AnimationPanel = new AnimationPanel(this) { Name = "Animation", Visible = false };
         SongPanel = new SongPanel(this) { Name = "Song" };
         VideoPanel = new VideoPanel(this) { Name = "Video" };
         Splitters = new SplittersOverlay(this) { Name = "Splitters" };
@@ -391,6 +441,8 @@ public sealed partial class EditorWorkspace : Node
         PanelLayer.AddChild(OutputPanel);
         PanelLayer.AddChild(ProfilerPanel);
         PanelLayer.AddChild(TileMapPanel);
+        PanelLayer.AddChild(AnimationPanel);
+        AddChild(AnimationPanel.Viewport); // the timeline canvas renders here
         PanelLayer.AddChild(Splitters);
         PanelLayer.AddChild(SynthWindow); // floats over the song view
         PanelLayer.AddChild(PluginWindow); // over the synth (its FX open from it)
@@ -566,6 +618,9 @@ public sealed partial class EditorWorkspace : Node
         ProfilerPanel.Tick(gameTime.DeltaTime);
         SyncTileTabs();
         TileMapPanel.Tick();
+        Animations.Tick(gameTime.DeltaTime);
+        SyncAnimationTab();
+        AnimationPanel.Tick();
         TreePicker.Tick();
         EditorSettingsDialog.Tick();
         Tooltips?.Tick(gameTime.DeltaTime);
@@ -611,6 +666,7 @@ public sealed partial class EditorWorkspace : Node
         Place(OutputPanel, Layout.Output);
         Place(ProfilerPanel, Layout.Output); // the bottom dock's other tab
         Place(TileMapPanel, Layout.Output);   // and the contextual tile map tabs
+        Place(AnimationPanel, Layout.Output); // and the contextual Animation tab
         Splitters.Apply(Layout);
     }
 
@@ -827,6 +883,14 @@ public sealed partial class EditorWorkspace : Node
             else
                 tiles.HideAndReleaseFocus();
         }
+
+        if (AnimationPanel is { } animation)
+        {
+            if (Layout.ShowsOutput && tab == BottomDockTab.Animation)
+                animation.Visible = true;
+            else
+                animation.HideAndReleaseFocus();
+        }
     }
 
     // The mode's remembered tab when it is still open, else its first open tab; no tab of the mode leaves none active.
@@ -1007,6 +1071,13 @@ public sealed partial class EditorWorkspace : Node
             }
 
             RunShortcut(MusicShortcutFor(key.Key, Modifiers));
+            return;
+        }
+
+        // G1.6: the Animation tab's keys while it shows (Delete removes selected keys, K keys the selected 3D nodes).
+        if (BottomTab == BottomDockTab.Animation && AnimationPanel.ShortcutFor(key.Key, Modifiers, Animations.Selected.Count > 0) is { } animationCommand)
+        {
+            RunShortcut(animationCommand);
             return;
         }
 
