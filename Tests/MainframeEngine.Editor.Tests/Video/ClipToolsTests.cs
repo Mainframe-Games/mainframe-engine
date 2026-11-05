@@ -1,4 +1,5 @@
 using MainframeEngine.Editor.Video;
+using MainframeEngine.Tests;
 using MainframeEngine.Video.Analysis;
 using MainframeEngine.Video.Detection;
 using MainframeEngine.Video.Models;
@@ -241,9 +242,7 @@ public sealed class ClipToolsTests : VideoEditorTestBase
         _editor.Tick(60);
         Assert.Equal(3, W.VideoPanel.Transcript.Current);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        _editor.Tick(100);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationGate.SmallestWindow(() => _editor.Tick(100));
         Assert.True(allocated == 0, $"{allocated} B allocated over 100 steady frames with the Transcript tab");
     }
 

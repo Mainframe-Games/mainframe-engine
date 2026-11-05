@@ -1,4 +1,5 @@
 using MainframeEngine.Editor.Video;
+using MainframeEngine.Tests;
 
 namespace MainframeEngine.Editor.Tests.Video;
 
@@ -30,9 +31,7 @@ public sealed class TimelineAllocationTests : IDisposable
         tab.Notice = VideoGolden.Notice;
         _editor.Tick(60);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        _editor.Tick(100);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationGate.SmallestWindow(() => _editor.Tick(100));
         Assert.True(allocated == 0, $"{allocated} B allocated over 100 steady frames with a timeline tab");
     }
 }

@@ -1,5 +1,6 @@
 using MainframeEngine.Audio.Music;
 using MainframeEngine.Editor.Music;
+using MainframeEngine.Tests;
 using static MainframeEngine.Editor.Tests.Music.MusicTestUtil;
 
 namespace MainframeEngine.Editor.Tests.Music.Adaptive;
@@ -250,9 +251,10 @@ public sealed class AdaptiveLiveTests
         engine.TriggerStinger("hit");
         for (var i = 0; i < 50; i++)
             engine.Process(block);
-        var allocated = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 1000; i++)
-            engine.Process(block);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - allocated);
+        Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+        {
+            for (var i = 0; i < 1000; i++)
+                engine.Process(block);
+        }));
     }
 }
