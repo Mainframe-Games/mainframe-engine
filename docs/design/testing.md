@@ -306,6 +306,8 @@ sequenceDiagram
   panel), and RmlUi's dp ratio and the gizmo scale are that scale too, so UI goldens match as well. The engine sizes the
   OS window for the display (640×480 pt on a 1× monitor, 320×240 pt on Retina) before the swapchain exists and fails
   start-up if the framebuffer cannot reach the request; `result.json` records the scale (`ContentScale`).
+  Scene self-checks run at both scales (a Mac at 2, CI at 1), so a probe must hold at either: a patch of 1-pixel lines
+  dense enough at 320×240 can leave empty rows at 640×480 (`subviewport-post`'s floor lines are 0.005 apart for that).
   The editor's smoke runs (`EditorRenderTests`) pass the same canonical `--scale` to `MainframeEngine.Editor`: the
   editor window golden is 1280×720 points (2560×1440 `moltenvk`, 1280×720 `lavapipe`), the splash 960×600 points;
   the Project Manager, FileSystem panel and video mode goldens (`--smoke-golden

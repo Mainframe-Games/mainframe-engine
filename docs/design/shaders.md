@@ -303,7 +303,10 @@ The SPIR-V is built ahead of time (no runtime compiler) and committed next to th
 3. writes `x.slang.layout.json` (the layout in the engine's own format, so nothing reads Slang's JSON at run time) and
    `x.slang.spvlock`: its first line hashes the shader, its layout and its generated entries (what `Shader.Load` checks,
    warning when stale); each further line hashes a file slangc's `-depfile` listed (`include:frame.slang`,
-   `include:mainframe/spatial.slang`, an imported `noise.slang`), which `check` verifies too.
+   `include:mainframe/spatial.slang`, an imported `noise.slang`), which `check` verifies too. The depfile names files by
+   their real path (slangc resolves symbolic links: macOS's temp folder `/var/…` is `/private/var/…`), so the build
+   compares and relativises them against real paths too (`SurfaceShaderBuild.RealPath`); its own temp entry files never
+   reach the lock.
 
 The flags are the engine's (`-matrix-layout-row-major`, `spirv_1_5`) plus `-obfuscate`, which drops every name from the
 SPIR-V (MoltenVK's SPIRV-Cross would carry a name like the Metal keyword `vertex` into the Metal source); the probe is not

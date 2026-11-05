@@ -138,7 +138,7 @@ public static partial class SurfaceShaderBuild
         var dependencies = new SortedSet<string>(StringComparer.Ordinal);
         try
         {
-            var context = new CompileContext(compiler, includeDirectory, shaderPath, temp, dependencies);
+            var context = new CompileContext(compiler, includeDirectory, shaderPath, RealPath(temp), RealPath(shaderPath), dependencies);
             var json = Path.Combine(temp, "probe.json");
             context.Compile(SurfaceShaderCompiler.Probe(parsed, name), "fragment", Path.Combine(temp, "probe.spv"), "reflection probe", reflection: json);
             var layout = SlangReflection.Read(File.ReadAllText(json), parsed, warnings);
@@ -168,10 +168,12 @@ public static partial class SurfaceShaderBuild
             }
 
             File.WriteAllText(shaderPath + SurfaceShaderLayout.Extension, layout.Write());
-            var directory = Path.GetDirectoryName(shaderPath)!;
+            // Dependencies are real paths (slangc's depfile resolves symbolic links), so the folders they are relative to are too.
+            var directory = RealPath(Path.GetDirectoryName(shaderPath)!);
+            var realIncludes = RealPath(includeDirectory);
             var text = new StringBuilder(Hash(source, parsed, layout)).Append('\n');
             foreach (var dependency in dependencies)
-                text.Append(LockEntry(dependency, includeDirectory, directory)).Append(' ').Append(FileHash(dependency)).Append('\n');
+                text.Append(LockEntry(dependency, realIncludes, directory)).Append(' ').Append(FileHash(dependency)).Append('\n');
             File.WriteAllText(shaderPath + LockExtension, text.ToString());
             return true;
         }
@@ -189,12 +191,33 @@ public static partial class SurfaceShaderBuild
         return Path.GetRelativePath(shaderDirectory, file).Replace('\\', '/');
     }
 
-    // One shader's compiles: the same slangc, search paths and temp folder, and the files they read.
-    private sealed class CompileContext(string slangc, string includeDirectory, string shaderPath, string temp, SortedSet<string> dependencies)
+    /// <summary>
+    /// <paramref name="path"/> made absolute with every symbolic link in it resolved, as slangc names files in its depfile
+    /// (macOS's temp folder is under <c>/var</c>, a link to <c>/private/var</c>). Missing parts are kept as they are.
+    /// </summary>
+    internal static string RealPath(string path)
+    {
+        path = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(path)!;
+        var result = root;
+        foreach (var part in path[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var next = Path.Combine(result, part);
+            FileSystemInfo info = Directory.Exists(next) ? new DirectoryInfo(next) : new FileInfo(next);
+            var target = info.Exists ? info.ResolveLinkTarget(returnFinalTarget: true) : null;
+            result = target is null ? next : RealPath(target.FullName);
+        }
+
+        return result;
+    }
+
+    // One shader's compiles: the same slangc, search paths and temp folder, and the files they read (by real path, as
+    // `realTemp` and `realShader` are: the depfile's own form, so the filter below sees through links such as /var).
+    private sealed class CompileContext(string slangc, string includeDirectory, string shaderPath, string realTemp, string realShader, SortedSet<string> dependencies)
     {
         public void Compile(string code, string stage, string output, string what, string? reflection = null)
         {
-            var entry = Path.Combine(temp, $"mf-{Guid.NewGuid():N}.{stage}.slang");
+            var entry = Path.Combine(realTemp, $"mf-{Guid.NewGuid():N}.{stage}.slang");
             var depfile = entry + ".d";
             File.WriteAllText(entry, code);
             var arguments = SlangcArguments(entry, stage, includeDirectory, Path.GetDirectoryName(shaderPath)!, output, obfuscate: reflection is null);
@@ -209,8 +232,8 @@ public static partial class SurfaceShaderBuild
                 {
                     foreach (var file in ReadDepfile(File.ReadAllText(depfile)))
                     {
-                        var full = Path.GetFullPath(file);
-                        if (!full.StartsWith(temp, StringComparison.Ordinal) && full != shaderPath)
+                        var full = RealPath(file);
+                        if (!full.StartsWith(realTemp + Path.DirectorySeparatorChar, StringComparison.Ordinal) && full != realShader)
                             dependencies.Add(full);
                     }
                 }
