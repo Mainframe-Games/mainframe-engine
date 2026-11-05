@@ -1,7 +1,7 @@
 # Plan: G1a keyframe animation (value, bezier, method and audio tracks; the Animation panel)
 
 **Status:** done
-**Docs:** [Keyframe animation proposal](../../docs/design/future/keyframe-animation.md) (§ Animation resource, Evaluation,
+**Docs:** Keyframe animation proposal (moved into animation.md when G1a shipped; § Animation resource, Evaluation,
 Binding properties, Method tracks, Audio tracks, AnimationPlayer, Editor: the Animation panel, Shared timeline, Task list
 G1.1–G1.7), [Animation and skinning](../../docs/design/animation.md) (what shipped: ADR 0207, 0208, 0210)
 **Started:** 2026-11-05

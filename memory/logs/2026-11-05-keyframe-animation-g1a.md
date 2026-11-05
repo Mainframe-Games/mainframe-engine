@@ -6,7 +6,7 @@ summary: >-
 
 # 2026-11-05: keyframe animation (G1a)
 
-Branch `feature/paths-finish` (the gameplay toolkit's partly-done items, one PR). Plan:
+Branch `feature/paths-and-keyframe-animation` (with G13). Plan:
 [G1a keyframe animation](../plans/2026-11-05-keyframe-animation-g1a.md). As built:
 [Animation and skinning](../../docs/design/animation.md) (the proposal moved into it).
 
