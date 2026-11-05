@@ -379,6 +379,7 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["rendering.scaling3DMode"] = "Taau",
             ["rendering.scaling3DScale"] = "0.75",
             ["rendering.fsrSharpness"] = "0.5",
+            ["rendering.meshLodThreshold"] = "2.5",
             ["ui.scaleMode"] = "ConstantPixelSize",
             ["ui.referenceResolution"] = "2560, 1440",
             ["ui.matchWidthOrHeight"] = "0.5",
