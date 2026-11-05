@@ -55,6 +55,8 @@ proposal is deleted).
 - Render tests (moltenvk): 228/234. The six failures (`subviewport-post` ×2, `physics-joints`, three editor goldens) are
   main's stale moltenvk goldens: with `fix/stale-goldens-shader-lock`'s goldens all six pass on this branch. New:
   `lod`, `decals`, `pbr-ibl-hdr` goldens inspected, and the `lod` and moving-decal allocation gates are 0 B.
+- Lavapipe (`just render-tests-linux` in Docker): the new `lod`, `decals`, `pbr-ibl-hdr` tests and the PBR tests 8/8, self-checks
+  included at 1×; the three new lavapipe goldens inspected and committed.
 - Every existing golden matches unchanged: the decal pass and the reordered `Mesh.vk.frag` are bit-identical without
   decals.
 - `just qa-editor`: the new `21b-decal-gizmo` capture (scene icon, projection box, handles, inspector groups), used as
