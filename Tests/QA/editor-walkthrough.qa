@@ -332,6 +332,32 @@ capture 26d-tileset-collision
 command tilemap.palette
 command file.close
 wait 10
+# Paths (G13): a new Path2D in the Paths 2D scene: four points with the curve bar's Add tool, closed and smoothed, a
+# point dragged with the Select tool, the drag undone. The view centre (0, 0) is window (770, 430) at zoom 1.
+open Examples/Demo/Assets/Scenes/paths_2d.mscene
+wait 20
+add-node Path2D Drawn
+wait 3
+select Drawn
+camera2d 0 0 1
+command curve.tool.add
+click 700 400
+click 900 350
+click 1000 500
+click 800 560
+command curve.close
+command curve.deselect
+command curve.smooth
+command curve.tool.select
+wait 5
+capture 26e-path2d-curve
+drag 900 350 980 290
+wait 30
+capture 26f-path2d-point-dragged
+key Z cmd
+wait 3
+state
+capture 26g-path2d-undone
 # Profiler tab (G10): the editor profiling itself for about 2 s, the slowest frame selected, the trace saved with the captures.
 profile tab
 profile editor

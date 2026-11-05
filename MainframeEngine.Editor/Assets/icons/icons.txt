@@ -37,11 +37,13 @@ help-hexagon
 route-2
 route
 map-pin
+arrows-exchange
 slideshow
 
 # ── Resource types ───────────────────────────────────────────────────────────────────────────────────────────────
 package
 vector-triangle
+vector-bezier
 shape-3
 sphere
 capsule

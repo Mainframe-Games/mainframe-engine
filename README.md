@@ -126,8 +126,8 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/navigation_2d.png" width="380" alt="Navigation 2D"><br><b>Navigation 2D</b> — a baked grid, mud, and twelve chasers walking to the clicked point; click to add walls</td>
   </tr>
   <tr>
+    <td align="center" valign="top"><img src="docs/images/demo/paths_2d.png" width="380" alt="Paths 2D: four cars lapping an oval track, a lift on an arc and a guard walking a rounded patrol route"><br><b>Paths 2D</b> — Path2D curves: cars lapping a track, a ping-pong lift and a guard patrolling by the carrot recipe</td>
     <td align="center" valign="top"><img src="docs/images/demo/adaptive_music.png" width="380" alt="Music: the Demo's adaptive song with its sections, the bar's beats and three layer gain bars, and a panel with intensity, area and a stinger button"><br><b>Music</b> — adaptive music baked from the editor: intensity brings layers in, area changes section on the bar, a stinger</td>
-    <td></td>
   </tr>
 </table>
 
@@ -195,6 +195,7 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-6dof-handles.png" width="380" alt="The Demo's 6-DOF gimbal selected: arcs about its X and Z axes with a lower and upper handle each, and the Generic6DofJoint3D inspector"><br><b>6-DOF joints</b> — every axis free, limited or locked; a handle pair per axis that isn't locked</td>
+    <td align="center" valign="top"><img src="docs/images/editor-path2d.png" width="380" alt="A new Path2D in the Demo's Paths 2D scene: a closed, smoothed curve with its points and tangent handles, the curve bar over the 2D view, and the other paths drawn in blue"><br><b>Curve tool</b> — draw Path2D curves: add, insert, delete, drag points and mirrored handles, close, reverse, smooth</td>
   </tr>
 </table>
 
@@ -275,6 +276,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Animated sprites](docs/design/animated-sprites.md) | Godot's `SpriteFrames` and `AnimatedSprite2D`: flipbooks sliced from sprite sheets (count or cell size, margins, separation), Godot's timing and signals with no allocation per frame, a SpriteFrames editor and a Select Frames dialog |
 | [Tile maps](docs/design/tile-maps.md) | Godot 4.3's `TileSet` and `TileMapLayer`: atlas sources with padding, alternatives and flips, collision polygons and typed custom data; chunked layers drawn in about one batch per atlas, y-sorted row by row with characters, one static Box2D body per chunk (merged rectangles, convex pieces), one base64 line per chunk in scenes; paint tools, a palette and a TileSet editor in the 2D view |
 | [Navigation](docs/design/navigation.md) | Godot's `AStarGrid2D` (diagonal modes, heuristics, weights, jump point search) and `AStar2D`/`AStar3D` with allocation-free, deterministic queries; `NavigationServer2D`, grids baked from static bodies or read live from a tile map layer, `NavigationAgent2D` with Godot's repath rules and signals; Visible Navigation, Bake and Clear in the editor |
+| [Paths](docs/design/paths.md) | Godot's `Path2D`/`PathFollow2D` and `Path3D`/`PathFollow3D` on Bézier curves baked to equal arc length: closed curves, smooth tangents, rotation-minimising up vectors that never flip on a loop, followers that move by themselves (speed, loop, ping-pong) with no allocation; a curve tool in the editor's 2D view |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting alpha-tested silhouette shadows, optionally billboarded to the camera, with animation tracks and queues |
 | [3D particles](docs/design/particles-3d.md) | `GpuParticles3D` on Godot's `ParticleProcessMaterial`: point, sphere, box and ring emission, spread, gravity, damping, turbulence, scale and colour curves, hue variation; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow, sorted back to front; deterministic seeds; 8 000 particles in under half a millisecond of CPU |
 | [Skeletal animation](docs/design/animation.md) | Skinned glTF/FBX characters with their clips: `Skeleton3D`, GPU (compute) skinning that shadows, outlines and picking all see, an `AnimationPlayer` with crossfades, queues and events (also on a headless server), root motion that moves a `CharacterBody3D`, `BoneAttachment3D` |

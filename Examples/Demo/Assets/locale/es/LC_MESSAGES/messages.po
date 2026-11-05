@@ -66,13 +66,13 @@ msgstr "Golpe"
 #. RML <span>
 #: Examples/Demo/Assets/AdaptiveMusic/panel.rml:26
 #: Examples/Demo/Assets/Audio/panel2d.rml:12
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
 msgid "Music"
 msgstr "Música"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
 msgid "Animation 3D"
 msgstr "Animación 3D"
 
@@ -142,6 +142,7 @@ msgstr "Fundido"
 
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:22
+#: Examples/Demo/Assets/Paths2D/panel.rml:10
 #: Examples/Demo/Assets/Sprites2D/panel.rml:16
 msgid "Speed"
 msgstr "Velocidad"
@@ -178,7 +179,7 @@ msgstr "Empujar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
 msgid "Audio 2D"
 msgstr "Audio 2D"
 
@@ -209,7 +210,7 @@ msgstr "Distancia máxima"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
 msgid "Audio 3D"
 msgstr "Audio 3D"
 
@@ -448,8 +449,25 @@ msgid "Burst of sparks"
 msgstr "Ráfaga de chispas"
 
 #. RML <h1>
-#: Examples/Demo/Assets/Physics/panel2d.rml:8
+#: Examples/Demo/Assets/Paths2D/panel.rml:8
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:254
+msgid "Paths 2D"
+msgstr "Trayectorias 2D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Paths2D/panel.rml:9
+msgid "Path2D curves with PathFollow2D followers: cars lapping a closed track, a lift that ping-pongs, and a guard walking a patrol route."
+msgstr "Curvas Path2D con seguidores PathFollow2D: coches que dan vueltas a un circuito cerrado, un elevador que va y viene y un guardia que recorre su ronda."
+
+#. RML <span>
+#: Examples/Demo/Assets/Paths2D/panel.rml:11
+#: Examples/Demo/Assets/Sprites2D/panel.rml:19
+msgid "Pause"
+msgstr "Pausa"
+
+#. RML <h1>
+#: Examples/Demo/Assets/Physics/panel2d.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:255
 msgid "Physics 2D"
 msgstr "Física 2D"
 
@@ -484,7 +502,7 @@ msgstr "Reiniciar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:255
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:256
 msgid "Physics 3D"
 msgstr "Física 3D"
 
@@ -547,7 +565,7 @@ msgstr "Golpear los objetos"
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
 msgid "Sound FX"
 msgstr "Efectos de sonido"
 
@@ -622,7 +640,7 @@ msgstr "Música (una canción del editor de música)"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:256
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
 msgid "Spine"
 msgstr "Spine"
 
@@ -694,11 +712,6 @@ msgstr "Reproducir al revés"
 #: Examples/Demo/Assets/Sprites2D/panel.rml:18
 msgid "Flip"
 msgstr "Voltear"
-
-#. RML <span>
-#: Examples/Demo/Assets/Sprites2D/panel.rml:19
-msgid "Pause"
-msgstr "Pausa"
 
 #. RML <span>
 #: Examples/Demo/Assets/Sprites2D/panel.rml:20
@@ -916,7 +929,7 @@ msgid "Audio"
 msgstr "Audio"
 
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:241
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
 msgid "UI"
 msgstr "Interfaz"
 

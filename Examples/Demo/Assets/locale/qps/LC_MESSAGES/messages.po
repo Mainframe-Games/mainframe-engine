@@ -261,6 +261,15 @@ msgstr "[Glöw ~]"
 msgid "Burst of sparks"
 msgstr "[Bûrst öf spårks ~~~]"
 
+msgid "Paths 2D"
+msgstr "[Påths 2Ð ~~]"
+
+msgid "Path2D curves with PathFollow2D followers: cars lapping a closed track, a lift that ping-pongs, and a guard walking a patrol route."
+msgstr "[Påth2Ð çûrvés wîth PåthFöllöw2Ð föllöwérs: çårs låppîñg å çlöséð tråçk, å lîft thåt pîñg-pöñgs, åñð å gûårð wålkîñg å påtröl röûté. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Pause"
+msgstr "[Påûsé ~]"
+
 msgid "Physics 2D"
 msgstr "[Phýsîçs 2Ð ~~]"
 
@@ -395,9 +404,6 @@ msgstr "[Plåý båçkwårðs ~~~]"
 
 msgid "Flip"
 msgstr "[Flîp ~]"
-
-msgid "Pause"
-msgstr "[Påûsé ~]"
 
 msgid "Frame"
 msgstr "[Fråmé ~]"

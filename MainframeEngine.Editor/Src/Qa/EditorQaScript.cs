@@ -641,6 +641,7 @@ public sealed class EditorQaScript : IEditorAutomation
                 {
                     var node = Serialization.TypeRegistry.CreateNode(step[1]);
                     node.Name = step.Length > 2 ? step[2] : step[1];
+                    NewNodeDefaults.Apply(node);
                     addTo.AddNode(node);
                 }
 

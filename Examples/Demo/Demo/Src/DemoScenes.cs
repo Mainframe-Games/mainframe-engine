@@ -32,6 +32,7 @@ public static class DemoScenes
         Scene("sprites_2d", "Sprites 2D", "2d", "slideshow", Sprites2DScene.Build),
         Scene("tiles_2d", "Tiles 2D", "2d", "grid-pattern", Tiles2DScene.Build),
         Scene("navigation_2d", "Navigation 2D", "2d", "route", Navigation2DScene.Build),
+        Scene("paths_2d", "Paths 2D", "2d", "route-2", Paths2DScene.Build),
         Scene("physics_2d", "Physics 2D", "physics", "circles", Physics2DScene.Build),
         Scene("physics_3d", "Physics 3D", "physics", "box", Physics3DScene.Build),
         Scene("spine", "Spine", "animation", "run", SpineScene.Build),

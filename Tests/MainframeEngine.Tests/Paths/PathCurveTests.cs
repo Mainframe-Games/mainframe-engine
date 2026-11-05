@@ -130,6 +130,25 @@ public sealed class PathCurveTests
     }
 
     [Fact]
+    public void ReverseKeepsTheShapeNegatesTiltAndTwiceIsTheIdentity()
+    {
+        var curve = new Curve3D { BakeInterval = 0.05f };
+        curve.SetSmoothPoints([new(0, 0, 0), new(10, 2, 0), new(18, 0, 6), new(26, 3, 2)], closed: false);
+        curve.SetPointTilt(0, 0.25f);
+        curve.SetPointWidth(3, 4f);
+        var before = (float[])curve.Points.Clone();
+        var length = curve.GetBakedLength();
+        var start = curve.SampleBaked(0);
+        curve.Reverse();
+        Assert.Equal(length, curve.GetBakedLength(), 3);
+        Assert.True(Vector3.Distance(start, curve.SampleBaked(length)) < 1e-4f);
+        Assert.Equal(-0.25f, curve.GetPointTilt(3));
+        Assert.Equal(4f, curve.GetPointWidth(0));
+        curve.Reverse();
+        Assert.Equal(before, curve.Points);
+    }
+
+    [Fact]
     public void PathSamplingAllocatesNothing()
     {
         var curve = new Curve3D { UpVectorEnabled = true };

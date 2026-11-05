@@ -95,6 +95,8 @@ public sealed class EditorCommands
             return true;
         if (id.StartsWith("tilemap.", StringComparison.Ordinal))
             return _workspace.TileMap.RunCommand(id);
+        if (id.StartsWith("curve.", StringComparison.Ordinal))
+            return _workspace.Curves.RunCommand(id);
         switch (id)
         {
             case "file.new" when _workspace.Mode == EditorMode.Music: NewSong(); return true;
@@ -1038,6 +1040,7 @@ public sealed class EditorCommands
                 var info = (NodeTypeInfo)entry.Payload!;
                 var node = (Node)info.CreateInstance();
                 node.Name = info.Name;
+                NewNodeDefaults.Apply(node);
                 scene.AddNode(node);
             },
         });

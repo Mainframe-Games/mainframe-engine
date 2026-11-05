@@ -463,6 +463,12 @@ grid), the left button paints and the right button erases with the tool (one und
 brush follows the mouse, Godot's tile keys win over E/R only while a paint tool is active, and the contextual
 **TileMap** (palette) and **TileSet** (sources, tiles, tile data, collision) bottom tabs appear: [Tile maps →
 Editor](tile-maps.md#editor).
+**Paths** (G13, ADR 0242): every `Path2D` draws its baked curve (its `DebugColor`, the selection colour when selected).
+While the selection is a `Path2D`, the curve bar takes the paint bar's place (Select Points, Add, Insert, Delete; Close,
+Reverse, Smooth) and the view edits its curve: drag points and mirrored tangent handles (Shift breaks the mirror),
+Cmd/Ctrl+click adds, Cmd/Ctrl+drag a point pulls new handles, Insert splits a segment without changing its shape, a
+right click or Delete removes a point; one undo entry per gesture (`CurveEditor`, [Paths → Editor](paths.md#editor)).
+A `Path2D` or `Path3D` made with Add Node starts with an inline curve.
 `TransformGizmo2D` (3-point axis shafts with solid arrow heads and a free-move square, a rotation ring, scale handles
 with solid squares; drawn into `OverlayGizmos`) shares the tool, space and snap
 settings with the 3D gizmo; moves snap to whole pixels, or to the move step when Snap is on. 2D tabs render through

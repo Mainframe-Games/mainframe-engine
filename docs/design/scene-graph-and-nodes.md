@@ -351,6 +351,7 @@ them in reverse order after the tree is freed.
 | `SpineNode` | `SpineRenderer` | `Folder`, `Animation` (played on load), `SpineScale`; skeleton data loads on the CPU on first use |
 | `Skeleton3D`, `BoneAttachment3D`; skinned `MeshInstance3D` | `MeshRenderer`, `MeshSkinner` | bones as data (names, parents, rests; poses at run time); a skinned mesh (`Skeleton`, `Skin`) is pre-skinned by a compute pass each frame and then drawn like any mesh; an attachment follows a bone. `AnimationPlayer` (a plain `Node`) plays their clips ([Animation and skinning](animation.md), ADR 0207) |
 | `Path3D`, `PathFollow3D` | `Curve3D` | a curve in the scene; followers place themselves (and their children) at `Progress` metres with a rotation mode, optionally moving at `Speed` ([Paths](paths.md), ADR 0215) |
+| `Path2D`, `PathFollow2D` | `Curve2D` | the same in 2D, in pixels; followers turn `+X` along the curve when `Rotates` ([Paths](paths.md), ADR 0242) |
 | `Grid3D` | `SceneGrid3d` | debug/editor grid: no shadows, `RenderPriority` -100 |
 | `Camera3D` | `PerspectiveCamera` | `Current`, `Fov`, `Near`, `Far`; looks along `-Z`; `RenderCamera` is the synced math camera |
 | `Camera2D` | `OrthographicCamera` | `Current`, `Zoom`, `Distance` |

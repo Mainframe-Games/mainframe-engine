@@ -246,6 +246,9 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>Tile map editing in 2D tabs: the paint bar's state, viewport strokes, the palette's brush (G2b).</summary>
     public TileMapEditor TileMap { get; private set; } = null!;
 
+    /// <summary>Curve editing of the selected <see cref="Path2D"/> in 2D tabs: the curve bar and viewport gestures (G13).</summary>
+    public CurveEditor Curves { get; private set; } = null!;
+
     private BottomDockTab? _tileTab;   // the contextual TileMap / TileSet tab shown over the persisted one (never saved)
     private bool _tilesShown;
     private bool _tileSetShown;
@@ -423,6 +426,7 @@ public sealed partial class EditorWorkspace : Node
         SplashLayer.AddChild(Splash);
 
         TileMap = new TileMapEditor(this);
+        Curves = new CurveEditor(this);
         Viewport = new ViewportController(this) { Name = "ViewportController" };
         AddChild(Viewport);
         SongView = new Music.SongView(this) { Name = "SongView" };
@@ -1007,6 +1011,13 @@ public sealed partial class EditorWorkspace : Node
         }
 
         // G2b: the tile tools' keys while the paint bar shows (E and R only with a paint tool, as in Godot's editor).
+        // G13: Delete removes the selected curve point (not the path node) while the curve bar shows.
+        if (Curves.IsActive && CurveEditor.ShortcutFor(key.Key, Modifiers, Curves.SelectedPoint >= 0) is { } curveCommand)
+        {
+            RunShortcut(curveCommand);
+            return;
+        }
+
         if (TileMap.IsActive && TileMapEditor.ShortcutFor(key.Key, Modifiers, TileMap.Tool, TileMap.CellSelection is not null, TileMap.Clipboard is not null) is { } tileCommand)
         {
             RunShortcut(tileCommand);

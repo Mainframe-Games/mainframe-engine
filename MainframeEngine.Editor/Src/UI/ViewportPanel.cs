@@ -179,19 +179,22 @@ public sealed class ViewportPanel : EditorDocument
     // G2b: the paint bar shows while a tile map layer is edited; rebuilt only when the tile tools' state changes.
     private void TickPaintBar()
     {
-        if (!IsLoaded || Workspace.TileMap is not { } tiles)
+        if (!IsLoaded || Workspace.TileMap is not { } tiles || Workspace.Curves is not { } curves)
             return;
-        var shown = tiles.IsActive;
-        if (shown == _paintShown && (!shown || tiles.Version == _paintVersion))
+        // The same bar shows the curve tools (G13) while a Path2D is selected.
+        var curve = !tiles.IsActive && curves.IsActive;
+        var shown = tiles.IsActive || curve;
+        var version = curve ? -2 - curves.Version : tiles.Version;
+        if (shown == _paintShown && (!shown || version == _paintVersion))
             return;
         _paintShown = shown;
-        _paintVersion = tiles.Version;
+        _paintVersion = version;
         var bar = Document.GetElementById("paint-bar");
         if (bar.IsNull)
             return;
         bar.SetClass("shown", shown);
         Document.GetElementById("view-info").SetClass("below-bar", shown);
-        bar.SetInnerRml(shown ? tiles.PaintBarRml() : "");
+        bar.SetInnerRml(!shown ? "" : curve ? curves.BarRml() : tiles.PaintBarRml());
     }
 
     /// <summary>Every frame: refreshes the preview bar when the active preview changed (links re-read, backdrop).</summary>
