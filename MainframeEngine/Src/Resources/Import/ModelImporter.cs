@@ -13,6 +13,19 @@ using AiTextureType = Silk.NET.Assimp.TextureType;
 namespace MainframeEngine;
 
 
+/// <summary>How imported materials shade (<see cref="ModelImportSettings.Shading"/>, the <c>.meta</c>'s <c>"shading"</c>).</summary>
+public enum ModelShading : byte
+{
+    /// <summary><see cref="ShadingMode.BlinnPhong"/>: the file's shininess sets the highlight (the default so far).</summary>
+    BlinnPhong,
+
+    /// <summary>
+    /// <see cref="ShadingMode.Pbr"/> (G6.1): glTF's metallic and roughness factors, its metallic-roughness and occlusion maps
+    /// (packed into one ORM texture), roughness from shininess for files without it.
+    /// </summary>
+    Pbr,
+}
+
 /// <summary>An event of an imported clip (<see cref="ModelClipSettings.Events"/>): a name raised at a time in seconds.</summary>
 public readonly record struct ModelClipEvent(string Name, float Time);
 
@@ -75,6 +88,12 @@ public sealed record ModelImportSettings
     public IReadOnlyList<ModelClipSettings> Clips { get; init; } = [];
 
     /// <summary>
+    /// How the materials shade (<c>"shading": "pbr" | "blinnPhong"</c>). Default <see cref="ModelShading.BlinnPhong"/>, so
+    /// existing projects keep their look; <see cref="ModelShading.Pbr"/> reads the file's PBR data.
+    /// </summary>
+    public ModelShading Shading { get; init; }
+
+    /// <summary>
     /// G6.4: the errors of authored levels (<c>&lt;name&gt;_LOD1</c> …) as fractions of the LOD0 mesh's bounds radius, one
     /// per level; missing entries continue the default series (1 %, doubling per level).
     /// </summary>
@@ -98,7 +117,8 @@ public sealed record ModelImportSettings
     public bool Equals(ModelImportSettings? other) =>
         other is not null && Scale.Equals(other.Scale) && GenerateNormals == other.GenerateNormals && ImportMaterials == other.ImportMaterials &&
         OptimizeMeshes == other.OptimizeMeshes && ImportAnimations == other.ImportAnimations && OptimizeAnimations == other.OptimizeAnimations &&
-        Clips.SequenceEqual(other.Clips) && LodErrors.SequenceEqual(other.LodErrors) && GenerateLods == other.GenerateLods;
+        Clips.SequenceEqual(other.Clips) && LodErrors.SequenceEqual(other.LodErrors) && GenerateLods == other.GenerateLods &&
+        Shading == other.Shading;
 
     public override int GetHashCode() => HashCode.Combine(Scale, GenerateNormals, ImportMaterials, OptimizeMeshes, ImportAnimations, OptimizeAnimations, Clips.Count);
 
@@ -123,6 +143,7 @@ public sealed record ModelImportSettings
                     "clips" => settings with { Clips = ReadClips(value, where) },
                     "lodErrors" => settings with { LodErrors = [.. value.EnumerateArray().Select(static e => e.GetSingle())] },
                     "generateLods" => settings with { GenerateLods = value.GetBoolean() },
+                    "shading" => settings with { Shading = ParseShading(value.GetString()) },
                     _ => Unknown(settings, key, where),
                 };
             }
@@ -152,7 +173,13 @@ public sealed record ModelImportSettings
         ["clips"] = WriteClips(Clips),
         ["lodErrors"] = JsonSerializer.SerializeToElement(LodErrors.ToArray(), AssetJsonContext.Default.SingleArray),
         ["generateLods"] = JsonSerializer.SerializeToElement(GenerateLods, AssetJsonContext.Default.Boolean),
+        ["shading"] = JsonSerializer.SerializeToElement(Shading == ModelShading.Pbr ? "pbr" : "blinnPhong", AssetJsonContext.Default.String),
     };
+
+    private static ModelShading ParseShading(string? value) =>
+        Enum.TryParse<ModelShading>(value, ignoreCase: true, out var shading) && Enum.IsDefined(shading)
+            ? shading
+            : throw new FormatException($"'{value}' is not \"pbr\" or \"blinnPhong\"");
 
     // [ { "name": "run", "loop": "Linear" | true, "rename": "jog", "events": [ { "name": "Step", "time": 0.25 } ] } ]
     private static List<ModelClipSettings> ReadClips(JsonElement value, string? where)
@@ -430,6 +457,9 @@ public sealed unsafe class ModelImporter : IAssetImporter
             api.ReleaseImport(scene);
         }
     }
+
+    /// <summary>The roughness a Blinn-Phong exponent imports as under <see cref="ModelShading.Pbr"/> (tests).</summary>
+    internal static float RoughnessFromShininessForTests(float shininess) => Builder.RoughnessFromShininess(shininess);
 
     /// <summary>An imported clip's name: Blender's <c>Armature|</c> prefix and a <c>-loop</c>/<c>-cycle</c> suffix (which loops it) removed.</summary>
     internal static string CleanClipName(string raw, int index, out bool loop) => Builder.CleanClipName(raw, index, out loop);
@@ -1189,7 +1219,45 @@ public sealed unsafe class ModelImporter : IAssetImporter
             material.AlbedoTexture = TextureFor(source, AiTextureType.BaseColor) ?? TextureFor(source, AiTextureType.Diffuse);
             material.NormalTexture = TextureFor(source, AiTextureType.Normals);
             material.EmissionTexture = TextureFor(source, AiTextureType.Emissive);
+            if (settings.Shading == ModelShading.Pbr)
+                ConvertPbr(source, material);
         }
+
+        // G6.1: glTF's metallic-roughness model. Assimp reports glTF's metallicRoughnessTexture as Metalness and
+        // DiffuseRoughness (Unknown in older builds) and its occlusionTexture as Lightmap (AmbientOcclusion elsewhere).
+        private void ConvertPbr(AiMaterial* source, StandardMaterial3D material)
+        {
+            var api = Api;
+            material.ShadingMode = ShadingMode.Pbr;
+            float value;
+            uint max = 1;
+            material.Metallic = api.GetMaterialFloatArray(source, "$mat.metallicFactor", 0, 0, &value, &max) == Return.Success
+                ? Math.Clamp(value, 0f, 1f) : 0f;
+            max = 1;
+            if (api.GetMaterialFloatArray(source, "$mat.roughnessFactor", 0, 0, &value, &max) == Return.Success)
+                material.Roughness = Math.Clamp(value, 0f, 1f);
+            else
+                material.Roughness = RoughnessFromShininess(material.Shininess);
+
+            var metallicRoughness = TextureFor(source, AiTextureType.Metalness) ?? TextureFor(source, AiTextureType.DiffuseRoughness) ??
+                                    TextureFor(source, AiTextureType.Unknown);
+            var occlusion = TextureFor(source, AiTextureType.Lightmap) ?? TextureFor(source, AiTextureType.AmbientOcclusion);
+            if (metallicRoughness is null && occlusion is null)
+                return;
+            try
+            {
+                // One packed ORM image (occlusion in R) binds as it is; separate maps pack into one.
+                material.OrmTexture = ReferenceEquals(metallicRoughness, occlusion) ? metallicRoughness
+                    : OrmPacker.PackGltf(occlusion, metallicRoughness);
+            }
+            catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException)
+            {
+                Log.Warning($"[Import] '{projectPath}': the metallic-roughness and occlusion maps of '{material.ResourceName}' cannot be packed: {e.Message}");
+            }
+        }
+
+        /// <summary>A Blinn-Phong exponent's GGX roughness: √(2 / (n + 2)) (Walter et al.'s Phong ↔ Beckmann mapping).</summary>
+        internal static float RoughnessFromShininess(float shininess) => Math.Clamp(MathF.Sqrt(2f / (MathF.Max(shininess, 0f) + 2f)), 0f, 1f);
 
         private Texture2D? TextureFor(AiMaterial* material, AiTextureType type)
         {

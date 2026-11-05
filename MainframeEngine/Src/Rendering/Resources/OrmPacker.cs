@@ -57,6 +57,43 @@ public static class OrmPacker
         return Texture2D.FromPixels(width, height, Pack(width, height, o, r, m), settings ?? Settings);
     }
 
+    /// <summary>
+    /// glTF's maps as one ORM texture: occlusion from <paramref name="occlusion"/>'s red channel, roughness and metallic
+    /// from <paramref name="metallicRoughness"/>'s green and blue channels (glTF's layout). Missing maps stand for 1, 1 and
+    /// 1 (the factors scale them). Maps of different sizes are resampled (nearest) to the larger.
+    /// </summary>
+    public static Texture2D PackGltf(Texture2D? occlusion, Texture2D? metallicRoughness, TextureImportSettings? settings = null)
+    {
+        if (occlusion is null && metallicRoughness is null)
+            throw new ArgumentException("An ORM texture needs at least one source map.");
+        var o = occlusion?.DecodePixels();
+        var mr = metallicRoughness?.DecodePixels();
+        var width = Math.Max(o?.Width ?? 0, mr?.Width ?? 0);
+        var height = Math.Max(o?.Height ?? 0, mr?.Height ?? 0);
+        var orm = new byte[width * height * 4];
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var i = (y * width + x) * 4;
+                orm[i] = o is { } ao ? Texel(ao, x, y, width, height, 0) : (byte)255;
+                orm[i + 1] = mr is { } g ? Texel(g, x, y, width, height, 1) : (byte)255;
+                orm[i + 2] = mr is { } b ? Texel(b, x, y, width, height, 2) : (byte)255;
+                orm[i + 3] = 255;
+            }
+        }
+
+        return Texture2D.FromPixels(width, height, orm, settings ?? Settings);
+    }
+
+    // Channel c of the source texel under (x, y) of a width × height target (nearest).
+    private static byte Texel((byte[] Rgba, int Width, int Height) source, int x, int y, int width, int height, int c)
+    {
+        var sx = Math.Min(x * source.Width / width, source.Width - 1);
+        var sy = Math.Min(y * source.Height / height, source.Height - 1);
+        return source.Rgba[(sy * source.Width + sx) * 4 + c];
+    }
+
     private static byte[] Decode(Texture2D? texture, ref int width, ref int height)
     {
         if (texture is null)

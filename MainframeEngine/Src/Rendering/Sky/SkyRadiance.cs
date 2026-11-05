@@ -35,10 +35,16 @@ internal sealed class EnvironmentMaps(ImageView radiance, ImageView irradiance)
 /// </remarks>
 internal sealed unsafe class SkyRadiance : IDisposable
 {
-    /// <summary>Pixels across a face of the captured sky and of the radiance cube's mip 0.</summary>
-    public const uint Size = 128;
+    /// <summary>The default <see cref="Size"/> (<see cref="SkyRadianceSize.Size128"/>).</summary>
+    public const uint DefaultSize = 128;
 
-    /// <summary>Radiance mips (128 … 4): mip m is roughness m / 5. <c>kRadianceMaxMip</c> in <c>environment.slang</c> is this − 1.</summary>
+    /// <summary>Pixels across a face of the captured sky and of the radiance cube's mip 0 (<see cref="Sky.RadianceSize"/>).</summary>
+    public uint Size { get; }
+
+    /// <summary>
+    /// Radiance mips (at the default size 128 … 4): mip m is roughness m / 5. <c>kRadianceMaxMip</c> in
+    /// <c>environment.slang</c> is this − 1. The smallest <see cref="Size"/> (32) still has a 1-pixel last mip.
+    /// </summary>
     public const uint RadianceMips = 6;
 
     /// <summary>Pixels across a face of the irradiance cube.</summary>
@@ -75,9 +81,12 @@ internal sealed unsafe class SkyRadiance : IDisposable
     private ulong _updatedFrame;
     private bool _disposed;
 
-    public SkyRadiance(IVulkanContext ctx)
+    public SkyRadiance(IVulkanContext ctx, uint size = DefaultSize)
     {
+        if (size < 1u << (int)(RadianceMips - 1) || !System.Numerics.BitOperations.IsPow2(size))
+            throw new ArgumentOutOfRangeException(nameof(size), size, "The radiance size must be a power of two of at least 32.");
         _ctx = ctx;
+        Size = size;
         _sourceMips = SupportsLinearBlit(ctx) ? GpuImageDesc.FullMipChain(Size, Size) : 1u;
         const ImageUsageFlags target = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit;
         _source = CreateCube(ctx, Size, _sourceMips, target | (_sourceMips > 1 ? ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit : 0));
@@ -197,11 +206,12 @@ internal sealed unsafe class SkyRadiance : IDisposable
     }
 
     /// <summary>
-    /// Bakes <paramref name="sky"/> when it changed since the last bake (at most once per frame, and parameter changes
-    /// at most every <see cref="MinFramesBetweenBakes"/> frames). Call with the frame's command buffer and no render
+    /// Bakes <paramref name="sky"/> when it changed since the last bake (at most once per frame, and in
+    /// <see cref="SkyProcessMode.Automatic"/> parameter changes at most every <see cref="MinFramesBetweenBakes"/> frames;
+    /// <see cref="SkyProcessMode.RealTime"/> follows every change). Call with the frame's command buffer and no render
     /// pass active.
     /// </summary>
-    public void Update(CommandBuffer cb, SkyEnvironment sky)
+    public void Update(CommandBuffer cb, SkyEnvironment sky, SkyProcessMode mode = SkyProcessMode.Automatic)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var frame = _ctx.FrameNumber;
@@ -214,7 +224,7 @@ internal sealed unsafe class SkyRadiance : IDisposable
         if (sameSky && MemoryMarshal.AsBytes(new ReadOnlySpan<SkyEnvironment.SkyParams>(in parameters))
                 .SequenceEqual(MemoryMarshal.AsBytes(new ReadOnlySpan<SkyEnvironment.SkyParams>(in _bakedParams))))
             return;
-        if (sameSky && frame - _bakedFrame < MinFramesBetweenBakes)
+        if (sameSky && mode == SkyProcessMode.Automatic && frame - _bakedFrame < MinFramesBetweenBakes)
             return;
 
         Bake(cb, sky, parameters);
