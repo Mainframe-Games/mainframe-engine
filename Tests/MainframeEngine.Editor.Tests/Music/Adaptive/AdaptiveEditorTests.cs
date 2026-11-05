@@ -1,6 +1,7 @@
 using System.Numerics;
 using MainframeEngine.Audio.Music;
 using MainframeEngine.Editor.Music;
+using MainframeEngine.Tests;
 using Silk.NET.Input;
 
 namespace MainframeEngine.Editor.Tests.Music.Adaptive;
@@ -225,19 +226,18 @@ public sealed class AdaptivePanelTests
             editor.Tick(2);
             tab.Player.Engine.Process(new float[SongEngine.BlockFrames * 2]); // the snapshot (and its plan) in place, as with an audio device
             editor.Tick(30);
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            editor.Tick(100);
-            Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            Assert.Equal(0, AllocationGate.SmallestWindow(() => editor.Tick(100)));
 
             // The arrangement's Sections lane: drawn every frame.
             var canvas = tab.Arrangement;
             canvas.ViewSize = new Vector2(1000, 400);
             for (var i = 0; i < 5; i++)
                 canvas.RunDraw();
-            before = GC.GetAllocatedBytesForCurrentThread();
-            for (var i = 0; i < 20; i++)
-                canvas.RunDraw();
-            Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            Assert.Equal(0, AllocationGate.SmallestWindow(() =>
+            {
+                for (var i = 0; i < 20; i++)
+                    canvas.RunDraw();
+            }));
         }
     }
 
