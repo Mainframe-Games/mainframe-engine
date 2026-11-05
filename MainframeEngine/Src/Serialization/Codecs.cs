@@ -251,9 +251,31 @@ public static class Codecs
         public override NodePath Read(JsonElement element, DeserializationContext context) => new(element.GetString() ?? string.Empty);
     }
 
+    /// <summary>
+    /// <typeparamref name="T"/>'s codec as a fixed number of floats, when it is a float-array codec (the built-in vectors,
+    /// colours and transforms, and game types registered with <see cref="FloatArray{T}"/>): animation bindings (G1.1)
+    /// read and write values through it. Null otherwise, or while only a deferred codec is registered.
+    /// </summary>
+    internal static IFloatVectorCodec<T>? FloatVector<T>() => Cache<T>.Value as IFloatVectorCodec<T>;
+
     private sealed class FloatArrayCodec<T>(int count, FloatArrayCodec<T>.Unpack unpack, Func<float[], T> pack, Func<T, T, bool>? equals = null)
-        : ValueCodec<T>
+        : ValueCodec<T>, IFloatVectorCodec<T>
     {
+        [ThreadStatic]
+        private static float[]? _scratch;
+
+        public int Count => count;
+
+        public void UnpackTo(T value, Span<float> destination) => unpack(value, destination);
+
+        // `pack` takes an array: reuse one per thread (pack functions read it and keep nothing).
+        public T PackFrom(ReadOnlySpan<float> source)
+        {
+            var scratch = _scratch is { } existing && existing.Length == count ? existing : _scratch = new float[count];
+            source[..count].CopyTo(scratch);
+            return pack(scratch);
+        }
+
         public override bool ValueEquals(T a, T b) => equals?.Invoke(a, b) ?? base.ValueEquals(a, b);
 
         public delegate void Unpack(T value, Span<float> destination);
@@ -427,4 +449,14 @@ public static class Codecs
             return copy;
         }
     }
+}
+
+/// <summary>A codec that stores its value as a fixed number of floats (internal: animation bindings use it).</summary>
+internal interface IFloatVectorCodec<T>
+{
+    int Count { get; }
+
+    void UnpackTo(T value, Span<float> destination);
+
+    T PackFrom(ReadOnlySpan<float> source);
 }

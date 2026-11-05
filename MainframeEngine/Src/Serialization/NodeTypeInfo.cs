@@ -47,7 +47,8 @@ public sealed class NodeTypeInfo
         NodeTypeTraits flags,
         string? icon = null,
         EditorIconFamily iconFamily = EditorIconFamily.Inherit,
-        string? description = null)
+        string? description = null,
+        AnimationMethodInfo[]? animationMethods = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(type);
@@ -73,7 +74,27 @@ public sealed class NodeTypeInfo
             p.DeclaringType = this;
         foreach (var s in signals)
             s.DeclaringType = this;
+        DeclaredAnimationMethods = animationMethods ?? [];
+        foreach (var m in DeclaredAnimationMethods)
+            m.DeclaringType = this;
     }
+
+    /// <summary>The <see cref="AnimationMethodAttribute"/> methods this type declares (G1.4).</summary>
+    public IReadOnlyList<AnimationMethodInfo> DeclaredAnimationMethods { get; }
+
+    /// <summary>The <see cref="AnimationMethodAttribute"/> method named <paramref name="name"/> here or in a base type, or null.</summary>
+    public AnimationMethodInfo? FindAnimationMethod(string name)
+    {
+        for (var info = this; info is not null; info = info.Base)
+            foreach (var method in info.DeclaredAnimationMethods)
+                if (method.Name == name)
+                    return method;
+        return null;
+    }
+
+    /// <summary>Every <see cref="AnimationMethodAttribute"/> method, base types first (the editor's method key picker).</summary>
+    public IEnumerable<AnimationMethodInfo> AnimationMethods =>
+        (Base?.AnimationMethods ?? []).Concat(DeclaredAnimationMethods);
 
     /// <summary>The type name written to scene files (class name unless <see cref="TypeNameAttribute"/>).</summary>
     public string Name { get; }
