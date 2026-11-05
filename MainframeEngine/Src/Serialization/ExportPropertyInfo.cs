@@ -44,6 +44,12 @@ public abstract class ExportPropertyInfo
     /// <summary>Writes a <c>float</c> member without boxing; false for other types.</summary>
     public virtual bool TrySetFloat(object owner, float value) => false;
 
+    /// <summary>
+    /// An animation binding of this property on <paramref name="owner"/> (G1.1): all of its value, or one
+    /// <paramref name="component"/> (−1: all). Null when the value type cannot be animated or has no such component.
+    /// </summary>
+    internal virtual PropertyBinding? Bind(object owner, int component) => null;
+
     /// <summary>True when the member has the same value on both instances (codec equality).</summary>
     public abstract bool ValueEquals(object ownerA, object ownerB);
 
@@ -90,6 +96,11 @@ public sealed class ExportPropertyInfo<TOwner, TValue> : ExportPropertyInfo wher
     public void Set(TOwner owner, TValue value) => _setter(owner, value);
 
     public override object? GetValue(object owner) => _getter((TOwner)owner);
+
+    internal override PropertyBinding? Bind(object owner, int component) =>
+        AnimationValueOps.Get<TValue>() is { } ops && component < ops.Components && owner is TOwner typed
+            ? new PropertyBinding<TOwner, TValue>(typed, this, ops, component)
+            : null;
 
     public override void SetValue(object owner, object? value) => _setter((TOwner)owner, (TValue)value!);
 

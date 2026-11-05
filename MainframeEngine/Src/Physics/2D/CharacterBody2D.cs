@@ -42,6 +42,9 @@ public class CharacterBody2D : PhysicsBody2D
     private Vector2 _floorNormal, _wallNormal;
     private Vector2 _lastMotion;
     private Vector2 _realVelocity;
+    private Vector2 _platformVelocity;
+    private BodyRecord2D? _platform;
+    private Node2D? _floorCollider;
 
     /// <summary>Grounded (default) or floating, as Godot's <c>motion_mode</c>.</summary>
     [Export]
@@ -112,7 +115,18 @@ public class CharacterBody2D : PhysicsBody2D
         }
     } = 1f;
 
+    /// <summary>What <see cref="Velocity"/> keeps of the platform's velocity when the body leaves it (G13.5).</summary>
+    [Export]
+    public PlatformOnLeave PlatformOnLeave { get; set; } = PlatformOnLeave.AddVelocity;
+
+    /// <summary>The collision layers of the floors that carry the body when they move (all by default).</summary>
+    [Export(Flags = true)]
+    public uint PlatformFloorLayers { get; set; } = uint.MaxValue;
+
     internal override PhysicsBodyKind Kind => PhysicsBodyKind.Character;
+
+    /// <summary>The velocity of the moving floor under the body in the last <see cref="MoveAndSlide"/> (zero when none).</summary>
+    public Vector2 GetPlatformVelocity() => _platformVelocity;
 
     public bool IsOnFloor() => _onFloor;
 
@@ -161,6 +175,9 @@ public class CharacterBody2D : PhysicsBody2D
         _onFloor = _onWall = _onCeiling = false;
         _floorNormal = _wallNormal = Vector2.Zero;
         _collisionCount = 0;
+        var platform = _platform is { Removed: false, IsTileBody: false } previous && previous.Node.IsInsideTree ? previous : null;
+        _platform = null;
+        _floorCollider = null;
 
         var space = record.Space;
         var global = GlobalTransform;
@@ -180,6 +197,19 @@ public class CharacterBody2D : PhysicsBody2D
                 Classify(contacts[i].Normal, contacts[i].Point, contacts[i].Collider, up, ref velocity, report: pass == 0);
             if (!pushed)
                 break;
+        }
+
+        // Left a moving platform (jumped or walked off it): keep its velocity as PlatformOnLeave says (G13.5).
+        if (platform is not null && !_onFloor)
+        {
+            var carried = platform.PlatformDisplacement(position, delta) / delta;
+            velocity += PlatformOnLeave switch
+            {
+                PlatformOnLeave.AddVelocity => carried,
+                PlatformOnLeave.AddUpwardVelocity => up * MathF.Max(0f, Vector2.Dot(carried, up)),
+                _ => Vector2.Zero,
+            };
+            _platformVelocity = carried;
         }
 
         var horizontalIntent = intent - up * Vector2.Dot(intent, up);
@@ -225,6 +255,20 @@ public class CharacterBody2D : PhysicsBody2D
 
         if (_onFloor && Vector2.Dot(intent, up) <= 0)
             velocity -= up * Vector2.Dot(velocity, up);
+
+        // Ride a moving floor: move by where the platform takes this point in its coming step (exact for turntables).
+        if (_onFloor && _floorCollider is CollisionObject2D { Record: { } floor } && (floor.Layer & PlatformFloorLayers) != 0 &&
+            floor.Kind is PhysicsBodyKind.Kinematic or PhysicsBodyKind.Dynamic)
+        {
+            var carry = floor.PlatformDisplacement(position, delta);
+            position += carry;
+            _platformVelocity = carry / delta;
+            _platform = floor;
+        }
+        else if (platform is null || _onFloor)
+        {
+            _platformVelocity = Vector2.Zero;
+        }
 
         Velocity = velocity;
         _lastMotion = position - start;
@@ -343,6 +387,7 @@ public class CharacterBody2D : PhysicsBody2D
             kind = SurfaceKind.Floor;
             _onFloor = true;
             _floorNormal = normal;
+            _floorCollider = collider;
         }
         else if (MathF.Acos(Math.Clamp(Vector2.Dot(normal, -up), -1f, 1f)) <= _floorMaxAngle + 0.001f)
         {

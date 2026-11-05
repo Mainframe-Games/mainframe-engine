@@ -3,7 +3,7 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G17f; 3D adoption with G1b) · **Status:** ⬜
 planned · **Depends on:** [2D skeletal animation](skeleton-2d.md) (G17a: `AnimationTracks`, `SkeletonSprite2D`),
 [Skeleton editor](skeleton-2d-editor.md) (G17c: Animate mode, preview) · **Related:**
-[Keyframe animation](keyframe-animation.md) (G1a `AnimationPlayer`, G1b `Skeleton3D`; this is the "later proposal" its
+[Keyframe animation](../animation.md) (G1a `AnimationPlayer`, G1b `Skeleton3D`; this is the "later proposal" its
 non-goals mention), [Networking](../networking.md) · **ADR:**
 [0184](../../../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)
 
@@ -15,7 +15,7 @@ A character has dozens of clips and rules for moving between them: idle → walk
 state, shoot over the top of locomotion, hurt interrupts everything. With only tracks
 ([2D skeletal animation → Tracks and mixing](skeleton-2d.md#tracks-and-mixing)), every game writes that logic in code,
 and artists can't see or tune it. G1a deliberately left `AnimationTree`, state machines, blend spaces and layers out
-([Keyframe animation → Non-goals](keyframe-animation.md#non-goals)), and said a later proposal could add them. This is
+([Keyframe animation → Non-goals](../animation.md#known-issues)), and said a later proposal could add them. This is
 that proposal. It is designed for 2D skeletons first, and so that 3D skeletons (G1b's `Skeleton3D`) use the same asset
 and player.
 
@@ -373,7 +373,7 @@ G17f, after G17a and G17c:
 4. The blend space editor and live debugging.
 5. Networking state in `SkeletonAnimationSynchronizer` (G17g).
 
-With G1b: `Skeleton3DPoseBackend`, and a `Graph` export on `Skeleton3D`. The 3D docs ([Keyframe animation](keyframe-animation.md))
+With G1b: `Skeleton3DPoseBackend`, and a `Graph` export on `Skeleton3D`. The 3D docs ([Keyframe animation](../animation.md))
 then point here instead of listing state machines as a non-goal.
 
 ## Open questions

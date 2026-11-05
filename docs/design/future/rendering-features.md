@@ -3,7 +3,7 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G6) · **Status:** ⬜ planned ·
 **Depends on:** [M3 materials & meshes](../materials-and-meshes.md), [M4 shadows](../shadow-system.md), [sky](../sky.md);
 SSAO (G6.6) also on step 1 of [M11 backend abstraction](rendering-backend-abstraction.md) ·
-**Related:** [Mobile core](mobile.md) (quality tiers, TBDR rules), [Keyframe animation](keyframe-animation.md) (G1b
+**Related:** [Mobile core](mobile.md) (quality tiers, TBDR rules), [Keyframe animation](../animation.md) (G1b
 skinning shares the mesh vertex shader), [Editor viewport tools](../editor.md#viewport-tools) (G7: range handles, simulate
 mode), [ADR 0014](../../../memory/decisions/0014-blinn-phong-now-pbr-later.md),
 [ADR 0016](../../../memory/decisions/0016-normal-maps-without-tangents.md)
@@ -97,7 +97,7 @@ Two decisions keep this within budget:
 
 - **One ORM texture binding per material** (occlusion R, roughness G, metallic B, glTF's packing), described below.
 - **New per-view textures go into set 0** (`FrameContext`, per frame slot and view), not a new set. Set 3 stays free.
-  [Keyframe animation](keyframe-animation.md) G1b may want it for joint matrices.
+  [Keyframe animation](../animation.md) G1b may want it for joint matrices.
 
 ### PBR
 
@@ -634,7 +634,7 @@ pulled forward when a 3D game needs PBR or particles first.
 [Lighting](../lighting.md) · [Sky](../sky.md) · [Shadow system](../shadow-system.md) ·
 [Color pipeline](../color-pipeline.md) · [Vulkan renderer](../vulkan-renderer.md) · [2D canvas](../canvas.md#particles) ·
 [Asset pipeline](../asset-pipeline.md) · [Rendering backend abstraction (M11)](rendering-backend-abstraction.md) ·
-[Mobile core (M12)](mobile.md) · [Keyframe animation (G1)](keyframe-animation.md) ·
+[Mobile core (M12)](mobile.md) · [Keyframe animation (G1)](../animation.md) ·
 [Editor viewport tools (G7)](../editor.md#viewport-tools) · G8 builds on G6 and picks up some of its non-goals:
 impostors in [Procedural trees (G8b)](procedural-trees.md), SSR as an option in [Water (G8c)](water.md), and fog, light
 shafts and TAA in [Forest showcase (G8d)](forest-showcase.md)

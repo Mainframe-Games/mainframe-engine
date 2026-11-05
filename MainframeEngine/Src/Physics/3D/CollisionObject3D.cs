@@ -250,3 +250,22 @@ public class StaticBody3D : PhysicsBody3D
 
     private void OnMaterialChanged() => Record?.ApplyMaterial();
 }
+
+/// <summary>
+/// A body moved by its node, such as a lift on a <see cref="PathFollow3D"/> or a door an <see cref="AnimationPlayer"/>
+/// swings (Godot's <c>AnimatableBody3D</c>; G13.5): each move reaches the physics body in one step as a velocity, so it
+/// pushes rigid bodies and carries the <see cref="CharacterBody3D"/>s standing on it. Move it from
+/// <see cref="Node.OnPhysicsProcess"/> (a follower's <see cref="PathProcessCallback.Physics"/>); the engine interpolates
+/// its render pose.
+/// </summary>
+[EditorIcon("elevator")]
+public class AnimatableBody3D : StaticBody3D
+{
+    internal override PhysicsBodyKind Kind => PhysicsBodyKind.Kinematic;
+
+    /// <summary>The velocity of the body's last physics step (m/s).</summary>
+    public System.Numerics.Vector3 GetStepVelocity() => Record?.GetLinearVelocity() ?? System.Numerics.Vector3.Zero;
+
+    /// <summary>The angular velocity of the body's last physics step (rad/s, axis × rate).</summary>
+    public System.Numerics.Vector3 GetStepAngularVelocity() => Record?.GetAngularVelocity() ?? System.Numerics.Vector3.Zero;
+}

@@ -45,8 +45,19 @@ public sealed class CurveEditor
     private readonly EditorWorkspace? _workspace;
     private CurveTool _tool;
     private ICurveTarget? _target;
-    private Path2D? _targetPath;
+    private Node? _targetPath;
     private Resource? _targetCurve;
+
+    // 3D gestures (G13.6): the drag plane, vertical (Alt) drags, ground snap, the tilt ring.
+    private Vector3 _planePoint, _planeNormal;
+    private bool _vertical;
+    private bool _groundSnap;
+    private bool _tiltHandles;
+    private float _heightAbove;
+    private Terrain3D? _testTerrain;
+    private Terrain3D? _terrain;
+    private int _terrainVersion = -1;
+    private EditedScene? _terrainScene;
 
     // The gesture: what is dragged, the curve's points before it, and how the grab sits on the dragged thing.
     private CurvePart _dragPart;
@@ -94,41 +105,122 @@ public sealed class CurveEditor
     /// <summary>True during a drag.</summary>
     public bool IsDragging => _before is not null;
 
-    /// <summary>The edited path: the 2D tab's selected <see cref="Path2D"/>, or null.</summary>
-    public Path2D? Path
+    /// <summary>
+    /// The edited path: the tab's selected <see cref="Path2D"/> in a 2D view, or <see cref="Path3D"/> in a 3D view, or null.
+    /// </summary>
+    public Node? PathNode
     {
         get
         {
             if (_workspace is null)
                 return _testPath;
             var scene = _workspace.Session.Active;
-            if (scene is null || !scene.Camera.Is2D || _workspace.Mode != EditorMode.Game || _workspace.Simulation.IsSimulating(scene))
+            if (scene is null || _workspace.Mode != EditorMode.Game || _workspace.Simulation.IsSimulating(scene))
                 return null;
-            return scene.Selection.Primary is Path2D { IsInsideTree: true } path && scene.IsEditable(path) ? path : null;
+            Node? path = scene.Camera.Is2D
+                ? scene.Selection.Primary as Path2D
+                : scene.Selection.Primary as Path3D;
+            return path is { IsInsideTree: true } && scene.IsEditable(path) ? path : null;
         }
     }
 
-    private Path2D? _testPath;
+    private Node? _testPath;
 
-    /// <summary>Tests: edit <paramref name="path"/> without a workspace.</summary>
-    internal void EditForTests(Path2D? path) => _testPath = path;
+    /// <summary>Tests: edit <paramref name="path"/> (a <see cref="Path2D"/> or <see cref="Path3D"/>) without a workspace.</summary>
+    internal void EditForTests(Node? path) => _testPath = path;
+
+    /// <summary>Tests: the terrain ground snap and Fit to Ground use (the editor finds the scene's first <see cref="Terrain3D"/>).</summary>
+    internal void TerrainForTests(Terrain3D? terrain) => _testTerrain = terrain;
 
     /// <summary>True while the curve bar shows.</summary>
-    public bool IsActive => Path is not null;
+    public bool IsActive => PathNode is not null;
+
+    /// <summary>The edited path is a <see cref="Path3D"/> (the 3D tools show: ground snap, height, tilt, Fit to Ground).</summary>
+    public bool Is3D => PathNode is Path3D;
+
+    /// <summary>New and dragged points go onto the terrain under the mouse, <see cref="HeightAbove"/> above it (3D).</summary>
+    public bool GroundSnap
+    {
+        get => _groundSnap;
+        set
+        {
+            _groundSnap = value;
+            Touch();
+        }
+    }
+
+    /// <summary>Metres above the terrain for ground snap and Fit to Ground (negative: below).</summary>
+    public float HeightAbove
+    {
+        get => _heightAbove;
+        set
+        {
+            _heightAbove = value;
+            Touch();
+        }
+    }
+
+    /// <summary>The selected point shows its tilt ring (3D).</summary>
+    public bool TiltHandles
+    {
+        get => _tiltHandles;
+        set
+        {
+            _tiltHandles = value;
+            Touch();
+        }
+    }
+
+    /// <summary>The terrain ground snap and Fit to Ground use: the edited scene's first <see cref="Terrain3D"/> with data.</summary>
+    public Terrain3D? Terrain
+    {
+        get
+        {
+            if (_workspace is null)
+                return _testTerrain;
+            if (_workspace.Session.Active is not { } scene)
+                return null;
+            if (!ReferenceEquals(scene, _terrainScene) || scene.Version != _terrainVersion)
+            {
+                _terrainScene = scene;
+                _terrainVersion = scene.Version;
+                _terrain = FindTerrain(scene.Root);
+            }
+
+            return _terrain is { IsInsideTree: true, Data: not null } terrain ? terrain : null;
+        }
+    }
+
+    private static Terrain3D? FindTerrain(Node node)
+    {
+        if (node is Terrain3D terrain)
+            return terrain;
+        var children = node.Children;
+        for (var i = 0; i < children.Count; i++)
+            if (FindTerrain(children[i]) is { } found)
+                return found;
+        return null;
+    }
 
     /// <summary>The edited curve as a target, or null (no path, or a path without a curve).</summary>
     public ICurveTarget? Target
     {
         get
         {
-            var path = Path;
-            if (path?.Curve is not { } curve)
+            var path = PathNode;
+            Resource? curve = path switch
+            {
+                Path2D p2 => p2.Curve,
+                Path3D p3 => p3.Curve,
+                _ => null,
+            };
+            if (curve is null)
                 return _target = null;
             if (!ReferenceEquals(path, _targetPath) || !ReferenceEquals(curve, _targetCurve))
             {
                 _targetPath = path;
                 _targetCurve = curve;
-                _target = new Curve2DTarget(path);
+                _target = path is Path3D path3D ? new Curve3DTarget(path3D) : new Curve2DTarget((Path2D)path!);
             }
 
             return _target;
@@ -144,7 +236,7 @@ public sealed class CurveEditor
     public bool Press(UndoRedo history, Vector2 world, float pixel, MouseButton button, EditorModifiers modifiers)
     {
         ArgumentNullException.ThrowIfNull(history);
-        if (Path is not { } path || (modifiers & EditorModifiers.Alt) != 0 || button is not (MouseButton.Left or MouseButton.Right))
+        if (PathNode is not Path2D path || (modifiers & EditorModifiers.Alt) != 0 || button is not (MouseButton.Left or MouseButton.Right))
             return false;
         if (IsDragging)
             return true;
@@ -238,32 +330,7 @@ public sealed class CurveEditor
         {
             if (_target is not { } target || _dragIndex < 0 || _dragIndex >= target.PointCount)
                 return;
-            var global = Snap(at + _grabOffset);
-            var position = target.GetPosition(_dragIndex);
-            switch (_dragPart)
-            {
-                case CurvePart.Point:
-                    target.SetPosition(_dragIndex, target.ToLocal(global));
-                    break;
-                case CurvePart.In or CurvePart.Out:
-                    var offset = target.ToLocal(global) - position;
-                    var mirror = _mirror && (modifiers & EditorModifiers.Shift) == 0;
-                    if (_dragPart == CurvePart.Out)
-                    {
-                        target.SetOut(_dragIndex, offset);
-                        if (mirror)
-                            target.SetIn(_dragIndex, -offset);
-                    }
-                    else
-                    {
-                        target.SetIn(_dragIndex, offset);
-                        if (mirror)
-                            target.SetOut(_dragIndex, -offset);
-                    }
-
-                    break;
-            }
-
+            ApplyDrag(target, Snap(at + _grabOffset), modifiers);
             return;
         }
 
@@ -279,6 +346,356 @@ public sealed class CurveEditor
         if (_hoverPart == CurvePart.None && _tool == CurveTool.Insert && CurveEditing.HitSegment(hover, at, radius, out _, out _, out var point))
             _ghost = point;
     }
+
+    // A point or handle drag reaches `global` (view world space); handles mirror unless Shift breaks it.
+    private void ApplyDrag(ICurveTarget target, Vector3 global, EditorModifiers modifiers)
+    {
+        var position = target.GetPosition(_dragIndex);
+        switch (_dragPart)
+        {
+            case CurvePart.Point:
+                target.SetPosition(_dragIndex, target.ToLocal(global));
+                break;
+            case CurvePart.In or CurvePart.Out:
+                var offset = target.ToLocal(global) - position;
+                var mirror = _mirror && (modifiers & EditorModifiers.Shift) == 0;
+                if (_dragPart == CurvePart.Out)
+                {
+                    target.SetOut(_dragIndex, offset);
+                    if (mirror)
+                        target.SetIn(_dragIndex, -offset);
+                }
+                else
+                {
+                    target.SetIn(_dragIndex, offset);
+                    if (mirror)
+                        target.SetOut(_dragIndex, -offset);
+                }
+
+                break;
+        }
+    }
+
+    // ── 3D views (G13.6) ─────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>A 3D view the curve tool works in: its camera, size in view pixels, and view pixels per display point.</summary>
+    public readonly record struct View3D(EditorCamera Camera, Vector2 ViewPixels, float Scale);
+
+    private const float TiltRingPoints = 36f; // the tilt ring's radius in display points
+
+    private Vector3 _dragStart;   // the dragged point's global position when the drag began (vertical drags keep its X, Z)
+    private Vector3 _tiltPoint, _tiltAxis, _tiltZero;
+    private string? _label;
+
+    /// <summary>The text next to the mouse while a tilt handle is hovered or dragged ("Tilt 12.0°"), else null.</summary>
+    public string? Label => _label;
+
+    /// <summary>
+    /// A button went down at view pixel <paramref name="pixel"/> of a 3D view. As <see cref="Press"/>, with the points and
+    /// handles hit on screen, drags in the plane through the grabbed point facing the camera (Alt+drag a point: only up
+    /// and down), new points on the terrain with <see cref="GroundSnap"/> or else level with the last point, and the
+    /// selected point's tilt ring with <see cref="TiltHandles"/>.
+    /// </summary>
+    public bool Press3D(UndoRedo history, in View3D view, Vector2 pixel, MouseButton button, EditorModifiers modifiers)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        if (PathNode is not Path3D path || button is not (MouseButton.Left or MouseButton.Right))
+            return false;
+        if (IsDragging)
+            return true;
+        var projector = new CameraProjector(view.Camera, view.ViewPixels);
+        var radius = TransformGizmo.GrabPixels * view.Scale;
+        var alt = (modifiers & EditorModifiers.Alt) != 0;
+        var command = (modifiers & EditorModifiers.Command) != 0;
+        var shift = (modifiers & EditorModifiers.Shift) != 0;
+        var target = Target;
+
+        if (button == MouseButton.Left && !alt && target is { HasTilt: true } && TiltHit(target, view, pixel, radius))
+        {
+            Begin(target, "Tilt Curve Point", CurvePart.Tilt, SelectedPoint, Vector3.Zero, mirror: false);
+            UpdateTiltLabel(target);
+            return true;
+        }
+
+        var index = -1;
+        var part = target is null ? CurvePart.None : CurveEditing.HitScreen(target, projector, pixel, radius, handles: _tool == CurveTool.Select, out index);
+        if (alt && part != CurvePart.Point)
+            return false; // Alt+drag elsewhere orbits
+        if (button == MouseButton.Right)
+        {
+            if (target is null || part != CurvePart.Point)
+                return false;
+            RemovePoint(history, target, index);
+            return true;
+        }
+
+        if (_tool == CurveTool.Delete)
+        {
+            if (target is not null && part == CurvePart.Point)
+                RemovePoint(history, target, index);
+            return true;
+        }
+
+        if (target is not null && part == CurvePart.Point && command && _tool == CurveTool.Select)
+        {
+            var at = target.ToGlobal(target.GetPosition(index));
+            Begin(target, "Pull Curve Handles", CurvePart.Out, index, Vector3.Zero, mirror: true);
+            target.SetIn(index, Vector3.Zero);
+            target.SetOut(index, Vector3.Zero);
+            SelectedPoint = index;
+            BeginPlane(view, pixel, at, vertical: false);
+            return true;
+        }
+
+        if (target is not null && part == CurvePart.Point)
+        {
+            SelectedPoint = index;
+            Touch();
+            Begin(target, "Move Curve Point", CurvePart.Point, index, Vector3.Zero, mirror: false);
+            BeginPlane(view, pixel, target.ToGlobal(target.GetPosition(index)), alt);
+            return true;
+        }
+
+        if (target is not null && part is CurvePart.In or CurvePart.Out)
+        {
+            var handle = target.GetPosition(index) + (part == CurvePart.In ? target.GetIn(index) : target.GetOut(index));
+            Begin(target, "Move Curve Handle", part, index, Vector3.Zero, mirror: !shift);
+            BeginPlane(view, pixel, target.ToGlobal(handle), vertical: false);
+            return true;
+        }
+
+        if (_tool == CurveTool.Insert)
+        {
+            if (target is not null && CurveEditing.HitSegmentScreen(target, projector, pixel, radius, out var segment, out var t))
+            {
+                Begin(target, "Insert Curve Point", CurvePart.Point, -1, Vector3.Zero, mirror: false);
+                _dragIndex = CurveEditing.Insert(target, segment, t);
+                SelectedPoint = _dragIndex;
+                BeginPlane(view, pixel, target.ToGlobal(target.GetPosition(_dragIndex)), vertical: false);
+                Touch();
+            }
+
+            return true;
+        }
+
+        if (_tool == CurveTool.Add || command)
+        {
+            target ??= CreateCurve(history, path);
+            var at = Snap(AddPosition(target, view, pixel));
+            Begin(target, "Add Curve Point", CurvePart.Point, -1, Vector3.Zero, mirror: false);
+            target.AddPoint(target.ToLocal(at), Vector3.Zero, Vector3.Zero, -1);
+            _dragIndex = target.PointCount - 1;
+            SelectedPoint = _dragIndex;
+            BeginPlane(view, pixel, at, vertical: false);
+            Touch();
+            return true;
+        }
+
+        if (SelectedPoint >= 0)
+        {
+            SelectedPoint = -1;
+            Touch();
+        }
+
+        return false;
+    }
+
+    /// <summary>The mouse moved to view pixel <paramref name="pixel"/> of a 3D view: drags, or updates the hover highlight.</summary>
+    public void Move3D(in View3D view, Vector2 pixel, EditorModifiers modifiers)
+    {
+        var (origin, direction) = view.Camera.Ray(pixel.X, pixel.Y, view.ViewPixels.X, view.ViewPixels.Y);
+        if (IsDragging)
+        {
+            if (_target is not { } target || _dragIndex < 0 || _dragIndex >= target.PointCount)
+                return;
+            if (_dragPart == CurvePart.Tilt)
+            {
+                if (RayPlane(origin, direction, _tiltPoint, _tiltAxis, out var on))
+                {
+                    var v = on - _tiltPoint;
+                    var degrees = float.RadiansToDegrees(MathF.Atan2(Vector3.Dot(Vector3.Cross(_tiltZero, v), _tiltAxis), Vector3.Dot(_tiltZero, v)));
+                    target.SetTilt(_dragIndex, float.DegreesToRadians(SnapAngle(degrees)));
+                    UpdateTiltLabel(target);
+                }
+
+                return;
+            }
+
+            if (!RayPlane(origin, direction, _planePoint, _planeNormal, out var hit))
+                return;
+            var global = hit + _grabOffset;
+            if (_vertical)
+                global = new Vector3(_dragStart.X, global.Y, _dragStart.Z);
+            else if (_groundSnap && _dragPart == CurvePart.Point && Terrain is { } terrain &&
+                     terrain.Raycast(origin, direction, 100000f, out var ground))
+                global = ground.Position + Vector3.UnitY * _heightAbove;
+            ApplyDrag(target, Snap(global), modifiers);
+            return;
+        }
+
+        _ghost = null;
+        _label = null;
+        if (Target is not { } hover)
+        {
+            _hoverPart = CurvePart.None;
+            return;
+        }
+
+        var projector = new CameraProjector(view.Camera, view.ViewPixels);
+        var radius = TransformGizmo.GrabPixels * view.Scale;
+        if (hover.HasTilt && TiltHit(hover, view, pixel, radius))
+        {
+            _hoverPart = CurvePart.Tilt;
+            _hoverIndex = SelectedPoint;
+            UpdateTiltLabel(hover);
+            return;
+        }
+
+        _hoverPart = CurveEditing.HitScreen(hover, projector, pixel, radius, handles: _tool == CurveTool.Select, out _hoverIndex);
+        if (_hoverPart == CurvePart.None && _tool == CurveTool.Insert &&
+            CurveEditing.HitSegmentScreen(hover, projector, pixel, radius, out var segment, out var t))
+            _ghost = hover.ToGlobal(CurveEditing.Sample(hover, segment, t));
+    }
+
+    /// <summary>The points, tangent handles, the tilt ring and the insert ghost in a 3D view (overlay lines).</summary>
+    public void Draw3D(DebugLines lines, in View3D view)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        if (!Is3D || Target is not { } target)
+            return;
+        var camera = view.Camera;
+        for (var i = 0; i < target.PointCount; i++)
+        {
+            var local = target.GetPosition(i);
+            var p = target.ToGlobal(local);
+            var half = HandlePoints * view.Scale * camera.WorldPerPixel(p, view.ViewPixels.Y);
+            if (_tool == CurveTool.Select)
+            {
+                DrawTangent3D(lines, target, camera, p, local + target.GetIn(i), target.GetIn(i), Hot(CurvePart.In, i), view);
+                DrawTangent3D(lines, target, camera, p, local + target.GetOut(i), target.GetOut(i), Hot(CurvePart.Out, i), view);
+            }
+
+            var color = Hot(CurvePart.Point, i) ? (_tool == CurveTool.Delete ? DeleteColor : HotColor)
+                : i == SelectedPoint ? SelectedColor
+                : PointColor;
+            HandleDrawing.Square(lines, p, camera.Right, camera.Up, half, color);
+            if (i == SelectedPoint || i == 0)
+                HandleDrawing.Square(lines, p, camera.Right, camera.Up, half * 0.5f, color);
+        }
+
+        if (TiltRing(target, view, out var center, out var axis, out var zero, out var handle, out var ringRadius))
+        {
+            var hot = Hot(CurvePart.Tilt, SelectedPoint);
+            HandleDrawing.Circle(lines, center, zero, Vector3.Cross(axis, zero), ringRadius, hot ? HotColor : TangentLineColor);
+            lines.AddLine(center, handle, hot ? HotColor : TangentColor);
+            var half = HandlePoints * view.Scale * camera.WorldPerPixel(handle, view.ViewPixels.Y);
+            HandleDrawing.Square(lines, handle, camera.Right, camera.Up, half, hot ? HotColor : TangentColor);
+        }
+
+        if (_ghost is { } ghost)
+            HandleDrawing.Square(lines, ghost, camera.Right, camera.Up, HandlePoints * 0.75f * view.Scale * camera.WorldPerPixel(ghost, view.ViewPixels.Y), GhostColor);
+    }
+
+    private static void DrawTangent3D(DebugLines lines, ICurveTarget target, EditorCamera camera, Vector3 point, Vector3 handleLocal, Vector3 offset, bool hot, in View3D view)
+    {
+        if (offset == Vector3.Zero)
+            return;
+        var h = target.ToGlobal(handleLocal);
+        lines.AddLine(point, h, TangentLineColor);
+        var r = HandlePoints * 0.9f * view.Scale * camera.WorldPerPixel(h, view.ViewPixels.Y);
+        var x = camera.Right * r;
+        var y = camera.Up * r;
+        var color = hot ? HotColor : TangentColor;
+        lines.AddLine(h - x, h - y, color);
+        lines.AddLine(h - y, h + x, color);
+        lines.AddLine(h + x, h + y, color);
+        lines.AddLine(h + y, h - x, color);
+    }
+
+    // The selected point's tilt ring: around the curve's tangent, through its untilted up vector, the handle at the tilt.
+    private bool TiltRing(ICurveTarget target, in View3D view, out Vector3 center, out Vector3 axis, out Vector3 zero, out Vector3 handle, out float radius)
+    {
+        center = axis = zero = handle = default;
+        radius = 0;
+        if (!_tiltHandles || !target.HasTilt || (uint)SelectedPoint >= (uint)target.PointCount)
+            return false;
+        center = target.ToGlobal(target.GetPosition(SelectedPoint));
+        target.FrameAt(SelectedPoint, out axis, out zero);
+        radius = TiltRingPoints * view.Scale * view.Camera.WorldPerPixel(center, view.ViewPixels.Y);
+        var rolled = Vector3.Transform(zero, Quaternion.CreateFromAxisAngle(axis, target.GetTilt(SelectedPoint)));
+        handle = center + rolled * radius;
+        return true;
+    }
+
+    private bool TiltHit(ICurveTarget target, in View3D view, Vector2 pixel, float radius)
+    {
+        if (!TiltRing(target, view, out var center, out var axis, out var zero, out var handle, out _) ||
+            !view.Camera.Project(handle, view.ViewPixels.X, view.ViewPixels.Y, out var at) || Vector2.Distance(at, pixel) > radius)
+            return false;
+        _tiltPoint = center;
+        _tiltAxis = axis;
+        _tiltZero = zero;
+        return true;
+    }
+
+    private void UpdateTiltLabel(ICurveTarget target) =>
+        _label = (uint)SelectedPoint < (uint)target.PointCount
+            ? "Tilt " + float.RadiansToDegrees(target.GetTilt(SelectedPoint)).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "°"
+            : null;
+
+    // The drag plane through `point`: facing the camera, or for a vertical drag the upright plane facing it.
+    private void BeginPlane(in View3D view, Vector2 pixel, Vector3 point, bool vertical)
+    {
+        _vertical = vertical;
+        _dragStart = point;
+        _planePoint = point;
+        var forward = view.Camera.Forward;
+        if (vertical)
+        {
+            var flat = new Vector3(forward.X, 0, forward.Z);
+            forward = flat.LengthSquared() > 1e-6f ? Vector3.Normalize(flat) : Vector3.UnitZ;
+        }
+
+        _planeNormal = forward;
+        var (origin, direction) = view.Camera.Ray(pixel.X, pixel.Y, view.ViewPixels.X, view.ViewPixels.Y);
+        _grabOffset = RayPlane(origin, direction, _planePoint, _planeNormal, out var hit) ? point - hit : Vector3.Zero;
+    }
+
+    // Where a new point goes: on the terrain under the mouse (ground snap), else level with the last point (or the path).
+    private Vector3 AddPosition(ICurveTarget target, in View3D view, Vector2 pixel)
+    {
+        var (origin, direction) = view.Camera.Ray(pixel.X, pixel.Y, view.ViewPixels.X, view.ViewPixels.Y);
+        if (_groundSnap && Terrain is { } terrain && terrain.Raycast(origin, direction, 100000f, out var hit))
+            return hit.Position + Vector3.UnitY * _heightAbove;
+        var level = target.PointCount > 0
+            ? target.ToGlobal(target.GetPosition(target.PointCount - 1)).Y
+            : target.Node is Node3D node ? node.GlobalPosition.Y : 0f;
+        if (MathF.Abs(direction.Y) > 1e-4f && (level - origin.Y) / direction.Y is var t and > 0f)
+            return origin + direction * t;
+        return origin + direction * 10f;
+    }
+
+    private static bool RayPlane(Vector3 origin, Vector3 direction, Vector3 point, Vector3 normal, out Vector3 hit)
+    {
+        var denominator = Vector3.Dot(direction, normal);
+        hit = default;
+        if (MathF.Abs(denominator) < 1e-6f)
+            return false;
+        var t = Vector3.Dot(point - origin, normal) / denominator;
+        if (t < 0f)
+            return false;
+        hit = origin + direction * t;
+        return true;
+    }
+
+    private float SnapAngle(float degrees)
+    {
+        var (enabled, step) = _workspace is { } workspace ? (workspace.Gizmo.Snap.Enabled, workspace.Gizmo.Snap.RotateDegrees) : (SnapEnabled, SnapAngleStep);
+        return enabled && step > 0 ? MathF.Round(degrees / step) * step : degrees;
+    }
+
+    /// <summary>The tilt step in degrees when <see cref="SnapEnabled"/> (tests; the editor uses the toolbar's rotate step).</summary>
+    public float SnapAngleStep { get; set; } = 15f;
 
     /// <summary>The drag's button was released: commits the gesture (one undo entry when the curve changed).</summary>
     public void Release(UndoRedo? history = null)
@@ -303,7 +720,7 @@ public sealed class CurveEditor
     /// <summary>Per frame: forgets the gesture and the point selection when the edited path changes.</summary>
     public void Tick()
     {
-        var path = Path;
+        var path = PathNode;
         if (ReferenceEquals(path, _targetPath))
             return;
         if (IsDragging)
@@ -344,6 +761,7 @@ public sealed class CurveEditor
     private void EndGesture()
     {
         _before = null;
+        _label = null;
         _dragPart = CurvePart.None;
         _dragIndex = -1;
     }
@@ -360,10 +778,11 @@ public sealed class CurveEditor
         Touch();
     }
 
-    private ICurveTarget CreateCurve(UndoRedo history, Path2D path)
+    private ICurveTarget CreateCurve(UndoRedo history, Node path)
     {
-        var property = TypeRegistry.GetNearest(typeof(Path2D))!.FindProperty(nameof(Path2D.Curve))!;
-        history.Commit(SetPropertyAction.Create(path, property, new Curve2D()));
+        var property = TypeRegistry.GetNearest(path.GetType())!.FindProperty("Curve")!;
+        Resource curve = path is Path3D ? new Curve3D { UpVectorEnabled = true } : new Curve2D();
+        history.Commit(SetPropertyAction.Create(path, property, curve));
         return Target!;
     }
 
@@ -372,7 +791,7 @@ public sealed class CurveEditor
         var (enabled, step) = _workspace is { } workspace ? (workspace.Gizmo.Snap.Enabled, workspace.Gizmo.Snap.Translate) : (SnapEnabled, SnapStep);
         if (!enabled || !(step > 0))
             return global;
-        return new Vector3(MathF.Round(global.X / step) * step, MathF.Round(global.Y / step) * step, global.Z);
+        return new Vector3(MathF.Round(global.X / step) * step, MathF.Round(global.Y / step) * step, MathF.Round(global.Z / step) * step);
     }
 
     // ── Commands ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -387,6 +806,10 @@ public sealed class CurveEditor
             case "curve.tool.add": Tool = CurveTool.Add; return true;
             case "curve.tool.insert": Tool = CurveTool.Insert; return true;
             case "curve.tool.delete": Tool = CurveTool.Delete; return true;
+            case "curve.ground": GroundSnap = !GroundSnap; return true;
+            case "curve.tilt": TiltHandles = !TiltHandles; return true;
+            case "curve.height.less": HeightAbove -= 0.5f; return true;
+            case "curve.height.more": HeightAbove += 0.5f; return true;
         }
 
         if (history is null || Target is not { } target || IsDragging)
@@ -416,6 +839,11 @@ public sealed class CurveEditor
                 return true;
             case "curve.delete_point" when SelectedPoint >= 0 && SelectedPoint < target.PointCount:
                 RemovePoint(history, target, SelectedPoint);
+                return true;
+            case "curve.fit_ground" when target is Curve3DTarget curve3D && Terrain is { } terrain && target.PointCount > 0:
+                Begin(target, "Fit Curve to Ground", CurvePart.None, -1, Vector3.Zero, mirror: false);
+                CurveTerrainFit.Fit(curve3D.Curve3D, curve3D.Path.GlobalTransform, terrain, _heightAbove);
+                Release(history);
                 return true;
             case "curve.deselect" when SelectedPoint >= 0:
                 SelectedPoint = -1;
@@ -452,6 +880,23 @@ public sealed class CurveEditor
         Button(rml, "curve.close", "repeat", closed, closed ? "Open Curve — remove the segment from the last point back to the first" : "Close Curve — join the last point back to the first");
         Button(rml, "curve.reverse", "arrows-exchange", false, "Reverse — run the curve the other way (followers' Progress counts from the other end)");
         Button(rml, "curve.smooth", "wave-sine", false, "Smooth — give the selected point (or every point when none is selected) smooth, mirrored handles");
+        if (Is3D)
+        {
+            var terrain = Terrain is not null;
+            rml.Append("<span class=\"paint-sep\"></span>");
+            Button(rml, "curve.tilt", "rotate", _tiltHandles, "Tilt Handles — the selected point's tilt ring: drag its handle to roll the curve there (snaps to the rotate step)");
+            Button(rml, "curve.ground", "mountain", _groundSnap, terrain
+                ? "Snap to Ground — new and dragged points go onto the terrain under the mouse, Height Above it"
+                : "Snap to Ground — needs a Terrain3D in the scene (none found)");
+            Button(rml, "curve.height.less", "minus", false, "Lower — Height Above the terrain −0.5 m");
+            rml.Append("<span class=\"paint-value mono\" data-tooltip=\"Height Above — metres above the terrain for Snap to Ground and Fit to Ground\">")
+                .Append(_heightAbove.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)).Append(" m</span>");
+            Button(rml, "curve.height.more", "plus", false, "Raise — Height Above the terrain +0.5 m");
+            Button(rml, "curve.fit_ground", "arrow-bar-to-down", false, terrain
+                ? "Fit to Ground — move every point onto the terrain, Height Above it"
+                : "Fit to Ground — needs a Terrain3D in the scene (none found)");
+        }
+
         return rml.ToString();
     }
 
@@ -465,7 +910,7 @@ public sealed class CurveEditor
     public void Draw(DebugLines lines, float pixel)
     {
         ArgumentNullException.ThrowIfNull(lines);
-        if (Target is not { } target)
+        if (Is3D || Target is not { } target)
             return;
         var half = HandlePoints * pixel;
         var right = Vector3.UnitX;

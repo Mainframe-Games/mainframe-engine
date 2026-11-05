@@ -66,20 +66,20 @@ msgstr "Golpe"
 #. RML <span>
 #: Examples/Demo/Assets/AdaptiveMusic/panel.rml:26
 #: Examples/Demo/Assets/Audio/panel2d.rml:12
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
 msgid "Music"
 msgstr "Música"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
 msgid "Animation 3D"
 msgstr "Animación 3D"
 
 #. RML <p>
 #: Examples/Demo/Assets/Animation3D/panel.rml:9
-msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton that can stay active under physics. Behind it, root motion walks and jumps a body."
-msgstr "Un personaje glTF con esqueleto: 31 huesos, diez clips, fundidos, eventos, una antorcha en la mano y un esqueleto físico que puede seguir activo bajo la física. Detrás, el movimiento raíz hace caminar y saltar a un cuerpo."
+msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton that can stay active under physics. Behind it, root motion walks and jumps a body, and keyframe tracks run a workshop: a lift, a latched door, a flickering lamp and a chime."
+msgstr "Un personaje glTF con esqueleto: 31 huesos, diez clips, fundidos, eventos, una antorcha en la mano y un esqueleto físico que puede seguir activo bajo la física. Detrás, el movimiento raíz hace caminar y saltar a un cuerpo, y pistas de fotogramas clave mueven un taller: un elevador, una puerta con pestillo, una lámpara que parpadea y una campanilla."
 
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:10
@@ -143,6 +143,7 @@ msgstr "Fundido"
 #. RML <span>
 #: Examples/Demo/Assets/Animation3D/panel.rml:22
 #: Examples/Demo/Assets/Paths2D/panel.rml:10
+#: Examples/Demo/Assets/Paths3D/panel.rml:10
 #: Examples/Demo/Assets/Sprites2D/panel.rml:16
 msgid "Speed"
 msgstr "Velocidad"
@@ -179,7 +180,7 @@ msgstr "Empujar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
 msgid "Audio 2D"
 msgstr "Audio 2D"
 
@@ -210,7 +211,7 @@ msgstr "Distancia máxima"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
 msgid "Audio 3D"
 msgstr "Audio 3D"
 
@@ -461,9 +462,36 @@ msgstr "Curvas Path2D con seguidores PathFollow2D: coches que dan vueltas a un c
 
 #. RML <span>
 #: Examples/Demo/Assets/Paths2D/panel.rml:11
+#: Examples/Demo/Assets/Paths3D/panel.rml:11
 #: Examples/Demo/Assets/Sprites2D/panel.rml:19
 msgid "Pause"
 msgstr "Pausa"
+
+#. RML <h1>
+#: Examples/Demo/Assets/Paths3D/panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
+msgid "Paths 3D"
+msgstr "Trayectorias 3D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Paths3D/panel.rml:9
+msgid "Platforms on Path3D followers carry the capsule: ride the lift, the ferry or the turntable. WASD walks, Space jumps."
+msgstr "Las plataformas sobre seguidores Path3D llevan la cápsula: sube al elevador, al transbordador o a la plataforma giratoria. WASD camina, Espacio salta."
+
+#. RML <span>
+#: Examples/Demo/Assets/Paths3D/panel.rml:12
+msgid "Ride the camera rail"
+msgstr "Recorrer el riel de cámara"
+
+#. RML <button>
+#. RML <option>
+#: Examples/Demo/Assets/Paths3D/panel.rml:13
+#: Examples/Demo/Assets/SoundFx/panel.rml:24
+#: Examples/Demo/Assets/Spine/panel.rml:15
+#: Examples/Demo/Assets/Sprites2D/panel.rml:14
+#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:128
+msgid "Jump"
+msgstr "Saltar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel2d.rml:8
@@ -565,7 +593,7 @@ msgstr "Golpear los objetos"
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
 msgid "Sound FX"
 msgstr "Efectos de sonido"
 
@@ -591,15 +619,6 @@ msgstr "Láser"
 #: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:126
 msgid "Explosion"
 msgstr "Explosión"
-
-#. RML <button>
-#. RML <option>
-#: Examples/Demo/Assets/SoundFx/panel.rml:24
-#: Examples/Demo/Assets/Spine/panel.rml:15
-#: Examples/Demo/Assets/Sprites2D/panel.rml:14
-#: Examples/Demo/Demo/Src/SoundFx/SoundFxPanel.cs:128
-msgid "Jump"
-msgstr "Saltar"
 
 #. RML <button>
 #: Examples/Demo/Assets/SoundFx/panel.rml:25
@@ -640,7 +659,7 @@ msgstr "Música (una canción del editor de música)"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
 msgid "Spine"
 msgstr "Spine"
 
@@ -929,7 +948,7 @@ msgid "Audio"
 msgstr "Audio"
 
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:241
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:264
 msgid "UI"
 msgstr "Interfaz"
 
@@ -1737,6 +1756,10 @@ msgstr "Voz"
 msgctxt "settings"
 msgid "Ambience"
 msgstr "Ambiente"
+
+#. RML <p>
+#~ msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton that can stay active under physics. Behind it, root motion walks and jumps a body."
+#~ msgstr "Un personaje glTF con esqueleto: 31 huesos, diez clips, fundidos, eventos, una antorcha en la mano y un esqueleto físico que puede seguir activo bajo la física. Detrás, el movimiento raíz hace caminar y saltar a un cuerpo."
 
 #. RML <p>
 #~ msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton. Behind it, root motion walks and jumps a body."

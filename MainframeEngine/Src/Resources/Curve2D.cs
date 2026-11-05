@@ -273,11 +273,25 @@ public sealed class Curve2D : Resource
         return new Transform2D(x, new Vector2(-x.Y, x.X), origin);
     }
 
-    /// <summary>The arc offset of the baked curve point closest to <paramref name="toPoint"/> (projected on each baked segment).</summary>
+    /// <summary>
+    /// The arc offset of the baked curve point closest to <paramref name="toPoint"/> (projected on each baked segment).
+    /// Long curves search a grid of the baked segments, built once per bake; the result equals a full scan's.
+    /// </summary>
     public float GetClosestOffset(Vector2 toPoint)
     {
         EnsureBaked();
         _baker.Closest(new Vector3(toPoint, 0f), out var offset, out _);
+        return offset;
+    }
+
+    /// <summary>
+    /// As <see cref="GetClosestOffset(Vector2)"/>, searching only within <paramref name="window"/> pixels of
+    /// <paramref name="hintOffset"/> (wrapping when <see cref="Closed"/>). Extension.
+    /// </summary>
+    public float GetClosestOffset(Vector2 toPoint, float hintOffset, float window)
+    {
+        EnsureBaked();
+        _baker.Closest(new Vector3(toPoint, 0f), hintOffset, window, out var offset, out _);
         return offset;
     }
 

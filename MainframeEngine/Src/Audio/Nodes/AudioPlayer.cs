@@ -63,9 +63,11 @@ public class AudioPlayer : Node, IAudioVoiceOwner
     public event Action? Finished;
 
     /// <summary>Plays from <paramref name="fromSeconds"/>.</summary>
+    [AnimationMethod]
     public void Play(float fromSeconds = 0f) =>
         _playback.Play(this, Stream, Bus, Priority, fromSeconds, Loop, positional: false, MaxPolyphony, CurrentParams());
 
+    [AnimationMethod]
     public void Stop() => _playback.StopAll();
 
     public void Seek(float seconds) => _playback.Seek(seconds);

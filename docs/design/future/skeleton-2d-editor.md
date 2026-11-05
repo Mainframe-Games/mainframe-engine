@@ -4,7 +4,7 @@
 and weights, plus the editor parts of G17e–G17f) · **Status:** ⬜ planned · **Depends on:**
 [2D skeletal animation](skeleton-2d.md) (G17a runtime and data), [Editor](../editor.md) (tabs, undo, FileSystem),
 the song tab ([Editor → Song tab](../editor.md#song-tab-music-editor)), whose timeline this extracts · **Related:**
-[Animation graph](animation-graph.md) (its graph view), [Keyframe animation](keyframe-animation.md#shared-timeline-component)
+[Animation graph](animation-graph.md) (its graph view), [Keyframe animation](../animation.md#animation-panel)
 (G1a reuses the shared timeline), [Animation authoring](animation-authoring.md) (`mfe`, reloading changed files) ·
 **ADR:** [0184](../../../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)
 
@@ -28,8 +28,8 @@ The engine's editor has none of that today:
   session tells them apart with type checks (`tab is SongTab` at `Session/EditorSession.cs:144`, `:386`, `:442`,
   `:458`, `:694`), so a fourth tab type would add a fifth set of checks.
 - **Timeline.** The song tab's timeline (`MainframeEngine.Editor/Src/Music/`) is the only one in the editor, and it is
-  song-specific. [Keyframe animation](keyframe-animation.md#shared-timeline-component) planned to extract it but has
-  not; its note that the song tab is not on `main` is out of date.
+  song-specific. G1a has since extracted the shared parts into `Src/Timeline/` ([Animation and skinning →
+  Animation panel](../animation.md#animation-panel)), which G17b builds on.
 - **2D tools.** The 2D view can move, rotate and scale `Node2D`s (`Viewport/TransformGizmo2D.cs`). It cannot create
   bones, edit vertices or paint.
 
@@ -134,8 +134,8 @@ second implementation.
 
 ## Shared timeline
 
-The extraction follows [Keyframe animation → Shared timeline component](keyframe-animation.md#shared-timeline-component)
-(the names and split are its own), done in G17b instead of G1.5:
+G1a extracted the shared timeline ([Animation and skinning → Animation panel](../animation.md#animation-panel)); the
+split below is the plan it started from:
 
 - **`TimelineViewState`**: scroll, zoom, `X(time)`, `TimeAt(x)`, `ZoomAround`. Time is a `double`.
 - **`ITimelineScale`**: `MusicalScale` for the song tab, `SecondsScale` with a frames option for skeletons and G1a.

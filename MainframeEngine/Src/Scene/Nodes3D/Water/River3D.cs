@@ -394,27 +394,9 @@ public class River3D : Node3D, IWaterBody3D
     /// surface sits in the ground, so a carve makes a channel), in one curve change. For code-made streams: call it
     /// before <see cref="Carve"/> (it samples the current, possibly carved, ground). False without a terrain or curve.
     /// </summary>
-    public bool FitToTerrain(float depthBelow = 0.3f)
-    {
-        if (ResolveTerrain() is not { Data: not null } terrain || _curve is not { PointCount: > 0 } curve)
-            return false;
-        var global = GlobalTransform;
-        var inverse = global.AffineInverse();
-        var points = (float[])curve.Points.Clone();
-        for (var i = 0; i < curve.PointCount; i++)
-        {
-            var world = global.TransformPoint(curve.GetPointPosition(i));
-            var ground = terrain.HeightAt(world.X, world.Z) - depthBelow;
-            var local = inverse.TransformPoint(new Vector3(world.X, ground, world.Z));
-            var o = i * Curve3D.FloatsPerPoint;
-            points[o] = local.X;
-            points[o + 1] = local.Y;
-            points[o + 2] = local.Z;
-        }
-
-        curve.Points = points;
-        return true;
-    }
+    public bool FitToTerrain(float depthBelow = 0.3f) =>
+        ResolveTerrain() is { Data: not null } terrain && _curve is { PointCount: > 0 } curve &&
+        CurveTerrainFit.Fit(curve, GlobalTransform, terrain, -depthBelow);
 
     private bool CarveInto(Terrain3D? terrain)
     {

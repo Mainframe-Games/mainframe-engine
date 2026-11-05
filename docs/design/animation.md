@@ -2,12 +2,13 @@
 
 ## Purpose
 
-Skeletal animation of 3D characters (ADR 0207, ADR 0208): `Skeleton3D` bones, skinned `MeshInstance3D`s drawn through a
-compute pre-skinning pass, `BoneAttachment3D`, and keyed `Animation`s played by an `AnimationPlayer` with crossfades,
-queues, named events and root motion (ADR 0210) that a `CharacterBody3D` applies; skinned glTF/FBX characters import
-with their clips. Names follow Godot 4. This is the shipped part of the [Keyframe animation](future/keyframe-animation.md)
-proposal (G1a core, G1b) and of [Animation authoring](future/animation-authoring.md) (G1e); value/method/audio tracks
-and the editor's Animation panel are still proposals there.
+Keyframe animation of any node property and skeletal animation of 3D characters (G1a, G1b; ADRs 0207, 0208, 0244):
+`Animation`s with transform, value, bezier, method, audio and event tracks, played by an `AnimationPlayer` with
+crossfades, queues, signals and root motion (ADR 0210) that a `CharacterBody3D` applies; `Skeleton3D` bones, skinned
+`MeshInstance3D`s drawn through a compute pre-skinning pass and `BoneAttachment3D`; skinned glTF/FBX characters import
+with their clips; and the editor's **Animation panel**, a timeline that keys, previews and edits animations. Names
+follow Godot 4. The authoring tools for Claude-made clips are [Animation authoring](future/animation-authoring.md)
+(G1e shipped: root motion).
 
 ```mermaid
 flowchart LR
@@ -15,6 +16,9 @@ flowchart LR
     I --> M["MeshInstance3D + Skin<br/>(Joints/Weights)"]
     I --> P["AnimationPlayer<br/>AnimationLibrary → Animation"]
     P -->|"bone poses (typed calls)"| S
+    P -->|"values: PropertyBinding (typed, no boxing)"| V[Node properties]
+    P -->|"method keys: generated invokers"| V
+    P -->|"audio keys"| U["AudioPlayer / 2D / 3D"]
     P -->|"AnimationEvent / Finished / Changed"| G[Game code, also headless]
     P -->|"root motion per update"| B["CharacterBody3D.ApplyRootMotion → MoveAndSlide"]
     S --> A[BoneAttachment3D children]
@@ -25,7 +29,7 @@ flowchart LR
 ```
 
 Code: [`Src/Animation/`](../../MainframeEngine/Src/Animation/) (`Animation`, tracks, `AnimationLibrary`,
-`AnimationPlayer`), [`Scene/Nodes3D/Skeleton3D.cs`](../../MainframeEngine/Src/Scene/Nodes3D/Skeleton3D.cs),
+`AnimationPlayer`, `AnimationValueOps`/`PropertyBinding`, `AnimationMethodAttribute`), [`Scene/Nodes3D/Skeleton3D.cs`](../../MainframeEngine/Src/Scene/Nodes3D/Skeleton3D.cs),
 [`Skin.cs`](../../MainframeEngine/Src/Scene/Nodes3D/Skin.cs) (`Skin`, `SkinState`),
 [`BoneAttachment3D.cs`](../../MainframeEngine/Src/Scene/Nodes3D/BoneAttachment3D.cs),
 [`Rendering/Meshes/MeshSkinning.cs`](../../MainframeEngine/Src/Rendering/Meshes/MeshSkinning.cs) (`MeshSkinner`,
@@ -57,12 +61,42 @@ Code: [`Src/Animation/`](../../MainframeEngine/Src/Animation/) (`Animation`, tra
 
 ## AnimationPlayer
 
-`Animation` (resource; name = `ResourceName`): `Length`, `LoopMode` (`None`, `Linear`, `PingPong`) and `Tracks`:
+`Animation` (resource; name = `ResourceName`): `Length`, `LoopMode` (`None`, `Linear`, `PingPong`), `Step` (the
+editor's snap, 1/30 s) and `Tracks`. Every track has `Path` (from the player's `RootNode`), `Enabled` and ascending
+`Times` in seconds; values are parallel arrays:
 
 | Track | Target | Values |
 |---|---|---|
-| `Position3DTrack`, `Rotation3DTrack`, `Scale3DTrack` | `Path` (from the player's `RootNode`) to a `Node3D`, or to a `Skeleton3D` with `Bone` | `Times` + `Vector3[]`/`Quaternion[]`, `Interpolation` `Nearest` or `Linear` (rotations slerp, shortest arc) |
-| `EventTrack` | — | `Times` + `Names`: raised as `AnimationEvent(animation, name)` |
+| `Position3DTrack`, `Rotation3DTrack`, `Scale3DTrack` | a `Node3D`, or a `Skeleton3D` bone with `Bone` | `Vector3[]`/`Quaternion[]` |
+| `ValueTrack` | any animatable `[Export]` property: `Property` = `"Energy"`, `"Position"`, `"Position:y"`, `"Modulate:a"` | `Components` floats per key; `Update` `Continuous` or `Discrete` (only the key's value, as the playhead reaches it) |
+| `BezierTrack` | one float property (or component) | `Values` + per-key `InHandles`/`OutHandles` (time, value offsets): the cubic Bézier through the keys, solved for time |
+| `MethodTrack` | a node's `[AnimationMethod]` methods | `Methods` (a name per key) + `Arguments` (a JSON array per key, `[]`, `[2, "open"]`) |
+| `AudioTrack` | an `AudioPlayer`, `AudioPlayer2D` or `AudioPlayer3D` | `Streams` + `StartOffsets` (seconds into the stream) |
+| `EventTrack` | — | `Names`: raised as `AnimationEvent(animation, name)` |
+
+The transform and value tracks are `InterpolatedTrack`s: `Interpolation` `Nearest`, `Linear` (rotations slerp, shortest
+arc) or `Cubic` (Godot's cubic in time through the neighbouring keys, spherical for rotations; a missing neighbour is
+mirrored, so the ends do not overshoot), per-key `Transitions` (Godot's easing exponent, `Mathf.Ease`: 1 linear, above 1
+ease in, below 1 ease out, negative in-out) and `LoopWrap` (on a looping animation the last key blends into the first;
+off, the value holds). Bools, integers and enums are always discrete.
+
+**Bindings.** A value track binds once per animation through the property's generated registration:
+`PropertyBinding.Create(node, "Position:y")` returns a typed `PropertyBinding<TOwner, TValue>` over the setter, and
+`AnimationValueOps.Get<T>()` packs and unpacks the value as floats (floats, doubles, integers, bools and enums directly;
+vectors, quaternions, both colour types, `Vector2I`, rects and any game `[SerializableValue]` struct with a float-array
+codec through `IFloatVectorCodec<T>`). A `:x`/`:y`/`:z`/`:w` (or `:r`/`:g`/`:b`/`:a`) suffix animates one component and
+leaves the rest. No reflection and no boxing: writes allocate nothing. An unknown property or type is logged once at bind
+time and the track skipped.
+
+**Method tracks.** `[AnimationMethod]` on an instance method (public or internal, non-generic, by-value parameters of
+types `[Export]` supports, resources excepted) makes the source generator emit a typed invoker and a codec per parameter
+(`NodeTypeInfo.AnimationMethods`, `FindAnimationMethod`); anything else is error MFG011. The key's JSON arguments are
+parsed once at bind time (missing trailing arguments take their defaults), so calls allocate nothing. The engine marks
+`Play`/`Stop` on the audio players and `Restart` on the particle nodes. `CallbackModeMethod` is `Deferred` (after the
+update's values are applied, in key order; default) or `Immediate` (as the playhead passes the key).
+
+**Audio tracks** start the key's stream on the target player at the key's offset (a key crossed late starts that far
+in) and stop it when the animation stops.
 
 `AnimationLibrary` is a list of animations; its `ResourceName` prefixes them (`""` the default library,
 `"moves/roll"`). `AnimationPlayer` (Godot's API):
@@ -75,18 +109,25 @@ Code: [`Src/Animation/`](../../MainframeEngine/Src/Animation/) (`Animation`, tra
   `IsPlaying()`, `IsBlending`, `GetPlayingSpeed()`. Fit a clip to a gameplay duration with
   `Play(name, customSpeed: (float)(length / seconds))` or `SpeedScale`.
 - Playing the animation that is playing (or paused) continues it; a finished one restarts.
+- `BlendTimes`: `AnimationBlendTime` entries (`From`, `To`, `Seconds`) override the default crossfade per pair (Godot's
+  blend times).
+- `GetSyncState()`/`ApplySyncState(state)`: the current animation, position and playing flag for a late-joining peer.
 - **Signals:** `AnimationStarted(name)`, `AnimationFinished(name)` (non-looping only), `AnimationChanged(old, new)` (a
   queued animation took over), `AnimationEvent(animation, event)`.
-- **Events** fire when the playhead passes their key, in play direction, across loop wraps (once per ping-pong pass);
+- **Events, method and audio keys** fire when the playhead passes their key, in play direction, across loop wraps (once per ping-pong pass);
   the first frame of a play includes keys at the start; `Seek` raises none. Events are collected while the pose is
   evaluated and raised after it is applied, so handlers can call `Play`.
 - **Crossfade:** `Play` with a blend (custom, else `PlaybackDefaultBlendTime`) keeps the old animation advancing and mixes
-  per channel: both → lerp/slerp by the blend weight; only the new one → its value; only the old one → toward the bone's
+  per channel (transforms and values; discrete values switch at half the blend): both → lerp/slerp by the blend weight; only the new one → its value; only the old one → toward the bone's
   rest (a node: its value when the blend started). A `Play` during a blend starts a new one from the pose as it is at that
   moment (captured, held still).
 - **Binding** happens once per animation (first play, or after its `Version` changed): paths and bone names resolve to
   slots shared by every animation of the player. Each frame finds the key from a per-track cursor, interpolates and
-  calls the typed setter. Steady playback, crossfades and events allocate nothing (`AnimationHeadlessTests`).
+  calls the typed setter. Steady playback, crossfades, events, value tracks and method keys allocate nothing
+(`AnimationHeadlessTests`, `ValueTrackTests`' 1 000-node gate; `AnimationBenchmarks`).
+- **Physics bodies:** animate an `AnimatableBody3D`/`2D` with `CallbackModeProcess = Physics`; its motion becomes a
+  velocity for the step and characters standing on it ride along ([Paths → Moving platforms](paths.md#moving-platforms-g135)). The editor
+  warns about a `StaticBody3D` moved by a track (it teleports) and a body animated outside the physics callback.
 - **Determinism and servers:** the pose and the events depend only on (clip, time), so peers that start clips from
   replicated state agree; nothing needs a renderer, so animations and events run under `HeadlessHost` too.
 
@@ -207,9 +248,47 @@ The nodes and resources are registered like any other: inspector rows for every 
 libraries), icons (`bone` for `Skeleton3D`/`Skin`, `link` for `BoneAttachment3D`, `player-play` for `AnimationPlayer`,
 `movie` for `Animation`), semantic property icons (`BoneName`, `Libraries`, `SpeedScale`, `LoopMode`), and node warnings
 for a skinned mesh without its skeleton, an attachment outside a skeleton or naming no bone, a player without
-animations, and root motion that is not on the physics step or names no skeleton or bone (`RootMotionTrack` has the
-`run` icon, `RootMotionBone` `bone`, `RootMotionVertical` `arrow-up`). Skinned meshes draw (and pick) posed in the editor's views. There is no Animation panel or timeline yet, and
-players do not advance in edit mode.
+animations, root motion that is not on the physics step or names no skeleton or bone (`RootMotionTrack` has the
+`run` icon, `RootMotionBone` `bone`, `RootMotionVertical` `arrow-up`), and transform tracks that move a `StaticBody3D`
+or a body outside the physics callback. Skinned meshes draw (and pick) posed in the editor's views.
+
+### Animation panel
+
+![The Animation panel](../images/editor-animation.png)
+
+Selecting an `AnimationPlayer` adds an **Animation** tab to the bottom dock (Output | Profiler | Tile Map | Animation);
+the pin keeps the panel on that player while other nodes are selected for keying. Code:
+[`MainframeEngine.Editor/Src/Animation/`](../../MainframeEngine.Editor/Src/Animation/) (`AnimationEditor` the model,
+`AnimationPanel` the RmlUi panel over `Assets/Editor/animation.rml`, `AnimationTimelineCanvas`), the undo actions in
+`Undo/AnimationActions.cs`, the shared timeline in [`Src/Timeline/`](../../MainframeEngine.Editor/Src/Timeline/).
+
+- **Header** (icon buttons with tooltips): play from start, play/pause, stop, the playhead; the animation picker, new
+  (into the player's default library, created when missing), duplicate, rename, delete; length − / +, loop mode (one
+  button cycling none / linear / ping-pong), snap to the step, frames on the ruler; add a method track or an audio track
+  for the selected node; zoom; pin.
+- **Track list:** a row per track with its kind's icon and `path · property`, and buttons for interpolation (nearest /
+  linear / cubic), loop wrap, enable and remove.
+- **Timeline:** the seconds (or frames) ruler (click or drag to scrub), keys as diamonds (selected blue), method keys
+  labelled, audio keys as clips, the area past the length shaded. Click selects (Shift/Cmd adds), drag moves keys
+  (snapped), drag on empty space draws a rubber band, double-click a row inserts a key: the current value, the audio
+  player's stream, or a method picked from the node's `[AnimationMethod]`s. Wheel scrolls, Cmd/Ctrl+wheel zooms
+  around the mouse. Delete removes the selected keys; K keys the selected 3D nodes' transforms.
+- **Key row:** the selected key's time, its value per component (X/Y/Z coloured) and its easing.
+- **Inspector key buttons:** while an animation is edited, every animatable inspector row gets a `key` button that
+  inserts the current value at the playhead, creating the track: `Position`/`RotationDegrees`/`Scale` of a `Node3D`
+  make transform tracks, other rows value tracks.
+- **Preview:** the scene is in edit mode, so the player does not process; the panel poses it with
+  `Seek(t, update: true)` (scrub) or each frame while playing (looping by the loop mode). Method and audio keys do not
+  fire in the editor. Before the first preview the panel records the values the animation touches and puts them back on
+  Stop, when the edited player changes, and around every save, so saved scenes hold authored values, never a preview
+  frame (Godot's `RESET` animation is not needed).
+- **Undo:** every edit (keys, tracks, animation settings, library changes) is one step in the scene tab's history
+  (`AnimationEditAction` snapshots the animation's tracks, `AnimationLibraryAction` the library); a key drag is one step,
+  Esc cancels it.
+
+The timeline component is shared with the song editor: `TimelineZoom` (scroll, pixels per unit, `X`/`TimeAt`,
+`ZoomAround`), `TimelineSnap`, `TimelineRuler` (adaptive steps, cached labels), `TimelineHost.Place` (sizes the canvas
+`SubViewport` and publishes it) and `TimelineCanvasBase` (ruler, shaded regions, playhead).
 
 ## Guide
 
@@ -229,7 +308,16 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   motion, per-update replacement, vertical, loop wraps over one and several loops, backwards, turns carried into the
   facing closing a circle in small or large steps, a 360° clip, crossfade weights, settings changes, the yaw
   extraction), `RootMotionCharacterTests` (the character's jump and circle moving a turned `CharacterBody3D`; 0 B with
-  crossfades, `MoveAndSlide` and palettes for four walkers). Editor: `AnimationNodesTests` (warnings, icons).
+  crossfades, `MoveAndSlide` and palettes for four walkers), `ValueTrackTests` (value kinds and sub-components, discrete
+  values, cubic and transitions, loop wrap, bezier, method keys across loops, backwards and ping-pong, deferred and
+  immediate, audio keys, blend times, sync state, value crossfades, `.mres` round trip, 0 B over 1 000 nodes). Generator:
+  `AnimationMethodsGetInvokersAndInvalidOnesAreReported` (MFG011). Benchmark: `AnimationBenchmarks`.
+- **Editor:** `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
+  drags with snap and cancel, rubber band, method and audio keys, preview capture and restore, saving while previewing),
+  `TimelineTests` (zoom around the mouse, ruler steps); the song tab's tests run on the shared timeline.
+- **QA:** [`Tests/QA/animation-walkthrough.qa`](../../Tests/QA/animation-walkthrough.qa) (`just qa-editor
+  Tests/QA/animation-walkthrough.qa`): create an animation on a player, key a node's position from the inspector at two
+  times, scrub, capture the panel.
 - **Test asset:** `Tests/Assets/Models/Character/character.glb`, written by
   [`SkinnedCharacter`](../../Tests/MainframeEngine.Tests/TestAssets/SkinnedCharacter.cs) (31 bones, two primitives,
   ~6 000 triangles, ten actions (`jump` and `circle` carry root motion in the hips), both event forms, a `.meta` clip); `TheCommittedCharacterMatchesTheGenerator` keeps it
@@ -238,13 +326,18 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   hand-attached hammer and torch; self-checks the dispatch count, a pick on the raised hand and the torch position;
   golden), `skinned-crowd` (12 characters crossfading: 0 B with the prepass and TAA, and the 120 fps budget).
 - **Demo:** the `animation_3d` scene ([Demo](demo.md)): a second character on a `RootMotionWalker` body walks half
-  circles and jumps around a closed loop (`Animation3DSceneTests` checks that it closes).
+  circles and jumps around a closed loop (`Animation3DSceneTests` checks that it closes), and a workshop animated by
+  tracks alone: an `AnimatableBody3D` lift on the physics tick, a door that a method key unlocks (`DoorLatch`), swings
+  open and shut and locks again, a lamp flickering on a cubic value track and a chime on an audio track.
 
 ## Known issues
 
-- No value, bezier, method or audio tracks, no cubic interpolation, no editor timeline, blend trees, IK or morph
-  targets ([Keyframe animation](future/keyframe-animation.md), [Animation graph](future/animation-graph.md),
+- No blend trees, IK or morph targets ([Animation graph](future/animation-graph.md),
   [Animation authoring](future/animation-authoring.md)).
+- The panel has no curve view for bezier tracks (their handles are edited as data), no copy/paste or duplicate of keys,
+  no play-backwards button and no track filter; tracks are added from the inspector's key buttons, K and the method and
+  audio buttons, not a `+` menu. Imported libraries are edited with the scene; there is no "Save animations as `.mres`"
+  yet ([Editor viewport tools](editor.md#viewport-tools), G7).
 - Normals are skinned with the palette's 3×3 (renormalised), not its inverse transpose: non-uniform bone scale shades
   slightly wrong.
 - Skinned instances draw one by one (no instancing of identical characters).
@@ -254,8 +347,32 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   `get_root_motion_position_accumulator`), and a hips-as-root rig hands the hips' sideways sway to the body. The G1c
   baker's `root: "motion"` is not written yet.
 
+## Changes from the proposal
+
+G1a followed the Keyframe animation proposal (now folded into this page) with these differences:
+
+- **Timeline extraction:** one `Src/Timeline/` with `TimelineZoom` (not `TimelineViewState`, which the video timeline
+  already names), `TimelineRuler`, `TimelineSnap`, `TimelineHost` and `TimelineCanvasBase`. The song tab's gestures stay
+  its own; the press/drag state machine (`TimelineGestures`) was not extracted, because the song and animation gestures
+  share little beyond the threshold.
+- **Undo** is two snapshot actions (`AnimationEditAction` over an animation's tracks and settings,
+  `AnimationLibraryAction` over a library's list) instead of seven fine-grained ones: an animation's key arrays are small,
+  and one shape covers every edit.
+- **Track list** is part of the panel's chrome, not a separate data-bound list; the `+` add-track menu became the
+  inspector key buttons, K, and two header buttons for method and audio tracks.
+- **Not built:** the curve view, Alt-duplicate, key copy/paste and Cmd/Ctrl+D, play backwards, the track filter and the
+  missing-target warning icon, persisting the tab and pin in `editor_layout.json`. They are follow-ups (see Known issues).
+- **Events** stay an `EventTrack` beside method tracks (games already subscribe to `AnimationEvent`).
+- **Engine methods:** the audio players' `Play`/`Stop` and the particles' `Restart` are `[AnimationMethod]`s, so method
+  tracks work on built-in nodes too.
+
+Still open from the proposal: compute versus vertex-shader skinning on mobile; Assimp versus a glTF reader; large clips
+as JSON once G7 saves them; editing external `.mres` libraries with their own history; built-in replication of player
+state (games use `GetSyncState`); an auto-key (record) mode; discrete string and resource tracks; morph targets and
+instancing identical skinned characters.
+
 ## Related
 
-[Keyframe animation (proposal)](future/keyframe-animation.md) · [Asset pipeline](asset-pipeline.md) ·
+[Animation authoring](future/animation-authoring.md) · [Asset pipeline](asset-pipeline.md) ·
 [Materials & meshes](materials-and-meshes.md) · [GPU resources](gpu-resources.md) ·
 [Post-processing](post-processing.md) · [Shadow system](shadow-system.md) · [Scene graph & nodes](scene-graph-and-nodes.md)

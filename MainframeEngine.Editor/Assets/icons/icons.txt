@@ -37,6 +37,7 @@ help-hexagon
 route-2
 route
 map-pin
+elevator
 arrows-exchange
 slideshow
 
@@ -296,3 +297,9 @@ align-center
 align-right
 transition-right
 subtitles
+# Animation panel (G1.6)
+keyframe
+player-skip-back
+repeat-off
+pin
+help

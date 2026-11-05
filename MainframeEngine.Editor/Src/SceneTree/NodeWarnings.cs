@@ -10,6 +10,43 @@ namespace MainframeEngine.Editor;
 /// </summary>
 public static class NodeWarnings
 {
+    // G1.3: transform tracks that move physics bodies: a static body teleports (use an AnimatableBody3D), and a moving body
+    // should be animated on the physics tick.
+    private static void AnimatedBodyWarnings(AnimationPlayer player, Action<string> add)
+    {
+        var root = player.RootNode.IsEmpty ? player : player.GetNodeOrNull(player.RootNode);
+        if (root is null)
+            return;
+        var staticWarned = false;
+        var idleWarned = false;
+        foreach (var library in player.Libraries)
+        {
+            if (library is null)
+                continue;
+            foreach (var animation in library.Animations)
+            {
+                if (animation is null)
+                    continue;
+                foreach (var track in animation.Tracks)
+                {
+                    if (track is not (Position3DTrack { Bone.Length: 0 } or Rotation3DTrack { Bone.Length: 0 }))
+                        continue;
+                    var target = root.GetNodeOrNull(track.Path);
+                    if (target is StaticBody3D and not AnimatableBody3D && !staticWarned)
+                    {
+                        staticWarned = true;
+                        add($"'{animation.ResourceName}' moves the StaticBody3D '{track.Path}', which teleports: use an AnimatableBody3D (or a kinematic RigidBody3D).");
+                    }
+                    else if (target is AnimatableBody3D or RigidBody3D or CharacterBody3D && player.CallbackModeProcess != AnimationCallbackMode.Physics && !idleWarned)
+                    {
+                        idleWarned = true;
+                        add($"'{animation.ResourceName}' moves the physics body '{track.Path}': set CallbackModeProcess to Physics so it moves on the physics step.");
+                    }
+                }
+            }
+        }
+    }
+
     /// <summary>The warnings of <paramref name="node"/> joined by new lines, or null when there are none.</summary>
     public static string? For(Node node)
     {
@@ -84,6 +121,8 @@ public static class NodeWarnings
                     if (player.CallbackModeProcess != AnimationCallbackMode.Physics)
                         Add("Root motion moves a body per physics step: set CallbackModeProcess to Physics.");
                 }
+
+                AnimatedBodyWarnings(player, Add);
                 break;
             case AudioPlayer { Stream: null } or AudioPlayer2D { Stream: null } or AudioPlayer3D { Stream: null }:
                 Add("No Stream: nothing plays.");

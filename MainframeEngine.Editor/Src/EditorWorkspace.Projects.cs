@@ -439,6 +439,7 @@ public sealed partial class EditorWorkspace
         Viewport.ReleaseSceneReferences();
         TileMap.Release(); // the brush ghost and the dimmed layers are scene nodes
         Curves.ReleaseReferences();
+        Animations.ReleaseReferences();
         Tree?.Servers.Get<CanvasServer>()?.ReleaseSceneReferences(); // the last canvas frame holds the 2D tabs' nodes
         _titleScene = null;
         _titleFile = null;

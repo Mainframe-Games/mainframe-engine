@@ -298,6 +298,40 @@ public sealed class GeneratorTests
     }
 
     [Fact]
+    public void AnimationMethodsGetInvokersAndInvalidOnesAreReported()
+    {
+        const string source = """
+            using System.Numerics;
+            using MainframeEngine;
+
+            public enum Mood { Calm, Angry }
+
+            public class Door : Node3D
+            {
+                public int Opened;
+                public string Last = "";
+
+                [AnimationMethod] public void Open() => Opened++;
+                [AnimationMethod] internal int Say(string text, Vector3 at, Mood mood) { Last = $"{text} {at.X} {mood}"; return 1; }
+                [AnimationMethod] public static void Static() { }
+                [AnimationMethod] public void Generic<T>() { }
+                [AnimationMethod] public void ByRef(ref int value) { }
+                [AnimationMethod] public void WithResource(Texture2D texture) { }
+                [AnimationMethod] private void Hidden() { }
+            }
+            """;
+
+        var (output, diagnostics, result) = Run(source, "GenAnimationMethods");
+        Assert.Equal(5, diagnostics.Count(d => d.Id == "MFG011"));
+        var generated = Generated(result);
+        Assert.Contains("animationMethods:", generated, StringComparison.Ordinal);
+        Assert.Contains("\"Open\"", generated, StringComparison.Ordinal);
+        Assert.Contains("\"Say\"", generated, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Static\"", generated, StringComparison.Ordinal);
+        Assert.Empty(output.GetDiagnostics(TestContext.Current.CancellationToken).Where(d => d.Severity == DiagnosticSeverity.Error && d.Id != "MFG011"));
+    }
+
+    [Fact]
     public void ReportsInvalidMembers()
     {
         const string source = """

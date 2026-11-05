@@ -287,8 +287,8 @@ The features most games need that the engine does not have yet. Not numbered: th
 be interleaved with them. Recommended order: G1a → G2 → G3a → G4 → G5, with G1b, G3b, G6 and G7 slotted in as needed.
 Character animation goes Claude-first: G1a core (G1.1–G1.4) → G1b → G1c + G1e → the G1a panel → G1d → G1f.
 2D skeletal animation (G17, [ADR 0184](../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)) goes runtime
-first: G17a → G17b → G17c → G17d, with G17e alongside G17c/G17d, then G17f and G17g; G17b builds the shared timeline
-G1a reuses.
+first: G17a → G17b → G17c → G17d, with G17e alongside G17c/G17d, then G17f and G17g; G17b builds on the shared
+timeline G1a extracted.
 G4 lays the storage that M13 cloud saves extend; G5 lays the export presets that M12.7 extends. G6 depends on the
 "Vulkan now or after M11" decision in its proposal.
 G8 (world building) goes G8a Faceted terrain → G8b low-poly trees (both on today's Blinn-Phong renderer) → G6.1/G6.2
@@ -301,7 +301,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 
 | Feature | Status | Design doc |
 |---|---|---|
-| G1a Keyframe animation: `Animation` resource (property, transform, method tracks), `AnimationPlayer`, editor Animation panel (timeline) | 🚧 player core, transform and event tracks shipped (ADR 0207) | [Animation and skinning](design/animation.md) · [Keyframe animation](design/future/keyframe-animation.md) |
+| G1a Keyframe animation: `Animation` resource (property, transform, method tracks), `AnimationPlayer`, editor Animation panel (timeline) | ✅ value, bezier, method and audio tracks, cubic, the Animation panel on the shared timeline (ADRs 0207, 0244) | [Animation and skinning](design/animation.md) |
 | G1b glTF skeletons, skinning (GPU) and animation clips played through `AnimationPlayer` | ✅ (ADR 0207, 0208) | [Animation and skinning](design/animation.md) |
 | G1c Animation authoring: humanoid map, pose scripts baked to keys, `mfe` CLI (`anim rig/bake/describe/check/render`), editor reload of changed resources, `animate` Claude Code skill | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
 | G1d Character animation editing: bones in the viewport, IK handles, curve view, onion skinning | ⬜ | [Animation authoring](design/future/animation-authoring.md) |
@@ -325,7 +325,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G10 Frame profiler: zero-allocation CPU scopes, GPU timestamp queries per pass, dev overlay panel, trace export, editor Profiler panel | ✅ (ADR 0219, 0220) | [Frame profiler](design/profiler.md) |
 | G11 World-space UI: `Label3D`, UI anchored to 3D points (nameplates, markers), RmlUi panels rendered onto meshes with ray-picked input | ⬜ | [World-space UI](design/future/world-space-ui.md) |
 | G12 Gamepad haptics and input glyphs: rumble, controller type and last-used device, action → glyph for RmlUi and canvas text | ⬜ | [Haptics and input glyphs](design/future/input-haptics-and-glyphs.md) |
-| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | 🚧 3D nodes (ADR 0215), 2D nodes and the 2D curve tool (ADR 0242) shipped; moving platforms and the 3D tool left | [Paths](design/paths.md), [proposal](design/future/paths.md) |
+| G13 Paths: `Path3D`/`PathFollow3D` and 2D equivalents on `Curve3D`, baked arc length, curve editing gizmos | ✅ (ADR 0215, 0242, 0243) | [Paths](design/paths.md) |
 | G14 Accessibility: UI scale, colour-vision filters, subtitles and captions, motion comfort options, input assists | ⬜ | [Accessibility](design/future/accessibility.md) |
 | G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ✅ | [Crash reporting](design/crash-reporting.md) |
 | G16 Video playback: `VideoStream`, `VideoPlayer`, `VideoTexture`, GPU YUV conversion, audio through `AudioServer` (codec choice pending) | ⬜ | [Video playback](design/future/video-playback.md) |
