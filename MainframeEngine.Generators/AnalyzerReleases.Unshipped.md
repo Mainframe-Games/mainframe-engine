@@ -15,3 +15,4 @@ MFG007 | MainframeEngine.Networking | Error | Invalid [Replicated] member
 MFG008 | MainframeEngine.Networking | Error | Invalid [Rpc] method
 MFG009 | MainframeEngine.Networking | Error | Too many [Replicated] members
 MFG010 | MainframeEngine.Serialization | Error | Translatable [Export] is not text
+MFG011 | MainframeEngine.Serialization | Error | Invalid [AnimationMethod] method

@@ -9,6 +9,22 @@ public enum CurvePart : byte
     Point,
     In,
     Out,
+
+    /// <summary>The selected 3D point's tilt ring handle.</summary>
+    Tilt,
+}
+
+/// <summary>Projects the view's world space to view pixels for the curve tool's screen-space hit tests (3D views).</summary>
+public interface ICurveProjector
+{
+    /// <summary>The view pixel of <paramref name="world"/>; false when it is behind the camera.</summary>
+    bool Project(Vector3 world, out Vector2 pixel);
+}
+
+/// <summary>An <see cref="EditorCamera"/>'s projection into a view of <paramref name="ViewPixels"/> (a struct: no boxing in the generic hit tests).</summary>
+public readonly record struct CameraProjector(EditorCamera Camera, Vector2 ViewPixels) : ICurveProjector
+{
+    public bool Project(Vector3 world, out Vector2 pixel) => Camera.Project(world, ViewPixels.X, ViewPixels.Y, out pixel);
 }
 
 /// <summary>
@@ -171,6 +187,86 @@ public static class CurveEditing
         }
 
         point = target.ToGlobal(Sample(target, segment, t));
+        return best <= radius * radius;
+    }
+
+    /// <summary>
+    /// The point or handle whose projection is nearest <paramref name="pixel"/> within <paramref name="radius"/> view
+    /// pixels (3D views): as <see cref="Hit"/>, in screen space.
+    /// </summary>
+    public static CurvePart HitScreen<TProjector>(ICurveTarget target, in TProjector projector, Vector2 pixel, float radius, bool handles, out int index)
+        where TProjector : ICurveProjector
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        var found = -1;
+        var part = CurvePart.None;
+        var best = radius * radius;
+        for (var i = target.PointCount - 1; i >= 0; i--)
+        {
+            var p = target.GetPosition(i);
+            if (projector.Project(target.ToGlobal(p), out var at))
+                Consider2(at, pixel, CurvePart.Point, i, ref best, ref part, ref found);
+            if (!handles)
+                continue;
+            if (target.GetIn(i) != Vector3.Zero && projector.Project(target.ToGlobal(p + target.GetIn(i)), out var atIn))
+                Consider2(atIn, pixel, CurvePart.In, i, ref best, ref part, ref found);
+            if (target.GetOut(i) != Vector3.Zero && projector.Project(target.ToGlobal(p + target.GetOut(i)), out var atOut))
+                Consider2(atOut, pixel, CurvePart.Out, i, ref best, ref part, ref found);
+        }
+
+        index = found;
+        return part;
+    }
+
+    private static void Consider2(Vector2 at, Vector2 pixel, CurvePart kind, int i, ref float best, ref CurvePart part, ref int index)
+    {
+        var d = Vector2.DistanceSquared(at, pixel);
+        if (d < best || d == best && kind == CurvePart.Point && part != CurvePart.Point)
+        {
+            best = d;
+            part = kind;
+            index = i;
+        }
+    }
+
+    /// <summary>The segment whose projection passes nearest <paramref name="pixel"/> within <paramref name="radius"/> view pixels, and the parameter there.</summary>
+    public static bool HitSegmentScreen<TProjector>(ICurveTarget target, in TProjector projector, Vector2 pixel, float radius, out int segment, out float t)
+        where TProjector : ICurveProjector
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        segment = -1;
+        t = 0;
+        var best = float.PositiveInfinity;
+        var segments = SegmentCount(target);
+        for (var s = 0; s < segments; s++)
+            for (var i = 0; i <= SegmentSamples; i++)
+            {
+                var u = i / (float)SegmentSamples;
+                if (!projector.Project(target.ToGlobal(Sample(target, s, u)), out var at))
+                    continue;
+                var d = Vector2.DistanceSquared(at, pixel);
+                if (d < best)
+                {
+                    best = d;
+                    segment = s;
+                    t = u;
+                }
+            }
+
+        if (segment < 0)
+            return false;
+        var step = 1f / SegmentSamples;
+        for (var k = 0; k < 16; k++)
+        {
+            step *= 0.5f;
+            foreach (var u in (ReadOnlySpan<float>)[Math.Max(0f, t - step), Math.Min(1f, t + step)])
+                if (projector.Project(target.ToGlobal(Sample(target, segment, u)), out var at) && Vector2.DistanceSquared(at, pixel) < best)
+                {
+                    best = Vector2.DistanceSquared(at, pixel);
+                    t = u;
+                }
+        }
+
         return best <= radius * radius;
     }
 }

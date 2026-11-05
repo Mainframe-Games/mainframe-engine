@@ -37,6 +37,7 @@ help-hexagon
 route-2
 route
 map-pin
+elevator
 arrows-exchange
 slideshow
 
@@ -298,3 +299,9 @@ transition-right
 subtitles
 sticker
 stairs-down
+# Animation panel (G1.6)
+keyframe
+player-skip-back
+repeat-off
+pin
+help

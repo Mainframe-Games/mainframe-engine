@@ -110,6 +110,12 @@ internal sealed record NetValueModel(string Name, string Type, NetCodecKind Kind
 /// <summary>A <c>[Replicated]</c> property or field.</summary>
 internal sealed record ReplicatedModel(NetValueModel Value, bool Interpolate);
 
+/// <summary>A parameter of an <c>[AnimationMethod]</c> method: its type and the codec that parses a JSON argument.</summary>
+internal sealed record AnimationParameterModel(string Name, string Type, string CodecExpression);
+
+/// <summary>An <c>[AnimationMethod]</c> method (G1.4): method tracks call it through a generated invoker.</summary>
+internal sealed record AnimationMethodModel(string Name, EquatableArray<AnimationParameterModel> Parameters);
+
 /// <summary>An <c>[Rpc]</c> method.</summary>
 internal sealed record RpcModel(string Name, int Mode, bool Reliable, bool CallLocal, bool IsPublic, EquatableArray<NetValueModel> Parameters);
 
@@ -139,6 +145,9 @@ internal sealed record TypeModel(
 
     /// <summary><c>[Rpc]</c> methods in declaration order.</summary>
     public EquatableArray<RpcModel> Rpcs { get; init; } = EquatableArray<RpcModel>.Empty;
+
+    /// <summary><c>[AnimationMethod]</c> methods in declaration order (registered with the type).</summary>
+    public EquatableArray<AnimationMethodModel> AnimationMethods { get; init; } = EquatableArray<AnimationMethodModel>.Empty;
 
     /// <summary>The containing namespace (null for the global namespace).</summary>
     public string? Namespace { get; init; }

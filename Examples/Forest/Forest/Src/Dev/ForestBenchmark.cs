@@ -8,7 +8,8 @@ using MainframeEngine;
 namespace Forest;
 
 /// <summary>
-/// <c>++ --benchmark</c>: after <see cref="WarmUpFrames"/> frames a camera flies <see cref="Spline"/> (low through the glade,
+/// <c>++ --benchmark</c>: after <see cref="WarmUpFrames"/> frames a camera flies <see cref="Spline"/> (an open
+/// <see cref="Curve3D"/> through its points at a steady speed, G13.8) (low through the glade,
 /// past the fall, up over the pine canopy, over the pond and back to the trailhead) for <see cref="Frames"/> frames;
 /// wall-clock frame intervals are recorded (run it with <c>--fixed-fps 60 --no-vsync</c>: frame n shows the same pose on
 /// every machine), then p50/p90/p99 are printed and written as JSON, and the game quits. Allocation-free while flying.
@@ -35,6 +36,7 @@ public sealed class ForestBenchmark
     private readonly long[] _allocations;
     private long _lastAllocated;
     private readonly Vector3[] _points;
+    private readonly Curve3D _rail = new() { BakeInterval = 0.25f }; // the flight, open, sampled by arc length (G13.8)
     private readonly string? _outPath;
     private readonly long _processStart;
     private Camera3D? _camera;
@@ -87,9 +89,11 @@ public sealed class ForestBenchmark
                 return false;
         }
 
-        var t = Math.Clamp((float)_frame / (WarmUpFrames + Frames), 0f, 1f) * (_points.Length - 1);
-        var position = CatmullRom(_points, t);
-        var ahead = CatmullRom(_points, MathF.Min(t + 0.25f, _points.Length - 1.001f));
+        var length = _rail.GetBakedLength();
+        var d = Math.Clamp((float)_frame / (WarmUpFrames + Frames), 0f, 1f) * length;
+        var position = _rail.SampleBaked(d, cubic: true);
+        // A quarter of an average segment ahead.
+        var ahead = _rail.SampleBaked(MathF.Min(d + length * 0.25f / (_points.Length - 1), length - 0.01f), cubic: true);
         _camera!.Position = position;
         if (Vector3.DistanceSquared(ahead, position) > 1e-4f)
             _camera.LookAt(ahead + new Vector3(0f, -0.15f * Vector3.Distance(ahead, position), 0f));
@@ -130,6 +134,7 @@ public sealed class ForestBenchmark
         if (scene.FindChildren<ForestValley>(owned: false) is not [{ Terrain: { } terrain }, ..])
             return false;
         ResolveSpline(terrain.HeightAt, tree.Root.World3D.Water, _points);
+        _rail.SetSmoothPoints(_points, closed: false);
 
         _camera = new Camera3D { Name = "BenchmarkCamera", Near = 0.05f, Far = 1200f, Fov = 55f };
         scene.AddChild(_camera);
@@ -346,7 +351,7 @@ public sealed class ForestBenchmark
 
     // The camera's position at measured frame i (the frame after warm-up i + 1).
     private Vector3 PositionAt(int i) =>
-        CatmullRom(_points, Math.Clamp((float)(WarmUpFrames + i + 1) / (WarmUpFrames + Frames), 0f, 1f) * (_points.Length - 1));
+        _rail.SampleBaked(Math.Clamp((float)(WarmUpFrames + i + 1) / (WarmUpFrames + Frames), 0f, 1f) * _rail.GetBakedLength(), cubic: true);
 
     /// <summary>
     /// <see cref="Spline"/> in world space: each point's height above the ground (<paramref name="groundHeight"/>) or the
@@ -363,20 +368,6 @@ public sealed class ForestBenchmark
                 ground = MathF.Max(ground, surface);
             points[i] = new Vector3(s.X, ground + s.Y, s.Z);
         }
-    }
-
-    /// <summary>A Catmull-Rom point on the open curve through <paramref name="points"/> at <paramref name="t"/> (0 … length − 1).</summary>
-    public static Vector3 CatmullRom(Vector3[] points, float t)
-    {
-        var i = Math.Clamp((int)t, 0, points.Length - 2);
-        var f = t - i;
-        var p0 = points[Math.Max(i - 1, 0)];
-        var p1 = points[i];
-        var p2 = points[i + 1];
-        var p3 = points[Math.Min(i + 2, points.Length - 1)];
-        var f2 = f * f;
-        var f3 = f2 * f;
-        return 0.5f * (2f * p1 + (-p0 + p2) * f + (2f * p0 - 5f * p1 + 4f * p2 - p3) * f2 + (-p0 + 3f * p1 - 3f * p2 + p3) * f3);
     }
 
     /// <summary>The JSON a run writes.</summary>

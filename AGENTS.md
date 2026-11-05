@@ -100,16 +100,19 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - Particles (ADR 0206): `Scene/Particles/` (`ParticleProcessMaterial`, shared 2D/3D; `ParticleSimulation3D`, CPU),
   `Scene/Nodes3D/GpuParticles3D.cs`, `Rendering/Particles/` (`ParticleRenderer`, its own pipelines, not `MeshRenderer`);
   see `docs/design/particles-3d.md`
-- Paths (ADRs 0215, 0242): `Scene/Nodes3D/Paths/` (`Path3D`, `PathFollow3D`: progress, rotation modes, `Speed`; `PathMotion`) and
-  `Scene/Nodes2D/Paths/` (`Path2D`, `PathFollow2D`) over `Resources/Curve3D.cs` (`Closed`, tangents, `UpVectorEnabled`) and
-  `Resources/Curve2D.cs`, both baked by `Resources/CurveBaker.cs`; the editor's curve tool in
-  `MainframeEngine.Editor/Src/Viewport/Curves/`; see `docs/design/paths.md`
+- Paths (ADRs 0215, 0242, 0243): `Scene/Nodes3D/Paths/` (`Path3D`, `PathFollow3D`: progress, rotation modes, `Speed`;
+  `PathMotion`, `CurveTerrainFit`) and `Scene/Nodes2D/Paths/` (`Path2D`, `PathFollow2D`) over `Resources/Curve3D.cs`
+  (`Closed`, tangents, `UpVectorEnabled`) and `Resources/Curve2D.cs`, both baked (with a closest-point grid) by
+  `Resources/CurveBaker.cs`; moving platforms are `AnimatableBody3D`/`2D` with `CharacterBody*` platform riding; the
+  editor's curve tool (2D and 3D) in `MainframeEngine.Editor/Src/Viewport/Curves/`; see `docs/design/paths.md`
 - `MainframeEngine/Src/Navigation/` — G3a ([ADRs 0227/0228](memory/decisions/0227-grid-navigation-core.md)): `AStarGrid2D` (Godot's grid
   A*, jump point search, span queries, 0 B, deterministic), `AStar2D`/`AStar3D`, `NavigationServer2D` (one map per
   `World2D`, synced after each fixed step), `Nodes2D/` (`NavigationGrid2D` + `NavigationGridData`, `NavigationAgent2D`),
   `Baking/` (`INavigationGridBaker` seam, the physics baker through queries only, `TileMapLayerBaker`: live grids from a
   `TileMapLayer`, G3.6); see `docs/design/navigation.md`
-- `MainframeEngine/Src/Animation/` — `Animation` (transform + event tracks), `AnimationLibrary`, `AnimationPlayer` (ADR 0207);
+- `MainframeEngine/Src/Animation/` — `Animation` (transform, value, bezier, method, audio and event tracks; cubic, transitions),
+  `AnimationLibrary`, `AnimationPlayer` (ADRs 0207, 0244), `PropertyBinding`/`AnimationValueOps` (typed property writes),
+  `[AnimationMethod]` (generated invokers, MFG011);
   `Scene/Nodes3D/{Skeleton3D,Skin,BoneAttachment3D}.cs`; compute pre-skinning in `Rendering/Meshes/MeshSkinning.cs`; skinned
   glTF/FBX import (ADR 0208). See `docs/design/animation.md`
 - `MainframeEngine/Src/Rendering/Resources/`, `Rendering/Meshes/` — `Mesh`/primitives, `StandardMaterial3D`, `Texture2D`;
@@ -175,7 +178,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   Forest; `just neon`, `neon-test`, `neon-art`, `neon-city-art`, `neon-audio`, `neon-screenshots`; see `docs/design/neon.md`
 - `MainframeEngine.Editor/` — the editor exe (M10; `just editor [project|scene]`): `EditorApp : Engine` runs the tree in
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Assets/Editor/`;
-  `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Inspector/`, `SceneTree/`, `Viewport/` (camera,
+  `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Animation/` (the Animation panel, G1a), `Timeline/`
+  (the timeline shared by the song, animation and video views), `Inspector/`, `SceneTree/`, `Viewport/` (camera,
   3D/2D gizmos, picking), `Projects/` (`ProjectService`: game assembly in a collectible ALC, code reload; New Project,
   Project Settings; `EditorLoader`: projects and scenes open behind the loading window, ADR 0238), `Play/` (`dotnet build` + game processes over the editor link), `FileSystem/` (file tree, moves
   with UID reference fix-ups, OS trash), `Settings/` (editor settings, code editor), `Updates/` (self-update from GitHub Releases: check, download, `--apply-update` swap), `UI/` (panels, dialogs), `Qa/`

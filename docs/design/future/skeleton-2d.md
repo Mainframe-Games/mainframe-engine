@@ -4,7 +4,7 @@
 **Depends on:** [Canvas](../canvas.md), [Scene serialization](../scene-serialization.md),
 [Asset pipeline](../asset-pipeline.md), [Editor](../editor.md) · **Related:**
 [Skeleton editor](skeleton-2d-editor.md) (the Skeleton tab: Setup and Animate modes),
-[Animation graph](animation-graph.md) (the state machine shared with 3D), [Keyframe animation](keyframe-animation.md)
+[Animation graph](animation-graph.md) (the state machine shared with 3D), [Keyframe animation](../animation.md)
 (G1a `AnimationPlayer`, G1b compute skinning and `Skeleton3D`), [Animation authoring](animation-authoring.md) (`mfe`),
 [Spine](../spine.md) (the vendored runtime, which stays), [Tile maps](../tile-maps.md) (G2 sprite frames) ·
 **ADR:** [0184](../../../memory/decisions/0184-engine-owned-2d-skeletal-animation.md)
@@ -34,7 +34,7 @@ Today the engine's only skeletal animation is Spine ([Spine](../spine.md)). The 
 
 The engine has no replacement pieces either:
 
-- no keyframe animation (G1a is planned, not built: [Keyframe animation](keyframe-animation.md));
+- keyframe animation is 3D-first (G1a, [Animation and skinning](../animation.md)): no 2D bone tracks;
 - no 2D bones or deformable 2D meshes, and no atlas packer;
 - no PSD reader;
 - no compute pipelines (`Rendering/Vulkan/PipelineCache.cs` only mentions `vkCreateComputePipelines`).
@@ -327,7 +327,7 @@ The layout rules:
 
 - **One object per timeline, with parallel arrays.** Times go in `t[]`, values in `v[]` (a scalar, or an array when
   the value has several components) and interpolation in `curve[]`, one entry per segment. That is
-  [Keyframe animation](keyframe-animation.md#animation-resource)'s flat-array rule. A changed key changes one or two
+  [Keyframe animation](../animation.md#animationplayer)'s flat-array rule. A changed key changes one or two
   lines in a diff. Agents can read and write it.
 - **Curves.** A segment is `"linear"`, `"stepped"`, or a cubic bezier `[cx1, cy1, cx2, cy2]` in normalised segment
   space, with x the time fraction and y the value fraction, as in Spine. A multi-component value has either one shared
@@ -736,7 +736,7 @@ public struct SkeletonNetState : INetworkTransferable, IEquatable<SkeletonNetSta
 
 ### AnimationPlayer bridge
 
-G1a's `AnimationPlayer` ([Keyframe animation](keyframe-animation.md#animationplayer-node)) is for cutscenes and props.
+G1a's `AnimationPlayer` ([Keyframe animation](../animation.md#animationplayer)) is for cutscenes and props.
 It reaches skeletons without a new track type:
 
 - `ValueTrack`s on `SkeletonSprite2D` exports (`Clip`, `Skins`, `TimeScale`) and on the graph player's parameters, through
@@ -751,7 +751,7 @@ It reaches skeletons without a new track type:
 ### Compute skinning
 
 Every visible skeleton's vertices are skinned on the GPU by one compute pass. That is G1b's planned step
-([Keyframe animation → G1b](keyframe-animation.md#g1b-skeletons-and-skinning)), built here first:
+([Keyframe animation → G1b](../animation.md#skeletons-skins-and-attachments)), built here first:
 
 - **Frame order.** `RenderServer.SkinMeshes(Root)` (new) runs after `Renderer.BeginFrame()` and before `OnShadowPass`,
   with no render pass active.
@@ -1111,6 +1111,6 @@ Docs to update as each phase lands:
 
 - [Skeleton editor](skeleton-2d-editor.md) — the Skeleton tab.
 - [Animation graph](animation-graph.md) — state machine, blend spaces, layers; shared with 3D.
-- [Keyframe animation](keyframe-animation.md) — G1a/G1b, compute skinning, the shared timeline.
+- [Keyframe animation](../animation.md) — G1a/G1b, compute skinning, the shared timeline.
 - [Spine](../spine.md) — the existing runtime, kept.
 - [Canvas](../canvas.md) — the 2D renderer this extends.

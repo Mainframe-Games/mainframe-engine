@@ -2,7 +2,7 @@
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1c authoring, G1d posing tools, G1e root
 motion, G1f auto-rigging and non-humanoid rigs) · **Status:** ⬜ planned · **Depends on:**
-[Keyframe animation](keyframe-animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
+[Keyframe animation](../animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
 [Asset pipeline](../asset-pipeline.md) (`.meta` settings), [Editor](../editor.md) · **Related:**
 [Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mres`), [Physics](../physics.md) (`CharacterBody3D`),
 [Localization tool](../localization.md) (`mf-l10n`, the CLI pattern), [2D skeletal animation](skeleton-2d.md#agent-tooling) (`mfe skel`:
@@ -15,7 +15,7 @@ the same CLI, whichever lands first creates it)
 The goal is to tell Claude Code "make me a jump animation" and get a clip that plays on a rigged glTF character inside
 the engine, without opening Blender, and to fix by hand in the editor whatever Claude gets wrong.
 
-[Keyframe animation](keyframe-animation.md) (G1a/G1b) gives the data and playback: `Animation` with
+[Keyframe animation](../animation.md) (G1a/G1b) gives the data and playback: `Animation` with
 `Position3DTrack`/`Rotation3DTrack` bone tracks, `Skeleton3D` (bones as data), `Skin`, compute skinning, imported clips
 and an Animation panel. It does not give an agent a way to make a clip:
 
@@ -246,10 +246,9 @@ the script is not kept by the engine ([open question 1](#open-questions)).
    adds it to the model's `.meta` `libraries` (skip with `--no-link`); the importer appends linked libraries to the
    imported model's `AnimationPlayer` ([Linking libraries](#linking-libraries-to-models)).
 
-**This needs two small changes to G1a** ([keyframe-animation.md](keyframe-animation.md#animation-resource) is updated
-with them): transform tracks (`Position3DTrack`, `Rotation3DTrack`, `Scale3DTrack`) gain `Transitions` (per key, as
-`ValueTrack` has), so eases survive baking and the curve view can edit them; and `Animation` gains
-`[Export] string BakedHash` ([Edits](#edits-keys-are-the-truth)).
+**This needs two small changes to G1a.** Transform tracks (`Position3DTrack`, `Rotation3DTrack`, `Scale3DTrack`) have
+per-key `Transitions` (shipped with G1a, [Animation and skinning](../animation.md#animationplayer)), so eases survive
+baking; `Animation` still needs `[Export] string BakedHash` ([Edits](#edits-keys-are-the-truth)), added with G1c.
 
 ### Edits: keys are the truth
 
@@ -374,7 +373,7 @@ Every instance of the model gets them; no scene is edited. A baked clip in the d
   This is general: any `.mres` edited outside the editor (by a person, a script or `mfe`) shows up.
 - **Player preview** before the G1a panel exists: the `AnimationPlayer` inspector gets a clip dropdown and icon buttons
   (play, stop, loop) with tooltips. Preview uses the panel's capture and restore
-  ([keyframe animation → Preview](keyframe-animation.md#editor-the-animation-panel)): the `AnimationEditor` `[Tool]`
+  ([keyframe animation → Preview](../animation.md#animation-panel)): the `AnimationEditor` `[Tool]`
   node advances the player with `Advance(delta)` in edit mode, and the scene is restored when preview stops or the scene
   saves. A reloaded clip that is previewing restarts from its current time. When the panel lands (G1.6) the inspector
   keeps the dropdown and the panel takes over.
@@ -406,7 +405,7 @@ else the hips) and the rest of the hips motion below it.
 
 ### G1d: character animation editing
 
-These build on the G1a Animation panel ([G1.5/G1.6](keyframe-animation.md#task-list)) and edit ordinary keys, so the
+These build on the G1a Animation panel ([G1.5/G1.6](../animation.md#animation-panel)) and edit ordinary keys, so the
 hand fixes are what `mfe anim describe` reads later.
 
 ![The editor with bones, a rotate gizmo, IK handles and onion skin in the 3D view, and the Animation panel's curve view of one bone's flex, abduct and twist](../../images/animation-bone-posing.svg)
@@ -568,6 +567,6 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
 
 ## Related
 
-[Keyframe animation](keyframe-animation.md) · [Asset pipeline](../asset-pipeline.md) · [Editor](../editor.md) ·
+[Keyframe animation](../animation.md) · [Asset pipeline](../asset-pipeline.md) · [Editor](../editor.md) ·
 [Physics](../physics.md) · [Editor viewport tools](../editor.md#viewport-tools) · [Localization](../localization.md) ·
 [Testing](../testing.md)

@@ -126,6 +126,23 @@ internal static class RegistrationEmitter
             sb.Append($",\n{i2}iconFamily: (global::MainframeEngine.EditorIconFamily){m.IconFamily}");
         if (m.Description is not null)
             sb.Append($",\n{i2}description: {Literal(m.Description)}");
+        if (m.AnimationMethods.Count > 0)
+        {
+            sb.Append($",\n{i2}animationMethods: new {Ser}.AnimationMethodInfo[]\n{i2}{{\n");
+            foreach (var method in m.AnimationMethods)
+            {
+                var member = TypeModelBuilder.Identifier(method.Name);
+                var parameters = string.Join(", ", method.Parameters.Select(p =>
+                    $"new {Ser}.AnimationMethodParameter({Literal(p.Name)}, typeof({p.Type}), static e => (object){p.CodecExpression}.Read(e, {Ser}.AnimationMethodInfo.ArgumentContext))"));
+                var arguments = string.Join(", ", method.Parameters.Select((p, i) => $"({p.Type})a[{i}]"));
+                sb.AppendLine($"{i3}new {Ser}.AnimationMethodInfo({Literal(method.Name)},");
+                sb.AppendLine($"{i3}    new {Ser}.AnimationMethodParameter[] {{ {parameters} }},");
+                sb.AppendLine($"{i3}    static (o, a) => (({m.FullName})o).{member}({arguments})),");
+            }
+
+            sb.Append($"{i2}}}");
+        }
+
         sb.AppendLine("));");
     }
 

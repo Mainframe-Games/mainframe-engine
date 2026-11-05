@@ -368,6 +368,16 @@ key Z cmd
 wait 3
 state
 capture 26g-path2d-undone
+# Paths in 3D (G13.6): the Paths 3D scene's camera rail selected: its points and handles, the curve bar's 3D tools and
+# the tilt ring of point 3, seen along the curve.
+open Examples/Demo/Assets/Scenes/paths_3d.mscene
+wait 20
+select Rail
+command curve.tilt
+curve-point 3
+camera -12 6 9 16 50 -18
+wait 5
+capture 26h-path3d-curve
 # Profiler tab (G10): the editor profiling itself for about 2 s, the slowest frame selected, the trace saved with the captures.
 profile tab
 profile editor

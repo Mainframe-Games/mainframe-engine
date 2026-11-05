@@ -106,4 +106,35 @@ public sealed class Animation3DSceneTests : IDisposable
         Assert.True(System.Numerics.Vector3.Distance(start, walker.GlobalPosition) < 0.02f, $"back at {walker.GlobalPosition}, started at {start}");
         Assert.True(walker.IsOnFloor());
     }
+
+    [Fact]
+    public void TheWorkshopLiftsUnlocksSwingsFlickersAndLocksOnItsTracks()
+    {
+        var lift = Scene.GetNode<AnimatableBody3D>("Workshop/Lift");
+        var hinge = Scene.GetNode<Node3D>("Workshop/Hinge");
+        var latch = Scene.GetNode<DoorLatch>("Workshop/Latch");
+        var lamp = Scene.GetNode<OmniLight3D>("Workshop/Lamp");
+        var player = Scene.GetNode<AnimationPlayer>("Workshop/WorkshopPlayer");
+        Tick();
+        Assert.Equal("workshop", player.CurrentAnimation);
+        Assert.False(latch.IsUnlocked);
+
+        Tick(33); // 0.55 s: the lamp's first flicker
+        Assert.True(lamp.Energy < 1f, $"lamp at {lamp.Energy}");
+        Tick(57); // 1.5 s: unlocked (the method key at 1.4 s), the lift is rising
+        Assert.True(latch.IsUnlocked);
+        Assert.Equal(1, latch.Unlocks);
+        Assert.InRange(lift.Position.Y, 0.2f, 1.2f);
+        Tick(48); // 2.3 s: the door is open
+        Assert.True(DoorAngle(hinge) > 1.4f, $"door at {DoorAngle(hinge)} rad");
+        Tick(30); // 2.8 s: the lift is at the top
+        Assert.Equal(1.4f, lift.Position.Y, 2);
+        Tick(144); // 5.2 s: the door is shut and locked again
+        Assert.False(latch.IsUnlocked);
+        Assert.True(DoorAngle(hinge) < 0.01f, $"door at {DoorAngle(hinge)} rad");
+        Tick(138); // 7.5 s: it looped, unlocked again at 6 + 1.4 s
+        Assert.Equal(2, latch.Unlocks);
+    }
+
+    private static float DoorAngle(Node3D hinge) => 2f * MathF.Acos(Math.Clamp(MathF.Abs(hinge.Rotation.W), 0f, 1f));
 }

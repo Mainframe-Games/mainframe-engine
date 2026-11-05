@@ -62,6 +62,22 @@ public static class CollisionLayers
     }
 }
 
+/// <summary>
+/// What a character body keeps of the platform's velocity when it leaves it (Godot's
+/// <c>CharacterBody3D.PlatformOnLeave</c>; G13.5): a jump off a rising lift goes higher, a step off a conveyor keeps going.
+/// </summary>
+public enum PlatformOnLeave : byte
+{
+    /// <summary>Add the platform's velocity to <c>Velocity</c>.</summary>
+    AddVelocity,
+
+    /// <summary>Add only the platform's upward velocity (against gravity, along <c>UpDirection</c>).</summary>
+    AddUpwardVelocity,
+
+    /// <summary>Keep <c>Velocity</c> as it is.</summary>
+    DoNothing,
+}
+
 /// <summary>Kinds of collision object a physics space tracks.</summary>
 internal enum PhysicsBodyKind : byte
 {

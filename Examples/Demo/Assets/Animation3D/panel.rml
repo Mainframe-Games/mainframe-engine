@@ -6,7 +6,7 @@
 <body class="hud" data-model="animation3d">
     <div class="demo-panel">
         <h1>Animation 3D</h1>
-        <p class="hint">A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton that can stay active under physics. Behind it, root motion walks and jumps a body.</p>
+        <p class="hint">A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton that can stay active under physics. Behind it, root motion walks and jumps a body, and keyframe tracks run a workshop: a lift, a latched door, a flickering lamp and a chime.</p>
         <div class="demo-row"><span>Clip</span>
             <select data-value="clip">
                 <option value="idle">Idle</option>

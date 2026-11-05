@@ -49,6 +49,25 @@ public interface ICurveTarget
 
     /// <summary>The view's world space → local.</summary>
     Vector3 ToLocal(Vector3 global);
+
+    /// <summary>The curve has a per-point tilt (roll about the curve, radians): 3D curves.</summary>
+    bool HasTilt => false;
+
+    float GetTilt(int index) => 0f;
+
+    void SetTilt(int index, float tilt)
+    {
+    }
+
+    /// <summary>
+    /// The curve's frame at point <paramref name="index"/> in world space, before tilt: the unit tangent and the up vector
+    /// the tilt rolls (the tilt ring's axis and zero). 2D curves: along the curve and the screen's −Z.
+    /// </summary>
+    void FrameAt(int index, out Vector3 tangent, out Vector3 up)
+    {
+        tangent = Vector3.UnitX;
+        up = Vector3.UnitY;
+    }
 }
 
 /// <summary>A <see cref="Path2D"/>'s <see cref="Curve2D"/> as an <see cref="ICurveTarget"/>.</summary>
@@ -107,4 +126,76 @@ public sealed class Curve2DTarget : ICurveTarget
     private static ExportPropertyInfo Find(string name) =>
         TypeRegistry.GetNearest(typeof(Curve2D))?.FindProperty(name)
         ?? throw new InvalidOperationException($"Curve2D.{name} is not registered.");
+}
+
+/// <summary>A <see cref="Path3D"/>'s <see cref="Curve3D"/> as an <see cref="ICurveTarget"/> (G13.6), with tilt.</summary>
+public sealed class Curve3DTarget : ICurveTarget
+{
+    private static ExportPropertyInfo? _points;
+    private static ExportPropertyInfo? _closed;
+
+    public Curve3DTarget(Path3D path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        Path = path;
+        Curve3D = path.Curve ?? throw new ArgumentException("The path has no curve.", nameof(path));
+    }
+
+    public Path3D Path { get; }
+
+    public Curve3D Curve3D { get; }
+
+    public Node Node => Path;
+
+    public Resource Curve => Curve3D;
+
+    public ExportPropertyInfo PointsProperty => _points ??= Find("Points");
+
+    public ExportPropertyInfo ClosedProperty => _closed ??= Find("Closed");
+
+    public int PointCount => Curve3D.PointCount;
+
+    public bool Closed => Curve3D.Closed;
+
+    public bool HasTilt => true;
+
+    public Vector3 GetPosition(int index) => Curve3D.GetPointPosition(index);
+
+    public void SetPosition(int index, Vector3 position) => Curve3D.SetPointPosition(index, position);
+
+    public Vector3 GetIn(int index) => Curve3D.GetPointIn(index);
+
+    public void SetIn(int index, Vector3 @in) => Curve3D.SetPointIn(index, @in);
+
+    public Vector3 GetOut(int index) => Curve3D.GetPointOut(index);
+
+    public void SetOut(int index, Vector3 @out) => Curve3D.SetPointOut(index, @out);
+
+    public float GetTilt(int index) => Curve3D.GetPointTilt(index);
+
+    public void SetTilt(int index, float tilt) => Curve3D.SetPointTilt(index, tilt);
+
+    public void AddPoint(Vector3 position, Vector3 @in, Vector3 @out, int index) => Curve3D.AddPoint(position, @in, @out, index);
+
+    public void RemovePoint(int index) => Curve3D.RemovePoint(index);
+
+    public void Reverse() => Curve3D.Reverse();
+
+    public Vector3 ToGlobal(Vector3 local) => Path.GlobalTransform.TransformPoint(local);
+
+    public Vector3 ToLocal(Vector3 global) => Path.GlobalTransform.AffineInverse().TransformPoint(global);
+
+    public void FrameAt(int index, out Vector3 tangent, out Vector3 up)
+    {
+        var offset = Curve3D.GetClosestOffset(Curve3D.GetPointPosition(index));
+        var basis = Path.GlobalTransform.Basis;
+        tangent = Normalized(basis.Transform(Curve3D.SampleBakedTangent(offset)), Vector3.UnitZ);
+        up = Normalized(basis.Transform(Curve3D.SampleBakedUpVector(offset)), Vector3.UnitY);
+    }
+
+    private static Vector3 Normalized(Vector3 v, Vector3 fallback) => v.LengthSquared() > 1e-12f ? Vector3.Normalize(v) : fallback;
+
+    private static ExportPropertyInfo Find(string name) =>
+        TypeRegistry.GetNearest(typeof(Curve3D))?.FindProperty(name)
+        ?? throw new InvalidOperationException($"Curve3D.{name} is not registered.");
 }

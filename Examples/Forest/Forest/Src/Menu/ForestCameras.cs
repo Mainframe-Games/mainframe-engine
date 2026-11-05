@@ -14,8 +14,8 @@ public enum ForestCameraMode
 
 /// <summary>
 /// The Forest's cameras (ADR 0180), switched from the pause menu's Cameras page: the player's own, a cinematic
-/// <see cref="FlyOver"/> along <see cref="ForestBenchmark.Spline"/> at a steady speed (looping, or back to the player at
-/// the end), the reference shots R1–R8 (<see cref="ValleyLayout.Shots"/>, with their photo lenses) and a
+/// <see cref="FlyOver"/> along <see cref="ForestBenchmark.Spline"/> at a steady speed (a closed <see cref="Curve3D"/>
+/// through its points, sampled by arc length: G13.8; looping, or back to the player at the end), the reference shots R1–R8 (<see cref="ValleyLayout.Shots"/>, with their photo lenses) and a
 /// <see cref="FreeFlyCamera"/>. Outside <see cref="ForestCameraMode.Player"/> the player is disabled (it stands still),
 /// and so is everything while <see cref="MenuOpen"/>. In a shot, left and right (move left/right) cycle the shots.
 /// Per frame it only moves the fly-over camera: nothing allocates.
@@ -35,10 +35,11 @@ public sealed class ForestCameras : Node
     /// </summary>
     public const float MinClearance = 1.5f;
 
-    private const int SamplesPerSegment = 32;
+    /// <summary>Distance between the rail's baked points (and lift samples), metres.</summary>
+    private const float RailInterval = 0.25f;
 
     private readonly Vector3[] _points = new Vector3[ForestBenchmark.Spline.Length];
-    private float[] _lengths = [];
+    private readonly Curve3D _rail = new() { BakeInterval = RailInterval };
     private float[] _lift = [];
     private Camera3D? _cinematic;
     private FreeFlyCamera? _free;
@@ -68,7 +69,7 @@ public sealed class ForestCameras : Node
     public float FlyOverDistance => _distance;
 
     /// <summary>The fly-over's length (one loop), metres.</summary>
-    public float FlyOverLength => _lengths.Length > 0 ? _lengths[^1] : 0f;
+    public float FlyOverLength => _resolved ? _rail.GetBakedLength() : 0f;
 
     /// <summary>The camera of the current cinematic mode (fly-over and shots), or null.</summary>
     public Camera3D? CinematicCamera => _cinematic;
@@ -154,7 +155,7 @@ public sealed class ForestCameras : Node
     {
         switch (Mode)
         {
-            case ForestCameraMode.FlyOver when _cinematic is { } camera && _lengths.Length > 0:
+            case ForestCameraMode.FlyOver when _cinematic is { } camera && FlyOverLength > 0:
                 _distance += FlyOverSpeed * gameTime.DeltaTime;
                 if (_distance >= FlyOverLength)
                 {
@@ -225,7 +226,7 @@ public sealed class ForestCameras : Node
 
     private float Height(float x, float z) => GroundHeight?.Invoke(x, z) ?? 0f;
 
-    // The spline over the ground and the water, and its arc length (a closed loop: the last point flies back to the first).
+    // The spline over the ground and the water as a closed rail (a uniform Catmull-Rom loop, as before), and the lift.
     private void Resolve()
     {
         if (_resolved)
@@ -233,29 +234,23 @@ public sealed class ForestCameras : Node
         _resolved = true;
         var water = Tree?.Root.World3D.Water;
         ForestBenchmark.ResolveSpline(Height, water, _points);
-        var segments = _points.Length;
-        _lift = Lift(segments * SamplesPerSegment, water);
-        _lengths = new float[segments * SamplesPerSegment + 1];
-        var previous = PointAt(0f);
-        for (var i = 1; i < _lengths.Length; i++)
-        {
-            var p = PointAt((float)i / SamplesPerSegment);
-            _lengths[i] = _lengths[i - 1] + Vector3.Distance(previous, p);
-            previous = p;
-        }
+        _rail.SetSmoothPoints(_points, closed: true);
+        _lift = Lift(water);
     }
 
     /// <summary>
-    /// How far each of the loop's <paramref name="samples"/> points is lifted to keep <see cref="MinClearance"/> over the
-    /// ground and the water: what each needs, widened by a running maximum over ±half a segment and then averaged over as
-    /// much, so the lift is never less than a point needs and eases in and out instead of following every bump.
+    /// How far each of the rail's baked points is lifted to keep <see cref="MinClearance"/> over the ground and the water:
+    /// what each needs, widened by a running maximum over ±half a segment and then averaged over as much, so the lift is
+    /// never less than a point needs and eases in and out instead of following every bump.
     /// </summary>
-    private float[] Lift(int samples, WaterQueries? water)
+    private float[] Lift(WaterQueries? water)
     {
+        var baked = _rail.GetBakedPoints();
+        var samples = baked.Length - 1; // closed: the last baked point is the first
         var need = new float[samples];
         for (var i = 0; i < samples; i++)
         {
-            var p = CurveAt((float)i / SamplesPerSegment);
+            var p = baked[i];
             var ground = Height(p.X, p.Z);
             var surface = water?.SurfaceHeightAt(new Vector3(p.X, ground, p.Z)) ?? float.NaN;
             if (float.IsFinite(surface))
@@ -263,7 +258,7 @@ public sealed class ForestCameras : Node
             need[i] = MathF.Max(0f, ground + MinClearance - p.Y);
         }
 
-        const int window = SamplesPerSegment / 2;
+        var window = Math.Max(1, (int)(_rail.GetBakedLength() / _points.Length / 2f / RailInterval));
         var widened = new float[samples];
         for (var i = 0; i < samples; i++)
             for (var k = -window; k <= window; k++)
@@ -280,72 +275,30 @@ public sealed class ForestCameras : Node
         return lift;
     }
 
-    /// <summary>A point on the closed loop at <paramref name="t"/> (0 … points): the curve, lifted clear of the ground.</summary>
-    private Vector3 PointAt(float t)
+    /// <summary>The rail at <paramref name="distance"/> metres (wraps), lifted clear of the ground.</summary>
+    private Vector3 PointAt(float distance)
     {
-        var p = CurveAt(t);
+        var d = _rail.WrapOffset(distance);
+        var p = _rail.SampleBaked(d, cubic: true);
         if (_lift.Length == 0)
             return p;
-        var u = t * SamplesPerSegment;
-        var i = (int)MathF.Floor(u);
-        var f = u - i;
-        var n = _lift.Length;
-        i = ((i % n) + n) % n;
-        p.Y += float.Lerp(_lift[i], _lift[(i + 1) % n], f);
+        var u = d / _rail.GetBakedLength() * _lift.Length;
+        var i = Math.Clamp((int)u, 0, _lift.Length - 1);
+        p.Y += float.Lerp(_lift[i], _lift[(i + 1) % _lift.Length], u - i);
         return p;
-    }
-
-    /// <summary>A point on the closed Catmull-Rom loop through the spline at <paramref name="t"/> (0 … points).</summary>
-    private Vector3 CurveAt(float t)
-    {
-        var n = _points.Length;
-        var i = (int)MathF.Floor(t);
-        var f = t - i;
-        i = ((i % n) + n) % n;
-        var p0 = _points[(i + n - 1) % n];
-        var p1 = _points[i];
-        var p2 = _points[(i + 1) % n];
-        var p3 = _points[(i + 2) % n];
-        var f2 = f * f;
-        var f3 = f2 * f;
-        return 0.5f * (2f * p1 + (-p0 + p2) * f + (2f * p0 - 5f * p1 + 4f * p2 - p3) * f2 + (-p0 + 3f * p1 - 3f * p2 + p3) * f3);
-    }
-
-    /// <summary>The spline parameter at arc length <paramref name="distance"/> (wraps).</summary>
-    private float ParameterAt(float distance)
-    {
-        var total = FlyOverLength;
-        if (total <= 0f)
-            return 0f;
-        distance %= total;
-        if (distance < 0f)
-            distance += total;
-        int lo = 0, hi = _lengths.Length - 1;
-        while (hi - lo > 1)
-        {
-            var mid = (lo + hi) >> 1;
-            if (_lengths[mid] <= distance)
-                lo = mid;
-            else
-                hi = mid;
-        }
-
-        var span = _lengths[hi] - _lengths[lo];
-        var f = span > 1e-6f ? (distance - _lengths[lo]) / span : 0f;
-        return (lo + f) / SamplesPerSegment;
     }
 
     /// <summary>The fly-over's camera position at <paramref name="distance"/> metres along it.</summary>
     public Vector3 FlyOverPosition(float distance)
     {
         Resolve();
-        return PointAt(ParameterAt(distance));
+        return PointAt(distance);
     }
 
     private void Place(Camera3D camera, float delta, bool snap)
     {
-        var position = PointAt(ParameterAt(_distance));
-        var ahead = PointAt(ParameterAt(_distance + LookAhead));
+        var position = PointAt(_distance);
+        var ahead = PointAt(_distance + LookAhead);
         var target = ahead + new Vector3(0f, -0.15f * LookAhead, 0f);
         // Ease the look so the turns at the spline's points stay smooth.
         _lookTarget = snap ? target : Vector3.Lerp(_lookTarget, target, 1f - MathF.Exp(-2.5f * delta));

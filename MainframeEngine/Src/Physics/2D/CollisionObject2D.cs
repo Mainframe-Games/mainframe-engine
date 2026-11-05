@@ -201,6 +201,23 @@ public class StaticBody2D : PhysicsBody2D
 }
 
 /// <summary>
+/// A body moved by its node, such as a lift on a <see cref="PathFollow2D"/> (Godot's <c>AnimatableBody2D</c>; G13.5):
+/// each move reaches Box2D in one step as a velocity, so it pushes rigid bodies and carries the
+/// <see cref="CharacterBody2D"/>s standing on it. Move it from <see cref="Node.OnPhysicsProcess"/>.
+/// </summary>
+[EditorIcon("elevator")]
+public class AnimatableBody2D : StaticBody2D
+{
+    internal override PhysicsBodyKind Kind => PhysicsBodyKind.Kinematic;
+
+    /// <summary>The velocity of the body's last physics step (px/s).</summary>
+    public System.Numerics.Vector2 GetStepVelocity() => Record?.GetLinearVelocity() ?? System.Numerics.Vector2.Zero;
+
+    /// <summary>The angular velocity of the body's last physics step (rad/s).</summary>
+    public float GetStepAngularVelocity() => Record?.GetAngularVelocity() ?? 0f;
+}
+
+/// <summary>
 /// A simulated 2D body (Godot's <c>RigidBody2D</c>), in pixels: dynamic (gravity, forces, contacts) or kinematic (moved by
 /// code). Mass is in kg; forces and impulses are in pixel units (N = kg·px/s²) and converted at the server boundary.
 /// </summary>

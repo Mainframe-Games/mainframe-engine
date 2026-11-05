@@ -86,4 +86,4 @@ grids stay axis-aligned; no cell painting in the editor yet; Godot's pixel defau
   [Dev overlay](../dev-overlay.md), [Editor](../editor.md), [Demo](../demo.md)
 - Gameplay toolkit siblings: [Tile maps](../tile-maps.md) (G2), [Editor viewport tools](../editor.md#viewport-tools)
   (G7), [Save games and settings](save-and-settings.md) (G4: agents hold no saved state; save the target),
-  [Keyframe animation](keyframe-animation.md) (G1)
+  [Keyframe animation](../animation.md) (G1)
