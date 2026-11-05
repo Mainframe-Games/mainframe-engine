@@ -296,3 +296,5 @@ align-center
 align-right
 transition-right
 subtitles
+sticker
+stairs-down

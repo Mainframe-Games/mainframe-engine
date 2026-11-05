@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace MainframeEngine.Editor;
 
-// Scene icons (lights, cameras, audio): an SVG badge per kind, rasterised at the view's pixel scale into a gizmo icon
+// Scene icons (lights, cameras, audio, decals): an SVG badge per kind, rasterised at the view's pixel scale into a gizmo icon
 // atlas and drawn on top as a billboard with a coloured ring (the light's colour, or the selection colour); their shapes
 // (direction, cone, frustum, ranges) as depth-tested gizmo lines.
 public sealed partial class ViewportController
@@ -14,7 +14,7 @@ public sealed partial class ViewportController
     private const float RingWidth = 2f;       // points: the ring around an icon
     private const float SelectedRingWidth = 3f;
 
-    private static readonly string[] IconFiles = ["light-directional", "light-omni", "light-spot", "camera", "audio", "audio-listener"];
+    private static readonly string[] IconFiles = ["light-directional", "light-omni", "light-spot", "camera", "audio", "audio-listener", "decal"];
     private static byte[][]? s_iconSvgs;
 
     private GizmoIconAtlas? _iconAtlas;
@@ -28,6 +28,7 @@ public sealed partial class ViewportController
         Camera,
         Audio,
         AudioListener,
+        Decal,
     }
 
     // The atlas at this view's scale: the SVGs rasterised once per scale (load time; the view scale changes rarely).
@@ -105,6 +106,12 @@ public sealed partial class ViewportController
                 accent = AudioColor;
                 if (selected && audio.MaxDistance > 0)
                     RangeSphere(shapes, camera, p, audio.MaxDistance, AudioColor, width);
+                break;
+            case Decal decal:
+                icon = SceneIcon.Decal;
+                accent = DecalColor;
+                if (!selected) // selected, its handle provider draws the box and the projection arrow
+                    Arrow(shapes, p, -decal.GlobalUp, unit * 40f, unit, DecalColor with { W = 0.6f }, width);
                 break;
             default:
                 icon = SceneIcon.AudioListener;

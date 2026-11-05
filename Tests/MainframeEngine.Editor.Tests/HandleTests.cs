@@ -205,6 +205,28 @@ public sealed class HandleTests : IDisposable
     }
 
     [Fact]
+    public void DecalHandlesSizeTheBoxOnEachAxis()
+    {
+        // G6.5: a handle on the +X, +Y and +Z faces; dragging one sets that Size component to twice its distance (the box
+        // stays centred), in the decal's own units.
+        Assert.IsType<DecalHandles>(HandleProviders.Find(typeof(Decal)));
+        var decal = Select(new Decal { Name = "Scorch", Position = new Vector3(1, 0, 0), Size = new Vector3(2, 1, 4), Scale = new Vector3(2, 2, 2) });
+        W.Viewport.CollectHandles(_editor.Scene);
+        Assert.Equal(3, W.Viewport.Handles.Count);
+        Assert.True(Vector3.Distance(new Vector3(3, 0, 0), W.Viewport.Handles[0].Position) < 1e-3f); // 2 m × scale 2 / 2
+        Assert.True(Vector3.Distance(new Vector3(1, 1, 0), W.Viewport.Handles[1].Position) < 1e-3f);
+        Assert.True(Vector3.Distance(new Vector3(1, 0, 4), W.Viewport.Handles[2].Position) < 1e-3f);
+
+        var provider = new DecalHandles();
+        provider.Drag(decal, 0, Along(3f)); // 3 m from the centre at scale 2: a local half-size of 1.5
+        Assert.Equal(new Vector3(3, 1, 4), decal.Size);
+        provider.Drag(decal, 1, Along(-1f));
+        Assert.Equal(0.001f, decal.Size.Y); // never zero
+        Assert.Equal("Width 3.00 m", provider.Describe(decal, 0));
+        Assert.Equal(["Size"], provider.Properties(decal, 2).ToArray());
+    }
+
+    [Fact]
     public void LockedNodesShowNoHandles()
     {
         var lamp = Select(new OmniLight3D { Name = "Lamp", Range = 3f });
