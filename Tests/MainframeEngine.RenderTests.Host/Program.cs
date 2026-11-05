@@ -115,6 +115,7 @@ RenderTestGame game = options.Scene switch
     "pbr" => new PbrSpheresScene(options),
     "lod" => new LodScene(options),
     "decals" => new DecalScene(options),
+    "pbr-ibl-hdr" => new HdrSkyScene(options),
     "fog" => new FogScene(options),
     "vertex-colors" => new VertexColorsScene(options),
     "multimesh" => new MultiMeshScene(options),
