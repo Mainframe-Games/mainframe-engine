@@ -112,6 +112,29 @@ public sealed class SurfaceShaderBuildTests
         }
     }
 
+    [Fact]
+    public void RealPathResolvesLinkedFoldersAsSlangcsDepfileDoes()
+    {
+        // macOS's temp folder is /var/..., a link to /private/var/...; slangc's depfile names the real path, and the lock
+        // must not list the build's own temp files (deleted afterwards) because the two spellings differ.
+        var dir = Directory.CreateTempSubdirectory("mf-realpath-");
+        try
+        {
+            var real = Directory.CreateDirectory(Path.Combine(dir.FullName, "real")).FullName;
+            File.WriteAllText(Path.Combine(real, "a.slang"), "");
+            var link = Path.Combine(dir.FullName, "link");
+            Directory.CreateSymbolicLink(link, real);
+            var expected = Path.Combine(SurfaceShaderBuild.RealPath(real), "a.slang");
+            Assert.Equal(expected, SurfaceShaderBuild.RealPath(Path.Combine(link, "a.slang")));
+            Assert.Equal(expected, SurfaceShaderBuild.RealPath(Path.Combine(link, "..", "real", "a.slang")));
+            Assert.Equal(Path.Combine(SurfaceShaderBuild.RealPath(real), "missing", "b.slang"), SurfaceShaderBuild.RealPath(Path.Combine(link, "missing", "b.slang")));
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
     private static string IncludeDirectory => Path.Combine(FindRepoRoot(), "MainframeEngine", "Assets", "Shaders", "include");
 
     private static string SlangcOrSkip() =>
