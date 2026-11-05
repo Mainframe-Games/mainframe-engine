@@ -2,7 +2,7 @@
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G8a) · **Status:** ⬜ planned ·
 **Depends on:** [M6 physics](../physics.md) (trimesh collision), [M10 editor](../editor.md) (viewport, undo, save);
-the Realistic profile also on [Rendering features](rendering-features.md) G6.1/G6.2 (PBR, IBL; Blinn-Phong fallback
+the Realistic profile also on [Rendering features](../rendering-features.md) G6.1/G6.2 (PBR, IBL; Blinn-Phong fallback
 until then) and G6.4 (index-only LODs) · **Related:** [Procedural trees](procedural-trees.md) (G8b:
 `FoliageMaterial3D`, wind, `Tree3D` scatter), [Water](water.md) (G8c: renders the water layer),
 [Forest showcase](forest-showcase.md) (G8d: the Realistic profile's first user),
@@ -350,7 +350,7 @@ switches once per frame. Casters and the ID pass are unchanged.
 | 6 | `Texture2DArray`: splat weights (2 layers) |
 | 7 | `MacroColor` or a 1 × 1 fallback |
 
-Fragment-stage budget ([G6 binding budget](rendering-features.md#binding-budget): ≤ 16 sampled images and ≤ 16
+Fragment-stage budget ([G6 binding budget](../rendering-features.md#binding-budget): ≤ 16 sampled images and ≤ 16
 samplers per stage, ≤ 4 sets): shadows 6 images / 6 samplers, frame set with every G6 feature 4 / 1, terrain 5 / 2:
 **15 images, 9 samplers, 3 sets**. Before G6: 11 and 8. Set 3 stays free.
 
@@ -707,7 +707,7 @@ settled; **Decision:** is what to build.
 
 - [Procedural trees](procedural-trees.md) (G8b), [Water](water.md) (G8c), [Forest showcase](forest-showcase.md) (G8d),
   [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
-- [Rendering features](rendering-features.md) (G6: PBR, IBL, LOD, binding budget),
+- [Rendering features](../rendering-features.md) (G6: PBR, IBL, LOD, binding budget),
   [Editor viewport tools](../editor.md#viewport-tools) (G7: handles, box selection, simulate)
 - [Physics](../physics.md), [Materials & meshes](../materials-and-meshes.md), [Shaders](../shaders.md),
   [Editor](../editor.md), [Scene serialization](../scene-serialization.md),

@@ -6,7 +6,7 @@ single-line `Label3D` on the mesh batcher; see [What shipped](#what-shipped-adr-
 materials ([ADR 0216](../../../memory/decisions/0216-viewport-textures-on-3d-materials.md), [What shipped](#what-shipped-adr-0216)) ·
 **Depends on:** [M8 game UI](../game-ui.md) (RmlUi, `VulkanUiRenderer`), [canvas text](../canvas.md#text-adr-0118)
 (ADR 0118: `Font`), [M6 physics](../physics.md) (occlusion and line-of-sight rays) · **Related:**
-[Rendering features](rendering-features.md) (G6.3 billboards), [Localization](../localization.md),
+[Rendering features](../rendering-features.md) (G6.3 billboards), [Localization](../localization.md),
 [Haptics and input glyphs](input-haptics-and-glyphs.md) (G12: prompt glyphs), [Accessibility](accessibility.md) (G14:
 UI scale), [Editor](../editor.md#ui-preview) (stand-in data)
 
@@ -23,7 +23,7 @@ the screen:
   (`MainframeEngine/Src/Scene/Nodes2D/Label2D.cs:12`).
 - **The nearest 3D node is `Sprite3D`:** a textured quad with no billboard mode and one draw per sprite
   (`MainframeEngine/Src/Scene/Nodes3D/GeometryInstance3D.cs:169-177`). Billboards are planned as a material mode in G6.3
-  ([rendering-features.md](rendering-features.md), "Billboards"). Materials have no depth-test switch and no
+  ([rendering-features.md](../rendering-features.md), "Billboards"). Materials have no depth-test switch and no
   fixed-screen-size mode: `MaterialRenderState` is alpha, cull and double-sided only
   (`MainframeEngine/Src/Rendering/Resources/Material.cs:115-127`).
 - **No world → screen call on `Camera3D`.** It has the inverse, `ProjectRay`/`ProjectRayOrigin`/`ProjectRayNormal`
@@ -528,7 +528,7 @@ text is translated into Spanish and `qps`. `Demo.Tests` clicks the terminal head
   [Localization](../localization.md) (`Atr`, font fallback), [Materials & meshes](../materials-and-meshes.md)
   (`Sprite3D`, textures), [Physics](../physics.md) (queries), [Post-processing](../post-processing.md) (TAA, glow),
   [Editor](../editor.md) (UI preview, icons), [Demo](../demo.md)
-- Gameplay toolkit siblings: [Rendering features](rendering-features.md) (G6.3 billboards for `Sprite3D`; `Label3D`
+- Gameplay toolkit siblings: [Rendering features](../rendering-features.md) (G6.3 billboards for `Sprite3D`; `Label3D`
   billboards in its own shader and does not wait for them), [Haptics and input glyphs](input-haptics-and-glyphs.md)
   (G12: prompt glyphs in markers), [Accessibility](accessibility.md) (G14: UI scale applies to markers through the
   layer, not to panels), [Save games and settings](save-and-settings.md) (G4: the settings menu can live on a panel)

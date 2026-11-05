@@ -246,6 +246,16 @@ wait 10
 capture 21-range-handle
 command edit.undo
 wait 3
+# G6.5: a Decal from Add Node, under the blue light: its scene icon, projection box, arrow and size handles.
+key A cmd
+wait 3
+type Decal
+wait 3
+accept
+wait 5
+capture 21b-decal-gizmo
+command edit.undo
+wait 3
 # The resource row's More menu, then Save as .mres is left alone (a file picker): Make Unique on a fresh shared mesh.
 select Ring/Box
 wait 3

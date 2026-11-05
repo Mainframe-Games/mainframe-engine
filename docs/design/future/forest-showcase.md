@@ -1,7 +1,7 @@
 # Proposal: Forest showcase (Examples/Forest: a first-person walk through a forest, plus the rendering it needs)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G8d) · **Status:** ⬜ planned ·
-**Depends on:** [Rendering features](rendering-features.md) (G6.1 PBR, G6.2 IBL, G6.3 particles, G6.4 LOD; G6.6 SSAO),
+**Depends on:** [Rendering features](../rendering-features.md) (G6.1 PBR, G6.2 IBL, G6.3 particles, G6.4 LOD; G6.6 SSAO),
 [Terrain](terrain.md) (G8a, Realistic profile), [Procedural trees](procedural-trees.md) (G8b, Realistic style),
 [Water](water.md) (G8c: `River3D`, `SceneTextures`); TAA and contact shadows also on step 1 of
 [M11 backend abstraction](rendering-backend-abstraction.md) · **Related:** [Demo](../demo.md),
@@ -20,9 +20,9 @@ does that today.
   free camera (`docs/design/cameras-and-input.md:126-131`), and no file in `MainframeEngine/`, `Examples/` or
   `Templates/` implements a first-person controller.
 - **G6 and G8a–c supply content features, not the frame.** PBR, IBL, LOD, particles and SSAO
-  ([G6](rendering-features.md)), terrain ([G8a](terrain.md)), trees ([G8b](procedural-trees.md)) and water
+  ([G6](../rendering-features.md)), terrain ([G8a](terrain.md)), trees ([G8b](procedural-trees.md)) and water
   ([G8c](water.md)) are planned. G6 lists TAA, volumetric fog and SSR as non-goals ([rendering-features.md →
-  Non-goals](rendering-features.md#non-goals)).
+  Non-goals](../rendering-features.md#non-goals)).
 - **No anti-aliasing.** The scene target and the swapchain are single-sample
   (`MainframeEngine/Src/Rendering/Vulkan/RenderTarget.cs:254`,
   `MainframeEngine/Src/Rendering/Vulkan/VulkanRenderer.Presentation.cs:214`). A forest is mostly alpha-cut leaves and
@@ -361,7 +361,7 @@ next to comparable Unreal and Unity sample-scene screenshots (not committed).
   opaques, at the far plane with a less-or-equal depth test: the canopy hides most of it, and drawing it before G8c's
   colour copy keeps it in the water's refraction.
 - **Binding budget.** G8d adds one sampler and no sampled image to the mesh fragment stage: 14 images, 9 samplers, 3
-  sets ([G6's table](rendering-features.md#binding-budget)). Contact shadows share G6.6's AO image (which becomes R8G8);
+  sets ([G6's table](../rendering-features.md#binding-budget)). Contact shadows share G6.6's AO image (which becomes R8G8);
   PCSS needs one non-comparison sampler over the cascade array; the sky LUTs are bound only by the sky pipeline; fog
   reads the radiance cube G6.2 binds. The frame UBO (`include/frame.slang`) grows by ≈ 112 B (fog, TAA jitter, previous
   view-projection).
@@ -739,7 +739,7 @@ settled; **Decision:** is what to build.
 ## Related
 
 [Milestones](../../milestones.md#gameplay-toolkit-) · [Terrain (G8a)](terrain.md) · [Procedural trees
-(G8b)](procedural-trees.md) · [Water (G8c)](water.md) · [Rendering features (G6)](rendering-features.md) · [Rendering
+(G8b)](procedural-trees.md) · [Water (G8c)](water.md) · [Rendering features (G6)](../rendering-features.md) · [Rendering
 backend abstraction (M11)](rendering-backend-abstraction.md) · [Demo](../demo.md) · [Demo project](demo-project.md) ·
 [Demo download](demo-download.md) · [Save games and settings (G4)](save-and-settings.md) · [Sky](../sky.md) · [Shadow
 system](../shadow-system.md) · [Color pipeline](../color-pipeline.md) · [Cameras & input](../cameras-and-input.md) ·

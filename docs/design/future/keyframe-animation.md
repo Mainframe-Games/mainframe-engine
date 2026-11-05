@@ -8,7 +8,7 @@ the current state; this proposal keeps what is still planned · **Depends on:** 
 (G17: builds compute skinning first), [Animation graph](animation-graph.md) (state machines for both),
 [Animation authoring](animation-authoring.md) (G1c–G1f:
 Claude-made clips, `mfe`, posing tools, root motion), [Tile maps](../tile-maps.md) (G2: `AnimatedSprite2D` uses
-the same player ideas), [Rendering features](rendering-features.md) (G6: PBR shaders skinned meshes must still feed),
+the same player ideas), [Rendering features](../rendering-features.md) (G6: PBR shaders skinned meshes must still feed),
 [Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mres` / Make unique for imported libraries),
 [Mobile](mobile.md) (AOT), [Rendering backend abstraction](rendering-backend-abstraction.md) (compute in M11)
 
@@ -588,5 +588,5 @@ G1e (G1.12–G1.20), then the panel (G1.5–G1.6), then G1d and G1f. Claude-made
 [Scene serialization](../scene-serialization.md) · [Asset pipeline](../asset-pipeline.md) ·
 [Materials & meshes](../materials-and-meshes.md) · [GPU resources](../gpu-resources.md) · [Physics](../physics.md) ·
 [Networking](../networking.md) · [Editor](../editor.md) · [Music editor](music-editor.md) ·
-[Tile maps](../tile-maps.md) · [Rendering features](rendering-features.md) · [Editor viewport tools](../editor.md#viewport-tools) ·
+[Tile maps](../tile-maps.md) · [Rendering features](../rendering-features.md) · [Editor viewport tools](../editor.md#viewport-tools) ·
 [Mobile](mobile.md) · [Animation authoring](animation-authoring.md)

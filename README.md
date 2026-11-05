@@ -197,6 +197,10 @@ can be saved as a `.mres` or made unique from the inspector.
     <td align="center" valign="top"><img src="docs/images/editor-6dof-handles.png" width="380" alt="The Demo's 6-DOF gimbal selected: arcs about its X and Z axes with a lower and upper handle each, and the Generic6DofJoint3D inspector"><br><b>6-DOF joints</b> — every axis free, limited or locked; a handle pair per axis that isn't locked</td>
     <td align="center" valign="top"><img src="docs/images/editor-path2d.png" width="380" alt="A new Path2D in the Demo's Paths 2D scene: a closed, smoothed curve with its points and tangent handles, the curve bar over the 2D view, and the other paths drawn in blue"><br><b>Curve tool</b> — draw Path2D curves: add, insert, delete, drag points and mirrored handles, close, reverse, smooth</td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-decal.png" width="380" alt="A Decal added under the Demo's blue light: its projection box and size handles in the view, its textures and fades in the Inspector"><br><b>Decals</b> — a projection box with size handles; albedo, normal, ORM and emission maps with Godot's fades</td>
+    <td></td>
+  </tr>
 </table>
 
 **Video mode:** Run › Play and Record (F10) records the game into the project's `Assets/Video/Recordings`, and the
@@ -269,7 +273,8 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 |---|---|
 | [Vulkan renderer](docs/design/vulkan-renderer.md) | Vulkan 1.2 on macOS (MoltenVK), Windows and Linux: HDR with linear lighting, an in-house GPU allocator and upload queue, a persisted pipeline cache, zero allocations per frame |
 | [Materials & meshes](docs/design/materials-and-meshes.md) | PBR `StandardMaterial3D`, sRGB-aware textures with GPU mips, instanced and sorted batches (10 000 instances in a few draws), frustum culling, GPU picking, `SubViewport`s, billboarded `Sprite3D`s that cast shadows, outlined `Label3D` name tags |
-| [Lighting & sky](docs/design/lighting.md) | Directional, omni and spot lights; procedural, physical, panoramic and cubemap [skies](docs/design/sky.md) with image-based lighting; baked light probes |
+| [Rendering features](docs/design/rendering-features.md) | Mesh levels of detail picked by projected error (`LodBias`, a project-wide threshold, shadows at the same level, authored `_LOD0…7` nodes from model files); forward decals that change albedo, normal, roughness/metal and emission before lighting, with angle and distance fades and a box gizmo in the editor |
+| [Lighting & sky](docs/design/lighting.md) | Directional, omni and spot lights; procedural, physical, panoramic (`.hdr` too) and cubemap [skies](docs/design/sky.md) with image-based lighting; baked light probes |
 | [Shadows](docs/design/shadow-system.md) | Four sun cascades, a spot/secondary-directional atlas, point-light cubes, PCF and PCSS soft shadows, cutout casters, per-light settings |
 | [Post-processing](docs/design/post-processing.md) | SSAO/GTAO, TAA and upscaling, volumetric fog, depth of field, auto exposure, glow, light shafts, FXAA, colour grading, ACES and AgX |
 | [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, canvas groups that fade as one image, layers, z-order and y-sort, wrapped multi-line TrueType text from the engine's own rasterizer; Godot's `BitMap` and `Geometry2D` (alpha to polygons, polygon booleans and offsets) |

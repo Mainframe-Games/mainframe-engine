@@ -2,9 +2,9 @@
 
 The current state of 3D particles: `GpuParticles3D` on the shared `ParticleProcessMaterial`, simulated on the CPU and
 drawn by its own `ParticleRenderer` (G6.3, [ADR 0206](../../memory/decisions/0206-gpuparticles3d.md), issue #120). The 2D
-emitter, `GpuParticles2D`, is in [2D canvas → Particles](canvas.md#particles). The G6 plan this replaces is
-[future/rendering-features.md → 3D particles](future/rendering-features.md#3d-particles); what differs from it is listed
-under [Differences from the plan](#differences-from-the-plan).
+emitter, `GpuParticles2D`, is in [2D canvas → Particles](canvas.md#particles). The G6 plan this replaces was
+part of the [rendering features](rendering-features.md) proposal (now closed); what differs from it is listed under
+[Differences from the plan](#differences-from-the-plan).
 
 ## `GpuParticles3D`
 
@@ -184,4 +184,4 @@ animated (flipbook) textures.
 
 [ADR 0206](../../memory/decisions/0206-gpuparticles3d.md) · [ADR 0187](../../memory/decisions/0187-particle-life-features.md) ·
 [2D canvas → Particles](canvas.md#particles) · [Materials & meshes](materials-and-meshes.md) ·
-[Post-processing](post-processing.md) · [Rendering features (G6)](future/rendering-features.md)
+[Post-processing](post-processing.md) · [Rendering features (G6)](rendering-features.md)

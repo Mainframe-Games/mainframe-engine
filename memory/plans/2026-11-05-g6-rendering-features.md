@@ -1,7 +1,7 @@
 # Plan: G6 rendering features — LOD, decals, the rest of IBL
 
-**Status:** in progress
-**Docs:** [Rendering features proposal](../../docs/design/future/rendering-features.md) (G6.4 LOD, G6.5 Decals, G6.2 IBL,
+**Status:** done, see [log](../logs/2026-11-05-g6-rendering-features.md)
+**Docs:** [Rendering features proposal](../../docs/design/rendering-features.md) (moved there when G6 shipped) (G6.4 LOD, G6.5 Decals, G6.2 IBL,
 G6.1 Import; Open questions 1 and 3), [Materials & meshes](../../docs/design/materials-and-meshes.md),
 [Sky](../../docs/design/sky.md), [Post-processing](../../docs/design/post-processing.md) (set 0 bindings),
 [ADR 0150](../decisions/0150-pbr-shading-and-sky-ibl.md) (PBR and sky IBL as built), [ADR 0165](../decisions/0165-ssao-gtao.md),
@@ -53,25 +53,25 @@ Already built and not redone: PBR (`ShadingMode.Pbr`, ORM, `OrmPacker`), sky IBL
 
 ## Steps
 
-- [ ] **LOD data and GPU.** `MeshLod`, `MeshSurface.Lods`, `MeshGpu` LOD table and upload, sort keys. Verified by:
+- [x] **LOD data and GPU.** `MeshLod`, `MeshSurface.Lods`, `MeshGpu` LOD table and upload, sort keys. Verified by:
   `MeshLodTests` (upload ranges, validation, serialization round trip), `DrawSortKeyTests` for the new layouts.
-- [ ] **LOD selection.** `LodSelection` (pure function), `LodBias`, `RenderServer.MeshLodThreshold` +
+- [x] **LOD selection.** `LodSelection` (pure function), `LodBias`, `RenderServer.MeshLodThreshold` +
   `rendering.meshLodThreshold`, casters at the camera's level, `MeshRendererStats.LodDraws`. Verified by: unit tests for
   perspective/ortho, bias, threshold, scale; settings round trip.
-- [ ] **Authored LOD import.** `_LODn` siblings merge; `lodErrors`, `generateLods` meta keys. Verified by: `TestModel`
+- [x] **Authored LOD import.** `_LODn` siblings merge; `lodErrors`, `generateLods` meta keys. Verified by: `TestModel`
   with `_LOD0`/`_LOD1`/`_LOD2` siblings imports as one mesh with two levels and the meta's errors.
-- [ ] **LOD render test and benchmark.** `lod` render test (golden + self-check of `Stats` per distance), validation and
+- [x] **LOD render test and benchmark.** `lod` render test (golden + self-check of `Stats` per distance), validation and
   allocation gates; `MeshDrawListBenchmarks` with LOD. Verified by: `just test-render` green, PNG inspected.
-- [ ] **Decal limits, UBO and atlas.** `MAX_DECALS`, `DecalAtlas`, set 0 bindings 8 and 9 with fallbacks. Verified by:
+- [x] **Decal limits, UBO and atlas.** `MAX_DECALS`, `DecalAtlas`, set 0 bindings 8 and 9 with fallbacks. Verified by:
   `DecalAtlasTests` (packing, rebuild only on change), shaders rebuilt, `just shaders-check`.
-- [ ] **`Decal` node, masks and shader loop.** Per-view cull and nearest 32, instance masks, `Mesh.vk.frag` loop.
+- [x] **`Decal` node, masks and shader loop.** Per-view cull and nearest 32, instance masks, `Mesh.vk.frag` loop.
   Verified by: `DecalSelectionTests` (frustum, nearest 32, masks, transparent gets none); `decals` render test.
-- [ ] **Decal editor.** `sticker` icon, box gizmo with size handles. Verified by: editor tests; a QA capture.
-- [ ] **Decal gates.** Allocation gate (32 decals × 1 000 instances), `DecalAssignBenchmarks`. Verified by: gates green.
-- [ ] **IBL rest.** `.hdr` panoramas, `Sky.RadianceSize`, `Sky.ProcessMode`. Verified by: `.hdr` decode test, a
+- [x] **Decal editor.** `sticker` icon, box gizmo with size handles. Verified by: editor tests; a QA capture.
+- [x] **Decal gates.** Allocation gate (32 decals × 1 000 instances), `DecalAssignBenchmarks`. Verified by: gates green.
+- [x] **IBL rest.** `.hdr` panoramas, `Sky.RadianceSize`, `Sky.ProcessMode`. Verified by: `.hdr` decode test, a
   `pbr-ibl-hdr` render test, sky tests.
-- [ ] **Import rest.** PBR import and the `shading` meta. Verified by: `TestModel` with metallic-roughness textures.
-- [ ] **Docs and close.** Proposal content into `materials-and-meshes.md`, `sky.md`, `asset-pipeline.md` with "Changes
+- [x] **Import rest.** PBR import and the `shading` meta. Verified by: `TestModel` with metallic-roughness textures.
+- [x] **Docs and close.** Proposal content into `materials-and-meshes.md`, `sky.md`, `asset-pipeline.md` with "Changes
   from the proposal"; delete the proposal and repoint links; ADRs from 0245; milestones row; README, landing page, Demo
   screenshot. Verified by: `check.sh`, docs-site build.
 
