@@ -35,3 +35,9 @@ Branch `feature/forest-goldens` (stacked on `feature/river-tool`). As built: [Fo
 - A quiet-machine bench and baseline; why the draws rose from ≤ 692 to ≤ 1 038 and why the prepass costs nearly as
   much as the main pass.
 - The G8d.9 CI step for `Forest.Tests`, `build/forest-smoke.sh`, self-contained player zips, butterflies.
+
+## State changes
+
+- milestones G8d: 🚧 → "✅ G8d.1–G8d.8 (physical sky, height fog, auto exposure, FXAA and the LUT, PCSS, shafts, contact shadows, TAA), the project, controller, valley, vegetation and props, audio, look and reference shots, `--benchmark` and `--autowalk`, the release zip and the editor's example picker, and `forest-mini` goldens on both drivers (G8d.15); not built: a CI step for `Forest.Tests`, `build/forest-smoke.sh`, self-contained player zips, butterflies".
+- milestones G8e: 🚧 → "🚧; the frame budget is not met (2026-11-07, busy machine, Apple M5: 1080p with TAAU p50 25.5 ms, p99 33.6 ms; 2560 × 1316 native p50 38.5 ms, p99 51.4 ms; [Forest → Performance](../../docs/design/forest.md#performance))" (superseded by the objects log's G8e entry).
+- state: the Forest entry in What exists gains "G8d shipped with the `forest-mini` render golden"; Next steps 2 replaces "forest goldens and frame budget" with "the Forest frame budget: G8e, see `docs/design/forest.md#performance`".

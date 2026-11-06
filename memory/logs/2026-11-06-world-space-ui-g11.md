@@ -9,7 +9,7 @@ summary: >-
 # 2026-11-06: World-space UI (G11.1–G11.4)
 
 Branch `feature/world-space-ui-g11`. Plan: [World-space UI G11](../plans/2026-11-06-world-space-ui-g11.md).
-As built: [World-space UI](../../docs/design/world-space-ui.md); the [proposal](../../docs/design/future/world-space-ui.md)
+As built: [World-space UI](../../docs/design/world-space-ui.md); the [proposal](../../docs/design/world-space-ui.md)
 keeps G11.5–G11.9.
 
 ## What changed

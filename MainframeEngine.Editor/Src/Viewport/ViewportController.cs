@@ -33,6 +33,10 @@ public sealed partial class ViewportController : Node
     private EditedScene? _scene;
     private EditedScene? _backdrop;
     private int _iconsVersion = -1;
+    private readonly List<UiPanel3D> _panels = [];
+
+    /// <summary>G11.7: the UI preview's stand-in data in the active scene's world-space panels.</summary>
+    public PanelStandIns PanelStandIns { get; } = new();
     private SubViewport? _registered;
     private Grid3D? _grid;
 
@@ -138,6 +142,8 @@ public sealed partial class ViewportController : Node
         CancelDrag();
         _iconNodes.Clear();
         _paths.Clear();
+        _panels.Clear();
+        PanelStandIns.Clear();
         _iconsVersion = -1;
         _nodes2D.Clear();
         _nodes2DVersion = -1;
@@ -246,7 +252,8 @@ public sealed partial class ViewportController : Node
         else if (scene.Camera.Is2D)
             DrawEditorVisuals2D(scene, pixels);
         else
-            DrawEditorVisuals(scene, pixels);
+            DrawEditorVisuals(scene, pixels); // refreshes _panels when the scene changed
+        PanelStandIns.Update(_panels);
     }
 
     // ADR 0169: the view's post-processing as the game would run it (the project's anti-aliasing, TAA sharpness and
@@ -811,6 +818,7 @@ public sealed partial class ViewportController : Node
         _iconsVersion = scene.Version;
         _iconNodes.Clear();
         _paths.Clear();
+        _panels.Clear();
         Collect(scene, scene.Root);
     }
 
@@ -820,6 +828,8 @@ public sealed partial class ViewportController : Node
             _iconNodes.Add((Node3D)node);
         else if (node is Path3D path)
             _paths.Add(path);
+        else if (node is UiPanel3D panel)
+            _panels.Add(panel);
         var children = node.Children;
         for (var i = 0; i < children.Count; i++)
             Collect(scene, children[i]);

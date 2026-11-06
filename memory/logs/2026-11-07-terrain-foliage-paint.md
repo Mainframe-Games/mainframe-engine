@@ -20,3 +20,8 @@ Branch `feature/terrain-foliage-objects` (stacked on `feature/river-tool`). Plan
 ## Not done
 
 - Object scatter and the Objects mode (next PR); the foliage build radius; `ChannelCutoff`.
+
+## State changes
+
+- milestones G8a: "Terrain dock: create, sculpt, paint, water ✅ … Foliage and Objects modes, object scatter ⬜" → "Terrain dock: create, sculpt, paint, water, foliage ✅ (ADR 0270); Faceted `TerrainMaterial3D` ✅; painted foliage density ✅; object scatter and the Objects mode ⬜".
+- state: Next steps 2 replaces "the Terrain dock's Foliage and Objects modes" with "object scatter and the Terrain dock's Objects mode".

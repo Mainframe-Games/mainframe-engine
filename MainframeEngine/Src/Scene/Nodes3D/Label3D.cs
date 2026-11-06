@@ -29,6 +29,10 @@ public class Label3D : GeometryInstance3D
     private int _builtStamp = -1;
     private string? _builtLocale;
     private int _builtFallbacks = -1;
+    private bool _builtBatched;
+    private TextGlyph[] _glyphs = [];
+    private int _glyphCount;
+    private Aabb _bounds;
 
     [Export(Translatable = true)]
     public string Text
@@ -215,39 +219,114 @@ public class Label3D : GeometryInstance3D
         set => Changed(ref field, value);
     } = -1;
 
+    /// <summary>
+    /// Divides the text's colour by the view's exposure (manual × the world's × auto exposure; ADR 0257), so a sign keeps
+    /// its authored brightness while the camera adapts. The tonemap (ACES) still applies. Off by default (Godot tonemaps
+    /// labels); only unshaded labels drawn by the batched renderer use it (<see cref="IsBatchedText"/>).
+    /// </summary>
+    [Export]
+    public bool IgnoreExposure { get; set; }
+
     internal override BillboardMode RenderBillboard => Billboard;
 
     internal override float RenderFixedPixelSize => FixedSize ? PixelSize : 0f;
 
+    /// <summary>
+    /// Drawn by the batched <see cref="Text3DRenderer"/> (ADR 0258): every unshaded label, except a cutout that casts
+    /// shadows. Lit labels and shadow-casting cutouts stay a mesh on the mesh batcher (ADR 0251).
+    /// </summary>
+    internal bool IsBatchedText => !Shaded && !(AlphaCut == SpriteAlphaCut.Discard && CastShadows);
+
     /// <summary>The label's local bounds as built (empty without text), for editor focus and culling.</summary>
-    public Aabb GetAabb() => GetRenderMesh() is { } mesh ? mesh.Bounds : default;
+    public Aabb GetAabb()
+    {
+        if (Text.Length == 0)
+            return default;
+        Sync(DefaultOr(Font), IsBatchedText);
+        return _bounds;
+    }
 
     /// <summary>The lines as last laid out (translated, wrapped).</summary>
     public IReadOnlyList<string> GetLines()
     {
-        GetRenderMesh();
+        if (Text.Length > 0)
+            Sync(DefaultOr(Font), IsBatchedText);
+        else
+            _lines.Clear();
         return _lines;
     }
 
     internal override Mesh? GetRenderMesh()
     {
-        if (Text.Length == 0)
+        if (Text.Length == 0 || IsBatchedText)
             return null;
-        Sync(Font ?? (_defaultFont ??= Font.FromData(ContentFiles.ReadAllBytes(ContentPaths.Resolve(DefaultFontPath)))));
+        Sync(DefaultOr(Font), batched: false);
         return _mesh.SurfaceCount > 0 ? _mesh : null;
+    }
+
+    // ── Batched glyph run (ADR 0258) ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>The glyph quads of a batched label (label space, world units), outline glyphs first.</summary>
+    internal ReadOnlySpan<TextGlyph> Glyphs => new(_glyphs, 0, _glyphCount);
+
+    /// <summary>The local bounds of the run last built (<see cref="SyncGlyphs"/>), without rebuilding.</summary>
+    internal Aabb RunBounds => _bounds;
+
+    /// <summary>Bumped whenever <see cref="Glyphs"/> is rebuilt.</summary>
+    internal int GlyphsVersion { get; private set; }
+
+    /// <summary>The renderer's per-label state (page slots), owned by <see cref="Text3DRenderer"/>.</summary>
+    internal Text3DRenderer.LabelState? TextState;
+
+    /// <summary>Rebuilds the glyph run when the text, a property or the locale changed (batched labels only).</summary>
+    internal void SyncGlyphs()
+    {
+        if (Text.Length == 0)
+        {
+            if (_glyphCount != 0)
+            {
+                _glyphCount = 0;
+                _bounds = default;
+                GlyphsVersion++;
+            }
+
+            return;
+        }
+
+        Sync(DefaultOr(Font), batched: true);
     }
 
     protected override void OnLocaleChanged() => RenderStamp++;
 
-    private void Sync(Font font)
+    protected override void OnExitTree()
+    {
+        RenderServer?.Text3D?.Release(this);
+        base.OnExitTree();
+    }
+
+    protected override void ReleaseRenderResources()
+    {
+        RenderServer?.Text3D?.Release(this);
+        base.ReleaseRenderResources();
+    }
+
+    private static Font DefaultOr(Font? font) =>
+        font ?? (_defaultFont ??= Font.FromData(ContentFiles.ReadAllBytes(ContentPaths.Resolve(DefaultFontPath))));
+
+    private void Sync(Font font, bool batched)
     {
         var fallbacks = LocaleFallbackFonts.Current;
-        if (_builtStamp == RenderStamp && _builtFallbacks == fallbacks.Count && ReferenceEquals(_builtLocale, Localization.Tr.CurrentLocale))
+        if (_builtStamp == RenderStamp && _builtBatched == batched && _builtFallbacks == fallbacks.Count &&
+            ReferenceEquals(_builtLocale, Localization.Tr.CurrentLocale))
             return;
         _builtStamp = RenderStamp;
+        _builtBatched = batched;
         _builtFallbacks = fallbacks.Count;
         _builtLocale = Localization.Tr.CurrentLocale;
         _mesh.ClearSurfaces();
+        _glyphCount = 0;
+        _bounds = default;
+        GlyphsVersion++;
 
         var text = IsInsideTree ? Atr(Text) : Text;
         if (Uppercase)
@@ -276,13 +355,16 @@ public class Label3D : GeometryInstance3D
             _ => 0f,
         };
 
+        var bounds = Aabb.Empty;
         if (OutlineSize > 0 && OutlineModulate.A > 0)
-            AddSurfaces(font, left, top, lineHeight, blockWidth, fallbacks, OutlineSize, outline: true);
-        AddSurfaces(font, left, top, lineHeight, blockWidth, fallbacks, 0, outline: false);
+            AddRun(font, left, top, lineHeight, blockWidth, fallbacks, OutlineSize, outline: true, batched, ref bounds);
+        AddRun(font, left, top, lineHeight, blockWidth, fallbacks, 0, outline: false, batched, ref bounds);
+        _bounds = bounds.IsEmpty ? default : bounds;
     }
 
-    // One surface per atlas page the lines' glyphs land on.
-    private void AddSurfaces(Font font, float left, float top, float lineHeight, float blockWidth, IReadOnlyList<Font> fallbacks, int outlineSize, bool outline)
+    // Lays the lines out at outlineSize and adds them: as glyphs (batched) or as one mesh surface per atlas page.
+    private void AddRun(Font font, float left, float top, float lineHeight, float blockWidth, IReadOnlyList<Font> fallbacks, int outlineSize,
+        bool outline, bool batched, ref Aabb bounds)
     {
         _quads.Clear();
         for (var i = 0; i < _lines.Count; i++)
@@ -303,6 +385,31 @@ public class Label3D : GeometryInstance3D
         }
 
         var atlas = 1f / Font.AtlasPageSize;
+        foreach (var quad in _quads)
+        {
+            var r = quad.Rect;
+            bounds = bounds.Merge(new Aabb(new Vector3(r.Position.X, -r.End.Y, 0) * PixelSize, new Vector3(r.End.X, -r.Position.Y, 0) * PixelSize));
+        }
+
+        if (batched)
+        {
+            if (_glyphs.Length < _glyphCount + _quads.Count)
+                Array.Resize(ref _glyphs, Math.Max(_glyphs.Length * 2, _glyphCount + _quads.Count));
+            foreach (var quad in _quads)
+            {
+                var r = quad.Rect;
+                var s = quad.Source;
+                // Pixel Y down → label space Y up (x0, bottom, x1, top); UVs top-left (u0, v0) to bottom-right (u1, v1).
+                _glyphs[_glyphCount++] = new TextGlyph(
+                    new Vector4(r.Position.X, -r.End.Y, r.End.X, -r.Position.Y) * PixelSize,
+                    new Vector4(s.Position.X, s.Position.Y, s.End.X, s.End.Y) * atlas,
+                    quad.Page, outline);
+            }
+
+            _quads.Clear();
+            return;
+        }
+
         for (var first = 0; first < _quads.Count; first++)
         {
             var page = _quads[first].Page;
@@ -386,3 +493,10 @@ public class Label3D : GeometryInstance3D
         RenderStamp++;
     }
 }
+
+/// <summary>One glyph quad of a batched <see cref="Label3D"/> (ADR 0258), in label space.</summary>
+/// <param name="Rect">x0, y0 (bottom), x1, y1 (top) in world units, +Y up.</param>
+/// <param name="Uv">u0, v0 (top-left), u1, v1 (bottom-right) in the atlas page.</param>
+/// <param name="Page">The font atlas page.</param>
+/// <param name="Outline">An outline glyph (drawn in the outline colour).</param>
+internal readonly record struct TextGlyph(Vector4 Rect, Vector4 Uv, Texture2D Page, bool Outline);

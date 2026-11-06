@@ -463,8 +463,10 @@ Two modes, `PostProcessProfile.AutoExposureMode`:
   reaches the tonemap at most at `AutoExposureHighlightWhite` (2). A view that is mostly shade then keeps its sunlit
   patches off the tonemap's shoulder instead of exposing for the shade alone.
 
-Same targets and sets in both modes (the histogram adds a 64 × 64 and a 64 × 1 `R32_SFLOAT` image), no read-back, no
-allocation. Cost (`RenderServer.AutoExposureGpuMilliseconds`, the Forest benchmark's GPU p50 at 1920 × 1080 on an Apple
+Same targets and sets in both modes (the histogram adds a 64 × 64 and a 64 × 1 `R32_SFLOAT` image), no allocation. The
+adapted luminance is copied into a 4-byte per-frame-slot readback buffer and read when the slot's frame has finished
+(`LastAdaptedLuminance`, a couple of frames late): `IgnoreExposure` labels and panels divide by the exposure it gives
+([World-space UI](world-space-ui.md#ignoring-exposure), ADR 0257); nothing else on the CPU waits for it. Cost (`RenderServer.AutoExposureGpuMilliseconds`, the Forest benchmark's GPU p50 at 1920 × 1080 on an Apple
 M5, two runs each): `Average` 0.13 ms, `Histogram` 0.15–0.16 ms. No debug view of the histogram yet.
 
 ## Debug view
