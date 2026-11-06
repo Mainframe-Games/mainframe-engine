@@ -450,8 +450,8 @@ public sealed class RenderServer : IServer
     private readonly record struct ShadowState(List<VisualInstance3D> Visuals, MeshRenderer? Meshes, MeshViewDraws Draws, bool Unbounded);
 
     /// <summary>
-    /// Records the skies' offscreen work (<see cref="SkyEnvironment.Prepare"/>: the physical sky's LUTs), the offscreen
-    /// views (every <see cref="SubViewport"/> in the tree) and the root view's object-ID pass when picks are pending.
+    /// Records the skies' offscreen work (<see cref="SkyEnvironment.Prepare"/>: the physical sky's LUTs), the
+    /// <see cref="IPreSceneRenderer"/>s (UI panels), the offscreen views (every <see cref="SubViewport"/> in the tree) and the root view's object-ID pass when picks are pending.
     /// Call after the shadow pass, with no render pass active (<see cref="Engine"/> does).
     /// </summary>
     public void RenderOffscreen(SceneViewport root)
@@ -471,6 +471,9 @@ public sealed class RenderServer : IServer
             sub.World3D.Environment?.PrepareSky(this, cb); // the physical sky's LUTs before its capture and its view
             sub.World3D.Environment?.UpdateSkyLighting(this, cb);
         }
+
+        // G11.5: world-space UI panels render into their textures before any view samples them (this frame's UI).
+        vk.RecordPreScene(cb);
 
         var view = 1;
         foreach (var sub in _subViewports)

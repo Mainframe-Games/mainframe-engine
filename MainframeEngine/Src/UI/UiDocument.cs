@@ -3,7 +3,7 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine;
 
 /// <summary>
-/// An RmlUi document (<c>.rml</c>) shown on the nearest ancestor <see cref="UiLayer"/>. The document loads lazily —
+/// An RmlUi document (<c>.rml</c>) shown on the nearest ancestor <see cref="UiLayer"/> (or <see cref="UiPanel3D"/>, G11.6). The document loads lazily —
 /// on first element access, or by the UI server before the next frame — so data models created in
 /// <see cref="Node.OnReady"/> exist before the document binds to them:
 /// <code>
@@ -23,7 +23,7 @@ public class UiDocument : Node
     private readonly List<RmlDataModel> _models = [];
     private readonly Dictionary<string, UiElement> _elements = new(StringComparer.Ordinal);
     private RmlDocument _document;
-    private UiLayer? _layer;
+    private IUiContextHost? _host;
     private string _source = "";
     private bool _visible = true;
     private bool _modal;
@@ -92,8 +92,14 @@ public class UiDocument : Node
 
     public bool IsLoaded => !_document.IsNull;
 
-    /// <summary>The layer this document is shown on.</summary>
-    public UiLayer? Layer => _layer;
+    /// <summary>The layer this document is shown on (null under a <see cref="UiPanel3D"/>).</summary>
+    public UiLayer? Layer => _host as UiLayer;
+
+    /// <summary>The world-space panel this document is shown on (null on a screen layer).</summary>
+    public UiPanel3D? Panel => _host as UiPanel3D;
+
+    /// <summary>The layer or panel this document is shown on.</summary>
+    internal IUiContextHost? Host => _host;
 
     /// <summary>The loaded document (loads it if needed; null document when it cannot load).</summary>
     public RmlDocument Document => EnsureLoaded() ? _document : default;
@@ -104,14 +110,14 @@ public class UiDocument : Node
     protected override void OnEnterTree()
     {
         base.OnEnterTree();
-        _layer = FindLayer();
-        if (_layer is null)
+        _host = FindHost();
+        if (_host is null)
         {
-            Log.Error($"[UI] UiDocument '{Name}' ({Source}) is not below a UiLayer; it will not be shown.");
+            Log.Error($"[UI] UiDocument '{Name}' ({Source}) is not below a UiLayer or UiPanel3D; it will not be shown.");
             return;
         }
 
-        _layer.AddDocument(this);
+        _host.AddDocument(this);
     }
 
     protected override void OnExitTree()
@@ -120,33 +126,33 @@ public class UiDocument : Node
         base.OnExitTree();
     }
 
-    private UiLayer? FindLayer()
+    private IUiContextHost? FindHost()
     {
         for (var node = Parent; node is not null; node = node.Parent)
-            if (node is UiLayer layer)
-                return layer;
+            if (node is IUiContextHost host)
+                return host;
         return null;
     }
 
     internal void DetachFromLayer()
     {
         Unload(keepModels: false);
-        _layer?.RemoveDocument(this);
-        _layer = null;
+        _host?.RemoveDocument(this);
+        _host = null;
     }
 
     // ── Data models ──────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Creates a data model in this document's layer (names are unique per layer). Bind it before the document loads
+    /// Creates a data model in this document's layer or panel (names are unique per layer and per panel). Bind it before the document loads
     /// — in <see cref="Node.OnReady"/> — or the document is reloaded once the frame starts so views pick it up. The
     /// model is removed when the document leaves the tree.
     /// </summary>
     public RmlDataModel CreateDataModel(string name)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        var context = _layer?.Context ?? throw new InvalidOperationException(
-            $"UiDocument '{Name}' has no UI context (add it below a UiLayer in a tree with a UiServer).");
+        var context = _host?.Context ?? throw new InvalidOperationException(
+            $"UiDocument '{Name}' has no UI context (add it below a UiLayer or UiPanel3D in a tree with a UiServer).");
         var model = context.CreateDataModel(name);
         _models.Add(model);
         if (IsLoaded)
@@ -202,7 +208,7 @@ public class UiDocument : Node
     {
         if (IsLoaded)
             return true;
-        if (_loadFailed || _layer?.Context is not { IsDisposed: false } context)
+        if (_loadFailed || _host?.Context is not { IsDisposed: false } context)
             return false;
         if (string.IsNullOrEmpty(Source) && string.IsNullOrEmpty(Rml))
             return false;
@@ -210,7 +216,7 @@ public class UiDocument : Node
         try
         {
             _document = string.IsNullOrEmpty(Source)
-                ? context.LoadDocumentFromMemory(_layer.Server?.Files.PrepareDocument(Rml!) ?? Rml!, DocumentPath)
+                ? context.LoadDocumentFromMemory(_host.Server?.Files.PrepareDocument(Rml!) ?? Rml!, DocumentPath)
                 : context.LoadDocument(Source);
         }
         catch (RmlException e)
@@ -221,13 +227,14 @@ public class UiDocument : Node
         }
 
         _modelsChanged = false;
-        _layer.Server?.PreloadImages(_document, DocumentPath);
+        _host.Server?.PreloadImages(_document, DocumentPath);
         ApplyPanelTitle();
         ApplyVisibility();
         RebindElements();
         AttachTooltips();
         OnLoaded();
         Loaded?.Invoke();
+        _host?.OnDocumentLoaded(this);
         return true;
     }
 
@@ -262,7 +269,7 @@ public class UiDocument : Node
         {
             _document = reloaded;
             _modelsChanged = false;
-            _layer?.Server?.PreloadImages(_document, DocumentPath);
+            _host?.Server?.PreloadImages(_document, DocumentPath);
             ApplyPanelTitle();
             ApplyVisibility();
             RebindElements();
@@ -270,6 +277,7 @@ public class UiDocument : Node
         }
 
         Reloaded?.Invoke();
+        _host?.OnDocumentLoaded(this);
     }
 
     /// <summary>Re-reads the style sheets only, keeping the DOM (hot reload of <c>.rcss</c>).</summary>
@@ -280,7 +288,7 @@ public class UiDocument : Node
     }
 
     /// <summary>Called by the UI server once per frame before its contexts update.</summary>
-    internal void PrepareFrame()
+    internal virtual void PrepareFrame()
     {
         if (!IsLoaded)
         {
@@ -299,8 +307,8 @@ public class UiDocument : Node
     // Godot-style title tooltips when the document has a #tooltip element (UiTooltips).
     private void AttachTooltips()
     {
-        _tooltips ??= new UiTooltips(_layer?.Server);
-        _tooltips.Attach(_document, _layer?.Context);
+        _tooltips ??= new UiTooltips(_host?.Server);
+        _tooltips.Attach(_document, _host?.Context);
     }
 
     /// <summary>After a failed load (e.g. a syntax error fixed by hot reload), allows another attempt.</summary>
@@ -327,7 +335,7 @@ public class UiDocument : Node
             return;
         var rml = title.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal);
         // The title is already translated (RmlUi translates <title>): the opt-out marker keeps it from a second lookup.
-        if (_layer?.Server is { TextTranslator: not null, Translator: not null })
+        if (_host?.Server is { TextTranslator: not null, Translator: not null })
             rml = Localization.RmlLocalization.OptOutMarker + rml;
         titleElement.SetInnerRml(rml);
     }
@@ -349,7 +357,7 @@ public class UiDocument : Node
             var document = _document;
             _document = default;
             RebindElements();
-            if (_layer?.Context is { IsDisposed: false })
+            if (_host?.Context is { IsDisposed: false })
                 document.Close();
         }
 

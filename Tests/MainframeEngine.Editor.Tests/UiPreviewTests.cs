@@ -269,6 +269,34 @@ public sealed class UiPreviewTests : IDisposable
     }
 
     [Fact]
+    public void APanelsInspectorOpensItsDocumentAtThePanelsResolution()
+    {
+        // G11.7: UiPanel3D's header button previews its first document at the panel's size, centred in the view area.
+        var panel = new UiPanel3D { Name = "Screen", Resolution = new Vector2I(320, 200) };
+        _editor.Scene.AddNode(panel, _editor.Scene.Root);
+        _editor.Scene.AddNode(new UiDocument { Name = "Ui", Source = "Assets/UI/hud.rml" }, panel);
+        _editor.Tick(2);
+        var inspector = CustomInspectors.Find(typeof(UiPanel3D));
+        Assert.IsType<UiPanel3DInspector>(inspector);
+        var header = inspector!.GetHeaderRml(panel)!;
+        Assert.Contains(UiPanel3DInspector.PreviewAction, header, StringComparison.Ordinal);
+        Assert.Contains("Open document in UI preview", header, StringComparison.Ordinal);
+        Assert.Contains("icon-layout", header, StringComparison.Ordinal);
+
+        _editor.Scene.Selection.Set(panel);
+        _editor.Tick();
+        W.Inspector.RunHeaderAction(UiPanel3DInspector.PreviewAction);
+        _editor.Tick(2);
+        var preview = Assert.IsType<UiPreview>(W.Session.ActivePreview);
+        Assert.Equal(_project.DocumentPath, preview.FilePath);
+        Assert.Equal(new Vector2I(320, 200), preview.FixedSize);
+        var region = preview.Layer.Region!.Value;
+        var area = W.PreviewRegion;
+        Assert.Equal((Math.Min(320, area.Width), Math.Min(200, area.Height)), (region.Width, region.Height));
+        Assert.Equal(area.X + (area.Width - region.Width) / 2, region.X);
+    }
+
+    [Fact]
     public void ACodeReloadPutsTheBackdropSceneBack()
     {
         var scene = W.Session.Active!;

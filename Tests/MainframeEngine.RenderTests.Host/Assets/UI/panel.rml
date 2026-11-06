@@ -1,0 +1,33 @@
+<rml>
+<head>
+    <title>Render test panel</title>
+    <style>
+        body { font-family: LatoLatin; font-size: 18dp; color: #f0f0f0; width: 100%; height: 100%; }
+        div, p { display: block; }
+        #header {
+            position: absolute; left: 0dp; top: 0dp; width: 100%; height: 56dp;
+            decorator: linear-gradient(90deg, #ff3030, #3050ff);
+            text-align: center; line-height: 56dp; font-size: 28dp;
+        }
+        /* Clip mask: rounded corners clip the stripes (stencil). */
+        #clip {
+            position: absolute; left: 24dp; top: 84dp; width: 200dp; height: 140dp;
+            border-radius: 32dp; overflow: hidden; background-color: #204060;
+        }
+        #clip .stripe { position: absolute; left: 0dp; width: 100%; height: 30dp; }
+        #clip .a { top: 0dp; background-color: #e0c040; }
+        #clip .b { top: 60dp; background-color: #40e0c0; }
+        #blur {
+            position: absolute; left: 270dp; top: 96dp; width: 200dp; height: 110dp;
+            background-color: #40c040; filter: blur(6dp);
+        }
+        #count { position: absolute; left: 24dp; top: 250dp; width: 460dp; height: 40dp; }
+    </style>
+</head>
+<body data-model="panel">
+    <div id="header">Terminal</div>
+    <div id="clip"><div class="stripe a"></div><div class="stripe b"></div></div>
+    <div id="blur"></div>
+    <div id="count">Frame {{ frame }}</div>
+</body>
+</rml>

@@ -1,0 +1,14 @@
+# G11 world-space UI in the editor (just qa-editor Tests/QA/world-ui.qa): the Demo's World UI scene with a walker's
+# nameplate marker selected (its map-pin badge at WorldOffset, the dashed line to the walker, the inspector), the
+# Label3D signs drawn in the scene view; then the menu sign picked by clicking its text.
+wait-for project 300
+open Examples/Demo/Assets/Scenes/world_ui.mfscene
+wait-for project 300
+wait 30
+select Walkers/Nell/Nameplate
+camera -4 1.8 -1 13 -12 -14
+wait 30
+capture world-ui-marker
+select MenuSign
+wait 20
+capture world-ui-label

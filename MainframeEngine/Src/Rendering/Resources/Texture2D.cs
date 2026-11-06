@@ -181,6 +181,7 @@ public class Texture2D : Resource
     private SubViewport? _viewport; // a sub-viewport's colour target (Godot's ViewportTexture)
     private CanvasItem? _clipGroup;  // a clip-children group's target (the canvas server's)
     private System.Numerics.Vector2 _clipSize;
+    private Func<GpuImage?>? _gpuSource; // an engine-owned GPU image (a UiPanel3D's), borrowed by 3D materials
 
     /// <summary>The import settings (colour space, mipmaps, sampler). Changing them re-uploads the texture.</summary>
     public TextureImportSettings ImportSettings
@@ -262,6 +263,39 @@ public class Texture2D : Resource
 
     /// <summary>The clip-children owner whose group target this texture shows (internal to the canvas server), or null.</summary>
     internal CanvasItem? ClipGroup => _clipGroup;
+
+    /// <summary>
+    /// A texture over an engine-owned GPU image (G11.5: a <see cref="UiPanel3D"/>'s): 3D materials sample whatever image
+    /// <paramref name="source"/> returns each frame (null: nothing yet), through an sRGB view for colour slots, with the
+    /// image's mips; the image must be <c>R8G8B8A8_UNORM</c> created <c>MUTABLE_FORMAT</c>, sampled in
+    /// <c>SHADER_READ_ONLY_OPTIMAL</c>. It has no CPU pixels; <see cref="SetGpuSourceSize"/> keeps its size current.
+    /// </summary>
+    internal static Texture2D FromGpuSource(Func<GpuImage?> source, int width, int height, string name)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return new Texture2D
+        {
+            _gpuSource = source,
+            _width = Math.Max(1, width),
+            _height = Math.Max(1, height),
+            _sizeKnown = true,
+            _settings = TextureImportSettings.Default with { Wrap = TextureWrap.Clamp }, // no bleed across the edges
+            ResourceName = name,
+        };
+    }
+
+    /// <summary>The GPU image source of a <see cref="FromGpuSource"/> texture, or null.</summary>
+    internal Func<GpuImage?>? GpuSource => _gpuSource;
+
+    /// <summary>A viewport, clip-group or GPU-sourced texture: there are no CPU pixels to decode, pack or bake.</summary>
+    internal bool IsGpuOnly => _viewport is not null || _clipGroup is not null || _gpuSource is not null;
+
+    /// <summary>The size a <see cref="FromGpuSource"/> texture reports (its source image's, set by its owner).</summary>
+    internal void SetGpuSourceSize(int width, int height)
+    {
+        _width = Math.Max(1, width);
+        _height = Math.Max(1, height);
+    }
 
     /// <summary>The texture of <paramref name="owner"/>'s clip-children group target, sized like the canvas target.</summary>
     internal static Texture2D ForClipGroup(CanvasItem owner, System.Numerics.Vector2 size)
@@ -347,8 +381,8 @@ public class Texture2D : Resource
     private (byte[] Rgba, int Width, int Height) DecodePixels(bool shared)
     {
         Generate();
-        if (_viewport is not null || _clipGroup is not null)
-            throw new InvalidOperationException("A viewport texture has no CPU pixels (it is the sub-viewport's GPU target).");
+        if (IsGpuOnly)
+            throw new InvalidOperationException("A viewport or GPU-sourced texture has no CPU pixels (it is a GPU image).");
         if (_pixels is not null)
             return (_pixels, _width, _height);
 

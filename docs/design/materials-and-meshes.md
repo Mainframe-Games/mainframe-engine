@@ -623,6 +623,9 @@ particle materials, spatial shader samplers), Godot's `material.albedo_texture =
   ([canvas.md](canvas.md#2d-sub-viewports-adr-0116)). Before a view's first frame the slot is empty.
 - A resize gives the view a new image; each material notices it the next time it is prepared and writes a new set, the
   old one going through the deletion queue. Steady frames allocate nothing.
+- The same borrow code serves `Texture2D.FromGpuSource` (internal, G11.5): a texture over an engine-owned
+  `R8G8B8A8_UNORM` image with mips (a `UiPanel3D`'s), sampled through an sRGB view with a sampler over its mips. Like
+  viewport textures, it has no CPU pixels (`DecodePixels` throws; decals and the canvas skip it).
 
 **Transparent background and readback (ADR 0136).**
 - `TransparentBg` clears the HDR target to transparent black, and the tonemap keeps the scene's alpha (push-constant

@@ -35,6 +35,33 @@ public class UiRenderTests
     }
 
     [Fact]
+    public void MarkersFollowThePointsClampToTheEdgeAndKeepExactColours()
+    {
+        // G11.4: nameplates, a prompt, health, waypoints (one clamped to the right edge) and an occluded marker.
+        var result = HostRunner.Run("ui-markers", Output("ui-markers"), "--capture", "20", "--hidden");
+        Gates.AssertValidationClean(result);
+
+        // The bars' #3366cc fill reaches the swapchain unchanged (drawn after the tonemap).
+        var image = Png.ReadRgba8(result.Captures.Single().Path);
+        var exact = 0;
+        var rightEdge = 0;
+        for (var p = 0; p < image.Width * image.Height; p++)
+        {
+            var i = p * 4;
+            if (Math.Abs(image.Pixels[i] - 0x33) <= 1 && Math.Abs(image.Pixels[i + 1] - 0x66) <= 1 && Math.Abs(image.Pixels[i + 2] - 0xCC) <= 1)
+                exact++;
+            // The clamped waypoint's yellow text hugs the right edge.
+            if (p % image.Width > image.Width * 0.8 && image.Pixels[i] > 230 && image.Pixels[i + 1] > 190 && image.Pixels[i + 2] < 140)
+                rightEdge++;
+        }
+
+        TestContext.Current.SendDiagnosticMessage($"#3366cc pixels {exact}, edge waypoint pixels {rightEdge}");
+        Assert.True(exact > 40, $"only {exact} exact #3366cc pixels");
+        Assert.True(rightEdge > 20, $"no waypoint at the right edge ({rightEdge} px)");
+        Gates.AssertMatchesGolden(result, 20);
+    }
+
+    [Fact]
     public void ScaleWithScreenSizeKeepsTheUiProportionalAcrossWindowSizes()
     {
         // ADR 0181: a document authored for 640×360, captured at 320×180 points and again after a resize to 640×360

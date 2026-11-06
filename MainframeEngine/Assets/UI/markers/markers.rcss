@@ -1,0 +1,115 @@
+/* UiMarkerHost's default styles (G11.4). Each .marker is a zero-size anchor moved to the marker's point by a transform;
+   its content is placed around the anchor with absolute positions, so translating it never re-lays out the page. */
+body.hud {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    font-family: LatoLatin;
+    font-size: 15dp;
+    color: #ffffff;
+}
+
+.marker {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
+}
+
+/* RmlUi has no user-agent style sheet: every div here is a block on purpose. */
+.nameplate, .health, .prompt, .nameplate .title, .nameplate .name, .waypoint .label, .waypoint .distance {
+    display: block;
+}
+
+.nameplate, .health, .prompt {
+    position: absolute;
+    width: 200dp;
+    left: -100dp;
+    bottom: 4dp;
+    text-align: center;
+}
+
+.nameplate .title {
+    font-size: 11dp;
+    color: #d8d0b8;
+    font-effect: shadow(1dp 1dp #000000);
+}
+
+.nameplate .name {
+    font-weight: bold;
+    font-effect: shadow(1dp 1dp #000000);
+}
+
+.bar {
+    display: block;
+    width: 80dp;
+    height: 7dp;
+    margin: 3dp auto 0 auto;
+    background-color: #101418c0;
+    border: 1dp #000000;
+}
+
+.bar .fill {
+    display: block;
+    height: 100%;
+    background-color: #3366cc;
+}
+
+.health .bar .fill {
+    background-color: #d23c3c;
+}
+
+.prompt .key {
+    display: inline-block;
+    min-width: 14dp;
+    padding: 2dp 5dp;
+    margin-right: 6dp;
+    border: 1dp #ffffff;
+    border-radius: 3dp;
+    background-color: #202830d0;
+    font-weight: bold;
+}
+
+.prompt .action {
+    font-effect: shadow(1dp 1dp #000000);
+}
+
+.waypoint {
+    display: block;
+    position: absolute;
+    width: 160dp;
+    left: -80dp;
+    top: -9dp;
+    text-align: center;
+    color: #ffd75e;
+    font-effect: shadow(1dp 1dp #000000);
+}
+
+.waypoint .diamond {
+    display: block;
+    width: 12dp;
+    height: 12dp;
+    margin: 0 auto;
+    background-color: #ffd75e;
+    border: 1dp #000000;
+    transform: rotate(45deg);
+}
+
+.waypoint .arrow {
+    display: block;
+    width: 20dp;
+    height: 20dp;
+    margin: 0 auto;
+    font-size: 18dp;
+    line-height: 20dp;
+}
+
+.waypoint .label {
+    margin-top: 3dp;
+}
+
+.waypoint .distance {
+    font-size: 12dp;
+}

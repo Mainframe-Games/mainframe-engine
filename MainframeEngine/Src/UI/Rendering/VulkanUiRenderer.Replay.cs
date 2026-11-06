@@ -21,7 +21,6 @@ public sealed unsafe partial class VulkanUiRenderer
     private Rect2D _boundScissor;
     private byte _boundStencilRef;
     private bool _stencilRefValid;
-    private int _gradientIndex;
     private int _drawCalls;
     private int _passes;
     private bool _hasContent;
@@ -97,7 +96,7 @@ public sealed unsafe partial class VulkanUiRenderer
     void IOverlayRenderer.RecordOffscreen(CommandBuffer commandBuffer)
     {
         CollectReleases(_ctx.Deletions.CompletedFrame);
-        var extent = _ctx.SwapchainExtent;
+        var extent = StackExtent(); // the swapchain's size, grown for the largest panel (G11.5)
 
         // A render without an update in between (frame-rate cap): the list was already replayed and the resources it
         // references may have been released since, so it is not replayed again — the base layer still holds its
@@ -110,7 +109,7 @@ public sealed unsafe partial class VulkanUiRenderer
         }
 
         _hasContent = false;
-        if (_commandCount == 0 || IsDisposed)
+        if (_commandCount == _screenStart || IsDisposed)
         {
             _listConsumed = true;
             Stats = new UiRenderStats(_commandCount, 0, 0, _liveGeometry, _liveTextures, _arena.ChunkCount, _layers.Count);
@@ -128,18 +127,28 @@ public sealed unsafe partial class VulkanUiRenderer
             return;
         }
 
-        EnsureTargets(extent, _maxLayerDepth + 1);
+        EnsureTargets(extent, Math.Max(_listMaxLayerDepth, _maxLayerDepth) + 1);
         EnsureGradientCapacity(_shaderDraws);
 
         _cb = commandBuffer;
         _vk = _ctx.Vk;
         _drawCalls = 0;
         _passes = 0;
-        _gradientIndex = 0;
         _top = 0;
 
         BeginLayerPass(0, _layerPassClearAll);
-        for (var i = 0; i < _commandCount; i++)
+        Replay(_screenStart, _commandCount);
+        EndPass();
+        Barrier(); // the overlay pass samples the base layer
+        _listConsumed = true;
+        _hasContent = Visible;
+        Stats = new UiRenderStats(_commandCount, _drawCalls, _passes, _liveGeometry, _liveTextures, _arena.ChunkCount, _layers.Count);
+    }
+
+    // Replays commands [start, end) into the layer stack (a layer pass on layer 0 is open).
+    private void Replay(int start, int end)
+    {
+        for (var i = start; i < end; i++)
         {
             ref readonly var c = ref _commands[i];
             switch (c.Op)
@@ -174,12 +183,6 @@ public sealed unsafe partial class VulkanUiRenderer
                     break;
             }
         }
-
-        EndPass();
-        Barrier(); // the overlay pass samples the base layer
-        _listConsumed = true;
-        _hasContent = Visible;
-        Stats = new UiRenderStats(_commandCount, _drawCalls, _passes, _liveGeometry, _liveTextures, _arena.ChunkCount, _layers.Count);
     }
 
     void IOverlayRenderer.RecordOverlay(CommandBuffer commandBuffer)
@@ -192,7 +195,9 @@ public sealed unsafe partial class VulkanUiRenderer
         PipelineBuilder.SetViewport(vk, commandBuffer, extent, flipY: false);
         var set = _layers[0].Set;
         vk.CmdBindDescriptorSets(commandBuffer, PipelineBindPoint.Graphics, _layout, 0, 1, &set, 0, null);
-        var push = new FullscreenPush { UvScale = Vector2.One, Factor = 1f, Linearize = _ctx.OverlayEncodesSrgb ? 1u : 0u };
+        // The stack may be larger than the swapchain (panels, G11.5): the screen UI is its top-left corner.
+        var uvScale = new Vector2((float)extent.Width / Math.Max(1u, _targetExtent.Width), (float)extent.Height / Math.Max(1u, _targetExtent.Height));
+        var push = new FullscreenPush { UvScale = uvScale, Factor = 1f, Linearize = _ctx.OverlayEncodesSrgb ? 1u : 0u };
         vk.CmdPushConstants(commandBuffer, _layout, ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit, 0, (uint)sizeof(FullscreenPush), &push);
         vk.CmdDraw(commandBuffer, 3, 1, 0, 0);
         _drawCalls++;
@@ -403,12 +408,12 @@ public sealed unsafe partial class VulkanUiRenderer
 
     private void DrawGradient(in UiCommand c)
     {
-        if (_gradientIndex >= _gradientCapacity)
+        // Addressed by the draw's index in the whole list: the panel and screen replays share the slot's region.
+        if (c.C >= _gradientCapacity)
             return; // capacity is ensured from the recorded count; defensive
         ref readonly var gradient = ref _gradientData[c.C];
-        var offset = ((ulong)_ctx.FrameSlot * (ulong)_gradientCapacity + (ulong)_gradientIndex) * _gradientStride;
+        var offset = ((ulong)_ctx.FrameSlot * (ulong)_gradientCapacity + (ulong)c.C) * _gradientStride;
         _gradientBuffer!.Write(gradient, offset);
-        _gradientIndex++;
 
         var dynamicOffset = (uint)offset;
         var set = _uniformSet;

@@ -241,66 +241,7 @@ public class Label2D : Node2D
         _lines.Clear();
         if (_font is not { } font || _text.Length == 0)
             return;
-        var wrap = _autowrap != AutowrapMode.Off && _width > 0f;
-        foreach (var paragraph in _text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
-            if (!wrap)
-                _lines.Add(paragraph);
-            else
-                Wrap(font, paragraph);
-    }
-
-    private float Measure(Font font, string text) => font.GetStringSize(text, fontSize: _fontSize).X;
-
-    // Greedy wrapping, as Godot's: words go on the line while it fits; the spaces at a break are dropped.
-    private void Wrap(Font font, string paragraph)
-    {
-        if (_autowrap == AutowrapMode.Arbitrary)
-        {
-            BreakArbitrary(font, paragraph);
-            return;
-        }
-
-        var line = "";
-        foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var candidate = line.Length == 0 ? word : line + " " + word;
-            if (Measure(font, candidate) <= _width)
-            {
-                line = candidate;
-                continue;
-            }
-
-            if (line.Length > 0)
-                _lines.Add(line);
-            if (_autowrap == AutowrapMode.WordSmart && Measure(font, word) > _width)
-                line = BreakArbitrary(font, word, keepLast: true);
-            else
-                line = word; // Word: a word wider than the line overflows it
-        }
-
-        _lines.Add(line);
-    }
-
-    // Breaks between characters; with keepLast the unfinished last piece is returned instead of added.
-    private string BreakArbitrary(Font font, string text, bool keepLast = false)
-    {
-        var start = 0;
-        for (var end = 1; end <= text.Length; end++)
-        {
-            if (end - start > 1 && Measure(font, text[start..end]) > _width)
-            {
-                _lines.Add(text[start..(end - 1)].TrimEnd(' '));
-                start = end - 1;
-                while (start < text.Length - 1 && text[start] == ' ')
-                    start++;
-            }
-        }
-
-        var last = text[start..];
-        if (keepLast)
-            return last;
-        _lines.Add(last);
-        return "";
+        TextLayout.BreakLines(font, _text, _fontSize, _width, _autowrap, _lines);
     }
 
     private void Set<T>(ref T field, T value)

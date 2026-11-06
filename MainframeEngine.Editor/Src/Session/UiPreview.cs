@@ -62,6 +62,12 @@ public sealed class UiPreview : IEditorTab
     /// <summary>The backdrop scene was taken out by a code reload; <see cref="EditorSession.Resume"/> puts it back.</summary>
     internal SceneSnapshot? PendingBackdrop { get; set; }
 
+    /// <summary>
+    /// Lays the document out at this size in pixels, centred in the view area (and clipped to it), as a world-space panel
+    /// shows it (<see cref="UiPanel3DInspector"/>); null (default) fills the view area.
+    /// </summary>
+    public Vector2I? FixedSize { get; set; }
+
     /// <summary>Bumped when <see cref="Links"/>, the file or the backdrop changed (the viewport panel refreshes).</summary>
     public int Version { get; private set; }
 

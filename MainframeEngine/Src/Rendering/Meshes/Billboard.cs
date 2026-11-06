@@ -63,4 +63,30 @@ internal static class Billboard
             back.X * scale.Z, back.Y * scale.Z, back.Z * scale.Z, 0f,
             model.M41, model.M42, model.M43, 1f);
     }
+
+    /// <summary>
+    /// <paramref name="model"/> scaled about its origin so that a mesh built at <paramref name="pixelSize"/> world units
+    /// per pixel covers one framebuffer pixel per mesh pixel in this view (<see cref="Label3D.FixedSize"/>):
+    /// <paramref name="pixelScale"/> is <see cref="LodSelection.PixelScale"/> (pixels per world unit at depth 1, or at any
+    /// depth for an orthographic view).
+    /// </summary>
+    public static Matrix4x4 FixedSize(in Matrix4x4 model, float pixelSize, in Matrix4x4 view, float pixelScale, bool perspective)
+    {
+        if (!(pixelSize > 0f && pixelScale > 0f))
+            return model;
+        var depth = 1f;
+        if (perspective)
+        {
+            // View space looks down −Z (row vectors: z = origin · view's third column).
+            depth = -(model.M41 * view.M13 + model.M42 * view.M23 + model.M43 * view.M33 + view.M43);
+            depth = MathF.Max(depth, 1e-4f);
+        }
+
+        var scale = depth / pixelScale / pixelSize;
+        var scaled = model;
+        scaled.M11 *= scale; scaled.M12 *= scale; scaled.M13 *= scale;
+        scaled.M21 *= scale; scaled.M22 *= scale; scaled.M23 *= scale;
+        scaled.M31 *= scale; scaled.M32 *= scale; scaled.M33 *= scale;
+        return scaled;
+    }
 }
