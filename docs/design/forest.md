@@ -3,8 +3,10 @@
 ## Purpose
 
 [`Examples/Forest`](../../Examples/Forest/) ("Forest Demo") is the engine's showcase: a first-person walk through a
-small forest with a stream, meant to look like a UE or Unity scene (proposal
-[future/forest-showcase.md](future/forest-showcase.md), G8d; [ADR 0155](../../memory/decisions/0155-curve3d-river3d-forest-project.md)).
+small forest with a stream, meant to look like a UE or Unity scene (G8d, [ADR 0149](../../memory/decisions/0149-terrain-trees-water-engine-features.md),
+[ADR 0155](../../memory/decisions/0155-curve3d-river3d-forest-project.md); the G8d proposal's [budgets](#budgets),
+[rendering phases](#rendering-phases-g8d1g8d8) and [decisions](#decisions) are below, with the
+[changes from the proposal](#changes-from-the-proposal)).
 Like the [Demo](demo.md) it is a real game project built against this checkout (`MainframeEnginePath = ../..`) through
 its own `Examples/Forest/Forest.slnx`, and it is **not** in `MainframeEngine.slnx`.
 
@@ -18,8 +20,10 @@ physical morning sky with fog, light shafts, eye adaptation, SSAO (GTAO, [ADR 01
 look-developed against Unreal forest references ([look-dev](#look-dev-adr-0178), ADR 0178: a low back-light, a warm
 white haze, muted greens, flowers, dust motes). Also the [reference shots](#reference-shots), the
 [benchmark](#forestdev---autowalk-and-the-benchmark), a path-following `--autowalk` and the [pause menu](#pause-menu)
-(Esc: live graphics, audio and control settings, a fly-over, the reference shots and a free camera; ADR 0180). Not
-yet: butterflies and the release job.
+(Esc: live graphics, audio and control settings, a fly-over, the reference shots and a free camera; ADR 0180), the
+release zip (`build/package-example.sh`, the `forest` job in `publish.yml`, the editor's example picker) and the
+[`forest-mini`](#tests) render golden. Not yet: butterflies, a CI step that builds the Forest and runs `Forest.Tests`, and
+`build/forest-smoke.sh`.
 
 ![R1: the meadow, looking into the morning sun](../images/forest/r1-glade.png)
 
@@ -660,6 +664,69 @@ woodland grass and ferns are most of it (without ground cover the pair is 14.3 �
 nothing measurable. A first version without the lookout's view corridor grew 123 trees (+1.5 ms) and was fixed; denser
 grass and ferns (+0.5–1 ms) were trimmed back.
 
+#### 2026-11-07, G8d
+
+The G8d close-out run against the [budgets](#budgets): `just forest-bench` once at 1920 × 1080 (the script's default,
+3D at 0.75 with TAAU) and once with `--resolution 2560x1440 --scale 1` (native; the window is capped by this display, so
+the frame is 2560 × 1316, as in the art pass's 2560 × 1308 rows), Release, Apple M5 (MoltenVK 1.4.1), 1 800 frames on the
+spline. **The machine was not quiet:** another session's render tests (its editor smoke tests and render host, which use
+the GPU) ran through both flights, and Steam's client used 30–100 % of a core. Load averages: 3.48 / 4.35 / 5.65 before
+the first run, 5.01 / 4.62 / 5.61 before the second, 3.33 / 4.08 / 5.20 after the last. So these are not a baseline, and
+`benchmark-baseline.json` is unchanged (a baseline is recorded on a quiet machine only).
+
+| Run | p50 | p90 | p99 | max | GPU zones p50 (sum) | Prepass / main pass (GPU p50) | Sun shadows (GPU p50) | Draws | Load |
+|---|---|---|---|---|---|---|---|---|---|
+| 1920 × 1080, 3D 1440 × 810 TAAU | 25.52 ms | 29.59 ms | 33.59 ms | 48.02 ms | 25.2 ms | 8.22 / 9.49 ms | 4.59 ms | ≤ 1 038 | 16.7 s |
+| 2560 × 1316 native | 38.45 ms | 46.50 ms | 51.40 ms | 56.55 ms | 38.1 ms | 11.00 / 15.14 ms | 4.71 ms | ≤ 1 065 | 14.9 s |
+
+Both runs allocated 0 B. The CPU is not the limit (`PrepareFrame` 0.8 ms, `Process` 0.3 ms at the median; the main thread
+waits on the GPU fence for 22 ms and 35 ms); the GPU is, and the other session's GPU work inflates it by an unknown share.
+Against the budgets: **not met.** High (2560 × 1440, p50 ≤ 14 ms GPU, p99 ≤ 16.7 ms) is ≈ 2.7× over at the median and
+≈ 3× at p99, even without the 124 rows the display cuts off; High's hardware is an M-series Pro, and this is a base M5, so
+that comparison is indicative only. Medium (60 fps at 1080p on a base M-series, this machine's class) is not met either,
+even with the 0.75 TAAU scale the budget did not plan: p50 25.5 ms is 39 fps (the baseline, recorded at the art pass on a
+quiet machine with the same settings, is 16.88 ms). Load (14.9–16.7 s to the start scene, against ≤ 10 s cold) is over
+too. 0 B per frame is met. Two things to look at on a quiet machine: the draws (≤ 1 038 against ≤ 692 at the look-dev
+pass, ADR 0178) and the depth prepass, which costs nearly as much as the main pass. The gap belongs to G8e
+([milestones](../milestones.md)).
+
+The first attempt failed to load: G6.4 (#176) merges `_LODn` sibling meshes into one node named without the suffix, so
+`ForestClutter`'s scanned grass, moss and nettle variants (`grass_medium_01_mid_b_LOD0` …) no longer existed and the scene
+threw. They now name the merged nodes (`grass_medium_01_mid_b` …), whose LOD 0 geometry is what they used before.
+
+## Budgets
+
+The G8d targets, from the proposal (ADR 0149). The [performance](#performance) runs above measure against them.
+
+| Tier | Resolution | Hardware | Target | Settings |
+|---|---|---|---|---|
+| **High** | 2560 × 1440 native | Apple M-series Pro (MoltenVK); RTX 3060-class PC | 60 fps: p50 ≤ 14 ms GPU, p99 ≤ 16.7 ms frame | shadows High + PCSS; SSAO High; TAA; contact shadows; shafts High; grass 35 m |
+| **Medium** | 1920 × 1080 native | base Apple M-series; GTX 1660-class PC | 60 fps | shadows Medium (3 cascades, PCF 3×3, no PCSS); SSAO Low; TAA; no contact shadows; shafts Low; grass 22 m at 60 % density; `LodBias` 0.6 |
+
+The Forest has no High/Medium preset: it ships one configuration (TAAU at 0.75, ADR 0174; 4 × 1024² staggered cascades
+with PCSS and contact shadows, ADRs 0167 and 0179; volumetric fog instead of shafts, ADR 0171) and the pause menu's
+per-setting graphics options (ADR 0180).
+
+**GPU frame at High** as planned (ms, 1440p; the frame profiler's GPU zones measure the real split, `--benchmark`'s
+JSON `GpuZones`):
+
+| Pass | ms | Pass | ms |
+|---|---|---|---|
+| Depth prepass + velocity | 1.3 | Sky (physical) + LUTs | 0.15 |
+| Shadows: 4 cascades, cutout casters | 2.8 | Colour copy (`SceneTextures`) | 0.15 |
+| SSAO + contact shadows | 1.0 | Water + particles | 0.7 |
+| Opaque: terrain | 1.2 | Light shafts | 0.35 |
+| Opaque: trees + impostors | 2.4 | TAA | 0.5 |
+| Opaque: grass, reeds, ferns, bushes | 1.6 | Auto exposure + glow | 0.55 |
+| Opaque: rocks, logs | 0.5 | Tonemap + LUT + UI | 0.25 |
+| | | **Total** | **≈ 13.5** (3.2 ms headroom) |
+
+CPU main thread ≤ 6 ms: `Tree.Tick` ≤ 1.5 ms, `PrepareFrame` ≤ 3 ms. Per view (High, worst pose): ≤ 300 main draws,
+≤ 700 shadow draws, ≤ 5 M main and ≤ 8 M shadow triangles, ≤ 30k visible instances (the benchmark reports the most
+draws; it does not enforce these caps). GPU memory ≤ 2 GiB at High (estimated ≈ 1.5 GiB; textures are uncompressed
+RGBA8 until M12's KTX2 path, [decision 3](#decisions)). **Allocation:** 0 B per frame in steady state (`--autowalk`'s
+window, the benchmark, `forest-mini`'s gate). **Load:** ≤ 10 s cold from launch to the first frame, ≤ 5 s warm.
+
 ## `FirstPersonController`
 
 `Forest/Src/Player/FirstPersonController.cs`, a `CharacterBody3D` whose origin is at the **feet**: a capsule `Shape`
@@ -1011,9 +1078,87 @@ flyover|free|<1-8|name>` starts a camera, `--option key=value` sets an option fo
   ways, the open door, the sliders on top of it, the walk through the real door), 0 B per frame; and the offline
   renders above, which must not clip and must stay within their RMS and peak windows.
 
-Not in CI yet (the G8d.9 CI step and `build/forest-smoke.sh` come with the release work).
+`Forest.Tests` is not in CI yet (the G8d.9 CI step and `build/forest-smoke.sh` are still to do).
+
+**Engine render test `forest-mini`** (G8d.15, `Tests/MainframeEngine.RenderTests/ForestMiniTests.cs`, scene
+`ForestMiniScene` in the render host; [Testing → Render tests](testing.md#render-tests)): the Forest's frame in miniature,
+built in code from engine assets only (no `Examples/Forest` content, so CI needs no LFS pull): a 32 × 32 m Realistic
+terrain with three generated 256² splat layers (grass, dirt along the stream, rock on an outcrop), three Pine Medium and
+three Aspen Medium trees from fixed seeds with G8e.5's foliage (clusters, hierarchical wind, per-instance levels; the
+farthest are impostors), grass on the grass layer, a short carved `River3D` with a small fall at the bowl's rim, a
+terrain-following probe volume baked at load, the physical sky behind a low sun with 4 × 1024² staggered cascades, PCSS
+and contact shadows, height fog, volumetric fog, histogram auto exposure and glow, under TAAU at 0.75. A golden per driver
+(`moltenvk`, `lavapipe`) at frame 90 (a fixed wind phase); self-checks for the terrain under each tree, the stream as
+water (carved, deeper than 0.2 m, `WaterMaterial3D`), the splat tags, the grass, the bake and the sky's LUTs; and 0 B over
+300 frames while the camera walks round the glade after a lap of warm-up (on lavapipe without sun shadows).
+
+## Rendering phases (G8d.1–G8d.8)
+
+What the proposal's eight rendering phases became; every feature is off by default, so other scenes and goldens are
+unchanged.
+
+![One frame of the forest showcase, from shadows and the depth prepass to tonemap and UI](../images/forest-frame.svg)
+
+| Phase | Built | Where |
+|---|---|---|
+| G8d.1 physical sky | `Sky.Mode = Physical` (transmittance, multiple-scattering and sky-view LUTs), sun from the first `DirectionalLight3D`, IBL from it | [Sky](sky.md#physical-sky-adr-0154), [ADR 0154](../../memory/decisions/0154-physical-sky-fxaa-auto-exposure.md) |
+| G8d.2 height fog | `WorldEnvironment` fog with height falloff and sun in-scattering, forward-shaded in every lit and sky shader | [Lighting → Fog](lighting.md#fog) |
+| G8d.3 auto exposure | average (ADR 0154), then a histogram with highlight protection | [Color pipeline](color-pipeline.md#auto-exposure-adr-0154), [ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md) |
+| G8d.4 LUT, FXAA, AA setting | FXAA (ADR 0154); the `.cube` LUT came with the cinematic grade (ADR 0168); `rendering.antiAliasing` | [Color pipeline](color-pipeline.md#fxaa-adr-0154), [ADR 0168](../../memory/decisions/0168-cinematic-post-chain.md) |
+| G8d.5 soft sun shadows | PCSS from `LightAngularDistance`, staggered cascades, coarse casters, a far shadow | [ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md), [ADR 0179](../../memory/decisions/0179-consistent-shadow-casters-across-cascades.md) |
+| G8d.6 light shafts | screen-space shafts (ADR 0160), now off in the Forest: volumetric fog draws the shafts (ADR 0171) | [Post-processing → Volumetric fog](post-processing.md#volumetric-fog) |
+| G8d.7 contact shadows | built ahead of M11 on the depth prepass (ADR 0163) | [ADR 0167](../../memory/decisions/0167-shadow-quality-staggered-pcss-contact-far.md) |
+| G8d.8 TAA | built ahead of M11 (ADRs 0163, 0166), then TAAU (ADR 0174) | [Post-processing](post-processing.md), [ADR 0166](../../memory/decisions/0166-taa.md) |
+
+## Decisions
+
+The proposal's decisions (accepted by Brogan on 2026-10-08, [ADR 0149](../../memory/decisions/0149-terrain-trees-water-engine-features.md)),
+with what happened to each:
+
+1. `FirstPersonController` stays Forest code; a second user makes it a template option, not an engine node. **Holds.**
+2. No froxel volumetric fog until M11 brings compute. **Superseded** by G8e.3: volumetric fog on fragment passes
+   ([ADR 0171](../../memory/decisions/0171-volumetric-fog.md)).
+3. No desktop texture compression for the 2 GiB budget; adopt BC7/BC5 with M12's KTX2 cooker. **Holds.**
+4. No upscaling for Medium. **Superseded:** the Forest renders its 3D view at 0.75 with TAAU
+   ([ADR 0174](../../memory/decisions/0174-taa-upscaling.md)).
+5. No clouds with the physical sky (the HDRI option has them). **Holds.**
+6. Self-contained player zips in the release. **Not built:** the release attaches the source zip only.
+7. Stay within the 400 MB LFS budget and never pull Forest content in CI. **Holds** (`forest-mini` uses engine assets).
+8. No underwater rendering. **Holds.**
+9. The sun's colour stays authored. **Holds.**
+10. Dithered cross-fade between mesh LODs only if pops show. **Built** for trees: per-instance levels cross-fade
+    ([ADR 0172](../../memory/decisions/0172-ez-tree-foliage-quality.md)).
+11. No grass bending around the player. **Holds.**
+12. Post effects only in Play, not the editor viewport. **Changed:** the editor previews the post-processing profile
+    ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md)).
+
+## Changes from the proposal
+
+The proposal was `docs/design/future/forest-showcase.md`, removed when G8d shipped (it stays in the repository's
+history). The build differs from it here:
+
+![The proposal's plan: a 256 m valley with its stream, zones, walking loop, spawn, reference shots and benchmark spline](../images/forest-showcase-map.svg)
+
+- **The valley is generated, not hand-authored.** The proposal sculpted and painted a 256 m valley in the Terrain dock
+  from a `ValleyGenerator` start; the Forest generates a 320 m valley at load from a seed ([The valley](#the-valley)),
+  with a beach, a lake, cliffs, distant mountains and a log cabin the proposal did not have (ADR 0209), about 2 400
+  trees instead of ≈ 1 900, and nine reference shots instead of five.
+- **The look went past G8d.** G8e added light probes, GTAO, volumetric fog, the cinematic grade, Ez Tree clusters and
+  impostors, water SSR and refraction, the art pass and TAAU (ADR 0164, [Forest visual quality](future/forest-visual-quality.md)).
+  The proposal's "dynamic GI" non-goal still holds, but probes bake sky occlusion and bounce light. The tonemapper is
+  AgX, not ACES.
+- **No quality tiers.** One configuration and per-setting pause-menu options ([Budgets](#budgets)) instead of High and
+  Medium presets.
+- **The benchmark** is `++ --benchmark` with `--frames`, `--out`, `--baseline` and `--trace` (no `--tier`); it waits 240
+  frames and flies a 15-point spline for 1 800 frames. Its GPU times come from the frame profiler (G10) instead of a
+  new `GpuFrameTimers` and dev overlay Frame panel, and it does not enforce the per-view draw and triangle caps.
+- **The frame budget is not met** on the Apple M5 (MoltenVK): see [Performance](#performance). The remaining work is
+  G8e's ([milestones](../milestones.md)).
+- **Still to do:** a CI step that builds the Forest and runs `Forest.Tests`, `build/forest-smoke.sh`, self-contained
+  player zips and butterflies.
 
 ## Related
 
 [Water](water.md) · [Audio](audio.md) · [Demo](demo.md) · [Cameras & input](cameras-and-input.md) · [Physics](physics.md) ·
-[Projects & GameHost](project-and-gamehost.md) · [future/forest-showcase.md](future/forest-showcase.md)
+[Projects & GameHost](project-and-gamehost.md) · [Testing](testing.md) · [Forest visual quality (G8e)](future/forest-visual-quality.md) ·
+[ADR 0149](../../memory/decisions/0149-terrain-trees-water-engine-features.md)

@@ -2,7 +2,7 @@
 
 A first-person walk through a small forest with a stream: the engine's showcase scene
 ([docs/design/forest.md](../../docs/design/forest.md), proposal
-[docs/design/future/forest-showcase.md](../../docs/design/future/forest-showcase.md)). It is a game project of its own,
+[docs/design/forest.md](../../docs/design/forest.md)). It is a game project of its own,
 built against this checkout's engine, and **not** part of `MainframeEngine.slnx`.
 
 **Status: playable.** A generated 320 m valley: a stream from a rocky outcrop over a small fall, through three pools

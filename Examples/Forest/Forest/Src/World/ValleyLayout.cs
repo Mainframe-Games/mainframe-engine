@@ -21,7 +21,7 @@ public readonly record struct ReferenceShot(string Name, Vector2 Eye, float EyeH
 }
 
 /// <summary>
-/// Where things are in the Forest's valley (docs/design/future/forest-showcase.md → The scene): world = terrain-local
+/// Where things are in the Forest's valley (docs/design/forest.md → The valley): world = terrain-local
 /// metres (the terrain's corner is the origin), north is −Z, east is +X. A 256 m valley runs north to south: the stream
 /// starts in the rocky outcrop (north-west), drops over a small fall, steps down through three pools, passes under a
 /// fallen-log bridge and ends in the pond (south). The glade is west of the stream, the dense pine slope east. A walking
@@ -236,7 +236,7 @@ public static class ValleyLayout
     ];
 
     /// <summary>
-    /// The eight reference shots (forest-showcase.md → Reference shots; G8e.7 recomposed R1 and added R6 and R7, ADR 0175;
+    /// The eight reference shots (forest.md → Reference shots; G8e.7 recomposed R1 and added R6 and R7, ADR 0175;
     /// ADR 0178 recomposed them after the Unreal references, most of them into the low sun; R8 fills the pause menu's
     /// grid; R9, the cabin, makes it 3 × 3): pose, vertical FOV and, for the photo shots, depth of field. R8 stands on the path inside R5's fern
     /// dell clearing and looks along the path, which trees keep 3.2 m clear of, so it needs no clearing or corridor of its

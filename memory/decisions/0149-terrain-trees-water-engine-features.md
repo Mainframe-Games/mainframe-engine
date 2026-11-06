@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted (design only; no code yet)
 - **Milestone:** Gameplay toolkit G8 (G8a–G8d)
-- **Spec:** docs/design/future/terrain.md, procedural-trees.md, water.md, forest-showcase.md
+- **Spec:** docs/design/future/terrain.md, procedural-trees.md, water.md; docs/design/forest.md (the forest showcase, shipped)
 
 ## Context
 
