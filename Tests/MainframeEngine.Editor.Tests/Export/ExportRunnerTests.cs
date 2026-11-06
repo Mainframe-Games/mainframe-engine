@@ -102,19 +102,71 @@ public sealed class ExportRunnerTests : IDisposable
         Assert.Contains(lines, l => l.StartsWith("Packed ", StringComparison.Ordinal));
 
         var app = Path.Combine(Extract(result.ArtifactPath!), "TinyGame-1.2.0-linux-x64");
-        using var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName));
+        using var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName), _game.PackKey);
+        Assert.True(pack.IsEncrypted);
         string[] paths = [.. pack.Entries.Select(e => e.Path)];
         Assert.Contains("Assets/Scenes/Main.mscene", paths);
         Assert.Contains("Assets/assets.index.json", paths);
         Assert.Contains("Assets/locale/fr/LC_MESSAGES/messages.mo", paths);
         Assert.Contains("Assets/Shaders/Mesh.vk.vert.spv", paths);
         Assert.DoesNotContain(paths, p => p.EndsWith(".po", StringComparison.Ordinal));
-        using (PackContentSource.MountBeside(app))
+        using (PackContentSource.MountBeside(app, key: _game.PackKey))
         {
             var project = ProjectSettings.Load(app);
             Assert.Empty(project.ExportPresets);
             Assert.Equal("1.2.0", project.Version);
+            Assert.Null(project.PackKey); // ExportedProjectFileOmitsThePackKey
         }
+
+        // ExportedFilesDoNotContainThePackKey: not its bytes, not its base64, in any file of the export.
+        var base64 = System.Text.Encoding.ASCII.GetBytes(Convert.ToBase64String(_game.PackKey));
+        foreach (var file in Directory.EnumerateFiles(app, "*", SearchOption.AllDirectories))
+        {
+            var bytes = File.ReadAllBytes(file);
+            Assert.True(bytes.AsSpan().IndexOf(_game.PackKey) < 0, file);
+            Assert.True(bytes.AsSpan().IndexOf(base64) < 0, file);
+        }
+
+        Assert.Contains(lines, l => l.Contains("-p:MainframePackKey=***", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, l => l.Contains(Convert.ToBase64String(_game.PackKey), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PackKeyEnvironmentVariableOverridesTheProject()
+    {
+        var other = Enumerable.Range(0, 32).Select(i => (byte)(200 - i)).ToArray();
+        var environment = _game.Environment();
+        var withVariable = new ExportEnvironment
+        {
+            DotnetPath = environment.DotnetPath,
+            Sdk = environment.Sdk,
+            Host = environment.Host,
+            HostRid = environment.HostRid,
+            RunTool = environment.RunTool,
+            GetVariable = name => name == ExportPlan.PackKeyVariable ? Convert.ToBase64String(other) : null,
+        };
+        var preset = ExportPreset.Create("Linux", ExportPlatform.Linux);
+
+        var result = await new ExportRunner(withVariable).RunAsync(new ExportRequest(_game.Root, preset), null, null, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded, result.Summary);
+        var pack = Path.Combine(Extract(result.ArtifactPath!), "TinyGame-1.2.0-linux-x64", PackFormat.FileName);
+        Assert.Equal("PackKeyMismatch", Assert.Throws<PackKeyException>(() => PackReader.Open(pack, _game.PackKey)).Code);
+        using var reader = PackReader.Open(pack, other);
+        Assert.True(reader.FileExists("Assets/Scenes/Main.mscene"));
+    }
+
+    [Fact]
+    public async Task EncryptFalseWritesAPlainPack()
+    {
+        var preset = ExportPreset.Create("Linux", ExportPlatform.Linux);
+        preset.Encrypt = false;
+
+        var result = await Run(preset, ct: TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded, result.Summary);
+        using var reader = PackReader.Open(Path.Combine(Extract(result.ArtifactPath!), "TinyGame-1.2.0-linux-x64", PackFormat.FileName));
+        Assert.False(reader.IsEncrypted);
     }
 
     [Fact]
@@ -146,10 +198,10 @@ public sealed class ExportRunnerTests : IDisposable
         var loose = Path.Combine(app, "Assets", "Music", "theme.mres");
         Assert.True(File.Exists(loose));
         Assert.False(File.Exists(Path.Combine(app, "Assets", "Scenes", "Main.mscene")));
-        using var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName));
+        using var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName), _game.PackKey);
         Assert.False(pack.FileExists("Assets/Music/theme.mres"));
         Assert.True(pack.FileExists("Assets/Scenes/Main.mscene"));
-        using (PackContentSource.MountBeside(app))
+        using (PackContentSource.MountBeside(app, key: _game.PackKey))
         {
             Assert.Contains("AudioStream", ContentFiles.ReadAllText(loose), StringComparison.Ordinal); // the disk, through the mount
             Assert.Contains("scn_aaaaaaaaaaaa", ContentFiles.ReadAllText(Path.Combine(app, "Assets", "Scenes", "Main.mscene")), StringComparison.Ordinal);

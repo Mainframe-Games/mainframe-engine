@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packed export smoke test (`just export-smoke`, G19, docs/design/game-export.md#packed-content): captures the Demo's
 # scenes from its Release build (loose files), exports the Demo for this machine with mf-export (packed into
-# Assets.mfpak, the default), runs the export on the same scenes and compares each pair of screenshots with ImageMagick.
+# Assets.mfpak and encrypted, the defaults), runs the export on the same scenes and compares each pair of screenshots with ImageMagick.
 # Fails when the export ships an Assets/ folder or a loose project.mfproj, logs an error, misses a screenshot, or a
 # screenshot differs by more than the threshold (RMSE, 0-1). The physics, particle and tile scenes differ between runs of
 # the same loose build (their simulations are not run-to-run deterministic), so they are run and checked for errors
@@ -50,6 +50,7 @@ for loose in Assets project.mfproj; do
 done
 
 failed=0
+compared=0
 for scene in "${scenes[@]}"; do
   log="$work/logs/packed-$scene.log"
   # shellcheck disable=SC2046 # args is a word list
@@ -58,7 +59,7 @@ for scene in "${scenes[@]}"; do
     echo "export-smoke: $scene logged errors (above, $log)" >&2
     failed=1
   fi
-  if ! grep -q "Content from Assets.mfpak" "$log"; then
+  if ! grep -q "Content from Assets.mfpak (encrypted)" "$log"; then
     echo "export-smoke: $scene did not read Assets.mfpak ($log)" >&2
     failed=1
   fi
@@ -79,7 +80,8 @@ for scene in "${scenes[@]}"; do
     failed=1
   else
     echo "export-smoke: $scene matches (RMSE $normalised)"
+    compared=$((compared + 1))
   fi
 done
 [ "$failed" = 0 ] || exit 1
-echo "export-smoke: the packed export of the Demo matches its loose build on ${#scenes[@]} scenes"
+echo "export-smoke: the packed export of the Demo ran ${#scenes[@]} scenes from its pack; $compared matched the loose build's screenshots"

@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 
@@ -21,15 +22,19 @@ public sealed class PackReader : IDisposable
 {
     private readonly SafeFileHandle _handle;
     private readonly PackEntry[] _entries;
+    private readonly byte[] _nonces;
+    private readonly byte[]? _key;
     private readonly Dictionary<string, int>.AlternateLookup<ReadOnlySpan<char>> _lookup;
     private readonly HashSet<string>.AlternateLookup<ReadOnlySpan<char>> _directoryLookup;
 
-    private PackReader(string path, SafeFileHandle handle, PackEntry[] entries, HashSet<string> directories)
+    private PackReader(string path, SafeFileHandle handle, PackEntry[] entries, byte[] nonces, HashSet<string> directories, byte[]? key)
     {
         FilePath = path;
         Name = System.IO.Path.GetFileName(path);
         _handle = handle;
         _entries = entries;
+        _nonces = nonces;
+        _key = key;
         var lookup = new Dictionary<string, int>(entries.Length, StringComparer.Ordinal);
         for (var i = 0; i < entries.Length; i++)
             lookup.Add(entries[i].Path, i);
@@ -50,11 +55,16 @@ public sealed class PackReader : IDisposable
     /// <summary>Every directory that holds an entry at any depth, "" (the root) included.</summary>
     public IReadOnlySet<string> Directories { get; }
 
+    /// <summary>Whether the pack is encrypted (G19 phase 3).</summary>
+    public bool IsEncrypted => _key is not null;
+
     /// <summary>
-    /// Opens a pack and reads its index. Throws <see cref="InvalidDataException"/> naming the pack when it is not one, is
-    /// another version, is encrypted (G19 phase 3) or is damaged (an entry or the index outside the file).
+    /// Opens a pack and reads its index. An encrypted pack needs its 32-byte <paramref name="key"/> (null: the game's,
+    /// <see cref="PackKeys"/>); without it, or with another one, a <see cref="PackKeyException"/> is thrown here, before any
+    /// read. Throws <see cref="InvalidDataException"/> naming the pack when it is not one, is another version, or is
+    /// damaged (an entry or the index outside the file).
     /// </summary>
-    public static PackReader Open(string path)
+    public static PackReader Open(string path, byte[]? key = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         path = System.IO.Path.GetFullPath(path);
@@ -67,19 +77,36 @@ public sealed class PackReader : IDisposable
             if (fileLength < PackFormat.HeaderSize || RandomAccess.Read(handle, headerBytes, 0) != PackFormat.HeaderSize)
                 throw new InvalidDataException($"'{name}' is not a Mainframe pack (shorter than its header).");
             var header = PackFormat.Header.Read(headerBytes, name);
+            byte[]? usedKey = null;
             if ((header.Flags & PackOptions.Encrypted) != 0)
-                throw new InvalidDataException($"'{name}' is encrypted, and this engine build reads only unencrypted packs.");
+            {
+                usedKey = key ?? (PackKeys.HasKey ? PackKeys.Current.ToArray() : null);
+                if (usedKey is null)
+                    throw new PackKeyException(PackKeyProblem.Missing,
+                        $"'{name}' is encrypted and this build has no pack key (PackKeyMissing): export the game with mf-export, which compiles the key into it.");
+                using var check = new PackCipher(usedKey);
+                if (!CryptographicOperations.FixedTimeEquals(check.KeyCheck(), header.KeyCheck))
+                    throw new PackKeyException(PackKeyProblem.Mismatch,
+                        $"'{name}' was encrypted with another key (PackKeyMismatch): the game and its pack come from different exports.");
+            }
+
             if (header.IndexOffset < PackFormat.HeaderSize || header.IndexStoredLength <= 0 || header.IndexOffset + header.IndexStoredLength > fileLength
                 || header.IndexLength is < 4 or > int.MaxValue)
                 throw Damaged(name, "its index lies outside the file");
 
             var stored = new byte[header.IndexStoredLength];
             ReadExactly(handle, stored, header.IndexOffset, name);
+            if (usedKey is not null)
+            {
+                using var cipher = new PackCipher(usedKey);
+                cipher.Apply(header.IndexNonce, 0, stored);
+            }
+
             var index = new byte[header.IndexLength];
             if (!BrotliDecoder.TryDecompress(stored, index, out var written) || written != index.Length)
                 throw Damaged(name, "its index does not decompress");
-            var (entries, directories) = ParseIndex(index, fileLength, name);
-            return new PackReader(path, handle, entries, directories);
+            var (entries, nonces, directories) = ParseIndex(index, fileLength, name);
+            return new PackReader(path, handle, entries, nonces, directories, usedKey);
         }
         catch
         {
@@ -114,11 +141,18 @@ public sealed class PackReader : IDisposable
     public Stream OpenEntry(in PackEntry entry)
     {
         ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        var nonce = Nonce(entry);
         if (entry.Codec == PackCodec.Stored)
-            return new PackEntryStream(_handle, entry.Offset, entry.Length);
+            return new PackEntryStream(_handle, entry.Offset, entry.Length, _key is null ? null : new PackCipher(_key), nonce);
 
         var stored = new byte[entry.StoredLength];
         ReadExactly(_handle, stored, entry.Offset, Name);
+        if (_key is not null)
+        {
+            using var cipher = new PackCipher(_key);
+            cipher.Apply(nonce, 0, stored);
+        }
+
         var bytes = new byte[entry.Length];
         if (!BrotliDecoder.TryDecompress(stored, bytes, out var written) || written != bytes.Length)
             throw Damaged(Name, $"'{entry.Path}' does not decompress");
@@ -156,6 +190,14 @@ public sealed class PackReader : IDisposable
 
     public void Dispose() => _handle.Dispose();
 
+    // The entry's nonce (a copy: streams keep it).
+    private byte[] Nonce(in PackEntry entry)
+    {
+        if (!_lookup.TryGetValue(entry.Path, out var i))
+            throw new ArgumentException($"'{entry.Path}' is not an entry of '{Name}'.", nameof(entry));
+        return _nonces.AsSpan(i * PackFormat.NonceSize, PackFormat.NonceSize).ToArray();
+    }
+
     private int LowerBound(string prefix)
     {
         int lo = 0, hi = _entries.Length;
@@ -171,13 +213,14 @@ public sealed class PackReader : IDisposable
         return lo;
     }
 
-    private static (PackEntry[] Entries, HashSet<string> Directories) ParseIndex(ReadOnlySpan<byte> index, long fileLength, string name)
+    private static (PackEntry[] Entries, byte[] Nonces, HashSet<string> Directories) ParseIndex(ReadOnlySpan<byte> index, long fileLength, string name)
     {
         var count = BinaryPrimitives.ReadInt32LittleEndian(index);
         const int fixedSize = 2 + 8 * 3 + 1 + PackFormat.NonceSize;
         if (count < 0 || (long)count * fixedSize > index.Length - 4)
             throw Damaged(name, "its index is truncated");
         var entries = new PackEntry[count];
+        var nonces = new byte[count * PackFormat.NonceSize];
         var directories = new HashSet<string>(StringComparer.Ordinal) { "" };
         var at = 4;
         for (var i = 0; i < count; i++)
@@ -194,6 +237,7 @@ public sealed class PackReader : IDisposable
             var storedLength = BinaryPrimitives.ReadInt64LittleEndian(index[(at + 8)..]);
             var length = BinaryPrimitives.ReadInt64LittleEndian(index[(at + 16)..]);
             var codec = (PackCodec)index[at + 24];
+            index.Slice(at + 25, PackFormat.NonceSize).CopyTo(nonces.AsSpan(i * PackFormat.NonceSize));
             at += 25 + PackFormat.NonceSize;
 
             if (!PackFormat.IsValidPath(path))
@@ -210,7 +254,7 @@ public sealed class PackReader : IDisposable
                     break; // its parents are in already
         }
 
-        return (entries, directories);
+        return (entries, nonces, directories);
     }
 
     private static void ReadExactly(SafeFileHandle handle, Span<byte> buffer, long offset, string name)
@@ -231,9 +275,10 @@ public sealed class PackReader : IDisposable
 
 /// <summary>
 /// A stored pack entry as a read-only, seekable stream over the pack's shared handle. Reads are positional, so streams
-/// over one pack read from any thread at once; they allocate nothing.
+/// over one pack read from any thread at once; an encrypted entry is decrypted in place in the caller's buffer with the
+/// stream's own <see cref="PackCipher"/>. Reads allocate nothing.
 /// </summary>
-internal sealed class PackEntryStream(SafeFileHandle handle, long start, long length) : Stream
+internal sealed class PackEntryStream(SafeFileHandle handle, long start, long length, PackCipher? cipher, byte[] nonce) : Stream
 {
     private long _position;
 
@@ -265,6 +310,7 @@ internal sealed class PackEntryStream(SafeFileHandle handle, long start, long le
         if (buffer.Length > remaining)
             buffer = buffer[..(int)remaining];
         var read = RandomAccess.Read(handle, buffer, start + _position);
+        cipher?.Apply(nonce, _position, buffer[..read]);
         _position += read;
         return read;
     }
@@ -295,6 +341,13 @@ internal sealed class PackEntryStream(SafeFileHandle handle, long start, long le
     }
 
     public override void SetLength(long value) => throw new NotSupportedException();
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+            cipher?.Dispose();
+        base.Dispose(disposing);
+    }
 
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }

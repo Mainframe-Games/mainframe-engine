@@ -140,6 +140,11 @@ commas tolerated). Only values that differ from the defaults are written, except
   `steam`, `version`, `icon`, publish options, `include`/`exclude` globs, macOS signing). Format 5 added the section;
   the step 4 → 5 changes nothing, it only makes an older editor refuse the file instead of dropping the presets on save.
   Exported builds carry no presets.
+- **Pack key** (`packKey`, G19 phase 3, [ADR 0240](../../memory/decisions/0240-committed-pack-key.md)): 32 random bytes in
+  base64 that exports encrypt `Assets.mfpak` with, committed with the project. Format 6's step 5 → 6 generates it;
+  until the file is saved `ProjectSettings.PackKeyUnsaved` is true and exports refuse to encrypt (`pack-key-missing`).
+  The editor saves it when it opens such a project, and `mf-export --init-pack-key` saves one from scripts. Exported
+  builds carry no key.
 - **Errors** are `InvalidDataException`s naming the file and the setting (`'project.mfproj': window.width must be an
   integer.`); unknown keys log a warning and are ignored.
 - **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the

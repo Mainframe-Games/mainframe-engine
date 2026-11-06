@@ -106,6 +106,8 @@ public sealed class EditorSession : IDisposable
         if (ProjectRoot is not null && !PathsEqual(ProjectRoot, root) && _tabs.Any(t => t.Mode.UsesProject()))
             throw new InvalidOperationException($"Close the scenes of {ProjectRoot} before opening another project.");
         var settings = ProjectSettings.Load(file);
+        if (settings.PackKeyUnsaved)
+            SavePackKey(settings, file);
         ProjectRoot = root;
         Project = settings;
         var database = new AssetDatabase(root);
@@ -114,6 +116,21 @@ public sealed class EditorSession : IDisposable
         ContentPaths.ProjectDirectory = root;
         Log.Info($"[Editor] Project '{settings.Name}': {displayPath ?? root}");
         ProjectChanged?.Invoke();
+    }
+
+    // Format 6 generated a pack key while loading an older file (G19 phase 3, ADR 0240): save it now, so the next load and
+    // every export use the same key (the editor never saves a project file just for a migration otherwise).
+    private static void SavePackKey(ProjectSettings settings, string file)
+    {
+        try
+        {
+            settings.Save(file);
+            Log.Info($"[Editor] Saved a new pack key in {file} (exports encrypt Assets.mfpak with it; commit it).");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning($"[Editor] Could not save the project's new pack key: {e.Message} Encrypted exports need it (mf-export --init-pack-key).");
+        }
     }
 
     /// <summary>Replaces the project's settings (after the Project Settings dialog saved them).</summary>

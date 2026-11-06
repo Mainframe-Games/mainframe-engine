@@ -195,6 +195,10 @@ public sealed class ExportEditorTests : IDisposable
         Assert.Null(model.Set(0, "pack", "false"));
         Assert.False(model.Presets[0].Pack);
         Assert.Null(model.Set(0, "pack", "true"));
+        Assert.Equal("true", ExportPresetsModel.Get(model.Presets[0], "encrypt"));
+        Assert.Null(model.Set(0, "encrypt", "false"));
+        Assert.False(model.Presets[0].Encrypt);
+        Assert.Null(model.Set(0, "encrypt", "true"));
         Assert.Null(model.AddGlob(0, ExportGlobList.Loose, "Assets/Mods/**"));
         Assert.Contains("must start with Assets/", model.AddGlob(0, ExportGlobList.Loose, "Mods/**"), StringComparison.Ordinal);
         Assert.Equal(["Assets/Mods/**"], model.Presets[0].Loose);

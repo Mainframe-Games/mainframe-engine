@@ -88,8 +88,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 
 - `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`, `Time` (ticks, Unix time); `Content/` — `ContentFiles`,
   the read-only content file system with `IContentSource` mounts (G19, `docs/design/asset-pipeline.md#content-file-system`),
-  and `.mfpak` packs (`PackWriter`, `PackReader`, `PackContentSource`; exports ship `Assets.mfpak`, which `GameHost`
-  mounts; `docs/design/asset-pipeline.md#packs`, ADR 0247)
+  and `.mfpak` packs (`PackWriter`, `PackReader`, `PackContentSource`, AES-256-CTR `PackCipher`; exports ship an encrypted
+  `Assets.mfpak`, which `GameHost` mounts with the key the generator compiled into the game from `-p:MainframePackKey`,
+  `PackKeys`; the project's `packKey`, format 6; `docs/design/asset-pipeline.md#packs`, ADRs 0240, 0247)
 - `MainframeEngine/Src/Math/` — 2D value types from GodotSharp (MIT): `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, Godot's
   `Vector2` members as extensions on `System.Numerics.Vector2` (the one 2D vector). See `docs/design/math.md`
 - `MainframeEngine/Src/Scene/` — Godot-style node tree: `Node`, `SceneTree`, `Node3D`/`Node2D`, transforms, `NodePath`,

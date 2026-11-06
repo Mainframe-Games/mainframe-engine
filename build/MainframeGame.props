@@ -106,6 +106,13 @@
     </AssemblyAttribute>
   </ItemGroup>
 
+  <!-- G19 phase 3: an encrypted export passes MainframePackKey (the project's packKey, base64); the generator compiles it,
+       masked, into a module initializer of each game assembly (ADR 0240). Never set it in a project file: builds without it
+       (the editor, Play, dotnet run) register no key and read loose files. -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="MainframePackKey" />
+  </ItemGroup>
+
   <!-- An export preset with "profiler": false (mf-export passes MainframeProfilerDisabled=true): the runtimeconfig sets the
        AppContext switch MainframeEngine.Profiler.Disabled, so profiler scopes cost nothing (docs/design/profiler.md). -->
   <ItemGroup Condition="'$(MainframeProfilerDisabled)' == 'true'">

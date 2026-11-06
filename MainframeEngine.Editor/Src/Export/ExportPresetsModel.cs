@@ -46,6 +46,7 @@ public sealed class ExportPresetsModel
         new("version", "General", "Version", ExportOptionKind.Text, "Names the archive and the macOS bundle version. Empty: the project's version."),
         new("archive", "General", "Archive", ExportOptionKind.Bool, "Zip (Windows, macOS) or .tar.gz (Linux); off leaves a folder (a Steam depot's content root)."),
         new("pack", "General", "Pack Content", ExportOptionKind.Bool, "Ship Assets/ and project.mfproj in one Assets.mfpak beside the executable; off ships them as loose files."),
+        new("encrypt", "General", "Encrypt Pack", ExportOptionKind.Bool, "AES-256 with the project's pack key (packKey in project.mfproj), compiled into the game; nothing in the pack is readable."),
         new("exe", "Build", "Executable Name", ExportOptionKind.Text, "The player-facing executable. Empty: the project name without spaces."),
         new("selfContained", "Build", "Self-Contained", ExportOptionKind.Bool, "Ship the .NET runtime; off makes players install .NET 10 (servers that have it)."),
         new("readyToRun", "Build", "ReadyToRun", ExportOptionKind.Bool, "Precompiled code: faster start-up, larger output."),
@@ -87,6 +88,7 @@ public sealed class ExportPresetsModel
             "version" => preset.Version,
             "archive" => B(preset.Archive),
             "pack" => B(preset.Pack),
+            "encrypt" => B(preset.Encrypt),
             "exe" => d.Exe,
             "selfContained" => B(d.SelfContained),
             "readyToRun" => B(d.ReadyToRun),
@@ -196,6 +198,7 @@ public sealed class ExportPresetsModel
             case "version": p.Version = text; break;
             case "archive": p.Archive = Bool(); break;
             case "pack": p.Pack = Bool(); break;
+            case "encrypt": p.Encrypt = Bool(); break;
             case "exe": d.Exe = text; break;
             case "selfContained": d.SelfContained = Bool(); break;
             case "readyToRun": d.ReadyToRun = Bool(); break;

@@ -1,5 +1,5 @@
 {
-  "format": 4,
+  "format": 6,
   "name": "Neon Demo",
   "engineVersion": "0.0.0-dev",
   "mainScene": "Assets/Scenes/neon.mscene",
@@ -28,5 +28,6 @@
   },
   "rendering": { "shadows": "High", "antiAliasing": "Taa" },
   "audio": { "busLayout": "Assets/Settings/AudioBusLayout.mres" },
-  "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1 }
+  "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1 },
+  "packKey": "uEnoejwKmo2CHAfx1HBjxFfdWVXGZo+Z5Zsb/VFE82c="
 }

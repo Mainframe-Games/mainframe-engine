@@ -17,7 +17,7 @@ public readonly record struct ProjectMigration(int From, Action<JsonObject> Upgr
 public static class ProjectSettingsFormat
 {
     /// <summary>The format this engine writes. Bump it and add a <see cref="ProjectMigration"/> when the layout changes.</summary>
-    public const int Current = 5;
+    public const int Current = 6;
 
     /// <summary>The engine's upgrade steps, ordered by <see cref="ProjectMigration.From"/>.</summary>
     public static IReadOnlyList<ProjectMigration> Migrations { get; } =
@@ -49,6 +49,9 @@ public static class ProjectSettingsFormat
         // 4 → 5: the "export" section (G5, ADR 0229). Nothing moves; the bump makes an older editor reject the file
         // ("Update the engine.") instead of reading it, dropping the presets it does not model and deleting them on save.
         new(4, static _ => { }),
+
+        // 5 → 6: the project's pack key (G19 phase 3, ADR 0240), generated once; the file keeps it from its next save.
+        new(5, static root => root["packKey"] ??= PackKeys.NewKey()),
     ];
 
     private static void UpgradeLegacyPaths(JsonNode? node)
@@ -120,8 +123,11 @@ public static class ProjectSettingsFormat
             throw new InvalidDataException($"'{source}' has project format {format}; this engine reads up to {currentFormat}. Update the engine.");
         if (format < 1)
             throw new InvalidDataException($"'{source}' has an invalid project format {format}.");
+        var hadKey = root.ContainsKey("packKey");
         Upgrade(root, format, currentFormat, migrations, source);
-        return reader.Read(root);
+        var settings = reader.Read(root);
+        settings.PackKeyUnsaved = !hadKey && settings.PackKey is not null;
+        return settings;
     }
 
     /// <summary>Runs the steps from <paramref name="format"/> to <paramref name="currentFormat"/> on <paramref name="root"/>.</summary>
@@ -171,6 +177,8 @@ public static class ProjectSettingsFormat
             WriteAutoloads(w, settings.Autoloads);
             WritePlayInstances(w, settings.PlayInstances);
             WriteExport(w, settings.ExportPresets);
+            if (settings.PackKey is { } packKey)
+                w.WriteString("packKey", packKey);
             w.WriteEndObject();
         }
 
@@ -566,6 +574,8 @@ public static class ProjectSettingsFormat
                 WriteStrings(w, "exclude", p.Exclude);
             if (!p.Pack)
                 w.WriteBoolean("pack", false);
+            if (!p.Encrypt)
+                w.WriteBoolean("encrypt", false);
             if (p.Loose.Count > 0)
                 WriteStrings(w, "loose", p.Loose);
             if (desktop is not null)
@@ -631,7 +641,7 @@ public static class ProjectSettingsFormat
         {
             var s = new ProjectSettings();
             Known(root, "", "format", "name", "engineVersion", "version", "userDataName", "mainScene", "assemblies", "isDemo", "steam", "window", "physics", "input",
-                "audio", "localization", "rendering", "ui", "loading", "saves", "crash", "autoloads", "playInstances", "export");
+                "audio", "localization", "rendering", "ui", "loading", "saves", "crash", "autoloads", "playInstances", "export", "packKey");
             if (String(root, "name", "name") is { } name)
                 Guard("name", () => s.Name = name);
             s.EngineVersion = String(root, "engineVersion", "engineVersion") ?? s.EngineVersion;
@@ -669,6 +679,13 @@ public static class ProjectSettingsFormat
                 ReadPlayInstances(instances, s.PlayInstances);
             if (Array(root, "export", "export") is { } export)
                 ReadExport(export, s.ExportPresets);
+            if (String(root, "packKey", "packKey") is { } packKey)
+            {
+                if (!PackKeys.TryParse(packKey, out _))
+                    throw Error("packKey", "must be 32 bytes in base64 (mf-export --init-pack-key writes a new one)");
+                s.PackKey = packKey;
+            }
+
             return s;
         }
 
@@ -967,7 +984,7 @@ public static class ProjectSettingsFormat
 
         // The keys every preset may have, then the desktop and macOS ones (an Android key on a Windows preset warns).
         private static readonly string[] CommonExportKeys =
-            ["name", "platform", "output", "configuration", "demo", "version", "icon", "archive", "include", "exclude", "pack", "loose"];
+            ["name", "platform", "output", "configuration", "demo", "version", "icon", "archive", "include", "exclude", "pack", "encrypt", "loose"];
 
         private static readonly string[] DesktopExportKeys = ["rid", "steam", "exe", "selfContained", "readyToRun", "singleFile", "trim", "symbols", "profiler"];
 
@@ -1017,6 +1034,7 @@ public static class ProjectSettingsFormat
                 }
 
                 preset.Pack = Bool(o, "pack", where + ".pack", true);
+                preset.Encrypt = Bool(o, "encrypt", where + ".encrypt", true);
                 preset.Loose.AddRange(Strings(o, "loose", where + ".loose"));
 
                 var desktop = preset.Desktop;

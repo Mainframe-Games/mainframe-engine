@@ -121,6 +121,23 @@ public sealed class ProjectSettings
     /// </summary>
     public List<ExportPreset> ExportPresets { get; } = [];
 
+    /// <summary>
+    /// The key exports encrypt <c>Assets.mfpak</c> with (<c>packKey</c>: 32 bytes, base64; G19, ADR 0240), committed with the
+    /// project: it ships inside the game anyway, and a stable key keeps rebuilds byte-identical and Steam patches small.
+    /// Format 6's migration generates it; <c>MF_PACK_KEY</c> overrides it for an export. Exported builds carry none.
+    /// </summary>
+    public string? PackKey
+    {
+        get;
+        set => field = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    /// <summary>
+    /// The <see cref="PackKey"/> was generated while loading (the file has none yet): an export refuses to encrypt with a
+    /// key that is not saved, since the next load would generate another (<c>pack-key-missing</c>). Saving clears it.
+    /// </summary>
+    public bool PackKeyUnsaved { get; set; }
+
     /// <summary>The file these settings were loaded from or last saved to (null for in-memory settings).</summary>
     public string? FilePath { get; internal set; }
 
@@ -162,6 +179,7 @@ public sealed class ProjectSettings
         var file = Path.GetFullPath(Directory.Exists(path) ? Path.Combine(path, FileName) : path); // disk-io: saves to disk
         ResourceSaver.WriteAtomically(file, ToJson());
         FilePath = file;
+        PackKeyUnsaved = false;
     }
 
     /// <summary>

@@ -170,8 +170,10 @@ public sealed class ExportPresetFormatTests
         var json = JsonNode.Parse(Text(older))!;
 
         Assert.Equal(ProjectSettingsFormat.Current, (int)json["format"]!);
-        Assert.Equal(5, ProjectSettingsFormat.Current);
+        Assert.Equal(6, ProjectSettingsFormat.Current);
         Assert.Null(json["export"]);
+        Assert.True(older.PackKeyUnsaved); // the 5 → 6 step generated a key the file does not have yet
+        Assert.True(PackKeys.TryParse(older.PackKey, out _));
         Assert.Equal(("Old", "Assets/Scenes/Main.mscene", 640), (older.Name, older.MainScene, older.Window.Width));
     }
 
@@ -181,10 +183,40 @@ public sealed class ExportPresetFormatTests
         var root = JsonNode.Parse("""{ "format": 4, "name": "N", "audio": { "busLayout": "Assets/b.mres" } }""")!.AsObject();
         var before = root.DeepClone().AsObject();
         before.Remove("format");
-        ProjectSettingsFormat.Upgrade(root, 4, ProjectSettingsFormat.Current, ProjectSettingsFormat.Migrations, "t");
+        ProjectSettingsFormat.Upgrade(root, 4, 5, ProjectSettingsFormat.Migrations, "t");
         Assert.Equal(5, (int)root["format"]!);
         root.Remove("format");
         Assert.True(JsonNode.DeepEquals(before, root));
+    }
+
+    [Fact]
+    public void FormatSixMigrationAddsAPackKeyOnce()
+    {
+        var file = Path.Combine(Directory.CreateTempSubdirectory("mf-packkey-").FullName, ProjectSettings.FileName);
+        File.WriteAllText(file, """{ "format": 5, "name": "Keyed" }""");
+
+        var first = ProjectSettings.Load(file);
+        Assert.True(first.PackKeyUnsaved);
+        Assert.NotEqual(first.PackKey, ProjectSettings.Load(file).PackKey); // unsaved: every load makes another
+        first.Save(file);
+        Assert.False(first.PackKeyUnsaved);
+        var saved = ProjectSettings.Load(file);
+
+        Assert.Equal(first.PackKey, saved.PackKey);
+        Assert.False(saved.PackKeyUnsaved);
+        Assert.Equal(saved.PackKey, ProjectSettings.Load(file).PackKey);
+        Assert.Contains("\"packKey\"", File.ReadAllText(file), StringComparison.Ordinal);
+        Directory.Delete(Path.GetDirectoryName(file)!, recursive: true);
+    }
+
+    [Fact]
+    public void ABadPackKeyIsAnError()
+    {
+        var e = Assert.Throws<InvalidDataException>(() => Parse("""{ "format": 6, "name": "N", "packKey": "c2hvcnQ=" }"""));
+        Assert.Contains("packKey", e.Message, StringComparison.Ordinal);
+        var none = Parse("""{ "format": 6, "name": "N" }""");
+        Assert.Null(none.PackKey); // a format-6 file without a key (an exported one) gets none
+        Assert.False(none.PackKeyUnsaved);
     }
 
     [Fact]

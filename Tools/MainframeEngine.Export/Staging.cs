@@ -64,8 +64,8 @@ public static class NativesPruner
 
 /// <summary>
 /// The <c>project.mfproj</c> an export ships (docs/design/game-export.md#exported-project-file): the project's settings
-/// with the presets removed (output paths and signing identities are not the player's business), <c>isDemo</c> and the
-/// version set from the preset, and Steam's app ids zeroed when the preset has Steam off.
+/// with the presets and the pack key removed (output paths, signing identities and the key are not the player's
+/// business), <c>isDemo</c> and the version set from the preset, and Steam's app ids zeroed when the preset has Steam off.
 /// </summary>
 public static class ExportedProjectFile
 {
@@ -77,6 +77,7 @@ public static class ExportedProjectFile
         ArgumentNullException.ThrowIfNull(version);
         var copy = ProjectSettings.Parse(settings.ToJson(), settings.FilePath ?? ProjectSettings.FileName);
         copy.ExportPresets.Clear();
+        copy.PackKey = null;
         copy.IsDemo = preset.Demo;
         copy.Version = version;
         if (preset.Options is DesktopExportOptions { Steam: false })

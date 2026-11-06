@@ -42,12 +42,16 @@ public sealed class PackTests : IDisposable
         return bytes;
     }
 
-    private string Pack(string root, string name = "Assets.mfpak")
+    private string Pack(string root, string name = "Assets.mfpak", byte[]? key = null)
     {
         var pack = Folder(name);
-        PackWriter.Write(pack, PackWriter.GameFiles(root));
+        PackWriter.Write(pack, PackWriter.GameFiles(root), key);
         return pack;
     }
+
+    private static readonly byte[] Key = [.. Enumerable.Range(1, 32).Select(i => (byte)(i * 7))];
+
+    private static readonly byte[] OtherKey = [.. Enumerable.Range(1, 32).Select(i => (byte)(i * 11))];
 
     [Fact]
     public void PackWriterIsDeterministic()
@@ -265,5 +269,120 @@ public sealed class PackTests : IDisposable
         }
 
         Assert.False(ContentFiles.Exists(Path.Combine(app, "Assets/UI/hud.rml")));
+    }
+    // G19 phase 3: AES-256-CTR.
+
+    [Fact]
+    public void EncryptedPackContainsNoPlaintextPathsOrContent()
+    {
+        var root = Stage();
+        Write(root, "Assets/UI/secret.rml", "<rml><body>THE-SECRET-ENDING-IS-HERE</body></rml>");
+        var plain = File.ReadAllBytes(Pack(root, "plain.mfpak"));
+        var encrypted = File.ReadAllBytes(Pack(root, "encrypted.mfpak", Key));
+
+        // The plain pack's index is Brotli, so search its stored media too: the .ogg's bytes are there as they are.
+        var media = File.ReadAllBytes(Path.Combine(root, "Assets/Audio/music.ogg"))[1000..1064];
+        Assert.True(plain.AsSpan().IndexOf(media) >= 0);
+        Assert.True(encrypted.AsSpan().IndexOf(media) < 0);
+        foreach (var text in new[] { "THE-SECRET-ENDING-IS-HERE", "Assets/UI/secret.rml", "secret.rml", "Assets/", "Packed", "mscene" })
+            Assert.True(encrypted.AsSpan().IndexOf(Encoding.UTF8.GetBytes(text)) < 0, text);
+        Assert.True(encrypted.AsSpan().IndexOf(Key) < 0);
+        Assert.True(encrypted.AsSpan().IndexOf(Encoding.ASCII.GetBytes(Convert.ToBase64String(Key))) < 0);
+    }
+
+    [Fact]
+    public void AnEncryptedPackRoundTripsAndSeeksWithItsKey()
+    {
+        var root = Stage();
+        var expected = File.ReadAllBytes(Path.Combine(root, "Assets/Audio/music.ogg"));
+        using var reader = PackReader.Open(Pack(root, key: Key), Key);
+        Assert.True(reader.IsEncrypted);
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            Assert.True(reader.TryGetEntry(Path.GetRelativePath(root, file).Replace('\\', '/'), out var entry));
+            using var stream = reader.OpenEntry(entry);
+            var bytes = new byte[stream.Length];
+            stream.ReadExactly(bytes);
+            Assert.Equal(File.ReadAllBytes(file), bytes);
+        }
+
+        Assert.True(reader.TryGetEntry("Assets/Audio/music.ogg", out var ogg));
+        using var audio = reader.OpenEntry(ogg);
+        var random = new Random(3);
+        var buffer = new byte[3000];
+        for (var i = 0; i < 40; i++)
+        {
+            var at = random.Next(expected.Length); // odd offsets: mid-block CTR
+            audio.Seek(at, SeekOrigin.Begin);
+            var read = audio.Read(buffer);
+            Assert.Equal(expected.AsSpan(at, read).ToArray(), buffer.AsSpan(0, read).ToArray());
+        }
+
+        audio.Seek(0, SeekOrigin.Begin);
+        audio.ReadExactly(buffer); // warm up
+        var allocated = AllocationGate.SmallestWindow(() =>
+        {
+            for (var i = 0; i < 100; i++)
+            {
+                audio.Seek(i * 1_013, SeekOrigin.Begin);
+                _ = audio.Read(buffer);
+            }
+        });
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
+    public void WrongKeyFailsAtMountWithAClearError()
+    {
+        var pack = Pack(Stage(), key: Key);
+
+        var wrong = Assert.Throws<PackKeyException>(() => PackReader.Open(pack, OtherKey));
+        Assert.Equal("PackKeyMismatch", wrong.Code);
+        Assert.Contains("Assets.mfpak", wrong.Message, StringComparison.Ordinal);
+        Assert.False(PackKeys.HasKey); // no game key registered in tests
+        var missing = Assert.Throws<PackKeyException>(() => PackReader.Open(pack));
+        Assert.Equal("PackKeyMissing", missing.Code);
+    }
+
+    [Fact]
+    public void EncryptedPackIsDeterministicForAStableKey()
+    {
+        var root = Stage();
+
+        Assert.Equal(File.ReadAllBytes(Pack(root, "a.mfpak", Key)), File.ReadAllBytes(Pack(root, "b.mfpak", Key)));
+        Assert.NotEqual(File.ReadAllBytes(Pack(root, "c.mfpak", Key)), File.ReadAllBytes(Pack(root, "d.mfpak", OtherKey)));
+    }
+
+    [Fact]
+    public void ChangingOneAssetChangesOnlyItsEntryAndTheIndex()
+    {
+        var root = Stage();
+        var beforeFile = Pack(root, "before.mfpak", Key);
+        Write(root, "Assets/UI/hud.rml", "<rml><body>a new hud, longer than before</body></rml>");
+        var afterFile = Pack(root, "after.mfpak", Key);
+        var beforeBytes = File.ReadAllBytes(beforeFile);
+        var afterBytes = File.ReadAllBytes(afterFile);
+        using var before = PackReader.Open(beforeFile, Key);
+        using var after = PackReader.Open(afterFile, Key);
+
+        foreach (var old in before.Entries)
+        {
+            Assert.True(after.TryGetEntry(old.Path, out var now));
+            var same = beforeBytes.AsSpan((int)old.Offset, (int)old.StoredLength).SequenceEqual(afterBytes.AsSpan((int)now.Offset, (int)now.StoredLength));
+            Assert.Equal(old.Path != "Assets/UI/hud.rml", same); // every other entry's encrypted bytes are unchanged
+        }
+    }
+
+    [Fact]
+    public void KeysParseAsBase64OfThirtyTwoBytes()
+    {
+        var key = PackKeys.NewKey();
+
+        Assert.True(PackKeys.TryParse(key, out var bytes));
+        Assert.Equal(32, bytes.Length);
+        Assert.NotEqual(key, PackKeys.NewKey());
+        Assert.False(PackKeys.TryParse(Convert.ToBase64String(new byte[16]), out _));
+        Assert.False(PackKeys.TryParse("not base64!", out _));
+        Assert.False(PackKeys.TryParse(null, out _));
     }
 }

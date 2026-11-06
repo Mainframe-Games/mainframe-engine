@@ -115,7 +115,7 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
 
             // Publish.
             Report(ExportPhase.Publish, null, $"Publishing for {plan.Rid}");
-            Line($"dotnet {string.Join(' ', plan.PublishArguments(ico).Select(Quote))}");
+            Line($"dotnet {string.Join(' ', plan.PublishArguments(ico).Select(a => a.StartsWith("-p:MainframePackKey=", StringComparison.Ordinal) ? "-p:MainframePackKey=***" : Quote(a)))}");
             var publish = await Environment.RunTool(Environment.DotnetPath!, plan.PublishArguments(ico), plan.ProjectDirectory, Line,
                 null, cancellationToken).ConfigureAwait(false);
             diagnostics = MsBuildOutputParser.ParseAll(publish.Output);
@@ -218,7 +218,7 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
         if (File.Exists(Path.Combine(publish, "steam_appid.txt")))
             return "steam_appid.txt is in the publish output: a player build must never carry one (remove it from the project's copied files).";
         if (plan.Preset.Pack)
-            PackContent(publish, plan.Preset.Loose, line);
+            PackContent(publish, plan.Preset.Loose, line, plan.PackKey);
         return null;
     }
 
@@ -227,10 +227,10 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
     /// <paramref name="loose"/> globs), then deletes what it packed (G19 phase 2). The stage is the only input: the
     /// project's own <c>Assets/</c> holds editor-only media the build never copied.
     /// </summary>
-    internal static PackWriteResult PackContent(string publish, IReadOnlyList<string> loose, Action<string> line)
+    internal static PackWriteResult PackContent(string publish, IReadOnlyList<string> loose, Action<string> line, byte[]? key = null)
     {
         var files = PackWriter.GameFiles(publish, path => Glob.IsMatchAny(loose, path));
-        var result = PackWriter.Write(Path.Combine(publish, PackFormat.FileName), files);
+        var result = PackWriter.Write(Path.Combine(publish, PackFormat.FileName), files, key);
         foreach (var file in files)
             File.Delete(file.SourceFile);
         var assets = Path.Combine(publish, ContentPaths.FolderName);
@@ -244,7 +244,7 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
         }
 
         var mb = (result.PackBytes / (1024.0 * 1024.0)).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
-        line($"Packed {result.Entries} file(s) into {PackFormat.FileName} ({mb} MB, {result.Stored} stored){(loose.Count > 0 ? $"; {loose.Count} loose glob(s)" : "")}");
+        line($"Packed {result.Entries} file(s) into {PackFormat.FileName} ({mb} MB, {result.Stored} stored{(key is null ? "" : ", encrypted")}){(loose.Count > 0 ? $"; {loose.Count} loose glob(s)" : "")}");
         return result;
     }
 

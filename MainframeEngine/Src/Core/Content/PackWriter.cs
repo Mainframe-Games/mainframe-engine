@@ -35,9 +35,11 @@ public static class PackWriter
 
     /// <summary>
     /// Writes the pack <paramref name="output"/> from <paramref name="files"/> (written beside it first, then moved over
-    /// it, so a failed write never leaves a half pack).
+    /// it, so a failed write never leaves a half pack). With a 32-byte <paramref name="key"/> the entries and the index are
+    /// AES-256-CTR encrypted (G19 phase 3): no path or content is readable in the file, and a stable key still gives
+    /// byte-identical packs.
     /// </summary>
-    public static PackWriteResult Write(string output, IEnumerable<PackFile> files)
+    public static PackWriteResult Write(string output, IEnumerable<PackFile> files, byte[]? key = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(output);
         ArgumentNullException.ThrowIfNull(files);
@@ -51,6 +53,7 @@ public static class PackWriter
                 throw new ArgumentException($"'{sorted[i].Path}' is packed twice.", nameof(files));
         }
 
+        using var cipher = key is null ? null : new PackCipher(key);
         var partial = output + ".partial";
         var entries = new Entry[sorted.Length];
         long contentBytes = 0;
@@ -63,30 +66,35 @@ public static class PackWriter
                 for (var i = 0; i < sorted.Length; i++)
                 {
                     var content = File.ReadAllBytes(sorted[i].SourceFile); // disk-io: the export packs files from its stage
+                    var nonce = Nonce(sorted[i].Path, content);
+                    var length = content.Length;
                     var (codec, bytes) = Encode(sorted[i].Path, content);
+                    cipher?.Apply(nonce, 0, bytes); // in place: the plaintext is not needed again
                     var offset = PackFormat.Place(stream.Position, sorted[i].Path, bytes.Length, codec);
                     Pad(stream, offset);
                     stream.Write(bytes);
-                    entries[i] = new Entry(sorted[i].Path, offset, bytes.Length, content.Length, codec, Nonce(sorted[i].Path, content));
-                    contentBytes += content.Length;
+                    entries[i] = new Entry(sorted[i].Path, offset, bytes.Length, length, codec, nonce);
+                    contentBytes += length;
                     if (codec == PackCodec.Stored)
                         stored++;
                 }
 
                 var index = WriteIndex(entries);
                 var compressedIndex = Brotli(index) ?? throw new InvalidOperationException("Brotli could not compress the pack index.");
+                var indexNonce = SHA256.HashData(index)[..PackFormat.NonceSize];
+                cipher?.Apply(indexNonce, 0, compressedIndex);
                 var indexOffset = PackFormat.Align(stream.Position, PackFormat.CompressedAlignment);
                 Pad(stream, indexOffset);
                 stream.Write(compressedIndex);
 
                 var header = new PackFormat.Header
                 {
-                    Flags = PackOptions.None,
+                    Flags = cipher is null ? PackOptions.None : PackOptions.Encrypted,
                     IndexOffset = indexOffset,
                     IndexStoredLength = compressedIndex.Length,
                     IndexLength = index.Length,
-                    IndexNonce = SHA256.HashData(index)[..PackFormat.NonceSize],
-                    KeyCheck = new byte[PackFormat.KeyCheckSize],
+                    IndexNonce = indexNonce,
+                    KeyCheck = cipher?.KeyCheck() ?? new byte[PackFormat.KeyCheckSize],
                 };
                 Span<byte> headerBytes = stackalloc byte[PackFormat.HeaderSize];
                 header.Write(headerBytes);

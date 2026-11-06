@@ -102,6 +102,12 @@ public sealed class ExportPreset
     /// </summary>
     public bool Pack { get; set; } = true;
 
+    /// <summary>
+    /// Encrypt the pack with the project's <see cref="ProjectSettings.PackKey"/> (AES-256-CTR, default; G19 phase 3). Ignored
+    /// when <see cref="Pack"/> is false.
+    /// </summary>
+    public bool Encrypt { get; set; } = true;
+
     /// <summary>Globs of shipped <c>Assets/</c> files kept as loose files beside the pack (mods, files other tools read).</summary>
     public List<string> Loose { get; } = [];
 
@@ -134,6 +140,7 @@ public sealed class ExportPreset
             Icon = Icon,
             Archive = Archive,
             Pack = Pack,
+            Encrypt = Encrypt,
             Options = Options.Clone(),
         };
         copy.Loose.AddRange(Loose);
