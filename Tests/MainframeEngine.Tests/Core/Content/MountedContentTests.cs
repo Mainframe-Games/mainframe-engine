@@ -12,13 +12,20 @@ namespace MainframeEngine.Tests.Core.Content;
 
 /// <summary>
 /// A game whose files exist only in a mounted source (the shape of a packed export): a temporary root that is not on
-/// disk, with copies of the test output's content under its <c>Assets/</c>.
+/// disk, with copies of the test output's content under its <c>Assets/</c>. <c>packed</c> mounts them as a real
+/// <c>.mfpak</c> written by <see cref="PackWriter"/> (G19 phase 2) instead of the in-memory source.
 /// </summary>
 internal sealed class MountedProject : IDisposable
 {
+    private readonly bool _packed;
     private IDisposable? _mount;
+    private string? _packFolder;
 
-    public MountedProject() => Source = new MemoryContentSource(Root, "test.mfpak");
+    public MountedProject(bool packed = false)
+    {
+        _packed = packed;
+        Source = new MemoryContentSource(Root, "test.mfpak");
+    }
 
     public string Root { get; } = Path.Combine(Path.GetTempPath(), "mf-mounted-" + Guid.NewGuid().ToString("N"));
 
@@ -36,11 +43,48 @@ internal sealed class MountedProject : IDisposable
     public MountedProject Mount()
     {
         Assert.False(Directory.Exists(Root));
-        _mount = ContentFiles.Mount(Source);
+        if (!_packed)
+        {
+            _mount = ContentFiles.Mount(Source);
+            return this;
+        }
+
+        // The memory source's files, written out and packed: the pack is the only copy under Root.
+        _packFolder = Directory.CreateTempSubdirectory("mf-pack-").FullName;
+        var files = new List<PackFile>();
+        foreach (var path in Source.EnumerateFiles("", recursive: true))
+        {
+            var file = Path.Combine(_packFolder, "files", path);
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            using (var input = Source.OpenRead(path)!)
+            using (var output = File.Create(file))
+                input.CopyTo(output);
+            files.Add(new PackFile(path, file));
+        }
+
+        var pack = Path.Combine(_packFolder, PackFormat.FileName);
+        PackWriter.Write(pack, files);
+        var source = new PackContentSource(PackReader.Open(pack), Root);
+        var mount = ContentFiles.Mount(source);
+        _mount = new Unmount(mount, source);
         return this;
     }
 
-    public void Dispose() => _mount?.Dispose();
+    public void Dispose()
+    {
+        _mount?.Dispose();
+        if (_packFolder is not null)
+            Directory.Delete(_packFolder, recursive: true);
+    }
+
+    private sealed class Unmount(IDisposable mount, IDisposable source) : IDisposable
+    {
+        public void Dispose()
+        {
+            mount.Dispose();
+            source.Dispose();
+        }
+    }
 }
 
 /// <summary>Loaders that read through <see cref="ContentFiles"/> load a game that exists only in a mount.</summary>
@@ -48,7 +92,7 @@ internal sealed class MountedProject : IDisposable
 public sealed class MountedResourceTests : IDisposable
 {
     private readonly AssetDatabase _previousAssets = AssetDatabase.Current;
-    private readonly MountedProject _project = new();
+    private MountedProject _project = new();
 
     public void Dispose()
     {
@@ -64,9 +108,12 @@ public sealed class MountedResourceTests : IDisposable
         ResourceLoader.ClearCache();
     }
 
-    [Fact]
-    public void ResourceLoaderReadsScenesFromAMount()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ResourceLoaderReadsScenesFromAMount(bool packed)
     {
+        _project = new MountedProject(packed);
         // Author the scene on disk, then ship only its bytes (and the texture's) in the mount.
         var authoring = Directory.CreateTempSubdirectory("mf-mounted-authoring").FullName;
         try
@@ -98,9 +145,12 @@ public sealed class MountedResourceTests : IDisposable
         instance.Free();
     }
 
-    [Fact]
-    public void TextureLoadsFromAMount()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TextureLoadsFromAMount(bool packed)
     {
+        _project = new MountedProject(packed);
         const string png = "Assets/Models/TestModel/checker.png";
         _project.Copy(png).Copy(png + ".meta");
         var onDisk = Texture2D.FromFile(Path.Combine(ContentPaths.BaseDirectory, png));
@@ -111,9 +161,12 @@ public sealed class MountedResourceTests : IDisposable
         Assert.Equal((onDisk.Width, onDisk.Height), (mounted.Width, mounted.Height));
     }
 
-    [Fact]
-    public void ModelImporterLoadsAGltfWithExternalBuffersThroughTheContentFileSystem()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ModelImporterLoadsAGltfWithExternalBuffersThroughTheContentFileSystem(bool packed)
     {
+        _project = new MountedProject(packed);
         const string folder = "Assets/Models/TestModel/";
         _project.Copy(folder + "test_model.gltf").Copy(folder + "test_model.bin").Copy(folder + "checker.png")
             .Copy(folder + "test_model.gltf.meta").Copy(folder + "checker.png.meta");
@@ -150,9 +203,12 @@ public sealed class MountedResourceTests : IDisposable
         }
     }
 
-    [Fact]
-    public void SpineFolderLoadsFromAMount()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SpineFolderLoadsFromAMount(bool packed)
     {
+        _project = new MountedProject(packed);
         const string folder = "Assets/Models/Spine/SpineBoy";
         _project.Copy(folder + "/spineboy-pro.atlas").Copy(folder + "/spineboy-pro.json").Copy(folder + "/spineboy-pro.png");
         UseProject();
@@ -185,9 +241,12 @@ public sealed class MountedResourceTests : IDisposable
         }
     }
 
-    [Fact]
-    public void StreamedAudioSeeksThroughAMount()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StreamedAudioSeeksThroughAMount(bool packed)
     {
+        _project = new MountedProject(packed);
         const string ogg = "Assets/Audio/ambient_hum.ogg";
         _project.Copy(ogg).Mount();
         using var disk = AudioDecoder.Open(Path.Combine(ContentPaths.BaseDirectory, ogg));
@@ -211,10 +270,12 @@ public sealed class MountedResourceTests : IDisposable
 [Collection(nameof(SerialRmlUi))]
 public sealed class MountedUiTests
 {
-    [Fact]
-    public void UiDocumentAndFontLoadFromAMount()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UiDocumentAndFontLoadFromAMount(bool packed)
     {
-        using var project = new MountedProject();
+        using var project = new MountedProject(packed);
         project.Copy("Assets/UI/fonts/LatoLatin-Bold.ttf");
         project.Source.Add("Assets/UI/hud.rcss", "body { font-family: LatoLatin; font-weight: bold; } #hp { width: 50dp; }");
         project.Source.Add("Assets/UI/hud.rml", """
@@ -240,10 +301,12 @@ public sealed class MountedUiTests
 [Collection(nameof(LocalizationState))]
 public sealed class MountedLocalizationTests
 {
-    [Fact]
-    public void CatalogsAndLocalesComeFromAMount()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CatalogsAndLocalesComeFromAMount(bool packed)
     {
-        using var project = new MountedProject();
+        using var project = new MountedProject(packed);
         var po = new StringBuilder()
             .Append("msgid \"\"\nmsgstr \"\"\n\"Language: es\\n\"\n\"Content-Type: text/plain; charset=UTF-8\\n\"\n")
             .Append("\"Plural-Forms: nplurals=2; plural=(n != 1);\\n\"\n\n")

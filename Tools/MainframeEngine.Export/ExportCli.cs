@@ -19,6 +19,12 @@ public enum ExportCommandKind
 
     /// <summary>Print the usage.</summary>
     Help,
+
+    /// <summary>List an <c>Assets.mfpak</c>'s entries (<c>--pack-list</c>).</summary>
+    PackList,
+
+    /// <summary>Write an <c>Assets.mfpak</c>'s files into a folder (<c>--pack-extract</c>).</summary>
+    PackExtract,
 }
 
 /// <summary>A parsed command line.</summary>
@@ -29,6 +35,7 @@ public enum ExportCommandKind
 /// <param name="Configuration">A configuration overriding the presets' (the editor's <c>--export-debug</c>).</param>
 /// <param name="LegacyPreset">The preset the legacy form describes.</param>
 /// <param name="AppName">The legacy <c>--name</c>: the app's display name instead of the project's.</param>
+/// <param name="PackFile">The pack of <see cref="ExportCommandKind.PackList"/> and <see cref="ExportCommandKind.PackExtract"/>.</param>
 public sealed record ExportCommand(
     ExportCommandKind Kind,
     string? ProjectDirectory = null,
@@ -36,7 +43,8 @@ public sealed record ExportCommand(
     string? Output = null,
     string? Configuration = null,
     ExportPreset? LegacyPreset = null,
-    string? AppName = null);
+    string? AppName = null,
+    string? PackFile = null);
 
 /// <summary>
 /// The command line of <c>mf-export</c> (Tools/MainframeEngine.Export.Cli; <c>just package-game</c>; CI) and of the
@@ -54,6 +62,8 @@ public static class ExportCli
         mf-export --project <dir> --preset "<name>" [--output <dir>]   export one preset of project.mfproj
         mf-export --project <dir> --all                                  export every preset in order
         mf-export --project <dir> --list                                 list the presets and their validation
+        mf-export --pack-list <Assets.mfpak>                             list a packed export's files
+        mf-export --pack-extract <Assets.mfpak> <dir>                    write a packed export's files into <dir>
         mf-export <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v] [--bundle-id id]
                   [--copyright text] [--icon icon.png] [--sign "Developer ID Application: …"] [--notarize profile]
                   [--demo] [--steam] [--symbols ship|separate] [--configuration Release|Debug] [--folder]
@@ -113,6 +123,12 @@ public static class ExportCli
             return new ExportCommand(ExportCommandKind.Help);
         if (!args[0].StartsWith("--", StringComparison.Ordinal))
             return ParseLegacy(args);
+        if (args[0] == "--pack-list")
+            return args.Count == 2 ? new ExportCommand(ExportCommandKind.PackList, PackFile: args[1]) : throw new ArgumentException("Use --pack-list <Assets.mfpak>.");
+        if (args[0] == "--pack-extract")
+            return args.Count == 3
+                ? new ExportCommand(ExportCommandKind.PackExtract, PackFile: args[1], Output: args[2])
+                : throw new ArgumentException("Use --pack-extract <Assets.mfpak> <dir>.");
 
         string? project = null, preset = null, output = null;
         bool all = false, list = false;
@@ -223,6 +239,39 @@ public static class ExportCli
         return new ExportCommand(ExportCommandKind.Legacy, project, preset.Name, output, LegacyPreset: preset, AppName: name);
     }
 
+    // --pack-list prints "<codec> <length> <path>" per entry; --pack-extract writes every file under the output folder.
+    private static int RunPack(ExportCommand command, TextWriter stdout, TextWriter stderr)
+    {
+        var file = Path.GetFullPath(command.PackFile!);
+        try
+        {
+            using var pack = PackReader.Open(file);
+            foreach (var entry in pack.Entries)
+            {
+                if (command.Kind == ExportCommandKind.PackList)
+                {
+                    stdout.WriteLine($"{(entry.Codec == PackCodec.Stored ? "stored" : "brotli"),-6} {entry.Length.ToString(CultureInfo.InvariantCulture),12} {entry.Path}");
+                    continue;
+                }
+
+                var target = Path.Combine(Path.GetFullPath(command.Output!), entry.Path.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                using var input = pack.OpenEntry(entry);
+                using var output = File.Create(target);
+                input.CopyTo(output);
+            }
+
+            if (command.Kind == ExportCommandKind.PackExtract)
+                stdout.WriteLine($"Extracted {pack.Entries.Count} file(s) to {Path.GetFullPath(command.Output!)}");
+            return Success;
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            stderr.WriteLine($"{file} : error pack: {e.Message}");
+            return UsageError;
+        }
+    }
+
     private static string Value(IReadOnlyList<string> args, ref int i)
     {
         if (i + 1 >= args.Count)
@@ -278,6 +327,9 @@ public static class ExportCli
             stdout.WriteLine(Usage);
             return Success;
         }
+
+        if (command.Kind is ExportCommandKind.PackList or ExportCommandKind.PackExtract)
+            return RunPack(command, stdout, stderr);
 
         var root = Path.GetFullPath(command.ProjectDirectory ?? Directory.GetCurrentDirectory());
         var projectFile = Path.Combine(root, ProjectSettings.FileName);

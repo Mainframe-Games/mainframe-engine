@@ -82,10 +82,10 @@ public static class ContentFiles
   in the mounts whose root holds it, highest priority first, then on the disk. Paths outside every mount read the disk.
 - With nothing mounted, every call is the `File`/`Directory` call it replaced. `Exists`/`GetInfo` on absolute paths
   allocate 0 B, mounted or not.
-- `PackContentSource` (phase 2) reads a `.mfpak` and is mounted at `ContentPaths.BaseDirectory`. Loose files beside the
-  executable (`loose`) are the disk fallthrough.
+- `PackContentSource` (phase 2, built) reads a `.mfpak` and is mounted at `ContentPaths.BaseDirectory`. Loose files
+  beside the executable (`loose`) are the disk fallthrough.
 - `GameHost` mounts `Assets.mfpak` when it exists next to the executable, before it reads `project.mfproj`. Otherwise it
-  mounts nothing and reads loose files, as it does today.
+  mounts nothing and reads loose files, as before.
 
 Every runtime **content** read moved to it. That means `ResourceLoader`, `AssetDatabase` (it reads the shipped
 `assets.index.json`; `ToAbsolutePath` callers become `OpenRead` callers), `Texture2D`/`Png`, `Font`, `ShaderModuleCache`
@@ -108,6 +108,8 @@ seekable streams), `MusicManifest`/`AdaptiveMusic`, `SpineNode`/`SpineTextureLoa
   needed.
 
 ### Pack format (phase 2)
+
+Built (2026-11-06); see "Changes from the proposal, phase 2" below and [Asset pipeline → Packs](../asset-pipeline.md#packs).
 
 `.mfpak` v1 is little-endian and versioned:
 
@@ -267,7 +269,7 @@ seekable streams), `MusicManifest`/`AdaptiveMusic`, `SpineNode`/`SpineTextureLoa
 
 - [x] Phase 1: `ContentFiles`, `IContentSource`, `MemoryContentSource`; move every runtime content read; the
       Assimp `aiFileIO` bridge; the audit test; update `docs/design/asset-pipeline.md` and AGENTS.md's project structure.
-- [ ] Phase 2: `.mfpak` v1 (`PackWriter` in the export library, `PackReader`/`PackContentSource` in the engine);
+- [x] Phase 2: `.mfpak` v1 (`PackWriter` in the export library, `PackReader`/`PackContentSource` in the engine);
       `GameHost` mounting; the `pack` and `loose` preset keys; stage changes; `ContentLoadBenchmarks`; `just export-smoke`;
       `game-export.md` rows.
 - [ ] Phase 3: AES-256-CTR `PackStream`; project format 6 with the pack key and its migration; `--init-pack-key`;
@@ -289,18 +291,45 @@ seekable streams), `MusicManifest`/`AdaptiveMusic`, `SpineNode`/`SpineTextureLoa
 - **`SurfaceShaderBuild`** stays on the disk for the build and check, but its run-time lock read goes through
   `ContentFiles`.
 
+## Changes from the proposal, phase 2
+
+- **The writer is in the engine** (`Src/Core/Content/PackWriter.cs`), not the export library: engine tests and
+  benchmarks build packs with it, and mobile's `mf-cook` will too. The export's stage step calls it.
+- **Anchors instead of plain packing** ([ADR 0247](../../../memory/decisions/0247-pack-anchors-for-steampipe.md)). This
+  answers the SteamPipe open question. Valve's uploading guide says SteamPipe diffs in ~1 MB chunks and recommends a
+  1 MB padding alignment and per-asset compression. Laying entries out back to back would shift every later chunk after
+  one change, and even "never cross a page" re-flows every later page. So entries of a page or more, and about one
+  entry per 16 MB picked by its path's hash and its own size, start on a page boundary: a change re-lays out entries
+  only up to the next anchor. `InsertingAnAssetShiftsEntriesAfterTheNextAnchorByWholePages` checks it.
+- **Codec choice.** Media extensions are always stored; other files are Brotli only when it saves 1/16 or more.
+- **Header.** The flags field is `PackOptions` (CA1711). The phase 3 fields (index nonce, key check) are written now,
+  so the format does not change for encryption.
+- **The packed-game scenario** is the existing mounted-content tests (UI documents and fonts, catalogs, streamed audio,
+  glTF with external buffers, Spine, scenes) run as theories over the in-memory source and a real pack, rather than one
+  new test host.
+- **`mf-export --pack-list` and `--pack-extract`**, not in the proposal: the template smoke checks a packed export
+  through them, and developers can see what shipped.
+- **`just export-smoke`** compares 8 of 12 Demo scenes pixel for pixel (all 8 match exactly): the physics, particle and
+  tile-map scenes differ between two runs of the same loose build, so they are run from the pack and checked for errors
+  only.
+- **`ContentLoadBenchmarks`** compares loose files and a pack (scene text, PNG decode, UI text); the stored-versus-
+  compressed split is the codec each file gets, and the encrypted case comes with phase 3.
+- **`assets.index.json` and the UID map** live only inside the pack: `AssetDatabase` reads them through `ContentFiles`,
+  and the packed template export runs (`ExportsATemplateGameForThisMachineAndRunsIt`).
+
 ## Open questions
 
-- Is Brotli enough, or is a zstd or LZ4 package (needs the dependency discussion) worth it for load time? Phase 2's
-  benchmark answers it; the owner decides.
-- SteamPipe chunks files in about 1 MB pieces. Does an entry inserted mid-pack shift every later chunk enough to bloat
-  patches, so that entries should be 1 MB aligned or appended in a stable order? Agent checks Valve's guidance in
-  phase 2, and the human checklist confirms.
+- Is Brotli enough, or is a zstd or LZ4 package (needs the dependency discussion) worth it for load time? Owner.
+  Phase 2's `ContentLoadBenchmarks` on the M5 MacBook (2026-11-06, not re-checked on a fully quiet machine): a 512² PNG
+  decode 2.79 → 2.85 ms (+2 %, stored); a UI document 14.2 → 8.5 µs (faster); a 200 KB scene's text 103 → 125 µs
+  (+21 %, about 22 µs: the Brotli entry is decoded whole into its own buffer, ~200 KB more allocated). Only Brotli text is
+  over the 10 % target, and by microseconds per file.
+- ~~SteamPipe chunking~~: answered in phase 2 (anchors, ADR 0247); the human checklist's depot upload confirms it.
 - Does the editor save a project right after migrating it, so the format-6 key persists without an explicit save?
   Agent checks in phase 3; if not, the editor saves after generating the key.
 - Does phase 4 stay here, or move to M12.6 with this proposal only adding the preset key? Owner.
-- Should `assets.index.json` and the UID map, which reveal the project's structure, live only inside the pack? Yes in
-  this design. Agent confirms nothing reads them by OS path.
+- ~~Should `assets.index.json` and the UID map live only inside the pack?~~ Yes; confirmed in phase 2 (nothing reads
+  them by OS path).
 
 ## Related
 

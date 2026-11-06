@@ -564,6 +564,10 @@ public static class ProjectSettingsFormat
                 WriteStrings(w, "include", p.Include);
             if (!p.Exclude.SequenceEqual(ExportPreset.DefaultExclude))
                 WriteStrings(w, "exclude", p.Exclude);
+            if (!p.Pack)
+                w.WriteBoolean("pack", false);
+            if (p.Loose.Count > 0)
+                WriteStrings(w, "loose", p.Loose);
             if (desktop is not null)
             {
                 if (desktop.Steam)
@@ -963,7 +967,7 @@ public static class ProjectSettingsFormat
 
         // The keys every preset may have, then the desktop and macOS ones (an Android key on a Windows preset warns).
         private static readonly string[] CommonExportKeys =
-            ["name", "platform", "output", "configuration", "demo", "version", "icon", "archive", "include", "exclude"];
+            ["name", "platform", "output", "configuration", "demo", "version", "icon", "archive", "include", "exclude", "pack", "loose"];
 
         private static readonly string[] DesktopExportKeys = ["rid", "steam", "exe", "selfContained", "readyToRun", "singleFile", "trim", "symbols", "profiler"];
 
@@ -1011,6 +1015,9 @@ public static class ProjectSettingsFormat
                     preset.Exclude.Clear();
                     preset.Exclude.AddRange(Strings(o, "exclude", where + ".exclude"));
                 }
+
+                preset.Pack = Bool(o, "pack", where + ".pack", true);
+                preset.Loose.AddRange(Strings(o, "loose", where + ".loose"));
 
                 var desktop = preset.Desktop;
                 desktop.Rid = String(o, "rid", where + ".rid") ?? "";

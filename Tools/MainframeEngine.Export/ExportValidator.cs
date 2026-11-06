@@ -55,6 +55,17 @@ public static class ExportValidator
         foreach (var glob in preset.Include.Concat(preset.Exclude))
             if (Glob.Problem(glob) is { } problem)
                 Error("glob", $"The content glob '{glob}' {problem}.");
+        foreach (var glob in preset.Loose)
+        {
+            if (Glob.Problem(glob) is { } problem)
+                Error("glob", $"The loose glob '{glob}' {problem}.");
+            else if (!glob.StartsWith(ContentPaths.FolderName + "/", StringComparison.Ordinal))
+                Error("loose-outside-assets", $"The loose glob '{glob}' is not under {ContentPaths.FolderName}/: only content files can stay beside the pack.",
+                    $"Start it with {ContentPaths.FolderName}/.");
+        }
+
+        if (!preset.Pack && preset.Loose.Count > 0)
+            Warn("loose-without-pack", "Loose globs do nothing when pack is off: every file ships loose.");
         if (preset.Include.Count == 0)
             Warn("include-empty", "No include globs: none of the game's Assets/ files ship.", "Add Assets/**.");
         foreach (var glob in preset.Include)

@@ -35,7 +35,7 @@ jobs:
       matrix:
         include:
           - name: osx-universal
-            os: macos-14
+            os: macos-15
             rids: "osx-arm64 osx-x64"
             libs: "libenet.dylib libmfrmlui.dylib libmfsvg.dylib"
             editor_bins: "mfplughost"
