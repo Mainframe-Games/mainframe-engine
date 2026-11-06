@@ -89,8 +89,8 @@ _Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and muc
 ## Next steps
 
 1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 4 NativeAOT (owner: here or M12.6).
-2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (the Terrain dock's Foliage and Objects
-   modes, tree inspector, river tool, forest goldens and frame budget); G20.3 video; G1c animation authoring (would let active
+2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (terrain dock and Faceted look, tree
+   inspector, river tool, forest goldens and frame budget); G20.3 video; G1c animation authoring (would let active
    ragdolls follow any clip); G12 (proposal awaits owner review); G14, G16, G17; G3b's rest (G3.8–G3.12).
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (Forest cabin; G6's two; G3.7's two; G11's `WorldUiBenchmarks`).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
