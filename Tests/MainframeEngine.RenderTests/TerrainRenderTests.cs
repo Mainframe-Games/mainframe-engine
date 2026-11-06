@@ -33,6 +33,30 @@ public class TerrainRenderTests
     }
 
     [Fact]
+    public void FacetedTerrainRendersCleanlyAndMatchesGolden()
+    {
+        // G8a.4: palette facets, a path, sand, rock, banded lawn with a cut-grass tint, a box's shadow on the facets.
+        var result = HostRunner.Run("terrain-faceted", Output("terrain-faceted"), "--capture", "10", "--hidden");
+
+        Assert.True(result.SceneCheckFailures.Count == 0, string.Join("\n", result.SceneCheckFailures));
+        Gates.AssertValidationClean(result);
+        Gates.AssertMatchesGolden(result, 10);
+    }
+
+    [Fact]
+    public void FacetedTerrainFramesAllocateNothingWhilePaintedAndOrbited()
+    {
+        const int warmup = 150, measured = 240;
+        var result = HostRunner.RunWithEnvironment(new Dictionary<string, string> { ["DOTNET_TieredCompilation"] = "0" },
+            "terrain-faceted", Output("terrain-faceted-alloc"), "--alloc", $"{warmup}:{measured}", "--hidden");
+
+        Assert.Equal(measured, result.MeasuredFrames);
+        Assert.True(result.AllocatedBytes == 0,
+            $"Faceted terrain frames allocated {result.AllocatedBytes} managed bytes over {measured} frames; per-frame code must not allocate.");
+        Gates.AssertValidationClean(result);
+    }
+
+    [Fact]
     public void TerrainSplatMaterialRendersCleanlyAndMatchesGolden()
     {
         var result = HostRunner.Run("terrain-splat", Output("terrain-splat"), "--capture", "10", "--hidden");

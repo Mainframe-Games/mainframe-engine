@@ -36,6 +36,7 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `FoliageMaterial3D`, `FoliageBackFace` | [FoliageMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/FoliageMaterial3D.cs) | Leaves, grass, bark: vertex wind, cutout, translucency (ADR 0151) |
 | `WaterMaterial3D`, `WaterTextures` | [WaterMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs) | Rivers and ponds: flow ripples, reflection, absorption, foam (ADR 0159, [water.md](water.md#watermaterial3d)) |
 | `ShaderMaterial` + `Shader`, `ShaderParameter` | [Rendering/Canvas/ShaderMaterial.cs](../../MainframeEngine/Src/Rendering/Canvas/ShaderMaterial.cs) | A spatial surface shader with per-material parameters (ADRs 0205, 0237, [below](#shadermaterial-spatial-shaders-adr-0205)) |
+| `TerrainMaterial3D`, `TerrainSurface` | [TerrainMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainMaterial3D.cs) | The Faceted terrain's look: flat palette colours per surface cell on exact face normals, two-tone bands, a user-channel tint (G8a.4, [Terrain](terrain.md#faceted-look)) |
 | `TerrainSplatMaterial3D`, `TerrainLayer` | [TerrainSplatMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainSplatMaterial3D.cs), [TerrainLayer.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainLayer.cs) | The Realistic terrain's look: up to 12 splat-weighted PBR layers in texture arrays, its own set 2 and pipeline layout (ADR 0156, [Terrain](terrain.md#terrainsplatmaterial3d)) |
 | `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.mfmeta` (see [Asset pipeline](asset-pipeline.md)) |
 | `OrmPacker` | [OrmPacker.cs](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Separate occlusion/roughness/metallic maps → one linear ORM texture (ADR 0158) |
@@ -144,7 +145,7 @@ Each property setter bumps `Material.Version`. On the next frame the renderer:
 - re-resolves the pipelines if `RenderState` changed.
 
 `StandardMaterial3D.Default` (white, lit, opaque) is used when a surface has no material. Other `Material`
-subclasses (apart from `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D`, `TerrainSplatMaterial3D` and a spatial
+subclasses (apart from `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D`, `TerrainSplatMaterial3D`, `TerrainMaterial3D` and a spatial
 `ShaderMaterial`, below) are not supported by the renderer yet: they draw with the default material and log a warning once.
 
 ### Next passes and OutlineMaterial3D (ADR 0132)
@@ -523,6 +524,7 @@ less-or-equal, and cutouts compare EQUAL with specialization constant 0 = opaque
 | `MeshFoliage` | `Foliage/Foliage.vk.vert` + `Foliage/Foliage.vk.frag` (`FoliageMaterial3D`; always `MeshInstancedExt`) | the scene pass |
 | `MeshWater` | `Water/Water.vk.vert` + `Water/Water.vk.frag` (`WaterMaterial3D`; always `MeshInstancedExt`) | the scene pass |
 | `MeshTerrainSplat` | `Mesh/Mesh.vk.vert` + `Terrain/TerrainSplat.vk.frag` (`TerrainSplatMaterial3D`; its own pipeline layout) | the scene pass |
+| `MeshTerrainFaceted` | `Mesh/Mesh.vk.vert` + `Terrain/TerrainFaceted.vk.frag` (`TerrainMaterial3D`; the shared layout: albedo slot = surface map, normal slot = palette, emission slot = user map) | the scene pass |
 | `MeshDepth` | `Mesh/MeshDepth.vk.vert` (`MeshDepthExt.vk.vert` with streams) + `Mesh/MeshDepth.vk.frag` (velocity, cutout test; ADR 0163) | the depth prepass |
 | `MeshDepthFoliage` | `Foliage/FoliageDepth.vk.vert` (wind now and a frame ago) + `Mesh/MeshDepth.vk.frag` | the depth prepass |
 | `MeshSpatial`, `MeshDepthSpatial`, `MeshObjectIdSpatial` | a spatial shader's `x.slang.{vert,frag}.spv`, `.depth.*`, `.id.*` (ADR 0205; its own pipeline layout) | the scene pass, the depth prepass, the object-ID pass |
@@ -749,7 +751,7 @@ pipelines draw the view like any mesh; the prepass uses `MeshDepthSkinned` for t
   shaders; at most 32 per view.
 - Billboards are a node feature (`Sprite3D.Billboard`); `StandardMaterial3D` has no `BillboardMode` yet, so a `MeshInstance3D`
   can't billboard, and there is no `Particles` mode.
-- Only `StandardMaterial3D`, `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D`, `TerrainSplatMaterial3D` and spatial
+- Only `StandardMaterial3D`, `OutlineMaterial3D`, `FoliageMaterial3D`, `WaterMaterial3D`, `TerrainSplatMaterial3D`, `TerrainMaterial3D` and spatial
   `ShaderMaterial`s are rendered. Spatial surface shaders have no `light()`, instance parameters or more than 4 textures yet (ADRs 0205, 0237).
 - Foliage wind does not bend normals, and the object-ID pass draws foliage unswayed.
 - Visibility ranges have no margins or fade.

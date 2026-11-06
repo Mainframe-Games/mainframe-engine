@@ -594,7 +594,7 @@ public sealed class TerrainEditorTool : IEditorViewportTool
 
     // ── Dock ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
-    private static int SurfaceCount(TerrainData data) => data.Profile == TerrainProfile.Faceted ? 16 : TerrainData.MaxLayers;
+    private static int SurfaceCount(TerrainData data) => data.Profile == TerrainProfile.Faceted ? TerrainMaterial3D.MaxSurfaces : TerrainData.MaxLayers;
 
     public string BuildDockRml()
     {
@@ -693,10 +693,18 @@ public sealed class TerrainEditorTool : IEditorViewportTool
         }
         else if (data.Profile == TerrainProfile.Faceted)
         {
-            rml.Append("<div class=\"td-head\">Surfaces</div><div class=\"td-swatches\">");
-            for (var i = 0; i < SurfaceCount(data); i++)
-                Swatch(rml, i, null, FacetedColor(terrain, i), "Surface " + i + (i == EraserSurface ? " (eraser: Shift)" : ""));
+            rml.Append("<div class=\"td-head\">Surfaces</div><div class=\"td-layers\">");
+            var palette = terrain.RenderMaterial as TerrainMaterial3D;
+            var count = palette is null ? 8 : Math.Max(1, palette.Surfaces.Length);
+            for (var i = 0; i < count; i++)
+            {
+                var name = palette?.NameOf(i) ?? "Surface " + i;
+                Swatch(rml, i, name, palette?.ColorOf(i) ?? System.Drawing.Color.Gray, name + " (id " + i + ")" + (i == EraserSurface ? " — the eraser (Shift)" : ""));
+            }
+
             rml.Append("</div>");
+            if (palette is null)
+                rml.Append("<div class=\"td-hint\">The terrain's material is not a TerrainMaterial3D: surfaces show as ids.</div>");
             Field(rml, "Eraser", "eraser", EraserSurface.ToString(CultureInfo.InvariantCulture), "The surface Shift paints");
         }
         else
@@ -767,15 +775,8 @@ public sealed class TerrainEditorTool : IEditorViewportTool
             .Append(index).Append("\" data-tooltip=\"").Append(RmlText.Escape(tooltip)).Append("\"><span class=\"td-chip\" style=\"background-color: #")
             .Append(color.R.ToString("x2", CultureInfo.InvariantCulture)).Append(color.G.ToString("x2", CultureInfo.InvariantCulture))
             .Append(color.B.ToString("x2", CultureInfo.InvariantCulture)).Append(";\"></span>");
-        rml.Append(name is null ? index.ToString(CultureInfo.InvariantCulture) : RmlText.Escape(name)).Append("</div>");
-    }
-
-    // The Faceted palette colours come with TerrainMaterial3D; until then surfaces are shown as a neutral ramp.
-    private static System.Drawing.Color FacetedColor(Terrain3D terrain, int index)
-    {
-        _ = terrain;
-        var g = 60 + index * 12;
-        return System.Drawing.Color.FromArgb(255, g, g, g);
+        rml.Append("<span class=\"td-name\">").Append(name is null ? index.ToString(CultureInfo.InvariantCulture) : RmlText.Escape(name))
+            .Append("</span></div>");
     }
 
     private static void Field(StringBuilder rml, string label, string field, string value, string tooltip) =>
@@ -885,6 +886,24 @@ public sealed class TerrainEditorTool : IEditorViewportTool
         Touch();
     }
 
+    /// <summary>
+    /// A chunk size for a new terrain: the profile's default (16 quads Faceted, 64 Realistic) or the largest even quad
+    /// count below it that divides the map and is a whole number of metres; 0 (the default, which validation then
+    /// reports) when none does.
+    /// </summary>
+    public static int ChunkMetersFor(TerrainProfile profile, int sizeMeters, float spacing)
+    {
+        var quads = (int)MathF.Round(sizeMeters / spacing);
+        for (var chunk = profile == TerrainProfile.Realistic ? 64 : 16; chunk >= 2; chunk -= 2)
+        {
+            var meters = chunk * spacing;
+            if (quads % chunk == 0 && MathF.Abs(meters - MathF.Round(meters)) < 1e-4f)
+                return (int)MathF.Round(meters);
+        }
+
+        return 0;
+    }
+
     /// <summary>The create form's values, for tests and QA.</summary>
     public void SetCreateOptions(TerrainProfile profile, int sizeMeters, float vertexSpacing)
     {
@@ -902,9 +921,9 @@ public sealed class TerrainEditorTool : IEditorViewportTool
         TerrainData data;
         try
         {
-            data = TerrainData.Create(_createProfile, _createSize, _createSpacing);
+            data = TerrainData.Create(_createProfile, _createSize, _createSpacing, ChunkMetersFor(_createProfile, _createSize, _createSpacing));
         }
-        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or InvalidDataException)
         {
             Log.Warning($"[Editor] Terrain data not created: {e.Message}");
             return;

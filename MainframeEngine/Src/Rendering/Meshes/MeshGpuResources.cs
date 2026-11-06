@@ -376,6 +376,8 @@ internal sealed class TextureGpu
 {
     private readonly IVulkanContext _ctx;
     private int _uploadedVersion;
+    private int _uploadedWidth, _uploadedHeight;
+    private TextureSampling _uploadedSampling;
     private GpuImage? _borrowedImage;  // the sub-viewport's or GPU source's image Gpu borrows
     private Sampler _borrowedSampler;  // owned: the texture's sampling (import settings) over the image's mips
     private uint _samplerMips;
@@ -411,6 +413,15 @@ internal sealed class TextureGpu
         if (ImagePrefetch.Defer(Texture))
             return Gpu is not null; // a scene warming up decodes it on the pool: upload on a later frame (the fallback meanwhile)
         _uploadedVersion = version;
+        // A code-created, one-level texture whose size and sampling hold (a painted terrain map, G8a): its pixels go into
+        // the same image (GpuTexture.Update2D), so descriptor sets stay valid and a per-frame edit allocates nothing.
+        if (Gpu is not null && Texture.CodePixels is { } code && !Texture.ImportSettings.Mipmaps &&
+            code.Width == _uploadedWidth && code.Height == _uploadedHeight && Texture.ImportSettings.ToSampling() == _uploadedSampling)
+        {
+            Gpu.Update2D(code.Rgba);
+            return true;
+        }
+
         Generation++;
         Gpu?.Dispose();
         Gpu = null;
@@ -425,6 +436,7 @@ internal sealed class TextureGpu
                     ImagePrefetch.TryGetMips(Texture, srgb, out var chain) ? chain : MipChain.Build(rgba, width, height, srgb, settings.AlphaCoverageCutoff),
                     ColorSpace, settings.ToSampling())
                 : GpuTexture.Create2D(_ctx, (uint)width, (uint)height, rgba, ColorSpace, settings.ToSampling(), settings.Mipmaps);
+            (_uploadedWidth, _uploadedHeight, _uploadedSampling) = (width, height, settings.ToSampling());
         }
         catch (Exception e) when (e is InvalidDataException or IOException or InvalidOperationException)
         {
@@ -548,6 +560,27 @@ internal struct MaterialParams
         DoubleSided = m.DoubleSided ? 1u : 0u,
         Pbr = new Vector4(Math.Clamp(m.Metallic, 0f, 1f), Math.Clamp(m.Roughness, 0f, 1f), Math.Clamp(m.AmbientOcclusion, 0f, 1f), 0f),
         TerrainBlend = m.TerrainBlend > 0f ? new Vector4(Math.Clamp(m.TerrainBlend, 0f, 1f), MathF.Max(m.TerrainBlendHeight, 0.01f), 0f, 0f) : Vector4.Zero,
+    };
+
+    /// <summary>
+    /// Packs a <see cref="TerrainMaterial3D"/> (<c>Terrain/TerrainFaceted.vk.frag</c>): albedo = the linear tint colour with
+    /// the tint strength in alpha; emission = stripe width, stripe angle (radians), tint channel (−1 off), band start; the
+    /// Blinn-Phong matte (0.05, 8) in params; roughness in pbr.y.
+    /// </summary>
+    public static MaterialParams From(TerrainMaterial3D m, uint textureFlags) => new()
+    {
+        Albedo = new Vector4(ColorSpace.SrgbToLinear(Rgb(m.TintColor)), m.TintStrength),
+        Emission = new Vector4(m.StripeWidth, m.StripeAngleDegrees * (MathF.PI / 180f), m.TintChannel, m.BandStart),
+        UvTransform = new Vector4(1f, 1f, 0f, 0f),
+        Params = new Vector4(0.05f, 8f, 0f, 1f),
+        TextureFlags = textureFlags,
+        Shading = m.ShadingMode switch
+        {
+            ShadingMode.Unshaded => ShadingUnshaded,
+            ShadingMode.Pbr => ShadingPbr,
+            _ => ShadingBlinnPhong,
+        },
+        Pbr = new Vector4(0f, m.Roughness, 1f, 0f),
     };
 
     /// <summary>Packs an outline: unshaded colour, no textures, the width in pixels.</summary>
@@ -761,7 +794,7 @@ internal sealed class MaterialGpu
     /// The surfaces take decals (G6.5): opaque or cutout <see cref="StandardMaterial3D"/>s and terrain splats, whose
     /// shaders read the instance's decal mask.
     /// </summary>
-    public bool ReceivesDecals => !State.IsTransparent && ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshTerrainSplat;
+    public bool ReceivesDecals => !State.IsTransparent && ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshTerrainSplat or ShaderSetId.MeshTerrainFaceted;
 
     public bool NeedsStreams => ColorShaders is ShaderSetId.MeshFoliage or ShaderSetId.MeshWater or ShaderSetId.MeshWaterfall or ShaderSetId.MeshSpray
         or ShaderSetId.MeshSpatial;
@@ -778,7 +811,7 @@ internal sealed class MaterialGpu
     // [shader set × extra pass × mirrored × vertex streams × prepassed] → pipeline; reset when the state changes.
     public readonly PipelineEntry[] Pipelines = new PipelineEntry[ShaderSetCount * 16];
 
-    public const int ShaderSetCount = 17;
+    public const int ShaderSetCount = 18;
 
     public static int PipelineIndex(ShaderSetId shaders, bool extraPass, bool mirrored, bool streams = false, bool prepassed = false) =>
         ((((int)shaders * 2 + (extraPass ? 1 : 0)) * 2 + (mirrored ? 1 : 0)) * 2 + (streams ? 1 : 0)) * 2 + (prepassed ? 1 : 0);
@@ -788,7 +821,7 @@ internal sealed class MaterialGpu
     /// splat materials. Outlines (an inverted hull) and water draw only in the scene pass.
     /// </summary>
     public bool Prepassable => !State.IsTransparent &&
-                               (ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshFoliage or ShaderSetId.MeshTerrainSplat or ShaderSetId.MeshImpostor ||
+                               (ColorShaders is ShaderSetId.MeshLit or ShaderSetId.MeshFoliage or ShaderSetId.MeshTerrainSplat or ShaderSetId.MeshTerrainFaceted or ShaderSetId.MeshImpostor ||
                                 ColorShaders == ShaderSetId.MeshSpatial && State.DepthWrite); // depth_draw_never: not prepassed
 
     /// <summary>The prepass shader set of a <see cref="Prepassable"/> material.</summary>

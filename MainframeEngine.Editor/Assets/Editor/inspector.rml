@@ -252,7 +252,9 @@
         .td-swatches { display: flex; flex-direction: row; flex-wrap: wrap; }
         .td-swatch { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 4dp; margin: 0dp 3dp 3dp 0dp;
                      border: 1dp #2f333d; border-radius: 3dp; cursor: pointer; }
-        .td-layers .td-swatch { display: flex; width: 100%; margin-right: 0dp; }
+        .td-layers { display: block; }
+        .td-layers .td-swatch { margin-right: 0dp; }
+        .td-name { display: block; flex: 1 1 auto; white-space: nowrap; overflow: hidden; }
         .td-swatch:hover { border-color: #93c5fd; }
         .td-swatch.active { border: 1dp #3b82f6; background-color: #2f3a52; color: #ffffff; }
         .td-chip { display: block; width: 14dp; height: 14dp; margin-right: 5dp; border-radius: 2dp; border: 1dp #00000060; }

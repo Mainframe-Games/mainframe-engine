@@ -45,6 +45,25 @@ public sealed class TerrainBrushTests
             Assert.Equal(1.5f * i, stamps[i].X, 3);
     }
 
+    [Theory]
+    [InlineData(TerrainProfile.Faceted, 128, 2f, 32)]
+    [InlineData(TerrainProfile.Faceted, 48, 2f, 24)] // 24 quads: 16 does not divide them, 12 does
+    [InlineData(TerrainProfile.Realistic, 1024, 1f, 64)]
+    [InlineData(TerrainProfile.Realistic, 96, 1f, 48)]
+    [InlineData(TerrainProfile.Faceted, 50, 2f, 10)] // 25 quads: no even divisor; 10 m chunks of 5 quads would be odd
+    public void NewTerrainsGetAChunkSizeThatDividesTheMap(TerrainProfile profile, int size, float spacing, int expected)
+    {
+        var chunk = TerrainEditorTool.ChunkMetersFor(profile, size, spacing);
+        if (size == 50)
+        {
+            Assert.Equal(0, chunk); // none: Create reports it instead of throwing into the editor
+            return;
+        }
+
+        Assert.Equal(expected, chunk);
+        TerrainData.Create(profile, size, spacing, chunk).Validate();
+    }
+
     [Fact]
     public void AHugeMoveIsCappedPerEvent()
     {
