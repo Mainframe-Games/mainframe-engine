@@ -17,7 +17,7 @@ public sealed record MediaPoolItem(string Path, string Name, MediaPoolKind Kind)
 
 /// <summary>
 /// The media pool's listing (docs/design/future/video-nle.md): the project's <c>Assets/Video</c> folder and the folders
-/// under it, showing only video, audio, images and timelines. Sidecars (<c>.meta</c>, a recording's <c>.mfcap.json</c>, a
+/// under it, showing only video, audio, images and timelines. Sidecars (<c>.mfmeta</c>, a recording's <c>.mfcap.json</c>, a
 /// transcript), files being written (<c>.tmp</c>, a recording's <c>.partial</c> folder) and hidden files are left out.
 /// Main thread; <see cref="Refresh"/> reads the disk, so it runs when the folder changed, not every frame.
 /// </summary>

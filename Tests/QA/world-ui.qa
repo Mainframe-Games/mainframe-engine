@@ -2,7 +2,7 @@
 # nameplate marker selected (its map-pin badge at WorldOffset, the dashed line to the walker, the inspector), the
 # Label3D signs drawn in the scene view; then the menu sign picked by clicking its text.
 wait-for project 300
-open Examples/Demo/Assets/Scenes/world_ui.mscene
+open Examples/Demo/Assets/Scenes/world_ui.mfscene
 wait-for project 300
 wait 30
 select Walkers/Nell/Nameplate

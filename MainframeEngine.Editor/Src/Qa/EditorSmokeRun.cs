@@ -245,7 +245,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         switch (_frame)
         {
             case 3:
-                workspace.Splash.Show("Loading Showcase.mscene…", 0.4f);
+                workspace.Splash.Show("Loading Showcase.mfscene…", 0.4f);
                 break;
             case 20:
                 _captureFrame = _frame;
@@ -301,7 +301,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
                         break;
                     }
 
-                    fs.Select(Path.Combine(fs.Files.ProjectRoot, "Assets", "Scenes", "Main.mscene"));
+                    fs.Select(Path.Combine(fs.Files.ProjectRoot, "Assets", "Scenes", "Main.mfscene"));
                     break;
                 }
 
@@ -632,7 +632,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         if (Directory.Exists(project))
             Directory.Delete(project, recursive: true);
         new ProjectSettings { Name = "SongGame" }.Save(Directory.CreateDirectory(project).FullName);
-        var path = Music.SongTab.CreateFile(Path.Combine(project, "Assets", "Music", "Golden.msong"));
+        var path = Music.SongTab.CreateFile(Path.Combine(project, "Assets", "Music", "Golden.mfsong"));
         var tab = workspace.Session.OpenSong(path);
         var document = tab.Document;
         var track = document.Song.Tracks[0];
@@ -688,7 +688,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
         scene.History.Redo();
         Check(node.Position.Y == 3.5f, "Redo did not re-apply the edit.");
 
-        var path = Path.Combine(OutputDirectory, "smoke_saved.mscene");
+        var path = Path.Combine(OutputDirectory, "smoke_saved.mfscene");
         workspace.Session.Save(scene, path);
         Check(!scene.IsDirty, "The scene is dirty after saving.");
 

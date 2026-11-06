@@ -18,7 +18,7 @@
       "name": "Panel",
       "parent": ".",
       "instance": "scn_0000000000a1",
-      "path": "Assets/Scenes/Sub.mscene",
+      "path": "Assets/Scenes/Sub.mfscene",
       "overrides": {
         "Caption": {
           "Text": "Level caption"

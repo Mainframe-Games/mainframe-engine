@@ -87,7 +87,7 @@ Examples/Forest/
 ├── Forest/                   node library: Src/{Player, World, Audio, Ambience, Ui, Benchmark, Shots}
 ├── Forest.Desktop/           GameHost.Run(args, typeof(Forest.FirstPersonController).Assembly) + --write-terrain
 ├── Forest.Tests/             xUnit v3; no GPU and no LFS content needed
-└── Assets/                  Scenes/ (forest.mscene, forest_terrain/), Terrain/Layers/, Trees/ (TreeOptions, impostors,
+└── Assets/                  Scenes/ (forest.mfscene, forest_terrain/), Terrain/Layers/, Trees/ (TreeOptions, impostors,
                               bark, leaves), Foliage/, Props/{Rocks,Logs}/, Sky/ (HDRI, .cube), Audio/, UI/, Settings/,
                               locale/ (en + qps)
 ```
@@ -97,7 +97,7 @@ Examples/Forest/
 - **Authored in the editor.** The Demo builds its scenes in C#; the Forest also showcases the Terrain dock (G8a), so it
   is sculpted, painted and scattered by hand. A deterministic `ValleyGenerator` (`Forest.Desktop -- --write-terrain`)
   writes only the starting height field: ridges, valley floor, outcrop, the stream bed carved along the `River3D`
-  spline and the pond basin. After that the committed `forest.mscene` and `forest_terrain/` are the source of truth;
+  spline and the pond basin. After that the committed `forest.mfscene` and `forest_terrain/` are the source of truth;
   there is no byte-for-byte scene contract.
 - **`project.mfproj`**: main scene `forest`, window 1600 × 900, `rendering.antiAliasing = Taa`, `rendering.shadows =
   High`, the [input map](#input-and-settings), the [bus layout](#audio) and an autoload `Hud` (pause menu, settings,

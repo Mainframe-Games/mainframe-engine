@@ -1,8 +1,8 @@
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
-/// <c>--bake-song &lt;path.msong&gt;</c>: bakes an adaptive song headless (no window, SDL or engine) into its project like
-/// the editor's Bake — the stems, their <c>.meta</c> and the <c>.mmusic</c> manifest — and exits 0, or 1 on an error (CI,
+/// <c>--bake-song &lt;path.mfsong&gt;</c>: bakes an adaptive song headless (no window, SDL or engine) into its project like
+/// the editor's Bake — the stems, their <c>.mfmeta</c> and the <c>.mfmusic</c> manifest — and exits 0, or 1 on an error (CI,
 /// <c>just bake-song</c>). The project is the nearest folder above the song holding <c>project.mfproj</c>. Stems are
 /// encoded to <c>.ogg</c> through the plugin helper when this platform has one, and plugin stems render through it.
 /// </summary>
@@ -20,7 +20,7 @@ public static class SongBakeCommand
         ArgumentNullException.ThrowIfNull(error);
         if (!IsBakeSong(args) || args.Count != 2)
         {
-            error.WriteLine($"Usage: MainframeEngine.Editor {Flag} <path.msong>");
+            error.WriteLine($"Usage: MainframeEngine.Editor {Flag} <path.mfsong>");
             return 1;
         }
 

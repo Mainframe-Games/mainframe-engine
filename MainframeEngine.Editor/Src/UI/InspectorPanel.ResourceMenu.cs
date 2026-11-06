@@ -1,7 +1,7 @@
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The resource row's More menu (editor-viewport-tools G7.2): Save as .mres, Make Unique (shallow and deep), Open the
+/// The resource row's More menu (editor-viewport-tools G7.2): Save as .mfres, Make Unique (shallow and deep), Open the
 /// file on its own and Show in FileSystem, every slot change undoable. The row's label says where the value lives: a
 /// link icon and the file name, "inline", or "inline ×N" when the scene uses the same inline resource in N slots.
 /// </summary>
@@ -38,11 +38,11 @@ public sealed partial class InspectorPanel
         var file = resource.ResourcePath is { } path ? Path.GetFileName(path) : null;
         return
         [
-            new MenuItem("Save as .mres…", "res-save", null, ResourceActions.CanSaveAsFile(resource) && EditContext is EditedScene, Icon: "device-floppy")
+            new MenuItem("Save as .mfres…", "res-save", null, ResourceActions.CanSaveAsFile(resource) && EditContext is EditedScene, Icon: "device-floppy")
             {
                 Tooltip = resource.IsExternal
                     ? $"Already a file: {file}"
-                    : "Save as .mres — move the resource to its own file, shared by every slot that uses it",
+                    : "Save as .mfres — move the resource to its own file, shared by every slot that uses it",
             },
             new MenuItem("Make Unique", "res-unique", null, canUnique, Icon: "copy") { Tooltip = uniqueReason },
             new MenuItem("Make Unique (Deep)", "res-unique-deep", null, deep, Icon: "copy")
@@ -56,7 +56,7 @@ public sealed partial class InspectorPanel
             {
                 Tooltip = ResourceActions.IsResourceFile(resource)
                     ? $"Open — edit {file} on its own (its own history, Save and custom inspector)"
-                    : resource.IsExternal ? $"{file} is imported: there is no .mres to open." : "Inline: Save as .mres first.",
+                    : resource.IsExternal ? $"{file} is imported: there is no .mfres to open." : "Inline: Save as .mfres first.",
             },
             new MenuItem("Show in FileSystem", "res-show", null, resource.IsExternal, Icon: "folder")
             {

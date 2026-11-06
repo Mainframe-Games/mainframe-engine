@@ -16,12 +16,12 @@ was at 80 % when this started (stop line 90 %), so G11.5–G11.8 are follow-ups 
 
 - G11.5 UI render targets and G11.6 `UiPanel3D` (`IPreSceneRenderer`, panel contexts, ray input), with them
   `Texture2D.FromGpuSource` (its only consumer is the panel; sub-viewports already borrow their image, ADR 0216).
-- The batched `Text3DRenderer` and `text3d.slang`: labels stay on the mesh batcher (ADR 0249).
+- The batched `Text3DRenderer` and `text3d.slang`: labels stay on the mesh batcher (ADR 0251).
 - G11.7's panel preview; G11.8's Demo tab (follow-up if budget remains); G11.9.
 
 ## Design notes (decided here)
 
-- **ADR 0249: `Label3D` stays on the mesh batcher.** Multi-line, autowrap, `Width`, `LineSpacing`, `Uppercase` and
+- **ADR 0251: `Label3D` stays on the mesh batcher.** Multi-line, autowrap, `Width`, `LineSpacing`, `Uppercase` and
   fallbacks change only the mesh it builds; `FixedSize` is a CPU model-matrix scale next to the billboard (ADR 0199's
   approach), so picking, the prepass and casters see it; `AlphaCut` maps to `AlphaMode.Scissor`; `RenderPriority` of the
   text is `TextRenderPriority`. One draw per label and page instead of per page; the batched renderer stays open.
@@ -30,7 +30,7 @@ was at 80 % when this started (stop line 90 %), so G11.5–G11.8 are follow-ups 
 - **Fallbacks.** `Font.Fallbacks` is searched when the primary face has no glyph; fallback glyphs share the primary
   font's atlas pages (cache key carries the face). `Label3D` with no explicit fallbacks uses the project's
   `FontFallbackTable` for the current locale.
-- **ADR 0250: markers are rows of one host document** (the proposal's row model, open question 4's default), placed
+- **ADR 0254: markers are rows of one host document** (the proposal's row model, open question 4's default), placed
   with a data-bound `transform` (open question 3's default; benchmark records the cost).
 
 ## Steps

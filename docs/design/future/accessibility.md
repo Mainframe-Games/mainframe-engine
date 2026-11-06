@@ -309,12 +309,12 @@ public sealed class SpeakerTable : Resource
 
 - All the types are exportable as they are: `Resource` subclasses and lists of them, translatable strings and
   `System.Drawing.Color` ([scene-serialization.md](../scene-serialization.md)). `mf-l10n extract --scenes` already reads
-  `.mres` and inline resources ([localization.md → Scene strings](../localization.md#scene-strings)). Stored text is
+  `.mfres` and inline resources ([localization.md → Scene strings](../localization.md#scene-strings)). Stored text is
   the source string, and the caption server translates it at display time with `Tr._(text)`. A locale change refreshes
   the visible lines.
-- **Imported audio files** take the same three values from their `.meta` import settings: `"caption"`,
+- **Imported audio files** take the same three values from their `.mfmeta` import settings: `"caption"`,
   `"captionKind"` and `"subtitles"` (a path or UID). `AudioImporter` sets them on the stream. `mf-l10n extract` learns
-  to read `caption` from `.meta` files.
+  to read `caption` from `.mfmeta` files.
 - **`.vtt` and `.srt` files** import as `SubtitleTrack`s through a new `SubtitleImporter`. WebVTT voice spans
   (`<v maren>`) become `Speaker` ids, SRT has no speakers. `mf-l10n extract` learns both formats, with `#:` references
   to the cue's line.
@@ -397,7 +397,7 @@ the game with `CaptionLayer.Ensure(tree)`.
 
 - The inspector edits `SubtitleTrack.Cues` as a list (start, end, speaker, text). A cue row has an icon button (▶,
   tooltip "Play from this cue") that plays the owning stream from `Start`.
-- Audio import settings (the `.meta` sidecar) gain the three caption keys wherever the editor edits import settings.
+- Audio import settings (the `.mfmeta` sidecar) gain the three caption keys wherever the editor edits import settings.
 - Project Settings gets an Accessibility section for the `project.mfproj` keys.
 
 ### Mono audio
@@ -480,7 +480,7 @@ The choice needs a dependency discussion ([Open questions](#open-questions)), so
   - `CaptionServer` over the null device (`AudioServer.RenderNullDevice`, `AudioServer.cs:626`), with deterministic
     positions: cues advance with playback, seek and pause; minimum duration; dedupe and extension; the −40 dB gate;
     muted bus; direction buckets from the listener; `Subtitles`/`Captions` gating; locale change refreshes lines;
-    `.meta` caption keys; player overrides.
+    `.mfmeta` caption keys; player overrides.
   - `SubtitleImporter`: VTT voices, SRT, timestamps, malformed cues reported with line numbers.
   - Input: toggle latching, edges in process and physics frames, `ScaleWindow`, held time.
   - `AudioServer.MonoOutput`: hard-panned input comes out equal on both channels.
@@ -492,7 +492,7 @@ The choice needs a dependency discussion ([Open questions](#open-questions)), so
 - **Render tests (both drivers, `just golden-update`):** `post-color-vision-deutan-correct`, `-protan-simulate` and
   `-tritan-simulate` on a colour-chart scene; `ui-captions` (three lines, speaker colour, arrow);
   `ui-widgets-high-contrast`; `ui-widgets-text-200`.
-- **Extraction:** `mf-l10n` fixtures for caption keys in `.meta`, `.vtt` and `.srt`.
+- **Extraction:** `mf-l10n` fixtures for caption keys in `.mfmeta`, `.vtt` and `.srt`.
 - **QA (`Tests/QA/accessibility.qa`):** open the Accessibility tab, set Large captions and the deuteranopia filter, play
   the Demo's dialogue line, capture, restart and check the values were restored (with G4). Forest: a capture with bird
   captions and arrows.
@@ -516,7 +516,7 @@ The choice needs a dependency discussion ([Open questions](#open-questions)), so
 - Allocation gate, render tests, `just build`, `just test`, `just test-render`, `just format-check` and
   `just shaders-check` pass.
 - Docs updated when it ships: `game-ui.md` (themes, `rem` rule, caption layer contract), `post-processing.md`
-  (`ColorVisionEffect`, comfort overrides), `audio.md` (caption keys, mono), `localization.md` (`.vtt`/`.srt`/`.meta`
+  (`ColorVisionEffect`, comfort overrides), `audio.md` (caption keys, mono), `localization.md` (`.vtt`/`.srt`/`.mfmeta`
   extraction), `cameras-and-input.md` (toggle mode, timing helpers), `project-and-gamehost.md` (`accessibility`
   section), `forest.md`, `demo.md`, and a new `docs/design/accessibility.md` with the XAG mapping.
 
@@ -533,12 +533,12 @@ The choice needs a dependency discussion ([Open questions](#open-questions)), so
 4. **G14.4 Comfort and audio:** `RenderServer.Comfort` in `RootPostProcess`, `CameraShake3D`/`CameraShake2D`,
    `Camera3D.HorizontalToVerticalFov`, `AudioServer.MonoOutput`; tests.
 5. **G14.5 Caption runtime:** `SubtitleTrack`/`SubtitleCue`/`SpeakerTable`/`SpeakerInfo`, the `AudioStream` and
-   player members and `.meta` keys, the voice-start and voice-end hooks, `CaptionServer` with timing, dedupe, the gain
+   player members and `.mfmeta` keys, the voice-start and voice-end hooks, `CaptionServer` with timing, dedupe, the gain
    gate and directions, `Show`; tests and the allocation gate.
 6. **G14.6 Caption layer:** `CaptionLayer`, `captions.rml`/`.rcss`, sizes, background, speaker options, arrows, the
    data-model contract; the `ui-captions` golden.
 7. **G14.7 Import, localization and editor:** `SubtitleImporter` (`.vtt`, `.srt`), `mf-l10n` extraction of `.vtt`,
-   `.srt` and `.meta` captions, the inspector cue list with preview, caption import settings, the Project Settings
+   `.srt` and `.mfmeta` captions, the inspector cue list with preview, caption import settings, the Project Settings
    section.
 8. **G14.8 Input assists:** `InputActionMode` and toggle latching, `toggleActions`, `ScaleWindow`,
    `GetActionHeldTime`, the `"mode"` action key in `project.mfproj`; tests.
@@ -560,7 +560,7 @@ The choice needs a dependency discussion ([Open questions](#open-questions)), so
    suggests larger defaults for the living room. Should subtitles default to on in the template?
 4. **Code-set captions.** The C# extractor only sees literals in `Tr._`/`Tr.P` calls. A caption key set from code
    (the Forest's synthesized birds) is not extracted. Options: a no-op marker method mapped as an extractor alias, or
-   requiring such keys in `.mres` files.
+   requiring such keys in `.mfres` files.
 5. **Screen narration backend.** Platform TTS (no dependency, not a real screen reader), the `System.Speech` package
    (Windows only), or AccessKit (a new native library, real screen-reader integration). A new package or native shim
    needs discussion before G14.10.

@@ -647,7 +647,7 @@ internal static class QuaternionCubic
 /// <summary>
 /// Named moments of an animation (ADR 0207): when playback passes a key, the player raises
 /// <see cref="AnimationPlayer.AnimationEvent"/> with its name (a Spine-style event: a footstep, the frame a swing lands).
-/// <see cref="AnimationTrack.Path"/> is unused. Imported from glTF animation extras or the model's <c>.meta</c> clips.
+/// <see cref="AnimationTrack.Path"/> is unused. Imported from glTF animation extras or the model's <c>.mfmeta</c> clips.
 /// </summary>
 public sealed class EventTrack : AnimationTrack
 {

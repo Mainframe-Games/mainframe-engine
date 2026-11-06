@@ -84,7 +84,7 @@ void fragment(inout CanvasFragment s, Material m)
   `canvasMatrix` = camera × stretch) and draw alone; others are batched pre-transformed.
 
 SPIR-V is built ahead of time and committed next to the source (`x.slang.vert.spv`, `.frag.spv`, `.layout.json`,
-`.spvlock`): `just canvas-shaders <folders>` / `just canvas-shaders-check`. The fragment stage compiles first, and the vertex
+`.mfspvlock`): `just canvas-shaders <folders>` / `just canvas-shaders-check`. The fragment stage compiles first, and the vertex
 stage then writes only the inputs that stage kept (Slang drops unread fragment inputs, and an unread vertex output is a
 validation warning; `SpirvInputs`). `ShaderMaterial.SetShaderParameter(name, value)` sets parameters (vectors as
 `System.Numerics`, colours as `Vector4`, arrays, `Texture2D` for textures). Runtime-updated textures

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace MainframeEngine;
 
-/// <summary>A <c>.meta</c> sidecar: the UID and import settings of an asset that cannot store them itself (images, sounds, ...).</summary>
+/// <summary>A <c>.mfmeta</c> sidecar: the UID and import settings of an asset that cannot store them itself (images, sounds, ...).</summary>
 public sealed class AssetMeta
 {
     public string Uid { get; set; } = string.Empty;
@@ -23,7 +23,7 @@ public sealed class AssetIndex
     public Dictionary<string, string> Assets { get; set; } = [];
 }
 
-// .meta sidecars and the asset index are committed content: "\n" on every OS (byte-identical saves).
+// .mfmeta sidecars and the asset index are committed content: "\n" on every OS (byte-identical saves).
 [JsonSourceGenerationOptions(
     WriteIndented = true,
     NewLine = "\n",
@@ -40,7 +40,7 @@ internal sealed partial class AssetJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// Maps asset UIDs to paths. Built by scanning <c>Assets/</c> (scene and resource files carry their own UID;
-/// other files have a <c>.meta</c> sidecar, created by the editor) or, in shipped builds, from
+/// other files have a <c>.mfmeta</c> sidecar, created by the editor) or, in shipped builds, from
 /// <c>Assets/assets.index.json</c> (<see cref="WriteIndex"/>). Paths are project-relative with <c>/</c>
 /// separators. <see cref="ResourceLoader"/> resolves UIDs through <see cref="Current"/>.
 /// </summary>
@@ -48,7 +48,7 @@ public sealed class AssetDatabase
 {
     public const string ContentFolder = ContentPaths.FolderName;
     public const string IndexFileName = "assets.index.json";
-    public const string MetaExtension = ".meta";
+    public const string MetaExtension = FileExtensions.Meta;
 
     private static AssetDatabase? _current;
 
@@ -92,7 +92,7 @@ public sealed class AssetDatabase
 
     /// <summary>
     /// Fills the database: from <c>Assets/assets.index.json</c> when present (shipped builds), otherwise by
-    /// scanning. <paramref name="createMissingMeta"/> (editor) writes <c>.meta</c> sidecars with new UIDs for
+    /// scanning. <paramref name="createMissingMeta"/> (editor) writes <c>.mfmeta</c> sidecars with new UIDs for
     /// assets that have none.
     /// </summary>
     public void Refresh(bool createMissingMeta = false)
@@ -104,7 +104,7 @@ public sealed class AssetDatabase
             Scan(createMissingMeta);
     }
 
-    /// <summary>Scans <c>Assets/</c>: scene/resource UIDs from the files, other UIDs from <c>.meta</c> sidecars.</summary>
+    /// <summary>Scans <c>Assets/</c>: scene/resource UIDs from the files, other UIDs from <c>.mfmeta</c> sidecars.</summary>
     public void Scan(bool createMissingMeta = false)
     {
         lock (_gate)
@@ -122,7 +122,7 @@ public sealed class AssetDatabase
                     continue;
                 }
 
-                if (name.StartsWith('.') || name.EndsWith(MetaExtension, StringComparison.OrdinalIgnoreCase)
+                if (name.StartsWith('.') || FileExtensions.Matches(name, MetaExtension)
                                          || name.Equals(IndexFileName, StringComparison.OrdinalIgnoreCase) || IsBuildOutput(name)
                                          || IsTemporary(name) || IsInPartialFolder(file))
                     continue;
@@ -136,7 +136,7 @@ public sealed class AssetDatabase
 
     /// <summary>
     /// A file being written (<c>x.tmp</c>, <c>x.baking.wav.tmp</c>, <see cref="DurableFile.TempPath"/>): never an asset,
-    /// so a scan that runs while it exists (the editor's file watcher during a bake or a save) gives it no <c>.meta</c>.
+    /// so a scan that runs while it exists (the editor's file watcher during a bake or a save) gives it no <c>.mfmeta</c>.
     /// </summary>
     public static bool IsTemporary(string fileName) => fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
 
@@ -153,7 +153,7 @@ public sealed class AssetDatabase
         return path.Replace('\\', '/').Contains(PartialFolderSuffix + "/", StringComparison.OrdinalIgnoreCase);
     }
 
-    // A .meta left for a temporary file that is gone (written by scans before temporary files were skipped).
+    // A .mfmeta left for a temporary file that is gone (written by scans before temporary files were skipped).
     private static bool IsStaleTemporaryMeta(string path) =>
         path.EndsWith(".tmp" + MetaExtension, StringComparison.OrdinalIgnoreCase) && !File.Exists(path[..^MetaExtension.Length]); // disk-io: editor scans clean up sidecars on disk
 
@@ -172,14 +172,19 @@ public sealed class AssetDatabase
     /// <summary>
     /// Files generated next to an asset that are part of it, not assets of their own: a surface shader's SPIR-V, layout and
     /// lock (<c>x.slang.vert.spv</c>, <c>x.slang.frag.spv</c>, a spatial shader's other passes such as
-    /// <c>x.slang.depth.vert.spv</c>, <c>x.slang.layout.json</c> and <c>x.slang.spvlock</c>, see <see cref="SurfaceShaderBuild"/>)
-    /// and a light-probe bake's coefficients (<c>x.probes</c>, the data file of <c>x.mres</c>, see <see cref="LightProbeData"/>).
+    /// <c>x.slang.depth.vert.spv</c>, <c>x.slang.mflayout.json</c> and <c>x.slang.mfspvlock</c>, see <see cref="SurfaceShaderBuild"/>)
+    /// and a light-probe bake's coefficients (<c>x.mfprobes</c>, the data file of <c>x.mfres</c>, see <see cref="LightProbeData"/>).
     /// </summary>
     public static bool IsBuildOutput(string fileName) =>
-        fileName.EndsWith(".probes", StringComparison.OrdinalIgnoreCase)
+        FileExtensions.Matches(fileName, FileExtensions.LightProbes)
         || (fileName.EndsWith(".spv", StringComparison.OrdinalIgnoreCase) && fileName.Contains(Shader.Extension + ".", StringComparison.OrdinalIgnoreCase))
-        || fileName.EndsWith(Shader.Extension + SurfaceShaderBuild.LockExtension, StringComparison.OrdinalIgnoreCase)
-        || fileName.EndsWith(Shader.Extension + SurfaceShaderLayout.Extension, StringComparison.OrdinalIgnoreCase);
+        || IsShaderOutput(fileName, SurfaceShaderBuild.LockExtension)
+        || IsShaderOutput(fileName, SurfaceShaderLayout.Extension);
+
+    // x.slang + the extension, or + its name before ADR 0249 (x.slang.spvlock, x.slang.layout.json).
+    private static bool IsShaderOutput(string fileName, string extension) =>
+        fileName.EndsWith(Shader.Extension + extension, StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(Shader.Extension + FileExtensions.LegacyOf(extension), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Loads an <see cref="AssetIndex"/> file.</summary>
     public void LoadIndex(string indexPath)
@@ -252,15 +257,15 @@ public sealed class AssetDatabase
         }
     }
 
-    /// <summary>Moves an asset file (and its <c>.meta</c>) and updates the mapping; references by UID keep working.</summary>
+    /// <summary>Moves an asset file (and its <c>.mfmeta</c>) and updates the mapping; references by UID keep working.</summary>
     public void Move(string fromPath, string toPath)
     {
         var from = ToAbsolutePath(fromPath);
         var to = ToAbsolutePath(toPath);
         Directory.CreateDirectory(Path.GetDirectoryName(to)!);
         File.Move(from, to);
-        if (File.Exists(from + MetaExtension)) // disk-io: moves an asset on disk (editor)
-            File.Move(from + MetaExtension, to + MetaExtension);
+        if (FileExtensions.FindExisting(from, MetaExtension, File.Exists) is { } meta) // disk-io: moves an asset on disk (editor)
+            File.Move(meta, to + MetaExtension);
 
         lock (_gate)
         {
@@ -270,12 +275,13 @@ public sealed class AssetDatabase
         }
     }
 
-    /// <summary>Reads the asset's <c>.meta</c> sidecar, creating it with a new UID when <paramref name="create"/>.</summary>
+    /// <summary>Reads the asset's <c>.mfmeta</c> sidecar, creating it with a new UID when <paramref name="create"/>.</summary>
     public AssetMeta? ReadOrCreateMeta(string assetPath, bool create)
     {
-        var metaPath = ToAbsolutePath(assetPath) + MetaExtension;
-        if (ContentFiles.Exists(metaPath))
-            return JsonSerializer.Deserialize(ContentFiles.ReadAllBytes(metaPath), AssetJsonContext.Default.AssetMeta);
+        var assetFull = ToAbsolutePath(assetPath);
+        if (FileExtensions.FindExisting(assetFull, MetaExtension, ContentFiles.Exists) is { } existing)
+            return JsonSerializer.Deserialize(ContentFiles.ReadAllBytes(existing), AssetJsonContext.Default.AssetMeta);
+        var metaPath = assetFull + MetaExtension;
         if (!create)
             return null;
 
@@ -285,7 +291,7 @@ public sealed class AssetDatabase
     }
 
     /// <summary>
-    /// Writes <paramref name="meta"/> as the <c>.meta</c> sidecar of <paramref name="assetPath"/> (replacing it) and
+    /// Writes <paramref name="meta"/> as the <c>.mfmeta</c> sidecar of <paramref name="assetPath"/> (replacing it) and
     /// registers its UID for the path. Tools use it to set import settings (the editor's song render: loop points).
     /// </summary>
     public void WriteMeta(string assetPath, AssetMeta meta)
@@ -296,6 +302,8 @@ public sealed class AssetDatabase
             meta.Uid = AssetUid.Generate(AssetUid.PrefixForExtension(Path.GetExtension(assetPath)));
         var metaPath = ToAbsolutePath(assetPath) + MetaExtension;
         File.WriteAllBytes(metaPath, JsonSerializer.SerializeToUtf8Bytes(meta, AssetJsonContext.Default.AssetMeta));
+        if (FileExtensions.LegacyOf(MetaExtension) is { } legacy && File.Exists(ToAbsolutePath(assetPath) + legacy)) // disk-io: tools write sidecars on disk
+            File.Delete(ToAbsolutePath(assetPath) + legacy);
         Register(meta.Uid, ToProjectPath(assetPath));
     }
 
@@ -309,12 +317,19 @@ public sealed class AssetDatabase
     }
 
     /// <summary>Absolute path for a project-relative (or absolute) path.</summary>
-    public string ToAbsolutePath(string path) => Path.GetFullPath(ContentPaths.UpgradeLegacyPath(path), ProjectRoot);
+    /// <remarks>A path with an extension from before ADR 0249 (<c>x.mscene</c>) whose file is gone resolves to the file's
+    /// current name (<c>x.mfscene</c>) when that exists: code and settings written before the editor migrated the project.</remarks>
+    public string ToAbsolutePath(string path)
+    {
+        var full = Path.GetFullPath(ContentPaths.UpgradeLegacyPath(path), ProjectRoot);
+        var upgraded = FileExtensions.Upgrade(full);
+        return ReferenceEquals(upgraded, full) || ContentFiles.Exists(full) || !ContentFiles.Exists(upgraded) ? full : upgraded;
+    }
 
     internal static bool IsSelfDescribing(string path) =>
-        path.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase) ||
-        path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mmusic", StringComparison.OrdinalIgnoreCase) ||
-        path.EndsWith(".mftimeline", StringComparison.OrdinalIgnoreCase);
+        FileExtensions.Matches(path, FileExtensions.Scene) || FileExtensions.Matches(path, FileExtensions.Resource) ||
+        FileExtensions.Matches(path, FileExtensions.Song) || FileExtensions.Matches(path, FileExtensions.Music) ||
+        path.EndsWith(FileExtensions.Timeline, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Reads the top-level <c>"uid"</c> of a scene/resource file without parsing the rest.</summary>
     internal static string? ReadEmbeddedUid(string path)

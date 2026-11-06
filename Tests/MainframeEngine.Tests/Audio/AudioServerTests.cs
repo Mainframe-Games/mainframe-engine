@@ -43,7 +43,7 @@ public sealed class AudioServerTests
     [Fact]
     public void ABrokenBusLayoutFileFallsBackToTheDefault()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"mf-bad-layout-{Guid.NewGuid():N}.mres");
+        var path = Path.Combine(Path.GetTempPath(), $"mf-bad-layout-{Guid.NewGuid():N}.mfres");
         File.WriteAllText(path, "{ this is not json");
         try
         {
@@ -614,15 +614,15 @@ public sealed class AudioServerTests
                 server.ApplyBusLayout(layout);
                 Assert.Equal(6, server.Buses.Count);
                 Assert.Equal(2, server.GetBus("Reverb")!.Effects.Count);
-                server.SaveBusLayout("Assets/Settings/AudioBusLayout.mres");
+                server.SaveBusLayout("Assets/Settings/AudioBusLayout.mfres");
             }
 
-            Assert.True(File.Exists(Path.Combine(project, "Assets", "Settings", "AudioBusLayout.mres")));
+            Assert.True(File.Exists(Path.Combine(project, "Assets", "Settings", "AudioBusLayout.mfres")));
             ResourceLoader.ClearCache();
             using (var reloaded = AudioServer.Create(new AudioOptions
             {
                 Device = AudioDeviceMode.NullManual,
-                BusLayoutPath = "Assets/Settings/AudioBusLayout.mres",
+                BusLayoutPath = "Assets/Settings/AudioBusLayout.mfres",
             }))
             {
                 Assert.Equal(-12f, reloaded.GetBus("Music")!.VolumeDb);

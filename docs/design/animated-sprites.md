@@ -16,7 +16,7 @@ cut from sprite sheets, and an `AnimatedSprite2D` plays one with Godot's timing 
 | `SpriteSheetGrid` | `MainframeEngine/Src/Scene/Nodes2D/Sprites/SpriteSheetGrid.cs` | A uniform grid over an image: cell size, margins (top-left), separation |
 | `SpriteFrame` | `Sprites/SpriteFrames.cs` | `[SerializableValue]` record struct: texture index, region (texture pixels), relative duration |
 | `SpriteAnimation` | same | Inline resource: `Name`, `Speed` (fps, default 5), `Loop` (default on), `Textures`, `Frames` |
-| `SpriteFrames` | same | Resource (`.mres`): `Animations` with cached, allocation-free name lookups |
+| `SpriteFrames` | same | Resource (`.mfres`): `Animations` with cached, allocation-free name lookups |
 | `AnimatedSprite2D` | `Sprites/AnimatedSprite2D.cs` | The node: plays and draws the current frame |
 
 ```csharp
@@ -25,7 +25,7 @@ var frames = new SpriteFrames();
 var run = frames.AddAnimation("run");
 run.Speed = 10;
 run.AddFrames(sheet, new SpriteSheetGrid(new Vector2I(32, 32)), [new(0, 1), new(1, 1), new(2, 1), new(3, 1)]);
-ResourceSaver.Save(frames, "Assets/Sprites/hero.mres");
+ResourceSaver.Save(frames, "Assets/Sprites/hero.mfres");
 
 var hero = new AnimatedSprite2D { SpriteFrames = frames, Autoplay = "run" };
 hero.AnimationFinished += OnLanded;
@@ -41,7 +41,7 @@ from the top-left corner and are `Separation` apart.
 - `GridSize(imageSize)`: whole cells that fit; `CellRect(cell)` / `CellRegion(cell)`: texture pixels; `CellAt(pixel)`:
   the cell under a point, (−1, −1) in a margin or a separation gap.
 
-Slicing is data in the resource that uses it, not an import setting: a sheet stays one `Texture2D` with one `.meta`,
+Slicing is data in the resource that uses it, not an import setting: a sheet stays one `Texture2D` with one `.mfmeta`,
 and several animations (or a tile set) can cut it differently. Pixel-art sheets are drawn with the canvas item's
 `TextureFilter`, so set `Nearest` on the scene's root `Node2D` (children inherit it).
 
@@ -49,7 +49,7 @@ and several animations (or a tile set) can cut it differently. Pixel-art sheets 
 
 Each `SpriteAnimation` keeps a texture table and value-typed frames: `SpriteFrame.Texture` indexes `Textures`, a zero
 `Region` draws the whole texture, `Duration` is relative (2 lasts twice as long as 1). There is no `AtlasTexture` and
-no inline resource per frame. In a `.mres` each frame is one line of six numbers `[texture, x, y, w, h, duration]`:
+no inline resource per frame. In a `.mfres` each frame is one line of six numbers `[texture, x, y, w, h, duration]`:
 
 ```json
 "SpriteAnimation_hdzjq": {
@@ -109,13 +109,13 @@ Exports (Godot's names and defaults): `SpriteFrames`, `Animation` ("default"), `
   Speed field; the frame strip (thumbnails of each region, index, duration) with Play Backwards / Play / Stop (on a
   sprite), Add Frame from Image, Add Frames from Sprite Sheet, Copy, Paste, Move Left/Right, Delete and a Duration
   field. Icon buttons with tooltips. On a sprite, picking an animation sets its `Animation`; a sprite without
-  `SpriteFrames` gets a New button. Every edit is one undo entry; a `.mres` edited from a scene is saved with it.
+  `SpriteFrames` gets a New button. Every edit is one undo entry; a `.mfres` edited from a scene is saved with it.
 - **Preview**: Play steps the sprite's `Frame` from the editor's tick with no undo entry and without dirtying the
   scene; Stop (or the end of a non-looping animation) restores the frame.
 - **Select Frames** (`sheet_slicer.rml`): the sheet with its grid; split by count (Horizontal × Vertical) or by cell
   size, with Separation and Offset; click cells to pick them (numbered in click order, the frame order); Select All,
   Clear, "Add N Frames". The last grid per sheet is remembered in `<project>/.mainframe/cache/sheet_grids.json`.
-- **New SpriteFrames from Sheet…** (FileSystem context menu on an image): Select Frames, then `<image>.mres` with one
+- **New SpriteFrames from Sheet…** (FileSystem context menu on an image): Select Frames, then `<image>.mfres` with one
   animation per picked row ("default" for a single row), opened in the inspector.
 - **Picking**: in a 2D tab a click inside a `Sprite2D`'s or `AnimatedSprite2D`'s drawn rect selects it (after
   collision shapes and node origins).
@@ -127,7 +127,7 @@ Exports (Godot's names and defaults): `SpriteFrames`, `Animation` ("default"), `
 - Unit (`Tests/MainframeEngine.Tests/Canvas/`): `SpriteSheetGridTests`, `AnimatedSprite2DTests` (timing, durations,
   speed scale, loop and finish signal order, backwards, from the end, resume, `SetFrameAndProgress`, resource
   switching, autoplay in edit mode, drawing, redraws only on frame change, the 1 000-sprite allocation gate),
-  `SpriteFramesSerializationTests` (`.mres` round trip with one line per frame and identical bytes on re-save, the
+  `SpriteFramesSerializationTests` (`.mfres` round trip with one line per frame and identical bytes on re-save, the
   scene round trip, the codec, cached lookups).
 - Render (`CanvasRenderTests`): `animated-sprite` at frames 1 and 15 (frames, both flips, offset, speed ×3,
   backwards, uneven durations, a stopped frame) with `moltenvk` goldens, and the 1 000-sprite allocation run.
@@ -144,7 +144,7 @@ Exports (Godot's names and defaults): `SpriteFrames`, `Animation` ("default"), `
 - Not built: drag-reordering frames and frame zoom in the strip, auto-slice by opaque bounds, a project-wide default
   canvas texture filter.
 - The Demo's animated sprite has its own scene, `sprites_2d` (Sprites 2D), with the generated `Assets/Sprites2D/hero.png`
-  and `hero.mres`, which the planned `tiles_2d` scene can reuse; it is in the nav bar's 2D category.
+  and `hero.mfres`, which the planned `tiles_2d` scene can reuse; it is in the nav bar's 2D category.
 
 ## Related
 

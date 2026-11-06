@@ -10,7 +10,7 @@ namespace Forest;
 /// <c>ForestAudio</c> node in the scene: when ready it finds the first <see cref="River3D"/> and
 /// <see cref="FirstPersonController"/> under <see cref="Node.Owner"/> (or its parent) unless <see cref="RiverPath"/> and
 /// <see cref="PlayerPath"/> name them. Its children are generated (unowned, never saved). Buses: see
-/// <see cref="AmbienceBus"/> (<c>Assets/Settings/AudioBusLayout.mres</c>); <see cref="ApplySettings"/> sets the
+/// <see cref="AmbienceBus"/> (<c>Assets/Settings/AudioBusLayout.mfres</c>); <see cref="ApplySettings"/> sets the
 /// player's volumes on top of the layout's levels. With a cabin (<see cref="ConnectCabin"/>), the outdoor buses are
 /// low-passed and quieter by <see cref="CabinInterior.Enclosure"/>, so the valley sounds shut out inside the room; the
 /// <see cref="FoleyBus"/> and the <see cref="InteriorBus"/> stay clear.

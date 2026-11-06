@@ -23,7 +23,7 @@
   <rect x="20" y="20" width="700" height="26" rx="8" fill="#15171c"/>
   <rect x="20" y="38" width="700" height="8" fill="#15171c"/>
   <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="370" y="37" class="s" text-anchor="middle">Mainframe Editor — Demo — Main.mscene</text>
+  <text x="370" y="37" class="s" text-anchor="middle">Mainframe Editor — Demo — Main.mfscene</text>
   <rect x="20" y="46" width="700" height="28" fill="#262931"/>
   <rect x="300" y="51" width="22" height="18" rx="3" class="on"/><path d="M308,55 l7,5 l-7,5 z" fill="#ffffff"/>
   <rect x="326" y="51" width="22" height="18" rx="3" class="btn"/><rect x="333" y="55" width="3" height="10" fill="#d7dbe4"/><rect x="339" y="55" width="3" height="10" fill="#d7dbe4"/>
@@ -246,7 +246,7 @@
   <rect x="531.8" y="358" width="127.8" height="16" rx="2" fill="#2f333d" stroke="#4b5263" stroke-dasharray="3 2"/>
   <text x="534.8" y="369.5" class="s">Wait (fence, acquire)</text>
   <rect x="132.0" y="384" width="456.6" height="16" rx="2" fill="#0d9488"/>
-  <text x="135.0" y="395.5" class="bl">Load Forest.mscene: instantiate</text>
+  <text x="135.0" y="395.5" class="bl">Load Forest.mfscene: instantiate</text>
   <rect x="136.4" y="406" width="19.0" height="14" rx="2" fill="#14b8a6"/>
   <rect x="371.9" y="406" width="19.0" height="14" rx="2" fill="#14b8a6"/>
   <rect x="607.4" y="406" width="19.0" height="14" rx="2" fill="#14b8a6"/>

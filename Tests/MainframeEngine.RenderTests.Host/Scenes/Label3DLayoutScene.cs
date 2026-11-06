@@ -5,7 +5,7 @@ namespace MainframeEngine.RenderTests.Host.Scenes;
 using Color = System.Drawing.Color;
 
 /// <summary>
-/// <see cref="Label3D"/>'s G11 options (ADR 0249) on a street of posts: a three-line sign (newlines, right-aligned,
+/// <see cref="Label3D"/>'s G11 options (ADR 0251) on a street of posts: a three-line sign (newlines, right-aligned,
 /// line spacing) on a fixed quad, an autowrapped notice, a Cyrillic sign drawn through Lato's Roboto Mono fallback, an
 /// alpha-cut label, and two <c>FixedSize</c> + <c>NoDepthTest</c> debug tags at 4 m and 12 m that come out the same size
 /// on screen, the far one through a wall.

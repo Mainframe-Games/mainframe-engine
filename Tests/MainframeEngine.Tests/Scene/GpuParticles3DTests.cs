@@ -500,7 +500,7 @@ public sealed class GpuParticles3DTests
         Directory.CreateDirectory(dir);
         try
         {
-            var path = Path.Combine(dir, "smoke.mres");
+            var path = Path.Combine(dir, "smoke.mfres");
             ResourceSaver.Save(new ParticleProcessMaterial { EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.SphereSurface, Flatness = 0.25f }, path);
             ResourceLoader.ClearCache();
             var loaded = ResourceLoader.Load<ParticleProcessMaterial>(path);
@@ -508,7 +508,7 @@ public sealed class GpuParticles3DTests
             Assert.Equal(0.25f, loaded.Flatness);
 
             // A 2D-era material (no 3D members in the file) loads with the 3D defaults.
-            var old = Path.Combine(dir, "dust.mres");
+            var old = Path.Combine(dir, "dust.mfres");
             File.WriteAllText(old, """
                 {
                   "format": 2,

@@ -44,7 +44,7 @@ public sealed class SongModelTests : IDisposable
     [Fact]
     public void TheProposalsExampleRoundTripsWithPluginDataPreserved()
     {
-        var read = SongFormat.Parse(Encoding.UTF8.GetBytes(Example), "Theme.msong");
+        var read = SongFormat.Parse(Encoding.UTF8.GetBytes(Example), "Theme.mfsong");
         Assert.False(read.ReadOnly);
         var song = read.Song;
         Assert.Equal("sng_0123456789ab", song.Uid);
@@ -75,7 +75,7 @@ public sealed class SongModelTests : IDisposable
     [Fact]
     public void ANewerFormatOpensReadOnly()
     {
-        var path = Path.Combine(_root, "Future.msong");
+        var path = Path.Combine(_root, "Future.mfsong");
         File.WriteAllText(path, """{ "format": 99, "uid": "sng_0123456789ab", "tracks": [], "hologram": true }""");
         using var doc = SongDocument.Load(path);
         Assert.True(doc.IsReadOnly);
@@ -89,7 +89,7 @@ public sealed class SongModelTests : IDisposable
     public void MigrationsRunFromOlderFormats()
     {
         var migrations = new[] { new ProjectMigration(1, root => root["tempo"] = 90) };
-        var read = SongFormat.Parse("""{ "format": 1, "uid": "sng_0123456789ab" }"""u8, "old.msong", 2, migrations);
+        var read = SongFormat.Parse("""{ "format": 1, "uid": "sng_0123456789ab" }"""u8, "old.mfsong", 2, migrations);
         Assert.Equal(90, read.Song.Tempo);
         Assert.Equal(2, read.Song.Format);
     }
@@ -102,12 +102,12 @@ public sealed class SongModelTests : IDisposable
         Assert.StartsWith("sng_", song.Uid, StringComparison.Ordinal);
         Assert.True(AssetUid.IsUid(song.Uid));
         song.Render.Output = "Assets/Music/Theme.wav";
-        var path = Path.Combine(_root, "Assets", "Songs", "Theme.msong");
+        var path = Path.Combine(_root, "Assets", "Songs", "Theme.mfsong");
         SongFormat.Save(song, path);
 
         var db = new AssetDatabase(_root);
         db.Scan();
-        Assert.Equal("Assets/Songs/Theme.msong", db.GetPath(song.Uid));
+        Assert.Equal("Assets/Songs/Theme.mfsong", db.GetPath(song.Uid));
         Assert.False(File.Exists(path + AssetDatabase.MetaExtension)); // the UID lives in the file
 
         var updated = ReferenceFixer.Apply(_root, db, new Dictionary<string, string> { ["Assets/Music/Theme.wav"] = "Assets/Audio/Theme.wav" });
@@ -122,7 +122,7 @@ public sealed class SongModelTests : IDisposable
     [Fact]
     public void UndoAndRedoRestoreEveryEditExactly()
     {
-        var path = Path.Combine(_root, "Edit.msong");
+        var path = Path.Combine(_root, "Edit.mfsong");
         var song = Song.CreateNew();
         using var doc = new SongDocument(song, path);
         var states = new List<byte[]> { SongFormat.Write(song) };
@@ -186,7 +186,7 @@ public sealed class SongModelTests : IDisposable
     public void DragsMergeIntoOneEntryAndSaveClearsDirty()
     {
         AssetDatabase.Current = new AssetDatabase(_root);
-        var path = Path.Combine(_root, "Drag.msong");
+        var path = Path.Combine(_root, "Drag.mfsong");
         using var doc = new SongDocument(Song.CreateNew(), path);
         var track = doc.AddTrack(SongTrackKind.Instrument);
         var clip = doc.AddMidiClip(track, 0, 3840);

@@ -70,7 +70,7 @@ public sealed class ExportLibraryTests : IDisposable
     {
         var project = Path.Combine(_dir, "project");
         var stage = Path.Combine(_dir, "stage");
-        foreach (var f in (string[])["Assets/Scenes/Main.mscene", "Assets/Audio/a.ogg", "Assets/Audio/a.ogg.meta", "Assets/locale/fr/messages.po"])
+        foreach (var f in (string[])["Assets/Scenes/Main.mfscene", "Assets/Audio/a.ogg", "Assets/Audio/a.ogg.mfmeta", "Assets/locale/fr/messages.po"])
         {
             File_("project/" + f);
             File_("stage/" + f);
@@ -81,15 +81,15 @@ public sealed class ExportLibraryTests : IDisposable
 
         var removed = ContentFilter.Apply(stage, project, ExportPreset.DefaultInclude, ["Assets/**/*.po", "Assets/Audio/**"]);
 
-        Assert.Equal(["Assets/Audio/a.ogg", "Assets/Audio/a.ogg.meta", "Assets/locale/fr/messages.po"], removed);
+        Assert.Equal(["Assets/Audio/a.ogg", "Assets/Audio/a.ogg.mfmeta", "Assets/locale/fr/messages.po"], removed);
         Assert.True(File.Exists(Path.Combine(stage, "Assets", "Shaders", "Mesh.spv")));
         Assert.True(File.Exists(Path.Combine(stage, "Assets", "locale", "fr", "messages.mo")));
-        Assert.True(File.Exists(Path.Combine(stage, "Assets", "Scenes", "Main.mscene")));
+        Assert.True(File.Exists(Path.Combine(stage, "Assets", "Scenes", "Main.mfscene")));
         Assert.False(Directory.Exists(Path.Combine(stage, "Assets", "Audio"))); // emptied folders go too
 
         // A narrow include keeps engine content.
         var narrow = ContentFilter.Apply(stage, project, ["Assets/Audio/**"], []);
-        Assert.Equal(["Assets/Scenes/Main.mscene"], narrow);
+        Assert.Equal(["Assets/Scenes/Main.mfscene"], narrow);
         Assert.True(File.Exists(Path.Combine(stage, "Assets", "Shaders", "Mesh.spv")));
     }
 
@@ -103,7 +103,7 @@ public sealed class ExportLibraryTests : IDisposable
 
         var project = Path.Combine(_dir, "project");
         var stage = Path.Combine(_dir, "stage");
-        foreach (var f in (string[])["Assets/Scenes/Main.mscene", "Assets/Video/Media/clip.mp4", "Assets/Video/Media/clip.mp4.meta"])
+        foreach (var f in (string[])["Assets/Scenes/Main.mfscene", "Assets/Video/Media/clip.mp4", "Assets/Video/Media/clip.mp4.mfmeta"])
         {
             File_("project/" + f);
             File_("stage/" + f);
@@ -111,9 +111,9 @@ public sealed class ExportLibraryTests : IDisposable
 
         var removed = ContentFilter.Apply(stage, project, ExportPreset.DefaultInclude, []);
 
-        Assert.Equal(["Assets/Video/Media/clip.mp4", "Assets/Video/Media/clip.mp4.meta"], removed);
+        Assert.Equal(["Assets/Video/Media/clip.mp4", "Assets/Video/Media/clip.mp4.mfmeta"], removed);
         Assert.False(Directory.Exists(Path.Combine(stage, "Assets", "Video")));
-        Assert.True(File.Exists(Path.Combine(stage, "Assets", "Scenes", "Main.mscene")));
+        Assert.True(File.Exists(Path.Combine(stage, "Assets", "Scenes", "Main.mfscene")));
     }
 
     // ── Natives ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -199,19 +199,19 @@ public sealed class ExportLibraryTests : IDisposable
     [Fact]
     public void TheScannerFindsUidAndPathReferences()
     {
-        File_("Assets/a.mres", """{ "uid": "res_000000000001" }""");
-        var scene = File_("Assets/s.mscene", """
+        File_("Assets/a.mfres", """{ "uid": "res_000000000001" }""");
+        var scene = File_("Assets/s.mfscene", """
             { "uid": "scn_000000000002", "root": { "props": {
-                "a": { "ref": "res_000000000001", "path": "Assets/old.mres" },
-                "b": { "instance": "scn_000000000099", "path": "Assets/Sub.mscene" },
+                "a": { "ref": "res_000000000001", "path": "Assets/old.mfres" },
+                "b": { "instance": "scn_000000000099", "path": "Assets/Sub.mfscene" },
                 "c": "Assets/Textures/t.png", "d": "not a path" } } }
             """);
         var database = new AssetDatabase(_dir);
         database.Scan();
 
         var refs = ReferenceScanner.ReferencesOf(scene, database);
-        Assert.Equal(["Assets/Sub.mscene", "Assets/Textures/t.png", "Assets/a.mres"], refs.Order(StringComparer.Ordinal));
-        Assert.Empty(ReferenceScanner.ReferencesOf(File_("Assets/bad.mscene", "{ nope"), database));
+        Assert.Equal(["Assets/Sub.mfscene", "Assets/Textures/t.png", "Assets/a.mfres"], refs.Order(StringComparer.Ordinal));
+        Assert.Empty(ReferenceScanner.ReferencesOf(File_("Assets/bad.mfscene", "{ nope"), database));
     }
 
     // ── Icons ────────────────────────────────────────────────────────────────────────────────────────────────────

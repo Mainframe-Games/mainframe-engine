@@ -1,8 +1,8 @@
 ---
 summary: >-
   G11.1–G11.4: Camera3D frustum helpers, a shared line breaker and fallback fonts, the full Label3D option set on the
-  mesh batcher (multi-line, autowrap, FixedSize on the CPU, alpha cut; ADR 0249), and UiMarker3D markers as rows of one
-  UiMarkerHost document, moved from C# between content refreshes (ADR 0250); a Demo World UI tab, an editor marker
+  mesh batcher (multi-line, autowrap, FixedSize on the CPU, alpha cut; ADR 0251), and UiMarker3D markers as rows of one
+  UiMarkerHost document, moved from C# between content refreshes (ADR 0254); a Demo World UI tab, an editor marker
   badge. Panels on meshes (G11.5/6) and the batched text renderer are left.
 ---
 
@@ -30,10 +30,11 @@ keeps G11.5–G11.9.
 
 ## Decisions
 
-- [ADR 0249](../decisions/0249-label3d-on-the-mesh-batcher.md): no `Text3DRenderer` yet; `FixedSize` on the CPU.
-- [ADR 0250](../decisions/0250-markers-as-rows-of-one-document.md): the row model; positions from C# between refreshes.
+- [ADR 0251](../decisions/0251-label3d-on-the-mesh-batcher.md): no `Text3DRenderer` yet; `FixedSize` on the CPU.
+- [ADR 0254](../decisions/0254-markers-as-rows-of-one-document.md): the row model; positions from C# between refreshes.
 - Proposal open questions decided by default: 1 (coverage bitmaps), 3 (measured), 4 (row model, no shim rebuild).
-- ADR numbers 0247/0248 were left for the parallel G19 and G3.7 sessions (noted in the shared session notes).
+- ADR numbers: first 0249/0250; renumbered to 0251/0254 when main's file-extension change took 0249 (#182) and the
+  open navigation (#179) and panels (#184) PRs held 0250, 0252 and 0253.
 
 ## Dead ends
 

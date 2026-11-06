@@ -35,12 +35,12 @@ The engine's editor has none of that today:
 
 ## Goals
 
-- **A Skeleton tab** opens a `.mskel`: double-click, File › New Skeleton…, or the FileSystem panel's New Skeleton…,
+- **A Skeleton tab** opens a `.mfskel`: double-click, File › New Skeleton…, or the FileSystem panel's New Skeleton…,
   Import PSD… and Import Spine…. It has Spine's two modes:
   - **Setup**: bones, slots, attachments, skins, constraints, events, meshes and weights;
   - **Animate**: clips, keys, curves, posing.
 - **One undo history per tab** covering the rig and every open clip. Every gesture is one entry. Cmd+S saves the
-  `.mskel` and the changed `.manim` files.
+  `.mfskel` and the changed `.mfanim` files.
 - **Live in the scene.** `SkeletonSprite2D` and `SkeletonSprite3D` nodes in open scene tabs update as soon as the rig or a
   clip changes, before saving. Saved files reload in running games through the editor link (see
   [Saving and live update](#saving-and-live-update)).
@@ -75,7 +75,7 @@ The engine's editor has none of that today:
   stays close to Spine's where they don't clash with the editor's.
 - Video reference. The reference layer takes an image or an image sequence, not video (see
   [open question 3](#open-questions)).
-- Editing several skeletons in one tab. One `.mskel` per tab.
+- Editing several skeletons in one tab. One `.mfskel` per tab.
 - Animating scene nodes other than the skeleton. That is G1a's Animation panel.
 
 ## Overview
@@ -91,7 +91,7 @@ flowchart LR
     V --> TL["Timeline/ (shared)<br/>DopesheetCanvas · CurveCanvas"]
     D -->|"Rebuild (in memory)"| SD["SkeletonData.Version++"]
     SD --> SC["Scene tabs: SkeletonSprite2D instances"]
-    D -->|Cmd+S| F[".mskel + .manim (SkeletonFormat)"]
+    D -->|Cmd+S| F[".mfskel + .mfanim (SkeletonFormat)"]
     F -->|editor link: resource changed| G["Running game reloads"]
 ```
 
@@ -159,12 +159,12 @@ G1a's Animation panel later uses the same two canvases with its own tracks.
 
 ## Opening, creating and importing
 
-- **File types.** `.mskel` and `.manim` join `FileKind` (`FileSystem/FileKind.cs:54-71`) as `Skeleton` and
+- **File types.** `.mfskel` and `.mfanim` join `FileKind` (`FileSystem/FileKind.cs:54-71`) as `Skeleton` and
   `SkeletonClip`, with editor icons (`bone`, `movie`), peeks (`FilePeek`: bone, slot and clip counts) and
-  `ReferenceFixer` handling (`FileSystem/ReferenceFixer.cs:10`, `:69-95`, where `.msong` is handled today).
-- **Opening.** Double-click a `.mskel` to open its tab. Double-click a `.manim` to open its skeleton's tab in Animate
+  `ReferenceFixer` handling (`FileSystem/ReferenceFixer.cs:10`, `:69-95`, where `.mfsong` is handled today).
+- **Opening.** Double-click a `.mfskel` to open its tab. Double-click a `.mfanim` to open its skeleton's tab in Animate
   mode with that clip.
-- **New Skeleton…** (File menu and the FileSystem panel) asks for a name and folder. It writes `<name>.mskel` with a
+- **New Skeleton…** (File menu and the FileSystem panel) asks for a name and folder. It writes `<name>.mfskel` with a
   `root` bone, an empty `Images/` folder and an empty `<name>.clips/` folder, then opens the tab.
 - **Import PSD…** (FileSystem context menu on a `.psd`; also in the tab) creates a skeleton from the layers, or
   re-imports into an open one. See [Importing art](#importing-art).
@@ -241,7 +241,7 @@ widths and the timeline's height are saved per editor install.
   - **The preview dialog** shows the layer tree with the resulting bone, slot and skin for each layer, from the tags.
     The artist can toggle layers and pick scale, trim and whether to make meshes for `[mesh]` layers.
   - **On import** the PNGs are written, slots and attachments placed at the layer positions, and the layer → image
-    map stored in the `.mskel` (`import.psd`: path plus map).
+    map stored in the `.mfskel` (`import.psd`: path plus map).
   - **Re-import** (Reimport PSD in the tab, or automatically when the PSD changes while the tab is open, after a
     prompt) shows a diff before applying it: changed layers, moved bounds, new layers, removed layers. Removing is
     always opt-in per layer.
@@ -320,7 +320,7 @@ The events section lists event definitions with name, default int, float and str
 
 - **The clip header** has a clip menu (switch, new, duplicate, rename, delete; all undoable, with files written on
   save), plus length, fps and loop mode. **Mirror Clip** creates a mirrored copy, using the bone name pairs below.
-- **Files.** Each clip is one `.manim` in `<skeleton>.clips/`. Clips that haven't been opened since the tab opened are
+- **Files.** Each clip is one `.mfanim` in `<skeleton>.clips/`. Clips that haven't been opened since the tab opened are
   not loaded, so a rig with 200 clips opens fast.
 
 ### Posing and auto-key
@@ -411,7 +411,7 @@ The events section lists event definitions with name, default int, float and str
 
 ## Saving and live update
 
-- **Save** (Cmd+S) writes the `.mskel` and each dirty `.manim` through `SkeletonFormat`, with an `AtomicFile` write as
+- **Save** (Cmd+S) writes the `.mfskel` and each dirty `.mfanim` through `SkeletonFormat`, with an `AtomicFile` write as
   `SongFormat.cs:92` does. It registers new UIDs with `AssetDatabase` and marks the history saved. **Save As** copies
   the skeleton and its clips to a new folder with new UIDs.
 - **Live update while editing.**
@@ -524,7 +524,7 @@ and the QA script's step list in [Testing](../testing.md).
    This proposal keeps animation in the Skeleton tab. A **background scene** option in the tab (pick a scene to draw
    behind the skeleton) may cover the need without a second editing path.
 2. **Multiple artists on one clip.** Clip files avoid most conflicts, but two people editing one clip still conflict in
-   git. A merge driver for `.manim` (merge per timeline) could resolve most of them automatically.
+   git. A merge driver for `.mfanim` (merge per timeline) could resolve most of them automatically.
 3. **Video reference.** It would need a decoder dependency. Image sequences cover rotoscoping for now.
 4. **A Spine-like "tree with keys" hybrid view** (keys shown inline in the hierarchy, as Spine's dopesheet does) versus
    the separate dopesheet proposed here. Revisit after artists use G17c.

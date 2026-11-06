@@ -1,7 +1,7 @@
 # Proposal: World-space UI and 3D text
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G11) · **Status:** 🚧 G11.1–G11.4 shipped and are
-documented in [World-space UI](../world-space-ui.md) (ADRs 0200, 0216, 0249, 0250, with its "Changes from the
+documented in [World-space UI](../world-space-ui.md) (ADRs 0200, 0216, 0251, 0254, with its "Changes from the
 proposal"); this proposal now covers what is left: G11.5 UI render targets, G11.6 `UiPanel3D`, G11.7's panel preview,
 the batched `Text3DRenderer`, G11.9 · **Depends on:** [M8 game UI](../game-ui.md) (RmlUi, `VulkanUiRenderer`), [canvas text](../canvas.md#text-adr-0118)
 (ADR 0118: `Font`), [M6 physics](../physics.md) (occlusion and line-of-sight rays) · **Related:**

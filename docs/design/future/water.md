@@ -236,7 +236,7 @@ order:
 
 **Carve records.** Carving current heights again would stack a second channel on the first. The first carve therefore
 stores the original heights of the touched rectangle as `<scene>_terrain/carve_<CarveId>.png` (R16, rectangle and range
-in a `.meta` sidecar), written by the terrain's `SaveExternalData` hook (G8a). `Recarve()` restores the rectangle and
+in a `.mfmeta` sidecar), written by the terrain's `SaveExternalData` hook (G8a). `Recarve()` restores the rectangle and
 carves the current curve into a new record; `Uncarve()` only restores. Each is one edit. Sculpting inside an old channel
 is lost on re-carve, and the inspector says so.
 
@@ -524,7 +524,7 @@ Shaders compile through the Slang build (ADR 0144); `just shaders` refreshes the
     the edge; overlaps; `NaN` when dry; `FlowAt`, `ImmersionAt`, `IsUnderwater`, `WadeSpeedScale`; no allocation.
   - `TerrainWaterMeshTests`: a triangle is wet exactly when one of its vertices is; vertices at `h − ShoreDrop`; dry
     chunks have no node; nodes are unowned and unsaved.
-  - `WaterMaterial3DTests`: defaults, UBO packing, `.mres` round trip; `WaterTextures` tile and are deterministic.
+  - `WaterMaterial3DTests`: defaults, UBO packing, `.mfres` round trip; `WaterTextures` tile and are deterministic.
   - `RiverAudioTests`: the emitter is at the closest centreline point, clamped to the banks and rate-limited; falls
     players go to the nearest falls; 0 B per frame.
 - **Render tests** (goldens for `moltenvk` and `lavapipe`; `--fixed-fps` keeps `frame.clip.z` deterministic):

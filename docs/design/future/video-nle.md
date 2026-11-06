@@ -298,8 +298,8 @@ All new library code is pure and immutable, in `MainframeEngine.Video/Timelines/
 | `FilmstripExtractor` | Filmstrip tiles |
 
 `.mftimeline`:
-- It stores its UID inside the file (AssetDatabase `IsSelfDescribing`, so no `.meta`) and is written atomically.
-- `.mfcap.json` and `.mftranscript.json` count as part of their media, so they get no `.meta` and the pool hides them.
+- It stores its UID inside the file (AssetDatabase `IsSelfDescribing`, so no `.mfmeta`) and is written atomically.
+- `.mfcap.json` and `.mftranscript.json` count as part of their media, so they get no `.mfmeta` and the pool hides them.
 
 The editor side, in `MainframeEngine.Editor/Src/Video/`, copies music mode's arrangement pattern: RmlUi headers beside
 canvas lanes in a `SubViewport` (`Music/SongPanel.cs`, `song.rml`, `ArrangementCanvas` in `Music/SongCanvases.cs`), and
@@ -359,14 +359,14 @@ Test names are in the projects they will live in: `Video.Tests` (library), `Edit
 - Given a window, when SDL reports two files dropped, then `SceneTree.FilesDropped` fires once with both paths and the
   pointer's window position in window points (the units of mouse events). Test:
   `FilesDroppedTests.RaisesOnceWithPathsAndPosition`.
-- Given a game project with `Assets/Video/Media/a.mp4` and `Assets/Scenes/Main.mscene`, when its Desktop project
-  builds, then `bin/…/Assets/Scenes/Main.mscene` exists and `bin/…/Assets/Video` does not. Test: template smoke
+- Given a game project with `Assets/Video/Media/a.mp4` and `Assets/Scenes/Main.mfscene`, when its Desktop project
+  builds, then `bin/…/Assets/Scenes/Main.mfscene` exists and `bin/…/Assets/Video` does not. Test: template smoke
   (`build/template-smoke.sh`) asserts it.
 - Given an export preset whose include glob is `Assets/**`, when the files to ship are listed, then nothing under
   `Assets/Video` ships. Given an include glob `Assets/Video/**`, the validator warns `editor-only-content`. Tests:
   `ExportLibraryTests.EditorOnlyFolderNeverShips`, `ExportPlanAndValidationTests.AnIncludeGlobNamingTheEditorOnlyFolderWarns`.
 - Given an open project, when F10 finishes a recording, then the MP4 and its `.mfcap.json` are in
-  `Assets/Video/Recordings`, and its `.partial` folder never gets `.meta` files or shows in the FileSystem panel. Tests:
+  `Assets/Video/Recordings`, and its `.partial` folder never gets `.mfmeta` files or shows in the FileSystem panel. Tests:
   `RecordingPathsTests.ProjectRecordingsGoUnderAssetsVideo`, `PlayRecordingControllerTests.PlayAndRecordLaunchesWithRecordArgs`,
   `ProjectFileSystemTests.ARecordingsPartialFolderIsHiddenAndGetsNoMetas`.
 - Given a `Texture2D` whose pixels change but whose size does not, when frames render, then the GPU image is updated
@@ -413,7 +413,7 @@ Test names are in the projects they will live in: `Video.Tests` (library), `Edit
 - Given no project open, when video mode is chosen, then the Project Manager opens and the mode does not change. Test:
   `VideoModeTests.NeedsProject`.
 - Given a project, when the pool shows `Assets/Video`, then it lists videos, audio, images and timelines, and hides
-  `.mfcap.json`, `.mftranscript.json`, `.meta` and scenes. Test: `MediaPoolTests.ShowsMediaOnly`.
+  `.mfcap.json`, `.mftranscript.json`, `.mfmeta` and scenes. Test: `MediaPoolTests.ShowsMediaOnly`.
 - Given `/tmp/clip.mp4` and `Assets/Video/Media/clip.mp4` already present, when the file is imported, then it is copied
   to `clip-2.mp4` through a `.tmp` name, and its `.mfcap.json` is copied too. Test:
   `MediaImporterTests.NumbersClashAndCopiesSidecar`.

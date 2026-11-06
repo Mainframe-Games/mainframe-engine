@@ -16,7 +16,7 @@ public sealed class PackTests : IDisposable
     {
         var root = Folder(name);
         Write(root, "project.mfproj", new ProjectSettings { Name = "Packed" }.ToJson());
-        Write(root, "Assets/Scenes/main.mscene", string.Concat(Enumerable.Repeat("""{ "type": "Node3D", "name": "Root" }""" + "\n", 200)));
+        Write(root, "Assets/Scenes/main.mfscene", string.Concat(Enumerable.Repeat("""{ "type": "Node3D", "name": "Root" }""" + "\n", 200)));
         Write(root, "Assets/UI/hud.rml", "<rml><body>hud</body></rml>");
         Write(root, "Assets/UI/fonts/a.ttf", Random(40_000, seed: 1));
         Write(root, "Assets/UI/empty.txt", "");
@@ -102,7 +102,7 @@ public sealed class PackTests : IDisposable
     {
         using var reader = PackReader.Open(Pack(Stage()));
 
-        Assert.True(reader.TryGetEntry("Assets/Scenes/main.mscene", out var scene));
+        Assert.True(reader.TryGetEntry("Assets/Scenes/main.mfscene", out var scene));
         Assert.Equal(PackCodec.Brotli, scene.Codec);
         Assert.True(scene.StoredLength < scene.Length / 4);
         Assert.True(reader.TryGetEntry("Assets/UI/fonts/a.ttf", out var font));

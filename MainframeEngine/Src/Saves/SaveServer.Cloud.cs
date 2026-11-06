@@ -37,7 +37,7 @@ public sealed partial class SaveServer
     /// <summary>
     /// Reconciles local slots with <see cref="Cloud"/> (at start-up, on resume, from a "cloud" button): a slot changed on one
     /// side since the last sync (<c>saves/.sync.json</c>) is copied to the other; a slot changed on both is a conflict
-    /// that <see cref="ConflictPolicy"/> settles, keeping the losing copy as <c>slot.msave.conflict-{utc}</c>. The task
+    /// that <see cref="ConflictPolicy"/> settles, keeping the losing copy as <c>slot.mfsave.conflict-{utc}</c>. The task
     /// completes on the main thread (in <see cref="Process"/>); it fails when the backend's listing fails.
     /// </summary>
     public Task SyncAsync(CancellationToken cancellationToken = default)
@@ -467,7 +467,7 @@ public sealed partial class SaveServer
             RecordSynced(slot, hash);
     }
 
-    // Settles a conflict: the loser is kept as slot.msave.conflict-{utc}.
+    // Settles a conflict: the loser is kept as slot.mfsave.conflict-{utc}.
     private async Task ResolveAsync(ICloudSaveBackend? cloud, string slot, bool keepLocal, ValidDownload remote, string expectedLocalHash, CancellationToken ct)
     {
         var main = MainPath(slot);

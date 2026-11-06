@@ -3,26 +3,26 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The rules of the inspector's resource More menu (editor-viewport-tools G7.2): which of Save as .mres, Make Unique
+/// The rules of the inspector's resource More menu (editor-viewport-tools G7.2): which of Save as .mfres, Make Unique
 /// (shallow, deep), Open and Show in FileSystem apply to the resource in a slot, and why one does not.
 /// </summary>
 public static class ResourceActions
 {
-    /// <summary>An external resource whose data lives in its source file (a texture, a model, a sound, a LUT), not a <c>.mres</c>.</summary>
+    /// <summary>An external resource whose data lives in its source file (a texture, a model, a sound, a LUT), not a <c>.mfres</c>.</summary>
     public static bool IsImported(Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        return resource.ResourcePath is { } path && !path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase);
+        return resource.ResourcePath is { } path && !path.EndsWith(".mfres", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>A <c>.mres</c> file resource (Open edits it on its own).</summary>
+    /// <summary>A <c>.mfres</c> file resource (Open edits it on its own).</summary>
     public static bool IsResourceFile(Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        return resource.ResourcePath is { } path && path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase);
+        return resource.ResourcePath is { } path && path.EndsWith(".mfres", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Save as .mres applies: an inline resource of a type a <c>.mres</c> can hold.</summary>
+    /// <summary>Save as .mfres applies: an inline resource of a type a <c>.mfres</c> can hold.</summary>
     public static bool CanSaveAsFile(Resource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
@@ -30,7 +30,7 @@ public static class ResourceActions
     }
 
     /// <summary>
-    /// Make Unique applies: a <c>.mres</c> file resource, or an inline one the scene uses in more than one slot
+    /// Make Unique applies: a <c>.mfres</c> file resource, or an inline one the scene uses in more than one slot
     /// (<paramref name="inlineUses"/>). <paramref name="reason"/> says why not (the menu item's tooltip).
     /// </summary>
     public static bool CanMakeUnique(Resource resource, int inlineUses, out string reason)
@@ -44,7 +44,7 @@ public static class ResourceActions
 
         if (IsImported(resource))
         {
-            reason = $"{Path.GetFileName(resource.ResourcePath)} is imported: its data lives in the source file. Make Unique copies .mres files only.";
+            reason = $"{Path.GetFileName(resource.ResourcePath)} is imported: its data lives in the source file. Make Unique copies .mfres files only.";
             return false;
         }
 

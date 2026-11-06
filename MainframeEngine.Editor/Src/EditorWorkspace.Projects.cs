@@ -357,7 +357,7 @@ public sealed partial class EditorWorkspace
     private static bool IsInstanceable(string file)
     {
         var extension = Path.GetExtension(file).ToLowerInvariant();
-        return extension is ".mscene" or ".gltf" or ".glb" or ".fbx" or ".obj";
+        return extension is ".mfscene" or ".gltf" or ".glb" or ".fbx" or ".obj";
     }
 
     // Instances go under the target, except into another instance (its insides belong to its own file).

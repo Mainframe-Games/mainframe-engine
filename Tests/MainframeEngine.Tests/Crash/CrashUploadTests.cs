@@ -35,7 +35,7 @@ public sealed class CrashUploadTests
             App = new CrashAppInfo { Name = "Forest Demo", Version = "1.2.0", Engine = "0.42.0" },
             Gpu = new CrashGpuInfo { Name = "Apple M3 Pro", VendorId = "0x106b" },
         };
-        report.Session.Scene = "Assets/Scenes/Forest.mscene";
+        report.Session.Scene = "Assets/Scenes/Forest.mfscene";
         report.Session.Callback = "OnPhysicsProcess";
         report.Exception.Add(new CrashException
         {

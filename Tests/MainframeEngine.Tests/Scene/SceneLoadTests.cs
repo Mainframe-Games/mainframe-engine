@@ -112,7 +112,7 @@ public sealed class SceneLoadTests : IDisposable
         level.AddChild(loadable);
         loadable.Owner = level;
         build?.Invoke(level);
-        var uid = SceneSaver.Save(level, ContentPath($"{name}.mscene"));
+        var uid = SceneSaver.Save(level, ContentPath($"{name}.mfscene"));
         level.Free();
         ResourceLoader.ClearCache();
         return uid;
@@ -227,7 +227,7 @@ public sealed class SceneLoadTests : IDisposable
         var sub = new Node3D { Name = "Sub" };
         sub.AddChild(new AllTypesNode { Name = "Inner", Int = 11, Text = "inner" });
         sub.GetChild(0).Owner = sub;
-        SceneSaver.Save(sub, ContentPath("Sub.mscene"));
+        SceneSaver.Save(sub, ContentPath("Sub.mfscene"));
         sub.Free();
         var uid = SaveLevel("Rich", level =>
         {
@@ -243,7 +243,7 @@ public sealed class SceneLoadTests : IDisposable
             };
             level.AddChild(all);
             all.Owner = level;
-            var instance = ResourceLoader.Load<PackedScene>("Assets/Sub.mscene").Instantiate();
+            var instance = ResourceLoader.Load<PackedScene>("Assets/Sub.mfscene").Instantiate();
             level.AddChild(instance);
             instance.Owner = level;
         });
@@ -306,7 +306,7 @@ public sealed class SceneLoadTests : IDisposable
     [Fact]
     public void AMissingSceneFails()
     {
-        var load = _tree.ChangeSceneToFileAsync("Assets/Nowhere.mscene");
+        var load = _tree.ChangeSceneToFileAsync("Assets/Nowhere.mfscene");
         RunToCompletion(load);
         Assert.Equal(SceneLoadStage.Failed, load.Stage);
         Assert.IsType<FileNotFoundException>(load.Error);
@@ -417,7 +417,7 @@ public sealed class SceneLoadTests : IDisposable
     [Fact]
     public void LoadThreadedLoadsOnAWorkerAndSharesTheCache()
     {
-        var uid = ResourceSaver.Save(new TestResource { Value = 9 }, ContentPath("Data.mres"));
+        var uid = ResourceSaver.Save(new TestResource { Value = 9 }, ContentPath("Data.mfres"));
         ResourceLoader.ClearCache();
 
         using var task = ResourceLoader.LoadThreaded<TestResource>(uid);
@@ -438,7 +438,7 @@ public sealed class SceneLoadTests : IDisposable
         loaded.Release();
         Assert.False(ResourceLoader.IsCached(uid));
 
-        using var missing = ResourceLoader.LoadThreaded<TestResource>("Assets/Missing.mres");
+        using var missing = ResourceLoader.LoadThreaded<TestResource>("Assets/Missing.mfres");
         Assert.Throws<FileNotFoundException>(() => missing.Result);
         Assert.Equal(ResourceLoadStatus.Failed, missing.Status);
         Assert.IsType<FileNotFoundException>(missing.Error);
@@ -447,7 +447,7 @@ public sealed class SceneLoadTests : IDisposable
     [Fact]
     public async Task ADisposedLoadTaskReleasesAResultNobodyTook()
     {
-        var uid = ResourceSaver.Save(new TestResource { Value = 3 }, ContentPath("Unused.mres"));
+        var uid = ResourceSaver.Save(new TestResource { Value = 3 }, ContentPath("Unused.mfres"));
         ResourceLoader.ClearCache();
         var task = ResourceLoader.LoadThreaded<TestResource>(uid);
         await task.AsTask().WaitAsync(Timeout, TestContext.Current.CancellationToken);

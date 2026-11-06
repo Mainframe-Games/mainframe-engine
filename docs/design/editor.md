@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Mainframe Editor (`MainframeEngine.Editor`, milestone M10) edits `.mscene` files the way Godot does: a scene tree,
+The Mainframe Editor (`MainframeEngine.Editor`, milestone M10) edits `.mfscene` files the way Godot does: a scene tree,
 an inspector driven by the generated node metadata, a 3D viewport with picking and gizmos, undo/redo, all in a UI built
 with the engine's own game UI stack (RmlUi). This page describes what ships: **E1 shell**, **E2 scene tree +
 inspector + undo**, **E3 viewport**, **E4 projects** (Project Manager, New Project wizard, project settings, the
@@ -15,7 +15,7 @@ editing, resource files and custom inspectors, editor settings). What is still o
 ```sh
 just editor                                  # the Project Manager (recent projects, New Project, Open)
 just editor path/to/MyGame                   # open a project folder (or its project.mfproj)
-just editor Examples/Demo/Assets/Scenes/basic_3d.mscene   # open one scene (its project becomes current)
+just editor Examples/Demo/Assets/Scenes/basic_3d.mfscene   # open one scene (its project becomes current)
 ```
 
 On macOS the app is called **Mainframe Editor** (Dock tooltip, bold app menu, Cmd+Tab) in development runs as well as in
@@ -173,7 +173,7 @@ Music mode has its own table (`EditorWorkspace.MusicShortcutFor`). The song tab'
 | Cmd/Ctrl+N, O, S, Shift+S, W, Q | new song, open song, save, save as, close tab, quit |
 | Cmd/Ctrl+Z, Shift+Z or Y | undo, redo |
 | Cmd/Ctrl+E | render |
-| Cmd/Ctrl+B | bake an adaptive song (stems + `.mmusic`) |
+| Cmd/Ctrl+B | bake an adaptive song (stems + `.mfmusic`) |
 | F1 | documentation |
 
 No gizmo, view, Play or Record keys: those are game mode's.
@@ -212,7 +212,7 @@ timeline editor for the project's recordings and media), switched by the Game|Mu
   Closing the last song or video tab stays in that mode, on its empty state;
 - **persists the mode** (`EditorSettings.LastMode`), so the editor reopens in it.
 
-Opening a song (`.msong`: File › New Song…, the FileSystem panel, File › Open in music mode, its Songs list) switches to
+Opening a song (`.mfsong`: File › New Song…, the FileSystem panel, File › Open in music mode, its Songs list) switches to
 music mode. Songs belong to the game project (`EditorMode.UsesProject`): opening, switching or closing a project asks
 about unsaved scenes and songs and closes both, and opening a project in music mode stays in music mode (the main scene
 opens behind it). Without a song, music mode shows New Song, Open Song and the project's songs (newest first); without
@@ -304,7 +304,7 @@ dialog and panel layers and compares handles: idle frames allocate nothing.
 
 `TreePickerDialog` ([0088](../../memory/decisions/0088-editor-create-dialog.md)) serves **Add Node**, the inspector's
 **New** resource button and **Instance Scene** (`PickerSources`: registered node types, the resource types a slot
-accepts, the project's `.mscene` files as a folder tree with Browse… for others). The entries form a tree
+accepts, the project's `.mfscene` files as a folder tree with Browse… for others). The entries form a tree
 (`PickerTree`: inheritance, abstract types as italic structure-only rows; game types under their engine base with their
 inherited icons), sorted by name. The search is fuzzy (exact > prefix > word start > substring > subsequence, shorter
 names first; "mi3" finds MeshInstance3D), keeps every match's ancestors visible and selects the best creatable match.
@@ -330,7 +330,7 @@ comes from the value type and the `[Export]` hints:
 | Quaternion | `Quaternion` | Euler degrees (X→Y→Z, like `RotationDegrees`) |
 | Color | `System.Drawing.Color`, or a `Vector3`/`Vector4` named `…Color` (lights) | swatch + hex field; the swatch opens RGBA sliders |
 | NodePath | `NodePath` (`NodeType` hint filters) | field + pick from the scene's nodes (stored relative to the node) |
-| Resource | `Resource` subclasses | label with the resource's icon (a `link` icon for a file; "inline ×N" when the scene uses it in N slots) + Edit (fold), Load (file), New (the create dialog: types assignable to the slot), Clear and More (Save as .mres, Make Unique, Open, Show in FileSystem: [Resource actions](#resource-actions)) icon buttons; inline resources and `.mres` files expand into nested rows (up to 3 levels), their `[ExportGroup]`s as collapsible titles ([Resources in place](#resources-in-place)) |
+| Resource | `Resource` subclasses | label with the resource's icon (a `link` icon for a file; "inline ×N" when the scene uses it in N slots) + Edit (fold), Load (file), New (the create dialog: types assignable to the slot), Clear and More (Save as .mfres, Make Unique, Open, Show in FileSystem: [Resource actions](#resource-actions)) icon buttons; inline resources and `.mfres` files expand into nested rows (up to 3 levels), their `[ExportGroup]`s as collapsible titles ([Resources in place](#resources-in-place)) |
 | Array | `T[]`, `List<T>` | count, + Add, per-element fields (scalars) and remove; elements that are resources (a def's levels) get the resource buttons per element (Edit folds the element's properties in below the array under "Name [i]", Load, New, Clear) |
 | Transform, unsupported | `Transform3D/2D`, others | read-only text |
 
@@ -363,18 +363,18 @@ ADR 0169, for a `WorldEnvironment`'s `PostProcessProfile` (or any resource):
 - **Nested groups.** A nested resource's `[ExportGroup]`s are section titles (indented, `data-section="nested:Type/Group"`),
   **closed by default** like Godot's sub-resources; a click opens one (remembered per type and group for the session).
   Members outside a group are listed as before.
-- **Resource files edit in place.** Edit (pencil) also opens a `.mres` resource in the slot (the Forest's
-  `forest.mres`). Edits go through the scene's history like any row, apply at once (the render server reads the profile
+- **Resource files edit in place.** Edit (pencil) also opens a `.mfres` resource in the slot (the Forest's
+  `forest.mfres`). Edits go through the scene's history like any row, apply at once (the render server reads the profile
   every frame) and the file is written when the scene is saved (`EditedScene.EditedResourceFiles`, keeping its UID), as
   Godot saves edited sub-resources. Imported assets (a `.cube` LUT, a texture, a model) keep their data in the source
   file and do not open.
-- **Save as .mres, Make Unique, Open, Show in FileSystem**: the row's More menu ([Resource actions](#resource-actions)).
+- **Save as .mfres, Make Unique, Open, Show in FileSystem**: the row's More menu ([Resource actions](#resource-actions)).
 - **New** creates a `PostProcessProfile` at once (one concrete type for the slot), expanded below.
 - **The slot's row.** The resource's icon and name take the editor column's whole width; the icon buttons (Play, Edit,
   Load, New, Clear, More) sit beside the name while both fit and otherwise wrap onto a line of their own below
   it, right-aligned (`.prop-editor.res`: `flex-wrap`, the buttons in one `.res-actions` group). Only a name longer than
   the column is cut, with an ellipsis (`text-overflow`). The name's tooltip holds where the value lives — the file's
-  full path (`Assets/PostProcess/forest.mres`), "inline (saved in the scene)" or empty — and its type
+  full path (`Assets/PostProcess/forest.mfres`), "inline (saved in the scene)" or empty — and its type
   (`InspectorPanel.ResourceTooltip`).
 
 ## Undo / redo
@@ -519,15 +519,15 @@ hidden with several nodes selected.
 
 | Item | Enabled when | What it does |
 |---|---|---|
-| Save as .mres… (`device-floppy`) | inline, savable (not `PackedScene`), in a scene | file picker (`*.mres`); a deep copy is saved (`ResourceSaver.Save`, a new `res_` UID, or the existing file's UID when it is overwritten after the picker's confirm) and **every** slot holding the inline resource gets the file, one undo step ("Save BoxMesh as crate.mres"). Undo puts the inline object back (its `SceneLocalId` too, so the re-saved scene is byte-identical); the file stays, as in Godot. A path whose UID is loaded is refused |
-| Make Unique (`copy`) | a `.mres` file, or an inline resource used by more than one slot | `EditedScene.MakeUnique`: this slot gets `Duplicate(deep: false)`, one undo step ("Make BoxMesh Unique"); the file and the other slots keep the original |
+| Save as .mfres… (`device-floppy`) | inline, savable (not `PackedScene`), in a scene | file picker (`*.mfres`); a deep copy is saved (`ResourceSaver.Save`, a new `res_` UID, or the existing file's UID when it is overwritten after the picker's confirm) and **every** slot holding the inline resource gets the file, one undo step ("Save BoxMesh as crate.mfres"). Undo puts the inline object back (its `SceneLocalId` too, so the re-saved scene is byte-identical); the file stays, as in Godot. A path whose UID is loaded is refused |
+| Make Unique (`copy`) | a `.mfres` file, or an inline resource used by more than one slot | `EditedScene.MakeUnique`: this slot gets `Duplicate(deep: false)`, one undo step ("Make BoxMesh Unique"); the file and the other slots keep the original |
 | Make Unique (Deep) | as above, and the resource holds inline sub-resources | `Duplicate(deep: true)` |
-| Open (`pencil`) | a `.mres` file | `InspectResourceFile`: its own history, Save and custom inspector |
+| Open (`pencil`) | a `.mfres` file | `InspectResourceFile`: its own history, Save and custom inspector |
 | Show in FileSystem (`folder`) | any file | `FileSystemPanel.Select` (expands its folders) |
 
 Imported assets (a texture, a model, a sound, a LUT) are external but keep their data in their source file: Make Unique
 and Open are disabled for them, with the reason in the tooltip. The rules are `ResourceActions` (unit-tested). An inline
-`ZzfxStream` on a player is one Save as .mres and one Open away from the [sound designer](#sound-designer).
+`ZzfxStream` on a player is one Save as .mfres and one Open away from the [sound designer](#sound-designer).
 
 ![The resource row's More menu on a mesh](../images/editor-resource-menu.png)
 
@@ -676,6 +676,12 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   project's scenes, resources, UI, `.po`, `project.mfproj`, C# and MSBuild files (where it also rewrites
   `LinkBase="Content"` and `../Content</…>`). It skips build output and tool folders, and the Output panel lists the
   files it changed. Cancel leaves the project closed: the asset database scans only `Assets/`.
+- **Old file extensions** (ADR 0249): a project with a file under `Assets/` that has a name from before the `.mf`
+  rule (`.mscene`, `.mres`, `.mmusic`, `.msong`, `.meta`, `.probes`, `x.slang.spvlock`, `x.slang.layout.json`) is asked
+  **Rename and Open** or **Cancel** next (`EditorCommands.AfterFileExtensionCheck`, after the `Content/` check).
+  `FileExtensionMigration` renames those files (one whose new name is taken stays, with a warning) and rewrites the
+  scene, resource, music, song and probe-data names in the same text files as the `Content/` migration. Cancel leaves the
+  project closed. See [File extensions](asset-pipeline.md#file-extensions).
 - **Project Manager** (`project_manager.rml`, UI layer 40): the recent projects (`~/.mainframe/recent_projects.json`,
   newest first; a missing folder is flagged and can be removed from the list); icon buttons with tooltips on the right of the header for New Project, Open Project (also File › Open Project: a file picker that lists and accepts only `.mfproj` files, never a folder, and opens the project of a `project.mfproj`) and Download Example (a menu: Mainframe Demo, Forest Demo); and a side panel with Open, Remove from List and the
   **.NET SDK check** (`DotnetSdk`: a .NET 10 or newer SDK is required; without one, a link to the download page).
@@ -732,7 +738,7 @@ with `project.mfproj` and the `mfgame` template's C# projects ([Project & game h
   the destination is never half written. Tests inject `EditorWorkspaceOptions.DemoHttpHandler` /
   `DemoDownloadsDirectory`.
 - **`ProjectService`** opens a project: `EditorSession.OpenProject` (the asset database scans `Assets/` and creates
-  missing `.meta` sidecars), `GameProjectLayout` finds the game library, desktop project (or a legacy `*.Launcher`) and solution, and the game assembly
+  missing `.mfmeta` sidecars), `GameProjectLayout` finds the game library, desktop project (or a legacy `*.Launcher`) and solution, and the game assembly
   loads into a collectible `AssemblyLoadContext` (`GameAssemblyLoader`), built first when it is missing or fails to
   load. Its node and resource types join the create dialog, the inspector and `[CustomInspector]` discovery.
 - **Code reload**: a debounced watcher on the build output reloads after any build (the editor's Build & Reload, F5,
@@ -769,7 +775,7 @@ so the window keeps answering the OS (Mutter's "not responding" dialog asks afte
 - **A job** runs its work two frames after the window shows (`Loader.Run(title, work)`; `RunWithSplash` forwards to
   it). The work may keep the job open: `Hold()` while the game code builds (`OpenProjectNow`), `Track(SceneLoad)` while a
   scene opens. A job started during another waits for it. Each frame the window shows the title ("Opening Forest…",
-  "Loading forest.mscene…"), the step ("Scanning assets", "Building game code", the scene's stages and its loadables'
+  "Loading forest.mfscene…"), the step ("Scanning assets", "Building game code", the scene's stages and its loadables'
   labels: "Generating the valley", "Growing trees", "Decoding textures", "Uploading to the GPU"), a detail line
   ("112 / 274 textures", "40 objects to upload", the scene file) and the elapsed seconds. The log line at the end gives
   the job's duration and its **longest frame** (`Loader.LastJob`; QA's `state` prints it).
@@ -922,7 +928,7 @@ the scene tree, inspector and scene commands rest. Ctrl+W closes either kind; pr
 ## FileSystem panel
 
 ([0099](../../memory/decisions/0099-filesystem-panel-and-reference-fixups.md)) The project folder (C# and project
-files included; build output, `.mainframe` and `.meta` sidecars hidden — header toggles) in three views: a **tree**,
+files included; build output, `.mainframe` and `.mfmeta` sidecars hidden — header toggles) in three views: a **tree**,
 the current folder as a **list**, or a **grid** of tiles with thumbnails (images decoded and downscaled in the
 background into `<project>/.mainframe/cache/thumbnails`). Every entry has its file-kind icon (`EditorIcons.ForFile`;
 scenes tinted by their root type's family, resources by type) and badges: unsaved (an open scene with changes),
@@ -940,9 +946,9 @@ missing dependency, import error (invalid JSON, undecodable image).
 - **Double click** opens scenes in a tab, UI documents (`.rml`) in a [UI preview](#ui-preview) tab, resource files in
   the inspector, C# files and style sheets in the code editor; folders open.
 - **Right-click menu**: Open (Preview UI and Open in Code Editor for `.rml`), New Folder, New Scene, New Resource (the create dialog), New SpriteFrames
-  from Sheet… (images: Select Frames, then `<image>.mres`; [Animated sprites](animated-sprites.md#editor)), Rename (F2), Move To, Move to
+  from Sheet… (images: Select Frames, then `<image>.mfres`; [Animated sprites](animated-sprites.md#editor)), Rename (F2), Move To, Move to
   Trash (Del), Copy Path, Copy UID, Reveal in Finder / Show in File Manager.
-- **Rename and move** keep references working: the `.meta` moves with the file, and every scene, resource and
+- **Rename and move** keep references working: the `.mfmeta` moves with the file, and every scene, resource and
   `project.mfproj` that refers to a moved file is rewritten (`ReferenceFixer`: `path` hints of `ref`/`instance` objects
   by UID, and plain path strings; folders map every file inside). Open scenes follow the move.
 - **Delete** moves to the OS trash (macOS `NSFileManager`, Windows recycle bin, the freedesktop trash on Linux); only
@@ -969,7 +975,7 @@ tab stay single-node. In the view the gizmo moves every selected node ([Multi-no
 
 ## Resource files and custom inspectors
 
-A `.mres` file opened from the FileSystem panel is edited in the inspector (`EditedResource`) with its own undo
+A `.mfres` file opened from the FileSystem panel is edited in the inspector (`EditedResource`) with its own undo
 history and Save. `ICustomInspector` gets an `IInspectorContext` (a scene or a resource; the `EditedScene` overload
 still works), so a custom inspector can act on either. The shipped examples are `AudioBusLayoutInspector` (a mixer strip
 for `AudioBusLayout` buses, every change undoable) and the [sound designer](#sound-designer). Nodes have them too:
@@ -999,7 +1005,7 @@ The workspace polls it once per frame (`AudioServer.IsPlaying`, no events, no al
 icons when a voice ends. Running the game (**Play**) stops the preview. A stream that cannot load reports its
 `LoadError` in the Output panel and the button stays "Play". Previews play at 0 dB on Master.
 
-- **FileSystem panel:** audio files (`.wav .ogg .mp3 .flac`) and `.mres` files whose root type is an `AudioStream` get
+- **FileSystem panel:** audio files (`.wav .ogg .mp3 .flac`) and `.mfres` files whose root type is an `AudioStream` get
   **Play / Stop** in the context menu; double-clicking an audio file toggles its preview; the playing file shows the
   `player-stop` badge (teal) in all three views.
 - **Inspector `AudioStream` rows:** a Play/Stop icon button before Edit/Load/New/Clear ("Play — preview this sound in
@@ -1008,7 +1014,7 @@ icons when a voice ends. Running the game (**Play**) stops the preview. A stream
 ## Sound designer
 
 `ZzfxStreamInspector` (`[CustomInspector(typeof(ZzfxStream))]`) is the designer for ZzFX sounds (the engine side is in
-[Audio → Synthesis](audio.md)); it shows when a `ZzfxStream` `.mres` is the inspected target (double-click it, or Edit
+[Audio → Synthesis](audio.md)); it shows when a `ZzfxStream` `.mfres` is the inspected target (double-click it, or Edit
 on a slot holding one). Inline sounds folded inside another inspector keep the generic rows. The header sits above the
 generated parameter sliders (`File` and `LoadMode` rows are hidden):
 
@@ -1027,11 +1033,11 @@ generated parameter sliders (`File` and `LoadMode` rows are hidden):
   (`CompositeAction` of `SetPropertyAction`s); undo restores the sound exactly.
 - **Export .wav** opens the file picker in save mode at `<sound folder>/<name>.wav` and writes 16-bit PCM, 44.1 kHz
   mono through `WavWriter`; an I/O error is reported (`Commands.ReportError`) and the partial file deleted. The new file
-  gets its `.meta`/UID from the asset database like any dropped-in file.
+  gets its `.mfmeta`/UID from the asset database like any dropped-in file.
 
 ## Song tab (music editor)
 
-Double-clicking a `.msong`, File › New Song… (a file picker in `Assets/Music`) or the FileSystem panel's New Song…
+Double-clicking a `.mfsong`, File › New Song… (a file picker in `Assets/Music`) or the FileSystem panel's New Song…
 opens a **song tab** (`Music/SongTab`, an `IEditorTab` of **music mode**: [Editor modes](#editor-modes); design:
 [Music editor](future/music-editor.md)). A new song has one instrument track with the built-in ZzFX instrument. The tab
 owns the `SongDocument` (its own undo history: Cmd+Z, Cmd+S, Save As — a copy gets a new UID — and the close/quit prompts
@@ -1085,7 +1091,7 @@ window: no Scene tree, Inspector or FileSystem.
   one entry). Notes and velocity drag live with a merge key, ended on release: **one undo entry per gesture**.
 - **Zoom and scroll:** Cmd/Ctrl+wheel zooms time around the mouse, Shift+wheel (or a horizontal wheel) scrolls time,
   the wheel scrolls lanes / pitches.
-- **Render** (transport button, FileSystem › Render on a `.msong`): `SongRenderJob` renders a copy of the song with
+- **Render** (transport button, FileSystem › Render on a `.mfsong`): `SongRenderJob` renders a copy of the song with
   `SongRenderer.Render` on a worker thread; the button shows "Cancel 63 %" and cancels on click (the splash has no cancel
   and would block the editor, so progress is shown there instead). The result goes to the Output panel. The FileSystem
   badges a song whose output is older than the song (refresh icon, "Render out of date"). The output defaults to
@@ -1093,14 +1099,14 @@ window: no Scene tree, Inspector or FileSystem.
   (`mfplughost --serve`, `PluginHostClient`; Vorbis VBR at the song's `quality`, default 6; ADR 0146), started on the
   first render and stopped with the editor. Without a helper binary for the platform an `.ogg` output is written as
   `.wav` (with a warning). A `.wav` output's samples are `sampleFormat`: `float` (the default) or `pcm16`.
-- **Headless render:** `MainframeEngine.Editor --render-song <path.msong>` (`just render-song <path>`; `SongRenderCommand`)
+- **Headless render:** `MainframeEngine.Editor --render-song <path.mfsong>` (`just render-song <path>`; `SongRenderCommand`)
   renders a song into the project above it (the nearest folder with `project.mfproj`) exactly like Render — the output
-  and its `.meta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
+  and its `.mfmeta` — without a window, SDL or engine, and exits 0, or 1 on an error (CI, batch renders; the Demo's
   `Assets/Music/demo_loop.ogg` is rendered this way).
 - **Bake** (File › Bake Adaptive Music, Cmd/Ctrl+B; songs with an `adaptive` block): `SongBakeJob` bakes a copy of the
-  song with `SongBaker.Bake` on a worker. It writes stems to `<Song>.stems/` and the `.mmusic` manifest, and renders
+  song with `SongBaker.Bake` on a worker. It writes stems to `<Song>.stems/` and the `.mfmusic` manifest, and renders
   only stems whose inputs changed. Choosing it again cancels, and the previous bake stays intact. `--bake-song
-  <path.msong>` (`just bake-song <path>`; `SongBakeCommand`) does the same headless. The FileSystem badges an adaptive
+  <path.mfsong>` (`just bake-song <path>`; `SongBakeCommand`) does the same headless. The FileSystem badges an adaptive
   song whose manifest is older than it ("Bake out of date") and marks `*.stems` folders as generated. See
   [Adaptive music, As built: A3](adaptive-music.md#as-built-a3).
 - **Adaptive music** (A4, [design](adaptive-music.md#as-built-a4)): Song › Make Adaptive (or the Adaptive tab's
@@ -1142,7 +1148,7 @@ window: no Scene tree, Inspector or FileSystem.
     editor watches every running game's music, and after a bake every running game reloads the new bake at its next
     pass.
 - **Browser** (F, View › Browser, the toolbar's sidebar button; `SongBrowser`, Logic's Browsers): a column on the right
-  of the song view, with or without a song open. **Songs** lists every `.msong` in the project (the open one marked; a
+  of the song view, with or without a song open. **Songs** lists every `.mfsong` in the project (the open one marked; a
   click opens it); **Plugins** lists the built-in effects by category, then the scanned VST3 effects and instruments. A
   search field filters both; sections and groups collapse. A double-click adds a plugin to the selected track (a
   built-in opens its window); dragging it (4 dp to start; a ghost follows the mouse) drops it on a track header, a mixer
@@ -1293,12 +1299,12 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   the quit prompt, recovery copies, and **0 B per idle frame with 1 000 nodes** (and with a tooltip shown).
 - **Post-processing (ADR 0169)** ([PostProcessEditorTests](../../Tests/MainframeEngine.Editor.Tests/PostProcessEditorTests.cs)):
   the profile opens inline with its six groups closed, a group opens, an edit applies live and undoes; New creates a
-  profile and Save as .mres moves it (and its second user) to a file, undoable; a `.mres` edited in place is written with
+  profile and Save as .mfres moves it (and its second user) to a file, undoable; a `.mfres` edited in place is written with
   the scene under its UID; an imported LUT does not open; a slot's name spans the editor column (the buttons wrap below
   it; an empty slot's stay beside it) with the file's path in its tooltip; the Preview Post-Processing toggle switches the view (and 2D
   tabs have none). The walkthrough (`just qa-editor`) ends with a new profile edited inline (`16-post-profile`) and the
   preview off (`17-post-preview-off`); [Tests/QA/forest-post.qa](../../Tests/QA/forest-post.qa) opens the Forest, its
-  `forest.mres` and the preview.
+  `forest.mfres` and the preview.
 - **Icon gates** ([IconTests](../../Tests/MainframeEngine.Editor.Tests/IconTests.cs)): the generated atlas matches
   `icons.txt` (every sheet, sizes, vendored SVGs); every icon the editor's RML, RCSS and C# reference (class lists,
   sprite references, `[EditorIcon]`, `Export(Icon)`, `Icon:` arguments, the resolvers) exists — a missing name fails the
@@ -1307,7 +1313,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   Tooltip timing, placement, keyboard focus and dismissal, the create dialog's tree and search, Output features, scene
   tree badges and inspector icons have their own tests ([IconPanelTests](../../Tests/MainframeEngine.Editor.Tests/IconPanelTests.cs)).
 - **Render tests** ([EditorRenderTests](../../Tests/MainframeEngine.RenderTests/EditorRenderTests.cs)): the editor's
-  `--smoke` run in a hidden window — open the showcase fixture (`Tests/Assets/Scenes/Showcase.mscene`), select the Column by GPU picking at its projected pixel, change
+  `--smoke` run in a hidden window — open the showcase fixture (`Tests/Assets/Scenes/Showcase.mfscene`), select the Column by GPU picking at its projected pixel, change
   its position through the inspector model, undo/redo, save to a temp file, reload and re-save byte-identically — plus
   the editor window golden, frame times on the scene, the allocation gate (0 B over 300 idle frames with 1 000 nodes,
   validation on), the splash golden, the **Project Manager** and **FileSystem panel** goldens
@@ -1319,7 +1325,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   frames with the gizmo and handles shown). `SceneTests.ObjectIdPickingAndSubViewportsWork` adds a region pick (a box in
   it, one occluded, one outside).
 - **Viewport tools tests**: `MultiGizmoMathTests`/`MultiNodeGizmoTests` (pivots, local translate, rotate and scale about
-  the pivot, nested selection, one undo entry, Esc and right-click cancel, 2D), `ResourceActionTests` (Save as .mres
+  the pivot, nested selection, one undo entry, Esc and right-click cancel, 2D), `ResourceActionTests` (Save as .mfres
   swaps every slot and undo restores the scene's bytes, refusal, shallow and deep Make Unique, Open, the inline ×N label,
   disabled states), `HandleTests` (the built-in providers, clamping, snapping, the hint provider, one entry per drag,
   cancel, priority over the gizmo, the label), `BoxSelectionTests` (2D bounds, origins, hidden, locked, modifiers, the
@@ -1371,7 +1377,7 @@ icon), `logo-48.png` elsewhere. Window icon pixels are reordered for Silk's SDL 
   [Examples/Demo](../../Examples/Demo) — a `GameHost` game project (engine by project reference, `../..`) whose
   game code the editor loads, so every node type resolves. Projects are opened from the
   neutral `/tmp/MainframeProjects` (the recipe links the Demo there), so no user path is on screen; editor log
-  lines show project files relative to the project (`Saved Assets/Scenes/basic_3d.mscene`).
+  lines show project files relative to the project (`Saved Assets/Scenes/basic_3d.mfscene`).
 
 ## Performance
 

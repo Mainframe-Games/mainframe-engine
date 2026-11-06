@@ -5,7 +5,7 @@ namespace MainframeEngine;
 /// <summary>
 /// A sound synthesised by ZzFX (<see cref="Zzfx"/>) from its parameters instead of read from a file: coins, lasers,
 /// jumps, UI blips. The samples are generated on first use (players preload when they enter the tree) and cached; the
-/// <c>.mres</c> stores only the parameters that differ from ZzFX's defaults, so a new stream is ZzFX's default sound.
+/// <c>.mfres</c> stores only the parameters that differ from ZzFX's defaults, so a new stream is ZzFX's default sound.
 /// </summary>
 /// <remarks>
 /// Setting a parameter re-synthesises (and allocates) on the next play, so do not change parameters every frame; voices

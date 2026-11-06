@@ -23,16 +23,16 @@
   <circle cx="38" cy="33" r="5" fill="#ef4444"/>
   <circle cx="54" cy="33" r="5" fill="#f59e0b"/>
   <circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="420" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — Theme.msong*</text>
+  <text x="420" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — Theme.mfsong*</text>
 
   <!-- tabs -->
   <rect x="26" y="50" width="788" height="24" fill="#1f2128"/>
   <rect x="26" y="50" width="118" height="24" fill="#262931" stroke="#3b3f4b"/>
-  <text x="36" y="66" class="s">Main.mscene</text>
+  <text x="36" y="66" class="s">Main.mfscene</text>
   <rect x="144" y="50" width="128" height="24" fill="#2f333d" stroke="#3b3f4b"/>
   <path d="M157,65.5 v-8 l7,-1.5 v8" fill="none" stroke="#e8ebf2" stroke-width="1.4"/>
   <circle cx="155.6" cy="65.8" r="2" fill="#e8ebf2"/><circle cx="162.6" cy="64.3" r="2" fill="#e8ebf2"/>
-  <text x="172" y="66" class="t">Theme.msong*</text>
+  <text x="172" y="66" class="t">Theme.mfsong*</text>
 
   <!-- transport -->
   <rect x="26" y="80" width="788" height="34" fill="#2a2d36"/>

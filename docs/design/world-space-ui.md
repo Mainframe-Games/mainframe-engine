@@ -5,8 +5,8 @@ page); G11.5–G11.9 (UI render targets, `UiPanel3D`, the panel preview, the bat
 [proposal](future/world-space-ui.md) · **Decisions:**
 [ADR 0200](../../memory/decisions/0200-label3d-first-slice.md) (first `Label3D`),
 [ADR 0216](../../memory/decisions/0216-viewport-textures-on-3d-materials.md) (sub-viewport textures on meshes),
-[ADR 0249](../../memory/decisions/0249-label3d-on-the-mesh-batcher.md) (labels, layout, fallbacks),
-[ADR 0250](../../memory/decisions/0250-markers-as-rows-of-one-document.md) (markers)
+[ADR 0251](../../memory/decisions/0251-label3d-on-the-mesh-batcher.md) (labels, layout, fallbacks),
+[ADR 0254](../../memory/decisions/0254-markers-as-rows-of-one-document.md) (markers)
 
 Text and UI in the 3D world: `Label3D` for signs and tags drawn in the scene, `UiMarker3D` for nameplates, health bars,
 prompts and waypoints drawn on the HUD at a 3D point, and the camera helpers both use.
@@ -132,14 +132,14 @@ occlusion, distance scale, the debug tags and a camera orbit. Translated into Sp
 
 ## Changes from the proposal
 
-- **No `Text3DRenderer`, `text3d.slang` or `World3D.Labels` yet** (ADR 0249): `Label3D` stays a `GeometryInstance3D` on
+- **No `Text3DRenderer`, `text3d.slang` or `World3D.Labels` yet** (ADR 0251): `Label3D` stays a `GeometryInstance3D` on
   the mesh batcher, one draw per label and page. `FixedSize` is a CPU model-matrix scale instead of a vertex-shader
   term. `VisibilityRangeEnd` is `GeometryInstance3D`'s (no 10 % fade). There is no `Fog` toggle: labels always fog.
 - **`TextLayout` breaks lines** into strings rather than writing `GlyphQuad`s into a caller span; layout only runs when a
   label changes. `Font.Draw` keeps its single-line path; `Label2D` and `Label3D` share the breaking.
 - **`AlphaCut`** reuses `SpriteAlphaCut`; `TextRenderPriority` is the text's material priority (Godot's
   `render_priority`, since `VisualInstance3D.RenderPriority` is node order).
-- **Markers move rows from C#** between content refreshes (ADR 0250, open question 3 measured): the proposal's
+- **Markers move rows from C#** between content refreshes (ADR 0254, open question 3 measured): the proposal's
   data-bound transform alone re-evaluated every row's views each frame (≈ 1.1 ms for 100). With the fast path 100 markers
   cost ≈ 0.55 ms on a busy machine, above the proposal's 0.3 ms target; re-measure on the quiet baseline machine.
   `ContentRefreshSeconds` is new.

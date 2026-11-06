@@ -148,7 +148,7 @@ canopy loses most of the sky and takes the colour of what surrounds it, and refl
 | Type | What |
 |---|---|
 | `LightProbeVolume` (node, `[Tool]`) | `Size` (32 × 16 × 32 m, centred on the node, axis-aligned), `Layout` (`Box`, `TerrainFollowing`), `ProbeSpacing` (2 m; Y unused when terrain-following), `LayerHeights` (terrain-following: up to eight heights above the ground, 0.3–27 m), `Terrain` (empty: the first `Terrain3D`), `RaysPerProbe` (256), `Bounces` (3), `Energy` (1, scales the bounce), `SkyOcclusion` (1; 0 = the sky everywhere, as without a volume), `OcclusionTint` (white), `Data`, `BakeWhenStale` (false). `Bake()`, `BakeInBackground()`, `CancelBake()`, `IsBakeCurrent()`, `CurrentBakeHash()`, the `Baked` signal |
-| `LightProbeData` (resource) | the bake: the grid (`ProbeGrid`), `BakeHash`, `RaysPerProbe`, `Bounces`, and a `.probes` binary next to the `.mres` (`DataFile`; float32 ground heights, float16 coefficients, LFS). `Save(path)`, `Sample(position, coefficients)` (the shaders' trilinear lookup on the CPU), `ToTexture()` |
+| `LightProbeData` (resource) | the bake: the grid (`ProbeGrid`), `BakeHash`, `RaysPerProbe`, `Bounces`, and a `.mfprobes` binary next to the `.mfres` (`DataFile`; float32 ground heights, float16 coefficients, LFS). `Save(path)`, `Sample(position, coefficients)` (the shaders' trilinear lookup on the CPU), `ToTexture()` |
 | `ProbeBakeSettings`, `ProbeBakeResult` | rays, bounces, bounce rays, seed, the back-face fraction that marks a probe invalid (25 %), blur, threads; the result's data, time, probe, invalid-probe and ray counts |
 | `GeometryInstance3D.GIMode` | Godot's `gi_mode`: `Static` (default) instances occlude and bounce in the bake; `Disabled` and `Dynamic` do not. Every lit surface samples the probes whatever its mode |
 | `SphericalHarmonics`, `ShL2Rgb` | SH L1 projection and cosine convolution; the sky as SH L2 RGB for the bake |
@@ -181,7 +181,7 @@ warning. A background bake reads the scene on the main thread only as far as `Pr
 (transforms, placements, variants, the terrain's cells, copied: ≈ 0.2 s for the Forest in a Debug build) and builds the
 proxies on its task ([ADR 0238](../../memory/decisions/0238-editor-async-loading.md); before, ≈ 4.7 s on the main
 thread). **Baking:** the editor's Bake Lighting button on the volume's inspector (background, cancellable; saves
-`<scene>-lighting.mres` next to the scene, or over the existing data, as one undoable change of `Data`), `Bake()` in
+`<scene>-lighting.mfres` next to the scene, or over the existing data, as one undoable change of `Data`), `Bake()` in
 code, or `--bake-lighting` on a game (`GameSession.BakeLighting`: bakes every volume of the start scene, saves under
 `--project`'s folder, quits; works with `--headless`).
 
@@ -207,7 +207,7 @@ server uploads it when it first draws the world and again when its data changes 
 like the sky maps, so sub-viewports and editor tabs show their own world's probes. Per-frame cost: no allocation; four
 (box) or five (terrain-following) fetches per lit pixel.
 
-**The Forest** commits its bake (`Assets/Scenes/forest-lighting.mres` + `.probes`, 4.3 MB in LFS): terrain-following
+**The Forest** commits its bake (`Assets/Scenes/forest-lighting.mfres` + `.mfprobes`, 4.3 MB in LFS): terrain-following
 over the 256 m valley at 2 m, eight layers to 27 m (129 × 8 × 129 = 133 128 probes, a 5.3 MB texture), 192 rays, two
 bounces, `Energy` 2.4, `SkyOcclusion` 0.5, a pale green `OcclusionTint`, and `BakeWhenStale` (the valley is generated at
 load, so a generator change re-bakes in the background, about a minute, until the bake is committed again with

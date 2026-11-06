@@ -37,7 +37,7 @@ and the pool, `PeerId`/`NodeId`, `Log` filtering, camera matrices against
 [Coordinate conventions](coordinate-conventions.md), the 1200-byte std140 lights UBO (linear colours), the
 PNG codec, `VulkanValidationLog`, the M3 meshes/materials suites
 ([Materials & meshes](materials-and-meshes.md#testing): generators, bounds/culling, pipeline keys and cache, draw
-sorting, mesh/material/texture serialization, `.meta` import settings, the Assimp glTF import), and since M3: the GPU allocator through a fake device (`FreeListBlock`
+sorting, mesh/material/texture serialization, `.mfmeta` import settings, the Assimp glTF import), and since M3: the GPU allocator through a fake device (`FreeListBlock`
 alignment, granularity, best fit, fragmentation/coalescing, randomised invariants; memory-type choice,
 dedicated path, block reuse and release, exhaustion fallback, stats), the staging ring (wrap-around,
 release), the deletion queue (frame ordering, zero allocation), `ContentPaths`, the generated shader
@@ -73,7 +73,7 @@ node types in `ReplicationTestNodes.cs` and `NetHarness` (a server and clients, 
 | `TransportTests` | multi-client loopback, `SimulatedTransport` latency, seeded loss/duplication, jitter reordering (reliable stays ordered), replication converging under 10–30 % loss with jitter and duplication |
 | `TransportHandoffTests` | `NetworkAddress` parsing/formatting, connect lists, selector fallback, a lobby connect string connecting a `MultiplayerApi` over loopback |
 | `ReplicationGeneratorTests` | emitted state/dispatch/senders compile, load and round-trip in a collectible context, RPC parameter names that clash with generated locals, every MFG007–MFG009 diagnostic, the handshake fingerprint ignoring unrelated registered types |
-| `NestedSceneReplicationTests` | scenes registered by path and UID from `.mscene` files, nested scene instances replicating |
+| `NestedSceneReplicationTests` | scenes registered by path and UID from `.mfscene` files, nested scene instances replicating |
 | `EnetReplicationTests` | real ENet: a server and two clients in-process (spawn, authority RPCs, server RPCs, leave, shutdown) |
 | `ReplicationRobustnessTests` | review regressions: a throwing client RPC is contained (and optionally kicks), despawn handlers freeing other nodes, snapshot byte budgets (spread and converge, also under loss), stalled acknowledgements disconnect, malformed spawns and snapshot lengths, connect-string fallback after a failed attempt, misuse (tick rate while running, unknown authority, kicked peers stop receiving), messages from non-server peers ignored |
 | `ReplicationAllocationTests` | **0 bytes** over 240 frames of a server and a client with 100 interpolated boxes moving and RPCs both ways |
@@ -88,9 +88,9 @@ and FLAC; WAV layouts are written by the tests themselves.
 |---|---|
 | `AudioMathTests` | dB conversions, every attenuation curve against its formula (monotonic, max-distance cut, rolloff, custom curve, NaN safety), listener-space projection (orientation, elevation, scale), the pan law, doppler, 2D attenuation |
 | `SpscRingTests` | the lock-free ring: FIFO across wrap-around, batch publishing, slot references released, a two-thread 2-million-item ordering stress |
-| `AudioDecoderTests` | WAV 8/16/24/32-bit PCM, float 32/64, `EXTENSIBLE`, extra chunks; 5.1 downmix; OGG (NVorbis), MP3 and FLAC (miniaudio) content checks; sample-accurate decoder seeks; memory/stream/auto load modes, shared clips, error reporting; `.meta` import settings |
+| `AudioDecoderTests` | WAV 8/16/24/32-bit PCM, float 32/64, `EXTENSIBLE`, extra chunks; 5.1 downmix; OGG (NVorbis), MP3 and FLAC (miniaudio) content checks; sample-accurate decoder seeks; memory/stream/auto load modes, shared clips, error reporting; `.mfmeta` import settings |
 | `AudioServerTests` | default layout, real-time null device, broken layout fallback, unity gain through the bus chain, voice × bus × master volumes, mute and solo (incl. nested solo), one-shot finish, click-free stop, play + stop in one batch, stealing (priority → quietest → oldest, rejection), node polyphony, `Finished` only on natural ends, autoplay/exit, pause vs `ProcessMode` (`Pausable`, `Always`, `WhenPaused`, `Disabled`, `StreamPaused`), resampling and pitch, seek/position, 3D panning/attenuation/zipper bound/listener rotation, camera as listener, distance low-pass, doppler, streamed loop continuity and finish, streamed vs memory sample equality, bus layout save/load/apply with effects, runtime layout swap, unknown bus / broken stream |
-| `AudioSerializationTests` | every audio node property and a shared inline `AudioStream` round-trip through `.mscene` byte-identically; defaults write nothing; scene audio plays in a tree; the showcase fixture scene's ambience plays |
+| `AudioSerializationTests` | every audio node property and a shared inline `AudioStream` round-trip through `.mfscene` byte-identically; defaults write nothing; scene audio plays in a tree; the showcase fixture scene's ambience plays |
 | `AudioRegressionTests` | review regressions: the engine reverb (tail, decay, 0 B), a bus with every effect mixing at 0 B, a seek racing a stream's natural end, stream seek position, a stream whose file vanishes (error, no `Finished`), stream generations never read into the next one, NaN pitch/velocity sanitizing, listener switches not causing doppler, whole-or-nothing command batches, unsent graph swaps disposed |
 | `AudioAllocationTests` | **0 bytes** over 300 frames of tree tick + `AudioServer.Process` + rendering on the same thread, with 8 moving 3D voices (every attenuation model, low-pass, doppler), a streamed music loop, a 2D voice, UI one-shots finishing and restarting, `PlayOneShot`, pause toggles and bus fader changes |
 
@@ -103,7 +103,7 @@ table, so the 2D suites share the non-parallel `SerialBox2D` collection.
 | `Physics3DTests` | free fall, rest and sleep, static moves, layer/mask OR semantics (incl. runtime changes on resting bodies), gravity scale, axis locks, contact monitor, areas (static/character bodies, mask, `Monitoring`), removal and `QueueFree` during signals, dispatch order, main-thread dispatch, lifecycle, shape rebuilds, kinematic pushing, server disposal, default server registration |
 | `Physics3DQueryTests` | raycasts (closest, exclude, mask, misses, moved bodies, areas ignored), shape casts, overlaps, concave/height-map shapes, every shape with scale, `MoveAndSlide` (floor, walls, 30° slope, steep slope, ceiling, snap down a step, recovery, pushing crates), interpolation (exact lerp, physics pose in `OnPhysicsProcess`, teleport, pause) |
 | `Physics2DTests` | the same behaviours on Box2D in pixels |
-| `PhysicsSerializationTests` | every 3D/2D body and shape round-trips through `.mscene` (shared resources stay shared), a loaded 2D scene simulates, every type is registered |
+| `PhysicsSerializationTests` | every 3D/2D body and shape round-trips through `.mfscene` (shared resources stay shared), a loaded 2D scene simulates, every type is registered |
 | `Navigation/` suites (G3a) | grid A* and JPS (optimality against Dijkstra on 200 seeded grids, golden maze), point graphs, maps and sync points, the physics bake, the RLE data, agents; `NavigationAllocationTests`: **0 bytes** over 300 ticks of 64 agents chasing moving targets on a 128 × 128 grid with cell edits and the debug draw ([Navigation → Tests](navigation.md#tests)) |
 | `PhysicsAllocationTests`, `Physics2DAllocationTests` | **0 bytes** per steady-state frame with ~500 bodies, monitors, areas, characters, debug draw and every query (3D single- and multi-threaded); 2D: 0 bytes beyond Box2D.NET's own step allocations (one joint of each 2D type included) |
 | `Joints3DTests`, `JointBreakTests`, `Physics2DJointTests`, `Ragdoll3DTests`, `PhysicalBonesTests`, `JointAllocationTests` | joints, breaking, ragdolls and physical bones ([Physics joints → Tests](physics-joints.md#tests)); 0 bytes per frame with 320 3D joints (parts collide only with the floor: new contact pairs make Jitter2 allocate) |
@@ -206,13 +206,13 @@ sequenceDiagram
   reflected), `sprite-billboard` (ADR 0199:
   Y-billboard, flipped and full-billboard sprites with their shadows; `--count 1`: billboards off, edge-on), `spatial-shaders`
   and `spatial-shaders-taa` (ADR 0205: spatial surface shaders, ADR 0237 — a procedural ground, swaying multimesh stalks and shadows, a
-  dissolve cutout from a `.mres`, a rim next pass and overlay; picks self-checked; the `.slang` surface shaders' SPIR-V in the host's
+  dissolve cutout from a `.mfres`, a rim next pass and overlay; picks self-checked; the `.slang` surface shaders' SPIR-V in the host's
   `Assets/Shaders`, `just canvas-shaders`), `viewport-material` (ADR 0216: a 2D sub-viewport's pattern and a 3D one's
   camera view on unshaded albedo, emission and a spatial shader sampler, filled in only after both views resize; `--count 1`:
   the view's box spins, the allocation run), `label3d`
   (ADR 0200: Snake Oil-style name tags behind a wall, one `NoDepthTest`; `--count 1`: depth-tested), `label3d-layout`
-  (ADR 0249: multi-line, autowrap, a Cyrillic fallback, alpha cut, two `FixedSize` tags self-checked equal on screen),
-  `ui-markers` (ADR 0250: nameplates, a prompt, health, an edge-clamped waypoint, an occluded marker; `#3366cc` exact), `gizmos` /
+  (ADR 0251: multi-line, autowrap, a Cyrillic fallback, alpha cut, two `FixedSize` tags self-checked equal on screen),
+  `ui-markers` (ADR 0254: nameplates, a prompt, health, an edge-clamped waypoint, an occluded marker; `#3366cc` exact), `gizmos` /
   `gizmos-taa` (the editor's gizmo list: 3 and 8 px lines, a shaded cone and box, debug lines lying on a crate and on a
   floor seen at a grazing angle; `GizmoRenderTests`: line widths and blended edges, the outlines under TAA, 0 B per
   frame; [Gizmos](gizmos.md#tests)), `particles-campfire`

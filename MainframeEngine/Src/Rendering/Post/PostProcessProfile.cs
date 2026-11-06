@@ -4,7 +4,7 @@ namespace MainframeEngine;
 /// A world's post-processing look as a resource (ADR 0169): tonemap, auto exposure, glow, light shafts, SSAO and the colour
 /// adjustments with their LUT — the screen-space half of Godot's <c>Environment</c>, which a
 /// <see cref="WorldEnvironment"/> references through <see cref="WorldEnvironment.PostProcess"/>. Save it as a
-/// <c>.mres</c> to share one look between scenes and tweak it in the editor, or keep it inline in a scene. Sky, ambient
+/// <c>.mfres</c> to share one look between scenes and tweak it in the editor, or keep it inline in a scene. Sky, ambient
 /// and reflected light, fog and wind stay on the <see cref="WorldEnvironment"/>; the lens (depth of field, vignette,
 /// grain, aberration) stays on <see cref="CameraAttributesPractical"/>, as in Godot.
 /// </summary>

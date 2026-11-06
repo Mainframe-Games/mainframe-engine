@@ -3,7 +3,7 @@ using System.Text;
 
 namespace MainframeEngine.Tests.Audio;
 
-/// <summary>Audio nodes and their <see cref="AudioStream"/> resources round-trip through <c>.mscene</c> files.</summary>
+/// <summary>Audio nodes and their <see cref="AudioStream"/> resources round-trip through <c>.mfscene</c> files.</summary>
 [Collection(nameof(Scene.SerialResources))]
 public sealed class AudioSerializationTests
 {
@@ -147,7 +147,7 @@ public sealed class AudioSerializationTests
         AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory); // "Assets/..." resolves like a game's
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Scenes", "Showcase.mscene");
+            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Scenes", "Showcase.mfscene");
             var tree = new SceneTree();
             using var server = AudioTestUtil.CreateServer(tree);
             tree.ChangeScene(PackedScene.Parse(File.ReadAllBytes(path)).Instantiate());

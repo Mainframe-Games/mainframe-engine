@@ -5,11 +5,11 @@
 This doc covers how source files (images, models) become engine resources:
 
 - where paths resolve;
-- how `.meta` sidecars carry UIDs and import settings;
+- how `.mfmeta` sidecars carry UIDs and import settings;
 - which importer handles which file;
 - how imports are cached.
 
-Scene and resource files (`.mscene`/`.mres`) are covered in [Scene serialization](scene-serialization.md). This page
+Scene and resource files (`.mfscene`/`.mfres`) are covered in [Scene serialization](scene-serialization.md). This page
 covers everything `ResourceLoader` *imports*.
 
 ## Paths
@@ -27,11 +27,48 @@ covers everything `ResourceLoader` *imports*.
   interface and `AssetDatabase.ToAbsolutePath`. The editor renames an old project's folder when it opens it
   ([Projects](editor.md#projects)).
 
+## File extensions
+
+Every extension the engine, editor, video library or tools define starts with `.mf` (ADR 0249). The constants are in
+`FileExtensions`, and `FileExtensionRuleTests` fails on a new extension constant without the prefix, unless the test's
+exempt list names it with a reason.
+
+| Extension | What it is | Before ADR 0249 |
+|---|---|---|
+| `.mfscene` | a scene (JSON, its own UID) | `.mscene` |
+| `.mfres` | a resource (JSON, its own UID) | `.mres` |
+| `.mfmusic` | an adaptive music manifest | `.mmusic` |
+| `.mfsong` | an editor song | `.msong` |
+| `.mfsave` | a save slot | `.msave` |
+| `.mfmeta` | an imported asset's sidecar: UID and import settings | `.meta` |
+| `.mfprobes` | a light-probe bake's coefficients (the data file of an `.mfres`) | `.probes` |
+| `x.slang.mfspvlock` | a surface shader's build lock | `x.slang.spvlock` |
+| `x.slang.mflayout.json` | a surface shader's reflected layout | `x.slang.layout.json` |
+| `.mfproj` | the project file | |
+| `.mfpak` | an export's content pack | |
+| `.mftimeline` | a video timeline | |
+| `.mfcap.json` | a recording's capture sidecar | |
+| `.mftranscript.json` | a media file's cached transcript | |
+
+Third-party formats keep their names (`.slang`, `.spv`, `.rml`, `.rcss`, `.po`/`.mo`, Spine's `.atlas`/`.skel`, media),
+as do temporary and fixed names (`.tmp`, `.bakN`, `.partial`, `.stems`, `shaders.lock`).
+
+Projects made before ADR 0249 still load:
+
+- `FileExtensions.Matches` accepts the legacy name wherever a loader dispatches on the extension (`ResourceLoader`, the
+  asset scan, export staging, the l10n extractor).
+- `FileExtensions.FindExisting` reads a legacy sidecar (`x.png.meta`, `x.slang.layout.json`, `x.slang.spvlock`) when
+  there is no current one.
+- `AssetDatabase.ToAbsolutePath` and `ContentPaths.Resolve` send a legacy path whose file is gone to the renamed file,
+  so `ChangeSceneToFile("Assets/Scenes/Main.mscene")` and an old `mainScene` keep working after the migration.
+- `SaveServer` renames `slot.msave` and its copies to `.mfsave` once at start.
+- The editor offers `FileExtensionMigration` when it opens such a project ([Projects](editor.md#projects)).
+
 ## Content file system
 
 Every runtime content read goes through `ContentFiles` (`Src/Core/Content/`, G19 phase 1,
 [ADR 0239](../../memory/decisions/0239-protected-exports.md)): shaders and their locks, textures, scenes and resources,
-the asset index and `.meta` files, RmlUi documents, stylesheets and fonts, audio (streamed too), music manifests, `.mo`
+the asset index and `.mfmeta` files, RmlUi documents, stylesheets and fonts, audio (streamed too), music manifests, `.mo`
 catalogs and locale folders, Spine exports, terrain and light-probe data, models, and `project.mfproj`. It replaces the
 `File`/`Directory` read calls one for one: `Exists`, `DirectoryExists`, `GetInfo` (length and last write),
 `OpenRead` (seekable), `ReadAllBytes`, `ReadAllText`, `EnumerateFiles`, `EnumerateDirectories`.
@@ -87,12 +124,12 @@ tests and `ContentLoadBenchmarks` use it.
 
 ## Importers
 
-`ResourceLoader.Load` hands every file that is not `.mscene`/`.mres` to the `IAssetImporter` registered for its
+`ResourceLoader.Load` hands every file that is not `.mfscene`/`.mfres` to the `IAssetImporter` registered for its
 extension (`AssetImporters`). The importer receives:
 
 - the absolute path;
 - the project path;
-- the file's `.meta` sidecar (`AssetMeta`: `uid`, `importer`, `settings`).
+- the file's `.mfmeta` sidecar (`AssetMeta`: `uid`, `importer`, `settings`).
 
 The loader gives the result the file's `ResourcePath` and the meta's UID, and caches it like any other resource:
 by UID and path, reference-counted.
@@ -148,10 +185,10 @@ post-processing steps are:
 | node | `Node3D`, or `MeshInstance3D` when it has meshes; transform decomposed into position / rotation / scale |
 | the node's meshes | one `ArrayMesh`, one `MeshSurface` per Assimp mesh; nodes using the same meshes share it; points and lines are dropped |
 | material | `StandardMaterial3D`: name, base colour or diffuse (linear → sRGB), opacity, emissive + intensity, shininess, two-sided, glTF alpha mode (`MASK` → cutout, `BLEND` → blend) and cutoff |
-| textures | base colour or diffuse → albedo, normals → normal map, emissive → emission. Files next to the model load through `ResourceLoader`, so their own `.meta` applies; embedded images (`*N`, e.g. GLB, or by file name, e.g. FBX) decode in memory |
+| textures | base colour or diffuse → albedo, normals → normal map, emissive → emission. Files next to the model load through `ResourceLoader`, so their own `.mfmeta` applies; embedded images (`*N`, e.g. GLB, or by file name, e.g. FBX) decode in memory |
 | bones (ADR 0208) | one `Skeleton3D` at the armature node (bones, rests); nodes under bones → `BoneAttachment3D`s |
 | skinned meshes | a `MeshInstance3D` under the skeleton with a `Skin` (inverse bind matrices) and `MeshSurface.Joints`/`Weights` |
-| animations | `Animation`s (named after the actions) in an `AnimationLibrary` on an `AnimationPlayer` child of the root; loop modes and events from a `-loop` suffix, glTF animation `extras` and the `.meta` `clips` |
+| animations | `Animation`s (named after the actions) in an `AnimationLibrary` on an `AnimationPlayer` child of the root; loop modes and events from a `-loop` suffix, glTF animation `extras` and the `.mfmeta` `clips` |
 
 Skeletons, skins and clips are described in [Animation and skinning → Import](animation.md#import).
 
@@ -183,7 +220,7 @@ scene that instances a model stores only the model's UID and path and the instan
 
 `ModelImporter` keeps a cache of imported templates, keyed by full path, file size, modification time and settings
 (at most 32 entries, oldest dropped first). Loading a model again, or after the loader released it, does not re-run
-Assimp. A changed file or `.meta` re-imports. `ResourceLoader.ClearCache()` clears it, and so does engine shutdown.
+Assimp. A changed file or `.mfmeta` re-imports. `ResourceLoader.ClearCache()` clears it, and so does engine shutdown.
 `ModelImporter.ImportCount` and `CacheCount` are for diagnostics and tests.
 
 There is no on-disk cache of imported data: scenes stay JSON and never bake binary data
@@ -192,7 +229,7 @@ There is no on-disk cache of imported data: scenes stay JSON and never bake bina
 ## The test model
 
 `Tests/MainframeEngine.Tests/TestAssets/TestModel.cs` generates a small CC0 glTF (`test_model.gltf`/`.bin`, a
-checker PNG and their `.meta` files). It contains a two-level node hierarchy, one box mesh shared by two nodes, a
+checker PNG and their `.mfmeta` files). It contains a two-level node hierarchy, one box mesh shared by two nodes, a
 two-primitive mesh with an opaque double-sided material and a blended one, and an empty node. The committed copy
 lives in `Tests/Assets/Models/TestModel/` (the shared test assets) and in `Examples/Demo/Assets/Models/TestModel/`, where the Demo uses it. To
 regenerate it, run `UPDATE_TEST_ASSETS=1 dotnet test Tests/MainframeEngine.Tests --filter TheCommittedTestModel`.
@@ -207,7 +244,7 @@ in the Demo): a 31-bone Blender-style rig, a two-primitive skinned mesh of about
 - Assimp is a native library from the `Ultz.Native.Assimp` package (loaded by Silk.NET's resolver). Where it
   cannot load, model imports throw `InvalidOperationException` and the import tests fail. See the M3 risks in the
   progress log for the Linux CI loader.
-- Not imported: morph targets, cameras, lights, glTF sampler settings (the image's `.meta` decides), and UV sets beyond
+- Not imported: morph targets, cameras, lights, glTF sampler settings (the image's `.mfmeta` decides), and UV sets beyond
   the first. PBR data is read only with `"shading": "pbr"`; generated LODs need a mesh simplifier (not chosen yet).
 - Silk.NET's animation key structs are larger than the bundled Assimp's; the importer detects the key stride from the
   data (ADR 0208).

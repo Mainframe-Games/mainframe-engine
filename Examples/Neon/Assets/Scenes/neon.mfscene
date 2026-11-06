@@ -16,15 +16,15 @@
     },
     "PostProcessProfile_m5hc5": {
       "ref": "res_358fb4092ae8",
-      "path": "Assets/PostProcess/neon.mres"
+      "path": "Assets/PostProcess/neon.mfres"
     },
     "CameraAttributesPractical_vwyhr": {
       "ref": "res_2c4dcf095e19",
-      "path": "Assets/PostProcess/neon-lens.mres"
+      "path": "Assets/PostProcess/neon-lens.mfres"
     },
     "LightProbeData_qxa3w": {
       "ref": "res_cfd113a68c2d",
-      "path": "Assets/Scenes/neon-lighting.mres"
+      "path": "Assets/Scenes/neon-lighting.mfres"
     },
     "CapsuleShape3D_ak3q9": {
       "type": "CapsuleShape3D",

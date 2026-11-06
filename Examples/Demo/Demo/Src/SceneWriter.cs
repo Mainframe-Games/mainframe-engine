@@ -4,7 +4,7 @@ namespace Demo;
 
 /// <summary>
 /// <c>--write-scenes &lt;dir&gt;</c>: regenerates every Demo scene file from its builder, the Sound FX presets
-/// (<c>&lt;dir&gt;/../Audio/Sfx/*.mres</c>), the Sprites 2D sheet and SpriteFrames (<c>&lt;dir&gt;/../Sprites2D</c>) and the
+/// (<c>&lt;dir&gt;/../Audio/Sfx/*.mfres</c>), the Sprites 2D sheet and SpriteFrames (<c>&lt;dir&gt;/../Sprites2D</c>) and the
 /// Tiles 2D atlas and TileSet (<c>&lt;dir&gt;/../Tiles2D</c>).
 /// </summary>
 public static class SceneWriter
@@ -19,8 +19,8 @@ public static class SceneWriter
             var root = scene.Build();
             try
             {
-                var uid = SceneSaver.Save(root, Path.Combine(directory, scene.Id + ".mscene"));
-                Log.Info($"Wrote {scene.Id}.mscene ({uid})");
+                var uid = SceneSaver.Save(root, Path.Combine(directory, scene.Id + ".mfscene"));
+                Log.Info($"Wrote {scene.Id}.mfscene ({uid})");
             }
             finally
             {

@@ -30,7 +30,7 @@ public enum BuiltinGraph
 public sealed record BuiltinPreset(string Name, IReadOnlyDictionary<string, float> Values);
 
 /// <summary>
-/// A built-in effect type: its <see cref="Id"/> (the <c>.msong</c> <c>builtin</c> value, never renamed), how it is shown,
+/// A built-in effect type: its <see cref="Id"/> (the <c>.mfsong</c> <c>builtin</c> value, never renamed), how it is shown,
 /// its parameters (index = DSP index) and a factory for one instance at a sample rate.
 /// </summary>
 public sealed record BuiltinEffectInfo(string Id, string Name, BuiltinCategory Category, string Icon, string Tooltip,

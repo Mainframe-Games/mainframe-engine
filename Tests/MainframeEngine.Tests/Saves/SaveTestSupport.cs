@@ -102,7 +102,7 @@ internal sealed class InstrumentedStorage(ISaveStorage inner) : ISaveStorage
 
     public long BytesRead => Interlocked.Read(ref _bytesRead);
 
-    /// <summary>When set, a write of a <c>.msave</c> signals <see cref="Entered"/> then waits for <see cref="Gate"/>.</summary>
+    /// <summary>When set, a write of a <c>.mfsave</c> signals <see cref="Entered"/> then waits for <see cref="Gate"/>.</summary>
     public ManualResetEventSlim? Gate { get; set; }
 
     public ManualResetEventSlim Entered { get; } = new();

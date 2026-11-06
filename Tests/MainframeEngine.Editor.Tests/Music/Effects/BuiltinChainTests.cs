@@ -115,7 +115,7 @@ public sealed class BuiltinChainTests
         Assert.Contains("\"builtin\": \"eq\"", text, StringComparison.Ordinal);
         Assert.Contains("\"peak2Gain\": -3.5", text, StringComparison.Ordinal);
 
-        var read = SongFormat.Parse(json, "x.msong").Song;
+        var read = SongFormat.Parse(json, "x.mfsong").Song;
         var inserts = read.Tracks[0].Inserts;
         Assert.Equal("eq", inserts[0].Builtin);
         Assert.Equal(-3.5f, inserts[0].Params!["peak2Gain"]);
@@ -131,7 +131,7 @@ public sealed class BuiltinChainTests
     public void BuiltinEditsAreUndoableAndDragsMergeIntoOneEntry()
     {
         var (song, track) = DcSong();
-        using var document = new SongDocument(song, "/tmp/x.msong");
+        using var document = new SongDocument(song, "/tmp/x.mfsong");
         var eq = document.AddBuiltinInsert(track, "eq");
         Assert.Equal(0, eq.Params!["peak2Gain"]);
 
@@ -171,7 +171,7 @@ public sealed class BuiltinChainTests
         var (song, track) = DcSong();
         var insert = new PluginInsert { Builtin = "utility" };
         track.Inserts.Add(insert);
-        using var document = new SongDocument(song, "/tmp/x.msong");
+        using var document = new SongDocument(song, "/tmp/x.mfsong");
         document.SetInsertParam(insert, "gain", -3);
         Assert.Equal(-3, insert.Params!["gain"]);
         document.History.Undo();

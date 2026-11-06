@@ -42,11 +42,11 @@ public sealed class TerrainSaveTests : IDisposable
         data.SetHeightsFrom(TerrainDataTests.Hills);
         generator.AddChild(new Terrain3D { Name = "Terrain", Data = data });
 
-        SceneSaver.Save(root, "Assets/Scenes/world.mscene");
+        SceneSaver.Save(root, "Assets/Scenes/world.mfscene");
 
         Assert.False(Directory.Exists(Path.Combine(_project, "Assets", "Scenes", "world_terrain")));
         Assert.False(data.IsExternal);
-        Assert.DoesNotContain("Terrain3D", File.ReadAllText(Path.Combine(_project, "Assets", "Scenes", "world.mscene")), StringComparison.Ordinal);
+        Assert.DoesNotContain("Terrain3D", File.ReadAllText(Path.Combine(_project, "Assets", "Scenes", "world.mfscene")), StringComparison.Ordinal);
         root.Free();
     }
 
@@ -61,7 +61,7 @@ public sealed class TerrainSaveTests : IDisposable
         root.AddChild(terrain);
         terrain.Owner = root;
 
-        SceneSaver.Save(root, "Assets/Scenes/world.mscene");
+        SceneSaver.Save(root, "Assets/Scenes/world.mfscene");
 
         var folder = Path.Combine(_project, "Assets", "Scenes", "world_terrain");
         Assert.True(File.Exists(Path.Combine(folder, TerrainData.ResourceFileName)));
@@ -69,12 +69,12 @@ public sealed class TerrainSaveTests : IDisposable
         Assert.True(File.Exists(Path.Combine(folder, TerrainData.SplatFile(0))));
         Assert.True(File.Exists(Path.Combine(folder, TerrainData.SplatFile(1)))); // layer 4 is in the second map
         Assert.False(File.Exists(Path.Combine(folder, TerrainData.WaterFile)));    // all default
-        Assert.Equal("Assets/Scenes/world_terrain/terrain.mres", data.ResourcePath);
+        Assert.Equal("Assets/Scenes/world_terrain/terrain.mfres", data.ResourcePath);
         var heights = data.Heights.ToArray();
         root.Free();
         ResourceLoader.ClearCache();
 
-        var scene = ResourceLoader.Load<PackedScene>("Assets/Scenes/world.mscene");
+        var scene = ResourceLoader.Load<PackedScene>("Assets/Scenes/world.mfscene");
         var loaded = (Node3D)scene.Instantiate();
         var loadedTerrain = (Terrain3D)loaded.GetNode("Terrain")!;
         Assert.Equal(2f, loadedTerrain.LodBias);
@@ -94,12 +94,12 @@ public sealed class TerrainSaveTests : IDisposable
         var terrain = new Terrain3D { Name = "Terrain", Data = data };
         root.AddChild(terrain);
         terrain.Owner = root;
-        SceneSaver.Save(root, "Assets/Scenes/world.mscene");
+        SceneSaver.Save(root, "Assets/Scenes/world.mfscene");
         var heightmap = Path.Combine(_project, "Assets", "Scenes", "world_terrain", TerrainData.HeightmapFile);
         File.WriteAllBytes(heightmap, [9, 9]); // a rewrite would replace this
 
         data.SetWaterDepth(new Rect2I(3, 3, 1, 1), [0.5f]);
-        SceneSaver.Save(root, "Assets/Scenes/world.mscene");
+        SceneSaver.Save(root, "Assets/Scenes/world.mfscene");
         Assert.Equal([9, 9], File.ReadAllBytes(heightmap));
         Assert.True(File.Exists(Path.Combine(_project, "Assets", "Scenes", "world_terrain", TerrainData.WaterFile)));
         root.Free();

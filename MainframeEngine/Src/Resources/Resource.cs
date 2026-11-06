@@ -5,7 +5,7 @@ namespace MainframeEngine;
 /// <summary>
 /// Shared data referenced by nodes and other resources (Godot's <c>Resource</c>): skies now; meshes, materials,
 /// physics shapes, audio streams and UI themes in later milestones. Resources are either <i>inline</i>
-/// (stored inside the scene or resource file that uses them) or <i>external</i> (their own <c>.mres</c> file,
+/// (stored inside the scene or resource file that uses them) or <i>external</i> (their own <c>.mfres</c> file,
 /// referenced by UID and loaded once through <see cref="ResourceLoader"/>).
 /// </summary>
 /// <remarks>

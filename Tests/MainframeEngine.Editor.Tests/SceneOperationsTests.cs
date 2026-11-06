@@ -236,7 +236,7 @@ public sealed class SceneOperationsTests : IDisposable
     public void SavingIntoAnotherProjectIsRefusedWhileScenesOfTheCurrentOneAreOpen()
     {
         var first = NewScene();
-        _host.Session.Save(first, _host.ScenePath("First.mscene"));
+        _host.Session.Save(first, _host.ScenePath("First.mfscene"));
         var other = Directory.CreateTempSubdirectory("mf-other-project").FullName;
         try
         {
@@ -244,7 +244,7 @@ public sealed class SceneOperationsTests : IDisposable
             var second = NewScene();
             Add(second, "X");
 
-            var error = Assert.Throws<InvalidOperationException>(() => _host.Session.Save(second, Path.Combine(other, "Assets", "S.mscene")));
+            var error = Assert.Throws<InvalidOperationException>(() => _host.Session.Save(second, Path.Combine(other, "Assets", "S.mfscene")));
             Assert.Contains("other scenes", error.Message, StringComparison.Ordinal);
             Assert.True(second.IsDirty);
             Assert.Equal(_host.ProjectDirectory, _host.Session.ProjectRoot);
@@ -252,7 +252,7 @@ public sealed class SceneOperationsTests : IDisposable
 
             // Alone, a scene may move the session to another project.
             _host.Session.Close(first);
-            _host.Session.Save(second, Path.Combine(other, "Assets", "S.mscene"));
+            _host.Session.Save(second, Path.Combine(other, "Assets", "S.mfscene"));
             Assert.Equal(other, _host.Session.ProjectRoot);
         }
         finally
@@ -264,7 +264,7 @@ public sealed class SceneOperationsTests : IDisposable
     [Fact]
     public void DuplicatingAnInstancedSceneKeepsItAnInstance()
     {
-        var subPath = _host.ScenePath("Sub.mscene");
+        var subPath = _host.ScenePath("Sub.mfscene");
         var sub = new Node3D { Name = "Sub" };
         var part = new Node3D { Name = "Part" };
         sub.AddChild(part);
@@ -325,12 +325,12 @@ public sealed class SceneOperationsTests : IDisposable
     {
         var scene = NewScene();
         Add(scene, "Child", position: new Vector3(0, 1, 0));
-        var path = _host.ScenePath("Saved.mscene");
+        var path = _host.ScenePath("Saved.mfscene");
 
         _host.Session.Save(scene, path);
 
         Assert.False(scene.IsDirty);
-        Assert.Equal("Saved.mscene", scene.Title);
+        Assert.Equal("Saved.mfscene", scene.Title);
         Assert.Equal(_host.ProjectDirectory, _host.Session.ProjectRoot);
         Assert.True(File.Exists(path));
         Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
@@ -355,7 +355,7 @@ public sealed class SceneOperationsTests : IDisposable
     public void AFailedSaveLeavesThePreviousFileAndTheSceneDirty()
     {
         var scene = NewScene();
-        var path = _host.ScenePath("Keep.mscene");
+        var path = _host.ScenePath("Keep.mfscene");
         _host.Session.Save(scene, path);
         var before = File.ReadAllBytes(path);
         Add(scene, "Unsaved");
@@ -370,7 +370,7 @@ public sealed class SceneOperationsTests : IDisposable
     [Fact]
     public void OpeningASceneUsesItsProjectFolderForResources()
     {
-        var path = _host.ScenePath("Open.mscene");
+        var path = _host.ScenePath("Open.mfscene");
         var root = new Node3D { Name = "Open" };
         _host.Session.UseProjectOf(path);
         SceneSaver.Save(root, path);
@@ -384,7 +384,7 @@ public sealed class SceneOperationsTests : IDisposable
         Assert.Equal("Open", scene.Root.Name);
         Assert.False(scene.IsDirty);
         Assert.Equal(_host.ProjectDirectory, EditorSession.FindProjectRoot(path));
-        Assert.Throws<FileNotFoundException>(() => _host.Session.Open(_host.ScenePath("Missing.mscene")));
+        Assert.Throws<FileNotFoundException>(() => _host.Session.Open(_host.ScenePath("Missing.mfscene")));
     }
 
     [Fact]
@@ -395,7 +395,7 @@ public sealed class SceneOperationsTests : IDisposable
         var content = Path.Combine(game, "Assets", "Assets", "Scenes");
         Directory.CreateDirectory(content);
         new ProjectSettings { Name = "Discovered" }.Save(game);
-        var path = Path.Combine(content, "Level.mscene");
+        var path = Path.Combine(content, "Level.mfscene");
 
         Assert.Equal(game, EditorSession.FindProjectRoot(path));
 
@@ -408,7 +408,7 @@ public sealed class SceneOperationsTests : IDisposable
     [Fact]
     public void AFolderWithoutAProjectFileFallsBackToTheFolderAboveContent()
     {
-        var path = _host.ScenePath("Plain.mscene");
+        var path = _host.ScenePath("Plain.mfscene");
         Assert.Equal(_host.ProjectDirectory, EditorSession.FindProjectRoot(path));
         _host.Session.UseProjectOf(path);
         Assert.Null(_host.Session.Project);
@@ -418,7 +418,7 @@ public sealed class SceneOperationsTests : IDisposable
     public void AnUnreadableProjectFileKeepsTheFolderAndIgnoresTheSettings()
     {
         File.WriteAllText(Path.Combine(_host.ProjectDirectory, ProjectSettings.FileName), "{ not json");
-        var path = _host.ScenePath("Broken.mscene");
+        var path = _host.ScenePath("Broken.mfscene");
         Assert.Equal(_host.ProjectDirectory, EditorSession.FindProjectRoot(path));
         _host.Session.UseProjectOf(path);
         Assert.Equal(_host.ProjectDirectory, _host.Session.ProjectRoot);

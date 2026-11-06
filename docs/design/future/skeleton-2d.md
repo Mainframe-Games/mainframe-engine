@@ -68,7 +68,7 @@ The engine has no replacement pieces either:
   - a dopesheet and a graph editor;
   - onion skinning, auto-key and IK posing.
 - **Assets:**
-  - a diff- and merge-friendly JSON source: `.mskel` for the rig and skins, one `.manim` per clip;
+  - a diff- and merge-friendly JSON source: `.mfskel` for the rig and skins, one `.mfanim` per clip;
   - a compact binary build plus packed atlas pages, built automatically and cached;
   - export ships only the build.
 - **Performance.** About 200 mid-complexity skeletons (40 bones, 30 slots, 800 skinned vertices each) at 60 fps on a
@@ -111,9 +111,9 @@ The engine has no replacement pieces either:
 flowchart LR
     subgraph Source["Project files (JSON, git)"]
       PSD[".psd / .png images"]
-      SK[".mskel<br/>bones · slots · skins · constraints"]
-      AN[".manim × N<br/>one clip each"]
-      AG[".mres AnimationGraph"]
+      SK[".mfskel<br/>bones · slots · skins · constraints"]
+      AN[".mfanim × N<br/>one clip each"]
+      AG[".mfres AnimationGraph"]
     end
     PSD --> IMP
     SK --> IMP["SkeletonImporter<br/>atlas pack · meshes · build"]
@@ -190,9 +190,9 @@ The rules:
 
 ## Data model
 
-### Skeleton (`.mskel`)
+### Skeleton (`.mfskel`)
 
-A `.mskel` file is self-describing JSON with an embedded UID (prefix `skl_`), like `.mres` and `.msong`
+A `.mfskel` file is self-describing JSON with an embedded UID (prefix `skl_`), like `.mfres` and `.mfsong`
 (`Resources/AssetDatabase.cs:270-272`). It holds the rig: bones, slots, skins with their attachments, constraints,
 event definitions, the image list and import settings. It holds no clips. It is written by a dedicated
 `SkeletonFormat` (like `SongFormat`), not the generic resource saver:
@@ -278,13 +278,13 @@ Each part:
   images `name01…name08`. Sequence timelines pick the frame.
 - **Constraints** run in an `order` that the editor maintains (Spine's model), mixed in with the bone updates. Each
   has `skinRequired`.
-- **Images** are found by name under `import.images`, relative to the `.mskel`'s folder, as `.png` files. A PSD import
+- **Images** are found by name under `import.images`, relative to the `.mfskel`'s folder, as `.png` files. A PSD import
   writes those PNGs and remembers its source (see [PSD import](#psd-import)). `<name>_n.png` next to an image is its
   normal map.
 - **Units.** Pixels in image space at `import.scale` 1. Changing `scale` rescales the setup pose at build time, which
   is used when the art was drawn at 2× and ships at 1×.
 
-### Clips (`.manim`)
+### Clips (`.mfanim`)
 
 Each clip is its own self-describing file (UID prefix `anm_`) that references its skeleton by UID. This means:
 
@@ -292,8 +292,8 @@ Each clip is its own self-describing file (UID prefix `anm_`) that references it
 - clips load on demand (`SkeletonData.LoadClip`);
 - a game can ship a character's combat clips in a separate pack later.
 
-A skeleton finds its clips in two ways: the `clips` folder named in the `.mskel` (default `<name>.clips/` next to it),
-plus any `.manim` registered in the `AssetDatabase` whose `skeleton` UID matches. A clip has no name field: its name
+A skeleton finds its clips in two ways: the `clips` folder named in the `.mfskel` (default `<name>.clips/` next to it),
+plus any `.mfanim` registered in the `AssetDatabase` whose `skeleton` UID matches. A clip has no name field: its name
 is its file name without the extension.
 
 ```json
@@ -301,7 +301,7 @@ is its file name without the extension.
   "format": 1,
   "uid": "anm_1f07c3a9e5d2",
   "type": "SkeletonClip",
-  "skeleton": { "uid": "skl_7d1c40e2a9b3", "path": "Assets/Characters/Hero/hero.mskel" },
+  "skeleton": { "uid": "skl_7d1c40e2a9b3", "path": "Assets/Characters/Hero/hero.mfskel" },
   "length": 0.8,
   "fps": 30,
   "loop": "Linear",
@@ -345,7 +345,7 @@ The layout rules:
 
 ### The runtime build
 
-`SkeletonImporter` turns the `.mskel`, its clips and its images into a `SkeletonBuild`, which is what the runtime uses:
+`SkeletonImporter` turns the `.mfskel`, its clips and its images into a `SkeletonBuild`, which is what the runtime uses:
 
 - **Arrays.** Typed arrays sized from the data, with names resolved to indices: bone and slot arrays, the update order
   as `(kind, index)` pairs, skins as `(slot, name) → attachment` tables, the influence buffer for skinning, and
@@ -365,7 +365,7 @@ milliseconds for a big rig. Builds are cached on disk the way tree bakes are (`T
 - **Where:** `skeleton-bakes/` under the pipeline cache root (`Rendering/Vulkan/PipelineCache.cs:348`, for example
   `~/Library/Caches/MainframeEngine/skeleton-bakes` on macOS). `MAINFRAME_SKELETON_BAKE_CACHE_DIR` overrides it;
   `off` disables it.
-- **Key:** the SHA-256 of the `.mskel`, every image's bytes, the import settings and `SkeletonBakeCache.Version`.
+- **Key:** the SHA-256 of the `.mfskel`, every image's bytes, the import settings and `SkeletonBakeCache.Version`.
   Clips are cached separately, keyed by their own file and the skeleton's key.
 - **Content:** zlib-compressed. A missing, short or corrupt entry is a miss; write failures only log.
 - **What it changes:** the source in the project stays JSON and PNG, as
@@ -374,7 +374,7 @@ milliseconds for a big rig. Builds are cached on disk the way tree bakes are (`T
 - **Exports:** `mf-cook` ([ADR 0100](../../../memory/decisions/0100-mobile-strategy.md), [Game export](../game-export.md))
   ships the build files instead of the JSON and images. An exported game loads the cooked build directly.
 
-`SkeletonData : Resource` is what `ResourceLoader.Load<SkeletonData>("…/hero.mskel")` returns. It wraps the build:
+`SkeletonData : Resource` is what `ResourceLoader.Load<SkeletonData>("…/hero.mfskel")` returns. It wraps the build:
 
 ```csharp
 [EditorIcon("bone")]
@@ -398,7 +398,7 @@ public sealed class SkeletonData : Resource
 
 `ResourceLoader.ReadFile` (`Resources/ResourceLoader.cs:288`) today sends only files that are not self-describing to an
 importer. It is changed to: a self-describing file whose extension has a registered importer goes to that importer,
-with the UID read by `ReadEmbeddedUid`. `.mscene` and `.mres` keep their direct path. The `skl_` and `anm_` prefixes
+with the UID read by `ReadEmbeddedUid`. `.mfscene` and `.mfres` keep their direct path. The `skl_` and `anm_` prefixes
 join `AssetUid.PrefixForExtension`.
 
 ## Runtime
@@ -520,7 +520,7 @@ Constraints never allocate. Each keeps fixed scratch arrays sized at load.
 
 ### Events and audio
 
-Events are defined in the `.mskel` (name, default int/float/string, optional audio stream, volume and balance) and keyed
+Events are defined in the `.mfskel` (name, default int/float/string, optional audio stream, volume and balance) and keyed
 in clips. After each frame's evaluation, `SkeletonSprite2D` raises:
 
 ```csharp
@@ -907,7 +907,7 @@ The editor's *Import PSD* ([Skeleton editor → Importing art](skeleton-2d-edito
 ### Spine 4.x JSON importer
 
 `SpineJsonImporter` reads Spine 4.0–4.3 JSON exports plus their `.atlas`. It is written from Spine's published JSON
-format reference, under the [clean-room rule](#clean-room-rule). It writes a `.mskel`, one `.manim` per animation into
+format reference, under the [clean-room rule](#clean-room-rule). It writes a `.mfskel`, one `.mfanim` per animation into
 `<name>.clips/`, and PNGs:
 
 - **Images.** Atlas regions are unpacked into individual PNGs (rotated regions unrotated, trimmed offsets restored,
@@ -948,7 +948,7 @@ The **`skeleton` Claude Code skill** (`.claude/skills/skeleton/`) teaches the lo
 - how to keep loops seamless.
 
 Keys are the truth, as in [Animation authoring](animation-authoring.md#edits-keys-are-the-truth): the skill edits
-existing clips and never regenerates over an artist's work. The editor reloads `.manim` and `.mskel` files changed on
+existing clips and never regenerates over an artist's work. The editor reloads `.mfanim` and `.mfskel` files changed on
 disk. That reload uses the resource reloader planned in G1c; G17b builds it if G1c has not
 ([Skeleton editor → Saving and live update](skeleton-2d-editor.md#saving-and-live-update)).
 
@@ -1103,7 +1103,7 @@ Docs to update as each phase lands:
    ask; JSON export is always available in Spine.
 5. **Godot `Bone2D` scenes.** *Resolved (ADR 0202, 2026-10-20):* the engine now ships Godot's `Skeleton2D`, `Bone2D`,
    `Polygon2D` and `RemoteTransform2D` (a bone-node, CPU-skinned compatibility set), so this proposal's node is
-   `SkeletonSprite2D` (like `SkeletonSprite3D`). An importer could still convert a Godot rig into a `.mskel`.
+   `SkeletonSprite2D` (like `SkeletonSprite3D`). An importer could still convert a Godot rig into a `.mfskel`.
 6. **Mesh attachments without a skeleton.** Should `Polygon2D` (shipped in ADR 0202) share the mesh
    tools, as a "single-image skeleton"? It would reuse the editor's mesh mode.
 

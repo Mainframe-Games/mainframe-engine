@@ -6,7 +6,7 @@ using static MainframeEngine.Tests.Audio.Music.MusicTestStems;
 namespace MainframeEngine.Tests.Audio.Music;
 
 /// <summary>
-/// <c>.mmusic</c> through <see cref="ResourceLoader"/> (path and the file's own <c>mus_</c> UID), scenes referencing it, and
+/// <c>.mfmusic</c> through <see cref="ResourceLoader"/> (path and the file's own <c>mus_</c> UID), scenes referencing it, and
 /// the <see cref="AdaptiveMusicPlayer"/> node in a tree: autoplay, forwarded signals, tree pause, leaving the tree, edit
 /// mode; and the bus layout's <see cref="AudioBusInfo.MusicVoices"/>.
 /// </summary>
@@ -26,7 +26,7 @@ public sealed class AdaptiveMusicPlayerTests : IDisposable
             Section("explore", 2, stems: ("base", new MusicStemRef { Uid = "aud_unknown", Path = "Assets/Music/Theme.stems/explore.base.wav" }, null)),
             Section("combat", 2, stems: ("base", new MusicStemRef { Path = "Assets/Music/Theme.stems/combat.base.wav" }, null)));
         manifest.Uid = _uid;
-        File.WriteAllBytes(Path.Combine(_project, "Assets", "Music", "Theme.mmusic"), MusicManifestFormat.Write(manifest));
+        File.WriteAllBytes(Path.Combine(_project, "Assets", "Music", "Theme.mfmusic"), MusicManifestFormat.Write(manifest));
         AssetDatabase.Current = new AssetDatabase(_project);
         ResourceLoader.ClearCache();
     }
@@ -49,20 +49,20 @@ public sealed class AdaptiveMusicPlayerTests : IDisposable
     [Fact]
     public void MmusicLoadsThroughTheImporterWithItsOwnUid()
     {
-        var music = ResourceLoader.Load<AdaptiveMusic>("Assets/Music/Theme.mmusic");
+        var music = ResourceLoader.Load<AdaptiveMusic>("Assets/Music/Theme.mfmusic");
         Assert.Equal(_uid, music.Uid);
-        Assert.Equal("Assets/Music/Theme.mmusic", music.ResourcePath);
+        Assert.Equal("Assets/Music/Theme.mfmusic", music.ResourcePath);
         Assert.Equal(["explore", "combat"], music.Plan.Sections.Select(s => s.Id));
         Assert.Same(music, ResourceLoader.Load<AdaptiveMusic>(_uid));
         Assert.True(music.Preload()); // an unknown stem UID falls back to the path
-        Assert.IsType<AdaptiveMusicImporter>(AssetImporters.Find("x.mmusic"));
+        Assert.IsType<AdaptiveMusicImporter>(AssetImporters.Find("x.mfmusic"));
         music.Release();
     }
 
     [Fact]
     public void ScenesReferenceTheMusicByUidAndThePlayerPlaysIt()
     {
-        var music = ResourceLoader.Load<AdaptiveMusic>("Assets/Music/Theme.mmusic");
+        var music = ResourceLoader.Load<AdaptiveMusic>("Assets/Music/Theme.mfmusic");
         var root = new Node { Name = "Level" };
         var player = new AdaptiveMusicPlayer
         {

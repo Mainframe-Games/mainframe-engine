@@ -4,7 +4,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// A terrain's settings and layers (G8a): a square height grid with origin at the map corner, and per-cell or
-/// per-vertex image layers. The resource (<c>terrain.mres</c>) holds only the knobs; the pixels are images in its
+/// per-vertex image layers. The resource (<c>terrain.mfres</c>) holds only the knobs; the pixels are images in its
 /// folder, written on scene save (<see cref="SaveLayers"/>) and read on first use (<see cref="EnsureLoaded"/>):
 /// <list type="table">
 /// <item><term><c>heightmap.png</c></term><description>16-bit grey, (N+1)²: <c>h = HeightMin + v / 65535 · (HeightMax − HeightMin)</c></description></item>
@@ -25,7 +25,7 @@ namespace MainframeEngine;
 public sealed class TerrainData : Resource
 {
     /// <summary>The layer folder's resource file name.</summary>
-    public const string ResourceFileName = "terrain.mres";
+    public const string ResourceFileName = "terrain.mfres";
 
     public const string HeightmapFile = "heightmap.png";
     public const string SurfaceFile = "surface.png";
@@ -351,7 +351,7 @@ public sealed class TerrainData : Resource
     /// <summary>
     /// Writes the changed layers into <paramref name="folder"/> (default: <see cref="LayerFolder"/>), each to a
     /// temporary file then renamed. Layers at their defaults are not written (an existing file is deleted), so a
-    /// folder may hold only <c>terrain.mres</c>. Saving to a new folder writes every non-default layer.
+    /// folder may hold only <c>terrain.mfres</c>. Saving to a new folder writes every non-default layer.
     /// </summary>
     public void SaveLayers(string? folder = null)
     {
