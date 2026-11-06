@@ -21,6 +21,7 @@ public sealed class ExportPresetFormatTests
               "bundleId": "com.example.mygame", "copyright": "© 2026 Example",
               "sign": "Developer ID Application: Example (ABCDE12345)", "notaryProfile": "example-notary" },
             { "name": "Linux", "platform": "linux", "rid": "linux-x64", "output": "export/linux" },
+            { "name": "Linux (native)", "platform": "linux", "rid": "linux-x64", "output": "export/linux-native", "nativeAot": true },
             { "name": "Linux server (headless)", "platform": "linux", "rid": "linux-x64",
               "output": "export/server", "archive": false, "exclude": ["Assets/Audio/**"], "selfContained": false,
               "readyToRun": false, "singleFile": true, "trim": true, "symbols": "separate", "profiler": false, "configuration": "Debug",
@@ -34,7 +35,9 @@ public sealed class ExportPresetFormatTests
     {
         var s = Parse(Sample);
 
-        Assert.Equal(5, s.ExportPresets.Count);
+        Assert.Equal(6, s.ExportPresets.Count);
+        Assert.True(s.ExportPresets[4].Desktop.NativeAot); // G19 phase 4
+        Assert.False(s.ExportPresets[3].Desktop.NativeAot);
         var windows = s.ExportPresets[0];
         Assert.Equal(("Windows (Steam)", ExportPlatform.Windows, "export/windows"), (windows.Name, windows.Platform, windows.Output));
         Assert.Equal(("win-x64", true, false), (windows.Desktop.Rid, windows.Desktop.Steam, windows.Demo));
@@ -45,7 +48,7 @@ public sealed class ExportPresetFormatTests
         Assert.Equal(("com.example.mygame", "© 2026 Example", "Developer ID Application: Example (ABCDE12345)", "example-notary"),
             (mac.BundleId, mac.Copyright, mac.Sign, mac.NotaryProfile));
 
-        var server = s.ExportPresets[4];
+        var server = s.ExportPresets[5];
         Assert.False(server.Archive);
         Assert.Equal(["Assets/Scenes/**"], server.Include);
         Assert.Equal(["Assets/Audio/**"], server.Exclude);
@@ -64,6 +67,7 @@ public sealed class ExportPresetFormatTests
         var json = JsonNode.Parse(text)!;
         var linux = json["export"]![3]!.AsObject();
         Assert.Equal(["name", "platform", "rid", "output"], linux.Select(p => p.Key));
+        Assert.Equal(["name", "platform", "rid", "output", "nativeAot"], json["export"]![4]!.AsObject().Select(p => p.Key));
         Assert.DoesNotContain("\"archive\": true", text, StringComparison.Ordinal);
         Assert.DoesNotContain("\"configuration\": \"Release\"", text, StringComparison.Ordinal);
 

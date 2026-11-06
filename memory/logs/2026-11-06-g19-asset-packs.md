@@ -8,7 +8,7 @@ summary: >-
 # 2026-11-06: G19 phase 2, `.mfpak` asset packs
 
 Branch `feature/g19-asset-packs`. Plan: [G19 asset packs](../plans/2026-11-06-g19-asset-packs.md). Design:
-[Protected exports](../../docs/design/future/protected-exports.md) (phase 2 ticked, "Changes from the proposal,
+[Protected exports](../../docs/design/protected-exports.md) (phase 2 ticked, "Changes from the proposal,
 phase 2"), [Asset pipeline → Packs](../../docs/design/asset-pipeline.md#packs),
 [Game export → Packed content](../../docs/design/game-export.md#packed-content).
 

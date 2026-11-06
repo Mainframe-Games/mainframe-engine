@@ -3,7 +3,7 @@
 - **Date:** 2026-11-06
 - **Status:** accepted
 - **Milestone:** G19 (phase 2)
-- **Docs:** docs/design/asset-pipeline.md#packs, docs/design/future/protected-exports.md, [ADR 0239](0239-protected-exports.md)
+- **Docs:** docs/design/asset-pipeline.md#packs, docs/design/protected-exports.md, [ADR 0239](0239-protected-exports.md)
 
 ## Context
 

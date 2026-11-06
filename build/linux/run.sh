@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Run CI's Linux tests locally in Docker: an x86_64 ubuntu:24.04 container with lavapipe, the validation layers and
 # Xvfb (build/linux/Dockerfile), like the ci.yml build-test (ubuntu) and render-tests jobs.
-#   build/linux/run.sh [all|unit|render] [extra `dotnet test` args, e.g. --filter FullyQualifiedName~Editor]
+#   build/linux/run.sh [all|unit|render|aot] [extra `dotnet test` args, e.g. --filter FullyQualifiedName~Editor]
+# aot (G19 phase 4, not part of all): the template smoke with a NativeAOT export (NATIVE_AOT=1) and the opt-in
+# NativeAotExportHasNoManagedAssemblies test; artifacts/linux/template-smoke-aot holds the export log.
 # The working tree (tracked + untracked, not ignored; LFS content as checked out) is copied into a cached volume, built
 # Release with -warnaserror and tested. Every checkout shares that volume, one run at a time (a second run waits for the
 # first). Results land in artifacts/linux/: TestResults/*.trx and render-tests/ (frames without a lavapipe golden under
@@ -21,7 +23,7 @@ fi
 
 suite="${1:-all}"
 shift || true
-case "$suite" in all|unit|render) ;; *) echo "usage: $0 [all|unit|render] [dotnet test args...]" >&2; exit 2 ;; esac
+case "$suite" in all|unit|render|aot) ;; *) echo "usage: $0 [all|unit|render|aot] [dotnet test args...]" >&2; exit 2 ;; esac
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 image="mainframe-linux-tests"

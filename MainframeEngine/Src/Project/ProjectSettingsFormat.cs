@@ -592,6 +592,8 @@ public static class ProjectSettingsFormat
                     w.WriteBoolean("singleFile", true);
                 if (desktop.Trim)
                     w.WriteBoolean("trim", true);
+                if (desktop.NativeAot)
+                    w.WriteBoolean("nativeAot", true);
                 if (desktop.Symbols == ExportSymbols.Separate)
                     w.WriteString("symbols", "separate");
                 if (!desktop.Profiler)
@@ -986,7 +988,7 @@ public static class ProjectSettingsFormat
         private static readonly string[] CommonExportKeys =
             ["name", "platform", "output", "configuration", "demo", "version", "icon", "archive", "include", "exclude", "pack", "encrypt", "loose"];
 
-        private static readonly string[] DesktopExportKeys = ["rid", "steam", "exe", "selfContained", "readyToRun", "singleFile", "trim", "symbols", "profiler"];
+        private static readonly string[] DesktopExportKeys = ["rid", "steam", "exe", "selfContained", "readyToRun", "singleFile", "trim", "nativeAot", "symbols", "profiler"];
 
         private static readonly string[] MacOsExportKeys = ["bundleId", "copyright", "sign", "notaryProfile"];
 
@@ -1045,6 +1047,7 @@ public static class ProjectSettingsFormat
                 desktop.ReadyToRun = Bool(o, "readyToRun", where + ".readyToRun", true);
                 desktop.SingleFile = Bool(o, "singleFile", where + ".singleFile", false);
                 desktop.Trim = Bool(o, "trim", where + ".trim", false);
+                desktop.NativeAot = Bool(o, "nativeAot", where + ".nativeAot", false);
                 desktop.Profiler = Bool(o, "profiler", where + ".profiler", true);
                 if (String(o, "symbols", where + ".symbols") is { } symbols)
                 {

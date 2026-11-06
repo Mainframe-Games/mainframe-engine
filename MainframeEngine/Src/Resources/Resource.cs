@@ -15,8 +15,14 @@ namespace MainframeEngine;
 /// <see cref="OnUnloaded"/> when the last reference goes; GPU-backed resources release their objects there.
 /// </remarks>
 [EditorIcon("package", Family = EditorIconFamily.Resource)]
+// Tweens animate resource properties by name (materials' colours): trimming keeps them on every resource type (ADR 0259).
+[System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties)]
 public abstract class Resource
 {
+    /// <summary><see cref="object.GetType"/> with the public properties trimming keeps of resource types (tweens).</summary>
+    [return: System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties)]
+    internal Type ReflectedType() => GetType();
+
     private int _referenceCount;
 
     /// <summary>Optional display name (shown by the editor).</summary>

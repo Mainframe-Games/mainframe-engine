@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Reflection;
 
@@ -606,7 +607,7 @@ public sealed class PropertyTweener : Tweener
     internal PropertyTweener(Tween tween, object target, string property, object finalValue, double duration) : base(tween)
     {
         _target = new WeakReference<object>(target);
-        _path = TweenPropertyPath.Parse(target.GetType(), property);
+        _path = TweenPropertyPath.Parse(TweenPropertyPath.TypeOf(target), property);
         _initial = _path.Get(target);
         _baseFinal = TweenValues.Coerce(finalValue, _initial);
         _final = _baseFinal;
@@ -844,7 +845,27 @@ internal sealed class TweenPropertyPath
         _component = component;
     }
 
-    public static TweenPropertyPath Parse(Type type, string path)
+    /// <summary>
+    /// The type whose public properties a tween looks up: nodes and resources keep theirs under trimming and NativeAOT
+    /// (their types are annotated). Other objects keep the properties the game itself uses; a property trimming removed
+    /// fails in <see cref="Parse"/> with the property's name.
+    /// </summary>
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)]
+    public static Type TypeOf(object target)
+    {
+        if (target is Node node)
+            return node.ReflectedType();
+        if (target is Resource resource)
+            return resource.ReflectedType();
+        return OtherType(target);
+    }
+
+    [UnconditionalSuppressMessage("Trimming", "IL2073", Justification =
+        "Tweening a plain C# object reads the properties its own code keeps; a trimmed one fails in Parse with its name (docs/design/protected-exports.md#nativeaot-phase-4).")]
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)]
+    private static Type OtherType(object target) => target.GetType();
+
+    public static TweenPropertyPath Parse([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, string path)
     {
         var colon = path.IndexOf(':', StringComparison.Ordinal);
         var name = colon < 0 ? path : path[..colon];
@@ -903,10 +924,14 @@ internal static class TweenValues
         Vector2 v => [v.X, v.Y],
         Vector3 v => [v.X, v.Y, v.Z],
         Vector4 v => [v.X, v.Y, v.Z, v.W],
+        Color c => [c.R, c.G, c.B, c.A],
+        Quaternion q => [q.X, q.Y, q.Z, q.W],
         _ => FieldsOf(value),
     };
 
-    // Game structs (a Godot Color or Vector2 port): their public float fields in declaration order.
+    // Game structs (a Godot Vector2 port, …): their public float fields in declaration order. Under trimming and NativeAOT
+    // a struct's fields are kept only when its own code uses them; a struct with none left throws NotSupportedException.
+    [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Game structs keep the fields their code uses; none left throws NotSupportedException naming the type.")]
     private static float[] FieldsOf(object value)
     {
         var fields = value.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance).Where(f => f.FieldType == typeof(float)).ToArray();
@@ -929,6 +954,18 @@ internal static class TweenValues
             return new Vector3(c[0], c[1], c[2]);
         if (type == typeof(Vector4))
             return new Vector4(c[0], c[1], c[2], c.Length > 3 ? c[3] : 1f);
+        if (type == typeof(Color))
+            return new Color(c[0], c[1], c[2], c.Length > 3 ? c[3] : 1f);
+        if (type == typeof(Quaternion))
+            return new Quaternion(c[0], c[1], c[2], c.Length > 3 ? c[3] : 1f);
+        return FieldsInto(c, type);
+    }
+
+    // Game structs, as FieldsOf: a value type always has a default instance, and its fields are those its code kept.
+    [UnconditionalSuppressMessage("Trimming", "IL2067", Justification = "A tweened value type was boxed, so it exists; Activator creates its default value.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2070", Justification = "Game structs keep the fields their code uses, as FieldsOf.")]
+    private static object FieldsInto(float[] c, Type type)
+    {
         var boxed = Activator.CreateInstance(type)!;
         var fields = type.GetFields(BindingFlags.Public | BindingFlags.Instance).Where(f => f.FieldType == typeof(float)).ToArray();
         for (var i = 0; i < fields.Length && i < c.Length; i++)

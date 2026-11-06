@@ -200,4 +200,62 @@ public static class SymbolCollector
 
         return count;
     }
+
+    /// <summary>
+    /// Copies the native symbols of a NativeAOT publish (G19 phase 4, ADR 0260) into <paramref name="outputDirectory"/>:
+    /// <c>&lt;assembly&gt;.dSYM</c> (macOS), <c>&lt;assembly&gt;.dbg</c> (Linux) or <c>&lt;assembly&gt;.pdb</c> with the executable
+    /// <paramref name="executableFile"/> (Windows: symbolizers find the PDB through the executable's debug directory).
+    /// <paramref name="move"/> also deletes them from the publish. Returns how many symbol files (or bundles) were collected.
+    /// </summary>
+    public static int CollectNative(string publishDirectory, string outputDirectory, string assemblyName, string executableFile, bool move)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(publishDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(assemblyName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(executableFile);
+        Directory.CreateDirectory(outputDirectory);
+        var count = 0;
+        var dsym = Path.Combine(publishDirectory, assemblyName + ".dSYM");
+        if (Directory.Exists(dsym))
+        {
+            CopyDirectory(dsym, Path.Combine(outputDirectory, assemblyName + ".dSYM"));
+            if (move)
+                Directory.Delete(dsym, recursive: true);
+            count++;
+        }
+
+        var dbg = Path.Combine(publishDirectory, assemblyName + ".dbg");
+        if (File.Exists(dbg))
+        {
+            File.Copy(dbg, Path.Combine(outputDirectory, assemblyName + ".dbg"), overwrite: true);
+            if (move)
+                File.Delete(dbg);
+            count++;
+        }
+
+        var pdb = Path.Combine(publishDirectory, assemblyName + ".pdb");
+        if (File.Exists(pdb))
+        {
+            File.Copy(pdb, Path.Combine(outputDirectory, assemblyName + ".pdb"), overwrite: true);
+            var executable = Path.Combine(publishDirectory, executableFile);
+            if (File.Exists(executable))
+                File.Copy(executable, Path.Combine(outputDirectory, executableFile), overwrite: true);
+            if (move)
+                File.Delete(pdb);
+            count++;
+        }
+
+        return count;
+    }
+
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var to = Path.Combine(target, Path.GetRelativePath(source, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            File.Copy(file, to, overwrite: true);
+        }
+    }
 }

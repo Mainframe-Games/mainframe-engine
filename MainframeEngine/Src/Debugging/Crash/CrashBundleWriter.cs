@@ -223,11 +223,19 @@ internal sealed class CrashBundleWriter
 
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026",
         Justification = "Method metadata may be missing in trimmed builds: the frame then keeps DiagnosticMethodInfo's names.")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("SingleFile", "IL3002",
+        Justification = "Module.Name is \"<Unknown>\" in a single-file app; the frame keeps its method name and MVID.")]
     private CrashFrame DescribeFrame(StackFrame frame)
     {
         var result = new CrashFrame();
         try
         {
+            if (!System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
+            {
+                DescribeNativeFrame(frame, result);
+                return result;
+            }
+
             var il = frame.GetILOffset();
             if (il != StackFrame.OFFSET_UNKNOWN)
                 result.IlOffset = il;
@@ -259,6 +267,46 @@ internal sealed class CrashBundleWriter
         }
 
         return result;
+    }
+
+    // NativeAOT (ADR 0260): no IL or metadata tokens, but an address in the executable, which the native symbols map to a
+    // line. The address is recorded first: naming the method may fail where trimming removed its metadata.
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026",
+        Justification = "Only names a method DiagnosticMethodInfo could not; trimmed metadata leaves the name empty, the address stays.")]
+    private void DescribeNativeFrame(StackFrame frame, CrashFrame result)
+    {
+        if (frame.HasNativeImage())
+        {
+            var imageBase = frame.GetNativeImageBase();
+            result.NativeOffset = "0x" + ((ulong)(frame.GetNativeIP() - imageBase)).ToString("x", System.Globalization.CultureInfo.InvariantCulture);
+            result.NativeImage = Path.GetFileName(Environment.ProcessPath);
+            result.NativeImageId = ImageIdOf(imageBase);
+        }
+
+        if (DiagnosticMethodInfo.Create(frame) is { } info)
+        {
+            result.Method = info.DeclaringTypeName is { Length: > 0 } type ? $"{type}.{info.Name}" : info.Name;
+            result.Module = info.DeclaringAssemblyName;
+        }
+        else if (frame.GetMethod() is { } method)
+        {
+            result.Method = MethodName(method);
+        }
+    }
+
+    private nint _imageBase;
+    private string? _imageId;
+
+    // One image (the executable) holds every NativeAOT frame: its id is read once.
+    private string? ImageIdOf(nint imageBase)
+    {
+        if (imageBase != _imageBase)
+        {
+            _imageBase = imageBase;
+            _imageId = NativeImageId.FromMemory(imageBase);
+        }
+
+        return _imageId;
     }
 
     private static string MethodName(MethodBase method)

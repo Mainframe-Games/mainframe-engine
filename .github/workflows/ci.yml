@@ -444,6 +444,79 @@ jobs:
             ${{ runner.temp }}/demo-smoke/*.png
           if-no-files-found: warn
 
+  native-aot:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    # G19 phase 4 (ADR 0259): NativeAOT doesn't cross-compile, so one job per OS exports the template game with
+    # "nativeAot": true for its own RID (Steam on, symbols separate), checks it has no managed assemblies and its native
+    # symbols are in the symbols zip, and runs it --headless from its encrypted pack: the opt-in
+    # NativeAotExportHasNoManagedAssemblies (MAINFRAME_NATIVE_AOT_TESTS=1). Headless needs no GPU or display.
+    name: native-aot (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      # The engine's content goes into the game's pack; tests, docs images and the examples are not needed.
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: List LFS objects
+        shell: bash
+        run: git lfs ls-files -l --exclude="docs/images/*.png,docs/images/demo/**,Examples/**,Tests/**" | cut -d' ' -f1 | sort > .lfs-assets-id
+
+      - name: Cache LFS objects
+        uses: actions/cache@v4
+        with:
+          path: .git/lfs
+          key: lfs-native-aot-${{ runner.os }}-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-native-aot-${{ runner.os }}-
+
+      - name: Fetch LFS objects
+        shell: bash
+        run: git lfs pull --exclude="docs/images/*.png,docs/images/demo/**,Examples/**,Tests/**"
+
+      - run: git submodule update --init --depth 1 Plugins/Spine
+
+      # ILC links with the platform toolchain: clang + zlib on Linux (as build/linux/Dockerfile), Xcode's on macOS, MSVC
+      # (the runner's Visual Studio C++ workload) on Windows.
+      - name: Install clang and zlib (NativeAOT link)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+          clang --version | head -1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-aot-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', 'global.json') }}
+          restore-keys: nuget-aot-${{ runner.os }}-
+
+      - name: NativeAOT export of the template game
+        env:
+          MAINFRAME_NATIVE_AOT_TESTS: "1"
+        run: >-
+          dotnet test Tests/MainframeEngine.Editor.Tests -c Release -p:CompileShaders=false
+          --filter "FullyQualifiedName~NativeAotExportHasNoManagedAssemblies"
+          --logger "trx;LogFileName=native-aot.trx" --logger "console;verbosity=normal"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-aot-${{ matrix.os }}
+          path: TestResults/**/*.trx
+          if-no-files-found: warn
+
   workflow:
     # The Mainframe workflow's check (.agents/workflow.md). Always runs: docs-only changes are what add its documents.
     runs-on: ubuntu-24.04
@@ -472,7 +545,7 @@ jobs:
   ci-success:
     # The single required status check (repo ruleset). Do not rename. Skipped jobs pass only on a docs-only change.
     if: always()
-    needs: [changes, build-test, format, shaders, render-tests, template, workflow]
+    needs: [changes, build-test, format, shaders, render-tests, template, native-aot, workflow]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

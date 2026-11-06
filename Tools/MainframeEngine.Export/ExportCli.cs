@@ -71,7 +71,7 @@ public static class ExportCli
         mf-export --project <dir> --init-pack-key                        save a pack key into a project that has none
         mf-export <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v] [--bundle-id id]
                   [--copyright text] [--icon icon.png] [--sign "Developer ID Application: …"] [--notarize profile]
-                  [--demo] [--steam] [--symbols ship|separate] [--configuration Release|Debug] [--folder]
+                  [--demo] [--steam] [--symbols ship|separate] [--configuration Release|Debug] [--folder] [--native-aot]
                                                                          the old package-game.sh arguments
         Editor: MainframeEngine.Editor --project <dir> (--export-release "<preset>" [<out>] | --export-debug "<preset>" [<out>] | --export-all)
         Exit codes: 0 exported, 1 a preset failed, 2 usage or validation error.
@@ -241,6 +241,9 @@ public static class ExportCli
                     break;
                 case "--steam":
                     desktop.Steam = true;
+                    break;
+                case "--native-aot":
+                    desktop.NativeAot = true;
                     break;
                 case "--folder":
                     preset.Archive = false;

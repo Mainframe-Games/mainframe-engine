@@ -16,12 +16,15 @@
     there in a self-contained app) and calls hostfxr_main_startupinfo, as for any app path with a directory in it.
     No symlink is involved, so a copy that dereferences symlinks (some archivers, depot uploaders) still starts.
 
+    A NativeAOT publish (PublishAot) has no apphost and no app .dll: its executable starts from Contents/MacOS and takes
+    ../MonoBundle as its base directory itself (GameHost, ADR 0259), so this step is skipped.
+
     Only the published apphost changes (obj/ and bin/ keep the stock one), so a published folder with this apphost only
     starts from inside a bundle. Off unless MacBundleAppDirectory is set; build/package-game.sh sets it for osx RIDs, and
     the editor's project sets it for its release publish.
   -->
   <Target Name="_MacBundleAppHost" AfterTargets="Publish" DependsOnTargets="_GetAppHostPaths;_GetAppHostCreationConfiguration"
-          Condition="'$(MacBundleAppDirectory)' != '' and $(RuntimeIdentifier.StartsWith('osx')) and '$(UseAppHost)' == 'true' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true'">
+          Condition="'$(MacBundleAppDirectory)' != '' and '$(PublishAot)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and '$(UseAppHost)' == 'true' and ('$(OutputType)' == 'Exe' or '$(OutputType)' == 'WinExe') and '$(IsTestProject)' != 'true'">
     <Error Condition="'$(AppHostSourcePath)' == '' or !Exists('$(AppHostSourcePath)')" Text="No apphost for $(RuntimeIdentifier) ('$(AppHostSourcePath)'): cannot write the bundle apphost." />
     <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)"
                    AppHostDestinationPath="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PublishDir)', '$(AssemblyName)'))"

@@ -1,7 +1,7 @@
 # Plan: Content file system (G19 phase 1)
 
 **Status:** done (2026-11-04)
-**Docs:** [Proposal: Protected exports](../../docs/design/future/protected-exports.md) (accepted 2026-11-04; "Content
+**Docs:** [Proposal: Protected exports](../../docs/design/protected-exports.md) (accepted 2026-11-04; "Content
 file system (phase 1)", phase 1 scenarios and task list), [ADR 0239](../decisions/0239-protected-exports.md),
 [Mobile → platform layer](../../docs/design/future/mobile.md#platform-layer-and-project-structure) (`IContentFileSystem`),
 [Asset pipeline](../../docs/design/asset-pipeline.md), [Testing](../../docs/design/testing.md)

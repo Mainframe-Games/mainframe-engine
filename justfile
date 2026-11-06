@@ -195,6 +195,15 @@ neon-city-art *args:
 template-smoke frames="30":
     build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}
 
+# The same with a NativeAOT export (G19 phase 4): one native executable, no managed assemblies, run headless. In Linux
+# Docker: just template-smoke-aot-linux
+template-smoke-aot frames="30":
+    NATIVE_AOT=1 build/template-smoke.sh "{{artifacts / "template-smoke-aot"}}" {{frames}}
+
+# The NativeAOT template smoke and export test in Linux Docker (x86_64 ubuntu:24.04 with clang; artifacts/linux)
+template-smoke-aot-linux *args:
+    build/linux/run.sh aot {{args}}
+
 # G19 packed export smoke: the Demo's scenes from its Release build vs its packed export (Assets.mfpak), compared with
 # ImageMagick (artifacts/export-smoke; macOS needs the display awake)
 export-smoke frames="120" threshold="0.01":

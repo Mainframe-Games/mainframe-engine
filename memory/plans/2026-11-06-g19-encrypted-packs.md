@@ -1,7 +1,7 @@
 # Plan: G19 phase 3, encrypted packs
 
 **Status:** done
-**Docs:** [Protected exports](../../docs/design/future/protected-exports.md) (§ Encryption (phase 3), Scenarios → Phase 3),
+**Docs:** [Protected exports](../../docs/design/protected-exports.md) (§ Encryption (phase 3), Scenarios → Phase 3),
 [ADR 0239](../decisions/0239-protected-exports.md), [ADR 0240](../decisions/0240-committed-pack-key.md),
 [Asset pipeline → Packs](../../docs/design/asset-pipeline.md#packs)
 **Started:** 2026-11-06

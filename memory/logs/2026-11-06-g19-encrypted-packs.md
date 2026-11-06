@@ -9,7 +9,7 @@ summary: >-
 
 Branch `feature/g19-encrypted-packs`, on top of `feature/g19-asset-packs` (PR #178). Plan:
 [G19 encrypted packs](../plans/2026-11-06-g19-encrypted-packs.md). Design:
-[Protected exports](../../docs/design/future/protected-exports.md) (phase 3 ticked, "Changes from the proposal, phase 3"),
+[Protected exports](../../docs/design/protected-exports.md) (phase 3 ticked, "Changes from the proposal, phase 3"),
 [Asset pipeline → Packs](../../docs/design/asset-pipeline.md#packs), [Game export → Packed content](../../docs/design/game-export.md#packed-content).
 
 ## What changed

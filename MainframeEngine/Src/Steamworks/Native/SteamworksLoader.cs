@@ -25,6 +25,13 @@ internal static class SteamworksLoader
     /// <summary>Path of this OS's shim assembly.</summary>
     public static string ShimPath => Path.Combine(Directory, ShimAssemblyName + ".dll");
 
+    /// <summary>
+    /// Whether the shim can be used: a NativeAOT build has it compiled into the executable (MainframeGame.props, ADR 0259);
+    /// a JIT build needs <see cref="ShimPath"/> on disk.
+    /// </summary>
+    public static bool IsShimAvailable =>
+        !System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported || File.Exists(ShimPath); // disk-io: the shim assembly, beside the app
+
     /// <summary>Hooks the resolver once. Call before the first call into the shim (the <c>SteamApi</c> adapter's members).</summary>
     public static void Register()
     {
@@ -37,6 +44,9 @@ internal static class SteamworksLoader
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification =
+        "JIT builds load the shim, a whole assembly, from its folder. A NativeAOT build compiles this OS's shim into the executable " +
+        "(MainframeGame.props, ADR 0259), so the runtime never asks this resolver for it.")]
     private static Assembly? Resolve(AssemblyLoadContext context, AssemblyName name)
     {
         if (name.Name is not (ShimAssemblyName or "Facepunch.Steamworks.Win64" or "Facepunch.Steamworks.Posix"))

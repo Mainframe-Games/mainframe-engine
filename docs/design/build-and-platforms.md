@@ -36,7 +36,7 @@ its `mfgame` content, which CI's `template` job instantiates and builds (`just t
 
 | File | Role |
 |---|---|
-| [`global.json`](../../global.json) | Pins the .NET SDK to 10.0.401 (`rollForward: latestFeature`) |
+| [`global.json`](../../global.json) | Pins the .NET SDK to 10.0.403 (`rollForward: latestFeature`; at least 10.0.403 since G19 phase 4: the ILCompiler of 10.0.401 has a high-severity advisory, which fails a NativeAOT export) |
 | [`Directory.Build.props`](../../Directory.Build.props) | `LangVersion latest`, nullable, implicit usings, `TreatWarningsAsErrors`, `AnalysisLevel latest-recommended`, deterministic builds (`ContinuousIntegrationBuild` on CI), `Version 0.0.0-dev` (publish overrides with `-p:Version`), authors/company "Mainframe Games". Analyzer suppressions are listed here with their reason. |
 | [`Directory.Build.targets`](../../Directory.Build.targets) | Exempts the vendored `spine-csharp` (submodule) from warnings-as-errors, analyzers and nullable warnings |
 | [`Directory.Packages.props`](../../Directory.Packages.props) | Central package management: every version lives here; project files have no `Version` |

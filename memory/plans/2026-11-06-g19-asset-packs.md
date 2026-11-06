@@ -1,7 +1,7 @@
 # Plan: G19 phase 2, `.mfpak` asset packs
 
 **Status:** done
-**Docs:** [Protected exports](../../docs/design/future/protected-exports.md) (§ Pack format (phase 2), Content file system,
+**Docs:** [Protected exports](../../docs/design/protected-exports.md) (§ Pack format (phase 2), Content file system,
 Scenarios → Phase 2, Testing), [Game export](../../docs/design/game-export.md), [ADR 0239](../decisions/0239-protected-exports.md),
 [Asset pipeline → Content file system](../../docs/design/asset-pipeline.md)
 **Started:** 2026-11-06

@@ -43,6 +43,9 @@ public sealed class ExportFixture : IDisposable
     /// <summary>Steam files are left out of the fake publish (a broken publish).</summary>
     public bool OmitSteam { get; set; }
 
+    /// <summary>A NativeAOT fake publish also leaves a real managed assembly (the desktop project skipped MainframeGame.props).</summary>
+    public bool ManagedInNativeAotPublish { get; set; }
+
     public void Save() => Settings.Save(Root);
 
     public string PathOf(string relative) => Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));
@@ -111,6 +114,13 @@ public sealed class ExportFixture : IDisposable
         var output = args[args.ToList().IndexOf("-o") + 1];
         var rid = args[args.ToList().IndexOf("-r") + 1];
         Directory.CreateDirectory(output);
+        if (args.Contains("-p:MainframeNativeAot=true"))
+        {
+            WriteNativeAotPublish(output, rid);
+            onLine?.Invoke("  TinyGame.Desktop -> " + output);
+            return Task.FromResult(Ok());
+        }
+
         var apphost = rid.StartsWith("win", StringComparison.Ordinal) ? "TinyGame.Desktop.exe" : "TinyGame.Desktop";
         var apphostText = rid.StartsWith("osx", StringComparison.Ordinal) ? "apphost ../MonoBundle/TinyGame.Desktop.dll" : "apphost";
         File.WriteAllText(Path.Combine(output, apphost), apphostText);
@@ -136,6 +146,33 @@ public sealed class ExportFixture : IDisposable
         File.Copy(PathOf(ProjectSettings.FileName), Path.Combine(output, ProjectSettings.FileName));
         onLine?.Invoke("  TinyGame.Desktop -> " + output);
         return Task.FromResult(Ok());
+    }
+
+    // What a NativeAOT publish leaves (G19 phase 4): one native executable, the natives (steam_api beside it, no
+    // steamworks/ folder), the content, and the executable's native symbols.
+    private void WriteNativeAotPublish(string output, string rid)
+    {
+        var windows = rid.StartsWith("win", StringComparison.Ordinal);
+        File.WriteAllText(Path.Combine(output, windows ? "TinyGame.Desktop.exe" : "TinyGame.Desktop"), "native executable");
+        foreach (var f in (string[])["enet.dll", "mfrmlui.dll", "libenet.so", "libmfrmlui.so", "libenet.dylib", "libmfrmlui.dylib",
+                     "steam_api64.dll", "libsteam_api.so", "libsteam_api.dylib"])
+            File.WriteAllText(Path.Combine(output, f), f);
+        if (rid.StartsWith("osx", StringComparison.Ordinal))
+        {
+            var dwarf = Path.Combine(output, "TinyGame.Desktop.dSYM", "Contents", "Resources", "DWARF");
+            Directory.CreateDirectory(dwarf);
+            File.WriteAllText(Path.Combine(dwarf, "TinyGame.Desktop"), "dwarf");
+            File.WriteAllText(Path.Combine(output, "TinyGame.Desktop.dSYM", "Contents", "Info.plist"), "plist");
+        }
+        else
+        {
+            File.WriteAllText(Path.Combine(output, windows ? "TinyGame.Desktop.pdb" : "TinyGame.Desktop.dbg"), "native symbols");
+        }
+
+        if (ManagedInNativeAotPublish)
+            File.Copy(typeof(ExportFixture).Assembly.Location, Path.Combine(output, "TinyGame.dll"));
+        CopyDirectory(PathOf("Assets"), Path.Combine(output, "Assets"));
+        File.Copy(PathOf(ProjectSettings.FileName), Path.Combine(output, ProjectSettings.FileName));
     }
 
     private static ProcessResult Ok() => new(0, [], TimeSpan.Zero, false, false, null);

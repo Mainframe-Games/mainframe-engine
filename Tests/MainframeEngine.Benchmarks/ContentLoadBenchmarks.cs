@@ -7,7 +7,7 @@ namespace MainframeEngine.Benchmarks;
 /// Content loads through <see cref="ContentFiles"/> from loose files, a mounted <c>Assets.mfpak</c> (G19 phase 2) and an
 /// encrypted one (phase 3):
 /// a 200 KB scene's text (Brotli in a pack), a 512² PNG decode (stored) and a UI document. A pack must not load more than
-/// 10 % slower than loose files (docs/design/future/protected-exports.md#testing; compare on the baseline machine).
+/// 10 % slower than loose files (docs/design/protected-exports.md#testing; compare on the baseline machine).
 /// </summary>
 [MemoryDiagnoser]
 public class ContentLoadBenchmarks : IDisposable

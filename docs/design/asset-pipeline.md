@@ -112,7 +112,9 @@ tests and `ContentLoadBenchmarks` use it.
   per read. There is no authentication tag (tamper resistance is a non-goal). The header's 16-byte key check is the
   first keystream block of a fixed nonce, so `PackReader.Open` throws `PackKeyException` (`PackKeyMissing`,
   `PackKeyMismatch`) at open. Nonces come from content, so a stable key keeps packs byte-identical and a change to one
-  asset changes only its entry's bytes and the index.
+  asset changes only its entry's bytes and the index. The key reaches the game through a generated module initializer
+  of the game assembly; in a [`nativeAot`](game-export.md#nativeaot) export (G19 phase 4) that is machine code, not IL,
+  and the module initializer still runs before `GameHost` mounts the pack.
 - **Codecs.** Media that is already compressed or is streamed with seeks (`.ogg`, `.wav`, `.mp3`, `.flac`, `.opus`,
   `.png`, `.jpg`, `.webp`, `.ktx2`, video, `.zip`) is stored 16 KB aligned. Everything else is Brotli (quality 9, window
   22) when that saves at least 1/16 of the file, else stored. Stored entries are read straight from the pack; Brotli

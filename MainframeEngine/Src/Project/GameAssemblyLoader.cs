@@ -22,6 +22,7 @@ namespace MainframeEngine;
 /// Scenes naming a type the new build no longer has load as <see cref="MissingNode"/>, keeping its data.</para>
 /// <para>Not thread-safe: use from one thread (the editor's main thread).</para>
 /// </remarks>
+[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Loads a game assembly at run time (the editor's code reload), which a trimmed or NativeAOT game never does.")]
 public sealed class GameAssemblyLoader : IDisposable
 {
     private GameLoadContext? _context;
@@ -213,6 +214,7 @@ public sealed class GameAssemblyLoader : IDisposable
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Loads game assemblies at run time (the editor's code reload).")]
     private sealed class GameLoadContext(string mainAssemblyPath, string name) : AssemblyLoadContext(name, isCollectible: true)
     {
         private readonly AssemblyDependencyResolver? _resolver = CreateResolver(mainAssemblyPath);
