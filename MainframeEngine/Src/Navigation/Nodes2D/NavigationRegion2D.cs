@@ -106,7 +106,8 @@ public class NavigationRegion2D : Node2D
     /// <summary>
     /// Bakes the navigation polygon from the scene (<see cref="NavigationPolygonBaker2D"/>: the outlines or baking
     /// rectangle, minus the parsed obstructions, offset by the agent radius) into <see cref="NavigationPolygon"/>, which
-    /// is created when missing. Main thread; the region must be in the tree. Returns false (and logs) on failure.
+    /// is created when missing. Main thread. The group source modes need the tree; the default (the region's descendants)
+    /// also bakes a scene being built in code. Returns false (and logs) on failure.
     /// </summary>
     public bool Bake()
     {
@@ -134,9 +135,9 @@ public class NavigationRegion2D : Node2D
             return null;
         }
 
-        if (!IsInsideTree)
+        if (!IsInsideTree && _polygon.SourceGeometryMode != NavigationSourceGeometryMode.RootNodeChildren)
         {
-            error = "the region is not in the tree";
+            error = "the region is not in the tree (the group modes read the tree's groups)";
             return null;
         }
 

@@ -9,7 +9,8 @@ namespace Demo;
 /// of the cell it stands in divides its speed. Chasers are on collision layer 2 and scan only layer 1 (walls), so they
 /// pass through each other — unless their agents avoid (G3.7): then the body hands its velocity to
 /// <see cref="NavigationAgent2D.SetVelocity"/> and slides by the safe velocity <see cref="NavigationAgent2D.VelocityComputed"/>
-/// returns after the physics step, steering round the other chasers and the patrolling boulder.
+/// returns after the physics step, steering round the other chasers and the patrolling boulder. On a navigation mesh
+/// (G3.9) it hops across the links its path takes.
 /// </summary>
 public sealed class NavChaser : CharacterBody2D
 {
@@ -37,8 +38,14 @@ public sealed class NavChaser : CharacterBody2D
         _agent = GetNodeOrNull<NavigationAgent2D>("Agent");
         _grid = Parent?.Parent?.GetNodeOrNull<NavigationGrid2D>("Grid");
         if (_agent is { } agent)
+        {
             agent.VelocityComputed += OnVelocityComputed;
+            agent.LinkReached += OnLinkReached;
+        }
     }
+
+    // G3.9: a navigation link (the Navigation Mesh 2D scene's ferries) is crossed in one hop.
+    private void OnLinkReached(NavigationLinkReached2D link) => GlobalPosition = link.ExitPosition;
 
     private void OnVelocityComputed(Vector2 safe)
     {

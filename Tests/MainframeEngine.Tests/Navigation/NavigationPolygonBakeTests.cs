@@ -170,7 +170,7 @@ public sealed class NavigationPolygonBakeTests
     }
 
     [Fact]
-    public void ABakeNeedsOutlinesOrARectangleAndTheTree()
+    public void ABakeNeedsOutlinesOrARectangleAndGroupModesTheTree()
     {
         using var h = new NavigationHarness();
         var region = h.Add(new NavigationRegion2D { Name = "Region" });
@@ -179,9 +179,15 @@ public sealed class NavigationPolygonBakeTests
         Assert.Null(region.BakeData(out var error));
         Assert.Contains("no outlines", error);
 
-        var detached = new NavigationRegion2D { NavigationPolygon = new NavigationPolygon { BakingRect = new Rect2(0, 0, 10, 10) } };
+        var detached = new NavigationRegion2D { NavigationPolygon = new NavigationPolygon { BakingRect = new Rect2(0, 0, 100, 100), AgentRadius = 0f } };
+        var wall = new StaticBody2D { Position = new Vector2(50, 50) };
+        wall.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(10, 10) } });
+        detached.AddChild(wall);
+        Assert.Equal(10_000f - 100f, detached.BakeData(out error)!.Value.Polygons.Sum(p => Area(detached.BakeData(out _)!.Value.Vertices, p)));
+        detached.NavigationPolygon.SourceGeometryMode = NavigationSourceGeometryMode.GroupsWithChildren;
         Assert.Null(detached.BakeData(out error));
         Assert.Contains("not in the tree", error);
+        detached.Free();
 
         var finished = 0;
         region.BakeFinished += () => finished++;
