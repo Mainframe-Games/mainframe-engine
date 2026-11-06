@@ -5,7 +5,7 @@ namespace MainframeEngine;
 /// <see cref="World2D"/>. Registered by the engine right after <see cref="PhysicsServer2D"/> (so its fixed step runs after
 /// the physics step) and by <see cref="HeadlessHost"/>; unit tests get one from <see cref="For"/>. Maps sync after every
 /// fixed step, or in <see cref="Process"/> on frames without one (edit mode, a paused tree); <see cref="Process"/> also
-/// debug-draws. Navigation never calls Box2D: bakes read collision through <see cref="PhysicsDirectSpaceState2D"/>.
+/// debug-draws. After each fixed step's sync it runs avoidance (G3.7) per map. Navigation never calls Box2D: bakes read collision through <see cref="PhysicsDirectSpaceState2D"/>.
 /// </summary>
 public sealed class NavigationServer2D : IFixedStepServer, IFrameServer
 {
@@ -63,6 +63,9 @@ public sealed class NavigationServer2D : IFixedStepServer, IFrameServer
         for (var i = 0; i < _mapList.Count; i++)
             _mapList[i].Sync();
         _syncedThisFrame = true;
+        // G3.7: avoidance after every map synced (an agent's signal handler may move its body or set a new target).
+        for (var i = 0; i < _mapList.Count; i++)
+            _mapList[i].StepAvoidance(delta);
     }
 
     /// <summary>Per frame: syncs maps when no fixed step did; releases maps of worlds that left the tree; debug draws.</summary>
@@ -116,5 +119,6 @@ internal static class NavigationMarkers
     public static readonly ProfilerMarker Sync = new("Navigation sync", ProfilerCategory.Engine, ProfilerMarkerKind.Cpu, "", 0);
     public static readonly ProfilerMarker Query = new("Navigation query", ProfilerCategory.Engine, ProfilerMarkerKind.Cpu, "", 0);
     public static readonly ProfilerMarker Bake = new("Navigation bake", ProfilerCategory.Loading, ProfilerMarkerKind.Cpu, "", 0);
+    public static readonly ProfilerMarker Avoidance = new("Navigation avoidance", ProfilerCategory.Engine, ProfilerMarkerKind.Cpu, "", 0);
     public static readonly ProfilerMarker DebugDraw = new("Navigation debug draw", ProfilerCategory.Render, ProfilerMarkerKind.Cpu, "", 0);
 }

@@ -85,8 +85,63 @@ public class NavigationAgent2D : Node
     /// <summary>The path ended: the target was reached, or the last point of a path to an unreachable target (once).</summary>
     [Signal] public event Action? NavigationFinished;
 
-    /// <summary>The velocity to move with, raised by <see cref="SetVelocity"/> (the same velocity until avoidance, G3.7).</summary>
+    /// <summary>
+    /// The velocity to move with: with <see cref="AvoidanceEnabled"/>, the safe velocity the server computed from the one
+    /// given to <see cref="SetVelocity"/>, raised after the physics step of the same tick (before the next tick's
+    /// <see cref="Node.OnPhysicsProcess"/>); without avoidance, that velocity at once.
+    /// </summary>
     [Signal] public event Action<Vector2>? VelocityComputed;
+
+    /// <summary>
+    /// Local avoidance (G3.7, ORCA): <see cref="SetVelocity"/> hands the preferred velocity to the server, and
+    /// <see cref="VelocityComputed"/> returns a velocity that keeps <see cref="Radius"/> clear of other agents and
+    /// obstacles for the time horizons. Godot's default: off.
+    /// </summary>
+    [ExportGroup("Avoidance")]
+    [Export]
+    public bool AvoidanceEnabled { get; set; }
+
+    /// <summary>The agent's avoidance radius (pixels; Godot's 10).</summary>
+    [Export(Range = "0.1,500,0.1")]
+    public float Radius { get; set; } = 10f;
+
+    /// <summary>Other agents and radius obstacles within this distance (centre to centre) are considered (Godot's 500 px).</summary>
+    [Export(Range = "0.1,100000,0.1")]
+    public float NeighborDistance { get; set; } = 500f;
+
+    /// <summary>At most this many of the nearest neighbours are considered (Godot's 10).</summary>
+    [Export(Range = "1,10000,1")]
+    public int MaxNeighbors { get; set; } = 10;
+
+    /// <summary>How far ahead (seconds) the agent avoids other agents (Godot's 1).</summary>
+    [Export(Range = "0.01,10,0.01")]
+    public float TimeHorizonAgents { get; set; } = 1f;
+
+    /// <summary>
+    /// How far ahead (seconds) it avoids obstacle polygons (0.5; Godot's default 0 would divide by zero in ORCA's obstacle
+    /// lines, so the floor is 0.01).
+    /// </summary>
+    [Export(Range = "0.01,10,0.01")]
+    public float TimeHorizonObstacles { get; set; } = 0.5f;
+
+    /// <summary>The safe velocity's speed limit (pixels per second; Godot's 100).</summary>
+    [Export(Range = "0.01,100000,0.01")]
+    public float MaxSpeed { get; set; } = 100f;
+
+    /// <summary>The avoidance layers this agent is on (others with a matching mask avoid it).</summary>
+    [Export(Flags = true)]
+    public uint AvoidanceLayers { get; set; } = 1;
+
+    /// <summary>The avoidance layers of the agents and obstacles this agent avoids.</summary>
+    [Export(Flags = true)]
+    public uint AvoidanceMask { get; set; } = 1;
+
+    /// <summary>
+    /// 0–1 (Godot's 1): an agent ignores agents of lower priority, which then make way for it alone (equal priorities
+    /// share the avoidance half and half).
+    /// </summary>
+    [Export(Range = "0,1,0.001")]
+    public float AvoidancePriority { get; set; } = 1f;
 
     /// <summary>The map the agent navigates (its parent's world's; null outside the tree).</summary>
     public NavigationMap2D? Map => _map;
@@ -139,8 +194,39 @@ public class NavigationAgent2D : Node
         _lastWaypointReached = false;
     }
 
-    /// <summary>Raises <see cref="VelocityComputed"/> with <paramref name="velocity"/> (pass-through until avoidance, G3.7).</summary>
-    public void SetVelocity(Vector2 velocity) => VelocityComputed?.Invoke(velocity);
+    /// <summary>
+    /// The velocity the parent wants to move with this tick (call it from <see cref="Node.OnPhysicsProcess"/>). With
+    /// <see cref="AvoidanceEnabled"/> in a tree it is submitted to the server, which raises <see cref="VelocityComputed"/>
+    /// with the safe velocity after the physics step; an agent that submits nothing in a tick stands still for the others
+    /// and gets no signal. Otherwise <see cref="VelocityComputed"/> is raised now with <paramref name="velocity"/>.
+    /// </summary>
+    public void SetVelocity(Vector2 velocity)
+    {
+        if (!AvoidanceEnabled || _map is null)
+        {
+            VelocityComputed?.Invoke(velocity);
+            return;
+        }
+
+        SubmittedVelocity = velocity;
+        VelocitySubmitted = true;
+    }
+
+    /// <summary>
+    /// Replaces the velocity the other agents predict this one with (ORCA's current velocity: the last safe velocity),
+    /// for example after a teleport or a knock-back. Godot's <c>set_velocity_forced</c>.
+    /// </summary>
+    public void SetVelocityForced(Vector2 velocity) => SafeVelocity = velocity;
+
+    /// <summary>The last safe velocity the server computed (zero while not avoiding).</summary>
+    public Vector2 SafeVelocity { get; internal set; }
+
+    /// <summary>The velocity last given to <see cref="SetVelocity"/> with avoidance on.</summary>
+    public Vector2 SubmittedVelocity { get; private set; }
+
+    internal bool VelocitySubmitted { get; set; }
+
+    internal void DispatchSafeVelocity() => VelocityComputed?.Invoke(SafeVelocity);
 
     protected override void OnEnterTree()
     {
@@ -153,6 +239,8 @@ public class NavigationAgent2D : Node
     {
         _map?.RemoveAgent(this);
         _map = null;
+        VelocitySubmitted = false;
+        SafeVelocity = Vector2.Zero;
         base.OnExitTree();
     }
 

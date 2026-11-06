@@ -117,7 +117,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   A*, jump point search, span queries, 0 B, deterministic), `AStar2D`/`AStar3D`, `NavigationServer2D` (one map per
   `World2D`, synced after each fixed step), `Nodes2D/` (`NavigationGrid2D` + `NavigationGridData`, `NavigationAgent2D`),
   `Baking/` (`INavigationGridBaker` seam, the physics baker through queries only, `TileMapLayerBaker`: live grids from a
-  `TileMapLayer`, G3.6); see `docs/design/navigation.md`
+  `TileMapLayer`, G3.6), `Avoidance/` (G3.7, ADR 0250: `Orca2D`, an RVO2 port under Apache-2.0 with
+  `LICENSE-RVO2.txt`, and the per-map `AvoidanceSimulation2D`) with `Nodes2D/NavigationObstacle2D`; see `docs/design/navigation.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform, value, bezier, method, audio and event tracks; cubic, transitions),
   `AnimationLibrary`, `AnimationPlayer` (ADRs 0207, 0244), `PropertyBinding`/`AnimationValueOps` (typed property writes),
   `[AnimationMethod]` (generated invokers, MFG011);

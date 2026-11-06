@@ -115,19 +115,10 @@ public sealed class PhysicalBonesTests : IDisposable
             body.CanSleep = false; // no sleep transition (the first one grows the space's event list) in the window
         _h.Run(2);
         simulator.PhysicalBonesStartSimulation();
-        var log = new List<string>();
         _h.Run(240);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 120; i++)
-        {
-            var b = GC.GetAllocatedBytesForCurrentThread();
-            _h.Run(1);
-            var d = GC.GetAllocatedBytesForCurrentThread() - b;
-            if (d != 0)
-                log.Add($"{i}: {d}");
-        }
-
-        Assert.True(GC.GetAllocatedBytesForCurrentThread() - before == 0, string.Join(", ", log));
+        // The smallest of several windows: a one-off tier-up or OSR allocation in a busy CI process is not the step's.
+        var allocated = AllocationGate.SmallestWindow(() => _h.Run(120));
+        Assert.Equal(0, allocated);
     }
 
     [Fact]

@@ -78,6 +78,65 @@ public sealed class NavigationAllocationTests
     }
 
     [Fact]
+    public void SixtyFourAvoidingAgentsWithMovingObstaclesAllocateNothing()
+    {
+        // G3.7: the same level with every agent avoiding (paths, ORCA, VelocityComputed), four radius obstacles orbiting,
+        // a polygon obstacle sliding to and fro, and the debug draw on.
+        using var h = new NavigationHarness(physics: false);
+        h.Navigation.DebugDrawEnabled = true;
+        Level(h);
+        var bodies = new Avoider2D[64];
+        for (var i = 0; i < bodies.Length; i++)
+        {
+            bodies[i] = h.AddAvoider(new Vector2(8 + i % 8 * 16 * 15 % (Size * 16), 8 + i / 8 * 250), default, radius: 6f, name: $"Avoider{i}");
+            bodies[i].FollowPath = true;
+            bodies[i].Speed = bodies[i].Agent.MaxSpeed = 300f;
+        }
+
+        var movers = new Mover2D[5];
+        for (var i = 0; i < 4; i++)
+            movers[i] = h.Add(new Mover2D { Name = $"Mover{i}", Radius = 12f });
+        movers[4] = h.Add(new Mover2D { Name = "Slider", Vertices = [new(-30, -10), new(30, -10), new(30, 10), new(-30, 10)] });
+
+        h.Run(1);
+        foreach (var body in bodies)
+            body.Agent.TargetRepathDistance = 160f;
+
+        var tick = 0;
+        void Tick()
+        {
+            for (var i = 0; i < bodies.Length; i++)
+            {
+                var angle = (tick % 300) / 300f * MathF.Tau + i;
+                bodies[i].Agent.TargetPosition = new Vector2(1024, 1024) + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (300f + i * 9f);
+            }
+
+            for (var i = 0; i < 4; i++)
+            {
+                var angle = tick / 120f * MathF.Tau + i * 1.5f;
+                movers[i].Position = new Vector2(1024, 1024) + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 400f;
+                movers[i].Velocity = new Vector2(-MathF.Sin(angle), MathF.Cos(angle)) * 400f * MathF.Tau / 2f;
+            }
+
+            movers[4].Velocity = new Vector2(tick % 200 < 100 ? 120f : -120f, 0f);
+            h.Run(1);
+            h.Tree.Root.DebugLines.Clear(); // the renderer's job
+            tick++;
+        }
+
+        for (var i = 0; i < 600; i++)
+            Tick(); // warm-up: avoidance moves the bodies off the 300-tick cycle, so paths keep growing for longer
+        var allocated = AllocationGate.SmallestWindow(() =>
+        {
+            for (var i = 0; i < 300; i++)
+                Tick();
+        });
+        Assert.Equal(0, allocated);
+        Assert.True(h.Map.Avoidance!.EntityCount == 68, $"{h.Map.Avoidance.EntityCount} entities");
+        Assert.Contains(bodies, b => b.Agent.SafeVelocity != Vector2.Zero);
+    }
+
+    [Fact]
     public void GridQueriesAllocateNothing()
     {
         var grid = AStarGridOptimalityTests.Maze();
