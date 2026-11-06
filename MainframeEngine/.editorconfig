@@ -1,10 +1,7 @@
-# Trim and AOT analysis (EnableTrimAnalyzer/EnableAotAnalyzer in MainframeEngine.csproj) is enforced only where the
-# engine promises AOT safety to games: the save API (docs/design/project-and-gamehost.md#save-games). The rest of the
-# engine is not trim-clean yet (reflection over game types), so its trim and AOT diagnostics stay off.
+# Trim and AOT analysis (IsAotCompatible in MainframeEngine.csproj): the engine is trim- and NativeAOT-clean (G19 phase
+# 4, ADR 0259), so every trim, single-file and AOT diagnostic is an error. Reflection over runtime types says what it
+# needs with [DynamicallyAccessedMembers]; a suppression names why the warning cannot happen.
 [*.cs]
-dotnet_analyzer_diagnostic.category-Trimming.severity = none
-dotnet_analyzer_diagnostic.category-AOT.severity = none
-
-[Src/Saves/**.cs]
 dotnet_analyzer_diagnostic.category-Trimming.severity = error
 dotnet_analyzer_diagnostic.category-AOT.severity = error
+dotnet_analyzer_diagnostic.category-SingleFile.severity = error

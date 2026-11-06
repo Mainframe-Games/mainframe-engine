@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Silk.NET.SDL;
 using Silk.NET.Windowing;
@@ -42,6 +43,13 @@ internal sealed class SdlEventBatch : IEnumerable<Event>, IEnumerator<Event>
     /// Swaps the view's <c>EventReceived</c> handler for the allocation-free one, or returns null (not an SDL view, or
     /// Silk's internals are not where this expects them).
     /// </summary>
+    // Trimming and NativeAOT (ADR 0259): the dependencies keep the Silk members read below; their types are only known at
+    // run time (window.GetType()), so the analyzer cannot see that.
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.NonPublicFields,
+        "Silk.NET.Windowing.Sdl.SdlView", "Silk.NET.Windowing.Sdl")]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicEvents | DynamicallyAccessedMemberTypes.NonPublicEvents | DynamicallyAccessedMemberTypes.NonPublicFields,
+        "Silk.NET.Windowing.Sdl.SdlPlatform", "Silk.NET.Windowing.Sdl")]
+    [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "The DynamicDependency attributes keep SdlView's and SdlPlatform's members; when they move, this logs a warning and Silk stays as it is.")]
     public static SdlEventBatch? TryInstall(IView window)
     {
         if (!SdlWindowing.IsViewSdl(window))
@@ -77,6 +85,7 @@ internal sealed class SdlEventBatch : IEnumerable<Event>, IEnumerator<Event>
         }
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2070", Justification = "Walks Silk's view types, whose methods TryInstall's DynamicDependency keeps.")]
     private static Type? FindDeclaring(Type? type, string method)
     {
         for (; type is not null; type = type.BaseType)
@@ -89,6 +98,7 @@ internal sealed class SdlEventBatch : IEnumerable<Event>, IEnumerator<Event>
     }
 
     // The event's backing field (a field-like event); null when it cannot be read.
+    [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "SdlPlatform's event field is kept by TryInstall's DynamicDependency.")]
     private static bool? Subscribed(object platform, EventInfo info, Delegate handler)
     {
         var field = platform.GetType().GetField(info.Name, BindingFlags.Instance | BindingFlags.NonPublic);

@@ -128,7 +128,7 @@ public sealed class AutoExposureScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(40f, 40f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 150, 140, 120) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 150, 140, 120) },
         });
         for (var i = 0; i < 3; i++)
         {
@@ -138,7 +138,7 @@ public sealed class AutoExposureScene(HostOptions host) : RenderTestGame(host)
                 Position = new Vector3(-2f + 2f * i, 0.5f, -i * 0.5f),
                 RotationDegrees = new Vector3(0f, 20f * i, 0f),
                 Mesh = new BoxMesh(),
-                MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 200, 80 + 50 * i, 60) },
+                MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 200, 80 + 50 * i, 60) },
             });
         }
 

@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-04
 - **Status:** accepted
-- **Docs:** docs/design/future/protected-exports.md (G19), docs/design/game-export.md,
+- **Docs:** docs/design/protected-exports.md (G19), docs/design/game-export.md,
   docs/design/future/mobile.md#asset-pipeline
 
 ## Context

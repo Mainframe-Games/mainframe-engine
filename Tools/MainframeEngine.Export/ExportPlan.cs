@@ -177,23 +177,28 @@ public sealed class ExportPlan
         if (DesktopProject is null)
             throw new InvalidOperationException("The project has no desktop project to publish.");
         var o = Desktop;
-        var args = new List<string>
+        List<string> args = ["publish", DesktopProject, "-c", Configuration, "-r", Rid];
+        if (o.NativeAot)
         {
-            "publish", DesktopProject, "-c", Configuration, "-r", Rid, "--self-contained", Bool(o.SelfContained),
-            $"-p:MainframeDemo={Bool(Preset.Demo)}",
-            $"-p:PublishReadyToRun={Bool(o.ReadyToRun)}",
-            $"-p:PublishSingleFile={Bool(o.SingleFile)}",
-            $"-p:PublishTrimmed={Bool(o.Trim)}",
-        };
-        if (o.SingleFile)
-            args.Add("-p:IncludeNativeLibrariesForSelfExtract=true");
+            // One native executable (ADR 0259): always self-contained and trimmed; ReadyToRun and single file do not
+            // apply (PublishTrimmed=false would even be an error). MainframeGame.props turns this into PublishAot.
+            args.AddRange(["--self-contained", "true", $"-p:MainframeDemo={Bool(Preset.Demo)}", $"-p:{NativeAotProperty}=true"]);
+        }
+        else
+        {
+            args.AddRange(["--self-contained", Bool(o.SelfContained), $"-p:MainframeDemo={Bool(Preset.Demo)}",
+                $"-p:PublishReadyToRun={Bool(o.ReadyToRun)}", $"-p:PublishSingleFile={Bool(o.SingleFile)}", $"-p:PublishTrimmed={Bool(o.Trim)}"]);
+            if (o.SingleFile)
+                args.Add("-p:IncludeNativeLibrariesForSelfExtract=true");
+        }
+
         if (!o.Profiler)
             args.Add("-p:MainframeProfilerDisabled=true"); // MainframeGame.props: the Profiler.Disabled AppContext switch
         // Windows: a GUI-subsystem exe (no console window behind the game); macOS: an apphost that starts the app from
         // Contents/MonoBundle (build/MainframeGame.props, BundleAppHost.targets).
         if (Platform == ExportPlatform.Windows)
             args.Add("-p:MainframeWindowsGui=true");
-        if (Platform == ExportPlatform.MacOS)
+        if (Platform == ExportPlatform.MacOS && !o.NativeAot)
             args.Add($"-p:MacBundleAppDirectory={AppBundleWriter.AppDirectory}");
         if (ico is not null)
             args.Add($"-p:ApplicationIcon={ico}");
@@ -203,8 +208,16 @@ public sealed class ExportPlan
         return args;
     }
 
+    /// <summary>The build property <c>MainframeGame.props</c> turns into <c>PublishAot</c> for the game's projects (ADR 0259).</summary>
+    public const string NativeAotProperty = "MainframeNativeAot";
+
+    /// <summary>Whether this export is one NativeAOT executable (the preset's <c>nativeAot</c>).</summary>
+    public bool NativeAot => Desktop.NativeAot;
+
     /// <summary>The executables of the publish (relative, '/'), which archives mark executable.</summary>
-    public IReadOnlySet<string> Executables() => new HashSet<string>(StringComparer.Ordinal) { ExecutableFile, "createdump" };
+    public IReadOnlySet<string> Executables() => NativeAot
+        ? new HashSet<string>(StringComparer.Ordinal) { ExecutableFile }
+        : new HashSet<string>(StringComparer.Ordinal) { ExecutableFile, "createdump" };
 
     private static string Bool(bool value) => value ? "true" : "false";
 }

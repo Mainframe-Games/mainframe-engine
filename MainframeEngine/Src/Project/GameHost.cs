@@ -223,6 +223,7 @@ public class GameHost : Engine
     public static int Run(string[] args, params Assembly[] gameAssemblies)
     {
         ArgumentNullException.ThrowIfNull(args);
+        NativeAppBundle.Apply(); // a NativeAOT executable in a macOS bundle: Contents/MonoBundle is its base directory (ADR 0259)
         GameHostOptions options;
         try
         {

@@ -12,7 +12,7 @@ public sealed class VertexColorsScene(HostOptions host) : MeshSceneBase(host)
 {
     protected override void Build(Node3D scene)
     {
-        var white = new StandardMaterial3D { Specular = 0.2f };
+        var white = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, Specular = 0.2f };
 
         scene.AddChild(new MeshInstance3D
         {
@@ -153,7 +153,7 @@ public sealed class MultiMeshScene(HostOptions host) : MeshSceneBase(host)
 
         var multimesh = new MultiMesh
         {
-            Mesh = new BoxMesh { Size = Vector3.One, Material = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 220, 160, 90) } },
+            Mesh = new BoxMesh { Size = Vector3.One, Material = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 220, 160, 90) } },
             InstanceCount = Count,
         };
         multimesh.SetTransforms(transforms);
@@ -169,7 +169,7 @@ public sealed class MultiMeshScene(HostOptions host) : MeshSceneBase(host)
             Name = "Spheres",
             Multimesh = spheres,
             Position = new Vector3(0, 2.5f, 5f),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 90, 160, 230) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 90, 160, 230) },
         };
         scene.AddChild(_partial);
 
@@ -178,7 +178,7 @@ public sealed class MultiMeshScene(HostOptions host) : MeshSceneBase(host)
         {
             Name = "Hidden",
             Mesh = new SphereMesh { Radius = 1f, Height = 2f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.Red },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.Red },
             Position = new Vector3(4f, 3.5f, 4f),
             VisibilityRangeEnd = 10f,
         });
@@ -186,7 +186,7 @@ public sealed class MultiMeshScene(HostOptions host) : MeshSceneBase(host)
         {
             Name = "Shown",
             Mesh = new SphereMesh { Radius = 1f, Height = 2f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 60, 200, 80) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 60, 200, 80) },
             Position = new Vector3(-4f, 3.5f, 4f),
             VisibilityRangeBegin = 10f,
             VisibilityRangeEnd = 1000f,

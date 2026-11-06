@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-04
 - **Status:** accepted
-- **Docs:** docs/design/future/protected-exports.md#encryption-phase-3, [ADR 0239](0239-protected-exports.md)
+- **Docs:** docs/design/protected-exports.md#encryption-phase-3, [ADR 0239](0239-protected-exports.md)
 
 ## Context
 

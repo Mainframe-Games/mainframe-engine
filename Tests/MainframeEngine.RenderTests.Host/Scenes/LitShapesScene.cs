@@ -48,7 +48,7 @@ public class LitShapesScene(HostOptions host) : RenderTestGame(host)
             Name = "SpinningBox",
             Position = new Vector3(-1.5f, 1f, 0),
             Mesh = box,
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 230, 120, 80) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 230, 120, 80) },
         };
         scene.AddChild(_spinningBox);
         scene.AddChild(new MeshInstance3D
@@ -56,7 +56,7 @@ public class LitShapesScene(HostOptions host) : RenderTestGame(host)
             Name = "Box",
             Position = new Vector3(1.5f, 0.5f, 1f),
             Mesh = box,
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 90, 160, 230) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 90, 160, 230) },
         });
 
         AddLights(scene);

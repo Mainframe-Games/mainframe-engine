@@ -59,6 +59,13 @@ Light/shadow limits live only in `MainframeEngine/Assets/Shaders/limits.json` (t
 `ContentPaths.Resolve` first), never `File`/`Directory` or a working-directory-relative path: exports serve it from a pack, and
 `ContentIoAuditTests` fails on a direct read (a read that must see the disk says why with `// disk-io:`).
 
+The engine is trim- and NativeAOT-clean (G19 phase 4, ADR 0259): `IsAotCompatible`, and `MainframeEngine/.editorconfig`
+makes every trim, single-file and AOT diagnostic an error. Reflection over a runtime type says what it needs with
+`[DynamicallyAccessedMembers]` (`Node` keeps the methods and public properties of every node type, `Resource` its public
+properties); a suppression says why the warning cannot happen. Games export with `"nativeAot": true` through
+`-p:MainframeNativeAot=true` (`build/MainframeGame.props`: `PublishAot` for game projects, the Steamworks shim compiled in
+with `build/steamworks/*.rd.xml`); `just template-smoke-aot`, `just template-smoke-aot-linux`.
+
 Every file extension the engine, editor, video library or tools define starts with `.mf` (`.mfscene`, `.mfres`,
 `.mfmeta`, …; ADR 0249, `docs/design/asset-pipeline.md#file-extensions`). Add new ones to `FileExtensions`;
 `FileExtensionRuleTests` fails on an extension constant without the prefix. The legacy names (`.mscene`, `.mres`,
@@ -105,7 +112,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `Rendering/Resources/Mesh.cs`, `Rendering/Meshes/LodSelection.cs`, authored `_LODn` import in
   `Resources/Import/ModelLods.cs`), forward decals (ADR 0246: `Scene/Nodes3D/Decal.cs`, `Rendering/Meshes/DecalSelection.cs`
   and `DecalAtlas.cs`, `Assets/Shaders/include/decals.slang`, set 0 bindings 8 and 9), `.hdr` sky panoramas
-  (`Rendering/Sky/HdrImage.cs`)
+  (`Rendering/Sky/HdrImage.cs`); generated LODs through meshoptimizer (ADR 0256: `Rendering/Meshes/MeshSimplifier.cs`,
+  `ModelLods.Generate`, the `mfmeshopt` shim in `Native/MeshOpt`); PBR is the default shading (ADR 0255:
+  `StandardMaterial3D` v2, `.mfmeta` `format` 2)
 - Particles (ADR 0206): `Scene/Particles/` (`ParticleProcessMaterial`, shared 2D/3D; `ParticleSimulation3D`, CPU),
   `Scene/Nodes3D/GpuParticles3D.cs`, `Rendering/Particles/` (`ParticleRenderer`, its own pipelines, not `MeshRenderer`);
   see `docs/design/particles-3d.md`
@@ -219,15 +228,17 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   fades, speed and captions) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
-  (presets in `project.mfproj`, publish, macOS bundle/signing, archives; replaces `package-game.sh`; ADRs 0229/0230);
-  `Tools/MainframeEngine.Symbolicate/` — `mf-symbolicate` for crash reports (G15)
+  (presets in `project.mfproj`, publish, macOS bundle/signing, archives, `nativeAot`; replaces `package-game.sh`; ADRs
+  0229/0230, 0259); `Tools/MainframeEngine.Symbolicate/` — `mf-symbolicate` for crash reports (G15; NativeAOT frames through
+  `NativeSymbols`/`NativeSymbolizer` and `llvm-symbolizer`/`atos`/`addr2line`, ADR 0260)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Plugins/Facepunch.Steamworks/` — Facepunch.Steamworks 2.4.1 Win64/Posix builds (vendored, do not modify; Valve's
   matching `steam_api` natives are in `MainframeEngine/runtimes/<rid>/native`)
 - `Tests/` — shared test assets (`Tests/Content`: showcase fixture scene, glTF/Spine/sky/audio, render-test catalogs), unit tests (engine, editor, video), render tests (+ host, editor smoke; goldens per driver in
   `Tests/MainframeEngine.RenderTests/Goldens/{moltenvk,lavapipe}`), benchmarks (`baseline.json`), QA scripts
   (`Tests/QA`); see `docs/design/testing.md`
-- `Native/` — in-house native shims and their sources (`mfrmlui` over RmlUi + FreeType, ENet), built per platform by
+- `Native/` — in-house native shims and their sources (`mfrmlui` over RmlUi + FreeType, `mfsvg` over ThorVG, `mfmeshopt`
+  over meshoptimizer, ENet), built per platform by
   `.github/workflows/natives.yml`; the binaries are committed under `MainframeEngine/runtimes/<rid>/native`
   (`Native/natives.lock`, `docs/design/natives.md`)
 - `build/` — scripts shared by `justfile` and CI: `shaders.sh` (+ `Shaders.targets`), `Localization.targets`,
@@ -235,7 +246,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   environment), `macos/` (the dev `.app` bundles; release bundles: `BundleAppHost.targets` + `sign-app.sh`, the apphost
   alone in `Contents/MacOS` and the app in `Contents/MonoBundle`, `docs/design/release.md#macos-bundle-layout`),
   `editor-icons/`, `brand/`
-- `.github/workflows/` — `ci.yml` (build-test on 3 OSes, format, shaders, lavapipe render tests, template smoke;
+- `.github/workflows/` — `ci.yml` (build-test on 3 OSes, format, shaders, lavapipe render tests, template smoke, a NativeAOT export per OS;
   `ci-success` is the required check; docs-only PRs skip the heavy jobs, `build/ci-changes.sh`), `publish.yml` (releases), `natives.yml` (native shims), `docs.yml` (docs site → Pages after each release)
 - `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Assets/Brand/`
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem
@@ -439,5 +450,7 @@ These are not loaded automatically. Read them before starting work:
 - `memory/README.md`
 - `memory/context/current-state.md`
 - the newest files in `memory/logs/`
+- `just state-pending`: status changes merged since the last state sync, not yet in `current-state.md` or
+  `docs/milestones.md` (feature PRs never edit those two; `.agents/workflow.md#state-sync`)
 
 `memory/context/progress-log.md` is the older history. Read it for the background of a past change.

@@ -45,6 +45,7 @@ component_inputs() {
 		enet) echo "Native/CMakeLists.txt Native/ENet/CMakeLists.txt Native/ENet/exports.macos.txt Native/ENet/exports.linux.map" ;;
 		mfrmlui) echo "Native/CMakeLists.txt Native/RmlUi/CMakeLists.txt Native/RmlUi/include Native/RmlUi/shim" ;;
 		mfsvg) echo "Native/CMakeLists.txt Native/Svg/CMakeLists.txt Native/Svg/include Native/Svg/shim Native/Svg/thorvg" ;;
+		mfmeshopt) echo "Native/CMakeLists.txt Native/MeshOpt/CMakeLists.txt Native/MeshOpt/include Native/MeshOpt/shim" ;;
 		mfplughost) echo "Native/CMakeLists.txt Native/PluginHost/CMakeLists.txt Native/PluginHost/vst3.cmake Native/PluginHost/src" ;;
 		*) return 1 ;;
 	esac
@@ -55,6 +56,7 @@ component_submodules() {
 		enet) echo "Native/ENet/upstream" ;;
 		mfrmlui) echo "Native/RmlUi/external/RmlUi Native/RmlUi/external/freetype" ;;
 		mfsvg) echo "" ;;
+		mfmeshopt) echo "Native/MeshOpt/external/meshoptimizer" ;;
 		mfplughost) echo "Native/PluginHost/external/ogg Native/PluginHost/external/vorbis Native/PluginHost/external/vst3sdk Native/PluginHost/external/rtmidi" ;;
 		*) return 1 ;;
 	esac
@@ -83,6 +85,7 @@ component_of() {
 		enet.dll | libenet.so | libenet.dylib) echo enet ;;
 		mfrmlui.dll | libmfrmlui.so | libmfrmlui.dylib) echo mfrmlui ;;
 		mfsvg.dll | libmfsvg.so | libmfsvg.dylib) echo mfsvg ;;
+		mfmeshopt.dll | libmfmeshopt.so | libmfmeshopt.dylib) echo mfmeshopt ;;
 		mfplughost | mfplughost.exe) echo mfplughost ;;
 		*) echo "" ;;
 	esac
@@ -116,10 +119,11 @@ cmd_update() {
 		esac
 	done
 
-	local enet_inputs mfrmlui_inputs mfsvg_inputs mfplughost_inputs
+	local enet_inputs mfrmlui_inputs mfsvg_inputs mfmeshopt_inputs mfplughost_inputs
 	enet_inputs="$(inputs_hash enet)"
 	mfrmlui_inputs="$(inputs_hash mfrmlui)"
 	mfsvg_inputs="$(inputs_hash mfsvg)"
+	mfmeshopt_inputs="$(inputs_hash mfmeshopt)"
 	mfplughost_inputs="$(inputs_hash mfplughost)"
 
 	local tmp
@@ -138,6 +142,8 @@ cmd_update() {
 		echo "component mfrmlui inputs $mfrmlui_inputs"
 		for sub in $(component_submodules mfrmlui); do echo "submodule mfrmlui $sub $(submodule_commit "$sub")"; done
 		echo "component mfsvg inputs $mfsvg_inputs"
+		echo "component mfmeshopt inputs $mfmeshopt_inputs"
+		for sub in $(component_submodules mfmeshopt); do echo "submodule mfmeshopt $sub $(submodule_commit "$sub")"; done
 		echo "component mfplughost inputs $mfplughost_inputs"
 		for sub in $(component_submodules mfplughost); do echo "submodule mfplughost $sub $(submodule_commit "$sub")"; done
 		echo
@@ -151,6 +157,7 @@ cmd_update() {
 			case "$component" in
 				enet) current="$enet_inputs" ;;
 				mfsvg) current="$mfsvg_inputs" ;;
+				mfmeshopt) current="$mfmeshopt_inputs" ;;
 				mfplughost) current="$mfplughost_inputs" ;;
 				*) current="$mfrmlui_inputs" ;;
 			esac
@@ -175,7 +182,7 @@ cmd_verify() {
 	fi
 
 	local component expected locked
-	for component in enet mfrmlui mfsvg mfplughost; do
+	for component in enet mfrmlui mfsvg mfmeshopt mfplughost; do
 		expected="$(inputs_hash "$component")"
 		locked="$(awk -v c="$component" '$1 == "component" && $2 == c { print $4 }' "$lock_file")"
 		if [[ "$expected" != "$locked" ]]; then

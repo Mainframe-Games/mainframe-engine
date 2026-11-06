@@ -45,14 +45,14 @@ public static class ShowcaseSceneBuilder
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(10, 10) },
-            MaterialOverride = new StandardMaterial3D { AlbedoTexture = checker, UvScale = new Vector2(5, 5), Specular = 0.1f },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoTexture = checker, UvScale = new Vector2(5, 5), Specular = 0.1f },
         });
         var box = new MeshInstance3D
         {
             Name = "Box",
             Position = new Vector3(3, 1, 0),
             Mesh = new BoxMesh(),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 230, 120, 80) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 230, 120, 80) },
         };
         Add(root, box);
         Add(root, new MeshInstance3D
@@ -62,6 +62,7 @@ public static class ShowcaseSceneBuilder
             Mesh = new SphereMesh { Radius = 0.6f, Height = 1.2f },
             MaterialOverride = new StandardMaterial3D
             {
+                ShadingMode = ShadingMode.BlinnPhong,
                 AlbedoColor = Color.FromArgb(110, 120, 180, 255),
                 Transparency = AlphaMode.Blend,
                 Specular = 1f,
@@ -86,7 +87,7 @@ public static class ShowcaseSceneBuilder
             Name = "Column",
             Position = new Vector3(-3.5f, 1f, -2.5f),
             Mesh = new CylinderMesh { TopRadius = 0.35f, BottomRadius = 0.45f, Height = 2f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 210, 205, 190), Specular = 0.5f, Shininess = 64f },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 210, 205, 190), Specular = 0.5f, Shininess = 64f },
         });
 
         var model = ResourceLoader.Load<PackedScene>(TestModelFolder + "/test_model.gltf");
@@ -184,9 +185,9 @@ public static class ShowcaseSceneBuilder
         var mesh = new BoxMesh { Size = new Vector3(0.5f) };
         StandardMaterial3D[] materials =
         [
-            new() { AlbedoColor = Color.FromArgb(255, 210, 140, 70) },
-            new() { AlbedoColor = Color.FromArgb(255, 180, 110, 60) },
-            new() { AlbedoColor = Color.FromArgb(255, 150, 95, 55) },
+            new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 210, 140, 70) },
+            new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 180, 110, 60) },
+            new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 150, 95, 55) },
         ];
         for (var i = 0; i < 9; i++)
         {

@@ -22,9 +22,11 @@
     },
     "StandardMaterial3D_qcml9": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "AlbedoColor": [0.27450982, 0.22745098, 0.1882353, 1],
-        "Specular": 0.05
+        "Specular": 0.05,
+        "ShadingMode": "BlinnPhong"
       }
     },
     "PlaneMesh_lbh01": {
@@ -35,9 +37,11 @@
     },
     "StandardMaterial3D_4mpbf": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "AlbedoColor": [0.28235295, 0.18039216, 0.11764706, 1],
-        "Specular": 0.05
+        "Specular": 0.05,
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_zeiuf": {
@@ -83,6 +87,7 @@
     },
     "StandardMaterial3D_sytdo": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "AlbedoTexture": { "res": "Texture2D_vqbxn" },
         "BlendMode": "Add",
@@ -120,6 +125,7 @@
     },
     "StandardMaterial3D_s197s": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "BlendMode": "Add",
         "VertexColorUseAsAlbedo": true,
@@ -156,6 +162,7 @@
     },
     "StandardMaterial3D_p8q36": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "BlendMode": "Add",
         "VertexColorUseAsAlbedo": true,
@@ -187,11 +194,13 @@
     },
     "StandardMaterial3D_gabmt": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "AlbedoTexture": { "res": "Texture2D_vqbxn" },
         "Transparency": "Blend",
         "VertexColorUseAsAlbedo": true,
-        "BillboardMode": "Particles"
+        "BillboardMode": "Particles",
+        "ShadingMode": "BlinnPhong"
       }
     },
     "ParticleProcessMaterial_zsgyh": {
@@ -216,6 +225,7 @@
     },
     "StandardMaterial3D_evwzu": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "Transparency": "Blend",
         "VertexColorUseAsAlbedo": true,

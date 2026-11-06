@@ -210,8 +210,15 @@ public sealed class DesktopExportOptions : IExportPlatformOptions
     /// <summary><c>-p:PublishSingleFile</c> with the natives self-extracted; <c>Assets/</c> and <c>project.mfproj</c> stay beside the exe.</summary>
     public bool SingleFile { get; set; }
 
-    /// <summary><c>-p:PublishTrimmed</c>: experimental until the engine is trim-clean (M12.6).</summary>
+    /// <summary><c>-p:PublishTrimmed</c> for a JIT build (experimental for game code; <see cref="NativeAot"/> always trims).</summary>
     public bool Trim { get; set; }
+
+    /// <summary>
+    /// Publish one native executable with NativeAOT (G19 phase 4, ADR 0259): no managed game or engine assembly ships.
+    /// Overrides <see cref="ReadyToRun"/>, <see cref="SingleFile"/>, <see cref="Trim"/> and <see cref="SelfContained"/>;
+    /// needs a host of the target's OS.
+    /// </summary>
+    public bool NativeAot { get; set; }
 
     /// <summary>Ship the PDBs (default) or put them in a separate symbols zip.</summary>
     public ExportSymbols Symbols { get; set; }
@@ -237,6 +244,7 @@ public sealed class DesktopExportOptions : IExportPlatformOptions
         ReadyToRun = ReadyToRun,
         SingleFile = SingleFile,
         Trim = Trim,
+        NativeAot = NativeAot,
         Symbols = Symbols,
         Profiler = Profiler,
         MacOs = MacOs?.Clone(),

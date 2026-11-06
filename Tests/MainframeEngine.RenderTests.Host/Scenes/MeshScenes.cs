@@ -36,7 +36,7 @@ public abstract class MeshSceneBase(HostOptions host) : RenderTestGame(host)
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(14, 14) },
-            MaterialOverride = new StandardMaterial3D { AlbedoTexture = checker, UvScale = new Vector2(7, 7), Specular = 0.1f },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoTexture = checker, UvScale = new Vector2(7, 7), Specular = 0.1f },
         });
 
         Build(Scene);
@@ -89,7 +89,7 @@ public sealed class MaterialsScene(HostOptions host) : MeshSceneBase(host)
             Position = new Vector3(-3f, 0.5f, 0),
             RotationDegrees = new Vector3(0, 25, 0),
             Mesh = box,
-            MaterialOverride = new StandardMaterial3D { AlbedoTexture = checker, AlbedoColor = Color.FromArgb(255, 255, 230, 200) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoTexture = checker, AlbedoColor = Color.FromArgb(255, 255, 230, 200) },
         });
 
         scene.AddChild(new MeshInstance3D
@@ -99,6 +99,7 @@ public sealed class MaterialsScene(HostOptions host) : MeshSceneBase(host)
             Mesh = new QuadMesh { Size = new Vector2(1.4f, 1.4f) },
             MaterialOverride = new StandardMaterial3D
             {
+                ShadingMode = ShadingMode.BlinnPhong,
                 AlbedoTexture = Texture2D.FromPixels(32, 32, Holes(32),
                     TextureImportSettings.Default with { Filter = TextureFilter.Nearest, Mipmaps = false }),
                 AlbedoColor = Color.FromArgb(255, 120, 220, 120),
@@ -114,6 +115,7 @@ public sealed class MaterialsScene(HostOptions host) : MeshSceneBase(host)
             Mesh = new SphereMesh { Radius = 0.7f, Height = 1.4f },
             MaterialOverride = new StandardMaterial3D
             {
+                ShadingMode = ShadingMode.BlinnPhong,
                 AlbedoColor = Color.FromArgb(255, 200, 200, 210),
                 NormalTexture = Texture2D.FromPixels(64, 64, Bumps(64)),
                 Specular = 0.6f,
@@ -144,7 +146,7 @@ public sealed class MaterialsScene(HostOptions host) : MeshSceneBase(host)
             Scale = new Vector3(-0.8f, 0.8f, 0.8f),
             RotationDegrees = new Vector3(0, -20, 0),
             Mesh = box,
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 90, 150, 230) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 90, 150, 230) },
         });
 
         scene.AddChild(new MeshInstance3D
@@ -152,7 +154,7 @@ public sealed class MaterialsScene(HostOptions host) : MeshSceneBase(host)
             Name = "Cylinder",
             Position = new Vector3(-2.2f, 0.5f, -2f),
             Mesh = new CylinderMesh { TopRadius = 0.3f, BottomRadius = 0.5f, Height = 1f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 200, 60, 60) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 200, 60, 60) },
         });
 
         scene.AddChild(new MeshInstance3D
@@ -162,6 +164,7 @@ public sealed class MaterialsScene(HostOptions host) : MeshSceneBase(host)
             Mesh = new SphereMesh { Radius = 0.5f, Height = 1f },
             MaterialOverride = new StandardMaterial3D
             {
+                ShadingMode = ShadingMode.BlinnPhong,
                 AlbedoColor = Color.FromArgb(110, 120, 180, 255),
                 Transparency = AlphaMode.Blend,
                 Specular = 1f,
@@ -249,7 +252,7 @@ public sealed class InstancesScene(HostOptions host) : MeshSceneBase(host)
     protected override void Build(Node3D scene)
     {
         var mesh = new BoxMesh { Size = new Vector3(0.35f) };
-        var material = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 220, 160, 90) };
+        var material = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 220, 160, 90) };
         var side = (int)MathF.Ceiling(MathF.Sqrt(Count));
         var spacing = 12f / side;
         var group = new Node3D { Name = "Boxes" };
@@ -325,7 +328,7 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
                 Name = $"Box{i}",
                 Position = new Vector3((i - 1) * 2f, 0.5f, 0),
                 Mesh = new BoxMesh(),
-                MaterialOverride = new StandardMaterial3D { AlbedoColor = colors[i] },
+                MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = colors[i] },
             };
             scene.AddChild(_boxes[i]);
         }
@@ -342,7 +345,7 @@ public sealed class PickingScene(HostOptions host) : MeshSceneBase(host)
         {
             Name = "PreviewSphere",
             Mesh = new SphereMesh(),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 240, 200, 80) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 240, 200, 80) },
         };
         _view.AddChild(_sphere);
         scene.AddChild(_view);
@@ -458,13 +461,14 @@ public sealed class OutlineScene(HostOptions host) : MeshSceneBase(host)
     {
         var highlight = new StandardMaterial3D
         {
+            ShadingMode = ShadingMode.BlinnPhong,
             AlbedoColor = Color.FromArgb(34, 0, 213, 214),
             Transparency = AlphaMode.Blend,
             EmissionColor = Color.FromArgb(255, 94, 228, 255),
             EmissionEnergy = 0.12f,
             NextPass = new OutlineMaterial3D { Color = Color.White, Width = 7f },
         };
-        var grey = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 150, 150, 160) };
+        var grey = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 150, 150, 160) };
 
         scene.AddChild(new MeshInstance3D
         {
@@ -487,7 +491,7 @@ public sealed class OutlineScene(HostOptions host) : MeshSceneBase(host)
             Position = new Vector3(0.2f, 0.5f, 0.3f),
             RotationDegrees = new Vector3(0, 30, 0),
             Mesh = new BoxMesh(),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 200, 120, 60) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 200, 120, 60) },
             MaterialOverlay = highlight,
         });
         scene.AddChild(new MeshInstance3D
@@ -497,6 +501,7 @@ public sealed class OutlineScene(HostOptions host) : MeshSceneBase(host)
             Mesh = new CapsuleMesh { Radius = 0.4f, Height = 2f },
             MaterialOverride = new StandardMaterial3D
             {
+                ShadingMode = ShadingMode.BlinnPhong,
                 AlbedoColor = Color.FromArgb(255, 90, 160, 90),
                 NextPass = new OutlineMaterial3D { Color = Color.FromArgb(255, 230, 40, 40), Width = 3f },
             },
@@ -527,7 +532,7 @@ public sealed class SubViewportCaptureScene(HostOptions host) : MeshSceneBase(ho
         {
             Name = "Ball",
             Mesh = new SphereMesh { Radius = 0.5f, Height = 1f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 220, 60, 60) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 220, 60, 60) },
         });
         scene.AddChild(_view);
     }

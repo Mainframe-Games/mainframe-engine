@@ -16,7 +16,7 @@ public sealed class PathMarkers3D : Node3D
         if (Parent is not Path3D { Curve: { } curve })
             return;
         var mesh = new BoxMesh { Size = new Vector3(0.12f) };
-        var material = new StandardMaterial3D { AlbedoColor = Color, EmissionColor = Color, EmissionEnergy = 0.6f };
+        var material = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color, EmissionColor = Color, EmissionEnergy = 0.6f };
         var length = curve.GetBakedLength();
         for (var d = 0f; d < length; d += Spacing)
             AddChild(new MeshInstance3D { Mesh = mesh, MaterialOverride = material, Position = curve.SampleBaked(d, cubic: true) });

@@ -15,6 +15,8 @@
     <!-- LibraryImport source generation (the steam_api flat calls Facepunch keeps internal, libc setenv). -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefineConstants>$(DefineConstants);STEAMWORKS_$(SteamworksPlatform.ToUpperInvariant())</DefineConstants>
+    <!-- A NativeAOT game compiles this OS's build into its executable (build/MainframeGame.props, ADR 0259). -->
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>

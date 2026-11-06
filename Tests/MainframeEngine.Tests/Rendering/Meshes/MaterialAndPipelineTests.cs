@@ -239,21 +239,21 @@ public sealed class MaterialAndPipelineTests
     public void PbrMaterialDefaultsFollowGodot()
     {
         var material = new StandardMaterial3D();
-        Assert.Equal(ShadingMode.BlinnPhong, material.ShadingMode); // the default keeps today's look (ADR 0150)
+        Assert.Equal(ShadingMode.Pbr, material.ShadingMode); // the default since ADR 0255
         Assert.Equal(0f, material.Metallic);
         Assert.Equal(1f, material.Roughness);
         Assert.Equal(1f, material.AmbientOcclusion);
         Assert.Null(material.OrmTexture);
 
         var p = MaterialParams.From(material, 0);
-        Assert.Equal(MaterialParams.ShadingBlinnPhong, p.Shading);
+        Assert.Equal(MaterialParams.ShadingPbr, p.Shading);
         Assert.Equal(new Vector4(0f, 1f, 1f, 0f), p.Pbr);
     }
 
     [Fact]
     public void PbrPropertiesBumpTheVersionAndPack()
     {
-        var material = new StandardMaterial3D();
+        var material = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong };
         var version = material.Version;
         var orm = Texture2D.FromPixels(1, 1, [255, 128, 0, 255]);
         material.ShadingMode = ShadingMode.Pbr;

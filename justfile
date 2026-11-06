@@ -195,6 +195,15 @@ neon-city-art *args:
 template-smoke frames="30":
     build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}
 
+# The same with a NativeAOT export (G19 phase 4): one native executable, no managed assemblies, run headless. In Linux
+# Docker: just template-smoke-aot-linux
+template-smoke-aot frames="30":
+    NATIVE_AOT=1 build/template-smoke.sh "{{artifacts / "template-smoke-aot"}}" {{frames}}
+
+# The NativeAOT template smoke and export test in Linux Docker (x86_64 ubuntu:24.04 with clang; artifacts/linux)
+template-smoke-aot-linux *args:
+    build/linux/run.sh aot {{args}}
+
 # G19 packed export smoke: the Demo's scenes from its Release build vs its packed export (Assets.mfpak), compared with
 # ImageMagick (artifacts/export-smoke; macOS needs the display awake)
 export-smoke frames="120" threshold="0.01":
@@ -329,6 +338,14 @@ l10n-engine:
 # Compile every .po to the committed .mo next to it (the build compiles them into the output itself)
 l10n-compile:
     {{l10n}} compile --dir {{l10n_dir}}
+
+# Status changes merged since the last state sync: each new log's "## State changes" (ADR 0280)
+state-pending:
+    bash build/state-pending.sh
+
+# Fail if this branch edits docs/milestones.md or memory/context/current-state.md outside a state sync (ADR 0280)
+state-guard *args:
+    bash build/state-guard.sh {{args}}
 
 # Fail if a committed .mo is stale or a translation breaks its placeholders (and compare with GNU msgfmt when installed)
 l10n-check:

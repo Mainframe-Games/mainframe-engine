@@ -139,7 +139,7 @@ public static class Paths3DScene
         Add(root, body, new MeshInstance3D { Name = "Mesh", Mesh = new BoxMesh { Size = size }, MaterialOverride = Material(color) });
     }
 
-    private static StandardMaterial3D Material(Color color) => new() { AlbedoColor = color };
+    private static StandardMaterial3D Material(Color color) => new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = color };
 }
 
 /// <summary>A camera that keeps looking at <see cref="Target"/> as its rail carries it.</summary>

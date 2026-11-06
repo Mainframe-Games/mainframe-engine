@@ -153,15 +153,17 @@ public readonly record struct MaterialRenderState(AlphaMode Alpha, CullMode Cull
 
 /// <summary>
 /// The engine's standard surface material: albedo colour × texture, optional tangent-space normal map, emission, alpha
-/// modes (opaque, cutout, blend), culling and double-sided lighting, shaded Blinn-Phong (the default: specular strength
-/// and shininess), unshaded, or PBR (<see cref="ShadingMode.Pbr"/>: metallic, roughness, ambient occlusion and an ORM
-/// texture, ADR 0150). Colours are authored in sRGB, like every colour in the engine, and converted to linear for the
-/// shader.
+/// modes (opaque, cutout, blend), culling and double-sided lighting, shaded PBR (the default since ADR 0255,
+/// <see cref="ShadingMode.Pbr"/>: metallic, roughness, ambient occlusion and an ORM texture, ADR 0150), Blinn-Phong
+/// (specular strength and shininess) or unshaded. Colours are authored in sRGB, like every colour in the engine, and
+/// converted to linear for the shader. Version 2: files written before (version 1) without a <see cref="ShadingMode"/>
+/// load as Blinn-Phong, the default they were written under.
 /// </summary>
 [EditorIcon("palette")]
+[SerializedVersion(2)]
 public sealed class StandardMaterial3D : Material
 {
-    /// <summary>The material used when a surface has none: white, lit, opaque.</summary>
+    /// <summary>The material used when a surface has none: white, lit (PBR), opaque.</summary>
     public static StandardMaterial3D Default { get; } = new() { ResourceName = "Default" };
 
     [ExportGroup("Albedo")]
@@ -435,6 +437,7 @@ public sealed class StandardMaterial3D : Material
         }
     }
 
+    /// <summary>The lighting model; <see cref="ShadingMode.Pbr"/> by default (ADR 0255).</summary>
     [ExportGroup("Rendering")]
     [Export]
     public ShadingMode ShadingMode
@@ -446,6 +449,17 @@ public sealed class StandardMaterial3D : Material
             field = value;
             Touch();
         }
+    } = ShadingMode.Pbr;
+
+    /// <summary>
+    /// Materials written before ADR 0255 (version 1) were Blinn-Phong unless they said otherwise, and omitted the default:
+    /// a missing <see cref="ShadingMode"/> becomes <see cref="ShadingMode.BlinnPhong"/>, which the next save writes.
+    /// </summary>
+    [SerializedMigration(1)]
+    internal static void KeepBlinnPhongDefault(Serialization.PropertyBag properties)
+    {
+        if (!properties.Contains(nameof(ShadingMode)))
+            properties.SetString(nameof(ShadingMode), nameof(ShadingMode.BlinnPhong));
     }
 
     [Export]

@@ -125,6 +125,7 @@ public static class ParticleFx
         DrawOrder = GpuParticles3D.DrawOrderEnum.ViewDepth,
         MaterialOverride = new StandardMaterial3D
         {
+            ShadingMode = ShadingMode.BlinnPhong,
             Transparency = AlphaMode.Blend,
             VertexColorUseAsAlbedo = true,
             BillboardMode = BillboardMode.Particles,
@@ -209,9 +210,9 @@ public sealed class ParticleCampfireScene(HostOptions host) : RenderTestGame(hos
         {
             Name = "Ground",
             Mesh = new PlaneMesh { Size = new Vector2(20f, 20f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 70, 58, 48), Specular = 0.05f },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 70, 58, 48), Specular = 0.05f },
         });
-        var bark = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 72, 46, 30), Specular = 0.05f };
+        var bark = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 72, 46, 30), Specular = 0.05f };
         scene.AddChild(new MeshInstance3D
         {
             Name = "LogA",

@@ -4,12 +4,11 @@
         <TargetFramework>net10.0</TargetFramework>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <!--
-          Trim and AOT analyzers (what IsAotCompatible turns on, without marking the assembly trimmable): .editorconfig
-          next to this file makes their diagnostics errors in Src/Saves (the save API must stay AOT-safe for games) and
-          silences them elsewhere, since the rest of the engine still reflects over game types.
+          Trim- and NativeAOT-clean (G19 phase 4, ADR 0259): IsAotCompatible marks the assembly trimmable and turns the
+          trim, single-file and AOT analyzers on; .editorconfig next to this file makes every one of their diagnostics an
+          error, so games can be exported with nativeAot.
         -->
-        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
     <!-- The MainframeEngine NuGet package (docs/design/distribution-nuget.md; layout under "Package contents" below). -->
@@ -185,6 +184,8 @@
       <None Include="..\docs\images\brand\png\logo-256.png" Pack="true" PackagePath="icon.png" Visible="false" />
       <None Include="..\build\package\MainframeEngine.props;..\build\package\MainframeEngine.targets;..\build\MainframeGame.props;..\build\Localization.targets"
             Pack="true" PackagePath="buildTransitive/" Visible="false" />
+      <None Include="..\build\steamworks\Facepunch.Steamworks.Posix.rd.xml;..\build\steamworks\Facepunch.Steamworks.Win64.rd.xml"
+            Pack="true" PackagePath="buildTransitive/steamworks/" Visible="false" />
       <None Include="..\build\macos\DevAppBundle.targets;..\build\macos\BundleAppHost.targets;..\build\macos\Info.plist.in;..\build\macos\png-to-icns.sh"
             Pack="true" PackagePath="buildTransitive/macos/" Visible="false" />
     </ItemGroup>
@@ -232,14 +233,14 @@
       </PropertyGroup>
       <ItemGroup>
         <_MainframeL10nFile Include="$(_MainframeL10nDir)*.dll;$(_MainframeL10nDir)mf-l10n.runtimeconfig.json"
-                            Exclude="$(_MainframeL10nDir)enet.dll;$(_MainframeL10nDir)mfrmlui.dll;$(_MainframeL10nDir)mfsvg.dll" />
+                            Exclude="$(_MainframeL10nDir)enet.dll;$(_MainframeL10nDir)mfrmlui.dll;$(_MainframeL10nDir)mfsvg.dll;$(_MainframeL10nDir)mfmeshopt.dll" />
         <TfmSpecificPackageFile Include="@(_MainframeGeneratorAssembly)" PackagePath="analyzers/dotnet/cs/%(Filename)%(Extension)" />
         <TfmSpecificPackageFile Include="@(_MainframeL10nFile)" PackagePath="tools/mf-l10n/%(Filename)%(Extension)" />
         <_MainframeExportFile Include="$(_MainframeExportDir)*.dll;$(_MainframeExportDir)mf-export.runtimeconfig.json"
-                              Exclude="$(_MainframeExportDir)enet.dll;$(_MainframeExportDir)mfrmlui.dll;$(_MainframeExportDir)mfsvg.dll;$(_MainframeExportDir)steam_api64.dll" />
+                              Exclude="$(_MainframeExportDir)enet.dll;$(_MainframeExportDir)mfrmlui.dll;$(_MainframeExportDir)mfsvg.dll;$(_MainframeExportDir)mfmeshopt.dll;$(_MainframeExportDir)steam_api64.dll" />
         <TfmSpecificPackageFile Include="@(_MainframeExportFile)" PackagePath="tools/mf-export/%(Filename)%(Extension)" />
         <_MainframeShadersFile Include="$(_MainframeShadersDir)*.dll;$(_MainframeShadersDir)mf-shaders.runtimeconfig.json"
-                               Exclude="$(_MainframeShadersDir)enet.dll;$(_MainframeShadersDir)mfrmlui.dll;$(_MainframeShadersDir)mfsvg.dll;$(_MainframeShadersDir)steam_api64.dll" />
+                               Exclude="$(_MainframeShadersDir)enet.dll;$(_MainframeShadersDir)mfrmlui.dll;$(_MainframeShadersDir)mfsvg.dll;$(_MainframeShadersDir)mfmeshopt.dll;$(_MainframeShadersDir)steam_api64.dll" />
         <TfmSpecificPackageFile Include="@(_MainframeShadersFile)" PackagePath="tools/mf-shaders/%(Filename)%(Extension)" />
         <_MainframeShaderInclude Include="Assets/Shaders/include/**/*.slang" />
         <TfmSpecificPackageFile Include="@(_MainframeShaderInclude)" PackagePath="mainframe/shaders/include/%(RecursiveDir)%(Filename)%(Extension)" />

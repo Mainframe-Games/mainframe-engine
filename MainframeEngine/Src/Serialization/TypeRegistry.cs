@@ -96,6 +96,8 @@ public static class TypeRegistry
         System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(assembly.ManifestModule.ModuleHandle);
     }
 
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", Justification =
+        "Only the referenced assemblies' names are compared; one trimming removed is never loaded, so it has nothing to register.")]
     private static void InitializeLoadedAssemblies()
     {
         var engine = typeof(Node).Assembly.GetName().Name;

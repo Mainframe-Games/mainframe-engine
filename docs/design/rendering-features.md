@@ -9,10 +9,10 @@ decals are documented here in full; the other parts have their own pages.
 
 | Part | Status | Documented in |
 |---|---|---|
-| G6.1 PBR (`ShadingMode.Pbr`, ORM, `OrmPacker`, PBR import) | ✅ ADR 0150 | [Lighting](lighting.md), [Materials & meshes](materials-and-meshes.md#standardmaterial3d), [Asset pipeline](asset-pipeline.md#pbr-materials-g61) |
-| G6.2 IBL (`SkyRadiance`, `BrdfLut`, `.hdr` panoramas, `Sky.RadianceSize`, `Sky.ProcessMode`) | ✅ ADR 0150; the default flip is owner-pending | [Sky](sky.md#image-based-lighting) |
+| G6.1 PBR (`ShadingMode.Pbr`, ORM, `OrmPacker`, PBR import; the default shading since ADR 0255) | ✅ ADR 0150, 0255 | [Lighting](lighting.md), [Materials & meshes](materials-and-meshes.md#standardmaterial3d), [Asset pipeline](asset-pipeline.md#pbr-materials-g61) |
+| G6.2 IBL (`SkyRadiance`, `BrdfLut`, `.hdr` panoramas, `Sky.RadianceSize`, `Sky.ProcessMode`) | ✅ ADR 0150 | [Sky](sky.md#image-based-lighting) |
 | G6.3 3D particles and billboards | ✅ ADR 0199, 0206 | [3D particles](particles-3d.md), [Billboards](materials-and-meshes.md#billboards-adr-0199) |
-| G6.4 LOD | ✅ ADR 0245 (generated LODs wait for a simplifier) | [below](#levels-of-detail-g64) |
+| G6.4 LOD (authored, code and generated levels) | ✅ ADR 0245, 0256 | [below](#levels-of-detail-g64) |
 | G6.5 Decals | ✅ ADR 0246 | [below](#decals-g65) |
 | G6.6 SSAO (GTAO) | ✅ ADR 0165 | [Post-processing → SSAO](post-processing.md#ssao) |
 
@@ -92,8 +92,32 @@ Model `.mfmeta` settings:
 
 - `"lodErrors": [0.01, 0.02, …]`: level n's error as a fraction of the LOD0 mesh's bounds radius; missing entries continue
   the default series (1 %, doubling per level).
-- `"generateLods": false`: reserved for generated LODs (a mesh simplifier is a dependency decision, below). `true` only
-  logs that it is not built yet.
+- `"generateLods": true`: generated levels for every surface without authored ones ([below](#generated-lods), ADR 0256).
+  Default false.
+
+### Generated LODs
+
+`MeshSimplifier` (`Rendering/Meshes/MeshSimplifier.cs`) calls meshoptimizer 1.3, the simplifier Godot's importer uses,
+through the in-house `mfmeshopt` native library ([Native libraries](natives.md)). `MeshSimplifier.GenerateLods(surface,
+lockBorders, normalWeight)` returns index-only `MeshLod` levels (they draw the surface's own vertices: no vertex memory,
+UV seams and normals kept):
+
+- Each level targets half the previous level's indices and is simplified from the full surface (meshoptimizer's
+  `simplifyWithAttributes`, normals as attributes weighted `DefaultNormalWeight` 0.5, no error limit).
+- A level's `Error` is meshoptimizer's absolute error in mesh units (positions and the weighted normal change), forced
+  ascending. Smooth surfaces stay close for the first halvings (a 4 032-triangle unit sphere: 0.007, 0.009, 0.028);
+  coarse levels of meshes with UV seams pay for keeping the seam (0.7 at 123 triangles), which the projected-error
+  selection then only draws when the mesh is a few pixels tall.
+- Indices are reordered for the vertex cache (`meshopt_optimizeVertexCache`).
+- Generation stops when a level would keep more than 85 % of the previous one (`MinimumReduction`), have fewer than 4
+  triangles, or exceed `MeshLod.MaxLevels`.
+- `lockBorders` keeps open edges in place. The importer sets it for meshes with more than one surface, so the surfaces of
+  a model do not crack apart at their shared edges.
+- `MeshSimplifier.IsAvailable` is false where the library is not shipped (`Problem` says why); `GenerateLods` then throws.
+
+On import (`ModelLods.Generate`, after the authored `_LODn` merge): every `MeshInstance3D` mesh without a `Skin`, once per
+shared mesh, surface by surface; surfaces that already have levels (authored) and skinned surfaces are skipped. Without
+the library one warning is logged and the model imports without generated levels.
 
 ### Performance
 
@@ -205,7 +229,7 @@ Details in [Sky → Image-based lighting](sky.md#image-based-lighting).
 ## Non-goals
 
 As in the proposal: GPU particle simulation, particle collision and trails; particle shadows; HLOD, impostors (G8b built
-its own for trees), LOD cross-fade and automatic LOD for skinned meshes; clustered or tiled lighting; SSR, SSIL, SDFGI,
+its own for trees), LOD cross-fade and generated LODs for skinned meshes; clustered or tiled lighting; SSR, SSIL, SDFGI,
 VoxelGI, lightmaps, reflection probes; custom material shaders beyond ADR 0205; Burley diffuse, clearcoat, anisotropy,
 subsurface and sheen.
 
@@ -213,8 +237,10 @@ subsurface and sheen.
 
 - **Unit:** `MeshLodTests` (layout, validation, selection for perspective and orthographic cameras, bias, threshold,
   scale, sort keys), `MeshLodSettingsTests` (`meshLodThreshold` round trip), `MeshSerializationTests` (LODs and
-  `LodBias`), `ModelLodImportTests` (`_LODn` merge, `lodErrors`, gaps), `ModelPbrImportTests` (factors, packed and
-  separate ORM, the `shading` setting), `DecalTests` (defaults, fades, selection, nearest 32, masks, the UBO entry, the
+  `LodBias`), `ModelLodImportTests` (`_LODn` merge, `lodErrors`, gaps, `generateLods`), `MeshSimplifierTests` (the
+  library's ABI, halving with ascending errors, locked borders, authored, skinned and shared meshes),
+  `ModelPbrImportTests` (factors, packed and separate ORM, the `shading` setting, PBR by default, format-1 sidecars),
+  `PbrDefaultTests` (the `StandardMaterial3D` v1 migration in scenes and `.mfres` files), `DecalTests` (defaults, fades, selection, nearest 32, masks, the UBO entry, the
   atlas packer), `HdrSkyTests`, `ImageBasedLightingTests` (binding budget), `HandleTests.DecalHandlesSizeTheBoxOnEachAxis`.
 - **Render:** `lod` (golden; levels grow with distance at both pixel scales, a low bias, an index-only level, a
   visibility range), `decals` (golden; atlas rebuilt once, four decals selected), `pbr-ibl-hdr` (golden; RGBA16F sky),
@@ -224,9 +250,14 @@ subsurface and sheen.
 
 ## Changes from the proposal
 
-- **PBR stays opt-in.** `StandardMaterial3D`'s default `ShadingMode` is still `BlinnPhong`, and model import's `shading`
-  setting defaults to `blinnPhong`, until the owner answers proposal open question 3 (flip the default, with a
-  `[SerializedVersion(2)]` migration and re-recorded goldens). `"shading": "pbr"` per model opts in.
+- **PBR is the default** (proposal open question 3, answered 2026-11-07, ADR 0255). `StandardMaterial3D.ShadingMode`
+  and `StandardMaterial3D.Default` are `Pbr`, and model import's `shading` defaults to `pbr`. Content written before
+  keeps Blinn-Phong: `StandardMaterial3D` is `[SerializedVersion(2)]` (a v1 material without `ShadingMode` loads as
+  `BlinnPhong`), and a model `.mfmeta` without a `format` (written before ADR 0255) and without `shading` imports
+  Blinn-Phong. The examples and render tests pin `ShadingMode.BlinnPhong` in code, so only goldens drawn with the
+  default material changed.
+- **Generated LODs through meshoptimizer** (open question 1, ADR 0256): an in-house `Native/MeshOpt` shim, not an
+  in-house simplifier. Levels are index-only and generated per surface; skinned surfaces are skipped.
 - **One ORM texture, not three.** As built in ADR 0150, `StandardMaterial3D` has `OrmTexture` (and `AmbientOcclusion`)
   instead of per-map textures with `TextureChannel`s; the importer packs glTF's maps with `OrmPacker.PackGltf`.
 - **Assimp's slots (open question 4):** the bundled Assimp reports glTF's `metallicRoughnessTexture` as `Metalness` /
@@ -249,9 +280,9 @@ subsurface and sheen.
 
 ## Open questions
 
-1. **Default shading** (proposal question 3): flip `StandardMaterial3D` and model import to PBR? The owner.
-2. **LOD simplifier** (question 1): meshoptimizer through a `Native/` shim, or an in-house quadric simplifier, for
-   `generateLods`. The owner.
+1. ~~**Default shading** (proposal question 3)~~: PBR, answered by the owner on 2026-11-07 (ADR 0255).
+2. ~~**LOD simplifier** (question 1)~~: meshoptimizer through `Native/MeshOpt`, answered by the owner on 2026-11-07
+   (ADR 0256).
 3. **Vertex tangents** for PBR normal maps (question 2): still the derivative frame (ADR 0016) until an asset shows the
    seams.
 
@@ -260,4 +291,5 @@ subsurface and sheen.
 [Materials & meshes](materials-and-meshes.md) · [Lighting](lighting.md) · [Sky](sky.md) ·
 [Asset pipeline](asset-pipeline.md) · [3D particles](particles-3d.md) · [Post-processing](post-processing.md) ·
 [Shaders](shaders.md) · [Testing](testing.md) · [Mobile core (M12)](future/mobile.md) ·
-[Rendering backend abstraction (M11)](future/rendering-backend-abstraction.md) · ADRs 0150, 0165, 0199, 0206, 0245, 0246
+[Rendering backend abstraction (M11)](future/rendering-backend-abstraction.md) · [Native libraries](natives.md) · ADRs 0150,
+0165, 0199, 0206, 0245, 0246, 0255, 0256

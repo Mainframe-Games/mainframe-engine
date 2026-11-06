@@ -50,7 +50,7 @@ public class PhysicsScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Visual",
             Mesh = new BoxMesh { Size = new Vector3(3, 0.2f, 2) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 150, 150, 160) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 150, 150, 160) },
         });
         scene.AddChild(ramp);
 
@@ -58,7 +58,7 @@ public class PhysicsScene(HostOptions host) : RenderTestGame(host)
         var crateMesh = new BoxMesh { Size = new Vector3(0.98f) }; // one mesh, one material per palette colour: few batches
         var crateMaterials = new StandardMaterial3D[Palette.Length];
         for (var i = 0; i < Palette.Length; i++)
-            crateMaterials[i] = new StandardMaterial3D { AlbedoColor = Palette[i] };
+            crateMaterials[i] = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Palette[i] };
         for (var i = 0; i < 10; i++)
         {
             var body = new RigidBody3D
@@ -78,7 +78,7 @@ public class PhysicsScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Visual",
             Mesh = new BoxMesh { Size = new Vector3(0.5f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 250, 250, 250) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 250, 250, 250) },
         });
         scene.AddChild(ball);
 

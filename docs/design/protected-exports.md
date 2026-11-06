@@ -1,7 +1,11 @@
-# Proposal: Protected exports
+# Protected exports
 
-**Status:** accepted (2026-11-04)
-**Milestone:** G19
+**Status:** shipped (2026-11-07): phases 1–4. Moved from `docs/design/future/` when phase 4 landed; the design below is
+the proposal as accepted on 2026-11-04, with each phase's "Changes from the proposal" at the end.
+**Milestone:** G19 ✅
+**Decisions:** [ADR 0239](../../memory/decisions/0239-protected-exports.md), [ADR 0240](../../memory/decisions/0240-committed-pack-key.md),
+[ADR 0247](../../memory/decisions/0247-pack-anchors-for-steampipe.md), [ADR 0259](../../memory/decisions/0259-native-aot-exports.md),
+[ADR 0260](../../memory/decisions/0260-native-crash-frames.md)
 
 ## Problem
 
@@ -16,9 +20,9 @@ in. The goal is to remove the low-hanging fruit: no readable files, no decompila
 ## Goals
 
 - One content file-system seam that every runtime content read goes through. Mobile needs it anyway
-  ([`IContentFileSystem`](mobile.md#platform-layer-and-project-structure), M12.1).
+  ([`IContentFileSystem`](future/mobile.md#platform-layer-and-project-structure), M12.1).
 - Exports put the game's and the engine's `Assets/` and `project.mfproj` in one `Assets.mfpak` beside the executable.
-  The format is the one [mobile](mobile.md#asset-pipeline) describes (M12.5), pulled forward for desktop.
+  The format is the one [mobile](future/mobile.md#asset-pipeline) describes (M12.5), pulled forward for desktop.
 - Packs are encrypted by default, with a stable key per project, so rebuilds are byte-identical and Steam patches stay
   small.
 - A `nativeAot` preset key, once the engine is trim- and AOT-clean, so shipped game code is machine code.
@@ -38,7 +42,7 @@ in. The goal is to remove the low-hanging fruit: no readable files, no decompila
 
 ### From a game developer's view
 
-Export presets gain these keys (rows for [Game export → Preset schema](../game-export.md#preset-schema-projectmfproj--export)):
+Export presets gain these keys (rows for [Game export → Preset schema](game-export.md#preset-schema-projectmfproj--export)):
 
 | Key | Targets | Default | Meaning |
 |---|---|---|---|
@@ -109,7 +113,7 @@ seekable streams), `MusicManifest`/`AdaptiveMusic`, `SpineNode`/`SpineTextureLoa
 
 ### Pack format (phase 2)
 
-Built (2026-11-06); see "Changes from the proposal, phase 2" below and [Asset pipeline → Packs](../asset-pipeline.md#packs).
+Built (2026-11-06); see "Changes from the proposal, phase 2" below and [Asset pipeline → Packs](asset-pipeline.md#packs).
 
 `.mfpak` v1 is little-endian and versioned:
 
@@ -158,6 +162,9 @@ Built (2026-11-06); see "Changes from the proposal, phase 3" below.
     NativeAOT buries the key in machine code.
 
 ### NativeAOT (phase 4)
+
+Built (2026-11-07); see "Changes from the proposal, phase 4" below, [ADR 0259](../../memory/decisions/0259-native-aot-exports.md)
+and [Game export → NativeAOT](game-export.md#nativeaot).
 
 - Set `IsAotCompatible` on `MainframeEngine` (and the generator's output), turning the trim and AOT analyzers on, then
   fix the warnings. Known sites: `TypeRegistry` fallbacks, JSON outside source-generated contexts, `SteamworksLoader`
@@ -254,7 +261,9 @@ Built (2026-11-06); see "Changes from the proposal, phase 3" below.
   locally; CI's template job covers the template game).
 - **CI:** the template job's export (`build/template-smoke.sh`) becomes packed and encrypted by default, so every PR
   exercises the default path on Linux. Phase 4 adds a NativeAOT export per OS runner. GitHub Actions minutes are scarce,
-  so phase 4's runs are one job per OS, not per preset.
+  so phase 4's runs are one job per OS, not per preset. (Built: CI's `native-aot` job, one per OS runner, runs
+  `NativeAotExportHasNoManagedAssemblies` with `MAINFRAME_NATIVE_AOT_TESTS=1`; owner, 2026-11-07. Locally
+  `just template-smoke-aot` and `just template-smoke-aot-linux`.)
 - Gates as usual: `just build`, the Release build, `just test`, `just test-render`, `just format-check`,
   `just shaders-check`.
 
@@ -277,9 +286,9 @@ Built (2026-11-06); see "Changes from the proposal, phase 3" below.
 - [x] Phase 3: AES-256-CTR `PackStream`; project format 6 with the pack key and its migration; `--init-pack-key`;
       `MF_PACK_KEY`; `MainframePackKey` through `MainframeGame.props` and the generator's module initializer; the
       `encrypt` preset key; validator issues.
-- [ ] Phase 4: `IsAotCompatible` and the analyzer fixes (shared with M12.6/C0); the static Steamworks shim under AOT; the
+- [x] Phase 4: `IsAotCompatible` and the analyzer fixes (shared with M12.6/C0); the static Steamworks shim under AOT; the
       `nativeAot` preset key; NativeAOT symbols in `symbols: separate` and `mf-symbolicate`; a NativeAOT export per OS in
-      CI.
+      CI (the `native-aot` job, owner 2026-11-07).
 
 ## Changes from the proposal, phase 1
 
@@ -297,7 +306,7 @@ Built (2026-11-06); see "Changes from the proposal, phase 3" below.
 
 - **The writer is in the engine** (`Src/Core/Content/PackWriter.cs`), not the export library: engine tests and
   benchmarks build packs with it, and mobile's `mf-cook` will too. The export's stage step calls it.
-- **Anchors instead of plain packing** ([ADR 0247](../../../memory/decisions/0247-pack-anchors-for-steampipe.md)). This
+- **Anchors instead of plain packing** ([ADR 0247](../../memory/decisions/0247-pack-anchors-for-steampipe.md)). This
   answers the SteamPipe open question. Valve's uploading guide says SteamPipe diffs in ~1 MB chunks and recommends a
   1 MB padding alignment and per-asset compression. Laying entries out back to back would shift every later chunk after
   one change, and even "never cross a page" re-flows every later page. So entries of a page or more, and about one
@@ -339,6 +348,44 @@ Built (2026-11-06); see "Changes from the proposal, phase 3" below.
   register no key. `--pack-list`/`--pack-extract` take `--project` or `MF_PACK_KEY`.
 - **`ContentLoadBenchmarks`** gains `Encrypted`.
 
+## Changes from the proposal, phase 4
+
+- **`-p:MainframeNativeAot=true`, not `-p:PublishAot=true`** ([ADR 0259](../../memory/decisions/0259-native-aot-exports.md)):
+  a global `PublishAot` reaches the netstandard2.0 generator project of a checkout build (NETSDK1207) and the tools a
+  game's build references. `MainframeGame.props` turns the property into `PublishAot` for the game's own projects, which
+  also runs the trim and AOT analyzers over game code.
+- **Analyzers are errors in all of `MainframeEngine/Src`**, not only `Src/Saves`, and the Steamworks shims are
+  `IsAotCompatible` too. The sites the proposal named were mostly clean already (Silk.NET, SoundFlow, GetText.NET, Jitter2,
+  Box2D.NET and the source-generated JSON raised nothing in engine code); the real ones were:
+  - `Node`'s reflection over `GetType()` for overridden callbacks (without it no node processed under NativeAOT: the
+    loading screen never faded). Fixed with a type-level `[DynamicallyAccessedMembers]` on `Node` (methods and public
+    properties) and on `Resource` (public properties, for tweens).
+  - `Tween` property paths (nodes and resources annotated; `Color` and `Quaternion` components without reflection).
+  - `SdlEventBatch` (Silk internals kept with `[DynamicDependency]`, so the 0 B event pump installs under NativeAOT too).
+  - `ConfigFile`, `TypeRegistry`'s referenced-assembly scan, `GameAssemblyLoader` (editor-only: `[RequiresUnreferencedCode]`),
+    `SteamworksLoader`, `CrashBundleWriter`.
+- **Steamworks under NativeAOT:** the target OS's shim and Facepunch assembly are ILC references (compiled in), and
+  `Steam` treats the shim as present without its `.dll`. Facepunch reads callbacks with `Marshal.PtrToStructure(ptr,
+  typeof(T))`, for which ILC generates structure marshalling only for structs that need a stub: blittable callbacks
+  (`PersonaStateChange_t`, …) threw "missing structure marshalling data" against a running Steam client.
+  `build/steamworks/Facepunch.Steamworks.{Posix,Win64}.rd.xml` asks for it for each of Facepunch's 301 marshallable structs
+  (`NativeAotTests` generates and checks the lists against the vendored assemblies). Third-party ILC warnings (Silk.NET,
+  DependencyModel, Facepunch: IL2104, IL3053, IL3000, IL3002) do not fail a warnings-as-errors publish.
+- **macOS bundles:** the NativeAOT executable alone is in `Contents/MacOS` and the rest in `Contents/MonoBundle`, as for
+  JIT builds; `NativeAppBundle` (first thing in `GameHost.Run`) makes `MonoBundle` the base directory of a NativeAOT
+  process started there. The bundle apphost step (`BundleAppHost.targets`) is skipped.
+- **Validation:** the error is `native-aot-host` (the scenario's `NativeAotNeedsTargetHost`); macOS targets keep their
+  existing `host-unsupported`. `readyToRun` defaults on, so `native-aot-ignored` warns only for keys set away from their
+  defaults (`singleFile`, `trim`, `selfContained: false`); readyToRun is simply not passed.
+- **Symbols:** `symbols: separate` moves `<assembly>.dSYM`, `.dbg` or `.pdb` (with the executable, Windows) into the zip;
+  `ship` leaves them in the publish. Managed PDBs and XML docs of referenced assemblies are not published at all.
+- **Native crash frames** ([ADR 0260](../../memory/decisions/0260-native-crash-frames.md)): a NativeAOT frame records
+  `nativeImage`, `nativeOffset` and `nativeImageId` (Mach-O UUID, ELF build id or PE CodeView id, read from the image in
+  memory); `mf-symbolicate` resolves them with `llvm-symbolizer`, `atos` or `addr2line` from a symbol file of the same id.
+- **Tests:** `NativeAotExportHasNoManagedAssemblies` is opt-in (`MAINFRAME_NATIVE_AOT_TESTS=1`), so `just test` and CI's
+  unit-test jobs don't pay minutes of ILC; CI's `native-aot` job (one per OS runner, the headless run needs no GPU),
+  `just template-smoke-aot` and `build/linux/run.sh aot` run it.
+
 ## Open questions
 
 - Is Brotli enough, or is a zstd or LZ4 package (needs the dependency discussion) worth it for load time? Owner.
@@ -349,16 +396,19 @@ Built (2026-11-06); see "Changes from the proposal, phase 3" below.
 - ~~SteamPipe chunking~~: answered in phase 2 (anchors, ADR 0247); the human checklist's depot upload confirms it.
 - ~~Does the editor save a project right after migrating it?~~ No; since phase 3 it saves when it opens a project
   whose file has no key.
-- Does phase 4 stay here, or move to M12.6 with this proposal only adding the preset key? Owner.
+- ~~Does phase 4 stay here, or move to M12.6?~~ Here (owner, 2026-11-07; [ADR 0259](../../memory/decisions/0259-native-aot-exports.md));
+  M12.6 and C0 reuse it.
+- ~~Add one NativeAOT export job per OS runner to CI?~~ Yes (owner, 2026-11-07): the `native-aot` job, part of
+  `ci-success`.
 - ~~Should `assets.index.json` and the UID map live only inside the pack?~~ Yes; confirmed in phase 2 (nothing reads
   them by OS path).
 
 ## Related
 
-- [Game export](../game-export.md), [ADR 0229](../../../memory/decisions/0229-export-runner-in-csharp.md),
-  [ADR 0230](../../../memory/decisions/0230-export-open-questions.md)
-- [Mobile](mobile.md): `IContentFileSystem`, `.mfpak`, `mf-cook` and AOT;
-  [ADR 0100](../../../memory/decisions/0100-mobile-strategy.md)
-- [Consoles](consoles.md) (C0: desktop NativeAOT smoke)
-- [Crash reporting → Symbols](../crash-reporting.md#symbols), [Asset pipeline](../asset-pipeline.md),
-  [Distribution (NuGet)](../distribution-nuget.md)
+- [Game export](game-export.md), [ADR 0229](../../memory/decisions/0229-export-runner-in-csharp.md),
+  [ADR 0230](../../memory/decisions/0230-export-open-questions.md)
+- [Mobile](future/mobile.md): `IContentFileSystem`, `.mfpak`, `mf-cook` and AOT;
+  [ADR 0100](../../memory/decisions/0100-mobile-strategy.md)
+- [Consoles](future/consoles.md) (C0: desktop NativeAOT smoke)
+- [Crash reporting → Symbols](crash-reporting.md#symbols), [Asset pipeline](asset-pipeline.md),
+  [Distribution (NuGet)](distribution-nuget.md)

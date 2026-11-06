@@ -48,11 +48,12 @@ public sealed class ExportPresetsModel
         new("pack", "General", "Pack Content", ExportOptionKind.Bool, "Ship Assets/ and project.mfproj in one Assets.mfpak beside the executable; off ships them as loose files."),
         new("encrypt", "General", "Encrypt Pack", ExportOptionKind.Bool, "AES-256 with the project's pack key (packKey in project.mfproj), compiled into the game; nothing in the pack is readable."),
         new("exe", "Build", "Executable Name", ExportOptionKind.Text, "The player-facing executable. Empty: the project name without spaces."),
+        new("nativeAot", "Build", "Native AOT", ExportOptionKind.Bool, "One native executable: no .NET assemblies ship, so the code and the pack key are machine code. Needs this OS's toolchain; overrides the options below."),
         new("selfContained", "Build", "Self-Contained", ExportOptionKind.Bool, "Ship the .NET runtime; off makes players install .NET 10 (servers that have it)."),
         new("readyToRun", "Build", "ReadyToRun", ExportOptionKind.Bool, "Precompiled code: faster start-up, larger output."),
         new("singleFile", "Build", "Single File", ExportOptionKind.Bool, "One executable (natives extracted on first start); Assets/ stays beside it. Experimental.",
             [ExportPlatform.Windows, ExportPlatform.Linux]),
-        new("trim", "Build", "Trim", ExportOptionKind.Bool, "Remove unused code. Experimental until the engine is trim-clean."),
+        new("trim", "Build", "Trim", ExportOptionKind.Bool, "Remove unused code (Native AOT always trims)."),
         new("profiler", "Build", "Profiler", ExportOptionKind.Bool, "The frame profiler (F12, the editor's Profiler tab) can record this build; off compiles its scopes out."),
         new("symbols", "Build", "Symbols", ExportOptionKind.Choice, "ship: PDBs beside the assemblies (crash reports get lines); separate: a -symbols.zip for mf-symbolicate."),
         new("steam", "Steam", "Steam", ExportOptionKind.Bool, "Validates the app id and the Steam files; off ships app id 0 (Steam stays inert)."),
@@ -90,6 +91,7 @@ public sealed class ExportPresetsModel
             "pack" => B(preset.Pack),
             "encrypt" => B(preset.Encrypt),
             "exe" => d.Exe,
+            "nativeAot" => B(d.NativeAot),
             "selfContained" => B(d.SelfContained),
             "readyToRun" => B(d.ReadyToRun),
             "singleFile" => B(d.SingleFile),
@@ -200,6 +202,7 @@ public sealed class ExportPresetsModel
             case "pack": p.Pack = Bool(); break;
             case "encrypt": p.Encrypt = Bool(); break;
             case "exe": d.Exe = text; break;
+            case "nativeAot": d.NativeAot = Bool(); break;
             case "selfContained": d.SelfContained = Bool(); break;
             case "readyToRun": d.ReadyToRun = Bool(); break;
             case "singleFile": d.SingleFile = Bool(); break;
