@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted (implemented on `forest/i`, forest slice wave 2)
 - **Milestone:** Gameplay toolkit G8d (G8d.6)
-- **Spec:** docs/design/future/forest-showcase.md (G8d.6); current state in docs/design/color-pipeline.md and
+- **Spec:** docs/design/forest.md (G8d.6); current state in docs/design/color-pipeline.md and
   vulkan-renderer.md
 
 ## Context

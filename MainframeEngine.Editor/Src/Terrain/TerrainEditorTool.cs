@@ -12,6 +12,12 @@ public enum TerrainDockMode : byte
     Sculpt,
     Paint,
     Water,
+
+    /// <summary>Painted foliage density of one <see cref="FoliageType"/> (types 0–7).</summary>
+    Foliage,
+
+    /// <summary>Scattered objects (<see cref="ScatterObjectType"/>): Scatter and Place, Shift removes.</summary>
+    Objects,
 }
 
 /// <summary>What Paint writes.</summary>
@@ -27,14 +33,16 @@ public enum TerrainPaintTarget : byte
 /// <summary>
 /// The Terrain dock (G8a, docs/design/terrain.md#editing): while a <see cref="Terrain3D"/> is the single selection, the
 /// right dock's Terrain tab creates its data and the view's left button sculpts (Raise, Lower, Smooth, Flatten, Set
-/// height, Ramp), paints (Faceted surfaces or Realistic layers, user channels, rectangle fills) and lays water depth with
-/// a brush ring draped on the ground. Shift inverts (Smooth while sculpting, the eraser while painting, dry while laying
-/// water); Cmd/Ctrl+click picks what is under the cursor; <c>[</c> <c>]</c> resize, <c>-</c> <c>=</c> change strength
+/// height, Ramp), paints (Faceted surfaces or Realistic layers, user channels, rectangle fills), lays water depth, paints
+/// foliage density and scatters objects (<see cref="ScatterObjectType"/>) with a brush ring draped on the ground. Shift
+/// inverts (Smooth while sculpting, the eraser while painting, dry while laying water, removal of objects);
+/// Cmd/Ctrl+click picks what is under the cursor; <c>[</c> <c>]</c> resize, <c>-</c> <c>=</c> change strength
 /// (also Alt+wheel and Shift+wheel); Esc steps out (ramp start, rectangle). Every stroke is one undo entry
-/// (<see cref="TerrainEditAction"/>); the scene save writes the changed layer PNGs (<c>Terrain3D</c>'s save hook).
+/// (<see cref="TerrainEditAction"/>, <see cref="TerrainObjectsAction"/>); the scene save writes the changed layer PNGs and
+/// <c>objects.json</c> (<c>Terrain3D</c>'s save hook).
 /// </summary>
 [EditorViewportTool(typeof(Terrain3D), Title = "Terrain", Icon = "mountain")]
-public sealed class TerrainEditorTool : IEditorViewportTool
+public sealed partial class TerrainEditorTool : IEditorViewportTool
 {
     private const int RingPoints = 48;
     private const float RepeatSeconds = 0.1f;
@@ -129,6 +137,12 @@ public sealed class TerrainEditorTool : IEditorViewportTool
     /// <summary>Paint and Water fill a dragged rectangle (snapped to cells or vertices) instead of brushing.</summary>
     public bool Rectangle { get; set; }
 
+    /// <summary>The foliage type (index in <see cref="TerrainData.FoliageTypes"/>, 0–7) the Foliage brush paints.</summary>
+    public int FoliageType { get; set; }
+
+    /// <summary>The density (0..1) the Foliage brush paints toward (Shift: 0).</summary>
+    public float FoliageDensity { get; set; } = 1f;
+
     /// <summary>The water depth (metres above the bed) the Water brush lays.</summary>
     public float WaterLevel { get; set; } = 0.6f;
 
@@ -144,7 +158,8 @@ public sealed class TerrainEditorTool : IEditorViewportTool
     public bool HasRampStart => _rampStart is not null;
 
     /// <summary>The dock's own state, and whether the terrain has data (an undone Create shows the form again).</summary>
-    public int DockVersion => HashCode.Combine(_dockVersion, _terrain?.Data);
+    public int DockVersion => HashCode.Combine(_dockVersion, _terrain?.Data,
+        Mode == TerrainDockMode.Objects ? _terrain?.Data?.Objects.Count ?? 0 : 0); // the type counts follow undo and redo
 
     private void Touch() => _dockVersion++;
 
@@ -185,6 +200,8 @@ public sealed class TerrainEditorTool : IEditorViewportTool
                 UpdateHover(terrain, input);
                 if (_editing)
                     StrokeTo(terrain, Local(terrain, _hit));
+                else if (_objectStroke && _hover)
+                    StrokeObjectsTo(terrain, Local(terrain, _hit));
 
                 UpdateLabel(terrain);
                 return input.Captured || _hover ? ViewportToolResult.Consumed : ViewportToolResult.Pass;
@@ -284,6 +301,12 @@ public sealed class TerrainEditorTool : IEditorViewportTool
     {
         var data = terrain.Data!;
         var local = Local(terrain, _hit);
+        if (Mode == TerrainDockMode.Objects)
+        {
+            PressObjects(terrain, local); // a list edit, not an image layer: no terrain.Edit
+            return;
+        }
+
         if (Mode == TerrainDockMode.Sculpt && SculptTool == TerrainSculptTool.Ramp)
         {
             var height = _hit.Y - terrain.GlobalPosition.Y;
@@ -346,6 +369,9 @@ public sealed class TerrainEditorTool : IEditorViewportTool
             case TerrainDockMode.Water:
                 _ops.PaintWater(data, Brush, p, Inverted ? 0f : WaterLevel);
                 break;
+            case TerrainDockMode.Foliage:
+                _ops.PaintFoliage(terrain, data, Brush, p, FoliageType, Inverted ? 0f : FoliageDensity);
+                break;
         }
     }
 
@@ -362,6 +388,9 @@ public sealed class TerrainEditorTool : IEditorViewportTool
 
     private void EndStroke()
     {
+        if (_objectStroke && _terrain is { } objectTerrain)
+            EndObjectStroke(objectTerrain);
+        _objectStroke = false;
         _stroke.End();
         if (!_editing)
             return;
@@ -375,12 +404,21 @@ public sealed class TerrainEditorTool : IEditorViewportTool
     {
         TerrainDockMode.Sculpt => "Terrain " + SculptName(_strokeTool),
         TerrainDockMode.Water => "Terrain Water",
+        TerrainDockMode.Foliage => "Terrain Foliage",
         _ => PaintTarget == TerrainPaintTarget.Channel ? "Terrain Paint Channel" : "Terrain Paint",
     };
 
     private void FillRectangle(Terrain3D terrain, Vector2 a, Vector2 b)
     {
         var data = terrain.Data!;
+        if (Mode == TerrainDockMode.Foliage)
+        {
+            var area = TerrainBrushOps.CellRectBetween(data, a, b);
+            Record(terrain, TerrainLayers.Foliage, "Terrain Foliage Fill",
+                () => _ops.PaintFoliage(terrain, data, Brush, default, FoliageType, Inverted ? 0f : FoliageDensity, area));
+            return;
+        }
+
         if (Mode == TerrainDockMode.Water)
         {
             var vertices = TerrainBrushOps.VertexRectBetween(data, a, b);
@@ -426,6 +464,7 @@ public sealed class TerrainEditorTool : IEditorViewportTool
     {
         TerrainDockMode.Sculpt => TerrainLayers.Height,
         TerrainDockMode.Water => TerrainLayers.Water,
+        TerrainDockMode.Foliage => TerrainLayers.Foliage,
         _ => PaintTarget == TerrainPaintTarget.Channel ? TerrainLayers.User : TerrainLayers.Surface,
     };
 
@@ -448,6 +487,13 @@ public sealed class TerrainEditorTool : IEditorViewportTool
                 break;
             case TerrainDockMode.Water:
                 WaterLevel = MathF.Round(terrain.WaterDepthAt(_hit.X, _hit.Z) * 100f) / 100f;
+                break;
+            case TerrainDockMode.Foliage:
+                var local = Local(terrain, _hit);
+                FoliageDensity = MathF.Round(data.GetFoliageDensity(FoliageType, (int)(local.X / data.CellSize), (int)(local.Y / data.CellSize)) * 100f) / 100f;
+                break;
+            case TerrainDockMode.Objects:
+                PickObjectType(data, Local(terrain, _hit));
                 break;
         }
 
@@ -563,7 +609,12 @@ public sealed class TerrainEditorTool : IEditorViewportTool
         var height = _hit.Y - terrain.GlobalPosition.Y;
         var n = terrain.NormalAt(_hit.X, _hit.Z);
         var slope = MathF.Acos(Math.Clamp(n.Y, -1f, 1f)) * (180f / MathF.PI);
-        var tool = Mode == TerrainDockMode.Sculpt ? (int)SculptTool : 10 + (int)Mode;
+        var tool = Mode switch
+        {
+            TerrainDockMode.Sculpt => (int)SculptTool,
+            TerrainDockMode.Objects => 20 + (int)ObjectTool,
+            _ => 10 + (int)Mode,
+        };
         var key = (tool, (int)MathF.Round(Brush.Size * 10f), (int)MathF.Round(Brush.Strength * 100f), (int)MathF.Round(height * 10f),
             (int)MathF.Round(slope), Inverted);
         if (key == _labelKey)
@@ -574,6 +625,8 @@ public sealed class TerrainEditorTool : IEditorViewportTool
         {
             TerrainDockMode.Sculpt => Inverted && SculptTool != TerrainSculptTool.Ramp ? "Smooth" : SculptName(SculptTool),
             TerrainDockMode.Water => Inverted ? "Dry" : "Water",
+            TerrainDockMode.Foliage => Inverted ? "Clear foliage" : "Foliage",
+            TerrainDockMode.Objects => Inverted ? "Remove objects" : ObjectTool == TerrainObjectTool.Place ? "Add object" : "Scatter",
             _ => Inverted ? "Erase" : "Paint",
         };
         var text = string.Create(c, $"{name} · {Brush.Size:0.#} m · {Brush.Strength * 100f:0} % · h {height:0.0} m · {slope:0}°");
@@ -613,6 +666,8 @@ public sealed class TerrainEditorTool : IEditorViewportTool
             ? "Paint — surfaces (palette ids) and user channels"
             : "Paint — splat layers and user channels");
         ModeButton(rml, TerrainDockMode.Water, "droplet", "Water — lay water depth over the bed (ponds and lakes)");
+        ModeButton(rml, TerrainDockMode.Foliage, "plant-2", "Foliage — paint where each foliage type grows (grass, ferns, flowers)");
+        ModeButton(rml, TerrainDockMode.Objects, "cube", "Objects — scatter scenes with stable ids (rocks, stumps, crates); Shift removes");
         rml.Append("<span class=\"td-info\">").Append(data.Profile == TerrainProfile.Faceted ? "Faceted" : "Realistic").Append(" · ")
             .Append(data.SizeMeters).Append(" m · ").Append(Num(data.VertexSpacing)).Append(" m</span></div>");
 
@@ -629,6 +684,12 @@ public sealed class TerrainEditorTool : IEditorViewportTool
                 Field(rml, "Level", "level", Num(WaterLevel), "Depth above the bed the brush lays, metres (0 to " + Num(data.MaxWaterDepth) +
                     "; Shift dries, Cmd/Ctrl+click picks)");
                 RectangleToggle(rml);
+                break;
+            case TerrainDockMode.Foliage:
+                AppendFoliage(rml, data);
+                break;
+            case TerrainDockMode.Objects:
+                AppendObjects(rml, data);
                 break;
         }
 
@@ -728,6 +789,30 @@ public sealed class TerrainEditorTool : IEditorViewportTool
         RectangleToggle(rml);
     }
 
+    private void AppendFoliage(StringBuilder rml, TerrainData data)
+    {
+        rml.Append("<div class=\"td-head\">Foliage types</div><div class=\"td-layers\">");
+        var types = data.FoliageTypes;
+        for (var i = 0; i < Math.Min(types.Length, TerrainData.PaintedFoliageTypes); i++)
+        {
+            var type = types[i];
+            var name = type is null ? "Type " + i : !string.IsNullOrEmpty(type.ResourceName) ? type.ResourceName
+                : type.Mesh is { ResourceName.Length: > 0 } mesh ? mesh.ResourceName : "Type " + i;
+            var tooltip = name + (type is { AutoGrowth: false } ? " — grows only where painted" : " — grows by its own rule too (Auto Growth)");
+            rml.Append("<div class=\"td-swatch").Append(i == FoliageType ? " active" : "").Append("\" data-tool-action=\"foliage\" data-tool-value=\"")
+                .Append(i).Append("\" data-tooltip=\"").Append(RmlText.Escape(tooltip)).Append("\"><span class=\"icon icon-plant-2 icon-sm\"></span>")
+                .Append("<span class=\"td-name\">").Append(RmlText.Escape(name)).Append("</span></div>");
+        }
+
+        rml.Append("</div>");
+        if (types.Length == 0)
+            rml.Append("<div class=\"td-hint\">Add Foliage Types to the terrain data in the Inspector, then paint where they grow.</div>");
+        else if (types.Length > TerrainData.PaintedFoliageTypes)
+            rml.Append("<div class=\"td-hint\">Only the first eight types can be painted.</div>");
+        Field(rml, "Density", "foliage-density", Num(FoliageDensity), "The density the brush paints toward, 0 to 1 (Shift clears, Cmd/Ctrl+click picks)");
+        RectangleToggle(rml);
+    }
+
     private void RectangleToggle(StringBuilder rml)
     {
         rml.Append("<div class=\"td-tools\">");
@@ -740,7 +825,7 @@ public sealed class TerrainEditorTool : IEditorViewportTool
     private void AppendBrush(StringBuilder rml)
     {
         rml.Append("<div class=\"td-head\">Brush</div>");
-        if (Mode == TerrainDockMode.Sculpt)
+        if (Mode is TerrainDockMode.Sculpt or TerrainDockMode.Objects)
         {
             rml.Append("<div class=\"td-tools\">");
             IconButton(rml, "shape", "Circle", "circle", "Circle brush", Brush.Shape == TerrainBrushShape.Circle);
@@ -816,6 +901,15 @@ public sealed class TerrainEditorTool : IEditorViewportTool
             case "surface" when int.TryParse(value, CultureInfo.InvariantCulture, out var surface):
                 Surface = surface;
                 break;
+            case "foliage" when int.TryParse(value, CultureInfo.InvariantCulture, out var foliage):
+                FoliageType = Math.Clamp(foliage, 0, TerrainData.PaintedFoliageTypes - 1);
+                break;
+            case "object" when int.TryParse(value, CultureInfo.InvariantCulture, out var objectType):
+                ObjectType = objectType;
+                break;
+            case "object-tool" when Enum.TryParse<TerrainObjectTool>(value, out var objectTool):
+                ObjectTool = objectTool;
+                break;
             case "shape" when value == "Rectangle":
                 Rectangle = true;
                 break;
@@ -864,6 +958,9 @@ public sealed class TerrainEditorTool : IEditorViewportTool
                 break;
             case "eraser" when number:
                 EraserSurface = Math.Clamp((int)f, 0, TerrainData.MaxLayers - 1);
+                break;
+            case "foliage-density" when number:
+                FoliageDensity = Math.Clamp(f, 0f, 1f);
                 break;
             case "channel-value" when number:
                 ChannelValue = (byte)Math.Clamp((int)MathF.Round(f), 0, 255);

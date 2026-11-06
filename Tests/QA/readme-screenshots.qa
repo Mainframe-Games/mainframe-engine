@@ -250,11 +250,95 @@ command edit.undo
 command edit.undo
 command edit.undo
 command edit.undo
+# 3e2. Procedural trees (G8b.3): a new scene with a Sun and a Tree3D (a copy of Oak Medium) selected: the tree inspector's
+# preset, seed and style, the LOD table and Bake, then the options' Branches with level 1 open. Undone, so the tab closes
+# without asking.
+command file.new
+wait 10
+add-node DirectionalLight3D Sun .
+set-node Sun RotationDegrees -40,35,0
+add-node Tree3D Tree .
+wait 10
+select Tree
+inspector-section Tree3D/Node
+inspector-section Tree3D/Node3D
+inspector-action Options res-edit
+inspector-section nested:TreeOptions/Branches
+inspector-action Level elem-edit 1
+camera 0 8.5 0 34 35 -8
+clear-output
+move 760 470
+wait 30
+capture editor-tree
 command edit.undo
 command edit.undo
 wait 3
 command file.close
 wait 5
+# 3g. River tool (G8c.4): a Faceted valley with a stream drawn with the curve tool (Cmd/Ctrl+click on the ground, 0.3 m
+# under it), carved from the River3D inspector; the selected point's bank and depth handles and every cross-section.
+command file.new
+wait 5
+add-node DirectionalLight3D Sun
+set-node Sun RotationDegrees -40,-30,0
+add-node Terrain3D Terrain .
+select Terrain
+wait 5
+tool-field create-profile Faceted
+tool-field create-size 64
+tool-field create-spacing 2
+tool-action create
+camera 32 2 32 60 25 -50
+wait 5
+tool-action mode Sculpt
+tool-action sculpt Raise
+tool-field strength 100
+tool-field size 26
+world-drag 8 0 8 8 0 56 60
+wait 70
+world-drag 56 0 8 56 0 56 60
+wait 70
+tool-action sculpt Smooth
+tool-field size 30
+world-drag 8 0 32 56 0 32 20
+wait 30
+add-node River3D River .
+select River
+wait 5
+command curve.tool.add
+world-drag 30 0 6 30 0 6 1
+wait 5
+world-drag 33 0 22 33 0 22 1
+wait 5
+world-drag 29 0 40 29 0 40 1
+wait 5
+world-drag 31 0 54 31 0 54 1
+wait 5
+command curve.tool.select
+inspector-header river-carve
+wait 10
+curve-point 1
+camera 31 0 28 34 35 -40
+wait 3
+world-move 36 0 24
+clear-output
+wait 20
+capture editor-river
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+wait 3
+command file.close
+wait 5
+wait 10
 # 3d. Crash reporting (G15): a played game's crash as one Output row, expanded to its frames (the game's frame links to
 # its source, engine frames are muted), with the report, copy and frame buttons; then the editor's own next-start
 # crash dialog with a recovery copy of the open scene (closed again: the sample report is marked handled).

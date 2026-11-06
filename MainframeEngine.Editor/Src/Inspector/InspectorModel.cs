@@ -169,6 +169,15 @@ public interface ICustomInspector
     /// <summary>Whether a generated row is shown (hide properties the custom RML edits).</summary>
     bool ShowProperty(object target, ExportPropertyInfo property) => true;
 
+    /// <summary>
+    /// The title of element <paramref name="index"/> of <paramref name="target"/>'s sub-resource array
+    /// <paramref name="property"/> where the inspector lists it and above its expanded rows (null: "Label [index]").
+    /// </summary>
+    string? ElementLabel(object target, ExportPropertyInfo property, int index) => null;
+
+    /// <summary>The key values of that element, shown beside its title instead of its type name (null: the type name).</summary>
+    string? ElementSummary(object target, ExportPropertyInfo property, int index) => null;
+
     /// <summary>A click on an element with <c>data-action</c> in the header RML. Edit through <paramref name="scene"/> so it can be undone.</summary>
     void OnAction(object target, string action, EditedScene scene)
     {

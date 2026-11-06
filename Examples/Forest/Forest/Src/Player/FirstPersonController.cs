@@ -4,7 +4,7 @@ using MainframeEngine;
 namespace Forest;
 
 /// <summary>
-/// The Forest's first-person walker (docs/design/future/forest-showcase.md): a capsule <see cref="CharacterBody3D"/> with
+/// The Forest's first-person walker (docs/design/forest.md): a capsule <see cref="CharacterBody3D"/> with
 /// its origin at the feet, a <c>Head</c> <see cref="Node3D"/> at eye height (top − 0.12 m) holding the
 /// <see cref="Camera3D"/> (<c>Head/Camera</c>). Missing children are created (unowned) when it is ready.
 /// </summary>

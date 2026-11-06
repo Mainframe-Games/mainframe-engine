@@ -5,7 +5,7 @@
 the Realistic profile also on [Rendering features](../rendering-features.md) G6.1/G6.2 (PBR, IBL; Blinn-Phong fallback
 until then) and G6.4 (index-only LODs) · **Related:** [Procedural trees](procedural-trees.md) (G8b:
 `FoliageMaterial3D`, wind, `Tree3D` scatter), [Water](water.md) (G8c: renders the water layer),
-[Forest showcase](forest-showcase.md) (G8d: the Realistic profile's first user),
+[Forest showcase](../forest.md) (G8d: the Realistic profile's first user),
 [Editor viewport tools](../editor.md#viewport-tools) (G7),
 [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 
@@ -705,7 +705,7 @@ settled; **Decision:** is what to build.
 
 ## Related
 
-- [Procedural trees](procedural-trees.md) (G8b), [Water](water.md) (G8c), [Forest showcase](forest-showcase.md) (G8d),
+- [Procedural trees](procedural-trees.md) (G8b), [Water](water.md) (G8c), [Forest showcase](../forest.md) (G8d),
   [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 - [Rendering features](../rendering-features.md) (G6: PBR, IBL, LOD, binding budget),
   [Editor viewport tools](../editor.md#viewport-tools) (G7: handles, box selection, simulate)

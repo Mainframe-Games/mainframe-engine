@@ -13,8 +13,9 @@ of detail, bake), the tree materials (PBR bark and leaves on `FoliageMaterial3D`
 [`WorldEnvironment`](materials-and-meshes.md#foliagematerial3d-adr-0151)) and `TreeScatter` (forests as chunked
 `MultiMesh` batches). G8e.5 ([ADR 0172](../../memory/decisions/0172-ez-tree-foliage-quality.md)) adds the production
 foliage on top: leaf-cluster cards, hierarchical wind, bark detail, coverage-preserving mips, octahedral impostors with
-per-instance cross-fades, and four new species ([Foliage quality](#foliage-quality-adr-0172)). The tree inspector is not
-built yet; the [proposal](future/procedural-trees.md) has its design.
+per-instance cross-fades, and four new species ([Foliage quality](#foliage-quality-adr-0172)). G8b.3
+([ADR 0271](../../memory/decisions/0271-tree-inspector-bake-staleness.md)) adds the editor's [tree inspector](#inspector)
+and the bake status it shows; the [proposal](future/procedural-trees.md) has the rest of the design.
 
 ## Layout
 
@@ -185,6 +186,7 @@ Bark normal maps are `_NormalGL` (+Y up, the engine's convention); `_Roughness` 
 | `BarkMaterial`, `LeafMaterial` | Replace the built-in materials (null: `TreeMaterials`) |
 | `CastShadows`, `Collision` | Shadows of every level; the trunk capsule (default on) |
 | `Lod1Distance`, `Lod2Distance`, `MaxDistance` | 30 m, 75 m (Ez Tree's 100 and 250 units × 0.3), 0 = drawn at any distance |
+| `ForceLod` | Not saved (an editor preview): 0–2 draws only that level at any distance, shadows too; −1 (default) by distance |
 
 - **Levels of detail.** The tree generates its three `TreeMesh.Lods` when it becomes ready, in the editor and at run time,
   and again after a property or its `Options` change (`Changed`, also a level's edits), at most once per frame;
@@ -200,8 +202,39 @@ Bark normal maps are `_NormalGL` (+Y up, the engine's convention); `_Roughness` 
 - **Bake.** `Bake(path)` generates the tree from its options (ignoring a previous bake), makes the result its
   `BakedMesh` and saves it as `.mfres`: a `TreeMesh` holds the three `ArrayMesh`es (bark surface 0, leaves surface 1, with
   `Custom0` and LowPoly `Colors`; no materials), the trunk capsule, the options (inline), seed, style and
-  `TreeGenerator.GeneratorVersion`. A baked tree costs what any mesh costs: read and upload. There is no inspector UI
-  yet and no staleness check (the version is stored for one).
+  `TreeGenerator.GeneratorVersion`, and its `BakeHash`. A baked tree costs what any mesh costs: read and upload.
+  `GenerateBake()` makes the same mesh without saving or assigning it; the bake holds a copy of the options.
+- **Bake status** (ADR 0271). `TreeMesh.BakeHash` is a SHA-256 of every exported value of the options (levels and twig
+  options included, `ResourceName` not), the seed, the style and the generator version; every generated `TreeMesh`
+  records it. `GetBakeStatus()` is `NotBaked`, `UpToDate` (the hash matches the tree's options, seed and style, or the
+  tree has nothing but the bake) or `Stale` (a bake from before the hash existed is stale too). In the editor
+  (`SceneTree.EditMode`) a stale bake yields to the generator, so edits show while the bake waits; games always draw
+  the bake. `DrawsBake` says which is drawn, `NeedsRegenerate` whether a change waits for the next frame's rebuild,
+  `LastRegenerateMilliseconds` how long the last rebuild took.
+
+## Inspector
+
+![The tree inspector on a new Oak Medium: preset, seed and style, the LOD table, Bake and its status, and the options' level 1](../images/editor-tree.png)
+
+`Tree3DInspector` (`MainframeEngine.Editor/Src/Trees/`, G8b.3, ADR 0271) is the `Tree3D`'s custom inspector. A
+`Tree3D` made in the editor (Add Node) starts as an inline copy of Oak Medium. Above the generated rows:
+
+| Control | What it does |
+|---|---|
+| **Preset** dropdown, **import** (`file-import`) | Copies a preset (every `TreePresets` name) into the tree's inline `Options` and names it, one undo step; "Custom (from Oak Medium)" once the options differ from their preset. Import reads Ez Tree JSON (`EzTreeJson.Read`: a preset or a file from Ez Tree's web app) into the options, one undo step |
+| **Seed** field, **dice** (`dice-5`) | The seed the tree grows from (−1 typed: the options' own); the dice sets a random one, one undo step |
+| **Style** (`photo` Realistic, `vector-triangle` Low Poly) | `Tree3D.Style`, undoable |
+| **Wind** (`wind`) | `World3D.PreviewWind` for this scene's view: a steady breeze while the world has no wind of its own. Off by default; view state, not saved |
+| **LOD table** | Per level: triangles, vertices and its distance range; the impostor row (2 triangles, drawn by `TreeScatter` only). A row's eye forces that level in the view (`ForceLod`; view state, not saved) |
+| **Bake** (`package`) and status | `GenerateBake()` saved to `Assets/Trees/<preset>_<seed>_<style>.mfres` (a re-bake overwrites the tree's bake file), then `BakedMesh` set as one undo step (the file stays). The status: "Baked, up to date", "Stale … Bake again" or "Not baked: generated in 4.2 ms" |
+
+The header replaces the `Preset`, `Seed` and `Style` rows. The options keep the generated rows: `Options` folds open
+into its groups (Branches, Bark, Leaves, Low poly, …), and the `Level` array's elements are named by
+`TreeOptionsInspector` (`ICustomInspector.ElementLabel`: "Level 0 · trunk · 6 children · length 37.24", "Level 3 ·
+unused" past `Levels`). `TreeLevelInspector` hides what does not apply to a level (`TreeLevel.LevelIndex`): Angle and
+Start on the trunk, Children on level 3. Sliders regenerate the tree at most once per frame (`Options.Changed`); after
+each committed change, undo or redo the inspector regenerates a changed tree at once and rebuilds, so the table and status
+are current.
 
 ## Materials
 
@@ -442,9 +475,8 @@ The nodes (ADR 0158):
 
 ## Not yet
 
-`RuntimeGeneration` modes and bake staleness, `ForceLod`, the tree inspector (Bake and variants buttons, LOD table)
-and its icons (`tree`, `trees`, `leaf` are not in the editor's icon atlas yet: `Tree3D` and `TreeSpecies` use
-`feather`, `TreeScatter` `stack-2`, `TreeMesh` `package`), screen-space LOD selection from `GeometricError` (G6.4),
+`RuntimeGeneration` modes, the inspector's Bake variants and Create collider (G8b.7, with scatter), impostors in the
+bake (`Tree3D` draws none), the LOD table's switch sizes in pixels, screen-space LOD selection from `GeometricError` (G6.4),
 Godot's per-node visibility-range fade margins (`Tree3D` levels still switch hard; only `TreeScatter`'s per-instance
 levels fade), impostors on `Tree3D`, probe sampling at the impostor's reconstructed position (G8e.1), LowPoly wind,
 `BarkTextureScale.y`, generation and bakes on worker threads at run time, and a GPU-driven per-instance cull (the

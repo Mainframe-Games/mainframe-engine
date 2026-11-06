@@ -215,6 +215,12 @@ public class River3D : Node3D, IWaterBody3D
     /// <summary>The terrain edit the last carve, re-carve or uncarve recorded (undo with <see cref="TerrainEditRecord.Undo"/>), or null.</summary>
     public TerrainEditRecord? LastCarveEdit { get; private set; }
 
+    /// <summary>
+    /// The last carve, re-carve or uncarve as one undoable change (the editor's history entry): the height tiles, the
+    /// terrain's carve record and <see cref="CarveId"/>, before and after. Null before the first.
+    /// </summary>
+    public RiverCarveChange? LastCarveChange { get; private set; }
+
     /// <summary>Raised after the ribbon and the query data were rebuilt.</summary>
     [Signal]
     public event Action? Regenerated;
@@ -380,12 +386,14 @@ public class River3D : Node3D, IWaterBody3D
         var terrain = ResolveTerrain();
         if (terrain?.Data is not { } data || data.GetCarveRecord(CarveId) is not { } record)
             return false;
+        var id = CarveId;
         RecordEdit(terrain, () =>
         {
             data.SetHeights(record.Rect, record.Heights);
-            data.SetCarveRecord(CarveId, null);
+            data.SetCarveRecord(id, null);
         });
         CarveId = "";
+        LastCarveChange = new RiverCarveChange(this, data, LastCarveEdit, id, record, null, id, "");
         return true;
     }
 
@@ -423,6 +431,7 @@ public class River3D : Node3D, IWaterBody3D
         var depthArray = depths.ToArray();
         var id = TerrainCarveRecord.IsValidId(CarveId) ? CarveId : NewCarveId();
         var previous = data.GetCarveRecord(id);
+        var oldId = CarveId;
         RecordEdit(terrain, () =>
         {
             if (previous is not null)
@@ -435,6 +444,7 @@ public class River3D : Node3D, IWaterBody3D
             data.SetCarveRecord(id, new TerrainCarveRecord(rect, original));
         });
         CarveId = id;
+        LastCarveChange = new RiverCarveChange(this, data, LastCarveEdit, id, previous, data.GetCarveRecord(id), oldId, id);
         return true;
     }
 
@@ -618,5 +628,49 @@ public class River3D : Node3D, IWaterBody3D
             spray.CardSize = Math.Clamp(0.6f + fall.Drop * 0.35f, 0.8f, 3f);
             spray.Count = Math.Clamp((int)MathF.Round(3f * fall.Drop * fall.Width / 2f) + 4, 6, 16);
         }
+    }
+}
+
+/// <summary>
+/// One <see cref="River3D.Carve"/>, <see cref="River3D.Recarve"/> or <see cref="River3D.Uncarve"/> as an undoable change
+/// (<see cref="River3D.LastCarveChange"/>): <see cref="Undo"/> writes the height tiles, the terrain's carve record and the
+/// river's <see cref="River3D.CarveId"/> back as they were; <see cref="Redo"/> as they became.
+/// </summary>
+public sealed class RiverCarveChange
+{
+    private readonly River3D _river;
+    private readonly TerrainData _data;
+    private readonly string _key;
+    private readonly TerrainCarveRecord? _before, _after;
+    private readonly string _idBefore, _idAfter;
+
+    internal RiverCarveChange(River3D river, TerrainData data, TerrainEditRecord? edit, string key, TerrainCarveRecord? before,
+        TerrainCarveRecord? after, string idBefore, string idAfter)
+    {
+        _river = river;
+        _data = data;
+        Edit = edit;
+        _key = key;
+        _before = before;
+        _after = after;
+        _idBefore = idBefore;
+        _idAfter = idAfter;
+    }
+
+    /// <summary>The heights the change wrote (null when it ran inside an edit someone else had opened).</summary>
+    public TerrainEditRecord? Edit { get; }
+
+    public void Undo()
+    {
+        Edit?.Undo();
+        _data.SetCarveRecord(_key, _before);
+        _river.CarveId = _idBefore;
+    }
+
+    public void Redo()
+    {
+        Edit?.Redo();
+        _data.SetCarveRecord(_key, _after);
+        _river.CarveId = _idAfter;
     }
 }

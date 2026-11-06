@@ -524,7 +524,7 @@ public sealed class RenderServer : IServer
         if (_rootPicker is { HasQueued: true } picker && GetRenderCamera(root, vk.SwapchainExtent) is { } camera)
         {
             var world = root.World3D;
-            vk.Frame.Environment = world.Environment?.FrameEnvironment ?? default;
+            vk.Frame.Environment = world.GetFrameEnvironment();
             BindSkyLighting(vk.Frame, world, _mainDraws);
             vk.Frame.Begin(camera, world.Lights); // the main pass rewrites the same data
             var meshes = Meshes!;
@@ -571,7 +571,7 @@ public sealed class RenderServer : IServer
             EnsureResources(world);
             // The shadow maps belong to the main world, unless this view owns them this frame (SubViewport.Shadows).
             // ADR 0171: while the view runs the volumetric fog, the analytic fog starts where it ends.
-            frame.Environment = world.Environment?.GetFrameEnvironment(post is { Settings.VolumetricFog.Active: true }) ?? default;
+            frame.Environment = world.GetFrameEnvironment(post is { Settings.VolumetricFog.Active: true });
             BindSkyLighting(frame, world, targets.Draws);
             frame.Begin(camera, world.Lights, shadows: ReferenceEquals(sub, _shadowView) && _shadowViewRenderedFrame == vk.FrameNumber);
             meshes = world.GeometryList.Count > 0 ? Meshes : null;

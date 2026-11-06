@@ -705,12 +705,11 @@ public sealed class EditorQaScript : IEditorAutomation
             case "add-node":
                 if (workspace.Session.Active is { } addTo)
                 {
+                    // add-node <Type> [name] [parent path]: under the parent ("." the root), else under the selection.
                     var node = Serialization.TypeRegistry.CreateNode(step[1]);
                     node.Name = step.Length > 2 ? step[2] : step[1];
                     NewNodeDefaults.Apply(node);
-                    // add-node <type> [name] [parent]: under the selection by default; "." is the scene root.
-                    var parent = step.Length > 3 ? step[3] == "." ? addTo.Root : addTo.Root.GetNode(step[3]) : null;
-                    addTo.AddNode(node, parent);
+                    addTo.AddNode(node, step.Length > 3 ? (step[3] == "." ? addTo.Root : addTo.Root.GetNode(string.Join(' ', step[3..]))) : null);
                 }
 
                 break;

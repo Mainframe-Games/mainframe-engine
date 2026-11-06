@@ -7,7 +7,7 @@ namespace MainframeEngine;
 /// or baked variants (<see cref="Baked"/>, from <see cref="Tree3D.Bake"/>) that skip the generator. Placements pick a
 /// variant by a hash of their position, so a forest of one species still varies.
 /// </summary>
-[EditorIcon("feather")]
+[EditorIcon("tree")]
 public sealed class TreeSpecies : Resource
 {
     private TreeMesh[] _generated = [];

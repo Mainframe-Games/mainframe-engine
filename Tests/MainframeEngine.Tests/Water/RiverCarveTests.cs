@@ -214,4 +214,36 @@ public sealed class RiverCarveTests : IDisposable
                 Directory.Delete(folder, recursive: true);
         }
     }
+
+    [Fact]
+    public void ACarveChangeUndoesAndRedoesHeightsRecordAndId()
+    {
+        var terrain = AddTerrain((_, _) => 2f);
+        var data = terrain.Data!;
+        var river = AddStraightRiver();
+        var ground = data.Heights.ToArray();
+
+        Assert.True(river.Carve());
+        var carve = river.LastCarveChange!;
+        var id = river.CarveId;
+        var carved = data.Heights.ToArray();
+        carve.Undo();
+        Assert.Equal(ground, data.Heights.ToArray());
+        Assert.Equal("", river.CarveId);
+        Assert.Null(data.GetCarveRecord(id));
+        carve.Redo();
+        Assert.Equal(carved, data.Heights.ToArray());
+        Assert.Equal(id, river.CarveId);
+        Assert.NotNull(data.GetCarveRecord(id));
+
+        // Uncarve as a change too: undo brings the channel and its record back.
+        Assert.True(river.Uncarve());
+        var uncarve = river.LastCarveChange!;
+        Assert.Equal(ground, data.Heights.ToArray());
+        uncarve.Undo();
+        Assert.Equal(carved, data.Heights.ToArray());
+        Assert.Equal(id, river.CarveId);
+        Assert.True(river.Recarve()); // the record is back: re-carving works
+        Assert.Equal(carved, data.Heights.ToArray());
+    }
 }

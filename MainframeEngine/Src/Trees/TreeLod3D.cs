@@ -8,7 +8,7 @@ namespace MainframeEngine;
 /// visibility range, so exactly one level draws. Surface 0 (bark) and 1 (leaves) draw with the tree's materials unless
 /// <see cref="GeometryInstance3D.MaterialOverride"/> or the mesh's own surface materials say otherwise.
 /// </summary>
-[EditorIcon("feather")]
+[EditorIcon("tree")]
 public sealed class TreeLod3D : MeshInstance3D
 {
     /// <summary>The tree that owns this level (null when detached).</summary>

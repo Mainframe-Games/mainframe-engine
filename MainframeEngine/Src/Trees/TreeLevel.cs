@@ -13,6 +13,12 @@ public sealed class TreeLevel : Resource
     /// <summary>Changes whenever a property changes.</summary>
     public int Version => _version;
 
+    /// <summary>
+    /// Which branch level this is: its index in the <see cref="TreeOptions.Level"/> array that holds it (0 = the trunk),
+    /// −1 while in none. Not saved; the editor hides the fields that do not apply to the level (G8b.3).
+    /// </summary>
+    public int LevelIndex { get; internal set; } = -1;
+
     /// <summary>Angle of the branches at this level to their parent, degrees (<c>branch.angle[n]</c>, n ≥ 1).</summary>
     [Export(Range = "0,180,1")]
     public double Angle { get; set => Set(ref field, value); }

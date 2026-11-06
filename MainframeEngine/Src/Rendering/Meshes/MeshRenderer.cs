@@ -873,7 +873,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         ResetStatsIfNewFrame();
         view.PreparedFrame = CurrentFrame;
         view.Clear();
-        view.Environment = world.Environment?.FrameEnvironment ?? default;
+        view.Environment = world.GetFrameEnvironment();
 
         var viewMatrix = camera.ViewMatrix;
         var frustum = new Frustum(viewMatrix * camera.ProjectionMatrix);

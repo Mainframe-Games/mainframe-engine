@@ -41,7 +41,7 @@ public enum AlphaAntialiasing : byte
 /// Meshes without the second stream still draw (it reads white and zero: no wind). Lighting is Blinn-Phong with
 /// <see cref="Roughness"/> drives the PBR highlight, or a Blinn-Phong one (<see cref="ShadingMode"/>).
 /// </remarks>
-[EditorIcon("palette")]
+[EditorIcon("leaf")]
 public sealed class FoliageMaterial3D : Material
 {
     [ExportGroup("Albedo")]

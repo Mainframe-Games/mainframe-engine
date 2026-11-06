@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted (implemented on `forest/e`, forest slice wave 1)
 - **Milestone:** Gameplay toolkit G8 (G8c.2–G8c.3 subset, G8d.9–G8d.10 subset)
-- **Spec:** docs/design/future/water.md, docs/design/future/forest-showcase.md; plan
+- **Spec:** docs/design/future/water.md, docs/design/forest.md; plan
   docs/superpowers/plans/2026-10-08-forest-vertical-slice.md
 - **Docs:** docs/design/water.md, docs/design/forest.md
 

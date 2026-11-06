@@ -162,6 +162,9 @@ selection colour when selected (`ViewportController.DrawPath`), and every `Path2
 (`DrawPath2D`). A path made with Add Node starts with an inline curve (`NewNodeDefaults`: a `Curve2D`, or a `Curve3D`
 with `UpVectorEnabled`).
 
+A `River3D` is edited by the same tool in 3D, with bank and depth handles and its own ground snap
+([Water → Editor](water.md#editor)).
+
 **The curve tool (2D).** While a `Path2D` is the selection in a 2D tab, the curve bar shows over the view (the tile
 map's bar slot) and `CurveEditor` takes the view's clicks:
 

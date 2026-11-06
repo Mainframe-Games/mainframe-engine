@@ -19,9 +19,11 @@ namespace MainframeEngine;
 /// seed and style share one generated <see cref="TreeMesh"/>, and every tree shares the <see cref="TreeMaterials"/> of its
 /// look, so equal trees batch into instanced draws. Generation is synchronous main-thread work (about 3–5 ms for Oak
 /// Medium Realistic); bake trees a shipped game places by hand. For forests use <see cref="TreeScatter"/>.</para>
+/// <para>In the editor (<see cref="SceneTree.EditMode"/>) a stale bake (<see cref="GetBakeStatus"/>) yields to the
+/// generator, so edits to the options show while the bake waits to be redone (ADR 0271).</para>
 /// </remarks>
 [Tool]
-[EditorIcon("feather")]
+[EditorIcon("tree")]
 public sealed class Tree3D : Node3D
 {
     private static readonly Lock CacheGate = new();
@@ -209,6 +211,47 @@ public sealed class Tree3D : Node3D
         }
     }
 
+    /// <summary>
+    /// An editor preview (G8b.3): 0 to <see cref="LodCount"/> − 1 draws only that level, at any distance (its shadows too);
+    /// −1 (default) picks the level by distance. Not saved.
+    /// </summary>
+    public int ForceLod
+    {
+        get;
+        set
+        {
+            value = Math.Max(value, -1);
+            if (field == value)
+                return;
+            field = value;
+            ApplyRanges();
+        }
+    } = -1;
+
+    /// <summary>Whether a change waits for the next frame's rebuild (<see cref="Regenerate"/> does it now).</summary>
+    public bool NeedsRegenerate => _dirty;
+
+    /// <summary>How long the last <see cref="Regenerate"/> took (generation or cache hit, levels and trunk), milliseconds.</summary>
+    public double LastRegenerateMilliseconds { get; private set; }
+
+    /// <summary>Whether <see cref="Mesh"/> is <see cref="BakedMesh"/> (false: generated, also for a stale bake in the editor).</summary>
+    public bool DrawsBake => _mesh is not null && ReferenceEquals(_mesh, BakedMesh);
+
+    /// <summary>
+    /// <see cref="TreeBakeStatus.NotBaked"/> without a <see cref="BakedMesh"/>; <see cref="TreeBakeStatus.UpToDate"/> when
+    /// its <see cref="TreeMesh.BakeHash"/> matches the tree's options, seed and style (or the tree has no options of its own
+    /// to compare with); else <see cref="TreeBakeStatus.Stale"/>.
+    /// </summary>
+    public TreeBakeStatus GetBakeStatus()
+    {
+        if (BakedMesh is not { } baked)
+            return TreeBakeStatus.NotBaked;
+        var options = Options ?? (string.IsNullOrEmpty(Preset) ? null : SharedPreset(Preset));
+        if (options is null)
+            return TreeBakeStatus.UpToDate; // the bake is the tree's only source
+        return baked.IsCurrentFor(options, ResolveSeed(options), Style) ? TreeBakeStatus.UpToDate : TreeBakeStatus.Stale;
+    }
+
     /// <summary>What is drawn: the baked or generated tree (null before the tree is ready or without options).</summary>
     public TreeMesh? Mesh => _mesh;
 
@@ -244,16 +287,19 @@ public sealed class Tree3D : Node3D
     public void Regenerate()
     {
         _dirty = false;
-        _mesh = BakedMesh ?? GenerateMesh();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var useBake = BakedMesh is not null && !(Tree is { EditMode: true } && GetBakeStatus() == TreeBakeStatus.Stale);
+        _mesh = (useBake ? BakedMesh : GenerateMesh()) ?? BakedMesh;
         if (_mesh is null)
         {
             ClearLods();
             ClearBody();
+            LastRegenerateMilliseconds = watch.Elapsed.TotalMilliseconds;
             return;
         }
 
         var options = Options ?? (string.IsNullOrEmpty(Preset) ? null : SharedPreset(Preset)) ?? _mesh.Options;
-        var style = BakedMesh?.Style ?? Style;
+        var style = DrawsBake ? _mesh.Style : Style;
         var bark = BarkMaterial ?? (options is null ? null : TreeMaterials.Bark(options, style));
 
         var count = _mesh.Lods.Length;
@@ -286,23 +332,35 @@ public sealed class Tree3D : Node3D
 
         ApplyRanges();
         UpdateBody(_mesh.Trunk);
+        LastRegenerateMilliseconds = watch.Elapsed.TotalMilliseconds;
     }
 
     /// <summary>
     /// Generates the tree from its options (ignoring <see cref="BakedMesh"/>), makes the result its
     /// <see cref="BakedMesh"/> and, when <paramref name="path"/> is given, saves it there as <c>.mfres</c> (all levels, the
-    /// trunk capsule and the options). Returns the baked mesh.
+    /// trunk capsule, a copy of the options and their <see cref="TreeMesh.BakeHash"/>). Returns the baked mesh.
     /// </summary>
     public TreeMesh Bake(string? path = null)
     {
-        var options = Options ?? (string.IsNullOrEmpty(Preset) ? null : SharedPreset(Preset))
-            ?? throw new InvalidOperationException($"Tree '{Name}' has no options or preset to bake.");
-        var mesh = TreeMesh.Generate(options, ResolveSeed(options), Style);
+        var mesh = GenerateBake();
         if (path is not null)
             ResourceSaver.Save(mesh, path);
         BakedMesh = mesh;
         if (IsNodeReady)
             Regenerate();
+        return mesh;
+    }
+
+    /// <summary>
+    /// What <see cref="Bake"/> makes, without saving or assigning it: the levels generated from the tree's options (never
+    /// from <see cref="BakedMesh"/>), holding a copy of the options, so later edits leave the bake as it was.
+    /// </summary>
+    public TreeMesh GenerateBake()
+    {
+        var options = Options ?? (string.IsNullOrEmpty(Preset) ? null : SharedPreset(Preset))
+            ?? throw new InvalidOperationException($"Tree '{Name}' has no options or preset to bake.");
+        var mesh = TreeMesh.Generate(options, ResolveSeed(options), Style);
+        mesh.Options = options.Clone();
         return mesh;
     }
 
@@ -401,9 +459,12 @@ public sealed class Tree3D : Node3D
 
     private void ApplyRanges()
     {
+        var forced = (uint)ForceLod < (uint)_lods.Length;
         for (var i = 0; i < _lods.Length; i++)
         {
-            var (begin, end) = TreeMesh.LodRange(i, _lods.Length, Lod1Distance, Lod2Distance, MaxDistance);
+            var (begin, end) = forced
+                ? i == ForceLod ? (0f, 0f) : (float.MaxValue, float.MaxValue)
+                : TreeMesh.LodRange(i, _lods.Length, Lod1Distance, Lod2Distance, MaxDistance);
             _lods[i].VisibilityRangeBegin = begin;
             _lods[i].VisibilityRangeEnd = end;
         }
@@ -447,4 +508,17 @@ public sealed class Tree3D : Node3D
         _body = null;
         _trunkShape = null;
     }
+}
+
+/// <summary>Whether a <see cref="Tree3D"/>'s <see cref="Tree3D.BakedMesh"/> matches its inputs (<see cref="Tree3D.GetBakeStatus"/>).</summary>
+public enum TreeBakeStatus : byte
+{
+    /// <summary>No <see cref="Tree3D.BakedMesh"/>: the tree generates.</summary>
+    NotBaked,
+
+    /// <summary>The bake is what the tree's options, seed and style generate.</summary>
+    UpToDate,
+
+    /// <summary>The options, seed, style or generator changed since the bake: bake again.</summary>
+    Stale,
 }

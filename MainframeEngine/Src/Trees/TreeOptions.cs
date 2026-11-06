@@ -16,6 +16,7 @@ namespace MainframeEngine;
 /// <see cref="TreeLevel"/> of <see cref="Level"/> (assign a new array to replace a level). Use <see cref="Clone"/> for an
 /// editable copy: <see cref="Resource.Duplicate"/> shares the <see cref="Level"/> array.
 /// </remarks>
+[EditorIcon("trees")]
 public sealed class TreeOptions : Resource
 {
     private int _version;
@@ -62,9 +63,12 @@ public sealed class TreeOptions : Resource
                 if (level is not null)
                     level.Changed -= OnLevelChanged;
             _level = value;
-            foreach (var level in _level)
-                if (level is not null)
+            for (var i = 0; i < _level.Length; i++)
+                if (_level[i] is { } level)
+                {
                     level.Changed += OnLevelChanged;
+                    level.LevelIndex = i;
+                }
             Touch();
         }
     }

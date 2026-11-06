@@ -65,6 +65,9 @@ circle
 capsule-horizontal
 line
 feather
+tree
+trees
+leaf
 movie
 cloud
 typography
@@ -307,8 +310,7 @@ pin
 help
 # Terrain dock, tree inspector (G8a, G8b)
 plant-2
-tree
-trees
-leaf
 trending-up
 square-dashed
+# Tree3D inspector (G8b.3): the wind preview
+wind

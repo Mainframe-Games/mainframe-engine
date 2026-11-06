@@ -245,7 +245,13 @@ sequenceDiagram
   gate) and the tree scenes (ADR 0158) `tree-realistic`,
   `tree-lowpoly` (an oak and a pine `Tree3D`; `--count 1`: no wind) and `tree-forest` (a `TreeScatter`; `--count` trees,
   default 160; a CPU device flies through at most 120 without sun shadows; with `--perf` or `--alloc` a fly-through;
-  self-checked) ([Procedural trees → testing](procedural-trees.md#testing)), and the post-processing scenes (ADR 0163)
+  self-checked) ([Procedural trees → testing](procedural-trees.md#testing)), `forest-mini` (G8d.15: the Forest's frame
+  in miniature from engine assets only, no `Examples/Forest` content: a 32 × 32 m splat terrain of three generated
+  layers, six Ez Tree trees (pine, aspen) with G8e.5's clusters, per-instance levels and impostors, grass, a carved
+  `River3D`, a baked terrain-following probe volume, the physical sky, height and volumetric fog, histogram auto exposure,
+  staggered PCSS cascades with contact shadows, under TAAU 0.75; self-checks the terrain under each tree, the stream as
+  water, the splat tags, the grass, the bake and the sky's LUTs; golden at frame 90; a 0 B gate over 300 frames with the
+  camera walking round the glade, on lavapipe without sun shadows; `ForestMiniTests`, [Forest → tests](forest.md#tests)), and the post-processing scenes (ADR 0163)
   `velocity` (a yawing camera and a gravity-less rigid body under the velocity view, self-checked against the camera's
   matrices; `--count 1` still with jitter, `--count 2` the allocation run) and `post-copy` (a test `BeforeTonemap` effect
   writing the scene colour through a pooled history; self-checked) ([Post-processing → testing](post-processing.md#testing)),

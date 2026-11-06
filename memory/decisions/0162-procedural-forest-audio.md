@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted
 - **Milestone:** Gameplay toolkit G8d (G8d.13 audio, subset), forest slice wave 3 lane K
-- **Spec:** docs/design/future/forest-showcase.md (Audio), docs/design/future/water.md (Audio); current state in
+- **Spec:** docs/design/forest.md (Audio), docs/design/future/water.md (Audio); current state in
   docs/design/forest.md#audio
 
 ## Context

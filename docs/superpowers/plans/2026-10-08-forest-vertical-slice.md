@@ -17,7 +17,7 @@
 - `docs/design/future/terrain.md` (G8a)
 - `docs/design/future/procedural-trees.md` (G8b)
 - `docs/design/future/water.md` (G8c)
-- `docs/design/future/forest-showcase.md` (G8d)
+- `docs/design/forest.md` (G8d; the proposal moved there when it shipped)
 - `docs/design/future/rendering-features.md` (G6.1/G6.2)
 - ADR 0149
 

@@ -38,8 +38,9 @@ internal sealed class FoliageTileData
 /// its own distance factor; because membership near a tile edge is shared at random between the two tiles, the drawn
 /// density between tile centres is a linear blend of their factors — continuous, so thinning shows no line at tile
 /// edges.</para>
-/// <para>A point grows when its accept hash is below the growth probability: the summed weight of the type's
-/// <see cref="FoliageType.LayerMask"/> layers (1 without a mask) times a slope fade, and 0 in water or outside the
+/// <para>A point grows when its accept hash is below the growth probability: the larger of the summed weight of the
+/// type's <see cref="FoliageType.LayerMask"/> layers (1 without a mask; 0 when <see cref="FoliageType.AutoGrowth"/> is
+/// off) and the type's painted density (types 0–7, <see cref="TerrainData.GetFoliageDensity"/>), times a slope fade, and 0 in water or outside the
 /// height limits.</para>
 /// </remarks>
 internal static class FoliagePlacement
@@ -86,6 +87,7 @@ internal static class FoliagePlacement
         var realistic = data.Profile == TerrainProfile.Realistic;
         var cellSize = data.CellSize;
         var mask = type.LayerMask;
+        var painted = data.HasPaintedFoliage;
         var slopeMax = type.SlopeMaxDegrees;
         var origin = new Vector3(x0, 0f, z0);
         var typeSeed = Mix(((ulong)(uint)type.Seed << 32) ^ (uint)typeIndex ^ 0xF011A6EUL);
@@ -116,7 +118,9 @@ internal static class FoliagePlacement
                 if (ox != tx || oz != tz)
                     continue;
 
-                var probability = Growth(data, realistic, mask, cellSize, x, z);
+                var probability = type.AutoGrowth ? Growth(data, realistic, mask, cellSize, x, z) : 0f;
+                if (typeIndex < TerrainData.PaintedFoliageTypes && painted) // G8a.8: the Terrain dock's Foliage brush
+                    probability = MathF.Max(probability, data.GetFoliageDensity(typeIndex, (int)(x / cellSize), (int)(z / cellSize)));
                 if (probability <= 0f || WaterDepthFraction(grid, water, x, z) > 0f)
                     continue;
                 var height = grid.HeightAt(bed, x, z);

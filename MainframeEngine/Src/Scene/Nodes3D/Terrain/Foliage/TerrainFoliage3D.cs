@@ -264,7 +264,7 @@ public sealed class TerrainFoliage3D : Node3D
 
     private void OnTerrainChanged(TerrainChange change)
     {
-        if ((change.Layers & (TerrainLayers.Height | TerrainLayers.Surface | TerrainLayers.Water)) == 0 ||
+        if ((change.Layers & (TerrainLayers.Height | TerrainLayers.Surface | TerrainLayers.Water | TerrainLayers.Foliage)) == 0 ||
             Terrain?.Data is not { } data || change.Cells.Size.X <= 0 || change.Cells.Size.Y <= 0)
             return;
 
