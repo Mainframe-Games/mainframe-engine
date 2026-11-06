@@ -26,5 +26,5 @@ public sealed class TerrainChunk3D : GeometryInstance3D
     internal override Mesh? GetRenderMesh() => Mesh;
 
     internal override Material GetRenderMaterial(Mesh mesh, int surface) =>
-        MaterialOverride ?? Terrain?.Material ?? Terrain3D.DefaultMaterial;
+        MaterialOverride ?? Terrain?.RenderMaterial ?? Terrain3D.DefaultMaterial;
 }

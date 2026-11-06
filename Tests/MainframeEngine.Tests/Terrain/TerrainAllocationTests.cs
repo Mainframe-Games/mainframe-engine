@@ -63,4 +63,30 @@ public sealed class TerrainAllocationTests
         }));
         Assert.True(walker.Moves > 200);
     }
+
+    [Fact]
+    public void PaintingFacetedCellsAllocatesNothing()
+    {
+        using var h = new PhysicsHarness3D();
+        var data = TerrainData.Create(TerrainProfile.Faceted, 64, 2f);
+        var terrain = h.Add(new Terrain3D { Data = data });
+        _ = data.GetSurfaceTexture(); // the map the Faceted material reads follows every edit
+        _ = data.GetUserTexture();
+        var cell = new uint[1];
+        var n = 0;
+
+        void Paint()
+        {
+            for (var i = 0; i < 50; i++, n++)
+            {
+                cell[0] = (uint)(n % 8);
+                terrain.SetCells(TerrainLayers.Surface, 0, new Rect2I(n % 30, 3, 1, 1), cell);
+                terrain.SetCells(TerrainLayers.User, 0, new Rect2I(n % 30, 4, 1, 1), cell);
+            }
+        }
+
+        Paint();
+        h.Run(2);
+        Assert.Equal(0, AllocationGate.SmallestWindow(Paint));
+    }
 }

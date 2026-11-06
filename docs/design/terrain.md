@@ -12,11 +12,11 @@ analytic raycast. Layers live as PNG images next to the scene. This is the core 
 
 Built so far: the data and its files, both profiles' knobs, the Realistic profile's geometry (smooth normals,
 geomipmapped chunk LOD with skirts), collision (`CollisionMode.All`), queries, the edit API with undo tiles, the
-scene-save hook, the Realistic look (`TerrainSplatMaterial3D` with `TerrainLayer`s) and [foliage scatter](#foliage)
-(grass, ferns, pebbles), and the editor's [Terrain dock](#editing) (create, sculpt, paint, water; ADR 0270). Not yet:
-the Faceted material (`TerrainMaterial3D`), object scatter, the foliage build radius and painted density layers (and the
-dock's Foliage and Objects modes), `CollisionMode.NearBodies` (a stub that builds every chunk) and sub-rectangle
-texture uploads.
+scene-save hook, the Realistic look (`TerrainSplatMaterial3D` with `TerrainLayer`s), the [Faceted look](#faceted-look)
+(`TerrainMaterial3D`), [foliage scatter](#foliage) (grass, ferns, pebbles), and the editor's [Terrain dock](#editing)
+(create, sculpt, paint, water; ADR 0270). Not yet: object scatter, the foliage build radius and painted density layers
+(and the dock's Foliage and Objects modes), `CollisionMode.NearBodies` (a stub that builds every chunk) and
+sub-rectangle texture uploads.
 
 ## Key types
 
@@ -31,6 +31,7 @@ All in [`Src/Scene/Nodes3D/Terrain/`](../../MainframeEngine/Src/Scene/Nodes3D/Te
 | `TerrainEdit`, `TerrainEditRecord`, `TerrainEditTile` | `Begin(layers)` / `End()`: before/after chunk tiles, `Undo()` / `Redo()` |
 | `TerrainProfile`, `TerrainDiagonal`, `TerrainLayers`, `TerrainCollisionMode` | enums |
 | `TerrainHit`, `TerrainChange` | `(Position, Normal, Distance)`; `(Layers, Cells, Chunks, FromUndo)` |
+| `TerrainSurface : Resource`, `TerrainMaterial3D : Material` | the Faceted look ([below](#faceted-look); in `Src/Rendering/Resources/`) |
 | `TerrainLayer : Resource`, `TerrainSplatMaterial3D : Material` | the Realistic look ([below](#terrainsplatmaterial3d); in `Src/Rendering/Resources/`) |
 | `TerrainLayerPacker`, `TerrainSplatGpu`, `TerrainSplatParams` (internal) | layer arrays, GPU state, parameter block (`Src/Rendering/Terrain/`) |
 | `FoliageType : Resource` | one kind of foliage in `TerrainData.FoliageTypes` ([Foliage](#foliage), in `Terrain/Foliage/`) |
@@ -134,6 +135,33 @@ keeps them (an edit made meanwhile refreshes every chunk on re-entry).
   1 px rule keeps LOD 0 out to ~50 m per 5 cm of error; `LodBias` < 1 drops levels sooner. Shadow casters draw the
   level the camera sees. Allocation-free.
 - **Faceted** builds one level and no skirts.
+
+## Faceted look
+
+`TerrainMaterial3D` (G8a.4, `Src/Rendering/Resources/TerrainMaterial3D.cs`, `Terrain/TerrainFaceted.vk.frag.slang`): the
+Faceted profile's flat palette look. A Faceted `Terrain3D` with no `Material` draws with its own default instance
+(`Terrain3D.RenderMaterial`, `TerrainMaterial3D.CreateDefault()`: Grass, Meadow, Dirt, Sand, Rock, Snow, Path and a banded
+Lawn, with footstep tags); assigning one links it to the terrain (`Terrain`, like the splat material).
+
+![The terrain-faceted render test: palette facets with a dirt path, a sand beach, rock on the crest, a banded lawn and a box's shadow](../../Tests/MainframeEngine.RenderTests/Goldens/moltenvk/terrain-faceted_frame0010.png)
+
+| Export | Default | |
+|---|---|---|
+| `Surfaces` | `[]` (default instance: 8) | `TerrainSurface { Name, Tag, Color, Stripes, StripeColor }`, the index is the id in `surface.png` (append-only); at most 32 |
+| `StripeWidth`, `StripeAngleDegrees` | 1 m, 0° | two-tone bands of surfaces with `Stripes`, world-aligned |
+| `TintChannel`, `TintColor`, `TintStrength`, `BandStart` | −1, olive, 1, 0.5 | a user channel tints toward the colour and, where it is at least `BandStart`, lets the bands show (grass that turns banded when cut) |
+| `Roughness`, `ShadingMode` | 0.9, `Pbr` | lit like `StandardMaterial3D` (Blinn-Phong uses a 0.05 / 8 matte) |
+
+Per fragment: the exact **face normal** from the position's derivatives (flat facets on shared vertices, flipped up), the
+cell's id fetched from the surface map (`TerrainData.GetSurfaceTexture()`, nearest; UV = terrain UV), its palette colour
+(`TerrainMaterial3D.Palette`, a 32 × 2 sRGB texture: row 0 colours, row 1 stripe colours with alpha = bands; ids past the
+palette are magenta), bands **box-filtered** over the pixel footprint (an exact integral of the square wave, so far bands
+fade to the mix instead of shimmering), the tint from the user map (`GetUserTexture()`), decals, the standard lighting and
+fog. It runs on the shared mesh pipeline layout (`ShaderSetId.MeshTerrainFaceted`; albedo slot = surface map, normal slot
+= palette, emission slot = user map), is prepassed and takes decals; casters and the ID pass draw it as any opaque surface.
+The maps follow edits: `TextureGpu` re-uploads a code-created one-level texture of the same size and sampling **into the
+same image** (`GpuTexture.Update2D`), so painting allocates nothing (`terrain-faceted`'s 0 B gate repaints every frame) —
+the whole map, not a sub-rectangle yet. `SurfaceTagAt` reads the surfaces' tags.
 
 ## TerrainSplatMaterial3D
 
@@ -410,9 +438,24 @@ bodies) is the planned fix for larger maps.
 - Falloff is the fraction of the radius that fades (0: a hard edge), the proposal's "fraction where the fade begins"
   read from the edge; the default 0.5 is the same.
 
+## Changes from the proposal (Faceted look)
+
+- `TerrainMaterial3D` shades PBR by default (roughness 0.9; Blinn-Phong through `ShadingMode`), as the engine's default
+  shading moves to PBR (G6); the proposal used Blinn-Phong only.
+- The palette lives on the material (`Surfaces`), not on `TerrainData`; a Faceted terrain without a material gets its own
+  default instance rather than the shared grey `DefaultMaterial`.
+- The cell modes (`Cell` / `Triangle`) and the editor overlays (Id-channel legend tint, a soft brush disc in the material)
+  are not built: cells are the 1 m surface cells (`SurfaceAt`'s), and the dock draws its ring as overlay lines.
+- Edits re-upload a map into the same GPU image (in place, 0 B) instead of recreating it; sub-rectangle uploads (G8a.1)
+  remain open.
+- Chunk sizes for new terrains are picked so they divide the map (`TerrainEditorTool.ChunkMetersFor`): the profile
+  defaults (16 or 64 quads) only fit some sizes.
+
 ## Known gaps (next waves)
 
-- Painting re-uploads whole splat maps; `Texture2D.SetPixelsRect` + region uploads are the fix (G8a.15).
+- Painting re-uploads whole maps (in place since G8a.4, 0 B); `Texture2D.SetPixelsRect` + region uploads (G8a.1/G8a.15)
+  would upload only the touched rectangle. The Faceted material's `Triangle` cell mode and editor overlays (Id-channel
+  legend tint, brush disc) are not built.
 - The splat material has no `MacroColor` map, no per-layer triplanar/anti-tiling flags (every layer goes triplanar on
   slopes, every layer hex-tiles near) and no Blinn-Phong fallback; packing (decoding and resampling every layer image)
   runs synchronously on the render thread when a layer texture changes.
@@ -420,7 +463,7 @@ bodies) is the planned fix for larger maps.
   layers, `ChannelCutoff`, the editor Foliage mode, and `FoliageMaterial3D.FadeMode.Shrink` (G8b) so thinning
   instances shrink instead of popping.
 - `CollisionMode.NearBodies`, the analytic physics-ray registration (decision 2 of the proposal), objects,
-  the Faceted `TerrainMaterial3D`, the dock's Foliage and Objects modes, brush mask PNGs and the X/Z axis lock.
+  the dock's Foliage and Objects modes, brush mask PNGs and the X/Z axis lock.
 - Inspector edits of a loaded `TerrainData`'s layout knobs throw (the dock's Create terrain data sets them for new data).
 - Inline (never saved) terrain data does not survive an editor code reload (snapshots carry knobs, not pixels).
 - When G6.4 lands, the per-level meshes can become index-only `MeshSurface.Lods` over one vertex buffer.
