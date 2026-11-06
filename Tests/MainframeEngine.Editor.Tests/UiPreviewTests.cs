@@ -297,6 +297,34 @@ public sealed class UiPreviewTests : IDisposable
     }
 
     [Fact]
+    public void APanelInTheSceneViewShowsItsDocumentWithStandInData()
+    {
+        // G11.7: an edited scene's panel binds the preview's stand-ins (game code would create "hud"), so its bindings render.
+        var panel = new UiPanel3D { Name = "Screen", Resolution = new Vector2I(320, 200) };
+        _editor.Scene.AddNode(panel, _editor.Scene.Root);
+        var document = new UiDocument { Name = "Ui", Source = "Assets/UI/hud-data.rml" };
+        _editor.Scene.AddNode(document, panel);
+        _editor.Tick(4);
+
+        var standIns = W.Viewport.PanelStandIns;
+        Assert.Equal(1, standIns.Count);
+        Assert.Contains(standIns.ModelsOf(panel), m => m.Name == "hud");
+        Assert.True(document.IsLoaded);
+        Assert.Equal("score", document.GetElementById("score")!.InnerRml); // the variable's name stands in for its value
+        Assert.NotNull(document.GetElementById("ok")); // conditions are true
+        var renders = panel.RenderCount;
+        Assert.True(renders >= 1, "the panel renders in edit mode");
+
+        // Another document: bound again; the panel leaving the scene drops its stand-ins.
+        document.Source = "Assets/UI/hud.rml";
+        _editor.Tick(3);
+        Assert.Empty(standIns.ModelsOf(panel));
+        _editor.Scene.Delete([panel]);
+        _editor.Tick(2);
+        Assert.Equal(0, standIns.Count);
+    }
+
+    [Fact]
     public void ACodeReloadPutsTheBackdropSceneBack()
     {
         var scene = W.Session.Active!;

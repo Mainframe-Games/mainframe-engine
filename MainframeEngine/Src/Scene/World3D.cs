@@ -13,6 +13,7 @@ public sealed class World3D
     private readonly List<LightProbeVolume> _probeVolumes = [];
     private readonly List<Decal> _decals = [];
     private readonly List<Terrain3D> _terrains = [];
+    private readonly List<Label3D> _labels = [];
 
     public World3D()
     {
@@ -92,6 +93,12 @@ public sealed class World3D
 
     internal List<Decal> DecalList => _decals;
 
+    /// <summary>Every <see cref="Label3D"/> in the world (the batched text renderer draws the unshaded ones, ADR 0258).</summary>
+    internal List<Label3D> LabelList => _labels;
+
+    /// <summary>The frame the batched text renderer last prepared this world's labels in.</summary>
+    internal ulong TextPreparedFrame = ulong.MaxValue;
+
     internal void AddDecal(Decal decal) => _decals.Add(decal);
 
     internal void RemoveDecal(Decal decal) => _decals.Remove(decal);
@@ -109,6 +116,8 @@ public sealed class World3D
         _visuals.Insert(index, visual);
         if (visual is GeometryInstance3D geometry)
             _geometry.Add(geometry);
+        if (visual is Label3D label)
+            _labels.Add(label);
     }
 
     internal void RemoveVisual(VisualInstance3D visual)
@@ -126,6 +135,9 @@ public sealed class World3D
                 _geometry.RemoveAt(_geometry.Count - 1);
             }
         }
+
+        if (visual is Label3D label)
+            _labels.Remove(label); // order kept: labels sort per view, but equal keys stay in tree order
     }
 
     internal void ResortVisual(VisualInstance3D visual)

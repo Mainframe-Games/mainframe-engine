@@ -392,6 +392,9 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
     // The frame's exposure: the project's, or the Godot tonemaps' (ADR 0124, ADR 0168).
     private float FrameExposure => PostProcess.ExposureFor(_exposure);
 
+    /// <inheritdoc />
+    public float EffectiveExposure => PostExposure.Effective(FrameExposure, PostProcess, PostSettings.PostTonemap, _autoExposure.LastAdaptedLuminance);
+
     // ── IPostProcessHost (ADR 0163) ───────────────────────────────────────────
 
     public PostProcessStack PostEffects => _post;

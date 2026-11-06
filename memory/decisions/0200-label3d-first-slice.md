@@ -3,7 +3,7 @@
 - **Date:** 2026-10-20
 - **Status:** accepted
 - **Milestone:** G11 (part)
-- **Docs:** docs/design/future/world-space-ui.md#what-shipped-adr-0200, docs/design/materials-and-meshes.md
+- **Docs:** docs/design/world-space-ui.md#what-shipped-adr-0200, docs/design/materials-and-meshes.md
 
 ## Context
 

@@ -1,14 +1,16 @@
 # World-space UI and 3D text
 
-**Milestone:** [Gameplay toolkit](../milestones.md#gameplay-toolkit-) (G11) · **Status:** 🚧 G11.1–G11.6 and G11.7's
-panel preview shipped (this page); the batched text renderer, panel stand-in data in the scene view and G11.9 remain in
-the [proposal](future/world-space-ui.md) · **Decisions:**
+**Milestone:** [Gameplay toolkit](../milestones.md#gameplay-toolkit-) (G11) · **Status:** ✅ G11.1–G11.9 shipped; the
+proposal moved here (its changes are in [Changes from the proposal](#changes-from-the-proposal)) · **Decisions:**
 [ADR 0200](../../memory/decisions/0200-label3d-first-slice.md) (first `Label3D`),
 [ADR 0216](../../memory/decisions/0216-viewport-textures-on-3d-materials.md) (sub-viewport textures on meshes),
 [ADR 0251](../../memory/decisions/0251-label3d-on-the-mesh-batcher.md) (labels, layout, fallbacks),
 [ADR 0254](../../memory/decisions/0254-markers-as-rows-of-one-document.md) (markers),
 [ADR 0252](../../memory/decisions/0252-ui-panels-render-before-the-scene.md) (panels render before the scene),
-[ADR 0253](../../memory/decisions/0253-ui-panel-input.md) (panel input)
+[ADR 0253](../../memory/decisions/0253-ui-panel-input.md) (panel input),
+[ADR 0257](../../memory/decisions/0257-world-ui-owner-answers.md) (the owner's answers: `IgnoreExposure`, occlusion, input
+order, panels and post),
+[ADR 0258](../../memory/decisions/0258-batched-label3d-renderer.md) (the batched text renderer)
 
 Text and UI in the 3D world: `Label3D` for signs and tags drawn in the scene, `UiMarker3D` for nameplates, health bars,
 prompts and waypoints drawn on the HUD at a 3D point, `UiPanel3D` for terminals and in-world menus (a whole RmlUi context
@@ -16,11 +18,13 @@ on a quad, clicked with the mouse, a crosshair or code), and the camera helpers 
 
 | | `Label3D` | `UiMarker3D` | `UiPanel3D` |
 |---|---|---|---|
-| Drawn | in the scene pass (HDR, tonemapped, fog) | after the tonemap, on a screen `UiLayer` (exact colours) | in the scene, from the panel's own texture |
+| Drawn | in the scene pass, batched (HDR, tonemapped, fog) | after the tonemap, on a screen `UiLayer` (exact colours) | in the scene, from the panel's own texture |
 | Hidden by walls | depth test (`NoDepthTest` turns it off) | physics occlusion (optional) | depth test |
 | Size | world units (`PixelSize`), or fixed pixels (`FixedSize`) | dp, optional distance scale | world units (`Resolution` × `PixelSize`) |
 | Content | plain text, multi-line | any RML row template (one host document) | any RML (its own context) |
-| Input | none | none | mouse ray, crosshair, code |
+| Input | none | none | mouse ray, crosshair, code (quad or mesh) |
+| Exposure | applies (opt out: `IgnoreExposure`) | none (after the tonemap) | applies (unshaded: opt out with `IgnoreExposure`) |
+| 100 instances | a few draws in all | one document, one list binding | not intended (≤ 8 rendered per frame) |
 
 ![The Demo's World UI tab](../images/demo/world_ui.png)
 
@@ -50,20 +54,61 @@ on a quad, clicked with the mouse, a crosshair or code), and the camera helpers 
 
 ## Label3D
 
-Godot's `Label3D`: one `ArrayMesh` of glyph quads (outline surfaces per atlas page, then text surfaces) drawn by the
-mesh batcher, rebuilt only when the text, a property or the locale changes. Options: `Text` (translated with `Atr`),
+Godot's `Label3D`: glyph quads laid out from the font's atlas, rebuilt only when the text, a property or the locale
+changes, and drawn by the batched text renderer (below; lit labels by the mesh batcher). Options: `Text` (translated with `Atr`),
 `Font` (null = the engine's Lato Latin), `FontSize`, `PixelSize`, `Modulate`, `OutlineSize`, `OutlineModulate`,
 `OutlineRenderPriority`, `TextRenderPriority`, `HorizontalAlignment`, `VerticalAlignment`, `Offset`, `Width` (500 px),
 `Autowrap`, `LineSpacing`, `Uppercase`, `Billboard`, `FixedSize`, `NoDepthTest`, `Shaded`, `DoubleSided`, `AlphaCut`
-(`Disabled` blends, `Discard` is a depth-writing cutout that casts shadows). `GetLines()` returns the laid-out lines and
-`GetAabb()` the local bounds.
+(`Disabled` blends, `Discard` is a depth-writing cutout), `IgnoreExposure` (below). `GetLines()` returns the laid-out
+lines and `GetAabb()` the local bounds.
 
 - **Lines.** The block is as wide as its widest line (or `Width` when wrapping) and is aligned around the node; each line
   aligns inside the block.
-- **`FixedSize`.** The mesh renderer scales the model matrix per view (`Billboard.FixedSize`, after the billboard) so one
-  label pixel covers one framebuffer pixel at any distance. Like the billboard, it is CPU-side: the colour pass, prepass,
-  picking and casters all see the same quad.
-- **Picking and the editor.** Labels pick like any mesh (object IDs) and draw in the scene view.
+- **`FixedSize`.** The renderer scales the model matrix per view (`Billboard.FixedSize`, after the billboard) so one
+  label pixel covers one framebuffer pixel at any distance. Like the billboard, it is CPU-side: the colour pass, picking
+  and (for mesh labels) casters all see the same quad.
+- **Picking and the editor.** Labels pick through the object-ID pass (the batched renderer draws their quads with the
+  label's id; cutouts discard their holes) and draw in the scene view.
+
+### Batched text renderer
+
+ADR 0258. `Text3DRenderer` (`Src/Rendering/Text/`, one per render server beside the mesh batcher, like the particle
+renderer) draws every **unshaded** label of a world. A lit (`Shaded`) label, and an `AlphaCut = Discard` cutout that casts
+shadows, stay an `ArrayMesh` on the mesh batcher (ADR 0251), so lighting and cutout shadows keep working;
+`Label3D.IsBatchedText` says which path a label takes.
+
+- **Glyph runs.** A batched label keeps a run of glyph quads in label space (outline glyphs first), rebuilt only when it
+  changes. `World3D` lists its labels. Before the frame records (`RenderServer.PrepareFrame`) the renderer syncs the runs
+  and gives each atlas page a slot: pages sit in **groups of eight**, one descriptor set per group (a sampler and eight
+  images), so glyphs of different pages and fonts share a draw. Pages whose pixels changed re-upload through
+  `TextureGpu`.
+- **Per view.** Each label is posed on the CPU (`Billboard.Face`, `Billboard.FixedSize`), culled by its bounds and
+  `VisibilityRangeBegin/End`, and ordered: cutouts, then blended labels by `TextRenderPriority` and back to front, then
+  `NoDepthTest` labels the same way. Inside a label the outline draws first, unless `OutlineRenderPriority` is above
+  `TextRenderPriority`. A label record (model matrix, linear colours, object id) goes to a per-frame-slot storage buffer,
+  and one 40-byte instance per glyph (rectangle, UVs, record, page) to a per-frame-slot vertex buffer.
+- **Draws.** One instanced draw of six vertices per glyph for each run of glyphs with the same pipeline (depth test,
+  blend or cutout, cull) and page group: a world of labels in one font is typically one to three draws. The shaders
+  (`Text/Text3D.vk.{vert,frag}`, `include/text3d.slang`) build the quad from `SV_VulkanVertexID`, sample the glyph's page
+  under a branch per slot (gradients taken first), and match the unshaded mesh path: colour × atlas texel, fogged.
+  Blended glyphs use straight alpha without depth writes; cutouts discard below 0.5 and write depth.
+- **Order in the frame.** Labels draw last in a view's scene pass, after the blended meshes and blended visuals. They are
+  not in the depth prepass (no motion vectors), like other blended surfaces.
+- **Counters.** `RenderServer.Text3DStats`: labels drawn and culled, glyphs, colour and object-ID draws, resident pages.
+  Steady frames allocate 0 B.
+
+### Ignoring exposure
+
+ADR 0257. `Label3D.IgnoreExposure` and `UiPanel3D.IgnoreExposure` (off by default) divide the surface's colour by the
+view's **effective exposure**: the frame's exposure (the project's, or a Godot tonemapper's), times auto exposure's
+`scale / adapted luminance` while the post tonemap runs it. A sign or terminal then keeps its authored brightness while
+the camera adapts; the tonemap (ACES) still applies, so the colour is not exact (markers stay the tool for exact colours).
+
+- Auto exposure copies its 1 × 1 adapted luminance into a per-frame-slot readback buffer, so the CPU knows it a couple of
+  frames late (`RenderServer.MainViewExposure`). During a fast adaptation an `IgnoreExposure` surface trails the scene by
+  those frames.
+- A batched label multiplies its record's colours by `1 / exposure`. An unshaded panel's emission energy becomes
+  `Brightness / exposure`, rewritten only when it moves by more than 0.5 %. Lit labels and panels ignore the flag.
 
 ## Markers
 
@@ -121,7 +166,8 @@ Terminal (StaticBody3D)          its collider does not block its own panel's lin
 - **Options:** `Resolution` (1024×640), `DpScale` (panel pixels per dp; the player's UI scale does not apply),
   `PixelSize` (0.001 m), `Mesh`, `Background` (sRGB; what the documents are drawn over), `Transparent` (the documents'
   own alpha, alpha-blended), `Shaded` (lit like a sign; default unshaded like a screen), `Brightness` (an unshaded panel's
-  emission multiplier: above 1 the glow catches it), `UpdateMode` (`Always`, `Once`, `Disabled`), `MaxUpdateDistance`
+  emission multiplier: above 1 the glow catches it), `IgnoreExposure` (an unshaded panel keeps its brightness under any
+  exposure, [above](#ignoring-exposure)), `UpdateMode` (`Always`, `Once`, `Disabled`), `MaxUpdateDistance`
   (30 m), `InputMode`, `MaxInteractDistance` (4 m), `RequireLineOfSight`, `ClickAction` (`ui_accept`). Read-back:
   `Context`, `Documents`, `HasFocus`, `HasPointer`, `PointerPosition` (panel pixels), `RenderCount`, `Texture`, `QuadSize`.
   Signals `PointerEntered`, `PointerExited`, `FocusChanged(bool)`.
@@ -159,7 +205,9 @@ panels, then game nodes.
   release, and moves follow its plane past the edge. A press elsewhere releases the focus, and so does Escape when no
   text field has it. Keys, text and gamepad navigation go to the focused panel after the screen layers. A text field
   there takes every key. `UiServer.HoveredPanel` and `FocusedPanel` read the state.
-- Rays hit the quad only: a panel with a custom `Mesh` renders on it, but takes no pointer input yet (G11.9).
+- **Custom meshes** (G11.9): with a `Mesh`, `TryRayToPixel` tests the mesh's triangles in local space (Möller–Trumbore over
+  the surfaces' CPU arrays, front faces only) and maps the nearest hit through its UVs (0–1 covers the panel). A held
+  pointer that leaves a mesh keeps its last pixel (a quad's pointer follows its plane instead).
 
 ## Editor
 
@@ -167,11 +215,17 @@ panels, then game nodes.
 - `UiMarker3D` and `UiMarkerHost` use the `map-pin` icon. A marker shows a map-pin scene badge at its point
   (`WorldOffset` above the node) with a dashed line to the node; the badge picks and box-selects. Markers are not drawn
   in the editor (screen layers of an edited scene are inert).
-- `UiPanel3D` (`device-desktop`) draws in the scene view (it renders once per document load). Its inspector has an icon
-  button, "Open document in UI preview", which opens its first document's preview tab at the panel's `Resolution`
-  (`UiPreview.FixedSize`, centred in the view area).
+- `UiPanel3D` (`device-desktop`) draws in the scene view with the **UI preview's stand-in data** (G11.7): game code creates
+  a panel's data models and does not run in edit mode, so the viewport (`PanelStandIns`) reads the bindings of each
+  panel's documents and binds stand-ins in the panel's context, as the [UI preview](editor.md#ui-preview) does (text shows
+  each variable's name, conditions are true, lists have three rows), then reloads the documents; the panel renders once
+  after each load. It binds again when a document's source changes. Its inspector has an icon button, "Open document in
+  UI preview", which opens its first document's preview tab at the panel's `Resolution` (`UiPreview.FixedSize`, centred in
+  the view area).
 
 ![A nameplate marker selected in the editor](../images/editor-world-ui.png)
+
+![The Demo's terminal panel in the scene view, bound to stand-in data](../images/editor-world-ui-panel.png)
 
 ## Demo
 
@@ -186,37 +240,61 @@ occlusion, distance scale, the debug tags and a camera orbit. Translated into Sp
 
 - Unit: `Camera3DRayTests` (frustum helpers), `TextLayoutTests` (newlines, wrap modes equal to `Label2D`'s, fallback glyphs
   sharing the atlas, Latin text unchanged by fallbacks), `Label3DTests` (lines, alignment, autowrap, uppercase,
-  `FixedSize` scale, alpha cut), `UiMarkerTests` (projection, fade, scale, edge clamp and angle behind the camera, physics
-  occlusion with the own body excluded, sort, signals, element mode, the fast path, 0 B over 100 markers),
-  `UiPanel3DTests` (documents and model names per panel, `TryRayToPixel` on rotated and scaled quads, mouse clicks and
-  focus, layers first, text and Escape, the crosshair's click action, manual pointers with capture past the edge, line
-  of sight, `UpdateMode`/distance/frustum gating, at most 8 renders per frame, 0 B with a panel updating); editor
-  `UiPreviewTests` (the panel preview button); Demo `WorldUiSceneTests` (the terminal opens the gate through
+  `FixedSize` scale, alpha cut; which labels are batched, outline glyphs first and around the text, glyph runs rebuilt only
+  on change, the lit label's mesh and materials), `UiMarkerTests` (projection, fade, scale, edge clamp and angle behind
+  the camera, physics occlusion with the own body excluded, sort, signals, element mode, the fast path, 0 B over 100
+  markers), `UiPanel3DTests` (documents and model names per panel, `TryRayToPixel` on rotated and scaled quads and through
+  a bent mesh's UVs, mouse clicks and focus, layers first, text and Escape, the crosshair's click action, manual pointers
+  with capture past the edge, line of sight, `UpdateMode`/distance/frustum gating, at most 8 renders per frame, emission
+  with `IgnoreExposure`, 0 B with a panel updating), `PostExposureTests` (the effective exposure with and without auto
+  exposure); editor `UiPreviewTests` (the panel preview button; a panel in the scene view bound to stand-ins, rebound when
+  its document changes, dropped when it leaves); Demo `WorldUiSceneTests` (the terminal opens the gate through
   `PushPointer`, Tab switches to the crosshair).
-- Render: `label3d-layout` (multi-line, autowrap, a Cyrillic fallback through Roboto Mono, alpha cut, two `FixedSize`
-  tags equal on screen), `ui-markers` (`#3366cc` bar fill exact after the tonemap, an edge waypoint) and `ui-panel3d` (an
-  angled terminal with a gradient, a clip mask and a blur, a swatch panel and a sub-viewport monitor; the same-frame
-  check: the swatch turns green in the frame its document changes; 0 B per frame with a panel updating). The ADR 0200
-  `label3d` golden is unchanged.
+- Render: `label3d` (ADR 0200's name tags, unchanged by the batched renderer), `label3d-layout` (multi-line, autowrap, a
+  Cyrillic fallback through Roboto Mono, alpha cut, two `FixedSize` tags equal on screen), `label3d-batch` (300 labels
+  over two fonts and three sizes: the scene checks ≤ 3 draws per page group, nothing on the mesh batcher, a label picked
+  through the object-ID pass; 0 B per frame while labels move and the camera orbits), `label3d-exposure` (exposure 4 vs 1:
+  the `IgnoreExposure` label and panel keep their exposure-1 colour, the others brighten), `ui-markers` (`#3366cc` bar
+  fill exact after the tonemap, an edge waypoint) and `ui-panel3d` (an angled terminal with a gradient, a clip mask and a
+  blur, a swatch panel and a sub-viewport monitor; the same-frame check: the swatch turns green in the frame its document
+  changes; 0 B per frame with a panel updating).
 - Benchmarks: `WorldUiBenchmarks.Markers100Frame` (a tree tick with 100 markers moving on screen, RmlUi update included)
   and `Label3DRebuild`.
+- QA: `Tests/QA/world-ui.qa` (`just qa-editor Tests/QA/world-ui.qa`): a marker selected, a label picked, the terminal
+  panel with stand-in data.
+
+## Non-goals
+
+- Shaping beyond kerning, right-to-left text, ligatures (the same limits as canvas text and RmlUi, M9).
+- VR-specific UI (laser pointers, curved cylinders as a primitive): the manual pointer API lets a VR layer drive panels.
+- Screen-space reflections or refraction of panels; panels in sub-viewport worlds beyond the first rendering view.
+- Replicating markers or panel state over the network: panels are local UI; games replicate their own data.
 
 ## Changes from the proposal
 
-- **No `Text3DRenderer`, `text3d.slang` or `World3D.Labels` yet** (ADR 0251): `Label3D` stays a `GeometryInstance3D` on
-  the mesh batcher, one draw per label and page. `FixedSize` is a CPU model-matrix scale instead of a vertex-shader
-  term. `VisibilityRangeEnd` is `GeometryInstance3D`'s (no 10 % fade). There is no `Fog` toggle: labels always fog.
-- **`TextLayout` breaks lines** into strings rather than writing `GlyphQuad`s into a caller span; layout only runs when a
-  label changes. `Font.Draw` keeps its single-line path; `Label2D` and `Label3D` share the breaking.
-- **`AlphaCut`** reuses `SpriteAlphaCut`; `TextRenderPriority` is the text's material priority (Godot's
-  `render_priority`, since `VisualInstance3D.RenderPriority` is node order).
+- **`Label3D` options.** `TextLayout` breaks lines into strings rather than writing `GlyphQuad`s into a caller span
+  (layout runs only when a label changes); `Font.Draw` keeps its single-line path, and `Label2D` and `Label3D` share the
+  breaking (ADR 0251). `AlphaCut` reuses `SpriteAlphaCut`; `TextRenderPriority` is the text's material priority (Godot's
+  `render_priority`, since `VisualInstance3D.RenderPriority` is node order). `VisibilityRangeEnd` is
+  `GeometryInstance3D`'s (no 10 % fade). There is no `Fog` toggle: labels always fog.
+- **The batched renderer** (ADR 0258) differs from the proposal's `Text3DRenderer`:
+  - Labels are posed on the CPU (billboard and `FixedSize` in the model matrix, as ADR 0251 does for meshes), not in the
+    vertex shader; the shader only builds the quad.
+  - Pages are grouped eight to a descriptor set and picked per glyph, so a draw spans pages and fonts; the proposal's
+    "one draw per atlas page" would have broken back-to-front order across fonts.
+  - Lit labels and shadow-casting cutouts stay meshes on the mesh batcher (the proposal made labels unshaded and
+    shadowless). `World3D` keeps an internal label list instead of a public `World3D.Labels`.
+  - The pipelines are built lazily from depth test × blend/cutout × cull (three cull modes for mirrored single-sided
+    labels), not a fixed set of eight. Atlas pages upload through `TextureGpu` (a changed page re-creates its GPU image,
+    as before) instead of dirty-row uploads.
+  - The outline and text order per label follows their two priorities; between labels, `TextRenderPriority` then
+    distance.
 - **Markers move rows from C#** between content refreshes (ADR 0254, open question 3 measured): the proposal's
   data-bound transform alone re-evaluated every row's views each frame (≈ 1.1 ms for 100). With the fast path 100 markers
   cost ≈ 0.55 ms on a busy machine, above the proposal's 0.3 ms target; re-measure on the quiet baseline machine.
   `ContentRefreshSeconds` is new.
-- **Icons:** the host uses `map-pin` too (`map-pins` is not in the icon set).
-- **Not built:** G11.9 and the panels' stand-in data in the scene view. A CJK face is not bundled: the Demo shows Spanish
-  and `qps`, and the fallback golden uses Cyrillic through Roboto Mono.
+- **Icons:** the host uses `map-pin` too (`map-pins` is not in the icon set); panels use `device-desktop` (the atlas has
+  no `device-tv`).
 - **Panels (G11.5/G11.6, ADRs 0252/0253):**
   - The stack is not sized once a frame from the panels rendered. It is the maximum of the swapchain and every
     registered panel, so a resize does not recreate it while panels come and go.
@@ -225,24 +303,49 @@ occlusion, distance scale, the debug tags and a camera orbit. Translated into Sp
   - Owed renders take priority over distance, so a panel never starves for its first image.
   - `Brightness` is the emission energy of an unshaded panel (albedo black, emission = the panel).
   - `MaxInteractDistance` and `RequireLineOfSight` apply to the mouse and crosshair. Manual pointers are the caller's.
-  - The icon is `device-desktop` (the atlas has no `device-tv`).
   - `UiServer.MaxPanelRendersPerFrame`, `PanelsRenderedLastFrame`, `HoveredPanel`, `FocusedPanel`,
     `UiPanel3D.HasPointer`, `PointerPosition`, `QuadSize` and `Texture` are new.
   - Panel textures clamp.
-  - The editor's preview opens at `UiPreview.FixedSize`; panels in the scene view render without stand-in data.
+  - The editor's preview opens at `UiPreview.FixedSize`. Stand-ins in the scene view are bound by the editor's viewport
+    (`PanelStandIns`), not by the panel's own edit-mode render.
   - `SubViewport.GetTexture()` keeps `FromViewport`; it shares `TextureGpu`'s borrow code with `FromGpuSource`.
+  - A held pointer that leaves a custom mesh keeps its last pixel (there is no plane to follow).
+- **`IgnoreExposure`** (open question 2, ADR 0257) divides by an exposure the CPU reads back from auto exposure a couple
+  of frames late, rather than sampling the adapted luminance in the shader.
+- **Not built:** SDF/MSDF text (open question 1 stays coverage bitmaps), depth-buffer marker occlusion (open question 5:
+  no), a bundled CJK face (the Demo shows Spanish and `qps`; the fallback golden uses Cyrillic through Roboto Mono), the
+  `WorldUiAllocationTests` combined case (each part has its own 0 B test or render test), and the benchmarks' 1 000-label
+  prepare and panel update cases. `baseline.json` has no `WorldUiBenchmarks` entries yet (quiet machine only).
 
-## Open questions decided here
+## Decided questions
 
-- Open question 1 (text technique): coverage bitmaps at `FontSize`, the proposal's default.
-- Open question 3 (marker positioning): measured; data-bound `transform` on content refresh plus `SetProperty` from C#
-  on other frames.
-- Open question 4 (shim element creation): not needed; the row model, no native rebuild.
-- Open question 6 (panel input precedence): the default, screen layers before panels; `InputBeforeUi` nodes still come
-  first (ADR 0253). The owner may revisit it.
-- Open question 7 (panels and post): the default, panels are scene geometry, so TAA and glow apply. The owner may
-  revisit it.
-- Questions 2 and 5 stay open in the [proposal](future/world-space-ui.md#open-questions).
+1. **Text technique:** coverage bitmaps at `FontSize`, Godot's default for non-MSDF fonts (ADR 0251).
+2. **Exposure:** an opt-in `IgnoreExposure` on `Label3D` and unshaded `UiPanel3D`, off by default; ACES still applies
+   (owner, ADR 0257).
+3. **Marker positioning:** measured; data-bound `transform` on content refresh plus `SetProperty` from C# on other frames
+   (ADR 0254).
+4. **Shim element creation:** not needed; the row model, no native rebuild (ADR 0254).
+5. **Depth-buffer marker occlusion:** no; physics rays only (owner, ADR 0257).
+6. **Panel input precedence:** screen layers before panels; `InputBeforeUi` nodes still come first (ADR 0253, kept by the
+   owner in ADR 0257).
+7. **Panels and post:** panels are scene geometry, so TAA, glow, exposure and the tonemap apply (ADR 0252, kept by the
+   owner in ADR 0257).
+
+## History
+
+### What shipped (ADR 0200)
+
+A first slice for Buy My Snake Oil's NPC name tags (mainframe-engine#56): `Camera3D.UnprojectPosition` and
+`IsPositionBehind`; `Label3D` as an `ArrayMesh` of glyph quads on the mesh batcher (outline surfaces per atlas page, then
+text surfaces) with Godot's defaults; `StandardMaterial3D.NoDepthTest`. G11.1–G11.4 (ADR 0251) grew the options on that
+mesh, and ADR 0258 moved unshaded labels to the batched renderer.
+
+### What shipped (ADR 0216)
+
+`SubViewport.GetTexture()` on 3D materials, for the Neon example's monitors and TV: any material texture slot takes a
+viewport texture. `TextureGpu` borrows the view's colour image and follows it across resizes; colour slots sample through
+an sRGB view of the `UNORM` target. A 3D view renders before the scene pass, so the scene shows its current frame; a 2D
+view (`Disable3D`) shows the previous frame. G11.5 generalised the borrow path as `Texture2D.FromGpuSource` for panels.
 
 ## Related
 

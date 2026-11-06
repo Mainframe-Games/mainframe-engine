@@ -186,7 +186,7 @@ blended (Screen by default) before the curve, the engine's ACES fit or Godot's (
 `PostProcessProfile.AutoExposureEnabled` (default off; `AutoExposureScale` 0.4 and `AutoExposureSpeed` 0.5 are Godot's,
 `AutoExposureMinLuminance` 0.05, `AutoExposureMaxLuminance` 2) puts the root world's frame on the post tonemap pass and
 records [`AutoExposure`](../../MainframeEngine/Src/Rendering/Post/AutoExposure.cs) after the scene pass, before the glow.
-Everything is a raster pass and nothing is read back to the CPU:
+Everything is a raster pass; the adapted value is also copied back to the CPU, a couple of frames late, for `IgnoreExposure` surfaces only ([world-space-ui.md](world-space-ui.md#ignoring-exposure)):
 
 | Pass | Target | Shader |
 |---|---|---|
