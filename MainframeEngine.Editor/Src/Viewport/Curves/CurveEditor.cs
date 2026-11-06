@@ -30,7 +30,7 @@ public enum CurveTool : byte
 /// <see cref="SetCurvePointsAction"/>; Esc or a right click during a drag puts the curve back. Works on an
 /// <see cref="ICurveTarget"/> so 3D paths can share it (G13.6).
 /// </summary>
-public sealed class CurveEditor
+public sealed partial class CurveEditor
 {
     private const float HandlePoints = 4f; // half a point square's side, in display points
 
@@ -52,6 +52,9 @@ public sealed class CurveEditor
     private Vector3 _planePoint, _planeNormal;
     private bool _vertical;
     private bool _groundSnap;
+    private bool _riverSnap;                 // _groundSnap/_heightAbove are the river set (else the path set)
+    private bool _otherGroundSnap = true;    // the other kind's (rivers start on, at −0.3 m)
+    private float _otherHeightAbove = -0.3f;
     private bool _tiltHandles;
     private float _heightAbove;
     private Terrain3D? _testTerrain;
@@ -119,7 +122,7 @@ public sealed class CurveEditor
                 return null;
             Node? path = scene.Camera.Is2D
                 ? scene.Selection.Primary as Path2D
-                : scene.Selection.Primary as Path3D;
+                : scene.Selection.Primary is Path3D or River3D ? scene.Selection.Primary : null; // G8c.4: rivers too
             return path is { IsInsideTree: true } && scene.IsEditable(path) ? path : null;
         }
     }
@@ -135,8 +138,11 @@ public sealed class CurveEditor
     /// <summary>True while the curve bar shows.</summary>
     public bool IsActive => PathNode is not null;
 
-    /// <summary>The edited path is a <see cref="Path3D"/> (the 3D tools show: ground snap, height, tilt, Fit to Ground).</summary>
-    public bool Is3D => PathNode is Path3D;
+    /// <summary>The edited path is a <see cref="Path3D"/> or a <see cref="River3D"/> (the 3D tools show: ground snap, height, tilt, Fit to Ground).</summary>
+    public bool Is3D => PathNode is Path3D or River3D;
+
+    /// <summary>The edited curve is a <see cref="River3D"/>'s: width and depth handles, cross-sections, its own ground snap.</summary>
+    public bool IsRiver => PathNode is River3D;
 
     /// <summary>New and dragged points go onto the terrain under the mouse, <see cref="HeightAbove"/> above it (3D).</summary>
     public bool GroundSnap
@@ -212,6 +218,7 @@ public sealed class CurveEditor
             {
                 Path2D p2 => p2.Curve,
                 Path3D p3 => p3.Curve,
+                River3D river => river.Curve,
                 _ => null,
             };
             if (curve is null)
@@ -220,7 +227,12 @@ public sealed class CurveEditor
             {
                 _targetPath = path;
                 _targetCurve = curve;
-                _target = path is Path3D path3D ? new Curve3DTarget(path3D) : new Curve2DTarget((Path2D)path!);
+                _target = path switch
+                {
+                    Path3D path3D => new Curve3DTarget(path3D),
+                    River3D river => new Curve3DTarget(river, river.Curve!),
+                    _ => new Curve2DTarget((Path2D)path!),
+                };
             }
 
             return _target;
@@ -399,8 +411,9 @@ public sealed class CurveEditor
     public bool Press3D(UndoRedo history, in View3D view, Vector2 pixel, MouseButton button, EditorModifiers modifiers)
     {
         ArgumentNullException.ThrowIfNull(history);
-        if (PathNode is not Path3D path || button is not (MouseButton.Left or MouseButton.Right))
+        if (PathNode is not (Path3D or River3D) || button is not (MouseButton.Left or MouseButton.Right))
             return false;
+        var path = PathNode!;
         if (IsDragging)
             return true;
         var projector = new CameraProjector(view.Camera, view.ViewPixels);
@@ -409,6 +422,14 @@ public sealed class CurveEditor
         var command = (modifiers & EditorModifiers.Command) != 0;
         var shift = (modifiers & EditorModifiers.Shift) != 0;
         var target = Target;
+
+        // G8c.4: the selected river point's width (either bank) and depth handles.
+        if (button == MouseButton.Left && !alt && target is { HasWidth: true } && SectionHit(target, view, pixel, radius) is { } section)
+        {
+            Begin(target, section == CurvePart.Width ? "Set River Width" : "Set River Depth", section, SelectedPoint, Vector3.Zero, mirror: false);
+            UpdateSectionLabel(target, section);
+            return true;
+        }
 
         if (button == MouseButton.Left && !alt && target is { HasTilt: true } && TiltHit(target, view, pixel, radius))
         {
@@ -485,6 +506,13 @@ public sealed class CurveEditor
             Begin(target, "Add Curve Point", CurvePart.Point, -1, Vector3.Zero, mirror: false);
             target.AddPoint(target.ToLocal(at), Vector3.Zero, Vector3.Zero, -1);
             _dragIndex = target.PointCount - 1;
+            if (target.HasWidth)
+            {
+                // A river's new point continues the last one's section (the first: 3 m wide, 0.6 m deep).
+                target.SetWidth(_dragIndex, _dragIndex > 0 ? target.GetWidth(_dragIndex - 1) : 3f);
+                target.SetDepth(_dragIndex, _dragIndex > 0 ? target.GetDepth(_dragIndex - 1) : 0.6f);
+            }
+
             SelectedPoint = _dragIndex;
             BeginPlane(view, pixel, at, vertical: false);
             Touch();
@@ -508,6 +536,12 @@ public sealed class CurveEditor
         {
             if (_target is not { } target || _dragIndex < 0 || _dragIndex >= target.PointCount)
                 return;
+            if (_dragPart is CurvePart.Width or CurvePart.Depth)
+            {
+                DragSection(target, origin, direction);
+                return;
+            }
+
             if (_dragPart == CurvePart.Tilt)
             {
                 if (RayPlane(origin, direction, _tiltPoint, _tiltAxis, out var on))
@@ -543,6 +577,14 @@ public sealed class CurveEditor
 
         var projector = new CameraProjector(view.Camera, view.ViewPixels);
         var radius = TransformGizmo.GrabPixels * view.Scale;
+        if (hover.HasWidth && SectionHit(hover, view, pixel, radius) is { } sectionPart)
+        {
+            _hoverPart = sectionPart;
+            _hoverIndex = SelectedPoint;
+            UpdateSectionLabel(hover, sectionPart);
+            return;
+        }
+
         if (hover.HasTilt && TiltHit(hover, view, pixel, radius))
         {
             _hoverPart = CurvePart.Tilt;
@@ -582,6 +624,9 @@ public sealed class CurveEditor
             if (i == SelectedPoint || i == 0)
                 HandleDrawing.Square(lines, p, camera.Right, camera.Up, half * 0.5f, color);
         }
+
+        if (target.HasWidth)
+            DrawSections(lines, target, view);
 
         if (TiltRing(target, view, out var center, out var axis, out var zero, out var handle, out var ringRadius))
         {
@@ -731,6 +776,14 @@ public sealed class CurveEditor
         SelectedPoint = -1;
         _hoverPart = CurvePart.None;
         _ghost = null;
+        // Rivers keep their own ground snap (on, 0.3 m under the terrain: the carve makes the channel); paths theirs.
+        if (path is not null && path is River3D != _riverSnap)
+        {
+            _riverSnap = path is River3D;
+            (_groundSnap, _otherGroundSnap) = (_otherGroundSnap, _groundSnap);
+            (_heightAbove, _otherHeightAbove) = (_otherHeightAbove, _heightAbove);
+        }
+
         _ = Target;
         Touch();
     }
@@ -781,7 +834,7 @@ public sealed class CurveEditor
     private ICurveTarget CreateCurve(UndoRedo history, Node path)
     {
         var property = TypeRegistry.GetNearest(path.GetType())!.FindProperty("Curve")!;
-        Resource curve = path is Path3D ? new Curve3D { UpVectorEnabled = true } : new Curve2D();
+        Resource curve = path is Path3D ? new Curve3D { UpVectorEnabled = true } : path is River3D ? new Curve3D() : new Curve2D();
         history.Commit(SetPropertyAction.Create(path, property, curve));
         return Target!;
     }

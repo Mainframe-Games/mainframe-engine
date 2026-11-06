@@ -131,6 +131,27 @@ carves never stack; `Uncarve` only restores and clears `CarveId`. The records ar
 terrain's 16-bit values (base64). Undo of the edit restores the heights bit for bit; so does `Uncarve`. Sculpting inside
 a carved channel is lost on re-carve.
 
+## Editor
+
+G8c.4 ([ADR 0272](../../memory/decisions/0272-river-editing-on-the-curve-tool.md)): a `River3D` selected alone in a 3D tab is
+edited by the [curve tool](paths.md#editor) like a `Path3D` — the curve bar, points, mirrored tangent handles, Add,
+Insert, Delete, Fit to Ground, snap — with what rivers add:
+
+![A carved stream in the editor: its points, the selected point's bank and depth handles, every cross-section, the curve bar with ground snap at −0.3 m and the River3D inspector's Carve, Re-carve, Uncarve and Fit to ground buttons](../images/editor-river.png)
+
+- **Ground snap is the river's own:** on, 0.3 m under the terrain (the carve then makes the channel), remembered apart
+  from the paths' setting. New points continue the last point's width and depth (the first: 3 m wide, 0.6 m deep).
+- **Sections:** every point draws its cross-section (bank to bank and a tick down to the bed). The selected point gets
+  **width handles** at both banks (dragged along the horizontal perpendicular to the curve; the width stays symmetric)
+  and a **depth handle** below it (at least 0.25 m down, so a flat stream's is not hidden), with "Width 3.20 m" /
+  "Depth 0.60 m" beside the pointer; values snap to the move step with Snap on. A drag is one `SetCurvePointsAction`
+  like any curve gesture; Esc puts it back. Rivers have no tilt ring (their sections stay level).
+- **Inspector** (`River3DInspector`): **Carve** (`arrow-bar-to-down`), **Re-carve** (`refresh`), **Uncarve**
+  (`arrow-back-up`) and **Fit to ground** (`magnet`, every point 0.3 m under the terrain as one curve change) with a
+  status line ("4 points, 48.9 m · carved"). A carve is one history entry (`RiverCarveAction` over
+  `River3D.LastCarveChange`: the height tiles, the terrain's carve record and `CarveId`, before and after), so undo puts
+  the ground, the record and the id back together. Without a terrain under the river a warning names the fix.
+
 ## `WaterMaterial3D`
 
 `MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs`, shaders `Water/Water.vk.vert` and `Water/Water.vk.frag`
@@ -348,11 +369,21 @@ var scale = WaterQueries.WadeSpeedScale(water.ImmersionAt(GlobalPosition));
 target = wish * (WalkSpeed * scale) + water.FlowAt(GlobalPosition) * FlowPush;   // FlowPush ≈ 0.3
 ```
 
+## Changes from the proposal (editing)
+
+- No separate `River3DTool` on the viewport-tool API (ADR 0270): rivers join the curve tool, which already edits
+  `Curve3D` points with undo, snap and Fit to Ground; width and depth are curve-tool handles rather than G7 handle
+  providers (whose undo captures property values, not the curve's points). ADR 0272.
+- Width and depth handles show on the selected point only (every point shows its cross-section); Carve, Re-carve,
+  Uncarve and Fit to ground are inspector icon buttons together (no overflow menu); the `ripple` icon was already the
+  river's.
+- `River3D.LastCarveChange` (`RiverCarveChange`) is new: a carve's undo must restore the terrain's carve record and the
+  river's `CarveId` as well as the heights.
+
 ## Not yet
 
 From [future/water.md](future/water.md): pond joins, plunge pools carved below falls and the `Faceted` look (the
-palette sheet; Faceted ponds draw with `WaterMaterial3D` for now) (G8c.3); the River3D editor tool and its Carve/Re-carve
-buttons (G8c.4); audio (G8c.5); back-face (underwater) shading and water depth writes (G8c.6–8);
+palette sheet; Faceted ponds draw with `WaterMaterial3D` for now) (G8c.3); audio (G8c.5); back-face (underwater) shading and water depth writes (G8c.6–8);
 `rendering.sceneTextures` (`Off`/`Half`/`Full`; the copy is always full resolution); G8e.6's wet banks and the probes'
 sky visibility on SSR misses (G8e.1); particles for spray (G6.3). Refracted transparent surfaces behind water are not
 in the copy (as in Godot). Pond surfaces have no LOD levels. Buoyancy stays a sample.
