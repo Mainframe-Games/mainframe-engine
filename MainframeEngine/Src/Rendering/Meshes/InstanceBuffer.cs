@@ -100,6 +100,7 @@ internal sealed unsafe class MaterialDescriptorAllocator : IDisposable
     private readonly int _samplers;
     private readonly int _images;
     private readonly int _combined;
+    private readonly int _storage;
     private readonly List<PoolEntry> _pools = [];
     private readonly Queue<(ulong Frame, PoolEntry Pool, DescriptorSet Set)> _pendingFrees = new();
     private bool _disposed;
@@ -107,8 +108,11 @@ internal sealed unsafe class MaterialDescriptorAllocator : IDisposable
     /// <param name="samplers">Sampler descriptors per set.</param>
     /// <param name="images">Sampled-image descriptors per set.</param>
     /// <param name="combined">Combined image-sampler descriptors per set (a spatial shader's samplers, ADR 0205).</param>
-    public MaterialDescriptorAllocator(IVulkanContext ctx, DescriptorSetLayout layout, int samplers = 1, int images = 4, int combined = 0)
+    /// <param name="storage">Storage-buffer descriptors per set (batched label records, ADR 0258).</param>
+    public MaterialDescriptorAllocator(IVulkanContext ctx, DescriptorSetLayout layout, int samplers = 1, int images = 4, int combined = 0,
+        int storage = 0)
     {
+        _storage = storage;
         _ctx = ctx;
         _layout = layout;
         _samplers = samplers;
@@ -191,7 +195,7 @@ internal sealed unsafe class MaterialDescriptorAllocator : IDisposable
     private DescriptorPool CreatePool()
     {
         // Only the descriptor types the layout has (a pool size of 0 is invalid).
-        var sizes = stackalloc DescriptorPoolSize[4];
+        var sizes = stackalloc DescriptorPoolSize[5];
         var count = 0u;
         sizes[count++] = new DescriptorPoolSize { Type = DescriptorType.UniformBuffer, DescriptorCount = SetsPerPool };
         if (_samplers > 0)
@@ -200,6 +204,8 @@ internal sealed unsafe class MaterialDescriptorAllocator : IDisposable
             sizes[count++] = new DescriptorPoolSize { Type = DescriptorType.SampledImage, DescriptorCount = (uint)(SetsPerPool * _images) };
         if (_combined > 0)
             sizes[count++] = new DescriptorPoolSize { Type = DescriptorType.CombinedImageSampler, DescriptorCount = (uint)(SetsPerPool * _combined) };
+        if (_storage > 0)
+            sizes[count++] = new DescriptorPoolSize { Type = DescriptorType.StorageBuffer, DescriptorCount = (uint)(SetsPerPool * _storage) };
         var info = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,

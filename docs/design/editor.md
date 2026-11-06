@@ -965,6 +965,9 @@ the scene tree, inspector and scene commands rest. Ctrl+W closes either kind; pr
   view asks for, and keep values written by inputs and assignments, so the document stays interactive. Rebuilt when
   the document changes; a "stand-in data" chip in the preview bar says which models are stood in for. A model the
   layer already has (none today) is left alone.
+- **World-space panels** (G11.7): a `UiPanel3D` of a scene tab binds the same stand-ins in its own context
+  (`PanelStandIns`, run by the viewport for the active tab), so a terminal shows its layout in the scene view
+  ([World-space UI → Editor](world-space-ui.md#editor)).
 - **Limits.** The layout size is the view's size (no resolution picker yet). Scene `UiLayer`s stay inert in scene
   tabs.
 

@@ -1,7 +1,7 @@
 # Plan: G11.5/G11.6 world-space UI panels
 
 **Status:** done, see [log](../logs/2026-11-06-world-ui-panels.md)
-**Docs:** [World-space UI proposal](../../docs/design/future/world-space-ui.md) (`UiPanel3D`, task list G11.5–G11.7),
+**Docs:** [World-space UI proposal](../../docs/design/world-space-ui.md) (`UiPanel3D`, task list G11.5–G11.7),
 [World-space UI](../../docs/design/world-space-ui.md), [Game UI](../../docs/design/game-ui.md),
 [ADR 0216](../decisions/0216-viewport-textures-on-3d-materials.md) (the borrow path this generalises)
 **Started:** 2026-11-06

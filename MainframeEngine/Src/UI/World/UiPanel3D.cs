@@ -138,6 +138,14 @@ public class UiPanel3D : GeometryInstance3D, IUiContextHost
     } = 1f;
 
     /// <summary>
+    /// Divides an unshaded panel's colour by the view's exposure (manual × the world's × auto exposure; ADR 0257), so a
+    /// screen keeps its brightness while the camera adapts; the tonemap (ACES) still applies. Off by default (panels are
+    /// scene geometry); shaded panels ignore it.
+    /// </summary>
+    [Export]
+    public bool IgnoreExposure { get; set; }
+
+    /// <summary>
     /// When the panel renders: <see cref="SubViewportUpdateMode.Always"/> (every frame it is within
     /// <see cref="MaxUpdateDistance"/> and in the camera's view), <see cref="SubViewportUpdateMode.Once"/> (on the next
     /// frame, then <see cref="SubViewportUpdateMode.Disabled"/>), or never. A panel the pointer is on, or that has focus,
@@ -235,8 +243,9 @@ public class UiPanel3D : GeometryInstance3D, IUiContextHost
     }
 
     /// <summary>
-    /// The panel pixel (top-left origin) where a world ray hits the front of the panel's quad, and the distance along the
-    /// ray in metres; false when it misses the quad, hits it from behind, or the panel shows a custom <see cref="Mesh"/>.
+    /// The panel pixel (top-left origin) where a world ray hits the front of the panel, and the distance along the ray in
+    /// metres; false when it misses or hits from behind. The default quad maps across its face; a custom <see cref="Mesh"/>
+    /// maps through its UVs (0–1 covers the panel) at the nearest front-facing triangle the ray crosses (G11.9).
     /// </summary>
     public bool TryRayToPixel(Vector3 origin, Vector3 direction, out Vector2 pixel, out float distance) =>
         TryRayToPlane(origin, direction, bounded: true, out pixel, out distance);
@@ -266,8 +275,17 @@ public class UiPanel3D : GeometryInstance3D, IUiContextHost
     {
         pixel = default;
         distance = 0f;
-        if (Mesh is not null)
-            return false;
+        if (Mesh is { } mesh)
+        {
+            if (TryRayToMesh(mesh, origin, direction, out pixel, out distance))
+                return true;
+            // Held past the edge of a mesh (no plane to follow): the pointer stays where it was.
+            if (bounded || !HasPointer)
+                return false;
+            pixel = PointerPosition;
+            return true;
+        }
+
         var inverse = GlobalTransform.AffineInverse();
         var o = inverse * origin;
         var d = inverse.Basis * direction;
@@ -286,6 +304,64 @@ public class UiPanel3D : GeometryInstance3D, IUiContextHost
             return false;
         pixel = new Vector2(u * Resolution.X, v * Resolution.Y);
         distance = t * direction.Length();
+        return true;
+    }
+
+    // Möller–Trumbore over the mesh's surfaces in local space: the nearest front-facing (counter-clockwise) triangle hit,
+    // its UV interpolated. No allocation.
+    private bool TryRayToMesh(Mesh mesh, Vector3 origin, Vector3 direction, out Vector2 pixel, out float distance)
+    {
+        pixel = default;
+        distance = 0f;
+        var inverse = GlobalTransform.AffineInverse();
+        var o = inverse * origin;
+        var d = inverse.Basis * direction;
+        var best = float.MaxValue;
+        var bestUv = Vector2.Zero;
+        for (var s = 0; s < mesh.SurfaceCount; s++)
+        {
+            var surface = mesh.GetSurface(s);
+            var positions = surface.Positions;
+            var uvs = surface.UVs;
+            var indices = surface.Indices;
+            if (uvs.Length != positions.Length)
+                continue; // no UVs: nothing maps the panel
+            var count = indices.Length > 0 ? indices.Length : positions.Length;
+            for (var t = 0; t + 2 < count; t += 3)
+            {
+                int i0 = t, i1 = t + 1, i2 = t + 2;
+                if (indices.Length > 0)
+                    (i0, i1, i2) = (indices[t], indices[t + 1], indices[t + 2]);
+                if ((uint)i0 >= (uint)positions.Length || (uint)i1 >= (uint)positions.Length || (uint)i2 >= (uint)positions.Length)
+                    continue;
+                var p0 = positions[i0];
+                var e1 = positions[i1] - p0;
+                var e2 = positions[i2] - p0;
+                if (Vector3.Dot(Vector3.Cross(e1, e2), d) >= 0f)
+                    continue; // parallel, or the back face
+                var h = Vector3.Cross(d, e2);
+                var a = Vector3.Dot(e1, h);
+                var f = 1f / a;
+                var sv = o - p0;
+                var u = f * Vector3.Dot(sv, h);
+                if (u < 0f || u > 1f)
+                    continue;
+                var q = Vector3.Cross(sv, e1);
+                var v = f * Vector3.Dot(d, q);
+                if (v < 0f || u + v > 1f)
+                    continue;
+                var along = f * Vector3.Dot(e2, q);
+                if (along < 0f || along >= best)
+                    continue;
+                best = along;
+                bestUv = uvs[i0] * (1f - u - v) + uvs[i1] * u + uvs[i2] * v;
+            }
+        }
+
+        if (best == float.MaxValue)
+            return false;
+        pixel = new Vector2(bestUv.X * Resolution.X, bestUv.Y * Resolution.Y);
+        distance = best * direction.Length();
         return true;
     }
 
@@ -334,7 +410,30 @@ public class UiPanel3D : GeometryInstance3D, IUiContextHost
     internal override Mesh? GetRenderMesh()
     {
         Sync();
+        ApplyExposure();
         return Mesh ?? _quad;
+    }
+
+    /// <summary>The emission energy an unshaded panel draws with now: <see cref="Brightness"/>, ÷ the exposure with <see cref="IgnoreExposure"/>.</summary>
+    internal float EmissionEnergy => _material.EmissionEnergy;
+
+    // ADR 0257: an unshaded IgnoreExposure panel's emission follows the view's exposure (re-uploaded only when it moves
+    // more than 0.5 %, so an adapting camera does not rewrite the material every frame).
+    private void ApplyExposure()
+    {
+        if (Shaded)
+            return;
+        var energy = Brightness;
+        if (IgnoreExposure)
+        {
+            var exposure = RenderServer?.ExposureOf(GetViewport()) ?? 1f;
+            if (exposure > 1e-6f)
+                energy /= exposure;
+        }
+
+        var current = _material.EmissionEnergy;
+        if (energy != current && (MathF.Abs(energy - current) > 0.005f * MathF.Max(MathF.Abs(current), 1e-6f) || energy == Brightness))
+            _material.EmissionEnergy = energy;
     }
 
     internal override Material GetRenderMaterial(Mesh mesh, int surface) => MaterialOverride ?? _material;
