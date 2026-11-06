@@ -21,6 +21,7 @@ public sealed partial class ViewportController : Node
     private static readonly Vector4 CameraColor = new(0.78f, 0.6f, 1f, 0.9f);
     private static readonly Vector4 AudioColor = new(0.3f, 0.85f, 0.95f, 0.9f);
     private static readonly Vector4 DecalColor = new(0.95f, 0.55f, 0.9f, 0.9f);
+    private static readonly Vector4 MarkerColor = new(0.45f, 0.8f, 1f, 0.9f); // world-space UI markers (G11)
     private static readonly Vector4 NodeColor = new(0.75f, 0.78f, 0.85f, 0.7f);
     private const float IconPixels = 14f;
     private const float ClickPixels = 4f;
@@ -700,6 +701,9 @@ public sealed partial class ViewportController : Node
             scene.Selection.Set(node);
     }
 
+    // Where a node's badge is drawn: its origin, or a UI marker's point (origin plus WorldOffset).
+    private static Vector3 IconPosition(Node3D node) => node is UiMarker3D marker ? node.GlobalPosition + marker.WorldOffset : node.GlobalPosition;
+
     private Node? PickIcon(EditedScene scene, Vector2 pixel)
     {
         RefreshIcons(scene);
@@ -708,7 +712,7 @@ public sealed partial class ViewportController : Node
         var bestDistance = (IconPoints * 0.5f + 2f) * ViewScale;
         foreach (var node in _iconNodes)
         {
-            if (!scene.Camera.Project(node.GlobalPosition, size.X, size.Y, out var at) || scene.SelectableFor(node) is not { } selectable ||
+            if (!scene.Camera.Project(IconPosition(node), size.X, size.Y, out var at) || scene.SelectableFor(node) is not { } selectable ||
                 EditorLock.IsLocked(selectable))
                 continue; // locked nodes cannot be picked in the viewport (G7.4)
             var distance = Vector2.Distance(at, pixel);
@@ -781,7 +785,7 @@ public sealed partial class ViewportController : Node
 
     private void Collect(EditedScene scene, Node node)
     {
-        if (node is Light3D or Camera3D or AudioPlayer3D or AudioListener3D or Marker3D or Decal)
+        if (node is Light3D or Camera3D or AudioPlayer3D or AudioListener3D or Marker3D or Decal or UiMarker3D)
             _iconNodes.Add((Node3D)node);
         else if (node is Path3D path)
             _paths.Add(path);
