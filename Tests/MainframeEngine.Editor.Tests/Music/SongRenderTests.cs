@@ -150,7 +150,7 @@ public sealed class SongRenderTests : IDisposable
         var song = NewSong();
         var lead = AddInstrumentTrack(song, "lead", InstrumentDescriptor.Zzfx("zzfx(...[,0,220,,1,.1])"));
         AddClip(lead, 0, 960 * 4, (69, 0, 960 * 4));
-        using var doc = new SongDocument(song, Path.Combine(_root, "Live.msong"));
+        using var doc = new SongDocument(song, Path.Combine(_root, "Live.mfsong"));
         using var player = new SongPlayer(server);
         player.Update(doc);
         player.Play();
@@ -206,7 +206,7 @@ public sealed class SongRenderTests : IDisposable
     public void TheRenderSongFlagRendersIntoTheSongsProject()
     {
         File.WriteAllText(Path.Combine(_root, ProjectSettings.FileName), "{}");
-        var songPath = Path.Combine(_root, "Assets", "Music", "Loop.msong");
+        var songPath = Path.Combine(_root, "Assets", "Music", "Loop.mfsong");
         Directory.CreateDirectory(Path.GetDirectoryName(songPath)!);
         SongFormat.Save(Melody(loop: true), songPath);
         using var output = new StringWriter();
@@ -215,16 +215,16 @@ public sealed class SongRenderTests : IDisposable
         Assert.Equal(0, SongRenderCommand.Run([SongRenderCommand.Flag, songPath], output, error));
         var file = PluginHostClient.IsAvailable ? "Loop.ogg" : "Loop.wav"; // .ogg through the plugin helper where it exists
         Assert.True(File.Exists(Path.Combine(_root, "Assets", "Music", file)), error.ToString());
-        Assert.Contains("\"loop\": true", File.ReadAllText(Path.Combine(_root, "Assets", "Music", file + ".meta")), StringComparison.Ordinal);
+        Assert.Contains("\"loop\": true", File.ReadAllText(Path.Combine(_root, "Assets", "Music", file + ".mfmeta")), StringComparison.Ordinal);
         Assert.Contains("Assets/Music/" + file, output.ToString(), StringComparison.Ordinal);
 
-        Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag, Path.Combine(_root, "missing.msong")], output, error));
+        Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag, Path.Combine(_root, "missing.mfsong")], output, error));
         Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag], output, error));
         var outside = Directory.CreateTempSubdirectory("mf-render-noproject-").FullName;
         try
         {
-            File.Copy(songPath, Path.Combine(outside, "Loop.msong"));
-            Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag, Path.Combine(outside, "Loop.msong")], output, error));
+            File.Copy(songPath, Path.Combine(outside, "Loop.mfsong"));
+            Assert.Equal(1, SongRenderCommand.Run([SongRenderCommand.Flag, Path.Combine(outside, "Loop.mfsong")], output, error));
         }
         finally
         {

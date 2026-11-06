@@ -14,7 +14,7 @@ match Godot's.
 | `Side` | rectangle sides (`Rect2I.GrowSide`) |
 
 `Vector2I`, `Rect2I` and `Color` are built-in value types: `[Export]` members of these types store as number arrays in
-`.mscene`/`.mres` (`[x, y]`, `[x, y, w, h]`, `[r, g, b, a]`).
+`.mfscene`/`.mfres` (`[x, y]`, `[x, y, w, h]`, `[r, g, b, a]`).
 
 ## 2D helpers
 

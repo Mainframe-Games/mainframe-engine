@@ -96,7 +96,7 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
         {
             Assert.True(pack.IsEncrypted);
             Assert.True(pack.FileExists("Assets/" + AssetDatabase.IndexFileName));
-            Assert.True(pack.FileExists("Assets/Scenes/Main.mscene"));
+            Assert.True(pack.FileExists("Assets/Scenes/Main.mfscene"));
             Assert.False(pack.FileExists("Assets/notes.po"));
         }
 

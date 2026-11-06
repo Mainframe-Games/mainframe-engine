@@ -21,16 +21,16 @@ the listener's frame and smoothed, so moving emitters never click or zipper. Dec
 |---|---|---|
 | `AudioServer`, `AudioOptions`, `AudioDeviceMode`, `AudioVoiceHandle`, `AudioServerStats` | [Audio/AudioServer.cs](../../MainframeEngine/Src/Audio/AudioServer.cs) | `IFrameServer`; voice pools, stealing, listener, command batching |
 | `AudioBus` | [Audio/AudioBus.cs](../../MainframeEngine/Src/Audio/AudioBus.cs) | live fader / player volume (`UserVolume`) / low-pass cutoff (`LowPassHz`) / mute / solo / meter |
-| `AudioBusLayout`, `AudioBusInfo`, `AudioEffect` (+ `LowPass`, `HighPass`, `Reverb` (engine Freeverb), `Compressor`) | [Audio/AudioBusLayout.cs](../../MainframeEngine/Src/Audio/AudioBusLayout.cs) | `.mres` resources |
-| `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.meta` import settings; `PitchRandomness` |
+| `AudioBusLayout`, `AudioBusInfo`, `AudioEffect` (+ `LowPass`, `HighPass`, `Reverb` (engine Freeverb), `Compressor`) | [Audio/AudioBusLayout.cs](../../MainframeEngine/Src/Audio/AudioBusLayout.cs) | `.mfres` resources |
+| `AudioStream`, `AudioLoadMode` | [Audio/AudioStream.cs](../../MainframeEngine/Src/Audio/AudioStream.cs) | the sound resource; `.mfmeta` import settings; `PitchRandomness` |
 | `Zzfx`, `ZzfxParameters`, `ZzfxShape`, `ZzfxStream`, `ZzfxPresets` | [Audio/Synthesis/](../../MainframeEngine/Src/Audio/Synthesis/) | ZzFX 1.4.0 synthesiser, line format, the generated-sound resource, random recipes |
 | `WavWriter`, `WavSampleFormat` | [Audio/Decoding/WavWriter.cs](../../MainframeEngine/Src/Audio/Decoding/WavWriter.cs) | 16-bit PCM / 32-bit float WAV export |
 | `AudioPlayer`, `AudioPlayer2D`, `AudioPlayer3D`, `AudioListener3D` | [Audio/Nodes/](../../MainframeEngine/Src/Audio/Nodes/) | nodes |
 | `AudioMath`, `AttenuationModel` | [Audio/AudioMath.cs](../../MainframeEngine/Src/Audio/AudioMath.cs) | dB, attenuation curves, listener projection, pan law, doppler |
 | `AudioMixRoot`, `AudioGraph`, `AudioVoice`, `VoiceSource`, `SpatialSmoother`, `BusProcessor` | [Audio/Graph/](../../MainframeEngine/Src/Audio/Graph/) | audio-thread side (internal) |
 | `SpscRing<T>`, `AudioStreamChannel`, `AudioStreamer` | [Audio/Threading/](../../MainframeEngine/Src/Audio/Threading/) | lock-free rings, streaming thread (internal) |
-| `MusicGrid`, `MusicParameterSet`, `MusicCurve`, `MusicPlan`, `MusicDirector`, `MusicManifest` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | adaptive music logic shared by the editor and games (the beat grid, parameters, curves, rules, `.mmusic`) |
-| `AdaptiveMusic` (+ `AdaptiveMusicImporter`), `AdaptiveMusicInstance`, `AdaptiveMusicPlayer`, `MusicPosition` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | the adaptive-music runtime: the `.mmusic` resource and its stems, one playing piece on the game thread, the node; [Adaptive music](#adaptive-music) |
+| `MusicGrid`, `MusicParameterSet`, `MusicCurve`, `MusicPlan`, `MusicDirector`, `MusicManifest` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | adaptive music logic shared by the editor and games (the beat grid, parameters, curves, rules, `.mfmusic`) |
+| `AdaptiveMusic` (+ `AdaptiveMusicImporter`), `AdaptiveMusicInstance`, `AdaptiveMusicPlayer`, `MusicPosition` | [Audio/Music/](../../MainframeEngine/Src/Audio/Music/) | the adaptive-music runtime: the `.mfmusic` resource and its stems, one playing piece on the game thread, the node; [Adaptive music](#adaptive-music) |
 | `MusicVoice` | [Audio/Graph/MusicVoice.cs](../../MainframeEngine/Src/Audio/Graph/MusicVoice.cs) | audio-thread music player: lane groups, the music clock, scheduled actions, fades, tails, the layer filter (internal) |
 | `Svf` | [Audio/Dsp/Svf.cs](../../MainframeEngine/Src/Audio/Dsp/Svf.cs) | state-variable filter shared by the editor's effects and the music layer filter |
 | `AudioDecoder` (`WavDecoder`, `VorbisDecoder`, `MiniAudioFileDecoder`), `AudioClipData`, `AudioStreamSource` | [Audio/Decoding/](../../MainframeEngine/Src/Audio/Decoding/) | decoding (internal) |
@@ -101,9 +101,9 @@ flowchart TB
 music voices, effect chain). The default layout is Master (16 voices) → Music (4), SFX (32), UI (8), Voice (8).
 `MusicVoices` is how many adaptive-music players the bus can run at once (`AdaptiveMusicPlayer`, created up front and
 idle until used); −1, the default, means 2 on the bus named Music and 0 elsewhere. The server
-loads `AudioOptions.BusLayoutPath` (default `Assets/Settings/AudioBusLayout.mres`) and falls back to the default
+loads `AudioOptions.BusLayoutPath` (default `Assets/Settings/AudioBusLayout.mfres`) and falls back to the default
 on a missing or invalid file. `GetBusLayout()` snapshots the live state, `SaveBusLayout()` writes it through
-`ResourceSaver` (regular `.mres` with a `res_` UID), `ApplyBusLayout()` swaps a new graph in at runtime (all voices
+`ResourceSaver` (regular `.mfres` with a `res_` UID), `ApplyBusLayout()` swaps a new graph in at runtime (all voices
 stop without `Finished`; the old graph is disposed when the audio thread reports it retired). M10 can store the
 same resource inline in `project.mfproj` instead of the file.
 
@@ -147,7 +147,7 @@ preload their stream when they enter it.
 ## Streams and resources
 
 `AudioStream` (resource) holds `File` (project path or `aud_` UID), `LoadMode`, `Loop`, `LoopStart`, `LoopEnd`
-(seconds; 0 = end) and `PitchRandomness` (0–1, per-play pitch variation, see [Voices](#voices)). `AudioStream.Load(path)` applies import settings from the file's `.meta` sidecar
+(seconds; 0 = end) and `PitchRandomness` (0–1, per-play pitch variation, see [Voices](#voices)). `AudioStream.Load(path)` applies import settings from the file's `.mfmeta` sidecar
 (`"importer": "audio", "settings": {"loadMode", "loop", "loopStart", "loopEnd"}`); `AudioStream.FromSamples` wraps
 generated PCM (procedural audio, the QA melody, tests). `AudioImporter` makes sound files loadable through
 `ResourceLoader` too (`.wav/.ogg/.mp3/.flac` → `AudioStream.Load`), so a resource's `AudioStream` property can reference
@@ -220,7 +220,7 @@ defaults (warned once).
   trailing values are defaults; invariant culture, `.3` or `0.3`; NaN/∞ rejected); `ToLine()` writes the designer's
   shortest form (`zzfx(...[,,925,.04,.3,.6,1,.3,,6.27,-184,.09,.17])`).
 - **`ZzfxStream : AudioStream`** — one `[Export]` per parameter in groups Sound / Envelope / Pitch / Effects (ZzFX
-  defaults, so the `.mres` stores only what differs; `PitchRandomness` defaults to ZzFX's 0.05; ZzFX's `release` is
+  defaults, so the `.mfres` stores only what differs; `PitchRandomness` defaults to ZzFX's 0.05; ZzFX's `release` is
   `ReleaseTime` because `Resource.Release()` exists). `Parameters` gets/sets all of them, `FromLine`/`ToLine` convert.
   `CreateSource` synthesises on first use (players preload when they enter the tree) into an `AudioClipData`; every
   setter invalidates it, and playing voices keep the samples they started with. Not for per-frame changes: each change
@@ -237,7 +237,7 @@ defaults (warned once).
   linear interpolation as streams (pitch applies). It never ends on its own; an empty ring after the first push plays
   silence and counts `Underruns` (also in `AudioServerStats`).
 - **`AudioStream.DecodedSamples`** — the interleaved samples of a memory-loaded stream, for tools that mix sounds
-  themselves (the editor's song engine). **`AssetDatabase.WriteMeta`** writes a `.meta` (the song render's loop points).
+  themselves (the editor's song engine). **`AssetDatabase.WriteMeta`** writes a `.mfmeta` (the song render's loop points).
 - **`WavWriter`** — writes interleaved floats as 16-bit PCM (× 32768, saturating, the decoder's inverse) or 32-bit float.
 - **Tests:** `build/zzfx-reference.mjs` (Node, run by hand) evaluates the vendored 1.4.0 `buildSamples` over 16 cases
   into `Tests/Assets/Audio/zzfx-reference.json`; `ZzfxTests` compares the port within 1e-5.
@@ -301,9 +301,9 @@ Games play music authored in the editor's song editor as sections, layers, param
 (FMOD-style), baked to stems ([Adaptive music](adaptive-music.md) has the whole design; ADR 0196).
 
 - **Author and bake.** A song with an `adaptive` block ([Editor → Song tab](editor.md#song-tab-music-editor)) bakes
-  (Ctrl+B, or `just bake-song <path.msong>`) to `Assets/Music/<Song>.mmusic` and `<Song>.stems/*.ogg`: one stem per
+  (Ctrl+B, or `just bake-song <path.mfsong>`) to `Assets/Music/<Song>.mfmusic` and `<Song>.stems/*.ogg`: one stem per
   layer per section, tails, stingers. Section bodies stream; tails, stingers and transition segments are memory-loaded.
-- **Play.** An `AdaptiveMusicPlayer` node (`Music` = the `.mmusic` by its `mus_` UID, `Bus` "Music", `Autoplay`,
+- **Play.** An `AdaptiveMusicPlayer` node (`Music` = the `.mfmusic` by its `mus_` UID, `Bus` "Music", `Autoplay`,
   `StartSection`, `ScheduleAhead`) wraps an `AdaptiveMusicInstance`; game code calls it:
 
   ```csharp
@@ -324,7 +324,7 @@ Games play music authored in the editor's song editor as sections, layers, param
 - **Tweak a running game.** The dev overlay's Music panel drives every playing instance (parameters, stingers, Next);
   the editor's Adaptive tab can target a game's player over the editor link (protocol 6), and a bake while the game
   runs reloads the music at its next pass ([Adaptive music, As built: A6](adaptive-music.md#as-built-a6)).
-- **Demo:** the Music tab ([Demo](demo.md)) plays `Assets/Music/adaptive_theme.mmusic` with an intensity slider, an
+- **Demo:** the Music tab ([Demo](demo.md)) plays `Assets/Music/adaptive_theme.mfmusic` with an intensity slider, an
   area select and a stinger.
 
 ## Debugging and QA

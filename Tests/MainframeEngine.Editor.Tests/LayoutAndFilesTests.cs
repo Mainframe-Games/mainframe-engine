@@ -224,10 +224,10 @@ public sealed class FilePickerModelTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_root, "Scenes"));
         Directory.CreateDirectory(Path.Combine(_root, "assets"));
         Directory.CreateDirectory(Path.Combine(_root, ".git"));
-        File.WriteAllText(Path.Combine(_root, "b.mscene"), "{}");
-        File.WriteAllText(Path.Combine(_root, "A.MSCENE"), "{}");
+        File.WriteAllText(Path.Combine(_root, "b.mfscene"), "{}");
+        File.WriteAllText(Path.Combine(_root, "A.MFSCENE"), "{}");
         File.WriteAllText(Path.Combine(_root, "notes.txt"), "x");
-        File.WriteAllText(Path.Combine(_root, ".hidden.mscene"), "{}");
+        File.WriteAllText(Path.Combine(_root, ".hidden.mfscene"), "{}");
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
@@ -235,14 +235,14 @@ public sealed class FilePickerModelTests : IDisposable
     [Fact]
     public void ListsFoldersFirstThenMatchingFilesSortedAndSkipsHiddenEntries()
     {
-        var model = new FilePickerModel(FilePickerMode.Open, _root, ["*.mscene"]);
+        var model = new FilePickerModel(FilePickerMode.Open, _root, ["*.mfscene"]);
 
-        Assert.Equal(["assets", "Scenes", "A.MSCENE", "b.mscene"], model.Entries.Select(e => e.Name));
+        Assert.Equal(["assets", "Scenes", "A.MFSCENE", "b.mfscene"], model.Entries.Select(e => e.Name));
         Assert.True(model.Entries[0].IsDirectory);
 
         model.ShowHidden = true;
         model.Refresh();
-        Assert.Contains(model.Entries, e => e.Name == ".hidden.mscene");
+        Assert.Contains(model.Entries, e => e.Name == ".hidden.mfscene");
 
         model.Filter = [];
         Assert.Contains(model.Entries, e => e.Name == "notes.txt");
@@ -251,7 +251,7 @@ public sealed class FilePickerModelTests : IDisposable
     [Fact]
     public void NavigatesIntoFoldersAndUpAndRejectsMissingFolders()
     {
-        var model = new FilePickerModel(FilePickerMode.Open, _root, ["*.mscene"]);
+        var model = new FilePickerModel(FilePickerMode.Open, _root, ["*.mfscene"]);
         Assert.False(model.Activate(model.Entries.First(e => e.Name == "Scenes")));
         Assert.Equal(Path.Combine(_root, "Scenes"), model.CurrentDirectory);
         Assert.True(model.Up());
@@ -268,18 +268,18 @@ public sealed class FilePickerModelTests : IDisposable
     [Fact]
     public void OpenNeedsAnExistingMatchingFile()
     {
-        var model = new FilePickerModel(FilePickerMode.Open, _root, ["*.mscene"]);
+        var model = new FilePickerModel(FilePickerMode.Open, _root, ["*.mfscene"]);
         Assert.False(model.TryGetResult(out _, out _));
         Assert.Equal("Enter a file name.", model.Error);
 
-        model.Select(model.Entries.First(e => e.Name == "b.mscene"));
+        model.Select(model.Entries.First(e => e.Name == "b.mfscene"));
         Assert.True(model.TryGetResult(out var path, out var exists));
-        Assert.Equal(Path.Combine(_root, "b.mscene"), path);
+        Assert.Equal(Path.Combine(_root, "b.mfscene"), path);
         Assert.True(exists);
 
         model.FileName = "notes.txt";
         Assert.False(model.TryGetResult(out _, out _));
-        model.FileName = "missing.mscene";
+        model.FileName = "missing.mfscene";
         Assert.False(model.TryGetResult(out _, out _));
         model.FileName = "Scenes";
         Assert.False(model.TryGetResult(out _, out _));
@@ -289,18 +289,18 @@ public sealed class FilePickerModelTests : IDisposable
     [Fact]
     public void SaveAddsTheDefaultExtensionAndReportsExistingFiles()
     {
-        var model = new FilePickerModel(FilePickerMode.Save, _root, ["*.mscene"], "Level1");
-        Assert.Equal(".mscene", model.DefaultExtension);
+        var model = new FilePickerModel(FilePickerMode.Save, _root, ["*.mfscene"], "Level1");
+        Assert.Equal(".mfscene", model.DefaultExtension);
 
         Assert.True(model.TryGetResult(out var path, out var exists));
-        Assert.Equal(Path.Combine(_root, "Level1.mscene"), path);
+        Assert.Equal(Path.Combine(_root, "Level1.mfscene"), path);
         Assert.False(exists);
 
         model.FileName = "b";
         Assert.True(model.TryGetResult(out _, out exists));
         Assert.True(exists); // the dialog asks before replacing
 
-        model.FileName = Path.Combine(_root, "nowhere", "x.mscene");
+        model.FileName = Path.Combine(_root, "nowhere", "x.mfscene");
         Assert.False(model.TryGetResult(out _, out _));
     }
 
@@ -317,9 +317,9 @@ public sealed class FilePickerModelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("level.mscene", "*.mscene", true)]
-    [InlineData("LEVEL.MSCENE", "*.mscene", true)]
-    [InlineData("level.mres", "*.mscene", false)]
+    [InlineData("level.mfscene", "*.mfscene", true)]
+    [InlineData("LEVEL.MFSCENE", "*.mfscene", true)]
+    [InlineData("level.mfres", "*.mfscene", false)]
     [InlineData("a1.png", "a?.png", true)]
     [InlineData("a12.png", "a?.png", false)]
     [InlineData("anything", "*", true)]

@@ -7,14 +7,14 @@ namespace MainframeEngine.Editor;
 /// ADR 0197: a game's content folder is <c>Assets/</c>; projects made before (project format 3 and older) have
 /// <c>Content/</c>. Opening one in the editor offers this migration: the folder is renamed and every <c>Content/…</c>
 /// path in the project's scenes, resources, UI, project file, MSBuild files and C# is rewritten to <c>Assets/…</c>.
-/// <c>.meta</c> sidecars hold only UIDs, so references by UID survive as they are.
+/// <c>.mfmeta</c> sidecars hold only UIDs, so references by UID survive as they are.
 /// </summary>
 public static partial class AssetsFolderMigration
 {
     // Text files that hold content paths. Other files (images, audio, models) are only moved.
     private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".mscene", ".mres", ".mmusic", ".msong", ".rml", ".rcss", ".json", ".po", ".pot", ".mfproj", ".cs",
+        ".mfscene", ".mfres", ".mfmusic", ".mfsong", ".mscene", ".mres", ".mmusic", ".msong", ".rml", ".rcss", ".json", ".po", ".pot", ".mfproj", ".cs",
         ".csproj", ".props", ".targets",
     };
 

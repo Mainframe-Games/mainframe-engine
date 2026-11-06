@@ -13,15 +13,15 @@ public sealed class ExportFixture : IDisposable
     public ExportFixture(string name = "Tiny Game")
     {
         Root = GameProjectLayout.RealPath(Directory.CreateTempSubdirectory("mf-export").FullName);
-        Settings = new ProjectSettings { Name = name, MainScene = "Assets/Scenes/Main.mscene", Version = "1.2.0", PackKey = Convert.ToBase64String(PackKey) };
+        Settings = new ProjectSettings { Name = name, MainScene = "Assets/Scenes/Main.mfscene", Version = "1.2.0", PackKey = Convert.ToBase64String(PackKey) };
         Settings.Window.Icon = "Assets/icon.png";
-        Settings.Audio.BusLayout = "Assets/Settings/Bus.mres";
+        Settings.Audio.BusLayout = "Assets/Settings/Bus.mfres";
         Write("TinyGame.Desktop/TinyGame.Desktop.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup></Project>");
-        Write("Assets/Scenes/Main.mscene", """{ "uid": "scn_aaaaaaaaaaaa", "root": { "type": "Node", "name": "Main", "props": { "music": { "ref": "res_bbbbbbbbbbbb", "path": "Assets/Music/theme.mres" }, "tex": "Assets/Textures/a.png" } } }""");
-        Write("Assets/Music/theme.mres", """{ "uid": "res_bbbbbbbbbbbb", "type": "AudioStream" }""");
+        Write("Assets/Scenes/Main.mfscene", """{ "uid": "scn_aaaaaaaaaaaa", "root": { "type": "Node", "name": "Main", "props": { "music": { "ref": "res_bbbbbbbbbbbb", "path": "Assets/Music/theme.mfres" }, "tex": "Assets/Textures/a.png" } } }""");
+        Write("Assets/Music/theme.mfres", """{ "uid": "res_bbbbbbbbbbbb", "type": "AudioStream" }""");
         Write("Assets/Textures/a.png", "png");
-        Write("Assets/Textures/a.png.meta", """{ "uid": "tex_cccccccccccc" }""");
-        Write("Assets/Settings/Bus.mres", """{ "uid": "res_dddddddddddd", "type": "AudioBusLayout" }""");
+        Write("Assets/Textures/a.png.mfmeta", """{ "uid": "tex_cccccccccccc" }""");
+        Write("Assets/Settings/Bus.mfres", """{ "uid": "res_dddddddddddd", "type": "AudioBusLayout" }""");
         Write("Assets/locale/fr/LC_MESSAGES/messages.po", "msgid \"\"\nmsgstr \"\"\n");
         WriteIcon("Assets/icon.png", 256);
         Save();

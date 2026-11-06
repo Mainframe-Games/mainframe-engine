@@ -1161,12 +1161,12 @@ def export(name, objs):
 
 
 def write_metas():
-    """A `.meta` sidecar (the AssetDatabase's UID) for every file in OUT without one; existing UIDs are kept."""
+    """A `.mfmeta` sidecar (the AssetDatabase's UID) for every file in OUT without one; existing UIDs are kept."""
     prefixes = {".png": "tex", ".gltf": "mdl"}
     for name in sorted(os.listdir(OUT)):
-        if name.endswith(".meta") or name.startswith("."):
+        if name.endswith(".mfmeta") or name.startswith("."):
             continue
-        meta = os.path.join(OUT, name + ".meta")
+        meta = os.path.join(OUT, name + ".mfmeta")
         if os.path.exists(meta):
             continue
         prefix = prefixes.get(os.path.splitext(name)[1].lower(), "ast")

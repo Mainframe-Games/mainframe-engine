@@ -48,7 +48,7 @@ public sealed class ForestGradeTests
         Assert.True(environment.PostProcess!.AdjustmentEnabled);
         Assert.NotNull(environment.PostProcess.AdjustmentColorCorrection); // the forest-morning LUT
         var look = environment.PostProcessSettings;
-        Assert.InRange(look.VignetteIntensity, 0.01f, 0.5f); // a subtle vignette (tuned in forest-lens.mres)
+        Assert.InRange(look.VignetteIntensity, 0.01f, 0.5f); // a subtle vignette (tuned in forest-lens.mfres)
         Assert.InRange(look.FilmGrainIntensity, 0.001f, 0.05f); // and a touch of grain
         Assert.False(look.DofEnabled); // never while walking
         Assert.Equal(0f, look.ChromaticAberrationIntensity);

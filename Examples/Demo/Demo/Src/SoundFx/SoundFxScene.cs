@@ -4,10 +4,10 @@ using static Demo.DemoBuild;
 
 namespace Demo;
 
-/// <summary>One ZzFX preset of the Sound FX scene: saved as <c>Assets/Audio/Sfx/&lt;Id&gt;.mres</c> from a fixed seed.</summary>
+/// <summary>One ZzFX preset of the Sound FX scene: saved as <c>Assets/Audio/Sfx/&lt;Id&gt;.mfres</c> from a fixed seed.</summary>
 public sealed record SoundFxPreset(string Id, string Name, Func<Random, ZzfxParameters> Make, int Seed)
 {
-    public string Path => $"{SoundFxScene.SfxFolder}/{Id}.mres";
+    public string Path => $"{SoundFxScene.SfxFolder}/{Id}.mfres";
 
     /// <summary>The preset's parameters (the same for every call: fixed seed).</summary>
     public ZzfxParameters Parameters => Make(new Random(Seed));
@@ -15,7 +15,7 @@ public sealed record SoundFxPreset(string Id, string Name, Func<Random, ZzfxPara
 
 /// <summary>
 /// ZzFX sounds synthesised at run time (presets, randomize, mutate) drawn as a waveform, and a looping song rendered by
-/// the editor's music editor (<c>Assets/Music/demo_loop.msong</c> → <c>demo_loop.ogg</c>) on the Music bus.
+/// the editor's music editor (<c>Assets/Music/demo_loop.mfsong</c> → <c>demo_loop.ogg</c>) on the Music bus.
 /// </summary>
 public static class SoundFxScene
 {
@@ -77,15 +77,15 @@ public static class SoundFxScene
         return root;
     }
 
-    /// <summary><c>--write-scenes</c>: saves every preset as a <see cref="ZzfxStream"/> <c>.mres</c> into <paramref name="directory"/>.</summary>
+    /// <summary><c>--write-scenes</c>: saves every preset as a <see cref="ZzfxStream"/> <c>.mfres</c> into <paramref name="directory"/>.</summary>
     public static void WriteSounds(string directory)
     {
         Directory.CreateDirectory(directory);
         foreach (var preset in Presets)
         {
             var stream = new ZzfxStream { ResourceName = preset.Name, Parameters = preset.Parameters };
-            var uid = ResourceSaver.Save(stream, System.IO.Path.Combine(directory, preset.Id + ".mres"));
-            Log.Info($"Wrote {preset.Id}.mres ({uid})");
+            var uid = ResourceSaver.Save(stream, System.IO.Path.Combine(directory, preset.Id + ".mfres"));
+            Log.Info($"Wrote {preset.Id}.mfres ({uid})");
         }
     }
 }

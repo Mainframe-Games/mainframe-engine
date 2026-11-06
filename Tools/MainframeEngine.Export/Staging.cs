@@ -120,9 +120,9 @@ public static class ReferenceScanner
         return found;
     }
 
-    /// <summary>Whether <paramref name="path"/> is a file whose references are scanned (<c>.mscene</c>, <c>.mres</c>).</summary>
+    /// <summary>Whether <paramref name="path"/> is a file whose references are scanned (<c>.mfscene</c>, <c>.mfres</c>).</summary>
     public static bool IsScanned(string path) =>
-        path.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase);
+        FileExtensions.Matches(path, FileExtensions.Scene) || FileExtensions.Matches(path, FileExtensions.Resource);
 
     private static void Walk(JsonNode? node, AssetDatabase database, HashSet<string> found)
     {

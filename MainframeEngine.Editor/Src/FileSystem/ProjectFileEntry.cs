@@ -24,7 +24,7 @@ public sealed class ProjectFileEntry
     /// <summary>Absolute path.</summary>
     public string FullPath { get; }
 
-    /// <summary>Project-relative path with <c>/</c> separators (<c>Assets/Scenes/Main.mscene</c>); empty for the root.</summary>
+    /// <summary>Project-relative path with <c>/</c> separators (<c>Assets/Scenes/Main.mfscene</c>); empty for the root.</summary>
     public string ProjectPath { get; }
 
     public string Name { get; }

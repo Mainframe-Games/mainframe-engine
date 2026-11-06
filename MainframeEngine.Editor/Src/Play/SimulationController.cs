@@ -302,7 +302,7 @@ public sealed class SimulationController
         return false;
     }
 
-    // A script may change a shared external resource (a .mres, a material file): the copy shares them through the
+    // A script may change a shared external resource (a .mfres, a material file): the copy shares them through the
     // loader cache. They are listed on Stop (restoring them needs a reload in place, which does not exist yet).
     private void WatchExternalResources(EditedScene scene)
     {

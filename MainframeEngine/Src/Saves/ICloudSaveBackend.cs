@@ -2,7 +2,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// A cloud store for save slots (<see cref="SaveServer.Cloud"/>): Steam Cloud, iCloud/CloudKit and Play Saved Games in
-/// M13, a fake in tests. It stores whole <c>.msave</c> files (header line + payload, the same bytes as on disk) and their
+/// M13, a fake in tests. It stores whole <c>.mfsave</c> files (header line + payload, the same bytes as on disk) and their
 /// thumbnails, so no backend needs its own format. Local storage stays the source of truth: the server uploads after
 /// every local write (best effort, retried) and reconciles with <see cref="SaveServer.SyncAsync"/>.
 /// </summary>
@@ -40,7 +40,7 @@ public sealed record CloudSaveMeta(string Slot, DateTimeOffset SavedUtc, double 
     string? Device, string Sha256, long SizeBytes)
 {
     /// <summary>
-    /// The metadata of a <c>.msave</c> file (what a backend stores next to an upload); null when its header line is not a
+    /// The metadata of a <c>.mfsave</c> file (what a backend stores next to an upload); null when its header line is not a
     /// readable save header.
     /// </summary>
     public static CloudSaveMeta? FromFile(ReadOnlySpan<byte> file)
@@ -52,12 +52,12 @@ public sealed record CloudSaveMeta(string Slot, DateTimeOffset SavedUtc, double 
     }
 }
 
-/// <summary>A downloaded cloud slot: the <c>.msave</c> file and its thumbnail PNG (empty when it has none).</summary>
+/// <summary>A downloaded cloud slot: the <c>.mfsave</c> file and its thumbnail PNG (empty when it has none).</summary>
 public sealed record CloudSaveFile(string Slot, ReadOnlyMemory<byte> File, ReadOnlyMemory<byte> Thumbnail);
 
 /// <summary>
 /// Which copy wins when a slot changed both locally and in the cloud since the last sync. The losing copy is kept as
-/// <c>slot.msave.conflict-{utc}</c>.
+/// <c>slot.mfsave.conflict-{utc}</c>.
 /// </summary>
 public enum SaveConflictPolicy
 {

@@ -75,7 +75,13 @@ public static class ContentPaths
                 return inProject;
         }
 
-        return Resolve(path, BaseDirectory);
+        var resolved = Resolve(path, BaseDirectory);
+        // A path written before ADR 0249 (x.mscene) whose file the editor has since renamed (x.mfscene).
+        var current = FileExtensions.Upgrade(path);
+        if (ReferenceEquals(current, path) || ContentFiles.Exists(resolved))
+            return resolved;
+        var upgraded = Resolve(current);
+        return ContentFiles.Exists(upgraded) ? upgraded : resolved;
     }
 
     /// <summary><see cref="Resolve(string)"/> against an explicit base directory (tests, tools).</summary>

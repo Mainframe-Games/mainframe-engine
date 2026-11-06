@@ -91,7 +91,7 @@ public sealed class ProjectSettingsTests : IDisposable
         s.Saves.Thumbnails = true;
         s.Saves.ThumbnailWidth = 256;
         s.Saves.ThumbnailHeight = 144;
-        s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Assets/Autoload/Music.mscene" });
+        s.Autoloads.Add(new AutoloadSettings { Name = "Music", Scene = "Assets/Autoload/Music.mfscene" });
         s.Autoloads.Add(new AutoloadSettings { Name = "Stats", Type = "GameStats", Enabled = false });
         var host = new PlayInstanceSettings { Label = "Host" };
         host.Arguments.AddRange(["--host", "--tile", "0:2"]);
@@ -199,7 +199,7 @@ public sealed class ProjectSettingsTests : IDisposable
               // a hand edit
               "format": 1,
               "name": "Edited",
-              "mainScene": "Assets/Scenes/Main.mscene",
+              "mainScene": "Assets/Scenes/Main.mfscene",
               "window": { "width": 640, "height": 480, },
               "input": { "fire": { "bindings": ["mouse:Left", "KEY:enter"] } },
             }
@@ -323,22 +323,22 @@ public sealed class ProjectSettingsTests : IDisposable
     {
         // ADR 0197: format 4 renamed the content folder; every "Content/…" value follows, a bare "Content" does not.
         var s = Parse("""
-            { "format": 3, "name": "Content", "mainScene": "Content/Scenes/Main.mscene",
+            { "format": 3, "name": "Content", "mainScene": "Content/Scenes/Main.mfscene",
               "window": { "title": "Content/Title", "icon": "Content\\icon.png" },
-              "audio": { "busLayout": "Content/Settings/AudioBusLayout.mres" },
+              "audio": { "busLayout": "Content/Settings/AudioBusLayout.mfres" },
               "localization": { "directory": "Content/locale" },
               "loading": { "screen": "Content/UI/loading.rml" },
-              "autoloads": [ { "name": "Music", "scene": "Content/Autoload/Music.mscene" } ] }
+              "autoloads": [ { "name": "Music", "scene": "Content/Autoload/Music.mfscene" } ] }
             """);
 
         Assert.Equal("Content", s.Name);
-        Assert.Equal("Assets/Scenes/Main.mscene", s.MainScene);
+        Assert.Equal("Assets/Scenes/Main.mfscene", s.MainScene);
         Assert.Equal("Assets/Title", s.Window.Title);
         Assert.Equal("Assets\\icon.png", s.Window.Icon);
-        Assert.Equal("Assets/Settings/AudioBusLayout.mres", s.Audio.BusLayout);
+        Assert.Equal("Assets/Settings/AudioBusLayout.mfres", s.Audio.BusLayout);
         Assert.Equal("Assets/locale", s.Localization.LocaleDirectory);
         Assert.Equal("Assets/UI/loading.rml", s.Loading.Screen);
-        Assert.Equal("Assets/Autoload/Music.mscene", s.Autoloads[0].Scene);
+        Assert.Equal("Assets/Autoload/Music.mfscene", s.Autoloads[0].Scene);
         Assert.Equal(ProjectSettingsFormat.Current, (int)JsonNode.Parse(Text(s))!["format"]!);
     }
 

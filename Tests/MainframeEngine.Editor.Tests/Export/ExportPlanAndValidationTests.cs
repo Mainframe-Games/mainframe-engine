@@ -146,7 +146,7 @@ public sealed class ExportPlanAndValidationTests : IDisposable
         Assert.EndsWith(DotnetSdk.DownloadUrl, issues[0].Message, StringComparison.Ordinal);
 
         Directory.Delete(_game.PathOf("TinyGame.Desktop"), recursive: true);
-        _game.Settings.MainScene = "Assets/Scenes/Nope.mscene";
+        _game.Settings.MainScene = "Assets/Scenes/Nope.mfscene";
         Assert.Equal(["no-desktop-project", "main-scene"], Codes(Validate(ExportPreset.Create("L", ExportPlatform.Linux)), ExportIssueSeverity.Error));
         _game.Settings.MainScene = null;
         Assert.Contains("main-scene", Codes(Validate(ExportPreset.Create("L", ExportPlatform.Linux)), ExportIssueSeverity.Error));
@@ -160,13 +160,13 @@ public sealed class ExportPlanAndValidationTests : IDisposable
         var preset = ExportPreset.Create("L", ExportPlatform.Linux);
         preset.Exclude.Add("Assets/Scenes/**");
         preset.Exclude.Add("Assets/Settings/**");
-        _game.Write("Assets/Auto/Hud.mscene", """{ "uid": "scn_eeeeeeeeeeee" }""");
-        _game.Settings.Autoloads.Add(new AutoloadSettings { Name = "Hud", Scene = "Assets/Auto/Hud.mscene" });
+        _game.Write("Assets/Auto/Hud.mfscene", """{ "uid": "scn_eeeeeeeeeeee" }""");
+        _game.Settings.Autoloads.Add(new AutoloadSettings { Name = "Hud", Scene = "Assets/Auto/Hud.mfscene" });
         preset.Exclude.Add("Assets/Auto/*");
 
         var errors = Validate(preset).Where(i => i.IsError).ToArray();
         Assert.Equal(3, errors.Count(e => e.Code == "main-scene-excluded"));
-        Assert.Contains(errors, e => e.Message.Contains("Assets/Scenes/Main.mscene", StringComparison.Ordinal));
+        Assert.Contains(errors, e => e.Message.Contains("Assets/Scenes/Main.mfscene", StringComparison.Ordinal));
         Assert.Contains(errors, e => e.Message.Contains("autoload Hud", StringComparison.Ordinal));
         Assert.Contains(errors, e => e.Message.Contains("bus layout", StringComparison.Ordinal));
     }
@@ -316,11 +316,11 @@ public sealed class ExportPlanAndValidationTests : IDisposable
     {
         var preset = ExportPreset.Create("L", ExportPlatform.Linux);
         preset.Exclude.Add("Assets/Music/**");
-        preset.Exclude.Add("Assets/Textures/*.meta");
+        preset.Exclude.Add("Assets/Textures/*.mfmeta");
         var warnings = Validate(preset).Where(i => !i.IsError).ToArray();
 
         Assert.Equal(["broken-reference", "meta-excluded"], warnings.Select(w => w.Code).Order());
-        Assert.Contains("Assets/Scenes/Main.mscene uses Assets/Music/theme.mres", warnings.Single(w => w.Code == "broken-reference").Message, StringComparison.Ordinal);
-        Assert.Contains("Assets/Textures/a.png.meta", warnings.Single(w => w.Code == "meta-excluded").Message, StringComparison.Ordinal);
+        Assert.Contains("Assets/Scenes/Main.mfscene uses Assets/Music/theme.mfres", warnings.Single(w => w.Code == "broken-reference").Message, StringComparison.Ordinal);
+        Assert.Contains("Assets/Textures/a.png.mfmeta", warnings.Single(w => w.Code == "meta-excluded").Message, StringComparison.Ordinal);
     }
 }

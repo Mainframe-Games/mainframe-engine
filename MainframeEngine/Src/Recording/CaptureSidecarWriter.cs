@@ -26,7 +26,7 @@ internal static class CaptureSidecarWriter
 {
     public const string FormatName = "mainframe-capture";
     public const int Version = 1;
-    public const string FileSuffix = ".mfcap.json";
+    public const string FileSuffix = FileExtensions.CaptureSidecar;
 
     public static string PathFor(string videoPath) => videoPath + FileSuffix;
 

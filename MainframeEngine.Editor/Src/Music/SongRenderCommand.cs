@@ -1,8 +1,8 @@
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
-/// <c>--render-song &lt;path.msong&gt;</c>: renders a song headless (no window, SDL or engine) into its project like the
-/// song tab's Render — the output file and its <c>.meta</c> — and exits 0, or 1 on an error (CI, batch renders,
+/// <c>--render-song &lt;path.mfsong&gt;</c>: renders a song headless (no window, SDL or engine) into its project like the
+/// song tab's Render — the output file and its <c>.mfmeta</c> — and exits 0, or 1 on an error (CI, batch renders,
 /// <c>just render-song</c>). The project is the nearest folder above the song holding <c>project.mfproj</c>. An <c>.ogg</c>
 /// output is encoded through the plugin helper when this platform has one (<see cref="PluginHostClient.Locate"/>).
 /// </summary>
@@ -20,7 +20,7 @@ public static class SongRenderCommand
         ArgumentNullException.ThrowIfNull(error);
         if (!IsRenderSong(args) || args.Count != 2)
         {
-            error.WriteLine($"Usage: MainframeEngine.Editor {Flag} <path.msong>");
+            error.WriteLine($"Usage: MainframeEngine.Editor {Flag} <path.mfsong>");
             return 1;
         }
 

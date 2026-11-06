@@ -198,12 +198,12 @@ public sealed class NodeLocalizationTests : IDisposable
             table.Resolve(LocaleId.Chain("zh_Hans_CN", "en")));
         Assert.Equal(["Assets/UI/fonts/Lato-Regular.ttf"], table.Resolve(["fr", "en"]));
 
-        // It is an ordinary resource (a .mres file edited in the inspector).
+        // It is an ordinary resource (a .mfres file edited in the inspector).
         var info = TypeRegistry.Get(typeof(FontFallbackTable))!;
         Assert.Equal(["ResourceName", "DefaultFonts", "Locales"], info.Properties.Select(p => p.Name));
         Assert.Equal("*.ttf,*.otf", info.FindProperty("DefaultFonts")!.Hints.File);
         Assert.Equal(["ResourceName", "Locale", "Fonts"], TypeRegistry.Get(typeof(LocaleFontSet))!.Properties.Select(p => p.Name));
-        Assert.Null(FontFallbackTable.TryLoad(Path.Combine(_fixture.Directory, "missing.mres")));
+        Assert.Null(FontFallbackTable.TryLoad(Path.Combine(_fixture.Directory, "missing.mfres")));
     }
 
     /// <summary>Switches the locale from inside its process callback, as a settings menu would.</summary>

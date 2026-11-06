@@ -1,9 +1,9 @@
 # Text files use LF everywhere (scenes, resources and project.mfproj are written with LF on every OS).
 * text=auto eol=lf
-*.mscene text eol=lf
-*.mres text eol=lf
+*.mfscene text eol=lf
+*.mfres text eol=lf
 *.mfproj text eol=lf
-*.meta text eol=lf
+*.mfmeta text eol=lf
 
 # Large binary content lives in Git LFS (run `git lfs install` once per machine).
 # images

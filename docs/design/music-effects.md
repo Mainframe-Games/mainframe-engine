@@ -1,6 +1,6 @@
 # Built-in music effects
 
-The music editor's songs (`.msong`, [Music editor](future/music-editor.md), [Song tab](editor.md#song-tab-music-editor))
+The music editor's songs (`.mfsong`, [Music editor](future/music-editor.md), [Song tab](editor.md#song-tab-music-editor))
 take insert effects on every track and on the master. Besides hosted VST3 plugins, the editor has **built-in effects**:
 fifteen effects written in C# that run in process on the song's render thread, ship with the editor, and play the same in
 every render. Code: `MainframeEngine.Editor/Src/Music/Effects/`. Decision: ADR 0193.

@@ -9,7 +9,7 @@ CC0 1.0 (https://docs.ambientcg.com/license/).
 Needs curl and Pillow. Downloads are cached (default: a temp folder), so re-running only re-processes. Each set becomes
 <Id>_Color.jpg, <Id>_NormalGL.jpg and <Id>_ORM.png (R = AO or 255, G = roughness, B = metallic or 0) at 1024², the
 names the apartment's script (Tools/apartment/build_apartment.py) and NeonApartment.ToPbr expect. The NOTICE rows are
-printed for what it fetched. `--only metas` fetches nothing and writes the missing `.meta` sidecars (after
+printed for what it fetched. `--only metas` fetches nothing and writes the missing `.mfmeta` sidecars (after
 `just neon-art`).
 """
 
@@ -115,13 +115,13 @@ def textures(cache, rows, wanted=None):
 
 
 def write_metas():
-    """A `.meta` sidecar (AssetDatabase's format: a UID) for every file without one; existing UIDs are kept."""
+    """A `.mfmeta` sidecar (AssetDatabase's format: a UID) for every file without one; existing UIDs are kept."""
     prefixes = {".png": "tex", ".jpg": "tex", ".gltf": "mdl"}
     for folder, _, names in os.walk(ART):
         for name in names:
-            if name.endswith(".meta") or name.startswith("."):
+            if name.endswith(".mfmeta") or name.startswith("."):
                 continue
-            meta = os.path.join(folder, name + ".meta")
+            meta = os.path.join(folder, name + ".mfmeta")
             if os.path.exists(meta):
                 continue
             prefix = prefixes.get(os.path.splitext(name)[1].lower(), "ast")
@@ -129,7 +129,7 @@ def write_metas():
                 f.write(json.dumps({"uid": f"{prefix}_{secrets.token_hex(6)}"}, indent=2) + "\n")
     for folder, _, names in os.walk(ART):  # drop sidecars whose asset is gone
         for name in names:
-            if name.endswith(".meta") and not os.path.exists(os.path.join(folder, name[:-5])):
+            if name.endswith(".mfmeta") and not os.path.exists(os.path.join(folder, name[: -len(".mfmeta")])):
                 os.remove(os.path.join(folder, name))
 
 

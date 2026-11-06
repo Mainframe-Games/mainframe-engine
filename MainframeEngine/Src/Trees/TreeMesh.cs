@@ -6,7 +6,7 @@ namespace MainframeEngine;
 /// A generated tree ready to draw: one <see cref="ArrayMesh"/> per level of detail (surface 0 bark, surface 1 leaves,
 /// with the <c>Custom0</c> wind stream and, for LowPoly blobs, <c>Colors</c>), the trunk capsule, and what it was made
 /// from (<see cref="Options"/>, <see cref="Seed"/>, <see cref="Style"/>), which picks its materials
-/// (<see cref="TreeMaterials"/>). <see cref="Tree3D.Bake"/> saves one as <c>.mres</c>, so a shipped game loads the
+/// (<see cref="TreeMaterials"/>). <see cref="Tree3D.Bake"/> saves one as <c>.mfres</c>, so a shipped game loads the
 /// meshes instead of running the generator (ADR 0158). The surfaces carry no materials: the tree applies them.
 /// </summary>
 [EditorIcon("package")]

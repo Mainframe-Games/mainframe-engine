@@ -44,7 +44,7 @@ nothing is stepped, preprocessed or allocated, and `EmitParticle` does nothing. 
 ## `ParticleProcessMaterial`
 
 `MainframeEngine/Src/Scene/Particles/ParticleProcessMaterial.cs`, shared with the 2D emitter (it moved out of
-`GpuParticles2D.cs`; existing `.mres` and `.mscene` files load unchanged, and new members keep their defaults). Members
+`GpuParticles2D.cs`; existing `.mfres` and `.mfscene` files load unchanged, and new members keep their defaults). Members
 the 2D emitter ignores are marked "3D only".
 
 | Group | Members |
@@ -154,7 +154,7 @@ Release, a machine shared with other builds:
   an explosive one-shot (`Finished`, allocation-free `Restart`), randomness within each slot's slice, seeded
   determinism; lifetime randomness, damping and turbulence; `FixedFps` stepping, interpolation and `SpeedScale` 0;
   `EmitParticle`; instance order (view depth, lifetime), curves, ramps and interpolation; 0 B steps and writes; inert
-  under `HeadlessHost`; a scene round trip of every member; `.mres` load, including a 2D-era file. Editor:
+  under `HeadlessHost`; a scene round trip of every member; `.mfres` load, including a 2D-era file. Editor:
   `InspectorModelTests.AnAabbEditsAsItsMinAndMaxCorners`.
 - **Render** (`Tests/MainframeEngine.RenderTests/ParticleTests.cs`, scenes in `RenderTests.Host/Scenes/ParticleScenes.cs`):
   `particles-campfire` (additive flames and embers, lit smoke sorted back to front, glow on; golden), its glow-off run

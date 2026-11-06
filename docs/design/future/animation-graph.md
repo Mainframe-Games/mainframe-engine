@@ -21,7 +21,7 @@ and player.
 
 ## Goals
 
-- **An `AnimationGraph` resource** (`.mres`), with:
+- **An `AnimationGraph` resource** (`.mfres`), with:
   - **parameters**: bool, int, float, trigger;
   - **layers**: base plus override or additive layers, each with a weight and an optional bone mask;
   - per layer, a **state machine** whose states are clips, 1D blend spaces, 2D blend spaces or nested state machines;
@@ -56,7 +56,7 @@ and player.
 
 ```mermaid
 flowchart LR
-    G["AnimationGraph (.mres)<br/>params · layers · states · transitions · blend spaces"] --> P
+    G["AnimationGraph (.mfres)<br/>params · layers · states · transitions · blend spaces"] --> P
     C["Game code / AnimationPlayer / network"] -->|"SetFloat('speed', 3.2)<br/>Fire('jump')"| P["AnimationGraphPlayer<br/>(per skeleton instance)"]
     P -->|"ClipSample[] + LayerInfo[]"| B{"IPoseBackend"}
     T["AnimationTracks<br/>(code tracks)"] -->|"ClipSample[]"| B
@@ -130,7 +130,7 @@ Both write into the same sample buffer before `Apply`. Each track's `Blend` and 
 
 ## The resource
 
-`AnimationGraph` is an ordinary resource, saved by the existing `ResourceSaver` as `.mres`. Its parts are concrete
+`AnimationGraph` is an ordinary resource, saved by the existing `ResourceSaver` as `.mfres`. Its parts are concrete
 sub-resource classes in lists, because the generator skips generic types, as G1a's tracks do:
 
 ```csharp
@@ -217,7 +217,7 @@ public sealed class GraphCondition : Resource
 }
 ```
 
-An abridged example `.mres`:
+An abridged example `.mfres`:
 
 ```json
 {
@@ -318,7 +318,7 @@ Transitions are deterministic for the same parameters and ticks, so peers agree 
 ## Editor
 
 The **graph tab** (`AnimationGraphTab : IDocumentTab`, [Skeleton editor → Prerequisite](skeleton-2d-editor.md#prerequisite-document-tabs))
-opens an `AnimationGraph` `.mres`. Double-clicking the graph file opens it, and the Skeleton tab's Animate mode has an
+opens an `AnimationGraph` `.mfres`. Double-clicking the graph file opens it, and the Skeleton tab's Animate mode has an
 **Edit Graph** button for the skeleton's assigned graph.
 
 - **The canvas** is a `[Tool]` canvas in a `SubViewport`, like the timeline canvases:
@@ -341,7 +341,7 @@ opens an `AnimationGraph` `.mres`. Double-clicking the graph file opens it, and 
   - a draggable preview point that sets the parameters;
   - each point's weight shown live;
   - drag a clip from the clip list onto the plot to add a point.
-- **Preview.** The tab picks a skeleton (any `.mskel` whose clips the graph names) and shows it in a viewport pane. The
+- **Preview.** The tab picks a skeleton (any `.mfskel` whose clips the graph names) and shows it in a viewport pane. The
   preview uses the runtime player. The active state glows, a transition's arrow fills while it runs, and normalised
   time shows as a bar in each active state.
 - **Live debugging.** While a game runs from the editor (Play), the graph tab can attach to a node in the running game

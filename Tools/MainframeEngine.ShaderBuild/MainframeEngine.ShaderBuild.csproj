@@ -4,7 +4,7 @@
     mf-shaders: builds game surface shaders (ADR 0237: .slang files starting with `import mainframe.spatial;` or
     `import mainframe.canvas;`; other .slang files are helper modules). Reads each one's layout from slangc's reflection
     (SlangReflection), compiles every pass's generated entry (SurfaceShaderCompiler) and writes x.slang.{vert,frag}.spv (a
-    spatial shader also .depth, .shadow, .shadow-point and .id pairs), x.slang.layout.json and x.slang.spvlock next to the
+    spatial shader also .depth, .shadow, .shadow-point and .id pairs), x.slang.mflayout.json and x.slang.mfspvlock next to the
     source (committed, like the engine's own shaders). `check` fails when any is stale (CI without slangc).
       just canvas-shaders FOLDER (build) / just canvas-shaders-check FOLDER
   -->

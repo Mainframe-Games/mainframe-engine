@@ -87,7 +87,7 @@ classDiagram
 The 2D side mirrors this in pixels (`Vector2`, rotation in radians, angular velocity a `float`). All bodies derive
 from `Node3D`/`Node2D`; every property above is `[Export]`ed (scene files) and the signals are `[Signal]`s.
 
-- **Shapes** are `Resource`s: shareable between bodies and saved inline or as `.mres`. Changing a shape property,
+- **Shapes** are `Resource`s: shareable between bodies and saved inline or as `.mfres`. Changing a shape property,
   a `CollisionShape*` child's transform, `Disabled`, or the body's global scale rebuilds that body's shapes at the
   next step. Scale is baked into the library shapes.
 - **Concave shapes** (`ConcavePolygonShape3D`, `HeightMapShape3D`, `SegmentShape2D`, `ConcavePolygonShape2D`) have

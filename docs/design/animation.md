@@ -12,7 +12,7 @@ follow Godot 4. The authoring tools for Claude-made clips are [Animation authori
 
 ```mermaid
 flowchart LR
-    I["ModelImporter (Assimp)<br/>bones · skins · clips · .meta / glTF extras"] --> S[Skeleton3D]
+    I["ModelImporter (Assimp)<br/>bones · skins · clips · .mfmeta / glTF extras"] --> S[Skeleton3D]
     I --> M["MeshInstance3D + Skin<br/>(Joints/Weights)"]
     I --> P["AnimationPlayer<br/>AnimationLibrary → Animation"]
     P -->|"bone poses (typed calls)"| S
@@ -230,7 +230,7 @@ sequenceDiagram
   `optimizeAnimations` (default) keys that linear interpolation reproduces are removed.
 - **Loop modes and events:** a `-loop`/`-cycle` name suffix loops a clip; glTF animation `extras` (`"loop": true`,
   `"events": { "HammerFist": 0.42 }` or `[ { "name": …, "time": … } ]`; Blender writes an action's custom properties
-  there with *Include → Custom Properties*) override it; the `.meta` `clips` list overrides both and covers FBX:
+  there with *Include → Custom Properties*) override it; the `.mfmeta` `clips` list overrides both and covers FBX:
 
 ```json
 { "importer": "model", "settings": { "scale": 1, "importAnimations": true, "optimizeAnimations": true,
@@ -299,7 +299,7 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
 
 - **Unit** ([`Tests/MainframeEngine.Tests/Animation/`](../../Tests/MainframeEngine.Tests/Animation/)):
   `SkinnedImportTests` (the generated character: skeleton, skin, weights, ten clips, loop modes and events from extras
-  and `.meta`, the CPU skinning reference at rest and posed, posed bounds containing every vertex, the import scale,
+  and `.mfmeta`, the CPU skinning reference at rest and posed, posed bounds containing every vertex, the import scale,
   clip settings round trip, `CleanClipName`), `AnimationPlayerTests` (loops and events across loops, crossfade values,
   fitting to a duration, queue, seek/stop/pause, backwards and ping-pong events, process modes and autoplay,
   `BoneAttachment3D` keeping a mesh and a light on the bone, global poses, scene round trip, static surfaces),
@@ -310,7 +310,7 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   extraction), `RootMotionCharacterTests` (the character's jump and circle moving a turned `CharacterBody3D`; 0 B with
   crossfades, `MoveAndSlide` and palettes for four walkers), `ValueTrackTests` (value kinds and sub-components, discrete
   values, cubic and transitions, loop wrap, bezier, method keys across loops, backwards and ping-pong, deferred and
-  immediate, audio keys, blend times, sync state, value crossfades, `.mres` round trip, 0 B over 1 000 nodes). Generator:
+  immediate, audio keys, blend times, sync state, value crossfades, `.mfres` round trip, 0 B over 1 000 nodes). Generator:
   `AnimationMethodsGetInvokersAndInvalidOnesAreReported` (MFG011). Benchmark: `AnimationBenchmarks`.
 - **Editor:** `AnimationNodesTests` (warnings, icons), `AnimationEditorTests` (every undo action, key buttons and K,
   drags with snap and cancel, rubber band, method and audio keys, preview capture and restore, saving while previewing),
@@ -320,7 +320,7 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   times, scrub, capture the panel.
 - **Test asset:** `Tests/Assets/Models/Character/character.glb`, written by
   [`SkinnedCharacter`](../../Tests/MainframeEngine.Tests/TestAssets/SkinnedCharacter.cs) (31 bones, two primitives,
-  ~6 000 triangles, ten actions (`jump` and `circle` carry root motion in the hips), both event forms, a `.meta` clip); `TheCommittedCharacterMatchesTheGenerator` keeps it
+  ~6 000 triangles, ten actions (`jump` and `circle` carry root motion in the hips), both event forms, a `.mfmeta` clip); `TheCommittedCharacterMatchesTheGenerator` keeps it
   in sync (`UPDATE_TEST_ASSETS=1`).
 - **Render** (`SkinnedTests`): `skinned` (two posed characters with CSM and point shadows, an outline overlay and a
   hand-attached hammer and torch; self-checks the dispatch count, a pick on the raised hand and the torch position;
@@ -336,7 +336,7 @@ Blender, importing, playing clips with crossfades, events and a hand attachment.
   [Animation authoring](future/animation-authoring.md)).
 - The panel has no curve view for bezier tracks (their handles are edited as data), no copy/paste or duplicate of keys,
   no play-backwards button and no track filter; tracks are added from the inspector's key buttons, K and the method and
-  audio buttons, not a `+` menu. Imported libraries are edited with the scene; there is no "Save animations as `.mres`"
+  audio buttons, not a `+` menu. Imported libraries are edited with the scene; there is no "Save animations as `.mfres`"
   yet ([Editor viewport tools](editor.md#viewport-tools), G7).
 - Normals are skinned with the palette's 3×3 (renormalised), not its inverse transpose: non-uniform bone scale shades
   slightly wrong.
@@ -367,7 +367,7 @@ G1a followed the Keyframe animation proposal (now folded into this page) with th
   tracks work on built-in nodes too.
 
 Still open from the proposal: compute versus vertex-shader skinning on mobile; Assimp versus a glTF reader; large clips
-as JSON once G7 saves them; editing external `.mres` libraries with their own history; built-in replication of player
+as JSON once G7 saves them; editing external `.mfres` libraries with their own history; built-in replication of player
 state (games use `GetSyncState`); an auto-key (record) mode; discrete string and resource tracks; morph targets and
 instancing identical skinned characters.
 

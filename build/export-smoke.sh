@@ -26,7 +26,7 @@ case "$(uname -s)-$(uname -m)" in
 esac
 scenes=(basic_3d basic_2d ui physics_2d physics_3d spine particles animation_3d shaders sprites_2d tiles_2d paths_3d)
 unstable=" physics_2d physics_3d particles tiles_2d "
-args() { echo --scene "Assets/Scenes/$1.mscene" --fixed-fps 60 --max-frames "$frames" --no-log-file; }
+args() { echo --scene "Assets/Scenes/$1.mfscene" --fixed-fps 60 --max-frames "$frames" --no-log-file; }
 
 # The loose build.
 dotnet build "$repo/Examples/Demo/Demo.Desktop" -c Release -v q -nologo

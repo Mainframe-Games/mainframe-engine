@@ -29,8 +29,8 @@ public sealed class SaveServerTests : SaveTestBase
         Assert.Equal(1, info.Format);
         Assert.Equal(1, info.Version);
         Assert.True(info.IsReadable);
-        Assert.Equal(new FileInfo(PathOf("slot1.msave")).Length, info.SizeBytes);
-        Assert.False(File.Exists(PathOf("slot1.msave.tmp")));
+        Assert.Equal(new FileInfo(PathOf("slot1.mfsave")).Length, info.SizeBytes);
+        Assert.False(File.Exists(PathOf("slot1.mfsave.tmp")));
 
         server.PlayTime = TimeSpan.Zero;
         var load = server.Load("slot1", Schema);
@@ -47,7 +47,7 @@ public sealed class SaveServerTests : SaveTestBase
         using var server = CreateServer();
         server.Save("slot1", Data("first"), Schema, new SaveInfo("two\nlines"));
 
-        var file = File.ReadAllBytes(PathOf("slot1.msave"));
+        var file = File.ReadAllBytes(PathOf("slot1.mfsave"));
         var line = FirstLine(file);
         var header = JsonNode.Parse(line)!.AsObject();
         Assert.Equal("mainframe-save", (string?)header["kind"]);
@@ -76,7 +76,7 @@ public sealed class SaveServerTests : SaveTestBase
 
         Assert.True(Pump(server, server.SaveAsync("zipped", data, Schema)).IsOk);
 
-        var file = File.ReadAllBytes(PathOf("zipped.msave"));
+        var file = File.ReadAllBytes(PathOf("zipped.mfsave"));
         var line = FirstLine(file);
         Assert.Equal("gzip", (string?)JsonNode.Parse(line)!["compression"]);
         var stored = file.AsSpan(line.Length + 1);
@@ -142,7 +142,7 @@ public sealed class SaveServerTests : SaveTestBase
         var storage = new InstrumentedStorage(new LocalSaveStorage(Root));
         using (var writer = CreateServer(new SaveOptions { MaxBytes = 64L << 20 }))
             Assert.True(writer.Save("huge", new BigSave(new string('a', 50_000_000)), new SaveSchema<BigSave>(SaveTestJson.Default.BigSave, 1)).IsOk);
-        Assert.True(new FileInfo(PathOf("huge.msave")).Length > 50_000_000);
+        Assert.True(new FileInfo(PathOf("huge.mfsave")).Length > 50_000_000);
 
         // Each listing is a fresh server (an empty cache); the fastest of a few runs rules out a cold disk or a busy machine.
         var fastest = TimeSpan.MaxValue;
@@ -177,7 +177,7 @@ public sealed class SaveServerTests : SaveTestBase
         Assert.Equal(["newer", "older"], first.Select(s => s.Slot));
         Assert.Same(first, server.ListSlots());
 
-        File.Copy(PathOf("older.msave"), PathOf("sneaky.msave")); // behind the server's back: not seen until a write
+        File.Copy(PathOf("older.mfsave"), PathOf("sneaky.mfsave")); // behind the server's back: not seen until a write
         Assert.Same(first, server.ListSlots());
 
         Thread.Sleep(5); // savedUtc has millisecond precision: a tie would sort "newer" first (by name)
@@ -193,9 +193,9 @@ public sealed class SaveServerTests : SaveTestBase
     {
         using var server = CreateServer();
         server.Save("good", Data("1"), Schema);
-        File.WriteAllText(PathOf("bad.msave"), "not a save");
+        File.WriteAllText(PathOf("bad.mfsave"), "not a save");
         File.WriteAllText(PathOf("notes.txt"), "ignored");
-        File.WriteAllText(PathOf("Bad Name.msave"), "ignored");
+        File.WriteAllText(PathOf("Bad Name.mfsave"), "ignored");
 
         var slots = server.ListSlots();
 
@@ -219,8 +219,8 @@ public sealed class SaveServerTests : SaveTestBase
         Assert.True(server.Save("slot1", Data("first"), v2).IsOk);
         Thread.Sleep(5);
         Assert.True(server.Save("slot1", Data("second"), v2).IsOk);
-        var main = PathOf("slot1.msave");
-        var bak1 = File.ReadAllBytes(PathOf("slot1.msave.bak1"));
+        var main = PathOf("slot1.mfsave");
+        var bak1 = File.ReadAllBytes(PathOf("slot1.mfsave.bak1"));
 
         switch (damage)
         {
@@ -240,7 +240,7 @@ public sealed class SaveServerTests : SaveTestBase
                 break;
             case Damage.FailedMigration:
                 Assert.True(server.Save("slot1", new OldSave("old"), new SaveSchema<OldSave>(SaveTestJson.Default.OldSave, 1)).IsOk); // v1 payload; bak1 is "second"
-                bak1 = File.ReadAllBytes(PathOf("slot1.msave.bak1"));
+                bak1 = File.ReadAllBytes(PathOf("slot1.mfsave.bak1"));
                 break;
         }
 
@@ -252,7 +252,7 @@ public sealed class SaveServerTests : SaveTestBase
         Assert.Equal(damage == Damage.FailedMigration ? "second" : "first", load.Data!.Name);
         Assert.NotNull(load.Error);
         Assert.Equal(load.Info!.SavedUtc, server.ListSlots().Single().SavedUtc);
-        var corrupt = Assert.Single(Directory.GetFiles(Root, "slot1.msave.corrupt-*"));
+        var corrupt = Assert.Single(Directory.GetFiles(Root, "slot1.mfsave.corrupt-*"));
         Assert.Equal(damaged, File.ReadAllBytes(corrupt)); // kept for support, never deleted
         Assert.Equal(bak1, File.ReadAllBytes(main));       // the backup is the slot again
         Assert.Equal(LoadStatus.Ok, server.Load("slot1", v2).Status);
@@ -263,14 +263,14 @@ public sealed class SaveServerTests : SaveTestBase
     {
         using var server = CreateServer();
         server.Save("slot1", Data("first"), Schema);
-        File.Move(PathOf("slot1.msave"), PathOf("slot1.msave.tmp")); // the crash hit between the flush and the rename
+        File.Move(PathOf("slot1.mfsave"), PathOf("slot1.mfsave.tmp")); // the crash hit between the flush and the rename
 
         Assert.True(server.Exists("slot1"));
         var load = server.Load("slot1", Schema);
 
         Assert.Equal(LoadStatus.RecoveredFromBackup, load.Status);
         Assert.Equal("first", load.Data!.Name);
-        Assert.True(File.Exists(PathOf("slot1.msave")));
+        Assert.True(File.Exists(PathOf("slot1.mfsave")));
         Assert.Empty(Directory.GetFiles(Root, "*.corrupt-*")); // nothing was damaged
     }
 
@@ -283,13 +283,13 @@ public sealed class SaveServerTests : SaveTestBase
         Assert.Equal(LoadStatus.NotFound, missing.Status);
         Assert.False(server.Exists("nothing"));
 
-        File.WriteAllText(PathOf("broken.msave"), "garbage\n");
-        File.WriteAllText(PathOf("broken.msave.bak1"), "{}\n");
+        File.WriteAllText(PathOf("broken.mfsave"), "garbage\n");
+        File.WriteAllText(PathOf("broken.mfsave.bak1"), "{}\n");
         var broken = server.Load("broken", Schema);
         Assert.Equal(LoadStatus.Corrupt, broken.Status);
         Assert.False(broken.IsOk);
         Assert.Contains("bak1", broken.Error, StringComparison.Ordinal);
-        Assert.Single(Directory.GetFiles(Root, "broken.msave.corrupt-*"));
+        Assert.Single(Directory.GetFiles(Root, "broken.mfsave.corrupt-*"));
     }
 
     [Fact]
@@ -299,15 +299,15 @@ public sealed class SaveServerTests : SaveTestBase
         var payload = "{\"name\":\"future\",\"score\":1,\"items\":[]}"u8.ToArray();
         var header = new SaveHeader { Kind = SaveFile.Kind, Format = 2, Slot = "future", Version = 1, SavedUtc = DateTimeOffset.UtcNow, PayloadBytes = payload.Length, Sha256 = SaveFile.Hash(payload) };
         var file = SaveFile.Build(header, payload);
-        File.WriteAllBytes(PathOf("future.msave"), file);
-        var written = File.GetLastWriteTimeUtc(PathOf("future.msave"));
+        File.WriteAllBytes(PathOf("future.mfsave"), file);
+        var written = File.GetLastWriteTimeUtc(PathOf("future.mfsave"));
 
         var load = server.Load("future", Schema);
 
         Assert.Equal(LoadStatus.TooNew, load.Status);
         Assert.Contains("format 2", load.Error, StringComparison.Ordinal);
-        Assert.Equal(file, File.ReadAllBytes(PathOf("future.msave")));
-        Assert.Equal(written, File.GetLastWriteTimeUtc(PathOf("future.msave")));
+        Assert.Equal(file, File.ReadAllBytes(PathOf("future.mfsave")));
+        Assert.Equal(written, File.GetLastWriteTimeUtc(PathOf("future.mfsave")));
         Assert.Single(Directory.GetFiles(Root));
     }
 
@@ -316,13 +316,13 @@ public sealed class SaveServerTests : SaveTestBase
     {
         using var server = CreateServer();
         server.Save("slot1", Data("v3"), new SaveSchema<TestSave>(SaveTestJson.Default.TestSave, 3));
-        var file = File.ReadAllBytes(PathOf("slot1.msave"));
+        var file = File.ReadAllBytes(PathOf("slot1.mfsave"));
 
         var load = server.Load("slot1", new SaveSchema<TestSave>(SaveTestJson.Default.TestSave, 2));
 
         Assert.Equal(LoadStatus.TooNew, load.Status);
         Assert.Equal(3, load.Info!.Version);
-        Assert.Equal(file, File.ReadAllBytes(PathOf("slot1.msave")));
+        Assert.Equal(file, File.ReadAllBytes(PathOf("slot1.mfsave")));
         Assert.Single(Directory.GetFiles(Root));
     }
 
@@ -384,10 +384,10 @@ public sealed class SaveServerTests : SaveTestBase
 
         Assert.True(secondResult.IsOk);
         Assert.Equal(secondResult, thirdResult); // both callers get the result of the one write
-        Assert.Equal(2, storage.Writes["slot1.msave"]); // v1, then v3 (v2 was never written)
+        Assert.Equal(2, storage.Writes["slot1.mfsave"]); // v1, then v3 (v2 was never written)
         Assert.Equal(3, saved.Count);                  // one Saved per write
         Assert.Equal("v3", server.Load("slot1", Schema).Data!.Name);
-        File.Copy(PathOf("slot1.msave.bak1"), PathOf("check.msave"));
+        File.Copy(PathOf("slot1.mfsave.bak1"), PathOf("check.mfsave"));
         Assert.Equal("v1", server.Load("check", Schema).Data!.Name); // the previous save
     }
 
@@ -416,7 +416,7 @@ public sealed class SaveServerTests : SaveTestBase
 
         Assert.False(server.Flush(TimeSpan.FromMilliseconds(1)));
         Assert.True(server.Flush(TimeSpan.FromSeconds(10)));
-        Assert.True(File.Exists(PathOf("slot1.msave")));
+        Assert.True(File.Exists(PathOf("slot1.mfsave")));
         Assert.False(task.IsCompleted); // delivered by the next Process
         server.Process(new GameTime());
         Assert.True(task.IsCompletedSuccessfully);
@@ -489,13 +489,13 @@ public sealed class SaveServerTests : SaveTestBase
             server.Save("slot1", Data("v" + i), Schema);
         server.Save("slot2", Data("other"), Schema);
         File.WriteAllBytes(PathOf("slot1.png"), [1, 2, 3]);
-        File.WriteAllText(PathOf("slot1.msave.corrupt-20260101T000000000Z"), "damaged");
-        Assert.True(File.Exists(PathOf("slot1.msave.bak2")));
+        File.WriteAllText(PathOf("slot1.mfsave.corrupt-20260101T000000000Z"), "damaged");
+        Assert.True(File.Exists(PathOf("slot1.mfsave.bak2")));
 
         Assert.True(server.Delete("slot1"));
 
         Assert.False(server.Exists("slot1"));
-        Assert.Equal(["slot1.msave.corrupt-20260101T000000000Z", "slot2.msave"], Directory.GetFiles(Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+        Assert.Equal(["slot1.mfsave.corrupt-20260101T000000000Z", "slot2.mfsave"], Directory.GetFiles(Root).Select(Path.GetFileName).Order(StringComparer.Ordinal));
         Assert.Equal(["slot2"], server.ListSlots().Select(s => s.Slot));
         Assert.False(server.Delete("slot1"));
     }
@@ -507,8 +507,8 @@ public sealed class SaveServerTests : SaveTestBase
         for (var i = 0; i < 6; i++)
             server.Save("slot1", Data("v" + i), Schema);
 
-        Assert.True(File.Exists(PathOf("slot1.msave.bak3")));
-        Assert.False(File.Exists(PathOf("slot1.msave.bak4")));
+        Assert.True(File.Exists(PathOf("slot1.mfsave.bak3")));
+        Assert.False(File.Exists(PathOf("slot1.mfsave.bak4")));
     }
 
     [Fact]

@@ -3,7 +3,7 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine;
 
 /// <summary>
-/// Saves node trees as <c>.mscene</c> files (Godot's "Save Scene"): writes the nodes owned by the root, nested
+/// Saves node trees as <c>.mfscene</c> files (Godot's "Save Scene"): writes the nodes owned by the root, nested
 /// instances as references plus overrides, non-default property values, the resources they use and persisted
 /// signal connections. A file's UID survives re-saving.
 /// </summary>
@@ -65,7 +65,7 @@ internal interface ISceneSaveHook
 }
 
 /// <summary>
-/// Saves resources as <c>.mres</c> files. After saving, the resource is external: scenes reference it by UID
+/// Saves resources as <c>.mfres</c> files. After saving, the resource is external: scenes reference it by UID
 /// instead of embedding it.
 /// </summary>
 public static class ResourceSaver

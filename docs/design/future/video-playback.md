@@ -63,7 +63,7 @@ What exists and what video should build on:
 
 ## Goals
 
-- A `VideoStream` resource (imported from a file, `.meta` settings) and a `VideoPlayer` node: play, pause, stop,
+- A `VideoStream` resource (imported from a file, `.mfmeta` settings) and a `VideoPlayer` node: play, pause, stop,
   seek (exact or keyframe), loop, `Finished`, preroll, playback statistics.
 - A `VideoTexture` (a `Texture2D` with no CPU pixels) usable by `Sprite2D`, 3D materials and RmlUi (`engine://`).
 - A `Cutscene` helper: a full-screen, letterboxed, optionally skippable video layer, and intro videos in
@@ -132,7 +132,7 @@ public class VideoStream : Resource
     [Export] public string AudioBus { get; set; } = "Music";
     [Export] public bool Mipmaps { get; set; }       // for screens seen at a distance; costs a blit chain per frame
 
-    public static VideoStream Load(string path);     // applies the .meta settings
+    public static VideoStream Load(string path);     // applies the .mfmeta settings
     public bool Preload();                            // probes the container (header only)
     public VideoInfo? Info { get; }                   // null until probed
     public string? LoadError { get; }
@@ -304,7 +304,7 @@ if the load outlasts them. `--hidden`, `--max-frames` and QA runs skip intros (`
 
 ### Editor
 
-- **Import.** `VideoImporter` (`video`) registers the chosen codec's extensions plus `.y4m`. `.meta` settings:
+- **Import.** `VideoImporter` (`video`) registers the chosen codec's extensions plus `.y4m`. `.mfmeta` settings:
   `{"importer": "video", "settings": {"loop": false, "colorSpace": "auto", "range": "auto", "audioBus": "Music",
   "mipmaps": false}}`. The probe runs at import; an unsupported codec inside a known container sets the FileSystem's
   `ImportError` badge with the reason ("VP8 is not supported; re-encode as …").
@@ -393,7 +393,7 @@ management, and it is unavailable on MoltenVK and lavapipe; the engine targets V
   the shader), `video-sprite2d`, `video-material3d` (a screen in a lit scene, sRGB view), `video-rmlui` (`engine://`
   letterboxed), all seeking to a fixed frame under `--fixed-fps`. Validation gate stays at zero warnings.
 - **UI (`SerialRmlUi`):** `Cutscene` hold-to-skip with synthetic Escape and gamepad B, `Tr` prompt in `qps`.
-- **Editor:** importer and `.meta` round trip, `FileKind.Video`, thumbnail generation, inspector bind and undo;
+- **Editor:** importer and `.mfmeta` round trip, `FileKind.Video`, thumbnail generation, inspector bind and undo;
   QA step in `Tests/QA/editor-walkthrough.qa` (select a video, play, scrub, stop).
 - **Demo:** a `video` scene (a TV in 3D, a 2D sprite, an RmlUi panel, a cutscene button); `Demo.Tests` checks
   `Finished`; `just demo-screenshots` adds `video.png`.
@@ -462,7 +462,7 @@ management, and it is unavailable on MoltenVK and lavapipe; the engine targets V
 - [GPU resources](../gpu-resources.md): allocator, upload and deletion queues
 - [Color pipeline](../color-pipeline.md): sRGB vs linear views; [Shaders](../shaders.md): Slang rules
 - [Game UI](../game-ui.md): `UiLayer`, `engine://` textures, data models; [Localization](../localization.md): `Tr`
-- [Asset pipeline](../asset-pipeline.md): importers, `.meta`; [Native libraries](../natives.md): shims, CI, licences
+- [Asset pipeline](../asset-pipeline.md): importers, `.mfmeta`; [Native libraries](../natives.md): shims, CI, licences
 - [Project and GameHost](../project-and-gamehost.md): `loading` section, headless host
 - Gameplay toolkit siblings: [Game export](../game-export.md) (G5), [Save games and settings](save-and-settings.md)
   (G4: user volume), [World-space UI](world-space-ui.md) (G11: external textures),

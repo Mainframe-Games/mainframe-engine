@@ -89,7 +89,7 @@ public sealed class EditorSession : IDisposable
 
     /// <summary>
     /// Opens the project in <paramref name="directory"/> (the folder holding <c>project.mfproj</c>): loads its settings
-    /// and points the asset database (scanned, creating missing <c>.meta</c> sidecars) and content resolution at it.
+    /// and points the asset database (scanned, creating missing <c>.mfmeta</c> sidecars) and content resolution at it.
     /// Scenes stay open only when they belong to it; the caller closes the others first. Throws when the folder has no
     /// project file or the file cannot be read.
     /// </summary>
@@ -264,7 +264,7 @@ public sealed class EditorSession : IDisposable
     }
 
     /// <summary>
-    /// Opens the song (<c>.msong</c>) at <paramref name="path"/> in a song tab (or activates its tab when already open) and
+    /// Opens the song (<c>.mfsong</c>) at <paramref name="path"/> in a song tab (or activates its tab when already open) and
     /// makes it active. A song from a newer editor opens read-only. Throws when the file cannot be read or belongs to
     /// another project while tabs of the current one are open.
     /// </summary>
@@ -312,8 +312,8 @@ public sealed class EditorSession : IDisposable
         if (path is not null)
         {
             var full = Path.GetFullPath(path);
-            if (!full.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
-                full += ".msong";
+            if (!full.EndsWith(".mfsong", StringComparison.OrdinalIgnoreCase))
+                full += ".mfsong";
             if (!PathsEqual(full, song.Document.FilePath))
             {
                 song.Document.Song.Uid = AssetUid.Generate(AssetUid.SongPrefix); // a copy is a new asset
@@ -398,7 +398,7 @@ public sealed class EditorSession : IDisposable
     }
 
     /// <summary>
-    /// Opens the <c>.mscene</c> at <paramref name="path"/> (or activates its tab when already open). Throws when the
+    /// Opens the <c>.mfscene</c> at <paramref name="path"/> (or activates its tab when already open). Throws when the
     /// file cannot be read or parsed, or belongs to another project while scenes of the current one are open.
     /// </summary>
     public EditedScene Open(string path)
@@ -438,7 +438,7 @@ public sealed class EditorSession : IDisposable
     private static readonly SceneLoadOptions EditorLoadOptions = new() { PaceWarmUp = true };
 
     /// <summary>
-    /// Opens the <c>.mscene</c> at <paramref name="path"/> without blocking the main loop (ADR 0183's
+    /// Opens the <c>.mfscene</c> at <paramref name="path"/> without blocking the main loop (ADR 0183's
     /// <see cref="SceneTree.InstantiateSceneAsync"/>): a worker reads and instantiates it and runs its loadables in edit
     /// mode (<see cref="ISceneLoadable"/>, the Forest's valley) while textures decode on the pool; then the scene enters a new
     /// tab, which becomes active, and warms up there (GPU resources, pipelines) until the load completes. Returns null when
@@ -869,7 +869,7 @@ public sealed class EditorSession : IDisposable
     }
 
     /// <summary>
-    /// How to show <paramref name="path"/> to the user: relative to the project (<c>Assets/Scenes/Main.mscene</c>, with
+    /// How to show <paramref name="path"/> to the user: relative to the project (<c>Assets/Scenes/Main.mfscene</c>, with
     /// <c>/</c>) when it is inside <see cref="ProjectRoot"/>, else the full path.
     /// </summary>
     public string DisplayPath(string? path)

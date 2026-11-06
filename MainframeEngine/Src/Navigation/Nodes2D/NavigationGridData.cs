@@ -4,7 +4,7 @@ using System.Globalization;
 namespace MainframeEngine;
 
 /// <summary>
-/// The baked state of a <see cref="NavigationGrid2D"/> (inline in the scene or a <c>.mres</c>): the region it was baked
+/// The baked state of a <see cref="NavigationGrid2D"/> (inline in the scene or a <c>.mfres</c>): the region it was baked
 /// for, the solid cells and the weight scales as compact strings, so a large grid stays a few lines of JSON. Solid cells
 /// are <c>rle1:</c> + base64 of LEB128 run lengths alternating walkable and solid runs (walkable first), in row-major order;
 /// weights are <c>rle1:</c> + base64 of (skip, run, float32 little-endian) triples for the cells whose scale is not 1.

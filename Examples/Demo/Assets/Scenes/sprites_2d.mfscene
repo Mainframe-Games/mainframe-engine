@@ -4,7 +4,7 @@
   "resources": {
     "SpriteFrames_1b3bs": {
       "ref": "res_6f03ebb0e621",
-      "path": "Assets/Sprites2D/hero.mres"
+      "path": "Assets/Sprites2D/hero.mfres"
     }
   },
   "nodes": [

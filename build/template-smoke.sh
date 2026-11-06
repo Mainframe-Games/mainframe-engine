@@ -99,7 +99,7 @@ require() {
   done
 }
 engine_files=(Assets/UI/widgets/widgets.rcss Assets/Shaders/Mesh/Mesh.vk.vert.spv Assets/locale/fr/LC_MESSAGES/messages.mo)
-require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Assets/Scenes/Main.mscene Assets/icon.png "${engine_files[@]}"
+require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Assets/Scenes/Main.mfscene Assets/icon.png "${engine_files[@]}"
 # Lists what must not be there: the editor-only folder.
 forbid() {
   for forbidden in "${@:2}"; do
@@ -119,13 +119,13 @@ require "$out" "${steam_files[@]}"
 # .mainframe/shaders/include (for editors), and the MainframeShaders target checks the game's shaders with mf-shaders
 # (the package's in a package game) and, with slangc on PATH, builds a new one.
 desktop="$work/SmokeGame/SmokeGame.Desktop/SmokeGame.Desktop.csproj"
-require "$out" Assets/Shaders/example.slang Assets/Shaders/example.slang.vert.spv Assets/Shaders/example.slang.layout.json
+require "$out" Assets/Shaders/example.slang Assets/Shaders/example.slang.vert.spv Assets/Shaders/example.slang.mflayout.json
 require "$work/SmokeGame" .mainframe/shaders/include/mainframe/spatial.slang .mainframe/shaders/include/frame.slang .vscode/settings.json
 dotnet msbuild "$desktop" -t:MainframeShaders -p:MainframeShadersCommand=check -nologo -v:m
 if command -v slangc > /dev/null 2>&1 || [ -x "${VULKAN_SDK:-/nonexistent}/bin/slangc" ]; then
   sed 's/float glow = 0.6;/float glow = 0.8;/' "$work/SmokeGame/Assets/Shaders/example.slang" > "$work/SmokeGame/Assets/Shaders/smoke.slang"
   dotnet msbuild "$desktop" -t:MainframeShaders -nologo -v:m
-  require "$work/SmokeGame" Assets/Shaders/smoke.slang.frag.spv Assets/Shaders/smoke.slang.shadow.vert.spv Assets/Shaders/smoke.slang.layout.json
+  require "$work/SmokeGame" Assets/Shaders/smoke.slang.frag.spv Assets/Shaders/smoke.slang.shadow.vert.spv Assets/Shaders/smoke.slang.mflayout.json
   dotnet msbuild "$desktop" -t:MainframeShaders -p:MainframeShadersCommand=check -nologo -v:m
 else
   echo "template-smoke: slangc is not on PATH; the game's shaders were checked, not built."
@@ -145,7 +145,7 @@ if [ "$source" = "package" ]; then
     win-*) steam_variant=win64 ;;
     *) steam_variant=posix ;;
   esac
-  require "$work/publish" "$rmlui" SmokeGame.Desktop.dll project.mfproj Assets/Scenes/Main.mscene "${engine_files[@]}" \
+  require "$work/publish" "$rmlui" SmokeGame.Desktop.dll project.mfproj Assets/Scenes/Main.mfscene "${engine_files[@]}" \
     "steamworks/$steam_variant/MainframeEngine.Steamworks.dll"
   forbid "$work/publish" Assets/Video
 
@@ -292,7 +292,7 @@ if "${mf_export[@]}" --pack-list "$app_dir/Assets.mfpak" > /dev/null 2>&1; then
   exit 1
 fi
 "${mf_export[@]}" --pack-extract "$app_dir/Assets.mfpak" "$packed" --project "$work/SmokeGame"
-require "$packed" project.mfproj Assets/assets.index.json Assets/Scenes/Main.mscene Assets/locale/fr/LC_MESSAGES/messages.mo \
+require "$packed" project.mfproj Assets/assets.index.json Assets/Scenes/Main.mfscene Assets/locale/fr/LC_MESSAGES/messages.mo \
   Assets/UI/widgets/widgets.rcss Assets/Shaders/Mesh/Mesh.vk.vert.spv
 forbid "$packed" Assets/Video
 if grep -q '"export"' "$packed/project.mfproj"; then

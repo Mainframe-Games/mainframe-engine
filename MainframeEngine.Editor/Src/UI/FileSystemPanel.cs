@@ -23,7 +23,7 @@ public enum FileSystemView
 /// roots instead of the project folder: Assets (<c>Assets/</c>) and Scripts (the game library's <c>Src/</c>, C# files
 /// only). Icons per file kind (scenes tinted by their root's family, resources by
 /// type, image thumbnails generated in the background into <c>.mainframe/cache</c>), status badges (unsaved, missing
-/// dependency, import error), <c>.meta</c> hidden by default. Create folders/scenes/resources, rename and move with
+/// dependency, import error), <c>.mfmeta</c> hidden by default. Create folders/scenes/resources, rename and move with
 /// reference fix-ups by UID, delete to the OS trash (a confirmation before any permanent delete). Double click opens
 /// scenes (and C# files in the code editor); drag a file onto a folder (move), the scene tree (instance a scene or
 /// assign a resource), the viewport (instance under the root) or an inspector resource slot. A watcher refreshes it.
@@ -250,7 +250,7 @@ public sealed class FileSystemPanel : EditorDocument
             return;
         if (_fs.PumpChanges())
         {
-            // New files get their .meta sidecar (UID) like on project open.
+            // New files get their .mfmeta sidecar (UID) like on project open.
             AssetDatabase.Current.Scan(createMissingMeta: true);
         }
 
@@ -464,7 +464,7 @@ public sealed class FileSystemPanel : EditorDocument
         Refresh();
     }
 
-    /// <summary>True for audio files and <c>.mres</c> files whose root type is an <see cref="AudioStream"/> (Play / Stop).</summary>
+    /// <summary>True for audio files and <c>.mfres</c> files whose root type is an <see cref="AudioStream"/> (Play / Stop).</summary>
     public static bool IsPlayable(ProjectFileEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
@@ -855,7 +855,7 @@ public sealed class FileSystemPanel : EditorDocument
 
     /// <summary>
     /// "New SpriteFrames from Sheet…" (ADR 0224): slices the image in the Select Frames dialog and writes a
-    /// <c>.mres</c> beside it with one animation per picked row, then opens it in the inspector.
+    /// <c>.mfres</c> beside it with one animation per picked row, then opens it in the inspector.
     /// </summary>
     public void NewSpriteFramesFromSheet(ProjectFileEntry entry)
     {
@@ -892,9 +892,9 @@ public sealed class FileSystemPanel : EditorDocument
     {
         var folder = Path.GetDirectoryName(imagePath)!;
         var stem = Path.GetFileNameWithoutExtension(imagePath);
-        var path = Path.Combine(folder, stem + ".mres");
+        var path = Path.Combine(folder, stem + ".mfres");
         for (var i = 2; File.Exists(path); i++)
-            path = Path.Combine(folder, $"{stem} {i.ToString(CultureInfo.InvariantCulture)}.mres");
+            path = Path.Combine(folder, $"{stem} {i.ToString(CultureInfo.InvariantCulture)}.mfres");
         ResourceSaver.Save(SpriteFramesEditing.FromSheet(sheet, grid, cells), AssetDatabase.Current.ToProjectPath(path));
         return path;
     }

@@ -5,7 +5,7 @@ Keep this file with any copy of these folders.
 ## `Leaves/` and `Presets/`: Ez Tree (MIT)
 
 The leaf textures (`ash.png`, `aspen.png`, `oak.png`, `pine.png`) are from Ez Tree's demo app, and the presets are Ez
-Tree's preset JSON converted to `.mres` (https://github.com/dgreenheck/ez-tree, commit
+Tree's preset JSON converted to `.mfres` (https://github.com/dgreenheck/ez-tree, commit
 `dcf309bd86bd521083d9c70f01f2de45fdc7c457`). They are under Ez Tree's MIT licence, **not** CC0:
 
 ```text

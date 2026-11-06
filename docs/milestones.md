@@ -124,8 +124,8 @@ registration pattern M2 defines; `Box3d`/`Quad` give way to `MeshInstance3D` in 
 | Servers (`RenderServer`, …) replace static `Node.Initialize`; `NodeId` registry | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#servers-and-render-nodes) |
 | Input events routed through the tree (`OnInput` / `OnUnhandledInput`) | ✅ | [Scene graph & nodes](design/scene-graph-and-nodes.md#input) |
 | `[Export]` + source-generated type registry (`MainframeEngine.Generators`) | ✅ | [Scene serialization](design/scene-serialization.md#property-model) |
-| `.mscene` / `.mres` files, `PackedScene`, nested instances, UIDs + `AssetDatabase` | ✅ | [Scene serialization](design/scene-serialization.md) |
-| Test-game scene loaded from a `.mscene` file (today: every Demo scene) | ✅ | [Demo](design/demo.md) |
+| `.mfscene` / `.mfres` files, `PackedScene`, nested instances, UIDs + `AssetDatabase` | ✅ | [Scene serialization](design/scene-serialization.md) |
+| Test-game scene loaded from a `.mfscene` file (today: every Demo scene) | ✅ | [Demo](design/demo.md) |
 
 ## M3 — Materials, meshes & resources ✅
 
@@ -136,7 +136,7 @@ pipeline, and shaders compiled as part of the build.
 | Feature | Status | Design doc |
 |---|---|---|
 | Pipeline cache + per-frame shared descriptor sets | ✅ persisted `VkPipelineCache`, shader modules, set 0/1 (`FrameContext`, per view), state-hash `PipelineStateCache` for mesh pipelines | [GPU resources](design/gpu-resources.md#pipeline-cache), [Materials & meshes](design/materials-and-meshes.md#pipelines-pipelinestatecache) |
-| `Material`, `Mesh`, `MeshInstance3D`, `Sprite3D`, textures (sRGB/UNORM per usage, GPU mips, `.meta` settings); `Box3d`/`Quad` removed | ✅ | [Materials & meshes](design/materials-and-meshes.md) |
+| `Material`, `Mesh`, `MeshInstance3D`, `Sprite3D`, textures (sRGB/UNORM per usage, GPU mips, `.mfmeta` settings); `Box3d`/`Quad` removed | ✅ | [Materials & meshes](design/materials-and-meshes.md) |
 | Instanced, sorted batches (opaque by state, transparent back to front), frustum culling, instanced shadow casters, draw stats | ✅ | [Materials & meshes](design/materials-and-meshes.md#frame) |
 | Model loading via Assimp (glTF/FBX/OBJ → `PackedScene`), import settings, import cache | ✅ | [Asset pipeline](design/asset-pipeline.md) |
 | Object-ID picking (`PickAsync`), `SubViewport` offscreen views (shown through `engine://` UI textures) | ✅ | [Materials & meshes](design/materials-and-meshes.md#picking-object-ids) |
@@ -314,7 +314,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G4 Save games and settings: `SaveServer` (slots, versioned JSON + migrations, durable writes, recovery, thumbnails, cloud seam), `UserSettings`/`ConfigFile`, rebinding, drop-in settings menu | ✅ | [Save games and settings](design/future/save-and-settings.md) |
 | G5 Export from the editor: File › Export, presets in `project.mfproj`, shared export runner (`mf-export`) | ✅ | [Game export](design/game-export.md) |
 | G6 Rendering features: PBR (metallic/roughness + IBL), 3D particles, LOD, decals, SSAO | 🚧 all built (ADRs 0150, 0165, 0206, 0245, 0246); owner-pending: the PBR default flip (open question 3) and the LOD simplifier for generated LODs (open question 1) | [Rendering features](design/rendering-features.md), [3D particles](design/particles-3d.md) |
-| G7 Editor viewport tools: range handles, Save as .mres / Make unique, box selection, multi-node gizmo, simulate mode | ✅ | [Editor → Viewport tools](design/editor.md#viewport-tools) |
+| G7 Editor viewport tools: range handles, Save as .mfres / Make unique, box selection, multi-node gizmo, simulate mode | ✅ | [Editor → Viewport tools](design/editor.md#viewport-tools) |
 | G8a Terrain: `Terrain3D` + `TerrainData` (image layers, chunks, queries, collision), Faceted and Realistic (splat PBR) profiles, Terrain dock (sculpt, paint, foliage, objects, water), `MultiMesh` scatter | 🚧 | [Terrain](design/future/terrain.md) |
 | G8b Procedural trees: Ez Tree port (`TreeGenerator`, `Tree3D`, 15 presets), LowPoly and Realistic styles, `FoliageMaterial3D` wind, impostors | 🚧 | [Procedural trees](design/future/procedural-trees.md) |
 | G8c Water: terrain ponds and lakes, `River3D` streams, `WaterMaterial3D` (flow, refraction, foam), `SceneTextures` | 🚧 | [Water](design/future/water.md) |
@@ -329,7 +329,7 @@ settings plug into G4; G16 needs its codec dependency approved before any work s
 | G14 Accessibility: UI scale, colour-vision filters, subtitles and captions, motion comfort options, input assists | ⬜ | [Accessibility](design/future/accessibility.md) |
 | G15 Crash reporting: managed and native crash capture, report bundle with recent logs and GPU info, next-launch dialog, editor capture of game crashes | ✅ | [Crash reporting](design/crash-reporting.md) |
 | G16 Video playback: `VideoStream`, `VideoPlayer`, `VideoTexture`, GPU YUV conversion, audio through `AudioServer` (codec choice pending) | ⬜ | [Video playback](design/future/video-playback.md) |
-| G17a 2D skeletal runtime: `.mskel`/`.manim` data, bake cache, SoA pose, weighted meshes, skins, `AnimationTracks` mixing, events, `SkeletonSprite2D`, compute skinning, canvas skinned commands and blend modes, Spine 4.x JSON importer | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
+| G17a 2D skeletal runtime: `.mfskel`/`.mfanim` data, bake cache, SoA pose, weighted meshes, skins, `AnimationTracks` mixing, events, `SkeletonSprite2D`, compute skinning, canvas skinned commands and blend modes, Spine 4.x JSON importer | ⬜ | [2D skeletal animation](design/future/skeleton-2d.md) |
 | G17b Skeleton tab, Setup mode: `IDocumentTab`, shared `Timeline/` (song tab moved onto it), hierarchy, bones, slots, skins, PNG import | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
 | G17c Skeleton tab, Animate mode: dopesheet, graph editor, auto-key, IK posing, pose mirror, onion skin, mix preview, audio | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
 | G17d Meshes and weights (auto mesh, vertex edit, heat weights, brush), PSD import and re-import, canvas normal maps | ⬜ | [Skeleton editor](design/future/skeleton-2d-editor.md) |
@@ -376,7 +376,7 @@ several dependencies (Silk.NET SDL on mobile, SoundFlow natives, NativeAOT) are 
 | M12.2 Lifecycle & display: pause/resume, surface loss, iOS background GPU rules, orientation + Android pre-rotation, safe areas, multi-window, low memory, audio session | ⬜ | [Mobile](design/future/mobile.md#windowing-and-lifecycle) |
 | M12.3 Rendering: TBDR pass layout (transient attachments, merged tonemap, direct UI), quality tiers, dynamic resolution, thermal governor, frame pacing, 30/60/120 Hz | ⬜ | [Mobile](design/future/mobile.md#rendering) |
 | M12.4 Input: touch events, gesture recognisers, virtual controls (RmlUi) → `InputMap`, sensors, haptics, gamepads | ⬜ | [Mobile](design/future/mobile.md#input) |
-| M12.5 Assets: ASTC/ETC2 in KTX2, per-platform `.meta` presets, cook step, packs, Play Asset Delivery / iOS Background Assets, size budgets | ⬜ | [Mobile](design/future/mobile.md#asset-pipeline) |
+| M12.5 Assets: ASTC/ETC2 in KTX2, per-platform `.mfmeta` presets, cook step, packs, Play Asset Delivery / iOS Background Assets, size budgets | ⬜ | [Mobile](design/future/mobile.md#asset-pipeline) |
 | M12.6 AOT, size and startup budgets; trim/AOT analyzers clean | ⬜ | [Mobile](design/future/mobile.md#aot-app-size-and-startup) |
 | M12.7 Editor: export presets, one-click build/install/launch, remote logs + play control, live preview, device simulation | ⬜ | [Mobile](design/future/mobile.md#editor-integration) |
 | M12.8 Pipeline + compliance: `just android-*`/`ios-*`, CI jobs, signed AAB/IPA, `mobile-publish.yml` → Play internal + TestFlight, privacy manifest, data safety | ⬜ | [Mobile](design/future/mobile.md#build-and-distribution-pipeline) |

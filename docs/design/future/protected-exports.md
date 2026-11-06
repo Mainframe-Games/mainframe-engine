@@ -5,7 +5,7 @@
 
 ## Problem
 
-An exported game is easy to copy wholesale. Its `Assets/` folder ships as loose files (`.mscene` and `.mres` JSON,
+An exported game is easy to copy wholesale. Its `Assets/` folder ships as loose files (`.mfscene` and `.mfres` JSON,
 `.rml`, PNGs, OGGs, `project.mfproj`), and the game's code is a managed assembly that ILSpy turns back into near-source
 C#. Anyone, or any AI agent, pointed at the install folder gets the game's structure, data and code in minutes. Every
 game made with the engine has this problem, so the engine should fix it in `mf-export`, not each game.
@@ -31,7 +31,7 @@ in. The goal is to remove the low-hanging fruit: no readable files, no decompila
 - Protecting game design. Gameplay can always be recorded and cloned.
 - An IL obfuscator. The owner chose NativeAOT instead (it removes the IL, and obfuscation would break every
   name-based contract: `[Export]`, `[Signal]`, `[Rpc]`, save schemas).
-- Cooking (KTX2 textures, binary scenes, `.mmesh`). That is mobile's `mf-cook` (M12.5). Packs carry the source formats.
+- Cooking (KTX2 textures, binary scenes, `.mfmesh`). That is mobile's `mf-cook` (M12.5). Packs carry the source formats.
 - A mod-loading policy. A game that wants moddable files sets `pack: false` or lists them in `loose`.
 
 ## Design

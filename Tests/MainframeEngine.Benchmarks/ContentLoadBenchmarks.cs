@@ -28,7 +28,7 @@ public class ContentLoadBenchmarks : IDisposable
         var scene = new StringBuilder();
         for (var i = 0; scene.Length < 200_000; i++)
             scene.Append("{ \"type\": \"MeshInstance3D\", \"name\": \"Rock").Append(i).Append("\", \"props\": { \"position\": [1.5, 0, ").Append(i).Append("] } },\n");
-        Write(loose, "Assets/Scenes/level.mscene", Encoding.UTF8.GetBytes(scene.ToString()));
+        Write(loose, "Assets/Scenes/level.mfscene", Encoding.UTF8.GetBytes(scene.ToString()));
         Write(loose, "Assets/UI/hud.rml", Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("<div class=\"row\"><span>Health</span></div>\n", 300))));
         var rgba = new byte[512 * 512 * 4];
         for (var i = 0; i < rgba.Length; i++)
@@ -57,7 +57,7 @@ public class ContentLoadBenchmarks : IDisposable
     }
 
     [Benchmark]
-    public int SceneText() => ContentFiles.ReadAllText(Path.Combine(_root, "Assets/Scenes/level.mscene")).Length;
+    public int SceneText() => ContentFiles.ReadAllText(Path.Combine(_root, "Assets/Scenes/level.mfscene")).Length;
 
     [Benchmark]
     public int TextureDecode()

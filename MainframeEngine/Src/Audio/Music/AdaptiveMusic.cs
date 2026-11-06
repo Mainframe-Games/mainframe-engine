@@ -4,7 +4,7 @@ using MainframeEngine.Audio.Music;
 namespace MainframeEngine;
 
 /// <summary>
-/// Baked adaptive music (<c>.mmusic</c>): the manifest the editor's Bake writes, compiled into a <see cref="MusicPlan"/>,
+/// Baked adaptive music (<c>.mfmusic</c>): the manifest the editor's Bake writes, compiled into a <see cref="MusicPlan"/>,
 /// plus its stems. Play it with an <see cref="AdaptiveMusicPlayer"/> node (or an <see cref="AdaptiveMusicInstance"/>).
 /// Loaded through <see cref="ResourceLoader"/> by <see cref="AdaptiveMusicImporter"/>, so an <c>[Export] AdaptiveMusic</c>
 /// property references it by its <c>mus_</c> UID. See docs/design/adaptive-music.md.
@@ -39,7 +39,7 @@ public sealed class AdaptiveMusic : Resource
     /// <summary>Stems that could not load at the last <see cref="Preload"/> (they play as silence).</summary>
     public int MissingStems { get; private set; }
 
-    /// <summary>Reads a <c>.mmusic</c> file (project path or absolute). Throws for files that are not adaptive music.</summary>
+    /// <summary>Reads a <c>.mfmusic</c> file (project path or absolute). Throws for files that are not adaptive music.</summary>
     public static AdaptiveMusic Load(string path)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
@@ -53,7 +53,7 @@ public sealed class AdaptiveMusic : Resource
     }
 
     /// <summary>
-    /// Reads the <c>.mmusic</c> at <paramref name="fullPath"/> with its stems resolved under <paramref name="projectFolder"/>
+    /// Reads the <c>.mfmusic</c> at <paramref name="fullPath"/> with its stems resolved under <paramref name="projectFolder"/>
     /// by path (the editor link's <c>ReloadMusic</c>: a bake in the editor's source project, whose new stems the game's own
     /// asset database does not know).
     /// </summary>
@@ -202,7 +202,7 @@ public sealed class AdaptiveMusic : Resource
     }
 }
 
-/// <summary><c>.mmusic</c> → <see cref="AdaptiveMusic"/> (the UID is the one in the file, kept across bakes).</summary>
+/// <summary><c>.mfmusic</c> → <see cref="AdaptiveMusic"/> (the UID is the one in the file, kept across bakes).</summary>
 public sealed class AdaptiveMusicImporter : IAssetImporter
 {
     public string Name => "music";

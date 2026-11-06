@@ -6,7 +6,7 @@ using MainframeEngine.Audio.Music;
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
-/// A song's adaptive-music data (<c>"adaptive"</c> in <c>.msong</c>): parameters, sections and markers on the timeline
+/// A song's adaptive-music data (<c>"adaptive"</c> in <c>.mfsong</c>): parameters, sections and markers on the timeline
 /// (in ticks), layers, curves and transitions. Additive: a song without it plays and renders as before, and an older
 /// editor keeps it unchanged in <see cref="Song.Extra"/>. Edit it through <see cref="SongDocument"/>; the engine's
 /// <see cref="MusicPlan"/> compiles it (<see cref="SongAdaptiveCompiler"/>). See docs/design/adaptive-music.md.
@@ -17,7 +17,7 @@ public sealed class SongAdaptive
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Start { get; set; }
 
-    /// <summary>Project path of the baked manifest (null: <c>Assets/Music/&lt;SongName&gt;.mmusic</c>).</summary>
+    /// <summary>Project path of the baked manifest (null: <c>Assets/Music/&lt;SongName&gt;.mfmusic</c>).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Output { get; set; }
 

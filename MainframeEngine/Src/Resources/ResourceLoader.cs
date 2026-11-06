@@ -4,7 +4,7 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine;
 
 /// <summary>
-/// Loads <c>.mscene</c> (<see cref="PackedScene"/>) and <c>.mres</c> files by path or UID and caches them by
+/// Loads <c>.mfscene</c> (<see cref="PackedScene"/>) and <c>.mfres</c> files by path or UID and caches them by
 /// UID, so every user shares one instance (Godot's <c>ResourceLoader</c>). Each <see cref="Load{T}"/> adds a
 /// reference; <see cref="Resource.Release"/> drops it and the last release evicts the resource.
 /// </summary>
@@ -141,7 +141,7 @@ public static class ResourceLoader
                 .. Cache.Values.OfType<PackedScene>()
                     .Where(s => s.ResourcePath?.EndsWith(SceneFormat.SceneExtension, StringComparison.OrdinalIgnoreCase) == true)
                     .Distinct(),
-            ]; // imported models are PackedScenes too, but are not .mscene files
+            ]; // imported models are PackedScenes too, but are not .mfscene files
 
         var assets = AssetDatabase.Current;
         var refreshed = 0;
@@ -289,21 +289,21 @@ public static class ResourceLoader
             return AssetDatabase.IsSelfDescribing(fullPath) ? ImportSelfDescribing(importer, fullPath, pathKey) : Import(importer, fullPath, pathKey);
 
         var bytes = ContentFiles.ReadAllBytes(fullPath);
-        if (fullPath.EndsWith(SceneFormat.SceneExtension, StringComparison.OrdinalIgnoreCase))
+        if (FileExtensions.Matches(fullPath, SceneFormat.SceneExtension))
         {
             var scene = new PackedScene { ResourcePath = pathKey };
             scene.SetContent(bytes, pathKey);
             return scene;
         }
 
-        if (fullPath.EndsWith(SceneFormat.ResourceExtension, StringComparison.OrdinalIgnoreCase))
+        if (FileExtensions.Matches(fullPath, SceneFormat.ResourceExtension))
             return ReadResourceFile(bytes, pathKey);
 
         throw new NotSupportedException($"No loader for '{pathKey}' (expected {SceneFormat.SceneExtension}, " +
                                         $"{SceneFormat.ResourceExtension} or an imported type: {string.Join(", ", AssetImporters.Extensions)}).");
     }
 
-    // Images, models, ...: the importer for the extension, with the .meta sidecar's UID and settings.
+    // Images, models, ...: the importer for the extension, with the .mfmeta sidecar's UID and settings.
     private static Resource Import(IAssetImporter importer, string fullPath, string pathKey)
     {
         var meta = AssetDatabase.Current.ReadOrCreateMeta(fullPath, create: false);
@@ -313,7 +313,7 @@ public static class ResourceLoader
         return resource;
     }
 
-    // Generated files that carry their own UID (adaptive music, .mmusic): the importer reads the file, the UID is the file's.
+    // Generated files that carry their own UID (adaptive music, .mfmusic): the importer reads the file, the UID is the file's.
     private static Resource ImportSelfDescribing(IAssetImporter importer, string fullPath, string pathKey)
     {
         var resource = importer.Import(fullPath, pathKey, null);

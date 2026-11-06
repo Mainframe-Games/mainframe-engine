@@ -24,7 +24,7 @@ public sealed class SectionsLaneTests : IDisposable
 
     public SectionsLaneTests()
     {
-        var path = SongTab.CreateFile(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.mfsong"));
         _tab = _host.Session.OpenSong(path);
         Doc.EnableAdaptive();
     }
@@ -155,7 +155,7 @@ public sealed class AdaptivePanelTests
     private static (HeadlessEditor Editor, SongTab Tab) Open()
     {
         var editor = new HeadlessEditor();
-        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.mfsong"));
         editor.Workspace.Commands.OpenSong(path);
         editor.Tick(3);
         return (editor, Assert.IsType<SongTab>(editor.Workspace.Session.ActiveTab));

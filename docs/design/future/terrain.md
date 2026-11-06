@@ -116,7 +116,7 @@ the surface by up to half a quad's twist.
 
 ### Data and files
 
-`TerrainData : Resource` (`terrain.mres`, JSON like any resource, ADR 0011) holds the knobs above, `Profile`,
+`TerrainData : Resource` (`terrain.mfres`, JSON like any resource, ADR 0011) holds the knobs above, `Profile`,
 `Surfaces` (Faceted) or `Layers` (Realistic), `UserChannels`, `FoliageTypes`, `ObjectTypes`, the water settings
 (`MaxWaterDepth`, default 1.2 m), `Material` (inline), `CollisionLayer`/`CollisionMask` (1, 0), `CollisionMode` and
 `CastShadows`. It holds no pixels: those are images in its folder. A new terrain's folder is `<scene>_terrain/` next to
@@ -124,18 +124,18 @@ the scene, for example `Assets/Scenes/world_terrain/`.
 
 | File | Profile | Format, size | Contents |
 |---|---|---|---|
-| `terrain.mres` | both | JSON | the knobs and resource lists |
+| `terrain.mfres` | both | JSON | the knobs and resource lists |
 | `heightmap.png` | both | 16-bit grey, (N+1)² | `h = HeightMin + v / 65535 · (HeightMax − HeightMin)` |
 | `surface.png` | Faceted | RGBA8, cells | R = surface id; G, B, A reserved (0) |
 | `splat-0.png`, `splat-1.png`, `splat-2.png` | Realistic | RGBA8, cells | weights of layers 0–3, 4–7 and 8–11 (sum 255; the third only once used — [built](../terrain.md#layers-and-files)) |
 | `user.png` | both | RGBA8, cells | four game-defined channels |
 | `water.png` | both | RGBA8, (N+1)² | R = depth fraction; G, B flow (reserved for G8c); A reserved |
 | `foliage-0.png`, `foliage-1.png` | both | RGBA8, cells | density of foliage types 0–3 and 4–7 |
-| `objects.mres` | both | JSON | `ScatterObjectList`: `NextId` + instances `{Id, Type, X, Z, Yaw, Scale}` |
-| `*.png.meta` | both | sidecar | linear, no mipmaps, nearest, clamp (`TextureImportSettings`) |
+| `objects.mfres` | both | JSON | `ScatterObjectList`: `NextId` + instances `{Id, Type, X, Z, Yaw, Scale}` |
+| `*.png.mfmeta` | both | sidecar | linear, no mipmaps, nearest, clamp (`TextureImportSettings`) |
 
 - Only dirty layers are written (temp file, then rename) on scene save; layers at their defaults are not written, and a
-  missing file loads as its default, so a new folder works with only `terrain.mres`.
+  missing file loads as its default, so a new folder works with only `terrain.mfres`.
 - **Heights are quantised at once.** Every height written is rounded to the 16-bit step, so save and load give back
   the same floats and the editor and the game stand on the same ground.
 - **User channels** replace game-specific layers. `TerrainUserChannel { Name, Kind, Legend }`: `Kind = Value` blends
@@ -435,7 +435,7 @@ listed as G7.6; it is specified here because the terrain is its first user.
 `TerrainEditorTool` (`[EditorViewportTool(typeof(Terrain3D), Title = "Terrain", Icon = "mountain")]`,
 `MainframeEngine.Editor/Src/Terrain/`) is one tool with modes; every mode shares the brush, ring, label, stroke and
 undo. A terrain with no `Data` shows only **Create terrain data** (profile, size and spacing; writes the folder and
-`terrain.mres`, sets `Data` through an undoable property action).
+`terrain.mfres`, sets `Data` through an undoable property action).
 
 | Mode tab (icon) | Tools | Content list |
 |---|---|---|
@@ -553,7 +553,7 @@ the same instances, and any prefix of a chunk's list is an even sample of the wh
 #### `ScatterObjectType` and `ITerrainObject`
 
 Objects that need collision, scripts or removal (rocks, stumps, trees, crates) are an explicit list with stable ids in
-`objects.mres`, not implicit presence images (TerraBrush), so a saved id always means the same object.
+`objects.mfres`, not implicit presence images (TerraBrush), so a saved id always means the same object.
 
 `ScatterObjectType` has `Name` (the stable key games pass to `ObjectTypeIndex`), `Scenes` (`PackedScene` variants;
 variant = `hash(Id) % Scenes.Length`), `SpacingMeters` (4 m) and `Jitter` (0.4, at most 0.45 so occupancy is exact),
@@ -660,7 +660,7 @@ G8a.1–G8a.10 are the Faceted profile, on today's Blinn-Phong renderer. G8a.11�
 6. **G8a.6 Paint.** Surfaces, user channels, rectangle fill, eraser and pick; tests.
 7. **G8a.7 `MultiMesh`.** Resource, node, persistent buffer, culling, casters; `multimesh` golden; benchmark; ADR.
 8. **G8a.8 Foliage.** `FoliageType`, Foliage mode, placement, thinning, build radius; tests; allocation gate.
-9. **G8a.9 Objects.** `ScatterObjectType`, `objects.mres`, `ITerrainObject`, Objects mode, `Nodes` and `MultiMesh`
+9. **G8a.9 Objects.** `ScatterObjectType`, `objects.mfres`, `ITerrainObject`, Objects mode, `Nodes` and `MultiMesh`
    render modes, re-heighting, `RemoveObject`; tests.
 10. **G8a.10 Water layer.** Bed lowering in meshes, collision and queries; `WaterDepthAt`; Water mode with Level;
     tests. (G8c renders it.)

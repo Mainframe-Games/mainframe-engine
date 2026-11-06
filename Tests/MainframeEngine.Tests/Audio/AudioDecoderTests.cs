@@ -181,7 +181,7 @@ public sealed class AudioDecoderTests : IDisposable
             AssetDatabase.Current = new AssetDatabase(_dir);
             var file = Path.Combine(_dir, "loop.wav");
             File.Copy(AudioTestUtil.Asset("sine440_mono16_44k.wav"), file);
-            File.WriteAllText(file + ".meta", """
+            File.WriteAllText(file + ".mfmeta", """
                 {"uid": "aud_0123456789ab", "importer": "audio",
                  "settings": {"loadMode": "Stream", "loop": true, "loopStart": 0.1, "loopEnd": 0.4}}
                 """);

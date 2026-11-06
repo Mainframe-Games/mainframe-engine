@@ -20,7 +20,7 @@ public sealed record FileOperationResult(bool Succeeded, string? Path, string? E
 
 /// <summary>
 /// File operations of the FileSystem panel: create folders, scenes and resources; rename and move with reference
-/// fixups (<see cref="ReferenceFixer"/>; UIDs and <c>.meta</c> sidecars are kept); delete to the trash. Expected
+/// fixups (<see cref="ReferenceFixer"/>; UIDs and <c>.mfmeta</c> sidecars are kept); delete to the trash. Expected
 /// failures (bad names, conflicts, I/O errors) come back as <see cref="FileOperationResult"/>s naming the file, never as
 /// exceptions. Paths may be absolute or project-relative. Main thread.
 /// </summary>
@@ -53,7 +53,7 @@ public sealed class FileOperations
 
     /// <summary>
     /// Null when <paramref name="name"/> is a valid file or folder name on every desktop OS, else why not: empty, a path
-    /// separator, <c>..</c>, an invalid character, a reserved Windows name, a trailing dot or space, a <c>.meta</c> name.
+    /// separator, <c>..</c>, an invalid character, a reserved Windows name, a trailing dot or space, a <c>.mfmeta</c> name.
     /// </summary>
     public static string? ValidateName(string name)
     {
@@ -75,7 +75,7 @@ public sealed class FileOperations
         if (ReservedNames.Contains(name.Split('.')[0]))
             return $"'{name}' is a reserved name on Windows.";
         if (name.EndsWith(AssetDatabase.MetaExtension, StringComparison.OrdinalIgnoreCase))
-            return $"'{name}': .meta files are managed by the editor.";
+            return $"'{name}': .mfmeta files are managed by the editor.";
         return null;
     }
 
@@ -98,7 +98,7 @@ public sealed class FileOperations
     }
 
     /// <summary>
-    /// Creates a scene file (<c>.mscene</c> appended when missing) whose root is a <paramref name="rootType"/> named after
+    /// Creates a scene file (<c>.mfscene</c> appended when missing) whose root is a <paramref name="rootType"/> named after
     /// the file.
     /// </summary>
     public FileOperationResult CreateScene(string parentDirectory, string name, string rootType = "Node3D")
@@ -131,7 +131,7 @@ public sealed class FileOperations
         }
     }
 
-    /// <summary>Creates a resource file (<c>.mres</c> appended when missing) holding a new <paramref name="resourceType"/>.</summary>
+    /// <summary>Creates a resource file (<c>.mfres</c> appended when missing) holding a new <paramref name="resourceType"/>.</summary>
     public FileOperationResult CreateResource(string parentDirectory, string name, Type resourceType)
     {
         ArgumentNullException.ThrowIfNull(parentDirectory);
@@ -157,7 +157,7 @@ public sealed class FileOperations
         }
     }
 
-    /// <summary>Renames a file or folder in place (its <c>.meta</c> and UID follow; references are fixed).</summary>
+    /// <summary>Renames a file or folder in place (its <c>.mfmeta</c> and UID follow; references are fixed).</summary>
     public FileOperationResult Rename(string path, string newName)
     {
         ArgumentNullException.ThrowIfNull(path);
@@ -197,7 +197,7 @@ public sealed class FileOperations
     }
 
     /// <summary>
-    /// Moves a file or folder (and a file's <c>.meta</c>) to the trash and forgets its UIDs. When the trash cannot take
+    /// Moves a file or folder (and a file's <c>.mfmeta</c>) to the trash and forgets its UIDs. When the trash cannot take
     /// it, nothing is deleted and the result has <see cref="FileOperationResult.TrashUnavailable"/>.
     /// </summary>
     public FileOperationResult Delete(string path)
@@ -213,13 +213,13 @@ public sealed class FileOperations
         string? warning = null;
         var meta = full + AssetDatabase.MetaExtension;
         if (File.Exists(meta) && !_trash.TryMoveToTrash(meta, out var metaError))
-            warning = $"'{Path.GetFileName(full)}' is in the trash, but its .meta file is not: {metaError}";
+            warning = $"'{Path.GetFileName(full)}' is in the trash, but its .mfmeta file is not: {metaError}";
         foreach (var uid in uids)
             _database.Unregister(uid);
         return FileOperationResult.Ok(full, warning: warning);
     }
 
-    /// <summary>Deletes a file or folder (and a file's <c>.meta</c>) permanently. Only after the user confirmed it.</summary>
+    /// <summary>Deletes a file or folder (and a file's <c>.mfmeta</c>) permanently. Only after the user confirmed it.</summary>
     public FileOperationResult DeletePermanently(string path)
     {
         ArgumentNullException.ThrowIfNull(path);

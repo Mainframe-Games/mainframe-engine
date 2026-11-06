@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 namespace MainframeEngine.Audio.Music;
 
 /// <summary>
-/// A baked adaptive song (<c>.mmusic</c>): the grid, parameters, sections in frames with their stems, layers, curves and
+/// A baked adaptive song (<c>.mfmusic</c>): the grid, parameters, sections in frames with their stems, layers, curves and
 /// transitions. The editor writes it (Bake) and games load it; the editor's live preview builds one in memory from the
 /// song. Unknown fields are kept (<see cref="Extra"/>). See docs/design/adaptive-music.md.
 /// </summary>
@@ -160,12 +160,12 @@ public sealed class MusicStemRef
 public readonly record struct MusicManifestReadResult(MusicManifest Manifest, string? Notice);
 
 /// <summary>
-/// Reads and writes <c>.mmusic</c>: versioned JSON (<see cref="Current"/>, upgraded through <see cref="Migrations"/> like
+/// Reads and writes <c>.mfmusic</c>: versioned JSON (<see cref="Current"/>, upgraded through <see cref="Migrations"/> like
 /// <c>project.mfproj</c>) through the source-generated <see cref="MusicJsonContext"/>, so trimmed and AOT games can load it.
 /// </summary>
 public static class MusicManifestFormat
 {
-    public const string Extension = ".mmusic";
+    public const string Extension = FileExtensions.Music;
 
     /// <summary>The format this engine writes.</summary>
     public const int Current = 1;

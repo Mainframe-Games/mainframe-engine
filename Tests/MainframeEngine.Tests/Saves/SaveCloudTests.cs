@@ -13,7 +13,7 @@ public sealed class SaveCloudTests : SaveTestBase
     {
         using var other = new SaveServer(new LocalSaveStorage(_otherDevice), new SaveOptions { Device = "other-device" });
         Assert.True(other.Save(slot, Data(name), Schema, new SaveInfo(Progress: progress)).IsOk);
-        return File.ReadAllBytes(Path.Combine(_otherDevice, slot + ".msave"));
+        return File.ReadAllBytes(Path.Combine(_otherDevice, slot + ".mfsave"));
     }
 
     private string? SyncedHash(string slot) =>
@@ -23,7 +23,7 @@ public sealed class SaveCloudTests : SaveTestBase
 
     private static string LocalName(SaveServer server, string slot) => server.Load(slot, Schema).Data!.Name;
 
-    private string[] ConflictCopies(string slot) => Directory.GetFiles(Root, slot + ".msave.conflict-*");
+    private string[] ConflictCopies(string slot) => Directory.GetFiles(Root, slot + ".mfsave.conflict-*");
 
     // Local and cloud both hold "base" and agree (synced), then each side saves its own change.
     private (SaveServer Server, FakeCloudSaveBackend Cloud) Diverged(SaveConflictPolicy policy, double localProgress, double remoteProgress, bool remoteNewer)
@@ -64,7 +64,7 @@ public sealed class SaveCloudTests : SaveTestBase
 
         Assert.False(result.CloudTooLarge);
         WaitFor(() => SyncedHash("slot1") is not null);
-        var local = File.ReadAllBytes(PathOf("slot1.msave"));
+        var local = File.ReadAllBytes(PathOf("slot1.mfsave"));
         Assert.Equal(local, cloud.File("slot1"));
         Assert.Equal(HashOf(local), SyncedHash("slot1"));
     }
@@ -93,7 +93,7 @@ public sealed class SaveCloudTests : SaveTestBase
 
         Assert.True(result.IsOk);
         Assert.True(result.CloudTooLarge);
-        Assert.True(File.Exists(PathOf("slot1.msave")));
+        Assert.True(File.Exists(PathOf("slot1.mfsave")));
         Pump(server, server.SyncAsync(TestContext.Current.CancellationToken));
         Assert.False(cloud.Has("slot1"));
     }
@@ -110,9 +110,9 @@ public sealed class SaveCloudTests : SaveTestBase
 
         Pump(server, server.SyncAsync(TestContext.Current.CancellationToken));
 
-        Assert.Equal(remote, File.ReadAllBytes(PathOf("theirs.msave")));
+        Assert.Equal(remote, File.ReadAllBytes(PathOf("theirs.mfsave")));
         Assert.Equal([9, 9], File.ReadAllBytes(PathOf("theirs.png")));
-        Assert.Equal(File.ReadAllBytes(PathOf("mine.msave")), cloud.File("mine"));
+        Assert.Equal(File.ReadAllBytes(PathOf("mine.mfsave")), cloud.File("mine"));
         Assert.Equal(HashOf(remote), SyncedHash("theirs"));
         Assert.NotNull(SyncedHash("mine"));
         Assert.Equal(["mine", "theirs"], server.ListSlots().Select(s => s.Slot).Order(StringComparer.Ordinal));
@@ -134,7 +134,7 @@ public sealed class SaveCloudTests : SaveTestBase
 
         Assert.Equal("newer elsewhere", LocalName(server, "slot1"));
         Assert.Empty(ConflictCopies("slot1")); // not a conflict: only the cloud changed
-        Assert.True(File.Exists(PathOf("slot1.msave.bak1")));
+        Assert.True(File.Exists(PathOf("slot1.mfsave.bak1")));
     }
 
     [Fact]
@@ -156,7 +156,7 @@ public sealed class SaveCloudTests : SaveTestBase
     public void MostRecentKeepsTheNewerCopy()
     {
         var (server, cloud) = Diverged(SaveConflictPolicy.MostRecent, localProgress: 0.9, remoteProgress: 0.1, remoteNewer: true);
-        var local = File.ReadAllBytes(PathOf("slot1.msave"));
+        var local = File.ReadAllBytes(PathOf("slot1.mfsave"));
 
         Pump(server, server.SyncAsync(TestContext.Current.CancellationToken));
 
@@ -174,7 +174,7 @@ public sealed class SaveCloudTests : SaveTestBase
         Pump(server, server.SyncAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal("local", LocalName(server, "slot1"));
-        Assert.Equal(File.ReadAllBytes(PathOf("slot1.msave")), cloud.File("slot1")); // the cloud gets the winner
+        Assert.Equal(File.ReadAllBytes(PathOf("slot1.mfsave")), cloud.File("slot1")); // the cloud gets the winner
         Assert.Equal(remote, File.ReadAllBytes(Assert.Single(ConflictCopies("slot1"))));
     }
 
@@ -187,7 +187,7 @@ public sealed class SaveCloudTests : SaveTestBase
         Pump(server, server.SyncAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal("local", LocalName(server, "slot1"));
-        WaitFor(() => cloud.File("slot1").AsSpan().SequenceEqual(File.ReadAllBytes(PathOf("slot1.msave"))));
+        WaitFor(() => cloud.File("slot1").AsSpan().SequenceEqual(File.ReadAllBytes(PathOf("slot1.mfsave"))));
         Assert.Equal(remote, File.ReadAllBytes(Assert.Single(ConflictCopies("slot1"))));
         Assert.Equal(HashOf(cloud.File("slot1")), SyncedHash("slot1"));
     }
@@ -196,7 +196,7 @@ public sealed class SaveCloudTests : SaveTestBase
     public void ManualRaisesConflictDetectedAndWaitsForTheGame()
     {
         var (server, cloud) = Diverged(SaveConflictPolicy.Manual, localProgress: 0.3, remoteProgress: 0.6, remoteNewer: true);
-        var local = File.ReadAllBytes(PathOf("slot1.msave"));
+        var local = File.ReadAllBytes(PathOf("slot1.mfsave"));
         var remote = cloud.File("slot1");
         var conflicts = new List<(SaveSlotInfo Local, SaveSlotInfo Remote, int Thread)>();
         server.ConflictDetected += (l, r) => conflicts.Add((l, r, Environment.CurrentManagedThreadId));
@@ -208,12 +208,12 @@ public sealed class SaveCloudTests : SaveTestBase
         Assert.Equal(0.3, conflict.Local.Progress);
         Assert.Equal(0.6, conflict.Remote.Progress);
         Assert.Equal("other-device", conflict.Remote.Device);
-        Assert.Equal(local, File.ReadAllBytes(PathOf("slot1.msave"))); // nothing changes until the game decides
+        Assert.Equal(local, File.ReadAllBytes(PathOf("slot1.mfsave"))); // nothing changes until the game decides
         Assert.Empty(ConflictCopies("slot1"));
 
         Assert.True(Pump(server, server.ResolveConflict("slot1", keepLocal: false)));
 
-        Assert.Equal(remote, File.ReadAllBytes(PathOf("slot1.msave")));
+        Assert.Equal(remote, File.ReadAllBytes(PathOf("slot1.mfsave")));
         Assert.Equal(local, File.ReadAllBytes(Assert.Single(ConflictCopies("slot1"))));
         Assert.Equal(HashOf(remote), SyncedHash("slot1"));
         Assert.False(Pump(server, server.ResolveConflict("slot1", keepLocal: true))); // already settled
@@ -229,7 +229,7 @@ public sealed class SaveCloudTests : SaveTestBase
         Assert.True(Pump(server, server.ResolveConflict("slot1", keepLocal: true)));
 
         Assert.Equal("local", LocalName(server, "slot1"));
-        Assert.Equal(File.ReadAllBytes(PathOf("slot1.msave")), cloud.File("slot1"));
+        Assert.Equal(File.ReadAllBytes(PathOf("slot1.mfsave")), cloud.File("slot1"));
         Assert.Equal(remote, File.ReadAllBytes(Assert.Single(ConflictCopies("slot1"))));
     }
 

@@ -5,7 +5,7 @@ namespace MainframeEngine.RenderTests;
 
 /// <summary>
 /// Spatial shaders (ADR 0205): a procedural world-space ground, swaying stalks with swaying shadows, a dissolve cutout
-/// from a <c>.mres</c>, an additive rim as a next pass and an overlay — lit, shadowed, pickable, and under TAA (the depth
+/// from a <c>.mfres</c>, an additive rim as a next pass and an overlay — lit, shadowed, pickable, and under TAA (the depth
 /// prepass and its velocity).
 /// </summary>
 public class SpatialShaderTests

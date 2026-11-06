@@ -166,7 +166,7 @@ public sealed class ExportPresetFormatTests
     [InlineData(4)]
     public void OlderFormatsUpgradeToTheCurrentOneWithNothingElseChanged(int format)
     {
-        var older = Parse($$"""{ "format": {{format}}, "name": "Old", "mainScene": "Assets/Scenes/Main.mscene", "window": { "width": 640 } }""");
+        var older = Parse($$"""{ "format": {{format}}, "name": "Old", "mainScene": "Assets/Scenes/Main.mfscene", "window": { "width": 640 } }""");
         var json = JsonNode.Parse(Text(older))!;
 
         Assert.Equal(ProjectSettingsFormat.Current, (int)json["format"]!);
@@ -174,13 +174,13 @@ public sealed class ExportPresetFormatTests
         Assert.Null(json["export"]);
         Assert.True(older.PackKeyUnsaved); // the 5 → 6 step generated a key the file does not have yet
         Assert.True(PackKeys.TryParse(older.PackKey, out _));
-        Assert.Equal(("Old", "Assets/Scenes/Main.mscene", 640), (older.Name, older.MainScene, older.Window.Width));
+        Assert.Equal(("Old", "Assets/Scenes/Main.mfscene", 640), (older.Name, older.MainScene, older.Window.Width));
     }
 
     [Fact]
     public void TheFourToFiveStepLeavesTheTreeAlone()
     {
-        var root = JsonNode.Parse("""{ "format": 4, "name": "N", "audio": { "busLayout": "Assets/b.mres" } }""")!.AsObject();
+        var root = JsonNode.Parse("""{ "format": 4, "name": "N", "audio": { "busLayout": "Assets/b.mfres" } }""")!.AsObject();
         var before = root.DeepClone().AsObject();
         before.Remove("format");
         ProjectSettingsFormat.Upgrade(root, 4, 5, ProjectSettingsFormat.Migrations, "t");

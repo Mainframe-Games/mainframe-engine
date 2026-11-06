@@ -5,7 +5,7 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine.Tests.Canvas;
 
 /// <summary>
-/// ADR 0223: <see cref="SpriteFrames"/> as a <c>.mres</c> (the sheet referenced once, one line per frame through the
+/// ADR 0223: <see cref="SpriteFrames"/> as a <c>.mfres</c> (the sheet referenced once, one line per frame through the
 /// built-in <see cref="SpriteFrame"/> codec), name lookups, and an <see cref="AnimatedSprite2D"/> in a scene.
 /// </summary>
 [Collection(nameof(Scene.SerialResources))]
@@ -46,8 +46,8 @@ public sealed class SpriteFramesSerializationTests : IDisposable
     public void AResourceFileKeepsOneTextureReferenceAndOneLinePerFrame()
     {
         var sheet = ResourceLoader.Load<Texture2D>("Assets/Sprites/hero.png");
-        var uid = ResourceSaver.Save(Hero(sheet), "Assets/Sprites/hero.mres");
-        var text = File.ReadAllText(Path.Combine(_project, "Assets", "Sprites", "hero.mres"));
+        var uid = ResourceSaver.Save(Hero(sheet), "Assets/Sprites/hero.mfres");
+        var text = File.ReadAllText(Path.Combine(_project, "Assets", "Sprites", "hero.mfres"));
 
         Assert.Contains("\"type\": \"SpriteFrames\"", text, StringComparison.Ordinal);
         Assert.Contains("\"path\": \"Assets/Sprites/hero.png\"", text, StringComparison.Ordinal);
@@ -71,8 +71,8 @@ public sealed class SpriteFramesSerializationTests : IDisposable
         Assert.Equal((128, new Rect2(32, 0, 32, 32)), (texture.Width, region));
 
         // Saving the loaded resource again writes the same bytes.
-        ResourceSaver.Save(loaded, "Assets/Sprites/hero.mres");
-        Assert.Equal(text, File.ReadAllText(Path.Combine(_project, "Assets", "Sprites", "hero.mres")));
+        ResourceSaver.Save(loaded, "Assets/Sprites/hero.mfres");
+        Assert.Equal(text, File.ReadAllText(Path.Combine(_project, "Assets", "Sprites", "hero.mfres")));
         loaded.Release();
     }
 

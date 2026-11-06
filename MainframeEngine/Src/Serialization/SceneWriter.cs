@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace MainframeEngine.Serialization;
 
 /// <summary>
-/// Writes a node tree (or a resource) as a <c>.mscene</c> (<c>.mres</c>) document. Only nodes owned by the root
+/// Writes a node tree (or a resource) as a <c>.mfscene</c> (<c>.mfres</c>) document. Only nodes owned by the root
 /// are written, as a flat list in tree order with each node's parent path; nested scene instances become an
 /// instance reference plus the properties that differ from a pristine instance of the sub-scene; properties equal
 /// to the type's default are skipped; resources are collected into the file's table (inline) or referenced by UID

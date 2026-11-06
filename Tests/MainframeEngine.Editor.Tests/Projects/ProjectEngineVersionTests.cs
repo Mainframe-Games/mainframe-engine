@@ -23,7 +23,7 @@ public sealed class ProjectEngineVersionTests : IDisposable
               "format": 4,
               "name": "Game",
               "engineVersion": "{{mfprojVersion}}",
-              "mainScene": "Assets/Scenes/Main.mscene"
+              "mainScene": "Assets/Scenes/Main.mfscene"
             }
             """);
         Write("Directory.Build.props", $"""
@@ -119,7 +119,7 @@ public sealed class ProjectEngineVersionTests : IDisposable
         Assert.Equal(["Directory.Build.props", "project.mfproj"], files);
         Assert.Contains("<MainframeEngineVersion>1.1.5</MainframeEngineVersion>", Read("Directory.Build.props"));
         Assert.Contains("\"engineVersion\": \"1.1.5\"", Read("project.mfproj"));
-        Assert.Contains("\"mainScene\": \"Assets/Scenes/Main.mscene\"", Read("project.mfproj")); // the rest is untouched
+        Assert.Contains("\"mainScene\": \"Assets/Scenes/Main.mfscene\"", Read("project.mfproj")); // the rest is untouched
         Assert.Equal("1.1.5", ProjectEngineVersion.Read(_root).Version);
     }
 

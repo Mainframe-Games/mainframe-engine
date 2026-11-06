@@ -4,7 +4,7 @@ using MainframeEngine;
 namespace Neon;
 
 /// <summary>
-/// Neon's main scene (<c>Assets/Scenes/neon.mscene</c>, written by <c>--write-scenes</c>): a dim moonlight, a dark
+/// Neon's main scene (<c>Assets/Scenes/neon.mfscene</c>, written by <c>--write-scenes</c>): a dim moonlight, a dark
 /// procedural night sky glowing magenta at the horizon, the <see cref="NeonCity"/> round the tower (built when ready; no
 /// lights: its neon is emission and glow), the <see cref="NeonApartment"/> (built when ready), the
 /// <see cref="FirstPersonController"/> with its <see cref="Interactor"/> at the front door, the <see cref="NeonAudio"/>
@@ -15,10 +15,10 @@ public static class NeonScene
     public const string Id = "neon";
 
     /// <summary>The scene file, relative to the project folder.</summary>
-    public const string Path = "Assets/Scenes/neon.mscene";
+    public const string Path = "Assets/Scenes/neon.mfscene";
 
-    /// <summary>The apartment's baked probes (<c>.mres</c> + LFS <c>.probes</c>), written by <c>--bake-lighting</c>.</summary>
-    public const string ProbesPath = "Assets/Scenes/neon-lighting.mres";
+    /// <summary>The apartment's baked probes (<c>.mfres</c> + LFS <c>.mfprobes</c>), written by <c>--bake-lighting</c>.</summary>
+    public const string ProbesPath = "Assets/Scenes/neon-lighting.mfres";
 
     /// <summary>Where the player starts (feet): the apartment model's <c>Spawn</c>, inside the front door.</summary>
     public static readonly Vector3 Spawn = new(5.1f, 0.02f, -4f);

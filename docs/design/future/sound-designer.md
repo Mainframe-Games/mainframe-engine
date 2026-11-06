@@ -21,7 +21,7 @@ way to listen to any `.wav`/`.ogg` in a project without running the game.
 
 - **ZzFX in the engine.** A C# port of [ZzFX](https://github.com/KilledByAPixel/ZzFX) 1.4.0 (MIT, Frank Force) that
   produces the same samples as the reference for the same parameters.
-- **A ZzFX sound is an `AudioStream`.** A resource (`.mres`, or inline) holding the 21 ZzFX parameters, usable in every
+- **A ZzFX sound is an `AudioStream`.** A resource (`.mfres`, or inline) holding the 21 ZzFX parameters, usable in every
   `AudioStream` slot (`AudioPlayer*.Stream`, `PlayOneShot`, exported fields) with no extra code. Samples are synthesised
   on first use.
 - **Interop with the web designer.** Paste a ZzFX line (`zzfx(...[,,925,.04,.3,.6,1,.3,,6.27,-184,.09,.17])`) into a
@@ -128,7 +128,7 @@ the generic inspector, which still shows inline sounds, reads in a sensible orde
 Ranges only bound the sliders. The inspector clamps what you type, but loading and pasting never clamp, so a line from
 the web designer with an out-of-range value plays exactly as it did there.
 
-- **Defaults are ZzFX's defaults,** so a new `ZzfxStream` is ZzFX's default sound, the `.mres` stores only what differs
+- **Defaults are ZzFX's defaults,** so a new `ZzfxStream` is ZzFX's default sound, the `.mfres` stores only what differs
   (the serializer already omits defaults), and the line format round-trips.
 - **`ZzfxStream` overrides the defaults it inherits:** `PitchRandomness` defaults to 0.05 (ZzFX's), `File` and
   `LoadMode` are unused (hidden by the custom inspector; the generic rows of an inline sound show them, harmlessly).
@@ -142,7 +142,7 @@ the web designer with an out-of-range value plays exactly as it did there.
   says so; the allocation gate is unaffected because nothing synthesises inside the frame loop unless game code
   changes parameters every frame.
 
-Saved form (only non-default values, standard `.mres`):
+Saved form (only non-default values, standard `.mfres`):
 
 ```json
 {
@@ -155,7 +155,7 @@ Saved form (only non-default values, standard `.mres`):
 
 ### Changes to `AudioStream`
 
-Small and backwards compatible (no scene format change; existing `.mscene`/`.mres` files load as before):
+Small and backwards compatible (no scene format change; existing `.mfscene`/`.mfres` files load as before):
 
 - `GetSource()`'s file branch moves into `private protected virtual AudioSource? CreateSource()`, which `ZzfxStream`
   overrides. `private protected` because `AudioSource` is internal; only engine types can be generators.
@@ -215,7 +215,7 @@ asked for that here, and it can be added by exempting tool nodes later.)
 
 ### Play everywhere
 
-- **FileSystem panel:** audio files (`.wav .ogg .mp3 .flac`) and `.mres` files whose root type is an `AudioStream`
+- **FileSystem panel:** audio files (`.wav .ogg .mp3 .flac`) and `.mfres` files whose root type is an `AudioStream`
   get **Play / Stop** in the right-click menu. Double-clicking an audio file toggles its preview (today it only logs
   the file's size). A playing file shows the `icon-player-stop` badge in all three views.
 - **Inspector `AudioStream` rows:** the resource row's icon buttons (Edit, Load, New, Clear) gain a Play/Stop icon
@@ -226,8 +226,8 @@ asked for that here, and it can be added by exempting tool nodes later.)
 ### The designer: `ZzfxStreamInspector`
 
 `[CustomInspector(typeof(ZzfxStream))]` in `MainframeEngine.Editor/Src/Inspector/ZzfxStreamInspector.cs`, the same
-pattern as `AudioBusLayoutInspector`. It is used when a `ZzfxStream` is the inspected target: a `.mres` opened from
-the FileSystem panel (double-click), or Edit on a slot holding a `.mres` sound. Inline sounds folded inside another
+pattern as `AudioBusLayoutInspector`. It is used when a `ZzfxStream` is the inspected target: a `.mfres` opened from
+the FileSystem panel (double-click), or Edit on a slot holding a `.mfres` sound. Inline sounds folded inside another
 inspector keep the generic rows (custom headers are top-level only today). The header sits above the generated
 parameter rows, which stay the slider UI (numbers refer to the mockup):
 
@@ -248,7 +248,7 @@ parameter rows, which stay the slider UI (numbers refer to the mockup):
 - **Copy ZzFX** puts `ToLine()` on the clipboard. **Paste ZzFX** reads the clipboard through `ZzfxParameters.TryParse`;
   invalid text shows the parse error in a `MessageDialog` and changes nothing.
 - **Export .wav** opens `FilePickerDialog` in save mode (it already asks before overwriting), defaulting to
-  `<sound folder>/<ResourceName>.wav`, and writes through `WavWriter`. The new file gets its `.meta` and UID from the
+  `<sound folder>/<ResourceName>.wav`, and writes through `WavWriter`. The new file gets its `.mfmeta` and UID from the
   asset database like any dropped-in file.
 - **Undo:** every action that changes parameters is **one** history entry: a preset, Randomize, Mutate or Paste sets
   all 21 values through `IInspectorContext` as a single grouped action. Undo/redo restore the sound and, with
@@ -273,7 +273,7 @@ not per drag tick; `property` is null for grouped actions and undo/redo. Existin
 | Situation | Behaviour |
 |---|---|
 | Sound longer than `Zzfx.MaxSeconds` | `LoadError`, logged once, silent; the designer shows the error instead of the waveform |
-| NaN/∞ parameter (hand-edited `.mres`) | `TryParse` rejects them; the loader keeps them but `Generate` treats non-finite as the default and logs a warning once |
+| NaN/∞ parameter (hand-edited `.mfres`) | `TryParse` rejects them; the loader keeps them but `Generate` treats non-finite as the default and logs a warning once |
 | Paste of an invalid line | `MessageDialog` with the parse error; no change |
 | No audio device in the editor | null device; previews are silent, nothing fails |
 | `.wav` export I/O error | `Workspace.Commands.ReportError`, partial file deleted |
@@ -321,6 +321,6 @@ row and [Future: editor](editor.md) (audio preview done), and this proposal's st
 - **Preview level.** Previews play at 0 dB on Master. If that proves loud next to a running game, add an Editor Settings
   "Preview volume" slider.
 - **Designer for inline sounds.** Custom inspector headers only appear for the top-level target. If designing inline
-  sounds matters, a "Save as .mres" action on the slot turns one into a file the designer opens. Nesting custom headers
-  is not planned. **Answered by G7.2:** the resource row's More menu has Save as .mres and Open
+  sounds matters, a "Save as .mfres" action on the slot turns one into a file the designer opens. Nesting custom headers
+  is not planned. **Answered by G7.2:** the resource row's More menu has Save as .mfres and Open
   ([Editor → Resource actions](../editor.md#resource-actions)).

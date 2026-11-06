@@ -117,10 +117,10 @@ Every game needs to save progress and remember the player's options. The engine 
 {user data}/                 GameHost.UserDataDirectory
 ├── settings.json            UserSettings (a ConfigFile)
 ├── saves/
-│   ├── slot1.msave          header line + payload
-│   ├── slot1.msave.bak1     previous save (rolling, saves.backups copies)
+│   ├── slot1.mfsave          header line + payload
+│   ├── slot1.mfsave.bak1     previous save (rolling, saves.backups copies)
 │   ├── slot1.png            optional thumbnail
-│   └── autosave.msave
+│   └── autosave.mfsave
 └── logs/                    as today
 ```
 
@@ -199,7 +199,7 @@ or iOS AOT ([mobile](mobile.md) plumbing checklist).
 
 #### Metadata header and file format
 
-A `.msave` file is UTF-8 text in two parts:
+A `.mfsave` file is UTF-8 text in two parts:
 
 1. **Line 1:** a compact JSON header object, at most 64 KiB, ending with `\n`.
 2. **The rest:** the payload JSON, optionally gzip-compressed.
@@ -285,12 +285,12 @@ servers can own several instances with different storage.
    the header. Jobs for the same slot that have not started yet are coalesced, so the newest save wins.
 4. **Durable replace** (`DurableFile.Write`, new):
    1. Write `slot1.png.tmp` and rename it (only if there is a thumbnail; a lost thumbnail is cosmetic).
-   2. Write `slot1.msave.tmp` with a `FileStream`, then `Flush(flushToDisk: true)` (`fsync`/`FlushFileBuffers`).
-   3. Rotate backups: `.bak{N-1}` → `.bak{N}` … then `File.Replace(tmp, slot1.msave, slot1.msave.bak1)`. If no main
+   2. Write `slot1.mfsave.tmp` with a `FileStream`, then `Flush(flushToDisk: true)` (`fsync`/`FlushFileBuffers`).
+   3. Rotate backups: `.bak{N-1}` → `.bak{N}` … then `File.Replace(tmp, slot1.mfsave, slot1.mfsave.bak1)`. If no main
       file exists yet, use `File.Move`.
 
    On Windows `File.Replace` is `ReplaceFileW`. On Unix it is not a single atomic step. The gap is covered by load
-   recovery below: at every moment at least one of `slot1.msave`, `.bak1` or a fully flushed `.tmp` is valid. .NET has
+   recovery below: at every moment at least one of `slot1.mfsave`, `.bak1` or a fully flushed `.tmp` is valid. .NET has
    no API to `fsync` a directory, so a rename can still be lost on power failure on some file systems. Recovery then
    finds the `.tmp` or the backup.
 5. **Completion.** The result goes into a `ConcurrentQueue`. `SaveServer.Process` (main thread) drains it, completes
@@ -298,7 +298,7 @@ servers can own several instances with different storage.
    An `await` in game code therefore continues on the main thread.
 
 `ResourceSaver.WriteAtomically` (`ResourceSaver.cs:74-80`) switches to `DurableFile.Write` with zero backups, so
-`project.mfproj`, `.mscene` and `.mres` writes also get the flush.
+`project.mfproj`, `.mfscene` and `.mfres` writes also get the flush.
 
 #### Load path and recovery
 
@@ -308,7 +308,7 @@ servers can own several instances with different storage.
    `JsonMigrations.Upgrade(payload, version, schema.Version, schema.Migrations, …)`, then
    `payload.Deserialize(schema.TypeInfo)`.
 3. On any failure (truncated, bad checksum, bad JSON, failed migration):
-   1. Rename the bad file to `slot1.msave.corrupt-<utc>`. It is never deleted, so a player can send it to support.
+   1. Rename the bad file to `slot1.mfsave.corrupt-<utc>`. It is never deleted, so a player can send it to support.
    2. Try `.tmp` (when complete and valid), then `.bak1` … `.bakN`. The first good copy is restored as the main file and
       returned with `RecoveredFromBackup` and its own `SaveSlotInfo`. The game can then tell the player "Restored the
       save from 10:02".
@@ -619,7 +619,7 @@ Capture rules:
 public interface ISaveStorage
 {
     string Name { get; }                                    // "local", "fake", …
-    IReadOnlyList<string> List(string folder);              // "saves" → ["slot1.msave", …]
+    IReadOnlyList<string> List(string folder);              // "saves" → ["slot1.mfsave", …]
     Stream? OpenRead(string path);
     void WriteDurable(string path, ReadOnlySpan<byte> bytes, int backups);
     bool Delete(string path);
@@ -651,9 +651,9 @@ public enum SaveConflictPolicy { MostRecent, HighestProgress, Manual }
   - `Manual` raises `ConflictDetected(SaveSlotInfo local, SaveSlotInfo remote)`, and the game calls
     `ResolveConflict(slot, keepLocal)`.
 
-  The losing copy is kept as `slot.msave.conflict-<utc>`. These are M13's policies (`mobile-services.md:351-355`). M13's
+  The losing copy is kept as `slot.mfsave.conflict-<utc>`. These are M13's policies (`mobile-services.md:351-355`). M13's
   `CloudSaveServer` becomes these backends plus its conflict dialog, not a second save system.
-- **Steam Cloud with no code.** Steam Auto-Cloud can sync `{user data}/saves/*.msave` and `settings.json` once it is
+- **Steam Cloud with no code.** Steam Auto-Cloud can sync `{user data}/saves/*.mfsave` and `settings.json` once it is
   configured on the Steamworks partner site. The engine has no `ISteamRemoteStorage` wrapper today
   (`MainframeEngine/Src/Steamworks/`). The M13 Steam backend adds one for conflict handling.
 - **Lifecycle.** M12's `OnApplicationPause` ([mobile](mobile.md), "the last guaranteed callback") calls

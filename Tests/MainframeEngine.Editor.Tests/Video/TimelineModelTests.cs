@@ -112,7 +112,7 @@ public sealed class MediaPoolTests : IDisposable
     {
         Write("Assets/Video/Media/run.mp4");
         Write("Assets/Video/Media/run.mp4.mfcap.json"); // the recording's sidecar
-        Write("Assets/Video/Media/run.mp4.meta");
+        Write("Assets/Video/Media/run.mp4.mfmeta");
         Write("Assets/Video/Media/music.ogg");
         Write("Assets/Video/Media/hit.wav");
         Write("Assets/Video/Media/logo.png");
@@ -120,7 +120,7 @@ public sealed class MediaPoolTests : IDisposable
         Write("Assets/Video/Media/Notes.cs");
         Write("Assets/Video/Media/readme.md");
         Write("Assets/Video/Timelines/Trailer.mftimeline");
-        Write("Assets/Scenes/Main.mscene"); // outside the pool's root
+        Write("Assets/Scenes/Main.mfscene"); // outside the pool's root
 
         var pool = new MediaPool(_root);
         Assert.True(pool.Refresh());

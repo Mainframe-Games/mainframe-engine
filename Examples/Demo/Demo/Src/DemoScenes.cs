@@ -11,7 +11,7 @@ public sealed record DemoCategoryInfo(string Id, string Title);
 public static class DemoScenes
 {
     private static DemoSceneInfo Scene(string id, string title, string category, string icon, Func<Node> build) =>
-        new(id, title, category, icon, $"Assets/Scenes/{id}.mscene", build);
+        new(id, title, category, icon, $"Assets/Scenes/{id}.mfscene", build);
 
     public static IReadOnlyList<DemoCategoryInfo> Categories { get; } =
     [

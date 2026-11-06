@@ -11,18 +11,18 @@ internal sealed class TestProject : IDisposable
     {
         Name = name;
         Root = GameProjectLayout.RealPath(Directory.CreateTempSubdirectory("mf-project").FullName);
-        var settings = new ProjectSettings { Name = name, MainScene = "Assets/Scenes/Main.mscene" };
+        var settings = new ProjectSettings { Name = name, MainScene = "Assets/Scenes/Main.mfscene" };
         settings.Input.AddAction("jump");
         settings.Save(Root);
         Directory.CreateDirectory(Abs("Assets/Scenes"));
-        File.WriteAllText(Abs("Assets/Scenes/Main.mscene"), """
+        File.WriteAllText(Abs("Assets/Scenes/Main.mfscene"), """
             {
               "format": 1,
               "uid": "scn_00000000a001",
               "root": { "type": "Node3D", "name": "Main", "children": [ { "type": "Node3D", "name": "Child" } ] }
             }
             """);
-        File.WriteAllText(Abs("Assets/Scenes/Level.mscene"), """
+        File.WriteAllText(Abs("Assets/Scenes/Level.mfscene"), """
             { "format": 1, "uid": "scn_00000000a002", "root": { "type": "Node3D", "name": "Level" } }
             """);
         var desktop = Abs($"{name}.Desktop");
@@ -164,8 +164,8 @@ public sealed class ProjectWorkflowTests : IDisposable
         _editor.Tick(3);
         Assert.False(w.ProjectManager.Visible);
         Assert.Equal(_project.Root, w.Session.ProjectRoot);
-        Assert.Equal("Main.mscene", Path.GetFileName(Assert.Single(w.Session.Scenes).FilePath));
-        Assert.Equal($"Main.mscene — {_project.Name} — {EditorBrand.NameWithVersion}", _editor.Host.Title);
+        Assert.Equal("Main.mfscene", Path.GetFileName(Assert.Single(w.Session.Scenes).FilePath));
+        Assert.Equal($"Main.mfscene — {_project.Name} — {EditorBrand.NameWithVersion}", _editor.Host.Title);
         Assert.Equal(_project.Root, w.RecentProjects.Items[0].Path);
     }
 
@@ -334,7 +334,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         var values = new Dictionary<string, string>
         {
             ["name"] = "Renamed",
-            ["mainScene"] = "Assets/Scenes/Level.mscene",
+            ["mainScene"] = "Assets/Scenes/Level.mfscene",
             ["assemblies"] = "One, Two",
             ["isDemo"] = "true",
             ["steam.appId"] = "480",
@@ -363,7 +363,7 @@ public sealed class ProjectWorkflowTests : IDisposable
             ["physics.2d.allowSleep"] = "false",
             ["physics.2d.continuous"] = "false",
             ["audio.enabled"] = "false",
-            ["audio.busLayout"] = "Assets/Settings/Buses.mres",
+            ["audio.busLayout"] = "Assets/Settings/Buses.mfres",
             ["audio.sampleRate"] = "48000",
             ["audio.bufferMs"] = "40",
             ["localization.defaultLocale"] = "es",
@@ -482,7 +482,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.Null(model.RemoveBinding("shoot", InputBinding.Parse("mouse:Left")));
 
         w.ProjectSettings.SelectSection("Autoloads");
-        Assert.Null(model.AddAutoload("Music", "Assets/Scenes/Level.mscene"));
+        Assert.Null(model.AddAutoload("Music", "Assets/Scenes/Level.mfscene"));
         Assert.Null(model.AddAutoload("Stats", "Node3D"));
         Assert.Null(model.MoveAutoload(1, -1));
         Assert.Equal(["Stats", "Music"], model.Current.Autoloads.Select(a => a.Name));
@@ -676,7 +676,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         fs.Trash = new RecordingTrash();
         Assert.NotNull(fs.Files);
         Assert.Contains(fs.Rows, r => r.Name == "Assets");
-        Assert.DoesNotContain(fs.Rows, r => r.Name.EndsWith(".meta", StringComparison.Ordinal));
+        Assert.DoesNotContain(fs.Rows, r => r.Name.EndsWith(".mfmeta", StringComparison.Ordinal));
         Assert.Empty(_editor!.RmlMessages);
 
         foreach (var simplified in new[] { false, true })
@@ -692,12 +692,12 @@ public sealed class ProjectWorkflowTests : IDisposable
         }
 
         // Rename the open main scene: the session follows, project.mfproj's mainScene is fixed.
-        var main = _project.Abs("Assets/Scenes/Main.mscene");
-        Assert.True(fs.Rename(main, "Start.mscene"));
+        var main = _project.Abs("Assets/Scenes/Main.mfscene");
+        Assert.True(fs.Rename(main, "Start.mfscene"));
         _editor.Tick();
-        Assert.Equal(_project.Abs("Assets/Scenes/Start.mscene"), w.Session.Active!.FilePath);
-        Assert.Equal("Assets/Scenes/Start.mscene", ProjectSettings.Load(_project.Root).MainScene);
-        Assert.Equal(_project.Abs("Assets/Scenes/Start.mscene"), fs.SelectedPath);
+        Assert.Equal(_project.Abs("Assets/Scenes/Start.mfscene"), w.Session.Active!.FilePath);
+        Assert.Equal("Assets/Scenes/Start.mfscene", ProjectSettings.Load(_project.Root).MainScene);
+        Assert.Equal(_project.Abs("Assets/Scenes/Start.mfscene"), fs.SelectedPath);
     }
 
     [Fact]
@@ -729,7 +729,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         Assert.True(w.Commands.Execute("fs.rename"));
         Assert.Null(w.Message.Current);
         Assert.False(fs.CanDrop(_project.Abs("Workflow/Src/Player.cs"), _project.Abs("Assets/Scenes")));
-        Assert.False(fs.CanDrop(_project.Abs("Assets/Scenes/Level.mscene"), scripts));
+        Assert.False(fs.CanDrop(_project.Abs("Assets/Scenes/Level.mfscene"), scripts));
         Assert.True(fs.CanDrop(_project.Abs("Workflow/Src/Player.cs"), _project.Abs("Workflow/Src/AI")));
         Assert.True(fs.CanDrop(_project.Abs("Assets/Scenes"), _project.Abs("Workflow/Src/AI")));
 
@@ -768,7 +768,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         var w = Open().Workspace;
         var trash = new RecordingTrash();
         w.FileSystem.Trash = trash;
-        var level = _project.Abs("Assets/Scenes/Level.mscene");
+        var level = _project.Abs("Assets/Scenes/Level.mfscene");
         w.FileSystem.Delete(level);
         Assert.Equal("Move to Trash", w.Message.Current?.Title);
         w.Message.Answer(0);
@@ -792,7 +792,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         var w = Open().Workspace;
         var scene = w.Session.Active!;
         var child = scene.Root.GetNode("Child");
-        w.FileSystem.BeginDrag(_project.Abs("Assets/Scenes/Level.mscene"));
+        w.FileSystem.BeginDrag(_project.Abs("Assets/Scenes/Level.mfscene"));
         Assert.NotNull(w.FileDrag);
         Assert.True(w.DropFileOnNode(w.FileDrag!, child));
         Assert.Null(w.FileDrag);
@@ -809,7 +809,7 @@ public sealed class ProjectWorkflowTests : IDisposable
         w.FileSystem.Select(_project.Abs("Assets/NewFolder"));
         Assert.True(w.Commands.Execute("fs.new_scene_2d"));
         w.Message.Answer(0);
-        Assert.True(File.Exists(_project.Abs("Assets/NewFolder/NewScene.mscene")));
+        Assert.True(File.Exists(_project.Abs("Assets/NewFolder/NewScene.mfscene")));
         Assert.True(w.Session.Active!.Camera.Is2D); // opened, a Node2D scene
     }
 
@@ -957,7 +957,7 @@ public sealed class ProjectWorkflowTests : IDisposable
     public void ResourceFilesOpenInTheInspectorAndTheBusLayoutInspectorEditsWithUndo()
     {
         var w = Open().Workspace;
-        var file = _project.Abs("Assets/Buses.mres");
+        var file = _project.Abs("Assets/Buses.mfres");
         ResourceSaver.Save(AudioBusLayout.CreateDefault(), file);
         Assert.True(w.Inspector.InspectResourceFile(file));
         _editor!.Tick();
