@@ -136,7 +136,7 @@ files; `publish.yml`'s editor builds follow the same pattern, and `natives.yml`'
 | Job | Runs |
 |---|---|
 | `changes` | Classifies the PR (above): `code=true` runs the jobs below, `code=false` (docs only) skips them |
-| `build-test` (ubuntu-24.04, windows-latest, macos-14) | `dotnet build -c Release -warnaserror -p:CompileShaders=false` (committed `.spv`), unit tests with coverage; uploads `.trx` results and (Linux) Cobertura coverage |
+| `build-test` (ubuntu-24.04, windows-latest, macos-15) | `dotnet build -c Release -warnaserror -p:CompileShaders=false` (committed `.spv`), unit tests with coverage; uploads `.trx` results and (Linux) Cobertura coverage |
 | `format` | `dotnet format --verify-no-changes --exclude Plugins/Spine` |
 | `shaders` | Slang v2026.1 from its GitHub release (SHA-256 pinned) + apt `spirv-tools`, compiles every shader to a temp dir, `spirv-val`, `build/shaders.sh check` |
 | `render-tests` | Ubuntu with lavapipe (`mesa-vulkan-drivers`, `VK_DRIVER_FILES` = `lvp_icd.json`), `vulkan-validationlayers`, Xvfb; three parallel shards by test class (the matrix's `--filter`s; the last runs every class the others do not name); compares against `Goldens/lavapipe/`; each shard uploads `artifacts/render-tests` (frames, diffs) as `render-tests-<shard>`. Timing tests measure a short `--perf-on-cpu` window there. Re-recording: [Testing](testing.md#golden-images) |

@@ -206,7 +206,7 @@ Games never reference it.
   `.gitmodules` or the workflow itself.
 - **Jobs:**
   - **`build`** is a matrix:
-    - `macos-14`: universal build, uploaded for both osx RIDs.
+    - `macos-15`: universal build, uploaded for both osx RIDs.
     - `windows-latest`: win-x64.
     - `ubuntu-22.04`: linux-x64.
     Each leg checks out with recursive submodules, builds, runs CTest, uploads `natives-<name>` (laid out as
