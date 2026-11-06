@@ -108,7 +108,7 @@ public sealed record UiServerOptions
 /// UI keeps the mouse with the game until released; a focused text field takes all keys; a modal document blocks
 /// everything below it. Gamepad D-pad/stick and A/B drive RmlUi's focus navigation.</para>
 /// </remarks>
-public sealed class UiServer : IFrameServer, IInputServer
+public sealed partial class UiServer : IFrameServer, IInputServer
 {
     private const string DebuggerContextName = "__mainframe_debugger";
     private const float NavRepeatDelay = 0.4f;
@@ -494,6 +494,17 @@ public sealed class UiServer : IFrameServer, IInputServer
             }
         }
 
+        foreach (var panel in _panels)
+        {
+            foreach (var document in panel.DocumentList.ToArray())
+            {
+                if (!document.IsLoaded)
+                    continue;
+                document.Reload();
+                reloaded++;
+            }
+        }
+
         Log.Info($"[UI] Locale '{_textTranslator?.Locale}': reloaded {reloaded} document(s)");
     }
 
@@ -644,10 +655,8 @@ public sealed class UiServer : IFrameServer, IInputServer
         }
 
         RmlCore.ProcessPendingReleases();
-        foreach (var layer in _layers)
+        foreach (var context in AllContexts())
         {
-            if (layer.Context is not { IsDisposed: false } context)
-                continue;
             foreach (var model in context.DataModels.ToArray())
             {
                 if (!model.UsesCode(assembly))
@@ -661,6 +670,16 @@ public sealed class UiServer : IFrameServer, IInputServer
         }
 
         RmlCore.ProcessPendingReleases();
+    }
+
+    private IEnumerable<RmlContext> AllContexts()
+    {
+        foreach (var layer in _layers)
+            if (layer.Context is { IsDisposed: false } context)
+                yield return context;
+        foreach (var panel in _panels)
+            if (panel.Context is { IsDisposed: false } context)
+                yield return context;
     }
 
     // ── Frame ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -701,6 +720,8 @@ public sealed class UiServer : IFrameServer, IInputServer
             context.Update();
         }
 
+        UpdatePanels(); // G11.5: the due world-space panels, nearest first
+
         var debugger = RmlDebugger.Visible ? _debuggerContext : null;
         if (debugger is not null)
         {
@@ -710,7 +731,10 @@ public sealed class UiServer : IFrameServer, IInputServer
         }
 
         if (CanRender is { } canRender && !canRender())
+        {
+            SkipPanelRenders();
             return;
+        }
 
         var vulkanRenderer = RenderInterface as VulkanUiRenderer;
         switch (RenderInterface)
@@ -723,6 +747,7 @@ public sealed class UiServer : IFrameServer, IInputServer
                 break;
         }
 
+        RenderPanels(vulkanRenderer); // their segments first; the screen layers are the last segment
         for (var i = 0; i < _layers.Count; i++)
         {
             var layer = _layers[i];
@@ -809,6 +834,9 @@ public sealed class UiServer : IFrameServer, IInputServer
         foreach (var layer in _layers)
             foreach (var document in layer.DocumentList.ToArray())
                 ReloadDocument(document, kind);
+        foreach (var panel in _panels)
+            foreach (var document in panel.DocumentList.ToArray())
+                ReloadDocument(document, kind);
 
         Log.Info($"[UI] Hot reload: {kind}");
         HotReloaded?.Invoke(kind, path);
@@ -872,7 +900,7 @@ public sealed class UiServer : IFrameServer, IInputServer
             case InputEventMouseButton button:
                 return HandleMouseButton(button);
             case InputEventMouseWheel wheel:
-                return !MouseIsRaw() && Route(InputKind.Wheel, wheel.Delta.X, -wheel.Delta.Y);
+                return !MouseIsRaw() && (Route(InputKind.Wheel, wheel.Delta.X, -wheel.Delta.Y) || HandlePanelWheel(wheel.Delta.X, -wheel.Delta.Y));
             case InputEventGamepadButton pad:
                 return HandleGamepadButton(pad);
             case InputEventGamepadAxis axis when axis.Axis == GamepadAxis.LeftStick:
@@ -907,7 +935,9 @@ public sealed class UiServer : IFrameServer, IInputServer
         var key = UiInputMap.ToRmlKey(e.Key);
         if (key == RmlKey.Unknown)
             return _system.TextInputActive;
-        var consumed = Route(e.Pressed ? InputKind.KeyDown : InputKind.KeyUp, (int)key, 0) || _system.TextInputActive;
+        // Screen layers first, then the crosshair's click action and the focused panel (G11.6, ADR 0253).
+        var consumed = Route(e.Pressed ? InputKind.KeyDown : InputKind.KeyUp, (int)key, 0) || HandlePanelClickAction(e) ||
+                       HandlePanelKey(key, e.Pressed, e.Key) || _system.TextInputActive;
 
         // A release follows its press: the game never sees the up of a key the UI took (and vice versa).
         var index = (int)e.Key;
@@ -1007,7 +1037,9 @@ public sealed class UiServer : IFrameServer, IInputServer
             (consumer is null || consumer.Layer > _hoverLayer.Layer))
             previous.ProcessMouseLeave();
         _hoverLayer = consumer;
-        return consumer is not null || _uiMouseButtons != 0; // a UI drag keeps the mouse even off the element
+        var layers = consumer is not null || _uiMouseButtons != 0; // a UI drag keeps the mouse even off the element
+        _mouseOnLayers = layers;
+        return HandlePanelMouseMove(x, y, layers) || layers;     // then the panel under the cursor (G11.6)
     }
 
     private bool HandleMouseButton(InputEventMouseButton e)
@@ -1032,6 +1064,8 @@ public sealed class UiServer : IFrameServer, IInputServer
             var consumed = Route(InputKind.MouseDown, button, 0);
             if (consumed)
                 _uiMouseButtons |= bit;
+            else if (HandlePanelButton(button, pressed: true))
+                consumed = true; // a press on a panel captures it until released
             else
                 _gameMouseButtons |= bit;
             return consumed;
@@ -1042,6 +1076,9 @@ public sealed class UiServer : IFrameServer, IInputServer
             _gameMouseButtons &= ~bit;
             return false;
         }
+
+        if ((_panelMouseButtons & bit) != 0)
+            return HandlePanelButton(button, pressed: false);
 
         // A press the UI took (e.g. a slider drag) ends in the UI even if released over the world.
         var routed = Route(InputKind.MouseUp, button, 0);
@@ -1054,7 +1091,7 @@ public sealed class UiServer : IFrameServer, IInputServer
     {
         var key = UiInputMap.ToNavigationKey(e.Button);
         if (key == RmlKey.Unknown)
-            return false;
+            return HandlePanelClickAction(e);
         var bit = 1 << Math.Clamp((int)e.Button, 0, 30);
         if (!e.Pressed)
         {
@@ -1063,10 +1100,10 @@ public sealed class UiServer : IFrameServer, IInputServer
             Route(InputKind.KeyUp, (int)key, 0);
             var wasUi = (_uiPadButtons & bit) != 0;
             _uiPadButtons &= ~bit;
-            return wasUi;
+            return HandlePanelClickAction(e) || wasUi;
         }
 
-        var consumed = Navigate(key);
+        var consumed = Navigate(key) || HandlePanelClickAction(e);
         if (consumed)
         {
             _uiPadButtons |= bit;
@@ -1150,7 +1187,7 @@ public sealed class UiServer : IFrameServer, IInputServer
                 return true;
         }
 
-        return false;
+        return NavigatePanel(key); // G11.6: within the focused panel
     }
 
     /// <summary>
@@ -1179,7 +1216,7 @@ public sealed class UiServer : IFrameServer, IInputServer
                 return true;
         }
 
-        return false;
+        return HandlePanelText(text);
     }
 
     private bool Route(InputKind kind, float a, float b)
@@ -1233,6 +1270,14 @@ public sealed class UiServer : IFrameServer, IInputServer
         foreach (var layer in _layers.ToArray())
             foreach (var document in layer.DocumentList.ToArray())
                 document.DetachFromLayer();
+        foreach (var panel in _panels.ToArray())
+        {
+            foreach (var document in panel.DocumentList.ToArray())
+                document.DetachFromLayer();
+            panel.Context?.Dispose();
+        }
+
+        _panels.Clear();
         RmlDebugger.Shutdown();
         _debuggerContext?.Dispose();
         _debuggerContext = null;
