@@ -5,7 +5,10 @@ namespace MainframeEngine.Tests.Scene;
 
 using Color = System.Drawing.Color;
 
-/// <summary><see cref="Label3D"/> (ADR 0200): glyph quads from the font atlas, alignment, outline, materials and rebuilds.</summary>
+/// <summary>
+/// <see cref="Label3D"/> (ADRs 0200, 0251, 0258): glyph quads from the font atlas — a glyph run for the batched renderer
+/// (unshaded labels), a mesh for lit labels and shadow-casting cutouts — alignment, outline, materials and rebuilds.
+/// </summary>
 public sealed class Label3DTests
 {
     private static readonly Font Lato = Font.FromData(File.ReadAllBytes(ContentPaths.Resolve("Assets/UI/fonts/LatoLatin-Regular.ttf")));
@@ -26,20 +29,58 @@ public sealed class Label3DTests
         return new Aabb(min, max);
     }
 
+    // The bounds of a batched label's text (or outline) glyphs, in label space.
+    private static Aabb GlyphBounds(Label3D label, bool outline = false)
+    {
+        label.SyncGlyphs();
+        var bounds = Aabb.Empty;
+        foreach (var glyph in label.Glyphs)
+            if (glyph.Outline == outline)
+                bounds = bounds.Merge(new Aabb(new Vector3(glyph.Rect.X, glyph.Rect.Y, 0), new Vector3(glyph.Rect.Z, glyph.Rect.W, 0)));
+        return bounds;
+    }
+
     [Fact]
     public void NothingIsDrawnWithoutTextAndTheEnginesLatoIsTheDefaultFont()
     {
-        Assert.Null(new Label3D { Font = Lato }.GetRenderMesh());
-        Assert.Null(Label(" ").GetRenderMesh()); // a space has no glyph
+        var empty = new Label3D { Font = Lato };
+        empty.SyncGlyphs();
+        Assert.True(empty.Glyphs.IsEmpty);
+        Assert.Null(empty.GetRenderMesh());
+        var space = Label(" "); // a space has no glyph
+        space.SyncGlyphs();
+        Assert.True(space.Glyphs.IsEmpty);
 
         var fallback = new Label3D { Text = "Hello", OutlineSize = 0 };
-        var mesh = fallback.GetRenderMesh()!;
         var withLato = Label("Hello");
         withLato.OutlineSize = 0;
         withLato.PixelSize = fallback.PixelSize;
-        Assert.Equal(SurfaceBounds(withLato.GetRenderMesh()!, 0), SurfaceBounds(mesh, 0)); // the same glyphs
+        Assert.Equal(GlyphBounds(withLato), GlyphBounds(fallback)); // the same glyphs
         fallback.Free();
         withLato.Free();
+    }
+
+    [Fact]
+    public void UnshadedLabelsAreBatchedLitOnesAndShadowCastingCutoutsAreMeshes()
+    {
+        var label = Label();
+        Assert.True(label.IsBatchedText);
+        Assert.Null(label.GetRenderMesh()); // the batched renderer draws it
+        label.SyncGlyphs();
+        Assert.False(label.Glyphs.IsEmpty);
+
+        label.AlphaCut = SpriteAlphaCut.Discard; // a cutout casts shadows (CastShadows defaults on): the mesh batcher
+        Assert.False(label.IsBatchedText);
+        Assert.NotNull(label.GetRenderMesh());
+        label.CastShadows = false;
+        Assert.True(label.IsBatchedText);
+        Assert.Null(label.GetRenderMesh());
+
+        label.AlphaCut = SpriteAlphaCut.Disabled;
+        label.Shaded = true; // lit: the mesh batcher
+        Assert.False(label.IsBatchedText);
+        Assert.NotNull(label.GetRenderMesh());
+        label.Free();
     }
 
     [Fact]
@@ -48,17 +89,41 @@ public sealed class Label3DTests
         var tree = new SceneTree(new ServerRegistry());
         var label = Label("Hello");
         tree.Root.AddChild(label);
-        var before = label.GetRenderMesh()!.Version;
+        label.SyncGlyphs();
+        var before = label.GlyphsVersion;
         tree.Root.PropagateLocaleChanged(); // as Tr.SetLocale does
-        label.GetRenderMesh();
-        Assert.NotEqual(before, label.GetRenderMesh()!.Version); // rebuilt with Atr(Text)
+        label.SyncGlyphs();
+        Assert.NotEqual(before, label.GlyphsVersion); // rebuilt with Atr(Text)
         tree.Shutdown();
     }
 
     [Fact]
-    public void TheOutlineDrawsUnderTheTextAndMaterialsFollowTheLabel()
+    public void TheOutlineGlyphsComeFirstAndSurroundTheText()
     {
         var label = Label();
+        label.OutlineSize = 14;
+        label.SyncGlyphs();
+        var glyphs = label.Glyphs.ToArray();
+        var firstText = Array.FindIndex(glyphs, g => !g.Outline);
+        Assert.True(firstText > 0, "outline glyphs first");
+        Assert.All(glyphs[firstText..], g => Assert.False(g.Outline));
+        var text = GlyphBounds(label);
+        var outline = GlyphBounds(label, outline: true);
+        Assert.True(outline.Min.X < text.Min.X && outline.Max.X > text.Max.X);
+        Assert.True(outline.Min.Y < text.Min.Y && outline.Max.Y > text.Max.Y);
+        Assert.Equal(text.Merge(outline), label.GetAabb());
+
+        label.OutlineModulate = Color.Transparent; // no outline glyphs at all
+        label.SyncGlyphs();
+        Assert.All(label.Glyphs.ToArray(), g => Assert.False(g.Outline));
+        label.Free();
+    }
+
+    [Fact]
+    public void ALitLabelsMeshHasTheOutlineUnderTheTextAndMaterialsFollowTheLabel()
+    {
+        var label = Label();
+        label.Shaded = true;
         label.Modulate = Color.FromArgb(255, 43, 33, 24);
         label.OutlineModulate = Color.FromArgb(200, 254, 244, 216);
         label.OutlineSize = 14;
@@ -75,7 +140,7 @@ public sealed class Label3DTests
         foreach (var material in new[] { outline, text })
         {
             Assert.Equal(AlphaMode.Blend, material.Transparency);
-            Assert.Equal(ShadingMode.Unshaded, material.ShadingMode);
+            Assert.Equal(ShadingMode.BlinnPhong, material.ShadingMode);
             Assert.True(material.DoubleSided);
             Assert.True(material.RenderState.NoDepthTest);
             Assert.True(material.RenderState.IsTransparent);
@@ -100,46 +165,56 @@ public sealed class Label3DTests
         var width = Lato.GetStringSize(label.Text, fontSize: 32).X * label.PixelSize;
         var pixel = label.PixelSize;
 
-        var centred = SurfaceBounds(label.GetRenderMesh()!, 0);
+        var centred = GlyphBounds(label);
         Assert.InRange(centred.Center.X, -2 * pixel, 2 * pixel);
         Assert.InRange(centred.Size.X, width * 0.9f, width * 1.05f); // glyph ink inside the advance
 
         label.HorizontalAlignment = HorizontalAlignment.Left;
         label.VerticalAlignment = VerticalAlignment.Top;
-        var topLeft = SurfaceBounds(label.GetRenderMesh()!, 0);
+        var topLeft = GlyphBounds(label);
         Assert.InRange(topLeft.Min.X, -pixel, 3 * pixel);   // starts at the node
         Assert.True(topLeft.Max.Y <= pixel, $"{topLeft}"); // hangs below it
 
         label.HorizontalAlignment = HorizontalAlignment.Right;
         label.VerticalAlignment = VerticalAlignment.Bottom;
-        var bottomRight = SurfaceBounds(label.GetRenderMesh()!, 0);
+        var bottomRight = GlyphBounds(label);
         Assert.InRange(bottomRight.Max.X, -3 * pixel, pixel); // ends at the node
         Assert.True(bottomRight.Min.Y >= -pixel, $"{bottomRight}"); // sits on it
 
         label.Offset = new Vector2(10, 20); // pixels, +Y up
-        var moved = SurfaceBounds(label.GetRenderMesh()!, 0);
+        var moved = GlyphBounds(label);
         Assert.Equal(bottomRight.Min.X + 10 * pixel, moved.Min.X, 4);
         Assert.Equal(bottomRight.Min.Y + 20 * pixel, moved.Min.Y, 4);
+
+        label.Shaded = true; // the mesh path lays out the same quads
+        Assert.Equal(moved.Min.X, SurfaceBounds(label.GetRenderMesh()!, 0).Min.X, 4);
         label.Free();
     }
 
     [Fact]
-    public void TheMeshIsRebuiltOnlyWhenTheLabelChanges()
+    public void TheGlyphsAreRebuiltOnlyWhenTheLabelChanges()
     {
         var label = Label();
-        var mesh = label.GetRenderMesh()!;
-        var version = mesh.Version;
-        Assert.Same(mesh, label.GetRenderMesh());
-        Assert.Equal(version, mesh.Version);
+        label.SyncGlyphs();
+        var version = label.GlyphsVersion;
+        label.SyncGlyphs();
+        Assert.Equal(version, label.GlyphsVersion);
 
         label.Billboard = BillboardMode.FixedY; // turned by the renderer: no rebuild
-        label.GetRenderMesh();
-        Assert.Equal(version, mesh.Version);
+        label.IgnoreExposure = true;          // a colour scale in the renderer: no rebuild
+        label.SyncGlyphs();
+        Assert.Equal(version, label.GlyphsVersion);
         Assert.Equal(BillboardMode.FixedY, label.RenderBillboard);
 
         label.Text = "Hattie Jane";
-        label.GetRenderMesh();
-        Assert.NotEqual(version, mesh.Version);
+        label.SyncGlyphs();
+        Assert.NotEqual(version, label.GlyphsVersion);
+
+        label.Shaded = true; // the mesh path keeps its own rebuild rule
+        var mesh = label.GetRenderMesh()!;
+        var meshVersion = mesh.Version;
+        Assert.Same(mesh, label.GetRenderMesh());
+        Assert.Equal(meshVersion, mesh.Version);
         label.Free();
     }
 
@@ -155,6 +230,7 @@ public sealed class Label3DTests
             OutlineModulate = Color.FromArgb(200, 254, 244, 216),
             Billboard = BillboardMode.FixedY,
             NoDepthTest = true,
+            IgnoreExposure = true,
             VerticalAlignment = VerticalAlignment.Bottom,
         };
         var copy = (Label3D)PackedScene.Parse(SceneSaver.ToJson(label)).Instantiate();
@@ -164,6 +240,8 @@ public sealed class Label3DTests
         Assert.Equal(label.OutlineModulate, copy.OutlineModulate);
         Assert.Equal(BillboardMode.FixedY, copy.Billboard);
         Assert.True(copy.NoDepthTest);
+        Assert.True(copy.IgnoreExposure);
+        Assert.False(new Label3D().IgnoreExposure); // off by default (ADR 0257)
         Assert.Equal(VerticalAlignment.Bottom, copy.VerticalAlignment);
         Assert.Equal(HorizontalAlignment.Center, copy.HorizontalAlignment);
         Assert.Equal(-1, copy.OutlineRenderPriority);

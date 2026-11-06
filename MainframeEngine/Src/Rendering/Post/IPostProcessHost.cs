@@ -10,6 +10,12 @@ namespace MainframeEngine;
 /// </summary>
 internal interface IPostProcessHost
 {
+    /// <summary>
+    /// The exposure the main view's tonemap applies: the frame's (manual or the Godot tonemaps'), times auto exposure's
+    /// factor as last read back (ADR 0257: <c>IgnoreExposure</c> surfaces divide by it).
+    /// </summary>
+    float EffectiveExposure { get; }
+
     /// <summary>The main view's post effects (built-ins registered at start-up).</summary>
     PostProcessStack PostEffects { get; }
 
@@ -49,4 +55,20 @@ internal interface IPostProcessHost
 
     /// <summary>Records the <see cref="PostStage.AfterPrepass"/> stage (SSAO), after <see cref="EndPrepass"/>.</summary>
     void RecordAfterPrepass();
+}
+
+/// <summary>The exposure a view's tonemap applies, for surfaces that cancel it (ADR 0257).</summary>
+internal static class PostExposure
+{
+    /// <summary>
+    /// <paramref name="frameExposure"/> times auto exposure's <see cref="PostProcessSettings.AutoExposureFor"/> of
+    /// <paramref name="adaptedLuminance"/> (the last value read back; 0 = none yet), when the post tonemap runs with auto
+    /// exposure.
+    /// </summary>
+    public static float Effective(float frameExposure, in PostProcessSettings settings, bool postTonemap, float adaptedLuminance)
+    {
+        if (!postTonemap || !settings.AutoExposureEnabled || !(adaptedLuminance > 0f))
+            return frameExposure;
+        return frameExposure * settings.AutoExposureFor(adaptedLuminance);
+    }
 }
