@@ -240,7 +240,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   environment), `macos/` (the dev `.app` bundles; release bundles: `BundleAppHost.targets` + `sign-app.sh`, the apphost
   alone in `Contents/MacOS` and the app in `Contents/MonoBundle`, `docs/design/release.md#macos-bundle-layout`),
   `editor-icons/`, `brand/`
-- `.github/workflows/` — `ci.yml` (build-test on 3 OSes, format, shaders, lavapipe render tests, template smoke;
+- `.github/workflows/` — `ci.yml` (build-test on 3 OSes, format, shaders, lavapipe render tests, template smoke, a NativeAOT export per OS;
   `ci-success` is the required check; docs-only PRs skip the heavy jobs, `build/ci-changes.sh`), `publish.yml` (releases), `natives.yml` (native shims), `docs.yml` (docs site → Pages after each release)
 - `docs/images/brand/` — the logo (SVG sources, PNG/ICO/ICNS; `just brand` regenerates); app copies in `MainframeEngine/Assets/Brand/`
 - `docs/` — design docs (`docs/design/`, one topic per file) and the roadmap (`docs/milestones.md`); update the matching doc when changing a subsystem

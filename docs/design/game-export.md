@@ -224,7 +224,7 @@ needs nothing new; its own reflection shows up as analyzer errors in the export.
   `addr2line` ([Crash reporting → Symbols](crash-reporting.md#symbols), [ADR 0260](../../memory/decisions/0260-native-crash-frames.md)).
 - **Testing:** `just template-smoke-aot` (this machine) and `just template-smoke-aot-linux` (Docker) export the
   template game with `nativeAot`, check there is no managed file and run it headless; `NativeAotExportHasNoManagedAssemblies`
-  runs with `MAINFRAME_NATIVE_AOT_TESTS=1`.
+  runs with `MAINFRAME_NATIVE_AOT_TESTS=1`, which CI's `native-aot` job sets on each OS runner (Linux, Windows, macOS).
 
 ### Exported project file
 

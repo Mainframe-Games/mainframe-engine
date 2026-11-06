@@ -68,6 +68,8 @@ A spike publish of the template game showed what the proposal's "known sites" li
 - A game's own reflection shows up as analyzer errors in its AOT export (its projects get `PublishAot`), not as a
   broken build at run time.
 - NativeAOT executables are larger and take minutes to compile; `nativeAot` stays opt-in (default false).
+- CI's `native-aot` job (owner, 2026-11-07) exports the template game with `nativeAot` on each OS runner and runs it
+  headless, part of `ci-success`: every code PR pays a few minutes of ILC per OS.
 
 ## Revisit when
 

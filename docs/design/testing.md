@@ -121,7 +121,8 @@ game-assembly load → unload → **GC-verified collection** → reload with Ros
 `LogRoutingTests`/`LogSinkTests` (0 B when filtered) and `InputMapTests` (0 B polling); details in
 [Projects & GameHost → Testing](project-and-gamehost.md#testing). The `mfgame` template is built and run by CI's
 `template` job (`just template-smoke`), which then exports it for the host RID with `mf-export --preset`, unpacks the
-archive and runs it `--headless`.
+archive and runs it `--headless`. CI's `native-aot` job (one per OS runner) exports it with `nativeAot` for the
+runner's RID and runs it `--headless` (`NativeAotExportHasNoManagedAssemblies`, `MAINFRAME_NATIVE_AOT_TESTS=1`).
 
 Game export (G5) has `Project/ExportPresetFormatTests` (the `export` section and format 5) and the editor tests'
 [`Export/`](../../Tests/MainframeEngine.Editor.Tests/Export/) folder: the export library with no SDK (globs, content

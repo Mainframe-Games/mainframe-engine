@@ -261,9 +261,9 @@ and [Game export → NativeAOT](game-export.md#nativeaot).
   locally; CI's template job covers the template game).
 - **CI:** the template job's export (`build/template-smoke.sh`) becomes packed and encrypted by default, so every PR
   exercises the default path on Linux. Phase 4 adds a NativeAOT export per OS runner. GitHub Actions minutes are scarce,
-  so phase 4's runs are one job per OS, not per preset. (Built: not yet in CI; the owner decides. Locally
-  `just template-smoke-aot` and `just template-smoke-aot-linux`; `NativeAotExportHasNoManagedAssemblies` runs with
-  `MAINFRAME_NATIVE_AOT_TESTS=1`.)
+  so phase 4's runs are one job per OS, not per preset. (Built: CI's `native-aot` job, one per OS runner, runs
+  `NativeAotExportHasNoManagedAssemblies` with `MAINFRAME_NATIVE_AOT_TESTS=1`; owner, 2026-11-07. Locally
+  `just template-smoke-aot` and `just template-smoke-aot-linux`.)
 - Gates as usual: `just build`, the Release build, `just test`, `just test-render`, `just format-check`,
   `just shaders-check`.
 
@@ -287,8 +287,8 @@ and [Game export → NativeAOT](game-export.md#nativeaot).
       `MF_PACK_KEY`; `MainframePackKey` through `MainframeGame.props` and the generator's module initializer; the
       `encrypt` preset key; validator issues.
 - [x] Phase 4: `IsAotCompatible` and the analyzer fixes (shared with M12.6/C0); the static Steamworks shim under AOT; the
-      `nativeAot` preset key; NativeAOT symbols in `symbols: separate` and `mf-symbolicate`. A NativeAOT export per OS in
-      CI waits for the owner (minutes).
+      `nativeAot` preset key; NativeAOT symbols in `symbols: separate` and `mf-symbolicate`; a NativeAOT export per OS in
+      CI (the `native-aot` job, owner 2026-11-07).
 
 ## Changes from the proposal, phase 1
 
@@ -382,8 +382,9 @@ and [Game export → NativeAOT](game-export.md#nativeaot).
 - **Native crash frames** ([ADR 0260](../../memory/decisions/0260-native-crash-frames.md)): a NativeAOT frame records
   `nativeImage`, `nativeOffset` and `nativeImageId` (Mach-O UUID, ELF build id or PE CodeView id, read from the image in
   memory); `mf-symbolicate` resolves them with `llvm-symbolizer`, `atos` or `addr2line` from a symbol file of the same id.
-- **Tests:** `NativeAotExportHasNoManagedAssemblies` is opt-in (`MAINFRAME_NATIVE_AOT_TESTS=1`), since every `just test`
-  and CI run would otherwise pay minutes of ILC; `just template-smoke-aot` and `build/linux/run.sh aot` run it.
+- **Tests:** `NativeAotExportHasNoManagedAssemblies` is opt-in (`MAINFRAME_NATIVE_AOT_TESTS=1`), so `just test` and CI's
+  unit-test jobs don't pay minutes of ILC; CI's `native-aot` job (one per OS runner, the headless run needs no GPU),
+  `just template-smoke-aot` and `build/linux/run.sh aot` run it.
 
 ## Open questions
 
@@ -397,7 +398,8 @@ and [Game export → NativeAOT](game-export.md#nativeaot).
   whose file has no key.
 - ~~Does phase 4 stay here, or move to M12.6?~~ Here (owner, 2026-11-07; [ADR 0259](../../memory/decisions/0259-native-aot-exports.md));
   M12.6 and C0 reuse it.
-- Add one NativeAOT export job per OS runner to CI (`template-smoke-aot`, a few minutes of ILC each)? Owner.
+- ~~Add one NativeAOT export job per OS runner to CI?~~ Yes (owner, 2026-11-07): the `native-aot` job, part of
+  `ci-success`.
 - ~~Should `assets.index.json` and the UID map live only inside the pack?~~ Yes; confirmed in phase 2 (nothing reads
   them by OS path).
 
