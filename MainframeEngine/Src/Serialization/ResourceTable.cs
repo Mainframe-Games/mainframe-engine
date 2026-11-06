@@ -96,7 +96,15 @@ internal static class PropertyApplier
         if (props.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
         {
             if (version < info.Version)
-                Migrate(info, new PropertyBag(), version, where);
+            {
+                // An old entry with every property at its default still migrates: a migration can add values (a
+                // default that changed since, ADR 0255).
+                var empty = new PropertyBag();
+                Migrate(info, empty, version, where);
+                foreach (var (name, value) in empty.Entries)
+                    ApplyOne(target, info, name, value, context, where);
+            }
+
             return;
         }
 

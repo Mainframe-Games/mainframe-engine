@@ -11,9 +11,11 @@
     },
     "StandardMaterial3D_s8kz4": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "AlbedoTexture": { "res": "Texture2D_0x7jk" },
         "Specular": 0.1,
+        "ShadingMode": "BlinnPhong",
         "UvScale": [5, 5]
       }
     },
@@ -25,8 +27,10 @@
     },
     "StandardMaterial3D_woz69": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.9019608, 0.47058824, 0.3137255, 1]
+        "AlbedoColor": [0.9019608, 0.47058824, 0.3137255, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_twalp": {
@@ -43,11 +47,13 @@
     },
     "StandardMaterial3D_qgxsi": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "AlbedoColor": [0.47058824, 0.7058824, 1, 0.43137255],
         "Specular": 1,
         "Shininess": 96,
-        "Transparency": "Blend"
+        "Transparency": "Blend",
+        "ShadingMode": "BlinnPhong"
       }
     },
     "SphereMesh_spukm": {
@@ -59,6 +65,7 @@
     },
     "StandardMaterial3D_xw17m": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "AlbedoColor": [0, 0, 0, 1],
         "EmissionColor": [1, 0.627451, 0.23529412, 1],
@@ -75,10 +82,12 @@
     },
     "StandardMaterial3D_sxg1q": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
         "AlbedoColor": [0.8235294, 0.8039216, 0.74509805, 1],
         "Specular": 0.5,
-        "Shininess": 64
+        "Shininess": 64,
+        "ShadingMode": "BlinnPhong"
       }
     },
     "CylinderMesh_1kf2y": {
@@ -102,8 +111,10 @@
     },
     "StandardMaterial3D_iphp7": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.8235294, 0.54901963, 0.27450982, 1]
+        "AlbedoColor": [0.8235294, 0.54901963, 0.27450982, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_337o7": {
@@ -114,14 +125,18 @@
     },
     "StandardMaterial3D_zwhwc": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.7058824, 0.43137255, 0.23529412, 1]
+        "AlbedoColor": [0.7058824, 0.43137255, 0.23529412, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "StandardMaterial3D_oifet": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.5882353, 0.37254903, 0.21568628, 1]
+        "AlbedoColor": [0.5882353, 0.37254903, 0.21568628, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "Texture2D_0x7jk": {

@@ -75,7 +75,7 @@ public static class WorldUiScene
                 Range = 2.5f + i % 3,
                 Speed = 0.8f + 0.25f * i,
             });
-            Add(root, walker, new MeshInstance3D { Name = "Mesh", Mesh = new CapsuleMesh { Radius = 0.35f, Height = 1.8f }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(120 + i * 20, 160, 220 - i * 20) } });
+            Add(root, walker, new MeshInstance3D { Name = "Mesh", Mesh = new CapsuleMesh { Radius = 0.35f, Height = 1.8f }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(120 + i * 20, 160, 220 - i * 20) } });
             Add(root, walker, new UiMarker3D
             {
                 Name = "Nameplate",
@@ -144,7 +144,7 @@ public static class WorldUiScene
         Add(root, root, body);
         if (collider)
             Add(root, body, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = size } });
-        Add(root, body, new MeshInstance3D { Name = "Mesh", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { AlbedoColor = color } });
+        Add(root, body, new MeshInstance3D { Name = "Mesh", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = color } });
         return body;
     }
 }

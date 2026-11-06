@@ -5,7 +5,7 @@ namespace MainframeEngine.Tests.Scene;
 
 /// <summary>
 /// G6.4: authored levels of detail. <c>&lt;name&gt;_LODn</c> sibling nodes merge into one mesh with levels; the
-/// <c>lodErrors</c> and <c>generateLods</c> model import settings.
+/// <c>lodErrors</c> and <c>generateLods</c> model import settings (generated levels: ADR 0256).
 /// </summary>
 [Collection(nameof(SerialResources))]
 public sealed class ModelLodImportTests : IDisposable
@@ -107,6 +107,34 @@ public sealed class ModelLodImportTests : IDisposable
     }
 
     [Fact]
+    public void GenerateLodsBuildsIndexOnlyLevelsOnImport()
+    {
+        File.WriteAllText(Path.Combine(_project, "Assets", "Models", "hill.gltf"), HillGltf(16));
+        var plain = ModelImporter.ImportNodes("Assets/Models/hill.gltf");
+        var generated = ModelImporter.ImportNodes("Assets/Models/hill.gltf", new ModelImportSettings { GenerateLods = true });
+        var authored = ModelImporter.ImportNodes(ModelPath, new ModelImportSettings { GenerateLods = true });
+        try
+        {
+            Assert.Empty(plain.GetNode<MeshInstance3D>("Hill").Mesh!.GetSurface(0).Lods); // off by default
+            var surface = generated.GetNode<MeshInstance3D>("Hill").Mesh!.GetSurface(0);
+            Assert.NotEmpty(surface.Lods);
+            Assert.All(surface.Lods, lod => Assert.Null(lod.Geometry));
+            Assert.True(surface.Lods[0].Indices.Length < surface.IndexCount);
+            surface.Validate();
+
+            // Authored levels win: Rock keeps its two _LODn levels.
+            Assert.Equal(2, authored.GetNode<MeshInstance3D>("Rock").Mesh!.GetSurface(0).Lods.Length);
+            Assert.All(authored.GetNode<MeshInstance3D>("Rock").Mesh!.GetSurface(0).Lods, lod => Assert.NotNull(lod.Geometry));
+        }
+        finally
+        {
+            plain.Free();
+            generated.Free();
+            authored.Free();
+        }
+    }
+
+    [Fact]
     public void MergeSkipsGapsAndKeepsSurfaceChainsContiguous()
     {
         var root = new Node3D { Name = "Root" };
@@ -144,6 +172,49 @@ public sealed class ModelLodImportTests : IDisposable
         var mesh = OneSurface();
         mesh.AddSurface([new(0, 1, 0), new(1, 1, 0), new(0, 1, 1)], [], [], [0, 2, 1]);
         return mesh;
+    }
+
+    // One node "Hill": an (n × n) grid of quads with a bump, positions and indices only.
+    private static string HillGltf(int n)
+    {
+        var bytes = new List<byte>();
+        var vertices = (n + 1) * (n + 1);
+        for (var z = 0; z <= n; z++)
+            for (var x = 0; x <= n; x++)
+            {
+                bytes.AddRange(BitConverter.GetBytes((float)x));
+                bytes.AddRange(BitConverter.GetBytes(0.5f * MathF.Sin(x * 0.6f) * MathF.Cos(z * 0.4f)));
+                bytes.AddRange(BitConverter.GetBytes((float)z));
+            }
+
+        var positionBytes = bytes.Count;
+        for (var z = 0; z < n; z++)
+            for (var x = 0; x < n; x++)
+            {
+                var a = (uint)(z * (n + 1) + x);
+                foreach (var i in new[] { a, a + (uint)n + 1, a + 1, a + 1, a + (uint)n + 1, a + (uint)n + 2 })
+                    bytes.AddRange(BitConverter.GetBytes(i));
+            }
+
+        var data = Convert.ToBase64String(bytes.ToArray());
+        return $$"""
+        {
+          "asset": { "version": "2.0" },
+          "scene": 0,
+          "scenes": [ { "nodes": [0] } ],
+          "nodes": [ { "name": "Hill", "mesh": 0 } ],
+          "meshes": [ { "name": "hill", "primitives": [ { "attributes": { "POSITION": 0 }, "indices": 1 } ] } ],
+          "buffers": [ { "byteLength": {{bytes.Count}}, "uri": "data:application/octet-stream;base64,{{data}}" } ],
+          "bufferViews": [
+            { "buffer": 0, "byteOffset": 0, "byteLength": {{positionBytes}} },
+            { "buffer": 0, "byteOffset": {{positionBytes}}, "byteLength": {{bytes.Count - positionBytes}} }
+          ],
+          "accessors": [
+            { "bufferView": 0, "componentType": 5126, "count": {{vertices}}, "type": "VEC3", "min": [0, -0.5, 0], "max": [{{n}}, 0.5, {{n}}] },
+            { "bufferView": 1, "componentType": 5125, "count": {{n * n * 6}}, "type": "SCALAR" }
+          ]
+        }
+        """;
     }
 
     // Nodes: Rock_LOD0 (a 2 × 2 quad at the origin), Rock_LOD1 (a triangle at x = 3), Rock_LOD2 (the same triangle),

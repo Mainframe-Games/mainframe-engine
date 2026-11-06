@@ -48,9 +48,9 @@ public static class ParticlesScene
         {
             Name = "Ground",
             Mesh = new PlaneMesh { Size = new Vector2(40, 40) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(70, 58, 48), Specular = 0.05f },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(70, 58, 48), Specular = 0.05f },
         });
-        var bark = new StandardMaterial3D { AlbedoColor = Color.FromArgb(72, 46, 30), Specular = 0.05f };
+        var bark = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(72, 46, 30), Specular = 0.05f };
         Add(root, root, new MeshInstance3D
         {
             Name = "LogA",
@@ -179,6 +179,7 @@ public static class ParticlesScene
         DrawOrder = GpuParticles3D.DrawOrderEnum.ViewDepth,
         MaterialOverride = new StandardMaterial3D
         {
+            ShadingMode = ShadingMode.BlinnPhong,
             Transparency = AlphaMode.Blend,
             VertexColorUseAsAlbedo = true,
             BillboardMode = BillboardMode.Particles,

@@ -1,4 +1,4 @@
-# Builds and tests the native libraries (ENet `enet`, RmlUi shim `mfrmlui`, SVG `mfsvg`) and the editor's helper
+# Builds and tests the native libraries (ENet `enet`, RmlUi shim `mfrmlui`, SVG `mfsvg`, mesh simplifier `mfmeshopt`) and the editor's helper
 # executable (`mfplughost`, with VST3 hosting: MF_PLUGINHOST_VST3 defaults ON; CTest builds and loads the
 # mf_test_plugins.vst3 fixture, which is never shipped) for every runtime identifier, and checks that the binaries committed under
 # MainframeEngine/runtimes/ and MainframeEngine.Editor/runtimes/ match Native/natives.lock.
@@ -37,18 +37,18 @@ jobs:
           - name: osx-universal
             os: macos-15
             rids: "osx-arm64 osx-x64"
-            libs: "libenet.dylib libmfrmlui.dylib libmfsvg.dylib"
+            libs: "libenet.dylib libmfrmlui.dylib libmfsvg.dylib libmfmeshopt.dylib"
             editor_bins: "mfplughost"
           - name: win-x64
             os: windows-latest
             rids: "win-x64"
-            libs: "enet.dll mfrmlui.dll mfsvg.dll"
+            libs: "enet.dll mfrmlui.dll mfsvg.dll mfmeshopt.dll"
             editor_bins: "mfplughost.exe"
           - name: linux-x64
             # Oldest supported runner image: the binaries then only require glibc <= 2.35.
             os: ubuntu-22.04
             rids: "linux-x64"
-            libs: "libenet.so libmfrmlui.so libmfsvg.so"
+            libs: "libenet.so libmfrmlui.so libmfsvg.so libmfmeshopt.so"
             editor_bins: "mfplughost"
     defaults:
       run:

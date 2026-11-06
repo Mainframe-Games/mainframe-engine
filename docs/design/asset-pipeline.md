@@ -135,7 +135,11 @@ extension (`AssetImporters`). The importer receives:
 
 - the absolute path;
 - the project path;
-- the file's `.mfmeta` sidecar (`AssetMeta`: `uid`, `importer`, `settings`).
+- the file's `.mfmeta` sidecar (`AssetMeta`: `format`, `uid`, `importer`, `settings`).
+
+A sidecar's `format` (ADR 0255) is the version of the defaults it was written under: new sidecars get
+`AssetMeta.CurrentFormat` (2), sidecars written before have none (read as 1), and rewriting an existing sidecar keeps
+its format. Format 1 model sidecars import Blinn-Phong unless they say `"shading"` ([PBR materials](#pbr-materials-g61)).
 
 The loader gives the result the file's `ResourcePath` and the meta's UID, and caches it like any other resource:
 by UID and path, reference-counted.
@@ -171,10 +175,10 @@ ignored with a warning. `TextureImportSettings.ToMetaSettings()` writes the obje
 ### Models
 
 ```json
-{ "uid": "mdl_7e57a55e7000", "importer": "model",
+{ "format": 2, "uid": "mdl_7e57a55e7000", "importer": "model",
   "settings": { "scale": 1, "generateNormals": true, "importMaterials": true, "optimizeMeshes": false,
                 "importAnimations": true, "optimizeAnimations": true, "clips": [ { "name": "run", "loop": "Linear" } ],
-                "shading": "blinnPhong", "lodErrors": [], "generateLods": false } }
+                "shading": "pbr", "lodErrors": [], "generateLods": false } }
 ```
 
 Models import through **Silk.NET.Assimp** ([ADR 0013](../../memory/decisions/0013-assimp-for-model-import.md)). The
@@ -200,8 +204,10 @@ Skeletons, skins and clips are described in [Animation and skinning → Import](
 
 #### PBR materials (G6.1)
 
-`"shading": "pbr"` imports materials as `ShadingMode.Pbr` (the default `"blinnPhong"` keeps the old look until the owner
-flips it, [Rendering features](rendering-features.md#open-questions)):
+Materials import as `ShadingMode.Pbr` by default (ADR 0255); `"shading": "blinnPhong"` imports the file's shininess as
+a Blinn-Phong highlight instead. A sidecar written before ADR 0255 (no `format`) without `"shading"` imports
+Blinn-Phong, the default it was written under, so existing projects keep their look; a model without a sidecar is new
+and imports PBR. Surfaces the file gives no material get a material of the same mode. PBR reads:
 
 - `Metallic` from `$mat.metallicFactor` (0 without one), `Roughness` from `$mat.roughnessFactor`, or from the shininess
   (√(2 / (n + 2))) for files without it (FBX, OBJ);
@@ -214,8 +220,10 @@ flips it, [Rendering features](rendering-features.md#open-questions)):
 
 Sibling mesh nodes named `<name>_LOD0` … `<name>_LOD7` merge into one `MeshInstance3D` `<name>` whose surfaces carry the
 other levels as `MeshLod`s with their own geometry; `"lodErrors"` gives their errors as fractions of the LOD0 bounds
-radius (default 1 %, doubling). `"generateLods"` is reserved (no simplifier yet). Details:
-[Rendering features → Authored LODs on import](rendering-features.md#authored-lods-on-import).
+radius (default 1 %, doubling). `"generateLods": true` simplifies every other surface into index-only levels with
+meshoptimizer (skinned surfaces excepted; ADR 0256). Details:
+[Rendering features → Authored LODs on import](rendering-features.md#authored-lods-on-import) and
+[Generated LODs](rendering-features.md#generated-lods).
 
 `PackedScene.Instantiate()` on an imported scene clones the imported template. Exported properties are copied, so
 meshes, materials and textures are shared, and every node is owned by the instance root, as for scene files. A
@@ -251,7 +259,8 @@ in the Demo): a 31-bone Blender-style rig, a two-primitive skinned mesh of about
   cannot load, model imports throw `InvalidOperationException` and the import tests fail. See the M3 risks in the
   progress log for the Linux CI loader.
 - Not imported: morph targets, cameras, lights, glTF sampler settings (the image's `.mfmeta` decides), and UV sets beyond
-  the first. PBR data is read only with `"shading": "pbr"`; generated LODs need a mesh simplifier (not chosen yet).
+  the first. Format 1 sidecars read no PBR data unless they say `"shading": "pbr"`; generated LODs skip skinned surfaces.
+  `"importMaterials": false` surfaces draw the engine's default material, which is PBR since ADR 0255.
 - Silk.NET's animation key structs are larger than the bundled Assimp's; the importer detects the key stride from the
   data (ADR 0208).
 

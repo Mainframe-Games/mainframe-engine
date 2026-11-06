@@ -117,7 +117,7 @@ public sealed class PhysicsJointsScene(HostOptions host) : RenderTestGame(host)
     {
         PhysicsBody3D body = dynamic ? new RigidBody3D { Name = name, Position = position } : new StaticBody3D { Name = name, Position = position };
         body.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = size } });
-        body.AddChild(new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { AlbedoColor = color } });
+        body.AddChild(new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = color } });
         _scene.AddChild(body);
         return body as RigidBody3D ?? null!;
     }

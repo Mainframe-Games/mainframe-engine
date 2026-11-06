@@ -13,8 +13,10 @@
     },
     "StandardMaterial3D_36o92": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.30588236, 0.3529412, 0.4392157, 1]
+        "AlbedoColor": [0.30588236, 0.3529412, 0.4392157, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_rnpn6": {
@@ -63,8 +65,10 @@
     },
     "StandardMaterial3D_xeuhg": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1]
+        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_81cag": {
@@ -81,8 +85,10 @@
     },
     "StandardMaterial3D_l65tn": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_h3k6v": {
@@ -99,8 +105,10 @@
     },
     "StandardMaterial3D_1ptm2": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_ta6su": {
@@ -117,8 +125,10 @@
     },
     "StandardMaterial3D_qsw7g": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1]
+        "AlbedoColor": [0.39215687, 0.45490196, 0.54509807, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_ymkxs": {
@@ -179,8 +189,10 @@
     },
     "StandardMaterial3D_g3vhk": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1]
+        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_as3s4": {
@@ -198,8 +210,10 @@
     },
     "StandardMaterial3D_3uyf9": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1]
+        "AlbedoColor": [0.9607843, 0.61960787, 0.043137256, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "CylinderMesh_73ngp": {
@@ -212,8 +226,10 @@
     },
     "StandardMaterial3D_xb261": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.11764706, 0.16078432, 0.23137255, 1]
+        "AlbedoColor": [0.11764706, 0.16078432, 0.23137255, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_kvb5x": {
@@ -300,8 +316,10 @@
     },
     "StandardMaterial3D_1z891": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.43137255, 0.8627451, 0.5882353, 1]
+        "AlbedoColor": [0.43137255, 0.8627451, 0.5882353, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "CapsuleMesh_nu5op": {
@@ -313,8 +331,10 @@
     },
     "StandardMaterial3D_2cpvl": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.11764706, 0.16078432, 0.23137255, 1]
+        "AlbedoColor": [0.11764706, 0.16078432, 0.23137255, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "BoxMesh_m01ct": {
@@ -437,8 +457,10 @@
     },
     "StandardMaterial3D_8djb4": {
       "type": "StandardMaterial3D",
+      "v": 2,
       "props": {
-        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1]
+        "AlbedoColor": [0.8862745, 0.9098039, 0.9411765, 1],
+        "ShadingMode": "BlinnPhong"
       }
     },
     "CapsuleMesh_6bwlo": {

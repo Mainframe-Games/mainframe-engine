@@ -38,11 +38,11 @@ public sealed class LodScene(HostOptions host) : RenderTestGame(host)
             Name = "Floor",
             Position = new Vector3(0, 0, -50),
             Mesh = new PlaneMesh { Size = new Vector2(40, 130) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 120, 125, 110) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 120, 125, 110) },
         });
 
         var sphere = LodSphere();
-        var stone = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 220, 150, 90) };
+        var stone = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 220, 150, 90) };
         for (var i = 0; i < Distances.Length; i++)
         {
             var node = new MeshInstance3D
@@ -63,7 +63,7 @@ public sealed class LodScene(HostOptions host) : RenderTestGame(host)
             Scale = new Vector3(0.6f),
             Mesh = sphere,
             LodBias = 0.02f,
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 110, 170, 230) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 110, 170, 230) },
         };
         scene.AddChild(_biased);
 
@@ -80,7 +80,7 @@ public sealed class LodScene(HostOptions host) : RenderTestGame(host)
             Name = "Field",
             Position = new Vector3(6f, 0.05f, -50f),
             Mesh = FieldMesh(),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 90, 160, 90) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 90, 160, 90) },
         };
         scene.AddChild(_field);
 

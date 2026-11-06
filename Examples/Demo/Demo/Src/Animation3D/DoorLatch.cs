@@ -50,7 +50,7 @@ public sealed class DoorLatch : Node3D
         {
             Name = "Bulb",
             Mesh = new SphereMesh { Radius = 0.05f, Height = 0.1f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Locked, EmissionColor = Locked, EmissionEnergy = 2f },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Locked, EmissionColor = Locked, EmissionEnergy = 2f },
         });
     }
 }

@@ -407,6 +407,10 @@ through an internal `IDurableFileOps` shim, which the tests use to simulate a cr
   tonemap, auto exposure, glow, light shafts, SSAO and adjustment keys (`PostProcessProfile.MovedPropertyNames`) into an
   inline `PostProcessProfile` on `PostProcess`; an entry without them gets none. Instance overrides migrate the same way
   (a v1 override of a post key replaces the instance's profile with an inline one).
+- **A changed default.** Files omit default values, so changing one changes what old files mean. Bump the version and
+  write the old default back when the property is absent: `StandardMaterial3D` v1 → v2 (ADR 0255) adds
+  `ShadingMode: BlinnPhong` to materials that had none, now that `Pbr` is the default. Migrations also run for entries
+  with no `props` at all (every property at its default), and what they add is applied.
 
 ## Config files (`ConfigFile`)
 

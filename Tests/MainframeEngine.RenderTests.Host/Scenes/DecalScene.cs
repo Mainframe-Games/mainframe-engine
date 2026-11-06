@@ -43,7 +43,7 @@ public sealed class DecalScene(HostOptions host) : RenderTestGame(host)
             Name = "Box",
             Position = new Vector3(1.8f, 0.6f, -0.4f),
             Mesh = new BoxMesh { Size = new Vector3(1.6f, 1.2f, 1.6f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 90, 140, 200) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 90, 140, 200) },
         });
         scene.AddChild(new MeshInstance3D
         {

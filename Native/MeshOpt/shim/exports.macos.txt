@@ -1,0 +1,5 @@
+_mfmeshopt_abi_version
+_mfmeshopt_library_version
+_mfmeshopt_simplify
+_mfmeshopt_simplify_scale
+_mfmeshopt_optimize_vertex_cache

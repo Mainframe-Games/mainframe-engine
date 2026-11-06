@@ -91,6 +91,7 @@ public static class NeonParticles
         DrawPass1 = new QuadMesh { Size = new Vector2(0.7f, 0.7f) },
         MaterialOverride = new StandardMaterial3D
         {
+            ShadingMode = ShadingMode.BlinnPhong,
             ResourceName = "Steam",
             Transparency = AlphaMode.Blend,
             VertexColorUseAsAlbedo = true,

@@ -32,7 +32,7 @@ public static class Basic3DScene
         Add(root, ring, Mesh("Capsule", new CapsuleMesh { Radius = 0.5f, Height = 2f }, Lit(Color.FromArgb(250, 204, 21)), new Vector3(0, 1f, 3.2f)));
         Add(root, ring, Mesh("Column", new CylinderMesh { TopRadius = 0.45f, BottomRadius = 0.6f, Height = 3f }, Lit(Color.FromArgb(226, 232, 240)), new Vector3(0, 1.5f, -3.2f)));
         Add(root, ring, Mesh("Glass", new SphereMesh { Radius = 0.8f, Height = 1.6f, RadialSegments = 64, Rings = 32 },
-            new StandardMaterial3D { AlbedoColor = Color.FromArgb(90, 180, 220, 255), Transparency = AlphaMode.Blend, Shininess = 256f, Specular = 2f },
+            new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(90, 180, 220, 255), Transparency = AlphaMode.Blend, Shininess = 256f, Specular = 2f },
             new Vector3(-2.9f, 0.8f, 3.5f)));
         Add(root, ring, Mesh("Lamp", new CapsuleMesh { Radius = 0.25f, Height = 1.2f },
             new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 120, 30), EmissionColor = Color.FromArgb(255, 170, 80), EmissionEnergy = 1.2f, ShadingMode = ShadingMode.Unshaded },
@@ -66,7 +66,7 @@ public static class Basic3DScene
     }
 
     private static StandardMaterial3D Lit(Color color, float shininess = 48f) =>
-        new() { AlbedoColor = color, Shininess = shininess, Specular = 0.8f };
+        new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = color, Shininess = shininess, Specular = 0.8f };
 
     private static MeshInstance3D Mesh(string name, Mesh mesh, Material material, Vector3 position, float rotationY = 0f) =>
         new() { Name = name, Mesh = mesh, MaterialOverride = material, Position = position, RotationDegrees = new Vector3(0, rotationY, 0) };

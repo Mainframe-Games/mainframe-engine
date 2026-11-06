@@ -105,7 +105,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `Rendering/Resources/Mesh.cs`, `Rendering/Meshes/LodSelection.cs`, authored `_LODn` import in
   `Resources/Import/ModelLods.cs`), forward decals (ADR 0246: `Scene/Nodes3D/Decal.cs`, `Rendering/Meshes/DecalSelection.cs`
   and `DecalAtlas.cs`, `Assets/Shaders/include/decals.slang`, set 0 bindings 8 and 9), `.hdr` sky panoramas
-  (`Rendering/Sky/HdrImage.cs`)
+  (`Rendering/Sky/HdrImage.cs`); generated LODs through meshoptimizer (ADR 0256: `Rendering/Meshes/MeshSimplifier.cs`,
+  `ModelLods.Generate`, the `mfmeshopt` shim in `Native/MeshOpt`); PBR is the default shading (ADR 0255:
+  `StandardMaterial3D` v2, `.mfmeta` `format` 2)
 - Particles (ADR 0206): `Scene/Particles/` (`ParticleProcessMaterial`, shared 2D/3D; `ParticleSimulation3D`, CPU),
   `Scene/Nodes3D/GpuParticles3D.cs`, `Rendering/Particles/` (`ParticleRenderer`, its own pipelines, not `MeshRenderer`);
   see `docs/design/particles-3d.md`
@@ -224,7 +226,8 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `Tests/` — shared test assets (`Tests/Content`: showcase fixture scene, glTF/Spine/sky/audio, render-test catalogs), unit tests (engine, editor, video), render tests (+ host, editor smoke; goldens per driver in
   `Tests/MainframeEngine.RenderTests/Goldens/{moltenvk,lavapipe}`), benchmarks (`baseline.json`), QA scripts
   (`Tests/QA`); see `docs/design/testing.md`
-- `Native/` — in-house native shims and their sources (`mfrmlui` over RmlUi + FreeType, ENet), built per platform by
+- `Native/` — in-house native shims and their sources (`mfrmlui` over RmlUi + FreeType, `mfsvg` over ThorVG, `mfmeshopt`
+  over meshoptimizer, ENet), built per platform by
   `.github/workflows/natives.yml`; the binaries are committed under `MainframeEngine/runtimes/<rid>/native`
   (`Native/natives.lock`, `docs/design/natives.md`)
 - `build/` — scripts shared by `justfile` and CI: `shaders.sh` (+ `Shaders.targets`), `Localization.targets`,

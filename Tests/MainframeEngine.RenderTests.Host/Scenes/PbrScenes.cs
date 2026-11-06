@@ -116,11 +116,11 @@ public sealed class FogScene(HostOptions host) : RenderTestGame(host)
             Name = "Floor",
             Position = new Vector3(0, 0, -60),
             Mesh = new PlaneMesh { Size = new Vector2(60, 160) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 90, 110, 70), Specular = 0f },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 90, 110, 70), Specular = 0f },
         });
 
         var pillar = new BoxMesh { Size = new Vector3(0.8f, 4f, 0.8f) };
-        var stone = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 170, 160, 150) };
+        var stone = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 170, 160, 150) };
         for (var i = 0; i < 8; i++)
         {
             foreach (var side in (ReadOnlySpan<float>)[-2.5f, 2.5f])

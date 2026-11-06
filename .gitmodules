@@ -23,3 +23,6 @@
 [submodule "Native/PluginHost/external/rtmidi"]
 	path = Native/PluginHost/external/rtmidi
 	url = https://github.com/thestk/rtmidi.git
+[submodule "Native/MeshOpt/external/meshoptimizer"]
+	path = Native/MeshOpt/external/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git

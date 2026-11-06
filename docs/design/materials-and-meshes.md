@@ -119,11 +119,13 @@ the other arrays (JSON float arrays in `.mfscene`/`.mfres`) and must be empty or
 
 ### StandardMaterial3D
 
-The shading is Blinn-Phong by default ([ADR 0014](../../memory/decisions/0014-blinn-phong-now-pbr-later.md)), unshaded,
-or PBR (`ShadingMode.Pbr`, [ADR 0150](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md): Cook-Torrance GGX + Lambert,
-ambient and reflections from the sky, see [Lighting](lighting.md#pbr)). Blinn-Phong stays the default so existing scenes
-look the same; Godot's default (PBR) waits for the G6.2 serialization migration. Like every colour in the engine,
-colours are authored in sRGB and converted to linear when packed.
+The shading is PBR by default (`ShadingMode.Pbr`, [ADR 0150](../../memory/decisions/0150-pbr-shading-and-sky-ibl.md):
+Cook-Torrance GGX + Lambert, ambient and reflections from the sky, see [Lighting](lighting.md#pbr); the default since
+[ADR 0255](../../memory/decisions/0255-pbr-is-the-default-shading.md), as Godot's), Blinn-Phong
+([ADR 0014](../../memory/decisions/0014-blinn-phong-now-pbr-later.md)) or unshaded. `StandardMaterial3D.Default`, the
+material of surfaces without one, is PBR too. `StandardMaterial3D` is serialized version 2: a version 1 material (written
+when Blinn-Phong was the default) without a `ShadingMode` loads as `BlinnPhong`, and the next save writes it. Like every
+colour in the engine, colours are authored in sRGB and converted to linear when packed.
 
 | Group | Properties |
 |---|---|
@@ -740,11 +742,10 @@ pipelines draw the view like any mesh; the prepass uses `MeshDepthSkinned` for t
 ## Known issues
 
 - Blended surfaces cast no shadow (cutout materials cast alpha-tested shadows since M4).
-- No morph targets, generated LODs (authored and code-built levels only, G6.4) or GPU-driven culling (shadow casters
-  are culled per pass on the CPU); skinned instances are not instanced together.
-- PBR is opt-in (`ShadingMode.Pbr`), and imported models stay Blinn-Phong unless their `.mfmeta` says `"shading": "pbr"`
-  (the default flip is the owner's call, [Rendering features](rendering-features.md#open-questions)). No
-  `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
+- No morph targets, generated LODs for skinned surfaces (G6.4, ADR 0256) or GPU-driven culling (shadow casters are
+  culled per pass on the CPU); skinned instances are not instanced together.
+- Materials built in code under the old Blinn-Phong default (before ADR 0255) turn PBR: no file records their version.
+  No `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
 - Decals reach only opaque `StandardMaterial3D` and terrain surfaces, not `MultiMesh` instances, foliage, water or spatial
   shaders; at most 32 per view.
 - Billboards are a node feature (`Sprite3D.Billboard`); `StandardMaterial3D` has no `BillboardMode` yet, so a `MeshInstance3D`

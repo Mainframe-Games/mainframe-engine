@@ -21,7 +21,7 @@ public static class UiScene
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(40, 40) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(58, 68, 92) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(58, 68, 92) },
         });
         Add(root, root, new MeshInstance3D
         {
@@ -29,14 +29,14 @@ public static class UiScene
             Mesh = new BoxMesh { Size = new Vector3(1.2f, 1.2f, 1.2f) },
             Position = new Vector3(-1.4f, 0.6f, 0),
             RotationDegrees = new Vector3(0, 30, 0),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(37, 99, 235) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(37, 99, 235) },
         });
         Add(root, root, new MeshInstance3D
         {
             Name = "Ball",
             Mesh = new SphereMesh { Radius = 0.6f, Height = 1.2f },
             Position = new Vector3(1.4f, 0.6f, 0),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(225, 29, 72) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(225, 29, 72) },
         });
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new UiShowcase { Name = "Showcase" });

@@ -16,6 +16,7 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | zlib (bundled in FreeType's gzip module) | 1.3.1 | zlib | inside FreeType | `mfrmlui` native library (static) |
 | [RmlUi](https://github.com/mikke89/RmlUi) | 6.3 | MIT | `Native/RmlUi/external/RmlUi` (submodule) | `mfrmlui` native library (static) |
 | [ThorVG](https://github.com/thorvg/thorvg) (the copy vendored by Godot 4.7.2, `thirdparty/thorvg`) | 1.0.3 | MIT | `Native/Svg/thorvg` | `mfsvg` native library (static) |
+| [meshoptimizer](https://github.com/zeux/meshoptimizer) (Arseny Kapoulkine; the simplifier and vertex cache optimiser) | 1.3 | MIT | `Native/MeshOpt/external/meshoptimizer` (submodule) | `mfmeshopt` native library (static) |
 | [Godot Engine](https://godotengine.org) (algorithms ported to C#: canvas ordering/tessellation, Camera2D, window stretch, SVG loading, `fix_alpha_edges`, `BitMap` (as `BitMask`) and `Geometry2D`'s Clipper2 settings; GodotSharp's C# math: `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, the `Vector2` helpers; tonemap and glow shaders ported to Slang, with Godot 4.4's linear, Reinhard, filmic and AgX curves) | 4.7.2 (4.4 for the curves) | MIT | `MainframeEngine/Src/Scene/Canvas`, `Rendering/Canvas`, `Scene/ContentScale.cs`, `Imaging/Svg.cs`, `Imaging/BitMask.cs`, `Math/`, `Assets/Shaders/Post/TonemapPost`, `GlowBlur` | engine |
 | robin_hood, itlib (bundled in RmlUi Core) | — | MIT | inside RmlUi | `mfrmlui` native library (static) |
 | Courier Prime Code font (embedded in the RmlUi Debugger) | — | SIL OFL 1.1 | inside RmlUi | `mfrmlui` native library (static) |
@@ -331,6 +332,34 @@ The SVG rasteriser `mfsvg` statically links ThorVG 1.0.3 (the exact sources Godo
 MIT License
 
 Copyright (c) 2020 - 2026 ThorVG Project
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## meshoptimizer
+
+The mesh simplifier `mfmeshopt` (generated levels of detail, ADR 0256) statically links meshoptimizer 1.3.
+
+```
+MIT License
+
+Copyright (c) 2016-2026 Arseny Kapoulkine
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
