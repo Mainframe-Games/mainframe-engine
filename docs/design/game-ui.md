@@ -445,7 +445,9 @@ state, translated into Spanish and the `qps` pseudo-locale), plus the autoloaded
 - No MSAA on UI layers (RmlUi's GL3 backend uses 2×); edges rely on RmlUi's own antialiased geometry.
 - The `shader` decorator's custom shaders (e.g. RmlUi's "creation" sample) are not supported; unknown filters and
   shaders log a warning and are skipped.
-- World-space UI panels, a custom font engine/HarfBuzz shaping and RTL text are non-goals for M8.
+- World-space UI panels, a custom font engine/HarfBuzz shaping and RTL text are non-goals for M8. Markers at 3D points
+  (`UiMarker3D` rows on a `UiMarkerHost` document) shipped with G11 ([World-space UI](world-space-ui.md#markers));
+  panels on meshes are still a [proposal](future/world-space-ui.md).
 
 ## Related docs
 

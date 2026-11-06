@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-11-05 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5; G6 in review._
+_Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5; G11.1–G11.4 in review._
 
 ## What exists
 
@@ -32,7 +32,7 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most 2D port work and muc
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
   (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
   `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), the seam for packed and encrypted exports.
-- **G6** ([Rendering features](../../docs/design/rendering-features.md)): PBR + IBL, SSAO, 3D particles, mesh LODs (ADR 0245), forward decals (ADR 0246), `.hdr` skies; owner-pending: PBR default, LOD simplifier.
+- **G6** ([Rendering features](../../docs/design/rendering-features.md)): PBR + IBL, SSAO, 3D particles, mesh LODs (ADR 0245), forward decals (ADR 0246), `.hdr` skies; owner-pending: PBR default, LOD simplifier. **G11** ([World-space UI](../../docs/design/world-space-ui.md)): multi-line `Label3D` with fallback fonts and `FixedSize` on the mesh batcher (ADR 0249), `UiMarker3D` rows on a `UiMarkerHost` (ADR 0250); panels (G11.5/6) and the batched text renderer remain.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
 - **Solution** `MainframeEngine.slnx` (no `.sln`). Everything local goes through `just` (see AGENTS.md).
@@ -91,7 +91,7 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most 2D port work and muc
 1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 2 `.mfpak` packs, then encryption, AOT.
 2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (terrain dock and Faceted look, tree
    inspector, river tool, forest goldens and frame budget); G20.3 video; G1c animation authoring (would let active
-   ragdolls follow any clip); G12 (proposal awaits owner review); G11, G14, G16, G17; G3b (avoidance first).
+   ragdolls follow any clip); G12 (proposal awaits owner review); G11.5–G11.9 (panels on meshes, batched text); G14, G16, G17; G3b (avoidance first).
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (Forest cabin ≈ +1.6 ms p50; G6's two).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
 5. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the

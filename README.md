@@ -131,7 +131,7 @@ game.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/demo/paths_3d.png" width="380" alt="Paths 3D: a capsule riding an orange lift beside a landing, a ferry between two pads, a turntable and a green guard on a dotted patrol route"><br><b>Paths 3D</b> — moving platforms on Path3D followers carry a capsule: a lift, a ferry, a turntable; a guard on patrol, a camera rail</td>
-    <td></td>
+    <td align="center" valign="top"><img src="docs/images/demo/world_ui.png" width="380" alt="World UI: a street with Label3D shop signs, walkers with nameplate markers and health bars, a press-E prompt and a gate waypoint"><br><b>World UI</b> — Label3D signs in the scene; nameplates, a prompt and an edge-clamped waypoint as UiMarker3D rows on one HUD document</td>
   </tr>
 </table>
 
@@ -207,7 +207,7 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-decal.png" width="380" alt="A Decal added under the Demo's blue light: its projection box and size handles in the view, its textures and fades in the Inspector"><br><b>Decals</b> — a projection box with size handles; albedo, normal, ORM and emission maps with Godot's fades</td>
-    <td></td>
+    <td align="center" valign="top"><img src="docs/images/editor-world-ui.png" width="380" alt="The Demo's World UI scene in the editor: map-pin badges at the nameplate markers' points with dashed lines to the walkers, the Label3D signs, a marker's Inspector"><br><b>World-space UI</b> — UiMarker3D badges at their points, Label3D signs drawn and picked in the view</td>
   </tr>
 </table>
 
@@ -334,6 +334,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Crash reporting](docs/design/crash-reporting.md) | A crash leaves a report bundle (exception, the node and callback it left, scene, GPU and driver, the last log lines); native crashes and kills are noticed on the next start, with optional native dumps; a next-launch prompt for players, opt-in upload to Sentry or your own endpoint; the editor shows a game's crash as one Output row with click-to-source frames |
 | [Gameplay recording](docs/design/recording.md) | Record any game to MP4 through your own ffmpeg: F10 in the editor or `--record`, live or offline, with a sidecar of input, loading and pauses |
 | [Video mode](docs/design/video-editor.md) | A multi-track timeline editor for the project's recordings and media: tracks, Premiere's keys, reframing, a cut editor, export presets for socials and trailers |
+| [World-space UI](docs/design/world-space-ui.md) | `Label3D` text in the scene (multi-line, autowrap, fallback fonts for the locale, billboards, fixed screen size, through walls) and `UiMarker3D` nameplates, health bars, prompts and waypoints on the HUD at 3D points: distance fade and scale, edge clamping with an arrow angle, physics occlusion, 0 B per frame |
 | [Game UI](docs/design/game-ui.md) | RmlUi (HTML and CSS) on Vulkan: data binding, gamepad navigation, hot reload and a widget library; the editor is built with it |
 | [Developer overlay](docs/design/dev-overlay.md) | F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, adaptive music, physics and network panels; add your own in one call |
 | [Frame profiler](docs/design/profiler.md) | Zero-allocation CPU scopes on any thread, GPU timestamps per pass and post effect, counters, a frame history with spike capture; a Profiler section in the F12 overlay, an editor Profiler tab (frame graph, timeline, scope table) and Chrome/Perfetto trace export (`--profile-trace`) |

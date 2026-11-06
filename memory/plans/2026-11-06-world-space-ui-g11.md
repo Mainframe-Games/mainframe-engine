@@ -1,6 +1,6 @@
 # Plan: G11 world-space UI — text layout, Label3D, markers
 
-**Status:** in progress
+**Status:** done (G11.1–G11.4), see [log](../logs/2026-11-06-world-space-ui-g11.md)
 **Docs:** [World-space UI proposal](../../docs/design/future/world-space-ui.md) (task list G11.1–G11.4),
 [Game UI](../../docs/design/game-ui.md), [Canvas → Text](../../docs/design/canvas.md#text-adr-0118),
 [ADR 0200](../decisions/0200-label3d-first-slice.md), [ADR 0216](../decisions/0216-viewport-textures-on-3d-materials.md)
@@ -35,16 +35,16 @@ was at 80 % when this started (stop line 90 %), so G11.5–G11.8 are follow-ups 
 
 ## Steps
 
-- [ ] **Frustum helpers.** `Camera3D.IsPositionInFrustum`, `GetFrustumPlanes(Span<Plane>)`. Verified by:
+- [x] **Frustum helpers.** `Camera3D.IsPositionInFrustum`, `GetFrustumPlanes(Span<Plane>)`. Verified by:
   `Camera3DProjectionTests` (known points in and out, planes face inward).
-- [ ] **Text layout.** `TextLayout.BreakLines`, `Font.Fallbacks`, `Label2D` on the shared code. Verified by:
+- [x] **Text layout.** `TextLayout.BreakLines`, `Font.Fallbacks`, `Label2D` on the shared code. Verified by:
   `TextLayoutTests` (newlines, wrap modes equal Label2D's old output, fallback glyphs), canvas goldens unchanged.
-- [ ] **Label3D.** Multi-line, `Width`, `Autowrap`, `LineSpacing`, `Uppercase`, `FixedSize`, `AlphaCut`,
+- [x] **Label3D.** Multi-line, `Width`, `Autowrap`, `LineSpacing`, `Uppercase`, `FixedSize`, `AlphaCut`,
   `TextRenderPriority`, locale fallbacks, `GetAabb`. Verified by: `Label3DTests`; `label3d` golden (both drivers).
-- [ ] **Markers.** `UiMarker3D`, `UiMarkerHost`, `Assets/UI/markers/markers.rml` (four kinds), distance fade/scale,
+- [x] **Markers.** `UiMarker3D`, `UiMarkerHost`, `Assets/UI/markers/markers.rml` (four kinds), distance fade/scale,
   edge clamp + angle, physics occlusion with fade, element mode, signals. Verified by: `UiMarkerTests`, `ui-markers`
   golden, allocation gate (100 markers, 0 B), `WorldUiBenchmarks`.
-- [ ] **Docs and close.** `docs/design/world-space-ui.md` (current state, "Changes from the proposal"; the proposal keeps
+- [x] **Docs and close.** `docs/design/world-space-ui.md` (current state, "Changes from the proposal"; the proposal keeps
   G11.5–G11.9), game-ui, canvas, localization, testing, milestones, AGENTS.md, README, landing page. Verified by:
   `check.sh`, `just docs-build`.
 

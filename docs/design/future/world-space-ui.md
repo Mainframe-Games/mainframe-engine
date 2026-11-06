@@ -1,10 +1,9 @@
 # Proposal: World-space UI and 3D text
 
-**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G11) · **Status:** 🚧 a first slice shipped
-([ADR 0200](../../../memory/decisions/0200-label3d-first-slice.md): `Camera3D.UnprojectPosition`/`IsPositionBehind` and a
-single-line `Label3D` on the mesh batcher; see [What shipped](#what-shipped-adr-0200)), and sub-viewport textures on 3D
-materials ([ADR 0216](../../../memory/decisions/0216-viewport-textures-on-3d-materials.md), [What shipped](#what-shipped-adr-0216)) ·
-**Depends on:** [M8 game UI](../game-ui.md) (RmlUi, `VulkanUiRenderer`), [canvas text](../canvas.md#text-adr-0118)
+**Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G11) · **Status:** 🚧 G11.1–G11.4 shipped and are
+documented in [World-space UI](../world-space-ui.md) (ADRs 0200, 0216, 0249, 0250, with its "Changes from the
+proposal"); this proposal now covers what is left: G11.5 UI render targets, G11.6 `UiPanel3D`, G11.7's panel preview,
+the batched `Text3DRenderer`, G11.9 · **Depends on:** [M8 game UI](../game-ui.md) (RmlUi, `VulkanUiRenderer`), [canvas text](../canvas.md#text-adr-0118)
 (ADR 0118: `Font`), [M6 physics](../physics.md) (occlusion and line-of-sight rays) · **Related:**
 [Rendering features](../rendering-features.md) (G6.3 billboards), [Localization](../localization.md),
 [Haptics and input glyphs](input-haptics-and-glyphs.md) (G12: prompt glyphs), [Accessibility](accessibility.md) (G14:

@@ -592,6 +592,12 @@ box, an arrow along −Y, and a handle on the +X, +Y and +Z faces that sets that
 
 ![A Decal added under the blue light: its projection box and handles in the view, its textures and fades in the Inspector](../images/editor-decal.png)
 
+`UiMarker3D` (G11) has a map-pin scene icon (`Assets/gizmos/marker.svg`) drawn at the marker's point (`WorldOffset` above
+the node) with a dashed line down to the node; the badge picks and box-selects there. `Label3D` draws and picks like a
+mesh ([World-space UI](world-space-ui.md#editor)).
+
+![A walker's nameplate marker selected: map-pin badges at the markers' points, the Label3D signs, the marker's Inspector](../images/editor-world-ui.png)
+
 ### Box selection and lock
 
 A left press on empty space (no handle, no gizmo axis) that moves past the click distance draws a **rectangle** (an
