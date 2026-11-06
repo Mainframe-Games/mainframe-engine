@@ -66,13 +66,13 @@ msgstr "Golpe"
 #. RML <span>
 #: Examples/Demo/Assets/AdaptiveMusic/panel.rml:26
 #: Examples/Demo/Assets/Audio/panel2d.rml:12
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:264
 msgid "Music"
 msgstr "Música"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Animation3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
 msgid "Animation 3D"
 msgstr "Animación 3D"
 
@@ -180,7 +180,7 @@ msgstr "Empujar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:260
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
 msgid "Audio 2D"
 msgstr "Audio 2D"
 
@@ -211,7 +211,7 @@ msgstr "Distancia máxima"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Audio/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:261
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
 msgid "Audio 3D"
 msgstr "Audio 3D"
 
@@ -343,6 +343,55 @@ msgid "F12"
 msgstr "F12"
 
 #. RML <h1>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:8
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:254
+msgid "Navigation Mesh 2D"
+msgstr "Malla de navegación 2D"
+
+#. RML <p>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:9
+msgid "Polygons baked round slanted walls, pillars and a carved pond, funnel paths to the clicked point, and two ferries: links the chasers hop across to the far bank."
+msgstr "Polígonos horneados alrededor de muros inclinados, pilares y un estanque recortado, caminos en embudo hasta el punto pulsado y dos transbordadores: enlaces que los perseguidores saltan hasta la otra orilla."
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:10
+msgid "Carve the pond"
+msgstr "Recortar el estanque"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:11
+#: Examples/Demo/Assets/Navigation/panel.rml:25
+msgid "Visible navigation"
+msgstr "Navegación visible"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:12
+#: Examples/Demo/Assets/Navigation/panel.rml:26
+msgid "Avoidance"
+msgstr "Evasión"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:13
+msgid "Polygons"
+msgstr "Polígonos"
+
+#. RML <button>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:14
+msgid "Bake again"
+msgstr "Hornear de nuevo"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:15
+msgid "Ferry crossings"
+msgstr "Cruces en transbordador"
+
+#. RML <span>
+#: Examples/Demo/Assets/Navigation/navmesh_panel.rml:16
+#: Examples/Demo/Assets/Navigation/panel.rml:28
+msgid "Arrived"
+msgstr "Llegados"
+
+#. RML <h1>
 #: Examples/Demo/Assets/Navigation/panel.rml:8
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:253
 msgid "Navigation 2D"
@@ -350,8 +399,8 @@ msgstr "Navegación 2D"
 
 #. RML <p>
 #: Examples/Demo/Assets/Navigation/panel.rml:9
-msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point."
-msgstr "Una cuadrícula horneada a partir de los muros, barro que cuesta el triple y perseguidores cuyos agentes caminan hasta el punto pulsado."
+msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point, steering round each other and the rolling boulder."
+msgstr "Una cuadrícula horneada a partir de los muros, barro que cuesta el triple y perseguidores cuyos agentes caminan hasta el punto pulsado, esquivándose entre sí y a la roca rodante."
 
 #. RML <span>
 #: Examples/Demo/Assets/Navigation/panel.rml:10
@@ -409,19 +458,9 @@ msgid "Jump point search"
 msgstr "Búsqueda por puntos de salto"
 
 #. RML <span>
-#: Examples/Demo/Assets/Navigation/panel.rml:25
-msgid "Visible navigation"
-msgstr "Navegación visible"
-
-#. RML <span>
-#: Examples/Demo/Assets/Navigation/panel.rml:26
+#: Examples/Demo/Assets/Navigation/panel.rml:27
 msgid "Click adds walls"
 msgstr "Clic añade muros"
-
-#. RML <span>
-#: Examples/Demo/Assets/Navigation/panel.rml:27
-msgid "Arrived"
-msgstr "Llegados"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Particles/panel.rml:8
@@ -451,7 +490,7 @@ msgstr "Ráfaga de chispas"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Paths2D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:254
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:255
 msgid "Paths 2D"
 msgstr "Trayectorias 2D"
 
@@ -469,7 +508,7 @@ msgstr "Pausa"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Paths3D/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
 msgid "Paths 3D"
 msgstr "Trayectorias 3D"
 
@@ -495,7 +534,7 @@ msgstr "Saltar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel2d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:255
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:256
 msgid "Physics 2D"
 msgstr "Física 2D"
 
@@ -530,7 +569,7 @@ msgstr "Reiniciar"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Physics/panel3d.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:256
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:257
 msgid "Physics 3D"
 msgstr "Física 3D"
 
@@ -694,7 +733,7 @@ msgstr "Golpear los objetos"
 
 #. RML <h1>
 #: Examples/Demo/Assets/SoundFx/panel.rml:17
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:262
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:263
 msgid "Sound FX"
 msgstr "Efectos de sonido"
 
@@ -760,7 +799,7 @@ msgstr "Música (una canción del editor de música)"
 
 #. RML <h1>
 #: Examples/Demo/Assets/Spine/panel.rml:8
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:258
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:259
 msgid "Spine"
 msgstr "Spine"
 
@@ -1024,7 +1063,7 @@ msgstr "Rosa"
 
 #. RML <h1>
 #: Examples/Demo/Assets/WorldUi/panel.rml:12
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:265
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:266
 msgid "World UI"
 msgstr "UI en el mundo"
 
@@ -1120,7 +1159,7 @@ msgid "Audio"
 msgstr "Audio"
 
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:241
-#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:264
+#: Examples/Demo/Demo/Src/Nav/DemoNav.cs:265
 msgid "UI"
 msgstr "Interfaz"
 
@@ -1943,6 +1982,10 @@ msgstr "Voz"
 msgctxt "settings"
 msgid "Ambience"
 msgstr "Ambiente"
+
+#. RML <p>
+#~ msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point."
+#~ msgstr "Una cuadrícula horneada a partir de los muros, barro que cuesta el triple y perseguidores cuyos agentes caminan hasta el punto pulsado."
 
 #. RML <p>
 #~ msgid "A skinned glTF character: 31 bones, ten clips, crossfades, events, a torch on its hand and a physical skeleton that can stay active under physics. Behind it, root motion walks and jumps a body."

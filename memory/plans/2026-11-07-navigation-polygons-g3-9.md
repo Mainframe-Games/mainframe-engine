@@ -1,6 +1,6 @@
 # Plan: G3.9 2D navigation meshes (polygons, regions, funnel, links, bake)
 
-**Status:** in progress
+**Status:** done, see [log](../logs/2026-11-07-navigation-polygons.md)
 **Docs:** [Navigation proposal, later phases](../../docs/design/future/navigation.md) (§ Later phases: 2D navmesh polygons,
 task 4, open question 2), [Navigation](../../docs/design/navigation.md) (the shipped grids, server, agents, avoidance),
 [ADR 0227](../decisions/0227-grid-navigation-core.md), [ADR 0228](../decisions/0228-navigation-server-agents-and-sources.md),
@@ -35,19 +35,19 @@ task 4, open question 2), [Navigation](../../docs/design/navigation.md) (the shi
 
 ## Steps
 
-1. [ ] Geometry: `Polygons/NavigationPolygonBuilder` (Clipper64 offsets and booleans, hole bridging, exact ear clipping,
+1. [x] Geometry: `Polygons/NavigationPolygonBuilder` (Clipper64 offsets and booleans, hole bridging, exact ear clipping,
    Hertel–Mehlhorn). Verify: `NavigationPolygonBuilderTests` — area kept, every polygon convex and counter-clockwise,
    holes left out, deterministic, degenerate input.
-2. [ ] `NavigationPolygon` resource + `.mfres`/inline round trip. Verify: `NavigationPolygonTests`.
-3. [ ] `NavigationRegion2D`, `NavigationLink2D`, map navmesh build at sync, queries, funnel, links, costs, layers,
+2. [x] `NavigationPolygon` resource + `.mfres`/inline round trip. Verify: `NavigationPolygonTests`.
+3. [x] `NavigationRegion2D`, `NavigationLink2D`, map navmesh build at sync, queries, funnel, links, costs, layers,
    partial paths, closest point. Verify: `NavigationMeshQueryTests`.
-4. [ ] Bake from static bodies, tile layers and carving obstacles, agent radius, baking rect, groups. Verify:
+4. [x] Bake from static bodies, tile layers and carving obstacles, agent radius, baking rect, groups. Verify:
    `NavigationPolygonBakeTests` (`SerialBox2D` where bodies are needed).
-5. [ ] Agent on navmeshes: `Owners`, `LinkReached`. Verify: `NavigationAgent2DTests` additions; allocation gate case
+5. [x] Agent on navmeshes: `Owners`, `LinkReached`. Verify: `NavigationAgent2DTests` additions; allocation gate case
    (agents over a navmesh, 0 B); `NavmeshBenchmarks`.
-6. [ ] Debug draw and editor: inspector Bake/Clear + status, link gizmo. Verify: `NavigationEditorTests` additions.
-7. [ ] Demo `navigation_mesh_2d` scene + tests + screenshot (only its PNG in the diff).
-8. [ ] Docs (`navigation.md` section + Changes from the proposal, proposal trimmed, milestones row, README, landing
+6. [x] Debug draw and editor: inspector Bake/Clear + status, link gizmo. Verify: `NavigationEditorTests` additions.
+7. [x] Demo `navigation_mesh_2d` scene + tests + screenshot (only its PNG in the diff).
+8. [x] Docs (`navigation.md` section + Changes from the proposal, proposal trimmed, milestones row, README, landing
    page, AGENTS.md), ADR via mf-decide, log; gates; one push; PR; Auto-fix.
 
 ## Done when

@@ -143,7 +143,10 @@ public sealed class NavigationPolygonBakeTests
         region.AddChild(layer);
         region.AddChild(new NavigationObstacle2D
         {
-            Name = "Carver", Position = new Vector2(250, 80), AffectNavigationMesh = true, Vertices = Box(-10, -10, 10, 10),
+            Name = "Carver",
+            Position = new Vector2(250, 80),
+            AffectNavigationMesh = true,
+            Vertices = Box(-10, -10, 10, 10),
         });
         region.AddChild(new NavigationObstacle2D { Name = "Ignored", Position = new Vector2(250, 20), Vertices = Box(-5, -5, 5, 5) });
         h.Run(1);

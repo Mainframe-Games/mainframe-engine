@@ -105,59 +105,59 @@ public static class NavigationPolygonBaker2D
             switch (shape)
             {
                 case RectangleShape2D rectangle:
-                {
-                    var h = rectangle.Size * 0.5f;
-                    Add([new(-h.X, -h.Y), new(h.X, -h.Y), new(h.X, h.Y), new(-h.X, h.Y)], transform);
-                    break;
-                }
+                    {
+                        var h = rectangle.Size * 0.5f;
+                        Add([new(-h.X, -h.Y), new(h.X, -h.Y), new(h.X, h.Y), new(-h.X, h.Y)], transform);
+                        break;
+                    }
                 case CircleShape2D circle:
-                {
-                    Span<Vector2> points = stackalloc Vector2[CircleSegments];
-                    for (var i = 0; i < CircleSegments; i++)
                     {
-                        var angle = i * (2.0 * Math.PI / CircleSegments);
-                        points[i] = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * circle.Radius;
-                    }
+                        Span<Vector2> points = stackalloc Vector2[CircleSegments];
+                        for (var i = 0; i < CircleSegments; i++)
+                        {
+                            var angle = i * (2.0 * Math.PI / CircleSegments);
+                            points[i] = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * circle.Radius;
+                        }
 
-                    Add(points, transform);
-                    break;
-                }
+                        Add(points, transform);
+                        break;
+                    }
                 case CapsuleShape2D capsule:
-                {
-                    // Vertical, like Godot's: two half circles joined by straight sides; Height is the whole length.
-                    const int half = CircleSegments / 2;
-                    Span<Vector2> points = stackalloc Vector2[half * 2 + 2];
-                    var r = capsule.Radius;
-                    var offset = MathF.Max(0f, capsule.Height * 0.5f - r);
-                    var n = 0;
-                    for (var i = 0; i <= half; i++)
                     {
-                        var angle = i * (Math.PI / half);
-                        points[n++] = new Vector2((float)Math.Cos(angle) * r, (float)Math.Sin(angle) * r + offset);
-                    }
+                        // Vertical, like Godot's: two half circles joined by straight sides; Height is the whole length.
+                        const int half = CircleSegments / 2;
+                        Span<Vector2> points = stackalloc Vector2[half * 2 + 2];
+                        var r = capsule.Radius;
+                        var offset = MathF.Max(0f, capsule.Height * 0.5f - r);
+                        var n = 0;
+                        for (var i = 0; i <= half; i++)
+                        {
+                            var angle = i * (Math.PI / half);
+                            points[n++] = new Vector2((float)Math.Cos(angle) * r, (float)Math.Sin(angle) * r + offset);
+                        }
 
-                    for (var i = 0; i <= half; i++)
-                    {
-                        var angle = Math.PI + i * (Math.PI / half);
-                        points[n++] = new Vector2((float)Math.Cos(angle) * r, (float)Math.Sin(angle) * r - offset);
-                    }
+                        for (var i = 0; i <= half; i++)
+                        {
+                            var angle = Math.PI + i * (Math.PI / half);
+                            points[n++] = new Vector2((float)Math.Cos(angle) * r, (float)Math.Sin(angle) * r - offset);
+                        }
 
-                    Add(points[..n], transform);
-                    break;
-                }
+                        Add(points[..n], transform);
+                        break;
+                    }
                 case ConvexPolygonShape2D convex when convex.Points.Length >= 3:
                     Add(convex.Points, transform);
                     break;
                 case ConcavePolygonShape2D concave when concave.Segments.Length >= 6:
-                {
-                    // Segment pairs round one closed outline (Godot's reading): every segment's first point.
-                    var segments = concave.Segments;
-                    var points = new Vector2[segments.Length / 2];
-                    for (var i = 0; i < points.Length; i++)
-                        points[i] = segments[i * 2];
-                    Add(points, transform);
-                    break;
-                }
+                    {
+                        // Segment pairs round one closed outline (Godot's reading): every segment's first point.
+                        var segments = concave.Segments;
+                        var points = new Vector2[segments.Length / 2];
+                        for (var i = 0; i < points.Length; i++)
+                            points[i] = segments[i * 2];
+                        Add(points, transform);
+                        break;
+                    }
             }
         }
 

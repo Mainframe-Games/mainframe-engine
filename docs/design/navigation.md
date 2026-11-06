@@ -1,15 +1,17 @@
-# Navigation (grid A*, point graphs, `NavigationServer2D`, agents)
+# Navigation (grid A*, point graphs, navigation meshes, `NavigationServer2D`, agents)
 
 **Status:** shipped for 2D grids (Gameplay toolkit G3a, G3.1–G3.6; [ADR 0227](../../memory/decisions/0227-grid-navigation-core.md),
 [ADR 0228](../../memory/decisions/0228-navigation-server-agents-and-sources.md)), including the tile map source (G3.6),
-and local avoidance (G3.7, [ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md)). The other later
-phases (2D navmeshes, async queries, 3D; G3.8–G3.12) are still a [proposal](future/navigation.md).
+local avoidance (G3.7, [ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md)) and 2D navigation meshes
+(G3.9, [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md)). G3.8 (grid polish) closed as not needed (the owner
+agreed): its conditions did not arise. Async queries and 3D (G3.10–G3.12) are still a [proposal](future/navigation.md).
 
 Godot 4's navigation API on grids: `AStarGrid2D` and the point graphs `AStar2D`/`AStar3D` (plain classes, usable without
 a tree), a `NavigationServer2D` with one map per `World2D`, the `NavigationGrid2D` region baked from static bodies or read
 live from a `TileMapLayer`, and
-`NavigationAgent2D` for path following, with ORCA local avoidance between agents and `NavigationObstacle2D`s. Queries and
-avoidance allocate nothing and give the same result on every run.
+`NavigationAgent2D` for path following, with ORCA local avoidance between agents and `NavigationObstacle2D`s. Navigation
+meshes (`NavigationPolygon`, `NavigationRegion2D`, `NavigationLink2D`) cover levels that are not grids: any shape, any
+rotation, baked from the collision shapes. Queries and avoidance allocate nothing and give the same result on every run.
 
 ![The Demo's Navigation 2D maze in the editor with Visible Navigation on and the grid's inspector](../images/editor-navigation.png)
 
@@ -26,9 +28,14 @@ avoidance allocate nothing and give the same result on every run.
 | `NavigationObstacle2D` | `Nodes2D/NavigationObstacle2D.cs` | An avoidance obstacle: a radius (moving) and/or a polygon |
 | `Orca2D`, `AvoidanceSimulation2D` | `Avoidance/` | The ORCA solver (an RVO2 2.0 port, Apache-2.0, `LICENSE-RVO2.txt`) and each map's avoidance step |
 | `INavigationGridBaker`, `NavigationGridBakers`, `GridPhysicsBaker2D`, `TileMapLayerBaker` | `Baking/` | Where a grid's cells come from |
-| `NavigationDebugColors`, enums | `NavigationTypes.cs`, `NavigationDebugDraw.cs` | Debug draw colours; `GridDiagonalMode`, `GridHeuristic`, `GridPathStatus`, `NavigationPathPostprocessing`, `NavigationGridSource`, `NavigationWaypoint2D` |
+| `NavigationPolygon`, `NavigationParsedGeometryType`, `NavigationSourceGeometryMode` | `Polygons/NavigationPolygon.cs` | G3.9: a navigation mesh resource (vertices, convex polygons, outlines, bake settings) |
+| `NavigationRegion2D`, `NavigationLink2D` | `Nodes2D/` | G3.9: a navigation mesh region; a link (jump, teleport) between two points of the mesh |
+| `NavMesh2D`, `NavMeshSearch` | `Polygons/` | G3.9 (internal): the map's mesh built at the sync; the polygon A*, funnel and point lookups |
+| `NavigationPolygonBuilder`, `PolygonPartition`, `NavigationPolygonBaker2D` | `Polygons/`, `Baking/` | G3.9: outlines → convex polygons (Clipper2, ear clipping, Hertel–Mehlhorn); the scene parse |
+| `NavigationDebugColors`, enums | `NavigationTypes.cs`, `NavigationDebugDraw.cs` | Debug draw colours; `GridDiagonalMode`, `GridHeuristic`, `GridPathStatus`, `NavigationPathPostprocessing`, `NavigationGridSource`, `NavigationWaypoint2D`, `NavigationLinkReached2D` |
 
-Navigation never calls Box2D.NET or Jitter2: the bake reads collision through `PhysicsDirectSpaceState2D`.
+Navigation never calls Box2D.NET or Jitter2: the grid bake reads collision through `PhysicsDirectSpaceState2D`, the
+navigation polygon bake reads the collision shape nodes.
 
 ## `AStarGrid2D`
 
@@ -272,6 +279,62 @@ public sealed class Walker : CharacterBody2D
   (`NavigationDebugColors.Avoidance`), obstacles' circles and polygons (`NavigationDebugColors.Obstacle`, faded while
   disabled).
 
+## Navigation meshes (G3.9)
+
+Godot's 2D navigation meshes ([ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md)): a `NavigationRegion2D`
+puts the convex polygons of its `NavigationPolygon` on the map; polygons that share an edge are connected, inside a
+region and across regions; `NavigationLink2D`s join points the polygons do not (jumps, ladders, teleporters). Agents
+follow funnel paths over them exactly as they follow grid paths.
+
+```csharp
+var region = new NavigationRegion2D
+{
+    NavigationPolygon = new NavigationPolygon { BakingRect = new Rect2(0, 0, 1280, 720), AgentRadius = 12f },
+};
+level.AddChild(region);              // walls (StaticBody2D), tile layers, carving obstacles go under it
+region.Bake();                       // or the inspector's Bake button; saved inline or as a .mfres
+```
+
+- **`NavigationPolygon`** (a `Resource`, inline or `.mfres`): `Vertices` and `Polygons` (convex, indices; either winding)
+  are the mesh; `Outlines` (an outline inside another is a hole), `BakingRect` (clips the outlines, or is the traversable
+  area when there are none), `AgentRadius` (10 px), `CellSize` (1 px: the bake's vertex grid), `ParsedGeometryType`
+  (`MeshInstances` = `Polygon2D`s, `StaticColliders`, `Both`), `ParsedCollisionMask`, `SourceGeometryMode` (the region's
+  descendants, or the nodes of `SourceGeometryGroupName` with or without children) are the bake's input.
+  `MakePolygonsFromOutlines()` partitions the outlines alone; `SetMesh`, `AddPolygon`, `AddOutline`, `Clear`, `Version`.
+- **Bake** (`NavigationRegion2D.Bake`/`BakeData`, `NavigationPolygonBaker2D`): the traversable outlines shrunk by the
+  agent radius, minus the obstructions grown by it — `StaticBody2D` collision shapes (rectangles, circles and capsules as
+  24-sided polygons, convex and concave polygons; disabled shapes skipped), the collision polygons of `TileMapLayer`
+  tiles on the masked physics layers (with flips and transposes), `Polygon2D`s, and `NavigationObstacle2D`s with
+  `AffectNavigationMesh` — in the region's local space. Clipper2 on an integer grid with miter joins, then holes bridged
+  into the outer ring, exact ear clipping and Hertel–Mehlhorn merging: the same polygons on every run and CPU. The default
+  source mode bakes without a tree (scenes built in code); the group modes need one. `LastBakeMilliseconds`,
+  `BakeFinished`.
+- **`NavigationRegion2D`** (a `Node2D`): `NavigationPolygon`, `Enabled`, `NavigationLayers`, `EnterCost` (0: added when a
+  path enters it from another region), `TravelCost` (1: multiplies distance inside it), `UseEdgeConnections`; placed by
+  its full global transform (rotation and scale too). `NavigationPolygonChanged`.
+- **`NavigationLink2D`** (a `Node2D`): `StartPosition`, `EndPosition` (local), `Bidirectional`, `Enabled`,
+  `NavigationLayers`, `EnterCost`, `TravelCost`, `GetGlobalStartPosition`/`End…`, `IsConnected()` (both ends found a
+  polygon at the last sync). Each end attaches to the closest polygon within the map's `LinkConnectionRadius`.
+- **The map's mesh** is rebuilt at a sync after any change: a region's polygon, setting or transform (polled at each sync,
+  so a move applies at once), a link, a map setting. Vertices are welded on `NavigationMap2D.CellSize` (1 px), exact shared
+  edges connect, free edges of different regions within `EdgeConnectionMargin` (1 px) that run against each other connect
+  over their overlap, links attach (`LinkConnectionRadius`, 4 px; Godot's defaults). A uniform grid of polygon bounds
+  finds polygons. The rebuild reuses its buffers: 0 B once warm. `PolygonRegions`, `Links`, `PolygonCount`.
+- **Queries.** A grid region containing the start still answers first; otherwise the mesh does. The start and target snap
+  to the closest point of a polygon on the query's layers. A* over polygons with Godot's cost model — entry points are
+  the closest point of each portal to the previous entry, cost the distance times the region's `TravelCost`, plus
+  `EnterCost` into another region and a link's `EnterCost` + length × `TravelCost` — and the straight-line estimate; ties
+  break by polygon index. `CorridorFunnel` runs the funnel per stretch between links; `EdgeCentered` gives portal
+  midpoints; `None` the entry points. A target off the mesh, or unreachable, gives `Partial` (the path to the closest
+  point of the polygon closest to it) or `NotFound` without partial paths. `GetClosestPoint` includes the mesh.
+- **Paths and agents.** `NavigationPath2D.Owners` holds the node behind each point (the grid, the region, or the link at
+  its entry and exit). An agent raises `LinkReached(NavigationLinkReached2D)` (link, index, entry, exit) after the
+  `WaypointReached` of a link's entry; it moves nothing, so the body jumps or teleports to the exit (the Demo's chasers
+  set `GlobalPosition`).
+- **Debug draw** (Visible Navigation): inner polygon edges faint (`CellLines`), borders (`Region`), edge connections
+  (`NavigationDebugColors.EdgeConnection`, with a cross at the middle), links (`NavigationDebugColors.Link`: a line, end
+  circles, an arrow per direction; faded while unconnected). Culled to the view like grids.
+
 ## Editor
 
 - **Visible Navigation** (toolbar view group, icon `route`, View menu): the editor tree's server draws every edited
@@ -283,6 +346,11 @@ public sealed class Walker : CharacterBody2D
   around its body, its avoidance `Radius` when avoiding, and a line and circle at its target, in the overlay.
 - **Obstacle gizmo:** the selected `NavigationObstacle2D` draws its radius circle and polygon (a dot on each vertex) in
   the selection colour; Visible Navigation draws every obstacle. `Vertices` are edited in the inspector (no handles yet).
+- **`NavigationRegionInspector`** (G3.9): **Bake** (`wand`) and **Clear** (`trash`), each one undoable change of the
+  polygon's `Vertices` and `Polygons`, and a status line — polygons, vertices, outlines or baking rect, the last bake's
+  time. The selected region draws its outlines (a dot per vertex) and a dashed baking rectangle; outlines are edited in
+  the inspector (no handles yet). The selected `NavigationLink2D` draws its line, arrow heads and a circle of the link
+  connection radius at each end.
 - Running games: a **Navigation** checkbox in the dev overlay's Physics panel. The editor's toggle does not reach played
   games.
 
@@ -311,17 +379,31 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation avo
   avoided, two runs are bit-identical, masks and priorities, standing agents, the signal's timing and `MaxSpeed`, and
   without avoidance the pass-through); the allocation gate's second case: **0 bytes** over 300 ticks of 64 avoiding
   agents on paths with four orbiting radius obstacles, a sliding polygon and the debug draw on.
+- G3.9: `NavigationPolygonBuilderTests` (a square, an L, holes, islands, carved and radius-grown obstructions, merged and
+  splitting obstructions, many bridged holes, the baking rectangle, degenerate input, either winding, a star with holes
+  against Clipper's own area, deterministic output; every polygon convex), `NavigationMeshQueryTests` (sync, the funnel
+  round a wall both ways, `EdgeCentered`/`None` on the mesh, shared edges and edge margins, links one way and both,
+  the funnel either side of a link, travel and enter costs, layers, snapping and partial paths, rotated and scaled
+  regions, rebuilds, grids first, bad polygons, determinism and 0-byte queries), `NavigationPolygonBakeTests`
+  (`SerialBox2D`: shapes and the agent radius, every shape kind, masks and geometry types, group modes, tiles and carving
+  obstacles, transformed regions, errors), `NavigationPolygonResourceTests` (`.mfres` and inline), `NavigationMeshAgentTests`
+  (an agent round a wall and across a link with `LinkReached`, repaths when a region turns off, the debug draw, and the
+  allocation gate's third case: **0 bytes** over 300 ticks of 64 agents on a navmesh with a door region toggling every 30
+  ticks, a link and the debug draw on).
 - Editor (`NavigationEditorTests`): the toggle, Bake/Clear with undo and staleness, source rows, the agent gizmo, the
-  obstacle gizmo and the avoidance radius.
+  obstacle gizmo and the avoidance radius; the region inspector's Bake/Clear with undo, the region and link gizmos.
 - Render test `navigation` (`NavigationRenderTests`): grid, solid cells, mud, paths and targets over the collision
   shapes through a `Camera2D` (golden).
-- Demo: `Navigation2DSceneTests` (the saved grid equals a real bake, every chaser reaches the target, avoiding chasers
+- Demo: `NavigationMesh2DSceneTests` (the saved polygons equal a bake, every chaser ferries across and arrives without
+  wading the river, the pond carved or not, the panel); `Navigation2DSceneTests` (the saved grid equals a real bake, every chaser reaches the target, avoiding chasers
   keep apart and off the boulder, clicked walls reroute, the panel); `Tiles2DSceneTests` (the tile-sourced grid matches the walls layer, the shadow reaches the hero
   without stepping on stone or water, a wall on its path makes it repath).
 - Benchmarks (`NavigationBenchmarks`, Apple M5): 256² open field A* 8-way ≈ 25 µs, JPS ≈ 0.21 ms, A* 4-way ≈ 31 µs; 256²
   maze A* 8-way ≈ 3.9 ms, JPS ≈ 0.23 ms, 4-way 2.6 ms / 0.4 ms; a tick with 64 agents repathing on a 128² maze ≈ 15 ms;
   all 0 B. `AvoidanceBenchmarks` (RVO2's circle scenario through four pillars, one fixed step): 64 agents ≈ 43 µs, 256
-  agents ≈ 0.23 ms, 0 B (measured with other work running: not in `baseline.json` yet).
+  agents ≈ 0.23 ms, 0 B (measured with other work running: not in `baseline.json` yet). `NavmeshBenchmarks` (G3.9, a
+  2048² hall with 64 slanted pillars): a funnel query corner to corner ≈ 11 µs and 0 B, the map's rebuild ≈ 0.2 ms and
+  0 B, `MakePolygonsFromOutlines` ≈ 0.4 ms (allocates its result); also measured on a busy machine.
 
 ## Changes from the proposal
 
@@ -348,10 +430,22 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation avo
   Polygon obstacles always push agents out (Godot's winding picks in or out) and are not predicted when moved; radius
   obstacles are. The neighbour grid is the hash grid the proposal named; polygon edges use bounds culling, not RVO2's
   obstacle k-d tree (few edges per level). The editor has no vertex handles for obstacles yet.
+- **G3.9 navigation meshes:** the partition is ours (Clipper2 1.5.4 has no triangulator; Godot uses polypartition), on
+  Clipper2's integer grid with miter joins (ADR 0261, answering open question 2: Clipper2 covers the offsetting).
+  Grids and meshes share one map (a grid containing the start answers first). Added beyond the proposal:
+  `NavigationPath2D.Owners`, `NavigationAgent2D.LinkReached` with `NavigationLinkReached2D`, `NavigationLink2D.IsConnected`,
+  `NavigationObstacle2D.AffectNavigationMesh` (Godot's), `BakingRect` as the traversable area when there are no outlines,
+  bakes of scenes outside the tree (descendant mode), the map's `CellSize`, `EdgeConnectionMargin`,
+  `LinkConnectionRadius`, `UseEdgeConnections` and `PolygonCount`. Region and link moves are polled at each sync. Tile
+  layers are parsed whether or not their `CollisionEnabled` is on. Not built: an outline editor with viewport handles,
+  baking on a thread, `BorderSize` and `BakingRectOffset`, a carve-without-radius mode for obstacles.
+- **G3.8 grid polish** closed without code: its three items were conditional — isometric cells if tile maps need them
+  (tile maps are square only), HPA* if a game needs it (none does), cell painting if tile maps do not cover it (G3.6's
+  live tile source does).
 - The Demo scene is in the nav bar's 2D category; number keys open categories, not scenes ([Demo](demo.md#navigation)).
 
 ## Related
 
 [Physics](physics.md) (queries), [Canvas](canvas.md), [Editor](editor.md), [Dev overlay](dev-overlay.md),
 [Demo](demo.md), [Tile maps](tile-maps.md), [Proposal: later phases](future/navigation.md),
-[ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md)
+[ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md), [ADR 0261](../../memory/decisions/0261-navigation-meshes-2d.md)
