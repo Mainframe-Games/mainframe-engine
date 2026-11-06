@@ -258,6 +258,7 @@
         .td-swatch.active { border: 1dp #3b82f6; background-color: #2f3a52; color: #ffffff; }
         .td-chip { display: block; width: 14dp; height: 14dp; margin-right: 5dp; border-radius: 2dp; border: 1dp #00000060; }
         .td-hint { color: #6b7488; margin-top: 8dp; }
+        .td-hint.td-over { color: #ef4444; }
         .td-create .label { margin-left: 4dp; }
         .tree-insp { display: block; margin: 6dp 8dp; padding: 4dp 6dp; background-color: #1b1d23; border: 1dp #2a2d36; border-radius: 4dp; }
         .tree-insp .probe-bake { margin: 4dp 0dp 0dp 0dp; }

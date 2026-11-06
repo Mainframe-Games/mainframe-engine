@@ -12,6 +12,7 @@ namespace MainframeEngine;
 /// <item><term><c>surface.png</c></term><description>Faceted: RGBA8 per cell, R = surface id</description></item>
 /// <item><term><c>user.png</c></term><description>RGBA8 per cell: four game-defined channels</description></item>
 /// <item><term><c>water.png</c></term><description>RGBA8 per vertex, R = water depth as a fraction of <see cref="MaxWaterDepth"/></description></item>
+/// <item><term><c>objects.json</c></term><description>the scattered objects (<see cref="Objects"/>) with their stable ids</description></item>
 /// </list>
 /// A missing file loads as its default, so code-made data needs no files at all (<see cref="Create"/>).
 /// </summary>
@@ -22,7 +23,7 @@ namespace MainframeEngine;
 /// Edit through a <see cref="Terrain3D"/> (or these methods: terrains using the data rebuild the touched chunks).
 /// </remarks>
 [EditorIcon("mountain")]
-public sealed class TerrainData : Resource
+public sealed partial class TerrainData : Resource
 {
     /// <summary>The layer folder's resource file name.</summary>
     public const string ResourceFileName = "terrain.mfres";
@@ -456,6 +457,7 @@ public sealed class TerrainData : Resource
         if ((write & LayerFiles.Foliage1) != 0)
             SaveOptional(folder, FoliageFile(1), _foliage1, cells);
         SaveCarveRecords(folder, everything: write == LayerFiles.All);
+        SaveObjects(folder, everything: write == LayerFiles.All);
 
         _dirty = LayerFiles.None;
         _savedFolder = folder;

@@ -327,6 +327,129 @@ public sealed class TerrainDockTests : IDisposable
         Assert.Equal(0f, data.GetFoliageDensity(1, 32, 32));
     }
 
+    // Two object types: 0 "Rock" and 1 "Crate", one per 4 m cell, each with a one-node scene.
+    private static TerrainData WithObjectTypes(Terrain3D terrain)
+    {
+        var data = terrain.Data!;
+        data.ObjectTypes =
+        [
+            new ScatterObjectType { Name = "Rock", Scenes = [PackedScene.Pack(new Node3D { Name = "Rock" })] },
+            new ScatterObjectType { Name = "Crate", Scenes = [PackedScene.Pack(new Node3D { Name = "Crate" })], SlopeMaxDegrees = 90f },
+        ];
+        return data;
+    }
+
+    private void Click(Vector2 at)
+    {
+        Push(new InputEventMouseMotion { Position = at });
+        Push(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = at });
+        Push(new InputEventMouseButton { Button = MouseButton.Left, Pressed = false, Position = at });
+    }
+
+    private static int[] Ids(TerrainData data) => data.Objects.Select(o => o.Id).Order().ToArray();
+
+    [Fact]
+    public void AScatterStrokeFillsTheGridOnceAndUndoRedoKeepTheIds()
+    {
+        var terrain = AddTerrain();
+        var data = WithObjectTypes(terrain);
+        Tool.Mode = TerrainDockMode.Objects;
+        Tool.ObjectType = 1;
+        Tool.Brush.Size = 12f;
+        Tool.Brush.Falloff = 0f;
+        _editor.Tick();
+        Assert.Contains("Crate", W.Inspector.ToolDockRml);
+        Assert.Contains("data-tool-action=\"object-tool\"", W.Inspector.ToolDockRml);
+        var entries = _editor.Scene.History.Position;
+
+        Drag(Window(26f, 32f), Window(38f, 32f));
+        var added = Ids(data);
+        Assert.InRange(added.Length, 8, 30); // about 260 m² under the swath, one per 16 m² cell
+        Assert.All(data.Objects, o =>
+        {
+            Assert.Equal(1, o.Type);
+            Assert.True(o.X is > 18f and < 46f && o.Z is > 24f and < 40f, $"({o.X}, {o.Z}) is outside the stroke");
+            Assert.NotNull(terrain.GetObjectNode(o.Id));
+        });
+        Assert.Equal(added.Length, data.Objects.Select(o => ((int)(o.X / 4f), (int)(o.Z / 4f))).Distinct().Count()); // one per cell
+        Assert.Equal(entries + 1, _editor.Scene.History.Position);
+        _editor.Tick();
+        Assert.Contains(added.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + " objects", W.Inspector.ToolDockRml);
+
+        Drag(Window(26f, 32f), Window(38f, 32f)); // the same ground again: every cell is taken
+        Assert.Equal(added, Ids(data));
+        Assert.Equal(entries + 1, _editor.Scene.History.Position);
+
+        var objects = data.Objects.ToArray();
+        _editor.Scene.History.Undo();
+        Assert.Empty(data.Objects);
+        Assert.Equal(0, terrain.ObjectsRoot!.Children.Count(c => !c.IsQueuedForDeletion));
+        _editor.Scene.History.Redo();
+        Assert.Equal(objects.OrderBy(o => o.Id), data.Objects.OrderBy(o => o.Id)); // the same ids, places and sizes
+        Assert.All(data.Objects, o => Assert.NotNull(terrain.GetObjectNode(o.Id)));
+        Assert.Equal(added.Max() + 1, data.NextObjectId);
+    }
+
+    [Fact]
+    public void ShiftRemovesOnlyTheChosenTypeUnderTheBrush()
+    {
+        var terrain = AddTerrain();
+        var data = WithObjectTypes(terrain);
+        var rock = data.AddObject(0, 32f, 32f);
+        Tool.Mode = TerrainDockMode.Objects;
+        Tool.ObjectType = 1;
+        Tool.Brush.Size = 12f;
+        Drag(Window(26f, 32f), Window(38f, 32f));
+        Drag(Window(10f, 10f), Window(12f, 10f), 2); // a few far away
+        var far = data.Objects.Where(o => o.Type == 1 && o.X < 20f).Select(o => o.Id).ToArray();
+        Assert.NotEmpty(far);
+        var before = data.Objects.ToArray();
+        var entries = _editor.Scene.History.Position;
+
+        Push(new InputEventKey { Key = Key.ShiftLeft, Pressed = true });
+        Drag(Window(24f, 32f), Window(40f, 32f));
+        Assert.StartsWith("Remove objects", W.Tools.CursorLabel);
+        Push(new InputEventKey { Key = Key.ShiftLeft, Pressed = false });
+        Assert.Equal([rock, .. far], Ids(data)); // the rock (another type) and the far crates stay
+        Assert.Equal(entries + 1, _editor.Scene.History.Position);
+
+        _editor.Scene.History.Undo();
+        Assert.Equal(before.OrderBy(o => o.Id), data.Objects.OrderBy(o => o.Id));
+        _editor.Scene.History.Redo();
+        Assert.Equal([rock, .. far], Ids(data));
+    }
+
+    [Fact]
+    public void PlaceAddsOneObjectPerClickAndWaterIsSkippedByScatter()
+    {
+        var terrain = AddTerrain();
+        var data = WithObjectTypes(terrain);
+        Tool.Mode = TerrainDockMode.Objects;
+        Tool.ObjectType = 0;
+        Tool.ObjectTool = TerrainObjectTool.Place;
+        var entries = _editor.Scene.History.Position;
+        Click(Window(20f, 22f));
+        var placed = Assert.Single(data.Objects);
+        Assert.Equal(0, placed.Type);
+        Assert.Equal(20f, placed.X, 0);
+        Assert.Equal(22f, placed.Z, 0);
+        Assert.InRange(placed.Scale, 0.9f, 1.1f);
+        Assert.Equal(entries + 1, _editor.Scene.History.Position);
+        _editor.Scene.History.Undo();
+        Assert.Empty(data.Objects);
+        _editor.Scene.History.Redo();
+        Assert.Equal(placed, Assert.Single(data.Objects));
+
+        // Scatter skips water (AvoidWater) on the left half.
+        data.SetWaterDepthFrom((x, z) => x < 32f ? 1f : 0f);
+        Tool.ObjectTool = TerrainObjectTool.Scatter;
+        Tool.Brush.Size = 16f;
+        Drag(Window(24f, 44f), Window(40f, 44f));
+        var scattered = data.Objects.Where(o => o.Id != placed.Id).ToArray();
+        Assert.NotEmpty(scattered);
+        Assert.All(scattered, o => Assert.True(o.X > 30f, $"an object at x {o.X} is in the water"));
+    }
+
     [Fact]
     public void HotkeysResizeTheBrushAndTheLabelShowsTheTool()
     {
