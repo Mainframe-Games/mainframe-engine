@@ -32,7 +32,22 @@ Branch `feature/g6-pbr-default-lods`. Plan:
   authored, skinned and shared meshes), `ModelLodImportTests.GenerateLodsBuildsIndexOnlyLevelsOnImport`.
 - **Docs:** rendering-features (open questions 1 and 2 closed, Generated LODs), materials-and-meshes, asset-pipeline
   (sidecar `format`), scene-serialization (changed defaults), natives, distribution-nuget, THIRD_PARTY_NOTICES,
-  AGENTS.md, milestones (G6 ✅), README and landing page.
+  AGENTS.md, README and landing page (the milestones row and state lines: State changes below).
+
+## State changes
+
+Pending for the state sync (ADR 0280); this PR does not edit these files.
+
+- `docs/milestones.md`, the G6 row's status cell: replace "🚧 all built (ADRs 0150, 0165, 0206, 0245, 0246);
+  owner-pending: the PBR default flip (open question 3) and the LOD simplifier for generated LODs (open question 1)"
+  with "✅ (ADRs 0150, 0165, 0206, 0245, 0246); PBR is the default shading, old content keeps Blinn-Phong through
+  migrations (ADR 0255); generated LODs through meshoptimizer, `Native/MeshOpt` (ADR 0256)".
+- `memory/context/current-state.md`, the **G6** bullet: replace "PBR + IBL, SSAO, 3D particles, mesh LODs (ADR 0245),
+  forward decals (ADR 0246), `.hdr` skies; owner-pending: PBR default, LOD simplifier." with "PBR + IBL (the default
+  shading since ADR 0255: `StandardMaterial3D` v2 and `.mfmeta` `format` 2 keep older content Blinn-Phong), SSAO, 3D
+  particles, mesh LODs (ADR 0245; `generateLods` through meshoptimizer in the `mfmeshopt` shim, ADR 0256), forward
+  decals (ADR 0246), `.hdr` skies: G6 complete."
+- `memory/context/current-state.md`, Next steps item 2: remove "G6's PBR default (owner); ".
 
 ## Decisions
 
