@@ -439,5 +439,7 @@ These are not loaded automatically. Read them before starting work:
 - `memory/README.md`
 - `memory/context/current-state.md`
 - the newest files in `memory/logs/`
+- `just state-pending`: status changes merged since the last state sync, not yet in `current-state.md` or
+  `docs/milestones.md` (feature PRs never edit those two; `.agents/workflow.md#state-sync`)
 
 `memory/context/progress-log.md` is the older history. Read it for the background of a past change.

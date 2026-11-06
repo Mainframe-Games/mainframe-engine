@@ -25,16 +25,36 @@ Commands that must pass before shipping. Rendering changes need a GPU and a disp
 - `just format-check`
 - `just shaders-check`
 - `bash .agents/mainframe-workflow/scripts/check.sh`
+- `just state-guard`
 
 ## Shipping
 
 `move`
 
-When a proposal in `docs/design/future/` ships, move its content into the current-state doc in `docs/design/`, add a "Changes from the proposal" section, repoint links, and tick its row in `docs/milestones.md`.
+When a proposal in `docs/design/future/` ships, move its content into the current-state doc in `docs/design/`, add a "Changes from the proposal" section, repoint links, and put the tick of its `docs/milestones.md` row in the log's State changes ([State sync](#state-sync)).
 
 Update the `docs/design/` doc for any subsystem a change touches, and `AGENTS.md` when the project structure changes. `docs-site/` is generated from `docs/`.
 
 `memory/context/progress-log.md` is history. New entries go in `memory/logs/`.
+
+## State sync
+
+`docs/milestones.md` and `memory/context/current-state.md` are shared status files. Feature PRs ran in parallel and each
+edited the same rows and lines there, so every merge left the others in conflict (ADR 0280). Now only a state sync
+edits them:
+
+- **A feature PR never edits either file** (`build/state-guard.sh` fails it in CI). Ship steps 3 and 5 (tick the
+  milestone, correct the state file) and the `move` step's milestone tick become a `## State changes` section in the
+  PR's log: each change to make, said exactly, e.g. "milestones G8a: 🚧 → ✅ (G8a.8 foliage done)", "state: add gotcha
+  …", "milestones: add row G21 …". Write "None." when there are none. A log is a new file, so it never conflicts.
+- **Reading state:** `current-state.md` and `docs/milestones.md`, then `just state-pending`: the State changes of every
+  log merged since the last sync. Those are true even though the two files do not show them yet.
+- **A state sync** runs from an up-to-date `main` when the owner asks, and before a release (the docs site publishes
+  `docs/milestones.md`). Its branch name contains `state-sync` (`feature/state-sync-YYYY-MM-DD`) and its PR title
+  starts `State: sync` (the next `just state-pending` counts from that commit). It applies every pending section to the
+  two files, by judgment where two logs touch the same row, and nothing else. Only one sync is open at a time.
+- **The state file** holds only what is true and slow-changing: no dates, PR numbers, "in review" notes, test counts or
+  feature lists. One fact per line, hard-wrapped at 120 characters. Per-feature status lives in milestones rows.
 
 ## Commits
 
