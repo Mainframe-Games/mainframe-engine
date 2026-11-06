@@ -36,8 +36,10 @@ public sealed class ExportRunnerTests : IDisposable
     [Fact]
     public async Task ALinuxExportIsATarOfTheStagedPublish()
     {
+        // pack: false is the loose layout (PackFalseKeepsLooseAssets); the packed default is below.
         _game.Settings.Steam.AppId = 480;
         _game.Settings.ExportPresets.Add(ExportPreset.Create("Linux", ExportPlatform.Linux));
+        _game.Settings.ExportPresets[0].Pack = false;
         _game.Save();
         var progress = new List<ExportPhase>();
         var lines = new List<string>();
@@ -72,6 +74,87 @@ public sealed class ExportRunnerTests : IDisposable
         Assert.Contains(ExportPhase.Archive, progress);
         Assert.Contains(lines, l => l.StartsWith("dotnet publish ", StringComparison.Ordinal));
         Assert.False(Directory.Exists(Path.Combine(_game.Root, ".mainframe", "export", "stage", "linux")));
+    }
+
+    // Extracts a tar.gz export into a folder of its own and returns the folder.
+    private string Extract(string archive)
+    {
+        var folder = Path.Combine(_game.Root, "extracted-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        using var gzip = new GZipStream(File.OpenRead(archive), CompressionMode.Decompress);
+        TarFile.ExtractToDirectory(gzip, folder, overwriteFiles: true);
+        return folder;
+    }
+
+    [Fact]
+    public async Task ADefaultExportShipsTheContentAndTheProjectFileInAPack()
+    {
+        var lines = new List<string>();
+        var result = await new ExportRunner(_game.Environment()).RunAsync(
+            new ExportRequest(_game.Root, ExportPreset.Create("Linux", ExportPlatform.Linux)), null, lines.Add, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded, result.Summary);
+        const string root = "TinyGame-1.2.0-linux-x64/";
+        var entries = TarEntries(result.ArtifactPath!);
+        Assert.Contains(root + PackFormat.FileName, entries.Keys);
+        Assert.DoesNotContain(entries.Keys, e => e.StartsWith(root + "Assets/", StringComparison.Ordinal) || e == root + "Assets");
+        Assert.DoesNotContain(root + ProjectSettings.FileName, entries.Keys);
+        Assert.Contains(lines, l => l.StartsWith("Packed ", StringComparison.Ordinal));
+
+        var app = Path.Combine(Extract(result.ArtifactPath!), "TinyGame-1.2.0-linux-x64");
+        using var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName));
+        string[] paths = [.. pack.Entries.Select(e => e.Path)];
+        Assert.Contains("Assets/Scenes/Main.mfscene", paths);
+        Assert.Contains("Assets/assets.index.json", paths);
+        Assert.Contains("Assets/locale/fr/LC_MESSAGES/messages.mo", paths);
+        Assert.Contains("Assets/Shaders/Mesh.vk.vert.spv", paths);
+        Assert.DoesNotContain(paths, p => p.EndsWith(".po", StringComparison.Ordinal));
+        using (PackContentSource.MountBeside(app))
+        {
+            var project = ProjectSettings.Load(app);
+            Assert.Empty(project.ExportPresets);
+            Assert.Equal("1.2.0", project.Version);
+        }
+    }
+
+    [Fact]
+    public async Task PackFalseKeepsLooseAssets()
+    {
+        var preset = ExportPreset.Create("Linux", ExportPlatform.Linux);
+        preset.Pack = false;
+
+        var result = await Run(preset, ct: TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded, result.Summary);
+        var entries = TarEntries(result.ArtifactPath!);
+        const string root = "TinyGame-1.2.0-linux-x64/";
+        Assert.DoesNotContain(root + PackFormat.FileName, entries.Keys);
+        Assert.Contains(root + "Assets/Scenes/Main.mfscene", entries.Keys);
+        Assert.Contains(root + ProjectSettings.FileName, entries.Keys);
+    }
+
+    [Fact]
+    public async Task LooseGlobsShipBesideThePackAndStillLoad()
+    {
+        var preset = ExportPreset.Create("Linux", ExportPlatform.Linux);
+        preset.Loose.Add("Assets/Music/**");
+
+        var result = await Run(preset, ct: TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded, result.Summary);
+        var app = Path.Combine(Extract(result.ArtifactPath!), "TinyGame-1.2.0-linux-x64");
+        var loose = Path.Combine(app, "Assets", "Music", "theme.mfres");
+        Assert.True(File.Exists(loose));
+        Assert.False(File.Exists(Path.Combine(app, "Assets", "Scenes", "Main.mfscene")));
+        using var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName));
+        Assert.False(pack.FileExists("Assets/Music/theme.mfres"));
+        Assert.True(pack.FileExists("Assets/Scenes/Main.mfscene"));
+        using (PackContentSource.MountBeside(app))
+        {
+            Assert.Contains("AudioStream", ContentFiles.ReadAllText(loose), StringComparison.Ordinal); // the disk, through the mount
+            Assert.Contains("scn_aaaaaaaaaaaa", ContentFiles.ReadAllText(Path.Combine(app, "Assets", "Scenes", "Main.mfscene")), StringComparison.Ordinal);
+            Assert.Contains(ContentFiles.EnumerateFiles(Path.Combine(app, "Assets"), "*", recursive: true), f => f == loose);
+        }
     }
 
     [Fact]

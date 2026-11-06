@@ -80,9 +80,9 @@ catalogs and locale folders, Spine exports, terrain and light-probe data, models
 - **Mounts.** `ContentFiles.Mount(IContentSource, priority)` serves the paths under the source's `Root` directory until
   the returned handle is disposed: a path under a mounted root is looked up in the mounts holding it (highest priority
   first, then mount order), then on the disk. Paths outside every mount, and every path when nothing is mounted, read the
-  disk exactly as before. Enumeration unions the mounts and the disk, ordinal-sorted. Phase 2 mounts an export's
-  `Assets.mfpak` at `ContentPaths.BaseDirectory` ([Protected exports](future/protected-exports.md)); tests mount a
-  `MemoryContentSource`.
+  disk exactly as before. Enumeration unions the mounts and the disk, ordinal-sorted. An export's
+  `Assets.mfpak` is mounted at `ContentPaths.BaseDirectory` ([Packs](#packs)); tests mount a `MemoryContentSource` or
+  a pack.
 - **Native readers.** RmlUi reads documents and font faces through the managed file interface, which opens
   `ContentFiles` streams. Assimp is given an `aiFileIO` (`AssimpContentIO`) when the model lies under a mount, so a glTF's
   `.bin` buffers and images come from the mount too; otherwise it opens the path itself. Spine exports are read through
@@ -95,6 +95,32 @@ catalogs and locale folders, Spine exports, terrain and light-probe data, models
   comment, and `ContentIoAuditTests.RuntimeContentCodeDoesNotCallFileApis` fails on any other `File`/`Directory` read in
   `MainframeEngine/Src` outside its list of user-data and build files.
 - **Games** read their own data files through `ContentFiles` too, so they keep loading once an export packs them.
+
+### Packs
+
+An export's `Assets.mfpak` (G19 phase 2, [Game export → Packed content](game-export.md#packed-content)) is read by
+`PackReader` and mounted as a `PackContentSource` (`Src/Core/Content/`). `PackWriter` writes it; the export's stage step,
+tests and `ContentLoadBenchmarks` use it.
+
+- **Format v1** (`PackFormat`, little-endian): a 64-byte header (`MFPK`, version, options, the index's offset, stored
+  and decoded lengths, the index nonce, 4 reserved bytes, a 16-byte key check), the entries in ordinal path order, then
+  the Brotli-compressed index (count; per entry its UTF-8 path, offset, stored length, length, codec and a 12-byte
+  nonce). The nonce is the first 12 bytes of SHA-256(path ‖ content), and the key check is zero until phase 3 encrypts
+  packs.
+- **Codecs.** Media that is already compressed or is streamed with seeks (`.ogg`, `.wav`, `.mp3`, `.flac`, `.opus`,
+  `.png`, `.jpg`, `.webp`, `.ktx2`, video, `.zip`) is stored 16 KB aligned. Everything else is Brotli (quality 9, window
+  22) when that saves at least 1/16 of the file, else stored. Stored entries are read straight from the pack; Brotli
+  entries are decoded whole when opened.
+- **Layout for patches** ([ADR 0247](../../memory/decisions/0247-pack-anchors-for-steampipe.md)). SteamPipe diffs in
+  ~1 MB chunks. An entry of a page (1 MB) or more, and about one entry per 16 MB chosen from its path's hash and its own
+  size (`PackFormat.IsAnchor`), starts on a page boundary. A changed, added or removed asset re-lays out only the entries
+  up to the next anchor; later entries move by whole pages, so their chunks still match. The padding costs about 3 %.
+- **Deterministic.** The same files give the same bytes: sorted paths, no timestamps, content-derived nonces.
+- **Reads.** One read-only handle per pack and positional reads (`RandomAccess`), so the loader worker and the audio
+  streamer read at once. A stored entry's stream reads and seeks without allocating, and lookups take
+  `ReadOnlySpan<char>` (0 B). Every packed file reports the same last write time.
+- **Errors.** A file that is not a pack, a newer format, an encrypted pack (until phase 3) or a damaged index or entry
+  throws `InvalidDataException` naming the pack when it is opened, not mid-load.
 
 ## Importers
 

@@ -3,9 +3,9 @@
 # template from this checkout into a private template hive, creates SmokeGame, builds it with warnings as errors and
 # runs its desktop project (GameHost) for a few frames with a hidden window, saving the last frame to <work-dir>/screenshot.png.
 # Then it exports the game for this machine's RID with mf-export and an export preset written into its project.mfproj
-# (as the editor's File › Export would), unpacks the archive and runs it headless (--headless --max-frames): the exported
-# project.mfproj (no presets), the asset index and the content must be in place, other platforms' natives and .po
-# sources must not.
+# (as the editor's File › Export would), unpacks the archive and runs it headless (--headless --max-frames): Assets.mfpak
+# must hold the exported project.mfproj (no presets), the asset index and the content, with nothing of them loose;
+# other platforms' natives and .po sources must not ship.
 # Fails on any build error, a non-zero exit code, missing engine content or catalogs, a missing screenshot or an
 # [ERROR]/[FATAL] line in the game's log.
 #
@@ -180,17 +180,17 @@ if [ "$source" = "package" ]; then
     case "$package_rid" in
       linux-*) check_archive "$archive" "+$base/SmokeGame" "+$base/libsteam_api.so" "+$base/libmfrmlui.so" \
         "+$base/steamworks/posix/MainframeEngine.Steamworks.dll" "+$base/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-        "+$base/Assets/Scenes/Main.mfscene" "-Assets/Video" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
+        "+$base/Assets.mfpak" "-Assets/Scenes" "-Assets/Video" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
       win-*) check_archive "$archive" "+$base/SmokeGame.exe" "+$base/steam_api64.dll" "+$base/mfrmlui.dll" \
         "+$base/steamworks/win64/MainframeEngine.Steamworks.dll" "+$base/steamworks/win64/Facepunch.Steamworks.Win64.dll" \
-        "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" "-Assets/Video" ;;
+        "+$base/Assets.mfpak" "-Assets/Scenes" "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" "-Assets/Video" ;;
       osx-*)
         # Only the apphost in Contents/MacOS; the rest of the publish in Contents/MonoBundle (issue #105).
         macos="SmokeGame.app/Contents/MacOS" app="SmokeGame.app/Contents/MonoBundle"
         check_archive "$archive" "+SmokeGame.app/Contents/Info.plist" "+$macos/SmokeGame" "-$macos/SmokeGame.Desktop.dll" \
           "+$app/SmokeGame.Desktop.dll" "+$app/libsteam_api.dylib" "+$app/libmfrmlui.dylib" "+$app/libcoreclr.dylib" \
           "+$app/steamworks/posix/MainframeEngine.Steamworks.dll" "+$app/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-          "+$app/Assets/Scenes/Main.mfscene" "-Assets/Video" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
+          "+$app/Assets.mfpak" "-Assets/Scenes" "-Assets/Video" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
           "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt"
         # The apphost starts ../MonoBundle/SmokeGame.Desktop.dll (build/macos/BundleAppHost.targets).
         unzip -p "$archive" "$macos/SmokeGame" > "$work/packages/apphost"
@@ -277,12 +277,21 @@ case "$export_rid" in
   win-*) app_dir="$run_dir/$base" exe="$run_dir/$base/SmokeGame.exe" ;;
   *) app_dir="$run_dir/$base" exe="$run_dir/$base/SmokeGame" ;;
 esac
-require "$app_dir" project.mfproj Assets/assets.index.json Assets/Scenes/Main.mfscene Assets/locale/fr/LC_MESSAGES/messages.mo
-if grep -q '"export"' "$app_dir/project.mfproj"; then
+# G19: the content and the project file are in Assets.mfpak; nothing of them ships loose. Its files, written out by
+# mf-export --pack-extract, are checked as the loose layout was.
+require "$app_dir" Assets.mfpak
+forbid "$app_dir" Assets project.mfproj
+packed="$work/exported-pack"
+rm -rf "$packed"
+"${mf_export[@]}" --pack-extract "$app_dir/Assets.mfpak" "$packed"
+require "$packed" project.mfproj Assets/assets.index.json Assets/Scenes/Main.mfscene Assets/locale/fr/LC_MESSAGES/messages.mo \
+  Assets/UI/widgets/widgets.rcss Assets/Shaders/Mesh/Mesh.vk.vert.spv
+forbid "$packed" Assets/Video
+if grep -q '"export"' "$packed/project.mfproj"; then
   echo "template-smoke: the exported project.mfproj still has its export presets" >&2
   exit 1
 fi
-if find "$app_dir" -name '*.po' | grep -q .; then
+if find "$app_dir" "$packed" -name '*.po' | grep -q .; then
   echo "template-smoke: the export ships .po sources" >&2
   exit 1
 fi

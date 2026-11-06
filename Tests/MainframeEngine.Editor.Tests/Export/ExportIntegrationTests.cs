@@ -58,6 +58,7 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
         demo.Name = "Here (demo)";
         demo.Demo = true;
         demo.Desktop.Profiler = false;
+        demo.Pack = false; // the loose layout, through a real publish
         demo.Output = Path.Combine(_directory, "out-demo");
         settings.ExportPresets.AddRange([full, demo]);
         settings.Save(project);
@@ -85,10 +86,19 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
         };
         Assert.True(File.Exists(exe), exe);
         Assert.False(File.Exists(Path.Combine(app, platform == ExportPlatform.Windows ? "ExportedGame.Desktop.exe" : "ExportedGame.Desktop")));
-        var exported = ProjectSettings.Load(Path.Combine(app, ProjectSettings.FileName));
-        Assert.Empty(exported.ExportPresets);
-        Assert.True(File.Exists(Path.Combine(app, "Assets", AssetDatabase.IndexFileName)));
-        Assert.False(File.Exists(Path.Combine(app, "Assets", "notes.po")));
+        // G19: the content and the project file are in the pack; nothing of them is loose.
+        Assert.True(File.Exists(Path.Combine(app, PackFormat.FileName)));
+        Assert.False(Directory.Exists(Path.Combine(app, "Assets")));
+        Assert.False(File.Exists(Path.Combine(app, ProjectSettings.FileName)));
+        using (var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName)))
+        {
+            Assert.True(pack.FileExists("Assets/" + AssetDatabase.IndexFileName));
+            Assert.True(pack.FileExists("Assets/Scenes/Main.mfscene"));
+            Assert.False(pack.FileExists("Assets/notes.po"));
+        }
+
+        using (PackContentSource.MountBeside(app))
+            Assert.Empty(ProjectSettings.Load(app).ExportPresets);
         var foreign = EngineNatives.Rids.Where(r => ExportTargets.PlatformOf(r) != platform).SelectMany(EngineNatives.FilesOf)
             .Except(EngineNatives.FilesOf(rid)).Where(f => File.Exists(Path.Combine(app, f))).ToArray();
         Assert.Empty(foreign);
@@ -114,6 +124,7 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
             timeout: TimeSpan.FromMinutes(2), cancellationToken: ct);
         Assert.True(run.Succeeded, run.OutputText);
         Assert.DoesNotContain("[ERROR]", run.OutputText, StringComparison.Ordinal);
+        Assert.Contains($"Content from {PackFormat.FileName}", run.OutputText, StringComparison.Ordinal);
     }
 
     // The game assembly's AssemblyMetadata("MainframeDemo", "true") blob (build/MainframeGame.props): SerString name, SerString value.

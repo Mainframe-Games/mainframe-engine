@@ -73,6 +73,28 @@ public sealed class ExportPresetFormatTests
     }
 
     [Fact]
+    public void PackAndLooseRoundTripAndDefaultToAPack()
+    {
+        var settings = new ProjectSettings { Name = "Packed" };
+        var packed = ExportPreset.Create("Packed", ExportPlatform.Linux);
+        var loose = ExportPreset.Create("Loose", ExportPlatform.Windows);
+        loose.Pack = false;
+        packed.Loose.Add("Assets/Mods/**");
+        settings.ExportPresets.AddRange([packed, loose]);
+
+        var text = Text(settings);
+        var again = Parse(text);
+
+        Assert.True(ExportPreset.Create("New", ExportPlatform.Linux).Pack);
+        Assert.True(again.ExportPresets[0].Pack);
+        Assert.Equal(["Assets/Mods/**"], again.ExportPresets[0].Loose);
+        Assert.Equal((false, 0), (again.ExportPresets[1].Pack, again.ExportPresets[1].Loose.Count));
+        Assert.DoesNotContain("\"pack\": true", text, StringComparison.Ordinal);
+        Assert.Equal(["Assets/Mods/**"], packed.Clone().Loose);
+        Assert.False(loose.Clone().Pack);
+    }
+
+    [Fact]
     public void ANewPresetIsOnlyItsNameAndPlatform()
     {
         var s = new ProjectSettings { Name = "G" };
