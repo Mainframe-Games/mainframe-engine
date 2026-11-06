@@ -485,7 +485,9 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
                     CollisionLayer = data.CollisionLayer,
                     CollisionMask = data.CollisionMask,
                 };
-                body.AddChild(new CollisionShape3D { Name = "Shape", Shape = shape });
+                // Hidden: Visible Collision Shapes skips it (the trimesh is the drawn triangles, and its wireframe would cover
+                // the ground and the editor's brush). Visibility does not affect collision.
+                body.AddChild(new CollisionShape3D { Name = "Shape", Shape = shape, Visible = false });
                 _shapes[c] = shape;
                 _bodies[c] = body;
                 AddChild(body);

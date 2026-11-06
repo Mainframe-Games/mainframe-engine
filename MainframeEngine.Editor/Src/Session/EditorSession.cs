@@ -84,6 +84,12 @@ public sealed class EditorSession : IDisposable
     /// <summary>The active scene's selection changed.</summary>
     public event Action<EditedScene>? SelectionChanged;
 
+    /// <summary>
+    /// <see cref="Save"/> is about to write a scene (after the project checks, before the file): viewport tools write the
+    /// data the scene file does not hold. A handler that throws fails the save (no file is written, the tab stays dirty).
+    /// </summary>
+    public event Action<EditedScene>? Saving;
+
     /// <summary>The project changed: opened, switched, or its settings were replaced (Project Settings dialog).</summary>
     public event Action? ProjectChanged;
 
@@ -497,6 +503,7 @@ public sealed class EditorSession : IDisposable
             UseProjectOf(target, allowSwitch: true);
         }
 
+        Saving?.Invoke(scene); // viewport tools write their external data first; a throw leaves the scene unsaved
         SceneSaver.Save(scene.Root, target);
         foreach (var file in scene.SaveEditedResourceFiles())
             Log.Info($"[Editor] Saved {file}");

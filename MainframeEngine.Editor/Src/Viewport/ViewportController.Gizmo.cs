@@ -118,9 +118,11 @@ public sealed partial class ViewportController
     public bool TryGetGizmoPose(EditedScene scene, out Vector3 pivot, out Quaternion axes)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        var targets = GizmoTargets(scene);
         pivot = Vector3.Zero;
         axes = Quaternion.Identity;
+        if (_workspace.Tools.Active is not null && ReferenceEquals(_workspace.Tools.ActiveScene, scene))
+            return false; // a viewport tool owns its node's view: no transform gizmo
+        var targets = GizmoTargets(scene);
         if (targets.Count == 0)
             return false;
         var active = ActiveIndex(_targets3D, scene.Selection.Primary);

@@ -55,6 +55,7 @@ public sealed partial class ViewportController : Node
         Box,       // a selection rectangle (G7.4)
         Paint,     // a tile map stroke (G2b)
         Curve,     // a curve tool gesture (G13)
+        Tool,      // a viewport tool's captured drag (IEditorViewportTool)
         Orbit,
         Pan,
         Fly,
@@ -239,6 +240,7 @@ public sealed partial class ViewportController : Node
         PollBox(scene);
         _workspace.TileMap.Tick();
         _workspace.Curves.Tick();
+        UpdateTools(scene, pixels, (float)gameTime.DeltaTime);
         if (IsSimulating(scene))
             DrawSimulationVisuals(scene, viewport, pixels);
         else if (scene.Camera.Is2D)
@@ -385,7 +387,11 @@ public sealed partial class ViewportController : Node
                     Handled();
                 break;
             case InputEventMouseWheel wheel when ViewRect.Contains(_mouse.X, _mouse.Y) || _drag == DragKind.Fly:
-                if (scene.Camera.Is2D)
+                if (_drag != DragKind.Fly && ToolWheel(scene, wheel.Delta.Y))
+                {
+                    // the active tool took it (Shift/Alt + wheel)
+                }
+                else if (scene.Camera.Is2D)
                     scene.Camera.Zoom2DAt(wheel.Delta.Y, LocalPixel(_mouse), ViewPixels);
                 else if (_drag == DragKind.Fly)
                     scene.Camera.FlySpeed *= MathF.Pow(1.2f, wheel.Delta.Y);
@@ -401,6 +407,13 @@ public sealed partial class ViewportController : Node
                 if (FlyKey(key))
                     Handled();
                 break;
+            case InputEventKey { Pressed: true, Key: Key.Escape } when _drag == DragKind.Tool:
+                CancelDrag(); // Esc during a tool drag ends it (the tool keeps what it applied)
+                Handled();
+                break;
+            case InputEventKey key when ToolKey(scene, key):
+                Handled();
+                break;
         }
     }
 
@@ -408,7 +421,7 @@ public sealed partial class ViewportController : Node
 
     private bool Press(EditedScene scene, InputEventMouseButton e)
     {
-        if (e.Button == MouseButton.Right && IsCancellableDrag)
+        if (e.Button == MouseButton.Right && (IsCancellableDrag || _drag == DragKind.Tool))
         {
             CancelDrag(); // a right click during a gizmo or handle drag cancels it (Blender, Godot)
             return true;
@@ -419,6 +432,10 @@ public sealed partial class ViewportController : Node
         _pressAt = _mouse; // the event's position in layout points
         if (scene.Camera.Is2D)
             return Press2D(scene, e);
+        // A viewport tool (the terrain brush, the river tool) takes left presses before everything but navigation.
+        if (ToolPress(scene, e))
+            return true;
+
         // G13.6: while a Path3D is selected, the curve tool takes clicks on its points, handles and (per tool) the view.
         if (!IsSimulating(scene) && _workspace.Curves.Press3D(scene.History, CurveView(scene), LocalPixel(_mouse), e.Button, _workspace.Modifiers))
         {
@@ -459,7 +476,7 @@ public sealed partial class ViewportController : Node
             return false;
         var matches = scene.Camera.Is2D ? Release2DMatches(drag, e.Button) : drag switch
         {
-            DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box or DragKind.Curve => e.Button == MouseButton.Left,
+            DragKind.Click or DragKind.Gizmo or DragKind.Handle or DragKind.Box or DragKind.Curve or DragKind.Tool => e.Button == MouseButton.Left,
             DragKind.Orbit => e.Button is MouseButton.Left or MouseButton.Middle,
             DragKind.Pan => e.Button == MouseButton.Middle,
             DragKind.Fly => e.Button == MouseButton.Right,
@@ -468,7 +485,9 @@ public sealed partial class ViewportController : Node
         if (!matches)
             return true;
         _drag = DragKind.None;
-        if (drag == DragKind.Paint)
+        if (drag == DragKind.Tool)
+            ToolRelease(scene, e.Button);
+        else if (drag == DragKind.Paint)
             _workspace.TileMap.Release(scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels));
         else if (drag == DragKind.Curve)
         {
@@ -511,6 +530,9 @@ public sealed partial class ViewportController : Node
             case DragKind.Handle:
                 UpdateHandle(scene);
                 return true;
+            case DragKind.Tool:
+                ToolMotion(scene);
+                return true;
             case DragKind.Paint:
                 _workspace.TileMap.Move(scene.Camera.ScreenToWorld2D(LocalPixel(_mouse), ViewPixels));
                 return true;
@@ -537,6 +559,13 @@ public sealed partial class ViewportController : Node
             case DragKind.Click:
                 return true;
             default:
+                // An active tool's hover (its brush ring follows the pointer) hides the gizmo's hover.
+                if (!scene.Camera.Is2D && ViewRect.Contains(_mouse.X, _mouse.Y) && ToolMotion(scene))
+                {
+                    _workspace.Gizmo.Hovered = GizmoHandle.None;
+                    return false;
+                }
+
                 // Hover highlight of the range handles (they come first), then of the gizmo's.
                 if (HoverHandle(scene))
                 {
@@ -610,6 +639,8 @@ public sealed partial class ViewportController : Node
             _workspace.TileMap.CancelStroke(); // Esc or a right click during a stroke puts every cell back
         if (_drag == DragKind.Curve)
             _workspace.Curves.CancelDrag();
+        if (_drag == DragKind.Tool)
+            CancelTool();
         if (_drag == DragKind.Gizmo && _scene is { } scene)
             EndAnyGizmo(scene, commit: false);
         else if (_drag == DragKind.Handle && _scene is { } handleScene)
@@ -835,6 +866,7 @@ public sealed partial class ViewportController : Node
             }
 
         _workspace.Curves.Draw3D(overlay, CurveView(scene));
+        _workspace.Tools.Active?.DrawOverlay(overlay);
         DrawGizmo3D(scene, pixels, displayHeight);
         DrawHandles(scene, overlay, pixels);
     }

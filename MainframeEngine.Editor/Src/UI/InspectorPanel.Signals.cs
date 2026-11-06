@@ -9,6 +9,9 @@ public enum InspectorTab
 {
     Properties,
     Signals,
+
+    /// <summary>The active viewport tool's dock (shown only while a tool is active).</summary>
+    Tool,
 }
 
 /// <summary>
@@ -47,8 +50,18 @@ public sealed partial class InspectorPanel
         document.GetElementById("tab-signals").SetClass("active", Tab == InspectorTab.Signals);
         document.GetElementById("inspector-body").SetClass("hidden", Tab != InspectorTab.Properties);
         document.GetElementById("signals-body").SetClass("hidden", Tab != InspectorTab.Signals);
+        document.GetElementById("tab-tool").SetClass("active", Tab == InspectorTab.Tool);
+        document.GetElementById("tool-body").SetClass("hidden", Tab != InspectorTab.Tool);
         document.GetElementById("label-splitter").SetClass("hidden", Tab != InspectorTab.Properties);
-        SetText("inspector-title", Tab == InspectorTab.Properties ? "Inspector" : "Signals");
+        SetText("inspector-title", Tab switch
+        {
+            InspectorTab.Properties => "Inspector",
+            InspectorTab.Signals => "Signals",
+            _ => Workspace.Tools.ActiveInfo?.Title ?? "Tool",
+        });
+        ApplyToolTab(document);
+        if (Tab == InspectorTab.Tool)
+            RebuildToolDock();
     }
 
     /// <summary>Re-reads the signals of the inspected node (after a selection or scene change).</summary>
@@ -119,7 +132,12 @@ public sealed partial class InspectorPanel
     {
         if (FindAttribute(e.Target, "data-tab") is { } tab)
         {
-            SelectTab(tab == "signals" ? InspectorTab.Signals : InspectorTab.Properties);
+            SelectTab(tab switch
+            {
+                "signals" => InspectorTab.Signals,
+                "tool" when Workspace.Tools.Active is not null => InspectorTab.Tool,
+                _ => InspectorTab.Properties,
+            });
             return true;
         }
 

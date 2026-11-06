@@ -378,6 +378,50 @@ curve-point 3
 camera -12 6 9 16 50 -18
 wait 5
 capture 26h-path3d-curve
+# Terrain dock (G8a): a new scene with a Terrain3D, data created from the dock, a raise stroke, painted
+# surfaces and water, one undo, then a save that writes the layer PNGs beside the scene (removed again).
+command file.new
+wait 5
+add-node Terrain3D Terrain
+select Terrain
+wait 5
+capture 26i-terrain-create
+tool-field create-profile Faceted
+tool-field create-size 64
+tool-field create-spacing 2
+tool-action create
+camera 32 0 32 70 30 -45
+wait 5
+tool-action mode Sculpt
+tool-action sculpt Raise
+tool-field size 18
+tool-field strength 100
+world-drag 20 0 30 44 0 34 30
+wait 40
+tool-action mode Paint
+tool-action surface 3
+tool-field size 10
+world-drag 14 0 44 50 0 46 30
+wait 40
+tool-action mode Water
+tool-field level 1
+tool-field size 14
+world-drag 46 0 14 52 0 18 20
+wait 30
+tool-action mode Sculpt
+world-move 32 0 32
+wait 5
+capture 26j-terrain-sculpted
+key Z cmd
+wait 5
+state
+capture 26k-terrain-undone
+save-scene Assets/Scenes/QaTerrain.mfscene
+wait 5
+state
+delete-file Assets/Scenes/QaTerrain*
+command file.close
+wait 5
 # Profiler tab (G10): the editor profiling itself for about 2 s, the slowest frame selected, the trace saved with the captures.
 profile tab
 profile editor

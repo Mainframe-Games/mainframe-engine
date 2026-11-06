@@ -231,6 +231,32 @@
         .joint-actions { display: flex; flex-direction: row; align-items: center; height: 26dp; margin: 6dp 8dp; }
         .joint-actions button { width: 26dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 6dp; }
         .probe-bake-status { display: block; flex: 1 1 auto; color: #8b93a5; font-size: 11dp; white-space: nowrap; overflow: hidden; }
+        /* The viewport tool tab (InspectorPanel.Tool.cs; the Terrain dock) */
+        .tool-dock { padding: 6dp 8dp; font-size: 11dp; color: #c9cedb; }
+        .td-modes { display: flex; flex-direction: row; align-items: center; height: 26dp; margin-bottom: 4dp; border-bottom: 1dp #2f333d; padding-bottom: 4dp; }
+        .td-modes .tool-button { margin-right: 3dp; }
+        .td-info { display: block; flex: 1 1 auto; text-align: right; color: #8b93a5; white-space: nowrap; overflow: hidden; }
+        .td-tools { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; margin: 3dp 0dp; }
+        .td-tools .tool-button { margin: 0dp 3dp 3dp 0dp; }
+        .td-letter { width: 22dp; font-size: 11dp; text-align: center; }
+        .td-sep { display: block; width: 1dp; height: 16dp; margin: 0dp 5dp 3dp 2dp; background-color: #3b3f4b; }
+        .td-head { color: #8b93a5; margin: 8dp 0dp 3dp 0dp; }
+        .td-row { display: flex; flex-direction: row; align-items: center; min-height: 22dp; margin-bottom: 2dp; }
+        .td-label { display: block; flex: 0 0 70dp; color: #a3abbd; white-space: nowrap; overflow: hidden; }
+        .td-text { flex: 1 1 auto; width: 40dp; height: 18dp; padding: 1dp 4dp; font-size: 11dp; }
+        .td-num { flex: 0 0 auto; width: 36dp; height: 18dp; padding: 1dp 4dp; margin-left: 4dp; font-size: 11dp; text-align: right; }
+        .td-select { flex: 1 1 auto; width: 40dp; height: 20dp; }
+        .td-range { flex: 1 1 auto; width: 40dp; margin-right: 6dp; }
+        .td-value { display: block; flex: 0 0 34dp; text-align: right; color: #8b93a5; }
+        .td-swatches { display: flex; flex-direction: row; flex-wrap: wrap; }
+        .td-swatch { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 4dp; margin: 0dp 3dp 3dp 0dp;
+                     border: 1dp #2f333d; border-radius: 3dp; cursor: pointer; }
+        .td-layers .td-swatch { display: flex; width: 100%; margin-right: 0dp; }
+        .td-swatch:hover { border-color: #93c5fd; }
+        .td-swatch.active { border: 1dp #3b82f6; background-color: #2f3a52; color: #ffffff; }
+        .td-chip { display: block; width: 14dp; height: 14dp; margin-right: 5dp; border-radius: 2dp; border: 1dp #00000060; }
+        .td-hint { color: #6b7488; margin-top: 8dp; }
+        .td-create .label { margin-left: 4dp; }
     </style>
 </head>
 <body class="panel-doc">
@@ -242,12 +268,15 @@
                     data-tooltip="Properties — the selected node's exported values"><span class="icon icon-adjustments-horizontal icon-sm"></span></button>
             <button id="tab-signals" class="tool-button small" data-tab="signals"
                     data-tooltip="Signals — connect the selected node's signals to methods of other nodes (saved in the scene)"><span class="icon icon-plug-connected icon-sm"></span></button>
+            <button id="tab-tool" class="tool-button small hidden" data-tab="tool"
+                    data-tooltip="Tool — edit the selected node in the view"><span class="icon icon-tool icon-sm"></span></button>
         </div>
     </div>
     <div class="panel-body" id="inspector-body">
         <div class="empty"><span class="icon icon-lg icon-pointer icon-muted"></span><div>Select a node to edit its properties.</div></div>
     </div>
     <div class="label-splitter" id="label-splitter" data-tooltip="Name Column — drag to resize the property names (double-click: fit them)"></div>
+    <div class="panel-body tool-dock hidden" id="tool-body"></div>
     <div class="panel-body sig hidden" id="signals-body">
         <div class="empty">Select a node to see its signals.</div>
     </div>

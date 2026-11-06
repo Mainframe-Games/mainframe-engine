@@ -209,6 +209,10 @@ can be saved as a `.mfres` or made unique from the inspector.
     <td align="center" valign="top"><img src="docs/images/editor-decal.png" width="380" alt="A Decal added under the Demo's blue light: its projection box and size handles in the view, its textures and fades in the Inspector"><br><b>Decals</b> — a projection box with size handles; albedo, normal, ORM and emission maps with Godot's fades</td>
     <td align="center" valign="top"><img src="docs/images/editor-world-ui.png" width="380" alt="The Demo's World UI scene in the editor: map-pin badges at the nameplate markers' points with dashed lines to the walkers, the Label3D signs, a marker's Inspector"><br><b>World-space UI</b> — UiMarker3D badges at their points, Label3D signs drawn and picked in the view</td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-terrain.png" width="380" alt="The Terrain dock beside the 3D view: Sculpt mode with the Raise tool and brush settings, and the brush ring draped over a raised hill with its size, strength and height label"><br><b>Terrain dock</b> — create terrain data, sculpt, paint surfaces, layers and channels, lay water; one undo per stroke</td>
+    <td></td>
+  </tr>
 </table>
 
 **Video mode:** Run › Play and Record (F10) records the game into the project's `Assets/Video/Recordings`, and the
@@ -299,7 +303,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 
 | Feature | What you get |
 |---|---|
-| [Terrain](docs/design/terrain.md) | `Terrain3D`: chunked heightmap meshes with LOD, splat material layers, foliage scatter, exact collision and height queries |
+| [Terrain](docs/design/terrain.md) | `Terrain3D`: chunked heightmap meshes with LOD, splat material layers, foliage scatter, exact collision and height queries; the editor's Terrain dock sculpts (raise, lower, smooth, flatten, set height, ramps), paints surfaces, layers and channels and lays water with a brush ring, one undo per stroke |
 | [Procedural trees](docs/design/procedural-trees.md) | A port of Ez Tree: 15 presets, realistic or low-poly styles, wind, levels of detail and impostors, from a seed |
 | [Water](docs/design/water.md) | Streams carved into the terrain along a curve, ponds and falls with spray, refraction, screen-space reflections and caustics |
 | [Asset import](docs/design/asset-pipeline.md) | glTF, FBX and OBJ through Assimp into scenes you can instance, with import settings, an import cache and stable UIDs |

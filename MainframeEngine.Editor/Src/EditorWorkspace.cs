@@ -249,6 +249,9 @@ public sealed partial class EditorWorkspace : Node
     /// <summary>Curve editing of the selected <see cref="Path2D"/> in 2D tabs: the curve bar and viewport gestures (G13).</summary>
     public CurveEditor Curves { get; private set; } = null!;
 
+    /// <summary>The viewport tools (IEditorViewportTool): the terrain brush, the river tool, game plugins.</summary>
+    public ViewportTools Tools { get; private set; } = null!;
+
     /// <summary>The Animation panel's model (G1.6): the edited player and animation, keys, preview, undo.</summary>
     public AnimationEditor Animations { get; private set; } = null!;
 
@@ -479,6 +482,7 @@ public sealed partial class EditorWorkspace : Node
 
         TileMap = new TileMapEditor(this);
         Curves = new CurveEditor(this);
+        Tools = new ViewportTools(this);
         Viewport = new ViewportController(this) { Name = "ViewportController" };
         AddChild(Viewport);
         SongView = new Music.SongView(this) { Name = "SongView" };
@@ -492,6 +496,7 @@ public sealed partial class EditorWorkspace : Node
         AddChild(SplashLayer);
 
         Session.ScenesChanged += OnScenesChanged;
+        Session.Saving += Tools.SaveExternalData; // before the scene file is written; a throw fails the save
         SpritePreview.Changed += Inspector.RefreshPreviewButtons; // the SpriteFrames editor's Play/Stop
         Session.ActiveChanged += OnActiveChanged;
         Session.SceneEdited += OnSceneEdited;

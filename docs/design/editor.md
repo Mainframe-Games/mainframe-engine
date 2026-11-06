@@ -665,6 +665,46 @@ Stepping one physics frame while paused is not offered yet (0214).
 
 ![Simulating the Demo's Physics 3D scene: the dropper's crates stacked in the view, the pusher's inspector live and read-only](../images/editor-simulate.png)
 
+### Viewport tool API
+
+[ADR 0270](../../memory/decisions/0270-viewport-tool-api.md): a tool that takes over the 3D view while one node of its
+type is the only selection (Godot's `EditorPlugin._handles` / `_forward_3d_gui_input`). The [Terrain dock](terrain.md#editing)
+is the first; the river tool (G8c.4) and game plugins use the same API (`MainframeEngine.Editor/Src/Viewport/Tools/`).
+
+```csharp
+[EditorViewportTool(typeof(Terrain3D), Title = "Terrain", Icon = "mountain")]
+public sealed class TerrainEditorTool : IEditorViewportTool
+{
+    bool Handles(Node node);
+    void Activate(IViewportToolContext context, Node node);   // Scene, History, Camera, ViewPixels, SetCursorLabel
+    void Deactivate();
+    ViewportToolResult OnInput(in ViewportToolInput input);   // Press/Release/Motion/Wheel/KeyDown/KeyUp/Cancel + ray
+    void Process(float deltaSeconds);                          // per frame while active (default: nothing)
+    void DrawOverlay(DebugLines overlay);                      // on top of the view
+    int DockVersion { get; }  string BuildDockRml();           // the inspector's tool tab
+    void OnDockAction(string action, string? value);           // data-tool-action clicks
+    void OnDockField(string field, string value);              // data-tool-field inputs (default: nothing)
+    void SaveExternalData();                                   // before the scene file is written (default: nothing)
+}
+```
+
+- **Discovery:** the editor plugin scan (`EditorPluginTypes`, with custom inspectors and handle providers), reset on code
+  reload; `ReleaseEditorReferences` drops every instance. `ViewportTools` keeps one instance per tab and tool type until
+  the tab closes. No tool is active in 2D tabs, while simulating, or in Music and Video mode.
+- **Routing** (`ViewportController.Tools.cs`): navigation never reaches a tool (Alt+left, middle and right drags, the
+  plain wheel, keys with Command); then a consumed left press captures the mouse until release (`DragKind.Tool`; Esc, a
+  right click, a tab switch or deactivation send `Cancel` and the tool keeps what it applied); then handles, the gizmo
+  and picking. Hover motion goes to the tool (a consumed hover hides the gizmo's hover), Shift/Alt + wheel and keys over
+  the view too (a consumed key skips the workspace shortcuts; modifier keys always reach the workspace). The tool's node
+  shows no transform gizmo. `SetCursorLabel` text follows the pointer in `#handle-label`.
+- **Dock:** the inspector header's third icon tab (`#tab-tool`, the tool's icon and title as its tooltip), shown only while
+  a tool is active and opened when one activates; it falls back to Properties when the tool goes. The body (`#tool-body`)
+  is the tool's generated RML, rebuilt when `DockVersion` changes, except for a slider being dragged.
+- **Save:** `EditorSession.Saving` runs after the project checks and before `SceneSaver.Save`; `ViewportTools` calls
+  `SaveExternalData` on every instance of the tab; a throw fails the save (no file, the tab stays dirty).
+- **QA steps:** `tool-action <action> [value]`, `tool-field <field> <value>`, `world-move x y z`,
+  `world-drag x0 y0 z0 x1 y1 z1 [frames]`, `save-scene <project path>`; `add-node <type> [name] [parent|.]`.
+
 ## Projects
 
 ([0097](../../memory/decisions/0097-editor-projects-and-code-reload.md)) The editor works on a game project: a folder

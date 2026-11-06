@@ -279,6 +279,12 @@
     i-repeat-off: 262px 322px 16px 16px;
     i-pin: 282px 322px 16px 16px;
     i-help: 302px 322px 16px 16px;
+    i-plant-2: 2px 342px 16px 16px;
+    i-tree: 22px 342px 16px 16px;
+    i-trees: 42px 342px 16px 16px;
+    i-leaf: 62px 342px 16px 16px;
+    i-trending-up: 82px 342px 16px 16px;
+    i-square-dashed: 102px 342px 16px 16px;
 }
 @spritesheet editor-icons-lg {
     src: icons-24.png;
@@ -555,6 +561,12 @@
     l-repeat-off: 393px 483px 24px 24px;
     l-pin: 423px 483px 24px 24px;
     l-help: 453px 483px 24px 24px;
+    l-plant-2: 3px 513px 24px 24px;
+    l-tree: 33px 513px 24px 24px;
+    l-trees: 63px 513px 24px 24px;
+    l-leaf: 93px 513px 24px 24px;
+    l-trending-up: 123px 513px 24px 24px;
+    l-square-dashed: 153px 513px 24px 24px;
 }
 
 /* HiDPI (Retina): the 2x sheets replace the sprites above. */
@@ -834,6 +846,12 @@
         i-repeat-off: 524px 644px 32px 32px;
         i-pin: 564px 644px 32px 32px;
         i-help: 604px 644px 32px 32px;
+        i-plant-2: 4px 684px 32px 32px;
+        i-tree: 44px 684px 32px 32px;
+        i-trees: 84px 684px 32px 32px;
+        i-leaf: 124px 684px 32px 32px;
+        i-trending-up: 164px 684px 32px 32px;
+        i-square-dashed: 204px 684px 32px 32px;
     }
     @spritesheet editor-icons-lg-2x {
         src: icons-48.png;
@@ -1110,6 +1128,12 @@
         l-repeat-off: 786px 966px 48px 48px;
         l-pin: 846px 966px 48px 48px;
         l-help: 906px 966px 48px 48px;
+        l-plant-2: 6px 1026px 48px 48px;
+        l-tree: 66px 1026px 48px 48px;
+        l-trees: 126px 1026px 48px 48px;
+        l-leaf: 186px 1026px 48px 48px;
+        l-trending-up: 246px 1026px 48px 48px;
+        l-square-dashed: 306px 1026px 48px 48px;
     }
 }
 
@@ -1385,6 +1409,12 @@
 .icon-repeat-off { decorator: image(i-repeat-off); }
 .icon-pin { decorator: image(i-pin); }
 .icon-help { decorator: image(i-help); }
+.icon-plant-2 { decorator: image(i-plant-2); }
+.icon-tree { decorator: image(i-tree); }
+.icon-trees { decorator: image(i-trees); }
+.icon-leaf { decorator: image(i-leaf); }
+.icon-trending-up { decorator: image(i-trending-up); }
+.icon-square-dashed { decorator: image(i-square-dashed); }
 
 .icon-lg.icon-circle-dot { decorator: image(l-circle-dot); }
 .icon-lg.icon-axis-x { decorator: image(l-axis-x); }
@@ -1658,3 +1688,9 @@
 .icon-lg.icon-repeat-off { decorator: image(l-repeat-off); }
 .icon-lg.icon-pin { decorator: image(l-pin); }
 .icon-lg.icon-help { decorator: image(l-help); }
+.icon-lg.icon-plant-2 { decorator: image(l-plant-2); }
+.icon-lg.icon-tree { decorator: image(l-tree); }
+.icon-lg.icon-trees { decorator: image(l-trees); }
+.icon-lg.icon-leaf { decorator: image(l-leaf); }
+.icon-lg.icon-trending-up { decorator: image(l-trending-up); }
+.icon-lg.icon-square-dashed { decorator: image(l-square-dashed); }
