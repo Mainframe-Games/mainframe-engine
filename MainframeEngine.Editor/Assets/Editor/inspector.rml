@@ -232,6 +232,7 @@
         .joint-actions button { width: 26dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-right: 6dp; }
         .probe-bake-status { display: block; flex: 1 1 auto; color: #8b93a5; font-size: 11dp; white-space: nowrap; overflow: hidden; }
         /* The viewport tool tab (InspectorPanel.Tool.cs; the Terrain dock) */
+        .tabs button.tool-button.hidden { display: none; } /* button.tool-button sets display after the generic .hidden */
         .tool-dock { padding: 6dp 8dp; font-size: 11dp; color: #c9cedb; }
         .td-modes { display: flex; flex-direction: row; align-items: center; height: 26dp; margin-bottom: 4dp; border-bottom: 1dp #2f333d; padding-bottom: 4dp; }
         .td-modes .tool-button { margin-right: 3dp; }
