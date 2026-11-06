@@ -152,7 +152,7 @@ internal sealed class DecalAtlas : IDisposable
 
     /// <summary>True when <paramref name="texture"/> (null: nothing to pack) is in the atlas at its current version.</summary>
     public bool Holds(Texture2D? texture) =>
-        texture is null || texture.Viewport is not null || (_entries.TryGetValue(texture, out var e) && e.Version == texture.Version);
+        texture is null || texture.IsGpuOnly || (_entries.TryGetValue(texture, out var e) && e.Version == texture.Version);
 
     /// <summary>The texture's tile in atlas UV (xy corner, zw size), or zero when it is not in the atlas.</summary>
     public Vector4 RectOf(Texture2D? texture) =>
@@ -227,7 +227,7 @@ internal sealed class DecalAtlas : IDisposable
 
     private void Want(Texture2D? texture)
     {
-        if (texture is null || texture.Viewport is not null || _wanted.Contains(texture))
+        if (texture is null || texture.IsGpuOnly || _wanted.Contains(texture))
             return;
         _wanted.Add(texture);
     }

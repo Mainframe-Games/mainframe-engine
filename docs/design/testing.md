@@ -212,7 +212,10 @@ sequenceDiagram
   the view's box spins, the allocation run), `label3d`
   (ADR 0200: Snake Oil-style name tags behind a wall, one `NoDepthTest`; `--count 1`: depth-tested), `label3d-layout`
   (ADR 0251: multi-line, autowrap, a Cyrillic fallback, alpha cut, two `FixedSize` tags self-checked equal on screen),
-  `ui-markers` (ADR 0254: nameplates, a prompt, health, an edge-clamped waypoint, an occluded marker; `#3366cc` exact), `gizmos` /
+  `ui-markers` (ADR 0254: nameplates, a prompt, health, an edge-clamped waypoint, an occluded marker; `#3366cc` exact),
+  `ui-panel3d` (ADR 0252: an angled `UiPanel3D` terminal with a gradient, clip mask and blur, a swatch panel, a
+  sub-viewport monitor; the swatch turns green in the frame its document changes, the same-frame check; `--count 1`: the
+  terminal's text changes every frame, 0 B), `gizmos` /
   `gizmos-taa` (the editor's gizmo list: 3 and 8 px lines, a shaded cone and box, debug lines lying on a crate and on a
   floor seen at a grazing angle; `GizmoRenderTests`: line widths and blended edges, the outlines under TAA, 0 B per
   frame; [Gizmos](gizmos.md#tests)), `particles-campfire`

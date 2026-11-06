@@ -982,6 +982,23 @@ internal sealed unsafe partial class VulkanRenderer : IPostProcessHost, IPostOut
 
     public bool RemoveOverlayRenderer(IOverlayRenderer renderer) => _overlayRenderers.Remove(renderer);
 
+    private readonly List<IPreSceneRenderer> _preSceneRenderers = [];
+
+    public void AddPreSceneRenderer(IPreSceneRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        if (!_preSceneRenderers.Contains(renderer))
+            _preSceneRenderers.Add(renderer);
+    }
+
+    public bool RemovePreSceneRenderer(IPreSceneRenderer renderer) => _preSceneRenderers.Remove(renderer);
+
+    public void RecordPreScene(CommandBuffer commandBuffer)
+    {
+        for (var i = 0; i < _preSceneRenderers.Count; i++)
+            _preSceneRenderers[i].RecordPreScene(commandBuffer);
+    }
+
     /// <summary>A stencil-capable attachment format: S8 when supported (smallest), else a packed depth/stencil format.</summary>
     public Format StencilFormat
     {

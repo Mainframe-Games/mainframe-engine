@@ -594,7 +594,9 @@ box, an arrow along −Y, and a handle on the +X, +Y and +Z faces that sets that
 
 `UiMarker3D` (G11) has a map-pin scene icon (`Assets/gizmos/marker.svg`) drawn at the marker's point (`WorldOffset` above
 the node) with a dashed line down to the node; the badge picks and box-selects there. `Label3D` draws and picks like a
-mesh ([World-space UI](world-space-ui.md#editor)).
+mesh ([World-space UI](world-space-ui.md#editor)). `UiPanel3D` renders in the view once per document load; its inspector's
+icon button "Open document in UI preview" opens its first document's [UI preview](#ui-preview) at the panel's
+`Resolution` (`UiPreview.FixedSize`, centred in the view area).
 
 ![A walker's nameplate marker selected: map-pin badges at the markers' points, the Label3D signs, the marker's Inspector](../images/editor-world-ui.png)
 

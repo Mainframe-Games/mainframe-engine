@@ -710,6 +710,13 @@ public sealed partial class EditorWorkspace : Node
         }
 
         var region = PreviewRegion;
+        if (preview.FixedSize is { } fixedSize) // a panel's resolution (G11.7): centred, clipped to the view area
+        {
+            var width = Math.Min(region.Width, fixedSize.X);
+            var height = Math.Min(region.Height, fixedSize.Y);
+            region = new System.Drawing.Rectangle(region.X + (region.Width - width) / 2, region.Y + (region.Height - height) / 2, width, height);
+        }
+
         if (preview.Layer.Region != region)
             preview.Layer.Region = region;
         // The game's UI scale at the preview's size (ADR 0181): the document looks as it would in a window that size.

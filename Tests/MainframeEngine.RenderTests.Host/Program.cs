@@ -64,6 +64,7 @@ RenderTestGame game = options.Scene switch
     "picking" => new PickingScene(options),
     "ui-hud" => new UiHudScene(options),
     "ui-markers" => new UiMarkersScene(options),
+    "ui-panel3d" => new UiPanel3DScene(options),
     "canvas" => new CanvasScene(options),
     "canvas-post" => new CanvasPostScene(options),
     "canvas-many-lights" => new CanvasManyLightsScene(options),

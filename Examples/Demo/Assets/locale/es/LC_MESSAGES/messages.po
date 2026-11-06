@@ -561,7 +561,7 @@ msgid "Save"
 msgstr "Guardar"
 
 #. node world_ui/MenuSign (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:302
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:338
 msgid ""
 "NOODLES\n"
 "Ramen  9\n"
@@ -572,92 +572,92 @@ msgstr ""
 "Udon  7"
 
 #. node world_ui/MarketSign (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:315
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:351
 msgid "Market"
 msgstr "Mercado"
 
 #. node world_ui/Notice (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:329
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:365
 msgid "Please keep the gate closed after dark"
 msgstr "Por favor, cierre la verja al anochecer"
 
 #. node world_ui/Walkers/Nell/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:365
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:401
 msgid "Nell"
 msgstr "Nell"
 
 #. node world_ui/Walkers/Nell/Nameplate (UiMarker3D.Subtext)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:366
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:402
 msgid "Trader"
 msgstr "Comerciante"
 
 #. node world_ui/Walkers/Nell/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:380
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:416
 msgid "#1 walk"
 msgstr "#1 camina"
 
 #. node world_ui/Walkers/Whitlock/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:413
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:449
 msgid "Whitlock"
 msgstr "Whitlock"
 
 #. node world_ui/Walkers/Whitlock/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:427
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:463
 msgid "#2 walk"
 msgstr "#2 camina"
 
 #. node world_ui/Walkers/Ada/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:460
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:496
 msgid "Ada"
 msgstr "Ada"
 
 #. node world_ui/Walkers/Ada/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:474
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:510
 msgid "#3 walk"
 msgstr "#3 camina"
 
 #. node world_ui/Walkers/Brann/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:507
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:543
 msgid "Brann"
 msgstr "Brann"
 
 #. node world_ui/Walkers/Brann/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:521
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:557
 msgid "#4 walk"
 msgstr "#4 camina"
 
 #. node world_ui/Walkers/Corin/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:554
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:590
 msgid "Corin"
 msgstr "Corin"
 
 #. node world_ui/Walkers/Corin/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:568
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:604
 msgid "#5 walk"
 msgstr "#5 camina"
 
 #. node world_ui/Walkers/Maeve/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:601
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:637
 msgid "Maeve"
 msgstr "Maeve"
 
 #. node world_ui/Walkers/Maeve/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:615
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:651
 msgid "#6 walk"
 msgstr "#6 camina"
 
 #. node world_ui/Crate/Prompt (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:655
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:691
 msgid "Open"
 msgstr "Abrir"
 
 #. node world_ui/Crate/Prompt (UiMarker3D.Subtext)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:656
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:692
 msgid "E"
 msgstr "E"
 
 #. node world_ui/Gate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mfscene:668
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:704
 msgid "Gate"
 msgstr "Verja"
 
@@ -1023,35 +1023,75 @@ msgid "Rose"
 msgstr "Rosa"
 
 #. RML <h1>
-#: Examples/Demo/Assets/WorldUi/panel.rml:8
+#: Examples/Demo/Assets/WorldUi/panel.rml:12
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:265
 msgid "World UI"
 msgstr "UI en el mundo"
 
 #. RML <p>
-#: Examples/Demo/Assets/WorldUi/panel.rml:9
+#: Examples/Demo/Assets/WorldUi/panel.rml:13
 msgid "Signs are Label3D text in the scene; nameplates, the prompt and the waypoint are UiMarker3D rows on one HUD document."
 msgstr "Los letreros son texto Label3D en la escena; las placas de nombre, el aviso y el punto de ruta son filas UiMarker3D de un solo documento del HUD."
 
 #. RML <span>
-#: Examples/Demo/Assets/WorldUi/panel.rml:10
+#: Examples/Demo/Assets/WorldUi/panel.rml:14
 msgid "Hide markers behind buildings"
 msgstr "Ocultar marcadores tras los edificios"
 
 #. RML <span>
-#: Examples/Demo/Assets/WorldUi/panel.rml:11
+#: Examples/Demo/Assets/WorldUi/panel.rml:15
 msgid "Scale markers with distance"
 msgstr "Escalar marcadores con la distancia"
 
 #. RML <span>
-#: Examples/Demo/Assets/WorldUi/panel.rml:12
+#: Examples/Demo/Assets/WorldUi/panel.rml:16
 msgid "Fixed-size debug tags"
 msgstr "Etiquetas de depuración de tamaño fijo"
 
 #. RML <span>
-#: Examples/Demo/Assets/WorldUi/panel.rml:13
+#: Examples/Demo/Assets/WorldUi/panel.rml:17
 msgid "Orbit the camera"
 msgstr "Orbitar la cámara"
+
+#. RML <p>
+#: Examples/Demo/Assets/WorldUi/panel.rml:18
+msgid "The terminal is a UiPanel3D: click its button to open the gate. Tab aims a crosshair at it instead."
+msgstr "La terminal es un UiPanel3D: haz clic en su botón para abrir la verja. Tab apunta a ella con una mira."
+
+#. RML <h1>
+#: Examples/Demo/Assets/WorldUi/terminal.rml:24
+msgid "Gate control"
+msgstr "Control de la verja"
+
+#. RML <p>
+#: Examples/Demo/Assets/WorldUi/terminal.rml:25
+msgid "Gate open"
+msgstr "Verja abierta"
+
+#. RML <p>
+#: Examples/Demo/Assets/WorldUi/terminal.rml:26
+msgid "Gate closed"
+msgstr "Verja cerrada"
+
+#. RML <span>
+#: Examples/Demo/Assets/WorldUi/terminal.rml:27
+msgid "Close gate"
+msgstr "Cerrar verja"
+
+#. RML <span>
+#: Examples/Demo/Assets/WorldUi/terminal.rml:27
+msgid "Open gate"
+msgstr "Abrir verja"
+
+#. RML <p>
+#: Examples/Demo/Assets/WorldUi/terminal.rml:28
+msgid "Tab: aim with a crosshair"
+msgstr "Tab: apuntar con una mira"
+
+#. RML <p>
+#: Examples/Demo/Assets/WorldUi/terminal.rml:29
+msgid "Crosshair: aim and press E · Tab: mouse"
+msgstr "Mira: apunta y pulsa E · Tab: ratón"
 
 #: Examples/Demo/Demo/Src/Nav/DemoNav.cs:161
 msgid "Effects"
@@ -1173,6 +1213,11 @@ msgstr "Salir"
 #: MainframeEngine/Assets/UI/settings/settings.rml:23
 msgid "Settings"
 msgstr "Ajustes"
+
+#. project.mfproj input action "use"
+#: Examples/Demo/project.mfproj
+msgid "Use the terminal"
+msgstr "Usar la terminal"
 
 #. project.mfproj input action "move_down"
 #: Examples/Demo/project.mfproj

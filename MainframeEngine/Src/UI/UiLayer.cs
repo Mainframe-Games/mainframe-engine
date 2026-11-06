@@ -39,7 +39,7 @@ public enum UiScaleMode
 /// sizes in <c>dp</c> so they follow <see cref="ScaleMode"/>; <c>px</c> are always framebuffer pixels.
 /// </remarks>
 [EditorIcon("stack-2", Family = EditorIconFamily.Ui)]
-public class UiLayer : Node
+public class UiLayer : Node, IUiContextHost
 {
     private readonly List<UiDocument> _documents = [];
     private int _layer;
@@ -218,4 +218,14 @@ public class UiLayer : Node
     }
 
     internal void RemoveDocument(UiDocument document) => _documents.Remove(document);
+
+    List<UiDocument> IUiContextHost.DocumentList => _documents;
+
+    void IUiContextHost.AddDocument(UiDocument document) => AddDocument(document);
+
+    void IUiContextHost.RemoveDocument(UiDocument document) => RemoveDocument(document);
+
+    void IUiContextHost.OnDocumentLoaded(UiDocument document)
+    {
+    }
 }

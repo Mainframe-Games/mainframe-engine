@@ -60,7 +60,9 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
         _openFile = openFile;
         _arena = new UiGeometryArena(ctx);
         CreateResources();
+        CreatePanelResources();
         ctx.AddOverlayRenderer(this, OverlayOrder.Ui);
+        ctx.AddPreSceneRenderer(this); // G11.5: panel segments, before the scene passes
     }
 
     /// <summary>When false nothing is composited (the command list is still consumed).</summary>
@@ -132,12 +134,13 @@ public sealed unsafe partial class VulkanUiRenderer : RmlRenderInterface, IOverl
     /// </summary>
     public void BeginFrame()
     {
-        if (!_listConsumed && _listHasSavedTargets && RmlCore.IsInitialised)
+        if ((!_listConsumed || !_panelsConsumed) && _listHasSavedTargets && RmlCore.IsInitialised)
         {
             Log.Debug("[UI] A frame with saved UI layers was skipped; regenerating UI textures.");
             RmlCore.ReleaseTextures(this);
         }
 
+        ResetSegments();
         _commandCount = 0;
         _transformCount = 0;
         _regionCount = 0;

@@ -603,6 +603,30 @@ msgstr "[Fîxéð-sîzé ðébûg tågs ~~~~~]"
 msgid "Orbit the camera"
 msgstr "[Örbît thé çåmérå ~~~~]"
 
+msgid "The terminal is a UiPanel3D: click its button to open the gate. Tab aims a crosshair at it instead."
+msgstr "[Thé térmîñål îs å ÛîPåñél3Ð: çlîçk îts bûttöñ tö öpéñ thé gåté. Tåb åîms å çrösshåîr åt ît îñstéåð. ~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Gate control"
+msgstr "[Gåté çöñtröl ~~~]"
+
+msgid "Gate open"
+msgstr "[Gåté öpéñ ~~]"
+
+msgid "Gate closed"
+msgstr "[Gåté çlöséð ~~]"
+
+msgid "Close gate"
+msgstr "[Çlösé gåté ~~]"
+
+msgid "Open gate"
+msgstr "[Öpéñ gåté ~~]"
+
+msgid "Tab: aim with a crosshair"
+msgstr "[Tåb: åîm wîth å çrösshåîr ~~~~~]"
+
+msgid "Crosshair: aim and press E · Tab: mouse"
+msgstr "[Çrösshåîr: åîm åñð préss É · Tåb: möûsé ~~~~~~~~]"
+
 msgid "Effects"
 msgstr "[Éfféçts ~~]"
 
@@ -685,6 +709,9 @@ msgstr "[Qûît ~]"
 
 msgid "Settings"
 msgstr "[Séttîñgs ~~]"
+
+msgid "Use the terminal"
+msgstr "[Ûsé thé térmîñål ~~~~]"
 
 msgid "Walk down"
 msgstr "[Wålk ðöwñ ~~]"

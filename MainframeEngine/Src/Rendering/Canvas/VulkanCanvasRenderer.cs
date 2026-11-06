@@ -206,7 +206,7 @@ public sealed unsafe partial class VulkanCanvasRenderer : IOverlayRenderer, IDis
 
     private void Prepare(Texture2D texture, ulong now)
     {
-        if (texture.Viewport is not null || texture.ClipGroup is not null)
+        if (texture.IsGpuOnly)
             return; // drawn by the GPU each frame (EnsureSubTarget / EnsureGroupTarget), nothing to upload
         if (!_textures.TryGetValue(texture, out var entry) || entry.Version != texture.Version)
         {

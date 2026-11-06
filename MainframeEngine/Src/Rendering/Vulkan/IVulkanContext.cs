@@ -120,6 +120,21 @@ public interface IVulkanContext
     /// <summary>Removes a renderer added with <see cref="AddOverlayRenderer"/>.</summary>
     bool RemoveOverlayRenderer(IOverlayRenderer renderer);
 
+    /// <summary>
+    /// Adds offscreen work recorded before the scene passes (G11.5; <see cref="IPreSceneRenderer"/>), run by
+    /// <see cref="RecordPreScene"/>. Adding a renderer twice is a no-op.
+    /// </summary>
+    void AddPreSceneRenderer(IPreSceneRenderer renderer);
+
+    /// <summary>Removes a renderer added with <see cref="AddPreSceneRenderer"/>.</summary>
+    bool RemovePreSceneRenderer(IPreSceneRenderer renderer);
+
+    /// <summary>
+    /// Records every <see cref="IPreSceneRenderer"/> on <paramref name="commandBuffer"/> (no render pass active), once a
+    /// frame: <see cref="RenderServer.RenderOffscreen"/> calls it before the sub-viewports.
+    /// </summary>
+    void RecordPreScene(CommandBuffer commandBuffer);
+
     /// <summary>A format with a stencil aspect usable as a depth/stencil attachment (UI clip masks).</summary>
     Format StencilFormat { get; }
 
