@@ -63,5 +63,5 @@ As built: [Procedural trees → Inspector](../../docs/design/procedural-trees.md
 
 ## State changes
 
-- milestones G8b: the description cell gains "; the inspector (G8b.3) ✅ ([ADR 0271](../memory/decisions/0271-tree-inspector-bake-staleness.md)); G8b.7 scatter (Bake variants, Create collider) waits for G8a's object scatter"; status stays 🚧.
+- milestones G8b: the description cell gains "; the inspector (G8b.3) ✅ ([ADR 0271](../decisions/0271-tree-inspector-bake-staleness.md)); G8b.7 scatter (Bake variants, Create collider) waits for G8a's object scatter"; status stays 🚧.
 - state: the What exists Since-M10 list gains "the editor's tree inspector with bake staleness (G8b.3, ADR 0271)"; Next steps 2 replaces "tree inspector" with "tree scatter G8b.7".
