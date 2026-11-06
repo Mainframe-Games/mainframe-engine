@@ -115,7 +115,16 @@ public class Camera3D : Node3D, ICurrentCamera
     public static Vector2 UnprojectPosition(ICamera camera, Vector3 worldPoint, Vector2 viewportSize)
     {
         ArgumentNullException.ThrowIfNull(camera);
-        var clip = Vector4.Transform(new Vector4(worldPoint, 1f), camera.ViewMatrix * camera.ProjectionMatrix);
+        return Project(camera.ViewMatrix * camera.ProjectionMatrix, worldPoint, viewportSize);
+    }
+
+    /// <summary>
+    /// <see cref="UnprojectPosition(ICamera, Vector3, Vector2)"/> with the view-projection already multiplied, for code
+    /// projecting many points per frame (markers).
+    /// </summary>
+    public static Vector2 Project(in Matrix4x4 viewProjection, Vector3 worldPoint, Vector2 viewportSize)
+    {
+        var clip = Vector4.Transform(new Vector4(worldPoint, 1f), viewProjection);
         var w = MathF.Abs(clip.W) < 1e-6f ? MathF.CopySign(1e-6f, clip.W) : clip.W; // on the camera plane: far off, not NaN
         var ndc = new Vector2(clip.X / w, clip.Y / w);
         return new Vector2((ndc.X * 0.5f + 0.5f) * viewportSize.X, (0.5f - ndc.Y * 0.5f) * viewportSize.Y);

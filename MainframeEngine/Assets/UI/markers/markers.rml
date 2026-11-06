@@ -1,0 +1,39 @@
+<rml>
+<head>
+    <title>Markers</title>
+    <link type="text/rcss" href="markers.rcss"/>
+</head>
+<!--
+  The engine's marker document (UiMarkerHost, docs/design/world-space-ui.md#markers). Games can copy this file into their
+  own Assets/ and set the host's Source; the "markers" data model is the contract:
+
+  markers: [ { x, y (layer px), scale, opacity, visible, edge (bool: clamped to the screen edge), angle (deg, 0 = right),
+               distance (m), kind (string), text, subtext, value (0-1), icon (path) } ]
+
+  Kinds here: nameplate (text, subtext as a title, value as a bar), health (value), prompt (subtext = key, text = action),
+  waypoint (text, distance; an arrow at the edge).
+-->
+<body class="hud" data-model="markers">
+    <div class="marker" data-for="m : markers" data-visible="m.visible"
+         data-style-transform="'translate(' + m.x + 'px, ' + m.y + 'px) scale(' + m.scale + ')'"
+         data-style-opacity="m.opacity" data-class-edge="m.edge">
+        <div data-if="m.kind == 'nameplate'" class="nameplate">
+            <div class="title" data-if="m.subtext != ''">{{ m.subtext }}</div>
+            <div class="name">{{ m.text }}</div>
+            <div class="bar"><div class="fill" data-style-width="(m.value * 100) + '%'"></div></div>
+        </div>
+        <div data-if="m.kind == 'health'" class="health">
+            <div class="bar"><div class="fill" data-style-width="(m.value * 100) + '%'"></div></div>
+        </div>
+        <div data-if="m.kind == 'prompt'" class="prompt">
+            <span class="key">{{ m.subtext }}</span><span class="action">{{ m.text }}</span>
+        </div>
+        <div data-if="m.kind == 'waypoint'" class="waypoint">
+            <div class="arrow" data-visible="m.edge" data-style-transform="'rotate(' + m.angle + 'deg)'">&gt;</div>
+            <div class="diamond" data-visible="!m.edge"></div>
+            <div class="label">{{ m.text }}</div>
+            <div class="distance">{{ m.distance | format(0) }} m</div>
+        </div>
+    </div>
+</body>
+</rml>

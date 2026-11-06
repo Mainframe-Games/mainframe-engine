@@ -280,7 +280,7 @@ public class UiDocument : Node
     }
 
     /// <summary>Called by the UI server once per frame before its contexts update.</summary>
-    internal void PrepareFrame()
+    internal virtual void PrepareFrame()
     {
         if (!IsLoaded)
         {
