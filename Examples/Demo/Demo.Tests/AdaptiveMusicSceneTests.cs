@@ -4,7 +4,7 @@ using MainframeEngine;
 namespace Demo.Tests;
 
 /// <summary>
-/// The Adaptive music scene plays the committed bake (<c>Assets/Music/adaptive_theme.mmusic</c> and its stems) on the
+/// The Adaptive music scene plays the committed bake (<c>Assets/Music/adaptive_theme.mfmusic</c> and its stems) on the
 /// manual null device: Intro continues to Explore, intensity brings the Perc and Lead layers in, area = Combat moves to
 /// Combat on the next bar and back with the Hit stinger, and the panel's controls drive the player.
 /// </summary>

@@ -12,7 +12,7 @@ capture 02-forest-open
 # Close it and open it again as the FileSystem panel does: the loading window is a panel over the editor.
 command file.close
 wait 5
-open-loading Examples/Forest/Assets/Scenes/forest.mscene
+open-loading Examples/Forest/Assets/Scenes/forest.mfscene
 wait 30
 capture 03-forest-reopening
 # Cancel while the valley builds: no Forest tab, the editor goes on.
@@ -22,7 +22,7 @@ wait 5
 state
 capture 04-forest-cancelled
 # And it opens again.
-open-loading Examples/Forest/Assets/Scenes/forest.mscene
+open-loading Examples/Forest/Assets/Scenes/forest.mfscene
 wait-for project 600
 wait 10
 state

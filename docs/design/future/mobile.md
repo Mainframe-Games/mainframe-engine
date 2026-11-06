@@ -371,7 +371,7 @@ A tier is a bundle of existing knobs:
 | HDR format | `B10G11R11` | `B10G11R11` | `RGBA16F` | new |
 | MSAA | off | 2× | 4× | new |
 | Tonemap | ACES fitted (ALU is cheap; the cost was bandwidth) | same | same | [Color pipeline](../color-pipeline.md#tonemap) |
-| Anisotropy, texture max size | 2×, 1024 | 4×, 2048 | 8×, full | `.meta` / sampler clamp |
+| Anisotropy, texture max size | 2×, 1024 | 4×, 2048 | 8×, full | `.mfmeta` / sampler clamp |
 | Frame-rate target | 30 | 60 | 60 (120 opt-in) | `Engine.MaxFPS`, present mode |
 | Physics ticks | 30 | 60 | 60 | `PhysicsTicksPerSecond` |
 
@@ -542,16 +542,16 @@ additive.
 
 ```mermaid
 flowchart LR
-    S["Assets/ (source)<br/>png, gltf, ogg, mscene, rml, po/mo, spv"] --> C["mf-cook (tool, desktop)<br/>per export preset"]
+    S["Assets/ (source)<br/>png, gltf, ogg, mfscene, rml, po/mo, spv"] --> C["mf-cook (tool, desktop)<br/>per export preset"]
     C --> T["textures → KTX2<br/>ASTC (iOS, Android) + ETC2 (Android fallback)<br/>mips baked"]
-    C --> M["models → cooked PackedScene (.mscene)<br/>+ .mmesh binary buffers (no Assimp on device)"]
+    C --> M["models → cooked PackedScene (.mfscene)<br/>+ .mfmesh binary buffers (no Assimp on device)"]
     C --> P["packs: base.mfpak · fast-follow · on-demand<br/>(index + aligned entries)"]
     P --> A["Android: APK assets (stored uncompressed)<br/>+ PAD asset packs (#tcf_astc / #tcf_etc2)"]
     P --> I["iOS: app bundle<br/>+ Background Assets packs (later)"]
 ```
 
 - **Textures.**
-  - The import settings `.meta` gains per-platform overrides and presets:
+  - The import settings `.mfmeta` gains per-platform overrides and presets:
 
     ```json
     { "uid": "tex_…", "importer": "texture",
@@ -583,13 +583,13 @@ flowchart LR
   - **ETC2 vs ASTC on Android:** both are in ABP 2022, so ASTC is primary and ETC2 is the delivered fallback. Without
     PAD (sideloaded APK), the base pack carries ASTC only.
 - **Models.** Assimp is not shipped to devices. The cooker runs the existing import and writes the imported
-  `PackedScene` as a `.mscene` plus a binary `.mmesh` per `ArrayMesh` (vertex/index blobs, little-endian, versioned).
+  `PackedScene` as a `.mfscene` plus a binary `.mfmesh` per `ArrayMesh` (vertex/index blobs, little-endian, versioned).
   - This is an export artefact only: sources stay glTF/FBX, and editable scenes stay JSON.
   - **Decided:** exports may also cook scenes to a binary form when that measurably helps load time or size.
   - [ADR 0100](../../../memory/decisions/0100-mobile-strategy.md#amendment-to-adr-0011-cooked-binary-exports) amends
     [ADR 0011](../../../memory/decisions/0011-json-scenes-no-binary-bake.md): source/editor data stays JSON, and
     exports may cook to binary.
-- **Audio** stays OGG (NVorbis, managed) and WAV for short SFX. The cooker can downmix/resample per the `.meta`
+- **Audio** stays OGG (NVorbis, managed) and WAV for short SFX. The cooker can downmix/resample per the `.mfmeta`
   `platforms` block.
 - **Shaders** ship the committed SPIR-V 1.3 set. **Scenes, RML/RCSS, `.mo`, fonts** are copied as they are.
 - **Packs (`.mfpak`).**
@@ -724,7 +724,7 @@ Builds on the editor's `PlayService` and the [editor link](../project-and-gameho
 
 | Change | Device behaviour | Rebuild? |
 |---|---|---|
-| Scene (`.mscene`/`.mres`) | the editor pushes the file into the device's **overlay mount** (`{cache}/live/Assets/…`, highest VFS priority), then `ReloadScene` | no |
+| Scene (`.mfscene`/`.mfres`) | the editor pushes the file into the device's **overlay mount** (`{cache}/live/Assets/…`, highest VFS priority), then `ReloadScene` | no |
 | Texture / model / audio source | cooked for the device's preset on the host, pushed, then `ReloadContent` (resources reloaded by UID) | no |
 | RML / RCSS / fonts | pushed; `UiServer` hot reload (already watches files; on device it is triggered by the link, not a `FileSystemWatcher`) | no |
 | `.po` translations | compiled to `.mo` on the host, pushed, `Tr` reloads catalogs | no |
@@ -896,7 +896,7 @@ Each spike is a throwaway branch with a written result (ADR or doc update) and a
 | M12.2 Lifecycle & display | lifecycle events/callbacks, surface suspend/resume, present-pipeline rebuild on format change, pre-rotation, safe areas + `mf-safe-area`, immersive/edge-to-edge, multi-window, low memory, audio session, back button | the QA checklist (pause ×50, rotate ×20, interruption, split screen, low memory) passes on the reference devices with 0 validation errors |
 | M12.3 Rendering | Vulkan 1.1 baseline, merged pass + transient attachments, direct UI, D16 shadows, B10G11R11, MSAA on tile, tiers + `auto`, dynamic resolution, governor, Swappy, 30/60/120 | Demo ≥ 60 fps at `auto` on the reference mid-range devices; 20-minute soak holds ≥ 55 fps p95 without a forced 30 fps step on iPhone 12; `profiles` job green |
 | M12.4 Input | touch events, `GestureServer`, virtual controls + `virtual:` bindings, sensors, haptics, soft-keyboard inset | a touch demo scene (joystick + buttons + pinch-zoom camera) playable; unit tests for every recogniser |
-| M12.5 Assets | `mf-cook`, KTX2 runtime path, ASTC/ETC2 presets in `.meta`, cooked models, packs, PAD (install-time/fast-follow/on-demand) + TCFT, size report/budgets | a cooked Demo within budget; PAD local testing passes; no Assimp on device |
+| M12.5 Assets | `mf-cook`, KTX2 runtime path, ASTC/ETC2 presets in `.mfmeta`, cooked models, packs, PAD (install-time/fast-follow/on-demand) + TCFT, size report/budgets | a cooked Demo within budget; PAD local testing passes; no Assimp on device |
 | M12.6 AOT/size/startup | `IsAotCompatible` clean, release builds on the runtimes S2 picked, startup markers, budgets in CI | cold start ≤ 1.5 s / 2.0 s; sizes within budget |
 | M12.7 Editor | export presets + dialog, device discovery, one-click run, link transports (adb reverse, usbmux, Bonjour), live preview, device simulation + touch emulation | from the editor: edit a scene on desktop → it changes on the phone in < 2 s without a rebuild |
 | M12.8 Pipeline & compliance | `mobile-publish.yml`, upload scripts, privacy manifest scan, store checklists, docs | a dispatched run uploads to Play internal + TestFlight (once accounts exist); without secrets the run stops at `guard` with a clear message |
@@ -921,7 +921,7 @@ Each spike is a throwaway branch with a written result (ADR or doc update) and a
 - [ ] Safe area / keyboard inset APIs; `mf-safe-area`; immersive mode; home-indicator deferral
 - [ ] Touch events, `GestureServer`, virtual controls + `virtual:` bindings, sensors, haptics
 - [ ] `IContentFileSystem`, `.mfpak`, overlay mount; every content read routed through it
-- [ ] `mf-cook`: KTX2 (astcenc + etcpak as pinned build tools), presets, cooked models (`.mmesh`), packs, size report
+- [ ] `mf-cook`: KTX2 (astcenc + etcpak as pinned build tools), presets, cooked models (`.mfmesh`), packs, size report
 - [ ] KTX2 runtime loader; compressed formats in `FormatInfo`/`UploadQueue`
 - [ ] Play Asset Delivery + TCFT; `ContentPacks` API (iOS: bundled packs)
 - [ ] `IsAotCompatible` + analyzer clean-up; `GameSession` explicit assemblies; editor-only annotations

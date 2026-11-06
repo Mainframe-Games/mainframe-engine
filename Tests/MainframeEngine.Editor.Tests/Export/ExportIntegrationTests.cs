@@ -93,7 +93,7 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
         using (var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName)))
         {
             Assert.True(pack.FileExists("Assets/" + AssetDatabase.IndexFileName));
-            Assert.True(pack.FileExists("Assets/Scenes/Main.mscene"));
+            Assert.True(pack.FileExists("Assets/Scenes/Main.mfscene"));
             Assert.False(pack.FileExists("Assets/notes.po"));
         }
 

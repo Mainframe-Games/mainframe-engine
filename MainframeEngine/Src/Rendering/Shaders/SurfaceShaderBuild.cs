@@ -10,7 +10,7 @@ namespace MainframeEngine;
 /// Builds a surface shader's SPIR-V and layout ahead of time (ADR 0237; the counterpart of build/Shaders.targets, run by
 /// mf-shaders): a probe compile whose <c>-reflection-json</c> gives the layout (<see cref="SlangReflection"/>), then every
 /// pass's entry (<see cref="SurfaceShaderCompiler"/>), each fragment stage first so its vertex stage writes only the inputs
-/// it kept (<see cref="SpirvInputs"/>). It writes <c>x.slang.*.spv</c>, <c>x.slang.layout.json</c> and <c>x.slang.spvlock</c>
+/// it kept (<see cref="SpirvInputs"/>). It writes <c>x.slang.*.spv</c>, <c>x.slang.mflayout.json</c> and <c>x.slang.mfspvlock</c>
 /// next to the source. The lock's first line hashes the shader and its generated entries (what <see cref="Shader.Load"/>
 /// checks); each further line hashes a file slangc read (<c>-depfile</c>: imported modules, the engine includes), which
 /// <see cref="IsUpToDate(string, string)"/> checks too.
@@ -18,7 +18,7 @@ namespace MainframeEngine;
 public static partial class SurfaceShaderBuild
 {
     /// <summary>The extension of a shader's lock file.</summary>
-    public const string LockExtension = ".spvlock";
+    public const string LockExtension = FileExtensions.ShaderLock;
 
     /// <summary>
     /// Revision of how the engine builds surface shaders, for changes the lock would not otherwise see (slangc's flags,
@@ -83,8 +83,8 @@ public static partial class SurfaceShaderBuild
     {
         var source = File.ReadAllText(shaderPath);
         var parsed = SurfaceShaderSource.Parse(source, Path.GetFileName(shaderPath));
-        var layoutPath = shaderPath + SurfaceShaderLayout.Extension;
-        if (!File.Exists(layoutPath))
+        var layoutPath = FileExtensions.FindExisting(shaderPath, SurfaceShaderLayout.Extension, File.Exists);
+        if (layoutPath is null)
             return false;
         var layout = SurfaceShaderLayout.Read(File.ReadAllText(layoutPath), parsed.Name);
         if (!IsUpToDate(shaderPath, source, parsed, layout))
@@ -103,11 +103,19 @@ public static partial class SurfaceShaderBuild
         return true;
     }
 
+    // A rebuild writes the current names; the layout and lock from before ADR 0249 would otherwise be left stale.
+    private static void DeleteLegacyOutputs(string shaderPath)
+    {
+        foreach (var extension in (ReadOnlySpan<string>)[SurfaceShaderLayout.Extension, LockExtension])
+            if (FileExtensions.LegacyOf(extension) is { } legacy && File.Exists(shaderPath + legacy))
+                File.Delete(shaderPath + legacy);
+    }
+
     private static string[] ReadLock(string shaderPath)
     {
-        var lockPath = shaderPath + LockExtension;
+        var lockPath = FileExtensions.FindExisting(shaderPath, LockExtension, ContentFiles.Exists);
         // Shader.Load reads it at run time, so through the content file system (the build and the check read the disk).
-        return ContentFiles.Exists(lockPath) ? ContentFiles.ReadAllText(lockPath).ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries) : [];
+        return lockPath is not null ? ContentFiles.ReadAllText(lockPath).ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries) : [];
     }
 
     private static string Resolve(string entry, string includeDirectory, string shaderDirectory) =>
@@ -175,6 +183,7 @@ public static partial class SurfaceShaderBuild
             foreach (var dependency in dependencies)
                 text.Append(LockEntry(dependency, realIncludes, directory)).Append(' ').Append(FileHash(dependency)).Append('\n');
             File.WriteAllText(shaderPath + LockExtension, text.ToString());
+            DeleteLegacyOutputs(shaderPath);
             return true;
         }
         finally

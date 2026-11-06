@@ -58,7 +58,7 @@ public sealed class LoadingScreenTests
         var folder = Directory.CreateTempSubdirectory("mf-loading-screen").FullName;
         try
         {
-            var path = Path.Combine(folder, "Level.mscene");
+            var path = Path.Combine(folder, "Level.mfscene");
             File.WriteAllBytes(path, SceneSaver.ToJson(new Node3D { Name = "Level" }));
             using var ui = new UiTestTree();
             var load = ui.Tree.ChangeSceneToFileAsync(path);

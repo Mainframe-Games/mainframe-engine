@@ -12,15 +12,15 @@
     },
     "PostProcessProfile_yiey8": {
       "ref": "res_8fa6654227d5",
-      "path": "Assets/PostProcess/forest.mres"
+      "path": "Assets/PostProcess/forest.mfres"
     },
     "CameraAttributesPractical_npu9u": {
       "ref": "res_d5ee91b233f5",
-      "path": "Assets/PostProcess/forest-lens.mres"
+      "path": "Assets/PostProcess/forest-lens.mfres"
     },
     "LightProbeData_i32m3": {
       "ref": "res_48aa0ff804cd",
-      "path": "Assets/Scenes/forest-lighting.mres"
+      "path": "Assets/Scenes/forest-lighting.mfres"
     },
     "CapsuleShape3D_ak3q9": {
       "type": "CapsuleShape3D",

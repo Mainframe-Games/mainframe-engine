@@ -30,7 +30,7 @@ public abstract class MeshSceneBase(HostOptions host) : RenderTestGame(host)
         sun.LookAt(sun.Position + Vector3.Normalize(new Vector3(-0.5f, -1f, -0.7f)));
         Scene.AddChild(sun);
 
-        // Built-in texture via the loader: its .meta asks for nearest filtering (crisp checks) without mipmaps.
+        // Built-in texture via the loader: its .mfmeta asks for nearest filtering (crisp checks) without mipmaps.
         var checker = ResourceLoader.Load<Texture2D>(CheckerPath);
         Scene.AddChild(new MeshInstance3D
         {

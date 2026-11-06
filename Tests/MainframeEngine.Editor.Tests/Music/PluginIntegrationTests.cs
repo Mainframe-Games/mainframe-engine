@@ -6,7 +6,7 @@ namespace MainframeEngine.Editor.Tests.Music;
 /// <summary>
 /// The real helper with the native test bundle (<c>mf_test_plugins.vst3</c>, built by <c>Native/build.sh</c> under
 /// <c>Native/build</c>): scan, an instrument rendering notes, an effect chain, offline render, and state through a
-/// <c>.msong</c> save and load. Skipped when the helper or the bundle is not built for this platform.
+/// <c>.mfsong</c> save and load. Skipped when the helper or the bundle is not built for this platform.
 /// </summary>
 public sealed class PluginIntegrationTests : IDisposable
 {
@@ -97,7 +97,7 @@ public sealed class PluginIntegrationTests : IDisposable
     public void PluginStateSurvivesSavingAndLoadingTheSong()
     {
         var (helper, bundle) = Fixture();
-        var path = Path.Combine(_root, "state.msong");
+        var path = Path.Combine(_root, "state.mfsong");
         using (var document = new SongDocument(SynthSong(GainId), path))
         using (var player = new SongPlayer(null, plugins: Rack(helper, bundle, offline: false)))
         {

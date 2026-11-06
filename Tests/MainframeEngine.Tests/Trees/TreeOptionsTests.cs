@@ -121,7 +121,7 @@ public sealed class TreeOptionsTests
             var options = TreePresets.Load("Aspen Large");
             options.Scale = 0.25;
             options.Level[3].Twist = 0.1 + 0.2; // 0.30000000000000004
-            var path = Path.Combine(project, AssetDatabase.ContentFolder, "aspen.mres");
+            var path = Path.Combine(project, AssetDatabase.ContentFolder, "aspen.mfres");
             var uid = ResourceSaver.Save(options, path);
 
             ResourceLoader.ClearCache();

@@ -26,7 +26,7 @@ public sealed record SurfaceRenderModes(
 /// <summary>
 /// Everything the engine needs about a built surface shader without slangc: its parameters as slangc laid them out, its
 /// render modes, its varyings and which functions it has. mf-shaders writes it next to the SPIR-V as
-/// <c>x.slang.layout.json</c> (<see cref="Write"/>) and <see cref="Shader.Load"/> reads it (<see cref="Read"/>).
+/// <c>x.slang.mflayout.json</c> (<see cref="Write"/>) and <see cref="Shader.Load"/> reads it (<see cref="Read"/>).
 /// </summary>
 public sealed record SurfaceShaderLayout(
     SurfaceShaderKind Kind,
@@ -37,8 +37,8 @@ public sealed record SurfaceShaderLayout(
     bool HasVertexFunction,
     bool HasFragmentFunction)
 {
-    /// <summary>The extension of the layout file next to a shader (<c>x.slang.layout.json</c>).</summary>
-    public const string Extension = ".layout.json";
+    /// <summary>The extension of the layout file next to a shader (<c>x.slang.mflayout.json</c>).</summary>
+    public const string Extension = FileExtensions.ShaderLayout;
 
     /// <summary>
     /// The binding the material's constant buffer is declared at: 0, or 1 when it holds only textures (Slang then drops the

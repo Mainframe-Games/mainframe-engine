@@ -243,8 +243,8 @@ public sealed partial class IconAtlasTests
     }
 
     [Theory]
-    [InlineData("Assets/Scenes/Main.mscene", false, "movie", "icon-3d")]
-    [InlineData("a/b/Mat.mres", false, "package", "icon-resource")]
+    [InlineData("Assets/Scenes/Main.mfscene", false, "movie", "icon-3d")]
+    [InlineData("a/b/Mat.mfres", false, "package", "icon-resource")]
     [InlineData("tex.PNG", false, "photo", "icon-resource")]
     [InlineData("music.ogg", false, "file-music", "icon-audio")]
     [InlineData("model.glb", false, "file-3d", "icon-3d")]

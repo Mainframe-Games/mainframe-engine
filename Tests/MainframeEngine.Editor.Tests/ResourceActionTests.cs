@@ -3,7 +3,7 @@ using System.Numerics;
 namespace MainframeEngine.Editor.Tests;
 
 /// <summary>
-/// G7.2: the inspector's resource More menu — Save as .mres (every slot follows, undo restores the inline resource and
+/// G7.2: the inspector's resource More menu — Save as .mfres (every slot follows, undo restores the inline resource and
 /// the scene's bytes), Make Unique (shallow shares sub-resources, deep copies them), Open, Show in FileSystem, the
 /// "inline ×N" label and the disabled states.
 /// </summary>
@@ -63,7 +63,7 @@ public sealed class ResourceActionTests : IDisposable
     {
         var (a, b, mesh) = TwoCratesSharingAMesh();
         var before = SceneSaver.ToJson(_editor.Scene.Root);
-        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "crate.mres");
+        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "crate.mfres");
 
         Assert.True(W.Inspector.SaveResourceAs(_editor.Scene, mesh, path));
         var saved = Assert.IsType<BoxMesh>(a.Mesh);
@@ -89,7 +89,7 @@ public sealed class ResourceActionTests : IDisposable
     public void SaveAsRefusesAFileWhoseResourceIsLoaded()
     {
         var (_, _, mesh) = TwoCratesSharingAMesh();
-        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "used.mres");
+        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "used.mfres");
         ResourceSaver.Save(new BoxMesh(), path); // registered and cached: in use
         var history = _editor.Scene.History.Actions.Count;
         Assert.False(W.Inspector.SaveResourceAs(_editor.Scene, mesh, path));
@@ -122,9 +122,9 @@ public sealed class ResourceActionTests : IDisposable
     [Fact]
     public void MakeUniqueCopiesAResourceFileIntoTheSlotAndOpenInspectsTheFile()
     {
-        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "shared.mres");
+        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "shared.mfres");
         ResourceSaver.Save(new BoxMesh { Size = new Vector3(4, 4, 4) }, path);
-        var file = ResourceLoader.Load<BoxMesh>("Assets/Materials/shared.mres");
+        var file = ResourceLoader.Load<BoxMesh>("Assets/Materials/shared.mfres");
         var node = new MeshInstance3D { Name = "Crate", Mesh = file };
         _editor.Scene.AddNode(node, _editor.Scene.Root);
         _editor.Scene.Selection.Set(node);
@@ -172,9 +172,9 @@ public sealed class ResourceActionTests : IDisposable
     [Fact]
     public void MakeUniqueRefusedWhileSimulatingMarksNoFile()
     {
-        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "box.mres");
+        var path = Path.Combine(_editor.Directory, "Assets", "Materials", "box.mfres");
         ResourceSaver.Save(new BoxMesh { Material = new StandardMaterial3D() }, path);
-        var file = ResourceLoader.Load<BoxMesh>("Assets/Materials/box.mres");
+        var file = ResourceLoader.Load<BoxMesh>("Assets/Materials/box.mfres");
         var node = new MeshInstance3D { Name = "Crate", Mesh = file };
         _editor.Scene.AddNode(node, _editor.Scene.Root);
         _editor.Tick();

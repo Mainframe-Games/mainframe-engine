@@ -619,7 +619,7 @@
   <circle cx="951" cy="507" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
   <text x="951" y="511" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">7</text>
   <text x="968" y="511" class="noteb">Presets, Reset, CPU, voices</text>
-  <text x="968" y="526" class="note">Init, factory, project .mres;</text>
+  <text x="968" y="526" class="note">Init, factory, project .mfres;</text>
   <text x="968" y="541" class="note">one undo step to load</text>
   <circle cx="80" cy="734" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
   <text x="80" y="738" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">8</text>

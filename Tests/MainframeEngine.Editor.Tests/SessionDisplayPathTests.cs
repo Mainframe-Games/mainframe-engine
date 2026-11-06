@@ -7,12 +7,12 @@ public sealed class SessionDisplayPathTests
     public void ProjectFilesShowRelativeToTheProjectAndOthersInFull()
     {
         using var host = new SessionHost();
-        var outside = Path.Combine(Path.GetTempPath(), "elsewhere", "x.mscene");
+        var outside = Path.Combine(Path.GetTempPath(), "elsewhere", "x.mfscene");
         Assert.Equal(Path.GetFullPath(outside), host.Session.DisplayPath(outside)); // no project yet
 
         new ProjectSettings { Name = "Shown" }.Save(host.ProjectDirectory);
         host.Session.OpenProject(host.ProjectDirectory);
-        Assert.Equal("Assets/Scenes/Main.mscene", host.Session.DisplayPath(host.ScenePath("Main.mscene")));
+        Assert.Equal("Assets/Scenes/Main.mfscene", host.Session.DisplayPath(host.ScenePath("Main.mfscene")));
         Assert.Equal(ProjectSettings.FileName, host.Session.DisplayPath(Path.Combine(host.ProjectDirectory, ProjectSettings.FileName)));
         Assert.Equal(Path.GetFullPath(outside), host.Session.DisplayPath(outside));
         Assert.Equal(Path.GetFullPath(host.ProjectDirectory), host.Session.DisplayPath(host.ProjectDirectory));

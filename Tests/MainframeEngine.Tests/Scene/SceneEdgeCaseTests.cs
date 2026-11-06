@@ -154,10 +154,10 @@ public sealed class SceneEdgeCaseTests : IDisposable
     [Fact]
     public void ResavingACachedSceneKeepsResourcesUsedByLiveInstances()
     {
-        var uid = ResourceSaver.Save(new TestResource { Value = 3 }, ContentPath("Shared.mres"));
+        var uid = ResourceSaver.Save(new TestResource { Value = 3 }, ContentPath("Shared.mfres"));
         var root = new AllTypesNode { Name = "Main" };
         root.Data = ResourceLoader.Load<TestResource>(uid);
-        var scenePath = ContentPath("S.mscene");
+        var scenePath = ContentPath("S.mfscene");
         SceneSaver.Save(root, scenePath);
         root.Data.Release();
         root.Free();
@@ -185,14 +185,14 @@ public sealed class SceneEdgeCaseTests : IDisposable
         var migrated = new MigratedNode { Name = "Engine" };
         sub.AddChild(migrated);
         migrated.Owner = sub;
-        var subUid = SceneSaver.Save(sub, ContentPath("Scenes/Sub.mscene"));
+        var subUid = SceneSaver.Save(sub, ContentPath("Scenes/Sub.mfscene"));
         sub.Free();
 
         // An override written when MigratedNode was version 1 ("Velocity").
         var json = $$"""
             { "format": 1,
               "root": { "type": "Node3D", "name": "Level",
-                "children": [ { "instance": "{{subUid}}", "path": "Assets/Scenes/Sub.mscene", "name": "Sub",
+                "children": [ { "instance": "{{subUid}}", "path": "Assets/Scenes/Sub.mfscene", "name": "Sub",
                                 "overrides": { "Engine": { "Velocity": 9 } }, "overrideVersions": { "Engine": 1 } } ] } }
             """;
         var level = PackedScene.Parse(Encoding.UTF8.GetBytes(json)).Instantiate();
@@ -209,11 +209,11 @@ public sealed class SceneEdgeCaseTests : IDisposable
     {
         Directory.CreateDirectory(ContentPath("Scenes"));
         var sub = new AllTypesNode { Name = "Sub", Data = new TestResource { Value = 7 } };
-        SceneSaver.Save(sub, ContentPath("Scenes/Sub.mscene"));
+        SceneSaver.Save(sub, ContentPath("Scenes/Sub.mfscene"));
         sub.Free();
 
         var level = new Node3D { Name = "Level" };
-        var instance = ResourceLoader.Load<PackedScene>("Assets/Scenes/Sub.mscene").Instantiate();
+        var instance = ResourceLoader.Load<PackedScene>("Assets/Scenes/Sub.mfscene").Instantiate();
         level.AddChild(instance);
         instance.Owner = level;
         ResourceLoader.ClearCache(); // the writer reloads the sub-scene: new inline resource instances
@@ -235,7 +235,7 @@ public sealed class SceneEdgeCaseTests : IDisposable
     [Fact]
     public void ChangeSceneToFileHoldsAndReleasesItsReference()
     {
-        var uid = SceneSaver.Save(new Node3D { Name = "Level" }, ContentPath("Level.mscene"));
+        var uid = SceneSaver.Save(new Node3D { Name = "Level" }, ContentPath("Level.mfscene"));
         ResourceLoader.ClearCache();
 
         _tree.ChangeSceneToFile(uid);

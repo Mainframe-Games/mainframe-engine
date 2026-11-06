@@ -48,7 +48,7 @@ public sealed class UiPreviewProject : IDisposable
     public UiPreviewProject()
     {
         Root = Directory.CreateTempSubdirectory("mf-ui-preview").FullName;
-        new ProjectSettings { Name = "PreviewGame", MainScene = "Assets/Scenes/Main.mscene" }.Save(Path.Combine(Root, ProjectSettings.FileName));
+        new ProjectSettings { Name = "PreviewGame", MainScene = "Assets/Scenes/Main.mfscene" }.Save(Path.Combine(Root, ProjectSettings.FileName));
         Directory.CreateDirectory(Path.Combine(Root, "Assets", "Scenes"));
         Directory.CreateDirectory(Path.Combine(Root, "Assets", "UI", "widgets"));
         SceneSaver.Save(new Node3D { Name = "Main" }, ScenePath);
@@ -63,7 +63,7 @@ public sealed class UiPreviewProject : IDisposable
 
     public string Root { get; }
 
-    public string ScenePath => Abs("Assets/Scenes/Main.mscene");
+    public string ScenePath => Abs("Assets/Scenes/Main.mfscene");
 
     public string DocumentPath => Abs("Assets/UI/hud.rml");
 

@@ -32,8 +32,8 @@ public static class SceneWriter
     {
         try
         {
-            var uid = SceneSaver.Save(root, Path.Combine(directory, id + ".mscene"));
-            Log.Info($"Wrote {id}.mscene ({uid})");
+            var uid = SceneSaver.Save(root, Path.Combine(directory, id + ".mfscene"));
+            Log.Info($"Wrote {id}.mfscene ({uid})");
         }
         finally
         {

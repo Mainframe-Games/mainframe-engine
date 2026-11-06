@@ -38,7 +38,7 @@ internal sealed class AudioHarness : IDisposable
     public List<float>? Capture { get; set; }
 
     public static AudioBusLayout LoadLayout() =>
-        ResourceLoader.Load<AudioBusLayout>(Path.Combine(AppContext.BaseDirectory, "Assets", "Settings", "AudioBusLayout.mres"));
+        ResourceLoader.Load<AudioBusLayout>(Path.Combine(AppContext.BaseDirectory, "Assets", "Settings", "AudioBusLayout.mfres"));
 
     /// <summary>A current camera at <paramref name="position"/> looking along −Z: the audio listener.</summary>
     public Camera3D AddListener(Vector3 position)

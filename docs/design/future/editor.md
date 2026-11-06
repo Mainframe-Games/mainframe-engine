@@ -12,7 +12,7 @@ and inspector, E3 viewport, E4 projects and Play, E5 polish) has shipped and is 
 | Docking and multi-window | Tear-off panels and editor windows on other monitors, once SDL multi-window is available. Layout today: fixed regions with persisted splitters. |
 | Shared widgets | Move the editor's controls (`tree-view`, `property-*` editors, `splitter`, `tabs`, `context-menu`) into core content so games' settings menus can use them. |
 | 2D content | Shipped: tile maps with paint tools in the 2D view ([Tile maps](../tile-maps.md), G2b) and animated sprites ([Animated sprites](../animated-sprites.md), G2a). Terrains and atlas tile animation are later (G2b.6). |
-| Editor previews and handles | Collision shape handles, camera FOV handles and "create collision from mesh", on the handle API that shipped with G7 ([Editor → Range handles](../editor.md#range-handles-and-the-handle-api): light and audio ranges; Save as .mres / Make Unique are [Resource actions](../editor.md#resource-actions)). |
+| Editor previews and handles | Collision shape handles, camera FOV handles and "create collision from mesh", on the handle API that shipped with G7 ([Editor → Range handles](../editor.md#range-handles-and-the-handle-api): light and audio ranges; Save as .mfres / Make Unique are [Resource actions](../editor.md#resource-actions)). |
 
 ## Open questions
 

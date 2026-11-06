@@ -59,7 +59,7 @@ public sealed record UiServerOptions
     public ITextTranslator? TextTranslator { get; init; } = Localization.TextTranslator.Current;
 
     /// <summary>
-    /// The per-locale font table (<see cref="FontFallbackTable"/>, a <c>.mres</c>) whose faces are loaded as fallback
+    /// The per-locale font table (<see cref="FontFallbackTable"/>, a <c>.mfres</c>) whose faces are loaded as fallback
     /// faces at start-up and on every locale change; nothing happens when the file does not exist. Null disables it.
     /// </summary>
     public string? FontFallbackTablePath { get; init; } = FontFallbackTable.DefaultPath;

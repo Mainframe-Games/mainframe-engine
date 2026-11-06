@@ -72,7 +72,7 @@ The layout knobs throw once the layers are loaded (`EnsureLoaded`); change them 
 
 | File | Profile | Format | Contents (default) |
 |---|---|---|---|
-| `terrain.mres` | both | JSON | the knobs |
+| `terrain.mfres` | both | JSON | the knobs |
 | `heightmap.png` | both | 16-bit grey, (N+1)² | `h = HeightMin + v / 65535 · (HeightMax − HeightMin)` (flat at 0) |
 | `splat-0.png`, `splat-1.png` | Realistic | RGBA8, cells | weights of layers 0–3 and 4–7, sum 255 with `splat-2.png` (layer 0) |
 | `splat-2.png` | Realistic | RGBA8, cells | weights of layers 8–11 (0; only once one of them holds weight) |
@@ -84,7 +84,7 @@ The layout knobs throw once the layers are loaded (`EnsureLoaded`); change them 
 - A missing file loads as its default; code-made data (`TerrainData.Create`) works with no folder at all — the forest
   generates its terrain in code (`SetHeightsFrom`, `SetWeightsFrom`, `SetWaterDepthFrom`).
 - `SaveLayers(folder)` writes only dirty layers (all non-default ones when the folder changes), each to `x.tmp` then
-  renamed; a layer back at its default deletes its file. No `.png.meta` sidecars are written yet.
+  renamed; a layer back at its default deletes its file. No `.png.mfmeta` sidecars are written yet.
 - **Water and the bed.** The stored height is the water surface; the **bed** (`BedHeights` = height − depth) is what is
   drawn, collided and queried. `HeightAt + WaterDepthAt` is the water surface. Wet chunks draw a water surface
   (`GetChunkWater`, `WaterMaterial`, default a `WaterMaterial3D`) and the terrain is an `IWaterBody3D` in
@@ -92,8 +92,8 @@ The layout knobs throw once the layers are loaded (`EnsureLoaded`); change them 
 - **Carve records.** `River3D.Carve` keeps the heights it replaced in the data, saved by `SaveLayers` as
   `carve_<id>.json` ([water.md → carving](water.md#carving)).
 - **Scene save.** `SceneSaver.Save` first calls the internal `ISceneSaveHook` on every node under the root. A
-  `Terrain3D` with inline data saves it as `<scene>_terrain/terrain.mres` (it becomes external, so the scene references
-  it by UID) and writes the layers there; external data rewrites its `.mres` and dirty layers in its own folder. A
+  `Terrain3D` with inline data saves it as `<scene>_terrain/terrain.mfres` (it becomes external, so the scene references
+  it by UID) and writes the layers there; external data rewrites its `.mfres` and dirty layers in its own folder. A
   throwing hook fails the save before the scene file is written. (`SceneSaver.ToJson`, used by editor snapshots, runs
   no hook.)
 - **Splat layers** (Realistic): up to `MaxLayers` (12) in three maps of four. The third map (layers 8–11) exists only

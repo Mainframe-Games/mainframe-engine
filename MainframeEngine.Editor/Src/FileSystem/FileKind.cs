@@ -9,7 +9,7 @@ public enum FileKind
     Texture,
     Audio,
 
-    /// <summary>An editor song (<c>.msong</c>, the music editor).</summary>
+    /// <summary>An editor song (<c>.mfsong</c>, the music editor).</summary>
     Song,
     Model,
     Font,
@@ -47,7 +47,7 @@ public enum FileBadges
     /// <summary>A song whose rendered output is older than the song.</summary>
     RenderOutOfDate = 8,
 
-    /// <summary>An adaptive song whose baked <c>.mmusic</c> is older than the song.</summary>
+    /// <summary>An adaptive song whose baked <c>.mfmusic</c> is older than the song.</summary>
     BakeOutOfDate = 16,
 
     /// <summary>A folder the editor writes (a bake's <c>*.stems</c>): not for hand edits.</summary>
@@ -65,9 +65,9 @@ internal static class FileKinds
             return FileKind.Project;
         return Path.GetExtension(path).ToLowerInvariant() switch
         {
-            ".mscene" => FileKind.Scene,
-            ".mres" => FileKind.Resource,
-            ".msong" => FileKind.Song,
+            ".mfscene" => FileKind.Scene,
+            ".mfres" => FileKind.Resource,
+            ".mfsong" => FileKind.Song,
             ".png" or ".jpg" or ".jpeg" or ".tga" or ".bmp" or ".hdr" or ".ktx" or ".ktx2" => FileKind.Texture,
             ".wav" or ".ogg" or ".mp3" or ".flac" => FileKind.Audio,
             ".gltf" or ".glb" or ".fbx" or ".obj" or ".dae" => FileKind.Model,

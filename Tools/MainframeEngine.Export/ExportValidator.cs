@@ -189,7 +189,7 @@ public static class ExportValidator
         return width > 0 && height > 0;
     }
 
-    // Excluded .meta sidecars of kept files, and kept scenes/resources that reference excluded files.
+    // Excluded .mfmeta sidecars of kept files, and kept scenes/resources that reference excluded files.
     private static void CheckExcludedContent(Dictionary<string, bool> shipped, string root, AssetDatabase database, Action<string, string, string?> warn)
     {
         var excluded = shipped.Where(p => !p.Value).Select(p => p.Key).ToHashSet(StringComparer.Ordinal);
@@ -198,8 +198,8 @@ public static class ExportValidator
         var metas = excluded.Where(p => p.EndsWith(AssetDatabase.MetaExtension, StringComparison.OrdinalIgnoreCase)
                                         && shipped.TryGetValue(p[..^AssetDatabase.MetaExtension.Length], out var kept) && kept).Order(StringComparer.Ordinal).ToArray();
         if (metas.Length > 0)
-            warn("meta-excluded", $"{metas.Length} .meta sidecar(s) of shipped files are excluded (e.g. {metas[0]}): their import settings and UIDs are lost.",
-                "Exclude the asset with its .meta, or neither.");
+            warn("meta-excluded", $"{metas.Length} .mfmeta sidecar(s) of shipped files are excluded (e.g. {metas[0]}): their import settings and UIDs are lost.",
+                "Exclude the asset with its .mfmeta, or neither.");
 
         // Translation sources are never referenced: skip the scan when nothing else is excluded.
         if (!excluded.Any(p => !p.EndsWith(".po", StringComparison.OrdinalIgnoreCase) && !p.EndsWith(".pot", StringComparison.OrdinalIgnoreCase)))

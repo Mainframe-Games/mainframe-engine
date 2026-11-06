@@ -26,7 +26,7 @@ public sealed class NeonAudioTests
         Assert.True(layout.Buses.Single(b => b.Name == "Foley").MaxVoices >= NeonAudio.PoolSize + 6);
 
         var project = ProjectSettings.Load(Path.Combine(AppContext.BaseDirectory, "project.mfproj"));
-        Assert.Equal("Assets/Settings/AudioBusLayout.mres", project.Audio.BusLayout);
+        Assert.Equal("Assets/Settings/AudioBusLayout.mfres", project.Audio.BusLayout);
     }
 
     [Fact]

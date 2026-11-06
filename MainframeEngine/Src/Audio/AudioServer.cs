@@ -329,7 +329,7 @@ public sealed partial class AudioServer : IFrameServer
         return layout;
     }
 
-    /// <summary>Saves <see cref="GetBusLayout"/> as a <c>.mres</c> (default: the project's layout file); returns its UID.</summary>
+    /// <summary>Saves <see cref="GetBusLayout"/> as a <c>.mfres</c> (default: the project's layout file); returns its UID.</summary>
     public string SaveBusLayout(string? path = null)
     {
         var target = path ?? _options.BusLayoutPath ?? AudioBusLayout.DefaultPath;

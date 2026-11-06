@@ -72,8 +72,8 @@ public readonly record struct ProbeGrid(ProbeLayout Layout, Vector3 Origin, Vect
 /// <summary>
 /// A baked <see cref="LightProbeVolume"/> (ADR 0170): per probe, the sky's visibility (SH L1: 4 numbers) and the bounce
 /// light reaching it (SH L1 RGB: 12 numbers), plus the ground height under each column of a terrain-following grid. The
-/// <c>.mres</c> holds the grid and the bake's inputs hash (<see cref="BakeHash"/>); the coefficients live in a binary
-/// <c>.probes</c> file next to it (<see cref="DataFile"/>, half floats, in LFS), read on first use. A bake made in code
+/// <c>.mfres</c> holds the grid and the bake's inputs hash (<see cref="BakeHash"/>); the coefficients live in a binary
+/// <c>.mfprobes</c> file next to it (<see cref="DataFile"/>, half floats, in LFS), read on first use. A bake made in code
 /// (tests, a bake at load) keeps them in memory.
 /// </summary>
 /// <remarks>
@@ -120,7 +120,7 @@ public sealed class LightProbeData : Resource
     /// <summary>Bounces baked.</summary>
     [Export] public int Bounces { get; set; }
 
-    /// <summary>The coefficients' file name next to the <c>.mres</c> (empty: in memory only).</summary>
+    /// <summary>The coefficients' file name next to the <c>.mfres</c> (empty: in memory only).</summary>
     [Export] public string DataFile { get; set; } = string.Empty;
 
     /// <summary>The probes' grid.</summary>
@@ -262,7 +262,7 @@ public sealed class LightProbeData : Resource
     }
 
     /// <summary>
-    /// Writes the coefficients to <paramref name="mresPath"/>'s <c>.probes</c> file (same name, LFS) and the resource to
+    /// Writes the coefficients to <paramref name="mresPath"/>'s <c>.mfprobes</c> file (same name, LFS) and the resource to
     /// <paramref name="mresPath"/>; returns the resource's UID.
     /// </summary>
     public string Save(string mresPath)
@@ -271,7 +271,7 @@ public sealed class LightProbeData : Resource
         if (!HasData)
             throw new InvalidOperationException("Nothing to save: the probe data has no coefficients.");
         var full = AssetDatabase.Current.ToAbsolutePath(mresPath);
-        DataFile = Path.GetFileNameWithoutExtension(full) + ".probes";
+        DataFile = Path.GetFileNameWithoutExtension(full) + ".mfprobes";
         WriteDataFile(Path.Combine(Path.GetDirectoryName(full)!, DataFile));
         return ResourceSaver.Save(this, mresPath);
     }

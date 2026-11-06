@@ -6,7 +6,7 @@ namespace MainframeEngine.Serialization;
 using Color = System.Drawing.Color;
 
 /// <summary>
-/// Upgrades scene entries of node types that no longer exist into their replacements, so older <c>.mscene</c> files
+/// Upgrades scene entries of node types that no longer exist into their replacements, so older <c>.mfscene</c> files
 /// keep loading (the type-level counterpart of <see cref="SerializedMigrationAttribute"/>, which can only migrate
 /// properties of a type that still exists). An upgrade creates the replacement node, consumes the properties it
 /// translated from the bag, and leaves the rest (transform, name-independent common properties) to be applied to

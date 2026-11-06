@@ -5,7 +5,7 @@ namespace MainframeEngine.Tests.Audio;
 
 /// <summary>
 /// The ZzFX port against the reference implementation, the line format, <see cref="ZzfxStream"/> (invalidation, limits,
-/// <c>.mres</c> round trip), per-play <see cref="AudioStream.PitchRandomness"/> and <see cref="WavWriter"/>.
+/// <c>.mfres</c> round trip), per-play <see cref="AudioStream.PitchRandomness"/> and <see cref="WavWriter"/>.
 /// </summary>
 [Collection(nameof(Scene.SerialResources))]
 public sealed class ZzfxTests
@@ -249,7 +249,7 @@ public sealed class ZzfxTests
         try
         {
             var coin = ZzfxStream.FromLine("zzfx(...[,,925,.04,.3,.6,1,.3,,6.27,-184,.09,.17])", "Coin");
-            var path = Path.Combine(project, AssetDatabase.ContentFolder, "Coin.mres");
+            var path = Path.Combine(project, AssetDatabase.ContentFolder, "Coin.mfres");
             var uid = ResourceSaver.Save(coin, path);
             var json = File.ReadAllText(path);
             Assert.Contains("\"type\": \"ZzfxStream\"", json, StringComparison.Ordinal);

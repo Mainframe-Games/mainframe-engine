@@ -222,13 +222,13 @@ public sealed class InspectorModelTests : IDisposable
         Assert.True(ValueText.TryParseColorHex("#abc", out var short3));
         Assert.Equal(0xaa / 255f, short3.X, 4);
         Assert.False(ValueText.TryParseColorHex("#12345", out _));
-        Assert.Equal("Box.mres (TestSettings)", ValueText.Resource(LoadedResource()));
+        Assert.Equal("Box.mfres (TestSettings)", ValueText.Resource(LoadedResource()));
     }
 
     private static TestSettings LoadedResource()
     {
         var resource = new TestSettings();
-        typeof(Resource).GetProperty(nameof(Resource.ResourcePath))!.SetValue(resource, "Assets/Box.mres");
+        typeof(Resource).GetProperty(nameof(Resource.ResourcePath))!.SetValue(resource, "Assets/Box.mfres");
         return resource;
     }
 }

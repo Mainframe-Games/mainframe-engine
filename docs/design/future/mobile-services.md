@@ -348,10 +348,10 @@ sequenceDiagram
   SDKs only partly do this themselves.
 - **Cloud saves are `ICloudSaveBackend`s** (updated after G4 shipped). There is no separate `CloudSaveServer`: G4's
   `SaveServer` ([Projects → Cloud saves](../project-and-gamehost.md#cloud-saves-the-m13-seam)) already writes slots locally first,
-  uploads the same `.msave` bytes best effort with retries, runs `SyncAsync` with the three conflict policies below and
+  uploads the same `.mfsave` bytes best effort with retries, runs `SyncAsync` with the three conflict policies below and
   keeps the losing copy as `.conflict-<utc>`. M13.3 adds one `ICloudSaveBackend` per store (CloudKit, Play Saved Games,
   Steam Cloud through a new `ISteamRemoteStorage` wrapper) and the conflict dialog widget; the file format does not
-  change. The `.msave` header carries `SaveMeta`'s fields one to one (`slot`, `description`, `playTimeSeconds`,
+  change. The `.mfsave` header carries `SaveMeta`'s fields one to one (`slot`, `description`, `playTimeSeconds`,
   `savedUtc`, `device`, `progress`; `CloudSaveMeta`). The class diagram above keeps the original sketch.
   - **Conflicts** (two devices) follow `ConflictPolicy`:
     - `MostRecent`;

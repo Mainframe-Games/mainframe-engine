@@ -25,7 +25,7 @@ built yet; the [proposal](future/procedural-trees.md) has its design.
 | [`Src/Trees/Generation/TreeGenerator.{Clusters,Wind,Bark}.cs`](../../MainframeEngine/Src/Trees/Generation/) | ADR 0172's generator extensions (RNG-free): cluster cards and `TwigParams`, wind pivots, root flare and collars |
 | [`Src/Trees/Impostors/`](../../MainframeEngine/Src/Trees/Impostors/), [`Src/Trees/Baking/`](../../MainframeEngine/Src/Trees/Baking/) | `TreeImpostor`, `TreeImpostorBaker`, `ImpostorOctahedron`; the CPU bake rasterizer and `TreeBakeCache` |
 | [`Rendering/Resources/OrmPacker.cs`](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Packs separate occlusion/roughness/metallic maps into one ORM texture (the bark's `_Roughness.jpg`) |
-| [`Assets/Trees/Presets/`](../../MainframeEngine/Assets/Trees/Presets/) | The 15 presets as `TreeOptions` `.mres` files |
+| [`Assets/Trees/Presets/`](../../MainframeEngine/Assets/Trees/Presets/) | The 15 presets as `TreeOptions` `.mfres` files |
 | [`Assets/Trees/Leaves/`](../../MainframeEngine/Assets/Trees/Leaves/), [`Assets/Trees/Bark/`](../../MainframeEngine/Assets/Trees/Bark/) | Ez Tree's leaf PNGs (MIT), the three ambientCG bark sets the presets use (CC0), and the painted birch, beech, spruce and fir leaves and Birch and Beech bark (ADR 0172, the engine's own); [`LICENSE.md`](../../MainframeEngine/Assets/Trees/LICENSE.md) |
 | [`build/ez-tree-reference.mjs`](../../build/ez-tree-reference.mjs) | Runs Ez Tree itself to write the parity fixture (by hand, never in CI) |
 | [`Tests/MainframeEngine.Tests/Trees/`](../../Tests/MainframeEngine.Tests/Trees/) | Parity, RNG, determinism, allocation, LowPoly, options and preset tests; fixture in `Tests/Assets/Trees/`; `Tree3DTests`, `TreeScatterTests` |
@@ -154,15 +154,15 @@ first side branch (at least 2 m or the trunk's height, whichever is lower, and a
 
 ## Presets and content
 
-The presets are `.mres` files, not embedded JSON: they load, duplicate, save and show in the inspector like any
-resource, scenes can reference them by UID, and a `.mres` keeps doubles exactly (`69.60000000000001` stays). They were
+The presets are `.mfres` files, not embedded JSON: they load, duplicate, save and show in the inspector like any
+resource, scenes can reference them by UID, and a `.mfres` keeps doubles exactly (`69.60000000000001` stays). They were
 made by `EzTreeJson.Read` from Ez Tree's JSON and `ResourceSaver.Save`; Ez Tree's JSON stays importable through
 `EzTreeJson` for anything new. Engine-only fields (`Scale`, LowPoly) keep their defaults and are not written.
 `TreePresets.Names` lists Ez Tree's display names in its order; `TreePresets.Load(name)` returns a fresh copy of the
 engine's file (next to the application, also while the editor has a project open).
 
 The textures are plain image files in the engine's `Assets/Trees/` (Git LFS, like every PNG and JPG). Engine content
-has no `.meta` sidecars: those only give project assets a UID for scene references. Code loads them with explicit import
+has no `.mfmeta` sidecars: those only give project assets a UID for scene references. Code loads them with explicit import
 settings, resolving against the application folder so an open project does not shadow them:
 
 ```csharp
@@ -198,7 +198,7 @@ Bark normal maps are `_NormalGL` (+Y up, the engine's convention); `_Roughness` 
 - **Trunk.** An internal `StaticBody3D` with a `CapsuleShape3D` from `TreeMeshData.Trunk` (`TrunkShape`, `TrunkBody`),
   standing on the tree's origin.
 - **Bake.** `Bake(path)` generates the tree from its options (ignoring a previous bake), makes the result its
-  `BakedMesh` and saves it as `.mres`: a `TreeMesh` holds the three `ArrayMesh`es (bark surface 0, leaves surface 1, with
+  `BakedMesh` and saves it as `.mfres`: a `TreeMesh` holds the three `ArrayMesh`es (bark surface 0, leaves surface 1, with
   `Custom0` and LowPoly `Colors`; no materials), the trunk capsule, the options (inline), seed, style and
   `TreeGenerator.GeneratorVersion`. A baked tree costs what any mesh costs: read and upload. There is no inspector UI
   yet and no staleness check (the version is stored for one).

@@ -51,7 +51,7 @@ public static class PickerSources
     }
 
     /// <summary>
-    /// The <c>.mscene</c> files under <paramref name="root"/> (a project folder: its <c>Assets/</c> when present) as a
+    /// The <c>.mfscene</c> files under <paramref name="root"/> (a project folder: its <c>Assets/</c> when present) as a
     /// folder tree; ids and descriptions are paths relative to <paramref name="root"/>. Hidden and build folders are skipped.
     /// </summary>
     public static IReadOnlyList<PickerEntry> Scenes(string root, int maxFiles = 2000)
@@ -65,7 +65,7 @@ public static class PickerSources
         IEnumerable<string> files;
         try
         {
-            files = Directory.EnumerateFiles(start, "*.mscene", new EnumerationOptions
+            files = Directory.EnumerateFiles(start, "*.mfscene", new EnumerationOptions
             {
                 RecurseSubdirectories = true,
                 IgnoreInaccessible = true,

@@ -852,7 +852,7 @@ public sealed class ToolbarPanel : EditorDocument
                 : job is not null
                     ? string.Create(CultureInfo.InvariantCulture, $"Rendering {tab.Document.Name}… {percent} % — click to cancel (the previous output stays)")
                     : baking
-                        ? "Bake (Ctrl+B) — the adaptive song's stems and its .mmusic manifest, what the game plays (Render timeline is in the menu beside it)"
+                        ? "Bake (Ctrl+B) — the adaptive song's stems and its .mfmusic manifest, what the game plays (Render timeline is in the menu beside it)"
                         : SongPanel.RenderTooltip(tab) + " (Ctrl+E)");
         }
     }

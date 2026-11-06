@@ -19,7 +19,7 @@
   <rect x="20" y="20" width="920" height="450" rx="8" fill="#1f2128" stroke="#111827"/>
   <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
   <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="380" y="38" class="s">Mainframe Editor — MyGame — Joints.mscene*</text>
+  <text x="380" y="38" class="s">Mainframe Editor — MyGame — Joints.mfscene*</text>
   <rect x="20" y="46" width="920" height="30" fill="#2a2d36"/>
   <rect x="32" y="52" width="22" height="18" rx="3" fill="#3b3f4b"/><text x="38" y="65" class="t">↖</text>
   <rect x="58" y="52" width="22" height="18" rx="3" fill="#1d4ed8"/><text x="64" y="65" class="t">✥</text>
@@ -27,7 +27,7 @@
 
   <!-- viewport -->
   <rect x="28" y="80" width="612" height="384" fill="#20232a" stroke="#3b3f4b"/>
-  <rect x="28" y="80" width="120" height="22" fill="#2f333d"/><text x="38" y="96" class="t">Joints.mscene*</text>
+  <rect x="28" y="80" width="120" height="22" fill="#2f333d"/><text x="38" y="96" class="t">Joints.mfscene*</text>
   <rect x="32" y="104" width="604" height="356" fill="#2c3540"/>
   <g stroke="#3d4955" stroke-width="1">
     <line x1="32" y1="400" x2="636" y2="400"/><line x1="32" y1="430" x2="636" y2="430"/>

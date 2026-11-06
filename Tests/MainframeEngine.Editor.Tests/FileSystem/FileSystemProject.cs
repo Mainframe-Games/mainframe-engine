@@ -4,11 +4,11 @@ namespace MainframeEngine.Editor.Tests.FileSystem;
 /// A temporary game project for the FileSystem tests:
 /// <code>
 /// project.mfproj                       mainScene + window.icon as paths
-/// Assets/Textures/wood.png (+ .meta)  a real 8×4 PNG
-/// Assets/Materials/Settings.mres      TestSettings, saved by ResourceSaver
-/// Assets/Materials/Sky.mres           a Sky with Panorama = wood.png
-/// Assets/Scenes/Player.mscene         AllHintsNode root, Texture = "Assets/Textures/wood.png"
-/// Assets/Scenes/Main.mscene           Node3D root, instances Player, a child referencing Settings.mres externally
+/// Assets/Textures/wood.png (+ .mfmeta)  a real 8×4 PNG
+/// Assets/Materials/Settings.mfres      TestSettings, saved by ResourceSaver
+/// Assets/Materials/Sky.mfres           a Sky with Panorama = wood.png
+/// Assets/Scenes/Player.mfscene         AllHintsNode root, Texture = "Assets/Textures/wood.png"
+/// Assets/Scenes/Main.mfscene           Node3D root, instances Player, a child referencing Settings.mfres externally
 /// bin/, obj/, .git/                    hidden by default
 /// </code>
 /// Assigns <see cref="AssetDatabase.Current"/> and <see cref="ContentPaths.ProjectDirectory"/> (restored on dispose).
@@ -64,10 +64,10 @@ public sealed class FileSystemProject : IDisposable
     }
 
     public const string WoodPath = "Assets/Textures/wood.png";
-    public const string SettingsPath = "Assets/Materials/Settings.mres";
-    public const string SkyPath = "Assets/Materials/Sky.mres";
-    public const string PlayerPath = "Assets/Scenes/Player.mscene";
-    public const string MainPath = "Assets/Scenes/Main.mscene";
+    public const string SettingsPath = "Assets/Materials/Settings.mfres";
+    public const string SkyPath = "Assets/Materials/Sky.mfres";
+    public const string PlayerPath = "Assets/Scenes/Player.mfscene";
+    public const string MainPath = "Assets/Scenes/Main.mfscene";
 
     public string Root { get; }
     public AssetDatabase Database { get; }

@@ -155,11 +155,11 @@ public sealed class CodeReloadTests : IDisposable
         Directory.CreateDirectory(library);
         File.WriteAllText(Path.Combine(library, Name + ".csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n");
         _output = Path.Combine(library, "bin", "Debug", "net10.0");
-        var settings = new ProjectSettings { Name = Name, MainScene = "Assets/Scenes/Main.mscene" };
+        var settings = new ProjectSettings { Name = Name, MainScene = "Assets/Scenes/Main.mfscene" };
         settings.Assemblies.Add(Name);
         settings.Save(_project);
         Directory.CreateDirectory(Path.Combine(_project, "Assets", "Scenes"));
-        File.WriteAllText(Path.Combine(_project, "Assets", "Scenes", "Main.mscene"), """
+        File.WriteAllText(Path.Combine(_project, "Assets", "Scenes", "Main.mfscene"), """
             {
               "format": 1,
               "uid": "scn_7e10ad000001",
@@ -173,7 +173,7 @@ public sealed class CodeReloadTests : IDisposable
               }
             }
             """);
-        File.WriteAllText(Path.Combine(_project, "Assets", "Scenes", "Plain.mscene"), """
+        File.WriteAllText(Path.Combine(_project, "Assets", "Scenes", "Plain.mfscene"), """
             { "format": 1, "uid": "scn_7e10ad000002", "root": { "type": "Node3D", "name": "Plain" } }
             """);
     }
@@ -226,8 +226,8 @@ public sealed class CodeReloadTests : IDisposable
         GameCompiler.Compile(GameV1, Name, _output);
         var editor = Open();
         var w = editor.Workspace;
-        w.Session.Open(Path.Combine(_project, "Assets", "Scenes", "Plain.mscene"));
-        var plain = SceneNamed(w, "Plain.mscene");
+        w.Session.Open(Path.Combine(_project, "Assets", "Scenes", "Plain.mfscene"));
+        var plain = SceneNamed(w, "Plain.mfscene");
         plain.AddNode(new Node3D { Name = "Added" }, plain.Root);
         var plainHistory = plain.History.Actions.Count;
 
@@ -246,7 +246,7 @@ public sealed class CodeReloadTests : IDisposable
 
         // The game scene: re-created at the same tab, unsaved edit kept, selection and view restored.
         Assert.Equal(2, w.Session.Scenes.Count);
-        var reloaded = SceneNamed(w, "Main.mscene");
+        var reloaded = SceneNamed(w, "Main.mfscene");
         Assert.Same(reloaded, w.Session.Scenes[0]);
         Assert.Same(reloaded, w.Session.Active);
         Assert.True(reloaded.IsDirty);
@@ -258,7 +258,7 @@ public sealed class CodeReloadTests : IDisposable
         Assert.Equal(2f, TypeRegistry.GetNearest(wobbler.GetType())!.FindProperty("Amplitude")!.GetValue(wobbler));
 
         // The scene without game code was left alone: same object, same history.
-        Assert.Same(plain, SceneNamed(w, "Plain.mscene"));
+        Assert.Same(plain, SceneNamed(w, "Plain.mfscene"));
         Assert.Equal(plainHistory, plain.History.Actions.Count);
         Assert.Equal(1, w.Project.ReloadCount);
     }
@@ -267,7 +267,7 @@ public sealed class CodeReloadTests : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static (WeakReference Node, WeakReference Assembly) EditAndRemember(EditorWorkspace w)
     {
-        var scene = SceneNamed(w, "Main.mscene");
+        var scene = SceneNamed(w, "Main.mfscene");
         w.Session.Activate(scene);
         scene.Camera.Pivot = new Vector3(4, 5, 6);
         var node = scene.Root.GetNode<Node3D>("W");

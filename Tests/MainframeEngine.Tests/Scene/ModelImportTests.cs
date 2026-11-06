@@ -82,7 +82,7 @@ public sealed class ModelImportTests : IDisposable
         Assert.Equal("Checker", checker.ResourceName);
         Assert.NotNull(checker.AlbedoTexture);
         Assert.Equal(TestModel.TextureUid, checker.AlbedoTexture!.Uid);
-        Assert.Equal(TextureFilter.Nearest, checker.AlbedoTexture.ImportSettings.Filter); // the PNG's own .meta
+        Assert.Equal(TextureFilter.Nearest, checker.AlbedoTexture.ImportSettings.Filter); // the PNG's own .mfmeta
         Assert.Equal((8, 8), (checker.AlbedoTexture.Width, checker.AlbedoTexture.Height));
         Assert.Equal(AlphaMode.Opaque, checker.Transparency);
 
@@ -140,7 +140,7 @@ public sealed class ModelImportTests : IDisposable
         again.Release();
 
         // Changing the settings re-imports.
-        var meta = Path.Combine(_project, ModelPath + ".meta");
+        var meta = Path.Combine(_project, ModelPath + ".mfmeta");
         File.WriteAllText(meta, File.ReadAllText(meta).Replace("\"scale\": 1", "\"scale\": 2", StringComparison.Ordinal));
         var scaled = ResourceLoader.Load<PackedScene>(ModelPath);
         var root = scaled.Instantiate<Node3D>();
@@ -229,7 +229,7 @@ public sealed class ModelImportTests : IDisposable
             TestModel.Write(Path.Combine(TestPaths.RepositoryRoot(), "Tests", "Assets", "Models", "TestModel"));
         var committed = Path.Combine(AppContext.BaseDirectory, "Assets", "Models", "TestModel");
         var generated = Path.Combine(_project, "Assets", "Models", "TestModel");
-        foreach (var file in new[] { TestModel.GltfFile, TestModel.BinFile, TestModel.GltfFile + ".meta", TestModel.TextureFile + ".meta" })
+        foreach (var file in new[] { TestModel.GltfFile, TestModel.BinFile, TestModel.GltfFile + ".mfmeta", TestModel.TextureFile + ".mfmeta" })
             Assert.True(File.ReadAllBytes(Path.Combine(committed, file)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(generated, file))),
                 $"{file} differs from the generator: run the generator (TestModel.Write) into Tests/Assets/Models/TestModel.");
         Assert.Equal(TestModel.Checker(8), Png.ReadRgba8(Path.Combine(committed, TestModel.TextureFile)).Pixels);

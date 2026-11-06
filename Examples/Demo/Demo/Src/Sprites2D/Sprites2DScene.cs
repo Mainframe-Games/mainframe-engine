@@ -6,14 +6,14 @@ namespace Demo;
 
 /// <summary>
 /// Sprites 2D (ADR 0223): <see cref="AnimatedSprite2D"/>s playing a <see cref="SpriteFrames"/> sliced from one generated
-/// sheet (<see cref="HeroArt"/>, <c>Assets/Sprites2D/hero.png</c> + <c>hero.mres</c>), drawn with nearest filtering:
+/// sheet (<see cref="HeroArt"/>, <c>Assets/Sprites2D/hero.png</c> + <c>hero.mfres</c>), drawn with nearest filtering:
 /// a hero patrolling the ground (run, flipped at each turn), the showcase hero the panel drives (idle, run or jump,
 /// speed, flip, backwards), and a row of coins spinning at different speeds, one of them backwards.
 /// </summary>
 public static class Sprites2DScene
 {
     public const string SheetPath = "Assets/Sprites2D/hero.png";
-    public const string FramesPath = "Assets/Sprites2D/hero.mres";
+    public const string FramesPath = "Assets/Sprites2D/hero.mfres";
 
     public static Node Build()
     {
@@ -96,7 +96,7 @@ public static class Sprites2DScene
     }
 
     /// <summary>
-    /// Writes <c>hero.png</c> (+ its <c>.meta</c>) and <c>hero.mres</c> under <paramref name="assets"/> (the Demo's
+    /// Writes <c>hero.png</c> (+ its <c>.mfmeta</c>) and <c>hero.mfres</c> under <paramref name="assets"/> (the Demo's
     /// <c>Assets</c> folder), and copies them where the running game loads content from (the build output), so the
     /// scenes written next can load them before the next build.
     /// </summary>
@@ -105,18 +105,18 @@ public static class Sprites2DScene
         var folder = Path.Combine(assets, "Sprites2D");
         var png = Path.Combine(folder, "hero.png");
         HeroArt.Write(png);
-        if (!File.Exists(png + ".meta"))
-            File.WriteAllText(png + ".meta", "{\n  \"uid\": \"tex_5f1d2c3b4a69\"\n}"); // a fixed UID: scenes reference it
+        if (!File.Exists(png + ".mfmeta"))
+            File.WriteAllText(png + ".mfmeta", "{\n  \"uid\": \"tex_5f1d2c3b4a69\"\n}"); // a fixed UID: scenes reference it
         var output = Path.GetDirectoryName(ContentPaths.Resolve(SheetPath))!;
-        Mirror(folder, output, "hero.png", "hero.png.meta");
+        Mirror(folder, output, "hero.png", "hero.png.mfmeta");
         AssetDatabase.Current.Scan();
         var sheet = ResourceLoader.Load<Texture2D>(SheetPath);
         try
         {
             // Saved where the game loads it (so scenes reference it by its project path), then copied back to the source.
             var uid = ResourceSaver.Save(CreateFrames(sheet), FramesPath);
-            Mirror(output, folder, "hero.mres");
-            Log.Info($"Wrote hero.png and hero.mres ({uid})");
+            Mirror(output, folder, "hero.mfres");
+            Log.Info($"Wrote hero.png and hero.mfres ({uid})");
         }
         finally
         {
