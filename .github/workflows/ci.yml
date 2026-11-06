@@ -465,6 +465,10 @@ jobs:
           fi
           bash .agents/mainframe-workflow/scripts/check.sh --base "$base"
 
+      - name: Status files change only in a state sync (ADR 0280)
+        if: github.event_name == 'pull_request'
+        run: bash build/state-guard.sh --base HEAD^1
+
   ci-success:
     # The single required status check (repo ruleset). Do not rename. Skipped jobs pass only on a docs-only change.
     if: always()

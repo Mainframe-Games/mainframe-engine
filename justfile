@@ -330,6 +330,14 @@ l10n-engine:
 l10n-compile:
     {{l10n}} compile --dir {{l10n_dir}}
 
+# Status changes merged since the last state sync: each new log's "## State changes" (ADR 0280)
+state-pending:
+    bash build/state-pending.sh
+
+# Fail if this branch edits docs/milestones.md or memory/context/current-state.md outside a state sync (ADR 0280)
+state-guard *args:
+    bash build/state-guard.sh {{args}}
+
 # Fail if a committed .mo is stale or a translation breaks its placeholders (and compare with GNU msgfmt when installed)
 l10n-check:
     {{l10n}} check --dir {{l10n_dir}} --msgfmt
