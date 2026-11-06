@@ -45,6 +45,7 @@ public sealed class ExportPresetsModel
         new("demo", "General", "Demo Build", ExportOptionKind.Bool, "Builds with DEMO defined (#if DEMO) and the Steam demo app id, whatever isDemo says."),
         new("version", "General", "Version", ExportOptionKind.Text, "Names the archive and the macOS bundle version. Empty: the project's version."),
         new("archive", "General", "Archive", ExportOptionKind.Bool, "Zip (Windows, macOS) or .tar.gz (Linux); off leaves a folder (a Steam depot's content root)."),
+        new("pack", "General", "Pack Content", ExportOptionKind.Bool, "Ship Assets/ and project.mfproj in one Assets.mfpak beside the executable; off ships them as loose files."),
         new("exe", "Build", "Executable Name", ExportOptionKind.Text, "The player-facing executable. Empty: the project name without spaces."),
         new("selfContained", "Build", "Self-Contained", ExportOptionKind.Bool, "Ship the .NET runtime; off makes players install .NET 10 (servers that have it)."),
         new("readyToRun", "Build", "ReadyToRun", ExportOptionKind.Bool, "Precompiled code: faster start-up, larger output."),
@@ -85,6 +86,7 @@ public sealed class ExportPresetsModel
             "demo" => B(preset.Demo),
             "version" => preset.Version,
             "archive" => B(preset.Archive),
+            "pack" => B(preset.Pack),
             "exe" => d.Exe,
             "selfContained" => B(d.SelfContained),
             "readyToRun" => B(d.ReadyToRun),
@@ -193,6 +195,7 @@ public sealed class ExportPresetsModel
             case "demo": p.Demo = Bool(); break;
             case "version": p.Version = text; break;
             case "archive": p.Archive = Bool(); break;
+            case "pack": p.Pack = Bool(); break;
             case "exe": d.Exe = text; break;
             case "selfContained": d.SelfContained = Bool(); break;
             case "readyToRun": d.ReadyToRun = Bool(); break;
@@ -218,28 +221,51 @@ public sealed class ExportPresetsModel
     }
 
     /// <summary>Adds a glob to the include (<paramref name="include"/>) or exclude list.</summary>
-    public string? AddGlob(int index, bool include, string glob)
+    public string? AddGlob(int index, bool include, string glob) => AddGlob(index, include ? ExportGlobList.Include : ExportGlobList.Exclude, glob);
+
+    /// <summary>Adds a glob to one of a preset's glob lists; returns why it was refused, or null.</summary>
+    public string? AddGlob(int index, ExportGlobList list, string glob)
     {
         glob = (glob ?? "").Trim();
         if ((uint)index >= (uint)Presets.Count)
             return "No preset selected.";
         if (Glob.Problem(glob) is { } problem)
             return $"The glob '{glob}' {problem}.";
-        var list = include ? Presets[index].Include : Presets[index].Exclude;
-        if (list.Contains(glob))
+        if (list == ExportGlobList.Loose && !glob.StartsWith(ContentPaths.FolderName + "/", StringComparison.Ordinal))
+            return $"The loose glob '{glob}' must start with {ContentPaths.FolderName}/.";
+        if (Globs(Presets[index], list).Contains(glob))
             return null;
-        return Settings.Edit($"Add {(include ? "Include" : "Exclude")} {glob}", s => (include ? s.ExportPresets[index].Include : s.ExportPresets[index].Exclude).Add(glob));
+        return Settings.Edit($"Add {list} {glob}", s => Globs(s.ExportPresets[index], list).Add(glob));
     }
 
-    public string? RemoveGlob(int index, bool include, int globIndex)
+    public string? RemoveGlob(int index, bool include, int globIndex) => RemoveGlob(index, include ? ExportGlobList.Include : ExportGlobList.Exclude, globIndex);
+
+    public string? RemoveGlob(int index, ExportGlobList list, int globIndex)
     {
         if ((uint)index >= (uint)Presets.Count)
             return "No preset selected.";
-        var list = include ? Presets[index].Include : Presets[index].Exclude;
-        if ((uint)globIndex >= (uint)list.Count)
+        var globs = Globs(Presets[index], list);
+        if ((uint)globIndex >= (uint)globs.Count)
             return "No such glob.";
-        return Settings.Edit($"Remove {list[globIndex]}", s => (include ? s.ExportPresets[index].Include : s.ExportPresets[index].Exclude).RemoveAt(globIndex));
+        return Settings.Edit($"Remove {globs[globIndex]}", s => Globs(s.ExportPresets[index], list).RemoveAt(globIndex));
     }
 
+    /// <summary>A preset's glob list.</summary>
+    public static List<string> Globs(ExportPreset preset, ExportGlobList list) => list switch
+    {
+        ExportGlobList.Include => preset.Include,
+        ExportGlobList.Exclude => preset.Exclude,
+        ExportGlobList.Loose => preset.Loose,
+        _ => throw new ArgumentOutOfRangeException(nameof(list)),
+    };
+
     public bool Save() => Settings.Save();
+}
+
+/// <summary>A preset's glob lists: what ships (<c>include</c>, <c>exclude</c>) and what stays beside the pack (<c>loose</c>).</summary>
+public enum ExportGlobList
+{
+    Include,
+    Exclude,
+    Loose,
 }

@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5; G11.1–G11.4 (#180) and G11.5/G11.6 panels in review._
+_Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5. In review: G11.1–G11.4 (#180), G11.5/G11.6 panels (#184)._
 
 ## What exists
 
@@ -31,7 +31,7 @@ _Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and muc
   Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
   (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
-  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), the seam for packed and encrypted exports.
+  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), and exports packed into one `Assets.mfpak` that `GameHost` mounts (phase 2, ADR 0247).
 - **G6** ([Rendering features](../../docs/design/rendering-features.md)): PBR + IBL, SSAO, 3D particles, mesh LODs (ADR 0245), forward decals (ADR 0246), `.hdr` skies; owner-pending: PBR default, LOD simplifier. **G11** ([World-space UI](../../docs/design/world-space-ui.md)): multi-line `Label3D` with fallback fonts and `FixedSize` on the mesh batcher (ADR 0249), `UiMarker3D` rows on a `UiMarkerHost` (ADR 0250), `UiPanel3D` panels rendered before the scene with mouse/crosshair/manual input (ADRs 0252/0253); the batched text renderer, panel stand-in data in the editor view and G11.9 remain.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
@@ -88,7 +88,7 @@ _Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and muc
 
 ## Next steps
 
-1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 2 `.mfpak` packs, then encryption, AOT.
+1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 3 encryption (pack key, format 6), then AOT.
 2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (terrain dock and Faceted look, tree
    inspector, river tool, forest goldens and frame budget); G20.3 video; G1c animation authoring (would let active
    ragdolls follow any clip); G12 (proposal awaits owner review); G11 rest (batched text, panel stand-ins in the view, G11.9; owner: open questions 2, 5, 6, 7); G14, G16, G17; G3b (avoidance first).

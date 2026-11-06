@@ -191,6 +191,15 @@ public sealed class ExportEditorTests : IDisposable
         Assert.Contains("not true or false", model.Set(0, "archive", "maybe"), StringComparison.Ordinal);
         Assert.Null(model.AddGlob(0, include: false, "Assets/Audio/**"));
         Assert.Contains("must be project-relative", model.AddGlob(0, include: true, "/abs"), StringComparison.Ordinal);
+        Assert.Equal("true", ExportPresetsModel.Get(model.Presets[0], "pack"));
+        Assert.Null(model.Set(0, "pack", "false"));
+        Assert.False(model.Presets[0].Pack);
+        Assert.Null(model.Set(0, "pack", "true"));
+        Assert.Null(model.AddGlob(0, ExportGlobList.Loose, "Assets/Mods/**"));
+        Assert.Contains("must start with Assets/", model.AddGlob(0, ExportGlobList.Loose, "Mods/**"), StringComparison.Ordinal);
+        Assert.Equal(["Assets/Mods/**"], model.Presets[0].Loose);
+        Assert.Null(model.RemoveGlob(0, ExportGlobList.Loose, 0));
+        Assert.Empty(model.Presets[0].Loose);
         Assert.Null(model.Duplicate(0));
         Assert.Equal("Linux copy", model.Presets[1].Name);
         Assert.True(model.Presets[1].Demo);
