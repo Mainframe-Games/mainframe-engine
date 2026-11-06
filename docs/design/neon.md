@@ -13,7 +13,7 @@ of its own built against this checkout (`MainframeEnginePath = ../..`, `Examples
 It was built together with three engine features it needed:
 
 - [Paths](paths.md): `Path3D`/`PathFollow3D` and closed `Curve3D`s with smooth rotation and up vectors (ADR 0215).
-- Sub-viewport textures on 3D materials: monitors and TVs (ADR 0216, [world-space UI](future/world-space-ui.md)).
+- Sub-viewport textures on 3D materials: monitors and TVs (ADR 0216, [world-space UI](world-space-ui.md)).
 - Nearest-light selection over the point/spot limits (ADR 0217, [Lighting](lighting.md)): about 16 room lights.
 
 ![N8: the living room and the city through the window wall](../images/neon/n8-windows.png)
@@ -345,6 +345,6 @@ Neon.Desktop.dll --bake-lighting --headless`, then copy `Assets/Scenes/neon-ligh
 
 ## Related
 
-[Forest](forest.md), [Paths](paths.md), [Lighting](lighting.md), [World-space UI](future/world-space-ui.md),
+[Forest](forest.md), [Paths](paths.md), [Lighting](lighting.md), [World-space UI](world-space-ui.md),
 [Audio](audio.md), [Post-processing](post-processing.md), [Shaders](shaders.md),
 [ADR 0218](../../memory/decisions/0218-neon-example.md), [ADR 0231](../../memory/decisions/0231-neon-city-detail-and-menu.md).

@@ -27,3 +27,8 @@ As built: [Water → Editor](../../docs/design/water.md#editor).
 
 - Pond joins, plunge pools, river audio. The river's generated `Ribbon` and `Falls` children show in the scene tree
   (as before this change), the empty `Falls` with a warning icon; and the default water reads faintly in the editor view.
+
+## State changes
+
+- milestones G8c: 🚧 → "🚧 ponds, streams, carving, the water material, scene textures, SSR, falls ✅; river editing and carving in the editor (G8c.4) ✅ (ADR 0272); pond joins and plunge pools, the Faceted water look, river audio, underwater shading ⬜"; its design-doc cell → `[Water](../../docs/design/water.md), [proposal](../../docs/design/future/water.md)`.
+- state: Next steps 2 drops "river tool" from G8a–e rest.

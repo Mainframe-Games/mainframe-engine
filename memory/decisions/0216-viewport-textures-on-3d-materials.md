@@ -3,7 +3,7 @@
 - **Date:** 2026-10-27
 - **Status:** accepted
 - **Milestone:** G11 (part: G11.1's GPU textures)
-- **Docs:** docs/design/future/world-space-ui.md#what-shipped-adr-0216, docs/design/materials-and-meshes.md#offscreen-views-subviewport,
+- **Docs:** docs/design/world-space-ui.md#what-shipped-adr-0216, docs/design/materials-and-meshes.md#offscreen-views-subviewport,
   docs/design/canvas.md#2d-sub-viewports-adr-0116
 
 ## Context
