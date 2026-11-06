@@ -415,7 +415,11 @@ internal sealed unsafe class Text3DRenderer : IDisposable
                             Array.Resize(ref _runs, runCount * 2);
                         _runs[runCount++] = new Run
                         {
-                            Pipeline = pipeline, Group = group, First = firstGlyph + (uint)written, Count = 1, Cutout = cutout ? 1u : 0u,
+                            Pipeline = pipeline,
+                            Group = group,
+                            First = firstGlyph + (uint)written,
+                            Count = 1,
+                            Cutout = cutout ? 1u : 0u,
                         };
                     }
 

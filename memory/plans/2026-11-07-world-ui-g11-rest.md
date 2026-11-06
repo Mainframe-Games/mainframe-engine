@@ -1,7 +1,7 @@
 # Plan: finish G11 world-space UI (batched labels, panel stand-ins, IgnoreExposure, mesh panel input)
 
-**Status:** in progress
-**Docs:** [World-space UI proposal](../../docs/design/future/world-space-ui.md) (`Label3D` rendering, `UiPanel3D` edit mode,
+**Status:** done, see [log](../logs/2026-11-07-world-ui-g11-finish.md)
+**Docs:** [World-space UI proposal](../../docs/design/world-space-ui.md) (`Label3D` rendering, `UiPanel3D` edit mode,
 task list G11.7/G11.9, open questions 2, 5, 6, 7), [World-space UI](../../docs/design/world-space-ui.md) (as built),
 [ADR 0251](../decisions/0251-label3d-on-the-mesh-batcher.md) (what the batched renderer replaces),
 [ADR 0206](../decisions/0206-gpuparticles3d.md) (`ParticleRenderer`: the template for a renderer beside the mesh batcher),
@@ -63,23 +63,23 @@ owner's answers to open questions 2, 5, 6 and 7 are recorded, and the proposal s
 
 ## Steps
 
-- [ ] **Decision.** ADR for the owner's answers to questions 2, 5, 6, 7 (`mf-decide`). Verify: file in `memory/decisions/`.
-- [ ] **Effective exposure.** `AutoExposure` readback, `RenderServer.ViewExposure` (root and sub-viewports). Verify:
+- [x] **Decision.** ADR for the owner's answers to questions 2, 5, 6, 7 (`mf-decide`). Verify: file in `memory/decisions/`.
+- [x] **Effective exposure.** `AutoExposure` readback, `RenderServer.ViewExposure` (root and sub-viewports). Verify:
       unit test of the exposure maths (`PostProcessSettings`), render test below.
-- [ ] **`Text3DRenderer` + shaders.** Renderer, `Text3D.vk.{vert,frag}.slang`, `TextId.vk.frag.slang`, `.spv`,
+- [x] **`Text3DRenderer` + shaders.** Renderer, `Text3D.vk.{vert,frag}.slang`, `TextId.vk.frag.slang`, `.spv`,
       `shaders.lock`; `World3D.LabelList`; `Label3D` glyph runs and `IsBatched`; draw hooks in `RenderServer.DrawWorld`
       and the pickers. Verify: `Label3DTests` (runs, batching rule, sort order through the CPU half), the `label3d` and
       `label3d-layout` goldens re-recorded (inspected), validation clean.
-- [ ] **Batching render test.** `label3d-batch`: 300 labels over two fonts; the scene checks `Text3DRenderer.Stats.Draws`
+- [x] **Batching render test.** `label3d-batch`: 300 labels over two fonts; the scene checks `Text3DRenderer.Stats.Draws`
       ≤ one per page and pipeline; 0 B per frame. Verify: render test + golden (moltenvk, lavapipe).
-- [ ] **`IgnoreExposure`.** Label and panel properties, the push constant and panel energy. Verify: unit tests
+- [x] **`IgnoreExposure`.** Label and panel properties, the push constant and panel energy. Verify: unit tests
       (`Label3DTests`, `UiPanel3DTests`: energy follows exposure, 0 B), render test `label3d-exposure` (manual exposure 4:
       an `IgnoreExposure` label's swatch equals the exposure-1 ACES value; the other is brighter).
-- [ ] **Mesh panel input.** `TryRayToPixel` on meshes. Verify: `UiPanel3DTests` (a rotated `PlaneMesh` and a curved mesh:
+- [x] **Mesh panel input.** `TryRayToPixel` on meshes. Verify: `UiPanel3DTests` (a rotated `PlaneMesh` and a curved mesh:
       pixel matches the UV, back faces miss).
-- [ ] **Editor stand-ins.** `PanelStandIns` in the viewport. Verify: editor test (a panel document's `{{title}}` shows the
+- [x] **Editor stand-ins.** `PanelStandIns` in the viewport. Verify: editor test (a panel document's `{{title}}` shows the
       stand-in text: the bound model exists in the panel's context), QA capture of the Demo terminal in the scene view.
-- [ ] **Docs and ship.** Move the proposal into `world-space-ui.md` (+ "Changes from the proposal"), repoint links, milestones
+- [x] **Docs and ship.** Move the proposal into `world-space-ui.md` (+ "Changes from the proposal"), repoint links, milestones
       ✅, README / landing page, editor screenshot, `AGENTS.md`, log; gates; PR with Auto-fix.
 
 ## Done when

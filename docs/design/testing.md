@@ -212,6 +212,9 @@ sequenceDiagram
   the view's box spins, the allocation run), `label3d`
   (ADR 0200: Snake Oil-style name tags behind a wall, one `NoDepthTest`; `--count 1`: depth-tested), `label3d-layout`
   (ADR 0251: multi-line, autowrap, a Cyrillic fallback, alpha cut, two `FixedSize` tags self-checked equal on screen),
+  `label3d-batch` (ADR 0258: 300 labels over two fonts self-checked to draw in ≤ 3 calls per atlas page group and to pick;
+  `--count 1`: labels sway and the camera orbits, 0 B), `label3d-exposure` (ADR 0257: at exposure 4, `--count 1` at 1:
+  `IgnoreExposure` labels and panels keep their exposure-1 colour),
   `ui-markers` (ADR 0254: nameplates, a prompt, health, an edge-clamped waypoint, an occluded marker; `#3366cc` exact),
   `ui-panel3d` (ADR 0252: an angled `UiPanel3D` terminal with a gradient, clip mask and blur, a swatch panel, a
   sub-viewport monitor; the swatch turns green in the frame its document changes, the same-frame check; `--count 1`: the

@@ -161,7 +161,10 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `UI/World/` (`UiMarker3D`, `UiMarkerHost` + `Assets/UI/markers/`, ADR 0254; `UiPanel3D` + `UiPanelTarget`, ADRs
   0252/0253), `UI/IUiContextHost.cs` (layers and panels own contexts), `UI/UiServer.Panels.cs` (gating, ray input),
   `UI/Rendering/VulkanUiRenderer.Panels.cs` (segments replayed before the scene through `IPreSceneRenderer`, resolve +
-  mips), `Texture2D.FromGpuSource`
+  mips), `Texture2D.FromGpuSource`; `Rendering/Text/Text3DRenderer.cs` (unshaded labels batched with atlas page groups,
+  ADR 0258; `Assets/Shaders/Text/`, `include/text3d.slang`), `IgnoreExposure` on labels and panels (ADR 0257: auto
+  exposure read back in `Rendering/Post/AutoExposure.cs`, `PostExposure`); the editor's `Viewport/PanelStandIns.cs`
+  (panels show the UI preview's stand-in data)
 - `MainframeEngine/Src/UI/` — game UI (M8): `Rml/` managed RmlUi binding over the `mfrmlui` C ABI, `Rendering/`
   `VulkanUiRenderer`, `UiServer`/`UiLayer`/`UiDocument`/`UiElement`; widget library and fonts in `Assets/UI/`
 - `MainframeEngine/Src/Text/` — canvas text (ADR 0118): `Font` (.ttf), managed `TrueTypeFont` reader and `GlyphRasterizer`

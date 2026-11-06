@@ -1,7 +1,7 @@
 # Plan: G11 world-space UI — text layout, Label3D, markers
 
 **Status:** done (G11.1–G11.4), see [log](../logs/2026-11-06-world-space-ui-g11.md)
-**Docs:** [World-space UI proposal](../../docs/design/future/world-space-ui.md) (task list G11.1–G11.4),
+**Docs:** [World-space UI proposal](../../docs/design/world-space-ui.md) (task list G11.1–G11.4),
 [Game UI](../../docs/design/game-ui.md), [Canvas → Text](../../docs/design/canvas.md#text-adr-0118),
 [ADR 0200](../decisions/0200-label3d-first-slice.md), [ADR 0216](../decisions/0216-viewport-textures-on-3d-materials.md)
 **Started:** 2026-11-06
