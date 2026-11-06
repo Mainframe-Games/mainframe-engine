@@ -1,0 +1,16 @@
+<rml>
+<head>
+    <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
+    <link type="text/rcss" href="/Assets/UI/demo.rcss"/>
+</head>
+<body class="hud" data-model="worldui">
+    <div class="demo-panel">
+        <h1>World UI</h1>
+        <p class="hint">Signs are Label3D text in the scene; nameplates, the prompt and the waypoint are UiMarker3D rows on one HUD document.</p>
+        <div class="demo-row"><span>Hide markers behind buildings</span><input type="checkbox" data-checked="occlusion"/></div>
+        <div class="demo-row"><span>Scale markers with distance</span><input type="checkbox" data-checked="scale"/></div>
+        <div class="demo-row"><span>Fixed-size debug tags</span><input type="checkbox" data-checked="tags"/></div>
+        <div class="demo-row"><span>Orbit the camera</span><input type="checkbox" data-checked="orbit"/></div>
+    </div>
+</body>
+</rml>

@@ -1,0 +1,693 @@
+{
+  "format": 2,
+  "uid": "scn_2e75ded9526f",
+  "resources": {
+    "Sky_5kj71": {
+      "type": "Sky"
+    },
+    "StandardMaterial3D_4nwvp": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.27450982, 0.2901961, 0.32941177, 1]
+      }
+    },
+    "BoxMesh_fo6k9": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [40, 1, 40]
+      }
+    },
+    "BoxShape3D_tdm26": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [5, 5, 4]
+      }
+    },
+    "StandardMaterial3D_jp70o": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.5882353, 0.36078432, 0.28235295, 1]
+      }
+    },
+    "BoxMesh_jpo90": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [5, 5, 4]
+      }
+    },
+    "BoxShape3D_23y00": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [5, 4, 4]
+      }
+    },
+    "StandardMaterial3D_e7mt6": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.76862746, 0.7294118, 0.627451, 1]
+      }
+    },
+    "BoxMesh_r1s3i": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [5, 4, 4]
+      }
+    },
+    "BoxShape3D_zt43d": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [2, 2.5, 1.2]
+      }
+    },
+    "StandardMaterial3D_ab2uf": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.5882353, 0.36078432, 0.28235295, 1]
+      }
+    },
+    "BoxMesh_n5j9n": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [2, 2.5, 1.2]
+      }
+    },
+    "StandardMaterial3D_g5413": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.47058824, 0.627451, 0.8627451, 1]
+      }
+    },
+    "CapsuleMesh_c2gy3": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.35,
+        "Height": 1.8
+      }
+    },
+    "StandardMaterial3D_c457n": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.54901963, 0.627451, 0.78431374, 1]
+      }
+    },
+    "CapsuleMesh_ggne7": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.35,
+        "Height": 1.8
+      }
+    },
+    "StandardMaterial3D_102uw": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.627451, 0.627451, 0.7058824, 1]
+      }
+    },
+    "CapsuleMesh_i7uyc": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.35,
+        "Height": 1.8
+      }
+    },
+    "StandardMaterial3D_1we2r": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.7058824, 0.627451, 0.627451, 1]
+      }
+    },
+    "CapsuleMesh_0dn9r": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.35,
+        "Height": 1.8
+      }
+    },
+    "StandardMaterial3D_vevv3": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.78431374, 0.627451, 0.54901963, 1]
+      }
+    },
+    "CapsuleMesh_oy8n7": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.35,
+        "Height": 1.8
+      }
+    },
+    "StandardMaterial3D_amy3s": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.8627451, 0.627451, 0.47058824, 1]
+      }
+    },
+    "CapsuleMesh_6rw9w": {
+      "type": "CapsuleMesh",
+      "props": {
+        "Radius": 0.35,
+        "Height": 1.8
+      }
+    },
+    "BoxShape3D_judmp": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [0.9, 0.9, 0.9]
+      }
+    },
+    "StandardMaterial3D_mzqnz": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.6666667, 0.5019608, 0.27450982, 1]
+      }
+    },
+    "BoxMesh_12ltf": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [0.9, 0.9, 0.9]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "name": "world_ui",
+      "type": "Node3D"
+    },
+    {
+      "name": "Camera",
+      "parent": ".",
+      "type": "Camera3D",
+      "props": {
+        "Position": [-4.5, 4.5, 15],
+        "RotationDegrees": [-12, -8, 0],
+        "Current": true
+      }
+    },
+    {
+      "name": "Environment",
+      "parent": ".",
+      "type": "WorldEnvironment",
+      "v": 2,
+      "props": {
+        "Sky": { "res": "Sky_5kj71" }
+      }
+    },
+    {
+      "name": "Sun",
+      "parent": ".",
+      "type": "DirectionalLight3D",
+      "props": {
+        "RotationDegrees": [-40, -35, 0],
+        "Energy": 1.1
+      }
+    },
+    {
+      "name": "Street",
+      "parent": ".",
+      "type": "Node3D",
+      "props": {
+        "Position": [0, -0.5, 0]
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Street",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_4nwvp" },
+        "Mesh": { "res": "BoxMesh_fo6k9" }
+      }
+    },
+    {
+      "name": "NoodleBar",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-7, 2.5, -4]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "NoodleBar",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_tdm26" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "NoodleBar",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_jp70o" },
+        "Mesh": { "res": "BoxMesh_jpo90" }
+      }
+    },
+    {
+      "name": "Market",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [7, 2, -5]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Market",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_23y00" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Market",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_e7mt6" },
+        "Mesh": { "res": "BoxMesh_r1s3i" }
+      }
+    },
+    {
+      "name": "Kiosk",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [2.5, 1.25, 3]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Kiosk",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_zt43d" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Kiosk",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_ab2uf" },
+        "Mesh": { "res": "BoxMesh_n5j9n" }
+      }
+    },
+    {
+      "name": "MenuSign",
+      "parent": ".",
+      "type": "Label3D",
+      "props": {
+        "Position": [-7, 3.6, -1.95],
+        "Text": "NOODLES\nRamen  9\nUdon  7",
+        "FontSize": 64,
+        "Modulate": [1, 0.8392157, 0.47058824, 1],
+        "OutlineSize": 0,
+        "LineSpacing": 4
+      }
+    },
+    {
+      "name": "MarketSign",
+      "parent": ".",
+      "type": "Label3D",
+      "props": {
+        "Position": [7, 4.8, -5],
+        "Text": "Market",
+        "FontSize": 96,
+        "Modulate": [0.15686275, 0.23529412, 0.3529412, 1],
+        "OutlineSize": 16,
+        "OutlineModulate": [1, 0.98039216, 0.92156863, 0.9019608],
+        "Billboard": "FixedY"
+      }
+    },
+    {
+      "name": "Notice",
+      "parent": ".",
+      "type": "Label3D",
+      "props": {
+        "Position": [2.5, 1.6, 3.62],
+        "Text": "Please keep the gate closed after dark",
+        "Modulate": [0.9607843, 0.9411765, 0.88235295, 1],
+        "OutlineSize": 0,
+        "Width": 340,
+        "Autowrap": "Word"
+      }
+    },
+    {
+      "name": "Walkers",
+      "parent": ".",
+      "type": "Node3D"
+    },
+    {
+      "name": "Nell",
+      "parent": "Walkers",
+      "type": "WorldUiWalker",
+      "props": {
+        "Position": [-9, 0.9, -1],
+        "Range": 2.5,
+        "Speed": 0.8
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Walkers/Nell",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_g5413" },
+        "Mesh": { "res": "CapsuleMesh_c2gy3" }
+      }
+    },
+    {
+      "name": "Nameplate",
+      "parent": "Walkers/Nell",
+      "type": "UiMarker3D",
+      "props": {
+        "Text": "Nell",
+        "Subtext": "Trader",
+        "WorldOffset": [0, 1.3, 0],
+        "ScaleWithDistance": true,
+        "ReferenceDistance": 18,
+        "Occlusion": "Physics"
+      }
+    },
+    {
+      "name": "DebugTag",
+      "parent": "Walkers/Nell",
+      "type": "Label3D",
+      "props": {
+        "Position": [0, -1.1, 0],
+        "Visible": false,
+        "Text": "#1 walk",
+        "FontSize": 18,
+        "Modulate": [0.50980395, 1, 0.6666667, 1],
+        "OutlineSize": 6,
+        "FixedSize": true,
+        "Billboard": "Enabled",
+        "NoDepthTest": true
+      }
+    },
+    {
+      "name": "Whitlock",
+      "parent": "Walkers",
+      "type": "WorldUiWalker",
+      "props": {
+        "Position": [-5.4, 0.9, 1.5],
+        "Range": 3.5,
+        "Speed": 1.05
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Walkers/Whitlock",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_c457n" },
+        "Mesh": { "res": "CapsuleMesh_ggne7" }
+      }
+    },
+    {
+      "name": "Nameplate",
+      "parent": "Walkers/Whitlock",
+      "type": "UiMarker3D",
+      "props": {
+        "Text": "Whitlock",
+        "WorldOffset": [0, 1.3, 0],
+        "ScaleWithDistance": true,
+        "ReferenceDistance": 18,
+        "Occlusion": "Physics"
+      }
+    },
+    {
+      "name": "DebugTag",
+      "parent": "Walkers/Whitlock",
+      "type": "Label3D",
+      "props": {
+        "Position": [0, -1.1, 0],
+        "Visible": false,
+        "Text": "#2 walk",
+        "FontSize": 18,
+        "Modulate": [0.50980395, 1, 0.6666667, 1],
+        "OutlineSize": 6,
+        "FixedSize": true,
+        "Billboard": "Enabled",
+        "NoDepthTest": true
+      }
+    },
+    {
+      "name": "Ada",
+      "parent": "Walkers",
+      "type": "WorldUiWalker",
+      "props": {
+        "Position": [-1.8000002, 0.9, 4],
+        "Range": 4.5,
+        "Speed": 1.3
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Walkers/Ada",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_102uw" },
+        "Mesh": { "res": "CapsuleMesh_i7uyc" }
+      }
+    },
+    {
+      "name": "Nameplate",
+      "parent": "Walkers/Ada",
+      "type": "UiMarker3D",
+      "props": {
+        "Text": "Ada",
+        "WorldOffset": [0, 1.3, 0],
+        "ScaleWithDistance": true,
+        "ReferenceDistance": 18,
+        "Occlusion": "Physics"
+      }
+    },
+    {
+      "name": "DebugTag",
+      "parent": "Walkers/Ada",
+      "type": "Label3D",
+      "props": {
+        "Position": [0, -1.1, 0],
+        "Visible": false,
+        "Text": "#3 walk",
+        "FontSize": 18,
+        "Modulate": [0.50980395, 1, 0.6666667, 1],
+        "OutlineSize": 6,
+        "FixedSize": true,
+        "Billboard": "Enabled",
+        "NoDepthTest": true
+      }
+    },
+    {
+      "name": "Brann",
+      "parent": "Walkers",
+      "type": "WorldUiWalker",
+      "props": {
+        "Position": [1.7999992, 0.9, -1],
+        "Range": 2.5,
+        "Speed": 1.55
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Walkers/Brann",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_1we2r" },
+        "Mesh": { "res": "CapsuleMesh_0dn9r" }
+      }
+    },
+    {
+      "name": "Nameplate",
+      "parent": "Walkers/Brann",
+      "type": "UiMarker3D",
+      "props": {
+        "Text": "Brann",
+        "WorldOffset": [0, 1.3, 0],
+        "ScaleWithDistance": true,
+        "ReferenceDistance": 18,
+        "Occlusion": "Physics"
+      }
+    },
+    {
+      "name": "DebugTag",
+      "parent": "Walkers/Brann",
+      "type": "Label3D",
+      "props": {
+        "Position": [0, -1.1, 0],
+        "Visible": false,
+        "Text": "#4 walk",
+        "FontSize": 18,
+        "Modulate": [0.50980395, 1, 0.6666667, 1],
+        "OutlineSize": 6,
+        "FixedSize": true,
+        "Billboard": "Enabled",
+        "NoDepthTest": true
+      }
+    },
+    {
+      "name": "Corin",
+      "parent": "Walkers",
+      "type": "WorldUiWalker",
+      "props": {
+        "Position": [5.3999996, 0.9, 1.5],
+        "Range": 3.5,
+        "Speed": 1.8
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Walkers/Corin",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_vevv3" },
+        "Mesh": { "res": "CapsuleMesh_oy8n7" }
+      }
+    },
+    {
+      "name": "Nameplate",
+      "parent": "Walkers/Corin",
+      "type": "UiMarker3D",
+      "props": {
+        "Text": "Corin",
+        "WorldOffset": [0, 1.3, 0],
+        "ScaleWithDistance": true,
+        "ReferenceDistance": 18,
+        "Occlusion": "Physics"
+      }
+    },
+    {
+      "name": "DebugTag",
+      "parent": "Walkers/Corin",
+      "type": "Label3D",
+      "props": {
+        "Position": [0, -1.1, 0],
+        "Visible": false,
+        "Text": "#5 walk",
+        "FontSize": 18,
+        "Modulate": [0.50980395, 1, 0.6666667, 1],
+        "OutlineSize": 6,
+        "FixedSize": true,
+        "Billboard": "Enabled",
+        "NoDepthTest": true
+      }
+    },
+    {
+      "name": "Maeve",
+      "parent": "Walkers",
+      "type": "WorldUiWalker",
+      "props": {
+        "Position": [9, 0.9, 4],
+        "Range": 4.5,
+        "Speed": 2.05
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Walkers/Maeve",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_amy3s" },
+        "Mesh": { "res": "CapsuleMesh_6rw9w" }
+      }
+    },
+    {
+      "name": "Nameplate",
+      "parent": "Walkers/Maeve",
+      "type": "UiMarker3D",
+      "props": {
+        "Text": "Maeve",
+        "WorldOffset": [0, 1.3, 0],
+        "ScaleWithDistance": true,
+        "ReferenceDistance": 18,
+        "Occlusion": "Physics"
+      }
+    },
+    {
+      "name": "DebugTag",
+      "parent": "Walkers/Maeve",
+      "type": "Label3D",
+      "props": {
+        "Position": [0, -1.1, 0],
+        "Visible": false,
+        "Text": "#6 walk",
+        "FontSize": 18,
+        "Modulate": [0.50980395, 1, 0.6666667, 1],
+        "OutlineSize": 6,
+        "FixedSize": true,
+        "Billboard": "Enabled",
+        "NoDepthTest": true
+      }
+    },
+    {
+      "name": "Crate",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-2.5, 0.45, 6]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Crate",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_judmp" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Crate",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_mzqnz" },
+        "Mesh": { "res": "BoxMesh_12ltf" }
+      }
+    },
+    {
+      "name": "Prompt",
+      "parent": "Crate",
+      "type": "UiMarker3D",
+      "props": {
+        "Kind": "prompt",
+        "Text": "Open",
+        "Subtext": "E",
+        "WorldOffset": [0, 0.8, 0],
+        "MaxDistance": 25
+      }
+    },
+    {
+      "name": "Gate",
+      "parent": ".",
+      "type": "UiMarker3D",
+      "props": {
+        "Position": [14, 1, -14],
+        "Kind": "waypoint",
+        "Text": "Gate",
+        "WorldOffset": [0, 0, 0],
+        "MaxDistance": 0,
+        "Offscreen": "ClampToEdge"
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": ".",
+      "type": "UiLayer",
+      "props": {
+        "Layer": 10
+      }
+    },
+    {
+      "name": "Markers",
+      "parent": "Ui",
+      "type": "UiMarkerHost"
+    },
+    {
+      "name": "Panel",
+      "parent": "Ui",
+      "type": "WorldUiPanel"
+    }
+  ]
+}
