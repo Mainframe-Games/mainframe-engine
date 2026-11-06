@@ -368,8 +368,8 @@ and [Game export → NativeAOT](game-export.md#nativeaot).
   `Steam` treats the shim as present without its `.dll`. Facepunch reads callbacks with `Marshal.PtrToStructure(ptr,
   typeof(T))`, for which ILC generates structure marshalling only for structs that need a stub: blittable callbacks
   (`PersonaStateChange_t`, …) threw "missing structure marshalling data" against a running Steam client.
-  `build/steamworks/Facepunch.Steamworks.{Posix,Win64}.rd.xml` asks for it for each of Facepunch's 340 structs
-  (`NativeAotTests` keeps the lists in sync with the vendored assemblies). Third-party ILC warnings (Silk.NET,
+  `build/steamworks/Facepunch.Steamworks.{Posix,Win64}.rd.xml` asks for it for each of Facepunch's 301 marshallable structs
+  (`NativeAotTests` generates and checks the lists against the vendored assemblies). Third-party ILC warnings (Silk.NET,
   DependencyModel, Facepunch: IL2104, IL3053, IL3000, IL3002) do not fail a warnings-as-errors publish.
 - **macOS bundles:** the NativeAOT executable alone is in `Contents/MacOS` and the rest in `Contents/MonoBundle`, as for
   JIT builds; `NativeAppBundle` (first thing in `GameHost.Run`) makes `MonoBundle` the base directory of a NativeAOT

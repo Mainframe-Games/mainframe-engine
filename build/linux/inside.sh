@@ -91,8 +91,8 @@ fi
 
 if [ "$suite" = aot ]; then
   # NativeAOT (ADR 0259): ILC links with clang (in the image). The template game exported with nativeAot, unpacked
-  # and run headless; then the export test with the real SDK.
-  NATIVE_AOT=1 xvfb-run -a -s "-screen 0 1280x1024x24" build/template-smoke.sh /work/artifacts/template-smoke-aot 30 || status=1
+  # and run headless (CI's template-job settings: Release, no slangc); then the export test with the real SDK.
+  NATIVE_AOT=1 CONFIGURATION=Release BUILD_ARGS=-p:CompileShaders=false xvfb-run -a -s "-screen 0 1280x1024x24" build/template-smoke.sh /work/artifacts/template-smoke-aot 30 || status=1
   mkdir -p /out/template-smoke-aot
   cp /work/artifacts/template-smoke-aot/export.log /out/template-smoke-aot/ 2>/dev/null || true
   MAINFRAME_NATIVE_AOT_TESTS=1 dotnet test Tests/MainframeEngine.Editor.Tests -c Release --no-build \
