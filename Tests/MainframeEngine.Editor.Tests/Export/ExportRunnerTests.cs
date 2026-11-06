@@ -66,7 +66,7 @@ public sealed class ExportRunnerTests : IDisposable
         Assert.Equal("1.2.0", project.Version);
         var index = TarText(result.ArtifactPath!, root + "Assets/assets.index.json");
         Assert.Contains("scn_aaaaaaaaaaaa", index, StringComparison.Ordinal);
-        Assert.Contains("Assets/Scenes/Main.mscene", index, StringComparison.Ordinal);
+        Assert.Contains("Assets/Scenes/Main.mfscene", index, StringComparison.Ordinal);
 
         Assert.Equal([ExportPhase.Validate, ExportPhase.Publish, ExportPhase.Stage], progress.Distinct().Take(3));
         Assert.Contains(ExportPhase.Archive, progress);

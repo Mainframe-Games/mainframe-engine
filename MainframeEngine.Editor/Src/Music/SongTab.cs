@@ -23,7 +23,7 @@ public enum SongArea
 }
 
 /// <summary>
-/// A song tab (<c>.msong</c>, the music editor): the <see cref="SongDocument"/>, its own <see cref="SongPlayer"/> (stopped
+/// A song tab (<c>.mfsong</c>, the music editor): the <see cref="SongDocument"/>, its own <see cref="SongPlayer"/> (stopped
 /// when the tab is deactivated or closed) and the view state — snap, zoom and scroll of the arrangement and the piano
 /// roll, the selected track, clip and notes. The arrangement and the piano roll are drawn by canvas nodes in two
 /// <see cref="SubViewport"/>s (<see cref="ArrangeViewport"/>, <see cref="RollViewport"/>) that the
@@ -418,15 +418,15 @@ public sealed class SongTab : IEditorTab
     // ── New songs ────────────────────────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Writes a new song to <paramref name="path"/> (adding <c>.msong</c> when missing): 120 BPM, 4/4, one instrument track
+    /// Writes a new song to <paramref name="path"/> (adding <c>.mfsong</c> when missing): 120 BPM, 4/4, one instrument track
     /// with the built-in ZzFX instrument. Throws when the file exists. Returns the full path.
     /// </summary>
     public static string CreateFile(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var full = Path.GetFullPath(path);
-        if (!full.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
-            full += ".msong";
+        if (!full.EndsWith(".mfsong", StringComparison.OrdinalIgnoreCase))
+            full += ".mfsong";
         if (File.Exists(full))
             throw new IOException($"'{Path.GetFileName(full)}' already exists.");
         var song = Song.CreateNew();

@@ -7,7 +7,7 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// Rewrites references after files moved: in every <c>.mscene</c>/<c>.mres</c>/<c>.msong</c> under <c>Assets/</c> and in
+/// Rewrites references after files moved: in every <c>.mfscene</c>/<c>.mfres</c>/<c>.mfsong</c> under <c>Assets/</c> and in
 /// <c>project.mfproj</c>, the <c>path</c> hint of <c>{"ref"|"instance": uid, "path": …}</c> objects whose UID (or old
 /// hint) belongs to a moved file, and every string value exactly equal to a moved path (textures, sky panoramas,
 /// file-hinted properties, <c>mainScene</c>, autoload scenes, the bus layout, the window icon). Only files that changed
@@ -68,8 +68,8 @@ public static class ReferenceFixer
             {
                 // Songs and adaptive-music manifests are written like the project file (2-space indent), not in the scene layout.
                 var sceneStyle = !string.Equals(Path.GetFileName(file), ProjectSettings.FileName, StringComparison.OrdinalIgnoreCase) &&
-                                 !file.EndsWith(".msong", StringComparison.OrdinalIgnoreCase) &&
-                                 !file.EndsWith(".mmusic", StringComparison.OrdinalIgnoreCase);
+                                 !file.EndsWith(".mfsong", StringComparison.OrdinalIgnoreCase) &&
+                                 !file.EndsWith(".mfmusic", StringComparison.OrdinalIgnoreCase);
                 AtomicFile.WriteAllBytes(file, Serialize(node, sceneStyle, endsWithNewLine: bytes.Length > 0 && bytes[^1] == (byte)'\n'));
                 updated.Add(file);
             }
@@ -92,8 +92,8 @@ public static class ReferenceFixer
         if (!Directory.Exists(content))
             yield break;
         var files = Directory.EnumerateFiles(content, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
-            .Where(f => f.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".mres", StringComparison.OrdinalIgnoreCase) ||
-                        f.EndsWith(".msong", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".mmusic", StringComparison.OrdinalIgnoreCase))
+            .Where(f => f.EndsWith(".mfscene", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".mfres", StringComparison.OrdinalIgnoreCase) ||
+                        f.EndsWith(".mfsong", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".mfmusic", StringComparison.OrdinalIgnoreCase))
             .Order(StringComparer.Ordinal);
         foreach (var file in files)
             yield return file;

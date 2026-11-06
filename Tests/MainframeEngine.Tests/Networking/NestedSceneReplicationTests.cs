@@ -7,7 +7,7 @@ namespace MainframeEngine.Tests.Networking;
 using Color = System.Drawing.Color;
 
 /// <summary>
-/// Spawning scenes loaded from <c>.mscene</c> files by path or UID, including a scene that instances another scene
+/// Spawning scenes loaded from <c>.mfscene</c> files by path or UID, including a scene that instances another scene
 /// whose nodes are replicated (nested scene instances).
 /// </summary>
 [Collection(nameof(SerialResources))] // process-wide asset database and loader cache
@@ -38,13 +38,13 @@ public sealed class NestedSceneReplicationTests : IDisposable
 
     private string ContentPath(string relative) => Path.Combine(_project, AssetDatabase.ContentFolder, relative);
 
-    /// <summary>Turret.mscene (a NetPart) and Tank.mscene (a NetPlayer with two Turret instances, one overridden).</summary>
+    /// <summary>Turret.mfscene (a NetPart) and Tank.mfscene (a NetPlayer with two Turret instances, one overridden).</summary>
     private (string TankUid, string TankPath) SaveScenes()
     {
         var turret = new NetPart { Name = "Turret" };
-        SceneSaver.Save(turret, ContentPath("Scenes/Turret.mscene"));
+        SceneSaver.Save(turret, ContentPath("Scenes/Turret.mfscene"));
         turret.Free();
-        var turretScene = ResourceLoader.Load<PackedScene>("Assets/Scenes/Turret.mscene");
+        var turretScene = ResourceLoader.Load<PackedScene>("Assets/Scenes/Turret.mfscene");
 
         var tank = new NetPlayer { Name = "Tank" };
         var front = turretScene.Instantiate();
@@ -56,10 +56,10 @@ public sealed class NestedSceneReplicationTests : IDisposable
         back.Scale = new Vector3(2, 2, 2); // an override inside the nested instance
         tank.AddChild(back);
         back.Owner = tank;
-        var uid = SceneSaver.Save(tank, ContentPath("Scenes/Tank.mscene"));
+        var uid = SceneSaver.Save(tank, ContentPath("Scenes/Tank.mfscene"));
         tank.Free();
         turretScene.Release();
-        return (uid, "Assets/Scenes/Tank.mscene");
+        return (uid, "Assets/Scenes/Tank.mfscene");
     }
 
     [Fact]
@@ -101,9 +101,9 @@ public sealed class NestedSceneReplicationTests : IDisposable
         Step(3);
 
         var copy = (NetPlayer)client.FindNode(tank.NetworkId)!;
-        Assert.Equal("Assets/Scenes/Tank.mscene", copy.SceneFilePath);
+        Assert.Equal("Assets/Scenes/Tank.mfscene", copy.SceneFilePath);
         Assert.Equal(new Vector3(2, 2, 2), copy.GetNode<NetPart>("Back").Scale); // the instance override came from the file
-        Assert.Equal("Assets/Scenes/Turret.mscene", copy.GetNode("Front").SceneFilePath);
+        Assert.Equal("Assets/Scenes/Turret.mfscene", copy.GetNode("Front").SceneFilePath);
         Assert.Equal(5, copy.GetNode<NetPart>("Back").Spin, 3);
         Assert.Equal(1, copy.GetNode<NetPart>("Front").Spin, 3);
 

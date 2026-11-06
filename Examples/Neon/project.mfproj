@@ -2,7 +2,7 @@
   "format": 4,
   "name": "Neon Demo",
   "engineVersion": "0.0.0-dev",
-  "mainScene": "Assets/Scenes/neon.mscene",
+  "mainScene": "Assets/Scenes/neon.mfscene",
   "assemblies": ["Neon"],
   "window": {
     "width": 1920, "height": 1080, "vsync": true, "contentScale": 1, "icon": "Assets/Brand/icon.png"
@@ -27,6 +27,6 @@
     "photo": { "label": "Photo", "bindings": ["key:F2", "pad:Back"] }
   },
   "rendering": { "shadows": "High", "antiAliasing": "Taa" },
-  "audio": { "busLayout": "Assets/Settings/AudioBusLayout.mres" },
+  "audio": { "busLayout": "Assets/Settings/AudioBusLayout.mfres" },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1 }
 }

@@ -4,7 +4,7 @@ using MainframeEngine.Audio.Music;
 namespace MainframeEngine;
 
 /// <summary>
-/// Plays baked <see cref="AdaptiveMusic"/> (<c>.mmusic</c>): sections, layers that follow parameters, beat-quantized
+/// Plays baked <see cref="AdaptiveMusic"/> (<c>.mfmusic</c>): sections, layers that follow parameters, beat-quantized
 /// transitions and stingers, all from a few parameter values set by game code (FMOD-style). A thin node over an
 /// <see cref="AdaptiveMusicInstance"/>.
 /// </summary>

@@ -2,7 +2,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Marks a property or field of a <see cref="Node"/> or <see cref="Resource"/> as serialized (written to
-/// <c>.mscene</c>/<c>.mres</c> when it differs from the type's default) and shown in the editor inspector.
+/// <c>.mfscene</c>/<c>.mfres</c> when it differs from the type's default) and shown in the editor inspector.
 /// The member must be readable and writable from the declaring assembly (public or internal).
 /// <c>MainframeEngine.Generators</c> emits typed accessors for it; no reflection is used at runtime.
 /// </summary>

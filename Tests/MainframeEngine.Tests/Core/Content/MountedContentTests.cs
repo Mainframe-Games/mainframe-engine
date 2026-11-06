@@ -78,7 +78,7 @@ public sealed class MountedResourceTests : IDisposable
             AssetDatabase.Current.Refresh(createMissingMeta: true);
             ResourceLoader.ClearCache();
             var root = new Sprite2D { Name = "Root", Texture = ResourceLoader.Load<Texture2D>("Assets/checker.png") };
-            SceneSaver.Save(root, Path.Combine(assets, "main.mscene"));
+            SceneSaver.Save(root, Path.Combine(assets, "main.mfscene"));
             root.Free();
             foreach (var file in Directory.EnumerateFiles(assets))
                 _project.Source.Add("Assets/" + Path.GetFileName(file), File.ReadAllBytes(file));
@@ -90,9 +90,9 @@ public sealed class MountedResourceTests : IDisposable
         }
 
         UseProject();
-        var instance = (Sprite2D)ResourceLoader.Load<PackedScene>("Assets/main.mscene").Instantiate();
+        var instance = (Sprite2D)ResourceLoader.Load<PackedScene>("Assets/main.mfscene").Instantiate();
 
-        Assert.True(ResourceLoader.Exists("Assets/main.mscene"));
+        Assert.True(ResourceLoader.Exists("Assets/main.mfscene"));
         Assert.NotNull(instance.Texture);
         Assert.Equal(Texture2D.FromFile(Path.Combine(ContentPaths.Root, "Models/TestModel/checker.png")).Width, instance.Texture.Width);
         instance.Free();
@@ -102,7 +102,7 @@ public sealed class MountedResourceTests : IDisposable
     public void TextureLoadsFromAMount()
     {
         const string png = "Assets/Models/TestModel/checker.png";
-        _project.Copy(png).Copy(png + ".meta");
+        _project.Copy(png).Copy(png + ".mfmeta");
         var onDisk = Texture2D.FromFile(Path.Combine(ContentPaths.BaseDirectory, png));
         UseProject();
 
@@ -116,7 +116,7 @@ public sealed class MountedResourceTests : IDisposable
     {
         const string folder = "Assets/Models/TestModel/";
         _project.Copy(folder + "test_model.gltf").Copy(folder + "test_model.bin").Copy(folder + "checker.png")
-            .Copy(folder + "test_model.gltf.meta").Copy(folder + "checker.png.meta");
+            .Copy(folder + "test_model.gltf.mfmeta").Copy(folder + "checker.png.mfmeta");
         var fromDisk = Meshes(ModelImporter.ImportNodes(Path.Combine(ContentPaths.BaseDirectory, folder + "test_model.gltf")));
         UseProject();
 

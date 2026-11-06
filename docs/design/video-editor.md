@@ -138,7 +138,7 @@ Game-only keys (gizmos, Play, F10) do nothing in video mode.
 ### Media pool and importing
 
 - **The pool** lists `Assets/Video` with folders first, then files, filtered to video, audio, images and timelines
-  (`.mfcap.json`, `.meta`, `.tmp` and everything else are hidden). Video items get a poster from the media cache once
+  (`.mfcap.json`, `.mfmeta`, `.tmp` and everything else are hidden). Video items get a poster from the media cache once
   ffmpeg has made it. Double-click: a folder opens, media shows in the Source viewer, a timeline opens as a tab. Media
   drags onto the timeline. The pool follows file changes through a watcher.
 - **Importing:** File › Import Media…, the pool's Import button, or a **Finder drop** (`SceneTree.FilesDropped`). A drop
@@ -285,7 +285,7 @@ The ffmpeg setting also serves Play and Record: the editor passes it to the game
 Versioned JSON (`TimelineSerializer`, `TimelineMigrator`, version 2: G20.2 added each clip's `kind` (media, title,
 image), `volumeDb`, `fadeIn`, `fadeOut` and `title`, and the timeline's `transitions`, all with defaults, so the 1 → 2
 step adds nothing), written atomically, with the asset UID (`vtl_…`)
-at the top so the asset database reads it like a scene (no `.meta`). Media are `MediaRef`s: the asset UID (moves in the
+at the top so the asset database reads it like a scene (no `.mfmeta`). Media are `MediaRef`s: the asset UID (moves in the
 pool keep working), the project-relative path as a fallback, the content hash and the probed facts. The old `.mfcut` and
 `.cutback` projects are no longer read (ADR 0241: no migration).
 

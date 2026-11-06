@@ -216,8 +216,8 @@ The dialog re-runs it on every edit; the CLI before each preset.
 | `configuration` | warning | neither Release nor Debug |
 | `include-empty` | warning | no include globs |
 | `editor-only-content` | warning | an include glob names `Assets/Video`, which never ships (the default `Assets/**` does not warn) |
-| `broken-reference` | warning | a shipped `.mscene`/`.mres` references an excluded file (`ReferenceScanner`: `{"ref"\|"instance": uid, "path"}` objects and `Assets/` strings; skipped when only translation sources are excluded) |
-| `meta-excluded` | warning | an `exclude` drops `.meta` sidecars of shipped files |
+| `broken-reference` | warning | a shipped `.mfscene`/`.mfres` references an excluded file (`ReferenceScanner`: `{"ref"\|"instance": uid, "path"}` objects and `Assets/` strings; skipped when only translation sources are excluded) |
+| `meta-excluded` | warning | an `exclude` drops `.mfmeta` sidecars of shipped files |
 | `icon` | warning | the icon is missing, not a PNG, or under 256 px (where the platform needs one) |
 | `version` | warning | not `MAJOR.MINOR.PATCH[-suffix]` |
 

@@ -96,7 +96,7 @@ require() {
   done
 }
 engine_files=(Assets/UI/widgets/widgets.rcss Assets/Shaders/Mesh/Mesh.vk.vert.spv Assets/locale/fr/LC_MESSAGES/messages.mo)
-require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Assets/Scenes/Main.mscene Assets/icon.png "${engine_files[@]}"
+require "$out" SmokeGame.Desktop.dll SmokeGame.dll project.mfproj Assets/Scenes/Main.mfscene Assets/icon.png "${engine_files[@]}"
 # Lists what must not be there: the editor-only folder.
 forbid() {
   for forbidden in "${@:2}"; do
@@ -116,13 +116,13 @@ require "$out" "${steam_files[@]}"
 # .mainframe/shaders/include (for editors), and the MainframeShaders target checks the game's shaders with mf-shaders
 # (the package's in a package game) and, with slangc on PATH, builds a new one.
 desktop="$work/SmokeGame/SmokeGame.Desktop/SmokeGame.Desktop.csproj"
-require "$out" Assets/Shaders/example.slang Assets/Shaders/example.slang.vert.spv Assets/Shaders/example.slang.layout.json
+require "$out" Assets/Shaders/example.slang Assets/Shaders/example.slang.vert.spv Assets/Shaders/example.slang.mflayout.json
 require "$work/SmokeGame" .mainframe/shaders/include/mainframe/spatial.slang .mainframe/shaders/include/frame.slang .vscode/settings.json
 dotnet msbuild "$desktop" -t:MainframeShaders -p:MainframeShadersCommand=check -nologo -v:m
 if command -v slangc > /dev/null 2>&1 || [ -x "${VULKAN_SDK:-/nonexistent}/bin/slangc" ]; then
   sed 's/float glow = 0.6;/float glow = 0.8;/' "$work/SmokeGame/Assets/Shaders/example.slang" > "$work/SmokeGame/Assets/Shaders/smoke.slang"
   dotnet msbuild "$desktop" -t:MainframeShaders -nologo -v:m
-  require "$work/SmokeGame" Assets/Shaders/smoke.slang.frag.spv Assets/Shaders/smoke.slang.shadow.vert.spv Assets/Shaders/smoke.slang.layout.json
+  require "$work/SmokeGame" Assets/Shaders/smoke.slang.frag.spv Assets/Shaders/smoke.slang.shadow.vert.spv Assets/Shaders/smoke.slang.mflayout.json
   dotnet msbuild "$desktop" -t:MainframeShaders -p:MainframeShadersCommand=check -nologo -v:m
 else
   echo "template-smoke: slangc is not on PATH; the game's shaders were checked, not built."
@@ -142,7 +142,7 @@ if [ "$source" = "package" ]; then
     win-*) steam_variant=win64 ;;
     *) steam_variant=posix ;;
   esac
-  require "$work/publish" "$rmlui" SmokeGame.Desktop.dll project.mfproj Assets/Scenes/Main.mscene "${engine_files[@]}" \
+  require "$work/publish" "$rmlui" SmokeGame.Desktop.dll project.mfproj Assets/Scenes/Main.mfscene "${engine_files[@]}" \
     "steamworks/$steam_variant/MainframeEngine.Steamworks.dll"
   forbid "$work/publish" Assets/Video
 
@@ -180,7 +180,7 @@ if [ "$source" = "package" ]; then
     case "$package_rid" in
       linux-*) check_archive "$archive" "+$base/SmokeGame" "+$base/libsteam_api.so" "+$base/libmfrmlui.so" \
         "+$base/steamworks/posix/MainframeEngine.Steamworks.dll" "+$base/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-        "+$base/Assets/Scenes/Main.mscene" "-Assets/Video" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
+        "+$base/Assets/Scenes/Main.mfscene" "-Assets/Video" "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt" ;;
       win-*) check_archive "$archive" "+$base/SmokeGame.exe" "+$base/steam_api64.dll" "+$base/mfrmlui.dll" \
         "+$base/steamworks/win64/MainframeEngine.Steamworks.dll" "+$base/steamworks/win64/Facepunch.Steamworks.Win64.dll" \
         "-steamworks/posix" "-libsteam_api" "-steam_appid.txt" "-Assets/Video" ;;
@@ -190,7 +190,7 @@ if [ "$source" = "package" ]; then
         check_archive "$archive" "+SmokeGame.app/Contents/Info.plist" "+$macos/SmokeGame" "-$macos/SmokeGame.Desktop.dll" \
           "+$app/SmokeGame.Desktop.dll" "+$app/libsteam_api.dylib" "+$app/libmfrmlui.dylib" "+$app/libcoreclr.dylib" \
           "+$app/steamworks/posix/MainframeEngine.Steamworks.dll" "+$app/steamworks/posix/Facepunch.Steamworks.Posix.dll" \
-          "+$app/Assets/Scenes/Main.mscene" "-Assets/Video" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
+          "+$app/Assets/Scenes/Main.mfscene" "-Assets/Video" "-$macos/libmfrmlui.dylib" "-$macos/steamworks" \
           "-steamworks/win64" "-steam_api64.dll" "-steam_appid.txt"
         # The apphost starts ../MonoBundle/SmokeGame.Desktop.dll (build/macos/BundleAppHost.targets).
         unzip -p "$archive" "$macos/SmokeGame" > "$work/packages/apphost"
@@ -277,7 +277,7 @@ case "$export_rid" in
   win-*) app_dir="$run_dir/$base" exe="$run_dir/$base/SmokeGame.exe" ;;
   *) app_dir="$run_dir/$base" exe="$run_dir/$base/SmokeGame" ;;
 esac
-require "$app_dir" project.mfproj Assets/assets.index.json Assets/Scenes/Main.mscene Assets/locale/fr/LC_MESSAGES/messages.mo
+require "$app_dir" project.mfproj Assets/assets.index.json Assets/Scenes/Main.mfscene Assets/locale/fr/LC_MESSAGES/messages.mo
 if grep -q '"export"' "$app_dir/project.mfproj"; then
   echo "template-smoke: the exported project.mfproj still has its export presets" >&2
   exit 1

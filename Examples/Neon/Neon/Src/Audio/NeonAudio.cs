@@ -45,7 +45,7 @@ public sealed class NeonAudio : Node
     /// <summary>The TV.</summary>
     public const string TvBus = "Tv";
 
-    /// <summary>Neon's buses (<c>Assets/Settings/AudioBusLayout.mres</c>), Master first.</summary>
+    /// <summary>Neon's buses (<c>Assets/Settings/AudioBusLayout.mfres</c>), Master first.</summary>
     public static readonly string[] Buses = [AudioBusLayout.MasterBus, AmbienceBus, RainBus, FoleyBus, BathroomBus, MusicBus, TvBus];
 
     /// <summary>The apartment's interior (apartment space): inside it the world outside is muffled.</summary>

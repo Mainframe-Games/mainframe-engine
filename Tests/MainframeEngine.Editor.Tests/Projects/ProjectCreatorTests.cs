@@ -62,7 +62,7 @@ public sealed class ProjectCreatorTests : IDisposable
     {
         var target = Path.Combine(_directory, "Game");
         Directory.CreateDirectory(Path.Combine(target, "Assets", "Scenes"));
-        File.WriteAllText(Path.Combine(target, "Assets", "Scenes", "Main.mscene"), "{}");
+        File.WriteAllText(Path.Combine(target, "Assets", "Scenes", "Main.mfscene"), "{}");
         File.WriteAllText(Path.Combine(target, ProjectSettings.FileName),
             """{ "format": 1, "name": "Game", "window": { "icon": "Assets/icon.png" } }""");
 

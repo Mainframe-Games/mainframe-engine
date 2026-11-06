@@ -33,9 +33,9 @@ public sealed class JsonMigrationsTests
     public void AMissingStepNamesTheFileAndTheKind()
     {
         var e = Assert.Throws<InvalidDataException>(() =>
-            JsonMigrations.Upgrade(new JsonObject(), 1, 3, [new JsonMigration(1, static _ => { })], "slot1.msave", "save version"));
+            JsonMigrations.Upgrade(new JsonObject(), 1, 3, [new JsonMigration(1, static _ => { })], "slot1.mfsave", "save version"));
 
-        Assert.Equal("'slot1.msave': no migration from save version 2 to 3.", e.Message);
+        Assert.Equal("'slot1.mfsave': no migration from save version 2 to 3.", e.Message);
     }
 
     [Theory]

@@ -4,7 +4,7 @@ using MainframeEngine.Serialization;
 
 namespace MainframeEngine.Tests.Physics;
 
-/// <summary>Physics nodes and shape resources round-trip through <c>.mscene</c> JSON with their exported values.</summary>
+/// <summary>Physics nodes and shape resources round-trip through <c>.mfscene</c> JSON with their exported values.</summary>
 [Collection(nameof(SerialBox2D))]
 public sealed class PhysicsSerializationTests
 {

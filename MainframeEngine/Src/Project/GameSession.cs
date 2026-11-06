@@ -216,8 +216,8 @@ public sealed class GameSession : IDisposable
 
     /// <summary>
     /// <c>--bake-lighting</c> (ADR 0170): bakes every <see cref="LightProbeVolume"/> in the tree and saves each one's data
-    /// where its <see cref="LightProbeVolume.Data"/> already lives, else next to the scene as <c>&lt;scene&gt;-lighting.mres</c>
-    /// (plus its <c>.probes</c> file), under <see cref="ProjectSettings.ProjectDirectory"/> (pass <c>--project</c> with the
+    /// where its <see cref="LightProbeVolume.Data"/> already lives, else next to the scene as <c>&lt;scene&gt;-lighting.mfres</c>
+    /// (plus its <c>.mfprobes</c> file), under <see cref="ProjectSettings.ProjectDirectory"/> (pass <c>--project</c> with the
     /// source folder to write the files to commit). False when there was nothing to bake or a save failed.
     /// </summary>
     public bool BakeLighting()
@@ -239,7 +239,7 @@ public sealed class GameSession : IDisposable
             if (string.IsNullOrEmpty(target))
             {
                 var stem = string.IsNullOrEmpty(scene) ? "scene" : Path.ChangeExtension(scene, null);
-                target = (i == 0 ? stem : $"{stem}-{i}") + "-lighting.mres";
+                target = (i == 0 ? stem : $"{stem}-{i}") + "-lighting.mfres";
             }
 
             // Into the project's folder (--project: the source tree, so the bake can be committed); a project-relative path

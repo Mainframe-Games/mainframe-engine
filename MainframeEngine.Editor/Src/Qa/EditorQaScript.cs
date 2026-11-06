@@ -18,7 +18,7 @@ namespace MainframeEngine.Editor;
 /// hold W / release W
 /// type Box2                   # text into the focused field
 /// command file.save           # any EditorCommands id
-/// open path/to/scene.mscene   # or a document.rml: opens a UI preview tab; a .mftimeline opens a timeline tab in video
+/// open path/to/scene.mfscene   # or a document.rml: opens a UI preview tab; a .mftimeline opens a timeline tab in video
 ///                             # mode, a video (.mp4 .mov .mkv .webm) shows in its Source viewer
 /// mode game|video             # switches the editor mode
 /// video set whisper-model tiny.en   # a Video setting (whisper-model, ffmpeg) for this run (QA runs save no settings)
@@ -40,7 +40,7 @@ namespace MainframeEngine.Editor;
 /// wait-for project|idle|playing|stopped [seconds]   # until a project and scene are open / no build runs / a game runs
 /// wait-for video-jobs [seconds]                      # until video mode runs no probe, import or export job
 /// wait-for video-position 9.5 [seconds]              # until the active timeline's playhead is at or past 9.5 s
-/// file-drag Assets/x.mscene #element-id   # drags a project file from the FileSystem panel onto an element
+/// file-drag Assets/x.mfscene #element-id   # drags a project file from the FileSystem panel onto an element
 /// edit-file path text…        # appends a line to a project file (QA of code reload)
 /// replace-in-file path old new   # edits a project file in place
 /// timing label                # logs the seconds since the previous timing mark
@@ -305,7 +305,7 @@ public sealed class EditorQaScript : IEditorAutomation
                         workspace.Commands.OpenAny(path);
                     else if (path.EndsWith(".rml", StringComparison.OrdinalIgnoreCase))
                         workspace.Session.OpenUiPreview(path);
-                    else if (path.EndsWith(".msong", StringComparison.OrdinalIgnoreCase))
+                    else if (path.EndsWith(".mfsong", StringComparison.OrdinalIgnoreCase))
                         workspace.Session.OpenSong(path);
                     else
                         workspace.Session.Open(path);
@@ -409,7 +409,7 @@ public sealed class EditorQaScript : IEditorAutomation
                 QaCrashSamples.ShowCrashDialog(workspace, _outputDirectory);
                 break;
             case "inspect":
-                // A resource file in the inspector (the FileSystem panel's double-click on an .mres).
+                // A resource file in the inspector (the FileSystem panel's double-click on an .mfres).
                 workspace.Inspector.InspectResourceFile(Path.GetFullPath(string.Join(' ', step[1..])));
                 break;
             case "inspector-action":

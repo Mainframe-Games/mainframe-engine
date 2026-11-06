@@ -128,7 +128,7 @@ A `Node2D` that owns an `AStarGrid2D` and registers it with its viewport's map w
 - `Bake()` bakes from `Source` and replaces `Data` (main thread, needs the tree; `Manual` clears). `BakeData(out error)`
   returns the data without assigning it (the editor's undoable bake). `IsBakeOutOfDate()` compares the data's
   `SourceHash` with the scene now (null: unknown). `LastBakeMilliseconds`.
-- **`NavigationGridData`** (inline or `.mres`): `Region`, `Solid` (`rle1:` + base64 of LEB128 runs alternating walkable
+- **`NavigationGridData`** (inline or `.mfres`): `Region`, `Solid` (`rle1:` + base64 of LEB128 runs alternating walkable
   and solid cells, row-major, walkable first), `Weights` (`rle1:` + base64 of skip/run/float32 triples), `BakedFrom`,
   `SourceHash`, `SolidCount`, `WeightedCount`. A 256 × 256 grid is a handful of lines. Corrupt data or a region
   mismatch logs a warning and leaves the grid walkable. Plain code: trimming and AOT are fine.
@@ -231,7 +231,7 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake` and `Navigation 
   admissible heuristic pair; JPS = A* for every mode; a golden maze for A* and JPS), `AStarPointGraphTests`,
   `NavigationMapTests` (sync points, edits, edit mode and pause, queries, post-processing, line of sight, regions by
   layer and position, closest point, debug draw), `NavigationGridBakeTests` (`SerialBox2D`: shapes, agent radius, mask,
-  moving bodies, staleness, `BakeOnReady`, sources, a live source), `NavigationGridDataTests` (codec, `.mres`, inline in
+  moving bodies, staleness, `BakeOnReady`, sources, a live source), `NavigationGridDataTests` (codec, `.mfres`, inline in
   a scene, corrupt data), `NavigationAgent2DTests` (a `CharacterBody2D` round a baked wall with signals in order, repath
   on a new wall, `TargetRepathDistance`, `PathMaxDistance`, unreachable targets, no map) and `NavigationAllocationTests`
   (**0 bytes** over 300 ticks of 64 agents chasing moving targets on a 128 × 128 grid with cell edits every 30 ticks and

@@ -4,7 +4,7 @@
   "resources": {
     "TileSet_hmrfv": {
       "ref": "res_2e9c6cc96296",
-      "path": "Assets/Tiles2D/tiles.mres"
+      "path": "Assets/Tiles2D/tiles.mfres"
     },
     "CircleShape2D_3bn79": {
       "type": "CircleShape2D",
@@ -14,7 +14,7 @@
     },
     "SpriteFrames_1b3bs": {
       "ref": "res_6f03ebb0e621",
-      "path": "Assets/Sprites2D/hero.mres"
+      "path": "Assets/Sprites2D/hero.mfres"
     }
   },
   "nodes": [

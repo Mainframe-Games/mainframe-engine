@@ -21,7 +21,7 @@ public enum ParamCurve
 }
 
 /// <summary>
-/// One parameter of a built-in effect. <see cref="Id"/> is the <c>.msong</c> key and, like the order of
+/// One parameter of a built-in effect. <see cref="Id"/> is the <c>.mfsong</c> key and, like the order of
 /// <see cref="Choices"/>, a file contract: ids are never renamed and choices are only appended. The parameter's index in
 /// <see cref="BuiltinEffectInfo.Params"/> is its index in the effect's value array.
 /// </summary>

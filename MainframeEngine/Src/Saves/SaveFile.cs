@@ -6,7 +6,7 @@ using MainframeEngine.Serialization;
 
 namespace MainframeEngine;
 
-/// <summary>The header line of a <c>.msave</c> file (see <see cref="SaveFile"/>).</summary>
+/// <summary>The header line of a <c>.mfsave</c> file (see <see cref="SaveFile"/>).</summary>
 internal sealed class SaveHeader
 {
     public string? Kind;
@@ -52,7 +52,7 @@ internal sealed class SaveHeader
 }
 
 /// <summary>
-/// The <c>.msave</c> container: line 1 is a compact JSON header (at most <see cref="MaxHeaderBytes"/>, ending with
+/// The <c>.mfsave</c> container: line 1 is a compact JSON header (at most <see cref="MaxHeaderBytes"/>, ending with
 /// <c>\n</c>), the rest is the payload JSON, optionally gzip. <c>payloadBytes</c> and <c>sha256</c> describe the stored
 /// (possibly compressed) bytes, so a checksum never needs a re-serialization and a listing reads the first line only.
 /// </summary>
@@ -70,7 +70,7 @@ internal static class SaveFile
     /// <summary>The first read of a header: most headers are a few hundred bytes.</summary>
     private const int FirstReadBytes = 4096;
 
-    public const string Extension = ".msave";
+    public const string Extension = FileExtensions.Save;
 
     /// <summary>A lowercase hex SHA-256 of <paramref name="bytes"/>.</summary>
     public static string Hash(ReadOnlySpan<byte> bytes)

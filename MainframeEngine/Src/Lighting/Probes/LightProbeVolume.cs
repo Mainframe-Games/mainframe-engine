@@ -15,7 +15,7 @@ namespace MainframeEngine;
 /// <para><b>Baking.</b> <see cref="Bake"/> (the editor's Bake Lighting button, or code) traces the world on the CPU,
 /// every core (<see cref="ProbeBaker"/>): the terrain's height field, trees as branch capsules plus a leaf-density grid,
 /// <see cref="GIMode.Static"/> meshes, the first directional light and the sky. The result is <see cref="Data"/>; save it
-/// with <see cref="LightProbeData.Save"/> (a <c>.mres</c> plus a <c>.probes</c> file). A bake is for one sun direction;
+/// with <see cref="LightProbeData.Save"/> (a <c>.mfres</c> plus a <c>.mfprobes</c> file). A bake is for one sun direction;
 /// moving the sun far, or a boulder, makes it stale.</para>
 /// <para><b>Stale bakes.</b> <see cref="LightProbeData.BakeHash"/> hashes everything the bake read. With
 /// <see cref="BakeWhenStale"/>, a volume whose data is missing or does not match the scene bakes in the background when

@@ -162,7 +162,7 @@ public sealed class PluginRackTests : IDisposable
     {
         var song = NewSong();
         var track = PluginTrack(song, "lead", Half);
-        var path = Path.Combine(_root, "song.msong");
+        var path = Path.Combine(_root, "song.mfsong");
         using var document = new SongDocument(song, path);
         using var player = new SongPlayer(null, plugins: _ => _rack);
         player.Update(document);
@@ -195,7 +195,7 @@ public sealed class PluginRackTests : IDisposable
     {
         var song = NewSong();
         var track = PluginTrack(song, "lead");
-        using var document = new SongDocument(song, Path.Combine(_root, "s.msong"));
+        using var document = new SongDocument(song, Path.Combine(_root, "s.mfsong"));
         var a = document.AddInsert(track, Half.Descriptor);
         var b = document.AddInsert(track, Delay.Descriptor);
         document.MoveInsert(track, b, 0);

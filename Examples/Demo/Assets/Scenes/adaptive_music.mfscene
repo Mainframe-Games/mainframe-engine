@@ -4,7 +4,7 @@
   "resources": {
     "AdaptiveMusic_5t7ak": {
       "ref": "mus_4a7b080e213f",
-      "path": "Assets/Music/adaptive_theme.mmusic"
+      "path": "Assets/Music/adaptive_theme.mfmusic"
     }
   },
   "nodes": [

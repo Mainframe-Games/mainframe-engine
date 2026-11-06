@@ -269,7 +269,7 @@ public class LightProbeTests
         var data = new LightProbeData { BakeHash = "abc" };
         data.SetData(grid, coefficients, ground);
 
-        var path = Path.Combine(Path.GetTempPath(), $"probes-{Guid.NewGuid():N}.probes");
+        var path = Path.Combine(Path.GetTempPath(), $"probes-{Guid.NewGuid():N}.mfprobes");
         try
         {
             data.WriteDataFile(path);

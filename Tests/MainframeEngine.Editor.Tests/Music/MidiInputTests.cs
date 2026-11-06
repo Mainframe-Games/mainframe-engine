@@ -27,7 +27,7 @@ public sealed class MidiInputTests : IDisposable
         var song = NewSong();
         AddInstrumentTrack(song, "a", InstrumentDescriptor.Zzfx(SongDocument.DefaultZzfxLine));
         AddInstrumentTrack(song, "b", InstrumentDescriptor.Zzfx(SongDocument.DefaultZzfxLine));
-        _doc = new SongDocument(song, Path.Combine(_root, "Midi.msong"));
+        _doc = new SongDocument(song, Path.Combine(_root, "Midi.mfsong"));
         _player = new SongPlayer(null, (track, _) => track.Id == "a" ? _a : _b);
         _player.Update(_doc);
         Run(_player.Engine, 1); // the snapshot is taken at a block start

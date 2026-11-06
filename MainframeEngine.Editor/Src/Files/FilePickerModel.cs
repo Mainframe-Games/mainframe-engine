@@ -37,7 +37,7 @@ public sealed class FilePickerModel
 
     public FilePickerMode Mode { get; }
 
-    /// <summary>Glob patterns (<c>*.mscene</c>); empty lists every file. The first pattern's extension is the save default.</summary>
+    /// <summary>Glob patterns (<c>*.mfscene</c>); empty lists every file. The first pattern's extension is the save default.</summary>
     public IReadOnlyList<string> Filter
     {
         get => _filter;
@@ -63,7 +63,7 @@ public sealed class FilePickerModel
     /// <summary>The last navigation or validation error, for the dialog's message line.</summary>
     public string? Error { get; private set; }
 
-    /// <summary>The default extension for <see cref="FilePickerMode.Save"/> (from the first filter pattern), e.g. <c>.mscene</c>.</summary>
+    /// <summary>The default extension for <see cref="FilePickerMode.Save"/> (from the first filter pattern), e.g. <c>.mfscene</c>.</summary>
     public string? DefaultExtension
     {
         get

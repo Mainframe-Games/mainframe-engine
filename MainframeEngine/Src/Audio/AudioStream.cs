@@ -23,7 +23,7 @@ public enum AudioLoadMode
 /// <see cref="Preload"/> does it ahead of time (players do in <c>OnEnterTree</c>).
 /// </summary>
 /// <remarks>
-/// <see cref="Load"/> applies the file's import settings from its <c>.meta</c> sidecar
+/// <see cref="Load"/> applies the file's import settings from its <c>.mfmeta</c> sidecar
 /// (<c>{"importer": "audio", "settings": {"loadMode": "Stream", "loop": true, "loopStart": 1.5, "loopEnd": 0}}</c>).
 /// Decoded clips are cached by file, so several streams over one file share their samples.
 /// </remarks>
@@ -112,7 +112,7 @@ public class AudioStream : Resource
     /// <summary>True when the stream plays from the streaming thread rather than memory.</summary>
     public bool IsStreamed => _source is AudioStreamSource;
 
-    /// <summary>A stream for <paramref name="path"/> with its <c>.meta</c> import settings applied.</summary>
+    /// <summary>A stream for <paramref name="path"/> with its <c>.mfmeta</c> import settings applied.</summary>
     public static AudioStream Load(string path)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
@@ -208,7 +208,7 @@ public class AudioStream : Resource
         return full;
     }
 
-    // Import settings from the .meta sidecar ("importer": "audio").
+    // Import settings from the .mfmeta sidecar ("importer": "audio").
     private void ApplyImportSettings()
     {
         if (string.IsNullOrEmpty(_file) || AssetUid.IsUid(_file))
@@ -239,7 +239,7 @@ public class AudioStream : Resource
 }
 
 /// <summary>
-/// Sound files → <see cref="AudioStream"/> with the <c>.meta</c> sidecar's import settings, so a resource property of type
+/// Sound files → <see cref="AudioStream"/> with the <c>.mfmeta</c> sidecar's import settings, so a resource property of type
 /// <see cref="AudioStream"/> can reference a <c>.wav</c>/<c>.ogg</c> directly (Godot's imported <c>AudioStreamWAV</c>).
 /// </summary>
 public sealed class AudioImporter : IAssetImporter

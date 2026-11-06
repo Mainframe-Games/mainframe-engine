@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
   <title>Animation graph tab (proposal)</title>
-  <desc>The graph tab on hero_locomotion.mres. Layer tabs across the top: Base, UpperBody (override, masked) and Breathing (additive). The canvas shows the Base layer's state machine: an entry marker into Move (a 1D blend space, active and glowing, with a time bar), Jump, Fall, Land, and an Any State box with a transition to Hurt; arrows carry condition summaries. The left panel lists parameters with live controls: speed slider, grounded checkbox, jump trigger with a Fire button, aim_x and aim_y. The right panel shows the 2D blend space editor of the UpperBody layer's Aim state, with clip points, the triangulation, a draggable preview point and live weights, and a small preview of the skeleton. Numbered callouts explain the parts.</desc>
+  <desc>The graph tab on hero_locomotion.mfres. Layer tabs across the top: Base, UpperBody (override, masked) and Breathing (additive). The canvas shows the Base layer's state machine: an entry marker into Move (a 1D blend space, active and glowing, with a time bar), Jump, Fall, Land, and an Any State box with a transition to Hurt; arrows carry condition summaries. The left panel lists parameters with live controls: speed slider, grounded checkbox, jump trigger with a Fire button, aim_x and aim_y. The right panel shows the 2D blend space editor of the UpperBody layer's Aim state, with clip points, the triangulation, a draggable preview point and live weights, and a small preview of the skeleton. Numbered callouts explain the parts.</desc>
   <rect width="960" height="700" fill="#ffffff"/>
   <style>
     .hdr{font-weight:600;font-size:12.5px;fill:#e5e7eb}
@@ -36,12 +36,12 @@
   <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
   <rect x="20" y="38" width="920" height="8" fill="#15171c"/>
   <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="480" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — hero_locomotion.mres</text>
+  <text x="480" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — hero_locomotion.mfres</text>
 
   <!-- tabs -->
   <rect x="20" y="46" width="920" height="24" fill="#1a1c22"/>
-  <rect x="24" y="49" width="110" height="21" rx="3" fill="#262931"/><text x="34" y="64" class="s">✦ hero.mskel</text>
-  <rect x="138" y="49" width="170" height="21" rx="3" fill="#323642" stroke="#3b82f6"/><text x="148" y="64" class="t">⋔ hero_locomotion.mres</text>
+  <rect x="24" y="49" width="110" height="21" rx="3" fill="#262931"/><text x="34" y="64" class="s">✦ hero.mfskel</text>
+  <rect x="138" y="49" width="170" height="21" rx="3" fill="#323642" stroke="#3b82f6"/><text x="148" y="64" class="t">⋔ hero_locomotion.mfres</text>
 
   <!-- toolbar: layers + preview -->
   <rect x="20" y="70" width="920" height="32" fill="#2a2d36"/>
@@ -51,7 +51,7 @@
   <rect x="280" y="75" width="128" height="22" rx="3" class="btn"/><text x="288" y="90" class="t">Breathing</text><text x="348" y="90" class="xs">additive</text>
   <rect x="412" y="75" width="22" height="22" rx="3" class="btn"/><path d="M418,86 h10 M423,81 v10" class="g"/>
   <text x="446" y="90" class="xs">Base ▸ </text><text x="484" y="90" class="t">root machine</text>
-  <rect x="640" y="75" width="150" height="22" rx="3" class="fld"/><text x="648" y="90" class="s">preview: hero.mskel ▾</text>
+  <rect x="640" y="75" width="150" height="22" rx="3" class="fld"/><text x="648" y="90" class="s">preview: hero.mfskel ▾</text>
   <rect x="796" y="75" width="136" height="22" rx="3" class="fld"/><text x="804" y="90" class="s">debug: (editor preview) ▾</text>
 
   <!-- params panel -->

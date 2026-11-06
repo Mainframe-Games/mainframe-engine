@@ -6,7 +6,7 @@ namespace MainframeEngine.Video.Timelines;
 
 /// <summary>
 /// Reads and writes <c>.mftimeline</c> files: versioned JSON with the timeline's asset <c>uid</c> at the top, so the
-/// engine's AssetDatabase reads it without a <c>.meta</c>. Loading validates everything the edits rely on.
+/// engine's AssetDatabase reads it without a <c>.mfmeta</c>. Loading validates everything the edits rely on.
 /// </summary>
 public static class TimelineSerializer
 {

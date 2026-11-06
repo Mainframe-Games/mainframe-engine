@@ -144,19 +144,19 @@ public sealed class ExportPresetFormatTests
     [InlineData(4)]
     public void OlderFormatsUpgradeToTheCurrentOneWithNothingElseChanged(int format)
     {
-        var older = Parse($$"""{ "format": {{format}}, "name": "Old", "mainScene": "Assets/Scenes/Main.mscene", "window": { "width": 640 } }""");
+        var older = Parse($$"""{ "format": {{format}}, "name": "Old", "mainScene": "Assets/Scenes/Main.mfscene", "window": { "width": 640 } }""");
         var json = JsonNode.Parse(Text(older))!;
 
         Assert.Equal(ProjectSettingsFormat.Current, (int)json["format"]!);
         Assert.Equal(5, ProjectSettingsFormat.Current);
         Assert.Null(json["export"]);
-        Assert.Equal(("Old", "Assets/Scenes/Main.mscene", 640), (older.Name, older.MainScene, older.Window.Width));
+        Assert.Equal(("Old", "Assets/Scenes/Main.mfscene", 640), (older.Name, older.MainScene, older.Window.Width));
     }
 
     [Fact]
     public void TheFourToFiveStepLeavesTheTreeAlone()
     {
-        var root = JsonNode.Parse("""{ "format": 4, "name": "N", "audio": { "busLayout": "Assets/b.mres" } }""")!.AsObject();
+        var root = JsonNode.Parse("""{ "format": 4, "name": "N", "audio": { "busLayout": "Assets/b.mfres" } }""")!.AsObject();
         var before = root.DeepClone().AsObject();
         before.Remove("format");
         ProjectSettingsFormat.Upgrade(root, 4, ProjectSettingsFormat.Current, ProjectSettingsFormat.Migrations, "t");

@@ -334,7 +334,7 @@ public sealed class AudioProjectSettings
 {
     public bool Enabled { get; set; } = true;
 
-    /// <summary>The bus layout resource (<c>.mres</c> path or UID); null uses the built-in default layout.</summary>
+    /// <summary>The bus layout resource (<c>.mfres</c> path or UID); null uses the built-in default layout.</summary>
     public string? BusLayout { get; set; } = AudioBusLayout.DefaultPath;
 
     public int SampleRate

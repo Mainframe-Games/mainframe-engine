@@ -27,7 +27,7 @@ transitions those stems live, beat-quantized, from parameters.
 
 ## Goals
 
-- **Author adaptive music in the song editor**, in the same `.msong`:
+- **Author adaptive music in the song editor**, in the same `.mfsong`:
   - **Sections** on the ruler (Intro, Explore, Combat, Boss, Outro), each looping or continuing to another.
   - **Parameters**: continuous (`intensity` 0–1), discrete (`wave` 1–5) and labeled (`area` = Calm/Combat/Boss),
     each with a default and a seek speed.
@@ -38,7 +38,7 @@ transitions those stems live, beat-quantized, from parameters.
   - **Stingers** and **markers**.
 - **Hear it before baking.** The editor's live `SongEngine` plays the adaptive logic. Parameter sliders audition it,
   with the same transition timing the game will have.
-- **Bake** in one command. It renders sample-aligned stems with their reverb and delay tails, writes an `.mmusic`
+- **Bake** in one command. It renders sample-aligned stems with their reverb and delay tails, writes an `.mfmusic`
   manifest resource, and on later bakes renders again only what changed.
 - **Play it in games** with an `AdaptiveMusicPlayer` node: `SetParameter`, `Play`/`Stop`, `TriggerStinger`,
   `GoToSection`, and signals for section, beat, bar and marker. Scheduling is sample-accurate on the audio thread.
@@ -63,7 +63,7 @@ transitions those stems live, beat-quantized, from parameters.
 
 | FMOD Studio | Here | Notes |
 |---|---|---|
-| Event + timeline | An **adaptive song**: a `.msong` with an `adaptive` block | The arrangement stays the timeline |
+| Event + timeline | An **adaptive song**: a `.mfsong` with an `adaptive` block | The arrangement stays the timeline |
 | Parameter (continuous / discrete / labeled, seek speed) | **Parameter** on the song | The same three kinds; seek speed in units per second |
 | Loop region, destination marker | **Section** on the Sections lane: a whole-bar range, looping or with a `then` | A section is both a loop region and a destination |
 | Transition marker / region, quantization, condition | **Transition** rule: from → to, `when`, `quantize` | Ordered list; the first matching rule wins |
@@ -72,21 +72,21 @@ transitions those stems live, beat-quantized, from parameters.
 | Fade in/out on transitions | `fadeOutBeats` / `fadeInBeats` on a transition | In beats, so they follow the tempo |
 | Stinger / one-shot | **Stinger**: a section of kind `stinger`, quantized, with an optional pickup | From code or from a transition |
 | Marker / callback | **Marker** on the Sections lane (`Marker` signal); `exit` markers are transition points | |
-| Built and banked in Studio | **Bake** → `.mmusic` + `.ogg` stems | The runtime never sees the song |
+| Built and banked in Studio | **Bake** → `.mfmusic` + `.ogg` stems | The runtime never sees the song |
 
 ## Overview
 
 ```mermaid
 flowchart TB
     subgraph Editor["Editor (Music mode)"]
-        Model["Song model (.msong)<br/>tracks · clips · adaptive block"] --> Live["SongEngine (live preview)<br/>sequencer + MusicDirector + layer buses"]
+        Model["Song model (.mfsong)<br/>tracks · clips · adaptive block"] --> Live["SongEngine (live preview)<br/>sequencer + MusicDirector + layer buses"]
         Panel["Adaptive panel<br/>parameter sliders · layers · transitions"] -- "SetParameter" --> Live
         Model --> Bake["SongBaker (offline)<br/>one render per (section, layer) + tails"]
-        Bake --> Files["Assets/Music/Theme.mmusic<br/>Assets/Music/Theme.stems/*.ogg"]
+        Bake --> Files["Assets/Music/Theme.mfmusic<br/>Assets/Music/Theme.stems/*.ogg"]
         Panel -. "audition baked" .-> Inst["AdaptiveMusicInstance<br/>(editor AudioServer)"]
     end
     subgraph Game["Game"]
-        Res["AdaptiveMusic resource (.mmusic)"] --> Node["AdaptiveMusicPlayer node<br/>(game thread: MusicDirector)"]
+        Res["AdaptiveMusic resource (.mfmusic)"] --> Node["AdaptiveMusicPlayer node<br/>(game thread: MusicDirector)"]
         Code["game code: SetParameter · TriggerStinger · GoToSection"] --> Node
         Node -- "AudioCommands: start section at frame F,<br/>layer gains, stingers, stop" --> Voice
         subgraph AT["Audio thread"]
@@ -113,7 +113,7 @@ The design rests on four decisions:
 3. **Stems are rendered in isolation.** Each section is rendered per layer from a clean start. Its tail (reverb and
    delay after the end) is rendered as a separate one-shot. One run-time rule covers loop seams and transitions:
    *whenever a section ends at its end, its tail plays over whatever comes next.*
-4. **Additive data.** The adaptive data is a new `adaptive` block in `.msong` plus a `layer` field on tracks. A song
+4. **Additive data.** The adaptive data is a new `adaptive` block in `.mfsong` plus a `layer` field on tracks. A song
    without it behaves exactly as today, and an older editor keeps it unchanged.
 
 ## The adaptive song model
@@ -134,7 +134,7 @@ value means.
   ],
   "adaptive": {
     "start": "intro",
-    "output": "Assets/Music/Theme.mmusic",
+    "output": "Assets/Music/Theme.mfmusic",
     "tailSeconds": 4,
     "parameters": [
       { "name": "intensity", "kind": "continuous", "min": 0, "max": 1, "default": 0, "seekSpeed": 0.5 },
@@ -249,7 +249,7 @@ value means.
 - **Markers** are named ticks inside sections. Every marker emits `Marker(name)` when the music crosses it. Markers
   with `exit: true` are also transition points.
 
-**Back-compatibility.** Every field is additive and nothing bumps the `.msong` format. The `adaptive` block and the
+**Back-compatibility.** Every field is additive and nothing bumps the `.mfsong` format. The `adaptive` block and the
 track `layer` are read through the existing `[JsonExtensionData] Extra` by an older editor and written back unchanged.
 A song without `adaptive` plays, renders and loops exactly as today. Unknown ids (a curve on a deleted layer, a
 transition to a missing section) are kept in the file, ignored with a warning in the Adaptive panel's problems list,
@@ -386,7 +386,7 @@ menu. Both stay in the Song menu.
 
 - **Live** (the default) plays the song model through `SongEngine`. Edits are heard instantly, there is no bake, and
   plugins run.
-- **Baked** plays the last `.mmusic` through a real `AdaptiveMusicInstance` on the editor's `AudioServer`. This is
+- **Baked** plays the last `.mfmusic` through a real `AdaptiveMusicInstance` on the editor's `AudioServer`. This is
   exactly what the game will play. Baked mode is greyed out when no bake exists.
 
 How Live works:
@@ -421,7 +421,7 @@ How Live works:
 
 ## The bake
 
-**Bake** (`Music/Adaptive/SongBaker.cs`, `SongBakeJob` on a worker like `SongRenderJob`, `--bake-song <path.msong>`
+**Bake** (`Music/Adaptive/SongBaker.cs`, `SongBakeJob` on a worker like `SongRenderJob`, `--bake-song <path.mfsong>`
 for CI and `just bake-song`) turns the adaptive song into stems and a manifest.
 
 ### What is rendered
@@ -495,25 +495,25 @@ from a game parameter would mean running that effect at run time; v1 does not (s
 ### Output, names and UIDs
 
 ```
-Assets/Music/Theme.mmusic                     the manifest (mus_ UID, stable across bakes)
+Assets/Music/Theme.mfmusic                     the manifest (mus_ UID, stable across bakes)
 Assets/Music/Theme.stems/explore.perc.3f9a1c.ogg        body stem   (name.layer.hash)
 Assets/Music/Theme.stems/explore.perc.3f9a1c.tail.ogg   its tail
 Assets/Music/Theme.stems/victory.7b20e4.ogg             stinger (one stem, tail included)
 ```
 
-- **The manifest is the asset games reference.** `.mmusic` is a new extension with a new UID prefix `mus`
-  (`AssetUid.MusicPrefix`, `PrefixForExtension(".mmusic")`). A re-bake reads the existing manifest's UID and keeps it,
+- **The manifest is the asset games reference.** `.mfmusic` is a new extension with a new UID prefix `mus`
+  (`AssetUid.MusicPrefix`, `PrefixForExtension(".mfmusic")`). A re-bake reads the existing manifest's UID and keeps it,
   so scenes that reference the music never break.
 - **Stems are content-addressed.** The short hash in the name comes from the stem's inputs (see below). Stems get
   ordinary `aud_` UIDs from the `AssetDatabase`, and the manifest references them by UID and by path (the path is a
   fallback and for people). Nothing but the manifest references a stem.
 - **Commit order makes bakes atomic.** New stems are written to temporary names and moved into place. The manifest is
   written last through `DurableFile`, and then the stems the old manifest listed and the new one does not are deleted
-  with their `.meta`. The bake only ever deletes files a previous manifest listed. A cancelled or failed bake leaves the
+  with their `.mfmeta`. The bake only ever deletes files a previous manifest listed. A cancelled or failed bake leaves the
   previous manifest and all its stems intact, and a running game still streaming an old stem is not disturbed: a
   delete that fails because a file is open is retried at the next bake.
 - **The folder is generated.** The FileSystem panel shows `*.stems/` folders collapsed with a "generated" badge, and
-  the song's `.msong` gets the "bake out of date" badge the way a render does today.
+  the song's `.mfsong` gets the "bake out of date" badge the way a render does today.
 
 ### Incremental rebuild
 
@@ -543,7 +543,7 @@ nothing and rewrite only the manifest, so a re-bake after them is instant.
   place of a missing plugin. Encoding uses the helper's Vorbis encoder; without the helper, stems are written as
   16-bit `.wav` and a warning says so (the Render rule).
 
-### The `.mmusic` manifest
+### The `.mfmusic` manifest
 
 ```json
 {
@@ -587,7 +587,7 @@ calls SoundFlow, and nothing outside `Src/Audio` does either.
 
 ### `AdaptiveMusic` (resource)
 
-- **Loading.** `AdaptiveMusicImporter : IAssetImporter` makes `.mmusic` loadable through `ResourceLoader`, so an
+- **Loading.** `AdaptiveMusicImporter : IAssetImporter` makes `.mfmusic` loadable through `ResourceLoader`, so an
   `[Export] AdaptiveMusic? Music` property references it by `mus_` UID like any asset. It parses the manifest,
   compiles the shared logic (grid, parameter set, curves, rules) into immutable arrays, and holds one `AudioStream`
   per stem.
@@ -737,7 +737,7 @@ Audio panel. Release builds keep it (the dev overlay is a development tool every
 | Validation error (✖) in the adaptive song | the bake is refused with the list; Live preview skips the broken section or rule |
 | Missing plugin during a bake | the bake fails listing the stems; the previous bake is intact |
 | Bake cancelled or I/O failure | temp files deleted; the previous manifest and stems are untouched |
-| `.mmusic` from a newer format | loads read-only what it understands, warns once; unknown kinds play as silence |
+| `.mfmusic` from a newer format | loads read-only what it understands, warns once; unknown kinds play as silence |
 | Stem file missing or undecodable at run time | that lane is silent, one error names the section and layer; the music goes on |
 | Streamed lane not ready at a transition | the transition is missed and rescheduled at the next quantum (`LateMusicTransitions`) |
 | `SetParameter` with an unknown name or label | ignored, one warning per name (no exception in shipped games) |
@@ -837,7 +837,7 @@ Six PRs, each usable on its own, all built:
 
 | PR | Contents | After |
 |---|---|---|
-| **A1 — Shared logic** | `MainframeEngine/Src/Audio/Music/`: `MusicGrid`, parameters, curves, conditions, rules, `MusicDirector`, the `.mmusic` manifest types and reader; the `mus` UID prefix; the editor's `adaptive` model, `layer` field, validation and `SongDocument` actions (no UI). Tests. | — |
+| **A1 — Shared logic** | `MainframeEngine/Src/Audio/Music/`: `MusicGrid`, parameters, curves, conditions, rules, `MusicDirector`, the `.mfmusic` manifest types and reader; the `mus` UID prefix; the editor's `adaptive` model, `layer` field, validation and `SongDocument` actions (no UI). Tests. | — |
 | **A2 — Runtime** | `MusicVoice` (lanes, clock, action queue, fades, filter), music commands and events, `AudioBusInfo.MusicVoices`, `AdaptiveMusic` + importer, `AdaptiveMusicInstance`, `AdaptiveMusicPlayer` + signals, the SVF moved to `Src/Audio/Dsp/`, allocation gate, benchmarks, the showcase render-test player. Tested with hand-written manifests and generated WAV stems. | A1 |
 | **A3 — Bake** | `SongBaker`, `SongBakeJob`, isolation renders, tails, PDC trim, content-addressed stems, manifest writer, incremental hashes, atomic commit, `--bake-song` / `just bake-song`, FileSystem badges. | A1 (parallel with A2) |
 | **A4 — Editor: sections, layers, Live preview** | Sections lane, markers, layer chips, the Adaptive tab (Now, Parameters, Layers, Transitions, Stingers, Problems), `SongEngine` adaptive mode (section program, overlay cursor, layer buses), Shift+Space, Bake split button. | A1 (A3 for the Bake button) |
@@ -852,7 +852,7 @@ A2 and A3 touch disjoint files and can run in parallel; A4 can start as soon as 
 A1 is in `MainframeEngine/Src/Audio/Music/` (`MusicTypes`, `MusicGrid`, `MusicParameterSet`, `MusicCurve`, `MusicPlan`,
 `MusicDirector`, `MusicManifest`) and `MainframeEngine.Editor/Src/Music/Adaptive/` (`SongAdaptive`,
 `SongAdaptiveCompiler`, `SongAdaptiveValidator`, `SongDocument.Adaptive`). It assumes the recommended answers to open
-questions 2 (curves drive only layer volume and one filter) and 7 (`.mmusic` with the `mus_` prefix).
+questions 2 (curves drive only layer volume and one filter) and 7 (`.mfmusic` with the `mus_` prefix).
 
 **`MusicDirector` API**
 
@@ -883,10 +883,10 @@ questions 2 (curves drive only layer volume and one filter) and 7 (`.mmusic` wit
 
 **Files and UIDs**
 
-- `.mmusic` files are self-describing in the `AssetDatabase`: their UID is in the file.
+- `.mfmusic` files are self-describing in the `AssetDatabase`: their UID is in the file.
 - The FileSystem's reference fix-ups rewrite them in the project-file style.
 - **Open for A2:** `ResourceLoader` skips importers for self-describing files, so A2's `AdaptiveMusicImporter` needs
-  `.mmusic` routed to it.
+  `.mfmusic` routed to it.
 
 ## As built: A2
 
@@ -954,7 +954,7 @@ resampled to the device rate, sharing one read position per group.
 
 - **Loading.** `AdaptiveMusic.Load` and `FromManifest` (for tests and the editor's audition) are the entry points.
 - **Preloading.** `PreloadSections` and `Preload()` load stems ahead; `MissingStems` and `LoadNotice` report on them.
-- **Importer routing.** `ResourceLoader` now sends self-describing files that have an importer (only `.mmusic`) to
+- **Importer routing.** `ResourceLoader` now sends self-describing files that have an importer (only `.mfmusic`) to
   that importer, with the UID embedded in the file. This closes A1's open item.
 - **Stem lookup.** A stem resolves by UID when the `AssetDatabase` knows it, else by path.
 
@@ -1045,8 +1045,8 @@ stem) and 10 (explicit Bake, with an out-of-date badge).
   `<section>.at-<marker>.<layer>.<hash8>.tail.ogg` for tail points. Ids are made file-safe, and `<hash8>` is the first
   8 hex digits of the input hash.
 - **The manifest** starts from `SongAdaptiveCompiler.ToManifest` and is written with A1's `MusicManifestFormat.Write`.
-  Its `mus_` UID is kept from the previous manifest. Each stem gets an `aud_` UID in its `.meta`, with `loadMode` set to
-  `Stream` for section bodies and `Memory` for tails, stingers and transition segments. An existing `.meta` keeps its
+  Its `mus_` UID is kept from the previous manifest. Each stem gets an `aud_` UID in its `.mfmeta`, with `loadMode` set to
+  `Stream` for section bodies and `Memory` for tails, stingers and transition segments. An existing `.mfmeta` keeps its
   UID.
 - **Null stems.** A layer with nothing in a section gets `null` in `stems`. A stinger has only `"mix"`, whose `frames`
   includes its tail.
@@ -1061,14 +1061,14 @@ stem) and 10 (explicit Bake, with an out-of-date badge).
 **Incremental and atomic**
 
 - **Input hash.** It is a SHA-256 over canonical JSON: the bake version, rate and encoder, the section's kind, range
-  and cut, its length and tail frames, the isolated song as `.msong` JSON, the audio files' hashes and the plugins'
+  and cut, its length and tail frames, the isolated song as `.mfsong` JSON, the audio files' hashes and the plugins'
   catalog versions. The isolated song holds the stem's tracks with their instruments, inserts and state, volume, pan,
   notes and clips, plus the master volume.
 - **Reuse.** A stem is reused when the previous manifest's `inputs` has the same hash for its key and its files are at
   the expected paths. Curve, parameter, transition and marker-name edits therefore render nothing, and only the
   manifest is written again.
 - **Commit order.** New stems are staged as `*.baking.tmp` and moved into place only after every stem rendered. Then
-  the manifest is written through `DurableFile`, and then stale stems are deleted with their `.meta`.
+  the manifest is written through `DurableFile`, and then stale stems are deleted with their `.mfmeta`.
 - **Stale stems** are the ones the previous manifest listed and this one does not. The new manifest lists them in
   `bake.stale` before they are deleted, so a delete that fails (a game still streams the file) is retried at the next
   bake.
@@ -1080,8 +1080,8 @@ stem) and 10 (explicit Bake, with an out-of-date badge).
 - **Bake command.** File › Bake Adaptive Music (Cmd/Ctrl+B, `song.bake`) runs a `SongBakeJob` on a worker. Choosing it
   again cancels; the menu item shows the progress, and `SongBakeJob.Status` reads "Combat/Perc 7 of 18". The result
   goes to the Output panel. The toolbar's split button is A4.
-- **Headless.** `--bake-song <path.msong>` (`just bake-song <path>`) bakes like the command, headless.
-- **FileSystem.** It badges an adaptive song whose `.mmusic` is older than the song (`FileBadges.BakeOutOfDate`) and
+- **Headless.** `--bake-song <path.mfsong>` (`just bake-song <path>`) bakes like the command, headless.
+- **FileSystem.** It badges an adaptive song whose `.mfmusic` is older than the song (`FileBadges.BakeOutOfDate`) and
   every `*.stems` folder (`FileBadges.Generated`, a wand icon).
 
 **Tests:** `Tests/MainframeEngine.Editor.Tests/Music/Adaptive/SongBakeTests.cs`, with a deterministic test instrument,
@@ -1191,7 +1191,7 @@ Music panel and the Demo scene are A6.
 
 - **The switch.** Two chips in the Now row. Baked is greyed out until the song has a bake (and the editor an audio
   server).
-- **Playing the bake.** Baked plays the song's last `.mmusic` through A2's `AdaptiveMusicInstance` on the editor's
+- **Playing the bake.** Baked plays the song's last `.mfmusic` through A2's `AdaptiveMusicInstance` on the editor's
   `AudioServer` (the Music bus): the runtime code a game runs. The manifest is read again when its file changes, so a
   new bake is picked up on the next play.
 - **Control.** Audition values, Fire and Stop go to the instance.
@@ -1285,7 +1285,7 @@ built-in panels.
 - **After a bake** (`SongView`), every protocol 6 game is sent `ReloadMusic` with the manifest's UID and the project
   folder; the Output panel says how many.
 
-**The Demo** has a Music tab (`adaptive_music`, [Demo](demo.md)): `Assets/Music/adaptive_theme.msong` (the Demo loop's
+**The Demo** has a Music tab (`adaptive_music`, [Demo](demo.md)): `Assets/Music/adaptive_theme.mfsong` (the Demo loop's
 ZzFX instruments; Intro → Explore and Combat, looping, a Hit stinger; Perc and Lead layers over `intensity`, the Lead's
 low-pass opening with it; `area` moves Explore to Combat at the next bar and back with the stinger), baked with
 `just bake-song` and committed with its stems. `MusicVisualizer2D` draws the sections, the beats and the layer gains;
@@ -1345,7 +1345,7 @@ The user decided every open question on 2026-10-18, each with the recommended an
 5. **A stinger is one mixed stem**, so layer curves do not apply to stingers.
 6. **The Adaptive UI is a tab of the music Browser panel** (A), and the curve editor is a third bottom pane beside
    Piano Roll and Mixer.
-7. **`.mmusic` is its own extension with the `mus_` UID prefix** (not an `.mres` resource).
+7. **`.mfmusic` is its own extension with the `mus_` UID prefix** (not an `.mfres` resource).
 8. **Random variation** (sections grouped into a variation set, chosen by the director with a seeded RNG) comes later,
    in v1.1.
 9. **Fades are in beats only**, with no seconds option.

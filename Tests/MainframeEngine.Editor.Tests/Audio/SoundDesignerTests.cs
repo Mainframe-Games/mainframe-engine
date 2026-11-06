@@ -33,7 +33,7 @@ public sealed class SoundDesignerTests : IDisposable
     private (EditorWorkspace Workspace, EditedResource Resource, ZzfxStream Stream) OpenSound()
     {
         var w = Open();
-        var file = _project.Abs("Assets/Coin.mres");
+        var file = _project.Abs("Assets/Coin.mfres");
         ResourceSaver.Save(new ZzfxStream { ResourceName = "Coin" }, file);
         Assert.True(w.Inspector.InspectResourceFile(file));
         _editor!.Tick();

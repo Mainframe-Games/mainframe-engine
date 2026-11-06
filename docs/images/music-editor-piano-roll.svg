@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 770" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
   <title>Music editor song tab — piano roll (proposal)</title>
-  <desc>A .msong open in an editor tab: transport bar, track headers with mute/solo/arm, arrangement with clips, loop region and playhead, and the piano roll with keyboard, notes and velocity lane for the selected clip.</desc>
+  <desc>A .mfsong open in an editor tab: transport bar, track headers with mute/solo/arm, arrangement with clips, loop region and playhead, and the piano roll with keyboard, notes and velocity lane for the selected clip.</desc>
   <rect width="1120" height="770" fill="#ffffff"/>
   <style>
     .hdr{font-weight:600;font-size:13px;fill:#e8ebf2}
@@ -23,16 +23,16 @@
   <circle cx="38" cy="33" r="5" fill="#ef4444"/>
   <circle cx="54" cy="33" r="5" fill="#f59e0b"/>
   <circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="420" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — Theme.msong*</text>
+  <text x="420" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — Theme.mfsong*</text>
 
   <!-- tabs -->
   <rect x="26" y="50" width="788" height="24" fill="#1f2128"/>
   <rect x="26" y="50" width="118" height="24" fill="#262931" stroke="#3b3f4b"/>
-  <text x="36" y="66" class="s">Main.mscene</text>
+  <text x="36" y="66" class="s">Main.mfscene</text>
   <rect x="144" y="50" width="128" height="24" fill="#2f333d" stroke="#3b3f4b"/>
   <path d="M157,65.5 v-8 l7,-1.5 v8" fill="none" stroke="#e8ebf2" stroke-width="1.4"/>
   <circle cx="155.6" cy="65.8" r="2" fill="#e8ebf2"/><circle cx="162.6" cy="64.3" r="2" fill="#e8ebf2"/>
-  <text x="172" y="66" class="t">Theme.msong*</text>
+  <text x="172" y="66" class="t">Theme.mfsong*</text>
 
   <!-- transport -->
   <rect x="26" y="80" width="788" height="34" fill="#2a2d36"/>
@@ -736,7 +736,7 @@
   <circle cx="851" cy="138" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
   <text x="851" y="142" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">2</text>
   <text x="868" y="142" class="noteb">Render</text>
-  <text x="868" y="157" class="note">.ogg + .meta loop points;</text>
+  <text x="868" y="157" class="note">.ogg + .mfmeta loop points;</text>
   <text x="868" y="172" class="note">seamless loop renders twice</text>
   <circle cx="769.15" cy="129" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
   <text x="769.15" y="133" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">3</text>

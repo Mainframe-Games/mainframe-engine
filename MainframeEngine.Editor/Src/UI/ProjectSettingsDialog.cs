@@ -246,7 +246,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
         }
 
         rml.Append("<div class=\"ps-add\"><input type=\"text\" class=\"text\" id=\"ps-autoload-name\" placeholder=\"Name\"/>")
-            .Append("<input type=\"text\" class=\"text\" id=\"ps-autoload-what\" placeholder=\"Scene (Assets/…/X.mscene) or node type\"/>")
+            .Append("<input type=\"text\" class=\"text\" id=\"ps-autoload-what\" placeholder=\"Scene (Assets/…/X.mfscene) or node type\"/>")
             .Append("<button class=\"tool-button small\" data-op=\"autoload-browse\" data-tooltip=\"Browse — pick a scene\"><span class=\"icon icon-sm icon-folder-open\"></span></button>")
             .Append("<button class=\"tool-button small\" data-op=\"autoload-add\" data-tooltip=\"Add Autoload\"><span class=\"icon icon-sm icon-plus\"></span></button></div>");
     }
@@ -444,7 +444,7 @@ public sealed class ProjectSettingsDialog : EditorDocument
     private void PickScene(Action<string> then)
     {
         var items = AssetDatabase.Current.Entries
-            .Where(e => e.Value.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase))
+            .Where(e => e.Value.EndsWith(".mfscene", StringComparison.OrdinalIgnoreCase))
             .OrderBy(e => e.Value, StringComparer.Ordinal)
             .Select(e => new ListPickerItem(Path.GetFileNameWithoutExtension(e.Value), e.Value, "icon-movie", e.Value))
             .ToArray();

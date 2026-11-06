@@ -177,7 +177,7 @@ public sealed class UiLocalizationTests : IDisposable
     [Fact]
     public void LocaleSwitchLoadsTheLocalesFallbackFonts()
     {
-        var tablePath = Path.Combine(_locales.Directory, "fonts.mres");
+        var tablePath = Path.Combine(_locales.Directory, "fonts.mfres");
         ResourceSaver.Save(new FontFallbackTable
         {
             Locales =

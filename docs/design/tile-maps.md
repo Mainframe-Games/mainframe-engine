@@ -15,7 +15,7 @@ body per chunk, and save one base64 line per chunk.
 
 | Type | File | Role |
 |---|---|---|
-| `TileSet` | `MainframeEngine/Src/Scene/Nodes2D/Tiles/TileSet.cs` | Resource (`.mres`): `TileSize`, `TileShape` (only `Square`), `PhysicsLayers`, `CustomDataLayers`, `Sources`; cached id and name lookups; `Version` |
+| `TileSet` | `MainframeEngine/Src/Scene/Nodes2D/Tiles/TileSet.cs` | Resource (`.mfres`): `TileSize`, `TileShape` (only `Square`), `PhysicsLayers`, `CustomDataLayers`, `Sources`; cached id and name lookups; `Version` |
 | `TileSetPhysicsLayer`, `TileSetCustomDataLayer` | same | Collision layer, mask and `PhysicsMaterial`; a custom data layer's `Name` and `Type` |
 | `TileSetAtlasSource` | `Tiles/TileSetAtlasSource.cs` | A texture cut by a `SpriteSheetGrid` (`Margins`, `Separation`, `TextureRegionSize`); created `Tiles`; `TileOverrides`; texture padding; `CreateTilesFromOpaqueRegions` |
 | `TileData`, `TileCollisionPolygon` | `Tiles/TileData.cs` | Per tile or alternative: `TextureOrigin`, `Modulate`, `ZIndex`, `YSortOrigin`, `Probability`, `Collision`, `CustomData` (typed cached getters) |
@@ -163,7 +163,7 @@ ADR 0226. While a 2D tab's selection is a `TileMapLayer` with a `TileSet`:
 - **TileMap tab** (bottom dock, opens when a layer is selected): the source list, the atlas (created tiles bright,
   others dimmed; click picks, drag picks a rectangle pattern, Cmd/Ctrl+click toggles a tile of the random set; zoom
   buttons), the picked tile's alternatives, New Alternative and Edit TileSet.
-- **TileSet tab** (the layer's tile set, or a `TileSet` `.mres` open in the inspector): add a source from an image (it
+- **TileSet tab** (the layer's tile set, or a `TileSet` `.mfres` open in the inspector): add a source from an image (it
   asks whether to create tiles in the non-transparent regions), remove it, change its id; physics and custom data layers;
   **Setup** (margins, separation, region size, tile size; a click creates or removes a tile), **Select** (the tile's
   texture origin, modulate, z index, y-sort origin, probability and every custom data layer) and **Collision** (per
@@ -185,9 +185,9 @@ through public API: `GetUsedRect`, `GetUsedCells`, `GetCellTileData`, collision 
 
 `tiles_2d` ("Tiles 2D", icon `grid-pattern`) in `DemoScenes.All` ([Demo](demo.md)): a generated 4 × 2 atlas of 16 px tiles
 (`TilesArt`, `Assets/Tiles2D/tiles.png`: grass, path, stone, water, a tree's canopy and trunk, flowers, a bush) and its
-`tiles.mres` (one physics layer: full tiles on stone and water, polygons on trunks and bushes; custom data `surface`),
+`tiles.mfres` (one physics layer: full tiles on stone and water, polygons on trunks and bushes; custom data `surface`),
 written by `--write-scenes`. Three layers from an ASCII level — "Ground", "Walls" (stone and water: what blocks) and the
-y-sorted "Objects" — and the Sprites 2D hero (`hero.mres`) as a `TileHero2D` inside the objects layer: it walks the paths
+y-sorted "Objects" — and the Sprites 2D hero (`hero.mfres`) as a `TileHero2D` inside the objects layer: it walks the paths
 (or the `move_*` actions: WASD, arrows, left stick), plays idle or run, and reports the `surface` under its feet; a
 limited `Camera2D` follows. A `TileShadow2D`, a dark copy of the hero, chases it on a `NavigationGrid2D` that reads the
 walls layer ([Navigation → Tile map source](navigation.md#tile-map-source)). The panel shows collision and navigation,
@@ -200,7 +200,7 @@ chunk and body rebuild, and the shadow repaths). It is in the nav bar's 2D categ
 - **Unit:** `Canvas/TileMapLayerTests` (chunks, negative coordinates, coordinates, used cells, re-chunking, sub-item
   order and culling, y-sorted rows with children, z sub-items, flips, invalid tiles, padding, opaque regions,
   alternatives, custom data, a 0-byte scrolling 256 × 256 layer with y-sorted objects); `Canvas/TileMapSerializationTests`
-  (chunk lines, determinism, a Godot record array, bad data, the layout rule, the `Storage` hint, a `TileSet` `.mres`);
+  (chunk lines, determinism, a Godot record array, bad data, the layout rule, the `Storage` hint, a `TileSet` `.mfres`);
   `Physics/TileBodies2DTests` (merged rectangles, decomposition, rays and point queries reporting the layer,
   `GetCoordsForCollision`, flips, a character sliding along 20 tiles across two chunks, erasing, moving and scaling the
   layer, boxes resting and falling, an area seeing the layer once, no bodies without physics layers, 0 B stepping).

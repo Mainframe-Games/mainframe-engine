@@ -9,14 +9,14 @@ namespace MainframeEngine.Editor.Music;
 public readonly record struct SongReadResult(Song Song, bool ReadOnly, string? Notice);
 
 /// <summary>
-/// Reads and writes <c>.msong</c> files: versioned JSON (<see cref="Current"/>) upgraded through <see cref="Migrations"/>
+/// Reads and writes <c>.mfsong</c> files: versioned JSON (<see cref="Current"/>) upgraded through <see cref="Migrations"/>
 /// like <c>project.mfproj</c> (<see cref="ProjectSettingsFormat.Upgrade"/>), serialized with the source-generated
 /// <see cref="SongJsonContext"/> (no reflection), written like the project file (2-space indent, <c>\n</c>, non-ASCII
 /// unescaped) so the FileSystem's reference fix-ups rewrite it in the same style.
 /// </summary>
 public static class SongFormat
 {
-    public const string Extension = ".msong";
+    public const string Extension = FileExtensions.Song;
 
     /// <summary>The format this editor writes.</summary>
     public const int Current = 1;

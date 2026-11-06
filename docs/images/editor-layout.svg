@@ -15,7 +15,7 @@
   <!-- title bar -->
   <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
   <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="400" y="38" class="s">Mainframe Editor — MyGame — Main.mscene*</text>
+  <text x="400" y="38" class="s">Mainframe Editor — MyGame — Main.mfscene*</text>
 
   <!-- menu + toolbar -->
   <rect x="20" y="46" width="920" height="30" fill="#2a2d36"/>
@@ -64,8 +64,8 @@
 
   <!-- viewport -->
   <rect x="228" y="80" width="484" height="384" fill="#20232a" stroke="#3b3f4b"/>
-  <rect x="228" y="80" width="110" height="22" fill="#2f333d"/><text x="238" y="96" class="t">Main.mscene*</text>
-  <rect x="338" y="80" width="100" height="22" fill="#262931"/><text x="348" y="96" class="s">Player.mscene</text>
+  <rect x="228" y="80" width="110" height="22" fill="#2f333d"/><text x="238" y="96" class="t">Main.mfscene*</text>
+  <rect x="338" y="80" width="100" height="22" fill="#262931"/><text x="348" y="96" class="s">Player.mfscene</text>
   <!-- viewport content -->
   <rect x="232" y="104" width="476" height="356" fill="#3a5160"/>
   <g stroke="#5b7383" stroke-width="1">
@@ -109,7 +109,7 @@
   <text x="34" y="486" class="hdr">Output</text>
   <text x="120" y="486" class="s">All · Info · Warn · Error</text>
   <text x="34" y="508" class="t">[12:01:03.112] [INFO] Loaded project MyGame (12 node types)</text>
-  <text x="34" y="526" class="t">[12:01:05.480] [INFO] Saved Assets/Scenes/Main.mscene</text>
+  <text x="34" y="526" class="t">[12:01:05.480] [INFO] Saved Assets/Scenes/Main.mfscene</text>
   <text x="34" y="544" class="t" fill="#fca5a5">[12:01:09.017] [ERROR] Player.cs:42 NullReferenceException (game process)</text>
   <text x="760" y="550" class="doc">editor/output.rml</text>
 

@@ -486,11 +486,11 @@ public sealed partial class InspectorPanel : EditorDocument
                             expanded ? "Fold — hide the resource's properties"
                             : editable.IsExternal ? $"Edit — show {Path.GetFileName(editable.ResourcePath)}'s properties below (saved to the file when the scene is saved)"
                             : "Edit — show the resource's properties below", expanded);
-                    AppendButton(rml, row, "res-load", "folder-open", "Load — use a resource file (.mres, image, model, sound)");
+                    AppendButton(rml, row, "res-load", "folder-open", "Load — use a resource file (.mfres, image, model, sound)");
                     AppendButton(rml, row, "res-new", "circle-plus", $"New — create an inline {(p.ResourceType ?? typeof(Resource)).Name}");
                     if (value is not null)
                         AppendButton(rml, row, "res-clear", "x", "Clear — empty the slot");
-                    // More (G7.2): Save as .mres, Make Unique, Open, Show in FileSystem. Nested resource editing is single-node.
+                    // More (G7.2): Save as .mfres, Make Unique, Open, Show in FileSystem. Nested resource editing is single-node.
                     if (value is Resource and not MissingResource && !p.IsMulti)
                         AppendButton(rml, row, "res-more", "dots-vertical", "More — save, make unique, show the file");
                     rml.Append("</div>");
@@ -1409,7 +1409,7 @@ public sealed partial class InspectorPanel : EditorDocument
         var start = Workspace.Session.ProjectRoot is { } root && Directory.Exists(Path.Combine(root, "Assets"))
             ? Path.Combine(root, "Assets")
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var model = new FilePickerModel(FilePickerMode.Open, start, ["*.mres", "*.png", "*.jpg", "*.gltf", "*.glb", "*.ogg", "*.wav", "*.mp3", "*.flac"]);
+        var model = new FilePickerModel(FilePickerMode.Open, start, ["*.mfres", "*.png", "*.jpg", "*.gltf", "*.glb", "*.ogg", "*.wav", "*.mp3", "*.flac"]);
         Workspace.FilePicker.Show(model, $"Load {label}", "Load", path =>
         {
             try
@@ -1451,13 +1451,13 @@ public sealed partial class InspectorPanel : EditorDocument
         Rebuild();
     }
 
-    // Inline resources, and resource files (.mres) edited in place: their changes are saved with the scene (ADR 0169).
+    // Inline resources, and resource files (.mfres) edited in place: their changes are saved with the scene (ADR 0169).
     // Imported assets (a texture, a model, a LUT) are external but keep their data in the source file: not editable here.
     private static bool IsEditableInline(Resource resource) =>
-        !resource.IsExternal || resource.ResourcePath!.EndsWith(".mres", StringComparison.OrdinalIgnoreCase);
+        !resource.IsExternal || resource.ResourcePath!.EndsWith(".mfres", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Save as .mres (editor-viewport-tools G7.2, the minimal path of ADR 0169): a deep copy of the inline resource in row
+    /// Save as .mfres (editor-viewport-tools G7.2, the minimal path of ADR 0169): a deep copy of the inline resource in row
     /// <paramref name="p"/>'s slot is saved to a file the user picks, and every slot of the edited scene that held the
     /// inline resource gets the file's (one undo step; undo puts the inline resource back, the file stays).
     /// </summary>
@@ -1469,7 +1469,7 @@ public sealed partial class InspectorPanel : EditorDocument
             ? Path.Combine(root, "Assets")
             : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var name = original.ResourceName is { Length: > 0 } named ? named : original.GetType().Name;
-        var model = new FilePickerModel(FilePickerMode.Save, start, ["*.mres"], name + ".mres");
+        var model = new FilePickerModel(FilePickerMode.Save, start, ["*.mfres"], name + ".mfres");
         Workspace.FilePicker.Show(model, $"Save {p.Label} as", "Save", path => SaveResourceAs(scene, original, path));
     }
 

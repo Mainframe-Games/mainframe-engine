@@ -26,7 +26,7 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     /// <summary>The scene root (its <see cref="Node.Owner"/> is null; the nodes it owns are saved).</summary>
     public Node Root { get; }
 
-    /// <summary>Absolute path of the <c>.mscene</c>, or null for a new scene never saved.</summary>
+    /// <summary>Absolute path of the <c>.mfscene</c>, or null for a new scene never saved.</summary>
     public string? FilePath { get; internal set; }
 
     /// <summary>The offscreen view the scene's world renders into (the editor viewport shows it).</summary>
@@ -102,7 +102,7 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
         if (Equals(old, value))
             return; // nothing changed (also mid-drag: no entry, no redo branch cut, no dirty flag)
         if (target is Resource { IsExternal: true } file)
-            _editedResourceFiles.Add(file); // a .mres edited in place (ADR 0169): written when the scene is saved
+            _editedResourceFiles.Add(file); // a .mfres edited in place (ADR 0169): written when the scene is saved
         History.Commit(new SetPropertyAction(target, property, old, value), mergeKey: mergeKey);
     }
 
@@ -118,7 +118,7 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
     }
 
     /// <summary>
-    /// Resource files (<c>.mres</c>, such as a shared <see cref="PostProcessProfile"/>) edited in place through this scene's
+    /// Resource files (<c>.mfres</c>, such as a shared <see cref="PostProcessProfile"/>) edited in place through this scene's
     /// inspector: <see cref="EditorSession.Save"/> writes them with the scene (Godot saves edited sub-resources the same way).
     /// </summary>
     public IReadOnlyCollection<Resource> EditedResourceFiles => _editedResourceFiles;
@@ -141,7 +141,7 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
 
     /// <summary>
     /// Every slot of the scene that holds <paramref name="resource"/>: exported properties of the nodes the scene saves and
-    /// of the inline resources they reach (what <see cref="SceneSaver"/> writes). Save as .mres points them all at the file.
+    /// of the inline resources they reach (what <see cref="SceneSaver"/> writes). Save as .mfres points them all at the file.
     /// </summary>
     public IReadOnlyList<(object Target, ExportPropertyInfo Property)> SlotsHolding(Resource resource)
     {
@@ -193,7 +193,7 @@ public sealed class EditedScene : IEditorTab, IInspectorContext
         if (!ReferenceEquals(property.GetValue(target), copy))
             return null; // refused (the scene simulates): nothing changed, no file to write
         if (target is Resource { IsExternal: true } file)
-            _editedResourceFiles.Add(file); // a slot of a .mres edited in place: written with the scene
+            _editedResourceFiles.Add(file); // a slot of a .mfres edited in place: written with the scene
         return copy;
     }
 

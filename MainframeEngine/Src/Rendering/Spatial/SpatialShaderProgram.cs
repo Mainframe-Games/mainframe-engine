@@ -48,7 +48,7 @@ public enum SpatialDepthDraw : byte
 /// <summary>
 /// A spatial surface shader's material interface (<c>import mainframe.spatial;</c>, ADR 0237 over ADR 0205's passes): its
 /// parameters and render modes, built by mf-shaders from slangc's reflection and read back from the shader's
-/// <c>x.slang.layout.json</c>. Parameters are one std140 block at binding 0 of the material set (set 2; set 1 in the shadow
+/// <c>x.slang.mflayout.json</c>. Parameters are one std140 block at binding 0 of the material set (set 2; set 1 in the shadow
 /// casters) and up to <see cref="MaxSamplers"/> textures at bindings 1….
 /// </summary>
 public sealed record SpatialShaderProgram(

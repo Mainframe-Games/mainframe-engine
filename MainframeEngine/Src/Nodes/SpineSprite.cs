@@ -20,7 +20,7 @@ public sealed class SpineAnimationMix : Resource
 
 /// <summary>
 /// A Spine skeleton and its atlas (spine-godot's <c>SpineSkeletonDataResource</c>): the <c>.atlas</c> (its pages load
-/// through <see cref="ResourceLoader"/>, so their <c>.meta</c> import settings apply), a binary <c>.skel</c> or a
+/// through <see cref="ResourceLoader"/>, so their <c>.mfmeta</c> import settings apply), a binary <c>.skel</c> or a
 /// <c>.json</c> export (Spine 4.3), the default crossfade and per-pair mixes. Loaded on first use and shared by every
 /// <see cref="SpineSprite"/> using it.
 /// </summary>
@@ -83,7 +83,7 @@ public sealed class SpineSkeletonDataResource : Resource
     {
         public void Load(AtlasPage page, string path)
         {
-            // Through the loader (its .meta import settings) when the page is in the project, else straight from the file.
+            // Through the loader (its .mfmeta import settings) when the page is in the project, else straight from the file.
             var project = AssetDatabase.Current.ToProjectPath(path);
             var texture = ResourceLoader.Exists(project) ? ResourceLoader.Load<Texture2D>(project) : Texture2D.FromFile(path);
             page.rendererObject = texture;

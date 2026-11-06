@@ -139,7 +139,7 @@ public static class TileSetEditing
 {
     /// <summary>
     /// Runs <paramref name="change"/> on <paramref name="set"/> and records it as one entry named <paramref name="name"/>
-    /// (nothing when it changed nothing). A <c>.mres</c> edited through a scene is written when the scene is saved.
+    /// (nothing when it changed nothing). A <c>.mfres</c> edited through a scene is written when the scene is saved.
     /// </summary>
     public static bool Edit(IInspectorContext context, TileSet set, string name, Action<TileSet> change)
     {

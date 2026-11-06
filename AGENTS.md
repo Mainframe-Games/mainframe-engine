@@ -15,7 +15,7 @@ just test-render      # render tests: goldens + validation gate + allocation gat
 just test-video-ffmpeg  # the video timeline's export graphs through the real ffmpeg (opt-in; outputs in artifacts/video-ffmpeg)
 just test-linux       # CI's Linux unit/editor tests in Docker (x86_64 ubuntu:24.04)
 just render-tests-linux  # render tests on lavapipe in Docker: checks/records the `lavapipe` goldens locally
-just demo             # the Demo game: dotnet run --project Examples/Demo/Demo.Desktop (extra args: --scene Assets/Scenes/x.mscene, ...)
+just demo             # the Demo game: dotnet run --project Examples/Demo/Demo.Desktop (extra args: --scene Assets/Scenes/x.mfscene, ...)
 just demo-screenshots # one PNG per Demo scene in docs/images/demo (README Showcase); `just qa` is an alias
 just golden-update    # re-record render-test goldens for this driver; inspect the PNGs before committing
 just format           # dotnet format (format-check is what CI runs)
@@ -57,6 +57,11 @@ Light/shadow limits live only in `MainframeEngine/Assets/Shaders/limits.json` (t
 `ShaderLimits.g.cs` and `include/limits.slang`). Read content through `ContentFiles` (resolve the path with
 `ContentPaths.Resolve` first), never `File`/`Directory` or a working-directory-relative path: exports serve it from a pack, and
 `ContentIoAuditTests` fails on a direct read (a read that must see the disk says why with `// disk-io:`).
+
+Every file extension the engine, editor, video library or tools define starts with `.mf` (`.mfscene`, `.mfres`,
+`.mfmeta`, …; ADR 0249, `docs/design/asset-pipeline.md#file-extensions`). Add new ones to `FileExtensions`;
+`FileExtensionRuleTests` fails on an extension constant without the prefix. The legacy names (`.mscene`, `.mres`,
+`.meta`, …) are read only through `FileExtensions` and renamed by the editor's `FileExtensionMigration`.
 
 Rendering changes must keep the render tests green; if output changes intentionally, run
 `just golden-update`, inspect the PNGs and commit them (see `docs/design/testing.md`). Per-frame code
@@ -119,12 +124,12 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `MeshRenderer` batching, `PipelineStateCache`, picking, sub-viewports; `Src/Resources/Import/` — texture/model (Assimp) importers;
   `Rendering/Shaders/` + `Assets/Shaders/include/mainframe/` — game shaders are Slang surface shaders (ADR 0237: `.slang`
   files starting `import mainframe.spatial;` or `…canvas;`; `SurfaceShaderCompiler` generates every pass, `SlangReflection`
-  reads `struct Material` into `x.slang.layout.json`, `SurfaceShaderBuild` builds them: `just canvas-shaders`, checked by
+  reads `struct Material` into `x.slang.mflayout.json`, `SurfaceShaderBuild` builds them: `just canvas-shaders`, checked by
   `just shaders-check`); spatial ones draw as `ShaderMaterial`s on meshes (ADR 0205, `MeshRenderer.Spatial.cs`)
 - `MainframeEngine/Src/Servers/` — `ServerRegistry`, `RenderServer`
 - `MainframeEngine/Src/Audio/` — `AudioServer` (SoundFlow; null device when there is no audio device), buses,
   `AudioStream`, audio nodes (`AudioPlayer`/`2D`/`3D`, `AudioListener3D`); adaptive music in `Music/` (`MusicDirector`,
-  `.mmusic`, ADR 0196, shared with the editor's songs; the runtime: `AdaptiveMusic` resource, `AdaptiveMusicInstance`,
+  `.mfmusic`, ADR 0196, shared with the editor's songs; the runtime: `AdaptiveMusic` resource, `AdaptiveMusicInstance`,
   `AdaptiveMusicPlayer` node, `MusicVoice` in `Graph/` per `AudioBusInfo.MusicVoices`); DSP shared with the editor in
   `Dsp/` (`Svf`); audio-thread code in `Graph/`, lock-free
   rings + streaming in `Threading/`, decoders in `Decoding/`. Game code never calls SoundFlow: it goes through
@@ -162,7 +167,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   pass-level timing always on); the overlay's Profiler section (`DevOverlay/DevOverlayProfiler.cs`); the editor's Profiler tab
   (`MainframeEngine.Editor/Src/UI/ProfilerPanel.cs`). See `docs/design/profiler.md`
 - `MainframeEngine/Src/Localization/` — `Tr` (gettext catalogs, locale switching), RML text contract, font fallback
-- `MainframeEngine/Src/Saves/` — G4 save games: `SaveServer` (slots, `.msave` header + payload, worker, durable writes with
+- `MainframeEngine/Src/Saves/` — G4 save games: `SaveServer` (slots, `.mfsave` header + payload, worker, durable writes with
   backups, recovery, thumbnails), `SaveSchema<T>` (game `JsonTypeInfo` + `JsonMigration`s; trim/AOT analyzers are errors
   here), `ISaveStorage`/`ICloudSaveBackend` (M13 seam). `Src/Serialization/` also holds `JsonMigrations`, `DurableFile`,
   `ConfigFile`; `Src/UI/Settings/` the drop-in `SettingsMenu`
@@ -255,7 +260,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
     protected override void OnLoad()
     {
         base.OnLoad();
-        Tree.ChangeSceneToFile("Assets/Scenes/Main.mscene"); // or Root.AddChild(nodeBuiltInCode)
+        Tree.ChangeSceneToFile("Assets/Scenes/Main.mfscene"); // or Root.AddChild(nodeBuiltInCode)
     }
 }
 ```
@@ -280,7 +285,7 @@ pipelines then bind the "no shadows" fallback set.
 
 Serialized members are `[Export]` (public/internal, read-write) and signals are `[Signal]` C# events; any
 project declaring node/resource types references `MainframeEngine.Generators` as an analyzer
-(`OutputItemType="Analyzer" ReferenceOutputAssembly="false"`). Scenes are `.mscene` JSON
+(`OutputItemType="Analyzer" ReferenceOutputAssembly="false"`). Scenes are `.mfscene` JSON
 (`SceneSaver.Save`, `ResourceLoader.Load<PackedScene>`, `Instantiate()`); see
 `docs/design/scene-serialization.md`. Regenerate the Demo scenes with
 `dotnet run --project Examples/Demo/Demo.Desktop -- --write-scenes Examples/Demo/Assets/Scenes`.

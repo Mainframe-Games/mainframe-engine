@@ -60,15 +60,15 @@ shaders-check:
     sh build/shaders.sh check
     dotnet run --project Tools/MainframeEngine.ShaderBuild -- check {{surface_shader_folders}}
 
-# Run the editor (extra args are passed through, e.g. just editor Examples/Demo/Assets/Scenes/basic_3d.mscene)
+# Run the editor (extra args are passed through, e.g. just editor Examples/Demo/Assets/Scenes/basic_3d.mfscene)
 editor *args:
     dotnet run --project MainframeEngine.Editor -- {{args}}
 
-# Render a song (.msong) into its project headless, like the song tab's Render: the output and its .meta
+# Render a song (.mfsong) into its project headless, like the song tab's Render: the output and its .mfmeta
 render-song path:
     dotnet run --project MainframeEngine.Editor -c Release -- --render-song {{path}}
 
-# Bake an adaptive song headless into its project: stems + the .mmusic manifest (CI, batch bakes; only changed stems render)
+# Bake an adaptive song headless into its project: stems + the .mfmusic manifest (CI, batch bakes; only changed stems render)
 bake-song path:
     dotnet run --project MainframeEngine.Editor -c Release -- --bake-song {{path}}
 
@@ -145,7 +145,7 @@ forest-brand:
     build/brand/app-icon.sh Examples/Forest/Brand forest
     mkdir -p Examples/Forest/Assets/Brand && cp Examples/Forest/Brand/png/icon-256.png Examples/Forest/Assets/Brand/icon.png
 
-# Build the Forest's log cabin (Assets/Art/Cabin/cabin.gltf) headless in Blender from Tools/cabin/build_cabin.py, then its .meta sidecars (BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
+# Build the Forest's log cabin (Assets/Art/Cabin/cabin.gltf) headless in Blender from Tools/cabin/build_cabin.py, then its .mfmeta sidecars (BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
 forest-cabin *args:
     "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Forest/Tools/cabin/build_cabin.py -- {{args}}
     python3 Examples/Forest/Tools/fetch_assets.py --only metas
@@ -179,7 +179,7 @@ neon-brand:
 neon-audio:
     dotnet test Examples/Neon/Neon.Tests --filter "FullyQualifiedName~NeonAudioRenderTests"
 
-# Build Neon's apartment (Assets/Art/Apartment: apartment.gltf, resident.gltf): the posters, then headless Blender from Tools/apartment/build_apartment.py and build_resident.py (after fetch_mpfb_packs.py installs MPFB and its CC0 packs in your Blender), then .meta sidecars (textures: python3 Examples/Neon/Tools/fetch_assets.py; BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
+# Build Neon's apartment (Assets/Art/Apartment: apartment.gltf, resident.gltf): the posters, then headless Blender from Tools/apartment/build_apartment.py and build_resident.py (after fetch_mpfb_packs.py installs MPFB and its CC0 packs in your Blender), then .mfmeta sidecars (textures: python3 Examples/Neon/Tools/fetch_assets.py; BLENDER=<path> overrides; args: --preview DIR, --verify DIR)
 neon-art *args:
     python3 Examples/Neon/Tools/apartment/make_posters.py
     "${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}" -b --factory-startup --python Examples/Neon/Tools/apartment/build_apartment.py -- {{args}}

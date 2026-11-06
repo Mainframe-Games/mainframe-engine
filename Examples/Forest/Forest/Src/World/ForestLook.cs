@@ -13,10 +13,10 @@ namespace Forest;
 public static class ForestLook
 {
     /// <summary>The post-processing profile, relative to the project folder.</summary>
-    public const string ProfilePath = "Assets/PostProcess/forest.mres";
+    public const string ProfilePath = "Assets/PostProcess/forest.mfres";
 
     /// <summary>The world's lens, relative to the project folder.</summary>
-    public const string LensPath = "Assets/PostProcess/forest-lens.mres";
+    public const string LensPath = "Assets/PostProcess/forest-lens.mfres";
 
     /// <summary>
     /// The morning look's first version: eye adaptation, a little glow (only the sun, its glints and the brightest sky gaps),

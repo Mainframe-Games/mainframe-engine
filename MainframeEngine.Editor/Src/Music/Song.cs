@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
-/// An editor song (<c>.msong</c>): one tempo and time signature, a loop region, render settings, the master and its
+/// An editor song (<c>.mfsong</c>): one tempo and time signature, a loop region, render settings, the master and its
 /// tracks. Everything on the timeline is in ticks (<see cref="Ppq"/> per quarter note). Editor-only: games play the
 /// rendered file. Edit it through a <see cref="SongDocument"/> (undoable); read and write it with <see cref="SongFormat"/>.
 /// See docs/design/future/music-editor.md.

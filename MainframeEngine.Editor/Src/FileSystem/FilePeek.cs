@@ -6,7 +6,7 @@ namespace MainframeEngine.Editor;
 internal readonly record struct FileReference(string? Uid, string? Path);
 
 /// <summary>
-/// What the FileSystem panel needs from a <c>.mscene</c>/<c>.mres</c>/<c>project.mfproj</c>, read in one
+/// What the FileSystem panel needs from a <c>.mfscene</c>/<c>.mfres</c>/<c>project.mfproj</c>, read in one
 /// <see cref="JsonDocument"/> pass: the root type, the UID, the files it references, or the parse error.
 /// </summary>
 internal sealed class FilePeek

@@ -17,7 +17,7 @@ the ZzFX port), [Audio](../audio.md), [Editor](../editor.md), [Natives](../nativ
 ## Problem
 
 Game music today is made outside the engine: in a DAW (Reaper, GarageBand) with the developer's plugins, then exported,
-converted and copied into `Assets/`, with loop points typed into the file's `.meta` by hand. Every change goes round
+converted and copied into `Assets/`, with loop points typed into the file's `.mfmeta` by hand. Every change goes round
 that loop again. For placeholder and prototype music, and for small games generally, a deliberately simple music tool
 inside the editor would remove the round trip, keep the song's source next to the game, and make music loop correctly
 in game without hand-tuned numbers.
@@ -26,7 +26,7 @@ in game without hand-tuned numbers.
 
 A **really simple DAW** as an editor tab:
 
-- **Songs are project files** (`.msong`, JSON) that open in a tab beside scenes, with undo/redo, save and the usual
+- **Songs are project files** (`.mfsong`, JSON) that open in a tab beside scenes, with undo/redo, save and the usual
   file operations (move/rename keep references).
 - **Instrument tracks** play a VST3 instrument, or the built-in ZzFX instrument when there are no plugins (other
   machines, CI). Notes live in **MIDI clips** on an arrangement timeline and are edited in a **piano roll**.
@@ -35,7 +35,7 @@ A **really simple DAW** as an editor tab:
 - **MIDI keyboard input:** play the selected track's instrument live and record into clips.
 - **Plugin editors:** each plugin's own GUI opens in its own window (SSD Sampler's kit pages, Saturation Knob's knob).
 - **Render to `.ogg`.** "Render" writes the song as an `.ogg` into the project and sets the file's loop points in its
-  `.meta` from the song's loop region, so `AudioPlayer` + `AudioStream` play and loop it seamlessly in game with no
+  `.mfmeta` from the song's loop region, so `AudioPlayer` + `AudioStream` play and loop it seamlessly in game with no
   new runtime code.
 - **Plugins cannot crash the editor.** They run in a helper process.
 
@@ -43,7 +43,7 @@ A **really simple DAW** as an editor tab:
 
 - **Live song playback in games.** Games play the rendered `.ogg`; VST plugins only exist on the developer's machine.
   Adaptive music (sections, layers, parameters, quantized transitions) is a separate design:
-  [Adaptive music](adaptive-music.md), which bakes stems for a runtime player.
+  [Adaptive music](../adaptive-music.md), which bakes stems for a runtime player.
 - Audio Units, VST2, CLAP, LV2. VST3 covers the target plugins (every plugin on the author's machine ships a `.vst3`;
   the SDK is MIT since 3.8, October 2025). CLAP is the natural second format later.
 - Audio recording (microphone/line in), time-stretching, warping, comping.
@@ -57,10 +57,10 @@ A **really simple DAW** as an editor tab:
 ```mermaid
 flowchart TB
     subgraph Editor["Editor process (C#)"]
-        Tab["SongTab (IEditorTab)<br/>transport · arrangement · piano roll · mixer"] -- "undoable edits" --> Model["Song model (.msong)"]
+        Tab["SongTab (IEditorTab)<br/>transport · arrangement · piano roll · mixer"] -- "undoable edits" --> Model["Song model (.mfsong)"]
         Model --> Engine["SongEngine (render thread)<br/>sequencer · mixer · PDC · built-in instruments · audio clips"]
         Engine -- "push frames" --> Gen["AudioStreamGenerator voice<br/>(AudioServer, Master bus)"]
-        Engine -- "offline render" --> Render["SongRenderer → WAV temp → .ogg + .meta"]
+        Engine -- "offline render" --> Render["SongRenderer → WAV temp → .ogg + .mfmeta"]
         Host["PluginHostClient"]
     end
     subgraph Helper["mfplughost process (C++, native)"]
@@ -85,7 +85,7 @@ helper at all, and the native code stays small.
 ## The song model
 
 `MainframeEngine.Editor/Src/Music/Song.cs` and friends; editor-only types (games never load songs), serialized with
-`System.Text.Json` to `.msong`. The file is versioned, with migrations like `project.mfproj`:
+`System.Text.Json` to `.mfsong`. The file is versioned, with migrations like `project.mfproj`:
 
 ```json
 {
@@ -221,7 +221,7 @@ itself keeps its own entitlements). `build/package-editor.sh` gains that step; d
 
 ## The song tab (UI)
 
-Double-clicking a `.msong` opens a **SongTab** (`IEditorTab`, like `UiPreview`). File › New › Song, or the FileSystem
+Double-clicking a `.mfsong` opens a **SongTab** (`IEditorTab`, like `UiPreview`). File › New › Song, or the FileSystem
 panel's New menu, creates one with a single built-in-instrument track. The scene tree and inspector rest while it is
 active. The layout:
 
@@ -251,7 +251,7 @@ active. The layout:
 
 ## Render
 
-**Render** (transport button, also the FileSystem menu on a `.msong`):
+**Render** (transport button, also the FileSystem menu on a `.mfsong`):
 
 1. Captures every plugin state, prepares a fresh engine instance in **offline** mode (no AudioServer, no timeouts,
    faster than real time where plugins allow), and renders the song from 0 to the end of the last clip plus
@@ -261,11 +261,11 @@ active. The layout:
 3. Writes a temporary 32-bit float WAV (`WavWriter` from the sound-designer work) and asks the helper to encode it
    (`encode <wav> <ogg> quality`); with no helper binary available it keeps the `.wav` as the output instead and says
    so. Output defaults to `Assets/Music/<SongName>.ogg`.
-4. Writes the output file's `.meta` import settings: `loop` from the song's loop toggle, `loopStart` 0 and `loopEnd` 0
+4. Writes the output file's `.mfmeta` import settings: `loop` from the song's loop toggle, `loopStart` 0 and `loopEnd` 0
    for a seamless render (the whole file is the loop), or the region in seconds otherwise; `loadMode` `Stream`.
 5. Reports progress in a splash ("Rendering Theme… 63 %", cancellable) and the result in the Output panel.
 
-The FileSystem panel badges a `.msong` whose output is older than the song ("render out of date"). Rendering is explicit;
+The FileSystem panel badges a `.mfsong` whose output is older than the song ("render out of date"). Rendering is explicit;
 saving never renders.
 
 ## Error handling
@@ -294,7 +294,7 @@ saving never renders.
   round trip, latency, offline mode and encode. A `crasher` test plugin covers recovery.
 - **Recording:** synthetic timestamped MIDI events through the fake host land at latency-compensated positions;
   overdub merges into one clip; one undo entry.
-- **Render:** seamless-loop output has its tail folded in (energy at the start of the file); the `.meta` loop settings
+- **Render:** seamless-loop output has its tail folded in (energy at the start of the file); the `.mfmeta` loop settings
   are written; the file plays and loops through `AudioStream` on the null device.
 - **Allocation:** the render thread allocates nothing in steady-state playback (allocation counter around 1 000
   blocks).
@@ -305,8 +305,8 @@ saving never renders.
 
 Four PRs, each usable on its own:
 
-1. **Songs without plugins:** `.msong` model, SongTab with arrangement, piano roll and mixer, SongEngine with the
-   built-in ZzFX instrument and audio clips, `AudioStreamGenerator` in the engine, Render to `.wav` + `.meta`.
+1. **Songs without plugins:** `.mfsong` model, SongTab with arrangement, piano roll and mixer, SongEngine with the
+   built-in ZzFX instrument and audio clips, `AudioStreamGenerator` in the engine, Render to `.wav` + `.mfmeta`.
 2. **Plugin host:** `Native/PluginHost` (VST3 SDK), scanning, instruments and effects, plugin windows, PDC, crash
    recovery, signing step, CI natives build.
 3. **Encoding:** libvorbisenc in the helper, Render to `.ogg`.

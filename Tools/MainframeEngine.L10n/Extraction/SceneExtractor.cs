@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace MainframeEngine.L10n.Extraction;
 
 /// <summary>
-/// Extracts <c>[Export(Translatable = true)]</c> string values from scene (<c>.mscene</c>) and resource (<c>.mres</c>)
+/// Extracts <c>[Export(Translatable = true)]</c> string values from scene (<c>.mfscene</c>) and resource (<c>.mfres</c>)
 /// files: node properties, nested-instance properties and overrides (typed through the instanced scene file), and
 /// inline resources. Each reference carries the JSON line of the value; the extracted comment names the node path and
 /// property for translators.
@@ -21,8 +21,9 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
     private readonly Dictionary<string, Dictionary<string, string>?> _instanceTypes = new(StringComparer.Ordinal);
     private string _currentFile = string.Empty;
 
-    /// <summary>File extensions scanned in directories.</summary>
-    public static readonly string[] Extensions = [".mscene", ".mres"];
+    /// <summary>File extensions scanned in directories (with their names before ADR 0249, for projects not migrated yet).</summary>
+    public static readonly string[] Extensions =
+        [FileExtensions.Scene, FileExtensions.Resource, FileExtensions.LegacyOf(FileExtensions.Scene)!, FileExtensions.LegacyOf(FileExtensions.Resource)!];
 
     /// <summary>Node or resource types found in files that the index does not know (pass <c>--assembly</c>).</summary>
     public SortedSet<string> UnknownTypes { get; } = new(StringComparer.Ordinal);
@@ -48,7 +49,7 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
         else if (root.TryGetProperty("root", out var node) && node.ValueKind == JsonValueKind.Object)
             ExtractNode(context, node, "root", parentPath: null); // format 1: children nested
         else if (root.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String)
-            ExtractProps(context, type.GetString()!, root, "", Path.GetFileName(file)); // a .mres file
+            ExtractProps(context, type.GetString()!, root, "", Path.GetFileName(file)); // a .mfres file
 
         return context.Added;
     }
@@ -174,7 +175,7 @@ internal sealed class SceneExtractor(TranslatablePropertyIndex index, string pro
 
     /// <summary>
     /// Node path → type for the scene at <paramref name="scenePath"/> (a content path such as
-    /// <c>Assets/Scenes/Player.mscene</c>), including nodes of scenes it instances, so instance properties and
+    /// <c>Assets/Scenes/Player.mfscene</c>), including nodes of scenes it instances, so instance properties and
     /// overrides can be typed. Null when the file cannot be found or read.
     /// </summary>
     private Dictionary<string, string>? InstanceTypes(string scenePath, string fromFile, int depth)

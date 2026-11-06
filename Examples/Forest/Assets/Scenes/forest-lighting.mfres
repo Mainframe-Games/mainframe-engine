@@ -11,6 +11,6 @@
     "BakeHash": "a23dd40083abc03a14f4b55cb184233ac18c9d7ab28b17fd24e754f31c4a68aa",
     "RaysPerProbe": 192,
     "Bounces": 2,
-    "DataFile": "forest-lighting.probes"
+    "DataFile": "forest-lighting.mfprobes"
   }
 }

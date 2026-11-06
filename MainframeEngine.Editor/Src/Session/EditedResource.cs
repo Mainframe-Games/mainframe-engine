@@ -15,7 +15,7 @@ public interface IInspectorContext
 }
 
 /// <summary>
-/// A resource file (<c>.mres</c>) opened in the inspector on its own — double-click in the FileSystem panel, or the
+/// A resource file (<c>.mfres</c>) opened in the inspector on its own — double-click in the FileSystem panel, or the
 /// Project Settings' bus layout "Edit": its own undo history and Save (<see cref="ResourceSaver"/>, keeping its UID).
 /// </summary>
 public sealed class EditedResource : IInspectorContext, IDisposable

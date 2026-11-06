@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace MainframeEngine.Editor.Music;
 
-/// <summary>A preset the synth's menu lists: a factory one (built in code) or a project <c>.mres</c>.</summary>
+/// <summary>A preset the synth's menu lists: a factory one (built in code) or a project <c>.mfres</c>.</summary>
 /// <param name="Id"><c>factory:&lt;category&gt;/&lt;name&gt;</c> or the resource's UID (else its project path).</param>
 public sealed record SynthPresetEntry(string Id, string Category, string Name, string? Path);
 
@@ -52,7 +52,7 @@ public static class SynthPresets
             return result;
         try
         {
-            foreach (var file in Directory.EnumerateFiles(content, "*.mres", SearchOption.AllDirectories))
+            foreach (var file in Directory.EnumerateFiles(content, "*.mfres", SearchOption.AllDirectories))
             {
                 var info = new FileInfo(file);
                 if (FilePeek.Read(file, FileKind.Resource, info.Length, info.LastWriteTimeUtc).RootTypeName != nameof(WavetablePreset))
@@ -80,7 +80,7 @@ public static class SynthPresets
         return FromJson(Load(entry.Path)?.Patch);
     }
 
-    // The preset's fields read straight from its .mres (the resource loader caches; a preset edited on disk must show).
+    // The preset's fields read straight from its .mfres (the resource loader caches; a preset edited on disk must show).
     private static WavetablePreset? Load(string path)
     {
         try
@@ -99,7 +99,7 @@ public static class SynthPresets
         }
     }
 
-    /// <summary>Saves <paramref name="patch"/> as a preset resource at <paramref name="path"/> (a <c>.mres</c>); returns its UID.</summary>
+    /// <summary>Saves <paramref name="patch"/> as a preset resource at <paramref name="path"/> (a <c>.mfres</c>); returns its UID.</summary>
     public static string Save(SynthPatch patch, string path, string name, string category)
     {
         var preset = new WavetablePreset { ResourceName = name, Category = category, Patch = ToJson(patch) };

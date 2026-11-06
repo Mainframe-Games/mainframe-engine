@@ -217,7 +217,7 @@
         <span data-if="!has_project">Songs belong to a game project: open or create one first</span>
         <div id="song-empty-actions">
             <button id="song-empty-new" class="with-icon primary" data-if="has_project" data-command="file.new_song" data-tooltip="New Song (Ctrl+N) — create a song in the project's Assets/Music"><span class="icon icon-sm icon-plus"></span><span>New Song</span></button>
-            <button id="song-empty-open" class="with-icon" data-if="has_project" data-command="file.open" data-tooltip="Open Song (Ctrl+O) — choose a .msong file"><span class="icon icon-sm icon-folder-open"></span><span>Open Song</span></button>
+            <button id="song-empty-open" class="with-icon" data-if="has_project" data-command="file.open" data-tooltip="Open Song (Ctrl+O) — choose a .mfsong file"><span class="icon icon-sm icon-folder-open"></span><span>Open Song</span></button>
             <button id="song-empty-projects" class="with-icon primary" data-if="!has_project" data-command="project.manager" data-tooltip="Project Manager — open, create or download a project"><span class="icon icon-sm icon-folders"></span><span>Project Manager</span></button>
         </div>
         <div id="song-recent" data-if="has_project">

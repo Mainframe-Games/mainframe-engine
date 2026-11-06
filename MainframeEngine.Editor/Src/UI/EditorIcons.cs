@@ -89,9 +89,9 @@ public static class EditorIcons
         // Shaders: name.vk.vert / .frag / .comp (+ .spv)
         return extension switch
         {
-            _ when Is(extension, ".mscene") => "movie",
-            _ when Is(extension, ".mres") => "package",
-            _ when Is(extension, ".msong") => "music",
+            _ when Is(extension, ".mfscene") => "movie",
+            _ when Is(extension, ".mfres") => "package",
+            _ when Is(extension, ".mfsong") => "music",
             _ when Is(extension, ".mftimeline") => "video",
             _ when Is(extension, ".mp4") || Is(extension, ".mov") || Is(extension, ".mkv") || Is(extension, ".webm") => "movie",
             _ when Is(extension, ".png") || Is(extension, ".jpg") || Is(extension, ".jpeg") || Is(extension, ".tga") || Is(extension, ".bmp") ||

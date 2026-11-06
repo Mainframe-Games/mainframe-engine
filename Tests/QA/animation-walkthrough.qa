@@ -2,7 +2,7 @@
 # AnimationPlayer, create an animation, key a node's Position at 0 s and 1 s (the inspector's key button) and its
 # Rotation, scrub to 0.5 s (the scene previews), undo a key, and capture the panel.
 wait 40
-open Examples/Demo/Assets/Scenes/basic_3d.mscene
+open Examples/Demo/Assets/Scenes/basic_3d.mfscene
 wait 20
 add-node AnimationPlayer Player
 wait 3
