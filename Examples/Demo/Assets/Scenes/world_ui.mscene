@@ -166,6 +166,42 @@
       "props": {
         "Size": [0.9, 0.9, 0.9]
       }
+    },
+    "BoxShape3D_ghext": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [4, 3, 0.4]
+      }
+    },
+    "StandardMaterial3D_0nwpr": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.3529412, 0.3764706, 0.43137255, 1]
+      }
+    },
+    "BoxMesh_410er": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [4, 3, 0.4]
+      }
+    },
+    "BoxShape3D_oldi8": {
+      "type": "BoxShape3D",
+      "props": {
+        "Size": [1.5, 1.2, 0.5]
+      }
+    },
+    "StandardMaterial3D_nmnlm": {
+      "type": "StandardMaterial3D",
+      "props": {
+        "AlbedoColor": [0.20392157, 0.22745098, 0.25882354, 1]
+      }
+    },
+    "BoxMesh_61jy6": {
+      "type": "BoxMesh",
+      "props": {
+        "Size": [1.5, 1.2, 0.5]
+      }
     }
   },
   "nodes": [
@@ -670,6 +706,77 @@
         "MaxDistance": 0,
         "Offscreen": "ClampToEdge"
       }
+    },
+    {
+      "name": "Gate2",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [14, 1.5, -14]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Gate2",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_ghext" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Gate2",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_0nwpr" },
+        "Mesh": { "res": "BoxMesh_410er" }
+      }
+    },
+    {
+      "name": "Terminal",
+      "parent": ".",
+      "type": "StaticBody3D",
+      "props": {
+        "Position": [-3, 0.6, 9],
+        "RotationDegrees": [0, -14, 0]
+      }
+    },
+    {
+      "name": "Shape",
+      "parent": "Terminal",
+      "type": "CollisionShape3D",
+      "props": {
+        "Shape": { "res": "BoxShape3D_oldi8" }
+      }
+    },
+    {
+      "name": "Mesh",
+      "parent": "Terminal",
+      "type": "MeshInstance3D",
+      "props": {
+        "MaterialOverride": { "res": "StandardMaterial3D_nmnlm" },
+        "Mesh": { "res": "BoxMesh_61jy6" }
+      }
+    },
+    {
+      "name": "Screen",
+      "parent": "Terminal",
+      "type": "UiPanel3D",
+      "props": {
+        "Position": [0, 1.1, 0.05],
+        "RotationDegrees": [-12, 0, 0],
+        "Resolution": [640, 400],
+        "PixelSize": 0.0022,
+        "Background": [0.047058824, 0.08627451, 0.07058824, 1],
+        "Brightness": 1.4,
+        "MaxInteractDistance": 14,
+        "ClickAction": "use"
+      }
+    },
+    {
+      "name": "Ui",
+      "parent": "Terminal/Screen",
+      "type": "WorldUiTerminal"
     },
     {
       "name": "Ui",

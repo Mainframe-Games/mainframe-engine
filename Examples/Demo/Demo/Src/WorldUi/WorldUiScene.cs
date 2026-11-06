@@ -10,7 +10,8 @@ namespace Demo;
 /// market sign, an autowrapped notice, a <c>FixedSize</c> + <c>NoDepthTest</c> debug tag); six walkers carry nameplate
 /// markers (<see cref="UiMarker3D"/>) whose health bars drain and refill; a crate has a "press E" prompt and the gate a
 /// waypoint that clamps to the screen edge. Buildings have colliders, so markers behind them fade out (physics
-/// occlusion). The panel toggles occlusion, distance scale, the debug tags and a slow camera orbit.
+/// occlusion). A terminal (<see cref="UiPanel3D"/>) near the camera opens the gate across the far street; Tab switches it
+/// between the mouse and a crosshair. The panel toggles occlusion, distance scale, the debug tags and a slow camera orbit.
 /// </summary>
 public static class WorldUiScene
 {
@@ -112,6 +113,24 @@ public static class WorldUiScene
             MaxDistance = 0,
             Offscreen = MarkerOffscreen.ClampToEdge,
         });
+
+        // G11.6: a gate across the far street and the terminal near the camera that opens it.
+        Box(root, "Gate", new Vector3(14, 1.5f, -14), new Vector3(4, 3, 0.4f), Color.FromArgb(90, 96, 110));
+        var terminal = Box(root, "Terminal", new Vector3(-3, 0.6f, 9), new Vector3(1.5f, 1.2f, 0.5f), Color.FromArgb(52, 58, 66));
+        terminal.RotationDegrees = new Vector3(0, -14, 0);
+        var screen = Add(root, terminal, new UiPanel3D
+        {
+            Name = "Screen",
+            Position = new Vector3(0, 1.1f, 0.05f),
+            RotationDegrees = new Vector3(-12, 0, 0),
+            Resolution = new Vector2I(640, 400),
+            PixelSize = 0.0022f,
+            Brightness = 1.4f,
+            MaxInteractDistance = 14,
+            ClickAction = "use",
+            Background = Color.FromArgb(12, 22, 18),
+        });
+        Add(root, screen, new WorldUiTerminal { Name = "Ui" });
 
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
         Add(root, ui, new UiMarkerHost { Name = "Markers" });

@@ -339,13 +339,14 @@ public class UiPanel3D : GeometryInstance3D, IUiContextHost
 
     internal override Material GetRenderMaterial(Mesh mesh, int surface) => MaterialOverride ?? _material;
 
+    private GpuImage? SampledImage() => Target.SampledImage;
+
     private void Sync()
     {
         if (_syncedStamp == RenderStamp && _texture is not null)
             return;
         _syncedStamp = RenderStamp;
-        var target = Target;
-        _texture ??= Texture2D.FromGpuSource(() => target.SampledImage, Resolution.X, Resolution.Y, Name);
+        _texture ??= Texture2D.FromGpuSource(SampledImage, Resolution.X, Resolution.Y, Name); // a lambda over a local would allocate per call
         _quad.Size = QuadSize;
         _material.AlbedoTexture = _texture;
         _material.Transparency = Transparent ? AlphaMode.Blend : AlphaMode.Opaque;

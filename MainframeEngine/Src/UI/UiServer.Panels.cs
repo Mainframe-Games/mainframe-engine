@@ -216,7 +216,8 @@ public sealed partial class UiServer
         if (_panelMouseButtons != 0 && _hoverPanel is { } captured)
             return MovePanelPointer(captured, sendMoves, bounded: false);
 
-        var raw = MouseIsRaw();
+        // Only asked when a Mouse panel could use the cursor (Silk's mouse list is not free to read every frame).
+        var raw = _mouseKnown && !_mouseOnLayers && HasMousePanel() && MouseIsRaw();
         UiPanel3D? best = null;
         var bestDistance = float.MaxValue;
         var bestPixel = Vector2.Zero;
@@ -250,9 +251,17 @@ public sealed partial class UiServer
         return sendMoves && best.Context!.ProcessMouseMove((int)bestPixel.X, (int)bestPixel.Y, _modifiers);
     }
 
+    private bool HasMousePanel()
+    {
+        for (var i = 0; i < _panels.Count; i++)
+            if (_panels[i].InputMode == PanelInputMode.Mouse)
+                return true;
+        return false;
+    }
+
     private bool MovePanelPointer(UiPanel3D panel, bool sendMoves, bool bounded)
     {
-        if (!TryPointerRay(panel, MouseIsRaw(), out var origin, out var direction) ||
+        if (!TryPointerRay(panel, panel.InputMode == PanelInputMode.Mouse && MouseIsRaw(), out var origin, out var direction) ||
             !panel.TryRayToPlane(origin, direction, bounded, out var pixel, out _))
             return true;
         panel.PointerPosition = pixel;

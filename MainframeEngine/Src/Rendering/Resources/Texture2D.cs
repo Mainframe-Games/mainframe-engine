@@ -273,7 +273,15 @@ public class Texture2D : Resource
     internal static Texture2D FromGpuSource(Func<GpuImage?> source, int width, int height, string name)
     {
         ArgumentNullException.ThrowIfNull(source);
-        return new Texture2D { _gpuSource = source, _width = Math.Max(1, width), _height = Math.Max(1, height), _sizeKnown = true, ResourceName = name };
+        return new Texture2D
+        {
+            _gpuSource = source,
+            _width = Math.Max(1, width),
+            _height = Math.Max(1, height),
+            _sizeKnown = true,
+            _settings = TextureImportSettings.Default with { Wrap = TextureWrap.Clamp }, // no bleed across the edges
+            ResourceName = name,
+        };
     }
 
     /// <summary>The GPU image source of a <see cref="FromGpuSource"/> texture, or null.</summary>

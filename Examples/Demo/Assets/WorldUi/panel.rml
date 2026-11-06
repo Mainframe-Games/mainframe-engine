@@ -2,6 +2,10 @@
 <head>
     <link type="text/rcss" href="/Assets/UI/widgets/widgets.rcss"/>
     <link type="text/rcss" href="/Assets/UI/demo.rcss"/>
+    <style>
+        .crosshair { position: absolute; left: 50%; top: 50%; width: 40dp; height: 40dp; margin-left: -20dp; margin-top: -20dp;
+                     text-align: center; line-height: 40dp; font-size: 34dp; color: #ffffff; }
+    </style>
 </head>
 <body class="hud" data-model="worldui">
     <div class="demo-panel">
@@ -11,6 +15,8 @@
         <div class="demo-row"><span>Scale markers with distance</span><input type="checkbox" data-checked="scale"/></div>
         <div class="demo-row"><span>Fixed-size debug tags</span><input type="checkbox" data-checked="tags"/></div>
         <div class="demo-row"><span>Orbit the camera</span><input type="checkbox" data-checked="orbit"/></div>
+        <p class="hint">The terminal is a UiPanel3D: click its button to open the gate. Tab aims a crosshair at it instead.</p>
     </div>
+    <div class="crosshair" data-if="crosshair">+</div>
 </body>
 </rml>
