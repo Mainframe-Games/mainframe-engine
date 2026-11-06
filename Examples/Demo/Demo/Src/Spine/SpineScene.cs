@@ -25,7 +25,7 @@ public static class SpineScene
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(30, 30) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(78, 90, 112) }
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(78, 90, 112) }
         });
         // The flat skeleton's floor shadow hides behind it from the camera; the wall catches it where it shows.
         Add(root, root, new MeshInstance3D
@@ -33,7 +33,7 @@ public static class SpineScene
             Name = "Backdrop",
             Mesh = new BoxMesh { Size = new Vector3(14, 6, 0.2f) },
             Position = new Vector3(0, 3, SpinePanel.BackdropZ),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(196, 202, 214) }
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(196, 202, 214) }
         });
 
         var pivot = Add(root, root, new Node3D { Name = "Pivot" });

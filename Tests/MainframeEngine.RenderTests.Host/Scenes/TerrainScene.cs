@@ -46,7 +46,7 @@ public sealed class TerrainScene(HostOptions host) : RenderTestGame(host)
             Name = "Terrain",
             Position = new Vector3(-32, 0, -32),
             Data = data,
-            Material = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 128, 146, 96), Specular = 0.05f, Shininess = 8f },
+            Material = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 128, 146, 96), Specular = 0.05f, Shininess = 8f },
             LodBias = 0.25f, // coarse levels from ~20 m, so the view shows them
         };
         scene.AddChild(_terrain);

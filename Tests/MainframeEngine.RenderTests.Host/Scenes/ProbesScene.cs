@@ -69,8 +69,8 @@ public sealed class ProbesScene(HostOptions host) : RenderTestGame(host)
         _camera.LookAt(CameraTarget);
         scene.AddChild(_camera);
 
-        var plaster = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 200, 196, 188), Specular = 0f };
-        var red = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 210, 40, 30), Specular = 0f };
+        var plaster = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 200, 196, 188), Specular = 0f };
+        var red = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 210, 40, 30), Specular = 0f };
         scene.AddChild(new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(40f, 40f) }, MaterialOverride = plaster });
         void Box(string name, Vector3 position, Vector3 size, Material material) =>
             scene.AddChild(new MeshInstance3D { Name = name, Position = position, Mesh = new BoxMesh { Size = size }, MaterialOverride = material });

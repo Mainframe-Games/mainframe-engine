@@ -38,12 +38,12 @@ public sealed class LightShaftsScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(400f, 400f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 110, 100, 90) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 110, 100, 90) },
         });
 
         // Posts 0.4 m wide every 1.2 m with a gap straight ahead, 14 m from the camera: the sun shows in the middle gap.
         var post = new BoxMesh { Size = new Vector3(0.4f, 12f, 0.4f) };
-        var bark = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 60, 45, 35) };
+        var bark = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 60, 45, 35) };
         for (var i = 0; i < 10; i++)
         {
             var x = (i - 4.5f) * 1.2f;

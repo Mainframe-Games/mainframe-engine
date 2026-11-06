@@ -52,7 +52,7 @@ public sealed class SsaoScene(HostOptions host) : RenderTestGame(host)
         _camera.LookAt(CameraTarget);
         scene.AddChild(_camera);
 
-        var plaster = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 200, 196, 188), Specular = 0f };
+        var plaster = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 200, 196, 188), Specular = 0f };
         scene.AddChild(new MeshInstance3D { Name = "Floor", Mesh = new PlaneMesh { Size = new Vector2(20f, 20f) }, MaterialOverride = plaster });
         scene.AddChild(new MeshInstance3D
         {
@@ -73,7 +73,7 @@ public sealed class SsaoScene(HostOptions host) : RenderTestGame(host)
             Name = "Box",
             Position = new Vector3(0.8f, 0.5f, -0.5f),
             Mesh = new BoxMesh { Size = new Vector3(1f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 170, 120, 90), Specular = 0f },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 170, 120, 90), Specular = 0f },
         });
         scene.AddChild(new MeshInstance3D
         {

@@ -7,7 +7,8 @@ namespace MainframeEngine;
 /// G6.4: authored levels of detail in model files. Sibling mesh nodes named <c>&lt;name&gt;_LOD0</c> …
 /// <c>&lt;name&gt;_LOD7</c> (the Unity/Unreal convention, any case) merge into one <see cref="MeshInstance3D"/> named
 /// <c>&lt;name&gt;</c> at LOD0's place, whose mesh's surfaces carry the other nodes' surfaces (matched by index, moved into
-/// LOD0's space) as <see cref="MeshLod"/> levels with their own geometry.
+/// LOD0's space) as <see cref="MeshLod"/> levels with their own geometry; <see cref="Generate"/> builds index-only levels
+/// for the rest (<c>"generateLods": true</c>).
 /// </summary>
 internal static partial class ModelLods
 {
@@ -126,6 +127,49 @@ internal static partial class ModelLods
 
         lod0.Mesh = mesh;
         lod0.Name = name;
+    }
+
+    /// <summary>
+    /// <c>"generateLods": true</c> (ADR 0256): gives every mesh under <paramref name="root"/> generated index-only levels
+    /// (<see cref="MeshSimplifier.GenerateLods"/>), surface by surface. Surfaces that already have levels (authored
+    /// <c>_LODn</c> nodes) and skinned surfaces are left alone; a mesh with several surfaces keeps its borders so its
+    /// surfaces do not crack apart. Returns the number of surfaces that got levels. Without the native library, one
+    /// warning and no levels.
+    /// </summary>
+    public static int Generate(Node root, string where)
+    {
+        if (!MeshSimplifier.IsAvailable)
+        {
+            Log.Warning($"[Import] {where}: generateLods is on, but {MeshSimplifier.Problem}; no levels were generated.");
+            return 0;
+        }
+
+        var generated = 0;
+        var seen = new HashSet<Mesh>(ReferenceEqualityComparer.Instance);
+        var stack = new Stack<Node>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            for (var i = 0; i < node.ChildCount; i++)
+                stack.Push(node.GetChild(i));
+            if (node is not MeshInstance3D { Mesh: ArrayMesh mesh, Skin: null } || !seen.Add(mesh))
+                continue;
+            var lockBorders = mesh.SurfaceCount > 1;
+            for (var s = 0; s < mesh.SurfaceCount; s++)
+            {
+                var surface = mesh.GetSurface(s);
+                if (surface.Lods.Length != 0 || surface.IsSkinned)
+                    continue;
+                var levels = MeshSimplifier.GenerateLods(surface, lockBorders);
+                if (levels.Length == 0)
+                    continue;
+                surface.Lods = levels;
+                generated++;
+            }
+        }
+
+        return generated;
     }
 
     // A copy of the surface's geometry in another node's space (normals by the inverse transpose).

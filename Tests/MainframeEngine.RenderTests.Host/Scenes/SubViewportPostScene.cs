@@ -63,14 +63,14 @@ public sealed class SubViewportPostScene(HostOptions host) : RenderTestGame(host
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(12f, 12f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 120, 150, 90) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 120, 150, 90) },
         });
         _view.AddChild(new MeshInstance3D
         {
             Name = "Box",
             Position = new Vector3(0.8f, 0.5f, -0.2f),
             Mesh = new BoxMesh(),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 210, 90, 60) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 210, 90, 60) },
         });
         _view.AddChild(new MeshInstance3D
         {

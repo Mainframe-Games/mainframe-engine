@@ -15,7 +15,7 @@ public abstract class ShadowSceneBase(HostOptions host) : RenderTestGame(host)
     protected WorldEnvironment Environment { get; private set; } = null!;
 
     protected static StandardMaterial3D Plain(int r, int g, int b, float specular = 0.1f) =>
-        new() { AlbedoColor = Color.FromArgb(255, r, g, b), Specular = specular };
+        new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, r, g, b), Specular = specular };
 
     protected override void LoadScene()
     {
@@ -282,6 +282,7 @@ public sealed class ShadowCutoutScene(HostOptions host) : ShadowSceneBase(host)
             Mesh = new QuadMesh { Size = new Vector2(3f, 1.8f) },
             MaterialOverride = new StandardMaterial3D
             {
+                ShadingMode = ShadingMode.BlinnPhong,
                 AlbedoTexture = Texture2D.FromPixels(32, 32, MaterialsScene.Holes(32),
                     TextureImportSettings.Default with { Filter = TextureFilter.Nearest, Mipmaps = false }),
                 UvScale = new Vector2(2.5f, 1.5f),

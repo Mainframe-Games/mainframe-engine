@@ -13,8 +13,10 @@ public sealed class Dropper3D : Node3D
     private static readonly BoxMesh s_mesh = new() { Size = new Vector3(0.8f) };
     private static readonly StandardMaterial3D[] s_materials =
     [
-        new() { AlbedoColor = Color.FromArgb(232, 93, 63) }, new() { AlbedoColor = Color.FromArgb(250, 204, 21) },
-        new() { AlbedoColor = Color.FromArgb(70, 140, 240) }, new() { AlbedoColor = Color.FromArgb(52, 211, 153) },
+        new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(232, 93, 63) },
+        new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(250, 204, 21) },
+        new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(70, 140, 240) },
+        new() { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(52, 211, 153) },
     ];
 
     /// <summary>Crates live on layer 2 so the Pusher (which only sweeps the floor) plows into them instead of stopping at them; they still collide with everything.</summary>

@@ -40,7 +40,7 @@ public sealed class PhysicalSkyScene(HostOptions host) : RenderTestGame(host)
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(400f, 400f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 128, 128, 128) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 128, 128, 128) },
         });
         scene.AddChild(new MeshInstance3D
         {
@@ -48,7 +48,7 @@ public sealed class PhysicalSkyScene(HostOptions host) : RenderTestGame(host)
             Position = new Vector3(-0.8f, 0.5f, 0f),
             RotationDegrees = new Vector3(0f, 30f, 0f),
             Mesh = new BoxMesh(),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.White },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.White },
         });
 
         var elevation = Host.Count == 1 ? SunsetElevation : NoonElevation;

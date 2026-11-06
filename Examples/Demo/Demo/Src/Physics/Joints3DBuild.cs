@@ -45,7 +45,7 @@ public static class Joints3DBuild
                 RotationDegrees = new Vector3(0, 0, MathF.Round(float.RadiansToDegrees(MathF.Atan2(b.Y - a.Y, b.X - a.X)), 3)),
             });
             Add(root, plank, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = size } });
-            Add(root, plank, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Wood } });
+            Add(root, plank, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Wood } });
         }
 
         for (var i = 0; i <= Planks; i++)
@@ -73,7 +73,7 @@ public static class Joints3DBuild
         var board = Add(root, sign, new RigidBody3D { Name = "Board", Position = new Vector3(x - 0.8f, 2.8f, z), Mass = 3f });
         var size = new Vector3(1.1f, 0.8f, 0.08f);
         Add(root, board, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = size } });
-        Add(root, board, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(250, 204, 21) } });
+        Add(root, board, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(250, 204, 21) } });
         Add(root, sign, new WeldJoint3D { Name = "Weld", Position = new Vector3(x - 0.8f, 3.3f, z), NodeA = "../Arm", NodeB = "../Board", BreakForce = 90 });
     }
 
@@ -134,7 +134,7 @@ public static class Joints3DBuild
         var dishSize = new Vector3(1.1f, 0.08f, 1.1f);
         var dish = Add(root, props, new RigidBody3D { Name = "Dish", Position = GimbalAt + new Vector3(0, 0.05f, 0), Mass = 2f });
         Add(root, dish, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = dishSize } });
-        Add(root, dish, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = dishSize }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Shirt } });
+        Add(root, dish, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = dishSize }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Shirt } });
         Add(root, props, new Generic6DofJoint3D
         {
             Name = "Gimbal",
@@ -159,7 +159,7 @@ public static class Joints3DBuild
         var drawerSize = new Vector3(0.8f, 0.3f, 0.7f);
         var drawer = Add(root, props, new RigidBody3D { Name = "Drawer", Position = DrawerAt, Mass = 1f });
         Add(root, drawer, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = drawerSize } });
-        Add(root, drawer, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = drawerSize }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Skin } });
+        Add(root, drawer, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = drawerSize }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Skin } });
         Add(root, props, new Generic6DofJoint3D
         {
             Name = "Slide",
@@ -183,13 +183,13 @@ public static class Joints3DBuild
     {
         var part = Add(root, parent, new RigidBody3D { Name = name, Position = at, Mass = mass, ContactMonitor = true });
         Add(root, part, new CollisionShape3D { Name = "Shape", Shape = new CapsuleShape3D { Radius = radius, Height = height } });
-        Add(root, part, new MeshInstance3D { Name = "Visual", Mesh = new CapsuleMesh { Radius = radius, Height = height }, MaterialOverride = new StandardMaterial3D { AlbedoColor = color } });
+        Add(root, part, new MeshInstance3D { Name = "Visual", Mesh = new CapsuleMesh { Radius = radius, Height = height }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = color } });
     }
 
     private static void StaticBox(Node root, Node parent, string name, Vector3 at, Vector3 size, Color color)
     {
         var body = Add(root, parent, new StaticBody3D { Name = name, Position = at });
         Add(root, body, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = size } });
-        Add(root, body, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { AlbedoColor = color } });
+        Add(root, body, new MeshInstance3D { Name = "Visual", Mesh = new BoxMesh { Size = size }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = color } });
     }
 }

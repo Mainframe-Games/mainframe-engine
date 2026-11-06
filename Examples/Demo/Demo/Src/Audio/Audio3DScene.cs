@@ -26,7 +26,7 @@ public static class Audio3DScene
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(200, 200) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(58, 68, 96) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(58, 68, 96) },
         });
 
         var listener = Add(root, root, new AudioListener3D { Name = "Listener", Current = true, Position = new Vector3(0, 1, 0) });
@@ -34,7 +34,7 @@ public static class Audio3DScene
         {
             Name = "Head",
             Mesh = new SphereMesh { Radius = 0.5f, Height = 1f },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(226, 232, 240) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(226, 232, 240) },
         });
         Add(root, listener, new DistanceRing { Name = "Range", Radius = 12f });
         Add(root, listener, new DistanceRing { Name = "OrbitPath", Radius = 6f, Color = new Vector4(1f, 1f, 1f, 0.22f) });
@@ -46,6 +46,7 @@ public static class Audio3DScene
             Mesh = new BoxMesh { Size = new Vector3(0.8f, 1.1f, 0.8f) },
             MaterialOverride = new StandardMaterial3D
             {
+                ShadingMode = ShadingMode.BlinnPhong,
                 AlbedoColor = Color.FromArgb(37, 99, 235),
                 EmissionColor = Color.FromArgb(37, 99, 235),
                 EmissionEnergy = 0.6f,

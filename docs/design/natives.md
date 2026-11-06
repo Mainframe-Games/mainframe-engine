@@ -9,6 +9,7 @@ How the engine's own native libraries are laid out, built, tested, shipped and r
 | ENet | `Native/ENet/upstream`: nxrighthere/ENet-CSharp submodule, tag `2.4.8` | `enet` (ENet-CSharp 2.4.8) | `enet.dll`, `libenet.so`, `libenet.dylib` |
 | RmlUi shim | `Native/RmlUi`: in-house C ABI over RmlUi 6.3 + FreeType 2.14.3 | `mfrmlui` | `mfrmlui.dll`, `libmfrmlui.so`, `libmfrmlui.dylib` |
 | SVG rasteriser | `Native/Svg`: in-house C ABI over ThorVG 1.0.3 (Godot 4.7.2's vendored copy, PNG loader off; ADR 0112) | `mfsvg` | `mfsvg.dll`, `libmfsvg.so`, `libmfsvg.dylib` |
+| Mesh simplifier | `Native/MeshOpt`: in-house C ABI over meshoptimizer 1.3 (submodule; ADR 0256), for generated LODs | `mfmeshopt` | `mfmeshopt.dll`, `libmfmeshopt.so`, `libmfmeshopt.dylib` |
 | Music editor helper (editor only) | `Native/PluginHost`: C++20 executable over libogg 1.3.6 + libvorbis 1.3.7 + the VST 3 SDK 3.8.1 hosting classes + RtMidi 6.0.0 (ADR 0146, 0147, 0148) | none: a process (`PluginHostClient`) | `mfplughost.exe`, `mfplughost` |
 
 Valve's `steam_api` (`steam_api64.dll`, `libsteam_api.so`, `libsteam_api.dylib`) also lives in
@@ -22,7 +23,7 @@ Decisions: [ADR 0001](../../memory/decisions/0001-enet-natives-built-in-ci.md) (
 
 ```
 Native/
-  CMakeLists.txt            top level: options MF_NATIVES_ENET, MF_NATIVES_RMLUI, MF_NATIVES_SVG, MF_NATIVES_PLUGINHOST (all ON)
+  CMakeLists.txt            top level: options MF_NATIVES_ENET, MF_NATIVES_RMLUI, MF_NATIVES_SVG, MF_NATIVES_MESHOPT, MF_NATIVES_PLUGINHOST (all ON)
   build.sh                  local build + test (+ --stage into runtimes/) for macOS / Linux
   natives-lock.sh           update / verify Native/natives.lock
   natives.lock              provenance of the committed binaries (generated)
@@ -40,6 +41,12 @@ Native/
     tests/                  mfrmlui_exports, mfrmlui_smoke
     external/RmlUi/         submodule (mikke89/RmlUi @ 6.3)
     external/freetype/      submodule (freetype/freetype @ VER-2-14-3)
+  MeshOpt/
+    CMakeLists.txt          shared library `mfmeshopt` (meshoptimizer's simplifier, vertex cache and allocator, static)
+    include/mfmeshopt.h     public C header: abi/library version, simplify, simplify_scale, optimize_vertex_cache
+    shim/                   C++ implementation (argument checks before meshoptimizer's asserts), export lists
+    tests/                  mfmeshopt_smoke
+    external/meshoptimizer/ submodule (zeux/meshoptimizer @ v1.3)
   PluginHost/
     CMakeLists.txt          executable `mfplughost` (+ static ogg/vorbis); MF_PLUGINHOST_VST3 (ON) / _MIDI (ON: RtMidi)
     vst3.cmake              our source lists for the VST 3 SDK's base, pluginterfaces and hosting (external/vst3sdk)
@@ -48,7 +55,7 @@ Native/
     external/ogg/           submodule (xiph/ogg @ v1.3.6)
     external/vorbis/        submodule (xiph/vorbis @ v1.3.7)
 MainframeEngine/runtimes/
-  osx-arm64/native/         libenet.dylib, libmfrmlui.dylib   (universal arm64 + x86_64)
+  osx-arm64/native/         libenet.dylib, libmfrmlui.dylib, libmfsvg.dylib, libmfmeshopt.dylib   (universal arm64 + x86_64)
   osx-x64/native/           the same universal files (NuGet does not pick osx-x64 assets for arm64, so both RIDs)
   win-x64/native/           enet.dll, mfrmlui.dll             (from natives.yml)
   linux-x64/native/         libenet.so, libmfrmlui.so         (from natives.yml)
@@ -127,6 +134,7 @@ Cross-compiling is not supported. Windows and Linux binaries come from CI.
 | `enet_smoke` | Linked version is 2.4.8; a reliable packet round trip over loopback (connect, send, receive, disconnect) |
 | `mfrmlui_exports` | Resolves every function declared in `mfrmlui.h`; the list is parsed from the header at configure time, currently 121 |
 | `mfrmlui_smoke` | A C11 client of the header (details below) |
+| `mfmeshopt_smoke` | ABI and library version; a flat grid collapses to two triangles, locked borders keep every border vertex, a bumpy grid with normals halves with a positive error; the vertex cache order keeps every index; out-of-range indices, bad counts and strides return 0 |
 | `mfplughost_tests` | VST3 against `mf_test_plugins.vst3`: scan (and a missing bundle), load, a synth note chained into the gain, state round trip, latency, offline mode with the crasher's delay, no editor, unload; and WAV reading (float + 16-bit), Vorbis encoding decoded back through libvorbisfile (exact length, level), a failed encode leaves the old file, the `--encode` command line, and a socket round trip: hello (and a wrong version), ping, unknown message, encode, shutdown, exit on disconnect; MIDI: the event and port-list encodings, the clock request and (CoreMIDI/ALSA) a virtual output in the test process seen as a helper input — listed, opened, a note arrives as a timestamped midiEvent, closing it reports the device offline |
 
 What `mfrmlui_smoke` exercises:
@@ -237,6 +245,8 @@ binary <sha256> <component> <inputs hash it was built from> <path>
 - **Build inputs.**
   - ENet: `Native/CMakeLists.txt`, `Native/ENet/CMakeLists.txt` and the export lists.
   - mfrmlui: `Native/CMakeLists.txt`, `Native/RmlUi/CMakeLists.txt`, `include/` and `shim/`.
+  - mfmeshopt: `Native/CMakeLists.txt`, `Native/MeshOpt/CMakeLists.txt`, `include/`, `shim/` and the meshoptimizer
+    submodule commit.
   - mfplughost: `Native/CMakeLists.txt`, `Native/PluginHost/CMakeLists.txt`, `vst3.cmake`, `src/` and the ogg, vorbis,
     vst3sdk and rtmidi submodule commits.
   - Tests and docs are not inputs.
@@ -280,6 +290,10 @@ made against. They are vendored binaries: `natives.yml` does not build them, the
   `mfrmlui_abi_version()` when the UI server starts (`RmlCore.EnsureLibrary`: a missing or incompatible library fails
   with a clear `RmlException`). The `runtimes/` files are copied flat next to the app at build time. See
   [Game UI](game-ui.md).
+- **`mfmeshopt`.** `MeshSimplifier` (`MainframeEngine/Src/Rendering/Meshes/MeshSimplifier.cs`, ADR 0256) uses
+  `[LibraryImport("mfmeshopt")]`, loads it once with `NativeLibrary.TryLoad` and checks `mfmeshopt_abi_version()`; a
+  missing or incompatible library makes `MeshSimplifier.IsAvailable` false (the importer warns and skips generated
+  LODs) instead of throwing during import.
 - **`enet`.** The `ENet-CSharp` package ships its own natives:
   - an x86_64-only `runtimes/osx/native/libenet.dylib`, and
   - `build/ENet-CSharp.targets`, which copies `enet.dll`, `enet.dylib` and `libenet.so` next to the app.
@@ -297,6 +311,7 @@ See [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md):
 - FreeType: FTL. Credit required: "Portions of this software are copyright © 2026 The FreeType Project
   (https://freetype.org). All rights reserved." It must appear on the credits screen (M8 task list).
 - FreeType's bundled zlib: zlib licence.
+- meshoptimizer (in `mfmeshopt`): MIT, notice text reproduced.
 - libogg and libvorbis (in the editor-only `mfplughost`): BSD-3-Clause, notice text reproduced.
 - RtMidi (in the editor-only `mfplughost`): MIT, notice text reproduced.
 - Valve's `steam_api`: © Valve Corporation, redistributed under the Steamworks SDK Access Agreement (not MIT).
@@ -305,15 +320,15 @@ The RmlUi.Net attribution is in [`Native/RmlUi/shim/NOTICE.md`](../../Native/Rml
 
 ## Status
 
-| RID | enet | mfrmlui | mfsvg | mfplughost |
-|---|---|---|---|---|
-| osx-arm64 / osx-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed with VST3 and MIDI, built locally (universal, tests pass, virtual-port test included) |
-| win-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ⏳ TODO: from the next `natives.yml` run (the Windows `AF_UNIX` path, VST3 hosting and WinMM MIDI are built there, not yet run) |
-| linux-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ⏳ TODO: from the next `natives.yml` run (VST3 hosting and ALSA MIDI included; `libasound2-dev` installed there) |
+| RID | enet | mfrmlui | mfsvg | mfmeshopt | mfplughost |
+|---|---|---|---|---|---|
+| osx-arm64 / osx-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) |
+| win-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) |
+| linux-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI; glibc 2.34) | ✅ committed (CI) |
 
-Adding `MF_NATIVES_PLUGINHOST` to `Native/CMakeLists.txt` changed every component's build inputs, so
-`natives-lock.sh verify` reports the committed enet/mfrmlui/mfsvg binaries as stale until that `natives.yml` run's
-`natives-all` is committed (the binaries themselves are unaffected).
+`natives-all` also carries Valve's `steam_api` files from the `collect` job's checkout, which does not fetch Git LFS:
+its `steam_api64.dll` is an LFS pointer. Restore that file (`git checkout -- MainframeEngine/runtimes/win-x64/native/steam_api64.dll`)
+after copying the artifact in; the lock ignores it.
 
 ## Related
 

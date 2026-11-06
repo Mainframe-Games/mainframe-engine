@@ -727,7 +727,7 @@ public sealed class EditorSmokeRun : IEditorAutomation
     {
         var scene = workspace.Session.NewScene();
         var mesh = new BoxMesh();
-        var material = new StandardMaterial3D();
+        var material = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong };
         var root = scene.Root;
         Node3D? group = null;
         for (var i = 0; i < LargeSceneNodes - 1; i++)

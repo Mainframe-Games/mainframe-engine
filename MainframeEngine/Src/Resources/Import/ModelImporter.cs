@@ -16,12 +16,15 @@ namespace MainframeEngine;
 /// <summary>How imported materials shade (<see cref="ModelImportSettings.Shading"/>, the <c>.mfmeta</c>'s <c>"shading"</c>).</summary>
 public enum ModelShading : byte
 {
-    /// <summary><see cref="ShadingMode.BlinnPhong"/>: the file's shininess sets the highlight (the default so far).</summary>
+    /// <summary>
+    /// <see cref="ShadingMode.BlinnPhong"/>: the file's shininess sets the highlight (what sidecars written before ADR 0255,
+    /// format 1, import as when they do not say).
+    /// </summary>
     BlinnPhong,
 
     /// <summary>
     /// <see cref="ShadingMode.Pbr"/> (G6.1): glTF's metallic and roughness factors, its metallic-roughness and occlusion maps
-    /// (packed into one ORM texture), roughness from shininess for files without it.
+    /// (packed into one ORM texture), roughness from shininess for files without it. The default (ADR 0255).
     /// </summary>
     Pbr,
 }
@@ -66,6 +69,12 @@ public sealed record ModelImportSettings
 
     public static ModelImportSettings Default { get; } = new();
 
+    /// <summary>
+    /// What a sidecar written before ADR 0255 (<see cref="AssetMeta.Format"/> 1) starts from: <see cref="Default"/> with
+    /// <see cref="ModelShading.BlinnPhong"/>, the default it was written under.
+    /// </summary>
+    public static ModelImportSettings LegacyDefault { get; } = new() { Shading = ModelShading.BlinnPhong };
+
     /// <summary>Uniform scale applied to the imported root (e.g. 0.01 for centimetre FBX files).</summary>
     public float Scale { get; init; } = 1f;
 
@@ -88,10 +97,11 @@ public sealed record ModelImportSettings
     public IReadOnlyList<ModelClipSettings> Clips { get; init; } = [];
 
     /// <summary>
-    /// How the materials shade (<c>"shading": "pbr" | "blinnPhong"</c>). Default <see cref="ModelShading.BlinnPhong"/>, so
-    /// existing projects keep their look; <see cref="ModelShading.Pbr"/> reads the file's PBR data.
+    /// How the materials shade (<c>"shading": "pbr" | "blinnPhong"</c>). Default <see cref="ModelShading.Pbr"/> (ADR 0255),
+    /// which reads the file's PBR data; a sidecar of format 1 without the setting imports
+    /// <see cref="ModelShading.BlinnPhong"/>, so existing projects keep their look.
     /// </summary>
-    public ModelShading Shading { get; init; }
+    public ModelShading Shading { get; init; } = ModelShading.Pbr;
 
     /// <summary>
     /// G6.4: the errors of authored levels (<c>&lt;name&gt;_LOD1</c> …) as fractions of the LOD0 mesh's bounds radius, one
@@ -100,8 +110,8 @@ public sealed record ModelImportSettings
     public IReadOnlyList<float> LodErrors { get; init; } = [];
 
     /// <summary>
-    /// G6.4, reserved: generate coarser levels with a mesh simplifier (Godot's <c>meshes/generate_lods</c>). Not built yet
-    /// (it needs a simplifier dependency); true only logs that. Default false, so projects keep their look when it lands.
+    /// G6.4: generate coarser index-only levels with meshoptimizer (Godot's <c>meshes/generate_lods</c>, ADR 0256) for every
+    /// surface without authored levels, skinned ones excepted. Default false, so projects keep drawing what they drew.
     /// </summary>
     public bool GenerateLods { get; init; }
 
@@ -124,7 +134,8 @@ public sealed record ModelImportSettings
 
     public static ModelImportSettings FromMeta(AssetMeta? meta, string? where = null)
     {
-        var settings = Default;
+        // No sidecar: new content, today's defaults. A sidecar from before formats: the Blinn-Phong default it had.
+        var settings = meta is not null && meta.EffectiveFormat < 2 ? LegacyDefault : Default;
         if (meta?.Settings is not { } values)
             return settings;
 
@@ -544,7 +555,7 @@ public sealed unsafe class ModelImporter : IAssetImporter
             // G6.4: authored <name>_LODn siblings become one mesh with levels (before the clips resolve node paths).
             ModelLods.Merge(root, settings.LodErrors, $"'{projectPath}'");
             if (settings.GenerateLods)
-                Log.Warning($"[Import] '{projectPath}': generateLods is reserved; generated levels of detail are not built yet.");
+                ModelLods.Generate(root, $"'{projectPath}'"); // ADR 0256: index-only levels for surfaces without authored ones
             if (settings.ImportAnimations && scene->MNumAnimations > 0)
                 BuildAnimations(root);
             return root;
@@ -1159,7 +1170,8 @@ public sealed unsafe class ModelImporter : IAssetImporter
                 return existing;
 
             var source = index < scene->MNumMaterials ? scene->MMaterials[index] : null;
-            var material = new StandardMaterial3D();
+            // The mode the settings ask for, also for surfaces the file gives no material (ADR 0255).
+            var material = new StandardMaterial3D { ShadingMode = settings.Shading == ModelShading.Pbr ? ShadingMode.Pbr : ShadingMode.BlinnPhong };
             if (source is not null)
                 Convert(source, material);
             _materials[index] = material;

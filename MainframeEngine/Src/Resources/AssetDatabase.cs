@@ -6,6 +6,19 @@ namespace MainframeEngine;
 /// <summary>A <c>.mfmeta</c> sidecar: the UID and import settings of an asset that cannot store them itself (images, sounds, ...).</summary>
 public sealed class AssetMeta
 {
+    /// <summary>
+    /// The sidecar format new sidecars are written with. 2 (ADR 0255): models import PBR unless <c>"shading"</c> says
+    /// otherwise; sidecars without a <see cref="Format"/> (1) kept the Blinn-Phong default they were written under.
+    /// </summary>
+    public const int CurrentFormat = 2;
+
+    /// <summary>The sidecar's format; null in sidecars written before formats existed (format 1).</summary>
+    public int? Format { get; set; }
+
+    /// <summary><see cref="Format"/>, with a missing one read as 1.</summary>
+    [JsonIgnore]
+    public int EffectiveFormat => Format ?? 1;
+
     public string Uid { get; set; } = string.Empty;
 
     /// <summary>Importer that processes the asset (<c>texture</c>, <c>audio</c>, ...); null for files used as-is.</summary>
@@ -285,7 +298,7 @@ public sealed class AssetDatabase
         if (!create)
             return null;
 
-        var meta = new AssetMeta { Uid = AssetUid.Generate(AssetUid.PrefixForExtension(Path.GetExtension(assetPath))) };
+        var meta = new AssetMeta { Format = AssetMeta.CurrentFormat, Uid = AssetUid.Generate(AssetUid.PrefixForExtension(Path.GetExtension(assetPath))) };
         File.WriteAllBytes(metaPath, JsonSerializer.SerializeToUtf8Bytes(meta, AssetJsonContext.Default.AssetMeta));
         return meta;
     }
@@ -301,6 +314,9 @@ public sealed class AssetDatabase
         if (string.IsNullOrEmpty(meta.Uid))
             meta.Uid = AssetUid.Generate(AssetUid.PrefixForExtension(Path.GetExtension(assetPath)));
         var metaPath = ToAbsolutePath(assetPath) + MetaExtension;
+        // A sidecar that did not exist yet is new content (current format); a replaced one keeps the format it had.
+        if (meta.Format is null && FileExtensions.FindExisting(ToAbsolutePath(assetPath), MetaExtension, File.Exists) is null) // disk-io: tools write sidecars on disk
+            meta.Format = AssetMeta.CurrentFormat;
         File.WriteAllBytes(metaPath, JsonSerializer.SerializeToUtf8Bytes(meta, AssetJsonContext.Default.AssetMeta));
         if (FileExtensions.LegacyOf(MetaExtension) is { } legacy && File.Exists(ToAbsolutePath(assetPath) + legacy)) // disk-io: tools write sidecars on disk
             File.Delete(ToAbsolutePath(assetPath) + legacy);

@@ -84,9 +84,23 @@ public sealed class ModelPbrImportTests : IDisposable
     }
 
     [Fact]
-    public void BlinnPhongStaysTheDefault()
+    public void PbrIsTheDefault()
     {
         var root = ModelImporter.ImportNodes("Assets/Models/separate.gltf");
+        try
+        {
+            Assert.Equal(ShadingMode.Pbr, MaterialOf(root).ShadingMode);
+        }
+        finally
+        {
+            root.Free();
+        }
+    }
+
+    [Fact]
+    public void BlinnPhongStillImportsWhenAsked()
+    {
+        var root = ModelImporter.ImportNodes("Assets/Models/separate.gltf", ModelImportSettings.LegacyDefault);
         try
         {
             var material = MaterialOf(root);
@@ -107,12 +121,63 @@ public sealed class ModelPbrImportTests : IDisposable
         Assert.Equal(ModelShading.Pbr, ModelImportSettings.FromMeta(meta).Shading);
         var blinn = new AssetMeta
         {
+            Format = AssetMeta.CurrentFormat,
             Uid = "mdl_aaaaaaaaaaae",
             Settings = new Dictionary<string, JsonElement> { ["shading"] = JsonDocument.Parse("\"blinnPhong\"").RootElement },
         };
         Assert.Equal(ModelShading.BlinnPhong, ModelImportSettings.FromMeta(blinn).Shading);
-        var bad = new AssetMeta { Uid = "mdl_aaaaaaaaaaaf", Settings = new Dictionary<string, JsonElement> { ["shading"] = JsonDocument.Parse("\"toon\"").RootElement } };
-        Assert.Equal(ModelShading.BlinnPhong, ModelImportSettings.FromMeta(bad).Shading); // warned, default kept
+        var bad = new AssetMeta
+        {
+            Format = AssetMeta.CurrentFormat,
+            Uid = "mdl_aaaaaaaaaaaf",
+            Settings = new Dictionary<string, JsonElement> { ["shading"] = JsonDocument.Parse("\"toon\"").RootElement },
+        };
+        Assert.Equal(ModelShading.Pbr, ModelImportSettings.FromMeta(bad).Shading); // warned, default kept
+    }
+
+    [Fact]
+    public void SidecarsWrittenBeforeFormatsKeepBlinnPhong()
+    {
+        // ADR 0255: a sidecar without "format" was written when Blinn-Phong was the default.
+        Assert.Equal(ModelShading.BlinnPhong, ModelImportSettings.FromMeta(new AssetMeta { Uid = "mdl_aaaaaaaaaab0" }).Shading);
+        var legacyWithSettings = new AssetMeta
+        {
+            Uid = "mdl_aaaaaaaaaab1",
+            Settings = new Dictionary<string, JsonElement> { ["scale"] = JsonDocument.Parse("1").RootElement },
+        };
+        Assert.Equal(ModelShading.BlinnPhong, ModelImportSettings.FromMeta(legacyWithSettings).Shading);
+        var legacyPbr = new AssetMeta
+        {
+            Uid = "mdl_aaaaaaaaaab2",
+            Settings = new Dictionary<string, JsonElement> { ["shading"] = JsonDocument.Parse("\"pbr\"").RootElement },
+        };
+        Assert.Equal(ModelShading.Pbr, ModelImportSettings.FromMeta(legacyPbr).Shading);
+
+        // New sidecars and models without one: today's default.
+        Assert.Equal(ModelShading.Pbr, ModelImportSettings.FromMeta(new AssetMeta { Format = AssetMeta.CurrentFormat, Uid = "mdl_aaaaaaaaaab3" }).Shading);
+        Assert.Equal(ModelShading.Pbr, ModelImportSettings.FromMeta(null).Shading);
+    }
+
+    [Fact]
+    public void NewSidecarsAreWrittenAtTheCurrentFormat()
+    {
+        var root = Directory.CreateTempSubdirectory("mf-meta-format-").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "Assets"));
+            File.WriteAllText(Path.Combine(root, "Assets", "a.gltf"), "{}");
+            File.WriteAllText(Path.Combine(root, "Assets", "old.gltf"), "{}");
+            File.WriteAllText(Path.Combine(root, "Assets", "old.gltf.mfmeta"), "{\n  \"uid\": \"mdl_aaaaaaaaaac0\"\n}");
+            var database = new AssetDatabase(root);
+            Assert.Equal(AssetMeta.CurrentFormat, database.ReadOrCreateMeta("Assets/a.gltf", create: true)!.Format);
+            Assert.Null(database.ReadOrCreateMeta("Assets/old.gltf", create: true)!.Format);
+            database.WriteMeta("Assets/old.gltf", database.ReadOrCreateMeta("Assets/old.gltf", create: false)!);
+            Assert.Null(database.ReadOrCreateMeta("Assets/old.gltf", create: false)!.Format); // replaced, not upgraded
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]

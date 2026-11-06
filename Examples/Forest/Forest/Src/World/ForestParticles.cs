@@ -56,6 +56,7 @@ public static class ForestParticles
         DrawPass1 = new QuadMesh { Size = new Vector2(1f, 1f) },
         MaterialOverride = new StandardMaterial3D
         {
+            ShadingMode = ShadingMode.BlinnPhong,
             ResourceName = "Chimney smoke",
             Transparency = AlphaMode.Blend,
             VertexColorUseAsAlbedo = true,

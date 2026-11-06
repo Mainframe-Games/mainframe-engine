@@ -86,6 +86,7 @@ public sealed class ViewportMaterialScene(HostOptions host) : RenderTestGame(hos
         root.AddChild(Screen("PanelShader", PanelShader, shader));
         root.AddChild(Screen("ViewEmission", ViewEmission, new StandardMaterial3D
         {
+            ShadingMode = ShadingMode.BlinnPhong,
             AlbedoColor = Color.Black,
             Specular = 0f,
             EmissionColor = Color.White,

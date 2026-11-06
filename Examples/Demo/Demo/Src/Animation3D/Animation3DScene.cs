@@ -31,7 +31,7 @@ public static class Animation3DScene
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(30, 30) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(92, 104, 96) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(92, 104, 96) },
         });
         var ground = Add(root, root, new StaticBody3D { Name = "Ground", Position = new Vector3(0, -0.5f, 0) });
         Add(root, ground, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(30, 1, 30) } });
@@ -52,7 +52,7 @@ public static class Animation3DScene
                 Name = "Hammer",
                 Position = new Vector3(-0.08f, 0, 0.14f),
                 Mesh = new BoxMesh { Size = new Vector3(0.05f, 0.05f, 0.34f) },
-                MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(128, 86, 50) },
+                MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(128, 86, 50) },
             });
             Add(root, hand, new OmniLight3D
             {
@@ -123,7 +123,7 @@ public static class Animation3DScene
         var workshop = Add(root, root, new Node3D { Name = "Workshop", Position = new Vector3(-1.9f, 0, -3.2f) });
         var lift = Add(root, workshop, new AnimatableBody3D { Name = "Lift" });
         Add(root, lift, new CollisionShape3D { Name = "Shape", Shape = new BoxShape3D { Size = new Vector3(1f, 0.15f, 1f) } });
-        Add(root, lift, new MeshInstance3D { Name = "Mesh", Mesh = new BoxMesh { Size = new Vector3(1f, 0.15f, 1f) }, MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(245, 158, 11) } });
+        Add(root, lift, new MeshInstance3D { Name = "Mesh", Mesh = new BoxMesh { Size = new Vector3(1f, 0.15f, 1f) }, MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(245, 158, 11) } });
 
         var hinge = Add(root, workshop, new Node3D { Name = "Hinge", Position = new Vector3(0.9f, 0, 0.6f) });
         Add(root, hinge, new MeshInstance3D
@@ -131,7 +131,7 @@ public static class Animation3DScene
             Name = "Door",
             Position = new Vector3(0.4f, 0.9f, 0),
             Mesh = new BoxMesh { Size = new Vector3(0.8f, 1.8f, 0.06f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(120, 84, 55) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(120, 84, 55) },
         });
         var latch = Add(root, workshop, new DoorLatch { Name = "Latch", Position = new Vector3(1.7f, 1.1f, 0.62f) });
         DoorLatch.Build(root, latch);

@@ -1,0 +1,9 @@
+{
+  global:
+    mfmeshopt_abi_version;
+    mfmeshopt_library_version;
+    mfmeshopt_simplify;
+    mfmeshopt_simplify_scale;
+    mfmeshopt_optimize_vertex_cache;
+  local: *;
+};

@@ -24,13 +24,13 @@ public static class RemovedNodeTypes
         ["Box3d"] = static bag => new MeshInstance3D
         {
             Mesh = new BoxMesh(),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = TakeColor(bag) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = TakeColor(bag) },
         },
         // The old quad lay in XY facing -Z with culling disabled (no back-face lighting flip).
         ["Quad"] = static bag => new MeshInstance3D
         {
             Mesh = new QuadMesh { FlipFaces = true },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = TakeColor(bag), CullMode = CullMode.Disabled },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = TakeColor(bag), CullMode = CullMode.Disabled },
         },
     };
 

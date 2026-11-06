@@ -40,7 +40,7 @@ public sealed class VelocityScene(HostOptions host) : MeshSceneBase(host)
 
     protected override void Build(Node3D scene)
     {
-        var stone = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 150, 140, 125) };
+        var stone = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 150, 140, 125) };
         var post = new BoxMesh { Size = new Vector3(0.4f, 2.4f, 0.4f) };
         for (var i = 0; i < 5; i++)
             scene.AddChild(new MeshInstance3D { Name = $"Post{i}", Position = new Vector3(-3f + i * 1.5f, 1.2f, -2.5f), Mesh = post, MaterialOverride = stone });
@@ -59,7 +59,7 @@ public sealed class VelocityScene(HostOptions host) : MeshSceneBase(host)
         {
             Name = "Visual",
             Mesh = new BoxMesh { Size = new Vector3(BodySize) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromArgb(255, 230, 90, 60) },
+            MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong, AlbedoColor = Color.FromArgb(255, 230, 90, 60) },
         });
         scene.AddChild(_body);
         _baseRotation = Camera.Rotation;
@@ -197,7 +197,7 @@ public sealed class PostCopyScene(HostOptions host) : RenderTestGame(host)
         var scene = new Node3D { Name = nameof(PostCopyScene) };
         var camera = new Camera3D { Name = "Camera", Position = new Vector3(0f, 1f, 4f) };
         scene.AddChild(camera);
-        scene.AddChild(new MeshInstance3D { Name = "Box", Mesh = new BoxMesh(), MaterialOverride = new StandardMaterial3D() });
+        scene.AddChild(new MeshInstance3D { Name = "Box", Mesh = new BoxMesh(), MaterialOverride = new StandardMaterial3D { ShadingMode = ShadingMode.BlinnPhong } });
         Tree.ChangeScene(scene);
         _effect = new CopyEffect();
         Servers.Render!.PostEffects!.Add(_effect);

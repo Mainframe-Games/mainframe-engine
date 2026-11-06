@@ -35,6 +35,7 @@ public sealed class GlowScene(HostOptions host) : RenderTestGame(host)
             Mesh = new PlaneMesh { Size = new Vector2(0.4f, 0.4f) },
             MaterialOverride = new StandardMaterial3D
             {
+                ShadingMode = ShadingMode.BlinnPhong,
                 AlbedoColor = Color.Black,
                 EmissionColor = Color.FromArgb(255, 255, 230, 160),
                 EmissionEnergy = bright ? 6f : 0.5f,

@@ -233,14 +233,14 @@
       </PropertyGroup>
       <ItemGroup>
         <_MainframeL10nFile Include="$(_MainframeL10nDir)*.dll;$(_MainframeL10nDir)mf-l10n.runtimeconfig.json"
-                            Exclude="$(_MainframeL10nDir)enet.dll;$(_MainframeL10nDir)mfrmlui.dll;$(_MainframeL10nDir)mfsvg.dll" />
+                            Exclude="$(_MainframeL10nDir)enet.dll;$(_MainframeL10nDir)mfrmlui.dll;$(_MainframeL10nDir)mfsvg.dll;$(_MainframeL10nDir)mfmeshopt.dll" />
         <TfmSpecificPackageFile Include="@(_MainframeGeneratorAssembly)" PackagePath="analyzers/dotnet/cs/%(Filename)%(Extension)" />
         <TfmSpecificPackageFile Include="@(_MainframeL10nFile)" PackagePath="tools/mf-l10n/%(Filename)%(Extension)" />
         <_MainframeExportFile Include="$(_MainframeExportDir)*.dll;$(_MainframeExportDir)mf-export.runtimeconfig.json"
-                              Exclude="$(_MainframeExportDir)enet.dll;$(_MainframeExportDir)mfrmlui.dll;$(_MainframeExportDir)mfsvg.dll;$(_MainframeExportDir)steam_api64.dll" />
+                              Exclude="$(_MainframeExportDir)enet.dll;$(_MainframeExportDir)mfrmlui.dll;$(_MainframeExportDir)mfsvg.dll;$(_MainframeExportDir)mfmeshopt.dll;$(_MainframeExportDir)steam_api64.dll" />
         <TfmSpecificPackageFile Include="@(_MainframeExportFile)" PackagePath="tools/mf-export/%(Filename)%(Extension)" />
         <_MainframeShadersFile Include="$(_MainframeShadersDir)*.dll;$(_MainframeShadersDir)mf-shaders.runtimeconfig.json"
-                               Exclude="$(_MainframeShadersDir)enet.dll;$(_MainframeShadersDir)mfrmlui.dll;$(_MainframeShadersDir)mfsvg.dll;$(_MainframeShadersDir)steam_api64.dll" />
+                               Exclude="$(_MainframeShadersDir)enet.dll;$(_MainframeShadersDir)mfrmlui.dll;$(_MainframeShadersDir)mfsvg.dll;$(_MainframeShadersDir)mfmeshopt.dll;$(_MainframeShadersDir)steam_api64.dll" />
         <TfmSpecificPackageFile Include="@(_MainframeShadersFile)" PackagePath="tools/mf-shaders/%(Filename)%(Extension)" />
         <_MainframeShaderInclude Include="Assets/Shaders/include/**/*.slang" />
         <TfmSpecificPackageFile Include="@(_MainframeShaderInclude)" PackagePath="mainframe/shaders/include/%(RecursiveDir)%(Filename)%(Extension)" />
