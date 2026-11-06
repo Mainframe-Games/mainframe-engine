@@ -40,7 +40,7 @@ prompts and waypoints drawn on the HUD at a 3D point, and the camera helpers bot
 - `TextLayout.BreakLines` (internal) breaks text at `\n`/`\r\n` and wraps inside a width with Godot's `AutowrapMode`
   (`Arbitrary`, `Word`, `WordSmart`; greedy, spaces at a break dropped). `Label2D` and `Label3D` share it; `Label2D`'s
   output is unchanged.
-- `LocaleFallbackFonts` (internal) loads the faces the project's `FontFallbackTable` (`Assets/locale/fonts.mres`) names for
+- `LocaleFallbackFonts` (internal) loads the faces the project's `FontFallbackTable` (`Assets/locale/fonts.mfres`) names for
   `Tr.LocaleChain`, the same table the game UI loads into RmlUi ([Localization](localization.md)). `Label3D` uses them when
   its font lacks a glyph, so CJK text shows once the project lists a CJK face.
 
