@@ -31,3 +31,8 @@ Branch `feature/terrain-faceted` (on `feature/terrain-dock`, #186). Plan:
 ## Not done
 
 - Sub-rectangle uploads, the `Triangle` cell mode and the material's editor overlays.
+
+## State changes
+
+- milestones G8a: "Faceted `TerrainMaterial3D` ⬜" → "Faceted `TerrainMaterial3D` ✅".
+- state: Next steps 2 drops "Faceted look" from G8a–e rest.

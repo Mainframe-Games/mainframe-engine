@@ -42,3 +42,8 @@ Branch `feature/terrain-dock`. Plan: [Terrain dock](../plans/2026-11-07-terrain-
 
 - Foliage and Objects modes (need painted density layers and object scatter), the Faceted `TerrainMaterial3D` (the dock's
   Faceted swatches are a grey ramp until it lands), brush mask PNGs, axis lock, sub-rectangle uploads.
+
+## State changes
+
+- milestones G8a: 🚧 → "🚧 core, Realistic look, foliage scatter ✅; viewport-tool API and Terrain dock: create, sculpt, paint, water ✅ (ADR 0270); Foliage and Objects modes, object scatter, Faceted `TerrainMaterial3D` ⬜"; its design-doc cell → `[Terrain](design/terrain.md), [proposal](design/future/terrain.md)`.
+- state: Next steps 2 drops "terrain dock" from G8a–e rest.
