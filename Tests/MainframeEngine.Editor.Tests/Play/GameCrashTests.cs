@@ -29,7 +29,7 @@ public sealed class GameCrashTests : IDisposable
         report.Session.Node = "/root/Forest/Player";
         report.Session.NodeType = "Game.PlayerController";
         report.Session.Callback = "OnPhysicsProcess";
-        report.Session.Scene = "Assets/Scenes/Forest.mscene";
+        report.Session.Scene = "Assets/Scenes/Forest.mfscene";
         report.Exception.Add(new CrashException
         {
             Type = "System.NullReferenceException",
@@ -112,7 +112,7 @@ public sealed class GameCrashTests : IDisposable
         var row = OutputCrash.From(instance);
 
         Assert.Equal("Game #2 crashed: NullReferenceException in PlayerController.OnPhysicsProcess", row.Title);
-        Assert.StartsWith("/root/Forest/Player · Assets/Scenes/Forest.mscene", row.Detail, StringComparison.Ordinal);
+        Assert.StartsWith("/root/Forest/Player · Assets/Scenes/Forest.mfscene", row.Detail, StringComparison.Ordinal);
         Assert.Equal(3, row.Frames.Count);
         Assert.True(row.Frames[0].IsGame);
         Assert.True(row.Frames[0].HasSource);   // a game frame whose file exists here

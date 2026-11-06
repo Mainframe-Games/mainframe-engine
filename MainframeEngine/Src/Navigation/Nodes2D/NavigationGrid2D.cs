@@ -188,7 +188,7 @@ public class NavigationGrid2D : Node2D
     [Export]
     public bool BakeOnReady { get; set; }
 
-    /// <summary>The baked cells (inline in the scene, or a <c>.mres</c>). Null: every cell walkable.</summary>
+    /// <summary>The baked cells (inline in the scene, or a <c>.mfres</c>). Null: every cell walkable.</summary>
     [Export]
     public NavigationGridData? Data
     {

@@ -12,7 +12,7 @@ public enum EditorMode
     /// <summary>Editing video (<c>.mftimeline</c> tabs, the timeline editor) over the whole window; timelines belong to the game project.</summary>
     Video,
 
-    /// <summary>Songs (<c>.msong</c> tabs, the music editor) over the whole window; songs belong to the game project.</summary>
+    /// <summary>Songs (<c>.mfsong</c> tabs, the music editor) over the whole window; songs belong to the game project.</summary>
     Music,
 }
 

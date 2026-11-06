@@ -37,13 +37,13 @@ public sealed class FileOperationsTests : IDisposable
         Succeeded(result);
         Assert.Equal(_project.Abs("Assets/Textures/oak.png"), result.Path);
         Assert.False(File.Exists(_project.Abs(FileSystemProject.WoodPath)));
-        Assert.False(File.Exists(_project.Abs(FileSystemProject.WoodPath + ".meta")));
-        Assert.True(File.Exists(_project.Abs("Assets/Textures/oak.png.meta")));
+        Assert.False(File.Exists(_project.Abs(FileSystemProject.WoodPath + ".mfmeta")));
+        Assert.True(File.Exists(_project.Abs("Assets/Textures/oak.png.mfmeta")));
         Assert.Equal("Assets/Textures/oak.png", _project.Database.GetPath(_project.WoodUid));
         Assert.Equal(_project.WoodUid, _project.Database.ReadOrCreateMeta("Assets/Textures/oak.png", create: false)!.Uid);
 
         Assert.Equal(
-            new[] { "project.mfproj", "Assets/Materials/Sky.mres", FileSystemProject.PlayerPath }.Select(_project.Abs).Order(),
+            new[] { "project.mfproj", "Assets/Materials/Sky.mfres", FileSystemProject.PlayerPath }.Select(_project.Abs).Order(),
             result.UpdatedFiles.Order());
         Assert.Contains("\"Assets/Textures/oak.png\"", _project.Read(FileSystemProject.PlayerPath), StringComparison.Ordinal);
         Assert.DoesNotContain("wood.png", _project.Read(FileSystemProject.PlayerPath), StringComparison.Ordinal);
@@ -65,13 +65,13 @@ public sealed class FileOperationsTests : IDisposable
         Succeeded(moveMain);
         Assert.Equal([_project.Abs("project.mfproj")], moveMain.UpdatedFiles);
 
-        const string newMain = "Assets/Scenes/Levels/Main.mscene";
+        const string newMain = "Assets/Scenes/Levels/Main.mfscene";
         var mainJson = _project.Read(newMain);
-        Assert.Contains("\"path\": \"Assets/Scenes/Levels/Player.mscene\"", mainJson, StringComparison.Ordinal);
-        Assert.Contains("\"path\": \"Assets/Materials/Settings.mres\"", mainJson, StringComparison.Ordinal); // unrelated hint kept
+        Assert.Contains("\"path\": \"Assets/Scenes/Levels/Player.mfscene\"", mainJson, StringComparison.Ordinal);
+        Assert.Contains("\"path\": \"Assets/Materials/Settings.mfres\"", mainJson, StringComparison.Ordinal); // unrelated hint kept
         Assert.Contains($"\"mainScene\": \"{newMain}\"", _project.Read("project.mfproj"), StringComparison.Ordinal);
         Assert.Equal(newMain, _project.Database.GetPath(_project.MainUid));
-        Assert.Equal("Assets/Scenes/Levels/Player.mscene", _project.Database.GetPath(_project.PlayerUid));
+        Assert.Equal("Assets/Scenes/Levels/Player.mfscene", _project.Database.GetPath(_project.PlayerUid));
 
         AssertProjectLoadsAndRoundTrips(newMain, "Assets/Textures/wood.png");
     }
@@ -82,17 +82,17 @@ public sealed class FileOperationsTests : IDisposable
         Succeeded(_ops.CreateFolder("Assets", "Art"));
         var result = _ops.Move("Assets/Textures", "Assets/Art");
         Succeeded(result);
-        Assert.True(File.Exists(_project.Abs("Assets/Art/Textures/wood.png.meta")));
+        Assert.True(File.Exists(_project.Abs("Assets/Art/Textures/wood.png.mfmeta")));
         Assert.Equal("Assets/Art/Textures/wood.png", _project.Database.GetPath(_project.WoodUid));
         Assert.Contains("\"Assets/Art/Textures/wood.png\"", _project.Read(FileSystemProject.PlayerPath), StringComparison.Ordinal);
 
         var scenes = _ops.Rename("Assets/Scenes", "Levels");
         Succeeded(scenes);
-        Assert.Contains("\"path\": \"Assets/Levels/Player.mscene\"", _project.Read("Assets/Levels/Main.mscene"), StringComparison.Ordinal);
-        Assert.Contains("\"mainScene\": \"Assets/Levels/Main.mscene\"", _project.Read("project.mfproj"), StringComparison.Ordinal);
-        Assert.Equal("Assets/Levels/Main.mscene", _project.Database.GetPath(_project.MainUid));
+        Assert.Contains("\"path\": \"Assets/Levels/Player.mfscene\"", _project.Read("Assets/Levels/Main.mfscene"), StringComparison.Ordinal);
+        Assert.Contains("\"mainScene\": \"Assets/Levels/Main.mfscene\"", _project.Read("project.mfproj"), StringComparison.Ordinal);
+        Assert.Equal("Assets/Levels/Main.mfscene", _project.Database.GetPath(_project.MainUid));
 
-        AssertProjectLoadsAndRoundTrips("Assets/Levels/Main.mscene", "Assets/Art/Textures/wood.png");
+        AssertProjectLoadsAndRoundTrips("Assets/Levels/Main.mfscene", "Assets/Art/Textures/wood.png");
     }
 
     private void AssertProjectLoadsAndRoundTrips(string mainPath, string texturePath)
@@ -119,26 +119,26 @@ public sealed class FileOperationsTests : IDisposable
 
         var scene = _ops.CreateScene("Assets/Prefabs", "Enemy");
         Succeeded(scene);
-        Assert.Equal(_project.Abs("Assets/Prefabs/Enemy.mscene"), scene.Path);
-        Assert.NotNull(_project.Database.GetUid("Assets/Prefabs/Enemy.mscene"));
-        var enemy = LoadScene("Assets/Prefabs/Enemy.mscene");
+        Assert.Equal(_project.Abs("Assets/Prefabs/Enemy.mfscene"), scene.Path);
+        Assert.NotNull(_project.Database.GetUid("Assets/Prefabs/Enemy.mfscene"));
+        var enemy = LoadScene("Assets/Prefabs/Enemy.mfscene");
         Assert.IsType<Node3D>(enemy);
         Assert.Equal("Enemy", enemy.Name);
         enemy.Free();
 
-        Succeeded(_ops.CreateScene("Assets/Prefabs", "Hud.mscene", "Node2D"));
-        Assert.IsType<Node2D>(LoadScene("Assets/Prefabs/Hud.mscene"));
+        Succeeded(_ops.CreateScene("Assets/Prefabs", "Hud.mfscene", "Node2D"));
+        Assert.IsType<Node2D>(LoadScene("Assets/Prefabs/Hud.mfscene"));
 
         var resource = _ops.CreateResource("Assets/Prefabs", "Night", typeof(Sky));
         Succeeded(resource);
         ResourceLoader.ClearCache();
-        Assert.IsType<Sky>(ResourceLoader.Load<Resource>("Assets/Prefabs/Night.mres"));
+        Assert.IsType<Sky>(ResourceLoader.Load<Resource>("Assets/Prefabs/Night.mfres"));
 
         Assert.False(_ops.CreateScene("Assets/Prefabs", "Bad", "NoSuchType").Succeeded);
         Assert.False(_ops.CreateResource("Assets/Prefabs", "Bad", typeof(string)).Succeeded);
         var duplicate = _ops.CreateScene("Assets/Prefabs", "Enemy");
         Assert.False(duplicate.Succeeded);
-        Assert.Equal("'Enemy.mscene' already exists in 'Assets/Prefabs'.", duplicate.Error);
+        Assert.Equal("'Enemy.mfscene' already exists in 'Assets/Prefabs'.", duplicate.Error);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public sealed class FileOperationsTests : IDisposable
 
         Succeeded(result);
         Assert.Null(result.Error);
-        Assert.Equal([_project.Abs(FileSystemProject.WoodPath), _project.Abs(FileSystemProject.WoodPath + ".meta")], _trash.Trashed);
+        Assert.Equal([_project.Abs(FileSystemProject.WoodPath), _project.Abs(FileSystemProject.WoodPath + ".mfmeta")], _trash.Trashed);
         Assert.False(File.Exists(_project.Abs(FileSystemProject.WoodPath)));
         Assert.Null(_project.Database.GetPath(_project.WoodUid));
 
@@ -170,12 +170,12 @@ public sealed class FileOperationsTests : IDisposable
         Assert.True(result.TrashUnavailable);
         Assert.Contains("wood.png", result.Error, StringComparison.Ordinal);
         Assert.True(File.Exists(_project.Abs(FileSystemProject.WoodPath)));
-        Assert.True(File.Exists(_project.Abs(FileSystemProject.WoodPath + ".meta")));
+        Assert.True(File.Exists(_project.Abs(FileSystemProject.WoodPath + ".mfmeta")));
         Assert.Equal(FileSystemProject.WoodPath, _project.Database.GetPath(_project.WoodUid));
 
         Succeeded(ops.DeletePermanently(FileSystemProject.WoodPath));
         Assert.False(File.Exists(_project.Abs(FileSystemProject.WoodPath)));
-        Assert.False(File.Exists(_project.Abs(FileSystemProject.WoodPath + ".meta")));
+        Assert.False(File.Exists(_project.Abs(FileSystemProject.WoodPath + ".mfmeta")));
         Assert.Null(_project.Database.GetPath(_project.WoodUid));
         Assert.Empty(failing.Trashed);
     }
@@ -191,7 +191,7 @@ public sealed class FileOperationsTests : IDisposable
     [InlineData("CON.png", "'CON.png' is a reserved name on Windows.")]
     [InlineData("name.", "'name.' cannot end with a dot.")]
     [InlineData(" lead.png", "' lead.png' cannot start or end with a space.")]
-    [InlineData("x.png.meta", "'x.png.meta': .meta files are managed by the editor.")]
+    [InlineData("x.png.mfmeta", "'x.png.mfmeta': .mfmeta files are managed by the editor.")]
     public void InvalidNamesAreRejectedWithAMessage(string name, string message)
     {
         var result = _ops.Rename(FileSystemProject.WoodPath, name);
@@ -215,7 +215,7 @@ public sealed class FileOperationsTests : IDisposable
 
         var notAFolder = _ops.Move(FileSystemProject.MainPath, FileSystemProject.PlayerPath);
         Assert.False(notAFolder.Succeeded);
-        Assert.Equal("'Assets/Scenes/Player.mscene' is not a folder in the project.", notAFolder.Error);
+        Assert.Equal("'Assets/Scenes/Player.mfscene' is not a folder in the project.", notAFolder.Error);
 
         var gone = _ops.Rename("Assets/nothing.png", "x.png");
         Assert.Equal("'Assets/nothing.png' no longer exists.", gone.Error);

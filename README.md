@@ -146,7 +146,7 @@ nothing but `[Tool]` nodes runs while editing — until **Simulate** (Alt+F6) ru
 copy in the view and Stop gives the authored scene back. The gizmo moves, rotates and scales every selected node around
 a median, active or per-node pivot; a drag on empty space box-selects what is visible; locked nodes stay out of the way;
 light and audio ranges (and game floats marked `[Export(Handle = …)]`) are dragged in the view; and an inline resource
-can be saved as a `.mres` or made unique from the inspector.
+can be saved as a `.mfres` or made unique from the inspector.
 
 <table>
   <tr>
@@ -175,7 +175,7 @@ can be saved as a `.mres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-range-handles.png" width="380" alt="Dragging the blue omni light's range handle: the handle on the range circle and a Range 6.22 m label"><br><b>Range handles</b> — drag light and audio ranges and cone angles; game nodes get them from <code>[Export(Handle)]</code></td>
-    <td align="center" valign="top"><img src="docs/images/editor-resource-menu.png" width="380" alt="The inspector's resource row More menu on a mesh: Save as .mres, Make Unique, Make Unique (Deep), Open, Show in FileSystem"><br><b>Resource actions</b> — Save as .mres, Make Unique (deep), Open, Show in FileSystem</td>
+    <td align="center" valign="top"><img src="docs/images/editor-resource-menu.png" width="380" alt="The inspector's resource row More menu on a mesh: Save as .mfres, Make Unique, Make Unique (Deep), Open, Show in FileSystem"><br><b>Resource actions</b> — Save as .mfres, Make Unique (deep), Open, Show in FileSystem</td>
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-joints.png" width="380" alt="A hinge of the Demo's rope bridge selected: its axis, limit arc and angle drawn on the planks, and its inspector with Rebuild and Swap A/B"><br><b>Joints</b> — the selected joint's gizmo, Rebuild and Swap A/B</td>
@@ -308,7 +308,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 
 | Feature | What you get |
 |---|---|
-| [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mscene`/`.mres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
+| [Scene system](docs/design/scene-graph-and-nodes.md) | A Godot-style `SceneTree`: lifecycle callbacks, signals, groups, `NodePath`, pause, `[Tool]` nodes; `.mfscene`/`.mfres` JSON with stable UIDs and nested scenes; `[Export]` metadata from a Roslyn source generator, no runtime reflection |
 | [Physics](docs/design/physics.md) | Jitter2 in 3D and Box2D in 2D: rigid, static and character bodies, areas that detect bodies and other areas, layers, queries, `MoveAndSlide`, interpolation, debug draw |
 | [Joints and ragdolls](docs/design/physics-joints.md) | `PinJoint3D`, `HingeJoint3D`, `SliderJoint3D`, `ConeTwistJoint3D`, `DistanceJoint3D`, `WeldJoint3D`, `Generic6DofJoint3D` (6-DOF: every axis free, limited or locked) and seven 2D joints (`MotorJoint2D` among them): limits, motors, springs, breaking, collision exclusion, debug draw, editor gizmos and limit handles; `Ragdoll3D` for rigid-part characters, `PhysicalBone3D` ragdolls on skinned skeletons (active ones keep their pose under physics: stagger when pushed, then recover) and Create physical skeleton in the editor |
 | [Input & cameras](docs/design/cameras-and-input.md) | Named input actions for keyboard, mouse and gamepad, player rebinding, captured and window-confined mouse modes, 2D, 3D and fly cameras |
@@ -330,7 +330,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 
 | Feature | What you get |
 |---|---|
-| [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos (multi-node, pivots), range handles, box selection and lock, Simulate in the view, resource Save as .mres / Make Unique, FileSystem panel, Play in its own process, C# code reload |
+| [Editor](docs/design/editor.md) | Project Manager, scene tree, generated inspector with undo, 3D/2D gizmos (multi-node, pivots), range handles, box selection and lock, Simulate in the view, resource Save as .mfres / Make Unique, FileSystem panel, Play in its own process, C# code reload |
 | [Crash reporting](docs/design/crash-reporting.md) | A crash leaves a report bundle (exception, the node and callback it left, scene, GPU and driver, the last log lines); native crashes and kills are noticed on the next start, with optional native dumps; a next-launch prompt for players, opt-in upload to Sentry or your own endpoint; the editor shows a game's crash as one Output row with click-to-source frames |
 | [Gameplay recording](docs/design/recording.md) | Record any game to MP4 through your own ffmpeg: F10 in the editor or `--record`, live or offline, with a sidecar of input, loading and pauses |
 | [Video mode](docs/design/video-editor.md) | A multi-track timeline editor for the project's recordings and media: tracks, Premiere's keys, reframing, a cut editor, export presets for socials and trailers |

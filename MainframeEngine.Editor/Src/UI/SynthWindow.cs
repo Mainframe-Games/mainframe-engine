@@ -1763,7 +1763,7 @@ public sealed class SynthWindow : EditorDocument
                 var category = slash > 0 ? text[..slash].Trim() : "Project";
                 var name = (slash > 0 ? text[(slash + 1)..] : text).Trim();
                 var file = string.Concat(name.Select(static c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-                var path = Path.Combine(root, AssetDatabase.ContentFolder, SynthPresets.Folder, file + ".mres");
+                var path = Path.Combine(root, AssetDatabase.ContentFolder, SynthPresets.Folder, file + ".mfres");
                 try
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(path)!);

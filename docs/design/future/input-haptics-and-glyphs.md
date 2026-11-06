@@ -52,7 +52,7 @@ Gamepads drive actions, but the engine cannot talk back to them or show the play
 - **Rumble that composes:** voices with priorities, per-motor mixing, trigger motors where present, a global player
   intensity, a pause policy, and a guaranteed stop on focus loss, disconnect and exit. No allocation per frame.
 - **Godot-compatible entry points:** `Input.StartJoyVibration`, `StopJoyVibration`, `GetJoyVibrationStrength`.
-- **Authored patterns:** a `RumblePattern` resource (`.mres`) and a `RumblePlayer` node, previewed on a real pad.
+- **Authored patterns:** a `RumblePattern` resource (`.mfres`) and a `RumblePlayer` node, previewed on a real pad.
 - **Controller identity:** `GamepadInfo` (stable instance id, `GamepadType`, `GamepadFamily`, capabilities), connection
   signals, Steam Input-aware type detection, and last-used device tracking with an `InputDeviceChanged` signal.
 - **Glyphs everywhere:** `Input.GetActionGlyph("jump")` with bundled CC0 atlases and layout-aware key labels; a
@@ -229,7 +229,7 @@ public static partial class Input   // Godot's names and semantics
 ```csharp
 public enum RumbleInterpolation : byte { Linear, Step }
 
-public sealed class RumblePattern : Resource      // .mres; parallel arrays like Gradient (Gradient.cs:19-22)
+public sealed class RumblePattern : Resource      // .mfres; parallel arrays like Gradient (Gradient.cs:19-22)
 {
     [Export] public float[] Times { get; set; } = [0f, 0.15f];                           // seconds, ascending
     [Export] public Vector4[] Values { get; set; } = [new(1, 1, 0, 0), Vector4.Zero];    // low, high, LT, RT
@@ -423,7 +423,7 @@ change and redraws on `GlyphsChanged`; a steady frame allocates nothing. G11's `
   - `HapticsServerTests`: `Max`/`Add` mixing, exclusive gating, intensity and `Enabled`, quantization dedupe,
     keepalive and duration, a single zero on silence, pause freeze vs `Always`, focus mute, disconnect, index shift,
     the `All` target (`LastUsed` in G12.4), stale handles, dropped trigger channels, zeros on dispose.
-  - `JoyVibrationFacadeTests` (Godot semantics), `RumblePatternTests` (sampling, loop, `Strength`, `.mres` round
+  - `JoyVibrationFacadeTests` (Godot semantics), `RumblePatternTests` (sampling, loop, `Strength`, `.mfres` round
     trip), `RumblePlayerTests` (autoplay, `Finished` once, stop on exit tree, `ProcessMode`).
   - `GamepadIdentityTests` (type → family tables, VID/PID fallback, Steam override, event order, `FindGamepad`) and
     `LastDeviceTests` (drift and jitter never switch, one event per change).

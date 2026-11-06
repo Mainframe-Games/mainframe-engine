@@ -16,7 +16,7 @@ machine plays silence on the next, CI renders it silent, and a new user has no r
 
 The DAW needs one serious instrument that is always there: a modern wavetable synth of the kind people already know how
 to program (oscillators that scan a table of single-cycle frames, unison stacks, two filters, envelopes, LFOs, and a mod
-matrix you assign by dragging), written in C#, with its patch stored inside the `.msong` like every other built-in.
+matrix you assign by dragging), written in C#, with its patch stored inside the `.mfsong` like every other built-in.
 
 ## Goals
 
@@ -33,7 +33,7 @@ matrix you assign by dragging), written in C#, with its patch stored inside the 
   - polyphony up to 32, mono and legato with glide;
   - an FX rack made of the Phase 1 built-in effects.
 - **Content:** factory wavetables generated in code, `.wav` wavetable import (2048-sample frames, the `clm ` chunk),
-  factory presets, and presets saved as `.mres` files.
+  factory presets, and presets saved as `.mfres` files.
 - **A plugin window** with Osc / Matrix / FX tabs, built on the Phase 1 descriptor-driven window and knobs, with the
   wavetable, envelopes and LFOs drawn on an `EditorCanvas`.
 - **Real-time safe:** zero allocation on the render thread, no locks, no clicks on parameter changes, deterministic
@@ -429,8 +429,8 @@ asset; its patch reference is its UID.
 - **Factory presets** (about 40: basses, leads, pads, plucks, keys, FX) are written in C# (`FactoryPresets`, a patch
   per preset built from the parameter registry), so they always match the current parameter set and use only factory
   tables.
-- **User presets** are `.mres` resources of a new type, `WavetablePreset`: `Name`, `Category`, `Author`, `Tags` and
-  `Patch` (the patch JSON as written in the `.msong`, canonical form). The editor has no source generator (its nodes
+- **User presets** are `.mfres` resources of a new type, `WavetablePreset`: `Name`, `Category`, `Author`, `Tags` and
+  `Patch` (the patch JSON as written in the `.mfsong`, canonical form). The editor has no source generator (its nodes
   stay unregistered on purpose), so the type lives in the engine core
   (`MainframeEngine/Src/Audio/Synth/WavetablePreset.cs`), where the generator registers it and a future runtime synth
   can load it. Default folder: `Assets/Presets/Wavetable/`. A preset that references a `.wav` table references it by
@@ -638,7 +638,7 @@ effects 1.04 ms (19.5 %); zero allocation in every case.
 - **Presets:** 39 factory presets (`FactoryPresets`: 7 bass, 7 lead, 7 pad, 6 pluck, 6 keys, 6 FX) built from the
   registry, factory tables only; `WavetablePreset` (`MainframeEngine/Src/Audio/Synth/`, registered by the generator) with
   `ResourceName`, `Category`, `Author`, `Tags` and `Patch` (the patch JSON). `SynthPresets` lists the project's presets by
-  peeking each `.mres`'s root type and reads them straight from the file (the resource loader caches). Loading a preset
+  peeking each `.mfres`'s root type and reads them straight from the file (the resource loader caches). Loading a preset
   is one undo step (`SongDocument.SetSynthPatch`, which also records `InstrumentDescriptor.Preset`).
 - **In the stopgap window** (`PluginWindow.Synth.cs`): the title names the preset; Presets lists Init, the factory
   categories, the project's presets and Save Preset… ("Category / Name", saved in `Assets/Presets/Wavetable/`); the
@@ -710,10 +710,10 @@ Still open: the modified mark, a user-wide preset library, routes into FX parame
 - **Mod-matrix routes into the FX rack.** Serum-style synths let LFOs drive FX parameters. It needs a render-thread
   override entry on `BuiltinEffect` (per-block modulated values over the UI's base values). Recommendation: leave it out
   of v1, design it with automation lanes, which need the same entry.
-- ~~**Where `WavetablePreset` lives.**~~ **Decided:** the engine core, as a `.mres` resource registered by the generator
+- ~~**Where `WavetablePreset` lives.**~~ **Decided:** the engine core, as a `.mfres` resource registered by the generator
   (PR 2).
 - **A user-wide preset library** (presets shared across projects, e.g. `~/.mainframe/presets/`) is not in v1, since
-  `.mres` files and UIDs belong to a project. Wanted for v1, or later?
+  `.mfres` files and UIDs belong to a project. Wanted for v1, or later?
 - **Runtime use in games.** The synth could run in `AudioServer` (an `AudioStreamGenerator` or a dedicated stream)
   for procedural music and sound effects. It would move the DSP into the engine and add CPU on game audio threads.
   Separate design after v1?

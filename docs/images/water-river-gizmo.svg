@@ -18,7 +18,7 @@
   <rect x="20" y="20" width="920" height="460" rx="8" fill="#1f2128" stroke="#111827"/>
   <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
   <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="380" y="38" class="s">Mainframe Editor — Forest — Stream.mscene*</text>
+  <text x="380" y="38" class="s">Mainframe Editor — Forest — Stream.mfscene*</text>
 
   <!-- toolbar: transform tools, then the River tool's icon buttons -->
   <rect x="20" y="46" width="920" height="30" fill="#2a2d36"/>
@@ -40,7 +40,7 @@
 
   <!-- viewport -->
   <rect x="24" y="80" width="616" height="396" fill="#20232a" stroke="#3b3f4b"/>
-  <rect x="24" y="98" width="128" height="22" fill="#2f333d"/><text x="34" y="114" class="t">Stream.mscene*</text>
+  <rect x="24" y="98" width="128" height="22" fill="#2f333d"/><text x="34" y="114" class="t">Stream.mfscene*</text>
   <rect x="28" y="122" width="608" height="350" fill="#4a5a3a"/>
   <!-- terrain contours -->
   <g fill="none" stroke="#5a6c48" stroke-width="1.2">

@@ -11,8 +11,8 @@ public sealed class MusicBrowserTests
     {
         var editor = new HeadlessEditor();
         var music = Path.Combine(editor.Directory, "Project", "Assets", "Music");
-        SongTab.CreateFile(Path.Combine(music, "Other.msong"));
-        var path = SongTab.CreateFile(Path.Combine(music, "Theme.msong"));
+        SongTab.CreateFile(Path.Combine(music, "Other.mfsong"));
+        var path = SongTab.CreateFile(Path.Combine(music, "Theme.mfsong"));
         editor.Workspace.Commands.OpenSong(path);
         editor.Tick(3);
         return (editor, Assert.IsType<SongTab>(editor.Workspace.Session.ActiveTab));
@@ -43,7 +43,7 @@ public sealed class MusicBrowserTests
 
             var theme = Row(browser, "song:" + tab.FilePath);
             Assert.True(browser.Rows[theme].Current);
-            Row(browser, "song:" + Path.Combine(Path.GetDirectoryName(tab.FilePath)!, "Other.msong"));
+            Row(browser, "song:" + Path.Combine(Path.GetDirectoryName(tab.FilePath)!, "Other.mfsong"));
             foreach (var info in BuiltinEffects.All)
                 Row(browser, "fx:" + info.Id);
             Assert.Contains("Channel EQ", Html(editor, "song-browser-list"), StringComparison.Ordinal);
@@ -61,9 +61,9 @@ public sealed class MusicBrowserTests
             Assert.DoesNotContain("fx:compressor", browser.Ids);
             Assert.Contains("fx:Dynamics", editor.Workspace.Layout.Settings.MusicBrowserCollapsed!);
 
-            browser.Click(Row(browser, "song:" + Path.Combine(Path.GetDirectoryName(tab.FilePath)!, "Other.msong")));
+            browser.Click(Row(browser, "song:" + Path.Combine(Path.GetDirectoryName(tab.FilePath)!, "Other.mfsong")));
             editor.Tick(2);
-            Assert.EndsWith("Other.msong", editor.Workspace.Session.ActiveSong!.FilePath, StringComparison.Ordinal);
+            Assert.EndsWith("Other.mfsong", editor.Workspace.Session.ActiveSong!.FilePath, StringComparison.Ordinal);
 
             editor.Key(Key.F);
             editor.Tick(1);

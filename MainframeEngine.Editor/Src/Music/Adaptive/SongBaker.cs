@@ -38,7 +38,7 @@ public readonly record struct SongBakeProgress(int Done, int Total, string Stem)
 }
 
 /// <summary>What a bake did.</summary>
-/// <param name="ManifestPath">Project path of the <c>.mmusic</c>.</param>
+/// <param name="ManifestPath">Project path of the <c>.mfmusic</c>.</param>
 /// <param name="Uid">Its <c>mus_</c> UID (kept across bakes).</param>
 /// <param name="Rendered">Keys (<c>section/layer</c>, <c>stinger/mix</c>, <c>section@marker/layer</c>) rendered this time.</param>
 /// <param name="Reused">Keys whose stems were reused (inputs unchanged).</param>
@@ -85,7 +85,7 @@ public sealed class SongBakeException : Exception
 /// <summary>
 /// Bakes an adaptive song (docs/design/adaptive-music.md, "The bake"): one body stem per layer per section (exactly
 /// the section's <see cref="MusicGrid.LengthFrames"/>) plus its trimmed tail, one mixed stem per stinger, tails for tail
-/// points, and the <c>.mmusic</c> manifest. Each stem is rendered in isolation (<see cref="RenderStem"/>), named by a hash
+/// points, and the <c>.mfmusic</c> manifest. Each stem is rendered in isolation (<see cref="RenderStem"/>), named by a hash
 /// of its inputs and reused while they do not change. New stems are staged as <c>*.baking.tmp</c>, moved into place
 /// once all rendered, then the manifest is written (<see cref="DurableFile"/>), then the stems only the previous manifest
 /// listed are deleted: a failed or cancelled bake leaves the previous manifest and its stems as they were.
@@ -102,7 +102,7 @@ public static partial class SongBaker
 
     private const string StageSuffix = ".baking.tmp";
 
-    /// <summary>The manifest's project path: <c>adaptive.output</c>, else <c>Assets/Music/&lt;songName&gt;.mmusic</c>.</summary>
+    /// <summary>The manifest's project path: <c>adaptive.output</c>, else <c>Assets/Music/&lt;songName&gt;.mfmusic</c>.</summary>
     public static string ManifestPathFor(Song song, string songName)
     {
         ArgumentNullException.ThrowIfNull(song);
@@ -118,7 +118,7 @@ public static partial class SongBaker
             : Path.ChangeExtension(path, MusicManifestFormat.Extension);
     }
 
-    /// <summary>The generated stems folder next to a manifest: <c>Theme.mmusic</c> → <c>Theme.stems</c>.</summary>
+    /// <summary>The generated stems folder next to a manifest: <c>Theme.mfmusic</c> → <c>Theme.stems</c>.</summary>
     public static string StemsFolderFor(string manifestPath) => Path.ChangeExtension(manifestPath, null) + StemsSuffix;
 
     /// <summary>
@@ -595,7 +595,7 @@ public static partial class SongBaker
 
     // --- commit -----------------------------------------------------------------------------------
 
-    // Moves a rendered job's staged files into place and gives them their .meta (keeping a UID already there).
+    // Moves a rendered job's staged files into place and gives them their .mfmeta (keeping a UID already there).
     private static void Commit(BakeContext context, StemJob job, List<string> created)
     {
         if (job.BodyStage is not null)

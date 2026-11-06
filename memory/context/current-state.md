@@ -6,7 +6,7 @@ _Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and muc
 
 - **Engine** (`MainframeEngine`, .NET 10, Vulkan 1.2; MoltenVK bundled on macOS, SDL2 windowing via Silk.NET 2.22):
   Godot-style `SceneTree` (M2) with source-generated `[Export]`/`[Signal]`/`[Replicated]`/`[Rpc]`/`[EditorIcon]`
-  registration (`MainframeEngine.Generators`), `.mscene`/`.mres` JSON with UIDs; meshes/materials/textures, Assimp
+  registration (`MainframeEngine.Generators`), `.mfscene`/`.mfres` JSON with UIDs; meshes/materials/textures, Assimp
   import, instancing, picking, `SubViewport`, HDR + ACES, in-house GPU allocator (M3); CSM/PCF/atlas shadows (M4);
   replication over ENet/loopback/simulated transports (M5); Steam over Facepunch.Steamworks 2.4.1 with Valve's
   natives shipped (ADR 0189); Jitter2 3D + Box2D.NET 2D physics (M6); SoundFlow audio with buses and 3D voices (M7);
@@ -31,7 +31,7 @@ _Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and muc
   Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
   (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
-  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), and exports packed into one `Assets.mfpak` that `GameHost` mounts (phase 2, ADR 0247).
+  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), and exports packed into one `Assets.mfpak` that `GameHost` mounts (phase 2, ADR 0247); every engine file extension starts with `.mf` (`.mfscene`, `.mfres`, `.mfmeta`, …; ADR 0249: old projects still load, the editor migrates them on open, `FileExtensionRuleTests` keeps the rule).
 - **G6** ([Rendering features](../../docs/design/rendering-features.md)): PBR + IBL, SSAO, 3D particles, mesh LODs (ADR 0245), forward decals (ADR 0246), `.hdr` skies; owner-pending: PBR default, LOD simplifier.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
@@ -79,7 +79,7 @@ _Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and muc
 - Docker Linux tests (`just test-linux` / `just render-tests-linux`): one shared build volume, one run at a time (a
   second waits), synced by content, testing the committed `.spv`; a Rosetta stall on a Mac is retried once.
 - Game shaders (ADR 0237): after editing a `.slang` surface shader `just canvas-shaders <folder>`, commit its `.spv`,
-  `.layout.json` and `.spvlock`; defaults are literals, matrices `mul(v, M)`; no `#line`, so no slangc `-obfuscate` crash.
+  `.layout.json` and `.mfspvlock`; defaults are literals, matrices `mul(v, M)`; no `#line`, so no slangc `-obfuscate` crash.
 - Benchmarks: compare only on the machine that recorded `baseline.json` (MacBook, Apple M5), and only when it is
   quiet (parallel builds/agents skew results by 10–15 %).
 - Steam: Facepunch.Steamworks 2.4.1 (vendored) behind the `MainframeEngine.Steamworks` shim (Win64/Posix builds,

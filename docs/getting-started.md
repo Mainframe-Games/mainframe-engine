@@ -80,7 +80,7 @@ dotnet new mfgame -n MyGame --engine-source project --engine-path "$PWD/mainfram
 
 This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGame.Desktop/`
 (`GameHost.Run(args, ...)`), `project.mfproj` (main scene, window, physics, input actions, autoloads, …) and
-`Assets/Scenes/Main.mscene`. Read input through actions (`Input.IsActionPressed("spin_faster")`), and see
+`Assets/Scenes/Main.mfscene`. Read input through actions (`Input.IsActionPressed("spin_faster")`), and see
 [Projects & GameHost](design/project-and-gamehost.md) for the project file, `GameHost` flags
 (`--scene`, `--max-frames`, `--hidden`, `--editor-port`) and the editor link, and
 [Distribution via NuGet](design/distribution-nuget.md) for the packages.
@@ -91,7 +91,7 @@ This creates `MyGame/` (your node types — start from `Src/Spinner.cs`), `MyGam
    download if missing).
 2. **New Project**: a name (a C# identifier, e.g. `MyGame`) and a parent folder; the game references the
    `MainframeEngine` package of the editor's version (or, for engine work, an engine checkout). Create runs
-   `dotnet new mfgame`, builds the game and opens it — `Assets/Scenes/Main.mscene` with the template's `Spinner` node.
+   `dotnet new mfgame`, builds the game and opens it — `Assets/Scenes/Main.mfscene` with the template's `Spinner` node.
 3. Edit the scene: **Add Node** (Cmd/Ctrl+A), drag files from the **FileSystem** panel onto the scene tree or the
    viewport, change properties in the inspector, connect signals in its Signals tab. Cmd/Ctrl+S saves.
 4. **Play** with F5 (F6 plays the open scene, Shift+F5 starts another instance, F7 pauses, F8 stops). The editor saves,
@@ -115,7 +115,7 @@ described in [Editor](design/editor.md).
 just editor                                                        # Project Manager
 just editor path/to/MyGame                                         # open a project
 just editor Examples/Demo                                          # the Demo project from the screenshots
-just editor Examples/Demo/Assets/Scenes/basic_3d.mscene           # open one scene
+just editor Examples/Demo/Assets/Scenes/basic_3d.mfscene           # open one scene
 ```
 
 ### Animate a character
@@ -126,7 +126,7 @@ Skeletal animation follows Godot 4 ([Animation and skinning](design/animation.md
    or mark a moment, give the action custom properties: `loop` (a bool) and `events` (a group of name → seconds, e.g.
    `HammerFist = 0.42`). Export glTF (`.glb`) with *Include → Custom Properties*, skins and animations.
 2. **Put the file in `Assets/`.** It imports to the armature's `Skeleton3D`, the skinned `MeshInstance3D` under it and an
-   `AnimationPlayer` with one animation per action. Loop modes, renames and events can also go in the model's `.meta`
+   `AnimationPlayer` with one animation per action. Loop modes, renames and events can also go in the model's `.mfmeta`
    (`"clips": [ { "name": "run", "loop": "Linear" } ]`), which is how FBX files get them.
 3. **Instance it** in a scene (drag it from the FileSystem panel, or `ResourceLoader.Load<PackedScene>(…).Instantiate()`),
    and drive the player from your code:
@@ -134,7 +134,7 @@ Skeletal animation follows Godot 4 ([Animation and skinning](design/animation.md
 ```csharp
 var player = crew.GetNode<AnimationPlayer>("AnimationPlayer");
 player.PlaybackDefaultBlendTime = 0.15f;                     // crossfade on every switch
-player.Play("run");                                          // loops (extras or .meta)
+player.Play("run");                                          // loops (extras or .mfmeta)
 player.Play("roll", customSpeed: (float)(player.GetAnimation("roll")!.Length / rollSeconds)); // fit to a duration
 player.Queue("idle");                                        // after the roll ends
 player.AnimationEvent += (clip, name) => { if (name == "HammerFist") Hit(); }; // also on a --headless server
@@ -166,7 +166,7 @@ folder you choose, points it at your engine checkout and opens it.
 
 ```bash
 just demo                                          # the Basic 3D scene
-just demo --scene Assets/Scenes/physics_2d.mscene # any scene (--max-frames, --screenshot, ... are GameHost flags)
+just demo --scene Assets/Scenes/physics_2d.mfscene # any scene (--max-frames, --screenshot, ... are GameHost flags)
 just editor Examples/Demo                          # open it in the editor
 ```
 
@@ -188,7 +188,7 @@ public sealed class Game(in EngineOptions options) : Engine(options)
     protected override void OnLoad()
     {
         base.OnLoad();                                      // window, renderer, servers
-        Tree.ChangeSceneToFile("Assets/Scenes/Main.mscene");
+        Tree.ChangeSceneToFile("Assets/Scenes/Main.mfscene");
     }
 
     // Optional legacy hooks: OnUpdate, OnShadowPass, OnRenderMainPass.
@@ -238,13 +238,13 @@ public sealed class Spinner : Node3D
         RotationDegrees += new Vector3(0, DegreesPerSecond * time.DeltaTime, 0);
 }
 
-var level = ResourceLoader.Load<PackedScene>("Assets/Scenes/Level.mscene").Instantiate();
+var level = ResourceLoader.Load<PackedScene>("Assets/Scenes/Level.mfscene").Instantiate();
 Tree.Root.AddChild(level);
 level.GetNode<SpineNode>("Player/Body").SetAnimation("walk");
-SceneSaver.Save(level, "Assets/Scenes/Level.mscene");
+SceneSaver.Save(level, "Assets/Scenes/Level.mfscene");
 ```
 
-Scenes (`.mscene`) and resources (`.mres`) are JSON with stable UIDs, nested scene instances with overrides, and only
+Scenes (`.mfscene`) and resources (`.mfres`) are JSON with stable UIDs, nested scene instances with overrides, and only
 non-default values. `[Export]` members are registered by the `MainframeEngine.Generators` source generator (no runtime
 reflection). **`NetworkNode`** manages the ENet library lifecycle and wraps the server and client message buses as a
 node; it polls them every frame in `OnProcess` (or call `Poll()`). **`NodeId`** is a runtime-unique node identifier
@@ -268,7 +268,7 @@ public sealed class Ship : Node3D
 }
 
 var mp = engine.Multiplayer;
-var shipScene = mp.RegisterScene("Assets/Scenes/Ship.mscene"); // same scenes, same order, on both ends
+var shipScene = mp.RegisterScene("Assets/Scenes/Ship.mfscene"); // same scenes, same order, on both ends
 
 // Server
 mp.Host(7777, maxClients: 8);
@@ -297,7 +297,7 @@ Servers.Get<AudioServer>()!.PlayOneShot(click, bus: "UI");  // fire and forget
 
 `ZzfxStream` is a sound made from a ZzFX line (`ZzfxStream.FromLine("zzfx(...[…])")`, `ZzfxPresets` for coins,
 lasers, explosions…) and synthesised on first play; the editor's sound designer edits it, and its music editor renders
-songs (`just render-song <path.msong>` does it headless). See [Audio](design/audio.md).
+songs (`just render-song <path.mfsong>` does it headless). See [Audio](design/audio.md).
 
 ### Localization
 

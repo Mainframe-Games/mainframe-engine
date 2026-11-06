@@ -11,7 +11,7 @@ using Color = System.Drawing.Color;
 /// value noise, specks; a colour array, scalars and a nearest sampler set from C#);</item>
 /// <item>fungal stalks in one <see cref="MultiMeshInstance3D"/> swaying by world position and <c>time</c>, out of step by
 /// <c>instanceCustom</c>, with matching swaying shadows (<c>spatial_sway.slang</c>, Blinn-Phong, <c>Cull.Disabled</c>);</item>
-/// <item>a dissolving sphere loaded from <c>spatial_dissolve.mres</c> (its parameters from the file, a hit-flash tint from
+/// <item>a dissolving sphere loaded from <c>spatial_dissolve.mfres</c> (its parameters from the file, a hit-flash tint from
 /// C#): a noise alpha cutout with an emissive edge, cut out in its shadow and in picking too;</item>
 /// <item>a box with a standard material and an additive rim glow as its <see cref="Material.NextPass"/>, and a small
 /// sphere with the rim as its <see cref="GeometryInstance3D.MaterialOverlay"/> (<c>spatial_rim.slang</c>).</item>
@@ -65,8 +65,8 @@ public sealed class SpatialShaderScene(HostOptions host) : ShadowSceneBase(host)
         _stalks = new MultiMeshInstance3D { Name = "Stalks", Multimesh = multimesh, MaterialOverride = sway };
         scene.AddChild(_stalks);
 
-        // The dissolve from a .mres (progress 0.42, colour, edge energy), tinted by a hit flash from C#.
-        var dissolve = ResourceLoader.Load<ShaderMaterial>("Assets/Materials/spatial_dissolve.mres");
+        // The dissolve from a .mfres (progress 0.42, colour, edge energy), tinted by a hit flash from C#.
+        var dissolve = ResourceLoader.Load<ShaderMaterial>("Assets/Materials/spatial_dissolve.mfres");
         dissolve.SetShaderParameter("hit_flash", Srgb(255, 70, 70, 0.3f));
         scene.AddChild(new MeshInstance3D
         {

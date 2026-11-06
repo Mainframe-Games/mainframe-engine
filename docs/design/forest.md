@@ -48,7 +48,7 @@ Examples/Forest/
 ├── Tools/                fetch_assets.py downloads and imports Assets/Art (python3 + Pillow, curl); cabin/build_cabin.py
 │                         models the log cabin in Blender (`just forest-cabin`);
 │                         grade_from_shots.py fits the grade to ungraded renders of R1–R7 (ADR 0175)
-└── Assets/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres
+└── Assets/              Scenes/forest.mfscene, Scenes/asset_gallery.mfscene (generated), Settings/AudioBusLayout.mfres
                           (the Forest's buses), UI/ (fps.rml, prompt.rml, menu.rcss, shots/: R1–R9 thumbnails), Art/ (CC0,
                           in LFS: Terrain/<Layer>/, Props/<id>/, Debris/<id>/, Sky/, Cabin/ (the cabin's glTF + textures))
 ```
@@ -80,7 +80,7 @@ lists every asset (name, ID, source page and download URL, author, licence); THI
 
 **Import.** `python3 Examples/Forest/Tools/fetch_assets.py [--cache DIR]` (curl + Pillow) downloads over HTTPS from
 `ambientcg.com/api/v2/full_json` + `ambientcg.com/get?file=…` and `api.polyhaven.com` + `dl.polyhaven.org` (Poly Haven
-files checked against the API's MD5), converts, and writes `.meta` sidecars (UIDs) for new files; re-running keeps the
+files checked against the API's MD5), converts, and writes `.mfmeta` sidecars (UIDs) for new files; re-running keeps the
 UIDs. Everything under `Assets/Art` is in LFS except the `.gltf` JSON and the sidecars: **152 MB** (G8e.7 added 45 MB:
 nine Poly Haven scans at 1K and ambientCG's scattered leaves) of G8d's 400 MB budget; before G8e.7 it was 107 MB in 77 LFS files
 (terrain 31.5 MB, props 73.6 MB, sky 2.4 MB).
@@ -143,13 +143,13 @@ saved scene references them by UID; every factory call returns new resources, so
   PBR; `LoadPropMeshes(prop)`: each `ArrayMesh` with its transform, for `MultiMesh` scattering.
 - `SkyPanorama`, `CreatePanoramaSky()`: an optional `Panoramic` sky (the physical sky stays the default).
 
-**Asset gallery** (`ForestAssetGallery`, `Assets/Scenes/asset_gallery.mscene`, written by `--write-scenes`): a 64 m
+**Asset gallery** (`ForestAssetGallery`, `Assets/Scenes/asset_gallery.mfscene`, written by `--write-scenes`): a 64 m
 terrain with one 7 m band per layer west to east (the rock band is a steep ridge: triplanar), a leaves / needles / moss
 mix in front, every prop on it, a shadowed sun and the panorama sky. Game arguments: `++ --view overview|terrain|props`,
 `--sky panorama|physical`:
 
 ```
-dotnet Examples/Forest/Forest.Desktop/bin/Release/net10.0/Forest.Desktop.dll --scene Assets/Scenes/asset_gallery.mscene \
+dotnet Examples/Forest/Forest.Desktop/bin/Release/net10.0/Forest.Desktop.dll --scene Assets/Scenes/asset_gallery.mfscene \
   --fixed-fps 60 --max-frames 120 --screenshot gallery.png ++ --view props
 ```
 
@@ -161,7 +161,7 @@ of each prop against the 7 m bands.
 
 ## The valley
 
-`ForestScene.Build()` writes `Assets/Scenes/forest.mscene` (`dotnet run --project Examples/Forest/Forest.Desktop --
+`ForestScene.Build()` writes `Assets/Scenes/forest.mfscene` (`dotnet run --project Examples/Forest/Forest.Desktop --
 --write-scenes Examples/Forest/Assets/Scenes`; `ProjectTests.CommittedSceneMatchesTheBuilder` checks it byte for byte).
 The scene holds only what an editor would tune: the `Sun`, the `Environment` (the look), the `Valley` node with its
 knobs, the `Lighting` probe volume ([below](#light-probes)), the `Player` and the `Audio`. **The valley is generated when the `ForestValley` node is ready**, deterministically
@@ -198,7 +198,7 @@ walls run in the game only.
 | Player | `ForestValley` stands the player on the ground and sets `SurfaceResolver` to `Terrain3D.SurfaceTagAt` (needles sound as leaves); `ForestAudio` gets the pine density for the woodpecker |
 
 Trees are generated at load from the presets (23 variants, ≈ 1 s with their cluster cards and wind streams), not baked:
-a baked `TreeMesh` `.mres` is ≈ 3 MB of text per variant to save that time. Their cluster atlases and impostors are baked
+a baked `TreeMesh` `.mfres` is ≈ 3 MB of text per variant to save that time. Their cluster atlases and impostors are baked
 on the CPU the first time and then read from the tree-bake cache (`TreeBakeCache`, ≈ 8 s once per machine).
 
 **Foliage (G8e.5, [ADR 0172](../../memory/decisions/0172-ez-tree-foliage-quality.md)).** `ForestVegetation.CreateTreeSpecies(clusters:
@@ -304,8 +304,8 @@ The scene's `Lighting` node is a `LightProbeVolume` ([ADR 0170](../../memory/dec
 G8e.1; [Lighting → Light probes](lighting.md#light-probes)), `ForestScene.CreateProbes`: terrain-following over the
 whole 320 m valley terrain (`Terrain` = `../Valley/Terrain`, not the distant mountains') every 2 m, eight layers from
 0.3 to 27 m above the ground (161 × 8 × 161 = 207 368 probes), 192 rays, two bounces; the bake traces the mountains,
-the trees and the cabin (≈ 2 min on every core). **The bake is committed**: `Assets/Scenes/forest-lighting.mres` and
-its `.probes` file (6.7 MB, LFS). The valley is generated at load, so the volume checks the bake's hash against what the valley
+the trees and the cabin (≈ 2 min on every core). **The bake is committed**: `Assets/Scenes/forest-lighting.mfres` and
+its `.mfprobes` file (6.7 MB, LFS). The valley is generated at load, so the volume checks the bake's hash against what the valley
 generated (≈ 40 ms) and, with `BakeWhenStale`, bakes in the background when they differ (about a minute on every
 core; the valley renders without probes until then and logs a warning). After changing the valley's generator, its
 trees or the sun, re-bake and commit:
@@ -329,17 +329,17 @@ capped (`AutoExposureMinLuminance` 0.03); histogram auto exposure's highlight pr
 ([ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md)) now keeps the sunlit slopes in range in shaded views. `++ --set Lighting.Visible=false` renders
 without the probes (the before shots below).
 
-### The look (`ForestScene.CreateEnvironment`, the `Sun`, `Assets/PostProcess/*.mres`)
+### The look (`ForestScene.CreateEnvironment`, the `Sun`, `Assets/PostProcess/*.mfres`)
 
 The post-processing look is a resource file the editor tunes ([ADR 0169](../../memory/decisions/0169-post-processing-profile-and-editor-preview.md)):
-`Assets/PostProcess/forest.mres` (a `PostProcessProfile`: exposure, glow, shafts, SSAO, the grade) and
-`Assets/PostProcess/forest-lens.mres` (the `CameraAttributesPractical`), referenced by the scene's `Environment`
+`Assets/PostProcess/forest.mfres` (a `PostProcessProfile`: exposure, glow, shafts, SSAO, the grade) and
+`Assets/PostProcess/forest-lens.mfres` (the `CameraAttributesPractical`), referenced by the scene's `Environment`
 (`ForestLook`). **The files are the source of truth**: `--write-scenes` writes them from `ForestLook.CreateProfile` and
 `ForestGrade.CreateLens` only when they are missing, so values tweaked in the editor survive a scene rebuild; the table
 holds their first values. To tune it: `just editor Examples/Forest/project.mfproj` opens the forest scene with
 **Preview Post-Processing** on (the valley is generated in the editor too: `ForestValley` is a `[Tool]`); select
 `Environment`, Edit (pencil) on `Post Process`, open a group, change a value: the view follows at once, and Save writes
-`forest.mres` with the scene. `Tests/QA/forest-post.qa` drives that and captures it.
+`forest.mfres` with the scene. `Tests/QA/forest-post.qa` drives that and captures it.
 
 | Knob | Value | Why |
 |---|---|---|
@@ -463,7 +463,7 @@ cascades (2048² costs 4–6 ms more under the leaf cards until G8e.5's impostor
 
 [ADR 0177](../../memory/decisions/0177-histogram-auto-exposure.md), after Brogan's 2026-10-09 playtest: from the start
 position, looking up the path (mostly canopy shade, a sun-facing slope and treetops in sun), the mean-luminance exposure
-pinned at its maximum boost and washed the sunlit slope to cream. `forest.mres` now uses `AutoExposureMode.Histogram` with
+pinned at its maximum boost and washed the sunlit slope to cream. `forest.mfres` now uses `AutoExposureMode.Histogram` with
 highlight protection (above). `g8e-histo-start-before` / `-after` in [`docs/images/forest/g8e/`](../images/forest/g8e/)
 are the start view at 1920 × 1080, frame 240: frame mean luma 71 → 59, p95 191 → 177; the slope (x 520–900, y 330–520)
 183 → 170, saturation 0.39 → 0.46; the shaded path 51 → 38. Reference shots, mean luma before → after: R1 105 → 101,
@@ -741,7 +741,7 @@ samples, mostly the stereo beds); `Preload()` builds everything now. All synthes
 
 ### Mix
 
-`Assets/Settings/AudioBusLayout.mres` (`project.mfproj` → `audio.busLayout`): Master (16 voices) → **Ambience** −7 dB
+`Assets/Settings/AudioBusLayout.mfres` (`project.mfproj` → `audio.busLayout`): Master (16 voices) → **Ambience** −7 dB
 (10), **Water** −8 dB (6), both with a low-pass that stands open outdoors, **Foley** −7 dB (6, a light Freeverb: room
 0.3, damp 0.7, wet 0.08), **Interior** −7 dB (2, the hearth), Music, SFX, UI. Measured through the offline path
 (`ForestAudioRenderTests`, master mix):
@@ -998,7 +998,7 @@ flyover|free|<1-8|name>` starts a camera, `--option key=value` sets an option fo
   cabin's level pad and walkable spur, and the low sun clearing what the cliffs and mountains add; `CabinTests` (the
   door, the real cabin's collision, R9);
 - `ForestAssetsTests`: the layer tags and order; every manifest file exists, and every file under `Assets/Art` is in
-  the manifest with a `.meta`; NOTICE.md names every asset; the layers load 1024² textures with resource paths; the ORM
+  the manifest with a `.mfmeta`; NOTICE.md names every asset; the layers load 1024² textures with resource paths; the ORM
   maps have no metal; every prop imports through Assimp with one shared PBR override whose ORM is the ARM map (the
   fern's albedo has alpha) at its documented size; the sky is a 4096 × 2048 JPG under 10 MB; the gallery scene matches
   its builder and paints one layer per band. The LFS-dependent tests skip when the art is only pointers.

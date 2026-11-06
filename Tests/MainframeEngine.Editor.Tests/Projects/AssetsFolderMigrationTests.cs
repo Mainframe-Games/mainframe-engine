@@ -29,9 +29,9 @@ public sealed class AssetsFolderMigrationTests : IDisposable
     [Fact]
     public void TheFolderMovesAndContentPathsFollowItEverywhere()
     {
-        Write("project.mfproj", """{ "format": 3, "name": "Content", "mainScene": "Content/Scenes/Main.mscene" }""");
-        Write("Content/Scenes/Main.mscene", """{ "File": "Content/Audio/hit.ogg", "path": "Content/Sky/sky.png" }""");
-        Write("Content/Scenes/Main.mscene.meta", """{ "uid": "scn_0123456789ab" }""");
+        Write("project.mfproj", """{ "format": 3, "name": "Content", "mainScene": "Content/Scenes/Main.mfscene" }""");
+        Write("Content/Scenes/Main.mfscene", """{ "File": "Content/Audio/hit.ogg", "path": "Content/Sky/sky.png" }""");
+        Write("Content/Scenes/Main.mfscene.mfmeta", """{ "uid": "scn_0123456789ab" }""");
         Write("Content/UI/hud.rml", """<link href="/Content/UI/widgets/widgets.rcss"/><p>Content</p>""");
         Write("Game/Src/Player.cs", """var s = "Content/Audio/jump.ogg"; var label = "Content"; var mine = "MyContent/x";""");
         Write("Game/Game.csproj", """<MainframeContentSource>$(MSBuildProjectDirectory)/../Content</MainframeContentSource>""");
@@ -42,9 +42,9 @@ public sealed class AssetsFolderMigrationTests : IDisposable
         var rewritten = AssetsFolderMigration.Run(_root);
 
         Assert.False(Directory.Exists(Path.Combine(_root, "Content")));
-        Assert.Equal("""{ "uid": "scn_0123456789ab" }""", Read("Assets/Scenes/Main.mscene.meta"));
-        Assert.Equal("""{ "format": 3, "name": "Content", "mainScene": "Assets/Scenes/Main.mscene" }""", Read("project.mfproj"));
-        Assert.Equal("""{ "File": "Assets/Audio/hit.ogg", "path": "Assets/Sky/sky.png" }""", Read("Assets/Scenes/Main.mscene"));
+        Assert.Equal("""{ "uid": "scn_0123456789ab" }""", Read("Assets/Scenes/Main.mfscene.mfmeta"));
+        Assert.Equal("""{ "format": 3, "name": "Content", "mainScene": "Assets/Scenes/Main.mfscene" }""", Read("project.mfproj"));
+        Assert.Equal("""{ "File": "Assets/Audio/hit.ogg", "path": "Assets/Sky/sky.png" }""", Read("Assets/Scenes/Main.mfscene"));
         // UI text that merely says "Content" is the game's, not a path.
         Assert.Equal("""<link href="/Assets/UI/widgets/widgets.rcss"/><p>Content</p>""", Read("Assets/UI/hud.rml"));
         Assert.Equal("""var s = "Assets/Audio/jump.ogg"; var label = "Content"; var mine = "MyContent/x";""", Read("Game/Src/Player.cs"));
@@ -53,20 +53,20 @@ public sealed class AssetsFolderMigrationTests : IDisposable
             Read("Game.Desktop/Game.Desktop.csproj"));
         Assert.Equal("""{ "x": "Content/ignored" }""", Read("Game/obj/project.assets.json")); // build output is left alone
         Assert.Equal(
-            ["Assets/Scenes/Main.mscene", "Assets/UI/hud.rml", "Game.Desktop/Game.Desktop.csproj", "Game/Game.csproj", "Game/Src/Player.cs", "project.mfproj"],
+            ["Assets/Scenes/Main.mfscene", "Assets/UI/hud.rml", "Game.Desktop/Game.Desktop.csproj", "Game/Game.csproj", "Game/Src/Player.cs", "project.mfproj"],
             rewritten);
     }
 
     [Fact]
     public void AMigratedProjectStillLoadsItsSettings()
     {
-        Write("project.mfproj", """{ "format": 3, "name": "Old", "mainScene": "Content/Scenes/Main.mscene", "window": { "icon": "Content/icon.png" } }""");
-        Write("Content/Scenes/Main.mscene", "{}");
+        Write("project.mfproj", """{ "format": 3, "name": "Old", "mainScene": "Content/Scenes/Main.mfscene", "window": { "icon": "Content/icon.png" } }""");
+        Write("Content/Scenes/Main.mfscene", "{}");
 
         AssetsFolderMigration.Run(_root);
         var settings = ProjectSettings.Load(Path.Combine(_root, ProjectSettings.FileName));
 
-        Assert.Equal("Assets/Scenes/Main.mscene", settings.MainScene);
+        Assert.Equal("Assets/Scenes/Main.mfscene", settings.MainScene);
         Assert.Equal("Assets/icon.png", settings.Window.Icon);
         Assert.True(File.Exists(Path.Combine(_root, settings.MainScene!)));
     }

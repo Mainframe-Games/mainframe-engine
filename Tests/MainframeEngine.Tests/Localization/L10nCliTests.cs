@@ -60,7 +60,7 @@ public sealed class L10nCliTests : IDisposable
 
         var template = PoParser.ParseFile(Pot).ByKey();
         Assert.Contains("Assets/UI/menu.rml:26", template["Settings"].References);
-        Assert.Contains("Assets/Scenes/Main.mscene:16", template["Settings"].References);
+        Assert.Contains("Assets/Scenes/Main.mfscene:16", template["Settings"].References);
         Assert.True(template.ContainsKey("Unknown type text"));
         if (include.Count > 0)
         {

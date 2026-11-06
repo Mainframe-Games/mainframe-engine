@@ -18,7 +18,7 @@ internal static class QaCrashSamples
         report.Session.Node = "/root/Main/Player";
         report.Session.NodeType = "Demo.PlayerController";
         report.Session.Callback = "OnPhysicsProcess";
-        report.Session.Scene = "Assets/Scenes/basic_3d.mscene";
+        report.Session.Scene = "Assets/Scenes/basic_3d.mfscene";
         report.Exception.Add(new CrashException
         {
             Type = "System.NullReferenceException",
@@ -44,7 +44,7 @@ internal static class QaCrashSamples
     {
         var folder = Path.Combine(outputDirectory, "qa-crash", "2026-10-28T10-42-07-0123");
         Directory.CreateDirectory(folder);
-        var copy = Path.Combine(outputDirectory, "qa-crash", "recovery", "basic_3d-20261028-104207.mscene");
+        var copy = Path.Combine(outputDirectory, "qa-crash", "recovery", "basic_3d-20261028-104207.mfscene");
         Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
         if (workspace.Session.Active is { } scene)
             File.WriteAllBytes(copy, SceneSaver.ToJson(scene.Root));

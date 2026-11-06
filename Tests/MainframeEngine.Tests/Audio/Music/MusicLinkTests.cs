@@ -212,7 +212,7 @@ public sealed class MusicLinkTests : IDisposable
         // The game's own copy (its build output) and the editor's source project, where the new bake is.
         var build = Folder("build");
         var source = Folder("source");
-        File.WriteAllBytes(Path.Combine(build, "Assets", "Music", "Theme.mmusic"), MusicManifestFormat.Write(Theme(exploreDc: 0.25f)));
+        File.WriteAllBytes(Path.Combine(build, "Assets", "Music", "Theme.mfmusic"), MusicManifestFormat.Write(Theme(exploreDc: 0.25f)));
         var rebaked = Theme(exploreDc: 0.125f);
         foreach (var section in rebaked.Sections)
         {
@@ -227,10 +227,10 @@ public sealed class MusicLinkTests : IDisposable
             }
         }
 
-        File.WriteAllBytes(Path.Combine(source, "Assets", "Music", "Theme.mmusic"), MusicManifestFormat.Write(rebaked));
+        File.WriteAllBytes(Path.Combine(source, "Assets", "Music", "Theme.mfmusic"), MusicManifestFormat.Write(rebaked));
         AssetDatabase.Current = new AssetDatabase(build);
         ResourceLoader.ClearCache();
-        var original = ResourceLoader.Load<AdaptiveMusic>("Assets/Music/Theme.mmusic");
+        var original = ResourceLoader.Load<AdaptiveMusic>("Assets/Music/Theme.mfmusic");
         var (tree, server, player) = Play(original);
         var session = new GameSession(tree, new ProjectSettings { Name = "Music" });
         try

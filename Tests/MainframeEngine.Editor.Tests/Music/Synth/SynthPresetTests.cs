@@ -65,7 +65,7 @@ public sealed class SynthPresetTests
         var root = project.Root;
         var patch = FactoryPresets.All[0].Make();
         patch.Matrix = [new SynthModRoute { Source = "lfo2", Target = "a.wt_pos", Amount = 0.25f }];
-        var path = Path.Combine(root, "Assets", SynthPresets.Folder, "Big Bass.mres");
+        var path = Path.Combine(root, "Assets", SynthPresets.Folder, "Big Bass.mfres");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var uid = SynthPresets.Save(patch, path, "Big Bass", "Bass");
         var entry = Assert.Single(SynthPresets.Project(root));
@@ -79,7 +79,7 @@ public sealed class SynthPresetTests
     {
         var song = MusicTestUtil.NewSong();
         var track = MusicTestUtil.AddInstrumentTrack(song, "pad", InstrumentDescriptor.Wavetable());
-        using var document = new SongDocument(song, "/tmp/x.msong");
+        using var document = new SongDocument(song, "/tmp/x.mfsong");
         var old = track.Instrument!.Patch;
         var preset = FactoryPresets.All.Single(p => p.Name == "Warm Pad");
         document.SetSynthPatch(track, preset.Make(), "Preset: Warm Pad", "factory:Pad/Warm Pad");

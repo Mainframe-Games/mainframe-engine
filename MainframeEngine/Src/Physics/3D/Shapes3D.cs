@@ -7,7 +7,7 @@ namespace MainframeEngine;
 /// <summary>
 /// Base of 3D collision shape resources (Godot's <c>Shape3D</c>). A <see cref="CollisionShape3D"/> child gives a body
 /// its shape; the same resource can be shared by many shapes and is saved with the scene (inline) or as a
-/// <c>.mres</c>. Changing a property rebuilds every body using it at the next physics step.
+/// <c>.mfres</c>. Changing a property rebuilds every body using it at the next physics step.
 /// </summary>
 [EditorIcon("shape")]
 public abstract class Shape3D : Resource

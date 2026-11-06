@@ -13,7 +13,7 @@ using AiTextureType = Silk.NET.Assimp.TextureType;
 namespace MainframeEngine;
 
 
-/// <summary>How imported materials shade (<see cref="ModelImportSettings.Shading"/>, the <c>.meta</c>'s <c>"shading"</c>).</summary>
+/// <summary>How imported materials shade (<see cref="ModelImportSettings.Shading"/>, the <c>.mfmeta</c>'s <c>"shading"</c>).</summary>
 public enum ModelShading : byte
 {
     /// <summary><see cref="ShadingMode.BlinnPhong"/>: the file's shininess sets the highlight (the default so far).</summary>
@@ -55,7 +55,7 @@ public sealed record ModelClipSettings
 }
 
 /// <summary>
-/// Import settings of a model file, stored in its <c>.meta</c> sidecar (<c>"importer": "model"</c>):
+/// Import settings of a model file, stored in its <c>.mfmeta</c> sidecar (<c>"importer": "model"</c>):
 /// <code>{ "scale": 1, "generateNormals": true, "importMaterials": true, "optimizeMeshes": false, "importAnimations": true,
 ///   "optimizeAnimations": true, "clips": [ { "name": "run", "loop": "Linear" },
 ///   { "name": "swing", "events": [ { "name": "HammerFist", "time": 0.42 } ] } ] }</code>
@@ -294,7 +294,7 @@ public sealed record ModelImportSettings
 /// a node with its transform; its meshes become one <see cref="ArrayMesh"/> with a surface per mesh (shared when
 /// several nodes use the same meshes); materials become <see cref="StandardMaterial3D"/>s (base colour/diffuse,
 /// normal and emissive textures, alpha mode and cutoff, double-sided) and textures load through
-/// <see cref="ResourceLoader"/> (their own <c>.meta</c> settings apply) or from the file's embedded images.
+/// <see cref="ResourceLoader"/> (their own <c>.mfmeta</c> settings apply) or from the file's embedded images.
 /// </summary>
 /// <remarks>
 /// <para>Imports are cached in memory (<see cref="CacheCount"/>) by path, file size, modification time and settings,
@@ -306,7 +306,7 @@ public sealed record ModelImportSettings
 /// <see cref="MeshInstance3D"/>s under it with a <see cref="Skin"/> and up to four weights per vertex, other nodes under
 /// bones <see cref="BoneAttachment3D"/>s, and the clips <see cref="Animation"/>s in an <see cref="AnimationLibrary"/> on an
 /// <see cref="AnimationPlayer"/> child of the root (loop modes and events from glTF animation extras and the
-/// <c>.meta</c> clips).</para>
+/// <c>.mfmeta</c> clips).</para>
 /// </remarks>
 public sealed unsafe class ModelImporter : IAssetImporter
 {
@@ -1330,7 +1330,7 @@ public sealed unsafe class ModelImporter : IAssetImporter
             return Texture2D.FromPixels(width, height, rgba);
         }
 
-        // Files next to the model load through the resource loader (cached, with their own .meta settings).
+        // Files next to the model load through the resource loader (cached, with their own .mfmeta settings).
         private Texture2D External(string reference)
         {
             var fullPath = Path.GetFullPath(Path.Combine(directory, Uri.UnescapeDataString(reference.Replace('\\', '/'))));

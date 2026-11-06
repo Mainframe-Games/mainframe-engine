@@ -4,7 +4,7 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine;
 
 /// <summary>
-/// A scene stored as data (<c>.mscene</c>), as in Godot. <see cref="Instantiate"/> builds a fresh node tree
+/// A scene stored as data (<c>.mfscene</c>), as in Godot. <see cref="Instantiate"/> builds a fresh node tree
 /// <b>outside</b> the scene tree (no lifecycle callbacks run until the caller adds it): nodes are created by
 /// their registered factories, exported properties are applied with generated setters, nested scene instances
 /// are instantiated recursively with their overrides, and persisted signal connections are bound.
@@ -56,7 +56,7 @@ public sealed class PackedScene : Resource
     /// <summary>The JSON this scene was parsed from.</summary>
     public ReadOnlyMemory<byte> Json { get; private set; }
 
-    /// <summary>Parses scene JSON (the content of a <c>.mscene</c> file).</summary>
+    /// <summary>Parses scene JSON (the content of a <c>.mfscene</c> file).</summary>
     public static PackedScene Parse(ReadOnlyMemory<byte> json, string? sourcePath = null)
     {
         var scene = new PackedScene();

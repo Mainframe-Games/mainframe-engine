@@ -15,7 +15,7 @@ public sealed class LocaleFontSet : Resource
 
 /// <summary>
 /// Per-locale font fallback for the game UI: which font faces to load for the current locale. Stored as a
-/// <c>.mres</c> resource (by convention <see cref="DefaultPath"/>), edited in the inspector like any resource.
+/// <c>.mfres</c> resource (by convention <see cref="DefaultPath"/>), edited in the inspector like any resource.
 /// </summary>
 /// <remarks>
 /// The UI server resolves it on start-up and on every <see cref="Tr.LocaleChanged"/>
@@ -27,7 +27,7 @@ public sealed class LocaleFontSet : Resource
 public sealed class FontFallbackTable : Resource
 {
     /// <summary>Conventional location of the project's table.</summary>
-    public const string DefaultPath = "Assets/locale/fonts.mres";
+    public const string DefaultPath = "Assets/locale/fonts.mfres";
 
     /// <summary>Faces loaded for every locale, after the locale-specific ones.</summary>
     [Export(File = "*.ttf,*.otf")]

@@ -44,17 +44,17 @@ public sealed class ForestAssetsTests
         foreach (var path in listed)
             Assert.True(File.Exists(ForestAssets.Resolve(path)), $"missing: {path}");
 
-        // Sources, not the build output: every file under Assets/Art is listed (or is a .meta sidecar with its asset).
+        // Sources, not the build output: every file under Assets/Art is listed (or is a .mfmeta sidecar with its asset).
         var art = Path.Combine(ForestRoot, ForestAssets.ArtFolder);
         foreach (var file in Directory.EnumerateFiles(art, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(ForestRoot, file).Replace('\\', '/');
-            if (relative.EndsWith(".meta", StringComparison.Ordinal))
-                Assert.True(File.Exists(file[..^5]), $"orphan sidecar: {relative}");
+            if (relative.EndsWith(".mfmeta", StringComparison.Ordinal))
+                Assert.True(File.Exists(file[..^AssetDatabase.MetaExtension.Length]), $"orphan sidecar: {relative}");
             else
             {
                 Assert.Contains(relative, listed);
-                Assert.True(File.Exists(file + ".meta"), $"no .meta: {relative}");
+                Assert.True(File.Exists(file + ".mfmeta"), $"no .mfmeta: {relative}");
             }
         }
     }

@@ -526,7 +526,7 @@ public sealed class WorkspaceTests : IDisposable
     public void ClosingTheWindowClosesAnOpenPickerAndAsksAboutUnsavedScenes()
     {
         AddChild("X");
-        W.FilePicker.Show(new FilePickerModel(FilePickerMode.Open, Path.GetTempPath(), ["*.mscene"]), "Open Scene", "Open", _ => { });
+        W.FilePicker.Show(new FilePickerModel(FilePickerMode.Open, Path.GetTempPath(), ["*.mfscene"]), "Open Scene", "Open", _ => { });
         Assert.True(W.IsDialogOpen);
 
         W.OnCloseRequested();
@@ -600,10 +600,10 @@ public sealed class WorkspaceTests : IDisposable
         W.FilePicker.Accept();
         _editor.Tick();
 
-        var path = Path.Combine(_editor.Directory, "Saved.mscene");
+        var path = Path.Combine(_editor.Directory, "Saved.mfscene");
         Assert.True(File.Exists(path), $"{W.Message.Current?.Message} | {W.FilePicker.Model?.Error}");
         Assert.False(_editor.Scene.IsDirty);
-        Assert.Equal($"Saved.mscene — {EditorBrand.NameWithVersion}", _editor.Host.Title);
+        Assert.Equal($"Saved.mfscene — {EditorBrand.NameWithVersion}", _editor.Host.Title);
 
         AddChild("More");
         W.Commands.Execute("file.close");
@@ -617,7 +617,7 @@ public sealed class WorkspaceTests : IDisposable
     [Fact]
     public void SaveAsOnASongTabWritesTheChosenFile()
     {
-        Assert.True(W.Commands.CreateSong(Path.Combine(_editor.Directory, "Theme.msong")));
+        Assert.True(W.Commands.CreateSong(Path.Combine(_editor.Directory, "Theme.mfsong")));
         var song = Assert.IsType<SongTab>(W.Session.ActiveTab);
         song.Document.AddTrack(SongTrackKind.Audio, "Rain");
 
@@ -628,7 +628,7 @@ public sealed class WorkspaceTests : IDisposable
         W.FilePicker.Accept();
         _editor.Tick();
 
-        var path = Path.Combine(_editor.Directory, "Copy.msong");
+        var path = Path.Combine(_editor.Directory, "Copy.mfsong");
         Assert.True(File.Exists(path), $"{W.Message.Current?.Message} | {W.FilePicker.Model?.Error}");
         Assert.Equal(path, song.FilePath);
         Assert.False(song.IsDirty);
@@ -774,7 +774,7 @@ public sealed class WorkspaceTests : IDisposable
         W.FilePicker.NavigateTo(_editor.Directory);
         W.FilePicker.Model!.FileName = "Quit";
         W.FilePicker.Accept();
-        Assert.True(File.Exists(Path.Combine(_editor.Directory, "Quit.mscene")));
+        Assert.True(File.Exists(Path.Combine(_editor.Directory, "Quit.mfscene")));
         Assert.True(_editor.Host.QuitRequested);
     }
 

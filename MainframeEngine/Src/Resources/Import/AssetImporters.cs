@@ -2,7 +2,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Turns a source file (image, model, ...) into a <see cref="Resource"/> when <see cref="ResourceLoader"/> loads it,
-/// using the import settings of the file's <c>.meta</c> sidecar (<see cref="AssetMeta.Settings"/>).
+/// using the import settings of the file's <c>.mfmeta</c> sidecar (<see cref="AssetMeta.Settings"/>).
 /// </summary>
 public interface IAssetImporter
 {
@@ -16,7 +16,7 @@ public interface IAssetImporter
     Resource Import(string fullPath, string projectPath, AssetMeta? meta);
 }
 
-/// <summary>The importers <see cref="ResourceLoader"/> uses for files other than <c>.mscene</c>/<c>.mres</c>.</summary>
+/// <summary>The importers <see cref="ResourceLoader"/> uses for files other than <c>.mfscene</c>/<c>.mfres</c>.</summary>
 public static class AssetImporters
 {
     private static readonly Lock Gate = new();

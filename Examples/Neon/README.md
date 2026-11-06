@@ -60,7 +60,7 @@ frame rate.
 - `Tools/apartment/build_apartment.py` — the apartment, headless in Blender (seeded; `--preview DIR`, `--verify DIR`).
   Its docstring lists the naming conventions the game reads.
 - `Tools/apartment/build_resident.py` — the woman on the bed (off for now: `NeonApartment.ShowResident`), an MPFB character with baked lingerie and stockings and a looping idle (`--preview DIR`, `--no-export`); `fetch_mpfb_packs.py` installs MPFB and its CC0 packs in Blender.
-- `Assets/Scenes/neon.mscene` — written by `dotnet run --project Examples/Neon/Neon.Desktop -- --write-scenes
+- `Assets/Scenes/neon.mfscene` — written by `dotnet run --project Examples/Neon/Neon.Desktop -- --write-scenes
   Examples/Neon/Assets/Scenes`; a test checks it matches the builder.
 
 ## Audio
@@ -108,7 +108,7 @@ Every sound is synthesised in C# at load, as in the Forest: there are no recorde
   - **Machines and the stereo.** The fridge hum at `Furn_Fridge`, PC fans at the two racks, and the stereo.
   - **Hooks.** Doors (`DoorBase.Toggled`/`Settled`), the slider, the front door's `Rattled` and the switches'
     `Switched`.
-- **Buses** (`Assets/Settings/AudioBusLayout.mres`, referenced from `project.mfproj`):
+- **Buses** (`Assets/Settings/AudioBusLayout.mfres`, referenced from `project.mfproj`):
 
   | Bus | Level | Effects |
   |---|---|---|

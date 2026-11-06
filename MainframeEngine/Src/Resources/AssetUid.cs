@@ -4,15 +4,15 @@ namespace MainframeEngine;
 
 /// <summary>
 /// Stable asset identifiers: a three-letter kind prefix and lowercase hex, e.g. <c>scn_3f9a1c2e07b4</c>. Scene
-/// and resource files store their own UID; other assets get one in a <c>.meta</c> sidecar. References between
+/// and resource files store their own UID; other assets get one in a <c>.mfmeta</c> sidecar. References between
 /// files use UIDs (with the path as a hint), so moving or renaming a file does not break them.
 /// </summary>
 public static class AssetUid
 {
-    /// <summary>Scenes (<c>.mscene</c>).</summary>
+    /// <summary>Scenes (<c>.mfscene</c>).</summary>
     public const string ScenePrefix = "scn";
 
-    /// <summary>Resources (<c>.mres</c>).</summary>
+    /// <summary>Resources (<c>.mfres</c>).</summary>
     public const string ResourcePrefix = "res";
 
     /// <summary>Images.</summary>
@@ -27,10 +27,10 @@ public static class AssetUid
     /// <summary>Anything else (Spine data, UI documents, fonts, ...).</summary>
     public const string AssetPrefix = "ast";
 
-    /// <summary>Editor songs (<c>.msong</c>; the UID is stored in the file).</summary>
+    /// <summary>Editor songs (<c>.mfsong</c>; the UID is stored in the file).</summary>
     public const string SongPrefix = "sng";
 
-    /// <summary>Baked adaptive music (<c>.mmusic</c>; the UID is stored in the file and kept across bakes).</summary>
+    /// <summary>Baked adaptive music (<c>.mfmusic</c>; the UID is stored in the file and kept across bakes).</summary>
     public const string MusicPrefix = "mus";
 
     /// <summary>A video timeline (<c>.mftimeline</c>, video mode, ADR 0241); the video library writes the same prefix.</summary>
@@ -67,10 +67,10 @@ public static class AssetUid
     /// <summary>The prefix for a new asset file of this extension (<c>.png</c> → <c>tex</c>).</summary>
     public static string PrefixForExtension(string extension) => extension.ToLowerInvariant() switch
     {
-        ".mscene" => ScenePrefix,
-        ".mres" => ResourcePrefix,
-        ".msong" => SongPrefix,
-        ".mmusic" => MusicPrefix,
+        FileExtensions.Scene or ".mscene" => ScenePrefix,
+        FileExtensions.Resource or ".mres" => ResourcePrefix,
+        FileExtensions.Song or ".msong" => SongPrefix,
+        FileExtensions.Music or ".mmusic" => MusicPrefix,
         ".mftimeline" => TimelinePrefix,
         ".png" or ".jpg" or ".jpeg" or ".hdr" or ".ktx" or ".ktx2" or ".svg" => TexturePrefix,
         ".ogg" or ".wav" or ".mp3" or ".flac" => AudioPrefix,

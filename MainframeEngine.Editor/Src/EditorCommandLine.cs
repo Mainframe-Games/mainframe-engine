@@ -7,8 +7,8 @@ namespace MainframeEngine.Editor;
 public static class EditorCommandLine
 {
     public const string Usage =
-        "Usage: MainframeEngine.Editor [scene.mscene | project folder | project.mfproj] [--project <folder>] [--project-manager] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
-        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem|video-empty|video-timeline|video-title|music-empty|music-song|music-adaptive|music-curves|synth-osc|synth-matrix|synth-fx|viewport-tools] [--no-validation]] | --validate-demo-zip <zip> [--build [--engine <checkout>]] | --render-song <path.msong> | --bake-song <path.msong>";
+        "Usage: MainframeEngine.Editor [scene.mfscene | project folder | project.mfproj] [--project <folder>] [--project-manager] [--layout <file>] [--size WxH] [--scale S] [--hidden] [--no-vsync] " +
+        "[--qa-script <file> --qa-out <dir>] [--smoke <dir> [--smoke-scene <file>] [--smoke-splash] [--smoke-golden project-manager|filesystem|video-empty|video-timeline|video-title|music-empty|music-song|music-adaptive|music-curves|synth-osc|synth-matrix|synth-fx|viewport-tools] [--no-validation]] | --validate-demo-zip <zip> [--build [--engine <checkout>]] | --render-song <path.mfsong> | --bake-song <path.mfsong>";
 
     public static EditorAppOptions Parse(IReadOnlyList<string> args)
     {

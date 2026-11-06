@@ -23,7 +23,7 @@
   <circle cx="38" cy="33" r="5" fill="#ef4444"/>
   <circle cx="54" cy="33" r="5" fill="#f59e0b"/>
   <circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="440.0" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — Theme.msong (Music)</text>
+  <text x="440.0" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — Theme.mfsong (Music)</text>
   <!-- toolbar -->
   <rect x="26" y="50" width="828" height="34" fill="#2a2d36"/>
   <rect x="34" y="56" width="24" height="22" rx="3" fill="#2f333d" stroke="#3b3f4b"/>
@@ -602,7 +602,7 @@
   <text x="888.0" y="439.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">6</text>
   <text x="904" y="440" class="noteb">Adaptive tab (A)</text>
   <text x="904" y="456" class="note">Second tab of the Browser panel. Live</text>
-  <text x="904" y="470" class="note">(SongEngine) or Baked (.mmusic); target:</text>
+  <text x="904" y="470" class="note">(SongEngine) or Baked (.mfmusic); target:</text>
   <text x="904" y="484" class="note">the editor or a running game.</text>
   <circle cx="708.0" cy="218.0" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
   <text x="708.0" y="221.8" text-anchor="middle" style="fill:#fff;font-size:10.5px;font-weight:700">7</text>

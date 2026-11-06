@@ -11,9 +11,9 @@ namespace Neon;
 /// </summary>
 public static class NeonLook
 {
-    public const string ProfilePath = "Assets/PostProcess/neon.mres";
+    public const string ProfilePath = "Assets/PostProcess/neon.mfres";
 
-    public const string LensPath = "Assets/PostProcess/neon-lens.mres";
+    public const string LensPath = "Assets/PostProcess/neon-lens.mfres";
 
     public static PostProcessProfile CreateProfile() => new()
     {

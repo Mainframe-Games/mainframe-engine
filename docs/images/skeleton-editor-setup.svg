@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 760" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
   <title>Skeleton tab, Setup mode (proposal)</title>
-  <desc>The editor with a Skeleton tab open on hero.mskel in Setup mode. A top strip has the Setup/Animate switch, tool buttons (select, create bone, pose, mesh, weights, constraint), an axes menu and view toggles. The left panel is the hierarchy: bones with their slots and attachments, then Skins, Constraints, Events and Images sections. The centre viewport shows a cut-out character with bones drawn over it; the selected bone thigh_l has a rotate gizmo. The right panel is the inspector for the selected bone. Numbered callouts explain each area.</desc>
+  <desc>The editor with a Skeleton tab open on hero.mfskel in Setup mode. A top strip has the Setup/Animate switch, tool buttons (select, create bone, pose, mesh, weights, constraint), an axes menu and view toggles. The left panel is the hierarchy: bones with their slots and attachments, then Skins, Constraints, Events and Images sections. The centre viewport shows a cut-out character with bones drawn over it; the selected bone thigh_l has a rotate gizmo. The right panel is the inspector for the selected bone. Numbered callouts explain each area.</desc>
   <rect width="960" height="760" fill="#ffffff"/>
   <style>
     .hdr{font-weight:600;font-size:12.5px;fill:#e5e7eb}
@@ -29,7 +29,7 @@
   <rect x="20" y="20" width="920" height="26" rx="8" fill="#15171c"/>
   <rect x="20" y="38" width="920" height="8" fill="#15171c"/>
   <circle cx="38" cy="33" r="5" fill="#ef4444"/><circle cx="54" cy="33" r="5" fill="#f59e0b"/><circle cx="70" cy="33" r="5" fill="#22c55e"/>
-  <text x="480" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — hero.mskel*</text>
+  <text x="480" y="37" class="s" text-anchor="middle">Mainframe Editor — MyGame — hero.mfskel*</text>
 
   <!-- menu -->
   <rect x="20" y="46" width="920" height="24" fill="#2a2d36"/>
@@ -38,10 +38,10 @@
   <!-- document tabs -->
   <rect x="20" y="70" width="920" height="24" fill="#1a1c22"/>
   <rect x="24" y="73" width="120" height="21" rx="3" fill="#262931"/>
-  <text x="34" y="88" class="s">◇ Level.mscene</text>
+  <text x="34" y="88" class="s">◇ Level.mfscene</text>
   <rect x="148" y="73" width="120" height="21" rx="3" fill="#323642" stroke="#3b82f6"/>
   <path d="M158,85 l8,-6 2,2 -8,6 z" fill="#fbbf24"/>
-  <text x="174" y="88" class="t">hero.mskel*</text>
+  <text x="174" y="88" class="t">hero.mfskel*</text>
 
   <!-- mode + tool strip -->
   <rect x="20" y="94" width="920" height="32" fill="#2a2d36"/>

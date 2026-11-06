@@ -87,7 +87,7 @@ public sealed class AdaptiveTargetTests
         using var editor = new HeadlessEditor(configure: o => o with { GameBuilder = builder, GameLauncher = launcher });
         try
         {
-            var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.msong"));
+            var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.mfsong"));
             editor.Workspace.Commands.OpenSong(path);
             editor.Tick(3);
             var tab = Assert.IsType<SongTab>(editor.Workspace.Session.ActiveTab);

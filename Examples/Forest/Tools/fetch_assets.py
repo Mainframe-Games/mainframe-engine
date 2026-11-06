@@ -24,7 +24,7 @@ Needs curl and Pillow. Downloads are cached (default: a temp folder), so re-runn
     python3 Examples/Forest/Tools/fetch_assets.py --only props,debris --assets stone_01,ScatteredLeaves004
 
 fetches only some kinds (terrain, props, debris, sky, cabin) or assets; the NOTICE rows are printed for what it fetched.
-`--only metas` fetches nothing and only writes the missing `.meta` sidecars (after `just forest-cabin`).
+`--only metas` fetches nothing and only writes the missing `.mfmeta` sidecars (after `just forest-cabin`).
 """
 
 import argparse
@@ -334,13 +334,13 @@ def sky(cache, rows):
 
 
 def write_metas():
-    """A `.meta` sidecar (AssetDatabase's format: a UID) for every file without one; existing UIDs are kept."""
+    """A `.mfmeta` sidecar (AssetDatabase's format: a UID) for every file without one; existing UIDs are kept."""
     prefixes = {".png": "tex", ".jpg": "tex", ".gltf": "mdl"}
     for folder, _, names in os.walk(ART):
         for name in names:
-            if name.endswith(".meta") or name.startswith("."):
+            if name.endswith(".mfmeta") or name.startswith("."):
                 continue
-            meta = os.path.join(folder, name + ".meta")
+            meta = os.path.join(folder, name + ".mfmeta")
             if os.path.exists(meta):
                 continue
             prefix = prefixes.get(os.path.splitext(name)[1].lower(), "ast")
@@ -348,7 +348,7 @@ def write_metas():
                 f.write(json.dumps({"uid": f"{prefix}_{secrets.token_hex(6)}"}, indent=2) + "\n")
     for folder, _, names in os.walk(ART):  # drop sidecars whose asset is gone
         for name in names:
-            if name.endswith(".meta") and not os.path.exists(os.path.join(folder, name[:-5])):
+            if name.endswith(".mfmeta") and not os.path.exists(os.path.join(folder, name[: -len(".mfmeta")])):
                 os.remove(os.path.join(folder, name))
 
 
@@ -356,7 +356,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache", default=os.path.join(tempfile.gettempdir(), "mainframe-forest-assets"))
     parser.add_argument("--only", default="terrain,props,debris,sky,cabin",
-                        help="comma-separated kinds: terrain, props, debris, sky, cabin (metas alone: only write .meta sidecars)")
+                        help="comma-separated kinds: terrain, props, debris, sky, cabin (metas alone: only write .mfmeta sidecars)")
     parser.add_argument("--assets", default="", help="comma-separated asset ids (terrain, props, debris and cabin); default: all")
     args = parser.parse_args()
     kinds = set(args.only.split(","))

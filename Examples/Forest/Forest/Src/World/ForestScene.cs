@@ -4,24 +4,24 @@ using MainframeEngine;
 namespace Forest;
 
 /// <summary>
-/// The Forest's main scene (<c>Assets/Scenes/forest.mscene</c>, written by <c>--write-scenes</c>): the morning sun,
+/// The Forest's main scene (<c>Assets/Scenes/forest.mfscene</c>, written by <c>--write-scenes</c>): the morning sun,
 /// the environment (physical sky, sky lighting, valley fog, light shafts, auto exposure, glow, wind), the
 /// <see cref="ForestValley"/> (generated when ready: terrain, stream, pond, trees, ground cover, props), the
 /// <see cref="FirstPersonController"/> at the trailhead and <see cref="ForestAudio"/>. The environment's knobs live here
-/// and the post-processing look in <see cref="ForestLook"/>'s <c>.mres</c> files, so the editor can tune them.
+/// and the post-processing look in <see cref="ForestLook"/>'s <c>.mfres</c> files, so the editor can tune them.
 /// </summary>
 public static class ForestScene
 {
     public const string Id = "forest";
 
     /// <summary>The scene file, relative to the project folder.</summary>
-    public const string Path = "Assets/Scenes/forest.mscene";
+    public const string Path = "Assets/Scenes/forest.mfscene";
 
     /// <summary>
     /// The valley's baked light probes (ADR 0170), relative to the project folder: a <see cref="LightProbeData"/> and its
-    /// <c>.probes</c> file (LFS), written by <c>--bake-lighting</c> (or the editor's Bake Lighting) next to the scene.
+    /// <c>.mfprobes</c> file (LFS), written by <c>--bake-lighting</c> (or the editor's Bake Lighting) next to the scene.
     /// </summary>
-    public const string ProbesPath = "Assets/Scenes/forest-lighting.mres";
+    public const string ProbesPath = "Assets/Scenes/forest-lighting.mfres";
 
     /// <summary>Where the player starts (feet, on the ground; the valley snaps it exactly when ready).</summary>
     public static Vector3 Spawn
@@ -158,7 +158,7 @@ public static class ForestScene
         // (the leaves' sub-pixel gaps and their spectral transmission are not in the bake), so 15 % of the sky occlusion, the
         // rest of the blocked sky light tinted the canopy's green, and a stronger bounce: the shade stays readable and takes
         // the canopy's colour. A darker shade pinned auto exposure at its maximum and blew out sunlit slopes (Brogan's
-        // playtest, 2026-10-09), so the fill is strong and forest.mres caps the exposure (min luminance 0.03).
+        // playtest, 2026-10-09), so the fill is strong and forest.mfres caps the exposure (min luminance 0.03).
         Energy = 4f,
         SkyOcclusion = 0.15f,
         OcclusionTint = System.Drawing.Color.FromArgb(255, 200, 225, 170),

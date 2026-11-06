@@ -81,7 +81,7 @@ public sealed class EditorLoaderTests : IDisposable
     [Fact]
     public void ASceneOpensAcrossFramesBehindTheLoadingPanel()
     {
-        var path = SaveScene("Valley.mscene");
+        var path = SaveScene("Valley.mfscene");
         using var gate = new ManualResetEventSlim(false);
         GatedLoadableNode.Gate = gate;
         W.OpenSceneLoading(path);
@@ -89,7 +89,7 @@ public sealed class EditorLoaderTests : IDisposable
         Assert.True(W.Loader.IsBusy);
         Assert.True(W.Splash.Visible);
         Assert.True(W.Splash.IsPanel); // the editor is up: a panel over it, not the start-up splash
-        Assert.Equal("Loading Valley.mscene…", W.Splash.Title);
+        Assert.Equal("Loading Valley.mfscene…", W.Splash.Title);
 
         // The worker waits inside the loadable: the editor keeps ticking and the panel shows its stage.
         var watch = Stopwatch.StartNew();
@@ -104,24 +104,24 @@ public sealed class EditorLoaderTests : IDisposable
         Assert.True(W.Loader.IsBusy);
         Assert.False(IsOpen(path));
         Assert.Equal("Growing test trees", W.Splash.Status);
-        Assert.Equal("Valley.mscene", W.Splash.Detail);
+        Assert.Equal("Valley.mfscene", W.Splash.Detail);
 
         gate.Set();
         var progress = RunUntilIdle();
         for (var i = 1; i < progress.Count; i++)
             Assert.True(progress[i] >= progress[i - 1], "The bar went back.");
         Assert.True(IsOpen(path));
-        Assert.Same(W.Session.Active, W.Session.Scenes.Single(s => s.FilePath is not null && Path.GetFileName(s.FilePath) == "Valley.mscene"));
+        Assert.Same(W.Session.Active, W.Session.Scenes.Single(s => s.FilePath is not null && Path.GetFileName(s.FilePath) == "Valley.mfscene"));
         Assert.True(W.Session.Active!.Root.GetNode<GatedLoadableNode>("Valley").BuiltInBackground); // told it loads for the editor
         Assert.Equal(1f, W.Splash.Progress);
-        Assert.Equal("Loading Valley.mscene…", W.Loader.LastJob!.Value.Title);
+        Assert.Equal("Loading Valley.mfscene…", W.Loader.LastJob!.Value.Title);
         Assert.True(W.Loader.LastJob.Value.LongestFrame > TimeSpan.Zero);
     }
 
     [Fact]
     public void CancelStopsTheLoadAndLeavesNoTab()
     {
-        var path = SaveScene("Cancelled.mscene");
+        var path = SaveScene("Cancelled.mfscene");
         using var gate = new ManualResetEventSlim(false);
         GatedLoadableNode.Gate = gate;
         W.OpenSceneLoading(path);
@@ -173,9 +173,9 @@ public sealed class EditorLoaderTests : IDisposable
     [Fact]
     public void AFailingOpenIsReportedAndEndsTheJob()
     {
-        W.OpenSceneLoading(Path.Combine(_editor.Directory, "Assets", "Missing.mscene"));
+        W.OpenSceneLoading(Path.Combine(_editor.Directory, "Assets", "Missing.mfscene"));
         RunUntilIdle();
-        Assert.True(W.Message.Visible); // "Could not open Missing.mscene"
+        Assert.True(W.Message.Visible); // "Could not open Missing.mfscene"
         Assert.NotEmpty(W.Session.Scenes);
     }
 }

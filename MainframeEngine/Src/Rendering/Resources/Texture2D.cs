@@ -33,7 +33,7 @@ public enum TextureWrap : byte
 }
 
 /// <summary>
-/// Import settings of an image file, stored in its <c>.meta</c> sidecar (<c>"importer": "texture"</c>):
+/// Import settings of an image file, stored in its <c>.mfmeta</c> sidecar (<c>"importer": "texture"</c>):
 /// <code>{ "colorSpace": "auto", "mipmaps": true, "filter": "linear", "wrap": "repeat", "anisotropy": 8 }</code>
 /// Missing keys take the defaults; unknown values are reported and ignored.
 /// </summary>
@@ -108,7 +108,7 @@ public sealed record TextureImportSettings
         return settings;
     }
 
-    /// <summary>The settings as a <c>.meta</c> "settings" object.</summary>
+    /// <summary>The settings as a <c>.mfmeta</c> "settings" object.</summary>
     public Dictionary<string, JsonElement> ToMetaSettings() => new(StringComparer.Ordinal)
     {
         ["colorSpace"] = JsonSerializer.SerializeToElement(Lower(ColorSpace), AssetJsonContext.Default.String),
@@ -159,7 +159,7 @@ public sealed record TextureImportSettings
 
 /// <summary>
 /// A 2D image used by materials and sprites (Godot's <c>Texture2D</c>). Image files (PNG, JPEG, TGA, BMP) load
-/// through <see cref="ResourceLoader"/> with the import settings of their <c>.meta</c> sidecar; scenes reference
+/// through <see cref="ResourceLoader"/> with the import settings of their <c>.mfmeta</c> sidecar; scenes reference
 /// them by UID like any external resource. Pixels are decoded on the CPU when first needed (StbImageSharp) and
 /// uploaded by the render server — once per colour space a usage asks for (sRGB albedo, UNORM normal map) — with
 /// GPU-generated mipmaps.

@@ -3,7 +3,7 @@ using MainframeEngine.Audio.Music;
 namespace MainframeEngine.Editor.Music;
 
 /// <summary>
-/// The Adaptive panel's Baked mode (A5): plays the song's last bake, its <c>.mmusic</c> and stems, through a real
+/// The Adaptive panel's Baked mode (A5): plays the song's last bake, its <c>.mfmusic</c> and stems, through a real
 /// <see cref="AdaptiveMusicInstance"/> on the editor's <see cref="AudioServer"/> (the Music bus), exactly what a game
 /// plays. The manifest is read again when its file changed (a new bake). Parameters, stingers and Stop go to the instance;
 /// the panel and the Sections lane read its state. Without an audio server or a bake, it is unavailable.

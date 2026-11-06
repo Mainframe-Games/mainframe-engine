@@ -19,7 +19,7 @@ public enum SettingKind
     /// <summary>"x, y" / "x, y, z".</summary>
     Vector,
 
-    /// <summary>A scene file (picker of the project's <c>.mscene</c> files).</summary>
+    /// <summary>A scene file (picker of the project's <c>.mfscene</c> files).</summary>
     Scene,
 
     /// <summary>A content file (picker; <see cref="ProjectSetting.Filter"/>).</summary>
@@ -150,7 +150,7 @@ public sealed class ProjectSettingsModel
         new("audio.enabled", "Audio", "Enabled", SettingKind.Bool, static s => Bool(s.Audio.Enabled), static (s, v) => s.Audio.Enabled = ParseBool(v)),
         new("audio.busLayout", "Audio", "Bus Layout", SettingKind.File, static s => s.Audio.BusLayout ?? "",
             static (s, v) => s.Audio.BusLayout = string.IsNullOrWhiteSpace(v) ? null : v.Trim(),
-            "The AudioBusLayout resource (.mres) the mixer starts with.", Filter: "*.mres"),
+            "The AudioBusLayout resource (.mfres) the mixer starts with.", Filter: "*.mfres"),
         new("audio.sampleRate", "Audio", "Sample Rate", SettingKind.WholeNumber, static s => Int(s.Audio.SampleRate),
             static (s, v) => s.Audio.SampleRate = ParseInt(v)),
         new("audio.bufferMs", "Audio", "Buffer (ms)", SettingKind.WholeNumber, static s => Int(s.Audio.BufferMilliseconds),
@@ -220,7 +220,7 @@ public sealed class ProjectSettingsModel
             "The largest save payload, uncompressed. A bigger save fails with TooLarge instead of filling the disk."),
         new("saves.backups", "Saves", "Backups", SettingKind.WholeNumber, static s => Int(s.Saves.Backups),
             static (s, v) => s.Saves.Backups = ParseInt(v, 0, DurableFile.MaxBackups, "Backups"),
-            "Previous versions kept per slot (slot.msave.bak1, …), 0 to 16: a damaged save loads from the newest good copy."),
+            "Previous versions kept per slot (slot.mfsave.bak1, …), 0 to 16: a damaged save loads from the newest good copy."),
         new("saves.compression", "Saves", "Compression", SettingKind.Choice, static s => s.Saves.Compression.ToString(),
             static (s, v) => s.Saves.Compression = Enum.Parse<SaveCompression>(v, ignoreCase: true),
             "None: the payload is plain JSON, readable in any text editor. Gzip: smaller files; the header line stays plain JSON.",
@@ -416,7 +416,7 @@ public sealed class ProjectSettingsModel
 
     // ── Autoloads ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Adds an autoload running <paramref name="sceneOrType"/> (a <c>.mscene</c> path or a node type name).</summary>
+    /// <summary>Adds an autoload running <paramref name="sceneOrType"/> (a <c>.mfscene</c> path or a node type name).</summary>
     public string? AddAutoload(string name, string sceneOrType)
     {
         var trimmed = name?.Trim() ?? "";
@@ -424,7 +424,7 @@ public sealed class ProjectSettingsModel
             return "An autoload needs a name and a scene or node type.";
         if (Current.Autoloads.Any(a => string.Equals(a.Name, trimmed, StringComparison.Ordinal)))
             return $"There is already an autoload named '{trimmed}'.";
-        var isScene = sceneOrType.EndsWith(".mscene", StringComparison.OrdinalIgnoreCase) || AssetUid.IsUid(sceneOrType);
+        var isScene = sceneOrType.EndsWith(".mfscene", StringComparison.OrdinalIgnoreCase) || AssetUid.IsUid(sceneOrType);
         return Edit($"Add Autoload {trimmed}", s => s.Autoloads.Add(new AutoloadSettings
         {
             Name = trimmed,

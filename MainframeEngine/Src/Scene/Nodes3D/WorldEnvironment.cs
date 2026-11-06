@@ -88,7 +88,7 @@ public class WorldEnvironment : Node, IRenderResourceOwner
 
     /// <summary>
     /// The post-processing look (ADR 0169): tonemap, auto exposure, glow, light shafts, SSAO and the colour adjustments —
-    /// a <c>.mres</c> shared between scenes, or inline. Null: the engine's own tonemap and no effects.
+    /// a <c>.mfres</c> shared between scenes, or inline. Null: the engine's own tonemap and no effects.
     /// </summary>
     [ExportGroup("Post-Processing")]
     [Export]

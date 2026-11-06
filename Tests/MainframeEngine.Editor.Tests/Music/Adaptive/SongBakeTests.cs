@@ -15,7 +15,7 @@ public sealed class SongBakeTests : IDisposable
 {
     private const long Bar = 3840; // 960 PPQ, 4/4
     private const long BarFrames = Bar * FramesPerTick; // 96 000 frames, 2 s at 120 BPM
-    private const string Manifest = "Assets/Music/Theme.mmusic";
+    private const string Manifest = "Assets/Music/Theme.mfmusic";
     private const string Stems = "Assets/Music/Theme.stems";
 
     private readonly string _root = Directory.CreateTempSubdirectory("mf-bake-").FullName;
@@ -127,11 +127,11 @@ public sealed class SongBakeTests : IDisposable
                 Assert.Equal(section.LengthFrames, WavFrames(set.Body.Path));
                 Assert.StartsWith("aud_", set.Body.Uid, StringComparison.Ordinal);
                 Assert.Equal(set.Body.Path, _db.GetPath(set.Body.Uid));
-                Assert.Contains("\"Stream\"", File.ReadAllText(Abs(set.Body.Path) + ".meta"), StringComparison.Ordinal);
+                Assert.Contains("\"Stream\"", File.ReadAllText(Abs(set.Body.Path) + ".mfmeta"), StringComparison.Ordinal);
                 if (set.Tail is { } tail)
                 {
                     Assert.Equal(tail.Frames, WavFrames(tail.Path));
-                    Assert.Contains("\"Memory\"", File.ReadAllText(Abs(tail.Path) + ".meta"), StringComparison.Ordinal);
+                    Assert.Contains("\"Memory\"", File.ReadAllText(Abs(tail.Path) + ".mfmeta"), StringComparison.Ordinal);
                 }
             }
         }
@@ -277,7 +277,7 @@ public sealed class SongBakeTests : IDisposable
         Assert.Equal(["explore/perc"], edit.Rendered);
         Assert.Equal([oldPerc.Body!.Path], edit.Deleted);
         Assert.False(File.Exists(Abs(oldPerc.Body.Path)));
-        Assert.False(File.Exists(Abs(oldPerc.Body.Path) + ".meta"));
+        Assert.False(File.Exists(Abs(oldPerc.Body.Path) + ".mfmeta"));
         Assert.Null(_db.GetPath(oldPerc.Body.Uid));
         var manifest = Load();
         Assert.Equal(uid, manifest.Uid);
@@ -296,7 +296,7 @@ public sealed class SongBakeTests : IDisposable
         var song = Theme();
         Bake(song);
         var bytes = File.ReadAllBytes(Abs(Manifest));
-        var read = MusicManifestFormat.Parse(bytes, "Theme.mmusic");
+        var read = MusicManifestFormat.Parse(bytes, "Theme.mfmusic");
         Assert.Null(read.Notice);
         Assert.Equal(bytes, MusicManifestFormat.Write(read.Manifest));
 
@@ -317,7 +317,7 @@ public sealed class SongBakeTests : IDisposable
     [Fact]
     public void ARescanDuringTheBakeGivesItsTemporaryFilesNoMeta()
     {
-        // The editor rescans Assets/ (creating missing .meta files) whenever its file watcher fires, which a bake's own
+        // The editor rescans Assets/ (creating missing .mfmeta files) whenever its file watcher fires, which a bake's own
         // writes trigger: here at the worst moment, while the encoder reads the temporary float WAV.
         using var host = new FakePluginHost
         {
@@ -333,8 +333,8 @@ public sealed class SongBakeTests : IDisposable
 
         var files = Directory.GetFiles(_db.ToAbsolutePath(Stems)).Select(Path.GetFileName).ToList();
         Assert.NotEmpty(files);
-        Assert.All(files, name => Assert.True(name!.EndsWith(".ogg", StringComparison.Ordinal) || name.EndsWith(".ogg.meta", StringComparison.Ordinal), name));
-        Assert.Equal(files.Count(n => n!.EndsWith(".ogg", StringComparison.Ordinal)), files.Count(n => n!.EndsWith(".ogg.meta", StringComparison.Ordinal)));
+        Assert.All(files, name => Assert.True(name!.EndsWith(".ogg", StringComparison.Ordinal) || name.EndsWith(".ogg.mfmeta", StringComparison.Ordinal), name));
+        Assert.Equal(files.Count(n => n!.EndsWith(".ogg", StringComparison.Ordinal)), files.Count(n => n!.EndsWith(".ogg.mfmeta", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -397,13 +397,13 @@ public sealed class SongBakeTests : IDisposable
     [Fact]
     public void AnAdaptiveOutputPathNamesTheManifestAndItsStemsFolder()
     {
-        Assert.Equal("Assets/Music/Theme.mmusic", SongBaker.ManifestPathFor((string?)null, "Theme"));
-        Assert.Equal("Assets/Audio/Boss.mmusic", SongBaker.ManifestPathFor("Assets\\Audio\\Boss.json", "Theme"));
-        Assert.Equal("Assets/Audio/Boss.stems", SongBaker.StemsFolderFor("Assets/Audio/Boss.mmusic"));
+        Assert.Equal("Assets/Music/Theme.mfmusic", SongBaker.ManifestPathFor((string?)null, "Theme"));
+        Assert.Equal("Assets/Audio/Boss.mfmusic", SongBaker.ManifestPathFor("Assets\\Audio\\Boss.json", "Theme"));
+        Assert.Equal("Assets/Audio/Boss.stems", SongBaker.StemsFolderFor("Assets/Audio/Boss.mfmusic"));
 
         var song = Theme();
-        song.Adaptive!.Output = "Assets/Audio/Boss.mmusic";
-        Assert.Equal("Assets/Audio/Boss.mmusic", Bake(song).ManifestPath);
+        song.Adaptive!.Output = "Assets/Audio/Boss.mfmusic";
+        Assert.Equal("Assets/Audio/Boss.mfmusic", Bake(song).ManifestPath);
         Assert.True(Directory.Exists(Abs("Assets/Audio/Boss.stems")));
     }
 
@@ -411,7 +411,7 @@ public sealed class SongBakeTests : IDisposable
     public void TheBakeSongFlagBakesIntoTheSongsProject()
     {
         File.WriteAllText(Path.Combine(_root, ProjectSettings.FileName), "{}");
-        var songPath = Abs("Assets/Music/Theme.msong");
+        var songPath = Abs("Assets/Music/Theme.mfsong");
         Directory.CreateDirectory(Path.GetDirectoryName(songPath)!);
         var song = Theme();
         foreach (var track in song.Tracks)
@@ -426,7 +426,7 @@ public sealed class SongBakeTests : IDisposable
         var extension = PluginHostClient.IsAvailable ? ".ogg" : ".wav"; // .ogg through the plugin helper where it exists
         Assert.EndsWith(extension, Load().Sections[0].Stems["base"]!.Body!.Path, StringComparison.Ordinal);
 
-        Assert.Equal(1, SongBakeCommand.Run([SongBakeCommand.Flag, Abs("missing.msong")], output, error));
+        Assert.Equal(1, SongBakeCommand.Run([SongBakeCommand.Flag, Abs("missing.mfsong")], output, error));
         Assert.Equal(1, SongBakeCommand.Run([SongBakeCommand.Flag], output, error));
         SongFormat.Save(NewSong(), songPath); // not adaptive
         Assert.Equal(1, SongBakeCommand.Run([SongBakeCommand.Flag, songPath], output, error));
@@ -438,7 +438,7 @@ public sealed class SongBakeTests : IDisposable
         var song = Theme();
         foreach (var track in song.Tracks)
             track.Instrument = InstrumentDescriptor.Zzfx("zzfx(...[,0,220,.01,.3,.3,2])");
-        using var job = SongBakeJob.Start(song, Abs("Assets/Music/Theme.msong"), _db);
+        using var job = SongBakeJob.Start(song, Abs("Assets/Music/Theme.mfsong"), _db);
         var result = await job.Task.WaitAsync(TimeSpan.FromMinutes(2), Ct);
         Assert.Equal(1.0, job.Progress);
         Assert.EndsWith("7 of 7", job.Status, StringComparison.Ordinal);

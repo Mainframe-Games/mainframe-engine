@@ -191,7 +191,7 @@ public sealed class AdaptivePanel(EditorWorkspace workspace)
             .Append(playing ? "" : "Stopped").Append("</span></div><div id=\"ad-pending\" class=\"ad-pending\"></div>");
         BuildTarget(sb, tab);
         sb.Append("<div class=\"ad-bake\"><span class=\"grow\">").Append(RmlText.Escape(BakeText(tab))).Append("</span>")
-            .Append("<button class=\"text-button\" data-ad=\"bake\" data-tooltip=\"Bake (Ctrl+B) — the stems and the .mmusic manifest the game plays\">Bake</button></div>");
+            .Append("<button class=\"text-button\" data-ad=\"bake\" data-tooltip=\"Bake (Ctrl+B) — the stems and the .mfmusic manifest the game plays\">Bake</button></div>");
         if (adaptive.Sections.Count == 0)
             sb.Append("<div class=\"ad-note\">Drag in the Sections lane under the ruler to make the first section.</div>");
         sb.Append("</div>");

@@ -189,7 +189,7 @@ public partial class LightProbeVolume : Node3D           // the first visible on
     [Export] public int RaysPerProbe { get; set; } = 256;
     [Export] public int Bounces { get; set; } = 3;
     [Export] public float Energy { get; set; } = 1f;                         // scales bounce (art control)
-    [Export] public LightProbeData? Data { get; set; }                       // the bake (.mres + .probes binary)
+    [Export] public LightProbeData? Data { get; set; }                       // the bake (.mfres + .mfprobes binary)
     public BakeResult Bake(IProgress<float>? progress = null, CancellationToken ct = default);   // CPU, all cores
 }
 ```
@@ -230,8 +230,8 @@ Per probe, `RaysPerProbe` Fibonacci directions with a per-probe rotation:
    A 3 × 3 × 3 blur over valid probes removes ray noise.
 
 **Bake time** (estimate, 10–12-core M-series Pro): 34M primary + 34M shadow rays at ≈ 4M rays/s/core: ≈ 2–10 s, plus
-proxy build ≈ 1 s. Target ≤ 60 s. **Storage:** `LightProbeData` (`.mres` header with a `BakeHash` of the inputs, plus a
-`.probes` fp16 blob in LFS).
+proxy build ≈ 1 s. Target ≤ 60 s. **Storage:** `LightProbeData` (`.mfres` header with a `BakeHash` of the inputs, plus a
+`.mfprobes` fp16 blob in LFS).
 
 **Editor:** a **Bake Lighting** button on `LightProbeVolume` (progress, cancel), a probe debug view (spheres showing the
 SH, invalid probes red) and an "indirect only" view mode. Headless: `--bake-lighting <scene>`. The Forest generates its
@@ -620,7 +620,7 @@ Refresh `.spv` and `shaders.lock` in every phase that touches shaders.
 ## Open questions
 
 1. **Bake the probes at load instead of committing them?** The valley is generated at load, so a background bake
-   (≈ 5–10 s) could fade in. **Default:** commit `forest.probes` (≈ 5 MB, LFS) from `--bake-lighting`; a stale hash
+   (≈ 5–10 s) could fade in. **Default:** commit `forest.mfprobes` (≈ 5 MB, LFS) from `--bake-lighting`; a stale hash
    warns and falls back to sky-only. Revisit if the bake stays under 5 s.
 2. **A moving sun.** Sky visibility already re-lights with any sky. **Default:** bounce is baked for one sun; a later
    version stores bounce for four sun angles and blends.

@@ -96,7 +96,7 @@ public sealed class SongBrowser(EditorWorkspace workspace)
 
         // Songs.
         var songs = root is null ? [] : SongPanel.FindSongs(root, int.MaxValue).Where(p => Matches(Path.GetFileNameWithoutExtension(p))).ToList();
-        if (Section("songs", "Songs", "music", root is null ? "Songs — open a project first" : "Songs — every .msong in the project; click to open"))
+        if (Section("songs", "Songs", "music", root is null ? "Songs — open a project first" : "Songs — every .mfsong in the project; click to open"))
         {
             var content = root is null ? "" : Path.Combine(root, "Assets");
             foreach (var song in songs.OrderBy(static p => Path.GetFileNameWithoutExtension(p), StringComparer.OrdinalIgnoreCase))

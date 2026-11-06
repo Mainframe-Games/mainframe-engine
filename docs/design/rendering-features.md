@@ -88,7 +88,7 @@ by index; a level keeps a surface's chain only while every earlier level had tha
 levels 0, 1). Other levels' vertices move into LOD0's space with their offsets kept (Unity's LOD groups). Their nodes and
 children are dropped. Skinned meshes and groups without `_LOD0` stay as they are (a warning).
 
-Model `.meta` settings:
+Model `.mfmeta` settings:
 
 - `"lodErrors": [0.01, 0.02, …]`: level n's error as a fraction of the LOD0 mesh's bounds radius; missing entries continue
   the default series (1 %, doubling per level).

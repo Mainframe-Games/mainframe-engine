@@ -473,7 +473,7 @@ public sealed class SongPanel : EditorDocument
     public const int MaxRecentSongs = 8;
 
     /// <summary>
-    /// The project's songs (<c>.msong</c> under <paramref name="projectRoot"/>'s <c>Assets/</c>), most recently changed
+    /// The project's songs (<c>.mfsong</c> under <paramref name="projectRoot"/>'s <c>Assets/</c>), most recently changed
     /// first, at most <paramref name="max"/>; none without a project or when the folder cannot be read.
     /// </summary>
     public static List<string> FindSongs(string? projectRoot, int max)
@@ -483,7 +483,7 @@ public sealed class SongPanel : EditorDocument
             return [];
         try
         {
-            return [.. Directory.EnumerateFiles(content, "*.msong", SearchOption.AllDirectories)
+            return [.. Directory.EnumerateFiles(content, "*.mfsong", SearchOption.AllDirectories)
                 .Select(static f => new FileInfo(f))
                 .OrderByDescending(static f => f.LastWriteTimeUtc)
                 .ThenBy(static f => f.FullName, StringComparer.Ordinal)

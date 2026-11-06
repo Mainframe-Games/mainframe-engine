@@ -25,7 +25,7 @@ public sealed class SongTabTests : IDisposable
 
     public SongTabTests()
     {
-        var path = SongTab.CreateFile(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.mfsong"));
         _tab = _host.Session.OpenSong(path);
     }
 
@@ -59,7 +59,7 @@ public sealed class SongTabTests : IDisposable
         Assert.Same(_tab, _host.Session.ActiveTab);
         Assert.Same(_tab, _host.Session.ActiveSong);
         Assert.False(_tab.IsDirty);
-        Assert.Equal("Theme.msong", _tab.Title);
+        Assert.Equal("Theme.mfsong", _tab.Title);
         var track = Assert.Single(Doc.Song.Tracks);
         Assert.True(track.Instrument?.IsZzfx);
         Assert.Same(_tab, _host.Session.OpenSong(_tab.FilePath!)); // already open: activated, not opened twice
@@ -74,7 +74,7 @@ public sealed class SongTabTests : IDisposable
         _host.Session.ScenesChanged += () => changed++;
         Doc.AddTrack(SongTrackKind.Audio, "Rain");
         Assert.True(_tab.IsDirty);
-        Assert.Equal("Theme.msong*", _tab.Title);
+        Assert.Equal("Theme.mfsong*", _tab.Title);
         Assert.True(_host.Session.HasUnsavedChanges);
         Assert.Contains(_tab, _host.Session.DirtyTabs);
         Assert.Equal(1, changed); // the tab strip follows the dirty flag, not every edit
@@ -94,7 +94,7 @@ public sealed class SongTabTests : IDisposable
         var uid = Doc.Song.Uid;
         var copy = Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Copy");
         _host.Session.SaveSong(_tab, copy);
-        Assert.EndsWith("Copy.msong", _tab.FilePath, StringComparison.Ordinal);
+        Assert.EndsWith("Copy.mfsong", _tab.FilePath, StringComparison.Ordinal);
         Assert.True(File.Exists(_tab.FilePath));
         Assert.NotEqual(uid, Doc.Song.Uid);
         Assert.False(_tab.IsDirty);
@@ -116,9 +116,9 @@ public sealed class SongTabTests : IDisposable
     [Fact]
     public void MovedFilesAreFollowed()
     {
-        var target = Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Renamed.msong");
+        var target = Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Renamed.mfsong");
         File.Move(_tab.FilePath!, target);
-        _host.Session.FilesMoved(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.msong"), target);
+        _host.Session.FilesMoved(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.mfsong"), target);
         Assert.Equal(target, _tab.FilePath);
     }
 

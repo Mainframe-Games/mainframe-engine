@@ -9,7 +9,7 @@ namespace MainframeEngine;
 /// values (Godot's <c>ShaderMaterial</c>): a canvas shader on canvas items (ADR 0113), a spatial shader on
 /// <see cref="GeometryInstance3D"/>s — <see cref="MeshInstance3D"/>, <see cref="MultiMeshInstance3D"/>, overrides, overlays and
 /// next passes (ADR 0205). Values are set by name; unset uniforms use the shader's defaults. Samplers take a
-/// <see cref="Texture2D"/>. Saved with the material as <see cref="ShaderParameters"/> (<c>.mres</c>, <c>.mscene</c>).
+/// <see cref="Texture2D"/>. Saved with the material as <see cref="ShaderParameters"/> (<c>.mfres</c>, <c>.mfscene</c>).
 /// </summary>
 [EditorIcon("palette")]
 public sealed class ShaderMaterial : Material

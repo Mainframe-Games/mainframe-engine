@@ -177,11 +177,11 @@ public sealed class SimulateTests : IDisposable
     public void SimulatingAndDuplicatingReleaseTheReferencesTheyTake()
     {
         AssetDatabase.Current = new AssetDatabase(_editor.Directory);
-        var path = Path.Combine(_editor.Directory, "Assets", "Shared", "crate.mres");
+        var path = Path.Combine(_editor.Directory, "Assets", "Shared", "crate.mfres");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         ResourceSaver.Save(new BoxMesh(), path);
         ResourceLoader.ClearCache();
-        var mesh = ResourceLoader.Load<BoxMesh>("Assets/Shared/crate.mres");
+        var mesh = ResourceLoader.Load<BoxMesh>("Assets/Shared/crate.mfres");
         var scene = _editor.Scene;
         var node = new MeshInstance3D { Name = "Crate", Mesh = mesh };
         scene.AddNode(node, scene.Root);

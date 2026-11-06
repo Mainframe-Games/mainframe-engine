@@ -4,7 +4,7 @@ using MainframeEngine.Serialization;
 
 namespace MainframeEngine.Tests.Navigation;
 
-/// <summary>G3.3: <see cref="NavigationGridData"/>'s compact RLE strings, through a <c>.mres</c> and inline in a scene.</summary>
+/// <summary>G3.3: <see cref="NavigationGridData"/>'s compact RLE strings, through a <c>.mfres</c> and inline in a scene.</summary>
 [Collection(nameof(Scene.SerialResources))]
 public sealed class NavigationGridDataTests : IDisposable
 {
@@ -83,14 +83,14 @@ public sealed class NavigationGridDataTests : IDisposable
         var grid = RandomGrid(9, 256, 256);
         var data = NavigationGridData.FromGrid(grid, NavigationGridSource.Physics);
         data.SourceHash = "0123456789abcdef";
-        ResourceSaver.Save(data, "Assets/Levels/maze-nav.mres");
-        var text = File.ReadAllText(Path.Combine(_project, "Assets", "Levels", "maze-nav.mres"));
+        ResourceSaver.Save(data, "Assets/Levels/maze-nav.mfres");
+        var text = File.ReadAllText(Path.Combine(_project, "Assets", "Levels", "maze-nav.mfres"));
         Assert.True(text.Split('\n').Length < 30, "a 256 × 256 grid is a handful of lines");
         Assert.Contains("\"type\": \"NavigationGridData\"", text, StringComparison.Ordinal);
         Assert.Contains("\"BakedFrom\": \"Physics\"", text, StringComparison.Ordinal);
 
         ResourceLoader.ClearCache();
-        var loaded = ResourceLoader.Load<NavigationGridData>("Assets/Levels/maze-nav.mres");
+        var loaded = ResourceLoader.Load<NavigationGridData>("Assets/Levels/maze-nav.mfres");
         Assert.Equal(grid.Region, loaded.Region);
         Assert.Equal("0123456789abcdef", loaded.SourceHash);
         var copy = new AStarGrid2D { Region = loaded.Region };

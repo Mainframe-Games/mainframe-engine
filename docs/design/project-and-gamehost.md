@@ -24,7 +24,7 @@ Decisions: [project file + GameHost](../../memory/decisions/0090-project-file-an
 | `InputMap`, `InputAction`, `InputBinding`, `InputState`, `Input` | [Scene/Input/](../../MainframeEngine/Src/Scene/Input/) | actions; per-tree polled state (`SceneTree.Input`); static facade |
 | `Log`, `LogEntry`, `ILogSink`, `ConsoleLogSink`, `FileLogSink`, `MemoryLogSink` | [Debugging/](../../MainframeEngine/Src/Debugging/) | structured log routing |
 | `UserDataPaths`, `EngineInfo` | [Core/](../../MainframeEngine/Src/Core/) | per-user folders; engine version |
-| `SaveServer`, `SaveSchema<T>`, `SaveInfo`, `SaveSlotInfo`, `SaveResult`, `SaveLoad<T>`, `SaveOptions` | [Saves/](../../MainframeEngine/Src/Saves/) | save games: slots, `.msave` files, async writes, recovery |
+| `SaveServer`, `SaveSchema<T>`, `SaveInfo`, `SaveSlotInfo`, `SaveResult`, `SaveLoad<T>`, `SaveOptions` | [Saves/](../../MainframeEngine/Src/Saves/) | save games: slots, `.mfsave` files, async writes, recovery |
 | `ISaveStorage`, `LocalSaveStorage`, `ICloudSaveBackend`, `CloudSaveMeta`, `CloudSaveFile`, `SaveConflictPolicy` | [Saves/](../../MainframeEngine/Src/Saves/) | storage seam; local files; the cloud hook (M13 backends) |
 | `EditorLinkProtocol`, `EditorLinkClient`, `EditorLinkServer`, `EditorLinkLogSink` | [EditorLink/](../../MainframeEngine/Src/EditorLink/) | game ↔ editor channel |
 | `GameAssemblyLoader`, `Debouncer`, `DebouncedFileWatcher` | [Project/](../../MainframeEngine/Src/Project/) | code reload support |
@@ -35,7 +35,7 @@ Decisions: [project file + GameHost](../../memory/decisions/0090-project-file-an
 ```text
 MyGame/                      ← dotnet new mfgame -n MyGame --engine-version X.Y.Z (the MainframeEngine package)
 ├─ project.mfproj            ← ProjectSettings (copied next to the app)
-├─ Assets/Scenes/Main.mscene
+├─ Assets/Scenes/Main.mfscene
 ├─ MyGame/MyGame.csproj      ← class library: node/resource types (generator as analyzer)
 ├─ MyGame.Desktop/           ← exe: return GameHost.Run(args, typeof(MyGame.Spinner).Assembly);
 ├─ Directory.Build.props     ← TargetFramework, warnings as errors, MainframeEnginePath
@@ -76,7 +76,7 @@ commas tolerated). Only values that differ from the defaults are written, except
     "jump": { "bindings": ["key:Space", "pad:A"] },
     "move_left": { "deadzone": 0.25, "bindings": ["key:A", "axis:LeftX-"] }
   },
-  "audio": { "enabled": true, "busLayout": "Assets/Settings/AudioBusLayout.mres", "sampleRate": 44100, "bufferMs": 20 },
+  "audio": { "enabled": true, "busLayout": "Assets/Settings/AudioBusLayout.mfres", "sampleRate": 44100, "bufferMs": 20 },
   "localization": { "defaultLocale": "es", "sourceLocale": "en", "fallbacks": ["es"], "directory": "Assets/locale", "domain": "messages" },
   "rendering": { "exposure": 1.1, "shadows": "Low" },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1, "minScale": 0.5 },
@@ -84,7 +84,7 @@ commas tolerated). Only values that differ from the defaults are written, except
   "saves": { "maxBytes": 16777216, "backups": 2, "compression": "none", "thumbnails": true,
              "thumbnail": { "width": 320, "height": 180 } },
   "autoloads": [
-    { "name": "Music", "scene": "Assets/Autoload/Music.mscene" },
+    { "name": "Music", "scene": "Assets/Autoload/Music.mfscene" },
     { "name": "Stats", "type": "GameStats", "enabled": false }
   ]
 }
@@ -145,7 +145,7 @@ commas tolerated). Only values that differ from the defaults are written, except
 - **Physics**: `ticksPerSecond` → `EngineOptions.PhysicsTicksPerSecond` (the tree's fixed tick), `3d`/`2d` → the
   `PhysicsSettings3D`/`2D` the engine builds `PhysicsServer3D`/`2D` with (gravity, substeps, solver, sleeping,
   determinism), `maxStepsPerFrame` → `SceneTree.MaxPhysicsStepsPerFrame` at `GameSession.Start`.
-- **Audio bus layout**: a reference to the `.mres` resource ([Audio](audio.md#buses)) the `AudioServer` loads; missing
+- **Audio bus layout**: a reference to the `.mfres` resource ([Audio](audio.md#buses)) the `AudioServer` loads; missing
   → the built-in default layout, invalid → the default with an `[ERROR]`.
 - **Localization** (`LocalizationProjectSettings.ToOptions()` → `EngineOptions.Localization`, `defaultLocale` →
   `EngineOptions.Locale`): the engine constructor calls `Tr.Configure` with them before any game code runs, so the
@@ -441,10 +441,10 @@ it keeps loading when an export packs `Assets/` ([Content file system](asset-pip
 ```text
 {user data}/                 GameHost.UserDataDirectory
 ├── saves/                   SaveServer (LocalSaveStorage)
-│   ├── slot1.msave          header line + payload
-│   ├── slot1.msave.bak1     previous save (rolling, saves.backups copies)
+│   ├── slot1.mfsave          header line + payload
+│   ├── slot1.mfsave.bak1     previous save (rolling, saves.backups copies)
 │   ├── slot1.png            optional thumbnail
-│   ├── slot1.msave.corrupt-20261008T101500123Z   a damaged copy, kept for support
+│   ├── slot1.mfsave.corrupt-20261008T101500123Z   a damaged copy, kept for support
 │   └── .sync.json           the last synced hash per slot (with a cloud backend)
 ├── crashes/                 CrashReporter: report bundles, the session sentinel, native dumps
 └── logs/                    FileLogSink
@@ -494,8 +494,9 @@ foreach (var slot in saves.ListSlots()) { /* slot.Description, slot.PlayTime, sl
   `SaveResult` is the slot, `SaveStatus` (`Ok`, `TooLarge`, `IoError`, `Cancelled`), the error, the written header
   (`SaveSlotInfo`) and `CloudTooLarge`; `SaveLoad<T>` is `LoadStatus` (`Ok`, `RecoveredFromBackup`, `NotFound`,
   `Corrupt`, `TooNew`, `IoError`), the data, the header of the copy that loaded and the error.
-- **File format.** A `.msave` is UTF-8 in two parts: line 1 is a compact JSON header (at most 64 KiB, ending with `\n`),
-  the rest the payload JSON, optionally gzip. Both are readable in any editor:
+- **File format.** A `.mfsave` is UTF-8 in two parts: line 1 is a compact JSON header (at most 64 KiB, ending with `\n`),
+  the rest the payload JSON, optionally gzip. Builds before ADR 0249 wrote `.msave`: the server renames those files (and
+  their `.tmp`, `.bakN` and `.corrupt-…` copies) once at start, unless the new name is taken. Both are readable in any editor:
 
   ```json
   {"kind":"mainframe-save","format":1,"slot":"slot1","version":2,"savedUtc":"2026-10-08T10:15:00.000Z","playTimeSeconds":5423.5,"description":"Physics 3D — 14 crates","progress":0.4,"device":"brogan-mbp","game":"Mainframe Demo","gameVersion":"1.2.0","engine":"0.9.3","compression":"none","payloadBytes":18234,"sha256":"9f2c…","thumbnail":"slot1.png"}
@@ -518,7 +519,7 @@ foreach (var slot in saves.ListSlots()) { /* slot.Description, slot.PlayTime, sl
   an `await` in game code continue on the main thread.
 - **Load and recovery.** The header is checked (`kind`, `format`, `version`), then `payloadBytes` and `sha256`; the
   payload is decompressed (the size limit includes the decompressed size), migrated and deserialized. On any failure
-  (truncated, bad checksum, bad JSON, a failed migration) the file is renamed `slot1.msave.corrupt-{utc}` (never
+  (truncated, bad checksum, bad JSON, a failed migration) the file is renamed `slot1.mfsave.corrupt-{utc}` (never
   deleted, so a player can send it to support), then the `.tmp` of an interrupted write and `.bak1` … `.bakN` are tried
   in order: the first valid copy is restored as the slot and returned as `RecoveredFromBackup` with its own header
   ("Restored the save from 10:02"). No valid copy: `Corrupt`. A `TooNew` file is left untouched. A successful load sets
@@ -545,7 +546,7 @@ foreach (var slot in saves.ListSlots()) { /* slot.Description, slot.PlayTime, sl
 
 `SaveServer.Cloud` takes an `ICloudSaveBackend` (`Name`, `MaxBytes` per slot, `ListAsync`, `UploadAsync(slot, file,
 thumbnail)`, `DownloadAsync`); the Steam Cloud, iCloud and Play Saved Games backends are [M13](future/mobile-services.md).
-Backends store whole `.msave` files, so the file format needs no change; `CloudSaveMeta.FromFile` reads a file's header
+Backends store whole `.mfsave` files, so the file format needs no change; `CloudSaveMeta.FromFile` reads a file's header
 for their listings.
 
 - **Local first.** Local storage is the source of truth. After every local write the same bytes are uploaded, best
@@ -557,9 +558,9 @@ for their listings.
   other (a slot deleted locally since the last sync is not brought back); a slot changed on both is a conflict that
   `ConflictPolicy` settles: `MostRecent` (`savedUtc`), `HighestProgress` (`progress`, ties by time) or `Manual`, which
   raises `ConflictDetected(local, remote)` on the main thread and waits for `ResolveConflict(slot, keepLocal)`. The losing
-  copy is kept as `slot1.msave.conflict-{utc}`. Downloaded files are checked (header and checksum) before they replace
+  copy is kept as `slot1.mfsave.conflict-{utc}`. Downloaded files are checked (header and checksum) before they replace
   anything, and a slot that changes locally while a download is in flight is left for the next sync.
-- **Steam Auto-Cloud** needs no code: configured on the Steamworks partner site, it syncs `{user data}/saves/*.msave`.
+- **Steam Auto-Cloud** needs no code: configured on the Steamworks partner site, it syncs `{user data}/saves/*.mfsave`.
 
 ## Editor link
 
@@ -702,7 +703,7 @@ The game's `Directory.Build.props` sets `ImportDirectoryPackagesProps=false`: a 
 package management keeps its own versions.
 
 A new game's `project.mfproj` spells out the defaults it starts from: a 1280×720 VSync window, 60 Hz physics with
-5 steps per frame and Earth gravity, `Assets/Settings/AudioBusLayout.mres` (shipped: Master → Music, SFX, UI, Voice),
+5 steps per frame and Earth gravity, `Assets/Settings/AudioBusLayout.mfres` (shipped: Master → Music, SFX, UI, Voice),
 `en` as the source locale with catalogs in `Assets/locale` (the desktop project sets `LocaleContentRoot=../Content` for
 `Localization.targets`, from the package or imported from the checkout, so a `.po` added there is compiled and shipped) and `High` shadows.
 

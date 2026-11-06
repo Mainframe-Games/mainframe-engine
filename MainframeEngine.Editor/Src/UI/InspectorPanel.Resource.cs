@@ -3,7 +3,7 @@ using System.Text;
 namespace MainframeEngine.Editor;
 
 /// <summary>
-/// The inspector on a resource file (a <c>.mres</c> double-clicked in the FileSystem panel, or the project's audio bus
+/// The inspector on a resource file (a <c>.mfres</c> double-clicked in the FileSystem panel, or the project's audio bus
 /// layout from Project Settings): the resource's rows and custom inspector, edits through its own history
 /// (<see cref="EditedResource"/>), a Save and a Close button in the header. Selecting a node returns to the scene.
 /// </summary>
