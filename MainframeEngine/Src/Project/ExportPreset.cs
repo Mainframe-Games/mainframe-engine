@@ -96,6 +96,15 @@ public sealed class ExportPreset
     /// <summary>Globs applied after <see cref="Include"/>.</summary>
     public List<string> Exclude { get; } = [.. DefaultExclude];
 
+    /// <summary>
+    /// Put the shipped <c>Assets/</c> and <c>project.mfproj</c> in one <c>Assets.mfpak</c> beside the executable (default;
+    /// G19, docs/design/game-export.md#packed-content). False ships them as loose files.
+    /// </summary>
+    public bool Pack { get; set; } = true;
+
+    /// <summary>Globs of shipped <c>Assets/</c> files kept as loose files beside the pack (mods, files other tools read).</summary>
+    public List<string> Loose { get; } = [];
+
     /// <summary>The platform's options; a <see cref="DesktopExportOptions"/> for Windows, macOS and Linux.</summary>
     public required IExportPlatformOptions Options { get; set; }
 
@@ -124,8 +133,10 @@ public sealed class ExportPreset
             Version = Version,
             Icon = Icon,
             Archive = Archive,
+            Pack = Pack,
             Options = Options.Clone(),
         };
+        copy.Loose.AddRange(Loose);
         copy.Include.Clear();
         copy.Include.AddRange(Include);
         copy.Exclude.Clear();

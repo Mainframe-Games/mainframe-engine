@@ -17,7 +17,7 @@ public interface IExportRunner
 /// <summary>
 /// Runs export presets (docs/design/game-export.md): validate, <c>dotnet publish</c> for the preset's RID into a stage,
 /// stage it (rename the apphost, prune other platforms' natives, filter <c>Assets/</c>, write the asset index and the
-/// exported <c>project.mfproj</c>), write the icon, bundle and sign on macOS, then archive into the output folder. The editor,
+/// exported <c>project.mfproj</c>, pack them into <c>Assets.mfpak</c>), write the icon, bundle and sign on macOS, then archive into the output folder. The editor,
 /// <c>mf-export</c>, <c>just package-game</c> and CI all use it, so they produce the same output.
 /// </summary>
 /// <remarks>
@@ -217,7 +217,35 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
 
         if (File.Exists(Path.Combine(publish, "steam_appid.txt")))
             return "steam_appid.txt is in the publish output: a player build must never carry one (remove it from the project's copied files).";
+        if (plan.Preset.Pack)
+            PackContent(publish, plan.Preset.Loose, line);
         return null;
+    }
+
+    /// <summary>
+    /// Writes <c>Assets.mfpak</c> from the staged <c>Assets/</c> and <c>project.mfproj</c> (everything but the
+    /// <paramref name="loose"/> globs), then deletes what it packed (G19 phase 2). The stage is the only input: the
+    /// project's own <c>Assets/</c> holds editor-only media the build never copied.
+    /// </summary>
+    internal static PackWriteResult PackContent(string publish, IReadOnlyList<string> loose, Action<string> line)
+    {
+        var files = PackWriter.GameFiles(publish, path => Glob.IsMatchAny(loose, path));
+        var result = PackWriter.Write(Path.Combine(publish, PackFormat.FileName), files);
+        foreach (var file in files)
+            File.Delete(file.SourceFile);
+        var assets = Path.Combine(publish, ContentPaths.FolderName);
+        if (Directory.Exists(assets))
+        {
+            foreach (var directory in Directory.EnumerateDirectories(assets, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length).ToArray())
+                if (!Directory.EnumerateFileSystemEntries(directory).Any())
+                    Directory.Delete(directory);
+            if (!Directory.EnumerateFileSystemEntries(assets).Any())
+                Directory.Delete(assets);
+        }
+
+        var mb = (result.PackBytes / (1024.0 * 1024.0)).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        line($"Packed {result.Entries} file(s) into {PackFormat.FileName} ({mb} MB, {result.Stored} stored){(loose.Count > 0 ? $"; {loose.Count} loose glob(s)" : "")}");
+        return result;
     }
 
     // Windows and Linux: a zip or tar.gz of <base>/, or the folder itself.

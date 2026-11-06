@@ -195,6 +195,11 @@ neon-city-art *args:
 template-smoke frames="30":
     build/template-smoke.sh "{{artifacts / "template-smoke"}}" {{frames}}
 
+# G19 packed export smoke: the Demo's scenes from its Release build vs its packed export (Assets.mfpak), compared with
+# ImageMagick (artifacts/export-smoke; macOS needs the display awake)
+export-smoke frames="120" threshold="0.01":
+    build/export-smoke.sh {{frames}} {{threshold}}
+
 # Template smoke test against this checkout packed as the NuGet packages (local feed: template + engine); also publishes for this RID
 template-smoke-package frames="30":
     ENGINE_SOURCE=package build/template-smoke.sh "{{artifacts / "template-smoke-package"}}" {{frames}}

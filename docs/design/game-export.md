@@ -59,13 +59,15 @@ written, like every other section.
 | `exe` | desktop | the project name without spaces | The player-facing executable. |
 | `selfContained` | desktop | `true` | `false` makes players install .NET 10 (servers that have it). |
 | `readyToRun` | desktop | `true` | `-p:PublishReadyToRun`: faster start-up, larger output. |
-| `singleFile` | desktop | `false` | `-p:PublishSingleFile` + `IncludeNativeLibrariesForSelfExtract`; `Assets/` and `project.mfproj` stay beside the exe. Windows and Linux only. |
+| `singleFile` | desktop | `false` | `-p:PublishSingleFile` + `IncludeNativeLibrariesForSelfExtract`; `Assets.mfpak` (or, with `pack: false`, `Assets/` and `project.mfproj`) stays beside the exe. Windows and Linux only. |
 | `trim` | desktop | `false` | `-p:PublishTrimmed`. Experimental (warns) until the engine is trim-clean (M12.6). |
 | `symbols` | desktop | `ship` | `separate` moves the PDBs, with their assemblies, into `<exe>-<version>-<rid>-symbols.zip` for `mf-symbolicate` ([Crash reporting → Symbols](crash-reporting.md#symbols)). |
 | `profiler` | desktop | `true` | `false` publishes with `MainframeProfilerDisabled=true`: `MainframeGame.props` sets the `MainframeEngine.Profiler.Disabled` AppContext switch in the runtimeconfig ([Profiler](profiler.md)). |
 | `archive` | all | `true` | Zip (Windows, macOS) or `.tar.gz` (Linux). `false` leaves a folder (e.g. a Steam depot's content root). |
 | `include` | all | `["Assets/**"]` | Globs of the game's `Assets/` files that ship. |
 | `exclude` | all | `["Assets/**/*.po", "Assets/**/*.pot"]` | Applied after `include`. `.mo` catalogs are compiled at build time. |
+| `pack` | all | `true` | Ship the staged `Assets/` and `project.mfproj` in one `Assets.mfpak` beside the executable ([Packed content](#packed-content)). `false` ships them as loose files. |
+| `loose` | all | `[]` | Globs of shipped `Assets/` files kept as loose files beside the pack (mods, files another tool reads). The game still reads them at the same paths. |
 | `bundleId` | macos | `com.mainframegames.<exe lowercased>` | `CFBundleIdentifier`. |
 | `copyright` | macos | `""` | `NSHumanReadableCopyright`. |
 | `sign` | macos | `""` = ad hoc | A Developer ID identity name (not a secret). `MF_SIGN_IDENTITY` overrides it. |
@@ -140,6 +142,8 @@ The steps of one preset:
    - The exported `project.mfproj` ([below](#exported-project-file)) is written over the published one.
    - `Assets/assets.index.json`: `new AssetDatabase(stage).Scan()` + `WriteIndex()`, so shipped builds skip the start-up scan.
    - Fail if a `steam_appid.txt` is in the stage.
+   - `pack: true` (default): `PackWriter` writes `Assets.mfpak` from the staged `Assets/` and `project.mfproj` minus the
+     `loose` globs, then deletes what it packed ([Packed content](#packed-content)).
    - `symbols: separate`: `SymbolCollector` (the C# twin of `build/collect-symbols.sh`) moves the PDBs, with copies of
      their assemblies, into `<exe>-<version>-<rid>-symbols.zip`.
 5. **Bundle (macOS).** `AppBundleWriter` lays out `<Name>.app` as the [macOS bundle layout](release.md#macos-bundle-layout)
@@ -162,6 +166,25 @@ The steps of one preset:
 
 **Cancel** cancels the token: the tool runner kills `dotnet` (or `codesign`/`notarytool`) with its process tree, the
 stage and `.partial` files are deleted, and the result has `Cancelled = true`.
+
+### Packed content
+
+G19 phase 2 ([Protected exports](future/protected-exports.md), [ADR 0239](../../memory/decisions/0239-protected-exports.md)).
+With `pack: true` an export folder holds the executable, the runtime and natives, `Assets.mfpak` and the `loose` files,
+and no `Assets/` folder or `project.mfproj`. The pack holds the game's and the engine's content (shaders, widgets,
+fonts, `.mo` catalogs, the asset index) and the exported project file, at the paths they had in the stage.
+
+- **Only the stage is packed.** `PackWriter.GameFiles(stage, …)` reads the stage, never the project's `Assets/`, so
+  the editor-only `Assets/Video` folder (which the build never copies) cannot ship, and `include`/`exclude` have already
+  run.
+- **At run time** `GameHost.Run` calls `GameHost.MountExportPack()` before it reads `project.mfproj`: the pack is
+  mounted with `ContentFiles` at `ContentPaths.BaseDirectory` (`Contents/MonoBundle` in a macOS bundle), so every
+  content read comes from it and loose files are the disk fallthrough. A damaged pack is a failed start (exit code 1,
+  logged). Builds without a pack (the editor, Play, `dotnet run`) read loose files as before.
+- **Format and layout** are in [Asset pipeline → Packs](asset-pipeline.md#packs): Brotli for text and data, stored and
+  seekable media, and a layout that keeps SteamPipe patches small ([ADR 0247](../../memory/decisions/0247-pack-anchors-for-steampipe.md)).
+- **Looking inside.** `mf-export --pack-list <Assets.mfpak>` lists the entries (codec, length, path), and
+  `mf-export --pack-extract <Assets.mfpak> <dir>` writes them out.
 
 ### Exported project file
 
@@ -209,6 +232,8 @@ The dialog re-runs it on every edit; the CLI before each preset.
 | `output-in-content` | error | `output` is inside `Assets/` |
 | `duplicate-name` | error | two presets share a name (also rejected on load) |
 | `glob` | error | a glob is empty, absolute, has `\` or `..` |
+| `loose-outside-assets` | error | a `loose` glob does not start with `Assets/` |
+| `loose-without-pack` | warning | `loose` globs with `pack: false` (everything ships loose anyway) |
 | `steam-app-id` / `steam-debug` | error / warning | see [Steam](#steam) |
 | `notarize-needs-sign` | error | a notary profile with ad hoc signing |
 | `single-file` | error / warning | error on macOS (a bundle), else experimental |
@@ -237,6 +262,7 @@ Export… (`file.export`, Ctrl/Cmd+Shift+E, `package-export`) is enabled when th
   - the legacy form `<Desktop.csproj> <rid> <out> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]
     [--sign] [--notarize] [--demo] [--steam] [--symbols ship|separate] [--configuration] [--folder]`, mapped onto an
     unsaved preset (`just package-game`). The project is the folder above the desktop project's.
+  - `--pack-list <Assets.mfpak>` and `--pack-extract <Assets.mfpak> <dir>` show what a packed export ships.
   - Exit codes: 0 exported, 1 a preset failed, 2 usage or validation error. Errors go to stderr in MSBuild's canonical
     format (`file : error code: text`) so CI annotates them; the artifact is the last stdout line. Ctrl+C cancels.
 - **The package.** The `MainframeEngine` package carries `mf-export` in `tools/mf-export` (managed files and
@@ -247,9 +273,10 @@ Export… (`file.export`, Ctrl/Cmd+Shift+E, `package-export`) is enabled when th
   `--export-debug "<preset>" [<out>]` (configuration `Debug`, the file unchanged) and `--export-all` run `ExportCli` from
   `Program.cs` before an `EditorApp` exists (no window, SDL or engine), so the released editor exports from scripts.
 - **CI.** `build/template-smoke.sh` (the `template` job, both engine sources) writes a preset for the host RID into the
-  generated game's `project.mfproj`, runs `mf-export --list` and `--preset`, unpacks the archive, checks the exported
-  `project.mfproj` (no presets), the asset index, the content and the missing `.po`, and runs it with `--headless
-  --max-frames`. The package run also packages `linux-x64`, `win-x64` (and `osx-arm64` on a Mac) with the package's
+  generated game's `project.mfproj`, runs `mf-export --list` and `--preset`, unpacks the archive, checks that only
+  `Assets.mfpak` ships (no `Assets/` folder, no loose `project.mfproj`), extracts the pack with `--pack-extract` and
+  checks the exported `project.mfproj` (no presets), the asset index, the engine's content and the missing `.po`, and
+  runs it with `--headless --max-frames`. The package run also packages `linux-x64`, `win-x64` (and `osx-arm64` on a Mac) with the package's
   `mf-export` in the legacy form and checks each archive.
 
 ## Mobile (M12.7) extends the same schema
@@ -292,6 +319,12 @@ drains its queues on the main thread and allocates only when there is something 
 - **Integration** (`ExportIntegrationTests`, `Slow`, skipped without the .NET 10 SDK): a game from the template (temp
   folder), exported for this machine's RID to a folder, its layout checked and run with `--headless`; a demo export
   whose assembly carries `MainframeDemo=true` and whose runtimeconfig disables the profiler.
+- **Packs** (G19 phase 2): `PackTests` and the mounted-content theories (engine tests, see
+  [Asset pipeline → Packs](asset-pipeline.md#packs)); `ADefaultExportShipsTheContentAndTheProjectFileInAPack`,
+  `PackFalseKeepsLooseAssets` and `LooseGlobsShipBesideThePackAndStillLoad` (runner); the integration export is packed
+  (the demo one loose) and its run logs `Content from Assets.mfpak`. `just export-smoke` (local, needs a display and
+  ImageMagick) exports the Demo packed and compares its screenshots with the loose Release build's; the physics,
+  particle and tile-map scenes vary run to run, so they are checked for errors only.
 - **QA:** `Tests/QA/export.qa` (`just qa-export`): create a game, add a preset for this machine, demo on, an exclude,
   export it, capture the dialog and the Output panel. `readme-screenshots.qa` captures `editor-export`.
 
