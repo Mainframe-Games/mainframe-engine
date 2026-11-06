@@ -15,6 +15,8 @@ public sealed class NavigationMap2D
     private readonly List<NavigationGrid2D> _pendingAdd = [];
     private readonly List<NavigationGrid2D> _pendingRemove = [];
     private readonly List<NavigationAgent2D> _agents = [];
+    private readonly List<NavigationObstacle2D> _obstacles = [];
+    private AvoidanceSimulation2D? _avoidance;
     private bool _dirty;
 
     internal NavigationMap2D(World2D world)
@@ -36,11 +38,18 @@ public sealed class NavigationMap2D
     /// <summary>The agents in the map's world.</summary>
     public IReadOnlyList<NavigationAgent2D> Agents => _agents;
 
+    /// <summary>The avoidance obstacles in the map's world, in registration order.</summary>
+    public IReadOnlyList<NavigationObstacle2D> Obstacles => _obstacles;
+
+    internal List<NavigationObstacle2D> ObstacleList => _obstacles;
+
+    internal AvoidanceSimulation2D? Avoidance => _avoidance;
+
     internal List<NavigationGrid2D> RegionList => _regions;
 
     internal List<NavigationAgent2D> AgentList => _agents;
 
-    internal bool IsEmpty => _regions.Count == 0 && _pendingAdd.Count == 0 && _agents.Count == 0;
+    internal bool IsEmpty => _regions.Count == 0 && _pendingAdd.Count == 0 && _agents.Count == 0 && _obstacles.Count == 0;
 
     /// <summary>Applies pending region changes now (tools and tests; the server syncs every tick).</summary>
     public void ForceSync() => Sync();
@@ -69,6 +78,36 @@ public sealed class NavigationMap2D
     }
 
     internal void RemoveAgent(NavigationAgent2D agent) => _agents.Remove(agent);
+
+    internal void AddObstacle(NavigationObstacle2D obstacle)
+    {
+        if (!_obstacles.Contains(obstacle))
+            _obstacles.Add(obstacle);
+    }
+
+    internal void RemoveObstacle(NavigationObstacle2D obstacle) => _obstacles.Remove(obstacle);
+
+    /// <summary>
+    /// G3.7: computes the safe velocity of every avoiding agent that submitted one this tick, then raises their
+    /// <see cref="NavigationAgent2D.VelocityComputed"/> in registration order. Called by the server after each fixed step.
+    /// </summary>
+    internal void StepAvoidance(float delta)
+    {
+        if (_agents.Count == 0)
+            return;
+        var any = false;
+        for (var i = 0; i < _agents.Count && !any; i++)
+            any = _agents[i].VelocitySubmitted;
+        if (!any)
+        {
+            for (var i = 0; i < _agents.Count; i++)
+                _agents[i].SafeVelocity = Vector2.Zero; // nobody moving: all stand still for the next tick's neighbours
+            return;
+        }
+
+        using var scope = NavigationMarkers.Avoidance.Auto();
+        (_avoidance ??= new AvoidanceSimulation2D()).Step(this, delta);
+    }
 
     internal void Sync()
     {
