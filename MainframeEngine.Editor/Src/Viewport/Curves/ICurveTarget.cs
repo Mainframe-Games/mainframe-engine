@@ -59,6 +59,23 @@ public interface ICurveTarget
     {
     }
 
+    /// <summary>The curve has per-point width and depth (a <see cref="River3D"/>'s banks and channel): the width and depth handles.</summary>
+    bool HasWidth => false;
+
+    /// <summary>The full width at point <paramref name="index"/> (metres).</summary>
+    float GetWidth(int index) => 0f;
+
+    void SetWidth(int index, float width)
+    {
+    }
+
+    /// <summary>The centreline depth at point <paramref name="index"/> (metres).</summary>
+    float GetDepth(int index) => 0f;
+
+    void SetDepth(int index, float depth)
+    {
+    }
+
     /// <summary>
     /// The curve's frame at point <paramref name="index"/> in world space, before tilt: the unit tangent and the up vector
     /// the tilt rolls (the tilt ring's axis and zero). 2D curves: along the curve and the screen's −Z.
@@ -128,24 +145,43 @@ public sealed class Curve2DTarget : ICurveTarget
         ?? throw new InvalidOperationException($"Curve2D.{name} is not registered.");
 }
 
-/// <summary>A <see cref="Path3D"/>'s <see cref="Curve3D"/> as an <see cref="ICurveTarget"/> (G13.6), with tilt.</summary>
+/// <summary>
+/// A <see cref="Curve3D"/> on a 3D node as an <see cref="ICurveTarget"/>: a <see cref="Path3D"/>'s (G13.6, with tilt) or a
+/// <see cref="River3D"/>'s (G8c.4, with width and depth).
+/// </summary>
 public sealed class Curve3DTarget : ICurveTarget
 {
     private static ExportPropertyInfo? _points;
     private static ExportPropertyInfo? _closed;
 
     public Curve3DTarget(Path3D path)
+        : this(path, path?.Curve ?? throw new ArgumentException("The path has no curve.", nameof(path)))
     {
-        ArgumentNullException.ThrowIfNull(path);
-        Path = path;
-        Curve3D = path.Curve ?? throw new ArgumentException("The path has no curve.", nameof(path));
     }
 
-    public Path3D Path { get; }
+    public Curve3DTarget(Node3D owner, Curve3D curve)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        Path = owner;
+        Curve3D = curve ?? throw new ArgumentNullException(nameof(curve));
+    }
+
+    /// <summary>The node holding the curve (a <see cref="Path3D"/> or a <see cref="River3D"/>).</summary>
+    public Node3D Path { get; }
 
     public Curve3D Curve3D { get; }
 
     public Node Node => Path;
+
+    public bool HasWidth => Path is River3D;
+
+    public float GetWidth(int index) => Curve3D.GetPointWidth(index);
+
+    public void SetWidth(int index, float width) => Curve3D.SetPointWidth(index, width);
+
+    public float GetDepth(int index) => Curve3D.GetPointDepth(index);
+
+    public void SetDepth(int index, float depth) => Curve3D.SetPointDepth(index, depth);
 
     public Resource Curve => Curve3D;
 
@@ -157,7 +193,7 @@ public sealed class Curve3DTarget : ICurveTarget
 
     public bool Closed => Curve3D.Closed;
 
-    public bool HasTilt => true;
+    public bool HasTilt => Path is Path3D; // a river's sections stay level
 
     public Vector3 GetPosition(int index) => Curve3D.GetPointPosition(index);
 

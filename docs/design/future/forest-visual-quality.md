@@ -1,10 +1,10 @@
 # Proposal: Forest visual quality (the Unreal look: probe GI, soft shadows, volumetric light, cinematic post, Ez Tree foliage, water, art, upscaling)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G8e) · **Status:** ⬜ planned ·
-**Depends on:** [Forest showcase](forest-showcase.md) (G8d; current state in [forest.md](../forest.md)); ADR 0163 (the
+**Depends on:** [Forest showcase](../forest.md) (G8d); ADR 0163 (the
 post-processing system: `PostEffect` stages `AfterPrepass` / `BeforeTonemap` / `AfterTonemap`, `SceneTextures`, the
 depth prepass, motion vectors and projection jitter); SSAO/GTAO ([G6.6](../post-processing.md#ssao)) and TAA
-([G8d.8](forest-showcase.md#g8d8-taa)), both now on Vulkan ahead of M11; [Procedural trees](procedural-trees.md)
+([G8d.8](../forest.md#rendering-phases-g8d1g8d8)), both now on Vulkan ahead of M11; [Procedural trees](procedural-trees.md)
 (G8b: `TreeImpostor`); [Water](water.md) (G8c: refraction, SSR, falls) · **Related:**
 [Rendering features](../rendering-features.md) (G6.3 particles, G6.4 LOD), [Terrain](terrain.md) (G8a),
 [Rendering backend abstraction](rendering-backend-abstraction.md) (M11: compute), [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md),
@@ -296,7 +296,7 @@ redrawn every frame.
   in a 4-frame-old cascade lags 67 ms: invisible at 30 m. A camera cut re-renders all four.
 - **Coarse casters far away.** Cascades 2–3 draw trees at LOD2 or their impostor caster (G8e.5): `TreeScatter`'s
   `ShadowMaxLod` per cascade instead of per scatter.
-- **PCSS** as [G8d.5](forest-showcase.md#g8d5-soft-sun-shadows-pcss-style-csm) designs it: a 16-tap blocker search
+- **PCSS** as [G8d.5](../forest.md#rendering-phases-g8d1g8d8) designs it: a 16-tap blocker search
   through the new point sampler, penumbra `(dReceiver − dBlocker) · tan(angle)` in texels, then the Poisson filter at
   that radius (clamped to [`FilterRadius`, 8 texels], and to the next cascade's texel size at a blend). With TAA on, the
   Poisson pattern rotates per pixel and per frame (interleaved gradient noise), so 8 search + 12 filter taps converge
@@ -641,7 +641,7 @@ Refresh `.spv` and `shaders.lock` in every phase that touches shaders.
 
 ## Related
 
-[Milestones](../../milestones.md#gameplay-toolkit-) · [Forest showcase (G8d)](forest-showcase.md) ·
+[Milestones](../../milestones.md#gameplay-toolkit-) · [Forest showcase (G8d)](../forest.md) ·
 [Forest (current state)](../forest.md) · [Procedural trees (G8b)](procedural-trees.md) · [Water (G8c)](water.md) ·
 [Terrain (G8a)](terrain.md) · [Rendering features (G6)](../rendering-features.md) · [Rendering backend abstraction
 (M11)](rendering-backend-abstraction.md) · [Lighting](../lighting.md) · [Shadow system](../shadow-system.md) ·

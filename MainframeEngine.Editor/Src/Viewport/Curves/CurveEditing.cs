@@ -12,6 +12,12 @@ public enum CurvePart : byte
 
     /// <summary>The selected 3D point's tilt ring handle.</summary>
     Tilt,
+
+    /// <summary>A river point's bank handles (either side: the width is symmetric), G8c.4.</summary>
+    Width,
+
+    /// <summary>A river point's depth handle, below it.</summary>
+    Depth,
 }
 
 /// <summary>Projects the view's world space to view pixels for the curve tool's screen-space hit tests (3D views).</summary>
