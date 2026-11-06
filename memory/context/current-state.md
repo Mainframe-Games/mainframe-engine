@@ -25,7 +25,7 @@ _Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and muc
   the project (ADR 0241: media pool, viewers, Premiere's keys, Cutback's tools per clip, titles, transitions, captions); Music mode, DAW, wavetable synth and adaptive music (ADRs 0192–0196; A1–A6: the editor's Target menu, the overlay's Music panel, the Demo's Music tab); `Assets/` content folder (ADR 0197); 3D
   skeletal animation and skinned import (ADRs 0207/0208); spatial shaders (ADR 0205), written since G18 as Slang surface shaders (`.slang`, `import mainframe.spatial;`, ADR 0237; Godot-syntax `.mfshader`/`.gdshader` no longer load); 3D particles (ADR 0206); Spine
   shadows and billboards (ADR 0204); `SteamSocketsTransport` and Steam avatars (#127, #128); the Forest showcase
-  (terrain, trees, water, baked GI; ADR 0209) and the editor's tree inspector with bake staleness (G8b.3, ADR 0271); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
+  (terrain, trees, water, baked GI; ADR 0209; G8d shipped with the `forest-mini` render golden) and the editor's tree inspector with bake staleness (G8b.3, ADR 0271); the Neon showcase (a cyberpunk apartment, ADR 0218) with paths
   (ADR 0215; 2D paths and the curve tool, ADR 0242; moving platforms and the 3D curve tool, ADR 0243: G13 complete), sub-viewport textures on meshes (ADR 0216) and nearest-light selection (ADR 0217); root motion (G1e), keyframe tracks for any property, method and audio keys and the editor's Animation panel (G1a, ADR 0244),
   editor viewport tools (G7), joints and ragdolls (G9, #136; G9.7 limit handles, #148; G9.10a `MotorJoint2D`; G9.10b `Generic6DofJoint3D` on the engine's own
   Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
@@ -90,7 +90,7 @@ _Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and muc
 
 1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 4 NativeAOT (owner: here or M12.6).
 2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (the Terrain dock's Foliage and Objects
-   modes, tree scatter G8b.7, forest goldens and frame budget); G20.3 video; G1c animation authoring (would let active
+   modes, tree scatter G8b.7, the Forest frame budget: G8e, see `docs/design/forest.md#performance`); G20.3 video; G1c animation authoring (would let active
    ragdolls follow any clip); G12 (proposal awaits owner review); G11 rest (batched text, panel stand-ins in the view, G11.9; owner: open questions 2, 5, 6, 7); G14, G16, G17; G3b's rest (G3.8–G3.12).
 3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (Forest cabin; G6's two; G3.7's two; G11's `WorldUiBenchmarks`).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).

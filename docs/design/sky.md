@@ -122,8 +122,8 @@ are Earth's: each coefficient scales Hillaire's Earth value by its ratio to Godo
 
 **The sun** is the world's first `DirectionalLight3D` (towards its +Z axis, Godot's rule for sky shaders), with the light's
 colour × `Energy` as the sun's illuminance; without one, `Sky.SunDirection` and `Sky.SunColor` at energy 1. The
-procedural sky still uses only `Sky.Sun*` (unchanged). The light's own colour stays authored (forest-showcase open
-question 9): making it follow the atmosphere's transmittance (`AtmosphereModel.SunTransmittance` already computes it) is
+procedural sky still uses only `Sky.Sun*` (unchanged). The light's own colour stays authored ([Forest decision
+9](forest.md#decisions)): making it follow the atmosphere's transmittance (`AtmosphereModel.SunTransmittance` already computes it) is
 left for a day-night cycle.
 
 **Units.** The engine's lights carry no 1/π (a white Lambert surface facing a sun of energy E has radiance E), so the

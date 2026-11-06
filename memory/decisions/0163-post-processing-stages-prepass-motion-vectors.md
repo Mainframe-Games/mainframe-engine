@@ -3,7 +3,7 @@
 - **Date:** 2026-10-09
 - **Status:** accepted (implemented on `forest/p`, forest slice: the foundation for SSAO and TAA)
 - **Milestone:** Gameplay toolkit G6.6 / G8d.8 (their shared foundation); ahead of M11
-- **Spec:** docs/design/future/rendering-features.md (G6.6 SSAO), docs/design/future/forest-showcase.md (G8d.8 TAA);
+- **Spec:** docs/design/future/rendering-features.md (G6.6 SSAO), docs/design/forest.md (G8d.8 TAA);
   current state in docs/design/post-processing.md, color-pipeline.md and vulkan-renderer.md
 
 ## Context

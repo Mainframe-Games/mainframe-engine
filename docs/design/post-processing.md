@@ -632,4 +632,4 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
 
 [Color pipeline](color-pipeline.md) · [Vulkan renderer](vulkan-renderer.md) · [Materials & meshes](materials-and-meshes.md) ·
 [Lighting](lighting.md) · [Rendering features (G6.6)](post-processing.md#ssao) ·
-[Forest showcase (G8d.8)](future/forest-showcase.md#g8d8-taa) · [Profiler](profiler.md)
+[Forest showcase (G8d.8)](forest.md#rendering-phases-g8d1g8d8) · [Profiler](profiler.md)

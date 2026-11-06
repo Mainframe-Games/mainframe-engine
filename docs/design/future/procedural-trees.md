@@ -4,7 +4,7 @@
 **Depends on:** [M3 materials & meshes](../materials-and-meshes.md), [M4 shadows](../shadow-system.md) (cutout
 casters), [M10 editor](../editor.md) (custom inspectors); later phases on [Rendering features](../rendering-features.md)
 (G6.1 PBR for bark, G6.4 LOD for impostors) and [Terrain](terrain.md) (G8a: the `Custom0` vertex stream, scatter,
-`MultiMesh`) · **Related:** [Water](water.md) (G8c reads the same wind), [Forest showcase](forest-showcase.md) (G8d, the
+`MultiMesh`) · **Related:** [Water](water.md) (G8c reads the same wind), [Forest showcase](../forest.md) (G8d, the
 main user), [Shaders](../shaders.md) (Slang, [ADR 0144](../../../memory/decisions/0144-slang-shader-language.md)),
 [ADR 0149](../../../memory/decisions/0149-terrain-trees-water-engine-features.md)
 
@@ -720,7 +720,7 @@ G8b.1–G8b.3 ship first: the generator, LowPoly, Bake and the inspector need ne
    `Impostor.vk.*`; the two G6.4 additions and the dither band; render test `tree-impostor`.
 7. **G8b.7 Scatter** (with G8a's object scatter and `MultiMesh`). Bake variants, Create collider, the tree scenes in
    both `ScatterObjectType` modes and the backdrop `FoliageType`; the 10k allocation gate; hand-over to
-   [Forest showcase](forest-showcase.md) (G8d).
+   [Forest showcase](../forest.md) (G8d).
 
 ## Decisions
 
@@ -758,7 +758,7 @@ settled; **Decision:** is what to build.
 ## Related
 
 [Milestones](../../milestones.md#gameplay-toolkit-) · [Terrain (G8a)](terrain.md) · [Water (G8c)](water.md) ·
-[Forest showcase (G8d)](forest-showcase.md) · [Rendering features (G6)](../rendering-features.md) ·
+[Forest showcase (G8d)](../forest.md) · [Rendering features (G6)](../rendering-features.md) ·
 [Materials & meshes](../materials-and-meshes.md) · [Shadow system](../shadow-system.md) · [Shaders](../shaders.md) ·
 [Lighting](../lighting.md) · [Editor](../editor.md) · [Editor viewport tools (G7)](../editor.md#viewport-tools) ·
 [ADR 0074](../../../memory/decisions/0074-alpha-tested-shadow-casters.md) (cutout casters) ·

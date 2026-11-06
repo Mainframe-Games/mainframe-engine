@@ -102,7 +102,7 @@ public static class ForestClutter
             new()
             {
                 ResourceName = "Moss tufts",
-                Mesh = Part(ForestAssets.MossClumps, "moss_01_a_LOD0", withWind: false),
+                Mesh = Part(ForestAssets.MossClumps, "moss_01_a", withWind: false),
                 Material = CutoutMaterial(ForestAssets.MossClumps, translucency: 0.2f, wind: 0f),
                 Density = 0.9f * density,
                 LayerMask = moss,
@@ -119,7 +119,7 @@ public static class ForestClutter
             new()
             {
                 ResourceName = "Nettles",
-                Mesh = Part(ForestAssets.Nettles, "nettle_plant_medium_a_LOD0", withWind: true),
+                Mesh = Part(ForestAssets.Nettles, "nettle_plant_medium_a", withWind: true),
                 Material = CutoutMaterial(ForestAssets.Nettles, translucency: 0.45f, wind: 0.5f),
                 Density = 0.035f * density,
                 LayerMask = leaves | grass,
@@ -147,9 +147,9 @@ public static class ForestClutter
         var material = CutoutMaterial(ForestAssets.GrassClumps, translucency: 0.5f, wind: 0.45f);
         (string Node, float Density, int Seed)[] variants =
         [
-            ("grass_medium_01_mid_b_LOD0", 0.9f, 31),
-            ("grass_medium_01_small_b_LOD0", 1.1f, 32),
-            ("grass_medium_01_tall_a_LOD0", 0.5f, 33),
+            ("grass_medium_01_mid_b", 0.9f, 31),
+            ("grass_medium_01_small_b", 1.1f, 32),
+            ("grass_medium_01_tall_a", 0.5f, 33),
         ];
         foreach (var (node, d, seed) in variants)
             yield return new FoliageType

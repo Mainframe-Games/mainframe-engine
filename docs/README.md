@@ -21,7 +21,7 @@ work that has not started yet. [`milestones.md`](milestones.md) ties the two tog
 | Area | Doc |
 |---|---|
 | Build & release | [Build & platforms](design/build-and-platforms.md) · [Release & versioning](design/release.md) · [Distribution via NuGet](design/distribution-nuget.md) (the `MainframeEngine` package) · [Future: mobile (M12)](design/future/mobile.md) · [Future: consoles](design/future/consoles.md) |
-| Core | [Engine lifecycle](design/engine-lifecycle.md) · [Scene graph & nodes](design/scene-graph-and-nodes.md) · [Scene serialization](design/scene-serialization.md) · [Animation and skinning](design/animation.md) · [Physics](design/physics.md) · [Localization](design/localization.md) · [Demo](design/demo.md) |
+| Core | [Engine lifecycle](design/engine-lifecycle.md) · [Scene graph & nodes](design/scene-graph-and-nodes.md) · [Scene serialization](design/scene-serialization.md) · [Animation and skinning](design/animation.md) · [Physics](design/physics.md) · [Localization](design/localization.md) · [Demo](design/demo.md) · [Forest](design/forest.md) (G8d showcase) |
 | Games & editor | [Projects & GameHost](design/project-and-gamehost.md) (`project.mfproj`, `GameHost`, editor link, code reload, `mfgame` template) · [Editor](design/editor.md) · [Future: editor](design/future/editor.md) |
 | Rendering | [Vulkan renderer](design/vulkan-renderer.md) · [2D canvas](design/canvas.md) · [GPU resources](design/gpu-resources.md) · [Materials & meshes](design/materials-and-meshes.md) · [Asset pipeline](design/asset-pipeline.md) · [Color pipeline](design/color-pipeline.md) · [Post-processing](design/post-processing.md) · [Shadow system](design/shadow-system.md) · [Lighting](design/lighting.md) · [Sky](design/sky.md) · [Spine](design/spine.md) · [Scene grid](design/scene-grid.md) · [Cameras & input](design/cameras-and-input.md) · [Shaders](design/shaders.md) · [Coordinate conventions](design/coordinate-conventions.md) |
 | UI | [Game UI (RmlUi)](design/game-ui.md) · [Native libraries](design/natives.md) |
@@ -45,7 +45,6 @@ Proposed design · Diagram · Task list · Open questions. See [milestones.md](m
 | [Terrain](design/future/terrain.md): `Terrain3D`, Faceted and Realistic profiles, Terrain dock, `MultiMesh` scatter | G8a |
 | [Procedural trees](design/future/procedural-trees.md): Ez Tree port, LowPoly and Realistic styles, wind, impostors | G8b |
 | [Water](design/future/water.md): ponds and lakes, `River3D` streams, `WaterMaterial3D` | G8c |
-| [Forest showcase](design/future/forest-showcase.md): `Examples/Forest`, a first-person forest walk, and the rendering it needs | G8d |
 | [Forest visual quality](design/future/forest-visual-quality.md): the Unreal look in eight phases (probe GI, shadows, volumetrics, post, Ez Tree foliage, water, art, upscaling) | G8e |
 | [2D skeletal animation](design/future/skeleton-2d.md): engine-owned Spine-style rigs and clips, compute skinning, Spine JSON import · [Skeleton editor](design/future/skeleton-2d-editor.md) · [Animation graph](design/future/animation-graph.md) | G17 |
 

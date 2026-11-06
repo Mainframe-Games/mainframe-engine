@@ -3,7 +3,7 @@
 - **Date:** 2026-10-08
 - **Status:** accepted (implemented on `forest/d`, forest slice wave 1)
 - **Milestone:** Gameplay toolkit G8d (G8d.1, G8d.3, the FXAA half of G8d.4)
-- **Spec:** docs/design/future/forest-showcase.md; current state in docs/design/sky.md and color-pipeline.md
+- **Spec:** docs/design/forest.md; current state in docs/design/sky.md and color-pipeline.md
 
 ## Context
 
