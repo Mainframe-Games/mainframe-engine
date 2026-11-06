@@ -374,8 +374,8 @@ public sealed partial class InspectorPanel : EditorDocument
                 if (elements[i] is not Resource { IsExternal: false } element || !_expanded.Contains((property.Target, ElementKey(property, i))))
                     continue;
                 rml.Append("<div class=\"prop nested element-title\"><div class=\"prop-label\"><span class=\"").Append(EditorIcons.Classes(element.GetType()))
-                    .Append(" icon-sm prop-icon\"></span><span class=\"element-name\">").Append(RmlText.Escape($"{property.Label} [{i}]"))
-                    .Append("</span></div><div class=\"prop-editor\"><span class=\"readonly\">").Append(RmlText.Escape(element.GetType().Name))
+                    .Append(" icon-sm prop-icon\"></span><span class=\"element-name\">").Append(RmlText.Escape(ElementLabel(property, i)))
+                    .Append("</span></div><div class=\"prop-editor\"><span class=\"readonly\">").Append(RmlText.Escape(ElementSummary(property, i) ?? element.GetType().Name))
                     .Append("</span></div></div>");
                 AppendSections(rml, InspectorModel.Build(element), depth + 1);
             }
@@ -383,6 +383,17 @@ public sealed partial class InspectorPanel : EditorDocument
     }
 
     private static bool IsResourceElement(InspectorProperty p) => p.ElementType is { } t && typeof(Resource).IsAssignableFrom(t);
+
+    // An array element's name: the owner's label for it ("Level 0 · trunk"), else the resource's own.
+    private static string ElementName(InspectorProperty p, int index, Resource element) =>
+        (p.IsMulti ? null : CustomInspectors.Find(p.Target.GetType())?.ElementLabel(p.Target, p.Info, index)) ?? ValueText.Format(element);
+
+    private static string? ElementSummary(InspectorProperty p, int index) =>
+        p.IsMulti ? null : CustomInspectors.Find(p.Target.GetType())?.ElementSummary(p.Target, p.Info, index);
+
+    // "Level [0]", or what the owner's custom inspector calls it ("Level 0 · trunk").
+    private static string ElementLabel(InspectorProperty p, int index) =>
+        (p.IsMulti ? null : CustomInspectors.Find(p.Target.GetType())?.ElementLabel(p.Target, p.Info, index)) ?? $"{p.Label} [{index}]";
 
     private static string ElementKey(InspectorProperty p, int index) => $"{p.Name}[{index}]";
 
@@ -563,7 +574,7 @@ public sealed partial class InspectorPanel : EditorDocument
                     .Append(RmlText.Escape(element is null ? $"{p.Label} [{i}] — empty" : $"{p.Label} [{i}] — {ValueText.Format(element)} ({element.GetType().Name})")).Append("\">");
                 if (element is not null)
                     rml.Append("<span class=\"").Append(EditorIcons.Classes(element.GetType())).Append(" icon-sm res-icon\"></span>");
-                rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(element is null ? "(empty)" : ValueText.Format(element))).Append("</span></div>");
+                rml.Append("<span class=\"res-name\">").Append(RmlText.Escape(element is null ? "(empty)" : ElementName(p, i, element))).Append("</span></div>");
                 if (element is { IsExternal: false } && nestable)
                 {
                     var expanded = _expanded.Contains((p.Target, ElementKey(p, i)));
@@ -847,7 +858,8 @@ public sealed partial class InspectorPanel : EditorDocument
 
         if (target.GetAttribute("data-header-input") is { } headerInput)
         {
-            if (e.GetParameter("linebreak", false))
+            // Text fields commit on Enter (and focus loss, OnBlur); a header dropdown on every change.
+            if (e.GetParameter("linebreak", false) || target.TagName == "select")
                 RunHeaderAction(headerInput + "=" + (e.Value ?? ""));
             return;
         }

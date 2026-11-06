@@ -1,3 +1,8 @@
+using System.Collections;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using MainframeEngine.Serialization;
 using MainframeEngine.Trees;
 
 namespace MainframeEngine;
@@ -38,7 +43,83 @@ public sealed class TreeMesh : Resource
     [Export]
     public int GeneratorVersion { get; set; }
 
+    /// <summary>
+    /// What the meshes were made from (G8b.3, ADR 0271): <see cref="ComputeBakeHash"/> of the options, seed, style and
+    /// generator version at generation. A bake whose hash differs from its tree's current inputs is stale
+    /// (<see cref="IsCurrentFor"/>); empty for bakes made before the hash existed (they read as stale).
+    /// </summary>
+    [Export]
+    public string BakeHash { get; set; } = string.Empty;
+
     public TreeTrunkCapsule Trunk => new(TrunkHeight, TrunkRadius);
+
+    /// <summary>Whether these meshes are what <paramref name="options"/>, <paramref name="seed"/> and <paramref name="style"/> generate now (same <see cref="BakeHash"/>).</summary>
+    public bool IsCurrentFor(TreeOptions options, int seed, TreeStyle style) =>
+        BakeHash.Length > 0 && string.Equals(BakeHash, ComputeBakeHash(options, seed, style), StringComparison.Ordinal);
+
+    /// <summary>
+    /// A SHA-256 (hex) of every exported value of <paramref name="options"/> (its levels and twig options included, its
+    /// <see cref="Resource.ResourceName"/> not), <paramref name="seed"/>, <paramref name="style"/> and
+    /// <see cref="TreeGenerator.GeneratorVersion"/>: equal inputs give equal hashes on every machine. Not per-frame work
+    /// (it formats the values as text).
+    /// </summary>
+    public static string ComputeBakeHash(TreeOptions options, int seed, TreeStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var text = new StringBuilder(4096);
+        text.Append("tree-bake/").Append(TreeGenerator.GeneratorVersion).Append('/').Append(seed.ToString(CultureInfo.InvariantCulture))
+            .Append('/').Append(style).Append('/');
+        AppendValue(text, options, 0);
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
+    }
+
+    private static void AppendValue(StringBuilder text, object? value, int depth)
+    {
+        switch (value)
+        {
+            case null:
+                text.Append('~');
+                break;
+            case Resource { IsExternal: true } external:
+                text.Append('@').Append(external.Uid ?? external.ResourcePath);
+                break;
+            case Resource resource when depth < 8 && TypeRegistry.GetNearest(resource.GetType()) is { } info:
+                text.Append(info.Name).Append('{');
+                foreach (var property in info.Properties)
+                {
+                    if (property.Name == nameof(ResourceName))
+                        continue;
+                    text.Append(property.Name).Append('=');
+                    AppendValue(text, property.GetValue(resource), depth + 1);
+                    text.Append(';');
+                }
+
+                text.Append('}');
+                break;
+            case string s:
+                text.Append('"').Append(s.Replace("\"", "\\\"", StringComparison.Ordinal)).Append('"');
+                break;
+            case System.Drawing.Color color:
+                text.Append(color.ToArgb().ToString(CultureInfo.InvariantCulture));
+                break;
+            case IEnumerable list:
+                text.Append('[');
+                foreach (var item in list)
+                {
+                    AppendValue(text, item, depth + 1);
+                    text.Append(',');
+                }
+
+                text.Append(']');
+                break;
+            case IFormattable formattable:
+                text.Append(formattable.ToString(null, CultureInfo.InvariantCulture));
+                break;
+            default:
+                text.Append(value);
+                break;
+        }
+    }
 
     private readonly Dictionary<(Material?, Material?), TreeImpostor> _impostors = [];
     private readonly Lock _impostorGate = new();
@@ -89,6 +170,7 @@ public sealed class TreeMesh : Resource
             TrunkHeight = trunk.Height,
             TrunkRadius = trunk.Radius,
             GeneratorVersion = TreeGenerator.GeneratorVersion,
+            BakeHash = ComputeBakeHash(options, seed, style),
         };
     }
 

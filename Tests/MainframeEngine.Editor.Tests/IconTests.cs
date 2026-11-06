@@ -216,6 +216,9 @@ public sealed partial class IconAtlasTests
     [InlineData(typeof(AudioBusLayout), "adjustments", "icon-resource")]
     [InlineData(typeof(BoxMesh), "cube", "icon-resource")]
     [InlineData(typeof(SphereShape3D), "sphere", "icon-resource")]
+    [InlineData(typeof(Tree3D), "tree", "icon-3d")]
+    [InlineData(typeof(TreeOptions), "trees", "icon-resource")]
+    [InlineData(typeof(FoliageMaterial3D), "leaf", "icon-resource")]
     public void EngineTypesUseTheirDeclaredIconAndFamily(Type type, string icon, string family)
     {
         Assert.Equal(icon, EditorIcons.For(type));

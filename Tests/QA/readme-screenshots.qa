@@ -250,11 +250,32 @@ command edit.undo
 command edit.undo
 command edit.undo
 command edit.undo
+# 3e2. Procedural trees (G8b.3): a new scene with a Sun and a Tree3D (a copy of Oak Medium) selected: the tree inspector's
+# preset, seed and style, the LOD table and Bake, then the options' Branches with level 1 open. Undone, so the tab closes
+# without asking.
+command file.new
+wait 10
+add-node DirectionalLight3D Sun .
+set-node Sun RotationDegrees -40,35,0
+add-node Tree3D Tree .
+wait 10
+select Tree
+inspector-section Tree3D/Node
+inspector-section Tree3D/Node3D
+inspector-action Options res-edit
+inspector-section nested:TreeOptions/Branches
+inspector-action Level elem-edit 1
+camera 0 8.5 0 34 35 -8
+clear-output
+move 760 470
+wait 30
+capture editor-tree
 command edit.undo
 command edit.undo
 wait 3
 command file.close
 wait 5
+wait 10
 # 3d. Crash reporting (G15): a played game's crash as one Output row, expanded to its frames (the game's frame links to
 # its source, engine frames are muted), with the report, copy and frame buttons; then the editor's own next-start
 # crash dialog with a recovery copy of the open scene (closed again: the sample report is marked handled).

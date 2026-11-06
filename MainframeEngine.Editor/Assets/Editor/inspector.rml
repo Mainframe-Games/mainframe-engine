@@ -259,6 +259,28 @@
         .td-chip { display: block; width: 14dp; height: 14dp; margin-right: 5dp; border-radius: 2dp; border: 1dp #00000060; }
         .td-hint { color: #6b7488; margin-top: 8dp; }
         .td-create .label { margin-left: 4dp; }
+        .tree-insp { display: block; margin: 6dp 8dp; padding: 4dp 6dp; background-color: #1b1d23; border: 1dp #2a2d36; border-radius: 4dp; }
+        .tree-insp .probe-bake { margin: 4dp 0dp 0dp 0dp; }
+        .tree-row { display: flex; flex-direction: row; align-items: center; height: 26dp; }
+        .tree-row button { width: 26dp; height: 22dp; line-height: 22dp; padding: 0dp; margin-left: 4dp; }
+        .tree-label { display: flex; flex-direction: row; align-items: center; width: 64dp; color: #8b93a5; font-size: 11dp; white-space: nowrap; }
+        .tree-label .icon { margin-right: 4dp; }
+        .tree-label span { display: block; }
+        .tree-row select { flex: 1 1 auto; width: 60dp; }
+        .tree-row input.text { flex: 1 1 auto; width: 60dp; }
+        .tree-gap { display: block; flex: 1 1 auto; }
+        .tree-lods { display: block; margin: 4dp 0dp; padding: 2dp 0dp; background-color: #121418; border: 1dp #2a2d36; border-radius: 3dp; }
+        .tree-lod { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 4dp; font-size: 11dp; }
+        .tree-lod.forced { background-color: #1d4ed844; }
+        .tree-lod.muted { color: #6b7488; }
+        .tree-lod button { width: 22dp; height: 20dp; line-height: 20dp; padding: 0dp; margin-right: 4dp; }
+        .tree-lod-head { height: 18dp; color: #6b7488; font-size: 10dp; }
+        .tree-lod-eye { display: block; width: 26dp; }
+        .tree-lod-icon { margin: 0dp 9dp 0dp 4dp; }
+        .tree-lod-name { display: block; width: 50dp; white-space: nowrap; }
+        .tree-lod-num { display: block; flex: 1 1 0dp; text-align: right; white-space: nowrap; overflow: hidden; }
+        .tree-lod-range { display: block; width: 64dp; text-align: right; color: #8b93a5; white-space: nowrap; overflow: hidden; }
+        .tree-status-icon { margin-right: 4dp; }
     </style>
 </head>
 <body class="panel-doc">

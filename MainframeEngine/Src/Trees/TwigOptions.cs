@@ -7,7 +7,7 @@ namespace MainframeEngine;
 /// <see cref="TreeClusterBaker"/> in <see cref="Variants"/> variants into a <see cref="Columns"/> × <see cref="Rows"/>
 /// atlas (albedo, normal, thickness). Each card stands in for <see cref="LeafSlots"/> leaf slots of the tree.
 /// </summary>
-[EditorIcon("feather")]
+[EditorIcon("leaf")]
 public sealed class TwigOptions : Resource
 {
     /// <summary>Leaf slots of the tree one card replaces (fewer, larger cards as it grows).</summary>

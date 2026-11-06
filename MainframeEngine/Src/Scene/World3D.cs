@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace MainframeEngine;
 
 /// <summary>
@@ -46,6 +48,31 @@ public sealed class World3D
 
     /// <summary>The first <see cref="WorldEnvironment"/> in the world (sky and ambient light), or null.</summary>
     public WorldEnvironment? Environment => _environments.Count > 0 ? _environments[0] : null;
+
+    /// <summary>
+    /// An editor preview (G8b.3, the tree inspector's wind toggle): while the world has no wind of its own
+    /// (<see cref="WorldEnvironment.WindStrength"/> 0 or no environment), foliage draws in a steady breeze (strength 1,
+    /// the environment's default direction and frequency). Off by default; never saved.
+    /// </summary>
+    public bool PreviewWind { get; set; }
+
+    /// <summary>
+    /// The wind and fog the frame's shaders get: <see cref="Environment"/>'s
+    /// (<see cref="WorldEnvironment.GetFrameEnvironment"/>), with the <see cref="PreviewWind"/> breeze when it is on.
+    /// </summary>
+    public FrameEnvironment GetFrameEnvironment(bool volumetricFog = false)
+    {
+        var environment = Environment;
+        var frame = environment?.GetFrameEnvironment(volumetricFog) ?? default;
+        if (!PreviewWind || frame.Wind.W > 0f)
+            return frame;
+        var wind = Vector3.Normalize(new Vector3(1f, 0f, 0.3f));
+        return frame with
+        {
+            Wind = new Vector4(wind, 1f),
+            WindParams = environment is null ? new Vector4(0.5f, 0.4f, 24f, 0f) : frame.WindParams,
+        };
+    }
 
     /// <summary>
     /// The baked light probes this world's lit surfaces sample (ADR 0170): the first visible <see cref="LightProbeVolume"/>

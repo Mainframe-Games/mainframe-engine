@@ -211,7 +211,7 @@ can be saved as a `.mfres` or made unique from the inspector.
   </tr>
   <tr>
     <td align="center" valign="top"><img src="docs/images/editor-terrain.png" width="380" alt="The Terrain dock beside the 3D view: Sculpt mode with the Raise tool and brush settings, and the brush ring draped over a raised hill with its size, strength and height label"><br><b>Terrain dock</b> — create terrain data, sculpt, paint surfaces, layers and channels, lay water; one undo per stroke</td>
-    <td></td>
+    <td align="center" valign="top"><img src="docs/images/editor-tree.png" width="380" alt="A new Oak Medium Tree3D in the editor: the tree inspector's preset, seed and style, the LOD table with triangles, vertices and distances, Bake and its status, and the options' level 1"><br><b>Tree inspector</b> — preset, seed dice, style, a LOD table with forced levels, Bake with stale bakes flagged</td>
   </tr>
 </table>
 
@@ -304,7 +304,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Terrain](docs/design/terrain.md) | `Terrain3D`: chunked heightmap meshes with LOD, splat material layers, foliage scatter, exact collision and height queries; the editor's Terrain dock sculpts (raise, lower, smooth, flatten, set height, ramps), paints surfaces, layers and channels and lays water with a brush ring, one undo per stroke |
-| [Procedural trees](docs/design/procedural-trees.md) | A port of Ez Tree: 15 presets, realistic or low-poly styles, wind, levels of detail and impostors, from a seed |
+| [Procedural trees](docs/design/procedural-trees.md) | A port of Ez Tree: 15 presets, realistic or low-poly styles, wind, levels of detail and impostors, from a seed; an editor inspector with presets, a seed dice, a LOD table and Bake |
 | [Water](docs/design/water.md) | Streams carved into the terrain along a curve, ponds and falls with spray, refraction, screen-space reflections and caustics |
 | [Asset import](docs/design/asset-pipeline.md) | glTF, FBX and OBJ through Assimp into scenes you can instance, with import settings, an import cache and stable UIDs |
 
