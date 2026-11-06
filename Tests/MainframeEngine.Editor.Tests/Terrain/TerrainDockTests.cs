@@ -307,6 +307,27 @@ public sealed class TerrainDockTests : IDisposable
     }
 
     [Fact]
+    public void TheFoliageBrushPaintsDensityForTheChosenTypeInOneUndoStep()
+    {
+        var terrain = AddTerrain(TerrainProfile.Realistic);
+        var data = terrain.Data!;
+        data.FoliageTypes = [new FoliageType { ResourceName = "Grass" }, new FoliageType { ResourceName = "Ferns", AutoGrowth = false }];
+        _editor.Tick(2);
+        Tool.Mode = TerrainDockMode.Foliage;
+        _editor.Tick();
+        Assert.Contains("Ferns", W.Inspector.ToolDockRml);
+        Tool.FoliageType = 1;
+        Tool.Brush.Size = 8f;
+        Tool.Brush.Strength = 1f;
+        Drag(Window(30f, 32f), Window(34f, 32f), 4);
+        Assert.Equal(1f, data.GetFoliageDensity(1, 32, 32));
+        Assert.Equal(0f, data.GetFoliageDensity(0, 32, 32));
+        Assert.Equal(0f, data.GetFoliageDensity(1, 5, 5));
+        _editor.Scene.History.Undo();
+        Assert.Equal(0f, data.GetFoliageDensity(1, 32, 32));
+    }
+
+    [Fact]
     public void HotkeysResizeTheBrushAndTheLabelShowsTheTool()
     {
         AddTerrain();

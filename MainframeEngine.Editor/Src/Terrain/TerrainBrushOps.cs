@@ -249,6 +249,42 @@ public sealed class TerrainBrushOps
             data.SetCells(TerrainLayers.User, 0, rect, texels.AsSpan(0, rect.Area));
     }
 
+    /// <summary>
+    /// Painted foliage density of type <paramref name="type"/> (0–7) moves toward <paramref name="target"/> (0..1) by the
+    /// brush weight (shape × strength, with the slope limit); a rectangle fill writes the target into every cell.
+    /// </summary>
+    public void PaintFoliage(Terrain3D terrain, TerrainData data, TerrainBrush brush, Vector2 center, int type, float target, Rect2I? cells = null)
+    {
+        if ((uint)type >= TerrainData.PaintedFoliageTypes)
+            return;
+        var rect = cells ?? CellRect(data, center, brush.Radius);
+        if (rect.Size.X <= 0 || rect.Size.Y <= 0)
+            return;
+        var image = type >> 2;
+        var shift = (type & 3) * 8;
+        var texels = Buffer(ref _cells, rect.Area);
+        data.GetCells(TerrainLayers.Foliage, image, rect, texels.AsSpan(0, rect.Area));
+        var goal = Math.Clamp(target, 0f, 1f) * 255f;
+        var changed = false;
+        for (var y = 0; y < rect.Size.Y; y++)
+            for (var x = 0; x < rect.Size.X; x++)
+            {
+                var k = y * rect.Size.X + x;
+                var current = (byte)(texels[k] >> shift);
+                var w = cells is not null ? 1f : CellShape(terrain, data, brush, center, rect, x, y) * brush.Strength;
+                if (w <= 0f)
+                    continue;
+                var next = (byte)Math.Clamp(MathF.Round(float.Lerp(current, goal, w)), 0f, 255f);
+                if (next == current)
+                    continue;
+                texels[k] = (texels[k] & ~(0xFFu << shift)) | ((uint)next << shift);
+                changed = true;
+            }
+
+        if (changed)
+            data.SetCells(TerrainLayers.Foliage, image, rect, texels.AsSpan(0, rect.Area));
+    }
+
     /// <summary>Water depth (metres above the bed) moves toward <paramref name="level"/> by the brush weight.</summary>
     public void PaintWater(TerrainData data, TerrainBrush brush, Vector2 center, float level, Rect2I? vertices = null)
     {

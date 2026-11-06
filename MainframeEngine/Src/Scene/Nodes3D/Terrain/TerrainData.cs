@@ -32,6 +32,9 @@ public sealed class TerrainData : Resource
     public const string UserFile = "user.png";
     public const string WaterFile = "water.png";
 
+    /// <summary>Painted foliage density images: <c>foliage-0.png</c> holds types 0–3 in RGBA, <c>foliage-1.png</c> types 4–7.</summary>
+    public const int PaintedFoliageTypes = 8;
+
     /// <summary>Realistic splat layers (three RGBA8 weight maps; the third exists only once layers 8–11 hold weight).</summary>
     public const int MaxLayers = 12;
 
@@ -49,6 +52,8 @@ public sealed class TerrainData : Resource
     private byte[]? _splat2;     // layers 8–11: null (all zero) until one of them holds weight
     private byte[]? _surface;    // Faceted, RGBA8 per cell
     private byte[]? _user;       // RGBA8 per cell
+    private byte[]? _foliage0;   // painted foliage density, types 0–3 (RGBA8 per cell; null until painted or loaded)
+    private byte[]? _foliage1;   // types 4–7
     private float[] _chunkMin = [];
     private float[] _chunkMax = [];
     private readonly Texture2D?[] _splatTextures = new Texture2D?[3];
@@ -61,7 +66,7 @@ public sealed class TerrainData : Resource
     private TerrainGrid _grid;
 
     [Flags]
-    private enum LayerFiles : byte
+    private enum LayerFiles : ushort
     {
         None = 0,
         Heightmap = 1,
@@ -71,7 +76,9 @@ public sealed class TerrainData : Resource
         User = 16,
         Water = 32,
         Splat2 = 64,
-        All = 127,
+        Foliage0 = 128,
+        Foliage1 = 256,
+        All = 511,
     }
 
     /// <summary>
@@ -290,6 +297,9 @@ public sealed class TerrainData : Resource
         }
 
         var user = LoadRgba(folder, UserFile, cells, 0u);
+        // Painted foliage density: only when a file exists (else made on the first paint), 4 B a cell each.
+        var foliage0 = folder is not null && ContentFiles.Exists(Path.Combine(folder, FoliageFile(0))) ? LoadRgba(folder, FoliageFile(0), cells, 0u) : null;
+        var foliage1 = folder is not null && ContentFiles.Exists(Path.Combine(folder, FoliageFile(1))) ? LoadRgba(folder, FoliageFile(1), cells, 0u) : null;
 
         _grid = new TerrainGrid(Quads, VertexSpacing, Diagonal);
         _heights = heights;
@@ -299,6 +309,8 @@ public sealed class TerrainData : Resource
         _splat2 = splat2;
         _surface = surface;
         _user = user;
+        _foliage0 = foliage0;
+        _foliage1 = foliage1;
         _bed = new float[heights.Length];
         var chunks = ChunksPerSide;
         _chunkMin = new float[chunks * chunks];
@@ -306,6 +318,42 @@ public sealed class TerrainData : Resource
         UpdateBed(new Rect2I(0, 0, vertices, vertices));
         _dirty = LayerFiles.None;
         _savedFolder = folder;
+    }
+
+    /// <summary>The painted foliage file of <paramref name="image"/> (0: foliage types 0–3, 1: types 4–7).</summary>
+    public static string FoliageFile(int image) => image switch
+    {
+        0 => "foliage-0.png",
+        1 => "foliage-1.png",
+        _ => throw new ArgumentOutOfRangeException(nameof(image), image, "Foliage images are 0 and 1."),
+    };
+
+    /// <summary>
+    /// The painted density (0..1) of foliage type <paramref name="type"/> (0–7) in cell (<paramref name="u"/>,
+    /// <paramref name="v"/>): 0 where nothing was painted. <see cref="FoliageType.AutoGrowth"/> adds the type's own rule.
+    /// </summary>
+    public float GetFoliageDensity(int type, int u, int v)
+    {
+        EnsureLoaded();
+        if ((uint)type >= PaintedFoliageTypes)
+            return 0f;
+        var pixels = type < 4 ? _foliage0 : _foliage1;
+        if (pixels is null)
+            return 0f;
+        var size = CellsPerSide;
+        u = Math.Clamp(u, 0, size - 1);
+        v = Math.Clamp(v, 0, size - 1);
+        return pixels[(v * size + u) * 4 + (type & 3)] / 255f;
+    }
+
+    /// <summary>Whether any foliage density was painted (a foliage image exists).</summary>
+    public bool HasPaintedFoliage => _foliage0 is not null || _foliage1 is not null;
+
+    private byte[]? FoliagePixels(int image, bool write)
+    {
+        if (image == 0)
+            return _foliage0 ??= write ? new byte[CellsPerSide * CellsPerSide * 4] : null;
+        return _foliage1 ??= write ? new byte[CellsPerSide * CellsPerSide * 4] : null;
     }
 
     /// <summary>The splat image file of <paramref name="image"/> (0: layers 0–3, 1: layers 4–7, 2: layers 8–11).</summary>
@@ -403,12 +451,24 @@ public sealed class TerrainData : Resource
             SaveRgba(folder, SurfaceFile, _surface, cells, 0u);
         if ((write & LayerFiles.User) != 0)
             SaveRgba(folder, UserFile, _user!, cells, 0u);
+        if ((write & LayerFiles.Foliage0) != 0)
+            SaveOptional(folder, FoliageFile(0), _foliage0, cells);
+        if ((write & LayerFiles.Foliage1) != 0)
+            SaveOptional(folder, FoliageFile(1), _foliage1, cells);
         SaveCarveRecords(folder, everything: write == LayerFiles.All);
 
         _dirty = LayerFiles.None;
         _savedFolder = folder;
         if (LayerFolder is null || !string.Equals(Path.GetFullPath(LayerFolder), folder, StringComparison.Ordinal))
             LayerFolder = folder;
+    }
+
+    private static void SaveOptional(string folder, string file, byte[]? pixels, int size)
+    {
+        if (pixels is null)
+            DeleteIfExists(Path.Combine(folder, file));
+        else
+            SaveRgba(folder, file, pixels, size, 0u); // all zero: no file
     }
 
     private static void SaveRgba(string folder, string file, byte[] pixels, int size, uint fill)
@@ -977,6 +1037,7 @@ public sealed class TerrainData : Resource
         TerrainLayers.Surface when _surface is null && image is >= 0 and <= 2 => (SplatPixels(image, write), CellsPerSide, SplatFlag(image)),
         TerrainLayers.User when image == 0 => (_user!, CellsPerSide, LayerFiles.User),
         TerrainLayers.Water when image == 0 => (_water!, VerticesPerSide, LayerFiles.Water),
+        TerrainLayers.Foliage when image is 0 or 1 => (FoliagePixels(image, write), CellsPerSide, image == 0 ? LayerFiles.Foliage0 : LayerFiles.Foliage1),
         _ => throw new ArgumentException($"Terrain layer {layer} has no image {image}.", nameof(layer)),
     };
 

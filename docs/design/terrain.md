@@ -14,8 +14,8 @@ Built so far: the data and its files, both profiles' knobs, the Realistic profil
 geomipmapped chunk LOD with skirts), collision (`CollisionMode.All`), queries, the edit API with undo tiles, the
 scene-save hook, the Realistic look (`TerrainSplatMaterial3D` with `TerrainLayer`s), the [Faceted look](#faceted-look)
 (`TerrainMaterial3D`), [foliage scatter](#foliage) (grass, ferns, pebbles), and the editor's [Terrain dock](#editing)
-(create, sculpt, paint, water; ADR 0270). Not yet: object scatter, the foliage build radius and painted density layers
-(and the dock's Foliage and Objects modes), `CollisionMode.NearBodies` (a stub that builds every chunk) and
+(create, sculpt, paint, water, foliage; ADR 0270) with painted foliage density. Not yet: object scatter (and the dock's
+Objects mode), the foliage build radius, `CollisionMode.NearBodies` (a stub that builds every chunk) and
 sub-rectangle texture uploads.
 
 ## Key types
@@ -256,6 +256,11 @@ type's `Material`, `CastShadows` = the type's and `VisibilityRangeEnd` = its `Cu
 | `Subdivisions` | 1 | tiles per chunk side: smaller tiles follow the thinning more closely, more draws |
 | `CastShadows` | off | |
 
+- **Painted density** (G8a.8): `foliage-0.png` (types 0–3 in RGBA) and `foliage-1.png` (types 4–7), one texel per cell,
+  made on the first paint (no file and no memory before; all-zero maps are not written). A point's growth probability is
+  the larger of the type's own rule (`LayerMask`, when `AutoGrowth`, the default) and its painted density, so painting
+  adds foliage to a type that already grows and `AutoGrowth = false` makes a type grow only where painted. Edits record
+  `TerrainLayers.Foliage` (both images) for undo and rebuild the touched tiles.
 - **Placement** is deterministic: one jittered grid per type over the whole map; each grid point's values (accept,
   jitter, tile fuzz, yaw, scale, thinning key) are SplitMix64 hashes of (seed, type index, grid x, grid z). A point
   grows when its accept hash is below the layer weight × slope fade, it is dry (no water on its triangle) and inside the
@@ -343,7 +348,9 @@ inspector shows a **Terrain** tab (`mountain` icon) and the view's left button e
   heights). **Paint** (`brush`): Faceted surface ids (crisp: a cell takes the id where the shape ≥ max(1 − strength,
   0.05)) or Realistic splat layers (the layer moves toward 1 by the weight, the others scale, renormalised to 255), and
   user channels (Value: blend toward a value; Id: write it under ≥ half the brush). **Water** (`droplet`): depth above the
-  bed moves toward the Level. Paint and Water also fill a dragged **rectangle** (snapped to cells or vertices).
+  bed moves toward the Level. **Foliage** (`plant-2`): the chosen `FoliageType`'s painted density (types 0–7) moves
+  toward the Density (Shift clears; see [Foliage](#foliage)). Paint, Water and Foliage also fill a dragged **rectangle**
+  (snapped to cells or vertices).
 - **Brush** (`TerrainBrush`): circle or square, size 1–256 m, strength (remembered per group: Sculpt 25 %, Paint and
   Water 100 %), falloff (the fraction of the radius that fades, smoothstep), spacing (5–100 % of the size), slope limits.
   Weight = shape × strength × slope pass. `TerrainStroke` lays stamps along the drag every spacing × size with the
@@ -459,8 +466,7 @@ bodies) is the planned fix for larger maps.
 - The splat material has no `MacroColor` map, no per-layer triplanar/anti-tiling flags (every layer goes triplanar on
   slopes, every layer hex-tiles near) and no Blinn-Phong fallback; packing (decoding and resampling every layer image)
   runs synchronously on the render thread when a layer texture changes.
-- Foliage: the build radius (place only chunks near the camera, from a buffer pool), painted `foliage-*.png` density
-  layers, `ChannelCutoff`, the editor Foliage mode, and `FoliageMaterial3D.FadeMode.Shrink` (G8b) so thinning
+- Foliage: the build radius (place only chunks near the camera, from a buffer pool), `ChannelCutoff`, and `FoliageMaterial3D.FadeMode.Shrink` (G8b) so thinning
   instances shrink instead of popping.
 - `CollisionMode.NearBodies`, the analytic physics-ray registration (decision 2 of the proposal), objects,
   the dock's Foliage and Objects modes, brush mask PNGs and the X/Z axis lock.

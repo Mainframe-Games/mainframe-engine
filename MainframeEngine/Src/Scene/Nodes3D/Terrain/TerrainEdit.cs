@@ -62,7 +62,7 @@ public sealed class TerrainEdit
         if ((layer & Layers) == 0)
             return;
         // Realistic weights: all three splat maps (a write may make the third; undo writes zeros back into it).
-        var images = layer == TerrainLayers.Surface && data.Profile == TerrainProfile.Realistic ? 3 : 1;
+        var images = layer == TerrainLayers.Surface && data.Profile == TerrainProfile.Realistic ? 3 : layer == TerrainLayers.Foliage ? 2 : 1;
         var chunks = data.ChunksPerSide;
         int cx0, cz0, cx1, cz1;
         if (layer is TerrainLayers.Height or TerrainLayers.Water)

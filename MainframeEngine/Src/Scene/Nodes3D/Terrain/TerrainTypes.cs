@@ -37,7 +37,7 @@ public enum TerrainLayers : ushort
     /// <summary>Four game-defined channels per cell (<c>user.png</c>).</summary>
     User = 4,
 
-    /// <summary>Foliage density (reserved: scatter is not built yet).</summary>
+    /// <summary>Painted foliage density (<c>foliage-0.png</c> types 0–3, <c>foliage-1.png</c> types 4–7; image 0 or 1).</summary>
     Foliage = 8,
 
     /// <summary>Water depth per vertex (<c>water.png</c>).</summary>

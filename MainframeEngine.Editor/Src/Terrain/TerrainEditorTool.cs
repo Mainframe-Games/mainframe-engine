@@ -12,6 +12,9 @@ public enum TerrainDockMode : byte
     Sculpt,
     Paint,
     Water,
+
+    /// <summary>Painted foliage density of one <see cref="FoliageType"/> (types 0–7).</summary>
+    Foliage,
 }
 
 /// <summary>What Paint writes.</summary>
@@ -128,6 +131,12 @@ public sealed class TerrainEditorTool : IEditorViewportTool
 
     /// <summary>Paint and Water fill a dragged rectangle (snapped to cells or vertices) instead of brushing.</summary>
     public bool Rectangle { get; set; }
+
+    /// <summary>The foliage type (index in <see cref="TerrainData.FoliageTypes"/>, 0–7) the Foliage brush paints.</summary>
+    public int FoliageType { get; set; }
+
+    /// <summary>The density (0..1) the Foliage brush paints toward (Shift: 0).</summary>
+    public float FoliageDensity { get; set; } = 1f;
 
     /// <summary>The water depth (metres above the bed) the Water brush lays.</summary>
     public float WaterLevel { get; set; } = 0.6f;
@@ -346,6 +355,9 @@ public sealed class TerrainEditorTool : IEditorViewportTool
             case TerrainDockMode.Water:
                 _ops.PaintWater(data, Brush, p, Inverted ? 0f : WaterLevel);
                 break;
+            case TerrainDockMode.Foliage:
+                _ops.PaintFoliage(terrain, data, Brush, p, FoliageType, Inverted ? 0f : FoliageDensity);
+                break;
         }
     }
 
@@ -375,12 +387,21 @@ public sealed class TerrainEditorTool : IEditorViewportTool
     {
         TerrainDockMode.Sculpt => "Terrain " + SculptName(_strokeTool),
         TerrainDockMode.Water => "Terrain Water",
+        TerrainDockMode.Foliage => "Terrain Foliage",
         _ => PaintTarget == TerrainPaintTarget.Channel ? "Terrain Paint Channel" : "Terrain Paint",
     };
 
     private void FillRectangle(Terrain3D terrain, Vector2 a, Vector2 b)
     {
         var data = terrain.Data!;
+        if (Mode == TerrainDockMode.Foliage)
+        {
+            var area = TerrainBrushOps.CellRectBetween(data, a, b);
+            Record(terrain, TerrainLayers.Foliage, "Terrain Foliage Fill",
+                () => _ops.PaintFoliage(terrain, data, Brush, default, FoliageType, Inverted ? 0f : FoliageDensity, area));
+            return;
+        }
+
         if (Mode == TerrainDockMode.Water)
         {
             var vertices = TerrainBrushOps.VertexRectBetween(data, a, b);
@@ -426,6 +447,7 @@ public sealed class TerrainEditorTool : IEditorViewportTool
     {
         TerrainDockMode.Sculpt => TerrainLayers.Height,
         TerrainDockMode.Water => TerrainLayers.Water,
+        TerrainDockMode.Foliage => TerrainLayers.Foliage,
         _ => PaintTarget == TerrainPaintTarget.Channel ? TerrainLayers.User : TerrainLayers.Surface,
     };
 
@@ -448,6 +470,10 @@ public sealed class TerrainEditorTool : IEditorViewportTool
                 break;
             case TerrainDockMode.Water:
                 WaterLevel = MathF.Round(terrain.WaterDepthAt(_hit.X, _hit.Z) * 100f) / 100f;
+                break;
+            case TerrainDockMode.Foliage:
+                var local = Local(terrain, _hit);
+                FoliageDensity = MathF.Round(data.GetFoliageDensity(FoliageType, (int)(local.X / data.CellSize), (int)(local.Y / data.CellSize)) * 100f) / 100f;
                 break;
         }
 
@@ -574,6 +600,7 @@ public sealed class TerrainEditorTool : IEditorViewportTool
         {
             TerrainDockMode.Sculpt => Inverted && SculptTool != TerrainSculptTool.Ramp ? "Smooth" : SculptName(SculptTool),
             TerrainDockMode.Water => Inverted ? "Dry" : "Water",
+            TerrainDockMode.Foliage => Inverted ? "Clear foliage" : "Foliage",
             _ => Inverted ? "Erase" : "Paint",
         };
         var text = string.Create(c, $"{name} · {Brush.Size:0.#} m · {Brush.Strength * 100f:0} % · h {height:0.0} m · {slope:0}°");
@@ -613,6 +640,7 @@ public sealed class TerrainEditorTool : IEditorViewportTool
             ? "Paint — surfaces (palette ids) and user channels"
             : "Paint — splat layers and user channels");
         ModeButton(rml, TerrainDockMode.Water, "droplet", "Water — lay water depth over the bed (ponds and lakes)");
+        ModeButton(rml, TerrainDockMode.Foliage, "plant-2", "Foliage — paint where each foliage type grows (grass, ferns, flowers)");
         rml.Append("<span class=\"td-info\">").Append(data.Profile == TerrainProfile.Faceted ? "Faceted" : "Realistic").Append(" · ")
             .Append(data.SizeMeters).Append(" m · ").Append(Num(data.VertexSpacing)).Append(" m</span></div>");
 
@@ -629,6 +657,9 @@ public sealed class TerrainEditorTool : IEditorViewportTool
                 Field(rml, "Level", "level", Num(WaterLevel), "Depth above the bed the brush lays, metres (0 to " + Num(data.MaxWaterDepth) +
                     "; Shift dries, Cmd/Ctrl+click picks)");
                 RectangleToggle(rml);
+                break;
+            case TerrainDockMode.Foliage:
+                AppendFoliage(rml, data);
                 break;
         }
 
@@ -728,6 +759,30 @@ public sealed class TerrainEditorTool : IEditorViewportTool
         RectangleToggle(rml);
     }
 
+    private void AppendFoliage(StringBuilder rml, TerrainData data)
+    {
+        rml.Append("<div class=\"td-head\">Foliage types</div><div class=\"td-layers\">");
+        var types = data.FoliageTypes;
+        for (var i = 0; i < Math.Min(types.Length, TerrainData.PaintedFoliageTypes); i++)
+        {
+            var type = types[i];
+            var name = type is null ? "Type " + i : !string.IsNullOrEmpty(type.ResourceName) ? type.ResourceName
+                : type.Mesh is { ResourceName.Length: > 0 } mesh ? mesh.ResourceName : "Type " + i;
+            var tooltip = name + (type is { AutoGrowth: false } ? " — grows only where painted" : " — grows by its own rule too (Auto Growth)");
+            rml.Append("<div class=\"td-swatch").Append(i == FoliageType ? " active" : "").Append("\" data-tool-action=\"foliage\" data-tool-value=\"")
+                .Append(i).Append("\" data-tooltip=\"").Append(RmlText.Escape(tooltip)).Append("\"><span class=\"icon icon-plant-2 icon-sm\"></span>")
+                .Append("<span class=\"td-name\">").Append(RmlText.Escape(name)).Append("</span></div>");
+        }
+
+        rml.Append("</div>");
+        if (types.Length == 0)
+            rml.Append("<div class=\"td-hint\">Add Foliage Types to the terrain data in the Inspector, then paint where they grow.</div>");
+        else if (types.Length > TerrainData.PaintedFoliageTypes)
+            rml.Append("<div class=\"td-hint\">Only the first eight types can be painted.</div>");
+        Field(rml, "Density", "foliage-density", Num(FoliageDensity), "The density the brush paints toward, 0 to 1 (Shift clears, Cmd/Ctrl+click picks)");
+        RectangleToggle(rml);
+    }
+
     private void RectangleToggle(StringBuilder rml)
     {
         rml.Append("<div class=\"td-tools\">");
@@ -816,6 +871,9 @@ public sealed class TerrainEditorTool : IEditorViewportTool
             case "surface" when int.TryParse(value, CultureInfo.InvariantCulture, out var surface):
                 Surface = surface;
                 break;
+            case "foliage" when int.TryParse(value, CultureInfo.InvariantCulture, out var foliage):
+                FoliageType = Math.Clamp(foliage, 0, TerrainData.PaintedFoliageTypes - 1);
+                break;
             case "shape" when value == "Rectangle":
                 Rectangle = true;
                 break;
@@ -864,6 +922,9 @@ public sealed class TerrainEditorTool : IEditorViewportTool
                 break;
             case "eraser" when number:
                 EraserSurface = Math.Clamp((int)f, 0, TerrainData.MaxLayers - 1);
+                break;
+            case "foliage-density" when number:
+                FoliageDensity = Math.Clamp(f, 0f, 1f);
                 break;
             case "channel-value" when number:
                 ChannelValue = (byte)Math.Clamp((int)MathF.Round(f), 0, 255);
