@@ -44,6 +44,7 @@ public sealed class RenderServer : IServer
     private ScreenGizmosRenderer? _screenGizmosRenderer;
     private MeshRenderer? _meshes;
     private ParticleRenderer? _particles;
+    private Text3DRenderer? _text3D;
     private SubViewportCompositor? _compositor;
     private ObjectIdPicker? _rootPicker;
     private WaterSceneTextures? _mainWater; // ADR 0173: the main view's scene copy for refracting water
@@ -276,6 +277,22 @@ public sealed class RenderServer : IServer
         }
     }
 
+    /// <summary>The batched <see cref="Label3D"/> renderer (ADR 0258), created on first use; null without Vulkan.</summary>
+    internal Text3DRenderer? Text3D
+    {
+        get
+        {
+            if (_disposed)
+                return null;
+            if (_text3D is null && Vulkan is { } vk)
+                _text3D = new Text3DRenderer(vk);
+            return _text3D;
+        }
+    }
+
+    /// <summary>The batched text renderer's counters this frame (ADR 0258).</summary>
+    public Text3DStats Text3DStats => _text3D?.Stats ?? default;
+
     internal void Track(IRenderResourceOwner owner) => _owners.Add(owner);
 
     internal void Untrack(IRenderResourceOwner owner) => _owners.Remove(owner);
@@ -320,6 +337,8 @@ public sealed class RenderServer : IServer
         SelectLights(world, camera);
         if (world.GeometryList.Count > 0 && camera is not null)
             Meshes!.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
+        if (world.LabelList.Count > 0)
+            Text3D?.Prepare(world); // ADR 0258: glyph runs and atlas pages before the frame records
 
         _shadowView = FindShadowView(root);
         foreach (var sub in _subViewports)
@@ -332,6 +351,8 @@ public sealed class RenderServer : IServer
             SelectLights(sub.World3D, subCamera);
             if (sub.World3D.GeometryList.Count > 0 && subCamera is not null)
                 Meshes!.Prepare(EnsureTargets(sub).Draws, sub.World3D, subCamera, collectCasters: ReferenceEquals(sub, _shadowView), Extent(sub).Height);
+            if (sub.World3D.LabelList.Count > 0)
+                Text3D?.Prepare(sub.World3D);
         }
     }
 
@@ -510,7 +531,12 @@ public sealed class RenderServer : IServer
             meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled);
             // ADR 0174: the main view's frame set and viewport are at its render size; picks are in window pixels.
             using var pickZone = vk.GpuProfiler.Zone(cb, EngineMarkers.GpuPicking);
-            picker.Render(cb, vk.RenderExtent, (meshes, _mainDraws), static (s, c) => s.meshes.DrawObjectIds(s._mainDraws, c),
+            picker.Render(cb, vk.RenderExtent, (meshes, _mainDraws, text: world.LabelList.Count > 0 ? Text3D : null, world, camera),
+                static (s, c) =>
+                {
+                    s.meshes.DrawObjectIds(s._mainDraws, c);
+                    s.text?.DrawObjectIds(s.world, s.camera, c); // ADR 0258: batched labels pick too
+                },
                 RenderScaling.ScaleOf(vk.RenderExtent, vk.SwapchainExtent));
         }
     }
@@ -566,7 +592,8 @@ public sealed class RenderServer : IServer
             targets.Hdr!.Begin(cb, clears, post?.SceneLoadPass ?? targets.Hdr.RenderPass);
             if (camera is not null)
             {
-                DrawWorld(world, camera, meshes, targets.Draws, cb, targets.Hdr!, ref targets.WaterScene, afterPost: post is not null);
+                DrawWorld(world, camera, meshes, targets.Draws, cb, targets.Hdr!, ref targets.WaterScene, ViewExposure(vk, post),
+                    afterPost: post is not null);
                 if (post is null)
                     DrawLines(vk, sub, camera);
             }
@@ -583,7 +610,12 @@ public sealed class RenderServer : IServer
         else if ((sub.ObjectIds && colour) || picker is { HasQueued: true })
         {
             picker = targets.Picker ??= new ObjectIdPicker(vk, sub.Name);
-            picker.Render(cb, extent, (meshes, targets.Draws), static (s, c) => s.meshes?.DrawObjectIds(s.Draws, c));
+            picker.Render(cb, extent, (meshes, targets.Draws, text: world.LabelList.Count > 0 ? Text3D : null, world, camera),
+                static (s, c) =>
+                {
+                    s.meshes?.DrawObjectIds(s.Draws, c);
+                    s.text?.DrawObjectIds(s.world, s.camera, c);
+                });
         }
 
         if (!colour)
@@ -880,7 +912,8 @@ public sealed class RenderServer : IServer
                 meshes.Prepare(_mainDraws, world, camera, collectCasters: ShadowsEnabled); // no-op when PrepareFrame ran
             }
 
-            DrawWorld(world, camera, meshes, _mainDraws, vk.CurrentCommandBuffer, vk.SceneTarget, ref _mainWater);
+            DrawWorld(world, camera, meshes, _mainDraws, vk.CurrentCommandBuffer, vk.SceneTarget, ref _mainWater,
+                viewport.IsTreeRoot ? MainExposure(vk) : vk.Exposure);
             DrawLines(vk, viewport, camera);
             if (viewport.IsTreeRoot && (ShowLightGizmos || ShowAxisGizmo))
             {
@@ -969,8 +1002,29 @@ public sealed class RenderServer : IServer
 
     // afterPost: a post-processed sub-viewport, whose debug visuals (DrawsAfterPost) draw after its effects instead.
     // target / scene: the view's HDR target, inside its scene pass, and its scene copy for refracting water (ADR 0173).
+    /// <summary>
+    /// The exposure the main view's tonemap applies this frame (manual × the world's × auto exposure, as last read back):
+    /// what <see cref="Label3D.IgnoreExposure"/> and <see cref="UiPanel3D.IgnoreExposure"/> divide by (ADR 0257). 1 without Vulkan.
+    /// </summary>
+    public float MainViewExposure => Vulkan is { } vk ? MainExposure(vk) : 1f;
+
+    /// <summary>The exposure the view showing <paramref name="viewport"/>'s world applies (see <see cref="MainViewExposure"/>).</summary>
+    internal float ExposureOf(SceneViewport? viewport)
+    {
+        if (Vulkan is not { } vk)
+            return 1f;
+        if (viewport is SubViewport sub && !viewport.IsTreeRoot)
+            return ViewExposure(vk, sub.Targets?.Post);
+        return MainExposure(vk);
+    }
+
+    private static float MainExposure(IVulkanContext vk) => (vk as IPostProcessHost)?.EffectiveExposure ?? vk.Exposure;
+
+    private static float ViewExposure(IVulkanContext vk, SubViewportPost? post) => post?.EffectiveExposure ?? vk.Exposure;
+
+    // exposure: the view's effective exposure (IgnoreExposure labels divide by it, ADR 0257).
     private void DrawWorld(World3D world, ICamera camera, MeshRenderer? meshes, MeshViewDraws draws, CommandBuffer cb,
-        RenderTarget target, ref WaterSceneTextures? scene, bool afterPost = false)
+        RenderTarget target, ref WaterSceneTextures? scene, float exposure, bool afterPost = false)
     {
         world.Environment?.DrawSky(this, camera);
         var opaqueDrawn = meshes is null;
@@ -1012,11 +1066,16 @@ public sealed class RenderServer : IServer
             draws.Scene = null;
         }
 
-        if (!transparentVisuals)
-            return;
-        foreach (var visual in world.VisualList)
-            if (!visual.IsBatched && visual.DrawsTransparent && visual.IsVisibleInTree() && !(afterPost && visual.DrawsAfterPost))
-                visual.Draw(camera, world.Lights);
+        if (transparentVisuals)
+        {
+            foreach (var visual in world.VisualList)
+                if (!visual.IsBatched && visual.DrawsTransparent && visual.IsVisibleInTree() && !(afterPost && visual.DrawsAfterPost))
+                    visual.Draw(camera, world.Lights);
+        }
+
+        // ADR 0258: the batched labels last (cutouts, blended back to front, then no-depth-test ones on top).
+        if (world.LabelList.Count > 0)
+            Text3D?.Draw(world, camera, cb, exposure);
     }
 
     // ── Picking ────────────────────────────────────────────────────────────────
@@ -1205,6 +1264,8 @@ public sealed class RenderServer : IServer
         _meshes = null;
         _particles?.Dispose();
         _particles = null;
+        _text3D?.Dispose();
+        _text3D = null;
         _shadows?.Dispose();
         _shadows = null;
         _disposed = true;

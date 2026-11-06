@@ -1,6 +1,6 @@
 # G11 world-space UI in the editor (just qa-editor Tests/QA/world-ui.qa): the Demo's World UI scene with a walker's
 # nameplate marker selected (its map-pin badge at WorldOffset, the dashed line to the walker, the inspector), the
-# Label3D signs drawn in the scene view; then the menu sign picked by clicking its text.
+# Label3D signs drawn in the scene view; the menu sign picked by clicking its text; the terminal panel with stand-ins.
 wait-for project 300
 open Examples/Demo/Assets/Scenes/world_ui.mfscene
 wait-for project 300
@@ -12,3 +12,9 @@ capture world-ui-marker
 select MenuSign
 wait 20
 capture world-ui-label
+# G11.7: the terminal panel in the scene view, its document bound to the UI preview's stand-in data (conditions true:
+# "Gate open", "Close gate", the crosshair hint).
+select Terminal/Screen
+camera -3 1.7 9 3 -14 -8
+wait 30
+capture world-ui-panel

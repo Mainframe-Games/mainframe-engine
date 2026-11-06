@@ -124,6 +124,46 @@ public sealed class UiPanel3DTests
     }
 
     [Fact]
+    public void RaysMapThroughACustomMeshsUvs()
+    {
+        using var s = new Scene();
+        // A 2 m strip facing +Z: a flat left half (x −1..1) and a right half bent 45° back (x 1..2, z 0..−1); UV u runs
+        // 0 → 0.5 → 1 along it, v 0 at the top.
+        var mesh = new ArrayMesh();
+        mesh.AddSurface(
+            [new(-1, -1, 0), new(1, -1, 0), new(1, 1, 0), new(-1, 1, 0), new(2, -1, -1), new(2, 1, -1)],
+            [Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ],
+            [new(0, 1), new(0.5f, 1), new(0.5f, 0), new(0, 0), new(1, 1), new(1, 0)],
+            [0, 1, 2, 0, 2, 3, 1, 4, 5, 1, 5, 2]);
+        var (panel, _) = s.AddPanel(configure: p => { p.Mesh = mesh; p.Position = new Vector3(0, 0, -1); });
+
+        Assert.True(panel.TryRayToPixel(new Vector3(0.5f, 0.5f, 4), -Vector3.UnitZ, out var flat, out var distance));
+        Assert.Equal(0.375f * 400, flat.X, 2); // u = 0.25 + 0.5 × 0.25
+        Assert.Equal(0.25f * 300, flat.Y, 2);
+        Assert.Equal(5, distance, 3);
+        Assert.True(panel.TryRayToPixel(new Vector3(1.5f, 0, 4), -Vector3.UnitZ, out var bent, out var bentDistance));
+        Assert.Equal(0.75f * 400, bent.X, 2);  // halfway along the bent half
+        Assert.Equal(150, bent.Y, 2);
+        Assert.Equal(5.5f, bentDistance, 3);
+
+        Assert.False(panel.TryRayToPixel(new Vector3(3, 0, 4), -Vector3.UnitZ, out _, out _));  // beside it
+        Assert.False(panel.TryRayToPixel(new Vector3(0, 0, -6), Vector3.UnitZ, out _, out _));  // from behind
+    }
+
+    [Fact]
+    public void IgnoreExposureScalesOnlyAnUnshadedPanelsEmission()
+    {
+        using var s = new Scene();
+        var (panel, _) = s.AddPanel(configure: p => p.Brightness = 2f);
+        Assert.False(panel.IgnoreExposure); // off by default (ADR 0257)
+        panel.GetRenderMesh();
+        Assert.Equal(2f, panel.EmissionEnergy);
+        panel.IgnoreExposure = true; // no renderer here: exposure 1
+        panel.GetRenderMesh();
+        Assert.Equal(2f, panel.EmissionEnergy);
+    }
+
+    [Fact]
     public void TheMouseClicksAPanelButtonAndFocusesThePanel()
     {
         using var s = new Scene();
