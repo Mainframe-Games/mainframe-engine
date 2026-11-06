@@ -111,10 +111,10 @@ public readonly record struct NavigationPathQuery2D(Vector2 Start, Vector2 Targe
 /// </summary>
 public static class NavigationDebugColors
 {
-    /// <summary>The region's outline.</summary>
+    /// <summary>A grid region's outline; a navigation mesh's borders.</summary>
     public static Vector4 Region { get; set; } = new(0.25f, 0.75f, 0.95f, 0.9f);
 
-    /// <summary>The cell lines inside a region.</summary>
+    /// <summary>The cell lines inside a grid region; a navigation mesh's inner polygon edges.</summary>
     public static Vector4 CellLines { get; set; } = new(0.25f, 0.75f, 0.95f, 0.18f);
 
     /// <summary>Solid cells (outline and cross).</summary>
@@ -137,4 +137,10 @@ public static class NavigationDebugColors
 
     /// <summary>An avoidance obstacle's radius and polygon (G3.7).</summary>
     public static Vector4 Obstacle { get; set; } = new(1f, 0.6f, 0.25f, 0.95f);
+
+    /// <summary>An edge connection between two navigation mesh regions (G3.9).</summary>
+    public static Vector4 EdgeConnection { get; set; } = new(0.7f, 0.5f, 1f, 0.95f);
+
+    /// <summary>A navigation link (G3.9; faded while one of its ends finds no polygon).</summary>
+    public static Vector4 Link { get; set; } = new(0.35f, 0.9f, 0.75f, 1f);
 }

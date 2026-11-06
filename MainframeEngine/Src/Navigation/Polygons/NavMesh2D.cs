@@ -230,7 +230,7 @@ internal sealed class NavMesh2D
         Grow(ref _joined, n);
         for (var i = 0; i < n; i++)
             _sorted[i] = new FreeEdge(MinX(_free[i]), _free[i]);
-        Array.Sort(_sorted, 0, n, FreeEdge.Comparer);
+        _sorted.AsSpan(0, n).Sort(); // IComparable: no comparer delegate
         Array.Clear(_joined, 0, n);
         var any = false;
         for (var i = 0; i < n; i++)
@@ -530,13 +530,13 @@ internal sealed class NavMesh2D
         return sum;
     }
 
-    private readonly record struct FreeEdge(float MinX, int Id)
+    private readonly record struct FreeEdge(float MinX, int Id) : IComparable<FreeEdge>
     {
-        public static readonly IComparer<FreeEdge> Comparer = Comparer<FreeEdge>.Create(static (a, b) =>
+        public int CompareTo(FreeEdge other)
         {
-            var c = a.MinX.CompareTo(b.MinX);
-            return c != 0 ? c : a.Id.CompareTo(b.Id);
-        });
+            var c = MinX.CompareTo(other.MinX);
+            return c != 0 ? c : Id.CompareTo(other.Id);
+        }
     }
 
     private static long Key(int u, int v) => (long)u << 32 | (uint)v;

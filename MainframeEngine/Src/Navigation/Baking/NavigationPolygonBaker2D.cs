@@ -75,7 +75,7 @@ public static class NavigationPolygonBaker2D
                         if (child is CollisionShape2D { Disabled: false, Shape: { } shape } collision)
                             AddShape(shape, toLocal * collision.GlobalTransform);
                     break;
-                case TileMapLayer layer when _colliders && layer.CollisionEnabled:
+                case TileMapLayer layer when _colliders:
                     AddTiles(layer);
                     break;
                 case Polygon2D shape when _meshes:
