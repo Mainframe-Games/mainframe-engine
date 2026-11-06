@@ -38,6 +38,31 @@ internal static class NavigationDebugDraw
         for (var i = 0; i < agents.Count; i++)
             if (all || agents[i].DebugEnabled)
                 DrawAgent(lines, agents[i]);
+        if (!all)
+            return;
+        var obstacles = map.ObstacleList;
+        for (var i = 0; i < obstacles.Count; i++)
+            DrawObstacle(lines, obstacles[i], NavigationDebugColors.Obstacle);
+    }
+
+    /// <summary>G3.7: an obstacle's radius circle and polygon outline (also the editor's selection gizmo, in its colour).</summary>
+    internal static void DrawObstacle(DebugLines lines, NavigationObstacle2D obstacle, Vector4 color)
+    {
+        if (!obstacle.AvoidanceEnabled)
+            color.W *= 0.4f;
+        var transform = obstacle.GlobalTransform;
+        if (obstacle.Radius > 0f)
+            lines.AddCircle2D(Transform2D.Identity, transform.Origin, obstacle.Radius, color);
+        var vertices = obstacle.VerticesSpan;
+        if (vertices.Length < 2)
+            return;
+        var previous = transform.TransformPoint(vertices[^1]);
+        for (var i = vertices.Length == 2 ? 1 : 0; i < vertices.Length; i++)
+        {
+            var next = transform.TransformPoint(vertices[i]);
+            Line(lines, previous, next, color);
+            previous = next;
+        }
     }
 
     // The world rectangle the view shows, from the orthographic camera it renders with (null: unknown, draw everything).
@@ -135,6 +160,15 @@ internal static class NavigationDebugDraw
 
     private static void DrawAgent(DebugLines lines, NavigationAgent2D agent)
     {
+        if (agent.AvoidanceEnabled && agent.Parent is Node2D body)
+        {
+            // G3.7: the avoidance radius, and the last safe velocity (a quarter second of travel) when moving.
+            var at = body.GlobalPosition;
+            lines.AddCircle2D(Transform2D.Identity, at, agent.Radius, NavigationDebugColors.Avoidance);
+            if (agent.SafeVelocity != Vector2.Zero)
+                Line(lines, at, at + agent.SafeVelocity * 0.25f, NavigationDebugColors.Avoidance);
+        }
+
         var path = agent.GetCurrentNavigationPath();
         var color = NavigationDebugColors.Path;
         for (var i = 1; i < path.Length; i++)

@@ -121,4 +121,10 @@ public static class NavigationDebugColors
 
     /// <summary>An agent's target.</summary>
     public static Vector4 Target { get; set; } = new(1f, 0.45f, 0.85f, 1f);
+
+    /// <summary>An avoiding agent's radius and safe velocity (G3.7).</summary>
+    public static Vector4 Avoidance { get; set; } = new(0.55f, 0.95f, 1f, 0.9f);
+
+    /// <summary>An avoidance obstacle's radius and polygon (G3.7).</summary>
+    public static Vector4 Obstacle { get; set; } = new(1f, 0.6f, 0.25f, 0.95f);
 }

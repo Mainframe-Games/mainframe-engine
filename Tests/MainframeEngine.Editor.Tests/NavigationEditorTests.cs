@@ -134,4 +134,40 @@ public sealed class NavigationEditorTests : IDisposable
         _editor.Tick();
         Assert.True(overlay.LineCount > without + 40, $"{overlay.LineCount} lines vs {without}"); // three circles and a line
     }
+
+    [Fact]
+    public void TheSelectedObstacleDrawsItsShapeAndAnAvoidingAgentItsRadius()
+    {
+        AddLevel();
+        var obstacle = new NavigationObstacle2D
+        {
+            Name = "Pillar",
+            Position = new Vector2(60, 60),
+            Radius = 12f,
+            Vertices = [new(-10, -10), new(10, -10), new(10, 10), new(-10, 10)],
+        };
+        _editor.Scene.AddNode(obstacle, _editor.Scene.Root);
+        var body = new CharacterBody2D { Name = "Chaser", Position = new Vector2(20, 20) };
+        _editor.Scene.AddNode(body, _editor.Scene.Root);
+        var agent = new NavigationAgent2D { Name = "Agent" };
+        _editor.Scene.AddNode(agent, body);
+        W.Commands.Execute("view.2d");
+        _editor.Tick(2);
+        var overlay = _editor.Scene.Viewport.OverlayLines;
+
+        int Lines(Node selected)
+        {
+            _editor.Scene.Selection.Set(selected);
+            _editor.Tick();
+            overlay.Clear();
+            _editor.Tick();
+            return overlay.LineCount;
+        }
+
+        var bodyOnly = Lines(body);
+        Assert.True(Lines(obstacle) > bodyOnly + 4 * 8, "four edges and a circle per vertex and the radius");
+        var agentPlain = Lines(agent);
+        agent.AvoidanceEnabled = true;
+        Assert.True(Lines(agent) > agentPlain + 8, "the avoidance radius circle");
+    }
 }

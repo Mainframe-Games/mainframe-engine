@@ -8,8 +8,10 @@ namespace Demo;
 /// Navigation 2D (G3a): a walled maze of <see cref="StaticBody2D"/>s on a <see cref="NavigationGrid2D"/> (its cells baked
 /// from the walls, saved inline), mud patches that cost three times as much to cross, and a dozen
 /// <see cref="NavChaser"/> bodies whose <see cref="NavigationAgent2D"/>s walk to the clicked point. The panel switches the
-/// diagonal mode, heuristic, jump point search and the debug draw, and "Click adds walls" turns clicks into wall cells
-/// (<see cref="NavigationGrid2D.SetCellSolid"/>: every chaser repaths).
+/// diagonal mode, heuristic, jump point search, avoidance and the debug draw, and "Click adds walls" turns clicks into
+/// wall cells (<see cref="NavigationGrid2D.SetCellSolid"/>: every chaser repaths). The agents avoid each other and a
+/// boulder (<see cref="NavPatrol"/>, a moving <see cref="NavigationObstacle2D"/>) patrolling the corridor before the
+/// target (G3.7).
 /// </summary>
 public static class Navigation2DScene
 {
@@ -133,8 +135,38 @@ public static class Navigation2DScene
                 Outline = new Vector4(0, 0, 0, 0.4f),
                 OutlineWidth = 2f,
             });
-            Add(root, chaser, new NavigationAgent2D { Name = "Agent", PathDesiredDistance = 14f, TargetDesiredDistance = 10f });
+            Add(root, chaser, new NavigationAgent2D
+            {
+                Name = "Agent",
+                PathDesiredDistance = 14f,
+                TargetDesiredDistance = 10f,
+                AvoidanceEnabled = true,
+                Radius = 10f,
+                MaxSpeed = 150f,
+                NeighborDistance = 96f,
+                MaxNeighbors = 8,
+            });
         }
+
+        // A boulder rolling up and down the corridor between the last walls: the chasers make way for it.
+        var boulder = Add(root, root, new NavPatrol
+        {
+            Name = "Boulder",
+            Radius = 14f,
+            PointA = Origin + new Vector2(17.5f, 1.2f) * Cell,
+            PointB = Origin + new Vector2(17.5f, 8.2f) * Cell,
+            Position = Origin + new Vector2(17.5f, 1.2f) * Cell,
+            Speed = 60f,
+        });
+        Add(root, boulder, new DemoShape2D
+        {
+            Name = "Visual",
+            Kind = DemoShapeKind.Circle,
+            Radius = 14f,
+            Color = new Vector4(0.62f, 0.56f, 0.5f, 1),
+            Outline = new Vector4(0, 0, 0, 0.45f),
+            OutlineWidth = 2f,
+        });
 
         Add(root, root, new NavigationDemo2D { Name = "Controller" });
         var ui = Add(root, root, new UiLayer { Name = "Ui", Layer = 10 });
@@ -146,12 +178,19 @@ public static class Navigation2DScene
     public static Vector2 Center(Rect2I cells) =>
         Origin + (new Vector2(cells.Position.X, cells.Position.Y) + new Vector2(cells.Size.X, cells.Size.Y) * 0.5f) * Cell;
 
-    /// <summary>A wall body covering <paramref name="cells"/>, with its visual.</summary>
+    /// <summary>A wall body covering <paramref name="cells"/>, with its visual and its avoidance obstacle.</summary>
     public static StaticBody2D AddWall(Node root, Node parent, string name, Rect2I cells)
     {
         var size = new Vector2(cells.Size.X, cells.Size.Y) * Cell;
         var body = Add(root, parent, new StaticBody2D { Name = name, Position = Center(cells) });
         Add(root, body, new CollisionShape2D { Name = "Shape", Shape = new RectangleShape2D { Size = size } });
+        // The same rectangle for avoidance (G3.7): agents steer clear of the wall instead of sliding into each other on it.
+        var half = size * 0.5f;
+        Add(root, body, new NavigationObstacle2D
+        {
+            Name = "Obstacle",
+            Vertices = [new(-half.X, -half.Y), new(half.X, -half.Y), new(half.X, half.Y), new(-half.X, half.Y)],
+        });
         Add(root, body, new DemoShape2D
         {
             Name = "Visual",
