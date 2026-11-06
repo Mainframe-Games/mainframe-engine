@@ -50,10 +50,12 @@ Branch `feature/g6-pbr-default-lods`. Plan:
 - Lowering the normal weight does not make a UV-seamed sphere's coarse levels cheap: positions alone give 0.61 at 123
   triangles, the seam's cost. The weight stays 0.5.
 
-## Not done
+## Natives from CI
 
-- `win-x64/mfmeshopt.dll`: needs a `natives.yml` run (Actions minutes, the owner's call); that run also restamps every
-  other component, whose build inputs changed with `Native/CMakeLists.txt`.
+- The owner approved the PR's one `natives.yml` run (2026-11-07). Its `natives-all` replaced every native (the local
+  `mfmeshopt` builds included) and restamped `natives.lock`; `natives-lock.sh verify` passes.
+- `natives-all` carries `steam_api64.dll` as a Git LFS pointer (the `collect` job checks out without LFS and copies the
+  whole `runtimes/` tree): restored from git rather than committed. Noted in `natives.md`.
 
 ## Verified
 

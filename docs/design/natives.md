@@ -322,14 +322,13 @@ The RmlUi.Net attribution is in [`Native/RmlUi/shim/NOTICE.md`](../../Native/Rml
 
 | RID | enet | mfrmlui | mfsvg | mfmeshopt | mfplughost |
 |---|---|---|---|---|---|
-| osx-arm64 / osx-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ built locally (universal, smoke test passes on both architectures) | ✅ committed (CI) |
-| win-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ⏳ from the next `natives.yml` run | ✅ committed (CI) |
-| linux-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ built locally in Docker (ubuntu:22.04, GCC 11, glibc 2.34; smoke test passes) | ✅ committed (CI) |
+| osx-arm64 / osx-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) |
+| win-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) |
+| linux-x64 | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI) | ✅ committed (CI; glibc 2.34) | ✅ committed (CI) |
 
-Adding `MF_NATIVES_MESHOPT` to `Native/CMakeLists.txt` changed every component's build inputs, so
-`natives-lock.sh verify` reports the other components' committed binaries as stale until a `natives.yml` run's
-`natives-all` is committed (the binaries themselves are unaffected); that run also replaces the local `mfmeshopt`
-builds with CI's.
+`natives-all` also carries Valve's `steam_api` files from the `collect` job's checkout, which does not fetch Git LFS:
+its `steam_api64.dll` is an LFS pointer. Restore that file (`git checkout -- MainframeEngine/runtimes/win-x64/native/steam_api64.dll`)
+after copying the artifact in; the lock ignores it.
 
 ## Related
 
