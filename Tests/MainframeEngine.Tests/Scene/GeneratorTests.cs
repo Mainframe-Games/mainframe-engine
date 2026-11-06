@@ -8,6 +8,7 @@ using generators::MainframeEngine.Generators;
 using MainframeEngine.Serialization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace MainframeEngine.Tests.Scene;
 
@@ -481,6 +482,69 @@ public sealed class GeneratorTests
         for (var i = text.IndexOf(value, StringComparison.Ordinal); i >= 0; i = text.IndexOf(value, i + 1, StringComparison.Ordinal))
             count++;
         return count;
+    }
+
+    // G19 phase 3: -p:MainframePackKey becomes a module initializer with the key masked (ADR 0240).
+
+    private sealed class BuildProperties(Dictionary<string, string> values) : AnalyzerConfigOptionsProvider
+    {
+        private static readonly Options None = new([]);
+
+        public override AnalyzerConfigOptions GlobalOptions { get; } = new Options(values);
+
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => None;
+
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => None;
+
+        private sealed class Options(Dictionary<string, string> values) : AnalyzerConfigOptions
+        {
+            public override bool TryGetValue(string key, out string value) => values.TryGetValue(key, out value!);
+        }
+    }
+
+    private static (Compilation Output, ImmutableArray<Diagnostic> Diagnostics, GeneratorDriverRunResult Result) RunWithPackKey(string? packKey)
+    {
+        var compilation = CSharpCompilation.Create("PackKeyGame",
+            [CSharpSyntaxTree.ParseText("namespace Game; public sealed class Thing : MainframeEngine.Node { }", path: "Game.cs", cancellationToken: TestContext.Current.CancellationToken)],
+            References, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var properties = packKey is null ? [] : new Dictionary<string, string> { ["build_property.MainframePackKey"] = packKey };
+        GeneratorDriver driver = CSharpGeneratorDriver.Create([new NodeRegistrationGenerator().AsSourceGenerator()], optionsProvider: new BuildProperties(properties));
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics, TestContext.Current.CancellationToken);
+        return (output, diagnostics, driver.GetRunResult());
+    }
+
+    [Fact]
+    public void APackKeyBuildPropertyBecomesAMaskedModuleInitializer()
+    {
+        var key = Enumerable.Range(0, 32).Select(i => (byte)(i * 9 + 5)).ToArray();
+        var base64 = Convert.ToBase64String(key);
+
+        var (output, diagnostics, result) = RunWithPackKey(base64);
+
+        Assert.Empty(diagnostics);
+        var source = result.Results.Single().GeneratedSources.Single(g => g.HintName == "MainframeEngine.PackKey.g.cs").SourceText.ToString();
+        Assert.Contains("[global::System.Runtime.CompilerServices.ModuleInitializer]", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(base64, source, StringComparison.Ordinal);
+        var arrays = System.Text.RegularExpressions.Regex.Matches(source, @"new byte\[\] \{ ([^}]*) \}")
+            .Select(m => m.Groups[1].Value.Split(", ").Select(b => Convert.ToByte(b, 16)).ToArray()).ToArray();
+        Assert.Equal(2, arrays.Length);
+        Assert.Equal(key, arrays[0].Zip(arrays[1], (a, b) => (byte)(a ^ b)).ToArray());
+        Assert.NotEqual(key, arrays[0]);
+
+        using var stream = new MemoryStream();
+        Assert.True(output.Emit(stream, cancellationToken: TestContext.Current.CancellationToken).Success);
+        Assert.True(stream.ToArray().AsSpan().IndexOf(key) < 0); // the raw key is not in the assembly
+    }
+
+    [Fact]
+    public void NoPackKeyEmitsNothingAndABadOneIsMfg012()
+    {
+        var (_, none, plain) = RunWithPackKey(null);
+        Assert.Empty(none);
+        Assert.DoesNotContain(plain.Results.Single().GeneratedSources, g => g.HintName == "MainframeEngine.PackKey.g.cs");
+
+        var (_, bad, _) = RunWithPackKey("c2hvcnQ=");
+        Assert.Equal("MFG012", Assert.Single(bad).Id);
     }
 }
 

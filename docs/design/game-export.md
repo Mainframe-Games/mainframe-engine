@@ -67,6 +67,7 @@ written, like every other section.
 | `include` | all | `["Assets/**"]` | Globs of the game's `Assets/` files that ship. |
 | `exclude` | all | `["Assets/**/*.po", "Assets/**/*.pot"]` | Applied after `include`. `.mo` catalogs are compiled at build time. |
 | `pack` | all | `true` | Ship the staged `Assets/` and `project.mfproj` in one `Assets.mfpak` beside the executable ([Packed content](#packed-content)). `false` ships them as loose files. |
+| `encrypt` | all | `true` | AES-256-CTR encrypt the pack with the project's `packKey` (or `MF_PACK_KEY`), compiled into the game. Ignored when `pack` is `false`. |
 | `loose` | all | `[]` | Globs of shipped `Assets/` files kept as loose files beside the pack (mods, files another tool reads). The game still reads them at the same paths. |
 | `bundleId` | macos | `com.mainframegames.<exe lowercased>` | `CFBundleIdentifier`. |
 | `copyright` | macos | `""` | `NSHumanReadableCopyright`. |
@@ -86,9 +87,10 @@ The C# model is [`ExportPreset`](../../MainframeEngine/Src/Project/ExportPreset.
 preset warns like any unknown key), duplicate names and bad values throw `InvalidDataException` with the key path. The
 reader and writer are hand-written `Utf8JsonWriter`/`JsonObject` code in `ProjectSettingsFormat`, AOT-safe.
 
-### Format 5
+### Format 5 (and 6)
 
-`ProjectSettingsFormat.Current` is **5**. The step 4 → 5 does not change the tree: the bump only makes an older editor
+Format 6 (G19 phase 3) adds the top-level `packKey` ([Packed content](#packed-content)); the step 5 → 6 generates it.
+Before that, `ProjectSettingsFormat.Current` was **5**. The step 4 → 5 does not change the tree: the bump only makes an older editor
 reject the file ("Update the engine.") instead of reading it, dropping the section it does not model, and deleting every
 preset on its next save. The template's `project.mfproj` is format 5 with no presets (the dialog adds one for this
 machine), and its `.gitignore` has `export/` and `.mainframe/`. The Demo has Windows, macOS, Linux and Linux server
@@ -181,15 +183,25 @@ fonts, `.mo` catalogs, the asset index) and the exported project file, at the pa
   mounted with `ContentFiles` at `ContentPaths.BaseDirectory` (`Contents/MonoBundle` in a macOS bundle), so every
   content read comes from it and loose files are the disk fallthrough. A damaged pack is a failed start (exit code 1,
   logged). Builds without a pack (the editor, Play, `dotnet run`) read loose files as before.
+- **Encryption** (phase 3, `encrypt: true` by default). The pack's entries and index are AES-256-CTR encrypted with the
+  project's `packKey` (`MF_PACK_KEY` overrides it, like `MF_SIGN_IDENTITY`), so no file name or content is readable.
+  The publish passes `-p:MainframePackKey=<key>` (printed as `***`); `MainframeGame.props` makes it a
+  `CompilerVisibleProperty`, and `MainframeEngine.Generators` emits a `[ModuleInitializer]` in each game assembly that
+  registers it with `PackKeys`, masked with SHA-256 of the assembly name, so neither its bytes nor its base64 are in
+  any shipped file. The engine never gets it (only game projects import the props). `GameHost.Run` runs the game
+  assemblies' module initializers before it mounts the pack. A missing key is `PackKeyMissing` and a wrong one
+  `PackKeyMismatch`, both at mount, before any read, and a failed start. Until NativeAOT (phase 4) the key can be
+  recovered from the IL: this stops "read the folder", not a reverser.
 - **Format and layout** are in [Asset pipeline → Packs](asset-pipeline.md#packs): Brotli for text and data, stored and
   seekable media, and a layout that keeps SteamPipe patches small ([ADR 0247](../../memory/decisions/0247-pack-anchors-for-steampipe.md)).
-- **Looking inside.** `mf-export --pack-list <Assets.mfpak>` lists the entries (codec, length, path), and
-  `mf-export --pack-extract <Assets.mfpak> <dir>` writes them out.
+- **Looking inside.** `mf-export --pack-list <Assets.mfpak> [--project <dir>]` lists the entries (codec, length, path),
+  and `mf-export --pack-extract <Assets.mfpak> <dir> [--project <dir>]` writes them out; an encrypted pack needs the
+  project (its `packKey`) or `MF_PACK_KEY`.
 
 ### Exported project file
 
 `ExportedProjectFile.Transform` writes a changed copy of the project's settings (never the file as is):
-`ExportPresets` cleared; `IsDemo` = the preset's `demo`; `Version` = the effective version; `steam: false` →
+`ExportPresets` cleared; `PackKey` cleared; `IsDemo` = the preset's `demo`; `Version` = the effective version; `steam: false` →
 `Steam.AppId = Steam.DemoAppId = 0` and `RestartThroughSteam = false`.
 
 ### Steam
@@ -233,6 +245,8 @@ The dialog re-runs it on every edit; the CLI before each preset.
 | `duplicate-name` | error | two presets share a name (also rejected on load) |
 | `glob` | error | a glob is empty, absolute, has `\` or `..` |
 | `loose-outside-assets` | error | a `loose` glob does not start with `Assets/` |
+| `pack-key-missing` | error | `pack` and `encrypt` on, but the project file has no saved `packKey` (fix: `mf-export --init-pack-key`, or open it in the editor) |
+| `pack-key-invalid` | error | `MF_PACK_KEY` is set but is not 32 bytes in base64 |
 | `loose-without-pack` | warning | `loose` globs with `pack: false` (everything ships loose anyway) |
 | `steam-app-id` / `steam-debug` | error / warning | see [Steam](#steam) |
 | `notarize-needs-sign` | error | a notary profile with ad hoc signing |
@@ -262,7 +276,9 @@ Export… (`file.export`, Ctrl/Cmd+Shift+E, `package-export`) is enabled when th
   - the legacy form `<Desktop.csproj> <rid> <out> [--name] [--exe] [--version] [--bundle-id] [--copyright] [--icon]
     [--sign] [--notarize] [--demo] [--steam] [--symbols ship|separate] [--configuration] [--folder]`, mapped onto an
     unsaved preset (`just package-game`). The project is the folder above the desktop project's.
-  - `--pack-list <Assets.mfpak>` and `--pack-extract <Assets.mfpak> <dir>` show what a packed export ships.
+  - `--pack-list <Assets.mfpak>` and `--pack-extract <Assets.mfpak> <dir>` show what a packed export ships (with
+    `--project <dir>` or `MF_PACK_KEY` for an encrypted pack); `--project <dir> --init-pack-key` saves a pack key into
+    a project that has none (an existing one is kept).
   - Exit codes: 0 exported, 1 a preset failed, 2 usage or validation error. Errors go to stderr in MSBuild's canonical
     format (`file : error code: text`) so CI annotates them; the artifact is the last stdout line. Ctrl+C cancels.
 - **The package.** The `MainframeEngine` package carries `mf-export` in `tools/mf-export` (managed files and
@@ -274,7 +290,8 @@ Export… (`file.export`, Ctrl/Cmd+Shift+E, `package-export`) is enabled when th
   `Program.cs` before an `EditorApp` exists (no window, SDL or engine), so the released editor exports from scripts.
 - **CI.** `build/template-smoke.sh` (the `template` job, both engine sources) writes a preset for the host RID into the
   generated game's `project.mfproj`, runs `mf-export --list` and `--preset`, unpacks the archive, checks that only
-  `Assets.mfpak` ships (no `Assets/` folder, no loose `project.mfproj`), extracts the pack with `--pack-extract` and
+  `Assets.mfpak` ships (no `Assets/` folder, no loose `project.mfproj`), checks it cannot be listed without the
+  project's key (it saves one with `--init-pack-key` first), extracts it with `--pack-extract --project` and
   checks the exported `project.mfproj` (no presets), the asset index, the engine's content and the missing `.po`, and
   runs it with `--headless --max-frames`. The package run also packages `linux-x64`, `win-x64` (and `osx-arm64` on a Mac) with the package's
   `mf-export` in the legacy form and checks each archive.

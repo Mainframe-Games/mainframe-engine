@@ -25,6 +25,9 @@ public enum ExportCommandKind
 
     /// <summary>Write an <c>Assets.mfpak</c>'s files into a folder (<c>--pack-extract</c>).</summary>
     PackExtract,
+
+    /// <summary>Save a new pack key into a project that has none (<c>--init-pack-key</c>).</summary>
+    InitPackKey,
 }
 
 /// <summary>A parsed command line.</summary>
@@ -62,8 +65,10 @@ public static class ExportCli
         mf-export --project <dir> --preset "<name>" [--output <dir>]   export one preset of project.mfproj
         mf-export --project <dir> --all                                  export every preset in order
         mf-export --project <dir> --list                                 list the presets and their validation
-        mf-export --pack-list <Assets.mfpak>                             list a packed export's files
-        mf-export --pack-extract <Assets.mfpak> <dir>                    write a packed export's files into <dir>
+        mf-export --pack-list <Assets.mfpak> [--project <dir>]           list a packed export's files
+        mf-export --pack-extract <Assets.mfpak> <dir> [--project <dir>]  write a packed export's files into <dir>
+                  (an encrypted pack's key: the project's packKey, else MF_PACK_KEY)
+        mf-export --project <dir> --init-pack-key                        save a pack key into a project that has none
         mf-export <Desktop.csproj> <rid> <out-dir> [--name "Display name"] [--exe Name] [--version v] [--bundle-id id]
                   [--copyright text] [--icon icon.png] [--sign "Developer ID Application: …"] [--notarize profile]
                   [--demo] [--steam] [--symbols ship|separate] [--configuration Release|Debug] [--folder]
@@ -123,15 +128,11 @@ public static class ExportCli
             return new ExportCommand(ExportCommandKind.Help);
         if (!args[0].StartsWith("--", StringComparison.Ordinal))
             return ParseLegacy(args);
-        if (args[0] == "--pack-list")
-            return args.Count == 2 ? new ExportCommand(ExportCommandKind.PackList, PackFile: args[1]) : throw new ArgumentException("Use --pack-list <Assets.mfpak>.");
-        if (args[0] == "--pack-extract")
-            return args.Count == 3
-                ? new ExportCommand(ExportCommandKind.PackExtract, PackFile: args[1], Output: args[2])
-                : throw new ArgumentException("Use --pack-extract <Assets.mfpak> <dir>.");
+        if (args[0] is "--pack-list" or "--pack-extract")
+            return ParsePack(args);
 
         string? project = null, preset = null, output = null;
-        bool all = false, list = false;
+        bool all = false, list = false, init = false;
         for (var i = 0; i < args.Count; i++)
         {
             switch (args[i])
@@ -151,20 +152,47 @@ public static class ExportCli
                 case "--list":
                     list = true;
                     break;
+                case "--init-pack-key":
+                    init = true;
+                    break;
                 default:
                     throw new ArgumentException($"Unknown option '{args[i]}'.");
             }
         }
 
         project ??= Directory.GetCurrentDirectory();
-        var modes = (preset is null ? 0 : 1) + (all ? 1 : 0) + (list ? 1 : 0);
+        var modes = (preset is null ? 0 : 1) + (all ? 1 : 0) + (list ? 1 : 0) + (init ? 1 : 0);
         if (modes != 1)
-            throw new ArgumentException("Pass exactly one of --preset \"<name>\", --all or --list.");
+            throw new ArgumentException("Pass exactly one of --preset \"<name>\", --all, --list or --init-pack-key.");
+        if (init)
+            return output is null ? new ExportCommand(ExportCommandKind.InitPackKey, project) : throw new ArgumentException("--output goes with --preset.");
         if (output is not null && preset is null)
             throw new ArgumentException("--output goes with --preset.");
         return list ? new ExportCommand(ExportCommandKind.List, project)
             : all ? new ExportCommand(ExportCommandKind.All, project)
             : new ExportCommand(ExportCommandKind.Preset, project, preset, output);
+    }
+
+    // --pack-list <pack> [--project <dir>] | --pack-extract <pack> <dir> [--project <dir>]
+    private static ExportCommand ParsePack(IReadOnlyList<string> args)
+    {
+        var extract = args[0] == "--pack-extract";
+        var positional = new List<string>();
+        string? project = null;
+        for (var i = 1; i < args.Count; i++)
+        {
+            if (args[i] == "--project")
+                project = Value(args, ref i);
+            else if (args[i].StartsWith("--", StringComparison.Ordinal))
+                throw new ArgumentException($"Unknown option '{args[i]}'.");
+            else
+                positional.Add(args[i]);
+        }
+
+        if (positional.Count != (extract ? 2 : 1))
+            throw new ArgumentException(extract ? "Use --pack-extract <Assets.mfpak> <dir> [--project <dir>]." : "Use --pack-list <Assets.mfpak> [--project <dir>].");
+        return new ExportCommand(extract ? ExportCommandKind.PackExtract : ExportCommandKind.PackList, project, PackFile: positional[0],
+            Output: extract ? positional[1] : null);
     }
 
     private static ExportCommand ParseLegacy(IReadOnlyList<string> args)
@@ -239,13 +267,45 @@ public static class ExportCli
         return new ExportCommand(ExportCommandKind.Legacy, project, preset.Name, output, LegacyPreset: preset, AppName: name);
     }
 
+    // Saves a pack key into the project file when it has none saved (format 6 generates one in memory when loading an
+    // older file; saving writes it). An existing key is never replaced: every export since would stop matching.
+    private static int InitPackKey(ProjectSettings project, string projectFile, TextWriter stdout, TextWriter stderr)
+    {
+        if (project.PackKey is not null && !project.PackKeyUnsaved)
+        {
+            stdout.WriteLine($"{projectFile} already has a pack key; it is kept.");
+            return Success;
+        }
+
+        project.PackKey ??= PackKeys.NewKey();
+        try
+        {
+            project.Save(projectFile);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            stderr.WriteLine($"{projectFile} : error project: {e.Message}");
+            return ExportFailed;
+        }
+
+        stdout.WriteLine($"Saved a new pack key in {projectFile} (commit it: exports encrypt Assets.mfpak with it).");
+        return Success;
+    }
+
     // --pack-list prints "<codec> <length> <path>" per entry; --pack-extract writes every file under the output folder.
+    // An encrypted pack's key: --project's saved packKey, else MF_PACK_KEY.
     private static int RunPack(ExportCommand command, TextWriter stdout, TextWriter stderr)
     {
         var file = Path.GetFullPath(command.PackFile!);
         try
         {
-            using var pack = PackReader.Open(file);
+            byte[]? key = null;
+            if (command.ProjectDirectory is { } projectDirectory && ProjectSettings.Load(projectDirectory) is { PackKeyUnsaved: false } settings
+                && PackKeys.TryParse(settings.PackKey, out var projectKey))
+                key = projectKey;
+            else if (Environment.GetEnvironmentVariable(ExportPlan.PackKeyVariable) is { Length: > 0 } text && PackKeys.TryParse(text, out var environmentKey))
+                key = environmentKey;
+            using var pack = PackReader.Open(file, key);
             foreach (var entry in pack.Entries)
             {
                 if (command.Kind == ExportCommandKind.PackList)
@@ -343,6 +403,9 @@ public static class ExportCli
             stderr.WriteLine($"{projectFile} : error project: {e.Message}");
             return UsageError;
         }
+
+        if (command.Kind == ExportCommandKind.InitPackKey)
+            return InitPackKey(project, projectFile, stdout, stderr);
 
         environment ??= await ExportEnvironment.DetectAsync(cancellationToken).ConfigureAwait(false);
         var runner = new ExportRunner(environment);

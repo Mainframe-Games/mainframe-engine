@@ -92,7 +92,9 @@ type's shape do not regenerate. Diagnostics (all errors): MFG001 inaccessible/un
 unsupported type, MFG003 bad signal event, MFG004 duplicate type name, MFG005 invalid migration method,
 MFG006 a type with exports/signals that cannot be registered (e.g. nested in a private type), MFG010
 `Translatable` on a member that is not text, MFG011 an `[AnimationMethod]` that is static, generic, has `ref`/`out`
-parameters or a parameter type `[Export]` cannot serialize.
+parameters or a parameter type `[Export]` cannot serialize, MFG012 a `MainframePackKey` build property that is not 32
+bytes in base64 (the generator also emits the export's pack-key module initializer, [Game export → Packed
+content](game-export.md#packed-content)).
 
 **Animation methods** (G1a): `[AnimationMethod]` methods get a typed invoker and a codec per parameter in the type's
 registration (`NodeTypeInfo.AnimationMethods`, `FindAnimationMethod`), which `MethodTrack` keys call with arguments

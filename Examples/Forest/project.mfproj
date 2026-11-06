@@ -1,5 +1,5 @@
 {
-  "format": 4,
+  "format": 6,
   "name": "Forest Demo",
   "engineVersion": "0.0.0-dev",
   "mainScene": "Assets/Scenes/forest.mfscene",
@@ -30,5 +30,6 @@
   "rendering": { "shadows": "High", "antiAliasing": "Taa", "waterSsr": "High", "scaling3DMode": "Taau", "scaling3DScale": 0.75 },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1920, 1080], "matchWidthOrHeight": 1 },
   "loading": { "screen": "Assets/UI/loading.rml" },
-  "autoloads": [ { "name": "Dev", "type": "ForestDev" } ]
+  "autoloads": [ { "name": "Dev", "type": "ForestDev" } ],
+  "packKey": "Zwq4VuAECWEdVsuJ4juwXrtQiAA/y/GkIyBg+VOsQPQ="
 }

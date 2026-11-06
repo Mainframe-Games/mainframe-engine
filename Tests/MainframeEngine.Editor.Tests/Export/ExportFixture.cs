@@ -13,7 +13,7 @@ public sealed class ExportFixture : IDisposable
     public ExportFixture(string name = "Tiny Game")
     {
         Root = GameProjectLayout.RealPath(Directory.CreateTempSubdirectory("mf-export").FullName);
-        Settings = new ProjectSettings { Name = name, MainScene = "Assets/Scenes/Main.mfscene", Version = "1.2.0" };
+        Settings = new ProjectSettings { Name = name, MainScene = "Assets/Scenes/Main.mfscene", Version = "1.2.0", PackKey = Convert.ToBase64String(PackKey) };
         Settings.Window.Icon = "Assets/icon.png";
         Settings.Audio.BusLayout = "Assets/Settings/Bus.mfres";
         Write("TinyGame.Desktop/TinyGame.Desktop.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup></Project>");
@@ -46,6 +46,9 @@ public sealed class ExportFixture : IDisposable
     public void Save() => Settings.Save(Root);
 
     public string PathOf(string relative) => Path.Combine(Root, relative.Replace('/', Path.DirectorySeparatorChar));
+
+    /// <summary>The project's saved pack key (G19 phase 3).</summary>
+    public byte[] PackKey { get; } = [.. Enumerable.Range(0, 32).Select(i => (byte)(i + 1))];
 
     public void Write(string relative, string text)
     {

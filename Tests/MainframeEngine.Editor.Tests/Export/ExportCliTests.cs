@@ -90,6 +90,35 @@ public sealed class ExportCliTests : IDisposable
     }
 
     [Fact]
+    public async Task InitPackKeySavesAKeyOnceAndListAndExtractUseIt()
+    {
+        File.WriteAllText(Path.Combine(_game.Root, ProjectSettings.FileName), $$"""{ "format": 5, "name": "TinyGame", "mainScene": "Assets/Scenes/Main.mfscene", "version": "1.2.0", "export": [ { "name": "Linux", "platform": "linux" } ] }""");
+        Assert.Contains("error pack-key-missing", (await Run(new ExportCommand(ExportCommandKind.List, _game.Root))).Out, StringComparison.Ordinal);
+
+        var (exit, output, _) = await Run(ExportCli.Parse(["--project", _game.Root, "--init-pack-key"]));
+        Assert.Equal(ExportCli.Success, exit);
+        Assert.Contains("Saved a new pack key", output, StringComparison.Ordinal);
+        var key = ProjectSettings.Load(_game.Root).PackKey;
+        Assert.NotNull(key);
+        Assert.Contains("already has a pack key", (await Run(ExportCli.Parse(["--project", _game.Root, "--init-pack-key"]))).Out, StringComparison.Ordinal);
+        Assert.Equal(key, ProjectSettings.Load(_game.Root).PackKey);
+
+        Assert.Equal(ExportCli.Success, (await Run(new ExportCommand(ExportCommandKind.Preset, _game.Root, "Linux"))).Exit);
+        var archive = Path.Combine(_game.Root, "export", "linux", "TinyGame-1.2.0-linux-x64.tar.gz");
+        var unpacked = Path.Combine(_game.Root, "unpacked");
+        Directory.CreateDirectory(unpacked);
+        using (var gzip = new System.IO.Compression.GZipStream(File.OpenRead(archive), System.IO.Compression.CompressionMode.Decompress))
+            System.Formats.Tar.TarFile.ExtractToDirectory(gzip, unpacked, overwriteFiles: true);
+        var pack = Path.Combine(unpacked, "TinyGame-1.2.0-linux-x64", PackFormat.FileName);
+        Assert.Equal(ExportCli.UsageError, (await Run(ExportCli.Parse(["--pack-list", pack]))).Exit); // encrypted, no key
+        var listed = await Run(ExportCli.Parse(["--pack-list", pack, "--project", _game.Root]));
+        Assert.Equal(ExportCli.Success, listed.Exit);
+        Assert.Contains("Assets/Scenes/Main.mfscene", listed.Out, StringComparison.Ordinal);
+        Assert.Equal(ExportCli.Success, (await Run(ExportCli.Parse(["--pack-extract", pack, Path.Combine(_game.Root, "x"), "--project", _game.Root]))).Exit);
+        Assert.True(File.Exists(Path.Combine(_game.Root, "x", "Assets", "Scenes", "Main.mfscene")));
+    }
+
+    [Fact]
     public async Task APresetExportsAndPrintsItsArtifactLast()
     {
         _game.Settings.ExportPresets.Add(ExportPreset.Create("Linux", ExportPlatform.Linux));

@@ -133,7 +133,7 @@ public class GameHost : Engine
             _exportPack = PackContentSource.MountBeside(ContentPaths.BaseDirectory);
             _exportPackChecked = true;
             if (_exportPack is not null)
-                Log.Info($"[GameHost] Content from {PackFormat.FileName}.");
+                Log.Info($"[GameHost] Content from {PackFormat.FileName}{(PackKeys.HasKey ? " (encrypted)" : "")}.");
         }
     }
 
@@ -239,6 +239,12 @@ public class GameHost : Engine
         ProjectSettings settings;
         try
         {
+            // An export's pack key is registered by the game assemblies' generated module initializers (G19 phase 3),
+            // which `typeof(X).Assembly` alone does not run.
+            foreach (var assembly in gameAssemblies)
+                System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(assembly.ManifestModule.ModuleHandle);
+            if (Assembly.GetEntryAssembly() is { } entry)
+                System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(entry.ManifestModule.ModuleHandle);
             MountExportPack();
             settings = options.ProjectPath is { } path
                 ? ProjectSettings.Load(path)

@@ -863,7 +863,7 @@ opens the Export dialog on the project's `export` presets. The export itself is 
     machine's first with its RID; Android and iOS listed, disabled until M12.7), **Duplicate**, **Delete** (confirmed);
   - the selected preset's options in the schema's order, grouped General, Build, Steam (the effective app id read-only
     and an icon button to Project Settings › Steamworks), Icon (browse, preview), macOS (macOS presets), Content
-    (include/exclude globs as chips with an add field, and the loose globs while General's Pack Content is on);
+    (include/exclude globs as chips with an add field, and the loose globs while General's Pack Content is on; Encrypt Pack beside it);
   - the validation under the options: each issue's code, message and fix, some with a fix button (Steamworks, pick an
     icon);
   - progress: a bar, `Exporting 2/5 · <preset> · <phase>`, the last log lines, then the run's results with Show in

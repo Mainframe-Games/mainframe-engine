@@ -47,6 +47,11 @@ internal static class Diagnostics
         "[AnimationMethod] method '{0}' {1}",
         Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor InvalidPackKey = new(
+        "MFG012", "Invalid pack key",
+        "MainframePackKey must be 32 bytes in base64 (mf-export passes the project's packKey); the game cannot read its encrypted Assets.mfpak",
+        "MainframeEngine.Content", DiagnosticSeverity.Error, isEnabledByDefault: true);
+
     private const string NetCategory = "MainframeEngine.Networking";
 
     public static readonly DiagnosticDescriptor InvalidReplicated = new(
@@ -76,6 +81,7 @@ internal static class Diagnostics
         "MFG005" => InvalidMigration,
         "MFG010" => TranslatableNotString,
         "MFG011" => InvalidAnimationMethod,
+        "MFG012" => InvalidPackKey,
         _ => TypeNotAccessible,
     };
 }

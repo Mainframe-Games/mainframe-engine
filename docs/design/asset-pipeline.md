@@ -105,8 +105,14 @@ tests and `ContentLoadBenchmarks` use it.
 - **Format v1** (`PackFormat`, little-endian): a 64-byte header (`MFPK`, version, options, the index's offset, stored
   and decoded lengths, the index nonce, 4 reserved bytes, a 16-byte key check), the entries in ordinal path order, then
   the Brotli-compressed index (count; per entry its UTF-8 path, offset, stored length, length, codec and a 12-byte
-  nonce). The nonce is the first 12 bytes of SHA-256(path ‖ content), and the key check is zero until phase 3 encrypts
-  packs.
+  nonce). The nonce is the first 12 bytes of SHA-256(path ‖ content).
+- **Encryption** (G19 phase 3, `PackCipher`). With a key, every entry's stored bytes and the compressed index are
+  AES-256-CTR: keystream block *i* is AES(key, nonce ‖ big-endian *i*), from `Aes` in ECB through one reused
+  `ICryptoTransform` per stream, so any range decrypts on its own (seeks), in place in the caller's buffer, with 0 B
+  per read. There is no authentication tag (tamper resistance is a non-goal). The header's 16-byte key check is the
+  first keystream block of a fixed nonce, so `PackReader.Open` throws `PackKeyException` (`PackKeyMissing`,
+  `PackKeyMismatch`) at open. Nonces come from content, so a stable key keeps packs byte-identical and a change to one
+  asset changes only its entry's bytes and the index.
 - **Codecs.** Media that is already compressed or is streamed with seeks (`.ogg`, `.wav`, `.mp3`, `.flac`, `.opus`,
   `.png`, `.jpg`, `.webp`, `.ktx2`, video, `.zip`) is stored 16 KB aligned. Everything else is Brotli (quality 9, window
   22) when that saves at least 1/16 of the file, else stored. Stored entries are read straight from the pack; Brotli
@@ -119,8 +125,8 @@ tests and `ContentLoadBenchmarks` use it.
 - **Reads.** One read-only handle per pack and positional reads (`RandomAccess`), so the loader worker and the audio
   streamer read at once. A stored entry's stream reads and seeks without allocating, and lookups take
   `ReadOnlySpan<char>` (0 B). Every packed file reports the same last write time.
-- **Errors.** A file that is not a pack, a newer format, an encrypted pack (until phase 3) or a damaged index or entry
-  throws `InvalidDataException` naming the pack when it is opened, not mid-load.
+- **Errors.** A file that is not a pack, a newer format, or a damaged index or entry throws `InvalidDataException`
+  naming the pack when it is opened, not mid-load; a missing or wrong key throws `PackKeyException`.
 
 ## Importers
 

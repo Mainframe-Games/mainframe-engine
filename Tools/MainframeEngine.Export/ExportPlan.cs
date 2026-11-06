@@ -60,6 +60,15 @@ public sealed class ExportPlan
     /// <summary>The notary profile: <c>MF_NOTARY_PROFILE</c>, else the preset's; empty: no notarization.</summary>
     public required string NotaryProfile { get; init; }
 
+    /// <summary>
+    /// The key <c>Assets.mfpak</c> is encrypted with (G19 phase 3): <c>MF_PACK_KEY</c>, else the project's saved
+    /// <c>packKey</c>; null when the preset does not encrypt, or when there is no usable key (the validator reports it).
+    /// </summary>
+    public required byte[]? PackKey { get; init; }
+
+    /// <summary>Whether <see cref="PackKey"/> comes from <c>MF_PACK_KEY</c> rather than the project.</summary>
+    public required bool PackKeyFromEnvironment { get; init; }
+
     /// <summary>The output folder (absolute).</summary>
     public required string OutputDirectory { get; init; }
 
@@ -139,10 +148,24 @@ public sealed class ExportPlan
             Copyright = mac.Copyright,
             SignIdentity = Variable(environment, "MF_SIGN_IDENTITY") ?? (mac.Sign.Length > 0 ? mac.Sign : "-"),
             NotaryProfile = Variable(environment, "MF_NOTARY_PROFILE") ?? mac.NotaryProfile,
+            PackKey = PackKeyOf(settings, preset, environment),
+            PackKeyFromEnvironment = Variable(environment, PackKeyVariable) is not null,
             OutputDirectory = Path.GetFullPath(output, root),
             ArtifactsPath = Path.Combine(work, "obj", $"{rid}-{(preset.Demo ? "demo" : "full")}"),
             StageDirectory = Path.Combine(work, "stage", slug),
         };
+    }
+
+    /// <summary>The environment variable that overrides the project's pack key (like <c>MF_SIGN_IDENTITY</c>).</summary>
+    public const string PackKeyVariable = "MF_PACK_KEY";
+
+    private static byte[]? PackKeyOf(ProjectSettings settings, ExportPreset preset, ExportEnvironment environment)
+    {
+        if (!preset.Pack || !preset.Encrypt)
+            return null;
+        if (Variable(environment, PackKeyVariable) is { } text)
+            return PackKeys.TryParse(text, out var fromEnvironment) ? fromEnvironment : null;
+        return !settings.PackKeyUnsaved && PackKeys.TryParse(settings.PackKey, out var key) ? key : null;
     }
 
     private static string? Variable(ExportEnvironment environment, string name) =>
@@ -174,6 +197,8 @@ public sealed class ExportPlan
             args.Add($"-p:MacBundleAppDirectory={AppBundleWriter.AppDirectory}");
         if (ico is not null)
             args.Add($"-p:ApplicationIcon={ico}");
+        if (PackKey is not null)
+            args.Add($"-p:MainframePackKey={Convert.ToBase64String(PackKey)}"); // the generator compiles it into the game (ADR 0240)
         args.AddRange(["--artifacts-path", ArtifactsPath, "-o", PublishDirectory, "-nologo", "-v:minimal", "-clp:NoSummary", "-p:GenerateFullPaths=true"]);
         return args;
     }

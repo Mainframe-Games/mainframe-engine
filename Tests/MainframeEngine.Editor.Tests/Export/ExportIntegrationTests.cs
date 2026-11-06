@@ -90,14 +90,17 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
         Assert.True(File.Exists(Path.Combine(app, PackFormat.FileName)));
         Assert.False(Directory.Exists(Path.Combine(app, "Assets")));
         Assert.False(File.Exists(Path.Combine(app, ProjectSettings.FileName)));
-        using (var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName)))
+        Assert.True(PackKeys.TryParse(ProjectSettings.Load(project).PackKey, out var key)); // the format-6 key, saved with the presets
+        Assert.Equal("PackKeyMissing", Assert.Throws<PackKeyException>(() => PackReader.Open(Path.Combine(app, PackFormat.FileName))).Code);
+        using (var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName), key))
         {
+            Assert.True(pack.IsEncrypted);
             Assert.True(pack.FileExists("Assets/" + AssetDatabase.IndexFileName));
             Assert.True(pack.FileExists("Assets/Scenes/Main.mfscene"));
             Assert.False(pack.FileExists("Assets/notes.po"));
         }
 
-        using (PackContentSource.MountBeside(app))
+        using (PackContentSource.MountBeside(app, key: key))
             Assert.Empty(ProjectSettings.Load(app).ExportPresets);
         var foreign = EngineNatives.Rids.Where(r => ExportTargets.PlatformOf(r) != platform).SelectMany(EngineNatives.FilesOf)
             .Except(EngineNatives.FilesOf(rid)).Where(f => File.Exists(Path.Combine(app, f))).ToArray();
@@ -124,7 +127,7 @@ public sealed class ExportIntegrationTests(ITestOutputHelper output) : IDisposab
             timeout: TimeSpan.FromMinutes(2), cancellationToken: ct);
         Assert.True(run.Succeeded, run.OutputText);
         Assert.DoesNotContain("[ERROR]", run.OutputText, StringComparison.Ordinal);
-        Assert.Contains($"Content from {PackFormat.FileName}", run.OutputText, StringComparison.Ordinal);
+        Assert.Contains($"Content from {PackFormat.FileName} (encrypted)", run.OutputText, StringComparison.Ordinal); // the key compiled into the game
     }
 
     // The game assembly's AssemblyMetadata("MainframeDemo", "true") blob (build/MainframeGame.props): SerString name, SerString value.

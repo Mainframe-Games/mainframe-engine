@@ -136,6 +136,8 @@ Built (2026-11-06); see "Changes from the proposal, phase 2" below and [Asset pi
 
 ### Encryption (phase 3)
 
+Built (2026-11-06); see "Changes from the proposal, phase 3" below.
+
 - **Cipher.** AES-256-CTR, with the keystream from `Aes.EncryptEcb` (built in; supported on every desktop and mobile
   target, with hardware AES on x64 and arm64). CTR can decrypt any byte range, so audio streaming and seeking work on
   encrypted entries. There is no authentication tag, because tamper resistance is a non-goal; the key check catches a
@@ -272,7 +274,7 @@ Built (2026-11-06); see "Changes from the proposal, phase 2" below and [Asset pi
 - [x] Phase 2: `.mfpak` v1 (`PackWriter` in the export library, `PackReader`/`PackContentSource` in the engine);
       `GameHost` mounting; the `pack` and `loose` preset keys; stage changes; `ContentLoadBenchmarks`; `just export-smoke`;
       `game-export.md` rows.
-- [ ] Phase 3: AES-256-CTR `PackStream`; project format 6 with the pack key and its migration; `--init-pack-key`;
+- [x] Phase 3: AES-256-CTR `PackStream`; project format 6 with the pack key and its migration; `--init-pack-key`;
       `MF_PACK_KEY`; `MainframePackKey` through `MainframeGame.props` and the generator's module initializer; the
       `encrypt` preset key; validator issues.
 - [ ] Phase 4: `IsAotCompatible` and the analyzer fixes (shared with M12.6/C0); the static Steamworks shim under AOT; the
@@ -317,6 +319,26 @@ Built (2026-11-06); see "Changes from the proposal, phase 2" below and [Asset pi
 - **`assets.index.json` and the UID map** live only inside the pack: `AssetDatabase` reads them through `ContentFiles`,
   and the packed template export runs (`ExportsATemplateGameForThisMachineAndRunsIt`).
 
+## Changes from the proposal, phase 3
+
+- **`packKey` is a top-level key**, not `export.packKey`: `export` is the presets array. ADR 0240's decision is
+  otherwise unchanged.
+- **The mask** is SHA-256("MainframePackKey:" + assembly name), not random, so the same key gives the same assembly
+  (reproducible exports). It only hides the key from string and byte searches, as intended.
+- **The stream** is `PackEntryStream` with a `PackCipher` (AES-ECB keystream through one reused `ICryptoTransform`,
+  4 KB per AES call), not a separate `PackStream`; Brotli entries are decrypted whole before decoding.
+- **Module initializers** do not run on `typeof(X).Assembly`, so `GameHost.Run` runs the game assemblies' (and the entry
+  assembly's) with `RuntimeHelpers.RunModuleConstructor` before mounting. Only `MainframeGame.props` makes
+  `MainframePackKey` compiler-visible, so a checkout build never compiles the key into the engine.
+- **The editor saves the key** when it opens a project whose file has none (answering the open question: it did not save
+  after migrations). `mf-export --init-pack-key` never replaces a saved key. The template stays format 5 without a key;
+  each new game gets its own when the editor opens it (or `--init-pack-key`; the template smoke runs it).
+- **Tests:** `WrongKeyFailsAtMountWithAClearError` checks `PackReader`; `GameHost` reports a `PackKeyException` like any
+  failed start (exit 1) through its existing catch, not a test of its own. `BuildsWithoutAPackKeyReadLooseFiles` is
+  covered by the loose demo export of `ExportsATemplateGameForThisMachineAndRunsIt` and every Play/editor run, which
+  register no key. `--pack-list`/`--pack-extract` take `--project` or `MF_PACK_KEY`.
+- **`ContentLoadBenchmarks`** gains `Encrypted`.
+
 ## Open questions
 
 - Is Brotli enough, or is a zstd or LZ4 package (needs the dependency discussion) worth it for load time? Owner.
@@ -325,8 +347,8 @@ Built (2026-11-06); see "Changes from the proposal, phase 2" below and [Asset pi
   (+21 %, about 22 µs: the Brotli entry is decoded whole into its own buffer, ~200 KB more allocated). Only Brotli text is
   over the 10 % target, and by microseconds per file.
 - ~~SteamPipe chunking~~: answered in phase 2 (anchors, ADR 0247); the human checklist's depot upload confirms it.
-- Does the editor save a project right after migrating it, so the format-6 key persists without an explicit save?
-  Agent checks in phase 3; if not, the editor saves after generating the key.
+- ~~Does the editor save a project right after migrating it?~~ No; since phase 3 it saves when it opens a project
+  whose file has no key.
 - Does phase 4 stay here, or move to M12.6 with this proposal only adding the preset key? Owner.
 - ~~Should `assets.index.json` and the UID map live only inside the pack?~~ Yes; confirmed in phase 2 (nothing reads
   them by OS path).

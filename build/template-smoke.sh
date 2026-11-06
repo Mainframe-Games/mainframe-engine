@@ -65,6 +65,9 @@ NUGET
   *) echo "template-smoke: ENGINE_SOURCE must be project or package, not '$source'" >&2; exit 1 ;;
 esac
 
+# G19 phase 3: a template project has no saved pack key until the editor opens it; save one, as a team would commit it.
+dotnet run --project "$repo/Tools/MainframeEngine.Export.Cli" -c Release -- --project "$work/SmokeGame" --init-pack-key
+
 # A catalog, so the build's .po -> .mo step (Localization.targets, from the checkout or the package) runs too.
 mkdir -p "$work/SmokeGame/Assets/locale/fr/LC_MESSAGES"
 cat > "$work/SmokeGame/Assets/locale/fr/LC_MESSAGES/messages.po" <<'PO'
@@ -283,7 +286,12 @@ require "$app_dir" Assets.mfpak
 forbid "$app_dir" Assets project.mfproj
 packed="$work/exported-pack"
 rm -rf "$packed"
-"${mf_export[@]}" --pack-extract "$app_dir/Assets.mfpak" "$packed"
+# The pack is encrypted with the project's key: without it the files cannot be read.
+if "${mf_export[@]}" --pack-list "$app_dir/Assets.mfpak" > /dev/null 2>&1; then
+  echo "template-smoke: Assets.mfpak lists without the project's key: it is not encrypted" >&2
+  exit 1
+fi
+"${mf_export[@]}" --pack-extract "$app_dir/Assets.mfpak" "$packed" --project "$work/SmokeGame"
 require "$packed" project.mfproj Assets/assets.index.json Assets/Scenes/Main.mfscene Assets/locale/fr/LC_MESSAGES/messages.mo \
   Assets/UI/widgets/widgets.rcss Assets/Shaders/Mesh/Mesh.vk.vert.spv
 forbid "$packed" Assets/Video

@@ -28,5 +28,11 @@ public sealed class NodeRegistrationGenerator : IIncrementalGenerator
 
         // Networking ([Replicated], [Rpc]): a second file, only for assemblies that declare networked members.
         context.RegisterSourceOutput(collected, static (spc, input) => ReplicationEmitter.Emit(spc, input.Left, input.Right));
+
+        // G19 phase 3: an export's pack key (-p:MainframePackKey, a CompilerVisibleProperty of MainframeGame.props), as a
+        // module initializer that registers it with PackKeys. Builds without the property emit nothing.
+        var packKey = context.AnalyzerConfigOptionsProvider.Select(static (options, _) =>
+            options.GlobalOptions.TryGetValue("build_property.MainframePackKey", out var value) ? value.Trim() : "");
+        context.RegisterSourceOutput(packKey.Combine(assemblyName), static (spc, input) => PackKeyEmitter.Emit(spc, input.Left, input.Right));
     }
 }

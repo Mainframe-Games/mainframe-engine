@@ -4,7 +4,8 @@ using BenchmarkDotNet.Attributes;
 namespace MainframeEngine.Benchmarks;
 
 /// <summary>
-/// Content loads through <see cref="ContentFiles"/> from loose files and from a mounted <c>Assets.mfpak</c> (G19 phase 2):
+/// Content loads through <see cref="ContentFiles"/> from loose files, a mounted <c>Assets.mfpak</c> (G19 phase 2) and an
+/// encrypted one (phase 3):
 /// a 200 KB scene's text (Brotli in a pack), a 512² PNG decode (stored) and a UI document. A pack must not load more than
 /// 10 % slower than loose files (docs/design/future/protected-exports.md#testing; compare on the baseline machine).
 /// </summary>
@@ -15,8 +16,8 @@ public class ContentLoadBenchmarks : IDisposable
     private string _root = "";
     private Both? _mount;
 
-    /// <summary>Where the files come from: <c>Loose</c> on disk, or <c>Pack</c> (the same files in a mounted pack).</summary>
-    [Params("Loose", "Pack")]
+    /// <summary>Where the files come from: <c>Loose</c> on disk, <c>Pack</c> (the same files in a mounted pack) or <c>Encrypted</c>.</summary>
+    [Params("Loose", "Pack", "Encrypted")]
     public string Source { get; set; } = "Loose";
 
     [GlobalSetup]
@@ -42,8 +43,9 @@ public class ContentLoadBenchmarks : IDisposable
 
         _root = Path.Combine(_directory, "packed"); // not on disk: the pack is the only copy
         var pack = Path.Combine(_directory, PackFormat.FileName);
-        PackWriter.Write(pack, PackWriter.GameFiles(loose));
-        var source = new PackContentSource(PackReader.Open(pack), _root);
+        byte[]? key = Source == "Encrypted" ? [.. Enumerable.Range(0, 32).Select(i => (byte)(i * 3 + 1))] : null;
+        PackWriter.Write(pack, PackWriter.GameFiles(loose), key);
+        var source = new PackContentSource(PackReader.Open(pack, key), _root);
         _mount = new Both(ContentFiles.Mount(source), source);
     }
 

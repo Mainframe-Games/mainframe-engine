@@ -64,6 +64,15 @@ public static class ExportValidator
                     $"Start it with {ContentPaths.FolderName}/.");
         }
 
+        if (preset.Pack && preset.Encrypt)
+        {
+            if (Variable(environment, ExportPlan.PackKeyVariable) is { } text && !PackKeys.TryParse(text, out _))
+                Error("pack-key-invalid", $"{ExportPlan.PackKeyVariable} is not a pack key (32 bytes in base64).", "Fix or unset it.");
+            else if (plan.PackKey is null)
+                Error("pack-key-missing", $"The project has no saved pack key, so the pack cannot be encrypted ({ProjectSettings.FileName} format 6's packKey).",
+                    "Run mf-export --init-pack-key, or open the project in the editor (it saves the key); or set encrypt to false.");
+        }
+
         if (!preset.Pack && preset.Loose.Count > 0)
             Warn("loose-without-pack", "Loose globs do nothing when pack is off: every file ships loose.");
         if (preset.Include.Count == 0)
@@ -236,6 +245,9 @@ public static class ExportValidator
             database.Scan();
         return database;
     }
+
+    private static string? Variable(ExportEnvironment environment, string name) =>
+        environment.GetVariable(name) is { Length: > 0 } value ? value.Trim() : null;
 
     private static bool IsInside(string path, string folder)
     {

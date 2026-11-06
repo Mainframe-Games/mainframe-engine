@@ -27,15 +27,17 @@ public sealed class PackContentSource : IContentSource, IDisposable
 
     /// <summary>
     /// Opens <c>Assets.mfpak</c> in <paramref name="directory"/> and mounts it there, or returns null when there is none.
-    /// The handle unmounts it and closes the pack. Throws <see cref="InvalidDataException"/> for a damaged pack.
+    /// The handle unmounts it and closes the pack. An encrypted pack opens with <paramref name="key"/>, else the game's
+    /// (<see cref="PackKeys"/>). Throws <see cref="InvalidDataException"/> for a damaged pack and
+    /// <see cref="PackKeyException"/> for a missing or wrong key.
     /// </summary>
-    public static IDisposable? MountBeside(string directory, int priority = 0)
+    public static IDisposable? MountBeside(string directory, int priority = 0, byte[]? key = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         var file = Path.Combine(directory, PackFormat.FileName);
         if (!File.Exists(file)) // disk-io: the pack itself
             return null;
-        var source = new PackContentSource(PackReader.Open(file), directory);
+        var source = new PackContentSource(PackReader.Open(file, key), directory);
         return new Mounted(ContentFiles.Mount(source, priority), source);
     }
 

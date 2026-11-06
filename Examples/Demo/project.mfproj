@@ -1,5 +1,5 @@
 {
-  "format": 5,
+  "format": 6,
   "name": "Mainframe Demo",
   "userDataName": "MainframeDemo",
   "engineVersion": "0.0.0-dev",
@@ -38,5 +38,6 @@
     { "name": "Linux", "platform": "linux", "rid": "linux-x64", "output": "export/linux" },
     { "name": "Linux server", "platform": "linux", "rid": "linux-x64", "output": "export/server", "archive": false, "exe": "MainframeDemoServer",
       "exclude": ["Assets/**/*.po", "Assets/**/*.pot", "Assets/Music/**"] }
-  ]
+  ],
+  "packKey": "JDTXM2ismpPxpXfkbFrkV+fU3eJ1vN/5XkbxcrSiGjk="
 }
