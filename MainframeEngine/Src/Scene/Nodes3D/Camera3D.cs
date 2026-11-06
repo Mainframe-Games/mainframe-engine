@@ -138,6 +138,27 @@ public class Camera3D : Node3D, ICurrentCamera
         return Vector3.Dot(Vector3.Normalize(-global.Basis.Z), worldPoint - global.Origin) < Near;
     }
 
+    /// <summary>
+    /// The camera's view frustum in its viewport (the synced render camera, no TAA jitter), for culling bounds or points
+    /// without allocating.
+    /// </summary>
+    public Frustum GetFrustum()
+    {
+        var size = GetViewport()?.Size ?? Vector2.One;
+        var camera = SyncRenderCamera(AspectOf(size));
+        return new Frustum(camera.ViewMatrix * camera.ProjectionMatrix);
+    }
+
+    /// <summary>True when <paramref name="worldPoint"/> is inside the view frustum (Godot's <c>is_position_in_frustum</c>).</summary>
+    public bool IsPositionInFrustum(Vector3 worldPoint) => GetFrustum().Contains(worldPoint);
+
+    /// <summary>
+    /// The six frustum planes (left, right, bottom, top, near, far), normalised, into <paramref name="planes"/> (at least
+    /// six long; Godot's <c>get_frustum</c> without the array). Unlike Godot's, the normals point <b>inwards</b>, as
+    /// <see cref="Frustum"/>'s do: a point is inside when every <c>Plane.DotCoordinate</c> is ≥ 0.
+    /// </summary>
+    public void GetFrustumPlanes(Span<Plane> planes) => GetFrustum().CopyPlanes(planes);
+
     private (Vector3 Origin, Vector3 Direction) RayThrough(Vector2 pixel)
     {
         var size = GetViewport()?.Size ?? Vector2.One;
