@@ -69,6 +69,10 @@ internal sealed unsafe class SubViewportPost : IPostOutput, IDisposable
     /// <summary>What the view's effects decide on this frame (set by the render server before the frame starts).</summary>
     public PostEffectSettings Settings { get; set; }
 
+    /// <summary>The exposure this view's tonemap applies (ADR 0257: <c>IgnoreExposure</c> surfaces divide by it).</summary>
+    public float EffectiveExposure =>
+        PostExposure.Effective(Settings.World.ExposureFor(_ctx.Exposure), Settings.World, Settings.PostTonemap, _autoExposure.LastAdaptedLuminance);
+
     /// <summary>The shadow set the view's lit shaders bind this frame (null: none; set by the render server).</summary>
     public IShadowDescriptors? ShadowDescriptors { get; set; }
 
