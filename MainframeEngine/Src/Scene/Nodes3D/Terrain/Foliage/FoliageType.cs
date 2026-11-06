@@ -70,6 +70,13 @@ public sealed class FoliageType : Resource
     [Export]
     public uint LayerMask { get; set => Set(ref field, value); }
 
+    /// <summary>
+    /// The type grows by its own rule (<see cref="LayerMask"/>: everywhere without one). Off: only where the Terrain dock's
+    /// Foliage brush painted it (types 0–7); painted density adds to the rule either way.
+    /// </summary>
+    [Export]
+    public bool AutoGrowth { get; set => Set(ref field, value); } = true;
+
     /// <summary>Steepest ground it grows on, in degrees (it thins out over the last 5°).</summary>
     [Export(Range = "0,90,0.5")]
     public float SlopeMaxDegrees { get; set => Set(ref field, value); } = 40f;
