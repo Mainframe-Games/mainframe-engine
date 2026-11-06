@@ -290,7 +290,7 @@ public sealed class Tree3D : Node3D
 
     /// <summary>
     /// Generates the tree from its options (ignoring <see cref="BakedMesh"/>), makes the result its
-    /// <see cref="BakedMesh"/> and, when <paramref name="path"/> is given, saves it there as <c>.mres</c> (all levels, the
+    /// <see cref="BakedMesh"/> and, when <paramref name="path"/> is given, saves it there as <c>.mfres</c> (all levels, the
     /// trunk capsule and the options). Returns the baked mesh.
     /// </summary>
     public TreeMesh Bake(string? path = null)

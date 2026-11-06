@@ -137,18 +137,18 @@ public sealed class SerializationTests : IDisposable
     [Fact]
     public void SavedFilesUseLfLineEndingsOnEveryOs()
     {
-        // Scene, resource, .meta and index files are committed content: byte-identical on Windows, macOS and Linux.
+        // Scene, resource, .mfmeta and index files are committed content: byte-identical on Windows, macOS and Linux.
         var node = new AllTypesNode { Name = "N", Int = 8, Position = new Vector3(0, 1, 0) };
-        var scene = ContentPath("Lf.mscene");
+        var scene = ContentPath("Lf.mfscene");
         SceneSaver.Save(node, scene);
         node.Free();
-        ResourceSaver.Save(new TestResource { Value = 1, Label = "a" }, ContentPath("Lf.mres"));
+        ResourceSaver.Save(new TestResource { Value = 1, Label = "a" }, ContentPath("Lf.mfres"));
         File.WriteAllBytes(ContentPath("lf.png"), [1, 2, 3]);
         var db = new AssetDatabase(_project);
         db.Scan(createMissingMeta: true);
         db.WriteIndex();
 
-        string[] files = [scene, ContentPath("Lf.mres"), ContentPath("lf.png.meta"), ContentPath(AssetDatabase.IndexFileName)];
+        string[] files = [scene, ContentPath("Lf.mfres"), ContentPath("lf.png.mfmeta"), ContentPath(AssetDatabase.IndexFileName)];
         foreach (var file in files)
         {
             var bytes = File.ReadAllBytes(file);
@@ -276,7 +276,7 @@ public sealed class SerializationTests : IDisposable
         var hitbox = Own(player, player, new AllTypesNode { Name = "Hitbox", Int = 10 });
         var signals = Own(player, hitbox, new SignalNode { Name = "Signals" });
         signals.Connect("Pinged", signals, nameof(SignalNode.OnPinged), ConnectFlags.Persist);
-        var path = ContentPath("Scenes/Player.mscene");
+        var path = ContentPath("Scenes/Player.mfscene");
         SceneSaver.Save(player, path);
         player.Free();
         return path;
@@ -295,13 +295,13 @@ public sealed class SerializationTests : IDisposable
         player.GetNode<AllTypesNode>("Hitbox").Int = 99;           // override inside the instance
         Own(level, player, new PlainNode { Name = "Hat" });         // added under the instance root
         Own(level, player.GetNode("Hitbox"), new PlainNode { Name = "Badge" }); // added deeper
-        Assert.Equal("Assets/Scenes/Player.mscene", player.SceneFilePath);
+        Assert.Equal("Assets/Scenes/Player.mfscene", player.SceneFilePath);
 
         var bytes = SceneSaver.ToJson(level);
         var file = Json(bytes);
         var entry = SceneJson.Node(file, "Hero");
         Assert.Equal(playerScene.Uid, entry.GetProperty("instance").GetString());
-        Assert.Equal("Assets/Scenes/Player.mscene", entry.GetProperty("path").GetString());
+        Assert.Equal("Assets/Scenes/Player.mfscene", entry.GetProperty("path").GetString());
         Assert.Equal("Hero", entry.GetProperty("name").GetString());
         Assert.Equal(["Position"], entry.GetProperty("props").EnumerateObject().Select(p => p.Name));
         var overrides = entry.GetProperty("overrides");
@@ -337,7 +337,7 @@ public sealed class SerializationTests : IDisposable
         var level = new Node3D { Name = "Level" };
         var player = Own(level, level, ResourceLoader.Load<PackedScene>(playerPath).Instantiate());
         player.GetNode<AllTypesNode>("Hitbox").Text = "overridden";
-        var levelPath = ContentPath("Scenes/Level.mscene");
+        var levelPath = ContentPath("Scenes/Level.mfscene");
         SceneSaver.Save(level, levelPath);
         level.Free();
 
@@ -358,12 +358,12 @@ public sealed class SerializationTests : IDisposable
     [Fact]
     public void ASceneThatInstancesItselfIsRejected()
     {
-        var path = ContentPath("Scenes/Loop.mscene");
+        var path = ContentPath("Scenes/Loop.mfscene");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, """
             { "format": 1, "uid": "scn_00000000aaaa",
               "root": { "type": "Node3D", "name": "Loop",
-                "children": [ { "instance": "scn_00000000aaaa", "path": "Assets/Scenes/Loop.mscene", "name": "Again" } ] } }
+                "children": [ { "instance": "scn_00000000aaaa", "path": "Assets/Scenes/Loop.mfscene", "name": "Again" } ] } }
             """);
         AssetDatabase.Current.Register("scn_00000000aaaa", path);
 
@@ -379,21 +379,21 @@ public sealed class SerializationTests : IDisposable
     public void ExternalResourcesAreReferencedByUidAndShared()
     {
         var resource = new TestResource { Value = 5, Label = "external", Next = new TestResource { Value = 6 } };
-        var resourcePath = ContentPath("Data/Stats.mres");
+        var resourcePath = ContentPath("Data/Stats.mfres");
         var uid = ResourceSaver.Save(resource, resourcePath);
         Assert.StartsWith("res_", uid, StringComparison.Ordinal);
         Assert.True(resource.IsExternal);
-        Assert.Equal("Assets/Data/Stats.mres", resource.ResourcePath);
+        Assert.Equal("Assets/Data/Stats.mfres", resource.ResourcePath);
 
         var root = new AllTypesNode { Name = "Main", Data = resource };
-        var scenePath = ContentPath("Scenes/UsesStats.mscene");
+        var scenePath = ContentPath("Scenes/UsesStats.mfscene");
         SceneSaver.Save(root, scenePath);
         root.Free();
 
         var table = Json(File.ReadAllBytes(scenePath)).GetProperty("resources");
         var reference = table.EnumerateObject().Single().Value;
         Assert.Equal(uid, reference.GetProperty("ref").GetString());
-        Assert.Equal("Assets/Data/Stats.mres", reference.GetProperty("path").GetString());
+        Assert.Equal("Assets/Data/Stats.mfres", reference.GetProperty("path").GetString());
 
         ResourceLoader.ClearCache();
         var scene = ResourceLoader.Load<PackedScene>(scenePath);
@@ -401,9 +401,9 @@ public sealed class SerializationTests : IDisposable
         var b = scene.Instantiate<AllTypesNode>();
         Assert.Same(a.Data, b.Data);
         Assert.Equal(5, a.Data!.Value);
-        Assert.Equal(6, a.Data.Next!.Value); // the inline sub-resource of the .mres
+        Assert.Equal(6, a.Data.Next!.Value); // the inline sub-resource of the .mfres
         Assert.Same(a.Data, ResourceLoader.Load<TestResource>(uid));
-        Assert.Same(a.Data, ResourceLoader.Load<TestResource>("Assets/Data/Stats.mres"));
+        Assert.Same(a.Data, ResourceLoader.Load<TestResource>("Assets/Data/Stats.mfres"));
         a.Free();
         b.Free();
     }
@@ -411,7 +411,7 @@ public sealed class SerializationTests : IDisposable
     [Fact]
     public void ReleasingTheLastReferenceEvictsTheResource()
     {
-        var uid = ResourceSaver.Save(new TestResource { Value = 1 }, ContentPath("R.mres"));
+        var uid = ResourceSaver.Save(new TestResource { Value = 1 }, ContentPath("R.mfres"));
         ResourceLoader.ClearCache();
 
         var first = ResourceLoader.Load<TestResource>(uid);
@@ -433,7 +433,7 @@ public sealed class SerializationTests : IDisposable
     public void UidsSurviveResavingAndMovingFiles()
     {
         var sub = new Node3D { Name = "Sub" };
-        var subPath = ContentPath("Scenes/Sub.mscene");
+        var subPath = ContentPath("Scenes/Sub.mfscene");
         var uid = SceneSaver.Save(sub, subPath);
         Assert.Equal(uid, SceneSaver.Save(sub, subPath)); // stable on re-save
         Assert.True(AssetUid.IsUid(uid));
@@ -441,65 +441,65 @@ public sealed class SerializationTests : IDisposable
 
         var level = new Node3D { Name = "Level" };
         Own(level, level, ResourceLoader.Load<PackedScene>(subPath).Instantiate());
-        var levelPath = ContentPath("Scenes/Level.mscene");
+        var levelPath = ContentPath("Scenes/Level.mfscene");
         SceneSaver.Save(level, levelPath);
         level.Free();
         sub.Free();
 
         // Move the sub-scene; the level's path hint goes stale but its UID still resolves.
-        AssetDatabase.Current.Move("Assets/Scenes/Sub.mscene", "Assets/Moved/Renamed.mscene");
+        AssetDatabase.Current.Move("Assets/Scenes/Sub.mfscene", "Assets/Moved/Renamed.mfscene");
         ResourceLoader.ClearCache();
-        Assert.Equal("Assets/Moved/Renamed.mscene", AssetDatabase.Current.GetPath(uid));
+        Assert.Equal("Assets/Moved/Renamed.mfscene", AssetDatabase.Current.GetPath(uid));
 
         var reloaded = ResourceLoader.Load<PackedScene>(levelPath).Instantiate();
-        Assert.Equal("Assets/Moved/Renamed.mscene", reloaded.GetNode("Sub").SceneFilePath);
+        Assert.Equal("Assets/Moved/Renamed.mfscene", reloaded.GetNode("Sub").SceneFilePath);
         reloaded.Free();
 
         // A fresh database finds it again by scanning.
         var scanned = new AssetDatabase(_project);
         scanned.Scan();
-        Assert.Equal("Assets/Moved/Renamed.mscene", scanned.GetPath(uid));
+        Assert.Equal("Assets/Moved/Renamed.mfscene", scanned.GetPath(uid));
     }
 
     [Fact]
     public void AssetDatabaseScansMetaSidecarsAndWritesAnIndex()
     {
         File.WriteAllBytes(ContentPath("icon.png"), [1, 2, 3]);
-        // A surface shader's SPIR-V, layout and lock are part of the shader, not assets: no .meta of their own.
+        // A surface shader's SPIR-V, layout and lock are part of the shader, not assets: no .mfmeta of their own.
         File.WriteAllText(ContentPath("wave.slang"), "import mainframe.canvas;");
         File.WriteAllBytes(ContentPath("wave.slang.vert.spv"), [1]);
         File.WriteAllBytes(ContentPath("wave.slang.frag.spv"), [1]);
-        File.WriteAllText(ContentPath("wave.slang.spvlock"), "x");
-        File.WriteAllText(ContentPath("wave.slang.layout.json"), "{}");
+        File.WriteAllText(ContentPath("wave.slang.mfspvlock"), "x");
+        File.WriteAllText(ContentPath("wave.slang.mflayout.json"), "{}");
         File.WriteAllBytes(ContentPath("wave.slang.shadow-point.vert.spv"), [1]); // a spatial shader's other passes (ADR 0205)
-        // Nor is a light-probe bake's coefficients file, which belongs to its .mres.
-        File.WriteAllBytes(ContentPath("lighting.probes"), [1]);
-        // Nor is a file being written (a save's or a bake's temporary file); a .meta left for one that is gone is removed.
+        // Nor is a light-probe bake's coefficients file, which belongs to its .mfres.
+        File.WriteAllBytes(ContentPath("lighting.mfprobes"), [1]);
+        // Nor is a file being written (a save's or a bake's temporary file); a .mfmeta left for one that is gone is removed.
         File.WriteAllBytes(ContentPath("theme.ogg.baking.wav.tmp"), [1]);
-        File.WriteAllText(ContentPath("old.ogg.baking.wav.tmp.meta"), """{"uid":"snd_stale"}""");
-        var sceneUid = SceneSaver.Save(new Node3D { Name = "S" }, ContentPath("S.mscene"));
+        File.WriteAllText(ContentPath("old.ogg.baking.wav.tmp.mfmeta"), """{"uid":"snd_stale"}""");
+        var sceneUid = SceneSaver.Save(new Node3D { Name = "S" }, ContentPath("S.mfscene"));
         // A video timeline carries its own uid (ADR 0241), like a scene.
         File.WriteAllText(ContentPath("Edit.mftimeline"), """{ "version": 1, "uid": "vtl_0123456789ab", "settings": {} }""");
 
         var db = new AssetDatabase(_project);
         db.Scan(createMissingMeta: true);
         Assert.Equal("Assets/Edit.mftimeline", db.GetPath("vtl_0123456789ab"));
-        Assert.False(File.Exists(ContentPath("Edit.mftimeline.meta")));
+        Assert.False(File.Exists(ContentPath("Edit.mftimeline.mfmeta")));
         Assert.Equal(AssetUid.TimelinePrefix, AssetUid.PrefixForExtension(".mftimeline"));
         var meta = db.ReadOrCreateMeta("Assets/icon.png", create: false)!;
         Assert.StartsWith("tex_", meta.Uid, StringComparison.Ordinal);
-        Assert.True(File.Exists(ContentPath("icon.png.meta")));
-        Assert.True(File.Exists(ContentPath("wave.slang.meta")));
-        Assert.False(File.Exists(ContentPath("wave.slang.vert.spv.meta")));
-        Assert.False(File.Exists(ContentPath("wave.slang.frag.spv.meta")));
-        Assert.False(File.Exists(ContentPath("wave.slang.spvlock.meta")));
-        Assert.False(File.Exists(ContentPath("wave.slang.layout.json.meta")));
-        Assert.False(File.Exists(ContentPath("wave.slang.shadow-point.vert.spv.meta")));
-        Assert.False(File.Exists(ContentPath("lighting.probes.meta")));
-        Assert.False(File.Exists(ContentPath("theme.ogg.baking.wav.tmp.meta")));
-        Assert.False(File.Exists(ContentPath("old.ogg.baking.wav.tmp.meta")));
+        Assert.True(File.Exists(ContentPath("icon.png.mfmeta")));
+        Assert.True(File.Exists(ContentPath("wave.slang.mfmeta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.vert.spv.mfmeta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.frag.spv.mfmeta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.mfspvlock.mfmeta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.mflayout.json.mfmeta")));
+        Assert.False(File.Exists(ContentPath("wave.slang.shadow-point.vert.spv.mfmeta")));
+        Assert.False(File.Exists(ContentPath("lighting.mfprobes.mfmeta")));
+        Assert.False(File.Exists(ContentPath("theme.ogg.baking.wav.tmp.mfmeta")));
+        Assert.False(File.Exists(ContentPath("old.ogg.baking.wav.tmp.mfmeta")));
         Assert.Equal("Assets/icon.png", db.GetPath(meta.Uid));
-        Assert.Equal("Assets/S.mscene", db.GetPath(sceneUid));
+        Assert.Equal("Assets/S.mfscene", db.GetPath(sceneUid));
         Assert.Equal(meta.Uid, db.GetUid("Assets/icon.png"));
 
         // A second scan keeps the meta's UID.
@@ -511,12 +511,12 @@ public sealed class SerializationTests : IDisposable
         db.WriteIndex();
         var index = Json(File.ReadAllBytes(ContentPath(AssetDatabase.IndexFileName)));
         Assert.Equal(1, index.GetProperty("format").GetInt32());
-        Assert.Equal("Assets/S.mscene", index.GetProperty("assets").GetProperty(sceneUid).GetString());
+        Assert.Equal("Assets/S.mfscene", index.GetProperty("assets").GetProperty(sceneUid).GetString());
 
-        File.Delete(ContentPath("S.mscene"));
+        File.Delete(ContentPath("S.mfscene"));
         var fromIndex = new AssetDatabase(_project);
         fromIndex.Refresh();
-        Assert.Equal("Assets/S.mscene", fromIndex.GetPath(sceneUid)); // came from the index, not a scan
+        Assert.Equal("Assets/S.mfscene", fromIndex.GetPath(sceneUid)); // came from the index, not a scan
     }
 
     [Fact]
@@ -526,7 +526,7 @@ public sealed class SerializationTests : IDisposable
         Assert.Matches("^scn_[0-9a-f]{12}$", uid);
         Assert.True(AssetUid.IsUid(uid));
         Assert.True(AssetUid.IsUid("res_7b21aa90")); // the 8-digit form from the design sketch
-        Assert.False(AssetUid.IsUid("Assets/Scenes/Main.mscene"));
+        Assert.False(AssetUid.IsUid("Assets/Scenes/Main.mfscene"));
         Assert.False(AssetUid.IsUid("SCN_3f9a1c2e"));
         Assert.Throws<ArgumentException>(() => AssetUid.Generate("toolong"));
         Assert.Equal("aud", AssetUid.PrefixForExtension(".OGG"));
@@ -624,20 +624,20 @@ public sealed class SerializationTests : IDisposable
     [Fact]
     public void TheShowcaseFixtureMatchesItsBuilderAndResavesIdentically()
     {
-        var committed = Path.Combine(TestPaths.RepositoryRoot(), "Tests", "Assets", "Scenes", "Showcase.mscene");
+        var committed = Path.Combine(TestPaths.RepositoryRoot(), "Tests", "Assets", "Scenes", "Showcase.mfscene");
         if (Environment.GetEnvironmentVariable("UPDATE_TEST_ASSETS") == "1")
         {
             // The builder loads the glTF test model and the checker texture from the test output.
             AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory);
             ShowcaseSceneBuilder.Write(committed);
-            var copy = Path.Combine(AppContext.BaseDirectory, "Assets", "Scenes", "Showcase.mscene"); // the output copy is stale
+            var copy = Path.Combine(AppContext.BaseDirectory, "Assets", "Scenes", "Showcase.mfscene"); // the output copy is stale
             Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
             File.Copy(committed, copy, overwrite: true);
         }
 
         // The scene instances the glTF test model, which the test output carries, so resolve assets against the output folder.
         AssetDatabase.Current = new AssetDatabase(AppContext.BaseDirectory);
-        var scene = ResourceLoader.Load<PackedScene>("Assets/Scenes/Showcase.mscene");
+        var scene = ResourceLoader.Load<PackedScene>("Assets/Scenes/Showcase.mfscene");
         var root = scene.Instantiate<Node3D>();
         try
         {

@@ -26,7 +26,7 @@ public sealed class DurableFileTests : IDisposable
     [Fact]
     public void TheFirstWriteCreatesTheFolderAndLeavesNoTemp()
     {
-        var path = Path.Combine(_directory, "a", "b", "slot1.msave");
+        var path = Path.Combine(_directory, "a", "b", "slot1.mfsave");
 
         DurableFile.Write(path, Bytes("v1"), backups: 2);
 
@@ -38,7 +38,7 @@ public sealed class DurableFileTests : IDisposable
     [Fact]
     public void BackupsRollAndTheOldestFallsOff()
     {
-        var path = PathOf("slot1.msave");
+        var path = PathOf("slot1.mfsave");
         for (var i = 1; i <= 5; i++)
             DurableFile.Write(path, Bytes("v" + i), backups: 2);
 
@@ -79,7 +79,7 @@ public sealed class DurableFileTests : IDisposable
     {
         for (var crashAt = 0; ; crashAt++)
         {
-            var path = PathOf($"crash-{backups}-{crashAt}.msave");
+            var path = PathOf($"crash-{backups}-{crashAt}.mfsave");
             DurableFile.Write(path, Bytes("old-old"), backups);
             DurableFile.Write(path, Bytes("old"), backups);
 
@@ -109,7 +109,7 @@ public sealed class DurableFileTests : IDisposable
     [Fact]
     public void RestoreMakesABackupTheMainFileAgain()
     {
-        var path = PathOf("slot1.msave");
+        var path = PathOf("slot1.mfsave");
         DurableFile.Write(path, Bytes("v1"), backups: 1);
         DurableFile.Write(path, Bytes("v2"), backups: 1);
         File.WriteAllText(path, "garbage");

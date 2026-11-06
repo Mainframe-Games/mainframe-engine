@@ -329,9 +329,9 @@ public sealed class SpriteFramesInspectorTests : IDisposable
                 Assert.Equal(4, SheetGridMemory.Get(root, "Assets/sheet.png")!.Columns);
 
             var mres = FileSystemPanel.CreateSpriteFrames(Path.Combine(assets, "sheet.png"), Sheet, grid.Value, cells!);
-            Assert.Equal(Path.Combine(assets, "sheet.mres"), mres);
+            Assert.Equal(Path.Combine(assets, "sheet.mfres"), mres);
             Assert.Contains("\"SpriteFrames\"", File.ReadAllText(mres), StringComparison.Ordinal);
-            Assert.Equal(Path.Combine(assets, "sheet 2.mres"), FileSystemPanel.CreateSpriteFrames(Path.Combine(assets, "sheet.png"), Sheet, grid.Value, cells!));
+            Assert.Equal(Path.Combine(assets, "sheet 2.mfres"), FileSystemPanel.CreateSpriteFrames(Path.Combine(assets, "sheet.png"), Sheet, grid.Value, cells!));
         }
         finally
         {

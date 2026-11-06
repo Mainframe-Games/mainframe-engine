@@ -53,7 +53,7 @@ public sealed class AudioPreview
     }
 
     /// <summary>
-    /// Previews an audio file (<c>.wav</c>/<c>.ogg</c>/…, or a <c>.mres</c> holding an <see cref="AudioStream"/>), loaded
+    /// Previews an audio file (<c>.wav</c>/<c>.ogg</c>/…, or a <c>.mfres</c> holding an <see cref="AudioStream"/>), loaded
     /// through <see cref="ResourceLoader"/> (import settings applied, shared cache: a long file streams).
     /// </summary>
     public bool PlayFile(string fullPath)

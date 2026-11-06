@@ -23,7 +23,7 @@ public enum MarkerOcclusion : byte
 }
 
 /// <summary>
-/// A screen-space UI marker at a 3D point (G11.4, ADR 0250): a nameplate, health bar, interaction prompt or waypoint drawn
+/// A screen-space UI marker at a 3D point (G11.4, ADR 0254): a nameplate, health bar, interaction prompt or waypoint drawn
 /// by a <see cref="UiMarkerHost"/> on a screen <see cref="UiLayer"/>, so its colours are exact (after the tonemap, with
 /// the HUD). Each marker is one row of the host's <c>markers</c> list (<see cref="Kind"/> picks the row's template);
 /// with <see cref="TargetDocument"/> and <see cref="TargetElementId"/> it moves that element instead (a boss bar).

@@ -41,8 +41,8 @@ Examples/Neon/
 ├── Neon.Tests/           xUnit v3, no GPU; the art tests skip without the LFS content
 ├── Tools/                fetch_assets.py (the CC0 texture sets), apartment/build_apartment.py + make_posters.py,
 │                         city/build_city_kit.py (Blender, headless)
-└── Assets/               Scenes/neon.mscene + neon-lighting.mres/.probes, PostProcess/neon.mres + neon-lens.mres,
-                          Settings/AudioBusLayout.mres, Shaders/*.slang (+ SPIR-V), UI/ (prompt, fps, menu.rcss, keys),
+└── Assets/               Scenes/neon.mfscene + neon-lighting.mfres/.mfprobes, PostProcess/neon.mfres + neon-lens.mfres,
+                          Settings/AudioBusLayout.mfres, Shaders/*.slang (+ SPIR-V), UI/ (prompt, fps, menu.rcss, keys),
                           Art/Apartment (glTF, textures, posters), Art/City (the kit and the signs' words)
 ```
 
@@ -216,11 +216,11 @@ positions for the computer's map. 0 B per frame.
 
 - **Sky and air:** a dark procedural sky glowing magenta at the horizon, purple fog and height fog. A dim moon is the
   only directional light.
-- **Post** (`NeonLook` writes `Assets/PostProcess/neon.mres` and `neon-lens.mres`): AgX, a wide additive glow over the
+- **Post** (`NeonLook` writes `Assets/PostProcess/neon.mfres` and `neon-lens.mfres`): AgX, a wide additive glow over the
   neon only (threshold 1.6: above the windows, under the trims and signs, so a facade stays sharp), GTAO, a mild grade,
   vignette and a little chromatic aberration. No film grain.
 - **Light probes:** a 1 m box `LightProbeVolume` over the apartment and the balcony, baked with `--bake-lighting`
-  (`Assets/Scenes/neon-lighting.mres` + `.probes`, ADR 0170). Its sky occlusion keeps the sky's magenta out of indoor
+  (`Assets/Scenes/neon-lighting.mfres` + `.mfprobes`, ADR 0170). Its sky occlusion keeps the sky's magenta out of indoor
   reflections. The bake is deterministic (moving meshes are excluded), so a launch finds it current; a stale bake
   re-bakes in the background in about a second.
 
@@ -317,7 +317,7 @@ After `++`: `--no-capture`, `--view x,y,z,yaw[,pitch]` (feet in apartment space;
 just neon                  # Release
 just neon-test             # Neon.Tests (no GPU)
 just neon-audio            # render the soundscape to Examples/Neon/artifacts/audio
-just neon-art              # posters, the apartment, MPFB and its packs, the resident in Blender, then .meta sidecars
+just neon-art              # posters, the apartment, MPFB and its packs, the resident in Blender, then .mfmeta sidecars
 just neon-city-art         # the city kit and the signs' words atlas in Blender
 just neon-screenshots      # N1–N8 into docs/images/neon
 just neon-brand            # the app icon

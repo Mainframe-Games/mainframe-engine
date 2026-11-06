@@ -92,7 +92,7 @@ flowchart LR
   (`OnUpdate`, `OnShadowPass`, `OnRenderMainPass`) are optional.
 - **The engine owns the scene.** A `SceneTree` (Godot model) runs lifecycle, physics/process, deferred
   calls, transform sync and input for every node; behaviour is C# node subclasses. Scenes are data
-  (`.mscene`) loaded through `ResourceLoader`; node properties are discovered by a source generator, not
+  (`.mfscene`) loaded through `ResourceLoader`; node properties are discovered by a source generator, not
   reflection.
 - **Nodes are front-ends to servers.** Nodes hold editable state; servers (`RenderServer`, the physics servers
   `PhysicsServer3D`/`PhysicsServer2D` (M6), `NavigationServer2D` (G3a), `AudioServer` (M7), `UiServer` (M8)) hold GPU, simulation, audio and native
@@ -118,7 +118,7 @@ flowchart LR
 | `SceneTree` (root viewport, `World3D` with its `LightEnvironment`) | `Engine` ctor | `Engine.OnClose` (`Tree.Shutdown()` frees every node) |
 | Input context, `VulkanRenderer`, servers (`RenderServer` → `ShadowSystem`, `DebugLinesRenderer`; `PhysicsServer3D/2D` → one space per world) | `Engine.OnLoad` | `Engine.OnClose` (servers after the tree, before the renderer) |
 | Nodes and their GPU objects (shapes, Spine, sky, grid) | the game / `PackedScene.Instantiate` (GPU objects: the render server on enter) | `Free`/`QueueFree`, else the tree shutdown; orphans by the render server |
-| Loaded resources (`PackedScene`, `.mres`) | `ResourceLoader.Load` | last `Release()`, else `ResourceLoader.ClearCache()` in `Engine.OnClose` |
+| Loaded resources (`PackedScene`, `.mfres`) | `ResourceLoader.Load` | last `Release()`, else `ResourceLoader.ClearCache()` in `Engine.OnClose` |
 
 ## Related docs
 

@@ -273,7 +273,7 @@ public sealed class MeshSerializationTests : IDisposable
     public void MaterialsSaveAsResourceFilesAndTexturesAsReferences()
     {
         WritePng(ContentPath("Textures/brick.png"), 4, 2);
-        File.WriteAllText(ContentPath("Textures/brick.png.meta"), """
+        File.WriteAllText(ContentPath("Textures/brick.png.mfmeta"), """
             { "uid": "tex_0123456789ab", "importer": "texture",
               "settings": { "colorSpace": "linear", "mipmaps": false, "filter": "nearest", "wrap": "clamp", "anisotropy": 4 } }
             """);
@@ -291,8 +291,8 @@ public sealed class MeshSerializationTests : IDisposable
         Assert.Same(texture, ResourceLoader.Load<Texture2D>("tex_0123456789ab")); // cached by UID
 
         var material = new StandardMaterial3D { AlbedoTexture = texture, NormalTexture = texture };
-        var materialUid = ResourceSaver.Save(material, ContentPath("Materials/Brick.mres"));
-        var json = File.ReadAllText(ContentPath("Materials/Brick.mres"));
+        var materialUid = ResourceSaver.Save(material, ContentPath("Materials/Brick.mfres"));
+        var json = File.ReadAllText(ContentPath("Materials/Brick.mfres"));
         Assert.Contains("\"ref\": \"tex_0123456789ab\"", json, StringComparison.Ordinal);
         Assert.Contains("\"path\": \"Assets/Textures/brick.png\"", json, StringComparison.Ordinal);
 

@@ -15,7 +15,7 @@ internal sealed partial class SaveDataJson : JsonSerializerContext;
 /// <summary>
 /// An autoload (project.mfproj "autoloads"; from any node: <c>GetNode&lt;SaveGame&gt;("/root/SaveGame")</c>) that keeps
 /// the game's <see cref="Data"/>: loaded at start, <see cref="Save"/>/<see cref="Load"/> over the engine's SaveServer
-/// (<c>{user data}/saves/*.msave</c>, the editor's Project › Open User Data Folder) and an autosave when the player
+/// (<c>{user data}/saves/*.mfsave</c>, the editor's Project › Open User Data Folder) and an autosave when the player
 /// closes the window.
 /// </summary>
 public class SaveGame : Node

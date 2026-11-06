@@ -9,7 +9,7 @@ namespace MainframeEngine.Editor;
 /// send, volume (−/+ 1 dB), mute and solo toggles and remove, an Add Bus button and the layout's validation message —
 /// instead of the generic (read-only) list of buses. Every change goes through the inspector context's history, so it
 /// can be undone and is saved with the resource. Open it from Project Settings › Audio › Bus Layout › Edit, or by
-/// double-clicking the <c>.mres</c> in the FileSystem panel.
+/// double-clicking the <c>.mfres</c> in the FileSystem panel.
 /// </summary>
 [CustomInspector(typeof(AudioBusLayout))]
 public sealed class AudioBusLayoutInspector : ICustomInspector

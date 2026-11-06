@@ -6,10 +6,10 @@ namespace Demo;
 
 /// <summary>
 /// Tiles 2D (G2b, G3.6): three <see cref="TileMapLayer"/>s painted from a small ASCII level with one generated atlas
-/// (<see cref="TilesArt"/>, <c>Assets/Tiles2D/tiles.png</c> + the <see cref="TileSet"/> <c>tiles.mres</c>): "Ground"
+/// (<see cref="TilesArt"/>, <c>Assets/Tiles2D/tiles.png</c> + the <see cref="TileSet"/> <c>tiles.mfres</c>): "Ground"
 /// (grass, paths, flowers), "Walls" (what blocks: stone and water, with full-tile collision) and the y-sorted "Objects"
 /// (trees whose canopy sorts at the trunk's base, bushes with polygon collision). The Sprites 2D hero
-/// (<c>hero.mres</c>) is a <see cref="TileHero2D"/> inside the objects layer, so it walks behind and in front of the
+/// (<c>hero.mfres</c>) is a <see cref="TileHero2D"/> inside the objects layer, so it walks behind and in front of the
 /// trees; a camera follows it. A <see cref="TileShadow2D"/> chases it on a <see cref="NavigationGrid2D"/> that reads the
 /// walls layer (<see cref="NavigationGridSource.TileMapLayer"/>). The panel shows collision and navigation, toggles y-sort,
 /// the walk speed and the chase, and a click on the map adds or removes a wall cell at run time (the chunk's drawing and
@@ -18,7 +18,7 @@ namespace Demo;
 public static class Tiles2DScene
 {
     public const string AtlasPath = "Assets/Tiles2D/tiles.png";
-    public const string TileSetPath = "Assets/Tiles2D/tiles.mres";
+    public const string TileSetPath = "Assets/Tiles2D/tiles.mfres";
 
     /// <summary>The level: # wall, . grass, = path, ~ water, * flowers, T tree (canopy above), b bush, @ hero start, s shadow start.</summary>
     public static readonly string[] Level =
@@ -169,7 +169,7 @@ public static class Tiles2DScene
     }
 
     /// <summary>
-    /// Writes <c>tiles.png</c> (+ its <c>.meta</c>) and <c>tiles.mres</c> under <paramref name="assets"/> and where the
+    /// Writes <c>tiles.png</c> (+ its <c>.mfmeta</c>) and <c>tiles.mfres</c> under <paramref name="assets"/> and where the
     /// running game loads content from, like <see cref="Sprites2DScene.WriteAssets"/>.
     /// </summary>
     public static void WriteAssets(string assets)
@@ -177,17 +177,17 @@ public static class Tiles2DScene
         var folder = Path.Combine(assets, "Tiles2D");
         var png = Path.Combine(folder, "tiles.png");
         TilesArt.Write(png);
-        if (!File.Exists(png + ".meta"))
-            File.WriteAllText(png + ".meta", "{\n  \"uid\": \"tex_7a3e91c40d25\"\n}"); // a fixed UID: the tile set references it
+        if (!File.Exists(png + ".mfmeta"))
+            File.WriteAllText(png + ".mfmeta", "{\n  \"uid\": \"tex_7a3e91c40d25\"\n}"); // a fixed UID: the tile set references it
         var output = Path.GetDirectoryName(ContentPaths.Resolve(AtlasPath))!;
-        Mirror(folder, output, "tiles.png", "tiles.png.meta");
+        Mirror(folder, output, "tiles.png", "tiles.png.mfmeta");
         AssetDatabase.Current.Scan();
         var atlas = ResourceLoader.Load<Texture2D>(AtlasPath);
         try
         {
             var uid = ResourceSaver.Save(CreateTileSet(atlas), TileSetPath);
-            Mirror(output, folder, "tiles.mres");
-            Log.Info($"Wrote tiles.png and tiles.mres ({uid})");
+            Mirror(output, folder, "tiles.mfres");
+            Log.Info($"Wrote tiles.png and tiles.mfres ({uid})");
         }
         finally
         {

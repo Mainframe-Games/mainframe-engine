@@ -16,7 +16,7 @@ public sealed class SongPlayerTests : IDisposable
         var song = NewSong();
         var lead = AddInstrumentTrack(song, "lead", InstrumentDescriptor.Zzfx("zzfx(...[,0,220,,1,.1])"));
         AddClip(lead, 0, 960 * 16, (69, 0, 960 * 16));
-        using var doc = new SongDocument(song, Path.Combine(_root, "Player.msong"));
+        using var doc = new SongDocument(song, Path.Combine(_root, "Player.mfsong"));
         using var player = new SongPlayer(server);
         player.Update(doc);
         var chunk = new float[SongEngine.BlockFrames * 2];
@@ -53,7 +53,7 @@ public sealed class SongPlayerTests : IDisposable
         var song = NewSong();
         var lead = AddInstrumentTrack(song, "lead", InstrumentDescriptor.Zzfx("zzfx(...[,0,220,,1,.1])"));
         AddClip(lead, 0, 960 * 16, (69, 0, 960 * 16));
-        using var doc = new SongDocument(song, Path.Combine(_root, "Player.msong"));
+        using var doc = new SongDocument(song, Path.Combine(_root, "Player.mfsong"));
         using var player = new SongPlayer(server);
         player.Update(doc);
         var chunk = new float[SongEngine.BlockFrames * 2];

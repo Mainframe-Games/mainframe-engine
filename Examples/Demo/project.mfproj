@@ -3,7 +3,7 @@
   "name": "Mainframe Demo",
   "userDataName": "MainframeDemo",
   "engineVersion": "0.0.0-dev",
-  "mainScene": "Assets/Scenes/basic_3d.mscene",
+  "mainScene": "Assets/Scenes/basic_3d.mfscene",
   "assemblies": ["Demo"],
   "window": {
     "title": "Mainframe Engine — Demo",
@@ -26,7 +26,7 @@
     "use": { "bindings": ["key:E", "pad:A"], "label": "Use the terminal", "group": "world_ui" }
   },
   "saves": { "backups": 2, "thumbnails": true },
-  "audio": { "busLayout": "Assets/Settings/AudioBusLayout.mres" },
+  "audio": { "busLayout": "Assets/Settings/AudioBusLayout.mfres" },
   "localization": { "sourceLocale": "en", "fallbacks": [], "directory": "Assets/locale" },
   "rendering": { "shadows": "High" },
   "ui": { "scaleMode": "ScaleWithScreenSize", "referenceResolution": [1280, 720], "matchWidthOrHeight": 1 },

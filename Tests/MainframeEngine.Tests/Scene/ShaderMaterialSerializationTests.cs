@@ -4,7 +4,7 @@ using MainframeEngine.Serialization;
 namespace MainframeEngine.Tests.Scene;
 
 /// <summary>
-/// ADR 0205: a spatial <see cref="ShaderMaterial"/> in a <c>.mres</c> (its shader as a reference, its parameters — numbers,
+/// ADR 0205: a spatial <see cref="ShaderMaterial"/> in a <c>.mfres</c> (its shader as a reference, its parameters — numbers,
 /// vectors, arrays, a texture — as <see cref="ShaderMaterial.ShaderParameters"/>), and <see cref="MultiMesh"/> custom data.
 /// </summary>
 [Collection(nameof(SerialResources))]
@@ -61,8 +61,8 @@ public sealed class ShaderMaterialSerializationTests : IDisposable
         material.SetShaderParameter("offsets", new[] { new Vector2(1, 2), new Vector2(3, 4) });
         material.SetShaderParameter("glow", true);
         material.SetShaderParameter("noise", noise);
-        var uid = ResourceSaver.Save(material, ContentPath("Materials/dissolve.mres"));
-        var json = File.ReadAllText(ContentPath("Materials/dissolve.mres"));
+        var uid = ResourceSaver.Save(material, ContentPath("Materials/dissolve.mfres"));
+        var json = File.ReadAllText(ContentPath("Materials/dissolve.mfres"));
         Assert.Contains("\"ShaderParameters\"", json, StringComparison.Ordinal);
         Assert.Contains("\"path\": \"Assets/Shaders/dissolve.slang\"", json, StringComparison.Ordinal);
 
@@ -113,7 +113,7 @@ public sealed class ShaderMaterialSerializationTests : IDisposable
         Assert.Equal(new Vector4(1, 2, 3, 4), multimesh.GetInstanceCustomData(2));
         Assert.Equal(3, multimesh.CustomData.Length);
 
-        var uid = ResourceSaver.Save(multimesh, ContentPath("stalks.mres"));
+        var uid = ResourceSaver.Save(multimesh, ContentPath("stalks.mfres"));
         ResourceLoader.ClearCache();
         var reloaded = ResourceLoader.Load<MultiMesh>(uid);
         Assert.True(reloaded.UseCustomData);

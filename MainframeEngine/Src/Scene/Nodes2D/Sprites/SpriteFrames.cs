@@ -149,7 +149,7 @@ public sealed class SpriteAnimation : Resource
 /// <summary>
 /// Named flipbook animations for <see cref="AnimatedSprite2D"/> (Godot's <c>SpriteFrames</c>, ADR 0223). Frames keep
 /// a texture index and a region rather than one texture each (no <c>AtlasTexture</c>), so a sheet stays one
-/// <see cref="Texture2D"/> with one <c>.meta</c> and slicing lives here, not in import settings. Name lookups are
+/// <see cref="Texture2D"/> with one <c>.mfmeta</c> and slicing lives here, not in import settings. Name lookups are
 /// cached and allocate nothing.
 /// </summary>
 [EditorIcon("library-photo")]

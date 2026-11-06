@@ -68,7 +68,7 @@ public sealed class ExportRunnerTests : IDisposable
         Assert.Equal("1.2.0", project.Version);
         var index = TarText(result.ArtifactPath!, root + "Assets/assets.index.json");
         Assert.Contains("scn_aaaaaaaaaaaa", index, StringComparison.Ordinal);
-        Assert.Contains("Assets/Scenes/Main.mscene", index, StringComparison.Ordinal);
+        Assert.Contains("Assets/Scenes/Main.mfscene", index, StringComparison.Ordinal);
 
         Assert.Equal([ExportPhase.Validate, ExportPhase.Publish, ExportPhase.Stage], progress.Distinct().Take(3));
         Assert.Contains(ExportPhase.Archive, progress);
@@ -104,7 +104,7 @@ public sealed class ExportRunnerTests : IDisposable
         var app = Path.Combine(Extract(result.ArtifactPath!), "TinyGame-1.2.0-linux-x64");
         using var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName));
         string[] paths = [.. pack.Entries.Select(e => e.Path)];
-        Assert.Contains("Assets/Scenes/Main.mscene", paths);
+        Assert.Contains("Assets/Scenes/Main.mfscene", paths);
         Assert.Contains("Assets/assets.index.json", paths);
         Assert.Contains("Assets/locale/fr/LC_MESSAGES/messages.mo", paths);
         Assert.Contains("Assets/Shaders/Mesh.vk.vert.spv", paths);
@@ -129,7 +129,7 @@ public sealed class ExportRunnerTests : IDisposable
         var entries = TarEntries(result.ArtifactPath!);
         const string root = "TinyGame-1.2.0-linux-x64/";
         Assert.DoesNotContain(root + PackFormat.FileName, entries.Keys);
-        Assert.Contains(root + "Assets/Scenes/Main.mscene", entries.Keys);
+        Assert.Contains(root + "Assets/Scenes/Main.mfscene", entries.Keys);
         Assert.Contains(root + ProjectSettings.FileName, entries.Keys);
     }
 
@@ -143,16 +143,16 @@ public sealed class ExportRunnerTests : IDisposable
 
         Assert.True(result.Succeeded, result.Summary);
         var app = Path.Combine(Extract(result.ArtifactPath!), "TinyGame-1.2.0-linux-x64");
-        var loose = Path.Combine(app, "Assets", "Music", "theme.mres");
+        var loose = Path.Combine(app, "Assets", "Music", "theme.mfres");
         Assert.True(File.Exists(loose));
-        Assert.False(File.Exists(Path.Combine(app, "Assets", "Scenes", "Main.mscene")));
+        Assert.False(File.Exists(Path.Combine(app, "Assets", "Scenes", "Main.mfscene")));
         using var pack = PackReader.Open(Path.Combine(app, PackFormat.FileName));
-        Assert.False(pack.FileExists("Assets/Music/theme.mres"));
-        Assert.True(pack.FileExists("Assets/Scenes/Main.mscene"));
+        Assert.False(pack.FileExists("Assets/Music/theme.mfres"));
+        Assert.True(pack.FileExists("Assets/Scenes/Main.mfscene"));
         using (PackContentSource.MountBeside(app))
         {
             Assert.Contains("AudioStream", ContentFiles.ReadAllText(loose), StringComparison.Ordinal); // the disk, through the mount
-            Assert.Contains("scn_aaaaaaaaaaaa", ContentFiles.ReadAllText(Path.Combine(app, "Assets", "Scenes", "Main.mscene")), StringComparison.Ordinal);
+            Assert.Contains("scn_aaaaaaaaaaaa", ContentFiles.ReadAllText(Path.Combine(app, "Assets", "Scenes", "Main.mfscene")), StringComparison.Ordinal);
             Assert.Contains(ContentFiles.EnumerateFiles(Path.Combine(app, "Assets"), "*", recursive: true), f => f == loose);
         }
     }

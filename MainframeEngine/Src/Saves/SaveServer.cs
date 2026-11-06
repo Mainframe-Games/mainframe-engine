@@ -9,7 +9,7 @@ using System.Threading.Channels;
 namespace MainframeEngine;
 
 /// <summary>
-/// Save games: named slots of a game-defined payload (<see cref="SaveSchema{T}"/>) in <c>.msave</c> files, written on a
+/// Save games: named slots of a game-defined payload (<see cref="SaveSchema{T}"/>) in <c>.mfsave</c> files, written on a
 /// worker so saving never hitches. <see cref="GameHost"/> and <see cref="HeadlessHost"/> register one over
 /// <c>{user data}/saves</c> (<see cref="LocalSaveStorage"/>); nodes reach it with <c>Tree.Servers.Get&lt;SaveServer&gt;()</c>.
 /// </summary>
@@ -86,7 +86,31 @@ public sealed partial class SaveServer : IFrameServer
         Options = options;
         _tree = tree;
         _onCaptured = OnFrameCaptured;
+        UpgradeLegacyFiles();
         _ = Task.Run(RunWorkerAsync);
+    }
+
+    // Saves written before ADR 0249 are slot.msave (and its .tmp, .bakN and .corrupt-… copies): renamed once to .mfsave, so
+    // the rest of the server knows one name. A file whose new name already exists is left alone.
+    private void UpgradeLegacyFiles()
+    {
+        var legacy = FileExtensions.LegacyOf(SaveFile.Extension)!;
+        foreach (var name in Storage.List(""))
+        {
+            var at = name.IndexOf(legacy, StringComparison.Ordinal);
+            if (at <= 0 || !IsValidSlotName(name[..at]) || (at + legacy.Length < name.Length && name[at + legacy.Length] != '.'))
+                continue;
+            var upgraded = string.Concat(name.AsSpan(0, at), SaveFile.Extension, name.AsSpan(at + legacy.Length));
+            try
+            {
+                if (Storage.GetModifiedUtc(upgraded) is null)
+                    Storage.Move(name, upgraded);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Log.Warning($"[Saves] Could not rename '{name}' to '{upgraded}': {e.Message}");
+            }
+        }
     }
 
     /// <summary>Where the files live.</summary>

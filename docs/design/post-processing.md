@@ -488,11 +488,11 @@ ignores the SSAO settings (`PostProcessSettings.WithoutSsao`): SSAO alone does n
 `Resource` with Godot's property names in export groups: **Tonemap** (`Tonemapper`, `TonemapExposure`, `TonemapWhite`),
 **Auto Exposure**, **Glow** (with `GlowQuality`), **Light Shafts**, **SSAO**, **Adjustments** (brightness, contrast,
 saturation, `AdjustmentColorCorrection` LUT and its strength). `WorldEnvironment.PostProcess` references it, from a
-`.mres` shared by scenes or inline; null is the engine default (its own tonemap, no effects).
+`.mfres` shared by scenes or inline; null is the engine default (its own tonemap, no effects).
 
 ```csharp
 var look = new PostProcessProfile { SsaoEnabled = true, GlowEnabled = true, Tonemapper = Tonemapper.Agx };
-ResourceSaver.Save(look, "Assets/PostProcess/look.mres"); // optional: share it
+ResourceSaver.Save(look, "Assets/PostProcess/look.mfres"); // optional: share it
 root.AddChild(new WorldEnvironment { PostProcess = look, CameraAttributes = new CameraAttributesPractical { VignetteIntensity = 0.2f } });
 ```
 
@@ -597,7 +597,7 @@ pipeline helpers. Game effects would get the same `SceneTextures`, pool and came
   patches keep their exact colours; without it the colours stay; with TAA the view's history accumulates and the line
   patches are identical in consecutive frames; the view's effects are the main view's list; 0 B per frame with TAA, SSAO,
   glow and the grade under an orbiting camera. Unit tests (`PostProcessProfileTests`): defaults, the struct from the
-  profile and the lens, change notification, the inline and `.mres` round trips, the version-1 migration (the Forest's
+  profile and the lens, change notification, the inline and `.mfres` round trips, the version-1 migration (the Forest's
   pre-ADR-0169 environment) and its inline-resource value.
 - **ADR 0171** (`VolumetricFogTests`; golden `volumetric-fog_frame0030` on both drivers): a beam of sunlight through a hole
   in a roof stands > 3× above the shadowed fog beside it (which the sky ambient still lights; flat without volumetric

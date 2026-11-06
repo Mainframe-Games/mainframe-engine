@@ -34,7 +34,7 @@ Branch `feature/world-ui-panels`, cut from `feature/world-space-ui-g11` (PR #180
 - [ADR 0252](../decisions/0252-ui-panels-render-before-the-scene.md): segments, pre-scene replay, resolve + mips.
 - [ADR 0253](../decisions/0253-ui-panel-input.md): layers first (open question 6 default), crosshair, capture, focus.
 - Open question 7 (panels and TAA/glow): default, panels are scene geometry. Both 6 and 7 are listed for the owner.
-- ADR numbers 0252/0253: 0250 is used by both #179 and #180, 0251 left for the renumber.
+- ADR numbers 0252/0253; #180's ADRs are 0251/0254 after main took 0249 (file extensions) and #179 holds 0250.
 
 ## Dead ends
 

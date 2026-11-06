@@ -332,7 +332,7 @@ public sealed class EditorCommands
         var folder = root is null ? StartDirectory(null) : Path.Combine(root, "Assets", "Music");
         if (root is not null)
             Directory.CreateDirectory(folder);
-        var model = new FilePickerModel(FilePickerMode.Save, folder, ["*.msong"], "NewSong.msong");
+        var model = new FilePickerModel(FilePickerMode.Save, folder, ["*.mfsong"], "NewSong.mfsong");
         _workspace.FilePicker.Show(model, "New Song", "Create", path => CreateSong(path));
     }
 
@@ -354,13 +354,13 @@ public sealed class EditorCommands
         }
     }
 
-    /// <summary>File › Open Song… in music mode: a picker on <c>.msong</c> files, starting in the project's <c>Assets/Music</c>.</summary>
+    /// <summary>File › Open Song… in music mode: a picker on <c>.mfsong</c> files, starting in the project's <c>Assets/Music</c>.</summary>
     public void OpenSongFile()
     {
         var root = Session.ProjectRoot;
         var music = root is null ? null : Path.Combine(root, "Assets", "Music");
         var folder = music is not null && Directory.Exists(music) ? music : StartDirectory(null);
-        var model = new FilePickerModel(FilePickerMode.Open, folder, ["*.msong"]);
+        var model = new FilePickerModel(FilePickerMode.Open, folder, ["*.mfsong"]);
         _workspace.FilePicker.Show(model, "Open Song", "Open", OpenSong);
     }
 
@@ -402,7 +402,7 @@ public sealed class EditorCommands
             return;
         }
 
-        var model = new FilePickerModel(FilePickerMode.Save, Path.GetDirectoryName(song.Document.FilePath)!, ["*.msong"], song.DisplayName);
+        var model = new FilePickerModel(FilePickerMode.Save, Path.GetDirectoryName(song.Document.FilePath)!, ["*.mfsong"], song.DisplayName);
         _workspace.FilePicker.Show(model, "Save Song As", "Save", path =>
         {
             var saved = TrySaveSong(song, path);
@@ -574,7 +574,7 @@ public sealed class EditorCommands
     /// <summary>Game mode's File › Open: a picker for a scene or a recording (which opens in video mode).</summary>
     public void OpenScene()
     {
-        var model = new FilePickerModel(FilePickerMode.Open, StartDirectory(Active), ["*.mscene", .. VideoFilters]);
+        var model = new FilePickerModel(FilePickerMode.Open, StartDirectory(Active), ["*.mfscene", .. VideoFilters]);
         _workspace.FilePicker.Show(model, "Open", "Open", OpenAny);
     }
 
@@ -597,8 +597,8 @@ public sealed class EditorCommands
             return;
         }
 
-        var name = scene.FilePath is null ? "NewScene.mscene" : Path.GetFileName(scene.FilePath);
-        var model = new FilePickerModel(FilePickerMode.Save, StartDirectory(scene), ["*.mscene"], name);
+        var name = scene.FilePath is null ? "NewScene.mfscene" : Path.GetFileName(scene.FilePath);
+        var model = new FilePickerModel(FilePickerMode.Save, StartDirectory(scene), ["*.mfscene"], name);
         _workspace.FilePicker.Show(model, saveAs ? "Save Scene As" : "Save Scene", "Save",
             path =>
             {
@@ -773,7 +773,7 @@ public sealed class EditorCommands
     /// <summary>
     /// Runs <paramref name="open"/> at once for a project with an <c>Assets/</c> folder. A project that still has the old
     /// <c>Content/</c> folder (ADR 0197) is offered the rename first; declining leaves it closed, since the editor reads
-    /// only <c>Assets/</c>.
+    /// only <c>Assets/</c>. Then <see cref="AfterFileExtensionCheck"/>.
     /// </summary>
     public void AfterAssetsFolderCheck(string directory, Action open)
     {
@@ -781,7 +781,7 @@ public sealed class EditorCommands
         ArgumentNullException.ThrowIfNull(open);
         if (!AssetsFolderMigration.IsNeeded(directory))
         {
-            open();
+            AfterFileExtensionCheck(directory, open);
             return;
         }
 
@@ -803,6 +803,50 @@ public sealed class EditorCommands
             {
                 if (button == 0 && MigrateAssetsFolder(directory))
                 {
+                    AfterFileExtensionCheck(directory, open);
+                    return;
+                }
+
+                if (Session.Scenes.Count == 0 && Session.ProjectRoot is null)
+                    _workspace.ProjectManager.Open();
+            },
+        });
+    }
+
+    /// <summary>
+    /// Runs <paramref name="open"/> at once for a project whose files have the current extensions. A project made before
+    /// ADR 0249 (<c>.mscene</c>, <c>.mres</c>, <c>.meta</c>, …) is offered the rename first; declining leaves it closed,
+    /// since the editor writes only the current names.
+    /// </summary>
+    public void AfterFileExtensionCheck(string directory, Action open)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        ArgumentNullException.ThrowIfNull(open);
+        if (!FileExtensionMigration.IsNeeded(directory))
+        {
+            open();
+            return;
+        }
+
+        if (_workspace.Splash.Visible)
+            _workspace.Splash.Finish();
+        var name = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        _workspace.Message.Show(new MessageRequest
+        {
+            Title = "Rename File Extensions",
+            Message = $"{name} uses the file extensions from before this engine version (.mscene, .mres, .meta, …). " +
+                      $"Engine files now start with {FileExtensions.Prefix} ({FileExtensions.Scene}, {FileExtensions.Resource}, " +
+                      $"{FileExtensions.Meta}, …): rename the files in {ContentPaths.FolderName}/ and update the paths in the " +
+                      "project's scenes, resources, UI, project file, MSBuild files and code?\n\n" +
+                      "Commit or back up the project first.",
+            Buttons = ["Rename and Open", "Cancel"],
+            DefaultButton = 0,
+            CancelButton = 1,
+            Icon = "file",
+            Callback = (button, _) =>
+            {
+                if (button == 0 && MigrateFileExtensions(directory))
+                {
                     open();
                     return;
                 }
@@ -811,6 +855,25 @@ public sealed class EditorCommands
                     _workspace.ProjectManager.Open();
             },
         });
+    }
+
+    private bool MigrateFileExtensions(string directory)
+    {
+        try
+        {
+            var result = FileExtensionMigration.Run(directory);
+            Log.Info($"[Editor] Renamed {result.Renamed.Count} file(s) to the current extensions in {directory}; " +
+                     $"updated the paths in {result.Rewritten.Count} file(s){(result.Rewritten.Count > 0 ? ": " + string.Join(", ", result.Rewritten) : ".")}");
+            if (result.Skipped.Count > 0)
+                Log.Warning($"[Editor] Left {result.Skipped.Count} file(s) with an old extension, as their new name is taken: " +
+                            string.Join(", ", result.Skipped));
+            return true;
+        }
+        catch (Exception e) when (IsRecoverable(e))
+        {
+            ReportError($"Could not rename the file extensions in {directory}", e);
+            return false;
+        }
     }
 
     private bool MigrateAssetsFolder(string directory)
@@ -1085,7 +1148,7 @@ public sealed class EditorCommands
 
         void Browse()
         {
-            var model = new FilePickerModel(FilePickerMode.Open, StartDirectory(scene), ["*.mscene"]);
+            var model = new FilePickerModel(FilePickerMode.Open, StartDirectory(scene), ["*.mfscene"]);
             _workspace.FilePicker.Show(model, "Instance Scene", "Instance", Instance);
         }
 
@@ -1493,7 +1556,7 @@ public sealed class EditorCommands
         Message = $"{EditorBrand.NameWithVersion}\n" +
                   "A modular C# game engine and Godot-style editor. Open source under the MIT licence.\n\n" +
                   "Engine: Vulkan 1.2 renderer (HDR, materials, cascaded shadows, glTF/FBX/OBJ import) · " +
-                  "Godot-style node tree with .mscene scenes · RmlUi game UI · Jitter2 3D and Box2D 2D physics · " +
+                  "Godot-style node tree with .mfscene scenes · RmlUi game UI · Jitter2 3D and Box2D 2D physics · " +
                   "SoundFlow audio · multiplayer replication · gettext localization · Spine animation.\n\n" +
                   "Editor: scene tree, inspector and undo · 3D/2D viewport with gizmos · FileSystem panel · " +
                   "Play in a separate process · C# code reload. Its UI is built with the engine's own RmlUi.\n\n" +

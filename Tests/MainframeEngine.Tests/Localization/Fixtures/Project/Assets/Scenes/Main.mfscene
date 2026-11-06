@@ -21,7 +21,7 @@
       },
       {
         "instance": "scn_0000000000a1",
-        "path": "Assets/Scenes/Sub.mscene",
+        "path": "Assets/Scenes/Sub.mfscene",
         "name": "Panel",
         "props": { "Text": "Overridden panel title" },
         "overrides": { "Caption": { "Text": "Overridden caption", "Key": "x" } }

@@ -8,8 +8,8 @@ namespace MainframeEngine;
 /// mainframe.canvas;</c> (<see cref="Program"/>, drawn by the canvas renderer) or <c>import mainframe.spatial;</c>
 /// (<see cref="Spatial"/>, drawn by the mesh renderer). Its SPIR-V and its material layout are built ahead of time next to the
 /// source by <see cref="SurfaceShaderBuild"/> (mf-shaders, <c>just canvas-shaders</c>): <c>x.slang.vert.spv</c>,
-/// <c>x.slang.frag.spv</c> and, for spatial shaders, one pair per other <see cref="SpatialPass"/>, <c>x.slang.layout.json</c> and
-/// <c>x.slang.spvlock</c>, all committed, like the engine's own shaders.
+/// <c>x.slang.frag.spv</c> and, for spatial shaders, one pair per other <see cref="SpatialPass"/>, <c>x.slang.mflayout.json</c> and
+/// <c>x.slang.mfspvlock</c>, all committed, like the engine's own shaders.
 /// </summary>
 [EditorIcon("code")]
 public sealed class Shader : Resource
@@ -84,10 +84,10 @@ public sealed class Shader : Resource
         var source = ContentFiles.ReadAllText(fullPath);
         var name = Path.GetFileName(fullPath);
         var parsed = SurfaceShaderSource.Parse(source, name);
-        var layoutPath = fullPath + SurfaceShaderLayout.Extension;
-        if (!ContentFiles.Exists(layoutPath))
+        var layoutPath = FileExtensions.FindExisting(fullPath, SurfaceShaderLayout.Extension, ContentFiles.Exists);
+        if (layoutPath is null)
         {
-            Log.Warning($"[Shader] '{path}' has no layout file (x.slang.layout.json): it is not built; build it with mf-shaders (`just canvas-shaders <folder>` in the engine checkout, needs slangc).");
+            Log.Warning($"[Shader] '{path}' has no layout file (x.slang.mflayout.json): it is not built; build it with mf-shaders (`just canvas-shaders <folder>` in the engine checkout, needs slangc).");
             var empty = new SurfaceShaderLayout(parsed.Kind, [], 0, [], new SurfaceRenderModes(), parsed.Vertex is not null, parsed.Fragment is not null);
             return parsed.Kind == SurfaceShaderKind.Spatial ? new Shader { Spatial = empty.ToSpatial(name) } : new Shader { Program = empty.ToCanvas() };
         }

@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace MainframeEngine.Serialization;
 
-/// <summary>File-level constants of <c>.mscene</c> / <c>.mres</c> files.</summary>
+/// <summary>File-level constants of <c>.mfscene</c> / <c>.mfres</c> files.</summary>
 public static class SceneFormat
 {
     /// <summary>
@@ -13,8 +13,8 @@ public static class SceneFormat
     /// </summary>
     public const int Current = 2;
 
-    public const string SceneExtension = ".mscene";
-    public const string ResourceExtension = ".mres";
+    public const string SceneExtension = FileExtensions.Scene;
+    public const string ResourceExtension = FileExtensions.Resource;
 
     internal static JsonElement UpgradeFile(JsonElement root, int format, string source)
     {
@@ -75,7 +75,7 @@ internal sealed class NodeEntry
 
 internal readonly record struct ConnectionEntry(string From, string Signal, string To, string Method, ConnectFlags Flags);
 
-/// <summary>A parsed <c>.mscene</c> file.</summary>
+/// <summary>A parsed <c>.mfscene</c> file.</summary>
 internal sealed class SceneDocument
 {
     public int Format { get; init; } = SceneFormat.Current;

@@ -8,7 +8,7 @@ namespace MainframeEngine.Tests.Canvas;
 /// <summary>
 /// G2b: a <see cref="TileMapLayer"/>'s cells in a scene — one base64 line per chunk (Godot 4.3's records), sorted and
 /// deterministic, the long-string layout rule, the <see cref="ExportAttribute.Storage"/> hint — and a
-/// <see cref="TileSet"/> as a <c>.mres</c> with its sources, overrides, polygons and custom data.
+/// <see cref="TileSet"/> as a <c>.mfres</c> with its sources, overrides, polygons and custom data.
 /// </summary>
 [Collection(nameof(Scene.SerialResources))]
 public sealed class TileMapSerializationTests : IDisposable
@@ -153,8 +153,8 @@ public sealed class TileMapSerializationTests : IDisposable
         data.NotifyChanged();
         data.SetCustomData(0, "stone");
         data.YSortOrigin = 5;
-        var uid = ResourceSaver.Save(set, "Assets/Tiles/tiles.mres");
-        var text = File.ReadAllText(Path.Combine(_project, "Assets", "Tiles", "tiles.mres"));
+        var uid = ResourceSaver.Save(set, "Assets/Tiles/tiles.mfres");
+        var text = File.ReadAllText(Path.Combine(_project, "Assets", "Tiles", "tiles.mfres"));
         Assert.Single(JsonDocument.Parse(text).RootElement.GetProperty("resources").EnumerateObject(), r => r.Value.TryGetProperty("type", out var t) && t.GetString() == "TileData");
         texture.Release();
         ResourceLoader.ClearCache();
@@ -176,7 +176,7 @@ public sealed class TileMapSerializationTests : IDisposable
         loaded.Changed += () => changes++;
         tile.Modulate = new System.Numerics.Vector4(1, 0, 0, 1);
         Assert.Equal(1, changes);
-        ResourceSaver.Save(loaded, "Assets/Tiles/tiles.mres");
+        ResourceSaver.Save(loaded, "Assets/Tiles/tiles.mfres");
         loaded.Release();
     }
 }

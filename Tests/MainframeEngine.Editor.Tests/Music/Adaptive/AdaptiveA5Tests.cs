@@ -18,7 +18,7 @@ public sealed class CurvesPaneTests : IDisposable
 
     public CurvesPaneTests()
     {
-        var path = SongTab.CreateFile(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(_host.ProjectDirectory, "Assets", "Music", "Theme.mfsong"));
         _tab = _host.Session.OpenSong(path);
         SongAdaptiveDemo.Build(Doc);
         _tab.SelectCurve(Adaptive.Curves[1]); // Combat's volume over intensity: (0, −80) (0.5, −80) (0.8, 0) (1, 0)
@@ -113,7 +113,7 @@ public sealed class TransitionPopoverTests
     private static (HeadlessEditor Editor, SongTab Tab) Open()
     {
         var editor = new HeadlessEditor();
-        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.msong"));
+        var path = SongTab.CreateFile(Path.Combine(editor.Directory, "Project", "Assets", "Music", "Theme.mfsong"));
         editor.Workspace.Commands.OpenSong(path);
         editor.Tick(3);
         var tab = Assert.IsType<SongTab>(editor.Workspace.Session.ActiveTab);
@@ -220,7 +220,7 @@ public sealed class BakedAuditionTests : IDisposable
     [Fact]
     public void TheBakePlaysThroughTheRuntimeAndFollowsItsParameters()
     {
-        var path = Path.Combine(_root, "Assets", "Music", "Theme.msong");
+        var path = Path.Combine(_root, "Assets", "Music", "Theme.mfsong");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         using var document = new SongDocument(NewSong(), path);
         SongAdaptiveDemo.Build(document);

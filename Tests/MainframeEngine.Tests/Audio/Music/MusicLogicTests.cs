@@ -4,7 +4,7 @@ using MainframeEngine.Audio.Music;
 
 namespace MainframeEngine.Tests.Audio.Music;
 
-/// <summary>Parameters, curves, rule compilation and the <c>.mmusic</c> format.</summary>
+/// <summary>Parameters, curves, rule compilation and the <c>.mfmusic</c> format.</summary>
 public sealed class MusicLogicTests
 {
     private static MusicParameterInfo Intensity(float seek = 0) =>
@@ -254,7 +254,7 @@ public sealed class MusicLogicTests
     [Fact]
     public void TheManifestRoundTripsWithUnknownFieldsKept()
     {
-        var read = MusicManifestFormat.Parse(Encoding.UTF8.GetBytes(Example), "Theme.mmusic");
+        var read = MusicManifestFormat.Parse(Encoding.UTF8.GetBytes(Example), "Theme.mfmusic");
         Assert.Null(read.Notice);
         var m = read.Manifest;
         Assert.Equal("mus_8c1f00000000", m.Uid);
@@ -281,7 +281,7 @@ public sealed class MusicLogicTests
     [Fact]
     public void NewerManifestsLoadWithANoticeAndBadOnesThrowInvalidData()
     {
-        var newer = MusicManifestFormat.Parse("""{ "format": 99, "sections": null, "parameters": [] }"""u8, "New.mmusic");
+        var newer = MusicManifestFormat.Parse("""{ "format": 99, "sections": null, "parameters": [] }"""u8, "New.mfmusic");
         Assert.NotNull(newer.Notice);
         Assert.Empty(newer.Manifest.Sections);
         Assert.Throws<InvalidDataException>(() => MusicManifestFormat.Parse("[1]"u8, "x"));

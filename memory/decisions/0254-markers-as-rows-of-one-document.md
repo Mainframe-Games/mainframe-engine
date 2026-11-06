@@ -1,4 +1,4 @@
-# ADR 0250 — Markers are rows of one host document, moved from C# between content refreshes
+# ADR 0254 — Markers are rows of one host document, moved from C# between content refreshes
 
 - **Date:** 2026-11-06
 - **Status:** accepted

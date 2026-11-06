@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace MainframeEngine.Tests.UI;
 
-/// <summary>G11.4 (ADR 0250): <see cref="UiMarker3D"/> rows on a <see cref="UiMarkerHost"/>.</summary>
+/// <summary>G11.4 (ADR 0254): <see cref="UiMarker3D"/> rows on a <see cref="UiMarkerHost"/>.</summary>
 [Collection(nameof(SerialRmlUi))]
 public sealed class UiMarkerTests
 {

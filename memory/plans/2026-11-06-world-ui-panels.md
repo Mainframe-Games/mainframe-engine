@@ -15,7 +15,7 @@ crosshair or code, with focus and keyboard routing. The Demo's World UI tab has 
 ## Not in scope
 
 - Input on custom panel meshes (`MeshRaycast`, G11.9): a panel with a `Mesh` renders on it, but rays only hit the quad.
-- The batched `Text3DRenderer` (ADR 0249 keeps labels on the mesh batcher).
+- The batched `Text3DRenderer` (ADR 0251 keeps labels on the mesh batcher).
 - Stand-in data for panels in the editor's scene view (they render once with whatever models exist); the QA step.
 - Open questions 6 and 7 (input precedence, panels and TAA/glow): defaults below, listed in the PR for the owner.
 

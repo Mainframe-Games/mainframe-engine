@@ -3,8 +3,8 @@
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G1c authoring, G1d posing tools, G1e root
 motion, G1f auto-rigging and non-humanoid rigs) · **Status:** ⬜ planned · **Depends on:**
 [Keyframe animation](../animation.md) (G1a `Animation`/`AnimationPlayer`, G1b `Skeleton3D`/`Skin`/skinning/import),
-[Asset pipeline](../asset-pipeline.md) (`.meta` settings), [Editor](../editor.md) · **Related:**
-[Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mres`), [Physics](../physics.md) (`CharacterBody3D`),
+[Asset pipeline](../asset-pipeline.md) (`.mfmeta` settings), [Editor](../editor.md) · **Related:**
+[Editor viewport tools](../editor.md#viewport-tools) (G7: Save as `.mfres`), [Physics](../physics.md) (`CharacterBody3D`),
 [Localization tool](../localization.md) (`mf-l10n`, the CLI pattern), [2D skeletal animation](skeleton-2d.md#agent-tooling) (`mfe skel`:
 the same CLI, whichever lands first creates it)
 
@@ -39,10 +39,10 @@ and an Animation panel. It does not give an agent a way to make a clip:
 ## Goals
 
 - **G1c.** Claude Code makes and changes clips on rigged humanoid characters:
-  - a **humanoid map** per model (detected from bone names and structure, overridable in `.meta`) that turns
+  - a **humanoid map** per model (detected from bone names and structure, overridable in `.mfmeta`) that turns
     anatomical joint angles into the rig's bone rotations;
   - a **pose script** (JSON, input only) of key poses in those terms, with IK pins and ballistic arcs, **baked** into
-    ordinary sparse `Animation` keys in a library `.mres`;
+    ordinary sparse `Animation` keys in a library `.mfres`;
   - the **`mfe` CLI** (mainframe engine/editor), a general tool whose first command group is `anim`: `rig`, `bake`,
     `describe`, `check`, `render`;
   - the editor **reloads resources changed on disk** and previews a player's clips, so a baked clip plays in the open
@@ -70,8 +70,8 @@ and an Animation panel. It does not give an agent a way to make a clip:
 ```mermaid
 flowchart LR
     C["Claude Code<br/>(animate skill)"] -->|pose script| B["mfe anim bake"]
-    M["model .glb + .meta<br/>(HumanoidMap)"] --> B
-    B -->|sparse keys| L["library .mres<br/>(AnimationLibrary)"]
+    M["model .glb + .mfmeta<br/>(HumanoidMap)"] --> B
+    B -->|sparse keys| L["library .mfres<br/>(AnimationLibrary)"]
     L --> K["mfe anim check<br/>mfe anim render"]
     K -->|report + PNG| C
     L -->|file watcher| E["Editor: ResourceReloader<br/>→ AnimationPlayer preview"]
@@ -111,7 +111,7 @@ Every humanoid pose is written in one space, whatever the rig:
 - **Range of motion.** `HumanoidLimits` (one table, per bone and component) feeds the checks and clamps the editor's
   sliders. Typical values: hip flex −30…130, knee flex 0…150, ankle flex −50…30, spine flex −30…60 (per spine bone),
   shoulder abduct −90…90 (from the T-pose), elbow flex 0…150. The table is the same for every character in G1c;
-  per-character limits (stylised rigs) can come later as a `.meta` setting.
+  per-character limits (stylised rigs) can come later as a `.mfmeta` setting.
 - **Named poses** ship with the engine: `tpose` (all zeros), `rest` (the rig's own rest, converted), and `stand`
   (arms down at the sides: shoulder abduct −80, elbow flex 10; the start pose of most clips). They are data in
   `MainframeEngine/Assets/Animation/poses.json`, so the skill and the editor list the same names.
@@ -148,13 +148,13 @@ public sealed class HumanoidRig                            // a map bound to one
   sideways chains from the upper spine are the arms. Left and right come from the rest positions (+X is left after
   orienting the skeleton so the toes point to +Z). Each bone records whether it came from a name, the structure or an
   override, with a confidence.
-- **Overrides** in the model's `.meta` win over detection:
+- **Overrides** in the model's `.mfmeta` win over detection:
 
   ```json
   { "importer": "model",
     "settings": { "scale": 1,
                   "humanoid": { "LeftUpperLeg": "Thigh.L", "LeftLowerLeg": "Shin.L" },
-                  "libraries": [ "Assets/Characters/hero_anims.mres" ] } }
+                  "libraries": [ "Assets/Characters/hero_anims.mfres" ] } }
   ```
 
   `ModelImportSettings` (`MainframeEngine/Src/Resources/Import/ModelImporter.cs:20-85`) gains `Humanoid` and
@@ -167,7 +167,7 @@ public sealed class HumanoidRig                            // a map bound to one
   from the rig's rest to the canonical T-pose is part of the frame, which is how an A-pose rig takes the same angles as a
   T-pose rig. The frames are computed once per skeleton.
 - **Where it is stored.** Detection runs on demand (in `mfe`, in the editor), never at import: playing clips needs only
-  the baked keys. `mfe anim rig --write-meta` writes the detected map into the `.meta` when the user wants it fixed.
+  the baked keys. `mfe anim rig --write-meta` writes the detected map into the `.mfmeta` when the user wants it fixed.
 
 ### Pose script
 
@@ -177,7 +177,7 @@ the script is not kept by the engine ([open question 1](#open-questions)).
 ```json
 {
   "model": "Assets/Characters/hero.glb",
-  "library": "Assets/Characters/hero_anims.mres",
+  "library": "Assets/Characters/hero_anims.mfres",
   "name": "jump",
   "length": 1.1,
   "loop": "None",
@@ -241,9 +241,9 @@ the script is not kept by the engine ([open question 1](#open-questions)).
    tolerance (a pinned foot sliding more than 1 cm; a target missed by more than 1 cm), refining until it holds or a key
    per sample is reached. A typical jump is 6–10 keys per track.
 5. Bones that never move get no track. Quaternions are kept in one hemisphere along each track (no flips).
-6. Write: open the library `.mres` (create an `AnimationLibrary` with `ResourceName = ""`, the default library, when
+6. Write: open the library `.mfres` (create an `AnimationLibrary` with `ResourceName = ""`, the default library, when
    missing), add or replace the animation by `name`, save with `ResourceSaver`. The first bake into a new library also
-   adds it to the model's `.meta` `libraries` (skip with `--no-link`); the importer appends linked libraries to the
+   adds it to the model's `.mfmeta` `libraries` (skip with `--no-link`); the importer appends linked libraries to the
    imported model's `AnimationPlayer` ([Linking libraries](#linking-libraries-to-models)).
 
 **This needs two small changes to G1a.** Transform tracks (`Position3DTrack`, `Rotation3DTrack`, `Scale3DTrack`) have
@@ -261,7 +261,7 @@ edits on top:
 - **Edit scripts** start from a clip instead of from nothing:
 
   ```json
-  { "model": "Assets/Characters/hero.glb", "library": "Assets/Characters/hero_anims.mres",
+  { "model": "Assets/Characters/hero.glb", "library": "Assets/Characters/hero_anims.mfres",
     "base": "jump", "name": "jump",
     "edits": [
       { "range": [0.24, 0.82], "arc": { "height": "*1.3" } },
@@ -322,7 +322,7 @@ engine.
 
 | Command | Does |
 |---|---|
-| `mfe anim rig <model> [--write-meta]` | Loads the model (the importer, in memory), prints the bone tree, the humanoid map with each bone's source and confidence, unmapped bones, rest kind (T/A, arm angle) and proportions. `--write-meta` stores the map in the `.meta`. |
+| `mfe anim rig <model> [--write-meta]` | Loads the model (the importer, in memory), prints the bone tree, the humanoid map with each bone's source and confidence, unmapped bones, rest kind (T/A, arm angle) and proportions. `--write-meta` stores the map in the `.mfmeta`. |
 | `mfe anim poses` | Lists the named poses and the canonical bones, components and limits (the skill's reference, always current). |
 | `mfe anim bake <script.json> [--replace] [--no-link]` | Bakes a pose or edit script into its library, then runs the checks. Prints the tracks and key counts written. |
 | `mfe anim describe <library> <name> --model <m>` | Prints the clip's keys in canonical terms (above). `--times 0.2,0.4` samples arbitrary times instead. |
@@ -350,7 +350,7 @@ a trajectory strip (hips, feet and hands heights over time, contact and pin band
 ### Linking libraries to models
 
 A baked library has to reach the character's `AnimationPlayer`. The importer gives every animated model an
-`AnimationPlayer` child with an inline library of its imported clips (G1b). The `.meta` `libraries` list (above) makes
+`AnimationPlayer` child with an inline library of its imported clips (G1b). The `.mfmeta` `libraries` list (above) makes
 the importer append those external `AnimationLibrary` resources to that player's `Libraries`, after the imported one.
 Every instance of the model gets them; no scene is edited. A baked clip in the default library plays as
 `Play("jump")`; imported clips keep their library prefix (`imported/run`).
@@ -360,17 +360,17 @@ Every instance of the model gets them; no scene is edited. A baked clip in the d
 - **`ResourceReloader`** (new, `MainframeEngine.Editor/Src/FileSystem/ResourceReloader.cs`). `ProjectFileSystem`'s
   watcher already reports changes; the reloader gets the changed paths (the watcher callback gains them) and, on the
   main thread:
-  - for a `.mres` that `ResourceLoader` has cached and no editor tab has unsaved edits to, it **reloads in place**: it
+  - for a `.mfres` that `ResourceLoader` has cached and no editor tab has unsaved edits to, it **reloads in place**: it
     loads the file fresh (bypassing the cache), copies the exported property values into the cached instance through the
     type registry, and calls `NotifyChanged` where the type has it (`Animation` bumps `Version`, so players re-bind on
     their next evaluation). References in open scenes stay valid. Writes the editor itself makes (saves) are ignored by
     path and modification time.
   - when an open resource tab (`EditedResource`) has unsaved edits to the file, it shows a non-blocking notice with two
     icon buttons, "Keep mine" and "Load from disk".
-  - for a model whose `.meta` changed (a newly linked library), clean scenes that instance the model are reopened (the
+  - for a model whose `.mfmeta` changed (a newly linked library), clean scenes that instance the model are reopened (the
     path code reload uses); dirty ones get a notice.
   - `ResourceLoader` gains `internal Resource? GetCached(string path)` and `ReloadInPlace(string path)` for this.
-  This is general: any `.mres` edited outside the editor (by a person, a script or `mfe`) shows up.
+  This is general: any `.mfres` edited outside the editor (by a person, a script or `mfe`) shows up.
 - **Player preview** before the G1a panel exists: the `AnimationPlayer` inspector gets a clip dropdown and icon buttons
   (play, stop, loop) with tooltips. Preview uses the panel's capture and restore
   ([keyframe animation → Preview](../animation.md#animation-panel)): the `AnimationEditor` `[Tool]`
@@ -440,7 +440,7 @@ Designed in outline here; each gets its own detailed design when it starts.
 
 - **Native bone channels.** Pose scripts gain `bones`: per rig bone name, `rot` (local Euler degrees, or
   `{ "axis": "parent"|"world", … }`) and `pos`. They work on any skeleton, humanoid or not, and mix with `joints`.
-- **Rig profiles** in the `.meta` (`rig`): named IK chains (`{ "name": "frontLeftLeg", "bones": ["fl_upper",
+- **Rig profiles** in the `.mfmeta` (`rig`): named IK chains (`{ "name": "frontLeftLeg", "bones": ["fl_upper",
   "fl_lower"], "pole": [0, 0, 1] }`), a ground contact list and optional limits. `ik` keys accept chain names; checks
   run the generic subset (ground, slide, flips, loop, root); the editor's IK handles come from the chains.
 - **Auto-rigging (`mfe rig auto <mesh>`).** For a static humanoid mesh in a T- or A-pose: fit the canonical skeleton to
@@ -459,7 +459,7 @@ Designed in outline here; each gets its own detailed design when it starts.
   - `TwoBoneIk`: reachable, unreachable (straightens towards the target), pole plane, zero-length guard.
   - `PoseBaker`: held values, named poses, mirror, eases into `Transitions`, sparse keys at script times, refinement keys
     only where a pin slides, `inPlace` versus `motion`, quaternion hemisphere continuity, library create/replace and
-    `.meta` linking.
+    `.mfmeta` linking.
   - Edits: absolute, relative and scaled values; `range`; `insert`; key times, counts and eases of untouched keys are
     unchanged (a hand-added key survives); `--replace` guard via `BakedHash`.
   - `AnimationChecks`: one crafted clip per check that triggers it, and one clean clip that passes all.
@@ -469,7 +469,7 @@ Designed in outline here; each gets its own detailed design when it starts.
   (`Tests/MainframeEngine.Tests/Localization/L10nCliTests.cs`): `rig`, `bake`, `describe`, `check`, `list`, `--json`
   shapes, exit codes, project discovery.
 - **Editor (`Tests/MainframeEngine.Editor.Tests/FileSystem/`, `…/Animation/`):** `ResourceReloader` (clean reload keeps
-  references and bumps `Version`, own saves ignored, conflict notice, model `.meta` change reopens a clean scene); the
+  references and bumps `Version`, own saves ignored, conflict notice, model `.mfmeta` change reopens a clean scene); the
   inspector preview captures and restores; bone picking, gizmo keying, IK handle solve, curve-view value round trip,
   onion settings (G1d).
 - **Render tests:** a `humanoid_pose` golden: the test character baked from a fixed script, posed at one time, with a
@@ -493,7 +493,7 @@ Designed in outline here; each gets its own detailed design when it starts.
   view and checks the arc with onion skin; every action is undoable and saving writes ordinary keys.
 - Per-frame engine code added here (root motion) allocates nothing and passes the validation gate.
 - Docs updated when this ships: a current-state `docs/design/animation-authoring.md` (or a section of the
-  `animation.md` G1a creates); `asset-pipeline.md` (`humanoid`, `libraries` in `.meta`); `editor.md` (resource reload,
+  `animation.md` G1a creates); `asset-pipeline.md` (`humanoid`, `libraries` in `.mfmeta`); `editor.md` (resource reload,
   player preview, bone posing, IK, curves, onion); `physics.md` (root motion); `AGENTS.md` (`mfe`, the skill, project
   structure).
 
@@ -505,9 +505,9 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
 **G1c**
 
 12. **G1.12 Humanoid map.** `HumanoidBone`, `HumanoidMap.Detect` (name tables, structure), `HumanoidRig` (joint frames,
-    rest correction, proportions, round trips), `HumanoidLimits`, named poses, `.meta` `humanoid`; test asset; unit tests.
+    rest correction, proportions, round trips), `HumanoidLimits`, named poses, `.mfmeta` `humanoid`; test asset; unit tests.
 13. **G1.13 Pose script and baker.** Script model and JSON context, `TwoBoneIk`, arcs, root modes, `PoseBaker` with
-    sparse and refinement keys, library writing and `.meta` `libraries`; transform-track `Transitions` and
+    sparse and refinement keys, library writing and `.mfmeta` `libraries`; transform-track `Transitions` and
     `Animation.BakedHash` (G1a changes);
     importer appends linked libraries; unit tests.
 14. **G1.14 Describe and edits.** Canonical description, edit scripts (absolute, relative, scaled, range, insert,
@@ -518,7 +518,7 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
 17. **G1.17 Contact sheet.** `mfe anim render`: hidden-window renderer, per-cell sub-viewports and cameras, trails,
     labels, report, `--flat`, `--frame`; render smoke test.
 18. **G1.18 Editor reload and preview.** `ResourceReloader`, `ResourceLoader.GetCached/ReloadInPlace`, watcher paths,
-    conflict notice, model `.meta` reopen; `AnimationPlayer` inspector preview; editor tests; QA script.
+    conflict notice, model `.mfmeta` reopen; `AnimationPlayer` inspector preview; editor tests; QA script.
 19. **G1.19 Skill and docs.** `.claude/skills/animate/SKILL.md` (engine and template), `AGENTS.md`, current-state doc,
     `asset-pipeline.md`; an end-to-end run on the CC0 character recorded in the PR.
 
@@ -540,7 +540,7 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
 
 **G1f**
 
-25. **G1.25 Non-humanoid rigs.** `bones` channels, `.meta` rig profiles, chain IK in scripts and the editor, generic
+25. **G1.25 Non-humanoid rigs.** `bones` channels, `.mfmeta` rig profiles, chain IK in scripts and the editor, generic
     checks.
 26. **G1.26 Auto-rigging.** After [open question 5](#open-questions) is decided: landmark fitting, heat-diffusion
     weights, output.
@@ -558,7 +558,7 @@ Order: G1a core (G1.1–G1.4) → G1b (G1.8–G1.10) → **G1c + G1e** (G1.12–
    form (per-component curves or handles on quaternion keys) and a G1a format change.
 5. **Auto-rig output.** A rigged `.glb` needs a glTF writer: hand-written (glTF JSON + a binary buffer is small) or
    SharpGLTF (MIT; a new dependency, discuss first). The alternative is an engine-side rig that the importer applies
-   from the `.meta` (skeleton plus weights stored next to the mesh), which avoids writing glTF but keeps the rig out of
+   from the `.mfmeta` (skeleton plus weights stored next to the mesh), which avoids writing glTF but keeps the rig out of
    other tools.
 6. **Rendering without a display.** `mfe anim render` needs a window today (no window-less Vulkan path). A true
    offscreen path would let CI and remote sessions render sheets.

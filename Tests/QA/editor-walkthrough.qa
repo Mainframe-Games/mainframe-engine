@@ -77,8 +77,8 @@ capture 13-quit-prompt
 cancel
 # Sound designer: a new ZzfxStream resource, a preset, Export .wav (default name), then Play on the file from the
 # FileSystem panel (stop badge). The files are removed again.
-edit-file Assets/Audio/QaSound.mres {"format":2,"type":"ZzfxStream"}
-inspect Examples/Demo/Assets/Audio/QaSound.mres
+edit-file Assets/Audio/QaSound.mfres {"format":2,"type":"ZzfxStream"}
+inspect Examples/Demo/Assets/Audio/QaSound.mfres
 wait 3
 inspector-header zzfx-preset:pickup
 wait 3
@@ -107,7 +107,7 @@ wait 2
 # Music mode (the music editor, full window): a new song switches to it; a clip with notes (piano roll), the mixer
 # while playing, Render; then, back in game mode, the output previewed from the FileSystem panel. The files are removed
 # again.
-song new Assets/Music/QaSong.msong
+song new Assets/Music/QaSong.mfsong
 wait 3
 state
 song demo
@@ -256,7 +256,7 @@ wait 5
 capture 21b-decal-gizmo
 command edit.undo
 wait 3
-# The resource row's More menu, then Save as .mres is left alone (a file picker): Make Unique on a fresh shared mesh.
+# The resource row's More menu, then Save as .mfres is left alone (a file picker): Make Unique on a fresh shared mesh.
 select Ring/Box
 wait 3
 res-menu Mesh
@@ -265,7 +265,7 @@ capture 22-resource-menu
 cancel
 wait 3
 # Simulate the physics scene for 120 frames, capture, stop, capture (the crates back where they were authored).
-open Examples/Demo/Assets/Scenes/physics_3d.mscene
+open Examples/Demo/Assets/Scenes/physics_3d.mfscene
 wait 20
 select Pusher
 simulate start
@@ -284,7 +284,7 @@ wait 3
 # Joints (ADR 0211): the Physics 3D bridge's middle hinge selected (its gizmo and lines to both planks), a limit handle
 # drag (G9.7), Swap A/B and its undo; then Create physical skeleton (ADR 0212) on the Animation 3D character, after deleting its simulator, undone.
 click #tool-select
-open Examples/Demo/Assets/Scenes/physics_3d.mscene
+open Examples/Demo/Assets/Scenes/physics_3d.mfscene
 wait 10
 select Bridge/Hinge5
 camera -4.3 2.2 -5 1.6 -24 -14
@@ -305,7 +305,7 @@ select SixDof/Gimbal
 camera -2.5 1.3 3.5 3.2 -35 -38
 wait 5
 capture 25c-6dof-handles
-open Examples/Demo/Assets/Scenes/animation_3d.mscene
+open Examples/Demo/Assets/Scenes/animation_3d.mfscene
 wait 10
 select Crew/Armature/PhysicalBoneSimulator3D
 key Delete
@@ -322,7 +322,7 @@ wait 3
 click #tool-translate
 # Tile maps (G2b): the Tiles 2D scene's Walls layer: pick the stone tile, paint a rectangle in the view, undo it; the
 # TileSet tab on the bush's collision.
-open Examples/Demo/Assets/Scenes/tiles_2d.mscene
+open Examples/Demo/Assets/Scenes/tiles_2d.mfscene
 wait 20
 select Walls
 camera2d 336 168 2
@@ -344,7 +344,7 @@ command file.close
 wait 10
 # Paths (G13): a new Path2D in the Paths 2D scene: four points with the curve bar's Add tool, closed and smoothed, a
 # point dragged with the Select tool, the drag undone. The view centre (0, 0) is window (770, 430) at zoom 1.
-open Examples/Demo/Assets/Scenes/paths_2d.mscene
+open Examples/Demo/Assets/Scenes/paths_2d.mfscene
 wait 20
 add-node Path2D Drawn
 wait 3
@@ -370,7 +370,7 @@ state
 capture 26g-path2d-undone
 # Paths in 3D (G13.6): the Paths 3D scene's camera rail selected: its points and handles, the curve bar's 3D tools and
 # the tilt ring of point 3, seen along the curve.
-open Examples/Demo/Assets/Scenes/paths_3d.mscene
+open Examples/Demo/Assets/Scenes/paths_3d.mfscene
 wait 20
 select Rail
 command curve.tilt

@@ -5,7 +5,7 @@ using MainframeEngine.UI.Rml;
 namespace Demo;
 
 /// <summary>
-/// The Sound FX scene's controls: one button per ZzFX preset (<c>Assets/Audio/Sfx/*.mres</c>), Randomize and Mutate
+/// The Sound FX scene's controls: one button per ZzFX preset (<c>Assets/Audio/Sfx/*.mfres</c>), Randomize and Mutate
 /// (synthesise a new sound and play it), the current sound's ZzFX line, the pitch randomness and the music toggle.
 /// </summary>
 public sealed class SoundFxPanel : UiDocument
@@ -77,7 +77,7 @@ public sealed class SoundFxPanel : UiDocument
         Select("coin", Load(SoundFxScene.Presets[0]).Parameters, play: false);
     }
 
-    /// <summary>Plays preset <paramref name="index"/> of <see cref="SoundFxScene.Presets"/> (its saved <c>.mres</c>).</summary>
+    /// <summary>Plays preset <paramref name="index"/> of <see cref="SoundFxScene.Presets"/> (its saved <c>.mfres</c>).</summary>
     public void PlayPreset(int index)
     {
         var preset = SoundFxScene.Presets[index];

@@ -375,7 +375,7 @@ public sealed class SongView : Node
 
     /// <summary>
     /// Bakes the adaptive song at <paramref name="songPath"/> (an open tab's current state, else the file) in the
-    /// background: stems and the <c>.mmusic</c> manifest; a second request while it runs cancels it.
+    /// background: stems and the <c>.mfmusic</c> manifest; a second request while it runs cancels it.
     /// </summary>
     public void Bake(string songPath)
     {

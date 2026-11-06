@@ -8,7 +8,7 @@ namespace MainframeEngine.Editor;
 /// <summary>
 /// The <see cref="LightProbeVolume"/> inspector (ADR 0170): above the generated rows, the bake's state (none, current,
 /// stale, baking) and a Bake Lighting button. The bake runs in the background on every core (the editor stays live); when
-/// it finishes the data is saved next to the scene (<c>&lt;scene&gt;-lighting.mres</c> and its <c>.probes</c> file, or
+/// it finishes the data is saved next to the scene (<c>&lt;scene&gt;-lighting.mfres</c> and its <c>.mfprobes</c> file, or
 /// over the volume's existing data file) and <see cref="LightProbeVolume.Data"/> is set as one undoable edit.
 /// </summary>
 [CustomInspector(typeof(LightProbeVolume))]
@@ -115,13 +115,13 @@ public sealed class LightProbeVolumeInspector : ICustomInspector, IWorkspaceInsp
         Workspace?.Inspector.Rebuild();
     }
 
-    /// <summary><c>&lt;scene folder&gt;/&lt;scene name&gt;-lighting.mres</c> as a project path (null for an unsaved scene).</summary>
+    /// <summary><c>&lt;scene folder&gt;/&lt;scene name&gt;-lighting.mfres</c> as a project path (null for an unsaved scene).</summary>
     internal static string? TargetPath(string? scenePath)
     {
         if (string.IsNullOrEmpty(scenePath))
             return null;
         var full = AssetDatabase.Current.ToAbsolutePath(scenePath);
-        var file = Path.Combine(Path.GetDirectoryName(full)!, Path.GetFileNameWithoutExtension(full) + "-lighting.mres");
+        var file = Path.Combine(Path.GetDirectoryName(full)!, Path.GetFileNameWithoutExtension(full) + "-lighting.mfres");
         return AssetDatabase.Current.ToProjectPath(file);
     }
 }

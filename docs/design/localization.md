@@ -29,7 +29,7 @@ Decisions: [GetText.NET with engine-owned catalogs](../../memory/decisions/0060-
 | `TrInterpolatedStringHandler` | [Localization/TrInterpolatedStringHandler.cs](../../MainframeEngine/Src/Localization/TrInterpolatedStringHandler.cs) | `Tr._($"Score: {score}")` |
 | `RmlLocalization`, `RmlTextRun` | [Localization/RmlLocalization.cs](../../MainframeEngine/Src/Localization/RmlLocalization.cs) | RML parser shared by extractor and runtime |
 | `ITextTranslator`, `TextTranslator` | [Localization/ITextTranslator.cs](../../MainframeEngine/Src/Localization/ITextTranslator.cs) | the contract the game UI calls |
-| `FontFallbackTable`, `LocaleFontSet` | [Localization/FontFallbackTable.cs](../../MainframeEngine/Src/Localization/FontFallbackTable.cs) | per-locale fonts (`.mres`) |
+| `FontFallbackTable`, `LocaleFontSet` | [Localization/FontFallbackTable.cs](../../MainframeEngine/Src/Localization/FontFallbackTable.cs) | per-locale fonts (`.mfres`) |
 | `AutoTranslateMode`, `Node.Atr`/`AtrN`/`OnLocaleChanged` | [Scene/Node.Localization.cs](../../MainframeEngine/Src/Scene/Node.Localization.cs) | scene strings |
 | `mf-l10n` | [Tools/MainframeEngine.L10n/](../../Tools/MainframeEngine.L10n/) | extract, merge, update, pseudo, compile, check, stats |
 | `build/Localization.targets` | [build/Localization.targets](../../build/Localization.targets) | `.po` → `.mo` at build time |
@@ -40,7 +40,7 @@ Decisions: [GetText.NET with engine-owned catalogs](../../memory/decisions/0060-
 flowchart LR
     CS["C# sources<br/>Tr._ · Tr.P · Tr.N · Tr.NP"] -->|"GetText.Extractor<br/>(-as _ -ad P -ap N -adp NP)"| P1["code.pot"]
     RML["Assets/**/*.rml"] -->|mf-l10n extract --rml| POT
-    SC["Assets/**/*.mscene, *.mres<br/>[Export(Translatable = true)]"] -->|mf-l10n extract --scenes| POT
+    SC["Assets/**/*.mfscene, *.mfres<br/>[Export(Translatable = true)]"] -->|mf-l10n extract --scenes| POT
     P1 -->|"--include (references rebased)"| POT["Assets/locale/messages.pot"]
     POT -->|"mf-l10n update (msgmerge)"| PO["Assets/locale/es/LC_MESSAGES/messages.po …"]
     POT -->|mf-l10n pseudo| QPS["qps/LC_MESSAGES/messages.po"]
@@ -178,7 +178,7 @@ public sealed class WelcomeBanner : Node
   then raises `SceneTree.LocaleChanged`. While the tree is ticking this is deferred to the end of the frame; when the
   locale changed on another thread it is applied at the start of the tree's next `Tick`. Nodes translate in
   `OnReady` too (entering a tree is not a locale change).
-- `mf-l10n extract --scenes` reads `.mscene`/`.mres` JSON and extracts translatable values of nodes, nested-instance
+- `mf-l10n extract --scenes` reads `.mfscene`/`.mfres` JSON and extracts translatable values of nodes, nested-instance
   properties and overrides (typed through the instanced scene file), and inline resources, with `#:` references to
   the value's line and `#.` comments naming the node path and property. Instanced scene paths resolve against
   `--root`, else against the folders above the scene file (so `--root` may be the repository root). It learns which properties are translatable
@@ -215,7 +215,7 @@ The [game UI](game-ui.md)'s `UiServer` translates every document through `UiServ
 3. **Locale changes** — `ITextTranslator.LocaleChanged` only flags the server (it may fire on any thread, or inside an
    RmlUi callback such as a language dropdown's data binding). At the start of the next `UiServer.Process` — after the
    queued handle releases, before any context updates — the server loads the faces of the `FontFallbackTable`
-   (`UiServerOptions.FontFallbackTablePath`, default `Assets/locale/fonts.mres`) for the new `LocaleChain` as fallback
+   (`UiServerOptions.FontFallbackTablePath`, default `Assets/locale/fonts.mfres`) for the new `LocaleChain` as fallback
    faces, drops the template cache and reloads every loaded document from its source. Data models and `UiElement`
    subscriptions survive the reload; call `Dirty`/`DirtyAll()` on models whose strings come from `Tr` or from
    `Node.Atr` (for example in the document's `OnLocaleChanged`).
@@ -248,7 +248,7 @@ ui.Translator = static (utf8, sink) =>
 - `class="no-tr"` opts an element and everything inside it out of extraction and translation.
 - Contexts and plurals are not available in RML text; build such strings in C# and bind them through a data model.
 
-**Fonts**: `FontFallbackTable` (a `.mres` resource, by convention `Assets/locale/fonts.mres`) lists
+**Fonts**: `FontFallbackTable` (a `.mfres` resource, by convention `Assets/locale/fonts.mfres`) lists
 `DefaultFonts` and per-locale `LocaleFontSet`s (`ja` → Noto Sans JP, …). `Resolve(chain)` returns the sets matching the
 chain (most specific first) then the defaults, without duplicates. RmlUi cannot unload one face, so faces accumulate
 over a session; fallback faces only supply missing glyphs, so they never change how other text looks.

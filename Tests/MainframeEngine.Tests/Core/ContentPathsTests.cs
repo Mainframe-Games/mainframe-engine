@@ -118,7 +118,7 @@ public sealed class ContentPathsTests
     [InlineData("./Assets/Video/a.mp4", true)]
     [InlineData("Assets/Videos/a.mp4", false)]
     [InlineData("Assets/VideoClips", false)]
-    [InlineData("Assets/Scenes/Video/a.mscene", false)]
+    [InlineData("Assets/Scenes/Video/a.mfscene", false)]
     [InlineData("Video/a.mp4", false)]
     public void IsEditorOnly(string path, bool expected) => Assert.Equal(expected, ContentPaths.IsEditorOnly(path));
 }

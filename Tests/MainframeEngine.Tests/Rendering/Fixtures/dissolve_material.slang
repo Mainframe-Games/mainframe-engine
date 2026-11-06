@@ -1,5 +1,5 @@
 import mainframe.spatial;
-// Fixture (ShaderMaterialSerializationTests): a cutout material whose parameters round-trip through a .mres.
+// Fixture (ShaderMaterialSerializationTests): a cutout material whose parameters round-trip through a .mfres.
 
 [alpha(Alpha.Cutout)]
 struct Material

@@ -6,7 +6,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// The inputs of a procedural tree: Ez Tree's options (seed, type, branch levels, bark, leaves) plus the engine's
-/// <see cref="Scale"/>, bark UV mode and LowPoly settings. The 15 presets are <c>.mres</c> files of this type
+/// <see cref="Scale"/>, bark UV mode and LowPoly settings. The 15 presets are <c>.mfres</c> files of this type
 /// (<see cref="TreePresets"/>); Ez Tree JSON imports with <see cref="EzTreeJson"/>. <see cref="ToParams"/> gives the
 /// <see cref="TreeGenerator"/> its plain inputs.
 /// </summary>

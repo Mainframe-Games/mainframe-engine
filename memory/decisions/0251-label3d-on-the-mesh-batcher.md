@@ -1,4 +1,4 @@
-# ADR 0249 — Label3D stays on the mesh batcher; multi-line layout and fallbacks in shared code
+# ADR 0251 — Label3D stays on the mesh batcher; multi-line layout and fallbacks in shared code
 
 - **Date:** 2026-11-06
 - **Status:** accepted

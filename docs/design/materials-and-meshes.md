@@ -37,7 +37,7 @@ Decisions: [ADR 0013 Assimp for import](../../memory/decisions/0013-assimp-for-m
 | `WaterMaterial3D`, `WaterTextures` | [WaterMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/WaterMaterial3D.cs) | Rivers and ponds: flow ripples, reflection, absorption, foam (ADR 0159, [water.md](water.md#watermaterial3d)) |
 | `ShaderMaterial` + `Shader`, `ShaderParameter` | [Rendering/Canvas/ShaderMaterial.cs](../../MainframeEngine/Src/Rendering/Canvas/ShaderMaterial.cs) | A spatial surface shader with per-material parameters (ADRs 0205, 0237, [below](#shadermaterial-spatial-shaders-adr-0205)) |
 | `TerrainSplatMaterial3D`, `TerrainLayer` | [TerrainSplatMaterial3D.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainSplatMaterial3D.cs), [TerrainLayer.cs](../../MainframeEngine/Src/Rendering/Resources/TerrainLayer.cs) | The Realistic terrain's look: up to 12 splat-weighted PBR layers in texture arrays, its own set 2 and pipeline layout (ADR 0156, [Terrain](terrain.md#terrainsplatmaterial3d)) |
-| `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.meta` (see [Asset pipeline](asset-pipeline.md)) |
+| `Texture2D`, `TextureImportSettings` | [Texture2D.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2D.cs) | Images; import settings from `.mfmeta` (see [Asset pipeline](asset-pipeline.md)) |
 | `OrmPacker` | [OrmPacker.cs](../../MainframeEngine/Src/Rendering/Resources/OrmPacker.cs) | Separate occlusion/roughness/metallic maps → one linear ORM texture (ADR 0158) |
 | `Texture2DArray`, `Texture2DArrayGpu` (internal) | [Texture2DArray.cs](../../MainframeEngine/Src/Rendering/Resources/Texture2DArray.cs) | Layers of one size on a `2D_ARRAY` image (ADR 0151) |
 | `MultiMesh` | [MultiMesh.cs](../../MainframeEngine/Src/Rendering/Resources/MultiMesh.cs) | Many transforms of one mesh (ADR 0151) |
@@ -94,7 +94,7 @@ The unit tests check the winding, outward normals, counts and bounds of every pr
 ### Vertex streams (ADR 0151)
 
 A surface can carry two optional per-vertex arrays (Godot's `ARRAY_COLOR` and `ARRAY_CUSTOM0`). Both serialize like
-the other arrays (JSON float arrays in `.mscene`/`.mres`) and must be empty or one per position (`Validate`).
+the other arrays (JSON float arrays in `.mfscene`/`.mfres`) and must be empty or one per position (`Validate`).
 
 | Array | Meaning | Missing |
 |---|---|---|
@@ -320,7 +320,7 @@ keeps it apart from the built-in materials:
 - **State** (`ShaderMaterial.RenderState` = the shader's): the `[alpha]` mode, the cull mode, `DepthDraw`
   (`MaterialRenderState.DepthDraw`: `DepthDraw.Always` writes depth even when blended, `DepthDraw.Never` never, and is
   not prepassed) and `[noDepthTest]`.
-- **Saved** as `ShaderParameters` (`ShaderParameter` records in `.mres`/`.mscene`: `{"name", "value"}` with a number, bool,
+- **Saved** as `ShaderParameters` (`ShaderParameter` records in `.mfres`/`.mfscene`: `{"name", "value"}` with a number, bool,
   vector array or `{"res"}`, or `{"name", "array"}`).
 
 A shader without SPIR-V or a layout file (never built) draws with the default material and a warning, like an unsupported
@@ -328,7 +328,7 @@ material.
 
 ### Texture2D
 
-Images load through `ResourceLoader` with their `.meta` import settings (see
+Images load through `ResourceLoader` with their `.mfmeta` import settings (see
 [Asset pipeline](asset-pipeline.md#textures)). A texture's colour space can depend on its usage. With
 `colorSpace: auto`, the renderer uploads it once per colour space its users need:
 
@@ -336,7 +336,7 @@ Images load through `ResourceLoader` with their `.meta` import settings (see
 - `R8G8B8A8_UNORM` for normal maps.
 
 `ImportSettings` set `Srgb` or `Linear` force one space. Uploads go through the upload queue, and when
-`Mipmaps` is set the mip chain is generated on the GPU by blits. With `PreserveAlphaCoverage` (ADR 0172, `.meta`
+`Mipmaps` is set the mip chain is generated on the GPU by blits. With `PreserveAlphaCoverage` (ADR 0172, `.mfmeta`
 `preserveAlphaCoverage`, `alphaCoverageCutoff`) the chain is built on the CPU instead (`MipChain`: box filter, colour
 in linear light for sRGB, each level's alpha scaled so the share of texels passing the cutoff matches level 0's; Castaño
 2010) and uploaded with the image (`GpuTexture` provided mips), so cut-out leaves keep their density in the distance. Each upload gets its own sampler: filter, wrap,
@@ -674,7 +674,7 @@ Measured on an Apple M5 with MoltenVK:
   - material state, keys and hashing;
   - pipeline-cache hits (with a fake factory) and allocation-free lookups;
   - sort order and allocation-free sorting;
-  - `.mscene`/`.mres` round trips of meshes, materials and textures (with `.meta` settings), vertex streams,
+  - `.mfscene`/`.mfres` round trips of meshes, materials and textures (with `.mfmeta` settings), vertex streams,
     `FoliageMaterial3D`, multimeshes and visibility ranges;
   - vertex-stream packing and defaults, foliage state and parameters, `MultiMesh` (`MultiMeshTests`), visibility
     ranges, `Texture2DArray` (CPU side);
@@ -699,7 +699,7 @@ Measured on an Apple M5 with MoltenVK:
   - The pre-M3 `lit-shapes`, `multi-light` and `spine` goldens still match after the port to `MeshInstance3D`.
   - ADR 0205 ([SpatialShaderTests.cs](../../Tests/MainframeEngine.RenderTests/SpatialShaderTests.cs)): `spatial-shaders` and
     `spatial-shaders-taa` (a procedural world-space ground, multimesh stalks swaying by `TIME` and `INSTANCE_CUSTOM` with
-    swaying shadows, a dissolve cutout from a `.mres` with cut shadows, a rim next pass and overlay; picks through a
+    swaying shadows, a dissolve cutout from a `.mfres` with cut shadows, a rim next pass and overlay; picks through a
     vanished dissolve; the stalks must move between frames 30 and 50), and an allocation gate.
 
 ## Levels of detail and decals (G6.4, G6.5)
@@ -742,7 +742,7 @@ pipelines draw the view like any mesh; the prepass uses `MeshDepthSkinned` for t
 - Blended surfaces cast no shadow (cutout materials cast alpha-tested shadows since M4).
 - No morph targets, generated LODs (authored and code-built levels only, G6.4) or GPU-driven culling (shadow casters
   are culled per pass on the CPU); skinned instances are not instanced together.
-- PBR is opt-in (`ShadingMode.Pbr`), and imported models stay Blinn-Phong unless their `.meta` says `"shading": "pbr"`
+- PBR is opt-in (`ShadingMode.Pbr`), and imported models stay Blinn-Phong unless their `.mfmeta` says `"shading": "pbr"`
   (the default flip is the owner's call, [Rendering features](rendering-features.md#open-questions)). No
   `MetallicSpecular`, per-channel texture selection or `AoLightAffect` yet (G6.1).
 - Decals reach only opaque `StandardMaterial3D` and terrain surfaces, not `MultiMesh` instances, foliage, water or spatial
@@ -758,7 +758,7 @@ pipelines draw the view like any mesh; the prepass uses `MeshDepthSkinned` for t
   `MeshInstance3D` with a `QuadMesh` and one material.
 - Entries upgraded from removed types (`Box3d`/`Quad`) skip `[SerializedMigration]`s of their replacement type.
 - Offscreen views have no shadows while the main world draws anything (one set of shadow maps; `SubViewport.Shadows`).
-- Mesh data in `.mscene`/`.mres` is JSON arrays (ADR 0011). Imported models are not re-serialized: scenes
+- Mesh data in `.mfscene`/`.mfres` is JSON arrays (ADR 0011). Imported models are not re-serialized: scenes
   reference the model file.
 
 ## Related docs

@@ -200,13 +200,13 @@ public sealed class SongSnapshotBuilder
         _ => null,
     };
 
-    /// <summary>Loads a sound file (asset UID or project path; <c>.mres</c> audio resources such as ZzFX sounds too) into memory.</summary>
+    /// <summary>Loads a sound file (asset UID or project path; <c>.mfres</c> audio resources such as ZzFX sounds too) into memory.</summary>
     public static AudioStream? LoadClip(string file)
     {
         var path = AssetUid.IsUid(file) ? AssetDatabase.Current.GetPath(file) : file;
         if (path is null)
             return null;
-        if (path.EndsWith(".mres", StringComparison.OrdinalIgnoreCase))
+        if (path.EndsWith(".mfres", StringComparison.OrdinalIgnoreCase))
             return ResourceLoader.Load<AudioStream>(path);
         var stream = AudioStream.Load(path);
         stream.LoadMode = AudioLoadMode.Memory;

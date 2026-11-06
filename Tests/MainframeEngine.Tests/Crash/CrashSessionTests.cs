@@ -18,7 +18,7 @@ public sealed class CrashSessionTests
             Os = new CrashOsInfo { Description = "TestOS" },
             LogFile = logFile,
             ReportId = reportId,
-            Args = ["--scene", "Assets/Scenes/A.mscene"],
+            Args = ["--scene", "Assets/Scenes/A.mfscene"],
         };
         File.WriteAllBytes(CrashSession.SessionPath(crashes, pid), JsonSerializer.SerializeToUtf8Bytes(file, CrashJsonContext.Default.CrashSessionFile));
         File.WriteAllBytes(CrashSession.LockPath(crashes, pid), []); // left behind, unlocked: the process is gone
@@ -55,7 +55,7 @@ public sealed class CrashSessionTests
         var report = CrashReporter.Load(pending)!;
         Assert.Equal(DeadPid, report.Session.ProcessId);
         Assert.Equal("0.9", report.App.Version);
-        Assert.Equal(["--scene", "Assets/Scenes/A.mscene"], report.Session.Args);
+        Assert.Equal(["--scene", "Assets/Scenes/A.mfscene"], report.Session.Args);
         Assert.Equal(CrashReport.LogTailFileName, report.Log);
         Assert.Contains("the last words", File.ReadAllText(Path.Combine(pending.Folder, CrashReport.LogTailFileName)), StringComparison.Ordinal);
         Assert.Equal("The game stopped unexpectedly", report.Summary);

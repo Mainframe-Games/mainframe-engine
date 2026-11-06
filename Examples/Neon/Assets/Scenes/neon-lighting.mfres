@@ -11,6 +11,6 @@
     "BakeHash": "22365974254bc347dd4d27ad6381391b748f0d774281db0db96b49f71bb04883",
     "RaysPerProbe": 192,
     "Bounces": 2,
-    "DataFile": "neon-lighting.probes"
+    "DataFile": "neon-lighting.mfprobes"
   }
 }

@@ -27,7 +27,7 @@ public sealed class CrashUiTests : IDisposable
         W.Output.AddCrash(new OutputCrash
         {
             Title = "Game #1 crashed: NullReferenceException in PlayerController.OnPhysicsProcess",
-            Detail = "/root/Player · Assets/Scenes/Main.mscene",
+            Detail = "/root/Player · Assets/Scenes/Main.mfscene",
             Frames =
             [
                 new OutputCrashFrame("at Game.PlayerController.OnPhysicsProcess(Single) in Player.cs:42", gameFile, 42, IsGame: true),
@@ -67,13 +67,13 @@ public sealed class CrashUiTests : IDisposable
     {
         var folder = Path.Combine(_editor.Directory, "crashes", "2026-10-11T10-42-07-0123");
         Directory.CreateDirectory(folder);
-        var copy = Path.Combine(_editor.Directory, "recovery", "Main-20261011-104207.mscene");
+        var copy = Path.Combine(_editor.Directory, "recovery", "Main-20261011-104207.mfscene");
         Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
         File.WriteAllBytes(copy, SceneSaver.ToJson(new Node3D { Name = "Recovered" }));
         var report = new CrashReport { Id = "0123456789abcdef0123456789abcdef", Kind = CrashKind.ThreadException, Timestamp = DateTime.UtcNow };
         report.App.Version = "9.8.7";
         report.Exception.Add(new CrashException { Type = "System.InvalidOperationException", Message = "secret details" });
-        EditorCrashReporting.ListRecoveryCopies(report, [copy, Path.Combine(_editor.Directory, "gone.mscene")]);
+        EditorCrashReporting.ListRecoveryCopies(report, [copy, Path.Combine(_editor.Directory, "gone.mfscene")]);
         File.WriteAllBytes(Path.Combine(folder, CrashReport.FileName), report.ToJson());
         var info = new CrashReportInfo(folder, report.Id, report.Kind, report.Timestamp, report.Summary);
 

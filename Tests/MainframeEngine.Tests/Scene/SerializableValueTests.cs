@@ -24,7 +24,7 @@ public sealed class SerializableValueTests
         Codecs.Register(Codecs.FloatArray<Rgba>(4, static (c, d) => { d[0] = c.R; d[1] = c.G; d[2] = c.B; d[3] = c.A; },
             static f => new Rgba(f[0], f[1], f[2], f[3])));
         var swatch = new Swatch { Colour = new Rgba(0.1f, 0.2f, 0.3f, 1), Palette = [new Rgba(1, 0, 0, 1), new Rgba(0, 0, 1, 0.5f)] };
-        var path = Path.Combine(Path.GetTempPath(), $"mf-swatch-{Guid.NewGuid():N}.mres");
+        var path = Path.Combine(Path.GetTempPath(), $"mf-swatch-{Guid.NewGuid():N}.mfres");
         try
         {
             ResourceSaver.Save(swatch, path);

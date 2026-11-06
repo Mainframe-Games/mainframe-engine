@@ -164,7 +164,7 @@ public sealed class ValleyTests
         // ready). Both must build the same valley: every node, mesh and instance in the same place.
         var scene = ForestScene.Build();
         scene.GetNode<ForestValley>("Valley").Art = false; // no LFS content in CI
-        var path = Path.Combine(Path.GetTempPath(), $"forest-async-{Guid.NewGuid():N}.mscene");
+        var path = Path.Combine(Path.GetTempPath(), $"forest-async-{Guid.NewGuid():N}.mfscene");
         File.WriteAllBytes(path, SceneSaver.ToJson(scene));
         scene.Free();
         try
@@ -220,7 +220,7 @@ public sealed class ValleyTests
         // valley (no gameplay parts: walls, the cabin's gameplay), the same as the edit-mode ready does.
         var scene = ForestScene.Build();
         scene.GetNode<ForestValley>("Valley").Art = false; // no LFS content in CI
-        var path = Path.Combine(Path.GetTempPath(), $"forest-edit-{Guid.NewGuid():N}.mscene");
+        var path = Path.Combine(Path.GetTempPath(), $"forest-edit-{Guid.NewGuid():N}.mfscene");
         File.WriteAllBytes(path, SceneSaver.ToJson(scene));
         scene.Free();
         try

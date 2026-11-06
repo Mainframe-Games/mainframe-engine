@@ -44,9 +44,9 @@ presets and save them as JSON. This proposal ports it to C# and adds what a game
 - **`TreeGenerator`**: a faithful C# port of Ez Tree's generator. It is pure C# (no engine types; System.Numerics for its output),
   bit-exact in its RNG, and matches Ez Tree's vertex and index counts exactly and its positions within 1e-4 for every
   preset.
-- **`TreeOptions`** (resource) mirroring Ez Tree's option groups, and the **15 tree and bush presets** as `.mres`.
+- **`TreeOptions`** (resource) mirroring Ez Tree's option groups, and the **15 tree and bush presets** as `.mfres`.
   Ez Tree JSON saved from its web app imports directly.
-- **`Tree3D`** (`[Tool]` node): preset, seed and style, live regeneration in the editor, and **Bake** to `.mres` so
+- **`Tree3D`** (`[Tool]` node): preset, seed and style, live regeneration in the editor, and **Bake** to `.mfres` so
   shipped games do not run the generator at load.
 - **Two styles.** `TreeStyle.Realistic`: PBR bark and alpha-cut leaf cards. `TreeStyle.LowPoly`: flat-shaded palette
   bark and blob canopies. **LowPoly runs on today's Blinn-Phong `StandardMaterial3D`**, so it can ship before G6.
@@ -72,7 +72,7 @@ presets and save them as JSON. This proposal ports it to C# and adds what a game
 
 ```mermaid
 flowchart LR
-    P["TreeOptions (.mres)<br/>preset or inline"] --> G["TreeGenerator<br/>(pure C#)"]
+    P["TreeOptions (.mfres)<br/>preset or inline"] --> G["TreeGenerator<br/>(pure C#)"]
     S["seed"] --> G
     G --> K["TreeSkeleton<br/>(all RNG use)"]
     K --> MR["Mesher: Realistic<br/>rings + leaf cards"]
@@ -80,7 +80,7 @@ flowchart LR
     MR --> O["TreeMeshData × LODs<br/>bark, leaves, Custom0"]
     ML --> O
     O --> T["Tree3D (editor: live)"]
-    T -->|Bake| B["ArrayMesh .mres<br/>+ TreeImpostor + trunk shape"]
+    T -->|Bake| B["ArrayMesh .mfres<br/>+ TreeImpostor + trunk shape"]
     B --> N["ScatterObjectType scene<br/>(Nodes or MultiMesh, trunk capsule)"]
     B --> F["FoliageType<br/>(backdrop, no collision)"]
 ```
@@ -93,7 +93,7 @@ flowchart LR
 | `MainframeEngine/Src/Trees/` | `TreeOptions`, `TreeLevel`, `TreeStyle`, `Tree3D`, `TreePresets`, `TreeImpostor`, `EzTreeJson` (importer) |
 | `MainframeEngine/Src/Rendering/Resources/` | `FoliageMaterial3D`, `ImpostorMaterial3D` (internal to `TreeImpostor`) |
 | `MainframeEngine/Assets/Shaders/` | `Foliage/Foliage.vk.{vert,frag}.slang`, `Impostor/Impostor.vk.{vert,frag}.slang`, `include/wind.slang`, `Shadows/Shadow{,Point}FoliageInstanced.vk.vert.slang` |
-| `MainframeEngine/Assets/Trees/Presets/` | 15 preset `.mres` files (about 2 KB each) |
+| `MainframeEngine/Assets/Trees/Presets/` | 15 preset `.mfres` files (about 2 KB each) |
 | `MainframeEngine.Editor/Src/Trees/` | `Tree3DInspector`, `TreeImpostorBaker`, `TreeBaker`; bark and leaf textures in `MainframeEngine.Editor/Assets/Trees/` |
 | `build/ez-tree-reference.mjs` | parity fixture generator (by hand, not CI), like `build/zzfx-reference.mjs` |
 
@@ -325,7 +325,7 @@ units long. `Scale = 0.3` gives a tree of about 20 m.
 
 ### Presets
 
-The 15 tree and bush presets become `MainframeEngine/Assets/Trees/Presets/<file>.mres`. The values are copied from
+The 15 tree and bush presets become `MainframeEngine/Assets/Trees/Presets/<file>.mfres`. The values are copied from
 the JSON unchanged, as doubles. `TreePresets` lists them under Ez Tree's display names (`presets/index.js`):
 
 | Ez Tree name → file | Type, levels | Seed | Bark | Leaves | LOD0 triangles |
@@ -369,7 +369,7 @@ public class Tree3D : GeometryInstance3D
 public enum TreeRuntimeGeneration : byte { WhenNotBaked, Always, Never }
 ```
 
-- **Preset and seed.** Choosing a preset copies its `.mres` into an inline `TreeOptions` (`Resource.Duplicate(deep:
+- **Preset and seed.** Choosing a preset copies its `.mfres` into an inline `TreeOptions` (`Resource.Duplicate(deep:
   true)`, `MainframeEngine/Src/Resources/Resource.cs:80`). `Seed` lives on the node, so many trees can share one
   `TreeOptions` and still differ.
 - **Edit mode.** `Tree3D` is `[Tool]`, so in the editor it regenerates when its options change
@@ -383,8 +383,8 @@ public enum TreeRuntimeGeneration : byte { WhenNotBaked, Always, Never }
 
 #### Bake
 
-**Bake** (an inspector icon button, also `TreeBaker.Bake(tree, path)` for scripts) writes one `.mres` per tree, by
-default `Assets/Trees/<preset>_<seed>_<style>.mres`, through `ResourceSaver.Save`
+**Bake** (an inspector icon button, also `TreeBaker.Bake(tree, path)` for scripts) writes one `.mfres` per tree, by
+default `Assets/Trees/<preset>_<seed>_<style>.mfres`, through `ResourceSaver.Save`
 (`MainframeEngine/Src/Resources/ResourceSaver.cs:48`). It holds the `ArrayMesh` (bark and leaf surfaces with `Custom0`,
 LODs, materials), the `TreeImpostor` (atlases as PNG next to it), the trunk capsule, and a `BakeHash` of options, seed,
 style and generator version; when the hash no longer matches, the inspector marks the bake stale. A baked tree costs at
@@ -415,7 +415,7 @@ unique trees add 0.2–0.5 s to a load. LowPoly blobs add about 1 ms. The output
   `oak`, `pine`, 1024²), imported with `FixAlphaBorder` (`MainframeEngine/Src/Rendering/Resources/Texture2D.cs:61-65`)
   so mipmaps get no dark fringes. Without MSAA there is no alpha-to-coverage, and plain mips make distant canopies go
   thin, so leaf textures also get **coverage-preserving alpha mips**: a new texture import setting
-  (`alphaCoverageCutoff` in the `.meta`, default off) scales each mip's alpha so the share of texels above the cutoff
+  (`alphaCoverageCutoff` in the `.mfmeta`, default off) scales each mip's alpha so the share of texels above the cutoff
   matches mip 0. `LeafTint` multiplies the albedo.
 - **Where the textures live.** Engine `Assets/` is 1.2 MB today, and the three preset barks alone are about 7 MB. The
   textures ship with the **editor** (`MainframeEngine.Editor/Assets/Trees/`), which copies a set into the project's
@@ -566,7 +566,7 @@ directions, so it reads correctly from any angle.
   cliffs or fly.
 - **Atlases.** Two per tree: albedo + alpha (sRGB, cutout), and object-space normal + depth (linear; depth offsets
   the shadow lookup). They fill set 2's albedo and normal slots, so there is no binding change. They are saved as PNG
-  next to the `.mres`. In memory, two 1024² RGBA8 atlases with mips take about 11 MB per baked variant
+  next to the `.mfres`. In memory, two 1024² RGBA8 atlases with mips take about 11 MB per baked variant
   ([decision 6](#decisions)).
 - **Bake** (`TreeImpostorBaker`, editor only). It renders the tree's LOD0 orthographically from each grid direction,
   with no lighting and no wind. It uses an offscreen view and the capture path of ADR 0136
@@ -627,7 +627,7 @@ The image at the top shows the layout. `Tree3DInspector` is an `ICustomInspector
   **wind** icon previews the wind in the edit viewport. It is off by default, so the scene holds still while editing.
 - **LOD table.** Triangles and vertices per LOD and the impostor, and the switch size in pixels. A row's *eye* icon
   forces that LOD in the viewport (`ForceLod`).
-- **Bake** icon button (tooltip "Bake meshes and impostor to .mres"), **Bake variants**, **Create collider**, and the
+- **Bake** icon button (tooltip "Bake meshes and impostor to .mfres"), **Bake variants**, **Create collider**, and the
   bake status (up to date / stale / not baked).
 
 Following the editor rule, buttons are icons with tooltips: `dice-5`, `file-import`, `package` (bake),
@@ -664,7 +664,7 @@ Following the editor rule, buttons are icons with tooltips: `dice-5`, `file-impo
   - **Determinism:** the same bytes on two runs, on a second `TreeGenerator` and on a second thread.
   - **Allocation budget:** on a reused `TreeGenerator`, Oak Medium with three LODs allocates at most its output arrays
     + 16 KB (`GC.GetAllocatedBytesForCurrentThread`).
-  - `EzTreeJson`: every preset JSON → `TreeOptions` → `.mres` → load keeps the values as doubles; missing keys keep the
+  - `EzTreeJson`: every preset JSON → `TreeOptions` → `.mfres` → load keeps the values as doubles; missing keys keep the
     defaults.
   - LowPoly: blob count ≤ `MaxBlobs`, no triangle fully inside another blob, closed blobs, triangle budgets per preset.
   - `Custom0` weights rise monotonically along every branch, leaves have `y = 1`; LOD errors rise with the level.
@@ -684,7 +684,7 @@ Following the editor rule, buttons are icons with tooltips: `dice-5`, `file-impo
 - Every one of the 15 presets generates in C# with Ez Tree's exact vertex and index counts per LOD, and positions within
   1e-4 of the reference fixture.
 - A `Tree3D` in LowPoly renders, faceted and palette-coloured, on today's Blinn-Phong `StandardMaterial3D`. It bakes
-  to `.mres`, and the baked scene loads without running the generator.
+  to `.mfres`, and the baked scene loads without running the generator.
 - Realistic trees cut out their leaves, light both sides, let light through, and sway with `WorldEnvironment`'s wind.
   Their shadows sway with them.
 - Grass (G8a) and trees share one wind. Water (G8c) reads it.
@@ -705,7 +705,7 @@ G8b.1–G8b.3 ship first: the generator, LowPoly, Bake and the inspector need ne
    `TreeMeshData`, the licence header; `build/ez-tree-reference.mjs` and its fixture; parity, determinism and
    allocation tests; benchmark.
 2. **G8b.2 Options, presets, LowPoly, Tree3D and Bake.** `TreeOptions`, `TreeLevel`, `EzTreeJson`, the 15 preset
-   `.mres` files; `LeafBlobMesher` and split-normal facets; `Tree3D` (edit-mode regeneration, `StandardMaterial3D` for
+   `.mfres` files; `LeafBlobMesher` and split-normal facets; `Tree3D` (edit-mode regeneration, `StandardMaterial3D` for
    both styles, `ForceLod`), `TreeBaker`, `TrunkShape`, `RuntimeGeneration`; `THIRD_PARTY_NOTICES.md` rows; render
    test `tree-lowpoly`.
 3. **G8b.3 Inspector.** `Tree3DInspector` (preset, import, seed dice, style, level foldouts, live preview, LOD table,
@@ -744,7 +744,7 @@ settled; **Decision:** is what to build.
    unbaked tree, but still generate it.
 5. **`Scale` default.** 0.3 makes Oak Medium up to about 20 m tall. Per-preset scales would be closer to real
    species, but the presets would no longer be pure Ez Tree values. **Decision:** one engine-wide 0.3, set in every
-   preset `.mres` as a separate engine-only field.
+   preset `.mfres` as a separate engine-only field.
 6. **Impostor memory.** Two 2048² RGBA8 atlases with mips take about 45 MB per baked variant; at 1024² it is about
    11 MB. The engine has no block compression yet. **Decision:** 1024² (8 × 8 at 128 px), 2048² as an option. Revisit
    with GPU texture compression (M12 mobile).

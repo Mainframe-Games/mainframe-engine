@@ -3,7 +3,7 @@ using System.Numerics;
 namespace MainframeEngine.RenderTests.Host.Scenes;
 
 /// <summary>
-/// <see cref="UiMarker3D"/>s on the engine's marker document (G11.4, ADR 0250): three nameplates over posts (one with a
+/// <see cref="UiMarker3D"/>s on the engine's marker document (G11.4, ADR 0254): three nameplates over posts (one with a
 /// title, bars full, half and a quarter), a health bar, an interaction prompt over a crate, a waypoint ahead and one
 /// off-screen to the right that clamps to the edge with its arrow, and a nameplate behind a wall hidden by physics
 /// occlusion. The bars' fill is <c>#3366cc</c>, checked exact after the tonemap.

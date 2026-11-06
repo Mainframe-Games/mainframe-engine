@@ -5,15 +5,15 @@ using static Demo.DemoBuild;
 namespace Demo;
 
 /// <summary>
-/// Adaptive music (docs/design/adaptive-music.md): the Demo's adaptive song (<c>Assets/Music/adaptive_theme.msong</c>,
-/// made in the editor's music mode and baked with <c>just bake-song</c> to <c>adaptive_theme.mmusic</c> and its stems)
+/// Adaptive music (docs/design/adaptive-music.md): the Demo's adaptive song (<c>Assets/Music/adaptive_theme.mfsong</c>,
+/// made in the editor's music mode and baked with <c>just bake-song</c> to <c>adaptive_theme.mfmusic</c> and its stems)
 /// on an <see cref="AdaptiveMusicPlayer"/>. <c>intensity</c> fades the Perc and Lead layers in (the Lead's low-pass
 /// opens with it), <c>area</c> moves Explore to Combat at the next bar and back with the Hit stinger;
 /// <see cref="MusicVisualizer2D"/> draws the sections, the beats and the layers' gains.
 /// </summary>
 public static class AdaptiveMusicScene
 {
-    public const string MusicFile = "Assets/Music/adaptive_theme.mmusic";
+    public const string MusicFile = "Assets/Music/adaptive_theme.mfmusic";
 
     public static Node Build()
     {

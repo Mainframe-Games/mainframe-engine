@@ -7,7 +7,7 @@ namespace MainframeEngine.Tests.Animation;
 /// <summary>
 /// ADR 0207/0208: the generated Blender-style character imports to a <see cref="Skeleton3D"/>, a skinned
 /// <see cref="MeshInstance3D"/> with a <see cref="Skin"/>, and an <see cref="AnimationPlayer"/> with its ten clips (loop
-/// modes and events from the glTF extras and the <c>.meta</c>); the clips evaluate and the CPU skinning reference follows.
+/// modes and events from the glTF extras and the <c>.mfmeta</c>); the clips evaluate and the CPU skinning reference follows.
 /// </summary>
 /// <remarks>Needs the Assimp native library.</remarks>
 [Collection(nameof(SerialResources))]
@@ -50,7 +50,7 @@ public sealed class SkinnedImportTests : IDisposable
             SkinnedCharacter.Write(Path.Combine(TestPaths.RepositoryRoot(), "Tests", "Assets", "Models", "Character"));
         var committed = Path.Combine(AppContext.BaseDirectory, "Assets", "Models", "Character");
         var generated = Path.Combine(_project, "Assets", "Models", "Character");
-        foreach (var file in new[] { SkinnedCharacter.File, SkinnedCharacter.File + ".meta" })
+        foreach (var file in new[] { SkinnedCharacter.File, SkinnedCharacter.File + ".mfmeta" })
             Assert.True(File.ReadAllBytes(Path.Combine(committed, file)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(generated, file))),
                 $"{file} differs from the generator: run it with UPDATE_TEST_ASSETS=1 (SkinnedCharacter.Write into Tests/Assets/Models/Character).");
     }
@@ -99,7 +99,7 @@ public sealed class SkinnedImportTests : IDisposable
         Assert.Equal(SkinnedCharacter.Clips.Order(), names.Order());
         Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation("run")!.LoopMode);
         Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation("idle")!.LoopMode);
-        Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation("craft")!.LoopMode); // from the .meta clips
+        Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation("craft")!.LoopMode); // from the .mfmeta clips
         Assert.Equal(AnimationLoopMode.None, player.GetAnimation("swing")!.LoopMode);
         Assert.Equal(AnimationLoopMode.Linear, player.GetAnimation("circle")!.LoopMode); // root motion clips (ADR 0210)
         Assert.Equal(AnimationLoopMode.None, player.GetAnimation("jump")!.LoopMode);
@@ -108,7 +108,7 @@ public sealed class SkinnedImportTests : IDisposable
         Assert.Equal(0.66f, player.GetAnimation("run")!.Length, 2);
         Assert.Equal([("HammerFist", SkinnedCharacter.SwingEventTime)], player.GetAnimation("swing")!.GetEvents().ToArray());
         Assert.Equal(["Step", "Step"], player.GetAnimation("run")!.GetEvents().Select(e => e.Name));
-        Assert.Equal([("Tap", 0.5f)], player.GetAnimation("craft")!.GetEvents().ToArray()); // .meta events
+        Assert.Equal([("Tap", 0.5f)], player.GetAnimation("craft")!.GetEvents().ToArray()); // .mfmeta events
         var track = player.GetAnimation("run")!.Tracks.OfType<Rotation3DTrack>().First(t => t.Bone == "UpperLeg.L");
         Assert.Equal("Armature", track.Path.ToString());
     }

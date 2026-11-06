@@ -4,7 +4,7 @@ using System.Numerics;
 namespace MainframeEngine;
 
 /// <summary>
-/// Text in the 3D world (Godot's <c>Label3D</c>, ADRs 0200 and 0249): glyph quads from <see cref="Font"/>'s atlas at
+/// Text in the 3D world (Godot's <c>Label3D</c>, ADRs 0200 and 0251): glyph quads from <see cref="Font"/>'s atlas at
 /// <see cref="FontSize"/>, one world unit per <see cref="PixelSize"/>⁻¹ pixels, aligned around the node. Lines break at
 /// <c>\n</c> and, with <see cref="Autowrap"/>, inside <see cref="Width"/>; characters the font lacks come from its
 /// fallbacks, then from the project's <see cref="Localization.FontFallbackTable"/> for the current locale (CJK text).

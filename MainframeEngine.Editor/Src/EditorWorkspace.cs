@@ -1412,11 +1412,11 @@ public sealed partial class EditorWorkspace : Node
             {
                 var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
                 var name = Path.GetFileNameWithoutExtension(scene.DisplayName.Replace(' ', '_'));
-                // Same names in the same second (two "Untitled" tabs, two Main.mscene of different folders) must not
+                // Same names in the same second (two "Untitled" tabs, two Main.mfscene of different folders) must not
                 // overwrite each other: number them.
-                var path = Path.Combine(Options.RecoveryDirectory, $"{name}-{stamp}.mscene");
+                var path = Path.Combine(Options.RecoveryDirectory, $"{name}-{stamp}.mfscene");
                 for (var n = 2; File.Exists(path) || written.Contains(path); n++)
-                    path = Path.Combine(Options.RecoveryDirectory, $"{name}-{stamp}-{n}.mscene");
+                    path = Path.Combine(Options.RecoveryDirectory, $"{name}-{stamp}-{n}.mfscene");
                 AtomicFile.WriteAllBytes(path, SceneSaver.ToJson(scene.Root));
                 written.Add(path);
             }

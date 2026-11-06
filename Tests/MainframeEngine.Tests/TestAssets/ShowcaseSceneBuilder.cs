@@ -8,7 +8,7 @@ using Color = System.Drawing.Color;
 /// <summary>
 /// Builds the showcase fixture scene in code: every shadow-light type, primitives and materials, the glTF test
 /// model, SpineBoy, a sky, positional audio and a physics tumble. The committed copy is
-/// <c>Tests/Assets/Scenes/Showcase.mscene</c> (parsed, instantiated and re-saved by the serialization tests, opened
+/// <c>Tests/Assets/Scenes/Showcase.mfscene</c> (parsed, instantiated and re-saved by the serialization tests, opened
 /// by the editor smoke/render tests); regenerate it with
 /// <c>UPDATE_TEST_ASSETS=1 dotnet test Tests/MainframeEngine.Tests --filter FullyQualifiedName~TheShowcaseFixture</c>.
 /// </summary>
@@ -38,7 +38,7 @@ public static class ShowcaseSceneBuilder
             Animation = "walk",
         });
 
-        // M3 meshes and materials: a textured floor (the checker's .meta asks for nearest filtering), the box, a few primitives (blended glass, emissive capsule, cylinder) and the glTF test model, instanced
+        // M3 meshes and materials: a textured floor (the checker's .mfmeta asks for nearest filtering), the box, a few primitives (blended glass, emissive capsule, cylinder) and the glTF test model, instanced
         // from its file by UID (imported through Assimp; only its overrides are saved here).
         var checker = ResourceLoader.Load<Texture2D>(TestModelFolder + "/checker.png");
         Add(root, new MeshInstance3D

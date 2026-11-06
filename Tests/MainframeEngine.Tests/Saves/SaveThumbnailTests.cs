@@ -49,7 +49,7 @@ public sealed class SaveThumbnailTests : SaveTestBase
 
         Assert.True(result.IsOk);
         Assert.Equal(PathOf("slot1.png"), result.Info!.ThumbnailPath);
-        Assert.Equal("slot1.png", HeaderThumbnail(PathOf("slot1.msave")));
+        Assert.Equal("slot1.png", HeaderThumbnail(PathOf("slot1.mfsave")));
         var png = Png.ReadRgba8(PathOf("slot1.png"));
         Assert.Equal(320, png.Width);
         Assert.Equal(180, png.Height);
@@ -88,7 +88,7 @@ public sealed class SaveThumbnailTests : SaveTestBase
 
         Assert.True(result.IsOk);
         Assert.Null(result.Info!.ThumbnailPath);
-        Assert.Null(HeaderThumbnail(PathOf("slot1.msave")));
+        Assert.Null(HeaderThumbnail(PathOf("slot1.mfsave")));
         Assert.False(File.Exists(PathOf("slot1.png")));
     }
 
@@ -102,7 +102,7 @@ public sealed class SaveThumbnailTests : SaveTestBase
         Assert.True(server.Flush(TimeSpan.FromSeconds(10)));
 
         Assert.Null(Pump(server, task).Info!.ThumbnailPath);
-        Assert.True(File.Exists(PathOf("slot1.msave")));
+        Assert.True(File.Exists(PathOf("slot1.mfsave")));
     }
 
     [Fact]

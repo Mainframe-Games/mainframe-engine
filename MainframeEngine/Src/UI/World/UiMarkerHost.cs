@@ -4,7 +4,7 @@ using MainframeEngine.UI.Rml;
 namespace MainframeEngine;
 
 /// <summary>
-/// The document that draws <see cref="UiMarker3D"/>s on a screen <see cref="UiLayer"/> (G11.4, ADR 0250): every marker of
+/// The document that draws <see cref="UiMarker3D"/>s on a screen <see cref="UiLayer"/> (G11.4, ADR 0254): every marker of
 /// its camera's viewport is one row of the <c>markers</c> data model (<c>data-for="m : markers"</c>), so a hundred
 /// nameplates are one document with no per-marker documents, model names or created elements. Each frame, just before
 /// the layer's context updates, it projects the markers, applies distance fade and scale, clamps waypoints to the

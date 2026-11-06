@@ -563,7 +563,7 @@ msgid "Save"
 msgstr ""
 
 #. node world_ui/MenuSign (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:338
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:338
 msgid ""
 "NOODLES\n"
 "Ramen  9\n"
@@ -571,92 +571,92 @@ msgid ""
 msgstr ""
 
 #. node world_ui/MarketSign (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:351
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:351
 msgid "Market"
 msgstr ""
 
 #. node world_ui/Notice (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:365
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:365
 msgid "Please keep the gate closed after dark"
 msgstr ""
 
 #. node world_ui/Walkers/Nell/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:401
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:401
 msgid "Nell"
 msgstr ""
 
 #. node world_ui/Walkers/Nell/Nameplate (UiMarker3D.Subtext)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:402
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:402
 msgid "Trader"
 msgstr ""
 
 #. node world_ui/Walkers/Nell/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:416
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:416
 msgid "#1 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Whitlock/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:449
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:449
 msgid "Whitlock"
 msgstr ""
 
 #. node world_ui/Walkers/Whitlock/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:463
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:463
 msgid "#2 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Ada/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:496
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:496
 msgid "Ada"
 msgstr ""
 
 #. node world_ui/Walkers/Ada/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:510
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:510
 msgid "#3 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Brann/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:543
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:543
 msgid "Brann"
 msgstr ""
 
 #. node world_ui/Walkers/Brann/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:557
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:557
 msgid "#4 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Corin/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:590
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:590
 msgid "Corin"
 msgstr ""
 
 #. node world_ui/Walkers/Corin/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:604
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:604
 msgid "#5 walk"
 msgstr ""
 
 #. node world_ui/Walkers/Maeve/Nameplate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:637
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:637
 msgid "Maeve"
 msgstr ""
 
 #. node world_ui/Walkers/Maeve/DebugTag (Label3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:651
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:651
 msgid "#6 walk"
 msgstr ""
 
 #. node world_ui/Crate/Prompt (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:691
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:691
 msgid "Open"
 msgstr ""
 
 #. node world_ui/Crate/Prompt (UiMarker3D.Subtext)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:692
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:692
 msgid "E"
 msgstr ""
 
 #. node world_ui/Gate (UiMarker3D.Text)
-#: Examples/Demo/Assets/Scenes/world_ui.mscene:704
+#: Examples/Demo/Assets/Scenes/world_ui.mfscene:704
 msgid "Gate"
 msgstr ""
 

@@ -151,7 +151,7 @@ host does not, because a crash there fails a test.
   "gpu": { "name": "Apple M3 Pro", "vendorId": "0x106b", "deviceId": "0x…", "type": "IntegratedGpu",
            "driver": "MoltenVK", "driverInfo": "1.3.0", "driverVersion": "0.2.2208", "api": "1.2.296" },
   "session": { "uptimeSeconds": 812.4, "renderedFrames": 48211, "processFrames": 48190,
-               "scene": "Assets/Scenes/Forest.mscene", "node": "/root/Forest/Player",
+               "scene": "Assets/Scenes/Forest.mfscene", "node": "/root/Forest/Player",
                "nodeType": "Game.PlayerController", "callback": "OnPhysicsProcess", "args": ["--fixed-fps", "60"], "processId": 48213 },
   "exception": [{ "type": "System.NullReferenceException", "message": "Object reference not set to …",
                   "frames": [{ "method": "Game.PlayerController.OnPhysicsProcess(Single)",

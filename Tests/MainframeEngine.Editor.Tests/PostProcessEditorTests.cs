@@ -4,7 +4,7 @@ namespace MainframeEngine.Editor.Tests;
 
 /// <summary>
 /// ADR 0169 in the editor: a <see cref="WorldEnvironment"/>'s <see cref="PostProcessProfile"/> edited inline (collapsible
-/// groups, live), created and saved as a <c>.mres</c>, a resource file edited in place and saved with the scene, and the
+/// groups, live), created and saved as a <c>.mfres</c>, a resource file edited in place and saved with the scene, and the
 /// viewport's Preview Post-Processing toggle.
 /// </summary>
 [Collection(nameof(SerialEditor))]
@@ -85,7 +85,7 @@ public sealed class PostProcessEditorTests : IDisposable
         _editor.Scene.Selection.Set(environment);
         _editor.Tick();
 
-        var path = Path.Combine(_editor.Directory, "Assets", "PostProcess", "look.mres");
+        var path = Path.Combine(_editor.Directory, "Assets", "PostProcess", "look.mfres");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         AssetDatabase.Current = new AssetDatabase(_editor.Directory);
         Assert.True(W.Inspector.SaveResourceAs(_editor.Scene, profile, path));
@@ -95,7 +95,7 @@ public sealed class PostProcessEditorTests : IDisposable
         Assert.True(saved.IsExternal);
         Assert.True(saved.GlowEnabled);
         Assert.Same(saved, second.PostProcess); // every slot that held it
-        Assert.Contains("look.mres", _editor.Scene.History.UndoAction!.Name, StringComparison.Ordinal);
+        Assert.Contains("look.mfres", _editor.Scene.History.UndoAction!.Name, StringComparison.Ordinal);
 
         _editor.Scene.History.Undo();
         _editor.Tick();
@@ -108,12 +108,12 @@ public sealed class PostProcessEditorTests : IDisposable
     public void AProfileFileEditedInPlaceIsSavedWithTheScene()
     {
         AssetDatabase.Current = new AssetDatabase(_editor.Directory);
-        var file = Path.Combine(_editor.Directory, "Assets", "PostProcess", "forest.mres");
+        var file = Path.Combine(_editor.Directory, "Assets", "PostProcess", "forest.mfres");
         var uid = ResourceSaver.Save(new PostProcessProfile { AutoExposureEnabled = true }, file);
         var profile = ResourceLoader.Load<PostProcessProfile>(uid);
         AddEnvironment(profile);
 
-        W.Inspector.RunAction(Row("PostProcess"), "res-edit"); // a .mres opens in place too
+        W.Inspector.RunAction(Row("PostProcess"), "res-edit"); // a .mfres opens in place too
         _editor.Tick();
         W.Inspector.ToggleSection("nested:PostProcessProfile/Auto Exposure");
         _editor.Tick();
@@ -121,7 +121,7 @@ public sealed class PostProcessEditorTests : IDisposable
         Assert.Contains(profile, _editor.Scene.EditedResourceFiles);
         Assert.True(_editor.Scene.IsDirty);
 
-        var scene = Path.Combine(_editor.Directory, "Assets", "Scenes", "Look.mscene");
+        var scene = Path.Combine(_editor.Directory, "Assets", "Scenes", "Look.mfscene");
         Directory.CreateDirectory(Path.GetDirectoryName(scene)!);
         W.Session.Save(_editor.Scene, scene);
         Assert.Contains("\"AutoExposureScale\": 0.25", File.ReadAllText(file), StringComparison.Ordinal);
@@ -136,9 +136,9 @@ public sealed class PostProcessEditorTests : IDisposable
     {
         // The Forest's look in the inspector's default width: the name used to be squeezed to "fo" beside its buttons.
         AssetDatabase.Current = new AssetDatabase(_editor.Directory);
-        var file = Path.Combine(_editor.Directory, "Assets", "PostProcess", "forest.mres");
+        var file = Path.Combine(_editor.Directory, "Assets", "PostProcess", "forest.mfres");
         var profile = ResourceLoader.Load<PostProcessProfile>(ResourceSaver.Save(new PostProcessProfile(), file));
-        var lensFile = Path.Combine(_editor.Directory, "Assets", "PostProcess", "a-lens-with-a-name-far-longer-than-the-inspector-is-wide.mres");
+        var lensFile = Path.Combine(_editor.Directory, "Assets", "PostProcess", "a-lens-with-a-name-far-longer-than-the-inspector-is-wide.mfres");
         var lens = ResourceLoader.Load<CameraAttributesPractical>(ResourceSaver.Save(new CameraAttributesPractical(), lensFile));
         AddEnvironment(profile, lens);
 
@@ -165,9 +165,9 @@ public sealed class PostProcessEditorTests : IDisposable
         Assert.True(skyActions.Bounds.Y < skyLabel.Bounds.Y + skyLabel.Bounds.Height);
 
         // The full path in the tooltip (a long name is cut with an ellipsis, never spilling out of the row).
-        Assert.Contains("Assets/PostProcess/forest.mres", Find($"#p{Row("PostProcess")}c0").GetAttribute("data-tooltip"), StringComparison.Ordinal);
+        Assert.Contains("Assets/PostProcess/forest.mfres", Find($"#p{Row("PostProcess")}c0").GetAttribute("data-tooltip"), StringComparison.Ordinal);
         Assert.Contains("PostProcessProfile", Find($"#p{Row("PostProcess")}c0").GetAttribute("data-tooltip"), StringComparison.Ordinal);
-        Assert.Contains("a-lens-with-a-name-far-longer-than-the-inspector-is-wide.mres",
+        Assert.Contains("a-lens-with-a-name-far-longer-than-the-inspector-is-wide.mfres",
             Find($"#p{Row("CameraAttributes")}c0").GetAttribute("data-tooltip"), StringComparison.Ordinal);
         Assert.Empty(_editor.RmlMessages);
         profile.Release();
@@ -177,7 +177,7 @@ public sealed class PostProcessEditorTests : IDisposable
     [Fact]
     public void ImportedResourcesDoNotOpenInPlace()
     {
-        // A LUT (an imported .cube) keeps its data in the source file: neither Edit nor Save as .mres for it.
+        // A LUT (an imported .cube) keeps its data in the source file: neither Edit nor Save as .mfres for it.
         AssetDatabase.Current = new AssetDatabase(_editor.Directory);
         var cube = Path.Combine(_editor.Directory, "Assets", "Grading", "look.cube");
         Directory.CreateDirectory(Path.GetDirectoryName(cube)!);

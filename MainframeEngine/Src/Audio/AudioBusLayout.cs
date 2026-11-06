@@ -7,7 +7,7 @@ namespace MainframeEngine;
 
 /// <summary>
 /// The mixer layout: a tree of buses rooted at <see cref="AudioBusLayout.MasterBus"/>, each with a fader (volume,
-/// mute, solo), a voice pool and an effect chain. Stored as a regular <c>.mres</c> resource
+/// mute, solo), a voice pool and an effect chain. Stored as a regular <c>.mfres</c> resource
 /// (<see cref="DefaultPath"/>) so it diffs, merges and loads like every other M2 resource; the editor's project
 /// settings (M10, <c>project.mfproj</c>) can embed the same resource inline instead.
 /// </summary>
@@ -18,7 +18,7 @@ public class AudioBusLayout : Resource
     public const string MasterBus = "Master";
 
     /// <summary>Where the engine looks for the project's layout (relative to the project root).</summary>
-    public const string DefaultPath = "Assets/Settings/AudioBusLayout.mres";
+    public const string DefaultPath = "Assets/Settings/AudioBusLayout.mfres";
 
     /// <summary>Buses in mixer order. A bus's <see cref="AudioBusInfo.Send"/> must name a bus listed before it.</summary>
     [Export]

@@ -22,7 +22,7 @@ public sealed class SongAdaptiveTests
           ],
           "adaptive": {
             "start": "intro",
-            "output": "Assets/Music/Theme.mmusic",
+            "output": "Assets/Music/Theme.mfmusic",
             "tailSeconds": 4,
             "x-future": [1, 2],
             "parameters": [
@@ -64,7 +64,7 @@ public sealed class SongAdaptiveTests
         }
         """;
 
-    private static Song Parse(string json) => SongFormat.Parse(Encoding.UTF8.GetBytes(json), "Theme.msong").Song;
+    private static Song Parse(string json) => SongFormat.Parse(Encoding.UTF8.GetBytes(json), "Theme.mfsong").Song;
 
     [Fact]
     public void TheDesignExampleRoundTripsWithUnknownFieldsKept()
@@ -213,7 +213,7 @@ public sealed class SongAdaptiveTests
     public void EveryAdaptiveEditUndoesAndRedoesExactly()
     {
         var song = MusicTestUtil.NewSong();
-        var path = Path.Combine(Path.GetTempPath(), "Adaptive.msong");
+        var path = Path.Combine(Path.GetTempPath(), "Adaptive.mfsong");
         using var doc = new SongDocument(song, path);
         var track = doc.AddTrack(SongTrackKind.Instrument, "Drums");
         var states = new List<byte[]> { SongFormat.Write(song) };
@@ -274,7 +274,7 @@ public sealed class SongAdaptiveTests
     [Fact]
     public void SectionsSnapToBarsAndTheFirstBecomesTheStart()
     {
-        using var doc = new SongDocument(MusicTestUtil.NewSong(), Path.Combine(Path.GetTempPath(), "Snap.msong"));
+        using var doc = new SongDocument(MusicTestUtil.NewSong(), Path.Combine(Path.GetTempPath(), "Snap.mfsong"));
         doc.EnableAdaptive();
         var stinger = doc.AddSection("Hit", MusicSectionKind.Stinger, 0, 10);
         Assert.Null(doc.Adaptive.Start); // a stinger cannot start
@@ -298,7 +298,7 @@ public sealed class SongAdaptiveTests
     [Fact]
     public void DragsMergeIntoOneEntry()
     {
-        using var doc = new SongDocument(MusicTestUtil.NewSong(), Path.Combine(Path.GetTempPath(), "Drag.msong"));
+        using var doc = new SongDocument(MusicTestUtil.NewSong(), Path.Combine(Path.GetTempPath(), "Drag.mfsong"));
         doc.EnableAdaptive();
         var s = doc.AddSection("A", MusicSectionKind.Section, 0, Bar);
         var layer = doc.AddLayer("L");
@@ -321,9 +321,9 @@ public sealed class SongAdaptiveTests
     [Fact]
     public void AdaptiveEditsAreRefusedWithoutTheBlockAndOnReadOnlySongs()
     {
-        using var doc = new SongDocument(MusicTestUtil.NewSong(), Path.Combine(Path.GetTempPath(), "None.msong"));
+        using var doc = new SongDocument(MusicTestUtil.NewSong(), Path.Combine(Path.GetTempPath(), "None.mfsong"));
         Assert.Throws<InvalidOperationException>(() => doc.AddSection("A", MusicSectionKind.Section, 0, Bar));
-        using var readOnly = new SongDocument(MusicTestUtil.NewSong(), Path.Combine(Path.GetTempPath(), "Ro.msong"), readOnly: true);
+        using var readOnly = new SongDocument(MusicTestUtil.NewSong(), Path.Combine(Path.GetTempPath(), "Ro.mfsong"), readOnly: true);
         Assert.Throws<InvalidOperationException>(() => readOnly.EnableAdaptive());
     }
 }

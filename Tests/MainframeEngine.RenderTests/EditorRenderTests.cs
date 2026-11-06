@@ -4,7 +4,7 @@ using MainframeEngine.RenderTests.Host;
 namespace MainframeEngine.RenderTests;
 
 /// <summary>
-/// The editor in a real (hidden) window on the GPU, through its <c>--smoke</c> run: Showcase.mscene open, a mesh selected by
+/// The editor in a real (hidden) window on the GPU, through its <c>--smoke</c> run: Showcase.mfscene open, a mesh selected by
 /// GPU picking at its projected pixel, a property changed through the inspector model, undo/redo, save, reload and
 /// compare; the editor window golden; frame times on the scene; and the allocation gate (0 B per idle frame with a
 /// 1 000-node scene). Also the splash screen, Project Manager, FileSystem panel and video mode goldens (its empty state, and a
@@ -18,7 +18,7 @@ public class EditorRenderTests
     private static int Px(HostResult result, int points) => (int)MathF.Round(points * result.ContentScale);
 
     private static string ShowcaseScene =>
-        Path.Combine(RenderTestEnvironment.RepositoryRoot, "Tests", "Assets", "Scenes", "Showcase.mscene");
+        Path.Combine(RenderTestEnvironment.RepositoryRoot, "Tests", "Assets", "Scenes", "Showcase.mfscene");
 
     [Fact]
     public void SmokeRunPicksEditsUndoesSavesReloadsAndAllocatesNothingWhenIdle()
@@ -231,7 +231,7 @@ public class EditorRenderTests
             Directory.Delete(project, recursive: true);
         CopyDirectory(Path.Combine(RenderTestEnvironment.RepositoryRoot, "Templates", "MainframeEngine.Templates", "content", "mfgame", "Assets"),
             Path.Combine(project, "Assets"));
-        new ProjectSettings { Name = "FsGame", MainScene = "Assets/Scenes/Main.mscene" }.Save(project);
+        new ProjectSettings { Name = "FsGame", MainScene = "Assets/Scenes/Main.mfscene" }.Save(project);
 
         var result = HostRunner.RunEditor(Output("editor-filesystem"), null, "--smoke-golden", "filesystem", "--project", project,
             "--hidden", "--size", "1280x720");

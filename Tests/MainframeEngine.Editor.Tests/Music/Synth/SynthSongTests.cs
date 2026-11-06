@@ -30,7 +30,7 @@ public sealed class SynthSongTests
         Assert.Contains("\"builtin\": \"wavetable\"", text, StringComparison.Ordinal);
         Assert.Contains("\"a.unison\": 7", text, StringComparison.Ordinal);
 
-        var read = SongFormat.Parse(json, "x.msong").Song.Tracks[0].Instrument!;
+        var read = SongFormat.Parse(json, "x.mfsong").Song.Tracks[0].Instrument!;
         Assert.True(read.IsWavetable);
         Assert.Equal(7, read.Patch!.Params!["a.unison"]);
         Assert.Equal(3, read.Patch.Params["fromLater"]);
@@ -38,7 +38,7 @@ public sealed class SynthSongTests
         Assert.Equal(0.4f, read.Patch.LfoShapes![0]!.Points[1][2]);
         Assert.Null(read.Patch.LfoShapes[1]);
         Assert.Equal(1024, read.Patch.Tables!["b"].FrameSize);
-        Assert.Equal(json, SongFormat.Write(SongFormat.Parse(json, "x.msong").Song));
+        Assert.Equal(json, SongFormat.Write(SongFormat.Parse(json, "x.mfsong").Song));
         Assert.Equal(SynthParams.ProductName, read.DisplayName);
     }
 
@@ -46,7 +46,7 @@ public sealed class SynthSongTests
     public void SynthEditsAreUndoableAndKnobDragsMerge()
     {
         var (song, track) = SynthSong();
-        using var document = new SongDocument(song, "/tmp/x.msong");
+        using var document = new SongDocument(song, "/tmp/x.mfsong");
         for (var c = 1000; c <= 3000; c += 500)
             document.SetSynthParam(track, "f1.cutoff", c, "drag");
         document.History.EndMerge();

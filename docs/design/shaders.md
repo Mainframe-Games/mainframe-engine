@@ -233,7 +233,7 @@ material set (set 2; set 1 in the shadow casters; canvas: set 1) in declaration 
 A material of textures only is declared at binding 1, so its textures still start there (slangc drops the empty block).
 Types: `bool`, `int`, `uint`, `float`, `floatN`, `intN`/`uintN`, `float2x2`/`3x3`/`4x4`, 1-D arrays of those, and
 `Sampler2D` (up to **4** in a spatial shader: the mesh fragment stage already binds 12 of MoltenVK's 16 samplers). Anything
-else is a build error naming `Material.<field>`. Values come from `ShaderMaterial.SetShaderParameter` or a `.mres`
+else is a build error naming `Material.<field>`. Values come from `ShaderMaterial.SetShaderParameter` or a `.mfres`
 (`ShaderParameters`); the mesh side is in [Materials & meshes](materials-and-meshes.md#shadermaterial-spatial-shaders-adr-0205).
 
 | Attribute | Meaning |
@@ -300,8 +300,8 @@ The SPIR-V is built ahead of time (no runtime compiler) and committed next to th
    `import`s the shader as a module, fills the built-in struct, calls its functions with the parameters they declare and
    finishes the pass. Each fragment stage compiles first; its vertex stage then writes only the inputs that stage kept
    (`SpirvInputs`; Slang drops unread fragment inputs). Ten slangc runs in parallel for a spatial shader;
-3. writes `x.slang.layout.json` (the layout in the engine's own format, so nothing reads Slang's JSON at run time) and
-   `x.slang.spvlock`: its first line hashes the shader, its layout and its generated entries (what `Shader.Load` checks,
+3. writes `x.slang.mflayout.json` (the layout in the engine's own format, so nothing reads Slang's JSON at run time) and
+   `x.slang.mfspvlock`: its first line hashes the shader, its layout and its generated entries (what `Shader.Load` checks,
    warning when stale); each further line hashes a file slangc's `-depfile` listed (`include:frame.slang`,
    `include:mainframe/spatial.slang`, an imported `noise.slang`), which `check` verifies too. The depfile names files by
    their real path (slangc resolves symbolic links: macOS's temp folder `/var/…` is `/private/var/…`), so the build
@@ -338,8 +338,8 @@ finds `mainframe/shaders/include/` next to itself and a checkout's finds `Mainfr
 
 ### Porting from Godot
 
-A Godot `.mfshader` (or `.gdshader`) becomes `x.slang` in place: `git mv` it and its `.meta` (the UID stays) and delete
-its old `.spv` and `.spvlock`, then:
+A Godot `.mfshader` (or `.gdshader`) becomes `x.slang` in place: `git mv` it and its `.mfmeta` (the UID stays) and delete
+its old `.spv` and `.mfspvlock`, then:
 
 - `shader_type spatial;` → `import mainframe.spatial;` (`canvas_item` → `mainframe.canvas`);
 - `uniform T name : hints = value;` → a `Material` field with the attribute table's attributes and a literal initializer

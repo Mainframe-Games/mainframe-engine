@@ -7,9 +7,9 @@ namespace MainframeEngine.Editor.Music;
 /// <param name="OutputPath">Project path of the written file.</param>
 /// <param name="Frames">Frames in the file.</param>
 /// <param name="SampleRate">The file's rate.</param>
-/// <param name="Loop">The <c>.meta</c>'s <c>loop</c>.</param>
-/// <param name="LoopStart">The <c>.meta</c>'s <c>loopStart</c> in seconds.</param>
-/// <param name="LoopEnd">The <c>.meta</c>'s <c>loopEnd</c> in seconds (0 = the end of the file).</param>
+/// <param name="Loop">The <c>.mfmeta</c>'s <c>loop</c>.</param>
+/// <param name="LoopStart">The <c>.mfmeta</c>'s <c>loopStart</c> in seconds.</param>
+/// <param name="LoopEnd">The <c>.mfmeta</c>'s <c>loopEnd</c> in seconds (0 = the end of the file).</param>
 public readonly record struct SongRenderResult(string OutputPath, long Frames, int SampleRate, bool Loop, double LoopStart, double LoopEnd)
 {
     public double Seconds => (double)Frames / SampleRate;
@@ -33,7 +33,7 @@ public readonly record struct SongRenderPlan(long StartFrame, long RenderFrames,
 /// 32-bit float WAV encoded by the plugin helper (<see cref="IPluginHost.Encode"/>, Vorbis VBR at
 /// <see cref="SongRenderSettings.Quality"/>); a <c>.wav</c> output is written directly (32-bit float, or 16-bit PCM with
 /// <see cref="SongRenderSettings.SampleFormat"/>). Either way the output is replaced only once complete (a failed render
-/// leaves the previous file intact), then the output's <c>.meta</c> import settings are written (<c>loop</c>,
+/// leaves the previous file intact), then the output's <c>.mfmeta</c> import settings are written (<c>loop</c>,
 /// <c>loopStart</c>, <c>loopEnd</c> in seconds, <c>loadMode: Stream</c>).
 /// </summary>
 /// <remarks>
@@ -160,7 +160,7 @@ public static class SongRenderer
 
     /// <summary>
     /// Renders <paramref name="song"/> to its output in the project of <paramref name="database"/> and writes the output's
-    /// <c>.meta</c>. <paramref name="songName"/> names the default output (the song file's name). <paramref name="encoder"/>
+    /// <c>.mfmeta</c>. <paramref name="songName"/> names the default output (the song file's name). <paramref name="encoder"/>
     /// encodes an <c>.ogg</c> output; without one it is written as <c>.wav</c> (with a warning).
     /// </summary>
     /// <exception cref="PluginHostException">Encoding failed (the previous output is left intact).</exception>

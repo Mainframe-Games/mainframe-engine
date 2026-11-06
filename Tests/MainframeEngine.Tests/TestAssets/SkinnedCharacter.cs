@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace MainframeEngine.Tests.TestAssets;
 
 /// <summary>
-/// Generates the skinned test character (CC0, ADR 0207/0208): <c>character.glb</c> with its <c>.meta</c>, laid out the way
+/// Generates the skinned test character (CC0, ADR 0207/0208): <c>character.glb</c> with its <c>.mfmeta</c>, laid out the way
 /// Blender's glTF exporter writes a rigged character. The committed copy lives in <c>Tests/Assets/Models/Character</c> (the
 /// unit, render and benchmark tests and the Demo import it); <c>TheCommittedCharacterMatchesTheGenerator</c> keeps the two in
 /// sync (<c>UPDATE_TEST_ASSETS=1</c> rewrites it).
@@ -17,7 +17,7 @@ namespace MainframeEngine.Tests.TestAssets;
 /// tapered tubes along the bones with joints blended over the ends, at most four weights per vertex.</para>
 /// <para>Ten actions: <c>idle</c>, <c>walk</c>, <c>run</c> (looping through <c>extras.loop</c>), <c>roll</c>,
 /// <c>swing</c> (a <c>HammerFist</c> event at 0.4 s in <c>extras.events</c>, the object form), <c>craft</c> (looped and
-/// given a <c>Tap</c> event by the <c>.meta</c> clips), <c>hit</c> and <c>down</c>; <c>run</c> has <c>Step</c> events in the
+/// given a <c>Tap</c> event by the <c>.mfmeta</c> clips), <c>hit</c> and <c>down</c>; <c>run</c> has <c>Step</c> events in the
 /// array form. Two carry root motion in the hips (ADR 0210): <c>jump</c> (a forward leap) and <c>circle</c> (a looping walk
 /// that turns a quarter circle per loop). Every value is computed in doubles and quantised to 1/4096 so the file is identical on every OS.</para>
 /// </remarks>
@@ -93,12 +93,12 @@ public static class SkinnedCharacter
         return p;
     }
 
-    /// <summary>Writes <c>character.glb</c> and its <c>.meta</c> into <paramref name="directory"/>.</summary>
+    /// <summary>Writes <c>character.glb</c> and its <c>.mfmeta</c> into <paramref name="directory"/>.</summary>
     public static void Write(string directory)
     {
         Directory.CreateDirectory(directory);
         System.IO.File.WriteAllBytes(Path.Combine(directory, File), BuildGlb());
-        System.IO.File.WriteAllText(Path.Combine(directory, File + ".meta"),
+        System.IO.File.WriteAllText(Path.Combine(directory, File + ".mfmeta"),
             $$"""
             {
               "uid": "{{Uid}}",

@@ -5,9 +5,9 @@
 Scenes and shared data are stored as text files with stable UIDs, so they can be loaded, instanced,
 diffed in git and edited by the [editor](editor.md):
 
-- **`*.mscene`** — a node tree with property values, nested scene instances with overrides, persistent
+- **`*.mfscene`** — a node tree with property values, nested scene instances with overrides, persistent
   groups and signal connections (`PackedScene`).
-- **`*.mres`** — a standalone `Resource` (skies now; materials, meshes, shapes, themes later).
+- **`*.mfres`** — a standalone `Resource` (skies now; materials, meshes, shapes, themes later).
 
 Property access is **source-generated**: `MainframeEngine.Generators` emits a `NodeTypeInfo` (factory,
 typed getter/setter delegates, hints, signals, migrations) for every node and resource type, so loading
@@ -135,7 +135,7 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
     },
     "StandardMaterial3D_7b21a": {
       "ref": "res_7b21aa90c1d4",
-      "path": "Assets/Materials/Crate.mres"
+      "path": "Assets/Materials/Crate.mfres"
     }
   },
   "nodes": [
@@ -165,7 +165,7 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
       "name": "Player",
       "parent": ".",
       "instance": "scn_a12b77d03e9f",
-      "path": "Assets/Scenes/Player.mscene",
+      "path": "Assets/Scenes/Player.mfscene",
       "props": {
         "Position": [0, 0, 2]
       },
@@ -202,7 +202,7 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
   (`SceneFormat.FormatJson`): two-space indent and `\n` on every OS, one member per line, except arrays of up to 16
   scalars (vectors, colours, transforms, group names) and resource references (`{ "res": "…" }`), which stay on one
   line. An array holding a string longer than 64 characters (a `TileMapLayer`'s base64 chunk lines,
-  [Tile maps](tile-maps.md#serialization-one-base64-line-per-chunk)) gets one element per line. Read with `JsonDocument` (comments and trailing commas tolerated for hand edits). The `.meta` sidecars and the
+  [Tile maps](tile-maps.md#serialization-one-base64-line-per-chunk)) gets one element per line. Read with `JsonDocument` (comments and trailing commas tolerated for hand edits). The `.mfmeta` sidecars and the
   runtime index use a source-generated `JsonSerializerContext`.
 - **Only non-default values are written**: a property is skipped when it equals the type's
   `DefaultInstance` (codec equality; resources by reference).
@@ -241,7 +241,7 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
 - **Removed engine types** (`RemovedNodeTypes`, M3) load as their replacement instead: `Box3d`/`Quad` become
   `MeshInstance3D`s with a primitive mesh and a material carrying their colour; saving writes the new type. Games
   can register upgrades for their own retired types (a type-level counterpart of `[SerializedMigration]`).
-- Files other than `.mscene`/`.mres` (images, models) are **imported** — see [Asset pipeline](asset-pipeline.md);
+- Files other than `.mfscene`/`.mfres` (images, models) are **imported** — see [Asset pipeline](asset-pipeline.md);
   a scene instancing a model stores its UID + path like any nested scene. Unknown properties are
   ignored with a warning; a bad value throws `InvalidDataException` naming the file, node and property.
 
@@ -249,7 +249,7 @@ Format 2 ([ADR 0102](../../memory/decisions/0102-scene-format-2.md)):
 
 ```mermaid
 flowchart LR
-    F["*.mscene"] -->|"ResourceLoader.Load (cached by UID)"| PS["PackedScene (parsed document)"]
+    F["*.mfscene"] -->|"ResourceLoader.Load (cached by UID)"| PS["PackedScene (parsed document)"]
     PS -->|"Instantiate()"| T["new node tree: factories + generated setters"]
     T --> R["resources: inline (shared per PackedScene) / external (ResourceLoader)"]
     R --> N["nested instances → Instantiate recursively, apply props + overrides"]
@@ -264,7 +264,7 @@ flowchart LR
   through a nested scene) is rejected.
 - `PackedScene.Pack(root)` (Godot's `pack`) and `PackedScene.Parse(json)` create in-memory scenes;
   `Instantiate<T>()` casts the root.
-- `ResourceLoader.Load<T>(pathOrUid)` loads `.mscene`/`.mres` files, caches them by UID (and path) and adds
+- `ResourceLoader.Load<T>(pathOrUid)` loads `.mfscene`/`.mfres` files, caches them by UID (and path) and adds
   a reference; `Resource.Release()` drops it and the last release evicts the resource (`OnUnloaded`, once,
   which also releases the external resources it loaded). `ClearCache()` runs at engine shutdown. A
   `PackedScene` holds one reference on each external resource and sub-scene it uses — including those of
@@ -344,15 +344,15 @@ work runs on a worker thread:
 - Before writing, `SceneSaver.Save` calls the internal `ISceneSaveHook.OnSceneSaving(scenePath)` on every node under
   the root that the scene or one of its instances owns (runtime children without an owner, such as a `[Tool]` node's
   generated terrain, are skipped with their subtrees: they are not saved, ADR 0169). Nodes with data of their own write it there: a [`Terrain3D`](terrain.md) saves
-  its layer images and `terrain.mres` into `<scene>_terrain/`. A throwing hook fails the save before the scene file is
+  its layer images and `terrain.mfres` into `<scene>_terrain/`. A throwing hook fails the save before the scene file is
   written. `ToJson` runs no hook.
-- `ResourceSaver.Save(resource, path)` writes a `.mres` (`format`, `uid`, `type`, `v`, `resources`,
+- `ResourceSaver.Save(resource, path)` writes a `.mfres` (`format`, `uid`, `type`, `v`, `resources`,
   `props`) and makes the resource external (`ResourcePath`, `Uid`), so scenes reference it from then on.
 
 ### Durable writes (`DurableFile`)
 
 `DurableFile.Write(path, bytes, backups)` replaces a file so that a crash or power loss at any point leaves a complete
-copy. `ResourceSaver.WriteAtomically` uses it with no backups for `.mscene`, `.mres` and `project.mfproj`; save games
+copy. `ResourceSaver.WriteAtomically` uses it with no backups for `.mfscene`, `.mfres` and `project.mfproj`; save games
 use it with rolling backups ([Project and GameHost → Save games](project-and-gamehost.md#save-games)).
 
 1. Write `path.tmp` with a `FileStream` and `Flush(flushToDisk: true)` (`fsync` / `FlushFileBuffers`).
@@ -371,10 +371,10 @@ through an internal `IDurableFileOps` shim, which the tests use to simulate a cr
 - UIDs are a kind prefix and 12 lowercase hex digits (`scn_`, `res_`, `tex_`, `aud_`, `mdl_`, `ast_`); 8–16
   digits are accepted. 48 bits keeps accidental collisions across branches negligible (the original sketch
   used 32).
-- Scene and resource files carry their own `uid`. Other assets get a **`<file>.meta`** sidecar
+- Scene and resource files carry their own `uid`. Other assets get a **`<file>.mfmeta`** sidecar
   (`AssetMeta`: `uid`, `importer`, `settings`), created by the editor (`Scan(createMissingMeta: true)`). Files being
   written (`*.tmp`: saves, bake stages; anything inside a `*.partial/` folder: a recording's streams while it records
-  into `Assets/Video/Recordings`) are never assets and get none; that scan also deletes a `*.tmp.meta` whose temporary
+  into `Assets/Video/Recordings`) are never assets and get none; that scan also deletes a `*.tmp.mfmeta` whose temporary
   file is gone.
 - `AssetDatabase` maps UID ↔ project-relative path (`/` separators). `Refresh()` reads
   `Assets/assets.index.json` when present (shipped builds; `WriteIndex()` produces it) and scans `Assets/`

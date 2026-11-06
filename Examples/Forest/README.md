@@ -39,7 +39,7 @@ the run), `--no-capture` (do not capture the mouse), `--no-audio` (no procedural
 `just forest-audio` renders it to WAV files).
 
 The art (CC0, from ambientCG and Poly Haven, listed in [NOTICE.md](NOTICE.md)) is in `Assets/Art`, stored with Git LFS:
-run `git lfs pull` once. `just forest --scene Assets/Scenes/asset_gallery.mscene ++ --view props` (or `terrain`,
+run `git lfs pull` once. `just forest --scene Assets/Scenes/asset_gallery.mfscene ++ --view props` (or `terrain`,
 `overview`) shows every terrain layer and prop; `python3 Tools/fetch_assets.py` re-imports them.
 
 ## Controls
@@ -73,7 +73,7 @@ Examples/Forest/
 ├── Forest.Desktop/       GameHost.Run(args, …) + --write-scenes <dir>
 ├── Forest.Tests/         xUnit v3; no GPU (the asset tests skip without the LFS content)
 ├── Tools/                fetch_assets.py: downloads and imports Assets/Art; cabin/build_cabin.py: the log cabin (Blender)
-└── Assets/              Scenes/forest.mscene, Scenes/asset_gallery.mscene (generated), Settings/AudioBusLayout.mres,
+└── Assets/              Scenes/forest.mfscene, Scenes/asset_gallery.mfscene (generated), Settings/AudioBusLayout.mfres,
                           Art/ (CC0 terrain layers, props, sky)
 ```
 
