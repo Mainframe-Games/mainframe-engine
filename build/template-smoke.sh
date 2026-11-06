@@ -17,9 +17,13 @@
 # win-x64 (and osx-arm64 on a Mac, which signs it) with the package's tools/mf-export in the old package-game form
 # (archive contents, Steam files included); the export step above also uses the package's mf-export.
 #
+# NATIVE_AOT=1 (G19 phase 4, ADR 0259): the export preset has "nativeAot": true, and the exported folder must hold no
+# managed assembly, no steamworks/ folder and no runtimeconfig; ILC may warn only about the known third-party code
+# (build/MainframeGame.props). `just template-smoke-aot`; the Linux run is `build/linux/run.sh aot`.
+#
 # usage: build/template-smoke.sh [work-dir] [frames]
 # env:   ENGINE_SOURCE (project|package), CONFIGURATION (Debug), BUILD_ARGS (extra dotnet build/pack arguments),
-#        SKIP_RUN=1 (build only)
+#        SKIP_RUN=1 (build only), NATIVE_AOT=1 (export with nativeAot)
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -254,9 +258,11 @@ case "$(uname -s)-$(uname -m)" in
 esac
 mfproj="$work/SmokeGame/project.mfproj"
 sed -i.bak '$ d' "$mfproj" && sed -i.bak '$ s/$/,/' "$mfproj" && rm -f "$mfproj.bak"
+native_aot=""
+[ "${NATIVE_AOT:-0}" = "1" ] && native_aot=', "nativeAot": true'
 cat >> "$mfproj" <<JSON
   "export": [
-    { "name": "Smoke", "platform": "$export_platform", "rid": "$export_rid", "output": "export/smoke" }
+    { "name": "Smoke", "platform": "$export_platform", "rid": "$export_rid", "output": "export/smoke"$native_aot }
   ]
 }
 JSON
@@ -266,7 +272,8 @@ else
   mf_export=(dotnet run --project "$repo/Tools/MainframeEngine.Export.Cli" -c Release --)
 fi
 "${mf_export[@]}" --project "$work/SmokeGame" --list
-exported="$("${mf_export[@]}" --project "$work/SmokeGame" --preset "Smoke" | tail -n 1)"
+"${mf_export[@]}" --project "$work/SmokeGame" --preset "Smoke" | tee "$work/export.log"
+exported="$(tail -n 1 "$work/export.log")"
 run_dir="$work/exported"
 rm -rf "$run_dir" && mkdir -p "$run_dir"
 case "$exported" in
@@ -303,10 +310,23 @@ if find "$app_dir" "$packed" -name '*.po' | grep -q .; then
   echo "template-smoke: the export ships .po sources" >&2
   exit 1
 fi
+if [ "${NATIVE_AOT:-0}" = "1" ]; then
+  # One native executable: the engine, the game and the Steamworks shim are compiled into it.
+  if find "$app_dir" -name '*.dll' | grep -q . || [ -e "$app_dir/steamworks" ] || [ -e "$app_dir/SmokeGame.Desktop.runtimeconfig.json" ]; then
+    echo "template-smoke: the NativeAOT export still ships managed files:" >&2
+    find "$app_dir" -name '*.dll' -o -name 'steamworks' -o -name '*.runtimeconfig.json' >&2
+    exit 1
+  fi
+  if grep -E 'warning IL[0-9]+' "$work/export.log" | grep -vE 'Silk\.NET|Microsoft\.Extensions\.DependencyModel|Facepunch\.Steamworks' | grep -q .; then
+    echo "template-smoke: ILC warned about code other than the known third-party assemblies:" >&2
+    grep -E 'warning IL[0-9]+' "$work/export.log" | grep -vE 'Silk\.NET|Microsoft\.Extensions\.DependencyModel|Facepunch\.Steamworks' >&2
+    exit 1
+  fi
+fi
 MAINFRAME_USER_DATA="$work/userdata-exported" "$exe" --headless --max-frames "$frames"
 exported_log="$work/userdata-exported/SmokeGame/logs/SmokeGame.log"
 if [ ! -s "$exported_log" ] || grep -E '\[(ERROR|FATAL)\]' "$exported_log"; then
   echo "template-smoke: the exported game logged errors or no log ($exported_log)" >&2
   exit 1
 fi
-echo "template-smoke: SmokeGame built and ran $frames frames; exported $exported and ran it headless"
+echo "template-smoke: SmokeGame built and ran $frames frames; exported $exported$([ "${NATIVE_AOT:-0}" = "1" ] && echo " (NativeAOT)") and ran it headless"

@@ -135,7 +135,7 @@ public static partial class Steam
                 $"Steam ships steam_api for Windows x64, Linux x64 and macOS only; this process is {RuntimeInformation.RuntimeIdentifier}.");
         }
 
-        if (!File.Exists(SteamworksLoader.ShimPath)) // disk-io: the shim assembly, a native file
+        if (!SteamworksLoader.IsShimAvailable)
         {
             return (SteamStatus.NativeLibraryMissing,
                 $"{SteamworksLoader.ShimPath} is missing: the engine's steamworks/ folder was not copied with the app.");
@@ -156,7 +156,7 @@ public static partial class Steam
     /// </summary>
     public static bool RestartAppIfNecessary(uint appId)
     {
-        if (appId == 0 || !IsPlatformSupported || !File.Exists(SteamworksLoader.ShimPath)) // disk-io: the shim assembly, a native file
+        if (appId == 0 || !IsPlatformSupported || !SteamworksLoader.IsShimAvailable)
             return false;
         try
         {

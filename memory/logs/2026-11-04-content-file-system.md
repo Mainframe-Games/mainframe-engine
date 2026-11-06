@@ -7,7 +7,7 @@ summary: >-
 # 2026-11-04: Content file system (G19 phase 1)
 
 Branch `feature/protected-exports`. Plan: [Content file system](../plans/2026-11-04-content-file-system.md).
-Proposal: [Protected exports](../../docs/design/future/protected-exports.md) (accepted; phases 2–4 to come).
+Proposal: [Protected exports](../../docs/design/protected-exports.md) (accepted; phases 2–4 to come).
 
 ## What changed
 

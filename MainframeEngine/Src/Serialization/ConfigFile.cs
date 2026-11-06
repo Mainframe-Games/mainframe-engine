@@ -201,7 +201,7 @@ public sealed class ConfigFile
         ArgumentNullException.ThrowIfNull(values);
         var array = new JsonArray();
         foreach (var value in values)
-            array.Add(JsonValue.Create(value ?? throw new ArgumentException("Config string arrays cannot hold null.", nameof(values))));
+            array.Add((JsonNode)JsonValue.Create(value ?? throw new ArgumentException("Config string arrays cannot hold null.", nameof(values))));
         SetNode(section, key, array);
     }
 

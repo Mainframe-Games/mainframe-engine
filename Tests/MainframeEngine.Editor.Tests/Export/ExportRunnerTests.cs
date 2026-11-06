@@ -247,6 +247,55 @@ public sealed class ExportRunnerTests : IDisposable
         Assert.Equal(["TinyGame.Desktop.dll", "TinyGame.Desktop.pdb", "TinyGame.dll", "TinyGame.pdb"], symbols.Entries.Select(e => e.FullName).Order());
     }
 
+    // G19 phase 4 (ADR 0259/0260): a NativeAOT export stages one executable and moves its native symbols into the zip.
+    [Theory]
+    [InlineData(ExportPlatform.Linux, ExportHost.Linux, "TinyGame.Desktop.dbg")]
+    [InlineData(ExportPlatform.Windows, ExportHost.Windows, "TinyGame.Desktop.pdb")]
+    [InlineData(ExportPlatform.MacOS, ExportHost.MacOS, "TinyGame.Desktop.dSYM/Contents/Resources/DWARF/TinyGame.Desktop")]
+    public async Task ANativeAotExportMovesItsNativeSymbolsIntoTheSymbolsZip(ExportPlatform platform, ExportHost host, string symbol)
+    {
+        _game.Settings.Steam.AppId = 480;
+        _game.Save();
+        var preset = ExportPreset.Create("Native", platform);
+        preset.Archive = false;
+        preset.Desktop.NativeAot = true;
+        preset.Desktop.Steam = true; // the shim is compiled in: only steam_api must ship
+        preset.Desktop.Symbols = ExportSymbols.Separate;
+
+        var result = await Run(preset, host, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded, result.Summary);
+        var publish = _game.Calls.Single(c => c.File == "/fake/dotnet").Arguments;
+        Assert.Contains("-p:MainframeNativeAot=true", publish);
+        using var symbols = ZipFile.OpenRead(result.SymbolsPath!);
+        var entries = symbols.Entries.Select(e => e.FullName.Replace('\\', '/')).ToArray();
+        Assert.Contains(symbol, entries);
+        if (platform == ExportPlatform.Windows)
+            Assert.Contains("TinyGame.exe", entries); // symbolizers find the PDB through the executable
+        var shipped = Directory.EnumerateFileSystemEntries(result.ArtifactPath!, "*", SearchOption.AllDirectories)
+            .Select(f => Path.GetRelativePath(result.ArtifactPath!, f).Replace('\\', '/')).ToArray();
+        Assert.DoesNotContain(shipped, f => f.EndsWith(".dbg", StringComparison.Ordinal) || f.EndsWith(".pdb", StringComparison.Ordinal) || f.Contains(".dSYM", StringComparison.Ordinal));
+        if (platform == ExportPlatform.MacOS)
+        {
+            Assert.Contains("Tiny Game.app/Contents/MacOS/TinyGame", shipped); // no bundle apphost: the native executable itself
+            Assert.Contains("Tiny Game.app/Contents/MonoBundle/Assets.mfpak", shipped);
+        }
+    }
+
+    [Fact]
+    public async Task ANativeAotPublishWithManagedAssembliesFails()
+    {
+        _game.ManagedInNativeAotPublish = true;
+        var preset = ExportPreset.Create("Native", ExportPlatform.Linux);
+        preset.Desktop.NativeAot = true;
+
+        var result = await Run(preset, ct: TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("managed assemblies (TinyGame.dll)", result.Error, StringComparison.Ordinal);
+        Assert.Contains("MainframeGame.props", result.Error, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task AMacOsExportIsASignedBundleZippedWithDitto()
     {

@@ -59,6 +59,13 @@ Light/shadow limits live only in `MainframeEngine/Assets/Shaders/limits.json` (t
 `ContentPaths.Resolve` first), never `File`/`Directory` or a working-directory-relative path: exports serve it from a pack, and
 `ContentIoAuditTests` fails on a direct read (a read that must see the disk says why with `// disk-io:`).
 
+The engine is trim- and NativeAOT-clean (G19 phase 4, ADR 0259): `IsAotCompatible`, and `MainframeEngine/.editorconfig`
+makes every trim, single-file and AOT diagnostic an error. Reflection over a runtime type says what it needs with
+`[DynamicallyAccessedMembers]` (`Node` keeps the methods and public properties of every node type, `Resource` its public
+properties); a suppression says why the warning cannot happen. Games export with `"nativeAot": true` through
+`-p:MainframeNativeAot=true` (`build/MainframeGame.props`: `PublishAot` for game projects, the Steamworks shim compiled in
+with `build/steamworks/*.rd.xml`); `just template-smoke-aot`, `just template-smoke-aot-linux`.
+
 Every file extension the engine, editor, video library or tools define starts with `.mf` (`.mfscene`, `.mfres`,
 `.mfmeta`, …; ADR 0249, `docs/design/asset-pipeline.md#file-extensions`). Add new ones to `FileExtensions`;
 `FileExtensionRuleTests` fails on an extension constant without the prefix. The legacy names (`.mscene`, `.mres`,
@@ -216,8 +223,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   fades, speed and captions) with `Assets/Editor/video*.rml`. See `docs/design/video-editor.md`
 - `Tools/MainframeEngine.L10n/` — `mf-l10n` localization tool (extract, update, pseudo, `.po` → `.mo`)
 - `Tools/MainframeEngine.Export/` + `.Export.Cli/` — the shared game `ExportRunner` (File › Export in the editor) and `mf-export`
-  (presets in `project.mfproj`, publish, macOS bundle/signing, archives; replaces `package-game.sh`; ADRs 0229/0230);
-  `Tools/MainframeEngine.Symbolicate/` — `mf-symbolicate` for crash reports (G15)
+  (presets in `project.mfproj`, publish, macOS bundle/signing, archives, `nativeAot`; replaces `package-game.sh`; ADRs
+  0229/0230, 0259); `Tools/MainframeEngine.Symbolicate/` — `mf-symbolicate` for crash reports (G15; NativeAOT frames through
+  `NativeSymbols`/`NativeSymbolizer` and `llvm-symbolizer`/`atos`/`addr2line`, ADR 0260)
 - `Plugins/Spine/` — Spine C# runtime (vendored, do not modify)
 - `Plugins/Facepunch.Steamworks/` — Facepunch.Steamworks 2.4.1 Win64/Posix builds (vendored, do not modify; Valve's
   matching `steam_api` natives are in `MainframeEngine/runtimes/<rid>/native`)

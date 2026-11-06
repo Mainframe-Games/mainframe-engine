@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
@@ -85,6 +86,8 @@ public partial class Node
         }
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2072", Justification =
+        "The walk stays on GetType() and its base types up to Node: all node types, whose methods Node's type-level [DynamicallyAccessedMembers] keeps.")]
     private EngineBaseCallbacks BaseCallbacks()
     {
         var type = GetType();
@@ -96,7 +99,7 @@ public partial class Node
             engine = baseType;
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
         // The implementation the non-script base type would run (its own override or an inherited one).
-        static nint Pointer(Type t, string name) => t.GetMethod(name, flags, Type.EmptyTypes)!.MethodHandle.GetFunctionPointer();
+        static nint Pointer([DynamicallyAccessedMembers(Members)] Type t, string name) => t.GetMethod(name, flags, Type.EmptyTypes)!.MethodHandle.GetFunctionPointer();
         var callbacks = new EngineBaseCallbacks
         {
             EnterTree = Pointer(engine, nameof(OnEnterTree)),

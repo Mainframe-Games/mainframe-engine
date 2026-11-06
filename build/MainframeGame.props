@@ -156,6 +156,65 @@
     </ItemGroup>
   </Target>
 
+  <!--
+    NativeAOT exports (G19 phase 4, ADR 0259; docs/design/protected-exports.md#nativeaot): an export preset with
+    "nativeAot": true makes mf-export publish with -p:MainframeNativeAot=true. That is a global property, so it reaches
+    every project of the build; PublishAot itself would also reach the netstandard2.0 generator (NETSDK1207) and the
+    tools a game's build references. Here it becomes PublishAot for the game's own projects only (which also turns the
+    trim and AOT analyzers on for game code), and:
+    - Steamworks: the target OS's MainframeEngine.Steamworks shim and its Facepunch.Steamworks assembly, which a JIT build
+      loads from steamworks/<os>/ at run time, are handed to ILC as references and compiled into the executable, with
+      steamworks/Facepunch.Steamworks.<build>.rd.xml (structure marshalling for Facepunch's structs); the steamworks/
+      folder is not published.
+    - No managed symbols or XML docs of referenced assemblies are published (no assembly ships to match them); the
+      executable's native symbols (.dSYM, .dbg, .pdb) are.
+    - Warnings ILC reports in third-party code do not fail a warnings-as-errors publish; they stay visible. They are
+      Silk.NET's deps.json native-library path resolver, which the engine replaces (IL3000, IL3002), and assemblies whose
+      warnings ILC collapses into one (IL2104 trim, IL3053 AOT): Silk.NET's platform discovery, which the engine does
+      not use, and Facepunch.Steamworks' Marshal.PtrToStructure(ptr, typeof(T)) on callback structs, for which ILC
+      generates the marshalling of each specialized T. Compile-time diagnostics of game code are unaffected, and the
+      engine's own code is held to them as errors (MainframeEngine/.editorconfig).
+  -->
+  <PropertyGroup Condition="'$(MainframeNativeAot)' == 'true'">
+    <PublishAot>true</PublishAot>
+    <AllowedReferenceRelatedFileExtensions>.mfnone</AllowedReferenceRelatedFileExtensions>
+  </PropertyGroup>
+
+  <Target Name="_MainframeNativeAotSteamworks" BeforeTargets="ComputeIlcCompileInputs" DependsOnTargets="GetCopyToOutputDirectoryItems"
+          Condition="'$(PublishAot)' == 'true' and '$(RuntimeIdentifier)' != ''">
+    <PropertyGroup>
+      <_MainframeSteamworksVariant Condition="$(RuntimeIdentifier.StartsWith('win'))">win64</_MainframeSteamworksVariant>
+      <_MainframeSteamworksVariant Condition="!$(RuntimeIdentifier.StartsWith('win'))">posix</_MainframeSteamworksVariant>
+      <_MainframeSteamworksFacepunch Condition="$(RuntimeIdentifier.StartsWith('win'))">Win64</_MainframeSteamworksFacepunch>
+      <_MainframeSteamworksFacepunch Condition="!$(RuntimeIdentifier.StartsWith('win'))">Posix</_MainframeSteamworksFacepunch>
+    </PropertyGroup>
+    <ItemGroup>
+      <_MainframeSteamworksAot Include="@(AllItemsFullPathWithTargetPath)"
+                               Condition="'%(Extension)' == '.dll' and $([System.String]::Copy('%(TargetPath)').Replace('\', '/').StartsWith('steamworks/$(_MainframeSteamworksVariant)/'))" />
+      <IlcReference Include="@(_MainframeSteamworksAot)" />
+      <!-- Facepunch reads every Steam callback with Marshal.PtrToStructure(ptr, typeof(T)), for which ILC generates
+           structure marshalling data only when the struct needs a stub: blittable callbacks (PersonaStateChange_t, …)
+           would throw "missing structure marshalling data". The directives ask for it for each of its structs. -->
+      <RdXmlFile Include="$(MSBuildThisFileDirectory)steamworks/Facepunch.Steamworks.$(_MainframeSteamworksFacepunch).rd.xml" />
+    </ItemGroup>
+    <Error Condition="'@(_MainframeSteamworksAot)' == ''" Code="MFAOT001"
+           Text="NativeAOT: no steamworks/$(_MainframeSteamworksVariant)/ assemblies among the engine's copied files, so Steam could not be compiled into the executable." />
+  </Target>
+
+  <Target Name="_MainframeNativeAotPublishFiles" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(PublishAot)' == 'true'">
+    <ItemGroup>
+      <_MainframeAotNotPublished Include="@(ResolvedFileToPublish)"
+                                 Condition="$([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').Replace('\', '/').StartsWith('steamworks/'))" />
+      <ResolvedFileToPublish Remove="@(_MainframeAotNotPublished)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_MainframeNativeAotWarnings" BeforeTargets="WriteIlcRspFileForCompilation" Condition="'$(PublishAot)' == 'true'">
+    <PropertyGroup>
+      <WarningsNotAsErrors>$(WarningsNotAsErrors);IL2104;IL3053;IL3000;IL3002</WarningsNotAsErrors>
+    </PropertyGroup>
+  </Target>
+
   <!-- macOS: <name>.app around the game executable (targets and conditions evaluated when the build runs), and the
        release bundle's apphost (the export publishes with MacBundleAppDirectory=MonoBundle). -->
   <Import Project="macos/DevAppBundle.targets" />

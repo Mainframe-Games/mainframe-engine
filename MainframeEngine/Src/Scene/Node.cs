@@ -21,8 +21,19 @@ namespace MainframeEngine;
 /// </para>
 /// </remarks>
 [EditorIcon("circle-dot", Family = EditorIconFamily.Logic)]
+// Every node type keeps its methods and public properties under trimming and NativeAOT (ADR 0259): the tree finds
+// overridden callbacks and signal handlers by reflection over GetType(), and tweens find properties by name.
+[DynamicallyAccessedMembers(Members)]
 public partial class Node : IDisposable
 {
+    /// <summary>What trimming keeps of every node type (<see cref="DynamicallyAccessedMembersAttribute"/> on <see cref="Node"/>).</summary>
+    internal const DynamicallyAccessedMemberTypes Members =
+        DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.PublicProperties;
+
+    /// <summary><see cref="object.GetType"/> with the members trimming keeps of node types (for reflection outside <see cref="Node"/>).</summary>
+    [return: DynamicallyAccessedMembers(Members)]
+    internal Type ReflectedType() => GetType();
+
     /// <summary>Children are found by linear scan up to this count; above it a name index is kept.</summary>
     private const int NameIndexThreshold = 8;
 

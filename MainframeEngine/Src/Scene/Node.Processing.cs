@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -252,9 +253,25 @@ public partial class Node
         var type = GetType();
         // Types from collectible (editor-loaded game) assemblies are cached weakly so the cache never keeps their
         // load context alive after an unload.
-        var traits = type.Assembly.IsCollectible
-            ? CollectibleCallbacks.GetValue(type, static t => new StrongBox<Callbacks>(FindOverrides(t))).Value
-            : OverriddenCallbacks.GetOrAdd(type, static t => FindOverrides(t));
+        Callbacks traits;
+        if (type.Assembly.IsCollectible)
+        {
+            if (CollectibleCallbacks.TryGetValue(type, out var box))
+            {
+                traits = box.Value;
+            }
+            else
+            {
+                traits = OverrideScan.Find(type);
+                CollectibleCallbacks.AddOrUpdate(type, new StrongBox<Callbacks>(traits));
+            }
+        }
+        else if (!OverriddenCallbacks.TryGetValue(type, out traits))
+        {
+            traits = OverrideScan.Find(type);
+            OverriddenCallbacks.TryAdd(type, traits);
+        }
+
         _isTool = (traits & Callbacks.Tool) != 0;
         _enabledCallbacks = traits & ~Callbacks.Tool;
     }
@@ -298,23 +315,27 @@ public partial class Node
     {
     }
 
-    // Overrides (and [Tool]) are found once per type with reflection (not a hot path; cached).
-    private static Callbacks FindOverrides(Type type)
+    // Overrides (and [Tool]) are found once per type with reflection (not a hot path; cached). A nested class: the
+    // [DynamicallyAccessedMembers] on Node covers Node's own methods, and an annotated one there would be IL2114.
+    private static class OverrideScan
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-        var result = Callbacks.None;
-        if (IsOverridden(type.GetMethod(nameof(OnProcess), flags, [typeof(GameTime).MakeByRefType()])))
-            result |= Callbacks.Process;
-        if (IsOverridden(type.GetMethod(nameof(OnPhysicsProcess), flags, [typeof(float)])))
-            result |= Callbacks.PhysicsProcess;
-        if (IsOverridden(type.GetMethod(nameof(OnInput), flags, [typeof(InputEvent)])))
-            result |= Callbacks.Input;
-        if (IsOverridden(type.GetMethod(nameof(OnUnhandledInput), flags, [typeof(InputEvent)])))
-            result |= Callbacks.UnhandledInput;
-        if (type.IsDefined(typeof(ToolAttribute), inherit: false))
-            result |= Callbacks.Tool;
-        return result;
+        internal static Callbacks Find([DynamicallyAccessedMembers(Members)] Type type)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            var result = Callbacks.None;
+            if (IsOverridden(type.GetMethod(nameof(OnProcess), flags, [typeof(GameTime).MakeByRefType()])))
+                result |= Callbacks.Process;
+            if (IsOverridden(type.GetMethod(nameof(OnPhysicsProcess), flags, [typeof(float)])))
+                result |= Callbacks.PhysicsProcess;
+            if (IsOverridden(type.GetMethod(nameof(OnInput), flags, [typeof(InputEvent)])))
+                result |= Callbacks.Input;
+            if (IsOverridden(type.GetMethod(nameof(OnUnhandledInput), flags, [typeof(InputEvent)])))
+                result |= Callbacks.UnhandledInput;
+            if (type.IsDefined(typeof(ToolAttribute), inherit: false))
+                result |= Callbacks.Tool;
+            return result;
 
-        static bool IsOverridden(MethodInfo? method) => method is not null && method.DeclaringType != typeof(Node);
+            static bool IsOverridden(MethodInfo? method) => method is not null && method.DeclaringType != typeof(Node);
+        }
     }
 }

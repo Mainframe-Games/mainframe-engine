@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using MainframeEngine.Serialization;
 
@@ -92,7 +93,7 @@ public partial class Node
         if (FindConnection(signal, target, method) is not null)
             throw new InvalidOperationException($"'{Name}.{signal}' is already connected to '{target.Name}.{method}'.");
 
-        var methodInfo = FindHandler(target.GetType(), method, info)
+        var methodInfo = HandlerScan.Find(target.ReflectedType(), method, info)
                          ?? throw new ArgumentException(
                              $"{target.GetType().Name} has no public or [SignalHandler] method '{method}' matching " +
                              $"signal '{signal}' ({string.Join(", ", info.ParameterTypes.Select(t => t.Name))}).",
@@ -170,25 +171,29 @@ public partial class Node
             connection.MethodInfo.Invoke(connection.Target, args);
     }
 
-    private static MethodInfo? FindHandler(Type type, string name, SignalInfo signal)
+    // A nested class: the [DynamicallyAccessedMembers] on Node covers Node's own methods (IL2114 otherwise).
+    private static class HandlerScan
     {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy;
-        foreach (var method in type.GetMethods(flags))
+        internal static MethodInfo? Find([DynamicallyAccessedMembers(Members)] Type type, string name, SignalInfo signal)
         {
-            if (!string.Equals(method.Name, name, StringComparison.Ordinal) || method.ReturnType != typeof(void))
-                continue;
-            if (!method.IsPublic && method.GetCustomAttribute<SignalHandlerAttribute>() is null)
-                continue;
-            var parameters = method.GetParameters();
-            if (parameters.Length != signal.ParameterTypes.Count)
-                continue;
-            var match = true;
-            for (var i = 0; i < parameters.Length && match; i++)
-                match = parameters[i].ParameterType.IsAssignableFrom(signal.ParameterTypes[i]);
-            if (match)
-                return method;
-        }
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy;
+            foreach (var method in type.GetMethods(flags))
+            {
+                if (!string.Equals(method.Name, name, StringComparison.Ordinal) || method.ReturnType != typeof(void))
+                    continue;
+                if (!method.IsPublic && method.GetCustomAttribute<SignalHandlerAttribute>() is null)
+                    continue;
+                var parameters = method.GetParameters();
+                if (parameters.Length != signal.ParameterTypes.Count)
+                    continue;
+                var match = true;
+                for (var i = 0; i < parameters.Length && match; i++)
+                    match = parameters[i].ParameterType.IsAssignableFrom(signal.ParameterTypes[i]);
+                if (match)
+                    return method;
+            }
 
-        return null;
+            return null;
+        }
     }
 }

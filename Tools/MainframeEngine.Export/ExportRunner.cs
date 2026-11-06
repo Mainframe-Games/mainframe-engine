@@ -138,7 +138,9 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
             if (plan.Desktop.Symbols == ExportSymbols.Separate)
             {
                 var symbolsFolder = Path.Combine(plan.StageDirectory, "symbols");
-                var collected = SymbolCollector.Collect(plan.PublishDirectory, symbolsFolder, move: true);
+                var collected = plan.NativeAot
+                    ? SymbolCollector.CollectNative(plan.PublishDirectory, symbolsFolder, plan.AssemblyName, plan.ExecutableFile, move: true)
+                    : SymbolCollector.Collect(plan.PublishDirectory, symbolsFolder, move: true);
                 Line($"Collected {collected} symbol file(s) into {Path.GetFileName(plan.SymbolsArchivePath)}");
                 var partial = plan.SymbolsArchivePath + Archiver.PartialSuffix;
                 Archiver.TryDelete(partial);
@@ -193,11 +195,16 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
         if (pruned.Count > 0)
             line($"Removed other platforms' natives: {string.Join(", ", pruned)}");
 
+        if (plan.NativeAot && ManagedAssemblies(publish) is { Count: > 0 } managed)
+            return $"The NativeAOT publish still has managed assemblies ({string.Join(", ", managed.Take(5))}{(managed.Count > 5 ? ", …" : "")}): " +
+                   $"the desktop project does not import MainframeGame.props (which turns {ExportPlan.NativeAotProperty} into PublishAot).";
+
         if (plan.Desktop.Steam)
         {
             var variant = NativesPruner.SteamworksVariant(plan.Rid);
             var steamApi = NativesPruner.SteamApiNative(plan.Rid);
-            string[] required = [steamApi, $"steamworks/{variant}/MainframeEngine.Steamworks.dll"];
+            // NativeAOT compiles the shim into the executable (MainframeGame.props): only Valve's library ships beside it.
+            string[] required = plan.NativeAot ? [steamApi] : [steamApi, $"steamworks/{variant}/MainframeEngine.Steamworks.dll"];
             var missing = required.Where(f => !File.Exists(Path.Combine(publish, f))).ToArray();
             if (missing.Length > 0)
                 return $"Steam is on, but the publish lacks {string.Join(" and ", missing)}: Steam would report NativeLibraryMissing.";
@@ -220,6 +227,35 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
         if (plan.Preset.Pack)
             PackContent(publish, plan.Preset.Loose, line, plan.PackKey);
         return null;
+    }
+
+    /// <summary>
+    /// The managed assemblies (ECMA-335 metadata) among the <c>.dll</c> and <c>.exe</c> files under
+    /// <paramref name="folder"/>, relative with '/': a NativeAOT export must have none (the natives of Windows are
+    /// <c>.dll</c>s too, without metadata).
+    /// </summary>
+    public static IReadOnlyList<string> ManagedAssemblies(string folder)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
+        var managed = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+        {
+            if (!file.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) && !file.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                continue;
+            try
+            {
+                using var pe = new System.Reflection.PortableExecutable.PEReader(File.OpenRead(file));
+                if (pe.HasMetadata)
+                    managed.Add(Path.GetRelativePath(folder, file).Replace('\\', '/'));
+            }
+            catch (BadImageFormatException)
+            {
+                // Not a PE file (a Mach-O or ELF library under a .dll name): not managed.
+            }
+        }
+
+        managed.Sort(StringComparer.Ordinal);
+        return managed;
     }
 
     /// <summary>
@@ -272,7 +308,7 @@ public sealed class ExportRunner(ExportEnvironment environment) : IExportRunner
     {
         report(ExportPhase.Bundle, null, "Bundling");
         var apphost = Path.Combine(plan.PublishDirectory, plan.ExecutableFile);
-        if (!AppBundleWriter.StartsFromBundle(apphost, plan.AssemblyName))
+        if (!plan.NativeAot && !AppBundleWriter.StartsFromBundle(apphost, plan.AssemblyName))
             return $"{plan.ExecutableFile} does not start ../MonoBundle/{plan.AssemblyName}.dll: the desktop project does not import " +
                    "build/macos/BundleAppHost.targets (MainframeGame.props, or the MainframeEngine package's buildTransitive).";
 

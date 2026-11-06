@@ -126,12 +126,35 @@ public static class ExportValidator
             Error("notarize-needs-sign", "Notarization needs a Developer ID signature.", "Set sign (a \"Developer ID Application: …\" identity), or clear notaryProfile.");
 
         // Options.
-        if (desktop is { SingleFile: true } && preset.Platform == ExportPlatform.MacOS)
+        if (desktop is { NativeAot: true })
+        {
+            // NativeAOT compiles with the host's toolchain (clang, MSVC's linker, Xcode's): it cannot target another OS.
+            var targetHost = preset.Platform switch
+            {
+                ExportPlatform.Windows => ExportHost.Windows,
+                ExportPlatform.MacOS => ExportHost.MacOS,
+                _ => ExportHost.Linux,
+            };
+            if (environment.Host != targetHost && preset.Platform != ExportPlatform.MacOS) // macOS: host-unsupported above
+                Error("native-aot-host", $"NativeAOT cannot compile for {ExportPreset.PlatformKey(preset.Platform)} on this {HostName(environment.Host)}: it only builds for the OS it runs on.",
+                    $"Export this preset on {HostName(targetHost)} (CI: a {ExportPreset.PlatformKey(preset.Platform)} runner), or turn nativeAot off.");
+            var ignored = new List<string>();
+            if (desktop.SingleFile)
+                ignored.Add("singleFile");
+            if (desktop.Trim)
+                ignored.Add("trim");
+            if (!desktop.SelfContained)
+                ignored.Add("selfContained: false");
+            if (ignored.Count > 0)
+                Warn("native-aot-ignored", $"NativeAOT ignores {string.Join(", ", ignored)}: the game is one self-contained native executable (readyToRun does not apply either).",
+                    "Remove those keys from the preset.");
+        }
+        else if (desktop is { SingleFile: true } && preset.Platform == ExportPlatform.MacOS)
             Error("single-file", "Single-file publishing does not work inside a macOS .app bundle.", "Turn single file off for this preset.");
         else if (desktop is { SingleFile: true })
             Warn("single-file", "Single file is experimental: the natives are extracted on first start, which slows it.");
-        if (desktop is { Trim: true })
-            Warn("trim", "Trimming is experimental until the engine is trim-clean (M12.6): reflection-based code may break.");
+        if (desktop is { Trim: true, NativeAot: false })
+            Warn("trim", "Trimming is experimental: the engine is trim-clean (G19), but a game's own reflection may break.", "Prefer nativeAot, whose analyzers check the game's code.");
         if (!ExportTargets.IsSemanticVersion(plan.Version))
             Warn("version", $"The version '{plan.Version}' is not MAJOR.MINOR.PATCH[-suffix] (macOS rejects other versions).",
                 "Set the project's version (Project Settings) or the preset's.");
@@ -139,6 +162,13 @@ public static class ExportValidator
         CheckIcon(plan, Warn);
         return issues;
     }
+
+    private static string HostName(ExportHost host) => host switch
+    {
+        ExportHost.Windows => "Windows",
+        ExportHost.MacOS => "a Mac",
+        _ => "Linux",
+    };
 
     /// <summary>Whether a list of issues has an error.</summary>
     public static bool HasErrors(IReadOnlyList<ExportIssue> issues) => issues.Any(i => i.IsError);

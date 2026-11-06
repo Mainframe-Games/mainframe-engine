@@ -60,8 +60,9 @@ written, like every other section.
 | `selfContained` | desktop | `true` | `false` makes players install .NET 10 (servers that have it). |
 | `readyToRun` | desktop | `true` | `-p:PublishReadyToRun`: faster start-up, larger output. |
 | `singleFile` | desktop | `false` | `-p:PublishSingleFile` + `IncludeNativeLibrariesForSelfExtract`; `Assets.mfpak` (or, with `pack: false`, `Assets/` and `project.mfproj`) stays beside the exe. Windows and Linux only. |
-| `trim` | desktop | `false` | `-p:PublishTrimmed`. Experimental (warns) until the engine is trim-clean (M12.6). |
-| `symbols` | desktop | `ship` | `separate` moves the PDBs, with their assemblies, into `<exe>-<version>-<rid>-symbols.zip` for `mf-symbolicate` ([Crash reporting → Symbols](crash-reporting.md#symbols)). |
+| `trim` | desktop | `false` | `-p:PublishTrimmed` for a JIT build. The engine is trim-clean (G19 phase 4); still a warning, since a game's own reflection may break. |
+| `nativeAot` | desktop | `false` | One native executable ([NativeAOT](#nativeaot)): `-p:MainframeNativeAot=true`, no managed game or engine assembly ships. Overrides `readyToRun`, `singleFile`, `trim` and `selfContained`; needs a host of the target's OS. |
+| `symbols` | desktop | `ship` | `separate` moves the PDBs, with their assemblies, into `<exe>-<version>-<rid>-symbols.zip` for `mf-symbolicate` ([Crash reporting → Symbols](crash-reporting.md#symbols)); with `nativeAot`, the executable's `.dSYM`, `.dbg` or `.pdb`. |
 | `profiler` | desktop | `true` | `false` publishes with `MainframeProfilerDisabled=true`: `MainframeGame.props` sets the `MainframeEngine.Profiler.Disabled` AppContext switch in the runtimeconfig ([Profiler](profiler.md)). |
 | `archive` | all | `true` | Zip (Windows, macOS) or `.tar.gz` (Linux). `false` leaves a folder (e.g. a Steam depot's content root). |
 | `include` | all | `["Assets/**"]` | Globs of the game's `Assets/` files that ship. |
@@ -171,7 +172,7 @@ stage and `.partial` files are deleted, and the result has `Cancelled = true`.
 
 ### Packed content
 
-G19 phase 2 ([Protected exports](future/protected-exports.md), [ADR 0239](../../memory/decisions/0239-protected-exports.md)).
+G19 phase 2 ([Protected exports](protected-exports.md), [ADR 0239](../../memory/decisions/0239-protected-exports.md)).
 With `pack: true` an export folder holds the executable, the runtime and natives, `Assets.mfpak` and the `loose` files,
 and no `Assets/` folder or `project.mfproj`. The pack holds the game's and the engine's content (shaders, widgets,
 fonts, `.mo` catalogs, the asset index) and the exported project file, at the paths they had in the stage.
@@ -190,13 +191,40 @@ fonts, `.mo` catalogs, the asset index) and the exported project file, at the pa
   registers it with `PackKeys`, masked with SHA-256 of the assembly name, so neither its bytes nor its base64 are in
   any shipped file. The engine never gets it (only game projects import the props). `GameHost.Run` runs the game
   assemblies' module initializers before it mounts the pack. A missing key is `PackKeyMissing` and a wrong one
-  `PackKeyMismatch`, both at mount, before any read, and a failed start. Until NativeAOT (phase 4) the key can be
-  recovered from the IL: this stops "read the folder", not a reverser.
+  `PackKeyMismatch`, both at mount, before any read, and a failed start. In a JIT build the key can be recovered from
+  the IL; with [`nativeAot`](#nativeaot) it is machine code. Either way this stops "read the folder", not a reverser.
 - **Format and layout** are in [Asset pipeline → Packs](asset-pipeline.md#packs): Brotli for text and data, stored and
   seekable media, and a layout that keeps SteamPipe patches small ([ADR 0247](../../memory/decisions/0247-pack-anchors-for-steampipe.md)).
 - **Looking inside.** `mf-export --pack-list <Assets.mfpak> [--project <dir>]` lists the entries (codec, length, path),
   and `mf-export --pack-extract <Assets.mfpak> <dir> [--project <dir>]` writes them out; an encrypted pack needs the
   project (its `packKey`) or `MF_PACK_KEY`.
+
+### NativeAOT
+
+G19 phase 4 ([Protected exports](protected-exports.md#nativeaot-phase-4), [ADR 0259](../../memory/decisions/0259-native-aot-exports.md)).
+`"nativeAot": true` publishes the game as one native executable, so neither its code nor the pack key can be read back
+as IL (ILSpy, an agent pointed at the folder). The engine is trim- and AOT-clean (its analyzers are errors), so a game
+needs nothing new; its own reflection shows up as analyzer errors in the export.
+
+- **The publish** is `--self-contained true -p:MainframeNativeAot=true` (no ReadyToRun, single-file or trim properties).
+  `MainframeGame.props` turns the property into `PublishAot` for the game's projects only, compiles the target OS's
+  Steamworks shim and Facepunch assembly into the executable (with `build/steamworks/Facepunch.Steamworks.<build>.rd.xml`
+  for Facepunch's callback structs), and publishes no `steamworks/` folder, managed PDBs or XML docs. ILC warnings about
+  known third-party code (Silk.NET, DependencyModel, Facepunch) stay warnings.
+- **The stage** fails when the publish still has a managed assembly (a desktop project that does not import
+  `MainframeGame.props`). The folder holds the executable, the engine's natives, `steam_api` with Steam on,
+  `Assets.mfpak` and any `loose` files.
+- **macOS:** the executable alone is in `Contents/MacOS`, the rest in `Contents/MonoBundle` as for JIT builds;
+  `NativeAppBundle` makes `MonoBundle` the process's base directory at start-up. Signing and notarization are unchanged.
+- **Hosts:** NativeAOT compiles only for the OS it runs on (`native-aot-host`): a Windows target needs Windows with the
+  Visual Studio C++ tools, Linux needs `clang` and `zlib1g-dev`, macOS Xcode's command line tools. CI builds each OS on its
+  own runner.
+- **Symbols and crashes:** `symbols: separate` puts the `.dSYM`/`.dbg`/`.pdb` in the symbols zip. NativeAOT crash frames
+  carry the image's build id and offset, and `mf-symbolicate` resolves them with `llvm-symbolizer`, `atos` or
+  `addr2line` ([Crash reporting → Symbols](crash-reporting.md#symbols), [ADR 0260](../../memory/decisions/0260-native-crash-frames.md)).
+- **Testing:** `just template-smoke-aot` (this machine) and `just template-smoke-aot-linux` (Docker) export the
+  template game with `nativeAot`, check there is no managed file and run it headless; `NativeAotExportHasNoManagedAssemblies`
+  runs with `MAINFRAME_NATIVE_AOT_TESTS=1`.
 
 ### Exported project file
 
@@ -213,7 +241,7 @@ Project Settings › Steamworks. For `steam: true`:
 | Check | Severity | Why |
 |---|---|---|
 | effective app id (full or demo) ≠ 0 (`steam-app-id`) | error | an id of 0 leaves Steam off |
-| the RID's `steam_api` native and `steamworks/<win64\|posix>/` in the stage | export error | only a broken publish lacks them |
+| the RID's `steam_api` native and `steamworks/<win64\|posix>/` in the stage (with `nativeAot`, `steam_api` only: the shim is compiled in) | export error | only a broken publish lacks them |
 | `configuration` is `Release` (`steam-debug`) | warning | a Debug build is a development run: it writes `steam_appid.txt` on players' machines and never relaunches through Steam |
 
 ### Hosts and platforms
@@ -241,6 +269,7 @@ The dialog re-runs it on every edit; the CLI before each preset.
 | `main-scene-excluded` | error | the main scene, an enabled autoload scene or the bus layout is filtered out |
 | `rid-unsupported` | error | no engine natives for the RID, or a RID of another platform |
 | `host-unsupported` | error | a macOS target from a non-macOS host |
+| `native-aot-host` | error | `nativeAot` for a Windows or Linux target from a host of another OS |
 | `output-in-content` | error | `output` is inside `Assets/` |
 | `duplicate-name` | error | two presets share a name (also rejected on load) |
 | `glob` | error | a glob is empty, absolute, has `\` or `..` |
@@ -251,7 +280,8 @@ The dialog re-runs it on every edit; the CLI before each preset.
 | `steam-app-id` / `steam-debug` | error / warning | see [Steam](#steam) |
 | `notarize-needs-sign` | error | a notary profile with ad hoc signing |
 | `single-file` | error / warning | error on macOS (a bundle), else experimental |
-| `trim` | warning | experimental |
+| `trim` | warning | experimental for game code (JIT builds) |
+| `native-aot-ignored` | warning | `nativeAot` with `singleFile`, `trim` or `selfContained: false` (ignored) |
 | `configuration` | warning | neither Release nor Debug |
 | `include-empty` | warning | no include globs |
 | `editor-only-content` | warning | an include glob names `Assets/Video`, which never ships (the default `Assets/**` does not warn) |

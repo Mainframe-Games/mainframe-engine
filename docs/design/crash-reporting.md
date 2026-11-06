@@ -298,6 +298,14 @@ runs log the pending reports instead.
   `build/collect-symbols.sh`, which the editor's release keeps using).
   `mf-symbolicate <report.json> --symbols <folder> [--out <file>]` matches each frame's module MVID to an assembly in the
   folder and maps its method token and IL offset to the sequence point at or before it.
+- **NativeAOT** (G19 phase 4, [ADR 0260](../../memory/decisions/0260-native-crash-frames.md)): a build exported with
+  `nativeAot` has no MVIDs or IL. Each frame records `nativeImage` (the executable's name), `nativeOffset` (`0x` hex
+  from the image base) and `nativeImageId` (the Mach-O `LC_UUID`, ELF GNU build id or PE CodeView GUID+age, read from
+  the image's headers in memory by `NativeImageId`); the method name still comes from NativeAOT's stack-trace data.
+  `symbols: separate` puts the executable's `.dSYM`, `.dbg` or `.pdb` (with the executable) in the symbols zip, and
+  `mf-symbolicate` resolves native frames from a symbol file with the same id (`NativeSymbols`, `NativeSymbolizer`):
+  `llvm-symbolizer` when it is installed (Homebrew's keg-only one too), else `atos` (macOS) or `addr2line` (Linux).
+  Windows frames need `llvm-symbolizer`, and match a `.pdb` by name only.
 - **Commit:** `EngineInfo.Commit` reads the `+<sha>` SourceLink adds to the informational version (8 digits; null
   without it).
 - **Natives:** `natives.yml` builds Release with debug info (`-g`; `/Zi` + `/DEBUG`), then `build/split-native-symbols.sh`

@@ -247,6 +247,21 @@ public sealed class CrashFrame
 
     /// <summary>The method's metadata token (with <see cref="Mvid"/> and <see cref="IlOffset"/>: a line from the PDB).</summary>
     public int? Token { get; set; }
+
+    /// <summary>
+    /// A NativeAOT frame (ADR 0260): the file name of the native image its code is in (the executable), which with
+    /// <see cref="NativeOffset"/> and <see cref="NativeImageId"/> symbolicates from the native symbols.
+    /// </summary>
+    public string? NativeImage { get; set; }
+
+    /// <summary>The instruction's offset from the start of <see cref="NativeImage"/> in memory, as <c>0x</c> hex.</summary>
+    public string? NativeOffset { get; set; }
+
+    /// <summary>
+    /// The image's build id, so a rebuilt image's symbols never match: the Mach-O <c>LC_UUID</c> (<c>8-4-4-4-12</c> hex),
+    /// the ELF GNU build id (hex), or the PE CodeView GUID and age (<c>GUID</c> hex then age hex, as symbol servers name it).
+    /// </summary>
+    public string? NativeImageId { get; set; }
 }
 
 /// <summary>The <c>device</c> object: filled on mobile (M12/M13), null fields on desktop.</summary>

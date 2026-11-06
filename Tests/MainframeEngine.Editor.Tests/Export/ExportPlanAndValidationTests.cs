@@ -189,6 +189,60 @@ public sealed class ExportPlanAndValidationTests : IDisposable
     public void MacOsNeedsAMac(ExportHost host, bool error) =>
         Assert.Equal(error, Codes(Validate(ExportPreset.Create("M", ExportPlatform.MacOS), host), ExportIssueSeverity.Error).Contains("host-unsupported"));
 
+    // G19 phase 4 (ADR 0259): NativeAOT compiles only for the OS it runs on.
+    [Theory]
+    [InlineData(ExportPlatform.Windows, ExportHost.Linux, true)]
+    [InlineData(ExportPlatform.Windows, ExportHost.MacOS, true)]
+    [InlineData(ExportPlatform.Windows, ExportHost.Windows, false)]
+    [InlineData(ExportPlatform.Linux, ExportHost.Windows, true)]
+    [InlineData(ExportPlatform.Linux, ExportHost.Linux, false)]
+    [InlineData(ExportPlatform.MacOS, ExportHost.MacOS, false)]
+    public void NativeAotNeedsAHostOfTheTargetOs(ExportPlatform platform, ExportHost host, bool error)
+    {
+        var preset = ExportPreset.Create("Aot", platform);
+        preset.Desktop.NativeAot = true;
+        var issues = Validate(preset, host);
+        Assert.Equal(error, Codes(issues, ExportIssueSeverity.Error).Contains("native-aot-host"));
+        if (error)
+            Assert.Contains("only builds for the OS it runs on", issues.Single(i => i.Code == "native-aot-host").Message, StringComparison.Ordinal);
+
+        preset.Desktop.NativeAot = false; // a JIT export builds every desktop target from any host but macOS
+        Assert.DoesNotContain("native-aot-host", Codes(Validate(preset, host), ExportIssueSeverity.Error));
+    }
+
+    [Fact]
+    public void NativeAotIgnoresReadyToRunAndSingleFile()
+    {
+        var preset = ExportPreset.Create("Aot", ExportPlatform.Linux);
+        preset.Desktop.NativeAot = true;
+        Assert.Empty(Validate(preset)); // readyToRun's default (on) is simply not passed
+
+        preset.Desktop.SingleFile = true;
+        preset.Desktop.Trim = true;
+        preset.Desktop.SelfContained = false;
+        var issues = Validate(preset);
+        Assert.Equal(["native-aot-ignored"], Codes(issues, ExportIssueSeverity.Warning));
+        Assert.Empty(Codes(issues, ExportIssueSeverity.Error));
+        var message = issues.Single().Message;
+        Assert.Contains("singleFile", message, StringComparison.Ordinal);
+        Assert.Contains("trim", message, StringComparison.Ordinal);
+        Assert.Contains("selfContained: false", message, StringComparison.Ordinal);
+
+        // The publish is one self-contained NativeAOT executable whatever those keys say.
+        var args = Plan(preset).PublishArguments(null);
+        Assert.Equal("true", args[args.ToList().IndexOf("--self-contained") + 1]);
+        Assert.Contains("-p:MainframeNativeAot=true", args);
+        Assert.DoesNotContain(args, a => a.StartsWith("-p:PublishReadyToRun", StringComparison.Ordinal) || a.StartsWith("-p:PublishSingleFile", StringComparison.Ordinal)
+                                         || a.StartsWith("-p:PublishTrimmed", StringComparison.Ordinal) || a.StartsWith("-p:PublishAot", StringComparison.Ordinal)
+                                         || a.StartsWith("-p:IncludeNativeLibraries", StringComparison.Ordinal));
+        Assert.Equal(["TinyGame"], Plan(preset).Executables()); // no createdump
+
+        var mac = ExportPreset.Create("Mac", ExportPlatform.MacOS);
+        mac.Desktop.NativeAot = true;
+        Assert.DoesNotContain(Plan(mac, ExportHost.MacOS).PublishArguments(null), a => a.StartsWith("-p:MacBundleAppDirectory", StringComparison.Ordinal));
+        Assert.Contains("-p:MacBundleAppDirectory=MonoBundle", Plan(ExportPreset.Create("Jit", ExportPlatform.MacOS), ExportHost.MacOS).PublishArguments(null));
+    }
+
     [Fact]
     public void OutputInsideAssetsDuplicateNamesAndBadGlobsAreErrors()
     {

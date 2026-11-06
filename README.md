@@ -74,7 +74,7 @@ mobile, and it has GDScript. Mainframe is for people who want Godot's way of mak
 - **Godot's model, kept.** Nodes, the scene tree, signals, `[Export]`, `MoveAndSlide`, `AStarGrid2D`, `TileMapLayer`
   and surface shaders with Godot's built-ins (written in Slang) work as you know them, so moving over costs little.
 - **The shipping kit is built in.** Save games with backups and migrations, a drop-in settings menu with rebinding,
-  Steam and Steam demo builds, export presets with `mf-export` for CI (content packed into one encrypted `Assets.mfpak`), crash reports, gettext localization, gameplay
+  Steam and Steam demo builds, export presets with `mf-export` for CI (content packed into one encrypted `Assets.mfpak`, the game optionally one NativeAOT executable), crash reports, gettext localization, gameplay
   recording with a video mode that cuts trailers, and a music editor and sound designer: most of it is what Godot
   leaves to add-ons or other programs.
 
@@ -339,7 +339,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [Developer overlay](docs/design/dev-overlay.md) | F12 in any game: frame, renderer, shadow maps, GPU memory, audio mixer, adaptive music, physics and network panels; add your own in one call |
 | [Frame profiler](docs/design/profiler.md) | Zero-allocation CPU scopes on any thread, GPU timestamps per pass and post effect, counters, a frame history with spike capture; a Profiler section in the F12 overlay, an editor Profiler tab (frame graph, timeline, scope table) and Chrome/Perfetto trace export (`--profile-trace`) |
 | [Games in C#](docs/design/project-and-gamehost.md) | `dotnet new mfgame`, `project.mfproj` and `GameHost`: input actions, autoloads, structured logs, the editor link, headless dedicated servers |
-| [Game export](docs/design/game-export.md) | File › Export: presets in `project.mfproj` per platform (Windows, macOS, Linux), full and demo builds from one project, Steam checks, icons and signed macOS bundles written for you, zip/tar.gz or a depot folder; content and the project file packed into one encrypted `Assets.mfpak` (AES-256, Brotli, seekable media, small Steam patches) instead of loose files; the same exporter as `mf-export` for scripts and CI |
+| [Game export](docs/design/game-export.md) | File › Export: presets in `project.mfproj` per platform (Windows, macOS, Linux), full and demo builds from one project, Steam checks, icons and signed macOS bundles written for you, zip/tar.gz or a depot folder; content and the project file packed into one encrypted `Assets.mfpak` (AES-256, Brotli, seekable media, small Steam patches) instead of loose files; `nativeAot` for one native executable with no .NET assemblies to decompile (the engine is trim- and AOT-clean); the same exporter as `mf-export` for scripts and CI |
 | [NuGet packages](docs/design/distribution-nuget.md) | The engine and the project template on nuget.org: build a game with the .NET SDK alone, no checkout or editor needed |
 | [Self-updating editor](docs/design/editor-updates.md) | The editor finds new releases on GitHub and updates itself in place on macOS, Windows and Linux |
 | [Quality](docs/design/testing.md) | Zero warnings, 1 600+ tests, golden-image render tests on MoltenVK and lavapipe, a Vulkan validation gate and a 0-bytes-per-frame allocation gate |
