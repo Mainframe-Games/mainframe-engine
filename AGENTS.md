@@ -28,7 +28,8 @@ just template-smoke   # dotnet new mfgame against this checkout, build it, run i
 just template-smoke-package  # the same against this checkout packed as the MainframeEngine package; also publishes
 just pack [version]   # NuGet: MainframeEngine + MainframeEngine.Templates → artifacts/nuget (build/pack-nuget.sh; nuget.org on release)
 just publish-local    # package the editor like the release workflow (artifacts/release)
-just export [args]    # mf-export: a game's export presets from project.mfproj (--preset, --all, --list; G5, docs/design/game-export.md)
+just export [args]    # mf-export: a game's export presets from project.mfproj (--preset, --all, --list, --pack-list; G5, docs/design/game-export.md)
+just export-smoke     # the Demo exported packed (Assets.mfpak) vs its loose Release build, screenshots compared (needs a display, magick)
 just l10n-check       # committed .mo files match their .po (CI runs it)
 just l10n-engine      # the engine's own strings (settings menu, input names) → Assets/UI/settings/settings.pot
 just docs             # the docs site (Astro Starlight, docs-site/) with live reload; just docs-build = the Pages build
@@ -86,7 +87,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 ## Project Structure
 
 - `MainframeEngine/Src/Core/` — `Engine` base class, `GameTime`, `FPSCounter`, `Time` (ticks, Unix time); `Content/` — `ContentFiles`,
-  the read-only content file system with `IContentSource` mounts (G19, `docs/design/asset-pipeline.md#content-file-system`)
+  the read-only content file system with `IContentSource` mounts (G19, `docs/design/asset-pipeline.md#content-file-system`),
+  and `.mfpak` packs (`PackWriter`, `PackReader`, `PackContentSource`; exports ship `Assets.mfpak`, which `GameHost`
+  mounts; `docs/design/asset-pipeline.md#packs`, ADR 0247)
 - `MainframeEngine/Src/Math/` — 2D value types from GodotSharp (MIT): `Mathf`, `Vector2I`, `Rect2I`, `Color`/`Colors`, Godot's
   `Vector2` members as extensions on `System.Numerics.Vector2` (the one 2D vector). See `docs/design/math.md`
 - `MainframeEngine/Src/Scene/` — Godot-style node tree: `Node`, `SceneTree`, `Node3D`/`Node2D`, transforms, `NodePath`,
