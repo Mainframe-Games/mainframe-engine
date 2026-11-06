@@ -67,7 +67,22 @@ public sealed class NavigationDemo2D : Node2D
         base.OnExitTree();
     }
 
-    /// <summary>Sends every chaser to <paramref name="target"/> (each to its own spot on a 28 px ring around it).</summary>
+    /// <summary>Every chaser's agents avoid each other and the boulder (G3.7).</summary>
+    public bool Avoidance
+    {
+        get => _chasers.Count > 0 && _chasers[0].Agent is { AvoidanceEnabled: true };
+        set
+        {
+            foreach (var chaser in _chasers)
+                if (chaser.Agent is { } agent)
+                    agent.AvoidanceEnabled = value;
+        }
+    }
+
+    /// <summary>
+    /// Sends every chaser to <paramref name="target"/>, each to its own spot: the first on it, five on a 40 px ring and the
+    /// rest on a 70 px ring, far enough apart for avoiding bodies to settle.
+    /// </summary>
     public void SetTarget(Vector2 target)
     {
         Target = target;
@@ -77,9 +92,18 @@ public sealed class NavigationDemo2D : Node2D
         {
             if (_chasers[i].Agent is not { } agent)
                 continue;
-            var angle = i * MathF.Tau / _chasers.Count;
-            agent.TargetPosition = target + (i == 0 ? Vector2.Zero : new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * 28f);
+            agent.TargetPosition = target + Spot(i, _chasers.Count);
         }
+    }
+
+    private static Vector2 Spot(int i, int count)
+    {
+        if (i == 0)
+            return Vector2.Zero;
+        var inner = Math.Min(5, count - 1);
+        var (index, ring, radius) = i <= inner ? (i - 1, inner, 40f) : (i - 1 - inner, count - 1 - inner, 70f);
+        var angle = index * MathF.Tau / ring + (radius > 50f ? MathF.PI / ring : 0f);
+        return new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
     }
 
     /// <summary>Adds a wall block on <paramref name="cell"/>, or removes one a click added; false for the maze's walls and the outside.</summary>

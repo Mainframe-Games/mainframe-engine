@@ -1,13 +1,15 @@
 # Navigation (grid A*, point graphs, `NavigationServer2D`, agents)
 
 **Status:** shipped for 2D grids (Gameplay toolkit G3a, G3.1–G3.6; [ADR 0227](../../memory/decisions/0227-grid-navigation-core.md),
-[ADR 0228](../../memory/decisions/0228-navigation-server-agents-and-sources.md)), including the tile map source (G3.6).
-The later phases (avoidance, 2D navmeshes, async queries, 3D; G3b) are still a [proposal](future/navigation.md).
+[ADR 0228](../../memory/decisions/0228-navigation-server-agents-and-sources.md)), including the tile map source (G3.6),
+and local avoidance (G3.7, [ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md)). The other later
+phases (2D navmeshes, async queries, 3D; G3.8–G3.12) are still a [proposal](future/navigation.md).
 
 Godot 4's navigation API on grids: `AStarGrid2D` and the point graphs `AStar2D`/`AStar3D` (plain classes, usable without
 a tree), a `NavigationServer2D` with one map per `World2D`, the `NavigationGrid2D` region baked from static bodies or read
 live from a `TileMapLayer`, and
-`NavigationAgent2D` for path following. Queries allocate nothing and give the same path on every OS and CPU.
+`NavigationAgent2D` for path following, with ORCA local avoidance between agents and `NavigationObstacle2D`s. Queries and
+avoidance allocate nothing and give the same result on every run.
 
 ![The Demo's Navigation 2D maze in the editor with Visible Navigation on and the grid's inspector](../images/editor-navigation.png)
 
@@ -20,7 +22,9 @@ live from a `TileMapLayer`, and
 | `NavigationServer2D`, `NavigationMap2D` | `NavigationServer2D.cs`, `NavigationMap2D.cs` | The server, maps, sync, queries, post-processing (`GridLineOfSight`) |
 | `NavigationPath2D`, `NavigationPathQuery2D` | `NavigationPath2D.cs`, `NavigationTypes.cs` | A reusable query result; the query |
 | `NavigationGrid2D`, `NavigationGridData` | `Nodes2D/` | The grid region node and its baked data resource |
-| `NavigationAgent2D` | `Nodes2D/NavigationAgent2D.cs` | Path following |
+| `NavigationAgent2D` | `Nodes2D/NavigationAgent2D.cs` | Path following; avoidance settings and `VelocityComputed` |
+| `NavigationObstacle2D` | `Nodes2D/NavigationObstacle2D.cs` | An avoidance obstacle: a radius (moving) and/or a polygon |
+| `Orca2D`, `AvoidanceSimulation2D` | `Avoidance/` | The ORCA solver (an RVO2 2.0 port, Apache-2.0, `LICENSE-RVO2.txt`) and each map's avoidance step |
 | `INavigationGridBaker`, `NavigationGridBakers`, `GridPhysicsBaker2D`, `TileMapLayerBaker` | `Baking/` | Where a grid's cells come from |
 | `NavigationDebugColors`, enums | `NavigationTypes.cs`, `NavigationDebugDraw.cs` | Debug draw colours; `GridDiagonalMode`, `GridHeuristic`, `GridPathStatus`, `NavigationPathPostprocessing`, `NavigationGridSource`, `NavigationWaypoint2D` |
 
@@ -192,7 +196,8 @@ public sealed class Chaser : CharacterBody2D
   (100 px), `TargetRepathDistance` (new, 0 = Godot), `NavigationLayers`, `PathPostprocessing` (`CorridorFunnel`),
   `DebugEnabled`. API: `GetNextPathPosition`, `IsNavigationFinished`, `IsTargetReached`, `IsTargetReachable`,
   `DistanceToTarget`, `GetFinalPosition`, `GetCurrentNavigationPath`, `GetCurrentNavigationPathIndex`, `CurrentPath`,
-  `RequestRepath`, `SetVelocity`.
+  `RequestRepath`, `SetVelocity`, `SetVelocityForced`, `SafeVelocity`, `SubmittedVelocity`; the Avoidance group
+  ([Avoidance](#avoidance-g37)).
 - **Repath** (lazily, inside `GetNextPathPosition`/`IsNavigationFinished`): a new target (moved more than
   `TargetRepathDistance` from the path's), a new map iteration, farther than `PathMaxDistance` from the current path
   segment, or `RequestRepath()`. An idle agent costs nothing. A query that finds nothing (no region yet — maps register
@@ -201,10 +206,71 @@ public sealed class Chaser : CharacterBody2D
   `WaypointReached(NavigationWaypoint2D)` (position, index, cell; a struct, no allocation; the last point once); within
   `TargetDesiredDistance` of the target `TargetReached` then `NavigationFinished`; at the end of a partial path
   `NavigationFinished` alone. Once finished nothing updates until a new target. `PathChanged` after every repath.
-  `SetVelocity` raises `VelocityComputed` at once (a pass-through until avoidance, G3.7).
+  `SetVelocity` raises `VelocityComputed` at once without avoidance; with it, after the physics step (below).
 - **Path storage:** each agent owns a `NavigationPath2D` that grows to the longest path and is reused: 0 bytes per tick.
 - Agents run where the body's movement runs (the server or host in multiplayer); paths depend only on the map at the
   last sync and the query.
+
+## Avoidance (G3.7)
+
+Godot's agent avoidance on ORCA (optimal reciprocal collision avoidance; van den Berg et al. 2011): each avoiding agent
+gets the velocity closest to the one it wants that keeps its radius clear of every neighbour and obstacle for a time
+horizon, assuming its neighbours do their half. The solver is a C# port of RVO2 2.0's 2D one (Godot uses the same
+library), kept with its Apache-2.0 notice ([Third-party notices](../../THIRD_PARTY_NOTICES.md#rvo2-library)).
+
+```csharp
+public sealed class Walker : CharacterBody2D
+{
+    private NavigationAgent2D _agent = null!;
+    protected override void OnReady()
+    {
+        _agent = GetNode<NavigationAgent2D>("Agent");          // AvoidanceEnabled = true in the scene
+        _agent.VelocityComputed += safe => { Velocity = safe; MoveAndSlide(); };
+    }
+    protected override void OnPhysicsProcess(float delta)
+    {
+        if (!_agent.IsNavigationFinished())
+            _agent.SetVelocity(GlobalPosition.DirectionTo(_agent.GetNextPathPosition()) * 140f);
+    }
+}
+```
+
+- **Agent exports** (group Avoidance, Godot's names and defaults): `AvoidanceEnabled` (off), `Radius` (10 px),
+  `NeighborDistance` (500 px), `MaxNeighbors` (10), `TimeHorizonAgents` (1 s), `TimeHorizonObstacles` (0.5 s; Godot's 0
+  divides by zero in ORCA's obstacle lines, so 0.01 s is the floor), `MaxSpeed` (100 px/s), `AvoidanceLayers` and
+  `AvoidanceMask` (1), `AvoidancePriority` (1).
+- **Timing.** `SetVelocity` (from the body's `OnPhysicsProcess`) submits the preferred velocity. The server's fixed
+  step, after the physics step and the map sync, computes every submitted agent's safe velocity from the positions
+  then, and only then raises `VelocityComputed` on each, in registration order: a handler that moves its body cannot
+  change another agent's input. Moving in the handler (`MoveAndSlide` works anywhere in a tick) renders the same as
+  moving in the next `OnPhysicsProcess`. Frames without a fixed step (a paused tree, edit mode) compute nothing.
+- **Neighbours.** Other avoiding agents and radius obstacles within `NeighborDistance` (centre to centre) whose layers
+  meet the agent's mask, the `MaxNeighbors` nearest. An agent ignores agents of lower `AvoidancePriority`, which then
+  take the whole avoidance on themselves; equal priorities share it half and half (ORCA's reciprocity). A neighbour that
+  does not avoid back this tick (an obstacle, a mask that misses, lower priority, an agent that submitted nothing) is
+  avoided in full. An avoiding agent that submits nothing in a tick stands still for the others and gets no signal.
+  `SafeVelocity` holds the last result (the velocity the others predict it with); `SetVelocityForced` replaces it (a
+  teleport, a knock-back).
+- **`NavigationObstacle2D`** (a `Node2D`): `Radius` (unscaled pixels; agents predict it with `Velocity` and make way
+  for it alone: set `Velocity` every tick for a mover), `Vertices` (a polygon in local pixels placed by the global
+  transform at every step: static or moved, without prediction; two vertices make a wall segment; either winding pushes
+  agents out, and an agent inside a polygon ignores it), `AvoidanceEnabled`, `AvoidanceLayers`. Obstacles change no
+  path: block the grid's cells too (`SetCellSolid`) where a path must go round one. ORCA is local: an agent sent dead on
+  into a flat face stops at it; paths go round walls, avoidance keeps bodies off each other and off corners.
+- **Symmetry.** Two agents exactly head-on only slow down in plain ORCA (RVO2's examples add random noise). Here an
+  exactly collinear, approaching relative velocity tilts 1 % to the left of the line between them: the same rule seen
+  from both sides, so they pass on the same side, deterministically.
+- **Neighbour search** is a uniform hash grid owned by the map's `AvoidanceSimulation2D` (cells of 4 × the largest
+  radius, at least 8 px; a counting sort into power-of-two buckets; rings of cells outwards until a ring is beyond the
+  shrinking range). Polygon edges are culled by each polygon's bounds, then RVO2's rules (edges seen from outside within
+  `TimeHorizonObstacles × MaxSpeed + Radius`, nearest first).
+- **Determinism and memory.** Entities are numbered in registration order (agents, then radius obstacles); neighbours
+  sort by distance, then number; dot and cross products are scalar code (no SIMD reductions), and coincident agents are
+  moved apart by number before RVO2 would divide by zero. Every buffer belongs to the map and only grows: a steady crowd
+  allocates nothing.
+- **Debug draw** (Visible Navigation): an avoiding agent's radius and a quarter second of its safe velocity
+  (`NavigationDebugColors.Avoidance`), obstacles' circles and polygons (`NavigationDebugColors.Obstacle`, faded while
+  disabled).
 
 ## Editor
 
@@ -214,13 +280,15 @@ public sealed class Chaser : CharacterBody2D
   `Data`, and a status line — size, solid and weighted cells, source, the last bake's time, "out of date" when a static
   body in the region changed since the bake. Only the current source's bake rows show.
 - **Agent gizmo:** the selected `NavigationAgent2D` draws its `TargetDesiredDistance` and `PathDesiredDistance` circles
-  around its body, and a line and circle at its target, in the overlay.
+  around its body, its avoidance `Radius` when avoiding, and a line and circle at its target, in the overlay.
+- **Obstacle gizmo:** the selected `NavigationObstacle2D` draws its radius circle and polygon (a dot on each vertex) in
+  the selection colour; Visible Navigation draws every obstacle. `Vertices` are edited in the inspector (no handles yet).
 - Running games: a **Navigation** checkbox in the dev overlay's Physics panel. The editor's toggle does not reach played
   games.
 
 ## Profiler
 
-Scopes `Navigation sync`, `Navigation query`, `Navigation bake` and `Navigation debug draw`, plus the server's own
+Scopes `Navigation sync`, `Navigation query`, `Navigation bake`, `Navigation avoidance` and `Navigation debug draw`, plus the server's own
 `NavigationServer2D.FixedStep` and `NavigationServer2D` frame-server scopes ([Profiler](profiler.md)).
 
 ## Tests
@@ -238,16 +306,22 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake` and `Navigation 
   the debug draw on; 0-byte grid queries), `TileMapNavigationTests` (the tile map source: layout and cell mapping,
   collision per physics layer, `"solid"` and weight data, re-reads on `Changed` with an agent repathing round a new wall,
   a layer that enters after the grid, detaching, every error, `Bake` into `Data`, a 0-byte re-read of a 128 × 128
-  layer).
-- Editor (`NavigationEditorTests`): the toggle, Bake/Clear with undo and staleness, source rows, the agent gizmo.
+  layer), `NavigationAvoidanceTests` (G3.7: a head-on pair passes without touching, a crowd of 16 through a 64 px gap
+  arrives without overlap or wall contact, a static polygon is gone round, moving radius and polygon obstacles are
+  avoided, two runs are bit-identical, masks and priorities, standing agents, the signal's timing and `MaxSpeed`, and
+  without avoidance the pass-through); the allocation gate's second case: **0 bytes** over 300 ticks of 64 avoiding
+  agents on paths with four orbiting radius obstacles, a sliding polygon and the debug draw on.
+- Editor (`NavigationEditorTests`): the toggle, Bake/Clear with undo and staleness, source rows, the agent gizmo, the
+  obstacle gizmo and the avoidance radius.
 - Render test `navigation` (`NavigationRenderTests`): grid, solid cells, mud, paths and targets over the collision
   shapes through a `Camera2D` (golden).
-- Demo: `Navigation2DSceneTests` (the saved grid equals a real bake, every chaser reaches the target, clicked walls
-  reroute, the panel); `Tiles2DSceneTests` (the tile-sourced grid matches the walls layer, the shadow reaches the hero
+- Demo: `Navigation2DSceneTests` (the saved grid equals a real bake, every chaser reaches the target, avoiding chasers
+  keep apart and off the boulder, clicked walls reroute, the panel); `Tiles2DSceneTests` (the tile-sourced grid matches the walls layer, the shadow reaches the hero
   without stepping on stone or water, a wall on its path makes it repath).
 - Benchmarks (`NavigationBenchmarks`, Apple M5): 256² open field A* 8-way ≈ 25 µs, JPS ≈ 0.21 ms, A* 4-way ≈ 31 µs; 256²
   maze A* 8-way ≈ 3.9 ms, JPS ≈ 0.23 ms, 4-way 2.6 ms / 0.4 ms; a tick with 64 agents repathing on a 128² maze ≈ 15 ms;
-  all 0 B.
+  all 0 B. `AvoidanceBenchmarks` (RVO2's circle scenario through four pillars, one fixed step): 64 agents ≈ 43 µs, 256
+  agents ≈ 0.23 ms, 0 B (measured with other work running: not in `baseline.json` yet).
 
 ## Changes from the proposal
 
@@ -266,9 +340,18 @@ Scopes `Navigation sync`, `Navigation query`, `Navigation bake` and `Navigation 
   re-read allocates nothing; `NavigationGridBakers.Unregister` (tests) puts the built-in back. The plain `Changed`
   signal is enough so far: no `CellsChanged(Rect2I)` was added to tile maps.
 - 2D games' debug lines draw over the canvas (they drew under it before, unseen).
+- **G3.7 avoidance:** the proposal left the algorithm source open: it is a port of RVO2 2.0 (ADR 0250).
+  `TimeHorizonObstacles` defaults to 0.5 s, not Godot's 0. `VelocityComputed` is raised in the server's fixed step
+  after the physics step (the proposal: "before the next tick's `OnPhysicsProcess`", which this satisfies). Added
+  beyond the proposal: per-neighbour responsibility (full avoidance of neighbours that do not avoid back), deterministic
+  head-on symmetry breaking, `SafeVelocity`, `SubmittedVelocity`, `SetVelocityForced`, `NavigationMap2D.Obstacles`.
+  Polygon obstacles always push agents out (Godot's winding picks in or out) and are not predicted when moved; radius
+  obstacles are. The neighbour grid is the hash grid the proposal named; polygon edges use bounds culling, not RVO2's
+  obstacle k-d tree (few edges per level). The editor has no vertex handles for obstacles yet.
 - The Demo scene is in the nav bar's 2D category; number keys open categories, not scenes ([Demo](demo.md#navigation)).
 
 ## Related
 
 [Physics](physics.md) (queries), [Canvas](canvas.md), [Editor](editor.md), [Dev overlay](dev-overlay.md),
-[Demo](demo.md), [Tile maps](tile-maps.md), [Proposal: later phases](future/navigation.md)
+[Demo](demo.md), [Tile maps](tile-maps.md), [Proposal: later phases](future/navigation.md),
+[ADR 0250](../../memory/decisions/0250-navigation-avoidance-orca.md)

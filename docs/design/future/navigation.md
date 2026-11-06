@@ -1,7 +1,7 @@
 # Proposal: Navigation — later phases (G3b)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G3) · **Status:** G3a shipped (G3.1–G3.6, see
-[Navigation](../navigation.md)); G3.7–G3.12 planned ·
+[Navigation](../navigation.md)); G3.7 avoidance shipped ([Avoidance](../navigation.md#avoidance-g37)); G3.8–G3.12 planned ·
 **Depends on:** [Navigation](../navigation.md) (the shipped core) · **Related:** [Networking](../networking.md),
 [Mobile](mobile.md) (AOT), [Tile maps](../tile-maps.md)
 
@@ -28,11 +28,7 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
 
 ### Later phases
 
-- **Avoidance (G3.7).** ORCA/RVO for agents and `NavigationObstacle2D` (radius or polygon, static or moving), run in
-  the server's `FixedStep` after paths: `AvoidanceEnabled`, `Radius`, `MaxSpeed`, `NeighborDistance`,
-  `MaxNeighbors`, `TimeHorizonAgents`, `TimeHorizonObstacles`, `AvoidanceLayers`/`Mask`, `AvoidancePriority` (Godot
-  names). Results raise `VelocityComputed` before the next tick's `OnPhysicsProcess`. Neighbour search uses a uniform
-  grid owned by the map (no allocation). The algorithm source is an open question.
+- ~~**Avoidance (G3.7).**~~ Shipped: [Navigation → Avoidance](../navigation.md#avoidance-g37) (ADR 0250).
 - **2D navmesh polygons (G3.9).** `NavigationPolygon : Resource` (outlines → convex polygons) and
   `NavigationRegion2D` (Godot names), A* over polygon adjacency plus the funnel algorithm, `NavigationLink2D` for
   jumps and teleports, regions joined by shared edges. Baking from physics shapes and tile outlines with agent-radius
@@ -46,13 +42,13 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
 
 ## Testing
 
-- G3.7: head-on pairs, crowds, the allocation gate with avoidance on. G3.10: delivery exactly one sync later, snapshot
+- ~~G3.7~~ shipped ([Navigation → Tests](../navigation.md#tests)). G3.10: delivery exactly one sync later, snapshot
   copy-on-write, determinism under thread scheduling.
 
 ## Task list
 
 1. ~~**G3.6 TileMapLayer source**~~ shipped: [Navigation → Tile map source](../navigation.md#tile-map-source).
-2. **G3.7 Avoidance.** ORCA for agents, `NavigationObstacle2D`; tests (head-on pairs, crowds, allocation gate).
+2. ~~**G3.7 Avoidance.**~~ shipped: [Navigation → Avoidance](../navigation.md#avoidance-g37).
 3. **G3.8 Grid polish.** Isometric cell shapes if G2 needs them; HPA* only if a game needs it; cell painting in the
    inspector if tile maps do not cover it.
 4. **G3.9 2D navmesh polygons.** `NavigationPolygon`, `NavigationRegion2D`, funnel, `NavigationLink2D`, bake.
@@ -71,8 +67,8 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
    - Our own voxel/region/contour pipeline: no dependency, but months of work.
 2. **Polygon clipping for 2D navmeshes** (agent-radius offsetting, merging obstacles): Clipper2 is now an approved
    dependency (ADR 0203, `Geometry2D`), so the question is only whether it covers the offsetting needs.
-3. **Avoidance algorithm source.** Write ORCA from the paper, or port RVO2 (Apache 2.0, the library Godot uses) with
-   attribution. Either way it is plain C#; the question is licence notice and test vectors.
+3. ~~**Avoidance algorithm source.**~~ Answered by G3.7 ([ADR 0250](../../../memory/decisions/0250-navigation-avoidance-orca.md)):
+   a C# port of RVO2 2.0 with its Apache-2.0 notice and licence text.
 4. **Tile map dirty rects.** G3.6 re-reads the used cells on the plain `Changed` signal (0 B once warm). Should tile maps
    add `CellsChanged(Rect2I)` once a game digs or builds every frame and the full re-read shows in the profiler?
 

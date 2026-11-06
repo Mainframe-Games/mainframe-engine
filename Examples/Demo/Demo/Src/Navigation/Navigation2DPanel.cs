@@ -5,7 +5,8 @@ namespace Demo;
 
 /// <summary>
 /// The Navigation 2D scene's controls: the grid's diagonal mode and heuristic, jump point search, the navigation debug
-/// draw (server-global: restored when the scene is left), "Click adds walls", and how many chasers arrived.
+/// draw (server-global: restored when the scene is left), the chasers' avoidance, "Click adds walls", and how many
+/// chasers arrived.
 /// </summary>
 public sealed class Navigation2DPanel : UiDocument
 {
@@ -90,6 +91,17 @@ public sealed class Navigation2DPanel : UiDocument
         }
     }
 
+    /// <summary>The chasers' local avoidance (G3.7).</summary>
+    public bool Avoidance
+    {
+        get => _demo?.Avoidance ?? false;
+        set
+        {
+            if (_demo is { } demo)
+                demo.Avoidance = value;
+        }
+    }
+
     public bool AddWalls
     {
         get => _demo?.AddWalls ?? false;
@@ -112,6 +124,7 @@ public sealed class Navigation2DPanel : UiDocument
             .Bind("heuristic", this, static d => d.Heuristic, static (d, v) => d.Heuristic = v)
             .Bind("jumping", this, static d => d.Jumping, static (d, v) => d.Jumping = v)
             .Bind("debug", this, static d => d.ShowNavigation, static (d, v) => d.ShowNavigation = v)
+            .Bind("avoidance", this, static d => d.Avoidance, static (d, v) => d.Avoidance = v)
             .Bind("walls", this, static d => d.AddWalls, static (d, v) => d.AddWalls = v)
             .Bind("arrived", this, static d => Math.Max(0, d._arrived))
             .Bind("total", this, static d => d._demo?.Chasers.Count ?? 0);

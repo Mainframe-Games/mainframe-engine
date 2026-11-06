@@ -3,8 +3,9 @@ using MainframeEngine;
 
 namespace Demo.Tests;
 
-/// <summary>Navigation 2D (G3a): the baked grid matches a real physics bake, headless chasers reach the target, walls added
-/// by clicks reroute them, and the panel's controls reach the grid and the server.</summary>
+/// <summary>Navigation 2D (G3a, G3.7): the baked grid matches a real physics bake, headless chasers reach the target while
+/// avoiding each other and the boulder, walls added by clicks reroute them, and the panel's controls reach the grid, the
+/// agents and the server.</summary>
 [Collection(nameof(SerialRmlUi))]
 public sealed class Navigation2DSceneTests : IDisposable
 {
@@ -79,6 +80,39 @@ public sealed class Navigation2DSceneTests : IDisposable
         }
 
         Assert.Equal(Navigation2DScene.ChaserCount, Panel.Grid is null ? -1 : Demo.Arrived);
+    }
+
+    [Fact]
+    public void AvoidingChasersKeepApartAndOffTheBoulder()
+    {
+        // G3.7: the agents' radius is 10 px; ORCA keeps centres 20 px apart (a few px of slack where the body's slide
+        // along a wall overrides the safe velocity), and 24 px from the 14 px boulder.
+        Assert.True(Demo.Avoidance);
+        var boulder = Scene.GetNode<NavPatrol>("Boulder");
+        var closest = float.PositiveInfinity;
+        var closestBoulder = float.PositiveInfinity;
+        var boulderStart = boulder.GlobalPosition;
+        for (var frame = 0; frame < 60 * 30 && Demo.Arrived < Navigation2DScene.ChaserCount; frame++)
+        {
+            Tick();
+            for (var i = 0; i < Demo.Chasers.Count; i++)
+            {
+                var p = Demo.Chasers[i].GlobalPosition;
+                closestBoulder = MathF.Min(closestBoulder, Vector2.Distance(p, boulder.GlobalPosition));
+                for (var j = i + 1; j < Demo.Chasers.Count; j++)
+                    closest = MathF.Min(closest, Vector2.Distance(p, Demo.Chasers[j].GlobalPosition));
+            }
+        }
+
+        Assert.True(Demo.Arrived == Navigation2DScene.ChaserCount, string.Join("; ", Demo.Chasers.Where(c => !c.Agent!.IsTargetReached())
+            .Select(c => $"{c.Name} at {(c.GlobalPosition - Navigation2DScene.Origin) / 32f} target {(c.Agent!.TargetPosition - Navigation2DScene.Origin) / 32f} fin {c.Agent.IsNavigationFinished()} safe {c.Agent.SafeVelocity} path {c.Agent.CurrentPath.Count} {c.Agent.CurrentPath.Status}")));
+        Assert.True(closest >= 17f, $"closest chasers {closest}");
+        Assert.True(closestBoulder >= 21f, $"closest to the boulder {closestBoulder}");
+        Assert.NotEqual(boulderStart, boulder.GlobalPosition);
+
+        Panel.Avoidance = false;
+        Assert.False(Demo.Avoidance);
+        Assert.All(Demo.Chasers, c => Assert.False(c.Agent!.AvoidanceEnabled));
     }
 
     [Fact]

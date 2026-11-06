@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-11-05 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5; G6 in review._
+_Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5; G3.7 in review._
 
 ## What exists
 
@@ -30,7 +30,7 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most 2D port work and muc
   editor viewport tools (G7), joints and ragdolls (G9, #136; G9.7 limit handles, #148; G9.10a `MotorJoint2D`; G9.10b `Generic6DofJoint3D` on the engine's own
   Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
-  (0227/0228; grids read live from a `TileMapLayer` since G3.6) and game export with `mf-export` (0229/0230;
+  (0227/0228; grids read live from a `TileMapLayer` since G3.6; ORCA avoidance and `NavigationObstacle2D`, G3.7, ADR 0250) and game export with `mf-export` (0229/0230;
   `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), the seam for packed and encrypted exports.
 - **G6** ([Rendering features](../../docs/design/rendering-features.md)): PBR + IBL, SSAO, 3D particles, mesh LODs (ADR 0245), forward decals (ADR 0246), `.hdr` skies; owner-pending: PBR default, LOD simplifier.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
@@ -91,8 +91,8 @@ _Last updated: 2026-11-05 — M0–M10, Demo & polish, most 2D port work and muc
 1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 2 `.mfpak` packs, then encryption, AOT.
 2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (terrain dock and Faceted look, tree
    inspector, river tool, forest goldens and frame budget); G20.3 video; G1c animation authoring (would let active
-   ragdolls follow any clip); G12 (proposal awaits owner review); G11, G14, G16, G17; G3b (avoidance first).
-3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (Forest cabin ≈ +1.6 ms p50; G6's two).
+   ragdolls follow any clip); G12 (proposal awaits owner review); G11, G14, G16, G17; G3b's rest (G3.8–G3.12; G3.7 avoidance in review).
+3. Re-record `Tests/MainframeEngine.Benchmarks/baseline.json` on a quiet machine (Forest cabin; G6's two; G3.7's two).
 4. M11 — backend-neutral GPU API + D3D12 + WebGPU (`docs/design/future/rendering-backend-abstraction.md`).
 5. M12 — mobile core, Android + iOS (`docs/design/future/mobile.md`, ADR 0100; spikes M12.0 first); follow the
    mobile-ready plumbing checklist in `memory/context/lane-agent-brief.md` in any lane meanwhile.

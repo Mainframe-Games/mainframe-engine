@@ -37,6 +37,7 @@ Valve's (see [Steamworks SDK redistributables](#steamworks-sdk-redistributables)
 | [RtMidi](https://github.com/thestk/rtmidi) (Gary P. Scavone) | 6.0.0 | MIT (with a non-binding request to send modifications upstream) | `Native/PluginHost/external/rtmidi` (submodule) | editor only: `mfplughost` helper executable (static; CoreMIDI / WinMM / ALSA) |
 | [ZzFX](https://github.com/KilledByAPixel/ZzFX) (Frank Force; `buildSamples` ported to C#) | 1.4.0 | MIT | `MainframeEngine/Src/Audio/Synthesis/Zzfx.cs`; `build/zzfx-reference.mjs` (vendored JavaScript, reference vectors) | engine |
 | [Ez Tree](https://github.com/dgreenheck/ez-tree) (Daniel Greenheck; the tree generator `tree.js` and `rng.js` ported to C#, the 15 tree and bush presets, the leaf textures) | 1.1.0 (`dcf309b`) | MIT | `MainframeEngine/Src/Trees/Generation/`; `MainframeEngine/Assets/Trees/Presets` (converted to `.mres`), `MainframeEngine/Assets/Trees/Leaves`; `build/ez-tree-reference.mjs` (runs Ez Tree for the parity fixture) | engine; engine `Assets/Trees` |
+| [RVO2 Library](https://gamma.cs.unc.edu/RVO2/) (the 2D ORCA solver: `computeNewVelocity` and `linearProgram1`–`3`, ported to C#) | 2.0 | Apache-2.0 | `MainframeEngine/Src/Navigation/Avoidance/Orca2D.cs` (licence text: `LICENSE-RVO2.txt` next to it) | engine |
 | [AMD FidelityFX FSR 1](https://github.com/GPUOpen-Effects/FidelityFX-FSR) (the EASU upscaling and RCAS sharpening algorithms, re-implemented in Slang) | 1.0 | MIT | `MainframeEngine/Assets/Shaders/Post/Upscale.vk.frag.slang`, `TaaSharpen.vk.frag.slang` | engine shaders |
 | [three.js](https://threejs.org) (the `Vector3`, `Quaternion` and `Euler` math Ez Tree calls, ported to C# in doubles) | 0.167.1 | MIT | `MainframeEngine/Src/Trees/Generation/ThreeMath.cs` | engine |
 | [ambientCG](https://ambientcg.com) bark textures `Bark001`–`Bark003` (1K JPG: colour, OpenGL normal, roughness; the sets Ez Tree's presets use) | — | CC0 1.0 | `MainframeEngine/Assets/Trees/Bark` | engine `Assets/Trees/Bark` |
@@ -719,6 +720,32 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+```
+
+## RVO2 Library
+
+Navigation avoidance (G3.7) ports the 2D ORCA solver of the RVO2 Library 2.0 (`Agent.cpp`: `computeNewVelocity`,
+`linearProgram1`, `linearProgram2`, `linearProgram3`) to C# in `MainframeEngine/Src/Navigation/Avoidance/Orca2D.cs`.
+The file keeps RVO2's notice and lists its changes (caller-owned buffers, per-neighbour responsibility, deterministic
+symmetry breaking, scalar maths, zero-length guards). The full Apache License 2.0 is in
+`MainframeEngine/Src/Navigation/Avoidance/LICENSE-RVO2.txt`.
+
+```
+Copyright 2008 University of North Carolina at Chapel Hill
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Authors: Jur van den Berg, Stephen J. Guy, Jamie Snape, Ming C. Lin, Dinesh Manocha
 ```
 
 ## AMD FidelityFX FSR 1 (EASU, RCAS)

@@ -267,6 +267,8 @@ public sealed partial class ViewportController
         for (var i = 0; i < selection.Count; i++)
             if (selection[i] is NavigationAgent2D { IsInsideTree: true } agent)
                 DrawAgent2D(overlay, agent);
+            else if (selection[i] is NavigationObstacle2D { IsInsideTree: true } obstacle)
+                DrawObstacle2D(overlay, obstacle);
 
         _workspace.TileMap.Draw(scene, overlay, pixels);
         _workspace.Curves.Draw(overlay, CurvePixel(scene));
@@ -311,10 +313,32 @@ public sealed partial class ViewportController
         var at = body.GlobalPosition;
         lines.AddCircle2D(Transform2D.Identity, at, agent.TargetDesiredDistance, SelectionColor);
         lines.AddCircle2D(Transform2D.Identity, at, agent.PathDesiredDistance, NavigationDebugColors.Path);
+        if (agent.AvoidanceEnabled)
+            lines.AddCircle2D(Transform2D.Identity, at, agent.Radius, NavigationDebugColors.Avoidance); // G3.7
         if (agent.TargetPosition != default)
         {
             lines.AddLine2D(Transform2D.Identity, at, agent.TargetPosition, NavigationDebugColors.Target);
             lines.AddCircle2D(Transform2D.Identity, agent.TargetPosition, agent.TargetDesiredDistance, NavigationDebugColors.Target);
+        }
+    }
+
+    // G3.7: the selected obstacle's radius circle and polygon outline (with a dot on each vertex) in the selection colour.
+    private static void DrawObstacle2D(DebugLines lines, NavigationObstacle2D obstacle)
+    {
+        var transform = obstacle.GlobalTransform;
+        if (obstacle.Radius > 0f)
+            lines.AddCircle2D(Transform2D.Identity, transform.Origin, obstacle.Radius, SelectionColor);
+        var vertices = obstacle.Vertices;
+        if (vertices.Length < 2)
+            return;
+        var previous = transform.TransformPoint(vertices[^1]);
+        for (var i = 0; i < vertices.Length; i++)
+        {
+            var next = transform.TransformPoint(vertices[i]);
+            if (i > 0 || vertices.Length > 2)
+                lines.AddLine2D(Transform2D.Identity, previous, next, SelectionColor);
+            lines.AddCircle2D(Transform2D.Identity, next, 2.5f, SelectionColor);
+            previous = next;
         }
     }
 

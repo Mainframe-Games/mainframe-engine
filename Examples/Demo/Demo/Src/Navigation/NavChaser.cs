@@ -7,7 +7,9 @@ namespace Demo;
 /// A character body that walks wherever its <see cref="NavigationAgent2D"/> child leads (the engine's pattern: the body
 /// asks the agent for the next path position and slides; the agent moves nothing). Slower in mud: the grid's weight scale
 /// of the cell it stands in divides its speed. Chasers are on collision layer 2 and scan only layer 1 (walls), so they
-/// pass through each other.
+/// pass through each other — unless their agents avoid (G3.7): then the body hands its velocity to
+/// <see cref="NavigationAgent2D.SetVelocity"/> and slides by the safe velocity <see cref="NavigationAgent2D.VelocityComputed"/>
+/// returns after the physics step, steering round the other chasers and the patrolling boulder.
 /// </summary>
 public sealed class NavChaser : CharacterBody2D
 {
@@ -34,20 +36,38 @@ public sealed class NavChaser : CharacterBody2D
     {
         _agent = GetNodeOrNull<NavigationAgent2D>("Agent");
         _grid = Parent?.Parent?.GetNodeOrNull<NavigationGrid2D>("Grid");
+        if (_agent is { } agent)
+            agent.VelocityComputed += OnVelocityComputed;
+    }
+
+    private void OnVelocityComputed(Vector2 safe)
+    {
+        Velocity = safe;
+        MoveAndSlide();
     }
 
     protected override void OnPhysicsProcess(float delta)
     {
-        if (_agent is not { } agent || agent.IsNavigationFinished())
+        if (_agent is not { } agent)
+            return;
+        if (agent.IsNavigationFinished())
         {
             Velocity = Vector2.Zero;
+            // Avoiding and arrived: hold the spot, so the body makes way for late arrivals (a chaser that only stood would
+            // be a wall the others cannot get past) and walks back after.
+            if (agent.AvoidanceEnabled && agent.IsTargetReached())
+            {
+                var back = agent.TargetPosition - GlobalPosition;
+                agent.SetVelocity(back.LengthSquared() > 4f ? back * MathF.Min(4f, Speed / back.Length()) : Vector2.Zero);
+            }
+
             return;
         }
 
         var to = agent.GetNextPathPosition() - GlobalPosition;
         var speed = Speed / MudFactor();
-        Velocity = to.LengthSquared() > 1e-4f ? Vector2.Normalize(to) * speed : Vector2.Zero;
-        MoveAndSlide();
+        // Avoidance on: the safe velocity comes back after the physics step (OnVelocityComputed); off: at once.
+        agent.SetVelocity(to.LengthSquared() > 1e-4f ? Vector2.Normalize(to) * speed : Vector2.Zero);
     }
 
     private float MudFactor()

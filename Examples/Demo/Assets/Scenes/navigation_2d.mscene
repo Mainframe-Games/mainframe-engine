@@ -236,6 +236,19 @@
       }
     },
     {
+      "name": "Obstacle",
+      "parent": "Walls/Wall0",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-16, -144],
+          [16, -144],
+          [16, 144],
+          [-16, 144]
+        ]
+      }
+    },
+    {
       "name": "Visual",
       "parent": "Walls/Wall0",
       "type": "DemoShape2D",
@@ -259,6 +272,19 @@
       "type": "CollisionShape2D",
       "props": {
         "Shape": { "res": "RectangleShape2D_0c14n" }
+      }
+    },
+    {
+      "name": "Obstacle",
+      "parent": "Walls/Wall1",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-16, -64],
+          [16, -64],
+          [16, 64],
+          [-16, 64]
+        ]
       }
     },
     {
@@ -288,6 +314,19 @@
       }
     },
     {
+      "name": "Obstacle",
+      "parent": "Walls/Wall2",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-16, -144],
+          [16, -144],
+          [16, 144],
+          [-16, 144]
+        ]
+      }
+    },
+    {
       "name": "Visual",
       "parent": "Walls/Wall2",
       "type": "DemoShape2D",
@@ -311,6 +350,19 @@
       "type": "CollisionShape2D",
       "props": {
         "Shape": { "res": "RectangleShape2D_eth5d" }
+      }
+    },
+    {
+      "name": "Obstacle",
+      "parent": "Walls/Wall3",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-64, -16],
+          [64, -16],
+          [64, 16],
+          [-64, 16]
+        ]
       }
     },
     {
@@ -340,6 +392,19 @@
       }
     },
     {
+      "name": "Obstacle",
+      "parent": "Walls/Wall4",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-16, -112],
+          [16, -112],
+          [16, 112],
+          [-16, 112]
+        ]
+      }
+    },
+    {
       "name": "Visual",
       "parent": "Walls/Wall4",
       "type": "DemoShape2D",
@@ -363,6 +428,19 @@
       "type": "CollisionShape2D",
       "props": {
         "Shape": { "res": "RectangleShape2D_ri1aj" }
+      }
+    },
+    {
+      "name": "Obstacle",
+      "parent": "Walls/Wall5",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-80, -16],
+          [80, -16],
+          [80, 16],
+          [-80, 16]
+        ]
       }
     },
     {
@@ -392,6 +470,19 @@
       }
     },
     {
+      "name": "Obstacle",
+      "parent": "Walls/Wall6",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-16, -144],
+          [16, -144],
+          [16, 144],
+          [-16, 144]
+        ]
+      }
+    },
+    {
       "name": "Visual",
       "parent": "Walls/Wall6",
       "type": "DemoShape2D",
@@ -418,6 +509,19 @@
       }
     },
     {
+      "name": "Obstacle",
+      "parent": "Walls/Wall7",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-48, -16],
+          [48, -16],
+          [48, 16],
+          [-48, 16]
+        ]
+      }
+    },
+    {
       "name": "Visual",
       "parent": "Walls/Wall7",
       "type": "DemoShape2D",
@@ -441,6 +545,19 @@
       "type": "CollisionShape2D",
       "props": {
         "Shape": { "res": "RectangleShape2D_32kds" }
+      }
+    },
+    {
+      "name": "Obstacle",
+      "parent": "Walls/Wall8",
+      "type": "NavigationObstacle2D",
+      "props": {
+        "Vertices": [
+          [-48, -16],
+          [48, -16],
+          [48, 16],
+          [-48, 16]
+        ]
       }
     },
     {
@@ -515,7 +632,11 @@
       "parent": "Chasers/Chaser0",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -553,7 +674,11 @@
       "parent": "Chasers/Chaser1",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -591,7 +716,11 @@
       "parent": "Chasers/Chaser2",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -629,7 +758,11 @@
       "parent": "Chasers/Chaser3",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -667,7 +800,11 @@
       "parent": "Chasers/Chaser4",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -705,7 +842,11 @@
       "parent": "Chasers/Chaser5",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -743,7 +884,11 @@
       "parent": "Chasers/Chaser6",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -781,7 +926,11 @@
       "parent": "Chasers/Chaser7",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -819,7 +968,11 @@
       "parent": "Chasers/Chaser8",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -857,7 +1010,11 @@
       "parent": "Chasers/Chaser9",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -895,7 +1052,11 @@
       "parent": "Chasers/Chaser10",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
       }
     },
     {
@@ -933,7 +1094,34 @@
       "parent": "Chasers/Chaser11",
       "type": "NavigationAgent2D",
       "props": {
-        "PathDesiredDistance": 14
+        "PathDesiredDistance": 14,
+        "AvoidanceEnabled": true,
+        "NeighborDistance": 96,
+        "MaxNeighbors": 8,
+        "MaxSpeed": 150
+      }
+    },
+    {
+      "name": "Boulder",
+      "parent": ".",
+      "type": "NavPatrol",
+      "props": {
+        "Position": [144, -201.6],
+        "Radius": 14,
+        "PointA": [144, -201.6],
+        "PointB": [144, 22.399994]
+      }
+    },
+    {
+      "name": "Visual",
+      "parent": "Boulder",
+      "type": "DemoShape2D",
+      "props": {
+        "Kind": "Circle",
+        "Radius": 14,
+        "Color": [0.62, 0.56, 0.5, 1],
+        "Outline": [0, 0, 0, 0.45],
+        "OutlineWidth": 2
       }
     },
     {
