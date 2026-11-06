@@ -8,8 +8,11 @@ namespace MainframeEngine;
 /// its camera's viewport is one row of the <c>markers</c> data model (<c>data-for="m : markers"</c>), so a hundred
 /// nameplates are one document with no per-marker documents, model names or created elements. Each frame, just before
 /// the layer's context updates, it projects the markers, applies distance fade and scale, clamps waypoints to the
-/// edge, casts up to <see cref="OcclusionRaysPerFrame"/> occlusion rays round robin, sorts the rows (nearer on top)
-/// and dirties the model once. Rows hold the markers' own strings, so a steady frame allocates nothing.
+/// edge and casts up to <see cref="OcclusionRaysPerFrame"/> occlusion rays round robin. When a row's content changes
+/// (markers added or removed, text, kind, value, visibility, edge state) or every <see cref="ContentRefreshSeconds"/>,
+/// it sorts the rows (nearer on top) and dirties the model; on other frames it only moves the row elements RmlUi
+/// generated (their <c>transform</c> and <c>opacity</c>), which skips re-evaluating every row's data views. Rows hold the
+/// markers' own strings, so a steady frame allocates nothing.
 /// </summary>
 /// <remarks>
 /// Row members: <c>x</c>, <c>y</c> (layer pixels), <c>scale</c>, <c>opacity</c>, <c>visible</c>, <c>edge</c>,
@@ -44,13 +47,16 @@ public class UiMarkerHost : UiDocument
         .Member("icon", static r => r.Icon);
 
     // Farther rows first: RmlUi draws later siblings on top.
-    private readonly struct FarthestFirst : IComparer<MarkerRow>
+    private readonly struct FarthestFirst : IComparer<UiMarker3D>
     {
-        public int Compare(MarkerRow a, MarkerRow b) => b.Distance.CompareTo(a.Distance);
+        public int Compare(UiMarker3D? a, UiMarker3D? b) => b!.Row.Distance.CompareTo(a!.Row.Distance);
     }
 
     private readonly List<MarkerRow> _rows = [];
+    private readonly List<UiMarker3D> _rowMarkers = []; // the marker of each row, in row order
     private readonly List<UiMarker3D> _markers = [];
+    private float _sinceRefresh = float.PositiveInfinity;
+    private int _stamp;
     private RmlDataModel? _model;
     private int _occlusionCursor;
 
@@ -75,8 +81,18 @@ public class UiMarkerHost : UiDocument
     [Export]
     public float OcclusionFadeSeconds { get; set; } = 0.15f;
 
+    /// <summary>
+    /// How often the rows are rebuilt and re-sorted although no content changed, so distances shown in text and the
+    /// draw order follow a moving camera (0 = every frame).
+    /// </summary>
+    [Export(Range = "0,1,0.01")]
+    public float ContentRefreshSeconds { get; set; } = 0.1f;
+
     /// <summary>The markers drawn as rows in the last frame (element-mode markers included).</summary>
     public IReadOnlyList<UiMarker3D> Markers => _markers;
+
+    /// <summary>How many times the rows were rebuilt and the model dirtied (tests, the overlay).</summary>
+    internal int Rebuilds { get; private set; }
 
     /// <summary>The rows as last written (tests, debugging).</summary>
     internal IReadOnlyList<MarkerRow> Rows => _rows;
@@ -112,15 +128,22 @@ public class UiMarkerHost : UiDocument
     /// <summary>One frame of projection for a layer of <paramref name="layerSize"/> pixels (also called by tests).</summary>
     internal void Update(SceneTree tree, Camera3D? camera, Vector2 layerSize, float dpRatio, float delta)
     {
-        _rows.Clear();
         _markers.Clear();
+        _sinceRefresh += delta;
+        _stamp++;
         var all = tree.GetNodesInGroup(UiMarker3D.Group);
         if (camera is null || !camera.IsInsideTree)
         {
             for (var i = 0; i < all.Count; i++)
                 if (all[i] is UiMarker3D hidden && Owns(hidden, camera))
                     hidden.SetShown(false);
-            _model!.Dirty(ModelName);
+            if (_rows.Count > 0)
+            {
+                _rows.Clear();
+                _rowMarkers.Clear();
+                _model!.Dirty(ModelName);
+            }
+
             return;
         }
 
@@ -137,7 +160,10 @@ public class UiMarkerHost : UiDocument
 
         for (var i = 0; i < all.Count; i++)
             if (all[i] is UiMarker3D marker && Owns(marker, camera) && marker.IsVisibleInTree())
+            {
+                marker.HostStamp = _stamp;
                 _markers.Add(marker);
+            }
 
         // Occlusion rays, round robin over the markers that want them.
         var rays = 0;
@@ -203,19 +229,97 @@ public class UiMarkerHost : UiDocument
             var visible = inRange && (onScreen || edge) && marker.OcclusionAlpha > 0f;
             marker.SetShown(visible && !marker.IsOccluded);
 
+            marker.Row = new MarkerRow(pixel.X, pixel.Y, scale, fade * marker.OcclusionAlpha, visible, edge, marker.EdgeAngle,
+                distance, marker.Kind, marker.ShownText, marker.ShownSubtext, marker.Value, marker.Icon);
             if (marker.HasTarget)
-            {
                 MoveTarget(marker, pixel, scale, visible ? fade * marker.OcclusionAlpha : 0f);
-                continue;
-            }
-
-            _rows.Add(new MarkerRow(pixel.X, pixel.Y, scale, fade * marker.OcclusionAlpha, visible, edge, marker.EdgeAngle,
-                distance, marker.Kind, marker.ShownText, marker.ShownSubtext, marker.Value, marker.Icon));
         }
 
-        if (SortByDistance && _rows.Count > 1)
-            NoAllocSort.Sort(_rows, default(FarthestFirst));
+        if (_sinceRefresh >= ContentRefreshSeconds || ContentChanged() || !MoveRowElements())
+            Rebuild();
+    }
+
+    // Rows in order (farthest first), the model dirtied: RmlUi re-evaluates every row's views on its next update.
+    private void Rebuild()
+    {
+        Rebuilds++;
+        _sinceRefresh = 0f;
+        _rows.Clear();
+        _rowMarkers.Clear();
+        for (var i = 0; i < _markers.Count; i++)
+            if (!_markers[i].HasTarget)
+                _rowMarkers.Add(_markers[i]);
+        if (SortByDistance && _rowMarkers.Count > 1)
+            NoAllocSort.Sort(_rowMarkers, default(FarthestFirst));
+        for (var r = 0; r < _rowMarkers.Count; r++)
+            _rows.Add(_rowMarkers[r].Row);
         _model!.Dirty(ModelName);
+    }
+
+    // True when the rows' markers or anything shown other than position, scale and opacity changed since the last rebuild.
+    private bool ContentChanged()
+    {
+        var count = 0;
+        for (var i = 0; i < _markers.Count; i++)
+            if (!_markers[i].HasTarget)
+                count++;
+        if (count != _rowMarkers.Count)
+            return true;
+        for (var r = 0; r < _rowMarkers.Count; r++)
+        {
+            var marker = _rowMarkers[r];
+            if (marker.HostStamp != _stamp || marker.HasTarget)
+                return true;
+            var now = marker.Row;
+            var bound = _rows[r];
+            if (now.Visible != bound.Visible || now.Edge != bound.Edge || now.Value != bound.Value
+                || !ReferenceEquals(now.Kind, bound.Kind) || !ReferenceEquals(now.Text, bound.Text)
+                || !ReferenceEquals(now.Subtext, bound.Subtext) || !ReferenceEquals(now.Icon, bound.Icon)
+                || (now.Edge && MathF.Abs(now.Angle - bound.Angle) > 2f))
+                return true;
+        }
+
+        return false;
+    }
+
+    // Moves the generated row elements to this frame's positions; false when the document's rows are not as expected.
+    private bool MoveRowElements()
+    {
+        if (_rowMarkers.Count == 0)
+            return true;
+        if (!IsLoaded)
+            return false;
+        var first = Document.QuerySelector(".marker");
+        if (first.IsNull)
+            return false;
+        var parent = first.Parent;
+        // RmlUi keeps the data-for template (hidden) after the rows it generated.
+        var childCount = parent.ChildCount;
+        if (childCount < _rowMarkers.Count + 1)
+            return false;
+        Span<char> buffer = stackalloc char[96];
+        for (var r = 0; r < _rowMarkers.Count; r++)
+        {
+            var element = parent.GetChild(r);
+            if (element.IsNull)
+                return false;
+            var now = _rowMarkers[r].Row;
+            var written = 0;
+            Append(buffer, ref written, "translate(");
+            Append(buffer, ref written, now.X);
+            Append(buffer, ref written, "px, ");
+            Append(buffer, ref written, now.Y);
+            Append(buffer, ref written, "px) scale(");
+            Append(buffer, ref written, now.Scale);
+            Append(buffer, ref written, ")");
+            element.SetProperty("transform", buffer[..written]);
+            written = 0;
+            Append(buffer, ref written, now.Opacity);
+            element.SetProperty("opacity", buffer[..written]);
+            _rows[r] = now; // the model reads current values when it is next dirtied
+        }
+
+        return true;
     }
 
     // Unclaimed markers belong to the first host whose camera shares their viewport.

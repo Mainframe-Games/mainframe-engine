@@ -168,6 +168,30 @@ public sealed class UiMarkerTests
     }
 
     [Fact]
+    public void SteadyFramesMoveTheRowsWithoutRebuildingThem()
+    {
+        using var s = new Scene();
+        s.Add("A", new Vector3(-1, 0, 0));
+        s.Add("B", new Vector3(1, 0, 0));
+        s.Ui.Tick(3);
+        var rebuilds = s.Host.Rebuilds;
+        var x = s.Row("A").X;
+
+        s.Camera.Position += new Vector3(0.5f, 0, 0); // within the 0.1 s refresh: positions only
+        s.Ui.Tick();
+        Assert.Equal(rebuilds, s.Host.Rebuilds);
+        Assert.True(s.Row("A").X < x - 1, $"{s.Row("A").X} vs {x}");
+
+        s.Host.ContentRefreshSeconds = 1f;
+        s.Ui.Tick(30);
+        Assert.InRange(s.Host.Rebuilds - rebuilds, 0, 1);
+
+        s.Ui.Tree.Root.GetNode<UiMarker3D>("A").Text = "Renamed"; // content: rebuilt at once
+        s.Ui.Tick();
+        Assert.Contains(s.Host.Rows, r => r.Text == "Renamed");
+    }
+
+    [Fact]
     public void SteadyFramesAllocateNothing()
     {
         using var s = new Scene();

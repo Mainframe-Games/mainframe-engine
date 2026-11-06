@@ -156,6 +156,12 @@ public class UiMarker3D : Node3D
     /// <summary>Occlusion fade: 1 visible, 0 hidden; eased toward the last ray's answer.</summary>
     internal float OcclusionAlpha = 1f;
 
+    /// <summary>This frame's row values (also for element-mode markers, which take no row).</summary>
+    internal MarkerRow Row;
+
+    /// <summary>The host update that last saw this marker (a marker that left the tree drops out of its rows).</summary>
+    internal int HostStamp;
+
     internal bool HasTarget => !TargetDocument.IsEmpty && TargetElementId.Length > 0;
 
     internal void SetShown(bool shown)
