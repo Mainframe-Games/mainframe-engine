@@ -155,6 +155,12 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   Spine renderer, `DebugLines`, `Gizmos/` (`GizmoDrawList`: the editor's pixel-wide anti-aliased lines, shaded solids and
   SVG icons, `docs/design/gizmos.md`; `ScreenGizmos`: light + axis gizmos), `Post/` (ADR 0163: `PostEffect` stages and
   stack, the depth prepass and motion vectors, auto exposure, glow, light shafts, FXAA; `docs/design/post-processing.md`)
+- World-space UI (G11, `docs/design/world-space-ui.md`): `Scene/Nodes3D/Label3D.cs` (multi-line, fallbacks, `FixedSize` via
+  `Rendering/Meshes/Billboard.cs`), `Text/TextLayout.cs` (line breaking shared with `Label2D`), `Text/LocaleFallbackFonts.cs`,
+  `UI/World/` (`UiMarker3D`, `UiMarkerHost` + `Assets/UI/markers/`, ADR 0254; `UiPanel3D` + `UiPanelTarget`, ADRs
+  0252/0253), `UI/IUiContextHost.cs` (layers and panels own contexts), `UI/UiServer.Panels.cs` (gating, ray input),
+  `UI/Rendering/VulkanUiRenderer.Panels.cs` (segments replayed before the scene through `IPreSceneRenderer`, resolve +
+  mips), `Texture2D.FromGpuSource`
 - `MainframeEngine/Src/UI/` — game UI (M8): `Rml/` managed RmlUi binding over the `mfrmlui` C ABI, `Rendering/`
   `VulkanUiRenderer`, `UiServer`/`UiLayer`/`UiDocument`/`UiElement`; widget library and fonts in `Assets/UI/`
 - `MainframeEngine/Src/Text/` — canvas text (ADR 0118): `Font` (.ttf), managed `TrueTypeFont` reader and `GlyphRasterizer`

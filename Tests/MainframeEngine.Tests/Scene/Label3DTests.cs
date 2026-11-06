@@ -170,4 +170,76 @@ public sealed class Label3DTests
         label.Free();
         copy.Free();
     }
+
+    [Fact]
+    public void LinesStackDownwardsAndAlignAcrossTheWidestLine()
+    {
+        var one = Label("Wide line here");
+        one.OutlineSize = 0;
+        var two = Label("Wide line here\nab");
+        two.OutlineSize = 0;
+        two.LineSpacing = 4;
+        Assert.Equal(["Wide line here", "ab"], two.GetLines());
+
+        var b1 = one.GetAabb();
+        var b2 = two.GetAabb();
+        var lineHeight = Lato.GetHeight(32) * 0.01f;
+        Assert.Equal(b1.Size.X, b2.Size.X, 3);                       // the block is as wide as its widest line
+        Assert.True(b2.Size.Y > b1.Size.Y + lineHeight * 0.6f, $"{b2.Size.Y} vs {b1.Size.Y}");
+        Assert.Equal(0f, b2.Center.X, 1);                             // centred around the node, line by line
+
+        two.HorizontalAlignment = HorizontalAlignment.Left;
+        var left = two.GetAabb();
+        Assert.True(left.Min.X >= -0.02f && left.Min.X < 0.05f, left.ToString()); // a pixel of side bearing
+    }
+
+    [Fact]
+    public void AutowrapBreaksInsideWidthAndUppercaseApplies()
+    {
+        var label = Label("one two three four five six");
+        label.Autowrap = AutowrapMode.Word;
+        label.Width = Lato.GetStringSize("one two three", fontSize: 32).X + 1;
+        Assert.Equal(["one two three", "four five six"], label.GetLines());
+
+        label.Uppercase = true; // wider capitals wrap again
+        Assert.All(label.GetLines(), line => Assert.Equal(line.ToUpperInvariant(), line));
+        Assert.Equal("ONE TWO THREE FOUR FIVE SIX", string.Join(' ', label.GetLines()));
+
+        label.Autowrap = AutowrapMode.Off;
+        Assert.Single(label.GetLines());
+    }
+
+    [Fact]
+    public void FixedSizeAndAlphaCutReachTheRendererAndMaterials()
+    {
+        var label = Label("Tag");
+        Assert.Equal(0f, label.RenderFixedPixelSize);
+        label.FixedSize = true;
+        Assert.Equal(0.01f, label.RenderFixedPixelSize);
+
+        label.AlphaCut = SpriteAlphaCut.Discard;
+        label.TextRenderPriority = 3;
+        var mesh = label.GetRenderMesh()!;
+        var text = (StandardMaterial3D)mesh.GetSurface(mesh.SurfaceCount - 1).Material!;
+        Assert.Equal(AlphaMode.Cutout, text.Transparency);
+        Assert.Equal(3, text.RenderPriority);
+    }
+
+    [Fact]
+    public void FixedSizeScalesTheModelSoOneMeshPixelIsOneScreenPixel()
+    {
+        // A 90° vertical field over 200 px: at depth 10 one pixel is 2·10·tan(45°)/200 = 0.1 world units.
+        var projection = Matrix4x4.CreatePerspectiveFieldOfView(MathF.PI / 2, 1f, 0.1f, 100f);
+        var pixelScale = LodSelection.PixelScale(projection, 200);
+        var model = Matrix4x4.CreateTranslation(0, 0, -10);
+        var scaled = Billboard.FixedSize(model, 0.005f, Matrix4x4.Identity, pixelScale, perspective: true);
+        Assert.Equal(0.1f / 0.005f, scaled.M11, 3);
+        Assert.Equal(new Vector3(0, 0, -10), scaled.Translation);
+
+        // Twice as far, twice the scale; orthographic views ignore the depth.
+        var far = Billboard.FixedSize(Matrix4x4.CreateTranslation(0, 0, -20), 0.005f, Matrix4x4.Identity, pixelScale, perspective: true);
+        Assert.Equal(2 * scaled.M11, far.M11, 3);
+        var ortho = Billboard.FixedSize(model, 0.005f, Matrix4x4.Identity, 20f, perspective: false);
+        Assert.Equal(1f / 20f / 0.005f, ortho.M11, 3);
+    }
 }

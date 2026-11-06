@@ -369,14 +369,16 @@ internal sealed class MeshGpu
 /// <summary>
 /// A <see cref="Texture2D"/> uploaded in one colour space; shared by the materials using it. A viewport texture
 /// (<see cref="Texture2D.FromViewport"/>, ADR 0216) uploads nothing: <see cref="Gpu"/> borrows the sub-viewport's colour
-/// image, through an sRGB view for colour slots, and follows it across resizes.
+/// image, through an sRGB view for colour slots, and follows it across resizes; a GPU-sourced texture
+/// (<see cref="Texture2D.FromGpuSource"/>, G11.5: a <see cref="UiPanel3D"/>'s) borrows its source's image the same way.
 /// </summary>
 internal sealed class TextureGpu
 {
     private readonly IVulkanContext _ctx;
     private int _uploadedVersion;
-    private GpuImage? _viewportImage;  // the sub-viewport image Gpu borrows
-    private Sampler _viewportSampler;  // owned: the texture's sampling (import settings)
+    private GpuImage? _borrowedImage;  // the sub-viewport's or GPU source's image Gpu borrows
+    private Sampler _borrowedSampler;  // owned: the texture's sampling (import settings) over the image's mips
+    private uint _samplerMips;
 
     public TextureGpu(IVulkanContext ctx, Texture2D texture, TextureColorSpace colorSpace)
     {
@@ -400,7 +402,9 @@ internal sealed class TextureGpu
     public bool Update()
     {
         if (Texture.Viewport is { } viewport)
-            return UpdateViewport(viewport);
+            return UpdateBorrowed(ViewportImage(viewport));
+        if (Texture.GpuSource is { } source)
+            return UpdateBorrowed(source());
         var version = Texture.Version;
         if (version == _uploadedVersion)
             return Gpu is not null;
@@ -430,30 +434,35 @@ internal sealed class TextureGpu
         return Gpu is not null;
     }
 
-    // Checked every frame the material is prepared: allocation-free unless the image changed (first draw, resize).
-    private bool UpdateViewport(SubViewport viewport)
+    // Checked every frame the material is prepared: allocation-free unless the image changed (first draw, resize). The
+    // viewport and GPU-source paths (ADR 0216, G11.5) both borrow the image: nothing is uploaded or owned but the sampler.
+    private bool UpdateBorrowed(GpuImage? image)
     {
-        var image = ViewportImage(viewport);
         var version = Texture.Version;
-        if (ReferenceEquals(image, _viewportImage) && version == _uploadedVersion)
+        if (ReferenceEquals(image, _borrowedImage) && version == _uploadedVersion)
             return Gpu is not null;
-        if (version != _uploadedVersion && _viewportSampler.Handle != 0)
+        var mips = image?.MipLevels ?? 1u;
+        if ((version != _uploadedVersion || mips != _samplerMips) && _borrowedSampler.Handle != 0)
         {
-            _ctx.Deletions.Enqueue(GpuDeletion.Of(_viewportSampler)); // new import settings: a new sampler
-            _viewportSampler = default;
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(_borrowedSampler)); // new import settings or mip count: a new sampler
+            _borrowedSampler = default;
         }
 
         _uploadedVersion = version;
-        _viewportImage = image;
+        _borrowedImage = image;
         Generation++; // materials rewrite their sets; the old ones are freed after the frames in flight
         Gpu = null;   // borrowed: nothing to dispose
         if (image is null)
             return false;
-        if (_viewportSampler.Handle == 0)
-            _viewportSampler = GpuTexture.CreateSampler(_ctx, Texture.ImportSettings.ToSampling(), 1);
-        // The targets hold sRGB-encoded values in UNORM images: colour slots decode them through an sRGB view.
+        if (_borrowedSampler.Handle == 0)
+        {
+            _borrowedSampler = GpuTexture.CreateSampler(_ctx, Texture.ImportSettings.ToSampling(), mips);
+            _samplerMips = mips;
+        }
+
+        // The images hold sRGB-encoded values in UNORM images: colour slots decode them through an sRGB view.
         var view = image.ViewAs(ColorSpace == TextureColorSpace.Srgb ? Format.R8G8B8A8Srgb : Format.R8G8B8A8Unorm);
-        Gpu = GpuTexture.Borrow(_ctx, image, view, _viewportSampler, ColorSpace);
+        Gpu = GpuTexture.Borrow(_ctx, image, view, _borrowedSampler, ColorSpace);
         return true;
     }
 
@@ -468,10 +477,10 @@ internal sealed class TextureGpu
     {
         Gpu?.Dispose();
         Gpu = null;
-        _viewportImage = null;
-        if (_viewportSampler.Handle != 0)
-            _ctx.Deletions.Enqueue(GpuDeletion.Of(_viewportSampler));
-        _viewportSampler = default;
+        _borrowedImage = null;
+        if (_borrowedSampler.Handle != 0)
+            _ctx.Deletions.Enqueue(GpuDeletion.Of(_borrowedSampler));
+        _borrowedSampler = default;
     }
 }
 

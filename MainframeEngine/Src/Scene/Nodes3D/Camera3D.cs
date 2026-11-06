@@ -115,7 +115,16 @@ public class Camera3D : Node3D, ICurrentCamera
     public static Vector2 UnprojectPosition(ICamera camera, Vector3 worldPoint, Vector2 viewportSize)
     {
         ArgumentNullException.ThrowIfNull(camera);
-        var clip = Vector4.Transform(new Vector4(worldPoint, 1f), camera.ViewMatrix * camera.ProjectionMatrix);
+        return Project(camera.ViewMatrix * camera.ProjectionMatrix, worldPoint, viewportSize);
+    }
+
+    /// <summary>
+    /// <see cref="UnprojectPosition(ICamera, Vector3, Vector2)"/> with the view-projection already multiplied, for code
+    /// projecting many points per frame (markers).
+    /// </summary>
+    public static Vector2 Project(in Matrix4x4 viewProjection, Vector3 worldPoint, Vector2 viewportSize)
+    {
+        var clip = Vector4.Transform(new Vector4(worldPoint, 1f), viewProjection);
         var w = MathF.Abs(clip.W) < 1e-6f ? MathF.CopySign(1e-6f, clip.W) : clip.W; // on the camera plane: far off, not NaN
         var ndc = new Vector2(clip.X / w, clip.Y / w);
         return new Vector2((ndc.X * 0.5f + 0.5f) * viewportSize.X, (0.5f - ndc.Y * 0.5f) * viewportSize.Y);
@@ -137,6 +146,27 @@ public class Camera3D : Node3D, ICurrentCamera
         var global = GlobalTransform;
         return Vector3.Dot(Vector3.Normalize(-global.Basis.Z), worldPoint - global.Origin) < Near;
     }
+
+    /// <summary>
+    /// The camera's view frustum in its viewport (the synced render camera, no TAA jitter), for culling bounds or points
+    /// without allocating.
+    /// </summary>
+    public Frustum GetFrustum()
+    {
+        var size = GetViewport()?.Size ?? Vector2.One;
+        var camera = SyncRenderCamera(AspectOf(size));
+        return new Frustum(camera.ViewMatrix * camera.ProjectionMatrix);
+    }
+
+    /// <summary>True when <paramref name="worldPoint"/> is inside the view frustum (Godot's <c>is_position_in_frustum</c>).</summary>
+    public bool IsPositionInFrustum(Vector3 worldPoint) => GetFrustum().Contains(worldPoint);
+
+    /// <summary>
+    /// The six frustum planes (left, right, bottom, top, near, far), normalised, into <paramref name="planes"/> (at least
+    /// six long; Godot's <c>get_frustum</c> without the array). Unlike Godot's, the normals point <b>inwards</b>, as
+    /// <see cref="Frustum"/>'s do: a point is inside when every <c>Plane.DotCoordinate</c> is ≥ 0.
+    /// </summary>
+    public void GetFrustumPlanes(Span<Plane> planes) => GetFrustum().CopyPlanes(planes);
 
     private (Vector3 Origin, Vector3 Direction) RayThrough(Vector2 pixel)
     {

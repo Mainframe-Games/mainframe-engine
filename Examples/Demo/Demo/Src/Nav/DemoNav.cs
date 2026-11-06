@@ -262,6 +262,7 @@ public sealed class DemoNav : UiDocument
                 "sound_fx" => Tr._("Sound FX"),
                 "adaptive_music" => Tr._("Music"),
                 "ui" => Tr._("UI"),
+                "world_ui" => Tr._("World UI"),
                 _ => DemoScenes.All[tab.Index].Title,
             };
     }

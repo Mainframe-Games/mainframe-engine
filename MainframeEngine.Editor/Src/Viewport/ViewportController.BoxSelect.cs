@@ -81,7 +81,7 @@ public sealed partial class ViewportController
         var view = ViewPixels;
         foreach (var node in _iconNodes)
         {
-            if (!node.IsInsideTree || !node.IsVisibleInTree() || !scene.Camera.Project(node.GlobalPosition, view.X, view.Y, out var at))
+            if (!node.IsInsideTree || !node.IsVisibleInTree() || !scene.Camera.Project(IconPosition(node), view.X, view.Y, out var at))
                 continue;
             if (at.X >= min.X && at.X <= max.X && at.Y >= min.Y && at.Y <= max.Y)
                 _boxNodes.Add(node);

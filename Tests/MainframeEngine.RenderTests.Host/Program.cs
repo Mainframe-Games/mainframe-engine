@@ -63,6 +63,8 @@ RenderTestGame game = options.Scene switch
     "instances" => new InstancesScene(options),
     "picking" => new PickingScene(options),
     "ui-hud" => new UiHudScene(options),
+    "ui-markers" => new UiMarkersScene(options),
+    "ui-panel3d" => new UiPanel3DScene(options),
     "canvas" => new CanvasScene(options),
     "canvas-post" => new CanvasPostScene(options),
     "canvas-many-lights" => new CanvasManyLightsScene(options),
@@ -87,6 +89,7 @@ RenderTestGame game = options.Scene switch
     // ADR 0205: the same under TAA (the depth prepass and velocity of spatial shaders).
     "spatial-shaders-taa" => new SpatialShaderScene(options with { AntiAliasing = options.AntiAliasing ?? AntiAliasing.Taa }),
     "label3d" => new Label3DScene(options),
+    "label3d-layout" => new Label3DLayoutScene(options),
     "gizmos" => new GizmoScene(options),
     "grid-analytic" => new GridAnalyticScene(options),
     "gizmos-taa" => new GizmoScene(options with { AntiAliasing = options.AntiAliasing ?? AntiAliasing.Taa }),
@@ -172,8 +175,8 @@ RenderTestGame game = options.Scene switch
     "tree-shadow-handoff" => new TreeShadowHandOffScene(options),
     _ => throw new ArgumentException(
         $"Unknown scene '{options.Scene}'. Known: lit-shapes, multi-light, mouse-look, spine, spine-no-shadows, spine-small-scale, spine-2d, spine-shadow, spine-shadow-quads, spine-shadow-spot, spine-shadow-omni, spine-billboard, spine-billboard-yaw, showcase, color-pipeline, " +
-        "physics, physics-debug, physics-joints, sky-grid, materials, outline, subviewport-capture, viewport-material, gltf, instances, picking, ui-hud, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, ui-scaling, loading-screen, ui-settings-menu, ui-crash-prompt, device-lost, " +
-        "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, light-selection, shadow-cutout, sprite-billboard, spatial-shaders, spatial-shaders-taa, label3d, particles-campfire, particles-rain, particles-stress, shadow-shimmer, shadow-pcss, contact-shadows, shadow-staggered, far-shadow, " +
+        "physics, physics-debug, physics-joints, sky-grid, materials, outline, subviewport-capture, viewport-material, gltf, instances, picking, ui-hud, ui-markers, ui-effects, ui-widgets, ui-text, ui-region, ui-preload, ui-scaling, loading-screen, ui-settings-menu, ui-crash-prompt, device-lost, " +
+        "csm, shadow-pcf, shadow-opacity, glow, shadow-lights, light-selection, shadow-cutout, sprite-billboard, spatial-shaders, spatial-shaders-taa, label3d, label3d-layout, particles-campfire, particles-rain, particles-stress, shadow-shimmer, shadow-pcss, contact-shadows, shadow-staggered, far-shadow, " +
         "sky-physical, fxaa, auto-exposure, auto-exposure-histogram, auto-exposure-average, pbr, fog, vertex-colors, multimesh, " +
         "foliage-wind, terrain, water, water-refraction, water-ssr, water-fall, terrain-splat, terrain-splat-layers, terrain-blend, terrain-foliage, light-shafts, volumetric-fog, velocity, post-copy, taa-edges, taa-ghost, taa-foliage, taau, fsr1, taau-foliage, ssao, " +
         "post-grade, post-dof, post-film, tree-realistic, tree-lowpoly, tree-forest, tree-forest-g8e, tree-clusters, tree-impostor, tree-wind, tree-bark, tree-species, tree-shadow-handoff, gamehost."),

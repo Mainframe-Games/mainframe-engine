@@ -14,7 +14,7 @@ public sealed partial class ViewportController
     private const float RingWidth = 2f;       // points: the ring around an icon
     private const float SelectedRingWidth = 3f;
 
-    private static readonly string[] IconFiles = ["light-directional", "light-omni", "light-spot", "camera", "audio", "audio-listener", "decal"];
+    private static readonly string[] IconFiles = ["light-directional", "light-omni", "light-spot", "camera", "audio", "audio-listener", "decal", "marker"];
     private static byte[][]? s_iconSvgs;
 
     private GizmoIconAtlas? _iconAtlas;
@@ -29,6 +29,7 @@ public sealed partial class ViewportController
         Audio,
         AudioListener,
         Decal,
+        Marker,
     }
 
     // The atlas at this view's scale: the SVGs rasterised once per scale (load time; the view scale changes rarely).
@@ -113,6 +114,15 @@ public sealed partial class ViewportController
                 if (!selected) // selected, its handle provider draws the box and the projection arrow
                     Arrow(shapes, p, -decal.GlobalUp, unit * 40f, unit, DecalColor with { W = 0.6f }, width);
                 break;
+            case UiMarker3D uiMarker:
+                // The badge sits on the marker's point (the node plus WorldOffset); a dashed line runs down to the node.
+                icon = SceneIcon.Marker;
+                accent = MarkerColor;
+                var point = p + uiMarker.WorldOffset;
+                if (uiMarker.WorldOffset.LengthSquared() > 1e-6f)
+                    DashedLine(shapes, p, point, unit * 6f, MarkerColor with { W = selected ? 0.9f : 0.6f }, width);
+                p = point;
+                break;
             default:
                 icon = SceneIcon.AudioListener;
                 accent = AudioColor;
@@ -136,6 +146,15 @@ public sealed partial class ViewportController
     }
 
     // A shaft with an arrow head of four lines (a directional light's direction).
+    // A dashed line, dashes of about `dash` world units (a marker's offset from its node).
+    private static void DashedLine(GizmoDrawList list, Vector3 from, Vector3 to, float dash, Vector4 color, float width)
+    {
+        var length = Vector3.Distance(from, to);
+        var count = Math.Clamp((int)(length / MathF.Max(dash, 1e-4f)), 1, 64);
+        for (var i = 0; i < count; i += 2)
+            list.Line(Vector3.Lerp(from, to, i / (float)count), Vector3.Lerp(from, to, MathF.Min(1f, (i + 1) / (float)count)), color, width);
+    }
+
     private static void Arrow(GizmoDrawList list, Vector3 from, Vector3 direction, float length, float unit, Vector4 color, float width)
     {
         var tip = from + direction * length;

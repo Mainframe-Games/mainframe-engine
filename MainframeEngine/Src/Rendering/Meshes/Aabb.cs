@@ -106,6 +106,30 @@ public readonly struct Frustum
                Inside(_near, center, extents) && Inside(_far, center, extents);
     }
 
+    /// <summary>True when <paramref name="point"/> is inside or on all six planes.</summary>
+    public bool Contains(Vector3 point) =>
+        Side(_left, point) >= 0f && Side(_right, point) >= 0f && Side(_bottom, point) >= 0f &&
+        Side(_top, point) >= 0f && Side(_near, point) >= 0f && Side(_far, point) >= 0f;
+
+    /// <summary>
+    /// Writes the six planes, normalised with their normals pointing inwards, in the order left, right, bottom, top,
+    /// near, far into <paramref name="planes"/> (at least six long).
+    /// </summary>
+    public void CopyPlanes(Span<Plane> planes)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(planes.Length, 6, nameof(planes));
+        planes[0] = Normalized(_left);
+        planes[1] = Normalized(_right);
+        planes[2] = Normalized(_bottom);
+        planes[3] = Normalized(_top);
+        planes[4] = Normalized(_near);
+        planes[5] = Normalized(_far);
+    }
+
+    private static Plane Normalized(in Vector4 plane) => Plane.Normalize(new Plane(plane.X, plane.Y, plane.Z, plane.W));
+
+    private static float Side(in Vector4 plane, Vector3 point) => plane.X * point.X + plane.Y * point.Y + plane.Z * point.Z + plane.W;
+
     private static bool Inside(in Vector4 plane, Vector3 center, Vector3 extents)
     {
         var normal = new Vector3(plane.X, plane.Y, plane.Z);

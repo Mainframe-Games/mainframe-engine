@@ -900,6 +900,8 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             if (pose is not null)
                 mesh = SyncSkin(node, mesh, pose);
             var model = Billboard.Face(node.ModelMatrix, node.RenderBillboard, viewMatrix);
+            if (node.RenderFixedPixelSize > 0f)
+                model = Billboard.FixedSize(model, node.RenderFixedPixelSize, viewMatrix, lodPixelScale, lodPerspective);
             var mirrored = Determinant3(model) < 0f;
             var materials = node.GpuMaterials;
             var surfaces = mesh.Surfaces;

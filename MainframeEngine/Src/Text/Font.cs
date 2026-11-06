@@ -40,7 +40,9 @@ public enum AutowrapMode : byte
 /// <see cref="ResourceLoader"/>. Glyphs are rasterised in managed code at the requested pixel size (unhinted, greyscale,
 /// pen positions rounded to whole pixels) into shared atlas pages, once per size and outline width; GPOS/kern pair
 /// kerning is applied. Metrics follow FreeType's rounding: ascent and descent are the <c>hhea</c> values scaled and
-/// rounded. No shaping beyond kerning, no fallback fonts, single line.
+/// rounded. A character the face lacks comes from the first of <see cref="Fallbacks"/> that has it (G11.2); its glyphs
+/// share this font's atlas pages. No shaping beyond kerning; one line per call (multi-line layout is the nodes', through
+/// <c>TextLayout</c>).
 /// </summary>
 [EditorIcon("typography")]
 public sealed class Font : Resource
@@ -48,6 +50,7 @@ public sealed class Font : Resource
     private const int PageSize = 512;
     private TrueTypeFont? _face;
     private readonly Dictionary<(int Size, int Outline), Dictionary<int, GlyphEntry>> _glyphs = [];
+    private readonly List<TrueTypeFont> _faceIds = []; // faces whose glyphs this font's atlas holds; the index is in the cache key
     private readonly List<AtlasPage> _pages = [];
     private readonly List<GlyphQuad> _drawScratch = [];
 
@@ -57,6 +60,13 @@ public sealed class Font : Resource
     /// <summary>The font file (project path).</summary>
     [Export(File = "*.ttf")]
     public string FontPath { get; set; } = "";
+
+    /// <summary>
+    /// Fonts searched in order for characters this face lacks (Godot's <c>fallbacks</c>), for example Noto Sans JP for
+    /// Japanese text. Their metrics (ascent, descent) are not used: lines keep this font's.
+    /// </summary>
+    [Export]
+    public Font[] Fallbacks { get; set; } = [];
 
     private sealed class AtlasPage
     {
@@ -107,22 +117,67 @@ public sealed class Font : Resource
         return new Vector2(alignment == HorizontalAlignment.Fill && width > 0 ? width : advance, GetHeight(fontSize));
     }
 
-    private float Advance(string text, int size)
+    private float Advance(string text, int size, IReadOnlyList<Font>? extraFallbacks = null)
     {
-        var face = Face;
-        var scale = Scale(size);
         var pen = 0f;
         var previous = -1;
+        TrueTypeFont? previousFace = null;
         foreach (var rune in text.EnumerateRunes())
         {
-            var glyph = face.GlyphIndex(rune.Value);
-            if (previous >= 0)
+            var (face, glyph) = Resolve(rune.Value, extraFallbacks);
+            var scale = (float)size / face.UnitsPerEm;
+            if (previous >= 0 && ReferenceEquals(face, previousFace))
                 pen += face.Kerning(previous, glyph) * scale;
             pen += face.AdvanceWidth(glyph) * scale;
             previous = glyph;
+            previousFace = face;
         }
 
         return pen;
+    }
+
+    /// <summary>The advance width of one line in pixels, with <paramref name="extraFallbacks"/> searched after <see cref="Fallbacks"/>.</summary>
+    internal float MeasureLine(string text, int fontSize, IReadOnlyList<Font>? extraFallbacks) =>
+        string.IsNullOrEmpty(text) ? 0f : Advance(text, fontSize, extraFallbacks);
+
+    // The face and glyph that draw a character: this face, then Fallbacks, then the caller's extra fonts; this face's
+    // .notdef (glyph 0) when none has it.
+    private (TrueTypeFont Face, int Glyph) Resolve(int codepoint, IReadOnlyList<Font>? extraFallbacks)
+    {
+        var face = Face;
+        var glyph = face.GlyphIndex(codepoint);
+        if (glyph != 0)
+            return (face, glyph);
+        foreach (var fallback in Fallbacks)
+            if (TryFallback(fallback, codepoint, out var found))
+                return found;
+        if (extraFallbacks is not null)
+            for (var i = 0; i < extraFallbacks.Count; i++)
+                if (TryFallback(extraFallbacks[i], codepoint, out var found))
+                    return found;
+        return (face, 0);
+    }
+
+    private bool TryFallback(Font? fallback, int codepoint, out (TrueTypeFont Face, int Glyph) found)
+    {
+        found = default;
+        if (fallback is null || ReferenceEquals(fallback, this))
+            return false;
+        var face = fallback.Face;
+        var glyph = face.GlyphIndex(codepoint);
+        if (glyph == 0)
+            return false;
+        found = (face, glyph);
+        return true;
+    }
+
+    private int FaceId(TrueTypeFont face)
+    {
+        for (var i = 0; i < _faceIds.Count; i++)
+            if (ReferenceEquals(_faceIds[i], face))
+                return i;
+        _faceIds.Add(face);
+        return _faceIds.Count - 1;
     }
 
     /// <summary>
@@ -137,8 +192,6 @@ public sealed class Font : Resource
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentOutOfRangeException.ThrowIfLessThan(fontSize, 1);
-        var face = Face;
-        var scale = Scale(fontSize);
         var ascent = (int)GetAscent(fontSize);
         var descent = (int)GetDescent(fontSize);
         var pad = Math.Max(0, padding) + 1 + (int)MathF.Ceiling(outlineRadius);
@@ -148,10 +201,12 @@ public sealed class Font : Resource
         var baseline = pad + ascent;
         var pen = 0f;
         var previous = -1;
+        TrueTypeFont? previousFace = null;
         foreach (var rune in text.EnumerateRunes())
         {
-            var glyph = face.GlyphIndex(rune.Value);
-            if (previous >= 0)
+            var (face, glyph) = Resolve(rune.Value, null);
+            var scale = (float)fontSize / face.UnitsPerEm;
+            if (previous >= 0 && ReferenceEquals(face, previousFace))
                 pen += face.Kerning(previous, glyph) * scale;
             var bitmap = GlyphRasterizer.Rasterize(face.Outline(glyph), scale, outlineRadius);
             var x0 = pad + (int)MathF.Round(pen) + bitmap.Left;
@@ -173,6 +228,7 @@ public sealed class Font : Resource
 
             pen += face.AdvanceWidth(glyph) * scale;
             previous = glyph;
+            previousFace = face;
         }
 
         return new TextBitmap(alpha, width, height, baseline, pad);
@@ -211,24 +267,25 @@ public sealed class Font : Resource
     /// region of an atlas page (<see cref="AtlasPageSize"/> px square) to <paramref name="quads"/>. <paramref name="outline"/>
     /// &gt; 0 places the outline's stroke glyphs. Rasterizes new glyphs and uploads the pages they changed.
     /// </summary>
-    internal void Layout(string text, Vector2 position, int fontSize, int outline, List<GlyphQuad> quads)
+    internal void Layout(string text, Vector2 position, int fontSize, int outline, List<GlyphQuad> quads, IReadOnlyList<Font>? extraFallbacks = null)
     {
         if (string.IsNullOrEmpty(text) || fontSize <= 0)
             return;
-        var face = Face;
-        var scale = Scale(fontSize);
         var key = (fontSize, outline);
         if (!_glyphs.TryGetValue(key, out var cache))
             _glyphs[key] = cache = [];
         var pen = 0f;
         var previous = -1;
+        TrueTypeFont? previousFace = null;
         foreach (var rune in text.EnumerateRunes())
         {
-            var glyph = face.GlyphIndex(rune.Value);
-            if (previous >= 0)
+            var (face, glyph) = Resolve(rune.Value, extraFallbacks);
+            var scale = (float)fontSize / face.UnitsPerEm;
+            if (previous >= 0 && ReferenceEquals(face, previousFace))
                 pen += face.Kerning(previous, glyph) * scale;
-            if (!cache.TryGetValue(glyph, out var entry))
-                cache[glyph] = entry = Rasterize(glyph, scale, outline / 4f);
+            var cacheKey = glyph | (FaceId(face) << 24); // glyph ids are 16-bit
+            if (!cache.TryGetValue(cacheKey, out var entry))
+                cache[cacheKey] = entry = Rasterize(face, glyph, scale, outline / 4f);
             if (entry.Page >= 0)
             {
                 var origin = new Vector2(MathF.Round(position.X + pen) + entry.Left, MathF.Round(position.Y) - entry.Top);
@@ -237,6 +294,7 @@ public sealed class Font : Resource
 
             pen += face.AdvanceWidth(glyph) * scale;
             previous = glyph;
+            previousFace = face;
         }
 
         foreach (var page in _pages)
@@ -247,9 +305,9 @@ public sealed class Font : Resource
             }
     }
 
-    private GlyphEntry Rasterize(int glyph, float scale, float outlineRadius)
+    private GlyphEntry Rasterize(TrueTypeFont face, int glyph, float scale, float outlineRadius)
     {
-        var bitmap = GlyphRasterizer.Rasterize(Face.Outline(glyph), scale, outlineRadius);
+        var bitmap = GlyphRasterizer.Rasterize(face.Outline(glyph), scale, outlineRadius);
         if (bitmap.Width == 0)
             return new GlyphEntry(-1, default, 0, 0);
         if (bitmap.Width + 1 > PageSize || bitmap.Height + 1 > PageSize)

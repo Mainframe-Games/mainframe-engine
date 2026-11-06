@@ -4,8 +4,11 @@ using System.Numerics;
 namespace MainframeEngine;
 
 /// <summary>
-/// One line of text in the 3D world (Godot's <c>Label3D</c>, ADR 0200): glyph quads from <see cref="Font"/>'s atlas at
-/// <see cref="FontSize"/>, one world unit per <see cref="PixelSize"/>⁻¹ pixels, aligned around the node. The outline
+/// Text in the 3D world (Godot's <c>Label3D</c>, ADRs 0200 and 0251): glyph quads from <see cref="Font"/>'s atlas at
+/// <see cref="FontSize"/>, one world unit per <see cref="PixelSize"/>⁻¹ pixels, aligned around the node. Lines break at
+/// <c>\n</c> and, with <see cref="Autowrap"/>, inside <see cref="Width"/>; characters the font lacks come from its
+/// fallbacks, then from the project's <see cref="Localization.FontFallbackTable"/> for the current locale (CJK text).
+/// <see cref="FixedSize"/> keeps one label pixel one screen pixel at any distance. The outline
 /// (<see cref="OutlineSize"/>, <see cref="OutlineModulate"/>) draws first, at <see cref="OutlineRenderPriority"/>.
 /// Unshaded, blended and double-sided by default, like Godot; <see cref="Billboard"/> turns it toward the camera and
 /// <see cref="NoDepthTest"/> keeps it visible through geometry (name tags). Without a <see cref="Font"/> it uses the
@@ -22,7 +25,10 @@ public class Label3D : GeometryInstance3D
     private readonly ArrayMesh _mesh = new();
     private readonly List<(bool Outline, Texture2D Page, StandardMaterial3D Material)> _materials = [];
     private readonly List<GlyphQuad> _quads = [];
+    private readonly List<string> _lines = [];
     private int _builtStamp = -1;
+    private string? _builtLocale;
+    private int _builtFallbacks = -1;
 
     [Export(Translatable = true)]
     public string Text
@@ -101,6 +107,68 @@ public class Label3D : GeometryInstance3D
         set => Changed(ref field, value);
     } = VerticalAlignment.Center;
 
+    /// <summary>The width in pixels that <see cref="Autowrap"/> wraps in and the lines align across (Godot's default 500).</summary>
+    [Export(Range = "0,4096,1")]
+    public float Width
+    {
+        get;
+        set => Changed(ref field, MathF.Max(0f, value));
+    } = 500f;
+
+    /// <summary>How lines wider than <see cref="Width"/> break (Godot's <c>autowrap_mode</c>; off by default).</summary>
+    [Export]
+    public AutowrapMode Autowrap
+    {
+        get;
+        set => Changed(ref field, value);
+    }
+
+    /// <summary>Extra pixels between lines (Godot's <c>line_spacing</c>).</summary>
+    [Export(Range = "-64,256,1")]
+    public float LineSpacing
+    {
+        get;
+        set => Changed(ref field, value);
+    }
+
+    /// <summary>Shows the text in upper case (Godot's <c>uppercase</c>; the current culture's rules).</summary>
+    [Export]
+    public bool Uppercase
+    {
+        get;
+        set => Changed(ref field, value);
+    }
+
+    /// <summary>
+    /// Keeps the label's size on screen constant (Godot's <c>fixed_size</c>): one label pixel is one framebuffer pixel
+    /// at any distance, for name tags and debug text. Scaled on the CPU like the billboard, per view.
+    /// </summary>
+    [Export]
+    public bool FixedSize
+    {
+        get;
+        set => Changed(ref field, value);
+    }
+
+    /// <summary>
+    /// <see cref="SpriteAlphaCut.Discard"/> draws the glyphs as an alpha-tested cutout (depth-writing, sorted with opaque
+    /// geometry, hard edges); the default blends them.
+    /// </summary>
+    [Export]
+    public SpriteAlphaCut AlphaCut
+    {
+        get;
+        set => Changed(ref field, value);
+    }
+
+    /// <summary>The text's draw order among transparent surfaces (Godot's <c>render_priority</c>, default 0).</summary>
+    [Export(Range = "-128,127,1")]
+    public int TextRenderPriority
+    {
+        get;
+        set => Changed(ref field, value);
+    }
+
     /// <summary>Shifts the text in pixels (+Y up).</summary>
     [Export]
     public Vector2 Offset
@@ -149,6 +217,18 @@ public class Label3D : GeometryInstance3D
 
     internal override BillboardMode RenderBillboard => Billboard;
 
+    internal override float RenderFixedPixelSize => FixedSize ? PixelSize : 0f;
+
+    /// <summary>The label's local bounds as built (empty without text), for editor focus and culling.</summary>
+    public Aabb GetAabb() => GetRenderMesh() is { } mesh ? mesh.Bounds : default;
+
+    /// <summary>The lines as last laid out (translated, wrapped).</summary>
+    public IReadOnlyList<string> GetLines()
+    {
+        GetRenderMesh();
+        return _lines;
+    }
+
     internal override Mesh? GetRenderMesh()
     {
         if (Text.Length == 0)
@@ -161,39 +241,67 @@ public class Label3D : GeometryInstance3D
 
     private void Sync(Font font)
     {
-        if (_builtStamp == RenderStamp)
+        var fallbacks = LocaleFallbackFonts.Current;
+        if (_builtStamp == RenderStamp && _builtFallbacks == fallbacks.Count && ReferenceEquals(_builtLocale, Localization.Tr.CurrentLocale))
             return;
         _builtStamp = RenderStamp;
+        _builtFallbacks = fallbacks.Count;
+        _builtLocale = Localization.Tr.CurrentLocale;
         _mesh.ClearSurfaces();
 
         var text = IsInsideTree ? Atr(Text) : Text;
-        var width = font.GetStringSize(text, fontSize: FontSize).X;
-        var height = font.GetHeight(FontSize);
+        if (Uppercase)
+            text = text.ToUpper(System.Globalization.CultureInfo.CurrentCulture);
+        _lines.Clear();
+        TextLayout.BreakLines(font, text, FontSize, Width, Autowrap, _lines, fallbacks);
+
+        // The block: the widest line (or Width when wrapping), the lines' height with their spacing.
+        var blockWidth = 0f;
+        foreach (var line in _lines)
+            blockWidth = MathF.Max(blockWidth, font.MeasureLine(line, FontSize, fallbacks));
+        if (Autowrap != AutowrapMode.Off && Width > 0f)
+            blockWidth = Width;
+        var lineHeight = font.GetHeight(FontSize);
+        var blockHeight = _lines.Count * lineHeight + Math.Max(0, _lines.Count - 1) * LineSpacing;
         var left = HorizontalAlignment switch
         {
-            HorizontalAlignment.Center => -MathF.Round(width / 2),
-            HorizontalAlignment.Right => -width,
+            HorizontalAlignment.Center => -MathF.Round(blockWidth / 2),
+            HorizontalAlignment.Right => -blockWidth,
             _ => 0f,
         };
         var top = VerticalAlignment switch
         {
-            VerticalAlignment.Center => -MathF.Round(height / 2),
-            VerticalAlignment.Bottom => -height,
+            VerticalAlignment.Center => -MathF.Round(blockHeight / 2),
+            VerticalAlignment.Bottom => -blockHeight,
             _ => 0f,
         };
-        // Pixels, Y down from the node; the offset is +Y up like Sprite3D's.
-        var baseline = new Vector2(left + Offset.X, top + font.GetAscent(FontSize) - Offset.Y);
 
         if (OutlineSize > 0 && OutlineModulate.A > 0)
-            AddSurfaces(font, text, baseline, OutlineSize, outline: true);
-        AddSurfaces(font, text, baseline, 0, outline: false);
+            AddSurfaces(font, left, top, lineHeight, blockWidth, fallbacks, OutlineSize, outline: true);
+        AddSurfaces(font, left, top, lineHeight, blockWidth, fallbacks, 0, outline: false);
     }
 
-    // One surface per atlas page the line's glyphs land on.
-    private void AddSurfaces(Font font, string text, Vector2 baseline, int outlineSize, bool outline)
+    // One surface per atlas page the lines' glyphs land on.
+    private void AddSurfaces(Font font, float left, float top, float lineHeight, float blockWidth, IReadOnlyList<Font> fallbacks, int outlineSize, bool outline)
     {
         _quads.Clear();
-        font.Layout(text, baseline, FontSize, outlineSize, _quads);
+        for (var i = 0; i < _lines.Count; i++)
+        {
+            var line = _lines[i];
+            if (line.Length == 0)
+                continue;
+            var width = font.MeasureLine(line, FontSize, fallbacks);
+            var x = HorizontalAlignment switch
+            {
+                HorizontalAlignment.Center => MathF.Round((blockWidth - width) / 2),
+                HorizontalAlignment.Right => blockWidth - width,
+                _ => 0f,
+            };
+            // Pixels, Y down from the node; the offset is +Y up like Sprite3D's.
+            var baseline = new Vector2(left + x + Offset.X, top + i * (lineHeight + LineSpacing) + font.GetAscent(FontSize) - Offset.Y);
+            font.Layout(line, baseline, FontSize, outlineSize, _quads, fallbacks);
+        }
+
         var atlas = 1f / Font.AtlasPageSize;
         for (var first = 0; first < _quads.Count; first++)
         {
@@ -265,7 +373,8 @@ public class Label3D : GeometryInstance3D
         material.ShadingMode = Shaded ? ShadingMode.BlinnPhong : ShadingMode.Unshaded;
         material.DoubleSided = DoubleSided;
         material.NoDepthTest = NoDepthTest;
-        material.RenderPriority = outline ? OutlineRenderPriority : 0;
+        material.Transparency = AlphaCut == SpriteAlphaCut.Discard ? AlphaMode.Cutout : AlphaMode.Blend;
+        material.RenderPriority = outline ? OutlineRenderPriority : TextRenderPriority;
         return material;
     }
 

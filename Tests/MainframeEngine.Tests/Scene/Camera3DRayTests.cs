@@ -79,4 +79,31 @@ public sealed class Camera3DRayTests
         Assert.True(direction.X < 0 && direction.Y > 0 && direction.Z < 0, direction.ToString());
         Assert.Equal(1f, direction.Length(), 4);
     }
+
+    [Fact]
+    public void FrustumHelpersAgreeWithTheProjection()
+    {
+        var tree = new SceneTree(new ServerRegistry());
+        tree.Root.SetSize(new Vector2(400, 200));
+        var camera = new Camera3D { Position = new Vector3(0, 0, 10), Fov = 60f, Near = 0.1f, Far = 100f };
+        tree.Root.AddChild(camera);
+        camera.LookAt(Vector3.Zero);
+
+        Assert.True(camera.IsPositionInFrustum(Vector3.Zero));
+        Assert.True(camera.IsPositionInFrustum(new Vector3(0, 0, -80)));
+        Assert.False(camera.IsPositionInFrustum(new Vector3(0, 0, 11)));   // behind
+        Assert.False(camera.IsPositionInFrustum(new Vector3(0, 0, -95)));  // past Far
+        Assert.False(camera.IsPositionInFrustum(new Vector3(0, 8, 0)));    // above the 60° vertical field
+        Assert.True(camera.IsPositionInFrustum(new Vector3(8, 0, 0)));     // the 2:1 aspect is wider than tall
+
+        Span<Plane> planes = stackalloc Plane[6];
+        camera.GetFrustumPlanes(planes);
+        foreach (var plane in planes)
+        {
+            Assert.Equal(1f, plane.Normal.Length(), 4);
+            Assert.True(Plane.DotCoordinate(plane, Vector3.Zero) > 0f, plane.ToString()); // inward normals
+        }
+
+        Assert.Equal(9.9f, Plane.DotCoordinate(planes[4], Vector3.Zero), 3); // near plane 0.1 in front of the camera
+    }
 }

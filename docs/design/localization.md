@@ -187,6 +187,11 @@ public sealed class WelcomeBanner : Node
 
 ## Game UI (RmlUi)
 
+3D text and markers: `Label3D` and `UiMarker3D` translate their text with `Atr` on ready and on locale change, and
+`Label3D` draws characters its font lacks from the faces this section's `FontFallbackTable` names for the current
+locale ([World-space UI](world-space-ui.md#text-layout-and-fallback-fonts)).
+
+
 The [game UI](game-ui.md)'s `UiServer` translates every document through `UiServerOptions.TextTranslator` (an
 `ITextTranslator`, default `TextTranslator.Current`, i.e. `Tr`; `null` turns UI localization off). RmlUi only sends
 **text nodes** to its `TranslateString` callback, and only the text — no element — so the work is split:

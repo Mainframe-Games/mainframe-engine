@@ -43,6 +43,7 @@ public static class DemoScenes
         Scene("sound_fx", "Sound FX", "audio", "music", SoundFxScene.Build),
         Scene("adaptive_music", "Music", "audio", "playlist", AdaptiveMusicScene.Build),
         Scene("ui", "UI", "ui", "layout", UiScene.Build),
+        Scene("world_ui", "World UI", "ui", "map-pin", WorldUiScene.Build),
     ];
 
     public static DemoSceneInfo? ById(string id) => All.FirstOrDefault(s => s.Id == id);

@@ -78,6 +78,12 @@ public abstract class GeometryInstance3D : VisualInstance3D
     internal virtual BillboardMode RenderBillboard => BillboardMode.Disabled;
 
     /// <summary>
+    /// World units per mesh pixel of a node drawn at a constant screen size (<see cref="Label3D.FixedSize"/>), or 0: the
+    /// mesh renderer scales its model matrix per view so that one mesh pixel covers one framebuffer pixel.
+    /// </summary>
+    internal virtual float RenderFixedPixelSize => 0f;
+
+    /// <summary>
     /// Whether the node casts into the fine shadow passes for a camera at <paramref name="cameraPosition"/>: its
     /// <see cref="IsInVisibilityRange(Vector3, in Aabb)"/> unless it <see cref="HasShadowRange"/>.
     /// </summary>
