@@ -47,6 +47,8 @@ edits them:
   milestone, correct the state file) and the `move` step's milestone tick become a `## State changes` section in the
   PR's log: each change to make, said exactly, e.g. "milestones G8a: 🚧 → ✅ (G8a.8 foliage done)", "state: add gotcha
   …", "milestones: add row G21 …". Write "None." when there are none. A log is a new file, so it never conflicts.
+  One exception: a PR that moves or renames a doc repoints the links to it in the two files, changing nothing else on
+  those lines (the guard allows a change to link targets only), so no link is dead until the sync.
 - **Reading state:** `current-state.md` and `docs/milestones.md`, then `just state-pending`: the State changes of every
   log merged since the last sync. Those are true even though the two files do not show them yet.
 - **A state sync** runs from an up-to-date `main` when the owner asks, and before a release (the docs site publishes

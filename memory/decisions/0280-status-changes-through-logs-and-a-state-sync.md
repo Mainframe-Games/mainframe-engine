@@ -25,7 +25,9 @@ state file but could not help milestones rows, which several PRs legitimately ch
   owner asks and before a release. It applies the pending sections and nothing else; only one is open at a time, so it
   cannot conflict.
 - `build/state-guard.sh` (`just state-guard`, a gate, and a step of CI's `workflow` job) fails a branch that edits
-  either file unless its name contains `state-sync` or it changes the guard itself.
+  either file unless its name contains `state-sync` or it changes the guard itself. A change to link targets only is
+  allowed, so a PR that moves a doc (every proposal that ships leaves `docs/design/future/`) repoints its links and
+  leaves none dead until the sync.
 - The state file holds only slow-changing facts, one per line, with no dates, PR numbers, test counts or feature
   inventory; per-feature status lives in milestones rows.
 

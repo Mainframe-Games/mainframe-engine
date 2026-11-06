@@ -39,9 +39,20 @@ if grep -qxF build/state-guard.sh <<< "$changed"; then
   exit 0
 fi
 
+# The text with every Markdown link target emptied: a change that only repoints links (a doc moved, as when a proposal
+# ships from docs/design/future/) is allowed.
+without_targets() {
+  sed -E 's/\]\([^)]*\)/]()/g'
+}
+
 bad=0
 for file in "${guarded[@]}"; do
   if grep -qxF "$file" <<< "$changed"; then
+    if [ -f "$file" ] &&
+      [ "$(git show "$merge_base:$file" 2>/dev/null | without_targets)" = "$(without_targets < "$file")" ]; then
+      echo "state-guard: $file: link targets only, ok"
+      continue
+    fi
     echo "error: $file: edited outside a state sync. Restore it (git checkout $merge_base -- $file) and put the change"
     echo "       in this branch's log under '## State changes' (.agents/workflow.md#state-sync)."
     bad=1

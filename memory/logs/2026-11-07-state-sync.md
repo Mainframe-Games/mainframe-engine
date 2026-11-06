@@ -16,8 +16,9 @@ Branch `feature/state-file-conflicts`.
   rows (G8a–G8d, G12, G1c).
 - `.agents/workflow.md#state-sync`: feature PRs write a `## State changes` section in their log instead of editing those
   two files; a `state-sync` branch applies them. `just state-pending` lists what is pending, `just state-guard` (a gate
-  and a CI step in the `workflow` job) fails a branch that edits the files outside a sync. AGENTS.md's Project memory
-  points at `just state-pending`.
+  and a CI step in the `workflow` job) fails a branch that edits the files outside a sync, except a change to link
+  targets only (a moved doc's links; the G19 PR moving `protected-exports.md` showed the need). AGENTS.md's Project
+  memory points at `just state-pending`.
 
 ## Decisions
 
@@ -32,7 +33,8 @@ Branch `feature/state-file-conflicts`.
 ## Verified
 
 - `just state-guard` on this branch (exempt: it changes the guard), and on a scratch branch editing
-  `docs/milestones.md` (fails with the restore hint); `just state-pending` before and after a scratch log.
+  `docs/milestones.md` (fails with the restore hint), and on one that only repoints a link in it (passes);
+  `just state-pending` before and after a scratch log.
 - `bash .agents/mainframe-workflow/scripts/check.sh`.
 
 ## Not verified
