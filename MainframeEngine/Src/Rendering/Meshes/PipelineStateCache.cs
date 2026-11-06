@@ -80,6 +80,12 @@ public enum ShaderSetId : byte
 
     /// <summary>The object-ID pass of a spatial shader (its <c>.id</c> SPIR-V: displaced, cut out like the colour pass).</summary>
     MeshObjectIdSpatial,
+
+    /// <summary>
+    /// <c>Mesh/Mesh.vk.vert</c> + <c>Terrain/TerrainFaceted.vk.frag</c>: <see cref="TerrainMaterial3D"/> (the Faceted look,
+    /// G8a.4) on the shared mesh layout: the albedo slot is the surface map, the normal slot the palette.
+    /// </summary>
+    MeshTerrainFaceted,
 }
 
 /// <summary>

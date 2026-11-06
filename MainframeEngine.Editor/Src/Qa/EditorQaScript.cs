@@ -552,6 +552,51 @@ public sealed class EditorQaScript : IEditorAutomation
                         ? ParseVector3(step[3])
                         : Convert.ChangeType(step[3], info.ValueType, System.Globalization.CultureInfo.InvariantCulture));
                 break;
+            case "tool-action":
+                // tool-action <action> [value]: a click on the active viewport tool's dock (the Terrain tab's buttons).
+                (workspace.Tools.Active ?? throw new ArgumentException("tool-action needs an active viewport tool."))
+                    .OnDockAction(step[1], step.Length > 2 ? step[2] : null);
+                break;
+            case "tool-field":
+                // tool-field <field> <value>: a committed edit of the active viewport tool's dock field.
+                (workspace.Tools.Active ?? throw new ArgumentException("tool-field needs an active viewport tool."))
+                    .OnDockField(step[1], step[2]);
+                break;
+            case "save-scene":
+                {
+                    // save-scene <project path>: Session.Save of the active scene there (no file picker); logs what the
+                    // scene folder holds afterwards (a terrain's layer PNGs).
+                    var scene = workspace.Session.Active ?? throw new ArgumentException("save-scene needs an open scene.");
+                    var target = Path.Combine(workspace.Session.ProjectRoot ?? "", step[1]);
+                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    workspace.Session.Save(scene, target);
+                    var folder = Path.GetDirectoryName(target)!;
+                    var stem = Path.GetFileNameWithoutExtension(target);
+                    foreach (var entry in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
+                        if (Path.GetRelativePath(folder, entry).StartsWith(stem, StringComparison.Ordinal))
+                            Log.Info($"[QA] saved {Path.GetRelativePath(workspace.Session.ProjectRoot ?? "", entry)} ({new FileInfo(entry).Length} B)");
+                    workspace.FileSystem.Rescan();
+                    break;
+                }
+
+            case "world-move":
+                // world-move <x> <y> <z>: the pointer over a world point of the 3D view.
+                _mouse = WorldPoint(workspace, new Vector3(Float(step, 1), Float(step, 2), Float(step, 3)));
+                tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, _mouse) });
+                break;
+            case "world-drag":
+                {
+                    // world-drag <x0> <y0> <z0> <x1> <y1> <z1> [frames]: a left drag between two world points of the 3D view
+                    // (a terrain brush stroke).
+                    var start = WorldPoint(workspace, new Vector3(Float(step, 1), Float(step, 2), Float(step, 3)));
+                    var finish = WorldPoint(workspace, new Vector3(Float(step, 4), Float(step, 5), Float(step, 6)));
+                    _drag = (start, finish, MouseButton.Left, step.Length > 7 ? Int(step, 7, 20) : 20, 0);
+                    _mouse = start;
+                    tree.PushInput(new InputEventMouseMotion { Position = Pointer(app, start) });
+                    tree.PushInput(new InputEventMouseButton { Button = MouseButton.Left, Pressed = true, Position = Pointer(app, start) });
+                    break;
+                }
+
             case "curve-point":
                 // curve-point <index>: the curve tool's selected point (its tilt ring shows with Tilt Handles on), G13.
                 workspace.Curves.SelectedPoint = (int)Float(step, 1);
@@ -663,7 +708,9 @@ public sealed class EditorQaScript : IEditorAutomation
                     var node = Serialization.TypeRegistry.CreateNode(step[1]);
                     node.Name = step.Length > 2 ? step[2] : step[1];
                     NewNodeDefaults.Apply(node);
-                    addTo.AddNode(node);
+                    // add-node <type> [name] [parent]: under the selection by default; "." is the scene root.
+                    var parent = step.Length > 3 ? step[3] == "." ? addTo.Root : addTo.Root.GetNode(step[3]) : null;
+                    addTo.AddNode(node, parent);
                 }
 
                 break;
@@ -1005,6 +1052,19 @@ public sealed class EditorQaScript : IEditorAutomation
     }
 
     /// <summary>Window point of a gizmo handle of the selection (70% along the axis; the centre for "center"), at the gizmo's pivot.</summary>
+    // The window point (dp) over world point p of the active 3D tab.
+    private static Vector2 WorldPoint(EditorWorkspace workspace, Vector3 p)
+    {
+        if (workspace.Session.Active is not { } scene)
+            throw new ArgumentException("world-move and world-drag need an open 3D scene.");
+        var view = workspace.Viewport.ViewPixels;
+        scene.Camera.Apply(view);
+        if (!scene.Camera.Project(p, view.X, view.Y, out var pixel))
+            throw new ArgumentException($"{p} is behind the camera.");
+        var rect = workspace.Viewport.ViewRect;
+        return new Vector2(rect.X, rect.Y) + pixel / workspace.Viewport.ViewScale;
+    }
+
     private static Vector2 GizmoPoint(EditorWorkspace workspace, string axisName)
     {
         if (workspace.Session.Active is not { } scene || !workspace.Viewport.TryGetGizmoPose(scene, out var origin, out var rotation))

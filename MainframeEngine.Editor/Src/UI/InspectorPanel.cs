@@ -836,6 +836,8 @@ public sealed partial class InspectorPanel : EditorDocument
         if (_suppressEvents)
             return;
         var target = e.Target;
+        if (HandleToolChange(e, blur: false))
+            return;
         if (target.Id == "node-name")
         {
             if (e.GetParameter("linebreak", false))
@@ -897,6 +899,8 @@ public sealed partial class InspectorPanel : EditorDocument
         if (target.TagName is not ("input" or "textarea") || target.GetAttribute("type") is "checkbox" or "range")
             return;
         var text = target.Value ?? "";
+        if (HandleToolChange(e, blur: true))
+            return;
         if (target.Id == "node-name")
         {
             CommitName(text);
@@ -920,7 +924,7 @@ public sealed partial class InspectorPanel : EditorDocument
 
     protected override void OnClickElement(RmlEvent e)
     {
-        if (HandleSignalClick(e))
+        if (HandleSignalClick(e) || HandleToolClick(e))
             return;
         if (FindAttribute(e.Target, "data-section") is { } section)
         {

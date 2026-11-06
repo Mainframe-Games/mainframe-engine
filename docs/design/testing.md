@@ -236,7 +236,9 @@ sequenceDiagram
   under the procedural sky; self-checked, plus a 0 B gate while the camera orbits; [Water → tests](water.md#tests)),
   `water-refraction`, `water-ssr` and `water-fall` (ADR 0173: a bent striped bed, a pillar reflected only with SSR, also
   under TAA and in a post-processed sub-viewport, a River3D fall with spray; self-checked, goldens, 0 B gates with TAA),
-  `terrain-splat` (ADR 0156: the `TerrainSplatMaterial3D` with four generated layers, a triplanar cliff and
+  `terrain-faceted` (G8a.4: the Faceted `TerrainMaterial3D` default palette with a path, sand, rock, a banded and tinted
+  lawn and a box's shadow on the facets; self-checked surfaces and tags, golden, a 0 B orbit gate that repaints a cell
+  every frame), `terrain-splat` (ADR 0156: the `TerrainSplatMaterial3D` with four generated layers, a triplanar cliff and
   height-blended paths; self-checked, plus a 0 B orbit gate), `terrain-blend` (ADR 0175: that ground with its macro texture
   and two rows of sunk boulders, `TerrainBlend` 1 and 0; self-checks the macro's heights and colours, golden, 0 B orbit
   gate) and the tree scenes (ADR 0158) `tree-realistic`,

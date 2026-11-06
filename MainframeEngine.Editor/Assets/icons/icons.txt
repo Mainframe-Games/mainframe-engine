@@ -305,3 +305,10 @@ player-skip-back
 repeat-off
 pin
 help
+# Terrain dock, tree inspector (G8a, G8b)
+plant-2
+tree
+trees
+leaf
+trending-up
+square-dashed

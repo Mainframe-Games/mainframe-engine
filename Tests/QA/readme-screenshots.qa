@@ -189,6 +189,72 @@ wait 20
 capture editor-navigation
 command file.close
 wait 10
+# 3f. Terrain dock (G8a): a new scene with a sun and a Faceted terrain whose data comes from the dock; hills raised, a
+# smoothed, rock, a path and sand painted from the palette and a pond laid with the Water brush; Paint mode's swatches
+# and the brush ring over a hill.
+command file.new
+wait 5
+add-node DirectionalLight3D Sun
+set-node Sun RotationDegrees -42,-35,0
+add-node Terrain3D Terrain .
+select Terrain
+wait 5
+tool-field create-profile Faceted
+tool-field create-size 64
+tool-field create-spacing 2
+tool-action create
+camera 32 2 34 58 35 -38
+wait 5
+tool-action mode Sculpt
+tool-action sculpt Raise
+tool-field strength 100
+tool-field size 22
+world-drag 14 0 14 22 0 20 70
+wait 80
+world-drag 44 0 12 50 0 22 70
+wait 80
+tool-field size 14
+world-drag 10 0 40 22 0 54 60
+wait 70
+tool-action sculpt Smooth
+tool-field size 30
+world-drag 10 0 10 54 0 54 20
+wait 30
+tool-action mode Paint
+tool-action surface 4
+tool-field size 9
+world-drag 15 4 15 19 4 19 30
+wait 30
+tool-action surface 6
+tool-field size 4
+world-drag 4 0 30 60 0 34 40
+wait 40
+tool-action surface 3
+tool-field size 8
+world-drag 30 0 50 46 0 50 30
+wait 30
+tool-action mode Water
+tool-field level 1.2
+tool-field size 16
+world-drag 34 0 40 42 0 46 20
+wait 30
+tool-action mode Paint
+tool-action surface 1
+tool-field size 10
+world-move 47 5 17
+clear-output
+wait 20
+capture editor-terrain
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+command edit.undo
+wait 3
+command file.close
+wait 5
 # 3d. Crash reporting (G15): a played game's crash as one Output row, expanded to its frames (the game's frame links to
 # its source, engine frames are muted), with the report, copy and frame buttons; then the editor's own next-start
 # crash dialog with a recovery copy of the open scene (closed again: the sample report is marked handled).

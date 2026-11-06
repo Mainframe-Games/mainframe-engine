@@ -199,7 +199,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Assets/Editor/`;
   `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Animation/` (the Animation panel, G1a), `Timeline/`
   (the timeline shared by the song, animation and video views), `Inspector/`, `SceneTree/`, `Viewport/` (camera,
-  3D/2D gizmos, picking), `Projects/` (`ProjectService`: game assembly in a collectible ALC, code reload; New Project,
+  3D/2D gizmos, picking; `Tools/`: `IEditorViewportTool`, ADR 0270), `Terrain/` (the Terrain dock), `Projects/` (`ProjectService`: game assembly in a collectible ALC, code reload; New Project,
   Project Settings; `EditorLoader`: projects and scenes open behind the loading window, ADR 0238), `Play/` (`dotnet build` + game processes over the editor link), `FileSystem/` (file tree, moves
   with UID reference fix-ups, OS trash), `Settings/` (editor settings, code editor), `Updates/` (self-update from GitHub Releases: check, download, `--apply-update` swap), `UI/` (panels, dialogs), `Qa/`
   (`--qa-script`, `--smoke`). The RmlUi debugger is F9 (F5–F8 are Play keys, F10 is Play and Record). Code reload re-creates scenes that use

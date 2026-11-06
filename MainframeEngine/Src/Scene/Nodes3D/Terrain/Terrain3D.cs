@@ -107,15 +107,44 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
                 return;
             if (field is TerrainSplatMaterial3D old && ReferenceEquals(old.Terrain, this))
                 old.Terrain = null;
+            if (field is TerrainMaterial3D oldFaceted && ReferenceEquals(oldFaceted.Terrain, this))
+                oldFaceted.Terrain = null;
             field = value;
             if (value is TerrainSplatMaterial3D splat)
                 splat.Terrain = this;
+            if (value is TerrainMaterial3D faceted)
+                faceted.Terrain = this;
             foreach (var node in _lodNodes)
                 node.RenderStamp++;
             if (MacroTextureEnabled && _built)
                 _macroDirty = true;
         }
     }
+
+    /// <summary>
+    /// What the chunks draw with: <see cref="Material"/>, else for Faceted data the terrain's own default
+    /// <see cref="TerrainMaterial3D"/> (<see cref="TerrainMaterial3D.CreateDefault"/>, made on first use), else
+    /// <see cref="DefaultMaterial"/>.
+    /// </summary>
+    public Material RenderMaterial
+    {
+        get
+        {
+            if (Material is { } material)
+                return material;
+            if (_data is not { Profile: TerrainProfile.Faceted })
+                return DefaultMaterial;
+            if (_defaultFaceted is null)
+            {
+                _defaultFaceted = TerrainMaterial3D.CreateDefault();
+                _defaultFaceted.Terrain = this;
+            }
+
+            return _defaultFaceted;
+        }
+    }
+
+    private TerrainMaterial3D? _defaultFaceted;
 
     /// <summary>
     /// What the pond and lake surfaces (from the water layer) draw with: null is <see cref="DefaultWaterMaterial"/>.
@@ -485,7 +514,9 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
                     CollisionLayer = data.CollisionLayer,
                     CollisionMask = data.CollisionMask,
                 };
-                body.AddChild(new CollisionShape3D { Name = "Shape", Shape = shape });
+                // Hidden: Visible Collision Shapes skips it (the trimesh is the drawn triangles, and its wireframe would cover
+                // the ground and the editor's brush). Visibility does not affect collision.
+                body.AddChild(new CollisionShape3D { Name = "Shape", Shape = shape, Visible = false });
                 _shapes[c] = shape;
                 _bodies[c] = body;
                 AddChild(body);
@@ -963,11 +994,18 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
 
     /// <summary>
     /// The <see cref="TerrainLayer.Tag"/> of the strongest layer under world (<paramref name="x"/>, <paramref name="z"/>)
-    /// when <see cref="Material"/> is a <see cref="TerrainSplatMaterial3D"/> (footsteps, friction); null where there is
-    /// water (unless <paramref name="ignoreWater"/>), without a splat material, or past its layers.
+    /// when <see cref="Material"/> is a <see cref="TerrainSplatMaterial3D"/>, or the <see cref="TerrainSurface.Tag"/> of
+    /// the cell's surface when a Faceted terrain draws with a <see cref="TerrainMaterial3D"/> (footsteps, friction); null
+    /// where there is water (unless <paramref name="ignoreWater"/>), without such a material, or past its layers.
     /// </summary>
     public string? SurfaceTagAt(float x, float z, bool ignoreWater = false)
     {
+        if (RenderMaterial is TerrainMaterial3D faceted && RequireData().Profile == TerrainProfile.Faceted)
+        {
+            var id = SurfaceAt(x, z, ignoreWater);
+            return (uint)id < (uint)faceted.Surfaces.Length ? faceted.Surfaces[id]?.Tag : null;
+        }
+
         if (Material is not TerrainSplatMaterial3D splat || RequireData().Profile != TerrainProfile.Realistic)
             return null;
         var surface = SurfaceAt(x, z, ignoreWater);

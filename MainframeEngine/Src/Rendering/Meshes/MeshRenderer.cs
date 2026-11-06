@@ -610,6 +610,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         var foliage = material as FoliageMaterial3D;
         var water = material as WaterMaterial3D;
         var splat = material as TerrainSplatMaterial3D;
+        var faceted = material as TerrainMaterial3D; // G8a.4
         var impostor = material as ImpostorMaterial3D;   // ADR 0172
         var fall = material as WaterfallMaterial3D;   // ADR 0173
         var spray = material as SprayMaterial3D;
@@ -622,6 +623,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             : null;
         gpu.ColorShaders = outline is not null ? ShaderSetId.MeshOutline : foliage is not null ? ShaderSetId.MeshFoliage
             : water is not null ? ShaderSetId.MeshWater : splat is not null ? ShaderSetId.MeshTerrainSplat
+            : faceted is not null ? ShaderSetId.MeshTerrainFaceted
             : fall is not null ? ShaderSetId.MeshWaterfall : spray is not null ? ShaderSetId.MeshSpray
             : impostor is not null ? ShaderSetId.MeshImpostor : spatialShader is not null ? ShaderSetId.MeshSpatial : ShaderSetId.MeshLit;
         gpu.RefractsScene = water is { RefractionEnabled: true };
@@ -630,7 +632,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         {
             // Splat materials keep this default set too: the object-ID pass binds it with the shared layout.
             standard = StandardMaterial3D.Default;
-            if (outline is null && foliage is null && !waterFamily && splat is null && impostor is null && !_warnedUnsupportedMaterial &&
+            if (outline is null && foliage is null && !waterFamily && splat is null && faceted is null && impostor is null && !_warnedUnsupportedMaterial &&
                 shaderMaterial?.Shader?.Spatial is null)
             {
                 _warnedUnsupportedMaterial = true;
@@ -662,18 +664,22 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
         rewrite |= water is not null ? SwapTexture(water.FoamTexture ?? WaterTextures.Foam, colorUsage: false, ref gpu.Albedo)
             : fall is not null ? SwapTexture(fall.FoamTexture ?? WaterTextures.Foam, colorUsage: false, ref gpu.Albedo)
             : spray is not null ? SwapTexture(spray.NoiseTexture ?? WaterTextures.Mist, colorUsage: false, ref gpu.Albedo)
+            : faceted is not null ? SwapTexture(FacetedSurfaceMap(faceted), colorUsage: true, ref gpu.Albedo)
             : SwapTexture(outline is not null ? null : foliage is not null ? foliage.AlbedoTexture : impostor is not null ? impostor.AlbedoTexture
                 : standard.AlbedoTexture, colorUsage: true, ref gpu.Albedo);
-        rewrite |= SwapTexture(water is not null ? water.NormalMap ?? WaterTextures.Normal : fall is not null ? WaterTextures.Normal
+        // Faceted terrains (G8a.4): the albedo slot is the surface map, the normal slot the palette, the emission slot the user map.
+        rewrite |= SwapTexture(faceted is not null ? faceted.Palette : water is not null ? water.NormalMap ?? WaterTextures.Normal : fall is not null ? WaterTextures.Normal
             : outline is not null || spray is not null ? null : foliage is not null ? foliage.NormalTexture : impostor is not null ? impostor.NormalTexture
             : standard.NormalTexture, colorUsage: false, ref gpu.Normal);
         // Foliage: the emission slot holds its linear thickness map (ADR 0172).
-        rewrite |= water is not null
+        rewrite |= faceted is not null
+            ? SwapTexture(faceted.TintChannel >= 0 ? faceted.Terrain?.Data?.GetUserTexture() : null, colorUsage: false, ref gpu.Emission)
+            : water is not null
             ? SwapTexture(water.RefractionEnabled ? water.CausticsTexture ?? WaterTextures.Caustics : null, colorUsage: false, ref gpu.Emission)
             : foliage is not null || impostor is not null
                 ? SwapTexture(foliage is not null ? foliage.ThicknessTexture : impostor!.DetailTexture, colorUsage: false, ref gpu.Emission)
                 : SwapTexture(outline is null && !waterFamily ? standard.EmissionTexture : null, colorUsage: true, ref gpu.Emission);
-        rewrite |= SwapTexture(outline is not null || waterFamily || impostor is not null ? null
+        rewrite |= SwapTexture(outline is not null || waterFamily || impostor is not null || faceted is not null ? null
             : foliage is not null ? foliage.OrmTexture : standard.OrmTexture, colorUsage: false, ref gpu.Orm);
 
         // Textures re-uploaded (reimport, new import settings) since the set was written.
@@ -694,6 +700,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
                 : fall is not null ? MaterialParams.From(fall, flags)
                 : spray is not null ? MaterialParams.From(spray, flags)
                 : impostor is not null ? MaterialParams.From(impostor, flags)
+                : faceted is not null ? MaterialParams.From(faceted, flags)
                 : MaterialParams.From(standard, flags);
             if (gpu.Params is null)
             {
@@ -717,6 +724,18 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             gpu.ResetPipelines();
         }
     }
+
+    // The surface map a Faceted material reads: its terrain's (a 1 × 1 id-0 map without a Faceted terrain).
+    private static Texture2D FacetedSurfaceMap(TerrainMaterial3D material) =>
+        material.Terrain?.Data is { Profile: TerrainProfile.Faceted } data ? data.GetSurfaceTexture() : NoSurfaceMap;
+
+    private static readonly Texture2D NoSurfaceMap = Texture2D.FromPixels(1, 1, [0, 0, 0, 0], new TextureImportSettings
+    {
+        ColorSpace = TextureImportColorSpace.Linear,
+        Mipmaps = false,
+        Filter = TextureFilter.Nearest,
+        Wrap = TextureWrap.Clamp,
+    });
 
     // Points a texture slot at a texture (acquiring the new reference, releasing the old); true when it changed.
     private bool SwapTexture(Texture2D? texture, bool colorUsage, ref TextureGpu? slot)
@@ -1678,6 +1697,7 @@ internal sealed unsafe partial class MeshRenderer : IDisposable, IPipelineFactor
             ShaderSetId.MeshWaterfall => "Shaders/Water/Waterfall.vk.frag.spv",
             ShaderSetId.MeshSpray => "Shaders/Water/Spray.vk.frag.spv",
             ShaderSetId.MeshTerrainSplat => "Shaders/Terrain/TerrainSplat.vk.frag.spv",
+            ShaderSetId.MeshTerrainFaceted => "Shaders/Terrain/TerrainFaceted.vk.frag.spv",
             ShaderSetId.MeshImpostor => "Shaders/Impostor/Impostor.vk.frag.spv",
             _ => "Shaders/Mesh/Mesh.vk.frag.spv",
         };

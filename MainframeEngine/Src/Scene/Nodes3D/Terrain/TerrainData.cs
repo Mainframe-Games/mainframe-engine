@@ -52,6 +52,8 @@ public sealed class TerrainData : Resource
     private float[] _chunkMin = [];
     private float[] _chunkMax = [];
     private readonly Texture2D?[] _splatTextures = new Texture2D?[3];
+    private Texture2D? _surfaceTexture;
+    private Texture2D? _userTexture;
     private Texture2DArray? _splatArray;
     private LayerFiles _dirty;
     private string? _savedFolder;
@@ -621,6 +623,34 @@ public sealed class TerrainData : Resource
     }
 
     /// <summary>
+    /// The Faceted surface map (one texel per cell, R = surface id) as a linear, unmipmapped, nearest, clamped texture
+    /// (texel centres at cell centres: UV = terrain-local XZ ÷ size): what <see cref="TerrainMaterial3D"/> reads. Kept in
+    /// sync with edits (each edit re-uploads the map). Faceted only.
+    /// </summary>
+    public Texture2D GetSurfaceTexture()
+    {
+        EnsureLoaded();
+        if (_surface is null)
+            throw new InvalidOperationException("Only Faceted terrains have a surface map; Realistic ones use GetSplatTexture.");
+        return _surfaceTexture ??= Texture2D.FromPixels(CellsPerSide, CellsPerSide, _surface, CellTextureSettings);
+    }
+
+    /// <summary>The user channels (one texel per cell, RGBA = channels 0–3) as a texture like <see cref="GetSurfaceTexture"/>.</summary>
+    public Texture2D GetUserTexture()
+    {
+        EnsureLoaded();
+        return _userTexture ??= Texture2D.FromPixels(CellsPerSide, CellsPerSide, _user!, CellTextureSettings);
+    }
+
+    private static readonly TextureImportSettings CellTextureSettings = new()
+    {
+        ColorSpace = TextureImportColorSpace.Linear,
+        Mipmaps = false,
+        Filter = TextureFilter.Nearest,
+        Wrap = TextureWrap.Clamp,
+    };
+
+    /// <summary>
     /// The weight maps in use (<see cref="SplatImageCount"/>) as one texture array (layer i = map i, sampled like
     /// <see cref="GetSplatTexture"/>): what the splat material binds, one image whatever the map count. A new array when
     /// the map count changes; kept in sync with edits otherwise. Realistic only.
@@ -886,7 +916,14 @@ public sealed class TerrainData : Resource
         if (layer is TerrainLayers.Height or TerrainLayers.Water)
             UpdateBed(rect);
         if (layer == TerrainLayers.Surface)
+        {
             SyncSplatTextures(files);
+            if (_surfaceTexture is not null && _surface is not null)
+                _surfaceTexture.SetPixels(_surface);
+        }
+
+        if (layer == TerrainLayers.User && _userTexture is not null)
+            _userTexture.SetPixels(_user!);
         _dirty |= files;
         _version++;
         Edited?.Invoke(layer, rect, fromUndo);

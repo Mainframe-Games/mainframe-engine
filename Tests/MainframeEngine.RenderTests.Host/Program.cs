@@ -131,6 +131,7 @@ RenderTestGame game = options.Scene switch
     "water-ssr" => new WaterSsrScene(options),
     "water-fall" => new WaterFallScene(options),
     "terrain-splat" => new TerrainSplatScene(options),
+    "terrain-faceted" => new TerrainFacetedScene(options),
     "terrain-splat-layers" => new TerrainSplatLayersScene(options),
     "terrain-blend" => new TerrainBlendScene(options),
     "terrain-foliage" => new TerrainFoliageScene(options),

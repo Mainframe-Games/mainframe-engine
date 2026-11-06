@@ -215,6 +215,7 @@ public sealed class ProjectService : IDisposable
             return;
         CustomInspectors.Reset();
         HandleProviders.Reset();
+        ViewportTools.Reset();
         UnloadLoader(_loader);
         _loader = null;
     }
@@ -282,6 +283,7 @@ public sealed class ProjectService : IDisposable
             RememberLoaded(dll);
             CustomInspectors.Reset();
             HandleProviders.Reset();
+            ViewportTools.Reset();
         }
         catch (Exception e) when (EditorCommands.IsRecoverable(e))
         {
@@ -315,6 +317,7 @@ public sealed class ProjectService : IDisposable
         var snapshots = SuspendGameScenes(loader);
         CustomInspectors.Reset();
         HandleProviders.Reset();
+        ViewportTools.Reset();
         _workspace.ReleaseEditorReferences();
         LastUnloadCollected = UnloadForReload(loader);
         if (LastUnloadCollected == false)
@@ -387,6 +390,7 @@ public sealed class ProjectService : IDisposable
             RememberLoaded(dll);
             CustomInspectors.Reset();
             HandleProviders.Reset();
+            ViewportTools.Reset();
             return true;
         }
         catch (Exception e) when (EditorCommands.IsRecoverable(e))
