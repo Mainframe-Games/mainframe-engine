@@ -114,6 +114,29 @@ public class GameHost : Engine
     /// </summary>
     public static bool IsDemo => Project?.IsDemo == true;
 
+    private static readonly Lock PackGate = new();
+    private static IDisposable? _exportPack;
+    private static bool _exportPackChecked;
+
+    /// <summary>
+    /// Mounts the export's <see cref="PackFormat.FileName"/> beside the application (G19, ADR 0239), once per process and
+    /// before anything reads content: <c>project.mfproj</c> and <c>Assets/</c> then come from the pack, and loose files
+    /// beside it (a preset's <c>loose</c> globs) from the disk. Development builds have no pack and read loose files.
+    /// Throws <see cref="InvalidDataException"/> for a damaged pack, which <see cref="Run"/> reports as a failed start.
+    /// </summary>
+    public static void MountExportPack()
+    {
+        lock (PackGate)
+        {
+            if (_exportPackChecked)
+                return;
+            _exportPack = PackContentSource.MountBeside(ContentPaths.BaseDirectory);
+            _exportPackChecked = true;
+            if (_exportPack is not null)
+                Log.Info($"[GameHost] Content from {PackFormat.FileName}.");
+        }
+    }
+
     /// <summary>
     /// The demo flag <paramref name="assemblies"/> were built with (<see cref="DemoMetadataKey"/>; the first that has it
     /// wins), or null when none was built with the engine's game build props.
@@ -216,6 +239,7 @@ public class GameHost : Engine
         ProjectSettings settings;
         try
         {
+            MountExportPack();
             settings = options.ProjectPath is { } path
                 ? ProjectSettings.Load(path)
                 : ProjectSettings.LoadFromApplicationDirectory()

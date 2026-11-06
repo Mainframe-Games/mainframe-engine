@@ -201,16 +201,23 @@ public sealed class ExportDialog : EditorDocument
         }
 
         rml.Append("<div class=\"ex-group\"><span class=\"icon icon-sm icon-filter\"></span><span>Content</span></div>");
-        RenderGlobs(rml, "Include", preset.Include, include: true);
-        RenderGlobs(rml, "Exclude", preset.Exclude, include: false);
+        RenderGlobs(rml, ExportGlobList.Include, preset.Include);
+        RenderGlobs(rml, ExportGlobList.Exclude, preset.Exclude);
+        if (preset.Pack)
+            RenderGlobs(rml, ExportGlobList.Loose, preset.Loose);
     }
 
-    private static void RenderGlobs(StringBuilder rml, string label, List<string> globs, bool include)
+    private static void RenderGlobs(StringBuilder rml, ExportGlobList list, List<string> globs)
     {
-        var kind = include ? "include" : "exclude";
+        var kind = GlobKind(list);
+        var label = list.ToString();
         rml.Append("<div class=\"ex-row\"><div class=\"ex-label\" data-tooltip=\"")
-            .Append(include ? "The game's Assets/ files that ship (globs: * one folder, ** any depth, ?). Engine content always ships."
-                : "Applied after Include. .po sources are excluded by default: the build compiles them to .mo.")
+            .Append(list switch
+            {
+                ExportGlobList.Include => "The game's Assets/ files that ship (globs: * one folder, ** any depth, ?). Engine content always ships.",
+                ExportGlobList.Exclude => "Applied after Include. .po sources are excluded by default: the build compiles them to .mo.",
+                _ => "Shipped files kept as loose files beside Assets.mfpak (mods, files other tools read). The game reads them at the same paths.",
+            })
             .Append("\">").Append(label).Append("</div><div class=\"ex-editor\"><div class=\"chips\">");
         for (var i = 0; i < globs.Count; i++)
             rml.Append("<div class=\"chip\"><span>").Append(RmlText.Escape(globs[i])).Append("</span><button class=\"tool-button small\" data-op=\"remove-glob\" data-kind=\"")
@@ -219,6 +226,20 @@ public sealed class ExportDialog : EditorDocument
             .Append("<button class=\"tool-button small\" data-op=\"add-glob\" data-kind=\"").Append(kind).Append("\" data-tooltip=\"Add ").Append(label)
             .Append(" Glob\"><span class=\"icon icon-sm icon-plus\"></span></button></div></div></div></div>");
     }
+
+    private static string GlobKind(ExportGlobList list) => list switch
+    {
+        ExportGlobList.Include => "include",
+        ExportGlobList.Exclude => "exclude",
+        _ => "loose",
+    };
+
+    private static ExportGlobList GlobListOf(string? kind) => kind switch
+    {
+        "include" => ExportGlobList.Include,
+        "loose" => ExportGlobList.Loose,
+        _ => ExportGlobList.Exclude,
+    };
 
     private static string GroupIcon(string group) => group switch
     {
@@ -342,8 +363,8 @@ public sealed class ExportDialog : EditorDocument
         var target = e.Target;
         if (target.GetAttribute("data-key") is not { } key)
         {
-            if (e.GetParameter("linebreak", false) && target.Id is "ex-new-include" or "ex-new-exclude")
-                Apply(Model.AddGlob(Selected, target.Id == "ex-new-include", target.Value ?? ""));
+            if (e.GetParameter("linebreak", false) && target.Id is "ex-new-include" or "ex-new-exclude" or "ex-new-loose")
+                Apply(Model.AddGlob(Selected, GlobListOf(target.Id["ex-new-".Length..]), target.Value ?? ""));
             return;
         }
 
@@ -409,15 +430,15 @@ public sealed class ExportDialog : EditorDocument
         var element = FindWithAttribute(e.Target, "data-op");
         if (!element.IsNull)
         {
-            var include = element.GetAttribute("data-kind") == "include";
+            var globList = GlobListOf(element.GetAttribute("data-kind"));
             var index = int.TryParse(element.GetAttribute("data-index"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) ? i : -1;
             switch (element.GetAttribute("data-op"))
             {
                 case "add-glob":
-                    Apply(Model.AddGlob(Selected, include, Document.GetElementById(include ? "ex-new-include" : "ex-new-exclude").Value ?? ""));
+                    Apply(Model.AddGlob(Selected, globList, Document.GetElementById("ex-new-" + GlobKind(globList)).Value ?? ""));
                     break;
                 case "remove-glob":
-                    Apply(Model.RemoveGlob(Selected, include, index));
+                    Apply(Model.RemoveGlob(Selected, globList, index));
                     break;
                 case "browse-icon":
                     BrowseIcon();

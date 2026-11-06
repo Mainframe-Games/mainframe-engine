@@ -205,6 +205,21 @@ public sealed class ExportPlanAndValidationTests : IDisposable
     }
 
     [Fact]
+    public void LooseGlobsMustBeContentGlobs()
+    {
+        var preset = ExportPreset.Create("Loose", ExportPlatform.Linux);
+        preset.Loose.AddRange(["Assets/Mods/**", "Mods/**", "/abs/**"]);
+
+        var errors = Codes(Validate(preset), ExportIssueSeverity.Error);
+
+        Assert.Contains("loose-outside-assets", errors);
+        Assert.Contains("glob", errors);
+        preset.Loose.RemoveRange(1, 2);
+        preset.Pack = false;
+        Assert.Equal(["loose-without-pack"], Codes(Validate(preset), ExportIssueSeverity.Warning));
+    }
+
+    [Fact]
     public void SteamChecksTheAppIdAndWarnsForDebug()
     {
         var preset = ExportPreset.Create("Steam", ExportPlatform.Windows);
