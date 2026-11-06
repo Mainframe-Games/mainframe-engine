@@ -40,8 +40,9 @@ public class Label3DTests
 
         // The two FixedSize tags (green text) are the same size on screen although one is 8 m further away.
         var image = Capture(result, 10);
-        var near = GreenBounds(image, 0, image.Width / 2, image.Height / 2, image.Height);
-        var far = GreenBounds(image, image.Width / 2, image.Width, image.Height / 3, image.Height);
+        // The near tag sits low in the frame (≈ 78 % down), the far one through the wall near the middle (≈ 53 %).
+        var near = GreenBounds(image, 0, image.Width, image.Height * 68 / 100, image.Height);
+        var far = GreenBounds(image, 0, image.Width, image.Height * 40 / 100, image.Height * 65 / 100);
         TestContext.Current.SendDiagnosticMessage($"FixedSize tags: near {near}, far {far}");
         Assert.True(near.Width > 10 && far.Width > 10, $"tags not found: {near} {far}");
         Assert.InRange(far.Width, near.Width - 3, near.Width + 3);

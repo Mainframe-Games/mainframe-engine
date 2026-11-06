@@ -42,10 +42,19 @@ keeps G11.5–G11.9.
 - RmlUi has no user-agent style sheet: the first marker golden ran title, name and distance inline; every div in the
   marker document is `display: block` now.
 - The first editor QA run selected nodes before the scene had loaded: `open` needs `wait-for project`.
+- `just render-tests-linux --filter "a|b"` splits on the pipe inside the recipe; call `build/linux/run.sh render` directly.
+- The FixedSize self-check's screen halves overlapped the far tag at lavapipe's 320×240; the regions are bands by height.
 
 ## Verified
 
-- See the PR for the gate results (filled in at ship time).
+- `just build` and the Release `-warnaserror` build: 0 warnings; `just format-check`, `just shaders-check` (161 shaders,
+  20 surface shaders), `check.sh`, `just docs-build` (94 pages) pass.
+- Unit tests: engine 3396, editor 1685, video 464 (0 failed); Demo 130.
+- Render tests (moltenvk): 236/236; the ADR 0200 `label3d` golden unchanged. New `label3d-layout` and `ui-markers` goldens
+  inspected on moltenvk and lavapipe (Docker), both self-checks passing on both.
+- `UiMarkerTests.SteadyFramesAllocateNothing`: 0 B for 100 markers. `WorldUiBenchmarks` (busy machine, not in
+  `baseline.json`): `Markers100Frame` ≈ 0.55 ms, 0 B; `Label3DRebuild` ≈ 0.7 µs, 3 KB on change.
+- Editor QA capture (`Tests/QA/world-ui.qa`) and the Demo screenshot inspected.
 
 ## Not done
 
