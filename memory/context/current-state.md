@@ -1,6 +1,6 @@
 # Current state — mainframe-engine
 
-_Last updated: 2026-11-07 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5. In review: `feature/g19-native-aot` (G19 phase 4)._
+_Last updated: 2026-11-06 — M0–M10, Demo & polish, most 2D port work and much of the gameplay toolkit; v1.1.5. In review: `feature/g19-encrypted-packs` (G19 phase 3, PR #183)._
 
 ## What exists
 
@@ -31,7 +31,7 @@ _Last updated: 2026-11-07 — M0–M10, Demo & polish, most 2D port work and muc
   Jitter2 constraints, ADR 0234; G9.10c active ragdolls, ADR 0235: G9 complete); the frame profiler (ADRs 0219/0220), crash reporting
   (0221/0222), `AnimatedSprite2D` (0223/0224), tile maps (0225/0226; 2D collision hits are `Node2D`), 2D navigation
   (0227/0228; grids read live from a `TileMapLayer` since G3.6; ORCA avoidance and `NavigationObstacle2D`, G3.7, ADR 0250) and game export with `mf-export` (0229/0230;
-  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), and exports packed into one AES-256-encrypted `Assets.mfpak` that `GameHost` mounts with the key the generator compiles into the game (phases 2–3, ADRs 0240, 0247; `project.mfproj` format 6 `packKey`), and a `nativeAot` preset key that exports the game as one native executable (phase 4, ADRs 0259/0260: the engine trim- and AOT-clean, Steam compiled in, native crash symbols); every engine file extension starts with `.mf` (`.mfscene`, `.mfres`, `.mfmeta`, …; ADR 0249: old projects still load, the editor migrates them on open, `FileExtensionRuleTests` keeps the rule).
+  `project.mfproj` format 5; #138); editor link protocol 6 (adaptive music); the docs site at engine.mainframe.games; editor self-update; Linux launcher; anti-aliased gizmos, SVG scene icons, an analytic grid ([Gizmos](../../docs/design/gizmos.md)); every runtime content read through `ContentFiles` (G19 phase 1, ADR 0239), and exports packed into one AES-256-encrypted `Assets.mfpak` that `GameHost` mounts with the key the generator compiles into the game (phases 2–3, ADRs 0240, 0247; `project.mfproj` format 6 `packKey`); every engine file extension starts with `.mf` (`.mfscene`, `.mfres`, `.mfmeta`, …; ADR 0249: old projects still load, the editor migrates them on open, `FileExtensionRuleTests` keeps the rule).
 - **G6** ([Rendering features](../../docs/design/rendering-features.md)): PBR + IBL, SSAO, 3D particles, mesh LODs (ADR 0245), forward decals (ADR 0246), `.hdr` skies; owner-pending: PBR default, LOD simplifier. **G11** ✅ ([World-space UI](../../docs/design/world-space-ui.md)): multi-line `Label3D` with fallback fonts and `FixedSize` (ADR 0251), unshaded labels drawn by the batched `Text3DRenderer` (ADR 0258), `UiMarker3D` rows on a `UiMarkerHost` (ADR 0254), `UiPanel3D` panels rendered before the scene with mouse/crosshair/manual/mesh input (ADRs 0252/0253), opt-in `IgnoreExposure` (ADR 0257), panels with stand-in data in the editor view.
 - **Version** v1.1.5 (git tags only; engine/editor/generator in lock step). `publish.yml` releases editor builds and
   the `MainframeEngine` + `MainframeEngine.Templates` NuGet packages.
@@ -88,7 +88,7 @@ _Last updated: 2026-11-07 — M0–M10, Demo & polish, most 2D port work and muc
 
 ## Next steps
 
-1. G19 follow-up (owner): a NativeAOT export job per OS in CI (`just template-smoke-aot`); M12.6/C0 build on phase 4.
+1. G19 protected exports (`docs/design/future/protected-exports.md`): phase 4 NativeAOT (owner: here or M12.6).
 2. Gameplay toolkit (`docs/milestones.md`): G6's PBR default (owner); G8a–e rest (terrain dock and Faceted look, tree
    inspector, river tool, forest goldens and frame budget); G20.3 video; G1c animation authoring (would let active
    ragdolls follow any clip); G12 (proposal awaits owner review); G14, G16, G17; G3b's rest (G3.8–G3.12).
