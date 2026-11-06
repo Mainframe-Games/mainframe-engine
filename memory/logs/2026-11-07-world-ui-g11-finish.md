@@ -51,12 +51,17 @@ As built: [World-space UI](../../docs/design/world-space-ui.md) (the proposal is
 - A vertex shader shared by the colour and ID passes left an unread output in each; `Text3DId.vk.vert` includes
   `Text3D.vk.vert` with `TEXT3D_OBJECT_ID` so each writes only what its fragment reads.
 - `timeout` is not on this Mac: the first builds "ran" through a missing command (grep hid the error).
+- The readback copy first failed validation on every auto-exposure render test: the adapted image was created without
+  `TRANSFER_SRC` usage; it now has it.
 - `label3d-layout`'s golden moved by up to 0.7 % of pixels: batched labels rasterise glyphs into the atlas in another
   order, so filtering at glyph edges differs (visually identical; re-recorded and inspected).
 
 ## Verified
 
-- See the PR for the gate runs (build, Release `-warnaserror`, unit, render, format, shaders, check.sh).
+- Gates: `just build`, Release `-warnaserror -p:CompileShaders=false`, `just format-check`, `just shaders-check`, check.sh
+  pass. Unit: engine 3468/3470 (one editor-link reconnect timing failure under load; passes alone), editor 1707, video
+  464. Render (moltenvk): 241 tests, all passing after the readback fix. Lavapipe (Docker): the five Label3D render tests;
+  `label3d-layout` and `label3d-batch` goldens recorded and inspected.
 - `label3d-batch` on moltenvk: 254 of 300 labels drawn (46 culled), 1 559 glyphs, 3 draws over 2 pages, a front label
   picked through the object-ID pass, 0 B over 120 frames. `label3d-exposure`: the IgnoreExposure label and panel match
   the exposure-1 run; the others brighten. The ADR 0200 `label3d` golden is unchanged.
