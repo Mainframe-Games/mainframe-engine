@@ -87,7 +87,7 @@ public sealed class LegacyExtensionTests : IDisposable
         ResourceLoader.ClearCache();
 
         // Game code (or project.mfproj) written before the migration still says .mres.
-        Assert.Equal(ContentPath("Data/Renamed.mfres"), AssetDatabase.Current.ToAbsolutePath("Assets/Data/Renamed.mres"));
+        Assert.Equal(Path.GetFullPath(ContentPath("Data/Renamed.mfres")), AssetDatabase.Current.ToAbsolutePath("Assets/Data/Renamed.mres"));
         Assert.Equal(3, ResourceLoader.Load<TestResource>("Assets/Data/Renamed.mres").Value);
         Assert.Equal(uid, ResourceLoader.Load<TestResource>("Assets/Data/Renamed.mres").Uid);
     }
@@ -98,7 +98,7 @@ public sealed class LegacyExtensionTests : IDisposable
         WriteLegacyProject();
         File.WriteAllText(ContentPath("Data/Stats.mfres"), "{}"); // both exist: the path names the one it means
 
-        Assert.Equal(ContentPath("Data/Stats.mres"), AssetDatabase.Current.ToAbsolutePath("Assets/Data/Stats.mres"));
+        Assert.Equal(Path.GetFullPath(ContentPath("Data/Stats.mres")), AssetDatabase.Current.ToAbsolutePath("Assets/Data/Stats.mres"));
     }
 
     [Fact]
