@@ -1,6 +1,6 @@
 # Plan: G11.5/G11.6 world-space UI panels
 
-**Status:** in progress
+**Status:** done, see [log](../logs/2026-11-06-world-ui-panels.md)
 **Docs:** [World-space UI proposal](../../docs/design/future/world-space-ui.md) (`UiPanel3D`, task list G11.5–G11.7),
 [World-space UI](../../docs/design/world-space-ui.md), [Game UI](../../docs/design/game-ui.md),
 [ADR 0216](../decisions/0216-viewport-textures-on-3d-materials.md) (the borrow path this generalises)
@@ -47,23 +47,23 @@ crosshair or code, with focus and keyboard routing. The Demo's World UI tab has 
 
 ## Steps
 
-- [ ] **GPU-sourced textures.** `Texture2D.FromGpuSource`, `TextureGpu` borrow path shared with viewports, DecalAtlas and
+- [x] **GPU-sourced textures.** `Texture2D.FromGpuSource`, `TextureGpu` borrow path shared with viewports, DecalAtlas and
   canvas guards. Verified by: `viewport-material` golden unchanged; unit test of `FromGpuSource` size/no pixels.
-- [ ] **Context hosts.** `IUiContextHost`, `UiDocument.FindHost`/`Host`/`Panel`, model names per host. Verified by:
+- [x] **Context hosts.** `IUiContextHost`, `UiDocument.FindHost`/`Host`/`Panel`, model names per host. Verified by:
   existing UI tests green; `UiPanel3DTests` documents attach to panels, model names per panel.
-- [ ] **UI render targets (G11.5).** `IPreSceneRenderer`, panel registration and segments in `VulkanUiRenderer`, shared
+- [x] **UI render targets (G11.5).** `IPreSceneRenderer`, panel registration and segments in `VulkanUiRenderer`, shared
   stack sizing, resolve shader (`UiPanelResolve.vk.frag.slang` + `.spv` + `shaders.lock`), mips. Verified by: `ui-panel3d`
   golden (gradient, clip mask, blur) on moltenvk and lavapipe, same-frame self-check, validation clean, UI goldens unchanged.
-- [ ] **`UiPanel3D` node (G11.6).** Quad, material, `Brightness`, `UpdateMode`, distance and frustum gating, ≤ 8 per
+- [x] **`UiPanel3D` node (G11.6).** Quad, material, `Brightness`, `UpdateMode`, distance and frustum gating, ≤ 8 per
   frame, edit-mode render-once. Verified by: `UiPanel3DTests` gating cases.
-- [ ] **Input.** Mouse, crosshair + `ClickAction`, manual, capture across the edge, focus + keyboard + Escape, line of
+- [x] **Input.** Mouse, crosshair + `ClickAction`, manual, capture across the edge, focus + keyboard + Escape, line of
   sight, layer-first precedence. Verified by: `UiPanel3DTests` routing cases; `TryRayToPixel` on rotated, scaled quads.
-- [ ] **Allocation.** One panel updating every frame. Verified by: `ui-panel3d` `--alloc` run 0 B; a headless unit gate.
-- [ ] **Editor (G11.7 part).** `UiPanel3D` inspector header button "Open document in UI preview" at the panel's
+- [x] **Allocation.** One panel updating every frame. Verified by: `ui-panel3d` `--alloc` run 0 B; a headless unit gate.
+- [x] **Editor (G11.7 part).** `UiPanel3D` inspector header button "Open document in UI preview" at the panel's
   `Resolution` (`UiPreview.FixedSize`). Verified by: editor unit test.
-- [ ] **Demo.** Terminal panel in `world_ui` opening a gate, Tab toggles mouse/crosshair, Spanish and qps strings,
+- [x] **Demo.** Terminal panel in `world_ui` opening a gate, Tab toggles mouse/crosshair, Spanish and qps strings,
   `Demo.Tests` clicks it through `PushPointer`; screenshot. Verified by: Demo tests, `just demo-screenshots` image.
-- [ ] **Docs and close.** world-space-ui.md Panels section + "Changes from the proposal", proposal status, game-ui,
+- [x] **Docs and close.** world-space-ui.md Panels section + "Changes from the proposal", proposal status, game-ui,
   materials, testing, editor, demo, milestones, AGENTS.md, README, landing page; ADRs 0252/0253; log, state. Verified
   by: `check.sh`, `just docs-build`.
 
