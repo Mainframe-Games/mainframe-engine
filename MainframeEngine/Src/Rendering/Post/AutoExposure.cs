@@ -80,7 +80,10 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
         var size = (uint)LuminanceSize;
         for (var k = 0; k < _levels.Length; k++, size /= 4)
             _levels[k] = new RenderTarget(ctx, new RenderTargetDesc($"auto exposure {size}²", [RenderTargetAttachment.Sampled(LogFormat)], null), new Extent2D(size, size));
-        _adapted = new RenderTarget(ctx, new RenderTargetDesc("auto exposure adapted", [RenderTargetAttachment.Sampled(AdaptedFormat)], null), new Extent2D(1, 1));
+        // Sampled by the tonemap and glow, and copied for the CPU readback (ADR 0257).
+        _adapted = new RenderTarget(ctx, new RenderTargetDesc("auto exposure adapted",
+            [RenderTargetAttachment.Sampled(AdaptedFormat) with { Usage = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit }], null),
+            new Extent2D(1, 1));
         _previous = new RenderTarget(ctx, new RenderTargetDesc("auto exposure previous", [RenderTargetAttachment.Sampled(AdaptedFormat)], null), new Extent2D(1, 1));
         const uint bins = AutoExposureHistogram.BinCount;
         _histogramRows = new RenderTarget(ctx, new RenderTargetDesc("auto exposure histogram rows", [RenderTargetAttachment.Sampled(HistogramFormat)], null),
