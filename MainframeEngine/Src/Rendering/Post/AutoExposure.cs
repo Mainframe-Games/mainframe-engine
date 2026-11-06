@@ -3,11 +3,12 @@ using Silk.NET.Vulkan;
 namespace MainframeEngine;
 
 /// <summary>
-/// Auto exposure (ADR 0154) in raster passes, never read back to the CPU: the HDR scene's log2 luminance at 64 × 64
+/// Auto exposure (ADR 0154) in raster passes: the HDR scene's log2 luminance at 64 × 64
 /// (<c>AutoExposureLuminance</c>, 16 taps per texel), reduced by 4 × 4 means to 16², 4² and 1 × 1
 /// (<c>AutoExposureReduce</c>), then the adapted luminance (<c>AutoExposureAdapt</c>: clamped, approached from last
 /// frame's value) into a 1 × 1 <c>R32_SFLOAT</c> image that the tonemap and the glow's first level read; a last pass
-/// copies it into the "previous" image for the next frame. A <see cref="PostStage.BeforeTonemap"/> effect (ADR 0163),
+/// copies it into the "previous" image for the next frame, and a copy into a per-frame-slot buffer brings it back to the
+/// CPU a couple of frames later (<see cref="LastAdaptedLuminance"/>, for <c>IgnoreExposure</c> surfaces, ADR 0257). A <see cref="PostStage.BeforeTonemap"/> effect (ADR 0163),
 /// enabled whenever the post tonemap pass runs (it binds the adapted luminance even with auto exposure off); allocates
 /// nothing per frame. Nothing is blended, so no format needs blending support.
 /// <para>
@@ -52,6 +53,16 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
     private Pipeline _histogramAdaptPipeline;
     private bool _needsClear = true;
     private bool _wasEnabled;
+    private readonly GpuBuffer?[] _readback = new GpuBuffer?[IVulkanContext.MaxFramesInFlight];
+    private readonly ulong[] _readbackFrame = new ulong[IVulkanContext.MaxFramesInFlight]; // 0: nothing in flight
+    private ulong _lastReadFrame;
+
+    /// <summary>
+    /// The adapted luminance the tonemap used a couple of frames ago (read back from the GPU once its frame finished),
+    /// or 0 while auto exposure is off or before the first value arrives. ADR 0257: <c>IgnoreExposure</c> labels and
+    /// panels divide by the exposure it gives.
+    /// </summary>
+    public float LastAdaptedLuminance { get; private set; }
     /// <summary>
     /// GPU time of the measure-and-adapt passes in a recent frame, in milliseconds (0 while off or untimed): a read-through
     /// to the effect's GPU zone (<see cref="GpuProfiler.LastMilliseconds"/>, G10).
@@ -69,7 +80,10 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
         var size = (uint)LuminanceSize;
         for (var k = 0; k < _levels.Length; k++, size /= 4)
             _levels[k] = new RenderTarget(ctx, new RenderTargetDesc($"auto exposure {size}²", [RenderTargetAttachment.Sampled(LogFormat)], null), new Extent2D(size, size));
-        _adapted = new RenderTarget(ctx, new RenderTargetDesc("auto exposure adapted", [RenderTargetAttachment.Sampled(AdaptedFormat)], null), new Extent2D(1, 1));
+        // Sampled by the tonemap and glow, and copied for the CPU readback (ADR 0257).
+        _adapted = new RenderTarget(ctx, new RenderTargetDesc("auto exposure adapted",
+            [RenderTargetAttachment.Sampled(AdaptedFormat) with { Usage = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit }], null),
+            new Extent2D(1, 1));
         _previous = new RenderTarget(ctx, new RenderTargetDesc("auto exposure previous", [RenderTargetAttachment.Sampled(AdaptedFormat)], null), new Extent2D(1, 1));
         const uint bins = AutoExposureHistogram.BinCount;
         _histogramRows = new RenderTarget(ctx, new RenderTargetDesc("auto exposure histogram rows", [RenderTargetAttachment.Sampled(HistogramFormat)], null),
@@ -179,8 +193,12 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
         if (!settings.AutoExposureEnabled)
         {
             _wasEnabled = false;
+            LastAdaptedLuminance = 0f;
+            Array.Clear(_readbackFrame);
             return;
         }
+
+        CollectReadback();
 
         var (minLuminance, maxLuminance) = AutoExposureHistogram.LuminanceRange(settings);
         var blend = _wasEnabled ? settings.AutoExposureBlend(deltaTime) : 1f;
@@ -214,7 +232,72 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
             Pass(cb, _adapted, _adaptPipeline, _layout, _adaptSet, &push, sizeof(AdaptPush));
         }
 
+        CopyForReadback(cb);
         Pass(cb, _previous, _copyPipeline, _layout, _copySet, &push, sizeof(AdaptPush));
+    }
+
+    // The newest finished frame's adapted luminance (the slots' buffers are only rewritten after their fence).
+    private void CollectReadback()
+    {
+        var completed = _ctx.Deletions.CompletedFrame;
+        for (var slot = 0; slot < _readback.Length; slot++)
+        {
+            var frame = _readbackFrame[slot];
+            if (frame == 0 || frame > completed || frame <= _lastReadFrame || _readback[slot] is not { } buffer)
+                continue;
+            var value = System.Runtime.InteropServices.MemoryMarshal.Read<float>(buffer.MappedSpan);
+            if (float.IsFinite(value) && value > 0f)
+            {
+                LastAdaptedLuminance = value;
+                _lastReadFrame = frame;
+            }
+        }
+    }
+
+    // _adapted (1 × 1 R32F, shader-read) → this slot's readback buffer, then back to shader-read for the tonemap and glow.
+    private void CopyForReadback(CommandBuffer cb)
+    {
+        var vk = _ctx.Vk;
+        var slot = _ctx.FrameSlot;
+        var buffer = _readback[slot] ??= GpuBuffer.Create(_ctx, sizeof(float), BufferUsageFlags.TransferDstBit, GpuMemoryUsage.Readback);
+        var image = _adapted.GetColor(0).Handle;
+        var range = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, 1);
+        var toTransfer = new ImageMemoryBarrier
+        {
+            SType = StructureType.ImageMemoryBarrier,
+            SrcAccessMask = AccessFlags.ColorAttachmentWriteBit | AccessFlags.ShaderReadBit,
+            DstAccessMask = AccessFlags.TransferReadBit,
+            OldLayout = ImageLayout.ShaderReadOnlyOptimal,
+            NewLayout = ImageLayout.TransferSrcOptimal,
+            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+            Image = image,
+            SubresourceRange = range,
+        };
+        vk.CmdPipelineBarrier(cb, PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.FragmentShaderBit, PipelineStageFlags.TransferBit,
+            0, 0, null, 0, null, 1, &toTransfer);
+        var region = new BufferImageCopy
+        {
+            ImageSubresource = new ImageSubresourceLayers(ImageAspectFlags.ColorBit, 0, 0, 1),
+            ImageExtent = new Extent3D(1, 1, 1),
+        };
+        vk.CmdCopyImageToBuffer(cb, image, ImageLayout.TransferSrcOptimal, buffer.Handle, 1, &region);
+        var toShader = toTransfer with
+        {
+            SrcAccessMask = AccessFlags.TransferReadBit,
+            DstAccessMask = AccessFlags.ShaderReadBit,
+            OldLayout = ImageLayout.TransferSrcOptimal,
+            NewLayout = ImageLayout.ShaderReadOnlyOptimal,
+        };
+        var host = new MemoryBarrier
+        {
+            SType = StructureType.MemoryBarrier,
+            SrcAccessMask = AccessFlags.TransferWriteBit,
+            DstAccessMask = AccessFlags.HostReadBit,
+        };
+        vk.CmdPipelineBarrier(cb, PipelineStageFlags.TransferBit, PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.HostBit,
+            0, 1, &host, 0, null, 1, &toShader);
+        _readbackFrame[slot] = _ctx.FrameNumber;
     }
 
     private void Pass(CommandBuffer cb, RenderTarget target, Pipeline pipeline, PipelineLayout layout, DescriptorSet set, void* push, int pushSize)
@@ -261,6 +344,8 @@ internal sealed unsafe class AutoExposure() : PostEffect("auto exposure", PostSt
         _previous.Dispose();
         _histogramRows.Dispose();
         _histogram.Dispose();
+        foreach (var buffer in _readback)
+            buffer?.Dispose();
     }
 
     // AutoExposureAdapt.vk.frag's push block (the luminance, reduce and copy passes declare none).
