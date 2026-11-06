@@ -21,7 +21,7 @@ namespace MainframeEngine;
 /// </remarks>
 [Tool]
 [EditorIcon("mountain")]
-public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderResourceOwner
+public sealed partial class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderResourceOwner
 {
     /// <summary>What <see cref="SurfaceAt"/> returns where there is water.</summary>
     public const int WaterSurface = 255;
@@ -345,6 +345,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
             Subscribe();
             if (_builtVersion != data.Version)
                 RefreshAll();
+            SyncObjects();
         }
     }
 
@@ -380,6 +381,8 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
 
     protected override void OnProcess(in GameTime gameTime)
     {
+        if (_built)
+            SyncObjects();
         if (_macroBake is { IsCompleted: true } bake)
         {
             _macroBake = null;
@@ -533,6 +536,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
         Subscribe();
         _foliage = new TerrainFoliage3D { Name = "Foliage", Terrain = this };
         AddChild(_foliage);
+        SpawnObjects();
         if (MacroTextureEnabled && _macro is null) // not already baked by a RebakeMacroTexture before the build
             StartMacroBake();
     }
@@ -559,6 +563,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
         _wetBounds = Aabb.Empty;
         _foliage?.Free();
         _foliage = null;
+        FreeObjects();
         _lodNodes = [];
         _bodies = [];
         _shapes = [];
@@ -758,7 +763,8 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
             for (var cx = 0; cx < _chunks; cx++)
                 RebuildChunk(cx, cz, collision: true);
         UpdateWetBounds();
-        _builtVersion = _data!.Version;
+        ReheightObjects(new Rect2I(0, 0, _data!.VerticesPerSide, _data.VerticesPerSide));
+        _builtVersion = _data.Version;
     }
 
     private void Subscribe()
@@ -767,6 +773,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
             return;
         Unsubscribe();
         _data.Edited += _onEdited;
+        SubscribeObjects(_data);
         _subscribed = _data;
     }
 
@@ -775,6 +782,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
         if (_subscribed is null)
             return;
         _subscribed.Edited -= _onEdited;
+        UnsubscribeObjects(_subscribed);
         _subscribed = null;
     }
 
@@ -812,6 +820,7 @@ public sealed class Terrain3D : Node3D, ISceneSaveHook, IWaterBody3D, IRenderRes
                         RebuildChunk(cx, cz, collision);
                 if (layers == TerrainLayers.Water || _wetBounds is { IsEmpty: false })
                     UpdateWetBounds();
+                ReheightObjects(rect);
                 _builtVersion = data.Version;
             }
         }

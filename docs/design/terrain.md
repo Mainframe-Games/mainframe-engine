@@ -7,16 +7,17 @@ per-chunk trimesh collision built from the exact render triangles, exact height/
 analytic raycast. Layers live as PNG images next to the scene. This is the core of G8a ([proposal](future/terrain.md),
 [ADR 0149](../../memory/decisions/0149-terrain-trees-water-engine-features.md),
 [ADR 0153](../../memory/decisions/0153-terrain3d-core.md), [ADR 0156](../../memory/decisions/0156-terrain-splat-material.md), foliage:
-[ADR 0157](../../memory/decisions/0157-terrain-foliage-scatter.md)); the design is modelled on
+[ADR 0157](../../memory/decisions/0157-terrain-foliage-scatter.md), objects:
+[ADR 0273](../../memory/decisions/0273-terrain-objects-list-and-nodes.md)); the design is modelled on
 [TerraBrush](https://github.com/spimort/TerraBrush) (MIT, © 2023 spimort) — no TerraBrush code or art is used.
 
 Built so far: the data and its files, both profiles' knobs, the Realistic profile's geometry (smooth normals,
 geomipmapped chunk LOD with skirts), collision (`CollisionMode.All`), queries, the edit API with undo tiles, the
 scene-save hook, the Realistic look (`TerrainSplatMaterial3D` with `TerrainLayer`s), the [Faceted look](#faceted-look)
-(`TerrainMaterial3D`), [foliage scatter](#foliage) (grass, ferns, pebbles), and the editor's [Terrain dock](#editing)
-(create, sculpt, paint, water, foliage; ADR 0270) with painted foliage density. Not yet: object scatter (and the dock's
-Objects mode), the foliage build radius, `CollisionMode.NearBodies` (a stub that builds every chunk) and
-sub-rectangle texture uploads.
+(`TerrainMaterial3D`), [foliage scatter](#foliage) (grass, ferns, pebbles), [object scatter](#objects) (scenes with
+stable ids), and the editor's [Terrain dock](#editing) (create, sculpt, paint, water, foliage, objects; ADR 0270) with
+painted foliage density. Not yet: the objects' `MultiMesh` render mode, the foliage build radius,
+`CollisionMode.NearBodies` (a stub that builds every chunk) and sub-rectangle texture uploads.
 
 ## Key types
 
@@ -37,6 +38,9 @@ All in [`Src/Scene/Nodes3D/Terrain/`](../../MainframeEngine/Src/Scene/Nodes3D/Te
 | `FoliageType : Resource` | one kind of foliage in `TerrainData.FoliageTypes` ([Foliage](#foliage), in `Terrain/Foliage/`) |
 | `TerrainFoliage3D : Node3D` | `[Tool]` internal child (`Terrain3D.Foliage`): one `MultiMeshInstance3D` per (tile, type), thinning in `OnProcess` |
 | `GrassMesh` | procedural `Clump`, `Fern`, `Rock` meshes with the foliage streams, and `CreateMaterial()` |
+| `ScatterObjectType : Resource` | one kind of object in `TerrainData.ObjectTypes` ([Objects](#objects), in `Terrain/Objects/`) |
+| `TerrainObject`, `TerrainObjectChange` (record structs) | `(Id, Type, X, Z, YawDegrees, Scale)`; `(Instance, Added)` |
+| `ITerrainObject` | a scattered scene root that learns its `TerrainObjectId` and `Terrain` before it enters the tree |
 
 ## Coordinates and grid
 
@@ -81,6 +85,8 @@ The layout knobs throw once the layers are loaded (`EnsureLoaded`); change them 
 | `surface.png` | Faceted | RGBA8, cells | R = surface id (0) |
 | `user.png` | both | RGBA8, cells | four game channels (0) |
 | `water.png` | both | RGBA8, (N+1)² | R = depth fraction of `MaxWaterDepth`; G, B, A reserved (0) |
+| `foliage-0.png`, `foliage-1.png` | both | RGBA8, cells | painted foliage density of types 0–3 and 4–7 (only once painted) |
+| `objects.json` | both | JSON | the scattered objects and the next id ([Objects](#objects); only once an object existed) |
 
 - **Heights are quantised as they are written** (`QuantizeHeight`), so save → load gives the same floats.
 - A missing file loads as its default; code-made data (`TerrainData.Create`) works with no folder at all — the forest
@@ -288,6 +294,42 @@ type's `Material`, `CastShadows` = the type's and `VisibilityRangeEnd` = its `Cu
   tip, colours root → tip, and normals leaning halfway to up; `CreateMaterial()` is a `FoliageMaterial3D` with no
   cut-out, `BackFace = Keep`, translucency 0.45, PBR, wind strength 0.6 and bend 0.5.
 
+## Objects
+
+Objects that need collision, scripts or removal (rocks, stumps, crates) are an explicit list with stable ids (G8a.9,
+[ADR 0273](../../memory/decisions/0273-terrain-objects-list-and-nodes.md)), not foliage: a saved id always means the same
+object, so a game can remove one (a felled tree) and remember that in its save.
+
+| `ScatterObjectType` | Default | |
+|---|---|---|
+| `Name` | "" | the stable key games look the type up by (`TerrainData.ObjectTypeIndex(name)`) |
+| `Scenes` | none | `PackedScene` variants: an instance shows `Scenes[Terrain3D.VariantHash(id) % Scenes.Length]` |
+| `SpacingMeters` | 4 | the Scatter brush's grid: at most one instance of the type per cell |
+| `Jitter` | 0.4 | offset within the cell, a fraction of the spacing (at most 0.45, so each instance stays in its cell) |
+| `RandomYaw`, `ScaleMin`/`ScaleMax` | on, 0.9/1.1 | for new instances |
+| `SinkMeters` | 0 | the base sits this far under the ground (× scale) |
+| `SlopeMaxDegrees`, `AvoidWater` | 40°, on | the Scatter brush skips steeper ground and water |
+
+- **The list.** `TerrainData.ObjectTypes` (append new types at the end: instances store the index), `Objects`
+  (`TerrainObject(Id, Type, X, Z, YawDegrees, Scale)`, terrain-local metres), `NextObjectId`, `AddObject(type, x, z, yaw,
+  scale)` → id, `RemoveObject(id)` (0 B), `RestoreObject(o)` (puts a record back with its own id: undo; the next id never
+  moves back), `GetObject(id)`, and the `ObjectsChanged` event. Ids start at 1 and are never reused. Y is not stored.
+- **The file.** `objects.json` beside the layers: `{ "format": 1, "nextId": n, "objects": [[id, type, x, z, yaw,
+  scale], …] }`, read on first use through `ContentFiles`, written by `SaveLayers` only when the list changed (or the
+  folder moved). A terrain that never had an object has no file; one whose objects were all removed keeps it, for the
+  next id. A file with a duplicate id, or an id at or above `nextId`, fails to load (`InvalidDataException`).
+- **Spawning** (`Nodes` mode): each object is its scene, instantiated under the terrain's unowned `Objects` container
+  (`Terrain3D.ObjectsRoot`, built with the chunks, never saved) at `(X, HeightAt − SinkMeters × Scale, Z)` with its yaw and
+  scale, named `Object<id>`. A scene root implementing `ITerrainObject` gets `TerrainObjectId` and `Terrain` before it
+  enters the tree, so `OnEnterTree` and `OnReady` see them. `Terrain3D.GetObjectNode(id)`, `ObjectCount`.
+- **Following the ground.** After a height or water edit (undo included) the instances over the touched triangles are
+  put back on the new bed; changes made while the terrain was out of the tree are caught up when it re-enters.
+- **Removal.** `Terrain3D.RemoveObject(id)` (or the data's) removes the record and frees the node at the end of the frame,
+  so an object's own script can remove itself. A change to the type list or to a type (a new scene variant, another sink
+  depth) re-spawns every instance the next frame. An object whose type has no scene keeps its record and draws nothing.
+- **Limits.** One full scene per object: keep to about 2,000 per terrain (the dock warns above that). Forests of
+  thousands of trees wait for the proposal's `MultiMesh` mode (G8b.7).
+
 ## Collision
 
 One `StaticBody3D` per chunk (at the chunk origin) whose `ConcavePolygonShape3D.Faces` are copied from the chunk's
@@ -349,7 +391,12 @@ inspector shows a **Terrain** tab (`mountain` icon) and the view's left button e
   0.05)) or Realistic splat layers (the layer moves toward 1 by the weight, the others scale, renormalised to 255), and
   user channels (Value: blend toward a value; Id: write it under ≥ half the brush). **Water** (`droplet`): depth above the
   bed moves toward the Level. **Foliage** (`plant-2`): the chosen `FoliageType`'s painted density (types 0–7) moves
-  toward the Density (Shift clears; see [Foliage](#foliage)). Paint, Water and Foliage also fill a dragged **rectangle**
+  toward the Density (Shift clears; see [Foliage](#foliage)). **Objects** (`cube`): the chosen `ScatterObjectType`
+  (the list shows each type's count, and the total turns red above 2,000) with **Scatter** (`grain`: every grid cell of
+  the type's spacing under the brush gets an instance when the brush weight is above the cell's hash and it holds none
+  of the type yet, so painting over the same ground adds nothing; slope and water limits) or **Place** (`target`: one
+  object per click); Shift removes the type's objects under the brush (Place: the nearest one), Cmd/Ctrl+click picks the
+  type of the nearest object (see [Objects](#objects)). Paint, Water and Foliage also fill a dragged **rectangle**
   (snapped to cells or vertices).
 - **Brush** (`TerrainBrush`): circle or square, size 1–256 m, strength (remembered per group: Sculpt 25 %, Paint and
   Water 100 %), falloff (the fraction of the radius that fades, smoothstep), spacing (5–100 % of the size), slope limits.
@@ -363,7 +410,9 @@ inspector shows a **Terrain** tab (`mountain` icon) and the view's left button e
   starts; blue, orange while Shift inverts, green while Cmd/Ctrl picks. The label beside the pointer reads
   "Raise · 16 m · 25 % · h 3.4 m · 12°" and is rebuilt only when a shown value changes.
 - **Undo:** a stroke, ramp or rectangle runs inside `Terrain3D.Edit.Begin/End` and commits one `TerrainEditAction`
-  (the chunk tiles before and after, uncompressed); undo and redo write them back, so foliage and collision follow.
+  (the chunk tiles before and after, uncompressed); undo and redo write them back, so foliage and collision follow. An
+  Objects stroke or click commits one `TerrainObjectsAction` (the added and removed records), whose undo and redo put the
+  same ids back.
 - Every stamp reads its rectangle once and writes once (`TerrainBrushOps`), so undo is bit-exact and stamps have no
   order bias. The terrain's collision trimesh is hidden from Visible Collision Shapes (it is the drawn triangles).
 
@@ -405,6 +454,12 @@ bodies) is the planned fix for larger maps.
   and selection, skirts, undo/redo bit-exact, data replacement, Faceted, water, a `CharacterBody3D` capsule standing
   1 cm (its safe margin) above the surface, a sphere resting on it, physics rays agree); `TerrainSaveTests` (scene
   save writes `<scene>_terrain/`, reload); `TerrainAllocationTests` (0 B queries and frames).
+- Objects: `TerrainObjectsTests` (ids never reused and restored as they were, lookup by name, `objects.json` written only
+  when changed, kept for the next id once emptied, carried to a new folder, a bad file reported; one unowned, unsaved
+  scene instance per object on the ground with its yaw and scale, `ITerrainObject` id and terrain set before
+  `OnEnterTree`, removal frees the node at the frame's end, height, undo and water edits re-place the instances, variants
+  by id, type edits re-spawn, changes outside the tree caught up); the dock's Scatter, Shift removal and Place in
+  `TerrainDockTests`.
 - Foliage: `TerrainFoliageTests` (bit-identical placement wherever the terrain is and whatever the tiling, instances
   on `HeightAt`, density = the masked weights ± 6 %, water/slope/height exclusions, edits rebuild only nearby tiles,
   distance thinning monotonic within ± 8 % of the factor and hidden past the cull distance, unsaved, list changes);
@@ -445,6 +500,20 @@ bodies) is the planned fix for larger maps.
 - Falloff is the fraction of the radius that fades (0: a hard edge), the proposal's "fraction where the fade begins"
   read from the edge; the default 0.5 is the same.
 
+## Changes from the proposal (objects)
+
+- The list is `objects.json` (plain JSON like the carve records), not `objects.mfres` (ADR 0273).
+- Only the `Nodes` render mode: `RenderMode` and the `MultiMesh` mode (flattened scenes, one compound body per chunk)
+  are not built; they come with G8b.7's forests.
+- One `Objects` container for every instance, not one per chunk (`Objects/c<chunk>`); re-heighting walks the list and
+  places only the instances over the edited triangles.
+- No `AlignToNormal`: instances stand upright (yaw only).
+- Shift removes the chosen type only (not "or all"); the single-click tool is called Place, and Shift+Place removes
+  the nearest object of the type. Cmd/Ctrl+click picks the type of the nearest object.
+- `RemoveObject` raises the data's `ObjectsChanged`, not `Terrain3D.Changed` (which reports image layers and
+  rectangles).
+- The sink is `SinkMeters × scale`, as foliage's.
+
 ## Changes from the proposal (Faceted look)
 
 - `TerrainMaterial3D` shades PBR by default (roughness 0.9; Blinn-Phong through `ShadingMode`), as the engine's default
@@ -468,8 +537,9 @@ bodies) is the planned fix for larger maps.
   runs synchronously on the render thread when a layer texture changes.
 - Foliage: the build radius (place only chunks near the camera, from a buffer pool), `ChannelCutoff`, and `FoliageMaterial3D.FadeMode.Shrink` (G8b) so thinning
   instances shrink instead of popping.
-- `CollisionMode.NearBodies`, the analytic physics-ray registration (decision 2 of the proposal), objects,
-  the dock's Foliage and Objects modes, brush mask PNGs and the X/Z axis lock.
+- Objects: the `MultiMesh` render mode (G8b.7), `AlignToNormal`, per-chunk containers.
+- `CollisionMode.NearBodies`, the analytic physics-ray registration (decision 2 of the proposal), brush mask PNGs and
+  the X/Z axis lock.
 - Inspector edits of a loaded `TerrainData`'s layout knobs throw (the dock's Create terrain data sets them for new data).
 - Inline (never saved) terrain data does not survive an editor code reload (snapshots carry knobs, not pixels).
 - When G6.4 lands, the per-level meshes can become index-only `MeshSurface.Lods` over one vertex buffer.

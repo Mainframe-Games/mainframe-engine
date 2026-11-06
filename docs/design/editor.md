@@ -674,7 +674,7 @@ is the first; the river tool (G8c.4) and game plugins use the same API (`Mainfra
 
 ```csharp
 [EditorViewportTool(typeof(Terrain3D), Title = "Terrain", Icon = "mountain")]
-public sealed class TerrainEditorTool : IEditorViewportTool
+public sealed partial class TerrainEditorTool : IEditorViewportTool
 {
     bool Handles(Node node);
     void Activate(IViewportToolContext context, Node node);   // Scene, History, Camera, ViewPixels, SetCursorLabel
