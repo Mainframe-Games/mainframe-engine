@@ -32,6 +32,7 @@ internal static class NavigationDebugDraw
             var regions = map.RegionList;
             for (var i = 0; i < regions.Count; i++)
                 DrawGrid(lines, regions[i].LiveGrid, view);
+            DrawMesh(lines, map.Mesh, view);
         }
 
         var agents = map.AgentList;
@@ -64,6 +65,82 @@ internal static class NavigationDebugDraw
             previous = next;
         }
     }
+
+    /// <summary>
+    /// G3.9: the navigation mesh — every polygon's edges (faint, culled to the view; only the borders past
+    /// <see cref="MaxDetailedCells"/> visible polygons), the borders (edges with no neighbour), the edge connections between
+    /// regions, and each link with its ends (faded while it joins nothing).
+    /// </summary>
+    internal static void DrawMesh(DebugLines lines, NavMesh2D mesh, (Vector2 Min, Vector2 Max)? view)
+    {
+        var faint = NavigationDebugColors.CellLines;
+        var visible = 0;
+        for (var p = 0; p < mesh.PolyCount && visible <= MaxDetailedCells; p++)
+            if (Overlaps(view, mesh.PolyMin[p], mesh.PolyMax[p]))
+                visible++;
+        if (visible <= MaxDetailedCells)
+        {
+            for (var p = 0; p < mesh.PolyCount; p++)
+            {
+                if (!Overlaps(view, mesh.PolyMin[p], mesh.PolyMax[p]))
+                    continue;
+                for (var k = 0; k < mesh.PolySize[p]; k++)
+                {
+                    var (u, v) = mesh.Edge(p, k);
+                    if (u < v) // an inner edge is drawn by one of its two polygons (borders below)
+                        Line(lines, mesh.Vertices[u], mesh.Vertices[v], faint);
+                }
+            }
+        }
+
+        var border = NavigationDebugColors.Region;
+        foreach (var (a, b) in mesh.BorderEdges)
+            if (Overlaps(view, Vector2.Min(a, b), Vector2.Max(a, b)))
+                Line(lines, a, b, border);
+        var connection = NavigationDebugColors.EdgeConnection;
+        foreach (var (a, b) in mesh.EdgeConnections)
+        {
+            Line(lines, a, b, connection);
+            var mid = (a + b) * 0.5f;
+            Cross(lines, mid, 3f, connection);
+        }
+
+        var links = mesh.Links;
+        for (var i = 0; i < links.Count; i++)
+        {
+            var color = NavigationDebugColors.Link;
+            if (!mesh.LinkConnected[i])
+                color.W *= 0.4f;
+            DrawLink(lines, mesh.LinkStart[i], mesh.LinkEnd[i], links[i].Bidirectional, color);
+        }
+    }
+
+    /// <summary>A link: its line, a circle at each end and an arrow head at the end (both ends when bidirectional).</summary>
+    internal static void DrawLink(DebugLines lines, Vector2 start, Vector2 end, bool bidirectional, Vector4 color)
+    {
+        Line(lines, start, end, color);
+        lines.AddCircle2D(Transform2D.Identity, start, 4f, color);
+        lines.AddCircle2D(Transform2D.Identity, end, 4f, color);
+        Arrow(lines, start, end, color);
+        if (bidirectional)
+            Arrow(lines, end, start, color);
+    }
+
+    private static void Arrow(DebugLines lines, Vector2 from, Vector2 to, Vector4 color)
+    {
+        var d = to - from;
+        var length = d.Length();
+        if (length < 1e-3f)
+            return;
+        d /= length;
+        var tip = to - d * 4f;
+        var side = new Vector2(-d.Y, d.X) * 4f;
+        Line(lines, tip, tip - d * 6f + side, color);
+        Line(lines, tip, tip - d * 6f - side, color);
+    }
+
+    private static bool Overlaps((Vector2 Min, Vector2 Max)? view, Vector2 min, Vector2 max) =>
+        view is not { } v || !(v.Max.X < min.X || v.Max.Y < min.Y || v.Min.X > max.X || v.Min.Y > max.Y);
 
     // The world rectangle the view shows, from the orthographic camera it renders with (null: unknown, draw everything).
     private static (Vector2 Min, Vector2 Max)? VisibleRect(SceneViewport viewport)

@@ -81,7 +81,7 @@ public sealed class DemoNavTests : IDisposable
         Assert.Equal(["basic_3d", "particles", "shaders"], _nav.ShownSceneIds);
         Show(Index("tiles_2d"));
         Assert.Equal("2d", _nav.ActiveCategory);
-        Assert.Equal(["basic_2d", "sprites_2d", "tiles_2d", "navigation_2d", "paths_2d"], _nav.ShownSceneIds);
+        Assert.Equal(["basic_2d", "sprites_2d", "tiles_2d", "navigation_2d", "navmesh_2d", "paths_2d"], _nav.ShownSceneIds);
     }
 
     [Fact]

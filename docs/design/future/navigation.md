@@ -1,7 +1,8 @@
 # Proposal: Navigation — later phases (G3b)
 
 **Milestone:** [Gameplay toolkit](../../milestones.md#gameplay-toolkit-) (G3) · **Status:** G3a shipped (G3.1–G3.6, see
-[Navigation](../navigation.md)); G3.7 avoidance shipped ([Avoidance](../navigation.md#avoidance-g37)); G3.8–G3.12 planned ·
+[Navigation](../navigation.md)); G3.7 avoidance shipped ([Avoidance](../navigation.md#avoidance-g37)); G3.8 closed (nothing to build); G3.9 navigation
+meshes shipped ([Navigation meshes](../navigation.md#navigation-meshes-g39)); G3.10–G3.12 planned ·
 **Depends on:** [Navigation](../navigation.md) (the shipped core) · **Related:** [Networking](../networking.md),
 [Mobile](mobile.md) (AOT), [Tile maps](../tile-maps.md)
 
@@ -29,16 +30,13 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
 ### Later phases
 
 - ~~**Avoidance (G3.7).**~~ Shipped: [Navigation → Avoidance](../navigation.md#avoidance-g37) (ADR 0250).
-- **2D navmesh polygons (G3.9).** `NavigationPolygon : Resource` (outlines → convex polygons) and
-  `NavigationRegion2D` (Godot names), A* over polygon adjacency plus the funnel algorithm, `NavigationLink2D` for
-  jumps and teleports, regions joined by shared edges. Baking from physics shapes and tile outlines with agent-radius
-  offsetting. This is the step between grids and 3D navmeshes, and it tests the map/region/agent split on
-  non-grid data.
+- ~~**2D navmesh polygons (G3.9).**~~ Shipped: [Navigation → Navigation meshes](../navigation.md#navigation-meshes-g39)
+  (ADR 0261).
 - **3D (G3.11–G3.12).** `NavigationServer3D` with the same map/region/agent split, `NavigationAgent3D`
   (`Vector3`, plus `PathHeightOffset`), and first a `NavigationGrid3D`: an `AStarGrid2D` on the XZ plane at a
   height, baked with `IntersectShape` against 3D static bodies — enough for top-down 3D games, tower defence and RTS.
-  Then `NavigationMesh` + `NavigationRegion3D` with baking from collision shapes and meshes; the baking library is
-  undecided ([Open questions](#open-questions)).
+  Then `NavigationMesh` + `NavigationRegion3D` with baking from collision shapes and meshes on DotRecast
+  ([Open questions](#open-questions)).
 
 ## Testing
 
@@ -49,24 +47,26 @@ The grid pathfinder, point graphs, `NavigationServer2D`, `NavigationGrid2D` (phy
 
 1. ~~**G3.6 TileMapLayer source**~~ shipped: [Navigation → Tile map source](../navigation.md#tile-map-source).
 2. ~~**G3.7 Avoidance.**~~ shipped: [Navigation → Avoidance](../navigation.md#avoidance-g37).
-3. **G3.8 Grid polish.** Isometric cell shapes if G2 needs them; HPA* only if a game needs it; cell painting in the
-   inspector if tile maps do not cover it.
-4. **G3.9 2D navmesh polygons.** `NavigationPolygon`, `NavigationRegion2D`, funnel, `NavigationLink2D`, bake.
+3. ~~**G3.8 Grid polish.**~~ closed as not needed (the owner agreed, 2026-11-07): none of its conditions arose (tile maps are square only, no game
+   needs HPA*, the live tile source covers cell painting).
+4. ~~**G3.9 2D navmesh polygons.**~~ shipped: [Navigation → Navigation meshes](../navigation.md#navigation-meshes-g39).
 5. **G3.10 Async queries.** Snapshots, worker scratch, next-sync delivery, `project.mfproj` section; tests.
 6. **G3.11 3D grid.** `NavigationServer3D`, `NavigationGrid3D`, `NavigationAgent3D`; Demo 3D variant.
-7. **G3.12 3D navmesh.** `NavigationMesh`, `NavigationRegion3D`, baking — after the dependency decision.
+7. **G3.12 3D navmesh.** `NavigationMesh`, `NavigationRegion3D`, baking on DotRecast (open question 1).
 
 ## Open questions
 
-1. **3D navmesh baking library.** Candidates, none assumed:
+1. **3D navmesh baking library.** Answered by the owner (2026-11-07): **DotRecast** from NuGet (DotRecast.Recast and
+   DotRecast.Detour, every call kept inside `Src/Navigation`), once AOT/trimming and per-query allocation check out. The
+   candidates were:
    - *Recast/Detour* (C++, zlib licence, actively maintained by the recastnavigation project; Godot bakes with
      Recast). Needs a native shim built per RID in `natives.yml` like `mfrmlui` ([natives.md](../natives.md)), and
      static linking for iOS ([mobile.md](mobile.md)).
    - *DotRecast* (C# port of Recast/Detour, zlib licence, NuGet; mostly one maintainer). No native build; check AOT
      and trimming, per-query allocation, and release cadence before relying on it.
    - Our own voxel/region/contour pipeline: no dependency, but months of work.
-2. **Polygon clipping for 2D navmeshes** (agent-radius offsetting, merging obstacles): Clipper2 is now an approved
-   dependency (ADR 0203, `Geometry2D`), so the question is only whether it covers the offsetting needs.
+2. ~~**Polygon clipping for 2D navmeshes.**~~ Answered by G3.9 ([ADR 0261](../../../memory/decisions/0261-navigation-meshes-2d.md)):
+   Clipper2 covers the offsetting and merging; the convex partition is the engine's own.
 3. ~~**Avoidance algorithm source.**~~ Answered by G3.7 ([ADR 0250](../../../memory/decisions/0250-navigation-avoidance-orca.md)):
    a C# port of RVO2 2.0 with its Apache-2.0 notice and licence text.
 4. **Tile map dirty rects.** G3.6 re-reads the used cells on the plain `Changed` signal (0 B once warm). Should tile maps

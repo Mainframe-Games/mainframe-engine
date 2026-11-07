@@ -270,6 +270,7 @@
         .tree-label span { display: block; }
         .tree-row select { flex: 1 1 auto; width: 60dp; }
         .tree-row input.text { flex: 1 1 auto; width: 60dp; }
+        .tree-row input.tree-variants { flex: 0 0 auto; width: 36dp; }
         .tree-gap { display: block; flex: 1 1 auto; }
         .tree-lods { display: block; margin: 4dp 0dp; padding: 2dp 0dp; background-color: #121418; border: 1dp #2a2d36; border-radius: 3dp; }
         .tree-lod { display: flex; flex-direction: row; align-items: center; height: 22dp; padding: 0dp 4dp; font-size: 11dp; }

@@ -128,7 +128,9 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
   `World2D`, synced after each fixed step), `Nodes2D/` (`NavigationGrid2D` + `NavigationGridData`, `NavigationAgent2D`),
   `Baking/` (`INavigationGridBaker` seam, the physics baker through queries only, `TileMapLayerBaker`: live grids from a
   `TileMapLayer`, G3.6), `Avoidance/` (G3.7, ADR 0250: `Orca2D`, an RVO2 port under Apache-2.0 with
-  `LICENSE-RVO2.txt`, and the per-map `AvoidanceSimulation2D`) with `Nodes2D/NavigationObstacle2D`; see `docs/design/navigation.md`
+  `LICENSE-RVO2.txt`, and the per-map `AvoidanceSimulation2D`) with `Nodes2D/NavigationObstacle2D`; `Polygons/` (G3.9, ADR 0261:
+  `NavigationPolygon`, the Clipper2 bake and own convex `PolygonPartition`, the map's `NavMesh2D` + `NavMeshSearch`: polygon
+  A* and the funnel) with `Nodes2D/NavigationRegion2D`, `NavigationLink2D` and `Baking/NavigationPolygonBaker2D`; see `docs/design/navigation.md`
 - `MainframeEngine/Src/Animation/` — `Animation` (transform, value, bezier, method, audio and event tracks; cubic, transitions),
   `AnimationLibrary`, `AnimationPlayer` (ADRs 0207, 0244), `PropertyBinding`/`AnimationValueOps` (typed property writes),
   `[AnimationMethod]` (generated invokers, MFG011);
@@ -207,7 +209,7 @@ bundle, named and iconed from `project.mfproj` `name`/`window.icon`, through `bu
 - `MainframeEngine.Editor/` — the editor exe (M10; `just editor [project|scene]`): `EditorApp : Engine` runs the tree in
   `SceneTree.EditMode` (only `[Tool]` nodes process) with an `EditorWorkspace` node; RmlUi panels in `Assets/Editor/`;
   `Session/` (tabs, one `SubViewport` world per scene), `Undo/`, `Animation/` (the Animation panel, G1a), `Timeline/`
-  (the timeline shared by the song, animation and video views), `Inspector/`, `Trees/` (the `Tree3D` inspector, G8b.3), `SceneTree/`, `Viewport/` (camera,
+  (the timeline shared by the song, animation and video views), `Inspector/`, `Trees/` (the `Tree3D` inspector, G8b.3; Bake Variants, G8b.7), `SceneTree/`, `Viewport/` (camera,
   3D/2D gizmos, picking; `Tools/`: `IEditorViewportTool`, ADR 0270), `Terrain/` (the Terrain dock), `Projects/` (`ProjectService`: game assembly in a collectible ALC, code reload; New Project,
   Project Settings; `EditorLoader`: projects and scenes open behind the loading window, ADR 0238), `Play/` (`dotnet build` + game processes over the editor link), `FileSystem/` (file tree, moves
   with UID reference fix-ups, OS trash), `Settings/` (editor settings, code editor), `Updates/` (self-update from GitHub Releases: check, download, `--apply-update` swap), `UI/` (panels, dialogs), `Qa/`

@@ -3,7 +3,10 @@ using MainframeEngine.Serialization;
 
 namespace MainframeEngine.Editor.Tests;
 
-/// <summary>G3a in the editor: Visible Navigation, the grid inspector's Bake/Clear with undo, the agent's gizmo.</summary>
+/// <summary>
+/// G3a in the editor: Visible Navigation, the grid inspector's Bake/Clear with undo, the agent's gizmo; G3.9: the navigation
+/// region inspector's Bake/Clear with undo, the region and link gizmos.
+/// </summary>
 [Collection(nameof(SerialEditor))]
 public sealed class NavigationEditorTests : IDisposable
 {
@@ -169,5 +172,87 @@ public sealed class NavigationEditorTests : IDisposable
         var agentPlain = Lines(agent);
         agent.AvoidanceEnabled = true;
         Assert.True(Lines(agent) > agentPlain + 8, "the avoidance radius circle");
+    }
+
+    private NavigationRegion2D AddMeshLevel()
+    {
+        var polygon = new NavigationPolygon { BakingRect = new Rect2(0, 0, 200, 100), AgentRadius = 5f };
+        var region = new NavigationRegion2D { Name = "Mesh", NavigationPolygon = polygon };
+        _editor.Scene.AddNode(region, _editor.Scene.Root);
+        var wall = new StaticBody2D { Name = "Wall", Position = new Vector2(100, 50) };
+        _editor.Scene.AddNode(wall, region);
+        _editor.Scene.AddNode(new CollisionShape2D { Name = "Shape", Shape = new RectangleShape2D { Size = new Vector2(20, 40) } }, wall);
+        _editor.Tick(2);
+        return region;
+    }
+
+    [Fact]
+    public void RegionBakeAndClearAreUndoableEditsOfThePolygon()
+    {
+        var region = AddMeshLevel();
+        var polygon = region.NavigationPolygon!;
+        var inspector = CustomInspectors.Find(typeof(NavigationRegion2D));
+        Assert.IsType<NavigationRegionInspector>(inspector);
+        var header = inspector!.GetHeaderRml(region)!;
+        Assert.Contains(NavigationRegionInspector.BakeAction, header, StringComparison.Ordinal);
+        Assert.Contains(NavigationRegionInspector.ClearAction, header, StringComparison.Ordinal);
+        Assert.Contains("not baked", header, StringComparison.Ordinal);
+        Assert.Contains("baking rect", header, StringComparison.Ordinal);
+
+        _editor.Scene.Selection.Set(region);
+        _editor.Tick();
+        W.Inspector.RunHeaderAction(NavigationRegionInspector.BakeAction);
+        _editor.Tick(2);
+        Assert.True(polygon.PolygonCount >= 4); // round the wall
+        Assert.Contains("polygons", NavigationRegionInspector.Status(region), StringComparison.Ordinal);
+        Assert.True(_editor.Scene.IsDirty);
+        Assert.Equal(polygon.PolygonCount, region.Map!.PolygonCount);
+        var baked = polygon.Polygons;
+
+        W.Inspector.RunHeaderAction(NavigationRegionInspector.ClearAction);
+        _editor.Tick(2);
+        Assert.Equal(0, polygon.PolygonCount);
+        Assert.Equal(0, region.Map.PolygonCount);
+
+        _editor.Scene.History.Undo(); // Clear
+        _editor.Tick(2);
+        Assert.Same(baked, polygon.Polygons);
+        Assert.Equal(baked.Length, region.Map.PolygonCount);
+        _editor.Scene.History.Undo(); // Bake
+        _editor.Tick(2);
+        Assert.Equal(0, polygon.PolygonCount);
+        _editor.Scene.History.Redo();
+        Assert.Same(baked, polygon.Polygons);
+
+        region.NavigationPolygon = null;
+        Assert.Contains("no navigation polygon", NavigationRegionInspector.Status(region), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheSelectedRegionDrawsItsBakeInputAndTheSelectedLinkItsReach()
+    {
+        var region = AddMeshLevel();
+        region.NavigationPolygon!.AddOutline([new(0, 0), new(50, 0), new(50, 50)]);
+        var link = new NavigationLink2D { Name = "Link", Position = new Vector2(20, 20), EndPosition = new Vector2(150, 0) };
+        _editor.Scene.AddNode(link, _editor.Scene.Root);
+        W.Commands.Execute("view.2d");
+        _editor.Tick(2);
+        var overlay = _editor.Scene.Viewport.OverlayLines;
+
+        int Lines(Node selected)
+        {
+            _editor.Scene.Selection.Set(selected);
+            _editor.Tick();
+            overlay.Clear();
+            _editor.Tick();
+            return overlay.LineCount;
+        }
+
+        var wallOnly = Lines(_editor.Scene.Root.GetNode("Mesh/Wall"));
+        Assert.True(Lines(region) > wallOnly + 3 + 16, "the outline's edges, a dot per vertex and the dashed baking rect");
+        var bidirectional = Lines(link);
+        Assert.True(bidirectional > wallOnly + 2 * 16, "a line, two reach circles and two arrow heads");
+        link.Bidirectional = false;
+        Assert.Equal(bidirectional - 2, Lines(link));
     }
 }

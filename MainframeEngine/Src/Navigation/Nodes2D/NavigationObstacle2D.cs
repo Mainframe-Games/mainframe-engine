@@ -42,6 +42,14 @@ public class NavigationObstacle2D : Node2D
     [Export(Flags = true)]
     public uint AvoidanceLayers { get; set; } = 1;
 
+    /// <summary>
+    /// G3.9: a navigation polygon bake that parses this obstacle carves its <see cref="Vertices"/> out of the mesh (grown
+    /// by the agent radius, like every obstruction). Godot's <c>affect_navigation_mesh</c>; off by default.
+    /// </summary>
+    [ExportGroup("Navigation Mesh")]
+    [Export]
+    public bool AffectNavigationMesh { get; set; }
+
     /// <summary>The map it is registered with (its viewport's; null outside the tree).</summary>
     public NavigationMap2D? Map => _map;
 

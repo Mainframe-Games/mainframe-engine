@@ -198,11 +198,38 @@ msgstr "[Séttîñgs (F10 / Stårt) ~~~~]"
 msgid "F12"
 msgstr "[F12 ~]"
 
+msgid "Navigation Mesh 2D"
+msgstr "[Ñåvîgåtîöñ Mésh 2Ð ~~~~]"
+
+msgid "Polygons baked round slanted walls, pillars and a carved pond, funnel paths to the clicked point, and two ferries: links the chasers hop across to the far bank."
+msgstr "[Pölýgöñs båkéð röûñð slåñtéð wålls, pîllårs åñð å çårvéð pöñð, fûññél påths tö thé çlîçkéð pöîñt, åñð twö férrîés: lîñks thé çhåsérs höp åçröss tö thé får båñk. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "Carve the pond"
+msgstr "[Çårvé thé pöñð ~~~]"
+
+msgid "Visible navigation"
+msgstr "[Vîsîblé ñåvîgåtîöñ ~~~~~]"
+
+msgid "Avoidance"
+msgstr "[Åvöîðåñçé ~~]"
+
+msgid "Polygons"
+msgstr "[Pölýgöñs ~~]"
+
+msgid "Bake again"
+msgstr "[Båké ågåîñ ~~]"
+
+msgid "Ferry crossings"
+msgstr "[Férrý çrössîñgs ~~~~]"
+
+msgid "Arrived"
+msgstr "[Årrîvéð ~~]"
+
 msgid "Navigation 2D"
 msgstr "[Ñåvîgåtîöñ 2Ð ~~~]"
 
-msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point."
-msgstr "[Å grîð båkéð fröm thé wålls, mûð thåt çösts thréé tîmés ås mûçh, åñð çhåsérs whösé ågéñts wålk tö thé çlîçkéð pöîñt. ~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgid "A grid baked from the walls, mud that costs three times as much, and chasers whose agents walk to the clicked point, steering round each other and the rolling boulder."
+msgstr "[Å grîð båkéð fröm thé wålls, mûð thåt çösts thréé tîmés ås mûçh, åñð çhåsérs whösé ågéñts wålk tö thé çlîçkéð pöîñt, stéérîñg röûñð éåçh öthér åñð thé röllîñg böûlðér. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "Diagonals"
 msgstr "[Ðîågöñåls ~~]"
@@ -237,14 +264,8 @@ msgstr "[Çhébýshév ~~]"
 msgid "Jump point search"
 msgstr "[Jûmp pöîñt séårçh ~~~~]"
 
-msgid "Visible navigation"
-msgstr "[Vîsîblé ñåvîgåtîöñ ~~~~~]"
-
 msgid "Click adds walls"
 msgstr "[Çlîçk åððs wålls ~~~~]"
-
-msgid "Arrived"
-msgstr "[Årrîvéð ~~]"
 
 msgid "Particles"
 msgstr "[Pårtîçlés ~~]"

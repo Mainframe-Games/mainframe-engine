@@ -269,6 +269,10 @@ public sealed partial class ViewportController
                 DrawAgent2D(overlay, agent);
             else if (selection[i] is NavigationObstacle2D { IsInsideTree: true } obstacle)
                 DrawObstacle2D(overlay, obstacle);
+            else if (selection[i] is NavigationRegion2D { IsInsideTree: true } region)
+                DrawRegion2D(overlay, region);
+            else if (selection[i] is NavigationLink2D { IsInsideTree: true } link)
+                DrawLink2D(overlay, link);
 
         _workspace.TileMap.Draw(scene, overlay, pixels);
         _workspace.Curves.Draw(overlay, CurvePixel(scene));
@@ -319,6 +323,69 @@ public sealed partial class ViewportController
         {
             lines.AddLine2D(Transform2D.Identity, at, agent.TargetPosition, NavigationDebugColors.Target);
             lines.AddCircle2D(Transform2D.Identity, agent.TargetPosition, agent.TargetDesiredDistance, NavigationDebugColors.Target);
+        }
+    }
+
+    // G3.9: the selected region's bake input — its outlines and baking rectangle — in the selection colour (the baked
+    // polygons draw with Visible Navigation).
+    private static void DrawRegion2D(DebugLines lines, NavigationRegion2D region)
+    {
+        if (region.NavigationPolygon is not { } polygon)
+            return;
+        var transform = region.GlobalTransform;
+        foreach (var outline in polygon.Outlines)
+        {
+            if (outline is not { Length: >= 2 })
+                continue;
+            var previous = transform.TransformPoint(outline[^1]);
+            foreach (var point in outline)
+            {
+                var next = transform.TransformPoint(point);
+                lines.AddLine2D(Transform2D.Identity, previous, next, SelectionColor);
+                lines.AddCircle2D(Transform2D.Identity, next, 2.5f, SelectionColor);
+                previous = next;
+            }
+        }
+
+        var rect = polygon.BakingRect;
+        if (rect.Size.X <= 0f || rect.Size.Y <= 0f)
+            return;
+        Span<Vector2> corners = [rect.Position, new(rect.End.X, rect.Position.Y), rect.End, new(rect.Position.X, rect.End.Y)];
+        for (var i = 0; i < 4; i++)
+        {
+            var a = transform.TransformPoint(corners[i]);
+            var b = transform.TransformPoint(corners[(i + 1) % 4]);
+            var d = b - a;
+            for (var k = 0; k < 8; k += 2) // dashed: the baking rect is a bound, not an outline
+                lines.AddLine2D(Transform2D.Identity, a + d * (k / 8f), a + d * ((k + 1) / 8f), SelectionColor);
+        }
+    }
+
+    // G3.9: the selected link — its line, an arrow head per direction it can be crossed, and a circle at each end with
+    // the map's link connection radius (the reach of each end onto the mesh).
+    private static void DrawLink2D(DebugLines lines, NavigationLink2D link)
+    {
+        var start = link.GetGlobalStartPosition();
+        var end = link.GetGlobalEndPosition();
+        var reach = MathF.Max(link.Map?.LinkConnectionRadius ?? 4f, 2f);
+        lines.AddLine2D(Transform2D.Identity, start, end, SelectionColor);
+        lines.AddCircle2D(Transform2D.Identity, start, reach, SelectionColor);
+        lines.AddCircle2D(Transform2D.Identity, end, reach, SelectionColor);
+        Arrow(start, end);
+        if (link.Bidirectional)
+            Arrow(end, start);
+
+        void Arrow(Vector2 from, Vector2 to)
+        {
+            var d = to - from;
+            var length = d.Length();
+            if (length < 1e-3f)
+                return;
+            d /= length;
+            var tip = to - d * reach;
+            var side = new Vector2(-d.Y, d.X) * 5f;
+            lines.AddLine2D(Transform2D.Identity, tip, tip - d * 8f + side, SelectionColor);
+            lines.AddLine2D(Transform2D.Identity, tip, tip - d * 8f - side, SelectionColor);
         }
     }
 

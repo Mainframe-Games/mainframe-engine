@@ -133,6 +133,9 @@ game.
     <td align="center" valign="top"><img src="docs/images/demo/paths_3d.png" width="380" alt="Paths 3D: a capsule riding an orange lift beside a landing, a ferry between two pads, a turntable and a green guard on a dotted patrol route"><br><b>Paths 3D</b> — moving platforms on Path3D followers carry a capsule: a lift, a ferry, a turntable; a guard on patrol, a camera rail</td>
     <td align="center" valign="top"><img src="docs/images/demo/world_ui.png" width="380" alt="World UI: a street with Label3D shop signs, walkers with nameplate markers and health bars, a press-E prompt, a gate waypoint and a gate-control terminal panel"><br><b>World UI</b> — Label3D signs in the scene; nameplates, a prompt and an edge-clamped waypoint as UiMarker3D rows on one HUD document; a UiPanel3D terminal that opens the gate</td>
   </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/demo/navmesh_2d.png" width="380" alt="Navigation Mesh 2D: a navigation mesh baked round slanted walls, pillars and a pond, chasers on funnel paths crossing a river by two ferry links"><br><b>Navigation Mesh 2D</b> — polygons baked round slanted walls, pillars and a carved pond; funnel paths and two ferries the chasers hop across</td>
+  </tr>
 </table>
 
 ### The editor
@@ -214,15 +217,11 @@ can be saved as a `.mfres` or made unique from the inspector.
     <td align="center" valign="top"><img src="docs/images/editor-world-ui-panel.png" width="380" alt="The Demo's gate terminal selected in the editor's scene view: its UiPanel3D shows Gate control, Gate open and a Close gate button from the UI preview's stand-in data, with the panel's Inspector"><br><b>World-space panels</b> — UiPanel3D terminals show their documents in the scene view, bound to the UI preview's stand-in data</td>
   </tr>
   <tr>
+    <td align="center" valign="top"><img src="docs/images/editor-tree.png" width="380" alt="A new Oak Medium Tree3D in the editor: the tree inspector's preset, seed and style, the LOD table with triangles, vertices and distances, Bake and its status, the Variants count with Create Collider and Bake Variants, and the options' level 1"><br><b>Tree inspector</b> — preset, seed dice, style, a LOD table with forced levels, Bake with stale bakes flagged, Bake Variants into colliding tree scenes for terrain scatter</td>
+    <td align="center" valign="top"><img src="docs/images/editor-river.png" width="380" alt="A stream carved into a Faceted valley in the editor: the River3D's points, the selected point's bank and depth handles, cross-sections, and the inspector's Carve, Re-carve, Uncarve and Fit to ground buttons"><br><b>River tool</b> — draw streams on the ground, drag banks and depth, carve the channel; one undo per step</td>
+  </tr>
+  <tr>
     <td align="center" valign="top"><img src="docs/images/editor-probes.png" width="380" alt="The Forest in the editor's Indirect Light Only view with Show Light Probes: a path under the canopy lit by the sky, the probes and AO alone, the probes as grey crosses, dim under the trees"><br><b>Light probe debugging</b> — Indirect Light Only shows the ambient term alone; Show Light Probes draws the baked probes by sky visibility and bounce</td>
-    <td></td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><img src="docs/images/editor-tree.png" width="380" alt="A new Oak Medium Tree3D in the editor: the tree inspector's preset, seed and style, the LOD table with triangles, vertices and distances, Bake and its status, and the options' level 1"><br><b>Tree inspector</b> — preset, seed dice, style, a LOD table with forced levels, Bake with stale bakes flagged</td>
-    <td align="center" valign="top"><img src="docs/images/editor-river.png" width="380" alt="A stream carved into a Faceted valley in the editor: the River3D's points, the selected point's bank and depth handles, cross-sections, and the inspector's Carve, Re-carve, Uncarve and Fit to ground buttons"><br><b>River tool</b> — draw streams on the ground, drag banks and depth, carve the channel; one undo per step</td>
-  </tr>
-  <tr>
-    <td align="center" valign="top"><img src="docs/images/editor-river.png" width="380" alt="A stream carved into a Faceted valley in the editor: the River3D's points, the selected point's bank and depth handles, cross-sections, and the inspector's Carve, Re-carve, Uncarve and Fit to ground buttons"><br><b>River tool</b> — draw streams on the ground, drag banks and depth, carve the channel; one undo per step</td>
     <td></td>
   </tr>
 </table>
@@ -304,7 +303,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | [2D canvas & text](docs/design/canvas.md) | Godot-compatible canvas items, sprites, skinned polygons with bones, canvas groups that fade as one image, layers, z-order and y-sort, wrapped multi-line TrueType text from the engine's own rasterizer; Godot's `BitMap` and `Geometry2D` (alpha to polygons, polygon booleans and offsets) |
 | [Animated sprites](docs/design/animated-sprites.md) | Godot's `SpriteFrames` and `AnimatedSprite2D`: flipbooks sliced from sprite sheets (count or cell size, margins, separation), Godot's timing and signals with no allocation per frame, a SpriteFrames editor and a Select Frames dialog |
 | [Tile maps](docs/design/tile-maps.md) | Godot 4.3's `TileSet` and `TileMapLayer`: atlas sources with padding, alternatives and flips, collision polygons and typed custom data; chunked layers drawn in about one batch per atlas, y-sorted row by row with characters, one static Box2D body per chunk (merged rectangles, convex pieces), one base64 line per chunk in scenes; paint tools, a palette and a TileSet editor in the 2D view |
-| [Navigation](docs/design/navigation.md) | Godot's `AStarGrid2D` (diagonal modes, heuristics, weights, jump point search) and `AStar2D`/`AStar3D` with allocation-free, deterministic queries; `NavigationServer2D`, grids baked from static bodies or read live from a tile map layer, `NavigationAgent2D` with Godot's repath rules and signals; ORCA local avoidance (RVO2) between agents and radius or polygon `NavigationObstacle2D`s, deterministic and allocation-free; Visible Navigation, Bake and Clear in the editor |
+| [Navigation](docs/design/navigation.md) | Godot's `AStarGrid2D` (diagonal modes, heuristics, weights, jump point search) and `AStar2D`/`AStar3D` with allocation-free, deterministic queries; `NavigationServer2D`, grids baked from static bodies or read live from a tile map layer, `NavigationAgent2D` with Godot's repath rules and signals; ORCA local avoidance (RVO2) between agents and radius or polygon `NavigationObstacle2D`s, deterministic and allocation-free; 2D navigation meshes (`NavigationPolygon` baked from collision shapes, tiles and obstacles, `NavigationRegion2D` in any rotation, `NavigationLink2D` jumps, funnel paths); Visible Navigation, Bake and Clear in the editor |
 | [Paths](docs/design/paths.md) | Godot's `Path2D`/`PathFollow2D` and `Path3D`/`PathFollow3D` on Bézier curves baked to equal arc length: closed curves, smooth tangents, rotation-minimising up vectors that never flip on a loop, followers that move by themselves (speed, loop, ping-pong) with no allocation; fast closest-point queries; moving platforms (`AnimatableBody3D/2D`) that carry characters, turntables included; a curve tool in the editor's 2D and 3D views with tilt rings and terrain snapping |
 | [Spine animation](docs/design/spine.md) | Spine skeletons under a 2D or 3D camera, lit and casting alpha-tested silhouette shadows, optionally billboarded to the camera, with animation tracks and queues |
 | [3D particles](docs/design/particles-3d.md) | `GpuParticles3D` on Godot's `ParticleProcessMaterial`: point, sphere, box and ring emission, spread, gravity, damping, turbulence, scale and colour curves, hue variation; camera-facing or velocity-aligned billboards, mixed or additive HDR particles that fog and glow, sorted back to front; deterministic seeds; 8 000 particles in under half a millisecond of CPU |
@@ -316,7 +315,7 @@ Every subsystem has a design doc that describes it exactly as it is in the code.
 | Feature | What you get |
 |---|---|
 | [Terrain](docs/design/terrain.md) | `Terrain3D`: chunked heightmap meshes with LOD, splat material layers, foliage scatter, object scatter (rocks, stumps, crates: scenes with stable ids games can remove and save), exact collision and height queries; the editor's Terrain dock sculpts (raise, lower, smooth, flatten, set height, ramps), paints surfaces, layers, channels and foliage, lays water and scatters objects with a brush ring, one undo per stroke |
-| [Procedural trees](docs/design/procedural-trees.md) | A port of Ez Tree: 15 presets, realistic or low-poly styles, wind, levels of detail and impostors, from a seed; an editor inspector with presets, a seed dice, a LOD table and Bake |
+| [Procedural trees](docs/design/procedural-trees.md) | A port of Ez Tree: 15 presets, realistic or low-poly styles, wind, levels of detail and impostors, from a seed; an editor inspector with presets, a seed dice, a LOD table, Bake, and Bake Variants into colliding tree scenes and a terrain scatter type |
 | [Water](docs/design/water.md) | Streams carved into the terrain along a curve, ponds and falls with spray, refraction, screen-space reflections and caustics; draw, widen, deepen and carve streams in the editor with the curve tool |
 | [Asset import](docs/design/asset-pipeline.md) | glTF, FBX and OBJ through Assimp into scenes you can instance, with import settings, an import cache and stable UIDs |
 
