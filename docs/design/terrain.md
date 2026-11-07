@@ -328,7 +328,11 @@ object, so a game can remove one (a felled tree) and remember that in its save.
   so an object's own script can remove itself. A change to the type list or to a type (a new scene variant, another sink
   depth) re-spawns every instance the next frame. An object whose type has no scene keeps its record and draws nothing.
 - **Limits.** One full scene per object: keep to about 2,000 per terrain (the dock warns above that). Forests of
-  thousands of trees wait for the proposal's `MultiMesh` mode (G8b.7).
+  thousands of trees are a `TreeScatter` ([Procedural trees → TreeScatter](procedural-trees.md#treescatter)), not
+  terrain objects (ADR 0274).
+- **Trees.** The tree inspector's Bake Variants writes tree scenes (a `StaticBody3D` with the baked tree and its trunk
+  capsule) and a `ScatterObjectType` listing them; add it to `ObjectTypes` and the Objects mode scatters them
+  ([Procedural trees → Variants and scatter scenes](procedural-trees.md#variants-and-scatter-scenes), G8b.7).
 
 ## Collision
 
@@ -504,7 +508,8 @@ bodies) is the planned fix for larger maps.
 
 - The list is `objects.json` (plain JSON like the carve records), not `objects.mfres` (ADR 0273).
 - Only the `Nodes` render mode: `RenderMode` and the `MultiMesh` mode (flattened scenes, one compound body per chunk)
-  are not built; they come with G8b.7's forests.
+  are not built. G8b.7 left them out too: forests are `TreeScatter`'s, which batches and collides per chunk already
+  ([ADR 0274](../../memory/decisions/0274-tree-variants-and-scatter-scenes.md)).
 - One `Objects` container for every instance, not one per chunk (`Objects/c<chunk>`); re-heighting walks the list and
   places only the instances over the edited triangles.
 - No `AlignToNormal`: instances stand upright (yaw only).
@@ -537,7 +542,7 @@ bodies) is the planned fix for larger maps.
   runs synchronously on the render thread when a layer texture changes.
 - Foliage: the build radius (place only chunks near the camera, from a buffer pool), `ChannelCutoff`, and `FoliageMaterial3D.FadeMode.Shrink` (G8b) so thinning
   instances shrink instead of popping.
-- Objects: the `MultiMesh` render mode (G8b.7), `AlignToNormal`, per-chunk containers.
+- Objects: `AlignToNormal`, per-chunk containers, painting a `TreeScatter` forest from a terrain density layer (ADR 0274).
 - `CollisionMode.NearBodies`, the analytic physics-ray registration (decision 2 of the proposal), brush mask PNGs and
   the X/Z axis lock.
 - Inspector edits of a loaded `TerrainData`'s layout knobs throw (the dock's Create terrain data sets them for new data).

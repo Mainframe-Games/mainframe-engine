@@ -3,7 +3,7 @@
 - **Date:** 2026-11-07
 - **Status:** accepted
 - **Milestone:** G8b (part: G8b.3)
-- **Docs:** docs/design/procedural-trees.md#inspector, docs/design/future/procedural-trees.md#editor
+- **Docs:** docs/design/procedural-trees.md#inspector
 
 ## Context
 
