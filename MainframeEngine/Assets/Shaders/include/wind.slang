@@ -105,10 +105,19 @@ float3 windFlutter(float3 worldPos, float4 custom0, float2 uv, float4 wind, floa
     return tip * kLeafFlutter * s * sway * (dir + windParams.y * side * sin(1.7 * t * w + 0.7 * o));
 }
 
+// The slow gust field (ADR 0172, G8e.5): simplex noise over world XZ (features of about 60 m) rolling downwind, -1..1.
+// Trees take it at their instance origin (windHierarchy, ± 40 %); the simple wind (grass, cards without pivots) at the
+// vertex, scaled by WorldEnvironment.WindGusts (windParams.w, ADR 0278), so the meadow and the treetops gust together.
+float windGust(float3 p, float3 dir, float t)
+{
+    return simplex3(float3(p.xz * 0.015 - dir.xz * t * 0.08, t * 0.05));
+}
+
 // The world-space offset of a foliage vertex at `worldPos` (before the sway).
 //   custom0:   x = wind weight (0 at the trunk base, 1 at the tips), y = branch level / 4 (1 = leaf), z = phase 0..1
 //   uv:        the vertex UV, v = 0 at the leaf tip (Ez Tree's uv.y, flipped for the top-left origin)
-//   wind:      FrameData.wind (xyz = direction, w = strength); windParams: x = Hz, y = turbulence, z = noise scale (m)
+//   wind:      FrameData.wind (xyz = direction, w = strength); windParams: x = Hz, y = turbulence, z = noise scale (m),
+//              w = gusts (0 = none: the strength is steady)
 //   time:      seconds (FrameData.clip.z)
 //   strength, bend: the material's WindStrength and WindBranchBend scales
 float3 windOffset(float3 worldPos, float4 custom0, float2 uv, float4 wind, float4 windParams, float time, float strength,
@@ -117,6 +126,8 @@ float3 windOffset(float3 worldPos, float4 custom0, float2 uv, float4 wind, float
     float s = wind.w * strength;
     if (s <= 0.0)
         return float3(0.0);
+    if (windParams.w > 0.0)
+        s *= 1.0 + windParams.w * windGust(worldPos, wind.xyz, time);
 
     float3 flutter = windFlutter(worldPos, custom0, uv, wind, windParams, time, s);
 
@@ -175,7 +186,7 @@ float3 windHierarchy(float3 worldPos, float4x4 model, float4 custom0, float4 cus
     float3 origin = model[3].xyz;
     float w = 2.0 * PI * windParams.x;
     float t = time;
-    float gust = 1.0 + 0.4 * simplex3(float3(origin.xz * 0.015 - dir.xz * t * 0.08, t * 0.05));
+    float gust = 1.0 + 0.4 * windGust(origin, dir, t);
     float sg = s * gust;
 
     float3 p = worldPos;

@@ -191,6 +191,11 @@ A built-in material for leaves, grass and bark, following the `OutlineMaterial3D
     up to `kLeafFlutter` = 0.12 m per unit of strength.
   - **Branch bend** (not in Ez Tree): a lean downwind of up to `kBranchBend` = 0.35 m × `Custom0.x²`, oscillating
     slowly (0.37 ω) with the phase `Custom0.z`.
+  - **Gusts** (G8e.5, [ADR 0278](../../memory/decisions/0278-gusts-on-the-simple-wind.md)): with
+    `WorldEnvironment.WindGusts` > 0 (`frame.windParams.w`; 0 by default) the strength is scaled by
+    `1 + WindGusts · windGust(worldPos)`, the slow simplex field (features of about 60 m) rolling downwind that the
+    hierarchical trees gust with (± 40 % at their instance origin), so grass and the treetops gust together. The Forest
+    uses 0.4.
   - The noise is sampled in world space, so instances of one mesh sway out of step. Normals are not bent.
 - **Fragment**: cutout against `AlphaCutoff`, the back-face mode, then `foliageLight(...)` (`shadeLightsBlinnPhong`
   with a highlight derived from `Roughness`, the ambient term darkened by `Custom0.w`; a w of 0 means no AO data)

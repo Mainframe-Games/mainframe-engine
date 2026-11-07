@@ -76,6 +76,22 @@ public class ForestFeatureTests
     }
 
     [Fact]
+    public void GustsVaryTheSimpleWind()
+    {
+        // G8e.5 (ADR 0278): WindGusts scales the simple wind's strength by the rolling gust field, so at the same time the
+        // cards stand elsewhere than under the steady wind (whose frame matches the existing golden, unchanged).
+        var gusty = HostRunner.Run("foliage-wind", Output("foliage-gusts"), "--capture", "90", "--count", "2", "--hidden");
+        var steady = HostRunner.Run("foliage-wind", Output("foliage-gusts-steady"), "--capture", "90", "--hidden");
+        Gates.AssertValidationClean(gusty);
+        Gates.AssertMatchesGolden(gusty, 90, goldenFile: "foliage-gusts_frame0090.png");
+        Gates.AssertMatchesGolden(steady, 90);
+        var comparison = ImageComparison.Compare(Png.ReadRgba8(gusty.Captures[0].Path), Png.ReadRgba8(steady.Captures[0].Path), channelTolerance: 8);
+        TestContext.Current.SendDiagnosticMessage($"Gusts moved {comparison.DifferingPixels} of {comparison.TotalPixels} pixels");
+        Assert.True(comparison.DifferingPixels > comparison.TotalPixels / 200,
+            $"Only {comparison.DifferingPixels} of {comparison.TotalPixels} pixels differ with gusts on.");
+    }
+
+    [Fact]
     public void FoliageSteadyStateAllocatesNothing()
     {
         const int warmup = 60, measured = 120;

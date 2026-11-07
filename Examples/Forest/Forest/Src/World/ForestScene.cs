@@ -110,6 +110,7 @@ public static class ForestScene
         WindStrength = 0.35f,
         WindFrequency = 0.45f,
         WindTurbulence = 0.4f,
+        WindGusts = 0.4f, // G8e.5 (ADR 0278): the meadow gusts with the trees' field
 
         // ADR 0178 (look-dev against the Unreal references): a bright, warm white haze, strong aerial perspective. The far
         // fog is a pale warm grey (blue-grey before) and denser, so distance fades to a low-contrast glow that lifts the

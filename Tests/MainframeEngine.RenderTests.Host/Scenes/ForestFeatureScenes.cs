@@ -254,7 +254,7 @@ public sealed class MultiMeshScene(HostOptions host) : MeshSceneBase(host)
 /// carries <c>Custom0</c> with y = 1, a wind weight rising to the tip and AO) and a bark column (a foliage material on a
 /// mesh without the stream: it reads white and zero and must not move), under a sun whose shadows sway with the leaves.
 /// The wind is fixed; time is the sum of the fixed 60 Hz deltas, so frame N is t = N / 60 s. <c>--count 1</c> turns the
-/// wind off (the still reference).
+/// wind off (the still reference); <c>--count 2</c> adds gusts (<see cref="WorldEnvironment.WindGusts"/> 1, G8e.5, ADR 0278).
 /// </summary>
 public sealed class FoliageWindScene(HostOptions host) : MeshSceneBase(host)
 {
@@ -268,6 +268,7 @@ public sealed class FoliageWindScene(HostOptions host) : MeshSceneBase(host)
         environment.WindStrength = Host.Count == 1 ? 0f : 1.5f;
         environment.WindFrequency = 0.5f;
         environment.WindTurbulence = 0.4f;
+        environment.WindGusts = Host.Count == 2 ? 1f : 0f;
 
         // Leaf texture: a green ellipse, transparent outside (cut out at 0.5), with a lighter midrib.
         const int size = 64;

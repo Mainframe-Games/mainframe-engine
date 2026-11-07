@@ -68,6 +68,7 @@
         "WindDirection": [-1, 0, 0.25],
         "WindStrength": 0.35,
         "WindFrequency": 0.45,
+        "WindGusts": 0.4,
         "FogEnabled": true,
         "FogLightColor": [0.78, 0.8, 0.77],
         "FogDensity": 0.0015,
