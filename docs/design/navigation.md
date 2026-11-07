@@ -360,8 +360,8 @@ if (request.IsCompleted && request.Status == GridPathStatus.Found)
   the query: the same points as `QueryPath`, one sync later, for any worker count. `Cancel()` before the sync leaves the
   result untouched.
 - **Workers.** `NavigationServer2D.QueryWorkerCount` (default a quarter of the processors, 1–4; 0 runs the requests on
-  the main thread at the sync, with the same results — tests, platforms without threads); the main thread also runs
-  whatever no worker has taken when it reaches the sync. `PendingQueries`; profiler scope `Navigation async wait`.
+  the main thread at the sync, with the same results — tests, platforms without threads); with workers the main thread
+  only waits at the sync (running leftovers itself would grow its own scratch at odd ticks). `PendingQueries`; profiler scope `Navigation async wait`.
   Allocation-free once the slots, paths and scratches have grown.
 - **Agents.** `NavigationAgent2D.PathMode`: `ProjectDefault` (the server's `AsyncAgentsByDefault`), `Immediate`, `Async`.
   An async agent queues its repath and takes the new path at the next sync (`PathChanged` then); after a map change or a
@@ -485,7 +485,7 @@ and `Navigation debug draw`, plus the server's own
   waits for the requests before it changes the map, so workers read the live data (same guarantees, no copies, 0 B with
   edits) and navmeshes are covered too. The agent setting is `PathMode` (`ProjectDefault`/`Immediate`/`Async`), not a
   bool `AsyncPath`, so the project default can apply; a new target makes an async agent stand still for one tick (the old
-  path leads elsewhere). The main thread helps run requests at the sync; 0 workers runs them all there. Workers are dedicated threads, not
+  path leads elsewhere). With workers the main thread only waits at the sync; 0 workers runs them all there. Workers are dedicated threads, not
   the thread pool (its queue allocated 4 KiB segments on Windows CI). Added:
   `NavigationPathRequest.Cancel`/`WasCancelled`/`IsValid`, `NavigationServer2D.PendingQueries`, the async wait scope.
   Fixed on the way: navmesh paths no longer keep stale `Cells` from an earlier grid query in a reused path.

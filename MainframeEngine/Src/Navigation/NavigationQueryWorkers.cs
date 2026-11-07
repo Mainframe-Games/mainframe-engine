@@ -55,8 +55,8 @@ internal sealed class NavigationQueryScratch
 /// request in a reused slot and wakes the workers: up to <see cref="WorkerCount"/> background threads of its own, started
 /// on first use, each with its own <see cref="NavigationQueryScratch"/>, sleeping on a monitor between batches (not the
 /// .NET thread pool, whose queue allocates segments as work items flow through it); a worker runs the slot's query into
-/// the slot's own path. <see cref="Complete"/>, called by every map sync before the map changes, runs what no worker has
-/// taken, waits until every submitted request ran and copies each result into its caller's path in submission order.
+/// the slot's own path. <see cref="Complete"/>, called by every map sync before the map changes, waits until every
+/// submitted request ran and copies each result into its caller's path in submission order.
 /// Nothing changes a map between its syncs, so the workers read the live grids and mesh without snapshots, and every
 /// result depends only on the map at submission and the query: delivery is always the next sync. With
 /// <see cref="WorkerCount"/> 0 the requests run on the main thread inside <see cref="Complete"/> (the same results; tests,
@@ -133,8 +133,9 @@ internal sealed class NavigationQueryWorkers : IDisposable
         {
             lock (_lock)
             {
-                // The main thread helps: whatever no worker took yet runs here (all of it with no workers).
-                while (_next < _count)
+                // With no workers the main thread runs every request here. With workers it only waits: helping would grow the
+                // main thread's scratch whenever a slow worker leaves it a request, at any tick (Windows CI saw it).
+                while (_workerCount == 0 && _next < _count)
                 {
                     var slot = _slots[_next++];
                     Monitor.Exit(_lock);
@@ -148,7 +149,7 @@ internal sealed class NavigationQueryWorkers : IDisposable
                     }
                 }
 
-                while (_active > 0)
+                while (_next < _count || _active > 0)
                     Monitor.Wait(_lock);
             }
         }
